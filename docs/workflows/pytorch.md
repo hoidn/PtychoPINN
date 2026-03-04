@@ -84,7 +84,13 @@ Starting 2026-01-27, the `config.model.architecture` field routes through the ge
   - `synthetic_lines`: existing TF/Torch/PtychoViT study behavior.
   - `external_raw_npz` (phase 1): Torch model IDs only, with `--train-data` and `--test-data` required.
 - In `external_raw_npz` mode, the Torch runner uses position-based reassembly (`coords_offsets`) instead of grid-lines stitching metadata.
-  - Reassembly in this mode uses full patch support (`M = N`) for external coordinate datasets.
+  - Reassembly in this mode applies shared center-crop preprocessing before position stitching:
+    - default crop border resolves to `min(patch_h, patch_w) // 4` (clamped to keep patches non-empty),
+    - effective reassembly window uses the cropped patch size.
+  - Explicit override is available via runner config/CLI:
+    - `position_crop_border=None` (default auto behavior),
+    - `--position-crop-border 0` (disable crop and preserve full-patch behavior),
+    - `--position-crop-border <positive-int>` (force explicit border crop).
   - Channel-first predictions (`B, C, H, W`) are normalized to channel-last before position reassembly.
   - Metrics evaluation normalizes 2D complex reconstructions to `(H, W, 1)` before calling evaluation helpers.
   - Position reassembly strategy knobs:
