@@ -266,6 +266,13 @@ For this orchestration's `256 -> 128` external-raw prep path, downsampling is co
 - `crop-bin`: diffraction center-crop, block-bin for `objectGuess`/`probeGuess`, coordinates scaled
   by `1/factor`.
 
+Probe multimode collapse for paired-HDF5 conversion is controlled by `--probe-mode-policy`:
+- `incoherent_aggregate` (default): collapses probe modes into one effective complex probe using
+  incoherent amplitude aggregation.
+- `first_mode`: compatibility fallback that keeps the previous "mode-0 only" behavior.
+- Caveat: both options feed a single complex probe to downstream external-raw consumers, which is an
+  approximation to true multimode incoherent forward modeling.
+
 For hybrid external inference in this orchestration, `--position-reassembly-backend` is restricted to
 `shift_sum` only.
 

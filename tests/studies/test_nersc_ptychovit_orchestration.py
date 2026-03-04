@@ -381,7 +381,7 @@ def test_convert_pair_to_downsampled_external_npz_applies_flipped_policy(monkeyp
     )
 
     monkeypatch.setattr(orch, "materialize_pair_working_copy", lambda dp, para, out_dir: (dp, para))
-    monkeypatch.setattr(orch, "pair_to_external_npz", lambda dp, para, out_npz: canonical)
+    monkeypatch.setattr(orch, "pair_to_external_npz", lambda *args, **kwargs: canonical)
 
     out_npz = orch._convert_pair_to_downsampled_external_npz(
         dp_h5=dp_h5,
@@ -497,6 +497,105 @@ def test_full_orchestration_threads_downsample_policy_to_prep_and_scan_convert(m
     )
     assert captured["prepare_policy"] == "crop-bin"
     assert captured["scan_policy"] == "crop-bin"
+
+
+def test_full_orchestration_threads_probe_mode_policy_to_prep_and_scan_convert(
+    monkeypatch, tmp_path
+):
+    from scripts.studies import nersc_orchestration as orch
+
+    checkpoint = tmp_path / "best_model.pth"
+    checkpoint.write_bytes(b"ckpt")
+    scan_dp = tmp_path / "scan807_dp.hdf5"
+    scan_para = tmp_path / "scan807_para.hdf5"
+    cam_dp = tmp_path / "cameraman_dp.hdf5"
+    cam_para = tmp_path / "cameraman_para.hdf5"
+    _touch_pair(scan_dp, scan_para)
+    _touch_pair(cam_dp, cam_para)
+
+    captured = {"prepare_probe_policy": None, "scan_probe_policy": None}
+
+    monkeypatch.setattr(orch, "materialize_pair_working_copy", lambda dp, para, out_dir: (dp, para))
+    monkeypatch.setattr(
+        orch,
+        "run_ptychovit_inference_stage",
+        lambda **kwargs: {
+            "scan807": {"recon_npz": str(tmp_path / "scan_recon.npz")},
+            "cameraman256": {"recon_npz": str(tmp_path / "cam_recon.npz")},
+        },
+    )
+
+    def fake_prepare(**kwargs):
+        captured["prepare_probe_policy"] = kwargs.get("probe_mode_policy")
+        train = tmp_path / "train_raw.npz"
+        test = tmp_path / "test_raw.npz"
+        down = tmp_path / "down_raw.npz"
+        for path in (train, test, down):
+            path.write_bytes(b"npz")
+        return {"train_npz": str(train), "test_npz": str(test), "downsampled_npz": str(down)}
+
+    def fake_convert(**kwargs):
+        captured["scan_probe_policy"] = kwargs.get("probe_mode_policy")
+        out = tmp_path / "scan_test_raw.npz"
+        out.write_bytes(b"npz")
+        return out
+
+    monkeypatch.setattr(orch, "prepare_hybrid_dataset", fake_prepare)
+    monkeypatch.setattr(orch, "_convert_pair_to_downsampled_external_npz", fake_convert)
+    monkeypatch.setattr(
+        orch,
+        "build_datasets",
+        lambda **kwargs: {
+            128: {
+                "train_npz": str(tmp_path / "cached_train.npz"),
+                "test_npz": str(tmp_path / "cached_test.npz"),
+                "gt_recon": str(tmp_path / "gt.npz"),
+            }
+        },
+    )
+    monkeypatch.setattr(
+        orch,
+        "run_grid_lines_torch",
+        lambda cfg: {"run_dir": str((Path(cfg.output_dir) / "runs" / "pinn_hybrid_resnet").resolve())},
+    )
+    monkeypatch.setattr(
+        orch,
+        "run_cross_dataset_hybrid_inference",
+        lambda **kwargs: {
+            "scan807": {"recon_npz": str(tmp_path / "scan_hybrid_recon.npz")},
+            "cameraman256": {"recon_npz": str(tmp_path / "cam_hybrid_recon.npz")},
+        },
+    )
+    monkeypatch.setattr(
+        orch,
+        "_build_cached_external_bundle",
+        lambda **kwargs: {"test_npz": str(tmp_path / "cached_test.npz")},
+    )
+    monkeypatch.setattr(
+        orch,
+        "_write_gt_recon_from_external_npz",
+        lambda dataset_output_dir, external_npz: tmp_path / "gt_recon.npz",
+    )
+    monkeypatch.setattr(orch, "aggregate_metrics_visuals_stage", lambda **kwargs: {"ok": True})
+
+    run_dir = tmp_path / "out" / "hybrid_training" / "runs" / "pinn_hybrid_resnet"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "model.pt").write_bytes(b"weights")
+
+    orch.run_nersc_scan807_cameraman_study(
+        scan807_dp=scan_dp,
+        scan807_para=scan_para,
+        cameraman_dp=cam_dp,
+        cameraman_para=cam_para,
+        ptychovit_checkpoint=checkpoint,
+        output_dir=tmp_path / "out",
+        half="top",
+        seed=3,
+        ptychovit_repo=tmp_path / "repo",
+        probe_mode_policy="first_mode",
+    )
+    assert captured["prepare_probe_policy"] == "first_mode"
+    assert captured["scan_probe_policy"] == "first_mode"
 
 
 def test_full_orchestration_threads_probe_and_mae_controls_to_torch_runner(monkeypatch, tmp_path):
@@ -701,6 +800,7 @@ def test_runbook_main_writes_parent_invocation_artifacts(monkeypatch, tmp_path):
     assert calls["probe_mask"] is False
     assert calls["probe_mask_sigma"] == 1.0
     assert calls["probe_mask_diameter"] is None
+    assert calls["probe_mode_policy"] == "incoherent_aggregate"
     assert calls["torch_mae_pred_l2_match_target"] is False
 
 
@@ -731,6 +831,8 @@ def test_runbook_main_threads_probe_and_mae_flags(monkeypatch, tmp_path):
         "0.0",
         "--probe-mask-diameter",
         "0.8",
+        "--probe-mode-policy",
+        "first_mode",
         "--torch-mae-pred-l2-match-target",
         "--output-dir",
         str(output_dir),
@@ -740,6 +842,7 @@ def test_runbook_main_threads_probe_and_mae_flags(monkeypatch, tmp_path):
     assert calls["probe_mask"] is True
     assert calls["probe_mask_sigma"] == 0.0
     assert calls["probe_mask_diameter"] == 0.8
+    assert calls["probe_mode_policy"] == "first_mode"
     assert calls["torch_mae_pred_l2_match_target"] is True
 
 
@@ -913,6 +1016,7 @@ def test_n256_runbook_forces_target_n_256_and_shift_sum(monkeypatch, tmp_path):
     assert calls["target_n"] == 256
     assert calls["position_reassembly_backend"] == "shift_sum"
     assert calls["downsample_policy"] == "bin-crop"
+    assert calls["probe_mode_policy"] == "incoherent_aggregate"
     assert calls["epochs"] == 5
 
 

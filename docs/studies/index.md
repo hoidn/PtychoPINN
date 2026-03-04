@@ -75,6 +75,9 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
 - N=128 prep semantics are configurable via `--downsample-policy`:
   - `bin-crop` (default): diffraction is block-binned; `objectGuess`/`probeGuess` are center-cropped; coordinates remain in the same pixel frame.
   - `crop-bin`: diffraction is center-cropped; `objectGuess`/`probeGuess` are block-binned; coordinates are scaled by `1/factor`.
+- Multimode probe collapse policy is configurable via `--probe-mode-policy`:
+  - `incoherent_aggregate` (default): single-probe collapse with incoherent amplitude aggregation.
+  - `first_mode`: compatibility fallback that uses only mode 0.
 - Core helpers:
   - `scripts/studies/nersc_pair_adapter.py`
   - `scripts/studies/prepare_nersc_hybrid_dataset.py`
@@ -92,6 +95,7 @@ python scripts/studies/runbooks/run_nersc_scan807_cameraman_study.py \
   --ptychovit-checkpoint datasets/run145/best_model.pth \
   --half top \
   --downsample-policy bin-crop \
+  --probe-mode-policy incoherent_aggregate \
   --position-reassembly-backend shift_sum \
   --output-dir outputs/nersc_scan807_cameraman_study \
   --seed 3
@@ -118,6 +122,7 @@ python scripts/studies/runbooks/run_nersc_scan807_cameraman_study_n256.py \
   --cameraman-para /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5 \
   --ptychovit-checkpoint datasets/run145/best_model.pth \
   --half top \
+  --probe-mode-policy incoherent_aggregate \
   --epochs 5 \
   --output-dir outputs/nersc_scan807_cameraman_study_n256_no_downsample_smoke \
   --seed 3

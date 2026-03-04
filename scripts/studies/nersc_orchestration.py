@@ -19,7 +19,11 @@ from scripts.studies.grid_lines_compare_wrapper import (
 from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig, run_grid_lines_torch
 from scripts.studies.grid_study_dataset_builder import build_datasets
 from scripts.studies.hybrid_checkpoint_inference import run_cross_dataset_hybrid_inference
-from scripts.studies.nersc_pair_adapter import materialize_pair_working_copy, pair_to_external_npz
+from scripts.studies.nersc_pair_adapter import (
+    PROBE_MODE_POLICY_CHOICES,
+    materialize_pair_working_copy,
+    pair_to_external_npz,
+)
 from scripts.studies.prepare_nersc_hybrid_dataset import (
     DOWNSAMPLE_POLICY_CHOICES,
     _downsample_external_payload,
@@ -115,9 +119,15 @@ def _convert_pair_to_downsampled_external_npz(
     work_dir: Path,
     target_n: int = 128,
     downsample_policy: str = "bin-crop",
+    probe_mode_policy: str = "incoherent_aggregate",
 ) -> Path:
     work_dp, work_para = materialize_pair_working_copy(dp_h5, para_h5, work_dir)
-    canonical = pair_to_external_npz(work_dp, work_para, out_npz.with_name(f"{out_npz.stem}_canonical.npz"))
+    canonical = pair_to_external_npz(
+        work_dp,
+        work_para,
+        out_npz.with_name(f"{out_npz.stem}_canonical.npz"),
+        probe_mode_policy=probe_mode_policy,
+    )
     with np.load(canonical, allow_pickle=True) as loaded:
         payload = {key: loaded[key] for key in loaded.files}
     downsampled = _downsample_external_payload(
@@ -213,6 +223,7 @@ def run_nersc_scan807_cameraman_study(
     seed: int = 3,
     ptychovit_repo: Path = Path("/home/ollie/Documents/ptycho-vit"),
     downsample_policy: str = "bin-crop",
+    probe_mode_policy: str = "incoherent_aggregate",
     position_reassembly_backend: str = "shift_sum",
     target_n: int = 128,
     epochs: int = 40,
@@ -226,6 +237,11 @@ def run_nersc_scan807_cameraman_study(
         raise ValueError(
             f"Unsupported downsample_policy='{downsample_policy}', "
             f"expected one of {DOWNSAMPLE_POLICY_CHOICES}."
+        )
+    if probe_mode_policy not in PROBE_MODE_POLICY_CHOICES:
+        raise ValueError(
+            f"Unsupported probe_mode_policy='{probe_mode_policy}', "
+            f"expected one of {PROBE_MODE_POLICY_CHOICES}."
         )
     if position_reassembly_backend != "shift_sum":
         raise ValueError(
@@ -265,6 +281,7 @@ def run_nersc_scan807_cameraman_study(
         half=half,
         target_n=int(target_n),
         downsample_policy=downsample_policy,
+        probe_mode_policy=probe_mode_policy,
     )
     scan807_test_npz = _convert_pair_to_downsampled_external_npz(
         dp_h5=working_pairs["scan807"][0],
@@ -273,6 +290,7 @@ def run_nersc_scan807_cameraman_study(
         work_dir=output_dir / "scan807" / "hybrid_dataset" / "working_pair",
         target_n=int(target_n),
         downsample_policy=downsample_policy,
+        probe_mode_policy=probe_mode_policy,
     )
 
     training_cfg = GridLinesConfig(
@@ -385,6 +403,7 @@ def run_nersc_scan807_cameraman_study(
         "target_n": int(target_n),
         "epochs": int(epochs),
         "downsample_policy": downsample_policy,
+        "probe_mode_policy": probe_mode_policy,
         "position_reassembly_backend": position_reassembly_backend,
         "probe_mask": bool(probe_mask),
         "probe_mask_sigma": float(probe_mask_sigma),

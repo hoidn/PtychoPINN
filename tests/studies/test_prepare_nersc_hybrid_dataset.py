@@ -172,6 +172,38 @@ def test_prepare_hybrid_dataset_n256_records_no_downsample_in_manifest(tmp_path)
         assert np.array_equal(down["probeGuess"], canonical["probeGuess"])
 
 
+def test_prepare_hybrid_dataset_manifest_records_probe_mode_metadata(tmp_path):
+    from scripts.studies.prepare_nersc_hybrid_dataset import prepare_hybrid_dataset
+
+    dp_h5 = tmp_path / "cameraman_dp.hdf5"
+    para_h5 = tmp_path / "cameraman_para.hdf5"
+    _write_cameraman_pair(dp_h5, para_h5)
+    with h5py.File(para_h5, "r+") as handle:
+        del handle["probe"]
+        multimode_probe = np.zeros((1, 3, 256, 256), dtype=np.complex64)
+        multimode_probe[0, 0, :, :] = (1.0 + 0.0j)
+        multimode_probe[0, 1, :, :] = (2.0 + 0.0j)
+        multimode_probe[0, 2, :, :] = (3.0 + 0.0j)
+        probe_ds = handle.create_dataset("probe", data=multimode_probe)
+        probe_ds.attrs["pixel_width_m"] = 1e-6
+        probe_ds.attrs["pixel_height_m"] = 1e-6
+
+    result = prepare_hybrid_dataset(
+        dp_h5=dp_h5,
+        para_h5=para_h5,
+        output_dir=tmp_path / "prepared_probe_meta",
+        half="top",
+        probe_mode_policy="incoherent_aggregate",
+    )
+
+    manifest = json.loads(Path(result["manifest_json"]).read_text())
+    assert manifest["probe_mode_policy"] == "incoherent_aggregate"
+    assert manifest["probe_source_shape"] == [1, 3, 256, 256]
+    weights = np.asarray(manifest["probe_mode_power_weights"], dtype=np.float64)
+    assert weights.shape == (3,)
+    assert np.isclose(weights.sum(), 1.0)
+
+
 def test_downsample_external_payload_handles_odd_object_shape_by_center_crop():
     from scripts.studies.prepare_nersc_hybrid_dataset import _downsample_external_payload
 
@@ -292,6 +324,43 @@ def test_downsample_external_payload_crop_bin_scales_coords_by_factor():
     assert np.array_equal(out["ycoords"], np.array([2.0], dtype=np.float64))
     assert np.array_equal(out["xcoords_start"], np.array([3.0], dtype=np.float64))
     assert np.array_equal(out["ycoords_start"], np.array([4.0], dtype=np.float64))
+
+
+def test_prepare_hybrid_dataset_threads_probe_mode_policy_to_pair_adapter(monkeypatch, tmp_path):
+    from scripts.studies import prepare_nersc_hybrid_dataset as prep
+
+    dp_h5 = tmp_path / "cameraman_dp.hdf5"
+    para_h5 = tmp_path / "cameraman_para.hdf5"
+    _write_cameraman_pair(dp_h5, para_h5)
+
+    captured = {"probe_mode_policy": None}
+
+    def fake_pair_to_external_npz(dp_path, para_path, out_npz, **kwargs):
+        _ = (dp_path, para_path)
+        captured["probe_mode_policy"] = kwargs.get("probe_mode_policy")
+        np.savez_compressed(
+            out_npz,
+            xcoords=np.array([0.0, 1.0, 2.0, 3.0], dtype=np.float64),
+            ycoords=np.array([-2.0, -1.0, 1.0, 2.0], dtype=np.float64),
+            xcoords_start=np.array([0.0, 1.0, 2.0, 3.0], dtype=np.float64),
+            ycoords_start=np.array([-2.0, -1.0, 1.0, 2.0], dtype=np.float64),
+            diff3d=np.ones((4, 256, 256), dtype=np.float32),
+            objectGuess=np.ones((256, 256), dtype=np.complex64),
+            probeGuess=np.ones((256, 256), dtype=np.complex64),
+            scan_index=np.arange(4, dtype=np.int64),
+        )
+        return out_npz
+
+    monkeypatch.setattr(prep, "pair_to_external_npz", fake_pair_to_external_npz)
+
+    prep.prepare_hybrid_dataset(
+        dp_h5=dp_h5,
+        para_h5=para_h5,
+        output_dir=tmp_path / "prepared_policy",
+        half="top",
+        probe_mode_policy="first_mode",
+    )
+    assert captured["probe_mode_policy"] == "first_mode"
 
 
 def test_prepare_cli_writes_invocation_artifacts(tmp_path, monkeypatch):

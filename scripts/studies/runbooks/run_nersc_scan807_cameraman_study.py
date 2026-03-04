@@ -16,6 +16,7 @@ if PROJECT_ROOT not in sys.path:
 from scripts.studies.invocation_logging import write_invocation_artifacts
 from scripts.studies.nersc_orchestration import (
     DOWNSAMPLE_POLICY_CHOICES,
+    PROBE_MODE_POLICY_CHOICES,
     run_nersc_scan807_cameraman_study,
 )
 
@@ -56,6 +57,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "Downsample policy for NERSC 256->128 preparation: "
             "'bin-crop' bins diffraction and crops real-space; "
             "'crop-bin' crops diffraction and bins real-space."
+        ),
+    )
+    parser.add_argument(
+        "--probe-mode-policy",
+        type=str,
+        choices=list(PROBE_MODE_POLICY_CHOICES),
+        default="incoherent_aggregate",
+        help=(
+            "Probe collapse policy for multimode para probes used in NERSC conversion: "
+            "'incoherent_aggregate' (default) or 'first_mode'."
         ),
     )
     parser.add_argument(
@@ -129,6 +140,7 @@ def main(argv: list[str] | None = None) -> None:
         target_n=args.target_n,
         epochs=args.epochs,
         downsample_policy=args.downsample_policy,
+        probe_mode_policy=args.probe_mode_policy,
         position_reassembly_backend=args.position_reassembly_backend,
         probe_mask=args.probe_mask,
         probe_mask_sigma=args.probe_mask_sigma,

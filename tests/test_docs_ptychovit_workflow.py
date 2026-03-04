@@ -63,3 +63,18 @@ def test_grid_lines_docs_cover_external_raw_npz_mode():
     assert "external_raw_npz" in pytorch
     assert "position-based reassembly" in pytorch
     assert "external_raw_npz" in studies
+
+
+def test_ptychovit_workflow_documents_probe_mode_policy_default_and_caveat():
+    text = Path("docs/workflows/ptychovit.md").read_text()
+    assert "--probe-mode-policy" in text
+    assert "incoherent_aggregate" in text
+    assert "first_mode" in text
+    assert "approximation" in text
+
+
+def test_studies_index_includes_probe_mode_policy_for_nersc_orchestration():
+    text = Path("docs/studies/index.md").read_text()
+    assert "--probe-mode-policy" in text
+    assert "incoherent_aggregate" in text
+    assert "first_mode" in text

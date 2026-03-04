@@ -12,7 +12,12 @@ from typing import Any
 
 import numpy as np
 
-from scripts.studies.nersc_pair_adapter import materialize_pair_working_copy, pair_to_external_npz
+from ptycho.image.cropping import center_crop_spatial
+from scripts.studies.nersc_pair_adapter import (
+    PROBE_MODE_POLICY_CHOICES,
+    materialize_pair_working_copy,
+    pair_to_external_npz,
+)
 from scripts.studies.invocation_logging import write_invocation_artifacts
 
 DOWNSAMPLE_POLICY_CHOICES = ("bin-crop", "crop-bin")
@@ -30,13 +35,7 @@ def _crop_center_2d(array_2d: np.ndarray, target_h: int, target_w: int) -> np.nd
     arr = np.asarray(array_2d)
     if arr.ndim != 2:
         raise ValueError(f"Expected rank-2 array, got {arr.shape}")
-    if target_h <= 0 or target_w <= 0:
-        raise ValueError(f"Invalid crop target ({target_h}, {target_w}) for shape {arr.shape}")
-    if target_h > arr.shape[0] or target_w > arr.shape[1]:
-        raise ValueError(f"Crop target ({target_h}, {target_w}) exceeds source shape {arr.shape}")
-    y0 = (arr.shape[0] - target_h) // 2
-    x0 = (arr.shape[1] - target_w) // 2
-    return arr[y0 : y0 + target_h, x0 : x0 + target_w]
+    return center_crop_spatial(arr, target_h, target_w)
 
 
 def _bin_real_stack(stack: np.ndarray, factor: int) -> np.ndarray:
@@ -173,10 +172,16 @@ def prepare_hybrid_dataset(
     half: str = "top",
     target_n: int = 128,
     downsample_policy: str = "bin-crop",
+    probe_mode_policy: str = "incoherent_aggregate",
 ) -> dict[str, Any]:
     """Prepare top/bottom-half train split and full-object test split for hybrid training."""
     if half not in {"top", "bottom"}:
         raise ValueError(f"Unsupported half='{half}', expected 'top' or 'bottom'.")
+    if probe_mode_policy not in PROBE_MODE_POLICY_CHOICES:
+        raise ValueError(
+            f"Unsupported probe_mode_policy='{probe_mode_policy}', "
+            f"expected one of {PROBE_MODE_POLICY_CHOICES}."
+        )
 
     dp_h5 = Path(dp_h5)
     para_h5 = Path(para_h5)
@@ -186,10 +191,13 @@ def prepare_hybrid_dataset(
     working_dp, working_para = materialize_pair_working_copy(
         dp_h5, para_h5, output_dir / "working_pair"
     )
+    probe_metadata: dict[str, Any] = {}
     canonical_npz = pair_to_external_npz(
         working_dp,
         working_para,
         output_dir / "cameraman256_external_raw.npz",
+        probe_mode_policy=probe_mode_policy,
+        metadata_out=probe_metadata,
     )
 
     with np.load(canonical_npz, allow_pickle=True) as loaded:
@@ -234,6 +242,9 @@ def prepare_hybrid_dataset(
         "target_n": int(target_n),
         "downsample_applied": bool(source_n != int(target_n)),
         "downsample_policy": downsample_policy,
+        "probe_mode_policy": probe_mode_policy,
+        "probe_source_shape": probe_metadata.get("probe_source_shape"),
+        "probe_mode_power_weights": probe_metadata.get("probe_mode_power_weights"),
         "half": half,
         "split_threshold": split_threshold,
         "n_total": int(ycoords.shape[0]),
@@ -251,6 +262,7 @@ def prepare_hybrid_dataset(
         "split_threshold": split_threshold,
         "half": half,
         "downsample_policy": downsample_policy,
+        "probe_mode_policy": probe_mode_policy,
     }
 
 
@@ -284,6 +296,16 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "'crop-bin' crops diffraction and bins real-space."
         ),
     )
+    parser.add_argument(
+        "--probe-mode-policy",
+        type=str,
+        choices=list(PROBE_MODE_POLICY_CHOICES),
+        default="incoherent_aggregate",
+        help=(
+            "Probe collapse policy for multimode para probes: "
+            "'incoherent_aggregate' (default) or 'first_mode' compatibility fallback."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -302,6 +324,7 @@ def main(argv: list[str] | None = None) -> None:
         half=args.half,
         target_n=args.target_n,
         downsample_policy=args.downsample_policy,
+        probe_mode_policy=args.probe_mode_policy,
     )
     print(f"Prepared manifest: {result['manifest_json']}")
 
