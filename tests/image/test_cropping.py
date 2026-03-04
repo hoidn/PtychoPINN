@@ -4,7 +4,12 @@ Tests for the cropping module, focusing on the align_for_evaluation function.
 
 import unittest
 import numpy as np
-from ptycho.image.cropping import align_for_evaluation, _center_crop
+from ptycho.image.cropping import (
+    _center_crop,
+    align_for_evaluation,
+    center_crop_spatial,
+    center_crop_spatial_by_border,
+)
 
 
 class TestCroppingAlignment(unittest.TestCase):
@@ -77,7 +82,21 @@ class TestCroppingAlignment(unittest.TestCase):
         
         # Should return the same array
         np.testing.assert_array_equal(exact_img, exact_cropped)
-    
+
+    def test_center_crop_spatial_handles_rank3_stack_last_two_dims(self):
+        """center_crop_spatial should crop last two axes for stacked images."""
+        arr = np.arange(2 * 6 * 6, dtype=np.int64).reshape(2, 6, 6)
+        cropped = center_crop_spatial(arr, 4, 4)
+        self.assertEqual(cropped.shape, (2, 4, 4))
+        np.testing.assert_array_equal(cropped[0], arr[0, 1:5, 1:5])
+        np.testing.assert_array_equal(cropped[1], arr[1, 1:5, 1:5])
+
+    def test_center_crop_spatial_by_border_clamps_to_nonempty(self):
+        """center_crop_spatial_by_border should preserve at least 1x1 spatial dims."""
+        arr = np.ones((1, 5, 5), dtype=np.float32)
+        cropped = center_crop_spatial_by_border(arr, border=99)
+        self.assertEqual(cropped.shape, (1, 1, 1))
+
     def test_align_for_evaluation_with_squeeze(self):
         """Test that the function handles extra dimensions correctly."""
         # Add extra dimensions to inputs

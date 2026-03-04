@@ -481,3 +481,70 @@ def test_bridge_inference_outputs_object_space_shape_not_patch_mean_only():
     assert recon.shape == (5, 5)
     np.testing.assert_allclose(recon[1:3, 1:3], np.full((2, 2), 3.0 + 0.0j, dtype=np.complex64))
     assert np.isclose(recon[0, 0], 0.0 + 0.0j)
+
+
+def test_bridge_stitch_param_defaults_follow_reasonable_center_crop():
+    from scripts.studies.ptychovit_bridge_entrypoint import _resolve_stitch_params
+
+    crop, pad = _resolve_stitch_params({"training": {}}, patch_shape=(256, 256))
+    assert crop == 64
+    assert pad == 32
+
+
+def test_bridge_stitch_param_overrides_use_training_config_values():
+    from scripts.studies.ptychovit_bridge_entrypoint import _resolve_stitch_params
+
+    cfg = {"training": {"test_plot_central_crop": 20, "test_plot_pad": 7}}
+    crop, pad = _resolve_stitch_params(cfg, patch_shape=(256, 256))
+    assert crop == 20
+    assert pad == 7
+
+
+def test_bridge_inference_center_crops_patches_before_stitching():
+    from scripts.studies.ptychovit_bridge_entrypoint import _stitch_complex_predictions
+
+    patches = np.ones((1, 8, 8), dtype=np.complex64)
+    positions = np.array([[4.0, 4.0]], dtype=np.float32)
+
+    no_crop = _stitch_complex_predictions(
+        patches=patches,
+        positions_px=positions,
+        object_shape=(12, 12),
+        crop_border=0,
+        pad=0,
+    )
+    cropped = _stitch_complex_predictions(
+        patches=patches,
+        positions_px=positions,
+        object_shape=(12, 12),
+        crop_border=2,
+        pad=0,
+    )
+
+    assert np.count_nonzero(np.abs(no_crop) > 0) > np.count_nonzero(np.abs(cropped) > 0)
+    assert np.isclose(cropped[0, 0], 0.0 + 0.0j)
+    np.testing.assert_allclose(cropped[2:6, 2:6], np.ones((4, 4), dtype=np.complex64))
+
+
+def test_bridge_stitch_uses_shared_center_crop_helper(monkeypatch):
+    from scripts.studies import ptychovit_bridge_entrypoint as bridge
+
+    called = {}
+
+    def _fake_crop(patches, border):
+        called["border"] = int(border)
+        return patches
+
+    monkeypatch.setattr(bridge, "center_crop_spatial_by_border", _fake_crop)
+
+    patches = np.ones((1, 8, 8), dtype=np.complex64)
+    positions = np.array([[4.0, 4.0]], dtype=np.float32)
+    bridge._stitch_complex_predictions(
+        patches=patches,
+        positions_px=positions,
+        object_shape=(12, 12),
+        crop_border=3,
+        pad=0,
+    )
+
+    assert called["border"] == 3

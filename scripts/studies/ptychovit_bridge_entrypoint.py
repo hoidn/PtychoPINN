@@ -18,6 +18,7 @@ import torch
 import yaml
 from torch.utils.data import DataLoader
 
+from ptycho.image.cropping import center_crop_spatial_by_border
 from scripts.studies.invocation_logging import write_invocation_artifacts
 
 
@@ -250,14 +251,38 @@ def _stitch_complex_predictions_fallback(
     return (canvas / np.clip(occupancy, a_min=1.0, a_max=None)).astype(np.complex64)
 
 
+def _resolve_stitch_params(config: Dict[str, Any], *, patch_shape: tuple[int, int]) -> tuple[int, int]:
+    """Resolve bridge stitch crop/pad defaults with optional config overrides."""
+    if len(patch_shape) != 2:
+        raise ValueError(f"patch_shape must be rank-2 (H,W), got {patch_shape}")
+    h, w = int(patch_shape[0]), int(patch_shape[1])
+    if h <= 0 or w <= 0:
+        raise ValueError(f"Invalid patch shape: {patch_shape}")
+
+    training_cfg = config.get("training", {}) if isinstance(config, dict) else {}
+    crop_default = min(h, w) // 4
+    crop_raw = int(training_cfg.get("test_plot_central_crop", crop_default))
+    # Keep at least one pixel in each dimension after cropping.
+    crop_max = max(0, (min(h, w) - 1) // 2)
+    crop = max(0, min(crop_raw, crop_max))
+
+    pad_raw = int(training_cfg.get("test_plot_pad", 32))
+    pad = max(0, pad_raw)
+    return crop, pad
+
+
 def _stitch_complex_predictions(
     *,
     patches: np.ndarray,
     positions_px: np.ndarray,
     object_shape: tuple[int, int],
+    crop_border: int = 0,
+    pad: int = 0,
 ) -> np.ndarray:
     """Assemble predicted scan patches into object space with occupancy normalization."""
-    patches = np.asarray(patches, dtype=np.complex64)
+    patches = center_crop_spatial_by_border(
+        np.asarray(patches, dtype=np.complex64), crop_border
+    ).astype(np.complex64)
     positions_px = np.asarray(positions_px, dtype=np.float32)
     if patches.ndim != 3:
         raise ValueError(f"Expected predicted patches with shape [N,H,W], got {patches.shape}")
@@ -283,7 +308,7 @@ def _stitch_complex_predictions(
             patch_tensor,
             op="add",
             adjoint_mode=False,
-            pad=0,
+            pad=int(pad),
         )
         occupancy = place_patches_fourier_shift(
             occupancy,
@@ -291,7 +316,7 @@ def _stitch_complex_predictions(
             torch.ones_like(patch_tensor, dtype=torch.float32),
             op="add",
             adjoint_mode=False,
-            pad=0,
+            pad=int(pad),
         )
         stitched = canvas / torch.clip(occupancy, min=1.0)
         return stitched.detach().cpu().numpy().astype(np.complex64)
@@ -363,12 +388,18 @@ def _run_model_inference(args, checkpoint_path: Path) -> Path:
 
     pred_stack = np.concatenate(preds, axis=0).astype(np.complex64)
     position_stack = np.concatenate(probe_positions, axis=0).astype(np.float32)
+    stitch_crop, stitch_pad = _resolve_stitch_params(
+        config,
+        patch_shape=(int(pred_stack.shape[1]), int(pred_stack.shape[2])),
+    )
     if len(dataset.object_shape) != 2:
         raise ValueError(f"Expected object_shape rank-2, got {dataset.object_shape}")
     recon = _stitch_complex_predictions(
         patches=pred_stack,
         positions_px=position_stack,
         object_shape=(int(dataset.object_shape[0]), int(dataset.object_shape[1])),
+        crop_border=stitch_crop,
+        pad=stitch_pad,
     )
 
     args.recon_npz.parent.mkdir(parents=True, exist_ok=True)
