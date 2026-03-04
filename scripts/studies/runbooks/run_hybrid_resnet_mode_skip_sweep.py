@@ -336,10 +336,27 @@ def _is_stage_c_n128_transition(args: argparse.Namespace) -> bool:
     )
 
 
+def _is_stage_d1_n128_transition(args: argparse.Namespace) -> bool:
+    return (
+        not args.aggregate_seed_rerank_root
+        and args.stage_id == "D"
+        and int(args.ns) == 128
+        and args.substage_id == "D1"
+    )
+
+
 def _require_stage_c_champion_anchor_source(path: Path) -> None:
     if path.name != CHAMPION_ANCHOR_FILENAME:
         raise PromotionSourceError(
             "Stage C N=128 transitions require --promotion-source-summary to point to "
+            f"{CHAMPION_ANCHOR_FILENAME}; got {path}"
+        )
+
+
+def _require_stage_d1_champion_anchor_source(path: Path) -> None:
+    if path.name != CHAMPION_ANCHOR_FILENAME:
+        raise PromotionSourceError(
+            "Stage D D1 N=128 transitions require --promotion-source-summary to point to "
             f"{CHAMPION_ANCHOR_FILENAME}; got {path}"
         )
 
@@ -539,6 +556,10 @@ def validate_stage_configuration(args: argparse.Namespace) -> None:
             raise StageValidationError(
                 "custom_npz_pair_n128 requires --custom-n128-train-npz and --custom-n128-test-npz"
             )
+
+    if _is_stage_d1_n128_transition(args):
+        assert args.promotion_source_summary is not None
+        _require_stage_d1_champion_anchor_source(args.promotion_source_summary)
 
 
 def validate_matrix_constraints(args: argparse.Namespace) -> None:
@@ -986,6 +1007,18 @@ def _resolve_stage_c_champion_source(
     if len(source_rows) != 1:
         raise PromotionSourceError(
             f"Stage C N=128 transition source must contain exactly one row in {path}; "
+            f"found {len(source_rows)}"
+        )
+    return dict(source_rows[0])
+
+
+def _resolve_stage_d1_champion_source(
+    path: Path,
+    source_rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    if len(source_rows) != 1:
+        raise PromotionSourceError(
+            f"Stage D D1 N=128 transition source must contain exactly one row in {path}; "
             f"found {len(source_rows)}"
         )
     return dict(source_rows[0])
@@ -2575,6 +2608,11 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
     promoted_rows: list[dict[str, Any]] = []
 
     if args.promotion_source_summary:
+        if _is_stage_d1_n128_transition(args):
+            _require_stage_d1_champion_anchor_source(args.promotion_source_summary)
+            _, raw_source_rows = _read_csv(args.promotion_source_summary)
+            _resolve_stage_d1_champion_source(args.promotion_source_summary, raw_source_rows)
+
         require_robust = bool(args.ns == 256 and args.top_k_n256 > 0)
         source_rows = _load_promotion_rows(
             args.promotion_source_summary,
@@ -2594,6 +2632,11 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
         if args.stage_id in {"B", "C", "D", "E"} and args.ns == 128:
             if _is_stage_c_n128_transition(args):
                 anchor_row = _resolve_stage_c_champion_source(
+                    args.promotion_source_summary,
+                    feasible_source,
+                )
+            elif _is_stage_d1_n128_transition(args):
+                anchor_row = _resolve_stage_d1_champion_source(
                     args.promotion_source_summary,
                     feasible_source,
                 )

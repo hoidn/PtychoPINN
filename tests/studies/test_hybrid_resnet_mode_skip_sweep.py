@@ -268,6 +268,220 @@ def test_stage_c_guardrail_rejects_multi_row_champion_source(tmp_path, monkeypat
     assert "exactly one row" in capsys.readouterr().err.lower()
 
 
+def test_stage_d1_guardrail_rejects_non_champion_anchor_source_path(tmp_path, monkeypatch, capsys):
+    source_summary = tmp_path / "promotion" / "stage_anchor_summary.csv"
+    _write_source_summary(
+        source_summary,
+        [
+            {
+                "summary_schema_version": "v1",
+                "run_id": "stage_c2_anchor",
+                "stage_id": "C",
+                "substage_id": "C2",
+                "modes": "12",
+                "skip": "off",
+                "width": "32",
+                "amp_mae": 0.08,
+                "amp_mse": 0.01,
+                "phase_ssim_drop_vs_baseline": 0.0,
+                "train_wall_time_sec": 100,
+                "inference_time_s": 1.0,
+                "model_params": 1000,
+                "pareto_rank_macro": 1,
+                "is_feasible": True,
+                "is_stage_anchor": True,
+            }
+        ],
+    )
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.touch()
+    test_npz.touch()
+
+    def _fake_runner(*, args, candidate, run_dir, train_npz, test_npz):
+        _ = (args, candidate, run_dir, train_npz, test_npz)
+        return {
+            "amp_ssim": 0.93,
+            "amp_mae": 0.07,
+            "amp_mse": 0.01,
+            "phase_ssim": 0.9,
+            "phase_ssim_drop_vs_baseline": 0.0,
+            "model_params": 1234,
+            "train_wall_time_sec": 12.0,
+            "inference_time_s": 1.0,
+        }
+
+    monkeypatch.setattr(sweep, "_run_candidate_with_runner", _fake_runner)
+
+    rc = sweep.main(
+        [
+            "--stage-id",
+            "D",
+            "--substage-id",
+            "D1",
+            "--ns",
+            "128",
+            "--promotion-source-summary",
+            str(source_summary),
+            "--dataset-profiles-n128",
+            "custom_npz_pair_n128",
+            "--custom-n128-train-npz",
+            str(train_npz),
+            "--custom-n128-test-npz",
+            str(test_npz),
+            "--encoder-conv-hidden-scale-values",
+            "0.5,1,2",
+            "--top-k-n256",
+            "0",
+            "--output-root",
+            str(tmp_path / "out"),
+        ]
+    )
+
+    assert rc == 1
+    stderr = capsys.readouterr().err
+    assert "Stage D D1" in stderr
+    assert "champion_anchor_summary.csv" in stderr
+
+
+def test_stage_d1_guardrail_rejects_empty_champion_source(tmp_path, capsys):
+    source_summary = tmp_path / "promotion" / "champion_anchor_summary.csv"
+    _write_csv(
+        source_summary,
+        [
+            "summary_schema_version",
+            "run_id",
+            "stage_id",
+            "substage_id",
+            "modes",
+            "skip",
+            "width",
+            "amp_ssim",
+            "phase_ssim",
+            "amp_mae",
+            "amp_mse",
+            "phase_ssim_drop_vs_baseline",
+            "train_wall_time_sec",
+            "inference_time_s",
+            "model_params",
+            "pareto_rank_macro",
+            "is_feasible",
+            "is_stage_anchor",
+        ],
+        [],
+    )
+
+    rc = sweep.main(
+        [
+            "--stage-id",
+            "D",
+            "--substage-id",
+            "D1",
+            "--ns",
+            "128",
+            "--promotion-source-summary",
+            str(source_summary),
+            "--output-root",
+            str(tmp_path / "out"),
+        ]
+    )
+
+    assert rc == 1
+    assert "exactly one row" in capsys.readouterr().err.lower()
+
+
+def test_stage_d1_guardrail_rejects_multi_row_champion_source(tmp_path, monkeypatch, capsys):
+    source_summary = tmp_path / "promotion" / "champion_anchor_summary.csv"
+    _write_source_summary(
+        source_summary,
+        [
+            {
+                "summary_schema_version": "v1",
+                "run_id": "stage_c2_anchor",
+                "stage_id": "C",
+                "substage_id": "C2",
+                "modes": "12",
+                "skip": "off",
+                "width": "32",
+                "amp_mae": 0.08,
+                "amp_mse": 0.01,
+                "phase_ssim_drop_vs_baseline": 0.0,
+                "train_wall_time_sec": 100,
+                "inference_time_s": 1.0,
+                "model_params": 1000,
+                "pareto_rank_macro": 1,
+                "is_feasible": True,
+                "is_stage_anchor": True,
+            },
+            {
+                "summary_schema_version": "v1",
+                "run_id": "stage_c2_runner_up",
+                "stage_id": "C",
+                "substage_id": "C2",
+                "modes": "16",
+                "skip": "off",
+                "width": "32",
+                "amp_mae": 0.09,
+                "amp_mse": 0.02,
+                "phase_ssim_drop_vs_baseline": 0.0,
+                "train_wall_time_sec": 110,
+                "inference_time_s": 1.1,
+                "model_params": 1100,
+                "pareto_rank_macro": 2,
+                "is_feasible": True,
+                "is_stage_anchor": False,
+            },
+        ],
+    )
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.touch()
+    test_npz.touch()
+
+    def _fake_runner(*, args, candidate, run_dir, train_npz, test_npz):
+        _ = (args, candidate, run_dir, train_npz, test_npz)
+        return {
+            "amp_ssim": 0.93,
+            "amp_mae": 0.07,
+            "amp_mse": 0.01,
+            "phase_ssim": 0.9,
+            "phase_ssim_drop_vs_baseline": 0.0,
+            "model_params": 1234,
+            "train_wall_time_sec": 12.0,
+            "inference_time_s": 1.0,
+        }
+
+    monkeypatch.setattr(sweep, "_run_candidate_with_runner", _fake_runner)
+
+    rc = sweep.main(
+        [
+            "--stage-id",
+            "D",
+            "--substage-id",
+            "D1",
+            "--ns",
+            "128",
+            "--promotion-source-summary",
+            str(source_summary),
+            "--dataset-profiles-n128",
+            "custom_npz_pair_n128",
+            "--custom-n128-train-npz",
+            str(train_npz),
+            "--custom-n128-test-npz",
+            str(test_npz),
+            "--encoder-conv-hidden-scale-values",
+            "0.5,1,2",
+            "--top-k-n256",
+            "0",
+            "--output-root",
+            str(tmp_path / "out"),
+        ]
+    )
+
+    assert rc == 1
+    assert "exactly one row" in capsys.readouterr().err.lower()
+
+
 def test_stage_epoch_floor_guardrail_rejects_below_floor_budget(tmp_path, capsys):
     source_summary = tmp_path / "source.csv"
     _write_source_summary(
@@ -657,7 +871,7 @@ def test_guardrail_rejects_mixed_scale_and_legacy_hidden_axes(tmp_path, capsys):
 def test_stage_id_d1_scale_sweep_persists_resolved_width_metadata_and_runner_values(
     tmp_path, monkeypatch
 ):
-    source_summary = tmp_path / "source.csv"
+    source_summary = tmp_path / "promotion" / "champion_anchor_summary.csv"
     _write_source_summary(
         source_summary,
         [
