@@ -7,6 +7,7 @@ This runbook explains how to kick off and monitor the long-running backlog-drive
 - Prompt set: `prompts/workflows/backlog_plan_loop/*.md`
 
 Before using this runbook, read `docs/workflows/orchestration_start_here.md` for workflow/step/prompt/plan ownership boundaries.
+This runbook is runtime-operations guidance (launch/monitor/resume), not a DSL-authoring reference.
 
 Execution model:
 - one workflow run processes backlog items repeatedly

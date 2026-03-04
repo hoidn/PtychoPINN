@@ -3,6 +3,7 @@
 This guide defines how to write prompts for orchestrated agent runs in PtychoPINN.
 It is based on failure modes observed in backlog-loop execution and review/fix cycles.
 For workflow/step/prompt/plan boundaries, read `docs/workflows/orchestration_start_here.md` first.
+This guide is prompt-authoring guidance for provider steps, not workflow routing or DSL design guidance.
 
 ## Primary Rules
 

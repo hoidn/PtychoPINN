@@ -87,9 +87,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Working as an AI agent or need to understand project conventions and critical requirements.
 
 ### [Orchestration Start Here](workflows/orchestration_start_here.md)
-**Description:** Canonical onboarding document for agent-orchestration concepts and boundaries: workflow vs step vs prompt vs plan ownership, plus the minimal plan-to-workflow contract model.  
+**Description:** Canonical onboarding for backlog-loop orchestration that explicitly separates orchestration policy, DSL workflow authoring, and runtime step execution; includes workflow/step/prompt/plan boundaries and plan-to-workflow contract model.  
 **Keywords:** orchestration, workflow, step, prompt, plan, ownership-boundaries, producer-consumer  
-**Use this when:** Starting orchestration work or resolving confusion about where behavior should be defined.
+**Use this when:** Authoring DSL workflows, editing backlog-loop prompts/plans, or running/resuming backlog-loop workflows and you need an exact conceptual model of how those layers connect.
 
 ### [Implementation Plan Template](plans/templates/implementation_plan.md)
 **Description:** Repo-specific phased plan template with initiative header, exit criteria, per‑phase checklists, Do Now block, artifacts index, and plan‑update protocol reminder.  
@@ -455,7 +455,7 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 ## Finding Information
 
 ### By Task
-- **Starting orchestration work**: [Orchestration Start Here](workflows/orchestration_start_here.md) → [Agent-Orchestration Backlog Loop Runbook](workflows/agent_orchestration_backlog_loop.md) → [Prompt Drafting Guide](PROMPT_DRAFTING_GUIDE.md)
+- **Authoring or executing backlog-loop DSL workflows**: [Orchestration Start Here](workflows/orchestration_start_here.md) → [Agent-Orchestration Backlog Loop Runbook](workflows/agent_orchestration_backlog_loop.md) → [Prompt Drafting Guide](PROMPT_DRAFTING_GUIDE.md)
 - **Starting a new feature**: [Developer Guide](DEVELOPER_GUIDE.md) → [Workflow Contract Plan Template](plans/templates/workflow_contract_plan.md)
 - **Running experiments**: [Workflow Guide](WORKFLOW_GUIDE.md) → [Commands Reference](COMMANDS_REFERENCE.md)
 - **Debugging issues**: [Troubleshooting](debugging/TROUBLESHOOTING.md) → [Quick Reference Params](debugging/QUICK_REFERENCE_PARAMS.md)
@@ -468,7 +468,7 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 - **New Users**: [README](../README.md) → [Workflow Guide](WORKFLOW_GUIDE.md) → [Training](../scripts/training/README.md)
 - **Developers**: [Developer Guide](DEVELOPER_GUIDE.md) → [Testing Guide](TESTING_GUIDE.md) → [Architecture](architecture.md)
 - **Researchers**: [Generalization Studies](studies/GENERALIZATION_STUDY_GUIDE.md) → [Model Comparison](../scripts/studies/README.md)
-- **AI Agents (orchestration)**: [CLAUDE.md](../CLAUDE.md) → [Orchestration Start Here](workflows/orchestration_start_here.md) → [Agent-Orchestration Backlog Loop Runbook](workflows/agent_orchestration_backlog_loop.md)
+- **AI Agents (DSL authoring + backlog-loop runtime)**: [CLAUDE.md](../CLAUDE.md) → [Orchestration Start Here](workflows/orchestration_start_here.md) → [Agent-Orchestration Backlog Loop Runbook](workflows/agent_orchestration_backlog_loop.md)
 
 ## Documentation Standards
 
