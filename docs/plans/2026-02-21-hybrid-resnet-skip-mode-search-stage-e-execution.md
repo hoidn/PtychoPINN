@@ -24,6 +24,9 @@ This split document owns Task 14 only (Stage-E implementation/search and artifac
 - Hub document: `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search.md`.
 - Stage-E transition-anchor source (single upstream artifact): producer is Stage-D4 `N=128` `promotion/champion_anchor_summary.csv` (single-row robust champion selected from Stage-D4 `promotion/summary_seed_robust.csv`), consumer field is `--promotion-source-summary`.
 - Stage-E transition-anchor fail-closed rule: if the Stage-D4 champion anchor source is missing, has zero rows, or has more than one row, stop Stage-E execution and report the missing/ambiguous source; do not substitute `promotion/summary_seed_robust.csv`, `promotion/stage_anchor_summary.csv`, or `promotion/default_baselines.csv`.
+- Stage-E closure evidence gate: `stageE/n128/invocation.json` MUST record `--promotion-source-summary` with basename `champion_anchor_summary.csv`, and the referenced source summary MUST contain exactly one row with provenance `stage_id='D'` and `substage_id='D4'`.
+- Stage-E evidence fail-closed recovery rule: if the closure evidence gate fails, mark the current Stage-E evidence bundle invalid and rerun the dependent chain (`n128` base run, `n128/seed_rerank` aggregation, and `n256` promotion/evaluation) before claiming completion.
+- Stage-E contract verifier gate: the closure verifier command used for this task (currently `tmp/task14_verify_stagee_contract.py`) MUST fail when canonical source filename/provenance checks fail; profile/baseline/apples/heavy-pruning checks alone are insufficient.
 - Between consecutive Stage-E run invocations, delete repo-root `memoized_data/` before launching the next run command (`rm -rf memoized_data/`).
 - Global epoch floor: all Stage-E runs MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
@@ -96,6 +99,8 @@ Run skip styles on Stage-D champion config (`--promotion-source-summary <stage_d
 - Before selecting top-2 for `N=256`, apply the boundary seed-rerank policy on the Stage-E `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
 - Between consecutive Stage E invocations (including seed-rerank reruns and promotion runs), run `rm -rf memoized_data/`.
 - After each Stage E invocation, perform heavy-pruning verification and log any retained heavy paths with explicit justification.
+- Closure evidence gate: include `n128/invocation.json` proof that `--promotion-source-summary` points to `champion_anchor_summary.csv` and that the resolved row provenance is exactly `stage_id='D'`, `substage_id='D4'` (single-row).
+- Recovery gate: if closure evidence is non-canonical, invalidate current Stage-E evidence and rerun the dependent Stage-E chain before accepting promotion artifacts.
 - Persist Stage E apples-to-apples baseline artifacts:
   - `outputs/<stage_e_root>/promotion/apples_to_apples_baseline.csv`
   - `outputs/<stage_e_root>/promotion/apples_to_apples_baseline.md`
