@@ -345,6 +345,15 @@ def _is_stage_d1_n128_transition(args: argparse.Namespace) -> bool:
     )
 
 
+def _is_stage_e_n128_transition(args: argparse.Namespace) -> bool:
+    return (
+        not args.aggregate_seed_rerank_root
+        and args.stage_id == "E"
+        and int(args.ns) == 128
+        and args.substage_id == "none"
+    )
+
+
 def _require_stage_c_champion_anchor_source(path: Path) -> None:
     if path.name != CHAMPION_ANCHOR_FILENAME:
         raise PromotionSourceError(
@@ -357,6 +366,14 @@ def _require_stage_d1_champion_anchor_source(path: Path) -> None:
     if path.name != CHAMPION_ANCHOR_FILENAME:
         raise PromotionSourceError(
             "Stage D D1 N=128 transitions require --promotion-source-summary to point to "
+            f"{CHAMPION_ANCHOR_FILENAME}; got {path}"
+        )
+
+
+def _require_stage_e_champion_anchor_source(path: Path) -> None:
+    if path.name != CHAMPION_ANCHOR_FILENAME:
+        raise PromotionSourceError(
+            "Stage E N=128 transitions require --promotion-source-summary to point to "
             f"{CHAMPION_ANCHOR_FILENAME}; got {path}"
         )
 
@@ -560,6 +577,10 @@ def validate_stage_configuration(args: argparse.Namespace) -> None:
     if _is_stage_d1_n128_transition(args):
         assert args.promotion_source_summary is not None
         _require_stage_d1_champion_anchor_source(args.promotion_source_summary)
+
+    if _is_stage_e_n128_transition(args):
+        assert args.promotion_source_summary is not None
+        _require_stage_e_champion_anchor_source(args.promotion_source_summary)
 
 
 def validate_matrix_constraints(args: argparse.Namespace) -> None:
@@ -1022,6 +1043,27 @@ def _resolve_stage_d1_champion_source(
             f"found {len(source_rows)}"
         )
     return dict(source_rows[0])
+
+
+def _resolve_stage_e_champion_source(
+    path: Path,
+    source_rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    if len(source_rows) != 1:
+        raise PromotionSourceError(
+            f"Stage E N=128 transition source must contain exactly one row in {path}; "
+            f"found {len(source_rows)}"
+        )
+    row = dict(source_rows[0])
+    stage_id = str(row.get("stage_id", "")).strip().upper()
+    substage_id = str(row.get("substage_id", "")).strip().upper()
+    if stage_id != "D" or substage_id != "D4":
+        raise PromotionSourceError(
+            "Stage E N=128 transition source must be the Stage D4 champion anchor "
+            f"(stage_id='D', substage_id='D4') in {path}; found stage_id={stage_id or '<missing>'}, "
+            f"substage_id={substage_id or '<missing>'}"
+        )
+    return row
 
 
 def _objective_tuple(row: Mapping[str, Any], objectives: Sequence[str]) -> tuple[float, ...]:
@@ -2612,6 +2654,10 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
             _require_stage_d1_champion_anchor_source(args.promotion_source_summary)
             _, raw_source_rows = _read_csv(args.promotion_source_summary)
             _resolve_stage_d1_champion_source(args.promotion_source_summary, raw_source_rows)
+        if _is_stage_e_n128_transition(args):
+            _require_stage_e_champion_anchor_source(args.promotion_source_summary)
+            _, raw_source_rows = _read_csv(args.promotion_source_summary)
+            _resolve_stage_e_champion_source(args.promotion_source_summary, raw_source_rows)
 
         require_robust = bool(args.ns == 256 and args.top_k_n256 > 0)
         source_rows = _load_promotion_rows(
@@ -2637,6 +2683,11 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
                 )
             elif _is_stage_d1_n128_transition(args):
                 anchor_row = _resolve_stage_d1_champion_source(
+                    args.promotion_source_summary,
+                    feasible_source,
+                )
+            elif _is_stage_e_n128_transition(args):
+                anchor_row = _resolve_stage_e_champion_source(
                     args.promotion_source_summary,
                     feasible_source,
                 )
