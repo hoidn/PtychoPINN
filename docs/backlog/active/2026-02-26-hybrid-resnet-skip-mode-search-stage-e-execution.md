@@ -6,6 +6,8 @@ check_commands:
   - rg -q "### Task 14: Stage E Search" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-e-execution.md
   - rg -q "Stage-E closure evidence gate" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-e-execution.md
   - rg -q "Stage-E evidence fail-closed recovery rule" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-e-execution.md
+  - rg -q "Stage-E completion ledger gate" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-e-execution.md
+  - rg -q "Stage-E downstream freshness gate" docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-e-execution.md
 ---
 
 # Backlog Item: Hybrid ResNet Skip/Mode Search Stage E Execution
@@ -19,3 +21,4 @@ Execution mode:
 - fix loop required on `REVISE`
 - enforce Stage-E default-baseline provenance contract from the plan (Stage-D canonical defaults allowed when Stage-E `skip=on` policy blocks true-default runs; no synthetic run IDs)
 - enforce Stage-E closure evidence contract from the plan (`n128/invocation.json` must prove canonical `champion_anchor_summary.csv` source with `D/D4` provenance; fail closed and rerun dependent chain on violation)
+- enforce Stage-E completion/freshness contract from the plan (`s14-s23` exit rows required and downstream promotion artifacts must be regenerated from the active robust summary)

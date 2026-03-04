@@ -27,6 +27,8 @@ This split document owns Task 14 only (Stage-E implementation/search and artifac
 - Stage-E closure evidence gate: `stageE/n128/invocation.json` MUST record `--promotion-source-summary` with basename `champion_anchor_summary.csv`, and the referenced source summary MUST contain exactly one row with provenance `stage_id='D'` and `substage_id='D4'`.
 - Stage-E evidence fail-closed recovery rule: if the closure evidence gate fails, mark the current Stage-E evidence bundle invalid and rerun the dependent chain (`n128` base run, `n128/seed_rerank` aggregation, and `n256` promotion/evaluation) before claiming completion.
 - Stage-E contract verifier gate: the closure verifier command used for this task (currently `tmp/task14_verify_stagee_contract.py`) MUST fail when canonical source filename/provenance checks fail; profile/baseline/apples/heavy-pruning checks alone are insufficient.
+- Stage-E completion ledger gate: before accepting any Stage-E promotion artifacts, the active attempt ledger MUST contain terminal `exit_code=0` rows for every step `s14` through `s23`; partial ledgers (`s14` polling-only or missing `s15-s23`) are invalid evidence.
+- Stage-E downstream freshness gate: `stageE/n256/summary.csv`, `stageE/promotion/default_baselines.csv`, `stageE/promotion/default_baselines.md`, `stageE/promotion/apples_to_apples_baseline.csv`, and `stageE/promotion/apples_to_apples_baseline.md` MUST be regenerated from the active `stageE/n128/promotion/summary_seed_robust.csv` and MUST NOT be older than that robust summary.
 - Between consecutive Stage-E run invocations, delete repo-root `memoized_data/` before launching the next run command (`rm -rf memoized_data/`).
 - Global epoch floor: all Stage-E runs MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded.
 - Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
@@ -101,6 +103,7 @@ Run skip styles on Stage-D champion config (`--promotion-source-summary <stage_d
 - After each Stage E invocation, perform heavy-pruning verification and log any retained heavy paths with explicit justification.
 - Closure evidence gate: include `n128/invocation.json` proof that `--promotion-source-summary` points to `champion_anchor_summary.csv` and that the resolved row provenance is exactly `stage_id='D'`, `substage_id='D4'` (single-row).
 - Recovery gate: if closure evidence is non-canonical, invalidate current Stage-E evidence and rerun the dependent Stage-E chain before accepting promotion artifacts.
+- Completion/freshness gate: reject the Stage-E bundle when `s14-s23` completion rows are missing or when downstream promotion artifacts predate the active robust summary.
 - Persist Stage E apples-to-apples baseline artifacts:
   - `outputs/<stage_e_root>/promotion/apples_to_apples_baseline.csv`
   - `outputs/<stage_e_root>/promotion/apples_to_apples_baseline.md`
