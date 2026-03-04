@@ -115,6 +115,11 @@ def _safe_int(value: Any, key: str, *, default: int | None = None) -> int:
         raise PromotionSourceError(f"Invalid integer value for '{key}': {value!r}") from exc
 
 
+def _compute_phase_drop(*, phase_ssim: float, baseline_phase_ssim: float) -> float:
+    """Compute non-negative phase-SSIM drop relative to baseline provenance."""
+    return max(0.0, float(baseline_phase_ssim) - float(phase_ssim))
+
+
 def _is_default_scale_list(values: Sequence[float]) -> bool:
     return len(values) == 1 and math.isclose(float(values[0]), 1.0, rel_tol=0.0, abs_tol=1e-12)
 
@@ -288,6 +293,29 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "Reuse per-run metrics from runs/<run_id>/metrics.json when present "
             "instead of re-running the runner for that candidate."
         ),
+    )
+    parser.add_argument(
+        "--validate-phase-guardrail",
+        action="store_true",
+        help=(
+            "Validate a generated summary.csv by recomputing phase_ssim_drop_vs_baseline "
+            "against a baseline summary and fail closed on mismatch or guardrail breach."
+        ),
+    )
+    parser.add_argument(
+        "--summary-csv",
+        type=Path,
+        help="Summary CSV to validate when --validate-phase-guardrail is set.",
+    )
+    parser.add_argument(
+        "--baseline-summary",
+        type=Path,
+        help="Baseline/promotion source summary CSV used for phase-drop recomputation.",
+    )
+    parser.add_argument(
+        "--write-validation-report",
+        type=Path,
+        help="Path to write JSON validation report for --validate-phase-guardrail.",
     )
 
     return parser.parse_args(argv)
@@ -838,7 +866,11 @@ def _load_promotion_rows(
         parsed_row["amp_ssim"] = _safe_float(row.get("amp_ssim"), "amp_ssim")
         parsed_row["amp_mae"] = _safe_float(row.get("amp_mae"), "amp_mae")
         parsed_row["amp_mse"] = _safe_float(row.get("amp_mse"), "amp_mse")
-        parsed_row["phase_ssim"] = _safe_float(row.get("phase_ssim"), "phase_ssim", default=0.0)
+        parsed_row["phase_ssim"] = _safe_float(
+            row.get("phase_ssim"),
+            "phase_ssim",
+            default=parsed_row["amp_ssim"],
+        )
         parsed_row["train_wall_time_sec"] = _safe_float(row.get("train_wall_time_sec"), "train_wall_time_sec")
         parsed_row["inference_time_s"] = _safe_float(row.get("inference_time_s"), "inference_time_s")
         parsed_row["model_params"] = _safe_float(row.get("model_params"), "model_params")
@@ -1544,6 +1576,7 @@ def _build_stage_a_candidates(args: argparse.Namespace) -> list[dict[str, Any]]:
                 "resnet_width": str(_select_scalar(args.resnet_width_values) or "none"),
                 "resnet_blocks": int(_select_scalar(args.resnet_blocks_values) or 6),
                 "skip_style": str(_select_scalar(args.skip_style_values) or "add"),
+                "source_run_id": "",
                 "dataset_profile": profile,
             }
         )
@@ -1641,6 +1674,7 @@ def _build_stage_b_to_e_candidates(
             "resnet_width": _resolve_axis_value(anchor_row.get("resnet_width"), "none"),
             "resnet_blocks": _safe_int(anchor_row.get("resnet_blocks"), "resnet_blocks", default=6),
             "skip_style": _resolve_axis_value(anchor_row.get("skip_style"), "add"),
+            "source_run_id": str(anchor_row.get("run_id", "")),
         }
 
         for profile, axis_values in itertools.product(profiles, _active_axis_values(args)):
@@ -1698,6 +1732,7 @@ def _build_stage_b_to_e_candidates(
                 "resnet_width": _resolve_axis_value(source.get("resnet_width"), "none"),
                 "resnet_blocks": _safe_int(source.get("resnet_blocks"), "resnet_blocks", default=6),
                 "skip_style": _resolve_axis_value(source.get("skip_style"), "add"),
+                "source_run_id": str(source.get("run_id", "")),
                 "dataset_profile": profile,
             }
             candidates.append(_enrich_candidate_with_branch_metadata(row))
@@ -2039,7 +2074,7 @@ def _run_candidate_with_runner(
             _count_model_params_from_state_dict(run_dir / "runs" / "pinn_hybrid_resnet" / "model.pt")
         )
 
-    # Baseline metrics are not emitted by this runner path; keep an explicit zero delta.
+    # Baseline phase provenance is resolved in run_sweep after row assembly.
     phase_drop = 0.0
 
     return {
@@ -2302,6 +2337,173 @@ def _validate_manifest_objective_contract(manifest: Mapping[str, Any]) -> None:
         )
 
 
+def _build_stage_a_profile_baselines(rows: Sequence[Mapping[str, Any]]) -> dict[str, tuple[float, str]]:
+    """Resolve Stage-A default-control baselines per dataset profile."""
+    by_profile: dict[str, list[Mapping[str, Any]]] = {}
+    for row in rows:
+        profile = str(row.get("dataset_profile", ""))
+        by_profile.setdefault(profile, []).append(row)
+
+    baselines: dict[str, tuple[float, str]] = {}
+    for profile, profile_rows in by_profile.items():
+        matches = [row for row in profile_rows if _is_stage_a_control_anchor_row(row)]
+        if not matches:
+            continue
+        if len(matches) != 1:
+            raise PromotionSourceError(
+                f"Stage-A baseline provenance is ambiguous for profile '{profile}': "
+                f"found {len(matches)} true-default rows"
+            )
+        baseline_row = matches[0]
+        baselines[profile] = (
+            _safe_float(baseline_row.get("phase_ssim"), "phase_ssim", default=0.0),
+            str(baseline_row.get("run_id", "")),
+        )
+    return baselines
+
+
+def _resolve_phase_baseline_for_row(
+    *,
+    row: Mapping[str, Any],
+    source_phase_by_run: Mapping[str, float],
+    anchor_row: Mapping[str, Any] | None,
+    stage_a_baselines: Mapping[str, tuple[float, str]],
+) -> tuple[float, str, str]:
+    """Resolve baseline phase SSIM and provenance for one summary row."""
+    source_run_id = str(row.get("source_run_id", "")).strip()
+    if source_run_id:
+        if source_run_id in source_phase_by_run:
+            return (
+                float(source_phase_by_run[source_run_id]),
+                "promotion_source_summary",
+                source_run_id,
+            )
+        raise PromotionSourceError(
+            f"Could not resolve source_run_id '{source_run_id}' in baseline summary"
+        )
+
+    if anchor_row is not None:
+        anchor_run_id = str(anchor_row.get("run_id", "")).strip()
+        return (
+            _safe_float(anchor_row.get("phase_ssim"), "phase_ssim", default=0.0),
+            "promotion_source_anchor",
+            anchor_run_id,
+        )
+
+    profile = str(row.get("dataset_profile", "")).strip()
+    stage_a_entry = stage_a_baselines.get(profile)
+    if stage_a_entry is not None:
+        baseline_phase, baseline_run_id = stage_a_entry
+        return (
+            float(baseline_phase),
+            "stage_a_default_control",
+            str(baseline_run_id),
+        )
+
+    if len(source_phase_by_run) == 1:
+        only_run_id, only_phase = next(iter(source_phase_by_run.items()))
+        return (
+            float(only_phase),
+            "promotion_source_singleton",
+            str(only_run_id),
+        )
+
+    raise PromotionSourceError(
+        f"Could not resolve phase baseline provenance for row '{row.get('run_id', '<unknown>')}'"
+    )
+
+
+def _apply_phase_guardrail_and_feasibility(
+    rows: list[dict[str, Any]],
+    *,
+    args: argparse.Namespace,
+    source_rows: Sequence[Mapping[str, Any]],
+    anchor_row: Mapping[str, Any] | None,
+) -> None:
+    """Recompute phase drop from provenance, then enforce feasibility gates."""
+    source_phase_by_run: dict[str, float] = {}
+    for source_row in source_rows:
+        run_id = str(source_row.get("run_id", "")).strip()
+        if not run_id:
+            continue
+        source_phase_by_run[run_id] = _safe_float(source_row.get("phase_ssim"), "phase_ssim", default=0.0)
+
+    stage_a_baselines = _build_stage_a_profile_baselines(rows)
+    for row in rows:
+        baseline_phase, baseline_source, baseline_run_id = _resolve_phase_baseline_for_row(
+            row=row,
+            source_phase_by_run=source_phase_by_run,
+            anchor_row=anchor_row,
+            stage_a_baselines=stage_a_baselines,
+        )
+        phase_ssim = _safe_float(row.get("phase_ssim"), "phase_ssim", default=0.0)
+        phase_drop = _compute_phase_drop(phase_ssim=phase_ssim, baseline_phase_ssim=baseline_phase)
+        row["phase_ssim_baseline"] = float(baseline_phase)
+        row["phase_ssim_baseline_source"] = str(baseline_source)
+        row["phase_ssim_baseline_run_id"] = str(baseline_run_id)
+        row["phase_ssim_drop_vs_baseline"] = float(phase_drop)
+        row["max_phase_ssim_drop"] = float(args.max_phase_ssim_drop)
+        row["phase_guardrail_pass"] = bool(phase_drop <= args.max_phase_ssim_drop)
+
+        feasible, violations = _row_feasibility(row, args, args.ns)
+        row["is_feasible"] = bool(feasible)
+        row["violated_constraints"] = ";".join(violations)
+
+
+def _write_per_run_metrics_payloads(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    args: argparse.Namespace,
+) -> None:
+    """Persist per-run payloads after guardrail recomputation."""
+    for row in rows:
+        run_dir_raw = row.get("_run_dir")
+        if run_dir_raw is None:
+            raise RuntimeError(f"Missing _run_dir for row '{row.get('run_id', '<unknown>')}'")
+        run_dir = Path(str(run_dir_raw))
+        payload = {
+            "summary_schema_version": SUMMARY_SCHEMA_VERSION,
+            "run_id": str(row.get("run_id", "")),
+            "stage_id": args.stage_id,
+            "substage_id": args.substage_id,
+            "dataset_profile": str(row.get("dataset_profile", "")),
+            "source_run_id": str(row.get("source_run_id", "")),
+            "encoder_conv_hidden_scale": float(row.get("encoder_conv_hidden_scale", 1.0)),
+            "encoder_spectral_hidden_scale": float(row.get("encoder_spectral_hidden_scale", 1.0)),
+            "encoder_stage_channels": str(row.get("encoder_stage_channels", "")),
+            "encoder_conv_hidden_resolved_width": str(row.get("encoder_conv_hidden_resolved_width", "")),
+            "encoder_conv_hidden_resolved_per_block": str(
+                row.get("encoder_conv_hidden_resolved_per_block", "")
+            ),
+            "encoder_spectral_hidden_resolved_width": str(
+                row.get("encoder_spectral_hidden_resolved_width", "")
+            ),
+            "encoder_spectral_hidden_resolved_per_block": str(
+                row.get("encoder_spectral_hidden_resolved_per_block", "")
+            ),
+            "amp_ssim": float(row.get("amp_ssim", 0.0)),
+            "amp_mae": float(row.get("amp_mae", 0.0)),
+            "amp_mse": float(row.get("amp_mse", 0.0)),
+            "phase_ssim": float(row.get("phase_ssim", 0.0)),
+            "phase_ssim_baseline": float(row.get("phase_ssim_baseline", 0.0)),
+            "phase_ssim_baseline_source": str(row.get("phase_ssim_baseline_source", "")),
+            "phase_ssim_baseline_run_id": str(row.get("phase_ssim_baseline_run_id", "")),
+            "phase_ssim_drop_vs_baseline": float(row.get("phase_ssim_drop_vs_baseline", 0.0)),
+            "max_phase_ssim_drop": float(args.max_phase_ssim_drop),
+            "phase_guardrail_pass": bool(row.get("phase_guardrail_pass", False)),
+            "model_params": int(_safe_float(row.get("model_params"), "model_params", default=0.0)),
+            "train_wall_time_sec": float(row.get("train_wall_time_sec", 0.0)),
+            "inference_time_s": float(row.get("inference_time_s", 0.0)),
+            "is_feasible": bool(row.get("is_feasible", False)),
+            "violated_constraints": str(row.get("violated_constraints", "")),
+            "probe_mask_enabled": bool(row.get("probe_mask_enabled", False)),
+            "torch_mae_pred_l2_match_target": bool(
+                row.get("torch_mae_pred_l2_match_target", False)
+            ),
+        }
+        (run_dir / "metrics.json").write_text(json.dumps(payload, indent=2) + "\n")
+
+
 def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
     """Execute matrix expansion and emit summary artifacts."""
     if args.output_root is None:
@@ -2380,35 +2582,6 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
                 train_npz=train_npz,
                 test_npz=test_npz,
             )
-        feasible, violations = _row_feasibility(metrics, args, args.ns)
-
-        # Create per-run payload.
-        metrics_payload = {
-            "summary_schema_version": SUMMARY_SCHEMA_VERSION,
-            "run_id": run_id,
-            "stage_id": args.stage_id,
-            "substage_id": args.substage_id,
-            "dataset_profile": candidate["dataset_profile"],
-            "encoder_conv_hidden_scale": float(candidate["encoder_conv_hidden_scale"]),
-            "encoder_spectral_hidden_scale": float(candidate["encoder_spectral_hidden_scale"]),
-            "encoder_stage_channels": str(candidate["encoder_stage_channels"]),
-            "encoder_conv_hidden_resolved_width": str(candidate["encoder_conv_hidden_resolved_width"]),
-            "encoder_conv_hidden_resolved_per_block": str(
-                candidate["encoder_conv_hidden_resolved_per_block"]
-            ),
-            "encoder_spectral_hidden_resolved_width": str(
-                candidate["encoder_spectral_hidden_resolved_width"]
-            ),
-            "encoder_spectral_hidden_resolved_per_block": str(
-                candidate["encoder_spectral_hidden_resolved_per_block"]
-            ),
-            **metrics,
-            "is_feasible": feasible,
-            "violated_constraints": violations,
-            "probe_mask_enabled": bool(args.probe_mask),
-            "torch_mae_pred_l2_match_target": bool(args.torch_mae_pred_l2_match_target),
-        }
-        (run_dir / "metrics.json").write_text(json.dumps(metrics_payload, indent=2) + "\n")
 
         row = {
             "summary_schema_version": SUMMARY_SCHEMA_VERSION,
@@ -2442,18 +2615,24 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
             "resnet_width": str(candidate["resnet_width"]),
             "resnet_blocks": int(candidate["resnet_blocks"]),
             "skip_style": str(candidate["skip_style"]),
+            "source_run_id": str(candidate.get("source_run_id", "")),
             "amp_ssim": float(metrics["amp_ssim"]),
             "amp_mae": float(metrics["amp_mae"]),
             "amp_mse": float(metrics["amp_mse"]),
             "phase_ssim": float(metrics["phase_ssim"]),
-            "phase_ssim_drop_vs_baseline": float(metrics["phase_ssim_drop_vs_baseline"]),
+            "phase_ssim_baseline": float("nan"),
+            "phase_ssim_baseline_source": "",
+            "phase_ssim_baseline_run_id": "",
+            "phase_ssim_drop_vs_baseline": float(
+                metrics.get("phase_ssim_drop_vs_baseline", 0.0)
+            ),
             "max_phase_ssim_drop": float(args.max_phase_ssim_drop),
-            "phase_guardrail_pass": bool(metrics["phase_ssim_drop_vs_baseline"] <= args.max_phase_ssim_drop),
+            "phase_guardrail_pass": False,
             "model_params": int(metrics["model_params"]),
             "train_wall_time_sec": float(metrics["train_wall_time_sec"]),
             "inference_time_s": float(metrics["inference_time_s"]),
-            "is_feasible": bool(feasible),
-            "violated_constraints": ";".join(violations),
+            "is_feasible": False,
+            "violated_constraints": "",
             "probe_mask_enabled": bool(args.probe_mask),
             "torch_mae_pred_l2_match_target": bool(args.torch_mae_pred_l2_match_target),
             "pareto_rank_profile": "",
@@ -2467,8 +2646,17 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
             "anchor_source_summary": str(args.promotion_source_summary or ""),
             "retention_tier": "pending_anchor_resolution",
             "run_index": index,
+            "_run_dir": str(run_dir),
         }
         rows.append(row)
+
+    _apply_phase_guardrail_and_feasibility(
+        rows,
+        args=args,
+        source_rows=source_rows,
+        anchor_row=anchor_row,
+    )
+    _write_per_run_metrics_payloads(rows, args=args)
 
     # Per-profile Pareto ranks.
     profiles = sorted({str(row["dataset_profile"]) for row in rows})
@@ -2557,10 +2745,14 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
         "resnet_width",
         "resnet_blocks",
         "skip_style",
+        "source_run_id",
         "amp_ssim",
         "amp_mae",
         "amp_mse",
         "phase_ssim",
+        "phase_ssim_baseline",
+        "phase_ssim_baseline_source",
+        "phase_ssim_baseline_run_id",
         "phase_ssim_drop_vs_baseline",
         "max_phase_ssim_drop",
         "phase_guardrail_pass",
@@ -2633,10 +2825,161 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
     return 0
 
 
+def run_phase_guardrail_validation(args: argparse.Namespace) -> int:
+    """Validate persisted phase-drop fields against baseline provenance."""
+    if args.summary_csv is None:
+        raise StageValidationError("--validate-phase-guardrail requires --summary-csv")
+    if args.baseline_summary is None:
+        raise StageValidationError("--validate-phase-guardrail requires --baseline-summary")
+    if args.write_validation_report is None:
+        raise StageValidationError("--validate-phase-guardrail requires --write-validation-report")
+
+    summary_fieldnames, summary_rows = _read_csv(args.summary_csv)
+    if not summary_rows:
+        raise StageValidationError(f"Summary CSV is empty: {args.summary_csv}")
+    _require_columns(
+        args.summary_csv,
+        summary_fieldnames,
+        [
+            "run_id",
+            "phase_ssim",
+            "phase_ssim_drop_vs_baseline",
+            "phase_guardrail_pass",
+            "is_feasible",
+        ],
+    )
+
+    _, baseline_rows = _read_csv(args.baseline_summary)
+    if not baseline_rows:
+        raise StageValidationError(f"Baseline summary CSV is empty: {args.baseline_summary}")
+
+    baseline_phase_by_run: dict[str, float] = {}
+    for source_row in baseline_rows:
+        source_run_id = str(source_row.get("run_id", "")).strip()
+        if not source_run_id:
+            continue
+        amp_ssim = _safe_float(source_row.get("amp_ssim"), "amp_ssim", default=0.0)
+        baseline_phase_by_run[source_run_id] = _safe_float(
+            source_row.get("phase_ssim"),
+            "phase_ssim",
+            default=amp_ssim,
+        )
+    if not baseline_phase_by_run:
+        raise StageValidationError(
+            f"Could not resolve baseline run_id -> phase_ssim map from {args.baseline_summary}"
+        )
+
+    singleton_baseline: tuple[str, float] | None = None
+    if len(baseline_phase_by_run) == 1:
+        singleton_baseline = next(iter(baseline_phase_by_run.items()))
+
+    failures: list[dict[str, Any]] = []
+    validation_rows: list[dict[str, Any]] = []
+    requested_threshold = float(args.max_phase_ssim_drop)
+    for raw_row in summary_rows:
+        run_id = str(raw_row.get("run_id", "")).strip()
+        source_run_id = str(raw_row.get("source_run_id", "")).strip()
+        phase_ssim = _safe_float(raw_row.get("phase_ssim"), "phase_ssim", default=0.0)
+        persisted_drop = _safe_float(
+            raw_row.get("phase_ssim_drop_vs_baseline"),
+            "phase_ssim_drop_vs_baseline",
+            default=0.0,
+        )
+        row_threshold = _safe_float(
+            raw_row.get("max_phase_ssim_drop"),
+            "max_phase_ssim_drop",
+            default=requested_threshold,
+        )
+        effective_threshold = min(float(row_threshold), requested_threshold)
+        persisted_pass = _bool_from_value(raw_row.get("phase_guardrail_pass", False))
+        row_is_feasible = _bool_from_value(raw_row.get("is_feasible", False))
+
+        baseline_phase: float | None = None
+        baseline_run_id: str = ""
+        baseline_source = ""
+        if source_run_id:
+            baseline_phase = baseline_phase_by_run.get(source_run_id)
+            baseline_run_id = source_run_id
+            baseline_source = "source_run_id"
+        if baseline_phase is None and run_id in baseline_phase_by_run:
+            baseline_phase = baseline_phase_by_run[run_id]
+            baseline_run_id = run_id
+            baseline_source = "run_id"
+        if baseline_phase is None and singleton_baseline is not None:
+            baseline_run_id, baseline_phase = singleton_baseline
+            baseline_source = "singleton_baseline"
+
+        reasons: list[str] = []
+        recomputed_drop: float | None = None
+        recomputed_pass: bool | None = None
+        if baseline_phase is None:
+            reasons.append("missing_baseline_provenance")
+        else:
+            recomputed_drop = _compute_phase_drop(
+                phase_ssim=phase_ssim,
+                baseline_phase_ssim=float(baseline_phase),
+            )
+            recomputed_pass = bool(recomputed_drop <= effective_threshold)
+            if not math.isclose(
+                float(persisted_drop),
+                float(recomputed_drop),
+                rel_tol=0.0,
+                abs_tol=1e-9,
+            ):
+                reasons.append("drop_mismatch")
+            if persisted_pass != recomputed_pass:
+                reasons.append("guardrail_pass_mismatch")
+            if (not recomputed_pass) and row_is_feasible:
+                reasons.append("feasible_guardrail_breach")
+
+        validation_row = {
+            "run_id": run_id,
+            "source_run_id": source_run_id,
+            "phase_ssim": float(phase_ssim),
+            "persisted_phase_drop": float(persisted_drop),
+            "recomputed_phase_drop": None if recomputed_drop is None else float(recomputed_drop),
+            "persisted_guardrail_pass": bool(persisted_pass),
+            "recomputed_guardrail_pass": None if recomputed_pass is None else bool(recomputed_pass),
+            "row_is_feasible": bool(row_is_feasible),
+            "requested_max_phase_ssim_drop": float(requested_threshold),
+            "row_max_phase_ssim_drop": float(row_threshold),
+            "effective_max_phase_ssim_drop": float(effective_threshold),
+            "baseline_phase_ssim": None if baseline_phase is None else float(baseline_phase),
+            "baseline_run_id": baseline_run_id,
+            "baseline_source": baseline_source,
+            "valid": len(reasons) == 0,
+            "failure_reasons": reasons,
+        }
+        validation_rows.append(validation_row)
+        if reasons:
+            failures.append(validation_row)
+
+    report_payload = {
+        "summary_csv": str(args.summary_csv),
+        "baseline_summary": str(args.baseline_summary),
+        "max_phase_ssim_drop": float(requested_threshold),
+        "checked_rows": len(validation_rows),
+        "failed_rows": len(failures),
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "rows": validation_rows,
+    }
+    args.write_validation_report.parent.mkdir(parents=True, exist_ok=True)
+    args.write_validation_report.write_text(json.dumps(report_payload, indent=2) + "\n")
+
+    if failures:
+        raise StageValidationError(
+            "Phase guardrail semantic validation failed for "
+            f"{len(failures)} row(s); see {args.write_validation_report}"
+        )
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     """Main entry point."""
     try:
         args = parse_args(argv)
+        if args.validate_phase_guardrail:
+            return run_phase_guardrail_validation(args)
         validate_stage_configuration(args)
         validate_matrix_constraints(args)
 

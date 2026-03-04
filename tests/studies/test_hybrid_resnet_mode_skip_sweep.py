@@ -29,6 +29,7 @@ def _write_source_summary(path: Path, rows: list[dict[str, object]]) -> None:
         "encoder_conv_hidden_scale",
         "encoder_spectral_hidden_scale",
         "amp_ssim",
+        "phase_ssim",
         "amp_mae",
         "amp_mse",
         "phase_ssim_drop_vs_baseline",
@@ -48,6 +49,8 @@ def _write_source_summary(path: Path, rows: list[dict[str, object]]) -> None:
                 row_copy["amp_ssim"] = 0.9
             else:
                 row_copy["amp_ssim"] = max(0.0, min(1.0, 1.0 - float(amp_mae)))
+        if row_copy.get("phase_ssim") in (None, ""):
+            row_copy["phase_ssim"] = float(row_copy["amp_ssim"])
         normalized_rows.append(row_copy)
     _write_csv(path, fieldnames, normalized_rows)
 
@@ -1029,6 +1032,251 @@ def test_reuse_existing_run_metrics_skips_runner_execution(tmp_path, monkeypatch
     assert abs(float(rows[0]["amp_mae"]) - 0.011) < 1e-9
     assert abs(float(rows[0]["amp_mse"]) - 0.0009) < 1e-9
     assert rows[0]["run_id"] == run_id
+
+
+def test_stage_b_phase_drop_uses_promotion_source_baseline_and_enforces_guardrail(tmp_path, monkeypatch):
+    source_summary = tmp_path / "stage_a_anchor.csv"
+    _write_source_summary(
+        source_summary,
+        [
+            {
+                "summary_schema_version": "v1",
+                "run_id": "stage_a_anchor",
+                "stage_id": "A",
+                "substage_id": "none",
+                "modes": "24",
+                "skip": "off",
+                "width": "32",
+                "amp_ssim": 0.992,
+                "phase_ssim": 0.9915670440950848,
+                "amp_mae": 0.08,
+                "amp_mse": 0.01,
+                "phase_ssim_drop_vs_baseline": 0.0,
+                "train_wall_time_sec": 100,
+                "inference_time_s": 1.0,
+                "model_params": 1000,
+                "pareto_rank_macro": 1,
+                "is_feasible": True,
+                "is_stage_anchor": True,
+            }
+        ],
+    )
+
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.touch()
+    test_npz.touch()
+
+    def _fake_runner(*, args, candidate, run_dir, train_npz, test_npz):
+        _ = (args, candidate, run_dir, train_npz, test_npz)
+        return {
+            "amp_ssim": 0.90,
+            "amp_mae": 0.10,
+            "amp_mse": 0.02,
+            "phase_ssim": 0.29135549918274767,
+            "phase_ssim_drop_vs_baseline": 0.0,
+            "model_params": 1234,
+            "train_wall_time_sec": 12.0,
+            "inference_time_s": 1.0,
+        }
+
+    monkeypatch.setattr(sweep, "_run_candidate_with_runner", _fake_runner)
+
+    output_root = tmp_path / "stage_b_out"
+    rc = sweep.main(
+        [
+            "--stage-id",
+            "B",
+            "--ns",
+            "128",
+            "--promotion-source-summary",
+            str(source_summary),
+            "--dataset-profiles-n128",
+            "custom_npz_pair_n128",
+            "--custom-n128-train-npz",
+            str(train_npz),
+            "--custom-n128-test-npz",
+            str(test_npz),
+            "--fno-blocks-values",
+            "3",
+            "--top-k-n256",
+            "0",
+            "--max-phase-ssim-drop",
+            "0.03",
+            "--output-root",
+            str(output_root),
+        ]
+    )
+
+    assert rc == 0
+    rows = list(csv.DictReader((output_root / "summary.csv").open()))
+    assert len(rows) == 1
+    row = rows[0]
+    drop = float(row["phase_ssim_drop_vs_baseline"])
+    assert drop > 0.69
+    assert row["phase_guardrail_pass"] == "False"
+    assert row["is_feasible"] == "False"
+    assert "phase_ssim_drop" in row["violated_constraints"]
+    assert row["phase_ssim_baseline_source"] == "promotion_source_summary"
+    assert row["phase_ssim_baseline_run_id"] == "stage_a_anchor"
+    assert row["source_run_id"] == "stage_a_anchor"
+
+    metrics_payload = json.loads(
+        (output_root / "runs" / row["run_id"] / "metrics.json").read_text()
+    )
+    assert metrics_payload["phase_guardrail_pass"] is False
+    assert metrics_payload["phase_ssim_baseline_run_id"] == "stage_a_anchor"
+    assert metrics_payload["source_run_id"] == "stage_a_anchor"
+    assert metrics_payload["phase_ssim_drop_vs_baseline"] > 0.69
+
+
+def test_validate_phase_guardrail_mode_fails_on_drop_mismatch_and_writes_report(tmp_path, capsys):
+    baseline_summary = tmp_path / "baseline.csv"
+    _write_source_summary(
+        baseline_summary,
+        [
+            {
+                "summary_schema_version": "v1",
+                "run_id": "stage_a_anchor",
+                "stage_id": "A",
+                "substage_id": "none",
+                "modes": "24",
+                "skip": "off",
+                "width": "32",
+                "amp_ssim": 0.992,
+                "phase_ssim": 0.9915670440950848,
+                "amp_mae": 0.08,
+                "amp_mse": 0.01,
+                "phase_ssim_drop_vs_baseline": 0.0,
+                "train_wall_time_sec": 100,
+                "inference_time_s": 1.0,
+                "model_params": 1000,
+                "pareto_rank_macro": 1,
+                "is_feasible": True,
+                "is_stage_anchor": True,
+            }
+        ],
+    )
+
+    summary_csv = tmp_path / "summary.csv"
+    _write_csv(
+        summary_csv,
+        [
+            "run_id",
+            "source_run_id",
+            "phase_ssim",
+            "phase_ssim_drop_vs_baseline",
+            "max_phase_ssim_drop",
+            "phase_guardrail_pass",
+            "is_feasible",
+        ],
+        [
+            {
+                "run_id": "stageB_candidate",
+                "source_run_id": "stage_a_anchor",
+                "phase_ssim": 0.29135549918274767,
+                "phase_ssim_drop_vs_baseline": 0.0,
+                "max_phase_ssim_drop": 0.03,
+                "phase_guardrail_pass": True,
+                "is_feasible": True,
+            }
+        ],
+    )
+
+    report_path = tmp_path / "promotion" / "phase_guardrail_validation.json"
+    rc = sweep.main(
+        [
+            "--validate-phase-guardrail",
+            "--summary-csv",
+            str(summary_csv),
+            "--baseline-summary",
+            str(baseline_summary),
+            "--max-phase-ssim-drop",
+            "0.03",
+            "--write-validation-report",
+            str(report_path),
+        ]
+    )
+    assert rc == 1
+    assert "semantic validation failed" in capsys.readouterr().err.lower()
+    report = json.loads(report_path.read_text())
+    assert report["failed_rows"] == 1
+    reasons = report["rows"][0]["failure_reasons"]
+    assert "drop_mismatch" in reasons
+    assert "feasible_guardrail_breach" in reasons
+
+
+def test_validate_phase_guardrail_mode_passes_with_matching_values(tmp_path):
+    baseline_summary = tmp_path / "baseline.csv"
+    _write_source_summary(
+        baseline_summary,
+        [
+            {
+                "summary_schema_version": "v1",
+                "run_id": "stage_a_anchor",
+                "stage_id": "A",
+                "substage_id": "none",
+                "modes": "24",
+                "skip": "off",
+                "width": "32",
+                "amp_ssim": 0.992,
+                "phase_ssim": 0.9915670440950848,
+                "amp_mae": 0.08,
+                "amp_mse": 0.01,
+                "phase_ssim_drop_vs_baseline": 0.0,
+                "train_wall_time_sec": 100,
+                "inference_time_s": 1.0,
+                "model_params": 1000,
+                "pareto_rank_macro": 1,
+                "is_feasible": True,
+                "is_stage_anchor": True,
+            }
+        ],
+    )
+
+    summary_csv = tmp_path / "summary.csv"
+    _write_csv(
+        summary_csv,
+        [
+            "run_id",
+            "source_run_id",
+            "phase_ssim",
+            "phase_ssim_drop_vs_baseline",
+            "max_phase_ssim_drop",
+            "phase_guardrail_pass",
+            "is_feasible",
+        ],
+        [
+            {
+                "run_id": "stageB_candidate",
+                "source_run_id": "stage_a_anchor",
+                "phase_ssim": 0.29135549918274767,
+                "phase_ssim_drop_vs_baseline": 0.7002115449123371,
+                "max_phase_ssim_drop": 0.8,
+                "phase_guardrail_pass": True,
+                "is_feasible": True,
+            }
+        ],
+    )
+
+    report_path = tmp_path / "promotion" / "phase_guardrail_validation.json"
+    rc = sweep.main(
+        [
+            "--validate-phase-guardrail",
+            "--summary-csv",
+            str(summary_csv),
+            "--baseline-summary",
+            str(baseline_summary),
+            "--max-phase-ssim-drop",
+            "0.8",
+            "--write-validation-report",
+            str(report_path),
+        ]
+    )
+    assert rc == 0
+    report = json.loads(report_path.read_text())
+    assert report["failed_rows"] == 0
+    assert report["rows"][0]["valid"] is True
 
 
 def test_stage_c_run_sweep_emits_default_stage_anchor_summary(tmp_path, monkeypatch):
