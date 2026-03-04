@@ -35,6 +35,8 @@ ALLOWED_SUMMARY_SCHEMA_VERSIONS = {SUMMARY_SCHEMA_VERSION, "v1"}
 STUDY_KEY = "hybrid-resnet-mode-skip-sweep"
 SEED_SET = (3, 11, 17)
 MIN_STAGE_EPOCHS = 10
+CHAMPION_ANCHOR_FILENAME = "champion_anchor_summary.csv"
+STAGE_ANCHOR_FILENAME = "stage_anchor_summary.csv"
 DEFAULT_PROMOTION_OBJECTIVES = ("amp_ssim", "train_wall_time_sec")
 REQUIRED_PROMOTION_OBJECTIVES_BY_STAGE = {
     stage_id: DEFAULT_PROMOTION_OBJECTIVES for stage_id in ("A", "B", "C", "D", "E")
@@ -325,6 +327,31 @@ def _active_profiles(args: argparse.Namespace) -> list[str]:
     return list(args.dataset_profiles_n256 if args.ns == 256 else args.dataset_profiles_n128)
 
 
+def _is_stage_c_n128_transition(args: argparse.Namespace) -> bool:
+    return (
+        not args.aggregate_seed_rerank_root
+        and args.stage_id == "C"
+        and int(args.ns) == 128
+        and args.substage_id in {"C1", "C2"}
+    )
+
+
+def _require_stage_c_champion_anchor_source(path: Path) -> None:
+    if path.name != CHAMPION_ANCHOR_FILENAME:
+        raise PromotionSourceError(
+            "Stage C N=128 transitions require --promotion-source-summary to point to "
+            f"{CHAMPION_ANCHOR_FILENAME}; got {path}"
+        )
+
+
+def _require_stage_c_champion_anchor_emit_path(path: Path) -> None:
+    if path.name != CHAMPION_ANCHOR_FILENAME:
+        raise PromotionSourceError(
+            "Stage C champion-anchor emission must target "
+            f"{CHAMPION_ANCHOR_FILENAME}; got {path}"
+        )
+
+
 def _validate_required_objective_tuple(args: argparse.Namespace) -> None:
     required = REQUIRED_PROMOTION_OBJECTIVES_BY_STAGE.get(str(args.stage_id))
     if required is None:
@@ -379,6 +406,8 @@ def validate_stage_configuration(args: argparse.Namespace) -> None:
             raise StageValidationError(
                 "--aggregate-seed-rerank-root requires --emit-stage-anchor-summary"
             )
+        if args.stage_id == "C":
+            _require_stage_c_champion_anchor_emit_path(args.emit_stage_anchor_summary)
     elif args.output_root is None:
         raise StageValidationError("--output-root is required when not aggregating seed rerank")
 
@@ -406,6 +435,17 @@ def validate_stage_configuration(args: argparse.Namespace) -> None:
             raise PromotionSourceError(
                 "Promotion-enabled N=256 runs require --promotion-source-summary"
             )
+
+    if _is_stage_c_n128_transition(args):
+        assert args.promotion_source_summary is not None
+        _require_stage_c_champion_anchor_source(args.promotion_source_summary)
+
+    if (
+        args.stage_id == "C"
+        and args.emit_stage_anchor_summary is not None
+        and not args.aggregate_seed_rerank_root
+    ):
+        _require_stage_c_champion_anchor_emit_path(args.emit_stage_anchor_summary)
 
     skip_values = {value.lower() for value in args.skip_values}
     if not skip_values.issubset({"off", "on"}):
@@ -937,6 +977,18 @@ def _resolve_single_anchor(path: Path, rows: Sequence[Mapping[str, Any]]) -> dic
     raise PromotionSourceError(
         f"{path} must resolve exactly one anchor row for stage-isolated N=128 runs"
     )
+
+
+def _resolve_stage_c_champion_source(
+    path: Path,
+    source_rows: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    if len(source_rows) != 1:
+        raise PromotionSourceError(
+            f"Stage C N=128 transition source must contain exactly one row in {path}; "
+            f"found {len(source_rows)}"
+        )
+    return dict(source_rows[0])
 
 
 def _objective_tuple(row: Mapping[str, Any], objectives: Sequence[str]) -> tuple[float, ...]:
@@ -2530,6 +2582,9 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
             require_robust_fields=require_robust,
         )
 
+        if _is_stage_c_n128_transition(args):
+            _resolve_stage_c_champion_source(args.promotion_source_summary, source_rows)
+
         feasible_source = [row for row in source_rows if _bool_from_value(row.get("is_feasible", False))]
         if not feasible_source:
             raise PromotionSourceError(
@@ -2537,7 +2592,13 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
             )
 
         if args.stage_id in {"B", "C", "D", "E"} and args.ns == 128:
-            anchor_row = _resolve_single_anchor(args.promotion_source_summary, feasible_source)
+            if _is_stage_c_n128_transition(args):
+                anchor_row = _resolve_stage_c_champion_source(
+                    args.promotion_source_summary,
+                    feasible_source,
+                )
+            else:
+                anchor_row = _resolve_single_anchor(args.promotion_source_summary, feasible_source)
 
         if args.ns == 256 and args.top_k_n256 > 0:
             ranked = sorted(feasible_source, key=_candidate_sort_key)
@@ -2786,7 +2847,10 @@ def run_sweep(args: argparse.Namespace, *, argv_payload: Sequence[str]) -> int:
 
     anchor_summary_path: Path | None = args.emit_stage_anchor_summary
     if anchor_summary_path is None:
-        anchor_summary_path = args.output_root / "promotion" / "stage_anchor_summary.csv"
+        default_anchor_filename = (
+            CHAMPION_ANCHOR_FILENAME if args.stage_id == "C" else STAGE_ANCHOR_FILENAME
+        )
+        anchor_summary_path = args.output_root / "promotion" / default_anchor_filename
     anchor_rows = [row for row in rows if _bool_from_value(row.get("is_stage_anchor", False))]
     if len(anchor_rows) != 1:
         raise PromotionSourceError(
