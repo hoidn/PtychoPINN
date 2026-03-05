@@ -225,6 +225,7 @@ def run_nersc_scan807_cameraman_study(
     downsample_policy: str = "bin-crop",
     probe_mode_policy: str = "incoherent_aggregate",
     position_reassembly_backend: str = "shift_sum",
+    position_crop_border: int | None = None,
     target_n: int = 128,
     epochs: int = 40,
     probe_mask: bool = False,
@@ -248,6 +249,8 @@ def run_nersc_scan807_cameraman_study(
             "NERSC orchestration requires position_reassembly_backend='shift_sum' "
             "to avoid unsafe auto/batched fallback paths."
         )
+    if position_crop_border is not None and int(position_crop_border) < 0:
+        raise ValueError(f"position_crop_border must be >= 0, got {position_crop_border}")
     if int(target_n) <= 0:
         raise ValueError(f"target_n must be positive, got {target_n}")
     if int(epochs) <= 0:
@@ -346,6 +349,9 @@ def run_nersc_scan807_cameraman_study(
         plateau_threshold=0.0,
         reassembly_mode="position",
         position_reassembly_backend=position_reassembly_backend,
+        position_crop_border=(
+            None if position_crop_border is None else int(position_crop_border)
+        ),
     )
     train_result = run_grid_lines_torch(common_cfg)
     model_pt = Path(train_result["run_dir"]) / "model.pt"
@@ -405,6 +411,9 @@ def run_nersc_scan807_cameraman_study(
         "downsample_policy": downsample_policy,
         "probe_mode_policy": probe_mode_policy,
         "position_reassembly_backend": position_reassembly_backend,
+        "position_crop_border": (
+            None if position_crop_border is None else int(position_crop_border)
+        ),
         "probe_mask": bool(probe_mask),
         "probe_mask_sigma": float(probe_mask_sigma),
         "probe_mask_diameter": probe_mask_diameter,

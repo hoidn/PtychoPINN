@@ -77,6 +77,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Pinned external position reassembly backend for this study (must be shift_sum).",
     )
     parser.add_argument(
+        "--position-crop-border",
+        type=int,
+        default=None,
+        help=(
+            "Optional center-crop border (pixels) applied during position reassembly. "
+            "When unset, backend default is used."
+        ),
+    )
+    parser.add_argument(
         "--probe-mask",
         dest="probe_mask",
         action="store_true",
@@ -142,6 +151,7 @@ def main(argv: list[str] | None = None) -> None:
         downsample_policy=args.downsample_policy,
         probe_mode_policy=args.probe_mode_policy,
         position_reassembly_backend=args.position_reassembly_backend,
+        position_crop_border=args.position_crop_border,
         probe_mask=args.probe_mask,
         probe_mask_sigma=args.probe_mask_sigma,
         probe_mask_diameter=args.probe_mask_diameter,
