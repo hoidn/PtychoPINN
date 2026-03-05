@@ -682,6 +682,43 @@ class TestReconArtifacts:
         )
         assert out.exists()
 
+    def test_save_comparison_png_dynamic_shows_numeric_x_ticks(self, tmp_path: Path, monkeypatch):
+        """Comparison heatmaps should expose numeric x-axis ticks for pixel-scale readability."""
+        import matplotlib.pyplot as plt
+
+        captured = {}
+
+        def fake_savefig(path, dpi=150):
+            _ = dpi
+            fig = plt.gcf()
+            main_axis = fig.axes[0]
+            captured["axison"] = bool(main_axis.axison)
+            captured["xlabels"] = [
+                label.get_text()
+                for label in main_axis.get_xticklabels()
+                if label.get_text().strip()
+            ]
+            Path(path).write_bytes(b"png")
+
+        monkeypatch.setattr(plt, "savefig", fake_savefig)
+
+        gt_amp = np.ones((16, 16), dtype=np.float32)
+        gt_phase = np.zeros((16, 16), dtype=np.float32)
+        recons = {"pinn": {"amp": np.ones((16, 16), dtype=np.float32), "phase": np.zeros((16, 16), dtype=np.float32)}}
+
+        out = save_comparison_png_dynamic(
+            tmp_path,
+            gt_amp,
+            gt_phase,
+            recons,
+            order=("pinn",),
+        )
+
+        assert out.exists()
+        assert captured["axison"] is True
+        assert captured["xlabels"]
+        assert all(label.isdigit() for label in captured["xlabels"])
+
 
 class TestColorbarSharing:
     """Tests for colorbar sharing decisions."""

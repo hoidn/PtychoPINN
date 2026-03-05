@@ -823,8 +823,25 @@ def _imshow_scaled_probe(
     ax.set_xlim(0.0, object_side)
     ax.set_ylim(object_side, 0.0)
     ax.set_aspect("equal")
-    ax.axis("off")
     return mappable
+
+
+def _pixel_ticks_for_width(width_pixels: int, max_ticks: int = 6) -> np.ndarray:
+    width = max(1, int(width_pixels))
+    if width == 1:
+        return np.array([0], dtype=int)
+    count = max(2, min(max_ticks, width))
+    ticks = np.linspace(0, width - 1, num=count)
+    return np.unique(np.round(ticks).astype(int))
+
+
+def _apply_x_pixel_axis(ax, width_pixels: int) -> None:
+    """Show numeric x-axis tick labels to indicate pixel dimensions."""
+    ticks = _pixel_ticks_for_width(width_pixels)
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([str(int(tick)) for tick in ticks])
+    ax.set_yticks([])
+    ax.tick_params(axis="x", labelsize=8)
 
 
 def _should_share_colorbar(
@@ -905,14 +922,14 @@ def save_comparison_png_dynamic(
         amp_gt_kwargs = {"vmin": amp_gt_bounds[0], "vmax": amp_gt_bounds[1]}
     amp_mappables = [axes[0, 0].imshow(gt_amp, cmap="viridis", **amp_gt_kwargs)]
     axes[0, 0].set_title("GT Amplitude")
-    axes[0, 0].axis("off")
+    _apply_x_pixel_axis(axes[0, 0], gt_amp.shape[1])
 
     phase_gt_kwargs = {}
     if phase_gt_bounds is not None:
         phase_gt_kwargs = {"vmin": phase_gt_bounds[0], "vmax": phase_gt_bounds[1]}
     phase_mappables = [axes[1, 0].imshow(gt_phase, cmap="twilight", **phase_gt_kwargs)]
     axes[1, 0].set_title("GT Phase")
-    axes[1, 0].axis("off")
+    _apply_x_pixel_axis(axes[1, 0], gt_phase.shape[1])
 
     for idx, label in enumerate(labels, start=1):
         amp = recons[label]["amp"]
@@ -934,13 +951,13 @@ def save_comparison_png_dynamic(
             axes[0, idx].imshow(amp, cmap="viridis", **amp_kwargs)
         )
         axes[0, idx].set_title(f"{title} Amplitude")
-        axes[0, idx].axis("off")
+        _apply_x_pixel_axis(axes[0, idx], amp.shape[1])
 
         phase_mappables.append(
             axes[1, idx].imshow(phase, cmap="twilight", **phase_kwargs)
         )
         axes[1, idx].set_title(f"{title} Phase")
-        axes[1, idx].axis("off")
+        _apply_x_pixel_axis(axes[1, idx], phase.shape[1])
 
     if include_probe:
         probe_idx = ncols - 1
@@ -962,6 +979,7 @@ def save_comparison_png_dynamic(
             )
         )
         axes[0, probe_idx].set_title(f"Probe Amplitude ({probe_amp.shape[0]}x{probe_amp.shape[1]})")
+        _apply_x_pixel_axis(axes[0, probe_idx], int(round(object_side)))
         amp_arrays.append(probe_amp)
 
         phase_mappables.append(
@@ -975,6 +993,7 @@ def save_comparison_png_dynamic(
             )
         )
         axes[1, probe_idx].set_title(f"Probe Phase ({probe_phase.shape[0]}x{probe_phase.shape[1]})")
+        _apply_x_pixel_axis(axes[1, probe_idx], int(round(object_side)))
         phase_arrays.append(probe_phase)
 
     _add_row_colorbars(fig, axes[0], amp_mappables, amp_arrays)
