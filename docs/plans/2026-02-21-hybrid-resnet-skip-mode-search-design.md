@@ -139,6 +139,15 @@ Profile semantics:
   - test from `prepare_hybrid_dataset(..., half=\"bottom\")` using returned `train_npz`.
 - `custom_npz_pair_n256`:
   - caller-provided `train.npz` and `test.npz`.
+  - archived canonical pair used by the later Stage-B/Stage-C reruns resolves to:
+    - `outputs/hybrid_resnet_structural_rerun_20260226T110719Z/datasets/custom_npz_builder_n256/datasets/N256/gs1/train.npz`
+    - `outputs/hybrid_resnet_structural_rerun_20260226T110719Z/datasets/custom_npz_builder_n256/datasets/N256/gs1/test.npz`
+  - embedded `_metadata` in that archived pair records `creation_info.script=grid_lines_workflow` and the synthetic lines recipe:
+    - `N=256`, `gridsize=1`, `nimgs_train=2`, `nimgs_test=1`, `nphotons=1e9`
+    - `size=392`, `offset=4`, `outer_offset_train=8`, `outer_offset_test=20`
+    - `probe_source=custom`, `coords_type=relative`
+  - provenance limitation: the original dataset-generation invocation was not archived next to that pair, so the exact command line is unknown.
+  - inference: because `scripts/studies/grid_lines_workflow.py` only accepts `--N 64|128`, the archived `N=256` pair was most likely generated programmatically via `GridLinesConfig` plus `ptycho.workflows.grid_lines_workflow` helpers rather than that CLI.
 
 ## 5. Staged Search Strategy
 

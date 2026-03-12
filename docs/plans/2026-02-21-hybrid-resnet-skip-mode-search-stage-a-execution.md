@@ -207,6 +207,9 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --no-probe-mask \
   --no-torch-mae-pred-l2-match-target
 ```
+
+Archived canonical-pair note: later canonical reruns resolved these placeholder `custom_npz_pair_n256` inputs to `outputs/hybrid_resnet_structural_rerun_20260226T110719Z/datasets/custom_npz_builder_n256/datasets/N256/gs1/train.npz` and `.../test.npz`. Their embedded metadata identifies them as `grid_lines_workflow` synthetic lines data (`N=256`, `gridsize=1`, `nimgs_train=2`, `nimgs_test=1`, `nphotons=1e9`, `size=392`, `offset=4`, `outer_offset_train=8`, `outer_offset_test=20`, `probe_source=custom`, relative coordinates). The original generation invocation was not archived, so the exact command remains unknown.
+
 Expected: promoted `N=256` run set is driven by feasible Pareto-ranked `summary_seed_robust.csv` (not raw single-seed summary) and evaluates each promoted candidate on both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
 
 **Step 4: Add targeted N=256 high-mode probe (diagnostic)**

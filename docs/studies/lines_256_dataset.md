@@ -25,8 +25,14 @@ This pair is the same `custom_npz_pair_n256` dataset referenced by the hybrid-re
   - `nphotons=1e9`
   - `nimgs_train=2`
   - `nimgs_test=1`
+  - `size=392`
+  - `offset=4`
+  - `outer_offset_train=8`
+  - `outer_offset_test=20`
   - `probe_source=custom`
   - `coords_type=relative`
+- Provenance limitation: the original dataset-generation invocation was not archived next to this pair, so the exact command line is unknown.
+- Inference: because `scripts/studies/grid_lines_workflow.py` only exposes `--N 64|128`, this archived `N=256` pair was most likely generated programmatically via `GridLinesConfig` plus `ptycho.workflows.grid_lines_workflow` helpers rather than that CLI.
 
 ## How To Use It
 

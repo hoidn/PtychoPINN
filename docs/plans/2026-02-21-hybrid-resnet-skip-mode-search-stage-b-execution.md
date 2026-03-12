@@ -207,6 +207,8 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
   --no-torch-mae-pred-l2-match-target
 ```
 
+Archived canonical-pair note: in later canonical reruns, these placeholder `custom_npz_pair_n256` paths resolved to `outputs/hybrid_resnet_structural_rerun_20260226T110719Z/datasets/custom_npz_builder_n256/datasets/N256/gs1/train.npz` and `.../test.npz`. Their embedded metadata identifies them as `grid_lines_workflow` synthetic lines data (`N=256`, `gridsize=1`, `nimgs_train=2`, `nimgs_test=1`, `nphotons=1e9`, `size=392`, `offset=4`, `outer_offset_train=8`, `outer_offset_test=20`, `probe_source=custom`, relative coordinates). The original generation invocation was not archived, so the exact command remains unknown.
+
 After this run completes, emit `${STAGE_B_N256_ROOT}/promotion/default_baselines.csv` and `.md` with exactly one true-default baseline row per active `N=256` profile.
 For canonical evidence reruns, do not pass `--reuse-existing-run-metrics` in Step 1/Step 2 commands.
 
