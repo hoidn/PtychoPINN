@@ -14,9 +14,28 @@ Scope:
 - Prefer `scripts/studies/grid_lines_torch_runner.py` for single-run experiments.
 - You may use `scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py` only when you need sweep machinery and the invocation remains valid for a lines-only experiment.
 - Work on architecture and training configuration only unless a blocking bug forces a narrow fix.
-- Do not modify `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py`.
 - Do not change the dataset split.
 - Do not invent new evaluation metrics.
+
+Editable surface:
+- You may change these implementation files by default:
+  - `ptycho_torch/generators/hybrid_resnet.py`
+  - `ptycho/config/config.py` only for `PyTorchExecutionConfig` fields
+  - `ptycho_torch/config_params.py`
+  - `ptycho_torch/workflows/components.py`
+  - `scripts/studies/grid_lines_torch_runner.py`
+  - `scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py` only when the experiment needs runbook support
+- You may change these verification/docs files when they directly support the experiment:
+  - `tests/torch/test_fno_generators.py`
+  - `tests/torch/test_grid_lines_torch_runner.py`
+  - `tests/studies/test_hybrid_resnet_mode_skip_sweep.py`
+  - `docs/CONFIGURATION.md`
+  - `docs/workflows/pytorch.md`
+  - `ptycho_torch/generators/README.md`
+  - `docs/studies/index.md`
+- Escalate before changing anything outside that surface.
+- Do not modify `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py`.
+- Do not broaden the editable surface just because a change looks convenient.
 
 Default starting point:
 - Start from the current default hybrid-resnet control unless the supervising context gives a different anchor:
@@ -43,6 +62,7 @@ Working rules:
 5. If an experiment crashes, summarize the failure and either fix the narrow blocker or abandon the idea.
 6. Prefer simple improvements over broader, riskier changes.
 7. Keep `probe_mask` off unless the experiment is explicitly about probe masking.
+8. If the best next change requires edits outside the editable surface, stop and report that explicitly instead of guessing.
 
 Communication contract:
 After each experiment, report a compact result block in plain text:
