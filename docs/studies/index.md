@@ -2,6 +2,13 @@
 
 ## Grid-Lines Studies
 
+### `lines_256` dataset note
+
+- Purpose: Document the repo-local `N=256` lines dataset alias used for single-dataset architecture experiments.
+- Document: `docs/studies/lines_256_dataset.md`
+- Runbook profile name: `custom_npz_pair_n256`
+- Preferred use: direct `grid_lines_torch_runner.py` experiments or explicit diagnostic-mode runbook invocations when you want lines-only `N=256` runs.
+
 ### `hybrid-resnet-mode-skip-sweep`
 
 - Purpose: Run staged `hybrid_resnet` search loops over `mode x skip x width` (Stage A) and later structural axes (Stages B-E) with strict stage/substage guardrails, promotion-source validation, seed-rerank aggregation, and retention-tier cleanup.
