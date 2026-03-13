@@ -39,7 +39,8 @@ def test_build_runner_cmd_pins_lines_256_invariants(tmp_path):
     assert cmd[cmd.index("--fno-width") + 1] == "48"
     assert cmd[cmd.index("--hybrid-downsample-op") + 1] == "avgpool_conv"
     assert "--no-probe-mask" in cmd
-    assert "--no-torch-mae-pred-l2-match-target" in cmd
+    assert "--torch-mae-pred-l2-match-target" in cmd
+    assert "--no-torch-mae-pred-l2-match-target" not in cmd
 
 
 def test_build_runner_cmd_applies_stagea_best_n256_preset(tmp_path):
@@ -99,12 +100,6 @@ def test_main_runs_runner_and_writes_invocation(monkeypatch, tmp_path):
         return CompletedProcess(cmd, returncode=0, stdout="ok\n", stderr="")
 
     monkeypatch.setattr(wrapper.subprocess, "run", fake_run)
-    monkeypatch.setattr(
-        wrapper,
-        "ensure_probe_inclusive_comparison_png",
-        lambda output_dir: Path(output_dir) / "visuals" / "compare_amp_phase_probe.png",
-    )
-
     output_dir = tmp_path / "wrapper_out"
     rc = wrapper.main(
         [
@@ -125,10 +120,8 @@ def test_main_runs_runner_and_writes_invocation(monkeypatch, tmp_path):
     assert (output_dir / "driver_stderr.log").exists()
 
 
-def test_main_rerenders_probe_inclusive_comparison_png_after_success(monkeypatch, tmp_path):
+def test_main_does_not_require_probe_rerender_after_success(monkeypatch, tmp_path):
     from scripts.studies import run_lines_256_arch_experiment as wrapper
-
-    render_calls = []
 
     def fake_run(cmd, check, capture_output, text):
         from subprocess import CompletedProcess
@@ -148,34 +141,19 @@ def test_main_rerenders_probe_inclusive_comparison_png_after_success(monkeypatch
             amp=np.ones((8, 8), dtype=np.float32),
             phase=np.zeros((8, 8), dtype=np.float32),
         )
+        visuals_dir = output_dir / "visuals"
+        visuals_dir.mkdir(parents=True, exist_ok=True)
+        (visuals_dir / "compare_amp_phase.png").write_text("plain-compare", encoding="utf-8")
         return CompletedProcess(cmd, returncode=0, stdout="ok\n", stderr="")
 
-    def fake_render(output_dir, order):
-        render_calls.append((Path(output_dir), order))
-        visuals_dir = Path(output_dir) / "visuals"
-        visuals_dir.mkdir(parents=True, exist_ok=True)
-        compare = visuals_dir / "compare_amp_phase.png"
-        compare.write_text("probe-inclusive", encoding="utf-8")
-        return {"compare": str(compare)}
-
     monkeypatch.setattr(wrapper.subprocess, "run", fake_run)
-    monkeypatch.setattr(
-        wrapper,
-        "resolve_probe_for_visuals",
-        lambda output_dir: {
-            "amp": np.ones((4, 4), dtype=np.float32),
-            "phase": np.zeros((4, 4), dtype=np.float32),
-        },
-    )
-    monkeypatch.setattr(wrapper, "render_grid_lines_visuals", fake_render, raising=False)
 
     output_dir = tmp_path / "wrapper_out"
     rc = wrapper.main(["--output-dir", str(output_dir)])
 
     assert rc == 0
-    assert render_calls == [(output_dir, ("gt", "pinn_hybrid_resnet"))]
-    assert (output_dir / "visuals" / "compare_amp_phase.png").read_text(encoding="utf-8") == "probe-inclusive"
-    assert (output_dir / "visuals" / "compare_amp_phase_probe.png").read_text(encoding="utf-8") == "probe-inclusive"
+    assert (output_dir / "visuals" / "compare_amp_phase.png").read_text(encoding="utf-8") == "plain-compare"
+    assert not (output_dir / "visuals" / "compare_amp_phase_probe.png").exists()
 
 
 def test_main_raises_when_runner_fails(monkeypatch, tmp_path):

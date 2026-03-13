@@ -56,7 +56,7 @@ At the beginning of every new experiment session:
    - `gridsize=1`
    - `architecture=hybrid_resnet`
    - `probe_mask=off`
-   - `torch_mae_pred_l2_match_target=off`
+   - `torch_mae_pred_l2_match_target=on`
 6. use the default hybrid-resnet control:
    - `fno_modes=12`
    - `fno_width=32`
@@ -126,30 +126,22 @@ For each session:
 - baseline output root: `outputs/lines_256_arch_improvement/<session_id>_baseline`
 - baseline log: `state/lines_256_arch_improvement/<session_id>_baseline.log`
 - comparison gallery dir: `outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/`
-- baseline gallery PNG: `outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/<session_id>__baseline__compare_amp_phase_probe.png`
+- baseline gallery PNG: `outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/<session_id>__baseline__compare_amp_phase.png`
 
 For each candidate run in that session:
 
 - output root base: `outputs/lines_256_arch_improvement/`
 - output root format: `outputs/lines_256_arch_improvement/<timestamp>_<short_commit>`
 - stdout/stderr log: `state/lines_256_arch_improvement/<timestamp>_<short_commit>.log`
-- candidate gallery PNG: `outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/<timestamp>_<short_commit>__compare_amp_phase_probe.png`
+- candidate gallery PNG: `outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/<timestamp>_<short_commit>__compare_amp_phase.png`
 
 ## Comparison PNG rule
 
-Every run in the session must publish one comparison PNG into the session gallery dir.
+Every successful run in the session must publish one comparison PNG into the session gallery dir.
 
 Do not rely on nested `visuals/` directories alone. The gallery dir is the easy-to-find location for visual inspection across the whole session.
 
-The gallery PNG must include:
-
-- ground-truth object views
-- predicted object views
-- the probe
-
-If the run's built-in `visuals/compare_amp_phase.png` already includes probe panels, copy that file into the session gallery dir.
-
-If the built-in comparison PNG does not include probe panels, generate or rerender a comparison PNG that does include the probe, then place that probe-inclusive PNG in the session gallery dir.
+For this loop, the gallery PNG is the run's comparison image copied from `visuals/compare_amp_phase.png` when available.
 
 Do not mark a successful run complete until its gallery PNG exists.
 
@@ -199,12 +191,17 @@ LOOP FOREVER:
 19. Read candidate `amp_ssim`.
 20. Append exactly one TSV row for the candidate.
 21. If candidate `amp_ssim` is strictly greater than champion `amp_ssim`, leave the commit in place. The branch has advanced.
-22. If candidate `amp_ssim` is equal, lower, missing, or the run crashed, append the `discard` or `crash` row first, then run:
+22. If candidate `amp_ssim` is equal or lower, append the `discard` row first, then run:
     - `git reset --mixed HEAD^`
     - `git restore --source=HEAD --staged --worktree -- <candidate_paths>`
-23. After a discard, confirm the protected local-change set is unchanged with:
+23. If the run crashed, append the `crash` row first, then run:
+    - `git reset --mixed HEAD^`
+    - `git restore --source=HEAD --staged --worktree -- <candidate_paths>`
+24. After a crash reset, attempt one focused crash-debug candidate that addresses the concrete failure and rerun the scored experiment once.
+25. If that debugged candidate still crashes, or if no clean crash fix is available, stop and report a blocker instead of looping blindly.
+26. After a discard or crash reset, confirm the protected local-change set is unchanged with:
     - `git status --short --untracked-files=no`
-24. Continue the loop using the last `baseline` or `keep` row from the current `session_id` as the champion.
+27. Continue the loop using the last `baseline` or `keep` row from the current `session_id` as the champion.
 
 Because each loop iteration creates exactly one candidate commit and candidate files must not overlap `protected_local_paths`, `git reset --mixed HEAD^` followed by restore of `candidate_paths` returns the checkout to the previous champion commit while preserving unrelated tracked edits.
 

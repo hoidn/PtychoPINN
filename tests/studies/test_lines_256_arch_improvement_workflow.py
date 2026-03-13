@@ -10,9 +10,12 @@ def test_prompt_index_registers_lines_256_experiment_prompt():
     index = (REPO_ROOT / "prompts/index.md").read_text(encoding="utf-8")
 
     assert "workflows/lines_256_arch_improvement/experiment_step.md" in index
+    assert "workflows/lines_256_arch_improvement/debug_crash.md" in index
 
     prompt = REPO_ROOT / "prompts/workflows/lines_256_arch_improvement/experiment_step.md"
     assert prompt.exists()
+    debug_prompt = REPO_ROOT / "prompts/workflows/lines_256_arch_improvement/debug_crash.md"
+    assert debug_prompt.exists()
 
 
 def test_studies_index_registers_lines_256_session_workflow():
@@ -40,7 +43,26 @@ def test_lines_256_arch_improvement_workflow_uses_v27_repeat_until_and_30m_run_b
     assert "repeat_until" in experiment_loop
 
     loop_steps = experiment_loop["repeat_until"]["steps"]
-    route_step = next(step for step in loop_steps if step["name"] == "RouteExperimentReadiness")
-    ready_case = route_step["match"]["cases"]["READY"]["steps"]
-    run_candidate = next(step for step in ready_case if step["name"] == "RunCandidateExperiment")
+    assert (
+        experiment_loop["repeat_until"]["outputs"]["loop_decision"]["from"]["ref"]
+        == "self.steps.FinalizeIterationDecision.artifacts.loop_decision"
+    )
+
+    prepare_context = next(step for step in loop_steps if step["name"] == "PrepareCandidateContext")
+    bundle_fields = prepare_context["output_bundle"]["fields"]
+    bundle_field_names = {field["name"] for field in bundle_fields}
+    assert "debug_candidate_metadata_path" in bundle_field_names
+    assert "debug_candidate_paths_file" in bundle_field_names
+
+    run_candidate = next(step for step in loop_steps if step["name"] == "RunCandidateExperiment")
     assert run_candidate["timeout_sec"] == 1800
+
+    debug_step = next(step for step in loop_steps if step["name"] == "DebugCandidateCrash")
+    assert debug_step["input_file"] == "prompts/workflows/lines_256_arch_improvement/debug_crash.md"
+    assert (
+        debug_step["output_bundle"]["path"]
+        == "state/lines_256_arch_improvement/debug_candidate_metadata.json"
+    )
+
+    rerun_step = next(step for step in loop_steps if step["name"] == "RunDebuggedCandidateExperiment")
+    assert rerun_step["timeout_sec"] == 1800

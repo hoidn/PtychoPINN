@@ -155,7 +155,7 @@ steps:
             "baseline_result_path": "state/lines_256_arch_improvement/baseline_run_result.json",
             "baseline_comparison_png": (
                 f"outputs/lines_256_arch_improvement/comparison_pngs/{session_id}/"
-                f"{session_id}__baseline__compare_amp_phase_probe.png"
+                f"{session_id}__baseline__compare_amp_phase.png"
             ),
         }
 
@@ -399,7 +399,7 @@ steps:
           type: enum
           allowed: ["CONTINUE", "STOP"]
           from:
-            ref: self.steps.RouteExperimentReadiness.artifacts.loop_decision
+            ref: self.steps.FinalizeIterationDecision.artifacts.loop_decision
       condition:
         compare:
           left:
@@ -429,6 +429,10 @@ steps:
                   "candidate_paths_file": "state/lines_256_arch_improvement/candidate_paths.json",
                   "candidate_run_result_path": "state/lines_256_arch_improvement/candidate_run_result.json",
                   "candidate_assessment_path": "state/lines_256_arch_improvement/candidate_assessment.json",
+                  "debug_candidate_metadata_path": "state/lines_256_arch_improvement/debug_candidate_metadata.json",
+                  "debug_candidate_paths_file": "state/lines_256_arch_improvement/debug_candidate_paths.json",
+                  "debug_candidate_run_result_path": "state/lines_256_arch_improvement/debug_candidate_run_result.json",
+                  "debug_candidate_assessment_path": "state/lines_256_arch_improvement/debug_candidate_assessment.json",
                   "output_root_base": session["output_root_base"],
                   "log_root": session["log_root"],
                   "comparison_gallery_dir": session["comparison_gallery_dir"],
@@ -447,6 +451,14 @@ steps:
                 under: state/lines_256_arch_improvement
               - name: candidate_paths_file
                 json_pointer: /candidate_paths_file
+                type: relpath
+                under: state/lines_256_arch_improvement
+              - name: debug_candidate_metadata_path
+                json_pointer: /debug_candidate_metadata_path
+                type: relpath
+                under: state/lines_256_arch_improvement
+              - name: debug_candidate_paths_file
+                json_pointer: /debug_candidate_paths_file
                 type: relpath
                 under: state/lines_256_arch_improvement
 
@@ -495,311 +507,823 @@ steps:
                 under: outputs/lines_256_arch_improvement
                 required: false
 
-        - name: RouteExperimentReadiness
-          id: route_experiment_readiness
-          match:
-            ref: self.steps.ExperimentStep.artifacts.candidate_status
-            cases:
-              READY:
-                id: ready_candidate_path
-                outputs:
-                  loop_decision:
-                    kind: scalar
-                    type: enum
-                    allowed: ["CONTINUE", "STOP"]
-                    from:
-                      ref: self.steps.WriteContinueDecision.artifacts.loop_decision
-                steps:
-                  - name: RunCandidateExperiment
-                    id: run_candidate_experiment
-                    command:
-                      - bash
-                      - -lc
-                      - |
-                        python - <<'PY'
-                        import json
-                        import subprocess
-                        from pathlib import Path
+        - name: RunCandidateExperiment
+          id: run_candidate_experiment
+          when:
+            compare:
+              left:
+                ref: self.steps.ExperimentStep.artifacts.candidate_status
+              op: eq
+              right: READY
+          command:
+            - bash
+            - -lc
+            - |
+              python - <<'PY'
+              import json
+              import subprocess
+              from pathlib import Path
 
-                        context = json.loads(
-                            Path("state/lines_256_arch_improvement/candidate_context.json").read_text(encoding="utf-8")
-                        )
-                        metadata = json.loads(
-                            Path("state/lines_256_arch_improvement/candidate_metadata.json").read_text(encoding="utf-8")
-                        )
+              context = json.loads(
+                  Path("state/lines_256_arch_improvement/candidate_context.json").read_text(encoding="utf-8")
+              )
+              metadata = json.loads(
+                  Path("state/lines_256_arch_improvement/candidate_metadata.json").read_text(encoding="utf-8")
+              )
 
-                        if metadata.get("status") != "READY":
-                            raise SystemExit("candidate metadata is not READY")
+              if metadata.get("status") != "READY":
+                  raise SystemExit("candidate metadata is not READY")
 
-                        log_path = Path(metadata["log_path"])
-                        log_path.parent.mkdir(parents=True, exist_ok=True)
+              log_path = Path(metadata["log_path"])
+              log_path.parent.mkdir(parents=True, exist_ok=True)
 
-                        try:
-                            proc = subprocess.run(
-                                ["bash", "-lc", metadata["run_command"]],
-                                capture_output=True,
-                                text=True,
-                                timeout=1800,
-                                check=False,
-                            )
-                            payload = {
-                                "launcher_status": "completed",
-                                "exit_code": proc.returncode,
-                                "timed_out": False,
-                            }
-                            log_path.write_text(
-                                proc.stdout + ("\n" if proc.stdout and not proc.stdout.endswith("\n") else "")
-                                + proc.stderr,
-                                encoding="utf-8",
-                            )
-                        except subprocess.TimeoutExpired as exc:
-                            payload = {
-                                "launcher_status": "timeout",
-                                "exit_code": 124,
-                                "timed_out": True,
-                            }
-                            stdout = exc.stdout or ""
-                            stderr = exc.stderr or ""
-                            log_path.write_text(
-                                stdout + ("\n" if stdout and not stdout.endswith("\n") else "") + stderr,
-                                encoding="utf-8",
-                            )
+              try:
+                  proc = subprocess.run(
+                      ["bash", "-lc", metadata["run_command"]],
+                      capture_output=True,
+                      text=True,
+                      timeout=1800,
+                      check=False,
+                  )
+                  payload = {
+                      "launcher_status": "completed",
+                      "exit_code": proc.returncode,
+                      "timed_out": False,
+                  }
+                  log_path.write_text(
+                      proc.stdout + ("\n" if proc.stdout and not proc.stdout.endswith("\n") else "")
+                      + proc.stderr,
+                      encoding="utf-8",
+                  )
+              except subprocess.TimeoutExpired as exc:
+                  payload = {
+                      "launcher_status": "timeout",
+                      "exit_code": 124,
+                      "timed_out": True,
+                  }
+                  stdout = exc.stdout or ""
+                  stderr = exc.stderr or ""
+                  log_path.write_text(
+                      stdout + ("\n" if stdout and not stdout.endswith("\n") else "") + stderr,
+                      encoding="utf-8",
+                  )
 
-                        Path(context["candidate_run_result_path"]).write_text(
-                            json.dumps(payload, indent=2) + "\n",
-                            encoding="utf-8",
-                        )
-                        PY
-                    timeout_sec: 1800
-                    output_bundle:
-                      path: state/lines_256_arch_improvement/candidate_run_result.json
-                      fields:
-                        - name: launcher_status
-                          json_pointer: /launcher_status
-                          type: enum
-                          allowed: ["completed", "timeout"]
-                        - name: exit_code
-                          json_pointer: /exit_code
-                          type: integer
-                        - name: timed_out
-                          json_pointer: /timed_out
-                          type: bool
+              Path(context["candidate_run_result_path"]).write_text(
+                  json.dumps(payload, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              PY
+          timeout_sec: 1800
+          output_bundle:
+            path: state/lines_256_arch_improvement/candidate_run_result.json
+            fields:
+              - name: launcher_status
+                json_pointer: /launcher_status
+                type: enum
+                allowed: ["completed", "timeout"]
+              - name: exit_code
+                json_pointer: /exit_code
+                type: integer
+              - name: timed_out
+                json_pointer: /timed_out
+                type: bool
 
-                  - name: HarvestCandidateOutputs
-                    id: harvest_candidate_outputs
-                    command:
-                      - bash
-                      - -lc
-                      - |
-                        python - <<'PY'
-                        import json
-                        import shutil
-                        from pathlib import Path
+        - name: HarvestCandidateOutputs
+          id: harvest_candidate_outputs
+          when:
+            compare:
+              left:
+                ref: self.steps.ExperimentStep.artifacts.candidate_status
+              op: eq
+              right: READY
+          command:
+            - bash
+            - -lc
+            - |
+              python - <<'PY'
+              import json
+              import shutil
+              from pathlib import Path
 
-                        context = json.loads(
-                            Path("state/lines_256_arch_improvement/candidate_context.json").read_text(encoding="utf-8")
-                        )
-                        metadata = json.loads(
-                            Path("state/lines_256_arch_improvement/candidate_metadata.json").read_text(encoding="utf-8")
-                        )
-                        accepted = json.loads(
-                            Path("state/lines_256_arch_improvement/accepted_state.json").read_text(encoding="utf-8")
-                        )
-                        run_result = json.loads(
-                            Path(context["candidate_run_result_path"]).read_text(encoding="utf-8")
-                        )
+              context = json.loads(
+                  Path("state/lines_256_arch_improvement/candidate_context.json").read_text(encoding="utf-8")
+              )
+              metadata = json.loads(
+                  Path("state/lines_256_arch_improvement/candidate_metadata.json").read_text(encoding="utf-8")
+              )
+              accepted = json.loads(
+                  Path("state/lines_256_arch_improvement/accepted_state.json").read_text(encoding="utf-8")
+              )
+              run_result = json.loads(
+                  Path(context["candidate_run_result_path"]).read_text(encoding="utf-8")
+              )
 
-                        output_root = Path(metadata["output_root"])
-                        compare_png = None
-                        amp_ssim = None
-                        decision = "CRASH"
-                        delta = None
+              output_root = Path(metadata["output_root"])
+              compare_png = None
+              amp_ssim = None
+              decision = "CRASH"
+              delta = None
 
-                        if run_result["launcher_status"] == "completed" and run_result["exit_code"] == 0:
-                            metrics_path = output_root / "runs" / "pinn_hybrid_resnet" / "metrics.json"
-                            if not metrics_path.exists():
-                                candidates = sorted(output_root.rglob("metrics.json"))
-                                if candidates:
-                                    metrics_path = candidates[0]
-                            if metrics_path.exists():
-                                metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
-                                amp_ssim = metrics.get("amp_ssim")
-                                if amp_ssim is None:
-                                    ssim = metrics.get("ssim")
-                                    if isinstance(ssim, list) and len(ssim) >= 1:
-                                        amp_ssim = ssim[0]
+              if run_result["launcher_status"] == "completed" and run_result["exit_code"] == 0:
+                  metrics_path = output_root / "runs" / "pinn_hybrid_resnet" / "metrics.json"
+                  if not metrics_path.exists():
+                      candidates = sorted(output_root.rglob("metrics.json"))
+                      if candidates:
+                          metrics_path = candidates[0]
+                  if metrics_path.exists():
+                      metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+                      amp_ssim = metrics.get("amp_ssim")
+                      if amp_ssim is None:
+                          ssim = metrics.get("ssim")
+                          if isinstance(ssim, list) and len(ssim) >= 1:
+                              amp_ssim = ssim[0]
 
-                            compare_source = output_root / "visuals" / "compare_amp_phase.png"
-                            if not compare_source.exists():
-                                compare_candidates = sorted(output_root.rglob("compare_amp_phase.png"))
-                                if compare_candidates:
-                                    compare_source = compare_candidates[0]
-                            if compare_source.exists():
-                                target = Path(metadata["comparison_png_path"])
-                                target.parent.mkdir(parents=True, exist_ok=True)
-                                shutil.copy2(compare_source, target)
-                                compare_png = metadata["comparison_png_path"]
+                  compare_source = output_root / "visuals" / "compare_amp_phase.png"
+                  if not compare_source.exists():
+                      compare_candidates = sorted(output_root.rglob("compare_amp_phase.png"))
+                      if compare_candidates:
+                          compare_source = compare_candidates[0]
+                  if compare_source.exists():
+                      target = Path(metadata["comparison_png_path"])
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      shutil.copy2(compare_source, target)
+                      compare_png = metadata["comparison_png_path"]
 
-                            if amp_ssim is not None and compare_png is not None:
-                                delta = float(amp_ssim) - float(accepted["accepted_amp_ssim"])
-                                decision = "KEEP" if float(amp_ssim) > float(accepted["accepted_amp_ssim"]) else "DISCARD"
+                  if amp_ssim is not None and compare_png is not None:
+                      delta = float(amp_ssim) - float(accepted["accepted_amp_ssim"])
+                      decision = "KEEP" if float(amp_ssim) > float(accepted["accepted_amp_ssim"]) else "DISCARD"
 
-                        payload = {
-                            "decision": decision,
-                            "candidate_amp_ssim": amp_ssim,
-                            "compared_to_ref": accepted["accepted_ref"],
-                            "compared_to_amp_ssim": accepted["accepted_amp_ssim"],
-                            "delta_amp_ssim": delta,
-                            "comparison_png_path": compare_png,
-                        }
-                        Path(context["candidate_assessment_path"]).write_text(
-                            json.dumps(payload, indent=2) + "\n",
-                            encoding="utf-8",
-                        )
-                        PY
-                    output_bundle:
-                      path: state/lines_256_arch_improvement/candidate_assessment.json
-                      fields:
-                        - name: decision
-                          json_pointer: /decision
-                          type: enum
-                          allowed: ["KEEP", "DISCARD", "CRASH"]
-                        - name: candidate_amp_ssim
-                          json_pointer: /candidate_amp_ssim
-                          type: float
-                          required: false
-                        - name: compared_to_amp_ssim
-                          json_pointer: /compared_to_amp_ssim
-                          type: float
-                        - name: delta_amp_ssim
-                          json_pointer: /delta_amp_ssim
-                          type: float
-                          required: false
-                        - name: comparison_png_path
-                          json_pointer: /comparison_png_path
-                          type: relpath
-                          under: outputs/lines_256_arch_improvement
-                          required: false
+              payload = {
+                  "decision": decision,
+                  "compared_to_ref": accepted["accepted_ref"],
+                  "compared_to_amp_ssim": accepted["accepted_amp_ssim"],
+              }
+              if amp_ssim is not None:
+                  payload["candidate_amp_ssim"] = amp_ssim
+              if delta is not None:
+                  payload["delta_amp_ssim"] = delta
+              if compare_png is not None:
+                  payload["comparison_png_path"] = compare_png
+              Path(context["candidate_assessment_path"]).write_text(
+                  json.dumps(payload, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              PY
+          output_bundle:
+            path: state/lines_256_arch_improvement/candidate_assessment.json
+            fields:
+              - name: decision
+                json_pointer: /decision
+                type: enum
+                allowed: ["KEEP", "DISCARD", "CRASH"]
+              - name: candidate_amp_ssim
+                json_pointer: /candidate_amp_ssim
+                type: float
+                required: false
+              - name: compared_to_amp_ssim
+                json_pointer: /compared_to_amp_ssim
+                type: float
+              - name: delta_amp_ssim
+                json_pointer: /delta_amp_ssim
+                type: float
+                required: false
+              - name: comparison_png_path
+                json_pointer: /comparison_png_path
+                type: relpath
+                under: outputs/lines_256_arch_improvement
+                required: false
 
-                  - name: AppendCandidateLedgerRow
-                    id: append_candidate_ledger_row
-                    command:
-                      - bash
-                      - -lc
-                      - |
-                        python - <<'PY'
-                        import csv
-                        import json
-                        from datetime import datetime, timezone
-                        from pathlib import Path
+        - name: AppendCandidateLedgerRow
+          id: append_candidate_ledger_row
+          when:
+            compare:
+              left:
+                ref: self.steps.ExperimentStep.artifacts.candidate_status
+              op: eq
+              right: READY
+          command:
+            - bash
+            - -lc
+            - |
+              python - <<'PY'
+              import csv
+              import json
+              from datetime import datetime, timezone
+              from pathlib import Path
 
-                        session = json.loads(
-                            Path("state/lines_256_arch_improvement/session_context.json").read_text(encoding="utf-8")
-                        )
-                        metadata = json.loads(
-                            Path("state/lines_256_arch_improvement/candidate_metadata.json").read_text(encoding="utf-8")
-                        )
-                        assessment = json.loads(
-                            Path("state/lines_256_arch_improvement/candidate_assessment.json").read_text(encoding="utf-8")
-                        )
+              session = json.loads(
+                  Path("state/lines_256_arch_improvement/session_context.json").read_text(encoding="utf-8")
+              )
+              metadata = json.loads(
+                  Path("state/lines_256_arch_improvement/candidate_metadata.json").read_text(encoding="utf-8")
+              )
+              assessment = json.loads(
+                  Path("state/lines_256_arch_improvement/candidate_assessment.json").read_text(encoding="utf-8")
+              )
 
-                        ledger = Path(session["results_tsv_path"])
-                        with ledger.open("a", encoding="utf-8", newline="") as fh:
-                            writer = csv.writer(fh, delimiter="\t")
-                            writer.writerow(
-                                [
-                                    session["session_id"],
-                                    datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                                    metadata.get("candidate_commit", "na"),
-                                    assessment["decision"].lower(),
-                                    assessment["candidate_amp_ssim"] if assessment.get("candidate_amp_ssim") is not None else "na",
-                                    assessment["compared_to_ref"],
-                                    assessment["compared_to_amp_ssim"],
-                                    assessment["delta_amp_ssim"] if assessment.get("delta_amp_ssim") is not None else "na",
-                                    metadata.get("output_root", "na"),
-                                    assessment.get("comparison_png_path", "na") or "na",
-                                    metadata.get("run_command", "na"),
-                                    metadata.get("note", ""),
-                                ]
-                            )
-                        PY
+              ledger = Path(session["results_tsv_path"])
+              with ledger.open("a", encoding="utf-8", newline="") as fh:
+                  writer = csv.writer(fh, delimiter="\t")
+                  writer.writerow(
+                      [
+                          session["session_id"],
+                          datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                          metadata.get("candidate_commit", "na"),
+                          assessment["decision"].lower(),
+                          assessment["candidate_amp_ssim"] if assessment.get("candidate_amp_ssim") is not None else "na",
+                          assessment["compared_to_ref"],
+                          assessment["compared_to_amp_ssim"],
+                          assessment["delta_amp_ssim"] if assessment.get("delta_amp_ssim") is not None else "na",
+                          metadata.get("output_root", "na"),
+                          assessment.get("comparison_png_path", "na") or "na",
+                          metadata.get("run_command", "na"),
+                          metadata.get("note", ""),
+                      ]
+                  )
+              PY
 
-                  - name: KeepOrDiscardCandidate
-                    id: keep_or_discard_candidate
-                    command:
-                      - bash
-                      - -lc
-                      - |
-                        python - <<'PY'
-                        import json
-                        import subprocess
-                        from pathlib import Path
+        - name: AssessInitialCandidateOutcome
+          id: assess_initial_candidate_outcome
+          command:
+            - bash
+            - -lc
+            - |
+              python - <<'PY'
+              import json
+              from pathlib import Path
 
-                        metadata = json.loads(
-                            Path("state/lines_256_arch_improvement/candidate_metadata.json").read_text(encoding="utf-8")
-                        )
-                        assessment = json.loads(
-                            Path("state/lines_256_arch_improvement/candidate_assessment.json").read_text(encoding="utf-8")
-                        )
-                        protected = json.loads(
-                            Path("state/lines_256_arch_improvement/protected_local_paths.json").read_text(encoding="utf-8")
-                        )
-                        accepted_path = Path("state/lines_256_arch_improvement/accepted_state.json")
-                        accepted = json.loads(accepted_path.read_text(encoding="utf-8"))
+              state_dir = Path("state/lines_256_arch_improvement")
+              metadata_path = state_dir / "candidate_metadata.json"
+              assessment_path = state_dir / "candidate_assessment.json"
 
-                        if assessment["decision"] == "KEEP":
-                            accepted["accepted_ref"] = metadata["candidate_commit"]
-                            accepted["accepted_amp_ssim"] = float(assessment["candidate_amp_ssim"])
-                            accepted_path.write_text(json.dumps(accepted, indent=2) + "\n", encoding="utf-8")
-                            raise SystemExit(0)
+              if not metadata_path.exists():
+                  payload = {"initial_outcome": "BLOCKED"}
+              else:
+                  metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                  if metadata.get("status") != "READY":
+                      payload = {"initial_outcome": "BLOCKED"}
+                  elif not assessment_path.exists():
+                      payload = {"initial_outcome": "BLOCKED"}
+                  else:
+                      assessment = json.loads(assessment_path.read_text(encoding="utf-8"))
+                      payload = {"initial_outcome": assessment.get("decision", "BLOCKED")}
 
-                        candidate_paths = json.loads(
-                            Path(metadata["candidate_paths_file"]).read_text(encoding="utf-8")
-                        )
-                        if assessment["decision"] in {"DISCARD", "CRASH"}:
-                            subprocess.run(["git", "reset", "--mixed", "HEAD^"], check=True)
-                            if candidate_paths:
-                                subprocess.run(
-                                    ["git", "restore", "--source=HEAD", "--staged", "--worktree", "--", *candidate_paths],
-                                    check=True,
-                                )
+              (state_dir / "initial_candidate_outcome.json").write_text(
+                  json.dumps(payload, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              PY
+          output_bundle:
+            path: state/lines_256_arch_improvement/initial_candidate_outcome.json
+            fields:
+              - name: initial_outcome
+                json_pointer: /initial_outcome
+                type: enum
+                allowed: ["KEEP", "DISCARD", "CRASH", "BLOCKED"]
 
-                        current = subprocess.run(
-                            ["git", "status", "--short", "--untracked-files=no"],
-                            check=True,
-                            capture_output=True,
-                            text=True,
-                        ).stdout.splitlines()
-                        current_paths = []
-                        for line in current:
-                            line = line.rstrip()
-                            if line:
-                                current_paths.append(line[3:].strip())
+        - name: HandleInitialCandidateOutcome
+          id: handle_initial_candidate_outcome
+          command:
+            - bash
+            - -lc
+            - |
+              python - <<'PY'
+              import json
+              import subprocess
+              from pathlib import Path
 
-                        if current_paths != protected:
-                            raise SystemExit(
-                                "Protected local-change set changed after discard/crash recovery:\n"
-                                f"expected={protected}\ncurrent={current_paths}"
-                            )
-                        PY
+              state_dir = Path("state/lines_256_arch_improvement")
+              initial_outcome = json.loads(
+                  (state_dir / "initial_candidate_outcome.json").read_text(encoding="utf-8")
+              )["initial_outcome"]
 
-                  - name: WriteContinueDecision
-                    id: write_continue_decision
-                    set_scalar:
-                      artifact: loop_decision
-                      value: CONTINUE
-              BLOCKED:
-                id: blocked_candidate_path
-                outputs:
-                  loop_decision:
-                    kind: scalar
-                    type: enum
-                    allowed: ["CONTINUE", "STOP"]
-                    from:
-                      ref: self.steps.WriteStopDecision.artifacts.loop_decision
-                steps:
-                  - name: WriteStopDecision
-                    id: write_stop_decision
-                    set_scalar:
-                      artifact: loop_decision
-                      value: STOP
+              if initial_outcome == "BLOCKED":
+                  raise SystemExit(0)
+
+              metadata = json.loads((state_dir / "candidate_metadata.json").read_text(encoding="utf-8"))
+              assessment = json.loads((state_dir / "candidate_assessment.json").read_text(encoding="utf-8"))
+              protected = json.loads((state_dir / "protected_local_paths.json").read_text(encoding="utf-8"))
+              accepted_path = state_dir / "accepted_state.json"
+              accepted = json.loads(accepted_path.read_text(encoding="utf-8"))
+
+              if initial_outcome == "KEEP":
+                  accepted["accepted_ref"] = metadata["candidate_commit"]
+                  accepted["accepted_amp_ssim"] = float(assessment["candidate_amp_ssim"])
+                  accepted_path.write_text(json.dumps(accepted, indent=2) + "\n", encoding="utf-8")
+                  raise SystemExit(0)
+
+              candidate_paths = json.loads(Path(metadata["candidate_paths_file"]).read_text(encoding="utf-8"))
+              if initial_outcome in {"DISCARD", "CRASH"}:
+                  subprocess.run(["git", "reset", "--mixed", "HEAD^"], check=True)
+                  if candidate_paths:
+                      subprocess.run(
+                          ["git", "restore", "--source=HEAD", "--staged", "--worktree", "--", *candidate_paths],
+                          check=True,
+                      )
+
+              current = subprocess.run(
+                  ["git", "status", "--short", "--untracked-files=no"],
+                  check=True,
+                  capture_output=True,
+                  text=True,
+              ).stdout.splitlines()
+              current_paths = []
+              for line in current:
+                  line = line.rstrip()
+                  if line:
+                      current_paths.append(line[3:].strip())
+
+              if current_paths != protected:
+                  raise SystemExit(
+                      "Protected local-change set changed after initial outcome handling:\n"
+                      f"expected={protected}\ncurrent={current_paths}"
+                  )
+              PY
+
+        - name: DebugCandidateCrash
+          id: debug_candidate_crash
+          when:
+            compare:
+              left:
+                ref: self.steps.AssessInitialCandidateOutcome.artifacts.initial_outcome
+              op: eq
+              right: CRASH
+          provider: codex
+          input_file: prompts/workflows/lines_256_arch_improvement/debug_crash.md
+          timeout_sec: 3600
+          depends_on:
+            required:
+              - docs/studies/lines_256_dataset.md
+              - docs/studies/lines_256_arch_improvement_loop.md
+              - state/lines_256_arch_improvement/protected_local_paths.json
+              - state/lines_256_arch_improvement/accepted_state.json
+              - state/lines_256_arch_improvement/candidate_context.json
+              - state/lines_256_arch_improvement/candidate_metadata.json
+              - state/lines_256_arch_improvement/candidate_assessment.json
+            inject:
+              mode: content
+              position: prepend
+              instruction: "Use these files as the authoritative crash-debug inputs."
+          output_bundle:
+            path: state/lines_256_arch_improvement/debug_candidate_metadata.json
+            fields:
+              - name: candidate_status
+                json_pointer: /status
+                type: enum
+                allowed: ["READY", "BLOCKED"]
+              - name: candidate_paths_file
+                json_pointer: /candidate_paths_file
+                type: relpath
+                under: state/lines_256_arch_improvement
+                must_exist_target: true
+                required: false
+              - name: output_root
+                json_pointer: /output_root
+                type: relpath
+                under: outputs/lines_256_arch_improvement
+                required: false
+              - name: log_path
+                json_pointer: /log_path
+                type: relpath
+                under: state/lines_256_arch_improvement
+                required: false
+              - name: comparison_png_path
+                json_pointer: /comparison_png_path
+                type: relpath
+                under: outputs/lines_256_arch_improvement
+                required: false
+
+        - name: AssessCrashDebugReadiness
+          id: assess_crash_debug_readiness
+          command:
+            - bash
+            - -lc
+            - |
+              python - <<'PY'
+              import json
+              from pathlib import Path
+
+              state_dir = Path("state/lines_256_arch_improvement")
+              outcome = json.loads(
+                  (state_dir / "initial_candidate_outcome.json").read_text(encoding="utf-8")
+              )["initial_outcome"]
+              debug_metadata_path = state_dir / "debug_candidate_metadata.json"
+
+              if outcome != "CRASH":
+                  payload = {"debug_status": "NONE"}
+              elif not debug_metadata_path.exists():
+                  payload = {"debug_status": "BLOCKED"}
+              else:
+                  debug_metadata = json.loads(debug_metadata_path.read_text(encoding="utf-8"))
+                  payload = {"debug_status": debug_metadata.get("status", "BLOCKED")}
+
+              (state_dir / "crash_debug_status.json").write_text(
+                  json.dumps(payload, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              PY
+          output_bundle:
+            path: state/lines_256_arch_improvement/crash_debug_status.json
+            fields:
+              - name: debug_status
+                json_pointer: /debug_status
+                type: enum
+                allowed: ["NONE", "READY", "BLOCKED"]
+
+        - name: RunDebuggedCandidateExperiment
+          id: run_debugged_candidate_experiment
+          when:
+            compare:
+              left:
+                ref: self.steps.AssessCrashDebugReadiness.artifacts.debug_status
+              op: eq
+              right: READY
+          command:
+            - bash
+            - -lc
+            - |
+              python - <<'PY'
+              import json
+              import subprocess
+              from pathlib import Path
+
+              context = json.loads(
+                  Path("state/lines_256_arch_improvement/candidate_context.json").read_text(encoding="utf-8")
+              )
+              metadata = json.loads(
+                  Path("state/lines_256_arch_improvement/debug_candidate_metadata.json").read_text(encoding="utf-8")
+              )
+
+              if metadata.get("status") != "READY":
+                  raise SystemExit("debug candidate metadata is not READY")
+
+              log_path = Path(metadata["log_path"])
+              log_path.parent.mkdir(parents=True, exist_ok=True)
+
+              try:
+                  proc = subprocess.run(
+                      ["bash", "-lc", metadata["run_command"]],
+                      capture_output=True,
+                      text=True,
+                      timeout=1800,
+                      check=False,
+                  )
+                  payload = {
+                      "launcher_status": "completed",
+                      "exit_code": proc.returncode,
+                      "timed_out": False,
+                  }
+                  log_path.write_text(
+                      proc.stdout + ("\n" if proc.stdout and not proc.stdout.endswith("\n") else "")
+                      + proc.stderr,
+                      encoding="utf-8",
+                  )
+              except subprocess.TimeoutExpired as exc:
+                  payload = {
+                      "launcher_status": "timeout",
+                      "exit_code": 124,
+                      "timed_out": True,
+                  }
+                  stdout = exc.stdout or ""
+                  stderr = exc.stderr or ""
+                  log_path.write_text(
+                      stdout + ("\n" if stdout and not stdout.endswith("\n") else "") + stderr,
+                      encoding="utf-8",
+                  )
+
+              Path(context["debug_candidate_run_result_path"]).write_text(
+                  json.dumps(payload, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              PY
+          timeout_sec: 1800
+          output_bundle:
+            path: state/lines_256_arch_improvement/debug_candidate_run_result.json
+            fields:
+              - name: launcher_status
+                json_pointer: /launcher_status
+                type: enum
+                allowed: ["completed", "timeout"]
+              - name: exit_code
+                json_pointer: /exit_code
+                type: integer
+              - name: timed_out
+                json_pointer: /timed_out
+                type: bool
+
+        - name: HarvestDebuggedCandidateOutputs
+          id: harvest_debugged_candidate_outputs
+          when:
+            compare:
+              left:
+                ref: self.steps.AssessCrashDebugReadiness.artifacts.debug_status
+              op: eq
+              right: READY
+          command:
+            - bash
+            - -lc
+            - |
+              python - <<'PY'
+              import json
+              import shutil
+              from pathlib import Path
+
+              context = json.loads(
+                  Path("state/lines_256_arch_improvement/candidate_context.json").read_text(encoding="utf-8")
+              )
+              metadata = json.loads(
+                  Path("state/lines_256_arch_improvement/debug_candidate_metadata.json").read_text(encoding="utf-8")
+              )
+              accepted = json.loads(
+                  Path("state/lines_256_arch_improvement/accepted_state.json").read_text(encoding="utf-8")
+              )
+              run_result = json.loads(
+                  Path(context["debug_candidate_run_result_path"]).read_text(encoding="utf-8")
+              )
+
+              output_root = Path(metadata["output_root"])
+              compare_png = None
+              amp_ssim = None
+              decision = "CRASH"
+              delta = None
+
+              if run_result["launcher_status"] == "completed" and run_result["exit_code"] == 0:
+                  metrics_path = output_root / "runs" / "pinn_hybrid_resnet" / "metrics.json"
+                  if not metrics_path.exists():
+                      candidates = sorted(output_root.rglob("metrics.json"))
+                      if candidates:
+                          metrics_path = candidates[0]
+                  if metrics_path.exists():
+                      metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+                      amp_ssim = metrics.get("amp_ssim")
+                      if amp_ssim is None:
+                          ssim = metrics.get("ssim")
+                          if isinstance(ssim, list) and len(ssim) >= 1:
+                              amp_ssim = ssim[0]
+
+                  compare_source = output_root / "visuals" / "compare_amp_phase.png"
+                  if not compare_source.exists():
+                      compare_candidates = sorted(output_root.rglob("compare_amp_phase.png"))
+                      if compare_candidates:
+                          compare_source = compare_candidates[0]
+                  if compare_source.exists():
+                      target = Path(metadata["comparison_png_path"])
+                      target.parent.mkdir(parents=True, exist_ok=True)
+                      shutil.copy2(compare_source, target)
+                      compare_png = metadata["comparison_png_path"]
+
+                  if amp_ssim is not None and compare_png is not None:
+                      delta = float(amp_ssim) - float(accepted["accepted_amp_ssim"])
+                      decision = "KEEP" if float(amp_ssim) > float(accepted["accepted_amp_ssim"]) else "DISCARD"
+
+              payload = {
+                  "decision": decision,
+                  "compared_to_ref": accepted["accepted_ref"],
+                  "compared_to_amp_ssim": accepted["accepted_amp_ssim"],
+              }
+              if amp_ssim is not None:
+                  payload["candidate_amp_ssim"] = amp_ssim
+              if delta is not None:
+                  payload["delta_amp_ssim"] = delta
+              if compare_png is not None:
+                  payload["comparison_png_path"] = compare_png
+              Path(context["debug_candidate_assessment_path"]).write_text(
+                  json.dumps(payload, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              PY
+          output_bundle:
+            path: state/lines_256_arch_improvement/debug_candidate_assessment.json
+            fields:
+              - name: decision
+                json_pointer: /decision
+                type: enum
+                allowed: ["KEEP", "DISCARD", "CRASH"]
+              - name: candidate_amp_ssim
+                json_pointer: /candidate_amp_ssim
+                type: float
+                required: false
+              - name: compared_to_amp_ssim
+                json_pointer: /compared_to_amp_ssim
+                type: float
+              - name: delta_amp_ssim
+                json_pointer: /delta_amp_ssim
+                type: float
+                required: false
+              - name: comparison_png_path
+                json_pointer: /comparison_png_path
+                type: relpath
+                under: outputs/lines_256_arch_improvement
+                required: false
+
+        - name: AppendDebuggedCandidateLedgerRow
+          id: append_debugged_candidate_ledger_row
+          when:
+            compare:
+              left:
+                ref: self.steps.AssessCrashDebugReadiness.artifacts.debug_status
+              op: eq
+              right: READY
+          command:
+            - bash
+            - -lc
+            - |
+              python - <<'PY'
+              import csv
+              import json
+              from datetime import datetime, timezone
+              from pathlib import Path
+
+              session = json.loads(
+                  Path("state/lines_256_arch_improvement/session_context.json").read_text(encoding="utf-8")
+              )
+              metadata = json.loads(
+                  Path("state/lines_256_arch_improvement/debug_candidate_metadata.json").read_text(encoding="utf-8")
+              )
+              assessment = json.loads(
+                  Path("state/lines_256_arch_improvement/debug_candidate_assessment.json").read_text(encoding="utf-8")
+              )
+
+              ledger = Path(session["results_tsv_path"])
+              with ledger.open("a", encoding="utf-8", newline="") as fh:
+                  writer = csv.writer(fh, delimiter="\t")
+                  writer.writerow(
+                      [
+                          session["session_id"],
+                          datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                          metadata.get("candidate_commit", "na"),
+                          assessment["decision"].lower(),
+                          assessment["candidate_amp_ssim"] if assessment.get("candidate_amp_ssim") is not None else "na",
+                          assessment["compared_to_ref"],
+                          assessment["compared_to_amp_ssim"],
+                          assessment["delta_amp_ssim"] if assessment.get("delta_amp_ssim") is not None else "na",
+                          metadata.get("output_root", "na"),
+                          assessment.get("comparison_png_path", "na") or "na",
+                          metadata.get("run_command", "na"),
+                          metadata.get("note", ""),
+                      ]
+                  )
+              PY
+
+        - name: AssessDebuggedCandidateOutcome
+          id: assess_debugged_candidate_outcome
+          command:
+            - bash
+            - -lc
+            - |
+              python - <<'PY'
+              import json
+              from pathlib import Path
+
+              state_dir = Path("state/lines_256_arch_improvement")
+              debug_status = json.loads(
+                  (state_dir / "crash_debug_status.json").read_text(encoding="utf-8")
+              )["debug_status"]
+              assessment_path = state_dir / "debug_candidate_assessment.json"
+
+              if debug_status != "READY":
+                  payload = {"debugged_outcome": "NONE"}
+              elif not assessment_path.exists():
+                  payload = {"debugged_outcome": "CRASH"}
+              else:
+                  assessment = json.loads(assessment_path.read_text(encoding="utf-8"))
+                  payload = {"debugged_outcome": assessment.get("decision", "CRASH")}
+
+              (state_dir / "debugged_candidate_outcome.json").write_text(
+                  json.dumps(payload, indent=2) + "\n",
+                  encoding="utf-8",
+              )
+              PY
+          output_bundle:
+            path: state/lines_256_arch_improvement/debugged_candidate_outcome.json
+            fields:
+              - name: debugged_outcome
+                json_pointer: /debugged_outcome
+                type: enum
+                allowed: ["NONE", "KEEP", "DISCARD", "CRASH"]
+
+        - name: HandleDebuggedCandidateOutcome
+          id: handle_debugged_candidate_outcome
+          command:
+            - bash
+            - -lc
+            - |
+              python - <<'PY'
+              import json
+              import subprocess
+              from pathlib import Path
+
+              state_dir = Path("state/lines_256_arch_improvement")
+              debug_status = json.loads(
+                  (state_dir / "crash_debug_status.json").read_text(encoding="utf-8")
+              )["debug_status"]
+              debugged_outcome = json.loads(
+                  (state_dir / "debugged_candidate_outcome.json").read_text(encoding="utf-8")
+              )["debugged_outcome"]
+
+              if debug_status != "READY" or debugged_outcome == "NONE":
+                  raise SystemExit(0)
+
+              metadata = json.loads((state_dir / "debug_candidate_metadata.json").read_text(encoding="utf-8"))
+              protected = json.loads((state_dir / "protected_local_paths.json").read_text(encoding="utf-8"))
+              accepted_path = state_dir / "accepted_state.json"
+              accepted = json.loads(accepted_path.read_text(encoding="utf-8"))
+
+              if debugged_outcome == "KEEP":
+                  assessment = json.loads(
+                      (state_dir / "debug_candidate_assessment.json").read_text(encoding="utf-8")
+                  )
+                  accepted["accepted_ref"] = metadata["candidate_commit"]
+                  accepted["accepted_amp_ssim"] = float(assessment["candidate_amp_ssim"])
+                  accepted_path.write_text(json.dumps(accepted, indent=2) + "\n", encoding="utf-8")
+                  raise SystemExit(0)
+
+              candidate_paths = json.loads(Path(metadata["candidate_paths_file"]).read_text(encoding="utf-8"))
+              if debugged_outcome in {"DISCARD", "CRASH"}:
+                  subprocess.run(["git", "reset", "--mixed", "HEAD^"], check=True)
+                  if candidate_paths:
+                      subprocess.run(
+                          ["git", "restore", "--source=HEAD", "--staged", "--worktree", "--", *candidate_paths],
+                          check=True,
+                      )
+
+              current = subprocess.run(
+                  ["git", "status", "--short", "--untracked-files=no"],
+                  check=True,
+                  capture_output=True,
+                  text=True,
+              ).stdout.splitlines()
+              current_paths = []
+              for line in current:
+                  line = line.rstrip()
+                  if line:
+                      current_paths.append(line[3:].strip())
+
+              if current_paths != protected:
+                  raise SystemExit(
+                      "Protected local-change set changed after debug outcome handling:\n"
+                      f"expected={protected}\ncurrent={current_paths}"
+                  )
+              PY
+
+        - name: FinalizeIterationDecision
+          id: finalize_iteration_decision
+          command:
+            - bash
+            - -lc
+            - |
+              python - <<'PY'
+              import json
+              from pathlib import Path
+
+              state_dir = Path("state/lines_256_arch_improvement")
+              metadata_path = state_dir / "candidate_metadata.json"
+              assessment_path = state_dir / "candidate_assessment.json"
+              initial_outcome_path = state_dir / "initial_candidate_outcome.json"
+              debug_status_path = state_dir / "crash_debug_status.json"
+              debugged_outcome_path = state_dir / "debugged_candidate_outcome.json"
+              decision_path = state_dir / "iteration_decision.json"
+
+              if (
+                  not metadata_path.exists()
+                  or not initial_outcome_path.exists()
+                  or not debug_status_path.exists()
+                  or not debugged_outcome_path.exists()
+              ):
+                  payload = {"loop_decision": "STOP"}
+              else:
+                  metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                  status = metadata.get("status")
+                  initial_outcome = json.loads(initial_outcome_path.read_text(encoding="utf-8"))["initial_outcome"]
+                  debug_status = json.loads(debug_status_path.read_text(encoding="utf-8"))["debug_status"]
+                  debugged_outcome = json.loads(debugged_outcome_path.read_text(encoding="utf-8"))["debugged_outcome"]
+
+                  if status == "BLOCKED" or initial_outcome == "BLOCKED":
+                      payload = {"loop_decision": "STOP"}
+                  elif debug_status == "BLOCKED":
+                      payload = {"loop_decision": "STOP"}
+                  elif debug_status == "READY":
+                      payload = {
+                          "loop_decision": "CONTINUE" if debugged_outcome in {"KEEP", "DISCARD"} else "STOP"
+                      }
+                  elif debug_status == "NONE":
+                      payload = {
+                          "loop_decision": "CONTINUE" if initial_outcome in {"KEEP", "DISCARD"} else "STOP"
+                      }
+                  elif assessment_path.exists():
+                      assessment = json.loads(assessment_path.read_text(encoding="utf-8"))
+                      payload = {
+                          "loop_decision": "CONTINUE" if assessment.get("decision") in {"KEEP", "DISCARD"} else "STOP"
+                      }
+                  else:
+                      payload = {"loop_decision": "STOP"}
+
+              decision_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+              PY
+          output_bundle:
+            path: state/lines_256_arch_improvement/iteration_decision.json
+            fields:
+              - name: loop_decision
+                json_pointer: /loop_decision
+                type: enum
+                allowed: ["CONTINUE", "STOP"]

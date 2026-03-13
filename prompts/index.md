@@ -25,6 +25,7 @@ Workflow references:
 | Prompt | Purpose | Used By |
 |---|---|---|
 | `workflows/lines_256_arch_improvement/experiment_step.md` | Prepare exactly one candidate `lines_256` architecture-improvement attempt without running the experiment or owning ledger/keep-discard logic. | `workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml` |
+| `workflows/lines_256_arch_improvement/debug_crash.md` | Diagnose one concrete candidate crash, prepare a focused crash-fix candidate if warranted, or block cleanly. | `workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml` |
 
 ## Core Agent Prompts
 

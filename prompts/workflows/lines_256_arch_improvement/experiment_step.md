@@ -86,7 +86,7 @@ For `READY`:
   "run_command": "python scripts/studies/run_lines_256_arch_experiment.py --output-dir outputs/lines_256_arch_improvement/<timestamp>_<short_commit> ...",
   "output_root": "outputs/lines_256_arch_improvement/<timestamp>_<short_commit>",
   "log_path": "state/lines_256_arch_improvement/<timestamp>_<short_commit>.log",
-  "comparison_png_path": "outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/<timestamp>_<short_commit>__compare_amp_phase_probe.png",
+  "comparison_png_path": "outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/<timestamp>_<short_commit>__compare_amp_phase.png",
   "note": "one short sentence explaining the change",
   "hypothesis": "one short sentence explaining why this change could improve amp_ssim or simplify the system"
 }

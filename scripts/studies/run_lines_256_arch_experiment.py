@@ -4,16 +4,11 @@
 from __future__ import annotations
 
 import argparse
-import shutil
 import subprocess
 import sys
 from pathlib import Path
 from typing import Sequence
 
-from ptycho.workflows.grid_lines_workflow import (
-    _resolve_probe_for_visuals as resolve_probe_for_visuals,
-    render_grid_lines_visuals,
-)
 from scripts.studies.invocation_logging import write_invocation_artifacts
 
 LINES_256_TRAIN_NPZ = Path(
@@ -32,6 +27,7 @@ FIXED_GRIDSIZE = 1
 FIXED_ARCHITECTURE = "hybrid_resnet"
 FIXED_SCHEDULER = "ReduceLROnPlateau"
 FIXED_PLATEAU_MIN_LR = 2e-4
+FIXED_TORCH_MAE_PRED_L2_MATCH_TARGET = True
 
 PRESETS = {
     "stagea_best_n256": {
@@ -42,32 +38,6 @@ PRESETS = {
         "hybrid_downsample_op": "avgpool_conv",
     },
 }
-
-
-def ensure_probe_inclusive_comparison_png(output_dir: Path) -> Path:
-    """Rerender visuals and publish an explicit probe-inclusive comparison PNG."""
-    probe = resolve_probe_for_visuals(output_dir)
-    if probe is None:
-        raise RuntimeError(
-            "lines_256 run did not expose a probe for comparison rendering "
-            f"under {output_dir}"
-        )
-
-    outputs = render_grid_lines_visuals(
-        output_dir,
-        order=("gt", "pinn_hybrid_resnet"),
-    )
-    compare_path = Path(outputs.get("compare", ""))
-    if not compare_path.exists():
-        raise RuntimeError(
-            "lines_256 run did not produce a rerendered comparison PNG "
-            f"under {output_dir / 'visuals'}"
-        )
-
-    explicit_path = compare_path.with_name("compare_amp_phase_probe.png")
-    shutil.copy2(compare_path, explicit_path)
-    return explicit_path
-
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -173,7 +143,7 @@ def build_runner_cmd(args: argparse.Namespace) -> list[str]:
         "--hybrid-skip-style",
         args.hybrid_skip_style,
         "--no-probe-mask",
-        "--no-torch-mae-pred-l2-match-target",
+        "--torch-mae-pred-l2-match-target",
     ]
     if args.hybrid_skip_connections:
         cmd.append("--hybrid-skip-connections")
@@ -202,6 +172,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "fixed_architecture": FIXED_ARCHITECTURE,
             "fixed_scheduler": FIXED_SCHEDULER,
             "fixed_plateau_min_lr": FIXED_PLATEAU_MIN_LR,
+            "fixed_torch_mae_pred_l2_match_target": FIXED_TORCH_MAE_PRED_L2_MATCH_TARGET,
         },
     )
 
@@ -218,7 +189,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"{args.output_dir / 'driver_stdout.log'} and "
             f"{args.output_dir / 'driver_stderr.log'}"
         )
-    ensure_probe_inclusive_comparison_png(args.output_dir)
     return 0
 
 
