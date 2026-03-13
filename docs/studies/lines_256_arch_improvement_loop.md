@@ -153,6 +153,24 @@ Do not mark a successful run complete until its gallery PNG exists.
 
 If a candidate run crashes before any comparison PNG can be produced, set `comparison_png=na` in the TSV row.
 
+## Candidate viability smoke check
+
+Before handing a candidate to the full `20`-epoch experiment, the agent should first prove that the edited code still supports a cheap end-to-end training and inference path.
+
+The smoke check is not the scored experiment. It is only a viability gate.
+
+Requirements:
+
+- use the same `lines_256` dataset pair and fixed seed / architecture family as the real loop
+- exercise both training and inference through the Torch runner stack
+- use a much cheaper budget than the scored experiment, e.g. `epochs=1`
+- write smoke outputs and logs under the session-local `outputs/lines_256_arch_improvement/` and `state/lines_256_arch_improvement/` trees
+- never stage or commit smoke outputs or logs
+
+The agent should use the smoke check to catch and repair obvious breakage caused by its own edit before the full experiment runs.
+
+If the candidate cannot be made smoke-green after a small number of focused fixes, stop and report a blocker rather than handing a broken candidate to the expensive `20`-epoch run.
+
 ## Exact loop
 
 LOOP FOREVER:
@@ -169,20 +187,22 @@ LOOP FOREVER:
 9. Read the current champion from the last TSV row in that `session_id` with `decision=baseline|keep`.
 10. Make one coherent code change within the allowed editable surface.
 11. Restrict candidate edits to existing files that are not in `protected_local_paths`.
-12. Record the exact staged candidate file list as `candidate_paths`.
-13. Stage only the intended source changes. Never stage `state/` or `outputs/`.
-14. Create exactly one candidate commit.
-15. Run exactly one `lines_256` experiment with the thin wrapper and the same fixed wrapper budget as the session baseline.
-16. Publish the candidate comparison PNG into the session gallery dir.
-17. Read candidate `amp_ssim`.
-18. Append exactly one TSV row for the candidate.
-19. If candidate `amp_ssim` is strictly greater than champion `amp_ssim`, leave the commit in place. The branch has advanced.
-20. If candidate `amp_ssim` is equal, lower, missing, or the run crashed, append the `discard` or `crash` row first, then run:
+12. Run a cheap end-to-end smoke check for the edited candidate and fix obvious breakage if needed.
+13. If the candidate cannot be made smoke-green without guessing or thrashing, stop and report a blocker.
+14. Record the exact staged candidate file list as `candidate_paths`.
+15. Stage only the intended source changes. Never stage `state/` or `outputs/`.
+16. Create exactly one candidate commit after the candidate is smoke-green.
+17. Run exactly one `lines_256` experiment with the thin wrapper and the same fixed wrapper budget as the session baseline.
+18. Publish the candidate comparison PNG into the session gallery dir.
+19. Read candidate `amp_ssim`.
+20. Append exactly one TSV row for the candidate.
+21. If candidate `amp_ssim` is strictly greater than champion `amp_ssim`, leave the commit in place. The branch has advanced.
+22. If candidate `amp_ssim` is equal, lower, missing, or the run crashed, append the `discard` or `crash` row first, then run:
     - `git reset --mixed HEAD^`
     - `git restore --source=HEAD --staged --worktree -- <candidate_paths>`
-21. After a discard, confirm the protected local-change set is unchanged with:
+23. After a discard, confirm the protected local-change set is unchanged with:
     - `git status --short --untracked-files=no`
-22. Continue the loop using the last `baseline` or `keep` row from the current `session_id` as the champion.
+24. Continue the loop using the last `baseline` or `keep` row from the current `session_id` as the champion.
 
 Because each loop iteration creates exactly one candidate commit and candidate files must not overlap `protected_local_paths`, `git reset --mixed HEAD^` followed by restore of `candidate_paths` returns the checkout to the previous champion commit while preserving unrelated tracked edits.
 
