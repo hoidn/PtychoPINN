@@ -51,7 +51,7 @@ Default starting point:
   - `hybrid_resnet_blocks=6`
   - `hybrid_skip_style=add`
   - `probe_mask=off`
-  - `torch_mae_pred_l2_match_target=off`
+  - `torch_mae_pred_l2_match_target=on`
 
 The experiment loop:
 LOOP FOREVER:
@@ -106,4 +106,3 @@ footnotes:
 Keep `probe_mask` off unless the experiment is explicitly about probe masking.
 Every run must publish one easy-to-find comparison PNG in the session gallery dir.
 The comparison PNG must include the probe, not just the object views.
-

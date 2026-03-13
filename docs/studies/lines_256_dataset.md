@@ -75,7 +75,7 @@ Important:
 
 - For canonical non-diagnostic `N=256` promotion runs, the runbook requires both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
 - For a lines-only architecture experiment, use `scripts/studies/run_lines_256_arch_experiment.py` so the fixed dataset and epoch budget stay consistent across experiments.
-- The wrapper pins `--train-npz`, `--test-npz`, `--seed 3`, `--epochs 20`, `--N 256`, `--gridsize 1`, `--architecture hybrid_resnet`, `--no-probe-mask`, and `--no-torch-mae-pred-l2-match-target`.
+- The wrapper pins `--train-npz`, `--test-npz`, `--seed 3`, `--epochs 20`, `--N 256`, `--gridsize 1`, `--architecture hybrid_resnet`, `--no-probe-mask`, and `--torch-mae-pred-l2-match-target`.
 - The wrapper also pins `--scheduler ReduceLROnPlateau` and `--plateau-min-lr 0.0002`.
 - Use the direct Torch runner only when you explicitly need to bypass the wrapper contract.
 - If you need to rebuild the pair, do it programmatically through `GridLinesConfig` plus `build_grid_lines_datasets(...)`; the thin CLI wrapper still exposes only `--N 64|128`.
