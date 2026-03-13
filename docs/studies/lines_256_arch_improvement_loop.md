@@ -50,6 +50,8 @@ At the beginning of every new experiment session:
    - test NPZ
    - `seed=3`
    - `epochs=20`
+   - `scheduler=ReduceLROnPlateau`
+   - `plateau_min_lr=2e-4`
    - `N=256`
    - `gridsize=1`
    - `architecture=hybrid_resnet`

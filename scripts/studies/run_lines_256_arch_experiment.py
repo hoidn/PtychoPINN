@@ -30,6 +30,8 @@ FIXED_EPOCHS = 20
 FIXED_N = 256
 FIXED_GRIDSIZE = 1
 FIXED_ARCHITECTURE = "hybrid_resnet"
+FIXED_SCHEDULER = "ReduceLROnPlateau"
+FIXED_PLATEAU_MIN_LR = 2e-4
 
 PRESETS = {
     "stagea_best_n256": {
@@ -142,6 +144,10 @@ def build_runner_cmd(args: argparse.Namespace) -> list[str]:
         str(FIXED_N),
         "--gridsize",
         str(FIXED_GRIDSIZE),
+        "--scheduler",
+        FIXED_SCHEDULER,
+        "--plateau-min-lr",
+        str(FIXED_PLATEAU_MIN_LR),
         "--batch-size",
         str(args.batch_size),
         "--learning-rate",
@@ -194,6 +200,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             "fixed_N": FIXED_N,
             "fixed_gridsize": FIXED_GRIDSIZE,
             "fixed_architecture": FIXED_ARCHITECTURE,
+            "fixed_scheduler": FIXED_SCHEDULER,
+            "fixed_plateau_min_lr": FIXED_PLATEAU_MIN_LR,
         },
     )
 

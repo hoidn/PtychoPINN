@@ -33,6 +33,8 @@ def test_build_runner_cmd_pins_lines_256_invariants(tmp_path):
     assert cmd[cmd.index("--N") + 1] == "256"
     assert cmd[cmd.index("--gridsize") + 1] == "1"
     assert cmd[cmd.index("--architecture") + 1] == "hybrid_resnet"
+    assert cmd[cmd.index("--scheduler") + 1] == "ReduceLROnPlateau"
+    assert cmd[cmd.index("--plateau-min-lr") + 1] == "0.0002"
     assert cmd[cmd.index("--fno-modes") + 1] == "24"
     assert cmd[cmd.index("--fno-width") + 1] == "48"
     assert cmd[cmd.index("--hybrid-downsample-op") + 1] == "avgpool_conv"
