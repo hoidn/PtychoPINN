@@ -56,21 +56,24 @@ Default starting point:
 The experiment loop:
 LOOP FOREVER:
 1. Read `docs/studies/lines_256_dataset.md` and `docs/studies/lines_256_arch_improvement_loop.md`.
-2. Check tracked git state. If tracked files are dirty, stop and report a blocker.
-3. Ensure the untracked TSV ledger exists at the exact path defined by the loop document.
-4. Start a new session by regenerating a fresh baseline from the current `HEAD` with the default control and fixed budget from the loop document.
-5. Publish the baseline comparison PNG to the session gallery dir defined by the loop document.
-6. Record that baseline in the TSV ledger, including the gallery PNG path.
-7. Use the latest `baseline` or `keep` row from the current session as the champion.
-8. Make one coherent experiment change at a time unless multiple changes are tightly coupled.
-9. Stage only the intended source changes. Never stage `state/` or `outputs/`.
-10. Create exactly one candidate commit.
-11. Run exactly one `lines_256` experiment through the thin wrapper with the same fixed dataset and epoch budget as the session baseline.
-12. Publish the candidate comparison PNG to the session gallery dir.
-13. Read candidate `amp_ssim`.
-14. Append exactly one candidate row to the TSV ledger, including the gallery PNG path.
-15. If candidate `amp_ssim` is strictly better than the champion, keep the commit. The branch has advanced.
-16. If candidate `amp_ssim` is equal, worse, missing, or the run crashed, record that in the TSV and reset back exactly as defined by the loop document.
+2. Check tracked git state and record the pre-existing tracked dirty file list exactly as defined by the loop document.
+3. Do not stop just because unrelated tracked files are already dirty.
+4. Treat the pre-existing tracked dirty files as protected local changes. Do not stage them, edit them, reset them, or include them in the candidate commit.
+5. Ensure the untracked TSV ledger exists at the exact path defined by the loop document.
+6. Start a new session by regenerating a fresh baseline from the current `HEAD` with the default control and fixed budget from the loop document.
+7. Publish the baseline comparison PNG to the session gallery dir defined by the loop document.
+8. Record that baseline in the TSV ledger, including the gallery PNG path.
+9. Use the latest `baseline` or `keep` row from the current session as the champion.
+10. Make one coherent experiment change at a time unless multiple changes are tightly coupled.
+11. Restrict candidate edits to existing files only, and only when those files are not in the protected local-change set.
+12. Stage only the intended candidate files. Never stage `state/` or `outputs/`.
+13. Create exactly one candidate commit.
+14. Run exactly one `lines_256` experiment through the thin wrapper with the same fixed dataset and epoch budget as the session baseline.
+15. Publish the candidate comparison PNG to the session gallery dir.
+16. Read candidate `amp_ssim`.
+17. Append exactly one candidate row to the TSV ledger, including the gallery PNG path.
+18. If candidate `amp_ssim` is strictly better than the champion, keep the commit. The branch has advanced.
+19. If candidate `amp_ssim` is equal, worse, missing, or the run crashed, discard it exactly as defined by the loop document without changing the protected local-change set.
 
 Working rules:
 1. The TSV ledger is the authoritative experiment history. Keep it untracked so resets do not erase prior results.
@@ -80,7 +83,9 @@ Working rules:
 5. Keep `probe_mask` off unless the experiment is explicitly about probe masking.
 6. Every run must publish one easy-to-find comparison PNG in the session gallery dir.
 7. The comparison PNG must include the probe, not just the object views.
-8. If the best next change requires edits outside the editable surface, stop and report that explicitly instead of guessing.
+8. Existing tracked dirty files are protected local changes, not automatic blockers.
+9. If the next candidate would need to touch a protected local-change file, stop and report that overlap explicitly.
+10. If the best next change requires edits outside the editable surface, stop and report that explicitly instead of guessing.
 
 Reporting:
 - After each experiment, print a short plain-text summary with:

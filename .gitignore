@@ -87,6 +87,12 @@ train_debug.log
 training_outputs/
 # Artifacts (new policy)
 .artifacts/
+.orchestrate/
+artifacts/
+state/
+$OUTDIR/
+docs/plans/**/reports/
+docs/plans/**/reports/**
 
 # Legacy report hubs (keep ignored; do not create new ones)
 plans/**/reports/**

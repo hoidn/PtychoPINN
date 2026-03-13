@@ -20,6 +20,21 @@ Use this loop when you want `autoresearch`-style branch advancement:
 
 If the dataset note or thin wrapper is missing, stop and report a blocker. Do not guess alternate paths.
 
+## Protected local changes rule
+
+This loop must not stop just because the checkout already has unrelated tracked edits.
+
+At the beginning of each session:
+
+1. run:
+   - `git status --short --untracked-files=no`
+2. record the tracked dirty file paths from that command as `protected_local_paths`
+3. do not stage, edit, reset, or commit any path in `protected_local_paths`
+4. if a candidate would need to modify a path in `protected_local_paths`, stop and report that overlap as a blocker
+5. keep `protected_local_paths` unchanged across `baseline`, `keep`, `discard`, and `crash` outcomes
+
+This means unrelated tracked edits stay in place while the loop operates only on newly changed candidate files.
+
 ## Fresh baseline rule
 
 Do not depend on an archived baseline from an older study run.
@@ -145,7 +160,7 @@ LOOP FOREVER:
 1. Read `docs/studies/lines_256_dataset.md` and this loop document.
 2. Check tracked git state with:
    - `git status --short --untracked-files=no`
-3. If tracked files are dirty, stop and report a blocker.
+3. Record the tracked dirty file list from step 2 as `protected_local_paths`.
 4. Ensure `state/lines_256_arch_improvement/results.tsv` exists. If not, create it with the exact header above.
 5. Create a new `session_id`.
 6. Regenerate a fresh baseline from the current `HEAD` using the thin wrapper and default control.
@@ -153,20 +168,23 @@ LOOP FOREVER:
 8. Append one `baseline` row for that `session_id`.
 9. Read the current champion from the last TSV row in that `session_id` with `decision=baseline|keep`.
 10. Make one coherent code change within the allowed editable surface.
-11. Stage only the intended source changes. Never stage `state/` or `outputs/`.
-12. Create exactly one candidate commit.
-13. Run exactly one `lines_256` experiment with the thin wrapper and the same fixed wrapper budget as the session baseline.
-14. Publish the candidate comparison PNG into the session gallery dir.
-15. Read candidate `amp_ssim`.
-16. Append exactly one TSV row for the candidate.
-17. If candidate `amp_ssim` is strictly greater than champion `amp_ssim`, leave the commit in place. The branch has advanced.
-18. If candidate `amp_ssim` is equal, lower, missing, or the run crashed, append the `discard` or `crash` row first, then run:
-    - `git reset --hard HEAD^`
-19. After a reset, confirm tracked cleanliness again with:
+11. Restrict candidate edits to existing files that are not in `protected_local_paths`.
+12. Record the exact staged candidate file list as `candidate_paths`.
+13. Stage only the intended source changes. Never stage `state/` or `outputs/`.
+14. Create exactly one candidate commit.
+15. Run exactly one `lines_256` experiment with the thin wrapper and the same fixed wrapper budget as the session baseline.
+16. Publish the candidate comparison PNG into the session gallery dir.
+17. Read candidate `amp_ssim`.
+18. Append exactly one TSV row for the candidate.
+19. If candidate `amp_ssim` is strictly greater than champion `amp_ssim`, leave the commit in place. The branch has advanced.
+20. If candidate `amp_ssim` is equal, lower, missing, or the run crashed, append the `discard` or `crash` row first, then run:
+    - `git reset --mixed HEAD^`
+    - `git restore --source=HEAD --staged --worktree -- <candidate_paths>`
+21. After a discard, confirm the protected local-change set is unchanged with:
     - `git status --short --untracked-files=no`
-20. Continue the loop using the last `baseline` or `keep` row from the current `session_id` as the champion.
+22. Continue the loop using the last `baseline` or `keep` row from the current `session_id` as the champion.
 
-Because each loop iteration creates exactly one candidate commit, `git reset --hard HEAD^` returns the branch to the previous champion commit.
+Because each loop iteration creates exactly one candidate commit and candidate files must not overlap `protected_local_paths`, `git reset --mixed HEAD^` followed by restore of `candidate_paths` returns the checkout to the previous champion commit while preserving unrelated tracked edits.
 
 ## Candidate row format
 
