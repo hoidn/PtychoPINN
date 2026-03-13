@@ -26,6 +26,13 @@ FIXED_N = 256
 FIXED_GRIDSIZE = 1
 FIXED_ARCHITECTURE = "hybrid_resnet"
 
+PRESETS = {
+    "stagea_best_n256": {
+        "fno_modes": 24,
+        "fno_width": 64,
+    },
+}
+
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -33,6 +40,12 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "Run a lines_256 hybrid-resnet experiment with fixed dataset, seed, "
             "resolution, and epoch budget."
         )
+    )
+    parser.add_argument(
+        "--preset",
+        choices=sorted(PRESETS),
+        default=None,
+        help="Optional named lines_256 experiment preset.",
     )
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--batch-size", type=int, default=16)
@@ -70,6 +83,9 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         choices=["add", "concat", "gated_add"],
         default="add",
     )
+    preset_args, _ = parser.parse_known_args(argv)
+    if preset_args.preset:
+        parser.set_defaults(**PRESETS[preset_args.preset])
     return parser.parse_args(argv)
 
 

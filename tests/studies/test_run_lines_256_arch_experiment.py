@@ -37,6 +37,24 @@ def test_build_runner_cmd_pins_lines_256_invariants(tmp_path):
     assert "--no-torch-mae-pred-l2-match-target" in cmd
 
 
+def test_build_runner_cmd_applies_stagea_best_n256_preset(tmp_path):
+    from scripts.studies import run_lines_256_arch_experiment as wrapper
+
+    args = wrapper.parse_args(
+        [
+            "--output-dir",
+            str(tmp_path / "run"),
+            "--preset",
+            "stagea_best_n256",
+        ]
+    )
+
+    cmd = wrapper.build_runner_cmd(args)
+
+    assert cmd[cmd.index("--fno-modes") + 1] == "24"
+    assert cmd[cmd.index("--fno-width") + 1] == "64"
+
+
 def test_main_runs_runner_and_writes_invocation(monkeypatch, tmp_path):
     from scripts.studies import run_lines_256_arch_experiment as wrapper
 
