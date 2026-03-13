@@ -20,6 +20,12 @@ Workflow references:
 - recommended: `workflows/agent_orchestration/backlog_plan_slice_impl_dual_review_loop.yaml`
 - legacy: `workflows/agent_orchestration/backlog_plan_slice_impl_review_loop.yaml`
 
+## Lines 256 Experiment Prompt
+
+| Prompt | Purpose | Used By |
+|---|---|---|
+| `workflows/lines_256_arch_improvement/experiment_step.md` | Prepare exactly one candidate `lines_256` architecture-improvement attempt without running the experiment or owning ledger/keep-discard logic. | `workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml` |
+
 ## Core Agent Prompts
 
 | Prompt | Purpose |

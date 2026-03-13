@@ -14,6 +14,8 @@
 
 - Purpose: Fix the exact autonomous loop for `lines_256` architecture experiments, including fresh baseline generation at session start, the untracked TSV ledger path, the session-local champion rule, and the keep/discard reset behavior.
 - Document: `docs/studies/lines_256_arch_improvement_loop.md`
+- Workflow: `workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml`
+- Provider prompt: `prompts/workflows/lines_256_arch_improvement/experiment_step.md`
 - Ledger path: `state/lines_256_arch_improvement/results.tsv`
 - Baseline rule: regenerate from the current `HEAD` at the beginning of each session using the default control and fixed budget in the loop document
 - Thin wrapper: `scripts/studies/run_lines_256_arch_experiment.py`
