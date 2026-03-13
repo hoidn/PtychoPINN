@@ -79,10 +79,7 @@ Working rules:
 1. The TSV ledger is the authoritative experiment history. Keep it untracked so resets do not erase prior results.
 2. Every new session starts by regenerating a fresh baseline from the current `HEAD`. Do not depend on an older study run.
 3. Equal `amp_ssim` is not good enough. Only strict improvement advances the branch.
-4. Prefer simple improvements over broader, riskier changes.
-5. Keep `probe_mask` off unless the experiment is explicitly about probe masking.
-6. Every run must publish one easy-to-find comparison PNG in the session gallery dir.
-7. The comparison PNG must include the probe, not just the object views.
+4. All else being equal, simpler is better. A small improvement that adds ugly complexity is not worth it.
 8. Existing tracked dirty files are protected local changes, not automatic blockers.
 9. If the next candidate would need to touch a protected local-change file, stop and report that overlap explicitly.
 10. If the best next change requires edits outside the editable surface, stop and report that explicitly instead of guessing.
@@ -104,3 +101,9 @@ Constraints:
 - No fabricated evidence.
 - No hidden dataset substitution.
 - No “better” claim without an explicit `amp_ssim` comparison against the current champion from the TSV ledger.
+
+footnotes:
+Keep `probe_mask` off unless the experiment is explicitly about probe masking.
+Every run must publish one easy-to-find comparison PNG in the session gallery dir.
+The comparison PNG must include the probe, not just the object views.
+
