@@ -59,6 +59,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** lines_256, custom_npz_pair_n256, n256, grid-lines, dataset, npz
 **Use this when:** You need the exact `N=256` lines dataset for a single-dataset experiment or want the authoritative path/usage note that prompt-library agents should follow.
 
+### [Lines 256 Architecture Loop](studies/lines_256_arch_improvement_loop.md)
+**Description:** Exact `autoresearch`-style loop contract for `lines_256` architecture experiments, including fresh baseline generation through the fixed-parameter thin wrapper, the untracked TSV ledger path, the session-local champion rule, the comparison-PNG gallery contract, and keep/discard reset behavior.
+**Keywords:** lines_256, architecture-loop, amp_ssim, baseline, wrapper, results.tsv, compare_amp_phase, probe, git-reset, session
+**Use this when:** You need a deterministic autonomous experiment loop for the `lines_256` prompt-library agent or want the authoritative rule for baseline generation, result recording, and keep/discard decisions.
+
 ### [PyTorch Model Loading & Inference Guide](../ptycho_torch/README.md)
 **Description:** Practical guide to loading PyTorch models for inference, including the recommended CLI path and manual reconstruction from state_dict-only `model.pt` files.  
 **Keywords:** pytorch, inference, model-loading, state_dict, lightning, config-factory  

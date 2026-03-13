@@ -39,15 +39,8 @@ This pair is the same `custom_npz_pair_n256` dataset referenced by the hybrid-re
 Preferred path for a single-model experiment:
 
 ```bash
-python scripts/studies/grid_lines_torch_runner.py \
-  --train-npz outputs/hybrid_resnet_structural_rerun_20260226T110719Z/datasets/custom_npz_builder_n256/datasets/N256/gs1/train.npz \
-  --test-npz outputs/hybrid_resnet_structural_rerun_20260226T110719Z/datasets/custom_npz_builder_n256/datasets/N256/gs1/test.npz \
+python scripts/studies/run_lines_256_arch_experiment.py \
   --output-dir <output_dir> \
-  --architecture hybrid_resnet \
-  --seed 3 \
-  --epochs 10 \
-  --N 256 \
-  --gridsize 1 \
   --fno-modes 12 \
   --fno-width 32 \
   --fno-blocks 4 \
@@ -55,9 +48,7 @@ python scripts/studies/grid_lines_torch_runner.py \
   --hybrid-downsample-steps 2 \
   --hybrid-downsample-op stride_conv \
   --hybrid-resnet-blocks 6 \
-  --hybrid-skip-style add \
-  --no-probe-mask \
-  --no-torch-mae-pred-l2-match-target
+  --hybrid-skip-style add
 ```
 
 Runbook path when you need the staged sweep/orchestration machinery:
@@ -76,8 +67,9 @@ python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
 Important:
 
 - For canonical non-diagnostic `N=256` promotion runs, the runbook requires both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
-- For a lines-only architecture experiment, use the direct Torch runner or an explicitly diagnostic runbook invocation.
-- Keep `--no-probe-mask` unless you are intentionally studying probe-mask effects.
+- For a lines-only architecture experiment, use `scripts/studies/run_lines_256_arch_experiment.py` so the fixed dataset and epoch budget stay consistent across experiments.
+- The wrapper pins `--train-npz`, `--test-npz`, `--seed 3`, `--epochs 20`, `--N 256`, `--gridsize 1`, `--architecture hybrid_resnet`, `--no-probe-mask`, and `--no-torch-mae-pred-l2-match-target`.
+- Use the direct Torch runner only when you explicitly need to bypass the wrapper contract.
 
 ## Metric Guidance
 
@@ -93,3 +85,4 @@ For the simplified architecture-improvement agent prompt, the optimization metri
 - `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-c-execution.md`
 - `scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py`
 - `scripts/studies/grid_lines_torch_runner.py`
+- `scripts/studies/run_lines_256_arch_experiment.py`

@@ -7,7 +7,16 @@
 - Purpose: Document the repo-local `N=256` lines dataset alias used for single-dataset architecture experiments.
 - Document: `docs/studies/lines_256_dataset.md`
 - Runbook profile name: `custom_npz_pair_n256`
-- Preferred use: direct `grid_lines_torch_runner.py` experiments or explicit diagnostic-mode runbook invocations when you want lines-only `N=256` runs.
+- Preferred use: `scripts/studies/run_lines_256_arch_experiment.py` for fixed-budget experiments or explicit diagnostic-mode runbook invocations when you want lines-only `N=256` runs.
+
+### `lines_256` architecture-improvement loop
+
+- Purpose: Fix the exact autonomous loop for `lines_256` architecture experiments, including fresh baseline generation at session start, the untracked TSV ledger path, the session-local champion rule, and the keep/discard reset behavior.
+- Document: `docs/studies/lines_256_arch_improvement_loop.md`
+- Ledger path: `state/lines_256_arch_improvement/results.tsv`
+- Baseline rule: regenerate from the current `HEAD` at the beginning of each session using the default control and fixed budget in the loop document
+- Thin wrapper: `scripts/studies/run_lines_256_arch_experiment.py`
+- Comparison gallery: `outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/`
 
 ### `hybrid-resnet-mode-skip-sweep`
 
