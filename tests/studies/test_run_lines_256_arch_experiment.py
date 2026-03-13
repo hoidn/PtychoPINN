@@ -21,6 +21,8 @@ def test_build_runner_cmd_pins_lines_256_invariants(tmp_path):
 
     cmd = wrapper.build_runner_cmd(args)
 
+    assert wrapper.LINES_256_TRAIN_NPZ == Path("outputs/lines_256_arch_improvement/datasets/N256/gs1/train.npz")
+    assert wrapper.LINES_256_TEST_NPZ == Path("outputs/lines_256_arch_improvement/datasets/N256/gs1/test.npz")
     assert cmd[:2] == ["python", "scripts/studies/grid_lines_torch_runner.py"]
     assert cmd[cmd.index("--train-npz") + 1] == str(wrapper.LINES_256_TRAIN_NPZ)
     assert cmd[cmd.index("--test-npz") + 1] == str(wrapper.LINES_256_TEST_NPZ)

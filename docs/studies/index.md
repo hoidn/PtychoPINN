@@ -7,6 +7,7 @@
 - Purpose: Document the repo-local `N=256` lines dataset alias used for single-dataset architecture experiments.
 - Document: `docs/studies/lines_256_dataset.md`
 - Runbook profile name: `custom_npz_pair_n256`
+- Probe scaling contract: `pad_preserve` for the working `lines_256` pair; `pad_extrapolate` remains available as an explicit alternative mode.
 - Preferred use: `scripts/studies/run_lines_256_arch_experiment.py` for fixed-budget experiments or explicit diagnostic-mode runbook invocations when you want lines-only `N=256` runs.
 
 ### `lines_256` architecture-improvement loop

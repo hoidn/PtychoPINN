@@ -12,12 +12,12 @@ from typing import Sequence
 from scripts.studies.invocation_logging import write_invocation_artifacts
 
 LINES_256_TRAIN_NPZ = Path(
-    "outputs/hybrid_resnet_structural_rerun_20260226T110719Z/"
-    "datasets/custom_npz_builder_n256/datasets/N256/gs1/train.npz"
+    "outputs/lines_256_arch_improvement/"
+    "datasets/N256/gs1/train.npz"
 )
 LINES_256_TEST_NPZ = Path(
-    "outputs/hybrid_resnet_structural_rerun_20260226T110719Z/"
-    "datasets/custom_npz_builder_n256/datasets/N256/gs1/test.npz"
+    "outputs/lines_256_arch_improvement/"
+    "datasets/N256/gs1/test.npz"
 )
 
 FIXED_SEED = 3

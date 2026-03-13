@@ -82,7 +82,7 @@ python scripts/studies/grid_lines_workflow.py \
 - `--output-dir`: Output directory for all artifacts
 - `--probe-mask-diameter`: Optional centered disk diameter (pixels) to mask the probe
 - `--probe-source {custom,ideal_disk}`: Selects the probe source used in simulation
-- `--probe-scale-mode {pad_extrapolate,interpolate}`: Probe scaling strategy when N changes (default: `pad_extrapolate`)
+- `--probe-scale-mode {pad_preserve,pad_extrapolate,interpolate}`: Probe scaling strategy when N changes (default: `pad_preserve`)
 
 **Memoization:**
 - Grid studies default to dataset-only memoization keys (`PTYCHO_MEMOIZE_KEY_MODE=dataset`).
@@ -124,7 +124,7 @@ Fresh checkpoint-restored initial baseline helper scripts:
   - `amp_phase_logits`: Interpret channels as amp/phase logits and apply sigmoid/tanh.
   - `amp_phase`: Use dual-head amp/phase outputs from the generator.
 - `--probe-source {custom,ideal_disk}`: Selects the probe source when generating grid-lines datasets.
-- `--probe-scale-mode {pad_extrapolate,interpolate}`: Probe scaling strategy when N changes (default: `pad_extrapolate`).
+- `--probe-scale-mode {pad_preserve,pad_extrapolate,interpolate}`: Probe scaling strategy when N changes (default: `pad_preserve`).
 - `--probe-mask-diameter`: Optional centered disk diameter (pixels) to mask the probe during dataset generation.
 - `--dataset-source {synthetic_lines,external_raw_npz}`: Select dataset preparation path.
 - `--train-data` / `--test-data`: Required when `--dataset-source external_raw_npz`.

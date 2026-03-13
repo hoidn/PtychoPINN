@@ -37,8 +37,8 @@ def parse_args(argv=None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--probe-scale-mode",
-        choices=["pad_extrapolate", "interpolate"],
-        default="pad_extrapolate",
+        choices=["pad_preserve", "pad_extrapolate", "interpolate"],
+        default="pad_preserve",
     )
     return parser.parse_args(argv)
 

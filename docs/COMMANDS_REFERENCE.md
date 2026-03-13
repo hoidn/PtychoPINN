@@ -489,7 +489,7 @@ cfg = GridLinesConfig(
     nphotons=1e9,
     probe_source="custom",
     probe_smoothing_sigma=0.5,
-    probe_scale_mode="pad_extrapolate",
+    probe_scale_mode="pad_preserve",
     set_phi=True,
 )
 
@@ -585,7 +585,7 @@ python scripts/studies/grid_lines_workflow.py \
     --nepochs 20 \
     --batch-size 16 \
     --probe-source custom \
-    --probe-scale-mode pad_extrapolate
+    --probe-scale-mode pad_preserve
 ```
 
 Invocation artifacts emitted by `grid_lines_workflow.py`:

@@ -48,7 +48,7 @@ class GridLinesConfig:
     probe_smoothing_sigma: float = 0.5
     probe_mask_diameter: Optional[int] = None
     probe_source: str = "custom"
-    probe_scale_mode: str = "pad_extrapolate"
+    probe_scale_mode: str = "pad_preserve"
     set_phi: bool = False
 
 
@@ -83,7 +83,8 @@ def scale_probe(
 
     Modes:
         - interpolate: cubic spline interpolation on real/imag parts.
-        - pad_extrapolate: edge amplitude padding + quadratic phase extrapolation.
+        - pad_preserve: smooth at source resolution, then center-pad the complex probe.
+        - pad_extrapolate: edge-pad amplitude + quadratic phase extrapolation.
     """
     return scale_probe_with_mode(
         probe,
@@ -93,20 +94,22 @@ def scale_probe(
     )
 
 
-def _fit_quadratic_phase(phase: np.ndarray) -> tuple[float, float]:
-    """Fit phase ~= a * r^2 + b to an unwrapped phase map."""
-    h, w = phase.shape
-    cy = (h - 1) / 2.0
-    cx = (w - 1) / 2.0
-    yy, xx = np.indices((h, w))
-    r2 = (yy - cy) ** 2 + (xx - cx) ** 2
-    A = np.stack([r2.ravel(), np.ones(r2.size)], axis=1)
-    coeffs, _, _, _ = np.linalg.lstsq(A, phase.ravel(), rcond=None)
-    return float(coeffs[0]), float(coeffs[1])
+def _pad_complex_probe(probe: np.ndarray, target_N: int) -> np.ndarray:
+    """Center-pad a complex probe to target_N with zeros."""
+    h, w = probe.shape
+    if h != w:
+        raise ValueError("probe must be square")
+    if target_N < h:
+        raise ValueError("pad_extrapolate requires target_N >= probe size")
+    pad_total = target_N - h
+    pad_before = pad_total // 2
+    pad_after = pad_total - pad_before
+    pad_width = ((pad_before, pad_after), (pad_before, pad_after))
+    return np.pad(probe, pad_width=pad_width, mode="constant")
 
 
 def _pad_amplitude(amplitude: np.ndarray, target_N: int) -> np.ndarray:
-    """Pad amplitude to target_N using nearest-neighbor (edge) padding."""
+    """Pad amplitude to target_N using edge padding."""
     h, w = amplitude.shape
     if h != w:
         raise ValueError("probe must be square")
@@ -119,6 +122,18 @@ def _pad_amplitude(amplitude: np.ndarray, target_N: int) -> np.ndarray:
     return np.pad(amplitude, pad_width=pad_width, mode="edge")
 
 
+def _fit_quadratic_phase(phase: np.ndarray) -> tuple[float, float]:
+    """Fit phase ~= a * r^2 + b to an unwrapped phase map."""
+    h, w = phase.shape
+    cy = (h - 1) / 2.0
+    cx = (w - 1) / 2.0
+    yy, xx = np.indices((h, w))
+    r2 = (yy - cy) ** 2 + (xx - cx) ** 2
+    design = np.stack([r2.ravel(), np.ones(r2.size)], axis=1)
+    coeffs, _, _, _ = np.linalg.lstsq(design, phase.ravel(), rcond=None)
+    return float(coeffs[0]), float(coeffs[1])
+
+
 def scale_probe_with_mode(
     probe: np.ndarray,
     target_N: int,
@@ -129,6 +144,7 @@ def scale_probe_with_mode(
 
     Modes:
         - interpolate: cubic spline interpolation on real/imag parts.
+        - pad_preserve: smooth at source resolution, then center-pad the complex probe.
         - pad_extrapolate: edge-pad amplitude + quadratic phase extrapolation.
     """
     if probe.shape[0] != probe.shape[1]:
@@ -141,6 +157,12 @@ def scale_probe_with_mode(
         if smoothing_sigma and smoothing_sigma > 0:
             probe = smooth_complex_array(probe, smoothing_sigma)
         return probe.astype(np.complex64)
+
+    if scale_mode == "pad_preserve":
+        if smoothing_sigma and smoothing_sigma > 0:
+            probe = smooth_complex_array(probe, smoothing_sigma)
+        probe_scaled = _pad_complex_probe(probe, target_N)
+        return probe_scaled.astype(np.complex64)
 
     if scale_mode != "pad_extrapolate":
         raise ValueError(f"Unknown scale_mode '{scale_mode}'")
@@ -155,7 +177,6 @@ def scale_probe_with_mode(
     cx = (target_N - 1) / 2.0
     r2 = (yy - cy) ** 2 + (xx - cx) ** 2
     phase_extrap = a * r2 + b
-
     phase_wrapped = (phase_extrap + np.pi) % (2 * np.pi) - np.pi
     probe_scaled = amplitude_padded * np.exp(1j * phase_wrapped)
 
@@ -362,6 +383,9 @@ def save_split_npz(
         nimgs_test=cfg.nimgs_test,
         probe_mask_diameter=cfg.probe_mask_diameter,
         probe_source=cfg.probe_source,
+        probe_scale_mode=cfg.probe_scale_mode,
+        probe_smoothing_sigma=cfg.probe_smoothing_sigma,
+        probe_npz=str(cfg.probe_npz),
         coords_type="relative",
     )
     MetadataManager.save_with_metadata(str(path), payload, metadata)

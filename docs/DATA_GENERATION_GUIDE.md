@@ -83,19 +83,32 @@ PTYCHO_DISABLE_MEMOIZE=1
 
 The public helper CLI `scripts/studies/grid_lines_workflow.py` currently accepts only `--N 64` or `--N 128`.
 
-If you need a synthetic grid-lines dataset at `N=256`, build it programmatically through `GridLinesConfig` and the workflow helpers in `ptycho.workflows.grid_lines_workflow` instead of that CLI. The archived `lines_256` / `custom_npz_pair_n256` benchmark pair in:
+If you need a synthetic grid-lines dataset at `N=256`, build it programmatically through `GridLinesConfig` and the workflow helpers in `ptycho.workflows.grid_lines_workflow` instead of that CLI.
+
+Current working `lines_256` pair:
+
+- `outputs/lines_256_arch_improvement/datasets/N256/gs1/train.npz`
+- `outputs/lines_256_arch_improvement/datasets/N256/gs1/test.npz`
+
+Older archived `custom_npz_pair_n256` pair:
 
 - `outputs/hybrid_resnet_structural_rerun_20260226T110719Z/datasets/custom_npz_builder_n256/datasets/N256/gs1/train.npz`
 - `outputs/hybrid_resnet_structural_rerun_20260226T110719Z/datasets/custom_npz_builder_n256/datasets/N256/gs1/test.npz`
 
-was generated this way. Its embedded metadata records the synthetic recipe:
+The current `lines_256` working pair uses:
+
+- `probe_scale_mode=pad_preserve`
+- `probe_smoothing_sigma=0.5`
+- centered complex-probe padding from the 64x64 source probe
+
+Its embedded metadata records the synthetic recipe:
 
 - `N=256`, `gridsize=1`
 - `size=392`, `offset=4`, `outer_offset_train=8`, `outer_offset_test=20`
 - `nimgs_train=2`, `nimgs_test=1`, `nphotons=1e9`
-- `probe_source=custom`, `coords_type=relative`
+- `probe_source=custom`, `probe_scale_mode=pad_preserve`, `probe_smoothing_sigma=0.5`, `coords_type=relative`
 
-The original generation invocation for that archived pair was not preserved, so use the metadata fields above as the authoritative reproduction recipe.
+The older archived pair above remains historical provenance only; use the current `lines_256` pair and its metadata fields as the authoritative working reproduction recipe.
 
 ### Direct Container Construction
 ```python

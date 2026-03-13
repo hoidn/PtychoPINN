@@ -213,7 +213,7 @@ def run_grid_lines_compare(
     probe_smoothing_sigma: float = 0.5,
     probe_mask_diameter: Optional[int] = None,
     probe_source: str = "custom",
-    probe_scale_mode: str = "pad_extrapolate",
+    probe_scale_mode: str = "pad_preserve",
     set_phi: bool = False,
     torch_epochs: Optional[int] = None,
     torch_batch_size: Optional[int] = None,
@@ -250,6 +250,7 @@ def run_grid_lines_compare(
     torch_single_image_frc_rng_seed: Optional[int] = None,
     torch_position_reassembly_backend: str = "auto",
     torch_position_reassembly_batch_size: int = 64,
+    torch_position_crop_border: Optional[int] = None,
     dataset_source: str = "synthetic_lines",
     train_data: Optional[Path] = None,
     test_data: Optional[Path] = None,
@@ -492,6 +493,7 @@ def run_grid_lines_compare(
                     reassembly_mode="position" if external_mode else "grid_lines",
                     position_reassembly_backend=torch_position_reassembly_backend,
                     position_reassembly_batch_size=torch_position_reassembly_batch_size,
+                    position_crop_border=torch_position_crop_border,
                 )
                 torch_result = torch_runner.run_grid_lines_torch(torch_cfg)
                 recon_path = torch_result.get("recon_npz")
@@ -707,6 +709,7 @@ def run_grid_lines_compare(
                 single_image_frc_rng_seed=torch_single_image_frc_rng_seed,
                 position_reassembly_backend=torch_position_reassembly_backend,
                 position_reassembly_batch_size=torch_position_reassembly_batch_size,
+                position_crop_border=torch_position_crop_border,
             )
             from scripts.studies import grid_lines_torch_runner as torch_runner
             torch_result = torch_runner.run_grid_lines_torch(torch_cfg)
@@ -819,8 +822,8 @@ def parse_args(argv=None):
     )
     parser.add_argument(
         "--probe-scale-mode",
-        choices=["pad_extrapolate", "interpolate"],
-        default="pad_extrapolate",
+        choices=["pad_preserve", "pad_extrapolate", "interpolate"],
+        default="pad_preserve",
     )
     parser.add_argument("--set-phi", action="store_true", help="Enable non-zero phase in synthetic grid data.")
     parser.add_argument("--torch-epochs", type=int, default=None)
@@ -919,6 +922,7 @@ def parse_args(argv=None):
         choices=["auto", "shift_sum", "batched"],
     )
     parser.add_argument("--torch-position-reassembly-batch-size", type=int, default=64)
+    parser.add_argument("--torch-position-crop-border", type=int, default=None)
     args = parser.parse_args(argv)
     args.architectures = _parse_architectures(args.architectures)
     args.models = _parse_models(args.models) if args.models else None
@@ -1002,6 +1006,7 @@ def main(argv=None) -> None:
         torch_single_image_frc_rng_seed=args.torch_single_image_frc_rng_seed,
         torch_position_reassembly_backend=args.torch_position_reassembly_backend,
         torch_position_reassembly_batch_size=args.torch_position_reassembly_batch_size,
+        torch_position_crop_border=args.torch_position_crop_border,
         dataset_source=args.dataset_source,
         train_data=args.train_data,
         test_data=args.test_data,

@@ -98,6 +98,49 @@ class TestProbeHelpers:
                 scale_mode="pad_extrapolate",
             )
 
+    def test_scale_probe_pad_preserve_preserves_centered_quadratic_phase(self):
+        """pad_preserve should keep the original phase inside the padded region."""
+        size = 8
+        center = (size - 1) / 2.0
+        radius_scale = (size - 1) / 2.0
+        yy, xx = np.indices((size, size))
+        r2_norm = ((yy - center) / radius_scale) ** 2 + ((xx - center) / radius_scale) ** 2
+        coeff_true = 1.25
+        bias_true = 0.2
+        phase = coeff_true * r2_norm + bias_true
+        probe = np.exp(1j * phase).astype(np.complex64)
+
+        scaled = scale_probe(
+            probe,
+            target_N=16,
+            smoothing_sigma=0.0,
+            scale_mode="pad_preserve",
+        )
+
+        start = 4
+        end = start + size
+        np.testing.assert_allclose(scaled[start:end, start:end], probe, atol=1e-6)
+        assert np.allclose(np.abs(scaled[:start, :]), 0.0, atol=1e-6)
+        assert np.allclose(np.abs(scaled[end:, :]), 0.0, atol=1e-6)
+        assert np.allclose(np.abs(scaled[:, :start]), 0.0, atol=1e-6)
+        assert np.allclose(np.abs(scaled[:, end:]), 0.0, atol=1e-6)
+
+    def test_scale_probe_pad_preserve_pads_complex_probe_without_rescaling_phase(self):
+        """pad_preserve should center-pad the complex probe and preserve phase."""
+        amplitude = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+        phase = np.zeros_like(amplitude)
+        probe = (amplitude * np.exp(1j * phase)).astype(np.complex64)
+
+        scaled = scale_probe(
+            probe,
+            target_N=4,
+            smoothing_sigma=0.0,
+            scale_mode="pad_preserve",
+        )
+
+        expected = np.pad(probe, pad_width=1, mode="constant")
+        np.testing.assert_allclose(scaled, expected, atol=1e-6)
+
     def test_apply_probe_mask_centered_disk(self):
         """apply_probe_mask should zero outside centered disk."""
         probe = (np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64)
@@ -489,6 +532,9 @@ class TestDatasetPersistence:
         save_split_npz(cfg, "train", data, config)
 
         assert captured["metadata"]["additional_parameters"]["probe_source"] == "ideal_disk"
+        assert captured["metadata"]["additional_parameters"]["probe_scale_mode"] == "pad_preserve"
+        assert captured["metadata"]["additional_parameters"]["probe_smoothing_sigma"] == 0.5
+        assert captured["metadata"]["additional_parameters"]["probe_npz"] == str(tmp_path / "probe.npz")
 
     def test_metadata_includes_coords_type(self, monkeypatch, tmp_path: Path):
         captured = {}

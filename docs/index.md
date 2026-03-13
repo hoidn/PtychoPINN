@@ -55,7 +55,7 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** You need copy/paste-ready orchestration commands and concrete local dataset/checkpoint flag patterns.
 
 ### [Lines 256 Dataset Note](studies/lines_256_dataset.md)
-**Description:** Repo-local note for the `lines_256` architecture-experiment dataset alias, including the underlying `custom_npz_pair_n256` NPZ paths, provenance, and direct-run usage guidance.
+**Description:** Repo-local note for the `lines_256` architecture-experiment dataset alias, including the regenerated working NPZ pair, its `pad_preserve` probe-scaling contract, provenance, and direct-run usage guidance.
 **Keywords:** lines_256, custom_npz_pair_n256, n256, grid-lines, dataset, npz
 **Use this when:** You need the exact `N=256` lines dataset for a single-dataset experiment or want the authoritative path/usage note that prompt-library agents should follow.
 
