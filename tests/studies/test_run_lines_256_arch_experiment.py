@@ -81,6 +81,26 @@ def test_build_runner_cmd_applies_stagec_avgpool_n256_preset(tmp_path):
     assert cmd[cmd.index("--hybrid-resnet-blocks") + 1] == "6"
 
 
+def test_build_runner_cmd_applies_lines_256_high_modes_only_preset(tmp_path):
+    from scripts.studies import run_lines_256_arch_experiment as wrapper
+
+    args = wrapper.parse_args(
+        [
+            "--output-dir",
+            str(tmp_path / "run"),
+            "--preset",
+            "lines_256_high_modes_only",
+        ]
+    )
+
+    cmd = wrapper.build_runner_cmd(args)
+
+    assert cmd[cmd.index("--fno-modes") + 1] == "24"
+    assert cmd[cmd.index("--fno-width") + 1] == "32"
+    assert cmd[cmd.index("--hybrid-downsample-op") + 1] == "stride_conv"
+    assert cmd[cmd.index("--hybrid-resnet-blocks") + 1] == "6"
+
+
 def test_main_runs_runner_and_writes_invocation(monkeypatch, tmp_path):
     from scripts.studies import run_lines_256_arch_experiment as wrapper
 
