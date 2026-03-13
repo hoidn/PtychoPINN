@@ -37,6 +37,10 @@ PRESETS = {
     "lines_256_high_modes_only": {
         "fno_modes": 24,
     },
+    "lines_256_mode48_width48": {
+        "fno_modes": 48,
+        "fno_width": 48,
+    },
     "stagec_avgpool_n256": {
         "hybrid_downsample_op": "avgpool_conv",
     },
