@@ -31,7 +31,8 @@
 7. **Respect the PyTorch policy.** PyTorch (torch ≥ 2.2) is mandatory (POLICY-001). PyTorch workflows must still run `update_legacy_dict(params.cfg, config)` before touching legacy modules; see `docs/workflows/pytorch.md`.
 8. **Testing proof is mandatory.** Any task involving tests must provide passing `pytest` evidence and archived logs as described in `prompts/main.md` and `docs/TESTING_GUIDE.md`.
 11. **Interpreter policy.** Obey PYTHON-ENV-001 in `docs/DEVELOPER_GUIDE.md` (invoke Python via PATH `python`; avoid repository-specific interpreter wrappers).
-12. **Worktree submodule policy.** In new worktrees (especially `git bisect` runs), initialize submodules before tests (`git submodule update --init --recursive`) and verify required submodule files exist (e.g., `ptycho/FRC/*`), otherwise test results are invalid.
+12. Do not create worktrees, especially not when executing plans or implementing features
+13. **Worktree submodule policy.** In existing worktrees (especially `git bisect` runs), initialize submodules before tests (`git submodule update --init --recursive`) and verify required submodule files exist (e.g., `ptycho/FRC/*`), otherwise test results are invalid.
 
 ---
 
