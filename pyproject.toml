@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=64", "setuptools_scm[toml]>=8"]
+requires = ["setuptools>=80", "setuptools-scm[simple]>=9.2"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -11,11 +11,10 @@ license = {file = "LICENSE"}
 dependencies = [
     "Pillow",
     "dill",
-    "imageio", 
+    "imageio",
     "ipywidgets",
     "jupyter",
     "matplotlib",
-    "numba",
     "numpy",
     "opencv-python",
     "pandas",
@@ -24,18 +23,27 @@ dependencies = [
     "scikit-image",
     "scikit-learn",
     "scipy",
-    "tensorflow[and-cuda]>=2.13.0",
+    "tensorflow[and-cuda]",
     "tensorflow-datasets",
     "tensorflow-hub",
     "tensorflow-metadata",
-    "tensorflow-probability",  # This version works with TF 2.15
-    #"tensorflow-probability<0.23.0",  # This version works with TF 2.15
-    #"torchmetrics",
-    #"torchvision",
+    "tensorflow-probability[tf]",
     "tqdm",
     "ujson",
 ]
 dynamic = ["version"]
+
+[project.optional-dependencies]
+torch = [
+    "lightning",
+    "mlflow",
+    "perlin_noise",
+    "powerbox",
+    "tensordict",
+    "torch",
+    "torchmetrics",
+    "torchvision",
+]
 
 [project.scripts]
 ptycho_train = "scripts.training.train:main"
@@ -76,4 +84,11 @@ filterwarnings = [
     "ignore::PendingDeprecationWarning",
     # Don't show warnings for PyTorch import failures
     "ignore:PyTorch not available.*:UserWarning"
+]
+
+[dependency-groups]
+dev = [
+    "mypy",
+    "pytest",
+    "ruff",
 ]
