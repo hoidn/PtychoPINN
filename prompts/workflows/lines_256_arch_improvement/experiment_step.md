@@ -34,7 +34,7 @@ You must use the following injected files as authority:
 - `docs/studies/lines_256_arch_improvement_loop.md`
 - `state/lines_256_arch_improvement/protected_local_paths.json`
 - `state/lines_256_arch_improvement/accepted_state.json`
-- `state/lines_256_arch_improvement/candidate_context.json`
+- the injected `candidate_context.json` for this task
 
 Task:
 1. Read the authoritative study docs and the session-state files.
@@ -46,8 +46,8 @@ Task:
 7. If the smoke check fails because of your code changes, fix the problem and rerun the smoke check.
 8. Only once the candidate is smoke-green, stage only the intended candidate files.
 9. Create exactly one candidate commit.
-10. Write candidate metadata JSON to the exact path named by `candidate_metadata_path` in `candidate_context.json`.
-11. If you created a candidate commit, also write the staged candidate file list JSON to the exact path named by `candidate_paths_file` in `candidate_context.json`.
+10. Write candidate metadata JSON to the exact path named by `candidate_metadata_path` in the injected candidate context file.
+11. If you created a candidate commit, also write the staged candidate file list JSON to the exact path named by `candidate_paths_file` in the injected candidate context file.
 
 If you cannot identify a candidate that is both coherent and worth testing, prefer `BLOCKED` over inventing a low-quality experiment.
 If you cannot get the candidate smoke-green after a small number of focused fixes, prefer `BLOCKED` over finalizing a broken candidate.
@@ -86,7 +86,7 @@ For `READY`:
   "run_command": "python scripts/studies/run_lines_256_arch_experiment.py --output-dir outputs/lines_256_arch_improvement/<timestamp>_<short_commit> ...",
   "output_root": "outputs/lines_256_arch_improvement/<timestamp>_<short_commit>",
   "log_path": "state/lines_256_arch_improvement/<timestamp>_<short_commit>.log",
-  "comparison_png_path": "outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/<timestamp>_<short_commit>__compare_amp_phase.png",
+  "comparison_png_path": "outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/<timestamp>_<short_commit>__compare_amp_phase_probe.png",
   "note": "one short sentence explaining the change",
   "hypothesis": "one short sentence explaining why this change could improve amp_ssim or simplify the system"
 }
@@ -102,8 +102,8 @@ For `BLOCKED`:
 ```
 
 Rules:
-- Use the `timestamp_utc`, `comparison_gallery_dir`, `output_root_base`, and `log_root` values from `candidate_context.json` when constructing output paths.
-- The smoke check should use `scripts/studies/grid_lines_torch_runner.py` directly so you can run a cheap end-to-end sanity pass with `epochs=1` while preserving the same `lines_256` dataset, seed, `N=256`, `gridsize=1`, `hybrid_resnet` architecture family, and no-probe-mask contract.
+- Use the `timestamp_utc`, `comparison_gallery_dir`, `output_root_base`, and `log_root` values from the injected candidate context file when constructing output paths.
+- The smoke check should use `scripts/studies/grid_lines_torch_runner.py` directly so you can run a cheap end-to-end sanity pass with `epochs=1` while preserving the same `lines_256` dataset, seed, `N=256`, `gridsize=1`, `hybrid_resnet` architecture family, `--no-probe-mask`, and `--torch-mae-pred-l2-match-target`.
 - The smoke check must exercise both training and inference, not just CLI parsing or importability.
 - The candidate run command must target the fixed `lines_256` wrapper and preserve the fixed dataset/epoch contract from the study docs.
 - Keep `probe_mask` off unless the candidate is explicitly about probe masking.

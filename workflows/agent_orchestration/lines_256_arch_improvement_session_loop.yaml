@@ -53,6 +53,63 @@ steps:
         test -f docs/studies/lines_256_dataset.md
         test -f docs/studies/lines_256_arch_improvement_loop.md
         test -f scripts/studies/run_lines_256_arch_experiment.py
+        python - <<'PY'
+        import json
+        from pathlib import Path
+
+        import numpy as np
+
+        dataset_paths = [
+            Path("outputs/lines_256_arch_improvement/datasets/N256/gs1/train.npz"),
+            Path("outputs/lines_256_arch_improvement/datasets/N256/gs1/test.npz"),
+        ]
+        expected_probe_npz = "datasets/Run1084_recon3_postPC_shrunk_3.npz"
+
+        for dataset_path in dataset_paths:
+            if not dataset_path.exists():
+                raise SystemExit(f"Missing lines_256 dataset file: {dataset_path}")
+            with np.load(dataset_path, allow_pickle=True) as data:
+                if "_metadata" not in data:
+                    raise SystemExit(f"Missing _metadata in {dataset_path}")
+                raw_metadata = data["_metadata"].item()
+            if not isinstance(raw_metadata, str):
+                raw_metadata = str(raw_metadata)
+            metadata = json.loads(raw_metadata)
+            physics = metadata.get("physics_parameters", {})
+            additional = metadata.get("additional_parameters", {})
+
+            if physics.get("N") != 256:
+                raise SystemExit(f"lines_256 dataset {dataset_path} has unexpected N={physics.get('N')}")
+            if physics.get("gridsize") != 1:
+                raise SystemExit(
+                    f"lines_256 dataset {dataset_path} has unexpected gridsize={physics.get('gridsize')}"
+                )
+            if additional.get("probe_scale_mode") != "pad_preserve":
+                raise SystemExit(
+                    f"lines_256 dataset {dataset_path} has unexpected probe_scale_mode="
+                    f"{additional.get('probe_scale_mode')}"
+                )
+            if additional.get("probe_npz") != expected_probe_npz:
+                raise SystemExit(
+                    f"lines_256 dataset {dataset_path} has unexpected probe_npz="
+                    f"{additional.get('probe_npz')}"
+                )
+            if additional.get("probe_source") != "custom":
+                raise SystemExit(
+                    f"lines_256 dataset {dataset_path} has unexpected probe_source="
+                    f"{additional.get('probe_source')}"
+                )
+            if additional.get("coords_type") != "relative":
+                raise SystemExit(
+                    f"lines_256 dataset {dataset_path} has unexpected coords_type="
+                    f"{additional.get('coords_type')}"
+                )
+            if float(additional.get("probe_smoothing_sigma")) != 0.5:
+                raise SystemExit(
+                    f"lines_256 dataset {dataset_path} has unexpected probe_smoothing_sigma="
+                    f"{additional.get('probe_smoothing_sigma')}"
+                )
+        PY
 
   - name: CaptureProtectedLocalPaths
     id: capture_protected_local_paths
@@ -155,7 +212,7 @@ steps:
             "baseline_result_path": "state/lines_256_arch_improvement/baseline_run_result.json",
             "baseline_comparison_png": (
                 f"outputs/lines_256_arch_improvement/comparison_pngs/{session_id}/"
-                f"{session_id}__baseline__compare_amp_phase.png"
+                f"{session_id}__baseline__compare_amp_phase_probe.png"
             ),
         }
 
@@ -301,9 +358,9 @@ steps:
         if amp_ssim is None:
             raise SystemExit("Baseline metrics did not expose amp_ssim")
 
-        compare_path = output_root / "visuals" / "compare_amp_phase.png"
+        compare_path = output_root / "visuals" / "compare_amp_phase_probe.png"
         if not compare_path.exists():
-            compare_candidates = sorted(output_root.rglob("compare_amp_phase.png"))
+            compare_candidates = sorted(output_root.rglob("compare_amp_phase_probe.png"))
             if not compare_candidates:
                 raise SystemExit(f"Missing baseline comparison PNG under {output_root}")
             compare_path = compare_candidates[0]
@@ -638,9 +695,9 @@ steps:
                           if isinstance(ssim, list) and len(ssim) >= 1:
                               amp_ssim = ssim[0]
 
-                  compare_source = output_root / "visuals" / "compare_amp_phase.png"
+                  compare_source = output_root / "visuals" / "compare_amp_phase_probe.png"
                   if not compare_source.exists():
-                      compare_candidates = sorted(output_root.rglob("compare_amp_phase.png"))
+                      compare_candidates = sorted(output_root.rglob("compare_amp_phase_probe.png"))
                       if compare_candidates:
                           compare_source = compare_candidates[0]
                   if compare_source.exists():
@@ -784,61 +841,14 @@ steps:
         - name: HandleInitialCandidateOutcome
           id: handle_initial_candidate_outcome
           command:
-            - bash
-            - -lc
-            - |
-              python - <<'PY'
-              import json
-              import subprocess
-              from pathlib import Path
-
-              state_dir = Path("state/lines_256_arch_improvement")
-              initial_outcome = json.loads(
-                  (state_dir / "initial_candidate_outcome.json").read_text(encoding="utf-8")
-              )["initial_outcome"]
-
-              if initial_outcome == "BLOCKED":
-                  raise SystemExit(0)
-
-              metadata = json.loads((state_dir / "candidate_metadata.json").read_text(encoding="utf-8"))
-              assessment = json.loads((state_dir / "candidate_assessment.json").read_text(encoding="utf-8"))
-              protected = json.loads((state_dir / "protected_local_paths.json").read_text(encoding="utf-8"))
-              accepted_path = state_dir / "accepted_state.json"
-              accepted = json.loads(accepted_path.read_text(encoding="utf-8"))
-
-              if initial_outcome == "KEEP":
-                  accepted["accepted_ref"] = metadata["candidate_commit"]
-                  accepted["accepted_amp_ssim"] = float(assessment["candidate_amp_ssim"])
-                  accepted_path.write_text(json.dumps(accepted, indent=2) + "\n", encoding="utf-8")
-                  raise SystemExit(0)
-
-              candidate_paths = json.loads(Path(metadata["candidate_paths_file"]).read_text(encoding="utf-8"))
-              if initial_outcome in {"DISCARD", "CRASH"}:
-                  subprocess.run(["git", "reset", "--mixed", "HEAD^"], check=True)
-                  if candidate_paths:
-                      subprocess.run(
-                          ["git", "restore", "--source=HEAD", "--staged", "--worktree", "--", *candidate_paths],
-                          check=True,
-                      )
-
-              current = subprocess.run(
-                  ["git", "status", "--short", "--untracked-files=no"],
-                  check=True,
-                  capture_output=True,
-                  text=True,
-              ).stdout.splitlines()
-              current_paths = []
-              for line in current:
-                  line = line.rstrip()
-                  if line:
-                      current_paths.append(line[3:].strip())
-
-              if current_paths != protected:
-                  raise SystemExit(
-                      "Protected local-change set changed after initial outcome handling:\n"
-                      f"expected={protected}\ncurrent={current_paths}"
-                  )
-              PY
+            - python
+            - scripts/studies/lines_256_handle_candidate_outcome.py
+            - --mode
+            - initial
+            - --session-state-dir
+            - state/lines_256_arch_improvement
+            - --state-dir
+            - state/lines_256_arch_improvement
 
         - name: DebugCandidateCrash
           id: debug_candidate_crash
@@ -1061,9 +1071,9 @@ steps:
                           if isinstance(ssim, list) and len(ssim) >= 1:
                               amp_ssim = ssim[0]
 
-                  compare_source = output_root / "visuals" / "compare_amp_phase.png"
+                  compare_source = output_root / "visuals" / "compare_amp_phase_probe.png"
                   if not compare_source.exists():
-                      compare_candidates = sorted(output_root.rglob("compare_amp_phase.png"))
+                      compare_candidates = sorted(output_root.rglob("compare_amp_phase_probe.png"))
                       if compare_candidates:
                           compare_source = compare_candidates[0]
                   if compare_source.exists():
@@ -1205,66 +1215,14 @@ steps:
         - name: HandleDebuggedCandidateOutcome
           id: handle_debugged_candidate_outcome
           command:
-            - bash
-            - -lc
-            - |
-              python - <<'PY'
-              import json
-              import subprocess
-              from pathlib import Path
-
-              state_dir = Path("state/lines_256_arch_improvement")
-              debug_status = json.loads(
-                  (state_dir / "crash_debug_status.json").read_text(encoding="utf-8")
-              )["debug_status"]
-              debugged_outcome = json.loads(
-                  (state_dir / "debugged_candidate_outcome.json").read_text(encoding="utf-8")
-              )["debugged_outcome"]
-
-              if debug_status != "READY" or debugged_outcome == "NONE":
-                  raise SystemExit(0)
-
-              metadata = json.loads((state_dir / "debug_candidate_metadata.json").read_text(encoding="utf-8"))
-              protected = json.loads((state_dir / "protected_local_paths.json").read_text(encoding="utf-8"))
-              accepted_path = state_dir / "accepted_state.json"
-              accepted = json.loads(accepted_path.read_text(encoding="utf-8"))
-
-              if debugged_outcome == "KEEP":
-                  assessment = json.loads(
-                      (state_dir / "debug_candidate_assessment.json").read_text(encoding="utf-8")
-                  )
-                  accepted["accepted_ref"] = metadata["candidate_commit"]
-                  accepted["accepted_amp_ssim"] = float(assessment["candidate_amp_ssim"])
-                  accepted_path.write_text(json.dumps(accepted, indent=2) + "\n", encoding="utf-8")
-                  raise SystemExit(0)
-
-              candidate_paths = json.loads(Path(metadata["candidate_paths_file"]).read_text(encoding="utf-8"))
-              if debugged_outcome in {"DISCARD", "CRASH"}:
-                  subprocess.run(["git", "reset", "--mixed", "HEAD^"], check=True)
-                  if candidate_paths:
-                      subprocess.run(
-                          ["git", "restore", "--source=HEAD", "--staged", "--worktree", "--", *candidate_paths],
-                          check=True,
-                      )
-
-              current = subprocess.run(
-                  ["git", "status", "--short", "--untracked-files=no"],
-                  check=True,
-                  capture_output=True,
-                  text=True,
-              ).stdout.splitlines()
-              current_paths = []
-              for line in current:
-                  line = line.rstrip()
-                  if line:
-                      current_paths.append(line[3:].strip())
-
-              if current_paths != protected:
-                  raise SystemExit(
-                      "Protected local-change set changed after debug outcome handling:\n"
-                      f"expected={protected}\ncurrent={current_paths}"
-                  )
-              PY
+            - python
+            - scripts/studies/lines_256_handle_candidate_outcome.py
+            - --mode
+            - debugged
+            - --session-state-dir
+            - state/lines_256_arch_improvement
+            - --state-dir
+            - state/lines_256_arch_improvement
 
         - name: FinalizeIterationDecision
           id: finalize_iteration_decision

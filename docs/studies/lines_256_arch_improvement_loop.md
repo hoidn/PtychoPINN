@@ -31,9 +31,13 @@ At the beginning of each session:
 2. record the tracked dirty file paths from that command as `protected_local_paths`
 3. do not stage, edit, reset, or commit any path in `protected_local_paths`
 4. if a candidate would need to modify a path in `protected_local_paths`, stop and report that overlap as a blocker
-5. keep `protected_local_paths` unchanged across `baseline`, `keep`, `discard`, and `crash` outcomes
+5. preserve every path in `protected_local_paths` across `baseline`, `keep`, `discard`, and `crash` outcomes
 
-This means unrelated tracked edits stay in place while the loop operates only on newly changed candidate files.
+This means the session protects the tracked edits that existed when the session started, while candidate cleanup is judged only on:
+- whether protected paths are still intact
+- whether candidate paths were restored cleanly
+
+New unrelated tracked edits that appear later should be tolerated as long as they do not overlap the candidate path set.
 
 ## Fresh baseline rule
 
@@ -126,14 +130,14 @@ For each session:
 - baseline output root: `outputs/lines_256_arch_improvement/<session_id>_baseline`
 - baseline log: `state/lines_256_arch_improvement/<session_id>_baseline.log`
 - comparison gallery dir: `outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/`
-- baseline gallery PNG: `outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/<session_id>__baseline__compare_amp_phase.png`
+- baseline gallery PNG: `outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/<session_id>__baseline__compare_amp_phase_probe.png`
 
 For each candidate run in that session:
 
 - output root base: `outputs/lines_256_arch_improvement/`
 - output root format: `outputs/lines_256_arch_improvement/<timestamp>_<short_commit>`
 - stdout/stderr log: `state/lines_256_arch_improvement/<timestamp>_<short_commit>.log`
-- candidate gallery PNG: `outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/<timestamp>_<short_commit>__compare_amp_phase.png`
+- candidate gallery PNG: `outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/<timestamp>_<short_commit>__compare_amp_phase_probe.png`
 
 ## Comparison PNG rule
 
@@ -141,7 +145,9 @@ Every successful run in the session must publish one comparison PNG into the ses
 
 Do not rely on nested `visuals/` directories alone. The gallery dir is the easy-to-find location for visual inspection across the whole session.
 
-For this loop, the gallery PNG is the run's comparison image copied from `visuals/compare_amp_phase.png` when available.
+For this loop, the wrapper is responsible for publishing `visuals/compare_amp_phase_probe.png`.
+
+The session gallery copies only that probe-inclusive artifact. If a successful run does not provide it, fail the run instead of silently falling back to a non-probe comparison image.
 
 Do not mark a successful run complete until its gallery PNG exists.
 
@@ -156,6 +162,7 @@ The smoke check is not the scored experiment. It is only a viability gate.
 Requirements:
 
 - use the same `lines_256` dataset pair and fixed seed / architecture family as the real loop
+- preserve the same no-probe-mask and `torch_mae_pred_l2_match_target=on` loss-path contract as the scored run
 - exercise both training and inference through the Torch runner stack
 - use a much cheaper budget than the scored experiment, e.g. `epochs=1`
 - write smoke outputs and logs under the session-local `outputs/lines_256_arch_improvement/` and `state/lines_256_arch_improvement/` trees
@@ -199,11 +206,13 @@ LOOP FOREVER:
     - `git restore --source=HEAD --staged --worktree -- <candidate_paths>`
 24. After a crash reset, attempt one focused crash-debug candidate that addresses the concrete failure and rerun the scored experiment once.
 25. If that debugged candidate still crashes, or if no clean crash fix is available, stop and report a blocker instead of looping blindly.
-26. After a discard or crash reset, confirm the protected local-change set is unchanged with:
+26. After a discard or crash reset, confirm:
     - `git status --short --untracked-files=no`
+    - every path from `protected_local_paths` is still present in the tracked-dirty set
+    - no candidate path remains dirty after the reset/restore sequence
 27. Continue the loop using the last `baseline` or `keep` row from the current `session_id` as the champion.
 
-Because each loop iteration creates exactly one candidate commit and candidate files must not overlap `protected_local_paths`, `git reset --mixed HEAD^` followed by restore of `candidate_paths` returns the checkout to the previous champion commit while preserving unrelated tracked edits.
+Because each loop iteration creates exactly one candidate commit and candidate files must not overlap `protected_local_paths`, `git reset --mixed HEAD^` followed by restore of `candidate_paths` returns the checkout to the previous champion commit while preserving protected edits and tolerating unrelated tracked dirt outside the candidate path set.
 
 ## Candidate row format
 
