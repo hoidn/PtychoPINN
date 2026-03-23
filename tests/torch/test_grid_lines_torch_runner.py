@@ -1868,6 +1868,45 @@ def test_main_defaults_torch_logger_to_csv(tmp_path, monkeypatch):
     assert captured["cfg"].logger_backend == "csv"
 
 
+def test_main_hybrid_resnet_defaults_bias_local_branch(tmp_path, monkeypatch):
+    from scripts.studies import grid_lines_torch_runner as runner
+
+    captured = {"cfg": None}
+
+    def fake_run_grid_lines_torch(cfg):
+        captured["cfg"] = cfg
+        run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return {"run_dir": str(run_dir), "metrics": {}}
+
+    monkeypatch.setattr(runner, "run_grid_lines_torch", fake_run_grid_lines_torch)
+
+    out_dir = tmp_path / "output"
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.write_bytes(b"stub")
+    test_npz.write_bytes(b"stub")
+
+    runner.main(
+        [
+            "--train-npz",
+            str(train_npz),
+            "--test-npz",
+            str(test_npz),
+            "--output-dir",
+            str(out_dir),
+            "--architecture",
+            "hybrid_resnet",
+            "--epochs",
+            "1",
+        ]
+    )
+
+    assert captured["cfg"] is not None
+    assert captured["cfg"].hybrid_encoder_conv_hidden_scale == 2.0
+    assert captured["cfg"].hybrid_encoder_spectral_hidden_scale == 1.0
+
+
 def test_main_maps_torch_logger_none_to_disabled(tmp_path, monkeypatch):
     from scripts.studies import grid_lines_torch_runner as runner
 

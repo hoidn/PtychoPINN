@@ -111,7 +111,7 @@ class TorchRunnerConfig:
     hybrid_skip_connections: bool = False
     hybrid_downsample_steps: int = 2
     hybrid_downsample_op: str = "stride_conv"
-    hybrid_encoder_conv_hidden_scale: float = 1.0
+    hybrid_encoder_conv_hidden_scale: float = 2.0
     hybrid_encoder_spectral_hidden_scale: float = 1.0
     # Legacy absolute-width aliases retained for compatibility with older runbooks.
     hybrid_encoder_conv_hidden_channels: Optional[int] = None
@@ -1254,7 +1254,7 @@ def main(argv=None) -> None:
     parser.add_argument(
         "--hybrid-encoder-conv-hidden-scale",
         type=float,
-        default=1.0,
+        default=2.0,
         help=(
             "Scale factor for hybrid_resnet encoder local-conv branch width; "
             "resolved per block as round(stage_channels * scale)."
