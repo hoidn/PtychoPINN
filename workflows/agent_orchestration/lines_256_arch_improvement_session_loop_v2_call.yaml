@@ -1,0 +1,416 @@
+version: "2.7"
+name: "lines-256-arch-improvement-session-loop-v2-call"
+
+imports:
+  iteration_phase: ../library/lines_256_arch_improvement_iteration.yaml
+
+artifacts:
+  loop_decision:
+    kind: scalar
+    type: enum
+    allowed: ["CONTINUE", "STOP"]
+
+outputs:
+  results_tsv_path:
+    type: relpath
+    under: state/lines_256_arch_improvement
+    must_exist_target: true
+    from:
+      ref: root.steps.CreateSession.artifacts.results_tsv_path
+  accepted_state_path:
+    type: relpath
+    under: state/lines_256_arch_improvement
+    must_exist_target: true
+    from:
+      ref: root.steps.HarvestBaselineOutputs.artifacts.accepted_state_path
+
+steps:
+  - name: ValidateStudyInputs
+    id: validate_study_inputs
+    command:
+      - bash
+      - -lc
+      - |
+        set -euo pipefail
+        test -f docs/studies/lines_256_dataset.md
+        test -f docs/studies/lines_256_arch_improvement_loop.md
+        test -f scripts/studies/run_lines_256_arch_experiment.py
+
+  - name: CaptureProtectedLocalPaths
+    id: capture_protected_local_paths
+    command:
+      - bash
+      - -lc
+      - |
+        python - <<'PY'
+        import json
+        import subprocess
+        from pathlib import Path
+
+        state_dir = Path("state/lines_256_arch_improvement")
+        state_dir.mkdir(parents=True, exist_ok=True)
+
+        proc = subprocess.run(
+            ["git", "status", "--short", "--untracked-files=no"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        protected = []
+        for line in proc.stdout.splitlines():
+            line = line.rstrip()
+            if not line:
+                continue
+            if len(line) < 4:
+                continue
+            protected.append(line[3:].strip())
+
+        (state_dir / "protected_local_paths.json").write_text(
+            json.dumps(protected, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        PY
+
+  - name: EnsureResultsLedger
+    id: ensure_results_ledger
+    command:
+      - bash
+      - -lc
+      - |
+        python - <<'PY'
+        from pathlib import Path
+
+        state_dir = Path("state/lines_256_arch_improvement")
+        state_dir.mkdir(parents=True, exist_ok=True)
+        ledger = state_dir / "results.tsv"
+        if not ledger.exists():
+            ledger.write_text(
+                "\t".join(
+                    [
+                        "session_id",
+                        "timestamp_utc",
+                        "ref_or_commit",
+                        "decision",
+                        "amp_ssim",
+                        "compared_to_ref",
+                        "compared_to_amp_ssim",
+                        "delta_amp_ssim",
+                        "output_root",
+                        "comparison_png",
+                        "command_or_source",
+                        "notes",
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+        PY
+
+  - name: CreateSession
+    id: create_session
+    command:
+      - bash
+      - -lc
+      - |
+        python - <<'PY'
+        import json
+        from datetime import datetime, timezone
+        from pathlib import Path
+
+        state_dir = Path("state/lines_256_arch_improvement")
+        output_root = Path("outputs/lines_256_arch_improvement")
+        output_root.mkdir(parents=True, exist_ok=True)
+
+        session_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        comparison_dir = output_root / "comparison_pngs" / session_id
+        comparison_dir.mkdir(parents=True, exist_ok=True)
+
+        payload = {
+            "session_id": session_id,
+            "results_tsv_path": "state/lines_256_arch_improvement/results.tsv",
+            "accepted_state_path": "state/lines_256_arch_improvement/accepted_state.json",
+            "output_root_base": "outputs/lines_256_arch_improvement",
+            "log_root": "state/lines_256_arch_improvement",
+            "comparison_gallery_dir": str(comparison_dir.as_posix()),
+            "baseline_output_root": f"outputs/lines_256_arch_improvement/{session_id}_baseline",
+            "baseline_log_path": f"state/lines_256_arch_improvement/{session_id}_baseline.log",
+            "baseline_result_path": "state/lines_256_arch_improvement/baseline_run_result.json",
+            "baseline_comparison_png": (
+                f"outputs/lines_256_arch_improvement/comparison_pngs/{session_id}/"
+                f"{session_id}__baseline__compare_amp_phase.png"
+            ),
+        }
+
+        (state_dir / "session_context.json").write_text(
+            json.dumps(payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        PY
+    output_bundle:
+      path: state/lines_256_arch_improvement/session_context.json
+      fields:
+        - name: results_tsv_path
+          json_pointer: /results_tsv_path
+          type: relpath
+          under: state/lines_256_arch_improvement
+          must_exist_target: true
+        - name: baseline_output_root
+          json_pointer: /baseline_output_root
+          type: relpath
+          under: outputs/lines_256_arch_improvement
+        - name: baseline_log_path
+          json_pointer: /baseline_log_path
+          type: relpath
+          under: state/lines_256_arch_improvement
+        - name: baseline_comparison_png
+          json_pointer: /baseline_comparison_png
+          type: relpath
+          under: outputs/lines_256_arch_improvement
+
+  - name: RunBaseline
+    id: run_baseline
+    command:
+      - bash
+      - -lc
+      - |
+        python - <<'PY'
+        import json
+        import subprocess
+        from pathlib import Path
+
+        session = json.loads(
+            Path("state/lines_256_arch_improvement/session_context.json").read_text(encoding="utf-8")
+        )
+        output_root = Path(session["baseline_output_root"])
+        output_root.mkdir(parents=True, exist_ok=True)
+        log_path = Path(session["baseline_log_path"])
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        cmd = [
+            "python",
+            "scripts/studies/run_lines_256_arch_experiment.py",
+            "--output-dir",
+            str(output_root),
+            "--fno-modes",
+            "12",
+            "--fno-width",
+            "32",
+            "--fno-blocks",
+            "4",
+            "--no-hybrid-skip-connections",
+            "--hybrid-downsample-steps",
+            "2",
+            "--hybrid-downsample-op",
+            "stride_conv",
+            "--hybrid-resnet-blocks",
+            "6",
+            "--hybrid-skip-style",
+            "add",
+        ]
+
+        try:
+            proc = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=1800,
+                check=False,
+            )
+            payload = {
+                "status": "completed" if proc.returncode == 0 else "failed",
+                "exit_code": proc.returncode,
+                "timed_out": False,
+                "command": " ".join(cmd),
+            }
+            log_path.write_text(
+                proc.stdout + ("\n" if proc.stdout and not proc.stdout.endswith("\n") else "")
+                + proc.stderr,
+                encoding="utf-8",
+            )
+        except subprocess.TimeoutExpired as exc:
+            payload = {
+                "status": "timeout",
+                "exit_code": 124,
+                "timed_out": True,
+                "command": " ".join(cmd),
+            }
+            stdout = exc.stdout or ""
+            stderr = exc.stderr or ""
+            log_path.write_text(stdout + ("\n" if stdout and not stdout.endswith("\n") else "") + stderr, encoding="utf-8")
+
+        Path(session["baseline_result_path"]).write_text(
+            json.dumps(payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+
+        raise SystemExit(payload["exit_code"])
+        PY
+    timeout_sec: 1800
+
+  - name: HarvestBaselineOutputs
+    id: harvest_baseline_outputs
+    command:
+      - bash
+      - -lc
+      - |
+        python - <<'PY'
+        import json
+        import shutil
+        import subprocess
+        from pathlib import Path
+
+        session = json.loads(
+            Path("state/lines_256_arch_improvement/session_context.json").read_text(encoding="utf-8")
+        )
+        result = json.loads(Path(session["baseline_result_path"]).read_text(encoding="utf-8"))
+        if result["status"] != "completed" or result["exit_code"] != 0:
+            raise SystemExit(f"Baseline failed: {result}")
+
+        output_root = Path(session["baseline_output_root"])
+        metrics_path = output_root / "runs" / "pinn_hybrid_resnet" / "metrics.json"
+        if not metrics_path.exists():
+            candidates = sorted(output_root.rglob("metrics.json"))
+            if not candidates:
+                raise SystemExit(f"Missing baseline metrics under {output_root}")
+            metrics_path = candidates[0]
+
+        metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+        amp_ssim = metrics.get("amp_ssim")
+        if amp_ssim is None:
+            ssim = metrics.get("ssim")
+            if isinstance(ssim, list) and len(ssim) >= 1:
+                amp_ssim = ssim[0]
+        if amp_ssim is None:
+            raise SystemExit("Baseline metrics did not expose amp_ssim")
+
+        compare_path = output_root / "visuals" / "compare_amp_phase.png"
+        if not compare_path.exists():
+            compare_candidates = sorted(output_root.rglob("compare_amp_phase.png"))
+            if not compare_candidates:
+                raise SystemExit(f"Missing baseline comparison PNG under {output_root}")
+            compare_path = compare_candidates[0]
+
+        gallery_png = Path(session["baseline_comparison_png"])
+        gallery_png.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(compare_path, gallery_png)
+
+        accepted_ref = (
+            subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            .stdout.strip()
+        )
+
+        payload = {
+            "accepted_ref": accepted_ref,
+            "accepted_amp_ssim": float(amp_ssim),
+            "accepted_state_path": "state/lines_256_arch_improvement/accepted_state.json",
+            "session_id": session["session_id"],
+            "baseline_output_root": session["baseline_output_root"],
+            "baseline_comparison_png": session["baseline_comparison_png"],
+            "baseline_command": result["command"],
+        }
+        Path("state/lines_256_arch_improvement/accepted_state.json").write_text(
+            json.dumps(payload, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        PY
+    output_bundle:
+      path: state/lines_256_arch_improvement/accepted_state.json
+      fields:
+        - name: accepted_amp_ssim
+          json_pointer: /accepted_amp_ssim
+          type: float
+        - name: accepted_state_path
+          json_pointer: /accepted_state_path
+          type: relpath
+          under: state/lines_256_arch_improvement
+          must_exist_target: true
+
+  - name: AppendBaselineLedgerRow
+    id: append_baseline_ledger_row
+    command:
+      - bash
+      - -lc
+      - |
+        python - <<'PY'
+        import csv
+        import json
+        from datetime import datetime, timezone
+        from pathlib import Path
+
+        session = json.loads(
+            Path("state/lines_256_arch_improvement/session_context.json").read_text(encoding="utf-8")
+        )
+        accepted = json.loads(
+            Path("state/lines_256_arch_improvement/accepted_state.json").read_text(encoding="utf-8")
+        )
+
+        ledger = Path(session["results_tsv_path"])
+        with ledger.open("a", encoding="utf-8", newline="") as fh:
+            writer = csv.writer(fh, delimiter="\t")
+            writer.writerow(
+                [
+                    accepted["session_id"],
+                    datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                    accepted["accepted_ref"],
+                    "baseline",
+                    accepted["accepted_amp_ssim"],
+                    "na",
+                    "na",
+                    "na",
+                    accepted["baseline_output_root"],
+                    accepted["baseline_comparison_png"],
+                    accepted["baseline_command"],
+                    "fresh session baseline",
+                ]
+            )
+        PY
+
+  - name: ExperimentLoop
+    id: experiment_loop
+    repeat_until:
+      id: experiment_iteration
+      max_iterations: 100
+      outputs:
+        loop_decision:
+          kind: scalar
+          type: enum
+          allowed: ["CONTINUE", "STOP"]
+          from:
+            ref: self.steps.RunIteration.artifacts.loop_decision
+      condition:
+        compare:
+          left:
+            ref: self.outputs.loop_decision
+          op: eq
+          right: STOP
+      steps:
+        - name: PrepareIterationCallInputs
+          id: prepare_iteration_call_inputs
+          command:
+            - bash
+            - -lc
+            - |
+              mkdir -p state/lines_256_arch_improvement_iteration_inputs
+              iteration=$(( ${loop.index} + 1 ))
+              printf '{"write_root":"state/lines_256_arch_improvement/iterations/%s","iteration":%s}\n' "$iteration" "$iteration" > state/lines_256_arch_improvement_iteration_inputs/current.json
+          output_bundle:
+            path: state/lines_256_arch_improvement_iteration_inputs/current.json
+            fields:
+              - name: write_root
+                json_pointer: /write_root
+                type: relpath
+                under: state
+              - name: iteration
+                json_pointer: /iteration
+                type: integer
+        - name: RunIteration
+          id: run_iteration
+          call: iteration_phase
+          with:
+            write_root:
+              ref: self.steps.PrepareIterationCallInputs.artifacts.write_root
