@@ -17,7 +17,10 @@ from ptycho_torch.generators.fno import (
     FnoGenerator,
 )
 from ptycho_torch.generators.fno_vanilla import FnoVanillaGeneratorModule
-from ptycho_torch.generators.hybrid_resnet import HybridResnetGeneratorModule
+from ptycho_torch.generators.hybrid_resnet import (
+    HybridResnetEncoderBlock,
+    HybridResnetGeneratorModule,
+)
 from ptycho_torch.generators.registry import resolve_generator
 from ptycho.config.config import TrainingConfig, ModelConfig
 
@@ -578,6 +581,10 @@ class TestHybridResnetGenerator:
         assert not torch.allclose(y_add, y_concat, atol=1e-6, rtol=1e-6)
         assert not torch.allclose(y_add, y_gated, atol=1e-6, rtol=1e-6)
         assert not torch.allclose(y_concat, y_gated, atol=1e-6, rtol=1e-6)
+
+    def test_hybrid_resnet_encoder_local_conv_uses_reflect_padding(self):
+        block = HybridResnetEncoderBlock(channels=16, modes=4)
+        assert block.local_conv.padding_mode == "reflect"
 
 
 class TestGeneratorRegistry:

@@ -93,7 +93,13 @@ class HybridResnetEncoderBlock(nn.Module):
         if conv_hidden != channels:
             self.conv_in = nn.Conv2d(channels, conv_hidden, kernel_size=1)
             self.conv_out = nn.Conv2d(conv_hidden, channels, kernel_size=1)
-        self.local_conv = nn.Conv2d(conv_hidden, conv_hidden, kernel_size=3, padding=1)
+        self.local_conv = nn.Conv2d(
+            conv_hidden,
+            conv_hidden,
+            kernel_size=3,
+            padding=1,
+            padding_mode="reflect",
+        )
 
         self.act = nn.GELU()
 
