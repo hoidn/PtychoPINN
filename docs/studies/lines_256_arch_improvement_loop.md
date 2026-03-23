@@ -107,6 +107,7 @@ A candidate is keepable only if all of these are true:
 4. candidate `amp_ssim` is strictly greater than champion `amp_ssim`
 
 Equal is not keepable. Lower is not keepable. Missing metric is not keepable.
+Runs that exceed the fixed 30-minute budget are not keepable. Record them as a `TIMEOUT` outcome, discard the candidate, and continue.
 
 ## Metric extraction
 
@@ -201,16 +202,19 @@ LOOP FOREVER:
 22. If candidate `amp_ssim` is equal or lower, append the `discard` row first, then run:
     - `git reset --mixed HEAD^`
     - `git restore --source=HEAD --staged --worktree -- <candidate_paths>`
-23. If the run crashed, append the `crash` row first, then run:
+23. If the run exceeded the fixed 30-minute budget, append the `timeout` row first, then run:
     - `git reset --mixed HEAD^`
     - `git restore --source=HEAD --staged --worktree -- <candidate_paths>`
-24. After a crash reset, attempt one focused crash-debug candidate that addresses the concrete failure and rerun the scored experiment once.
-25. If that debugged candidate still crashes, or if no clean crash fix is available, stop and report a blocker instead of looping blindly.
-26. After a discard or crash reset, confirm:
+24. If the run crashed, append the `crash` row first, then run:
+    - `git reset --mixed HEAD^`
+    - `git restore --source=HEAD --staged --worktree -- <candidate_paths>`
+25. only `CRASH` should trigger the focused debug path. After a crash reset, attempt one focused crash-debug candidate that addresses the concrete failure and rerun the scored experiment once.
+26. If that debugged candidate still crashes, or if no clean crash fix is available, stop and report a blocker instead of looping blindly.
+27. After a discard, timeout, or crash reset, confirm:
     - `git status --short --untracked-files=no`
     - every path from `protected_local_paths` is still present in the tracked-dirty set
     - no candidate path remains dirty after the reset/restore sequence
-27. Continue the loop using the last `baseline` or `keep` row from the current `session_id` as the champion.
+28. Continue the loop using the last `baseline` or `keep` row from the current `session_id` as the champion.
 
 Because each loop iteration creates exactly one candidate commit and candidate files must not overlap `protected_local_paths`, `git reset --mixed HEAD^` followed by restore of `candidate_paths` returns the checkout to the previous champion commit while preserving protected edits and tolerating unrelated tracked dirt outside the candidate path set.
 
@@ -227,13 +231,13 @@ Column meanings:
 - `session_id`: the current experiment session
 - `timestamp_utc`: candidate run timestamp in UTC
 - `ref_or_commit`: candidate git commit hash
-- `decision`: `baseline`, `keep`, `discard`, or `crash`
-- `amp_ssim`: candidate amplitude SSIM, or `na` for crashes without a metric
+- `decision`: `baseline`, `keep`, `discard`, `timeout`, or `crash`
+- `amp_ssim`: candidate amplitude SSIM, or `na` for timeouts/crashes without a metric
 - `compared_to_ref`: the champion row's `ref_or_commit`
 - `compared_to_amp_ssim`: the champion row's `amp_ssim`
-- `delta_amp_ssim`: `candidate_amp_ssim - compared_to_amp_ssim`, or `na` on metric-free crashes
+- `delta_amp_ssim`: `candidate_amp_ssim - compared_to_amp_ssim`, or `na` on metric-free timeouts/crashes
 - `output_root`: candidate run output directory
-- `comparison_png`: probe-inclusive comparison PNG in the session gallery dir, or `na` for crashes with no visual artifact
+- `comparison_png`: probe-inclusive comparison PNG in the session gallery dir, or `na` for timeouts/crashes with no visual artifact
 - `command_or_source`: exact run command
 - `notes`: one short sentence explaining the change and decision
 

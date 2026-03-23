@@ -174,7 +174,7 @@ steps:
                 ["bash", "-lc", metadata["run_command"]],
                 capture_output=True,
                 text=True,
-                timeout=1800,
+                timeout=1770,
                 check=False,
             )
             payload = {
@@ -205,7 +205,7 @@ steps:
             encoding="utf-8",
         )
         PY
-    timeout_sec: 1800
+    timeout_sec: 1860
     output_bundle:
       path: ${inputs.write_root}/candidate_run_result.json
       fields:
@@ -256,7 +256,9 @@ steps:
         decision = "CRASH"
         delta = None
 
-        if run_result["launcher_status"] == "completed" and run_result["exit_code"] == 0:
+        if run_result["launcher_status"] == "timeout":
+            decision = "TIMEOUT"
+        elif run_result["launcher_status"] == "completed" and run_result["exit_code"] == 0:
             metrics_path = output_root / "runs" / "pinn_hybrid_resnet" / "metrics.json"
             if not metrics_path.exists():
                 candidates = sorted(output_root.rglob("metrics.json"))
@@ -307,7 +309,7 @@ steps:
         - name: decision
           json_pointer: /decision
           type: enum
-          allowed: ["KEEP", "DISCARD", "CRASH"]
+          allowed: ["KEEP", "DISCARD", "TIMEOUT", "CRASH"]
         - name: candidate_amp_ssim
           json_pointer: /candidate_amp_ssim
           type: float
@@ -411,7 +413,7 @@ steps:
         - name: initial_outcome
           json_pointer: /initial_outcome
           type: enum
-          allowed: ["KEEP", "DISCARD", "CRASH", "BLOCKED"]
+          allowed: ["KEEP", "DISCARD", "TIMEOUT", "CRASH", "BLOCKED"]
 
   - name: HandleInitialCandidateOutcome
     id: handle_initial_candidate_outcome
@@ -550,7 +552,7 @@ steps:
                 ["bash", "-lc", metadata["run_command"]],
                 capture_output=True,
                 text=True,
-                timeout=1800,
+                timeout=1770,
                 check=False,
             )
             payload = {
@@ -581,7 +583,7 @@ steps:
             encoding="utf-8",
         )
         PY
-    timeout_sec: 1800
+    timeout_sec: 1860
     output_bundle:
       path: ${inputs.write_root}/debug_candidate_run_result.json
       fields:
@@ -632,7 +634,9 @@ steps:
         decision = "CRASH"
         delta = None
 
-        if run_result["launcher_status"] == "completed" and run_result["exit_code"] == 0:
+        if run_result["launcher_status"] == "timeout":
+            decision = "TIMEOUT"
+        elif run_result["launcher_status"] == "completed" and run_result["exit_code"] == 0:
             metrics_path = output_root / "runs" / "pinn_hybrid_resnet" / "metrics.json"
             if not metrics_path.exists():
                 candidates = sorted(output_root.rglob("metrics.json"))
@@ -683,7 +687,7 @@ steps:
         - name: decision
           json_pointer: /decision
           type: enum
-          allowed: ["KEEP", "DISCARD", "CRASH"]
+          allowed: ["KEEP", "DISCARD", "TIMEOUT", "CRASH"]
         - name: candidate_amp_ssim
           json_pointer: /candidate_amp_ssim
           type: float
@@ -785,7 +789,7 @@ steps:
         - name: debugged_outcome
           json_pointer: /debugged_outcome
           type: enum
-          allowed: ["NONE", "KEEP", "DISCARD", "CRASH"]
+          allowed: ["NONE", "KEEP", "DISCARD", "TIMEOUT", "CRASH"]
 
   - name: HandleDebuggedCandidateOutcome
     id: handle_debugged_candidate_outcome
@@ -837,16 +841,16 @@ steps:
                 payload = {"loop_decision": "STOP"}
             elif debug_status == "READY":
                 payload = {
-                    "loop_decision": "CONTINUE" if debugged_outcome in {"KEEP", "DISCARD"} else "STOP"
+                    "loop_decision": "CONTINUE" if debugged_outcome in {"KEEP", "DISCARD", "TIMEOUT"} else "STOP"
                 }
             elif debug_status == "NONE":
                 payload = {
-                    "loop_decision": "CONTINUE" if initial_outcome in {"KEEP", "DISCARD"} else "STOP"
+                    "loop_decision": "CONTINUE" if initial_outcome in {"KEEP", "DISCARD", "TIMEOUT"} else "STOP"
                 }
             elif assessment_path.exists():
                 assessment = json.loads(assessment_path.read_text(encoding="utf-8"))
                 payload = {
-                    "loop_decision": "CONTINUE" if assessment.get("decision") in {"KEEP", "DISCARD"} else "STOP"
+                    "loop_decision": "CONTINUE" if assessment.get("decision") in {"KEEP", "DISCARD", "TIMEOUT"} else "STOP"
                 }
             else:
                 payload = {"loop_decision": "STOP"}

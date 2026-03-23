@@ -97,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
         _write_json(accepted_path, accepted)
         return 0
 
-    if outcome not in {"DISCARD", "CRASH"}:
+    if outcome not in {"DISCARD", "TIMEOUT", "CRASH"}:
         raise SystemExit(f"Unsupported outcome {outcome!r} for mode {args.mode!r}")
 
     _git(repo_root, "reset", "--mixed", "HEAD^")

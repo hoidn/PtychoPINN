@@ -25,7 +25,7 @@ def test_studies_index_registers_lines_256_session_workflow():
     assert "lines_256_arch_improvement_session_loop_v2_call.yaml" in index
 
 
-def test_lines_256_arch_improvement_workflow_uses_v27_repeat_until_and_30m_run_budget():
+def test_lines_256_arch_improvement_workflow_uses_v27_repeat_until_and_timeout_outcome_budgeting():
     workflow_path = REPO_ROOT / Path(
         "workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml"
     )
@@ -56,7 +56,17 @@ def test_lines_256_arch_improvement_workflow_uses_v27_repeat_until_and_30m_run_b
     assert "debug_candidate_paths_file" in bundle_field_names
 
     run_candidate = next(step for step in loop_steps if step["name"] == "RunCandidateExperiment")
-    assert run_candidate["timeout_sec"] == 1800
+    assert run_candidate["timeout_sec"] == 1860
+    assert "timeout=1770" in run_candidate["command"][-1]
+
+    harvest_candidate = next(step for step in loop_steps if step["name"] == "HarvestCandidateOutputs")
+    assert "decision = \"TIMEOUT\"" in harvest_candidate["command"][-1]
+    decision_field = next(
+        field
+        for field in harvest_candidate["output_bundle"]["fields"]
+        if field["name"] == "decision"
+    )
+    assert "TIMEOUT" in decision_field["allowed"]
 
     debug_step = next(step for step in loop_steps if step["name"] == "DebugCandidateCrash")
     assert debug_step["input_file"] == "prompts/workflows/lines_256_arch_improvement/debug_crash.md"
@@ -94,7 +104,14 @@ def test_lines_256_arch_improvement_workflow_uses_v27_repeat_until_and_30m_run_b
     ]
 
     rerun_step = next(step for step in loop_steps if step["name"] == "RunDebuggedCandidateExperiment")
-    assert rerun_step["timeout_sec"] == 1800
+    assert rerun_step["timeout_sec"] == 1860
+    assert "timeout=1770" in rerun_step["command"][-1]
+
+    assess_initial = next(
+        step for step in loop_steps if step["name"] == "AssessInitialCandidateOutcome"
+    )
+    initial_outcome_field = assess_initial["output_bundle"]["fields"][0]
+    assert "TIMEOUT" in initial_outcome_field["allowed"]
 
 
 def test_lines_256_workflow_preflights_dataset_metadata_and_probe_gallery_contract():
@@ -120,6 +137,12 @@ def test_lines_256_workflow_preflights_dataset_metadata_and_probe_gallery_contra
     harvest_baseline = next(step for step in workflow["steps"] if step["name"] == "HarvestBaselineOutputs")
     harvest_script = harvest_baseline["command"][-1]
     assert "compare_amp_phase_probe.png" in harvest_script
+
+    loop_doc = (
+        REPO_ROOT / "docs/studies/lines_256_arch_improvement_loop.md"
+    ).read_text(encoding="utf-8")
+    assert "TIMEOUT" in loop_doc
+    assert "only `CRASH` should trigger the focused debug path" in loop_doc
 
 
 def test_lines_256_prompts_pin_smoke_target_normalization_and_probe_gallery_name():
@@ -209,5 +232,18 @@ def test_lines_256_arch_improvement_iteration_library_preserves_crash_debug_path
         "--state-dir",
         "${inputs.write_root}",
     ]
+    run_candidate = next(step for step in steps if step["name"] == "RunCandidateExperiment")
+    assert run_candidate["timeout_sec"] == 1860
+    assert "timeout=1770" in run_candidate["command"][-1]
+
+    harvest_candidate = next(step for step in steps if step["name"] == "HarvestCandidateOutputs")
+    decision_field = next(
+        field
+        for field in harvest_candidate["output_bundle"]["fields"]
+        if field["name"] == "decision"
+    )
+    assert "TIMEOUT" in decision_field["allowed"]
+
     rerun_step = next(step for step in steps if step["name"] == "RunDebuggedCandidateExperiment")
-    assert rerun_step["timeout_sec"] == 1800
+    assert rerun_step["timeout_sec"] == 1860
+    assert "timeout=1770" in rerun_step["command"][-1]
