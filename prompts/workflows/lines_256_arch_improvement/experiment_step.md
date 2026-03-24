@@ -7,6 +7,7 @@ Before returning `READY`, the candidate must also be smoke-green: it should surv
 
 Bias toward changes that have a plausible path to better `amp_ssim` under the fixed `lines_256` budget.
 Prefer coherent architectural or training-configuration hypotheses over random parameter thrashing.
+Before proposing micro-tuning or local mechanism tweaks, prefer testing a high-leverage architecture knob such as `fno_modes`, `fno_width`, skip-connections, or downsampling style when it offers a plausible path to materially better `amp_ssim`.
 
 **Simplicity criterion**: all else being equal, simpler is better.
 - A small improvement that adds ugly complexity is usually not worth it.
