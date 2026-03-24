@@ -55,9 +55,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** You need copy/paste-ready orchestration commands and concrete local dataset/checkpoint flag patterns.
 
 ### [Lines 256 Dataset Note](studies/lines_256_dataset.md)
-**Description:** Repo-local note for the `lines_256` architecture-experiment dataset alias, including the regenerated working NPZ pair, its `pad_preserve` probe-scaling contract, provenance, and direct-run usage guidance.
-**Keywords:** lines_256, custom_npz_pair_n256, n256, grid-lines, dataset, npz
-**Use this when:** You need the exact `N=256` lines dataset for a single-dataset experiment or want the authoritative path/usage note that prompt-library agents should follow.
+**Description:** Repo-local note for the `lines_256` architecture-experiment dataset alias, including the regenerated working NPZ pair, its `pad_preserve` probe-scaling contract, provenance, direct-run usage guidance, and the warning that `outputs/` is only the current compatibility location rather than the preferred long-term storage home.
+**Keywords:** lines_256, custom_npz_pair_n256, n256, grid-lines, dataset, npz, outputs, persistent-data
+**Use this when:** You need the exact `N=256` lines dataset for a single-dataset experiment, or need to understand both the current compatibility path and the persistent-data policy for this study input.
 
 ### [Lines 256 Architecture Loop](studies/lines_256_arch_improvement_loop.md)
 **Description:** Exact `autoresearch`-style loop contract for `lines_256` architecture experiments, including fresh baseline generation through the fixed-parameter thin wrapper, the untracked TSV ledger path, the session-local champion rule, the comparison-PNG gallery contract, and keep/discard reset behavior.
@@ -208,9 +208,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Creating or validating datasets, troubleshooting data format errors, or understanding amplitude vs intensity requirements.
 
 #### [Data Management Guide](DATA_MANAGEMENT_GUIDE.md)
-**Description:** Best practices for managing NPZ and HDF5 data files, git hygiene rules, and Ptychodus product export workflow with metadata parameters and raw data inclusion options.
-**Keywords:** data-management, git-hygiene, file-types, NPZ, HDF5, ptychodus-export
-**Use this when:** Need to export reconstructions to Ptychodus format, understanding data file organization, or ensuring data files are not committed to git.
+**Description:** Best practices for managing NPZ and HDF5 data files, including the distinction between durable dataset/checkpoint storage under `datasets/` and cleanup-prone run artifacts under `outputs/`, plus git hygiene rules and Ptychodus export workflow guidance.
+**Keywords:** data-management, git-hygiene, file-types, NPZ, HDF5, ptychodus-export, datasets, outputs, persistent-data
+**Use this when:** Understanding data file organization, deciding where long-lived study inputs should live, exporting reconstructions to Ptychodus format, or ensuring data files are not committed to git.
 
 #### [Data Normalization Guide](DATA_NORMALIZATION_GUIDE.md)
 **Description:** Explains the three distinct types of normalization (physics, statistical, display) and their proper application throughout the data pipeline to avoid common scaling errors.

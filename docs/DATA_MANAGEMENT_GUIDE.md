@@ -34,14 +34,22 @@ echo "path/to/file.npz" >> .gitignore
 
 ```
 PtychoPINN/
-├── datasets/                # Primary dataset storage (git-ignored)
+├── datasets/                # Primary persistent dataset/checkpoint storage (git-ignored)
 │   ├── fly/                # Production datasets
 │   ├── fly64/              # Experimental datasets
 │   └── probes/             # Probe data
-├── outputs/                 # Training/inference outputs (git-ignored)
+├── outputs/                 # Ephemeral training/inference outputs (git-ignored, cleanup-prone)
 ├── simulation_outputs/      # Simulated data (git-ignored)
 └── memoized_data/          # Cache directory (auto-generated)
 ```
+
+### Durable vs Ephemeral Data Policy
+
+- `datasets/` is the default home for repo-local data that must persist across runs, cleanup, and long-lived study references.
+- `outputs/` is for run artifacts, logs, reconstructions, galleries, and other generated outputs that may be pruned periodically.
+- Do not treat a dataset under `outputs/` as durable just because a current workflow happens to read it from there.
+- If a synthetic or study-specific dataset becomes a pinned long-term input, promote it to a durable git-ignored dataset location and update the consuming docs/workflows deliberately.
+- If a workflow still points at a dataset under `outputs/`, treat that as a compatibility or transitional location, not the preferred persistent-data convention.
 
 ### Output Directory Convention
 
@@ -63,6 +71,8 @@ For the NERSC `scan807 + cameraman256` orchestration workflow, the PtychoViT
 checkpoint is pinned and must not be changed between runs:
 
 - Canonical checkpoint: `datasets/run145/best_model.pth`
+
+Pinned datasets and checkpoints that must survive routine cleanup belong in durable git-ignored locations like `datasets/`, not under `outputs/`.
 
 Guidelines:
 - Always pass `--ptychovit-checkpoint datasets/run145/best_model.pth` when running
