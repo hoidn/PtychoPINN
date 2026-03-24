@@ -202,6 +202,16 @@ class TestHybridResnetGenerator:
         assert any(isinstance(module, torch.nn.GELU) for module in upsampler.modules())
         assert not any(isinstance(module, torch.nn.ReLU) for module in upsampler.modules())
 
+    def test_decoder_upsampler_uses_standard_4x4_deconv(self):
+        upsampler = CycleGanUpsampler(in_channels=8, out_channels=4)
+        deconv = upsampler.block[0]
+
+        assert isinstance(deconv, torch.nn.ConvTranspose2d)
+        assert deconv.kernel_size == (4, 4)
+        assert deconv.stride == (2, 2)
+        assert deconv.padding == (1, 1)
+        assert deconv.output_padding == (0, 0)
+
     def test_resnet_decoder_block_uses_scalar_layerscale(self):
         block = ResnetBlock(channels=8)
         assert block.layerscale.numel() == 1

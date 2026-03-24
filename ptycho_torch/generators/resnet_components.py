@@ -45,10 +45,9 @@ class CycleGanUpsampler(nn.Module):
             nn.ConvTranspose2d(
                 in_channels,
                 out_channels,
-                kernel_size=3,
+                kernel_size=4,
                 stride=2,
                 padding=1,
-                output_padding=1,
             ),
             nn.InstanceNorm2d(out_channels, affine=True, eps=1e-5),
             nn.GELU(),
