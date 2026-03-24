@@ -21,7 +21,7 @@ from ptycho_torch.generators.hybrid_resnet import (
     HybridResnetEncoderBlock,
     HybridResnetGeneratorModule,
 )
-from ptycho_torch.generators.resnet_components import ResnetBlock
+from ptycho_torch.generators.resnet_components import ResnetBlock, CycleGanUpsampler
 from ptycho_torch.generators.registry import resolve_generator
 from ptycho.config.config import TrainingConfig, ModelConfig
 
@@ -192,6 +192,15 @@ class TestFnoVanillaGenerator:
 
 class TestHybridResnetGenerator:
     """Tests for the HybridResnetGenerator module."""
+
+    def test_decoder_components_use_gelu_activations(self):
+        block = ResnetBlock(channels=8)
+        upsampler = CycleGanUpsampler(in_channels=8, out_channels=4)
+
+        assert any(isinstance(module, torch.nn.GELU) for module in block.modules())
+        assert not any(isinstance(module, torch.nn.ReLU) for module in block.modules())
+        assert any(isinstance(module, torch.nn.GELU) for module in upsampler.modules())
+        assert not any(isinstance(module, torch.nn.ReLU) for module in upsampler.modules())
 
     def test_resnet_decoder_block_uses_scalar_layerscale(self):
         block = ResnetBlock(channels=8)

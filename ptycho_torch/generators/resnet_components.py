@@ -4,7 +4,7 @@ import torch.nn as nn
 
 
 class ResnetBlock(nn.Module):
-    """CycleGAN-style ResNet block with a small learnable residual gate."""
+    """CycleGAN-style ResNet block with GELU activations and a residual gate."""
 
     def __init__(self, channels: int, layerscale_init: float = 0.1):
         super().__init__()
@@ -12,7 +12,7 @@ class ResnetBlock(nn.Module):
             nn.ReflectionPad2d(1),
             nn.Conv2d(channels, channels, kernel_size=3, padding=0),
             nn.InstanceNorm2d(channels, affine=True, eps=1e-5),
-            nn.ReLU(inplace=True),
+            nn.GELU(),
             nn.ReflectionPad2d(1),
             nn.Conv2d(channels, channels, kernel_size=3, padding=0),
             nn.InstanceNorm2d(channels, affine=True, eps=1e-5),
@@ -37,7 +37,7 @@ class ResnetBottleneck(nn.Module):
 
 
 class CycleGanUpsampler(nn.Module):
-    """CycleGAN upsampling block (ConvTranspose2d + InstanceNorm + ReLU)."""
+    """CycleGAN upsampling block (ConvTranspose2d + InstanceNorm + GELU)."""
 
     def __init__(self, in_channels: int, out_channels: int):
         super().__init__()
@@ -51,7 +51,7 @@ class CycleGanUpsampler(nn.Module):
                 output_padding=1,
             ),
             nn.InstanceNorm2d(out_channels, affine=True, eps=1e-5),
-            nn.ReLU(inplace=True),
+            nn.GELU(),
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
