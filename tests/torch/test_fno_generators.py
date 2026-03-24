@@ -193,6 +193,14 @@ class TestFnoVanillaGenerator:
 class TestHybridResnetGenerator:
     """Tests for the HybridResnetGenerator module."""
 
+    def test_cycle_gan_upsampler_uses_interpolate_conv_not_transposed_conv(self):
+        upsampler = CycleGanUpsampler(in_channels=8, out_channels=4)
+
+        assert any(isinstance(module, torch.nn.Upsample) for module in upsampler.modules())
+        assert any(isinstance(module, torch.nn.ReflectionPad2d) for module in upsampler.modules())
+        assert any(isinstance(module, torch.nn.Conv2d) for module in upsampler.modules())
+        assert not any(isinstance(module, torch.nn.ConvTranspose2d) for module in upsampler.modules())
+
     def test_decoder_components_use_gelu_activations(self):
         block = ResnetBlock(channels=8)
         upsampler = CycleGanUpsampler(in_channels=8, out_channels=4)
