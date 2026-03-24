@@ -193,6 +193,10 @@ class TestFnoVanillaGenerator:
 class TestHybridResnetGenerator:
     """Tests for the HybridResnetGenerator module."""
 
+    def test_resnet_decoder_block_uses_scalar_layerscale(self):
+        block = ResnetBlock(channels=8)
+        assert block.layerscale.numel() == 1
+
     def test_resnet_decoder_block_zero_layerscale_is_identity(self):
         block = ResnetBlock(channels=8)
         x = torch.randn(2, 8, 16, 16)

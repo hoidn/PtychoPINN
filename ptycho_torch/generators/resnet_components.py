@@ -17,12 +17,10 @@ class ResnetBlock(nn.Module):
             nn.Conv2d(channels, channels, kernel_size=3, padding=0),
             nn.InstanceNorm2d(channels, affine=True, eps=1e-5),
         )
-        self.layerscale = nn.Parameter(torch.full((channels,), float(layerscale_init)))
-        self._layerscale_shape = (1, channels, 1, 1)
+        self.layerscale = nn.Parameter(torch.tensor(float(layerscale_init)))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        layerscale = self.layerscale.view(*self._layerscale_shape)
-        return x + layerscale * self.block(x)
+        return x + self.layerscale * self.block(x)
 
 
 class ResnetBottleneck(nn.Module):
