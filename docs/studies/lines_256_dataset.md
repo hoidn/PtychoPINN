@@ -10,10 +10,16 @@ Use this dataset when you want a single fixed `N=256` lines benchmark without sw
 
 - Dataset alias: `lines_256`
 - Runbook profile name: `custom_npz_pair_n256`
-- Train NPZ: `outputs/lines_256_arch_improvement/datasets/N256/gs1/train.npz`
-- Test NPZ: `outputs/lines_256_arch_improvement/datasets/N256/gs1/test.npz`
+- Current compatibility train NPZ path: `outputs/lines_256_arch_improvement/datasets/N256/gs1/train.npz`
+- Current compatibility test NPZ path: `outputs/lines_256_arch_improvement/datasets/N256/gs1/test.npz`
 
 This pair is the `lines_256` working dataset for the architecture-improvement loop. It supersedes the older archived `custom_npz_pair_n256` pair for this specific loop because the custom-probe padding behavior was corrected.
+
+Important:
+
+- These `outputs/...` paths are the current workflow compatibility location, not the preferred long-term storage convention.
+- Datasets that must persist across cleanup should live under a durable git-ignored dataset location, not under `outputs/`.
+- If this pair remains a pinned long-term input, it should be promoted out of `outputs/` and consumers should be updated intentionally.
 
 ## Provenance
 
@@ -75,6 +81,7 @@ Important:
 
 - For canonical non-diagnostic `N=256` promotion runs, the runbook requires both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
 - For a lines-only architecture experiment, use `scripts/studies/run_lines_256_arch_experiment.py` so the fixed dataset and epoch budget stay consistent across experiments.
+- Because `outputs/` is cleanup-prone, do not assume these compatibility paths are durable archival storage.
 - The wrapper pins `--train-npz`, `--test-npz`, `--seed 3`, `--epochs 20`, `--N 256`, `--gridsize 1`, `--architecture hybrid_resnet`, `--no-probe-mask`, and `--torch-mae-pred-l2-match-target`.
 - The wrapper also pins `--scheduler ReduceLROnPlateau` and `--plateau-min-lr 0.0002`.
 - Use the direct Torch runner only when you explicitly need to bypass the wrapper contract.

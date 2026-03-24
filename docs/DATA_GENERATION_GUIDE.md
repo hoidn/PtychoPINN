@@ -85,7 +85,12 @@ The public helper CLI `scripts/studies/grid_lines_workflow.py` currently accepts
 
 If you need a synthetic grid-lines dataset at `N=256`, build it programmatically through `GridLinesConfig` and the workflow helpers in `ptycho.workflows.grid_lines_workflow` instead of that CLI.
 
-Current working `lines_256` pair:
+Important storage rule:
+
+- Treat `outputs/` as a cleanup-prone compatibility location, not the desired long-term home for pinned datasets.
+- If an `N=256` grid-lines pair needs to persist as a durable study input, move or rebuild it under a durable git-ignored dataset location (for example under `datasets/`) and update consumers explicitly.
+
+Current compatibility location for the `lines_256` pair used by the architecture loop today:
 
 - `outputs/lines_256_arch_improvement/datasets/N256/gs1/train.npz`
 - `outputs/lines_256_arch_improvement/datasets/N256/gs1/test.npz`
@@ -108,7 +113,8 @@ Its embedded metadata records the synthetic recipe:
 - `nimgs_train=2`, `nimgs_test=1`, `nphotons=1e9`
 - `probe_source=custom`, `probe_scale_mode=pad_preserve`, `probe_smoothing_sigma=0.5`, `coords_type=relative`
 
-The older archived pair above remains historical provenance only; use the current `lines_256` pair and its metadata fields as the authoritative working reproduction recipe.
+The older archived pair above remains historical provenance only; use the current `lines_256` metadata fields as the authoritative working reproduction recipe.
+Do not read this section as approval to store persistent datasets under `outputs/` indefinitely.
 
 ### Direct Container Construction
 ```python
