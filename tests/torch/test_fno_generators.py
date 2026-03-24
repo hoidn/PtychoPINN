@@ -21,6 +21,7 @@ from ptycho_torch.generators.hybrid_resnet import (
     HybridResnetEncoderBlock,
     HybridResnetGeneratorModule,
 )
+from ptycho_torch.generators.resnet_components import ResnetBlock
 from ptycho_torch.generators.registry import resolve_generator
 from ptycho.config.config import TrainingConfig, ModelConfig
 
@@ -191,6 +192,16 @@ class TestFnoVanillaGenerator:
 
 class TestHybridResnetGenerator:
     """Tests for the HybridResnetGenerator module."""
+
+    def test_resnet_decoder_block_zero_layerscale_is_identity(self):
+        block = ResnetBlock(channels=8)
+        x = torch.randn(2, 8, 16, 16)
+
+        with torch.no_grad():
+            block.layerscale.zero_()
+
+        out = block(x)
+        assert torch.allclose(out, x, atol=1e-6, rtol=1e-6)
 
     def test_output_shape_real_imag(self):
         """HybridResnetGenerator should preserve resolution and emit real/imag output."""

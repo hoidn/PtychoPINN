@@ -4,9 +4,9 @@ import torch.nn as nn
 
 
 class ResnetBlock(nn.Module):
-    """CycleGAN-style ResNet block with reflection padding + InstanceNorm."""
+    """CycleGAN-style ResNet block with a small learnable residual gate."""
 
-    def __init__(self, channels: int):
+    def __init__(self, channels: int, layerscale_init: float = 0.1):
         super().__init__()
         self.block = nn.Sequential(
             nn.ReflectionPad2d(1),
@@ -17,9 +17,12 @@ class ResnetBlock(nn.Module):
             nn.Conv2d(channels, channels, kernel_size=3, padding=0),
             nn.InstanceNorm2d(channels, affine=True, eps=1e-5),
         )
+        self.layerscale = nn.Parameter(torch.full((channels,), float(layerscale_init)))
+        self._layerscale_shape = (1, channels, 1, 1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x + self.block(x)
+        layerscale = self.layerscale.view(*self._layerscale_shape)
+        return x + layerscale * self.block(x)
 
 
 class ResnetBottleneck(nn.Module):
