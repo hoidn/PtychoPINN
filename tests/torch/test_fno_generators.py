@@ -606,6 +606,22 @@ class TestHybridResnetGenerator:
         assert not torch.allclose(y_add, y_gated, atol=1e-6, rtol=1e-6)
         assert not torch.allclose(y_concat, y_gated, atol=1e-6, rtol=1e-6)
 
+    def test_gated_add_skip_style_starts_with_small_positive_gate(self):
+        model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            skip_connections=True,
+            hybrid_skip_style="gated_add",
+        )
+
+        assert sorted(model.skip_fusion_gates.keys()) == ["d1", "d2"]
+        for gate in model.skip_fusion_gates.values():
+            assert gate.item() == pytest.approx(0.1)
+
     def test_hybrid_resnet_encoder_local_conv_uses_reflect_padding(self):
         block = HybridResnetEncoderBlock(channels=16, modes=4)
         assert block.local_conv.padding_mode == "reflect"

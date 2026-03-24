@@ -297,7 +297,7 @@ class HybridResnetGeneratorModule(nn.Module):
                 )
                 self.skip_fusion_projections[key] = nn.LazyConv2d(decoder_channels, kernel_size=1)
                 if self.hybrid_skip_style == "gated_add":
-                    self.skip_fusion_gates[key] = nn.Parameter(torch.tensor(0.0))
+                    self.skip_fusion_gates[key] = nn.Parameter(torch.tensor(0.1))
 
         if self.output_mode == "amp_phase":
             self.output_amp = nn.Conv2d(out_ch, C, kernel_size=1)
