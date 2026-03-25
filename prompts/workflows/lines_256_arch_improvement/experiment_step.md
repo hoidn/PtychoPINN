@@ -7,7 +7,8 @@ Before returning `READY`, the candidate must also be smoke-green: it should surv
 
 Bias toward changes that have a plausible path to better `amp_ssim` under the fixed `lines_256` budget.
 Prefer coherent architectural or training-configuration hypotheses over random parameter thrashing.
-Before proposing micro-tuning or local mechanism tweaks, prefer testing a high-leverage architecture knob such as `fno_modes`, `fno_width`, skip-connections, or downsampling style when it offers a plausible path to materially better `amp_ssim`.
+Before proposing micro-tuning or local mechanism tweaks, prefer testing a high-leverage architecture knob such as `fno_modes`, `fno_width`, skip-connections, downsampling style, or bottleneck width when it offers a plausible path to materially better `amp_ssim`.
+For this study, treat moderate changes to those first-order capacity knobs as first-tier hypotheses rather than generic knob twiddling, and explicitly try higher `fno_modes` counts such as `12 -> 24` before drifting into local mechanism tuning.
 
 **Simplicity criterion**: all else being equal, simpler is better.
 - A small improvement that adds ugly complexity is usually not worth it.
@@ -26,7 +27,7 @@ Avoid changes that are:
 - hacky, ad hoc, or difficult to justify mechanistically
 - broad cleanup bundles instead of one hypothesis
 - likely to confound the comparison by changing multiple ideas at once
-- only weakly motivated knob twiddling with no clear reason to expect improvement
+- poorly motivated knob sweeps with no clear reason to expect improvement
 
 Do not run the scored `20`-epoch experiment yourself. Do not append the TSV ledger. Do not parse scored metrics to decide whether the candidate should ultimately be retained. Do not perform post-evaluation git reset logic. Your responsibility ends after you have either produced a viable candidate package or a blocker report.
 
@@ -39,16 +40,20 @@ You must use the following injected files as authority:
 
 Task:
 1. Read the authoritative study docs and the session-state files.
-2. Treat the accepted branch state from `accepted_state.json` as the current accepted reference.
-3. Choose the next coherent architecture or training-configuration hypothesis that is worth testing against the accepted reference.
-4. Make exactly one coherent change implementing that hypothesis within the allowed editable surface from the study prompt.
-5. Restrict candidate edits to existing files only, and only when those files are not in the protected local-change set.
-6. Run a cheap end-to-end smoke check that exercises both training and inference for the edited candidate.
-7. If the smoke check fails because of your code changes, fix the problem and rerun the smoke check.
-8. Only once the candidate is smoke-green, stage only the intended candidate files.
-9. Create exactly one candidate commit.
+2. Treat the accepted branch state and accepted run configuration from `accepted_state.json` as the current accepted experiment state.
+3. Choose the next coherent architecture or training-configuration hypothesis that is worth testing against the accepted experiment state.
+4. Prepare that candidate in exactly one of these forms:
+   - `source`: make one coherent source change within the allowed editable surface from the study docs
+   - `run_config`: keep tracked source files at the accepted ref and prepare a parameter-only rerun of the accepted architecture
+5. If you are preparing a `source` candidate, restrict edits to existing files only, and only when those files are not in the protected local-change set.
+6. If you are preparing a `run_config` candidate, leave tracked source files unchanged and express the hypothesis only through the smoke and scored run commands.
+7. Run a cheap end-to-end smoke check that exercises both training and inference for the candidate you prepared.
+8. If the smoke check fails because of your code change or parameter change, fix the problem and rerun the smoke check.
+9. Only once the candidate is smoke-green:
+   - for `source`, stage only the intended candidate files and create exactly one candidate commit
+   - for `run_config`, stage nothing and create no candidate commit
 10. Write candidate metadata JSON to the exact path named by `candidate_metadata_path` in the injected candidate context file.
-11. If you created a candidate commit, also write the staged candidate file list JSON to the exact path named by `candidate_paths_file` in the injected candidate context file.
+11. If and only if you created a source-changing candidate commit, also write the staged candidate file list JSON to the exact path named by `candidate_paths_file` in the injected candidate context file.
 
 If you cannot identify a candidate that is both coherent and worth testing, prefer `BLOCKED` over inventing a low-quality experiment.
 If you cannot get the candidate smoke-green after a small number of focused fixes, prefer `BLOCKED` over finalizing a broken candidate.
@@ -56,7 +61,7 @@ If you cannot get the candidate smoke-green after a small number of focused fixe
 Allowed outcomes:
 
 1. `READY`
-Use this only when you successfully made one coherent change, got the candidate through the smoke check, staged only candidate files, and created exactly one commit.
+Use this only when you prepared one coherent candidate package, got it through the smoke check, and wrote complete metadata for either a `source` or `run_config` candidate.
 
 2. `BLOCKED`
 Use this when the best next change would:
@@ -72,36 +77,41 @@ If you are blocked:
 - leave tracked source files unchanged
 - write only the candidate metadata JSON with `status: "BLOCKED"` and a concise `blocker_reason`
 
-Candidate metadata JSON schema:
+Candidate metadata requirements:
 
-For `READY`:
+For `READY` with `candidate_kind: "source"`, include:
+- `status`
+- `candidate_kind`
+- `base_ref`
+- `candidate_commit`
+- `candidate_paths_file`
+- `smoke_command`
+- `smoke_output_root`
+- `smoke_log_path`
+- `run_command`
+- `output_root`
+- `log_path`
+- `comparison_png_path`
+- `note`
+- `hypothesis`
 
-```json
-{
-  "status": "READY",
-  "base_ref": "<accepted git sha you started from>",
-  "candidate_commit": "<full git sha>",
-  "candidate_paths_file": "state/lines_256_arch_improvement/candidate_paths.json",
-  "smoke_command": "python scripts/studies/grid_lines_torch_runner.py ... --epochs 1 ...",
-  "smoke_output_root": "outputs/lines_256_arch_improvement/<timestamp>__smoke",
-  "smoke_log_path": "state/lines_256_arch_improvement/<timestamp>__smoke.log",
-  "run_command": "python scripts/studies/run_lines_256_arch_experiment.py --output-dir outputs/lines_256_arch_improvement/<timestamp>_<short_commit> ...",
-  "output_root": "outputs/lines_256_arch_improvement/<timestamp>_<short_commit>",
-  "log_path": "state/lines_256_arch_improvement/<timestamp>_<short_commit>.log",
-  "comparison_png_path": "outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/<timestamp>_<short_commit>__compare_amp_phase_probe.png",
-  "note": "one short sentence explaining the change",
-  "hypothesis": "one short sentence explaining why this change could improve amp_ssim or simplify the system"
-}
-```
+For `READY` with `candidate_kind: "run_config"`, include:
+- `status`
+- `candidate_kind`
+- `base_ref`
+- `smoke_command`
+- `smoke_output_root`
+- `smoke_log_path`
+- `run_command`
+- `output_root`
+- `log_path`
+- `comparison_png_path`
+- `note`
+- `hypothesis`
 
-For `BLOCKED`:
-
-```json
-{
-  "status": "BLOCKED",
-  "blocker_reason": "short explicit reason"
-}
-```
+For `BLOCKED`, include:
+- `status`
+- `blocker_reason`
 
 Rules:
 - Use the `timestamp_utc`, `comparison_gallery_dir`, `output_root_base`, and `log_root` values from the injected candidate context file when constructing output paths.
@@ -110,16 +120,20 @@ Rules:
 - After the smoke check, inspect `<smoke_output_root>/runs/pinn_hybrid_resnet/randomness_contract.json` and compare it to `accepted_state.json["accepted_randomness_contract"]`.
 - Only treat randomness as a blocker if the smoke run cannot produce that contract or it does not match the accepted reference. Do not block merely because an internal effective seed value differs from the requested wrapper seed when it still matches the accepted session contract.
 - The candidate run command must target the fixed `lines_256` wrapper and preserve the fixed dataset/epoch contract from the study docs.
+- Set `comparison_png_path` to the session-gallery `compare_amp_phase_probe.png` artifact for this candidate, not to a nested `visuals/` path.
+- For `run_config`, prepare a parameter-only rerun of the accepted architecture. Do not edit tracked source files just to encode a wrapper-level configuration experiment.
+- For `run_config`, use unique output and log paths derived from `timestamp_utc` and `base_ref`, because there is no candidate commit hash to name the run.
 - Keep `probe_mask` off unless the candidate is explicitly about probe masking.
 - Do not fabricate evidence or claim improvement. This task only prepares and validates a candidate package.
 - Do not stage or commit `state/` or `outputs/`.
 - The accepted reference is the comparison target. Optimize for a better next accepted state, not for novelty.
-- Set `base_ref` to the accepted git sha from `accepted_state.json` that you started from before creating the candidate commit.
+- Set `base_ref` to the accepted git sha from `accepted_state.json` that you started from before finalizing the candidate package.
 - Prefer deletions, simplifications, and cleaner mechanisms when they are plausible improvement paths.
 - If a change meaningfully increases complexity, be able to justify that cost in the `hypothesis`.
 
 Before finishing:
 - verify the smoke check succeeded
-- verify the commit exists
 - verify `candidate_metadata_path` exists and contains valid JSON
-- if `READY`, verify `candidate_paths_file` exists and contains a JSON list of relative file paths
+- if `candidate_kind` is `source`, verify the commit exists
+- if `candidate_kind` is `source`, verify `candidate_paths_file` exists and contains a JSON list of relative file paths
+- if `candidate_kind` is `run_config`, verify tracked source files are unchanged

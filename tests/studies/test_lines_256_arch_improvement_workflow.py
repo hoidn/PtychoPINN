@@ -175,6 +175,32 @@ def test_lines_256_workflow_compares_effective_randomness_contracts():
     assert 'initial_outcome in {"KEEP", "DISCARD", "TIMEOUT"}' in finalize_script
 
 
+def test_lines_256_workflow_supports_run_config_candidates():
+    workflow_path = REPO_ROOT / Path(
+        "workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml"
+    )
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+    harvest_baseline = next(step for step in workflow["steps"] if step["name"] == "HarvestBaselineOutputs")
+    harvest_script = harvest_baseline["command"][-1]
+    assert "accepted_run_command" in harvest_script
+
+    experiment_loop = next(
+        step for step in workflow["steps"] if step["name"] == "ExperimentLoop"
+    )
+    loop_steps = experiment_loop["repeat_until"]["steps"]
+
+    experiment_step = next(step for step in loop_steps if step["name"] == "ExperimentStep")
+    kind_field = next(
+        field for field in experiment_step["output_bundle"]["fields"] if field["name"] == "candidate_kind"
+    )
+    assert kind_field["allowed"] == ["source", "run_config"]
+
+    append_candidate = next(step for step in loop_steps if step["name"] == "AppendCandidateLedgerRow")
+    append_script = append_candidate["command"][-1]
+    assert 'metadata.get("candidate_commit") or metadata.get("base_ref", "na")' in append_script
+
+
 def test_lines_256_prompts_pin_smoke_target_normalization_and_probe_gallery_name():
     experiment_prompt = (
         REPO_ROOT / "prompts/workflows/lines_256_arch_improvement/experiment_step.md"

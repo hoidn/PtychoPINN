@@ -387,16 +387,18 @@ steps:
             .stdout.strip()
         )
 
-        payload = {
-            "accepted_ref": accepted_ref,
-            "accepted_amp_ssim": float(amp_ssim),
-            "accepted_state_path": "state/lines_256_arch_improvement/accepted_state.json",
-            "session_id": session["session_id"],
-            "baseline_output_root": session["baseline_output_root"],
-            "baseline_comparison_png": session["baseline_comparison_png"],
-            "baseline_command": result["command"],
-            "accepted_randomness_contract": randomness_contract,
-        }
+              payload = {
+                  "accepted_ref": accepted_ref,
+                  "accepted_amp_ssim": float(amp_ssim),
+                  "accepted_state_path": "state/lines_256_arch_improvement/accepted_state.json",
+                  "session_id": session["session_id"],
+                  "baseline_output_root": session["baseline_output_root"],
+                  "baseline_comparison_png": session["baseline_comparison_png"],
+                  "baseline_command": result["command"],
+                  "accepted_run_command": result["command"],
+                  "accepted_candidate_kind": "baseline",
+                  "accepted_randomness_contract": randomness_contract,
+              }
         Path("state/lines_256_arch_improvement/accepted_state.json").write_text(
             json.dumps(payload, indent=2) + "\n",
             encoding="utf-8",
@@ -551,6 +553,11 @@ steps:
                 json_pointer: /status
                 type: enum
                 allowed: ["READY", "BLOCKED"]
+              - name: candidate_kind
+                json_pointer: /candidate_kind
+                type: enum
+                allowed: ["source", "run_config"]
+                required: false
               - name: candidate_paths_file
                 json_pointer: /candidate_paths_file
                 type: relpath
@@ -811,7 +818,7 @@ steps:
                       [
                           session["session_id"],
                           datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                          metadata.get("candidate_commit", "na"),
+                          metadata.get("candidate_commit") or metadata.get("base_ref", "na"),
                           assessment["decision"].lower(),
                           assessment["candidate_amp_ssim"] if assessment.get("candidate_amp_ssim") is not None else "na",
                           assessment["compared_to_ref"],
@@ -907,6 +914,11 @@ steps:
                 json_pointer: /status
                 type: enum
                 allowed: ["READY", "BLOCKED"]
+              - name: candidate_kind
+                json_pointer: /candidate_kind
+                type: enum
+                allowed: ["source", "run_config"]
+                required: false
               - name: candidate_paths_file
                 json_pointer: /candidate_paths_file
                 type: relpath
@@ -1204,7 +1216,7 @@ steps:
                       [
                           session["session_id"],
                           datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                          metadata.get("candidate_commit", "na"),
+                          metadata.get("candidate_commit") or metadata.get("base_ref", "na"),
                           assessment["decision"].lower(),
                           assessment["candidate_amp_ssim"] if assessment.get("candidate_amp_ssim") is not None else "na",
                           assessment["compared_to_ref"],
