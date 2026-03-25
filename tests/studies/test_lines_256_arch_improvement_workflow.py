@@ -137,12 +137,42 @@ def test_lines_256_workflow_preflights_dataset_metadata_and_probe_gallery_contra
     harvest_baseline = next(step for step in workflow["steps"] if step["name"] == "HarvestBaselineOutputs")
     harvest_script = harvest_baseline["command"][-1]
     assert "compare_amp_phase_probe.png" in harvest_script
+    assert "randomness_contract.json" in harvest_script
+    assert "accepted_randomness_contract" in harvest_script
 
     loop_doc = (
         REPO_ROOT / "docs/studies/lines_256_arch_improvement_loop.md"
     ).read_text(encoding="utf-8")
     assert "TIMEOUT" in loop_doc
     assert "only `CRASH` should trigger the focused debug path" in loop_doc
+
+
+def test_lines_256_workflow_compares_effective_randomness_contracts():
+    workflow_path = REPO_ROOT / Path(
+        "workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml"
+    )
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+    experiment_loop = next(
+        step for step in workflow["steps"] if step["name"] == "ExperimentLoop"
+    )
+    loop_steps = experiment_loop["repeat_until"]["steps"]
+
+    harvest_candidate = next(step for step in loop_steps if step["name"] == "HarvestCandidateOutputs")
+    harvest_script = harvest_candidate["command"][-1]
+    assert "randomness_contract.json" in harvest_script
+    assert "accepted_randomness_contract" in harvest_script
+
+    decision_field = next(
+        field
+        for field in harvest_candidate["output_bundle"]["fields"]
+        if field["name"] == "decision"
+    )
+    assert "BLOCKED" in decision_field["allowed"]
+
+    finalize_iteration = next(step for step in loop_steps if step["name"] == "FinalizeIterationDecision")
+    finalize_script = finalize_iteration["command"][-1]
+    assert 'initial_outcome in {"KEEP", "DISCARD", "TIMEOUT"}' in finalize_script
 
 
 def test_lines_256_prompts_pin_smoke_target_normalization_and_probe_gallery_name():
@@ -237,12 +267,15 @@ def test_lines_256_arch_improvement_iteration_library_preserves_crash_debug_path
     assert "timeout=1770" in run_candidate["command"][-1]
 
     harvest_candidate = next(step for step in steps if step["name"] == "HarvestCandidateOutputs")
+    assert "randomness_contract.json" in harvest_candidate["command"][-1]
+    assert "accepted_randomness_contract" in harvest_candidate["command"][-1]
     decision_field = next(
         field
         for field in harvest_candidate["output_bundle"]["fields"]
         if field["name"] == "decision"
     )
     assert "TIMEOUT" in decision_field["allowed"]
+    assert "BLOCKED" in decision_field["allowed"]
 
     rerun_step = next(step for step in steps if step["name"] == "RunDebuggedCandidateExperiment")
     assert rerun_step["timeout_sec"] == 1860

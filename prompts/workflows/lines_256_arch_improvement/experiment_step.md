@@ -7,6 +7,7 @@ Before returning `READY`, the candidate must also be smoke-green: it should surv
 
 Bias toward changes that have a plausible path to better `amp_ssim` under the fixed `lines_256` budget.
 Prefer coherent architectural or training-configuration hypotheses over random parameter thrashing.
+Before proposing micro-tuning or local mechanism tweaks, prefer testing a high-leverage architecture knob such as `fno_modes`, `fno_width`, skip-connections, or downsampling style when it offers a plausible path to materially better `amp_ssim`.
 
 **Simplicity criterion**: all else being equal, simpler is better.
 - A small improvement that adds ugly complexity is usually not worth it.
@@ -78,6 +79,7 @@ For `READY`:
 ```json
 {
   "status": "READY",
+  "base_ref": "<accepted git sha you started from>",
   "candidate_commit": "<full git sha>",
   "candidate_paths_file": "state/lines_256_arch_improvement/candidate_paths.json",
   "smoke_command": "python scripts/studies/grid_lines_torch_runner.py ... --epochs 1 ...",
@@ -105,11 +107,14 @@ Rules:
 - Use the `timestamp_utc`, `comparison_gallery_dir`, `output_root_base`, and `log_root` values from the injected candidate context file when constructing output paths.
 - The smoke check should use `scripts/studies/grid_lines_torch_runner.py` directly so you can run a cheap end-to-end sanity pass with `epochs=1` while preserving the same `lines_256` dataset, seed, `N=256`, `gridsize=1`, `hybrid_resnet` architecture family, `--no-probe-mask`, and `--torch-mae-pred-l2-match-target`.
 - The smoke check must exercise both training and inference, not just CLI parsing or importability.
+- After the smoke check, inspect `<smoke_output_root>/runs/pinn_hybrid_resnet/randomness_contract.json` and compare it to `accepted_state.json["accepted_randomness_contract"]`.
+- Only treat randomness as a blocker if the smoke run cannot produce that contract or it does not match the accepted reference. Do not block merely because an internal effective seed value differs from the requested wrapper seed when it still matches the accepted session contract.
 - The candidate run command must target the fixed `lines_256` wrapper and preserve the fixed dataset/epoch contract from the study docs.
 - Keep `probe_mask` off unless the candidate is explicitly about probe masking.
 - Do not fabricate evidence or claim improvement. This task only prepares and validates a candidate package.
 - Do not stage or commit `state/` or `outputs/`.
 - The accepted reference is the comparison target. Optimize for a better next accepted state, not for novelty.
+- Set `base_ref` to the accepted git sha from `accepted_state.json` that you started from before creating the candidate commit.
 - Prefer deletions, simplifications, and cleaner mechanisms when they are plausible improvement paths.
 - If a change meaningfully increases complexity, be able to justify that cost in the `hypothesis`.
 

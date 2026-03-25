@@ -13,6 +13,18 @@ Use this loop when you want `autoresearch`-style branch advancement:
 - keep the commit only if `amp_ssim` improves
 - otherwise reset back to the previous champion commit
 
+## Dedicated run checkout rule
+
+This workflow has DSL-level git rollback/checkpoint behavior. It should run in a dedicated run checkout rooted at the intended base branch or ref.
+
+Recommended split:
+
+- run the autonomous `lines_256` session in a dedicated disposable checkout
+- keep human development and integration work on `fno-stable` or another normal checkout
+- if an urgent prompt or doc tweak must affect the next provider step, apply it in the run checkout only, then port it back deliberately later
+
+Do not treat the run checkout as the authoritative integration branch. The loop already records `base_ref` explicitly for reset/restore behavior; a dedicated run checkout keeps that runtime assumption from colliding with unrelated branch history.
+
 ## Authoritative inputs
 
 - Dataset note: `docs/studies/lines_256_dataset.md`
@@ -102,12 +114,15 @@ A candidate is keepable only if all of these are true:
 3. the run matches the champion on:
    - same dataset alias: `lines_256`
    - same underlying dataset paths
-   - same seed policy: `seed=3`
+   - same requested wrapper seed: `seed=3`
+   - same effective randomness contract recorded under `runs/pinn_hybrid_resnet/randomness_contract.json`
    - same epoch budget: `epochs=20`
 4. candidate `amp_ssim` is strictly greater than champion `amp_ssim`
 
 Equal is not keepable. Lower is not keepable. Missing metric is not keepable.
 Runs that exceed the fixed 30-minute budget are not keepable. Record them as a `TIMEOUT` outcome, discard the candidate, and continue.
+
+Do not block just because an internal seed implementation detail differs from the requested wrapper seed, as long as the accepted baseline and candidate publish the same effective randomness contract for the session. Missing randomness metadata, or a mismatch between the candidate and accepted baseline contracts, is a real blocker because it invalidates comparability.
 
 ## Metric extraction
 
@@ -193,30 +208,32 @@ LOOP FOREVER:
 13. If the candidate cannot be made smoke-green without guessing or thrashing, stop and report a blocker.
 14. Record the exact staged candidate file list as `candidate_paths`.
 15. Stage only the intended source changes. Never stage `state/` or `outputs/`.
-16. Create exactly one candidate commit after the candidate is smoke-green.
+16. Record `base_ref` as the accepted git sha from `accepted_state.json`, then create exactly one candidate commit after the candidate is smoke-green.
 17. Run exactly one `lines_256` experiment with the thin wrapper and the same fixed wrapper budget as the session baseline.
 18. Publish the candidate comparison PNG into the session gallery dir.
-19. Read candidate `amp_ssim`.
-20. Append exactly one TSV row for the candidate.
-21. If candidate `amp_ssim` is strictly greater than champion `amp_ssim`, leave the commit in place. The branch has advanced.
-22. If candidate `amp_ssim` is equal or lower, append the `discard` row first, then run:
-    - `git reset --mixed HEAD^`
-    - `git restore --source=HEAD --staged --worktree -- <candidate_paths>`
-23. If the run exceeded the fixed 30-minute budget, append the `timeout` row first, then run:
-    - `git reset --mixed HEAD^`
-    - `git restore --source=HEAD --staged --worktree -- <candidate_paths>`
-24. If the run crashed, append the `crash` row first, then run:
-    - `git reset --mixed HEAD^`
-    - `git restore --source=HEAD --staged --worktree -- <candidate_paths>`
-25. only `CRASH` should trigger the focused debug path. After a crash reset, attempt one focused crash-debug candidate that addresses the concrete failure and rerun the scored experiment once.
-26. If that debugged candidate still crashes, or if no clean crash fix is available, stop and report a blocker instead of looping blindly.
-27. After a discard, timeout, or crash reset, confirm:
+19. Verify the candidate published `runs/pinn_hybrid_resnet/randomness_contract.json` and that it matches the accepted baseline's effective randomness contract for the session.
+20. Read candidate `amp_ssim`.
+21. Append exactly one TSV row for the candidate.
+22. If candidate `amp_ssim` is strictly greater than champion `amp_ssim`, leave the commit in place. The branch has advanced.
+23. If candidate `amp_ssim` is equal or lower, append the `discard` row first, then run:
+    - `git reset --mixed <base_ref>`
+    - `git restore --source=<base_ref> --staged --worktree -- <candidate_paths>`
+24. If the run exceeded the fixed 30-minute budget, append the `timeout` row first, then run:
+    - `git reset --mixed <base_ref>`
+    - `git restore --source=<base_ref> --staged --worktree -- <candidate_paths>`
+25. If the run crashed, append the `crash` row first, then run:
+    - `git reset --mixed <base_ref>`
+    - `git restore --source=<base_ref> --staged --worktree -- <candidate_paths>`
+26. If the randomness contract is missing or mismatched, append a `blocked` row and stop instead of trusting the result.
+27. only `CRASH` should trigger the focused debug path. After a crash reset, attempt one focused crash-debug candidate that addresses the concrete failure and rerun the scored experiment once.
+28. If that debugged candidate still crashes, or if no clean crash fix is available, stop and report a blocker instead of looping blindly.
+29. After a discard, timeout, or crash reset, confirm:
     - `git status --short --untracked-files=no`
     - every path from `protected_local_paths` is still present in the tracked-dirty set
     - no candidate path remains dirty after the reset/restore sequence
-28. Continue the loop using the last `baseline` or `keep` row from the current `session_id` as the champion.
+30. Continue the loop using the last `baseline` or `keep` row from the current `session_id` as the champion.
 
-Because each loop iteration creates exactly one candidate commit and candidate files must not overlap `protected_local_paths`, `git reset --mixed HEAD^` followed by restore of `candidate_paths` returns the checkout to the previous champion commit while preserving protected edits and tolerating unrelated tracked dirt outside the candidate path set.
+Because each loop iteration records the accepted starting ref as `base_ref` and candidate files must not overlap `protected_local_paths`, resetting and restoring against `base_ref` returns the checkout to the accepted comparison point even if unrelated commits are created later while the session is live.
 
 ## Candidate row format
 
@@ -231,7 +248,7 @@ Column meanings:
 - `session_id`: the current experiment session
 - `timestamp_utc`: candidate run timestamp in UTC
 - `ref_or_commit`: candidate git commit hash
-- `decision`: `baseline`, `keep`, `discard`, `timeout`, or `crash`
+- `decision`: `baseline`, `keep`, `discard`, `timeout`, `crash`, or `blocked`
 - `amp_ssim`: candidate amplitude SSIM, or `na` for timeouts/crashes without a metric
 - `compared_to_ref`: the champion row's `ref_or_commit`
 - `compared_to_amp_ssim`: the champion row's `amp_ssim`
