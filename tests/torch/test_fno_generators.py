@@ -21,7 +21,11 @@ from ptycho_torch.generators.hybrid_resnet import (
     HybridResnetEncoderBlock,
     HybridResnetGeneratorModule,
 )
-from ptycho_torch.generators.resnet_components import ResnetBlock, CycleGanUpsampler
+from ptycho_torch.generators.resnet_components import (
+    ResnetBlock,
+    ResnetBottleneck,
+    CycleGanUpsampler,
+)
 from ptycho_torch.generators.registry import resolve_generator
 from ptycho.config.config import TrainingConfig, ModelConfig
 
@@ -215,6 +219,14 @@ class TestHybridResnetGenerator:
     def test_resnet_decoder_block_uses_scalar_layerscale(self):
         block = ResnetBlock(channels=8)
         assert block.layerscale.numel() == 1
+
+    def test_resnet_bottleneck_shares_one_scalar_layerscale_across_blocks(self):
+        bottleneck = ResnetBottleneck(channels=8, n_blocks=3)
+
+        shared_gate = bottleneck.layerscale
+        assert shared_gate.numel() == 1
+        for block in bottleneck.blocks:
+            assert block.layerscale is shared_gate
 
     def test_resnet_decoder_block_zero_layerscale_is_identity(self):
         block = ResnetBlock(channels=8)
