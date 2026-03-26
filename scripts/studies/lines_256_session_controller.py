@@ -397,6 +397,140 @@ def build_proposal_context(session: SessionState, max_rows: int = 10) -> dict[st
     return payload
 
 
+def _load_accepted_state(session: SessionState) -> dict[str, object]:
+    return json.loads(session.accepted_state_path.read_text(encoding="utf-8"))
+
+
+def _write_accepted_state(session: SessionState, accepted_state: dict[str, object]) -> None:
+    session.accepted_state_path.write_text(
+        json.dumps(accepted_state, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def _append_candidate_row(
+    session: SessionState,
+    accepted_state_before: dict[str, object],
+    proposal: dict[str, object],
+    assessment: dict[str, object],
+) -> None:
+    repo_root = _repo_root_for_session(session.session_root)
+    amp_ssim = float(assessment["amp_ssim"])
+    compared_to_amp = float(accepted_state_before["accepted_amp_ssim"])
+    delta = amp_ssim - compared_to_amp
+    ref_or_commit = str(
+        proposal.get("candidate_commit") or proposal.get("base_ref") or "na"
+    )
+    with session.results_tsv_path.open("a", encoding="utf-8", newline="") as fh:
+        writer = csv.writer(fh, delimiter="\t")
+        writer.writerow(
+            [
+                session.session_id,
+                datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                ref_or_commit,
+                str(assessment["decision"]).lower(),
+                amp_ssim,
+                str(accepted_state_before["accepted_ref"]),
+                compared_to_amp,
+                delta,
+                str(proposal["output_root"]),
+                str(proposal["comparison_png_path"]),
+                str(proposal["run_command"]),
+                str(proposal.get("note", "")),
+            ]
+        )
+
+
+def _checkout_ref(repo_root: Path, ref: str) -> None:
+    completed = subprocess.run(
+        ["git", "checkout", "--detach", ref],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise SystemExit(
+            f"Failed to checkout {ref}: {completed.stdout}{completed.stderr}".strip()
+        )
+
+
+def apply_candidate_assessment(
+    repo_root: Path,
+    session: SessionState,
+    proposal: dict[str, object],
+    assessment: dict[str, object],
+) -> dict[str, object]:
+    repo_root = repo_root.resolve()
+    accepted_state = _load_accepted_state(session)
+    _append_candidate_row(session, accepted_state, proposal, assessment)
+
+    decision = str(assessment["decision"]).upper()
+    candidate_kind = str(proposal["candidate_kind"])
+
+    if decision == "KEEP":
+        next_accepted = dict(accepted_state)
+        next_accepted["accepted_ref"] = (
+            str(proposal["candidate_commit"])
+            if candidate_kind == "source"
+            else str(accepted_state["accepted_ref"])
+        )
+        next_accepted["accepted_amp_ssim"] = float(assessment["amp_ssim"])
+        next_accepted["accepted_run_command"] = str(proposal["run_command"])
+        next_accepted["accepted_candidate_kind"] = candidate_kind
+        next_accepted["accepted_randomness_contract"] = assessment["randomness_contract"]
+        next_accepted["accepted_output_root"] = str(proposal["output_root"])
+        next_accepted["accepted_comparison_png"] = str(proposal["comparison_png_path"])
+        _write_accepted_state(session, next_accepted)
+        return next_accepted
+
+    if candidate_kind == "source":
+        _checkout_ref(repo_root, str(proposal["base_ref"]))
+
+    return accepted_state
+
+
+def run_scored_candidate(
+    repo_root: Path,
+    session: SessionState,
+    proposal: dict[str, object],
+) -> dict[str, object]:
+    repo_root = repo_root.resolve()
+    accepted_state = _load_accepted_state(session)
+    output_root = repo_root / str(proposal["output_root"])
+    log_path = repo_root / str(proposal["log_path"])
+    comparison_png_path = repo_root / str(proposal["comparison_png_path"])
+
+    completed = subprocess.run(
+        ["bash", "-lc", str(proposal["run_command"])],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text(completed.stdout + completed.stderr, encoding="utf-8")
+    if completed.returncode != 0:
+        raise SystemExit(f"Scored candidate failed: {completed.returncode}")
+
+    metrics_path = _find_metrics_path(output_root)
+    randomness_path = _find_randomness_path(output_root)
+    compare_path = _find_compare_png(output_root)
+    amp_ssim = _extract_amp_ssim(metrics_path)
+    randomness_contract = json.loads(randomness_path.read_text(encoding="utf-8"))
+    comparison_png_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(compare_path, comparison_png_path)
+
+    return {
+        "decision": "KEEP"
+        if amp_ssim > float(accepted_state["accepted_amp_ssim"])
+        else "DISCARD",
+        "amp_ssim": amp_ssim,
+        "randomness_contract": randomness_contract,
+        "comparison_png_path": str(proposal["comparison_png_path"]),
+    }
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest="command", required=True)

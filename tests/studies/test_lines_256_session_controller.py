@@ -344,3 +344,279 @@ def test_normalize_candidate_proposal_requires_commit_for_source():
                 "hypothesis": "Source change may improve amp_ssim.",
             }
         )
+
+
+def test_source_candidate_discard_resets_to_accepted_ref(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        apply_candidate_assessment,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (repo / "model.py").write_text("print('candidate')\n", encoding="utf-8")
+    _git(repo, "add", "model.py")
+    _git(repo, "commit", "-m", "candidate")
+    candidate_commit = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+    accepted_state = apply_candidate_assessment(
+        repo_root=repo,
+        session=session,
+        proposal={
+            "candidate_kind": "source",
+            "base_ref": base_ref,
+            "candidate_commit": candidate_commit,
+            "run_command": "python run.py",
+            "output_root": "outputs/v2/candidate1",
+            "comparison_png_path": "outputs/v2/candidate1.png",
+            "note": "candidate",
+            "hypothesis": "test source candidate",
+        },
+        assessment={
+            "decision": "DISCARD",
+            "amp_ssim": 0.7,
+            "randomness_contract": {"requested_seed": 3},
+        },
+    )
+
+    assert _git(repo, "rev-parse", "HEAD").stdout.strip() == base_ref
+    assert accepted_state["accepted_ref"] == base_ref
+
+
+def test_run_config_discard_does_not_move_head(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        apply_candidate_assessment,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    accepted_state = apply_candidate_assessment(
+        repo_root=repo,
+        session=session,
+        proposal={
+            "candidate_kind": "run_config",
+            "base_ref": base_ref,
+            "run_command": "python run.py --fno-modes 24",
+            "output_root": "outputs/v2/candidate2",
+            "comparison_png_path": "outputs/v2/candidate2.png",
+            "note": "run config",
+            "hypothesis": "test run config",
+        },
+        assessment={
+            "decision": "DISCARD",
+            "amp_ssim": 0.75,
+            "randomness_contract": {"requested_seed": 3},
+        },
+    )
+
+    assert _git(repo, "rev-parse", "HEAD").stdout.strip() == base_ref
+    assert accepted_state["accepted_ref"] == base_ref
+
+
+def test_source_candidate_keep_advances_accepted_ref(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        apply_candidate_assessment,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (repo / "model.py").write_text("print('better')\n", encoding="utf-8")
+    _git(repo, "add", "model.py")
+    _git(repo, "commit", "-m", "better candidate")
+    candidate_commit = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+    accepted_state = apply_candidate_assessment(
+        repo_root=repo,
+        session=session,
+        proposal={
+            "candidate_kind": "source",
+            "base_ref": base_ref,
+            "candidate_commit": candidate_commit,
+            "run_command": "python run.py",
+            "output_root": "outputs/v2/candidate3",
+            "comparison_png_path": "outputs/v2/candidate3.png",
+            "note": "source keep",
+            "hypothesis": "keep source candidate",
+        },
+        assessment={
+            "decision": "KEEP",
+            "amp_ssim": 0.9,
+            "randomness_contract": {"requested_seed": 3},
+        },
+    )
+
+    assert accepted_state["accepted_ref"] == candidate_commit
+    assert accepted_state["accepted_amp_ssim"] == 0.9
+
+
+def test_run_config_keep_preserves_ref_and_updates_run_command(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        apply_candidate_assessment,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    accepted_state = apply_candidate_assessment(
+        repo_root=repo,
+        session=session,
+        proposal={
+            "candidate_kind": "run_config",
+            "base_ref": base_ref,
+            "run_command": "python run.py --fno-modes 24",
+            "output_root": "outputs/v2/candidate4",
+            "comparison_png_path": "outputs/v2/candidate4.png",
+            "note": "run config keep",
+            "hypothesis": "keep run config candidate",
+        },
+        assessment={
+            "decision": "KEEP",
+            "amp_ssim": 0.91,
+            "randomness_contract": {"requested_seed": 3},
+        },
+    )
+
+    assert _git(repo, "rev-parse", "HEAD").stdout.strip() == base_ref
+    assert accepted_state["accepted_ref"] == base_ref
+    assert accepted_state["accepted_run_command"] == "python run.py --fno-modes 24"
+    assert accepted_state["accepted_amp_ssim"] == 0.91
+
+
+def test_run_config_candidate_scored_run_harvests_outputs(tmp_path, monkeypatch):
+    from scripts.studies.lines_256_session_controller import (
+        initialize_session,
+        run_scored_candidate,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    proposal = {
+        "candidate_kind": "run_config",
+        "base_ref": base_ref,
+        "run_command": "python run.py --fno-modes 24",
+        "output_root": "outputs/v2/candidate5",
+        "log_path": "state/v2/candidate5.log",
+        "comparison_png_path": "outputs/v2/candidate5.png",
+        "note": "scored run",
+        "hypothesis": "score run config candidate",
+    }
+    real_run = subprocess.run
+
+    def fake_run(command, *, cwd, capture_output, text, check):
+        if command[:3] == ["git", "rev-parse", "HEAD"]:
+            return real_run(
+                command,
+                cwd=cwd,
+                capture_output=capture_output,
+                text=text,
+                check=check,
+            )
+        assert command[:3] == ["bash", "-lc", "python run.py --fno-modes 24"]
+        output_root = repo / proposal["output_root"]
+        metrics_dir = output_root / "runs" / "pinn_hybrid_resnet"
+        visuals_dir = output_root / "visuals"
+        metrics_dir.mkdir(parents=True, exist_ok=True)
+        visuals_dir.mkdir(parents=True, exist_ok=True)
+        (metrics_dir / "metrics.json").write_text(
+            json.dumps({"amp_ssim": 0.82}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (metrics_dir / "randomness_contract.json").write_text(
+            json.dumps({"requested_seed": 3}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (visuals_dir / "compare_amp_phase_probe.png").write_text("png", encoding="utf-8")
+        return subprocess.CompletedProcess(command, 0, stdout="scored ok\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assessment = run_scored_candidate(repo, session, proposal)
+
+    assert assessment["decision"] == "KEEP"
+    assert assessment["amp_ssim"] == 0.82
+    assert assessment["comparison_png_path"] == proposal["comparison_png_path"]
+    assert (repo / proposal["log_path"]).exists()
