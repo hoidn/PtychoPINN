@@ -16,6 +16,18 @@ RESULTS_HEADER = (
     "comparison_png\tcommand_or_source\tnotes"
 )
 
+COMMON_PROPOSAL_FIELDS = (
+    "candidate_kind",
+    "base_ref",
+    "smoke_command",
+    "run_command",
+    "output_root",
+    "log_path",
+    "comparison_png_path",
+    "note",
+    "hypothesis",
+)
+
 
 @dataclass
 class SessionState:
@@ -64,6 +76,10 @@ def _comparison_gallery_dir(outputs_root: Path) -> Path:
 
 def _baseline_output_root(outputs_root: Path) -> Path:
     return outputs_root / "baseline"
+
+
+def _proposal_context_path(session_root: Path) -> Path:
+    return session_root / "proposal_context.json"
 
 
 def _write_results_header(results_tsv_path: Path) -> None:
@@ -325,6 +341,59 @@ def _dry_run_payload(session: SessionState, mode: str) -> dict[str, object]:
     }
     if mode == "baseline-only":
         payload["baseline_command"] = " ".join(build_baseline_command(session))
+    return payload
+
+
+def build_recent_history_summary(session_root: Path, max_rows: int = 10) -> dict[str, object]:
+    results_tsv_path = _results_tsv_path(session_root)
+    if not results_tsv_path.exists():
+        return {"recent_attempts": [], "recent_outcomes": []}
+
+    with results_tsv_path.open(encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh, delimiter="\t")
+        rows = list(reader)
+
+    recent_attempts = rows[-max_rows:] if max_rows > 0 else []
+    return {
+        "recent_attempts": recent_attempts,
+        "recent_outcomes": [row["decision"] for row in recent_attempts],
+    }
+
+
+def normalize_candidate_proposal(proposal: dict[str, object]) -> dict[str, object]:
+    normalized: dict[str, object] = {}
+    for field in COMMON_PROPOSAL_FIELDS:
+        value = proposal.get(field)
+        if not value:
+            raise SystemExit(f"Proposal missing required field: {field}")
+        normalized[field] = value
+
+    candidate_kind = str(normalized["candidate_kind"])
+    if candidate_kind not in {"source", "run_config"}:
+        raise SystemExit(f"Unsupported candidate_kind: {candidate_kind}")
+
+    if candidate_kind == "source":
+        for field in ("candidate_commit", "candidate_paths_file"):
+            value = proposal.get(field)
+            if not value:
+                raise SystemExit(f"Proposal missing required field: {field}")
+            normalized[field] = value
+
+    return normalized
+
+
+def build_proposal_context(session: SessionState, max_rows: int = 10) -> dict[str, object]:
+    accepted_state = json.loads(session.accepted_state_path.read_text(encoding="utf-8"))
+    recent_history = build_recent_history_summary(session.session_root, max_rows=max_rows)
+    proposal_context_path = _proposal_context_path(session.session_root)
+    payload = {
+        "session_id": session.session_id,
+        "iteration": session.iteration,
+        "accepted_state": accepted_state,
+        "recent_history": recent_history,
+        "proposal_context_path": str(proposal_context_path),
+    }
+    proposal_context_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return payload
 
 

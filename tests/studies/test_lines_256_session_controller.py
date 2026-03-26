@@ -239,3 +239,108 @@ def test_start_baseline_only_dry_run_prints_baseline_command(tmp_path, capsys):
     assert "scripts/studies/run_lines_256_arch_experiment.py" in captured.out
     assert "--fno-modes 12" in captured.out
     assert "20260325T000000Z" in captured.out
+
+
+def test_build_recent_history_summary_limits_to_recent_rows(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        build_recent_history_summary,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    with session.results_tsv_path.open("a", encoding="utf-8") as fh:
+        fh.write(
+            "20260325T000000Z\t2026-03-25T00:00:00Z\tbase\tbaseline\t0.8\tna\tna\tna\tout/a\tpng/a\tcmd a\t\n"
+        )
+        fh.write(
+            "20260325T000000Z\t2026-03-25T00:10:00Z\tcand1\tdiscard\t0.7\tbase\t0.8\t-0.1\tout/b\tpng/b\tcmd b\tnote b\n"
+        )
+        fh.write(
+            "20260325T000000Z\t2026-03-25T00:20:00Z\tcand2\tkeep\t0.9\tbase\t0.8\t0.1\tout/c\tpng/c\tcmd c\tnote c\n"
+        )
+
+    summary = build_recent_history_summary(session.session_root, max_rows=2)
+
+    assert len(summary["recent_attempts"]) == 2
+    assert [row["ref_or_commit"] for row in summary["recent_attempts"]] == ["cand1", "cand2"]
+    assert summary["recent_outcomes"] == ["discard", "keep"]
+
+
+def test_build_proposal_context_reads_session_local_accepted_state(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        build_proposal_context,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": "abc123",
+                "accepted_amp_ssim": 0.91,
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    context = build_proposal_context(session, max_rows=5)
+
+    assert context["accepted_state"]["accepted_ref"] == "abc123"
+    assert context["recent_history"]["recent_attempts"] == []
+    assert context["proposal_context_path"] == str(
+        session.session_root / "proposal_context.json"
+    )
+    assert (session.session_root / "proposal_context.json").exists()
+
+
+def test_normalize_candidate_proposal_accepts_run_config_without_commit():
+    from scripts.studies.lines_256_session_controller import normalize_candidate_proposal
+
+    proposal = normalize_candidate_proposal(
+        {
+            "candidate_kind": "run_config",
+            "base_ref": "abc123",
+            "smoke_command": "python smoke.py",
+            "run_command": "python run.py --fno-modes 24",
+            "output_root": "outputs/v2/candidate",
+            "log_path": "state/v2/candidate.log",
+            "comparison_png_path": "outputs/v2/candidate.png",
+            "note": "Try 24 global modes",
+            "hypothesis": "Higher spectral capacity may improve amp_ssim.",
+        }
+    )
+
+    assert proposal["candidate_kind"] == "run_config"
+    assert "candidate_commit" not in proposal
+    assert "candidate_paths_file" not in proposal
+
+
+def test_normalize_candidate_proposal_requires_commit_for_source():
+    from scripts.studies.lines_256_session_controller import normalize_candidate_proposal
+
+    with pytest.raises(SystemExit, match="candidate_commit"):
+        normalize_candidate_proposal(
+            {
+                "candidate_kind": "source",
+                "base_ref": "abc123",
+                "smoke_command": "python smoke.py",
+                "run_command": "python run.py",
+                "output_root": "outputs/v2/candidate",
+                "log_path": "state/v2/candidate.log",
+                "comparison_png_path": "outputs/v2/candidate.png",
+                "note": "Edit source",
+                "hypothesis": "Source change may improve amp_ssim.",
+            }
+        )

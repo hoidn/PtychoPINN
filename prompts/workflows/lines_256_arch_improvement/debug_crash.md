@@ -17,8 +17,8 @@ Do not run the scored `20`-epoch experiment yourself. Do not append the TSV ledg
 You must use the following injected files as authority:
 - `docs/studies/lines_256_dataset.md`
 - `docs/studies/lines_256_arch_improvement_loop.md`
-- `state/lines_256_arch_improvement/protected_local_paths.json`
-- `state/lines_256_arch_improvement/accepted_state.json`
+- the injected `protected_local_paths.json` for this task
+- the injected `accepted_state.json` for this task
 - the injected `candidate_context.json` for this task
 - the injected `candidate_metadata.json` for this task
 - the injected `candidate_assessment.json` for this task
