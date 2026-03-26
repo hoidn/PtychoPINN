@@ -511,7 +511,12 @@ def run_scored_candidate(
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text(completed.stdout + completed.stderr, encoding="utf-8")
     if completed.returncode != 0:
-        raise SystemExit(f"Scored candidate failed: {completed.returncode}")
+        return {
+            "decision": "TIMEOUT" if completed.returncode == 124 else "CRASH",
+            "timed_out": completed.returncode == 124,
+            "exit_code": completed.returncode,
+            "comparison_png_path": str(proposal["comparison_png_path"]),
+        }
 
     metrics_path = _find_metrics_path(output_root)
     randomness_path = _find_randomness_path(output_root)
@@ -527,8 +532,18 @@ def run_scored_candidate(
         else "DISCARD",
         "amp_ssim": amp_ssim,
         "randomness_contract": randomness_contract,
+        "timed_out": False,
+        "exit_code": completed.returncode,
         "comparison_png_path": str(proposal["comparison_png_path"]),
     }
+
+
+def resume_session(session_root: Path) -> SessionState:
+    return load_session(session_root)
+
+
+def should_attempt_debug(assessment: dict[str, object], debug_attempts: int) -> bool:
+    return str(assessment.get("decision", "")).upper() == "CRASH" and debug_attempts == 0
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

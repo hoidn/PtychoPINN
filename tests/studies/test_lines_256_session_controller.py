@@ -620,3 +620,133 @@ def test_run_config_candidate_scored_run_harvests_outputs(tmp_path, monkeypatch)
     assert assessment["amp_ssim"] == 0.82
     assert assessment["comparison_png_path"] == proposal["comparison_png_path"]
     assert (repo / proposal["log_path"]).exists()
+
+
+def test_run_scored_candidate_timeout_is_classified_without_git_reset(tmp_path, monkeypatch):
+    from scripts.studies.lines_256_session_controller import (
+        initialize_session,
+        run_scored_candidate,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    proposal = {
+        "candidate_kind": "run_config",
+        "base_ref": base_ref,
+        "run_command": "python run.py --slow",
+        "output_root": "outputs/v2/timeout",
+        "log_path": "state/v2/timeout.log",
+        "comparison_png_path": "outputs/v2/timeout.png",
+        "note": "timeout",
+        "hypothesis": "slow run",
+    }
+    real_run = subprocess.run
+
+    def fake_run(command, *, cwd, capture_output, text, check):
+        if command[:3] == ["git", "rev-parse", "HEAD"]:
+            return real_run(
+                command,
+                cwd=cwd,
+                capture_output=capture_output,
+                text=text,
+                check=check,
+            )
+        assert command[:3] == ["bash", "-lc", "python run.py --slow"]
+        return subprocess.CompletedProcess(command, 124, stdout="", stderr="timed out")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assessment = run_scored_candidate(repo, session, proposal)
+
+    assert assessment["decision"] == "TIMEOUT"
+    assert assessment["timed_out"] is True
+    assert _git(repo, "rev-parse", "HEAD").stdout.strip() == base_ref
+
+
+def test_run_scored_candidate_nonzero_exit_is_classified_as_crash(tmp_path, monkeypatch):
+    from scripts.studies.lines_256_session_controller import (
+        initialize_session,
+        run_scored_candidate,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    proposal = {
+        "candidate_kind": "source",
+        "base_ref": base_ref,
+        "candidate_commit": base_ref,
+        "run_command": "python run.py --boom",
+        "output_root": "outputs/v2/crash",
+        "log_path": "state/v2/crash.log",
+        "comparison_png_path": "outputs/v2/crash.png",
+        "note": "crash",
+        "hypothesis": "crashy run",
+    }
+
+    def fake_run(command, *, cwd, capture_output, text, check):
+        assert command[:3] == ["bash", "-lc", "python run.py --boom"]
+        return subprocess.CompletedProcess(command, 1, stdout="", stderr="boom")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assessment = run_scored_candidate(repo, session, proposal)
+
+    assert assessment["decision"] == "CRASH"
+    assert assessment["timed_out"] is False
+
+
+def test_resume_session_uses_persisted_phase_and_iteration(tmp_path):
+    from scripts.studies.lines_256_session_controller import initialize_session, resume_session
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    payload = json.loads(session.session_json_path.read_text(encoding="utf-8"))
+    payload["current_phase"] = "score_candidate"
+    payload["iteration"] = 3
+    session.session_json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    resumed = resume_session(session.session_root)
+
+    assert resumed.current_phase == "score_candidate"
+    assert resumed.iteration == 3
+
+
+def test_should_attempt_debug_only_on_first_crash():
+    from scripts.studies.lines_256_session_controller import should_attempt_debug
+
+    assert should_attempt_debug({"decision": "CRASH"}, debug_attempts=0) is True
+    assert should_attempt_debug({"decision": "CRASH"}, debug_attempts=1) is False
+    assert should_attempt_debug({"decision": "TIMEOUT"}, debug_attempts=0) is False
