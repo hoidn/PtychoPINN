@@ -6,6 +6,15 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def _extract_inline_python(command: str) -> str:
+    marker = "python - <<'PY'\n"
+    assert marker in command
+    _, tail = command.split(marker, 1)
+    code, end = tail.rsplit("\nPY", 1)
+    assert end.strip() == ""
+    return code
+
+
 def test_prompt_index_registers_lines_256_experiment_prompt():
     index = (REPO_ROOT / "prompts/index.md").read_text(encoding="utf-8")
 
@@ -201,6 +210,18 @@ def test_lines_256_workflow_supports_run_config_candidates():
     assert 'metadata.get("candidate_commit") or metadata.get("base_ref", "na")' in append_script
 
 
+def test_lines_256_harvest_baseline_script_compiles():
+    workflow_path = REPO_ROOT / Path(
+        "workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml"
+    )
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+    harvest_baseline = next(step for step in workflow["steps"] if step["name"] == "HarvestBaselineOutputs")
+    inline_python = _extract_inline_python(harvest_baseline["command"][-1])
+
+    compile(inline_python, "HarvestBaselineOutputs.inline.py", "exec")
+
+
 def test_lines_256_prompts_pin_smoke_target_normalization_and_probe_gallery_name():
     experiment_prompt = (
         REPO_ROOT / "prompts/workflows/lines_256_arch_improvement/experiment_step.md"
@@ -246,6 +267,36 @@ def test_lines_256_arch_improvement_v2_call_workflow_extracts_iteration_into_sub
         run_iteration["with"]["write_root"]["ref"]
         == "self.steps.PrepareIterationCallInputs.artifacts.write_root"
     )
+
+
+def test_lines_256_session_controller_workflow_is_thin_wrapper():
+    workflow_path = REPO_ROOT / Path(
+        "workflows/agent_orchestration/lines_256_session_controller.yaml"
+    )
+    assert workflow_path.exists()
+
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+    assert workflow["version"] == "2.7"
+    step_names = [step["name"] for step in workflow["steps"]]
+    assert step_names == ["ValidateControllerInputs", "RunController"]
+    run_controller = next(step for step in workflow["steps"] if step["name"] == "RunController")
+    assert run_controller["command"][:2] == ["python", "scripts/studies/lines_256_session_controller.py"]
+    assert "repeat_until" not in workflow
+
+
+def test_lines_256_docs_register_legacy_and_v2_controller_paths():
+    docs_index = (REPO_ROOT / "docs/index.md").read_text(encoding="utf-8")
+    studies_index = (REPO_ROOT / "docs/studies/index.md").read_text(encoding="utf-8")
+    controller_doc = (
+        REPO_ROOT / "docs/studies/lines_256_controller_loop.md"
+    ).read_text(encoding="utf-8")
+
+    assert "lines_256_controller_loop.md" in docs_index
+    assert "lines_256_arch_improvement_loop.md" in docs_index
+    assert "lines_256_controller_loop.md" in studies_index
+    assert "legacy" in studies_index.lower()
+    assert "lines_256_arch_improvement_v2" in controller_doc
 
 
 def test_lines_256_arch_improvement_iteration_library_preserves_crash_debug_path():

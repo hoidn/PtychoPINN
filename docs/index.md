@@ -50,9 +50,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Integrating or debugging the PtychoViT backend path in `scripts/studies/grid_lines_compare_wrapper.py`.
 
 ### [Studies Index](studies/index.md)
-**Description:** Catalog of active study runbooks, including canonical NERSC scan807+cameraman command lines with concrete `--scan807-*`, `--cameraman-*`, and `--ptychovit-checkpoint` flags.
-**Keywords:** studies, runbooks, nersc, scan807, cameraman, ptychovit
-**Use this when:** You need copy/paste-ready orchestration commands and concrete local dataset/checkpoint flag patterns.
+**Description:** Catalog of active study runbooks, including canonical NERSC scan807+cameraman command lines with concrete `--scan807-*`, `--cameraman-*`, and `--ptychovit-checkpoint` flags, plus links to study-specific loop contracts such as `lines_256`.
+**Keywords:** studies, runbooks, nersc, scan807, cameraman, ptychovit, lines_256
+**Use this when:** You need copy/paste-ready orchestration commands, concrete local dataset/checkpoint flag patterns, or the exact study doc for an active loop.
 
 ### [Lines 256 Dataset Note](studies/lines_256_dataset.md)
 **Description:** Repo-local note for the `lines_256` architecture-experiment dataset alias, including the regenerated working NPZ pair, its `pad_preserve` probe-scaling contract, provenance, direct-run usage guidance, and the warning that `outputs/` is only the current compatibility location rather than the preferred long-term storage home.
@@ -60,9 +60,14 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** You need the exact `N=256` lines dataset for a single-dataset experiment, or need to understand both the current compatibility path and the persistent-data policy for this study input.
 
 ### [Lines 256 Architecture Loop](studies/lines_256_arch_improvement_loop.md)
-**Description:** Exact `autoresearch`-style loop contract for `lines_256` architecture experiments, including fresh baseline generation through the fixed-parameter thin wrapper, the untracked TSV ledger path, the session-local champion rule, the comparison-PNG gallery contract, and keep/discard reset behavior.
-**Keywords:** lines_256, architecture-loop, amp_ssim, baseline, wrapper, results.tsv, compare_amp_phase, probe, git-reset, session
-**Use this when:** You need a deterministic autonomous experiment loop for the `lines_256` prompt-library agent or want the authoritative rule for baseline generation, result recording, and keep/discard decisions.
+**Description:** Exact `autoresearch`-style loop contract for `lines_256` architecture experiments, including fresh baseline generation through the fixed-parameter thin wrapper, the untracked TSV ledger path, the session-local champion rule, the comparison-PNG gallery contract, keep/discard reset behavior, and the dedicated-run-checkout rule for this DSL-level rollback/checkpoint workflow.
+**Keywords:** lines_256, architecture-loop, amp_ssim, baseline, wrapper, results.tsv, compare_amp_phase, probe, git-reset, session, checkout
+**Use this when:** You need a deterministic autonomous experiment loop for the `lines_256` prompt-library agent or want the authoritative rule for baseline generation, result recording, keep/discard decisions, and how this workflow should be isolated from normal branch work.
+
+### [Lines 256 Controller Loop (V2)](studies/lines_256_controller_loop.md)
+**Description:** Parallel controller-driven `lines_256` study path that keeps baseline, scoring, keep/discard, timeout/crash, and resume behavior in a session-local Python controller while the legacy YAML loop remains available during validation.
+**Keywords:** lines_256, controller, v2, session-local, run_config, source, timeout, resume
+**Use this when:** You want the new controller-based path, need the v2 state/output roots, or need to understand how the parallel rollout differs from the legacy loop.
 
 ### [PyTorch Model Loading & Inference Guide](../ptycho_torch/README.md)
 **Description:** Practical guide to loading PyTorch models for inference, including the recommended CLI path and manual reconstruction from state_dict-only `model.pt` files.  
@@ -97,9 +102,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Working as an AI agent or need to understand project conventions and critical requirements.
 
 ### [Orchestration Start Here](workflows/orchestration_start_here.md)
-**Description:** Canonical onboarding for backlog-loop orchestration that explicitly separates orchestration policy, DSL workflow authoring, and runtime step execution; includes workflow/step/prompt/plan boundaries and plan-to-workflow contract model.  
-**Keywords:** orchestration, workflow, step, prompt, plan, ownership-boundaries, producer-consumer  
-**Use this when:** Authoring DSL workflows, editing backlog-loop prompts/plans, or running/resuming backlog-loop workflows and you need an exact conceptual model of how those layers connect.
+**Description:** Canonical onboarding for backlog-loop orchestration that explicitly separates orchestration policy, DSL workflow authoring, and runtime step execution; includes workflow/step/prompt/plan boundaries, plan-to-workflow contract model, and the repo-local rule that live-checkout git-safety guidance is only required for workflows with DSL-level rollback/checkpoint behavior.
+**Keywords:** orchestration, workflow, step, prompt, plan, ownership-boundaries, producer-consumer, git
+**Use this when:** Authoring DSL workflows, editing backlog-loop prompts/plans, or deciding whether a workflow such as `lines_256` needs a dedicated run checkout.
 
 ### [Implementation Plan Template](plans/templates/implementation_plan.md)
 **Description:** Repo-specific phased plan template with initiative header, exit criteria, per‑phase checklists, Do Now block, artifacts index, and plan‑update protocol reminder.  
