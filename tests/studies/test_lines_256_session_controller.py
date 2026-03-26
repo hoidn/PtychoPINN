@@ -168,7 +168,7 @@ def test_run_baseline_executes_wrapper_and_updates_session_phase(tmp_path, monke
     session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
     real_run = subprocess.run
 
-    def fake_run(command, *, cwd, capture_output, text, check):
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None):
         if command[:3] == ["git", "rev-parse", "HEAD"]:
             return real_run(
                 command,
@@ -313,6 +313,8 @@ def test_normalize_candidate_proposal_accepts_run_config_without_commit():
             "candidate_kind": "run_config",
             "base_ref": "abc123",
             "smoke_command": "python smoke.py",
+            "smoke_output_root": "outputs/v2/candidate_smoke",
+            "smoke_log_path": "state/v2/candidate_smoke.log",
             "run_command": "python run.py --fno-modes 24",
             "output_root": "outputs/v2/candidate",
             "log_path": "state/v2/candidate.log",
@@ -336,6 +338,8 @@ def test_normalize_candidate_proposal_requires_commit_for_source():
                 "candidate_kind": "source",
                 "base_ref": "abc123",
                 "smoke_command": "python smoke.py",
+                "smoke_output_root": "outputs/v2/source_smoke",
+                "smoke_log_path": "state/v2/source_smoke.log",
                 "run_command": "python run.py",
                 "output_root": "outputs/v2/candidate",
                 "log_path": "state/v2/candidate.log",
@@ -586,7 +590,7 @@ def test_run_config_candidate_scored_run_harvests_outputs(tmp_path, monkeypatch)
     }
     real_run = subprocess.run
 
-    def fake_run(command, *, cwd, capture_output, text, check):
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None):
         if command[:3] == ["git", "rev-parse", "HEAD"]:
             return real_run(
                 command,
@@ -658,7 +662,7 @@ def test_run_scored_candidate_timeout_is_classified_without_git_reset(tmp_path, 
     }
     real_run = subprocess.run
 
-    def fake_run(command, *, cwd, capture_output, text, check):
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None):
         if command[:3] == ["git", "rev-parse", "HEAD"]:
             return real_run(
                 command,
@@ -715,7 +719,7 @@ def test_run_scored_candidate_nonzero_exit_is_classified_as_crash(tmp_path, monk
         "hypothesis": "crashy run",
     }
 
-    def fake_run(command, *, cwd, capture_output, text, check):
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None):
         assert command[:3] == ["bash", "-lc", "python run.py --boom"]
         return subprocess.CompletedProcess(command, 1, stdout="", stderr="boom")
 
@@ -750,3 +754,326 @@ def test_should_attempt_debug_only_on_first_crash():
     assert should_attempt_debug({"decision": "CRASH"}, debug_attempts=0) is True
     assert should_attempt_debug({"decision": "CRASH"}, debug_attempts=1) is False
     assert should_attempt_debug({"decision": "TIMEOUT"}, debug_attempts=0) is False
+
+
+def _write_run_outputs(root: Path, amp_ssim: float) -> None:
+    metrics_dir = root / "runs" / "pinn_hybrid_resnet"
+    visuals_dir = root / "visuals"
+    metrics_dir.mkdir(parents=True, exist_ok=True)
+    visuals_dir.mkdir(parents=True, exist_ok=True)
+    (metrics_dir / "metrics.json").write_text(
+        json.dumps({"amp_ssim": amp_ssim}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (metrics_dir / "randomness_contract.json").write_text(
+        json.dumps(
+            {
+                "requested_seed": 3,
+                "effective_subsample_seed": 3,
+                "effective_lightning_seed": 3,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (visuals_dir / "compare_amp_phase_probe.png").write_text("png", encoding="utf-8")
+
+
+def test_start_full_runs_baseline_then_one_run_config_keep(tmp_path, monkeypatch):
+    from scripts.studies.lines_256_session_controller import main
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    (repo / "docs/studies").mkdir(parents=True, exist_ok=True)
+    (repo / "prompts/workflows/lines_256_arch_improvement").mkdir(parents=True, exist_ok=True)
+    (repo / "docs/studies/lines_256_dataset.md").write_text("dataset\n", encoding="utf-8")
+    (repo / "docs/studies/lines_256_arch_improvement_loop.md").write_text(
+        "loop doc\n",
+        encoding="utf-8",
+    )
+    (repo / "prompts/workflows/lines_256_arch_improvement/experiment_step.md").write_text(
+        "prompt\n",
+        encoding="utf-8",
+    )
+    (repo / "prompts/workflows/lines_256_arch_improvement/debug_crash.md").write_text(
+        "debug prompt\n",
+        encoding="utf-8",
+    )
+    session_id = "20260325T000000Z"
+    session_root = (
+        repo / "state" / "lines_256_arch_improvement_v2" / "sessions" / session_id
+    )
+    outputs_root = (
+        repo / "outputs" / "lines_256_arch_improvement_v2" / "sessions" / session_id
+    )
+    comparison_gallery = outputs_root / "comparison_pngs"
+    baseline_output_root = outputs_root / "baseline"
+    iter_root = session_root / "iterations" / "000"
+    smoke_output_root = outputs_root / "candidates" / "20260325T001000Z_runconfig_smoke"
+    scored_output_root = outputs_root / "candidates" / "20260325T001000Z_runconfig"
+    smoke_log_path = iter_root / "20260325T001000Z_runconfig_smoke.log"
+    candidate_log_path = iter_root / "20260325T001000Z_runconfig.log"
+    comparison_png_path = (
+        comparison_gallery / "20260325T001000Z_runconfig__compare_amp_phase_probe.png"
+    )
+    real_run = subprocess.run
+
+    def fake_run(command, **kwargs):
+        cwd = kwargs.get("cwd")
+        assert cwd == repo
+        if command[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command[:3] == ["git", "rev-parse", "HEAD"]:
+            return real_run(command, **kwargs)
+        if command[:2] == ["python", "scripts/studies/run_lines_256_arch_experiment.py"]:
+            _write_run_outputs(baseline_output_root, 0.81)
+            return subprocess.CompletedProcess(command, 0, stdout="baseline ok\n", stderr="")
+        if len(command) >= 2 and command[1] == "exec":
+            assert "candidate_context.json" in kwargs["input"]
+            _write_run_outputs(smoke_output_root, 0.5)
+            smoke_log_path.parent.mkdir(parents=True, exist_ok=True)
+            smoke_log_path.write_text("smoke ok\n", encoding="utf-8")
+            base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+            candidate_metadata = {
+                "status": "READY",
+                "candidate_kind": "run_config",
+                "base_ref": base_ref,
+                "smoke_command": "python smoke.py --fno-modes 24",
+                "smoke_output_root": str(smoke_output_root.relative_to(repo)),
+                "smoke_log_path": str(smoke_log_path.relative_to(repo)),
+                "run_command": "python run.py --fno-modes 24",
+                "output_root": str(scored_output_root.relative_to(repo)),
+                "log_path": str(candidate_log_path.relative_to(repo)),
+                "comparison_png_path": str(comparison_png_path.relative_to(repo)),
+                "note": "Try a global 24-mode rerun.",
+                "hypothesis": "Higher spectral capacity may improve amp_ssim.",
+            }
+            (iter_root / "candidate_metadata.json").parent.mkdir(parents=True, exist_ok=True)
+            (iter_root / "candidate_metadata.json").write_text(
+                json.dumps(candidate_metadata, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(command, 0, stdout="READY\n", stderr="")
+        if command[:3] == ["bash", "-lc", "python run.py --fno-modes 24"]:
+            _write_run_outputs(scored_output_root, 0.93)
+            return subprocess.CompletedProcess(command, 0, stdout="scored ok\n", stderr="")
+        raise AssertionError(command)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    exit_code = main(
+        [
+            "start",
+            "--repo-root",
+            str(repo),
+            "--session-id",
+            session_id,
+            "--mode",
+            "full",
+            "--max-iterations",
+            "1",
+            "--codex-cmd",
+            "codex",
+        ]
+    )
+
+    assert exit_code == 0
+    accepted_state = json.loads((session_root / "accepted_state.json").read_text(encoding="utf-8"))
+    assert accepted_state["accepted_candidate_kind"] == "run_config"
+    assert accepted_state["accepted_amp_ssim"] == 0.93
+    assert accepted_state["accepted_run_command"] == "python run.py --fno-modes 24"
+    session_payload = json.loads((session_root / "session.json").read_text(encoding="utf-8"))
+    assert session_payload["current_phase"] == "completed"
+    assert session_payload["iteration"] == 1
+    ledger_lines = (session_root / "results.tsv").read_text(encoding="utf-8").strip().splitlines()
+    assert len(ledger_lines) == 3
+    assert "\tbaseline\t0.81\t" in ledger_lines[1]
+    assert "\tkeep\t0.93\t" in ledger_lines[2]
+
+
+def test_resume_proposal_complete_scores_existing_candidate(tmp_path, monkeypatch):
+    from scripts.studies.lines_256_session_controller import initialize_session, main
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (session.protected_local_paths_path).write_text("[]\n", encoding="utf-8")
+    session.current_phase = "proposal_complete"
+    session.iteration = 0
+    session.debug_attempts = 0
+    session.session_json_path.write_text(
+        json.dumps(
+            {
+                "session_id": session.session_id,
+                "current_phase": session.current_phase,
+                "iteration": session.iteration,
+                "debug_attempts": session.debug_attempts,
+                "session_root": str(session.session_root.relative_to(repo)),
+                "results_tsv_path": str(session.results_tsv_path.relative_to(repo)),
+                "accepted_state_path": str(session.accepted_state_path.relative_to(repo)),
+                "protected_local_paths_path": str(session.protected_local_paths_path.relative_to(repo)),
+                "outputs_root": str(session.outputs_root.relative_to(repo)),
+                "comparison_gallery_dir": str(session.comparison_gallery_dir.relative_to(repo)),
+                "baseline_output_root": str(session.baseline_output_root.relative_to(repo)),
+                "baseline_log_path": str(session.baseline_log_path.relative_to(repo)),
+                "baseline_result_path": str(session.baseline_result_path.relative_to(repo)),
+                "baseline_comparison_png": str(session.baseline_comparison_png.relative_to(repo)),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    iter_root = session.session_root / "iterations" / "000"
+    smoke_output_root = session.outputs_root / "candidates" / "20260325T001000Z_resume_smoke"
+    scored_output_root = session.outputs_root / "candidates" / "20260325T001000Z_resume"
+    smoke_log_path = iter_root / "20260325T001000Z_resume_smoke.log"
+    candidate_log_path = iter_root / "20260325T001000Z_resume.log"
+    comparison_png_path = (
+        session.comparison_gallery_dir / "20260325T001000Z_resume__compare_amp_phase_probe.png"
+    )
+    _write_run_outputs(smoke_output_root, 0.5)
+    smoke_log_path.parent.mkdir(parents=True, exist_ok=True)
+    smoke_log_path.write_text("smoke ok\n", encoding="utf-8")
+    (iter_root / "candidate_metadata.json").write_text(
+        json.dumps(
+            {
+                "status": "READY",
+                "candidate_kind": "run_config",
+                "base_ref": base_ref,
+                "smoke_command": "python smoke.py --fno-modes 24",
+                "smoke_output_root": str(smoke_output_root.relative_to(repo)),
+                "smoke_log_path": str(smoke_log_path.relative_to(repo)),
+                "run_command": "python run.py --fno-modes 24",
+                "output_root": str(scored_output_root.relative_to(repo)),
+                "log_path": str(candidate_log_path.relative_to(repo)),
+                "comparison_png_path": str(comparison_png_path.relative_to(repo)),
+                "note": "Resume-scored run_config candidate",
+                "hypothesis": "Resume should score the prepared candidate.",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    real_run = subprocess.run
+
+    def fake_run(command, **kwargs):
+        cwd = kwargs.get("cwd")
+        assert cwd == repo
+        if command[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command[:3] == ["git", "rev-parse", "HEAD"]:
+            return real_run(command, **kwargs)
+        if command[:3] == ["bash", "-lc", "python run.py --fno-modes 24"]:
+            _write_run_outputs(scored_output_root, 0.92)
+            return subprocess.CompletedProcess(command, 0, stdout="resume scored\n", stderr="")
+        raise AssertionError(command)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    exit_code = main(
+        [
+            "resume",
+            "--session-root",
+            str(session.session_root),
+            "--max-iterations",
+            "1",
+        ]
+    )
+
+    assert exit_code == 0
+    accepted_state = json.loads(session.accepted_state_path.read_text(encoding="utf-8"))
+    assert accepted_state["accepted_amp_ssim"] == 0.92
+    assert accepted_state["accepted_candidate_kind"] == "run_config"
+    resumed = json.loads(session.session_json_path.read_text(encoding="utf-8"))
+    assert resumed["current_phase"] == "completed"
+    assert resumed["iteration"] == 1
+
+
+def test_start_full_can_bootstrap_existing_accepted_state(tmp_path, monkeypatch):
+    from scripts.studies.lines_256_session_controller import main
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    bootstrap_state = tmp_path / "legacy_accepted_state.json"
+    bootstrap_state.write_text(
+        json.dumps(
+            {
+                "accepted_ref": "abc123",
+                "accepted_amp_ssim": 0.91,
+                "accepted_run_command": "python run.py --fno-modes 24",
+                "accepted_candidate_kind": "run_config",
+                "accepted_randomness_contract": {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+                "accepted_output_root": "outputs/legacy/candidate",
+                "accepted_comparison_png": "outputs/legacy/candidate.png",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    def fake_run(command, **kwargs):
+        if command[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command[:3] == ["git", "rev-parse", "HEAD"]:
+            return subprocess.CompletedProcess(command, 0, stdout="ignored\n", stderr="")
+        raise AssertionError(command)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    session_id = "20260325T000000Z"
+    exit_code = main(
+        [
+            "start",
+            "--repo-root",
+            str(repo),
+            "--session-id",
+            session_id,
+            "--mode",
+            "full",
+            "--max-iterations",
+            "0",
+            "--bootstrap-accepted-state",
+            str(bootstrap_state),
+        ]
+    )
+
+    assert exit_code == 0
+    accepted_state_path = (
+        repo
+        / "state"
+        / "lines_256_arch_improvement_v2"
+        / "sessions"
+        / session_id
+        / "accepted_state.json"
+    )
+    accepted_state = json.loads(accepted_state_path.read_text(encoding="utf-8"))
+    assert accepted_state["accepted_ref"] == "abc123"
+    assert accepted_state["accepted_amp_ssim"] == 0.91
+    assert accepted_state["session_id"] == session_id

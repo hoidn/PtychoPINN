@@ -17,8 +17,9 @@ The goals are:
 
 ## Rollout Status
 
-This is the v2 validation path. The legacy workflow remains supported during the
-parallel rollout.
+This is the v2 parallel replacement path. The legacy workflow remains supported
+during rollout, but the controller now owns a real iterative `start` / `resume`
+loop instead of baseline-only scaffolding.
 
 - Legacy doc: `docs/studies/lines_256_arch_improvement_loop.md`
 - Legacy workflow: `workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml`
@@ -43,9 +44,13 @@ The v2 controller stores session-local state and outputs under separate roots:
 Key artifacts:
 - `session.json`
 - `accepted_state.json`
+- `protected_local_paths.json`
 - `results.tsv`
 - `proposal_context.json`
 - `baseline_run_result.json`
+- `iterations/<n>/candidate_context.json`
+- `iterations/<n>/candidate_metadata.json`
+- `iterations/<n>/candidate_assessment.json`
 
 ## Candidate Kinds
 
@@ -64,12 +69,29 @@ The v2 controller supports two candidate kinds:
 
 The controller owns deterministic study behavior:
 - initialize session-local state
+- capture protected local tracked-path state for the run checkout
 - run and harvest baseline
 - build recent-history summary and proposal context
+- invoke the proposal agent and validate its candidate package
 - run scored candidates
 - classify `KEEP`, `DISCARD`, `TIMEOUT`, and `CRASH`
+- attempt one focused crash-debug retry when warranted
 - update accepted state
 - resume from persisted phase
+
+## CLI Surface
+
+Primary entrypoints:
+- `python scripts/studies/lines_256_session_controller.py start --repo-root .`
+- `python scripts/studies/lines_256_session_controller.py resume --session-root state/lines_256_arch_improvement_v2/sessions/<session_id>`
+
+Useful options:
+- `--mode baseline-only`
+- `--max-iterations <n>`
+- `--bootstrap-accepted-state <path>`
+
+`--bootstrap-accepted-state` lets the v2 controller seed a fresh session from
+an existing accepted-state artifact instead of rerunning baseline immediately.
 
 Prompts remain task-local and should only prepare candidate packages or crash
 repairs.
