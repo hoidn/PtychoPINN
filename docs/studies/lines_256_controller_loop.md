@@ -79,6 +79,19 @@ The controller owns deterministic study behavior:
 - update accepted state
 - resume from persisted phase
 
+## Timeout Semantics
+
+Scored-run timeouts are first-class persisted outcomes, not controller-fatal
+exceptions.
+
+When a scored candidate exceeds the controller budget, v2 should still write:
+- the scored candidate log
+- `candidate_run_result.json`
+- `candidate_assessment.json`
+
+The controller then records the candidate as `TIMEOUT` and continues or stops
+according to the normal session rules instead of dying in the timeout path.
+
 ## CLI Surface
 
 Primary entrypoints:

@@ -575,6 +575,107 @@ def _load_relative_json_list(repo_root: Path, relpath: str) -> list[str]:
     return payload
 
 
+def _candidate_paths_for_source_proposal(repo_root: Path, proposal: dict[str, object]) -> list[str]:
+    candidate_paths_file = proposal.get("candidate_paths_file")
+    if not candidate_paths_file:
+        raise SystemExit("Source proposal is missing candidate_paths_file")
+    return _load_relative_json_list(repo_root, str(candidate_paths_file))
+
+
+def _run_git_mutation(repo_root: Path, *args: str) -> None:
+    completed = subprocess.run(
+        ["git", *args],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        raise SystemExit(
+            f"Failed to run git {' '.join(args)}: {completed.stdout}{completed.stderr}".strip()
+        )
+
+
+def _path_exists_in_ref(repo_root: Path, ref: str, relpath: str) -> bool:
+    completed = subprocess.run(
+        ["git", "cat-file", "-e", f"{ref}:{relpath}"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return completed.returncode == 0
+
+
+def _remove_worktree_path(path: Path) -> None:
+    if not path.exists():
+        return
+    if path.is_dir():
+        shutil.rmtree(path)
+    else:
+        path.unlink()
+
+
+def _assert_candidate_scoped_cleanup(
+    repo_root: Path,
+    session: SessionState,
+    candidate_paths: list[str],
+) -> None:
+    current_paths = set(_git_status_lines(repo_root))
+    protected_set = set(_protected_local_paths(session))
+    candidate_set = set(candidate_paths)
+
+    missing_protected = sorted(protected_set - current_paths)
+    lingering_candidate = sorted(candidate_set & current_paths)
+
+    if missing_protected or lingering_candidate:
+        extra_dirty = sorted(current_paths - protected_set - candidate_set)
+        details = []
+        if missing_protected:
+            details.append(f"missing_protected={missing_protected}")
+        if lingering_candidate:
+            details.append(f"lingering_candidate={lingering_candidate}")
+        if extra_dirty:
+            details.append(f"extra_dirty={extra_dirty}")
+        raise SystemExit(
+            "Candidate cleanup disturbed protected or candidate-scoped paths:\n"
+            + "\n".join(details)
+        )
+
+
+def _cleanup_source_candidate(
+    repo_root: Path,
+    session: SessionState,
+    proposal: dict[str, object],
+) -> None:
+    candidate_paths = _candidate_paths_for_source_proposal(repo_root, proposal)
+    overlap = sorted(set(candidate_paths) & set(_protected_local_paths(session)))
+    if overlap:
+        raise SystemExit(
+            "Candidate paths overlap protected local paths and cannot be handled safely:\n"
+            + "\n".join(overlap)
+        )
+
+    base_ref = str(proposal["base_ref"])
+    _run_git_mutation(repo_root, "reset", "--mixed", base_ref)
+    existing_paths = [path for path in candidate_paths if _path_exists_in_ref(repo_root, base_ref, path)]
+    missing_paths = [path for path in candidate_paths if path not in existing_paths]
+    if existing_paths:
+        _run_git_mutation(
+            repo_root,
+            "restore",
+            "--source",
+            base_ref,
+            "--staged",
+            "--worktree",
+            "--",
+            *existing_paths,
+        )
+    for relpath in missing_paths:
+        _remove_worktree_path(repo_root / relpath)
+    _assert_candidate_scoped_cleanup(repo_root, session, candidate_paths)
+
+
 def validate_ready_proposal(repo_root: Path, session: SessionState, proposal: dict[str, object]) -> None:
     accepted = _load_accepted_state(session)
     if str(proposal["base_ref"]) != str(accepted["accepted_ref"]):
@@ -790,22 +891,11 @@ def _write_scored_artifacts(
     assessment: dict[str, object],
     debug: bool = False,
 ) -> None:
-    run_result = {
-        "launcher_status": assessment["launcher_status"],
-        "exit_code": assessment["exit_code"],
-        "timed_out": assessment["timed_out"],
-    }
-    run_result_path = (
-        _debug_candidate_run_result_path(session)
-        if debug
-        else _candidate_run_result_path(session)
-    )
     assessment_path = (
         _debug_candidate_assessment_path(session)
         if debug
         else _candidate_assessment_path(session)
     )
-    _write_json(run_result_path, run_result)
     assessment_payload = {
         "decision": assessment["decision"],
         "comparison_png_path": assessment.get("comparison_png_path"),
@@ -819,10 +909,66 @@ def _write_scored_artifacts(
     _write_json(assessment_path, assessment_payload)
 
 
+def _coerce_subprocess_text(value: str | bytes | None) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return value
+
+
+def _run_scored_command(repo_root: Path, command: str, timeout_sec: int) -> dict[str, object]:
+    repo_root = repo_root.resolve()
+    try:
+        completed = subprocess.run(
+            ["bash", "-lc", command],
+            cwd=repo_root,
+            capture_output=True,
+            text=True,
+            timeout=timeout_sec,
+            check=False,
+        )
+        return {
+            "launcher_status": "completed",
+            "exit_code": completed.returncode,
+            "timed_out": False,
+            "stdout_text": _coerce_subprocess_text(completed.stdout),
+            "stderr_text": _coerce_subprocess_text(completed.stderr),
+        }
+    except subprocess.TimeoutExpired as exc:
+        return {
+            "launcher_status": "timeout",
+            "exit_code": 124,
+            "timed_out": True,
+            "stdout_text": _coerce_subprocess_text(exc.stdout),
+            "stderr_text": _coerce_subprocess_text(exc.stderr),
+        }
+
+
+def _write_run_result_artifact(
+    session: SessionState,
+    launch_result: dict[str, object],
+    debug: bool = False,
+) -> None:
+    run_result = {
+        "launcher_status": launch_result["launcher_status"],
+        "exit_code": launch_result["exit_code"],
+        "timed_out": launch_result["timed_out"],
+    }
+    run_result_path = (
+        _debug_candidate_run_result_path(session)
+        if debug
+        else _candidate_run_result_path(session)
+    )
+    _write_json(run_result_path, run_result)
+
+
 def run_scored_candidate(
     repo_root: Path,
     session: SessionState,
     proposal: dict[str, object],
+    *,
+    debug: bool = False,
 ) -> dict[str, object]:
     repo_root = repo_root.resolve()
     accepted_state = _load_accepted_state(session)
@@ -830,54 +976,43 @@ def run_scored_candidate(
     log_path = repo_root / str(proposal["log_path"])
     comparison_png_path = repo_root / str(proposal["comparison_png_path"])
 
-    try:
-        completed = subprocess.run(
-            ["bash", "-lc", str(proposal["run_command"])],
-            cwd=repo_root,
-            capture_output=True,
-            text=True,
-            timeout=1770,
-            check=False,
-        )
-        stdout = completed.stdout
-        stderr = completed.stderr
-        returncode = completed.returncode
-        timed_out = False
-        launcher_status = "completed"
-    except subprocess.TimeoutExpired as exc:
-        stdout = exc.stdout or ""
-        stderr = exc.stderr or ""
-        returncode = 124
-        timed_out = True
-        launcher_status = "timeout"
+    launch_result = _run_scored_command(
+        repo_root=repo_root,
+        command=str(proposal["run_command"]),
+        timeout_sec=1770,
+    )
 
     log_path.parent.mkdir(parents=True, exist_ok=True)
-    log_path.write_text(stdout + stderr, encoding="utf-8")
+    log_path.write_text(
+        str(launch_result["stdout_text"]) + str(launch_result["stderr_text"]),
+        encoding="utf-8",
+    )
+    _write_run_result_artifact(session, launch_result, debug=debug)
 
-    if timed_out:
+    if bool(launch_result["timed_out"]):
         return {
             "decision": "TIMEOUT",
-            "launcher_status": launcher_status,
+            "launcher_status": launch_result["launcher_status"],
             "timed_out": True,
-            "exit_code": returncode,
+            "exit_code": launch_result["exit_code"],
             "comparison_png_path": str(proposal["comparison_png_path"]),
         }
 
-    if returncode == 124:
+    if int(launch_result["exit_code"]) == 124:
         return {
             "decision": "TIMEOUT",
-            "launcher_status": launcher_status,
+            "launcher_status": launch_result["launcher_status"],
             "timed_out": True,
-            "exit_code": returncode,
+            "exit_code": launch_result["exit_code"],
             "comparison_png_path": str(proposal["comparison_png_path"]),
         }
 
-    if returncode != 0:
+    if int(launch_result["exit_code"]) != 0:
         return {
             "decision": "CRASH",
-            "launcher_status": launcher_status,
+            "launcher_status": launch_result["launcher_status"],
             "timed_out": False,
-            "exit_code": returncode,
+            "exit_code": launch_result["exit_code"],
             "comparison_png_path": str(proposal["comparison_png_path"]),
         }
 
@@ -887,9 +1022,9 @@ def run_scored_candidate(
     except SystemExit:
         return {
             "decision": "BLOCKED",
-            "launcher_status": launcher_status,
+            "launcher_status": launch_result["launcher_status"],
             "timed_out": False,
-            "exit_code": returncode,
+            "exit_code": launch_result["exit_code"],
             "comparison_png_path": str(proposal["comparison_png_path"]),
             "blocker_reason": "Missing randomness contract from scored run.",
         }
@@ -898,9 +1033,9 @@ def run_scored_candidate(
     if randomness_contract != accepted_randomness:
         return {
             "decision": "BLOCKED",
-            "launcher_status": launcher_status,
+            "launcher_status": launch_result["launcher_status"],
             "timed_out": False,
-            "exit_code": returncode,
+            "exit_code": launch_result["exit_code"],
             "comparison_png_path": str(proposal["comparison_png_path"]),
             "randomness_contract": randomness_contract,
             "blocker_reason": "Scored run randomness contract diverged from accepted session contract.",
@@ -912,9 +1047,9 @@ def run_scored_candidate(
     except SystemExit:
         return {
             "decision": "CRASH",
-            "launcher_status": launcher_status,
+            "launcher_status": launch_result["launcher_status"],
             "timed_out": False,
-            "exit_code": returncode,
+            "exit_code": launch_result["exit_code"],
             "comparison_png_path": str(proposal["comparison_png_path"]),
         }
 
@@ -928,9 +1063,9 @@ def run_scored_candidate(
         else "DISCARD",
         "amp_ssim": amp_ssim,
         "randomness_contract": randomness_contract,
-        "launcher_status": launcher_status,
+        "launcher_status": launch_result["launcher_status"],
         "timed_out": False,
-        "exit_code": returncode,
+        "exit_code": launch_result["exit_code"],
         "comparison_png_path": str(proposal["comparison_png_path"]),
     }
 
@@ -967,20 +1102,6 @@ def _append_candidate_row(
         )
 
 
-def _checkout_ref(repo_root: Path, ref: str) -> None:
-    completed = subprocess.run(
-        ["git", "checkout", "--detach", ref],
-        cwd=repo_root,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if completed.returncode != 0:
-        raise SystemExit(
-            f"Failed to checkout {ref}: {completed.stdout}{completed.stderr}".strip()
-        )
-
-
 def apply_candidate_assessment(
     repo_root: Path,
     session: SessionState,
@@ -1011,8 +1132,7 @@ def apply_candidate_assessment(
         return next_accepted
 
     if candidate_kind == "source":
-        _checkout_ref(repo_root, str(proposal["base_ref"]))
-        _assert_tracked_paths_preserved(repo_root, session)
+        _cleanup_source_candidate(repo_root, session, proposal)
 
     return accepted_state
 
@@ -1063,9 +1183,45 @@ def execute_iteration(
     reasoning_effort: str,
 ) -> str:
     repo_root = repo_root.resolve()
+    if session.current_phase in {"debug_running", "debug_complete"}:
+        existing_debug = _load_existing_ready_proposal(session, debug=True)
+        debug_proposal_or_blocked = existing_debug or run_debug_step(
+            repo_root=repo_root,
+            session=session,
+            codex_cmd=codex_cmd,
+            model=model,
+            reasoning_effort=reasoning_effort,
+        )
+        if debug_proposal_or_blocked.get("status") == "BLOCKED":
+            session.debug_attempts = 0
+            _write_session_json(session)
+            _set_phase(session, "completed")
+            return "STOP"
+
+        debug_proposal = debug_proposal_or_blocked
+        debug_assessment = (
+            _load_existing_assessment(session, debug=True)
+            if session.current_phase == "debug_complete"
+            else None
+        )
+        if debug_assessment is None:
+            debug_assessment = run_scored_candidate(
+                repo_root, session, debug_proposal, debug=True
+            )
+            _write_scored_artifacts(session, debug_assessment, debug=True)
+        apply_candidate_assessment(repo_root, session, debug_proposal, debug_assessment)
+        session.debug_attempts = 0
+        _write_session_json(session)
+        if str(debug_assessment["decision"]).upper() in {"KEEP", "DISCARD", "TIMEOUT"}:
+            session.iteration += 1
+            _set_phase(session, "proposal_pending")
+            return "CONTINUE"
+        _set_phase(session, "completed")
+        return "STOP"
+
     existing = (
         _load_existing_ready_proposal(session)
-        if session.current_phase in {"proposal_complete", "scored_running", "debug_running", "debug_complete"}
+        if session.current_phase in {"proposal_complete", "scored_running"}
         else None
     )
     proposal_or_blocked = existing or run_proposal_step(
@@ -1083,10 +1239,12 @@ def execute_iteration(
     proposal = proposal_or_blocked
 
     if session.current_phase == "scored_running":
-        assessment = _load_existing_assessment(session) or run_scored_candidate(repo_root, session, proposal)
+        assessment = _load_existing_assessment(session) or run_scored_candidate(
+            repo_root, session, proposal, debug=False
+        )
     else:
         _set_phase(session, "scored_running")
-        assessment = run_scored_candidate(repo_root, session, proposal)
+        assessment = run_scored_candidate(repo_root, session, proposal, debug=False)
     _write_scored_artifacts(session, assessment, debug=False)
 
     if should_attempt_debug(assessment, session.debug_attempts):
@@ -1117,7 +1275,9 @@ def execute_iteration(
             else None
         )
         if debug_assessment is None:
-            debug_assessment = run_scored_candidate(repo_root, session, debug_proposal)
+            debug_assessment = run_scored_candidate(
+                repo_root, session, debug_proposal, debug=True
+            )
         _write_scored_artifacts(session, debug_assessment, debug=True)
         apply_candidate_assessment(repo_root, session, debug_proposal, debug_assessment)
         session.debug_attempts = 0

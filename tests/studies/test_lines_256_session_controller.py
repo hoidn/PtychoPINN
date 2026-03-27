@@ -359,6 +359,9 @@ def test_source_candidate_discard_resets_to_accepted_ref(tmp_path):
     repo = tmp_path / "repo"
     _init_repo(repo)
     session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    (repo / "runtime.py").write_text("print('runtime base')\n", encoding="utf-8")
+    _git(repo, "add", "runtime.py")
+    _git(repo, "commit", "-m", "runtime base")
     base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
     session.accepted_state_path.write_text(
         json.dumps(
@@ -378,6 +381,11 @@ def test_source_candidate_discard_resets_to_accepted_ref(tmp_path):
     _git(repo, "add", "model.py")
     _git(repo, "commit", "-m", "candidate")
     candidate_commit = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    candidate_paths_file = session.session_root / "candidate_paths.json"
+    candidate_paths_file.write_text(
+        json.dumps(["model.py"], indent=2) + "\n",
+        encoding="utf-8",
+    )
 
     accepted_state = apply_candidate_assessment(
         repo_root=repo,
@@ -386,6 +394,7 @@ def test_source_candidate_discard_resets_to_accepted_ref(tmp_path):
             "candidate_kind": "source",
             "base_ref": base_ref,
             "candidate_commit": candidate_commit,
+            "candidate_paths_file": str(candidate_paths_file.relative_to(repo)),
             "run_command": "python run.py",
             "output_root": "outputs/v2/candidate1",
             "comparison_png_path": "outputs/v2/candidate1.png",
@@ -401,6 +410,77 @@ def test_source_candidate_discard_resets_to_accepted_ref(tmp_path):
 
     assert _git(repo, "rev-parse", "HEAD").stdout.strip() == base_ref
     assert accepted_state["accepted_ref"] == base_ref
+
+
+def test_source_candidate_discard_preserves_unrelated_runtime_edits(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        apply_candidate_assessment,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    (repo / "runtime.py").write_text("print('runtime base')\n", encoding="utf-8")
+    _git(repo, "add", "runtime.py")
+    _git(repo, "commit", "-m", "runtime base")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    (repo / "runtime.py").write_text("print('runtime v1')\n", encoding="utf-8")
+    _git(repo, "add", "runtime.py")
+    _git(repo, "commit", "-m", "runtime change")
+
+    (repo / "model.py").write_text("print('candidate')\n", encoding="utf-8")
+    _git(repo, "add", "model.py")
+    _git(repo, "commit", "-m", "candidate")
+    candidate_commit = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+    (repo / "runtime.py").write_text("print('runtime hotfix')\n", encoding="utf-8")
+    candidate_paths_file = session.session_root / "candidate_paths.json"
+    candidate_paths_file.write_text(
+        json.dumps(["model.py"], indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    accepted_state = apply_candidate_assessment(
+        repo_root=repo,
+        session=session,
+        proposal={
+            "candidate_kind": "source",
+            "base_ref": base_ref,
+            "candidate_commit": candidate_commit,
+            "candidate_paths_file": str(candidate_paths_file.relative_to(repo)),
+            "run_command": "python run.py",
+            "output_root": "outputs/v2/candidate1",
+            "comparison_png_path": "outputs/v2/candidate1.png",
+            "note": "candidate",
+            "hypothesis": "test source candidate",
+        },
+        assessment={
+            "decision": "DISCARD",
+            "amp_ssim": 0.7,
+            "randomness_contract": {"requested_seed": 3},
+        },
+    )
+
+    assert _git(repo, "rev-parse", "HEAD").stdout.strip() == base_ref
+    assert accepted_state["accepted_ref"] == base_ref
+    status = _git(repo, "status", "--short", "--untracked-files=no").stdout.splitlines()
+    assert status == [" M runtime.py"]
 
 
 def test_run_config_discard_does_not_move_head(tmp_path):
@@ -681,6 +761,60 @@ def test_run_scored_candidate_timeout_is_classified_without_git_reset(tmp_path, 
     assert assessment["decision"] == "TIMEOUT"
     assert assessment["timed_out"] is True
     assert _git(repo, "rev-parse", "HEAD").stdout.strip() == base_ref
+
+
+def test_run_scored_candidate_timeout_from_exception_decodes_partial_output(tmp_path, monkeypatch):
+    from scripts.studies.lines_256_session_controller import (
+        initialize_session,
+        run_scored_candidate,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    proposal = {
+        "candidate_kind": "run_config",
+        "base_ref": base_ref,
+        "run_command": "python run.py --slow-timeout",
+        "output_root": "outputs/v2/timeout-exc",
+        "log_path": "state/v2/timeout-exc.log",
+        "comparison_png_path": "outputs/v2/timeout-exc.png",
+        "note": "timeout exception",
+        "hypothesis": "slow run timed out via TimeoutExpired",
+    }
+
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None):
+        assert command[:3] == ["bash", "-lc", "python run.py --slow-timeout"]
+        raise subprocess.TimeoutExpired(
+            cmd=command,
+            timeout=timeout or 1770,
+            output=b"partial stdout\n",
+            stderr=b"partial stderr\n",
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assessment = run_scored_candidate(repo, session, proposal)
+
+    assert assessment["decision"] == "TIMEOUT"
+    log_text = (repo / proposal["log_path"]).read_text(encoding="utf-8")
+    assert "partial stdout" in log_text
+    assert "partial stderr" in log_text
 
 
 def test_run_scored_candidate_nonzero_exit_is_classified_as_crash(tmp_path, monkeypatch):
@@ -1009,6 +1143,286 @@ def test_resume_proposal_complete_scores_existing_candidate(tmp_path, monkeypatc
     resumed = json.loads(session.session_json_path.read_text(encoding="utf-8"))
     assert resumed["current_phase"] == "completed"
     assert resumed["iteration"] == 1
+
+
+def test_resume_scored_running_timeout_persists_terminal_artifacts(tmp_path, monkeypatch):
+    from scripts.studies.lines_256_session_controller import initialize_session, main
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    session.current_phase = "scored_running"
+    session.iteration = 0
+    session.debug_attempts = 0
+    session.session_json_path.write_text(
+        json.dumps(
+            {
+                "session_id": session.session_id,
+                "current_phase": session.current_phase,
+                "iteration": session.iteration,
+                "debug_attempts": session.debug_attempts,
+                "session_root": str(session.session_root.relative_to(repo)),
+                "results_tsv_path": str(session.results_tsv_path.relative_to(repo)),
+                "accepted_state_path": str(session.accepted_state_path.relative_to(repo)),
+                "protected_local_paths_path": str(session.protected_local_paths_path.relative_to(repo)),
+                "outputs_root": str(session.outputs_root.relative_to(repo)),
+                "comparison_gallery_dir": str(session.comparison_gallery_dir.relative_to(repo)),
+                "baseline_output_root": str(session.baseline_output_root.relative_to(repo)),
+                "baseline_log_path": str(session.baseline_log_path.relative_to(repo)),
+                "baseline_result_path": str(session.baseline_result_path.relative_to(repo)),
+                "baseline_comparison_png": str(session.baseline_comparison_png.relative_to(repo)),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (session.protected_local_paths_path).write_text("[]\n", encoding="utf-8")
+    iter_root = session.session_root / "iterations" / "000"
+    output_root = session.outputs_root / "candidates" / "20260325T001000Z_resume_timeout"
+    candidate_log_path = iter_root / "20260325T001000Z_resume_timeout.log"
+    comparison_png_path = (
+        session.comparison_gallery_dir
+        / "20260325T001000Z_resume_timeout__compare_amp_phase_probe.png"
+    )
+    iter_root.mkdir(parents=True, exist_ok=True)
+    (iter_root / "candidate_metadata.json").write_text(
+        json.dumps(
+            {
+                "status": "READY",
+                "candidate_kind": "run_config",
+                "base_ref": base_ref,
+                "smoke_command": "python smoke.py --fno-width 64",
+                "smoke_output_root": str((session.outputs_root / "smoke").relative_to(repo)),
+                "smoke_log_path": str((iter_root / "smoke.log").relative_to(repo)),
+                "run_command": "python run.py --fno-width 64",
+                "output_root": str(output_root.relative_to(repo)),
+                "log_path": str(candidate_log_path.relative_to(repo)),
+                "comparison_png_path": str(comparison_png_path.relative_to(repo)),
+                "note": "Resume-scored timeout candidate",
+                "hypothesis": "Resume should persist timeout outcomes.",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    def fake_run(command, **kwargs):
+        if command[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command[:3] == ["bash", "-lc", "python run.py --fno-width 64"]:
+            raise subprocess.TimeoutExpired(
+                cmd=command,
+                timeout=kwargs.get("timeout", 1770),
+                output=b"timed stdout\n",
+                stderr=b"timed stderr\n",
+            )
+        raise AssertionError(command)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    exit_code = main(
+        [
+            "resume",
+            "--session-root",
+            str(session.session_root),
+            "--max-iterations",
+            "1",
+        ]
+    )
+
+    assert exit_code == 0
+    run_result = json.loads(
+        (iter_root / "candidate_run_result.json").read_text(encoding="utf-8")
+    )
+    assessment = json.loads(
+        (iter_root / "candidate_assessment.json").read_text(encoding="utf-8")
+    )
+    assert run_result["timed_out"] is True
+    assert assessment["decision"] == "TIMEOUT"
+    assert "timed stdout" in candidate_log_path.read_text(encoding="utf-8")
+    ledger_lines = session.results_tsv_path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(ledger_lines) == 2
+    assert "\ttimeout\tna\t" in ledger_lines[1]
+
+
+def test_resume_debug_complete_uses_existing_debug_assessment(tmp_path, monkeypatch):
+    from scripts.studies.lines_256_session_controller import initialize_session, main
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    session.current_phase = "debug_complete"
+    session.iteration = 0
+    session.debug_attempts = 1
+    session.session_json_path.write_text(
+        json.dumps(
+            {
+                "session_id": session.session_id,
+                "current_phase": session.current_phase,
+                "iteration": session.iteration,
+                "debug_attempts": session.debug_attempts,
+                "session_root": str(session.session_root.relative_to(repo)),
+                "results_tsv_path": str(session.results_tsv_path.relative_to(repo)),
+                "accepted_state_path": str(session.accepted_state_path.relative_to(repo)),
+                "protected_local_paths_path": str(session.protected_local_paths_path.relative_to(repo)),
+                "outputs_root": str(session.outputs_root.relative_to(repo)),
+                "comparison_gallery_dir": str(session.comparison_gallery_dir.relative_to(repo)),
+                "baseline_output_root": str(session.baseline_output_root.relative_to(repo)),
+                "baseline_log_path": str(session.baseline_log_path.relative_to(repo)),
+                "baseline_result_path": str(session.baseline_result_path.relative_to(repo)),
+                "baseline_comparison_png": str(session.baseline_comparison_png.relative_to(repo)),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (session.protected_local_paths_path).write_text("[]\n", encoding="utf-8")
+    iter_root = session.session_root / "iterations" / "000"
+    iter_root.mkdir(parents=True, exist_ok=True)
+    (iter_root / "candidate_metadata.json").write_text(
+        json.dumps(
+            {
+                "status": "READY",
+                "candidate_kind": "run_config",
+                "base_ref": base_ref,
+                "smoke_command": "python smoke.py --regular",
+                "smoke_output_root": "outputs/v2/regular-smoke",
+                "smoke_log_path": "state/v2/regular-smoke.log",
+                "run_command": "python regular.py",
+                "output_root": "outputs/v2/regular",
+                "log_path": "state/v2/regular.log",
+                "comparison_png_path": "outputs/v2/regular.png",
+                "note": "regular candidate",
+                "hypothesis": "regular candidate should not rerun during debug_complete resume",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (iter_root / "debug_candidate_paths.json").write_text(
+        json.dumps(["README.md"], indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (iter_root / "debug_candidate_metadata.json").write_text(
+        json.dumps(
+            {
+                "status": "READY",
+                "candidate_kind": "source",
+                "base_ref": base_ref,
+                "candidate_commit": base_ref,
+                "candidate_paths_file": str((iter_root / "debug_candidate_paths.json").relative_to(repo)),
+                "smoke_command": "python smoke.py --debug",
+                "smoke_output_root": "outputs/v2/debug-smoke",
+                "smoke_log_path": "state/v2/debug-smoke.log",
+                "run_command": "python debug.py",
+                "output_root": "outputs/v2/debug",
+                "log_path": "state/v2/debug.log",
+                "comparison_png_path": "outputs/v2/debug.png",
+                "note": "debug candidate",
+                "hypothesis": "existing debug assessment should be applied directly",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (iter_root / "debug_candidate_run_result.json").write_text(
+        json.dumps(
+            {"launcher_status": "completed", "exit_code": 1, "timed_out": False},
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (iter_root / "debug_candidate_assessment.json").write_text(
+        json.dumps(
+            {
+                "decision": "CRASH",
+                "comparison_png_path": "outputs/v2/debug.png",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    def fake_run(command, **kwargs):
+        if command[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command[:3] == ["git", "reset", "--mixed"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command[:3] == ["git", "restore", "--source"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command[:3] == ["git", "cat-file", "-e"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command[:3] == ["bash", "-lc", "python regular.py"]:
+            raise AssertionError("regular candidate should not rerun during debug_complete resume")
+        if command[:3] == ["bash", "-lc", "python debug.py"]:
+            raise AssertionError("debug candidate should not rerun when assessment already exists")
+        raise AssertionError(command)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    exit_code = main(
+        [
+            "resume",
+            "--session-root",
+            str(session.session_root),
+            "--max-iterations",
+            "1",
+        ]
+    )
+
+    assert exit_code == 0
+    resumed = json.loads(session.session_json_path.read_text(encoding="utf-8"))
+    assert resumed["current_phase"] == "completed"
+    assert resumed["iteration"] == 0
+    assert resumed["debug_attempts"] == 0
+    ledger_lines = session.results_tsv_path.read_text(encoding="utf-8").strip().splitlines()
+    assert len(ledger_lines) == 2
+    assert "\tcrash\tna\t" in ledger_lines[1]
 
 
 def test_start_full_can_bootstrap_existing_accepted_state(tmp_path, monkeypatch):
