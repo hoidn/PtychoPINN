@@ -34,6 +34,27 @@ the `source` candidate path still has explicit rollback/checkpoint behavior.
 Do not treat the human development checkout as the live controller runtime
 surface.
 
+## Study-Input Reset Rule
+
+Treat the authoritative `lines_256` train/test NPZ pair as part of the session
+contract.
+
+If the pair changes materially, for example:
+
+- `set_phi=False -> True`
+- a different probe source or probe-scaling policy
+- different train/test NPZ contents behind the same compatibility paths
+
+then:
+
+- do not bootstrap from an older accepted-state artifact
+- do not resume older sessions rooted in the previous dataset semantics
+- rerun a fresh baseline
+- start a new session on the regenerated pair
+
+Earlier accepted states remain historical evidence only across that dataset
+boundary.
+
 ## Session Layout
 
 The v2 controller stores session-local state and outputs under separate roots:

@@ -86,6 +86,26 @@ At the beginning of every new experiment session:
 
 If the baseline run crashes or does not produce `amp_ssim`, stop. Do not start candidate experiments without a fresh baseline for the current session.
 
+## Study-input reset rule
+
+Treat the authoritative `lines_256` train/test NPZ pair as part of the study
+contract, not just a convenience path.
+
+If the pair changes materially, for example:
+
+- `set_phi=False -> True`
+- a different probe source or probe-scaling policy
+- different train/test NPZ contents behind the same compatibility paths
+
+then:
+
+- do not reuse an older accepted state
+- do not resume a session rooted in the older dataset semantics
+- rerun a fresh baseline
+- start a new session from that baseline
+
+Older results remain historical evidence only across that dataset boundary.
+
 ## Results ledger
 
 The experiment ledger is an untracked TSV:

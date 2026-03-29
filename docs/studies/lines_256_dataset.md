@@ -13,7 +13,12 @@ Use this dataset when you want a single fixed `N=256` lines benchmark without sw
 - Current compatibility train NPZ path: `outputs/lines_256_arch_improvement/datasets/N256/gs1/train.npz`
 - Current compatibility test NPZ path: `outputs/lines_256_arch_improvement/datasets/N256/gs1/test.npz`
 
-This pair is the `lines_256` working dataset for the architecture-improvement loop. It supersedes the older archived `custom_npz_pair_n256` pair for this specific loop because the custom-probe padding behavior was corrected.
+This pair is the `lines_256` working dataset for the architecture-improvement loop. The authoritative pair is now the regenerated `set_phi=True` version of this compatibility dataset. It supersedes both:
+
+- the older archived `custom_npz_pair_n256` pair
+- the earlier zero-phase `lines_256` compatibility pair where `Y_phi` existed but was all zeros
+
+The zero-phase pair is historical only across this boundary. Do not compare new `set_phi=True` runs against baselines or accepted states recorded before the regeneration.
 
 Important:
 
@@ -25,6 +30,7 @@ Important:
 
 - The older hybrid-resnet search design used an archived `custom_npz_pair_n256` pair under `outputs/hybrid_resnet_structural_rerun_20260226T110719Z/...`.
 - The current `lines_256` pair was regenerated on March 13, 2026 under `outputs/lines_256_arch_improvement/` with the same simulation settings but corrected custom-probe padding semantics.
+- The authoritative pair is regenerated through `scripts/studies/runbooks/rebuild_lines_256_dataset.py` with the same simulation settings, corrected custom-probe padding semantics, and `set_phi=True`.
 - The regenerated pair carries metadata showing:
   - `N=256`
   - `gridsize=1`
@@ -38,6 +44,7 @@ Important:
   - `probe_source=custom`
   - `probe_scale_mode=pad_preserve`
   - `probe_smoothing_sigma=0.5`
+  - `set_phi=True`
   - `coords_type=relative`
   - `probe_npz=datasets/Run1084_recon3_postPC_shrunk_3.npz`
 - Custom-probe padding rule for this regenerated pair:
@@ -85,7 +92,8 @@ Important:
 - The wrapper pins `--train-npz`, `--test-npz`, `--seed 3`, `--epochs 20`, `--N 256`, `--gridsize 1`, `--architecture hybrid_resnet`, `--no-probe-mask`, and `--torch-mae-pred-l2-match-target`.
 - The wrapper also pins `--scheduler ReduceLROnPlateau` and `--plateau-min-lr 0.0002`.
 - Use the direct Torch runner only when you explicitly need to bypass the wrapper contract.
-- If you need to rebuild the pair, do it programmatically through `GridLinesConfig` plus `build_grid_lines_datasets(...)`; the thin CLI wrapper still exposes only `--N 64|128`.
+- If you need to rebuild the pair, use `python scripts/studies/runbooks/rebuild_lines_256_dataset.py` so the canonical `set_phi=True` contract is reproduced exactly.
+- Rebuilding the pair with materially different simulation semantics, including `set_phi=False -> True`, invalidates prior `lines_256` baselines and accepted-state results.
 
 ## Metric Guidance
 
