@@ -160,17 +160,24 @@ For each candidate run in that session:
 
 ## Comparison PNG rule
 
-Every successful run in the session must publish one comparison PNG into the session gallery dir.
+Core experiment success is defined by the launcher result, metrics, and
+randomness contract, not by optional reporting visuals.
 
 Do not rely on nested `visuals/` directories alone. The gallery dir is the easy-to-find location for visual inspection across the whole session.
 
-For this loop, the wrapper is responsible for publishing `visuals/compare_amp_phase_probe.png`.
+For this loop, the wrapper should still attempt to publish
+`visuals/compare_amp_phase_probe.png`.
 
-The session gallery copies only that probe-inclusive artifact. If a successful run does not provide it, fail the run instead of silently falling back to a non-probe comparison image.
+If probe-inclusive rerendering is unavailable but a plain compare image exists,
+the wrapper may publish that plain compare under the explicit probe-inclusive
+filename as a best-effort fallback.
 
-Do not mark a successful run complete until its gallery PNG exists.
+If no comparison PNG can be published after an otherwise successful run, do not
+reclassify the experiment as a crash. Record `comparison_png=na` and a warning
+instead.
 
-If a candidate run crashes before any comparison PNG can be produced, set `comparison_png=na` in the TSV row.
+If a candidate run truly crashes before any comparison PNG can be produced, set
+`comparison_png=na` in the TSV row.
 
 ## Candidate viability smoke check
 
@@ -202,7 +209,7 @@ LOOP FOREVER:
 4. Ensure `state/lines_256_arch_improvement/results.tsv` exists. If not, create it with the exact header above.
 5. Create a new `session_id`.
 6. Regenerate a fresh baseline from the current `HEAD` using the thin wrapper and default control.
-7. Publish the baseline comparison PNG into the session gallery dir.
+7. If a baseline comparison PNG is available, publish it into the session gallery dir. If not, continue with `comparison_png=na` and a warning.
 8. Append one `baseline` row for that `session_id`.
 9. Read the current accepted state from the last TSV row in that `session_id` with `decision=baseline|keep`.
 10. Choose the next coherent source or run-configuration hypothesis against that accepted state.
@@ -216,7 +223,7 @@ LOOP FOREVER:
 18. If the candidate is source-changing, create exactly one candidate commit after the candidate is smoke-green.
 19. If the candidate is parameter-only, create no commit and keep tracked source files unchanged.
 20. Run exactly one `lines_256` experiment with the thin wrapper and the same fixed wrapper budget as the session baseline.
-21. Publish the candidate comparison PNG into the session gallery dir.
+21. If a candidate comparison PNG is available, publish it into the session gallery dir. If not, continue with `comparison_png=na` and a warning.
 22. Verify the candidate published `runs/pinn_hybrid_resnet/randomness_contract.json` and that it matches the accepted baseline's effective randomness contract for the session.
 23. Read candidate `amp_ssim`.
 24. Append exactly one TSV row for the candidate.
@@ -234,13 +241,14 @@ LOOP FOREVER:
     - `git restore --source=<base_ref> --staged --worktree -- <candidate_paths>`
 29. If a parameter-only candidate is `discard`, `timeout`, or `crash`, append the row and continue without touching git state.
 30. If the randomness contract is missing or mismatched, append a `blocked` row and stop instead of trusting the result.
-31. only `CRASH` should trigger the focused debug path. After a source reset or after a parameter-only crash, attempt one focused crash-debug candidate that addresses the concrete failure and rerun the scored experiment once.
-32. If that debugged candidate still crashes, or if no clean crash fix is available, stop and report a blocker instead of looping blindly.
-33. After a source-changing discard, timeout, or crash reset, confirm:
+31. Missing or fallback comparison publication should become a warning only. Do not reclassify a scored run as `crash` solely because the optional gallery artifact is unavailable.
+32. only `CRASH` should trigger the focused debug path. After a source reset or after a parameter-only crash, attempt one focused crash-debug candidate that addresses the concrete failure and rerun the scored experiment once.
+33. If that debugged candidate still crashes, or if no clean crash fix is available, stop and report a blocker instead of looping blindly.
+34. After a source-changing discard, timeout, or crash reset, confirm:
     - `git status --short --untracked-files=no`
     - every path from `protected_local_paths` is still present in the tracked-dirty set
     - no candidate path remains dirty after the reset/restore sequence
-34. Continue the loop using the last `baseline` or `keep` row from the current `session_id` as the accepted state.
+35. Continue the loop using the last `baseline` or `keep` row from the current `session_id` as the accepted state.
 
 Because each loop iteration records the accepted starting ref as `base_ref`, source-changing candidates can reset and restore against `base_ref` even if unrelated commits are created later while the session is live. Parameter-only candidates never need git rollback because they do not change tracked source files.
 
@@ -263,7 +271,7 @@ Column meanings:
 - `compared_to_amp_ssim`: the current accepted row's `amp_ssim`
 - `delta_amp_ssim`: `candidate_amp_ssim - compared_to_amp_ssim`, or `na` on metric-free timeouts/crashes
 - `output_root`: candidate run output directory
-- `comparison_png`: probe-inclusive comparison PNG in the session gallery dir, or `na` for timeouts/crashes with no visual artifact
+- `comparison_png`: best available comparison PNG in the session gallery dir, or `na` when no optional visual artifact was published
 - `command_or_source`: exact run command
 - `notes`: one short sentence explaining the change and decision
 

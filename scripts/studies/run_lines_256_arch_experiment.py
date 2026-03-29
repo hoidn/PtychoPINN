@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
@@ -52,29 +53,62 @@ PRESETS = {
 }
 
 
-def ensure_probe_inclusive_comparison_png(output_dir: Path) -> Path:
-    """Rerender visuals and publish an explicit probe-inclusive comparison PNG."""
-    probe = resolve_probe_for_visuals(output_dir)
-    if probe is None:
-        raise RuntimeError(
-            "lines_256 run did not expose a probe for comparison rendering "
-            f"under {output_dir}"
-        )
+def _relative_output_path(output_dir: Path, path: Path | None) -> str | None:
+    if path is None:
+        return None
+    return str(path.relative_to(output_dir).as_posix())
 
-    outputs = render_grid_lines_visuals(
-        output_dir,
-        order=("gt", "pinn_hybrid_resnet"),
+
+def write_visual_publication_status(
+    output_dir: Path,
+    payload: dict[str, str | None],
+) -> None:
+    (output_dir / "visual_publication_status.json").write_text(
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
     )
-    compare_path = Path(outputs.get("compare", ""))
-    if not compare_path.exists():
-        raise RuntimeError(
-            "lines_256 run did not produce a rerendered comparison PNG "
-            f"under {output_dir / 'visuals'}"
+
+
+def ensure_probe_inclusive_comparison_png(output_dir: Path) -> dict[str, str | None]:
+    """Best-effort publish an explicit probe-inclusive comparison PNG."""
+    visuals_dir = output_dir / "visuals"
+    plain_compare_path = visuals_dir / "compare_amp_phase.png"
+    probe = resolve_probe_for_visuals(output_dir)
+    compare_path = plain_compare_path
+    publication_status = "missing_nonfatal"
+    warning: str | None = "Optional comparison PNGs were unavailable after a successful run."
+    if probe is not None:
+        outputs = render_grid_lines_visuals(
+            output_dir,
+            order=("gt", "pinn_hybrid_resnet"),
         )
+        rendered_compare_path = Path(outputs.get("compare", ""))
+        if rendered_compare_path.exists():
+            compare_path = rendered_compare_path
+            publication_status = "published"
+            warning = None
+
+    if not compare_path.exists():
+        return {
+            "status": publication_status,
+            "published_compare_path": None,
+            "source_compare_path": None,
+            "warning": warning,
+        }
 
     explicit_path = compare_path.with_name("compare_amp_phase_probe.png")
     shutil.copy2(compare_path, explicit_path)
-    return explicit_path
+    if publication_status != "published":
+        publication_status = "fallback_plain_compare"
+        warning = (
+            "Probe-inclusive compare was unavailable; published a plain compare fallback instead."
+        )
+    return {
+        "status": publication_status,
+        "published_compare_path": _relative_output_path(output_dir, explicit_path),
+        "source_compare_path": _relative_output_path(output_dir, compare_path),
+        "warning": warning,
+    }
 
 
 def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -227,7 +261,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             f"{args.output_dir / 'driver_stdout.log'} and "
             f"{args.output_dir / 'driver_stderr.log'}"
         )
-    ensure_probe_inclusive_comparison_png(args.output_dir)
+    publication_status = ensure_probe_inclusive_comparison_png(args.output_dir)
+    write_visual_publication_status(args.output_dir, publication_status)
     return 0
 
 

@@ -283,6 +283,61 @@ def _find_compare_png(output_root: Path) -> Path:
     return candidates[0]
 
 
+def _find_plain_compare_png(output_root: Path) -> Path | None:
+    direct = output_root / "visuals" / "compare_amp_phase.png"
+    if direct.exists():
+        return direct
+    candidates = sorted(output_root.rglob("compare_amp_phase.png"))
+    if not candidates:
+        return None
+    return candidates[0]
+
+
+def _read_visual_publication_status(output_root: Path) -> dict[str, object] | None:
+    path = output_root / "visual_publication_status.json"
+    if not path.exists():
+        return None
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise SystemExit(f"Malformed visual publication status at {path}")
+    return payload
+
+
+def _resolve_optional_comparison_artifact(
+    output_root: Path,
+    publication_status: dict[str, object] | None,
+) -> tuple[Path | None, str, str | None]:
+    status = str(publication_status.get("status", "unknown")) if publication_status else "unknown"
+    warning = (
+        str(publication_status["warning"])
+        if publication_status and publication_status.get("warning")
+        else None
+    )
+
+    if publication_status and publication_status.get("published_compare_path"):
+        candidate = output_root / str(publication_status["published_compare_path"])
+        if candidate.exists():
+            return candidate, status, warning
+
+    probe_compare = output_root / "visuals" / "compare_amp_phase_probe.png"
+    if probe_compare.exists():
+        return probe_compare, ("published" if status == "unknown" else status), warning
+
+    plain_compare = _find_plain_compare_png(output_root)
+    if plain_compare is not None:
+        if status == "unknown":
+            status = "fallback_plain_compare"
+        if warning is None:
+            warning = "Optional probe-inclusive comparison PNG was unavailable; plain compare was used."
+        return plain_compare, status, warning
+
+    if status == "unknown":
+        status = "missing_nonfatal"
+    if warning is None:
+        warning = "Optional probe-inclusive comparison PNG was unavailable."
+    return None, status, warning
+
+
 def _extract_amp_ssim(metrics_path: Path) -> float:
     metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
     amp_ssim = metrics.get("amp_ssim")
@@ -906,6 +961,10 @@ def _write_scored_artifacts(
         assessment_payload["randomness_contract"] = assessment["randomness_contract"]
     if "blocker_reason" in assessment:
         assessment_payload["blocker_reason"] = assessment["blocker_reason"]
+    if "publication_status" in assessment:
+        assessment_payload["publication_status"] = assessment["publication_status"]
+    if "warning" in assessment:
+        assessment_payload["warning"] = assessment["warning"]
     _write_json(assessment_path, assessment_payload)
 
 
@@ -1021,12 +1080,12 @@ def run_scored_candidate(
         randomness_contract = json.loads(randomness_path.read_text(encoding="utf-8"))
     except SystemExit:
         return {
-            "decision": "BLOCKED",
+            "decision": "CRASH",
             "launcher_status": launch_result["launcher_status"],
             "timed_out": False,
             "exit_code": launch_result["exit_code"],
-            "comparison_png_path": str(proposal["comparison_png_path"]),
-            "blocker_reason": "Missing randomness contract from scored run.",
+            "comparison_png_path": None,
+            "warning": "Required randomness contract was missing from the scored run.",
         }
 
     accepted_randomness = accepted_state.get("accepted_randomness_contract")
@@ -1043,21 +1102,28 @@ def run_scored_candidate(
 
     try:
         metrics_path = _find_metrics_path(output_root)
-        compare_path = _find_compare_png(output_root)
     except SystemExit:
         return {
             "decision": "CRASH",
             "launcher_status": launch_result["launcher_status"],
             "timed_out": False,
             "exit_code": launch_result["exit_code"],
-            "comparison_png_path": str(proposal["comparison_png_path"]),
+            "comparison_png_path": None,
+            "warning": "Required metrics were missing from the scored run.",
         }
 
     amp_ssim = _extract_amp_ssim(metrics_path)
-    comparison_png_path.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(compare_path, comparison_png_path)
+    publication_status = _read_visual_publication_status(output_root)
+    compare_path, compare_status, compare_warning = _resolve_optional_comparison_artifact(
+        output_root, publication_status
+    )
+    final_comparison_png_path: str | None = None
+    if compare_path is not None:
+        comparison_png_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(compare_path, comparison_png_path)
+        final_comparison_png_path = str(proposal["comparison_png_path"])
 
-    return {
+    assessment = {
         "decision": "KEEP"
         if amp_ssim > float(accepted_state["accepted_amp_ssim"])
         else "DISCARD",
@@ -1066,8 +1132,12 @@ def run_scored_candidate(
         "launcher_status": launch_result["launcher_status"],
         "timed_out": False,
         "exit_code": launch_result["exit_code"],
-        "comparison_png_path": str(proposal["comparison_png_path"]),
+        "comparison_png_path": final_comparison_png_path,
+        "publication_status": compare_status,
     }
+    if compare_warning is not None:
+        assessment["warning"] = compare_warning
+    return assessment
 
 
 def _append_candidate_row(
@@ -1095,7 +1165,7 @@ def _append_candidate_row(
                 compared_to_amp,
                 delta if delta is not None else "na",
                 str(proposal["output_root"]),
-                str(proposal["comparison_png_path"]),
+                str(assessment.get("comparison_png_path") or "na"),
                 str(proposal["run_command"]),
                 str(proposal.get("note", "")),
             ]
@@ -1127,7 +1197,11 @@ def apply_candidate_assessment(
         next_accepted["accepted_candidate_kind"] = candidate_kind
         next_accepted["accepted_randomness_contract"] = assessment["randomness_contract"]
         next_accepted["accepted_output_root"] = str(proposal["output_root"])
-        next_accepted["accepted_comparison_png"] = str(proposal["comparison_png_path"])
+        next_accepted["accepted_comparison_png"] = (
+            str(assessment["comparison_png_path"])
+            if assessment.get("comparison_png_path")
+            else "na"
+        )
         _write_accepted_state(session, next_accepted)
         return next_accepted
 

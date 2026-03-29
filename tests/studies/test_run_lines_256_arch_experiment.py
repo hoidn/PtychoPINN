@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import numpy as np
@@ -143,7 +144,12 @@ def test_main_runs_runner_and_writes_invocation(monkeypatch, tmp_path):
     monkeypatch.setattr(
         wrapper,
         "ensure_probe_inclusive_comparison_png",
-        lambda output_dir: Path(output_dir) / "visuals" / "compare_amp_phase_probe.png",
+        lambda output_dir: {
+            "status": "published",
+            "published_compare_path": "visuals/compare_amp_phase_probe.png",
+            "source_compare_path": "visuals/compare_amp_phase.png",
+            "warning": None,
+        },
     )
     output_dir = tmp_path / "wrapper_out"
     rc = wrapper.main(
@@ -221,6 +227,67 @@ def test_main_rerenders_probe_inclusive_comparison_after_success(monkeypatch, tm
     assert render_calls == [(output_dir, ("gt", "pinn_hybrid_resnet"))]
     assert (output_dir / "visuals" / "compare_amp_phase.png").read_text(encoding="utf-8") == "probe-inclusive"
     assert (output_dir / "visuals" / "compare_amp_phase_probe.png").read_text(encoding="utf-8") == "probe-inclusive"
+
+
+def test_main_does_not_require_probe_rerender_after_success(monkeypatch, tmp_path):
+    from scripts.studies import run_lines_256_arch_experiment as wrapper
+
+    def fake_run(cmd, check, capture_output, text):
+        from subprocess import CompletedProcess
+
+        output_dir = Path(cmd[cmd.index("--output-dir") + 1])
+        run_dir = output_dir / "runs" / "pinn_hybrid_resnet"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "metrics.json").write_text('{"amp_ssim": 0.75}', encoding="utf-8")
+        visuals_dir = output_dir / "visuals"
+        visuals_dir.mkdir(parents=True, exist_ok=True)
+        (visuals_dir / "compare_amp_phase.png").write_text("plain-compare", encoding="utf-8")
+        return CompletedProcess(cmd, returncode=0, stdout="ok\n", stderr="")
+
+    monkeypatch.setattr(wrapper.subprocess, "run", fake_run)
+    monkeypatch.setattr(wrapper, "resolve_probe_for_visuals", lambda output_dir: None, raising=False)
+
+    output_dir = tmp_path / "wrapper_out"
+    rc = wrapper.main(["--output-dir", str(output_dir)])
+
+    assert rc == 0
+    assert (output_dir / "visuals" / "compare_amp_phase.png").read_text(encoding="utf-8") == "plain-compare"
+    assert (output_dir / "visuals" / "compare_amp_phase_probe.png").read_text(encoding="utf-8") == "plain-compare"
+
+
+def test_main_writes_publication_status_when_falling_back_to_plain_compare(monkeypatch, tmp_path):
+    from scripts.studies import run_lines_256_arch_experiment as wrapper
+
+    def fake_run(cmd, check, capture_output, text):
+        from subprocess import CompletedProcess
+
+        output_dir = Path(cmd[cmd.index("--output-dir") + 1])
+        run_dir = output_dir / "runs" / "pinn_hybrid_resnet"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "metrics.json").write_text('{"amp_ssim": 0.75}', encoding="utf-8")
+        (run_dir / "randomness_contract.json").write_text(
+            '{"requested_seed": 3, "effective_subsample_seed": 3, "effective_lightning_seed": 3}',
+            encoding="utf-8",
+        )
+        visuals_dir = output_dir / "visuals"
+        visuals_dir.mkdir(parents=True, exist_ok=True)
+        (visuals_dir / "compare_amp_phase.png").write_text("plain-compare", encoding="utf-8")
+        return CompletedProcess(cmd, returncode=0, stdout="ok\n", stderr="")
+
+    monkeypatch.setattr(wrapper.subprocess, "run", fake_run)
+    monkeypatch.setattr(wrapper, "resolve_probe_for_visuals", lambda output_dir: None, raising=False)
+
+    output_dir = tmp_path / "wrapper_out"
+    rc = wrapper.main(["--output-dir", str(output_dir)])
+
+    assert rc == 0
+    status_path = output_dir / "visual_publication_status.json"
+    assert status_path.exists()
+    status = json.loads(status_path.read_text(encoding="utf-8"))
+    assert status["status"] == "fallback_plain_compare"
+    assert status["published_compare_path"] == "visuals/compare_amp_phase_probe.png"
+    assert "warning" in status
+    assert (output_dir / "visuals" / "compare_amp_phase_probe.png").read_text(encoding="utf-8") == "plain-compare"
 
 
 def test_main_raises_when_runner_fails(monkeypatch, tmp_path):

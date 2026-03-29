@@ -706,6 +706,94 @@ def test_run_config_candidate_scored_run_harvests_outputs(tmp_path, monkeypatch)
     assert (repo / proposal["log_path"]).exists()
 
 
+def test_run_scored_candidate_treats_optional_visual_fallback_as_advisory(tmp_path, monkeypatch):
+    from scripts.studies.lines_256_session_controller import (
+        initialize_session,
+        run_scored_candidate,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    proposal = {
+        "candidate_kind": "run_config",
+        "base_ref": base_ref,
+        "run_command": "python run.py --fno-modes 24",
+        "output_root": "outputs/v2/candidate5-fallback",
+        "log_path": "state/v2/candidate5-fallback.log",
+        "comparison_png_path": "outputs/v2/candidate5-fallback.png",
+        "note": "scored run with optional visual fallback",
+        "hypothesis": "metrics should govern scoring even if probe-inclusive publication falls back",
+    }
+
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None):
+        assert command[:3] == ["bash", "-lc", "python run.py --fno-modes 24"]
+        output_root = repo / proposal["output_root"]
+        metrics_dir = output_root / "runs" / "pinn_hybrid_resnet"
+        visuals_dir = output_root / "visuals"
+        metrics_dir.mkdir(parents=True, exist_ok=True)
+        visuals_dir.mkdir(parents=True, exist_ok=True)
+        (metrics_dir / "metrics.json").write_text(
+            json.dumps({"amp_ssim": 0.82}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (metrics_dir / "randomness_contract.json").write_text(
+            json.dumps(
+                {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (visuals_dir / "compare_amp_phase.png").write_text("plain-png", encoding="utf-8")
+        (output_root / "visual_publication_status.json").write_text(
+            json.dumps(
+                {
+                    "status": "fallback_plain_compare",
+                    "published_compare_path": "visuals/compare_amp_phase_probe.png",
+                    "warning": "Probe-inclusive compare was unavailable; plain compare copied instead.",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(command, 0, stdout="scored ok\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assessment = run_scored_candidate(repo, session, proposal)
+
+    assert assessment["decision"] == "KEEP"
+    assert assessment["publication_status"] == "fallback_plain_compare"
+    assert assessment["comparison_png_path"] == proposal["comparison_png_path"]
+    assert "warning" in assessment
+    assert (repo / proposal["comparison_png_path"]).read_text(encoding="utf-8") == "plain-png"
+
+
 def test_run_scored_candidate_timeout_is_classified_without_git_reset(tmp_path, monkeypatch):
     from scripts.studies.lines_256_session_controller import (
         initialize_session,

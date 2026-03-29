@@ -221,3 +221,37 @@ All 8 tests pass (pytest run 2026-01-06, 27.75s).
 
 ### Status
 **Resolved** — XLA batch broadcast fix implemented and verified
+
+## REPORTING-ARTIFACT-BOUNDARY-001 - Optional Reporting Artifacts Must Not Decide Scored Experiment Failure
+**Category:** Experiment Orchestration, Artifact Contracts, Robustness
+**Impact:** Long-running study loops can misclassify successful experiments as crashes and waste debug budget
+**Date:** 2026-03-29
+
+### Rule
+For scored experiment workflows, only core execution evidence should determine
+`KEEP`/`DISCARD`/`TIMEOUT`/`CRASH`:
+- launcher exit status
+- primary metrics
+- any required comparability contract such as randomness metadata
+
+Optional reporting artifacts such as comparison galleries, probe-inclusive
+rerenders, or convenience visual exports may add warnings, but they must not by
+themselves change a successful scored run into `CRASH`.
+
+### Why
+Post-processing and publication helpers are much more brittle than the actual
+training/inference path. If they are treated as fatal, the workflow can:
+- stop autonomous search even though the experiment finished
+- trigger pointless crash-debug attempts against candidate code
+- hide the real experiment outcome by failing after metrics were already
+  produced
+
+### Recommended Pattern
+- Persist launcher result before later harvest or publication logic.
+- Classify from core artifacts first.
+- Record optional publication status separately, for example
+  `published`, `fallback_plain_compare`, or `missing_nonfatal`.
+- Surface optional-artifact problems as warnings in run/assessment artifacts.
+
+### Status
+**Recommended practice** — adopted for the `lines_256` controller path

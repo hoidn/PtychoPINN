@@ -52,6 +52,22 @@ Key artifacts:
 - `iterations/<n>/candidate_metadata.json`
 - `iterations/<n>/candidate_assessment.json`
 
+## Artifact Boundary
+
+Critical scored artifacts are:
+- launcher result / exit status
+- `metrics.json`
+- `randomness_contract.json`
+
+Optional reporting artifacts are:
+- `visual_publication_status.json`
+- `visuals/compare_amp_phase_probe.png`
+- plain compare fallbacks and session-gallery copies
+
+The controller must score from the critical artifacts first. Optional visual
+publication can add warning context, but it must not by itself turn a scored run
+into `CRASH`.
+
 ## Candidate Kinds
 
 The v2 controller supports two candidate kinds:
@@ -78,6 +94,10 @@ The controller owns deterministic study behavior:
 - attempt one focused crash-debug retry when warranted
 - update accepted state
 - resume from persisted phase
+
+Crash-debug is reserved for real execution failures or missing core scored
+artifacts. Optional visual-publication problems should persist as warnings
+instead of consuming crash-debug budget.
 
 ## Timeout Semantics
 
