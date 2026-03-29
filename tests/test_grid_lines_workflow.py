@@ -578,6 +578,55 @@ class TestDatasetPersistence:
 
         assert captured["metadata"]["additional_parameters"]["coords_type"] == "relative"
 
+    @pytest.mark.parametrize(
+        ("set_phi", "expected"),
+        [
+            pytest.param(True, True, id="set-phi-enabled"),
+            pytest.param(False, False, id="set-phi-default"),
+        ],
+    )
+    def test_metadata_includes_set_phi(self, monkeypatch, tmp_path: Path, set_phi: bool, expected: bool):
+        captured = {}
+
+        def fake_save_with_metadata(path, payload, metadata):
+            captured["metadata"] = metadata
+
+        monkeypatch.setattr(
+            "ptycho.metadata.MetadataManager.save_with_metadata",
+            fake_save_with_metadata,
+        )
+
+        cfg = GridLinesConfig(
+            N=8,
+            gridsize=1,
+            output_dir=tmp_path,
+            probe_npz=tmp_path / "probe.npz",
+            set_phi=set_phi,
+        )
+
+        config = TrainingConfig(
+            model=ModelConfig(N=8, gridsize=1, object_big=False),
+            nphotons=1e9,
+            nepochs=1,
+            batch_size=1,
+            nll_weight=0.0,
+            mae_weight=1.0,
+            realspace_weight=0.0,
+        )
+
+        data = {
+            "X": np.zeros((1, 1, 1, 1)),
+            "Y_I": np.zeros((1, 1, 1, 1)),
+            "Y_phi": np.zeros((1, 1, 1, 1)),
+            "coords_nominal": np.zeros((1, 2)),
+            "coords_true": np.zeros((1, 2)),
+            "YY_full": np.zeros((1, 1, 1, 1), dtype=np.complex64),
+        }
+
+        save_split_npz(cfg, "train", data, config)
+
+        assert captured["metadata"]["additional_parameters"]["set_phi"] is expected
+
     def test_metadata_includes_probe_mask_diameter(self, monkeypatch, tmp_path: Path):
         """Metadata should include probe_mask_diameter when set."""
         from ptycho.workflows.grid_lines_workflow import run_grid_lines_workflow
