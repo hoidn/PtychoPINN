@@ -43,6 +43,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** pytorch, lightning, mlflow, configuration, training  
 **Use this when:** Working on the `ptycho_torch/` stack or porting TensorFlow workflows to PyTorch.
 
+### [Model Baselines](model_baselines.md)
+**Description:** Canonical recommended training baselines for model families such as `hybrid_resnet`, including the distinction between project-recommended baselines, raw configuration defaults, and study-specific overrides.
+**Keywords:** baselines, hybrid_resnet, recommended-params, scheduler, learning-rate, studies
+**Use this when:** You need the current recommended starting parameters for a real study or wrapper and do not want to infer "best practice" from defaults, prompts, or tests.
+
 ### [PtychoViT Workflow Guide](workflows/ptychovit.md)
 **Description:** Source-pinned interop contract for running the `pinn_ptychovit` model arm from grid-lines studies, including paired HDF5 requirements, checkpoint semantics, and troubleshooting notes.
 **Highlights:** Includes `Known Local Dataset Paths (Snapshot: 2026-03-03)` with `scan807`/`cameraman256` path preflight and canonical checkpoint guidance.
@@ -60,9 +65,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** You need the exact `N=256` lines dataset for a single-dataset experiment, or need to understand both the current compatibility path and the persistent-data policy for this study input.
 
 ### [Lines 256 Architecture Loop](studies/lines_256_arch_improvement_loop.md)
-**Description:** Exact `autoresearch`-style loop contract for `lines_256` architecture experiments, including fresh baseline generation through the fixed-parameter thin wrapper, the untracked TSV ledger path, the session-local champion rule, the comparison-PNG gallery contract, keep/discard reset behavior, and the dedicated-run-checkout rule for this DSL-level rollback/checkpoint workflow.
+**Description:** Exact `autoresearch`-style loop contract for `lines_256` architecture experiments, including fresh baseline generation through the fixed-parameter thin wrapper, inheritance of the project Hybrid ResNet baseline schedule, the untracked TSV ledger path, the session-local champion rule, the comparison-PNG gallery contract, keep/discard reset behavior, and the dedicated-run-checkout rule for this DSL-level rollback/checkpoint workflow.
 **Keywords:** lines_256, architecture-loop, amp_ssim, baseline, wrapper, results.tsv, compare_amp_phase, probe, git-reset, session, checkout
-**Use this when:** You need a deterministic autonomous experiment loop for the `lines_256` prompt-library agent or want the authoritative rule for baseline generation, result recording, keep/discard decisions, and how this workflow should be isolated from normal branch work.
+**Use this when:** You need a deterministic autonomous experiment loop for the `lines_256` prompt-library agent or want the authoritative rule for baseline generation, inherited-vs-overridden baseline settings, result recording, keep/discard decisions, and how this workflow should be isolated from normal branch work.
 
 ### [Lines 256 Controller Loop (V2)](studies/lines_256_controller_loop.md)
 **Description:** Parallel controller-driven `lines_256` study path that keeps baseline, scoring, keep/discard, timeout/crash, and resume behavior in a session-local Python controller while the legacy YAML loop remains available during validation.

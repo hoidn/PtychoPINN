@@ -15,6 +15,7 @@
 
 - Purpose: Fix the exact autonomous loop for `lines_256` architecture experiments, including fresh baseline generation at session start, the untracked TSV ledger path, the session-local champion rule, and the keep/discard reset behavior.
 - Document: `docs/studies/lines_256_arch_improvement_loop.md`
+- Baseline inheritance: inherits the project Hybrid ResNet baseline from `docs/model_baselines.md` and overrides only study-specific items such as the `epochs=20` budget unless the loop doc says otherwise.
 - Rollout status: legacy path retained while the v2 controller path is validated in parallel.
 - Run-checkout note: this workflow uses DSL-level git rollback/checkpoint behavior; the study doc requires a dedicated run checkout and explains how that relates to normal branch work.
 - Workflow: `workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml`

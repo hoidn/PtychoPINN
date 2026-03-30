@@ -28,9 +28,10 @@ Do not treat the run checkout as the authoritative integration branch. The loop 
 ## Authoritative inputs
 
 - Dataset note: `docs/studies/lines_256_dataset.md`
+- Baseline reference: `docs/model_baselines.md`
 - Thin wrapper: `scripts/studies/run_lines_256_arch_experiment.py`
 
-If the dataset note or thin wrapper is missing, stop and report a blocker. Do not guess alternate paths.
+If the dataset note, baseline reference, or thin wrapper is missing, stop and report a blocker. Do not guess alternate paths.
 
 ## Protected local changes rule
 
@@ -61,28 +62,25 @@ At the beginning of every new experiment session:
 2. create a new `session_id`
 3. run a fresh baseline from the current `HEAD`
 4. use the thin wrapper `scripts/studies/run_lines_256_arch_experiment.py`
-5. rely on the wrapper to pin:
+5. inherit the Hybrid ResNet baseline schedule from `docs/model_baselines.md`
+6. rely on the wrapper to pin the study-specific invariants:
    - train NPZ
    - test NPZ
    - `seed=3`
    - `epochs=20`
-   - `scheduler=ReduceLROnPlateau`
-   - `plateau_min_lr=2e-4`
    - `N=256`
    - `gridsize=1`
    - `architecture=hybrid_resnet`
-   - `probe_mask=off`
-   - `torch_mae_pred_l2_match_target=on`
-6. use the default hybrid-resnet control:
-   - `fno_modes=12`
-   - `fno_width=32`
-   - `fno_blocks=4`
-   - `hybrid_skip_connections=off`
-   - `hybrid_downsample_steps=2`
-   - `hybrid_downsample_op=stride_conv`
-   - `hybrid_resnet_blocks=6`
-   - `hybrid_skip_style=add`
-7. record that fresh baseline as the first row for the session in the TSV ledger
+7. unless this study doc explicitly overrides them, use the baseline Hybrid ResNet schedule and architecture settings from `docs/model_baselines.md`
+8. record that fresh baseline as the first row for the session in the TSV ledger
+
+For `lines_256`, the explicit study override is:
+
+- epoch budget: `20`
+
+Everything else should follow the current Hybrid ResNet baseline in
+`docs/model_baselines.md` unless this document is updated to override it
+explicitly.
 
 If the baseline run crashes or does not produce `amp_ssim`, stop. Do not start candidate experiments without a fresh baseline for the current session.
 
