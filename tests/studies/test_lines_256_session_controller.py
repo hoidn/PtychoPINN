@@ -672,7 +672,7 @@ def test_run_config_candidate_scored_run_harvests_outputs(tmp_path, monkeypatch)
     }
     real_run = subprocess.run
 
-    def fake_run(command, *, cwd, capture_output, text, check, timeout=None):
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
         if command[:3] == ["git", "rev-parse", "HEAD"]:
             return real_run(
                 command,
