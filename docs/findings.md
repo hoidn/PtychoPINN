@@ -7,6 +7,7 @@ This ledger captures the most important lessons, conventions, and recurring issu
 | TORCH-REASSEMBLY-NORM-001 | 2026-02-05 | pytorch, reassembly, centermask, normalization, parity | Torch `reassemble_patches_position_real` must mirror TF `mk_norm` behavior: normalize with centermask counts plus 0.001 epsilon and **do not** hard-mask outputs. Hard-masking diverges from TF and changes C=1 object_big reassembly results. | `ptycho_torch/helper.py:100-137, tests/torch/test_reassemble_patches_position_real_c1.py` | Resolved |
 | GRIDLINES-OBJECT-BIG-001 | 2026-02-05 | grid-lines, pytorch, config, object_big, parity | The grid-lines Torch runner must set `object_big=False` to match TF grid_lines defaults (`configure_legacy_params`). Leaving the ModelConfig default `object_big=True` triggers object-big reassembly on C=1 data and regresses hybrid_resnet integration metrics. | `scripts/studies/grid_lines_torch_runner.py:278-292, ptycho/workflows/grid_lines_workflow.py:184-205` | Resolved |
 | GRIDLINES-PROBE-BIG-001 | 2026-02-05 | grid-lines, pytorch, config, probe_big, parity | The grid-lines Torch runner must set `probe_big=False` to match TF params.cfg defaults (`probe.big=False`). Propagating the PyTorch `probe_big=True` default flips the decoder path and regresses hybrid_resnet integration metrics. | `scripts/studies/grid_lines_torch_runner.py:278-293, ptycho/params.py:69-70` | Resolved |
+| LINES256-CTRL-PATH-001 | 2026-03-30 | lines_256, controller, interpreter, subprocess, path, tensorflow | The v2 `lines_256` controller must stabilize the scored-command subprocess PATH so plain `python ...` resolves to the same runtime as the controller itself. `bash -lc` plus ambient shell startup can drift to a different interpreter, causing false `ModuleNotFoundError: tensorflow` crashes even when smoke runs succeed. Fix the controller boundary, not the persisted command strings. | `scripts/studies/lines_256_session_controller.py, tests/studies/test_lines_256_session_controller.py, state/lines_256_arch_improvement_v2/sessions/20260330T001026Z/iterations/046/*.log` | Active |
 | PROBE-MASK-DEFAULT-001 | 2026-02-20 | pytorch, probe-mask, hybrid_resnet, regression, integration-test | Hybrid-resnet metric regression on `fno-stable` was introduced when Torch probe masking changed from effectively off-by-default to on-by-default (`db1e43f9`). Hard-vs-soft edge is secondary; disabling default masking restores the integration gate. | `db1e43f9 vs 8dac52fc, ptycho_torch/config_params.py, ptycho_torch/model.py, tests/torch/test_grid_lines_hybrid_resnet_integration.py` | Active |
 | REASSEMBLY-M-CONTRACT-001 | 2026-03-04 | pytorch, reassembly, external_raw_npz, M, crop-border, shift-sum | Position reassembly must have a single trim owner: forward full patches to `tf_helper.reassemble_position` and derive `M_effective` from `M_requested` + `position_crop_border`. Runner-side pre-trim plus tf_helper trim caused broadcast-shape failures. | `scripts/studies/grid_lines_torch_runner.py, tests/torch/test_grid_lines_torch_runner.py, docs/workflows/pytorch.md, docs/debugging/TROUBLESHOOTING.md` | Resolved |
 | REASSEMBLY-BATCH-001 | 2025-11-13 | batched-reassembly, translation-layer, shape-mismatch, dense-view, graph-mode | Batched patch reassembly failed when processing large (5k+) dense datasets in TensorFlow graph mode (tf.while_loop). The issue was using `tf.shape(canvas)` (dynamic runtime values) instead of the static `padded_size` parameter for resize operations. TensorFlow's `shape_invariants` requirement in while_loop demands static shape specifications at graph compilation time. Fixed by using the static `padded_size` integer directly in `tf.image.resize_with_crop_or_pad` instead of extracting canvas dimensions dynamically. This ensures shape consistency between the canvas and batch_result tensors during while_loop compilation and execution. `ReassemblePatchesLayer` now auto-selects batched reassembly when `total_patches > 64` to keep GPU memory bounded. | `ptycho/tf_helper.py:939-965, ptycho/custom_layers.py:149-164, tests/study/test_dose_overlap_comparison.py:760-817` | Resolved |
@@ -221,3 +222,69 @@ All 8 tests pass (pytest run 2026-01-06, 27.75s).
 
 ### Status
 **Resolved** — XLA batch broadcast fix implemented and verified
+
+## REPORTING-ARTIFACT-BOUNDARY-001 - Optional Reporting Artifacts Must Not Decide Scored Experiment Failure
+**Category:** Experiment Orchestration, Artifact Contracts, Robustness
+**Impact:** Long-running study loops can misclassify successful experiments as crashes and waste debug budget
+**Date:** 2026-03-29
+
+### Rule
+For scored experiment workflows, only core execution evidence should determine
+`KEEP`/`DISCARD`/`TIMEOUT`/`CRASH`:
+- launcher exit status
+- primary metrics
+- any required comparability contract such as randomness metadata
+
+Optional reporting artifacts such as comparison galleries, probe-inclusive
+rerenders, or convenience visual exports may add warnings, but they must not by
+themselves change a successful scored run into `CRASH`.
+
+### Why
+Post-processing and publication helpers are much more brittle than the actual
+training/inference path. If they are treated as fatal, the workflow can:
+- stop autonomous search even though the experiment finished
+- trigger pointless crash-debug attempts against candidate code
+- hide the real experiment outcome by failing after metrics were already
+  produced
+
+### Recommended Pattern
+- Persist launcher result before later harvest or publication logic.
+- Classify from core artifacts first.
+- Record optional publication status separately, for example
+  `published`, `fallback_plain_compare`, or `missing_nonfatal`.
+- Surface optional-artifact problems as warnings in run/assessment artifacts.
+
+### Status
+**Recommended practice** — adopted for the `lines_256` controller path
+
+## LINES256-CTRL-PATH-001 - Scored Controller Runs Must Stabilize PATH `python`
+**Category:** Controller Runtime, Subprocess Boundary, Interpreter Drift
+**Impact:** `lines_256` v2 scored candidates can false-crash before model execution
+**Location:** `scripts/studies/lines_256_session_controller.py`
+**Date:** 2026-03-30
+
+### Issue
+Iteration `046` of the `set_phi=True` `lines_256` v2 session crashed on
+`ModuleNotFoundError: No module named 'tensorflow'` even though the matching
+smoke run for the same candidate succeeded.
+
+### Root Cause
+The controller launched scored commands with `bash -lc`, which re-entered login
+shell startup and let ambient PATH state choose a different `python` than the
+controller runtime. The proposal artifacts were still correct to use plain
+`python ...`, but the controller boundary was not holding that command to the
+controller's own runtime.
+
+### Required Rule
+- Keep persisted commands and docs as plain `python ...` per `PYTHON-ENV-001`.
+- Before scored controller launches, prepend the controller runtime's bin dir to
+  `PATH`.
+- Prefer `bash -c` over `bash -lc` for internal scored-command execution so
+  login-shell startup cannot drift the interpreter.
+- Persist a short crash excerpt in controller assessment artifacts so debug
+  sees the real root-cause line.
+
+### Evidence
+- `state/lines_256_arch_improvement_v2/sessions/20260330T001026Z/iterations/046/20260330T191252Z_33407af0ab81.log`
+- `outputs/lines_256_arch_improvement_v2/sessions/20260330T001026Z/candidates/20260330T191252Z_21bb106786e1/driver_stderr.log`
+- `state/lines_256_arch_improvement_v2/sessions/20260330T001026Z/iterations/046/20260330T191252Z_adaff131ade6__source_smoke.log`

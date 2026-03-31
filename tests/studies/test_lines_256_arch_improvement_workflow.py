@@ -6,6 +6,15 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+def _extract_inline_python(command: str) -> str:
+    marker = "python - <<'PY'\n"
+    assert marker in command
+    _, tail = command.split(marker, 1)
+    code, end = tail.rsplit("\nPY", 1)
+    assert end.strip() == ""
+    return code
+
+
 def test_prompt_index_registers_lines_256_experiment_prompt():
     index = (REPO_ROOT / "prompts/index.md").read_text(encoding="utf-8")
 
@@ -137,12 +146,80 @@ def test_lines_256_workflow_preflights_dataset_metadata_and_probe_gallery_contra
     harvest_baseline = next(step for step in workflow["steps"] if step["name"] == "HarvestBaselineOutputs")
     harvest_script = harvest_baseline["command"][-1]
     assert "compare_amp_phase_probe.png" in harvest_script
+    assert "randomness_contract.json" in harvest_script
+    assert "accepted_randomness_contract" in harvest_script
 
     loop_doc = (
         REPO_ROOT / "docs/studies/lines_256_arch_improvement_loop.md"
     ).read_text(encoding="utf-8")
     assert "TIMEOUT" in loop_doc
     assert "only `CRASH` should trigger the focused debug path" in loop_doc
+
+
+def test_lines_256_workflow_compares_effective_randomness_contracts():
+    workflow_path = REPO_ROOT / Path(
+        "workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml"
+    )
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+    experiment_loop = next(
+        step for step in workflow["steps"] if step["name"] == "ExperimentLoop"
+    )
+    loop_steps = experiment_loop["repeat_until"]["steps"]
+
+    harvest_candidate = next(step for step in loop_steps if step["name"] == "HarvestCandidateOutputs")
+    harvest_script = harvest_candidate["command"][-1]
+    assert "randomness_contract.json" in harvest_script
+    assert "accepted_randomness_contract" in harvest_script
+
+    decision_field = next(
+        field
+        for field in harvest_candidate["output_bundle"]["fields"]
+        if field["name"] == "decision"
+    )
+    assert "BLOCKED" in decision_field["allowed"]
+
+    finalize_iteration = next(step for step in loop_steps if step["name"] == "FinalizeIterationDecision")
+    finalize_script = finalize_iteration["command"][-1]
+    assert 'initial_outcome in {"KEEP", "DISCARD", "TIMEOUT"}' in finalize_script
+
+
+def test_lines_256_workflow_supports_run_config_candidates():
+    workflow_path = REPO_ROOT / Path(
+        "workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml"
+    )
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+    harvest_baseline = next(step for step in workflow["steps"] if step["name"] == "HarvestBaselineOutputs")
+    harvest_script = harvest_baseline["command"][-1]
+    assert "accepted_run_command" in harvest_script
+
+    experiment_loop = next(
+        step for step in workflow["steps"] if step["name"] == "ExperimentLoop"
+    )
+    loop_steps = experiment_loop["repeat_until"]["steps"]
+
+    experiment_step = next(step for step in loop_steps if step["name"] == "ExperimentStep")
+    kind_field = next(
+        field for field in experiment_step["output_bundle"]["fields"] if field["name"] == "candidate_kind"
+    )
+    assert kind_field["allowed"] == ["source", "run_config"]
+
+    append_candidate = next(step for step in loop_steps if step["name"] == "AppendCandidateLedgerRow")
+    append_script = append_candidate["command"][-1]
+    assert 'metadata.get("candidate_commit") or metadata.get("base_ref", "na")' in append_script
+
+
+def test_lines_256_harvest_baseline_script_compiles():
+    workflow_path = REPO_ROOT / Path(
+        "workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml"
+    )
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+    harvest_baseline = next(step for step in workflow["steps"] if step["name"] == "HarvestBaselineOutputs")
+    inline_python = _extract_inline_python(harvest_baseline["command"][-1])
+
+    compile(inline_python, "HarvestBaselineOutputs.inline.py", "exec")
 
 
 def test_lines_256_prompts_pin_smoke_target_normalization_and_probe_gallery_name():
@@ -192,6 +269,36 @@ def test_lines_256_arch_improvement_v2_call_workflow_extracts_iteration_into_sub
     )
 
 
+def test_lines_256_session_controller_workflow_is_thin_wrapper():
+    workflow_path = REPO_ROOT / Path(
+        "workflows/agent_orchestration/lines_256_session_controller.yaml"
+    )
+    assert workflow_path.exists()
+
+    workflow = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
+
+    assert workflow["version"] == "2.7"
+    step_names = [step["name"] for step in workflow["steps"]]
+    assert step_names == ["ValidateControllerInputs", "RunController"]
+    run_controller = next(step for step in workflow["steps"] if step["name"] == "RunController")
+    assert run_controller["command"][:2] == ["python", "scripts/studies/lines_256_session_controller.py"]
+    assert "repeat_until" not in workflow
+
+
+def test_lines_256_docs_register_legacy_and_v2_controller_paths():
+    docs_index = (REPO_ROOT / "docs/index.md").read_text(encoding="utf-8")
+    studies_index = (REPO_ROOT / "docs/studies/index.md").read_text(encoding="utf-8")
+    controller_doc = (
+        REPO_ROOT / "docs/studies/lines_256_controller_loop.md"
+    ).read_text(encoding="utf-8")
+
+    assert "lines_256_controller_loop.md" in docs_index
+    assert "lines_256_arch_improvement_loop.md" in docs_index
+    assert "lines_256_controller_loop.md" in studies_index
+    assert "legacy" in studies_index.lower()
+    assert "lines_256_arch_improvement_v2" in controller_doc
+
+
 def test_lines_256_arch_improvement_iteration_library_preserves_crash_debug_path():
     workflow_path = REPO_ROOT / Path(
         "workflows/library/lines_256_arch_improvement_iteration.yaml"
@@ -237,12 +344,15 @@ def test_lines_256_arch_improvement_iteration_library_preserves_crash_debug_path
     assert "timeout=1770" in run_candidate["command"][-1]
 
     harvest_candidate = next(step for step in steps if step["name"] == "HarvestCandidateOutputs")
+    assert "randomness_contract.json" in harvest_candidate["command"][-1]
+    assert "accepted_randomness_contract" in harvest_candidate["command"][-1]
     decision_field = next(
         field
         for field in harvest_candidate["output_bundle"]["fields"]
         if field["name"] == "decision"
     )
     assert "TIMEOUT" in decision_field["allowed"]
+    assert "BLOCKED" in decision_field["allowed"]
 
     rerun_step = next(step for step in steps if step["name"] == "RunDebuggedCandidateExperiment")
     assert rerun_step["timeout_sec"] == 1860

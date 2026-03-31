@@ -15,6 +15,9 @@
 
 - Purpose: Fix the exact autonomous loop for `lines_256` architecture experiments, including fresh baseline generation at session start, the untracked TSV ledger path, the session-local champion rule, and the keep/discard reset behavior.
 - Document: `docs/studies/lines_256_arch_improvement_loop.md`
+- Baseline inheritance: inherits the project Hybrid ResNet baseline from `docs/model_baselines.md` and overrides only study-specific items such as the `epochs=20` budget unless the loop doc says otherwise.
+- Rollout status: legacy path retained while the v2 controller path is validated in parallel.
+- Run-checkout note: this workflow uses DSL-level git rollback/checkpoint behavior; the study doc requires a dedicated run checkout and explains how that relates to normal branch work.
 - Workflow: `workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml`
 - Encapsulated variant: `workflows/agent_orchestration/lines_256_arch_improvement_session_loop_v2_call.yaml`
 - Iteration subworkflow: `workflows/library/lines_256_arch_improvement_iteration.yaml`
@@ -25,6 +28,15 @@
 - Baseline rule: regenerate from the current `HEAD` at the beginning of each session using the default control and fixed budget in the loop document
 - Thin wrapper: `scripts/studies/run_lines_256_arch_experiment.py`
 - Comparison gallery: `outputs/lines_256_arch_improvement/comparison_pngs/<session_id>/`
+
+### `lines_256` controller loop (v2)
+
+- Purpose: Run the parallel controller-based `lines_256` path that keeps session mechanics in Python while the legacy YAML loop remains available.
+- Document: `docs/studies/lines_256_controller_loop.md`
+- Thin wrapper workflow: `workflows/agent_orchestration/lines_256_session_controller.yaml`
+- Controller script: `scripts/studies/lines_256_session_controller.py`
+- Session state root: `state/lines_256_arch_improvement_v2/sessions/<session_id>/`
+- Session outputs root: `outputs/lines_256_arch_improvement_v2/sessions/<session_id>/`
 
 ### `hybrid-resnet-mode-skip-sweep`
 

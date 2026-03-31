@@ -386,6 +386,7 @@ def save_split_npz(
         probe_scale_mode=cfg.probe_scale_mode,
         probe_smoothing_sigma=cfg.probe_smoothing_sigma,
         probe_npz=str(cfg.probe_npz),
+        set_phi=cfg.set_phi,
         coords_type="relative",
     )
     MetadataManager.save_with_metadata(str(path), payload, metadata)

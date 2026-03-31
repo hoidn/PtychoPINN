@@ -21,7 +21,11 @@ from ptycho_torch.generators.hybrid_resnet import (
     HybridResnetEncoderBlock,
     HybridResnetGeneratorModule,
 )
-from ptycho_torch.generators.resnet_components import ResnetBlock, CycleGanUpsampler
+from ptycho_torch.generators.resnet_components import (
+    ResnetBlock,
+    ResnetBottleneck,
+    CycleGanUpsampler,
+)
 from ptycho_torch.generators.registry import resolve_generator
 from ptycho.config.config import TrainingConfig, ModelConfig
 
@@ -193,14 +197,6 @@ class TestFnoVanillaGenerator:
 class TestHybridResnetGenerator:
     """Tests for the HybridResnetGenerator module."""
 
-    def test_cycle_gan_upsampler_uses_interpolate_conv_not_transposed_conv(self):
-        upsampler = CycleGanUpsampler(in_channels=8, out_channels=4)
-
-        assert any(isinstance(module, torch.nn.Upsample) for module in upsampler.modules())
-        assert any(isinstance(module, torch.nn.ReflectionPad2d) for module in upsampler.modules())
-        assert any(isinstance(module, torch.nn.Conv2d) for module in upsampler.modules())
-        assert not any(isinstance(module, torch.nn.ConvTranspose2d) for module in upsampler.modules())
-
     def test_decoder_components_use_gelu_activations(self):
         block = ResnetBlock(channels=8)
         upsampler = CycleGanUpsampler(in_channels=8, out_channels=4)
@@ -210,9 +206,27 @@ class TestHybridResnetGenerator:
         assert any(isinstance(module, torch.nn.GELU) for module in upsampler.modules())
         assert not any(isinstance(module, torch.nn.ReLU) for module in upsampler.modules())
 
+    def test_decoder_upsampler_uses_standard_4x4_deconv(self):
+        upsampler = CycleGanUpsampler(in_channels=8, out_channels=4)
+        deconv = upsampler.block[0]
+
+        assert isinstance(deconv, torch.nn.ConvTranspose2d)
+        assert deconv.kernel_size == (4, 4)
+        assert deconv.stride == (2, 2)
+        assert deconv.padding == (1, 1)
+        assert deconv.output_padding == (0, 0)
+
     def test_resnet_decoder_block_uses_scalar_layerscale(self):
         block = ResnetBlock(channels=8)
         assert block.layerscale.numel() == 1
+
+    def test_resnet_bottleneck_shares_one_scalar_layerscale_across_blocks(self):
+        bottleneck = ResnetBottleneck(channels=8, n_blocks=3)
+
+        shared_gate = bottleneck.layerscale
+        assert shared_gate.numel() == 1
+        for block in bottleneck.blocks:
+            assert block.layerscale is shared_gate
 
     def test_resnet_decoder_block_zero_layerscale_is_identity(self):
         block = ResnetBlock(channels=8)

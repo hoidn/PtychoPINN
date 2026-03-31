@@ -234,6 +234,20 @@ class TestSetupTorchConfigs:
         assert execution_config.learning_rate == 0.001
         assert execution_config.deterministic is True
 
+    def test_setup_configs_threads_seed_into_subsample_seed(self, tmp_path):
+        """Study seed should become the effective subsample/lightning seed."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="hybrid_resnet",
+            seed=7,
+        )
+
+        training_config, _ = setup_torch_configs(cfg)
+
+        assert training_config.subsample_seed == 7
+
     def test_fno_input_transform_passed(self, tmp_path):
         """FNO input transform should be forwarded to ModelConfig."""
         cfg = TorchRunnerConfig(
@@ -393,6 +407,42 @@ class TestRunGridLinesTorchScaffold:
         assert isinstance(result['model_params'], int)
         assert 'inference_time_s' in result
         assert isinstance(result['inference_time_s'], float)
+
+    def test_runner_writes_randomness_contract(self, synthetic_npz, tmp_path):
+        """Runner should publish the effective randomness contract per run."""
+        train_path, test_path = synthetic_npz
+        output_dir = tmp_path / "output"
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=output_dir,
+            architecture="hybrid_resnet",
+            epochs=1,
+            seed=11,
+        )
+
+        with patch('scripts.studies.grid_lines_torch_runner.run_torch_training') as mock_train:
+            mock_train.return_value = {
+                'model': None,
+                'history': {},
+                'generator': 'hybrid_resnet',
+                'scaffold': True,
+            }
+            with patch('scripts.studies.grid_lines_torch_runner.run_torch_inference') as mock_infer:
+                mock_infer.return_value = np.random.rand(64, 64).astype(np.complex64)
+                with patch('scripts.studies.grid_lines_torch_runner.compute_metrics') as mock_metrics:
+                    mock_metrics.return_value = {'mse': 0.1}
+                    result = run_grid_lines_torch(cfg)
+
+        contract_path = Path(result['run_dir']) / "randomness_contract.json"
+        assert contract_path.exists()
+        contract = json.loads(contract_path.read_text(encoding="utf-8"))
+        assert contract == {
+            "requested_seed": 11,
+            "effective_subsample_seed": 11,
+            "effective_lightning_seed": 11,
+        }
 
     def test_runner_creates_run_directory_structure(self, synthetic_npz, tmp_path):
         """Test runner creates proper directory structure."""

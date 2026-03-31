@@ -57,6 +57,23 @@ def _tracked_dirty_paths(repo_root: Path) -> list[str]:
     return paths
 
 
+def _resolve_base_ref(metadata: dict[str, object], accepted: dict[str, object]) -> str:
+    base_ref = metadata.get("base_ref")
+    if isinstance(base_ref, str) and base_ref.strip():
+        return base_ref
+    accepted_ref = accepted.get("accepted_ref")
+    if isinstance(accepted_ref, str) and accepted_ref.strip():
+        return accepted_ref
+    raise SystemExit("Candidate metadata and accepted state are both missing a usable base ref")
+
+
+def _resolve_candidate_kind(metadata: dict[str, object]) -> str:
+    candidate_kind = metadata.get("candidate_kind", "source")
+    if not isinstance(candidate_kind, str) or candidate_kind not in {"source", "run_config"}:
+        raise SystemExit(f"Unsupported candidate kind {candidate_kind!r}")
+    return candidate_kind
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=sorted(MODE_CONFIG), required=True)
@@ -81,28 +98,43 @@ def main(argv: list[str] | None = None) -> int:
     protected = _load_json(session_state_dir / "protected_local_paths.json")
     accepted_path = session_state_dir / "accepted_state.json"
     accepted = _load_json(accepted_path)
+    base_ref = _resolve_base_ref(metadata, accepted)
+    candidate_kind = _resolve_candidate_kind(metadata)
 
-    candidate_paths = _load_json(_resolve_path(repo_root, metadata["candidate_paths_file"]))
-    overlap = sorted(set(protected) & set(candidate_paths))
-    if overlap:
-        raise SystemExit(
-            "Candidate paths overlap protected local paths and cannot be handled safely:\n"
-            + "\n".join(overlap)
-        )
+    if candidate_kind == "source":
+        candidate_paths = _load_json(_resolve_path(repo_root, metadata["candidate_paths_file"]))
+        overlap = sorted(set(protected) & set(candidate_paths))
+        if overlap:
+            raise SystemExit(
+                "Candidate paths overlap protected local paths and cannot be handled safely:\n"
+                + "\n".join(overlap)
+            )
+    else:
+        candidate_paths = []
 
     if outcome == "KEEP":
         assessment = _load_json(state_dir / config["assessment_file"])
-        accepted["accepted_ref"] = metadata["candidate_commit"]
+        accepted["accepted_ref"] = (
+            metadata["candidate_commit"] if candidate_kind == "source" else base_ref
+        )
         accepted["accepted_amp_ssim"] = float(assessment["candidate_amp_ssim"])
+        if "run_command" in metadata:
+            accepted["accepted_run_command"] = metadata["run_command"]
+        if "output_root" in metadata:
+            accepted["accepted_output_root"] = metadata["output_root"]
+        if "comparison_png_path" in metadata:
+            accepted["accepted_comparison_png"] = metadata["comparison_png_path"]
+        accepted["accepted_candidate_kind"] = candidate_kind
         _write_json(accepted_path, accepted)
         return 0
 
     if outcome not in {"DISCARD", "TIMEOUT", "CRASH"}:
         raise SystemExit(f"Unsupported outcome {outcome!r} for mode {args.mode!r}")
 
-    _git(repo_root, "reset", "--mixed", "HEAD^")
-    if candidate_paths:
-        _git(repo_root, "restore", "--source=HEAD", "--staged", "--worktree", "--", *candidate_paths)
+    if candidate_kind == "source":
+        _git(repo_root, "reset", "--mixed", base_ref)
+        if candidate_paths:
+            _git(repo_root, "restore", "--source", base_ref, "--staged", "--worktree", "--", *candidate_paths)
 
     current_paths = set(_tracked_dirty_paths(repo_root))
     protected_set = set(protected)

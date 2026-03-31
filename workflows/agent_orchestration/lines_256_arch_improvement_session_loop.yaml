@@ -365,6 +365,14 @@ steps:
                 raise SystemExit(f"Missing baseline comparison PNG under {output_root}")
             compare_path = compare_candidates[0]
 
+        randomness_path = output_root / "runs" / "pinn_hybrid_resnet" / "randomness_contract.json"
+        if not randomness_path.exists():
+            randomness_candidates = sorted(output_root.rglob("randomness_contract.json"))
+            if not randomness_candidates:
+                raise SystemExit(f"Missing baseline randomness contract under {output_root}")
+            randomness_path = randomness_candidates[0]
+        randomness_contract = json.loads(randomness_path.read_text(encoding="utf-8"))
+
         gallery_png = Path(session["baseline_comparison_png"])
         gallery_png.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(compare_path, gallery_png)
@@ -387,6 +395,9 @@ steps:
             "baseline_output_root": session["baseline_output_root"],
             "baseline_comparison_png": session["baseline_comparison_png"],
             "baseline_command": result["command"],
+            "accepted_run_command": result["command"],
+            "accepted_candidate_kind": "baseline",
+            "accepted_randomness_contract": randomness_contract,
         }
         Path("state/lines_256_arch_improvement/accepted_state.json").write_text(
             json.dumps(payload, indent=2) + "\n",
@@ -542,6 +553,11 @@ steps:
                 json_pointer: /status
                 type: enum
                 allowed: ["READY", "BLOCKED"]
+              - name: candidate_kind
+                json_pointer: /candidate_kind
+                type: enum
+                allowed: ["source", "run_config"]
+                required: false
               - name: candidate_paths_file
                 json_pointer: /candidate_paths_file
                 type: relpath
@@ -680,37 +696,52 @@ steps:
               amp_ssim = None
               decision = "CRASH"
               delta = None
+              accepted_randomness = accepted.get("accepted_randomness_contract")
 
               if run_result["launcher_status"] == "timeout":
                   decision = "TIMEOUT"
               elif run_result["launcher_status"] == "completed" and run_result["exit_code"] == 0:
-                  metrics_path = output_root / "runs" / "pinn_hybrid_resnet" / "metrics.json"
-                  if not metrics_path.exists():
-                      candidates = sorted(output_root.rglob("metrics.json"))
-                      if candidates:
-                          metrics_path = candidates[0]
-                  if metrics_path.exists():
-                      metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
-                      amp_ssim = metrics.get("amp_ssim")
-                      if amp_ssim is None:
-                          ssim = metrics.get("ssim")
-                          if isinstance(ssim, list) and len(ssim) >= 1:
-                              amp_ssim = ssim[0]
+                  randomness_path = output_root / "runs" / "pinn_hybrid_resnet" / "randomness_contract.json"
+                  if not randomness_path.exists():
+                      randomness_candidates = sorted(output_root.rglob("randomness_contract.json"))
+                      if randomness_candidates:
+                          randomness_path = randomness_candidates[0]
+                  candidate_randomness = None
+                  if randomness_path.exists():
+                      candidate_randomness = json.loads(randomness_path.read_text(encoding="utf-8"))
 
-                  compare_source = output_root / "visuals" / "compare_amp_phase_probe.png"
-                  if not compare_source.exists():
-                      compare_candidates = sorted(output_root.rglob("compare_amp_phase_probe.png"))
-                      if compare_candidates:
-                          compare_source = compare_candidates[0]
-                  if compare_source.exists():
-                      target = Path(metadata["comparison_png_path"])
-                      target.parent.mkdir(parents=True, exist_ok=True)
-                      shutil.copy2(compare_source, target)
-                      compare_png = metadata["comparison_png_path"]
+                  if accepted_randomness is None or candidate_randomness is None:
+                      decision = "BLOCKED"
+                  elif candidate_randomness != accepted_randomness:
+                      decision = "BLOCKED"
+                  else:
+                      metrics_path = output_root / "runs" / "pinn_hybrid_resnet" / "metrics.json"
+                      if not metrics_path.exists():
+                          candidates = sorted(output_root.rglob("metrics.json"))
+                          if candidates:
+                              metrics_path = candidates[0]
+                      if metrics_path.exists():
+                          metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+                          amp_ssim = metrics.get("amp_ssim")
+                          if amp_ssim is None:
+                              ssim = metrics.get("ssim")
+                              if isinstance(ssim, list) and len(ssim) >= 1:
+                                  amp_ssim = ssim[0]
 
-                  if amp_ssim is not None and compare_png is not None:
-                      delta = float(amp_ssim) - float(accepted["accepted_amp_ssim"])
-                      decision = "KEEP" if float(amp_ssim) > float(accepted["accepted_amp_ssim"]) else "DISCARD"
+                      compare_source = output_root / "visuals" / "compare_amp_phase_probe.png"
+                      if not compare_source.exists():
+                          compare_candidates = sorted(output_root.rglob("compare_amp_phase_probe.png"))
+                          if compare_candidates:
+                              compare_source = compare_candidates[0]
+                      if compare_source.exists():
+                          target = Path(metadata["comparison_png_path"])
+                          target.parent.mkdir(parents=True, exist_ok=True)
+                          shutil.copy2(compare_source, target)
+                          compare_png = metadata["comparison_png_path"]
+
+                      if amp_ssim is not None and compare_png is not None:
+                          delta = float(amp_ssim) - float(accepted["accepted_amp_ssim"])
+                          decision = "KEEP" if float(amp_ssim) > float(accepted["accepted_amp_ssim"]) else "DISCARD"
 
               payload = {
                   "decision": decision,
@@ -734,7 +765,7 @@ steps:
               - name: decision
                 json_pointer: /decision
                 type: enum
-                allowed: ["KEEP", "DISCARD", "TIMEOUT", "CRASH"]
+                allowed: ["KEEP", "DISCARD", "TIMEOUT", "CRASH", "BLOCKED"]
               - name: candidate_amp_ssim
                 json_pointer: /candidate_amp_ssim
                 type: float
@@ -787,7 +818,7 @@ steps:
                       [
                           session["session_id"],
                           datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                          metadata.get("candidate_commit", "na"),
+                          metadata.get("candidate_commit") or metadata.get("base_ref", "na"),
                           assessment["decision"].lower(),
                           assessment["candidate_amp_ssim"] if assessment.get("candidate_amp_ssim") is not None else "na",
                           assessment["compared_to_ref"],
@@ -883,6 +914,11 @@ steps:
                 json_pointer: /status
                 type: enum
                 allowed: ["READY", "BLOCKED"]
+              - name: candidate_kind
+                json_pointer: /candidate_kind
+                type: enum
+                allowed: ["source", "run_config"]
+                required: false
               - name: candidate_paths_file
                 json_pointer: /candidate_paths_file
                 type: relpath
@@ -1058,37 +1094,52 @@ steps:
               amp_ssim = None
               decision = "CRASH"
               delta = None
+              accepted_randomness = accepted.get("accepted_randomness_contract")
 
               if run_result["launcher_status"] == "timeout":
                   decision = "TIMEOUT"
               elif run_result["launcher_status"] == "completed" and run_result["exit_code"] == 0:
-                  metrics_path = output_root / "runs" / "pinn_hybrid_resnet" / "metrics.json"
-                  if not metrics_path.exists():
-                      candidates = sorted(output_root.rglob("metrics.json"))
-                      if candidates:
-                          metrics_path = candidates[0]
-                  if metrics_path.exists():
-                      metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
-                      amp_ssim = metrics.get("amp_ssim")
-                      if amp_ssim is None:
-                          ssim = metrics.get("ssim")
-                          if isinstance(ssim, list) and len(ssim) >= 1:
-                              amp_ssim = ssim[0]
+                  randomness_path = output_root / "runs" / "pinn_hybrid_resnet" / "randomness_contract.json"
+                  if not randomness_path.exists():
+                      randomness_candidates = sorted(output_root.rglob("randomness_contract.json"))
+                      if randomness_candidates:
+                          randomness_path = randomness_candidates[0]
+                  candidate_randomness = None
+                  if randomness_path.exists():
+                      candidate_randomness = json.loads(randomness_path.read_text(encoding="utf-8"))
 
-                  compare_source = output_root / "visuals" / "compare_amp_phase_probe.png"
-                  if not compare_source.exists():
-                      compare_candidates = sorted(output_root.rglob("compare_amp_phase_probe.png"))
-                      if compare_candidates:
-                          compare_source = compare_candidates[0]
-                  if compare_source.exists():
-                      target = Path(metadata["comparison_png_path"])
-                      target.parent.mkdir(parents=True, exist_ok=True)
-                      shutil.copy2(compare_source, target)
-                      compare_png = metadata["comparison_png_path"]
+                  if accepted_randomness is None or candidate_randomness is None:
+                      decision = "BLOCKED"
+                  elif candidate_randomness != accepted_randomness:
+                      decision = "BLOCKED"
+                  else:
+                      metrics_path = output_root / "runs" / "pinn_hybrid_resnet" / "metrics.json"
+                      if not metrics_path.exists():
+                          candidates = sorted(output_root.rglob("metrics.json"))
+                          if candidates:
+                              metrics_path = candidates[0]
+                      if metrics_path.exists():
+                          metrics = json.loads(metrics_path.read_text(encoding="utf-8"))
+                          amp_ssim = metrics.get("amp_ssim")
+                          if amp_ssim is None:
+                              ssim = metrics.get("ssim")
+                              if isinstance(ssim, list) and len(ssim) >= 1:
+                                  amp_ssim = ssim[0]
 
-                  if amp_ssim is not None and compare_png is not None:
-                      delta = float(amp_ssim) - float(accepted["accepted_amp_ssim"])
-                      decision = "KEEP" if float(amp_ssim) > float(accepted["accepted_amp_ssim"]) else "DISCARD"
+                      compare_source = output_root / "visuals" / "compare_amp_phase_probe.png"
+                      if not compare_source.exists():
+                          compare_candidates = sorted(output_root.rglob("compare_amp_phase_probe.png"))
+                          if compare_candidates:
+                              compare_source = compare_candidates[0]
+                      if compare_source.exists():
+                          target = Path(metadata["comparison_png_path"])
+                          target.parent.mkdir(parents=True, exist_ok=True)
+                          shutil.copy2(compare_source, target)
+                          compare_png = metadata["comparison_png_path"]
+
+                      if amp_ssim is not None and compare_png is not None:
+                          delta = float(amp_ssim) - float(accepted["accepted_amp_ssim"])
+                          decision = "KEEP" if float(amp_ssim) > float(accepted["accepted_amp_ssim"]) else "DISCARD"
 
               payload = {
                   "decision": decision,
@@ -1112,7 +1163,7 @@ steps:
               - name: decision
                 json_pointer: /decision
                 type: enum
-                allowed: ["KEEP", "DISCARD", "TIMEOUT", "CRASH"]
+                allowed: ["KEEP", "DISCARD", "TIMEOUT", "CRASH", "BLOCKED"]
               - name: candidate_amp_ssim
                 json_pointer: /candidate_amp_ssim
                 type: float
@@ -1165,7 +1216,7 @@ steps:
                       [
                           session["session_id"],
                           datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-                          metadata.get("candidate_commit", "na"),
+                          metadata.get("candidate_commit") or metadata.get("base_ref", "na"),
                           assessment["decision"].lower(),
                           assessment["candidate_amp_ssim"] if assessment.get("candidate_amp_ssim") is not None else "na",
                           assessment["compared_to_ref"],
@@ -1214,7 +1265,7 @@ steps:
               - name: debugged_outcome
                 json_pointer: /debugged_outcome
                 type: enum
-                allowed: ["NONE", "KEEP", "DISCARD", "TIMEOUT", "CRASH"]
+                allowed: ["NONE", "KEEP", "DISCARD", "TIMEOUT", "CRASH", "BLOCKED"]
 
         - name: HandleDebuggedCandidateOutcome
           id: handle_debugged_candidate_outcome

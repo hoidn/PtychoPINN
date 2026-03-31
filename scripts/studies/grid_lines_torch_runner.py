@@ -682,6 +682,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     )
     training_config.log_grad_norm = cfg.log_grad_norm
     training_config.grad_norm_log_freq = cfg.grad_norm_log_freq
+    training_config.subsample_seed = cfg.seed
     training_config.gradient_clip_val = cfg.gradient_clip_val
     training_config.gradient_clip_algorithm = cfg.gradient_clip_algorithm
     training_config.optimizer = cfg.optimizer
@@ -967,6 +968,7 @@ def save_run_artifacts(
     cfg: TorchRunnerConfig,
     results: Dict[str, Any],
     metrics: Dict[str, float],
+    randomness_contract: Dict[str, int | None],
 ) -> Path:
     """Save run artifacts to output directory.
 
@@ -988,6 +990,10 @@ def save_run_artifacts(
     with open(history_path, 'w') as f:
         json.dump(results.get('history', {}), f, indent=2)
 
+    randomness_path = run_dir / "randomness_contract.json"
+    with open(randomness_path, 'w') as f:
+        json.dump(randomness_contract, f, indent=2)
+
     # Save model checkpoint
     model_to_save = results.get('model')
     if model_to_save is None and isinstance(results.get('models'), dict):
@@ -999,6 +1005,15 @@ def save_run_artifacts(
 
     logger.info(f"Saved artifacts to {run_dir}")
     return run_dir
+
+
+def _build_randomness_contract(cfg: TorchRunnerConfig) -> Dict[str, int | None]:
+    """Describe the effective seed policy used by the Torch runner."""
+    return {
+        "requested_seed": int(cfg.seed),
+        "effective_subsample_seed": int(cfg.seed),
+        "effective_lightning_seed": int(cfg.seed),
+    }
 
 
 def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
@@ -1116,7 +1131,8 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
     )
 
     # Step 5: Save artifacts
-    run_dir = save_run_artifacts(cfg, results, metrics)
+    randomness_contract = _build_randomness_contract(cfg)
+    run_dir = save_run_artifacts(cfg, results, metrics, randomness_contract)
 
     logger.info(f"Torch runner complete. Artifacts in {run_dir}")
 
@@ -1129,6 +1145,7 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
         'model_params': int(model_params),
         'inference_time_s': float(inference_time_s),
         'position_reassembly_runtime_contract': position_reassembly_runtime_contract,
+        'randomness_contract': randomness_contract,
     }
 
     # Step 6: Render post-run visuals (best-effort)
