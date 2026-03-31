@@ -170,7 +170,7 @@ def test_run_baseline_executes_wrapper_and_updates_session_phase(tmp_path, monke
     session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
     real_run = subprocess.run
 
-    def fake_run(command, *, cwd, capture_output, text, check, timeout=None):
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
         if command[:3] == ["git", "rev-parse", "HEAD"]:
             return real_run(
                 command,
@@ -681,7 +681,7 @@ def test_run_config_candidate_scored_run_harvests_outputs(tmp_path, monkeypatch)
                 text=text,
                 check=check,
             )
-        assert command[:3] == ["bash", "-lc", "python run.py --fno-modes 24"]
+        assert command[:3] == ["bash", "-c", "python run.py --fno-modes 24"]
         output_root = repo / proposal["output_root"]
         metrics_dir = output_root / "runs" / "pinn_hybrid_resnet"
         visuals_dir = output_root / "visuals"
@@ -747,8 +747,8 @@ def test_run_scored_candidate_treats_optional_visual_fallback_as_advisory(tmp_pa
         "hypothesis": "metrics should govern scoring even if probe-inclusive publication falls back",
     }
 
-    def fake_run(command, *, cwd, capture_output, text, check, timeout=None):
-        assert command[:3] == ["bash", "-lc", "python run.py --fno-modes 24"]
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
+        assert command[:3] == ["bash", "-c", "python run.py --fno-modes 24"]
         output_root = repo / proposal["output_root"]
         metrics_dir = output_root / "runs" / "pinn_hybrid_resnet"
         visuals_dir = output_root / "visuals"
@@ -832,7 +832,7 @@ def test_run_scored_candidate_timeout_is_classified_without_git_reset(tmp_path, 
     }
     real_run = subprocess.run
 
-    def fake_run(command, *, cwd, capture_output, text, check, timeout=None):
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
         if command[:3] == ["git", "rev-parse", "HEAD"]:
             return real_run(
                 command,
@@ -841,7 +841,7 @@ def test_run_scored_candidate_timeout_is_classified_without_git_reset(tmp_path, 
                 text=text,
                 check=check,
             )
-        assert command[:3] == ["bash", "-lc", "python run.py --slow"]
+        assert command[:3] == ["bash", "-c", "python run.py --slow"]
         return subprocess.CompletedProcess(command, 124, stdout="", stderr="timed out")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -888,8 +888,8 @@ def test_run_scored_candidate_timeout_from_exception_decodes_partial_output(tmp_
         "hypothesis": "slow run timed out via TimeoutExpired",
     }
 
-    def fake_run(command, *, cwd, capture_output, text, check, timeout=None):
-        assert command[:3] == ["bash", "-lc", "python run.py --slow-timeout"]
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
+        assert command[:3] == ["bash", "-c", "python run.py --slow-timeout"]
         raise subprocess.TimeoutExpired(
             cmd=command,
             timeout=timeout or 1770,
@@ -943,8 +943,8 @@ def test_run_scored_candidate_nonzero_exit_is_classified_as_crash(tmp_path, monk
         "hypothesis": "crashy run",
     }
 
-    def fake_run(command, *, cwd, capture_output, text, check, timeout=None):
-        assert command[:3] == ["bash", "-lc", "python run.py --boom"]
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
+        assert command[:3] == ["bash", "-c", "python run.py --boom"]
         return subprocess.CompletedProcess(command, 1, stdout="", stderr="boom")
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -980,6 +980,7 @@ def test_run_scored_command_uses_controller_runtime_python_when_path_is_poisoned
 def test_run_scored_candidate_persists_crash_excerpt(tmp_path, monkeypatch):
     from scripts.studies.lines_256_session_controller import (
         _candidate_assessment_path,
+        _write_scored_artifacts,
         initialize_session,
         run_scored_candidate,
     )
@@ -1013,7 +1014,7 @@ def test_run_scored_candidate_persists_crash_excerpt(tmp_path, monkeypatch):
         "hypothesis": "persist first crash line",
     }
 
-    def fake_run(command, *, cwd, capture_output, text, check, timeout=None):
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
         return subprocess.CompletedProcess(
             command,
             1,
@@ -1027,6 +1028,7 @@ def test_run_scored_candidate_persists_crash_excerpt(tmp_path, monkeypatch):
 
     assert assessment["decision"] == "CRASH"
     assert "ModuleNotFoundError" in assessment["crash_excerpt"]
+    _write_scored_artifacts(session, assessment)
     payload = json.loads(_candidate_assessment_path(session).read_text(encoding="utf-8"))
     assert payload["crash_excerpt"] == assessment["crash_excerpt"]
 
@@ -1155,7 +1157,7 @@ def test_start_full_runs_baseline_then_one_run_config_keep(tmp_path, monkeypatch
                 encoding="utf-8",
             )
             return subprocess.CompletedProcess(command, 0, stdout="READY\n", stderr="")
-        if command[:3] == ["bash", "-lc", "python run.py --fno-modes 24"]:
+        if command[:3] == ["bash", "-c", "python run.py --fno-modes 24"]:
             _write_run_outputs(scored_output_root, 0.93)
             return subprocess.CompletedProcess(command, 0, stdout="scored ok\n", stderr="")
         raise AssertionError(command)
@@ -1285,7 +1287,7 @@ def test_resume_proposal_complete_scores_existing_candidate(tmp_path, monkeypatc
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[:3] == ["git", "rev-parse", "HEAD"]:
             return real_run(command, **kwargs)
-        if command[:3] == ["bash", "-lc", "python run.py --fno-modes 24"]:
+        if command[:3] == ["bash", "-c", "python run.py --fno-modes 24"]:
             _write_run_outputs(scored_output_root, 0.92)
             return subprocess.CompletedProcess(command, 0, stdout="resume scored\n", stderr="")
         raise AssertionError(command)
@@ -1396,7 +1398,7 @@ def test_resume_scored_running_timeout_persists_terminal_artifacts(tmp_path, mon
     def fake_run(command, **kwargs):
         if command[:3] == ["git", "status", "--short"]:
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[:3] == ["bash", "-lc", "python run.py --fno-width 64"]:
+        if command[:3] == ["bash", "-c", "python run.py --fno-width 64"]:
             raise subprocess.TimeoutExpired(
                 cmd=command,
                 timeout=kwargs.get("timeout", 1770),
@@ -1563,9 +1565,9 @@ def test_resume_debug_complete_uses_existing_debug_assessment(tmp_path, monkeypa
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
         if command[:3] == ["git", "cat-file", "-e"]:
             return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[:3] == ["bash", "-lc", "python regular.py"]:
+        if command[:3] == ["bash", "-c", "python regular.py"]:
             raise AssertionError("regular candidate should not rerun during debug_complete resume")
-        if command[:3] == ["bash", "-lc", "python debug.py"]:
+        if command[:3] == ["bash", "-c", "python debug.py"]:
             raise AssertionError("debug candidate should not rerun when assessment already exists")
         raise AssertionError(command)
 

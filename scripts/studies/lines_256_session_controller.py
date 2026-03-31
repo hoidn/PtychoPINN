@@ -3,8 +3,10 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import shutil
 import subprocess
+import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -965,6 +967,8 @@ def _write_scored_artifacts(
         assessment_payload["publication_status"] = assessment["publication_status"]
     if "warning" in assessment:
         assessment_payload["warning"] = assessment["warning"]
+    if "crash_excerpt" in assessment:
+        assessment_payload["crash_excerpt"] = assessment["crash_excerpt"]
     _write_json(assessment_path, assessment_payload)
 
 
@@ -976,12 +980,31 @@ def _coerce_subprocess_text(value: str | bytes | None) -> str:
     return value
 
 
+def _controller_runtime_env() -> dict[str, str]:
+    env = dict(os.environ)
+    python_dir = str(Path(sys.executable).resolve().parent)
+    current_path = env.get("PATH", "")
+    parts = [part for part in current_path.split(os.pathsep) if part]
+    normalized_python_dir = str(Path(python_dir).resolve())
+    filtered_parts = [part for part in parts if str(Path(part).resolve()) != normalized_python_dir]
+    env["PATH"] = os.pathsep.join([python_dir, *filtered_parts])
+    return env
+
+
+def _summarize_crash_text(stdout_text: str, stderr_text: str) -> str | None:
+    combined = "\n".join(part for part in [stderr_text.strip(), stdout_text.strip()] if part)
+    if not combined:
+        return None
+    return combined.splitlines()[0][:400]
+
+
 def _run_scored_command(repo_root: Path, command: str, timeout_sec: int) -> dict[str, object]:
     repo_root = repo_root.resolve()
     try:
         completed = subprocess.run(
-            ["bash", "-lc", command],
+            ["bash", "-c", command],
             cwd=repo_root,
+            env=_controller_runtime_env(),
             capture_output=True,
             text=True,
             timeout=timeout_sec,
@@ -1073,6 +1096,10 @@ def run_scored_candidate(
             "timed_out": False,
             "exit_code": launch_result["exit_code"],
             "comparison_png_path": str(proposal["comparison_png_path"]),
+            "crash_excerpt": _summarize_crash_text(
+                str(launch_result["stdout_text"]),
+                str(launch_result["stderr_text"]),
+            ),
         }
 
     try:
