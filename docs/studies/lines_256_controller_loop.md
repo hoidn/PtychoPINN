@@ -111,6 +111,9 @@ The controller owns deterministic study behavior:
 - build recent-history summary and proposal context
 - invoke the proposal agent and validate its candidate package
 - run scored candidates
+- execute scored candidate commands under a controller-owned subprocess env whose
+  `PATH` resolves `python` to the controller runtime, while leaving persisted
+  command strings as plain `python ...`
 - classify `KEEP`, `DISCARD`, `TIMEOUT`, and `CRASH`
 - attempt one focused crash-debug retry when warranted
 - update accepted state
