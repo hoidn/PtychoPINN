@@ -1,5 +1,7 @@
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -951,6 +953,82 @@ def test_run_scored_candidate_nonzero_exit_is_classified_as_crash(tmp_path, monk
 
     assert assessment["decision"] == "CRASH"
     assert assessment["timed_out"] is False
+
+
+def test_run_scored_command_uses_controller_runtime_python_when_path_is_poisoned(
+    tmp_path, monkeypatch
+):
+    from scripts.studies.lines_256_session_controller import _run_scored_command
+
+    fake_bin = tmp_path / "fake-bin"
+    fake_bin.mkdir()
+    fake_python = fake_bin / "python"
+    fake_python.write_text("#!/bin/sh\nexit 91\n", encoding="utf-8")
+    fake_python.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{fake_bin}{os.pathsep}{os.environ['PATH']}")
+
+    result = _run_scored_command(
+        repo_root=tmp_path,
+        command="python -c 'import sys; print(sys.executable)'",
+        timeout_sec=5,
+    )
+
+    assert result["exit_code"] == 0
+    assert str(Path(sys.executable).resolve().parent) in str(result["stdout_text"])
+
+
+def test_run_scored_candidate_persists_crash_excerpt(tmp_path, monkeypatch):
+    from scripts.studies.lines_256_session_controller import (
+        _candidate_assessment_path,
+        initialize_session,
+        run_scored_candidate,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    proposal = {
+        "candidate_kind": "run_config",
+        "base_ref": base_ref,
+        "run_command": "python run.py --boom",
+        "output_root": "outputs/v2/crash-excerpt",
+        "log_path": "state/v2/crash-excerpt.log",
+        "comparison_png_path": "outputs/v2/crash-excerpt.png",
+        "note": "crash excerpt",
+        "hypothesis": "persist first crash line",
+    }
+
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None):
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stdout="",
+            stderr="ModuleNotFoundError: No module named 'tensorflow'\nextra context\n",
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assessment = run_scored_candidate(repo, session, proposal)
+
+    assert assessment["decision"] == "CRASH"
+    assert "ModuleNotFoundError" in assessment["crash_excerpt"]
+    payload = json.loads(_candidate_assessment_path(session).read_text(encoding="utf-8"))
+    assert payload["crash_excerpt"] == assessment["crash_excerpt"]
 
 
 def test_resume_session_uses_persisted_phase_and_iteration(tmp_path):
