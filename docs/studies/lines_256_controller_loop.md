@@ -57,6 +57,7 @@ If the pair changes materially, for example:
 
 - `set_phi=False -> True`
 - a different probe source or probe-scaling policy
+- a different normalized `probe_transform_pipeline`
 - different train/test NPZ contents behind the same compatibility paths
 
 then:

@@ -23,6 +23,8 @@ from ptycho.workflows.grid_lines_workflow import (
     _display_bounds,
     _resolve_display_border_pixels,
     _resolve_probe_for_visuals,
+    parse_probe_transform_pipeline,
+    normalize_probe_transform_pipeline,
 )
 from ptycho.config.config import ModelConfig, TrainingConfig
 from ptycho import params as p
@@ -30,6 +32,45 @@ from ptycho import params as p
 
 class TestProbeHelpers:
     """Tests for probe extraction and scaling helpers (Task 2)."""
+
+    def test_parse_probe_transform_pipeline_supports_shorthand_sequence(self):
+        steps = parse_probe_transform_pipeline("smooth:0.5|pad:128|interp:256")
+
+        assert steps == [
+            {"op": "smooth_complex", "sigma": 0.5},
+            {"op": "pad_complex", "target_N": 128},
+            {
+                "op": "interpolate_complex",
+                "target_N": 256,
+                "order": 3,
+                "representation": "real_imag",
+            },
+        ]
+
+    def test_normalize_probe_transform_pipeline_maps_legacy_pad_preserve(self):
+        normalized, steps = normalize_probe_transform_pipeline(
+            target_N=256,
+            probe_shape=(64, 64),
+            probe_scale_mode="pad_preserve",
+            probe_smoothing_sigma=0.5,
+            probe_transform_pipeline=None,
+        )
+
+        assert normalized == "smooth:0.5|pad:256"
+        assert steps == [
+            {"op": "smooth_complex", "sigma": 0.5},
+            {"op": "pad_complex", "target_N": 256},
+        ]
+
+    def test_normalize_probe_transform_pipeline_rejects_final_size_mismatch(self):
+        with pytest.raises(ValueError, match="final probe size"):
+            normalize_probe_transform_pipeline(
+                target_N=256,
+                probe_shape=(64, 64),
+                probe_scale_mode="pipeline",
+                probe_smoothing_sigma=0.0,
+                probe_transform_pipeline="smooth:0.5|pad:128|interp:192",
+            )
 
     def test_scale_probe_resizes_and_smooths(self):
         """scale_probe should resize 4x4 to 8x8 and preserve complex dtype."""
@@ -140,6 +181,28 @@ class TestProbeHelpers:
 
         expected = np.pad(probe, pad_width=1, mode="constant")
         np.testing.assert_allclose(scaled, expected, atol=1e-6)
+
+    def test_scale_probe_two_stage_pad_then_interpolate_differs_from_direct_interpolate(self):
+        probe = np.zeros((4, 4), dtype=np.complex64)
+        probe[1:3, 1:3] = 1.0 + 1.0j
+
+        staged = scale_probe(
+            probe,
+            target_N=16,
+            smoothing_sigma=0.0,
+            scale_mode="pipeline",
+            probe_transform_pipeline="pad:8|interp:16",
+        )
+        direct = scale_probe(
+            probe,
+            target_N=16,
+            smoothing_sigma=0.0,
+            scale_mode="interpolate",
+        )
+
+        assert staged.shape == (16, 16)
+        assert direct.shape == (16, 16)
+        assert not np.allclose(staged, direct)
 
     def test_apply_probe_mask_centered_disk(self):
         """apply_probe_mask should zero outside centered disk."""
@@ -534,7 +597,68 @@ class TestDatasetPersistence:
         assert captured["metadata"]["additional_parameters"]["probe_source"] == "ideal_disk"
         assert captured["metadata"]["additional_parameters"]["probe_scale_mode"] == "pad_preserve"
         assert captured["metadata"]["additional_parameters"]["probe_smoothing_sigma"] == 0.5
+        assert captured["metadata"]["additional_parameters"]["probe_transform_pipeline"] == "smooth:0.5|pad:8"
+        assert captured["metadata"]["additional_parameters"]["probe_transform_steps"] == [
+            {"op": "smooth_complex", "sigma": 0.5},
+            {"op": "pad_complex", "target_N": 8},
+        ]
         assert captured["metadata"]["additional_parameters"]["probe_npz"] == str(tmp_path / "probe.npz")
+
+    def test_metadata_includes_explicit_probe_transform_pipeline(self, monkeypatch, tmp_path: Path):
+        captured = {}
+
+        def fake_save_with_metadata(path, payload, metadata):
+            captured["metadata"] = metadata
+
+        monkeypatch.setattr(
+            "ptycho.metadata.MetadataManager.save_with_metadata",
+            fake_save_with_metadata,
+        )
+
+        cfg = GridLinesConfig(
+            N=256,
+            gridsize=1,
+            output_dir=tmp_path,
+            probe_npz=tmp_path / "probe.npz",
+            probe_scale_mode="pipeline",
+            probe_smoothing_sigma=0.0,
+            probe_transform_pipeline="smooth:0.5|pad:128|interp:256",
+        )
+
+        config = TrainingConfig(
+            model=ModelConfig(N=256, gridsize=1, object_big=False),
+            nphotons=1e9,
+            nepochs=1,
+            batch_size=1,
+            nll_weight=0.0,
+            mae_weight=1.0,
+            realspace_weight=0.0,
+        )
+
+        data = {
+            "X": np.zeros((1, 1, 1, 1)),
+            "Y_I": np.zeros((1, 1, 1, 1)),
+            "Y_phi": np.zeros((1, 1, 1, 1)),
+            "coords_nominal": np.zeros((1, 2)),
+            "coords_true": np.zeros((1, 2)),
+            "YY_full": np.zeros((1, 1, 1, 1), dtype=np.complex64),
+        }
+
+        save_split_npz(cfg, "train", data, config)
+
+        assert captured["metadata"]["additional_parameters"]["probe_transform_pipeline"] == (
+            "smooth:0.5|pad:128|interp:256"
+        )
+        assert captured["metadata"]["additional_parameters"]["probe_transform_steps"] == [
+            {"op": "smooth_complex", "sigma": 0.5},
+            {"op": "pad_complex", "target_N": 128},
+            {
+                "op": "interpolate_complex",
+                "target_N": 256,
+                "order": 3,
+                "representation": "real_imag",
+            },
+        ]
 
     def test_metadata_includes_coords_type(self, monkeypatch, tmp_path: Path):
         captured = {}
@@ -997,8 +1121,8 @@ def test_build_grid_lines_datasets_writes_train_test_npz(monkeypatch, tmp_path: 
         _ = (cfg, probe_np)
         return object()
 
-    def fake_save(cfg, split, data, config):
-        _ = (data, config)
+    def fake_save(cfg, split, data, config, **kwargs):
+        _ = (data, config, kwargs)
         out = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
         out.mkdir(parents=True, exist_ok=True)
         path = out / f"{split}.npz"
@@ -1032,8 +1156,8 @@ def test_build_grid_lines_datasets_uses_shared_canonical_gt(monkeypatch, tmp_pat
         _ = (cfg, probe_np)
         return object()
 
-    def fake_save(cfg, split, data, config):
-        _ = (data, config)
+    def fake_save(cfg, split, data, config, **kwargs):
+        _ = (data, config, kwargs)
         out = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
         out.mkdir(parents=True, exist_ok=True)
         path = out / f"{split}.npz"

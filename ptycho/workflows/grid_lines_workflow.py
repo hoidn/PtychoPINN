@@ -49,6 +49,7 @@ class GridLinesConfig:
     probe_mask_diameter: Optional[int] = None
     probe_source: str = "custom"
     probe_scale_mode: str = "pad_preserve"
+    probe_transform_pipeline: Optional[str] = None
     set_phi: bool = False
 
 
@@ -78,6 +79,7 @@ def scale_probe(
     target_N: int,
     smoothing_sigma: float,
     scale_mode: str = "pad_extrapolate",
+    probe_transform_pipeline: str | None = None,
 ) -> np.ndarray:
     """Resize probe to target_N and optionally smooth.
 
@@ -86,12 +88,15 @@ def scale_probe(
         - pad_preserve: smooth at source resolution, then center-pad the complex probe.
         - pad_extrapolate: edge-pad amplitude + quadratic phase extrapolation.
     """
-    return scale_probe_with_mode(
-        probe,
-        target_N,
-        smoothing_sigma,
-        scale_mode=scale_mode,
+    normalized_pipeline, steps = normalize_probe_transform_pipeline(
+        target_N=target_N,
+        probe_shape=probe.shape,
+        probe_scale_mode=scale_mode,
+        probe_smoothing_sigma=smoothing_sigma,
+        probe_transform_pipeline=probe_transform_pipeline,
     )
+    _ = normalized_pipeline
+    return apply_probe_transform_pipeline(probe, steps)
 
 
 def _pad_complex_probe(probe: np.ndarray, target_N: int) -> np.ndarray:
@@ -134,39 +139,200 @@ def _fit_quadratic_phase(phase: np.ndarray) -> tuple[float, float]:
     return float(coeffs[0]), float(coeffs[1])
 
 
-def scale_probe_with_mode(
-    probe: np.ndarray,
-    target_N: int,
-    smoothing_sigma: float,
-    scale_mode: str = "pad_extrapolate",
-) -> np.ndarray:
-    """Resize probe to target_N and optionally smooth using specified mode.
+def _coerce_pipeline_value(raw_value: str) -> object:
+    raw_value = raw_value.strip()
+    if not raw_value:
+        return raw_value
+    try:
+        integer = int(raw_value)
+    except ValueError:
+        integer = None
+    if integer is not None and str(integer) == raw_value:
+        return integer
+    try:
+        return float(raw_value)
+    except ValueError:
+        return raw_value
 
-    Modes:
-        - interpolate: cubic spline interpolation on real/imag parts.
-        - pad_preserve: smooth at source resolution, then center-pad the complex probe.
-        - pad_extrapolate: edge-pad amplitude + quadratic phase extrapolation.
-    """
-    if probe.shape[0] != probe.shape[1]:
+
+def _serialize_numeric(value: object) -> str:
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
+def parse_probe_transform_pipeline(spec: str) -> list[dict[str, object]]:
+    """Parse a shorthand or explicit probe transform pipeline string."""
+    if not spec or not spec.strip():
+        raise ValueError("probe transform pipeline must be non-empty")
+
+    steps: list[dict[str, object]] = []
+    for raw_segment in spec.split("|"):
+        segment = raw_segment.strip()
+        if not segment:
+            raise ValueError("probe transform pipeline contains an empty step")
+        if ":" in segment:
+            raw_op, raw_params = segment.split(":", 1)
+        else:
+            raw_op, raw_params = segment, ""
+        op_name = raw_op.strip()
+        params = raw_params.strip()
+
+        if op_name == "smooth":
+            if not params:
+                raise ValueError("smooth requires a sigma value")
+            steps.append({"op": "smooth_complex", "sigma": float(params)})
+            continue
+
+        if op_name == "pad":
+            if not params:
+                raise ValueError("pad requires a target_N value")
+            steps.append({"op": "pad_complex", "target_N": int(params)})
+            continue
+
+        if op_name == "interp":
+            if not params:
+                raise ValueError("interp requires a target_N value")
+            parts = [part.strip() for part in params.split(",") if part.strip()]
+            step: dict[str, object] = {
+                "op": "interpolate_complex",
+                "order": 3,
+                "representation": "real_imag",
+            }
+            first = parts.pop(0)
+            if "=" in first:
+                key, value = first.split("=", 1)
+                step[key.strip()] = _coerce_pipeline_value(value)
+            else:
+                step["target_N"] = int(first)
+            for part in parts:
+                key, value = part.split("=", 1)
+                step[key.strip()] = _coerce_pipeline_value(value)
+            if "target_N" not in step:
+                raise ValueError("interp requires target_N")
+            steps.append(step)
+            continue
+
+        if op_name == "pad_extrapolate":
+            if not params:
+                raise ValueError("pad_extrapolate requires a target_N value")
+            steps.append({"op": "pad_extrapolate_complex", "target_N": int(params)})
+            continue
+
+        step: dict[str, object] = {"op": op_name}
+        if params:
+            for part in [item.strip() for item in params.split(",") if item.strip()]:
+                if "=" not in part:
+                    raise ValueError(f"Unsupported parameter syntax '{part}' in probe transform pipeline")
+                key, value = part.split("=", 1)
+                step[key.strip()] = _coerce_pipeline_value(value)
+
+        if step["op"] not in {
+            "smooth_complex",
+            "pad_complex",
+            "interpolate_complex",
+            "pad_extrapolate_complex",
+        }:
+            raise ValueError(f"Unknown probe transform op '{step['op']}'")
+        steps.append(step)
+    return steps
+
+
+def _serialize_probe_transform_pipeline(steps: list[dict[str, object]]) -> str:
+    serialized_steps: list[str] = []
+    for step in steps:
+        op = step["op"]
+        if op == "smooth_complex":
+            serialized_steps.append(f"smooth:{_serialize_numeric(step['sigma'])}")
+            continue
+        if op == "pad_complex":
+            serialized_steps.append(f"pad:{int(step['target_N'])}")
+            continue
+        if op == "pad_extrapolate_complex":
+            serialized_steps.append(f"pad_extrapolate:{int(step['target_N'])}")
+            continue
+        if op == "interpolate_complex":
+            fragment = f"interp:{int(step['target_N'])}"
+            extras: list[str] = []
+            if step.get("order", 3) != 3:
+                extras.append(f"order={_serialize_numeric(step['order'])}")
+            if step.get("representation", "real_imag") != "real_imag":
+                extras.append(f"representation={step['representation']}")
+            if extras:
+                fragment = f"{fragment},{','.join(extras)}"
+            serialized_steps.append(fragment)
+            continue
+        raise ValueError(f"Unsupported probe transform op '{op}'")
+    return "|".join(serialized_steps)
+
+
+def _resolve_probe_size_after_step(current_size: int, step: dict[str, object]) -> int:
+    op = step["op"]
+    if op == "smooth_complex":
+        return current_size
+    if op in {"pad_complex", "interpolate_complex", "pad_extrapolate_complex"}:
+        target_N = int(step["target_N"])
+        if op == "pad_extrapolate_complex" and target_N < current_size:
+            raise ValueError("pad_extrapolate requires target_N >= probe size")
+        if op == "pad_complex" and target_N < current_size:
+            raise ValueError("pad_complex requires target_N >= current probe size")
+        return target_N
+    raise ValueError(f"Unsupported probe transform op '{op}'")
+
+
+def normalize_probe_transform_pipeline(
+    *,
+    target_N: int,
+    probe_shape: tuple[int, int],
+    probe_scale_mode: str | None,
+    probe_smoothing_sigma: float | None,
+    probe_transform_pipeline: str | None,
+) -> tuple[str, list[dict[str, object]]]:
+    """Resolve probe preprocessing into a canonical pipeline string + steps."""
+    if len(probe_shape) != 2 or probe_shape[0] != probe_shape[1]:
         raise ValueError("probe must be square")
 
-    if scale_mode == "interpolate":
-        if probe.shape[0] != target_N:
-            zoom_factor = target_N / probe.shape[0]
-            probe = interpolate_array(probe, zoom_factor)
-        if smoothing_sigma and smoothing_sigma > 0:
-            probe = smooth_complex_array(probe, smoothing_sigma)
-        return probe.astype(np.complex64)
+    if probe_transform_pipeline:
+        steps = parse_probe_transform_pipeline(probe_transform_pipeline)
+    else:
+        sigma = float(probe_smoothing_sigma or 0.0)
+        mode = probe_scale_mode or "pad_extrapolate"
+        steps = []
+        if mode == "interpolate":
+            steps.append(
+                {
+                    "op": "interpolate_complex",
+                    "target_N": target_N,
+                    "order": 3,
+                    "representation": "real_imag",
+                }
+            )
+            if sigma > 0:
+                steps.append({"op": "smooth_complex", "sigma": sigma})
+        elif mode == "pad_preserve":
+            if sigma > 0:
+                steps.append({"op": "smooth_complex", "sigma": sigma})
+            steps.append({"op": "pad_complex", "target_N": target_N})
+        elif mode == "pad_extrapolate":
+            steps.append({"op": "pad_extrapolate_complex", "target_N": target_N})
+            if sigma > 0:
+                steps.append({"op": "smooth_complex", "sigma": sigma})
+        elif mode == "pipeline":
+            raise ValueError("probe_transform_pipeline must be provided when probe_scale_mode='pipeline'")
+        else:
+            raise ValueError(f"Unknown scale_mode '{mode}'")
 
-    if scale_mode == "pad_preserve":
-        if smoothing_sigma and smoothing_sigma > 0:
-            probe = smooth_complex_array(probe, smoothing_sigma)
-        probe_scaled = _pad_complex_probe(probe, target_N)
-        return probe_scaled.astype(np.complex64)
+    current_size = probe_shape[0]
+    for step in steps:
+        current_size = _resolve_probe_size_after_step(current_size, step)
+    if current_size != target_N:
+        raise ValueError(
+            f"probe transform pipeline final probe size {current_size} does not match target_N {target_N}"
+        )
+    return _serialize_probe_transform_pipeline(steps), steps
 
-    if scale_mode != "pad_extrapolate":
-        raise ValueError(f"Unknown scale_mode '{scale_mode}'")
 
+def _pad_extrapolate_complex_probe(probe: np.ndarray, target_N: int) -> np.ndarray:
     amplitude = np.abs(probe)
     phase = unwrap_phase(np.angle(probe))
     amplitude_padded = _pad_amplitude(amplitude, target_N)
@@ -178,11 +344,59 @@ def scale_probe_with_mode(
     r2 = (yy - cy) ** 2 + (xx - cx) ** 2
     phase_extrap = a * r2 + b
     phase_wrapped = (phase_extrap + np.pi) % (2 * np.pi) - np.pi
-    probe_scaled = amplitude_padded * np.exp(1j * phase_wrapped)
+    return (amplitude_padded * np.exp(1j * phase_wrapped)).astype(np.complex64)
 
-    if smoothing_sigma and smoothing_sigma > 0:
-        probe_scaled = smooth_complex_array(probe_scaled, smoothing_sigma)
-    return probe_scaled.astype(np.complex64)
+
+def apply_probe_transform_pipeline(
+    probe: np.ndarray,
+    steps: list[dict[str, object]],
+) -> np.ndarray:
+    """Apply a normalized probe transform pipeline."""
+    transformed = np.asarray(probe, dtype=np.complex64)
+    if transformed.ndim != 2 or transformed.shape[0] != transformed.shape[1]:
+        raise ValueError("probe must be square")
+
+    for step in steps:
+        op = step["op"]
+        if op == "smooth_complex":
+            transformed = smooth_complex_array(transformed, float(step["sigma"]))
+            continue
+        if op == "pad_complex":
+            transformed = _pad_complex_probe(transformed, int(step["target_N"])).astype(np.complex64)
+            continue
+        if op == "interpolate_complex":
+            if transformed.shape[0] != int(step["target_N"]):
+                zoom_factor = int(step["target_N"]) / transformed.shape[0]
+                transformed = interpolate_array(transformed, zoom_factor).astype(np.complex64)
+            continue
+        if op == "pad_extrapolate_complex":
+            transformed = _pad_extrapolate_complex_probe(transformed, int(step["target_N"]))
+            continue
+        raise ValueError(f"Unsupported probe transform op '{op}'")
+    return transformed.astype(np.complex64)
+
+
+def scale_probe_with_mode(
+    probe: np.ndarray,
+    target_N: int,
+    smoothing_sigma: float,
+    scale_mode: str = "pad_extrapolate",
+    probe_transform_pipeline: str | None = None,
+) -> np.ndarray:
+    """Resize probe to target_N and optionally smooth using specified mode.
+
+    Modes:
+        - interpolate: cubic spline interpolation on real/imag parts.
+        - pad_preserve: smooth at source resolution, then center-pad the complex probe.
+        - pad_extrapolate: edge-pad amplitude + quadratic phase extrapolation.
+    """
+    return scale_probe(
+        probe,
+        target_N,
+        smoothing_sigma,
+        scale_mode=scale_mode,
+        probe_transform_pipeline=probe_transform_pipeline,
+    )
 
 
 def make_disk_mask(N: int, diameter: int) -> np.ndarray:
@@ -345,7 +559,10 @@ def save_split_npz(
     cfg: GridLinesConfig,
     split: str,
     data: Dict[str, Any],
-    config: TrainingConfig
+    config: TrainingConfig,
+    *,
+    probe_transform_pipeline: str | None = None,
+    probe_transform_steps: list[dict[str, object]] | None = None,
 ) -> Path:
     """Save train or test split as NPZ with metadata."""
     from ptycho.metadata import MetadataManager
@@ -372,6 +589,23 @@ def save_split_npz(
         if data.get("norm_Y_I") is not None:
             payload["norm_Y_I"] = np.array(data["norm_Y_I"])
 
+    if probe_transform_pipeline is None or probe_transform_steps is None:
+        if cfg.probe_transform_pipeline:
+            normalized_steps = parse_probe_transform_pipeline(cfg.probe_transform_pipeline)
+            normalized_pipeline = _serialize_probe_transform_pipeline(normalized_steps)
+        else:
+            probe_guess = np.asarray(data.get("probeGuess")) if data.get("probeGuess") is not None else None
+            normalized_pipeline, normalized_steps = normalize_probe_transform_pipeline(
+                target_N=cfg.N,
+                probe_shape=probe_guess.shape if probe_guess is not None else (cfg.N, cfg.N),
+                probe_scale_mode=cfg.probe_scale_mode,
+                probe_smoothing_sigma=cfg.probe_smoothing_sigma,
+                probe_transform_pipeline=cfg.probe_transform_pipeline,
+            )
+    else:
+        normalized_pipeline = probe_transform_pipeline
+        normalized_steps = probe_transform_steps
+
     metadata = MetadataManager.create_metadata(
         config,
         script_name="grid_lines_workflow",
@@ -385,6 +619,8 @@ def save_split_npz(
         probe_source=cfg.probe_source,
         probe_scale_mode=cfg.probe_scale_mode,
         probe_smoothing_sigma=cfg.probe_smoothing_sigma,
+        probe_transform_pipeline=normalized_pipeline,
+        probe_transform_steps=normalized_steps,
         probe_npz=str(cfg.probe_npz),
         set_phi=cfg.set_phi,
         coords_type="relative",
@@ -403,12 +639,14 @@ def build_grid_lines_datasets(
         probe_guess = load_ideal_disk_probe(cfg.N)
     else:
         probe_guess = load_probe_guess(cfg.probe_npz)
-    probe_scaled = scale_probe(
-        probe_guess,
-        cfg.N,
-        cfg.probe_smoothing_sigma,
-        scale_mode=cfg.probe_scale_mode,
+    normalized_pipeline, normalized_steps = normalize_probe_transform_pipeline(
+        target_N=cfg.N,
+        probe_shape=probe_guess.shape,
+        probe_scale_mode=cfg.probe_scale_mode,
+        probe_smoothing_sigma=cfg.probe_smoothing_sigma,
+        probe_transform_pipeline=cfg.probe_transform_pipeline,
     )
+    probe_scaled = apply_probe_transform_pipeline(probe_guess, normalized_steps)
     probe_scaled = apply_probe_mask(probe_scaled, cfg.probe_mask_diameter)
 
     sim = simulate_grid_data(cfg, probe_scaled)
@@ -416,8 +654,22 @@ def build_grid_lines_datasets(
 
     sim["train"]["probeGuess"] = probe_scaled
     sim["test"]["probeGuess"] = probe_scaled
-    train_npz = save_split_npz(cfg, "train", sim["train"], config)
-    test_npz = save_split_npz(cfg, "test", sim["test"], config)
+    train_npz = save_split_npz(
+        cfg,
+        "train",
+        sim["train"],
+        config,
+        probe_transform_pipeline=normalized_pipeline,
+        probe_transform_steps=normalized_steps,
+    )
+    test_npz = save_split_npz(
+        cfg,
+        "test",
+        sim["test"],
+        config,
+        probe_transform_pipeline=normalized_pipeline,
+        probe_transform_steps=normalized_steps,
+    )
 
     tag = dataset_tag or f"N{cfg.N}"
     gt_path = cfg.output_dir / "recons" / canonical_gt_label / "recon.npz"
@@ -1159,12 +1411,14 @@ def run_grid_lines_workflow(
         probe_guess = load_ideal_disk_probe(cfg.N)
     else:
         probe_guess = load_probe_guess(cfg.probe_npz)
-    probe_scaled = scale_probe(
-        probe_guess,
-        cfg.N,
-        cfg.probe_smoothing_sigma,
-        scale_mode=cfg.probe_scale_mode,
+    normalized_pipeline, normalized_steps = normalize_probe_transform_pipeline(
+        target_N=cfg.N,
+        probe_shape=probe_guess.shape,
+        probe_scale_mode=cfg.probe_scale_mode,
+        probe_smoothing_sigma=cfg.probe_smoothing_sigma,
+        probe_transform_pipeline=cfg.probe_transform_pipeline,
     )
+    probe_scaled = apply_probe_transform_pipeline(probe_guess, normalized_steps)
     probe_scaled = apply_probe_mask(probe_scaled, cfg.probe_mask_diameter)
 
     # Step 2: Simulation
@@ -1176,8 +1430,22 @@ def run_grid_lines_workflow(
     print("[3/7] Saving datasets...")
     sim["train"]["probeGuess"] = probe_scaled
     sim["test"]["probeGuess"] = probe_scaled
-    train_npz = save_split_npz(cfg, "train", sim["train"], config)
-    test_npz = save_split_npz(cfg, "test", sim["test"], config)
+    train_npz = save_split_npz(
+        cfg,
+        "train",
+        sim["train"],
+        config,
+        probe_transform_pipeline=normalized_pipeline,
+        probe_transform_steps=normalized_steps,
+    )
+    test_npz = save_split_npz(
+        cfg,
+        "test",
+        sim["test"],
+        config,
+        probe_transform_pipeline=normalized_pipeline,
+        probe_transform_steps=normalized_steps,
+    )
 
     # Step 4: Training
     print(f"[4/7] Training selected TF models: {selected_models}...")

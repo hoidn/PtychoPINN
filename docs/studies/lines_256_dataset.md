@@ -60,6 +60,30 @@ Important:
   - do not rescale or extrapolate the phase as `N` grows
 - This keeps `phase(n - center_N)` fixed across padded `N` values, so both the amplitude view and the phase view become relatively smaller as probe support becomes smaller relative to `N`.
 
+## Alternate Probe Contracts
+
+If you need non-canonical probe preprocessing for diagnostics or future
+high-resolution studies, use an explicit normalized probe-transform pipeline
+rather than inventing more one-off `probe_scale_mode` enums.
+
+Example alternate contract:
+
+- `smooth:0.5|pad:128|interp:256`
+
+Interpretation:
+
+- smooth the original complex source probe once at source resolution
+- center-pad it to `128x128`
+- interpolate the padded complex probe to `256x256`
+
+Important:
+
+- this is **not** the canonical `lines_256` dataset contract
+- it defines a different dataset family from `pad_preserve`
+- any study using a different normalized probe-transform pipeline requires a
+  fresh baseline and must not bootstrap from accepted states recorded under the
+  canonical `pad_preserve` pair
+
 ## How To Use It
 
 Preferred path for a single-model experiment:
