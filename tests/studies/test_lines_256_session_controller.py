@@ -467,6 +467,85 @@ def test_build_proposal_context_includes_first_active_workflow_queue_item(tmp_pa
     assert "queued workflow idea" in context["proposal_mode_reason"].lower()
 
 
+def test_build_proposal_context_defaults_workflow_queue_candidate_factory_to_direct(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        build_proposal_context,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": "abc123",
+                "accepted_amp_ssim": 0.91,
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    active = repo / "docs" / "workflow_queue" / "active"
+    active.mkdir(parents=True, exist_ok=True)
+    (active / "2026-03-31-a-first.md").write_text(
+        "# First idea\n\nTry the first queued idea.\n",
+        encoding="utf-8",
+    )
+
+    context = build_proposal_context(session, max_rows=5)
+
+    assert context["queued_workflow_idea"]["candidate_factory"] == "direct"
+
+
+def test_build_proposal_context_reads_workflow_queue_candidate_factory_frontmatter(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        build_proposal_context,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": "abc123",
+                "accepted_amp_ssim": 0.91,
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    active = repo / "docs" / "workflow_queue" / "active"
+    active.mkdir(parents=True, exist_ok=True)
+    (active / "2026-03-31-a-first.md").write_text(
+        "---\n"
+        "candidate_factory: redesign\n"
+        "---\n"
+        "# First idea\n\nTry the first queued idea.\n",
+        encoding="utf-8",
+    )
+
+    context = build_proposal_context(session, max_rows=5)
+
+    assert context["queued_workflow_idea"]["candidate_factory"] == "redesign"
+
+
 def test_build_proposal_context_reports_no_workflow_queue_item_when_empty(tmp_path):
     from scripts.studies.lines_256_session_controller import (
         build_proposal_context,
@@ -615,6 +694,255 @@ def test_proposal_prompt_paths_fall_back_to_legacy_single_prompt(tmp_path):
     assert [path.name for path in prompt_paths] == ["experiment_step.md"]
 
 
+def test_direct_candidate_factory_writes_candidate_metadata_and_result(tmp_path, monkeypatch):
+    from scripts.studies.lines_256_session_controller import (
+        _candidate_metadata_path,
+        _candidate_context_path,
+        _proposal_result_path,
+        build_candidate_context,
+        build_proposal_context,
+        direct_candidate_factory,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _write_minimal_lines256_docs(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    proposal_context = build_proposal_context(session, max_rows=5)
+    build_candidate_context(session)
+    candidate_context_path = _candidate_context_path(session)
+    metadata_path = _candidate_metadata_path(session)
+
+    def fake_run_codex_prompt(**kwargs):
+        metadata_path.parent.mkdir(parents=True, exist_ok=True)
+        metadata_path.write_text(
+            json.dumps(
+                {
+                    "status": "READY",
+                    "candidate_kind": "run_config",
+                    "base_ref": base_ref,
+                    "smoke_command": "python smoke.py --fno-modes 24",
+                    "smoke_output_root": "outputs/v2/candidate_smoke",
+                    "smoke_log_path": "state/v2/candidate_smoke.log",
+                    "run_command": "python run.py --fno-modes 24",
+                    "output_root": "outputs/v2/candidate",
+                    "log_path": "state/v2/candidate.log",
+                    "comparison_png_path": "outputs/v2/candidate.png",
+                    "note": "Try 24 global modes",
+                    "hypothesis": "Higher spectral capacity may improve amp_ssim.",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(["codex", "exec"], 0, stdout="READY\n", stderr="")
+
+    monkeypatch.setattr(
+        "scripts.studies.lines_256_session_controller._run_codex_prompt",
+        fake_run_codex_prompt,
+    )
+
+    proposal = direct_candidate_factory(
+        repo_root=repo,
+        session=session,
+        proposal_context=proposal_context,
+        candidate_context_path=candidate_context_path,
+        codex_cmd="codex",
+        model="gpt-5.4",
+        reasoning_effort="high",
+    )
+
+    assert proposal["candidate_kind"] == "run_config"
+    assert metadata_path.exists()
+    proposal_result = json.loads(_proposal_result_path(session).read_text(encoding="utf-8"))
+    assert proposal_result["metadata_validated"] is True
+    assert proposal_result["retryable"] is False
+
+
+def test_redesign_candidate_factory_invokes_workflow_and_returns_ready_proposal(
+    tmp_path, monkeypatch
+):
+    from scripts.studies.lines_256_session_controller import (
+        _candidate_context_path,
+        _candidate_metadata_path,
+        _proposal_result_path,
+        build_candidate_context,
+        build_proposal_context,
+        initialize_session,
+        redesign_candidate_factory,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _write_minimal_lines256_docs(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    active = repo / "docs" / "workflow_queue" / "active"
+    active.mkdir(parents=True, exist_ok=True)
+    (active / "2026-03-31-redesign.md").write_text(
+        "---\n"
+        "candidate_factory: redesign\n"
+        "---\n"
+        "# Redesign idea\n",
+        encoding="utf-8",
+    )
+    proposal_context = build_proposal_context(session, max_rows=5)
+    build_candidate_context(session)
+    candidate_context_path = _candidate_context_path(session)
+    metadata_path = _candidate_metadata_path(session)
+
+    captured = {}
+
+    def fake_run_redesign_workflow(**kwargs):
+        captured.update(kwargs)
+        metadata_path.parent.mkdir(parents=True, exist_ok=True)
+        metadata_path.write_text(
+            json.dumps(
+                {
+                    "status": "READY",
+                    "candidate_kind": "run_config",
+                    "base_ref": base_ref,
+                    "smoke_command": "python smoke.py --candidate redesign",
+                    "smoke_output_root": "outputs/v2/redesign_smoke",
+                    "smoke_log_path": "state/v2/redesign_smoke.log",
+                    "run_command": "python run.py --candidate redesign",
+                    "output_root": "outputs/v2/redesign",
+                    "log_path": "state/v2/redesign.log",
+                    "comparison_png_path": "outputs/v2/redesign.png",
+                    "note": "Try a redesign candidate.",
+                    "hypothesis": "A redesign may improve amp_ssim.",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        _proposal_result_path(session).write_text(
+            json.dumps(
+                {
+                    "status": "READY",
+                    "candidate_factory": "redesign",
+                    "metadata_validated": True,
+                    "retryable": False,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(["python", "-m", "orchestrator"], 0, "", "")
+
+    monkeypatch.setattr(
+        "scripts.studies.lines_256_session_controller._run_redesign_candidate_workflow",
+        fake_run_redesign_workflow,
+    )
+
+    proposal = redesign_candidate_factory(
+        repo_root=repo,
+        session=session,
+        proposal_context=proposal_context,
+        candidate_context_path=candidate_context_path,
+    )
+
+    assert proposal["candidate_kind"] == "run_config"
+    assert captured["candidate_context_path"] == candidate_context_path
+    assert captured["proposal_context"]["queued_workflow_idea"]["candidate_factory"] == "redesign"
+
+
+def test_run_proposal_step_redesign_factory_failure_before_metadata_is_retryable(
+    tmp_path, monkeypatch
+):
+    from scripts.studies.lines_256_session_controller import (
+        _proposal_result_path,
+        initialize_session,
+        run_proposal_step,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _write_minimal_lines256_docs(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    active = repo / "docs" / "workflow_queue" / "active"
+    active.mkdir(parents=True, exist_ok=True)
+    idea = active / "2026-03-31-redesign.md"
+    idea.write_text(
+        "---\n"
+        "candidate_factory: redesign\n"
+        "---\n"
+        "# Redesign idea\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "scripts.studies.lines_256_session_controller._run_redesign_candidate_workflow",
+        lambda **kwargs: subprocess.CompletedProcess(
+            ["python", "-m", "orchestrator"],
+            1,
+            "",
+            "workflow failed before writing metadata",
+        ),
+    )
+
+    result = run_proposal_step(
+        repo_root=repo,
+        session=session,
+        codex_cmd="codex",
+        model="gpt-5.4",
+        reasoning_effort="high",
+    )
+
+    assert result == {"status": "RETRYABLE_FAILURE"}
+    assert idea.exists()
+    proposal_result = json.loads(_proposal_result_path(session).read_text(encoding="utf-8"))
+    assert proposal_result["retryable"] is True
+
+
 @pytest.mark.parametrize(
     ("decision", "dest_dir"),
     [
@@ -743,6 +1071,63 @@ def test_execute_iteration_moves_active_workflow_queue_item_to_blocked(tmp_path,
     assert not idea.exists()
     moved = repo / "docs" / "workflow_queue" / "blocked" / idea.name
     assert moved.exists()
+
+
+def test_execute_iteration_invalid_workflow_queue_candidate_factory_yields_without_consuming_item(
+    tmp_path, monkeypatch
+):
+    from scripts.studies.lines_256_session_controller import execute_iteration, initialize_session
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _write_minimal_lines256_docs(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    active = repo / "docs" / "workflow_queue" / "active"
+    active.mkdir(parents=True, exist_ok=True)
+    idea = active / "2026-03-31-queued-idea.md"
+    idea.write_text(
+        "---\n"
+        "candidate_factory: unsupported\n"
+        "---\n"
+        "# Queued idea\n",
+        encoding="utf-8",
+    )
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": _git(repo, "rev-parse", "HEAD").stdout.strip(),
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        "scripts.studies.lines_256_session_controller._run_codex_prompt",
+        lambda *args, **kwargs: pytest.fail("provider should not run for invalid candidate_factory"),
+    )
+
+    decision = execute_iteration(
+        repo_root=repo,
+        session=session,
+        codex_cmd="codex",
+        model="gpt-5.4",
+        reasoning_effort="high",
+    )
+
+    assert decision == "YIELD"
+    assert idea.exists()
+    proposal_result = json.loads(
+        (session.session_root / "iterations" / "000" / "proposal_result.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert proposal_result["retryable"] is True
 
 
 def test_normalize_candidate_proposal_accepts_run_config_without_commit():

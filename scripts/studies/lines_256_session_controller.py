@@ -14,6 +14,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 
 RESULTS_HEADER = (
     "session_id\ttimestamp_utc\tref_or_commit\tdecision\tamp_ssim\t"
@@ -46,6 +48,7 @@ COMMON_PROPOSAL_FIELDS = (
 DEFAULT_MODEL = "gpt-5.4"
 DEFAULT_REASONING_EFFORT = "high"
 DEFAULT_MAX_ITERATIONS = 100
+CANDIDATE_FACTORIES = {"direct", "redesign"}
 
 SEARCH_SUMMARY_FLAGS = {
     "fno_modes": "--fno-modes",
@@ -145,6 +148,38 @@ def _workflow_queue_active_dir(repo_root: Path) -> Path:
     return _workflow_queue_root(repo_root) / "active"
 
 
+def _split_optional_yaml_frontmatter(text: str, *, path: Path) -> tuple[dict[str, Any], str]:
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return {}, text
+
+    end_index = None
+    for index, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            end_index = index
+            break
+    if end_index is None:
+        raise SystemExit(f"Workflow queue item has unterminated YAML frontmatter: {path}")
+
+    raw_frontmatter = "\n".join(lines[1:end_index])
+    parsed = yaml.safe_load(raw_frontmatter) or {}
+    if not isinstance(parsed, dict):
+        raise SystemExit(f"Workflow queue item frontmatter must be a mapping: {path}")
+    body = "\n".join(lines[end_index + 1 :]).lstrip("\n")
+    return parsed, body
+
+
+def _normalize_candidate_factory(value: object) -> str:
+    if value is None:
+        return "direct"
+    normalized = str(value).strip().lower()
+    if not normalized:
+        return "direct"
+    if normalized not in CANDIDATE_FACTORIES:
+        raise SystemExit(f"Unsupported candidate_factory: {normalized}")
+    return normalized
+
+
 def _load_active_workflow_queue_item(repo_root: Path) -> dict[str, str] | None:
     active_dir = _workflow_queue_active_dir(repo_root)
     if not active_dir.exists():
@@ -153,9 +188,15 @@ def _load_active_workflow_queue_item(repo_root: Path) -> dict[str, str] | None:
     if not candidates:
         return None
     selected = candidates[0]
+    frontmatter, body = _split_optional_yaml_frontmatter(
+        selected.read_text(encoding="utf-8"),
+        path=selected,
+    )
     return {
         "path": _relative_to_repo(repo_root, selected),
-        "content": selected.read_text(encoding="utf-8"),
+        "content": body,
+        "candidate_factory": str(frontmatter.get("candidate_factory", "direct")).strip().lower()
+        or "direct",
     }
 
 
@@ -1296,6 +1337,157 @@ def _proposal_prompt_paths(repo_root: Path, proposal_context: dict[str, object])
     )
 
 
+def _selected_candidate_factory(proposal_context: dict[str, object]) -> str:
+    queued_workflow_idea = proposal_context.get("queued_workflow_idea")
+    if isinstance(queued_workflow_idea, dict):
+        return _normalize_candidate_factory(queued_workflow_idea.get("candidate_factory"))
+    return "direct"
+
+
+def _retryable_factory_failure(
+    session: SessionState,
+    *,
+    stderr_text: str,
+) -> dict[str, object]:
+    _write_proposal_result(
+        session,
+        subprocess.CompletedProcess(
+            args=["candidate_factory"],
+            returncode=1,
+            stdout="",
+            stderr=stderr_text,
+        ),
+        debug=False,
+        metadata_validated=False,
+        retryable=True,
+    )
+    _set_phase(session, "proposal_pending")
+    return {"status": "RETRYABLE_FAILURE"}
+
+
+def _redesign_workflow_path(repo_root: Path) -> Path:
+    return repo_root / "workflows" / "agent_orchestration" / "lines_256_redesign_candidate_impl_review.yaml"
+
+
+def _redesign_design_doc_output_path(repo_root: Path, session: SessionState) -> Path:
+    return (
+        repo_root
+        / "docs"
+        / "plans"
+        / "lines_256_redesign_candidates"
+        / session.session_id
+        / f"{session.iteration:03d}_design.md"
+    )
+
+
+def _redesign_plan_doc_output_path(repo_root: Path, session: SessionState) -> Path:
+    return (
+        repo_root
+        / "docs"
+        / "plans"
+        / "lines_256_redesign_candidates"
+        / session.session_id
+        / f"{session.iteration:03d}_plan.md"
+    )
+
+
+def _redesign_execution_log_output_path(repo_root: Path, session: SessionState) -> Path:
+    return (
+        repo_root
+        / "artifacts"
+        / "work"
+        / "lines_256_redesign_candidates"
+        / session.session_id
+        / f"{session.iteration:03d}_execution.md"
+    )
+
+
+def _redesign_check_log_output_path(repo_root: Path, session: SessionState) -> Path:
+    return (
+        repo_root
+        / "artifacts"
+        / "checks"
+        / "lines_256_redesign_candidates"
+        / session.session_id
+        / f"{session.iteration:03d}_checks.log"
+    )
+
+
+def _redesign_review_log_output_path(repo_root: Path, session: SessionState) -> Path:
+    return (
+        repo_root
+        / "artifacts"
+        / "review"
+        / "lines_256_redesign_candidates"
+        / session.session_id
+        / f"{session.iteration:03d}_review.md"
+    )
+
+
+def _run_redesign_candidate_workflow(
+    *,
+    repo_root: Path,
+    session: SessionState,
+    proposal_context: dict[str, object],
+    candidate_context_path: Path,
+    log_path: Path,
+) -> subprocess.CompletedProcess[str]:
+    queued_workflow_idea = proposal_context.get("queued_workflow_idea")
+    if not isinstance(queued_workflow_idea, dict):
+        raise SystemExit("redesign candidate factory requires a queued workflow idea")
+    queue_item_path = str(queued_workflow_idea.get("path", "")).strip()
+    if not queue_item_path:
+        raise SystemExit("queued workflow idea is missing path")
+
+    workflow_path = _redesign_workflow_path(repo_root)
+    if not workflow_path.exists():
+        raise SystemExit(f"Missing redesign workflow: {workflow_path}")
+
+    redesign_state_root = _iteration_root(session) / "redesign_factory"
+    command = [
+        sys.executable,
+        "-m",
+        "orchestrator",
+        "run",
+        _relative_to_repo(repo_root, workflow_path),
+        "--input",
+        f"state_root={_relative_to_repo(repo_root, redesign_state_root)}",
+        "--input",
+        f"queue_item_path={queue_item_path}",
+        "--input",
+        f"proposal_context_path={_relative_to_repo(repo_root, _proposal_context_path(session.session_root))}",
+        "--input",
+        f"candidate_metadata_output_path={_relative_to_repo(repo_root, _candidate_metadata_path(session))}",
+        "--input",
+        f"proposal_result_output_path={_relative_to_repo(repo_root, _proposal_result_path(session))}",
+        "--input",
+        f"candidate_paths_output_path={_relative_to_repo(repo_root, _candidate_paths_file(session))}",
+        "--input",
+        f"design_doc_output_path={_relative_to_repo(repo_root, _redesign_design_doc_output_path(repo_root, session))}",
+        "--input",
+        f"plan_doc_output_path={_relative_to_repo(repo_root, _redesign_plan_doc_output_path(repo_root, session))}",
+        "--input",
+        f"execution_session_log_output_path={_relative_to_repo(repo_root, _redesign_execution_log_output_path(repo_root, session))}",
+        "--input",
+        f"check_log_output_path={_relative_to_repo(repo_root, _redesign_check_log_output_path(repo_root, session))}",
+        "--input",
+        f"review_log_output_path={_relative_to_repo(repo_root, _redesign_review_log_output_path(repo_root, session))}",
+        "--stream-output",
+    ]
+    completed = subprocess.run(
+        command,
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+        env=_python_first_env(),
+    )
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    rendered = [f"$ {' '.join(command)}\n", completed.stdout, completed.stderr]
+    log_path.write_text("".join(rendered), encoding="utf-8")
+    return completed
+
+
 def _debug_injected_paths(repo_root: Path, session: SessionState, candidate_context_path: Path) -> list[Path]:
     return [
         repo_root / "docs/studies/lines_256_dataset.md",
@@ -1330,6 +1522,94 @@ def run_proposal_step(
     proposal_context = build_proposal_context(session, max_rows=10)
     build_candidate_context(session)
     candidate_context_path = _candidate_context_path(session)
+    try:
+        candidate_factory = _selected_candidate_factory(proposal_context)
+    except SystemExit as exc:
+        return _retryable_factory_failure(session, stderr_text=str(exc))
+    if candidate_factory == "direct":
+        return direct_candidate_factory(
+            repo_root=repo_root,
+            session=session,
+            proposal_context=proposal_context,
+            candidate_context_path=candidate_context_path,
+            codex_cmd=codex_cmd,
+            model=model,
+            reasoning_effort=reasoning_effort,
+        )
+    if candidate_factory == "redesign":
+        return redesign_candidate_factory(
+            repo_root=repo_root,
+            session=session,
+            proposal_context=proposal_context,
+            candidate_context_path=candidate_context_path,
+        )
+    return _retryable_factory_failure(session, stderr_text=f"Unsupported candidate factory: {candidate_factory}")
+
+
+def redesign_candidate_factory(
+    repo_root: Path,
+    session: SessionState,
+    proposal_context: dict[str, object],
+    candidate_context_path: Path,
+) -> dict[str, object]:
+    log_path = _iteration_agent_log_path(session, "redesign_candidate_workflow.log")
+    _set_phase(session, "proposal_running")
+    completed = _run_redesign_candidate_workflow(
+        repo_root=repo_root,
+        session=session,
+        proposal_context=proposal_context,
+        candidate_context_path=candidate_context_path,
+        log_path=log_path,
+    )
+    metadata_path = _candidate_metadata_path(session)
+    if not metadata_path.exists():
+        if not _proposal_result_path(session).exists():
+            _write_proposal_result(
+                session,
+                completed,
+                debug=False,
+                metadata_validated=False,
+                retryable=True,
+            )
+        _set_phase(session, "proposal_pending")
+        return {"status": "RETRYABLE_FAILURE"}
+
+    metadata = _load_candidate_metadata(metadata_path)
+    if metadata.get("status") == "BLOCKED":
+        if not _proposal_result_path(session).exists():
+            _write_proposal_result(
+                session,
+                completed,
+                debug=False,
+                metadata_validated=True,
+                retryable=False,
+            )
+        _assert_tracked_paths_preserved(repo_root, session)
+        _set_phase(session, "proposal_complete")
+        return metadata
+
+    proposal = normalize_candidate_proposal(metadata)
+    validate_ready_proposal(repo_root, session, proposal)
+    if not _proposal_result_path(session).exists():
+        _write_proposal_result(
+            session,
+            completed,
+            debug=False,
+            metadata_validated=True,
+            retryable=False,
+        )
+    return proposal
+
+
+def direct_candidate_factory(
+    repo_root: Path,
+    session: SessionState,
+    proposal_context: dict[str, object],
+    candidate_context_path: Path,
+    codex_cmd: str,
+    model: str,
+    reasoning_effort: str,
+) -> dict[str, object]:
     prompt_paths = _proposal_prompt_paths(repo_root, proposal_context)
     log_path = _iteration_agent_log_path(session, "proposal_agent.log")
     prompt_text = _render_injected_prompt(
@@ -1476,6 +1756,17 @@ def _controller_runtime_env(repo_root: Path) -> dict[str, str]:
     env["PATH"] = os.pathsep.join([python_dir, *filtered_parts])
     # Child study commands must import from the session repo root, not any ambient launcher PYTHONPATH.
     env["PYTHONPATH"] = str(repo_root.resolve())
+    return env
+
+
+def _python_first_env() -> dict[str, str]:
+    env = dict(os.environ)
+    python_dir = str(Path(sys.executable).resolve().parent)
+    current_path = env.get("PATH", "")
+    parts = [part for part in current_path.split(os.pathsep) if part]
+    normalized_python_dir = str(Path(python_dir).resolve())
+    filtered_parts = [part for part in parts if str(Path(part).resolve()) != normalized_python_dir]
+    env["PATH"] = os.pathsep.join([python_dir, *filtered_parts])
     return env
 
 

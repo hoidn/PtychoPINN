@@ -28,6 +28,33 @@ to try next.
 - Queue items are guidance, not rigid schemas. Keep them readable and
   hypothesis-focused.
 
+## Optional Frontmatter
+
+Queue items may include YAML frontmatter when the controller needs explicit
+queue-owned routing hints.
+
+Current supported key:
+
+```yaml
+candidate_factory: redesign
+```
+
+Meaning:
+- omitted: default direct proposal factory
+- `redesign`: use the broader design/plan/implement/review candidate factory
+  instead of the single-step direct proposal path
+
+Example:
+
+```md
+---
+candidate_factory: redesign
+---
+# Hybrid ResNet Split-Path Skip Fusion
+
+Keep spectral and local skip paths separate through decode-time fusion.
+```
+
 ## Suggested Naming
 
 Use a sortable prefix such as:

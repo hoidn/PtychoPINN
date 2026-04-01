@@ -104,6 +104,7 @@ session branch before continuing.
 - a broader full-session search summary so the proposal agent can detect saturated local neighborhoods and underexplored hypothesis classes
 - a soft `proposal_mode` / `proposal_mode_reason` signal so the controller can steer prompt selection without hard-rejecting proposals based on heuristic hypothesis-family classification
 - any active queued workflow idea from `docs/workflow_queue/active/`, with queue priority taking precedence over free-form proposal selection
+- the queued idea's requested `candidate_factory` when queue frontmatter opts into a non-default candidate-production path
 
 ## Workflow Idea Queue
 
@@ -129,6 +130,21 @@ Queue rules:
 
 Queue mutation is controller-owned. Prompts may read queued idea content as
 guidance, but they should not move, delete, or refile queue items.
+
+Queue items may optionally include YAML frontmatter. In phase 1, the only
+controller-owned queue frontmatter key is:
+
+```yaml
+candidate_factory: redesign
+```
+
+If omitted, the controller defaults to `candidate_factory: direct`.
+
+Phase-1 factory policy:
+- queued ideas default to the direct prompt-driven proposal path
+- queued ideas may explicitly opt into the redesign subworkflow with
+  `candidate_factory: redesign`
+- free-form non-queued proposals still use the direct factory only
 
 ## Artifact Boundary
 
@@ -194,6 +210,24 @@ Proposal-mode selection is intentionally soft:
 - the controller may choose an `explore` prompt after a local discard streak
 - the controller should not reject a `READY` proposal merely because a heuristic family classifier thinks the idea is still “too local”
 - exploratory versus exploitative judgment remains prompt-owned, not controller-policed
+
+Candidate-factory selection is separate from prompt mode:
+- `direct` factory: current prompt-driven proposal path for `run_config` and
+  narrow `source` candidates
+- `redesign` factory: queue-only subordinate workflow
+  `workflows/agent_orchestration/lines_256_redesign_candidate_impl_review.yaml`
+  for broader redesign candidates
+
+Both factories must converge on the same downstream candidate package surface:
+- `candidate_metadata.json`
+- `proposal_result.json`
+
+The controller remains the sole owner of:
+- smoke execution
+- scored execution
+- keep/discard/timeout/crash classification
+- accepted-state mutation
+- queue movement after terminal outcome
 
 ## Timeout Semantics
 
