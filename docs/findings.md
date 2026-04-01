@@ -10,6 +10,7 @@ This ledger captures the most important lessons, conventions, and recurring issu
 | GRIDLINES-PROBE-PIPELINE-001 | 2026-03-31 | grid-lines, probe, preprocessing, metadata, dataset-contract | Probe preprocessing should be modeled as a normalized ordered pipeline (for example `smooth:0.5|pad:128|interp:256`) rather than as an ever-growing `probe_scale_mode` enum list. Different normalized pipelines define different dataset contracts and require fresh baselines/accepted-state lineages. Legacy `probe_scale_mode` values should normalize into the same canonical provenance record. | `ptycho/workflows/grid_lines_workflow.py, tests/test_grid_lines_workflow.py, docs/studies/lines_256_dataset.md` | Active |
 | LINES256-PROPOSAL-RECOVERY-001 | 2026-04-01 | lines_256, controller, proposal, resume, workflow | The v2 `lines_256` controller must treat proposal generation as a transaction. Setting `proposal_running` before durable candidate metadata exists and then hard-requiring `candidate_metadata.json` on resume makes provider-capacity or interruption failures unrecoverable. Fix by writing controller-owned `proposal_attempt.json` / `proposal_result.json`, making missing proposal metadata retryable, and moving smoke execution back under deterministic controller ownership. | `scripts/studies/lines_256_session_controller.py, tests/studies/test_lines_256_session_controller.py, state/lines_256_arch_improvement_v2/sessions/20260331T015545Z/iterations/035/*` | Active |
 | LINES256-SESSION-BRANCH-001 | 2026-04-06 | lines_256, controller, git, session-branch, detached-head, provenance | The v2 `lines_256` controller should keep each dedicated run checkout on a named session branch such as `lines256/session/<session_id>`. Branch names are operational handles for human inspection and resume; exact commit SHAs remain the authoritative scientific provenance for accepted state and source candidates. Detached checkouts are recoverable, but they should not be the intended steady state. | `scripts/studies/lines_256_session_controller.py, tests/studies/test_lines_256_session_controller.py, docs/studies/lines_256_controller_loop.md` | Active |
+| LINES256-IMPORT-PROVENANCE-001 | 2026-04-01 | lines_256, controller, pythonpath, import-provenance, source-candidates, resume | Controller-owned smoke/scored child runs must treat the session repo root as the authoritative import root. Preserving ambient `PYTHONPATH` can make a run-checkout source candidate score code from a different checkout, producing false ties or misleading results without crashing. Keep PATH `python` per `PYTHON-ENV-001`, but overwrite `PYTHONPATH` with the session repo root and record runtime provenance in invocation artifacts. | `scripts/studies/lines_256_session_controller.py, scripts/studies/invocation_logging.py, scripts/studies/grid_lines_torch_runner.py, scripts/studies/run_lines_256_arch_experiment.py, tests/studies/test_lines_256_session_controller.py, tests/test_grid_lines_invocation_logging.py, tests/torch/test_grid_lines_torch_runner.py` | Active |
 | LINES256-CTRL-PATH-001 | 2026-03-30 | lines_256, controller, interpreter, subprocess, path, tensorflow | The v2 `lines_256` controller must stabilize the scored-command subprocess PATH so plain `python ...` resolves to the same runtime as the controller itself. `bash -lc` plus ambient shell startup can drift to a different interpreter, causing false `ModuleNotFoundError: tensorflow` crashes even when smoke runs succeed. Fix the controller boundary, not the persisted command strings. | `scripts/studies/lines_256_session_controller.py, tests/studies/test_lines_256_session_controller.py, state/lines_256_arch_improvement_v2/sessions/20260330T001026Z/iterations/046/*.log` | Active |
 | PROBE-MASK-DEFAULT-001 | 2026-02-20 | pytorch, probe-mask, hybrid_resnet, regression, integration-test | Hybrid-resnet metric regression on `fno-stable` was introduced when Torch probe masking changed from effectively off-by-default to on-by-default (`db1e43f9`). Hard-vs-soft edge is secondary; disabling default masking restores the integration gate. | `db1e43f9 vs 8dac52fc, ptycho_torch/config_params.py, ptycho_torch/model.py, tests/torch/test_grid_lines_hybrid_resnet_integration.py` | Active |
 | REASSEMBLY-M-CONTRACT-001 | 2026-03-04 | pytorch, reassembly, external_raw_npz, M, crop-border, shift-sum | Position reassembly must have a single trim owner: forward full patches to `tf_helper.reassemble_position` and derive `M_effective` from `M_requested` + `position_crop_border`. Runner-side pre-trim plus tf_helper trim caused broadcast-shape failures. | `scripts/studies/grid_lines_torch_runner.py, tests/torch/test_grid_lines_torch_runner.py, docs/workflows/pytorch.md, docs/debugging/TROUBLESHOOTING.md` | Resolved |
@@ -292,6 +293,7 @@ controller's own runtime.
 - `outputs/lines_256_arch_improvement_v2/sessions/20260330T001026Z/candidates/20260330T191252Z_21bb106786e1/driver_stderr.log`
 - `state/lines_256_arch_improvement_v2/sessions/20260330T001026Z/iterations/046/20260330T191252Z_adaff131ade6__source_smoke.log`
 
+<<<<<<< HEAD
 ## LINES256-SESSION-BRANCH-001 - Session Checkouts Should Stay on Named Branches While SHAs Remain Authoritative
 **Category:** Controller Runtime, Git Ergonomics, Resume Semantics
 **Impact:** detached `HEAD` makes live `lines_256` run checkouts harder to inspect and resume even though branch names are not the real provenance contract
@@ -323,3 +325,41 @@ preserve that property.
 - `scripts/studies/lines_256_session_controller.py`
 - `tests/studies/test_lines_256_session_controller.py`
 - `docs/studies/lines_256_controller_loop.md`
+=======
+## LINES256-IMPORT-PROVENANCE-001 - Child Study Imports Must Resolve from the Session Repo Root
+**Category:** Controller Runtime, Import Provenance, Cross-Checkout Isolation
+**Impact:** `lines_256` v2 source candidates can be scored against the wrong source tree without crashing
+**Location:** `scripts/studies/lines_256_session_controller.py`, `scripts/studies/invocation_logging.py`
+**Date:** 2026-04-01
+
+### Issue
+Iteration `035` of session `20260331T015545Z` proposed a real source candidate
+(`0fdceed...`) that replaced scalar `gated_add` skip weights with conditioned
+per-channel gates. The scored run tied the champion exactly and produced the
+old scalar-gate checkpoint state, even though the candidate commit existed and
+smoke had succeeded.
+
+### Root Cause
+The controller's child-run environment preserved ambient `PYTHONPATH`. When the
+session was resumed from the main repo against a dedicated run checkout, child
+study commands imported `ptycho_torch` from the main repo instead of the
+session checkout. Git validation alone was therefore insufficient: `HEAD`
+matched the candidate commit in the run checkout, but the executed Python
+modules came from a different checkout.
+
+### Required Rule
+- Keep PATH `python` and persisted command strings plain `python ...` per
+  `PYTHON-ENV-001`.
+- For controller-owned smoke, scored, and deterministic debug child runs, set
+  `PYTHONPATH` explicitly to the session repo root instead of inheriting
+  ambient launcher state.
+- Record runtime provenance in invocation artifacts so `python_executable`,
+  `cwd`, `PYTHONPATH`, and resolved `ptycho_torch.__file__` are inspectable
+  when debugging.
+
+### Evidence
+- `state/lines_256_arch_improvement_v2/sessions/20260331T015545Z/iterations/035/proposal_result.json`
+- `outputs/lines_256_arch_improvement_v2/sessions/20260331T015545Z/candidates/20260401T162432Z_0fdceed5370e/checkpoints/last.ckpt`
+- `scripts/studies/lines_256_session_controller.py`
+- `scripts/studies/invocation_logging.py`
+>>>>>>> e16f4356 (fix: scope lines256 child imports to session repo)

@@ -1466,7 +1466,7 @@ def _coerce_subprocess_text(value: str | bytes | None) -> str:
     return value
 
 
-def _controller_runtime_env() -> dict[str, str]:
+def _controller_runtime_env(repo_root: Path) -> dict[str, str]:
     env = dict(os.environ)
     python_dir = str(Path(sys.executable).resolve().parent)
     current_path = env.get("PATH", "")
@@ -1474,6 +1474,8 @@ def _controller_runtime_env() -> dict[str, str]:
     normalized_python_dir = str(Path(python_dir).resolve())
     filtered_parts = [part for part in parts if str(Path(part).resolve()) != normalized_python_dir]
     env["PATH"] = os.pathsep.join([python_dir, *filtered_parts])
+    # Child study commands must import from the session repo root, not any ambient launcher PYTHONPATH.
+    env["PYTHONPATH"] = str(repo_root.resolve())
     return env
 
 
@@ -1490,7 +1492,7 @@ def _run_scored_command(repo_root: Path, command: str, timeout_sec: int) -> dict
         completed = subprocess.run(
             ["bash", "-c", command],
             cwd=repo_root,
-            env=_controller_runtime_env(),
+            env=_controller_runtime_env(repo_root),
             capture_output=True,
             text=True,
             timeout=timeout_sec,

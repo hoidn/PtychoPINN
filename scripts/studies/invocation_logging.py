@@ -6,9 +6,11 @@ scripts can emit reproducible command traces in a consistent format.
 
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import shlex
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, Tuple
@@ -29,6 +31,22 @@ def build_command_line(script_path: str, argv: Iterable[str]) -> str:
     """Build a copy-paste command string for a script + argv payload."""
     tokens = ["python", script_path, *[str(arg) for arg in argv]]
     return shlex.join(tokens)
+
+
+def capture_runtime_provenance() -> Dict[str, Any]:
+    """Capture the effective Python/runtime import provenance for study scripts."""
+    payload: Dict[str, Any] = {
+        "python_executable": str(Path(sys.executable).resolve()),
+        "cwd": str(Path.cwd()),
+        "pythonpath": os.environ.get("PYTHONPATH", ""),
+    }
+    try:
+        ptycho_torch = importlib.import_module("ptycho_torch")
+    except Exception:
+        payload["ptycho_torch_file"] = None
+    else:
+        payload["ptycho_torch_file"] = str(Path(ptycho_torch.__file__).resolve())
+    return payload
 
 
 def write_invocation_artifacts(
@@ -65,4 +83,3 @@ def write_invocation_artifacts(
     json_path.write_text(json.dumps(payload, indent=2))
     sh_path.write_text(command + "\n")
     return json_path, sh_path
-

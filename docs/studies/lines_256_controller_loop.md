@@ -173,6 +173,9 @@ The controller owns deterministic study behavior:
 - execute scored candidate commands under a controller-owned subprocess env whose
   `PATH` resolves `python` to the controller runtime, while leaving persisted
   command strings as plain `python ...`
+- set `PYTHONPATH` for controller-owned smoke/scored/debug child runs to the
+  session repo root instead of inheriting ambient launcher state, so source
+  candidates import from the session checkout on both `start` and `resume`
 - classify `KEEP`, `DISCARD`, `TIMEOUT`, and `CRASH`
 - attempt one focused crash-debug retry when warranted
 - update accepted state
@@ -210,6 +213,10 @@ according to the normal session rules instead of dying in the timeout path.
 Primary entrypoints:
 - `python scripts/studies/lines_256_session_controller.py start --repo-root .`
 - `python scripts/studies/lines_256_session_controller.py resume --session-root state/lines_256_arch_improvement_v2/sessions/<session_id>`
+
+Both entrypoints keep persisted proposal/run commands as plain `python ...`,
+but the controller executes smoke/scored child commands under a session-shaped
+runtime env whose authoritative import root is the session repo root.
 
 Useful options:
 - `--mode baseline-only`

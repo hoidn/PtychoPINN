@@ -96,6 +96,13 @@ Exceptions: legacy archives under `archive/` and tests expressly validating lega
 
 Enforcement: avoid introducing repository-specific interpreter indirection (e.g., `PYTHON_BIN` wrappers) in docs/snippets.
 
+Session-local workflow rule: when a controller or orchestration helper launches
+child study commands against a dedicated run/session checkout, it must keep
+plain PATH `python` while explicitly setting `PYTHONPATH` to that session repo
+root. Do not inherit ambient launcher `PYTHONPATH`, because cross-checkout
+module resolution can silently score the wrong source tree even when the child
+command string and Git `HEAD` look correct.
+
 ---
 
 ### 2.4. Invocation Provenance for Scripts and Orchestrators

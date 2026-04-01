@@ -1837,9 +1837,13 @@ class TestTorchTrainingPath:
 
 
 def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):
+    import ptycho_torch
     from scripts.studies import grid_lines_torch_runner as runner
 
     called = {"run": False}
+    fake_ptycho_init = tmp_path / "fake_ptycho_torch" / "__init__.py"
+    fake_ptycho_init.parent.mkdir(parents=True, exist_ok=True)
+    fake_ptycho_init.write_text("MARKER = 'runner-test'\n", encoding="utf-8")
 
     def fake_run_grid_lines_torch(cfg):
         called["run"] = True
@@ -1848,6 +1852,8 @@ def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):
         return {"run_dir": str(run_dir), "metrics": {}}
 
     monkeypatch.setattr(runner, "run_grid_lines_torch", fake_run_grid_lines_torch)
+    monkeypatch.setattr(ptycho_torch, "__file__", str(fake_ptycho_init))
+    monkeypatch.setenv("PYTHONPATH", "/tmp/session_repo")
 
     out_dir = tmp_path / "output"
     train_npz = tmp_path / "train.npz"
@@ -1878,6 +1884,8 @@ def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):
     payload = json.loads(inv_json.read_text())
     assert "grid_lines_torch_runner.py" in payload["command"]
     assert "--architecture" in payload["argv"]
+    assert payload["extra"]["runtime_provenance"]["pythonpath"] == "/tmp/session_repo"
+    assert payload["extra"]["runtime_provenance"]["ptycho_torch_file"] == str(fake_ptycho_init)
 
 
 def test_main_defaults_torch_logger_to_csv(tmp_path, monkeypatch):

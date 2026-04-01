@@ -1423,7 +1423,10 @@ def main(argv=None) -> None:
     logging.basicConfig(level=logging.INFO)
 
     # Persist exact invocation details alongside run artifacts.
-    from scripts.studies.invocation_logging import write_invocation_artifacts
+    from scripts.studies.invocation_logging import (
+        capture_runtime_provenance,
+        write_invocation_artifacts,
+    )
 
     raw_argv = list(argv) if argv is not None else sys.argv[1:]
     run_dir = args.output_dir / "runs" / f"pinn_{args.architecture}"
@@ -1432,6 +1435,7 @@ def main(argv=None) -> None:
         script_path="scripts/studies/grid_lines_torch_runner.py",
         argv=raw_argv,
         parsed_args=vars(args),
+        extra={"runtime_provenance": capture_runtime_provenance()},
     )
 
     seed = args.seed if args.seed is not None else random.SystemRandom().randrange(0, 2**32)

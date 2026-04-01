@@ -1398,21 +1398,43 @@ def test_run_scored_command_uses_controller_runtime_python_when_path_is_poisoned
 ):
     from scripts.studies.lines_256_session_controller import _run_scored_command
 
+    repo_root = tmp_path / "session_repo"
+    repo_root.mkdir()
+    (repo_root / "scripts").mkdir()
+    (repo_root / "ptycho_torch").mkdir()
+    (repo_root / "ptycho_torch" / "__init__.py").write_text(
+        "MARKER = 'session_repo'\n", encoding="utf-8"
+    )
+    (repo_root / "scripts" / "show_import_root.py").write_text(
+        "import ptycho_torch\nprint(ptycho_torch.MARKER)\nprint(ptycho_torch.__file__)\n",
+        encoding="utf-8",
+    )
+
+    foreign_root = tmp_path / "foreign_repo"
+    foreign_root.mkdir()
+    (foreign_root / "ptycho_torch").mkdir()
+    (foreign_root / "ptycho_torch" / "__init__.py").write_text(
+        "MARKER = 'foreign_repo'\n", encoding="utf-8"
+    )
+
     fake_bin = tmp_path / "fake-bin"
     fake_bin.mkdir()
     fake_python = fake_bin / "python"
     fake_python.write_text("#!/bin/sh\nexit 91\n", encoding="utf-8")
     fake_python.chmod(0o755)
     monkeypatch.setenv("PATH", f"{fake_bin}{os.pathsep}{os.environ['PATH']}")
+    monkeypatch.setenv("PYTHONPATH", str(foreign_root))
 
     result = _run_scored_command(
-        repo_root=tmp_path,
-        command="python -c 'import sys; print(sys.executable)'",
+        repo_root=repo_root,
+        command="python scripts/show_import_root.py",
         timeout_sec=5,
     )
 
     assert result["exit_code"] == 0
-    assert str(Path(sys.executable).resolve().parent) in str(result["stdout_text"])
+    assert "session_repo" in str(result["stdout_text"])
+    assert str(repo_root / "ptycho_torch" / "__init__.py") in str(result["stdout_text"])
+    assert "foreign_repo" not in str(result["stdout_text"])
 
 
 def test_run_scored_candidate_persists_crash_excerpt(tmp_path, monkeypatch):

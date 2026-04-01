@@ -24,6 +24,31 @@ def test_write_invocation_artifacts_writes_json_and_shell(tmp_path):
     assert "hybrid_resnet" in path_sh.read_text()
 
 
+def test_write_invocation_artifacts_preserves_runtime_provenance(tmp_path):
+    from scripts.studies.invocation_logging import write_invocation_artifacts
+
+    out = tmp_path / "runs" / "pinn_hybrid_resnet"
+    runtime_provenance = {
+        "python_executable": "/usr/bin/python3",
+        "cwd": "/tmp/session_repo",
+        "pythonpath": "/tmp/session_repo",
+        "ptycho_torch_file": "/tmp/session_repo/ptycho_torch/__init__.py",
+    }
+    path_json, _ = write_invocation_artifacts(
+        output_dir=out,
+        script_path="scripts/studies/grid_lines_torch_runner.py",
+        argv=["--output-dir", "outputs/x"],
+        parsed_args={"output_dir": "outputs/x"},
+        extra={"runtime_provenance": runtime_provenance},
+    )
+
+    payload = json.loads(path_json.read_text())
+    assert payload["extra"]["runtime_provenance"]["pythonpath"] == "/tmp/session_repo"
+    assert payload["extra"]["runtime_provenance"]["ptycho_torch_file"].endswith(
+        "ptycho_torch/__init__.py"
+    )
+
+
 def test_write_invocation_artifacts_serializes_paths(tmp_path):
     from pathlib import Path
 
@@ -39,4 +64,3 @@ def test_write_invocation_artifacts_serializes_paths(tmp_path):
     payload = json.loads(json_path.read_text())
     assert payload["parsed_args"]["output_dir"] == "outputs/demo"
     assert payload["parsed_args"]["architectures"] == ["cnn", "hybrid_resnet"]
-

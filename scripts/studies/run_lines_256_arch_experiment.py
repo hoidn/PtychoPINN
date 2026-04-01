@@ -15,7 +15,10 @@ from ptycho.workflows.grid_lines_workflow import (
     _resolve_probe_for_visuals as resolve_probe_for_visuals,
     render_grid_lines_visuals,
 )
-from scripts.studies.invocation_logging import write_invocation_artifacts
+from scripts.studies.invocation_logging import (
+    capture_runtime_provenance,
+    write_invocation_artifacts,
+)
 
 LINES_256_TRAIN_NPZ = Path(
     "outputs/lines_256_arch_improvement/"
@@ -245,6 +248,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             "fixed_scheduler": FIXED_SCHEDULER,
             "fixed_plateau_min_lr": FIXED_PLATEAU_MIN_LR,
             "fixed_torch_mae_pred_l2_match_target": FIXED_TORCH_MAE_PRED_L2_MATCH_TARGET,
+            "runtime_provenance": capture_runtime_provenance(),
         },
     )
 
