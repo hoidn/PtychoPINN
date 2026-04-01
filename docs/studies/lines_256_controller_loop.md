@@ -96,6 +96,38 @@ Key artifacts:
 so resume can reattach a detached-but-recoverable run checkout to the correct
 session branch before continuing.
 
+`proposal_context.json` is not just a recent-attempt dump. It should include:
+- the accepted state
+- a short recent-history window for local context
+- a broader full-session search summary so the proposal agent can detect saturated local neighborhoods and underexplored hypothesis classes
+- a soft `proposal_mode` / `proposal_mode_reason` signal so the controller can steer prompt selection without hard-rejecting proposals based on heuristic hypothesis-family classification
+- any active queued workflow idea from `docs/workflow_queue/active/`, with queue priority taking precedence over free-form proposal selection
+
+## Workflow Idea Queue
+
+The v2 controller can consume a dedicated experiment-idea queue separate from
+`docs/backlog/`.
+
+Queue roots:
+- `docs/workflow_queue/active/`
+- `docs/workflow_queue/accepted/`
+- `docs/workflow_queue/discarded/`
+- `docs/workflow_queue/blocked/`
+- `docs/workflow_queue/crashed/`
+- `docs/workflow_queue/timed_out/`
+
+Queue rules:
+- if `active/` contains one or more Markdown files, the controller selects the
+  first file in lexicographic order as the highest-priority proposal direction
+- the queue item remains in `active/` while the iteration is only being
+  proposed, smoked, or scored
+- after a terminal result, the controller moves that same queue item to the
+  outcome-specific folder
+- free-form proposal selection resumes only when `active/` is empty
+
+Queue mutation is controller-owned. Prompts may read queued idea content as
+guidance, but they should not move, delete, or refile queue items.
+
 ## Artifact Boundary
 
 Critical scored artifacts are:
@@ -132,7 +164,7 @@ The controller owns deterministic study behavior:
 - capture protected local tracked-path state for the run checkout
 - run and harvest baseline
 - build recent-history summary and proposal context
-- invoke the proposal agent and validate its candidate package
+- select the proposal prompt mode (`exploit` or `explore`) from deterministic session signals, then invoke the proposal agent and validate its candidate package
 - run scored candidates
 - execute scored candidate commands under a controller-owned subprocess env whose
   `PATH` resolves `python` to the controller runtime, while leaving persisted
@@ -145,6 +177,11 @@ The controller owns deterministic study behavior:
 Crash-debug is reserved for real execution failures or missing core scored
 artifacts. Optional visual-publication problems should persist as warnings
 instead of consuming crash-debug budget.
+
+Proposal-mode selection is intentionally soft:
+- the controller may choose an `explore` prompt after a local discard streak
+- the controller should not reject a `READY` proposal merely because a heuristic family classifier thinks the idea is still “too local”
+- exploratory versus exploitative judgment remains prompt-owned, not controller-policed
 
 ## Timeout Semantics
 

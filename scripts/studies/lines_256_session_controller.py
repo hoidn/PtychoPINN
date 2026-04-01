@@ -4,9 +4,11 @@ import argparse
 import csv
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+from collections import Counter
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,6 +20,14 @@ RESULTS_HEADER = (
     "compared_to_ref\tcompared_to_amp_ssim\tdelta_amp_ssim\toutput_root\t"
     "comparison_png\tcommand_or_source\tnotes"
 )
+
+WORKFLOW_QUEUE_OUTCOME_DIRS = {
+    "KEEP": "accepted",
+    "DISCARD": "discarded",
+    "BLOCKED": "blocked",
+    "CRASH": "crashed",
+    "TIMEOUT": "timed_out",
+}
 
 COMMON_PROPOSAL_FIELDS = (
     "candidate_kind",
@@ -36,6 +46,31 @@ COMMON_PROPOSAL_FIELDS = (
 DEFAULT_MODEL = "gpt-5.4"
 DEFAULT_REASONING_EFFORT = "high"
 DEFAULT_MAX_ITERATIONS = 100
+
+SEARCH_SUMMARY_FLAGS = {
+    "fno_modes": "--fno-modes",
+    "fno_width": "--fno-width",
+    "fno_blocks": "--fno-blocks",
+    "hybrid_downsample_steps": "--hybrid-downsample-steps",
+    "hybrid_downsample_op": "--hybrid-downsample-op",
+    "hybrid_resnet_blocks": "--hybrid-resnet-blocks",
+    "hybrid_skip_style": "--hybrid-skip-style",
+    "torch_resnet_width": "--torch-resnet-width",
+    "learning_rate": "--learning-rate",
+    "plateau_min_lr": "--plateau-min-lr",
+    "hybrid_encoder_spectral_hidden_scale": "--hybrid-encoder-spectral-hidden-scale",
+    "hybrid_encoder_conv_hidden_scale": "--hybrid-encoder-conv-hidden-scale",
+}
+
+DISCARD_STREAK_DECISIONS = {"discard", "timeout", "crash"}
+HYPOTHESIS_FAMILIES = (
+    "capacity",
+    "downsampling",
+    "skip_fusion",
+    "optimizer_schedule",
+    "encoder_hidden_scale",
+    "other",
+)
 
 
 @dataclass
@@ -102,6 +137,28 @@ def _proposal_context_path(session_root: Path) -> Path:
     return session_root / "proposal_context.json"
 
 
+def _workflow_queue_root(repo_root: Path) -> Path:
+    return repo_root / "docs" / "workflow_queue"
+
+
+def _workflow_queue_active_dir(repo_root: Path) -> Path:
+    return _workflow_queue_root(repo_root) / "active"
+
+
+def _load_active_workflow_queue_item(repo_root: Path) -> dict[str, str] | None:
+    active_dir = _workflow_queue_active_dir(repo_root)
+    if not active_dir.exists():
+        return None
+    candidates = sorted(path for path in active_dir.glob("*.md") if path.is_file())
+    if not candidates:
+        return None
+    selected = candidates[0]
+    return {
+        "path": _relative_to_repo(repo_root, selected),
+        "content": selected.read_text(encoding="utf-8"),
+    }
+
+
 def _iterations_root(session_root: Path) -> Path:
     return session_root / "iterations"
 
@@ -122,6 +179,14 @@ def _read_json(path: Path) -> Any:
 
 def _relative_to_repo(repo_root: Path, path: Path) -> str:
     return str(path.resolve().relative_to(repo_root.resolve()).as_posix())
+
+
+def _read_results_rows(session_root: Path) -> list[dict[str, str]]:
+    results_tsv_path = _results_tsv_path(session_root)
+    if not results_tsv_path.exists():
+        return []
+    with results_tsv_path.open(encoding="utf-8", newline="") as fh:
+        return list(csv.DictReader(fh, delimiter="\t"))
 
 
 def _write_results_header(results_tsv_path: Path) -> None:
@@ -546,14 +611,93 @@ def _dry_run_payload(session: SessionState, mode: str) -> dict[str, object]:
     return payload
 
 
-def build_recent_history_summary(session_root: Path, max_rows: int = 10) -> dict[str, object]:
-    results_tsv_path = _results_tsv_path(session_root)
-    if not results_tsv_path.exists():
-        return {"recent_attempts": [], "recent_outcomes": []}
+def _extract_attempted_values(command_or_source: str) -> dict[str, set[str]]:
+    attempted = {knob: set() for knob in SEARCH_SUMMARY_FLAGS}
+    for knob, flag in SEARCH_SUMMARY_FLAGS.items():
+        pattern = re.compile(rf"{re.escape(flag)}\s+([^\s]+)")
+        for match in pattern.findall(command_or_source):
+            attempted[knob].add(match)
+    if "--hybrid-skip-connections" in command_or_source:
+        attempted["hybrid_skip_connections"] = {"on"}
+    elif "--no-hybrid-skip-connections" in command_or_source:
+        attempted["hybrid_skip_connections"] = {"off"}
+    else:
+        attempted["hybrid_skip_connections"] = set()
+    return attempted
 
-    with results_tsv_path.open(encoding="utf-8", newline="") as fh:
-        reader = csv.DictReader(fh, delimiter="\t")
-        rows = list(reader)
+
+def _classify_hypothesis_family(command_or_source: str, note: str = "", hypothesis: str = "") -> str:
+    text = " ".join([command_or_source, note, hypothesis]).lower()
+    if any(token in text for token in ("--learning-rate", "--plateau-min-lr", "scheduler", "learning rate", "plateau")):
+        return "optimizer_schedule"
+    if any(
+        token in text
+        for token in (
+            "--hybrid-encoder-spectral-hidden-scale",
+            "--hybrid-encoder-conv-hidden-scale",
+            "encoder hidden scale",
+            "spectral hidden scale",
+            "conv hidden scale",
+        )
+    ):
+        return "encoder_hidden_scale"
+    if any(
+        token in text
+        for token in (
+            "--hybrid-downsample-steps",
+            "--hybrid-downsample-op",
+            "downsample",
+            "avgpool",
+            "blurpool",
+            "stride_conv",
+        )
+    ):
+        return "downsampling"
+    if any(
+        token in text
+        for token in (
+            "--hybrid-skip-style",
+            "--hybrid-skip-connections",
+            "--no-hybrid-skip-connections",
+            "skip fusion",
+            "skip connection",
+            "gated_add",
+            "concat",
+        )
+    ):
+        return "skip_fusion"
+    if any(
+        token in text
+        for token in (
+            "--fno-modes",
+            "--fno-width",
+            "--fno-blocks",
+            "--hybrid-resnet-blocks",
+            "--torch-resnet-width",
+            "bottleneck",
+            "width",
+            "modes",
+            "blocks",
+        )
+    ):
+        return "capacity"
+    return "other"
+
+
+def _recent_discard_streak(rows: list[dict[str, str]]) -> int:
+    streak = 0
+    for row in reversed(rows):
+        if row.get("decision", "").lower() in DISCARD_STREAK_DECISIONS:
+            streak += 1
+            continue
+        break
+    return streak
+
+
+def build_recent_history_summary(session_root: Path, max_rows: int = 10) -> dict[str, object]:
+    rows = _read_results_rows(session_root)
+    if not rows:
+        return {"recent_attempts": [], "recent_outcomes": []}
 
     recent_attempts = rows[-max_rows:] if max_rows > 0 else []
     return {
@@ -562,15 +706,88 @@ def build_recent_history_summary(session_root: Path, max_rows: int = 10) -> dict
     }
 
 
+def build_search_summary(session_root: Path) -> dict[str, object]:
+    rows = _read_results_rows(session_root)
+    attempted_values = {knob: set() for knob in (*SEARCH_SUMMARY_FLAGS.keys(), "hybrid_skip_connections")}
+    family_counts = Counter()
+    for row in rows:
+        values = _extract_attempted_values(row.get("command_or_source", ""))
+        for knob, parsed in values.items():
+            attempted_values[knob].update(parsed)
+        family = _classify_hypothesis_family(
+            row.get("command_or_source", ""),
+            row.get("notes", ""),
+            "",
+        )
+        family_counts[family] += 1
+
+    serialized_attempted_values = {
+        knob: sorted(values)
+        for knob, values in attempted_values.items()
+    }
+    recent_rows = rows[-5:]
+    recent_families = [
+        _classify_hypothesis_family(row.get("command_or_source", ""), row.get("notes", ""), "")
+        for row in recent_rows
+    ]
+    dominant_recent_family = Counter(recent_families).most_common(1)[0][0] if recent_families else None
+    preferred_exploration_families = [
+        family
+        for family in HYPOTHESIS_FAMILIES
+        if family != dominant_recent_family and family_counts.get(family, 0) == 0
+    ]
+    return {
+        "total_attempts": len(rows),
+        "decision_counts": dict(Counter(row["decision"] for row in rows)),
+        "family_counts": dict(family_counts),
+        "recent_families": recent_families,
+        "dominant_recent_family": dominant_recent_family,
+        "attempted_values": serialized_attempted_values,
+        "underexplored_knobs": [
+            knob for knob, values in serialized_attempted_values.items() if len(values) <= 1
+        ],
+        "recent_discard_streak": _recent_discard_streak(rows),
+        "preferred_exploration_families": preferred_exploration_families,
+    }
+
+
+def _select_proposal_mode(search_summary: dict[str, object]) -> tuple[str, str]:
+    recent_discard_streak = int(search_summary.get("recent_discard_streak", 0))
+    dominant_recent_family = search_summary.get("dominant_recent_family")
+    if recent_discard_streak >= 5 and dominant_recent_family:
+        return (
+            "explore",
+            f"Recent discard streak suggests local saturation around the {dominant_recent_family} family.",
+        )
+    return (
+        "exploit",
+        "Default exploit mode: no sustained discard streak suggests an exploratory jump yet.",
+    )
+
+
 def build_proposal_context(session: SessionState, max_rows: int = 10) -> dict[str, object]:
+    repo_root = _repo_root_for_session(session.session_root)
     accepted_state = json.loads(session.accepted_state_path.read_text(encoding="utf-8"))
     recent_history = build_recent_history_summary(session.session_root, max_rows=max_rows)
+    search_summary = build_search_summary(session.session_root)
+    proposal_mode, proposal_mode_reason = _select_proposal_mode(search_summary)
+    queued_workflow_idea = _load_active_workflow_queue_item(repo_root)
+    queue_priority_active = queued_workflow_idea is not None
+    if queue_priority_active:
+        proposal_mode_reason = (
+            f"Queued workflow idea {queued_workflow_idea['path']} has priority for this proposal."
+        )
     proposal_context_path = _proposal_context_path(session.session_root)
     payload = {
         "session_id": session.session_id,
         "iteration": session.iteration,
         "accepted_state": accepted_state,
         "recent_history": recent_history,
+        "search_summary": search_summary,
+        "proposal_mode": proposal_mode,
+        "proposal_mode_reason": proposal_mode_reason,
+        "queue_priority_active": queue_priority_active,
+        "queued_workflow_idea": queued_workflow_idea,
         "proposal_context_path": str(proposal_context_path),
     }
     proposal_context_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -623,6 +840,11 @@ def build_candidate_context(session: SessionState, iteration: int | None = None)
     repo_root = _repo_root_for_session(session.session_root)
     iter_root = _iteration_root(session, iteration)
     iter_root.mkdir(parents=True, exist_ok=True)
+    proposal_context = (
+        _read_json(_proposal_context_path(session.session_root))
+        if _proposal_context_path(session.session_root).exists()
+        else {}
+    )
     payload = {
         "timestamp_utc": _utc_timestamp(),
         "candidate_metadata_path": _relative_to_repo(repo_root, _candidate_metadata_path(session, iteration)),
@@ -648,6 +870,8 @@ def build_candidate_context(session: SessionState, iteration: int | None = None)
         "output_root_base": _relative_to_repo(repo_root, session.outputs_root / "candidates"),
         "log_root": _relative_to_repo(repo_root, iter_root),
         "comparison_gallery_dir": _relative_to_repo(repo_root, session.comparison_gallery_dir),
+        "queue_priority_active": bool(proposal_context.get("queue_priority_active", False)),
+        "queued_workflow_idea": proposal_context.get("queued_workflow_idea"),
     }
     _write_json(_candidate_context_path(session, iteration), payload)
     return payload
@@ -714,6 +938,43 @@ def _load_relative_json_list(repo_root: Path, relpath: str) -> list[str]:
     if not isinstance(payload, list) or not all(isinstance(item, str) for item in payload):
         raise SystemExit(f"Expected JSON list[str] at {path}")
     return payload
+
+
+def _queued_workflow_idea_for_iteration(session: SessionState) -> dict[str, object] | None:
+    candidate_context_path = _candidate_context_path(session)
+    if not candidate_context_path.exists():
+        proposal_context_path = _proposal_context_path(session.session_root)
+        if not proposal_context_path.exists():
+            return None
+        payload = _read_json(proposal_context_path)
+    else:
+        payload = _read_json(candidate_context_path)
+    queued = payload.get("queued_workflow_idea")
+    return queued if isinstance(queued, dict) else None
+
+
+def _move_queued_workflow_idea(
+    repo_root: Path,
+    session: SessionState,
+    decision: str,
+) -> None:
+    queued = _queued_workflow_idea_for_iteration(session)
+    if not queued:
+        return
+    dest_dir_name = WORKFLOW_QUEUE_OUTCOME_DIRS.get(str(decision).upper())
+    if not dest_dir_name:
+        return
+    relpath = str(queued.get("path", "")).strip()
+    if not relpath:
+        return
+
+    source = repo_root / relpath
+    destination = _workflow_queue_root(repo_root) / dest_dir_name / Path(relpath).name
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    if destination.exists():
+        return
+    if source.exists():
+        shutil.move(str(source), str(destination))
 
 
 def _candidate_paths_for_source_proposal(repo_root: Path, proposal: dict[str, object]) -> list[str]:
@@ -859,7 +1120,7 @@ def validate_ready_proposal(repo_root: Path, session: SessionState, proposal: di
 
 def _render_injected_prompt(
     repo_root: Path,
-    prompt_path: Path,
+    prompt_paths: list[Path],
     injected_paths: list[Path],
     instruction: str,
 ) -> str:
@@ -870,7 +1131,9 @@ def _render_injected_prompt(
         prompt_parts.append(path.read_text(encoding="utf-8").rstrip())
         prompt_parts.append(f"--- END INJECTED FILE: {rel} ---")
         prompt_parts.append("")
-    prompt_parts.append(prompt_path.read_text(encoding="utf-8"))
+    for prompt_path in prompt_paths:
+        prompt_parts.append(prompt_path.read_text(encoding="utf-8").rstrip())
+        prompt_parts.append("")
     return "\n".join(prompt_parts)
 
 
@@ -928,6 +1191,25 @@ def _proposal_injected_paths(repo_root: Path, session: SessionState, candidate_c
     ]
 
 
+def _proposal_prompt_paths(repo_root: Path, proposal_context: dict[str, object]) -> list[Path]:
+    prompt_root = repo_root / "prompts/workflows/lines_256_arch_improvement"
+    proposal_mode = str(proposal_context.get("proposal_mode", "exploit")).strip().lower()
+    if proposal_mode not in {"exploit", "explore"}:
+        raise SystemExit(f"Unsupported proposal_mode: {proposal_mode}")
+    common_prompt = prompt_root / "experiment_step_common.md"
+    mode_prompt = prompt_root / f"experiment_step_{proposal_mode}.md"
+    if common_prompt.exists() and mode_prompt.exists():
+        return [common_prompt, mode_prompt]
+
+    legacy_prompt = prompt_root / "experiment_step.md"
+    if legacy_prompt.exists():
+        return [legacy_prompt]
+    raise SystemExit(
+        "Missing proposal prompt files: expected either the split prompt bundle "
+        f"({common_prompt.name} + {mode_prompt.name}) or legacy {legacy_prompt.name}"
+    )
+
+
 def _debug_injected_paths(repo_root: Path, session: SessionState, candidate_context_path: Path) -> list[Path]:
     return [
         repo_root / "docs/studies/lines_256_dataset.md",
@@ -959,12 +1241,12 @@ def run_proposal_step(
     reasoning_effort: str,
 ) -> dict[str, object]:
     repo_root = repo_root.resolve()
-    build_proposal_context(session, max_rows=10)
+    proposal_context = build_proposal_context(session, max_rows=10)
     build_candidate_context(session)
     candidate_context_path = _candidate_context_path(session)
     prompt_text = _render_injected_prompt(
         repo_root=repo_root,
-        prompt_path=repo_root / "prompts/workflows/lines_256_arch_improvement/experiment_step.md",
+        prompt_paths=_proposal_prompt_paths(repo_root, proposal_context),
         injected_paths=_proposal_injected_paths(repo_root, session, candidate_context_path),
         instruction="Use these files as the authoritative experiment-session inputs.",
     )
@@ -1002,7 +1284,7 @@ def run_debug_step(
     candidate_context_path = _candidate_context_path(session)
     prompt_text = _render_injected_prompt(
         repo_root=repo_root,
-        prompt_path=repo_root / "prompts/workflows/lines_256_arch_improvement/debug_crash.md",
+        prompt_paths=[repo_root / "prompts/workflows/lines_256_arch_improvement/debug_crash.md"],
         injected_paths=_debug_injected_paths(repo_root, session, candidate_context_path),
         instruction="Use these files as the authoritative crash-debug inputs.",
     )
@@ -1316,11 +1598,13 @@ def apply_candidate_assessment(
             else "na"
         )
         _write_accepted_state(session, next_accepted)
+        _move_queued_workflow_idea(repo_root, session, decision)
         return next_accepted
 
     if candidate_kind == "source":
         _cleanup_source_candidate(repo_root, session, proposal)
 
+    _move_queued_workflow_idea(repo_root, session, decision)
     return accepted_state
 
 
@@ -1395,6 +1679,7 @@ def execute_iteration(
             reasoning_effort=reasoning_effort,
         )
         if debug_proposal_or_blocked.get("status") == "BLOCKED":
+            _move_queued_workflow_idea(repo_root, session, "BLOCKED")
             session.debug_attempts = 0
             _write_session_json(session)
             _set_phase(session, "completed")
@@ -1435,6 +1720,7 @@ def execute_iteration(
     )
 
     if proposal_or_blocked.get("status") == "BLOCKED":
+        _move_queued_workflow_idea(repo_root, session, "BLOCKED")
         _set_phase(session, "completed")
         return "STOP"
 
@@ -1465,6 +1751,7 @@ def execute_iteration(
             reasoning_effort=reasoning_effort,
         )
         if debug_proposal_or_blocked.get("status") == "BLOCKED":
+            _move_queued_workflow_idea(repo_root, session, "BLOCKED")
             session.debug_attempts = 0
             _write_session_json(session)
             _set_phase(session, "completed")

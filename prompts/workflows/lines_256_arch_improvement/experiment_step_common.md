@@ -1,7 +1,3 @@
-This compatibility prompt corresponds to the default single-file `lines_256` proposal path.
-The v2 controller normally injects `experiment_step_common.md` plus a mode-specific
-overlay (`experiment_step_exploit.md` or `experiment_step_explore.md`).
-
 Read the injected study docs and session state first.
 
 Your job in this step is only to prepare one candidate architecture-improvement attempt for `lines_256`.
@@ -11,11 +7,10 @@ Before returning `READY`, the candidate must also be smoke-green: it should surv
 
 Bias toward changes that have a plausible path to better `amp_ssim` under the fixed `lines_256` budget.
 Prefer coherent architectural or training-configuration hypotheses over random parameter thrashing.
-Before proposing micro-tuning or local mechanism tweaks, prefer testing a high-leverage architecture knob such as `fno_modes`, `fno_width`, skip-connections, downsampling style, or bottleneck width when it offers a plausible path to materially better `amp_ssim`.
-For this study, treat moderate changes to those first-order capacity knobs as first-tier hypotheses rather than generic knob twiddling, and explicitly try higher `fno_modes` counts such as `12 -> 24` before drifting into local mechanism tuning.
 Use the injected full-session `search_summary`, not just the last few attempts, to understand which knob families are already saturated and which remain underexplored.
-If the recent history shows a streak of local discards or timeouts around the accepted champion, prefer one credible exploratory jump over another nearby perturbation.
-Credible broader hypotheses include stage-specific spectral schedules, encoder hidden-scale redistribution, encoder-vs-decoder capacity rebalancing, skip-projection/fusion changes, or optimizer/scheduler adjustments that still respect the fixed dataset and `20`-epoch contract.
+Use the injected `proposal_mode` and `proposal_mode_reason` as proposal-steering context only. They are meant to help you choose a better next hypothesis, not to replace your judgment.
+If `proposal_context.json` includes an active `queued_workflow_idea`, treat that queued idea as the highest-priority direction for this proposal step. Interpret it faithfully, but still apply the same coherence, simplicity, smoke-check, and fixed-study-contract standards.
+If a queued workflow idea is not viable to test cleanly, return `BLOCKED` or a clean failed attempt rather than silently substituting some unrelated free-form idea.
 
 **Simplicity criterion**: all else being equal, simpler is better.
 - A small improvement that adds ugly complexity is usually not worth it.
@@ -45,6 +40,7 @@ You must use the following injected files as authority:
 - the injected `protected_local_paths.json` for this task
 - the injected `accepted_state.json` for this task
 - the injected `candidate_context.json` for this task
+- the injected `proposal_context.json` for this task
 
 Task:
 1. Read the authoritative study docs and the session-state files.
@@ -135,7 +131,6 @@ Rules:
 - Do not fabricate evidence or claim improvement. This task only prepares and validates a candidate package.
 - Do not stage or commit `state/` or `outputs/`.
 - The accepted reference is the comparison target. Optimize for a better next accepted state, not for novelty.
-- Do not confuse "not for novelty" with only making local tweaks around the current champion. A broader exploratory candidate is good when the local neighborhood looks saturated.
 - Set `base_ref` to the accepted git sha from `accepted_state.json` that you started from before finalizing the candidate package.
 - Prefer deletions, simplifications, and cleaner mechanisms when they are plausible improvement paths.
 - When two candidate directions look similarly promising, prefer the one with lower added complexity and lower incremental compute cost.

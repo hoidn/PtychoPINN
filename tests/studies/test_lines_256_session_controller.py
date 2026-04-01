@@ -270,6 +270,70 @@ def test_build_recent_history_summary_limits_to_recent_rows(tmp_path):
     assert summary["recent_outcomes"] == ["discard", "keep"]
 
 
+def test_build_search_summary_tracks_attempted_values_and_discard_streak(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        build_search_summary,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    with session.results_tsv_path.open("a", encoding="utf-8") as fh:
+        fh.write(
+            "20260325T000000Z\t2026-03-25T00:00:00Z\tcand1\tdiscard\t0.7\tbase\t0.8\t-0.1\tout/a\tpng/a\tpython run.py --fno-modes 24 --fno-width 32 --hybrid-skip-connections --hybrid-resnet-blocks 8\tnote a\n"
+        )
+        fh.write(
+            "20260325T000000Z\t2026-03-25T00:10:00Z\tcand2\ttimeout\tna\tbase\t0.8\tna\tout/b\tpng/b\tpython run.py --fno-modes 32 --fno-width 32 --hybrid-skip-connections --hybrid-resnet-blocks 10\tnote b\n"
+        )
+        fh.write(
+            "20260325T000000Z\t2026-03-25T00:20:00Z\tcand3\tdiscard\t0.75\tbase\t0.8\t-0.05\tout/c\tpng/c\tpython run.py --fno-modes 32 --fno-width 48 --hybrid-skip-connections --hybrid-resnet-blocks 10 --torch-resnet-width 192\tnote c\n"
+        )
+
+    summary = build_search_summary(session.session_root)
+
+    assert summary["total_attempts"] == 3
+    assert summary["decision_counts"] == {"discard": 2, "timeout": 1}
+    assert summary["attempted_values"]["fno_modes"] == ["24", "32"]
+    assert summary["attempted_values"]["fno_width"] == ["32", "48"]
+    assert summary["attempted_values"]["hybrid_skip_connections"] == ["on"]
+    assert summary["attempted_values"]["torch_resnet_width"] == ["192"]
+    assert summary["recent_discard_streak"] == 3
+    assert "hybrid_encoder_spectral_hidden_scale" in summary["underexplored_knobs"]
+
+
+def test_build_search_summary_tracks_family_saturation_after_local_discard_cluster(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        build_search_summary,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    with session.results_tsv_path.open("a", encoding="utf-8") as fh:
+        for i, command in enumerate(
+            [
+                "python run.py --fno-modes 24 --fno-width 32",
+                "python run.py --fno-modes 32 --fno-width 48",
+                "python run.py --fno-modes 40 --fno-width 32",
+                "python run.py --fno-blocks 6 --fno-modes 32",
+                "python run.py --hybrid-resnet-blocks 12 --fno-modes 32",
+            ]
+        ):
+            fh.write(
+                f"20260325T000000Z\t2026-03-25T00:{i:02d}:00Z\tcand{i}\tdiscard\t0.7\tbase\t0.8\t-0.1\tout/{i}\tpng/{i}\t{command}\tnote {i}\n"
+            )
+
+    summary = build_search_summary(session.session_root)
+
+    assert summary["recent_discard_streak"] == 5
+    assert summary["dominant_recent_family"] == "capacity"
+    assert summary["family_counts"]["capacity"] == 5
+    assert "optimizer_schedule" in summary["preferred_exploration_families"]
+    assert "encoder_hidden_scale" in summary["preferred_exploration_families"]
+
+
 def test_build_proposal_context_reads_session_local_accepted_state(tmp_path):
     from scripts.studies.lines_256_session_controller import (
         build_proposal_context,
@@ -301,10 +365,384 @@ def test_build_proposal_context_reads_session_local_accepted_state(tmp_path):
 
     assert context["accepted_state"]["accepted_ref"] == "abc123"
     assert context["recent_history"]["recent_attempts"] == []
+    assert context["search_summary"]["total_attempts"] == 0
+    assert "fno_modes" in context["search_summary"]["attempted_values"]
+    assert "hybrid_encoder_spectral_hidden_scale" in context["search_summary"]["underexplored_knobs"]
+    assert context["proposal_mode"] == "exploit"
+    assert "Default exploit mode" in context["proposal_mode_reason"]
     assert context["proposal_context_path"] == str(
         session.session_root / "proposal_context.json"
     )
     assert (session.session_root / "proposal_context.json").exists()
+
+
+def test_build_proposal_context_switches_to_explore_mode_after_local_discard_cluster(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        build_proposal_context,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": _git(repo, "rev-parse", "HEAD").stdout.strip(),
+                "accepted_amp_ssim": 0.9,
+                "accepted_run_command": "python run.py --fno-modes 32 --fno-width 32 --fno-blocks 5",
+                "accepted_candidate_kind": "run_config",
+                "accepted_randomness_contract": {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    with session.results_tsv_path.open("a", encoding="utf-8") as fh:
+        for i, command in enumerate(
+            [
+                "python run.py --fno-modes 24 --fno-width 32",
+                "python run.py --fno-modes 32 --fno-width 48",
+                "python run.py --fno-modes 40 --fno-width 32",
+                "python run.py --fno-blocks 6 --fno-modes 32",
+                "python run.py --hybrid-resnet-blocks 12 --fno-modes 32",
+            ]
+            ):
+                fh.write(
+                    f"20260325T000000Z\t2026-03-25T00:{i:02d}:00Z\tcand{i}\tdiscard\t0.7\tbase\t0.8\t-0.1\tout/{i}\tpng/{i}\t{command}\tnote {i}\n"
+                )
+
+    context = build_proposal_context(session, max_rows=10)
+
+    assert context["proposal_mode"] == "explore"
+    assert "discard streak" in context["proposal_mode_reason"].lower()
+    assert context["search_summary"]["dominant_recent_family"] == "capacity"
+
+
+def test_build_proposal_context_includes_first_active_workflow_queue_item(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        build_proposal_context,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": "abc123",
+                "accepted_amp_ssim": 0.91,
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    active = repo / "docs" / "workflow_queue" / "active"
+    active.mkdir(parents=True, exist_ok=True)
+    first = active / "2026-03-31-a-first.md"
+    second = active / "2026-03-31-z-second.md"
+    first.write_text("# First idea\n\nTry the first queued idea.\n", encoding="utf-8")
+    second.write_text("# Second idea\n\nTry the second queued idea.\n", encoding="utf-8")
+
+    context = build_proposal_context(session, max_rows=5)
+
+    assert context["queue_priority_active"] is True
+    assert context["queued_workflow_idea"]["path"] == str(
+        Path("docs/workflow_queue/active/2026-03-31-a-first.md")
+    )
+    assert "First idea" in context["queued_workflow_idea"]["content"]
+    assert "queued workflow idea" in context["proposal_mode_reason"].lower()
+
+
+def test_build_proposal_context_reports_no_workflow_queue_item_when_empty(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        build_proposal_context,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": "abc123",
+                "accepted_amp_ssim": 0.91,
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    context = build_proposal_context(session, max_rows=5)
+
+    assert context["queue_priority_active"] is False
+    assert context["queued_workflow_idea"] is None
+
+
+def test_validate_ready_proposal_does_not_reject_same_family_during_explore_mode(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        initialize_session,
+        validate_ready_proposal,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.9,
+                "accepted_run_command": "python run.py --fno-modes 32 --fno-width 32 --fno-blocks 5",
+                "accepted_candidate_kind": "run_config",
+                "accepted_randomness_contract": {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    smoke_output = repo / "outputs" / "smoke"
+    randomness = smoke_output / "runs" / "pinn_hybrid_resnet" / "randomness_contract.json"
+    randomness.parent.mkdir(parents=True, exist_ok=True)
+    randomness.write_text(
+        json.dumps(
+            {
+                "requested_seed": 3,
+                "effective_subsample_seed": 3,
+                "effective_lightning_seed": 3,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    smoke_log = repo / "state" / "smoke.log"
+    smoke_log.parent.mkdir(parents=True, exist_ok=True)
+    smoke_log.write_text("ok\n", encoding="utf-8")
+    with session.results_tsv_path.open("a", encoding="utf-8") as fh:
+        for i, command in enumerate(
+            [
+                "python run.py --fno-modes 24 --fno-width 32",
+                "python run.py --fno-modes 32 --fno-width 48",
+                "python run.py --fno-modes 40 --fno-width 32",
+                "python run.py --fno-blocks 6 --fno-modes 32",
+                "python run.py --hybrid-resnet-blocks 12 --fno-modes 32",
+            ]
+            ):
+                fh.write(
+                    f"20260325T000000Z\t2026-03-25T00:{i:02d}:00Z\tcand{i}\tdiscard\t0.7\tbase\t0.8\t-0.1\tout/{i}\tpng/{i}\t{command}\tnote {i}\n"
+                )
+
+    proposal = {
+        "candidate_kind": "run_config",
+        "base_ref": base_ref,
+        "smoke_output_root": "outputs/smoke",
+        "smoke_log_path": "state/smoke.log",
+        "run_command": "python run.py --fno-modes 32 --fno-width 64",
+        "output_root": "outputs/candidate",
+        "log_path": "state/candidate.log",
+        "comparison_png_path": "outputs/candidate.png",
+        "note": "another capacity bump",
+        "hypothesis": "increase width again",
+    }
+
+    validate_ready_proposal(repo, session, proposal)
+
+
+def test_proposal_prompt_paths_switch_between_exploit_and_explore(tmp_path):
+    from scripts.studies.lines_256_session_controller import _proposal_prompt_paths
+
+    repo = tmp_path / "repo"
+    prompts = repo / "prompts" / "workflows" / "lines_256_arch_improvement"
+    prompts.mkdir(parents=True, exist_ok=True)
+    for name in (
+        "experiment_step_common.md",
+        "experiment_step_exploit.md",
+        "experiment_step_explore.md",
+    ):
+        (prompts / name).write_text(f"{name}\n", encoding="utf-8")
+
+    exploit_paths = _proposal_prompt_paths(repo, {"proposal_mode": "exploit"})
+    explore_paths = _proposal_prompt_paths(repo, {"proposal_mode": "explore"})
+
+    assert [path.name for path in exploit_paths] == [
+        "experiment_step_common.md",
+        "experiment_step_exploit.md",
+    ]
+    assert [path.name for path in explore_paths] == [
+        "experiment_step_common.md",
+        "experiment_step_explore.md",
+    ]
+
+
+def test_proposal_prompt_paths_fall_back_to_legacy_single_prompt(tmp_path):
+    from scripts.studies.lines_256_session_controller import _proposal_prompt_paths
+
+    repo = tmp_path / "repo"
+    prompts = repo / "prompts" / "workflows" / "lines_256_arch_improvement"
+    prompts.mkdir(parents=True, exist_ok=True)
+    (prompts / "experiment_step.md").write_text("legacy prompt\n", encoding="utf-8")
+
+    prompt_paths = _proposal_prompt_paths(repo, {"proposal_mode": "explore"})
+
+    assert [path.name for path in prompt_paths] == ["experiment_step.md"]
+
+
+@pytest.mark.parametrize(
+    ("decision", "dest_dir"),
+    [
+        ("KEEP", "accepted"),
+        ("DISCARD", "discarded"),
+        ("TIMEOUT", "timed_out"),
+        ("CRASH", "crashed"),
+    ],
+)
+def test_apply_candidate_assessment_moves_active_workflow_queue_item_on_terminal_outcome(
+    tmp_path, decision, dest_dir
+):
+    from scripts.studies.lines_256_session_controller import (
+        _candidate_context_path,
+        apply_candidate_assessment,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    active = repo / "docs" / "workflow_queue" / "active"
+    active.mkdir(parents=True, exist_ok=True)
+    idea = active / "2026-03-31-queued-idea.md"
+    idea.write_text("# Queued idea\n", encoding="utf-8")
+    _candidate_context_path(session).parent.mkdir(parents=True, exist_ok=True)
+    _candidate_context_path(session).write_text(
+        json.dumps(
+            {
+                "queued_workflow_idea": {
+                    "path": "docs/workflow_queue/active/2026-03-31-queued-idea.md",
+                    "content": "# Queued idea\n",
+                }
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    accepted_state = apply_candidate_assessment(
+        repo_root=repo,
+        session=session,
+        proposal={
+            "candidate_kind": "run_config",
+            "base_ref": base_ref,
+            "run_command": "python run.py --fno-modes 24",
+            "output_root": "outputs/v2/candidate-queue",
+            "comparison_png_path": "outputs/v2/candidate-queue.png",
+            "note": "queued idea",
+            "hypothesis": "queue-backed candidate",
+        },
+        assessment={
+            "decision": decision,
+            "amp_ssim": 0.91 if decision == "KEEP" else 0.75,
+            "randomness_contract": {"requested_seed": 3},
+        },
+    )
+
+    assert not idea.exists()
+    moved = repo / "docs" / "workflow_queue" / dest_dir / idea.name
+    assert moved.exists()
+    if decision == "KEEP":
+        assert accepted_state["accepted_amp_ssim"] == 0.91
+
+
+def test_execute_iteration_moves_active_workflow_queue_item_to_blocked(tmp_path, monkeypatch):
+    from scripts.studies.lines_256_session_controller import (
+        build_proposal_context,
+        execute_iteration,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    active = repo / "docs" / "workflow_queue" / "active"
+    active.mkdir(parents=True, exist_ok=True)
+    idea = active / "2026-03-31-queued-idea.md"
+    idea.write_text("# Queued idea\n", encoding="utf-8")
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": _git(repo, "rev-parse", "HEAD").stdout.strip(),
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    build_proposal_context(session, max_rows=5)
+
+    monkeypatch.setattr(
+        "scripts.studies.lines_256_session_controller.run_proposal_step",
+        lambda **kwargs: {"status": "BLOCKED", "blocker_reason": "idea not viable"},
+    )
+
+    decision = execute_iteration(
+        repo_root=repo,
+        session=session,
+        codex_cmd="codex",
+        model="gpt-5.4",
+        reasoning_effort="high",
+    )
+
+    assert decision == "STOP"
+    assert not idea.exists()
+    moved = repo / "docs" / "workflow_queue" / "blocked" / idea.name
+    assert moved.exists()
 
 
 def test_normalize_candidate_proposal_accepts_run_config_without_commit():
@@ -1230,7 +1668,19 @@ def test_start_full_runs_baseline_then_one_run_config_keep(tmp_path, monkeypatch
         encoding="utf-8",
     )
     (repo / "prompts/workflows/lines_256_arch_improvement/experiment_step.md").write_text(
-        "prompt\n",
+        "compat prompt\n",
+        encoding="utf-8",
+    )
+    (repo / "prompts/workflows/lines_256_arch_improvement/experiment_step_common.md").write_text(
+        "common prompt\n",
+        encoding="utf-8",
+    )
+    (repo / "prompts/workflows/lines_256_arch_improvement/experiment_step_exploit.md").write_text(
+        "exploit prompt\n",
+        encoding="utf-8",
+    )
+    (repo / "prompts/workflows/lines_256_arch_improvement/experiment_step_explore.md").write_text(
+        "explore prompt\n",
         encoding="utf-8",
     )
     (repo / "prompts/workflows/lines_256_arch_improvement/debug_crash.md").write_text(
