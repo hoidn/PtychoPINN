@@ -814,6 +814,14 @@ def _candidate_assessment_path(session: SessionState, iteration: int | None = No
     return _iteration_root(session, iteration) / "candidate_assessment.json"
 
 
+def _proposal_attempt_path(session: SessionState, iteration: int | None = None) -> Path:
+    return _iteration_root(session, iteration) / "proposal_attempt.json"
+
+
+def _proposal_result_path(session: SessionState, iteration: int | None = None) -> Path:
+    return _iteration_root(session, iteration) / "proposal_result.json"
+
+
 def _debug_candidate_metadata_path(session: SessionState, iteration: int | None = None) -> Path:
     return _iteration_root(session, iteration) / "debug_candidate_metadata.json"
 
@@ -828,6 +836,14 @@ def _debug_candidate_run_result_path(session: SessionState, iteration: int | Non
 
 def _debug_candidate_assessment_path(session: SessionState, iteration: int | None = None) -> Path:
     return _iteration_root(session, iteration) / "debug_candidate_assessment.json"
+
+
+def _debug_proposal_attempt_path(session: SessionState, iteration: int | None = None) -> Path:
+    return _iteration_root(session, iteration) / "debug_proposal_attempt.json"
+
+
+def _debug_proposal_result_path(session: SessionState, iteration: int | None = None) -> Path:
+    return _iteration_root(session, iteration) / "debug_proposal_result.json"
 
 
 def _iteration_agent_log_path(
@@ -1087,20 +1103,6 @@ def validate_ready_proposal(repo_root: Path, session: SessionState, proposal: di
             f"Proposal base_ref {proposal['base_ref']} does not match accepted_ref {accepted['accepted_ref']}"
         )
 
-    smoke_output_root = repo_root / str(proposal["smoke_output_root"])
-    smoke_log_path = repo_root / str(proposal["smoke_log_path"])
-    if not smoke_output_root.exists():
-        raise SystemExit(f"Missing smoke output root: {smoke_output_root}")
-    if not smoke_log_path.exists():
-        raise SystemExit(f"Missing smoke log path: {smoke_log_path}")
-
-    smoke_randomness = json.loads(_find_randomness_path(smoke_output_root).read_text(encoding="utf-8"))
-    if smoke_randomness != accepted["accepted_randomness_contract"]:
-        raise SystemExit(
-            "Smoke randomness contract does not match accepted session contract: "
-            f"{smoke_randomness!r} != {accepted['accepted_randomness_contract']!r}"
-        )
-
     candidate_kind = str(proposal["candidate_kind"])
     if candidate_kind == "source":
         if not _git_commit_exists(repo_root, str(proposal["candidate_commit"])):
@@ -1116,6 +1118,23 @@ def validate_ready_proposal(repo_root: Path, session: SessionState, proposal: di
     if "candidate_commit" in proposal or "candidate_paths_file" in proposal:
         raise SystemExit("run_config proposal must not include candidate commit or candidate paths")
     _assert_tracked_paths_preserved(repo_root, session)
+
+
+def _smoke_contract_matches_accepted(
+    repo_root: Path, session: SessionState, proposal: dict[str, object]
+) -> bool:
+    accepted = _load_accepted_state(session)
+    smoke_output_root = repo_root / str(proposal["smoke_output_root"])
+    smoke_log_path = repo_root / str(proposal["smoke_log_path"])
+    if not smoke_output_root.exists() or not smoke_log_path.exists():
+        return False
+    try:
+        smoke_randomness = json.loads(
+            _find_randomness_path(smoke_output_root).read_text(encoding="utf-8")
+        )
+    except SystemExit:
+        return False
+    return smoke_randomness == accepted["accepted_randomness_contract"]
 
 
 def _render_injected_prompt(
@@ -1178,6 +1197,73 @@ def _run_codex_prompt(
     rendered = [f"$ {' '.join(command)}", completed.stdout, completed.stderr]
     log_path.write_text("".join(rendered), encoding="utf-8")
     return completed
+
+
+def _proposal_attempt_artifact_path(
+    session: SessionState, *, debug: bool = False, iteration: int | None = None
+) -> Path:
+    return _debug_proposal_attempt_path(session, iteration) if debug else _proposal_attempt_path(
+        session, iteration
+    )
+
+
+def _proposal_result_artifact_path(
+    session: SessionState, *, debug: bool = False, iteration: int | None = None
+) -> Path:
+    return _debug_proposal_result_path(session, iteration) if debug else _proposal_result_path(
+        session, iteration
+    )
+
+
+def _write_proposal_attempt(
+    repo_root: Path,
+    session: SessionState,
+    *,
+    debug: bool,
+    prompt_paths: list[Path],
+    candidate_context_path: Path,
+    log_path: Path,
+) -> None:
+    payload = {
+        "timestamp_utc": _utc_timestamp(),
+        "iteration": session.iteration,
+        "debug": debug,
+        "prompt_paths": [_relative_to_repo(repo_root, path) for path in prompt_paths],
+        "candidate_context_path": _relative_to_repo(repo_root, candidate_context_path),
+        "expected_metadata_path": _relative_to_repo(
+            repo_root,
+            _debug_candidate_metadata_path(session) if debug else _candidate_metadata_path(session),
+        ),
+        "log_path": _relative_to_repo(repo_root, log_path),
+    }
+    _write_json(_proposal_attempt_artifact_path(session, debug=debug), payload)
+
+
+def _write_proposal_result(
+    session: SessionState,
+    completed: subprocess.CompletedProcess[str],
+    *,
+    debug: bool,
+    metadata_validated: bool,
+    retryable: bool,
+) -> None:
+    payload = {
+        "timestamp_utc": _utc_timestamp(),
+        "provider_exit_code": completed.returncode,
+        "metadata_validated": metadata_validated,
+        "retryable": retryable,
+        "stdout_excerpt": _coerce_subprocess_text(completed.stdout)[:400],
+        "stderr_excerpt": _coerce_subprocess_text(completed.stderr)[:400],
+    }
+    _write_json(_proposal_result_artifact_path(session, debug=debug), payload)
+
+
+def _write_command_log(log_path: Path, launch_result: dict[str, object]) -> None:
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text(
+        str(launch_result["stdout_text"]) + str(launch_result["stderr_text"]),
+        encoding="utf-8",
+    )
 
 
 def _proposal_injected_paths(repo_root: Path, session: SessionState, candidate_context_path: Path) -> list[Path]:
@@ -1244,32 +1330,64 @@ def run_proposal_step(
     proposal_context = build_proposal_context(session, max_rows=10)
     build_candidate_context(session)
     candidate_context_path = _candidate_context_path(session)
+    prompt_paths = _proposal_prompt_paths(repo_root, proposal_context)
+    log_path = _iteration_agent_log_path(session, "proposal_agent.log")
     prompt_text = _render_injected_prompt(
         repo_root=repo_root,
-        prompt_paths=_proposal_prompt_paths(repo_root, proposal_context),
+        prompt_paths=prompt_paths,
         injected_paths=_proposal_injected_paths(repo_root, session, candidate_context_path),
         instruction="Use these files as the authoritative experiment-session inputs.",
+    )
+    _write_proposal_attempt(
+        repo_root,
+        session,
+        debug=False,
+        prompt_paths=prompt_paths,
+        candidate_context_path=candidate_context_path,
+        log_path=log_path,
     )
     _set_phase(session, "proposal_running")
     completed = _run_codex_prompt(
         repo_root=repo_root,
         prompt_text=prompt_text,
-        log_path=_iteration_agent_log_path(session, "proposal_agent.log"),
+        log_path=log_path,
         codex_cmd=codex_cmd,
         model=model,
         reasoning_effort=reasoning_effort,
     )
-    metadata = _load_candidate_metadata(_candidate_metadata_path(session))
-    if completed.returncode != 0 and metadata.get("status") != "BLOCKED":
-        raise SystemExit(f"Proposal agent failed with exit code {completed.returncode}")
+    metadata_path = _candidate_metadata_path(session)
+    if not metadata_path.exists():
+        _write_proposal_result(
+            session,
+            completed,
+            debug=False,
+            metadata_validated=False,
+            retryable=True,
+        )
+        _set_phase(session, "proposal_pending")
+        return {"status": "RETRYABLE_FAILURE"}
+    metadata = _load_candidate_metadata(metadata_path)
     if metadata.get("status") == "BLOCKED":
+        _write_proposal_result(
+            session,
+            completed,
+            debug=False,
+            metadata_validated=True,
+            retryable=False,
+        )
         _assert_tracked_paths_preserved(repo_root, session)
         _set_phase(session, "proposal_complete")
         return metadata
 
     proposal = normalize_candidate_proposal(metadata)
     validate_ready_proposal(repo_root, session, proposal)
-    _set_phase(session, "proposal_complete")
+    _write_proposal_result(
+        session,
+        completed,
+        debug=False,
+        metadata_validated=True,
+        retryable=False,
+    )
     return proposal
 
 
@@ -1413,6 +1531,39 @@ def _write_run_result_artifact(
     _write_json(run_result_path, run_result)
 
 
+def ensure_smoke_green(
+    repo_root: Path,
+    session: SessionState,
+    proposal: dict[str, object],
+) -> None:
+    repo_root = repo_root.resolve()
+    if _smoke_contract_matches_accepted(repo_root, session, proposal):
+        return
+
+    smoke_log_path = repo_root / str(proposal["smoke_log_path"])
+    smoke_launch = _run_scored_command(
+        repo_root=repo_root,
+        command=str(proposal["smoke_command"]),
+        timeout_sec=900,
+    )
+    _write_command_log(smoke_log_path, smoke_launch)
+
+    if bool(smoke_launch["timed_out"]) or int(smoke_launch["exit_code"]) == 124:
+        raise SystemExit("Smoke command timed out before producing a valid candidate package.")
+    if int(smoke_launch["exit_code"]) != 0:
+        raise SystemExit(
+            "Smoke command failed before producing a valid candidate package: "
+            + (_summarize_crash_text(
+                str(smoke_launch["stdout_text"]),
+                str(smoke_launch["stderr_text"]),
+            ) or "unknown smoke failure")
+        )
+    if not _smoke_contract_matches_accepted(repo_root, session, proposal):
+        raise SystemExit(
+            "Smoke command did not produce the required randomness contract for the accepted session."
+        )
+
+
 def run_scored_candidate(
     repo_root: Path,
     session: SessionState,
@@ -1432,11 +1583,7 @@ def run_scored_candidate(
         timeout_sec=1770,
     )
 
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    log_path.write_text(
-        str(launch_result["stdout_text"]) + str(launch_result["stderr_text"]),
-        encoding="utf-8",
-    )
+    _write_command_log(log_path, launch_result)
     _write_run_result_artifact(session, launch_result, debug=debug)
 
     if bool(launch_result["timed_out"]):
@@ -1708,7 +1855,7 @@ def execute_iteration(
 
     existing = (
         _load_existing_ready_proposal(session)
-        if session.current_phase in {"proposal_complete", "scored_running"}
+        if session.current_phase in {"proposal_running", "proposal_complete", "scored_running"}
         else None
     )
     proposal_or_blocked = existing or run_proposal_step(
@@ -1719,12 +1866,17 @@ def execute_iteration(
         reasoning_effort=reasoning_effort,
     )
 
+    if proposal_or_blocked.get("status") == "RETRYABLE_FAILURE":
+        return "YIELD"
     if proposal_or_blocked.get("status") == "BLOCKED":
         _move_queued_workflow_idea(repo_root, session, "BLOCKED")
         _set_phase(session, "completed")
         return "STOP"
 
     proposal = proposal_or_blocked
+    if session.current_phase in {"proposal_running", "proposal_complete"}:
+        ensure_smoke_green(repo_root, session, proposal)
+        _set_phase(session, "proposal_complete")
 
     if session.current_phase == "scored_running":
         assessment = _load_existing_assessment(session) or run_scored_candidate(
@@ -1813,7 +1965,7 @@ def run_full_session(
     expected_ref = _expected_session_ref_for_phase(repo_root, session)
     if expected_ref is not None:
         _ensure_session_checkout_state(repo_root, session, expected_ref=expected_ref)
-
+    yielded = False
     while session.iteration < max_iterations and session.current_phase != "completed":
         decision = execute_iteration(
             repo_root=repo_root,
@@ -1824,8 +1976,11 @@ def run_full_session(
         )
         if decision == "STOP":
             break
+        if decision == "YIELD":
+            yielded = True
+            break
 
-    if session.current_phase != "completed":
+    if session.current_phase != "completed" and not yielded:
         _set_phase(session, "completed")
     return session
 

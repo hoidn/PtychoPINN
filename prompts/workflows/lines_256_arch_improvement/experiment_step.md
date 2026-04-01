@@ -7,7 +7,6 @@ Read the injected study docs and session state first.
 Your job in this step is only to prepare one candidate architecture-improvement attempt for `lines_256`.
 
 Your primary responsibility is to propose and build a worthwhile improvement attempt, not just any change that satisfies the mechanical contract of this task.
-Before returning `READY`, the candidate must also be smoke-green: it should survive a cheap end-to-end training+inference sanity run after your code changes.
 
 Bias toward changes that have a plausible path to better `amp_ssim` under the fixed `lines_256` budget.
 Prefer coherent architectural or training-configuration hypotheses over random parameter thrashing.
@@ -55,9 +54,9 @@ Task:
    - `run_config`: keep tracked source files at the accepted ref and prepare a parameter-only rerun of the accepted architecture
 5. If you are preparing a `source` candidate, restrict edits to existing files only, and only when those files are not in the protected local-change set.
 6. If you are preparing a `run_config` candidate, leave tracked source files unchanged and express the hypothesis only through the smoke and scored run commands.
-7. Run a cheap end-to-end smoke check that exercises both training and inference for the candidate you prepared.
-8. If the smoke check fails because of your code change or parameter change, fix the problem and rerun the smoke check.
-9. Only once the candidate is smoke-green:
+7. Prepare a cheap end-to-end smoke command that exercises both training and inference for the candidate you prepared.
+8. Do not run the smoke check yourself. The controller will execute the smoke command after validating your candidate metadata and will decide whether the candidate is smoke-green.
+9. Only once the candidate package is coherent and complete:
    - for `source`, stage only the intended candidate files and create exactly one candidate commit
    - for `run_config`, stage nothing and create no candidate commit
 10. Write candidate metadata JSON to the exact path named by `candidate_metadata_path` in the injected candidate context file.
@@ -69,7 +68,7 @@ If you cannot get the candidate smoke-green after a small number of focused fixe
 Allowed outcomes:
 
 1. `READY`
-Use this only when you prepared one coherent candidate package, got it through the smoke check, and wrote complete metadata for either a `source` or `run_config` candidate.
+Use this only when you prepared one coherent candidate package and wrote complete metadata for either a `source` or `run_config` candidate so the controller can run the smoke check deterministically.
 
 2. `BLOCKED`
 Use this when the best next change would:
@@ -77,7 +76,6 @@ Use this when the best next change would:
 - require editing outside the allowed editable surface
 - require guessing missing study/runner behavior
 - have no credible next experiment that clears the simplicity and coherence bar
-- fail the smoke check in a way you cannot repair cleanly without thrashing or guessing
 - or otherwise should stop this task instead of guessing
 
 If you are blocked:
@@ -123,10 +121,9 @@ For `BLOCKED`, include:
 
 Rules:
 - Use the `timestamp_utc`, `comparison_gallery_dir`, `output_root_base`, and `log_root` values from the injected candidate context file when constructing output paths.
-- The smoke check should use `scripts/studies/grid_lines_torch_runner.py` directly so you can run a cheap end-to-end sanity pass with `epochs=1` while preserving the same `lines_256` dataset, seed, `N=256`, `gridsize=1`, `hybrid_resnet` architecture family, `--no-probe-mask`, and `--torch-mae-pred-l2-match-target`.
-- The smoke check must exercise both training and inference, not just CLI parsing or importability.
-- After the smoke check, inspect `<smoke_output_root>/runs/pinn_hybrid_resnet/randomness_contract.json` and compare it to `accepted_state.json["accepted_randomness_contract"]`.
-- Only treat randomness as a blocker if the smoke run cannot produce that contract or it does not match the accepted reference. Do not block merely because an internal effective seed value differs from the requested wrapper seed when it still matches the accepted session contract.
+- The smoke command should use `scripts/studies/grid_lines_torch_runner.py` directly so the controller can run a cheap end-to-end sanity pass with `epochs=1` while preserving the same `lines_256` dataset, seed, `N=256`, `gridsize=1`, `hybrid_resnet` architecture family, `--no-probe-mask`, and `--torch-mae-pred-l2-match-target`.
+- The smoke command must exercise both training and inference, not just CLI parsing or importability.
+- The controller will inspect `<smoke_output_root>/runs/pinn_hybrid_resnet/randomness_contract.json` and compare it to `accepted_state.json["accepted_randomness_contract"]`.
 - The candidate run command must target the fixed `lines_256` wrapper and preserve the fixed dataset/epoch contract from the study docs.
 - Set `comparison_png_path` to the session-gallery `compare_amp_phase_probe.png` artifact for this candidate, not to a nested `visuals/` path.
 - For `run_config`, prepare a parameter-only rerun of the accepted architecture. Do not edit tracked source files just to encode a wrapper-level configuration experiment.
@@ -143,7 +140,6 @@ Rules:
 - If a candidate increases modes, width, depth, runtime, memory, or model size, justify why that extra cost is worth paying in the `hypothesis`.
 
 Before finishing:
-- verify the smoke check succeeded
 - verify `candidate_metadata_path` exists and contains valid JSON
 - if `candidate_kind` is `source`, verify the commit exists
 - if `candidate_kind` is `source`, verify `candidate_paths_file` exists and contains a JSON list of relative file paths

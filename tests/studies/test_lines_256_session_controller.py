@@ -1655,6 +1655,219 @@ def _write_run_outputs(root: Path, amp_ssim: float) -> None:
     (visuals_dir / "compare_amp_phase_probe.png").write_text("png", encoding="utf-8")
 
 
+def _write_minimal_lines256_docs(repo: Path) -> None:
+    (repo / "docs/studies").mkdir(parents=True, exist_ok=True)
+    (repo / "prompts/workflows/lines_256_arch_improvement").mkdir(parents=True, exist_ok=True)
+    (repo / "docs/studies/lines_256_dataset.md").write_text("dataset\n", encoding="utf-8")
+    (repo / "docs/studies/lines_256_arch_improvement_loop.md").write_text(
+        "loop doc\n",
+        encoding="utf-8",
+    )
+    (repo / "prompts/workflows/lines_256_arch_improvement/experiment_step.md").write_text(
+        "compat prompt\n",
+        encoding="utf-8",
+    )
+    (repo / "prompts/workflows/lines_256_arch_improvement/experiment_step_common.md").write_text(
+        "common prompt\n",
+        encoding="utf-8",
+    )
+    (repo / "prompts/workflows/lines_256_arch_improvement/experiment_step_exploit.md").write_text(
+        "exploit prompt\n",
+        encoding="utf-8",
+    )
+    (repo / "prompts/workflows/lines_256_arch_improvement/experiment_step_explore.md").write_text(
+        "explore prompt\n",
+        encoding="utf-8",
+    )
+    (repo / "prompts/workflows/lines_256_arch_improvement/debug_crash.md").write_text(
+        "debug prompt\n",
+        encoding="utf-8",
+    )
+
+
+def test_resume_proposal_running_without_metadata_yields_retryable_pending_state(
+    tmp_path, monkeypatch
+):
+    from scripts.studies.lines_256_session_controller import initialize_session, main
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _write_minimal_lines256_docs(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (session.protected_local_paths_path).write_text("[]\n", encoding="utf-8")
+    session.current_phase = "proposal_running"
+    _write_json = lambda payload: session.session_json_path.write_text(  # noqa: E731
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    _write_json(
+        {
+            "session_id": session.session_id,
+            "current_phase": session.current_phase,
+            "iteration": session.iteration,
+            "debug_attempts": session.debug_attempts,
+            "session_root": str(session.session_root.relative_to(repo)),
+            "results_tsv_path": str(session.results_tsv_path.relative_to(repo)),
+            "accepted_state_path": str(session.accepted_state_path.relative_to(repo)),
+            "protected_local_paths_path": str(session.protected_local_paths_path.relative_to(repo)),
+            "outputs_root": str(session.outputs_root.relative_to(repo)),
+            "comparison_gallery_dir": str(session.comparison_gallery_dir.relative_to(repo)),
+            "baseline_output_root": str(session.baseline_output_root.relative_to(repo)),
+            "baseline_log_path": str(session.baseline_log_path.relative_to(repo)),
+            "baseline_result_path": str(session.baseline_result_path.relative_to(repo)),
+            "baseline_comparison_png": str(session.baseline_comparison_png.relative_to(repo)),
+        }
+    )
+
+    def fake_run(command, **kwargs):
+        if command[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if len(command) >= 2 and command[1] == "exec":
+            return subprocess.CompletedProcess(
+                command,
+                1,
+                stdout="",
+                stderr="ERROR: Selected model is at capacity\n",
+            )
+        raise AssertionError(command)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    exit_code = main(
+        [
+            "resume",
+            "--session-root",
+            str(session.session_root),
+            "--max-iterations",
+            "1",
+            "--codex-cmd",
+            "codex",
+        ]
+    )
+
+    assert exit_code == 0
+    resumed = json.loads(session.session_json_path.read_text(encoding="utf-8"))
+    assert resumed["current_phase"] == "proposal_pending"
+    assert resumed["iteration"] == 0
+    proposal_result_path = session.session_root / "iterations" / "000" / "proposal_result.json"
+    assert proposal_result_path.exists()
+    payload = json.loads(proposal_result_path.read_text(encoding="utf-8"))
+    assert payload["retryable"] is True
+    assert payload["metadata_validated"] is False
+
+
+def test_start_full_runs_controller_owned_smoke_before_scored_candidate(tmp_path, monkeypatch):
+    from scripts.studies.lines_256_session_controller import main
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _write_minimal_lines256_docs(repo)
+    session_id = "20260325T000000Z"
+    session_root = (
+        repo / "state" / "lines_256_arch_improvement_v2" / "sessions" / session_id
+    )
+    outputs_root = (
+        repo / "outputs" / "lines_256_arch_improvement_v2" / "sessions" / session_id
+    )
+    comparison_gallery = outputs_root / "comparison_pngs"
+    baseline_output_root = outputs_root / "baseline"
+    iter_root = session_root / "iterations" / "000"
+    smoke_output_root = outputs_root / "candidates" / "20260325T001000Z_runconfig_smoke"
+    scored_output_root = outputs_root / "candidates" / "20260325T001000Z_runconfig"
+    smoke_log_path = iter_root / "20260325T001000Z_runconfig_smoke.log"
+    candidate_log_path = iter_root / "20260325T001000Z_runconfig.log"
+    comparison_png_path = (
+        comparison_gallery / "20260325T001000Z_runconfig__compare_amp_phase_probe.png"
+    )
+    real_run = subprocess.run
+    seen_commands = []
+
+    def fake_run(command, **kwargs):
+        cwd = kwargs.get("cwd")
+        assert cwd == repo
+        seen_commands.append(command)
+        if command[:3] == ["git", "status", "--short"]:
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command[:3] == ["git", "rev-parse", "HEAD"]:
+            return real_run(command, **kwargs)
+        if command[:2] == ["python", "scripts/studies/run_lines_256_arch_experiment.py"]:
+            _write_run_outputs(baseline_output_root, 0.81)
+            return subprocess.CompletedProcess(command, 0, stdout="baseline ok\n", stderr="")
+        if len(command) >= 2 and command[1] == "exec":
+            base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+            candidate_metadata = {
+                "status": "READY",
+                "candidate_kind": "run_config",
+                "base_ref": base_ref,
+                "smoke_command": "python smoke.py --fno-modes 24",
+                "smoke_output_root": str(smoke_output_root.relative_to(repo)),
+                "smoke_log_path": str(smoke_log_path.relative_to(repo)),
+                "run_command": "python run.py --fno-modes 24",
+                "output_root": str(scored_output_root.relative_to(repo)),
+                "log_path": str(candidate_log_path.relative_to(repo)),
+                "comparison_png_path": str(comparison_png_path.relative_to(repo)),
+                "note": "Try a global 24-mode rerun.",
+                "hypothesis": "Higher spectral capacity may improve amp_ssim.",
+            }
+            (iter_root / "candidate_metadata.json").parent.mkdir(parents=True, exist_ok=True)
+            (iter_root / "candidate_metadata.json").write_text(
+                json.dumps(candidate_metadata, indent=2) + "\n",
+                encoding="utf-8",
+            )
+            return subprocess.CompletedProcess(command, 0, stdout="READY\n", stderr="")
+        if command[:3] == ["bash", "-c", "python smoke.py --fno-modes 24"]:
+            _write_run_outputs(smoke_output_root, 0.5)
+            return subprocess.CompletedProcess(command, 0, stdout="smoke ok\n", stderr="")
+        if command[:3] == ["bash", "-c", "python run.py --fno-modes 24"]:
+            _write_run_outputs(scored_output_root, 0.93)
+            return subprocess.CompletedProcess(command, 0, stdout="scored ok\n", stderr="")
+        raise AssertionError(command)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    exit_code = main(
+        [
+            "start",
+            "--repo-root",
+            str(repo),
+            "--session-id",
+            session_id,
+            "--mode",
+            "full",
+            "--max-iterations",
+            "1",
+            "--codex-cmd",
+            "codex",
+        ]
+    )
+
+    assert exit_code == 0
+    assert ["bash", "-c", "python smoke.py --fno-modes 24"] in seen_commands
+    assert smoke_log_path.exists()
+    accepted_state = json.loads((session_root / "accepted_state.json").read_text(encoding="utf-8"))
+    assert accepted_state["accepted_candidate_kind"] == "run_config"
+    assert accepted_state["accepted_amp_ssim"] == 0.93
+
+
 def test_start_full_runs_baseline_then_one_run_config_keep(tmp_path, monkeypatch):
     from scripts.studies.lines_256_session_controller import main
 

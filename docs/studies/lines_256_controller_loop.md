@@ -83,6 +83,8 @@ Key artifacts:
 - `protected_local_paths.json`
 - `results.tsv`
 - `proposal_context.json`
+- `iterations/<n>/proposal_attempt.json`
+- `iterations/<n>/proposal_result.json`
 - `baseline_run_result.json`
 - `iterations/<n>/candidate_context.json`
 - `iterations/<n>/candidate_metadata.json`
@@ -165,6 +167,8 @@ The controller owns deterministic study behavior:
 - run and harvest baseline
 - build recent-history summary and proposal context
 - select the proposal prompt mode (`exploit` or `explore`) from deterministic session signals, then invoke the proposal agent and validate its candidate package
+- persist controller-owned proposal attempt/result artifacts so interrupted proposal steps can be resumed or retried without corrupting session state
+- run the cheap smoke command after proposal metadata validation rather than requiring the provider step to own smoke execution
 - run scored candidates
 - execute scored candidate commands under a controller-owned subprocess env whose
   `PATH` resolves `python` to the controller runtime, while leaving persisted
@@ -177,6 +181,11 @@ The controller owns deterministic study behavior:
 Crash-debug is reserved for real execution failures or missing core scored
 artifacts. Optional visual-publication problems should persist as warnings
 instead of consuming crash-debug budget.
+
+Proposal resume is also transactional:
+- `proposal_running` means the provider step may have been interrupted before durable candidate metadata existed
+- if `candidate_metadata.json` is missing after a proposal attempt, the controller records a retryable `proposal_result.json`, resets the session to `proposal_pending`, and lets a later resume continue instead of aborting with a missing-metadata invariant failure
+- if proposal metadata already exists during `proposal_running`, the controller should reuse it and run the deterministic smoke gate rather than re-running the provider blindly
 
 Proposal-mode selection is intentionally soft:
 - the controller may choose an `explore` prompt after a local discard streak
