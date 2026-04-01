@@ -1531,6 +1531,183 @@ def test_run_config_candidate_scored_run_harvests_outputs(tmp_path, monkeypatch)
     assert (repo / proposal["log_path"]).exists()
 
 
+def test_run_scored_candidate_marks_source_provenance_mismatch_invalid_execution(
+    tmp_path, monkeypatch
+):
+    from scripts.studies.lines_256_session_controller import (
+        initialize_session,
+        run_scored_candidate,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    proposal = {
+        "candidate_kind": "source",
+        "base_ref": base_ref,
+        "candidate_commit": base_ref,
+        "candidate_paths_file": "state/v2/source_paths.json",
+        "run_command": "python run.py --source-candidate",
+        "output_root": "outputs/v2/source-provenance-mismatch",
+        "log_path": "state/v2/source-provenance-mismatch.log",
+        "comparison_png_path": "outputs/v2/source-provenance-mismatch.png",
+        "note": "source run with foreign provenance",
+        "hypothesis": "source candidate should not score if runtime provenance points elsewhere",
+    }
+
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
+        assert command[:3] == ["bash", "-c", "python run.py --source-candidate"]
+        output_root = repo / proposal["output_root"]
+        metrics_dir = output_root / "runs" / "pinn_hybrid_resnet"
+        visuals_dir = output_root / "visuals"
+        metrics_dir.mkdir(parents=True, exist_ok=True)
+        visuals_dir.mkdir(parents=True, exist_ok=True)
+        (metrics_dir / "metrics.json").write_text(
+            json.dumps({"amp_ssim": 0.81}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (metrics_dir / "randomness_contract.json").write_text(
+            json.dumps({"requested_seed": 3}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (visuals_dir / "compare_amp_phase_probe.png").write_text("png", encoding="utf-8")
+        wrapper_invocation = {
+            "cwd": str(repo),
+            "extra": {
+                "runtime_provenance": {
+                    "python_executable": "/usr/bin/python3",
+                    "cwd": str(repo),
+                    "pythonpath": str(tmp_path / "foreign_repo"),
+                    "ptycho_torch_file": str(tmp_path / "foreign_repo" / "ptycho_torch" / "__init__.py"),
+                }
+            },
+        }
+        runner_invocation = {
+            "cwd": str(repo),
+            "extra": {
+                "runtime_provenance": {
+                    "python_executable": "/usr/bin/python3",
+                    "cwd": str(repo),
+                    "pythonpath": str(tmp_path / "foreign_repo"),
+                    "ptycho_torch_file": str(tmp_path / "foreign_repo" / "ptycho_torch" / "__init__.py"),
+                }
+            },
+        }
+        (output_root / "invocation.json").write_text(
+            json.dumps(wrapper_invocation, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (metrics_dir / "invocation.json").write_text(
+            json.dumps(runner_invocation, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(command, 0, stdout="scored ok\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assessment = run_scored_candidate(repo, session, proposal)
+
+    assert assessment["decision"] == "INVALID_EXECUTION"
+    assert "integrity_reasons" in assessment
+    assert any("PYTHONPATH" in reason or "ptycho_torch" in reason for reason in assessment["integrity_reasons"])
+
+
+def test_run_scored_candidate_warns_on_exact_source_tie_with_valid_provenance(
+    tmp_path, monkeypatch
+):
+    from scripts.studies.lines_256_session_controller import (
+        initialize_session,
+        run_scored_candidate,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    proposal = {
+        "candidate_kind": "source",
+        "base_ref": base_ref,
+        "candidate_commit": base_ref,
+        "candidate_paths_file": "state/v2/source_paths.json",
+        "run_command": "python run.py --source-tie",
+        "output_root": "outputs/v2/source-tie",
+        "log_path": "state/v2/source-tie.log",
+        "comparison_png_path": "outputs/v2/source-tie.png",
+        "note": "source run with exact tie",
+        "hypothesis": "exact source ties should be flagged as suspicious",
+    }
+
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
+        assert command[:3] == ["bash", "-c", "python run.py --source-tie"]
+        output_root = repo / proposal["output_root"]
+        metrics_dir = output_root / "runs" / "pinn_hybrid_resnet"
+        visuals_dir = output_root / "visuals"
+        metrics_dir.mkdir(parents=True, exist_ok=True)
+        visuals_dir.mkdir(parents=True, exist_ok=True)
+        (metrics_dir / "metrics.json").write_text(
+            json.dumps({"amp_ssim": 0.8}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (metrics_dir / "randomness_contract.json").write_text(
+            json.dumps({"requested_seed": 3}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (visuals_dir / "compare_amp_phase_probe.png").write_text("png", encoding="utf-8")
+        provenance = {
+            "python_executable": "/usr/bin/python3",
+            "cwd": str(repo.resolve()),
+            "pythonpath": str(repo.resolve()),
+            "ptycho_torch_file": str(repo / "ptycho_torch" / "__init__.py"),
+        }
+        (output_root / "invocation.json").write_text(
+            json.dumps({"cwd": str(repo.resolve()), "extra": {"runtime_provenance": provenance}}, indent=2)
+            + "\n",
+            encoding="utf-8",
+        )
+        (metrics_dir / "invocation.json").write_text(
+            json.dumps({"cwd": str(repo.resolve()), "extra": {"runtime_provenance": provenance}}, indent=2)
+            + "\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(command, 0, stdout="scored ok\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assessment = run_scored_candidate(repo, session, proposal)
+
+    assert assessment["decision"] == "DISCARD"
+    assert "suspicious_tie_warning" in assessment
+
+
 def test_run_scored_candidate_treats_optional_visual_fallback_as_advisory(tmp_path, monkeypatch):
     from scripts.studies.lines_256_session_controller import (
         initialize_session,

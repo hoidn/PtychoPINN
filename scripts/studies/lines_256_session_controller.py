@@ -1735,6 +1735,10 @@ def _write_scored_artifacts(
         assessment_payload["warning"] = assessment["warning"]
     if "crash_excerpt" in assessment:
         assessment_payload["crash_excerpt"] = assessment["crash_excerpt"]
+    if "integrity_reasons" in assessment:
+        assessment_payload["integrity_reasons"] = assessment["integrity_reasons"]
+    if "suspicious_tie_warning" in assessment:
+        assessment_payload["suspicious_tie_warning"] = assessment["suspicious_tie_warning"]
     _write_json(assessment_path, assessment_payload)
 
 
@@ -1822,6 +1826,72 @@ def _write_run_result_artifact(
         else _candidate_run_result_path(session)
     )
     _write_json(run_result_path, run_result)
+
+
+def _load_json_mapping(path: Path) -> dict[str, object] | None:
+    if not path.exists():
+        return None
+    payload = _read_json(path)
+    return payload if isinstance(payload, dict) else None
+
+
+def _runtime_provenance_from_invocation(invocation: dict[str, object] | None) -> dict[str, object] | None:
+    if not isinstance(invocation, dict):
+        return None
+    extra = invocation.get("extra")
+    if not isinstance(extra, dict):
+        return None
+    runtime = extra.get("runtime_provenance")
+    return runtime if isinstance(runtime, dict) else None
+
+
+def _is_path_within_root(path_str: object, root: Path) -> bool:
+    if not path_str:
+        return False
+    try:
+        return Path(str(path_str)).resolve().is_relative_to(root.resolve())
+    except (OSError, RuntimeError, ValueError):
+        return False
+
+
+def _validate_source_execution_integrity(
+    repo_root: Path,
+    output_root: Path,
+) -> dict[str, object]:
+    repo_root = repo_root.resolve()
+    reasons: list[str] = []
+    targets = [
+        ("wrapper", output_root / "invocation.json"),
+        ("runner", output_root / "runs" / "pinn_hybrid_resnet" / "invocation.json"),
+    ]
+    for label, invocation_path in targets:
+        invocation = _load_json_mapping(invocation_path)
+        if invocation is None:
+            reasons.append(f"{label} invocation artifact was missing.")
+            continue
+        runtime = _runtime_provenance_from_invocation(invocation)
+        if runtime is None:
+            reasons.append(f"{label} invocation artifact did not record runtime provenance.")
+            continue
+        runtime_cwd = str(runtime.get("cwd") or "")
+        if runtime_cwd != str(repo_root):
+            reasons.append(
+                f"{label} runtime cwd {runtime_cwd!r} did not match session repo root {str(repo_root)!r}."
+            )
+        runtime_pythonpath = str(runtime.get("pythonpath") or "")
+        if runtime_pythonpath != str(repo_root):
+            reasons.append(
+                f"{label} runtime PYTHONPATH {runtime_pythonpath!r} did not match session repo root {str(repo_root)!r}."
+            )
+        runtime_ptycho_torch = runtime.get("ptycho_torch_file")
+        if not _is_path_within_root(runtime_ptycho_torch, repo_root):
+            reasons.append(
+                f"{label} runtime ptycho_torch import {str(runtime_ptycho_torch)!r} was not under the session repo root."
+            )
+    return {
+        "status": "invalid_execution" if reasons else "ok",
+        "reasons": reasons,
+    }
 
 
 def ensure_smoke_green(
@@ -1972,6 +2042,17 @@ def run_scored_candidate(
     }
     if compare_warning is not None:
         assessment["warning"] = compare_warning
+    if str(proposal.get("candidate_kind", "")) == "source":
+        integrity = _validate_source_execution_integrity(repo_root, output_root)
+        if str(integrity["status"]) == "invalid_execution":
+            assessment["decision"] = "INVALID_EXECUTION"
+            assessment["integrity_reasons"] = list(integrity["reasons"])
+            return assessment
+        if amp_ssim == float(accepted_state["accepted_amp_ssim"]):
+            assessment["suspicious_tie_warning"] = (
+                "Source candidate matched the accepted amp_ssim exactly under the fixed session contract; "
+                "treat this as suspicious and verify that the semantic code path really changed."
+            )
     return assessment
 
 

@@ -192,6 +192,8 @@ The controller owns deterministic study behavior:
 - set `PYTHONPATH` for controller-owned smoke/scored/debug child runs to the
   session repo root instead of inheriting ambient launcher state, so source
   candidates import from the session checkout on both `start` and `resume`
+- validate execution integrity for `source` candidates before treating a scored
+  result as a normal scientific `KEEP`/`DISCARD`
 - classify `KEEP`, `DISCARD`, `TIMEOUT`, and `CRASH`
 - attempt one focused crash-debug retry when warranted
 - update accepted state
@@ -200,6 +202,13 @@ The controller owns deterministic study behavior:
 Crash-debug is reserved for real execution failures or missing core scored
 artifacts. Optional visual-publication problems should persist as warnings
 instead of consuming crash-debug budget.
+
+`INVALID_EXECUTION` is a controller-owned infra outcome for `source`
+candidates. It means the run finished, but invocation/runtime provenance did
+not prove that the intended session checkout actually supplied the executed
+study code. This is not scientific evidence against the hypothesis and should
+stop or retry the session as an infra problem rather than be treated as a
+normal discard.
 
 Proposal resume is also transactional:
 - `proposal_running` means the provider step may have been interrupted before durable candidate metadata existed
@@ -210,6 +219,11 @@ Proposal-mode selection is intentionally soft:
 - the controller may choose an `explore` prompt after a local discard streak
 - the controller should not reject a `READY` proposal merely because a heuristic family classifier thinks the idea is still “too local”
 - exploratory versus exploitative judgment remains prompt-owned, not controller-policed
+
+Exact metric ties from semantic `source` candidates are suspicious but not
+authoritative proof of bad execution on their own. The controller may persist a
+warning for such ties, but hard invalidation should come from deterministic
+runtime provenance checks rather than prompt or heuristic judgment alone.
 
 Candidate-factory selection is separate from prompt mode:
 - `direct` factory: current prompt-driven proposal path for `run_config` and

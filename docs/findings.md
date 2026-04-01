@@ -356,6 +356,12 @@ modules came from a different checkout.
 - Record runtime provenance in invocation artifacts so `python_executable`,
   `cwd`, `PYTHONPATH`, and resolved `ptycho_torch.__file__` are inspectable
   when debugging.
+- If a `source` candidate's runtime provenance does not resolve to the session
+  repo root, classify the scored result as `INVALID_EXECUTION` rather than a
+  scientific `DISCARD`.
+- Exact source-candidate metric ties are a red flag worth warning on, but they
+  are not sufficient proof by themselves; deterministic provenance checks are
+  the authoritative gate.
 
 ### Evidence
 - `state/lines_256_arch_improvement_v2/sessions/20260331T015545Z/iterations/035/proposal_result.json`
