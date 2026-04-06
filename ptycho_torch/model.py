@@ -138,17 +138,19 @@ class ConvPoolBlock(ConvBaseBlock):
         else:
             self.attention = nn.Identity()
         
-    # def _pool_or_up(self, x):
-    #     x = self.attention(x)  # Apply attention first
-    #     x = self.pool(x)       # Then pool
-    #     return x
+    def forward_conv(self, x):
+        """Apply convolution and attention, but not pooling (for skip connections)."""
+        x = super().forward(x)
+        x = self.attention(x)
+        return x
 
-    def forward(self,x):
-        x_new = super().forward(x)
-        if self.use_cbam:
-            x_new = self.attention(x_new)
+    def forward_pool(self, x):
+        """Apply pooling only."""
+        return self.pool(x)
 
-        x = self.pool(x_new)
+    def forward(self, x):
+        x = self.forward_conv(x)
+        x = self.forward_pool(x)
         return x
     
 class ConvUpBlock(ConvBaseBlock):
@@ -1280,14 +1282,6 @@ class PtychoPINN_Lightning(L.LightningModule):
 
         # Enforce single-stage training (legacy stage_* knobs are ignored)
         self.total_epochs = training_config.epochs
-        if getattr(training_config, 'stage_2_epochs', 0) or getattr(training_config, 'stage_3_epochs', 0):
-            logger.warning(
-                "Multi-stage scheduler settings are ignored. "
-                "torch_loss_mode enforces single-stage training."
-            )
-        self.stage_1_epochs = self.total_epochs
-        self.stage_2_epochs = 0
-        self.stage_3_epochs = 0
 
         if self.model_config.mode == 'Supervised':
             if self.torch_loss_mode != 'mae':

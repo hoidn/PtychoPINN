@@ -219,6 +219,7 @@ class DataloaderFormats(Enum):
     LIGHTNING_ONLY_MODULE = 'lightning_only_module' #For lightning-only
     TENSORDICT = 'tensordict'
     DATALOADER = 'pytorch'
+    NUMPY = 'numpy'  # In-memory from numpy arrays
 
 class PtychoDataLoader:
     """
@@ -269,6 +270,103 @@ class PtychoDataLoader:
             self._setup_tensordict_dataloader()
         elif data_format == DataloaderFormats.DATALOADER:
             pass # Not implemented yet
+
+    @classmethod
+    def from_np(cls,
+                diff_patterns,
+                probe,
+                positions,
+                config_manager: Optional[ConfigManager] = None,
+                data_config=None,
+                model_config=None,
+                training_config=None,
+                scaling_constant: float = None,
+                output_dir: Optional[str] = None,
+                timestamp: Optional[str] = None) -> 'PtychoDataLoader':
+        """
+        Create a PtychoDataLoader directly from in-memory numpy arrays,
+        bypassing NPZ file I/O. Supports both inference and training workflows.
+
+        Parameters
+        ----------
+        diff_patterns : np.ndarray, shape (N, H, W), float.
+        probe : np.ndarray, shape (H, W), complex.
+        positions : np.ndarray, shape (N, 2), [ypix, xpix] per row.
+        config_manager : ConfigManager, optional
+        data_config : DataConfig or dict, optional
+        model_config : ModelConfig or dict, optional
+        training_config : TrainingConfig or dict, optional
+        scaling_constant : float, optional override for RMS normalization constant.
+        output_dir : str, optional
+            Base output directory for training artifacts. When provided, enables
+            training mode by creating a LightningDataModule and setting output_dir.
+            If omitted, the loader is inference-only (original behavior).
+        timestamp : str, optional
+            Timestamp string for the run directory name. If not provided and
+            output_dir is set, generates one from datetime.now().
+
+        Returns
+        -------
+        PtychoDataLoader with .dataset and .dataloader attributes set.
+        When output_dir is provided, also has .data_module and .output_dir for training.
+        """
+        from ptycho_torch.dataloader import PtychoDataset, TensorDictDataLoader, Collate_Lightning
+
+        instance = cls.__new__(cls)
+
+        # Parse configs (same pattern as __init__)
+        if config_manager is not None:
+            instance.data_config = config_manager.data_config
+            instance.model_config = config_manager.model_config
+            instance.training_config = config_manager.training_config
+        else:
+            instance.data_config = ConfigManager._parse_config(data_config, DataConfig)
+            instance.model_config = ConfigManager._parse_config(model_config, ModelConfig)
+            instance.training_config = ConfigManager._parse_config(training_config, TrainingConfig)
+
+        instance.data_dir = None
+        instance.data_format = DataloaderFormats.NUMPY
+        instance.memory_map_dir = None
+        instance.val_seed = 42
+        instance.val_split = 0.05
+
+        # Create in-memory dataset
+        instance.dataset = PtychoDataset.from_np(
+            diff_patterns=diff_patterns,
+            probe=probe,
+            positions=positions,
+            model_config=instance.model_config,
+            data_config=instance.data_config,
+            scaling_constant=scaling_constant,
+        )
+
+        # Wrap in TensorDictDataLoader (same pattern as _setup_tensordict_dataloader)
+        instance.dataloader = TensorDictDataLoader(
+            instance.dataset,
+            batch_size=instance.training_config.batch_size,
+            shuffle=False,  # inference typically doesn't shuffle
+            num_workers=0,  # in-memory data, no need for workers
+            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
+            pin_memory=True,
+        )
+
+        # If output_dir is provided, set up for training (not just inference)
+        if output_dir is not None:
+            from ptycho_torch.train_utils import InMemoryPtychoDataModule
+
+            if timestamp is not None:
+                instance.output_dir = os.path.join(output_dir, f"run_{timestamp}")
+            else:
+                instance.output_dir = output_dir
+
+            instance.data_module = InMemoryPtychoDataModule(
+                dataset=instance.dataset,
+                training_config=instance.training_config,
+                val_split=instance.val_split,
+                val_seed=instance.val_seed,
+            )
+
+        return instance
 
     def _setup_lightning_datamodule(self):
         """
@@ -1200,19 +1298,28 @@ class InferenceEngine:
                 device = 'cuda'
                 ) -> torch.Tensor:
         """
-        Runs feed-forward prediction without stitching
+        Runs feed-forward prediction without stitching.
+
+        Batch format from Collate_Lightning is (tensor_dict, probe, scaling).
         """
         self.model.to(device)
         res = []
-        
+
         with torch.no_grad():
             for batch in ptycho_dataloader.dataloader:
-                batch = batch.to(device)
-                output = self.model.forward_predict(batch)
+                td, probe, scaling = batch
+                td = td.to(device)
+                probe = probe.to(device)
+
+                x = td['images']
+                positions = td['coords_relative']
+                rms_scale = td['rms_scaling_constant']
+
+                output = self.model.forward_predict(x, positions, probe, rms_scale)
                 res.append(output.cpu())
 
         final_output = torch.cat(res, dim=0)
-        
+
         return final_output
     
     def predict_and_stitch(self,

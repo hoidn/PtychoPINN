@@ -18,196 +18,37 @@ import copy
 #Lightning
 import lightning as L
 
+# Shared base modules imported from model.py to avoid duplication
+from ptycho_torch.model import (
+    Tanh_custom_act,
+    Amplitude_activation,
+    ConvBaseBlock,
+    ConvPoolBlock,
+    ConvUpBlock,
+    CombineComplex,
+    CombineComplexRectangular,
+    LambdaLayer,
+    Decoder_filters,
+    ProbeIllumination,
+    IntensityScalerModule,
+    MAELoss,
+    MeanDeviationLoss,
+    TotalVariationLoss,
+    SafePoissonLoss,
+    ProbeReferenceLoss,
+    Encoder as BaseEncoder,
+    Decoder_base as BaseDecoderBase,
+)
 
-#Ensuring 64float b/c of complex numbers
-# torch.set_default_dtype(torch.float32)
+#Encoder - subclass with skip connections for UNet
 
-#Helping modules
-#Activation functions
-class Tanh_custom_act(nn.Module):
-    '''
-    Custom tanh activation module used in:
-        Decoder_phase
-    '''
+class Encoder(BaseEncoder):
+    """Encoder with skip connections for UNet architecture.
+
+    Inherits __init__ entirely from BaseEncoder (same blocks, same state_dict keys).
+    Only overrides forward() to capture skip connections before pooling.
+    """
     def forward(self, x):
-        return math.pi * torch.tanh(x)
-
-class Amplitude_activation(nn.Module):
-    '''
-    Custom amplitude activation module:
-
-    Inputs
-    ---------
-    activation(string, optional): Defaults to swish, normally grabs from model configs
-    beta (float, optional): Beta parameter, controls steepness of swish
-    inplace (bool, optional): If set to true, does operation in-place
-    model_config (ModelConfig): Configuration object.
-
-    '''
-    def __init__(self, model_config: ModelConfig, beta=1.0, inplace=False):
-        super(Amplitude_activation, self).__init__()
-        self.model_config = model_config
-        self.activation_type = self.model_config.amp_activation
-        self.beta = beta
-
-    def forward(self, x):
-        if self.activation_type == 'sigmoid':
-            return torch.sigmoid(x)
-        else:
-            # if self.inplace and x.is_floating_point():
-            #     x.mul_(torch.sigmoid(self.beta * x))
-            #     return x
-            # else:
-            #     return x * torch.sigmoid(self.beta * x)
-            return F.silu(x)
-
-#Conv blocks
-class ConvBaseBlock(nn.Module):
-    '''
-    Convolutional base block for Pooling and Upscaling
-
-    If padding = same, padding is half of kernel size
-    '''
-    def __init__(self, in_channels, out_channels,
-                 w1 = 3, w2 = 3,
-                 padding = 'same',
-                 activation = 'relu',
-                 batch_norm = False):
-        super(ConvBaseBlock, self).__init__()
-        padding_size = w1 // 2 if padding == 'same' else 0
-        #NN layers
-        self.conv1 = nn.Conv2d(in_channels = in_channels,
-                               out_channels = out_channels,
-                               kernel_size = (w1, w2),
-                               padding = padding_size)
-        self.conv2 = nn.Conv2d(in_channels = out_channels,
-                               out_channels = out_channels,
-                               kernel_size = (w1, w2),
-                               padding = padding_size)
-        #Activation used in upblock
-        self.activation = getattr(F, activation) if activation else None
-
-        #Batchnorm (optional) - Initialize conditionally
-        self.batch_norm = batch_norm
-        self.bn1 = nn.BatchNorm2d(out_channels) if batch_norm else None
-        self.bn2 = nn.BatchNorm2d(out_channels) if batch_norm else None
-
-    def forward(self, x):
-        x = self.conv1(x)
-        if self.batch_norm:
-            x = self.bn1(x)
-        x = F.relu(x)
-        x = self.conv2(x)
-        if self.batch_norm:
-            x = self.bn2(x)
-        x = self.activation(x) if self.activation else F.relu(x)
-        
-        # x = self._pool_or_up(x)  # ← ADD THIS LINE!
-        return x
-    
-
-
-    
-class ConvPoolBlock(ConvBaseBlock):
-
-    def __init__(self, in_channels, out_channels, model_config: ModelConfig,
-                 w1 = 3, w2 = 3, p1 = 2, p2 = 2,
-                 padding = 'same', batch_norm = False):
-        super(ConvPoolBlock, self).__init__(in_channels, out_channels,
-                                            w1=w1, w2=w2, padding=padding,
-                                            batch_norm = batch_norm)
-        #Pooling layer
-        self.pool = nn.MaxPool2d(kernel_size=(p1, p2),
-                                 padding = 0)
-                   
-        #CBAM
-        self.use_cbam = model_config.cbam_encoder
-        self.use_eca = model_config.eca_encoder
-
-        #Decide on attention mechanism
-        if self.use_cbam:
-            # CBAM operates on the output channels of the conv layers
-            self.attention = CBAM(gate_channels=out_channels)
-        elif self.use_eca:
-            self.attention = ECALayer(out_channels)
-        else:
-            self.attention = nn.Identity()
-
-
-    def forward_conv(self,x):
-        """
-        Apply convolution only, but not pooling (for skip connections)
-        """
-        x = super().forward(x)
-        x =self.attention(x)
-        return (x)
-
-    def forward_pool(self,x):
-        """
-        Apply pool only
-        """
-        return self.pool(x)
-
-    
-class ConvUpBlock(ConvBaseBlock):
-
-    def __init__(self, in_channels, out_channels,
-                 w1 = 3, w2 = 3, p1 = 2, p2 = 2,
-                 padding = 'same', batch_norm = False):
-        
-        super().__init__(in_channels, out_channels,
-                                            w1=w1, w2=w2, padding=padding,
-                                            batch_norm = batch_norm)
-        padding_size = w1 // 2 if padding == 'same' else 0
-        #NN layers
-        self.up = nn.Upsample(scale_factor = (p1, p2),
-                              mode = 'nearest')
-
-    # def _pool_or_up(self, x):
-    #     return self.up(x) 
-    def forward(self,x):
-        x = super().forward(x)
-        x = self.up(x)
-
-        return x
-
-#Encoder
-
-class Encoder(nn.Module):
-    def __init__(self, model_config: ModelConfig, data_config: DataConfig):
-        super(Encoder, self).__init__()
-        self.model_config = model_config
-        self.data_config = data_config
-        self.n_filters_scale = model_config.n_filters_scale
-
-        self.N = self.data_config.N
-        starting_coeff = 64 / (self.N / 32)
-        self.filters = [model_config.C_model if model_config.object_big else 1]
-
-        #Starting output channels is 64. Last output size will always be n_filters_scale * 128.
-        if self.N == 64:
-            self.filters = self.filters + [self.n_filters_scale * 32, self.n_filters_scale * 64, self.n_filters_scale * 128]
-        elif self.N == 128:
-            self.filters = self.filters + [self.n_filters_scale * 16, self.n_filters_scale * 32, self.n_filters_scale * 64, self.n_filters_scale * 128]
-        elif self.N == 256:
-            self.filters = self.filters + [self.n_filters_scale * 8, self.n_filters_scale * 16, self.n_filters_scale * 32, self.n_filters_scale * 64, self.n_filters_scale * 128]
-
-
-
-        if starting_coeff < 3 or starting_coeff > 64:
-            raise ValueError(f"Unsupported input size: {self.N}")
-
-        
-        self.blocks = nn.ModuleList([
-            ConvPoolBlock(in_channels=self.filters[i-1],
-                          out_channels=self.filters[i],
-                          model_config=model_config, # Pass config here
-                          batch_norm=model_config.batch_norm)
-            for i in range(1, len(self.filters))
-        ])
-        
-    def forward(self, x):
-        #Capture features
         skips = []
 
         for i, block in enumerate(self.blocks):
@@ -216,85 +57,22 @@ class Encoder(nn.Module):
             # Capture before pooling (except last block)
             if i < len(self.blocks) - 1:
                 skips.append(x)
-        
+
             #Pool/downsample
             x = block.forward_pool(x)
 
         return x, skips
-    
+
 #Decoders
 
-class Decoder_filters(nn.Module):
-    '''
-    Base decoder class handling dynamic channel sizing in self.filters
-    '''
-    def __init__(self, model_config: ModelConfig, data_config: DataConfig):
-        super(Decoder_filters, self).__init__()
-        self.model_config = model_config
-        self.data_config = data_config
-        self.n_filters_scale = model_config.n_filters_scale
-        self.N = self.data_config.N
+class Decoder_base(BaseDecoderBase):
+    """Decoder base with skip connection merging for UNet architecture.
 
-        #Calculate number of channels for upscaling
-        #Start from self.N and divide by 2 until 32 for each layer
-        #E.g.
-        #N == 64: [self.n_filters_scale * 64, self.n_filters_scale * 32]
-        #N == 128: [self.n_filters_scale * 128, self.n_filters_scale * 64, self.n_filters_scale * 32]
-        self.filters = [self.n_filters_scale * 128]
-
-        if self.N == 64:
-            self.filters = self.filters + [self.n_filters_scale * 64, self.n_filters_scale * 32]
-        elif self.N == 128:
-            self.filters = self.filters + [self.n_filters_scale * 128, self.n_filters_scale * 64, self.n_filters_scale * 32]
-        elif self.N == 256:
-            self.filters = self.filters + [self.n_filters_scale * 256, self.n_filters_scale * 128, self.n_filters_scale * 64, self.n_filters_scale * 32]
-
-        if self.N < 64:
-            raise ValueError(f"Unsupported input size: {self.N}")
-
-        if self.N < 64:
-            raise ValueError(f"Unsupported input size: {self.N}")
-        
-    def forward(self, x):
-        raise NotImplementedError("Subclasses must implement forward")
-    
-class Decoder_base(Decoder_filters):
-    # Accept batch_norm flag
+    Inherits self.blocks and self.attention_blocks from parent __init__.
+    Adds self.merge_blocks on top for skip connection handling (UNet-specific).
+    """
     def __init__(self, model_config: ModelConfig, data_config: DataConfig, batch_norm=False):
-        super(Decoder_base, self).__init__(model_config, data_config)
-        #Attention
-        self.use_cbam = model_config.cbam_decoder
-        self.use_eca = model_config.eca_decoder
-        self.use_spatial = model_config.spatial_decoder
-        self.spatial_kernel = model_config.decoder_spatial_kernel
-
-        #Layers - Pass batch_norm flag to ConvUpBlock
-        self.blocks = nn.ModuleList()
-        self.attention_blocks = nn.ModuleList()
-
-        #Add optional attention layers, identity otherwise
-        for i in range(1, len(self.filters)):
-            in_ch = self.filters[i-1]
-            out_ch = self.filters[i]
-            self.blocks.append(ConvUpBlock(in_channels=in_ch,
-                                           out_channels=out_ch,
-                                           batch_norm=batch_norm))
-            if self.use_eca:
-                # Add ECA Layer - Needs output channels
-                print(f"Decoder Block {i}: Adding ECALayer with {out_ch} channels.")
-                self.attention_blocks.append(ECALayer(channel=out_ch)) # k_size can be adapted if needed
-            elif self.use_spatial:
-                # Add Basic Spatial Attention Layer - Needs kernel size
-                print(f"Decoder Block {i}: Adding BasicSpatialAttention with kernel {self.spatial_kernel}.")
-                self.attention_blocks.append(BasicSpatialAttention(kernel_size=self.spatial_kernel))
-            elif self.use_cbam:
-                 # Add CBAM Layer - Needs output channels
-                 print(f"Decoder Block {i}: Adding CBAM with {out_ch} channels.")
-                 self.attention_blocks.append(CBAM(gate_channels=out_ch))
-            else:
-                # Add Identity if no attention is selected for the decoder
-                print(f"Decoder Block {i}: No attention module added.")
-                self.attention_blocks.append(nn.Identity())
+        super(Decoder_base, self).__init__(model_config, data_config, batch_norm=batch_norm)
 
         self.merge_blocks = nn.ModuleList()
         for i in range(len(self.blocks)):
@@ -318,26 +96,26 @@ class Decoder_base(Decoder_filters):
         # Recreating encoder structure from above
         N = data_config.N
         n_filters_scale = model_config.n_filters_scale
-        
+
         # Recreate encoder filter structure
         encoder_filters = [model_config.C_model if model_config.object_big else 1]
-        
+
         if N == 64:
             encoder_filters += [n_filters_scale * 32, n_filters_scale * 64, n_filters_scale * 128]
         elif N == 128:
-            encoder_filters += [n_filters_scale * 16, n_filters_scale * 32, 
+            encoder_filters += [n_filters_scale * 16, n_filters_scale * 32,
                                n_filters_scale * 64, n_filters_scale * 128]
         elif N == 256:
-            encoder_filters += [n_filters_scale * 8, n_filters_scale * 16, 
-                               n_filters_scale * 32, n_filters_scale * 64, 
+            encoder_filters += [n_filters_scale * 8, n_filters_scale * 16,
+                               n_filters_scale * 32, n_filters_scale * 64,
                                n_filters_scale * 128]
-        
+
         encoder_idx = len(encoder_filters) - 2 - decoder_level
         if 0 <= encoder_idx < len(encoder_filters):
             return encoder_filters[encoder_idx]
         else:
             return self.filters[decoder_level+1] #Backup just in case
-        
+
     def forward(self, x, skips = None):
         # Accounts for skip connections
         for i, (up_block, merge_block) in enumerate(zip(self.blocks, self.merge_blocks)):
@@ -346,12 +124,12 @@ class Decoder_base(Decoder_filters):
             if skips is not None and i < len(skips):
                 skip = skips[-(i+1)]
 
-            
+
             # Spatial dimension mismatch if exists
             if skip.shape[2:] != x.shape[2:]:
                 skip = F.interpolate(skip, size = x.shape[2:],
                                      mode = 'bilinear', align_corners = False)
-                
+
             #Concatenate
             x = torch.cat([x, skip], dim = 1) # Concatenate along channl dimension
 
@@ -382,7 +160,7 @@ class Decoder_last(nn.Module):
         #Grab parameters
         self.N = self.data_config.N
         self.gridsize = self.data_config.grid_size
-        
+
         #Dynamically calculate number of outer channels
         c_outer_fraction = getattr(model_config,'decoder_last_c_outer_fraction', 0.25)
         c_outer_fraction = max(0.0, min(0.5, c_outer_fraction))
@@ -397,7 +175,7 @@ class Decoder_last(nn.Module):
         #conv_up_block and conv2 are separate to conv1
         self.conv_up_block = ConvUpBlock(self.c_outer, self.n_filters_scale * 32,
                                          batch_norm = batch_norm) # Pass flag
-        
+
         self.conv2 =  nn.Conv2d(in_channels = self.n_filters_scale * 32,
                                 out_channels = out_channels,
                                 kernel_size = (3, 3),
@@ -414,7 +192,7 @@ class Decoder_last(nn.Module):
         self.activation = activation
         self.padding = nn.ConstantPad2d((self.N // 4, self.N // 4,
                                          self.N // 4, self.N //4), 0)
-        
+
 
 
     def forward(self,x):
@@ -435,7 +213,7 @@ class Decoder_last(nn.Module):
         x2 = self.conv2(x2)
         if self.batch_norm and self.bn2:
             x2 = self.bn2(x2)
-        
+
         if not self.combined:
             x2 = F.celu(x2, alpha = 1.0)
 
@@ -445,7 +223,6 @@ class Decoder_last(nn.Module):
 
 
         # ACTIVATE LAST: One activation to rule the range
-        # Use your stretched tanh here (e.g., 1.1 * tanh)
         # outputs = self.activation(combined)
         if self.combined:
             outputs = self.activation(outputs)
@@ -481,7 +258,7 @@ class Decoder_phase(Decoder_base):
     def __init__(self, model_config: ModelConfig, data_config: DataConfig):
         # Initialize base with batch_norm setting from config
         super(Decoder_phase, self).__init__(model_config, data_config, batch_norm=model_config.batch_norm)
-                
+
         self.model_config = model_config # Store configs if needed directly
         self.data_config = data_config
 
@@ -524,7 +301,7 @@ class Decoder_amp(Decoder_base):
             num_channels = copy.deepcopy(model_config.decoder_last_amp_channels) #Need this for supervised learning
         #Assert sizing (can either match channels or is 1)
 
-        assert num_channels in [1, model_config.C_model]      
+        assert num_channels in [1, model_config.C_model]
 
         #Custom nn layers with specific identifiable names
         self.add_module('amp_activation', Amplitude_activation(model_config)) # Pass config
@@ -582,11 +359,11 @@ class Decoder_shared(Decoder_base):
     refinement blocks so modality-specific features develop progressively at
     every spatial scale, not just before the output head.
 
-    Refinement expansion schedule (coarse → fine):
-        Level 0 (coarsest): expansion_factor = 1  — shared structure dominates
+    Refinement expansion schedule (coarse -> fine):
+        Level 0 (coarsest): expansion_factor = 1  -- shared structure dominates
         Level 1:            expansion_factor = 1
         ...
-        Level N (finest):   expansion_factor = 2  — modality divergence sharpest
+        Level N (finest):   expansion_factor = 2  -- modality divergence sharpest
 
     Output shape: [B, 2*C_out, N, N]  (first C_out = real, last C_out = imaginary)
     """
@@ -606,11 +383,11 @@ class Decoder_shared(Decoder_base):
                 FeatureRefinementBlock(ch, expansion_factor=expansion)
             )
 
-        # Final ECA before head — operates on finest decoder features
+        # Final ECA before head -- operates on finest decoder features
         base_ch = self.filters[-1]  # n_filters_scale * 32
         self.eca = ECALayer(channel=base_ch)
 
-        # Combined output head — reuses Decoder_last with doubled output channels
+        # Combined output head -- reuses Decoder_last with doubled output channels
         activation = lambda x: 1.2 * torch.tanh(x)
         self.head = Decoder_last(model_config, data_config,
                                  in_channels=base_ch,
@@ -690,120 +467,6 @@ class Autoencoder(nn.Module):
 
         return x_real, x_imag
 
-#Probe modules
-class ProbeIllumination(nn.Module):
-    '''
-    Probe illumination done using hadamard product of object tensor and 2D probe function.
-    2D probe function should be supplised by the dataloader
-
-    Handles multiple probe modes in the forward call, adding an additional tensor dimension to
-    facilitate probe multiplication
-
-    Output x dimension: (B, C, P, H, W)
-    P is the probe dimension, which will be 1 for single probes, but greater than that for multiple probes
-
-    Inputs:
-        x - torch.Tensor (B,C,H,W)
-        p - torch.Tensor (B,C,P,H,W), P dimension > 1 if multi-modal
-    '''
-    def __init__(self, model_config: ModelConfig, data_config: DataConfig):
-        super(ProbeIllumination, self).__init__()
-        self.model_config = model_config
-        self.data_config = data_config
-        self.N = self.data_config.N
-        self.mask = self.model_config.probe_mask # Get mask from config
-
-    def forward(self, x, probe):
-
-        #Add extra dimension to x
-        x_reshaped = x.unsqueeze(dim=2) # (B,C,H,W) -> (B,C,1,H,W)
-
-        # print('probe shape', probe.shape)
-        # print('xreshaped shape', x_reshaped.shape)
-
-        #Check if probe mask exists
-        #If not, probe mask is just a ones matrix
-        #If mask exists, save mask is class attribute
-        if self.mask is None: # Check if mask is None
-            probe_mask = torch.ones((self.N, self.N)).to(x.device)
-        else:
-            probe_mask = self.mask.to(x.device) # Use the mask from config
-        
-        #(N, C, P, H, W)
-        illuminated = x_reshaped * probe * probe_mask.view(1,1,1,self.N, self.N)
-
-        return illuminated, probe * probe_mask
-
-
-#Other modules
-class CombineComplex(nn.Module):
-    '''
-    Converts real number amplitude and phase into single complex number for FFT
-
-    Inputs
-    ------
-    amp: torch.Tensor
-        Amplitude of complex number
-    phi: torch.Tensor
-        Phase of complex number
-    
-    Outputs
-    -------
-    out: torch.Tensor
-        Complex number
-    '''
-    def __init__(self):
-        super(CombineComplex, self).__init__()
-
-    def forward(self, amp: torch.Tensor, phi: torch.Tensor) -> torch.Tensor:
-
-        out = amp.to(dtype=torch.complex64) * \
-                torch.exp(1j * phi.to(dtype=torch.complex64))
-        
-        return out
-    
-class CombineComplexRectangular(nn.Module):
-    '''
-    Converts rectangular coordinates into torch complex
-
-    Inputs
-    ------
-    amp: torch.Tensor
-        real part of complex number
-    phi: torch.Tensor
-        imaginary part of complex number
-    
-    Outputs
-    -------
-    out: torch.Tensor
-        Complex number
-    '''
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, real: torch.Tensor, imag: torch.Tensor):
-
-        out = real.to(dtype = torch.complex64) + 1j * imag.to(dtype=torch.complex64)
-
-        return out
-    
-class LambdaLayer(nn.Module):
-    '''
-    Generic layer module for helper functions.
-
-    Mostly used for patch reconstruction
-
-    Note from 11/15/2024: Pytorch lightning really doesn't like LambdaLayers. 
-    Will treat them as if they were identity operations.
-    Replaced all LambdaLayers in the forward model with their respective helper functions
-    '''
-    def __init__(self, func):
-        super(LambdaLayer, self).__init__()
-        self.func = func
-    
-    def forward(self, *args, **kwargs):
-        return self.func(*args, **kwargs)
-    
 class ForwardModel(nn.Module):
     '''
     Forward model receiving complex object prediction, and applies physics-informed real space overlap
@@ -882,10 +545,10 @@ class ForwardModel(nn.Module):
                                                  scale = output_scale_factor,
                                                  experiment_ids = experiment_ids,
                                                  autograd = True)
-        
+
         #Return unscaled product
         return pred_scaled_intensity
-    
+
 
 class RectangularScaledDiffraction(nn.Module):
     def __init__(self, model_config: ModelConfig):
@@ -904,7 +567,7 @@ class RectangularScaledDiffraction(nn.Module):
                 autograd: bool = True):
         """
         Docstring for forward
-        
+
         :param self: Description
         :param x: [B,C,H,W] assumed imaginary tensor, will need to grab real and imaginary components
         :param probe: [H,W]imaginary tensor, will need to possibly grab both components
@@ -921,7 +584,7 @@ class RectangularScaledDiffraction(nn.Module):
 
         #Calculate exit waves (notation from math document)
         #a and b labeling is arbitrary
-        
+
         if autograd:
             s1 = self.s1[experiment_ids].view(-1,1,1,1,1) # -> (B,1,1,1,1)
             s2 = self.s2[experiment_ids].view(-1,1,1,1,1) # -> (B,1,1,1,1)
@@ -963,14 +626,14 @@ class RectangularScaledDiffraction(nn.Module):
             s1, s2 = s_corr[:,:,0,None,None], s_corr[:,:,1,None,None]
             # print(f"s1 sample: {s1[0,0,:,:]}")
             # print(f"s2 sample: {s2[0,0,:,:]}")
-            I_pred = (s1 * torch.abs(Psi_a)**2 + 
-                      s2 * torch.abs(Psi_b)**2 + 
+            I_pred = (s1 * torch.abs(Psi_a)**2 +
+                      s2 * torch.abs(Psi_b)**2 +
                       s1 * s2 * 2 * torch.real(Psi_a * torch.conj(Psi_b)))
 
 
         # Clamp for no neg. quantities (should not be possible)
         I_pred = torch.clamp(I_pred, min=0.0) #[B,C,H,W]
-        
+
         # 2. Add epsilon and sqrt for amplitude, to prevent gradient explosion near 0
         return I_pred
 
@@ -986,7 +649,7 @@ class RectangularScaledDiffraction(nn.Module):
         #Compute different linear components
         norm = I_measured.mean() + 1e-9
         y = (I_measured / norm).flatten(2).unsqueeze(-1).to(torch.float64)
-        
+
         X1 = (torch.abs(Psi_a)**2)
         X2 = (torch.abs(Psi_b)**2)
         X3 = (2 * torch.real(Psi_a * torch.conj(Psi_b)))
@@ -994,7 +657,7 @@ class RectangularScaledDiffraction(nn.Module):
         # print(f"X1 sum: {X1[0,0].sum()}")
         # print(f"X2 sum: {X2[0,0].sum()}")
         # print(f"X3 sum: {X3[0,0].sum()}")
-        
+
         #Flatten H,W dimensions, stack on last dimension
         X = torch.stack([X1.flatten(2), X2.flatten(2), X3.flatten(2)], dim=-1).to(torch.float64)
 
@@ -1003,7 +666,7 @@ class RectangularScaledDiffraction(nn.Module):
         # This prevents the determinant from blowing up to 10^18
         col_norms = torch.sqrt(torch.sum(X**2, dim=-2, keepdim=True) + 1e-12) # [B, C, 1, 3]
         X_scaled = X / col_norms
-        
+
         # 3. Form Normal Equation in float64
         XT = X_scaled.transpose(-2, -1)
         XTX = XT @ X_scaled  # Now the diagonal elements will be roughly 1.0
@@ -1013,7 +676,7 @@ class RectangularScaledDiffraction(nn.Module):
         # # Since XTX is now scaled to 1.0, 1e-6 is a very strong, stable epsilon
         # eps = 1e-6 * torch.eye(3, device=XTX.device, dtype=torch.float64)
         # s_scaled = torch.linalg.solve(XTX + eps, XTy).squeeze(-1) # [B, C, 3]
-        
+
         # # 5. Reverse the scaling to get the actual coefficients
         # s = s_scaled/col_norms.squeeze(-2)
 
@@ -1021,32 +684,32 @@ class RectangularScaledDiffraction(nn.Module):
         # Since XTX is only 3x3, we can use eigh (fast and stable)
         # L = eigenvalues, V = eigenvectors
         L, V = torch.linalg.eigh(XTX)
-        
-        # Truncated Pseudo-inverse: 
+
+        # Truncated Pseudo-inverse:
         # Any eigenvalue smaller than threshold is treated as 0 to prevent division by 10^-14
-        threshold = 1e-7 
+        threshold = 1e-7
         L_inv = torch.where(L > threshold, 1.0 / L, torch.zeros_like(L))
-        
+
         # solve: s = V @ diag(L_inv) @ V.T @ XTy
         s_scaled = V @ (L_inv.unsqueeze(-1) * (V.transpose(-2, -1) @ XTy))
         s_scaled = s_scaled.squeeze(-1)
 
         # 4. Reverse scaling
         s = (s_scaled / col_norms.squeeze(-2)) * norm
-        
+
         # Debug Logging for Rank 0 only (to avoid log clutter)
         if self.training and torch.distributed.get_rank() == 0:
             if L.min() < threshold:
                 print(f"!!! Low Rank Detected: min_eig={L.min().item():.2e}")
-        
+
         return s.to(torch.float32)
-    
+
     def enforce_physics_constraint(self, c):
         """
-        Takes 3 "separate" coefficients from the intensity formulation and projects it onto a 
+        Takes 3 "separate" coefficients from the intensity formulation and projects it onto a
         2D vector space. Solution arises from computing eigenvalues for 2D coefficient matrix
         C = [[c1, c3],[c3, c2]] where c3 is the cross term of s_1 * s_2 from the origina lformulation.
-        
+
         :param c: torch.Tensor, [B,3]. Represents 3 coefficients from original linear fit
 
         Returns
@@ -1055,7 +718,7 @@ class RectangularScaledDiffraction(nn.Module):
         #Get maximum eigenvalue from quadratic equation solving det(C - lambda * I)
         c1, c2, c3 = c[:,:,0], c[:,:,1], c[:,:,2]
         lambda_max = 1/2 * (c1 + c2 + torch.sqrt((c1-c2)**2 + 4 * c3**2))
-        
+
         #Get unit vector coordinates for s_1 and s_2
         #Handles numerical instabilities in cases where magnitudes are very diff.
         v_1 = torch.where(torch.abs(c3) > torch.abs(lambda_max - c1), c3, lambda_max - c2)
@@ -1073,7 +736,7 @@ class RectangularScaledDiffraction(nn.Module):
 
 
 #Loss functions
-        
+
 # class PoissonLoss(nn.Module):
 #     """
 #     Calculate Poisson loss for tensor of size (N,C,H,W)
@@ -1089,7 +752,7 @@ class RectangularScaledDiffraction(nn.Module):
 #         loss_likelihood = self.poisson_layer(raw, pred)
 
 #         return loss_likelihood
-    
+
 class PoissonLoss(nn.Module):
     def __init__(self):
         super(PoissonLoss, self).__init__()
@@ -1097,7 +760,7 @@ class PoissonLoss(nn.Module):
         self.poisson = PoissonIntensityLayer(pred)
         loss_likelihood = self.poisson(raw)
         return loss_likelihood
-    
+
 class PoissonIntensityLayer(nn.Module):
     '''
     Applies poisson intensity scaling using torch.distributions
@@ -1116,183 +779,11 @@ class PoissonIntensityLayer(nn.Module):
         #Apply poisson distribution
         return -self.poisson_dist.log_prob(x)
 
-class SafePoissonLoss(nn.Module):
-    def __init__(self, eps=1e-4):
-        super().__init__()
-        self.eps = eps
-
-    def forward(self, pred_amplitude, raw_intensity):
-        # pred_amplitude is what comes out of your forward model (sqrt(I))
-        pred_intensity = pred_amplitude**2 
-        
-        # We floor the prediction to avoid the 1/0 gradient explosion
-        # but we don't floor the raw data.
-        safe_pred = torch.clamp(pred_intensity, min=self.eps)
-        
-        # Poisson NLL: pred - raw * log(pred)
-        loss = safe_pred - raw_intensity * torch.log(safe_pred)
-        return loss
-    
-class MAELoss(nn.Module):
-    def __init__(self):
-        super(MAELoss, self).__init__()
-        self.mae = nn.L1Loss(reduction = 'none')
-
-    def forward(self, pred, raw):
-        #Note: Prediction has not been squared yet, must be squared here
-        loss_mae = self.mae(pred**2, raw)
-
-        return loss_mae
-    
-class MeanDeviationLoss(nn.Module):
-    """
-    Calculates L1 loss of absolute mean deviation for each point.
-    Does not take the mean (that is done in the neural net loss calc)
-    """
-    def __init__(self):
-        super().__init__()
-    
-    def forward(self, x):
-        x_mean = torch.mean(x, dim=(2,3), keepdim = True)
-        #Calculate absolute deviation, sum across (C,H,W) channels to return size B
-        abs_dev = torch.sum(torch.abs(x - x_mean),dim=(1,2,3))
-
-        return abs_dev
-    
-class TotalVariationLoss(nn.Module):
-    """
-    Calculates variation loss for each point. Punishes non-smooth shapes.
-    Returns tensor of size (B)
-    """
-    def __init__(self):
-        super().__init__()
-
-    def forward(self,x):
-        vert_diff_loss = torch.sum(torch.abs(x[:, :, :-1, :] - x[:, :, 1:, :]),
-                                   dim = (1,2,3))
-        horz_diff_loss = torch.sum(torch.abs(x[:, :, :, :-1] - x[:, :, :, 1:]),
-                                   dim = (1,2,3))
-        tv_loss =  vert_diff_loss + horz_diff_loss
-        
-        return tv_loss
-
-class ProbeReferenceLoss(nn.Module):
-    """
-    Probe reference loss for enforcing real-channel dominance.
-
-    For a transparent object (O = 1 + 0j), the measured diffraction pattern
-    is |FFT(Probe)|^2. When this reference pattern is fed through the
-    autoencoder, the output should be real-dominated (imaginary ≈ 0).
-
-    This loss penalizes the L1 norm of the imaginary channel output
-    when the input is the probe reference pattern, breaking the
-    real/imaginary decoder symmetry during training.
-
-    Loss = coeff * torch.abs(imag_output).sum()
-    """
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, autoencoder: nn.Module,
-                probe_single: torch.Tensor,
-                C_in: int,
-                scaler,
-                data_config) -> torch.Tensor:
-        """
-        Args:
-            autoencoder: The autoencoder module (encoder + decoder)
-            probe_single: Single complex probe tensor, shape (N, N)
-            C_in: Number of input channels (C_model if object_big else 1)
-            scaler: IntensityScalerModule for RMS normalization
-            data_config: DataConfig for computing RMS scaling factor
-        Returns:
-            Scalar loss = abs(imag_output).sum()
-        """
-        # Reference input computation — no learnable parameters involved
-        with torch.no_grad():
-            # 1. Compute transparent-object diffraction: |FFT(P)|^2
-            I_ref = torch.abs(
-                torch.fft.fftshift(torch.fft.fft2(probe_single, norm='ortho'))
-            ) ** 2  # (N, N) real
-
-            # 2. Expand to autoencoder input shape: (1, C_in, N, N)
-            I_ref = I_ref.unsqueeze(0).unsqueeze(0).expand(1, C_in, -1, -1).contiguous()
-
-            # # 3. Compute RMS scaling factor for the probe reference pattern
-            # rms_scale = hh.get_rms_scaling_factor(I_ref, data_config)
-
-            # # 4. RMS-normalize (same normalization as training inputs)
-            # I_ref_scaled = scaler.scale(I_ref, rms_scale)
-            rms = torch.sqrt(torch.mean(I_ref ** 2)) + 1e-8                                                                    
-            I_ref_scaled = I_ref / rms 
-
-        # 5. Pass through autoencoder (WITH gradients)
-        ref_real, ref_imag = autoencoder(I_ref_scaled)
-
-        # 6. Loss: penalize imaginary channel
-        return torch.abs(ref_imag).mean()
-
 class PhaseCenterLoss(nn.Module):
     def __init__(self):
         pass
     def forward(self):
         pass
-
-#Scaling modules
-
-class IntensityScalerModule:
-    '''
-    Scaler module that works with single experiment data and multi-experiment data.
-
-    If single experiment data, ModelConfig will have an "intensity_scale" parameter that is determined
-    during the dataloading process. This is to set up log_scale as a learnable parameter.
-
-    If multi-experiment data, log_scale is no longer learnable since there are multiple different experiments
-    and different log_scales to learn.
-    '''
-    def __init__(self, model_config: ModelConfig):
-        super().__init__() # Need super().__init__() for nn.Module if parameters are used
-        self.model_config = model_config
-        #Define the scaler module (from helper.py) - Not needed if scale/inv_scale are methods
-        #Setting log scale values
-        self.log_scale = None
-        #Code below commented out - 11/25/2025
-        # if self.model_config.intensity_scale_trainable:
-        #     log_scale_guess = np.log(self.model_config.intensity_scale)
-        #     # Ensure log_scale is registered as a parameter if it's trainable
-        #     self.log_scale = nn.Parameter(torch.tensor(float(log_scale_guess)),
-        #                                   requires_grad=True)
-        # else:
-        #     # If not trainable, register as a buffer or just keep as None
-        #     # Registering as buffer allows it to be saved with state_dict but not trained
-        #     # self.register_buffer('log_scale', None) # Or simply:
-        #     self.log_scale = None
-
-    #Standalone intensity scaling functions
-    def scale(self, x, scale_factor):
-        '''
-        Goes from experimental input intensity to normalized amplitude scale.
-        '''
-        if self.log_scale:
-            scale_factor = torch.exp(self.log_scale)
-        ''
-
-        return x * scale_factor
-
-    def inv_scale(self, x, scale_factor):
-        '''
-        Undoes the scaling operation, goes from normalized amplitude -> output intensity
-
-        '''
-        if self.log_scale is not None: # Check if log_scale is trainable parameter
-            scale_factor = torch.exp(self.log_scale)
-        
-        # Resize scale_factor to match x dimensions if needed.
-        # Implemented 06/3/2025. Unsure why this is even here, removed it for now
-        # if x.ndim == 4:
-        #     scale_factor = scale_factor.squeeze(2)
-
-        return x / scale_factor
 
 #Full module with everything
 class PtychoPINN(nn.Module):
@@ -1300,7 +791,7 @@ class PtychoPINN(nn.Module):
     Full PtychoPINN module with all sub-modules.
     If in training, outputs loss and reconstruction
     If in inference, outputs object functions
-    
+
     Note for forward call, because we're getting data from a memory-mapped tensor
 
     Inputs
@@ -1339,7 +830,7 @@ class PtychoPINN(nn.Module):
         #Autoencoder result
         x_real, x_imag = self.autoencoder(x)
         #Combine amp and phase
-    
+
         x_combined = self.combine_complex(x_real, x_imag)
 
         #Run through forward model. Unscaled diffraction pattern
@@ -1347,11 +838,11 @@ class PtychoPINN(nn.Module):
                                            positions, probe/self.probe_scale, output_scale_factor,
                                            experiment_ids = experiment_ids,
                                            fine_tune = fine_tune)
-        
-        
+
+
 
         return x_out, x_real, x_imag
-    
+
     def forward_predict(self, x, positions, probe, input_scale_factor):
         #Scaling
         x = self.scaler.scale(x, input_scale_factor)
@@ -1361,72 +852,72 @@ class PtychoPINN(nn.Module):
         x_combined = self.combine_complex(x_real, x_imag)
 
         return x_combined
-    
+
     def get_encoder_bottom_params(self):
         """
         Returns parameters from bottom 50% of encoder (early conv blocks).
         These learn basic diffraction pattern features and should change minimally.
-        
+
         Structure: self.autoencoder.encoder.blocks (ModuleList of ConvPoolBlock)
         """
         if not hasattr(self, 'autoencoder') or not hasattr(self.autoencoder, 'encoder'):
             print("Warning: autoencoder.encoder not found")
             return []
-        
+
         encoder = self.autoencoder.encoder
-        
+
         # encoder.blocks is a ModuleList of ConvPoolBlock instances
         if not hasattr(encoder, 'blocks'):
             print("Warning: encoder.blocks not found")
             return []
-        
+
         encoder_blocks = encoder.blocks  # This is a ModuleList
-        
+
         if len(encoder_blocks) == 0:
             print("Warning: encoder.blocks is empty")
             return []
-        
+
         # Split at midpoint
         split_idx = len(encoder_blocks) // 2
         bottom_blocks = encoder_blocks[:split_idx]
-        
+
         # Collect all parameters from bottom blocks
         params = []
         for block in bottom_blocks:
             params.extend(block.parameters())
-    
+
         return params
 
     def get_encoder_top_params(self):
         """
         Returns parameters from top 50% of encoder (later conv blocks).
         These learn higher-level features and can adapt more to experimental data.
-        
+
         Structure: self.autoencoder.encoder.blocks (ModuleList of ConvPoolBlock)
         """
         if not hasattr(self, 'autoencoder') or not hasattr(self.autoencoder, 'encoder'):
             print("Warning: autoencoder.encoder not found")
             return []
-        
+
         encoder = self.autoencoder.encoder
-        
+
         if not hasattr(encoder, 'blocks'):
             print("Warning: encoder.blocks not found")
             return []
-        
+
         encoder_blocks = encoder.blocks
-        
+
         if len(encoder_blocks) == 0:
             print("Warning: encoder.blocks is empty")
             return []
-        
+
         split_idx = len(encoder_blocks) // 2
         top_blocks = encoder_blocks[split_idx:]
-        
+
         params = []
         for block in top_blocks:
             params.extend(block.parameters())
-        
+
         return params
 
     def get_decoder_params(self):
@@ -1532,7 +1023,7 @@ class PtychoPINN(nn.Module):
         if hasattr(self, 'autoencoder') and hasattr(self.autoencoder, 'encoder'):
             for param in self.autoencoder.encoder.parameters():
                 param.requires_grad = False
-            print("✓ Encoder frozen")
+            print("Encoder frozen")
         else:
             print("Warning: Could not freeze encoder - autoencoder.encoder not found")
 
@@ -1542,7 +1033,7 @@ class PtychoPINN(nn.Module):
         if bottom_params:
             for param in bottom_params:
                 param.requires_grad = False
-            print(f"✓ Encoder bottom frozen ({len(bottom_params)} parameter tensors)")
+            print(f"Encoder bottom frozen ({len(bottom_params)} parameter tensors)")
         else:
             print("Warning: No encoder bottom parameters found to freeze")
 
@@ -1552,7 +1043,7 @@ class PtychoPINN(nn.Module):
         if top_params:
             for param in top_params:
                 param.requires_grad = True
-            print(f"✓ Encoder top unfrozen ({len(top_params)} parameter tensors)")
+            print(f"Encoder top unfrozen ({len(top_params)} parameter tensors)")
         else:
             print("Warning: No encoder top parameters found to unfreeze")
 
@@ -1560,43 +1051,43 @@ class PtychoPINN(nn.Module):
         """Unfreeze all parameters."""
         for param in self.parameters():
             param.requires_grad = True
-        print("✓ All parameters unfrozen")
+        print("All parameters unfrozen")
 
     def print_trainable_status(self):
         """Debug helper: print which parts of the network are trainable."""
         print("\n" + "="*60)
         print("Network Trainable Status:")
         print("="*60)
-        
+
         # Get parameters in each group
         encoder_bottom_params = self.get_encoder_bottom_params()
         encoder_top_params = self.get_encoder_top_params()
         decoder_params = self.get_decoder_params()
         phase_head_params = self.get_phase_head_params()
         amp_head_params = self.get_amp_head_params()
-        
+
         # Check if any are trainable
         encoder_bottom_trainable = any(p.requires_grad for p in encoder_bottom_params) if encoder_bottom_params else False
         encoder_top_trainable = any(p.requires_grad for p in encoder_top_params) if encoder_top_params else False
         decoder_trainable = any(p.requires_grad for p in decoder_params) if decoder_params else False
         phase_head_trainable = any(p.requires_grad for p in phase_head_params) if phase_head_params else False
         amp_head_trainable = any(p.requires_grad for p in amp_head_params) if amp_head_params else False
-        
+
         # Count parameters
         def count_params(param_list):
             return sum(p.numel() for p in param_list)
-        
-        print(f"Encoder (bottom 50%): {'✓ Trainable' if encoder_bottom_trainable else '✗ Frozen'} "
+
+        print(f"Encoder (bottom 50%): {'Trainable' if encoder_bottom_trainable else 'Frozen'} "
             f"({count_params(encoder_bottom_params):,} params)")
-        print(f"Encoder (top 50%):    {'✓ Trainable' if encoder_top_trainable else '✗ Frozen'} "
+        print(f"Encoder (top 50%):    {'Trainable' if encoder_top_trainable else 'Frozen'} "
             f"({count_params(encoder_top_params):,} params)")
-        print(f"Decoder (base):       {'✓ Trainable' if decoder_trainable else '✗ Frozen'} "
+        print(f"Decoder (base):       {'Trainable' if decoder_trainable else 'Frozen'} "
             f"({count_params(decoder_params):,} params)")
-        print(f"Phase head:           {'✓ Trainable' if phase_head_trainable else '✗ Frozen'} "
+        print(f"Phase head:           {'Trainable' if phase_head_trainable else 'Frozen'} "
             f"({count_params(phase_head_params):,} params)")
-        print(f"Amp head:             {'✓ Trainable' if amp_head_trainable else '✗ Frozen'} "
+        print(f"Amp head:             {'Trainable' if amp_head_trainable else 'Frozen'} "
             f"({count_params(amp_head_params):,} params)")
-        
+
         total_params = count_params(list(self.parameters()))
         trainable_params = count_params([p for p in self.parameters() if p.requires_grad])
         print(f"\nTotal: {trainable_params:,} / {total_params:,} trainable ({100*trainable_params/total_params:.1f}%)")
@@ -1610,21 +1101,21 @@ class PtychoPINN(nn.Module):
         print("\n" + "="*60)
         print("Parameter Grouping Verification:")
         print("="*60)
-        
+
         # Get all parameter groups
         encoder_bottom = set(id(p) for p in self.get_encoder_bottom_params())
         encoder_top = set(id(p) for p in self.get_encoder_top_params())
         decoder = set(id(p) for p in self.get_decoder_params())
         phase_head = set(id(p) for p in self.get_phase_head_params())
         amp_head = set(id(p) for p in self.get_amp_head_params())
-        
+
         # Get all model parameters (excluding forward_model parameters like alpha, beta)
         # We only care about autoencoder parameters for grouping
         autoencoder_params = set(id(p) for p in self.autoencoder.parameters())
-        
+
         # Union of all groups
         all_grouped_params = encoder_bottom | encoder_top | decoder | phase_head | amp_head
-        
+
         # Check for overlaps
         overlaps = []
         groups = {
@@ -1634,51 +1125,51 @@ class PtychoPINN(nn.Module):
             'phase_head': phase_head,
             'amp_head': amp_head
         }
-        
+
         for name1, group1 in groups.items():
             for name2, group2 in groups.items():
                 if name1 < name2:  # Avoid duplicate checks
                     overlap = group1 & group2
                     if overlap:
-                        overlaps.append(f"{name1} ∩ {name2}: {len(overlap)} params")
-        
+                        overlaps.append(f"{name1} & {name2}: {len(overlap)} params")
+
         # Check for missing parameters (only in autoencoder)
         missing = autoencoder_params - all_grouped_params
         extra = all_grouped_params - autoencoder_params
-        
+
         print(f"Total autoencoder parameters: {len(autoencoder_params)}")
         print(f"Total grouped parameters: {len(all_grouped_params)}")
         print(f"Missing from groups: {len(missing)}")
         print(f"Extra in groups (shouldn't happen): {len(extra)}")
-        
+
         if overlaps:
-            print(f"\n⚠ Warning: Parameter overlaps detected:")
+            print(f"\nWarning: Parameter overlaps detected:")
             for overlap in overlaps:
                 print(f"  {overlap}")
         else:
-            print(f"\n✓ No parameter overlaps")
-        
+            print(f"\nNo parameter overlaps")
+
         if missing:
-            print(f"\n⚠ Warning: {len(missing)} autoencoder parameters not in any group")
+            print(f"\nWarning: {len(missing)} autoencoder parameters not in any group")
             # Try to identify what's missing
             print("  Attempting to identify missing parameters...")
             for name, param in self.autoencoder.named_parameters():
                 if id(param) in missing:
                     print(f"    - {name}")
         else:
-            print(f"\n✓ All autoencoder parameters accounted for")
-        
+            print(f"\nAll autoencoder parameters accounted for")
+
         if extra:
-            print(f"\n⚠ Warning: {len(extra)} grouped parameters not in autoencoder")
-        
+            print(f"\nWarning: {len(extra)} grouped parameters not in autoencoder")
+
         print("="*60 + "\n")
-    
+
 # Supervised model equivalent
 
 class Ptycho_Supervised(nn.Module):
     '''
     PtychoPINN supervised version. Skips forward model as well as overlap constraint
-    
+
     Note for forward call, because we're getting data from a memory-mapped tensor
 
     Inputs
@@ -1711,11 +1202,11 @@ class Ptycho_Supervised(nn.Module):
         #Autoencoder result
         x_amp, x_phase = self.autoencoder(x)
         #Combine amp and phase
-    
+
         x_combined = self.combine_complex(x_amp, x_phase)
 
         return x_combined, x_amp, x_phase
-    
+
     def forward_predict(self, x, positions, probe, input_scale_factor):
         """
         Identical to forward specifically for Ptycho_Supervised.
@@ -1820,18 +1311,18 @@ class PtychoPINN_Lightning(L.LightningModule):
 
         #Saving hyperparameters
         self.save_hyperparameters()
-    
+
     def forward(self, x, positions, probe, input_scale_factor, output_scale_factor, experiment_ids,
                 fine_tune = False):
         x_out = self.model(x, positions, probe, input_scale_factor, output_scale_factor, experiment_ids,
                            fine_tune = fine_tune)
         return x_out
-    
+
     def forward_predict(self, x, positions, probe, input_scale_factor):
         #Turns padding off if we need to
         x_combined = self.model.forward_predict(x, positions, probe, input_scale_factor)
         return x_combined
-    
+
     def compute_loss(self, batch):
         """
         Loss computation with RMS normalization.
@@ -1887,7 +1378,7 @@ class PtychoPINN_Lightning(L.LightningModule):
             imag_reg_loss = self.PhaseLoss(imag).mean()
             total_loss += imag_reg_loss * self.model_config.imag_loss_coeff
 
-        # Probe reference loss — penalize imaginary channel for transparent-object input
+        # Probe reference loss -- penalize imaginary channel for transparent-object input
         if self.model_config.probe_reference_coeff > 0:
             C_in = self.model_config.C_model if self.model_config.object_big else 1
             probe_single = probe[0, 0, 0]  # Single probe from batch, shape (N, N) complex
@@ -1900,7 +1391,7 @@ class PtychoPINN_Lightning(L.LightningModule):
                      on_step=False, prog_bar=True, on_epoch=True, sync_dist=True)
 
         return total_loss
-    
+
     def training_step(self, batch, batch_idx):
         #Manual opt
         opt = self.optimizers()
@@ -1926,9 +1417,9 @@ class PtychoPINN_Lightning(L.LightningModule):
 
         #Logging
         self.log(self.loss_name, loss, on_epoch = True, prog_bar=True, logger=True, sync_dist=True)
-        
+
         return loss
-    
+
     def validation_step(self, batch, batch_idx):
         """
         Validation step - computes validation loss without gradient updates
@@ -1946,10 +1437,10 @@ class PtychoPINN_Lightning(L.LightningModule):
                  sync_dist=True)
 
         # self.validation_step_outputs.append(val_loss.detach())
-        
+
         return val_loss
-    
-    
+
+
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(),
                                      lr = self.lr)
@@ -1986,26 +1477,26 @@ class PtychoPINN_Lightning(L.LightningModule):
                 T_max = total_epochs,
                 eta_min = eta_min
             )
-        
+
         linear_warmup = LinearLR(
             optimizer,
             start_factor = 0.1,
             end_factor = 1.0,
             total_iters = warmup_epochs
         )
-        
+
         cosine = CosineAnnealingLR(
             optimizer,
             T_max = max(1, total_epochs - warmup_epochs),
             eta_min = eta_min
         )
-        
+
         return SequentialLR(
             optimizer,
             schedulers = [linear_warmup, cosine],
             milestones = [warmup_epochs]
         )
-    
+
     def freeze_encoder(self):
         """
         Freezes all parameters in encoder for fine-tuning step.
@@ -2014,13 +1505,13 @@ class PtychoPINN_Lightning(L.LightningModule):
         encoder = self.model.autoencoder.encoder
         for param in encoder.parameters():
             param.requires_grad = False
-        
+
         # Fix: Force physics-only mode for fine-tuning
         self._fine_tuning_mode = True
-        
+
         print("Encoder layers frozen for fine-tuning. Only decoder layers will be updated")
         print("Fine-tuning will use physics-based normalization only.")
-        
+
     def on_train_epoch_start(self):
         """
         Called at the start of each training epoch
@@ -2037,7 +1528,7 @@ class PtychoPINN_Lightning(L.LightningModule):
         """
         # Get scheduler(s)
         sch = self.lr_schedulers()
-        
+
         # Step the scheduler
         if sch is not None:
             if isinstance(sch, list):
@@ -2045,14 +1536,14 @@ class PtychoPINN_Lightning(L.LightningModule):
                     scheduler.step()
             else:
                 sch.step()
-            
+
             # Log the new LR after stepping
             current_lr = self.optimizers().param_groups[0]['lr']
             self.log('learning_rate', current_lr, on_epoch=True, sync_dist=True)
-            
+
             if self.global_rank == 0:
                 print(f"Epoch {self.current_epoch} complete. New LR: {current_lr:.2e}")
-            
+
     def on_after_backward(self):
     # Log the norm of the gradients for the final layer of the decoder
         if self.global_step % 50 == 0:
@@ -2066,5 +1557,3 @@ class PtychoPINN_Lightning(L.LightningModule):
                 grad_norm = self.model.autoencoder.decoder_amp.amp.conv1.weight.grad.norm()
             # Show in progress bar
             self.log("grad_norm", grad_norm, on_step=True, prog_bar=True, logger=True)
-
-

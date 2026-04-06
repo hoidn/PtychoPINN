@@ -519,7 +519,60 @@ class PrebuiltPtychoDataModule(L.LightningDataModule):
             persistent_workers=True,
             prefetch_factor=4,
         )
-    
+
+
+class InMemoryPtychoDataModule(L.LightningDataModule):
+    """
+    Lightweight LightningDataModule that wraps a pre-built PtychoDataset
+    (e.g., one created via PtychoDataset.from_np()) for training.
+
+    Unlike PtychoDataModule which loads from directories, this accepts
+    a dataset that is already fully constructed in memory.
+    """
+    def __init__(self, dataset, training_config, val_split=0.1, val_seed=42):
+        super().__init__()
+        self.dataset = dataset
+        self.training_config = training_config
+        self.val_split = val_split
+        self.val_seed = val_seed
+        self.train_dataset = None
+        self.val_dataset = None
+
+    def setup(self, stage=None):
+        if self.train_dataset is not None:
+            return
+        if stage == "fit" or stage is None:
+            dataset_size = len(self.dataset)
+            val_size = int(self.val_split * dataset_size)
+            train_size = dataset_size - val_size
+
+            generator = torch.Generator().manual_seed(self.val_seed)
+            self.train_dataset, self.val_dataset = torch.utils.data.random_split(
+                self.dataset, [train_size, val_size], generator=generator
+            )
+            print(f"[InMemoryPtychoDataModule] Split: train={train_size}, val={val_size}")
+
+    def train_dataloader(self):
+        return TensorDictDataLoader(
+            self.train_dataset,
+            batch_size=self.training_config.batch_size,
+            shuffle=True,
+            num_workers=0,
+            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
+            pin_memory=True,
+        )
+
+    def val_dataloader(self):
+        return TensorDictDataLoader(
+            self.val_dataset,
+            batch_size=self.training_config.batch_size,
+            shuffle=False,
+            num_workers=0,
+            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
+            pin_memory=True,
+        )
+
+
 # Schedulers
 class MultiStageLRScheduler(_LRScheduler):
     """
