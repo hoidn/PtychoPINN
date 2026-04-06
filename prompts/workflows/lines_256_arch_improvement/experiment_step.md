@@ -89,7 +89,6 @@ For `READY` with `candidate_kind: "source"`, include:
 - `status`
 - `candidate_kind`
 - `base_ref`
-- `candidate_commit`
 - `candidate_paths_file`
 - `smoke_command`
 - `smoke_output_root`
@@ -119,6 +118,8 @@ For `BLOCKED`, include:
 - `status`
 - `blocker_reason`
 
+For `source` candidates, the controller resolves the authoritative candidate commit from the workspace `HEAD` after reading your metadata. Do not invent or guess a `candidate_commit` field. The stable provider-owned provenance surface is the staged `candidate_paths_file`.
+
 Rules:
 - Use the `timestamp_utc`, `comparison_gallery_dir`, `output_root_base`, and `log_root` values from the injected candidate context file when constructing output paths.
 - The smoke command should use `scripts/studies/grid_lines_torch_runner.py` directly so the controller can run a cheap end-to-end sanity pass with `epochs=1` while preserving the same `lines_256` dataset, seed, `N=256`, `gridsize=1`, `hybrid_resnet` architecture family, `--no-probe-mask`, and `--torch-mae-pred-l2-match-target`.
@@ -141,6 +142,6 @@ Rules:
 
 Before finishing:
 - verify `candidate_metadata_path` exists and contains valid JSON
-- if `candidate_kind` is `source`, verify the commit exists
+- if `candidate_kind` is `source`, verify `HEAD` is on the intended source candidate commit
 - if `candidate_kind` is `source`, verify `candidate_paths_file` exists and contains a JSON list of relative file paths
 - if `candidate_kind` is `run_config`, verify tracked source files are unchanged

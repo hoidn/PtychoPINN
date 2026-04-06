@@ -11,6 +11,7 @@ This ledger captures the most important lessons, conventions, and recurring issu
 | LINES256-PROPOSAL-RECOVERY-001 | 2026-04-01 | lines_256, controller, proposal, resume, workflow | The v2 `lines_256` controller must treat proposal generation as a transaction. Setting `proposal_running` before durable candidate metadata exists and then hard-requiring `candidate_metadata.json` on resume makes provider-capacity or interruption failures unrecoverable. Fix by writing controller-owned `proposal_attempt.json` / `proposal_result.json`, making missing proposal metadata retryable, and moving smoke execution back under deterministic controller ownership. | `scripts/studies/lines_256_session_controller.py, tests/studies/test_lines_256_session_controller.py, state/lines_256_arch_improvement_v2/sessions/20260331T015545Z/iterations/035/*` | Active |
 | LINES256-SESSION-BRANCH-001 | 2026-04-06 | lines_256, controller, git, session-branch, detached-head, provenance | The v2 `lines_256` controller should keep each dedicated run checkout on a named session branch such as `lines256/session/<session_id>`. Branch names are operational handles for human inspection and resume; exact commit SHAs remain the authoritative scientific provenance for accepted state and source candidates. Detached checkouts are recoverable, but they should not be the intended steady state. | `scripts/studies/lines_256_session_controller.py, tests/studies/test_lines_256_session_controller.py, docs/studies/lines_256_controller_loop.md` | Active |
 | LINES256-IMPORT-PROVENANCE-001 | 2026-04-01 | lines_256, controller, pythonpath, import-provenance, source-candidates, resume | Controller-owned smoke/scored child runs must treat the session repo root as the authoritative import root. Preserving ambient `PYTHONPATH` can make a run-checkout source candidate score code from a different checkout, producing false ties or misleading results without crashing. Keep PATH `python` per `PYTHON-ENV-001`, but overwrite `PYTHONPATH` with the session repo root and record runtime provenance in invocation artifacts. | `scripts/studies/lines_256_session_controller.py, scripts/studies/invocation_logging.py, scripts/studies/grid_lines_torch_runner.py, scripts/studies/run_lines_256_arch_experiment.py, tests/studies/test_lines_256_session_controller.py, tests/test_grid_lines_invocation_logging.py, tests/torch/test_grid_lines_torch_runner.py` | Active |
+| LINES256-CONTROLLER-PROVENANCE-001 | 2026-04-01 | lines_256, controller, runtime-provenance, compatibility, recovery, invalid_execution | Source-execution integrity for `lines_256` must be proven by controller-owned launch/import-probe artifacts, not by child `invocation.json` schema alone. Missing child runtime-provenance fields in an older run checkout are a recoverable compatibility problem, not scientific evidence and not a reason to auto-complete the session. | `scripts/studies/lines_256_session_controller.py, tests/studies/test_lines_256_session_controller.py, state/lines_256_arch_improvement_v2/sessions/20260331T015545Z/iterations/036/*` | Active |
 | LINES256-CTRL-PATH-001 | 2026-03-30 | lines_256, controller, interpreter, subprocess, path, tensorflow | The v2 `lines_256` controller must stabilize the scored-command subprocess PATH so plain `python ...` resolves to the same runtime as the controller itself. `bash -lc` plus ambient shell startup can drift to a different interpreter, causing false `ModuleNotFoundError: tensorflow` crashes even when smoke runs succeed. Fix the controller boundary, not the persisted command strings. | `scripts/studies/lines_256_session_controller.py, tests/studies/test_lines_256_session_controller.py, state/lines_256_arch_improvement_v2/sessions/20260330T001026Z/iterations/046/*.log` | Active |
 | PROBE-MASK-DEFAULT-001 | 2026-02-20 | pytorch, probe-mask, hybrid_resnet, regression, integration-test | Hybrid-resnet metric regression on `fno-stable` was introduced when Torch probe masking changed from effectively off-by-default to on-by-default (`db1e43f9`). Hard-vs-soft edge is secondary; disabling default masking restores the integration gate. | `db1e43f9 vs 8dac52fc, ptycho_torch/config_params.py, ptycho_torch/model.py, tests/torch/test_grid_lines_hybrid_resnet_integration.py` | Active |
 | REASSEMBLY-M-CONTRACT-001 | 2026-03-04 | pytorch, reassembly, external_raw_npz, M, crop-border, shift-sum | Position reassembly must have a single trim owner: forward full patches to `tf_helper.reassemble_position` and derive `M_effective` from `M_requested` + `position_crop_border`. Runner-side pre-trim plus tf_helper trim caused broadcast-shape failures. | `scripts/studies/grid_lines_torch_runner.py, tests/torch/test_grid_lines_torch_runner.py, docs/workflows/pytorch.md, docs/debugging/TROUBLESHOOTING.md` | Resolved |
@@ -293,39 +294,6 @@ controller's own runtime.
 - `outputs/lines_256_arch_improvement_v2/sessions/20260330T001026Z/candidates/20260330T191252Z_21bb106786e1/driver_stderr.log`
 - `state/lines_256_arch_improvement_v2/sessions/20260330T001026Z/iterations/046/20260330T191252Z_adaff131ade6__source_smoke.log`
 
-<<<<<<< HEAD
-## LINES256-SESSION-BRANCH-001 - Session Checkouts Should Stay on Named Branches While SHAs Remain Authoritative
-**Category:** Controller Runtime, Git Ergonomics, Resume Semantics
-**Impact:** detached `HEAD` makes live `lines_256` run checkouts harder to inspect and resume even though branch names are not the real provenance contract
-**Location:** `scripts/studies/lines_256_session_controller.py`, `docs/studies/lines_256_controller_loop.md`
-**Date:** 2026-04-06
-
-### Issue
-The v2 controller already uses dedicated run checkouts, which is correct for
-source-candidate rollback and cleanup. But leaving those checkouts detached by
-default makes the operational state harder for humans to inspect and makes
-resume semantics more confusing than necessary.
-
-### Root Cause
-The controller historically coupled source-candidate validation to exact commit
-identity and let that bleed into the runtime checkout model. Commit SHAs are
-the right scientific provenance surface, but detached `HEAD` is not required to
-preserve that property.
-
-### Required Rule
-- Keep one named session branch per run checkout, for example
-  `lines256/session/<session_id>`.
-- Treat that branch name as an operator-facing runtime handle only.
-- Keep `accepted_ref` and resolved source candidate SHAs as the authoritative
-  provenance for scoring, ledgers, and resume validation.
-- Detached checkouts are recoverable, but they should not be the intended
-  steady-state runtime mode.
-
-### Evidence
-- `scripts/studies/lines_256_session_controller.py`
-- `tests/studies/test_lines_256_session_controller.py`
-- `docs/studies/lines_256_controller_loop.md`
-=======
 ## LINES256-IMPORT-PROVENANCE-001 - Child Study Imports Must Resolve from the Session Repo Root
 **Category:** Controller Runtime, Import Provenance, Cross-Checkout Isolation
 **Impact:** `lines_256` v2 source candidates can be scored against the wrong source tree without crashing
@@ -368,4 +336,112 @@ modules came from a different checkout.
 - `outputs/lines_256_arch_improvement_v2/sessions/20260331T015545Z/candidates/20260401T162432Z_0fdceed5370e/checkpoints/last.ckpt`
 - `scripts/studies/lines_256_session_controller.py`
 - `scripts/studies/invocation_logging.py`
->>>>>>> e16f4356 (fix: scope lines256 child imports to session repo)
+
+## LINES256-CONTROLLER-PROVENANCE-001 - Controller-Owned Provenance Must Be Authoritative and Recoverable
+**Category:** Controller Runtime, Compatibility Drift, Infra Recovery
+**Impact:** `lines_256` v2 sessions can stop early on stale run checkouts even when the scored command itself succeeds
+**Location:** `scripts/studies/lines_256_session_controller.py`
+**Date:** 2026-04-01
+
+### Issue
+Iteration `036` of session `20260331T015545Z` scored a real source candidate
+successfully, but the controller classified it as `INVALID_EXECUTION` solely
+because the dedicated run checkout still emitted older `invocation.json`
+artifacts without `extra.runtime_provenance`. The controller then treated that
+infra-invalid result as terminal and marked the session `completed`.
+
+### Root Cause
+The controller had already moved integrity ownership in the right direction,
+but it still depended on child-script runtime-provenance schema as the decisive
+artifact. That made the controller brittle against run-checkout drift:
+- new controller expectations
+- old wrapper/runner artifact schema
+- successful scored command
+- terminal session stop anyway
+
+### Required Rule
+- Controller-owned launch metadata and import probes are the authoritative
+  source-execution evidence for `source` candidates.
+- Wrapper/runner runtime provenance is useful corroboration when present, but
+  absence of those fields is only a compatibility warning.
+- If controller-owned provenance is missing or incomplete, classify the result
+  as recoverable `INVALID_EXECUTION` and yield for remediation instead of
+  auto-completing the session.
+- Only affirmative repo-root mismatches from controller-owned provenance should
+  be treated as hard invalid execution.
+
+### Evidence
+- `state/lines_256_arch_improvement_v2/sessions/20260331T015545Z/iterations/036/candidate_assessment.json`
+- `state/lines_256_arch_improvement_v2/sessions/20260331T015545Z/iterations/036/candidate_run_result.json`
+- `outputs/lines_256_arch_improvement_v2/sessions/20260331T015545Z/candidates/20260401T183743Z_89f86c4a78f8/invocation.json`
+- `outputs/lines_256_arch_improvement_v2/sessions/20260331T015545Z/candidates/20260401T183743Z_89f86c4a78f8/runs/pinn_hybrid_resnet/invocation.json`
+
+## LINES256-PROPOSAL-CANONICALIZATION-001 - Provider Git SHAs Are Advisory, Not Authoritative
+**Category:** Proposal Handoff, Source Provenance, Resume Robustness
+**Impact:** `lines_256` v2 proposal steps can stop before scoring when the provider writes a wrong or hallucinated `candidate_commit`
+**Location:** `scripts/studies/lines_256_session_controller.py`
+**Date:** 2026-04-03
+
+### Issue
+Iteration `052` of session `20260331T015545Z` prepared a real source candidate
+and passed smoke, but the proposal agent wrote a bogus full SHA into
+`candidate_metadata.json`. The controller then trusted that metadata field
+during proposal validation and stopped the session before any scored run
+started.
+
+### Root Cause
+The provider was still treated as the authority for final git provenance even
+though commit resolution is deterministic controller state, not prompt-owned
+judgment. That made the proposal handoff brittle:
+- the agent created the right source change
+- repo `HEAD` was on a valid candidate commit
+- provider metadata contained the wrong SHA
+- controller trusted the string instead of the repo state and aborted
+
+### Required Rule
+- Treat provider `candidate_commit` as optional/advisory only for `source`
+  proposals.
+- Resolve the authoritative source candidate commit from repo `HEAD` in the
+  controller and persist it in `proposal_resolution.json`.
+- Validate/scored downstream source candidates against the controller-resolved
+  commit, not the raw provider-authored SHA.
+- If the controller cannot prove a valid source candidate state, write a
+  retryable `proposal_result.json`, reset to `proposal_pending`, and allow
+  resume to continue instead of leaving stale `proposal_running`.
+
+### Evidence
+- `state/lines_256_arch_improvement_v2/sessions/20260331T015545Z/iterations/052/candidate_metadata.json`
+- `state/lines_256_arch_improvement_v2/sessions/20260331T015545Z/iterations/052/proposal_agent.log`
+- `scripts/studies/lines_256_session_controller.py`
+
+## LINES256-SESSION-BRANCH-001 - Session Checkouts Should Stay on Named Branches While SHAs Remain Authoritative
+**Category:** Controller Runtime, Git Ergonomics, Resume Semantics
+**Impact:** detached `HEAD` makes live `lines_256` run checkouts harder to inspect and resume even though branch names are not the real provenance contract
+**Location:** `scripts/studies/lines_256_session_controller.py`, `docs/studies/lines_256_controller_loop.md`
+**Date:** 2026-04-06
+
+### Issue
+The v2 controller already uses dedicated run checkouts, which is correct for
+source-candidate rollback and cleanup. But leaving those checkouts detached by
+default makes the operational state harder for humans to inspect and makes
+resume semantics more confusing than necessary.
+
+### Root Cause
+The controller historically coupled source-candidate validation to exact commit
+identity and let that bleed into the runtime checkout model. Commit SHAs are
+the right scientific provenance surface, but detached `HEAD` is not required to
+preserve that property.
+
+### Required Rule
+- Keep one named session branch per run checkout, for example
+  `lines256/session/<session_id>`.
+- Treat that branch name as an operator-facing runtime handle only.
+- Keep `accepted_ref` and resolved source candidate SHAs as the authoritative
+  provenance for scoring, ledgers, and resume validation.
+- Detached checkouts are recoverable, but they should not be the intended
+  steady-state runtime mode.
+
+### Evidence
+- `scripts/studies/lines_256_session_controller.py`
+- `tests/studies/test_lines_256_session_controller.py`
+- `docs/studies/lines_256_controller_loop.md`

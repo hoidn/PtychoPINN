@@ -124,6 +124,10 @@ def _protected_local_paths_path(session_root: Path) -> Path:
     return session_root / "protected_local_paths.json"
 
 
+def _session_runtime_contract_path(session_root: Path) -> Path:
+    return session_root / "session_runtime_contract.json"
+
+
 def _outputs_root(repo_root: Path, session_id: str) -> Path:
     return repo_root / "outputs" / "lines_256_arch_improvement_v2" / "sessions" / session_id
 
@@ -209,6 +213,14 @@ def _iteration_root(session: SessionState, iteration: int | None = None) -> Path
     return _iterations_root(session.session_root) / f"{index:03d}"
 
 
+def _controller_launch_provenance_path(output_root: Path) -> Path:
+    return output_root / "controller_launch_provenance.json"
+
+
+def _controller_import_probe_path(output_root: Path) -> Path:
+    return output_root / "controller_import_probe.json"
+
+
 def _write_json(path: Path, payload: dict[str, Any] | list[Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -261,6 +273,25 @@ def _write_session_json(session: SessionState) -> None:
     session.session_json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def _session_runtime_contract_payload() -> dict[str, object]:
+    return {
+        "version": 1,
+        "source_execution_integrity": {
+            "controller_launch_provenance": True,
+            "controller_import_probe": True,
+            "invocation_runtime_provenance_optional": True,
+            "recoverable_invalid_execution": True,
+        },
+    }
+
+
+def _ensure_session_runtime_contract(session: SessionState) -> None:
+    contract_path = _session_runtime_contract_path(session.session_root)
+    if contract_path.exists():
+        return
+    _write_json(contract_path, _session_runtime_contract_payload())
+
+
 def initialize_session(repo_root: Path, session_id: str | None = None) -> SessionState:
     repo_root = repo_root.resolve()
     session_id = session_id or _utc_timestamp()
@@ -290,6 +321,7 @@ def initialize_session(repo_root: Path, session_id: str | None = None) -> Sessio
     _iterations_root(session_root).mkdir(parents=True, exist_ok=True)
     _write_results_header(session.results_tsv_path)
     _write_json(session.protected_local_paths_path, [])
+    _ensure_session_runtime_contract(session)
     _write_session_json(session)
     return session
 
@@ -863,6 +895,10 @@ def _proposal_result_path(session: SessionState, iteration: int | None = None) -
     return _iteration_root(session, iteration) / "proposal_result.json"
 
 
+def _proposal_resolution_path(session: SessionState, iteration: int | None = None) -> Path:
+    return _iteration_root(session, iteration) / "proposal_resolution.json"
+
+
 def _debug_candidate_metadata_path(session: SessionState, iteration: int | None = None) -> Path:
     return _iteration_root(session, iteration) / "debug_candidate_metadata.json"
 
@@ -885,6 +921,10 @@ def _debug_proposal_attempt_path(session: SessionState, iteration: int | None = 
 
 def _debug_proposal_result_path(session: SessionState, iteration: int | None = None) -> Path:
     return _iteration_root(session, iteration) / "debug_proposal_result.json"
+
+
+def _debug_proposal_resolution_path(session: SessionState, iteration: int | None = None) -> Path:
+    return _iteration_root(session, iteration) / "debug_proposal_resolution.json"
 
 
 def _iteration_agent_log_path(
@@ -947,11 +987,13 @@ def normalize_candidate_proposal(proposal: dict[str, object]) -> dict[str, objec
         raise SystemExit(f"Unsupported candidate_kind: {candidate_kind}")
 
     if candidate_kind == "source":
-        for field in ("candidate_commit", "candidate_paths_file"):
-            value = proposal.get(field)
-            if not value:
-                raise SystemExit(f"Proposal missing required field: {field}")
-            normalized[field] = value
+        candidate_paths_file = proposal.get("candidate_paths_file")
+        if not candidate_paths_file:
+            raise SystemExit("Proposal missing required field: candidate_paths_file")
+        normalized["candidate_paths_file"] = candidate_paths_file
+        candidate_commit = proposal.get("candidate_commit")
+        if candidate_commit:
+            normalized["candidate_commit"] = candidate_commit
 
     return normalized
 
@@ -1041,6 +1083,18 @@ def _candidate_paths_for_source_proposal(repo_root: Path, proposal: dict[str, ob
     return _load_relative_json_list(repo_root, str(candidate_paths_file))
 
 
+def _assert_candidate_paths_do_not_overlap_protected(
+    session: SessionState,
+    candidate_paths: list[str],
+) -> None:
+    overlap = sorted(set(candidate_paths) & set(_protected_local_paths(session)))
+    if overlap:
+        raise SystemExit(
+            "Candidate paths overlap protected local paths and cannot be handled safely:\n"
+            + "\n".join(overlap)
+        )
+
+
 def _run_git_mutation(repo_root: Path, *args: str) -> None:
     completed = subprocess.run(
         ["git", *args],
@@ -1108,15 +1162,8 @@ def _cleanup_source_candidate(
     proposal: dict[str, object],
 ) -> None:
     candidate_paths = _candidate_paths_for_source_proposal(repo_root, proposal)
-    overlap = sorted(set(candidate_paths) & set(_protected_local_paths(session)))
-    if overlap:
-        raise SystemExit(
-            "Candidate paths overlap protected local paths and cannot be handled safely:\n"
-            + "\n".join(overlap)
-        )
+    _assert_candidate_paths_do_not_overlap_protected(session, candidate_paths)
 
-    current_ref = _git_head(repo_root)
-    _attach_or_reset_session_branch(repo_root, session.session_branch, current_ref)
     base_ref = str(proposal["base_ref"])
     _run_git_mutation(repo_root, "reset", "--mixed", base_ref)
     existing_paths = [path for path in candidate_paths if _path_exists_in_ref(repo_root, base_ref, path)]
@@ -1146,19 +1193,99 @@ def validate_ready_proposal(repo_root: Path, session: SessionState, proposal: di
 
     candidate_kind = str(proposal["candidate_kind"])
     if candidate_kind == "source":
+        if "candidate_commit" not in proposal:
+            raise SystemExit("Source proposal is missing resolved candidate_commit")
         if not _git_commit_exists(repo_root, str(proposal["candidate_commit"])):
             raise SystemExit(f"Missing candidate commit: {proposal['candidate_commit']}")
         if _git_head(repo_root) != str(proposal["candidate_commit"]):
             raise SystemExit(
                 f"HEAD {_git_head(repo_root)} does not match source candidate commit {proposal['candidate_commit']}"
             )
-        _load_relative_json_list(repo_root, str(proposal["candidate_paths_file"]))
+        candidate_paths = _load_relative_json_list(repo_root, str(proposal["candidate_paths_file"]))
+        _assert_candidate_paths_do_not_overlap_protected(session, candidate_paths)
         _assert_tracked_paths_preserved(repo_root, session)
         return
 
     if "candidate_commit" in proposal or "candidate_paths_file" in proposal:
         raise SystemExit("run_config proposal must not include candidate commit or candidate paths")
     _assert_tracked_paths_preserved(repo_root, session)
+
+
+def _proposal_resolution_artifact_path(
+    session: SessionState, *, debug: bool = False, iteration: int | None = None
+) -> Path:
+    return (
+        _debug_proposal_resolution_path(session, iteration)
+        if debug
+        else _proposal_resolution_path(session, iteration)
+    )
+
+
+def resolve_ready_proposal(
+    repo_root: Path,
+    session: SessionState,
+    proposal: dict[str, object],
+    *,
+    debug: bool = False,
+) -> dict[str, object]:
+    accepted = _load_accepted_state(session)
+    if str(proposal["base_ref"]) != str(accepted["accepted_ref"]):
+        raise SystemExit(
+            f"Proposal base_ref {proposal['base_ref']} does not match accepted_ref {accepted['accepted_ref']}"
+        )
+
+    candidate_kind = str(proposal["candidate_kind"])
+    resolution_payload: dict[str, object] = {
+        "timestamp_utc": _utc_timestamp(),
+        "iteration": session.iteration,
+        "debug": debug,
+        "candidate_kind": candidate_kind,
+        "base_ref": str(proposal["base_ref"]),
+        "warnings": [],
+    }
+
+    if candidate_kind == "source":
+        candidate_paths = _candidate_paths_for_source_proposal(repo_root, proposal)
+        _assert_candidate_paths_do_not_overlap_protected(session, candidate_paths)
+        _assert_tracked_paths_preserved(repo_root, session)
+        resolved_candidate_commit = _git_head(repo_root)
+        if resolved_candidate_commit == str(proposal["base_ref"]):
+            raise SystemExit(
+                "Source proposal did not advance HEAD beyond base_ref; controller cannot prove candidate state."
+            )
+
+        provider_candidate_commit = str(proposal.get("candidate_commit", "")).strip() or None
+        warnings: list[str] = []
+        provider_commit_matches_resolved: bool | None = None
+        if provider_candidate_commit is not None:
+            provider_commit_matches_resolved = provider_candidate_commit == resolved_candidate_commit
+            if not provider_commit_matches_resolved:
+                warnings.append("provider_candidate_commit_mismatch")
+
+        resolution_payload.update(
+            {
+                "candidate_paths_file": str(proposal["candidate_paths_file"]),
+                "provider_candidate_commit": provider_candidate_commit,
+                "resolved_candidate_commit": resolved_candidate_commit,
+                "provider_commit_matches_resolved": provider_commit_matches_resolved,
+                "warnings": warnings,
+            }
+        )
+        _write_json(_proposal_resolution_artifact_path(session, debug=debug), resolution_payload)
+
+        resolved = dict(proposal)
+        resolved["candidate_commit"] = resolved_candidate_commit
+        if provider_candidate_commit is not None:
+            resolved["provider_candidate_commit"] = provider_candidate_commit
+        if warnings:
+            resolved["proposal_resolution_warnings"] = warnings
+        return resolved
+
+    if "candidate_commit" in proposal or "candidate_paths_file" in proposal:
+        raise SystemExit("run_config proposal must not include candidate commit or candidate paths")
+    _assert_tracked_paths_preserved(repo_root, session)
+    _write_json(_proposal_resolution_artifact_path(session, debug=debug), resolution_payload)
+    return proposal
 
 
 def _smoke_contract_matches_accepted(
@@ -1287,6 +1414,7 @@ def _write_proposal_result(
     debug: bool,
     metadata_validated: bool,
     retryable: bool,
+    failure_reason: str | None = None,
 ) -> None:
     payload = {
         "timestamp_utc": _utc_timestamp(),
@@ -1296,6 +1424,8 @@ def _write_proposal_result(
         "stdout_excerpt": _coerce_subprocess_text(completed.stdout)[:400],
         "stderr_excerpt": _coerce_subprocess_text(completed.stderr)[:400],
     }
+    if failure_reason:
+        payload["failure_reason"] = failure_reason
     _write_json(_proposal_result_artifact_path(session, debug=debug), payload)
 
 
@@ -1363,6 +1493,57 @@ def _retryable_factory_failure(
     )
     _set_phase(session, "proposal_pending")
     return {"status": "RETRYABLE_FAILURE"}
+
+
+def _retryable_proposal_resolution_failure(
+    session: SessionState,
+    *,
+    reason: str,
+    debug: bool,
+    completed: subprocess.CompletedProcess[str] | None = None,
+) -> dict[str, object]:
+    _write_proposal_result(
+        session,
+        completed
+        or subprocess.CompletedProcess(
+            args=["proposal_resolution"],
+            returncode=1,
+            stdout="",
+            stderr=reason,
+        ),
+        debug=debug,
+        metadata_validated=False,
+        retryable=True,
+        failure_reason=reason,
+    )
+    if not debug:
+        _set_phase(session, "proposal_pending")
+    return {"status": "RETRYABLE_FAILURE"}
+
+
+def _resolve_ready_metadata(
+    repo_root: Path,
+    session: SessionState,
+    metadata: dict[str, object],
+    *,
+    debug: bool,
+    completed: subprocess.CompletedProcess[str] | None = None,
+    retryable_on_failure: bool,
+) -> dict[str, object]:
+    try:
+        proposal = normalize_candidate_proposal(metadata)
+        resolved = resolve_ready_proposal(repo_root, session, proposal, debug=debug)
+        validate_ready_proposal(repo_root, session, resolved)
+    except SystemExit as exc:
+        if not retryable_on_failure:
+            raise
+        return _retryable_proposal_resolution_failure(
+            session,
+            reason=str(exc),
+            debug=debug,
+            completed=completed,
+        )
+    return resolved
 
 
 def _redesign_workflow_path(repo_root: Path) -> Path:
@@ -1588,8 +1769,16 @@ def redesign_candidate_factory(
         _set_phase(session, "proposal_complete")
         return metadata
 
-    proposal = normalize_candidate_proposal(metadata)
-    validate_ready_proposal(repo_root, session, proposal)
+    proposal = _resolve_ready_metadata(
+        repo_root,
+        session,
+        metadata,
+        debug=False,
+        completed=completed,
+        retryable_on_failure=True,
+    )
+    if proposal.get("status") == "RETRYABLE_FAILURE":
+        return proposal
     if not _proposal_result_path(session).exists():
         _write_proposal_result(
             session,
@@ -1659,8 +1848,16 @@ def direct_candidate_factory(
         _set_phase(session, "proposal_complete")
         return metadata
 
-    proposal = normalize_candidate_proposal(metadata)
-    validate_ready_proposal(repo_root, session, proposal)
+    proposal = _resolve_ready_metadata(
+        repo_root,
+        session,
+        metadata,
+        debug=False,
+        completed=completed,
+        retryable_on_failure=True,
+    )
+    if proposal.get("status") == "RETRYABLE_FAILURE":
+        return proposal
     _write_proposal_result(
         session,
         completed,
@@ -1703,8 +1900,14 @@ def run_debug_step(
         _set_phase(session, "debug_complete")
         return metadata
 
-    proposal = normalize_candidate_proposal(metadata)
-    validate_ready_proposal(repo_root, session, proposal)
+    proposal = _resolve_ready_metadata(
+        repo_root,
+        session,
+        metadata,
+        debug=True,
+        completed=completed,
+        retryable_on_failure=False,
+    )
     _set_phase(session, "debug_complete")
     return proposal
 
@@ -1737,6 +1940,10 @@ def _write_scored_artifacts(
         assessment_payload["crash_excerpt"] = assessment["crash_excerpt"]
     if "integrity_reasons" in assessment:
         assessment_payload["integrity_reasons"] = assessment["integrity_reasons"]
+    if "integrity_warnings" in assessment:
+        assessment_payload["integrity_warnings"] = assessment["integrity_warnings"]
+    if "recoverable" in assessment:
+        assessment_payload["recoverable"] = assessment["recoverable"]
     if "suspicious_tie_warning" in assessment:
         assessment_payload["suspicious_tie_warning"] = assessment["suspicious_tie_warning"]
     _write_json(assessment_path, assessment_payload)
@@ -1748,6 +1955,13 @@ def _coerce_subprocess_text(value: str | bytes | None) -> str:
     if isinstance(value, bytes):
         return value.decode("utf-8", errors="replace")
     return value
+
+
+def _is_recoverable_invalid_execution(assessment: dict[str, object]) -> bool:
+    return (
+        str(assessment.get("decision", "")).upper() == "INVALID_EXECUTION"
+        and bool(assessment.get("recoverable"))
+    )
 
 
 def _controller_runtime_env(repo_root: Path) -> dict[str, str]:
@@ -1781,8 +1995,72 @@ def _summarize_crash_text(stdout_text: str, stderr_text: str) -> str | None:
     return combined.splitlines()[0][:400]
 
 
-def _run_scored_command(repo_root: Path, command: str, timeout_sec: int) -> dict[str, object]:
+def _controller_launch_provenance_payload(repo_root: Path, command: str) -> dict[str, object]:
+    env = _controller_runtime_env(repo_root)
+    return {
+        "command": command,
+        "cwd": str(repo_root.resolve()),
+        "pythonpath": str(env.get("PYTHONPATH", "")),
+        "python_executable": str(Path(sys.executable).resolve()),
+    }
+
+
+def _run_controller_import_probe(repo_root: Path) -> dict[str, object]:
+    probe_script = (
+        "import json, os, pathlib, ptycho_torch, sys; "
+        "print(json.dumps({"
+        "'python_executable': str(pathlib.Path(sys.executable).resolve()), "
+        "'cwd': os.getcwd(), "
+        "'pythonpath': os.environ.get('PYTHONPATH', ''), "
+        "'ptycho_torch_file': str(pathlib.Path(ptycho_torch.__file__).resolve()), "
+        "'sys_path_0': sys.path[0], "
+        "'status': 'ok'"
+        "}))"
+    )
+    completed = subprocess.run(
+        ["python", "-c", probe_script],
+        cwd=repo_root,
+        env=_controller_runtime_env(repo_root),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    stdout_text = _coerce_subprocess_text(completed.stdout)
+    stderr_text = _coerce_subprocess_text(completed.stderr)
+    payload: dict[str, object] = {
+        "exit_code": completed.returncode,
+        "stdout_text": stdout_text,
+        "stderr_text": stderr_text,
+    }
+    if completed.returncode != 0:
+        payload["status"] = "probe_failed"
+        return payload
+    try:
+        parsed = json.loads(stdout_text.strip() or "{}")
+    except json.JSONDecodeError:
+        payload["status"] = "probe_invalid_json"
+        return payload
+    if isinstance(parsed, dict):
+        payload.update(parsed)
+    payload.setdefault("status", "ok")
+    return payload
+
+
+def _run_scored_command(
+    repo_root: Path,
+    command: str,
+    timeout_sec: int,
+    *,
+    output_root: Path | None = None,
+) -> dict[str, object]:
     repo_root = repo_root.resolve()
+    if output_root is not None:
+        output_root = output_root.resolve()
+        _write_json(
+            _controller_launch_provenance_path(output_root),
+            _controller_launch_provenance_payload(repo_root, command),
+        )
+        _write_json(_controller_import_probe_path(output_root), _run_controller_import_probe(repo_root))
     try:
         completed = subprocess.run(
             ["bash", "-c", command],
@@ -1854,12 +2132,66 @@ def _is_path_within_root(path_str: object, root: Path) -> bool:
         return False
 
 
+def _runtime_alignment_reasons(
+    runtime: dict[str, object],
+    repo_root: Path,
+    *,
+    require_ptycho_torch: bool = True,
+) -> list[str]:
+    reasons: list[str] = []
+    runtime_cwd = str(runtime.get("cwd") or "")
+    if runtime_cwd != str(repo_root):
+        reasons.append(
+            f"runtime cwd {runtime_cwd!r} did not match session repo root {str(repo_root)!r}."
+        )
+    runtime_pythonpath = str(runtime.get("pythonpath") or "")
+    if runtime_pythonpath != str(repo_root):
+        reasons.append(
+            f"runtime PYTHONPATH {runtime_pythonpath!r} did not match session repo root {str(repo_root)!r}."
+        )
+    runtime_ptycho_torch = runtime.get("ptycho_torch_file")
+    if require_ptycho_torch and not _is_path_within_root(runtime_ptycho_torch, repo_root):
+        reasons.append(
+            f"runtime ptycho_torch import {str(runtime_ptycho_torch)!r} was not under the session repo root."
+        )
+    return reasons
+
+
 def _validate_source_execution_integrity(
     repo_root: Path,
     output_root: Path,
 ) -> dict[str, object]:
     repo_root = repo_root.resolve()
     reasons: list[str] = []
+    warnings: list[str] = []
+    recoverable = False
+
+    launch_provenance = _load_json_mapping(_controller_launch_provenance_path(output_root))
+    if launch_provenance is None:
+        reasons.append("controller launch provenance artifact was missing.")
+        recoverable = True
+    else:
+        reasons.extend(
+            _runtime_alignment_reasons(launch_provenance, repo_root, require_ptycho_torch=False)
+        )
+
+    import_probe = _load_json_mapping(_controller_import_probe_path(output_root))
+    if import_probe is None:
+        reasons.append("controller import probe artifact was missing.")
+        recoverable = True
+    else:
+        probe_status = str(import_probe.get("status") or "")
+        if probe_status != "ok":
+            reasons.append(
+                f"controller import probe did not complete cleanly (status={probe_status!r})."
+            )
+            recoverable = True
+        else:
+            reasons.extend(
+                f"controller import probe {reason}"
+                for reason in _runtime_alignment_reasons(import_probe, repo_root)
+            )
+
     targets = [
         ("wrapper", output_root / "invocation.json"),
         ("runner", output_root / "runs" / "pinn_hybrid_resnet" / "invocation.json"),
@@ -1867,30 +2199,18 @@ def _validate_source_execution_integrity(
     for label, invocation_path in targets:
         invocation = _load_json_mapping(invocation_path)
         if invocation is None:
-            reasons.append(f"{label} invocation artifact was missing.")
+            warnings.append(f"{label} invocation artifact was missing.")
             continue
         runtime = _runtime_provenance_from_invocation(invocation)
         if runtime is None:
-            reasons.append(f"{label} invocation artifact did not record runtime provenance.")
+            warnings.append(f"{label} invocation artifact did not record runtime provenance.")
             continue
-        runtime_cwd = str(runtime.get("cwd") or "")
-        if runtime_cwd != str(repo_root):
-            reasons.append(
-                f"{label} runtime cwd {runtime_cwd!r} did not match session repo root {str(repo_root)!r}."
-            )
-        runtime_pythonpath = str(runtime.get("pythonpath") or "")
-        if runtime_pythonpath != str(repo_root):
-            reasons.append(
-                f"{label} runtime PYTHONPATH {runtime_pythonpath!r} did not match session repo root {str(repo_root)!r}."
-            )
-        runtime_ptycho_torch = runtime.get("ptycho_torch_file")
-        if not _is_path_within_root(runtime_ptycho_torch, repo_root):
-            reasons.append(
-                f"{label} runtime ptycho_torch import {str(runtime_ptycho_torch)!r} was not under the session repo root."
-            )
+        reasons.extend(f"{label} {reason}" for reason in _runtime_alignment_reasons(runtime, repo_root))
     return {
         "status": "invalid_execution" if reasons else "ok",
         "reasons": reasons,
+        "warnings": warnings,
+        "recoverable": recoverable and bool(reasons),
     }
 
 
@@ -1904,10 +2224,12 @@ def ensure_smoke_green(
         return
 
     smoke_log_path = repo_root / str(proposal["smoke_log_path"])
+    smoke_output_root = repo_root / str(proposal["smoke_output_root"])
     smoke_launch = _run_scored_command(
         repo_root=repo_root,
         command=str(proposal["smoke_command"]),
         timeout_sec=900,
+        output_root=smoke_output_root,
     )
     _write_command_log(smoke_log_path, smoke_launch)
 
@@ -1944,6 +2266,7 @@ def run_scored_candidate(
         repo_root=repo_root,
         command=str(proposal["run_command"]),
         timeout_sec=1770,
+        output_root=output_root,
     )
 
     _write_command_log(log_path, launch_result)
@@ -2047,7 +2370,12 @@ def run_scored_candidate(
         if str(integrity["status"]) == "invalid_execution":
             assessment["decision"] = "INVALID_EXECUTION"
             assessment["integrity_reasons"] = list(integrity["reasons"])
+            if integrity.get("warnings"):
+                assessment["integrity_warnings"] = list(integrity["warnings"])
+            assessment["recoverable"] = bool(integrity.get("recoverable"))
             return assessment
+        if integrity.get("warnings"):
+            assessment["integrity_warnings"] = list(integrity["warnings"])
         if amp_ssim == float(accepted_state["accepted_amp_ssim"]):
             assessment["suspicious_tie_warning"] = (
                 "Source candidate matched the accepted amp_ssim exactly under the fixed session contract; "
@@ -2165,14 +2493,25 @@ def _expected_session_ref_for_phase(repo_root: Path, session: SessionState) -> s
     return _git_head(repo_root)
 
 
-def _load_existing_ready_proposal(session: SessionState, debug: bool = False) -> dict[str, object] | None:
+def _load_existing_ready_proposal(
+    repo_root: Path,
+    session: SessionState,
+    debug: bool = False,
+) -> dict[str, object] | None:
     metadata_path = _debug_candidate_metadata_path(session) if debug else _candidate_metadata_path(session)
     if not metadata_path.exists():
         return None
     metadata = _load_candidate_metadata(metadata_path)
     if metadata.get("status") != "READY":
         return metadata
-    return normalize_candidate_proposal(metadata)
+    return _resolve_ready_metadata(
+        repo_root.resolve(),
+        session,
+        metadata,
+        debug=debug,
+        completed=None,
+        retryable_on_failure=not debug,
+    )
 
 
 def _load_existing_assessment(session: SessionState, debug: bool = False) -> dict[str, object] | None:
@@ -2191,7 +2530,7 @@ def execute_iteration(
 ) -> str:
     repo_root = repo_root.resolve()
     if session.current_phase in {"debug_running", "debug_complete"}:
-        existing_debug = _load_existing_ready_proposal(session, debug=True)
+        existing_debug = _load_existing_ready_proposal(repo_root, session, debug=True)
         debug_proposal_or_blocked = existing_debug or run_debug_step(
             repo_root=repo_root,
             session=session,
@@ -2217,6 +2556,11 @@ def execute_iteration(
                 repo_root, session, debug_proposal, debug=True
             )
             _write_scored_artifacts(session, debug_assessment, debug=True)
+        if _is_recoverable_invalid_execution(debug_assessment):
+            session.debug_attempts = 0
+            _write_session_json(session)
+            _set_phase(session, "debug_complete")
+            return "YIELD"
         apply_candidate_assessment(repo_root, session, debug_proposal, debug_assessment)
         session.debug_attempts = 0
         _write_session_json(session)
@@ -2228,7 +2572,7 @@ def execute_iteration(
         return "STOP"
 
     existing = (
-        _load_existing_ready_proposal(session)
+        _load_existing_ready_proposal(repo_root, session)
         if session.current_phase in {"proposal_running", "proposal_complete", "scored_running"}
         else None
     )
@@ -2260,12 +2604,15 @@ def execute_iteration(
         _set_phase(session, "scored_running")
         assessment = run_scored_candidate(repo_root, session, proposal, debug=False)
     _write_scored_artifacts(session, assessment, debug=False)
+    if _is_recoverable_invalid_execution(assessment):
+        _set_phase(session, "proposal_complete")
+        return "YIELD"
 
     if should_attempt_debug(assessment, session.debug_attempts):
         session.debug_attempts = 1
         _write_session_json(session)
         existing_debug = (
-            _load_existing_ready_proposal(session, debug=True)
+            _load_existing_ready_proposal(repo_root, session, debug=True)
             if session.current_phase in {"debug_running", "debug_complete"}
             else None
         )
@@ -2294,6 +2641,11 @@ def execute_iteration(
                 repo_root, session, debug_proposal, debug=True
             )
         _write_scored_artifacts(session, debug_assessment, debug=True)
+        if _is_recoverable_invalid_execution(debug_assessment):
+            session.debug_attempts = 0
+            _write_session_json(session)
+            _set_phase(session, "debug_complete")
+            return "YIELD"
         apply_candidate_assessment(repo_root, session, debug_proposal, debug_assessment)
         session.debug_attempts = 0
         _write_session_json(session)
@@ -2325,6 +2677,7 @@ def run_full_session(
 ) -> SessionState:
     repo_root = repo_root.resolve()
     capture_protected_local_paths(repo_root, session)
+    _ensure_session_runtime_contract(session)
 
     if bootstrap_accepted_state is not None and not session.accepted_state_path.exists():
         _bootstrap_from_accepted_state(repo_root, session, bootstrap_accepted_state)
@@ -2339,6 +2692,7 @@ def run_full_session(
     expected_ref = _expected_session_ref_for_phase(repo_root, session)
     if expected_ref is not None:
         _ensure_session_checkout_state(repo_root, session, expected_ref=expected_ref)
+
     yielded = False
     while session.iteration < max_iterations and session.current_phase != "completed":
         decision = execute_iteration(

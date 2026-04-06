@@ -22,7 +22,9 @@ Required outputs:
 - `output_root`
 - `log_path`
 - `comparison_png_path`
-- plus `candidate_commit` and `candidate_paths_file` when `candidate_kind` is `source`
+- plus `candidate_paths_file` when `candidate_kind` is `source`
+
+For `source` candidates, the outer controller resolves the authoritative candidate commit from the workspace `HEAD` after reading your metadata. Do not invent or guess a `candidate_commit` field. The stable provider-owned provenance surface is `candidate_paths.json`.
 
 Execution log requirements:
 - files changed

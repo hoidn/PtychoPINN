@@ -79,16 +79,20 @@ The v2 controller stores session-local state and outputs under separate roots:
 
 Key artifacts:
 - `session.json`
+- `session_runtime_contract.json`
 - `accepted_state.json`
 - `protected_local_paths.json`
 - `results.tsv`
 - `proposal_context.json`
 - `iterations/<n>/proposal_attempt.json`
 - `iterations/<n>/proposal_result.json`
+- `iterations/<n>/proposal_resolution.json`
 - `baseline_run_result.json`
 - `iterations/<n>/candidate_context.json`
 - `iterations/<n>/candidate_metadata.json`
 - `iterations/<n>/candidate_assessment.json`
+- `outputs/.../controller_launch_provenance.json`
+- `outputs/.../controller_import_probe.json`
 
 `session.json` should persist both:
 
@@ -167,7 +171,9 @@ into `CRASH`.
 The v2 controller supports two candidate kinds:
 
 1. `source`
-- candidate includes a source change and candidate commit
+- candidate includes a source change and a provider-owned `candidate_paths_file`
+- the controller resolves the authoritative source candidate commit from repo
+  `HEAD` and records it in `proposal_resolution.json`
 - rejected candidates reset back to the recorded accepted ref
 
 2. `run_config`
@@ -184,8 +190,14 @@ The controller owns deterministic study behavior:
 - build recent-history summary and proposal context
 - select the proposal prompt mode (`exploit` or `explore`) from deterministic session signals, then invoke the proposal agent and validate its candidate package
 - persist controller-owned proposal attempt/result artifacts so interrupted proposal steps can be resumed or retried without corrupting session state
+- persist controller-owned `proposal_resolution.json` so raw provider metadata is
+  canonicalized into deterministic source/run-config provenance before smoke or
+  scored execution
 - run the cheap smoke command after proposal metadata validation rather than requiring the provider step to own smoke execution
 - run scored candidates
+- write controller-owned launch/import-probe provenance artifacts for smoke and
+  scored runs so source-execution integrity does not depend on child-script
+  schema support
 - execute scored candidate commands under a controller-owned subprocess env whose
   `PATH` resolves `python` to the controller runtime, while leaving persisted
   command strings as plain `python ...`
@@ -194,6 +206,8 @@ The controller owns deterministic study behavior:
   candidates import from the session checkout on both `start` and `resume`
 - validate execution integrity for `source` candidates before treating a scored
   result as a normal scientific `KEEP`/`DISCARD`
+- treat child `invocation.json` runtime provenance as optional corroboration,
+  not the sole authority
 - classify `KEEP`, `DISCARD`, `TIMEOUT`, and `CRASH`
 - attempt one focused crash-debug retry when warranted
 - update accepted state
@@ -210,10 +224,23 @@ study code. This is not scientific evidence against the hypothesis and should
 stop or retry the session as an infra problem rather than be treated as a
 normal discard.
 
+Recoverable compatibility drift is a special `INVALID_EXECUTION` case:
+- if controller-owned provenance is missing or incomplete because the run
+  checkout is on an older artifact schema, the controller should persist the
+  invalid assessment, keep the same iteration/candidate package intact, and
+  yield for remediation rather than auto-completing the session
+- only affirmative repo-root mismatches from controller-owned provenance should
+  be treated as hard invalid execution
+- queue items must remain in `active/` while the iteration is recoverable
+
 Proposal resume is also transactional:
 - `proposal_running` means the provider step may have been interrupted before durable candidate metadata existed
 - if `candidate_metadata.json` is missing after a proposal attempt, the controller records a retryable `proposal_result.json`, resets the session to `proposal_pending`, and lets a later resume continue instead of aborting with a missing-metadata invariant failure
 - if proposal metadata already exists during `proposal_running`, the controller should reuse it and run the deterministic smoke gate rather than re-running the provider blindly
+- for `source` candidates, provider-authored `candidate_commit` is advisory only;
+  the controller resolves the real candidate commit from repo `HEAD`, records
+  both values in `proposal_resolution.json`, and only hard-fails if it cannot
+  prove a valid source candidate state at all
 
 Proposal-mode selection is intentionally soft:
 - the controller may choose an `explore` prompt after a local discard streak
@@ -223,7 +250,8 @@ Proposal-mode selection is intentionally soft:
 Exact metric ties from semantic `source` candidates are suspicious but not
 authoritative proof of bad execution on their own. The controller may persist a
 warning for such ties, but hard invalidation should come from deterministic
-runtime provenance checks rather than prompt or heuristic judgment alone.
+controller-owned provenance checks rather than prompt or heuristic judgment
+alone.
 
 Candidate-factory selection is separate from prompt mode:
 - `direct` factory: current prompt-driven proposal path for `run_config` and

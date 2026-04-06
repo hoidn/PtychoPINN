@@ -35,6 +35,23 @@ def _init_repo(repo: Path) -> str:
     return _git(repo, "rev-parse", "--show-toplevel").stdout.strip()
 
 
+def _probe_completed_process(repo: Path) -> subprocess.CompletedProcess[str]:
+    payload = {
+        "python_executable": "/usr/bin/python3",
+        "cwd": str(repo.resolve()),
+        "pythonpath": str(repo.resolve()),
+        "ptycho_torch_file": str(repo / "ptycho_torch" / "__init__.py"),
+        "sys_path_0": "",
+        "status": "ok",
+    }
+    return subprocess.CompletedProcess(
+        ["python", "-c", "probe"],
+        0,
+        stdout=json.dumps(payload) + "\n",
+        stderr="",
+    )
+
+
 def test_controller_initializes_session_root(tmp_path):
     from scripts.studies.lines_256_session_controller import initialize_session
 
@@ -776,6 +793,281 @@ def test_direct_candidate_factory_writes_candidate_metadata_and_result(tmp_path,
     assert proposal_result["retryable"] is False
 
 
+def test_direct_candidate_factory_canonicalizes_hallucinated_source_candidate_commit(
+    tmp_path, monkeypatch
+):
+    from scripts.studies.lines_256_session_controller import (
+        _candidate_context_path,
+        _candidate_metadata_path,
+        build_candidate_context,
+        build_proposal_context,
+        direct_candidate_factory,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _write_minimal_lines256_docs(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    proposal_context = build_proposal_context(session, max_rows=5)
+    build_candidate_context(session)
+    candidate_context_path = _candidate_context_path(session)
+    metadata_path = _candidate_metadata_path(session)
+    resolution_path = session.session_root / "iterations" / "000" / "proposal_resolution.json"
+
+    def fake_run_codex_prompt(**kwargs):
+        (repo / "README.md").write_text("candidate change\n", encoding="utf-8")
+        _git(repo, "add", "README.md")
+        _git(repo, "commit", "-m", "candidate")
+        actual_commit = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        assert actual_commit != base_ref
+        candidate_paths_file = repo / "state" / "lines_256_arch_improvement_v2" / "sessions" / "20260325T000000Z" / "iterations" / "000" / "candidate_paths.json"
+        candidate_paths_file.parent.mkdir(parents=True, exist_ok=True)
+        candidate_paths_file.write_text(json.dumps(["README.md"]) + "\n", encoding="utf-8")
+        metadata_path.write_text(
+            json.dumps(
+                {
+                    "status": "READY",
+                    "candidate_kind": "source",
+                    "base_ref": base_ref,
+                    "candidate_commit": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+                    "candidate_paths_file": "state/lines_256_arch_improvement_v2/sessions/20260325T000000Z/iterations/000/candidate_paths.json",
+                    "smoke_command": "python smoke.py",
+                    "smoke_output_root": "outputs/v2/source_smoke",
+                    "smoke_log_path": "state/v2/source_smoke.log",
+                    "run_command": "python run.py",
+                    "output_root": "outputs/v2/source",
+                    "log_path": "state/v2/source.log",
+                    "comparison_png_path": "outputs/v2/source.png",
+                    "note": "source candidate",
+                    "hypothesis": "Small source tweak.",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(["codex", "exec"], 0, stdout="READY\n", stderr="")
+
+    monkeypatch.setattr(
+        "scripts.studies.lines_256_session_controller._run_codex_prompt",
+        fake_run_codex_prompt,
+    )
+
+    proposal = direct_candidate_factory(
+        repo_root=repo,
+        session=session,
+        proposal_context=proposal_context,
+        candidate_context_path=candidate_context_path,
+        codex_cmd="codex",
+        model="gpt-5.4",
+        reasoning_effort="high",
+    )
+
+    assert proposal["candidate_kind"] == "source"
+    assert proposal["candidate_commit"] == _git(repo, "rev-parse", "HEAD").stdout.strip()
+    resolution = json.loads(resolution_path.read_text(encoding="utf-8"))
+    assert resolution["provider_candidate_commit"] == "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
+    assert resolution["resolved_candidate_commit"] == proposal["candidate_commit"]
+    assert "provider_candidate_commit_mismatch" in resolution["warnings"]
+
+
+def test_direct_candidate_factory_canonicalizes_mismatched_existing_source_candidate_commit(
+    tmp_path, monkeypatch
+):
+    from scripts.studies.lines_256_session_controller import (
+        _candidate_context_path,
+        _candidate_metadata_path,
+        build_candidate_context,
+        build_proposal_context,
+        direct_candidate_factory,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _write_minimal_lines256_docs(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    proposal_context = build_proposal_context(session, max_rows=5)
+    build_candidate_context(session)
+    candidate_context_path = _candidate_context_path(session)
+    metadata_path = _candidate_metadata_path(session)
+    resolution_path = session.session_root / "iterations" / "000" / "proposal_resolution.json"
+
+    def fake_run_codex_prompt(**kwargs):
+        (repo / "README.md").write_text("candidate change\n", encoding="utf-8")
+        _git(repo, "add", "README.md")
+        _git(repo, "commit", "-m", "candidate")
+        actual_commit = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        candidate_paths_file = repo / "state" / "lines_256_arch_improvement_v2" / "sessions" / "20260325T000000Z" / "iterations" / "000" / "candidate_paths.json"
+        candidate_paths_file.parent.mkdir(parents=True, exist_ok=True)
+        candidate_paths_file.write_text(json.dumps(["README.md"]) + "\n", encoding="utf-8")
+        metadata_path.write_text(
+            json.dumps(
+                {
+                    "status": "READY",
+                    "candidate_kind": "source",
+                    "base_ref": base_ref,
+                    "candidate_commit": base_ref,
+                    "candidate_paths_file": "state/lines_256_arch_improvement_v2/sessions/20260325T000000Z/iterations/000/candidate_paths.json",
+                    "smoke_command": "python smoke.py",
+                    "smoke_output_root": "outputs/v2/source_smoke",
+                    "smoke_log_path": "state/v2/source_smoke.log",
+                    "run_command": "python run.py",
+                    "output_root": "outputs/v2/source",
+                    "log_path": "state/v2/source.log",
+                    "comparison_png_path": "outputs/v2/source.png",
+                    "note": "source candidate",
+                    "hypothesis": "Small source tweak.",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        assert actual_commit != base_ref
+        return subprocess.CompletedProcess(["codex", "exec"], 0, stdout="READY\n", stderr="")
+
+    monkeypatch.setattr(
+        "scripts.studies.lines_256_session_controller._run_codex_prompt",
+        fake_run_codex_prompt,
+    )
+
+    proposal = direct_candidate_factory(
+        repo_root=repo,
+        session=session,
+        proposal_context=proposal_context,
+        candidate_context_path=candidate_context_path,
+        codex_cmd="codex",
+        model="gpt-5.4",
+        reasoning_effort="high",
+    )
+
+    assert proposal["candidate_kind"] == "source"
+    assert proposal["candidate_commit"] == _git(repo, "rev-parse", "HEAD").stdout.strip()
+    resolution = json.loads(resolution_path.read_text(encoding="utf-8"))
+    assert resolution["provider_candidate_commit"] == base_ref
+    assert resolution["resolved_candidate_commit"] == proposal["candidate_commit"]
+    assert resolution["provider_commit_matches_resolved"] is False
+
+
+def test_direct_candidate_factory_yields_retryable_failure_for_unprovable_source_candidate_state(
+    tmp_path, monkeypatch
+):
+    from scripts.studies.lines_256_session_controller import (
+        _candidate_context_path,
+        _candidate_metadata_path,
+        _proposal_result_path,
+        build_candidate_context,
+        build_proposal_context,
+        direct_candidate_factory,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _write_minimal_lines256_docs(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    proposal_context = build_proposal_context(session, max_rows=5)
+    build_candidate_context(session)
+    candidate_context_path = _candidate_context_path(session)
+    metadata_path = _candidate_metadata_path(session)
+
+    def fake_run_codex_prompt(**kwargs):
+        candidate_paths_file = repo / "state" / "lines_256_arch_improvement_v2" / "sessions" / "20260325T000000Z" / "iterations" / "000" / "candidate_paths.json"
+        candidate_paths_file.parent.mkdir(parents=True, exist_ok=True)
+        candidate_paths_file.write_text(json.dumps(["README.md"]) + "\n", encoding="utf-8")
+        metadata_path.write_text(
+            json.dumps(
+                {
+                    "status": "READY",
+                    "candidate_kind": "source",
+                    "base_ref": base_ref,
+                    "candidate_commit": base_ref,
+                    "candidate_paths_file": "state/lines_256_arch_improvement_v2/sessions/20260325T000000Z/iterations/000/candidate_paths.json",
+                    "smoke_command": "python smoke.py",
+                    "smoke_output_root": "outputs/v2/source_smoke",
+                    "smoke_log_path": "state/v2/source_smoke.log",
+                    "run_command": "python run.py",
+                    "output_root": "outputs/v2/source",
+                    "log_path": "state/v2/source.log",
+                    "comparison_png_path": "outputs/v2/source.png",
+                    "note": "source candidate",
+                    "hypothesis": "Small source tweak.",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(["codex", "exec"], 0, stdout="READY\n", stderr="")
+
+    monkeypatch.setattr(
+        "scripts.studies.lines_256_session_controller._run_codex_prompt",
+        fake_run_codex_prompt,
+    )
+
+    result = direct_candidate_factory(
+        repo_root=repo,
+        session=session,
+        proposal_context=proposal_context,
+        candidate_context_path=candidate_context_path,
+        codex_cmd="codex",
+        model="gpt-5.4",
+        reasoning_effort="high",
+    )
+
+    assert result == {"status": "RETRYABLE_FAILURE"}
+    assert session.current_phase == "proposal_pending"
+    proposal_result = json.loads(_proposal_result_path(session).read_text(encoding="utf-8"))
+    assert proposal_result["retryable"] is True
+
+
 def test_redesign_candidate_factory_invokes_workflow_and_returns_ready_proposal(
     tmp_path, monkeypatch
 ):
@@ -1130,6 +1422,91 @@ def test_execute_iteration_invalid_workflow_queue_candidate_factory_yields_witho
     assert proposal_result["retryable"] is True
 
 
+def test_execute_iteration_yields_on_recoverable_invalid_execution_without_consuming_queue_item(
+    tmp_path, monkeypatch
+):
+    from scripts.studies.lines_256_session_controller import execute_iteration, initialize_session
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _write_minimal_lines256_docs(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    active = repo / "docs" / "workflow_queue" / "active"
+    active.mkdir(parents=True, exist_ok=True)
+    idea = active / "2026-04-01-queued-idea.md"
+    idea.write_text("# Queued idea\n", encoding="utf-8")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    proposal = {
+        "status": "READY",
+        "candidate_kind": "source",
+        "base_ref": base_ref,
+        "candidate_commit": base_ref,
+        "candidate_paths_file": "state/v2/source_paths.json",
+        "smoke_command": "python smoke.py",
+        "smoke_output_root": "outputs/v2/smoke",
+        "smoke_log_path": "state/v2/smoke.log",
+        "run_command": "python run.py --source",
+        "output_root": "outputs/v2/source-invalid",
+        "log_path": "state/v2/source-invalid.log",
+        "comparison_png_path": "outputs/v2/source-invalid.png",
+        "note": "recoverable invalid execution",
+        "hypothesis": "recoverable infra-invalid should yield for remediation",
+    }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines_256_session_controller.run_proposal_step",
+        lambda **kwargs: proposal,
+    )
+    monkeypatch.setattr(
+        "scripts.studies.lines_256_session_controller.ensure_smoke_green",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "scripts.studies.lines_256_session_controller.run_scored_candidate",
+        lambda *args, **kwargs: {
+            "decision": "INVALID_EXECUTION",
+            "recoverable": True,
+            "integrity_reasons": ["wrapper invocation artifact did not record runtime provenance."],
+            "comparison_png_path": None,
+            "amp_ssim": 0.79,
+            "randomness_contract": {"requested_seed": 3},
+        },
+    )
+    monkeypatch.setattr(
+        "scripts.studies.lines_256_session_controller.apply_candidate_assessment",
+        lambda *args, **kwargs: pytest.fail("recoverable invalid execution should not consume the candidate"),
+    )
+
+    decision = execute_iteration(
+        repo_root=repo,
+        session=session,
+        codex_cmd="codex",
+        model="gpt-5.4",
+        reasoning_effort="high",
+    )
+
+    assert decision == "YIELD"
+    assert session.current_phase == "proposal_complete"
+    assert session.iteration == 0
+    assert idea.exists()
+    assert (session.session_root / "iterations" / "000" / "candidate_assessment.json").exists()
+
+
 def test_normalize_candidate_proposal_accepts_run_config_without_commit():
     from scripts.studies.lines_256_session_controller import normalize_candidate_proposal
 
@@ -1154,10 +1531,35 @@ def test_normalize_candidate_proposal_accepts_run_config_without_commit():
     assert "candidate_paths_file" not in proposal
 
 
-def test_normalize_candidate_proposal_requires_commit_for_source():
+def test_normalize_candidate_proposal_accepts_source_without_commit():
     from scripts.studies.lines_256_session_controller import normalize_candidate_proposal
 
-    with pytest.raises(SystemExit, match="candidate_commit"):
+    proposal = normalize_candidate_proposal(
+        {
+            "candidate_kind": "source",
+            "base_ref": "abc123",
+            "candidate_paths_file": "state/v2/candidate_paths.json",
+            "smoke_command": "python smoke.py",
+            "smoke_output_root": "outputs/v2/source_smoke",
+            "smoke_log_path": "state/v2/source_smoke.log",
+            "run_command": "python run.py",
+            "output_root": "outputs/v2/candidate",
+            "log_path": "state/v2/candidate.log",
+            "comparison_png_path": "outputs/v2/candidate.png",
+            "note": "Edit source",
+            "hypothesis": "Source change may improve amp_ssim.",
+        }
+    )
+
+    assert proposal["candidate_kind"] == "source"
+    assert proposal["candidate_paths_file"] == "state/v2/candidate_paths.json"
+    assert "candidate_commit" not in proposal
+
+
+def test_normalize_candidate_proposal_requires_paths_file_for_source():
+    from scripts.studies.lines_256_session_controller import normalize_candidate_proposal
+
+    with pytest.raises(SystemExit, match="candidate_paths_file"):
         normalize_candidate_proposal(
             {
                 "candidate_kind": "source",
@@ -1504,6 +1906,8 @@ def test_run_config_candidate_scored_run_harvests_outputs(tmp_path, monkeypatch)
                 text=text,
                 check=check,
             )
+        if command[:2] == ["python", "-c"]:
+            return _probe_completed_process(repo)
         assert command[:3] == ["bash", "-c", "python run.py --fno-modes 24"]
         output_root = repo / proposal["output_root"]
         metrics_dir = output_root / "runs" / "pinn_hybrid_resnet"
@@ -1571,6 +1975,17 @@ def test_run_scored_candidate_marks_source_provenance_mismatch_invalid_execution
     }
 
     def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
+        if command[:2] == ["python", "-c"]:
+            assert env["PYTHONPATH"] == str(repo.resolve())
+            payload = {
+                "python_executable": "/usr/bin/python3",
+                "cwd": str(repo.resolve()),
+                "pythonpath": str(tmp_path / "foreign_repo"),
+                "ptycho_torch_file": str(tmp_path / "foreign_repo" / "ptycho_torch" / "__init__.py"),
+            }
+            return subprocess.CompletedProcess(
+                command, 0, stdout=json.dumps(payload) + "\n", stderr=""
+            )
         assert command[:3] == ["bash", "-c", "python run.py --source-candidate"]
         output_root = repo / proposal["output_root"]
         metrics_dir = output_root / "runs" / "pinn_hybrid_resnet"
@@ -1586,28 +2001,8 @@ def test_run_scored_candidate_marks_source_provenance_mismatch_invalid_execution
             encoding="utf-8",
         )
         (visuals_dir / "compare_amp_phase_probe.png").write_text("png", encoding="utf-8")
-        wrapper_invocation = {
-            "cwd": str(repo),
-            "extra": {
-                "runtime_provenance": {
-                    "python_executable": "/usr/bin/python3",
-                    "cwd": str(repo),
-                    "pythonpath": str(tmp_path / "foreign_repo"),
-                    "ptycho_torch_file": str(tmp_path / "foreign_repo" / "ptycho_torch" / "__init__.py"),
-                }
-            },
-        }
-        runner_invocation = {
-            "cwd": str(repo),
-            "extra": {
-                "runtime_provenance": {
-                    "python_executable": "/usr/bin/python3",
-                    "cwd": str(repo),
-                    "pythonpath": str(tmp_path / "foreign_repo"),
-                    "ptycho_torch_file": str(tmp_path / "foreign_repo" / "ptycho_torch" / "__init__.py"),
-                }
-            },
-        }
+        wrapper_invocation = {"cwd": str(repo)}
+        runner_invocation = {"cwd": str(repo)}
         (output_root / "invocation.json").write_text(
             json.dumps(wrapper_invocation, indent=2) + "\n",
             encoding="utf-8",
@@ -1624,7 +2019,94 @@ def test_run_scored_candidate_marks_source_provenance_mismatch_invalid_execution
 
     assert assessment["decision"] == "INVALID_EXECUTION"
     assert "integrity_reasons" in assessment
-    assert any("PYTHONPATH" in reason or "ptycho_torch" in reason for reason in assessment["integrity_reasons"])
+    assert any(
+        "controller import probe" in reason or "ptycho_torch" in reason
+        for reason in assessment["integrity_reasons"]
+    )
+
+
+def test_run_scored_candidate_accepts_source_when_controller_probe_matches_and_invocation_runtime_missing(
+    tmp_path, monkeypatch
+):
+    from scripts.studies.lines_256_session_controller import (
+        initialize_session,
+        run_scored_candidate,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {"requested_seed": 3},
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    proposal = {
+        "candidate_kind": "source",
+        "base_ref": base_ref,
+        "candidate_commit": base_ref,
+        "candidate_paths_file": "state/v2/source_paths.json",
+        "run_command": "python run.py --source-valid",
+        "output_root": "outputs/v2/source-valid",
+        "log_path": "state/v2/source-valid.log",
+        "comparison_png_path": "outputs/v2/source-valid.png",
+        "note": "source run with controller-owned valid provenance",
+        "hypothesis": "controller-owned provenance should be sufficient even when invocation artifacts omit runtime_provenance",
+    }
+
+    def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
+        if command[:2] == ["python", "-c"]:
+            assert env["PYTHONPATH"] == str(repo.resolve())
+            payload = {
+                "python_executable": "/usr/bin/python3",
+                "cwd": str(repo.resolve()),
+                "pythonpath": str(repo.resolve()),
+                "ptycho_torch_file": str(repo / "ptycho_torch" / "__init__.py"),
+            }
+            return subprocess.CompletedProcess(
+                command, 0, stdout=json.dumps(payload) + "\n", stderr=""
+            )
+        assert command[:3] == ["bash", "-c", "python run.py --source-valid"]
+        output_root = repo / proposal["output_root"]
+        metrics_dir = output_root / "runs" / "pinn_hybrid_resnet"
+        visuals_dir = output_root / "visuals"
+        metrics_dir.mkdir(parents=True, exist_ok=True)
+        visuals_dir.mkdir(parents=True, exist_ok=True)
+        (metrics_dir / "metrics.json").write_text(
+            json.dumps({"amp_ssim": 0.81}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (metrics_dir / "randomness_contract.json").write_text(
+            json.dumps({"requested_seed": 3}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (visuals_dir / "compare_amp_phase_probe.png").write_text("png", encoding="utf-8")
+        (output_root / "invocation.json").write_text(
+            json.dumps({"cwd": str(repo.resolve())}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        (metrics_dir / "invocation.json").write_text(
+            json.dumps({"cwd": str(repo.resolve())}, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(command, 0, stdout="scored ok\n", stderr="")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assessment = run_scored_candidate(repo, session, proposal)
+
+    assert assessment["decision"] == "KEEP"
+    assert "integrity_reasons" not in assessment
 
 
 def test_run_scored_candidate_warns_on_exact_source_tie_with_valid_provenance(
@@ -1667,6 +2149,16 @@ def test_run_scored_candidate_warns_on_exact_source_tie_with_valid_provenance(
     }
 
     def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
+        if command[:2] == ["python", "-c"]:
+            payload = {
+                "python_executable": "/usr/bin/python3",
+                "cwd": str(repo.resolve()),
+                "pythonpath": str(repo.resolve()),
+                "ptycho_torch_file": str(repo / "ptycho_torch" / "__init__.py"),
+            }
+            return subprocess.CompletedProcess(
+                command, 0, stdout=json.dumps(payload) + "\n", stderr=""
+            )
         assert command[:3] == ["bash", "-c", "python run.py --source-tie"]
         output_root = repo / proposal["output_root"]
         metrics_dir = output_root / "runs" / "pinn_hybrid_resnet"
@@ -1682,20 +2174,12 @@ def test_run_scored_candidate_warns_on_exact_source_tie_with_valid_provenance(
             encoding="utf-8",
         )
         (visuals_dir / "compare_amp_phase_probe.png").write_text("png", encoding="utf-8")
-        provenance = {
-            "python_executable": "/usr/bin/python3",
-            "cwd": str(repo.resolve()),
-            "pythonpath": str(repo.resolve()),
-            "ptycho_torch_file": str(repo / "ptycho_torch" / "__init__.py"),
-        }
         (output_root / "invocation.json").write_text(
-            json.dumps({"cwd": str(repo.resolve()), "extra": {"runtime_provenance": provenance}}, indent=2)
-            + "\n",
+            json.dumps({"cwd": str(repo.resolve())}, indent=2) + "\n",
             encoding="utf-8",
         )
         (metrics_dir / "invocation.json").write_text(
-            json.dumps({"cwd": str(repo.resolve()), "extra": {"runtime_provenance": provenance}}, indent=2)
-            + "\n",
+            json.dumps({"cwd": str(repo.resolve())}, indent=2) + "\n",
             encoding="utf-8",
         )
         return subprocess.CompletedProcess(command, 0, stdout="scored ok\n", stderr="")
@@ -1748,6 +2232,8 @@ def test_run_scored_candidate_treats_optional_visual_fallback_as_advisory(tmp_pa
     }
 
     def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
+        if command[:2] == ["python", "-c"]:
+            return _probe_completed_process(repo)
         assert command[:3] == ["bash", "-c", "python run.py --fno-modes 24"]
         output_root = repo / proposal["output_root"]
         metrics_dir = output_root / "runs" / "pinn_hybrid_resnet"
@@ -1841,6 +2327,8 @@ def test_run_scored_candidate_timeout_is_classified_without_git_reset(tmp_path, 
                 text=text,
                 check=check,
             )
+        if command[:2] == ["python", "-c"]:
+            return _probe_completed_process(repo)
         assert command[:3] == ["bash", "-c", "python run.py --slow"]
         return subprocess.CompletedProcess(command, 124, stdout="", stderr="timed out")
 
@@ -1889,6 +2377,8 @@ def test_run_scored_candidate_timeout_from_exception_decodes_partial_output(tmp_
     }
 
     def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
+        if command[:2] == ["python", "-c"]:
+            return _probe_completed_process(repo)
         assert command[:3] == ["bash", "-c", "python run.py --slow-timeout"]
         raise subprocess.TimeoutExpired(
             cmd=command,
@@ -1944,6 +2434,8 @@ def test_run_scored_candidate_nonzero_exit_is_classified_as_crash(tmp_path, monk
     }
 
     def fake_run(command, *, cwd, capture_output, text, check, timeout=None, env=None):
+        if command[:2] == ["python", "-c"]:
+            return _probe_completed_process(repo)
         assert command[:3] == ["bash", "-c", "python run.py --boom"]
         return subprocess.CompletedProcess(command, 1, stdout="", stderr="boom")
 
@@ -2272,7 +2764,11 @@ def _write_minimal_lines256_docs(repo: Path) -> None:
 def test_resume_proposal_running_without_metadata_yields_retryable_pending_state(
     tmp_path, monkeypatch
 ):
-    from scripts.studies.lines_256_session_controller import initialize_session, main
+    from scripts.studies.lines_256_session_controller import (
+        _attach_or_reset_session_branch,
+        initialize_session,
+        main,
+    )
 
     repo = tmp_path / "repo"
     _init_repo(repo)
@@ -2298,6 +2794,7 @@ def test_resume_proposal_running_without_metadata_yields_retryable_pending_state
         encoding="utf-8",
     )
     (session.protected_local_paths_path).write_text("[]\n", encoding="utf-8")
+    _attach_or_reset_session_branch(repo, session.session_branch, base_ref)
     session.current_phase = "proposal_running"
     _write_json = lambda payload: session.session_json_path.write_text(  # noqa: E731
         json.dumps(payload, indent=2) + "\n",
@@ -2306,6 +2803,7 @@ def test_resume_proposal_running_without_metadata_yields_retryable_pending_state
     _write_json(
         {
             "session_id": session.session_id,
+            "session_branch": session.session_branch,
             "current_phase": session.current_phase,
             "iteration": session.iteration,
             "debug_attempts": session.debug_attempts,
@@ -2321,10 +2819,11 @@ def test_resume_proposal_running_without_metadata_yields_retryable_pending_state
             "baseline_comparison_png": str(session.baseline_comparison_png.relative_to(repo)),
         }
     )
+    real_run = subprocess.run
 
     def fake_run(command, **kwargs):
-        if command[:3] == ["git", "status", "--short"]:
-            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command and command[0] == "git":
+            return real_run(command, **kwargs)
         if len(command) >= 2 and command[1] == "exec":
             return subprocess.CompletedProcess(
                 command,
@@ -2359,6 +2858,75 @@ def test_resume_proposal_running_without_metadata_yields_retryable_pending_state
     assert payload["metadata_validated"] is False
 
 
+def test_load_existing_ready_source_proposal_yields_retryable_pending_state_when_unprovable(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        _candidate_metadata_path,
+        _load_existing_ready_proposal,
+        _proposal_result_path,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    _write_minimal_lines256_docs(repo)
+    session = initialize_session(repo_root=repo, session_id="20260325T000000Z")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session.accepted_state_path.write_text(
+        json.dumps(
+            {
+                "accepted_ref": base_ref,
+                "accepted_amp_ssim": 0.8,
+                "accepted_run_command": "python baseline.py",
+                "accepted_candidate_kind": "baseline",
+                "accepted_randomness_contract": {
+                    "requested_seed": 3,
+                    "effective_subsample_seed": 3,
+                    "effective_lightning_seed": 3,
+                },
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    session.current_phase = "proposal_running"
+    (session.protected_local_paths_path).write_text("[]\n", encoding="utf-8")
+    candidate_paths_file = session.session_root / "iterations" / "000" / "candidate_paths.json"
+    candidate_paths_file.parent.mkdir(parents=True, exist_ok=True)
+    candidate_paths_file.write_text(json.dumps(["README.md"]) + "\n", encoding="utf-8")
+    _candidate_metadata_path(session).write_text(
+        json.dumps(
+            {
+                "status": "READY",
+                "candidate_kind": "source",
+                "base_ref": base_ref,
+                "candidate_commit": base_ref,
+                "candidate_paths_file": str(candidate_paths_file.relative_to(repo)),
+                "smoke_command": "python smoke.py",
+                "smoke_output_root": "outputs/v2/source_smoke",
+                "smoke_log_path": "state/v2/source_smoke.log",
+                "run_command": "python run.py",
+                "output_root": "outputs/v2/source",
+                "log_path": "state/v2/source.log",
+                "comparison_png_path": "outputs/v2/source.png",
+                "note": "source candidate",
+                "hypothesis": "Small source tweak.",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = _load_existing_ready_proposal(repo, session)
+
+    assert result == {"status": "RETRYABLE_FAILURE"}
+    assert session.current_phase == "proposal_pending"
+    proposal_result = json.loads(_proposal_result_path(session).read_text(encoding="utf-8"))
+    assert proposal_result["retryable"] is True
+    assert "controller cannot prove candidate state" in proposal_result["failure_reason"]
+
+
 def test_start_full_runs_controller_owned_smoke_before_scored_candidate(tmp_path, monkeypatch):
     from scripts.studies.lines_256_session_controller import main
 
@@ -2389,15 +2957,21 @@ def test_start_full_runs_controller_owned_smoke_before_scored_candidate(tmp_path
         cwd = kwargs.get("cwd")
         assert cwd == repo
         seen_commands.append(command)
-        if command[:3] == ["git", "status", "--short"]:
-            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[:3] == ["git", "rev-parse", "HEAD"]:
+        if command and command[0] == "git":
             return real_run(command, **kwargs)
+        if command[:2] == ["python", "-c"]:
+            return _probe_completed_process(repo)
         if command[:2] == ["python", "scripts/studies/run_lines_256_arch_experiment.py"]:
             _write_run_outputs(baseline_output_root, 0.81)
             return subprocess.CompletedProcess(command, 0, stdout="baseline ok\n", stderr="")
         if len(command) >= 2 and command[1] == "exec":
-            base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+            base_ref = real_run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
             candidate_metadata = {
                 "status": "READY",
                 "candidate_kind": "run_config",
@@ -2508,6 +3082,8 @@ def test_start_full_runs_baseline_then_one_run_config_keep(tmp_path, monkeypatch
         assert cwd == repo
         if command and command[0] == "git":
             return real_run(command, **kwargs)
+        if command[:2] == ["python", "-c"]:
+            return _probe_completed_process(repo)
         if command[:2] == ["python", "scripts/studies/run_lines_256_arch_experiment.py"]:
             _write_run_outputs(baseline_output_root, 0.81)
             return subprocess.CompletedProcess(command, 0, stdout="baseline ok\n", stderr="")
@@ -2616,10 +3192,10 @@ def test_resume_proposal_complete_scores_existing_candidate(tmp_path, monkeypatc
     session.debug_attempts = 0
     session.session_json_path.write_text(
         json.dumps(
-            {
-                "session_id": session.session_id,
-                "session_branch": session.session_branch,
-                "current_phase": session.current_phase,
+                {
+                    "session_id": session.session_id,
+                    "session_branch": session.session_branch,
+                    "current_phase": session.current_phase,
                 "iteration": session.iteration,
                 "debug_attempts": session.debug_attempts,
                 "session_root": str(session.session_root.relative_to(repo)),
@@ -2677,6 +3253,8 @@ def test_resume_proposal_complete_scores_existing_candidate(tmp_path, monkeypatc
         assert cwd == repo
         if command and command[0] == "git":
             return real_run(command, **kwargs)
+        if command[:2] == ["python", "-c"]:
+            return _probe_completed_process(repo)
         if command[:3] == ["bash", "-c", "python run.py --fno-modes 24"]:
             _write_run_outputs(scored_output_root, 0.92)
             return subprocess.CompletedProcess(command, 0, stdout="resume scored\n", stderr="")
@@ -2738,10 +3316,10 @@ def test_resume_scored_running_timeout_persists_terminal_artifacts(tmp_path, mon
     session.debug_attempts = 0
     session.session_json_path.write_text(
         json.dumps(
-            {
-                "session_id": session.session_id,
-                "session_branch": session.session_branch,
-                "current_phase": session.current_phase,
+                {
+                    "session_id": session.session_id,
+                    "session_branch": session.session_branch,
+                    "current_phase": session.current_phase,
                 "iteration": session.iteration,
                 "debug_attempts": session.debug_attempts,
                 "session_root": str(session.session_root.relative_to(repo)),
@@ -2795,6 +3373,8 @@ def test_resume_scored_running_timeout_persists_terminal_artifacts(tmp_path, mon
     def fake_run(command, **kwargs):
         if command and command[0] == "git":
             return real_run(command, **kwargs)
+        if command[:2] == ["python", "-c"]:
+            return _probe_completed_process(repo)
         if command[:3] == ["bash", "-c", "python run.py --fno-width 64"]:
             raise subprocess.TimeoutExpired(
                 cmd=command,
@@ -2870,10 +3450,10 @@ def test_resume_debug_complete_uses_existing_debug_assessment(tmp_path, monkeypa
     session.debug_attempts = 1
     session.session_json_path.write_text(
         json.dumps(
-            {
-                "session_id": session.session_id,
-                "session_branch": session.session_branch,
-                "current_phase": session.current_phase,
+                {
+                    "session_id": session.session_id,
+                    "session_branch": session.session_branch,
+                    "current_phase": session.current_phase,
                 "iteration": session.iteration,
                 "debug_attempts": session.debug_attempts,
                 "session_root": str(session.session_root.relative_to(repo)),
@@ -2922,14 +3502,14 @@ def test_resume_debug_complete_uses_existing_debug_assessment(tmp_path, monkeypa
     )
     (iter_root / "debug_candidate_metadata.json").write_text(
         json.dumps(
-            {
-                "status": "READY",
-                "candidate_kind": "source",
-                "base_ref": base_ref,
-                "candidate_commit": debug_candidate_commit,
-                "candidate_paths_file": str((iter_root / "debug_candidate_paths.json").relative_to(repo)),
-                "smoke_command": "python smoke.py --debug",
-                "smoke_output_root": "outputs/v2/debug-smoke",
+                {
+                    "status": "READY",
+                    "candidate_kind": "source",
+                    "base_ref": base_ref,
+                    "candidate_commit": debug_candidate_commit,
+                    "candidate_paths_file": str((iter_root / "debug_candidate_paths.json").relative_to(repo)),
+                    "smoke_command": "python smoke.py --debug",
+                    "smoke_output_root": "outputs/v2/debug-smoke",
                 "smoke_log_path": "state/v2/debug-smoke.log",
                 "run_command": "python debug.py",
                 "output_root": "outputs/v2/debug",
