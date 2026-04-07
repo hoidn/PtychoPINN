@@ -1050,6 +1050,141 @@ def test_resume_session_uses_persisted_phase_and_iteration(tmp_path):
     assert resumed.iteration == 3
 
 
+def test_initialize_session_persists_session_branch(tmp_path):
+    from scripts.studies.lines_256_session_controller import initialize_session
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+
+    session = initialize_session(repo_root=repo, session_id="20260406T000000Z")
+
+    payload = json.loads((session.session_root / "session.json").read_text(encoding="utf-8"))
+    assert payload["session_branch"] == "lines256/session/20260406T000000Z"
+
+
+def test_attach_or_reset_session_branch_checks_out_named_branch(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        _attach_or_reset_session_branch,
+        _git_current_branch,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session = initialize_session(repo_root=repo, session_id="20260406T000000Z")
+
+    _attach_or_reset_session_branch(repo, session.session_branch, base_ref)
+
+    assert _git_current_branch(repo) == "lines256/session/20260406T000000Z"
+
+
+def test_cleanup_source_candidate_restores_session_branch_to_accepted_ref(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        _attach_or_reset_session_branch,
+        _cleanup_source_candidate,
+        _git_current_branch,
+        _git_head,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session = initialize_session(repo_root=repo, session_id="20260406T000000Z")
+    (session.protected_local_paths_path).write_text("[]\n", encoding="utf-8")
+
+    _attach_or_reset_session_branch(repo, session.session_branch, base_ref)
+    candidate_file = repo / "candidate.txt"
+    candidate_file.write_text("candidate\n", encoding="utf-8")
+    _git(repo, "add", "candidate.txt")
+    _git(repo, "commit", "-m", "candidate")
+
+    candidate_paths_file = session.session_root / "iterations" / "000" / "candidate_paths.json"
+    candidate_paths_file.parent.mkdir(parents=True, exist_ok=True)
+    candidate_paths_file.write_text(json.dumps(["candidate.txt"]) + "\n", encoding="utf-8")
+
+    _cleanup_source_candidate(
+        repo_root=repo,
+        session=session,
+        proposal={
+            "candidate_kind": "source",
+            "base_ref": base_ref,
+            "candidate_paths_file": str(candidate_paths_file.relative_to(repo)),
+        },
+    )
+
+    assert _git_current_branch(repo) == session.session_branch
+    assert _git_head(repo) == base_ref
+
+
+def test_ensure_session_checkout_state_reattaches_detached_checkout_to_session_branch(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        _attach_or_reset_session_branch,
+        _ensure_session_checkout_state,
+        _git_current_branch,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    _init_repo(repo)
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    session = initialize_session(repo_root=repo, session_id="20260406T000000Z")
+
+    _attach_or_reset_session_branch(repo, session.session_branch, base_ref)
+    _git(repo, "checkout", base_ref)
+
+    _ensure_session_checkout_state(repo, session, expected_ref=base_ref)
+
+    assert _git_current_branch(repo) == session.session_branch
+
+
+def test_branch_reset_preserves_protected_local_paths(tmp_path):
+    from scripts.studies.lines_256_session_controller import (
+        _attach_or_reset_session_branch,
+        _cleanup_source_candidate,
+        initialize_session,
+    )
+
+    repo = tmp_path / "repo"
+    base_ref = _init_repo(repo)
+    protected_path = repo / "protected.txt"
+    protected_path.write_text("base\n", encoding="utf-8")
+    _git(repo, "add", "protected.txt")
+    _git(repo, "commit", "-m", "add protected file")
+    base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+    session = initialize_session(repo_root=repo, session_id="20260406T000000Z")
+    _attach_or_reset_session_branch(repo, session.session_branch, base_ref)
+
+    protected_path.write_text("user local change\n", encoding="utf-8")
+    session.protected_local_paths_path.write_text(
+        json.dumps(["protected.txt"]) + "\n",
+        encoding="utf-8",
+    )
+
+    candidate_file = repo / "candidate.txt"
+    candidate_file.write_text("candidate\n", encoding="utf-8")
+    _git(repo, "add", "candidate.txt")
+    _git(repo, "commit", "-m", "candidate")
+
+    candidate_paths_file = session.session_root / "iterations" / "000" / "candidate_paths.json"
+    candidate_paths_file.parent.mkdir(parents=True, exist_ok=True)
+    candidate_paths_file.write_text(json.dumps(["candidate.txt"]) + "\n", encoding="utf-8")
+
+    _cleanup_source_candidate(
+        repo_root=repo,
+        session=session,
+        proposal={
+            "candidate_kind": "source",
+            "base_ref": base_ref,
+            "candidate_paths_file": str(candidate_paths_file.relative_to(repo)),
+        },
+    )
+
+    assert protected_path.read_text(encoding="utf-8") == "user local change\n"
+
+
 def test_should_attempt_debug_only_on_first_crash():
     from scripts.studies.lines_256_session_controller import should_attempt_debug
 
@@ -1124,9 +1259,7 @@ def test_start_full_runs_baseline_then_one_run_config_keep(tmp_path, monkeypatch
     def fake_run(command, **kwargs):
         cwd = kwargs.get("cwd")
         assert cwd == repo
-        if command[:3] == ["git", "status", "--short"]:
-            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[:3] == ["git", "rev-parse", "HEAD"]:
+        if command and command[0] == "git":
             return real_run(command, **kwargs)
         if command[:2] == ["python", "scripts/studies/run_lines_256_arch_experiment.py"]:
             _write_run_outputs(baseline_output_root, 0.81)
@@ -1136,7 +1269,13 @@ def test_start_full_runs_baseline_then_one_run_config_keep(tmp_path, monkeypatch
             _write_run_outputs(smoke_output_root, 0.5)
             smoke_log_path.parent.mkdir(parents=True, exist_ok=True)
             smoke_log_path.write_text("smoke ok\n", encoding="utf-8")
-            base_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+            base_ref = real_run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=repo,
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
             candidate_metadata = {
                 "status": "READY",
                 "candidate_kind": "run_config",
@@ -1195,7 +1334,11 @@ def test_start_full_runs_baseline_then_one_run_config_keep(tmp_path, monkeypatch
 
 
 def test_resume_proposal_complete_scores_existing_candidate(tmp_path, monkeypatch):
-    from scripts.studies.lines_256_session_controller import initialize_session, main
+    from scripts.studies.lines_256_session_controller import (
+        _attach_or_reset_session_branch,
+        initialize_session,
+        main,
+    )
 
     repo = tmp_path / "repo"
     _init_repo(repo)
@@ -1220,6 +1363,7 @@ def test_resume_proposal_complete_scores_existing_candidate(tmp_path, monkeypatc
         encoding="utf-8",
     )
     (session.protected_local_paths_path).write_text("[]\n", encoding="utf-8")
+    _attach_or_reset_session_branch(repo, session.session_branch, base_ref)
     session.current_phase = "proposal_complete"
     session.iteration = 0
     session.debug_attempts = 0
@@ -1227,6 +1371,7 @@ def test_resume_proposal_complete_scores_existing_candidate(tmp_path, monkeypatc
         json.dumps(
             {
                 "session_id": session.session_id,
+                "session_branch": session.session_branch,
                 "current_phase": session.current_phase,
                 "iteration": session.iteration,
                 "debug_attempts": session.debug_attempts,
@@ -1283,9 +1428,7 @@ def test_resume_proposal_complete_scores_existing_candidate(tmp_path, monkeypatc
     def fake_run(command, **kwargs):
         cwd = kwargs.get("cwd")
         assert cwd == repo
-        if command[:3] == ["git", "status", "--short"]:
-            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[:3] == ["git", "rev-parse", "HEAD"]:
+        if command and command[0] == "git":
             return real_run(command, **kwargs)
         if command[:3] == ["bash", "-c", "python run.py --fno-modes 24"]:
             _write_run_outputs(scored_output_root, 0.92)
@@ -1314,7 +1457,11 @@ def test_resume_proposal_complete_scores_existing_candidate(tmp_path, monkeypatc
 
 
 def test_resume_scored_running_timeout_persists_terminal_artifacts(tmp_path, monkeypatch):
-    from scripts.studies.lines_256_session_controller import initialize_session, main
+    from scripts.studies.lines_256_session_controller import (
+        _attach_or_reset_session_branch,
+        initialize_session,
+        main,
+    )
 
     repo = tmp_path / "repo"
     _init_repo(repo)
@@ -1338,6 +1485,7 @@ def test_resume_scored_running_timeout_persists_terminal_artifacts(tmp_path, mon
         + "\n",
         encoding="utf-8",
     )
+    _attach_or_reset_session_branch(repo, session.session_branch, base_ref)
     session.current_phase = "scored_running"
     session.iteration = 0
     session.debug_attempts = 0
@@ -1345,6 +1493,7 @@ def test_resume_scored_running_timeout_persists_terminal_artifacts(tmp_path, mon
         json.dumps(
             {
                 "session_id": session.session_id,
+                "session_branch": session.session_branch,
                 "current_phase": session.current_phase,
                 "iteration": session.iteration,
                 "debug_attempts": session.debug_attempts,
@@ -1365,6 +1514,7 @@ def test_resume_scored_running_timeout_persists_terminal_artifacts(tmp_path, mon
         encoding="utf-8",
     )
     (session.protected_local_paths_path).write_text("[]\n", encoding="utf-8")
+    real_run = subprocess.run
     iter_root = session.session_root / "iterations" / "000"
     output_root = session.outputs_root / "candidates" / "20260325T001000Z_resume_timeout"
     candidate_log_path = iter_root / "20260325T001000Z_resume_timeout.log"
@@ -1396,8 +1546,8 @@ def test_resume_scored_running_timeout_persists_terminal_artifacts(tmp_path, mon
     )
 
     def fake_run(command, **kwargs):
-        if command[:3] == ["git", "status", "--short"]:
-            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command and command[0] == "git":
+            return real_run(command, **kwargs)
         if command[:3] == ["bash", "-c", "python run.py --fno-width 64"]:
             raise subprocess.TimeoutExpired(
                 cmd=command,
@@ -1435,7 +1585,11 @@ def test_resume_scored_running_timeout_persists_terminal_artifacts(tmp_path, mon
 
 
 def test_resume_debug_complete_uses_existing_debug_assessment(tmp_path, monkeypatch):
-    from scripts.studies.lines_256_session_controller import initialize_session, main
+    from scripts.studies.lines_256_session_controller import (
+        _attach_or_reset_session_branch,
+        initialize_session,
+        main,
+    )
 
     repo = tmp_path / "repo"
     _init_repo(repo)
@@ -1459,6 +1613,11 @@ def test_resume_debug_complete_uses_existing_debug_assessment(tmp_path, monkeypa
         + "\n",
         encoding="utf-8",
     )
+    (repo / "README.md").write_text("debug candidate\n", encoding="utf-8")
+    _git(repo, "add", "README.md")
+    _git(repo, "commit", "-m", "debug candidate")
+    debug_candidate_commit = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    _attach_or_reset_session_branch(repo, session.session_branch, debug_candidate_commit)
     session.current_phase = "debug_complete"
     session.iteration = 0
     session.debug_attempts = 1
@@ -1466,6 +1625,7 @@ def test_resume_debug_complete_uses_existing_debug_assessment(tmp_path, monkeypa
         json.dumps(
             {
                 "session_id": session.session_id,
+                "session_branch": session.session_branch,
                 "current_phase": session.current_phase,
                 "iteration": session.iteration,
                 "debug_attempts": session.debug_attempts,
@@ -1519,7 +1679,7 @@ def test_resume_debug_complete_uses_existing_debug_assessment(tmp_path, monkeypa
                 "status": "READY",
                 "candidate_kind": "source",
                 "base_ref": base_ref,
-                "candidate_commit": base_ref,
+                "candidate_commit": debug_candidate_commit,
                 "candidate_paths_file": str((iter_root / "debug_candidate_paths.json").relative_to(repo)),
                 "smoke_command": "python smoke.py --debug",
                 "smoke_output_root": "outputs/v2/debug-smoke",
@@ -1555,16 +1715,11 @@ def test_resume_debug_complete_uses_existing_debug_assessment(tmp_path, monkeypa
         + "\n",
         encoding="utf-8",
     )
+    real_run = subprocess.run
 
     def fake_run(command, **kwargs):
-        if command[:3] == ["git", "status", "--short"]:
-            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[:3] == ["git", "reset", "--mixed"]:
-            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[:3] == ["git", "restore", "--source"]:
-            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[:3] == ["git", "cat-file", "-e"]:
-            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+        if command and command[0] == "git":
+            return real_run(command, **kwargs)
         if command[:3] == ["bash", "-c", "python regular.py"]:
             raise AssertionError("regular candidate should not rerun during debug_complete resume")
         if command[:3] == ["bash", "-c", "python debug.py"]:
@@ -1598,11 +1753,13 @@ def test_start_full_can_bootstrap_existing_accepted_state(tmp_path, monkeypatch)
 
     repo = tmp_path / "repo"
     _init_repo(repo)
+    bootstrap_ref = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    real_run = subprocess.run
     bootstrap_state = tmp_path / "legacy_accepted_state.json"
     bootstrap_state.write_text(
         json.dumps(
             {
-                "accepted_ref": "abc123",
+                "accepted_ref": bootstrap_ref,
                 "accepted_amp_ssim": 0.91,
                 "accepted_run_command": "python run.py --fno-modes 24",
                 "accepted_candidate_kind": "run_config",
@@ -1621,10 +1778,8 @@ def test_start_full_can_bootstrap_existing_accepted_state(tmp_path, monkeypatch)
     )
 
     def fake_run(command, **kwargs):
-        if command[:3] == ["git", "status", "--short"]:
-            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
-        if command[:3] == ["git", "rev-parse", "HEAD"]:
-            return subprocess.CompletedProcess(command, 0, stdout="ignored\n", stderr="")
+        if command and command[0] == "git":
+            return real_run(command, **kwargs)
         raise AssertionError(command)
 
     monkeypatch.setattr(subprocess, "run", fake_run)
@@ -1656,6 +1811,6 @@ def test_start_full_can_bootstrap_existing_accepted_state(tmp_path, monkeypatch)
         / "accepted_state.json"
     )
     accepted_state = json.loads(accepted_state_path.read_text(encoding="utf-8"))
-    assert accepted_state["accepted_ref"] == "abc123"
+    assert accepted_state["accepted_ref"] == bootstrap_ref
     assert accepted_state["accepted_amp_ssim"] == 0.91
     assert accepted_state["session_id"] == session_id

@@ -41,6 +41,7 @@ DEFAULT_MAX_ITERATIONS = 100
 @dataclass
 class SessionState:
     session_id: str
+    session_branch: str
     session_root: Path
     session_json_path: Path
     results_tsv_path: Path
@@ -63,6 +64,10 @@ def _utc_timestamp() -> str:
 
 def _session_root(repo_root: Path, session_id: str) -> Path:
     return repo_root / "state" / "lines_256_arch_improvement_v2" / "sessions" / session_id
+
+
+def _session_branch_name(session_id: str) -> str:
+    return f"lines256/session/{session_id}"
 
 
 def _repo_root_for_session(session_root: Path) -> Path:
@@ -129,6 +134,7 @@ def _write_session_json(session: SessionState) -> None:
     repo_root = _repo_root_for_session(session.session_root)
     payload = {
         "session_id": session.session_id,
+        "session_branch": session.session_branch,
         "current_phase": session.current_phase,
         "iteration": session.iteration,
         "debug_attempts": session.debug_attempts,
@@ -156,6 +162,7 @@ def initialize_session(repo_root: Path, session_id: str | None = None) -> Sessio
     outputs_root = _outputs_root(repo_root, session_id)
     session = SessionState(
         session_id=session_id,
+        session_branch=_session_branch_name(session_id),
         session_root=session_root,
         session_json_path=session_root / "session.json",
         results_tsv_path=_results_tsv_path(session_root),
@@ -186,6 +193,7 @@ def load_session(session_root: Path) -> SessionState:
     repo_root = _repo_root_for_session(session_root)
     return SessionState(
         session_id=payload["session_id"],
+        session_branch=str(payload.get("session_branch", _session_branch_name(payload["session_id"]))),
         session_root=session_root,
         session_json_path=session_root / "session.json",
         results_tsv_path=repo_root / payload["results_tsv_path"],
@@ -385,6 +393,77 @@ def _git_head(repo_root: Path) -> str:
     return completed.stdout.strip()
 
 
+def _git_current_branch(repo_root: Path) -> str | None:
+    completed = subprocess.run(
+        ["git", "symbolic-ref", "--quiet", "--short", "HEAD"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode != 0:
+        return None
+    return completed.stdout.strip() or None
+
+
+def _git_branch_exists(repo_root: Path, branch: str) -> bool:
+    completed = subprocess.run(
+        ["git", "show-ref", "--verify", "--quiet", f"refs/heads/{branch}"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return completed.returncode == 0
+
+
+def _attach_or_reset_session_branch(repo_root: Path, branch: str, ref: str) -> None:
+    current_branch = _git_current_branch(repo_root)
+    if current_branch == branch:
+        if _git_head(repo_root) != ref:
+            _run_git_mutation(repo_root, "reset", "--mixed", ref)
+        return
+
+    if _git_branch_exists(repo_root, branch):
+        _run_git_mutation(repo_root, "branch", "-f", branch, ref)
+    else:
+        _run_git_mutation(repo_root, "branch", branch, ref)
+    _run_git_mutation(repo_root, "checkout", branch)
+    if _git_head(repo_root) != ref:
+        _run_git_mutation(repo_root, "reset", "--mixed", ref)
+
+
+def _ensure_session_checkout_state(
+    repo_root: Path,
+    session: SessionState,
+    *,
+    expected_ref: str,
+) -> None:
+    current_branch = _git_current_branch(repo_root)
+    if current_branch == session.session_branch:
+        if _git_head(repo_root) != expected_ref:
+            raise SystemExit(
+                f"HEAD {_git_head(repo_root)} does not match expected session ref {expected_ref}"
+            )
+        return
+
+    if current_branch is None:
+        _attach_or_reset_session_branch(repo_root, session.session_branch, expected_ref)
+        if _git_current_branch(repo_root) != session.session_branch:
+            raise SystemExit(
+                f"Failed to reattach detached checkout to session branch {session.session_branch}"
+            )
+        if _git_head(repo_root) != expected_ref:
+            raise SystemExit(
+                f"HEAD {_git_head(repo_root)} does not match expected session ref {expected_ref}"
+            )
+        return
+
+    raise SystemExit(
+        f"Checkout is on unexpected branch {current_branch}; expected {session.session_branch}"
+    )
+
+
 def harvest_baseline_outputs(
     repo_root: Path,
     session: SessionState,
@@ -446,6 +525,11 @@ def run_baseline(repo_root: Path, session: SessionState) -> dict[str, object]:
         session=session,
         accepted_ref=_git_head(repo_root),
         run_result=run_result,
+    )
+    _attach_or_reset_session_branch(
+        repo_root,
+        session.session_branch,
+        str(accepted_state["accepted_ref"]),
     )
     _set_phase(session, "baseline_complete")
     return accepted_state
@@ -713,6 +797,8 @@ def _cleanup_source_candidate(
             + "\n".join(overlap)
         )
 
+    current_ref = _git_head(repo_root)
+    _attach_or_reset_session_branch(repo_root, session.session_branch, current_ref)
     base_ref = str(proposal["base_ref"])
     _run_git_mutation(repo_root, "reset", "--mixed", base_ref)
     existing_paths = [path for path in candidate_paths if _path_exists_in_ref(repo_root, base_ref, path)]
@@ -1256,7 +1342,22 @@ def _bootstrap_from_accepted_state(
     accepted_state["accepted_state_path"] = _relative_to_repo(repo_root, session.accepted_state_path)
     accepted_state["session_id"] = session.session_id
     _write_accepted_state(session, accepted_state)
+    _attach_or_reset_session_branch(
+        repo_root,
+        session.session_branch,
+        str(accepted_state["accepted_ref"]),
+    )
     return accepted_state
+
+
+def _expected_session_ref_for_phase(repo_root: Path, session: SessionState) -> str | None:
+    if not session.accepted_state_path.exists():
+        return None
+
+    accepted_ref = str(_load_accepted_state(session)["accepted_ref"])
+    if session.current_phase in {"proposal_pending", "baseline_complete", "completed", "init"}:
+        return accepted_ref
+    return _git_head(repo_root)
 
 
 def _load_existing_ready_proposal(session: SessionState, debug: bool = False) -> dict[str, object] | None:
@@ -1421,6 +1522,10 @@ def run_full_session(
         _set_phase(session, "proposal_pending")
     elif session.current_phase == "baseline_complete":
         _set_phase(session, "proposal_pending")
+
+    expected_ref = _expected_session_ref_for_phase(repo_root, session)
+    if expected_ref is not None:
+        _ensure_session_checkout_state(repo_root, session, expected_ref=expected_ref)
 
     while session.iteration < max_iterations and session.current_phase != "completed":
         decision = execute_iteration(

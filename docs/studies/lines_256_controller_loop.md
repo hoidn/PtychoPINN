@@ -34,6 +34,20 @@ the `source` candidate path still has explicit rollback/checkpoint behavior.
 Do not treat the human development checkout as the live controller runtime
 surface.
 
+The dedicated run checkout should stay on a named session branch:
+
+- `lines256/session/<session_id>`
+
+This branch is the operator-facing runtime handle only. Exact commit SHAs remain
+the authoritative provenance for:
+
+- `accepted_ref`
+- resolved source candidate commits
+- resume validation and scoring lineage
+
+Detached checkouts are recoverable, but they are no longer the intended steady
+state for a healthy session.
+
 ## Study-Input Reset Rule
 
 Treat the authoritative `lines_256` train/test NPZ pair as part of the session
@@ -72,6 +86,14 @@ Key artifacts:
 - `iterations/<n>/candidate_context.json`
 - `iterations/<n>/candidate_metadata.json`
 - `iterations/<n>/candidate_assessment.json`
+
+`session.json` should persist both:
+
+- `session_id`
+- `session_branch`
+
+so resume can reattach a detached-but-recoverable run checkout to the correct
+session branch before continuing.
 
 ## Artifact Boundary
 

@@ -7,6 +7,7 @@ This ledger captures the most important lessons, conventions, and recurring issu
 | TORCH-REASSEMBLY-NORM-001 | 2026-02-05 | pytorch, reassembly, centermask, normalization, parity | Torch `reassemble_patches_position_real` must mirror TF `mk_norm` behavior: normalize with centermask counts plus 0.001 epsilon and **do not** hard-mask outputs. Hard-masking diverges from TF and changes C=1 object_big reassembly results. | `ptycho_torch/helper.py:100-137, tests/torch/test_reassemble_patches_position_real_c1.py` | Resolved |
 | GRIDLINES-OBJECT-BIG-001 | 2026-02-05 | grid-lines, pytorch, config, object_big, parity | The grid-lines Torch runner must set `object_big=False` to match TF grid_lines defaults (`configure_legacy_params`). Leaving the ModelConfig default `object_big=True` triggers object-big reassembly on C=1 data and regresses hybrid_resnet integration metrics. | `scripts/studies/grid_lines_torch_runner.py:278-292, ptycho/workflows/grid_lines_workflow.py:184-205` | Resolved |
 | GRIDLINES-PROBE-BIG-001 | 2026-02-05 | grid-lines, pytorch, config, probe_big, parity | The grid-lines Torch runner must set `probe_big=False` to match TF params.cfg defaults (`probe.big=False`). Propagating the PyTorch `probe_big=True` default flips the decoder path and regresses hybrid_resnet integration metrics. | `scripts/studies/grid_lines_torch_runner.py:278-293, ptycho/params.py:69-70` | Resolved |
+| LINES256-SESSION-BRANCH-001 | 2026-04-06 | lines_256, controller, git, session-branch, detached-head, provenance | The v2 `lines_256` controller should keep each dedicated run checkout on a named session branch such as `lines256/session/<session_id>`. Branch names are operational handles for human inspection and resume; exact commit SHAs remain the authoritative scientific provenance for accepted state and source candidates. Detached checkouts are recoverable, but they should not be the intended steady state. | `scripts/studies/lines_256_session_controller.py, tests/studies/test_lines_256_session_controller.py, docs/studies/lines_256_controller_loop.md` | Active |
 | LINES256-CTRL-PATH-001 | 2026-03-30 | lines_256, controller, interpreter, subprocess, path, tensorflow | The v2 `lines_256` controller must stabilize the scored-command subprocess PATH so plain `python ...` resolves to the same runtime as the controller itself. `bash -lc` plus ambient shell startup can drift to a different interpreter, causing false `ModuleNotFoundError: tensorflow` crashes even when smoke runs succeed. Fix the controller boundary, not the persisted command strings. | `scripts/studies/lines_256_session_controller.py, tests/studies/test_lines_256_session_controller.py, state/lines_256_arch_improvement_v2/sessions/20260330T001026Z/iterations/046/*.log` | Active |
 | PROBE-MASK-DEFAULT-001 | 2026-02-20 | pytorch, probe-mask, hybrid_resnet, regression, integration-test | Hybrid-resnet metric regression on `fno-stable` was introduced when Torch probe masking changed from effectively off-by-default to on-by-default (`db1e43f9`). Hard-vs-soft edge is secondary; disabling default masking restores the integration gate. | `db1e43f9 vs 8dac52fc, ptycho_torch/config_params.py, ptycho_torch/model.py, tests/torch/test_grid_lines_hybrid_resnet_integration.py` | Active |
 | REASSEMBLY-M-CONTRACT-001 | 2026-03-04 | pytorch, reassembly, external_raw_npz, M, crop-border, shift-sum | Position reassembly must have a single trim owner: forward full patches to `tf_helper.reassemble_position` and derive `M_effective` from `M_requested` + `position_crop_border`. Runner-side pre-trim plus tf_helper trim caused broadcast-shape failures. | `scripts/studies/grid_lines_torch_runner.py, tests/torch/test_grid_lines_torch_runner.py, docs/workflows/pytorch.md, docs/debugging/TROUBLESHOOTING.md` | Resolved |
@@ -288,3 +289,35 @@ controller's own runtime.
 - `state/lines_256_arch_improvement_v2/sessions/20260330T001026Z/iterations/046/20260330T191252Z_33407af0ab81.log`
 - `outputs/lines_256_arch_improvement_v2/sessions/20260330T001026Z/candidates/20260330T191252Z_21bb106786e1/driver_stderr.log`
 - `state/lines_256_arch_improvement_v2/sessions/20260330T001026Z/iterations/046/20260330T191252Z_adaff131ade6__source_smoke.log`
+
+## LINES256-SESSION-BRANCH-001 - Session Checkouts Should Stay on Named Branches While SHAs Remain Authoritative
+**Category:** Controller Runtime, Git Ergonomics, Resume Semantics
+**Impact:** detached `HEAD` makes live `lines_256` run checkouts harder to inspect and resume even though branch names are not the real provenance contract
+**Location:** `scripts/studies/lines_256_session_controller.py`, `docs/studies/lines_256_controller_loop.md`
+**Date:** 2026-04-06
+
+### Issue
+The v2 controller already uses dedicated run checkouts, which is correct for
+source-candidate rollback and cleanup. But leaving those checkouts detached by
+default makes the operational state harder for humans to inspect and makes
+resume semantics more confusing than necessary.
+
+### Root Cause
+The controller historically coupled source-candidate validation to exact commit
+identity and let that bleed into the runtime checkout model. Commit SHAs are
+the right scientific provenance surface, but detached `HEAD` is not required to
+preserve that property.
+
+### Required Rule
+- Keep one named session branch per run checkout, for example
+  `lines256/session/<session_id>`.
+- Treat that branch name as an operator-facing runtime handle only.
+- Keep `accepted_ref` and resolved source candidate SHAs as the authoritative
+  provenance for scoring, ledgers, and resume validation.
+- Detached checkouts are recoverable, but they should not be the intended
+  steady-state runtime mode.
+
+### Evidence
+- `scripts/studies/lines_256_session_controller.py`
+- `tests/studies/test_lines_256_session_controller.py`
+- `docs/studies/lines_256_controller_loop.md`
