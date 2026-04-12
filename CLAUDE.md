@@ -17,6 +17,7 @@
 ## 1. ⚙️ Identity & Workflow Guardrails
 
 - **Plans & artifacts:** Keep evidence lean. Store plans under `docs/plans/` (default single-file plan: `docs/plans/YYYY-MM-DD-<initiative>.md`). If an initiative needs a folder, use `docs/plans/<initiative>/summary.md` for loop summaries. Store bulky artifacts outside the repo (or under a git‑ignored `.artifacts/` folder) and link to them from the plan/ledger.
+- **Paper revisions:** When working on paper revisions, including paper-revision-related studies, consult and update `/home/ollie/Documents/ptychopinnpaper2/reviewer_revision_checklist.md` as progress is made.
 - **Authority stack:** If instructions conflict, prefer SPECs (`specs/`), then project documentation, then prompt files. Internal model memories must defer to the repository.
 
 ---
