@@ -1392,12 +1392,96 @@ def _metrics_jsonable(metrics: dict[str, Any]) -> tuple[dict[str, Any], list[dic
     return payload, annotations
 
 
+def build_metrics_artifact_context(
+    row_label: str,
+    data_identity_manifest: Path,
+    metric_contract_manifest: Path,
+    support_manifest: Path,
+    residual_payload: dict[str, Any],
+    residual_path: Path,
+) -> dict[str, Any]:
+    """Summarize the manifests and residual content required by the row contract."""
+    data_identity = _read_manifest(Path(data_identity_manifest))
+    metric_contract = _read_manifest(Path(metric_contract_manifest))
+    support_payload = _read_manifest(Path(support_manifest))
+
+    selected_restarts: list[dict[str, Any]] = []
+    selected_residual_curves: list[dict[str, Any]] = []
+    restart_final_residuals_by_patch: list[dict[str, Any]] = []
+    for patch in residual_payload.get("patches", []):
+        selected_restarts.append(
+            {
+                "patch_index": patch.get("patch_index"),
+                "selected_seed": patch.get("selected_seed"),
+                "selected_base_seed": patch.get("selected_base_seed"),
+                "selected_restart_index": patch.get("selected_restart_index"),
+                "selected_final_residual": patch.get("selected_final_residual"),
+            }
+        )
+        selected_residual_curves.append(
+            {
+                "patch_index": patch.get("patch_index"),
+                "selected_residual_curve": patch.get("selected_residual_curve"),
+            }
+        )
+        restart_final_residuals_by_patch.append(
+            {
+                "patch_index": patch.get("patch_index"),
+                "restart_final_residuals": patch.get("restart_final_residuals", []),
+            }
+        )
+
+    return {
+        "data_identity": {
+            "manifest": str(data_identity_manifest),
+            "manifest_sha256": _sha256_file(Path(data_identity_manifest)),
+            "branch": data_identity.get("branch"),
+            "decision": data_identity.get("decision"),
+            "data_generation_control": data_identity.get("data_generation_control"),
+            "data_generation_control_status": data_identity.get("data_generation_control_status"),
+            "old_table2_value_policy": data_identity.get("old_table2_value_policy"),
+            "old_table2_same_data_comparator_allowed": data_identity.get(
+                "old_table2_same_data_comparator_allowed"
+            ),
+        },
+        "metric_contract": {
+            "manifest": str(metric_contract_manifest),
+            "manifest_sha256": _sha256_file(Path(metric_contract_manifest)),
+            "mode": metric_contract.get("mode"),
+            "table2_compatibility": metric_contract.get("table2_compatibility"),
+            "table2_compatible": metric_contract.get("table2_compatible"),
+            "metric_inspection_allowed": metric_contract.get("metric_inspection_allowed"),
+            "main_row_policy": metric_contract.get("main_row_policy"),
+        },
+        "support_threshold_grid_status": support_payload.get("support_records", []),
+        "selected_restart": {
+            "row_label": row_label,
+            "selection_metric": "final_fourier_amplitude_residual",
+            "selection_uses_ground_truth": False,
+            "per_patch": selected_restarts,
+        },
+        "residuals": {
+            "path": str(residual_path),
+            "sha256": _sha256_file(Path(residual_path)),
+            "condition": residual_payload.get("condition"),
+            "support_threshold": residual_payload.get("support_threshold"),
+            "restart_seeds": residual_payload.get("restart_seeds"),
+            "full_curve_storage": "residual_json",
+            "selected_residual_curves": selected_residual_curves,
+            "restart_final_residuals_by_patch": restart_final_residuals_by_patch,
+        },
+    }
+
+
 def run_smoke_benchmark(
     output_root: Path,
     args: argparse.Namespace,
     probe: np.ndarray,
     support: np.ndarray,
     support_record: dict[str, Any],
+    data_identity_manifest: Path | None = None,
+    metric_contract_manifest: Path | None = None,
+    support_manifest: Path | None = None,
     cfg: Any | None = None,
     data: dict[str, Any] | None = None,
 ) -> tuple[list[Path], list[Path], list[Path]]:
@@ -1492,6 +1576,17 @@ def run_smoke_benchmark(
     recon_path = save_recon_artifact(Path(output_root), row_label, stitched)
     residual_path = _write_json(Path(output_root) / f"residuals_{row_label}.json", residual_payload)
 
+    artifact_context: dict[str, Any] = {}
+    if data_identity_manifest and metric_contract_manifest and support_manifest:
+        artifact_context = build_metrics_artifact_context(
+            row_label=row_label,
+            data_identity_manifest=data_identity_manifest,
+            metric_contract_manifest=metric_contract_manifest,
+            support_manifest=support_manifest,
+            residual_payload=residual_payload,
+            residual_path=residual_path,
+        )
+
     metrics_payload: dict[str, Any] = {
         "run_id": args.run_id,
         "condition": condition_label,
@@ -1515,6 +1610,7 @@ def run_smoke_benchmark(
         "recon_npz": str(recon_path),
         "residual_json": str(residual_path),
     }
+    metrics_payload.update(artifact_context)
     try:
         metrics = eval_reconstruction(
             stitched[:1],
@@ -1682,6 +1778,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         probe,
         support,
         support_record,
+        data_identity_manifest=data_identity_manifest,
+        metric_contract_manifest=metric_contract_manifest,
+        support_manifest=support_manifest,
         cfg=prepared_cfg,
         data=prepared_data,
     )

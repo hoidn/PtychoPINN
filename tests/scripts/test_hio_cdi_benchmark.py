@@ -578,6 +578,87 @@ def test_metric_json_sanitizes_nonfinite_smoke_values(tmp_path):
     assert "Infinity" not in text
 
 
+def test_metrics_artifact_context_embeds_contract_and_residual_content(tmp_path):
+    from scripts.reconstruction.hio_cdi_benchmark import (
+        _write_json,
+        build_metrics_artifact_context,
+        write_data_identity_manifest,
+        write_metric_contract_manifest,
+    )
+
+    data_identity = write_data_identity_manifest(
+        tmp_path,
+        branch="same-split-rerun",
+        artifact_paths=[],
+        run_id="unit",
+        data_generation_control="loader-compatible",
+    )
+    metric_contract = write_metric_contract_manifest(tmp_path, mode="direct-stitch", run_id="unit")
+    support_manifest = _write_json(
+        tmp_path / "support_manifest.json",
+        {
+            "run_id": "unit",
+            "support_records": [
+                {"support_threshold": 0.01, "status": "valid_sensitivity"},
+                {"support_threshold": 0.05, "status": "selected_primary"},
+                {"support_threshold": 0.10, "status": "invalid", "reason": "empty support mask"},
+            ],
+        },
+    )
+    residual_payload = {
+        "run_id": "unit",
+        "condition": "gs1_custom",
+        "patches": [
+            {
+                "patch_index": 0,
+                "selected_seed": 123,
+                "selected_base_seed": 2026041201,
+                "selected_restart_index": 0,
+                "selected_final_residual": 0.25,
+                "restart_final_residuals": [
+                    {"restart_index": 0, "base_seed": 2026041201, "seed": 123, "final_residual": 0.25}
+                ],
+                "selected_residual_curve": [0.6, 0.25],
+            }
+        ],
+    }
+    residual_path = _write_json(tmp_path / "residuals_gs1_custom_support_0p05.json", residual_payload)
+
+    context = build_metrics_artifact_context(
+        row_label="gs1_custom_support_0p05",
+        data_identity_manifest=data_identity,
+        metric_contract_manifest=metric_contract,
+        support_manifest=support_manifest,
+        residual_payload=residual_payload,
+        residual_path=residual_path,
+    )
+
+    assert context["data_identity"]["branch"] == "same-split-rerun"
+    assert context["data_identity"]["decision"] == "same_split_rerun_bundle_not_frozen"
+    assert context["metric_contract"]["mode"] == "direct-stitch"
+    assert context["metric_contract"]["table2_compatibility"] == "fresh_same_split_direct_stitch_not_historical_table2"
+    assert context["support_threshold_grid_status"] == [
+        {"support_threshold": 0.01, "status": "valid_sensitivity"},
+        {"support_threshold": 0.05, "status": "selected_primary"},
+        {"support_threshold": 0.10, "status": "invalid", "reason": "empty support mask"},
+    ]
+    assert context["selected_restart"]["per_patch"] == [
+        {
+            "patch_index": 0,
+            "selected_seed": 123,
+            "selected_base_seed": 2026041201,
+            "selected_restart_index": 0,
+            "selected_final_residual": 0.25,
+        }
+    ]
+    assert context["residuals"]["path"] == str(residual_path)
+    assert context["residuals"]["sha256"]
+    assert context["residuals"]["selected_residual_curves"] == [
+        {"patch_index": 0, "selected_residual_curve": [0.6, 0.25]}
+    ]
+    assert context["residuals"]["restart_final_residuals_by_patch"][0]["restart_final_residuals"][0]["seed"] == 123
+
+
 def test_cli_preflight_writes_required_manifests_without_metrics(tmp_path):
     script = Path("scripts/reconstruction/hio_cdi_benchmark.py")
     out = tmp_path / "preflight"
