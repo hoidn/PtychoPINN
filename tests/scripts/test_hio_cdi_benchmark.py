@@ -597,6 +597,75 @@ def test_pinn_comparator_metrics_payload_records_historical_tolerance(tmp_path):
     assert payload["metric_policy"] == "fresh_same_split_rerun_historical_context_only"
 
 
+def test_hio_metric_evaluation_uses_stored_test_split_ground_truth(monkeypatch, tmp_path):
+    import ptycho.evaluation as evaluation
+    import ptycho.workflows.grid_lines_workflow as grid_lines
+    import scripts.reconstruction.hio_cdi_benchmark as hio
+
+    stored_ground_truth = (np.ones((8, 8, 1), dtype=np.complex64) * (7 + 0j))
+    data = _toy_split_bundle()
+    data["test"]["YY_ground_truth"] = stored_ground_truth
+    data["test"]["X"] = np.ones((2, 8, 8, 1), dtype=np.float32)
+
+    restart = hio.RestartResult(
+        seed=11,
+        psi=np.ones((8, 8), dtype=np.complex64),
+        final_residual=0.1,
+        residual_curve=[0.2, 0.1],
+        base_seed=2026041201,
+        restart_index=0,
+    )
+    restart_run = hio.RestartRun(restarts=[restart], selected=restart)
+    monkeypatch.setattr(hio, "run_restarts", lambda *args, **kwargs: restart_run)
+    monkeypatch.setattr(
+        hio,
+        "recover_object_patch",
+        lambda psi, probe, support, epsilon_ratio: np.ones((8, 8), dtype=np.complex64),
+    )
+    monkeypatch.setattr(
+        hio,
+        "check_forward_amplitude_self_consistency",
+        lambda *args, **kwargs: {
+            "status": "ok",
+            "normalized_residual": 0.0,
+            "tolerance": 5e-3,
+        },
+    )
+    monkeypatch.setattr(grid_lines, "stitch_predictions", lambda predictions, norm_y_i, part: predictions)
+    monkeypatch.setattr(grid_lines, "save_recon_artifact", lambda output_root, label, stitched: tmp_path / "recon.npz")
+
+    calls = {}
+
+    def fake_eval_reconstruction(stitched_obj, ground_truth_obj, **kwargs):
+        calls["ground_truth_obj"] = ground_truth_obj
+        return {"ssim": (1.0, 1.0), "psnr": (1.0, 1.0), "frc": ([], [])}
+
+    monkeypatch.setattr(evaluation, "eval_reconstruction", fake_eval_reconstruction)
+
+    hio.run_smoke_benchmark(
+        tmp_path,
+        SimpleNamespace(
+            run_id="unit",
+            probe_source="custom",
+            primary_support_threshold=0.05,
+            restart_seeds=[2026041201],
+            beta=0.9,
+            hio_iters=2,
+            er_iters=1,
+            residual_period=1,
+            max_test_frames=0,
+            smoke=False,
+        ),
+        _toy_probe(),
+        np.ones((8, 8), dtype=bool),
+        {"support_threshold": 0.05},
+        cfg=SimpleNamespace(nimgs_test=2),
+        data=data,
+    )
+
+    assert np.array_equal(calls["ground_truth_obj"], stored_ground_truth)
+
+
 def test_cli_parses_pinn_comparator_flags():
     from scripts.reconstruction.hio_cdi_benchmark import parse_args
 

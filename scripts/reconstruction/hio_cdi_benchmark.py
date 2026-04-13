@@ -1843,7 +1843,6 @@ def run_smoke_benchmark(
     count = _bounded_frame_count(x_test.shape[0], args.max_test_frames, cfg.nimgs_test)
 
     reconstructed_patches: list[np.ndarray] = []
-    ground_truth_patches: list[np.ndarray] = []
     self_consistency_checks: list[dict[str, Any]] = []
     residual_payload: dict[str, Any] = {
         "run_id": args.run_id,
@@ -1887,9 +1886,6 @@ def run_smoke_benchmark(
         )
         self_consistency_checks.append(self_consistency_check)
         reconstructed_patches.append(reconstructed[..., None])
-        ground_truth_patches.append(
-            object_patch_from_simulated_labels(y_i_test[index], y_phi_test[index], probe)[..., None]
-        )
         residual_payload["patches"].append(
             {
                 "patch_index": index,
@@ -1912,10 +1908,11 @@ def run_smoke_benchmark(
         )
 
     recon_array = np.asarray(reconstructed_patches, dtype=np.complex64)
-    gt_patch_array = np.asarray(ground_truth_patches, dtype=np.complex64)
     norm_y_i = float(data["test"]["norm_Y_I"])
     stitched = stitch_predictions(recon_array, norm_y_i, part="complex")
-    gt_stitched = stitch_predictions(gt_patch_array, norm_y_i, part="complex")
+    metric_ground_truth = np.asarray(data["test"]["YY_ground_truth"])
+    if metric_ground_truth.ndim == 2:
+        metric_ground_truth = metric_ground_truth[..., None]
 
     condition_label = _condition_label(args)
     row_label = f"{condition_label}_support_{_threshold_token(args.primary_support_threshold)}"
@@ -1955,12 +1952,25 @@ def run_smoke_benchmark(
         "timing_seconds": time.perf_counter() - start,
         "recon_npz": str(recon_path),
         "residual_json": str(residual_path),
+        "metric_ground_truth": {
+            "source": "data['test']['YY_ground_truth']",
+            "shape": list(metric_ground_truth.shape),
+            "dtype": str(metric_ground_truth.dtype),
+            "patch_label_surrogate_usage": "forward_amplitude_self_consistency_only",
+        },
     }
     metrics_payload.update(artifact_context)
     try:
+        if stitched.ndim == 4 and stitched.shape[1:3] != metric_ground_truth.shape[:2]:
+            raise ValueError(
+                "stitched reconstruction spatial shape "
+                f"{stitched.shape[1:3]} does not match stored YY_ground_truth "
+                f"shape {metric_ground_truth.shape[:2]}; run without --max-test-frames "
+                "for reviewer-facing metrics"
+            )
         metrics = eval_reconstruction(
-            stitched[:1],
-            gt_stitched[0],
+            stitched,
+            metric_ground_truth,
             label=row_label,
             phase_align_method="plane",
             frc_sigma=0,
