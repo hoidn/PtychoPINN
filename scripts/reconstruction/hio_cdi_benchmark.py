@@ -36,7 +36,10 @@ DEFAULT_NIMGS_TRAIN = 2
 DEFAULT_NIMGS_TEST = 2
 DEFAULT_NPHOTONS = 1e9
 DEFAULT_EPSILON_RATIO = 1e-6
-SELECTED_SOLVER = "pynx_cdi_hio_er"
+EXIT_WAVE_SOLVER = "pynx_cdi_hio_er"
+KNOWN_PROBE_SOLVER = "known_probe_object_hio_er"
+SELECTED_SOLVER = EXIT_WAVE_SOLVER
+SOLVER_CHOICES = (EXIT_WAVE_SOLVER, KNOWN_PROBE_SOLVER)
 HISTORICAL_GS1_CUSTOM_AMP_SSIM = 0.9044216561120993
 HISTORICAL_GS1_CUSTOM_AMP_PSNR = 68.8864772792175
 TABLE2_AMP_SSIM_TOLERANCE = 0.02
@@ -297,6 +300,91 @@ def fourier_residual(psi: np.ndarray, target_magnitude: np.ndarray) -> float:
     return float(residual)
 
 
+def known_probe_forward_amplitude(obj: np.ndarray, probe: np.ndarray) -> np.ndarray:
+    obj_array = _validate_2d_complex("obj", obj)
+    probe_array = _validate_2d_complex("probe", probe)
+    if obj_array.shape != probe_array.shape:
+        raise ValueError("obj and probe shapes must match")
+    return forward_amplitude(probe_array * obj_array)
+
+
+def project_known_probe_fourier_magnitude(
+    obj: np.ndarray,
+    probe: np.ndarray,
+    target_magnitude: np.ndarray,
+    epsilon_ratio: float = DEFAULT_EPSILON_RATIO,
+) -> np.ndarray:
+    obj_array = _validate_2d_complex("obj", obj)
+    probe_array = _validate_2d_complex("probe", probe)
+    target = _validate_target_magnitude(target_magnitude, obj_array.shape)
+    if probe_array.shape != obj_array.shape:
+        raise ValueError("obj and probe shapes must match")
+
+    norm = math.sqrt(float(obj_array.size))
+    exit_wave = probe_array * obj_array
+    current_shifted = np.fft.fftshift(np.fft.fft2(exit_wave)) / norm
+    projected_shifted = target * np.exp(1j * np.angle(current_shifted))
+    projected_exit_wave = np.fft.ifft2(np.fft.ifftshift(projected_shifted * norm))
+
+    max_amp = float(np.abs(probe_array).max(initial=0.0))
+    if max_amp <= 0:
+        raise ValueError("zero-amplitude probe cannot be used")
+    epsilon = float(epsilon_ratio) * max_amp
+    denom = np.square(np.abs(probe_array)) + epsilon**2
+    return obj_array + (np.conj(probe_array) / denom) * (projected_exit_wave - exit_wave)
+
+
+def known_probe_fourier_residual(
+    obj: np.ndarray,
+    probe: np.ndarray,
+    target_magnitude: np.ndarray,
+) -> float:
+    obj_array = _validate_2d_complex("obj", obj)
+    probe_array = _validate_2d_complex("probe", probe)
+    target = _validate_target_magnitude(target_magnitude, obj_array.shape)
+    if probe_array.shape != obj_array.shape:
+        raise ValueError("obj and probe shapes must match")
+    denominator = max(float(np.linalg.norm(target)), 1e-12)
+    residual = np.linalg.norm(known_probe_forward_amplitude(obj_array, probe_array) - target) / denominator
+    return float(residual)
+
+
+def known_probe_er_cleanup(
+    previous_obj: np.ndarray,
+    probe: np.ndarray,
+    target_magnitude: np.ndarray,
+    object_support: np.ndarray,
+    epsilon_ratio: float = DEFAULT_EPSILON_RATIO,
+) -> np.ndarray:
+    previous_array = _validate_2d_complex("previous_obj", previous_obj)
+    projected = project_known_probe_fourier_magnitude(previous_array, probe, target_magnitude, epsilon_ratio)
+    support_mask = np.asarray(object_support, dtype=bool)
+    if support_mask.shape != previous_array.shape:
+        raise ValueError("object support shape must match previous_obj")
+    cleaned = np.zeros_like(projected)
+    cleaned[support_mask] = projected[support_mask]
+    return cleaned
+
+
+def known_probe_hio_update(
+    previous_obj: np.ndarray,
+    probe: np.ndarray,
+    target_magnitude: np.ndarray,
+    object_support: np.ndarray,
+    beta: float = 0.9,
+    epsilon_ratio: float = DEFAULT_EPSILON_RATIO,
+) -> np.ndarray:
+    previous_array = _validate_2d_complex("previous_obj", previous_obj)
+    projected = project_known_probe_fourier_magnitude(previous_array, probe, target_magnitude, epsilon_ratio)
+    support_mask = np.asarray(object_support, dtype=bool)
+    if support_mask.shape != previous_array.shape:
+        raise ValueError("object support shape must match previous_obj")
+    updated = np.empty_like(projected)
+    updated[support_mask] = projected[support_mask]
+    updated[~support_mask] = previous_array[~support_mask] - float(beta) * projected[~support_mask]
+    return updated
+
+
 def select_restart_by_residual(results: Sequence[RestartResult]) -> RestartResult:
     if not results:
         raise ValueError("at least one restart result is required")
@@ -310,6 +398,23 @@ def _initial_psi(target_magnitude: np.ndarray, seed: int) -> np.ndarray:
     norm = math.sqrt(float(target.size))
     shifted = target * np.exp(1j * phase)
     return np.fft.ifft2(np.fft.ifftshift(shifted * norm))
+
+
+def _initial_object(
+    probe: np.ndarray,
+    target_magnitude: np.ndarray,
+    seed: int,
+    epsilon_ratio: float = DEFAULT_EPSILON_RATIO,
+) -> np.ndarray:
+    probe_array = _validate_2d_complex("probe", probe)
+    target = _validate_target_magnitude(target_magnitude, probe_array.shape)
+    initial_exit_wave = _initial_psi(target, seed)
+    max_amp = float(np.abs(probe_array).max(initial=0.0))
+    if max_amp <= 0:
+        raise ValueError("zero-amplitude probe cannot be used")
+    epsilon = float(epsilon_ratio) * max_amp
+    denom = np.square(np.abs(probe_array)) + epsilon**2
+    return (np.conj(probe_array) / denom) * initial_exit_wave
 
 
 class PynxUnavailableError(RuntimeError):
@@ -475,6 +580,83 @@ def run_restarts(
                 er_iters=int(er_iters),
                 residual_period=residual_period,
                 initial_psi=psi,
+            )
+        )
+
+    selected = select_restart_by_residual(results)
+    return RestartRun(restarts=results, selected=selected)
+
+
+def run_known_probe_restarts(
+    target_magnitude: np.ndarray,
+    probe: np.ndarray,
+    support: np.ndarray,
+    seeds: Sequence[int],
+    beta: float,
+    hio_iters: int,
+    er_iters: int,
+    residual_period: int = 10,
+    condition_id: str | None = None,
+    patch_index: int | None = None,
+) -> RestartRun:
+    probe_array = _validate_2d_complex("probe", probe)
+    target = _validate_target_magnitude(target_magnitude, probe_array.shape)
+    support_mask = np.asarray(support, dtype=bool)
+    if support_mask.shape != target.shape:
+        raise ValueError("support shape must match target magnitude")
+    if not seeds:
+        raise ValueError("at least one restart seed is required")
+    if hio_iters < 0 or er_iters < 0:
+        raise ValueError("iteration counts must be nonnegative")
+    residual_period = max(1, int(residual_period))
+
+    def run_cycles(obj: np.ndarray, update_fn: Any, total_iters: int) -> tuple[np.ndarray, list[float]]:
+        curve: list[float] = []
+        remaining = int(total_iters)
+        current = obj
+        while remaining > 0:
+            nb_cycle = min(residual_period, remaining)
+            for _ in range(nb_cycle):
+                current = update_fn(current)
+            curve.append(known_probe_fourier_residual(current, probe_array, target))
+            remaining -= nb_cycle
+        return current, curve
+
+    results: list[RestartResult] = []
+    for restart_index, seed in enumerate(seeds):
+        base_seed = int(seed)
+        actual_seed = (
+            _stable_int_seed(condition_id, int(patch_index), restart_index, base_seed)
+            if condition_id is not None and patch_index is not None
+            else base_seed
+        )
+        obj = _initial_object(probe_array, target, actual_seed)
+        curve = [known_probe_fourier_residual(obj, probe_array, target)]
+        obj, hio_curve = run_cycles(
+            obj,
+            lambda current: known_probe_hio_update(current, probe_array, target, support_mask, beta=float(beta)),
+            int(hio_iters),
+        )
+        curve.extend(hio_curve)
+        obj, er_curve = run_cycles(
+            obj,
+            lambda current: known_probe_er_cleanup(current, probe_array, target, support_mask),
+            int(er_iters),
+        )
+        curve.extend(er_curve)
+        final_residual = known_probe_fourier_residual(obj, probe_array, target)
+        if not np.isclose(curve[-1], final_residual, rtol=0.0, atol=0.0):
+            curve.append(final_residual)
+        if not np.isfinite(final_residual):
+            raise FloatingPointError(f"non-finite known-probe Fourier residual for restart seed {actual_seed}")
+        results.append(
+            RestartResult(
+                seed=int(actual_seed),
+                psi=np.asarray(obj),
+                final_residual=float(final_residual),
+                residual_curve=[float(item) for item in curve],
+                base_seed=base_seed,
+                restart_index=int(restart_index),
             )
         )
 
@@ -667,6 +849,25 @@ def write_solver_manifest(
             "reason": "ptychographic multi-frame orientation, not a bounded single-frame support-constrained CDI HIO/ER baseline",
         },
         {
+            "name": KNOWN_PROBE_SOLVER,
+            "source_url": _repo_relative(SCRIPT_RELATIVE),
+            "package_version": None,
+            "license": "repository_local",
+            "install_command": "none",
+            "api_entry_point": (
+                "known_probe_forward_amplitude / project_known_probe_fourier_magnitude / "
+                "run_known_probe_restarts"
+            ),
+            "accepted": selected_solver == KNOWN_PROBE_SOLVER,
+            "searched_sources": ["repo"],
+            "installed": True,
+            "requires_pynx": False,
+            "unknown": "object_patch_not_exit_wave",
+            "uses_known_probe_in_forward_model": True,
+            "array_convention": "repo FFT-shifted amplitudes; object-domain updates project probe * object",
+            "reason": "selected repo-local fixed-probe object-domain HIO/ER solver for known-probe diagnostic row",
+        },
+        {
             "name": "study_local_hio_er",
             "source_url": _repo_relative(SCRIPT_RELATIVE),
             "package_version": None,
@@ -803,9 +1004,9 @@ def write_metric_contract_manifest(output_root: Path, mode: str, run_id: str | N
             "phase_align_method": "plane",
             "frc_sigma": 0,
             "ms_ssim_sigma": 1.0,
-            "single_image_frc": False,
             "debug_save_images": False,
             "amplitude_mean_scaling": "eval_reconstruction internal mean scaling",
+            "no_reference_single_image_frc": "removed",
         },
         "paper_side_note_decisions": [
             {
@@ -1668,6 +1869,10 @@ def _condition_label(args: argparse.Namespace) -> str:
     return f"{DEFAULT_CONDITION}_{probe_label}"
 
 
+def _selected_solver(args: argparse.Namespace) -> str:
+    return str(getattr(args, "solver", SELECTED_SOLVER))
+
+
 def _threshold_token(threshold: float) -> str:
     token = f"{float(threshold):.6g}".replace("-", "m").replace(".", "p")
     return token
@@ -2090,7 +2295,6 @@ def run_pinn_comparator(
         frc_sigma=0,
         debug_save_images=False,
         ms_ssim_sigma=1.0,
-        single_image_frc=False,
     )
     metrics_json, nonfinite_annotations = _metrics_jsonable(metrics)
     metrics_payload = build_pinn_comparator_metrics_payload(
@@ -2149,12 +2353,14 @@ def run_smoke_benchmark(
     y_i_test = np.asarray(data["test"]["Y_I"])
     y_phi_test = np.asarray(data["test"]["Y_phi"])
     count = _bounded_frame_count(x_test.shape[0], args.max_test_frames, cfg.nimgs_test)
+    selected_solver = _selected_solver(args)
 
     reconstructed_patches: list[np.ndarray] = []
     self_consistency_checks: list[dict[str, Any]] = []
     residual_payload: dict[str, Any] = {
         "run_id": args.run_id,
         "condition": _condition_label(args),
+        "solver": selected_solver,
         "support_threshold": float(args.primary_support_threshold),
         "restart_seeds": [int(seed) for seed in args.restart_seeds],
         "patches": [],
@@ -2162,23 +2368,38 @@ def run_smoke_benchmark(
 
     for index in range(count):
         target = _frame_amplitude(x_test[index])
-        restart_run = run_restarts(
-            target,
-            support,
-            seeds=args.restart_seeds,
-            beta=float(args.beta),
-            hio_iters=int(args.hio_iters),
-            er_iters=int(args.er_iters),
-            residual_period=max(1, int(args.residual_period)),
-            condition_id=_condition_label(args),
-            patch_index=index,
-        )
-        reconstructed = recover_object_patch(
-            restart_run.selected.psi,
-            probe,
-            support,
-            epsilon_ratio=DEFAULT_EPSILON_RATIO,
-        )
+        if selected_solver == KNOWN_PROBE_SOLVER:
+            restart_run = run_known_probe_restarts(
+                target,
+                probe,
+                support,
+                seeds=args.restart_seeds,
+                beta=float(args.beta),
+                hio_iters=int(args.hio_iters),
+                er_iters=int(args.er_iters),
+                residual_period=max(1, int(args.residual_period)),
+                condition_id=_condition_label(args),
+                patch_index=index,
+            )
+            reconstructed = np.asarray(restart_run.selected.psi, dtype=np.complex64)
+        else:
+            restart_run = run_restarts(
+                target,
+                support,
+                seeds=args.restart_seeds,
+                beta=float(args.beta),
+                hio_iters=int(args.hio_iters),
+                er_iters=int(args.er_iters),
+                residual_period=max(1, int(args.residual_period)),
+                condition_id=_condition_label(args),
+                patch_index=index,
+            )
+            reconstructed = recover_object_patch(
+                restart_run.selected.psi,
+                probe,
+                support,
+                epsilon_ratio=DEFAULT_EPSILON_RATIO,
+            )
         self_consistency_check = check_forward_amplitude_self_consistency(
             target,
             y_i_test[index],
@@ -2223,7 +2444,11 @@ def run_smoke_benchmark(
         metric_ground_truth = metric_ground_truth[..., None]
 
     condition_label = _condition_label(args)
-    row_label = f"{condition_label}_support_{_threshold_token(args.primary_support_threshold)}"
+    threshold_token = _threshold_token(args.primary_support_threshold)
+    if selected_solver == EXIT_WAVE_SOLVER:
+        row_label = f"{condition_label}_support_{threshold_token}"
+    else:
+        row_label = f"{condition_label}_{selected_solver}_support_{threshold_token}"
     recon_path = save_recon_artifact(Path(output_root), row_label, stitched)
     residual_path = _write_json(Path(output_root) / f"residuals_{row_label}.json", residual_payload)
 
@@ -2243,9 +2468,11 @@ def run_smoke_benchmark(
         "run_id": args.run_id,
         "condition": condition_label,
         "row_label": row_label,
+        "selected_solver": selected_solver,
         "smoke": bool(args.smoke),
         "n_test_frames": int(count),
         "hio_hyperparameters": {
+            "solver": selected_solver,
             "beta": float(args.beta),
             "hio_iters": int(args.hio_iters),
             "er_iters": int(args.er_iters),
@@ -2285,7 +2512,6 @@ def run_smoke_benchmark(
             frc_sigma=0,
             debug_save_images=False,
             ms_ssim_sigma=1.0,
-            single_image_frc=False,
         )
     except Exception as exc:
         metrics_payload["eval_status"] = "failed"
@@ -2322,6 +2548,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--er-iters", default=200, type=int)
     parser.add_argument("--residual-period", default=10, type=int)
     parser.add_argument("--max-test-frames", default=0, type=int)
+    parser.add_argument("--solver", default=SELECTED_SOLVER, choices=SOLVER_CHOICES)
     parser.add_argument(
         "--data-identity-branch",
         required=True,
@@ -2373,7 +2600,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     runtime_path = _capture_runtime_provenance(output_root, args)
     _write_invocation(output_root, raw_argv, args)
-    solver_manifest = write_solver_manifest(output_root, run_id=args.run_id, selected_solver=SELECTED_SOLVER)
+    solver_manifest = write_solver_manifest(output_root, run_id=args.run_id, selected_solver=args.solver)
     data_identity_manifest = write_data_identity_manifest(
         output_root,
         branch=args.data_identity_branch,
@@ -2387,7 +2614,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
 
     pynx_status = check_pynx_available()
-    if not pynx_status.get("available", False):
+    if args.solver == EXIT_WAVE_SOLVER and not pynx_status.get("available", False):
         blocked_reason = _pynx_unavailable_cli_message(pynx_status)
         write_benchmark_manifest(
             output_root,
