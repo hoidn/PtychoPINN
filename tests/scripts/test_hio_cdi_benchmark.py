@@ -182,83 +182,6 @@ def test_fourier_residual_uses_contract_denominator_floor_for_zero_target():
     assert residual == pytest.approx(expected)
 
 
-def test_known_probe_forward_amplitude_uses_probe_inside_forward_model():
-    from scripts.reconstruction.hio_cdi_benchmark import known_probe_forward_amplitude
-
-    obj = _toy_complex()
-    probe = _toy_probe()
-    expected = np.abs(np.fft.fftshift(np.fft.fft2(probe * obj)) / 8.0)
-
-    assert np.allclose(known_probe_forward_amplitude(obj, probe), expected)
-
-
-def test_project_known_probe_fourier_magnitude_matches_target_without_ground_truth():
-    from scripts.reconstruction.hio_cdi_benchmark import (
-        known_probe_forward_amplitude,
-        project_known_probe_fourier_magnitude,
-    )
-
-    probe = _toy_probe()
-    obj = _toy_complex()
-    target = known_probe_forward_amplitude(obj * np.exp(0.2j), probe)
-
-    projected = project_known_probe_fourier_magnitude(obj, probe, target)
-
-    assert np.allclose(known_probe_forward_amplitude(projected, probe), target, atol=1e-5)
-
-
-def test_known_probe_hio_and_er_update_object_not_exit_wave():
-    from scripts.reconstruction.hio_cdi_benchmark import (
-        known_probe_er_cleanup,
-        known_probe_hio_update,
-        project_known_probe_fourier_magnitude,
-    )
-
-    previous = _toy_complex()
-    probe = _toy_probe()
-    target = np.ones((8, 8), dtype=np.float32)
-    support = np.zeros((8, 8), dtype=bool)
-    support[2:6, 2:6] = True
-
-    projected = project_known_probe_fourier_magnitude(previous, probe, target)
-    hio = known_probe_hio_update(previous, probe, target, support, beta=0.9)
-    er = known_probe_er_cleanup(previous, probe, target, support)
-
-    assert np.allclose(hio[support], projected[support])
-    assert np.allclose(hio[~support], previous[~support] - 0.9 * projected[~support])
-    assert np.allclose(er[support], projected[support])
-    assert np.all(er[~support] == 0)
-
-
-def test_run_known_probe_restarts_selects_by_known_probe_residual():
-    from scripts.reconstruction.hio_cdi_benchmark import (
-        known_probe_forward_amplitude,
-        run_known_probe_restarts,
-    )
-
-    probe = _toy_probe()
-    true_obj = _toy_complex()
-    target = known_probe_forward_amplitude(true_obj, probe)
-    support = np.abs(probe) >= 0.05 * np.abs(probe).max()
-
-    run = run_known_probe_restarts(
-        target,
-        probe,
-        support,
-        seeds=[11, 12],
-        beta=0.9,
-        hio_iters=2,
-        er_iters=1,
-        residual_period=1,
-        condition_id="gs1_custom",
-        patch_index=0,
-    )
-
-    assert run.selected.seed in {run.restarts[0].seed, run.restarts[1].seed}
-    assert all(restart.residual_curve for restart in run.restarts)
-    assert run.selected.psi.shape == probe.shape
-
-
 def test_pynx_adapter_converts_amplitude_intensity_and_array_conventions(fake_pynx):
     from scripts.reconstruction.hio_cdi_benchmark import (
         PynxCdiAdapter,
@@ -1063,7 +986,7 @@ def test_cli_rejects_non_pynx_solver_mode():
                 "--metric-contract-mode",
                 "direct-stitch",
                 "--solver",
-                "known_probe" + "_object_hio_er",
+                "known_probe_object_hio_er",
             ]
         )
 
@@ -1215,7 +1138,7 @@ def test_solver_manifest_rejects_non_pynx_solver(tmp_path):
     from scripts.reconstruction.hio_cdi_benchmark import write_solver_manifest
 
     with pytest.raises(ValueError, match="unsupported solver"):
-        write_solver_manifest(tmp_path, run_id="unit", selected_solver="known_probe" + "_object_hio_er")
+        write_solver_manifest(tmp_path, run_id="unit", selected_solver="known_probe_object_hio_er")
 
 
 def test_metric_json_sanitizes_nonfinite_smoke_values(tmp_path):
