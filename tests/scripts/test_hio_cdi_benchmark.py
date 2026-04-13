@@ -21,6 +21,32 @@ def _toy_complex(size=8):
     return (amp * np.exp(1j * phase)).astype(np.complex64)
 
 
+def _toy_split_bundle():
+    probe = _toy_probe()
+    x = np.ones((2, 8, 8, 1), dtype=np.float32)
+    y_i = (np.abs(probe)[None, ..., None] * np.ones((2, 1, 1, 1), dtype=np.float32)).astype(np.float32)
+    y_phi = np.zeros((2, 8, 8, 1), dtype=np.float32)
+    coords = np.zeros((2, 1, 2, 1), dtype=np.float32)
+    yy_full = np.ones((8, 8), dtype=np.complex64)
+    split = {
+        "X": x,
+        "Y_I": y_i,
+        "Y_phi": y_phi,
+        "coords_nominal": coords,
+        "coords_true": coords + 1,
+        "coords_offsets": coords + 2,
+        "YY_full": yy_full,
+    }
+    return {
+        "train": dict(split),
+        "test": {
+            **split,
+            "YY_ground_truth": yy_full,
+            "norm_Y_I": 3.0,
+        },
+    }
+
+
 def test_make_probe_support_rejects_empty_and_full_masks():
     from scripts.reconstruction.hio_cdi_benchmark import make_probe_support
 
@@ -355,6 +381,123 @@ def test_same_split_branch_allows_exploratory_metrics_but_not_historical_same_da
     assert gate["table2_compatible"] is False
     assert data_payload["old_table2_same_data_comparator_allowed"] is False
     assert data_payload["old_table2_value_policy"] == "historical_context_only"
+
+
+def test_study_local_seeded_same_split_metric_run_is_blocked(tmp_path):
+    from scripts.reconstruction.hio_cdi_benchmark import (
+        assert_metric_gates_allow_metrics,
+        write_data_identity_manifest,
+        write_metric_contract_manifest,
+    )
+
+    data = write_data_identity_manifest(
+        tmp_path,
+        branch="same-split-rerun",
+        artifact_paths=[],
+        data_generation_control="study-local-seeded",
+    )
+    metric = write_metric_contract_manifest(tmp_path, mode="direct-stitch")
+
+    with pytest.raises(RuntimeError, match="study-local-seeded"):
+        assert_metric_gates_allow_metrics(data, metric)
+
+    payload = json.loads(data.read_text())
+    assert payload["metric_inspection_allowed"] is False
+    assert payload["data_generation_control_status"] == "unimplemented_for_metric_runs"
+
+
+def test_same_split_bundle_persistence_records_npzs_and_key_checksums(monkeypatch, tmp_path):
+    from ptycho.config.config import ModelConfig, TrainingConfig
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig
+    from scripts.reconstruction.hio_cdi_benchmark import (
+        persist_same_split_data_bundle,
+        update_data_identity_manifest_with_generated_bundle,
+        write_data_identity_manifest,
+    )
+
+    monkeypatch.setenv("PTYCHO_DISABLE_MEMOIZE", "1")
+    cfg = GridLinesConfig(
+        N=8,
+        gridsize=1,
+        output_dir=tmp_path,
+        probe_npz=tmp_path / "probe.npz",
+        probe_source="custom",
+    )
+    config = TrainingConfig(
+        model=ModelConfig(N=8, gridsize=1, object_big=False),
+        nphotons=1e9,
+        nepochs=1,
+        batch_size=1,
+        nll_weight=0.0,
+        mae_weight=1.0,
+        realspace_weight=0.0,
+    )
+    data_identity = write_data_identity_manifest(
+        tmp_path,
+        branch="same-split-rerun",
+        artifact_paths=[],
+        data_generation_control="loader-compatible",
+    )
+
+    bundle = persist_same_split_data_bundle(
+        output_root=tmp_path,
+        run_id="unit",
+        cfg=cfg,
+        data=_toy_split_bundle(),
+        config=config,
+        probe=_toy_probe(),
+        probe_transform_pipeline="smooth:0.5|pad:8",
+        probe_transform_steps=[{"op": "smooth_complex", "sigma": 0.5}, {"op": "pad_complex", "target_N": 8}],
+        data_generation_control="loader-compatible",
+    )
+    update_data_identity_manifest_with_generated_bundle(data_identity, bundle)
+
+    assert Path(bundle["train_npz"]).exists()
+    assert Path(bundle["test_npz"]).exists()
+    assert Path(bundle["data_generation_manifest"]).exists()
+    assert Path(bundle["data_bundle_manifest"]).exists()
+    assert Path(bundle["probe_transform_manifest"]).exists()
+
+    bundle_payload = json.loads(Path(bundle["data_bundle_manifest"]).read_text())
+    canonical = {
+        (record["split"], record["canonical_key"])
+        for record in bundle_payload["key_records"]
+        if record["exists"]
+    }
+    assert ("train", "X") in canonical
+    assert ("train", "probeGuess") in canonical
+    assert ("test", "YY_ground_truth") in canonical
+    assert ("test", "norm_Y_I") in canonical
+    assert all(record["sha256"] for record in bundle_payload["key_records"] if record["exists"])
+
+    identity_payload = json.loads(data_identity.read_text())
+    assert identity_payload["generated_data_bundle"]["train_npz"] == bundle["train_npz"]
+    assert identity_payload["generated_data_bundle"]["memoization"]["cache_mode"] == "disabled_fresh_generation"
+    assert identity_payload["metric_inspection_allowed"] is True
+
+
+def test_pinn_randomness_manifest_records_seed_policy_and_metric_contract_checksum(tmp_path):
+    from scripts.reconstruction.hio_cdi_benchmark import (
+        write_metric_contract_manifest,
+        write_pinn_randomness_manifest,
+    )
+
+    metric = write_metric_contract_manifest(tmp_path, mode="direct-stitch", run_id="unit")
+    path = write_pinn_randomness_manifest(
+        tmp_path,
+        run_id="unit",
+        data_generation_control="loader-compatible",
+        metric_contract_manifest=metric,
+        data_bundle_manifest=tmp_path / "data_bundle_manifest.json",
+    )
+
+    payload = json.loads(path.read_text())
+    assert payload["primary_training_seed"] == 2026041211
+    assert payload["stochastic_fallback_seeds"] == [2026041211, 2026041212, 2026041213]
+    assert payload["model_construction_started"] is False
+    assert payload["training_started"] is False
+    assert payload["metric_contract_sha256"]
+    assert payload["loader_compatible_data_seeds"] == {"train": 1, "test": 2}
 
 
 def test_metric_contract_manifest_records_note_decisions_evidence_and_deviation(tmp_path):

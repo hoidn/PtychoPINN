@@ -146,7 +146,36 @@ def _file_record(path: Path) -> dict[str, Any]:
 
 def _array_sha256(array: np.ndarray) -> str:
     contiguous = np.ascontiguousarray(array)
-    return hashlib.sha256(contiguous.view(np.uint8)).hexdigest()
+    return hashlib.sha256(contiguous.tobytes()).hexdigest()
+
+
+def _array_record(
+    canonical_key: str,
+    value: Any,
+    *,
+    split: str | None = None,
+    npz_key: str | None = None,
+) -> dict[str, Any]:
+    if value is None:
+        return {
+            "split": split,
+            "canonical_key": canonical_key,
+            "npz_key": npz_key or canonical_key,
+            "exists": False,
+            "shape": None,
+            "dtype": None,
+            "sha256": None,
+        }
+    array = np.asarray(value)
+    return {
+        "split": split,
+        "canonical_key": canonical_key,
+        "npz_key": npz_key or canonical_key,
+        "exists": True,
+        "shape": list(array.shape),
+        "dtype": str(array.dtype),
+        "sha256": _array_sha256(array),
+    }
 
 
 def _stable_int_seed(*parts: Any) -> int:
@@ -560,6 +589,14 @@ def _default_table2_artifact_paths() -> list[Path]:
     ]
 
 
+def _data_generation_control_status(data_generation_control: str) -> str:
+    if data_generation_control == "loader-compatible":
+        return "implemented_loader_compatible"
+    if data_generation_control == "study-local-seeded":
+        return "unimplemented_for_metric_runs"
+    raise ValueError(f"unknown data generation control: {data_generation_control}")
+
+
 def write_data_identity_manifest(
     output_root: Path,
     branch: str,
@@ -569,15 +606,23 @@ def write_data_identity_manifest(
 ) -> Path:
     if branch not in {"frozen-artifact", "same-split-rerun"}:
         raise ValueError(f"unknown data identity branch: {branch}")
+    control_status = _data_generation_control_status(data_generation_control)
     paths = [Path(item) for item in (_default_table2_artifact_paths() if artifact_paths is None else artifact_paths)]
     records = [_file_record(path) for path in paths]
     missing = [record["path"] for record in records if not record["exists"]]
-    metric_inspection_allowed = branch == "same-split-rerun"
+    metric_inspection_allowed = branch == "same-split-rerun" and control_status == "implemented_loader_compatible"
     old_table2_same_data_allowed = False
+    if branch == "same-split-rerun" and control_status != "implemented_loader_compatible":
+        decision = f"{data_generation_control}_data_generation_control_unimplemented_metric_run_blocked"
+    elif branch == "same-split-rerun":
+        decision = "same_split_rerun_required_for_table2_claim"
+    else:
+        decision = "frozen_artifact_insufficient_exact_inputs"
     payload = {
         "run_id": run_id,
         "branch": branch,
         "data_generation_control": data_generation_control,
+        "data_generation_control_status": control_status,
         "records": records,
         "missing_records": missing,
         "metric_inspection_allowed": bool(metric_inspection_allowed),
@@ -589,11 +634,7 @@ def write_data_identity_manifest(
             if branch == "same-split-rerun"
             else "blocked_until_exact_frozen_table2_inputs_are_located"
         ),
-        "decision": (
-            "same_split_rerun_required_for_table2_claim"
-            if branch == "same-split-rerun"
-            else "frozen_artifact_insufficient_exact_inputs"
-        ),
+        "decision": decision,
         "provenance_mismatch_annotations": [
             {
                 "id": "frozen_artifact_missing_exact_arrays",
@@ -707,8 +748,280 @@ def write_metric_contract_manifest(output_root: Path, mode: str, run_id: str | N
     return _write_json(Path(output_root) / "metric_contract_manifest.json", payload)
 
 
+def write_pinn_randomness_manifest(
+    output_root: Path,
+    run_id: str,
+    data_generation_control: str,
+    metric_contract_manifest: Path,
+    data_bundle_manifest: Path | None = None,
+    primary_training_seed: int = 2026041211,
+) -> Path:
+    control_status = _data_generation_control_status(data_generation_control)
+    payload = {
+        "run_id": run_id,
+        "created_utc": datetime.now(timezone.utc).isoformat(),
+        "pinn_comparator_status": "not_run_in_this_pass",
+        "manifest_purpose": "pre_register_same_split_ptychopinn_seed_policy_before_model_construction",
+        "data_generation_control": data_generation_control,
+        "data_generation_control_status": control_status,
+        "loader_compatible_data_seeds": {"train": 1, "test": 2}
+        if data_generation_control == "loader-compatible"
+        else None,
+        "data_generation_seed": None,
+        "primary_training_seed": int(primary_training_seed),
+        "stochastic_fallback_seeds": [2026041211, 2026041212, 2026041213],
+        "determinism_mode": "deterministic_primary_seed_pre_registered",
+        "determinism_status": "not_validated_no_model_constructed",
+        "fresh_process_requirements": {
+            "PYTHONHASHSEED": str(primary_training_seed),
+            "TF_DETERMINISTIC_OPS": "1 when supported",
+        },
+        "seed_api_policy": {
+            "python_random": int(primary_training_seed),
+            "numpy": int(primary_training_seed),
+            "tensorflow": int(primary_training_seed),
+            "preferred_tf_api": "tf.keras.utils.set_random_seed plus tf.config.experimental.enable_op_determinism when available",
+        },
+        "training_recipe": {
+            "nepochs": 60,
+            "batch_size": 16,
+            "shuffle_control": "must be recorded by the future comparator run before model.fit",
+            "if_uncontrolled": "switch_to_stochastic_repeated_rerun_mode",
+        },
+        "model_construction_started": False,
+        "training_started": False,
+        "initial_model_weight_checksums": None,
+        "final_model_or_checkpoint_checksums": None,
+        "training_history": None,
+        "metric_contract_manifest": str(metric_contract_manifest),
+        "metric_contract_sha256": _sha256_file(Path(metric_contract_manifest)),
+        "data_bundle_manifest": str(data_bundle_manifest) if data_bundle_manifest else None,
+        "data_bundle_sha256": _sha256_file(Path(data_bundle_manifest)) if data_bundle_manifest else None,
+        "environment": {
+            "python_version": platform.python_version(),
+            "python_executable": sys.executable,
+            "platform": platform.platform(),
+            "env": {
+                "PYTHONHASHSEED": os.environ.get("PYTHONHASHSEED"),
+                "TF_DETERMINISTIC_OPS": os.environ.get("TF_DETERMINISTIC_OPS"),
+                "PTYCHO_DISABLE_MEMOIZE": os.environ.get("PTYCHO_DISABLE_MEMOIZE"),
+            },
+            "package_versions": {
+                "numpy": np.__version__,
+                "tensorflow": _package_version("tensorflow"),
+                "cuda_runtime": _package_version("nvidia-cuda-runtime-cu12"),
+                "cudnn": _package_version("nvidia-cudnn-cu12"),
+            },
+        },
+    }
+    return _write_json(Path(output_root) / "pinn_randomness_manifest.json", payload)
+
+
 def _read_manifest(path: Path) -> dict[str, Any]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+_SAME_SPLIT_EXPECTED_KEYS = [
+    "X",
+    "Y_I",
+    "Y_phi",
+    "YY_full",
+    "YY_ground_truth",
+    "norm_Y_I",
+    "probeGuess",
+    "coords_nominal",
+    "coords_true",
+    "coords_offsets",
+]
+
+_NPZ_CANONICAL_KEYS = {"diffraction": "X"}
+
+
+def _npz_key_records(path: Path, split: str) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    present: set[str] = set()
+    with np.load(path, allow_pickle=True) as loaded:
+        for npz_key in sorted(loaded.files):
+            if npz_key == "_metadata":
+                continue
+            canonical_key = _NPZ_CANONICAL_KEYS.get(npz_key, npz_key)
+            if canonical_key not in _SAME_SPLIT_EXPECTED_KEYS:
+                continue
+            present.add(canonical_key)
+            records.append(
+                _array_record(
+                    canonical_key,
+                    loaded[npz_key],
+                    split=split,
+                    npz_key=npz_key,
+                )
+            )
+    for expected_key in _SAME_SPLIT_EXPECTED_KEYS:
+        if expected_key not in present:
+            records.append(
+                _array_record(
+                    expected_key,
+                    None,
+                    split=split,
+                    npz_key="diffraction" if expected_key == "X" else expected_key,
+                )
+            )
+    return records
+
+
+def _memoization_policy_for_fresh_bundle() -> dict[str, Any]:
+    disabled_value = os.environ.get("PTYCHO_DISABLE_MEMOIZE")
+    if disabled_value != "1":
+        raise RuntimeError(
+            "Same-split bundle generation requires PTYCHO_DISABLE_MEMOIZE=1 until cache identity "
+            "recording is implemented for this CDI benchmark."
+        )
+    return {
+        "PTYCHO_DISABLE_MEMOIZE": disabled_value,
+        "PTYCHO_MEMOIZE_KEY_MODE": os.environ.get("PTYCHO_MEMOIZE_KEY_MODE"),
+        "cache_mode": "disabled_fresh_generation",
+        "cache_reused": False,
+        "cache_key": None,
+        "cache_file": None,
+        "cache_file_sha256": None,
+    }
+
+
+def persist_same_split_data_bundle(
+    output_root: Path,
+    run_id: str,
+    cfg: Any,
+    data: dict[str, Any],
+    config: Any,
+    probe: np.ndarray,
+    probe_transform_pipeline: str,
+    probe_transform_steps: Sequence[dict[str, Any]],
+    data_generation_control: str = "loader-compatible",
+) -> dict[str, Any]:
+    if data_generation_control != "loader-compatible":
+        raise NotImplementedError("study-local-seeded data generation is not implemented for metric runs")
+
+    from ptycho.workflows.grid_lines_workflow import save_split_npz
+
+    memoization = _memoization_policy_for_fresh_bundle()
+    output_root = Path(output_root)
+    train_payload = dict(data["train"])
+    test_payload = dict(data["test"])
+    train_payload["probeGuess"] = np.asarray(probe)
+    test_payload["probeGuess"] = np.asarray(probe)
+
+    train_npz = save_split_npz(
+        cfg,
+        "train",
+        train_payload,
+        config,
+        probe_transform_pipeline=probe_transform_pipeline,
+        probe_transform_steps=list(probe_transform_steps),
+    )
+    test_npz = save_split_npz(
+        cfg,
+        "test",
+        test_payload,
+        config,
+        probe_transform_pipeline=probe_transform_pipeline,
+        probe_transform_steps=list(probe_transform_steps),
+    )
+
+    probe_manifest = _write_json(
+        output_root / "probe_transform_manifest.json",
+        {
+            "run_id": run_id,
+            "probe_transform_pipeline": probe_transform_pipeline,
+            "probe_transform_steps": list(probe_transform_steps),
+            "probe_shape": list(np.asarray(probe).shape),
+            "probe_dtype": str(np.asarray(probe).dtype),
+            "probe_sha256": _array_sha256(np.asarray(probe)),
+        },
+    )
+    data_generation_manifest = _write_json(
+        output_root / "data_generation_manifest.json",
+        {
+            "run_id": run_id,
+            "branch": "same-split-rerun",
+            "data_generation_control": data_generation_control,
+            "data_generation_control_status": _data_generation_control_status(data_generation_control),
+            "generator": "ptycho.workflows.grid_lines_workflow.simulate_grid_data",
+            "control_branch": "loader-compatible",
+            "loader_compatible_data_seeds": {"train": 1, "test": 2},
+            "data_generation_seed": None,
+            "memoization": memoization,
+            "table2_constants": {
+                "N": int(cfg.N),
+                "gridsize": int(cfg.gridsize),
+                "data_source": "lines",
+                "size": int(cfg.size),
+                "offset": int(cfg.offset),
+                "outer_offset_train": int(cfg.outer_offset_train),
+                "outer_offset_test": int(cfg.outer_offset_test),
+                "nimgs_train": int(cfg.nimgs_train),
+                "nimgs_test": int(cfg.nimgs_test),
+                "nphotons": float(cfg.nphotons),
+                "probe_source": cfg.probe_source,
+                "probe_scale_mode": cfg.probe_scale_mode,
+                "probe_smoothing_sigma": float(cfg.probe_smoothing_sigma),
+                "probe_transform_pipeline": probe_transform_pipeline,
+            },
+        },
+    )
+
+    key_records = _npz_key_records(Path(train_npz), "train") + _npz_key_records(Path(test_npz), "test")
+    data_bundle_manifest = _write_json(
+        output_root / "data_bundle_manifest.json",
+        {
+            "run_id": run_id,
+            "branch": "same-split-rerun",
+            "train_npz": str(train_npz),
+            "test_npz": str(test_npz),
+            "data_generation_manifest": str(data_generation_manifest),
+            "probe_transform_manifest": str(probe_manifest),
+            "memoization": memoization,
+            "npz_records": {
+                "train": _file_record(Path(train_npz)),
+                "test": _file_record(Path(test_npz)),
+            },
+            "key_records": key_records,
+        },
+    )
+    return {
+        "train_npz": str(train_npz),
+        "test_npz": str(test_npz),
+        "data_generation_manifest": str(data_generation_manifest),
+        "data_bundle_manifest": str(data_bundle_manifest),
+        "probe_transform_manifest": str(probe_manifest),
+        "memoization": memoization,
+    }
+
+
+def update_data_identity_manifest_with_generated_bundle(
+    data_identity_manifest: Path,
+    bundle: dict[str, Any],
+) -> Path:
+    path = Path(data_identity_manifest)
+    payload = _read_manifest(path)
+    bundle_manifest = _read_manifest(Path(bundle["data_bundle_manifest"]))
+    payload["generated_data_bundle"] = {
+        "train_npz": bundle["train_npz"],
+        "test_npz": bundle["test_npz"],
+        "data_generation_manifest": bundle["data_generation_manifest"],
+        "data_bundle_manifest": bundle["data_bundle_manifest"],
+        "probe_transform_manifest": bundle["probe_transform_manifest"],
+        "memoization": bundle["memoization"],
+        "npz_records": bundle_manifest["npz_records"],
+    }
+    payload["key_level_checksums"] = bundle_manifest["key_records"]
+    payload["metric_inspection_allowed"] = (
+        payload.get("branch") == "same-split-rerun"
+        and payload.get("data_generation_control_status") == "implemented_loader_compatible"
+        and bundle["memoization"]["cache_mode"] == "disabled_fresh_generation"
+    )
+    payload["decision"] = "same_split_generated_bundle_frozen_for_comparator"
+    payload["hio_metric_policy"] = "allowed_on_frozen_same_split_generated_bundle_only"
+    return _write_json(path, payload)
 
 
 def assert_metric_gates_allow_metrics(
@@ -753,6 +1066,10 @@ def write_benchmark_manifest(
     metrics_paths: Sequence[Path] | None = None,
     residual_paths: Sequence[Path] | None = None,
     recon_paths: Sequence[Path] | None = None,
+    data_generation_manifest: Path | None = None,
+    data_bundle_manifest: Path | None = None,
+    probe_transform_manifest: Path | None = None,
+    pinn_randomness_manifest: Path | None = None,
     smoke: bool = False,
 ) -> Path:
     payload = {
@@ -765,6 +1082,10 @@ def write_benchmark_manifest(
         "metric_contract_manifest": str(metric_contract_manifest),
         "support_manifest": str(support_manifest) if support_manifest else None,
         "runtime_provenance": str(runtime_provenance) if runtime_provenance else None,
+        "data_generation_manifest": str(data_generation_manifest) if data_generation_manifest else None,
+        "data_bundle_manifest": str(data_bundle_manifest) if data_bundle_manifest else None,
+        "probe_transform_manifest": str(probe_transform_manifest) if probe_transform_manifest else None,
+        "pinn_randomness_manifest": str(pinn_randomness_manifest) if pinn_randomness_manifest else None,
         "preflight_only": bool(preflight_only),
         "smoke": bool(smoke),
         "metrics_paths": [str(path) for path in metrics_paths or []],
@@ -1079,12 +1400,15 @@ def run_smoke_benchmark(
     probe: np.ndarray,
     support: np.ndarray,
     support_record: dict[str, Any],
+    cfg: Any | None = None,
+    data: dict[str, Any] | None = None,
 ) -> tuple[list[Path], list[Path], list[Path]]:
     from ptycho.evaluation import eval_reconstruction
     from ptycho.workflows.grid_lines_workflow import save_recon_artifact, stitch_predictions
 
     start = time.perf_counter()
-    cfg, data = _generate_table2_smoke_data(args, probe)
+    if cfg is None or data is None:
+        cfg, data = _generate_table2_smoke_data(args, probe)
     x_test = np.asarray(data["test"]["X"])
     y_i_test = np.asarray(data["test"]["Y_I"])
     y_phi_test = np.asarray(data["test"]["Y_phi"])
@@ -1295,6 +1619,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     metrics_paths: list[Path] = []
     residual_paths: list[Path] = []
     recon_paths: list[Path] = []
+    data_generation_manifest: Path | None = None
+    data_bundle_manifest: Path | None = None
+    probe_transform_manifest: Path | None = None
+    pinn_randomness_manifest: Path | None = None
     if args.preflight_only:
         write_benchmark_manifest(
             output_root,
@@ -1311,12 +1639,49 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 0
 
     gate_report = assert_metric_gates_allow_metrics(data_identity_manifest, metric_contract_manifest)
+    prepared_cfg: Any | None = None
+    prepared_data: dict[str, Any] | None = None
+    if args.data_identity_branch == "same-split-rerun":
+        from ptycho.workflows.grid_lines_workflow import configure_legacy_params
+
+        _memoization_policy_for_fresh_bundle()
+        prepared_cfg, prepared_data = _generate_table2_smoke_data(args, probe)
+        config = configure_legacy_params(prepared_cfg, probe)
+        bundle = persist_same_split_data_bundle(
+            output_root=output_root,
+            run_id=args.run_id,
+            cfg=prepared_cfg,
+            data=prepared_data,
+            config=config,
+            probe=probe,
+            probe_transform_pipeline=probe_pipeline,
+            probe_transform_steps=probe_steps,
+            data_generation_control=args.data_generation_control,
+        )
+        data_identity_manifest = update_data_identity_manifest_with_generated_bundle(
+            data_identity_manifest,
+            bundle,
+        )
+        data_generation_manifest = Path(bundle["data_generation_manifest"])
+        data_bundle_manifest = Path(bundle["data_bundle_manifest"])
+        probe_transform_manifest = Path(bundle["probe_transform_manifest"])
+        pinn_randomness_manifest = write_pinn_randomness_manifest(
+            output_root,
+            run_id=args.run_id,
+            data_generation_control=args.data_generation_control,
+            metric_contract_manifest=metric_contract_manifest,
+            data_bundle_manifest=data_bundle_manifest,
+        )
+        gate_report = assert_metric_gates_allow_metrics(data_identity_manifest, metric_contract_manifest)
+
     metrics_paths, residual_paths, recon_paths = run_smoke_benchmark(
         output_root,
         args,
         probe,
         support,
         support_record,
+        cfg=prepared_cfg,
+        data=prepared_data,
     )
     write_benchmark_manifest(
         output_root,
@@ -1331,6 +1696,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         metrics_paths=metrics_paths,
         residual_paths=residual_paths,
         recon_paths=recon_paths,
+        data_generation_manifest=data_generation_manifest,
+        data_bundle_manifest=data_bundle_manifest,
+        probe_transform_manifest=probe_transform_manifest,
+        pinn_randomness_manifest=pinn_randomness_manifest,
     )
     _write_json(output_root / "metric_gate_report.json", gate_report)
     print(f"benchmark complete: {output_root}")
