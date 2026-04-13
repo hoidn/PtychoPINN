@@ -1,6 +1,6 @@
 import json
 import sys
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from pathlib import Path
 
 import numpy as np
@@ -46,6 +46,63 @@ def _toy_split_bundle():
             "norm_Y_I": 3.0,
         },
     }
+
+
+@pytest.fixture
+def fake_pynx(monkeypatch):
+    calls = {
+        "cdi": [],
+        "operators": [],
+        "freed": [],
+    }
+
+    class FakeCDI:
+        def __init__(self, iobs, support=None, obj=None, mask=None, **kwargs):
+            self.iobs = np.asarray(iobs)
+            self.support = np.asarray(support)
+            self.obj = np.asarray(obj)
+            self.mask = np.asarray(mask) if mask is not None else None
+            self.kwargs = kwargs
+            calls["cdi"].append(self)
+
+        def get_obj(self, shift=False):
+            if shift:
+                return np.fft.fftshift(self.obj)
+            return self.obj
+
+    class FakeOperator:
+        operator_name = "operator"
+
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def __mul__(self, cdi):
+            calls["operators"].append((self.operator_name, dict(self.kwargs)))
+            return cdi
+
+    class FakeHIO(FakeOperator):
+        operator_name = "HIO"
+
+    class FakeER(FakeOperator):
+        operator_name = "ER"
+
+    class FakeFreePU(FakeOperator):
+        operator_name = "FreePU"
+
+        def __mul__(self, cdi):
+            calls["freed"].append(cdi)
+            return cdi
+
+    pynx = ModuleType("pynx")
+    cdi = ModuleType("pynx.cdi")
+    cdi.CDI = FakeCDI
+    cdi.HIO = FakeHIO
+    cdi.ER = FakeER
+    cdi.FreePU = FakeFreePU
+    pynx.cdi = cdi
+    monkeypatch.setitem(sys.modules, "pynx", pynx)
+    monkeypatch.setitem(sys.modules, "pynx.cdi", cdi)
+    return calls
 
 
 def test_make_probe_support_rejects_empty_and_full_masks():
@@ -174,6 +231,128 @@ def test_fourier_residual_uses_contract_denominator_floor_for_zero_target():
     expected = np.linalg.norm(forward_amplitude(psi) - target) / 1e-12
 
     assert residual == pytest.approx(expected)
+
+
+def test_pynx_adapter_converts_amplitude_intensity_and_array_conventions(fake_pynx):
+    from scripts.reconstruction.hio_cdi_benchmark import (
+        PynxCdiAdapter,
+        to_pynx_intensity,
+        to_pynx_realspace,
+    )
+
+    target = np.arange(64, dtype=np.float32).reshape(8, 8) / 64.0
+    support = np.zeros((8, 8), dtype=bool)
+    support[2:6, 2:6] = True
+    initial = _toy_complex()
+
+    assert np.array_equal(to_pynx_intensity(target), np.fft.ifftshift(np.square(target)).astype(np.float32))
+    assert np.array_equal(to_pynx_realspace(support), np.fft.ifftshift(support))
+
+    adapter = PynxCdiAdapter()
+    adapter.run_restart(
+        target,
+        support,
+        seed=11,
+        base_seed=101,
+        restart_index=0,
+        beta=0.9,
+        hio_iters=2,
+        er_iters=2,
+        residual_period=1,
+        initial_psi=initial,
+    )
+
+    cdi = fake_pynx["cdi"][-1]
+    assert np.array_equal(cdi.iobs, np.fft.ifftshift(np.square(target)).astype(np.float32))
+    assert np.array_equal(cdi.support, np.fft.ifftshift(support))
+    assert np.allclose(cdi.obj, np.fft.ifftshift(initial))
+    assert np.array_equal(cdi.mask, np.zeros_like(cdi.iobs, dtype=np.int8))
+
+
+def test_pynx_adapter_runs_hio_then_er_and_frees_processing_unit(fake_pynx):
+    from scripts.reconstruction.hio_cdi_benchmark import run_restarts
+
+    support = np.zeros((8, 8), dtype=bool)
+    support[2:6, 2:6] = True
+    target = np.ones((8, 8), dtype=np.float32)
+
+    result = run_restarts(
+        target,
+        support,
+        seeds=[2026041201],
+        beta=0.9,
+        hio_iters=20,
+        er_iters=10,
+        residual_period=10,
+        condition_id="gs1_custom",
+        patch_index=3,
+    )
+
+    assert [name for name, _ in fake_pynx["operators"]] == ["HIO", "HIO", "ER"]
+    assert [kwargs["nb_cycle"] for _, kwargs in fake_pynx["operators"]] == [10, 10, 10]
+    assert fake_pynx["operators"][0][1]["beta"] == 0.9
+    assert fake_pynx["freed"] == fake_pynx["cdi"]
+    assert len(result.restarts) == 1
+    assert result.selected.residual_curve
+    assert result.selected.restart_index == 0
+
+
+def test_pynx_unavailable_is_actionable(monkeypatch):
+    import builtins
+
+    from scripts.reconstruction.hio_cdi_benchmark import (
+        PynxCdiAdapter,
+        PynxUnavailableError,
+        check_pynx_available,
+    )
+
+    real_import = builtins.__import__
+
+    def fake_import(name, *args, **kwargs):
+        if name.startswith("pynx"):
+            raise ModuleNotFoundError("No module named 'pynx'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+
+    status = check_pynx_available()
+    assert status["available"] is False
+    assert "pynx" in status["error"]
+    with pytest.raises(PynxUnavailableError, match="PyNX is required"):
+        PynxCdiAdapter().run_restart(
+            np.ones((8, 8), dtype=np.float32),
+            np.ones((8, 8), dtype=bool),
+            seed=11,
+            base_seed=101,
+            restart_index=0,
+            beta=0.9,
+            hio_iters=1,
+            er_iters=1,
+            residual_period=1,
+        )
+
+
+def test_pynx_real_integration_smoke_if_available():
+    pytest.importorskip("pynx.cdi")
+    from scripts.reconstruction.hio_cdi_benchmark import run_restarts
+
+    support = np.zeros((8, 8), dtype=bool)
+    support[2:6, 2:6] = True
+    target = np.ones((8, 8), dtype=np.float32)
+
+    result = run_restarts(
+        target,
+        support,
+        seeds=[11],
+        beta=0.9,
+        hio_iters=2,
+        er_iters=2,
+        residual_period=1,
+    )
+
+    assert result.selected.psi.shape == target.shape
+    assert np.all(np.isfinite(result.selected.psi))
+    assert result.selected.residual_curve
 
 
 def test_run_restarts_retains_curves_and_recovers_object_patch():
@@ -354,7 +533,7 @@ def test_manifest_writers_and_duplicate_output_root_refusal(tmp_path):
     with pytest.raises(FileExistsError, match="already contains benchmark artifacts"):
         refuse_duplicate_output_root(out, force=False)
 
-    solver = write_solver_manifest(out, run_id="unit", selected_solver="study_local_hio_er")
+    solver = write_solver_manifest(out, run_id="unit")
     data = write_data_identity_manifest(out, branch="frozen-artifact", artifact_paths=[])
     metric = write_metric_contract_manifest(out, mode="direct-stitch")
     with pytest.raises(RuntimeError, match="Data identity gate blocked"):
@@ -381,6 +560,7 @@ def test_same_split_branch_blocks_metrics_until_generated_bundle_is_attached(tmp
         assert_metric_gates_allow_metrics,
         write_data_identity_manifest,
         write_metric_contract_manifest,
+        write_solver_manifest,
     )
 
     out = tmp_path / "same_split"
@@ -489,6 +669,121 @@ def test_same_split_bundle_persistence_records_npzs_and_key_checksums(monkeypatc
     assert identity_payload["generated_data_bundle"]["train_npz"] == bundle["train_npz"]
     assert identity_payload["generated_data_bundle"]["memoization"]["cache_mode"] == "disabled_fresh_generation"
     assert identity_payload["metric_inspection_allowed"] is True
+
+
+def test_reused_same_split_bundle_loads_data_and_updates_identity_manifest(monkeypatch, tmp_path):
+    from ptycho.config.config import ModelConfig, TrainingConfig
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig
+    from scripts.reconstruction.hio_cdi_benchmark import (
+        load_same_split_data_bundle,
+        persist_same_split_data_bundle,
+        update_data_identity_manifest_with_reused_bundle,
+        write_data_identity_manifest,
+    )
+
+    monkeypatch.setenv("PTYCHO_DISABLE_MEMOIZE", "1")
+    cfg = GridLinesConfig(
+        N=8,
+        gridsize=1,
+        output_dir=tmp_path / "source",
+        probe_npz=tmp_path / "probe.npz",
+        probe_source="custom",
+    )
+    config = TrainingConfig(
+        model=ModelConfig(N=8, gridsize=1, object_big=False),
+        nphotons=1e9,
+        nepochs=1,
+        batch_size=1,
+        nll_weight=0.0,
+        mae_weight=1.0,
+        realspace_weight=0.0,
+    )
+    bundle = persist_same_split_data_bundle(
+        output_root=tmp_path / "source",
+        run_id="source",
+        cfg=cfg,
+        data=_toy_split_bundle(),
+        config=config,
+        probe=_toy_probe(),
+        probe_transform_pipeline="smooth:0.5|pad:8",
+        probe_transform_steps=[{"op": "smooth_complex", "sigma": 0.5}, {"op": "pad_complex", "target_N": 8}],
+        data_generation_control="loader-compatible",
+    )
+
+    loaded = load_same_split_data_bundle(Path(bundle["data_bundle_manifest"]))
+    assert np.array_equal(loaded["data"]["test"]["X"], _toy_split_bundle()["test"]["X"])
+    assert loaded["data"]["test"]["norm_Y_I"] == pytest.approx(3.0)
+    assert loaded["bundle"]["data_reuse"]["source_data_bundle_manifest"] == bundle["data_bundle_manifest"]
+
+    data_identity = write_data_identity_manifest(
+        tmp_path / "reuse",
+        branch="same-split-rerun",
+        artifact_paths=[],
+        data_generation_control="loader-compatible",
+    )
+    update_data_identity_manifest_with_reused_bundle(data_identity, loaded["bundle"])
+
+    identity_payload = json.loads(data_identity.read_text())
+    assert identity_payload["decision"] == "same_split_reused_bundle_frozen_for_comparator"
+    assert identity_payload["metric_inspection_allowed"] is True
+    assert identity_payload["generated_data_bundle"]["data_reuse"]["reused_existing_bundle"] is True
+    checksum_records = {
+        (record["split"], record["canonical_key"]): record["sha256"]
+        for record in identity_payload["key_level_checksums"]
+        if record["exists"]
+    }
+    assert checksum_records[("test", "X")]
+
+
+def test_reused_same_split_bundle_checksum_mismatch_is_rejected(monkeypatch, tmp_path):
+    from ptycho.config.config import ModelConfig, TrainingConfig
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig
+    from scripts.reconstruction.hio_cdi_benchmark import (
+        _read_manifest,
+        _write_json,
+        load_same_split_data_bundle,
+        persist_same_split_data_bundle,
+    )
+
+    monkeypatch.setenv("PTYCHO_DISABLE_MEMOIZE", "1")
+    cfg = GridLinesConfig(
+        N=8,
+        gridsize=1,
+        output_dir=tmp_path / "source",
+        probe_npz=tmp_path / "probe.npz",
+        probe_source="custom",
+    )
+    config = TrainingConfig(
+        model=ModelConfig(N=8, gridsize=1, object_big=False),
+        nphotons=1e9,
+        nepochs=1,
+        batch_size=1,
+        nll_weight=0.0,
+        mae_weight=1.0,
+        realspace_weight=0.0,
+    )
+    bundle = persist_same_split_data_bundle(
+        output_root=tmp_path / "source",
+        run_id="source",
+        cfg=cfg,
+        data=_toy_split_bundle(),
+        config=config,
+        probe=_toy_probe(),
+        probe_transform_pipeline="smooth:0.5|pad:8",
+        probe_transform_steps=[{"op": "smooth_complex", "sigma": 0.5}, {"op": "pad_complex", "target_N": 8}],
+        data_generation_control="loader-compatible",
+    )
+    manifest_path = Path(bundle["data_bundle_manifest"])
+    payload = _read_manifest(manifest_path)
+    for record in payload["key_records"]:
+        if record["split"] == "test" and record["canonical_key"] == "X":
+            record["sha256"] = "wrong"
+            break
+    corrupted = tmp_path / "corrupted_data_bundle_manifest.json"
+    _write_json(corrupted, payload)
+
+    with pytest.raises(RuntimeError, match="checksum mismatch"):
+        load_same_split_data_bundle(corrupted)
 
 
 def test_pinn_randomness_manifest_records_seed_policy_and_metric_contract_checksum(tmp_path):
@@ -710,6 +1005,75 @@ def test_cli_parses_pinn_comparator_flags():
     assert args.pinn_comparator_epochs == 60
 
 
+def test_cli_parses_reused_data_bundle_manifest_and_rejects_new_pinn_comparator():
+    from scripts.reconstruction.hio_cdi_benchmark import parse_args
+
+    args = parse_args(
+        [
+            "--output-root",
+            "out",
+            "--run-id",
+            "unit",
+            "--probe-npz",
+            "datasets/Run1084_recon3_postPC_shrunk_3.npz",
+            "--probe-source",
+            "custom",
+            "--probe-scale-mode",
+            "pad_preserve",
+            "--probe-smoothing-sigma",
+            "0.5",
+            "--support-thresholds",
+            "0.05",
+            "--primary-support-threshold",
+            "0.05",
+            "--restart-seeds",
+            "2026041201",
+            "2026041202",
+            "2026041203",
+            "--data-identity-branch",
+            "same-split-rerun",
+            "--metric-contract-mode",
+            "direct-stitch",
+            "--reuse-data-bundle-manifest",
+            "source/data_bundle_manifest.json",
+        ]
+    )
+    assert args.reuse_data_bundle_manifest == Path("source/data_bundle_manifest.json")
+
+    with pytest.raises(SystemExit):
+        parse_args(
+            [
+                "--output-root",
+                "out",
+                "--run-id",
+                "unit",
+                "--probe-npz",
+                "datasets/Run1084_recon3_postPC_shrunk_3.npz",
+                "--probe-source",
+                "custom",
+                "--probe-scale-mode",
+                "pad_preserve",
+                "--probe-smoothing-sigma",
+                "0.5",
+                "--support-thresholds",
+                "0.05",
+                "--primary-support-threshold",
+                "0.05",
+                "--restart-seeds",
+                "2026041201",
+                "2026041202",
+                "2026041203",
+                "--data-identity-branch",
+                "same-split-rerun",
+                "--metric-contract-mode",
+                "direct-stitch",
+                "--reuse-data-bundle-manifest",
+                "source/data_bundle_manifest.json",
+                "--run-pinn-comparator",
+            ]
+        )
+
+
 def test_seed_hook_runs_before_same_split_data_generation_when_tf_deterministic(monkeypatch):
     import scripts.reconstruction.hio_cdi_benchmark as hio
 
@@ -750,12 +1114,17 @@ def test_metric_contract_manifest_records_note_decisions_evidence_and_deviation(
 def test_solver_manifest_has_a2_provenance_fields(tmp_path):
     from scripts.reconstruction.hio_cdi_benchmark import write_solver_manifest
 
-    path = write_solver_manifest(tmp_path, run_id="unit", selected_solver="study_local_hio_er")
+    path = write_solver_manifest(tmp_path, run_id="unit")
     payload = json.loads(path.read_text())
 
     assert payload["search_date"]
     assert payload["searched_sources"] == ["repo", "environment", "PyPI", "GitHub", "web"]
-    assert payload["selected_solver"] == "study_local_hio_er"
+    assert payload["selected_solver"] == "pynx_cdi_hio_er"
+    assert payload["external_solver_adopted"] is True
+    candidates = {candidate["name"]: candidate for candidate in payload["candidates"]}
+    assert candidates["pynx_cdi_hio_er"]["accepted"] is True
+    assert candidates["pynx_cdi_hio_er"]["pynx_preflight"]["available"] is True
+    assert candidates["study_local_hio_er"]["accepted"] is False
     for candidate in payload["candidates"]:
         assert {
             "name",
@@ -799,6 +1168,7 @@ def test_metrics_artifact_context_embeds_contract_and_residual_content(tmp_path)
         build_metrics_artifact_context,
         write_data_identity_manifest,
         write_metric_contract_manifest,
+        write_solver_manifest,
     )
 
     data_identity = write_data_identity_manifest(
@@ -820,6 +1190,7 @@ def test_metrics_artifact_context_embeds_contract_and_residual_content(tmp_path)
             ],
         },
     )
+    solver_manifest = write_solver_manifest(tmp_path, run_id="unit")
     residual_payload = {
         "run_id": "unit",
         "condition": "gs1_custom",
@@ -846,12 +1217,16 @@ def test_metrics_artifact_context_embeds_contract_and_residual_content(tmp_path)
         support_manifest=support_manifest,
         residual_payload=residual_payload,
         residual_path=residual_path,
+        solver_manifest=solver_manifest,
     )
 
     assert context["data_identity"]["branch"] == "same-split-rerun"
     assert context["data_identity"]["decision"] == "same_split_rerun_bundle_not_frozen"
     assert context["metric_contract"]["mode"] == "direct-stitch"
     assert context["metric_contract"]["table2_compatibility"] == "fresh_same_split_direct_stitch_not_historical_table2"
+    assert context["solver"]["selected_solver"] == "pynx_cdi_hio_er"
+    assert context["solver"]["selected_candidate"]["pynx_preflight"]["available"] is True
+    assert context["solver"]["selected_candidate"]["array_convention"]
     assert context["support_threshold_grid_status"] == [
         {"support_threshold": 0.01, "status": "valid_sensitivity"},
         {"support_threshold": 0.05, "status": "selected_primary"},

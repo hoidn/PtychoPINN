@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Study-local HIO/ER baseline for the non-ML single-shot CDI benchmark."""
+"""PyNX HIO/ER baseline for the non-ML single-shot CDI benchmark."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ DEFAULT_NIMGS_TRAIN = 2
 DEFAULT_NIMGS_TEST = 2
 DEFAULT_NPHOTONS = 1e9
 DEFAULT_EPSILON_RATIO = 1e-6
-SELECTED_SOLVER = "study_local_hio_er"
+SELECTED_SOLVER = "pynx_cdi_hio_er"
 HISTORICAL_GS1_CUSTOM_AMP_SSIM = 0.9044216561120993
 HISTORICAL_GS1_CUSTOM_AMP_PSNR = 68.8864772792175
 TABLE2_AMP_SSIM_TOLERANCE = 0.02
@@ -312,6 +312,123 @@ def _initial_psi(target_magnitude: np.ndarray, seed: int) -> np.ndarray:
     return np.fft.ifft2(np.fft.ifftshift(shifted * norm))
 
 
+class PynxUnavailableError(RuntimeError):
+    """Raised when the optional PyNX CDI adapter is requested but unavailable."""
+
+
+def check_pynx_available() -> dict[str, Any]:
+    try:
+        from pynx import cdi as pynx_cdi  # type: ignore
+    except Exception as exc:
+        return {"available": False, "error": repr(exc)}
+    missing = [name for name in ("CDI", "HIO", "ER") if not hasattr(pynx_cdi, name)]
+    if missing:
+        return {
+            "available": False,
+            "error": f"pynx.cdi missing required API: {', '.join(missing)}",
+        }
+    return {"available": True, "error": None, "package_version": _package_version("pynx")}
+
+
+def _import_pynx_cdi() -> Any:
+    status = check_pynx_available()
+    if not status["available"]:
+        raise PynxUnavailableError(f"PyNX is required for the PyNX CDI adapter: {status['error']}")
+    from pynx import cdi as pynx_cdi  # type: ignore
+
+    return pynx_cdi
+
+
+def to_pynx_intensity(target_magnitude: np.ndarray) -> np.ndarray:
+    target = np.asarray(target_magnitude, dtype=np.float32)
+    if target.ndim != 2:
+        raise ValueError("target magnitude must be 2D for PyNX")
+    if np.any(target < 0) or not np.all(np.isfinite(target)):
+        raise ValueError("target magnitude must be finite and nonnegative for PyNX")
+    return np.fft.ifftshift(np.square(target)).astype(np.float32)
+
+
+def to_pynx_realspace(value: np.ndarray) -> np.ndarray:
+    return np.fft.ifftshift(np.asarray(value))
+
+
+def from_pynx_realspace(value: np.ndarray) -> np.ndarray:
+    return np.fft.fftshift(np.asarray(value))
+
+
+class PynxCdiAdapter:
+    """Thin adapter from the study's normalized arrays to pynx.cdi operators."""
+
+    def run_restart(
+        self,
+        target_magnitude: np.ndarray,
+        support: np.ndarray,
+        *,
+        seed: int,
+        base_seed: int,
+        restart_index: int,
+        beta: float,
+        hio_iters: int,
+        er_iters: int,
+        residual_period: int,
+        initial_psi: np.ndarray | None = None,
+    ) -> RestartResult:
+        pynx_cdi = _import_pynx_cdi()
+        target = _validate_target_magnitude(
+            np.asarray(target_magnitude, dtype=np.float64),
+            np.asarray(target_magnitude).shape,
+        )
+        support_mask = np.asarray(support, dtype=bool)
+        if support_mask.shape != target.shape:
+            raise ValueError("support shape must match target magnitude")
+        psi = (
+            _initial_psi(target, int(seed))
+            if initial_psi is None
+            else _validate_2d_complex("initial_psi", initial_psi)
+        )
+        residual_period = max(1, int(residual_period))
+
+        iobs = to_pynx_intensity(target)
+        cdi_obj = pynx_cdi.CDI(
+            iobs=iobs,
+            support=to_pynx_realspace(support_mask),
+            obj=to_pynx_realspace(psi),
+            mask=np.zeros_like(iobs, dtype=np.int8),
+        )
+        curve = [fourier_residual(psi, target)]
+
+        try:
+            def apply_operator(operator_cls: Any, total_iters: int, **kwargs: Any) -> None:
+                nonlocal cdi_obj, psi
+                remaining = int(total_iters)
+                while remaining > 0:
+                    nb_cycle = min(residual_period, remaining)
+                    cdi_obj = operator_cls(nb_cycle=nb_cycle, **kwargs) * cdi_obj
+                    psi = from_pynx_realspace(cdi_obj.get_obj(shift=False))
+                    curve.append(fourier_residual(psi, target))
+                    remaining -= nb_cycle
+
+            apply_operator(pynx_cdi.HIO, int(hio_iters), beta=float(beta))
+            apply_operator(pynx_cdi.ER, int(er_iters))
+            psi = from_pynx_realspace(cdi_obj.get_obj(shift=False))
+            final_residual = fourier_residual(psi, target)
+            if not np.isclose(curve[-1], final_residual, rtol=0.0, atol=0.0):
+                curve.append(final_residual)
+            if not np.isfinite(final_residual):
+                raise FloatingPointError(f"non-finite Fourier residual for restart seed {seed}")
+            return RestartResult(
+                seed=int(seed),
+                psi=np.asarray(psi),
+                final_residual=float(final_residual),
+                residual_curve=[float(item) for item in curve],
+                base_seed=int(base_seed),
+                restart_index=int(restart_index),
+            )
+        finally:
+            if hasattr(pynx_cdi, "FreePU"):
+                pynx_cdi.FreePU() * cdi_obj
+
+
 def run_restarts(
     target_magnitude: np.ndarray,
     support: np.ndarray,
@@ -337,6 +454,7 @@ def run_restarts(
     residual_period = max(1, int(residual_period))
 
     results: list[RestartResult] = []
+    pynx_adapter = PynxCdiAdapter()
     for restart_index, seed in enumerate(seeds):
         base_seed = int(seed)
         actual_seed = (
@@ -345,28 +463,18 @@ def run_restarts(
             else base_seed
         )
         psi = _initial_psi(target, actual_seed)
-        curve = [fourier_residual(psi, target)]
-        for iteration in range(1, int(hio_iters) + 1):
-            psi = hio_update(psi, target, support_mask, beta=beta)
-            if iteration % residual_period == 0:
-                curve.append(fourier_residual(psi, target))
-        for iteration in range(1, int(er_iters) + 1):
-            psi = er_cleanup(psi, target, support_mask)
-            if iteration % residual_period == 0:
-                curve.append(fourier_residual(psi, target))
-        final_residual = fourier_residual(psi, target)
-        if not np.isclose(curve[-1], final_residual, rtol=0.0, atol=0.0):
-            curve.append(final_residual)
-        if not np.isfinite(final_residual):
-            raise FloatingPointError(f"non-finite Fourier residual for restart seed {actual_seed}")
         results.append(
-            RestartResult(
+            pynx_adapter.run_restart(
+                target,
+                support_mask,
                 seed=int(actual_seed),
-                psi=np.asarray(psi),
-                final_residual=float(final_residual),
-                residual_curve=[float(item) for item in curve],
                 base_seed=base_seed,
                 restart_index=int(restart_index),
+                beta=float(beta),
+                hio_iters=int(hio_iters),
+                er_iters=int(er_iters),
+                residual_period=residual_period,
+                initial_psi=psi,
             )
         )
 
@@ -466,24 +574,29 @@ def write_solver_manifest(
 ) -> Path:
     output_root = Path(output_root)
     search_date = datetime.now(timezone.utc).date().isoformat()
+    pynx_status = check_pynx_available()
     candidates = [
         {
-            "name": "PyNX",
+            "name": SELECTED_SOLVER,
             "source_url": "https://pynx.esrf.fr/en/latest/modules/cdi/index.html",
             "package_version": _package_version("pynx"),
-            "license": "not_frozen_in_repo_manifest",
-            "install_command": "conda env create --file https://gitlab.esrf.fr/favre/PyNX/-/raw/master/conda-environment.yaml",
+            "license": "CeCILL-B",
+            "install_command": "pip install https://ftp.esrf.fr/pub/scisoft/PyNX/pynx-latest.tar.bz2",
             "api_entry_point": "pynx.cdi.CDI with HIO/ER operators",
-            "accepted": False,
-            "searched_sources": ["PyPI", "GitHub", "web"],
-            "installed": _package_version("pynx") is not None,
+            "accepted": selected_solver == SELECTED_SOLVER and bool(pynx_status["available"]),
+            "searched_sources": ["environment", "web"],
+            "installed": bool(pynx_status["available"]),
+            "pynx_preflight": pynx_status,
+            "array_convention": "repo FFT-shifted amplitudes/realspace arrays are ifftshifted before PyNX and fftshifted after PyNX",
+            "intensity_input": "iobs = ifftshift(target_magnitude ** 2).astype(float32)",
+            "processing_unit_cleanup": "FreePU is invoked after each restart when available",
             "evidence": [
                 {
                     "source_url": "https://pynx.esrf.fr/en/latest/modules/cdi/index.html",
                     "note": "Public documentation describes 2D/3D CDI support with HIO and ER algorithms.",
                 }
             ],
-            "reason": "capable external CDI package, but not adopted in this bounded pass because install/license/runtime provenance was not frozen in the local environment",
+            "reason": "selected external CDI implementation for support-constrained single-frame HIO/ER",
         },
         {
             "name": "CDIutils",
@@ -554,16 +667,16 @@ def write_solver_manifest(
             "reason": "ptychographic multi-frame orientation, not a bounded single-frame support-constrained CDI HIO/ER baseline",
         },
         {
-            "name": SELECTED_SOLVER,
+            "name": "study_local_hio_er",
             "source_url": _repo_relative(SCRIPT_RELATIVE),
             "package_version": None,
             "license": "repository_local",
             "install_command": "none",
-            "api_entry_point": "run_restarts / hio_update / er_cleanup",
-            "accepted": True,
+            "api_entry_point": "project_fourier_magnitude / hio_update / er_cleanup",
+            "accepted": False,
             "searched_sources": ["repo"],
             "installed": True,
-            "reason": "study-local support-constrained HIO/ER implementation with explicit restart and support policy",
+            "reason": "superseded_by_pynx; retained only as study-local numerical helpers/tests, not the production solver path",
         },
     ]
     payload = {
@@ -573,7 +686,7 @@ def write_solver_manifest(
         "selected_solver": selected_solver,
         "selection_date_utc": datetime.now(timezone.utc).isoformat(),
         "search_scope": ["repo", "environment", "PyPI", "GitHub", "web"],
-        "external_solver_adopted": False,
+        "external_solver_adopted": selected_solver == SELECTED_SOLVER,
         "candidates": candidates,
     }
     return _write_json(output_root / "solver_manifest.json", payload)
@@ -987,6 +1100,13 @@ def _read_manifest(path: Path) -> dict[str, Any]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+def _resolve_repo_path(path: Path | str) -> Path:
+    resolved = Path(path)
+    if resolved.is_absolute():
+        return resolved
+    return REPO_ROOT / resolved
+
+
 _SAME_SPLIT_EXPECTED_KEYS = [
     "X",
     "Y_I",
@@ -1033,6 +1153,128 @@ def _npz_key_records(path: Path, split: str) -> list[dict[str, Any]]:
                 )
             )
     return records
+
+
+def _load_npz_split_payload(path: Path, split: str) -> dict[str, Any]:
+    payload: dict[str, Any] = {}
+    with np.load(path, allow_pickle=True) as loaded:
+        for npz_key in loaded.files:
+            if npz_key == "_metadata":
+                continue
+            canonical_key = _NPZ_CANONICAL_KEYS.get(npz_key, npz_key)
+            if canonical_key not in _SAME_SPLIT_EXPECTED_KEYS:
+                continue
+            value = loaded[npz_key]
+            if canonical_key == "norm_Y_I":
+                payload[canonical_key] = float(np.asarray(value))
+            else:
+                payload[canonical_key] = np.asarray(value)
+    if "X" not in payload:
+        raise RuntimeError(f"Reused {split} split is missing X/diffraction data: {path}")
+    return payload
+
+
+def _validate_bundle_key_records(
+    manifest_path: Path,
+    manifest: dict[str, Any],
+    train_npz: Path,
+    test_npz: Path,
+) -> list[dict[str, Any]]:
+    current_records = _npz_key_records(train_npz, "train") + _npz_key_records(test_npz, "test")
+    current_by_key = {
+        (record["split"], record["canonical_key"]): record
+        for record in current_records
+    }
+    mismatches: list[dict[str, Any]] = []
+    for expected in manifest.get("key_records", []):
+        if not expected.get("exists"):
+            continue
+        key = (expected.get("split"), expected.get("canonical_key"))
+        current = current_by_key.get(key)
+        if current is None or not current.get("exists"):
+            mismatches.append(
+                {
+                    "split": expected.get("split"),
+                    "canonical_key": expected.get("canonical_key"),
+                    "reason": "missing_from_current_npz",
+                    "expected_sha256": expected.get("sha256"),
+                    "current_sha256": None,
+                }
+            )
+            continue
+        if current.get("sha256") != expected.get("sha256"):
+            mismatches.append(
+                {
+                    "split": expected.get("split"),
+                    "canonical_key": expected.get("canonical_key"),
+                    "reason": "sha256_mismatch",
+                    "expected_sha256": expected.get("sha256"),
+                    "current_sha256": current.get("sha256"),
+                }
+            )
+    if mismatches:
+        raise RuntimeError(
+            "Reused same-split data bundle checksum mismatch: "
+            f"{manifest_path}; mismatches={mismatches[:3]}"
+        )
+    return current_records
+
+
+def load_same_split_data_bundle(data_bundle_manifest: Path) -> dict[str, Any]:
+    """Load and verify a previously frozen same-split data bundle for HIO reuse."""
+    manifest_path = Path(data_bundle_manifest)
+    manifest = _read_manifest(manifest_path)
+    if manifest.get("branch") != "same-split-rerun":
+        raise RuntimeError(f"Reused data bundle must be same-split-rerun: {manifest_path}")
+    train_npz = _resolve_repo_path(manifest["train_npz"])
+    test_npz = _resolve_repo_path(manifest["test_npz"])
+    if not train_npz.exists() or not test_npz.exists():
+        raise RuntimeError(
+            "Reused same-split data bundle is missing train/test NPZs: "
+            f"train={train_npz}, test={test_npz}"
+        )
+    key_records = _validate_bundle_key_records(manifest_path, manifest, train_npz, test_npz)
+    data = {
+        "train": _load_npz_split_payload(train_npz, "train"),
+        "test": _load_npz_split_payload(test_npz, "test"),
+        "intensity_scale": None,
+    }
+    bundle = {
+        "train_npz": manifest["train_npz"],
+        "test_npz": manifest["test_npz"],
+        "data_generation_manifest": manifest.get("data_generation_manifest"),
+        "data_bundle_manifest": str(manifest_path),
+        "probe_transform_manifest": manifest.get("probe_transform_manifest"),
+        "memoization": manifest.get("memoization"),
+        "npz_records": manifest.get("npz_records"),
+        "key_records": key_records,
+        "data_reuse": {
+            "reused_existing_bundle": True,
+            "source_data_bundle_manifest": str(manifest_path),
+            "source_data_bundle_manifest_sha256": _sha256_file(manifest_path),
+            "checksum_validation": "matched_manifest_key_records",
+        },
+    }
+    return {"data": data, "bundle": bundle}
+
+
+def _validate_reused_bundle_matches_probe(data: dict[str, Any], probe: np.ndarray) -> dict[str, Any]:
+    bundle_probe = data.get("test", {}).get("probeGuess")
+    if bundle_probe is None:
+        bundle_probe = data.get("train", {}).get("probeGuess")
+    if bundle_probe is None:
+        raise RuntimeError("Reused same-split bundle does not include probeGuess for probe consistency check")
+    current_sha = _array_sha256(np.asarray(probe))
+    bundle_sha = _array_sha256(np.asarray(bundle_probe))
+    if current_sha != bundle_sha:
+        raise RuntimeError(
+            "Reused same-split bundle probeGuess does not match the current CLI probe transform: "
+            f"bundle_sha256={bundle_sha}, current_sha256={current_sha}"
+        )
+    return {
+        "probe_consistency": "matched_reused_bundle_probeGuess",
+        "probe_sha256": current_sha,
+    }
 
 
 def _memoization_policy_for_fresh_bundle() -> dict[str, Any]:
@@ -1187,6 +1429,33 @@ def update_data_identity_manifest_with_generated_bundle(
     )
     payload["decision"] = "same_split_generated_bundle_frozen_for_comparator"
     payload["hio_metric_policy"] = "allowed_on_frozen_same_split_generated_bundle_only"
+    return _write_json(path, payload)
+
+
+def update_data_identity_manifest_with_reused_bundle(
+    data_identity_manifest: Path,
+    bundle: dict[str, Any],
+) -> Path:
+    path = Path(data_identity_manifest)
+    payload = _read_manifest(path)
+    payload["generated_data_bundle"] = {
+        "train_npz": bundle["train_npz"],
+        "test_npz": bundle["test_npz"],
+        "data_generation_manifest": bundle["data_generation_manifest"],
+        "data_bundle_manifest": bundle["data_bundle_manifest"],
+        "probe_transform_manifest": bundle["probe_transform_manifest"],
+        "memoization": bundle["memoization"],
+        "npz_records": bundle.get("npz_records"),
+        "data_reuse": bundle["data_reuse"],
+    }
+    payload["key_level_checksums"] = bundle["key_records"]
+    payload["metric_inspection_allowed"] = (
+        payload.get("branch") == "same-split-rerun"
+        and payload.get("data_generation_control_status") == "implemented_loader_compatible"
+        and bundle["data_reuse"]["reused_existing_bundle"] is True
+    )
+    payload["decision"] = "same_split_reused_bundle_frozen_for_comparator"
+    payload["hio_metric_policy"] = "allowed_on_reused_frozen_same_split_generated_bundle_only"
     return _write_json(path, payload)
 
 
@@ -1486,10 +1755,10 @@ def _bounded_frame_count(total: int, requested: int | None, nimgs: int) -> int:
     return min(total, nimgs)
 
 
-def _generate_table2_smoke_data(args: argparse.Namespace, probe: np.ndarray) -> tuple[Any, dict[str, Any]]:
-    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, simulate_grid_data
+def _table2_cfg_from_args(args: argparse.Namespace) -> Any:
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig
 
-    cfg = GridLinesConfig(
+    return GridLinesConfig(
         N=TARGET_N,
         gridsize=1,
         output_dir=Path(args.output_root),
@@ -1506,6 +1775,12 @@ def _generate_table2_smoke_data(args: argparse.Namespace, probe: np.ndarray) -> 
         probe_scale_mode=args.probe_scale_mode,
         probe_transform_pipeline=args.probe_transform_pipeline,
     )
+
+
+def _generate_table2_smoke_data(args: argparse.Namespace, probe: np.ndarray) -> tuple[Any, dict[str, Any]]:
+    from ptycho.workflows.grid_lines_workflow import simulate_grid_data
+
+    cfg = _table2_cfg_from_args(args)
     return cfg, simulate_grid_data(cfg, probe)
 
 
@@ -1567,6 +1842,7 @@ def build_metrics_artifact_context(
     support_manifest: Path,
     residual_payload: dict[str, Any],
     residual_path: Path,
+    solver_manifest: Path | None = None,
 ) -> dict[str, Any]:
     """Summarize the manifests and residual content required by the row contract."""
     data_identity = _read_manifest(Path(data_identity_manifest))
@@ -1599,7 +1875,7 @@ def build_metrics_artifact_context(
             }
         )
 
-    return {
+    context: dict[str, Any] = {
         "data_identity": {
             "manifest": str(data_identity_manifest),
             "manifest_sha256": _sha256_file(Path(data_identity_manifest)),
@@ -1639,6 +1915,25 @@ def build_metrics_artifact_context(
             "restart_final_residuals_by_patch": restart_final_residuals_by_patch,
         },
     }
+    if solver_manifest is not None:
+        solver_payload = _read_manifest(Path(solver_manifest))
+        selected_solver = solver_payload.get("selected_solver")
+        selected_candidate = next(
+            (
+                candidate
+                for candidate in solver_payload.get("candidates", [])
+                if candidate.get("name") == selected_solver
+            ),
+            None,
+        )
+        context["solver"] = {
+            "manifest": str(solver_manifest),
+            "manifest_sha256": _sha256_file(Path(solver_manifest)),
+            "selected_solver": selected_solver,
+            "external_solver_adopted": solver_payload.get("external_solver_adopted"),
+            "selected_candidate": selected_candidate,
+        }
+    return context
 
 
 def _configure_pinn_seed(training_seed: int) -> dict[str, Any]:
@@ -1928,6 +2223,7 @@ def run_smoke_benchmark(
             support_manifest=support_manifest,
             residual_payload=residual_payload,
             residual_path=residual_path,
+            solver_manifest=Path(output_root) / "solver_manifest.json",
         )
 
     metrics_payload: dict[str, Any] = {
@@ -2034,12 +2330,22 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--pinn-comparator-only", action="store_true")
     parser.add_argument("--pinn-training-seed", default=2026041211, type=int)
     parser.add_argument("--pinn-comparator-epochs", default=60, type=int)
+    parser.add_argument(
+        "--reuse-data-bundle-manifest",
+        default=None,
+        type=Path,
+        help="Reuse a frozen same-split data_bundle_manifest.json instead of generating a fresh bundle.",
+    )
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args(argv)
     if args.pinn_comparator_only and not args.run_pinn_comparator:
         parser.error("--pinn-comparator-only requires --run-pinn-comparator")
     if args.run_pinn_comparator and args.data_identity_branch != "same-split-rerun":
         parser.error("--run-pinn-comparator requires --data-identity-branch same-split-rerun")
+    if args.reuse_data_bundle_manifest and args.data_identity_branch != "same-split-rerun":
+        parser.error("--reuse-data-bundle-manifest requires --data-identity-branch same-split-rerun")
+    if args.reuse_data_bundle_manifest and args.run_pinn_comparator:
+        parser.error("--reuse-data-bundle-manifest cannot be combined with --run-pinn-comparator")
     if args.pinn_comparator_epochs <= 0:
         parser.error("--pinn-comparator-epochs must be positive")
     return args
@@ -2108,39 +2414,57 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         if args.data_generation_control != "loader-compatible":
             assert_metric_gates_allow_metrics(data_identity_manifest, metric_contract_manifest)
-        pre_generation_seed_status = configure_seed_before_generated_data(args)
-        _memoization_policy_for_fresh_bundle()
-        prepared_cfg, prepared_data = _generate_table2_smoke_data(args, probe)
-        config = configure_legacy_params(prepared_cfg, probe)
-        bundle = persist_same_split_data_bundle(
-            output_root=output_root,
-            run_id=args.run_id,
-            cfg=prepared_cfg,
-            data=prepared_data,
-            config=config,
-            probe=probe,
-            probe_transform_pipeline=probe_pipeline,
-            probe_transform_steps=probe_steps,
-            data_generation_control=args.data_generation_control,
-        )
-        data_identity_manifest = update_data_identity_manifest_with_generated_bundle(
-            data_identity_manifest,
-            bundle,
-        )
-        data_generation_manifest = Path(bundle["data_generation_manifest"])
-        data_bundle_manifest = Path(bundle["data_bundle_manifest"])
-        probe_transform_manifest = Path(bundle["probe_transform_manifest"])
-        pinn_randomness_manifest = write_pinn_randomness_manifest(
-            output_root,
-            run_id=args.run_id,
-            data_generation_control=args.data_generation_control,
-            metric_contract_manifest=metric_contract_manifest,
-            data_bundle_manifest=data_bundle_manifest,
-        )
-        if pre_generation_seed_status is not None:
-            randomness_payload = _read_manifest(pinn_randomness_manifest)
-            randomness_payload["pre_data_generation_seed_status"] = pre_generation_seed_status
-            _write_json(pinn_randomness_manifest, randomness_payload)
+        if args.reuse_data_bundle_manifest:
+            prepared_cfg = _table2_cfg_from_args(args)
+            configure_legacy_params(prepared_cfg, probe)
+            loaded_bundle = load_same_split_data_bundle(args.reuse_data_bundle_manifest)
+            prepared_data = loaded_bundle["data"]
+            probe_consistency = _validate_reused_bundle_matches_probe(prepared_data, probe)
+            loaded_bundle["bundle"]["data_reuse"].update(probe_consistency)
+            bundle = loaded_bundle["bundle"]
+            data_identity_manifest = update_data_identity_manifest_with_reused_bundle(
+                data_identity_manifest,
+                bundle,
+            )
+            if bundle.get("data_generation_manifest"):
+                data_generation_manifest = Path(bundle["data_generation_manifest"])
+            data_bundle_manifest = Path(bundle["data_bundle_manifest"])
+            if bundle.get("probe_transform_manifest"):
+                probe_transform_manifest = Path(bundle["probe_transform_manifest"])
+        else:
+            pre_generation_seed_status = configure_seed_before_generated_data(args)
+            _memoization_policy_for_fresh_bundle()
+            prepared_cfg, prepared_data = _generate_table2_smoke_data(args, probe)
+            config = configure_legacy_params(prepared_cfg, probe)
+            bundle = persist_same_split_data_bundle(
+                output_root=output_root,
+                run_id=args.run_id,
+                cfg=prepared_cfg,
+                data=prepared_data,
+                config=config,
+                probe=probe,
+                probe_transform_pipeline=probe_pipeline,
+                probe_transform_steps=probe_steps,
+                data_generation_control=args.data_generation_control,
+            )
+            data_identity_manifest = update_data_identity_manifest_with_generated_bundle(
+                data_identity_manifest,
+                bundle,
+            )
+            data_generation_manifest = Path(bundle["data_generation_manifest"])
+            data_bundle_manifest = Path(bundle["data_bundle_manifest"])
+            probe_transform_manifest = Path(bundle["probe_transform_manifest"])
+            pinn_randomness_manifest = write_pinn_randomness_manifest(
+                output_root,
+                run_id=args.run_id,
+                data_generation_control=args.data_generation_control,
+                metric_contract_manifest=metric_contract_manifest,
+                data_bundle_manifest=data_bundle_manifest,
+            )
+            if pre_generation_seed_status is not None:
+                randomness_payload = _read_manifest(pinn_randomness_manifest)
+                randomness_payload["pre_data_generation_seed_status"] = pre_generation_seed_status
+                _write_json(pinn_randomness_manifest, randomness_payload)
         gate_report = assert_metric_gates_allow_metrics(data_identity_manifest, metric_contract_manifest)
     else:
         gate_report = assert_metric_gates_allow_metrics(data_identity_manifest, metric_contract_manifest)
