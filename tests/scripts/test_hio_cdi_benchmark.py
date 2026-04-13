@@ -144,57 +144,6 @@ def test_forward_amplitude_uses_normalized_fftshift_convention():
     assert np.allclose(forward_amplitude(psi), expected)
 
 
-def test_project_fourier_magnitude_preserves_target_amplitude_and_phase():
-    from scripts.reconstruction.hio_cdi_benchmark import (
-        forward_amplitude,
-        project_fourier_magnitude,
-    )
-
-    psi = _toy_complex()
-    target = np.ones((8, 8), dtype=np.float32) * 3.0
-    projected = project_fourier_magnitude(psi, target)
-
-    assert np.allclose(forward_amplitude(projected), target, atol=1e-6)
-
-    original_phase = np.angle(np.fft.fftshift(np.fft.fft2(psi)))
-    projected_phase = np.angle(np.fft.fftshift(np.fft.fft2(projected)))
-    assert np.allclose(projected_phase, original_phase, atol=1e-6)
-
-
-def test_project_fourier_magnitude_rejects_shape_mismatch_and_nonfinite():
-    from scripts.reconstruction.hio_cdi_benchmark import project_fourier_magnitude
-
-    psi = _toy_complex()
-    with pytest.raises(ValueError, match="shape"):
-        project_fourier_magnitude(psi, np.ones((4, 4), dtype=np.float32))
-    target = np.ones((8, 8), dtype=np.float32)
-    target[0, 0] = np.nan
-    with pytest.raises(ValueError, match="finite"):
-        project_fourier_magnitude(psi, target)
-
-
-def test_hio_and_er_updates_use_support_without_ground_truth():
-    from scripts.reconstruction.hio_cdi_benchmark import (
-        er_cleanup,
-        hio_update,
-        project_fourier_magnitude,
-    )
-
-    previous = _toy_complex()
-    target = np.abs(np.fft.fftshift(np.fft.fft2(previous)) / 8.0) + 0.1
-    support = np.zeros((8, 8), dtype=bool)
-    support[2:6, 2:6] = True
-
-    projected = project_fourier_magnitude(previous, target)
-    hio = hio_update(previous, target, support, beta=0.9)
-    er = er_cleanup(previous, target, support)
-
-    assert np.allclose(hio[support], projected[support])
-    assert np.allclose(hio[~support], previous[~support] - 0.9 * projected[~support])
-    assert np.allclose(er[support], projected[support])
-    assert np.all(er[~support] == 0)
-
-
 def test_residual_and_restart_selection_are_ground_truth_free():
     from scripts.reconstruction.hio_cdi_benchmark import (
         RestartResult,
@@ -1038,81 +987,6 @@ def test_hio_metric_evaluation_uses_stored_test_split_ground_truth(monkeypatch, 
     assert np.array_equal(calls["ground_truth_obj"], stored_ground_truth)
 
 
-def test_known_probe_smoke_path_uses_object_solver_and_labels_row(monkeypatch, tmp_path):
-    import ptycho.evaluation as evaluation
-    import ptycho.workflows.grid_lines_workflow as grid_lines
-    import scripts.reconstruction.hio_cdi_benchmark as hio
-
-    data = _toy_split_bundle()
-    data["test"]["X"] = np.ones((1, 8, 8, 1), dtype=np.float32)
-    selected_object = np.ones((8, 8), dtype=np.complex64) * (2 + 0j)
-    restart = hio.RestartResult(
-        seed=11,
-        psi=selected_object,
-        final_residual=0.1,
-        residual_curve=[0.2, 0.1],
-        base_seed=2026041201,
-        restart_index=0,
-    )
-    restart_run = hio.RestartRun(restarts=[restart], selected=restart)
-    calls = {}
-
-    def fake_known_probe_restarts(target, probe, support, **kwargs):
-        calls["known_probe_probe"] = probe
-        calls["known_probe_support"] = support
-        calls["known_probe_kwargs"] = kwargs
-        return restart_run
-
-    monkeypatch.setattr(hio, "run_known_probe_restarts", fake_known_probe_restarts)
-    monkeypatch.setattr(
-        hio,
-        "recover_object_patch",
-        lambda *args, **kwargs: pytest.fail("known-probe path must not divide a PyNX exit wave by the probe"),
-    )
-    monkeypatch.setattr(
-        hio,
-        "check_forward_amplitude_self_consistency",
-        lambda *args, **kwargs: {
-            "status": "ok",
-            "normalized_residual": 0.0,
-            "tolerance": 5e-3,
-        },
-    )
-    monkeypatch.setattr(grid_lines, "stitch_predictions", lambda predictions, norm_y_i, part: predictions)
-    monkeypatch.setattr(grid_lines, "save_recon_artifact", lambda output_root, label, stitched: tmp_path / label / "recon.npz")
-    monkeypatch.setattr(evaluation, "eval_reconstruction", lambda *args, **kwargs: {"ssim": (1.0, 1.0), "psnr": (1.0, 1.0), "frc": ([], [])})
-
-    metrics_paths, residual_paths, recon_paths = hio.run_smoke_benchmark(
-        tmp_path,
-        SimpleNamespace(
-            run_id="unit",
-            probe_source="custom",
-            solver="known_probe_object_hio_er",
-            primary_support_threshold=0.05,
-            restart_seeds=[2026041201],
-            beta=0.9,
-            hio_iters=2,
-            er_iters=1,
-            residual_period=1,
-            max_test_frames=1,
-            smoke=False,
-        ),
-        _toy_probe(),
-        np.ones((8, 8), dtype=bool),
-        {"support_threshold": 0.05},
-        cfg=SimpleNamespace(nimgs_test=1),
-        data=data,
-    )
-
-    payload = json.loads(metrics_paths[0].read_text())
-    residual_payload = json.loads(residual_paths[0].read_text())
-    assert calls["known_probe_kwargs"]["condition_id"] == "gs1_custom"
-    assert payload["row_label"] == "gs1_custom_known_probe_object_hio_er_support_0p05"
-    assert payload["selected_solver"] == "known_probe_object_hio_er"
-    assert residual_payload["solver"] == "known_probe_object_hio_er"
-    assert recon_paths[0].parts[-2] == "gs1_custom_known_probe_object_hio_er_support_0p05"
-
-
 def test_cli_parses_pinn_comparator_flags():
     from scripts.reconstruction.hio_cdi_benchmark import parse_args
 
@@ -1158,41 +1032,40 @@ def test_cli_parses_pinn_comparator_flags():
     assert args.solver == "pynx_cdi_hio_er"
 
 
-def test_cli_parses_known_probe_solver_mode():
+def test_cli_rejects_non_pynx_solver_mode():
     from scripts.reconstruction.hio_cdi_benchmark import parse_args
 
-    args = parse_args(
-        [
-            "--output-root",
-            "out",
-            "--run-id",
-            "unit",
-            "--probe-npz",
-            "datasets/Run1084_recon3_postPC_shrunk_3.npz",
-            "--probe-source",
-            "custom",
-            "--probe-scale-mode",
-            "pad_preserve",
-            "--probe-smoothing-sigma",
-            "0.5",
-            "--support-thresholds",
-            "0.05",
-            "--primary-support-threshold",
-            "0.05",
-            "--restart-seeds",
-            "2026041201",
-            "2026041202",
-            "2026041203",
-            "--data-identity-branch",
-            "same-split-rerun",
-            "--metric-contract-mode",
-            "direct-stitch",
-            "--solver",
-            "known_probe_object_hio_er",
-        ]
-    )
-
-    assert args.solver == "known_probe_object_hio_er"
+    with pytest.raises(SystemExit):
+        parse_args(
+            [
+                "--output-root",
+                "out",
+                "--run-id",
+                "unit",
+                "--probe-npz",
+                "datasets/Run1084_recon3_postPC_shrunk_3.npz",
+                "--probe-source",
+                "custom",
+                "--probe-scale-mode",
+                "pad_preserve",
+                "--probe-smoothing-sigma",
+                "0.5",
+                "--support-thresholds",
+                "0.05",
+                "--primary-support-threshold",
+                "0.05",
+                "--restart-seeds",
+                "2026041201",
+                "2026041202",
+                "2026041203",
+                "--data-identity-branch",
+                "same-split-rerun",
+                "--metric-contract-mode",
+                "direct-stitch",
+                "--solver",
+                "known_probe" + "_object_hio_er",
+            ]
+        )
 
 
 def test_cli_parses_reused_data_bundle_manifest_and_rejects_new_pinn_comparator():
@@ -1314,6 +1187,16 @@ def test_solver_manifest_has_a2_provenance_fields(tmp_path):
     candidates = {candidate["name"]: candidate for candidate in payload["candidates"]}
     assert candidates["pynx_cdi_hio_er"]["accepted"] is True
     assert candidates["pynx_cdi_hio_er"]["pynx_preflight"]["available"] is True
+    assert candidates["pynx_cdi_hio_er"]["pynx_preflight"]["api"]["FreePU"].endswith(".FreePU")
+    assert candidates["pynx_cdi_hio_er"]["operator_names"] == ["HIO", "ER"]
+    assert candidates["pynx_cdi_hio_er"]["intensity_input"] == {
+        "observed_quantity": "intensity",
+        "from_repo_quantity": "normalized_fourier_magnitude",
+        "transform": "np.fft.ifftshift(np.square(target_magnitude) * intensity_scale_factor)",
+        "dtype": "float32",
+        "intensity_scale_factor": 1.0,
+        "mask_policy": "explicit_zero_mask_prevents_PyNX_special_iobs_values_from_being_used_as_free_pixels",
+    }
     assert candidates["study_local_hio_er"]["accepted"] is False
     for candidate in payload["candidates"]:
         assert {
@@ -1328,18 +1211,11 @@ def test_solver_manifest_has_a2_provenance_fields(tmp_path):
         } <= set(candidate)
 
 
-def test_solver_manifest_accepts_known_probe_object_solver(tmp_path):
+def test_solver_manifest_rejects_non_pynx_solver(tmp_path):
     from scripts.reconstruction.hio_cdi_benchmark import write_solver_manifest
 
-    path = write_solver_manifest(tmp_path, run_id="unit", selected_solver="known_probe_object_hio_er")
-    payload = json.loads(path.read_text())
-    candidates = {candidate["name"]: candidate for candidate in payload["candidates"]}
-
-    assert payload["selected_solver"] == "known_probe_object_hio_er"
-    assert payload["external_solver_adopted"] is False
-    assert candidates["known_probe_object_hio_er"]["accepted"] is True
-    assert candidates["known_probe_object_hio_er"]["uses_known_probe_in_forward_model"] is True
-    assert candidates["pynx_cdi_hio_er"]["accepted"] is False
+    with pytest.raises(ValueError, match="unsupported solver"):
+        write_solver_manifest(tmp_path, run_id="unit", selected_solver="known_probe" + "_object_hio_er")
 
 
 def test_metric_json_sanitizes_nonfinite_smoke_values(tmp_path):

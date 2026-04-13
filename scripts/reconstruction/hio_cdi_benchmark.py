@@ -37,9 +37,8 @@ DEFAULT_NIMGS_TEST = 2
 DEFAULT_NPHOTONS = 1e9
 DEFAULT_EPSILON_RATIO = 1e-6
 EXIT_WAVE_SOLVER = "pynx_cdi_hio_er"
-KNOWN_PROBE_SOLVER = "known_probe_object_hio_er"
 SELECTED_SOLVER = EXIT_WAVE_SOLVER
-SOLVER_CHOICES = (EXIT_WAVE_SOLVER, KNOWN_PROBE_SOLVER)
+SOLVER_CHOICES = (EXIT_WAVE_SOLVER,)
 HISTORICAL_GS1_CUSTOM_AMP_SSIM = 0.9044216561120993
 HISTORICAL_GS1_CUSTOM_AMP_PSNR = 68.8864772792175
 TABLE2_AMP_SSIM_TOLERANCE = 0.02
@@ -255,43 +254,6 @@ def forward_amplitude(psi: np.ndarray) -> np.ndarray:
     return np.abs(np.fft.fftshift(np.fft.fft2(psi_array)) / norm)
 
 
-def project_fourier_magnitude(psi: np.ndarray, target_magnitude: np.ndarray) -> np.ndarray:
-    psi_array = _validate_2d_complex("psi", psi)
-    target = _validate_target_magnitude(target_magnitude, psi_array.shape)
-    norm = math.sqrt(float(psi_array.size))
-    current_shifted = np.fft.fftshift(np.fft.fft2(psi_array)) / norm
-    projected_shifted = target * np.exp(1j * np.angle(current_shifted))
-    return np.fft.ifft2(np.fft.ifftshift(projected_shifted * norm))
-
-
-def hio_update(
-    previous: np.ndarray,
-    target_magnitude: np.ndarray,
-    support: np.ndarray,
-    beta: float = 0.9,
-) -> np.ndarray:
-    previous_array = _validate_2d_complex("previous", previous)
-    support_mask = np.asarray(support, dtype=bool)
-    if support_mask.shape != previous_array.shape:
-        raise ValueError("support shape must match previous")
-    projected = project_fourier_magnitude(previous_array, target_magnitude)
-    updated = np.empty_like(projected)
-    updated[support_mask] = projected[support_mask]
-    updated[~support_mask] = previous_array[~support_mask] - float(beta) * projected[~support_mask]
-    return updated
-
-
-def er_cleanup(previous: np.ndarray, target_magnitude: np.ndarray, support: np.ndarray) -> np.ndarray:
-    previous_array = _validate_2d_complex("previous", previous)
-    support_mask = np.asarray(support, dtype=bool)
-    if support_mask.shape != previous_array.shape:
-        raise ValueError("support shape must match previous")
-    projected = project_fourier_magnitude(previous_array, target_magnitude)
-    cleaned = np.zeros_like(projected)
-    cleaned[support_mask] = projected[support_mask]
-    return cleaned
-
-
 def fourier_residual(psi: np.ndarray, target_magnitude: np.ndarray) -> float:
     psi_array = _validate_2d_complex("psi", psi)
     target = _validate_target_magnitude(target_magnitude, psi_array.shape)
@@ -300,98 +262,13 @@ def fourier_residual(psi: np.ndarray, target_magnitude: np.ndarray) -> float:
     return float(residual)
 
 
-def known_probe_forward_amplitude(obj: np.ndarray, probe: np.ndarray) -> np.ndarray:
-    obj_array = _validate_2d_complex("obj", obj)
-    probe_array = _validate_2d_complex("probe", probe)
-    if obj_array.shape != probe_array.shape:
-        raise ValueError("obj and probe shapes must match")
-    return forward_amplitude(probe_array * obj_array)
-
-
-def project_known_probe_fourier_magnitude(
-    obj: np.ndarray,
-    probe: np.ndarray,
-    target_magnitude: np.ndarray,
-    epsilon_ratio: float = DEFAULT_EPSILON_RATIO,
-) -> np.ndarray:
-    obj_array = _validate_2d_complex("obj", obj)
-    probe_array = _validate_2d_complex("probe", probe)
-    target = _validate_target_magnitude(target_magnitude, obj_array.shape)
-    if probe_array.shape != obj_array.shape:
-        raise ValueError("obj and probe shapes must match")
-
-    norm = math.sqrt(float(obj_array.size))
-    exit_wave = probe_array * obj_array
-    current_shifted = np.fft.fftshift(np.fft.fft2(exit_wave)) / norm
-    projected_shifted = target * np.exp(1j * np.angle(current_shifted))
-    projected_exit_wave = np.fft.ifft2(np.fft.ifftshift(projected_shifted * norm))
-
-    max_amp = float(np.abs(probe_array).max(initial=0.0))
-    if max_amp <= 0:
-        raise ValueError("zero-amplitude probe cannot be used")
-    epsilon = float(epsilon_ratio) * max_amp
-    denom = np.square(np.abs(probe_array)) + epsilon**2
-    return obj_array + (np.conj(probe_array) / denom) * (projected_exit_wave - exit_wave)
-
-
-def known_probe_fourier_residual(
-    obj: np.ndarray,
-    probe: np.ndarray,
-    target_magnitude: np.ndarray,
-) -> float:
-    obj_array = _validate_2d_complex("obj", obj)
-    probe_array = _validate_2d_complex("probe", probe)
-    target = _validate_target_magnitude(target_magnitude, obj_array.shape)
-    if probe_array.shape != obj_array.shape:
-        raise ValueError("obj and probe shapes must match")
-    denominator = max(float(np.linalg.norm(target)), 1e-12)
-    residual = np.linalg.norm(known_probe_forward_amplitude(obj_array, probe_array) - target) / denominator
-    return float(residual)
-
-
-def known_probe_er_cleanup(
-    previous_obj: np.ndarray,
-    probe: np.ndarray,
-    target_magnitude: np.ndarray,
-    object_support: np.ndarray,
-    epsilon_ratio: float = DEFAULT_EPSILON_RATIO,
-) -> np.ndarray:
-    previous_array = _validate_2d_complex("previous_obj", previous_obj)
-    projected = project_known_probe_fourier_magnitude(previous_array, probe, target_magnitude, epsilon_ratio)
-    support_mask = np.asarray(object_support, dtype=bool)
-    if support_mask.shape != previous_array.shape:
-        raise ValueError("object support shape must match previous_obj")
-    cleaned = np.zeros_like(projected)
-    cleaned[support_mask] = projected[support_mask]
-    return cleaned
-
-
-def known_probe_hio_update(
-    previous_obj: np.ndarray,
-    probe: np.ndarray,
-    target_magnitude: np.ndarray,
-    object_support: np.ndarray,
-    beta: float = 0.9,
-    epsilon_ratio: float = DEFAULT_EPSILON_RATIO,
-) -> np.ndarray:
-    previous_array = _validate_2d_complex("previous_obj", previous_obj)
-    projected = project_known_probe_fourier_magnitude(previous_array, probe, target_magnitude, epsilon_ratio)
-    support_mask = np.asarray(object_support, dtype=bool)
-    if support_mask.shape != previous_array.shape:
-        raise ValueError("object support shape must match previous_obj")
-    updated = np.empty_like(projected)
-    updated[support_mask] = projected[support_mask]
-    updated[~support_mask] = previous_array[~support_mask] - float(beta) * projected[~support_mask]
-    return updated
-
-
 def select_restart_by_residual(results: Sequence[RestartResult]) -> RestartResult:
     if not results:
         raise ValueError("at least one restart result is required")
     return min(results, key=lambda item: (float(item.final_residual), int(item.seed)))
 
 
-def _initial_psi(target_magnitude: np.ndarray, seed: int) -> np.ndarray:
+def _initial_exit_wave_from_magnitude(target_magnitude: np.ndarray, seed: int) -> np.ndarray:
     target = np.asarray(target_magnitude, dtype=np.float64)
     rng = np.random.default_rng(int(seed))
     phase = rng.uniform(-np.pi, np.pi, size=target.shape)
@@ -400,39 +277,26 @@ def _initial_psi(target_magnitude: np.ndarray, seed: int) -> np.ndarray:
     return np.fft.ifft2(np.fft.ifftshift(shifted * norm))
 
 
-def _initial_object(
-    probe: np.ndarray,
-    target_magnitude: np.ndarray,
-    seed: int,
-    epsilon_ratio: float = DEFAULT_EPSILON_RATIO,
-) -> np.ndarray:
-    probe_array = _validate_2d_complex("probe", probe)
-    target = _validate_target_magnitude(target_magnitude, probe_array.shape)
-    initial_exit_wave = _initial_psi(target, seed)
-    max_amp = float(np.abs(probe_array).max(initial=0.0))
-    if max_amp <= 0:
-        raise ValueError("zero-amplitude probe cannot be used")
-    epsilon = float(epsilon_ratio) * max_amp
-    denom = np.square(np.abs(probe_array)) + epsilon**2
-    return (np.conj(probe_array) / denom) * initial_exit_wave
-
-
 class PynxUnavailableError(RuntimeError):
     """Raised when the optional PyNX CDI adapter is requested but unavailable."""
 
 
 def check_pynx_available() -> dict[str, Any]:
     try:
-        from pynx import cdi as pynx_cdi  # type: ignore
+        from pynx.cdi import CDI, ER, FreePU, HIO  # type: ignore
     except Exception as exc:
         return {"available": False, "error": repr(exc)}
-    missing = [name for name in ("CDI", "HIO", "ER") if not hasattr(pynx_cdi, name)]
-    if missing:
-        return {
-            "available": False,
-            "error": f"pynx.cdi missing required API: {', '.join(missing)}",
-        }
-    return {"available": True, "error": None, "package_version": _package_version("pynx")}
+    return {
+        "available": True,
+        "error": None,
+        "package_version": _package_version("pynx"),
+        "api": {
+            "CDI": f"{CDI.__module__}.{CDI.__name__}",
+            "HIO": f"{HIO.__module__}.{HIO.__name__}",
+            "ER": f"{ER.__module__}.{ER.__name__}",
+            "FreePU": f"{FreePU.__module__}.{FreePU.__name__}",
+        },
+    }
 
 
 def _import_pynx_cdi() -> Any:
@@ -444,13 +308,16 @@ def _import_pynx_cdi() -> Any:
     return pynx_cdi
 
 
-def to_pynx_intensity(target_magnitude: np.ndarray) -> np.ndarray:
+def to_pynx_intensity(target_magnitude: np.ndarray, intensity_scale_factor: float = 1.0) -> np.ndarray:
     target = np.asarray(target_magnitude, dtype=np.float32)
     if target.ndim != 2:
         raise ValueError("target magnitude must be 2D for PyNX")
     if np.any(target < 0) or not np.all(np.isfinite(target)):
         raise ValueError("target magnitude must be finite and nonnegative for PyNX")
-    return np.fft.ifftshift(np.square(target)).astype(np.float32)
+    scale = float(intensity_scale_factor)
+    if not np.isfinite(scale) or scale <= 0:
+        raise ValueError("PyNX intensity scale factor must be finite and positive")
+    return np.fft.ifftshift(np.square(target) * scale).astype(np.float32)
 
 
 def to_pynx_realspace(value: np.ndarray) -> np.ndarray:
@@ -463,6 +330,12 @@ def from_pynx_realspace(value: np.ndarray) -> np.ndarray:
 
 class PynxCdiAdapter:
     """Thin adapter from the study's normalized arrays to pynx.cdi operators."""
+
+    def __init__(self, intensity_scale_factor: float = 1.0):
+        scale = float(intensity_scale_factor)
+        if not np.isfinite(scale) or scale <= 0:
+            raise ValueError("PyNX intensity scale factor must be finite and positive")
+        self.intensity_scale_factor = scale
 
     def run_restart(
         self,
@@ -487,13 +360,13 @@ class PynxCdiAdapter:
         if support_mask.shape != target.shape:
             raise ValueError("support shape must match target magnitude")
         psi = (
-            _initial_psi(target, int(seed))
+            _initial_exit_wave_from_magnitude(target, int(seed))
             if initial_psi is None
             else _validate_2d_complex("initial_psi", initial_psi)
         )
         residual_period = max(1, int(residual_period))
 
-        iobs = to_pynx_intensity(target)
+        iobs = to_pynx_intensity(target, intensity_scale_factor=self.intensity_scale_factor)
         cdi_obj = pynx_cdi.CDI(
             iobs=iobs,
             support=to_pynx_realspace(support_mask),
@@ -509,13 +382,17 @@ class PynxCdiAdapter:
                 while remaining > 0:
                     nb_cycle = min(residual_period, remaining)
                     cdi_obj = operator_cls(nb_cycle=nb_cycle, **kwargs) * cdi_obj
-                    psi = from_pynx_realspace(cdi_obj.get_obj(shift=False))
+                    psi = np.asarray(cdi_obj.get_obj(shift=True))
+                    if self.intensity_scale_factor != 1.0:
+                        psi = psi / math.sqrt(self.intensity_scale_factor)
                     curve.append(fourier_residual(psi, target))
                     remaining -= nb_cycle
 
             apply_operator(pynx_cdi.HIO, int(hio_iters), beta=float(beta))
             apply_operator(pynx_cdi.ER, int(er_iters))
-            psi = from_pynx_realspace(cdi_obj.get_obj(shift=False))
+            psi = np.asarray(cdi_obj.get_obj(shift=True))
+            if self.intensity_scale_factor != 1.0:
+                psi = psi / math.sqrt(self.intensity_scale_factor)
             final_residual = fourier_residual(psi, target)
             if not np.isclose(curve[-1], final_residual, rtol=0.0, atol=0.0):
                 curve.append(final_residual)
@@ -567,7 +444,7 @@ def run_restarts(
             if condition_id is not None and patch_index is not None
             else base_seed
         )
-        psi = _initial_psi(target, actual_seed)
+        psi = _initial_exit_wave_from_magnitude(target, actual_seed)
         results.append(
             pynx_adapter.run_restart(
                 target,
@@ -580,83 +457,6 @@ def run_restarts(
                 er_iters=int(er_iters),
                 residual_period=residual_period,
                 initial_psi=psi,
-            )
-        )
-
-    selected = select_restart_by_residual(results)
-    return RestartRun(restarts=results, selected=selected)
-
-
-def run_known_probe_restarts(
-    target_magnitude: np.ndarray,
-    probe: np.ndarray,
-    support: np.ndarray,
-    seeds: Sequence[int],
-    beta: float,
-    hio_iters: int,
-    er_iters: int,
-    residual_period: int = 10,
-    condition_id: str | None = None,
-    patch_index: int | None = None,
-) -> RestartRun:
-    probe_array = _validate_2d_complex("probe", probe)
-    target = _validate_target_magnitude(target_magnitude, probe_array.shape)
-    support_mask = np.asarray(support, dtype=bool)
-    if support_mask.shape != target.shape:
-        raise ValueError("support shape must match target magnitude")
-    if not seeds:
-        raise ValueError("at least one restart seed is required")
-    if hio_iters < 0 or er_iters < 0:
-        raise ValueError("iteration counts must be nonnegative")
-    residual_period = max(1, int(residual_period))
-
-    def run_cycles(obj: np.ndarray, update_fn: Any, total_iters: int) -> tuple[np.ndarray, list[float]]:
-        curve: list[float] = []
-        remaining = int(total_iters)
-        current = obj
-        while remaining > 0:
-            nb_cycle = min(residual_period, remaining)
-            for _ in range(nb_cycle):
-                current = update_fn(current)
-            curve.append(known_probe_fourier_residual(current, probe_array, target))
-            remaining -= nb_cycle
-        return current, curve
-
-    results: list[RestartResult] = []
-    for restart_index, seed in enumerate(seeds):
-        base_seed = int(seed)
-        actual_seed = (
-            _stable_int_seed(condition_id, int(patch_index), restart_index, base_seed)
-            if condition_id is not None and patch_index is not None
-            else base_seed
-        )
-        obj = _initial_object(probe_array, target, actual_seed)
-        curve = [known_probe_fourier_residual(obj, probe_array, target)]
-        obj, hio_curve = run_cycles(
-            obj,
-            lambda current: known_probe_hio_update(current, probe_array, target, support_mask, beta=float(beta)),
-            int(hio_iters),
-        )
-        curve.extend(hio_curve)
-        obj, er_curve = run_cycles(
-            obj,
-            lambda current: known_probe_er_cleanup(current, probe_array, target, support_mask),
-            int(er_iters),
-        )
-        curve.extend(er_curve)
-        final_residual = known_probe_fourier_residual(obj, probe_array, target)
-        if not np.isclose(curve[-1], final_residual, rtol=0.0, atol=0.0):
-            curve.append(final_residual)
-        if not np.isfinite(final_residual):
-            raise FloatingPointError(f"non-finite known-probe Fourier residual for restart seed {actual_seed}")
-        results.append(
-            RestartResult(
-                seed=int(actual_seed),
-                psi=np.asarray(obj),
-                final_residual=float(final_residual),
-                residual_curve=[float(item) for item in curve],
-                base_seed=base_seed,
-                restart_index=int(restart_index),
             )
         )
 
@@ -754,6 +554,8 @@ def write_solver_manifest(
     run_id: str,
     selected_solver: str = SELECTED_SOLVER,
 ) -> Path:
+    if selected_solver != SELECTED_SOLVER:
+        raise ValueError(f"unsupported solver {selected_solver!r}; production solver is {SELECTED_SOLVER!r}")
     output_root = Path(output_root)
     search_date = datetime.now(timezone.utc).date().isoformat()
     pynx_status = check_pynx_available()
@@ -769,8 +571,16 @@ def write_solver_manifest(
             "searched_sources": ["environment", "web"],
             "installed": bool(pynx_status["available"]),
             "pynx_preflight": pynx_status,
+            "operator_names": ["HIO", "ER"],
             "array_convention": "repo FFT-shifted amplitudes/realspace arrays are ifftshifted before PyNX and fftshifted after PyNX",
-            "intensity_input": "iobs = ifftshift(target_magnitude ** 2).astype(float32)",
+            "intensity_input": {
+                "observed_quantity": "intensity",
+                "from_repo_quantity": "normalized_fourier_magnitude",
+                "transform": "np.fft.ifftshift(np.square(target_magnitude) * intensity_scale_factor)",
+                "dtype": "float32",
+                "intensity_scale_factor": 1.0,
+                "mask_policy": "explicit_zero_mask_prevents_PyNX_special_iobs_values_from_being_used_as_free_pixels",
+            },
             "processing_unit_cleanup": "FreePU is invoked after each restart when available",
             "evidence": [
                 {
@@ -849,35 +659,16 @@ def write_solver_manifest(
             "reason": "ptychographic multi-frame orientation, not a bounded single-frame support-constrained CDI HIO/ER baseline",
         },
         {
-            "name": KNOWN_PROBE_SOLVER,
-            "source_url": _repo_relative(SCRIPT_RELATIVE),
-            "package_version": None,
-            "license": "repository_local",
-            "install_command": "none",
-            "api_entry_point": (
-                "known_probe_forward_amplitude / project_known_probe_fourier_magnitude / "
-                "run_known_probe_restarts"
-            ),
-            "accepted": selected_solver == KNOWN_PROBE_SOLVER,
-            "searched_sources": ["repo"],
-            "installed": True,
-            "requires_pynx": False,
-            "unknown": "object_patch_not_exit_wave",
-            "uses_known_probe_in_forward_model": True,
-            "array_convention": "repo FFT-shifted amplitudes; object-domain updates project probe * object",
-            "reason": "selected repo-local fixed-probe object-domain HIO/ER solver for known-probe diagnostic row",
-        },
-        {
             "name": "study_local_hio_er",
             "source_url": _repo_relative(SCRIPT_RELATIVE),
             "package_version": None,
             "license": "repository_local",
             "install_command": "none",
-            "api_entry_point": "project_fourier_magnitude / hio_update / er_cleanup",
+            "api_entry_point": "superseded pre-PyNX study-local recurrence, removed from production CLI selection",
             "accepted": False,
             "searched_sources": ["repo"],
             "installed": True,
-            "reason": "superseded_by_pynx; retained only as study-local numerical helpers/tests, not the production solver path",
+            "reason": "superseded_by_pynx; retained in the manifest only as historical solver-discovery context",
         },
     ]
     payload = {
@@ -1870,7 +1661,10 @@ def _condition_label(args: argparse.Namespace) -> str:
 
 
 def _selected_solver(args: argparse.Namespace) -> str:
-    return str(getattr(args, "solver", SELECTED_SOLVER))
+    solver = str(getattr(args, "solver", SELECTED_SOLVER))
+    if solver != SELECTED_SOLVER:
+        raise ValueError(f"unsupported solver {solver!r}; production solver is {SELECTED_SOLVER!r}")
+    return solver
 
 
 def _threshold_token(threshold: float) -> str:
@@ -2368,38 +2162,23 @@ def run_smoke_benchmark(
 
     for index in range(count):
         target = _frame_amplitude(x_test[index])
-        if selected_solver == KNOWN_PROBE_SOLVER:
-            restart_run = run_known_probe_restarts(
-                target,
-                probe,
-                support,
-                seeds=args.restart_seeds,
-                beta=float(args.beta),
-                hio_iters=int(args.hio_iters),
-                er_iters=int(args.er_iters),
-                residual_period=max(1, int(args.residual_period)),
-                condition_id=_condition_label(args),
-                patch_index=index,
-            )
-            reconstructed = np.asarray(restart_run.selected.psi, dtype=np.complex64)
-        else:
-            restart_run = run_restarts(
-                target,
-                support,
-                seeds=args.restart_seeds,
-                beta=float(args.beta),
-                hio_iters=int(args.hio_iters),
-                er_iters=int(args.er_iters),
-                residual_period=max(1, int(args.residual_period)),
-                condition_id=_condition_label(args),
-                patch_index=index,
-            )
-            reconstructed = recover_object_patch(
-                restart_run.selected.psi,
-                probe,
-                support,
-                epsilon_ratio=DEFAULT_EPSILON_RATIO,
-            )
+        restart_run = run_restarts(
+            target,
+            support,
+            seeds=args.restart_seeds,
+            beta=float(args.beta),
+            hio_iters=int(args.hio_iters),
+            er_iters=int(args.er_iters),
+            residual_period=max(1, int(args.residual_period)),
+            condition_id=_condition_label(args),
+            patch_index=index,
+        )
+        reconstructed = recover_object_patch(
+            restart_run.selected.psi,
+            probe,
+            support,
+            epsilon_ratio=DEFAULT_EPSILON_RATIO,
+        )
         self_consistency_check = check_forward_amplitude_self_consistency(
             target,
             y_i_test[index],
@@ -2445,10 +2224,7 @@ def run_smoke_benchmark(
 
     condition_label = _condition_label(args)
     threshold_token = _threshold_token(args.primary_support_threshold)
-    if selected_solver == EXIT_WAVE_SOLVER:
-        row_label = f"{condition_label}_support_{threshold_token}"
-    else:
-        row_label = f"{condition_label}_{selected_solver}_support_{threshold_token}"
+    row_label = f"{condition_label}_support_{threshold_token}"
     recon_path = save_recon_artifact(Path(output_root), row_label, stitched)
     residual_path = _write_json(Path(output_root) / f"residuals_{row_label}.json", residual_payload)
 
