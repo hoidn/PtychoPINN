@@ -163,6 +163,18 @@ def test_residual_and_restart_selection_are_ground_truth_free():
     assert selected.residual_curve == [0.4, 0.1]
 
 
+def test_fourier_residual_uses_contract_denominator_floor_for_zero_target():
+    from scripts.reconstruction.hio_cdi_benchmark import fourier_residual, forward_amplitude
+
+    psi = np.ones((2, 2), dtype=np.complex64)
+    target = np.zeros((2, 2), dtype=np.float32)
+
+    residual = fourier_residual(psi, target)
+    expected = np.linalg.norm(forward_amplitude(psi) - target) / 1e-12
+
+    assert residual == pytest.approx(expected)
+
+
 def test_run_restarts_retains_curves_and_recovers_object_patch():
     from scripts.reconstruction.hio_cdi_benchmark import (
         recover_object_patch,
@@ -363,7 +375,7 @@ def test_manifest_writers_and_duplicate_output_root_refusal(tmp_path):
     assert json.loads(manifest.read_text())["preflight_only"] is True
 
 
-def test_same_split_branch_allows_exploratory_metrics_but_not_historical_same_data_claim(tmp_path):
+def test_same_split_branch_blocks_metrics_until_generated_bundle_is_attached(tmp_path):
     from scripts.reconstruction.hio_cdi_benchmark import (
         assert_metric_gates_allow_metrics,
         write_data_identity_manifest,
@@ -374,13 +386,15 @@ def test_same_split_branch_allows_exploratory_metrics_but_not_historical_same_da
     data = write_data_identity_manifest(out, branch="same-split-rerun", artifact_paths=[])
     metric = write_metric_contract_manifest(out, mode="direct-stitch")
 
-    gate = assert_metric_gates_allow_metrics(data, metric)
     data_payload = json.loads(data.read_text())
 
-    assert gate["metric_inspection_allowed"] is True
-    assert gate["table2_compatible"] is False
+    with pytest.raises(RuntimeError, match="bundle_not_frozen"):
+        assert_metric_gates_allow_metrics(data, metric)
+
+    assert data_payload["metric_inspection_allowed"] is False
     assert data_payload["old_table2_same_data_comparator_allowed"] is False
     assert data_payload["old_table2_value_policy"] == "historical_context_only"
+    assert data_payload["decision"] == "same_split_rerun_bundle_not_frozen"
 
 
 def test_study_local_seeded_same_split_metric_run_is_blocked(tmp_path):

@@ -287,9 +287,7 @@ def er_cleanup(previous: np.ndarray, target_magnitude: np.ndarray, support: np.n
 def fourier_residual(psi: np.ndarray, target_magnitude: np.ndarray) -> float:
     psi_array = _validate_2d_complex("psi", psi)
     target = _validate_target_magnitude(target_magnitude, psi_array.shape)
-    denominator = float(np.linalg.norm(target))
-    if denominator == 0:
-        denominator = 1.0
+    denominator = max(float(np.linalg.norm(target)), 1e-12)
     residual = np.linalg.norm(forward_amplitude(psi_array) - target) / denominator
     return float(residual)
 
@@ -610,12 +608,12 @@ def write_data_identity_manifest(
     paths = [Path(item) for item in (_default_table2_artifact_paths() if artifact_paths is None else artifact_paths)]
     records = [_file_record(path) for path in paths]
     missing = [record["path"] for record in records if not record["exists"]]
-    metric_inspection_allowed = branch == "same-split-rerun" and control_status == "implemented_loader_compatible"
+    metric_inspection_allowed = False
     old_table2_same_data_allowed = False
     if branch == "same-split-rerun" and control_status != "implemented_loader_compatible":
         decision = f"{data_generation_control}_data_generation_control_unimplemented_metric_run_blocked"
     elif branch == "same-split-rerun":
-        decision = "same_split_rerun_required_for_table2_claim"
+        decision = "same_split_rerun_bundle_not_frozen"
     else:
         decision = "frozen_artifact_insufficient_exact_inputs"
     payload = {
@@ -630,7 +628,7 @@ def write_data_identity_manifest(
         "old_table2_same_data_comparator_allowed": bool(old_table2_same_data_allowed),
         "old_table2_value_policy": "historical_context_only",
         "hio_metric_policy": (
-            "allowed_on_same_split_generated_bundle_only"
+            "blocked_until_same_split_generated_bundle_is_frozen"
             if branch == "same-split-rerun"
             else "blocked_until_exact_frozen_table2_inputs_are_located"
         ),
@@ -1638,12 +1636,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"preflight complete: {output_root}")
         return 0
 
-    gate_report = assert_metric_gates_allow_metrics(data_identity_manifest, metric_contract_manifest)
+    gate_report: dict[str, Any] | None = None
     prepared_cfg: Any | None = None
     prepared_data: dict[str, Any] | None = None
     if args.data_identity_branch == "same-split-rerun":
         from ptycho.workflows.grid_lines_workflow import configure_legacy_params
 
+        if args.data_generation_control != "loader-compatible":
+            assert_metric_gates_allow_metrics(data_identity_manifest, metric_contract_manifest)
         _memoization_policy_for_fresh_bundle()
         prepared_cfg, prepared_data = _generate_table2_smoke_data(args, probe)
         config = configure_legacy_params(prepared_cfg, probe)
@@ -1672,6 +1672,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             metric_contract_manifest=metric_contract_manifest,
             data_bundle_manifest=data_bundle_manifest,
         )
+        gate_report = assert_metric_gates_allow_metrics(data_identity_manifest, metric_contract_manifest)
+    else:
         gate_report = assert_metric_gates_allow_metrics(data_identity_manifest, metric_contract_manifest)
 
     metrics_paths, residual_paths, recon_paths = run_smoke_benchmark(
