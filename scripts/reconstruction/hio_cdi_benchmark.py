@@ -44,6 +44,8 @@ class RestartResult:
     psi: np.ndarray
     final_residual: float
     residual_curve: list[float]
+    base_seed: int | None = None
+    restart_index: int | None = None
 
 
 @dataclass(frozen=True)
@@ -145,6 +147,12 @@ def _file_record(path: Path) -> dict[str, Any]:
 def _array_sha256(array: np.ndarray) -> str:
     contiguous = np.ascontiguousarray(array)
     return hashlib.sha256(contiguous.view(np.uint8)).hexdigest()
+
+
+def _stable_int_seed(*parts: Any) -> int:
+    payload = "|".join(str(part) for part in parts)
+    digest = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    return int(digest[:16], 16) % (2**32)
 
 
 def _validate_2d_complex(name: str, value: np.ndarray) -> np.ndarray:
@@ -280,6 +288,8 @@ def run_restarts(
     hio_iters: int,
     er_iters: int,
     residual_period: int = 10,
+    condition_id: str | None = None,
+    patch_index: int | None = None,
 ) -> RestartRun:
     target = np.asarray(target_magnitude, dtype=np.float64)
     if target.ndim != 2:
@@ -295,8 +305,14 @@ def run_restarts(
     residual_period = max(1, int(residual_period))
 
     results: list[RestartResult] = []
-    for seed in seeds:
-        psi = _initial_psi(target, int(seed))
+    for restart_index, seed in enumerate(seeds):
+        base_seed = int(seed)
+        actual_seed = (
+            _stable_int_seed(condition_id, int(patch_index), restart_index, base_seed)
+            if condition_id is not None and patch_index is not None
+            else base_seed
+        )
+        psi = _initial_psi(target, actual_seed)
         curve = [fourier_residual(psi, target)]
         for iteration in range(1, int(hio_iters) + 1):
             psi = hio_update(psi, target, support_mask, beta=beta)
@@ -310,18 +326,39 @@ def run_restarts(
         if not np.isclose(curve[-1], final_residual, rtol=0.0, atol=0.0):
             curve.append(final_residual)
         if not np.isfinite(final_residual):
-            raise FloatingPointError(f"non-finite Fourier residual for restart seed {seed}")
+            raise FloatingPointError(f"non-finite Fourier residual for restart seed {actual_seed}")
         results.append(
             RestartResult(
-                seed=int(seed),
+                seed=int(actual_seed),
                 psi=np.asarray(psi),
                 final_residual=float(final_residual),
                 residual_curve=[float(item) for item in curve],
+                base_seed=base_seed,
+                restart_index=int(restart_index),
             )
         )
 
     selected = select_restart_by_residual(results)
     return RestartRun(restarts=results, selected=selected)
+
+
+def _restart_records(restart_run: RestartRun) -> list[dict[str, Any]]:
+    selected_seed = int(restart_run.selected.seed)
+    return [
+        {
+            "restart_index": item.restart_index,
+            "base_seed": item.base_seed,
+            "seed": int(item.seed),
+            "selected": int(item.seed) == selected_seed,
+            "final_residual": float(item.final_residual),
+            "residual_curve": [float(value) for value in item.residual_curve],
+            "metrics": {
+                "final_fourier_amplitude_residual": float(item.final_residual),
+                "n_residual_samples": len(item.residual_curve),
+            },
+        }
+        for item in restart_run.restarts
+    ]
 
 
 def recover_object_patch(
@@ -390,56 +427,117 @@ def refuse_duplicate_output_root(output_root: Path, force: bool = False) -> None
         raise FileExistsError(f"{output_root} already contains benchmark artifacts; pass --force to overwrite")
 
 
-def _solver_candidate(distribution: str, import_name: str) -> dict[str, Any]:
-    version = _package_version(distribution)
-    return {
-        "distribution": distribution,
-        "import_name": import_name,
-        "installed_version": version,
-        "installed": version is not None,
-    }
-
-
 def write_solver_manifest(
     output_root: Path,
     run_id: str,
     selected_solver: str = SELECTED_SOLVER,
 ) -> Path:
     output_root = Path(output_root)
+    search_date = datetime.now(timezone.utc).date().isoformat()
     candidates = [
         {
-            **_solver_candidate("pynx", "pynx"),
+            "name": "PyNX",
             "source_url": "https://pynx.esrf.fr/en/latest/modules/cdi/index.html",
-            "decision": "rejected_for_this_pass",
-            "reason": "external CDI-capable package; not adopted because the approved plan requires bounded study-local HIO/ER unless install/runtime provenance is frozen first",
+            "package_version": _package_version("pynx"),
+            "license": "not_frozen_in_repo_manifest",
+            "install_command": "conda env create --file https://gitlab.esrf.fr/favre/PyNX/-/raw/master/conda-environment.yaml",
+            "api_entry_point": "pynx.cdi.CDI with HIO/ER operators",
+            "accepted": False,
+            "searched_sources": ["PyPI", "GitHub", "web"],
+            "installed": _package_version("pynx") is not None,
+            "evidence": [
+                {
+                    "source_url": "https://pynx.esrf.fr/en/latest/modules/cdi/index.html",
+                    "note": "Public documentation describes 2D/3D CDI support with HIO and ER algorithms.",
+                }
+            ],
+            "reason": "capable external CDI package, but not adopted in this bounded pass because install/license/runtime provenance was not frozen in the local environment",
         },
         {
-            **_solver_candidate("cdiutils", "cdiutils"),
+            "name": "CDIutils",
             "source_url": "https://pypi.org/project/cdiutils/",
-            "decision": "rejected_for_this_pass",
-            "reason": "external package not installed in the current environment and not selected by the approved solver-discovery gate",
+            "package_version": _package_version("cdiutils"),
+            "license": "MIT",
+            "install_command": "pip install cdiutils; install PyNX separately for phase retrieval",
+            "api_entry_point": "cdiutils pipeline helpers; phase retrieval delegated to PyNX",
+            "accepted": False,
+            "searched_sources": ["PyPI", "GitHub", "web"],
+            "installed": _package_version("cdiutils") is not None,
+            "evidence": [
+                {
+                    "source_url": "https://pypi.org/project/cdiutils/",
+                    "note": "PyPI page states CDIutils uses PyNX for phase retrieval and requires separate PyNX installation.",
+                },
+                {
+                    "source_url": "https://github.com/clatlan/cdiutils",
+                    "note": "GitHub repository reports MIT license.",
+                },
+            ],
+            "reason": "not a direct bounded single-frame HIO/ER API for this pass; delegates phase retrieval to PyNX and requires a broader environment setup",
         },
         {
-            "name": "tike",
-            "source": "local_or_optional",
-            "decision": "rejected_for_this_pass",
+            "name": "phastphase",
+            "source_url": "https://phastphase.readthedocs.io/en/latest/",
+            "package_version": _package_version("phastphase"),
+            "license": "MIT",
+            "install_command": "pip install phastphase",
+            "api_entry_point": "phastphase.retrieve",
+            "accepted": False,
+            "searched_sources": ["PyPI", "GitHub", "web"],
+            "installed": _package_version("phastphase") is not None,
+            "evidence": [
+                {
+                    "source_url": "https://phastphase.readthedocs.io/en/latest/",
+                    "note": "Documentation describes support-constrained phase retrieval for near-Schwarz objects.",
+                },
+                {
+                    "source_url": "https://github.com/cbrabes/phastphase",
+                    "note": "GitHub repository reports MIT license and GPU-accelerated support-constrained phase retrieval.",
+                },
+            ],
+            "reason": "not selected because it is a specialized near-Schwarz-object solver rather than the pre-registered HIO/ER support-constrained CDI baseline",
+        },
+        {
+            "name": "Tike",
+            "source_url": "local package import tike; scripts/reconstruction/run_tike_reconstruction.py",
+            "package_version": _package_version("tike"),
+            "license": "not_recorded_here",
+            "install_command": "already installed in current environment" if _package_version("tike") else "pip/conda install tike",
+            "api_entry_point": "tike.ptycho.reconstruct",
+            "accepted": False,
+            "searched_sources": ["repo", "environment"],
+            "installed": _package_version("tike") is not None,
             "reason": "ptychographic multi-frame orientation, not a bounded single-frame support-constrained CDI HIO/ER baseline",
         },
         {
             "name": "PtyChi",
-            "source": "local_or_optional",
-            "decision": "rejected_for_this_pass",
+            "source_url": "local package import ptychi; scripts/reconstruction/ptychi_reconstruct_tike.py",
+            "package_version": _package_version("ptychi"),
+            "license": "not_recorded_here",
+            "install_command": "already installed in current environment" if _package_version("ptychi") else "pip/conda install ptychi",
+            "api_entry_point": "ptychi ptychographic reconstruction APIs",
+            "accepted": False,
+            "searched_sources": ["repo", "environment"],
+            "installed": _package_version("ptychi") is not None,
             "reason": "ptychographic multi-frame orientation, not a bounded single-frame support-constrained CDI HIO/ER baseline",
         },
         {
             "name": SELECTED_SOLVER,
-            "source": _repo_relative(SCRIPT_RELATIVE),
-            "decision": "selected",
+            "source_url": _repo_relative(SCRIPT_RELATIVE),
+            "package_version": None,
+            "license": "repository_local",
+            "install_command": "none",
+            "api_entry_point": "run_restarts / hio_update / er_cleanup",
+            "accepted": True,
+            "searched_sources": ["repo"],
+            "installed": True,
             "reason": "study-local support-constrained HIO/ER implementation with explicit restart and support policy",
         },
     ]
     payload = {
         "run_id": run_id,
+        "search_date": search_date,
+        "searched_sources": ["repo", "environment", "PyPI", "GitHub", "web"],
         "selected_solver": selected_solver,
         "selection_date_utc": datetime.now(timezone.utc).isoformat(),
         "search_scope": ["repo", "environment", "PyPI", "GitHub", "web"],
@@ -474,14 +572,23 @@ def write_data_identity_manifest(
     paths = [Path(item) for item in (_default_table2_artifact_paths() if artifact_paths is None else artifact_paths)]
     records = [_file_record(path) for path in paths]
     missing = [record["path"] for record in records if not record["exists"]]
-    exact_inputs_available = branch == "same-split-rerun" and not missing
+    metric_inspection_allowed = branch == "same-split-rerun"
+    old_table2_same_data_allowed = False
     payload = {
         "run_id": run_id,
         "branch": branch,
         "data_generation_control": data_generation_control,
         "records": records,
         "missing_records": missing,
-        "same_data_comparator_allowed": bool(exact_inputs_available),
+        "metric_inspection_allowed": bool(metric_inspection_allowed),
+        "same_data_comparator_allowed": bool(old_table2_same_data_allowed),
+        "old_table2_same_data_comparator_allowed": bool(old_table2_same_data_allowed),
+        "old_table2_value_policy": "historical_context_only",
+        "hio_metric_policy": (
+            "allowed_on_same_split_generated_bundle_only"
+            if branch == "same-split-rerun"
+            else "blocked_until_exact_frozen_table2_inputs_are_located"
+        ),
         "decision": (
             "same_split_rerun_required_for_table2_claim"
             if branch == "same-split-rerun"
@@ -506,31 +613,91 @@ def write_data_identity_manifest(
 def write_metric_contract_manifest(output_root: Path, mode: str, run_id: str | None = None) -> Path:
     if mode not in {"direct-stitch", "align-for-evaluation", "unresolved"}:
         raise ValueError(f"unknown metric contract mode: {mode}")
+    table2_compatibility = {
+        "unresolved": "unresolved",
+        "direct-stitch": "fresh_same_split_direct_stitch_not_historical_table2",
+        "align-for-evaluation": "unimplemented_in_this_pass",
+    }[mode]
     payload = {
         "run_id": run_id,
         "mode": mode,
-        "table2_compatibility": "unresolved" if mode == "unresolved" else "mode_explicitly_selected",
+        "table2_compatibility": table2_compatibility,
+        "metric_inspection_allowed": mode == "direct-stitch",
+        "table2_compatible": False,
         "main_row_policy": "direct_support_anchored_no_ground_truth_shift_twin_or_orientation_selection",
+        "reconstruction_to_ground_truth_preparation": {
+            "selected_path": mode,
+            "direct_stitch_function": "ptycho.workflows.grid_lines_workflow.stitch_predictions",
+            "global_offsets_source": None,
+            "global_offsets_shape_checksum": None,
+            "stitch_patch_size": None,
+            "notes": "Direct-stitch mode is a fresh rerun/exploratory contract until the paper-side alignment/subsample notes are resolved.",
+        },
+        "metric_subset_policy": {
+            "policy": "full_generated_smoke_or_test_subset",
+            "nsamples": None,
+            "seed": None,
+            "rng_implementation": None,
+            "sampling_population": "generated test frames bounded by --max-test-frames when supplied",
+            "selected_indices_checksum": None,
+            "reason": "full generated smoke/test subset, not paper nsamples=1000 subsample",
+        },
         "evaluation_arguments": {
             "phase_align_method": "plane",
             "frc_sigma": 0,
             "ms_ssim_sigma": 1.0,
             "single_image_frc": False,
+            "debug_save_images": False,
+            "amplitude_mean_scaling": "eval_reconstruction internal mean scaling",
+        },
+        "paper_side_note_decisions": [
+            {
+                "id": "paper_json_align_for_evaluation",
+                "decision": "unresolved",
+                "evidence": {
+                    "path": "/home/ollie/Documents/ptychopinnpaper2/data/sim_lines_4x_metrics.json",
+                    "line_reference": "L140-L149",
+                },
+                "note": "Paper data JSON records align_for_evaluation/global_offsets/stitch_patch_size=20 provenance that is not yet reconciled with the current direct grid-lines workflow.",
+            },
+            {
+                "id": "table_script_subsample_1000_seed_7",
+                "decision": "unresolved",
+                "evidence": {
+                    "path": "/home/ollie/Documents/ptychopinnpaper2/tables/scripts/generate_sim_lines_4x_metrics.py",
+                    "line_reference": "L36-L41",
+                },
+                "note": "Table script/caption records nsamples=1000 seed=7, but this study script currently uses the generated smoke/full subset directly.",
+            },
+            {
+                "id": "current_grid_lines_direct_stitch_workflow",
+                "decision": "authoritative_for_fresh_rerun_only",
+                "evidence": {
+                    "path": "ptycho/workflows/grid_lines_workflow.py",
+                    "line_reference": "L1489-L1496",
+                },
+                "note": "Current grid-lines workflow stitches predictions and calls eval_reconstruction directly.",
+            },
+        ],
+        "deviation": {
+            "table2_compatible": False,
+            "result_role": "fresh_same_split_exploratory_or_rerun_comparator",
+            "explanation": "The historical Table 2 crop/alignment and subsample notes remain unresolved; metrics from this script must not be merged into old Table 2 rows as same-data results.",
         },
         "compatibility_annotations": [
             {
                 "id": "metric_contract_current_workflow",
-                "status": "selected" if mode == "direct-stitch" else "informational",
+                "status": "fresh_rerun_selected" if mode == "direct-stitch" else "informational",
                 "note": "Current grid-lines workflow uses direct stitching followed by eval_reconstruction.",
             },
             {
                 "id": "metric_contract_paper_json_alignment_note",
-                "status": "unresolved" if mode == "unresolved" else "reviewed",
+                "status": "unresolved",
                 "note": "Paper-side historical JSON records align_for_evaluation provenance; do not silently compare if this remains unresolved.",
             },
             {
                 "id": "table_script_subsample_policy",
-                "status": "unresolved" if mode == "unresolved" else "reviewed",
+                "status": "unresolved",
                 "note": "Historical table script uses a fixed subsample policy for reported rows; fresh CDI rows must label any deviation.",
             },
         ],
@@ -538,6 +705,40 @@ def write_metric_contract_manifest(output_root: Path, mode: str, run_id: str | N
     if mode == "unresolved":
         payload["promotion_policy"] = "exploratory_only_until_metric_contract_is_resolved"
     return _write_json(Path(output_root) / "metric_contract_manifest.json", payload)
+
+
+def _read_manifest(path: Path) -> dict[str, Any]:
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def assert_metric_gates_allow_metrics(
+    data_identity_manifest: Path,
+    metric_contract_manifest: Path,
+) -> dict[str, Any]:
+    data_identity = _read_manifest(Path(data_identity_manifest))
+    metric_contract = _read_manifest(Path(metric_contract_manifest))
+    if not data_identity.get("metric_inspection_allowed", False):
+        raise RuntimeError(
+            "Data identity gate blocked metric inspection: "
+            f"{data_identity.get('decision')}; use --data-identity-branch same-split-rerun "
+            "or locate exact frozen Table 2 inputs first."
+        )
+    if not metric_contract.get("metric_inspection_allowed", False):
+        raise RuntimeError(
+            "Metric contract gate blocked metric inspection: "
+            f"{metric_contract.get('table2_compatibility')}"
+        )
+    table2_compatible = bool(
+        data_identity.get("old_table2_same_data_comparator_allowed", False)
+        and metric_contract.get("table2_compatible", False)
+    )
+    return {
+        "metric_inspection_allowed": True,
+        "table2_compatible": table2_compatible,
+        "data_identity_decision": data_identity.get("decision"),
+        "metric_contract": metric_contract.get("table2_compatibility"),
+        "old_table2_value_policy": data_identity.get("old_table2_value_policy"),
+    }
 
 
 def write_benchmark_manifest(
@@ -715,14 +916,77 @@ def _frame_amplitude(frame: np.ndarray) -> np.ndarray:
     return np.maximum(array, 0.0)
 
 
-def _patch_object(y_i: np.ndarray, y_phi: np.ndarray) -> np.ndarray:
-    amp = np.asarray(y_i)
-    phase = np.asarray(y_phi)
+def _label_amp_phase(y_i: np.ndarray, y_phi: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    amp = np.asarray(y_i, dtype=np.float64)
+    phase = np.asarray(y_phi, dtype=np.float64)
     if amp.ndim == 3:
         amp = amp[..., 0]
     if phase.ndim == 3:
         phase = phase[..., 0]
-    return (amp * np.exp(1j * phase)).astype(np.complex64)
+    if amp.ndim != 2 or phase.ndim != 2:
+        raise ValueError("simulated labels must resolve to 2D amplitude and phase arrays")
+    if amp.shape != phase.shape:
+        raise ValueError("simulated label amplitude and phase shapes must match")
+    if not np.all(np.isfinite(amp)) or not np.all(np.isfinite(phase)):
+        raise ValueError("simulated labels must contain only finite values")
+    return amp, phase
+
+
+def object_patch_from_simulated_labels(
+    y_i: np.ndarray,
+    y_phi: np.ndarray,
+    probe: np.ndarray,
+    epsilon_ratio: float = DEFAULT_EPSILON_RATIO,
+) -> np.ndarray:
+    """Recover normalized object labels from stored illuminated-amplitude labels."""
+    amp, phase = _label_amp_phase(y_i, y_phi)
+    probe_array = _validate_2d_complex("probe", probe)
+    if probe_array.shape != amp.shape:
+        raise ValueError("probe shape must match simulated labels")
+    probe_amp = np.abs(probe_array)
+    max_amp = float(probe_amp.max(initial=0.0))
+    if max_amp <= 0:
+        raise ValueError("zero-amplitude probe cannot be used for label recovery")
+    epsilon = float(epsilon_ratio) * max_amp
+    object_amp = np.zeros_like(amp, dtype=np.float64)
+    valid = probe_amp >= epsilon
+    object_amp[valid] = amp[valid] / probe_amp[valid]
+    return (object_amp * np.exp(1j * phase)).astype(np.complex64)
+
+
+def _exit_wave_from_simulated_labels(
+    y_i: np.ndarray,
+    y_phi: np.ndarray,
+    probe: np.ndarray,
+) -> np.ndarray:
+    """Reconstruct the simulated exit wave from stored labels and probe phase."""
+    amp, phase = _label_amp_phase(y_i, y_phi)
+    probe_array = _validate_2d_complex("probe", probe)
+    if probe_array.shape != amp.shape:
+        raise ValueError("probe shape must match simulated labels")
+    return (amp * np.exp(1j * phase) * np.exp(1j * np.angle(probe_array))).astype(np.complex64)
+
+
+def check_forward_amplitude_self_consistency(
+    target_magnitude: np.ndarray,
+    y_i: np.ndarray,
+    y_phi: np.ndarray,
+    probe: np.ndarray,
+    tolerance: float = 5e-3,
+) -> dict[str, Any]:
+    """Compare stored normalized X with the known ground-truth exit-wave amplitude."""
+    target = _validate_target_magnitude(np.asarray(target_magnitude, dtype=np.float64), np.asarray(target_magnitude).shape)
+    exit_wave = _exit_wave_from_simulated_labels(y_i, y_phi, probe)
+    predicted = forward_amplitude(exit_wave)
+    denominator = max(float(np.linalg.norm(target)), 1e-12)
+    residual = float(np.linalg.norm(predicted - target) / denominator)
+    return {
+        "status": "ok" if math.isfinite(residual) and residual <= float(tolerance) else "failed",
+        "normalized_residual": residual,
+        "tolerance": float(tolerance),
+        "exit_wave_source": "stored_label_amplitude_plus_object_phase_plus_probe_phase",
+        "target_magnitude_shape": list(target.shape),
+    }
 
 
 def _bounded_frame_count(total: int, requested: int | None, nimgs: int) -> int:
@@ -847,6 +1111,8 @@ def run_smoke_benchmark(
             hio_iters=int(args.hio_iters),
             er_iters=int(args.er_iters),
             residual_period=max(1, int(args.residual_period)),
+            condition_id=_condition_label(args),
+            patch_index=index,
         )
         reconstructed = recover_object_patch(
             restart_run.selected.psi,
@@ -854,33 +1120,41 @@ def run_smoke_benchmark(
             support,
             epsilon_ratio=DEFAULT_EPSILON_RATIO,
         )
-        recomputed_residual = fourier_residual(restart_run.selected.psi, target)
-        self_consistency_checks.append(
-            {
-                "patch_index": index,
-                "selected_seed": restart_run.selected.seed,
-                "recorded_final_residual": restart_run.selected.final_residual,
-                "recomputed_final_residual": recomputed_residual,
-                "consistent": math.isclose(
-                    restart_run.selected.final_residual,
-                    recomputed_residual,
-                    rel_tol=1e-12,
-                    abs_tol=1e-12,
-                )
-                and math.isfinite(recomputed_residual),
-            }
+        self_consistency_check = check_forward_amplitude_self_consistency(
+            target,
+            y_i_test[index],
+            y_phi_test[index],
+            probe,
         )
-        reconstructed_patches.append(reconstructed[..., None])
-        ground_truth_patches.append(_patch_object(y_i_test[index], y_phi_test[index])[..., None])
-        residual_payload["patches"].append(
+        self_consistency_check.update(
             {
                 "patch_index": index,
                 "selected_seed": restart_run.selected.seed,
                 "selected_final_residual": restart_run.selected.final_residual,
+            }
+        )
+        self_consistency_checks.append(self_consistency_check)
+        reconstructed_patches.append(reconstructed[..., None])
+        ground_truth_patches.append(
+            object_patch_from_simulated_labels(y_i_test[index], y_phi_test[index], probe)[..., None]
+        )
+        residual_payload["patches"].append(
+            {
+                "patch_index": index,
+                "selected_seed": restart_run.selected.seed,
+                "selected_base_seed": restart_run.selected.base_seed,
+                "selected_restart_index": restart_run.selected.restart_index,
+                "selected_final_residual": restart_run.selected.final_residual,
                 "restart_final_residuals": [
-                    {"seed": item.seed, "final_residual": item.final_residual}
+                    {
+                        "restart_index": item.restart_index,
+                        "base_seed": item.base_seed,
+                        "seed": item.seed,
+                        "final_residual": item.final_residual,
+                    }
                     for item in restart_run.restarts
                 ],
+                "restarts": _restart_records(restart_run),
                 "selected_residual_curve": restart_run.selected.residual_curve,
             }
         )
@@ -912,7 +1186,7 @@ def run_smoke_benchmark(
         "support_policy": support_record,
         "ambiguity_policy": build_ambiguity_policy(False),
         "forward_amplitude_self_consistency": {
-            "status": "ok" if all(item["consistent"] for item in self_consistency_checks) else "failed",
+            "status": "ok" if all(item["status"] == "ok" for item in self_consistency_checks) else "failed",
             "checks": self_consistency_checks,
         },
         "timing_seconds": time.perf_counter() - start,
@@ -963,7 +1237,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--beta", default=0.9, type=float)
     parser.add_argument("--hio-iters", default=1000, type=int)
     parser.add_argument("--er-iters", default=200, type=int)
-    parser.add_argument("--residual-period", default=50, type=int)
+    parser.add_argument("--residual-period", default=10, type=int)
     parser.add_argument("--max-test-frames", default=0, type=int)
     parser.add_argument(
         "--data-identity-branch",
@@ -1036,6 +1310,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"preflight complete: {output_root}")
         return 0
 
+    gate_report = assert_metric_gates_allow_metrics(data_identity_manifest, metric_contract_manifest)
     metrics_paths, residual_paths, recon_paths = run_smoke_benchmark(
         output_root,
         args,
@@ -1057,6 +1332,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         residual_paths=residual_paths,
         recon_paths=recon_paths,
     )
+    _write_json(output_root / "metric_gate_report.json", gate_report)
     print(f"benchmark complete: {output_root}")
     return 0
 

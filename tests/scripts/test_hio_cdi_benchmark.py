@@ -167,6 +167,121 @@ def test_run_restarts_retains_curves_and_recovers_object_patch():
     assert np.all(patch[~support] == 0)
 
 
+def test_run_restarts_derives_patch_specific_seeds_and_uses_default_residual_cadence():
+    from scripts.reconstruction.hio_cdi_benchmark import run_restarts
+
+    support = np.zeros((8, 8), dtype=bool)
+    support[2:6, 2:6] = True
+    target = np.ones((8, 8), dtype=np.float32)
+
+    patch_three = run_restarts(
+        target,
+        support,
+        seeds=[2026041201, 2026041202],
+        beta=0.9,
+        hio_iters=20,
+        er_iters=10,
+        condition_id="gs1_custom",
+        patch_index=3,
+    )
+    patch_four = run_restarts(
+        target,
+        support,
+        seeds=[2026041201, 2026041202],
+        beta=0.9,
+        hio_iters=20,
+        er_iters=10,
+        condition_id="gs1_custom",
+        patch_index=4,
+    )
+
+    seeds_three = [restart.seed for restart in patch_three.restarts]
+    seeds_four = [restart.seed for restart in patch_four.restarts]
+    assert seeds_three != [2026041201, 2026041202]
+    assert seeds_three != seeds_four
+    assert [restart.base_seed for restart in patch_three.restarts] == [2026041201, 2026041202]
+    assert [restart.restart_index for restart in patch_three.restarts] == [0, 1]
+    assert all(len(restart.residual_curve) == 4 for restart in patch_three.restarts)
+
+
+def test_restart_payload_records_all_curves_not_only_selected():
+    from scripts.reconstruction.hio_cdi_benchmark import RestartResult, RestartRun, _restart_records
+
+    run = RestartRun(
+        restarts=[
+            RestartResult(
+                seed=11,
+                psi=np.ones((2, 2)),
+                final_residual=0.2,
+                residual_curve=[0.3, 0.2],
+                base_seed=101,
+                restart_index=0,
+            ),
+            RestartResult(
+                seed=12,
+                psi=np.ones((2, 2)),
+                final_residual=0.1,
+                residual_curve=[0.2, 0.1],
+                base_seed=102,
+                restart_index=1,
+            ),
+        ],
+        selected=RestartResult(
+            seed=12,
+            psi=np.ones((2, 2)),
+            final_residual=0.1,
+            residual_curve=[0.2, 0.1],
+            base_seed=102,
+            restart_index=1,
+        ),
+    )
+
+    records = _restart_records(run)
+
+    assert [record["seed"] for record in records] == [11, 12]
+    assert all("residual_curve" in record for record in records)
+    assert all("metrics" in record for record in records)
+    assert records[0]["selected"] is False
+    assert records[1]["selected"] is True
+
+
+def test_forward_self_consistency_uses_known_exit_wave_not_residual_bookkeeping():
+    from scripts.reconstruction.hio_cdi_benchmark import (
+        check_forward_amplitude_self_consistency,
+        forward_amplitude,
+    )
+
+    probe = _toy_probe()
+    yy, xx = np.indices(probe.shape)
+    object_amp = 1.0 + 0.01 * yy + 0.02 * xx
+    object_phase = 0.03 * yy - 0.02 * xx
+    stored_label_amp = object_amp * np.abs(probe)
+    target = forward_amplitude(stored_label_amp * np.exp(1j * object_phase) * np.exp(1j * np.angle(probe)))
+
+    check = check_forward_amplitude_self_consistency(target, stored_label_amp, object_phase, probe)
+
+    assert check["status"] == "ok"
+    assert check["normalized_residual"] == pytest.approx(0.0, abs=1e-7)
+    assert check["exit_wave_source"] == "stored_label_amplitude_plus_object_phase_plus_probe_phase"
+
+
+def test_ground_truth_object_patch_removes_probe_amplitude_without_probe_phase():
+    from scripts.reconstruction.hio_cdi_benchmark import object_patch_from_simulated_labels
+
+    probe = _toy_probe()
+    yy, xx = np.indices(probe.shape)
+    object_amp = 1.0 + 0.01 * yy + 0.02 * xx
+    object_phase = 0.03 * yy - 0.02 * xx
+    stored_label_amp = object_amp * np.abs(probe)
+
+    recovered = object_patch_from_simulated_labels(stored_label_amp, object_phase, probe)
+
+    valid = np.abs(probe) >= 1e-6 * np.abs(probe).max()
+    assert np.allclose(np.abs(recovered)[valid], object_amp[valid], atol=1e-5)
+    assert np.allclose(np.angle(recovered)[valid], object_phase[valid], atol=1e-6)
+    assert np.all(recovered[~valid] == 0)
+
+
 def test_ambiguity_policy_forbids_oracle_alignment_for_main_row():
     from scripts.reconstruction.hio_cdi_benchmark import build_ambiguity_policy
 
@@ -186,6 +301,7 @@ def test_ambiguity_policy_forbids_oracle_alignment_for_main_row():
 
 def test_manifest_writers_and_duplicate_output_root_refusal(tmp_path):
     from scripts.reconstruction.hio_cdi_benchmark import (
+        assert_metric_gates_allow_metrics,
         refuse_duplicate_output_root,
         write_benchmark_manifest,
         write_data_identity_manifest,
@@ -202,6 +318,9 @@ def test_manifest_writers_and_duplicate_output_root_refusal(tmp_path):
     solver = write_solver_manifest(out, run_id="unit", selected_solver="study_local_hio_er")
     data = write_data_identity_manifest(out, branch="frozen-artifact", artifact_paths=[])
     metric = write_metric_contract_manifest(out, mode="direct-stitch")
+    with pytest.raises(RuntimeError, match="Data identity gate blocked"):
+        assert_metric_gates_allow_metrics(data, metric)
+
     manifest = write_benchmark_manifest(
         out,
         run_id="unit",
@@ -216,6 +335,66 @@ def test_manifest_writers_and_duplicate_output_root_refusal(tmp_path):
         payload = json.loads(path.read_text())
         assert isinstance(payload, dict)
     assert json.loads(manifest.read_text())["preflight_only"] is True
+
+
+def test_same_split_branch_allows_exploratory_metrics_but_not_historical_same_data_claim(tmp_path):
+    from scripts.reconstruction.hio_cdi_benchmark import (
+        assert_metric_gates_allow_metrics,
+        write_data_identity_manifest,
+        write_metric_contract_manifest,
+    )
+
+    out = tmp_path / "same_split"
+    data = write_data_identity_manifest(out, branch="same-split-rerun", artifact_paths=[])
+    metric = write_metric_contract_manifest(out, mode="direct-stitch")
+
+    gate = assert_metric_gates_allow_metrics(data, metric)
+    data_payload = json.loads(data.read_text())
+
+    assert gate["metric_inspection_allowed"] is True
+    assert gate["table2_compatible"] is False
+    assert data_payload["old_table2_same_data_comparator_allowed"] is False
+    assert data_payload["old_table2_value_policy"] == "historical_context_only"
+
+
+def test_metric_contract_manifest_records_note_decisions_evidence_and_deviation(tmp_path):
+    from scripts.reconstruction.hio_cdi_benchmark import write_metric_contract_manifest
+
+    path = write_metric_contract_manifest(tmp_path, mode="direct-stitch", run_id="unit")
+    payload = json.loads(path.read_text())
+
+    assert payload["table2_compatibility"] == "fresh_same_split_direct_stitch_not_historical_table2"
+    assert payload["deviation"]["table2_compatible"] is False
+    assert payload["deviation"]["result_role"] == "fresh_same_split_exploratory_or_rerun_comparator"
+    decisions = {item["id"]: item for item in payload["paper_side_note_decisions"]}
+    assert decisions["paper_json_align_for_evaluation"]["decision"] == "unresolved"
+    assert decisions["table_script_subsample_1000_seed_7"]["decision"] == "unresolved"
+    assert all(item["evidence"]["path"] for item in decisions.values())
+    assert all(item["evidence"]["line_reference"] for item in decisions.values())
+    assert payload["metric_subset_policy"]["selected_indices_checksum"] is None
+    assert payload["metric_subset_policy"]["reason"] == "full generated smoke/test subset, not paper nsamples=1000 subsample"
+
+
+def test_solver_manifest_has_a2_provenance_fields(tmp_path):
+    from scripts.reconstruction.hio_cdi_benchmark import write_solver_manifest
+
+    path = write_solver_manifest(tmp_path, run_id="unit", selected_solver="study_local_hio_er")
+    payload = json.loads(path.read_text())
+
+    assert payload["search_date"]
+    assert payload["searched_sources"] == ["repo", "environment", "PyPI", "GitHub", "web"]
+    assert payload["selected_solver"] == "study_local_hio_er"
+    for candidate in payload["candidates"]:
+        assert {
+            "name",
+            "source_url",
+            "package_version",
+            "license",
+            "install_command",
+            "api_entry_point",
+            "accepted",
+            "reason",
+        } <= set(candidate)
 
 
 def test_metric_json_sanitizes_nonfinite_smoke_values(tmp_path):
