@@ -1,5 +1,6 @@
 import json
 import sys
+from types import SimpleNamespace
 from pathlib import Path
 
 import numpy as np
@@ -512,6 +513,151 @@ def test_pinn_randomness_manifest_records_seed_policy_and_metric_contract_checks
     assert payload["training_started"] is False
     assert payload["metric_contract_sha256"]
     assert payload["loader_compatible_data_seeds"] == {"train": 1, "test": 2}
+
+
+def test_pinn_comparator_manifest_update_records_training_evidence(tmp_path):
+    from scripts.reconstruction.hio_cdi_benchmark import (
+        _write_json,
+        update_pinn_randomness_manifest_with_comparator,
+        write_metric_contract_manifest,
+        write_pinn_randomness_manifest,
+    )
+
+    metric_contract = write_metric_contract_manifest(tmp_path, mode="direct-stitch", run_id="unit")
+    randomness_manifest = write_pinn_randomness_manifest(
+        tmp_path,
+        run_id="unit",
+        data_generation_control="loader-compatible",
+        metric_contract_manifest=metric_contract,
+    )
+    metrics_path = _write_json(
+        tmp_path / "pinn_comparator_metrics.json",
+        {
+            "metrics": {
+                "ssim": [0.9, 0.1],
+                "psnr": [68.0, 12.0],
+            }
+        },
+    )
+
+    update_pinn_randomness_manifest_with_comparator(
+        randomness_manifest,
+        training_seed=2026041211,
+        initial_weight_checksums={"aggregate_sha256": "initial", "n_weight_arrays": 2},
+        final_weight_checksums={"aggregate_sha256": "final", "n_weight_arrays": 2},
+        training_history={"loss": [1.0, 0.5]},
+        seed_api_status={"tf_set_random_seed": "ok"},
+        determinism_status="validated_single_seed_controlled_shuffle",
+        model_artifacts={"model_archive": {"path": "pinn/wts.h5.zip", "exists": True}},
+        metrics_path=metrics_path,
+        comparison_summary={
+            "historical_amp_ssim": 0.9044216561120993,
+            "amp_ssim_delta": -0.004421656112099313,
+            "within_table2_tolerance": True,
+        },
+    )
+
+    payload = json.loads(randomness_manifest.read_text())
+    assert payload["pinn_comparator_status"] == "completed_primary_seed"
+    assert payload["model_construction_started"] is True
+    assert payload["training_started"] is True
+    assert payload["training_completed"] is True
+    assert payload["determinism_status"] == "validated_single_seed_controlled_shuffle"
+    assert payload["initial_model_weight_checksums"]["aggregate_sha256"] == "initial"
+    assert payload["final_model_or_checkpoint_checksums"]["aggregate_sha256"] == "final"
+    assert payload["training_history"] == {"loss": [1.0, 0.5]}
+    assert payload["metric_output"]["path"] == str(metrics_path)
+    assert payload["same_split_historical_comparison"]["within_table2_tolerance"] is True
+
+
+def test_pinn_comparator_metrics_payload_records_historical_tolerance(tmp_path):
+    from scripts.reconstruction.hio_cdi_benchmark import build_pinn_comparator_metrics_payload
+
+    payload = build_pinn_comparator_metrics_payload(
+        run_id="unit",
+        row_label="pinn_same_split_gs1_custom",
+        metrics_json={"ssim": [0.9, 0.0], "psnr": [67.0, 0.0]},
+        data_bundle_manifest=tmp_path / "data_bundle_manifest.json",
+        randomness_manifest=tmp_path / "pinn_randomness_manifest.json",
+        recon_path=tmp_path / "recons" / "pinn_same_split_gs1_custom" / "recon.npz",
+        training_seed=2026041211,
+        training_history={"loss": [1.0]},
+        timing_seconds=12.5,
+    )
+
+    assert payload["comparator"] == "ptychopinn_same_split"
+    assert payload["row_label"] == "pinn_same_split_gs1_custom"
+    assert payload["training_seed"] == 2026041211
+    assert payload["historical_table2_context"]["gs1_custom_amp_ssim"] == 0.9044216561120993
+    assert payload["historical_table2_comparison"]["amp_ssim_delta"] == pytest.approx(
+        0.9 - 0.9044216561120993
+    )
+    assert payload["historical_table2_comparison"]["amp_psnr_delta"] == pytest.approx(67.0 - 68.8864772792175)
+    assert payload["historical_table2_comparison"]["within_table2_tolerance"] is True
+    assert payload["metric_policy"] == "fresh_same_split_rerun_historical_context_only"
+
+
+def test_cli_parses_pinn_comparator_flags():
+    from scripts.reconstruction.hio_cdi_benchmark import parse_args
+
+    args = parse_args(
+        [
+            "--output-root",
+            "out",
+            "--run-id",
+            "unit",
+            "--probe-npz",
+            "datasets/Run1084_recon3_postPC_shrunk_3.npz",
+            "--probe-source",
+            "custom",
+            "--probe-scale-mode",
+            "pad_preserve",
+            "--probe-smoothing-sigma",
+            "0.5",
+            "--support-thresholds",
+            "0.05",
+            "--primary-support-threshold",
+            "0.05",
+            "--restart-seeds",
+            "2026041201",
+            "2026041202",
+            "2026041203",
+            "--data-identity-branch",
+            "same-split-rerun",
+            "--metric-contract-mode",
+            "direct-stitch",
+            "--run-pinn-comparator",
+            "--pinn-comparator-only",
+            "--pinn-training-seed",
+            "2026041211",
+            "--pinn-comparator-epochs",
+            "60",
+        ]
+    )
+
+    assert args.run_pinn_comparator is True
+    assert args.pinn_comparator_only is True
+    assert args.pinn_training_seed == 2026041211
+    assert args.pinn_comparator_epochs == 60
+
+
+def test_seed_hook_runs_before_same_split_data_generation_when_tf_deterministic(monkeypatch):
+    import scripts.reconstruction.hio_cdi_benchmark as hio
+
+    calls = []
+    monkeypatch.setenv("TF_DETERMINISTIC_OPS", "1")
+    monkeypatch.setattr(
+        hio,
+        "_configure_pinn_seed",
+        lambda seed: calls.append(seed) or {"training_seed": seed},
+    )
+
+    status = hio.configure_seed_before_generated_data(
+        SimpleNamespace(data_identity_branch="same-split-rerun", pinn_training_seed=2026041211)
+    )
+
+    assert calls == [2026041211]
+    assert status == {"training_seed": 2026041211}
 
 
 def test_metric_contract_manifest_records_note_decisions_evidence_and_deviation(tmp_path):

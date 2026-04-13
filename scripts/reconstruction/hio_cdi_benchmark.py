@@ -10,6 +10,7 @@ import json
 import math
 import os
 import platform
+import random
 import subprocess
 import sys
 import time
@@ -36,6 +37,10 @@ DEFAULT_NIMGS_TEST = 2
 DEFAULT_NPHOTONS = 1e9
 DEFAULT_EPSILON_RATIO = 1e-6
 SELECTED_SOLVER = "study_local_hio_er"
+HISTORICAL_GS1_CUSTOM_AMP_SSIM = 0.9044216561120993
+HISTORICAL_GS1_CUSTOM_AMP_PSNR = 68.8864772792175
+TABLE2_AMP_SSIM_TOLERANCE = 0.02
+TABLE2_AMP_PSNR_TOLERANCE = 2.0
 
 
 @dataclass(frozen=True)
@@ -815,6 +820,169 @@ def write_pinn_randomness_manifest(
     return _write_json(Path(output_root) / "pinn_randomness_manifest.json", payload)
 
 
+def _weight_checksums_from_arrays(weights: Sequence[np.ndarray]) -> dict[str, Any]:
+    aggregate = hashlib.sha256()
+    records: list[dict[str, Any]] = []
+    for index, weight in enumerate(weights):
+        array = np.ascontiguousarray(np.asarray(weight))
+        aggregate.update(str(index).encode("utf-8"))
+        aggregate.update(str(array.shape).encode("utf-8"))
+        aggregate.update(str(array.dtype).encode("utf-8"))
+        aggregate.update(array.tobytes())
+        records.append(
+            {
+                "index": int(index),
+                "shape": list(array.shape),
+                "dtype": str(array.dtype),
+                "sha256": _array_sha256(array),
+            }
+        )
+    return {
+        "aggregate_sha256": aggregate.hexdigest(),
+        "n_weight_arrays": len(records),
+        "weights": records,
+    }
+
+
+def _model_weight_checksums(model: Any) -> dict[str, Any]:
+    if not hasattr(model, "get_weights"):
+        raise TypeError("model must provide get_weights() for checksum recording")
+    return _weight_checksums_from_arrays(model.get_weights())
+
+
+def _history_payload(history: Any) -> dict[str, Any]:
+    if history is None:
+        return {}
+    raw_history = getattr(history, "history", history)
+    if not isinstance(raw_history, dict):
+        return {"repr": repr(raw_history)}
+    return {
+        str(key): [_jsonable(item) for item in value]
+        if isinstance(value, (list, tuple))
+        else _jsonable(value)
+        for key, value in raw_history.items()
+    }
+
+
+def _metric_amp_value(metrics_json: dict[str, Any], key: str) -> float | None:
+    value = metrics_json.get(key)
+    if isinstance(value, (list, tuple)) and value:
+        item = value[0]
+    else:
+        item = value
+    if item is None:
+        return None
+    try:
+        numeric = float(item)
+    except (TypeError, ValueError):
+        return None
+    return numeric if math.isfinite(numeric) else None
+
+
+def _historical_table2_comparison(metrics_json: dict[str, Any]) -> dict[str, Any]:
+    amp_ssim = _metric_amp_value(metrics_json, "ssim")
+    amp_psnr = _metric_amp_value(metrics_json, "psnr")
+    amp_ssim_delta = (
+        None if amp_ssim is None else amp_ssim - HISTORICAL_GS1_CUSTOM_AMP_SSIM
+    )
+    amp_psnr_delta = (
+        None if amp_psnr is None else amp_psnr - HISTORICAL_GS1_CUSTOM_AMP_PSNR
+    )
+    within_tolerance = bool(
+        amp_ssim_delta is not None
+        and amp_psnr_delta is not None
+        and abs(amp_ssim_delta) <= TABLE2_AMP_SSIM_TOLERANCE
+        and abs(amp_psnr_delta) <= TABLE2_AMP_PSNR_TOLERANCE
+    )
+    return {
+        "historical_amp_ssim": HISTORICAL_GS1_CUSTOM_AMP_SSIM,
+        "historical_amp_psnr": HISTORICAL_GS1_CUSTOM_AMP_PSNR,
+        "amp_ssim": amp_ssim,
+        "amp_psnr": amp_psnr,
+        "amp_ssim_delta": amp_ssim_delta,
+        "amp_psnr_delta": amp_psnr_delta,
+        "amp_ssim_tolerance": TABLE2_AMP_SSIM_TOLERANCE,
+        "amp_psnr_tolerance": TABLE2_AMP_PSNR_TOLERANCE,
+        "within_table2_tolerance": within_tolerance,
+        "comparison_policy": "historical_context_only_until_data_identity_and_metric_contract_are_table2_compatible",
+    }
+
+
+def build_pinn_comparator_metrics_payload(
+    *,
+    run_id: str,
+    row_label: str,
+    metrics_json: dict[str, Any],
+    data_bundle_manifest: Path,
+    randomness_manifest: Path,
+    recon_path: Path,
+    training_seed: int,
+    training_history: dict[str, Any],
+    timing_seconds: float,
+) -> dict[str, Any]:
+    comparison = _historical_table2_comparison(metrics_json)
+    return {
+        "run_id": run_id,
+        "comparator": "ptychopinn_same_split",
+        "row_label": row_label,
+        "training_seed": int(training_seed),
+        "metric_policy": "fresh_same_split_rerun_historical_context_only",
+        "historical_table2_context": {
+            "gs1_custom_amp_ssim": HISTORICAL_GS1_CUSTOM_AMP_SSIM,
+            "gs1_custom_amp_psnr": HISTORICAL_GS1_CUSTOM_AMP_PSNR,
+            "same_data_comparator_allowed": False,
+        },
+        "historical_table2_comparison": comparison,
+        "data_bundle_manifest": str(data_bundle_manifest),
+        "data_bundle_manifest_sha256": _sha256_file(Path(data_bundle_manifest)),
+        "pinn_randomness_manifest": str(randomness_manifest),
+        "pinn_randomness_manifest_sha256": _sha256_file(Path(randomness_manifest)),
+        "recon_npz": str(recon_path),
+        "timing_seconds": float(timing_seconds),
+        "training_history": training_history,
+        "metrics": metrics_json,
+    }
+
+
+def update_pinn_randomness_manifest_with_comparator(
+    randomness_manifest: Path,
+    *,
+    training_seed: int,
+    initial_weight_checksums: dict[str, Any],
+    final_weight_checksums: dict[str, Any],
+    training_history: dict[str, Any],
+    seed_api_status: dict[str, Any],
+    determinism_status: str,
+    model_artifacts: dict[str, Any],
+    metrics_path: Path,
+    comparison_summary: dict[str, Any],
+) -> Path:
+    path = Path(randomness_manifest)
+    payload = _read_manifest(path)
+    payload.update(
+        {
+            "updated_utc": datetime.now(timezone.utc).isoformat(),
+            "pinn_comparator_status": "completed_primary_seed",
+            "primary_training_seed": int(training_seed),
+            "model_construction_started": True,
+            "training_started": True,
+            "training_completed": True,
+            "determinism_status": determinism_status,
+            "seed_api_status": seed_api_status,
+            "initial_model_weight_checksums": initial_weight_checksums,
+            "final_model_or_checkpoint_checksums": final_weight_checksums,
+            "training_history": training_history,
+            "model_artifacts": model_artifacts,
+            "metric_output": {
+                "path": str(metrics_path),
+                "sha256": _sha256_file(Path(metrics_path)),
+            },
+            "same_split_historical_comparison": comparison_summary,
+        }
+    )
+    return _write_json(path, payload)
+
+
 def _read_manifest(path: Path) -> dict[str, Any]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
@@ -1473,6 +1641,184 @@ def build_metrics_artifact_context(
     }
 
 
+def _configure_pinn_seed(training_seed: int) -> dict[str, Any]:
+    status: dict[str, Any] = {
+        "training_seed": int(training_seed),
+        "PYTHONHASHSEED": os.environ.get("PYTHONHASHSEED"),
+        "TF_DETERMINISTIC_OPS": os.environ.get("TF_DETERMINISTIC_OPS"),
+    }
+    random.seed(int(training_seed))
+    np.random.seed(int(training_seed))
+    status["python_random"] = "ok"
+    status["numpy_random"] = "ok"
+    try:
+        import tensorflow as tf
+
+        tf.keras.utils.set_random_seed(int(training_seed))
+        status["tf_set_random_seed"] = "ok"
+        try:
+            tf.config.experimental.enable_op_determinism()
+        except Exception as exc:
+            status["tf_enable_op_determinism"] = f"failed: {exc!r}"
+        else:
+            status["tf_enable_op_determinism"] = "ok"
+    except Exception as exc:
+        status["tensorflow_seed_setup"] = f"failed: {exc!r}"
+    if status["PYTHONHASHSEED"] != str(training_seed):
+        status["pythonhashseed_warning"] = (
+            "PYTHONHASHSEED must be set before process start for full hash determinism"
+        )
+    return status
+
+
+def configure_seed_before_generated_data(args: argparse.Namespace) -> dict[str, Any] | None:
+    """Seed TF before same-split generation when deterministic ops require it."""
+    deterministic_ops = os.environ.get("TF_DETERMINISTIC_OPS")
+    if args.data_identity_branch != "same-split-rerun":
+        return None
+    if deterministic_ops not in {"1", "true", "True", "yes", "YES"}:
+        return None
+    return _configure_pinn_seed(int(args.pinn_training_seed))
+
+
+def _pinn_model_artifacts(output_root: Path, checkpoint_dir: Path) -> dict[str, Any]:
+    from ptycho import params as p
+
+    model_archive = Path(output_root) / "pinn" / f"{p.get('h5_path')}.zip"
+    checkpoints = [
+        _file_record(path)
+        for path in sorted(Path(checkpoint_dir).glob("*"))
+        if path.is_file()
+    ]
+    return {
+        "model_archive": _file_record(model_archive),
+        "checkpoint_dir": str(checkpoint_dir),
+        "checkpoint_records": checkpoints,
+    }
+
+
+def run_pinn_comparator(
+    output_root: Path,
+    args: argparse.Namespace,
+    probe: np.ndarray,
+    cfg: Any,
+    data: dict[str, Any],
+    data_bundle_manifest: Path,
+    randomness_manifest: Path,
+) -> dict[str, Path]:
+    """Run the same-split PtychoPINN comparator under the pre-registered seed."""
+    from ptycho.evaluation import eval_reconstruction
+    from ptycho.workflows.grid_lines_workflow import (
+        configure_legacy_params,
+        run_pinn_inference,
+        save_pinn_model,
+        save_recon_artifact,
+        stitch_predictions,
+    )
+    from ptycho import model as model_mod
+    from ptycho import probe as probe_mod
+    from ptycho import train_pinn
+    from ptycho import params as p
+
+    if args.data_identity_branch != "same-split-rerun":
+        raise ValueError("PtychoPINN comparator requires --data-identity-branch same-split-rerun")
+    if data_bundle_manifest is None:
+        raise ValueError("PtychoPINN comparator requires a frozen same-split data bundle manifest")
+
+    start = time.perf_counter()
+    training_seed = int(args.pinn_training_seed)
+    cfg.nepochs = int(args.pinn_comparator_epochs)
+    seed_status = _configure_pinn_seed(training_seed)
+    configure_legacy_params(cfg, probe)
+
+    train_container = data["train"]["container"]
+    intensity_scale = train_pinn.calculate_intensity_scale(train_container)
+    p.set("intensity_scale", intensity_scale)
+    probe_mod.set_probe_guess(None, train_container.probe)
+
+    checkpoint_dir = Path(output_root) / "pinn_comparator" / "keras_checkpoints"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    old_wt_path = getattr(model_mod, "wt_path", None)
+    model_mod.wt_path = str(checkpoint_dir)
+    try:
+        model_instance, diffraction_to_obj = model_mod.create_compiled_model()
+        model_mod.autoencoder = model_instance
+        model_mod.diffraction_to_obj = diffraction_to_obj
+        initial_checksums = _model_weight_checksums(model_instance)
+
+        model_instance, history = train_pinn.train(
+            train_container,
+            intensity_scale=intensity_scale,
+            model_instance=model_instance,
+        )
+        history_payload = _history_payload(history)
+        final_checksums = _model_weight_checksums(model_instance)
+        save_pinn_model(cfg)
+    finally:
+        if old_wt_path is not None:
+            model_mod.wt_path = old_wt_path
+
+    pinn_pred = run_pinn_inference(
+        model_instance,
+        np.asarray(data["test"]["X"]),
+        np.asarray(data["test"]["coords_nominal"]),
+    )
+    if pinn_pred is None:
+        raise RuntimeError("PtychoPINN inference returned None; see logged XLA/dynamic-shape error")
+
+    norm_y_i = float(data["test"]["norm_Y_I"])
+    pinn_amp = stitch_predictions(pinn_pred, norm_y_i, part="amp")
+    pinn_phase = stitch_predictions(pinn_pred, norm_y_i, part="phase")
+    pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
+
+    condition_label = _condition_label(args)
+    row_label = f"pinn_same_split_{condition_label}"
+    recon_path = save_recon_artifact(Path(output_root), row_label, pinn_stitched)
+    metrics = eval_reconstruction(
+        pinn_stitched,
+        data["test"]["YY_ground_truth"],
+        label=row_label,
+        phase_align_method="plane",
+        frc_sigma=0,
+        debug_save_images=False,
+        ms_ssim_sigma=1.0,
+        single_image_frc=False,
+    )
+    metrics_json, nonfinite_annotations = _metrics_jsonable(metrics)
+    metrics_payload = build_pinn_comparator_metrics_payload(
+        run_id=args.run_id,
+        row_label=row_label,
+        metrics_json=metrics_json,
+        data_bundle_manifest=Path(data_bundle_manifest),
+        randomness_manifest=Path(randomness_manifest),
+        recon_path=recon_path,
+        training_seed=training_seed,
+        training_history=history_payload,
+        timing_seconds=time.perf_counter() - start,
+    )
+    if nonfinite_annotations:
+        metrics_payload["metric_nonfinite_annotations"] = nonfinite_annotations
+    metrics_path = _write_json(Path(output_root) / f"metrics_{row_label}.json", metrics_payload)
+
+    update_pinn_randomness_manifest_with_comparator(
+        randomness_manifest,
+        training_seed=training_seed,
+        initial_weight_checksums=initial_checksums,
+        final_weight_checksums=final_checksums,
+        training_history=history_payload,
+        seed_api_status=seed_status,
+        determinism_status="primary_seed_completed_seed_apis_configured_repeat_not_run",
+        model_artifacts=_pinn_model_artifacts(Path(output_root), checkpoint_dir),
+        metrics_path=metrics_path,
+        comparison_summary=metrics_payload["historical_table2_comparison"],
+    )
+    return {
+        "metrics_path": metrics_path,
+        "recon_path": recon_path,
+        "randomness_manifest": Path(randomness_manifest),
+    }
+
+
 def run_smoke_benchmark(
     output_root: Path,
     args: argparse.Namespace,
@@ -1674,8 +2020,19 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--preflight-only", action="store_true")
     parser.add_argument("--smoke", action="store_true")
+    parser.add_argument("--run-pinn-comparator", action="store_true")
+    parser.add_argument("--pinn-comparator-only", action="store_true")
+    parser.add_argument("--pinn-training-seed", default=2026041211, type=int)
+    parser.add_argument("--pinn-comparator-epochs", default=60, type=int)
     parser.add_argument("--force", action="store_true")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if args.pinn_comparator_only and not args.run_pinn_comparator:
+        parser.error("--pinn-comparator-only requires --run-pinn-comparator")
+    if args.run_pinn_comparator and args.data_identity_branch != "same-split-rerun":
+        parser.error("--run-pinn-comparator requires --data-identity-branch same-split-rerun")
+    if args.pinn_comparator_epochs <= 0:
+        parser.error("--pinn-comparator-epochs must be positive")
+    return args
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -1735,11 +2092,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     gate_report: dict[str, Any] | None = None
     prepared_cfg: Any | None = None
     prepared_data: dict[str, Any] | None = None
+    pre_generation_seed_status: dict[str, Any] | None = None
     if args.data_identity_branch == "same-split-rerun":
         from ptycho.workflows.grid_lines_workflow import configure_legacy_params
 
         if args.data_generation_control != "loader-compatible":
             assert_metric_gates_allow_metrics(data_identity_manifest, metric_contract_manifest)
+        pre_generation_seed_status = configure_seed_before_generated_data(args)
         _memoization_policy_for_fresh_bundle()
         prepared_cfg, prepared_data = _generate_table2_smoke_data(args, probe)
         config = configure_legacy_params(prepared_cfg, probe)
@@ -1768,11 +2127,52 @@ def main(argv: Sequence[str] | None = None) -> int:
             metric_contract_manifest=metric_contract_manifest,
             data_bundle_manifest=data_bundle_manifest,
         )
+        if pre_generation_seed_status is not None:
+            randomness_payload = _read_manifest(pinn_randomness_manifest)
+            randomness_payload["pre_data_generation_seed_status"] = pre_generation_seed_status
+            _write_json(pinn_randomness_manifest, randomness_payload)
         gate_report = assert_metric_gates_allow_metrics(data_identity_manifest, metric_contract_manifest)
     else:
         gate_report = assert_metric_gates_allow_metrics(data_identity_manifest, metric_contract_manifest)
 
-    metrics_paths, residual_paths, recon_paths = run_smoke_benchmark(
+    if args.run_pinn_comparator:
+        if prepared_cfg is None or prepared_data is None or data_bundle_manifest is None or pinn_randomness_manifest is None:
+            raise RuntimeError("PtychoPINN comparator requires the same-split rerun data bundle")
+        comparator = run_pinn_comparator(
+            output_root=output_root,
+            args=args,
+            probe=probe,
+            cfg=prepared_cfg,
+            data=prepared_data,
+            data_bundle_manifest=data_bundle_manifest,
+            randomness_manifest=pinn_randomness_manifest,
+        )
+        metrics_paths.append(comparator["metrics_path"])
+        recon_paths.append(comparator["recon_path"])
+        if args.pinn_comparator_only:
+            write_benchmark_manifest(
+                output_root,
+                run_id=args.run_id,
+                solver_manifest=solver_manifest,
+                data_identity_manifest=data_identity_manifest,
+                metric_contract_manifest=metric_contract_manifest,
+                support_manifest=support_manifest,
+                runtime_provenance=runtime_path,
+                preflight_only=False,
+                smoke=bool(args.smoke),
+                metrics_paths=metrics_paths,
+                residual_paths=residual_paths,
+                recon_paths=recon_paths,
+                data_generation_manifest=data_generation_manifest,
+                data_bundle_manifest=data_bundle_manifest,
+                probe_transform_manifest=probe_transform_manifest,
+                pinn_randomness_manifest=pinn_randomness_manifest,
+            )
+            _write_json(output_root / "metric_gate_report.json", gate_report)
+            print(f"pinn comparator complete: {output_root}")
+            return 0
+
+    hio_metrics_paths, hio_residual_paths, hio_recon_paths = run_smoke_benchmark(
         output_root,
         args,
         probe,
@@ -1784,6 +2184,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         cfg=prepared_cfg,
         data=prepared_data,
     )
+    metrics_paths.extend(hio_metrics_paths)
+    residual_paths.extend(hio_residual_paths)
+    recon_paths.extend(hio_recon_paths)
     write_benchmark_manifest(
         output_root,
         run_id=args.run_id,
