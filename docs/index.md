@@ -116,6 +116,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** template, plan, phased, checklist, exit-criteria  
 **Use this when:** Creating or reshaping an initiative plan to match project conventions.
 
+### [Design Template](plans/templates/design_template.md)
+**Description:** General design/ADR template for initiatives that need scope, rationale, contracts, dependency discovery, provenance, pivot criteria, and planning handoff before implementation.
+**Keywords:** template, design, adr, dependency-discovery, provenance, pivot-criteria
+**Use this when:** Drafting a design source of truth before an implementation plan, especially when choices affect architecture, scientific claims, external dependencies, data contracts, or reviewer-facing evidence.
+
 ### [Workflow Contract Plan Template](plans/templates/workflow_contract_plan.md)
 **Description:** Minimal template for plans intended for workflow execution, with a strict workflow-level contract surface (`< 3` artifacts), producer/consumer mapping, and required plan-author/workflow-author coordination checklist.  
 **Keywords:** template, workflow-contract, producer-consumer, artifact-lineage, orchestration  
