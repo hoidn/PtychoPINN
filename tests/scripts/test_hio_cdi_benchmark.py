@@ -1296,3 +1296,58 @@ def test_cli_preflight_writes_required_manifests_without_metrics(tmp_path):
     assert (out / "invocation.json").exists()
     assert (out / "invocation.sh").exists()
     assert not list(out.glob("metrics*.json"))
+
+
+def test_cli_preflight_blocks_when_pynx_unavailable(tmp_path, monkeypatch, capsys):
+    from scripts.reconstruction import hio_cdi_benchmark as hio
+
+    out = tmp_path / "preflight_unavailable"
+    monkeypatch.setattr(
+        hio,
+        "check_pynx_available",
+        lambda: {"available": False, "error": "ModuleNotFoundError('pynx')", "package_version": None},
+    )
+
+    return_code = hio.main(
+        [
+            "--output-root",
+            str(out),
+            "--run-id",
+            "unit_preflight_unavailable",
+            "--probe-npz",
+            "datasets/Run1084_recon3_postPC_shrunk_3.npz",
+            "--probe-source",
+            "custom",
+            "--probe-scale-mode",
+            "pad_preserve",
+            "--probe-smoothing-sigma",
+            "0.5",
+            "--support-thresholds",
+            "0.05",
+            "--primary-support-threshold",
+            "0.05",
+            "--restart-seeds",
+            "2026041201",
+            "2026041202",
+            "2026041203",
+            "--data-identity-branch",
+            "same-split-rerun",
+            "--data-generation-control",
+            "loader-compatible",
+            "--metric-contract-mode",
+            "direct-stitch",
+            "--preflight-only",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    manifest = json.loads((out / "manifest.json").read_text())
+    solver = json.loads((out / "solver_manifest.json").read_text())
+
+    assert return_code != 0
+    assert "PyNX is required" in captured.err
+    assert manifest["status"] == "blocked"
+    assert "ModuleNotFoundError" in manifest["blocked_reason"]
+    assert solver["external_solver_adopted"] is False
+    assert not (out / "support_manifest.json").exists()
+    assert not list(out.glob("metrics*.json"))

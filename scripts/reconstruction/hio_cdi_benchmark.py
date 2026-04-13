@@ -686,7 +686,7 @@ def write_solver_manifest(
         "selected_solver": selected_solver,
         "selection_date_utc": datetime.now(timezone.utc).isoformat(),
         "search_scope": ["repo", "environment", "PyPI", "GitHub", "web"],
-        "external_solver_adopted": selected_solver == SELECTED_SOLVER,
+        "external_solver_adopted": selected_solver == SELECTED_SOLVER and bool(pynx_status["available"]),
         "candidates": candidates,
     }
     return _write_json(output_root / "solver_manifest.json", payload)
@@ -1506,6 +1506,8 @@ def write_benchmark_manifest(
     probe_transform_manifest: Path | None = None,
     pinn_randomness_manifest: Path | None = None,
     smoke: bool = False,
+    status: str = "ok",
+    blocked_reason: str | None = None,
 ) -> Path:
     payload = {
         "run_id": run_id,
@@ -1526,8 +1528,19 @@ def write_benchmark_manifest(
         "metrics_paths": [str(path) for path in metrics_paths or []],
         "residual_paths": [str(path) for path in residual_paths or []],
         "recon_paths": [str(path) for path in recon_paths or []],
+        "status": status,
     }
+    if blocked_reason:
+        payload["blocked_reason"] = blocked_reason
     return _write_json(Path(output_root) / "manifest.json", payload)
+
+
+def _pynx_unavailable_cli_message(pynx_status: dict[str, Any]) -> str:
+    error = pynx_status.get("error") or "unknown PyNX import/preflight failure"
+    return (
+        "PyNX is required for the non-ML single-shot CDI benchmark metric path; "
+        f"pynx.cdi is unavailable: {error}"
+    )
 
 
 def _capture_runtime_provenance(output_root: Path, args: argparse.Namespace) -> Path:
@@ -2372,6 +2385,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         mode=args.metric_contract_mode,
         run_id=args.run_id,
     )
+
+    pynx_status = check_pynx_available()
+    if not pynx_status.get("available", False):
+        blocked_reason = _pynx_unavailable_cli_message(pynx_status)
+        write_benchmark_manifest(
+            output_root,
+            run_id=args.run_id,
+            solver_manifest=solver_manifest,
+            data_identity_manifest=data_identity_manifest,
+            metric_contract_manifest=metric_contract_manifest,
+            runtime_provenance=runtime_path,
+            preflight_only=bool(args.preflight_only),
+            smoke=bool(args.smoke),
+            status="blocked",
+            blocked_reason=blocked_reason,
+        )
+        print(blocked_reason, file=sys.stderr)
+        return 2
 
     probe, probe_pipeline, probe_steps, probe_record = _load_probe_for_args(args)
     support_manifest, support, support_record = _write_support_manifest(
