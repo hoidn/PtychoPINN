@@ -1,8 +1,10 @@
 # PDEBench SWE Smoke Gate
 
+Status note, 2026-04-20: this SWE smoke gate remains valid readiness/provenance evidence for the SWE member of the amended native `128x128` PDEBench image suite. The next PDE tranche should follow `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md` and add Darcy Flow plus 2D diffusion-reaction preflight before any expensive suite training.
+
 ## Scope
 
-This is the Roadmap Phase 2 smoke/data-contract gate for the selected PDEBench 2D Shallow Water Equations primary benchmark. It validates official data access, HDF5 layout, deterministic split behavior, local one-step metric computation, and tiny supervised Hybrid ResNet, FNO, and U-Net train/eval feasibility.
+This is the Roadmap Phase 2 smoke/data-contract gate for the selected PDEBench 2D Shallow Water Equations primary benchmark. It validates official data access, HDF5 layout, deterministic split behavior, local one-step metric computation, and tiny supervised Hybrid ResNet, FNO, and U-Net train/eval feasibility. It is not benchmark-performance evidence.
 
 Non-goals confirmed: no full PDE training, no rollout evaluation, no ablation, no CDI regeneration, no `256x256` scaling, and no paper-facing artifact assembly.
 
@@ -28,6 +30,14 @@ Non-goals confirmed: no full PDE training, no rollout evaluation, no ablation, n
 - Dtype: `float32`.
 - Grid fields per trajectory: `grid/t` shape `[101]`, `grid/x` shape `[128]`, and `grid/y` shape `[128]`.
 - Channel contract: one real SWE state channel, adapted to supervised PyTorch tensors as `(C,H,W)` and emitted directly as real state, not CDI complex output.
+
+## Hybrid ResNet Channel Adapter Boundary
+
+This SWE path does not route data through the ptychographic `PtychoPINN_Lightning` wrapper. The registered CDI `architecture="hybrid_resnet"` path can consume multiple ptychographic channels through `data_config.C`, but it treats those channels as object-patch channels and emits complex real/imag object outputs for the CDI forward model. That is the wrong contract for real PDE state fields.
+
+For SWE, `HybridResnetSweModel` keeps the full supervised Hybrid ResNet encoder-bottleneck-decoder body: `SpatialLifter(in_channels, hidden_channels)`, Hybrid ResNet encoder blocks, downsampling, the ResNet bottleneck, CycleGAN-style upsampling, and a final `Conv2d(..., out_channels, kernel_size=1)`. Multichannel non-ptychography data therefore do not require changing the spectral/local/ResNet/upsampling body. They require dropping the ptychographic physics boundary and using the supervised real-channel adapter pattern, with `in_channels` and `out_channels` set by the benchmark tensor contract and pad/crop added if downsampling needs spatial divisibility.
+
+The SWE smoke dataset is single-channel; the same adapter pattern is used for the OpenFWI smoke path with five input channels and one output channel.
 
 ## Split Manifest
 
@@ -111,7 +121,7 @@ No model wrote a blocker artifact. FNO was importable and runnable in the enviro
 - The selected grouped SWE state layout is unambiguous after applying the virtual `*/data` adapter.
 - The bounded smoke loader reads one-step pairs lazily instead of loading the full HDF5 file into memory.
 - Hybrid ResNet-compatible one-step training/evaluation succeeded.
-- Both baseline smoke runs succeeded, so the OpenFWI FlatVel-A fallback pivot is not triggered by this gate.
+- Both baseline smoke runs succeeded, so the OpenFWI FlatVel-A fallback pivot is not triggered by this readiness gate. This is a data/contract/runtime decision only; the smoke metrics are not benchmark-performance evidence.
 - Freshness verification passed: root manifests and per-model provenance/results were written after the tracked start marker, record run ID `20260420T105459.340303Z`, and match tracked PID `3037364`.
 - No human-scope block remains from data access, split construction, metric calculation, or quick local baseline feasibility.
 
@@ -133,4 +143,4 @@ No model wrote a blocker artifact. FNO was importable and runnable in the enviro
 
 ## Decision
 
-Decision: proceed with longer SWE execution
+Decision: proceed with longer SWE execution for benchmark-performance assessment

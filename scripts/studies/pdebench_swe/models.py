@@ -60,7 +60,7 @@ class PadCropWrapper(nn.Module):
 
 
 class HybridResnetSweModel(nn.Module):
-    """Supervised real-channel PDE adapter using Hybrid ResNet components."""
+    """Supervised real-channel PDE adapter for the Hybrid ResNet body."""
 
     def __init__(
         self,
@@ -144,7 +144,7 @@ def build_model(
     spatial_shape: tuple[int, int],
     smoke_config: Mapping[str, Any],
 ) -> nn.Module:
-    """Build a tiny one-step supervised model with `model(x)` semantics."""
+    """Build a supervised model with ordinary real-channel `model(x) -> y` semantics."""
     name = model_name.strip().lower()
     hidden_channels = int(smoke_config.get("hidden_channels", 8))
     fno_modes = int(smoke_config.get("fno_modes", 4))

@@ -1,10 +1,14 @@
 # PDEBench SWE Longer Execution Summary
 
+Status note, 2026-04-20: this SWE-only summary is historical Phase 2 evidence and is superseded for the next PDE tranche by `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md`. Its selected run remains underconfigured, unseeded, and capped decision-support evidence only; it is not a paper-facing competitiveness result. The amended PDE path is a native `128x128` PDEBench image suite covering SWE, Darcy Flow, and 2D diffusion-reaction. Meaningful benchmark rows now require the full available training split after validation/test holdout.
+
 ## Scope
 
 This is the Roadmap Phase 2 longer-execution gate for the selected PDEBench 2D Shallow Water Equations (`swe`) primary benchmark. It covers one-step next-state prediction for Hybrid ResNet, FNO, and U-Net under one shared data, split, normalization, metric, and evaluation contract.
 
-Post-review seed caveat: the selected run below was launched before the longer runner recorded a model/training RNG seed. Its metrics are retained only as unseeded observed evidence for the SWE pivot screen, not as fixed-seed paper-facing evidence. The current runner and schema-migrated reusable budget now require `training_seed=20260420` for reruns.
+Post-review evidence caveat: the selected run below was launched before the longer runner recorded a model/training RNG seed and before the Phase 2 roadmap explicitly required the grid-lines Hybrid ResNet recipe for PDE competitiveness. Its metrics are retained only as underconfigured, unseeded observed evidence for the SWE pivot screen, not as fixed-seed paper-facing competitiveness evidence. The current runner and schema-migrated reusable budget now require `training_seed=20260420`; any rerun used for competitiveness must also inherit the current Hybrid ResNet recipe from `docs/model_baselines.md` or document an intentional override. The inherited recipe includes `fno_modes=12`, hidden width `32`, `fno_blocks=4`, MAE training loss, Adam `lr=2e-4`, and `ReduceLROnPlateau` with factor `0.5`, patience `2`, min LR `1e-4`, and threshold `0.0`. Smoke-gate metrics are feasibility evidence only, not benchmark-performance or competitiveness evidence.
+
+Architecture adapter boundary: the SWE run uses a supervised real-channel Hybrid ResNet adapter rather than the ptychographic `PtychoPINN_Lightning` physics wrapper. The registered CDI wrapper can consume `data_config.C` ptychographic channels, but it treats them as object-patch channels and converts real/imag generator output into complex CDI object patches. The SWE adapter keeps the full Hybrid ResNet encoder-bottleneck-decoder body with ordinary real-channel input and output heads; what it drops is the CDI physics boundary. A true multichannel non-ptychography benchmark such as OpenFWI uses the same pattern with five input channels and one output channel.
 
 Non-goals respected: no CDI Phase 3 anchor regeneration, no Phase 4 `256x256` CDI scaling, no OpenFWI execution, no rollout evaluation, no manuscript prose, and no paper-facing artifact assembly.
 
@@ -69,9 +73,10 @@ Summary: the PDEBench repository code is MIT licensed except where otherwise sta
 
 - Epochs: `15`.
 - Batch size: `16`.
-- Learning rate: `1e-3`.
+- Learning rate: `1e-3` in the historical selected run.
+- Training recipe caveat: the selected run did not use the required inherited recipe for a promoted competitiveness result. It used the earlier SWE profiles (`fno_modes=8`, hidden width `16`, reduced Hybrid ResNet local depth) and did not record the grid-lines plateau schedule (`lr=2e-4`, `ReduceLROnPlateau`, factor `0.5`, patience `2`, min LR `1e-4`, threshold `0.0`).
 - Selected-run training/model seed: not recorded by selected run `20260420T115509.961336393Z`; this remains a historical provenance gap for the selected metrics.
-- Reusable budget training/model seed: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/run_budget.json` now includes `training_seed=20260420` and validates under the current runner contract for reruns.
+- Reusable budget training/model seed: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/run_budget.json` includes `training_seed=20260420` and validates under the current runner contract for reruns, but the historical selected metrics remain underconfigured unless rerun with the current recipe.
 - Max train trajectories: `800`.
 - Max validation trajectories: `100`.
 - Max test trajectories: `100`.
@@ -115,7 +120,7 @@ This row is subject to the same unseeded-evidence caveat as the local baselines.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `hybrid_resnet_base` | 291586 | 7500 | 0.0026856791 | 0.0026427819 | 0.0027612660 | 80.6694 | 423643136 |
 
-The best local baseline was `unet_base` with test `err_nRMSE=0.0013982666`. Hybrid ResNet test `err_nRMSE=0.0026427819`, a relative gap of `0.8900414694` versus the best baseline. This fails the plan's operational viability rule: Hybrid ResNet must be no worse than `10%` relative above the best local baseline before ablations are run.
+The best local baseline was `unet_base` with test `err_nRMSE=0.0013982666`. Hybrid ResNet test `err_nRMSE=0.0026427819`, a relative gap of `0.8900414694` versus the best baseline. Under the historical SWE budget, this failed the then-recorded operational viability rule. After the baseline-recipe correction, this row must not be cited as definitive evidence that Hybrid ResNet is noncompetitive under the required Phase 2 recipe.
 
 ## Ablations
 
@@ -144,16 +149,16 @@ No published SOTA number is used as a same-protocol result in this summary. Any 
 - Full and run-subset split manifests are separate and deterministic.
 - Normalization limits are recorded as samples, not batches.
 - CUDA peak memory is reset per profile and reported as `per_profile_cuda_peak`.
-- Hybrid ResNet, FNO, and U-Net completed under one data/split/horizon/normalization/metric contract, but the selected run lacks fixed model/training seed provenance and is downgraded to unseeded observed evidence.
+- Hybrid ResNet, FNO, and U-Net completed under one data/split/horizon/normalization/metric contract, but the selected run lacks fixed model/training seed provenance and did not inherit the required Hybrid ResNet recipe, so it is downgraded to underconfigured unseeded observed evidence.
 - Post-review runner behavior now rejects any live `logs/longer.pid` root regardless of stale `logs/longer.exit_code` evidence, rejects dead/stale PID markers without exit-code evidence, removes stale per-run completion evidence at fresh run start, requires fresh per-run marker validation with `logs/longer.exit_code=0`, verifies invocation `output_root` against the validated selected run root, requires `training_seed` in the run budget, records the seed in invocation/profile artifacts, and requires both FNO and U-Net for local-baseline completeness.
-- The delivered reusable budget validates with `load_run_budget()` and includes `training_seed=20260420`; the selected run remains downgraded because its per-run provenance was produced before that contract was recorded.
+- The delivered reusable budget validates with `load_run_budget()` and includes `training_seed=20260420`; the selected run remains downgraded because its per-run provenance and profile/training recipe were produced before the corrected contract was recorded.
 - The long-run completion is bound to the persisted selected run root and tracked child PID; `logs/longer.exit_code` contains `0`.
 - No CDI, OpenFWI execution, `256x256` scaling, paper-facing artifact assembly, or stable core physics/model module edit was performed.
 
 ## Residual Risks
 
-- This is one unseeded observed run and one one-step budget. It is sufficient only as a conservative Phase 2 pivot signal, not as fixed-seed reproducible or broad robustness evidence.
-- The local U-Net baseline is much stronger on this one-step subset than Hybrid ResNet and FNO; this may reflect task fit, capacity, optimization, or the simplicity of the short-horizon SWE subset.
+- This is one underconfigured, unseeded observed run and one one-step budget. It is sufficient only as a conservative Phase 2 pivot signal, not as fixed-seed reproducible, baseline-recipe competitiveness, or broad robustness evidence.
+- The local U-Net baseline is much stronger on this one-step subset than Hybrid ResNet and FNO under the historical budget; this may reflect task fit, capacity, optimization, the missing inherited recipe, or the simplicity of the short-horizon SWE subset.
 - The OpenFWI fallback still requires a separate approved execution tranche before it can replace this failed SWE primary for the PDE pillar.
 
-Decision: pivot to OpenFWI FlatVel-A
+Decision: pivot to OpenFWI FlatVel-A for fallback execution; do not promote the historical SWE row as final Hybrid ResNet competitiveness evidence under the corrected recipe.

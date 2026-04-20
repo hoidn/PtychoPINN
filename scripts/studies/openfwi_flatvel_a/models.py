@@ -14,7 +14,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ptycho_torch.generators.fno import SpatialLifter
-from ptycho_torch.generators.hybrid_resnet import HybridResnetEncoderBlock
+from ptycho_torch.generators.hybrid_resnet import AvgPoolConvDownsample, HybridResnetEncoderBlock
+from ptycho_torch.generators.resnet_components import CycleGanUpsampler, ResnetBottleneck
 from scripts.studies.openfwi_flatvel_a.run_config import get_model_profile
 
 
@@ -33,22 +34,51 @@ class PadCropWrapper(nn.Module):
 
 
 class HybridResnetSmoke(nn.Module):
-    """Small supervised adapter using existing Hybrid ResNet building blocks."""
+    """Supervised real-channel adapter for the Hybrid ResNet body."""
 
-    def __init__(self, in_channels: int, out_channels: int, hidden_channels: int, modes: int, blocks: int):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: int,
+        modes: int,
+        fno_blocks: int,
+        resnet_blocks: int,
+        downsample_steps: int,
+    ):
         super().__init__()
         self.lifter = SpatialLifter(in_channels, hidden_channels)
-        self.blocks = nn.Sequential(
-            *[HybridResnetEncoderBlock(hidden_channels, modes=modes) for _ in range(max(1, int(blocks)))]
+        channels = hidden_channels
+        self.encoder_blocks = nn.ModuleList()
+        self.downsample_layers = nn.ModuleList()
+        for index in range(max(1, int(fno_blocks))):
+            self.encoder_blocks.append(HybridResnetEncoderBlock(channels, modes=modes))
+            if index < downsample_steps:
+                self.downsample_layers.append(AvgPoolConvDownsample(channels, channels * 2))
+                channels *= 2
+        self.resnet = ResnetBottleneck(channels, n_blocks=max(1, int(resnet_blocks)))
+        actual_downsample_steps = len(self.downsample_layers)
+        upsample_widths = [channels]
+        for _ in range(actual_downsample_steps):
+            upsample_widths.append(max(hidden_channels, upsample_widths[-1] // 2))
+        self.upsample_layers = nn.ModuleList(
+            [
+                CycleGanUpsampler(upsample_widths[index], upsample_widths[index + 1])
+                for index in range(actual_downsample_steps)
+            ]
         )
-        self.local = nn.Sequential(
-            nn.Conv2d(hidden_channels, hidden_channels, kernel_size=3, padding=1),
-            nn.GELU(),
-            nn.Conv2d(hidden_channels, out_channels, kernel_size=1),
-        )
+        self.output = nn.Conv2d(upsample_widths[-1], out_channels, kernel_size=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self.local(self.blocks(self.lifter(x)))
+        x = self.lifter(x)
+        for index, block in enumerate(self.encoder_blocks):
+            x = block(x)
+            if index < len(self.downsample_layers):
+                x = self.downsample_layers[index](x)
+        x = self.resnet(x)
+        for upsample in self.upsample_layers:
+            x = upsample(x)
+        return self.output(x)
 
 
 class SmallUNet(nn.Module):
@@ -104,18 +134,23 @@ def build_model(
     spatial_shape: tuple[int, int],
     profile_config: Mapping[str, Any] | None,
 ) -> nn.Module:
+    """Build a supervised model with ordinary real-channel `model(x) -> y` semantics."""
     profile = get_model_profile(profile_id)
     config = {**profile.to_model_config(), **dict(profile_config or {})}
     hidden_channels = int(config.get("hidden_channels") or 8)
     if profile.base_model == "hybrid_resnet":
+        downsample_steps = int(config.get("hybrid_downsample_steps") or 2)
         return PadCropWrapper(
             HybridResnetSmoke(
                 in_channels,
                 out_channels,
                 hidden_channels,
                 modes=int(config.get("fno_modes") or 4),
-                blocks=int(config.get("fno_blocks") or 2),
-            )
+                fno_blocks=int(config.get("fno_blocks") or 2),
+                resnet_blocks=int(config.get("hybrid_resnet_blocks") or 1),
+                downsample_steps=downsample_steps,
+            ),
+            multiple=2 ** max(0, downsample_steps),
         )
     if profile.base_model == "unet":
         return PadCropWrapper(SmallUNet(in_channels, out_channels, hidden_channels), multiple=2)
@@ -136,11 +171,13 @@ def count_parameters(model: nn.Module) -> int:
 
 
 def describe_model(model: nn.Module, *, profile_id: str, profile_config: Mapping[str, Any]) -> dict[str, Any]:
+    profile = get_model_profile(profile_id)
+    config = {**profile.to_model_config(), **dict(profile_config)}
     return {
         "profile_id": profile_id,
         "class_name": model.__class__.__name__,
         "parameter_count": count_parameters(model),
-        "profile_config": dict(profile_config),
+        "profile_config": config,
     }
 
 

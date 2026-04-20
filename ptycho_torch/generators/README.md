@@ -15,7 +15,7 @@ The generator registry enables architecture selection via the `config.model.arch
 | `fno_vanilla` | Constant-resolution FNO baseline | ✅ Integrated |
 | `hybrid_resnet` | FNO encoder + CycleGAN ResNet‑6 decoder | ✅ Integrated |
 
-All architectures train through `PtychoPINN_Lightning` with the same physics loss and stitching behavior.
+All registered generator architectures in this package train through `PtychoPINN_Lightning` with the same physics loss and stitching behavior. Study-specific supervised adapters that reuse generator components live outside this registry and define their own `model(x) -> y` channel contract.
 
 ## Architecture Details
 
@@ -58,6 +58,8 @@ The Hybrid ResNet architecture (`architecture='hybrid_resnet'`) replaces the Hyb
 1. FNO encoder with two downsampling steps (N → N/4)
 2. ResNet‑6 bottleneck at constant N/4 resolution
 3. CycleGAN upsamplers (ConvTranspose2d kernel=3, stride=2, padding=1, output_padding=1)
+
+Scope boundary: the registered `architecture='hybrid_resnet'` builder is the CDI/PtychoPINN path. Its `C` value comes from `data_config.C`, represents ptychographic object-patch grouping, and is coupled to the real/imag complex output adapter used by `PtychoPINN_Lightning`. Supervised non-ptychography studies should not reuse that `C` contract. They should reuse the full Hybrid ResNet body behind an ordinary `model(x) -> y` adapter with task-derived `in_channels` and `out_channels`, as in the PDEBench SWE and OpenFWI study adapters.
 
 **Optional parameters:**
 - `resnet_width`: Fixed bottleneck width for `hybrid_resnet` (must be divisible by 4).
