@@ -14,9 +14,15 @@ from torch.utils.data import Dataset
 
 EXPECTED_DATA_SHAPE_SUFFIX = (5, 1000, 70)
 EXPECTED_MODEL_SHAPE_SUFFIX = (1, 70, 70)
+EXPECTED_SHARD_SAMPLES = 500
 
 
-def inspect_shard_pair(data_path: Path, model_path: Path) -> dict[str, Any]:
+def inspect_shard_pair(
+    data_path: Path,
+    model_path: Path,
+    *,
+    expected_samples: int | None = EXPECTED_SHARD_SAMPLES,
+) -> dict[str, Any]:
     """Inspect a seismic/velocity shard pair without eager loading."""
     data_path = Path(data_path).expanduser().resolve()
     model_path = Path(model_path).expanduser().resolve()
@@ -30,7 +36,14 @@ def inspect_shard_pair(data_path: Path, model_path: Path) -> dict[str, Any]:
     if tuple(model_shape[1:]) != EXPECTED_MODEL_SHAPE_SUFFIX:
         differences.append("model_shape_suffix")
     if data_shape[0] != model_shape[0]:
-        differences.append("sample_count")
+        differences.append("paired_sample_count")
+    if expected_samples is not None:
+        if data_shape[0] != int(expected_samples):
+            differences.append("data_sample_count")
+        if model_shape[0] != int(expected_samples):
+            differences.append("model_sample_count")
+    expected_data_shape = [int(expected_samples), *EXPECTED_DATA_SHAPE_SUFFIX] if expected_samples is not None else None
+    expected_model_shape = [int(expected_samples), *EXPECTED_MODEL_SHAPE_SUFFIX] if expected_samples is not None else None
     return {
         "data_shard": data_path.name,
         "model_shard": model_path.name,
@@ -41,6 +54,10 @@ def inspect_shard_pair(data_path: Path, model_path: Path) -> dict[str, Any]:
         "data_dtype": str(data.dtype),
         "model_dtype": str(model.dtype),
         "num_samples": int(min(data_shape[0], model_shape[0])),
+        "sample_count_contract": "flatvel_a_real_shard" if expected_samples is not None else "synthetic_fixture",
+        "expected_samples": int(expected_samples) if expected_samples is not None else None,
+        "expected_data_shape": expected_data_shape,
+        "expected_model_shape": expected_model_shape,
         "expected_data_shape_suffix": list(EXPECTED_DATA_SHAPE_SUFFIX),
         "expected_model_shape_suffix": list(EXPECTED_MODEL_SHAPE_SUFFIX),
         "status": "valid" if not differences else "schema_difference",

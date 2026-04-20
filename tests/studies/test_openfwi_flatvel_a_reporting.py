@@ -53,3 +53,24 @@ def test_collator_emits_data_access_block_decision(tmp_path):
 
     assert summary["data_access_complete"] is False
     assert summary["recommended_decision_input"] == "block_data_access"
+
+
+def test_collator_ignores_stale_data_access_blocker_when_current_metrics_exist(tmp_path):
+    from scripts.studies.openfwi_flatvel_a.reporting import collate_comparison
+
+    run_root = tmp_path / "run"
+    common = {
+        "run_id": "current",
+        "split_manifest": "split_manifest.json",
+        "normalization_stats": "normalization_stats.json",
+        "metric_units": "denormalized_velocity",
+    }
+    _write_json(run_root / "data_access_blocker.json", {"run_id": "old", "reason": "missing_required_shards"})
+    _write_json(run_root / "runs/hybrid_resnet_smoke/metrics.json", {**common, "MAE": 3.0, "RMSE": 4.0, "SSIM": 0.5})
+    _write_json(run_root / "runs/unet_smoke/metrics.json", {**common, "MAE": 2.0, "RMSE": 3.0, "SSIM": 0.6})
+
+    summary = collate_comparison(run_root, profiles=["hybrid_resnet_smoke", "unet_smoke"], run_id="current")
+
+    assert summary["data_access_complete"] is True
+    assert summary["recommended_decision_input"] == "proceed_candidate"
+    assert summary["ignored_stale_data_access_blocker"]["run_id"] == "old"

@@ -107,26 +107,30 @@ def collate_comparison(run_root: Path, *, profiles: list[str], run_id: str | Non
     """Collate local smoke metrics/blockers and write CSV/JSON summaries."""
     run_root = Path(run_root)
     data_blocker_path = run_root / "data_access_blocker.json"
+    ignored_stale_data_access_blocker = None
     if data_blocker_path.exists():
         blocker = _read_json(data_blocker_path)
-        rows = [
-            {"profile_id": profile, "status": "blocked", "blocker_reason": blocker.get("reason")}
-            for profile in profiles
-        ]
-        summary = {
-            "schema_version": "openfwi_flatvel_a_comparison_summary_v1",
-            "run_id": run_id,
-            "data_access_complete": False,
-            "shape_validation_complete": False,
-            "hybrid_profile_complete": False,
-            "local_baseline_complete": False,
-            "official_inversionnet_status": "not_attempted",
-            "recommended_decision_input": "block_data_access",
-            "data_access_blocker": blocker,
-            "profiles": {row["profile_id"]: row for row in rows},
-        }
-        _write_outputs(run_root, summary, rows)
-        return summary
+        blocker_run_id = str(blocker.get("run_id")) if blocker.get("run_id") is not None else None
+        if run_id is None or blocker_run_id == str(run_id):
+            rows = [
+                {"profile_id": profile, "status": "blocked", "blocker_reason": blocker.get("reason")}
+                for profile in profiles
+            ]
+            summary = {
+                "schema_version": "openfwi_flatvel_a_comparison_summary_v1",
+                "run_id": run_id,
+                "data_access_complete": False,
+                "shape_validation_complete": False,
+                "hybrid_profile_complete": False,
+                "local_baseline_complete": False,
+                "official_inversionnet_status": "not_attempted",
+                "recommended_decision_input": "block_data_access",
+                "data_access_blocker": blocker,
+                "profiles": {row["profile_id"]: row for row in rows},
+            }
+            _write_outputs(run_root, summary, rows)
+            return summary
+        ignored_stale_data_access_blocker = blocker
 
     rows = [_profile_record(run_root, profile_id, run_id=run_id) for profile_id in profiles]
     _validate_comparability(rows)
@@ -176,5 +180,7 @@ def collate_comparison(run_root: Path, *, profiles: list[str], run_id: str | Non
         "recommended_decision_input": decision,
         "profiles": profiles_by_id,
     }
+    if ignored_stale_data_access_blocker is not None:
+        summary["ignored_stale_data_access_blocker"] = ignored_stale_data_access_blocker
     _write_outputs(run_root, summary, rows)
     return summary

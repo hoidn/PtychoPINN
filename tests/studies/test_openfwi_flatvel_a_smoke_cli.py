@@ -151,6 +151,7 @@ def test_synthetic_cpu_smoke_writes_metrics_provenance_and_comparison(tmp_path):
             "cpu",
             "--run-id",
             "smoke-test",
+            "--allow-synthetic-shard-samples",
         ]
     )
 
@@ -166,6 +167,51 @@ def test_synthetic_cpu_smoke_writes_metrics_provenance_and_comparison(tmp_path):
     assert (output_root / "comparison_summary.json").exists()
     comparison = json.loads((output_root / "comparison_summary.json").read_text())
     assert comparison["run_id"] == "smoke-test"
+    assert comparison["local_baseline_complete"] is True
+
+
+def test_plan_style_precreated_logs_and_launcher_pid_marker_runs_synthetic_smoke(tmp_path):
+    from scripts.studies.openfwi_flatvel_a.smoke import main
+
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    _write_openfwi_fixture(data_root)
+    output_root = tmp_path / "out"
+    log_root = output_root / "logs"
+    log_root.mkdir(parents=True)
+    (log_root / "smoke.run_id").write_text("plan-style-smoke", encoding="utf-8")
+    (log_root / "smoke.started_at_ns").write_text("1", encoding="utf-8")
+    (log_root / "smoke.pid").write_text(str(os.getpid()), encoding="utf-8")
+
+    rc = main(
+        [
+            "--data-root",
+            str(data_root),
+            "--output-root",
+            str(output_root),
+            "--profiles",
+            "hybrid_resnet_smoke,unet_smoke",
+            "--epochs",
+            "1",
+            "--batch-size",
+            "2",
+            "--train-samples",
+            "2",
+            "--val-samples",
+            "1",
+            "--test-samples",
+            "1",
+            "--device",
+            "cpu",
+            "--run-id",
+            "plan-style-smoke",
+            "--allow-synthetic-shard-samples",
+        ]
+    )
+
+    assert rc == 0
+    comparison = json.loads((output_root / "comparison_summary.json").read_text())
+    assert comparison["run_id"] == "plan-style-smoke"
     assert comparison["local_baseline_complete"] is True
 
 

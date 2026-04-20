@@ -12,11 +12,26 @@ def test_validate_expected_flatvel_shapes(tmp_path):
 
     _write_pair(tmp_path, "data1.npy", (4, 5, 1000, 70), "model1.npy", (4, 1, 70, 70))
 
-    payload = inspect_shard_pair(tmp_path / "data1.npy", tmp_path / "model1.npy")
+    payload = inspect_shard_pair(tmp_path / "data1.npy", tmp_path / "model1.npy", expected_samples=None)
 
     assert payload["data_shape"][1:] == [5, 1000, 70]
     assert payload["model_shape"][1:] == [1, 70, 70]
     assert payload["num_samples"] == 4
+    assert payload["sample_count_contract"] == "synthetic_fixture"
+
+
+def test_real_flatvel_shape_contract_requires_500_samples(tmp_path):
+    from scripts.studies.openfwi_flatvel_a.data import inspect_shard_pair
+
+    _write_pair(tmp_path, "data1.npy", (4, 5, 1000, 70), "model1.npy", (4, 1, 70, 70))
+
+    payload = inspect_shard_pair(tmp_path / "data1.npy", tmp_path / "model1.npy")
+
+    assert payload["status"] == "schema_difference"
+    assert "data_sample_count" in payload["differences"]
+    assert "model_sample_count" in payload["differences"]
+    assert payload["expected_data_shape"] == [500, 5, 1000, 70]
+    assert payload["expected_model_shape"] == [500, 1, 70, 70]
 
 
 def test_unexpected_shape_records_schema_difference(tmp_path):

@@ -775,10 +775,13 @@ RAW_ROOT="$PWD/.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-f
 RUN_ID="openfwi-smoke-$(date -u +%Y%m%dT%H%M%SZ)"
 RUN_ROOT="$RAW_ROOT/runs/$RUN_ID"
 TMUX_SESSION="openfwi_flatvel_a_smoke_${RUN_ID//[^A-Za-z0-9_]/_}"
+START_NS="$(date +%s%N)"
 mkdir -p "$RAW_ROOT/logs" "$RUN_ROOT/logs"
 printf '%s\n' "$RUN_ID" > "$RAW_ROOT/logs/selected_smoke.run_id"
 printf '%s\n' "$RUN_ROOT" > "$RAW_ROOT/logs/selected_smoke.run_root"
 printf '%s\n' "$TMUX_SESSION" > "$RAW_ROOT/logs/selected_smoke.tmux_session"
+printf '%s\n' "$RUN_ID" > "$RUN_ROOT/logs/smoke.run_id"
+printf '%s\n' "$START_NS" > "$RUN_ROOT/logs/smoke.started_at_ns"
 tmux new-session -d -s "$TMUX_SESSION" "bash -lc '
   set +e
   source ~/miniconda3/etc/profile.d/conda.sh
@@ -841,29 +844,22 @@ Run:
 python - <<'PY'
 import json
 from pathlib import Path
+from scripts.studies.openfwi_flatvel_a.smoke import validate_fresh_artifacts
+
 raw = Path(".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate")
 run_id = (raw / "logs/selected_smoke.run_id").read_text().strip()
 run_root = Path((raw / "logs/selected_smoke.run_root").read_text().strip())
-required = [
-    run_root / "invocation.json",
-    run_root / "invocation.sh",
-    run_root / "data_manifest.json",
-    run_root / "shard_shapes.json",
-    run_root / "split_manifest.json",
-    run_root / "normalization_stats.json",
-    run_root / "comparison_summary.json",
-    run_root / "comparison_summary.csv",
-    run_root / "runs/hybrid_resnet_smoke/metrics.json",
-]
-missing = [str(path) for path in required if not path.exists()]
-if missing:
-    raise SystemExit(f"missing required OpenFWI smoke artifacts: {missing}")
-exit_code = (run_root / "logs/smoke.exit_code").read_text().strip()
-if exit_code != "0":
-    raise SystemExit(f"smoke exit code is not 0: {exit_code}")
+marker_run_id = (run_root / "logs/smoke.run_id").read_text().strip()
+if marker_run_id != run_id:
+    raise SystemExit(f"smoke run marker does not match selected run: {marker_run_id} != {run_id}")
+start_ns = int((run_root / "logs/smoke.started_at_ns").read_text().strip())
+errors = validate_fresh_artifacts(output_root=run_root, run_id=run_id, start_ns=start_ns)
+profile_metrics = run_root / "runs/hybrid_resnet_smoke/metrics.json"
+if not profile_metrics.exists():
+    errors.append(f"missing hybrid metrics: {profile_metrics}")
+if errors:
+    raise SystemExit("OpenFWI smoke freshness validation failed:\n" + "\n".join(errors))
 summary = json.loads((run_root / "comparison_summary.json").read_text())
-if summary.get("run_id") != run_id:
-    raise SystemExit("comparison summary run_id does not match selected run")
 if not summary.get("local_baseline_complete"):
     raise SystemExit("local baseline is incomplete")
 print("OpenFWI smoke artifacts are fresh and structurally complete")

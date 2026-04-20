@@ -1,14 +1,15 @@
 ## Completed In This Pass
 
-- Fixed the OpenFWI FlatVel-A smoke output-root guard so it rejects live `logs/smoke.pid` markers at the selected run root as well as nested `runs/*/logs/smoke.pid` markers.
-- Added rejection for stale direct PID markers that lack `logs/smoke.exit_code` evidence, preserving the long-run guardrail before duplicate writes.
-- Implemented the official InversionNet compatibility probe for supplied external checkouts: repo path, git commit, license path, controlled import, `InversionNet` resolution, and bounded CPU forward-shape probe.
-- Added regression tests for the direct `$RUN_ROOT/logs/smoke.pid` layout and supplied-checkout official probe path.
-- Updated the durable OpenFWI smoke-gate summary to describe the implemented probe and guard behavior.
+- Aligned the OpenFWI smoke CLI guard with the approved tmux prelaunch layout: the selected run root may contain only `logs/smoke.run_id`, `logs/smoke.started_at_ns`, and the current launcher-owned `logs/smoke.pid` before the CLI writes artifacts. Other live or incomplete PID markers remain rejected.
+- Updated the execution plan's real-launch and freshness steps to write selected-run start markers and call `validate_fresh_artifacts(...)`, so old artifacts are checked against the tracked start time before a selected run is treated as complete.
+- Fixed stale data-access blocker handling. Successful data resolution clears obsolete `data_access_blocker.json`, and `collate_comparison()` now validates blocker `run_id` before allowing a blocker to dominate current metrics.
+- Tightened real FlatVel-A shape validation to require full shard shapes `(500, 5, 1000, 70)` and `(500, 1, 70, 70)`, including leading sample count. Synthetic fixture support is explicit through `--allow-synthetic-shard-samples` and records `sample_count_contract: synthetic_fixture`.
+- Added regressions covering the approved prelaunch output-root layout, stale blocker/current metrics collation, and non-500 real-shard sample-count rejection.
+- Updated the durable OpenFWI smoke-gate summary to record the stricter shape contract, launcher guard behavior, and stale blocker handling.
 
 ## Completed Current-Scope Work
 
-- Addressed both high-severity implementation review findings.
+- Addressed all three high-severity implementation review findings.
 - Preserved the approved OpenFWI FlatVel-A fallback smoke-gate layout and kept changes inside `scripts/studies/openfwi_flatvel_a/`, focused tests, the durable summary, and this execution report.
 - Kept the current blocked gate decision unchanged because real FlatVel-A shards are still absent.
 
@@ -21,21 +22,18 @@
 ## Verification
 
 - Red checks before implementation:
-  - `pytest tests/studies/test_openfwi_flatvel_a_smoke_cli.py::test_direct_output_root_live_pid_marker_is_rejected_with_allow_existing tests/studies/test_openfwi_flatvel_a_smoke_cli.py::test_direct_output_root_pid_without_exit_code_is_rejected -v` -> failed as expected.
-  - `pytest tests/studies/test_openfwi_flatvel_a_models.py::test_official_inversionnet_probe_imports_existing_checkout_and_runs_forward -v` -> failed as expected.
+  - `pytest tests/studies/test_openfwi_flatvel_a_data.py::test_real_flatvel_shape_contract_requires_500_samples tests/studies/test_openfwi_flatvel_a_smoke_cli.py::test_plan_style_precreated_logs_and_launcher_pid_marker_runs_synthetic_smoke tests/studies/test_openfwi_flatvel_a_reporting.py::test_collator_ignores_stale_data_access_blocker_when_current_metrics_exist -v` -> failed as expected: default shape inspection accepted 4-sample shards, the parser/guard did not support the explicit synthetic/prelaunch path, and stale blockers still forced `block_data_access`.
 - Green checks after implementation:
-  - `pytest tests/studies/test_openfwi_flatvel_a_manifest.py tests/studies/test_openfwi_flatvel_a_data.py tests/studies/test_openfwi_flatvel_a_metrics.py tests/studies/test_openfwi_flatvel_a_models.py tests/studies/test_openfwi_flatvel_a_run_config.py tests/studies/test_openfwi_flatvel_a_smoke_cli.py tests/studies/test_openfwi_flatvel_a_reporting.py -v` -> 31 passed. Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate/review_fix/openfwi_focused_pytest.log`.
-  - `pytest tests/studies/test_studies_index_entries.py -v` -> 5 passed. Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate/review_fix/studies_index_pytest.log`.
-  - Structural summary check -> `OpenFWI smoke summary is structurally valid`.
-  - Plan pointer check -> `plan pointer is valid`.
+  - `pytest tests/studies/test_openfwi_flatvel_a_manifest.py tests/studies/test_openfwi_flatvel_a_data.py tests/studies/test_openfwi_flatvel_a_metrics.py tests/studies/test_openfwi_flatvel_a_models.py tests/studies/test_openfwi_flatvel_a_run_config.py tests/studies/test_openfwi_flatvel_a_smoke_cli.py tests/studies/test_openfwi_flatvel_a_reporting.py -v` -> 34 passed. Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate/review_fix_current/openfwi_focused_pytest.log`.
+  - `pytest tests/studies/test_studies_index_entries.py -v` -> 5 passed. Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate/review_fix_current/studies_index_pytest.log`.
+  - Structural summary check -> `OpenFWI smoke summary contains review-fix contract updates`.
+  - Plan freshness check -> `execution plan records selected-run start markers and freshness helper check`.
   - Output contract check -> execution report target exists under `artifacts/work/`.
-  - Summary decision check -> `OpenFWI fallback smoke gate summary decision is valid`.
-  - Forbidden later-phase summary check -> `no forbidden later-phase tracked summaries found`.
   - `git diff --check` on current-scope files -> clean.
-  - Official-source sanity check: downloaded LANL OpenFWI `network.py` and `LICENSE` to a temporary directory, then ran `probe_official_inversionnet(...)` -> `compatible`, forward shape `[1, 5, 1000, 70]` to `[1, 1, 70, 70]`.
 
 ## Residual Risks
 
 - The fallback PDE pillar remains blocked on real OpenFWI shard access.
 - The implemented official probe proves import and forward-shape compatibility only; it does not train or evaluate official InversionNet on OpenFWI data.
+- Synthetic smoke tests prove code paths and artifact schemas only; they are not scientific viability evidence for FlatVel-A.
 - The repository had substantial unrelated dirty state before this pass; only current-scope files should be staged.

@@ -21,6 +21,7 @@ from torch.utils.data import DataLoader
 
 from scripts.studies.invocation_logging import capture_runtime_provenance, write_invocation_artifacts
 from scripts.studies.openfwi_flatvel_a.data import (
+    EXPECTED_SHARD_SAMPLES,
     OpenFWIShardDataset,
     build_split_manifest,
     compute_normalization_stats,
@@ -63,6 +64,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--num-workers", type=int, default=0)
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--allow-existing-output-root", action="store_true")
+    parser.add_argument("--allow-synthetic-shard-samples", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--inspect-only", action="store_true")
     return parser.parse_args(argv)
 
@@ -85,6 +87,30 @@ def _pid_markers(output_root: Path) -> list[Path]:
     return markers
 
 
+def _is_current_launcher_marker(marker: Path, pid: str, output_root: Path) -> bool:
+    return (
+        marker == output_root / "logs" / "smoke.pid"
+        and pid == str(os.getpid())
+        and not marker.with_name("smoke.exit_code").exists()
+    )
+
+
+def _is_plan_prelaunch_layout(output_root: Path) -> bool:
+    if not output_root.exists():
+        return False
+    entries = list(output_root.iterdir())
+    if len(entries) != 1 or entries[0].name != "logs" or not entries[0].is_dir():
+        return False
+    allowed = {"smoke.pid", "smoke.run_id", "smoke.started_at_ns"}
+    log_entries = list(entries[0].iterdir())
+    if not all(path.name in allowed for path in log_entries):
+        return False
+    pid_marker = entries[0] / "smoke.pid"
+    if pid_marker.exists():
+        return _is_current_launcher_marker(pid_marker, pid_marker.read_text(encoding="utf-8").strip(), output_root)
+    return True
+
+
 def _guard_output_root(output_root: Path, *, allow_existing: bool) -> None:
     output_root = Path(output_root)
     live = []
@@ -92,6 +118,8 @@ def _guard_output_root(output_root: Path, *, allow_existing: bool) -> None:
     for marker in _pid_markers(output_root):
         pid = marker.read_text(encoding="utf-8").strip()
         exit_marker = marker.with_name("smoke.exit_code")
+        if _is_current_launcher_marker(marker, pid, output_root):
+            continue
         if _pid_is_live(pid):
             live.append((str(marker), pid))
         elif not exit_marker.exists():
@@ -100,7 +128,7 @@ def _guard_output_root(output_root: Path, *, allow_existing: bool) -> None:
         raise FileExistsError(f"live OpenFWI smoke output root exists: {live}")
     if incomplete:
         raise FileExistsError(f"incomplete OpenFWI smoke output root has missing exit code evidence: {incomplete}")
-    if output_root.exists() and any(output_root.iterdir()) and not allow_existing:
+    if output_root.exists() and any(output_root.iterdir()) and not allow_existing and not _is_plan_prelaunch_layout(output_root):
         raise FileExistsError(f"refusing to write into non-empty output root: {output_root}")
     output_root.mkdir(parents=True, exist_ok=True)
 
@@ -285,6 +313,10 @@ def run(args: argparse.Namespace, *, raw_argv: list[str]) -> int:
         collate_comparison(output_root, profiles=profiles, run_id=run_id)
         raise
 
+    stale_data_blocker = output_root / "data_access_blocker.json"
+    if stale_data_blocker.exists():
+        stale_data_blocker.unlink()
+
     manifest = build_data_manifest(
         data_root=data_root,
         shards=shards,
@@ -294,8 +326,9 @@ def run(args: argparse.Namespace, *, raw_argv: list[str]) -> int:
         run_id=run_id,
     )
     write_json(output_root / "data_manifest.json", manifest)
-    train_shapes = inspect_shard_pair(shards["data1.npy"], shards["model1.npy"])
-    test_shapes = inspect_shard_pair(shards["data49.npy"], shards["model49.npy"])
+    expected_samples = None if args.allow_synthetic_shard_samples else EXPECTED_SHARD_SAMPLES
+    train_shapes = inspect_shard_pair(shards["data1.npy"], shards["model1.npy"], expected_samples=expected_samples)
+    test_shapes = inspect_shard_pair(shards["data49.npy"], shards["model49.npy"], expected_samples=expected_samples)
     shape_payload = {
         "schema_version": "openfwi_flatvel_a_shard_shapes_v1",
         "run_id": run_id,

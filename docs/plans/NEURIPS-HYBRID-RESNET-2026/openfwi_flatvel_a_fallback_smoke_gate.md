@@ -31,6 +31,8 @@ Explicit non-goals confirmed: no CDI anchor regeneration, no CDI baseline or abl
 
 The smoke gate requires seismic shard shape `(500, 5, 1000, 70)` and velocity shard shape `(500, 1, 70, 70)` before any training. Because the required FlatVel-A shards were absent, shape validation did not run against real data.
 
+The implemented real-run validator now treats the leading sample count as part of the FlatVel-A contract, not just the trailing tensor axes. Synthetic fixture runs must opt in explicitly with `--allow-synthetic-shard-samples`; those artifacts record `sample_count_contract: synthetic_fixture` and are not valid real FlatVel-A evidence.
+
 Controlled blocker:
 
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate/data_access_blocker.json`
@@ -95,7 +97,8 @@ Published OpenFWI MAE/RMSE/SSIM rows for InversionNet, VelocityGAN, UPFWI, and I
 - Hybrid ResNet-compatible smoke: implemented and tested synthetically; blocked for real data.
 - Local baseline smoke: U-Net implemented and tested synthetically; blocked for real data.
 - Official InversionNet: metadata/import/forward probe implemented; not attempted against a real checkout because data access blocked.
-- Long-run guard: the CLI rejects live or incomplete `logs/smoke.pid` markers at the selected output root and nested `runs/*/logs/smoke.pid` markers before writing.
+- Long-run guard: the CLI accepts only the approved prelaunch layout at the selected run root (`logs/smoke.run_id`, `logs/smoke.started_at_ns`, and the current launcher-owned `logs/smoke.pid`) before writing. It still rejects other live or incomplete `logs/smoke.pid` markers at the selected output root and nested `runs/*/logs/smoke.pid` markers.
+- Reused-root freshness: once data resolution succeeds, obsolete `data_access_blocker.json` files are cleared before current artifacts are written. The comparison collator also validates blocker run IDs and ignores a stale data-access blocker when current-run metrics exist, preventing stale blockers from overriding successful current metrics.
 - Long-running tmux launch: not run because the freshness gate blocked before model execution.
 
 ## Raw Artifact Links
