@@ -48,6 +48,16 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** baselines, hybrid_resnet, recommended-params, scheduler, learning-rate, studies
 **Use this when:** You need the current recommended starting parameters for a real study or wrapper and do not want to infer "best practice" from defaults, prompts, or tests.
 
+### [NeurIPS Hybrid ResNet Phase 0 Evidence Inventory](plans/NEURIPS-HYBRID-RESNET-2026/evidence_inventory.md)
+**Description:** Durable Phase 0 inventory for the NeurIPS Hybrid ResNet campaign, separating paper-grade, decision-support, and not-usable CDI artifacts; recording N=256 as secondary scaling context; and listing neutral PDE candidates for Phase 1.
+**Keywords:** neurips, hybrid_resnet, evidence-inventory, cdi, pde, n256, provenance
+**Use this when:** Checking what CDI/PDE evidence was found before launching Phase 1 benchmark selection or Phase 3 CDI regeneration.
+
+### [NeurIPS Hybrid ResNet CDI Anchor Regeneration Plan](plans/NEURIPS-HYBRID-RESNET-2026/cdi_anchor_regeneration_plan.md)
+**Description:** Phase 0 regeneration note for the missing paper-grade `128x128` grid-lines Hybrid ResNet anchor, including baseline settings, wrapper/runner command source, provenance capture, metric contract, qualitative output plan, and runtime guardrails.
+**Keywords:** neurips, hybrid_resnet, cdi, regeneration, 128x128, grid-lines, provenance
+**Use this when:** Preparing the Roadmap Phase 3 fresh CDI anchor run after confirming no complete paper-grade historical anchor was recovered.
+
 ### [PtychoViT Workflow Guide](workflows/ptychovit.md)
 **Description:** Source-pinned interop contract for running the `pinn_ptychovit` model arm from grid-lines studies, including paired HDF5 requirements, checkpoint semantics, and troubleshooting notes.
 **Highlights:** Includes `Known Local Dataset Paths (Snapshot: 2026-03-03)` with `scan807`/`cameraman256` path preflight and canonical checkpoint guidance.
