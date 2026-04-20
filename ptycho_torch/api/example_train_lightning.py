@@ -41,14 +41,32 @@ from ptycho_torch.model import PtychoPINN_Lightning
 from ptycho_torch.beta_modules.model_unet import PtychoPINN_Lightning as UNetPtychoPINN
 from ptycho_torch.train_utils import is_effectively_global_rank_zero
 
-#Following the notebook, we'll be loading a configuration from another mlflow run and doing a short training run to show the api off
+# Training API — ConfigManager-first initialization.
+#
+# For training, ConfigManager is the authority: it defines the full
+# config space before any model is created.  _arch_frozen is False
+# (the default), so all fields — including architecture-critical ones
+# like N and C_model — can be freely set here.
+#
+# Flow:
+#   1. Load configs from JSON  (ConfigManager._from_json)
+#   2. Apply any overrides     (config_manager.update)
+#   3. Build dataloader
+#   4. Instantiate a fresh model from configs
+#   5. Train
 
-#2. Config Manager
+# ------------------------------------------------------------------
+# 1. Config Manager — user is the authority for all fields
+# ------------------------------------------------------------------
 json_dir = "/local/CDI-PINN/ptychopinn_torch/configs/publication_configs/4_q_multi_gpu_velociprobe.json"
 
 
 config_manager, _= ConfigManager._from_json(json_path = json_dir)
-# Update config manager                                              
+
+# ------------------------------------------------------------------
+# 2. Apply overrides.  _arch_frozen is False, so any field can be
+#    changed here (including N, C_model, etc. if switching datasets).
+# ------------------------------------------------------------------
 training_update = {'epochs': 40,
                    'epochs_fine_tune': 10,
                    'orchestrator': 'Lightning'}

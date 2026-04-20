@@ -2,14 +2,14 @@ from typing import Optional, Dict, Any, Tuple, Union, Protocol
 from enum import Enum
 from dataclasses import dataclass, replace
 import json
-from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig, update_existing_config
+from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig, update_existing_config, get_frozen_fields
 from ptycho_torch.utils import load_all_configs_from_mlflow, load_config_from_json, validate_and_process_config
 import os
 
 
 class ConfigManager:
     """
-    Manages config handling. Assumes configs are fully expoed to user
+    Manages config handling. Assumes configs are fully exposed to user
 
     Can load configs from either:
     1. Previous mlflow training run (which includes all necessary replication artifacts)
@@ -33,6 +33,10 @@ class ConfigManager:
             self.training_config = training_config or TrainingConfig()
             self.inference_config = inference_config or InferenceConfig()
             self.datagen_config = datagen_config or DatagenConfig()
+            # When True, writes to frozen fields in update() raise ValueError.
+            # Set by from_loaded_model() to protect architecture-critical fields
+            # after a checkpoint has been loaded.
+            self._arch_frozen: bool = False
 
     @classmethod
     def _from_mlflow(
@@ -128,6 +132,71 @@ class ConfigManager:
 
          return mlflow_manager
 
+    @classmethod
+    def from_loaded_model(cls, model: 'PtychoModel') -> 'ConfigManager':
+        """
+        Model-first initialization for inference: the loaded checkpoint is the
+        authority for architecture-critical configs.
+
+        Extracts DataConfig, ModelConfig, TrainingConfig, and InferenceConfig
+        directly from a loaded PtychoPINN_Lightning module, then enables frozen
+        mode so that subsequent calls to update() raise on writes to any field
+        tagged metadata={'frozen': True}.
+
+        Use this instead of constructing a ConfigManager from JSON when you are
+        running inference on an existing checkpoint and want to guard against
+        silently overriding architecture fields (N, C_model, n_filters_scale, …).
+
+        Example::
+
+            ptycho_model = PtychoModel._load(strategy='lightning', ...)
+            config_manager = ConfigManager.from_loaded_model(ptycho_model)
+            config_manager.update(inference_config={'middle_trim': 48})  # OK
+            config_manager.update(model_config={'N': 128})               # raises ValueError
+        """
+        lightning = model.model  # PtychoPINN_Lightning instance
+        instance = cls(
+            data_config=lightning.data_config,
+            model_config=lightning.model_config,
+            training_config=lightning.training_config,
+            inference_config=lightning.inference_config,
+            datagen_config=DatagenConfig(),
+        )
+        instance._arch_frozen = True
+        return instance
+
+    def validate_arch_compatibility(self, model: 'PtychoModel') -> None:
+        """
+        Field-by-field comparison of frozen (architecture-critical) fields between
+        this ConfigManager and a loaded model.
+
+        Raises ValueError listing every mismatched field so the caller can
+        decide whether to correct the config or abort.  Call this after
+        from_loaded_model() + any user overrides to get an explicit audit.
+
+        Args:
+            model: A PtychoModel whose .model attribute is a PtychoPINN_Lightning.
+        """
+        lightning = model.model
+        mismatches = []
+        for cfg_name, local, remote in [
+            ('data_config',  self.data_config,  lightning.data_config),
+            ('model_config', self.model_config, lightning.model_config),
+        ]:
+            for field_name in get_frozen_fields(local):
+                local_val  = getattr(local,  field_name)
+                remote_val = getattr(remote, field_name)
+                if local_val != remote_val:
+                    mismatches.append(
+                        f"  {cfg_name}.{field_name}: "
+                        f"ConfigManager={local_val!r} vs model={remote_val!r}"
+                    )
+        if mismatches:
+            raise ValueError(
+                "Architecture config mismatch between ConfigManager and loaded model:\n"
+                + "\n".join(mismatches)
+            )
+
     def update(
         self,
         data_config: Optional[Dict[str, Any]] = None,
@@ -135,12 +204,22 @@ class ConfigManager:
         training_config: Optional[Dict[str, Any]] = None,
         inference_config: Optional[Dict[str, Any]] = None,
         datagen_config: Optional[Dict[str, Any]] = None,
+        strict_frozen: Optional[bool] = None,
     ):
-        "Manually update config fields, exposing this to the user"
+        """
+        Manually update config fields.
+
+        Args:
+            strict_frozen: Override the instance-level _arch_frozen flag.
+                           Defaults to self._arch_frozen when None.  Pass
+                           False explicitly to allow architecture field writes
+                           even on a frozen ConfigManager (use with care).
+        """
+        effective_strict = self._arch_frozen if strict_frozen is None else strict_frozen
         if data_config:
-            update_existing_config(self.data_config, data_config)
+            update_existing_config(self.data_config, data_config, strict_frozen=effective_strict)
         if model_config:
-            update_existing_config(self.model_config, model_config)
+            update_existing_config(self.model_config, model_config, strict_frozen=effective_strict)
         if training_config:
             update_existing_config(self.training_config, training_config)
         if inference_config:
@@ -630,6 +709,33 @@ class PtychoModel:
         return instance
     
     @staticmethod
+    def _extract_configs_from_checkpoint(
+        checkpoint_path: str,
+    ) -> Tuple[Optional[DataConfig], Optional[ModelConfig],
+               Optional[TrainingConfig], Optional[InferenceConfig]]:
+        """
+        Reads architecture and operational configs directly from a Lightning .ckpt
+        file without instantiating the model.
+
+        Lightning persists the __init__ arguments of PtychoPINN_Lightning via
+        save_hyperparameters(), so the dataclass objects are stored under the
+        'hyper_parameters' key in the checkpoint dict.
+
+        Returns a 4-tuple (data_config, model_config, training_config,
+        inference_config).  Any entry is None when missing from the checkpoint
+        (fall back to loading from the run's configs/ JSON directory).
+        """
+        import torch as _torch
+        ckpt = _torch.load(checkpoint_path, map_location='cpu')
+        hp = ckpt.get('hyper_parameters', {})
+        return (
+            hp.get('data_config'),
+            hp.get('model_config'),
+            hp.get('training_config'),
+            hp.get('inference_config'),
+        )
+
+    @staticmethod
     def load_from_mlflow(
         run_id: str = None,
         mlflow_tracking_uri: Optional[str] = None
@@ -668,39 +774,43 @@ class PtychoModel:
         training_config: TrainingConfig,
         inference_config: InferenceConfig,
         run_path: str,
-        model_class: Any
+        model_class: Any,
+        checkpoint_path: str = None
     ) -> Any:
         """
         Loads model from Lightning checkpoint.
-        
+
         Args:
             run_path: Full path to run directory (e.g., 'base_dir/run_20240115_143022/')
             model_class: Lightning module class to instantiate
-            
+            checkpoint_path: Optional explicit path to .ckpt file
+
         Returns:
             Loaded Lightning model
-            
+
         Raises:
             FileNotFoundError: If checkpoint not found
         """
         from pathlib import Path
-        
+
         run_path = Path(run_path)
-        checkpoint_path = run_path / "checkpoints" / "best-checkpoint.ckpt"
-        
+
+        if not checkpoint_path:
+            checkpoint_path = run_path / "checkpoints" / "best-checkpoint.ckpt"
+
         if not checkpoint_path.exists():
             raise FileNotFoundError(
                 f"Checkpoint not found at {checkpoint_path}. "
                 f"Expected structure: {run_path}/checkpoints/best-checkpoint.ckpt"
             )
-        
+
         print(f"Loading model from {checkpoint_path}")
         model = model_class.load_from_checkpoint(str(checkpoint_path),
                                                  model_config = model_config,
                                                  data_config = data_config,
                                                  training_config = training_config,
                                                  inference_config = inference_config)
-        
+
         return model
     
     def save_mlflow(
