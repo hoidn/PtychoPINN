@@ -69,7 +69,7 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Preparing the Roadmap Phase 3 fresh CDI anchor run after confirming no complete paper-grade historical anchor was recovered.
 
 ### [NeurIPS Hybrid ResNet PDE Benchmark Selection](plans/NEURIPS-HYBRID-RESNET-2026/pde_benchmark_selection.md)
-**Description:** Roadmap Phase 1 benchmark scorecard and primary/fallback decision for the required PDE pillar, selecting PDEBench 2D fluids as primary and OpenFWI 2D acoustic FWI as fallback with Phase 2 smoke-run gates.
+**Description:** Roadmap Phase 1 benchmark scorecard and primary/fallback decision for the required PDE pillar, selecting PDEBench 2D Shallow Water Equations (`swe`) as primary and OpenFWI FlatVel-A 2D acoustic FWI as fallback with Phase 2 smoke-run gates.
 **Keywords:** neurips, hybrid_resnet, pde, benchmark-selection, pdebench, openfwi, phase-1
 **Use this when:** Starting the Phase 2 PDE benchmark execution plan or checking why PDEBench, OpenFWI, and PDEArena Maxwell-3D were selected or rejected.
 

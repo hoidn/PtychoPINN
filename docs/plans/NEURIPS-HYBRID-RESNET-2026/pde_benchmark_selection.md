@@ -4,10 +4,11 @@
 
 This is Roadmap Phase 1 for `NEURIPS-HYBRID-RESNET-2026`. It is a selection tranche, not an execution tranche: no PDE adapter, production dependency, full dataset download, PDE training, CDI anchor regeneration, `256x256` scaling, or `/home/ollie/Documents/neurips/` paper-facing artifact is created here.
 
-Gate status: selected with a bounded primary path.
+Gate status: selected with an exact primary benchmark and exact fallback benchmark.
 
-- Primary benchmark: PDEBench 2D fluids, narrowed for Phase 2 to a disk-feasible official fluid dataset path, with shallow-water (`swe`) as the preferred full-data path under the current disk limit. If the paper claim requires Navier-Stokes or compressible CFD specifically, Phase 2 must use an explicitly approved generated or downloaded smoke subset and label published rows as protocol-caveated context.
-- Fallback benchmark: OpenFWI 2D acoustic full waveform inversion, narrowed to a FlatVel-A or CurveVel-A small-shard preflight unless additional disk is provided.
+- Primary benchmark: PDEBench 2D Shallow Water Equations (`swe`) forward prediction, using the official `2D_rdb_NA_NA.h5` file from the PDEBench `swe` download path (`python download_direct.py --root_folder $PDE_DATA --pde_name swe`) or the documented DaRUS datafile `133021`.
+- Scope narrowing: Phase 0 named "PDEBench 2D incompressible Navier-Stokes or compressible fluid task." This Phase 1 selection narrows that family to `swe` because it is an official 2D PDEBench fluid dataset, is listed at 6.2 GB, and is executable under the current 30.51 GB free-disk constraint. Full `2d_cfd` at 551 GB and `ns_incom` at 2.3 TB are not selected for Phase 2 execution. Any return to NS/CFD is a later scope change, not an implicit Phase 2 option.
+- Fallback benchmark: OpenFWI FlatVel-A 2D acoustic full waveform inversion. Phase 2 preflight uses `data1.npy`/`model1.npy` as the train smoke shard pair and `data49.npy`/`model49.npy` as the validation/test smoke shard pair if shard-level access is available; full fallback execution uses the Vel-family split `data(model)1-48.npy` for training and `data(model)49-60.npy` for test, which requires additional storage.
 - Rejected for this phase: PDEArena Maxwell-3D, because full 3D adaptation and missing local `pdearena` setup exceed the planned Phase 2 risk budget.
 
 All three neutral Phase 0 candidates were evaluated. Phase 0 did not select a primary or fallback; this document is the first durable primary/fallback decision.
@@ -56,30 +57,31 @@ Required fields used for each candidate: architectural fit, benchmark maturity, 
 
 | Candidate | Status | Total | Gate Summary |
 | --- | --- | ---: | --- |
-| PDEBench 2D incompressible Navier-Stokes or compressible fluid task | primary | 26 | Strong architecture fit, mature benchmark, feasible local FNO/U-Net baselines, and a disk-feasible PDEBench fluid path via `swe`; canonical `ns_incom` and `2d_cfd` are disk-blocked here. |
-| OpenFWI 2D acoustic full waveform inversion | fallback | 26 | Excellent inverse-wave story and clear MAE/RMSE/SSIM metrics; smallest full 2D dataset is 43 GB, so Phase 2 starts with a small-shard access proof or additional disk. |
+| PDEBench 2D Shallow Water Equations (`swe`) | primary | 26 | Strong architecture fit, mature benchmark, feasible local FNO/U-Net baselines, exact official data file `2D_rdb_NA_NA.h5`, and disk-feasible 6.2 GB size; this is the selected narrowing of the Phase 0 PDEBench fluids candidate. |
+| OpenFWI FlatVel-A 2D acoustic full waveform inversion | fallback | 26 | Excellent inverse-wave story, clear MAE/RMSE/SSIM metrics, official split/shard naming, and simple-layer FlatVel-A task; full 43 GB dataset needs more disk, so Phase 2 starts with exact train/test shard pairs. |
 | PDEArena Maxwell-3D | rejected | 17 | Strong wave/spectral theme, but missing local `pdearena`, unknown shard size, and likely full 3D Hybrid ResNet adaptation make it too risky for this tranche. |
 
 The equal total for PDEBench and OpenFWI does not create a tie because the gate is not purely score-based. PDEBench has two immediately feasible local baselines and a disk-feasible full official fluid path. OpenFWI is the fallback because its smallest full dataset is larger than the currently free local disk, even though a small-shard path is plausible.
 
 ## Primary Benchmark Decision
 
-Select PDEBench 2D fluids as the primary Phase 2 benchmark.
+Select PDEBench 2D Shallow Water Equations (`swe`) as the primary Phase 2 benchmark.
 
-Phase 2 should use the disk-feasible PDEBench shallow-water (`swe`) full official dataset path unless the next plan explicitly approves a generated or smoke-sized NS/CFD variant. This keeps the selected benchmark in the PDEBench fluids family while respecting the local 30.51 GB free-disk constraint. Full `ns_incom` and full `2d_cfd` are not selected for immediate execution because their published download sizes exceed the current filesystem budget.
+Phase 2 must use the official `swe` data path: `2D_rdb_NA_NA.h5`, obtained through `python download_direct.py --root_folder $PDE_DATA --pde_name swe` or the documented DaRUS datafile `133021`. This keeps the selected benchmark inside the PDEBench fluids family while making the Phase 2 handoff executable on the current machine. Generated NS/CFD subsets and full `ns_incom` or `2d_cfd` downloads are not part of the selected primary benchmark.
 
 Rationale:
 
-- The spectral/local Hybrid ResNet story is strongest on 2D fluid prediction, where local coherent structures and long-range fields are both relevant.
+- The spectral/local Hybrid ResNet story is strong on 2D shallow-water prediction, where local wave structures and global field evolution are both relevant.
 - Local baselines are practical: FNO and U-Net can run locally, with persistence or coarse rollout as a smoke baseline if protocol-compatible.
 - The Phase 2 implementation can remain a runbook or narrow adapter instead of a broad architecture rewrite.
 - The candidate preserves the required non-CDI PDE pillar before CDI polish.
+- The narrowing from the Phase 0 NS/CFD wording is explicit and evidence-driven: `swe` is the only official PDEBench 2D fluid path identified in this pass that fits the local disk budget without replacing the benchmark with a generated subset.
 
 ## Fallback Benchmark Decision
 
-Select OpenFWI 2D acoustic full waveform inversion as the fallback.
+Select OpenFWI FlatVel-A 2D acoustic full waveform inversion as the fallback.
 
-Fallback execution should start with FlatVel-A or CurveVel-A and prove small-shard access before training. The OpenFWI website lists FlatVel-A/B and CurveVel-A/B as 43 GB each with input shape `(5,1000,70)` and output shape `(1,70,70)`. The repository describes `.npy` batches of 500 samples and a Vel-family 24k/6k split. Because 43 GB exceeds current free disk, the fallback is ready only if small-shard access works or additional data storage is provided.
+Fallback execution should start with FlatVel-A because it is the simple-layer Vel-family dataset used in the official repository examples, has published benchmark rows, and has the same 43 GB size as CurveVel-A while presenting lower setup risk. Phase 2 should first obtain `data1.npy`/`model1.npy` and `data49.npy`/`model49.npy` if shard-level access is available. The full FlatVel-A protocol uses 24k training samples from `data(model)1-48.npy` and 6k test samples from `data(model)49-60.npy`. Because the full 43 GB dataset exceeds current free disk, full fallback execution is blocked until additional storage is provided or an approved external data root is used.
 
 Rationale:
 
@@ -101,20 +103,20 @@ Reasons:
 
 ## Metric Contract
 
-Primary PDEBench metric contract:
+Primary PDEBench SWE metric contract:
 
-- Prediction target: 2D fluid field next-step or rollout prediction from the selected PDEBench fluid dataset.
-- Split expectation: official selected HDF5 split or generated train/validation/test manifest recorded in Phase 2.
-- Primary metric: normalized RMSE or the selected PDEBench field-error metric pinned from the upstream metric code.
-- Secondary metrics: field-wise error, rollout-horizon error, runtime, and GPU memory.
-- Normalization and rollout caveats: Phase 2 must record data normalization, time-history/time-future settings, rollout horizon, and whether the result is one-step, autoregressive, or pushforward.
-- Published-number source: PDEBench paper/repository rows only after matching task and metric; otherwise use as protocol-caveated context.
-- Phase 2 metrics/provenance output: write a metrics JSON/CSV with dataset identity, split, normalization, seed, command, git commit, package versions, GPU name, memory summary, and baseline definitions.
+- Prediction target: one-step next-state prediction on the official PDEBench `swe` file `2D_rdb_NA_NA.h5`; Phase 2 must record the HDF5 field names, channel order, and tensor axes before training.
+- Split expectation: deterministic trajectory-level train/validation/test manifest from the official `swe` file, using an 80/10/10 split and seed `20260420`; the manifest is a Phase 2 gate artifact and must be shared by Hybrid ResNet, FNO, and U-Net.
+- Primary metric: PDEBench normalized RMSE (`err_nRMSE` from the upstream metrics contract, or a documented equivalent formula if code import is blocked by license terms), averaged over all predicted SWE state channels and one-step evaluation batches.
+- Secondary metrics: PDEBench RMSE (`err_RMSE`), conserved-variable RMSE where applicable (`err_CSV`), maximum RMSE (`err_Max`), boundary RMSE (`err_BD`), Fourier-space RMSE (`err_F`), runtime, and peak GPU memory.
+- Normalization and rollout caveats: the selected Phase 2 gate is one-step prediction only. Autoregressive rollout or pushforward evaluation may be added as secondary evidence after the one-step contract passes, but cannot replace it without an approved plan update.
+- Published-number source: PDEBench paper/repository rows only after matching the `swe` task, split, preprocessing, one-step horizon, and metric; otherwise use them as protocol-caveated context.
+- Phase 2 metrics/provenance output: write metrics JSON/CSV with dataset file, DaRUS/download URL, split manifest path, normalization, seed, command, git commit, package versions, GPU name, memory summary, and baseline definitions.
 
 Fallback OpenFWI metric contract:
 
 - Prediction target: seismic shot-gather to velocity-map inversion.
-- Split expectation: FlatVel-A or CurveVel-A shard manifest for smoke; full official Vel-family split only if disk permits.
+- Split expectation: FlatVel-A shard manifest for smoke using `data1.npy`/`model1.npy` and `data49.npy`/`model49.npy`; full FlatVel-A Vel-family split `data(model)1-48.npy` train and `data(model)49-60.npy` test only if disk permits.
 - Primary metric: MAE.
 - Secondary metrics: RMSE and SSIM.
 - Published-number source: OpenFWI benchmark page rows, protocol-caveated unless full split and metric implementation are reproduced locally.
@@ -123,32 +125,32 @@ Fallback OpenFWI metric contract:
 
 Primary:
 
-- Intended dataset family/shard: PDEBench 2D fluids, with `swe` as the preferred full official disk-feasible path; NS/CFD only as an approved generated or smoke subset.
-- Expected path: DaRUS/PDEBench download or generated HDF5 files, stored outside git and recorded in Phase 2 provenance.
+- Intended dataset family/shard: PDEBench SWE official full data file `2D_rdb_NA_NA.h5`.
+- Expected path: DaRUS/PDEBench `swe` download via `python download_direct.py --root_folder $PDE_DATA --pde_name swe` or DaRUS datafile `133021`, stored outside git and recorded in Phase 2 provenance.
 - License/access: PDEBench top-level code is MIT except where otherwise stated; some files carry a noncommercial research header. DaRUS data terms and exact imported code files must be recorded before use.
-- Checksum/manifest expectation: Phase 2 must write selected URL, DOI where available, file list, checksum or size/mtime manifest, and split identity.
-- Disk/GPU implication: `swe` is listed as 6.2 GB and fits current disk; full `2d_cfd` and `ns_incom` do not. A bounded 2D smoke run should fit the RTX 3090.
+- Checksum/manifest expectation: Phase 2 must write selected URL, DOI where available, file list, checksum or size/mtime manifest, and the deterministic 80/10/10 trajectory split manifest.
+- Disk/GPU implication: `swe` is listed as 6.2 GB and fits current disk; full `2d_cfd` and `ns_incom` do not. A bounded one-step SWE smoke run should fit the RTX 3090.
 
 Fallback:
 
-- Intended dataset family/shard: OpenFWI FlatVel-A or CurveVel-A, starting with one or two `.npy` data/model shard pairs.
-- Expected path: official OpenFWI download link or verified shard mirror, stored outside git.
+- Intended dataset family/shard: OpenFWI FlatVel-A, starting with `data1.npy`/`model1.npy` and `data49.npy`/`model49.npy`.
+- Expected path: official FlatVel-A OpenFWI download link or verified shard mirror, stored outside git.
 - License/access: code is BSD-3-Clause; datasets are Creative Commons Attribution-NonCommercial-ShareAlike 4.0.
 - Checksum/manifest expectation: Phase 2 must write exact shard list, URL, checksum or manifest, and split identity.
-- Disk/GPU implication: full FlatVel-A is 43 GB and does not fit current free disk; a small-shard pass should fit the RTX 3090 if access is available.
+- Disk/GPU implication: full FlatVel-A is 43 GB and does not fit current free disk; the exact two-shard smoke pass should fit the RTX 3090 if access is available.
 
 ## Local Baseline Plan
 
 Primary PDEBench baselines:
 
-- FNO: expected to run locally through `neuralop` or a PDEBench-compatible FNO adapter.
-- U-Net: expected to run locally through PDEBench conventions or a narrow local 2D adapter.
-- Persistence/coarse rollout: optional smoke sanity baseline if compatible with the selected task and rollout metric.
+- FNO: expected to run locally through `neuralop` or a PDEBench-compatible FNO adapter, using the same SWE split manifest, one-step horizon, normalization, and `err_nRMSE` metric as Hybrid ResNet.
+- U-Net: expected to run locally through PDEBench conventions or a narrow local 2D adapter, using the same SWE split manifest, one-step horizon, normalization, and `err_nRMSE` metric as Hybrid ResNet.
+- Persistence: optional smoke sanity baseline only; it does not count as one of the two required local baselines unless the Phase 2 plan explicitly justifies that downgrade.
 
 Fallback OpenFWI baselines:
 
-- InversionNet: expected local baseline after compatibility proof with the current or isolated PyTorch environment.
-- VelocityGAN: second local baseline if setup time allows; otherwise use a local U-Net/FNO-style adapter and cite VelocityGAN as published context.
+- InversionNet: expected local baseline after compatibility proof with the current or isolated PyTorch environment, first on the FlatVel-A smoke shards.
+- VelocityGAN: second local baseline if setup time allows; otherwise use a local U-Net/FNO-style adapter on the same FlatVel-A smoke shards and cite VelocityGAN as published context.
 - UPFWI and InversionNet3D: published-SOTA context only for this roadmap unless separately approved because they are multi-GPU or 3D-heavy.
 
 ## Published SOTA Caveats
@@ -163,32 +165,33 @@ Phase 2 must start with a smoke/data-load check for the selected primary before 
 
 Primary handoff:
 
-1. Choose `swe` full official data or obtain explicit approval for generated/smoke NS/CFD.
-2. Record dataset URL, license/access terms, checksum or manifest, split identity, and expected disk use.
-3. Load a bounded HDF5 shard with `h5py`.
-4. Run one tiny Hybrid ResNet-compatible train/eval pass on the RTX 3090.
-5. Run FNO and U-Net, or one of those plus persistence/coarse baseline, under the same metric contract.
-6. Write metrics and provenance before any longer run.
+1. Download or stage PDEBench `swe` file `2D_rdb_NA_NA.h5` outside git.
+2. Record dataset URL or DaRUS ID `133021`, license/access terms, checksum or size/mtime manifest, expected disk use, and HDF5 field/channel metadata.
+3. Write the deterministic 80/10/10 trajectory split manifest with seed `20260420`.
+4. Load a bounded HDF5 shard with `h5py`.
+5. Run one tiny Hybrid ResNet-compatible one-step train/eval pass on the RTX 3090.
+6. Run FNO and U-Net under the same split, horizon, normalization, and `err_nRMSE` contract.
+7. Write metrics and provenance before any longer run.
 
 Fallback handoff:
 
-1. Select FlatVel-A or CurveVel-A.
-2. Prove one or two `.npy` data/model shard pairs can be obtained without downloading the full 43 GB dataset, or secure additional storage.
+1. Use OpenFWI FlatVel-A.
+2. Prove `data1.npy`/`model1.npy` and `data49.npy`/`model49.npy` can be obtained without downloading the full 43 GB dataset, or secure additional storage.
 3. Validate shapes `(500,5,1000,70)` and `(500,1,70,70)`.
 4. Run one tiny InversionNet or local U-Net pass and one Hybrid ResNet-compatible pass.
 5. Write MAE, RMSE, SSIM, normalization, seed, command, and environment provenance.
 
 ## Pivot and Blocked Conditions
 
-Pivot from PDEBench primary to OpenFWI fallback before spending CDI polish time if any of these gates fail:
+Pivot from PDEBench SWE primary to OpenFWI FlatVel-A fallback before spending CDI polish time if any of these gates fail:
 
-- no disk-feasible PDEBench fluid path is accepted
-- selected data cannot be downloaded, generated, or loaded without full-dataset overrun
-- metric contract cannot be pinned
+- official `swe` data cannot be downloaded or loaded without full-dataset overrun
+- deterministic SWE split manifest cannot be written from the official file
+- one-step `err_nRMSE` metric contract cannot be implemented or license-cleared
 - FNO/U-Net or equivalent local baselines cannot be run quickly
 - Hybrid ResNet is clearly noncompetitive in the smoke/early local baseline comparison
 
-Mark the roadmap blocked instead of forcing a weak benchmark if both PDEBench and OpenFWI fail data access or metric gates. If a full canonical NS/CFD benchmark is required rather than a disk-feasible PDEBench fluid path, the next human decision is whether to provide more storage/compute or relax the exact PDEBench subtask.
+Mark the roadmap blocked instead of forcing a weak benchmark if both PDEBench SWE and OpenFWI FlatVel-A fail data access or metric gates. If a full canonical NS/CFD benchmark is required instead of SWE, the next human decision is whether to provide more storage/compute and approve a new primary, because NS/CFD is not selected by this Phase 1 gate.
 
 ## Non-Goals Confirmed
 
@@ -217,10 +220,14 @@ These files are ignored support artifacts and should not be committed.
 
 ## Verification
 
-Planned structural checks:
+Executed checks from the Phase 1 implementation pass and review-fix pass are summarized in `artifacts/work/NEURIPS-HYBRID-RESNET-2026/phase-1-pde-benchmark-selection/execution_report.md`.
 
-- selection document contains primary, fallback, RTX 3090, baseline, and SOTA decision fields
-- scorecard JSON has exactly the three Phase 0 candidate IDs and a valid selected decision
-- `docs/index.md` links this selection document
-- `plan_path.txt` still points to `docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-1-pde-benchmark-selection/execution_plan.md`
-- no `/home/ollie/Documents/neurips/` paper-facing artifacts are created by this tranche
+Confirmed structural checks:
+
+- `selection doc contains required decision fields`
+- `scorecard structure is valid`
+- `Phase 1 selection artifacts are structurally valid`
+- `discoverability and output pointer are valid`
+- `{'paper_facing_paths_to_inspect': []}`
+
+No `pytest` selector was required because this tranche modifies Markdown and ignored JSON/source-note artifacts only.
