@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import importlib.util
+import inspect
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -153,6 +156,73 @@ def _git_commit(path: Path) -> str | None:
         return None
 
 
+def _load_module_from_path(module_path: Path, *, repo_path: Path) -> Any:
+    module_name = f"_openfwi_official_{abs(hash(str(module_path.resolve())))}"
+    previous_path = list(sys.path)
+    sys.path.insert(0, str(repo_path))
+    try:
+        spec = importlib.util.spec_from_file_location(module_name, module_path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"could not create import spec for {module_path}")
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path = previous_path
+        sys.modules.pop(module_name, None)
+
+
+def _find_inversionnet(module: Any) -> type[nn.Module] | None:
+    candidate = getattr(module, "InversionNet", None)
+    if isinstance(candidate, type):
+        return candidate
+    model_dict = getattr(module, "model_dict", None)
+    if isinstance(model_dict, Mapping):
+        candidate = model_dict.get("InversionNet")
+        if isinstance(candidate, type):
+            return candidate
+    return None
+
+
+def _constructor_kwargs(model_cls: type[nn.Module]) -> dict[str, Any]:
+    try:
+        signature = inspect.signature(model_cls)
+    except (TypeError, ValueError):
+        return {}
+    tiny_defaults = {
+        "dim1": 1,
+        "dim2": 2,
+        "dim3": 2,
+        "dim4": 4,
+        "dim5": 4,
+        "sample_spatial": 1.0,
+        "ratio": 1.0,
+    }
+    return {name: value for name, value in tiny_defaults.items() if name in signature.parameters}
+
+
+def _probe_forward(model_cls: type[nn.Module]) -> dict[str, Any]:
+    input_shape = [1, 5, 1000, 70]
+    expected_output_shape = [1, 1, 70, 70]
+    constructor_kwargs = _constructor_kwargs(model_cls)
+    model = model_cls(**constructor_kwargs)
+    model.eval()
+    with torch.no_grad():
+        output = model(torch.zeros(*input_shape, dtype=torch.float32))
+    if not isinstance(output, torch.Tensor):
+        raise TypeError(f"InversionNet forward returned {type(output).__name__}, not Tensor")
+    output_shape = list(output.shape)
+    if output_shape != expected_output_shape:
+        raise ValueError(f"InversionNet output shape {output_shape} != {expected_output_shape}")
+    return {
+        "status": "succeeded",
+        "input_shape": input_shape,
+        "output_shape": output_shape,
+        "constructor_kwargs": constructor_kwargs,
+    }
+
+
 def probe_official_inversionnet(repo_path: Path | None) -> dict[str, Any]:
     """Probe an optional external OpenFWI checkout without importing at module load."""
     if repo_path is None:
@@ -170,12 +240,77 @@ def probe_official_inversionnet(repo_path: Path | None) -> dict[str, Any]:
             "repo_path": str(repo_path),
         }
     license_candidates = [path for name in ("LICENSE", "LICENSE.txt") if (path := repo_path / name).exists()]
-    result = {
-        "status": "blocked",
-        "reason": "official_probe_not_implemented",
-        "message": "external checkout exists, but this smoke gate records compatibility only after a controlled import/forward probe",
+    base_payload: dict[str, Any] = {
         "repo_path": str(repo_path),
         "git_commit": _git_commit(repo_path),
         "license_path": str(license_candidates[0]) if license_candidates else None,
     }
-    return result
+    import_attempts = []
+    for module_path in [repo_path / "network.py", repo_path / "model.py", repo_path / "models.py"]:
+        if not module_path.exists():
+            continue
+        try:
+            module = _load_module_from_path(module_path, repo_path=repo_path)
+        except Exception as exc:
+            import_attempts.append(
+                {
+                    "module_path": str(module_path),
+                    "status": "failed",
+                    "error_type": type(exc).__name__,
+                    "message": str(exc),
+                }
+            )
+            continue
+        model_cls = _find_inversionnet(module)
+        if model_cls is None:
+            import_attempts.append(
+                {
+                    "module_path": str(module_path),
+                    "status": "imported",
+                    "message": "module imported but no InversionNet class or model_dict entry was found",
+                }
+            )
+            continue
+        import_attempt = {
+            "module_path": str(module_path),
+            "status": "imported",
+            "class_name": model_cls.__name__,
+        }
+        try:
+            forward_pass = _probe_forward(model_cls)
+        except Exception as exc:
+            return {
+                **base_payload,
+                "status": "blocked",
+                "reason": "official_forward_probe_failed",
+                "message": str(exc),
+                "import_attempt": import_attempt,
+                "import_attempts": import_attempts + [import_attempt],
+                "forward_pass": {
+                    "status": "failed",
+                    "error_type": type(exc).__name__,
+                    "message": str(exc),
+                },
+            }
+        return {
+            **base_payload,
+            "status": "compatible",
+            "import_attempt": import_attempt,
+            "import_attempts": import_attempts + [import_attempt],
+            "forward_pass": forward_pass,
+        }
+    if import_attempts:
+        return {
+            **base_payload,
+            "status": "blocked",
+            "reason": "official_import_failed",
+            "message": "no importable official InversionNet implementation was found",
+            "import_attempts": import_attempts,
+        }
+    return {
+        **base_payload,
+        "status": "blocked",
+        "reason": "official_inversionnet_not_found",
+        "message": "no network.py, model.py, or models.py file was found in the external checkout",
+        "import_attempts": [],
+    }

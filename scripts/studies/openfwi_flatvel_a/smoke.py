@@ -74,15 +74,32 @@ def _package_version(name: str) -> str | None:
         return None
 
 
+def _pid_is_live(pid: str) -> bool:
+    return pid.isdigit() and Path(f"/proc/{pid}").exists()
+
+
+def _pid_markers(output_root: Path) -> list[Path]:
+    direct_marker = output_root / "logs" / "smoke.pid"
+    markers = [direct_marker] if direct_marker.exists() else []
+    markers.extend(output_root.glob("runs/*/logs/smoke.pid"))
+    return markers
+
+
 def _guard_output_root(output_root: Path, *, allow_existing: bool) -> None:
     output_root = Path(output_root)
     live = []
-    for marker in output_root.glob("runs/*/logs/smoke.pid"):
+    incomplete = []
+    for marker in _pid_markers(output_root):
         pid = marker.read_text(encoding="utf-8").strip()
-        if pid.isdigit() and Path(f"/proc/{pid}").exists():
+        exit_marker = marker.with_name("smoke.exit_code")
+        if _pid_is_live(pid):
             live.append((str(marker), pid))
+        elif not exit_marker.exists():
+            incomplete.append((str(marker), pid))
     if live:
         raise FileExistsError(f"live OpenFWI smoke output root exists: {live}")
+    if incomplete:
+        raise FileExistsError(f"incomplete OpenFWI smoke output root has missing exit code evidence: {incomplete}")
     if output_root.exists() and any(output_root.iterdir()) and not allow_existing:
         raise FileExistsError(f"refusing to write into non-empty output root: {output_root}")
     output_root.mkdir(parents=True, exist_ok=True)

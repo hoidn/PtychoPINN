@@ -4,7 +4,7 @@
 
 This is the Roadmap Phase 2 fallback smoke/data-access gate for OpenFWI FlatVel-A after the PDEBench SWE primary recorded `Decision: pivot to OpenFWI FlatVel-A`.
 
-The delivered code path adds a narrow study harness for source/shard manifests, shape validation, deterministic smoke splits, normalization, MAE/RMSE/SSIM metrics, tiny Hybrid ResNet-compatible and U-Net local profiles, optional official InversionNet probing, invocation provenance, comparison collation, and controlled blocker output.
+The delivered code path adds a narrow study harness for source/shard manifests, shape validation, deterministic smoke splits, normalization, MAE/RMSE/SSIM metrics, tiny Hybrid ResNet-compatible and U-Net local profiles, optional official InversionNet metadata/import/forward probing, invocation provenance, comparison collation, and controlled blocker output.
 
 Explicit non-goals confirmed: no CDI anchor regeneration, no CDI baseline or ablation work, no 256x256 scaling, no `/home/ollie/Documents/neurips/` paper-facing artifact assembly, no full 43 GB OpenFWI FlatVel-A download, no benchmark-family switch, no PDEBench SWE rerun, no stable core physics/model edits, and no worktree creation.
 
@@ -54,7 +54,7 @@ The metric writer reports MAE as primary and RMSE/SSIM as secondary. Metrics are
 
 ## Official InversionNet Compatibility
 
-Official InversionNet compatibility was not attempted because data access blocked before model execution. The implemented probe accepts `--official-openfwi-repo` and records a controlled blocker when the external checkout is missing or not supplied. OpenFWI official rows remain published-context only unless a later tranche reproduces the full official split and metrics.
+Official InversionNet compatibility was not attempted against a real external checkout because data access blocked before model execution. The implemented probe accepts `--official-openfwi-repo`, records repository path, git commit, and license path, imports `network.py`, `model.py`, or `models.py` from the supplied checkout, resolves `InversionNet` from either a class or `model_dict`, and runs a bounded CPU forward-shape probe from `(1, 5, 1000, 70)` to `(1, 1, 70, 70)`. Missing checkout, import failure, missing `InversionNet`, or forward/shape failure is recorded as a controlled official-code blocker. OpenFWI official rows remain published-context only unless a later tranche reproduces the full official split and metrics.
 
 ## Local Model Results Or Blockers
 
@@ -94,7 +94,8 @@ Published OpenFWI MAE/RMSE/SSIM rows for InversionNet, VelocityGAN, UPFWI, and I
 - Metrics: MAE, RMSE, and SSIM implemented and tested.
 - Hybrid ResNet-compatible smoke: implemented and tested synthetically; blocked for real data.
 - Local baseline smoke: U-Net implemented and tested synthetically; blocked for real data.
-- Official InversionNet: probe implemented; not attempted because data access blocked.
+- Official InversionNet: metadata/import/forward probe implemented; not attempted against a real checkout because data access blocked.
+- Long-run guard: the CLI rejects live or incomplete `logs/smoke.pid` markers at the selected output root and nested `runs/*/logs/smoke.pid` markers before writing.
 - Long-running tmux launch: not run because the freshness gate blocked before model execution.
 
 ## Raw Artifact Links
@@ -107,6 +108,6 @@ Published OpenFWI MAE/RMSE/SSIM rows for InversionNet, VelocityGAN, UPFWI, and I
 
 - The fallback PDE pillar remains blocked until the four pinned FlatVel-A smoke shards are staged or a human approves full/external storage.
 - Synthetic smoke tests prove code paths and artifact schemas, not scientific viability on real OpenFWI data.
-- Official InversionNet compatibility still needs an external checkout and real shard access.
+- Official InversionNet baseline execution still needs an external checkout plus real shard access; the compatibility probe only proves bounded import and forward-shape viability.
 
 Decision: block for storage/data/human decision

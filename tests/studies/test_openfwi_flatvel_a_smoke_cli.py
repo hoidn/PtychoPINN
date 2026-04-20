@@ -4,6 +4,7 @@ import subprocess
 import sys
 
 import numpy as np
+import pytest
 
 
 def _write_openfwi_fixture(root, *, samples=4):
@@ -73,6 +74,45 @@ def test_live_pid_marker_is_rejected_even_with_exit_code(tmp_path, capsys):
 
     assert rc == 2
     assert "live OpenFWI smoke output root exists" in capsys.readouterr().err
+
+
+def test_direct_output_root_live_pid_marker_is_rejected_with_allow_existing(tmp_path, capsys):
+    from scripts.studies.openfwi_flatvel_a.smoke import main
+
+    data_root = tmp_path / "data"
+    data_root.mkdir()
+    _write_openfwi_fixture(data_root)
+    output_root = tmp_path / "out"
+    log_root = output_root / "logs"
+    log_root.mkdir(parents=True)
+    (log_root / "smoke.pid").write_text(str(os.getpid()), encoding="utf-8")
+    (log_root / "smoke.exit_code").write_text("0", encoding="utf-8")
+
+    rc = main(
+        [
+            "--data-root",
+            str(data_root),
+            "--output-root",
+            str(output_root),
+            "--allow-existing-output-root",
+            "--inspect-only",
+        ]
+    )
+
+    assert rc == 2
+    assert "live OpenFWI smoke output root exists" in capsys.readouterr().err
+
+
+def test_direct_output_root_pid_without_exit_code_is_rejected(tmp_path):
+    from scripts.studies.openfwi_flatvel_a.smoke import _guard_output_root
+
+    output_root = tmp_path / "out"
+    log_root = output_root / "logs"
+    log_root.mkdir(parents=True)
+    (log_root / "smoke.pid").write_text("999999999", encoding="utf-8")
+
+    with pytest.raises(FileExistsError, match="missing exit code evidence"):
+        _guard_output_root(output_root, allow_existing=True)
 
 
 def test_synthetic_cpu_smoke_writes_metrics_provenance_and_comparison(tmp_path):
