@@ -100,11 +100,11 @@ Raw source: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-0-evidence-inventory/pd
 
 Neutral candidates:
 
-| Candidate | Bucket | Phase 1 focus |
-| --- | --- | --- |
-| PDEBench 2D incompressible Navier-Stokes or compressible fluid task | fluids / operator learning | Pick a disk-feasible subset, pin rollout metrics, and identify local FNO/U-Net baselines. |
-| PDEArena Maxwell-3D | wave propagation / Maxwell | Decide whether a 3D or reduced task is feasible on the RTX 3090 without expanding implementation scope. |
-| OpenFWI 2D acoustic full waveform inversion | inverse wave / seismic FWI | Choose a small 2D shard, decide whether official InversionNet can run locally, and pin metrics/splits. |
+| Candidate | Bucket | Task type | Phase 1 focus |
+| --- | --- | --- | --- |
+| PDEBench 2D incompressible Navier-Stokes or compressible fluid task | fluids / operator learning | `forward_prediction` | Pick a disk-feasible subset, pin rollout metrics, and identify local FNO/U-Net baselines. |
+| PDEArena Maxwell-3D | wave propagation / Maxwell | `wave_propagation` | Decide whether a 3D or reduced task is feasible on the RTX 3090 without expanding implementation scope. |
+| OpenFWI 2D acoustic full waveform inversion | inverse wave / seismic FWI | `inverse_reconstruction` | Choose a small 2D shard, decide whether official InversionNet can run locally, and pin metrics/splits. |
 
 This is not a selection. Phase 0 does not select a primary or fallback benchmark. Phase 1 must score candidates for fit, maturity, metric clarity, data size, install burden, RTX 3090 feasibility, local baselines, published-SOTA availability, and paper-story fit.
 

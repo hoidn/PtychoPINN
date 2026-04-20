@@ -48,6 +48,16 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** baselines, hybrid_resnet, recommended-params, scheduler, learning-rate, studies
 **Use this when:** You need the current recommended starting parameters for a real study or wrapper and do not want to infer "best practice" from defaults, prompts, or tests.
 
+### [NeurIPS Hybrid ResNet Submission Design](plans/2026-04-20-neurips-hybrid-resnet-submission-design.md)
+**Description:** Approved design brief for a NeurIPS 2026 Hybrid ResNet submission campaign, defining the two required empirical pillars, benchmark-selection policy, fresh `128x128` CDI anchor regeneration strategy, `256x256` higher-mode scaling hypothesis, and `/home/ollie/Documents/neurips/index.md` evidence-map policy.
+**Keywords:** neurips, hybrid_resnet, roadmap, submission, cdi, pde, evidence
+**Use this when:** Planning or executing the Hybrid ResNet NeurIPS submission work, deciding which CDI/PDE evidence is in scope, or assembling paper-facing artifacts.
+
+### [NeurIPS Hybrid ResNet Submission Roadmap](plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md)
+**Description:** Phase-by-phase roadmap for the NeurIPS 2026 Hybrid ResNet campaign, prioritizing evidence inventory with explicit lost-run handling, required PDE benchmark selection/execution, fresh `128x128` CDI anchor regeneration/verification, optional `256x256` scaling evidence, and later evidence-bundle assembly.
+**Keywords:** neurips, hybrid_resnet, roadmap, phases, pde, cdi, artifact-index
+**Use this when:** You need the execution order, gates, expected artifacts, or fallback decisions for the submission campaign.
+
 ### [NeurIPS Hybrid ResNet Phase 0 Evidence Inventory](plans/NEURIPS-HYBRID-RESNET-2026/evidence_inventory.md)
 **Description:** Durable Phase 0 inventory for the NeurIPS Hybrid ResNet campaign, separating paper-grade, decision-support, and not-usable CDI artifacts; recording N=256 as secondary scaling context; and listing neutral PDE candidates for Phase 1.
 **Keywords:** neurips, hybrid_resnet, evidence-inventory, cdi, pde, n256, provenance
