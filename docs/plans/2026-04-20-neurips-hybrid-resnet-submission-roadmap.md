@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Produce a triaged NeurIPS 2026 submission evidence package for the Hybrid ResNet architecture, with `128x128` CDI as the anchor and one required deep PDE/forward-modeling benchmark.
+**Goal:** Produce a triaged NeurIPS 2026 submission evidence package for the Hybrid ResNet architecture, with `128x128` CDI as the anchor and a required compact native `128x128` PDEBench image-suite contribution.
 
-**Architecture:** Run studies from `/home/ollie/Documents/PtychoPINN/`, regenerate the missing paper-grade `128x128` CDI Hybrid ResNet anchor, select one deep PDE benchmark through a neutral screen, and eventually write paper-facing artifacts under `/home/ollie/Documents/neurips/` with `index.md` as the top-level evidence map. The roadmap is deadline- and compute-constrained: NeurIPS full paper deadline is 2026-05-06 AOE, and the assumed compute budget is one RTX 3090 for several days.
+**Architecture:** Run studies from `/home/ollie/Documents/PtychoPINN/`, regenerate the missing paper-grade `128x128` CDI Hybrid ResNet anchor, execute a scoped PDEBench `128x128` image suite covering SWE, Darcy Flow, and 2D diffusion-reaction, and eventually write paper-facing artifacts under `/home/ollie/Documents/neurips/` with `index.md` as the top-level evidence map. The roadmap is deadline- and compute-constrained: NeurIPS full paper deadline is 2026-05-06 AOE, and the assumed compute budget is one RTX 3090 for several days.
 
 **Tech Stack:** Python 3.11 in the `ptycho311` environment, PyTorch/Lightning, existing PtychoPINN grid-lines and Torch study runbooks, optional external PDE benchmark dependencies, Markdown/JSON/CSV/TeX artifact sources.
 
@@ -104,15 +104,15 @@ Purpose: reduce the highest-risk required contribution before CDI polish.
 - [ ] 1.2: Evaluate PDEBench/PDEArena-style fluids candidates.
 - [ ] 1.3: Evaluate wave-equation candidates.
 - [ ] 1.4: Evaluate inverse-scattering or related wave/inverse-problem candidates.
-- [ ] 1.5: Choose one primary deep benchmark and one fallback.
+- [ ] 1.5: Choose an initial primary deep benchmark and fallback, then record any approved scope amendment.
 - [ ] 1.6: Write `docs/plans/NEURIPS-HYBRID-RESNET-2026/pde_benchmark_selection.md`.
 
 Gate:
 
-- [ ] Primary benchmark has clear metrics and runnable data access.
-- [ ] Primary benchmark can fit a small smoke run on the RTX 3090.
+- [ ] Selected benchmark or approved suite has clear metrics and runnable data access.
+- [ ] Selected benchmark or approved suite can fit small smoke/data-contract runs on the RTX 3090; smoke runs are readiness evidence only, not benchmark performance evidence.
 - [ ] At least two feasible local baselines are identified, or one strong local baseline plus published SOTA is justified.
-- [ ] Fallback benchmark has enough information to begin quickly if the primary fails.
+- [ ] Fallback benchmark has enough information to begin quickly if the selected benchmark or suite fails.
 
 Recommended verification:
 
@@ -129,31 +129,40 @@ print("selection doc contains required decision fields")
 PY
 ```
 
-## Phase 2 - Deep PDE Benchmark Execution
+## Phase 2 - PDEBench `128x128` Image-Suite Execution
 
 Purpose: produce the required non-CDI empirical contribution.
 
-- [ ] 2.1: Add or configure the selected external benchmark dependency/data access in a documented, minimal way.
-- [ ] 2.2: Create a benchmark adapter or runbook only if existing tooling cannot run the task directly.
-- [ ] 2.3: Add focused tests for any new adapter, data contract, metric parser, or result writer.
-- [ ] 2.4: Run a smoke test for data loading, one tiny training/evaluation pass, and metric writing.
-- [ ] 2.5: Run Hybrid ResNet on the selected benchmark under the agreed metric contract.
-- [ ] 2.6: Run at least two feasible local baselines, or document why only one local baseline is feasible and pair it with published SOTA.
-- [ ] 2.7: Run one or two focused ablations tied to spectral/spatial design, such as spectral capacity reduction or local branch reduction.
-- [ ] 2.8: Write `docs/plans/NEURIPS-HYBRID-RESNET-2026/pde_execution_summary.md`.
+- [ ] 2.1: Stage or locate the official PDEBench files for SWE (`swe`), Darcy Flow (`darcy`), and 2D diffusion-reaction (`2d_reacdiff`) under an ignored or external data root; record source, size, checksum or size/mtime manifest, license/access notes, and exact HDF5 schemas.
+- [ ] 2.2: Write `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md` before code-changing adapter work.
+- [ ] 2.3: Generalize the existing `scripts/studies/pdebench_swe/` code into a shared PDEBench image-suite adapter only where reuse is straightforward; keep task-specific schema and metric policies explicit.
+- [ ] 2.4: Add focused tests for the shared adapter, SWE migration, Darcy static operator-map loading, 2D diffusion-reaction one-step loading, split manifests, normalization, metrics, and result writers.
+- [ ] 2.5: Run smoke/data-contract gates for all three tasks. Label every smoke metric as sanity/provenance only; smoke output cannot rank models, trigger performance pivots, or satisfy competitiveness.
+- [ ] 2.6: Run any capped pilot/triage passes needed to debug runtime, learning curves, and logging. Label capped/subsampled pilot metrics as decision-support only, not meaningful benchmark-performance evidence.
+- [ ] 2.7: Run Hybrid ResNet on the three selected tasks under the agreed metric contracts, the inherited Hybrid ResNet training recipe from `docs/model_baselines.md`, and the full available training-split rule unless an implementation plan records a justified override. Competitiveness runs must not use a one-epoch feasibility budget or a capped/subsampled training set.
+- [ ] 2.8: Run FNO and U-Net local baselines on the same full available training splits, normalization, horizons, and metrics for each completed task, or document a task-specific blocker before using any published context.
+- [ ] 2.8a: For Darcy Flow beta `1.0`, treat the PDEBench supplement's U-Net and FNO values as calibration context, not as same-protocol reproduction unless the reduced-resolution and split/training protocol also match. The current planning target is U-Net RMSE/nRMSE about `6.4e-3`/`3.3e-2` and FNO RMSE/nRMSE about `1.2e-2`/`6.4e-2`; later HAMLET/OFormer context gives nRMSE about `1.40e-2`/`2.05e-2` under its protocol. A tiny smoke U-Net is not a strong baseline for this task.
+- [ ] 2.9: Run focused ablations tied to the spectral/spatial design, such as spectral capacity reduction (`fno_modes=6`) and local branch reduction (`hybrid_resnet_blocks=2`), after full-training primary profiles complete and within the RTX 3090 budget.
+- [ ] 2.10: Write `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_summary.md`, and update or supersede `docs/plans/NEURIPS-HYBRID-RESNET-2026/pde_execution_summary.md` with suite-level interpretation.
 
 Gate:
 
-- [ ] Hybrid ResNet is competitive with local baselines.
+- [ ] All three task schemas are confirmed as native `128x128` image-grid tasks or any deviation is explicitly recorded before training.
+- [ ] At least two of the three tasks produce same-protocol Hybrid ResNet, FNO, and U-Net benchmark-performance rows; the strongest outcome is all three.
+- [ ] Meaningful benchmark-performance rows train on the full available training split for the selected official file after validation/test holdout. If 10,000 samples exist and 2,000 are held out, the benchmark row uses the remaining 8,000 training samples. Capped or subsampled rows are pilot/triage evidence only.
+- [ ] Hybrid ResNet is competitive with local baselines on at least one completed task and is not rejected from smoke-only evidence.
+- [ ] Hybrid ResNet competitiveness is judged only from runs whose profile and training budget inherit the current baseline recipe: `fno_modes=12`, width/hidden channels `32`, `fno_blocks=4`, MAE training loss, Adam `lr=2e-4`, and `ReduceLROnPlateau` with factor `0.5`, patience `2`, min LR `1e-4`, and threshold `0.0`, or from a documented intentional override.
+- [ ] For Darcy beta `1.0`, a strong local comparison includes FNO and a non-toy U-Net; if the local FNO or U-Net is far outside published PDEBench calibration values after a full available training-split run, implementation/protocol debugging happens before Hybrid ResNet is interpreted.
+- [ ] Smoke-gate metrics, regardless of epoch count, are labeled as data/adapter/runtime sanity only and are not used as benchmark performance, paper-grade competitiveness evidence, or model-ranking evidence.
 - [ ] Published SOTA comparisons, if used, are labeled as protocol-dependent and not same-code reproduction.
-- [ ] Metrics, configs, seeds, and environment are recorded.
-- [ ] If Hybrid ResNet is not competitive, pivot to the fallback benchmark before spending CDI polish time.
+- [ ] Metrics, configs, seeds, environment, task schemas, data identities, and split manifests are recorded.
+- [ ] If the suite is infeasible or clearly noncompetitive after full-training benchmark runs, choose the next plan scope explicitly: SWE-only salvage, OpenFWI FlatVel-A fallback/extension, or a narrower PDE claim.
 
 Recommended verification:
 
 ```bash
-# Exact commands depend on the selected benchmark and must be filled in after Phase 1.
-pytest <selected_adapter_or_metric_tests> -v
+pytest tests/studies/test_pdebench_swe_metrics.py tests/studies/test_pdebench_swe_splits_data.py tests/studies/test_pdebench_swe_run_config.py -v
+# Add the new PDEBench image-suite test modules to this selector as they are created.
 ```
 
 For long runs, launch in tmux and activate `ptycho311`:
@@ -161,7 +170,7 @@ For long runs, launch in tmux and activate `ptycho311`:
 ```bash
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate ptycho311
-python <selected_benchmark_runbook>.py --smoke
+python <pdebench_image_suite_runbook>.py --task swe --smoke
 ```
 
 ## Phase 3 - CDI Anchor Regeneration, Verification, and Packaging
@@ -252,11 +261,19 @@ This roadmap is drained by `workflows/examples/neurips_hybrid_resnet_plan_impl_r
 
 The lost `128x128` anchor condition is a binding selector input through this roadmap. Until a complete auditable anchor is recovered or a fresh regeneration plan is written, the selector should keep Phase 0 focused on documenting the loss and scheduling regeneration. Later selector iterations must not promote lost historical `128x128` runs as paper-grade evidence.
 
+The Hybrid ResNet training recipe is also a binding selector input for Phase 2. After a smoke/data-access gate succeeds, the next selected benchmark-execution scope must either use the current recipe from `docs/model_baselines.md` or make an explicit plan-level override before launch. Smoke gates can unblock data access and contract readiness, but no smoke metric table satisfies Phase 2 competitiveness or supports a performance pivot by itself.
+
+The full available training-split rule is a binding selector input for Phase 2. Capped runs may be selected for pilot/triage scopes, but any scope selected to produce meaningful benchmark-performance evidence must train each model on the full available training split for the selected official file after validation/test holdout.
+
+The PDEBench image-suite amendment is now a binding selector input for Phase 2. The next selected PDE plan should decide a coherent tranche scope from the suite plan and live progress ledger, starting with Darcy and 2D diffusion-reaction data/schema preflight plus shared adapter design before any expensive three-task training campaign. OpenFWI FlatVel-A should not be selected as the next performance tranche unless the suite plan records a blocker, the user explicitly re-prioritizes it, or the selector documents why OpenFWI is the least risky replacement contribution.
+
+After the 2026-04-20 Darcy staging update, the selector may choose `phase-2-pdebench-darcy-static-operator-benchmark` as the next coherent Phase 2 scope because SWE and Darcy are preflight-ready while 2D diffusion-reaction is still data-blocked. That tranche is defined by `docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md` and should implement Darcy static-operator support, strong local U-Net/FNO baselines, and literature-calibrated reporting before any full-suite summary.
+
 ## Completion Criteria
 
 - [ ] Phase 0 inventory identifies reusable CDI support evidence, records the lost `128x128` anchor condition, schedules regeneration if needed, and lists candidate PDE benchmarks.
-- [ ] Phase 1 selects a primary and fallback PDE benchmark.
-- [ ] Phase 2 produces a credible deep PDE benchmark result or executes the fallback decision.
+- [ ] Phase 1 selects a primary and fallback PDE benchmark and records the approved PDEBench image-suite amendment.
+- [ ] Phase 2 produces credible same-protocol evidence for the PDEBench `128x128` image suite or records an explicit suite-failure/pivot decision.
 - [ ] Phase 3 regenerates or recovers with complete provenance, verifies, and packages the `128x128` CDI anchor.
 - [ ] Phase 4 either provides clean `256x256` scaling evidence with higher-mode consideration or records an explicit infeasibility decision.
 - [ ] Phase 5 creates the `/home/ollie/Documents/neurips/` evidence map and derived artifact index files.
@@ -265,5 +282,6 @@ The lost `128x128` anchor condition is a binding selector input through this roa
 
 - Design: `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md`
 - Roadmap: `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md`
+- PDEBench image-suite plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md`
 - Initiative docs root: `docs/plans/NEURIPS-HYBRID-RESNET-2026/`
 - Future paper-facing root: `/home/ollie/Documents/neurips/`

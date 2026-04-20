@@ -49,12 +49,12 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** You need the current recommended starting parameters for a real study or wrapper and do not want to infer "best practice" from defaults, prompts, or tests.
 
 ### [NeurIPS Hybrid ResNet Submission Design](plans/2026-04-20-neurips-hybrid-resnet-submission-design.md)
-**Description:** Approved design brief for a NeurIPS 2026 Hybrid ResNet submission campaign, defining the two required empirical pillars, benchmark-selection policy, fresh `128x128` CDI anchor regeneration strategy, `256x256` higher-mode scaling hypothesis, and `/home/ollie/Documents/neurips/index.md` evidence-map policy.
+**Description:** Approved design brief for a NeurIPS 2026 Hybrid ResNet submission campaign, defining the CDI pillar, the amended native `128x128` PDEBench image-suite pillar, fresh `128x128` CDI anchor regeneration strategy, `256x256` higher-mode scaling hypothesis, and `/home/ollie/Documents/neurips/index.md` evidence-map policy.
 **Keywords:** neurips, hybrid_resnet, roadmap, submission, cdi, pde, evidence
 **Use this when:** Planning or executing the Hybrid ResNet NeurIPS submission work, deciding which CDI/PDE evidence is in scope, or assembling paper-facing artifacts.
 
 ### [NeurIPS Hybrid ResNet Submission Roadmap](plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md)
-**Description:** Phase-by-phase roadmap for the NeurIPS 2026 Hybrid ResNet campaign, prioritizing evidence inventory with explicit lost-run handling, required PDE benchmark selection/execution, fresh `128x128` CDI anchor regeneration/verification, optional `256x256` scaling evidence, and later evidence-bundle assembly.
+**Description:** Phase-by-phase roadmap for the NeurIPS 2026 Hybrid ResNet campaign, prioritizing evidence inventory with explicit lost-run handling, required PDEBench `128x128` image-suite execution, fresh `128x128` CDI anchor regeneration/verification, optional `256x256` scaling evidence, and later evidence-bundle assembly.
 **Keywords:** neurips, hybrid_resnet, roadmap, phases, pde, cdi, artifact-index
 **Use this when:** You need the execution order, gates, expected artifacts, or fallback decisions for the submission campaign.
 
@@ -69,24 +69,44 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Preparing the Roadmap Phase 3 fresh CDI anchor run after confirming no complete paper-grade historical anchor was recovered.
 
 ### [NeurIPS Hybrid ResNet PDE Benchmark Selection](plans/NEURIPS-HYBRID-RESNET-2026/pde_benchmark_selection.md)
-**Description:** Roadmap Phase 1 benchmark scorecard and primary/fallback decision for the required PDE pillar, selecting PDEBench 2D Shallow Water Equations (`swe`) as primary and OpenFWI FlatVel-A 2D acoustic FWI as fallback with Phase 2 smoke-run gates.
-**Keywords:** neurips, hybrid_resnet, pde, benchmark-selection, pdebench, openfwi, phase-1
-**Use this when:** Starting the Phase 2 PDE benchmark execution plan or checking why PDEBench, OpenFWI, and PDEArena Maxwell-3D were selected or rejected.
+**Description:** Roadmap Phase 1 benchmark scorecard and primary/fallback provenance for the required PDE pillar, originally selecting PDEBench SWE as primary and OpenFWI FlatVel-A as fallback, then amended to a compact native `128x128` PDEBench image suite covering SWE, Darcy Flow, and 2D diffusion-reaction.
+**Keywords:** neurips, hybrid_resnet, pde, benchmark-selection, pdebench, openfwi, phase-1, darcy, diffusion-reaction
+**Use this when:** Checking why PDEBench, OpenFWI, and PDEArena Maxwell-3D were selected or rejected, or why the current Phase 2 target is the PDEBench `128x128` image suite.
+
+### [NeurIPS Hybrid ResNet PDEBench 128x128 Image-Suite Plan](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md)
+**Description:** Roadmap Phase 2 plan for a compact native `128x128` PDEBench image suite covering SWE (`swe`), Darcy Flow (`darcy`), and 2D diffusion-reaction (`2d_reacdiff`), including data/schema preflight, shared adapter reuse from the existing SWE study, smoke-readiness boundaries, capped-pilot limitations, full available training-split benchmark requirements, ablations, and suite-summary gates.
+**Keywords:** neurips, hybrid_resnet, pdebench, 128x128, swe, darcy, 2d_reacdiff, image-suite, phase-2
+**Use this when:** Drafting or reviewing the next Phase 2 implementation tranche, deciding how to generalize the existing SWE study components, or checking why smoke runs cannot be used as model-performance evidence.
+
+### [NeurIPS Hybrid ResNet PDEBench 128x128 Image-Suite Preflight](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md)
+**Description:** Stage A execution summary for the PDEBench `128x128` image-suite plan, recording which official files are staged, native-shape/schema status, raw HDF5 dataset shapes/axis orders for ready tasks, available supervision units, missing data blockers, missing listed data volume, and the full available training-split benchmark rule.
+**Keywords:** neurips, hybrid_resnet, pdebench, 128x128, preflight, swe, darcy, 2d_reacdiff, data-schema
+**Use this when:** Checking whether PDEBench data are ready for adapter work or benchmark training, or deciding whether an external data root is required before running full available training-split comparisons.
+
+### [NeurIPS Hybrid ResNet PDEBench Darcy Static Operator Benchmark Plan](plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md)
+**Description:** Roadmap Phase 2 implementation plan for the PDEBench Darcy Flow beta `1.0` static operator benchmark, including `nu -> tensor` data/split/normalization contracts, full available training-split requirements, strong FNO and non-toy U-Net baseline gates, and literature-calibrated target values from PDEBench and later HAMLET/OFormer context.
+**Keywords:** neurips, hybrid_resnet, pdebench, darcy, static-operator, strong-baseline, fno, unet, sota, nrmse
+**Use this when:** Implementing or reviewing the Darcy member of the PDEBench `128x128` image suite, deciding what counts as a strong local baseline, or checking expected U-Net/FNO/SOTA metric ranges before interpreting Hybrid ResNet.
 
 ### [NeurIPS Hybrid ResNet PDEBench SWE Smoke Gate](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_swe_smoke_gate.md)
-**Description:** Roadmap Phase 2 smoke/data-contract gate for the selected PDEBench 2D Shallow Water Equations (`2D_rdb_NA_NA.h5`) primary benchmark, covering dataset identity, HDF5 layout, deterministic splits, local `err_nRMSE`, tiny Hybrid ResNet/FNO/U-Net smoke results or blockers, and the proceed/pivot/block decision.
+**Description:** Roadmap Phase 2 smoke/data-contract gate for the PDEBench 2D Shallow Water Equations (`2D_rdb_NA_NA.h5`) task, now retained as readiness/provenance evidence for the SWE member of the amended native `128x128` PDEBench image suite. Smoke metrics are not benchmark-performance evidence.
 **Keywords:** neurips, hybrid_resnet, pdebench, swe, smoke-gate, phase-2, err_nRMSE
-**Use this when:** Deciding whether to continue with longer SWE execution, pivot to OpenFWI FlatVel-A, or block the PDE pillar for a human scope/storage decision.
+**Use this when:** Checking the SWE data-contract details, staged file identity, or smoke-readiness evidence before building the broader PDEBench image-suite adapter.
 
 ### [NeurIPS Hybrid ResNet PDE Execution Summary](plans/NEURIPS-HYBRID-RESNET-2026/pde_execution_summary.md)
-**Description:** Roadmap Phase 2 longer-execution summary for PDEBench SWE one-step prediction, including dataset/license identity, full and run-subset splits, normalization and metric contract, Hybrid ResNet/FNO/U-Net local results, ablation skip rationale, provenance links, published-SOTA caveats, the post-review training-seed caveat for the selected unseeded run, and the proceed/pivot/block gate decision.
+**Description:** Historical Roadmap Phase 2 longer-execution summary for PDEBench SWE one-step prediction, including dataset/license identity, splits, normalization, local results, and the post-review caveat that the selected run is underconfigured, unseeded decision-support evidence only. Superseded for the next PDE tranche by the PDEBench `128x128` image-suite plan.
 **Keywords:** neurips, hybrid_resnet, pdebench, swe, phase-2, pde-execution, pivot, openfwi
-**Use this when:** Checking the final Phase 2 PDE primary result, whether the SWE path proceeds or pivots, or which raw artifacts support the benchmark decision.
+**Use this when:** Auditing the historical SWE longer-run artifacts or understanding why new suite runs must use the corrected fixed-seed grid-lines recipe.
 
 ### [NeurIPS Hybrid ResNet OpenFWI FlatVel-A Fallback Smoke Gate](plans/NEURIPS-HYBRID-RESNET-2026/openfwi_flatvel_a_fallback_smoke_gate.md)
-**Description:** Roadmap Phase 2 fallback smoke/data-access gate for OpenFWI FlatVel-A after the PDEBench SWE pivot, covering shard access for `data1.npy`/`model1.npy` and `data49.npy`/`model49.npy`, shape validation, deterministic smoke splits, MAE/RMSE/SSIM metrics, local Hybrid ResNet-compatible/U-Net smoke profiles, official InversionNet compatibility status, raw artifact links, and the proceed/block/reject decision.
+**Description:** Roadmap Phase 2 fallback smoke/data-access gate for OpenFWI FlatVel-A, now deferred as an optional fallback or adjacent inverse-wave extension while the native `128x128` PDEBench image suite is viable. Smoke metrics are sanity/provenance artifacts only, not benchmark-performance evidence.
 **Keywords:** neurips, hybrid_resnet, openfwi, flatvel-a, fallback, smoke-gate, phase-2, pde
-**Use this when:** Checking whether the OpenFWI fallback can advance to longer execution or is blocked by data/storage/access constraints.
+**Use this when:** Auditing OpenFWI readiness evidence or explicitly deciding to replace or extend the PDEBench image suite with an inverse-wave benchmark.
+
+### [NeurIPS Hybrid ResNet Plan/Implementation Workflow](../workflows/examples/neurips_hybrid_resnet_plan_impl_review.yaml)
+**Description:** Call-based orchestration workflow that loops over next-scope selection from the approved NeurIPS Hybrid ResNet design, roadmap, and progress ledger, then runs plan drafting/review and implementation/review for each selected scope.
+**Keywords:** workflow, neurips, hybrid_resnet, roadmap, tranche-selection, plan-review, implementation-review
+**Use this when:** You want to drain the approved design and roadmap through adaptive plan scopes while preserving roadmap gates, selected-scope context, and progress history across agent-orchestration iterations.
 
 ### [PtychoViT Workflow Guide](workflows/ptychovit.md)
 **Description:** Source-pinned interop contract for running the `pinn_ptychovit` model arm from grid-lines studies, including paired HDF5 requirements, checkpoint semantics, and troubleshooting notes.
