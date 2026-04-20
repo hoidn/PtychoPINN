@@ -4,7 +4,7 @@
 
 This is the Roadmap Phase 2 longer-execution gate for the selected PDEBench 2D Shallow Water Equations (`swe`) primary benchmark. It covers one-step next-state prediction for Hybrid ResNet, FNO, and U-Net under one shared data, split, normalization, metric, and evaluation contract.
 
-Post-review seed caveat: the selected run below was launched before the longer runner recorded a model/training RNG seed. Its metrics are retained only as unseeded observed evidence for the SWE pivot screen, not as fixed-seed paper-facing evidence. The current runner and run-budget contract now require `training_seed=20260420` for reruns.
+Post-review seed caveat: the selected run below was launched before the longer runner recorded a model/training RNG seed. Its metrics are retained only as unseeded observed evidence for the SWE pivot screen, not as fixed-seed paper-facing evidence. The current runner and schema-migrated reusable budget now require `training_seed=20260420` for reruns.
 
 Non-goals respected: no CDI Phase 3 anchor regeneration, no Phase 4 `256x256` CDI scaling, no OpenFWI execution, no rollout evaluation, no manuscript prose, and no paper-facing artifact assembly.
 
@@ -70,7 +70,8 @@ Summary: the PDEBench repository code is MIT licensed except where otherwise sta
 - Epochs: `15`.
 - Batch size: `16`.
 - Learning rate: `1e-3`.
-- Training/model seed: not recorded by selected run `20260420T115509.961336393Z`; post-review runner contract requires `training_seed=20260420` in the budget or CLI before constructing each model profile.
+- Selected-run training/model seed: not recorded by selected run `20260420T115509.961336393Z`; this remains a historical provenance gap for the selected metrics.
+- Reusable budget training/model seed: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/run_budget.json` now includes `training_seed=20260420` and validates under the current runner contract for reruns.
 - Max train trajectories: `800`.
 - Max validation trajectories: `100`.
 - Max test trajectories: `100`.
@@ -92,6 +93,8 @@ The tmux launch wrote selected identity markers before launch:
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/selected_longer.tmux_session`
 
 The run invocation is recorded at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/runs/20260420T115509.961336393Z/invocation.sh` and `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/runs/20260420T115509.961336393Z/invocation.json`.
+
+Those selected-run invocation files remain historical provenance for the unseeded run. Reusing the command against the current budget now supplies `training_seed=20260420` through `--run-budget-file`, but that budget migration is not retroactive evidence that the selected run recorded fixed-seed model/training provenance.
 
 ## Local Baseline Results
 
@@ -143,6 +146,7 @@ No published SOTA number is used as a same-protocol result in this summary. Any 
 - CUDA peak memory is reset per profile and reported as `per_profile_cuda_peak`.
 - Hybrid ResNet, FNO, and U-Net completed under one data/split/horizon/normalization/metric contract, but the selected run lacks fixed model/training seed provenance and is downgraded to unseeded observed evidence.
 - Post-review runner behavior now rejects live `logs/longer.pid` roots without `logs/longer.exit_code`, requires `training_seed` in the run budget, records the seed in invocation/profile artifacts, and requires both FNO and U-Net for local-baseline completeness.
+- The delivered reusable budget validates with `load_run_budget()` and includes `training_seed=20260420`; the selected run remains downgraded because its per-run provenance was produced before that contract was recorded.
 - The long-run completion is bound to the persisted selected run root and tracked child PID; `logs/longer.exit_code` contains `0`.
 - No CDI, OpenFWI execution, `256x256` scaling, paper-facing artifact assembly, or stable core physics/model module edit was performed.
 

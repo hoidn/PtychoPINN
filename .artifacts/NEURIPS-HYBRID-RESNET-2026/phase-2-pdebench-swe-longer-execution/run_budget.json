@@ -1,0 +1,30 @@
+{
+  "ablation_profiles": [
+    "hybrid_resnet_spectral_reduced",
+    "hybrid_resnet_local_reduced"
+  ],
+  "batch_size": 16,
+  "budget_id": "target",
+  "data_file": "/home/ollie/Documents/pdebench-data/swe/2D_rdb_NA_NA.h5",
+  "device": "cuda",
+  "downgrade_reason": null,
+  "epochs": 15,
+  "eval_splits": [
+    "val",
+    "test"
+  ],
+  "learning_rate": 0.001,
+  "max_pairs_per_trajectory": 10,
+  "max_test_trajectories": 100,
+  "max_train_trajectories": 800,
+  "max_val_trajectories": 100,
+  "normalization_max_samples": 8000,
+  "num_workers": 2,
+  "primary_profiles": [
+    "hybrid_resnet_base",
+    "fno_base",
+    "unet_base"
+  ],
+  "schema_version": "pdebench_swe_run_budget_v1",
+  "training_seed": 20260420
+}

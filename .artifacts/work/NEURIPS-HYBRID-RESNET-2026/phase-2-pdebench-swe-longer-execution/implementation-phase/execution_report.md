@@ -2,36 +2,39 @@
 
 ## Completed In This Pass
 
-- Fixed implementation-review `H1` by rejecting live `logs/longer.pid` roots without `logs/longer.exit_code` regardless of `--allow-existing-output-root`; only `longer.run_id` and `longer.started_at_ns` remain prelaunch markers.
-- Fixed implementation-review `H2` for future runs by adding `--training-seed`, requiring `training_seed` in run budgets, seeding Python/NumPy/Torch/CUDA before each profile build, and recording the seed in invocation/profile metrics/profile provenance.
-- Fixed implementation-review `M1` by requiring both `fno_base` and `unet_base` in reporting and rejecting budget-backed profile overrides that omit required primary profiles outside inspect-only mode.
-- Updated the durable plan/runbook, studies index, docs index, and PDE execution summary to document the tightened seed/PID/baseline contracts.
+- Fixed implementation-review `H1` by schema-migrating the delivered reusable run budget at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/run_budget.json` to include `training_seed=20260420`.
+- Updated the durable Phase 2 execution summary so the selected run remains clearly labeled as historical unseeded evidence while the corrected budget is valid for future reruns under the current runner contract.
+- Updated the tranche execution plan with the review-fix resolution and documents-read record for this pass.
 
 ## Completed Current-Scope Work
 
-- Added regression coverage for live PID output roots, training-seed CLI/provenance, run-budget seed validation, budget-backed profile override rejection, and reporting completeness when a baseline is omitted.
-- Explicitly downgraded selected run `20260420T115509.961336393Z` in `docs/plans/NEURIPS-HYBRID-RESNET-2026/pde_execution_summary.md` as unseeded observed evidence; no long rerun was launched in this pass.
-- Preserved the existing Phase 2 decision, `Decision: pivot to OpenFWI FlatVel-A`, as a conservative observed SWE pivot signal rather than a fixed-seed paper-facing claim.
+- Preserved the selected run's historical `invocation.sh`/`invocation.json` provenance instead of retroactively adding a seed to files produced by the unseeded run.
+- Added final artifact validation evidence that calls `load_run_budget()` on the shipped `.artifacts/.../run_budget.json` and confirms `training_seed=20260420` plus required primary profiles.
+- Preserved the Phase 2 decision, `Decision: pivot to OpenFWI FlatVel-A`; no long rerun, OpenFWI fallback execution, CDI work, YAML/prompt edit, or stable core physics/model edit was performed.
 
 ## Verification
 
-- `python -m pytest tests/studies/test_pdebench_swe_manifest.py tests/studies/test_pdebench_swe_splits_data.py tests/studies/test_pdebench_swe_metrics.py tests/studies/test_pdebench_swe_models.py tests/studies/test_pdebench_swe_run_config.py tests/studies/test_pdebench_swe_longer_cli.py tests/studies/test_pdebench_swe_reporting.py tests/studies/test_pdebench_swe_smoke_cli.py -v`
-  - Result: `48 passed in 15.91s`
-  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/final_pytest.log`
-- `python scripts/studies/run_pdebench_swe_longer.py --help`
-  - Result: help includes `--training-seed`
-  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/longer_help.log`
+- RED reproduction before the fix: `load_run_budget(.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/run_budget.json)` failed with `ValueError: run budget missing required field: training_seed`.
+- Budget validation after the fix: `python - <<'PY' ... load_run_budget(...) ... PY`
+  - Result: passed; `training_seed=20260420`; primary profiles are `hybrid_resnet_base,fno_base,unet_base`.
+  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/review_fix_budget_validation.log`.
+- Focused PDEBench SWE tests: `python -m pytest tests/studies/test_pdebench_swe_manifest.py tests/studies/test_pdebench_swe_splits_data.py tests/studies/test_pdebench_swe_metrics.py tests/studies/test_pdebench_swe_models.py tests/studies/test_pdebench_swe_run_config.py tests/studies/test_pdebench_swe_longer_cli.py tests/studies/test_pdebench_swe_reporting.py tests/studies/test_pdebench_swe_smoke_cli.py -v`
+  - Result: `48 passed in 16.05s`.
+  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/review_fix_pytest.log`.
 - Structural summary/discoverability check:
-  - Result: `PDE execution summary and discoverability checks passed`
+  - Result: `PDE execution summary and discoverability checks passed`; decision remains `pivot to OpenFWI FlatVel-A`.
+  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/review_fix_structural_check.log`.
 - Plan pointer check:
-  - Result: `plan_path pointer is valid`
-- Selected-run identity check:
-  - Result: `selected longer run verified: run_id=20260420T115509.961336393Z pid=3052378 root=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/runs/20260420T115509.961336393Z`
+  - Result: `plan_path pointer is valid`.
+  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/review_fix_plan_pointer_check.log`.
+- Selected-run freshness/PID check:
+  - Result: selected longer run verified with `run_id=20260420T115509.961336393Z`, tracked PID `3052378`, and root `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/runs/20260420T115509.961336393Z`.
+  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/review_fix_selected_run_check.log`.
 
 ## Follow-Up Work
 
 - Execute the OpenFWI FlatVel-A fallback in a separate approved tranche.
-- Rerun PDEBench SWE only if a fixed-seed SWE primary record is still needed despite the documented pivot; use `training_seed=20260420` and the revised tmux/run-budget contract.
+- Rerun PDEBench SWE only if a fixed-seed SWE primary record is still needed despite the documented pivot; use the corrected budget with `training_seed=20260420` and the revised tmux/run-budget contract.
 
 ## Residual Risks
 
