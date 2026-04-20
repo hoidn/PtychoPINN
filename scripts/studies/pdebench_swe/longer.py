@@ -195,8 +195,11 @@ def _guard_output_root(output_root: Path, *, allow_existing: bool) -> None:
     exit_path = output_root / "logs" / "longer.exit_code"
     if pid_path.exists() and not exit_path.exists():
         pid = pid_path.read_text(encoding="utf-8").strip()
-        if _pid_is_live(pid):
-            raise FileExistsError(f"refusing to write into live output root {output_root}; PID {pid} is active")
+        root_label = "live output root" if _pid_is_live(pid) else "incomplete output root"
+        raise FileExistsError(
+            f"refusing to write into {root_label} {output_root}; "
+            f"PID marker {pid!r} has missing exit code evidence"
+        )
     if (
         output_root.exists()
         and any(output_root.iterdir())
@@ -699,6 +702,15 @@ def validate_fresh_artifacts(
     output_root = Path(output_root)
     errors: list[str] = []
 
+    def load_marker(path: Path) -> str | None:
+        if not path.exists():
+            errors.append(f"missing longer contract artifact: {path}")
+            return None
+        if path.stat().st_mtime_ns < start_ns:
+            errors.append(f"stale longer artifact predates tracked run start: {path}")
+            return None
+        return path.read_text(encoding="utf-8").strip()
+
     def load_json(path: Path) -> dict[str, Any] | None:
         if not path.exists():
             errors.append(f"missing longer contract artifact: {path}")
@@ -711,6 +723,23 @@ def validate_fresh_artifacts(
         except json.JSONDecodeError as exc:
             errors.append(f"invalid JSON artifact {path}: {exc}")
             return None
+
+    marker_run_id = load_marker(output_root / "logs" / "longer.run_id")
+    if marker_run_id is not None and marker_run_id != str(run_id):
+        errors.append(f"logs/longer.run_id does not match current run_id {run_id}")
+    marker_start_ns = load_marker(output_root / "logs" / "longer.started_at_ns")
+    if marker_start_ns is not None:
+        try:
+            if int(marker_start_ns) != int(start_ns):
+                errors.append(f"logs/longer.started_at_ns does not match tracked start_ns {start_ns}")
+        except ValueError:
+            errors.append(f"logs/longer.started_at_ns is not an integer: {marker_start_ns!r}")
+    marker_pid = load_marker(output_root / "logs" / "longer.pid")
+    if marker_pid is not None and marker_pid != str(tracked_pid):
+        errors.append(f"logs/longer.pid does not match tracked PID {tracked_pid}")
+    marker_exit_code = load_marker(output_root / "logs" / "longer.exit_code")
+    if marker_exit_code is not None and marker_exit_code != "0":
+        errors.append(f"logs/longer.exit_code must be 0, found {marker_exit_code!r}")
 
     root_json = [
         "dataset_manifest.json",

@@ -145,7 +145,7 @@ No published SOTA number is used as a same-protocol result in this summary. Any 
 - Normalization limits are recorded as samples, not batches.
 - CUDA peak memory is reset per profile and reported as `per_profile_cuda_peak`.
 - Hybrid ResNet, FNO, and U-Net completed under one data/split/horizon/normalization/metric contract, but the selected run lacks fixed model/training seed provenance and is downgraded to unseeded observed evidence.
-- Post-review runner behavior now rejects live `logs/longer.pid` roots without `logs/longer.exit_code`, requires `training_seed` in the run budget, records the seed in invocation/profile artifacts, and requires both FNO and U-Net for local-baseline completeness.
+- Post-review runner behavior now rejects any `logs/longer.pid` root without `logs/longer.exit_code`, requires fresh per-run marker validation with `logs/longer.exit_code=0`, requires `training_seed` in the run budget, records the seed in invocation/profile artifacts, and requires both FNO and U-Net for local-baseline completeness.
 - The delivered reusable budget validates with `load_run_budget()` and includes `training_seed=20260420`; the selected run remains downgraded because its per-run provenance was produced before that contract was recorded.
 - The long-run completion is bound to the persisted selected run root and tracked child PID; `logs/longer.exit_code` contains `0`.
 - No CDI, OpenFWI execution, `256x256` scaling, paper-facing artifact assembly, or stable core physics/model module edit was performed.

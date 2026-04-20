@@ -19,7 +19,7 @@
 - Horizon: one-step next-state prediction only.
 - Output artifact root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/`.
 - Local model profiles: `hybrid_resnet_base`, `fno_base`, `unet_base`, with `hybrid_resnet_spectral_reduced` and `hybrid_resnet_local_reduced` ablations gated behind primary viability.
-- Reproducibility guard: new longer runs must provide `training_seed=20260420` through the run budget or `--training-seed`; live `runs/<run_id>/logs/longer.pid` markers without `longer.exit_code` are treated as active writers and rejected.
+- Reproducibility guard: new longer runs must provide `training_seed=20260420` through the run budget or `--training-seed`; any `runs/<run_id>/logs/longer.pid` marker without `longer.exit_code` is treated as incomplete-run evidence and rejected.
 - Current selected-run caveat: run `20260420T115509.961336393Z` predates training-seed provenance and is documented only as unseeded observed SWE pivot evidence.
 - Boundary: this is longer Phase 2 execution only, not CDI, OpenFWI fallback execution, rollout evaluation, `256x256` scaling, or paper-facing artifact assembly.
 

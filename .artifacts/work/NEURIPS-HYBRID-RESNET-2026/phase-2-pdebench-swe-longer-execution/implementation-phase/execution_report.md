@@ -1,40 +1,36 @@
-# Phase 2 PDEBench SWE Longer Execution Review-Fix Report
+# Phase 2 PDEBench SWE Longer Execution Second Review-Fix Report
 
 ## Completed In This Pass
 
-- Fixed implementation-review `H1` by schema-migrating the delivered reusable run budget at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/run_budget.json` to include `training_seed=20260420`.
-- Updated the durable Phase 2 execution summary so the selected run remains clearly labeled as historical unseeded evidence while the corrected budget is valid for future reruns under the current runner contract.
-- Updated the tranche execution plan with the review-fix resolution and documents-read record for this pass.
+- Fixed implementation-review `H1` for longer-run locking and freshness evidence.
+- Added RED/GREEN regressions for stale `logs/longer.pid` markers without `logs/longer.exit_code`, missing exit-code evidence during freshness validation, and nonzero exit-code evidence.
+- Updated the runner so any per-run `logs/longer.pid` marker without `logs/longer.exit_code` is a hard output-root error, regardless of PID liveness or `--allow-existing-output-root`.
+- Updated freshness validation to require fresh `logs/longer.run_id`, `logs/longer.started_at_ns`, `logs/longer.pid`, and `logs/longer.exit_code == "0"`.
+- Updated durable plan, summary, and studies-index wording so the documented contract matches the stricter implementation.
 
 ## Completed Current-Scope Work
 
-- Preserved the selected run's historical `invocation.sh`/`invocation.json` provenance instead of retroactively adding a seed to files produced by the unseeded run.
-- Added final artifact validation evidence that calls `load_run_budget()` on the shipped `.artifacts/.../run_budget.json` and confirms `training_seed=20260420` plus required primary profiles.
-- Preserved the Phase 2 decision, `Decision: pivot to OpenFWI FlatVel-A`; no long rerun, OpenFWI fallback execution, CDI work, YAML/prompt edit, or stable core physics/model edit was performed.
+- Preserved the Phase 2 decision, `Decision: pivot to OpenFWI FlatVel-A`.
+- Preserved the selected historical SWE run as unseeded observed pivot evidence; no provenance was retroactively edited.
+- Did not launch a new long run, execute OpenFWI fallback work, start CDI work, edit YAML/prompt files, create a worktree, or touch stable core physics/model modules.
 
 ## Verification
 
-- RED reproduction before the fix: `load_run_budget(.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/run_budget.json)` failed with `ValueError: run budget missing required field: training_seed`.
-- Budget validation after the fix: `python - <<'PY' ... load_run_budget(...) ... PY`
-  - Result: passed; `training_seed=20260420`; primary profiles are `hybrid_resnet_base,fno_base,unet_base`.
-  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/review_fix_budget_validation.log`.
-- Focused PDEBench SWE tests: `python -m pytest tests/studies/test_pdebench_swe_manifest.py tests/studies/test_pdebench_swe_splits_data.py tests/studies/test_pdebench_swe_metrics.py tests/studies/test_pdebench_swe_models.py tests/studies/test_pdebench_swe_run_config.py tests/studies/test_pdebench_swe_longer_cli.py tests/studies/test_pdebench_swe_reporting.py tests/studies/test_pdebench_swe_smoke_cli.py -v`
-  - Result: `48 passed in 16.05s`.
-  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/review_fix_pytest.log`.
-- Structural summary/discoverability check:
-  - Result: `PDE execution summary and discoverability checks passed`; decision remains `pivot to OpenFWI FlatVel-A`.
-  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/review_fix_structural_check.log`.
-- Plan pointer check:
-  - Result: `plan_path pointer is valid`.
-  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/review_fix_plan_pointer_check.log`.
-- Selected-run freshness/PID check:
-  - Result: selected longer run verified with `run_id=20260420T115509.961336393Z`, tracked PID `3052378`, and root `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/runs/20260420T115509.961336393Z`.
-  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/review_fix_selected_run_check.log`.
+- RED check before the code fix: `python -m pytest tests/studies/test_pdebench_swe_longer_cli.py -k 'prelaunch or requires_run_markers' -v`
+  - Result: failed as expected on stale PID marker acceptance and missing `longer.exit_code` freshness acceptance.
+- Targeted GREEN check after the code fix: same selector.
+  - Result: `2 passed, 6 deselected`.
+- Focused PDEBench SWE suite: `python -m pytest tests/studies/test_pdebench_swe_manifest.py tests/studies/test_pdebench_swe_splits_data.py tests/studies/test_pdebench_swe_metrics.py tests/studies/test_pdebench_swe_models.py tests/studies/test_pdebench_swe_run_config.py tests/studies/test_pdebench_swe_longer_cli.py tests/studies/test_pdebench_swe_reporting.py tests/studies/test_pdebench_swe_smoke_cli.py -v`
+  - Result: `49 passed in 15.99s`.
+  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/second_review_fix_pytest.log`.
+- Selected-run freshness check with the stricter helper:
+  - Result: selected longer run verified with `run_id=20260420T115509.961336393Z`, tracked PID `3052378`, root `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/runs/20260420T115509.961336393Z`, and `logs/longer.exit_code=0`.
+  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/second_review_fix_selected_run_check.log`.
 
 ## Follow-Up Work
 
 - Execute the OpenFWI FlatVel-A fallback in a separate approved tranche.
-- Rerun PDEBench SWE only if a fixed-seed SWE primary record is still needed despite the documented pivot; use the corrected budget with `training_seed=20260420` and the revised tmux/run-budget contract.
+- Rerun PDEBench SWE only if a fixed-seed SWE primary record is still needed despite the documented pivot; use the corrected budget, seed-recording contract, and stricter run-marker validation.
 
 ## Residual Risks
 

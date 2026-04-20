@@ -112,6 +112,17 @@ def test_prelaunch_tmux_markers_do_not_trip_duplicate_root_guard(tmp_path):
     else:  # pragma: no cover - failure path
         raise AssertionError("allow_existing must not bypass a live PID marker")
 
+    stale_output_root = tmp_path / "stale-out"
+    stale_logs = stale_output_root / "logs"
+    stale_logs.mkdir(parents=True)
+    (stale_logs / "longer.pid").write_text("999999999\n", encoding="utf-8")
+    try:
+        _guard_output_root(stale_output_root, allow_existing=True)
+    except FileExistsError as exc:
+        assert "missing exit code" in str(exc)
+    else:  # pragma: no cover - failure path
+        raise AssertionError("allow_existing must not bypass any PID marker without exit code")
+
     (logs / "longer.exit_code").write_text("0\n", encoding="utf-8")
     (output_root / "unexpected.json").write_text("{}", encoding="utf-8")
     try:
@@ -276,3 +287,55 @@ def test_validate_fresh_artifacts_rejects_stale_wrong_run_id_and_pid(tmp_path):
     assert any("stale" in error for error in errors)
     assert any("provenance" in error and "run_id" in error for error in errors)
     assert any("PID" in error for error in errors)
+
+
+def test_validate_fresh_artifacts_requires_run_markers_and_successful_exit(tmp_path):
+    from scripts.studies.pdebench_swe.longer import validate_fresh_artifacts
+
+    root = tmp_path / "out"
+    model_root = root / "runs" / "unet_base"
+    model_root.mkdir(parents=True)
+    for name in [
+        "dataset_manifest.json",
+        "hdf5_metadata.json",
+        "split_manifest_full.json",
+        "split_manifest_run.json",
+        "normalization_stats.json",
+        "comparison_summary.json",
+    ]:
+        (root / name).write_text('{"run_id": "fresh"}', encoding="utf-8")
+    (root / "comparison_summary.csv").write_text("profile_id,status\n", encoding="utf-8")
+    (root / "invocation.sh").write_text("python scripts/studies/run_pdebench_swe_longer.py\n", encoding="utf-8")
+    (root / "invocation.json").write_text(
+        '{"run_id": "fresh", "pid": 123, "parsed_args": {"run_id": "fresh"}}',
+        encoding="utf-8",
+    )
+    (model_root / "provenance.json").write_text('{"run_id": "fresh", "pid": 123}', encoding="utf-8")
+    (model_root / "metrics.json").write_text('{"run_id": "fresh", "pid": 123}', encoding="utf-8")
+
+    errors = validate_fresh_artifacts(
+        output_root=root,
+        run_id="fresh",
+        tracked_pid="123",
+        start_ns=1,
+        profiles=["unet_base"],
+    )
+
+    assert any("longer.exit_code" in error for error in errors)
+
+    logs = root / "logs"
+    logs.mkdir()
+    (logs / "longer.run_id").write_text("fresh\n", encoding="utf-8")
+    (logs / "longer.started_at_ns").write_text("2\n", encoding="utf-8")
+    (logs / "longer.pid").write_text("123\n", encoding="utf-8")
+    (logs / "longer.exit_code").write_text("1\n", encoding="utf-8")
+
+    errors = validate_fresh_artifacts(
+        output_root=root,
+        run_id="fresh",
+        tracked_pid="123",
+        start_ns=1,
+        profiles=["unet_base"],
+    )
+
+    assert any("longer.exit_code" in error and "0" in error for error in errors)

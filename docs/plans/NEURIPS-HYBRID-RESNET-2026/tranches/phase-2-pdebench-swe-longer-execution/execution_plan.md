@@ -113,10 +113,11 @@
 
 ## Implementation Review Finding Resolutions
 
-- `H1` is resolved by treating `logs/longer.pid` as a live-run marker, not a prelaunch marker. The Python runner rejects any live PID marker without `logs/longer.exit_code` regardless of `--allow-existing-output-root`; the tmux wrapper records the shell-tracked child PID under the raw-root logs and leaves the per-run PID marker to the Python runner.
+- `H1` is resolved by treating `logs/longer.pid` as incomplete-run evidence until `logs/longer.exit_code` exists. The Python runner rejects any PID marker without `logs/longer.exit_code` regardless of PID liveness and regardless of `--allow-existing-output-root`; the tmux wrapper records the shell-tracked child PID under the raw-root logs and leaves the per-run PID marker to the Python runner.
 - `H2` is resolved for new runs by adding a required `training_seed` to the run budget, CLI, invocation metadata, profile metrics, and profile provenance. The selected pre-review run remains explicitly downgraded in `pde_execution_summary.md` because it did not record a model/training seed.
 - `M1` is resolved by requiring both local baselines, `fno_base` and `unet_base`, in reporting and by rejecting budget-backed `--profiles` overrides that omit required primary profiles outside inspect-only mode.
 - Current implementation-review `H1` is resolved by schema-migrating the delivered reusable `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/run_budget.json` to include `training_seed=20260420`, validating that shipped artifact with `load_run_budget()`, and clarifying in `pde_execution_summary.md` that the selected run remains historical unseeded evidence while the corrected budget is valid for reruns.
+- Current second-review `H1` is resolved by making `_guard_output_root()` reject stale or live `logs/longer.pid` markers without exit-code evidence, making `validate_fresh_artifacts()` require fresh `logs/longer.run_id`, `logs/longer.started_at_ns`, `logs/longer.pid`, and `logs/longer.exit_code == "0"`, and adding regressions for stale PID markers, missing exit-code evidence, and nonzero exit-code evidence.
 
 ## Implementation Review Fix Documents Read
 
@@ -126,8 +127,19 @@
 - Consumed implementation review report: `.artifacts/review/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution-implementation-review.md`
 - `docs/index.md`
 - `docs/findings.md`
+- `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md`
+- `state/NEURIPS-HYBRID-RESNET-2026/items/phase-2-pdebench-swe-longer-execution/tranche-context.md`
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pde_benchmark_selection.md`
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_swe_smoke_gate.md`
+- `.artifacts/review/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-primary-smoke-gate-implementation-review.md`
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pde_execution_summary.md`
+- `docs/DEVELOPER_GUIDE.md`
+- `docs/development/INVOCATION_LOGGING_GUIDE.md`
+- `docs/TESTING_GUIDE.md`
+- `docs/studies/index.md`
+- `scripts/studies/pdebench_swe/longer.py`
 - `scripts/studies/pdebench_swe/run_config.py`
+- `tests/studies/test_pdebench_swe_longer_cli.py`
 - `tests/studies/test_pdebench_swe_run_config.py`
 
 ## Plan Review Revision Documents Read
@@ -253,7 +265,7 @@ This tranche needs an Implementation Architecture section because it crosses ext
   - per-run markers: `logs/longer.started_at_ns`, `logs/longer.pid`, `logs/longer.exit_code`, and `logs/longer.run_id`.
 - **Must not own:** pde summary interpretation beyond raw status, docs index entries, or fallback execution.
 - **Dependency direction:** consumes Units 1-4 and writes raw evidence for Unit 6.
-- **Compatibility boundary:** default behavior refuses non-empty output roots unless explicitly allowed and freshness validation is enabled. A live `logs/longer.pid` without `logs/longer.exit_code` is rejected even when `--allow-existing-output-root` is set. Long-running launch remains in shell/tmux; Python runner should not hide broad polling loops.
+- **Compatibility boundary:** default behavior refuses non-empty output roots unless explicitly allowed and freshness validation is enabled. Any `logs/longer.pid` without `logs/longer.exit_code` is rejected even when `--allow-existing-output-root` is set. Long-running launch remains in shell/tmux; Python runner should not hide broad polling loops.
 - **Focused tests:** parser accepts planned flags including `--training-seed`; duplicate root rejected; live PID marker roots rejected; run ID propagated; CPU synthetic run writes metrics/provenance including training seed; CUDA peak reset path is isolated behind a testable helper; freshness validation rejects stale run IDs, old mtimes, PID mismatches, missing exit-code evidence, and validation attempts that do not use the selected run root.
 
 ### Unit 6: Result Collation and Pivot Gate Inputs
