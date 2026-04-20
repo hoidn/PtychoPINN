@@ -1,40 +1,40 @@
-# Phase 2 PDEBench SWE Longer Execution Report
+# Phase 2 PDEBench SWE Longer Execution Review-Fix Report
 
 ## Completed In This Pass
 
-- Extended the existing `scripts/studies/pdebench_swe/` harness with longer-run profiles, run-budget validation, full/run split manifests, sample-based normalization provenance, per-profile CUDA peak resets, freshness validation, comparison collation, and a thin CLI entrypoint.
-- Ran the official longer SWE one-step benchmark in tmux with selected run ID `20260420T115509.961336393Z`, tracked child PID `3052378`, and selected run root `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/runs/20260420T115509.961336393Z/`.
-- Wrote the durable Phase 2 summary at `docs/plans/NEURIPS-HYBRID-RESNET-2026/pde_execution_summary.md` and updated `docs/studies/index.md` and `docs/index.md` for discoverability.
+- Fixed implementation-review `H1` by rejecting live `logs/longer.pid` roots without `logs/longer.exit_code` regardless of `--allow-existing-output-root`; only `longer.run_id` and `longer.started_at_ns` remain prelaunch markers.
+- Fixed implementation-review `H2` for future runs by adding `--training-seed`, requiring `training_seed` in run budgets, seeding Python/NumPy/Torch/CUDA before each profile build, and recording the seed in invocation/profile metrics/profile provenance.
+- Fixed implementation-review `M1` by requiring both `fno_base` and `unet_base` in reporting and rejecting budget-backed profile overrides that omit required primary profiles outside inspect-only mode.
+- Updated the durable plan/runbook, studies index, docs index, and PDE execution summary to document the tightened seed/PID/baseline contracts.
 
-## Completed Plan Tasks
+## Completed Current-Scope Work
 
-- Phase A: prerequisite gate checks, ignored artifact root, disk/GPU preflight, package provenance, license/access note, and target run budget.
-- Phase B: red tests for split manifests, normalization semantics, model profiles, longer CLI/freshness behavior, and reporting collation.
-- Phase C/D: implementation of split/data/metric/profile/manifest extensions, longer runner, and reporting.
-- Phase E/F: focused verification, longer help check, official inspect-only pass, tmux launch, exact PID tracking, and selected-run freshness validation.
-- Phase G/H: PDE execution summary, discoverability updates, final focused pytest, plan pointer verification, selected run verification, and artifact hygiene check.
-
-## Remaining Required Plan Tasks
-
-- No remaining tasks in this tranche.
-- Because SWE primary was noncompetitive, the next roadmap action is a separate OpenFWI FlatVel-A fallback execution tranche; that fallback was not executed here by plan scope.
+- Added regression coverage for live PID output roots, training-seed CLI/provenance, run-budget seed validation, budget-backed profile override rejection, and reporting completeness when a baseline is omitted.
+- Explicitly downgraded selected run `20260420T115509.961336393Z` in `docs/plans/NEURIPS-HYBRID-RESNET-2026/pde_execution_summary.md` as unseeded observed evidence; no long rerun was launched in this pass.
+- Preserved the existing Phase 2 decision, `Decision: pivot to OpenFWI FlatVel-A`, as a conservative observed SWE pivot signal rather than a fixed-seed paper-facing claim.
 
 ## Verification
 
 - `python -m pytest tests/studies/test_pdebench_swe_manifest.py tests/studies/test_pdebench_swe_splits_data.py tests/studies/test_pdebench_swe_metrics.py tests/studies/test_pdebench_swe_models.py tests/studies/test_pdebench_swe_run_config.py tests/studies/test_pdebench_swe_longer_cli.py tests/studies/test_pdebench_swe_reporting.py tests/studies/test_pdebench_swe_smoke_cli.py -v`
-  - Result: `46 passed in 16.14s`
+  - Result: `48 passed in 15.91s`
   - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/final_pytest.log`
+- `python scripts/studies/run_pdebench_swe_longer.py --help`
+  - Result: help includes `--training-seed`
+  - Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/logs/longer_help.log`
 - Structural summary/discoverability check:
   - Result: `PDE execution summary and discoverability checks passed`
-- Selected longer-run validation:
-  - Result: `selected longer run verified: run_id=20260420T115509.961336393Z pid=3052378 root=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/runs/20260420T115509.961336393Z`
-- Official freshness validation:
-  - Result: `official longer SWE artifacts are fresh for run_id=20260420T115509.961336393Z pid=3052378`
 - Plan pointer check:
   - Result: `plan_path pointer is valid`
+- Selected-run identity check:
+  - Result: `selected longer run verified: run_id=20260420T115509.961336393Z pid=3052378 root=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/runs/20260420T115509.961336393Z`
+
+## Follow-Up Work
+
+- Execute the OpenFWI FlatVel-A fallback in a separate approved tranche.
+- Rerun PDEBench SWE only if a fixed-seed SWE primary record is still needed despite the documented pivot; use `training_seed=20260420` and the revised tmux/run-budget contract.
 
 ## Residual Risks
 
-- The SWE longer run is one seed and one one-step budget; it is sufficient for the Phase 2 gate but not a broad robustness claim.
-- Hybrid ResNet failed the operational 10% competitiveness threshold against the best local baseline (`relative_gap_vs_best_baseline=0.8900414694`), so this tranche records `Decision: pivot to OpenFWI FlatVel-A`.
-- The OpenFWI fallback still needs its own approved implementation tranche and storage/access preflight.
+- The selected SWE run remains unseeded for model/training RNGs and should not be promoted as fixed-seed reproducible or paper-facing evidence.
+- The Phase 2 pivot is based on one observed one-step SWE budget, not multi-seed robustness.
+- The OpenFWI fallback still needs storage/access preflight and its own implementation review.

@@ -48,6 +48,7 @@ def test_budget_validation_accepts_plan_budget_and_rejects_missing_baseline():
         "eval_splits": ["val", "test"],
         "num_workers": 2,
         "device": "cuda",
+        "training_seed": 20260420,
         "primary_profiles": ["hybrid_resnet_base", "fno_base", "unet_base"],
         "ablation_profiles": ["hybrid_resnet_spectral_reduced", "hybrid_resnet_local_reduced"],
     }
@@ -55,7 +56,13 @@ def test_budget_validation_accepts_plan_budget_and_rejects_missing_baseline():
     normalized = validate_run_budget(budget)
     json.dumps(normalized)
     assert normalized["primary_profiles"] == ["hybrid_resnet_base", "fno_base", "unet_base"]
+    assert normalized["training_seed"] == 20260420
 
     budget["primary_profiles"] = ["hybrid_resnet_base", "fno_base"]
     with pytest.raises(ValueError, match="unet_base"):
+        validate_run_budget(budget)
+
+    budget["primary_profiles"] = ["hybrid_resnet_base", "fno_base", "unet_base"]
+    budget.pop("training_seed")
+    with pytest.raises(ValueError, match="training_seed"):
         validate_run_budget(budget)

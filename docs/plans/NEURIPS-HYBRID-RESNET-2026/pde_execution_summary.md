@@ -4,6 +4,8 @@
 
 This is the Roadmap Phase 2 longer-execution gate for the selected PDEBench 2D Shallow Water Equations (`swe`) primary benchmark. It covers one-step next-state prediction for Hybrid ResNet, FNO, and U-Net under one shared data, split, normalization, metric, and evaluation contract.
 
+Post-review seed caveat: the selected run below was launched before the longer runner recorded a model/training RNG seed. Its metrics are retained only as unseeded observed evidence for the SWE pivot screen, not as fixed-seed paper-facing evidence. The current runner and run-budget contract now require `training_seed=20260420` for reruns.
+
 Non-goals respected: no CDI Phase 3 anchor regeneration, no Phase 4 `256x256` CDI scaling, no OpenFWI execution, no rollout evaluation, no manuscript prose, and no paper-facing artifact assembly.
 
 ## Documents And Artifacts Used
@@ -43,7 +45,7 @@ Summary: the PDEBench repository code is MIT licensed except where otherwise sta
 
 ## Split And Subset
 
-- Seed: `20260420`.
+- Split seed: `20260420`.
 - Full split: 800 train, 100 validation, 100 test trajectories.
 - Full one-step pair counts: train `80000`, validation `10000`, test `10000`.
 - Run subset: same 800/100/100 trajectory split, capped to `10` one-step pairs per trajectory.
@@ -68,6 +70,7 @@ Summary: the PDEBench repository code is MIT licensed except where otherwise sta
 - Epochs: `15`.
 - Batch size: `16`.
 - Learning rate: `1e-3`.
+- Training/model seed: not recorded by selected run `20260420T115509.961336393Z`; post-review runner contract requires `training_seed=20260420` in the budget or CLI before constructing each model profile.
 - Max train trajectories: `800`.
 - Max validation trajectories: `100`.
 - Max test trajectories: `100`.
@@ -92,6 +95,8 @@ The run invocation is recorded at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2
 
 ## Local Baseline Results
 
+These rows are unseeded observed results because the selected run did not record a model/training RNG seed. The data split is deterministic, but model initialization and optimizer RNG state cannot be reconstructed from the recorded artifacts.
+
 | Profile | Parameters | Train batches | Val err_nRMSE | Test err_nRMSE | Test err_RMSE | Runtime sec | Peak CUDA bytes |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | `fno_base` | 44465 | 7500 | 0.0026630464 | 0.0026049435 | 0.0027217311 | 102.8992 | 512434176 |
@@ -100,6 +105,8 @@ The run invocation is recorded at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2
 Both required local baselines completed with metrics and provenance under the same one-step contract.
 
 ## Hybrid ResNet Result
+
+This row is subject to the same unseeded-evidence caveat as the local baselines.
 
 | Profile | Parameters | Train batches | Val err_nRMSE | Test err_nRMSE | Test err_RMSE | Runtime sec | Peak CUDA bytes |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -134,13 +141,14 @@ No published SOTA number is used as a same-protocol result in this summary. Any 
 - Full and run-subset split manifests are separate and deterministic.
 - Normalization limits are recorded as samples, not batches.
 - CUDA peak memory is reset per profile and reported as `per_profile_cuda_peak`.
-- Hybrid ResNet, FNO, and U-Net completed under one data/split/horizon/normalization/metric contract.
+- Hybrid ResNet, FNO, and U-Net completed under one data/split/horizon/normalization/metric contract, but the selected run lacks fixed model/training seed provenance and is downgraded to unseeded observed evidence.
+- Post-review runner behavior now rejects live `logs/longer.pid` roots without `logs/longer.exit_code`, requires `training_seed` in the run budget, records the seed in invocation/profile artifacts, and requires both FNO and U-Net for local-baseline completeness.
 - The long-run completion is bound to the persisted selected run root and tracked child PID; `logs/longer.exit_code` contains `0`.
 - No CDI, OpenFWI execution, `256x256` scaling, paper-facing artifact assembly, or stable core physics/model module edit was performed.
 
 ## Residual Risks
 
-- This is one seed and one one-step budget. It is sufficient for the Phase 2 pivot gate but not a broad robustness claim.
+- This is one unseeded observed run and one one-step budget. It is sufficient only as a conservative Phase 2 pivot signal, not as fixed-seed reproducible or broad robustness evidence.
 - The local U-Net baseline is much stronger on this one-step subset than Hybrid ResNet and FNO; this may reflect task fit, capacity, optimization, or the simplicity of the short-horizon SWE subset.
 - The OpenFWI fallback still requires a separate approved execution tranche before it can replace this failed SWE primary for the PDE pillar.
 

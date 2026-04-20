@@ -68,6 +68,7 @@ _PROFILES: dict[str, ModelProfile] = {
 
 BUILTIN_PROFILE_IDS = list(_PROFILES)
 PRIMARY_PROFILE_IDS = ["hybrid_resnet_base", "fno_base", "unet_base"]
+REQUIRED_BASELINE_PROFILE_IDS = ["fno_base", "unet_base"]
 ABLATION_PROFILE_IDS = ["hybrid_resnet_spectral_reduced", "hybrid_resnet_local_reduced"]
 
 
@@ -120,6 +121,12 @@ def validate_run_budget(payload: dict[str, Any]) -> dict[str, Any]:
     if float(budget.get("learning_rate", 0.0)) <= 0.0:
         raise ValueError("run budget learning_rate must be positive")
     budget["learning_rate"] = float(budget["learning_rate"])
+    if "training_seed" not in budget:
+        raise ValueError("run budget missing required field: training_seed")
+    training_seed = int(budget["training_seed"])
+    if training_seed < 0 or training_seed >= 2**32:
+        raise ValueError("run budget training_seed must be in [0, 2**32)")
+    budget["training_seed"] = training_seed
 
     primary_profiles = parse_profile_ids(budget.get("primary_profiles"))
     missing_primary = [profile for profile in PRIMARY_PROFILE_IDS if profile not in primary_profiles]

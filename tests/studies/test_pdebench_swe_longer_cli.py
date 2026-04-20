@@ -32,6 +32,8 @@ def test_parse_args_accepts_longer_plan_flags(tmp_path):
             "val,test",
             "--run-budget-file",
             str(tmp_path / "run_budget.json"),
+            "--training-seed",
+            "20260420",
             "--run-id",
             "longer-cli-test",
         ]
@@ -41,6 +43,7 @@ def test_parse_args_accepts_longer_plan_flags(tmp_path):
     assert args.run_ablations_if_viable is True
     assert args.normalization_max_samples == 8000
     assert args.eval_splits == "val,test"
+    assert args.training_seed == 20260420
     assert args.run_id == "longer-cli-test"
 
 
@@ -94,6 +97,22 @@ def test_prelaunch_tmux_markers_do_not_trip_duplicate_root_guard(tmp_path):
 
     _guard_output_root(output_root, allow_existing=False)
 
+    (logs / "longer.pid").write_text(f"{os.getpid()}\n", encoding="utf-8")
+    try:
+        _guard_output_root(output_root, allow_existing=False)
+    except FileExistsError as exc:
+        assert "live output root" in str(exc)
+    else:  # pragma: no cover - failure path
+        raise AssertionError("live PID marker without exit code should be rejected")
+
+    try:
+        _guard_output_root(output_root, allow_existing=True)
+    except FileExistsError as exc:
+        assert "live output root" in str(exc)
+    else:  # pragma: no cover - failure path
+        raise AssertionError("allow_existing must not bypass a live PID marker")
+
+    (logs / "longer.exit_code").write_text("0\n", encoding="utf-8")
     (output_root / "unexpected.json").write_text("{}", encoding="utf-8")
     try:
         _guard_output_root(output_root, allow_existing=False)
@@ -166,9 +185,61 @@ def test_cpu_synthetic_longer_run_writes_metrics_provenance_and_comparison(tmp_p
     assert metrics["eval"]["test"]["horizon"] == "one_step"
     assert provenance["run_id"] == "longer-synthetic"
     assert provenance["pid"] == metrics["pid"] == invocation["pid"]
+    assert metrics["training_seed"] == 20260420
+    assert provenance["training_seed"] == 20260420
+    assert invocation["parsed_args"]["training_seed"] == 20260420
     assert comparison["run_id"] == "longer-synthetic"
     assert comparison["profiles"]["unet_base"]["status"] == "metrics"
     assert (output_root / "logs" / "longer.pid").read_text().strip() == str(invocation["pid"])
+
+
+def test_budget_profile_override_cannot_omit_required_primary_profiles(tmp_path):
+    from scripts.studies.pdebench_swe.longer import _apply_budget_defaults, parse_args
+
+    budget_path = tmp_path / "run_budget.json"
+    budget_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "pdebench_swe_run_budget_v1",
+                "budget_id": "target",
+                "epochs": 1,
+                "batch_size": 2,
+                "learning_rate": 1e-3,
+                "max_train_trajectories": 2,
+                "max_val_trajectories": 1,
+                "max_test_trajectories": 1,
+                "max_pairs_per_trajectory": 1,
+                "normalization_max_samples": 2,
+                "eval_splits": ["val", "test"],
+                "num_workers": 0,
+                "device": "cpu",
+                "training_seed": 20260420,
+                "primary_profiles": ["hybrid_resnet_base", "fno_base", "unet_base"],
+                "ablation_profiles": ["hybrid_resnet_spectral_reduced", "hybrid_resnet_local_reduced"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    args = parse_args(
+        [
+            "--data-file",
+            str(tmp_path / "2D_rdb_NA_NA.h5"),
+            "--output-root",
+            str(tmp_path / "out"),
+            "--run-budget-file",
+            str(budget_path),
+            "--profiles",
+            "hybrid_resnet_base,unet_base",
+        ]
+    )
+
+    try:
+        _apply_budget_defaults(args)
+    except ValueError as exc:
+        assert "required primary profiles" in str(exc)
+        assert "fno_base" in str(exc)
+    else:  # pragma: no cover - failure path
+        raise AssertionError("budget-backed profile override omitted a required baseline")
 
 
 def test_validate_fresh_artifacts_rejects_stale_wrong_run_id_and_pid(tmp_path):

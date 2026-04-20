@@ -8,6 +8,8 @@ import math
 from pathlib import Path
 from typing import Any
 
+from scripts.studies.pdebench_swe.run_config import REQUIRED_BASELINE_PROFILE_IDS
+
 
 CSV_COLUMNS = [
     "profile_id",
@@ -20,6 +22,8 @@ CSV_COLUMNS = [
     "parameter_count",
     "blocker_reason",
 ]
+
+REQUIRED_BASELINE_PROFILES = list(REQUIRED_BASELINE_PROFILE_IDS)
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -126,7 +130,7 @@ def collate_comparison(
 
     profiles = {row["profile_id"]: row for row in rows}
     primary_complete = all(profiles[profile]["status"] == "metrics" for profile in primary_profiles)
-    baseline_profiles = [profile for profile in ["fno_base", "unet_base"] if profile in primary_profiles]
+    baseline_profiles = list(REQUIRED_BASELINE_PROFILES)
     baseline_complete = all(profiles.get(profile, {}).get("status") == "metrics" for profile in baseline_profiles)
     ablation_complete = bool(ablation_profiles) and all(
         profiles.get(profile, {}).get("status") == "metrics" for profile in ablation_profiles
@@ -158,6 +162,7 @@ def collate_comparison(
         "schema_version": "pdebench_swe_comparison_summary_v1",
         "run_id": run_id,
         "primary_profiles": list(primary_profiles),
+        "required_baseline_profiles": list(REQUIRED_BASELINE_PROFILES),
         "ablation_profiles": list(ablation_profiles),
         "primary_profiles_complete": primary_complete,
         "baseline_profiles_complete": baseline_complete,

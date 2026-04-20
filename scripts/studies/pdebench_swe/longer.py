@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import platform
+import random
 import subprocess
 import sys
 import time
@@ -14,6 +15,7 @@ from importlib import metadata
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
@@ -85,6 +87,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--normalization-max-samples", type=int, default=None)
     parser.add_argument("--eval-splits", default=None)
+    parser.add_argument("--training-seed", type=int, default=None)
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--allow-existing-output-root", action="store_true")
     parser.add_argument("--inspect-only", action="store_true")
@@ -112,7 +115,13 @@ def _module_origin(name: str) -> str | None:
     return str(Path(module.__file__).resolve()) if getattr(module, "__file__", None) else None
 
 
-def capture_longer_provenance(*, run_id: str, output_root: Path, data_file: Path) -> dict[str, Any]:
+def capture_longer_provenance(
+    *,
+    run_id: str,
+    output_root: Path,
+    data_file: Path,
+    training_seed: int,
+) -> dict[str, Any]:
     try:
         git_commit = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -140,6 +149,7 @@ def capture_longer_provenance(*, run_id: str, output_root: Path, data_file: Path
         "cwd": str(Path.cwd()),
         "output_root": str(Path(output_root).resolve()),
         "data_file": str(Path(data_file).resolve()),
+        "training_seed": int(training_seed),
         "python_executable": sys.executable,
         "python_version": sys.version,
         "platform": platform.platform(),
@@ -170,7 +180,7 @@ def _pid_is_live(pid: str) -> bool:
 
 
 def _contains_only_prelaunch_markers(output_root: Path) -> bool:
-    allowed = {"longer.run_id", "longer.started_at_ns", "longer.pid"}
+    allowed = {"longer.run_id", "longer.started_at_ns"}
     entries = list(output_root.iterdir()) if output_root.exists() else []
     if not entries:
         return True
@@ -181,6 +191,12 @@ def _contains_only_prelaunch_markers(output_root: Path) -> bool:
 
 
 def _guard_output_root(output_root: Path, *, allow_existing: bool) -> None:
+    pid_path = output_root / "logs" / "longer.pid"
+    exit_path = output_root / "logs" / "longer.exit_code"
+    if pid_path.exists() and not exit_path.exists():
+        pid = pid_path.read_text(encoding="utf-8").strip()
+        if _pid_is_live(pid):
+            raise FileExistsError(f"refusing to write into live output root {output_root}; PID {pid} is active")
     if (
         output_root.exists()
         and any(output_root.iterdir())
@@ -188,13 +204,19 @@ def _guard_output_root(output_root: Path, *, allow_existing: bool) -> None:
         and not _contains_only_prelaunch_markers(output_root)
     ):
         raise FileExistsError(f"refusing to write into non-empty output root: {output_root}")
-    pid_path = output_root / "logs" / "longer.pid"
-    if allow_existing and pid_path.exists():
-        pid = pid_path.read_text(encoding="utf-8").strip()
-        exit_path = output_root / "logs" / "longer.exit_code"
-        if _pid_is_live(pid) and not exit_path.exists():
-            raise FileExistsError(f"refusing to write into live output root {output_root}; PID {pid} is active")
     output_root.mkdir(parents=True, exist_ok=True)
+
+
+def _seed_training_rngs(training_seed: int) -> None:
+    seed = int(training_seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    if hasattr(torch.backends, "cudnn"):
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
 
 
 def _resolve_device(requested: str) -> torch.device:
@@ -233,6 +255,7 @@ def _apply_budget_defaults(args: argparse.Namespace) -> tuple[list[str], list[st
             "normalization_max_samples": budget["normalization_max_samples"],
             "num_workers": budget["num_workers"],
             "device": budget["device"],
+            "training_seed": budget["training_seed"],
         }
         for key, value in defaults.items():
             if getattr(args, key) is None:
@@ -252,16 +275,27 @@ def _apply_budget_defaults(args: argparse.Namespace) -> tuple[list[str], list[st
         "num_workers": 0,
         "device": "cuda",
         "eval_splits": "val,test",
+        "training_seed": 20260420,
     }
     for key, value in fallback_defaults.items():
         if getattr(args, key) is None:
             setattr(args, key, value)
+    args.training_seed = int(args.training_seed)
+    if args.training_seed < 0 or args.training_seed >= 2**32:
+        raise ValueError("training_seed must be in [0, 2**32)")
 
     primary_profiles = parse_profile_ids(
         args.profiles if args.profiles is not None else (
             budget["primary_profiles"] if budget is not None else PRIMARY_PROFILE_IDS
         )
     )
+    if budget is not None and args.profiles is not None and not args.inspect_only:
+        missing_primary = [profile for profile in PRIMARY_PROFILE_IDS if profile not in primary_profiles]
+        if missing_primary:
+            raise ValueError(
+                "budget-backed profile override omitted required primary profiles: "
+                f"{missing_primary}"
+            )
     ablation_profiles = parse_profile_ids(
         budget["ablation_profiles"] if budget is not None else ABLATION_PROFILE_IDS
     )
@@ -351,6 +385,8 @@ def _run_profile(
     if device.type == "cuda":
         torch.cuda.reset_peak_memory_stats(device)
     try:
+        training_seed = int(args.training_seed)
+        _seed_training_rngs(training_seed)
         model = build_model_from_profile(
             profile,
             in_channels=channels,
@@ -362,6 +398,7 @@ def _run_profile(
             **exc.to_payload(run_id=run_id),
             "profile_id": profile_id,
             "pid": os.getpid(),
+            "training_seed": int(args.training_seed),
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
         }
         _write_json(profile_root / "blocker.json", blocker)
@@ -404,6 +441,8 @@ def _run_profile(
         "pid": os.getpid(),
         "profile_id": profile_id,
         "base_model": profile.base_model,
+        "training_seed": int(args.training_seed),
+        "rng_seed_scope": "python_numpy_torch_cuda_before_profile_construction",
         "data_file": str(Path(args.data_file).resolve()),
         "split_manifest_full": source_paths["split_manifest_full"],
         "split_manifest_run": source_paths["split_manifest_run"],
@@ -423,6 +462,7 @@ def _run_profile(
             "batch_size": int(args.batch_size),
             "learning_rate": float(args.learning_rate),
             "max_pairs_per_trajectory": args.max_pairs_per_trajectory,
+            "training_seed": int(args.training_seed),
         },
     }
     _write_json(profile_root / "metrics.json", payload)
@@ -432,6 +472,8 @@ def _run_profile(
             **root_provenance,
             "profile_id": profile_id,
             "pid": os.getpid(),
+            "training_seed": int(args.training_seed),
+            "rng_seed_scope": "python_numpy_torch_cuda_before_profile_construction",
             "runtime_sec": runtime_sec,
             "memory_measurement": memory_label,
             "model_description": model_description,
@@ -444,10 +486,15 @@ def run(args: argparse.Namespace, *, raw_argv: list[str]) -> int:
     run_id = args.run_id or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
     output_root = Path(args.output_root)
     _guard_output_root(output_root, allow_existing=args.allow_existing_output_root)
-    _write_start_markers(output_root, run_id)
     primary_profiles, ablation_profiles, eval_splits, budget = _apply_budget_defaults(args)
+    _write_start_markers(output_root, run_id)
 
-    root_provenance = capture_longer_provenance(run_id=run_id, output_root=output_root, data_file=args.data_file)
+    root_provenance = capture_longer_provenance(
+        run_id=run_id,
+        output_root=output_root,
+        data_file=args.data_file,
+        training_seed=int(args.training_seed),
+    )
     write_invocation_artifacts(
         output_dir=output_root,
         script_path=SCRIPT_PATH,
@@ -455,6 +502,7 @@ def run(args: argparse.Namespace, *, raw_argv: list[str]) -> int:
         parsed_args=vars(args),
         extra={
             "run_id": run_id,
+            "training_seed": int(args.training_seed),
             "runtime_provenance": capture_runtime_provenance(),
             "longer_provenance": root_provenance,
             "run_budget": budget,
@@ -564,6 +612,7 @@ def run(args: argparse.Namespace, *, raw_argv: list[str]) -> int:
                     "run_id": run_id,
                     "pid": os.getpid(),
                     "profile_id": profile_id,
+                    "training_seed": int(args.training_seed),
                     "reason": "profile_execution_failed",
                     "message": str(exc),
                     "created_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -603,6 +652,7 @@ def run(args: argparse.Namespace, *, raw_argv: list[str]) -> int:
                             "run_id": run_id,
                             "pid": os.getpid(),
                             "profile_id": profile_id,
+                            "training_seed": int(args.training_seed),
                             "reason": "ablation_execution_failed",
                             "message": str(exc),
                             "created_at_utc": datetime.now(timezone.utc).isoformat(),

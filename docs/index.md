@@ -79,7 +79,7 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Deciding whether to continue with longer SWE execution, pivot to OpenFWI FlatVel-A, or block the PDE pillar for a human scope/storage decision.
 
 ### [NeurIPS Hybrid ResNet PDE Execution Summary](plans/NEURIPS-HYBRID-RESNET-2026/pde_execution_summary.md)
-**Description:** Roadmap Phase 2 longer-execution summary for PDEBench SWE one-step prediction, including dataset/license identity, full and run-subset splits, normalization and metric contract, Hybrid ResNet/FNO/U-Net local results, ablation skip rationale, provenance links, published-SOTA caveats, and the proceed/pivot/block gate decision.
+**Description:** Roadmap Phase 2 longer-execution summary for PDEBench SWE one-step prediction, including dataset/license identity, full and run-subset splits, normalization and metric contract, Hybrid ResNet/FNO/U-Net local results, ablation skip rationale, provenance links, published-SOTA caveats, the post-review training-seed caveat for the selected unseeded run, and the proceed/pivot/block gate decision.
 **Keywords:** neurips, hybrid_resnet, pdebench, swe, phase-2, pde-execution, pivot, openfwi
 **Use this when:** Checking the final Phase 2 PDE primary result, whether the SWE path proceeds or pivots, or which raw artifacts support the benchmark decision.
 
