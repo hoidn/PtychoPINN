@@ -29,7 +29,7 @@ Documents and sources used:
 | Roadmap Phase 0 only | pass | This pass created inventory and planning artifacts only. No PDE training, CDI rerun, N=256 variant, or paper-facing artifact was launched. |
 | Paper-grade versus decision-support classification | pass-with-gaps | Raw CDI JSON separates `paper-grade`, `decision-support`, `not-usable`, and `unknown` categories. No paper-grade CDI N=128 anchor was found. |
 | Lost `128x128` anchor condition | pass-with-gaps | The local inventory found legacy `pinn_hybrid` artifacts but no current `pinn_hybrid_resnet` paper-grade anchor. |
-| Regeneration note when no anchor recovered | pass | `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_anchor_regeneration_plan.md` schedules a fresh Phase 3 regeneration path. |
+| Regeneration note when no anchor recovered | pass | `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_anchor_regeneration_plan.md` schedules a fresh Phase 3 regeneration path, and the documented wrapper command parses with `grid_lines_compare_wrapper.py`. |
 | Neutral PDE candidate inventory | pass | Three PDE/forward-modeling candidates are listed with `not_a_selection=true`; Phase 1 chooses primary/fallback. |
 | N=256 boundary | pass | Existing N=256 records are labeled secondary scaling context only. |
 | Artifact hygiene | pass | Raw machine-readable inventory is under ignored `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-0-evidence-inventory/`. |
@@ -68,6 +68,7 @@ Local neural baseline context:
 - Torch `pinn_fno` rows exist in historical roots and can inform a compact Phase 3 baseline choice.
 - Legacy `pinn_hybrid` rows are historical predecessor evidence only; they are not current Hybrid ResNet evidence.
 - `pinn_fno_vanilla` and current `pinn_hybrid_resnet` reusable metrics were not found locally.
+- Unavailable metric values in the raw baseline inventory are represented as JSON `null`, not non-standard `NaN`, so strict JSON parsers can consume the artifact.
 
 Non-ML and revision-study context:
 
@@ -133,6 +134,7 @@ Ignored raw artifacts for this pass:
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-0-evidence-inventory/pde_candidate_inventory.json`
 
 These files are intentionally ignored and should not be committed.
+They are still part of the workflow handoff contract and must pass strict JSON parsing before later phases consume them.
 
 ## CDI Anchor Regeneration Note
 

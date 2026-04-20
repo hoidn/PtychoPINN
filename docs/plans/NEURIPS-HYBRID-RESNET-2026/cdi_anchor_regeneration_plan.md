@@ -61,16 +61,10 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   --fno-width 32 \
   --fno-blocks 4 \
   --fno-cnn-blocks 2 \
-  --hybrid-resnet-blocks 6 \
-  --hybrid-downsample-steps 2 \
-  --hybrid-downsample-op stride_conv \
-  --hybrid-encoder-conv-hidden-scale 2.0 \
-  --hybrid-encoder-spectral-hidden-scale 1.0 \
-  --hybrid-skip-style add \
-  --no-hybrid-skip-connections \
-  --no-probe-mask \
   --torch-mae-pred-l2-match-target
 ```
+
+This is intentionally a wrapper-level command. `grid_lines_compare_wrapper.py` does not expose every child `grid_lines_torch_runner.py` Hybrid ResNet flag. The omitted runner-level Hybrid ResNet fields should be verified in the emitted child invocation/config artifacts, where the current runner defaults match the recommended baseline: `hybrid_skip_connections=off`, `hybrid_downsample_steps=2`, `hybrid_downsample_op=stride_conv`, `hybrid_encoder_conv_hidden_scale=2.0`, `hybrid_encoder_spectral_hidden_scale=1.0`, `hybrid_resnet_blocks=6`, `hybrid_skip_style=add`, and `probe_mask=off`. If Phase 3 needs to override any of those fields explicitly, it must either add wrapper support in a separately reviewed implementation plan or use a direct `grid_lines_torch_runner.py` launch after a separately recorded dataset-generation step.
 
 If Phase 3 changes the epoch budget, probe scaling, dataset size, or any baseline field, the launch manifest must label the change as an intentional Phase 3 override.
 
@@ -175,6 +169,7 @@ For this note, Phase 0 verification is structural:
 
 - the lost-run trigger is explicit
 - the command/runbook source is named
+- the wrapper-level command parses with `grid_lines_compare_wrapper.py`; runner-only Hybrid ResNet fields are documented as defaults to verify from child invocation/config artifacts
 - seed/config/provenance capture is specified
 - metric and qualitative output contracts are specified
 - runtime and output-root guardrails are specified

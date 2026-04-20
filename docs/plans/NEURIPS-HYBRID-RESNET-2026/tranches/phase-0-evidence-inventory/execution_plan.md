@@ -517,6 +517,10 @@ Run:
 python - <<'PY'
 from pathlib import Path
 import json
+import re
+import shlex
+
+from scripts.studies.grid_lines_compare_wrapper import parse_args
 
 raw = Path(".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-0-evidence-inventory/cdi_128_hybrid_candidates.json")
 records = json.loads(raw.read_text(encoding="utf-8")).get("records", [])
@@ -528,6 +532,16 @@ if not paper_grade:
     missing = [term for term in required_terms if term.lower() not in text.lower()]
     if missing:
         raise SystemExit(f"regeneration plan missing required terms: {missing}")
+    command_blocks = re.findall(r"```bash\n(.*?)\n```", text, flags=re.S)
+    wrapper_commands = [block for block in command_blocks if "grid_lines_compare_wrapper.py" in block]
+    if len(wrapper_commands) != 1:
+        raise SystemExit(f"expected one wrapper command block, found {len(wrapper_commands)}")
+    command = re.sub(r"\\\s*\n\s*", " ", wrapper_commands[0])
+    argv = shlex.split(command)
+    expected_prefix = ["python", "scripts/studies/grid_lines_compare_wrapper.py"]
+    if argv[:2] != expected_prefix:
+        raise SystemExit(f"unexpected wrapper command prefix: {argv[:2]}")
+    parse_args(argv[2:])
 print("regeneration-note gate satisfied")
 PY
 ```
@@ -644,6 +658,11 @@ root = Path(".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-0-evidence-inventory")
 inventory = Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/evidence_inventory.md")
 text = inventory.read_text(encoding="utf-8").lower()
 
+def load_strict_json(path: Path):
+    def reject_constant(value):
+        raise ValueError(f"{path}: non-strict JSON constant {value}")
+    return json.loads(path.read_text(encoding="utf-8"), parse_constant=reject_constant)
+
 for name in [
     "environment_probe.json",
     "local_metrics_index.json",
@@ -655,9 +674,9 @@ for name in [
     path = root / name
     if not path.exists():
         raise SystemExit(f"missing raw inventory artifact: {path}")
-    json.loads(path.read_text(encoding="utf-8"))
+    load_strict_json(path)
 
-pde = json.loads((root / "pde_candidate_inventory.json").read_text(encoding="utf-8"))
+pde = load_strict_json(root / "pde_candidate_inventory.json")
 candidates = pde.get("candidates", pde if isinstance(pde, list) else [])
 if len(candidates) < 3:
     raise SystemExit(f"expected at least 3 PDE candidates, found {len(candidates)}")
@@ -700,6 +719,10 @@ Run:
 python - <<'PY'
 from pathlib import Path
 import json
+import re
+import shlex
+
+from scripts.studies.grid_lines_compare_wrapper import parse_args
 
 root = Path(".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-0-evidence-inventory")
 candidates = json.loads((root / "cdi_128_hybrid_candidates.json").read_text(encoding="utf-8"))
@@ -712,6 +735,16 @@ if not paper_grade:
     missing = [term for term in required_terms if term.lower() not in text.lower()]
     if missing:
         raise SystemExit(f"regeneration plan missing required terms: {missing}")
+    command_blocks = re.findall(r"```bash\n(.*?)\n```", text, flags=re.S)
+    wrapper_commands = [block for block in command_blocks if "grid_lines_compare_wrapper.py" in block]
+    if len(wrapper_commands) != 1:
+        raise SystemExit(f"expected one wrapper command block, found {len(wrapper_commands)}")
+    command = re.sub(r"\\\s*\n\s*", " ", wrapper_commands[0])
+    argv = shlex.split(command)
+    expected_prefix = ["python", "scripts/studies/grid_lines_compare_wrapper.py"]
+    if argv[:2] != expected_prefix:
+        raise SystemExit(f"unexpected wrapper command prefix: {argv[:2]}")
+    parse_args(argv[2:])
 print("regeneration plan gate passed")
 PY
 ```
@@ -798,6 +831,11 @@ from pathlib import Path
 import json
 
 root = Path(".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-0-evidence-inventory")
+def load_strict_json(path: Path):
+    def reject_constant(value):
+        raise ValueError(f"{path}: non-strict JSON constant {value}")
+    return json.loads(path.read_text(encoding="utf-8"), parse_constant=reject_constant)
+
 for name in [
     "environment_probe.json",
     "local_metrics_index.json",
@@ -809,8 +847,8 @@ for name in [
     path = root / name
     if not path.exists():
         raise SystemExit(f"missing raw inventory artifact: {path}")
-    json.loads(path.read_text(encoding="utf-8"))
-pde = json.loads((root / "pde_candidate_inventory.json").read_text(encoding="utf-8"))
+    load_strict_json(path)
+pde = load_strict_json(root / "pde_candidate_inventory.json")
 candidates = pde.get("candidates", pde if isinstance(pde, list) else [])
 required_candidate_fields = {
     "candidate_name",
@@ -835,7 +873,7 @@ for idx, candidate in enumerate(candidates):
         raise SystemExit(f"PDE candidate {idx} missing Unit 5 fields: {missing}")
     if candidate.get("not_a_selection") is not True:
         raise SystemExit(f"PDE candidate {idx} must set not_a_selection=true")
-print("raw inventory JSON parses and Unit 5 PDE schema passes")
+print("raw inventory strict JSON parses and Unit 5 PDE schema passes")
 PY
 ```
 
@@ -855,6 +893,10 @@ PY
 python - <<'PY'
 from pathlib import Path
 import json
+import re
+import shlex
+
+from scripts.studies.grid_lines_compare_wrapper import parse_args
 
 root = Path(".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-0-evidence-inventory")
 raw = root / "cdi_128_hybrid_candidates.json"
@@ -870,6 +912,16 @@ if not paper_grade:
     missing = [term for term in required_terms if term.lower() not in text.lower()]
     if missing:
         raise SystemExit(f"regeneration plan missing required terms: {missing}")
+    command_blocks = re.findall(r"```bash\n(.*?)\n```", text, flags=re.S)
+    wrapper_commands = [block for block in command_blocks if "grid_lines_compare_wrapper.py" in block]
+    if len(wrapper_commands) != 1:
+        raise SystemExit(f"expected one wrapper command block, found {len(wrapper_commands)}")
+    command = re.sub(r"\\\s*\n\s*", " ", wrapper_commands[0])
+    argv = shlex.split(command)
+    expected_prefix = ["python", "scripts/studies/grid_lines_compare_wrapper.py"]
+    if argv[:2] != expected_prefix:
+        raise SystemExit(f"unexpected wrapper command prefix: {argv[:2]}")
+    parse_args(argv[2:])
 print("regeneration-note requirement satisfied")
 PY
 ```
@@ -897,7 +949,7 @@ PY
 - [ ] Local CDI baselines are inventoried with protocol caveats and no unsupported paper-row claims.
 - [ ] Existing N=256 evidence is inventoried and labeled as secondary scaling context.
 - [ ] At least three PDE/forward-modeling candidates are listed for Phase 1 without selecting primary/fallback.
-- [ ] Raw JSON inventory artifacts exist under an ignored artifact root and parse successfully.
+- [ ] Raw JSON inventory artifacts exist under an ignored artifact root and parse successfully under strict JSON parsing.
 - [ ] `docs/index.md` references the new evidence inventory document and, when created, the CDI anchor regeneration note.
 - [ ] No paper-facing artifacts under `/home/ollie/Documents/neurips/` are created.
 - [ ] No expensive reruns, full training jobs, broad architecture sweeps, worktrees, or stable core-module edits occur.
