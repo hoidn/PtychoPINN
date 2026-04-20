@@ -13,15 +13,18 @@
 - Scope: shared data/schema preflight, task-specific split and metric contracts, capped pilot/triage runs where needed, full available training-split Hybrid ResNet/FNO/U-Net benchmark runs, and focused spectral/local ablations where budget permits.
 - Boundary: smoke and capped pilot outputs are readiness/triage artifacts only and must not rank models, trigger performance pivots, or satisfy benchmark-performance gates.
 
-### `pdebench-darcy-static-operator-benchmark` (planned)
+### `pdebench-darcy-static-operator-benchmark` (implemented; full benchmark pending)
 
-- Purpose: Implement the Darcy Flow beta `1.0` static operator-map member of the PDEBench `128x128` image suite.
+- Purpose: Implement and run the Darcy Flow beta `1.0` static operator-map member of the PDEBench `128x128` image suite.
 - Plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md`
+- Summary: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_darcy_static_operator_summary.md`
 - Data file: `/home/ollie/Documents/pdebench-data/darcy/2D_DarcyFlow_beta1.0_Train.hdf5`
 - Data contract: `nu` `(10000,128,128)` as one input channel to `tensor` `(10000,1,128,128)` as one target channel; deterministic sample-level split, no time axis, no one-step expansion.
 - Strong-baseline rule: local performance interpretation requires Hybrid ResNet, FNO, and `unet_strong`; the tiny smoke U-Net is readiness-only and cannot satisfy the strong-baseline gate.
 - Published-context values: PDEBench beta `1.0` U-Net RMSE/nRMSE about `6.4e-3`/`3.3e-2`, FNO about `1.2e-2`/`6.4e-2`; HAMLET/OFormer nRMSE context about `1.40e-2`/`2.05e-2`, with protocol caveats.
-- Boundary: no `/home/ollie/Documents/neurips/` artifacts and no benchmark-performance claim until full available training-split runs complete.
+- Readiness artifact: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/readiness-cap-20260420T222155Z`
+- Full-run budget: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/run_budget.json`
+- Boundary: no `/home/ollie/Documents/neurips/` artifacts and no benchmark-performance claim until full available training-split runs complete for `hybrid_resnet_base`, `fno_base`, and `unet_strong`.
 
 ### `pdebench-swe-primary-smoke-gate`
 

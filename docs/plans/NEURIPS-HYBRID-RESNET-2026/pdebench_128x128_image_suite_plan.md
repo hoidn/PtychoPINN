@@ -7,7 +7,7 @@
 - Status: draft plan for implementation
 - Date: 2026-04-20
 - Experiment root: `/home/ollie/Documents/PtychoPINN/`
-- Manuscript artifact root: `/home/ollie/Documents/neurips/`
+- Manuscript artifact root: `/home/ollie/Documents/neurips/` (future Phase 5 root; this plan must not create it)
 - Stage A preflight summary: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md`
 - Darcy static-operator execution plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md`
 
@@ -253,14 +253,14 @@ The selector should decide exact next-plan scope from the roadmap, design, this 
 
 1. Data/schema preflight for Darcy and 2D diffusion-reaction plus confirmation that the existing SWE staged file still matches the plan.
 2. Shared image-suite adapter design and SWE migration with tests.
-3. Darcy support with static operator-map data tests, strong U-Net/FNO baseline gates, literature-calibrated reporting, and smoke readiness. Current plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md`.
+3. Darcy support with static operator-map data tests, strong U-Net/FNO baseline gates, literature-calibrated reporting, and smoke readiness. Implemented on 2026-04-20; summary: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_darcy_static_operator_summary.md`. Full Darcy benchmark training remains pending and must use `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/run_budget.json`.
 4. 2D diffusion-reaction support with dynamic data tests and smoke readiness.
 5. Capped pilot/triage run plan and execution, if needed to de-risk full training.
 6. Full available training-set benchmark run plan and execution.
 7. Ablation plan and execution for selected completed tasks.
 8. Suite summary, roadmap interpretation, and selector ledger update.
 
-The first next tranche should not launch expensive training. It should unblock exact data access, HDF5 schemas, and the minimal adapter design. After Darcy staging on 2026-04-20, a reasonable next tranche is the Darcy static-operator benchmark implementation plan because Darcy is ready and 2D diffusion-reaction remains data-blocked; full benchmark training still waits for the plan's readiness, strong-baseline, and full-split gates.
+The first next tranche should not launch expensive training. It should unblock exact data access, HDF5 schemas, and the minimal adapter design. After Darcy support implementation on 2026-04-20, a reasonable next selector action is either to stage/implement 2D diffusion-reaction support or to schedule the Darcy full available training-split benchmark using the written budget; the broader three-task suite remains data-blocked until 2D diffusion-reaction is staged.
 
 ## Verification Commands
 

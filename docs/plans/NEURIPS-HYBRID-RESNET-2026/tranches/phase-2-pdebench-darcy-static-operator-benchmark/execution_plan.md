@@ -14,7 +14,7 @@
 
 - ID: `NEURIPS-HYBRID-RESNET-2026`
 - Tranche ID: `phase-2-pdebench-darcy-static-operator-benchmark`
-- Status: drafted
+- Status: implemented through readiness; full benchmark pending
 - Date: 2026-04-20
 - Scope owner: Roadmap Phase 2 PDEBench `128x128` image-suite execution
 - Source design: `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md`
@@ -23,7 +23,8 @@
 - Current preflight: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md`
 - Experiment root: `/home/ollie/Documents/PtychoPINN/`
 - Data root: `/home/ollie/Documents/pdebench-data/`
-- Manuscript artifact root: `/home/ollie/Documents/neurips/` (do not write there in this tranche)
+- Manuscript artifact root: `/home/ollie/Documents/neurips/` (future Phase 5 root; do not create or write there in this tranche)
+- Implementation summary: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_darcy_static_operator_summary.md`
 
 ## Compliance Matrix
 

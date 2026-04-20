@@ -49,7 +49,7 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** You need the current recommended starting parameters for a real study or wrapper and do not want to infer "best practice" from defaults, prompts, or tests.
 
 ### [NeurIPS Hybrid ResNet Submission Design](plans/2026-04-20-neurips-hybrid-resnet-submission-design.md)
-**Description:** Approved design brief for a NeurIPS 2026 Hybrid ResNet submission campaign, defining the CDI pillar, the amended native `128x128` PDEBench image-suite pillar, fresh `128x128` CDI anchor regeneration strategy, `256x256` higher-mode scaling hypothesis, and `/home/ollie/Documents/neurips/index.md` evidence-map policy.
+**Description:** Approved design brief for a NeurIPS 2026 Hybrid ResNet submission campaign, defining the CDI pillar, the amended native `128x128` PDEBench image-suite pillar, fresh `128x128` CDI anchor regeneration strategy, `256x256` higher-mode scaling hypothesis, and the planned `/home/ollie/Documents/neurips/index.md` evidence-map policy. That local manuscript index is intentionally not required to exist until the roadmap evidence-bundle phase creates it.
 **Keywords:** neurips, hybrid_resnet, roadmap, submission, cdi, pde, evidence
 **Use this when:** Planning or executing the Hybrid ResNet NeurIPS submission work, deciding which CDI/PDE evidence is in scope, or assembling paper-facing artifacts.
 
@@ -87,6 +87,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Description:** Roadmap Phase 2 implementation plan for the PDEBench Darcy Flow beta `1.0` static operator benchmark, including `nu -> tensor` data/split/normalization contracts, full available training-split requirements, strong FNO and non-toy U-Net baseline gates, and literature-calibrated target values from PDEBench and later HAMLET/OFormer context.
 **Keywords:** neurips, hybrid_resnet, pdebench, darcy, static-operator, strong-baseline, fno, unet, sota, nrmse
 **Use this when:** Implementing or reviewing the Darcy member of the PDEBench `128x128` image suite, deciding what counts as a strong local baseline, or checking expected U-Net/FNO/SOTA metric ranges before interpreting Hybrid ResNet.
+
+### [NeurIPS Hybrid ResNet PDEBench Darcy Static Operator Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_darcy_static_operator_summary.md)
+**Description:** Roadmap Phase 2 implementation summary for the Darcy Flow beta `1.0` static-operator adapter, tests, readiness run, full-run budget, artifact paths, and remaining benchmark-incomplete state.
+**Keywords:** neurips, hybrid_resnet, pdebench, darcy, static-operator, readiness, full-budget, benchmark-incomplete
+**Use this when:** Checking what Darcy support is implemented, where readiness artifacts live, or why no full strong-baseline benchmark claim exists yet.
 
 ### [NeurIPS Hybrid ResNet PDEBench SWE Smoke Gate](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_swe_smoke_gate.md)
 **Description:** Roadmap Phase 2 smoke/data-contract gate for the PDEBench 2D Shallow Water Equations (`2D_rdb_NA_NA.h5`) task, now retained as readiness/provenance evidence for the SWE member of the amended native `128x128` PDEBench image suite. Smoke metrics are not benchmark-performance evidence.
