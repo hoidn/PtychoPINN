@@ -2,6 +2,8 @@
 """Smoke tests for the Torch grid-lines runner."""
 import json
 import math
+import subprocess
+import sys
 import pytest
 import numpy as np
 from pathlib import Path
@@ -1886,6 +1888,36 @@ def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):
     assert "--architecture" in payload["argv"]
     assert payload["extra"]["runtime_provenance"]["pythonpath"] == "/tmp/session_repo"
     assert payload["extra"]["runtime_provenance"]["ptycho_torch_file"] == str(fake_ptycho_init)
+
+
+def test_script_path_execution_bootstraps_repo_imports(tmp_path):
+    repo_root = Path(__file__).resolve().parents[2]
+    out_dir = tmp_path / "output"
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/studies/grid_lines_torch_runner.py",
+            "--train-npz",
+            str(tmp_path / "missing_train.npz"),
+            "--test-npz",
+            str(tmp_path / "missing_test.npz"),
+            "--output-dir",
+            str(out_dir),
+            "--architecture",
+            "hybrid_resnet",
+            "--epochs",
+            "1",
+        ],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "scripts.studies.invocation_logging" not in result.stderr
+    assert (out_dir / "runs" / "pinn_hybrid_resnet" / "invocation.json").exists()
 
 
 def test_main_defaults_torch_logger_to_csv(tmp_path, monkeypatch):
