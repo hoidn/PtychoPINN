@@ -1,5 +1,16 @@
 # Studies Index
 
+## PDE / Forward-Modeling Studies
+
+### `pdebench-swe-primary-smoke-gate`
+
+- Purpose: Run the Roadmap Phase 2 smoke/data-contract gate for the selected PDEBench 2D Shallow Water Equations primary benchmark.
+- Script: `scripts/studies/run_pdebench_swe_smoke.py`
+- Official file: `2D_rdb_NA_NA.h5` from the PDEBench `swe` download path or DaRUS datafile `133021`.
+- Scope: one-step next-state smoke only, with deterministic trajectory splits, local `err_nRMSE`/`err_RMSE`, and tiny Hybrid ResNet-compatible, FNO, and U-Net runs or explicit blockers.
+- Output artifact root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-primary-smoke-gate/`.
+- Boundary: this is a Phase 2 prerequisite smoke gate, not full PDE training, rollout evaluation, ablations, CDI regeneration, or paper-facing artifact assembly.
+
 ## Grid-Lines Studies
 
 ### `lines_256` dataset note
