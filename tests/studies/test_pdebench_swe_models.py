@@ -80,3 +80,44 @@ def test_unknown_model_name_fails_clearly():
             spatial_shape=(8, 8),
             smoke_config={},
         )
+
+
+@pytest.mark.parametrize(
+    "profile_id",
+    [
+        "hybrid_resnet_base",
+        "fno_base",
+        "unet_base",
+        "hybrid_resnet_spectral_reduced",
+        "hybrid_resnet_local_reduced",
+    ],
+)
+def test_builtin_model_profiles_build_and_preserve_shape(profile_id):
+    from scripts.studies.pdebench_swe.models import (
+        ModelBuildBlocker,
+        build_model_from_profile,
+        describe_model,
+    )
+    from scripts.studies.pdebench_swe.run_config import get_model_profile
+
+    profile = get_model_profile(profile_id)
+    try:
+        model = build_model_from_profile(
+            profile,
+            in_channels=1,
+            out_channels=1,
+            spatial_shape=(16, 16),
+        )
+    except ModelBuildBlocker as exc:
+        assert profile.base_model == "fno"
+        assert exc.to_payload(run_id="profile-test")["reason"] == "model_dependency_unavailable"
+        return
+
+    x = torch.randn(2, 1, 16, 16)
+    y = model(x)
+    assert y.shape == x.shape
+    loss = y.square().mean()
+    loss.backward()
+    description = describe_model(model, model_name=profile.profile_id, smoke_config=profile.to_model_config())
+    assert description["parameter_count"] > 0
+    assert description["profile_config"]["profile_id"] == profile_id

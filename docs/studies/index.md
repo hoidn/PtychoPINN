@@ -11,6 +11,16 @@
 - Output artifact root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-primary-smoke-gate/`.
 - Boundary: this is a Phase 2 prerequisite smoke gate, not full PDE training, rollout evaluation, ablations, CDI regeneration, or paper-facing artifact assembly.
 
+### `pdebench-swe-longer-execution`
+
+- Purpose: Run the Roadmap Phase 2 longer one-step execution gate for PDEBench 2D Shallow Water Equations after the smoke gate authorizes the primary path.
+- Script: `scripts/studies/run_pdebench_swe_longer.py`
+- Official file: `2D_rdb_NA_NA.h5` from the PDEBench `swe` download path or DaRUS datafile `133021`, pinned locally by SHA256 `28f0c33723d70eebb420fc170e94b675c18e032fb697dcef080e114ca9645e3a`.
+- Horizon: one-step next-state prediction only.
+- Output artifact root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/`.
+- Local model profiles: `hybrid_resnet_base`, `fno_base`, `unet_base`, with `hybrid_resnet_spectral_reduced` and `hybrid_resnet_local_reduced` ablations gated behind primary viability.
+- Boundary: this is longer Phase 2 execution only, not CDI, OpenFWI fallback execution, rollout evaluation, `256x256` scaling, or paper-facing artifact assembly.
+
 ## Grid-Lines Studies
 
 ### `lines_256` dataset note

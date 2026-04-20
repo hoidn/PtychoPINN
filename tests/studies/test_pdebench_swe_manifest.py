@@ -124,3 +124,26 @@ def test_write_dataset_manifests_persists_source_identity_and_run_id(tmp_path):
     assert dataset_manifest["file_identity"]["filename"] == "2D_rdb_NA_NA.h5"
     assert hdf5_metadata["run_id"] == "manifest-test"
     assert hdf5_metadata["selected_state_dataset"]["path"] == "data"
+
+
+def test_write_dataset_manifests_links_license_note_file(tmp_path):
+    from scripts.studies.pdebench_swe.manifest import write_dataset_manifests
+
+    data_file = tmp_path / "2D_rdb_NA_NA.h5"
+    _write_swe_h5(data_file)
+    license_note = tmp_path / "license_access.md"
+    license_note.write_text("CC BY 4.0 synthetic note\n", encoding="utf-8")
+
+    dataset_path, _metadata_path = write_dataset_manifests(
+        data_file=data_file,
+        output_root=tmp_path / "artifacts",
+        dataset_source="PDEBench",
+        dataset_source_url="https://github.com/pdebench/PDEBench",
+        dataset_darus_id="133021",
+        license_note_file=license_note,
+        run_id="license-link-test",
+    )
+
+    payload = json.loads(dataset_path.read_text())
+    assert payload["source"]["license_note_file"] == str(license_note)
+    assert payload["source"]["license_note_excerpt"] == "CC BY 4.0 synthetic note"

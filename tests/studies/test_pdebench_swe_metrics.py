@@ -62,6 +62,25 @@ def test_normalization_round_trip_and_train_only_stats():
     assert torch.allclose(restored, batch)
 
 
+def test_compute_channel_stats_records_sample_limit_semantics():
+    from scripts.studies.pdebench_swe.metrics import compute_channel_stats
+
+    class ToyDataset:
+        def __len__(self):
+            return 5
+
+        def __getitem__(self, index):
+            return {"input": torch.full((1, 1, 1), float(index + 1))}
+
+    stats = compute_channel_stats(ToyDataset(), normalization_max_samples=3)
+
+    assert stats["source"] == "train_split_inputs_only"
+    assert stats["limit_kind"] == "samples"
+    assert stats["normalization_max_samples"] == 3
+    assert stats["num_samples"] == 3
+    assert "max_batches" not in stats
+
+
 def test_metric_payload_denormalizes_when_stats_are_available():
     from scripts.studies.pdebench_swe.metrics import metric_payload
 

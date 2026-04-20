@@ -13,13 +13,21 @@ def _stats_tensors(stats: dict, *, dtype: torch.dtype, device: torch.device) -> 
     return mean, torch.clamp(std, min=1e-12)
 
 
-def compute_channel_stats(dataset, *, max_batches: int | None = None) -> dict:
+def compute_channel_stats(
+    dataset,
+    *,
+    max_batches: int | None = None,
+    normalization_max_samples: int | None = None,
+) -> dict:
     """Compute per-channel train-split stats from dataset inputs only."""
+    if max_batches is not None and normalization_max_samples is not None:
+        raise ValueError("pass either max_batches or normalization_max_samples, not both")
+    sample_limit = normalization_max_samples if normalization_max_samples is not None else max_batches
     sums: torch.Tensor | None = None
     sums_sq: torch.Tensor | None = None
     count = 0
     num_samples = 0
-    limit = len(dataset) if max_batches is None else min(len(dataset), int(max_batches))
+    limit = len(dataset) if sample_limit is None else min(len(dataset), int(sample_limit))
     for index in range(limit):
         tensor = dataset[index]["input"].float()
         channels = tensor.shape[0]
@@ -41,6 +49,8 @@ def compute_channel_stats(dataset, *, max_batches: int | None = None) -> dict:
         "schema_version": "pdebench_swe_normalization_stats_v1",
         "mean": [float(item) for item in mean.tolist()],
         "std": [float(item) for item in std.tolist()],
+        "limit_kind": "samples",
+        "normalization_max_samples": None if sample_limit is None else int(sample_limit),
         "num_samples": int(num_samples),
         "num_values_per_channel": int(count),
         "source": "train_split_inputs_only",

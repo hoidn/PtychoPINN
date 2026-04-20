@@ -14,6 +14,7 @@ from ptycho_torch.generators.hybrid_resnet import (
     HybridResnetEncoderBlock,
 )
 from ptycho_torch.generators.resnet_components import CycleGanUpsampler, ResnetBottleneck
+from scripts.studies.pdebench_swe.run_config import ModelProfile
 
 
 class ModelBuildBlocker(RuntimeError):
@@ -187,14 +188,33 @@ def build_model(
     raise ValueError(f"unknown SWE smoke model: {model_name}")
 
 
+def build_model_from_profile(
+    profile: ModelProfile,
+    *,
+    in_channels: int,
+    out_channels: int,
+    spatial_shape: tuple[int, int],
+) -> nn.Module:
+    """Build a one-step supervised model from a named longer-run profile."""
+    return build_model(
+        profile.base_model,
+        in_channels=in_channels,
+        out_channels=out_channels,
+        spatial_shape=spatial_shape,
+        smoke_config=profile.to_model_config(),
+    )
+
+
 def count_parameters(model: nn.Module) -> int:
     return int(sum(param.numel() for param in model.parameters() if param.requires_grad))
 
 
 def describe_model(model: nn.Module, *, model_name: str, smoke_config: Mapping[str, Any]) -> dict[str, Any]:
+    config = dict(smoke_config)
     return {
         "model_name": model_name,
         "class_name": model.__class__.__name__,
         "parameter_count": count_parameters(model),
-        "smoke_config": dict(smoke_config),
+        "smoke_config": config,
+        "profile_config": config,
     }

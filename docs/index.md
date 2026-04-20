@@ -78,6 +78,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, hybrid_resnet, pdebench, swe, smoke-gate, phase-2, err_nRMSE
 **Use this when:** Deciding whether to continue with longer SWE execution, pivot to OpenFWI FlatVel-A, or block the PDE pillar for a human scope/storage decision.
 
+### [NeurIPS Hybrid ResNet PDE Execution Summary](plans/NEURIPS-HYBRID-RESNET-2026/pde_execution_summary.md)
+**Description:** Roadmap Phase 2 longer-execution summary for PDEBench SWE one-step prediction, including dataset/license identity, full and run-subset splits, normalization and metric contract, Hybrid ResNet/FNO/U-Net local results, ablation skip rationale, provenance links, published-SOTA caveats, and the proceed/pivot/block gate decision.
+**Keywords:** neurips, hybrid_resnet, pdebench, swe, phase-2, pde-execution, pivot, openfwi
+**Use this when:** Checking the final Phase 2 PDE primary result, whether the SWE path proceeds or pivots, or which raw artifacts support the benchmark decision.
+
 ### [PtychoViT Workflow Guide](workflows/ptychovit.md)
 **Description:** Source-pinned interop contract for running the `pinn_ptychovit` model arm from grid-lines studies, including paired HDF5 requirements, checkpoint semantics, and troubleshooting notes.
 **Highlights:** Includes `Known Local Dataset Paths (Snapshot: 2026-03-03)` with `scan807`/`cameraman256` path preflight and canonical checkpoint guidance.

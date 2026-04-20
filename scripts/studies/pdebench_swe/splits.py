@@ -86,6 +86,34 @@ def pair_count_for_trajectories(
     return len(trajectory_ids) * pairs_per
 
 
+def build_run_subset_split(
+    full_split: dict[str, Any],
+    *,
+    max_train_trajectories: int | None = None,
+    max_val_trajectories: int | None = None,
+    max_test_trajectories: int | None = None,
+) -> dict[str, Any]:
+    """Build a capped split that preserves prefix order from the full split."""
+
+    def limit(ids: list[int], cap: int | None) -> list[int]:
+        return list(ids) if cap is None else list(ids)[: int(cap)]
+
+    return {
+        "seed": int(full_split["seed"]),
+        "ratios": list(full_split["ratios"]),
+        "train": limit(list(full_split["train"]), max_train_trajectories),
+        "val": limit(list(full_split["val"]), max_val_trajectories),
+        "test": limit(list(full_split["test"]), max_test_trajectories),
+    }
+
+
+def _is_subset_prefix(full_split: dict[str, Any], run_split: dict[str, Any]) -> bool:
+    return all(
+        list(run_split[name]) == list(full_split[name])[: len(run_split[name])]
+        for name in ("train", "val", "test")
+    )
+
+
 def write_split_manifest(
     *,
     output_root: Path,
@@ -96,6 +124,9 @@ def write_split_manifest(
     split: dict[str, Any],
     max_pairs_per_trajectory: int | None = None,
     run_id: str | None = None,
+    filename: str = "split_manifest.json",
+    manifest_kind: str = "split",
+    extra: dict[str, Any] | None = None,
 ) -> Path:
     dims = infer_dimensions(shape, axis_order)
     pair_counts = {
@@ -108,6 +139,7 @@ def write_split_manifest(
     }
     payload = {
         "schema_version": "pdebench_swe_split_manifest_v1",
+        "manifest_kind": manifest_kind,
         "run_id": run_id,
         "seed": int(split["seed"]),
         "ratios": split["ratios"],
@@ -125,7 +157,54 @@ def write_split_manifest(
         "pair_counts": pair_counts,
         "horizon": "one_step",
     }
-    path = Path(output_root) / "split_manifest.json"
+    if extra:
+        payload.update(extra)
+    path = Path(output_root) / filename
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path
+
+
+def write_longer_split_manifests(
+    *,
+    output_root: Path,
+    source_file_identity: dict[str, Any],
+    state_dataset: str,
+    axis_order: str,
+    shape: list[int],
+    full_split: dict[str, Any],
+    run_split: dict[str, Any],
+    max_pairs_per_trajectory: int,
+    run_id: str | None = None,
+) -> dict[str, Path]:
+    """Write full 1000-ID and budget-capped split manifests for longer runs."""
+
+    full_path = write_split_manifest(
+        output_root=output_root,
+        source_file_identity=source_file_identity,
+        state_dataset=state_dataset,
+        axis_order=axis_order,
+        shape=shape,
+        split=full_split,
+        max_pairs_per_trajectory=None,
+        run_id=run_id,
+        filename="split_manifest_full.json",
+        manifest_kind="full_split",
+    )
+    run_path = write_split_manifest(
+        output_root=output_root,
+        source_file_identity=source_file_identity,
+        state_dataset=state_dataset,
+        axis_order=axis_order,
+        shape=shape,
+        split=run_split,
+        max_pairs_per_trajectory=max_pairs_per_trajectory,
+        run_id=run_id,
+        filename="split_manifest_run.json",
+        manifest_kind="run_subset",
+        extra={
+            "full_split_manifest": full_path.name,
+            "subset_of_full_split": _is_subset_prefix(full_split, run_split),
+        },
+    )
+    return {"full": full_path, "run": run_path}

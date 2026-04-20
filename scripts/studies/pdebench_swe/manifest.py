@@ -248,6 +248,7 @@ def write_dataset_manifests(
     dataset_source_url: str = "",
     dataset_darus_id: str | int | None = None,
     license_note: str = "",
+    license_note_file: Path | None = None,
     state_dataset: str | None = None,
     axis_order: str | None = None,
     run_id: str | None = None,
@@ -259,6 +260,11 @@ def write_dataset_manifests(
     selected = select_state_dataset(metadata, requested=state_dataset)
     if axis_order:
         selected["axis_order"] = axis_order
+    license_note_file_str = str(license_note_file) if license_note_file is not None else None
+    license_note_excerpt = None
+    if license_note_file is not None and Path(license_note_file).exists():
+        license_text = Path(license_note_file).read_text(encoding="utf-8")
+        license_note_excerpt = license_text.strip().splitlines()[0] if license_text.strip() else ""
 
     common = {"run_id": run_id} if run_id else {}
     dataset_manifest = {
@@ -269,6 +275,8 @@ def write_dataset_manifests(
             "url": dataset_source_url,
             "darus_id": str(dataset_darus_id) if dataset_darus_id is not None else None,
             "license_note": license_note,
+            "license_note_file": license_note_file_str,
+            "license_note_excerpt": license_note_excerpt,
         },
         "file_identity": identity,
         "selected_state_dataset": selected,
