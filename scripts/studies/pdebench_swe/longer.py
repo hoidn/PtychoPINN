@@ -193,13 +193,18 @@ def _contains_only_prelaunch_markers(output_root: Path) -> bool:
 def _guard_output_root(output_root: Path, *, allow_existing: bool) -> None:
     pid_path = output_root / "logs" / "longer.pid"
     exit_path = output_root / "logs" / "longer.exit_code"
-    if pid_path.exists() and not exit_path.exists():
+    if pid_path.exists():
         pid = pid_path.read_text(encoding="utf-8").strip()
-        root_label = "live output root" if _pid_is_live(pid) else "incomplete output root"
-        raise FileExistsError(
-            f"refusing to write into {root_label} {output_root}; "
-            f"PID marker {pid!r} has missing exit code evidence"
-        )
+        if _pid_is_live(pid):
+            raise FileExistsError(
+                f"refusing to write into live output root {output_root}; "
+                f"PID marker {pid!r} is still live"
+            )
+        if not exit_path.exists():
+            raise FileExistsError(
+                f"refusing to write into incomplete output root {output_root}; "
+                f"PID marker {pid!r} has missing exit code evidence"
+            )
     if (
         output_root.exists()
         and any(output_root.iterdir())
@@ -309,6 +314,7 @@ def _apply_budget_defaults(args: argparse.Namespace) -> tuple[list[str], list[st
 def _write_start_markers(output_root: Path, run_id: str) -> int:
     logs = output_root / "logs"
     logs.mkdir(parents=True, exist_ok=True)
+    (logs / "longer.exit_code").unlink(missing_ok=True)
     start_ns = time.time_ns()
     (logs / "longer.run_id").write_text(f"{run_id}\n", encoding="utf-8")
     (logs / "longer.started_at_ns").write_text(f"{start_ns}\n", encoding="utf-8")
@@ -769,6 +775,20 @@ def validate_fresh_artifacts(
         parsed_args = invocation.get("parsed_args", {})
         if parsed_args.get("run_id") is not None and str(parsed_args.get("run_id")) != str(run_id):
             errors.append(f"invocation parsed run_id does not match {run_id}")
+        parsed_output_root = parsed_args.get("output_root")
+        if parsed_output_root is None:
+            errors.append("invocation parsed output_root is missing")
+        else:
+            parsed_path = Path(str(parsed_output_root)).expanduser()
+            if not parsed_path.is_absolute():
+                invocation_cwd = invocation.get("cwd")
+                base = Path(str(invocation_cwd)).expanduser() if invocation_cwd else Path.cwd()
+                parsed_path = base / parsed_path
+            if parsed_path.resolve() != output_root.resolve():
+                errors.append(
+                    "invocation parsed output_root does not match validated output_root "
+                    f"{output_root}: {parsed_output_root!r}"
+                )
 
     for profile_id in profiles:
         profile_root = output_root / "runs" / profile_id

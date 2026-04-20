@@ -123,6 +123,7 @@ def test_prelaunch_tmux_markers_do_not_trip_duplicate_root_guard(tmp_path):
     else:  # pragma: no cover - failure path
         raise AssertionError("allow_existing must not bypass any PID marker without exit code")
 
+    (logs / "longer.pid").write_text("999999999\n", encoding="utf-8")
     (logs / "longer.exit_code").write_text("0\n", encoding="utf-8")
     (output_root / "unexpected.json").write_text("{}", encoding="utf-8")
     try:
@@ -131,6 +132,38 @@ def test_prelaunch_tmux_markers_do_not_trip_duplicate_root_guard(tmp_path):
         assert "refusing to write into non-empty output root" in str(exc)
     else:  # pragma: no cover - failure path
         raise AssertionError("unexpected non-marker file should still be rejected")
+
+
+def test_guard_rejects_live_pid_even_with_stale_exit_code(tmp_path):
+    from scripts.studies.pdebench_swe.longer import _guard_output_root
+
+    output_root = tmp_path / "out"
+    logs = output_root / "logs"
+    logs.mkdir(parents=True)
+    (logs / "longer.pid").write_text(f"{os.getpid()}\n", encoding="utf-8")
+    (logs / "longer.exit_code").write_text("0\n", encoding="utf-8")
+
+    try:
+        _guard_output_root(output_root, allow_existing=True)
+    except FileExistsError as exc:
+        assert "live output root" in str(exc)
+    else:  # pragma: no cover - failure path
+        raise AssertionError("allow_existing must not bypass a live PID marker")
+
+
+def test_write_start_markers_invalidates_stale_exit_code(tmp_path):
+    from scripts.studies.pdebench_swe.longer import _write_start_markers
+
+    output_root = tmp_path / "out"
+    logs = output_root / "logs"
+    logs.mkdir(parents=True)
+    (logs / "longer.exit_code").write_text("0\n", encoding="utf-8")
+
+    _write_start_markers(output_root, "fresh-run")
+
+    assert not (logs / "longer.exit_code").exists()
+    assert (logs / "longer.run_id").read_text(encoding="utf-8").strip() == "fresh-run"
+    assert (logs / "longer.pid").read_text(encoding="utf-8").strip() == str(os.getpid())
 
 
 def test_cpu_synthetic_longer_run_writes_metrics_provenance_and_comparison(tmp_path):
@@ -339,3 +372,53 @@ def test_validate_fresh_artifacts_requires_run_markers_and_successful_exit(tmp_p
     )
 
     assert any("longer.exit_code" in error and "0" in error for error in errors)
+
+
+def test_validate_fresh_artifacts_rejects_invocation_output_root_mismatch(tmp_path):
+    from scripts.studies.pdebench_swe.longer import validate_fresh_artifacts
+
+    root = tmp_path / "out"
+    logs = root / "logs"
+    model_root = root / "runs" / "unet_base"
+    logs.mkdir(parents=True)
+    model_root.mkdir(parents=True)
+    for name in [
+        "dataset_manifest.json",
+        "hdf5_metadata.json",
+        "split_manifest_full.json",
+        "split_manifest_run.json",
+        "normalization_stats.json",
+        "comparison_summary.json",
+    ]:
+        (root / name).write_text('{"run_id": "fresh"}', encoding="utf-8")
+    (root / "comparison_summary.csv").write_text("profile_id,status\n", encoding="utf-8")
+    (root / "invocation.sh").write_text("python scripts/studies/run_pdebench_swe_longer.py\n", encoding="utf-8")
+    (root / "invocation.json").write_text(
+        json.dumps(
+            {
+                "run_id": "fresh",
+                "pid": 123,
+                "parsed_args": {
+                    "run_id": "fresh",
+                    "output_root": str(tmp_path / "different-root"),
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (logs / "longer.run_id").write_text("fresh\n", encoding="utf-8")
+    (logs / "longer.started_at_ns").write_text("1\n", encoding="utf-8")
+    (logs / "longer.pid").write_text("123\n", encoding="utf-8")
+    (logs / "longer.exit_code").write_text("0\n", encoding="utf-8")
+    (model_root / "provenance.json").write_text('{"run_id": "fresh", "pid": 123}', encoding="utf-8")
+    (model_root / "metrics.json").write_text('{"run_id": "fresh", "pid": 123}', encoding="utf-8")
+
+    errors = validate_fresh_artifacts(
+        output_root=root,
+        run_id="fresh",
+        tracked_pid="123",
+        start_ns=1,
+        profiles=["unet_base"],
+    )
+
+    assert any("output_root" in error and "does not match" in error for error in errors)
