@@ -19,3 +19,16 @@ def test_commands_reference_contains_fly001_128_recipe():
     commands = Path("docs/COMMANDS_REFERENCE.md").read_text()
     assert "fly001_128_top_half_converted.npz" in commands
     assert "fly001_128_full_test_converted.npz" in commands
+
+
+def test_study_index_registers_openfwi_flatvel_a_fallback_smoke_gate():
+    index = Path("docs/studies/index.md").read_text()
+    assert "openfwi-flatvel-a-fallback-smoke-gate" in index
+    assert "scripts/studies/run_openfwi_flatvel_a_smoke.py" in index
+    assert Path("scripts/studies/run_openfwi_flatvel_a_smoke.py").exists()
+
+
+def test_docs_index_links_openfwi_flatvel_a_fallback_smoke_gate():
+    index = Path("docs/index.md").read_text()
+    assert "OpenFWI FlatVel-A Fallback Smoke Gate" in index
+    assert Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/openfwi_flatvel_a_fallback_smoke_gate.md").exists()

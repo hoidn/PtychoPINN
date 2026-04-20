@@ -83,6 +83,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, hybrid_resnet, pdebench, swe, phase-2, pde-execution, pivot, openfwi
 **Use this when:** Checking the final Phase 2 PDE primary result, whether the SWE path proceeds or pivots, or which raw artifacts support the benchmark decision.
 
+### [NeurIPS Hybrid ResNet OpenFWI FlatVel-A Fallback Smoke Gate](plans/NEURIPS-HYBRID-RESNET-2026/openfwi_flatvel_a_fallback_smoke_gate.md)
+**Description:** Roadmap Phase 2 fallback smoke/data-access gate for OpenFWI FlatVel-A after the PDEBench SWE pivot, covering shard access for `data1.npy`/`model1.npy` and `data49.npy`/`model49.npy`, shape validation, deterministic smoke splits, MAE/RMSE/SSIM metrics, local Hybrid ResNet-compatible/U-Net smoke profiles, official InversionNet compatibility status, raw artifact links, and the proceed/block/reject decision.
+**Keywords:** neurips, hybrid_resnet, openfwi, flatvel-a, fallback, smoke-gate, phase-2, pde
+**Use this when:** Checking whether the OpenFWI fallback can advance to longer execution or is blocked by data/storage/access constraints.
+
 ### [PtychoViT Workflow Guide](workflows/ptychovit.md)
 **Description:** Source-pinned interop contract for running the `pinn_ptychovit` model arm from grid-lines studies, including paired HDF5 requirements, checkpoint semantics, and troubleshooting notes.
 **Highlights:** Includes `Known Local Dataset Paths (Snapshot: 2026-03-03)` with `scan807`/`cameraman256` path preflight and canonical checkpoint guidance.

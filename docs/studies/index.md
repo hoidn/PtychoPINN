@@ -23,6 +23,16 @@
 - Current selected-run caveat: run `20260420T115509.961336393Z` predates training-seed provenance and is documented only as unseeded observed SWE pivot evidence.
 - Boundary: this is longer Phase 2 execution only, not CDI, OpenFWI fallback execution, rollout evaluation, `256x256` scaling, or paper-facing artifact assembly.
 
+### `openfwi-flatvel-a-fallback-smoke-gate`
+
+- Purpose: Run the Roadmap Phase 2 fallback smoke/data-access gate for OpenFWI FlatVel-A after the PDEBench SWE primary records the pivot decision.
+- Script: `scripts/studies/run_openfwi_flatvel_a_smoke.py`
+- Required shards: `data1.npy`, `model1.npy`, `data49.npy`, and `model49.npy` under an external or ignored FlatVel-A shard root supplied with `--data-root`.
+- Output artifact root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate/`.
+- Decision boundary: produce exactly one smoke-gate decision: proceed to longer OpenFWI execution, block for storage/data/human decision, or reject fallback as nonviable.
+- Local profiles: `hybrid_resnet_smoke` and `unet_smoke`, with optional `fno_smoke` and optional official InversionNet probe through `--official-openfwi-repo`.
+- Boundary: this is a fallback smoke gate only, not full 43 GB OpenFWI training, CDI regeneration, `256x256` scaling, PDEBench SWE rescue, or paper-facing artifact assembly.
+
 ## Grid-Lines Studies
 
 ### `lines_256` dataset note
