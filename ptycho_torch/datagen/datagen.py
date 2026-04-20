@@ -11,7 +11,9 @@ from functools import partial
 #Other functions
 import ptycho_torch.patch_generator as pg
 from ptycho_torch.datagen.objects import create_complex_layered_procedural_object, downscale_complex_image, create_complex_polyhedra
-from ptycho_torch.datagen.objects import create_dead_leaves, create_white_noise_object, create_simplex_noise_object
+from ptycho_torch.datagen.objects import create_dead_leaves, create_white_noise_object, create_simplex_noise_object, create_dead_leaves_regions
+from ptycho_torch.datagen.objects import create_dead_leaves_v3, create_perlin_reim, generate_dead_leaves_constrained_phase
+from ptycho_torch.datagen.objects import create_dead_leaves_reim_gmm, create_white_noise_clustered_reim
 from ptycho_torch.datagen.probe import generate_zernike_probe, generate_random_fzp, generate_random_zernike
 import ptycho_torch.helper as hh
 from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
@@ -97,8 +99,7 @@ def simulate_multiple_experiments(obj_list,
                                   img_shape,
                                   data_config,
                                   probe_arg,
-                                  save_dir,
-                                  save_bool = True):
+                                  save_dir):
     """
     Generates multiple simulated ptychography experiments using randomized probes
 
@@ -133,24 +134,23 @@ def simulate_multiple_experiments(obj_list,
                                            images_per_experiment,
                                            data_config, probe_arg)
         
+        save_name = "synthetic_" + str(i)
+        save_path = save_dir + '/' + save_name
 
-        if save_bool:
-            save_name = "synthetic_" + str(i)
-            save_path = save_dir + '/' + save_name
-            
-            np.savez(save_path,
-                    diff3d = raw_data['diff3d'],
-                    label = raw_data['label'],
-                    objectGuess = raw_data['objectGuess'],
-                    probeGuess = raw_data['probeGuess'].squeeze(),
-                    xcoords = raw_data['xcoords'],
-                    ycoords = raw_data['ycoords'],
-                    probeName = probe_name_i,
-                    )
-            end = time.time()
-            print(f"----Finished saving for experiment {i} in {end-start} seconds----")
+        np.savez(save_path,
+                 diff3d = raw_data['diff3d'],
+                 label = raw_data['label'],
+                 objectGuess = raw_data['objectGuess'],
+                 probeGuess = raw_data['probeGuess'].squeeze(),
+                 xcoords = raw_data['xcoords'],
+                 ycoords = raw_data['ycoords'],
+                 probeName = probe_name_i,
+                 )
+        end = time.time()
+        print(f"----Finished saving for experiment {i} in {end-start} seconds----")
 
-def assemble_precomputed_images(dir_list, mode, single_dir = False):
+def assemble_precomputed_images(dir_list, mode, single_dir = False,
+                                probe_ramp_removal = False):
     """
     Just appends all probes or objects into single list from directories of interest.
     """
@@ -163,9 +163,12 @@ def assemble_precomputed_images(dir_list, mode, single_dir = False):
     
     for dir in dir_list:
         file_list = glob(dir + '/*.npz')
+        print(file_list)
         for file in file_list:
             if mode == 'probe':
                 file_im = np.load(file)['probeGuess']
+                if probe_ramp_removal is True:
+                    file_im = hh.standardize_probe(file_im)
                 #Removed normalization because we want the raw probe
             elif mode == 'object':
                 file_im = np.load(file)['objectGuess']
@@ -175,7 +178,7 @@ def assemble_precomputed_images(dir_list, mode, single_dir = False):
 
     return precomputed_images
 
-def simulate_synthetic_objects(img_shape, data_config, nimages, obj_method, obj_arg):
+def simulate_synthetic_objects(img_shape, data_config, nimages, obj_method, obj_arg, **kwargs):
     """
     Generates list of synthetic objects from pre-built methods. Wrapper function.
 
@@ -186,15 +189,20 @@ def simulate_synthetic_objects(img_shape, data_config, nimages, obj_method, obj_
         obj_arg (Dict): Object arguments (hyperparameters)
     """
     #Internal object methods list
-    obj_methods = ['procedural', 'polyhedra','dead_leaves','white_noise','simplex_noise','blurred_white_noise']
-    
+    obj_methods = ['procedural', 'polyhedra','dead_leaves','white_noise','simplex_noise','blurred_white_noise',
+                   'dead_leaves_reim', 'dead_leaves_reim_hist', 'perlin_reim', 'dead_leaves_constrained',
+                   'dead_leaves_reim_uniform', 'dead_leaves_reim_gmm', 'white_noise_clustered']
+
     #Check validity
     if obj_method not in obj_methods:
-        raise ValueError("Method not in supported methods")
+        raise ValueError(f"Method '{obj_method}' not in supported methods: {obj_methods}")
     
+    hist = kwargs.get('histogram', None)
+    stats = kwargs.get('stats', None)
+
     #Select procedural generation method
     if obj_method == 'dead_leaves':
-        obj_func = partial(create_dead_leaves, obj_arg = obj_arg)
+        obj_func = partial(create_dead_leaves, obj_arg = obj_arg, **kwargs)
     elif obj_method == 'procedural':
         obj_func = create_complex_layered_procedural_object
     elif obj_method == 'polyhedra':
@@ -206,6 +214,20 @@ def simulate_synthetic_objects(img_shape, data_config, nimages, obj_method, obj_
     elif obj_method == 'blurred_white_noise':
         obj_arg['blur'] = True
         obj_func = partial(create_white_noise_object, obj_arg = obj_arg)
+    elif obj_method == 'dead_leaves_reim':
+        obj_func = partial(create_dead_leaves_v3, obj_arg=obj_arg, histogram = hist)
+    elif obj_method == 'dead_leaves_reim_hist':
+        obj_func = partial(create_dead_leaves_v3, obj_arg=obj_arg, histogram = hist)
+    elif obj_method == 'dead_leaves_constrained':
+        obj_func = partial(create_dead_leaves_v3, obj_arg=obj_arg, histogram = hist)
+    elif obj_method == 'dead_leaves_reim_uniform':
+        obj_func = partial(create_dead_leaves_v3, obj_arg=obj_arg, histogram = hist)
+    elif obj_method == 'perlin_reim':
+        obj_func = partial(create_perlin_reim, obj_arg=obj_arg, stats = stats)
+    elif obj_method == 'dead_leaves_reim_gmm':
+        obj_func = partial(create_dead_leaves_reim_gmm, obj_arg=obj_arg)
+    elif obj_method == 'white_noise_clustered':
+        obj_func = partial(create_white_noise_clustered_reim, obj_arg=obj_arg)
 
     #Create list
     obj_list = []
@@ -353,15 +375,22 @@ def generate_data_from_experiment(diff, objectGuess, probeGuess, xcoords, ycoord
     
     N = data_config.N
 
-    # Get object dimensions
-    height, width = objectGuess.shape
-
     # Ensure buffer doesn't exceed image dimensions
     buffer = N//2
 
+    xcoords -= np.min(xcoords)
+    ycoords -= np.min(ycoords)
+
+    xcoord_lower = np.min(xcoords) + buffer
+    xcoord_upper = np.max(xcoords) - buffer
+    ycoord_lower = np.min(ycoords) + buffer
+    ycoord_upper = np.max(ycoords) - buffer
+
+    valid_in_buffer = (xcoords >= xcoord_lower) & (xcoords <= xcoord_upper) & (ycoords >= ycoord_lower) & (ycoords <= ycoord_upper)
+
     # Limit xcoords and ycoords to within the buffered area
-    xcoords = xcoords[(xcoords >= buffer) & (xcoords <= width - buffer)]
-    ycoords = ycoords[(ycoords >= buffer) & (ycoords <= height - buffer)]
+    xcoords = xcoords[valid_in_buffer]
+    ycoords = ycoords[valid_in_buffer]
  
     #Convert object to proper data format
     objectGuess = objectGuess.astype(np.complex64)
@@ -386,6 +415,8 @@ def generate_data_from_experiment(diff, objectGuess, probeGuess, xcoords, ycoord
     ycoords_cpu = torch.from_numpy(ycoords)
     objectGuess_torch = torch.from_numpy(objectGuess).to(device)
 
+    print(f"Ycoords initial shape: {ycoords_cpu.shape}")
+
     # Initialize output arrays on CPU to store results
     obj_patches_list = []
 
@@ -401,6 +432,7 @@ def generate_data_from_experiment(diff, objectGuess, probeGuess, xcoords, ycoord
 
         # Get image patches for this batch
         print("  Getting image patches...")
+
         batch_obj_patches = get_image_patches(objectGuess_torch,
                                             batch_xcoords, batch_ycoords,
                                             data_config)
@@ -497,11 +529,11 @@ def from_simulation(xcoords, ycoords,
         batch_diff_patches = hh.poisson_scale(batch_diff_patches)
 
         # Apply detector beamstop
-        print("  Applying detector beamstop...")
-        batch_diff_patches = apply_detector_beamstop_torch(
-            batch_diff_patches,
-            probe_arg['beamstop_diameter']
-        )
+        # print("  Applying detector beamstop...")
+        # batch_diff_patches = apply_detector_beamstop_torch(
+        #     batch_diff_patches,
+        #     probe_arg['beamstop_diameter']
+        # )
 
         # Move batch results to CPU and store
         diff_patterns_list.append(batch_diff_patches.detach().cpu())

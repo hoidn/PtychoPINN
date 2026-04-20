@@ -2,14 +2,14 @@ from typing import Optional, Dict, Any, Tuple, Union, Protocol
 from enum import Enum
 from dataclasses import dataclass, replace
 import json
-from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig, update_existing_config
+from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig, update_existing_config, get_frozen_fields
 from ptycho_torch.utils import load_all_configs_from_mlflow, load_config_from_json, validate_and_process_config
 import os
 
 
 class ConfigManager:
     """
-    Manages config handling. Assumes configs are fully expoed to user
+    Manages config handling. Assumes configs are fully exposed to user
 
     Can load configs from either:
     1. Previous mlflow training run (which includes all necessary replication artifacts)
@@ -33,6 +33,10 @@ class ConfigManager:
             self.training_config = training_config or TrainingConfig()
             self.inference_config = inference_config or InferenceConfig()
             self.datagen_config = datagen_config or DatagenConfig()
+            # When True, writes to frozen fields in update() raise ValueError.
+            # Set by from_loaded_model() to protect architecture-critical fields
+            # after a checkpoint has been loaded.
+            self._arch_frozen: bool = False
 
     @classmethod
     def _from_mlflow(
@@ -128,6 +132,71 @@ class ConfigManager:
 
          return mlflow_manager
 
+    @classmethod
+    def from_loaded_model(cls, model: 'PtychoModel') -> 'ConfigManager':
+        """
+        Model-first initialization for inference: the loaded checkpoint is the
+        authority for architecture-critical configs.
+
+        Extracts DataConfig, ModelConfig, TrainingConfig, and InferenceConfig
+        directly from a loaded PtychoPINN_Lightning module, then enables frozen
+        mode so that subsequent calls to update() raise on writes to any field
+        tagged metadata={'frozen': True}.
+
+        Use this instead of constructing a ConfigManager from JSON when you are
+        running inference on an existing checkpoint and want to guard against
+        silently overriding architecture fields (N, C_model, n_filters_scale, …).
+
+        Example::
+
+            ptycho_model = PtychoModel._load(strategy='lightning', ...)
+            config_manager = ConfigManager.from_loaded_model(ptycho_model)
+            config_manager.update(inference_config={'middle_trim': 48})  # OK
+            config_manager.update(model_config={'N': 128})               # raises ValueError
+        """
+        lightning = model.model  # PtychoPINN_Lightning instance
+        instance = cls(
+            data_config=lightning.data_config,
+            model_config=lightning.model_config,
+            training_config=lightning.training_config,
+            inference_config=lightning.inference_config,
+            datagen_config=DatagenConfig(),
+        )
+        instance._arch_frozen = True
+        return instance
+
+    def validate_arch_compatibility(self, model: 'PtychoModel') -> None:
+        """
+        Field-by-field comparison of frozen (architecture-critical) fields between
+        this ConfigManager and a loaded model.
+
+        Raises ValueError listing every mismatched field so the caller can
+        decide whether to correct the config or abort.  Call this after
+        from_loaded_model() + any user overrides to get an explicit audit.
+
+        Args:
+            model: A PtychoModel whose .model attribute is a PtychoPINN_Lightning.
+        """
+        lightning = model.model
+        mismatches = []
+        for cfg_name, local, remote in [
+            ('data_config',  self.data_config,  lightning.data_config),
+            ('model_config', self.model_config, lightning.model_config),
+        ]:
+            for field_name in get_frozen_fields(local):
+                local_val  = getattr(local,  field_name)
+                remote_val = getattr(remote, field_name)
+                if local_val != remote_val:
+                    mismatches.append(
+                        f"  {cfg_name}.{field_name}: "
+                        f"ConfigManager={local_val!r} vs model={remote_val!r}"
+                    )
+        if mismatches:
+            raise ValueError(
+                "Architecture config mismatch between ConfigManager and loaded model:\n"
+                + "\n".join(mismatches)
+            )
+
     def update(
         self,
         data_config: Optional[Dict[str, Any]] = None,
@@ -135,12 +204,22 @@ class ConfigManager:
         training_config: Optional[Dict[str, Any]] = None,
         inference_config: Optional[Dict[str, Any]] = None,
         datagen_config: Optional[Dict[str, Any]] = None,
+        strict_frozen: Optional[bool] = None,
     ):
-        "Manually update config fields, exposing this to the user"
+        """
+        Manually update config fields.
+
+        Args:
+            strict_frozen: Override the instance-level _arch_frozen flag.
+                           Defaults to self._arch_frozen when None.  Pass
+                           False explicitly to allow architecture field writes
+                           even on a frozen ConfigManager (use with care).
+        """
+        effective_strict = self._arch_frozen if strict_frozen is None else strict_frozen
         if data_config:
-            update_existing_config(self.data_config, data_config)
+            update_existing_config(self.data_config, data_config, strict_frozen=effective_strict)
         if model_config:
-            update_existing_config(self.model_config, model_config)
+            update_existing_config(self.model_config, model_config, strict_frozen=effective_strict)
         if training_config:
             update_existing_config(self.training_config, training_config)
         if inference_config:
@@ -219,6 +298,7 @@ class DataloaderFormats(Enum):
     LIGHTNING_ONLY_MODULE = 'lightning_only_module' #For lightning-only
     TENSORDICT = 'tensordict'
     DATALOADER = 'pytorch'
+    NUMPY = 'numpy'  # In-memory from numpy arrays
 
 class PtychoDataLoader:
     """
@@ -269,6 +349,103 @@ class PtychoDataLoader:
             self._setup_tensordict_dataloader()
         elif data_format == DataloaderFormats.DATALOADER:
             pass # Not implemented yet
+
+    @classmethod
+    def from_np(cls,
+                diff_patterns,
+                probe,
+                positions,
+                config_manager: Optional[ConfigManager] = None,
+                data_config=None,
+                model_config=None,
+                training_config=None,
+                scaling_constant: float = None,
+                output_dir: Optional[str] = None,
+                timestamp: Optional[str] = None) -> 'PtychoDataLoader':
+        """
+        Create a PtychoDataLoader directly from in-memory numpy arrays,
+        bypassing NPZ file I/O. Supports both inference and training workflows.
+
+        Parameters
+        ----------
+        diff_patterns : np.ndarray, shape (N, H, W), float.
+        probe : np.ndarray, shape (H, W), complex.
+        positions : np.ndarray, shape (N, 2), [ypix, xpix] per row.
+        config_manager : ConfigManager, optional
+        data_config : DataConfig or dict, optional
+        model_config : ModelConfig or dict, optional
+        training_config : TrainingConfig or dict, optional
+        scaling_constant : float, optional override for RMS normalization constant.
+        output_dir : str, optional
+            Base output directory for training artifacts. When provided, enables
+            training mode by creating a LightningDataModule and setting output_dir.
+            If omitted, the loader is inference-only (original behavior).
+        timestamp : str, optional
+            Timestamp string for the run directory name. If not provided and
+            output_dir is set, generates one from datetime.now().
+
+        Returns
+        -------
+        PtychoDataLoader with .dataset and .dataloader attributes set.
+        When output_dir is provided, also has .data_module and .output_dir for training.
+        """
+        from ptycho_torch.dataloader import PtychoDataset, TensorDictDataLoader, Collate_Lightning
+
+        instance = cls.__new__(cls)
+
+        # Parse configs (same pattern as __init__)
+        if config_manager is not None:
+            instance.data_config = config_manager.data_config
+            instance.model_config = config_manager.model_config
+            instance.training_config = config_manager.training_config
+        else:
+            instance.data_config = ConfigManager._parse_config(data_config, DataConfig)
+            instance.model_config = ConfigManager._parse_config(model_config, ModelConfig)
+            instance.training_config = ConfigManager._parse_config(training_config, TrainingConfig)
+
+        instance.data_dir = None
+        instance.data_format = DataloaderFormats.NUMPY
+        instance.memory_map_dir = None
+        instance.val_seed = 42
+        instance.val_split = 0.05
+
+        # Create in-memory dataset
+        instance.dataset = PtychoDataset.from_np(
+            diff_patterns=diff_patterns,
+            probe=probe,
+            positions=positions,
+            model_config=instance.model_config,
+            data_config=instance.data_config,
+            scaling_constant=scaling_constant,
+        )
+
+        # Wrap in TensorDictDataLoader (same pattern as _setup_tensordict_dataloader)
+        instance.dataloader = TensorDictDataLoader(
+            instance.dataset,
+            batch_size=instance.training_config.batch_size,
+            shuffle=False,  # inference typically doesn't shuffle
+            num_workers=0,  # in-memory data, no need for workers
+            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
+            pin_memory=True,
+        )
+
+        # If output_dir is provided, set up for training (not just inference)
+        if output_dir is not None:
+            from ptycho_torch.train_utils import InMemoryPtychoDataModule
+
+            if timestamp is not None:
+                instance.output_dir = os.path.join(output_dir, f"run_{timestamp}")
+            else:
+                instance.output_dir = output_dir
+
+            instance.data_module = InMemoryPtychoDataModule(
+                dataset=instance.dataset,
+                training_config=instance.training_config,
+                val_split=instance.val_split,
+                val_seed=instance.val_seed,
+            )
+
+        return instance
 
     def _setup_lightning_datamodule(self):
         """
@@ -532,6 +709,33 @@ class PtychoModel:
         return instance
     
     @staticmethod
+    def _extract_configs_from_checkpoint(
+        checkpoint_path: str,
+    ) -> Tuple[Optional[DataConfig], Optional[ModelConfig],
+               Optional[TrainingConfig], Optional[InferenceConfig]]:
+        """
+        Reads architecture and operational configs directly from a Lightning .ckpt
+        file without instantiating the model.
+
+        Lightning persists the __init__ arguments of PtychoPINN_Lightning via
+        save_hyperparameters(), so the dataclass objects are stored under the
+        'hyper_parameters' key in the checkpoint dict.
+
+        Returns a 4-tuple (data_config, model_config, training_config,
+        inference_config).  Any entry is None when missing from the checkpoint
+        (fall back to loading from the run's configs/ JSON directory).
+        """
+        import torch as _torch
+        ckpt = _torch.load(checkpoint_path, map_location='cpu')
+        hp = ckpt.get('hyper_parameters', {})
+        return (
+            hp.get('data_config'),
+            hp.get('model_config'),
+            hp.get('training_config'),
+            hp.get('inference_config'),
+        )
+
+    @staticmethod
     def load_from_mlflow(
         run_id: str = None,
         mlflow_tracking_uri: Optional[str] = None
@@ -570,39 +774,43 @@ class PtychoModel:
         training_config: TrainingConfig,
         inference_config: InferenceConfig,
         run_path: str,
-        model_class: Any
+        model_class: Any,
+        checkpoint_path: str = None
     ) -> Any:
         """
         Loads model from Lightning checkpoint.
-        
+
         Args:
             run_path: Full path to run directory (e.g., 'base_dir/run_20240115_143022/')
             model_class: Lightning module class to instantiate
-            
+            checkpoint_path: Optional explicit path to .ckpt file
+
         Returns:
             Loaded Lightning model
-            
+
         Raises:
             FileNotFoundError: If checkpoint not found
         """
         from pathlib import Path
-        
+
         run_path = Path(run_path)
-        checkpoint_path = run_path / "checkpoints" / "best-checkpoint.ckpt"
-        
+
+        if not checkpoint_path:
+            checkpoint_path = run_path / "checkpoints" / "best-checkpoint.ckpt"
+
         if not checkpoint_path.exists():
             raise FileNotFoundError(
                 f"Checkpoint not found at {checkpoint_path}. "
                 f"Expected structure: {run_path}/checkpoints/best-checkpoint.ckpt"
             )
-        
+
         print(f"Loading model from {checkpoint_path}")
         model = model_class.load_from_checkpoint(str(checkpoint_path),
                                                  model_config = model_config,
                                                  data_config = data_config,
                                                  training_config = training_config,
                                                  inference_config = inference_config)
-        
+
         return model
     
     def save_mlflow(
@@ -1200,19 +1408,28 @@ class InferenceEngine:
                 device = 'cuda'
                 ) -> torch.Tensor:
         """
-        Runs feed-forward prediction without stitching
+        Runs feed-forward prediction without stitching.
+
+        Batch format from Collate_Lightning is (tensor_dict, probe, scaling).
         """
         self.model.to(device)
         res = []
-        
+
         with torch.no_grad():
             for batch in ptycho_dataloader.dataloader:
-                batch = batch.to(device)
-                output = self.model.forward_predict(batch)
+                td, probe, scaling = batch
+                td = td.to(device)
+                probe = probe.to(device)
+
+                x = td['images']
+                positions = td['coords_relative']
+                rms_scale = td['rms_scaling_constant']
+
+                output = self.model.forward_predict(x, positions, probe, rms_scale)
                 res.append(output.cpu())
 
         final_output = torch.cat(res, dim=0)
-        
+
         return final_output
     
     def predict_and_stitch(self,
