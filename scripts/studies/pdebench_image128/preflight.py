@@ -22,6 +22,7 @@ from scripts.studies.pdebench_swe.manifest import (
 
 
 SCHEMA_VERSION = "pdebench_image128_suite_preflight_v1"
+CFD_CNS_FIELD_ORDER = ("density", "Vx", "Vy", "pressure")
 
 
 def _jsonable(value: Any) -> Any:
@@ -166,9 +167,48 @@ def _dynamic_layout(metadata: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _select_cfd_cns_fields(metadata: dict[str, Any]) -> dict[str, Any]:
+    records_by_name = {str(record.get("path", "")).split("/")[-1].lower(): record for record in metadata.get("datasets", [])}
+    fields: list[dict[str, Any]] = []
+    missing: list[str] = []
+    for field_name in CFD_CNS_FIELD_ORDER:
+        record = records_by_name.get(field_name.lower())
+        if record is None or not _is_numeric_dataset(record):
+            missing.append(field_name)
+            continue
+        axis_order = "NTHW" if len(record["shape"]) == 4 else infer_axis_order([int(dim) for dim in record["shape"]])
+        spatial_shape = _spatial_shape(record["shape"], axis_order)
+        enriched = dict(record)
+        enriched["field_name"] = field_name
+        enriched["axis_order"] = axis_order
+        enriched["spatial_shape"] = spatial_shape
+        fields.append(enriched)
+    if missing:
+        raise ManifestBlocker(
+            "missing_cfd_cns_fields",
+            f"2D CFD CNS file is missing required fields: {missing}",
+            candidate_datasets=[str(item["path"]) for item in metadata.get("datasets", [])],
+        )
+    shapes = {tuple(field["shape"]) for field in fields}
+    axis_orders = {field.get("axis_order") for field in fields}
+    if len(shapes) != 1 or len(axis_orders) != 1:
+        raise ManifestBlocker(
+            "inconsistent_cfd_cns_field_shapes",
+            "2D CFD CNS fields must share one shape and axis order",
+            candidate_datasets=[str(field["path"]) for field in fields],
+        )
+    return {
+        "kind": "dynamic_multifield",
+        "field_order": list(CFD_CNS_FIELD_ORDER),
+        "fields": fields,
+    }
+
+
 def _layout_for_task(spec: TaskSpec, metadata: dict[str, Any]) -> dict[str, Any]:
     if spec.task_type == "static_operator":
         return _select_static_operator_pair(metadata)
+    if spec.task_id == "2d_cfd_cns":
+        return _select_cfd_cns_fields(metadata)
     return _dynamic_layout(metadata)
 
 
@@ -177,20 +217,33 @@ def _layout_spatial_shape(layout: dict[str, Any]) -> list[int] | None:
         input_shape = layout["input_dataset"].get("spatial_shape")
         target_shape = layout["target_dataset"].get("spatial_shape")
         return input_shape if input_shape == target_shape else None
+    if layout["kind"] == "dynamic_multifield":
+        shapes = {tuple(field.get("spatial_shape") or []) for field in layout["fields"]}
+        if len(shapes) == 1:
+            shape = next(iter(shapes))
+            return list(shape) if shape else None
+        return None
     state = layout["state_dataset"]
     return _spatial_shape(state["shape"], state.get("axis_order"))
 
 
-def _available_supervision_units(layout: dict[str, Any]) -> int | None:
+def _available_supervision_units(layout: dict[str, Any], *, dynamic_history_len: int = 1) -> int | None:
     if layout["kind"] == "static_operator":
         dataset = layout["target_dataset"]
         return _sample_count(dataset["shape"], dataset.get("axis_order"))
+    if layout["kind"] == "dynamic_multifield":
+        first = layout["fields"][0]
+        sample_count = _sample_count(first["shape"], first.get("axis_order"))
+        time_steps = _time_steps(first["shape"], first.get("axis_order"))
+        if sample_count is None or time_steps is None:
+            return None
+        return int(sample_count * max(0, time_steps - int(dynamic_history_len)))
     state = layout["state_dataset"]
     sample_count = _sample_count(state["shape"], state.get("axis_order"))
     time_steps = _time_steps(state["shape"], state.get("axis_order"))
     if sample_count is None or time_steps is None:
         return None
-    return int(sample_count * max(0, time_steps - 1))
+    return int(sample_count * max(0, time_steps - int(dynamic_history_len)))
 
 
 def inspect_task_file(
@@ -232,6 +285,7 @@ def inspect_task_file(
     expected_shape = [int(item) for item in spec.expected_spatial_shape]
     is_native_128 = spatial_shape == expected_shape
     status = "ready" if is_native_128 else "non_native_spatial_shape"
+    dynamic_history_len = 2 if spec.task_id == "2d_cfd_cns" else 1
     payload: dict[str, Any] = {
         "task_id": task_id,
         "pde_name": spec.pde_name,
@@ -247,8 +301,13 @@ def inspect_task_file(
         "native_spatial_shape": spatial_shape,
         "expected_spatial_shape": expected_shape,
         "is_native_128": is_native_128,
-        "available_supervision_units": _available_supervision_units(layout),
+        "available_supervision_units": _available_supervision_units(
+            layout,
+            dynamic_history_len=dynamic_history_len,
+        ),
     }
+    if spec.task_id == "2d_cfd_cns":
+        payload["history_len"] = dynamic_history_len
     if not is_native_128:
         payload["blocker"] = {
             "reason": "non_native_spatial_shape",
@@ -340,6 +399,13 @@ def _layout_markdown_line(task: dict[str, Any]) -> str | None:
         return (
             f"- `{task['task_id']}`: dynamic state `{state_dataset['path']}`, "
             f"shape `{_shape_markdown(state_dataset)}`, axis `{state_dataset.get('axis_order', '')}`"
+        )
+    if layout.get("kind") == "dynamic_multifield":
+        first = layout["fields"][0]
+        fields = ", ".join(f"`{field}`" for field in layout["field_order"])
+        return (
+            f"- `{task['task_id']}`: dynamic multi-field state fields {fields}, "
+            f"shape `{_shape_markdown(first)}`, axis `{first.get('axis_order', '')}`"
         )
     return None
 

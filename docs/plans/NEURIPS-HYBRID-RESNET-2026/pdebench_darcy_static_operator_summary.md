@@ -37,7 +37,7 @@ The full benchmark budget is written but the expensive full run has not been cla
 - Budget: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/run_budget.json`
 - Required split: `8000/1000/1000`
 - Required profiles: `hybrid_resnet_base`, `fno_base`, `unet_strong`
-- Loss/optimizer recipe: MAE, Adam, `lr=2e-4`, `ReduceLROnPlateau(factor=0.5, patience=2, min_lr=1e-4, threshold=0.0)`
+- Loss/optimizer recipe: relative L2 (`||pred-target||_2 / ||target||_2` per sample, then mean over batch), Adam, `lr=2e-4`, `ReduceLROnPlateau(factor=0.5, patience=2, min_lr=1e-5, threshold=0.0)`
 
 No Darcy full benchmark metrics exist yet. Until all required primary profiles complete on the full training split, the Darcy comparison remains readiness-complete but benchmark-incomplete.
 

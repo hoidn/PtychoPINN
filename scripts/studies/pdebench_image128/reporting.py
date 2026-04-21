@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from scripts.studies.pdebench_image128.run_config import required_primary_profiles_for_task
+
 
 def darcy_literature_context() -> dict[str, Any]:
     caveat = (
@@ -61,7 +63,7 @@ def build_comparison_summary(
     profile_ids = [str(item.get("profile_id")) for item in profile_results]
     if mode == "benchmark" and "unet_tiny_smoke" in profile_ids:
         raise ValueError("unet_tiny_smoke is readiness-only and cannot be included as a strong benchmark baseline")
-    required = {"hybrid_resnet_base", "fno_base", "unet_strong"}
+    required = set(required_primary_profiles_for_task(task_id))
     completed = {str(item.get("profile_id")) for item in profile_results if item.get("status") == "completed"}
     performance_complete = mode == "benchmark" and required.issubset(completed)
     evidence_scope = "benchmark_performance" if performance_complete else "smoke_feasibility_only"
@@ -81,7 +83,7 @@ def build_comparison_summary(
         "metric_interpretation": (
             "benchmark_performance" if performance_complete else "sanity_only_not_benchmark_performance"
         ),
-        "literature_context": darcy_literature_context(),
+        "literature_context": darcy_literature_context() if task_id == "darcy" else None,
         "blockers": blockers or [],
     }
 
@@ -93,7 +95,18 @@ def write_comparison_summary(payload: dict[str, Any], output_root: Path) -> tupl
     csv_path = output_root / "comparison_summary.csv"
     json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     rows = payload.get("profile_results", [])
-    fields = ["profile_id", "status", "err_RMSE", "err_nRMSE", "relative_l2", "parameter_count", "blocker_reason"]
+    fields = [
+        "profile_id",
+        "status",
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high",
+        "parameter_count",
+        "blocker_reason",
+    ]
     with csv_path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()

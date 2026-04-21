@@ -22,13 +22,13 @@ def test_builtin_profile_registry_contains_primary_and_ablation_profiles():
 
     assert hybrid.profile_id == "hybrid_resnet_base"
     assert hybrid.base_model == "hybrid_resnet"
-    assert hybrid.hidden_channels == 16
-    assert hybrid.fno_modes == 8
+    assert hybrid.hidden_channels == 32
+    assert hybrid.fno_modes == 12
     assert hybrid.fno_blocks == 4
-    assert hybrid.hybrid_downsample_steps == 1
-    assert hybrid.hybrid_resnet_blocks == 2
-    assert spectral.fno_modes == 2
-    assert local.hybrid_resnet_blocks == 1
+    assert hybrid.hybrid_downsample_steps == 2
+    assert hybrid.hybrid_resnet_blocks == 6
+    assert spectral.fno_modes == 6
+    assert local.hybrid_resnet_blocks == 2
 
 
 def test_budget_validation_accepts_plan_budget_and_rejects_missing_baseline():
@@ -39,7 +39,16 @@ def test_budget_validation_accepts_plan_budget_and_rejects_missing_baseline():
         "budget_id": "target",
         "epochs": 15,
         "batch_size": 16,
-        "learning_rate": 1e-3,
+        "learning_rate": 2e-4,
+        "scheduler": "ReduceLROnPlateau",
+        "plateau_factor": 0.5,
+        "plateau_patience": 2,
+        "plateau_min_lr": 1e-5,
+        "plateau_threshold": 0.0,
+        "optimizer": "adam",
+        "weight_decay": 0.0,
+        "beta1": 0.9,
+        "beta2": 0.999,
         "max_train_trajectories": 800,
         "max_val_trajectories": 100,
         "max_test_trajectories": 100,
@@ -57,6 +66,18 @@ def test_budget_validation_accepts_plan_budget_and_rejects_missing_baseline():
     json.dumps(normalized)
     assert normalized["primary_profiles"] == ["hybrid_resnet_base", "fno_base", "unet_base"]
     assert normalized["training_seed"] == 20260420
+    assert normalized["scheduler"] == "ReduceLROnPlateau"
+    assert normalized["plateau_min_lr"] == pytest.approx(1e-5)
+
+    budget_without_floor = dict(budget)
+    budget_without_floor.pop("plateau_min_lr")
+    defaulted = validate_run_budget(budget_without_floor)
+    assert defaulted["plateau_min_lr"] == pytest.approx(1e-5)
+
+    budget_too_high_floor = dict(budget)
+    budget_too_high_floor["plateau_min_lr"] = 1e-4
+    with pytest.raises(ValueError, match="plateau_min_lr"):
+        validate_run_budget(budget_too_high_floor)
 
     budget["primary_profiles"] = ["hybrid_resnet_base", "fno_base"]
     with pytest.raises(ValueError, match="unet_base"):

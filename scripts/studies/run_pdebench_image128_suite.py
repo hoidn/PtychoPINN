@@ -12,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.studies.pdebench_image128.darcy import main as darcy_main
 from scripts.studies.pdebench_image128.preflight import main as preflight_main
+from scripts.studies.pdebench_image128.cfd_cns import main as cfd_cns_main
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -21,6 +22,8 @@ def main(argv: list[str] | None = None) -> int:
         task_value = raw[task_index + 1] if task_index + 1 < len(raw) else ""
         if task_value == "darcy":
             return darcy_main(raw)
+        if task_value == "2d_cfd_cns":
+            return cfd_cns_main(raw)
     return preflight_main(raw)
 
 

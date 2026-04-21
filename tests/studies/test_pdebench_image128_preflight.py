@@ -10,12 +10,13 @@ import numpy as np
 def test_task_specs_define_required_pdebench_image128_tasks():
     from scripts.studies.pdebench_image128.task_specs import TASK_IDS, get_task_spec
 
-    assert TASK_IDS == ("swe", "darcy", "2d_reacdiff")
+    assert TASK_IDS == ("swe", "darcy", "2d_cfd_cns")
     assert get_task_spec("swe").expected_filename == "2D_rdb_NA_NA.h5"
     assert get_task_spec("darcy").expected_filename == "2D_DarcyFlow_beta1.0_Train.hdf5"
-    assert get_task_spec("2d_reacdiff").expected_filename == "2D_diff-react_NA_NA.h5"
+    assert get_task_spec("2d_cfd_cns").expected_filename == "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
     assert get_task_spec("darcy").task_type == "static_operator"
-    assert get_task_spec("2d_reacdiff").listed_size_gb == 13.0
+    assert get_task_spec("2d_cfd_cns").expected_darus_id == "164690"
+    assert get_task_spec("2d_cfd_cns").expected_md5 == "21969082d0e9524bcc4708e216148e60"
 
 
 def test_preflight_detects_grouped_swe_native_128_layout(tmp_path):
@@ -77,21 +78,25 @@ def test_preflight_detects_official_darcy_nu_tensor_schema(tmp_path):
     assert payload["available_supervision_units"] == 4
 
 
-def test_preflight_detects_reaction_diffusion_dynamic_layout(tmp_path):
+def test_preflight_detects_cfd_cns_multifield_dynamic_layout(tmp_path):
     from scripts.studies.pdebench_image128.preflight import inspect_task_file
 
-    data_file = tmp_path / "2D_diff-react_NA_NA.h5"
+    data_file = tmp_path / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
     with h5py.File(data_file, "w") as handle:
-        handle.create_dataset("data", data=np.zeros((5, 6, 128, 128, 2), dtype=np.float32))
+        for field in ("density", "Vx", "Vy", "pressure"):
+            handle.create_dataset(field, data=np.zeros((5, 6, 128, 128), dtype=np.float32))
+        handle.create_dataset("x-coordinate", data=np.arange(128, dtype=np.float32))
+        handle.create_dataset("y-coordinate", data=np.arange(128, dtype=np.float32))
 
-    payload = inspect_task_file(task_id="2d_reacdiff", data_file=data_file, compute_sha256=False)
+    payload = inspect_task_file(task_id="2d_cfd_cns", data_file=data_file, compute_sha256=False)
 
     assert payload["status"] == "ready"
     assert payload["is_native_128"] is True
     assert payload["native_spatial_shape"] == [128, 128]
-    assert payload["layout"]["kind"] == "dynamic_state"
-    assert payload["layout"]["state_dataset"]["path"] == "data"
-    assert payload["available_supervision_units"] == 25
+    assert payload["layout"]["kind"] == "dynamic_multifield"
+    assert payload["layout"]["field_order"] == ["density", "Vx", "Vy", "pressure"]
+    assert payload["history_len"] == 2
+    assert payload["available_supervision_units"] == 20
 
 
 def test_suite_preflight_records_missing_task_blockers(tmp_path):
@@ -110,11 +115,11 @@ def test_suite_preflight_records_missing_task_blockers(tmp_path):
     assert statuses == {
         "swe": "ready",
         "darcy": "missing_file",
-        "2d_reacdiff": "missing_file",
+        "2d_cfd_cns": "missing_file",
     }
     assert payload["ready_task_count"] == 1
     assert payload["all_tasks_ready"] is False
-    assert payload["missing_listed_size_gb"] == 19.2
+    assert payload["missing_listed_size_gb"] == 61.25
     assert payload["storage"]["data_root_available_bytes"] > 0
     blocker = next(task for task in payload["tasks"] if task["task_id"] == "darcy")
     assert blocker["blocker"]["reason"] == "missing_file"

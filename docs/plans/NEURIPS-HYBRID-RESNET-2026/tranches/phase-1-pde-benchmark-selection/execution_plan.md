@@ -579,7 +579,7 @@ The document must explicitly state:
 - All three Phase 0 candidates were evaluated.
 - Phase 0 did not select primary/fallback.
 - Phase 2 must start with a smoke/data-load check for the selected primary.
-- If the primary fails install, data access, metric, smoke-fit, or competitiveness gates, the roadmap pivots to the named fallback before spending CDI polish time.
+- If the primary fails install, data access, metric, smoke-fit readiness gates, or a later non-smoke competitiveness gate, the roadmap pivots to the named fallback before spending CDI polish time.
 
 - [ ] E3: Include the primary benchmark metric contract.
 

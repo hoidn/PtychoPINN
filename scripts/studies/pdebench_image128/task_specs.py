@@ -17,6 +17,7 @@ class TaskSpec:
     expected_spatial_shape: tuple[int, int] = (128, 128)
     expected_darus_id: str | None = None
     listed_size_gb: float | None = None
+    expected_md5: str | None = None
 
 
 _TASK_SPECS: dict[str, TaskSpec] = {
@@ -38,18 +39,19 @@ _TASK_SPECS: dict[str, TaskSpec] = {
         expected_darus_id="133219",
         listed_size_gb=6.2,
     ),
-    "2d_reacdiff": TaskSpec(
-        task_id="2d_reacdiff",
-        pde_name="2d_reacdiff",
-        title="2D Diffusion-Reaction",
-        expected_filename="2D_diff-react_NA_NA.h5",
+    "2d_cfd_cns": TaskSpec(
+        task_id="2d_cfd_cns",
+        pde_name="2d_cfd",
+        title="2D Compressible Navier-Stokes",
+        expected_filename="2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
         task_type="dynamic_one_step",
-        expected_darus_id="133017",
-        listed_size_gb=13.0,
+        expected_darus_id="164690",
+        listed_size_gb=55.050245208,
+        expected_md5="21969082d0e9524bcc4708e216148e60",
     ),
 }
 
-TASK_IDS = ("swe", "darcy", "2d_reacdiff")
+TASK_IDS = ("swe", "darcy", "2d_cfd_cns")
 TASK_SPECS = {task_id: _TASK_SPECS[task_id] for task_id in TASK_IDS}
 
 

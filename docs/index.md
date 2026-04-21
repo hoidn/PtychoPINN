@@ -69,19 +69,59 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Preparing the Roadmap Phase 3 fresh CDI anchor run after confirming no complete paper-grade historical anchor was recovered.
 
 ### [NeurIPS Hybrid ResNet PDE Benchmark Selection](plans/NEURIPS-HYBRID-RESNET-2026/pde_benchmark_selection.md)
-**Description:** Roadmap Phase 1 benchmark scorecard and primary/fallback provenance for the required PDE pillar, originally selecting PDEBench SWE as primary and OpenFWI FlatVel-A as fallback, then amended to a compact native `128x128` PDEBench image suite covering SWE, Darcy Flow, and 2D diffusion-reaction.
-**Keywords:** neurips, hybrid_resnet, pde, benchmark-selection, pdebench, openfwi, phase-1, darcy, diffusion-reaction
+**Description:** Roadmap Phase 1 benchmark scorecard and primary/fallback provenance for the required PDE pillar, originally selecting PDEBench SWE as primary and OpenFWI FlatVel-A as fallback, then amended to a compact native `128x128` PDEBench image suite covering SWE, Darcy Flow, and 2D Compressible Navier-Stokes.
+**Keywords:** neurips, hybrid_resnet, pde, benchmark-selection, pdebench, openfwi, phase-1, darcy, cns, 2d-cfd
 **Use this when:** Checking why PDEBench, OpenFWI, and PDEArena Maxwell-3D were selected or rejected, or why the current Phase 2 target is the PDEBench `128x128` image suite.
 
 ### [NeurIPS Hybrid ResNet PDEBench 128x128 Image-Suite Plan](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md)
-**Description:** Roadmap Phase 2 plan for a compact native `128x128` PDEBench image suite covering SWE (`swe`), Darcy Flow (`darcy`), and 2D diffusion-reaction (`2d_reacdiff`), including data/schema preflight, shared adapter reuse from the existing SWE study, smoke-readiness boundaries, capped-pilot limitations, full available training-split benchmark requirements, ablations, and suite-summary gates.
-**Keywords:** neurips, hybrid_resnet, pdebench, 128x128, swe, darcy, 2d_reacdiff, image-suite, phase-2
+**Description:** Roadmap Phase 2 plan for a compact native `128x128` PDEBench image suite covering SWE (`swe`), Darcy Flow (`darcy`), and 2D Compressible Navier-Stokes (`2d_cfd_cns`), including data/schema preflight, shared adapter reuse from the existing SWE study, smoke-readiness boundaries, capped-pilot limitations, full available training-split benchmark requirements, ablations, and suite-summary gates.
+**Keywords:** neurips, hybrid_resnet, pdebench, 128x128, swe, darcy, cns, 2d-cfd, image-suite, phase-2
 **Use this when:** Drafting or reviewing the next Phase 2 implementation tranche, deciding how to generalize the existing SWE study components, or checking why smoke runs cannot be used as model-performance evidence.
 
 ### [NeurIPS Hybrid ResNet PDEBench 128x128 Image-Suite Preflight](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md)
-**Description:** Stage A execution summary for the PDEBench `128x128` image-suite plan, recording which official files are staged, native-shape/schema status, raw HDF5 dataset shapes/axis orders for ready tasks, available supervision units, missing data blockers, missing listed data volume, and the full available training-split benchmark rule.
-**Keywords:** neurips, hybrid_resnet, pdebench, 128x128, preflight, swe, darcy, 2d_reacdiff, data-schema
-**Use this when:** Checking whether PDEBench data are ready for adapter work or benchmark training, or deciding whether an external data root is required before running full available training-split comparisons.
+**Description:** Stage A execution summary for the PDEBench `128x128` image-suite plan, recording SWE and Darcy schema/readiness plus the active CNS missing-file/staging state until the official `128x128` 2D_CFD file is fully downloaded, checksum-verified, and inspected.
+**Keywords:** neurips, hybrid_resnet, pdebench, 128x128, preflight, swe, darcy, cns, 2d-cfd, data-schema
+**Use this when:** Checking staged SWE/Darcy data contracts, auditing CNS data staging, or confirming whether suite-level benchmark claims are still blocked by the CNS schema gate.
+
+### [NeurIPS Hybrid ResNet PDEBench 2D Compressible Navier-Stokes Design](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_design.md)
+**Description:** Draft design for replacing the 2D diffusion-reaction suite member with an official `128x128` PDEBench 2D Compressible Navier-Stokes target, including direct-file feasibility, storage gates, selected CNS file candidates, four-field history-window contract, normalization, fRMSE high-frequency shock-capture diagnostics, and benchmark claim boundaries.
+**Keywords:** neurips, hybrid_resnet, pdebench, 2d_cfd, cns, compressible-navier-stokes, history-window, frmse, shock-capture, 128x128
+**Use this when:** Planning or reviewing the 2D CNS adapter, deciding which official `128x128` PDEBench 2D_CFD file to stage, or checking why the full 551 GB `2d_cfd` family is out of local-root scope.
+
+### [NeurIPS Hybrid ResNet PDEBench 2D Compressible Navier-Stokes Physics Regularization Design](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_physics_regularization_design.md)
+**Description:** Approved design for a reusable PDEBench image-suite physics-loss framework with a first `2d_cfd_cns` backend, defining the generic interface, default-off behavior, fail-closed unsupported-task contract, and the v1 term bundle of positivity, continuity residual, and global mass.
+**Keywords:** neurips, hybrid_resnet, pdebench, 2d_cfd, cns, physics-regularization, continuity, mass, positivity
+**Use this when:** Planning or reviewing CNS physics-loss work, deciding what terms belong in the first physics-regularized training path, or checking the reusable-vs-task-local boundary before implementation.
+
+### [NeurIPS Hybrid ResNet PDEBench 2D Compressible Navier-Stokes Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md)
+**Description:** Roadmap Phase 2 implementation summary for the PDEBench `2d_cfd_cns` adapter, including the selected official `128x128` CNS file, field/history contract, verification evidence, the canonical `hybrid_resnet_cns` skip-add-plus-pixelshuffle profile decision, readiness-smoke follow-up, and the implemented default-off CNS physics-regularization framework.
+**Keywords:** neurips, hybrid_resnet, pdebench, 2d_cfd, cns, implementation-summary, data-gate, readiness, physics-regularization
+**Use this when:** Checking what CNS support is implemented, whether the official HDF5 has been checksum-verified, how the default-off physics-loss framework is wired, or why suite-level benchmark claims remain blocked.
+
+### [Hybrid Upsampler Artifact Study Results](plans/2026-04-21-hybrid-upsampler-artifact-study-results.md)
+**Description:** Results summary for the post-skip-add PDEBench `2d_cfd_cns` upsampler rerun, comparing transpose, bilinear-conv, and pixelshuffle decoders under the same canonical CNS shell and recording the promotion of `pixelshuffle` into the default `hybrid_resnet_cns` profile.
+**Keywords:** neurips, hybrid_resnet, pdebench, 2d_cfd, cns, upsampler, pixelshuffle, bilinear, transpose, summary
+**Use this when:** Reviewing the capped same-shell CNS upsampler compare, locating the rendered galleries, or checking why the canonical CNS Hybrid row now defaults to `pixelshuffle`.
+
+### [NeurIPS Hybrid ResNet PDEBench Spectral ResNet Bottleneck Variant Design](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_resnet_bottleneck_design.md)
+**Description:** Draft design for a bottleneck-only PDEBench image-suite variant that keeps the current ResNet `3x3` bottleneck body, adds a shared factorized spectral residual branch, keeps the current encoder/downsample/upsample shell, and exposes the result as a separate `spectral_resnet_bottleneck_net` model family rather than under `hybrid_resnet`.
+**Keywords:** neurips, hybrid_resnet, pdebench, spectral-resnet, bottleneck, factorized-fourier, cns, darcy, architecture-design
+**Use this when:** Planning a shared-spectral bottleneck experiment for the PDEBench image suite, deciding what factorized spectral pieces to import into the current supervised adapter, or checking why the variant is intentionally named outside the `hybrid_resnet_*` profile family.
+
+### [NeurIPS Hybrid ResNet PDEBench FFNO-Close Bottleneck Variant Design](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_bottleneck_design.md)
+**Description:** Draft design for a bottleneck-only PDEBench image-suite variant that introduces an FFNO-close spectral-plus-feedforward bottleneck family, keeps the current canonical CNS skip-add shell fixed across all rows, and defines a fair three-way bottleneck comparison against the local Hybrid bottleneck and the existing spectral-ResNet bottleneck.
+**Keywords:** neurips, hybrid_resnet, pdebench, ffno, bottleneck, cns, fairness, skip-add, architecture-design
+**Use this when:** Planning an FFNO-close bottleneck experiment for the PDEBench CNS suite, deciding how to keep the shell fixed while swapping only the bottleneck, or checking what counts as a fair comparison against `hybrid_resnet_cns` and `spectral_resnet_bottleneck_base`.
+
+### [NeurIPS Hybrid ResNet PDEBench FFNO-Close Bottleneck Compare Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_bottleneck_summary.md)
+**Description:** Implementation summary for the FFNO-close bottleneck tranche, covering the new `ffno_bottleneck_net` family, the shared canonical CNS skip-add shell contract, targeted verification, the capped three-row CNS comparison, and gallery artifact paths.
+**Keywords:** neurips, hybrid_resnet, pdebench, ffno, bottleneck, cns, summary, capped-compare, spectral-resnet
+**Use this when:** Checking what was implemented in the FFNO-close bottleneck tranche, finding the capped same-shell CNS comparison artifacts, or seeing how the local, spectral, and FFNO-close bottlenecks compared on the first controlled run.
+
+### [NeurIPS Hybrid ResNet PDEBench Spectral Weight-Sharing CNS Compare Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_weight_sharing_summary.md)
+**Description:** Implementation summary for the shared-vs-non-shared spectral bottleneck tranche, covering the manual `spectral_resnet_bottleneck_noshare` profile, the fixed canonical CNS skip-add shell fairness boundary, targeted verification, the capped two-row CNS comparison, and the rendered prediction/error galleries.
+**Keywords:** neurips, hybrid_resnet, pdebench, spectral-resnet, weight-sharing, cns, summary, capped-compare
+**Use this when:** Checking whether disabling spectral weight sharing helps on the capped CNS slice, locating the shared-vs-non-shared artifacts, or reviewing the exact fairness boundary before planning a longer follow-up run.
 
 ### [NeurIPS Hybrid ResNet PDEBench Darcy Static Operator Benchmark Plan](plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md)
 **Description:** Roadmap Phase 2 implementation plan for the PDEBench Darcy Flow beta `1.0` static operator benchmark, including `nu -> tensor` data/split/normalization contracts, full available training-split requirements, strong FNO and non-toy U-Net baseline gates, and literature-calibrated target values from PDEBench and later HAMLET/OFormer context.

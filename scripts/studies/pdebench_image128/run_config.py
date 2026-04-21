@@ -17,6 +17,20 @@ class ModelProfile:
     fno_blocks: int | None = None
     hybrid_downsample_steps: int | None = None
     hybrid_resnet_blocks: int | None = None
+    hybrid_upsampler: str | None = None
+    hybrid_skip_connections: bool | None = None
+    hybrid_skip_style: str | None = None
+    spectral_bottleneck_blocks: int | None = None
+    spectral_bottleneck_modes: int | None = None
+    spectral_bottleneck_share_weights: bool | None = None
+    spectral_bottleneck_gate_init: float | None = None
+    spectral_bottleneck_gate_mode: str | None = None
+    ffno_bottleneck_blocks: int | None = None
+    ffno_bottleneck_modes: int | None = None
+    ffno_bottleneck_share_weights: bool | None = None
+    ffno_bottleneck_mlp_ratio: float | None = None
+    ffno_bottleneck_gate_init: float | None = None
+    ffno_bottleneck_norm: str | None = None
     unet_init_features: int | None = None
     evidence_scope: str = "benchmark_candidate"
     strong_baseline: bool = False
@@ -34,6 +48,162 @@ _PROFILES: dict[str, ModelProfile] = {
         fno_blocks=4,
         hybrid_downsample_steps=2,
         hybrid_resnet_blocks=6,
+    ),
+    "hybrid_resnet_modes24": ModelProfile(
+        profile_id="hybrid_resnet_modes24",
+        base_model="hybrid_resnet",
+        hidden_channels=32,
+        fno_modes=24,
+        fno_blocks=4,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
+    ),
+    "hybrid_resnet_base_down1": ModelProfile(
+        profile_id="hybrid_resnet_base_down1",
+        base_model="hybrid_resnet",
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        hybrid_downsample_steps=1,
+        hybrid_resnet_blocks=6,
+        evidence_scope="readiness-only",
+    ),
+    "hybrid_resnet_skip_add": ModelProfile(
+        profile_id="hybrid_resnet_skip_add",
+        base_model="hybrid_resnet",
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
+        hybrid_skip_connections=True,
+        hybrid_skip_style="add",
+        evidence_scope="readiness-only",
+    ),
+    "hybrid_resnet_cns": ModelProfile(
+        profile_id="hybrid_resnet_cns",
+        base_model="hybrid_resnet",
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
+        hybrid_skip_connections=True,
+        hybrid_skip_style="add",
+        hybrid_upsampler="pixelshuffle",
+        evidence_scope="benchmark_candidate",
+    ),
+    "hybrid_resnet_cns_transpose": ModelProfile(
+        profile_id="hybrid_resnet_cns_transpose",
+        base_model="hybrid_resnet",
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
+        hybrid_skip_connections=True,
+        hybrid_skip_style="add",
+        hybrid_upsampler="cyclegan_transpose",
+        evidence_scope="readiness-only",
+    ),
+    "hybrid_resnet_interp_bilinear_conv": ModelProfile(
+        profile_id="hybrid_resnet_interp_bilinear_conv",
+        base_model="hybrid_resnet",
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
+        hybrid_upsampler="interp_bilinear_conv",
+        evidence_scope="readiness-only",
+    ),
+    "hybrid_resnet_pixelshuffle": ModelProfile(
+        profile_id="hybrid_resnet_pixelshuffle",
+        base_model="hybrid_resnet",
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
+        hybrid_upsampler="pixelshuffle",
+        evidence_scope="readiness-only",
+    ),
+    "hybrid_resnet_cns_interp_bilinear_conv": ModelProfile(
+        profile_id="hybrid_resnet_cns_interp_bilinear_conv",
+        base_model="hybrid_resnet",
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
+        hybrid_skip_connections=True,
+        hybrid_skip_style="add",
+        hybrid_upsampler="interp_bilinear_conv",
+        evidence_scope="readiness-only",
+    ),
+    "hybrid_resnet_cns_pixelshuffle": ModelProfile(
+        profile_id="hybrid_resnet_cns_pixelshuffle",
+        base_model="hybrid_resnet",
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
+        hybrid_skip_connections=True,
+        hybrid_skip_style="add",
+        hybrid_upsampler="pixelshuffle",
+        evidence_scope="readiness-only",
+    ),
+    "spectral_resnet_bottleneck_base": ModelProfile(
+        profile_id="spectral_resnet_bottleneck_base",
+        base_model="spectral_resnet_bottleneck_net",
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
+        hybrid_skip_connections=True,
+        hybrid_skip_style="add",
+        spectral_bottleneck_blocks=6,
+        spectral_bottleneck_modes=12,
+        spectral_bottleneck_share_weights=True,
+        spectral_bottleneck_gate_init=0.1,
+        spectral_bottleneck_gate_mode="shared",
+    ),
+    "spectral_resnet_bottleneck_noshare": ModelProfile(
+        profile_id="spectral_resnet_bottleneck_noshare",
+        base_model="spectral_resnet_bottleneck_net",
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
+        hybrid_skip_connections=True,
+        hybrid_skip_style="add",
+        spectral_bottleneck_blocks=6,
+        spectral_bottleneck_modes=12,
+        spectral_bottleneck_share_weights=False,
+        spectral_bottleneck_gate_init=0.1,
+        spectral_bottleneck_gate_mode="shared",
+        evidence_scope="readiness-only",
+    ),
+    "ffno_bottleneck_base": ModelProfile(
+        profile_id="ffno_bottleneck_base",
+        base_model="ffno_bottleneck_net",
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
+        hybrid_skip_connections=True,
+        hybrid_skip_style="add",
+        ffno_bottleneck_blocks=6,
+        ffno_bottleneck_modes=12,
+        ffno_bottleneck_share_weights=True,
+        ffno_bottleneck_mlp_ratio=2.0,
+        ffno_bottleneck_gate_init=0.1,
+        ffno_bottleneck_norm="instance",
+        evidence_scope="readiness-only",
     ),
     "fno_base": ModelProfile(
         profile_id="fno_base",
@@ -60,6 +230,16 @@ _PROFILES: dict[str, ModelProfile] = {
 }
 
 PRIMARY_DARCY_PROFILE_IDS = ["hybrid_resnet_base", "fno_base", "unet_strong"]
+PRIMARY_CFD_CNS_PROFILE_IDS = ["hybrid_resnet_cns", "fno_base", "unet_strong"]
+READINESS_CFD_CNS_PROFILE_IDS = ["hybrid_resnet_cns", "fno_base", "unet_tiny_smoke"]
+
+
+def required_primary_profiles_for_task(task_id: str) -> list[str]:
+    if str(task_id) == "2d_cfd_cns":
+        return list(PRIMARY_CFD_CNS_PROFILE_IDS)
+    if str(task_id) == "darcy":
+        return list(PRIMARY_DARCY_PROFILE_IDS)
+    return ["hybrid_resnet_base", "fno_base", "unet_strong"]
 
 
 def get_model_profile(profile_id: str) -> ModelProfile:
@@ -100,7 +280,7 @@ def validate_darcy_run_budget(payload: dict[str, Any]) -> dict[str, Any]:
     budget["primary_profiles"] = parse_profile_ids(budget.get("primary_profiles"))
     if not budget["primary_profiles"]:
         raise ValueError("run budget primary_profiles must not be empty")
-    budget["loss"] = str(budget.get("loss", "mae")).lower()
+    budget["loss"] = str(budget.get("loss", "relative_l2")).lower()
     if budget["loss"] not in {"mae", "mse", "relative_l2"}:
         raise ValueError("run budget loss must be mae, mse, or relative_l2")
     budget["optimizer"] = str(budget.get("optimizer", "adam")).lower()
@@ -112,7 +292,11 @@ def validate_darcy_run_budget(payload: dict[str, Any]) -> dict[str, Any]:
     budget["scheduler"] = str(budget.get("scheduler", "ReduceLROnPlateau"))
     budget["plateau_factor"] = float(budget.get("plateau_factor", 0.5))
     budget["plateau_patience"] = int(budget.get("plateau_patience", 2))
-    budget["plateau_min_lr"] = float(budget.get("plateau_min_lr", 1e-4))
+    budget["plateau_min_lr"] = float(budget.get("plateau_min_lr", 1e-5))
+    if budget["plateau_min_lr"] < 0.0:
+        raise ValueError("run budget plateau_min_lr must be non-negative")
+    if budget["plateau_min_lr"] > 1e-5:
+        raise ValueError("run budget plateau_min_lr must be no higher than 1e-5 for PDE studies")
     budget["plateau_threshold"] = float(budget.get("plateau_threshold", 0.0))
     budget["precision"] = str(budget.get("precision", "float32"))
     budget["device"] = str(budget.get("device", "cuda"))
@@ -137,14 +321,14 @@ def default_darcy_benchmark_budget() -> dict[str, Any]:
             "test_count": 1000,
             "primary_profiles": PRIMARY_DARCY_PROFILE_IDS,
             "training_seed": 20260420,
-            "loss": "mae",
-            "loss_rationale": "Project grid-lines-derived recipe for same-protocol local comparison.",
+            "loss": "relative_l2",
+            "loss_rationale": "Aligns Darcy optimization with the relative L2/nRMSE benchmark metric.",
             "optimizer": "adam",
             "learning_rate": 2e-4,
             "scheduler": "ReduceLROnPlateau",
             "plateau_factor": 0.5,
             "plateau_patience": 2,
-            "plateau_min_lr": 1e-4,
+            "plateau_min_lr": 1e-5,
             "plateau_threshold": 0.0,
             "batch_size": 8,
             "epochs": 50,

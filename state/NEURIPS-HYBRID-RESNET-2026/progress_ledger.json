@@ -1,0 +1,841 @@
+{
+  "project_id": "NEURIPS-HYBRID-RESNET-2026",
+  "design_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
+  "roadmap_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md",
+  "completed_tranches": [
+    "phase-0-evidence-inventory",
+    "phase-1-pde-benchmark-selection",
+    "phase-2-pdebench-swe-primary-smoke-gate",
+    "phase-2-pdebench-swe-longer-execution",
+    "phase-2-openfwi-flatvel-a-fallback-smoke-gate"
+  ],
+  "blocked_tranches": [],
+  "iterations": [
+    {
+      "tranche_id": "phase-0-evidence-inventory",
+      "tranche_context_path": "state/NEURIPS-HYBRID-RESNET-2026/items/phase-0-evidence-inventory/tranche-context.md",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-0-evidence-inventory/execution_plan.md",
+      "plan_review_report_path": ".artifacts/review/NEURIPS-HYBRID-RESNET-2026/phase-0-evidence-inventory-plan-review.json",
+      "execution_report_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/phase-0-evidence-inventory-execution-report.md",
+      "implementation_review_report_path": ".artifacts/review/NEURIPS-HYBRID-RESNET-2026/phase-0-evidence-inventory-implementation-review.md",
+      "implementation_review_decision": "APPROVE"
+    },
+    {
+      "tranche_id": "phase-1-pde-benchmark-selection",
+      "tranche_context_path": "state/NEURIPS-HYBRID-RESNET-2026/items/phase-1-pde-benchmark-selection/tranche-context.md",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-1-pde-benchmark-selection/execution_plan.md",
+      "plan_review_report_path": ".artifacts/review/NEURIPS-HYBRID-RESNET-2026/phase-1-pde-benchmark-selection-plan-review.json",
+      "execution_report_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/phase-1-pde-benchmark-selection/execution_report.md",
+      "implementation_review_report_path": ".artifacts/review/NEURIPS-HYBRID-RESNET-2026/phase-1-pde-benchmark-selection-implementation-review.md",
+      "implementation_review_decision": "APPROVE"
+    },
+    {
+      "tranche_id": "phase-2-pdebench-swe-primary-smoke-gate",
+      "tranche_context_path": "state/NEURIPS-HYBRID-RESNET-2026/items/phase-2-pdebench-swe-primary-smoke-gate/tranche-context.md",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-swe-primary-smoke-gate/execution_plan.md",
+      "plan_review_report_path": ".artifacts/review/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-primary-smoke-gate-plan-review.json",
+      "execution_report_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-primary-smoke-gate/execution_report.md",
+      "implementation_review_report_path": ".artifacts/review/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-primary-smoke-gate-implementation-review.md",
+      "implementation_review_decision": "APPROVE"
+    },
+    {
+      "tranche_id": "phase-2-pdebench-swe-longer-execution",
+      "tranche_context_path": "state/NEURIPS-HYBRID-RESNET-2026/items/phase-2-pdebench-swe-longer-execution/tranche-context.md",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-swe-longer-execution/execution_plan.md",
+      "plan_review_report_path": ".artifacts/review/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution-plan-review.json",
+      "execution_report_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution/implementation-phase/execution_report.md",
+      "implementation_review_report_path": ".artifacts/review/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-swe-longer-execution-implementation-review.md",
+      "implementation_review_decision": "APPROVE"
+    },
+    {
+      "tranche_id": "phase-2-openfwi-flatvel-a-fallback-smoke-gate",
+      "tranche_context_path": "state/NEURIPS-HYBRID-RESNET-2026/items/phase-2-openfwi-flatvel-a-fallback-smoke-gate/tranche-context.md",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-openfwi-flatvel-a-fallback-smoke-gate/execution_plan.md",
+      "plan_review_report_path": ".artifacts/review/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate-plan-review.json",
+      "execution_report_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate/implementation-phase/execution_report.md",
+      "implementation_review_report_path": "artifacts/review/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate-implementation-review.md",
+      "implementation_review_decision": "APPROVE"
+    }
+  ],
+  "post_completion_updates": [
+    {
+      "tranche_id": "phase-2-openfwi-flatvel-a-fallback-smoke-gate",
+      "updated_at_utc": "2026-04-20T19:38:10Z",
+      "update_reason": "Real FlatVel-A smoke shards were staged after the original data-access blocker.",
+      "decision": "proceed to OpenFWI longer execution",
+      "decision_scope": "readiness_only_not_benchmark_performance",
+      "evidence_scope": "smoke_feasibility_only",
+      "performance_assessment_complete": false,
+      "latest_smoke_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate/runs/openfwi-smoke-gridrecipe-20260420T2032Z",
+      "latest_comparison_summary": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate/runs/openfwi-smoke-gridrecipe-20260420T2032Z/comparison_summary.json",
+      "durable_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/openfwi_flatvel_a_fallback_smoke_gate.md"
+    },
+    {
+      "tranche_id": "phase-2-training-recipe-correction",
+      "updated_at_utc": "2026-04-20T20:28:18Z",
+      "update_reason": "Post-review correction: smoke-gate PDE and OpenFWI runs are not benchmark-performance or competitiveness evidence.",
+      "decision": "future PDE/OpenFWI competitiveness runs must inherit the grid-lines Hybrid ResNet recipe or record a justified override",
+      "corrected_recipe": {
+        "epochs_minimum_for_integration_style_checks": 5,
+        "fno_modes": 12,
+        "hidden_width": 32,
+        "fno_blocks": 4,
+        "training_loss": "mae",
+        "optimizer": "adam",
+        "learning_rate": 0.0002,
+        "scheduler": "ReduceLROnPlateau",
+        "plateau_factor": 0.5,
+        "plateau_patience": 2,
+        "plateau_min_lr": 0.0001,
+        "plateau_threshold": 0.0
+      },
+      "durable_summary_paths": [
+        "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
+        "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pde_execution_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/openfwi_flatvel_a_fallback_smoke_gate.md"
+      ]
+    },
+    {
+      "tranche_id": "phase-2-openfwi-flatvel-a-fallback-smoke-gate",
+      "updated_at_utc": "2026-04-20T20:31:27Z",
+      "update_reason": "OpenFWI smoke was rerun with the corrected grid-lines Hybrid ResNet recipe after the one-epoch feasibility result was downgraded.",
+      "decision": "proceed to OpenFWI longer execution",
+      "decision_scope": "readiness_only_not_benchmark_performance",
+      "latest_smoke_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate/runs/openfwi-smoke-gridrecipe-20260420T2032Z",
+      "latest_comparison_summary": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate/runs/openfwi-smoke-gridrecipe-20260420T2032Z/comparison_summary.json",
+      "evidence_scope": "smoke_feasibility_only",
+      "metric_interpretation": "sanity_only_not_benchmark_performance",
+      "performance_assessment_complete": false,
+      "durable_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/openfwi_flatvel_a_fallback_smoke_gate.md"
+    },
+    {
+      "tranche_id": "phase-2-smoke-evidence-scope-correction",
+      "updated_at_utc": "2026-04-20T21:05:00Z",
+      "update_reason": "Clarify all smoke gates as readiness checks only after review feedback that smoke tests are meaningless for benchmark performance.",
+      "decision": "smoke metrics may be recorded for sanity and provenance but cannot rank models, trigger performance pivots, or satisfy competitiveness gates",
+      "affected_surfaces": [
+        "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
+        "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_swe_smoke_gate.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/openfwi_flatvel_a_fallback_smoke_gate.md",
+        "scripts/studies/openfwi_flatvel_a/reporting.py"
+      ]
+    },
+    {
+      "tranche_id": "phase-2-pdebench-128x128-image-suite-scope-update",
+      "updated_at_utc": "2026-04-20T21:10:00Z",
+      "update_reason": "User directed the PDE pillar to plan SWE, Darcy Flow, and 2D diffusion-reaction as native 128x128 PDEBench image benchmarks.",
+      "decision": "next Phase 2 selector scope should begin the PDEBench 128x128 image-suite plan with data/schema preflight and shared adapter design before expensive training",
+      "decision_scope": "roadmap_design_plan_update",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md",
+      "openfwi_status": "deferred_optional_fallback_or_extension_while_image_suite_is_viable",
+      "required_tasks": [
+        "swe",
+        "darcy",
+        "2d_reacdiff"
+      ],
+      "affected_surfaces": [
+        "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
+        "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pde_benchmark_selection.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md",
+        "docs/index.md",
+        "docs/studies/index.md"
+      ]
+    },
+    {
+      "tranche_id": "phase-2-full-available-training-split-rule",
+      "updated_at_utc": "2026-04-20T21:10:51Z",
+      "update_reason": "User clarified that meaningful benchmark results require the full available training set after validation/test holdout.",
+      "decision": "benchmark-performance scopes must train on the full available training split for the selected official file; capped, subsampled, smoke, and pilot runs are decision-support only",
+      "example": "if 10000 total samples exist and 2000 are held out for validation/test, the meaningful benchmark row trains on the remaining 8000 samples",
+      "decision_scope": "roadmap_design_plan_update",
+      "affected_surfaces": [
+        "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
+        "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pde_benchmark_selection.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md",
+        "docs/index.md",
+        "docs/studies/index.md"
+      ]
+    },
+    {
+      "tranche_id": "phase-2-pdebench-128x128-image-suite-preflight",
+      "updated_at_utc": "2026-04-20T21:22:09Z",
+      "update_reason": "Executed Stage A preflight for the PDEBench 128x128 image-suite data root.",
+      "decision": "suite benchmark training is blocked until Darcy Flow and 2D diffusion-reaction files are staged outside git or on an approved external data root",
+      "decision_scope": "data_schema_preflight",
+      "ready_tasks": [
+        "swe"
+      ],
+      "blocked_tasks": [
+        "darcy",
+        "2d_reacdiff"
+      ],
+      "missing_listed_size_gb": 19.2,
+      "data_root_available_bytes": 24294834176,
+      "preflight_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md",
+      "raw_preflight_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-128x128-image-suite-preflight/pdebench_image128_suite_preflight.json",
+      "affected_surfaces": [
+        "scripts/studies/pdebench_image128/task_specs.py",
+        "scripts/studies/pdebench_image128/preflight.py",
+        "scripts/studies/run_pdebench_image128_suite.py",
+        "tests/studies/test_pdebench_image128_preflight.py",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md",
+        "docs/index.md",
+        "docs/studies/index.md"
+      ]
+    },
+    {
+      "tranche_id": "phase-2-pdebench-128x128-image-suite-darcy-staging",
+      "updated_at_utc": "2026-04-20T21:36:25Z",
+      "update_reason": "Darcy Flow official PDEBench file was staged and Stage A preflight reran against the updated data root.",
+      "decision": "SWE and Darcy Flow are preflight-ready; full three-task PDEBench image-suite benchmark comparisons remain blocked only by missing 2D diffusion-reaction data",
+      "decision_scope": "data_schema_preflight_update",
+      "ready_tasks": [
+        "swe",
+        "darcy"
+      ],
+      "blocked_tasks": [
+        "2d_reacdiff"
+      ],
+      "darcy_data_file": "/home/ollie/Documents/pdebench-data/darcy/2D_DarcyFlow_beta1.0_Train.hdf5",
+      "darcy_file_size_bytes": 1310724488,
+      "darcy_schema": {
+        "input_dataset": "nu",
+        "input_shape": [
+          10000,
+          128,
+          128
+        ],
+        "input_axis_order": "NHW",
+        "target_dataset": "tensor",
+        "target_shape": [
+          10000,
+          1,
+          128,
+          128
+        ],
+        "target_axis_order": "NCHW",
+        "available_supervision_units": 10000
+      },
+      "missing_listed_size_gb": 13.0,
+      "preflight_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md",
+      "raw_preflight_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-128x128-image-suite-preflight/pdebench_image128_suite_preflight.json",
+      "affected_surfaces": [
+        "scripts/studies/pdebench_image128/preflight.py",
+        "tests/studies/test_pdebench_image128_preflight.py",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md",
+        "docs/index.md",
+        "docs/studies/index.md"
+      ]
+    },
+    {
+      "tranche_id": "phase-2-pdebench-darcy-static-operator-benchmark",
+      "updated_at_utc": "2026-04-20T21:55:00Z",
+      "update_reason": "Drafted the Darcy static-operator benchmark execution plan and updated roadmap discoverability after literature calibration.",
+      "decision": "next selector scope may implement Darcy static-operator support and strong local baselines while 2D diffusion-reaction remains data-blocked",
+      "decision_scope": "roadmap_plan_update",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md",
+      "tranche_context_path": "state/NEURIPS-HYBRID-RESNET-2026/items/phase-2-pdebench-darcy-static-operator-benchmark/tranche-context.md",
+      "ready_tasks": [
+        "swe",
+        "darcy"
+      ],
+      "blocked_tasks": [
+        "2d_reacdiff"
+      ],
+      "darcy_literature_calibration": {
+        "pdebench_beta_1_0_unet_rmse": 0.0064,
+        "pdebench_beta_1_0_unet_nrmse": 0.033,
+        "pdebench_beta_1_0_fno_rmse": 0.012,
+        "pdebench_beta_1_0_fno_nrmse": 0.064,
+        "hamlet_beta_1_0_oformer_nrmse": 0.0205,
+        "hamlet_beta_1_0_hamlet_nrmse": 0.014
+      },
+      "baseline_rule": "Darcy strong-baseline interpretation requires FNO and a non-toy U-Net; tiny smoke U-Net is readiness-only.",
+      "affected_surfaces": [
+        "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md",
+        "docs/index.md",
+        "docs/studies/index.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/items/phase-2-pdebench-darcy-static-operator-benchmark/tranche-context.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json"
+      ]
+    },
+    {
+      "tranche_id": "phase-2-pdebench-darcy-static-operator-benchmark",
+      "updated_at_utc": "2026-04-20T22:20:00Z",
+      "update_reason": "Implemented Darcy static-operator support, strong-baseline gates, literature-context reporting, readiness execution, and full-run budget.",
+      "decision": "Darcy support is readiness-complete but benchmark-incomplete; no performance claim is allowed until the full available training-split run completes for Hybrid ResNet, FNO, and unet_strong.",
+      "decision_scope": "implementation_readiness_complete_full_benchmark_pending",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md",
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_darcy_static_operator_summary.md",
+      "readiness_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/readiness-cap-20260420T222155Z",
+      "run_budget_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/run_budget.json",
+      "ready_tasks": [
+        "swe",
+        "darcy"
+      ],
+      "blocked_tasks": [
+        "2d_reacdiff"
+      ],
+      "readiness_evidence_scope": "smoke_feasibility_only",
+      "performance_assessment_complete": false,
+      "primary_profiles_required_for_benchmark": [
+        "hybrid_resnet_base",
+        "fno_base",
+        "unet_strong"
+      ],
+      "affected_surfaces": [
+        "scripts/studies/pdebench_image128/data.py",
+        "scripts/studies/pdebench_image128/splits.py",
+        "scripts/studies/pdebench_image128/normalization.py",
+        "scripts/studies/pdebench_image128/metrics.py",
+        "scripts/studies/pdebench_image128/models.py",
+        "scripts/studies/pdebench_image128/run_config.py",
+        "scripts/studies/pdebench_image128/reporting.py",
+        "scripts/studies/pdebench_image128/darcy.py",
+        "scripts/studies/run_pdebench_image128_suite.py",
+        "tests/studies/test_pdebench_darcy_data.py",
+        "tests/studies/test_pdebench_darcy_metrics.py",
+        "tests/studies/test_pdebench_image128_models.py",
+        "tests/studies/test_pdebench_image128_runner.py",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_darcy_static_operator_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md",
+        "docs/index.md",
+        "docs/studies/index.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json"
+      ]
+    },
+    {
+      "tranche_id": "phase-2-pdebench-2d-cfd-cns-data-staging",
+      "updated_at_utc": "2026-04-20T23:24:52Z",
+      "update_reason": "Pivoted the third active PDEBench image-suite member from 2D diffusion-reaction to official 128x128 2D Compressible Navier-Stokes and started local data staging after the storage gate passed.",
+      "decision": "2D diffusion-reaction is deferred and must not block the active suite; the next CNS tranche remains data/schema-gated until the preferred official 128x128 CNS file is fully downloaded, checksum-verified, and inspected.",
+      "decision_scope": "roadmap_plan_update_data_staging_in_progress",
+      "design_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_design.md",
+      "suite_plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md",
+      "preflight_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md",
+      "ready_tasks": [
+        "swe",
+        "darcy"
+      ],
+      "blocked_tasks": [
+        "2d_cfd_cns_schema_pending"
+      ],
+      "superseded_tasks": [
+        "2d_reacdiff"
+      ],
+      "cns_file": {
+        "filename": "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        "darus_datafile": "164690",
+        "expected_bytes": 55050245208,
+        "expected_md5": "21969082d0e9524bcc4708e216148e60",
+        "target_path": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        "download_status": "in_progress",
+        "tmux_session": "pde-cns-dl",
+        "log_dir": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/logs"
+      },
+      "metric_requirement": "CNS benchmark interpretation requires denormalized nRMSE/RMSE plus Fourier-space fRMSE low/mid/high bands; fRMSE_high is the required shock/small-scale diagnostic.",
+      "storage_gate": {
+        "required_free_bytes": 60000000000,
+        "available_bytes_before_download": 75243819008,
+        "passed": true
+      },
+      "affected_surfaces": [
+        "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
+        "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pde_benchmark_selection.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_design.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_reacdiff_temporal_context_design.md",
+        "docs/index.md",
+        "docs/studies/index.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json"
+      ]
+    },
+    {
+      "tranche_id": "phase-2-pdebench-2d-cfd-cns-adapter",
+      "updated_at_utc": "2026-04-20T23:39:00Z",
+      "update_reason": "Implemented the 2D Compressible Navier-Stokes adapter and current metric contract while the official HDF5 staging continues.",
+      "decision": "CNS adapter support is code/test-complete for synthetic and preflight-blocked paths; real-data schema inspection and readiness smoke remain gated on the active checksum-verified HDF5 download.",
+      "decision_scope": "implementation_complete_real_data_gate_pending",
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "preflight_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md",
+      "ready_tasks": [
+        "swe",
+        "darcy"
+      ],
+      "blocked_tasks": [
+        "2d_cfd_cns_missing_final_hdf5"
+      ],
+      "implemented_contract": {
+        "field_order": [
+          "density",
+          "Vx",
+          "Vy",
+          "pressure"
+        ],
+        "history_len": 2,
+        "input_channels": 8,
+        "target_channels": 4,
+        "split_unit": "trajectory_id",
+        "metric_contract": [
+          "err_RMSE",
+          "err_nRMSE",
+          "relative_l2",
+          "fRMSE_low",
+          "fRMSE_mid",
+          "fRMSE_high"
+        ],
+        "fourier_band_definition": "fftshifted_radial_frequency_thirds"
+      },
+      "verification": [
+        "python -m pytest -q tests/studies/test_pdebench_cfd_cns_metrics.py tests/studies/test_pdebench_cfd_cns_data.py tests/studies/test_pdebench_image128_runner.py tests/studies/test_pdebench_image128_preflight.py tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_swe_splits_data.py tests/studies/test_pdebench_swe_metrics.py tests/studies/test_pdebench_swe_run_config.py tests/studies/test_pdebench_darcy_data.py tests/studies/test_pdebench_darcy_metrics.py -> 47 passed in 29.76s",
+        "python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py -> exit 0"
+      ],
+      "affected_surfaces": [
+        "scripts/studies/pdebench_image128/task_specs.py",
+        "scripts/studies/pdebench_image128/preflight.py",
+        "scripts/studies/pdebench_image128/data.py",
+        "scripts/studies/pdebench_image128/normalization.py",
+        "scripts/studies/pdebench_image128/metrics.py",
+        "scripts/studies/pdebench_image128/run_config.py",
+        "scripts/studies/pdebench_image128/cfd_cns.py",
+        "scripts/studies/run_pdebench_image128_suite.py",
+        "tests/studies/test_pdebench_cfd_cns_metrics.py",
+        "tests/studies/test_pdebench_cfd_cns_data.py",
+        "tests/studies/test_pdebench_image128_runner.py",
+        "tests/studies/test_pdebench_image128_preflight.py",
+        "tests/studies/test_pdebench_image128_models.py",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+        "docs/index.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json"
+      ]
+    },
+    {
+      "tranche_id": "phase-2-pdebench-2d-cfd-cns-readiness",
+      "updated_at_utc": "2026-04-21T04:00:30Z",
+      "update_reason": "Verified the official CNS HDF5, reran suite preflight to all-ready status, and completed a capped real-data CNS readiness smoke on CUDA.",
+      "decision": "CNS readiness is complete and all three PDEBench image-suite tasks are now preflight-ready, but CNS remains benchmark-incomplete until full-training Hybrid ResNet, FNO, and unet_strong rows run on the full available training split.",
+      "decision_scope": "data_schema_ready_readiness_complete_full_benchmark_pending",
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "preflight_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md",
+      "preflight_json_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-128x128-image-suite-preflight/pdebench_image128_suite_preflight.json",
+      "readiness_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T040020Z",
+      "readiness_comparison_summary": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T040020Z/comparison_summary.json",
+      "ready_tasks": [
+        "swe",
+        "darcy",
+        "2d_cfd_cns"
+      ],
+      "performance_assessment_complete": false,
+      "readiness_evidence_scope": "smoke_feasibility_only",
+      "metric_interpretation": "sanity_only_not_benchmark_performance",
+      "verified_cns_file": {
+        "path": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        "size_bytes": 55050245208,
+        "md5": "21969082d0e9524bcc4708e216148e60"
+      },
+      "cns_schema": {
+        "field_order": [
+          "density",
+          "Vx",
+          "Vy",
+          "pressure"
+        ],
+        "shape": [
+          10000,
+          21,
+          128,
+          128
+        ],
+        "axis_order": "NTHW",
+        "history_len": 2,
+        "input_channels": 8,
+        "target_channels": 4,
+        "available_windows": 190000
+      },
+      "readiness_losses": {
+        "hybrid_resnet_base": 0.9966974258,
+        "fno_base": 0.9634801149,
+        "unet_tiny_smoke": 0.9651259184
+      },
+      "readiness_metrics": {
+        "hybrid_resnet_base": {
+          "err_nRMSE": 1.3146735429763794,
+          "fRMSE_high": 1.886562466621399
+        },
+        "fno_base": {
+          "err_nRMSE": 1.2781659364700317,
+          "fRMSE_high": 0.029776178300380707
+        },
+        "unet_tiny_smoke": {
+          "err_nRMSE": 1.2555538415908813,
+          "fRMSE_high": 0.0635882243514061
+        }
+      },
+      "verification": [
+        "python -m pytest -q tests/studies/test_pdebench_cfd_cns_metrics.py tests/studies/test_pdebench_cfd_cns_data.py tests/studies/test_pdebench_image128_runner.py tests/studies/test_pdebench_image128_preflight.py tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_swe_splits_data.py tests/studies/test_pdebench_swe_metrics.py tests/studies/test_pdebench_swe_run_config.py tests/studies/test_pdebench_darcy_data.py tests/studies/test_pdebench_darcy_metrics.py -> 49 passed in 29.00s",
+        "python scripts/studies/run_pdebench_image128_suite.py --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-128x128-image-suite-preflight --markdown-path docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md --no-sha256 -> exit 0",
+        "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T040020Z --profiles hybrid_resnet_base,fno_base,unet_tiny_smoke --history-len 2 --epochs 1 --batch-size 1 --max-train-trajectories 2 --max-val-trajectories 1 --max-test-trajectories 1 --max-windows-per-trajectory 1 --device cuda --num-workers 0 -> exit 0",
+        "python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py -> exit 0"
+      ],
+      "affected_surfaces": [
+        "scripts/studies/pdebench_image128/cfd_cns.py",
+        "scripts/studies/pdebench_image128/metrics.py",
+        "scripts/studies/pdebench_image128/reporting.py",
+        "tests/studies/test_pdebench_cfd_cns_metrics.py",
+        "tests/studies/test_pdebench_image128_runner.py",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json"
+      ]
+    },
+    {
+      "tranche_id": "phase-2-pdebench-2d-cfd-cns-capped-comparison",
+      "updated_at_utc": "2026-04-21T18:00:30Z",
+      "update_reason": "User requested rerunning the CNS comparison on a non-trivial capped dataset size instead of the 2-window smoke.",
+      "decision": "A larger capped readiness comparison now exists and is more informative than the original tiny smoke, but it remains non-benchmark evidence because the training set is still heavily capped.",
+      "decision_scope": "capped_pilot_decision_support_only",
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "readiness_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T041000Z",
+      "readiness_comparison_summary": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T041000Z/comparison_summary.json",
+      "evidence_scope": "smoke_feasibility_only",
+      "metric_interpretation": "sanity_only_not_benchmark_performance",
+      "performance_assessment_complete": false,
+      "sample_counts": {
+        "train_trajectories": 64,
+        "val_trajectories": 8,
+        "test_trajectories": 8,
+        "max_windows_per_trajectory": 4,
+        "train_windows": 256,
+        "val_windows": 32,
+        "test_windows": 32
+      },
+      "profiles": [
+        "hybrid_resnet_base",
+        "fno_base",
+        "unet_strong"
+      ],
+      "epoch1_losses": {
+        "hybrid_resnet_base": 0.7151282818522304,
+        "fno_base": 0.78266646200791,
+        "unet_strong": 0.7595781004056334
+      },
+      "readiness_metrics": {
+        "hybrid_resnet_base": {
+          "err_nRMSE": 0.7567286491394043,
+          "fRMSE_high": 1.6373682022094727
+        },
+        "fno_base": {
+          "err_nRMSE": 0.7614443898200989,
+          "fRMSE_high": 0.11482542008161545
+        },
+        "unet_strong": {
+          "err_nRMSE": 0.7786170840263367,
+          "fRMSE_high": 1.7014796733856201
+        }
+      },
+      "verification": [
+        "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T041000Z --profiles hybrid_resnet_base,fno_base,unet_strong --history-len 2 --epochs 1 --batch-size 4 --max-train-trajectories 64 --max-val-trajectories 8 --max-test-trajectories 8 --max-windows-per-trajectory 4 --device cuda --num-workers 0 -> exit 0"
+      ],
+      "affected_surfaces": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json"
+      ]
+    },
+    {
+      "tranche_id": "phase-2-pdebench-2d-cfd-cns-loss-contract-correction",
+      "updated_at_utc": "2026-04-21T18:46:30Z",
+      "update_reason": "User requested aligning the CNS training loss with the literature-backed PDEBench baseline contract instead of the earlier local MAE pilot.",
+      "decision": "The CNS runner now trains Hybrid ResNet, FNO, and U-Net with MSE, matching the official PDEBench FNO/U-Net forward baseline code; the corrected capped 10-epoch rerun supersedes the earlier MAE pilot for protocol alignment.",
+      "decision_scope": "literature_aligned_loss_contract_correction_readiness_rerun",
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "readiness_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T183717Z-10ep-mse",
+      "readiness_comparison_summary": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T183717Z-10ep-mse/comparison_summary.json",
+      "evidence_scope": "smoke_feasibility_only",
+      "metric_interpretation": "sanity_only_not_benchmark_performance",
+      "performance_assessment_complete": false,
+      "training_loss": {
+        "name": "mse",
+        "definition": "mean squared error on normalized CNS fields",
+        "rationale": "Matches the official PDEBench FNO/U-Net forward baseline training code for the compressible CFD benchmarks."
+      },
+      "sample_counts": {
+        "train_trajectories": 512,
+        "val_trajectories": 64,
+        "test_trajectories": 64,
+        "max_windows_per_trajectory": 8,
+        "train_windows": 4096,
+        "val_windows": 512,
+        "test_windows": 512
+      },
+      "profiles": [
+        "hybrid_resnet_base",
+        "fno_base",
+        "unet_strong"
+      ],
+      "epoch_losses": {
+        "hybrid_resnet_base": [
+          0.5158408025017707,
+          0.29332458284989116,
+          0.17982231298628903,
+          0.1289558154894621,
+          0.10378589928404836,
+          0.09233689680422685,
+          0.07454794629757089,
+          0.06664495498898759,
+          0.05903544178181619,
+          0.05146324392353563
+        ],
+        "fno_base": [
+          0.3939300723741326,
+          0.1417130201944019,
+          0.10962194510284462,
+          0.0918289570295201,
+          0.08048214332529824,
+          0.07259310042491052,
+          0.06669143909039121,
+          0.06187804107662487,
+          0.057716240093213855,
+          0.054055843944524895
+        ],
+        "unet_strong": [
+          0.6829816124372883,
+          0.5247917345513997,
+          0.42111118184038787,
+          0.3430424544858397,
+          0.2905547233312973,
+          0.25137447991073714,
+          0.2221647619990108,
+          0.1975522787161026,
+          0.1784509104636527,
+          0.164720689826936
+        ]
+      },
+      "readiness_metrics": {
+        "hybrid_resnet_base": {
+          "err_nRMSE": 0.1945149451494217,
+          "fRMSE_high": 1.0892750024795532
+        },
+        "fno_base": {
+          "err_nRMSE": 0.10634330660104752,
+          "fRMSE_high": 0.9280493259429932
+        },
+        "unet_strong": {
+          "err_nRMSE": 0.6222500205039978,
+          "fRMSE_high": 3.6293647289276123
+        }
+      },
+      "verification": [
+        "pytest -q tests/studies/test_pdebench_image128_runner.py tests/studies/test_pdebench_cfd_cns_data.py tests/studies/test_pdebench_cfd_cns_metrics.py -> 12 passed in 22.55s",
+        "python -m compileall -q scripts/studies/pdebench_image128/cfd_cns.py -> exit 0",
+        "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T183717Z-10ep-mse --profiles hybrid_resnet_base,fno_base,unet_strong --history-len 2 --epochs 10 --batch-size 4 --max-train-trajectories 512 --max-val-trajectories 64 --max-test-trajectories 64 --max-windows-per-trajectory 8 --device cuda --num-workers 0 -> exit 0"
+      ],
+      "affected_surfaces": [
+        "scripts/studies/pdebench_image128/cfd_cns.py",
+        "tests/studies/test_pdebench_image128_runner.py",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json"
+      ]
+    },
+    {
+      "tranche_id": "phase-2-pdebench-2d-cfd-cns-physics-regularization",
+      "updated_at_utc": "2026-04-21T20:49:29Z",
+      "update_reason": "User requested a reusable CNS-only physics-loss framework behind a generic interface, with v1 terms limited to positivity, continuity residual, and global mass.",
+      "decision": "The PDEBench image-suite now has a reusable default-off physics-regularization framework with a real `2d_cfd_cns` backend. CNS metadata exposes physical spacing and boundary information, the shared CNS runner can train Hybrid/FNO/U-Net with denormalized physics terms, and an enabled bounded smoke confirmed artifacted end-to-end behavior.",
+      "decision_scope": "default_off_reusable_cns_physics_regularization_framework",
+      "design_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_physics_regularization_design.md",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-cfd-cns-physics-regularization/execution_plan.md",
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "readiness_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T210000Z-physics-smoke",
+      "readiness_comparison_summary": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T210000Z-physics-smoke/comparison_summary.json",
+      "readiness_metrics_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T210000Z-physics-smoke/metrics_hybrid_resnet_base.json",
+      "performance_assessment_complete": false,
+      "evidence_scope": "smoke_feasibility_only",
+      "metric_interpretation": "sanity_only_not_benchmark_performance",
+      "physics_regularization": {
+        "enabled_by_default": false,
+        "supported_tasks": [
+          "2d_cfd_cns"
+        ],
+        "unsupported_task_behavior": "fail_closed",
+        "terms": [
+          "positivity",
+          "continuity",
+          "global_mass"
+        ],
+        "weights": {
+          "positivity": 1.0,
+          "continuity": 0.5,
+          "global_mass": 0.25
+        }
+      },
+      "cns_metadata_contract": {
+        "dx": 0.0078125,
+        "dy": 0.0078125,
+        "dt": 0.05000000074505806,
+        "eta": 0.01,
+        "zeta": 0.01,
+        "boundary_condition": "periodic"
+      },
+      "sample_counts": {
+        "train_trajectories": 8,
+        "val_trajectories": 2,
+        "test_trajectories": 2,
+        "max_windows_per_trajectory": 2
+      },
+      "enabled_smoke_training": {
+        "profile": "hybrid_resnet_base",
+        "training_loss": "mse",
+        "train_supervised_epoch_losses": [
+          1.4482331424951553
+        ],
+        "train_epoch_losses": [
+          6643.295166015625
+        ],
+        "physics_last_epoch": {
+          "terms": {
+            "continuity": 13280.789306640625,
+            "global_mass": 4.007301464676857,
+            "positivity": 0.45032795891165733
+          },
+          "weighted_terms": {
+            "continuity": 6640.3946533203125,
+            "global_mass": 1.0018253661692142,
+            "positivity": 0.45032795891165733
+          },
+          "total": 6641.846923828125
+        }
+      },
+      "readiness_metrics": {
+        "hybrid_resnet_base": {
+          "err_nRMSE": 0.7428568601608276,
+          "fRMSE_high": 4.614323616027832
+        }
+      },
+      "verification": [
+        "pytest -q tests/studies/test_pdebench_cfd_cns_data.py tests/studies/test_pdebench_cfd_cns_metrics.py tests/studies/test_pdebench_physics_losses.py tests/studies/test_pdebench_image128_runner.py -> 19 passed in 27.36s",
+        "python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py -> exit 0",
+        "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T210000Z-physics-smoke --profiles hybrid_resnet_base --history-len 2 --epochs 1 --batch-size 4 --max-train-trajectories 8 --max-val-trajectories 2 --max-test-trajectories 2 --max-windows-per-trajectory 2 --device cuda --num-workers 0 --physics-regularization on --physics-loss-weights pos=1.0,cont=0.5,mass=0.25 -> exit 0"
+      ],
+      "affected_surfaces": [
+        "docs/index.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_physics_regularization_design.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-cfd-cns-physics-regularization/execution_plan.md",
+        "scripts/studies/pdebench_image128/cfd_cns.py",
+        "scripts/studies/pdebench_image128/data.py",
+        "scripts/studies/pdebench_image128/physics_losses.py",
+        "tests/studies/test_pdebench_cfd_cns_data.py",
+        "tests/studies/test_pdebench_image128_runner.py",
+        "tests/studies/test_pdebench_physics_losses.py",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json"
+      ]
+    },
+    {
+      "tranche_id": "phase-2-pdebench-spectral-weight-sharing-cns-compare",
+      "updated_at_utc": "2026-04-21T22:42:57Z",
+      "update_reason": "User requested executing the spectral weight-sharing CNS compare tranche to add the non-shared row, run the capped comparison, and render the galleries.",
+      "decision": "The PDEBench CNS suite now has a manual opt-in `spectral_resnet_bottleneck_noshare` row. On the capped 10-epoch same-shell CNS compare, the non-shared row improved every tracked eval metric over the shared spectral row, while pressure striping remained visible in both, so the non-shared row is a serious follow-up candidate but not yet a default promotion.",
+      "decision_scope": "capped_same_shell_shared_vs_noshare_spectral_compare",
+      "design_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_resnet_bottleneck_design.md",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-spectral-weight-sharing-cns-compare/execution_plan.md",
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_weight_sharing_summary.md",
+      "readiness_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-spectral-weight-sharing-cns-compare/cns-spectral-share-vs-noshare-10ep",
+      "readiness_comparison_summary": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-spectral-weight-sharing-cns-compare/cns-spectral-share-vs-noshare-10ep/comparison_summary.json",
+      "gallery_prediction": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-spectral-weight-sharing-cns-compare/cns-spectral-share-vs-noshare-10ep/gallery_sample0.png",
+      "gallery_error": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-spectral-weight-sharing-cns-compare/cns-spectral-share-vs-noshare-10ep/gallery_sample0_error.png",
+      "performance_assessment_complete": false,
+      "evidence_scope": "smoke_feasibility_only",
+      "metric_interpretation": "sanity_only_not_benchmark_performance",
+      "sample_counts": {
+        "train_trajectories": 512,
+        "val_trajectories": 64,
+        "test_trajectories": 64,
+        "max_windows_per_trajectory": 8,
+        "train_windows": 4096,
+        "val_windows": 512,
+        "test_windows": 512
+      },
+      "profiles": [
+        {
+          "profile_id": "spectral_resnet_bottleneck_base",
+          "share_weights": true,
+          "parameter_count": 8186726,
+          "train_epoch_losses": [
+            0.1706501892,
+            0.07738882156,
+            0.06080948575,
+            0.04959320238,
+            0.04137854604,
+            0.0377541394,
+            0.03334610643,
+            0.03182845301,
+            0.02801837998,
+            0.0264737169
+          ],
+          "metrics": {
+            "err_RMSE": 2.7317276000976562,
+            "err_nRMSE": 0.11303575336933136,
+            "relative_l2": 0.11303575336933136,
+            "fRMSE_low": 6.40212869644165,
+            "fRMSE_mid": 0.3999079465866089,
+            "fRMSE_high": 0.8170251846313477
+          }
+        },
+        {
+          "profile_id": "spectral_resnet_bottleneck_noshare",
+          "share_weights": false,
+          "parameter_count": 10546022,
+          "train_epoch_losses": [
+            0.1701665093,
+            0.07744378406,
+            0.0585008757,
+            0.05024975118,
+            0.04149262556,
+            0.03561767132,
+            0.03353126785,
+            0.03127206651,
+            0.02751136359,
+            0.02788831478
+          ],
+          "metrics": {
+            "err_RMSE": 2.0493085384368896,
+            "err_nRMSE": 0.08479803800582886,
+            "relative_l2": 0.08479803800582886,
+            "fRMSE_low": 4.778177738189697,
+            "fRMSE_mid": 0.39397555589675903,
+            "fRMSE_high": 0.6320600509643555
+          }
+        }
+      ],
+      "verification": [
+        "python -m pytest tests/studies/test_pdebench_image128_models.py -k 'spectral_noshare' -v -> red: 2 failed, 25 deselected in 4.91s; green: 2 passed, 26 deselected in 19.38s",
+        "python -m pytest tests/studies/test_pdebench_image128_models.py -q -> 28 passed in 38.23s",
+        "python -m pytest tests/studies/test_pdebench_image128_runner.py -q -> 9 passed in 44.63s",
+        "python -m compileall -q scripts/studies/pdebench_image128 ptycho_torch/generators/spectral_resnet_bottleneck.py -> exit 0",
+        "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-spectral-weight-sharing-cns-compare/cns-spectral-share-vs-noshare-10ep --profiles spectral_resnet_bottleneck_base,spectral_resnet_bottleneck_noshare --history-len 2 --epochs 10 --batch-size 4 --max-train-trajectories 512 --max-val-trajectories 64 --max-test-trajectories 64 --max-windows-per-trajectory 8 --device cuda --num-workers 0 -> exit 0",
+        "python scripts/studies/pdebench_image128/render_hybrid_upsampler_gallery.py --run-root .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-spectral-weight-sharing-cns-compare/cns-spectral-share-vs-noshare-10ep --sample-index 0 --baseline-profile spectral_resnet_bottleneck_base --variant-profiles spectral_resnet_bottleneck_noshare --output-png .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-spectral-weight-sharing-cns-compare/cns-spectral-share-vs-noshare-10ep/gallery_sample0.png --output-error-png .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-spectral-weight-sharing-cns-compare/cns-spectral-share-vs-noshare-10ep/gallery_sample0_error.png -> exit 0",
+        "python -m pytest tests/studies/test_pdebench_image128_models.py -q -> 28 passed in 8.31s",
+        "python -m pytest tests/studies/test_pdebench_image128_runner.py -q -> 9 passed in 24.59s",
+        "python -m compileall -q scripts/studies/pdebench_image128 ptycho_torch/generators/spectral_resnet_bottleneck.py -> exit 0",
+        "artifact completeness check -> comparison_spectral_resnet_bottleneck_base_sample0.npz, comparison_spectral_resnet_bottleneck_noshare_sample0.npz, metrics_spectral_resnet_bottleneck_base.json, metrics_spectral_resnet_bottleneck_noshare.json, comparison_summary.json, gallery_sample0.png, gallery_sample0_error.png all present"
+      ],
+      "affected_surfaces": [
+        "docs/index.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_weight_sharing_summary.md",
+        "scripts/studies/pdebench_image128/run_config.py",
+        "tests/studies/test_pdebench_image128_models.py",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json"
+      ]
+    }
+  ]
+}

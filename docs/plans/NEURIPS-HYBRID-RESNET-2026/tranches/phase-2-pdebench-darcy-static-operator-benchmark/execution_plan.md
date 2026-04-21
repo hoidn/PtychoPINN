@@ -32,7 +32,7 @@
 - [ ] **Design Contract:** PDE competitiveness runs must use the supervised real-channel Hybrid ResNet adapter, not the CDI physics wrapper.
 - [ ] **Design Contract:** Smoke and readiness runs are not benchmark-performance evidence and must be labeled accordingly.
 - [ ] **Design Contract:** Meaningful benchmark rows train on the full available training split after validation/test holdout.
-- [ ] **Training Recipe:** Use the grid-lines-derived recipe unless this plan records a justified, pre-run override: `fno_modes=12`, hidden width `32`, `fno_blocks=4`, MAE loss, Adam `lr=2e-4`, and `ReduceLROnPlateau(factor=0.5, patience=2, min_lr=1e-4, threshold=0.0)`.
+- [ ] **Training Recipe:** Use the Darcy metric-aligned recipe unless this plan records a justified, pre-run override: `fno_modes=12`, hidden width `32`, `fno_blocks=4`, relative L2 loss (`||pred-target||_2 / ||target||_2` per sample, then mean over batch), Adam `lr=2e-4`, and `ReduceLROnPlateau(factor=0.5, patience=2, min_lr=1e-5, threshold=0.0)`. Across PDE studies, the scheduler floor must be no higher than `1e-5` for benchmark-performance rows.
 - [ ] **Darcy Data Contract:** Treat Darcy as a static operator map `nu[i] -> tensor[i]`; do not synthesize a time axis or one-step pairs.
 - [ ] **Baseline Contract:** A Darcy comparison is not a strong-baseline comparison unless it includes both FNO and a non-toy U-Net baseline, or records a blocker before interpreting Hybrid ResNet.
 - [ ] **Artifact Policy:** Write run artifacts under `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/`; write durable planning/summary docs under `docs/plans/NEURIPS-HYBRID-RESNET-2026/`; do not write manuscript tables or prose.
@@ -232,8 +232,8 @@ Reuse expectations:
   - batch size, epochs, precision, device, and num_workers
   - no capped training set
 - [ ] F3: Loss decision gate:
-  - Default to the project recipe MAE for same-protocol local comparison.
-  - If switching to relative L2 or MSE for operator-learning alignment, record the override before training and apply it to all profiles.
+  - Default to relative L2 for metric-aligned operator learning on Darcy: `||pred-target||_2 / ||target||_2` per sample, then mean over batch.
+  - Do not use MSE for the primary Darcy comparison unless a separate ablation records the override before training and applies it to all profiles.
 - [ ] F4: Launch full runs in tmux with `ptycho311`, one profile at a time if needed for the RTX 3090 budget.
   - Priority order under tight runtime: `hybrid_resnet_base`, `unet_strong`, `fno_base`.
   - Rationale: U-Net is the stronger official PDEBench beta `1.0` local baseline; FNO remains the canonical operator baseline.

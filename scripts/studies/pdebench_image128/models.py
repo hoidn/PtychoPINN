@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from ptycho_torch.generators.fno import SpatialLifter
-from ptycho_torch.generators.hybrid_resnet import AvgPoolConvDownsample, HybridResnetEncoderBlock
+from ptycho_torch.generators.hybrid_resnet import HybridResnetEncoderBlock, StrideConvDownsample
 from ptycho_torch.generators.resnet_components import CycleGanUpsampler, ResnetBottleneck
+from ptycho_torch.generators.ffno_bottleneck import SharedFactorizedFfnoBottleneck
+from ptycho_torch.generators.spectral_resnet_bottleneck import SharedSpectralResnetBottleneck
 from scripts.studies.pdebench_image128.run_config import ModelProfile
 
 
@@ -51,7 +53,194 @@ class PadCropWrapper(nn.Module):
         return y[..., :height, :width]
 
 
-class HybridResnetImageModel(nn.Module):
+class InterpConvUpsampler(nn.Module):
+    """Resize-convolution upsampler for artifact study variants."""
+
+    def __init__(self, in_channels: int, out_channels: int, *, mode: str = "bilinear"):
+        super().__init__()
+        self.mode = str(mode)
+        self.proj = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
+            nn.InstanceNorm2d(out_channels, affine=True, eps=1e-5),
+            nn.GELU(),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if self.mode in {"bilinear", "bicubic"}:
+            x = F.interpolate(x, scale_factor=2, mode=self.mode, align_corners=False)
+        else:
+            x = F.interpolate(x, scale_factor=2, mode=self.mode)
+        return self.proj(x)
+
+
+class PixelShuffleUpsampler(nn.Module):
+    """Sub-pixel convolution upsampler for artifact study variants."""
+
+    def __init__(self, in_channels: int, out_channels: int):
+        super().__init__()
+        self.block = nn.Sequential(
+            nn.Conv2d(in_channels, out_channels * 4, kernel_size=3, padding=1),
+            nn.PixelShuffle(2),
+            nn.InstanceNorm2d(out_channels, affine=True, eps=1e-5),
+            nn.GELU(),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.block(x)
+
+
+def _make_hybrid_upsampler(kind: str, in_channels: int, out_channels: int) -> nn.Module:
+    if kind == "cyclegan_transpose":
+        return CycleGanUpsampler(in_channels, out_channels)
+    if kind == "interp_bilinear_conv":
+        return InterpConvUpsampler(in_channels, out_channels, mode="bilinear")
+    if kind == "interp_nearest_conv":
+        return InterpConvUpsampler(in_channels, out_channels, mode="nearest")
+    if kind == "pixelshuffle":
+        return PixelShuffleUpsampler(in_channels, out_channels)
+    raise ValueError(f"unknown hybrid upsampler: {kind}")
+
+
+class _SharedPdebenchHybridShell(nn.Module):
+    """Shared supervised shell for PDEBench image-suite bottleneck variants."""
+
+    def __init__(
+        self,
+        *,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: int,
+        fno_modes: int,
+        fno_blocks: int,
+        resnet_blocks: int,
+        downsample_steps: int,
+        upsampler: str = "cyclegan_transpose",
+        skip_connections: bool = False,
+        hybrid_skip_style: str = "add",
+        bottleneck_builder: Callable[[int], nn.Module],
+    ):
+        super().__init__()
+        if hybrid_skip_style not in {"add", "concat", "gated_add"}:
+            raise ValueError(f"hybrid_skip_style must be one of add|concat|gated_add (got {hybrid_skip_style!r}).")
+        self.lifter = SpatialLifter(in_channels, hidden_channels)
+        self.skip_connections = bool(skip_connections)
+        self.hybrid_skip_style = str(hybrid_skip_style)
+        channels = hidden_channels
+        self.encoder_blocks = nn.ModuleList()
+        self.downsample_layers = nn.ModuleList()
+        self.stage_metadata: list[dict[str, int]] = [{"resolution_divisor": 1, "channels": channels}]
+        for index in range(fno_blocks):
+            self.encoder_blocks.append(HybridResnetEncoderBlock(channels, modes=fno_modes))
+            if index < downsample_steps:
+                self.downsample_layers.append(StrideConvDownsample(channels, channels * 2))
+                channels *= 2
+                self.stage_metadata.append(
+                    {
+                        "resolution_divisor": 2 ** len(self.downsample_layers),
+                        "channels": channels,
+                    }
+                )
+        self.resnet = bottleneck_builder(channels)
+        upsample_widths = [channels]
+        for _ in range(downsample_steps):
+            upsample_widths.append(max(hidden_channels, upsample_widths[-1] // 2))
+        self.upsample_layers = nn.ModuleList(
+            [
+                _make_hybrid_upsampler(upsampler, upsample_widths[index], upsample_widths[index + 1])
+                for index in range(downsample_steps)
+            ]
+        )
+
+        self.encoder_tap_plan, metadata_skip_plan = self._derive_skip_topology_from_stage_metadata(
+            self.stage_metadata,
+            downsample_steps=downsample_steps,
+        )
+        self.skip_fusion_plan: list[dict[str, int | str]] = []
+        self.skip_fusion_projections = nn.ModuleDict()
+        self.skip_fusion_gates = nn.ParameterDict()
+        if self.skip_connections:
+            for index, plan in enumerate(metadata_skip_plan):
+                key = str(plan["key"])
+                decoder_channels = upsample_widths[index + 1]
+                skip_channels = int(plan["channels"])
+                projection_in_channels = skip_channels
+                if self.hybrid_skip_style == "concat":
+                    projection_in_channels += decoder_channels
+                self.skip_fusion_plan.append(
+                    {
+                        "key": key,
+                        "resolution_divisor": int(plan["resolution_divisor"]),
+                        "skip_channels": skip_channels,
+                        "decoder_channels": decoder_channels,
+                    }
+                )
+                self.skip_fusion_projections[key] = nn.Conv2d(
+                    projection_in_channels,
+                    decoder_channels,
+                    kernel_size=1,
+                )
+                if self.hybrid_skip_style == "gated_add":
+                    self.skip_fusion_gates[key] = nn.Parameter(torch.tensor(0.1))
+        self.output = nn.Conv2d(upsample_widths[-1], out_channels, kernel_size=1)
+
+    @staticmethod
+    def _derive_skip_topology_from_stage_metadata(
+        stage_metadata: list[dict[str, int]],
+        *,
+        downsample_steps: int,
+    ) -> tuple[list[dict[str, int | str]], list[dict[str, int | str]]]:
+        if downsample_steps < 0:
+            raise ValueError(f"downsample_steps must be non-negative, got {downsample_steps}.")
+        if len(stage_metadata) < downsample_steps + 1:
+            raise ValueError(
+                "stage_metadata must include one entry per downsample stage plus bottleneck "
+                f"(len={len(stage_metadata)}, downsample_steps={downsample_steps})."
+            )
+        tap_stages = stage_metadata[:downsample_steps]
+        encoder_tap_plan: list[dict[str, int | str]] = []
+        for stage in tap_stages:
+            divisor = int(stage["resolution_divisor"])
+            encoder_tap_plan.append(
+                {
+                    "key": f"d{divisor}",
+                    "resolution_divisor": divisor,
+                    "channels": int(stage["channels"]),
+                }
+            )
+        return encoder_tap_plan, list(reversed(encoder_tap_plan))
+
+    def _apply_skip_fusion(self, decoder_x: torch.Tensor, skip_x: torch.Tensor, fusion_key: str) -> torch.Tensor:
+        if self.hybrid_skip_style == "add":
+            return decoder_x + self.skip_fusion_projections[fusion_key](skip_x)
+        if self.hybrid_skip_style == "concat":
+            return self.skip_fusion_projections[fusion_key](torch.cat([decoder_x, skip_x], dim=1))
+        if self.hybrid_skip_style == "gated_add":
+            gate = self.skip_fusion_gates[fusion_key]
+            return decoder_x + gate * self.skip_fusion_projections[fusion_key](skip_x)
+        raise RuntimeError(f"Unknown hybrid_skip_style: {self.hybrid_skip_style!r}")
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.lifter(x)
+        encoder_taps: dict[str, torch.Tensor] = {}
+        for index, block in enumerate(self.encoder_blocks):
+            x = block(x)
+            if index < len(self.downsample_layers):
+                tap = self.encoder_tap_plan[index]
+                encoder_taps[str(tap["key"])] = x
+                x = self.downsample_layers[index](x)
+        x = self.resnet(x)
+        for index, upsample in enumerate(self.upsample_layers):
+            x = upsample(x)
+            if self.skip_connections and index < len(self.skip_fusion_plan):
+                plan = self.skip_fusion_plan[index]
+                key = str(plan["key"])
+                skip_tensor = encoder_taps.get(key)
+                if skip_tensor is not None:
+                    x = self._apply_skip_fusion(x, skip_tensor, key)
+        return self.output(x)
+
+
+class HybridResnetImageModel(_SharedPdebenchHybridShell):
     """Supervised real-channel adapter around the Hybrid ResNet body."""
 
     def __init__(
@@ -64,36 +253,114 @@ class HybridResnetImageModel(nn.Module):
         fno_blocks: int,
         resnet_blocks: int,
         downsample_steps: int,
+        upsampler: str = "cyclegan_transpose",
+        skip_connections: bool = False,
+        hybrid_skip_style: str = "add",
     ):
-        super().__init__()
-        self.lifter = SpatialLifter(in_channels, hidden_channels)
-        channels = hidden_channels
-        self.encoder_blocks = nn.ModuleList()
-        self.downsample_layers = nn.ModuleList()
-        for index in range(fno_blocks):
-            self.encoder_blocks.append(HybridResnetEncoderBlock(channels, modes=fno_modes))
-            if index < downsample_steps:
-                self.downsample_layers.append(AvgPoolConvDownsample(channels, channels * 2))
-                channels *= 2
-        self.resnet = ResnetBottleneck(channels, n_blocks=resnet_blocks)
-        upsample_widths = [channels]
-        for _ in range(downsample_steps):
-            upsample_widths.append(max(hidden_channels, upsample_widths[-1] // 2))
-        self.upsample_layers = nn.ModuleList(
-            [CycleGanUpsampler(upsample_widths[index], upsample_widths[index + 1]) for index in range(downsample_steps)]
+        super().__init__(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            hidden_channels=hidden_channels,
+            fno_modes=fno_modes,
+            fno_blocks=fno_blocks,
+            resnet_blocks=resnet_blocks,
+            downsample_steps=downsample_steps,
+            upsampler=upsampler,
+            skip_connections=skip_connections,
+            hybrid_skip_style=hybrid_skip_style,
+            bottleneck_builder=lambda channels: ResnetBottleneck(channels, n_blocks=resnet_blocks),
         )
-        self.output = nn.Conv2d(upsample_widths[-1], out_channels, kernel_size=1)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.lifter(x)
-        for index, block in enumerate(self.encoder_blocks):
-            x = block(x)
-            if index < len(self.downsample_layers):
-                x = self.downsample_layers[index](x)
-        x = self.resnet(x)
-        for upsample in self.upsample_layers:
-            x = upsample(x)
-        return self.output(x)
+
+class SpectralResnetBottleneckImageModel(_SharedPdebenchHybridShell):
+    """Supervised real-channel adapter around the spectral ResNet bottleneck body."""
+
+    def __init__(
+        self,
+        *,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: int,
+        fno_modes: int,
+        fno_blocks: int,
+        resnet_blocks: int,
+        downsample_steps: int,
+        spectral_bottleneck_blocks: int,
+        spectral_bottleneck_modes: int,
+        spectral_bottleneck_share_weights: bool,
+        spectral_bottleneck_gate_init: float,
+        spectral_bottleneck_gate_mode: str,
+        upsampler: str = "cyclegan_transpose",
+        skip_connections: bool = False,
+        hybrid_skip_style: str = "add",
+    ):
+        super().__init__(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            hidden_channels=hidden_channels,
+            fno_modes=fno_modes,
+            fno_blocks=fno_blocks,
+            resnet_blocks=resnet_blocks,
+            downsample_steps=downsample_steps,
+            upsampler=upsampler,
+            skip_connections=skip_connections,
+            hybrid_skip_style=hybrid_skip_style,
+            bottleneck_builder=lambda channels: SharedSpectralResnetBottleneck(
+                channels,
+                n_blocks=spectral_bottleneck_blocks,
+                modes=spectral_bottleneck_modes,
+                share_spectral_weights=spectral_bottleneck_share_weights,
+                gate_init=spectral_bottleneck_gate_init,
+                gate_mode=spectral_bottleneck_gate_mode,
+                layerscale_init=0.1,
+            ),
+        )
+
+
+class FfnoBottleneckImageModel(_SharedPdebenchHybridShell):
+    """Supervised real-channel adapter around the FFNO-close bottleneck body."""
+
+    def __init__(
+        self,
+        *,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: int,
+        fno_modes: int,
+        fno_blocks: int,
+        resnet_blocks: int,
+        downsample_steps: int,
+        ffno_bottleneck_blocks: int,
+        ffno_bottleneck_modes: int,
+        ffno_bottleneck_share_weights: bool,
+        ffno_bottleneck_mlp_ratio: float,
+        ffno_bottleneck_gate_init: float,
+        ffno_bottleneck_norm: str,
+        upsampler: str = "cyclegan_transpose",
+        skip_connections: bool = False,
+        hybrid_skip_style: str = "add",
+    ):
+        super().__init__(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            hidden_channels=hidden_channels,
+            fno_modes=fno_modes,
+            fno_blocks=fno_blocks,
+            resnet_blocks=resnet_blocks,
+            downsample_steps=downsample_steps,
+            upsampler=upsampler,
+            skip_connections=skip_connections,
+            hybrid_skip_style=hybrid_skip_style,
+            bottleneck_builder=lambda channels: SharedFactorizedFfnoBottleneck(
+                channels,
+                n_blocks=ffno_bottleneck_blocks,
+                modes=ffno_bottleneck_modes,
+                share_spectral_weights=ffno_bottleneck_share_weights,
+                mlp_ratio=ffno_bottleneck_mlp_ratio,
+                gate_init=ffno_bottleneck_gate_init,
+                norm=ffno_bottleneck_norm,
+            ),
+        )
 
 
 class SmallUNet(nn.Module):
@@ -206,6 +473,54 @@ def build_model_from_profile(
                 fno_blocks=int(config.get("fno_blocks", 4)),
                 resnet_blocks=int(config.get("hybrid_resnet_blocks", 6)),
                 downsample_steps=downsample_steps,
+                upsampler=str(config.get("hybrid_upsampler", "cyclegan_transpose")),
+                skip_connections=bool(config.get("hybrid_skip_connections", False)),
+                hybrid_skip_style=str(config.get("hybrid_skip_style", "add")),
+            ),
+            multiple=2 ** max(0, downsample_steps),
+        )
+    if profile.base_model == "spectral_resnet_bottleneck_net":
+        downsample_steps = int(config.get("hybrid_downsample_steps", 2))
+        return PadCropWrapper(
+            SpectralResnetBottleneckImageModel(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                hidden_channels=int(config.get("hidden_channels", 32)),
+                fno_modes=int(config.get("fno_modes", 12)),
+                fno_blocks=int(config.get("fno_blocks", 4)),
+                resnet_blocks=int(config.get("hybrid_resnet_blocks", 6)),
+                downsample_steps=downsample_steps,
+                spectral_bottleneck_blocks=int(config.get("spectral_bottleneck_blocks", 6)),
+                spectral_bottleneck_modes=int(config.get("spectral_bottleneck_modes", 12)),
+                spectral_bottleneck_share_weights=bool(config.get("spectral_bottleneck_share_weights", True)),
+                spectral_bottleneck_gate_init=float(config.get("spectral_bottleneck_gate_init", 0.1)),
+                spectral_bottleneck_gate_mode=str(config.get("spectral_bottleneck_gate_mode", "shared")),
+                upsampler=str(config.get("hybrid_upsampler", "cyclegan_transpose")),
+                skip_connections=bool(config.get("hybrid_skip_connections", False)),
+                hybrid_skip_style=str(config.get("hybrid_skip_style", "add")),
+            ),
+            multiple=2 ** max(0, downsample_steps),
+        )
+    if profile.base_model == "ffno_bottleneck_net":
+        downsample_steps = int(config.get("hybrid_downsample_steps", 2))
+        return PadCropWrapper(
+            FfnoBottleneckImageModel(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                hidden_channels=int(config.get("hidden_channels", 32)),
+                fno_modes=int(config.get("fno_modes", 12)),
+                fno_blocks=int(config.get("fno_blocks", 4)),
+                resnet_blocks=int(config.get("hybrid_resnet_blocks", 6)),
+                downsample_steps=downsample_steps,
+                ffno_bottleneck_blocks=int(config.get("ffno_bottleneck_blocks", 6)),
+                ffno_bottleneck_modes=int(config.get("ffno_bottleneck_modes", 12)),
+                ffno_bottleneck_share_weights=bool(config.get("ffno_bottleneck_share_weights", True)),
+                ffno_bottleneck_mlp_ratio=float(config.get("ffno_bottleneck_mlp_ratio", 2.0)),
+                ffno_bottleneck_gate_init=float(config.get("ffno_bottleneck_gate_init", 0.1)),
+                ffno_bottleneck_norm=str(config.get("ffno_bottleneck_norm", "instance")),
+                upsampler=str(config.get("hybrid_upsampler", "cyclegan_transpose")),
+                skip_connections=bool(config.get("hybrid_skip_connections", False)),
+                hybrid_skip_style=str(config.get("hybrid_skip_style", "add")),
             ),
             multiple=2 ** max(0, downsample_steps),
         )

@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
@@ -17,7 +18,7 @@ from scripts.studies.invocation_logging import capture_runtime_provenance, write
 from scripts.studies.pdebench_image128.data import DarcyStaticOperatorDataset, inspect_darcy_hdf5
 from scripts.studies.pdebench_image128.metrics import static_operator_metric_payload
 from scripts.studies.pdebench_image128.models import ModelBuildBlocker, build_model_from_profile, describe_model
-from scripts.studies.pdebench_image128.normalization import compute_static_operator_stats
+from scripts.studies.pdebench_image128.normalization import compute_static_operator_stats, denormalize_batch
 from scripts.studies.pdebench_image128.reporting import (
     build_comparison_summary,
     write_comparison_summary,
@@ -74,6 +75,57 @@ def _profile_result_from_metrics(profile_id: str, metrics: dict[str, Any], model
         "relative_l2": metrics["relative_l2"],
         "parameter_count": model_profile["parameter_count"],
     }
+
+
+def _write_prediction_comparison(
+    *,
+    output_root: Path,
+    profile_id: str,
+    predictions: list[torch.Tensor],
+    targets: list[torch.Tensor],
+    target_stats: dict[str, Any],
+) -> dict[str, str]:
+    """Write a first-sample prediction/target/error visual for quick qualitative checks."""
+    if not predictions or not targets:
+        return {}
+
+    prediction = denormalize_batch(predictions[0][:1].float(), target_stats)[0, 0].numpy()
+    target = denormalize_batch(targets[0][:1].float(), target_stats)[0, 0].numpy()
+    error = np.abs(prediction - target)
+
+    npz_path = output_root / f"comparison_{profile_id}_sample0.npz"
+    np.savez_compressed(npz_path, prediction=prediction, target=target, abs_error=error)
+
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    image_min = float(min(np.min(prediction), np.min(target)))
+    image_max = float(max(np.max(prediction), np.max(target)))
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4), constrained_layout=True)
+    panels = [
+        ("Prediction", prediction, image_min, image_max),
+        ("Ground truth", target, image_min, image_max),
+        ("Abs error", error, 0.0, float(np.max(error))),
+    ]
+    for axis, (title, image, vmin, vmax) in zip(axes, panels, strict=True):
+        handle = axis.imshow(image, cmap="viridis", vmin=vmin, vmax=vmax)
+        axis.set_title(title)
+        axis.set_xticks([])
+        axis.set_yticks([])
+        fig.colorbar(handle, ax=axis, fraction=0.046, pad=0.04)
+    png_path = output_root / f"comparison_{profile_id}_sample0.png"
+    fig.savefig(png_path, dpi=180)
+    plt.close(fig)
+    return {"comparison_png": str(png_path), "comparison_npz": str(npz_path)}
+
+
+def _relative_l2_sample_mean_loss(prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    reduce_dims = tuple(range(1, prediction.ndim))
+    numerator = torch.sum((prediction - target).square(), dim=reduce_dims)
+    denominator = torch.clamp(torch.sum(target.square(), dim=reduce_dims), min=1e-12)
+    return torch.mean(torch.sqrt(numerator / denominator))
 
 
 def _run_profile(
@@ -144,9 +196,7 @@ def _run_profile(
         criterion = torch.nn.MSELoss()
     elif loss_name == "relative_l2":
         def criterion(prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-            numerator = torch.sum((prediction - target).square())
-            denominator = torch.clamp(torch.sum(target.square()), min=1e-12)
-            return torch.sqrt(numerator / denominator)
+            return _relative_l2_sample_mean_loss(prediction, target)
     else:
         raise ValueError(f"unsupported loss: {loss_name}")
     scheduler = None
@@ -161,7 +211,7 @@ def _run_profile(
     model.train()
     train_batches = 0
     epoch_losses: list[float] = []
-    for _epoch in range(int(epochs)):
+    for epoch_index in range(int(epochs)):
         epoch_loss = 0.0
         epoch_batches = 0
         for batch in train_loader:
@@ -177,6 +227,11 @@ def _run_profile(
         if epoch_batches:
             mean_epoch_loss = epoch_loss / epoch_batches
             epoch_losses.append(mean_epoch_loss)
+            print(
+                f"EPOCH_LOSS profile={profile_id} epoch={epoch_index + 1} "
+                f"loss={mean_epoch_loss:.10g} loss_name={loss_name}",
+                flush=True,
+            )
             if scheduler is not None:
                 scheduler.step(mean_epoch_loss)
 
@@ -190,6 +245,13 @@ def _run_profile(
             predictions.append(model(x).cpu())
             targets.append(y.cpu())
     metrics = static_operator_metric_payload(predictions, targets, normalized=True, target_stats=target_stats)
+    comparison_artifacts = _write_prediction_comparison(
+        output_root=output_root,
+        profile_id=profile_id,
+        predictions=predictions,
+        targets=targets,
+        target_stats=target_stats,
+    )
     runtime_sec = time.time() - started
     peak_memory = int(torch.cuda.max_memory_allocated(device)) if device.type == "cuda" else None
     payload = {
@@ -198,10 +260,13 @@ def _run_profile(
         "profile_id": profile_id,
         "train_batches": int(train_batches),
         "train_epoch_losses": epoch_losses,
+        "training_loss": loss_name,
+        "training_loss_definition": "mean over samples of ||prediction-target||_2 / ||target||_2",
         "scheduler": scheduler_name,
         "runtime_sec": runtime_sec,
         "peak_cuda_memory_bytes": peak_memory,
         "model_profile": model_profile,
+        **comparison_artifacts,
     }
     _write_json(output_root / f"metrics_{profile_id}.json", payload)
     return _profile_result_from_metrics(profile_id, payload, model_profile)
@@ -298,13 +363,13 @@ def run_darcy(
             "test_count": 1000,
             "primary_profiles": PRIMARY_DARCY_PROFILE_IDS,
             "training_seed": 20260420,
-            "loss": "mae",
+            "loss": "relative_l2",
             "optimizer": "adam",
             "learning_rate": 2e-4,
             "scheduler": "ReduceLROnPlateau",
             "plateau_factor": 0.5,
             "plateau_patience": 2,
-            "plateau_min_lr": 1e-4,
+            "plateau_min_lr": 1e-5,
             "plateau_threshold": 0.0,
             "batch_size": batch_size,
             "epochs": epochs,
@@ -328,11 +393,11 @@ def run_darcy(
         run_split = full_split
     else:
         learning_rate = 2e-4
-        loss_name = "mae"
+        loss_name = "relative_l2"
         scheduler_name = "ReduceLROnPlateau"
         plateau_factor = 0.5
         plateau_patience = 2
-        plateau_min_lr = 1e-4
+        plateau_min_lr = 1e-5
         plateau_threshold = 0.0
         profile_ids = profile_ids or ["unet_tiny_smoke"]
         run_split = capped_split(
