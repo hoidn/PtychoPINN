@@ -625,7 +625,19 @@ class PtychoDataset(Dataset):
                                                     self.valid_indices_per_file[i],
                                                     self.data_config, C=self.data_config.C) # Use stored config
                 nn_indices = nn_indices.astype(np.int64)
-                
+
+                # group_coords may return fewer groups than valid_indices if some
+                # points cannot form complete quadrant groups. Adjust end to match.
+                actual_groups = len(nn_indices)
+                if actual_groups != (end - start):
+                    deficit = (end - start) - actual_groups
+                    print(f"  group_coords returned {actual_groups} groups "
+                          f"(expected {end - start}). Adjusting memory map range.")
+                    end = start + actual_groups
+                    for j in range(i + 1, len(self.cum_length)):
+                        self.cum_length[j] -= deficit
+                    self.length = self.cum_length[-1]
+
                 #Get relative and center of mass coordinates for each coordinate group
                 coords_com, coords_relative = get_relative_coords(coords_nn)
                 mmap_ptycho["coords_center"][start:end] = torch.from_numpy(coords_com)
