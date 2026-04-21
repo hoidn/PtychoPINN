@@ -567,8 +567,15 @@ class PtychoDataset(Dataset):
         global_from, global_to = 0, 0
 
         #Initialize probes and objects in datadict
-        #Currently works for a single probe mode, but can technically support more.
-        self.data_dict['probes'] = torch.zeros(size=(self.n_files,1, N, N), dtype=torch.complex64)
+        #Pre-scan probe files to determine max number of incoherent modes
+        max_modes = 1
+        for npz_file in image_paths:
+            p = np.load(npz_file)['probeGuess']
+            if p.ndim == 3:
+                max_modes = max(max_modes, p.shape[0])
+        if max_modes > 1:
+            print(f"Detected multi-mode probes: max {max_modes} modes")
+        self.data_dict['probes'] = torch.zeros(size=(self.n_files, max_modes, N, N), dtype=torch.complex64)
         self.data_dict['probe_scaling'] = torch.zeros(size=(self.n_files,), dtype = torch.float32)
         self.data_dict['objectGuess'] = []
         #Legacy scaling constant needed for older model artifacts
@@ -668,16 +675,32 @@ class PtychoDataset(Dataset):
 
             #Mapping probes
             probe_data = np.load(npz_file)['probeGuess']
+            if self.data_config.probe_ramp_removal:
+                if probe_data.ndim == 3:
+                    probe_data = np.stack([hh.standardize_probe(probe_data[p]) for p in range(probe_data.shape[0])])
+                else:
+                    probe_data = hh.standardize_probe(probe_data)
+
             #Optional: normalize probe for forward model to be photon agnostic. We almost always normalize.
             if len(probe_data.shape) == 2:
                 if self.data_config.probe_normalize:
+                    print(f"Normalizing probe b/c {self.data_config.probe_normalize}")
                     probe_data, scaling_factor = hh.normalize_probe(probe_data)
                     self.data_dict['probe_scaling'][i] = float(scaling_factor)
                 else:
                     #Save a scaling constant, it's just 1 though
+                    print(f"No probe normalization.")
                     self.data_dict['probe_scaling'][i] = float(1)
                 probe_data = np.expand_dims(probe_data, axis = 0) # Add number of modes dimension
-                
+            elif len(probe_data.shape) == 3:
+                if self.data_config.probe_normalize:
+                    print(f"Normalizing multi-mode probe ({probe_data.shape[0]} modes)")
+                    probe_data, scaling_factor = hh.normalize_probe(probe_data)
+                    self.data_dict['probe_scaling'][i] = float(scaling_factor)
+                else:
+                    print(f"No probe normalization (multi-mode, {probe_data.shape[0]} modes).")
+                    self.data_dict['probe_scaling'][i] = float(1)
+
             n_modes = probe_data.shape[0]
             self.data_dict['probes'][i,:n_modes] = torch.from_numpy(probe_data).to(torch.complex64)
 
@@ -766,7 +789,7 @@ class PtychoDataset(Dataset):
         Parameters
         ----------
         diff_patterns : np.ndarray, shape (N, H, W), float.
-        probe : np.ndarray, shape (H, W), complex.
+        probe : np.ndarray, shape (H, W) for single mode or (P, H, W) for multi-mode.
         positions : np.ndarray, shape (N, 2), [ypix, xpix] per row.
         model_config : ModelConfig
         data_config : DataConfig
@@ -780,16 +803,18 @@ class PtychoDataset(Dataset):
 
         if diff_patterns.ndim != 3:
             raise ValueError(f"diff_patterns must be 3D (N, H, W), got shape {diff_patterns.shape}")
-        if probe.ndim != 2:
-            raise ValueError(f"probe must be 2D (H, W), got shape {probe.shape}")
+        if probe.ndim not in (2, 3):
+            raise ValueError(f"probe must be 2D (H, W) or 3D (P, H, W), got shape {probe.shape}")
         if positions.ndim != 2 or positions.shape[1] != 2:
             raise ValueError(f"positions must be (N, 2), got shape {positions.shape}")
 
         N_total, H, W = diff_patterns.shape
         if positions.shape[0] != N_total:
             raise ValueError(f"positions length {positions.shape[0]} != diff_patterns length {N_total}")
-        if probe.shape != (H, W):
+        if probe.ndim == 2 and probe.shape != (H, W):
             raise ValueError(f"probe shape {probe.shape} != pattern shape ({H}, {W})")
+        if probe.ndim == 3 and probe.shape[1:] != (H, W):
+            raise ValueError(f"probe spatial shape {probe.shape[1:]} != pattern shape ({H}, {W})")
         if data_config.N != H or data_config.N != W:
             warnings.warn(f"data_config.N={data_config.N} does not match pattern size ({H}, {W})")
 
@@ -879,8 +904,11 @@ class PtychoDataset(Dataset):
 
         # Process probe
         probe_data = probe.copy()
-        if getattr(data_config, 'probe_ramp_removal', False):
-            probe_data = hh.standardize_probe(probe_data)
+        if data_config.probe_ramp_removal:
+            if probe_data.ndim == 3:
+                probe_data = np.stack([hh.standardize_probe(probe_data[p]) for p in range(probe_data.shape[0])])
+            else:
+                probe_data = hh.standardize_probe(probe_data)
 
         if data_config.probe_normalize:
             probe_data, probe_sf = hh.normalize_probe(probe_data)

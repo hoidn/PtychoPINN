@@ -88,6 +88,40 @@ class VarProScaler:
         self.II += torch.sum(I_raw * I_raw).item()
         self.n_pixels += I_raw.numel()
 
+    @torch.no_grad()
+    def accumulate_batch_from_basis(self, I_raw, X1, X2, X3, terms=3):
+        """
+        Accumulate from pre-computed mode-summed basis images.
+        Used for incoherent multi-mode probes where:
+            X1 = sum_p |F[p_p * a_tilde]|^2
+            X2 = sum_p |F[j * p_p * b_tilde]|^2
+            X3 = sum_p 2*Re(F[p_p * a_tilde] * conj(F[j * p_p * b_tilde]))
+
+        I_raw: [B, H, W] or [B, C, H, W]
+        X1, X2, X3: same shape as I_raw
+        """
+        bases = [X1, X2, X3]
+
+        for i in range(terms):
+            self.ATb[i] += torch.sum(bases[i] * I_raw).item()
+            for j in range(i, terms):
+                val = torch.sum(bases[i] * bases[j]).item()
+                self.ATA[i, j] += val
+                if i != j:
+                    self.ATA[j, i] += val
+
+        self.X1X1 += torch.sum(X1 * X1).item()
+        self.X2X2 += torch.sum(X2 * X2).item()
+        self.X3X3 += torch.sum(X3 * X3).item()
+        self.X1X2 += torch.sum(X1 * X2).item()
+        self.X1X3 += torch.sum(X1 * X3).item()
+        self.X2X3 += torch.sum(X2 * X3).item()
+        self.X1I += torch.sum(X1 * I_raw).item()
+        self.X2I += torch.sum(X2 * I_raw).item()
+        self.X3I += torch.sum(X3 * I_raw).item()
+        self.II += torch.sum(I_raw * I_raw).item()
+        self.n_pixels += I_raw.numel()
+
     def swap_channels(self):
         """Transform accumulated statistics to correct for real/imag channel swap.
 
@@ -786,13 +820,14 @@ def reconstruct_image_barycentric_weighted(model: nn.Module,
             batch_data = batch[0]
             I_raw = batch_data['images'].to(primary_device, non_blocking=True)
             positions = batch_data['coords_relative'].to(primary_device, non_blocking=True)
-            probe = batch[1].to(primary_device, non_blocking=True).squeeze(2)
+            probe = batch[1].to(primary_device, non_blocking=True)  # (B, C, P, H, W)
             in_scale = batch_data['rms_scaling_constant'].to(primary_device, non_blocking=True)
             global_coords = batch_data['coords_global'].to(primary_device, non_blocking=True)
 
             # Save uncropped probe from first batch for probe-based swap detection
+            # Use first mode (dominant mode) for swap detection heuristic
             if saved_probe_single is None:
-                saved_probe_single = probe[0, 0].clone()  # (N, N) complex
+                saved_probe_single = probe[0, 0, 0].clone()  # (N, N) complex, first mode
             
             # -----------------
             # PINN Inference (Predicts normalized texture a_tilde, b_tilde)
@@ -829,17 +864,25 @@ def reconstruct_image_barycentric_weighted(model: nn.Module,
             #Equalize the scales
             # a_tilde, b_tilde = equalize_by_ratio(a_tilde, b_tilde)
 
-            # Also crop the probe to match
-            probe = probe[:, :, center_start:center_end, center_start:center_end]
+            # Also crop the probe to match (B, C, P, H, W)
+            probe = probe[:, :, :, center_start:center_end, center_start:center_end]
             
-            # --- VarPro Accumulation ---
+            # --- VarPro Accumulation (incoherent multi-mode) ---
             assembly_start = time.time()
-            # Generate Basis Exit Waves
-            Psi_a = torch.fft.fftshift(torch.fft.fft2(probe * a_tilde),dim=(-2,-1))
-            Psi_b = torch.fft.fftshift(torch.fft.fft2(1j * probe * b_tilde),dim=(-2,-1))
-            Psi_p = torch.fft.fftshift(torch.fft.fft2(probe),dim=(-2,-1))
+            # Unsqueeze texture for broadcasting with probe modes: (B,C,H,W) -> (B,C,1,H,W)
+            a_5d = a_tilde.unsqueeze(2)
+            b_5d = b_tilde.unsqueeze(2)
 
-            scaler.accumulate_batch(I_raw, Psi_a, Psi_b)
+            # Per-mode exit waves and FFTs: (B,C,P,H,W)
+            Psi_a = torch.fft.fftshift(torch.fft.fft2(probe * a_5d), dim=(-2,-1))
+            Psi_b = torch.fft.fftshift(torch.fft.fft2(1j * probe * b_5d), dim=(-2,-1))
+
+            # Mode-summed basis images for VarPro: (B,C,P,H,W) -> (B,C,H,W)
+            X1 = torch.sum(torch.abs(Psi_a)**2, dim=2)
+            X2 = torch.sum(torch.abs(Psi_b)**2, dim=2)
+            X3 = torch.sum(2 * torch.real(Psi_a * torch.conj(Psi_b)), dim=2)
+
+            scaler.accumulate_batch_from_basis(I_raw, X1, X2, X3)
             
             # --- Weighted Stitching ---
             # Re-center global coordinates so they're centered on a single center-of-mass
@@ -850,9 +893,8 @@ def reconstruct_image_barycentric_weighted(model: nn.Module,
                                        device=primary_device, dtype=torch.float32)
             canvas_positions = relative_positions + canvas_center.unsqueeze(0)
 
-            # Get single copy of probe intensity (unnormalized)
-            probe_mag_sq = torch.abs(probe[0,0,:,:]) ** 2 #Making it ones for now
-            # probe_mag_sq = torch.ones([H,W], device = primary_device)
+            # Total probe intensity: sum |P_p|^2 over all incoherent modes
+            probe_mag_sq = torch.sum(torch.abs(probe[0, 0, :, :, :]) ** 2, dim=0)  # (P,H,W) -> (H,W)
 
             # Change texture_raw to complex
             O_tilde = torch.complex(a_tilde, b_tilde)
