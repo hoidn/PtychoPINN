@@ -118,6 +118,16 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, hybrid_resnet, pdebench, ffno, bottleneck, cns, summary, capped-compare, spectral-resnet
 **Use this when:** Checking what was implemented in the FFNO-close bottleneck tranche, finding the capped same-shell CNS comparison artifacts, or seeing how the local, spectral, and FFNO-close bottlenecks compared on the first controlled run.
 
+### [NeurIPS Hybrid ResNet PDEBench Author FFNO Equal-Footing Plan](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_author_ffno_equal_footing_plan.md)
+**Description:** Backlog plan for running the authors' actual FFNO model on the same capped PDEBench `2d_cfd_cns` slice and epoch budgets already used for the local spectral, FNO, and U-Net rows, with the goal of a fair equal-footing comparison.
+**Keywords:** neurips, pdebench, ffno, author-model, cns, equal-footing, backlog, compare
+**Use this when:** Queueing or implementing the official-author FFNO baseline on the local CNS contract, or checking what must stay fixed for a fair comparison against `spectral_resnet_bottleneck_base`, `fno_base`, and `unet_strong`.
+
+### [NeurIPS Hybrid ResNet PDEBench CNS Markov History-1 Compare Design](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_markov_history1_compare_design.md)
+**Description:** Design for a controlled PDEBench `2d_cfd_cns` ablation that switches the supervised contract from `history_len=2` to Markov-style `history_len=1` and reruns the local spectral, Hybrid, FNO, and U-Net rows on the same capped slice and epoch budgets.
+**Keywords:** neurips, pdebench, cns, markov, history_len, history-1, spectral_resnet, fno, unet, compare
+**Use this when:** Planning or executing the lower-context Markov-style CNS compare, or checking what must stay fixed for a fair `history_len=1` versus `history_len=2` result.
+
 ### [NeurIPS Hybrid ResNet PDEBench Spectral Weight-Sharing CNS Compare Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_weight_sharing_summary.md)
 **Description:** Implementation summary for the shared-vs-non-shared spectral bottleneck tranche, covering the manual `spectral_resnet_bottleneck_noshare` profile, the fixed canonical CNS skip-add shell fairness boundary, targeted verification, the capped two-row CNS comparison, and the rendered prediction/error galleries.
 **Keywords:** neurips, hybrid_resnet, pdebench, spectral-resnet, weight-sharing, cns, summary, capped-compare
