@@ -341,7 +341,8 @@ def get_fixed_quadrant_neighbors_c4(
             print(f"quadrant candidates TR: {quadrant_candidates['TR']}")
             print(f"quadrant candidates BL: {quadrant_candidates['BL']}")
             print(f"quadrant candidates BR: {quadrant_candidates['BR']}")
-            continue
+            # Allow two duplicate center points since this rarely happens
+            #continue
         if not all(quadrant_candidates.values()):
             continue
 
