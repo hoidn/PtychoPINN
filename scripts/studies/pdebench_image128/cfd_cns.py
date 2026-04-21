@@ -175,6 +175,25 @@ def _write_prediction_comparison(
     return {"comparison_png": str(png_path), "comparison_npz": str(npz_path)}
 
 
+def _evaluate_loader(
+    *,
+    model: torch.nn.Module,
+    data_loader: DataLoader,
+    device: torch.device,
+    state_stats: dict[str, Any],
+) -> tuple[list[torch.Tensor], list[torch.Tensor], dict[str, Any]]:
+    predictions: list[torch.Tensor] = []
+    targets: list[torch.Tensor] = []
+    with torch.no_grad():
+        for batch in data_loader:
+            x = batch["input"].to(device)
+            y = batch["target"].to(device)
+            predictions.append(model(x).cpu())
+            targets.append(y.cpu())
+    metrics = dynamic_state_metric_payload(predictions, targets, normalized=True, state_stats=state_stats)
+    return predictions, targets, metrics
+
+
 def _run_profile(
     *,
     profile_id: str,
@@ -289,15 +308,18 @@ def _run_profile(
             scheduler.step(mean_epoch_loss)
 
     model.eval()
-    predictions: list[torch.Tensor] = []
-    targets: list[torch.Tensor] = []
-    with torch.no_grad():
-        for batch in eval_loader:
-            x = batch["input"].to(device)
-            y = batch["target"].to(device)
-            predictions.append(model(x).cpu())
-            targets.append(y.cpu())
-    metrics = dynamic_state_metric_payload(predictions, targets, normalized=True, state_stats=state_stats)
+    _, _, train_split_metrics = _evaluate_loader(
+        model=model,
+        data_loader=train_loader,
+        device=device,
+        state_stats=state_stats,
+    )
+    predictions, targets, metrics = _evaluate_loader(
+        model=model,
+        data_loader=eval_loader,
+        device=device,
+        state_stats=state_stats,
+    )
     comparison_artifacts = _write_prediction_comparison(
         output_root=output_root,
         profile_id=profile_id,
@@ -316,6 +338,10 @@ def _run_profile(
         "training_loss": CFD_CNS_TRAINING_LOSS,
         "training_loss_definition": CFD_CNS_TRAINING_LOSS_DEFINITION,
         "training_loss_rationale": CFD_CNS_TRAINING_LOSS_RATIONALE,
+        "train_split_eval": {
+            **train_split_metrics,
+            "split_name": "train",
+        },
         "physics_regularization_enabled": bool(physics_config.enabled),
         "physics_loss_terms": physics_config.active_terms(),
         "physics_loss_weights": physics_config.to_payload()["weights"],

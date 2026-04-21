@@ -238,6 +238,11 @@ def test_cfd_cns_readiness_runner_writes_history_window_artifacts(tmp_path):
     assert metrics["horizon"] == "one_step"
     assert metrics["physics_regularization_enabled"] is False
     assert metrics["physics_loss_terms"] == []
+    assert metrics["train_split_eval"]["split_name"] == "train"
+    assert metrics["train_split_eval"]["horizon"] == "one_step"
+    assert metrics["train_split_eval"]["num_eval_samples"] == 2
+    assert "relative_l2" in metrics["train_split_eval"]
+    assert "fRMSE_high" in metrics["train_split_eval"]
     summary = json.loads((output_root / "comparison_summary.json").read_text(encoding="utf-8"))
     assert summary["task_id"] == "2d_cfd_cns"
     assert summary["history_len"] == 2
