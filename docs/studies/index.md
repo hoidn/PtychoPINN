@@ -286,6 +286,45 @@ CLI entry point (full command):
 bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_test_e40.sh
 ```
 
+### `grid-lines-n128-hybrid-resnet-legacy-best-e40-seed3`
+
+- Purpose: Preserve the strongest currently known historical `N=128` grid-lines `pinn_hybrid_resnet` result as a durable decision-support reference, even though it does not satisfy the paper-grade anchor provenance bar.
+- Status: decision-support only; do not treat as the NeurIPS paper anchor.
+- Historical artifact root (legacy backup checkout): `/home/ollie/trash/tmp.bak/PtychoPINN/outputs/grid_lines_n128_compare_padex_lr2e4_plateau_e40_seed3`
+- Key recovered artifacts:
+  - `/home/ollie/trash/tmp.bak/PtychoPINN/outputs/grid_lines_n128_compare_padex_lr2e4_plateau_e40_seed3/runs/pinn_hybrid_resnet/metrics.json`
+  - `/home/ollie/trash/tmp.bak/PtychoPINN/outputs/grid_lines_n128_compare_padex_lr2e4_plateau_e40_seed3/runs/pinn_hybrid_resnet/history.json`
+  - `/home/ollie/trash/tmp.bak/PtychoPINN/outputs/grid_lines_n128_compare_padex_lr2e4_plateau_e40_seed3/visuals/amp_phase_pinn_hybrid_resnet.png`
+- Recovered contract:
+  - `N=128`, `gridsize=1`
+  - synthetic lines, `set_phi=True`
+  - custom Run1084 probe
+  - `probe_scale_mode=pad_extrapolate`
+  - `probe_smoothing_sigma=0.5`
+  - `nimgs_train=2`, `nimgs_test=2`
+  - `nphotons=1e9`
+  - `seed=3`
+  - `torch_epochs=40`
+  - `torch_learning_rate=2e-4`
+  - `torch_scheduler=ReduceLROnPlateau`
+  - `torch_plateau_factor=0.5`
+  - `torch_plateau_patience=2`
+  - `torch_plateau_min_lr=1e-4`
+  - `torch_plateau_threshold=0.0`
+  - `torch_loss_mode=mae`
+  - `torch_mae_pred_l2_match_target=off`
+  - `torch_output_mode=real_imag`
+  - `probe_mask=off`
+  - `fno_modes=12`, `fno_width=32`, `fno_blocks=4`, `fno_cnn_blocks=2`
+- Best recovered metrics:
+  - amp/phase MAE: `0.039216023 / 0.06845270933163407`
+  - amp/phase SSIM: `0.9779267790199384 / 0.9903324391137435`
+  - final train/val epoch loss: `0.03572520241141319 / 0.043088942766189575`
+- Provenance caveat:
+  - this root lives outside the active repo in a backup checkout;
+  - no durable child `runs/pinn_hybrid_resnet/invocation.json` was recovered in the historical root;
+  - the contract above is reconstructed from the historical metrics/history artifacts plus the contemporaneous wrapper command documented in the legacy workflow docs.
+
 ### `grid-lines-n64-pinn-hybrid-resnet-e20`
 
 - Purpose: Run `N=64` grid-lines with `pinn` (TF) and `pinn_hybrid_resnet` (Torch) at `20` epochs, then render combined visuals.

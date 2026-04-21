@@ -54,6 +54,12 @@ The inspected decision-support roots include:
 - `outputs/grid_lines_gs1_n128_tf1_torch50_neuralop_clip0_hybrid_log1p`
 - `outputs/grid_lines_gs1_n128_tf1_torch50_neuralop_clip2_hybrid`
 
+Post-Phase-0 follow-up recovered one additional legacy decision-support reference outside the active checkout:
+
+- `/home/ollie/trash/tmp.bak/PtychoPINN/outputs/grid_lines_n128_compare_padex_lr2e4_plateau_e40_seed3`
+
+That backup-root run contains a strong historical `runs/pinn_hybrid_resnet/metrics.json` row (`amp/phase SSIM = 0.9779 / 0.9903`) and is now indexed in `docs/studies/index.md` as a replay-worthy decision-support reference. It still does not satisfy the paper-grade anchor bar because the historical root lacks the durable invocation/config/git-provenance bundle required by the campaign.
+
 The blocking gaps are consistent across these candidates: no current `pinn_hybrid_resnet` metrics key, missing invocation artifacts, missing recorded git commit, incomplete seed/config/scheduler provenance, and incomplete dataset/split proof. These artifacts are useful for triage only and must not be used as the paper-grade CDI anchor.
 
 Anchor gate statement: no complete paper-grade CDI anchor identified; `cdi_anchor_regeneration_plan.md` schedules a fresh `128x128` Hybrid ResNet regeneration run for Roadmap Phase 3.
