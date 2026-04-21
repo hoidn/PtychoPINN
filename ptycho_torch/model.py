@@ -739,9 +739,9 @@ class RectangularScaledDiffraction(nn.Module):
             exit_wave = scale * (s1 * (probe * x_a) + 1j * s2 * (probe * x_b))
 
             psi_f = torch.fft.fftshift(torch.fft.fft2(exit_wave, norm='ortho'), dim=(-2,-1))
-            psi_f = torch.sum(psi_f, dim=2)
 
-            I_pred = torch.abs(psi_f)**2
+            #Incoherent mode summation: intensity per mode, then sum over modes
+            I_pred = torch.sum(torch.abs(psi_f)**2, dim = 2) #(B,C,P,H,W) -> (B,C,H,W)
 
         else:
             exit_wave_a = probe * x_a * scale
@@ -750,19 +750,19 @@ class RectangularScaledDiffraction(nn.Module):
             Psi_a = torch.fft.fft2(exit_wave_a, norm='ortho')
             Psi_b = torch.fft.fft2(exit_wave_b, norm='ortho')
 
-            Psi_a = torch.fft.fftshift(Psi_a, dim=(-2,-1))
-            Psi_b = torch.fft.fftshift(Psi_b, dim=(-2,-1))
+            Psi_a = torch.fft.fftshift(Psi_a, dim=(-2,-1)) #(B,C,P,H,W)
+            Psi_b = torch.fft.fftshift(Psi_b, dim=(-2,-1)) #(B,C,P,H,W)
 
-            Psi_a = torch.sum(Psi_a, dim=2)
-            Psi_b = torch.sum(Psi_b, dim=2)
+            #Incoherent mode summation: compute per-mode basis images, then sum over modes
+            X1 = torch.sum(torch.abs(Psi_a)**2, dim=2)                                    # (B,C,H,W)
+            X2 = torch.sum(torch.abs(Psi_b)**2, dim=2)                                    # (B,C,H,W)
+            X3 = torch.sum(2 * torch.real(Psi_a * torch.conj(Psi_b)), dim=2)              # (B,C,H,W)
 
-            s = self.solve_scaling_factors(I_raw, Psi_a, Psi_b)
+            #Solve for scaling factors using mode-summed basis images
+            s = self.solve_scaling_factors_from_basis(I_raw, X1, X2, X3)
             s_corr = self.enforce_physics_constraint(s)
             s1, s2 = s_corr[:,:,0,None,None], s_corr[:,:,1,None,None]
-
-            I_pred = (s1 * torch.abs(Psi_a)**2 +
-                      s2 * torch.abs(Psi_b)**2 +
-                      s1 * s2 * 2 * torch.real(Psi_a * torch.conj(Psi_b)))
+            I_pred = s1 * X1 + s2 * X2 + s1 * s2 * X3
 
         I_pred = torch.clamp(I_pred, min=0.0)
         return I_pred
@@ -789,6 +789,46 @@ class RectangularScaledDiffraction(nn.Module):
 
         L, V = torch.linalg.eigh(XTX)
 
+        threshold = 1e-7
+        L_inv = torch.where(L > threshold, 1.0 / L, torch.zeros_like(L))
+
+        s_scaled = V @ (L_inv.unsqueeze(-1) * (V.transpose(-2, -1) @ XTy))
+        s_scaled = s_scaled.squeeze(-1)
+
+        s = (s_scaled / col_norms.squeeze(-2)) * norm
+
+        if self.training and torch.distributed.is_initialized() and torch.distributed.get_rank() == 0:
+            if L.min() < threshold:
+                print(f"!!! Low Rank Detected: min_eig={L.min().item():.2e}")
+
+        return s.to(torch.float32)
+
+    def solve_scaling_factors_from_basis(self, I_measured, X1, X2, X3):
+        """
+        Solves normal equation for scaling factors from pre-computed basis images.
+        Used for incoherent multi-mode probes where basis images are summed over modes
+        before solving.
+
+        :param I_measured: [B,C,H,W] measured intensities
+        :param X1: [B,C,H,W] sum_p |Psi_a_p|^2
+        :param X2: [B,C,H,W] sum_p |Psi_b_p|^2
+        :param X3: [B,C,H,W] sum_p 2*Re(Psi_a_p * conj(Psi_b_p))
+        """
+        norm = I_measured.mean() + 1e-9
+        y = (I_measured / norm).flatten(2).unsqueeze(-1).to(torch.float64)
+
+        X = torch.stack([X1.flatten(2), X2.flatten(2), X3.flatten(2)], dim=-1).to(torch.float64)
+
+        # Column normalization (Jacobi pre-conditioner)
+        col_norms = torch.sqrt(torch.sum(X**2, dim=-2, keepdim=True) + 1e-12)
+        X_scaled = X / col_norms
+
+        # Normal equation via eigen-decomposition
+        XT = X_scaled.transpose(-2, -1)
+        XTX = XT @ X_scaled
+        XTy = XT @ y
+
+        L, V = torch.linalg.eigh(XTX)
         threshold = 1e-7
         L_inv = torch.where(L > threshold, 1.0 / L, torch.zeros_like(L))
 

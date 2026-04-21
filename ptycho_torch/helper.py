@@ -183,8 +183,8 @@ def reassemble_patches_position_real_probe(inputs: torch.Tensor,
     if use_probe_weights:
         if probe is None:
             raise ValueError("Probe must be provided if use_probe_weights is True")
-        # Weight = |Probe|^2 (Squeeze the P dimension)
-        weights_flat = torch.abs(probe.squeeze(2)).flatten(0, 1)**2
+        # Weight = sum_p |P_p|^2 (sum over probe modes, then flatten B*C)
+        weights_flat = torch.sum(torch.abs(probe)**2, dim=2).flatten(0, 1)
     else:
         # Original binary prototype logic
         with torch.no_grad():
@@ -673,7 +673,8 @@ def illuminate_and_diffract(
 
 def normalize_probe(X):
     """
-    Normalizes numpy array. Currently only works on 1D
+    Normalizes probe array so that total intensity sums to 1.
+    Works on 2D (H, W) single-mode and 3D (P, H, W) multi-mode probes.
     """
     N = X.shape[0]
 
