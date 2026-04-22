@@ -1020,7 +1020,7 @@ class PtychoDataset(Dataset):
             scaling_const = self.data_dict['scaling_constant'][get_idx]
             scaling_const = scaling_const.view(-1,1,1,1)
 
-        return self.mmap_ptycho[idx], probes_indexed, scaling_const
+        return self.mmap_ptycho[idx], probes_indexed, probe_scaling
 
     
     def get_experiment_dataset(self, experiment_idx):

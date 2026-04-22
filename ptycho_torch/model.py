@@ -1023,16 +1023,7 @@ class IntensityScalerModule:
         self.model_config = model_config
         #Define the scaler module (from helper.py) - Not needed if scale/inv_scale are methods
         #Setting log scale values
-        if self.model_config.intensity_scale_trainable:
-            log_scale_guess = np.log(self.model_config.intensity_scale)
-            # Ensure log_scale is registered as a parameter if it's trainable
-            self.log_scale = nn.Parameter(torch.tensor(float(log_scale_guess)),
-                                          requires_grad=True)
-        else:
-            # If not trainable, register as a buffer or just keep as None
-            # Registering as buffer allows it to be saved with state_dict but not trained
-            # self.register_buffer('log_scale', None) # Or simply:
-            self.log_scale = None
+        self.log_scale = None
 
     #Standalone intensity scaling functions
     def scale(self, x, scale_factor):
