@@ -584,8 +584,11 @@ def illuminate_and_diffract(
     nphotons: float = 1e5
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     '''
-    Performs multi-modal coherent illumination (assuming probe modes are pre-scaled),
-    diffraction, and intensity scaling. Used for simulating synthetic data
+    Performs multi-modal incoherent illumination (assuming probe modes are pre-scaled),
+    diffraction, and intensity scaling. Used for simulating synthetic data.
+
+    For multi-mode probes, computes incoherent summation:
+        I = Sum_p |FFT{O * P_p}|^2
 
     Inputs
     --------
@@ -602,7 +605,7 @@ def illuminate_and_diffract(
     --------
     output_intensity: torch.Tensor (N, H, W) - Scaled, fftshifted intensity.
     original_input: torch.Tensor (N, H, W) - The original input object tensor.
-    intensity_scale_factor: torch.Tensor (scalar) - Applied scaling factor.
+    scaled_probe: torch.Tensor (1, P, H, W) - Probe scaled by sqrt(intensity_scale_factor).
     '''
     # --- Input Validation ---
     if not (input_obj.ndim == 3 and input_obj.is_complex()):
@@ -632,14 +635,12 @@ def illuminate_and_diffract(
     # Perform FFT using 'ortho' norm for Parseval convenience
     fft_waves_per_mode = torch.fft.fft2(exit_waves_per_mode.to(torch.complex64), norm='ortho') # (N, P, H, W)
 
-    # Perform coherent sum across modes (Sum_k FFT{O * [α_k P_k]})
-    coherent_fft_sum = torch.sum(fft_waves_per_mode, dim=1) # (N,P,H,W) -> (N, H, W)
-
-    # Calculate the final coherent intensity |Sum_k(FFT{O * [α_k P_k]})|^2
-    diffraction_intensity_coherent = torch.abs(coherent_fft_sum)**2 # (N, H, W) (Real float)
+    # Incoherent summation: intensity per mode, then sum over modes
+    # I = Sum_p |FFT{O * P_p}|^2
+    diffraction_intensity = torch.sum(torch.abs(fft_waves_per_mode)**2, dim=1) # (N, P, H, W) -> (N, H, W)
 
     # Total intensity per image in the batch (using Parseval via 'ortho' norm)
-    current_total_intensity = torch.sum(diffraction_intensity_coherent, dim=(-2, -1)) # Shape: (N,)
+    current_total_intensity = torch.sum(diffraction_intensity, dim=(-2, -1)) # Shape: (N,)
 
     # Calculate average intensity across the batch
     mean_intensity_per_image = torch.mean(current_total_intensity)
@@ -654,9 +655,8 @@ def illuminate_and_diffract(
         # Calculate scaling factor for INTENSITY to reach target average count
         intensity_scale_factor = nphotons / mean_intensity_per_image
 
-    # Apply scaling to the coherent intensity
-    # Ensure scale factor has compatible dtype and dimensions for broadcasting
-    scaled_intensity = diffraction_intensity_coherent * intensity_scale_factor.to(diffraction_intensity_coherent.dtype)
+    # Apply scaling to the incoherent intensity
+    scaled_intensity = diffraction_intensity * intensity_scale_factor.to(diffraction_intensity.dtype)
 
     # Applying the square root of this scaling to the probe
     scaled_probe = probe_b * torch.sqrt(intensity_scale_factor)
