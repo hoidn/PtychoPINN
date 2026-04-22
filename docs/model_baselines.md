@@ -65,6 +65,20 @@ otherwise.
 - For study loops at a different resolution or epoch budget, inherit this
   schedule and only override the study-specific parts that must differ, such as
   `epochs`, dataset path, or fixed wrapper output locations.
+- For PDE, OpenFWI, or other supervised adapters that are used to judge Hybrid
+  ResNet competitiveness, inherit this recipe unless the study plan explicitly
+  records a justified override. A one-epoch smoke run is only data/adapter
+  feasibility evidence, not a meaningful competitiveness result.
+- Task-local override: the canonical PDEBench `2d_cfd_cns` Hybrid row is
+  `hybrid_resnet_cns`, not `hybrid_resnet_base`. It keeps the same width,
+  modes, depth, and downsample schedule but enables
+  `hybrid_skip_connections=on` with `hybrid_skip_style=add` based on the capped
+  CNS skip-study evidence. As of the post-skip-add upsampler compare, the
+  canonical CNS row also defaults to `hybrid_upsampler=pixelshuffle`. The
+  earlier transpose decoder remains available only as the explicit manual study
+  profile `hybrid_resnet_cns_transpose`. This override is CNS-specific; Darcy
+  and generic supervised adapters still inherit `hybrid_resnet_base` unless
+  their owning study doc says otherwise.
 - If a wrapper or runbook intentionally diverges from this baseline, document
   the override in the study doc that owns that wrapper.
 

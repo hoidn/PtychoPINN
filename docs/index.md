@@ -148,10 +148,25 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, pdebench, cns, markov, history_len, history-1, spectral_resnet, fno, unet, compare
 **Use this when:** Planning or executing the lower-context Markov-style CNS compare, or checking what must stay fixed for a fair `history_len=1` versus `history_len=2` result.
 
+### [NeurIPS Hybrid ResNet PDEBench Hybrid-Spectral CNS Architecture Ablation Design](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_hybrid_spectral_cns_architecture_ablation_design.md)
+**Description:** Design for a CNS-only Hybrid-spectral architecture ablation that fixes the canonical skip-add plus pixelshuffle shell and studies spectral-family internals such as weight sharing and bottleneck depth without mixing in CDI/ptycho, Markov-history, or physics-regularization changes.
+**Keywords:** neurips, pdebench, cns, hybrid-spectral, architecture, ablation, weight-sharing, depth, pixelshuffle, skip-add
+**Use this when:** Planning or reviewing a focused CNS Hybrid-spectral architecture ablation, checking which shell choices are fixed, or separating CNS spectral-family questions from CDI/ptycho architecture work.
+
 ### [NeurIPS Hybrid ResNet PDEBench CNS Spectral Modes-32 Compare Plan](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_modes32_compare_plan.md)
 **Description:** Backlog plan for a focused capped CNS ablation that raises both the encoder spectral modes and the spectral bottleneck modes from `12` to `32` for the spectral variant and checks whether that improves metrics over the current `12/12` row.
 **Keywords:** neurips, pdebench, cns, spectral_resnet, modes, fno_modes, spectral_bottleneck_modes, compare
 **Use this when:** Queueing or implementing the higher-mode spectral CNS ablation, or checking which spectral-mode knobs must move together for a fair result.
+
+### [NeurIPS Hybrid ResNet PDEBench CNS Hybrid-Spectral Architectural Ablation Plan](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_arch_ablation_plan.md)
+**Description:** Implementation plan for a bounded PDEBench `2d_cfd_cns` hybrid-spectral architectural ablation that fixes the canonical CNS shell (`skip-add` + `pixelshuffle`) and varies only spectral bottleneck sharing and depth, with explicit external-audit invariants and larger-cap confirmation.
+**Keywords:** neurips, pdebench, cns, hybrid-spectral, spectral_resnet, ablation, skip-add, pixelshuffle, depth, weight-sharing
+**Use this when:** Planning or executing the CNS-only hybrid-spectral architecture study, or checking which shell fields must stay fixed so the compare is externally auditable.
+
+### [NeurIPS Hybrid ResNet PDEBench GNOT Paper-Default CNS Compare Plan](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_gnot_paper_default_cns_compare_plan.md)
+**Description:** Backlog plan for rerunning the already integrated official GNOT baseline on the local PDEBench `2d_cfd_cns` contract using the patched paper-style GNOT recipe, then comparing it directly against the current spectral anchor under the same capped CNS slice.
+**Keywords:** neurips, pdebench, cns, gnot, paper-default, baseline, compare, dgl
+**Use this when:** Queueing or implementing the paper-default GNOT rerun on the local CNS contract, or checking which environment, recipe, and comparison surface must stay fixed.
 
 ### [NeurIPS Hybrid ResNet PDEBench Spectral Weight-Sharing CNS Compare Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_weight_sharing_summary.md)
 **Description:** Implementation summary for the shared-vs-non-shared spectral bottleneck tranche, covering the manual `spectral_resnet_bottleneck_noshare` profile, the fixed canonical CNS skip-add shell fairness boundary, targeted verification, the capped two-row CNS comparison, and the rendered prediction/error galleries.

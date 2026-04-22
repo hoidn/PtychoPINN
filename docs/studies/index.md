@@ -4,14 +4,21 @@
 
 ### `pdebench-128x128-image-suite` (planned)
 
-- Purpose: Run the amended Roadmap Phase 2 native `128x128` PDEBench image suite covering SWE, Darcy Flow, and 2D diffusion-reaction.
+- Purpose: Run the amended Roadmap Phase 2 native `128x128` PDEBench image suite covering SWE, Darcy Flow, and 2D Compressible Navier-Stokes.
 - Plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md`
 - Preflight summary: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md`; this is the discoverable source for staged-file status, raw HDF5 shapes, axis orders, and available supervision-unit counts.
 - Darcy execution plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md`; this is the source for the beta `1.0` static-operator contract, strong U-Net/FNO baseline gates, and literature calibration targets.
+- 2D CNS design: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_design.md`; this is the source for official `128x128` 2D_CFD file selection, storage gates, four-field stacking, `history_len=2` primary input, `history_len=1` ablation, trajectory/sample-level split rules, and required `fRMSE_high` shock-capture reporting.
+- 2D CNS implementation summary: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md`; this is the discoverable source for the active canonical CNS Hybrid profile `hybrid_resnet_cns` and the skip-add promotion evidence.
+- 2D CNS upsampler compare summary: `docs/plans/2026-04-21-hybrid-upsampler-artifact-study-results.md`; this is the discoverable source for the post-skip-add upsampler rerun, including the result that `pixelshuffle` beat the transpose and bilinear CNS-shell decoders on aggregate capped error and was promoted into the canonical CNS Hybrid row.
+- Spectral ResNet bottleneck design: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_resnet_bottleneck_design.md`; this is the source for the separate `spectral_resnet_bottleneck_net` model family that keeps the current PDE adapter shell but replaces only the constant-resolution bottleneck with a ResNet-local stack plus a shared factorized spectral residual branch.
+- FFNO-close bottleneck compare summary: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_bottleneck_summary.md`; this is the discoverable source for the first same-shell three-row CNS bottleneck compare, including the result that `spectral_resnet_bottleneck_base` beat both `hybrid_resnet_cns` and `ffno_bottleneck_base` on the capped 10-epoch slice.
+- The same FFNO/bottleneck summary also records the later capped 40-epoch spectral follow-up where `spectral_resnet_bottleneck_base` beat the earlier 40-epoch `hybrid_resnet_base`, `fno_base`, and `unet_strong` rows and links the cross-run comparison PNGs.
 - Script: `scripts/studies/run_pdebench_image128_suite.py`
-- Expected official files: `2D_rdb_NA_NA.h5` (`swe`), `2D_DarcyFlow_beta1.0_Train.hdf5` (`darcy`), and `2D_diff-react_NA_NA.h5` (`2d_reacdiff`), staged outside git or on an approved external data root.
+- Expected official files: `2D_rdb_NA_NA.h5` (`swe`), `2D_DarcyFlow_beta1.0_Train.hdf5` (`darcy`), and first CNS target `2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5` (`2d_cfd_cns`). The CNS file is staging locally under `/home/ollie/Documents/pdebench-data/2d_cfd_cns/` and is not ready until byte-count, MD5, and schema checks pass.
 - Scope: shared data/schema preflight, task-specific split and metric contracts, capped pilot/triage runs where needed, full available training-split Hybrid ResNet/FNO/U-Net benchmark runs, and focused spectral/local ablations where budget permits.
 - Boundary: smoke and capped pilot outputs are readiness/triage artifacts only and must not rank models, trigger performance pivots, or satisfy benchmark-performance gates.
+- Training recipe guardrail: PDE benchmark-performance rows use the inherited Hybrid ResNet recipe with `ReduceLROnPlateau` scheduler floor no higher than `1e-5` unless a later plan records a justified pre-run override.
 
 ### `pdebench-darcy-static-operator-benchmark` (implemented; full benchmark pending)
 
@@ -24,7 +31,7 @@
 - Published-context values: PDEBench beta `1.0` U-Net RMSE/nRMSE about `6.4e-3`/`3.3e-2`, FNO about `1.2e-2`/`6.4e-2`; HAMLET/OFormer nRMSE context about `1.40e-2`/`2.05e-2`, with protocol caveats.
 - Readiness artifact: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/readiness-cap-20260420T222155Z`
 - Full-run budget: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/run_budget.json`
-- Boundary: no `/home/ollie/Documents/neurips/` artifacts and no benchmark-performance claim until full available training-split runs complete for `hybrid_resnet_base`, `fno_base`, and `unet_strong`.
+- Boundary: no `/home/ollie/Documents/neurips/` artifacts and no benchmark-performance claim until full available training-split runs complete for `hybrid_resnet_cns`, `fno_base`, and `unet_strong`.
 
 ### `pdebench-swe-primary-smoke-gate`
 

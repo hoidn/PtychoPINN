@@ -25,7 +25,7 @@ This summary records implementation/readiness state only. It does not create man
 - Metrics are computed on denormalized target-state predictions and include aggregate plus per-field RMSE, nRMSE, relative L2, and Fourier-space RMSE bands `fRMSE_low`, `fRMSE_mid`, and `fRMSE_high`.
 - The local CNS fRMSE convention is fixed as `torch.fft.fft2(..., norm="ortho")` with fftshifted radial-frequency thirds: low `<= 1/3`, mid `(1/3, 2/3]`, and high `> 2/3` of the maximum radial frequency.
 - The runner uses the supervised real-channel Hybrid ResNet/FNO/U-Net adapter path, not PtychoPINN physics layers or ptychographic `C` semantics.
-- The canonical CNS Hybrid row is now `hybrid_resnet_cns`. It keeps the same `32`-channel / `12`-mode / `4`-block / `2`-downsample / `6`-ResNet shell as `hybrid_resnet_base`, but promotes encoder-decoder skip fusion with `hybrid_skip_connections=on` and `hybrid_skip_style=add` into the default CNS contract.
+- The canonical CNS Hybrid row is now `hybrid_resnet_cns`. It keeps the same `32`-channel / `12`-mode / `4`-block / `2`-downsample / `6`-ResNet shell as `hybrid_resnet_base`, promotes encoder-decoder skip fusion with `hybrid_skip_connections=on` and `hybrid_skip_style=add`, and now defaults to `hybrid_upsampler=pixelshuffle` based on the post-skip-add upsampler compare.
 - The current CNS training-loss contract is `mse`, matching the official PDEBench FNO/U-Net forward baseline code for the compressible CFD benchmarks; earlier local MAE pilot runs remain useful only as superseded readiness evidence.
 - A reusable PDEBench image-suite physics-loss framework now exists with a `2d_cfd_cns` backend. It is disabled by default, task-fails closed for unsupported tasks, and currently implements three denormalized terms: positivity on `density/pressure`, continuity residual, and global mass consistency.
 - CNS HDF5 metadata now records `dx`, `dy`, `dt`, `eta`, `zeta`, and `boundary_condition="periodic"` so physics losses can be computed in physical units instead of normalization space.
@@ -199,6 +199,47 @@ Decision:
 - `hybrid_resnet_base` remains available for cross-task generic comparisons and backward-compatible study references
 - the earlier manual study profile `hybrid_resnet_skip_add` remains as a discoverable study profile, but the canonical CNS row is `hybrid_resnet_cns`
 
+## Post-Skip-Add Upsampler Compare
+
+The upsampler artifact study was rerun after skip-add had already been promoted
+into the canonical CNS shell:
+
+- results summary:
+  `docs/plans/2026-04-21-hybrid-upsampler-artifact-study-results.md`
+- run root:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-hybrid-upsampler-artifact-study/cns-upsampler-cns-shell-10ep-20260421T221400Z`
+- same slice for all rows: `512 / 64 / 64` trajectories, `8` windows per
+  trajectory, `10` epochs, batch size `4`
+- compared rows:
+  - `hybrid_resnet_cns_transpose`
+  - `hybrid_resnet_cns_interp_bilinear_conv`
+  - `hybrid_resnet_cns_pixelshuffle`
+
+Observed metrics on that capped slice:
+
+- `hybrid_resnet_cns_transpose`: final train loss `0.0338358228`,
+  `err_nRMSE=0.1304672956`, `fRMSE_high=0.7634432316`
+- `hybrid_resnet_cns_interp_bilinear_conv`: final train loss `0.0350025710`,
+  `err_nRMSE=0.0990807489`, `fRMSE_high=1.1363334656`
+- `hybrid_resnet_cns_pixelshuffle`: final train loss `0.0325912039`,
+  `err_nRMSE=0.0963200703`, `fRMSE_high=0.8639594913`
+
+Interpretation:
+
+- the old transpose decoder remained best on `fRMSE_high`, but retained more
+  visible checkerboard-like texture
+- bilinear improved aggregate error but had the worst high-frequency penalty and
+  showed directional stripe-like artifacts instead of clean reconstructions
+- pixelshuffle had the best aggregate error and was a better compromise than
+  bilinear on high-frequency behavior
+
+Decision:
+
+- `hybrid_resnet_cns` now defaults to `pixelshuffle`
+- the old transpose decoder remains available only as the explicit manual
+  profile `hybrid_resnet_cns_transpose`
+- bilinear remains manual-only
+
 ## Same-Shell Bottleneck Compare
 
 The FFNO-close bottleneck tranche added a same-shell three-row comparison under
@@ -236,6 +277,42 @@ Interpretation:
 
 This evidence is still capped-readiness evidence only. It is enough to guide
 local bottleneck work, but it is not benchmark-complete CNS ranking evidence.
+
+## 40-Epoch Spectral Follow-Up
+
+The shared-spectral bottleneck row was later extended to the same capped
+40-epoch CNS budget previously used for the local Hybrid/FNO/U-Net comparison:
+
+- run root:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep`
+- same slice:
+  `2d_cfd_cns`, `512 / 64 / 64` trajectories, `8` windows per trajectory,
+  batch size `4`, `40` epochs
+
+Observed 40-epoch spectral metrics:
+
+- `err_RMSE=1.4877649546`
+- `err_nRMSE=0.0615620054`
+- `relative_l2=0.0615620054`
+- `fRMSE_low=3.4756414890`
+- `fRMSE_mid=0.2800448835`
+- `fRMSE_high=0.4349334538`
+
+Relative to the earlier 40-epoch capped comparison:
+
+- spectral beat `hybrid_resnet_base`
+- spectral beat `fno_base`
+- spectral remained far ahead of `unet_strong`
+
+So the current local decision-support ranking for capped 40-epoch CNS is:
+
+1. `spectral_resnet_bottleneck_base`
+2. `fno_base`
+3. `hybrid_resnet_base`
+4. `unet_strong`
+
+This is still capped-readiness evidence only, not benchmark-complete CNS
+ranking evidence.
 
 ## Verification
 

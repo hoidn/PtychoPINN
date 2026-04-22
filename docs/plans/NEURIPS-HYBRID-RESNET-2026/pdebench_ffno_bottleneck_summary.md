@@ -200,6 +200,50 @@ This is still not a paper-grade FNO versus FFNO claim because the rows come
 from separate capped runs, but the split and protocol are aligned enough to use
 this as local decision-support evidence.
 
+## 40-Epoch Spectral Follow-Up
+
+The shared-spectral row was later extended to the same capped 40-epoch CNS
+budget used earlier for the local Hybrid, vanilla FNO, and U-Net rows:
+
+- spectral run root:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep`
+- task/slice:
+  `2d_cfd_cns`, `512 / 64 / 64` trajectories, `8` windows per trajectory,
+  `40` epochs, batch size `4`
+
+Observed 40-epoch spectral metrics:
+
+- `err_RMSE=1.4877649546`
+- `err_nRMSE=relative_l2=0.0615620054`
+- `fRMSE_low=3.4756414890`
+- `fRMSE_mid=0.2800448835`
+- `fRMSE_high=0.4349334538`
+- epoch-40 train loss: `0.0063669661`
+
+Against the earlier capped 40-epoch run:
+
+- `hybrid_resnet_base`: `err_RMSE=3.2010455132`,
+  `err_nRMSE=0.1324555874`, `fRMSE_high=0.7680469155`
+- `fno_base`: `err_RMSE=1.7907506227`,
+  `err_nRMSE=0.0740992129`, `fRMSE_high=0.6717720628`
+- `unet_strong`: `err_RMSE=16.3319549561`,
+  `err_nRMSE=0.6757976413`, `fRMSE_high=1.3326253891`
+
+Practical read:
+
+- on this capped 40-epoch slice, the spectral bottleneck beat all three earlier
+  rows on the main reported metrics
+- spectral also trained lower than the non-spectral Hybrid at the same epoch
+  counts, for example epoch 32:
+  `0.0130047911` vs `0.0199221614`
+
+Cross-run comparison PNGs:
+
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep/gallery_sample0_spectral_vs_fno_unet_40ep.png`
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep/gallery_sample0_spectral_vs_fno_unet_40ep_error.png`
+
+This is still capped-readiness evidence, not benchmark-complete CNS evidence.
+
 ## Artifacts
 
 Core artifacts:
