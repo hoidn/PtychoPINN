@@ -88,6 +88,14 @@ def npz_headers(npz):
             else:
                 raise ValueError(f"Could not find 'xcoords' or 'ycoords' in {npz}")
 
+        # Truncate coordinates to match diffraction stack length.
+        # Some datasets have more coordinate entries than diffraction patterns;
+        # indices beyond diff3d.shape[0] would cause out-of-bounds errors.
+        n_diff = diffraction_shape[0]
+        if len(xcoords) > n_diff:
+            xcoords = xcoords[:n_diff]
+            ycoords = ycoords[:n_diff]
+
         return diffraction_shape, xcoords, ycoords
 
 
@@ -606,9 +614,14 @@ class PtychoDataset(Dataset):
             #Writing to non-diffraction memory maps in one go:
             non_diff_timer_start = time.time()
 
-            #Load coordinates
-            xcoords_full = np.load(npz_file)['xcoords']
-            ycoords_full = np.load(npz_file)['ycoords']
+            #Load coordinates, truncated to match diffraction stack length
+            npz_data = np.load(npz_file)
+            xcoords_full = npz_data['xcoords']
+            ycoords_full = npz_data['ycoords']
+            n_diff = len(npz_data[next(k for k in ('diffraction', 'diff3d') if k in npz_data)])
+            if len(xcoords_full) > n_diff:
+                xcoords_full = xcoords_full[:n_diff]
+                ycoords_full = ycoords_full[:n_diff]
 
             #Apply coordinate filter to remove edge points based on self.calculate_length
             xcoords = xcoords_full[self.valid_indices_per_file[i]]

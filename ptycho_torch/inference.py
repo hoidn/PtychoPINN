@@ -46,6 +46,7 @@ from pathlib import Path
 #ML libraries
 import matplotlib.pyplot as plt
 import numpy as np
+from scipy.ndimage import gaussian_filter
 
 # MLflow is only needed for legacy inference path
 # Imported conditionally in load_and_predict() to avoid blocking new CLI path
@@ -76,7 +77,7 @@ def _training_normalization_scale(diffraction: "torch.Tensor") -> "torch.Tensor"
     return scale.view(1, 1, 1, 1).expand(diffraction.shape[0], 1, 1, 1)
 
 
-def load_all_configs(config_path, file_index):
+def load_all_configs(config_path):
     """
     Helper functions that loads all relevant configs specifically for inference
     File index is updated based on argument from argparse
@@ -126,7 +127,8 @@ def load_and_predict(run_id,
                      file_index = 0,
                      save_dir = "inference/output",
                      plot_name = "Test",
-                     verbose = False):
+                     verbose = False,
+                     real_im = False):
     '''
     Given MLFlow run id, as well as ptycho file directory, will provide predictions
     Args:
@@ -162,7 +164,15 @@ def load_and_predict(run_id,
     # Manually overriding experiment number indexing
     i_config_replace = {}
     i_config_replace['experiment_number'] = file_index
+    i_config_replace['middle_trim'] = 50
     update_existing_config(inference_config, i_config_replace)
+
+    # Manually overriding probe normalization (during inference we do not normalize probe)
+    d_config_replace = {}
+    d_config_replace['probe_normalize'] = False
+    d_config_replace['x_bounds'] = [0.03, 0.97]
+    d_config_replace['y_bounds'] = [0.03, 0.97]
+    update_existing_config(data_config, d_config_replace)
 
     #Loading model
     model_load_start = time.time()
@@ -183,25 +193,53 @@ def load_and_predict(run_id,
         print(f"Data config: {data_config}")
         print(f"Model config: {model_config}")
         print(f"Inference config: {inference_config}")
-    result, recon_dataset, assembly_stats = reconstruct_image_barycentric(loaded_model, ptycho_dataset,
+    result, recon_dataset, assembly_stats, modified_result = reconstruct_image_barycentric(loaded_model, ptycho_dataset,
                            training_config, data_config, model_config, inference_config, gpu_ids = None,
-                           use_mixed_precision=True, verbose = False)
+                           use_mixed_precision=True, verbose = True, return_diagnostics = True)
 
 
     #Save results
+
     result_im = result.to('cpu')
+    # result_im = modified_result.to('cpu')
+
+    print(f"shape {result_im.shape}")
     if len(result_im.shape) == 3:
         result_im = result_im[0].squeeze()
 
-    w = inference_config.window
+    if isinstance(recon_dataset.data_dict['objectGuess'], list):
+        gt_object = recon_dataset.data_dict['objectGuess'][file_index]
+    else:
+        gt_object = recon_dataset.data_dict['objectGuess']
+
+    h,w = 20,20
+
     result_amp = np.abs(result_im)
     result_phase = np.angle(result_im)
-    gt_amp = np.abs(recon_dataset.data_dict['objectGuess']).squeeze()
-    gt_phase = np.angle(recon_dataset.data_dict['objectGuess']).squeeze()
+    gt_amp = np.abs(gt_object).squeeze()
+    gt_phase = np.angle(gt_object).squeeze()
 
-    plot_amp_and_phase(result_amp[w:-w,w:-w], result_phase[w:-w,w:-w],
-                       gt_amp[w:-w,w:-w], gt_phase[w:-w,w:-w],
-                       save_dir = save_dir, filename = plot_name)
+    plot_amp_and_phase(result_amp[h:-h,w:-w], result_phase[h:-h,w:-w],
+                    gt_amp[h:-h,w:-w], gt_phase[h:-h,w:-w],
+                    save_dir = save_dir, filename = plot_name)
+
+    result_amp = np.real(result_im)
+    result_phase = np.imag(result_im)
+    gt_amp = np.real(gt_object).squeeze()
+    gt_phase = np.imag(gt_object).squeeze()
+
+    plot_name += '_reim'
+
+    plot_amp_and_phase(result_amp[h:-h,w:-w], result_phase[h:-h,w:-w],
+                    gt_amp[h:-h,w:-w], gt_phase[h:-h,w:-w],
+                    save_dir = save_dir, filename = plot_name,
+                    obj_amp_name = 'Object Real',
+                    obj_phase_name = 'Object Imag',
+                    gt_amp_name = 'Ground Truth Real',
+                    gt_phase_name = 'Ground Truth Imag')
+
+    plot_reim_histogram(result_im[h:-h, w:-w], gt_object.squeeze()[h:-h, w:-w],
+                    save_dir=save_dir, filename=plot_name + '_hist')
 
     print(f"Model load time: {model_load_time} \n "
           f"Data load time: {data_load_time}\n"
@@ -211,45 +249,35 @@ def load_and_predict(run_id,
     return result
 
 
-def plot_amp_and_phase(obj_amp, obj_phase, gt_amp, gt_phase, save_dir = None, filename = None):
-    """
-    Plot amplitude and phase comparison with ground truth.
-
-    Creates a 2x2 grid showing reconstructed amplitude, reconstructed phase,
-    ground truth amplitude, and ground truth phase.
-
-    Args:
-        obj_amp: Reconstructed amplitude array
-        obj_phase: Reconstructed phase array
-        gt_amp: Ground truth amplitude array
-        gt_phase: Ground truth phase array
-        save_dir: Optional directory to save plot
-        filename: Optional filename for saved plot
-    """
+def plot_amp_and_phase(obj_amp, obj_phase, gt_amp, gt_phase, save_dir = None, filename = None,
+                       obj_amp_name = 'Object Amp',
+                       obj_phase_name = 'Object Phase',
+                       gt_amp_name = 'Ground Truth Amp',
+                       gt_phase_name = 'Ground Truth Phase'):
     fig, axs = plt.subplots(2,2, figsize=(5,5))
 
     #Object amp
     obj_plot = axs[0,0].imshow(obj_amp, cmap = 'gray')
     plt.colorbar(obj_plot, ax = axs[0,0])
-    axs[0,0].set_title('Object Amplitude')
+    axs[0,0].set_title(obj_amp_name)
     axs[0,0].axis('off')
 
     #Object Phase
     phase_plot = axs[0,1].imshow(obj_phase, cmap = 'gray')#, vmin=-1, vmax=1)
     plt.colorbar(phase_plot, ax = axs[0,1])
-    axs[0,1].set_title('Object Phase')
+    axs[0,1].set_title(obj_phase_name)
     axs[0,1].axis('off')
 
     #Ground turth amp
     gtamp_plot = axs[1,0].imshow(gt_amp, cmap = 'gray')
     plt.colorbar(gtamp_plot, ax = axs[1,0])
-    axs[1,0].set_title('Ground Truth Amplitude')
+    axs[1,0].set_title(gt_amp_name)
     axs[1,0].axis('off')
 
     #ground truth phase
     gtphase_plot = axs[1,1].imshow(gt_phase, cmap = 'gray')
     plt.colorbar(gtphase_plot, ax = axs[1,1])
-    axs[1,1].set_title('Ground Truth Phase')
+    axs[1,1].set_title(gt_phase_name)
     axs[1,1].axis('off')
 
     # Save the plot if save_dir is provided
@@ -267,10 +295,88 @@ def plot_amp_and_phase(obj_amp, obj_phase, gt_amp, gt_phase, save_dir = None, fi
             filename += '.svg'
 
         save_path = os.path.join(save_dir, filename)
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
         plt.savefig(save_path, dpi=900, bbox_inches='tight')
         print(f"Plot saved to: {save_path}")
 
-        plt.show()
+
+def plot_reim_histogram(result_complex, gt_complex, save_dir=None, filename=None,
+                        bins=256, smoothing_sigma=2.0,
+                        hist_range=(-1.2, 1.2)):
+    """
+    Plot 2D density histograms of the raw Re/Im distribution.
+
+    No unit-magnitude normalization is applied — radial distance from the
+    origin encodes amplitude, angle encodes phase.  Log scaling (log1p)
+    is used so low-density material features are visible alongside the
+    dominant vacuum peak.
+
+    Parameters
+    ----------
+    result_complex : np.ndarray
+        Complex-valued reconstruction.
+    gt_complex : np.ndarray
+        Complex-valued ground truth.
+    save_dir : str, optional
+        Directory to save the figure.
+    filename : str, optional
+        Base filename (extension added automatically).
+    bins : int
+        Number of histogram bins per axis.
+    smoothing_sigma : float
+        Gaussian smoothing sigma applied to the histogram.
+    hist_range : tuple
+        (min, max) for both Re and Im axes.
+    """
+    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+
+    for ax, data, title in zip(axs,
+                                [result_complex, gt_complex],
+                                ['Reconstruction', 'Ground Truth']):
+        if hasattr(data, 'numpy'):
+            data = data.detach().cpu().numpy()
+        re = np.real(data).flatten()
+        im = np.imag(data).flatten()
+        print(f"Real mean: {re.mean()}")
+        print(f"Imag mean: {im.mean()}")
+        max_re = np.percentile(np.abs(re),98)
+        max_im = np.percentile(np.abs(im),98)
+        re /= np.sqrt(max_re **2 + max_im **2)
+        im /= np.sqrt(max_re **2 + max_im **2)
+
+        hist, re_edges, im_edges = np.histogram2d(
+            re, im, bins=bins,
+            range=[list(hist_range), list(hist_range)]
+        )
+        hist = gaussian_filter(hist, sigma=smoothing_sigma)
+        hist = hist / (np.sum(hist) + 1e-12)
+        hist = np.log1p(hist * 1e3)
+
+        extent = [re_edges[0], re_edges[-1], im_edges[0], im_edges[-1]]
+        im_plot = ax.imshow(hist.T, origin='lower', extent=extent,
+                            aspect='equal', cmap='inferno')
+        plt.colorbar(im_plot, ax=ax, shrink=0.8)
+
+        theta = np.linspace(0, 2 * np.pi, 200)
+        ax.plot(np.cos(theta), np.sin(theta), 'w--', linewidth=1.0, alpha=0.7)
+
+        ax.set_xlabel('Real')
+        ax.set_ylabel('Imaginary')
+        ax.set_title(title)
+
+    plt.tight_layout()
+
+    if save_dir is not None:
+        os.makedirs(save_dir, exist_ok=True)
+        if filename is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"reim_histogram_{timestamp}.svg"
+        if not filename.endswith(('.png', '.jpg', '.pdf', '.svg')):
+            filename += '.svg'
+        save_path = os.path.join(save_dir, filename)
+        os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        plt.savefig(save_path, dpi=900, bbox_inches='tight')
+        print(f"Histogram plot saved to: {save_path}")
 
 
 def save_individual_reconstructions(obj_amp, obj_phase, output_dir):
@@ -801,6 +907,8 @@ if __name__ == '__main__':
         parser.add_argument('--infer_dir', type = str, help = "Inference directory")
         parser.add_argument('--file_index', type = int, default = 0, help = "File index if more than one file in infer_dir")
         parser.add_argument('--config', type = str, default = None, help = "Config to override loaded values")
+        parser.add_argument('--save_name', type = str, default = 'save', help = "Filename for saving the inference results")
+        parser.add_argument('--real_im', action = 'store_true', help = "Real or imaginary")
 
         args = parser.parse_args()
 
@@ -808,11 +916,15 @@ if __name__ == '__main__':
         infer_dir = args.infer_dir
         file_index = args.file_index
         config_override = args.config
+        save_name = args.save_name
+        real_im = args.real_im
 
         try:
             load_and_predict(run_id, infer_dir, 'mlruns',
                              config_override_path=config_override,
-                             file_index = file_index)
+                             file_index = file_index,
+                             plot_name= save_name,
+                             real_im = real_im)
         except Exception as e:
             print(f"Inference failed because of: {str(e)}")
             sys.exit(1)
