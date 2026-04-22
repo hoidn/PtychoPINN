@@ -148,6 +148,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, pdebench, cns, markov, history_len, history-1, spectral_resnet, fno, unet, compare
 **Use this when:** Planning or executing the lower-context Markov-style CNS compare, or checking what must stay fixed for a fair `history_len=1` versus `history_len=2` result.
 
+### [NeurIPS Hybrid ResNet PDEBench CNS Spectral Modes-32 Compare Plan](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_modes32_compare_plan.md)
+**Description:** Backlog plan for a focused capped CNS ablation that raises both the encoder spectral modes and the spectral bottleneck modes from `12` to `32` for the spectral variant and checks whether that improves metrics over the current `12/12` row.
+**Keywords:** neurips, pdebench, cns, spectral_resnet, modes, fno_modes, spectral_bottleneck_modes, compare
+**Use this when:** Queueing or implementing the higher-mode spectral CNS ablation, or checking which spectral-mode knobs must move together for a fair result.
+
 ### [NeurIPS Hybrid ResNet PDEBench Spectral Weight-Sharing CNS Compare Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_weight_sharing_summary.md)
 **Description:** Implementation summary for the shared-vs-non-shared spectral bottleneck tranche, covering the manual `spectral_resnet_bottleneck_noshare` profile, the fixed canonical CNS skip-add shell fairness boundary, targeted verification, the capped two-row CNS comparison, and the rendered prediction/error galleries.
 **Keywords:** neurips, hybrid_resnet, pdebench, spectral-resnet, weight-sharing, cns, summary, capped-compare
