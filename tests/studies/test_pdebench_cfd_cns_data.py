@@ -67,6 +67,42 @@ def test_cfd_cns_history_window_dataset_stacks_fields_and_history(tmp_path):
     assert item["field_order"] == list(FIELD_ORDER)
 
 
+def test_cfd_cns_history1_contract_reduces_input_channels_without_changing_target(tmp_path):
+    from scripts.studies.pdebench_image128.data import MultiFieldHistoryWindowDataset
+
+    data_file = tmp_path / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+    values = _write_cfd_file(data_file)
+
+    history1 = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=FIELD_ORDER,
+        trajectory_ids=[0],
+        axis_order="NTHW",
+        history_len=1,
+        max_windows_per_trajectory=1,
+    )[0]
+    history2 = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=FIELD_ORDER,
+        trajectory_ids=[0],
+        axis_order="NTHW",
+        history_len=2,
+        max_windows_per_trajectory=1,
+    )[0]
+
+    expected_history1_input = torch.stack([torch.from_numpy(values[field][0, 0]) for field in FIELD_ORDER])
+    expected_target = torch.stack([torch.from_numpy(values[field][0, 1]) for field in FIELD_ORDER])
+
+    assert tuple(history1["input"].shape) == (4, 3, 4)
+    assert tuple(history1["target"].shape) == (4, 3, 4)
+    assert history1["input_time_indices"] == [0]
+    assert history1["target_time_index"] == 1
+    assert torch.equal(history1["input"], expected_history1_input)
+    assert torch.equal(history1["target"], expected_target)
+    assert tuple(history2["input"].shape) == (8, 3, 4)
+    assert tuple(history2["target"].shape) == (4, 3, 4)
+
+
 def test_cfd_cns_metadata_and_train_only_multifield_stats(tmp_path):
     from scripts.studies.pdebench_image128.data import inspect_cfd_cns_hdf5
     from scripts.studies.pdebench_image128.normalization import compute_multifield_dynamic_stats

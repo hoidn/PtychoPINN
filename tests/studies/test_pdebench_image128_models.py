@@ -8,6 +8,7 @@ def test_image128_model_profiles_build_and_record_parameter_counts():
     for profile_id in [
         "hybrid_resnet_base",
         "hybrid_resnet_cns",
+        "hybrid_resnet_cns_transpose",
         "hybrid_resnet_base_down1",
         "hybrid_resnet_skip_add",
         "hybrid_resnet_modes24",
@@ -289,9 +290,10 @@ def test_hybrid_cns_upsampler_study_profiles_build_and_preserve_shape():
     from scripts.studies.pdebench_image128.run_config import get_model_profile
 
     for profile_id in [
-        "hybrid_resnet_cns",
+        "hybrid_resnet_cns_transpose",
         "hybrid_resnet_cns_interp_bilinear_conv",
         "hybrid_resnet_cns_pixelshuffle",
+        "hybrid_resnet_cns",
     ]:
         model = build_model_from_profile(
             get_model_profile(profile_id),
@@ -406,6 +408,22 @@ def test_ffno_bottleneck_profile_is_manual_only_and_not_in_primary_sets():
     assert "ffno_bottleneck_base" not in PRIMARY_DARCY_PROFILE_IDS
     assert "ffno_bottleneck_base" not in PRIMARY_CFD_CNS_PROFILE_IDS
     assert "ffno_bottleneck_base" not in READINESS_CFD_CNS_PROFILE_IDS
+
+
+def test_author_ffno_profile_is_manual_only_and_not_in_primary_sets():
+    from scripts.studies.pdebench_image128.run_config import (
+        PRIMARY_CFD_CNS_PROFILE_IDS,
+        PRIMARY_DARCY_PROFILE_IDS,
+        READINESS_CFD_CNS_PROFILE_IDS,
+        get_model_profile,
+    )
+
+    profile = get_model_profile("author_ffno_cns_base")
+
+    assert profile.base_model == "author_ffno_cns_net"
+    assert "author_ffno_cns_base" not in PRIMARY_DARCY_PROFILE_IDS
+    assert "author_ffno_cns_base" not in PRIMARY_CFD_CNS_PROFILE_IDS
+    assert "author_ffno_cns_base" not in READINESS_CFD_CNS_PROFILE_IDS
 
 
 def test_cfd_cns_default_profile_sets_use_canonical_skip_hybrid():
@@ -580,3 +598,184 @@ def test_missing_fno_dependency_is_reported_as_blocker(monkeypatch):
         assert "neuralop" in payload["message"]
     else:
         raise AssertionError("missing neuralop should block FNO explicitly")
+
+
+def test_gnot_builder_blocks_cleanly_when_source_root_missing(monkeypatch):
+    from scripts.studies.pdebench_image128.models import ModelBuildBlocker, build_model_from_profile
+    from scripts.studies.pdebench_image128.run_config import get_model_profile
+
+    monkeypatch.setenv("GNOT_ROOT", "/definitely/missing/gnot")
+    profile = get_model_profile("gnot_cns_base")
+
+    try:
+        build_model_from_profile(
+            profile,
+            in_channels=8,
+            out_channels=4,
+            spatial_shape=(128, 128),
+            task_metadata={
+                "task_id": "2d_cfd_cns",
+                "dx": 1.0 / 128.0,
+                "dy": 1.0 / 128.0,
+                "dt": 0.05,
+                "time_steps": 21,
+                "history_len": 2,
+                "field_order": ["density", "Vx", "Vy", "pressure"],
+            },
+        )
+    except ModelBuildBlocker as exc:
+        payload = exc.to_payload()
+        assert payload["model"] == "gnot_cns_base"
+        assert payload["reason"] == "model_dependency_unavailable"
+        assert "GNOT" in payload["message"]
+    else:
+        raise AssertionError("missing GNOT source root should block the GNOT profile explicitly")
+
+
+def test_author_ffno_builder_blocks_cleanly_when_source_root_missing(monkeypatch):
+    from scripts.studies.pdebench_image128.models import ModelBuildBlocker, build_model_from_profile
+    from scripts.studies.pdebench_image128.run_config import get_model_profile
+
+    monkeypatch.setenv("AUTHOR_FFNO_ROOT", "/definitely/missing/fourierflow")
+    profile = get_model_profile("author_ffno_cns_base")
+
+    try:
+        build_model_from_profile(
+            profile,
+            in_channels=8,
+            out_channels=4,
+            spatial_shape=(128, 128),
+            task_metadata={
+                "task_id": "2d_cfd_cns",
+                "dx": 1.0 / 128.0,
+                "dy": 1.0 / 128.0,
+                "dt": 0.05,
+                "time_steps": 21,
+                "history_len": 2,
+                "field_order": ["density", "Vx", "Vy", "pressure"],
+            },
+        )
+    except ModelBuildBlocker as exc:
+        payload = exc.to_payload()
+        assert payload["model"] == "author_ffno_cns_base"
+        assert payload["reason"] == "model_dependency_unavailable"
+        assert "FFNO" in payload["message"]
+    else:
+        raise AssertionError("missing author FFNO source root should block the author FFNO profile explicitly")
+
+
+def test_author_ffno_builder_blocks_cleanly_when_required_dependency_missing(monkeypatch):
+    from scripts.studies.pdebench_image128 import author_ffno_adapter
+    from scripts.studies.pdebench_image128.models import ModelBuildBlocker, build_model_from_profile
+    from scripts.studies.pdebench_image128.run_config import get_model_profile
+
+    def fail_load():
+        raise author_ffno_adapter.AuthorFfnoAdapterBuildError(
+            "model_dependency_unavailable",
+            "manual author FFNO module load failed: missing einops",
+        )
+
+    monkeypatch.setattr(author_ffno_adapter, "load_author_ffno_dependencies", fail_load)
+    profile = get_model_profile("author_ffno_cns_base")
+
+    try:
+        build_model_from_profile(
+            profile,
+            in_channels=8,
+            out_channels=4,
+            spatial_shape=(128, 128),
+            task_metadata={
+                "task_id": "2d_cfd_cns",
+                "dx": 1.0 / 128.0,
+                "dy": 1.0 / 128.0,
+                "dt": 0.05,
+                "time_steps": 21,
+                "history_len": 2,
+                "field_order": ["density", "Vx", "Vy", "pressure"],
+            },
+        )
+    except ModelBuildBlocker as exc:
+        payload = exc.to_payload()
+        assert payload["model"] == "author_ffno_cns_base"
+        assert payload["reason"] == "model_dependency_unavailable"
+        assert "einops" in payload["message"]
+    else:
+        raise AssertionError("missing author FFNO dependencies should block the profile explicitly")
+
+
+def test_author_ffno_profile_description_records_external_source_provenance(monkeypatch):
+    from scripts.studies.pdebench_image128 import author_ffno_adapter
+    from scripts.studies.pdebench_image128.models import build_model_from_profile, describe_model
+    from scripts.studies.pdebench_image128.run_config import get_model_profile
+
+    class FakeWnLinear(torch.nn.Module):
+        def __init__(self, in_features: int, out_features: int, wnorm: bool = False):
+            super().__init__()
+            self.linear = torch.nn.Linear(in_features, out_features)
+
+        def forward(self, x):
+            return self.linear(x)
+
+    class FakeFfno(torch.nn.Module):
+        def __init__(
+            self,
+            modes: int,
+            width: int,
+            input_dim: int = 12,
+            dropout: float = 0.0,
+            in_dropout: float = 0.0,
+            n_layers: int = 4,
+            share_weight: bool = False,
+            share_fork: bool = False,
+            factor: int = 2,
+            ff_weight_norm: bool = False,
+            n_ff_layers: int = 2,
+            gain: float = 1.0,
+            layer_norm: bool = False,
+            use_fork: bool = False,
+            mode: str = "full",
+        ):
+            super().__init__()
+            self.in_proj = torch.nn.Linear(input_dim, width)
+            self.out = FakeWnLinear(width, 1)
+
+        def forward(self, x, **kwargs):
+            hidden = torch.relu(self.in_proj(x))
+            return {"forecast": self.out(hidden)}
+
+    monkeypatch.setattr(
+        author_ffno_adapter,
+        "load_author_ffno_dependencies",
+        lambda: (
+            FakeFfno,
+            FakeWnLinear,
+            {
+                "external_repo": "https://github.com/alasdairtran/fourierflow",
+                "external_commit": "deadbeef",
+                "host_environment": {"conda_env": "ptycho311"},
+            },
+        ),
+    )
+
+    profile = get_model_profile("author_ffno_cns_base")
+    model = build_model_from_profile(
+        profile,
+        in_channels=8,
+        out_channels=4,
+        spatial_shape=(128, 128),
+        task_metadata={
+            "task_id": "2d_cfd_cns",
+            "dx": 1.0 / 128.0,
+            "dy": 1.0 / 128.0,
+            "dt": 0.05,
+            "time_steps": 21,
+            "history_len": 2,
+            "field_order": ["density", "Vx", "Vy", "pressure"],
+        },
+    )
+    description = describe_model(model, profile=profile)
+
+    assert description["profile_id"] == "author_ffno_cns_base"
+    assert description["external_source_provenance"]["external_repo"] == "https://github.com/alasdairtran/fourierflow"
+    assert description["external_source_provenance"]["external_commit"] == "deadbeef"
+    assert description["external_source_provenance"]["host_environment"]["conda_env"] == "ptycho311"

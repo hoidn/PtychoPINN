@@ -40,14 +40,15 @@ from scripts.studies.pdebench_image128.splits import (
     capped_trajectory_split,
     write_trajectory_split_manifest,
 )
+from scripts.studies.pdebench_image128.visualization import cfd_cns_field_visual_spec
 
 
 DEFAULT_OUTPUT_ROOT = Path(".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns")
 SCRIPT_PATH = "scripts/studies/run_pdebench_image128_suite.py"
 CFD_CNS_FILENAME = "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
-CFD_CNS_TRAINING_LOSS = "mse"
-CFD_CNS_TRAINING_LOSS_DEFINITION = "mean squared error on normalized CNS fields"
-CFD_CNS_TRAINING_LOSS_RATIONALE = (
+CFD_CNS_DEFAULT_TRAINING_LOSS = "mse"
+CFD_CNS_DEFAULT_TRAINING_LOSS_DEFINITION = "mean squared error on normalized CNS fields"
+CFD_CNS_DEFAULT_TRAINING_LOSS_RATIONALE = (
     "Matches the official PDEBench FNO and U-Net forward baseline training code, "
     "which uses nn.MSELoss(reduction='mean') for the compressible CFD benchmarks."
 )
@@ -61,6 +62,66 @@ def _write_json(path: Path, payload: dict[str, Any]) -> Path:
 
 def _build_cfd_cns_training_criterion() -> torch.nn.Module:
     return torch.nn.MSELoss()
+
+
+def _relative_l2_sample_mean_loss(prediction: torch.Tensor, target: torch.Tensor, eps: float = 1e-12) -> torch.Tensor:
+    prediction_flat = prediction.reshape(prediction.shape[0], -1)
+    target_flat = target.reshape(target.shape[0], -1)
+    numerator = torch.linalg.vector_norm(prediction_flat - target_flat, dim=1)
+    denominator = torch.clamp(torch.linalg.vector_norm(target_flat, dim=1), min=float(eps))
+    return (numerator / denominator).mean()
+
+
+def _build_cfd_cns_training_recipe(
+    *,
+    profile,
+    default_learning_rate: float,
+    steps_per_epoch: int,
+    epochs: int,
+) -> dict[str, Any]:
+    config = profile.to_model_config()
+    if profile.base_model == "gnot_cns_net":
+        return {
+            "loss_name": str(config.get("training_loss", "relative_l2")),
+            "loss_definition": "mean over batch of ||pred-target||_2 / ||target||_2 on normalized CNS fields",
+            "loss_rationale": (
+                "Matches the public GNOT recipe more closely than the local PDEBench fairness recipe: "
+                "relative L2 objective, AdamW optimizer, and OneCycleLR schedule."
+            ),
+            "criterion": _relative_l2_sample_mean_loss,
+            "optimizer_name": str(config.get("optimizer_name", "AdamW")),
+            "learning_rate": float(config.get("learning_rate", 1e-3)),
+            "weight_decay": float(config.get("weight_decay", 5e-5)),
+            "scheduler_name": str(config.get("scheduler_name", "OneCycleLR")),
+            "scheduler_step_mode": "batch",
+            "scheduler_factory": lambda optimizer: torch.optim.lr_scheduler.OneCycleLR(
+                optimizer,
+                max_lr=float(config.get("learning_rate", 1e-3)),
+                epochs=max(1, int(epochs)),
+                steps_per_epoch=max(1, int(steps_per_epoch)),
+                pct_start=float(config.get("scheduler_pct_start", 0.2)),
+                div_factor=float(config.get("scheduler_div_factor", 1e4)),
+                final_div_factor=float(config.get("scheduler_final_div_factor", 1e4)),
+            ),
+        }
+    return {
+        "loss_name": CFD_CNS_DEFAULT_TRAINING_LOSS,
+        "loss_definition": CFD_CNS_DEFAULT_TRAINING_LOSS_DEFINITION,
+        "loss_rationale": CFD_CNS_DEFAULT_TRAINING_LOSS_RATIONALE,
+        "criterion": _build_cfd_cns_training_criterion(),
+        "optimizer_name": "Adam",
+        "learning_rate": float(default_learning_rate),
+        "weight_decay": 0.0,
+        "scheduler_name": "ReduceLROnPlateau",
+        "scheduler_step_mode": "epoch",
+        "scheduler_factory": lambda optimizer: torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer,
+            factor=0.5,
+            patience=2,
+            min_lr=1e-5,
+            threshold=0.0,
+        ),
+    }
 
 
 def _parse_physics_loss_weights(spec: str | None) -> dict[str, float]:
@@ -156,15 +217,33 @@ def _write_prediction_comparison(
     fig, axes = plt.subplots(channels, 3, figsize=(12, 3.0 * channels), squeeze=False, constrained_layout=True)
     for channel in range(channels):
         name = field_order[channel] if channel < len(field_order) else f"c{channel}"
-        image_min = float(min(np.min(prediction[channel]), np.min(target[channel])))
-        image_max = float(max(np.max(prediction[channel]), np.max(target[channel])))
+        image_spec = cfd_cns_field_visual_spec(name, [prediction[channel], target[channel]])
+        error_spec = cfd_cns_field_visual_spec(name, [error[channel]], is_error=True)
         panels = [
-            (f"Prediction {name}", prediction[channel], image_min, image_max),
-            (f"Ground truth {name}", target[channel], image_min, image_max),
-            (f"Abs error {name}", error[channel], 0.0, float(np.max(error[channel]))),
+            (
+                f"Prediction {name}",
+                prediction[channel],
+                image_spec["cmap"],
+                image_spec["vmin"],
+                image_spec["vmax"],
+            ),
+            (
+                f"Ground truth {name}",
+                target[channel],
+                image_spec["cmap"],
+                image_spec["vmin"],
+                image_spec["vmax"],
+            ),
+            (
+                f"Abs error {name}",
+                error[channel],
+                error_spec["cmap"],
+                error_spec["vmin"],
+                error_spec["vmax"],
+            ),
         ]
-        for axis, (title, image, vmin, vmax) in zip(axes[channel], panels, strict=True):
-            handle = axis.imshow(image, cmap="viridis", vmin=vmin, vmax=vmax)
+        for axis, (title, image, cmap, vmin, vmax) in zip(axes[channel], panels, strict=True):
+            handle = axis.imshow(image, cmap=cmap, vmin=vmin, vmax=vmax)
             axis.set_title(title)
             axis.set_xticks([])
             axis.set_yticks([])
@@ -215,12 +294,32 @@ def _run_profile(
     started = time.time()
     device = _resolve_device(device_name)
     sample = train_dataset[0]
+    task_metadata = {
+        "task_id": "2d_cfd_cns",
+        "spatial_shape": [int(spatial_shape[0]), int(spatial_shape[1])],
+        "state_shape": list(metadata["state_shape"]),
+        "field_order": list(metadata["field_order"]),
+        "field_axis_order": str(metadata["field_axis_order"]),
+        "history_len": int(metadata["history_len"]),
+        "time_steps": int(metadata["time_steps"]),
+        "trajectory_count": int(metadata["trajectory_count"]),
+        "input_channels": int(metadata["input_channels"]),
+        "target_channels": int(metadata["target_channels"]),
+        "dx": float(metadata["dx"]),
+        "dy": float(metadata["dy"]),
+        "dt": float(metadata["dt"]),
+        "eta": float(metadata["eta"]),
+        "zeta": float(metadata["zeta"]),
+        "boundary_condition": str(metadata["boundary_condition"]),
+        "sample_contract": str(metadata["dynamic_history_contract"]),
+    }
     try:
         model = build_model_from_profile(
             profile,
             in_channels=int(sample["input"].shape[0]),
             out_channels=int(sample["target"].shape[0]),
             spatial_shape=spatial_shape,
+            task_metadata=task_metadata,
         ).to(device)
     except ModelBuildBlocker as exc:
         blocker = {
@@ -237,21 +336,32 @@ def _run_profile(
     _write_json(output_root / f"model_profile_{profile_id}.json", model_profile)
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=_collate)
     eval_loader = DataLoader(eval_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=_collate)
-    optimizer = torch.optim.Adam(model.parameters(), lr=float(learning_rate))
-    criterion = _build_cfd_cns_training_criterion()
+    training_recipe = _build_cfd_cns_training_recipe(
+        profile=profile,
+        default_learning_rate=float(learning_rate),
+        steps_per_epoch=len(train_loader),
+        epochs=int(epochs),
+    )
+    if training_recipe["optimizer_name"] == "AdamW":
+        optimizer = torch.optim.AdamW(
+            model.parameters(),
+            lr=float(training_recipe["learning_rate"]),
+            weight_decay=float(training_recipe["weight_decay"]),
+        )
+    else:
+        optimizer = torch.optim.Adam(
+            model.parameters(),
+            lr=float(training_recipe["learning_rate"]),
+            weight_decay=float(training_recipe["weight_decay"]),
+        )
+    criterion = training_recipe["criterion"]
     physics_regularizer = build_physics_regularizer(
         task_id="2d_cfd_cns",
         metadata=metadata,
         state_stats=state_stats,
         config=physics_config,
     )
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer,
-        factor=0.5,
-        patience=2,
-        min_lr=1e-5,
-        threshold=0.0,
-    )
+    scheduler = training_recipe["scheduler_factory"](optimizer)
 
     model.train()
     train_batches = 0
@@ -275,6 +385,8 @@ def _run_profile(
             loss = supervised_loss + physics_result.total
             loss.backward()
             optimizer.step()
+            if training_recipe["scheduler_step_mode"] == "batch":
+                scheduler.step()
             epoch_loss += float(loss.detach().cpu().item())
             epoch_supervised += float(supervised_loss.detach().cpu().item())
             epoch_physics_total += float(physics_result.total.detach().cpu().item())
@@ -300,12 +412,13 @@ def _run_profile(
             physics_epoch_history.append(epoch_physics_payload)
             print(
                 f"EPOCH_LOSS profile={profile_id} epoch={epoch_index + 1} "
-                f"loss={mean_epoch_loss:.10g} loss_name={CFD_CNS_TRAINING_LOSS} "
+                f"loss={mean_epoch_loss:.10g} loss_name={training_recipe['loss_name']} "
                 f"supervised={mean_supervised_loss:.10g} physics_total={mean_physics_total:.10g} "
                 f"physics_terms={json.dumps(epoch_physics_payload['terms'], sort_keys=True)}",
                 flush=True,
             )
-            scheduler.step(mean_epoch_loss)
+            if training_recipe["scheduler_step_mode"] == "epoch":
+                scheduler.step(mean_epoch_loss)
 
     model.eval()
     _, _, train_split_metrics = _evaluate_loader(
@@ -335,9 +448,12 @@ def _run_profile(
         "train_batches": int(train_batches),
         "train_epoch_losses": epoch_losses,
         "train_supervised_epoch_losses": supervised_epoch_losses,
-        "training_loss": CFD_CNS_TRAINING_LOSS,
-        "training_loss_definition": CFD_CNS_TRAINING_LOSS_DEFINITION,
-        "training_loss_rationale": CFD_CNS_TRAINING_LOSS_RATIONALE,
+        "training_loss": training_recipe["loss_name"],
+        "training_loss_definition": training_recipe["loss_definition"],
+        "training_loss_rationale": training_recipe["loss_rationale"],
+        "optimizer": training_recipe["optimizer_name"],
+        "learning_rate": float(training_recipe["learning_rate"]),
+        "weight_decay": float(training_recipe["weight_decay"]),
         "train_split_eval": {
             **train_split_metrics,
             "split_name": "train",
@@ -347,7 +463,7 @@ def _run_profile(
         "physics_loss_weights": physics_config.to_payload()["weights"],
         "physics_last_epoch": physics_epoch_history[-1] if physics_epoch_history else {"total": 0.0, "terms": {}, "weighted_terms": {}},
         "physics_epoch_history": physics_epoch_history,
-        "scheduler": "ReduceLROnPlateau",
+        "scheduler": training_recipe["scheduler_name"],
         "runtime_sec": time.time() - started,
         "peak_cuda_memory_bytes": int(torch.cuda.max_memory_allocated(device)) if device.type == "cuda" else None,
         "model_profile": model_profile,

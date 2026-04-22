@@ -13,6 +13,11 @@ from ptycho_torch.generators.hybrid_resnet import HybridResnetEncoderBlock, Stri
 from ptycho_torch.generators.resnet_components import CycleGanUpsampler, ResnetBottleneck
 from ptycho_torch.generators.ffno_bottleneck import SharedFactorizedFfnoBottleneck
 from ptycho_torch.generators.spectral_resnet_bottleneck import SharedSpectralResnetBottleneck
+from scripts.studies.pdebench_image128.author_ffno_adapter import (
+    AuthorFfnoAdapterBuildError,
+    AuthorFfnoCnsModel,
+)
+from scripts.studies.pdebench_image128.gnot_adapter import GnotAdapterBuildError, GnotCnsModel
 from scripts.studies.pdebench_image128.run_config import ModelProfile
 
 
@@ -460,6 +465,7 @@ def build_model_from_profile(
     in_channels: int,
     out_channels: int,
     spatial_shape: tuple[int, int],
+    task_metadata: dict[str, Any] | None = None,
 ) -> nn.Module:
     config = profile.to_model_config()
     if profile.base_model == "hybrid_resnet":
@@ -524,6 +530,66 @@ def build_model_from_profile(
             ),
             multiple=2 ** max(0, downsample_steps),
         )
+    if profile.base_model == "gnot_cns_net":
+        if task_metadata is None:
+            raise ModelBuildBlocker(
+                profile.profile_id,
+                "missing_task_metadata",
+                "GNOT CNS model requires task_metadata from the runner.",
+            )
+        try:
+            return GnotCnsModel(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                spatial_shape=spatial_shape,
+                task_metadata=task_metadata,
+                n_hidden=int(config.get("gnot_hidden", config.get("hidden_channels", 64))),
+                n_layers=int(config.get("gnot_layers", 3)),
+                n_head=int(config.get("gnot_heads", 1)),
+                n_experts=int(config.get("gnot_experts", 1)),
+                n_inner=int(config.get("gnot_inner_multiplier", 4)),
+                mlp_layers=int(config.get("gnot_mlp_layers", 3)),
+                attn_type=str(config.get("gnot_attn_type", "linear")),
+            )
+        except GnotAdapterBuildError as exc:
+            raise ModelBuildBlocker(
+                profile.profile_id,
+                exc.reason,
+                str(exc),
+            ) from exc
+    if profile.base_model == "author_ffno_cns_net":
+        if task_metadata is None:
+            raise ModelBuildBlocker(
+                profile.profile_id,
+                "missing_task_metadata",
+                "Author FFNO CNS model requires task_metadata from the runner.",
+            )
+        try:
+            return AuthorFfnoCnsModel(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                spatial_shape=spatial_shape,
+                task_metadata=task_metadata,
+                modes=int(config.get("author_ffno_modes", config.get("fno_modes", 16))),
+                width=int(config.get("author_ffno_width", config.get("hidden_channels", 64))),
+                n_layers=int(config.get("author_ffno_layers", config.get("fno_blocks", 24))),
+                share_weight=bool(config.get("author_ffno_share_weight", True)),
+                factor=int(config.get("author_ffno_factor", 4)),
+                ff_weight_norm=bool(config.get("author_ffno_ff_weight_norm", True)),
+                n_ff_layers=int(config.get("author_ffno_n_ff_layers", 2)),
+                gain=float(config.get("author_ffno_gain", 0.1)),
+                dropout=float(config.get("author_ffno_dropout", 0.0)),
+                in_dropout=float(config.get("author_ffno_in_dropout", 0.0)),
+                layer_norm=bool(config.get("author_ffno_layer_norm", False)),
+                use_position=bool(config.get("author_ffno_use_position", True)),
+                mode=str(config.get("author_ffno_mode", "full")),
+            )
+        except AuthorFfnoAdapterBuildError as exc:
+            raise ModelBuildBlocker(
+                profile.profile_id,
+                exc.reason,
+                str(exc),
+            ) from exc
     if profile.base_model == "unet_tiny":
         return PadCropWrapper(SmallUNet(in_channels, out_channels, int(config.get("hidden_channels", 16))), multiple=2)
     if profile.base_model == "unet_strong":
@@ -552,8 +618,23 @@ def count_parameters(model: nn.Module) -> int:
     return int(sum(param.numel() for param in model.parameters() if param.requires_grad))
 
 
+def _external_source_provenance(model: nn.Module) -> dict[str, Any] | None:
+    current = model
+    visited: set[int] = set()
+    while id(current) not in visited:
+        visited.add(id(current))
+        provenance = getattr(current, "external_source_provenance", None)
+        if isinstance(provenance, dict):
+            return provenance
+        next_model = getattr(current, "module", None)
+        if not isinstance(next_model, nn.Module):
+            break
+        current = next_model
+    return None
+
+
 def describe_model(model: nn.Module, *, profile: ModelProfile) -> dict[str, Any]:
-    return {
+    payload = {
         "schema_version": "pdebench_image128_model_profile_v1",
         "profile_id": profile.profile_id,
         "base_model": profile.base_model,
@@ -563,6 +644,10 @@ def describe_model(model: nn.Module, *, profile: ModelProfile) -> dict[str, Any]
         "strong_baseline": bool(profile.strong_baseline),
         "evidence_scope": profile.evidence_scope,
     }
+    provenance = _external_source_provenance(model)
+    if provenance is not None:
+        payload["external_source_provenance"] = provenance
+    return payload
 
 
 def assert_strong_baseline_profile(profile: ModelProfile) -> None:

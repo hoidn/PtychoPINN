@@ -4,6 +4,7 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+import torch
 
 
 def _write_tiny_darcy(path: Path, *, n: int = 12) -> Path:
@@ -250,6 +251,60 @@ def test_cfd_cns_readiness_runner_writes_history_window_artifacts(tmp_path):
     assert "fRMSE_high" in summary["profile_results"][0]
 
 
+def test_cfd_cns_readiness_runner_artifacts_history1_contract(tmp_path):
+    from scripts.studies.pdebench_image128.cfd_cns import run_cfd_cns
+    from scripts.studies.pdebench_image128.data import MultiFieldHistoryWindowDataset
+
+    data_root = tmp_path / "data"
+    data_file = _write_tiny_cfd_cns(
+        data_root / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+    )
+    output_root = tmp_path / "out"
+
+    exit_code = run_cfd_cns(
+        task_id="2d_cfd_cns",
+        mode="readiness",
+        data_root=data_root,
+        output_root=output_root,
+        profile_ids=["unet_tiny_smoke"],
+        history_len=1,
+        epochs=1,
+        batch_size=2,
+        max_train_trajectories=2,
+        max_val_trajectories=1,
+        max_test_trajectories=1,
+        max_windows_per_trajectory=1,
+        device="cpu",
+        num_workers=0,
+        allow_existing_output_root=True,
+        raw_argv=["--task", "2d_cfd_cns", "--mode", "readiness", "--history-len", "1"],
+    )
+
+    assert exit_code == 0
+    manifest = json.loads((output_root / "dataset_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["history_len"] == 1
+    assert manifest["sample_contract"] == "concat u[t-1:t] -> u[t]"
+
+    summary = json.loads((output_root / "comparison_summary.json").read_text(encoding="utf-8"))
+    assert summary["task_id"] == "2d_cfd_cns"
+    assert summary["history_len"] == 1
+    assert summary["evidence_scope"] == "smoke_feasibility_only"
+
+    dataset = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=("density", "Vx", "Vy", "pressure"),
+        trajectory_ids=[0],
+        axis_order="NTHW",
+        history_len=1,
+        max_windows_per_trajectory=1,
+    )
+    sample = dataset[0]
+    assert tuple(sample["input"].shape) == (4, 8, 8)
+    assert tuple(sample["target"].shape) == (4, 8, 8)
+    assert sample["input_time_indices"] == [0]
+    assert sample["target_time_index"] == 1
+
+
 def test_cfd_cns_readiness_runner_records_physics_regularization_metadata(tmp_path):
     from scripts.studies.pdebench_image128.cfd_cns import PhysicsRegularizationConfig, run_cfd_cns
 
@@ -294,6 +349,241 @@ def test_cfd_cns_readiness_runner_records_physics_regularization_metadata(tmp_pa
         "global_mass": 0.25,
     }
     assert "physics_last_epoch" in metrics
+
+
+def test_cfd_cns_passes_task_metadata_into_model_builder(tmp_path, monkeypatch):
+    from scripts.studies.pdebench_image128 import cfd_cns
+    from scripts.studies.pdebench_image128.data import (
+        MultiFieldHistoryWindowDataset,
+        inspect_cfd_cns_hdf5,
+    )
+    from scripts.studies.pdebench_image128.normalization import compute_multifield_dynamic_stats
+
+    data_file = _write_tiny_cfd_cns(
+        tmp_path / "data" / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+    )
+    metadata = inspect_cfd_cns_hdf5(data_file, history_len=2)
+    state_stats = compute_multifield_dynamic_stats(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        axis_order=metadata["field_axis_order"],
+        train_trajectory_ids=[0, 1],
+    )
+    train_dataset = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        trajectory_ids=[0, 1],
+        axis_order=metadata["field_axis_order"],
+        history_len=2,
+        normalization=state_stats,
+        max_windows_per_trajectory=1,
+    )
+    eval_dataset = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        trajectory_ids=[2],
+        axis_order=metadata["field_axis_order"],
+        history_len=2,
+        normalization=state_stats,
+        max_windows_per_trajectory=1,
+    )
+
+    class TinyRecorderModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.proj = torch.nn.Conv2d(8, 4, kernel_size=1)
+
+        def forward(self, x):
+            return self.proj(x)
+
+    seen: dict[str, object] = {}
+
+    def fake_build_model_from_profile(profile, *, in_channels, out_channels, spatial_shape, task_metadata=None):
+        seen["task_metadata"] = task_metadata
+        return TinyRecorderModel()
+
+    monkeypatch.setattr(cfd_cns, "build_model_from_profile", fake_build_model_from_profile)
+
+    result = cfd_cns._run_profile(
+        profile_id="unet_tiny_smoke",
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        state_stats=state_stats,
+        spatial_shape=(8, 8),
+        output_root=tmp_path / "out",
+        run_id="runner-metadata-test",
+        metadata=metadata,
+        epochs=1,
+        batch_size=1,
+        learning_rate=2e-4,
+        device_name="cpu",
+        num_workers=0,
+        physics_config=cfd_cns.PhysicsRegularizationConfig(),
+    )
+
+    assert result["status"] == "completed"
+    assert seen["task_metadata"] is not None
+    assert seen["task_metadata"]["task_id"] == "2d_cfd_cns"
+    assert seen["task_metadata"]["history_len"] == 2
+    assert seen["task_metadata"]["field_order"] == ["density", "Vx", "Vy", "pressure"]
+    assert seen["task_metadata"]["dx"] > 0.0
+    assert seen["task_metadata"]["dy"] > 0.0
+    assert seen["task_metadata"]["dt"] > 0.0
+
+
+def test_cfd_cns_gnot_profile_uses_paper_default_training_recipe(tmp_path, monkeypatch):
+    from scripts.studies.pdebench_image128 import cfd_cns
+    from scripts.studies.pdebench_image128.data import (
+        MultiFieldHistoryWindowDataset,
+        inspect_cfd_cns_hdf5,
+    )
+    from scripts.studies.pdebench_image128.normalization import compute_multifield_dynamic_stats
+
+    data_file = _write_tiny_cfd_cns(
+        tmp_path / "data" / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+    )
+    metadata = inspect_cfd_cns_hdf5(data_file, history_len=2)
+    state_stats = compute_multifield_dynamic_stats(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        axis_order=metadata["field_axis_order"],
+        train_trajectory_ids=[0, 1],
+    )
+    train_dataset = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        trajectory_ids=[0, 1],
+        axis_order=metadata["field_axis_order"],
+        history_len=2,
+        normalization=state_stats,
+        max_windows_per_trajectory=1,
+    )
+    eval_dataset = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        trajectory_ids=[2],
+        axis_order=metadata["field_axis_order"],
+        history_len=2,
+        normalization=state_stats,
+        max_windows_per_trajectory=1,
+    )
+
+    class TinyRecorderModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.proj = torch.nn.Conv2d(8, 4, kernel_size=1)
+
+        def forward(self, x):
+            return self.proj(x)
+
+    monkeypatch.setattr(
+        cfd_cns,
+        "build_model_from_profile",
+        lambda *args, **kwargs: TinyRecorderModel(),
+    )
+
+    result = cfd_cns._run_profile(
+        profile_id="gnot_cns_base",
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        state_stats=state_stats,
+        spatial_shape=(8, 8),
+        output_root=tmp_path / "out",
+        run_id="runner-gnot-training-recipe-test",
+        metadata=metadata,
+        epochs=1,
+        batch_size=1,
+        learning_rate=2e-4,
+        device_name="cpu",
+        num_workers=0,
+        physics_config=cfd_cns.PhysicsRegularizationConfig(),
+    )
+
+    assert result["status"] == "completed"
+    metrics = json.loads((tmp_path / "out" / "metrics_gnot_cns_base.json").read_text(encoding="utf-8"))
+    assert metrics["training_loss"] == "relative_l2"
+    assert metrics["optimizer"] == "AdamW"
+    assert metrics["scheduler"] == "OneCycleLR"
+    assert metrics["learning_rate"] == 1e-3
+    assert metrics["weight_decay"] == 5e-5
+    assert metrics["model_profile"]["profile_config"]["gnot_hidden"] == 128
+
+
+def test_cfd_cns_author_ffno_profile_uses_equal_footing_training_recipe(tmp_path, monkeypatch):
+    from scripts.studies.pdebench_image128 import cfd_cns
+    from scripts.studies.pdebench_image128.data import (
+        MultiFieldHistoryWindowDataset,
+        inspect_cfd_cns_hdf5,
+    )
+    from scripts.studies.pdebench_image128.normalization import compute_multifield_dynamic_stats
+
+    data_file = _write_tiny_cfd_cns(
+        tmp_path / "data" / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+    )
+    metadata = inspect_cfd_cns_hdf5(data_file, history_len=2)
+    state_stats = compute_multifield_dynamic_stats(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        axis_order=metadata["field_axis_order"],
+        train_trajectory_ids=[0, 1],
+    )
+    train_dataset = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        trajectory_ids=[0, 1],
+        axis_order=metadata["field_axis_order"],
+        history_len=2,
+        normalization=state_stats,
+        max_windows_per_trajectory=1,
+    )
+    eval_dataset = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        trajectory_ids=[2],
+        axis_order=metadata["field_axis_order"],
+        history_len=2,
+        normalization=state_stats,
+        max_windows_per_trajectory=1,
+    )
+
+    class TinyRecorderModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.proj = torch.nn.Conv2d(8, 4, kernel_size=1)
+
+        def forward(self, x):
+            return self.proj(x)
+
+    monkeypatch.setattr(
+        cfd_cns,
+        "build_model_from_profile",
+        lambda *args, **kwargs: TinyRecorderModel(),
+    )
+
+    result = cfd_cns._run_profile(
+        profile_id="author_ffno_cns_base",
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        state_stats=state_stats,
+        spatial_shape=(8, 8),
+        output_root=tmp_path / "out",
+        run_id="runner-author-ffno-training-recipe-test",
+        metadata=metadata,
+        epochs=1,
+        batch_size=1,
+        learning_rate=2e-4,
+        device_name="cpu",
+        num_workers=0,
+        physics_config=cfd_cns.PhysicsRegularizationConfig(),
+    )
+
+    assert result["status"] == "completed"
+    metrics = json.loads((tmp_path / "out" / "metrics_author_ffno_cns_base.json").read_text(encoding="utf-8"))
+    assert metrics["training_loss"] == "mse"
+    assert metrics["optimizer"] == "Adam"
+    assert metrics["scheduler"] == "ReduceLROnPlateau"
+    assert metrics["learning_rate"] == 2e-4
+    assert metrics["weight_decay"] == 0.0
 
 
 def test_darcy_relative_l2_training_loss_is_sample_mean():
