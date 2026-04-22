@@ -1,9 +1,12 @@
 ---
 priority: 14
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_author_ffno_equal_footing_plan.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-pdebench-author-ffno-equal-footing-cns/execution_plan.md
 check_commands:
   - pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py
   - python -m compileall -q scripts/studies/pdebench_image128
+prerequisites: []
+related_roadmap_phases:
+  - phase-2-pdebench-128x128-image-suite
 ---
 
 # Backlog Item: Add Author FFNO Equal-Footing CNS Compare
@@ -23,6 +26,9 @@ check_commands:
 ## Notes for Reviewer
 - This is for the actual author FFNO model, not the repo's FFNO-close
   bottleneck proxy.
+- This remains a real external baseline candidate for CNS, not just a deferred
+  follow-up. Choose its execution order relative to GNOT pragmatically based on
+  expected strength and setup/training cost on the same local CNS contract.
 - Keep the equal-footing contract fixed: same dataset slice, same `history_len`,
   same `mse` training loss, same epoch counts, same metric family.
 - If the imported author code cannot satisfy that fairness contract, require an
