@@ -1,0 +1,390 @@
+version: "2.7"
+name: "neurips-backlog-implementation-phase"
+
+context:
+  workflow_model: "gpt-5.4"
+  workflow_effort: "high"
+
+inputs:
+  state_root:
+    type: relpath
+    under: state
+  design_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  plan_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  check_commands_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+  execution_report_target_path:
+    type: relpath
+    under: artifacts/work
+  checks_report_target_path:
+    type: relpath
+    under: artifacts/checks
+  implementation_review_report_target_path:
+    type: relpath
+    under: artifacts/review
+
+outputs:
+  execution_report_path:
+    type: relpath
+    under: artifacts/work
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizeImplementationPhaseOutputs.artifacts.execution_report_path
+  checks_report_path:
+    type: relpath
+    under: artifacts/checks
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizeImplementationPhaseOutputs.artifacts.checks_report_path
+  implementation_review_report_path:
+    type: relpath
+    under: artifacts/review
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizeImplementationPhaseOutputs.artifacts.implementation_review_report_path
+  implementation_review_decision:
+    kind: scalar
+    type: enum
+    allowed: ["APPROVE", "REVISE"]
+    from:
+      ref: root.steps.FinalizeImplementationPhaseOutputs.artifacts.implementation_review_decision
+
+providers:
+  codex:
+    command: ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check", "--model", "${model}", "--config", "reasoning_effort=${effort}"]
+    input_mode: "stdin"
+    defaults:
+      model: "${context.workflow_model}"
+      effort: "${context.workflow_effort}"
+
+artifacts:
+  design:
+    pointer: ${inputs.state_root}/design_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  plan:
+    pointer: ${inputs.state_root}/plan_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  check_commands:
+    pointer: ${inputs.state_root}/check_commands_path.txt
+    type: relpath
+    under: state
+    must_exist_target: true
+  execution_report:
+    pointer: ${inputs.state_root}/execution_report_path.txt
+    type: relpath
+    under: artifacts/work
+    must_exist_target: true
+  checks_report:
+    pointer: ${inputs.state_root}/checks_report_path.txt
+    type: relpath
+    under: artifacts/checks
+    must_exist_target: true
+  implementation_review_report:
+    pointer: ${inputs.state_root}/implementation_review_report_path.txt
+    type: relpath
+    under: artifacts/review
+    must_exist_target: true
+  implementation_review_decision:
+    kind: scalar
+    type: enum
+    allowed: ["APPROVE", "REVISE"]
+  review_decision:
+    kind: scalar
+    type: enum
+    allowed: ["APPROVE", "REVISE"]
+
+steps:
+  - name: InitializeImplementationPhasePaths
+    id: initialize_implementation_phase_paths
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p "${inputs.state_root}" "$(dirname "${inputs.execution_report_target_path}")" "$(dirname "${inputs.checks_report_target_path}")" "$(dirname "${inputs.implementation_review_report_target_path}")"
+        printf '%s\n' "${inputs.execution_report_target_path}" > "${inputs.state_root}/execution_report_path.txt"
+        printf '%s\n' "${inputs.checks_report_target_path}" > "${inputs.state_root}/checks_report_path.txt"
+        printf '%s\n' "${inputs.implementation_review_report_target_path}" > "${inputs.state_root}/implementation_review_report_path.txt"
+    expected_outputs:
+      - name: execution_report_path
+        path: ${inputs.state_root}/execution_report_path.txt
+        type: relpath
+        under: artifacts/work
+      - name: checks_report_path
+        path: ${inputs.state_root}/checks_report_path.txt
+        type: relpath
+        under: artifacts/checks
+      - name: implementation_review_report_path
+        path: ${inputs.state_root}/implementation_review_report_path.txt
+        type: relpath
+        under: artifacts/review
+
+  - name: PublishPhaseInputs
+    id: publish_phase_inputs
+    command:
+      - bash
+      - -lc
+      - |
+        for path in "${inputs.design_path}" "${inputs.plan_path}" "${inputs.check_commands_path}"; do
+          if [ ! -f "$path" ]; then
+            echo "Missing required phase input: $path" >&2
+            exit 1
+          fi
+        done
+        printf '%s\n' "${inputs.design_path}" > "${inputs.state_root}/design_path.txt"
+        printf '%s\n' "${inputs.plan_path}" > "${inputs.state_root}/plan_path.txt"
+        printf '%s\n' "${inputs.check_commands_path}" > "${inputs.state_root}/check_commands_path.txt"
+    expected_outputs:
+      - name: design_path
+        path: ${inputs.state_root}/design_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: plan_path
+        path: ${inputs.state_root}/plan_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: check_commands_path
+        path: ${inputs.state_root}/check_commands_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+    publishes:
+      - artifact: design
+        from: design_path
+      - artifact: plan
+        from: plan_path
+      - artifact: check_commands
+        from: check_commands_path
+
+  - name: ExecuteImplementation
+    id: execute_implementation
+    provider: codex
+    asset_file: prompts/design_plan_impl_stack_v2_call/implement_plan.md
+    timeout_sec: 43200
+    consumes:
+      - artifact: design
+        policy: latest_successful
+        freshness: any
+      - artifact: plan
+        policy: latest_successful
+        freshness: any
+    prompt_consumes: ["design", "plan"]
+    expected_outputs:
+      - name: execution_report_path
+        path: ${inputs.state_root}/execution_report_path.txt
+        type: relpath
+        under: artifacts/work
+        must_exist_target: true
+    publishes:
+      - artifact: execution_report
+        from: execution_report_path
+
+  - name: ImplementationReviewLoop
+    id: implementation_review_loop
+    repeat_until:
+      id: implementation_review_iteration
+      max_iterations: 40
+      outputs:
+        review_decision:
+          kind: scalar
+          type: enum
+          allowed: ["APPROVE", "REVISE"]
+          from:
+            ref: self.steps.RouteImplementationDecision.artifacts.review_decision
+      condition:
+        compare:
+          left:
+            ref: self.outputs.review_decision
+          op: eq
+          right: APPROVE
+      steps:
+        - name: RunTargetedChecks
+          id: run_targeted_checks
+          command:
+            - python
+            - workflows/library/scripts/run_neurips_backlog_checks.py
+            - --checks-path
+            - ${inputs.check_commands_path}
+            - --report-path
+            - ${inputs.checks_report_target_path}
+          expected_outputs:
+            - name: checks_report_path
+              path: ${inputs.state_root}/checks_report_path.txt
+              type: relpath
+              under: artifacts/checks
+              must_exist_target: true
+          publishes:
+            - artifact: checks_report
+              from: checks_report_path
+
+        - name: ReviewImplementation
+          id: review_implementation
+          provider: codex
+          asset_file: prompts/neurips_backlog_implementation_phase/review_implementation.md
+          timeout_sec: 1800
+          consumes:
+            - artifact: design
+              policy: latest_successful
+              freshness: any
+            - artifact: plan
+              policy: latest_successful
+              freshness: any
+            - artifact: execution_report
+              policy: latest_successful
+              freshness: any
+            - artifact: checks_report
+              policy: latest_successful
+              freshness: since_last_consume
+          prompt_consumes: ["design", "plan", "execution_report", "checks_report"]
+          expected_outputs:
+            - name: implementation_review_report_path
+              path: ${inputs.state_root}/implementation_review_report_path.txt
+              type: relpath
+              under: artifacts/review
+              must_exist_target: true
+            - name: implementation_review_decision
+              path: ${inputs.state_root}/implementation_review_decision.txt
+              type: enum
+              allowed: ["APPROVE", "REVISE"]
+          publishes:
+            - artifact: implementation_review_report
+              from: implementation_review_report_path
+            - artifact: implementation_review_decision
+              from: implementation_review_decision
+
+        - name: RouteImplementationDecision
+          id: route_implementation_decision
+          match:
+            ref: self.steps.ReviewImplementation.artifacts.implementation_review_decision
+            cases:
+              APPROVE:
+                id: approve_implementation_path
+                outputs:
+                  review_decision:
+                    kind: scalar
+                    type: enum
+                    allowed: ["APPROVE", "REVISE"]
+                    from:
+                      ref: self.steps.WriteApprovedImplementationDecision.artifacts.review_decision
+                steps:
+                  - name: WriteApprovedImplementationDecision
+                    id: write_approved_implementation_decision
+                    set_scalar:
+                      artifact: review_decision
+                      value: APPROVE
+              REVISE:
+                id: revise_implementation_path
+                outputs:
+                  review_decision:
+                    kind: scalar
+                    type: enum
+                    allowed: ["APPROVE", "REVISE"]
+                    from:
+                      ref: self.steps.WriteRevisedImplementationDecision.artifacts.review_decision
+                steps:
+                  - name: FixImplementation
+                    id: fix_implementation
+                    provider: codex
+                    asset_file: prompts/neurips_backlog_implementation_phase/fix_implementation.md
+                    timeout_sec: 43200
+                    consumes:
+                      - artifact: design
+                        policy: latest_successful
+                        freshness: any
+                      - artifact: plan
+                        policy: latest_successful
+                        freshness: any
+                      - artifact: execution_report
+                        policy: latest_successful
+                        freshness: any
+                      - artifact: checks_report
+                        policy: latest_successful
+                        freshness: any
+                      - artifact: implementation_review_report
+                        policy: latest_successful
+                        freshness: since_last_consume
+                    prompt_consumes: ["design", "plan", "execution_report", "checks_report", "implementation_review_report"]
+                    expected_outputs:
+                      - name: execution_report_path
+                        path: ${inputs.state_root}/execution_report_path.txt
+                        type: relpath
+                        under: artifacts/work
+                        must_exist_target: true
+                    publishes:
+                      - artifact: execution_report
+                        from: execution_report_path
+                  - name: WriteRevisedImplementationDecision
+                    id: write_revised_implementation_decision
+                    set_scalar:
+                      artifact: review_decision
+                      value: REVISE
+
+  - name: FinalizeImplementationPhaseOutputs
+    id: finalize_implementation_phase_outputs
+    command:
+      - python
+      - -c
+      - |
+        import pathlib
+        import sys
+
+        state_root = pathlib.Path(sys.argv[1])
+
+        def read_pointer(name: str) -> str:
+            path = state_root / name
+            value = path.read_text(encoding="utf-8").strip()
+            if not value:
+                raise SystemExit(f"{name} is empty")
+            if not pathlib.Path(value).is_file():
+                raise SystemExit(f"Target for {name} does not exist: {value}")
+            return value
+
+        execution_report_path = read_pointer("execution_report_path.txt")
+        checks_report_path = read_pointer("checks_report_path.txt")
+        implementation_review_report_path = read_pointer("implementation_review_report_path.txt")
+
+        decision = (state_root / "implementation_review_decision.txt").read_text(encoding="utf-8").strip()
+        if decision not in {"APPROVE", "REVISE"}:
+            raise SystemExit(f"Unexpected implementation review decision: {decision}")
+
+        (state_root / "final_execution_report_path.txt").write_text(execution_report_path + "\n", encoding="utf-8")
+        (state_root / "final_checks_report_path.txt").write_text(checks_report_path + "\n", encoding="utf-8")
+        (state_root / "final_implementation_review_report_path.txt").write_text(
+            implementation_review_report_path + "\n",
+            encoding="utf-8",
+        )
+        (state_root / "final_implementation_review_decision.txt").write_text(decision + "\n", encoding="utf-8")
+      - ${inputs.state_root}
+    expected_outputs:
+      - name: execution_report_path
+        path: ${inputs.state_root}/final_execution_report_path.txt
+        type: relpath
+        under: artifacts/work
+        must_exist_target: true
+      - name: checks_report_path
+        path: ${inputs.state_root}/final_checks_report_path.txt
+        type: relpath
+        under: artifacts/checks
+        must_exist_target: true
+      - name: implementation_review_report_path
+        path: ${inputs.state_root}/final_implementation_review_report_path.txt
+        type: relpath
+        under: artifacts/review
+        must_exist_target: true
+      - name: implementation_review_decision
+        path: ${inputs.state_root}/final_implementation_review_decision.txt
+        type: enum
+        allowed: ["APPROVE", "REVISE"]

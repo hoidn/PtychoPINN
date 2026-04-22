@@ -1,0 +1,715 @@
+version: "2.7"
+name: "neurips-selected-backlog-item"
+
+imports:
+  roadmap_sync_phase: ./neurips_backlog_roadmap_sync_phase.yaml
+  plan_phase: ./neurips_backlog_seeded_plan_phase.yaml
+  implementation_phase: ./neurips_backlog_implementation_phase.yaml
+
+inputs:
+  state_root:
+    type: relpath
+    under: state
+  current_roadmap_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  current_roadmap_pointer_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+  selector_state_root:
+    type: relpath
+    under: state
+  manifest_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+  steering_path:
+    type: relpath
+    under: docs
+    must_exist_target: true
+  design_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  progress_ledger_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+  run_state_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+
+outputs:
+  drain_status:
+    kind: scalar
+    type: enum
+    allowed: ["CONTINUE", "BLOCKED"]
+    from:
+      ref: root.steps.FinalizeSelectedItemOutcome.artifacts.drain_status
+  item_summary_path:
+    type: relpath
+    under: artifacts/work
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizeSelectedItemOutcome.artifacts.item_summary_path
+
+steps:
+  - name: MaterializeSelectedItemInputs
+    id: materialize_selected_item_inputs
+    command:
+      - python
+      - workflows/library/scripts/materialize_neurips_selected_item_inputs.py
+      - --selection-path
+      - ${inputs.selector_state_root}/selection.json
+      - --manifest-path
+      - ${inputs.manifest_path}
+      - --state-root
+      - ${inputs.state_root}
+      - --output
+      - ${inputs.state_root}/selected-item-inputs.json
+    output_bundle:
+      path: ${inputs.state_root}/selected-item-inputs.json
+      fields:
+        - name: selection_mode
+          json_pointer: /selection_mode
+          type: enum
+          allowed: ["ACTIVE_SELECTION", "RECOVERED_IN_PROGRESS"]
+        - name: selected_item_active_path
+          json_pointer: /selected_item_active_path
+          type: relpath
+          under: docs/backlog/active
+          must_exist_target: true
+        - name: selected_item_in_progress_path
+          json_pointer: /selected_item_in_progress_path
+          type: relpath
+          under: docs/backlog/in_progress
+        - name: selected_item_context_path
+          json_pointer: /selected_item_context_path
+          type: relpath
+          under: state
+          must_exist_target: true
+        - name: check_commands_path
+          json_pointer: /check_commands_path
+          type: relpath
+          under: state
+          must_exist_target: true
+        - name: roadmap_sync_state_root
+          json_pointer: /roadmap_sync_state_root
+          type: relpath
+          under: state
+        - name: plan_phase_state_root
+          json_pointer: /plan_phase_state_root
+          type: relpath
+          under: state
+        - name: implementation_phase_state_root
+          json_pointer: /implementation_phase_state_root
+          type: relpath
+          under: state
+        - name: plan_target_path
+          json_pointer: /plan_target_path
+          type: relpath
+          under: docs/plans
+        - name: roadmap_sync_report_target_path
+          json_pointer: /roadmap_sync_report_target_path
+          type: relpath
+          under: artifacts/review
+        - name: plan_review_report_target_path
+          json_pointer: /plan_review_report_target_path
+          type: relpath
+          under: artifacts/review
+        - name: execution_report_target_path
+          json_pointer: /execution_report_target_path
+          type: relpath
+          under: artifacts/work
+        - name: checks_report_target_path
+          json_pointer: /checks_report_target_path
+          type: relpath
+          under: artifacts/checks
+        - name: implementation_review_report_target_path
+          json_pointer: /implementation_review_report_target_path
+          type: relpath
+          under: artifacts/review
+        - name: item_summary_target_path
+          json_pointer: /item_summary_target_path
+          type: relpath
+          under: artifacts/work
+        - name: outcome_bundle_path
+          json_pointer: /outcome_bundle_path
+          type: relpath
+          under: state
+
+  - name: MoveSelectedItemToInProgress
+    id: move_selected_item_to_in_progress
+    command:
+      - python
+      - workflows/library/scripts/move_neurips_backlog_item.py
+      - --item-path
+      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_active_path}
+      - --dest-state
+      - in_progress
+
+  - name: RecordCurrentSelection
+    id: record_current_selection
+    command:
+      - python
+      - -c
+      - |
+        import pathlib
+        import subprocess
+        import sys
+
+        item_path = pathlib.Path(sys.argv[1])
+        run_state_path = sys.argv[2]
+        current_roadmap_path = sys.argv[3]
+        item_id = item_path.stem
+        subprocess.run(
+            [
+                "python",
+                "workflows/library/scripts/update_neurips_backlog_run_state.py",
+                "--state-path",
+                run_state_path,
+                "select",
+                "--run-id",
+                "${run.id}",
+                "--item-id",
+                item_id,
+                "--item-path",
+                item_path.as_posix(),
+                "--roadmap-path",
+                current_roadmap_path,
+            ],
+            check=True,
+        )
+      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_in_progress_path}
+      - ${inputs.run_state_path}
+      - ${inputs.current_roadmap_path}
+
+  - name: RunRoadmapSyncPhase
+    id: run_roadmap_sync_phase
+    call: roadmap_sync_phase
+    with:
+      state_root:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.roadmap_sync_state_root
+      steering_path:
+        ref: inputs.steering_path
+      design_path:
+        ref: inputs.design_path
+      roadmap_path:
+        ref: inputs.current_roadmap_path
+      selected_item_context_path:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.selected_item_context_path
+      progress_ledger_path:
+        ref: inputs.progress_ledger_path
+      roadmap_sync_report_target_path:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.roadmap_sync_report_target_path
+    on:
+      failure:
+        goto: RecordRoadmapBlocked
+
+  - name: ApplyRoadmapSyncDecision
+    id: apply_roadmap_sync_decision
+    command:
+      - python
+      - -c
+      - |
+        import pathlib
+        import sys
+
+        current_pointer_path = pathlib.Path(sys.argv[1])
+        emitted_status = sys.argv[2]
+        emitted_path = sys.argv[3]
+        output_path = pathlib.Path(sys.argv[4])
+
+        if emitted_status == "BLOCKED":
+            raise SystemExit("Roadmap sync blocked the selected backlog item")
+        if emitted_status not in {"NO_CHANGE", "UPDATED"}:
+            raise SystemExit(f"Unexpected roadmap sync status: {emitted_status}")
+        target = pathlib.Path(emitted_path)
+        if not target.is_file():
+            raise SystemExit(f"Roadmap sync emitted missing roadmap path: {emitted_path}")
+
+        current_pointer_path.write_text(emitted_path + "\n", encoding="utf-8")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(emitted_path + "\n", encoding="utf-8")
+      - ${inputs.current_roadmap_pointer_path}
+      - ${steps.RunRoadmapSyncPhase.artifacts.roadmap_sync_status}
+      - ${steps.RunRoadmapSyncPhase.artifacts.roadmap_path}
+      - ${inputs.state_root}/updated_current_roadmap_path.txt
+    on:
+      failure:
+        goto: RecordRoadmapBlocked
+    expected_outputs:
+      - name: current_roadmap_path
+        path: ${inputs.state_root}/updated_current_roadmap_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+
+  - name: RunFreshPlanPhase
+    id: run_fresh_plan_phase
+    call: plan_phase
+    with:
+      state_root:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.plan_phase_state_root
+      steering_path:
+        ref: inputs.steering_path
+      design_path:
+        ref: inputs.design_path
+      roadmap_path:
+        ref: root.steps.ApplyRoadmapSyncDecision.artifacts.current_roadmap_path
+      selected_item_context_path:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.selected_item_context_path
+      progress_ledger_path:
+        ref: inputs.progress_ledger_path
+      plan_target_path:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.plan_target_path
+      plan_review_report_target_path:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.plan_review_report_target_path
+    on:
+      failure:
+        goto: RecordPlanBlocked
+
+  - name: AssertPlanApproved
+    id: assert_plan_approved
+    command:
+      - python
+      - -c
+      - |
+        import sys
+
+        decision = sys.argv[1].strip()
+        if decision != "APPROVE":
+            raise SystemExit(f"Plan phase did not approve: {decision}")
+      - ${steps.RunFreshPlanPhase.artifacts.plan_review_decision}
+    on:
+      failure:
+        goto: RecordPlanBlocked
+
+  - name: RewriteSelectedItemPlanPath
+    id: rewrite_selected_item_plan_path
+    command:
+      - python
+      - -c
+      - |
+        import pathlib
+        import sys
+
+        item_path = pathlib.Path(sys.argv[1])
+        new_plan_path = sys.argv[2]
+        if not item_path.is_file():
+            raise SystemExit(f"Missing backlog item to rewrite: {item_path}")
+        text = item_path.read_text(encoding="utf-8")
+        if not text.startswith("---\n"):
+            raise SystemExit(f"Missing frontmatter in {item_path}")
+        end = text.find("\n---\n", 4)
+        if end == -1:
+            raise SystemExit(f"Missing frontmatter end fence in {item_path}")
+        header = text[4:end].splitlines()
+        body = text[end + len("\n---\n") :]
+        updated = []
+        replaced = False
+        for line in header:
+            if line.startswith("plan_path:"):
+                updated.append(f"plan_path: {new_plan_path}")
+                replaced = True
+            else:
+                updated.append(line)
+        if not replaced:
+            raise SystemExit(f"plan_path missing in {item_path}")
+        item_path.write_text("---\n" + "\n".join(updated) + "\n---\n" + body, encoding="utf-8")
+      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_in_progress_path}
+      - ${steps.RunFreshPlanPhase.artifacts.plan_path}
+
+  - name: RunImplementationPhase
+    id: run_implementation_phase
+    call: implementation_phase
+    with:
+      state_root:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.implementation_phase_state_root
+      design_path:
+        ref: inputs.design_path
+      plan_path:
+        ref: root.steps.RunFreshPlanPhase.artifacts.plan_path
+      check_commands_path:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.check_commands_path
+      execution_report_target_path:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.execution_report_target_path
+      checks_report_target_path:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.checks_report_target_path
+      implementation_review_report_target_path:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.implementation_review_report_target_path
+    on:
+      failure:
+        goto: RecordImplementationBlocked
+
+  - name: AssertImplementationApproved
+    id: assert_implementation_approved
+    command:
+      - python
+      - -c
+      - |
+        import sys
+
+        decision = sys.argv[1].strip()
+        if decision != "APPROVE":
+            raise SystemExit(f"Implementation phase did not approve: {decision}")
+      - ${steps.RunImplementationPhase.artifacts.implementation_review_decision}
+    on:
+      failure:
+        goto: RecordImplementationBlocked
+
+  - name: RecordCompletedItem
+    id: record_completed_item
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import subprocess
+        import sys
+
+        in_progress_item = pathlib.Path(sys.argv[1])
+        plan_root = pathlib.Path(sys.argv[2])
+        impl_root = pathlib.Path(sys.argv[3])
+        item_summary_target = pathlib.Path(sys.argv[4])
+        outcome_bundle_path = pathlib.Path(sys.argv[5])
+        run_state_path = sys.argv[6]
+        current_roadmap_path = sys.argv[7]
+        item_id = in_progress_item.stem
+
+        def read_pointer(path: pathlib.Path) -> str:
+            value = path.read_text(encoding="utf-8").strip()
+            if not value:
+                raise SystemExit(f"Pointer file is empty: {path}")
+            if not pathlib.Path(value).is_file():
+                raise SystemExit(f"Pointer target does not exist: {value}")
+            return value
+
+        plan_path = read_pointer(plan_root / "final_plan_path.txt")
+        execution_report_path = read_pointer(impl_root / "final_execution_report_path.txt")
+        checks_report_path = read_pointer(impl_root / "final_checks_report_path.txt")
+        review_report_path = read_pointer(impl_root / "final_implementation_review_report_path.txt")
+
+        done_path = pathlib.Path("docs/backlog/done") / in_progress_item.name
+        subprocess.run(
+            [
+                "python",
+                "workflows/library/scripts/move_neurips_backlog_item.py",
+                "--item-path",
+                in_progress_item.as_posix(),
+                "--dest-state",
+                "done",
+            ],
+            check=True,
+        )
+        subprocess.run(
+            [
+                "python",
+                "workflows/library/scripts/update_neurips_backlog_run_state.py",
+                "--state-path",
+                run_state_path,
+                "complete",
+                "--item-id",
+                item_id,
+                "--item-path",
+                done_path.as_posix(),
+                "--plan-path",
+                plan_path,
+                "--execution-report-path",
+                execution_report_path,
+                "--roadmap-path",
+                current_roadmap_path,
+            ],
+            check=True,
+        )
+
+        item_summary_target.parent.mkdir(parents=True, exist_ok=True)
+        item_summary = {
+            "item_id": item_id,
+            "item_outcome": "APPROVED",
+            "item_path": done_path.as_posix(),
+            "plan_path": plan_path,
+            "execution_report_path": execution_report_path,
+            "checks_report_path": checks_report_path,
+            "implementation_review_report_path": review_report_path,
+            "roadmap_path": current_roadmap_path,
+        }
+        item_summary_target.write_text(json.dumps(item_summary, indent=2) + "\n", encoding="utf-8")
+
+        outcome_bundle_path.parent.mkdir(parents=True, exist_ok=True)
+        outcome_bundle_path.write_text(
+            json.dumps(
+                {
+                    "drain_status": "CONTINUE",
+                    "item_summary_path": item_summary_target.as_posix(),
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_in_progress_path}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.plan_phase_state_root}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.implementation_phase_state_root}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.item_summary_target_path}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.outcome_bundle_path}
+      - ${inputs.run_state_path}
+      - ${steps.ApplyRoadmapSyncDecision.artifacts.current_roadmap_path}
+    on:
+      success:
+        goto: FinalizeSelectedItemOutcome
+
+  - name: RecordRoadmapBlocked
+    id: record_roadmap_blocked
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import subprocess
+        import sys
+
+        item_path, summary_path, outcome_path, run_state_path, current_roadmap_path = sys.argv[1:6]
+        item_id = pathlib.Path(item_path).stem
+        subprocess.run(
+            [
+                "python",
+                "workflows/library/scripts/update_neurips_backlog_run_state.py",
+                "--state-path",
+                run_state_path,
+                "block",
+                "--item-id",
+                item_id,
+                "--item-path",
+                item_path,
+                "--stage",
+                "roadmap_sync",
+                "--reason",
+                "Roadmap sync blocked the selected backlog item.",
+                "--roadmap-path",
+                current_roadmap_path,
+            ],
+            check=True,
+        )
+        summary_target = pathlib.Path(summary_path)
+        summary_target.parent.mkdir(parents=True, exist_ok=True)
+        summary_target.write_text(
+            json.dumps(
+                {
+                    "item_id": item_id,
+                    "item_outcome": "BLOCKED",
+                    "failed_stage": "roadmap_sync",
+                    "item_path": item_path,
+                    "roadmap_path": current_roadmap_path,
+                    "reason": "Roadmap sync blocked the selected backlog item.",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        pathlib.Path(outcome_path).write_text(
+            json.dumps(
+                {
+                    "drain_status": "BLOCKED",
+                    "item_summary_path": summary_target.as_posix(),
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_in_progress_path}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.item_summary_target_path}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.outcome_bundle_path}
+      - ${inputs.run_state_path}
+      - ${inputs.current_roadmap_path}
+    on:
+      success:
+        goto: FinalizeSelectedItemOutcome
+
+  - name: RecordPlanBlocked
+    id: record_plan_blocked
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import subprocess
+        import sys
+
+        item_path, plan_root, summary_path, outcome_path, run_state_path, current_roadmap_path = sys.argv[1:7]
+        item_id = pathlib.Path(item_path).stem
+        plan_root_path = pathlib.Path(plan_root)
+        report_path = plan_root_path / "final_plan_review_report_path.txt"
+        plan_path = plan_root_path / "final_plan_path.txt"
+        blocked_summary = {
+            "item_id": item_id,
+            "item_outcome": "BLOCKED",
+            "failed_stage": "plan_phase",
+            "item_path": item_path,
+            "plan_path": plan_path.read_text(encoding="utf-8").strip() if plan_path.is_file() else None,
+            "plan_review_report_path": report_path.read_text(encoding="utf-8").strip() if report_path.is_file() else None,
+            "roadmap_path": current_roadmap_path,
+            "reason": "Fresh plan phase failed or did not approve.",
+        }
+        subprocess.run(
+            [
+                "python",
+                "workflows/library/scripts/update_neurips_backlog_run_state.py",
+                "--state-path",
+                run_state_path,
+                "block",
+                "--item-id",
+                item_id,
+                "--item-path",
+                item_path,
+                "--stage",
+                "plan_phase",
+                "--reason",
+                "Fresh plan phase failed or did not approve.",
+                *(["--plan-path", blocked_summary["plan_path"]] if blocked_summary["plan_path"] else []),
+                "--roadmap-path",
+                current_roadmap_path,
+            ],
+            check=True,
+        )
+        summary_target = pathlib.Path(summary_path)
+        summary_target.parent.mkdir(parents=True, exist_ok=True)
+        summary_target.write_text(json.dumps(blocked_summary, indent=2) + "\n", encoding="utf-8")
+        pathlib.Path(outcome_path).write_text(
+            json.dumps(
+                {
+                    "drain_status": "BLOCKED",
+                    "item_summary_path": summary_target.as_posix(),
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_in_progress_path}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.plan_phase_state_root}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.item_summary_target_path}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.outcome_bundle_path}
+      - ${inputs.run_state_path}
+      - ${steps.ApplyRoadmapSyncDecision.artifacts.current_roadmap_path}
+    on:
+      success:
+        goto: FinalizeSelectedItemOutcome
+
+  - name: RecordImplementationBlocked
+    id: record_implementation_blocked
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import subprocess
+        import sys
+
+        item_path, impl_root, summary_path, outcome_path, run_state_path, current_roadmap_path = sys.argv[1:7]
+        item_id = pathlib.Path(item_path).stem
+        impl_root_path = pathlib.Path(impl_root)
+        report_path = impl_root_path / "final_implementation_review_report_path.txt"
+        execution_report_path = impl_root_path / "final_execution_report_path.txt"
+        checks_report_path = impl_root_path / "final_checks_report_path.txt"
+        blocked_summary = {
+            "item_id": item_id,
+            "item_outcome": "BLOCKED",
+            "failed_stage": "implementation_phase",
+            "item_path": item_path,
+            "execution_report_path": execution_report_path.read_text(encoding="utf-8").strip() if execution_report_path.is_file() else None,
+            "checks_report_path": checks_report_path.read_text(encoding="utf-8").strip() if checks_report_path.is_file() else None,
+            "implementation_review_report_path": report_path.read_text(encoding="utf-8").strip() if report_path.is_file() else None,
+            "roadmap_path": current_roadmap_path,
+            "reason": "Implementation phase failed or did not approve.",
+        }
+        subprocess.run(
+            [
+                "python",
+                "workflows/library/scripts/update_neurips_backlog_run_state.py",
+                "--state-path",
+                run_state_path,
+                "block",
+                "--item-id",
+                item_id,
+                "--item-path",
+                item_path,
+                "--stage",
+                "implementation_phase",
+                "--reason",
+                "Implementation phase failed or did not approve.",
+                "--roadmap-path",
+                current_roadmap_path,
+            ],
+            check=True,
+        )
+        summary_target = pathlib.Path(summary_path)
+        summary_target.parent.mkdir(parents=True, exist_ok=True)
+        summary_target.write_text(json.dumps(blocked_summary, indent=2) + "\n", encoding="utf-8")
+        pathlib.Path(outcome_path).write_text(
+            json.dumps(
+                {
+                    "drain_status": "BLOCKED",
+                    "item_summary_path": summary_target.as_posix(),
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_in_progress_path}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.implementation_phase_state_root}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.item_summary_target_path}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.outcome_bundle_path}
+      - ${inputs.run_state_path}
+      - ${steps.ApplyRoadmapSyncDecision.artifacts.current_roadmap_path}
+    on:
+      success:
+        goto: FinalizeSelectedItemOutcome
+
+  - name: FinalizeSelectedItemOutcome
+    id: finalize_selected_item_outcome
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import sys
+
+        bundle_path = pathlib.Path(sys.argv[1])
+        payload = json.loads(bundle_path.read_text(encoding="utf-8"))
+        status = payload.get("drain_status")
+        if status not in {"CONTINUE", "BLOCKED"}:
+            raise SystemExit(f"Invalid selected-item drain status: {status}")
+        item_summary_path = payload.get("item_summary_path")
+        if not isinstance(item_summary_path, str) or not pathlib.Path(item_summary_path).is_file():
+            raise SystemExit(f"Missing item summary path: {item_summary_path}")
+        status_output = pathlib.Path(sys.argv[2])
+        summary_output = pathlib.Path(sys.argv[3])
+        status_output.parent.mkdir(parents=True, exist_ok=True)
+        summary_output.parent.mkdir(parents=True, exist_ok=True)
+        status_output.write_text(status + "\n", encoding="utf-8")
+        summary_output.write_text(item_summary_path + "\n", encoding="utf-8")
+      - ${steps.MaterializeSelectedItemInputs.artifacts.outcome_bundle_path}
+      - ${inputs.state_root}/final_selected_item_status.txt
+      - ${inputs.state_root}/final_item_summary_path.txt
+    expected_outputs:
+      - name: drain_status
+        path: ${inputs.state_root}/final_selected_item_status.txt
+        type: enum
+        allowed: ["CONTINUE", "BLOCKED"]
+      - name: item_summary_path
+        path: ${inputs.state_root}/final_item_summary_path.txt
+        type: relpath
+        under: artifacts/work
+        must_exist_target: true

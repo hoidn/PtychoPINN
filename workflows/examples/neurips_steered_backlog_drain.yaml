@@ -1,0 +1,407 @@
+version: "2.7"
+name: "neurips-steered-backlog-drain"
+
+imports:
+  selector: ../library/neurips_backlog_selector.yaml
+  selected_item: ../library/neurips_selected_backlog_item.yaml
+
+context:
+  workflow_model: "gpt-5.4"
+  workflow_effort: "high"
+
+inputs:
+  steering_path:
+    type: relpath
+    under: docs
+    must_exist_target: true
+    default: docs/steering.md
+  design_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+    default: docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md
+  roadmap_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+    default: docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md
+  backlog_root:
+    type: relpath
+    under: docs/backlog
+    default: docs/backlog/active
+  progress_ledger_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+    default: state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json
+  drain_state_root:
+    type: relpath
+    under: state
+    default: state/NEURIPS-HYBRID-RESNET-2026/backlog_drain
+  run_state_target_path:
+    type: relpath
+    under: state
+    default: state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/run_state.json
+  drain_summary_target_path:
+    type: relpath
+    under: artifacts/work
+    default: artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog-drain-summary.json
+
+outputs:
+  drain_status:
+    kind: scalar
+    type: enum
+    allowed: ["CONTINUE", "DONE", "BLOCKED"]
+    from:
+      ref: root.steps.DrainBacklogItems.artifacts.drain_status
+  run_state_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+    from:
+      ref: root.steps.PublishDrainSummary.artifacts.run_state_path
+  drain_summary_path:
+    type: relpath
+    under: artifacts/work
+    must_exist_target: true
+    from:
+      ref: root.steps.PublishDrainSummary.artifacts.drain_summary_path
+
+artifacts:
+  steering:
+    pointer: ${inputs.drain_state_root}/steering_path.txt
+    type: relpath
+    under: docs
+    must_exist_target: true
+  design:
+    pointer: ${inputs.drain_state_root}/design_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  roadmap:
+    pointer: ${inputs.drain_state_root}/current_roadmap_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  progress_ledger:
+    pointer: ${inputs.drain_state_root}/progress_ledger_path.txt
+    type: relpath
+    under: state
+    must_exist_target: true
+  run_state:
+    pointer: ${inputs.drain_state_root}/run_state_path.txt
+    type: relpath
+    under: state
+    must_exist_target: true
+  drain_status:
+    kind: scalar
+    type: enum
+    allowed: ["CONTINUE", "DONE", "BLOCKED"]
+
+steps:
+  - name: InitializeBacklogDrain
+    id: initialize_backlog_drain
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p "${inputs.drain_state_root}" "$(dirname "${inputs.run_state_target_path}")"
+        printf '%s\n' "${inputs.steering_path}" > "${inputs.drain_state_root}/steering_path.txt"
+        printf '%s\n' "${inputs.design_path}" > "${inputs.drain_state_root}/design_path.txt"
+        printf '%s\n' "${inputs.roadmap_path}" > "${inputs.drain_state_root}/current_roadmap_path.txt"
+        printf '%s\n' "${inputs.progress_ledger_path}" > "${inputs.drain_state_root}/progress_ledger_path.txt"
+        printf '%s\n' "${inputs.run_state_target_path}" > "${inputs.drain_state_root}/run_state_path.txt"
+        python workflows/library/scripts/update_neurips_backlog_run_state.py \
+          --state-path "${inputs.run_state_target_path}" \
+          init \
+          --run-id "${run.id}" \
+          --roadmap-path "${inputs.roadmap_path}"
+    expected_outputs:
+      - name: steering_path
+        path: ${inputs.drain_state_root}/steering_path.txt
+        type: relpath
+        under: docs
+        must_exist_target: true
+      - name: design_path
+        path: ${inputs.drain_state_root}/design_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: current_roadmap_path
+        path: ${inputs.drain_state_root}/current_roadmap_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: progress_ledger_path
+        path: ${inputs.drain_state_root}/progress_ledger_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+      - name: run_state_path
+        path: ${inputs.drain_state_root}/run_state_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+    publishes:
+      - artifact: steering
+        from: steering_path
+      - artifact: design
+        from: design_path
+      - artifact: roadmap
+        from: current_roadmap_path
+      - artifact: progress_ledger
+        from: progress_ledger_path
+      - artifact: run_state
+        from: run_state_path
+
+  - name: DrainBacklogItems
+    id: drain_backlog_items
+    repeat_until:
+      id: drain_backlog_iteration
+      max_iterations: 24
+      outputs:
+        drain_status:
+          kind: scalar
+          type: enum
+          allowed: ["CONTINUE", "DONE", "BLOCKED"]
+          from:
+            ref: self.steps.RouteItemSelection.artifacts.drain_status
+      condition:
+        any_of:
+          - compare:
+              left:
+                ref: self.outputs.drain_status
+              op: eq
+              right: DONE
+          - compare:
+              left:
+                ref: self.outputs.drain_status
+              op: eq
+              right: BLOCKED
+      steps:
+        - name: BuildBacklogManifest
+          id: build_backlog_manifest
+          command:
+            - bash
+            - -lc
+            - |
+              manifest_path="${inputs.drain_state_root}/iterations/${loop.index}/manifest.json"
+              python workflows/library/scripts/build_neurips_backlog_manifest.py \
+                --backlog-root "${inputs.backlog_root}" \
+                --output "$manifest_path"
+              printf '%s\n' "$manifest_path" > "${inputs.drain_state_root}/iterations/${loop.index}/manifest_path.txt"
+          expected_outputs:
+            - name: manifest_path
+              path: ${inputs.drain_state_root}/iterations/${loop.index}/manifest_path.txt
+              type: relpath
+              under: state
+              must_exist_target: true
+
+        - name: ReadCurrentRoadmapPointer
+          id: read_current_roadmap_pointer
+          command:
+            - python
+            - -c
+            - |
+              import pathlib
+              import sys
+
+              pointer_path = pathlib.Path(sys.argv[1])
+              output_path = pathlib.Path(sys.argv[2])
+              current_path = pointer_path.read_text(encoding="utf-8").strip()
+              if not current_path:
+                  raise SystemExit(f"Current roadmap pointer is empty: {pointer_path}")
+              target = pathlib.Path(current_path)
+              if not target.is_file():
+                  raise SystemExit(f"Current roadmap path does not exist: {current_path}")
+              output_path.parent.mkdir(parents=True, exist_ok=True)
+              output_path.write_text(current_path + "\n", encoding="utf-8")
+            - ${inputs.drain_state_root}/current_roadmap_path.txt
+            - ${inputs.drain_state_root}/iterations/${loop.index}/current_roadmap_path.txt
+          expected_outputs:
+            - name: current_roadmap_path
+              path: ${inputs.drain_state_root}/iterations/${loop.index}/current_roadmap_path.txt
+              type: relpath
+              under: docs/plans
+              must_exist_target: true
+
+        - name: PrepareSelectorInputs
+          id: prepare_selector_inputs
+          command:
+            - bash
+            - -lc
+            - |
+              mkdir -p "${inputs.drain_state_root}/iterations/${loop.index}/selector"
+              printf '{"selector_state_root":"%s"}\n' \
+                "${inputs.drain_state_root}/iterations/${loop.index}/selector" \
+                > "${inputs.drain_state_root}/iterations/${loop.index}/selector-inputs.json"
+          output_bundle:
+            path: ${inputs.drain_state_root}/iterations/${loop.index}/selector-inputs.json
+            fields:
+              - name: selector_state_root
+                json_pointer: /selector_state_root
+                type: relpath
+                under: state
+
+        - name: SelectNextItem
+          id: select_next_item
+          call: selector
+          with:
+            state_root:
+              ref: self.steps.PrepareSelectorInputs.artifacts.selector_state_root
+            steering_path:
+              ref: root.steps.InitializeBacklogDrain.artifacts.steering_path
+            design_path:
+              ref: root.steps.InitializeBacklogDrain.artifacts.design_path
+            roadmap_path:
+              ref: self.steps.ReadCurrentRoadmapPointer.artifacts.current_roadmap_path
+            manifest_path:
+              ref: self.steps.BuildBacklogManifest.artifacts.manifest_path
+            progress_ledger_path:
+              ref: root.steps.InitializeBacklogDrain.artifacts.progress_ledger_path
+            run_state_path:
+              ref: root.steps.InitializeBacklogDrain.artifacts.run_state_path
+
+        - name: PrepareSelectedItemCallInputs
+          id: prepare_selected_item_call_inputs
+          command:
+            - bash
+            - -lc
+            - |
+              mkdir -p "${inputs.drain_state_root}/iterations/${loop.index}"
+              printf '{"state_root":"%s","current_roadmap_pointer_path":"%s"}\n' \
+                "${inputs.drain_state_root}/iterations/${loop.index}" \
+                "${inputs.drain_state_root}/current_roadmap_path.txt" \
+                > "${inputs.drain_state_root}/iterations/${loop.index}/selected-item-call-inputs.json"
+          output_bundle:
+            path: ${inputs.drain_state_root}/iterations/${loop.index}/selected-item-call-inputs.json
+            fields:
+              - name: state_root
+                json_pointer: /state_root
+                type: relpath
+                under: state
+              - name: current_roadmap_pointer_path
+                json_pointer: /current_roadmap_pointer_path
+                type: relpath
+                under: state
+                must_exist_target: true
+
+        - name: RouteItemSelection
+          id: route_item_selection
+          match:
+            ref: self.steps.SelectNextItem.artifacts.selection_status
+            cases:
+              SELECTED:
+                id: selected_item_path
+                outputs:
+                  drain_status:
+                    kind: scalar
+                    type: enum
+                    allowed: ["CONTINUE", "DONE", "BLOCKED"]
+                    from:
+                      ref: self.steps.RunSelectedItem.artifacts.drain_status
+                steps:
+                  - name: RunSelectedItem
+                    id: run_selected_item
+                    call: selected_item
+                    with:
+                      state_root:
+                        ref: parent.steps.PrepareSelectedItemCallInputs.artifacts.state_root
+                      current_roadmap_path:
+                        ref: parent.steps.ReadCurrentRoadmapPointer.artifacts.current_roadmap_path
+                      current_roadmap_pointer_path:
+                        ref: parent.steps.PrepareSelectedItemCallInputs.artifacts.current_roadmap_pointer_path
+                      selector_state_root:
+                        ref: parent.steps.PrepareSelectorInputs.artifacts.selector_state_root
+                      manifest_path:
+                        ref: parent.steps.BuildBacklogManifest.artifacts.manifest_path
+                      steering_path:
+                        ref: root.steps.InitializeBacklogDrain.artifacts.steering_path
+                      design_path:
+                        ref: root.steps.InitializeBacklogDrain.artifacts.design_path
+                      progress_ledger_path:
+                        ref: root.steps.InitializeBacklogDrain.artifacts.progress_ledger_path
+                      run_state_path:
+                        ref: root.steps.InitializeBacklogDrain.artifacts.run_state_path
+
+              DONE:
+                id: done_path
+                outputs:
+                  drain_status:
+                    kind: scalar
+                    type: enum
+                    allowed: ["CONTINUE", "DONE", "BLOCKED"]
+                    from:
+                      ref: self.steps.WriteDrainDone.artifacts.drain_status
+                steps:
+                  - name: WriteDrainDone
+                    id: write_drain_done
+                    set_scalar:
+                      artifact: drain_status
+                      value: DONE
+
+              BLOCKED:
+                id: blocked_path
+                outputs:
+                  drain_status:
+                    kind: scalar
+                    type: enum
+                    allowed: ["CONTINUE", "DONE", "BLOCKED"]
+                    from:
+                      ref: self.steps.WriteDrainBlocked.artifacts.drain_status
+                steps:
+                  - name: WriteDrainBlocked
+                    id: write_drain_blocked
+                    set_scalar:
+                      artifact: drain_status
+                      value: BLOCKED
+
+  - name: PublishDrainSummary
+    id: publish_drain_summary
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import sys
+
+        run_state_path = pathlib.Path(sys.argv[1])
+        drain_status = sys.argv[2]
+        summary_path = pathlib.Path(sys.argv[3])
+        state_root = pathlib.Path(sys.argv[4])
+        current_roadmap_pointer_path = pathlib.Path(sys.argv[5])
+
+        run_state = json.loads(run_state_path.read_text(encoding="utf-8"))
+        current_roadmap_path = current_roadmap_pointer_path.read_text(encoding="utf-8").strip()
+        summary = {
+          "drain_status": drain_status,
+          "run_state_path": run_state_path.as_posix(),
+          "current_roadmap_path": current_roadmap_path,
+          "completed_item_count": len(run_state.get("completed_items", [])),
+          "completed_items": run_state.get("completed_items", []),
+          "blocked_item_ids": sorted(run_state.get("blocked_items", {}).keys()),
+          "blocked_items": run_state.get("blocked_items", {}),
+          "current_item": run_state.get("current_item"),
+          "history_count": len(run_state.get("history", [])),
+        }
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+        (state_root / "drain_summary_path.txt").write_text(summary_path.as_posix() + "\n", encoding="utf-8")
+        (state_root / "final_run_state_path.txt").write_text(run_state_path.as_posix() + "\n", encoding="utf-8")
+      - ${inputs.run_state_target_path}
+      - ${steps.DrainBacklogItems.artifacts.drain_status}
+      - ${inputs.drain_summary_target_path}
+      - ${inputs.drain_state_root}
+      - ${inputs.drain_state_root}/current_roadmap_path.txt
+    expected_outputs:
+      - name: drain_summary_path
+        path: ${inputs.drain_state_root}/drain_summary_path.txt
+        type: relpath
+        under: artifacts/work
+        must_exist_target: true
+      - name: run_state_path
+        path: ${inputs.drain_state_root}/final_run_state_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true

@@ -1,0 +1,333 @@
+import json
+import shutil
+from dataclasses import is_dataclass
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from orchestrator.loader import WorkflowLoader
+from orchestrator.providers.executor import ProviderExecutor
+from orchestrator.state import StateManager
+from orchestrator.workflow.executor import WorkflowExecutor
+from orchestrator.workflow.loaded_bundle import workflow_context, workflow_input_contracts
+from orchestrator.workflow.signatures import bind_workflow_inputs
+
+
+ROOT = Path(__file__).resolve().parents[2]
+FIXTURE_ROOT = ROOT / "tests/fixtures/neurips_steered_backlog"
+
+
+def _thaw(value):
+    if isinstance(value, dict):
+        return {str(key): _thaw(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_thaw(item) for item in value]
+    if isinstance(value, list):
+        return [_thaw(item) for item in value]
+    if hasattr(value, "items"):
+        return {str(key): _thaw(item) for key, item in value.items()}
+    if is_dataclass(value):
+        return {str(key): _thaw(item) for key, item in vars(value).items()}
+    return value
+
+
+def _bundle_context_dict(bundle) -> dict:
+    return _thaw(workflow_context(bundle))
+
+
+def _copy_repo_file_to_workspace(workspace: Path, repo_relpath: str) -> None:
+    src = ROOT / repo_relpath
+    dest = workspace / repo_relpath
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+
+
+def _copy_runtime_files(workspace: Path) -> Path:
+    shutil.copytree(FIXTURE_ROOT, workspace, dirs_exist_ok=True)
+    files = [
+        "workflows/examples/neurips_steered_backlog_drain.yaml",
+        "workflows/library/neurips_backlog_selector.yaml",
+        "workflows/library/neurips_backlog_roadmap_sync_phase.yaml",
+        "workflows/library/neurips_backlog_seeded_plan_phase.yaml",
+        "workflows/library/neurips_backlog_implementation_phase.yaml",
+        "workflows/library/neurips_selected_backlog_item.yaml",
+        "workflows/library/scripts/build_neurips_backlog_manifest.py",
+        "workflows/library/scripts/materialize_neurips_selected_item_inputs.py",
+        "workflows/library/scripts/move_neurips_backlog_item.py",
+        "workflows/library/scripts/run_neurips_backlog_checks.py",
+        "workflows/library/scripts/update_neurips_backlog_run_state.py",
+    ]
+    files.extend(
+        path.relative_to(ROOT).as_posix()
+        for path in (ROOT / "workflows/library/prompts").rglob("*.md")
+    )
+    for relpath in sorted(set(files)):
+        _copy_repo_file_to_workspace(workspace, relpath)
+    return workspace / "workflows/examples/neurips_steered_backlog_drain.yaml"
+
+
+def _target_from_pointer(workspace: Path, pointer_relpath: str) -> Path:
+    target_relpath = (workspace / pointer_relpath).read_text(encoding="utf-8").strip()
+    target = workspace / target_relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    return target
+
+
+def _next_missing_selector_dir(workspace: Path) -> Path:
+    for selector_dir in sorted(workspace.glob("state/**/selector")):
+        if not (selector_dir / "selection.json").exists():
+            return selector_dir
+    raise AssertionError("No pending selector directory found")
+
+
+def _write_first_selector(workspace: Path) -> None:
+    selector_dir = _next_missing_selector_dir(workspace)
+    (selector_dir / "selection.json").write_text(
+        json.dumps(
+            {
+                "selection_status": "SELECTED",
+                "selected_item_id": "2026-04-22-ready-item",
+                "selected_item_path": "docs/backlog/active/2026-04-22-ready-item.md",
+                "selection_rationale": "The ready item already satisfies the prerequisite and directly advances the current objective.",
+                "roadmap_sync_hint": "NO_CHANGE",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_second_selector_blocked(workspace: Path) -> None:
+    selector_dir = _next_missing_selector_dir(workspace)
+    (selector_dir / "selection.json").write_text(
+        json.dumps(
+            {
+                "selection_status": "BLOCKED",
+                "selection_rationale": "The remaining active item is blocked by an unmet prerequisite.",
+                "blocking_reasons": ["phase-99-not-done is not completed"],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_roadmap_sync_outputs(workspace: Path) -> None:
+    pointer_candidates = sorted(workspace.glob("state/**/roadmap-sync/roadmap_sync_report_path.txt"))
+    for pointer in pointer_candidates:
+        target = _target_from_pointer(workspace, pointer.relative_to(workspace).as_posix())
+        if target.exists():
+            continue
+        target.write_text("NO_CHANGE\n", encoding="utf-8")
+        (pointer.parent / "roadmap_sync_status.txt").write_text("NO_CHANGE\n", encoding="utf-8")
+        return
+    raise AssertionError("No pending roadmap-sync report pointer found")
+
+
+def _write_plan_draft(workspace: Path) -> None:
+    pointer_candidates = sorted(workspace.glob("state/**/plan-phase/plan_path.txt"))
+    for pointer in pointer_candidates:
+        target = _target_from_pointer(workspace, pointer.relative_to(workspace).as_posix())
+        if target.exists():
+            continue
+        target.write_text(
+            "\n".join(
+                [
+                    "# Fresh Ready Item Plan",
+                    "",
+                    "## Scope",
+                    "- Execute only the selected ready backlog item.",
+                    "",
+                    "## Constraints",
+                    "- Preserve roadmap order and steering intent.",
+                    "",
+                    "## Verification",
+                    "- `python -c \"print('ready-check')\"`",
+                    "",
+                    "## Tasks",
+                    "- Update the ready item path and produce an execution report.",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return
+    raise AssertionError("No pending plan draft pointer found")
+
+
+def _write_plan_review(workspace: Path) -> None:
+    pointer_candidates = sorted(workspace.glob("state/**/plan-phase/plan_review_report_path.txt"))
+    for pointer in pointer_candidates:
+        target = _target_from_pointer(workspace, pointer.relative_to(workspace).as_posix())
+        if target.exists():
+            continue
+        target.write_text(
+            json.dumps(
+                {
+                    "decision": "APPROVE",
+                    "summary": "Ready item plan is self-contained and preserves the backlog verification contract.",
+                    "unresolved_high_count": 0,
+                    "unresolved_medium_count": 0,
+                    "findings": [],
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        phase_root = pointer.parent
+        (phase_root / "plan_review_decision.txt").write_text("APPROVE\n", encoding="utf-8")
+        (phase_root / "unresolved_high_count.txt").write_text("0\n", encoding="utf-8")
+        (phase_root / "unresolved_medium_count.txt").write_text("0\n", encoding="utf-8")
+        return
+    raise AssertionError("No pending plan review pointer found")
+
+
+def _write_execution_report(workspace: Path) -> None:
+    pointer_candidates = sorted(workspace.glob("state/**/implementation-phase/execution_report_path.txt"))
+    for pointer in pointer_candidates:
+        target = _target_from_pointer(workspace, pointer.relative_to(workspace).as_posix())
+        if target.exists():
+            continue
+        target.write_text(
+            "\n".join(
+                [
+                    "# Execution Report",
+                    "",
+                    "## Completed In This Pass",
+                    "- Implemented the ready backlog item fixture.",
+                    "",
+                    "## Completed Plan Tasks",
+                    "- Produced a fresh implementation artifact for the selected item.",
+                    "",
+                    "## Remaining Required Plan Tasks",
+                    "- None.",
+                    "",
+                    "## Verification",
+                    "- ready-check command is expected to pass.",
+                    "",
+                    "## Residual Risks",
+                    "- Fixture smoke only.",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return
+    raise AssertionError("No pending execution report pointer found")
+
+
+def _write_implementation_review(workspace: Path) -> None:
+    pointer_candidates = sorted(workspace.glob("state/**/implementation-phase/implementation_review_report_path.txt"))
+    for pointer in pointer_candidates:
+        target = _target_from_pointer(workspace, pointer.relative_to(workspace).as_posix())
+        if target.exists():
+            continue
+        target.write_text(
+            "\n".join(
+                [
+                    "# Implementation Review",
+                    "",
+                    "No blocking findings.",
+                    "",
+                    "## Follow-Up Work",
+                    "- None.",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        (pointer.parent / "implementation_review_decision.txt").write_text("APPROVE\n", encoding="utf-8")
+        return
+    raise AssertionError("No pending implementation review pointer found")
+
+
+def _run_with_mocked_providers(workspace: Path, workflow_path: Path) -> dict:
+    loader = WorkflowLoader(workspace)
+    workflow = loader.load(workflow_path)
+    workflow_relpath = workflow_path.relative_to(workspace).as_posix()
+    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), {}, workspace)
+    state_manager = StateManager(workspace=workspace, run_id="test-run")
+    state_manager.initialize(workflow_relpath, _bundle_context_dict(workflow), bound_inputs=bound_inputs)
+    executor = WorkflowExecutor(workflow, workspace, state_manager)
+
+    provider_sequence = [
+        ("SelectNextItem", _write_first_selector),
+        ("ReviewOrUpdateRoadmap", _write_roadmap_sync_outputs),
+        ("DraftPlan", _write_plan_draft),
+        ("ReviewPlanTracked", _write_plan_review),
+        ("ExecuteImplementation", _write_execution_report),
+        ("ReviewImplementation", _write_implementation_review),
+        ("SelectNextItem", _write_second_selector_blocked),
+    ]
+    call_index = {"value": 0}
+
+    def _prepare_invocation(_self, *args, **kwargs):
+        return SimpleNamespace(input_mode="stdin", prompt=kwargs.get("prompt_content", "")), None
+
+    def _execute(_self, _invocation, **kwargs):
+        expected_step, writer = provider_sequence[call_index["value"]]
+        actual_step = kwargs.get("step_name")
+        if actual_step is not None:
+            assert actual_step == expected_step
+        call_index["value"] += 1
+        writer(workspace)
+        return SimpleNamespace(
+            exit_code=0,
+            stdout=b"ok",
+            stderr=b"",
+            duration_ms=1,
+            error=None,
+            missing_placeholders=None,
+            invalid_prompt_placeholder=False,
+            raw_stdout=None,
+            normalized_stdout=None,
+            provider_session=None,
+        )
+
+    with patch.object(ProviderExecutor, "prepare_invocation", _prepare_invocation), patch.object(
+        ProviderExecutor, "execute", _execute
+    ):
+        state = executor.execute()
+    state["__provider_calls"] = call_index["value"]
+    return state
+
+
+def test_neurips_steered_backlog_runtime_smoke(tmp_path):
+    workspace = tmp_path / "workspace"
+    workflow_path = _copy_runtime_files(workspace)
+
+    state = _run_with_mocked_providers(workspace, workflow_path)
+
+    assert state["__provider_calls"] == 7
+    summary = json.loads(
+        (workspace / "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog-drain-summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    run_state = json.loads(
+        (workspace / "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/run_state.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert summary["drain_status"] == "BLOCKED"
+    assert summary["completed_item_count"] == 1
+    assert run_state["completed_items"] == ["2026-04-22-ready-item"]
+    assert run_state["current_roadmap_path"] == "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md"
+    assert (workspace / "docs/backlog/done/2026-04-22-ready-item.md").is_file()
+    assert (workspace / "docs/backlog/active/2026-04-22-blocked-item.md").is_file()
+
+    done_text = (workspace / "docs/backlog/done/2026-04-22-ready-item.md").read_text(encoding="utf-8")
+    assert "plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-22-ready-item/execution_plan.md" in done_text
+
+    checks_report = json.loads(
+        (
+            workspace
+            / "artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-22-ready-item-checks.json"
+        ).read_text(encoding="utf-8")
+    )
+    assert checks_report["status"] == "PASS"
+    assert checks_report["failed_count"] == 0

@@ -58,6 +58,26 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, hybrid_resnet, roadmap, phases, pde, cdi, artifact-index
 **Use this when:** You need the execution order, gates, expected artifacts, or fallback decisions for the submission campaign.
 
+### [NeurIPS Steered Backlog Drain Workflow Design](plans/2026-04-22-neurips-steered-backlog-drain-workflow-design.md)
+**Description:** Design for a steering-aware backlog drain workflow that selects the next NeurIPS backlog item from strategic intent, roadmap state, and repo progress; moves it into `docs/backlog/in_progress/`; optionally syncs the roadmap; always drafts a fresh plan; then runs implementation/review before repeating.
+**Keywords:** neurips, workflow, backlog, steering, roadmap, selection, planning, implementation
+**Use this when:** Designing or implementing the adaptive NeurIPS backlog workflow, deciding what should stay repo-local versus reusable, or clarifying the queue, selector, roadmap-sync, and fresh-plan contracts.
+
+### [NeurIPS Steered Backlog Drain Workflow Implementation Plan](plans/2026-04-22-neurips-steered-backlog-drain-workflow-implementation-plan.md)
+**Description:** Concrete implementation plan for the NeurIPS steering-aware backlog drain workflow, covering the steering document contract, backlog `in_progress` queue state, deterministic manifest and queue helpers, adaptive selector, narrow roadmap sync, fresh-plan rewrite behavior, top-level drain workflow, and required tests/smoke checks.
+**Keywords:** neurips, workflow, backlog, steering, roadmap, implementation-plan, selection, smoke-test
+**Use this when:** Implementing the adaptive backlog workflow, checking which files and prompts belong to each phase, or verifying the required helper tests, runtime smoke, and orchestrator dry-run coverage.
+
+### [NeurIPS Steering Document](steering.md)
+**Description:** Human-authored strategic intent for the NeurIPS Hybrid ResNet backlog drain, capturing ordered priorities, comparison standards, fairness constraints, known blockers, and non-goals.
+**Keywords:** neurips, steering, priorities, fairness, blockers, workflow
+**Use this when:** Selecting the next backlog item, reviewing whether a plan stayed within current paper priorities, or deciding whether roadmap drift is real.
+
+### [NeurIPS Steered Backlog Drain Runbook](workflows/neurips_steered_backlog_drain.md)
+**Description:** Operator runbook for the steering-aware NeurIPS backlog drain workflow, including queue lifecycle, authoritative state roots, and launch/resume commands from the `ptycho311` environment.
+**Keywords:** neurips, workflow, runbook, backlog, resume, ptycho311
+**Use this when:** Launching or resuming the backlog drain, checking the queue-state lifecycle, or confirming which documents and state files the workflow consumes.
+
 ### [NeurIPS Hybrid ResNet Phase 0 Evidence Inventory](plans/NEURIPS-HYBRID-RESNET-2026/evidence_inventory.md)
 **Description:** Durable Phase 0 inventory for the NeurIPS Hybrid ResNet campaign, separating paper-grade, decision-support, and not-usable CDI artifacts; recording N=256 as secondary scaling context; and listing neutral PDE candidates for Phase 1.
 **Keywords:** neurips, hybrid_resnet, evidence-inventory, cdi, pde, n256, provenance
