@@ -73,6 +73,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, steering, priorities, fairness, blockers, workflow
 **Use this when:** Selecting the next backlog item, reviewing whether a plan stayed within current paper priorities, or deciding whether roadmap drift is real.
 
+### [NeurIPS Backlog Dependency Index](backlog/index.md)
+**Description:** Human-readable dependency map for the current NeurIPS backlog queue, recording which items are parallel, which roadmap phase they belong to, and when a real backlog-to-backlog prerequisite should be added to frontmatter.
+**Keywords:** neurips, backlog, dependencies, roadmap, queue, selection
+**Use this when:** Deciding whether a backlog item is blocked by another item, checking which CNS studies are parallel versus serial, or reviewing selector behavior against the current queue graph.
+
 ### [NeurIPS Steered Backlog Drain Runbook](workflows/neurips_steered_backlog_drain.md)
 **Description:** Operator runbook for the steering-aware NeurIPS backlog drain workflow, including queue lifecycle, authoritative state roots, and launch/resume commands from the `ptycho311` environment.
 **Keywords:** neurips, workflow, runbook, backlog, resume, ptycho311
@@ -142,6 +147,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Description:** Backlog plan for running the authors' actual FFNO model on the same capped PDEBench `2d_cfd_cns` slice and epoch budgets already used for the local spectral, FNO, and U-Net rows, with the goal of a fair equal-footing comparison.
 **Keywords:** neurips, pdebench, ffno, author-model, cns, equal-footing, backlog, compare
 **Use this when:** Queueing or implementing the official-author FFNO baseline on the local CNS contract, or checking what must stay fixed for a fair comparison against `spectral_resnet_bottleneck_base`, `fno_base`, and `unet_strong`.
+
+### [NeurIPS Hybrid ResNet PDEBench Author FFNO Equal-Footing Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_author_ffno_equal_footing_summary.md)
+**Description:** Implementation summary for the official-author FFNO CNS equal-footing backlog item, covering the pinned `fourierflow` source, local host-environment provenance, adapter/profile integration, smoke-gate fit check, frozen reused local reference rows, fresh authored FFNO capped runs, and merged cross-run compare artifacts kept separate from the local FFNO-close bottleneck proxy experiment.
+**Keywords:** neurips, pdebench, ffno, author-model, cns, equal-footing, summary, fourierflow
+**Use this when:** Checking how the authored FFNO row was hosted locally, finding the fresh author-run and merged compare artifacts, or distinguishing the real author baseline from the local `ffno_bottleneck_base` proxy path.
 
 ### [NeurIPS Hybrid ResNet PDEBench CNS Markov History-1 Compare Design](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_markov_history1_compare_design.md)
 **Description:** Design for a controlled PDEBench `2d_cfd_cns` ablation that switches the supervised contract from `history_len=2` to Markov-style `history_len=1` and reruns the local spectral, Hybrid, FNO, and U-Net rows on the same capped slice and epoch budgets.

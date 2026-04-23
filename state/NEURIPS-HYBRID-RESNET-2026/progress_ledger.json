@@ -836,6 +836,129 @@
         "tests/studies/test_pdebench_image128_models.py",
         "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json"
       ]
+    },
+    {
+      "tranche_id": "2026-04-21-pdebench-author-ffno-equal-footing-cns",
+      "updated_at_utc": "2026-04-23T01:08:41Z",
+      "update_reason": "Implementation review required finishing the approved author-FFNO equal-footing CNS backlog item, including fresh 10ep and 40ep author runs, merged compare artifacts, and durable summary synchronization.",
+      "decision": "The author-FFNO equal-footing CNS backlog item is now complete. The reference manifest carries row-local contract fields, the fresh authored 10-epoch and 40-epoch runs finished on the fixed local capped CNS contract, merged cross-run compare artifacts rendered for both approved epoch slices, and the durable summaries now point to the frozen evidence.",
+      "decision_scope": "complete_author_ffno_equal_footing_cns_backlog_item",
+      "design_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-pdebench-author-ffno-equal-footing-cns/execution_plan.md",
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_author_ffno_equal_footing_summary.md",
+      "cns_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns",
+      "author_ffno_source_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author_ffno_source.json",
+      "reference_manifest_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/reference_runs.json",
+      "local_equal_footing_contract": {
+        "task": "2d_cfd_cns",
+        "history_len": 2,
+        "train_trajectories": 512,
+        "val_trajectories": 64,
+        "test_trajectories": 64,
+        "max_windows_per_trajectory": 8,
+        "train_windows": 4096,
+        "val_windows": 512,
+        "test_windows": 512,
+        "training_loss": "mse",
+        "batch_size": 4
+      },
+      "host_environment": {
+        "env": "ptycho311",
+        "python": "3.11.13",
+        "torch": "2.9.1+cu128",
+        "einops": "0.8.1"
+      },
+      "smoke_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/smoke-author-ffno-20260422T224011Z",
+      "fresh_author_runs": {
+        "10ep": {
+          "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-10ep-20260422T232119Z",
+          "epochs": 10,
+          "parameter_count": 1073672,
+          "runtime_sec": 1328.712198972702,
+          "err_nRMSE": 0.0878334790468216,
+          "relative_l2": 0.0878334790468216,
+          "fRMSE_high": 0.2596977651119232
+        },
+        "40ep": {
+          "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z",
+          "epochs": 40,
+          "parameter_count": 1073672,
+          "runtime_sec": 4725.511692285538,
+          "err_nRMSE": 0.028147730976343155,
+          "relative_l2": 0.028147730976343155,
+          "fRMSE_high": 0.12101411819458008
+        }
+      },
+      "merged_compare_artifacts": {
+        "10ep": {
+          "json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/compare_10ep_against_existing.json",
+          "csv": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/compare_10ep_against_existing.csv",
+          "prediction_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/compare_10ep_sample0.png",
+          "error_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/compare_10ep_sample0_error.png",
+          "included_profiles": [
+            "author_ffno_cns_base",
+            "spectral_resnet_bottleneck_base",
+            "fno_base",
+            "unet_strong",
+            "hybrid_resnet_cns",
+            "hybrid_resnet_base"
+          ]
+        },
+        "40ep": {
+          "json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/compare_40ep_against_existing.json",
+          "csv": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/compare_40ep_against_existing.csv",
+          "prediction_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/compare_40ep_sample0.png",
+          "error_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/compare_40ep_sample0_error.png",
+          "included_profiles": [
+            "author_ffno_cns_base",
+            "spectral_resnet_bottleneck_base",
+            "fno_base",
+            "unet_strong",
+            "hybrid_resnet_base"
+          ]
+        }
+      },
+      "reference_run_roots": {
+        "10ep_required": {
+          "spectral_resnet_bottleneck_base": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T203200Z-ffno-cns-10ep",
+          "fno_base": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T183717Z-10ep-mse",
+          "unet_strong": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T183717Z-10ep-mse"
+        },
+        "10ep_optional": {
+          "hybrid_resnet_cns": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T203200Z-ffno-cns-10ep",
+          "hybrid_resnet_base": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T183717Z-10ep-mse"
+        },
+        "40ep_required": {
+          "spectral_resnet_bottleneck_base": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep",
+          "fno_base": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse",
+          "unet_strong": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse"
+        },
+        "40ep_optional": {
+          "hybrid_resnet_base": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse"
+        }
+      },
+      "performance_assessment_complete": false,
+      "evidence_scope": "smoke_feasibility_only",
+      "metric_interpretation": "sanity_only_not_benchmark_performance",
+      "verification": [
+        "pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py -> 50 passed in 33.01s",
+        "python -m compileall -q scripts/studies/pdebench_image128 -> exit 0",
+        "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-10ep-20260422T232119Z --profiles author_ffno_cns_base --history-len 2 --epochs 10 --batch-size 4 --max-train-trajectories 512 --max-val-trajectories 64 --max-test-trajectories 64 --max-windows-per-trajectory 8 --device cuda --num-workers 0 -> exit 0",
+        "write_cross_run_compare 10ep -> compare_10ep_against_existing.json/csv written; cross-run gallery rendered",
+        "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z --profiles author_ffno_cns_base --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 512 --max-val-trajectories 64 --max-test-trajectories 64 --max-windows-per-trajectory 8 --device cuda --num-workers 0 -> exit 0",
+        "write_cross_run_compare 40ep -> compare_40ep_against_existing.json/csv written; cross-run gallery rendered"
+      ],
+      "affected_surfaces": [
+        "docs/index.md",
+        "docs/studies/index.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_author_ffno_equal_footing_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+        "scripts/studies/pdebench_image128/reporting.py",
+        "tests/studies/test_pdebench_image128_runner.py",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+        "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-pdebench-author-ffno-equal-footing-cns/execution_report.md"
+      ]
     }
   ]
 }

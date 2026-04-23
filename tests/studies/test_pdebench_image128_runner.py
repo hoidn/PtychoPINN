@@ -195,6 +195,169 @@ def _write_tiny_cfd_cns(path: Path, *, n: int = 5, t: int = 4) -> Path:
     return path
 
 
+def _write_fake_cfd_cns_compare_run(
+    run_root: Path,
+    *,
+    profile_id: str,
+    epochs: int,
+    err_nrmse: float,
+    batch_size: int = 4,
+    history_len: int = 2,
+    max_windows_per_trajectory: int = 8,
+    split_counts: dict[str, int] | None = None,
+    dataset_file: str = "/tmp/fake-cfd-cns.hdf5",
+    training_loss: str = "mse",
+    field_order: list[str] | None = None,
+    target_offset: float = 0.0,
+    with_npz: bool = True,
+) -> Path:
+    field_order = field_order or ["density", "Vx", "Vy", "pressure"]
+    split_counts = split_counts or {"train": 512, "val": 64, "test": 64}
+    run_root.mkdir(parents=True, exist_ok=True)
+
+    (run_root / "invocation.json").write_text(
+        json.dumps(
+            {
+                "parsed_args": {
+                    "task_id": "2d_cfd_cns",
+                    "mode": "readiness",
+                    "epochs": int(epochs),
+                    "batch_size": int(batch_size),
+                    "history_len": int(history_len),
+                    "max_windows_per_trajectory": int(max_windows_per_trajectory),
+                }
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (run_root / "dataset_manifest.json").write_text(
+        json.dumps(
+            {
+                "task_id": "2d_cfd_cns",
+                "data_file": dataset_file,
+                "history_len": int(history_len),
+                "field_order": field_order,
+                "field_axis_order": "NTHW",
+                "sample_contract": f"concat u[t-{history_len}:t] -> u[t]",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (run_root / "split_manifest.json").write_text(
+        json.dumps(
+            {
+                "history_len": int(history_len),
+                "max_windows_per_trajectory": int(max_windows_per_trajectory),
+                "split_counts": dict(split_counts),
+                "source_file": {"path": dataset_file},
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    metric_payload = {
+        "profile_id": profile_id,
+        "status": "completed",
+        "training_loss": training_loss,
+        "err_RMSE": float(err_nrmse * 10.0),
+        "err_nRMSE": float(err_nrmse),
+        "relative_l2": float(err_nrmse),
+        "fRMSE_low": float(err_nrmse * 2.0),
+        "fRMSE_mid": float(err_nrmse * 1.5),
+        "fRMSE_high": float(err_nrmse * 0.5),
+        "parameter_count": 123456,
+        "metric_units": "denormalized_state_units",
+        "fourier_metric_units": "denormalized_state_units_fft_ortho",
+    }
+    (run_root / f"metrics_{profile_id}.json").write_text(
+        json.dumps(metric_payload, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (run_root / f"model_profile_{profile_id}.json").write_text(
+        json.dumps(
+            {
+                "profile_id": profile_id,
+                "parameter_count": 123456,
+                "profile_config": {"profile_id": profile_id},
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (run_root / "comparison_summary.json").write_text(
+        json.dumps(
+            {
+                "task_id": "2d_cfd_cns",
+                "mode": "readiness",
+                "history_len": int(history_len),
+                "evidence_scope": "smoke_feasibility_only",
+                "metric_interpretation": "sanity_only_not_benchmark_performance",
+                "profile_results": [metric_payload],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    with (run_root / "comparison_summary.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=[
+                "profile_id",
+                "status",
+                "err_RMSE",
+                "err_nRMSE",
+                "relative_l2",
+                "fRMSE_low",
+                "fRMSE_mid",
+                "fRMSE_high",
+                "parameter_count",
+                "blocker_reason",
+            ],
+        )
+        writer.writeheader()
+        writer.writerow(
+            {
+                "profile_id": profile_id,
+                "status": "completed",
+                "err_RMSE": metric_payload["err_RMSE"],
+                "err_nRMSE": metric_payload["err_nRMSE"],
+                "relative_l2": metric_payload["relative_l2"],
+                "fRMSE_low": metric_payload["fRMSE_low"],
+                "fRMSE_mid": metric_payload["fRMSE_mid"],
+                "fRMSE_high": metric_payload["fRMSE_high"],
+                "parameter_count": metric_payload["parameter_count"],
+                "blocker_reason": "",
+            }
+        )
+
+    if with_npz:
+        channels = len(field_order)
+        target = np.arange(channels * 4, dtype=np.float32).reshape(channels, 2, 2) + np.float32(target_offset)
+        prediction = target + np.float32(err_nrmse)
+        abs_error = np.abs(prediction - target)
+        np.savez_compressed(
+            run_root / f"comparison_{profile_id}_sample0.npz",
+            prediction=prediction,
+            target=target,
+            abs_error=abs_error,
+            field_order=np.asarray(field_order),
+        )
+
+    return run_root
+
+
 def test_literature_context_payload_contains_values_and_caveats(tmp_path):
     from scripts.studies.pdebench_image128.reporting import write_literature_context
 
@@ -245,6 +408,317 @@ def test_cfd_cns_comparison_summary_uses_task_specific_required_primary_profiles
 
     assert payload["required_primary_profiles"] == ["fno_base", "hybrid_resnet_cns", "unet_strong"]
     assert payload["performance_assessment_complete"] is True
+
+
+def test_reference_run_manifest_records_row_local_contract_fields(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import build_reference_run_manifest, write_reference_run_manifest
+
+    payload = build_reference_run_manifest(
+        task_id="2d_cfd_cns",
+        dataset_file="/tmp/fake-cfd-cns.hdf5",
+        split_counts={"train": 512, "val": 64, "test": 64},
+        max_windows_per_trajectory=8,
+        history_len=2,
+        training_loss="mse",
+        batch_size=4,
+        metric_family=["err_RMSE", "err_nRMSE", "relative_l2", "fRMSE_low", "fRMSE_mid", "fRMSE_high"],
+        required_rows={
+            "10ep": [
+                {
+                    "run_root": "runs/spectral-10ep",
+                    "profile_id": "spectral_resnet_bottleneck_base",
+                    "epochs": 10,
+                    "source_document": "docs/example.md",
+                }
+            ]
+        },
+        optional_rows={
+            "10ep": [
+                {
+                    "run_root": "runs/hybrid-10ep",
+                    "profile_id": "hybrid_resnet_cns",
+                    "epochs": 10,
+                    "source_document": "docs/example.md",
+                }
+            ]
+        },
+    )
+    path = write_reference_run_manifest(payload, tmp_path / "reference_runs.json")
+
+    written = json.loads(path.read_text(encoding="utf-8"))
+    row = written["required_rows"]["10ep"][0]
+
+    assert row["run_root"] == "runs/spectral-10ep"
+    assert row["profile_id"] == "spectral_resnet_bottleneck_base"
+    assert row["epochs"] == 10
+    assert row["dataset_file"] == "/tmp/fake-cfd-cns.hdf5"
+    assert row["split_counts"] == {"train": 512, "val": 64, "test": 64}
+    assert row["max_windows_per_trajectory"] == 8
+    assert row["history_len"] == 2
+    assert row["training_loss"] == "mse"
+    assert row["batch_size"] == 4
+    assert row["metric_family"] == ["err_RMSE", "err_nRMSE", "relative_l2", "fRMSE_low", "fRMSE_mid", "fRMSE_high"]
+
+
+def test_cross_run_compare_writes_merged_outputs_and_gallery(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import write_cross_run_compare
+
+    author_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "author",
+        profile_id="author_ffno_cns_base",
+        epochs=10,
+        err_nrmse=0.42,
+    )
+    spectral_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "spectral",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=10,
+        err_nrmse=0.11,
+    )
+    fno_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "fno",
+        profile_id="fno_base",
+        epochs=10,
+        err_nrmse=0.23,
+    )
+    unet_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "unet",
+        profile_id="unet_strong",
+        epochs=10,
+        err_nrmse=0.31,
+    )
+    hybrid_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "hybrid",
+        profile_id="hybrid_resnet_cns",
+        epochs=10,
+        err_nrmse=0.19,
+    )
+
+    json_path, csv_path, payload = write_cross_run_compare(
+        output_root=tmp_path / "out",
+        epoch_label="10ep",
+        expected_epochs=10,
+        author_run_root=author_root,
+        author_profile_id="author_ffno_cns_base",
+        required_reference_rows=[
+            {
+                "run_root": str(spectral_root),
+                "profile_id": "spectral_resnet_bottleneck_base",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/spectral.md",
+            },
+            {
+                "run_root": str(fno_root),
+                "profile_id": "fno_base",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/fno.md",
+            },
+            {
+                "run_root": str(unet_root),
+                "profile_id": "unet_strong",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/unet.md",
+            },
+        ],
+        optional_reference_rows=[
+            {
+                "run_root": str(hybrid_root),
+                "profile_id": "hybrid_resnet_cns",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/hybrid.md",
+            }
+        ],
+    )
+
+    assert json_path.exists()
+    assert csv_path.exists()
+    assert (tmp_path / "out" / "compare_10ep_sample0.png").exists()
+    assert (tmp_path / "out" / "compare_10ep_sample0_error.png").exists()
+    assert payload["cross_run_gallery_blocked"] is None
+    assert [row["profile_id"] for row in payload["profile_results"]] == [
+        "author_ffno_cns_base",
+        "spectral_resnet_bottleneck_base",
+        "fno_base",
+        "unet_strong",
+        "hybrid_resnet_cns",
+    ]
+
+    with csv_path.open(newline="", encoding="utf-8") as handle:
+        rows = list(csv.DictReader(handle))
+    assert [row["profile_id"] for row in rows] == [
+        "author_ffno_cns_base",
+        "spectral_resnet_bottleneck_base",
+        "fno_base",
+        "unet_strong",
+        "hybrid_resnet_cns",
+    ]
+
+
+def test_cross_run_compare_records_gallery_blocker_when_targets_do_not_align(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import write_cross_run_compare
+
+    author_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "author",
+        profile_id="author_ffno_cns_base",
+        epochs=40,
+        err_nrmse=0.42,
+    )
+    spectral_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "spectral",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.11,
+        target_offset=5.0,
+    )
+    fno_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "fno",
+        profile_id="fno_base",
+        epochs=40,
+        err_nrmse=0.23,
+        with_npz=False,
+    )
+    unet_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "unet",
+        profile_id="unet_strong",
+        epochs=40,
+        err_nrmse=0.31,
+    )
+
+    json_path, csv_path, payload = write_cross_run_compare(
+        output_root=tmp_path / "out",
+        epoch_label="40ep",
+        expected_epochs=40,
+        author_run_root=author_root,
+        author_profile_id="author_ffno_cns_base",
+        required_reference_rows=[
+            {
+                "run_root": str(spectral_root),
+                "profile_id": "spectral_resnet_bottleneck_base",
+                "epochs": 40,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/spectral.md",
+            },
+            {
+                "run_root": str(fno_root),
+                "profile_id": "fno_base",
+                "epochs": 40,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/fno.md",
+            },
+            {
+                "run_root": str(unet_root),
+                "profile_id": "unet_strong",
+                "epochs": 40,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/unet.md",
+            },
+        ],
+    )
+
+    assert json_path.exists()
+    assert csv_path.exists()
+    assert not (tmp_path / "out" / "compare_40ep_sample0.png").exists()
+    assert not (tmp_path / "out" / "compare_40ep_sample0_error.png").exists()
+    assert payload["cross_run_gallery_blocked"] is not None
+    assert payload["cross_run_gallery_blocked"]["reason"] in {
+        "missing_sample_artifact",
+        "target_mismatch",
+    }
 
 
 def test_validate_darcy_benchmark_budget_requires_full_split_and_primary_profiles():

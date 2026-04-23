@@ -6,7 +6,7 @@
 - Scope: Roadmap Phase 2 PDEBench `128x128` image-suite third member
 - Task ID: `2d_cfd_cns`
 - Status: official HDF5 verified; real-data schema, capped readiness smoke, and reusable CNS physics-regularization framework complete; full benchmark still pending
-- Date: 2026-04-21
+- Date: 2026-04-22
 - Suite plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md`
 - CNS design: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_design.md`
 - CNS physics-regularization design: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_physics_regularization_design.md`
@@ -313,6 +313,87 @@ So the current local decision-support ranking for capped 40-epoch CNS is:
 
 This is still capped-readiness evidence only, not benchmark-complete CNS
 ranking evidence.
+
+## Official Author FFNO Equal-Footing Follow-Up
+
+The official authored FFNO baseline is tracked separately from the local
+FFNO-close bottleneck proxy in:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_author_ffno_equal_footing_summary.md`
+
+That backlog item keeps the same local capped CNS contract fixed:
+
+- task: `2d_cfd_cns`
+- `history_len=2`
+- trajectories: `512 / 64 / 64`
+- `max_windows_per_trajectory=8`
+- training loss: `mse`
+- batch size: `4`
+
+Completed author compares:
+
+- fresh `10`-epoch author row:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-10ep-20260422T232119Z`
+- merged compare:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/compare_10ep_against_existing.json`
+
+The merged `10`-epoch compare includes:
+
+- `author_ffno_cns_base`
+- `spectral_resnet_bottleneck_base`
+- `fno_base`
+- `unet_strong`
+- optional continuity:
+  `hybrid_resnet_cns`, `hybrid_resnet_base`
+
+Observed `10`-epoch author result:
+
+- `err_nRMSE=0.0878334790`
+- `relative_l2=0.0878334790`
+- `fRMSE_high=0.2596977651`
+
+Relative to the existing local rows on this capped slice:
+
+- the authored FFNO row is effectively tied with the shared-spectral row on
+  aggregate denormalized error
+- the authored FFNO row beats the earlier local `fno_base`,
+  `hybrid_resnet_cns`, `hybrid_resnet_base`, and `unet_strong` rows on
+  aggregate denormalized error
+- the authored FFNO lane remains separate from `ffno_bottleneck_base`, which is
+  still the repo-local FFNO-close proxy bottleneck experiment
+
+- fresh `40`-epoch author row:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z`
+- merged `40`-epoch compare:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/compare_40ep_against_existing.json`
+
+The merged `40`-epoch compare includes:
+
+- `author_ffno_cns_base`
+- `spectral_resnet_bottleneck_base`
+- `fno_base`
+- `unet_strong`
+- optional continuity:
+  `hybrid_resnet_base`
+
+Observed `40`-epoch author result:
+
+- `err_nRMSE=0.0281477310`
+- `relative_l2=0.0281477310`
+- `fRMSE_high=0.1210141182`
+
+Relative to the existing local rows on this capped slice:
+
+- the authored FFNO row clearly beats the shared-spectral row on aggregate
+  denormalized error and on the saved-sample `fRMSE_high` view
+- the authored FFNO row also beats the earlier local `fno_base`,
+  `hybrid_resnet_base`, and `unet_strong` rows on aggregate denormalized error
+- the merged `10`-epoch and `40`-epoch compares both rendered cross-run sample
+  galleries, so no target-alignment blocker was needed for either approved
+  epoch slice
+
+This author-FFNO lane is still capped-readiness, decision-support-only evidence.
+It does not change the benchmark-complete boundary for CNS.
 
 ## Verification
 

@@ -8,7 +8,26 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 from scripts.studies.pdebench_image128.run_config import required_primary_profiles_for_task
+from scripts.studies.pdebench_image128.visualization import cfd_cns_field_visual_spec
+
+
+COMPARISON_METRIC_FIELDS = [
+    "err_RMSE",
+    "err_nRMSE",
+    "relative_l2",
+    "fRMSE_low",
+    "fRMSE_mid",
+    "fRMSE_high",
+]
+REQUIRED_RUN_ARTIFACTS = [
+    "invocation.json",
+    "dataset_manifest.json",
+    "split_manifest.json",
+    "comparison_summary.json",
+]
 
 
 def darcy_literature_context() -> dict[str, Any]:
@@ -113,3 +132,439 @@ def write_comparison_summary(payload: dict[str, Any], output_root: Path) -> tupl
         for row in rows:
             writer.writerow({field: row.get(field, "") for field in fields})
     return json_path, csv_path
+
+
+def _expand_reference_rows(
+    rows_by_budget: dict[str, list[dict[str, Any]]] | None,
+    *,
+    dataset_file: str,
+    split_counts: dict[str, int],
+    max_windows_per_trajectory: int,
+    history_len: int,
+    training_loss: str,
+    batch_size: int,
+    metric_family: list[str],
+) -> dict[str, list[dict[str, Any]]]:
+    expanded: dict[str, list[dict[str, Any]]] = {}
+    for budget_label, rows in (rows_by_budget or {}).items():
+        expanded[str(budget_label)] = []
+        for row in rows:
+            expanded[str(budget_label)].append(
+                {
+                    "run_root": str(row["run_root"]),
+                    "profile_id": str(row["profile_id"]),
+                    "epochs": int(row["epochs"]),
+                    "dataset_file": str(row.get("dataset_file", dataset_file)),
+                    "split_counts": dict(row.get("split_counts", split_counts)),
+                    "max_windows_per_trajectory": int(
+                        row.get("max_windows_per_trajectory", max_windows_per_trajectory)
+                    ),
+                    "history_len": int(row.get("history_len", history_len)),
+                    "training_loss": str(row.get("training_loss", training_loss)),
+                    "batch_size": int(row.get("batch_size", batch_size)),
+                    "metric_family": list(row.get("metric_family", metric_family)),
+                    "source_document": str(row["source_document"]),
+                }
+            )
+    return expanded
+
+
+def build_reference_run_manifest(
+    *,
+    task_id: str,
+    dataset_file: str,
+    split_counts: dict[str, int],
+    max_windows_per_trajectory: int,
+    history_len: int,
+    training_loss: str,
+    batch_size: int,
+    metric_family: list[str],
+    required_rows: dict[str, list[dict[str, Any]]],
+    optional_rows: dict[str, list[dict[str, Any]]] | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema_version": "pdebench_image128_reference_runs_v2",
+        "task_id": str(task_id),
+        "dataset_file": str(dataset_file),
+        "split_counts": dict(split_counts),
+        "max_windows_per_trajectory": int(max_windows_per_trajectory),
+        "history_len": int(history_len),
+        "training_loss": str(training_loss),
+        "batch_size": int(batch_size),
+        "metric_family": list(metric_family),
+        "required_rows": _expand_reference_rows(
+            required_rows,
+            dataset_file=dataset_file,
+            split_counts=split_counts,
+            max_windows_per_trajectory=max_windows_per_trajectory,
+            history_len=history_len,
+            training_loss=training_loss,
+            batch_size=batch_size,
+            metric_family=metric_family,
+        ),
+        "optional_rows": _expand_reference_rows(
+            optional_rows,
+            dataset_file=dataset_file,
+            split_counts=split_counts,
+            max_windows_per_trajectory=max_windows_per_trajectory,
+            history_len=history_len,
+            training_loss=training_loss,
+            batch_size=batch_size,
+            metric_family=metric_family,
+        ),
+    }
+
+
+def write_reference_run_manifest(payload: dict[str, Any], output_path: Path) -> Path:
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return output_path
+
+
+def _load_json(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _load_run_record(run_root: Path, *, profile_id: str, source_document: str) -> dict[str, Any]:
+    required_paths = {name: run_root / name for name in REQUIRED_RUN_ARTIFACTS}
+    required_paths["metrics"] = run_root / f"metrics_{profile_id}.json"
+    required_paths["model_profile"] = run_root / f"model_profile_{profile_id}.json"
+    for name, path in required_paths.items():
+        if not path.exists():
+            raise FileNotFoundError(f"missing required artifact for {profile_id}: {path}")
+
+    invocation = _load_json(required_paths["invocation.json"])
+    dataset_manifest = _load_json(required_paths["dataset_manifest.json"])
+    split_manifest = _load_json(required_paths["split_manifest.json"])
+    comparison_summary = _load_json(required_paths["comparison_summary.json"])
+    metrics = _load_json(required_paths["metrics"])
+    model_profile = _load_json(required_paths["model_profile"])
+
+    metric_family = [field for field in COMPARISON_METRIC_FIELDS if field in metrics]
+    contract = {
+        "dataset_file": str(dataset_manifest.get("data_file") or split_manifest.get("source_file", {}).get("path", "")),
+        "split_counts": dict(split_manifest.get("split_counts", {})),
+        "max_windows_per_trajectory": int(split_manifest.get("max_windows_per_trajectory")),
+        "history_len": int(split_manifest.get("history_len", dataset_manifest.get("history_len", 0))),
+        "epochs": int(invocation.get("parsed_args", {}).get("epochs")),
+        "batch_size": int(invocation.get("parsed_args", {}).get("batch_size")),
+        "training_loss": str(metrics.get("training_loss")),
+        "metric_family": metric_family,
+    }
+    row = {
+        "profile_id": profile_id,
+        "status": str(metrics.get("status", "completed")),
+        "err_RMSE": metrics.get("err_RMSE"),
+        "err_nRMSE": metrics.get("err_nRMSE"),
+        "relative_l2": metrics.get("relative_l2"),
+        "fRMSE_low": metrics.get("fRMSE_low"),
+        "fRMSE_mid": metrics.get("fRMSE_mid"),
+        "fRMSE_high": metrics.get("fRMSE_high"),
+        "parameter_count": model_profile.get(
+            "parameter_count",
+            metrics.get("parameter_count", metrics.get("model_profile", {}).get("parameter_count")),
+        ),
+        "run_root": str(run_root),
+        "source_document": str(source_document),
+        "epochs": contract["epochs"],
+        "dataset_file": contract["dataset_file"],
+        "split_counts": contract["split_counts"],
+        "max_windows_per_trajectory": contract["max_windows_per_trajectory"],
+        "history_len": contract["history_len"],
+        "training_loss": contract["training_loss"],
+        "batch_size": contract["batch_size"],
+        "metric_family": contract["metric_family"],
+        "task_id": str(dataset_manifest.get("task_id", comparison_summary.get("task_id", ""))),
+    }
+    comparison_npz = run_root / f"comparison_{profile_id}_sample0.npz"
+    return {
+        "row": row,
+        "contract": contract,
+        "npz_path": comparison_npz if comparison_npz.exists() else None,
+    }
+
+
+def _assert_contract_matches(
+    *,
+    label: str,
+    actual: dict[str, Any],
+    expected: dict[str, Any],
+) -> None:
+    for key in [
+        "dataset_file",
+        "split_counts",
+        "max_windows_per_trajectory",
+        "history_len",
+        "epochs",
+        "batch_size",
+        "training_loss",
+        "metric_family",
+    ]:
+        if actual.get(key) != expected.get(key):
+            raise ValueError(f"{label} contract mismatch for {key}: {actual.get(key)!r} != {expected.get(key)!r}")
+
+
+def _load_npz_record(record: dict[str, Any]) -> dict[str, Any]:
+    path = record.get("npz_path")
+    if path is None:
+        raise FileNotFoundError(f"missing sample artifact for {record['row']['profile_id']}")
+    with np.load(path, allow_pickle=False) as data:
+        return {
+            "profile_id": record["row"]["profile_id"],
+            "prediction": np.asarray(data["prediction"]),
+            "target": np.asarray(data["target"]),
+            "abs_error": np.asarray(data["abs_error"]),
+            "field_order": [str(item) for item in data["field_order"].tolist()],
+        }
+
+
+def _render_gallery(
+    *,
+    target: np.ndarray,
+    panels: list[tuple[str, np.ndarray]],
+    field_order: list[str],
+    output_path: Path,
+    is_error: bool,
+) -> Path:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    channels = int(target.shape[0])
+    fig, axes = plt.subplots(
+        channels,
+        len(panels),
+        figsize=(4.2 * len(panels), 3.0 * channels),
+        squeeze=False,
+        constrained_layout=True,
+    )
+    for channel in range(channels):
+        label = field_order[channel] if channel < len(field_order) else f"c{channel}"
+        images = [image[channel] for _, image in panels]
+        if is_error:
+            spec = cfd_cns_field_visual_spec(label, images, is_error=True)
+        else:
+            spec = cfd_cns_field_visual_spec(label, [target[channel], *images], is_error=False)
+        for col, (title, image) in enumerate(panels):
+            axis = axes[channel][col]
+            handle = axis.imshow(image[channel], cmap=spec["cmap"], vmin=spec["vmin"], vmax=spec["vmax"])
+            if channel == 0:
+                axis.set_title(title)
+            if col == 0:
+                axis.set_ylabel(label)
+            axis.set_xticks([])
+            axis.set_yticks([])
+            fig.colorbar(handle, ax=axis, fraction=0.046, pad=0.04)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, dpi=180)
+    plt.close(fig)
+    return output_path
+
+
+def _maybe_render_cross_run_gallery(
+    *,
+    records: list[dict[str, Any]],
+    output_root: Path,
+    epoch_label: str,
+) -> tuple[dict[str, str] | None, dict[str, Any] | None]:
+    try:
+        npz_records = [_load_npz_record(record) for record in records]
+    except FileNotFoundError as exc:
+        return None, {"reason": "missing_sample_artifact", "message": str(exc)}
+
+    first = npz_records[0]
+    for current in npz_records[1:]:
+        if current["field_order"] != first["field_order"]:
+            return None, {
+                "reason": "field_order_mismatch",
+                "message": (
+                    f"field_order mismatch between {first['profile_id']} and {current['profile_id']}: "
+                    f"{first['field_order']} != {current['field_order']}"
+                ),
+            }
+        if not np.allclose(current["target"], first["target"], atol=1e-6, rtol=1e-6):
+            return None, {
+                "reason": "target_mismatch",
+                "message": f"target mismatch between {first['profile_id']} and {current['profile_id']}",
+            }
+
+    prediction_panels = [("Ground truth", first["target"])] + [
+        (record["profile_id"], record["prediction"]) for record in npz_records
+    ]
+    error_panels = [(record["profile_id"], record["abs_error"]) for record in npz_records]
+    prediction_path = _render_gallery(
+        target=first["target"],
+        panels=prediction_panels,
+        field_order=first["field_order"],
+        output_path=output_root / f"compare_{epoch_label}_sample0.png",
+        is_error=False,
+    )
+    error_path = _render_gallery(
+        target=first["target"],
+        panels=error_panels,
+        field_order=first["field_order"],
+        output_path=output_root / f"compare_{epoch_label}_sample0_error.png",
+        is_error=True,
+    )
+    return {
+        "prediction_gallery": str(prediction_path),
+        "error_gallery": str(error_path),
+    }, None
+
+
+def write_cross_run_compare(
+    *,
+    output_root: Path,
+    epoch_label: str,
+    expected_epochs: int,
+    author_run_root: Path,
+    author_profile_id: str,
+    required_reference_rows: list[dict[str, Any]],
+    optional_reference_rows: list[dict[str, Any]] | None = None,
+) -> tuple[Path, Path, dict[str, Any]]:
+    output_root = Path(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+
+    required_reference_rows = list(required_reference_rows)
+    if not required_reference_rows:
+        raise ValueError("required_reference_rows must not be empty")
+    expected_contract = {
+        "dataset_file": str(required_reference_rows[0]["dataset_file"]),
+        "split_counts": dict(required_reference_rows[0]["split_counts"]),
+        "max_windows_per_trajectory": int(required_reference_rows[0]["max_windows_per_trajectory"]),
+        "history_len": int(required_reference_rows[0]["history_len"]),
+        "epochs": int(expected_epochs),
+        "batch_size": int(required_reference_rows[0]["batch_size"]),
+        "training_loss": str(required_reference_rows[0]["training_loss"]),
+        "metric_family": list(required_reference_rows[0]["metric_family"]),
+    }
+
+    author_record = _load_run_record(
+        Path(author_run_root),
+        profile_id=str(author_profile_id),
+        source_document="fresh_author_run",
+    )
+    _assert_contract_matches(
+        label=f"author row {author_profile_id}",
+        actual=author_record["contract"],
+        expected=expected_contract,
+    )
+
+    selected_records = [author_record]
+    included_required_rows: list[dict[str, Any]] = []
+    for row in required_reference_rows:
+        record = _load_run_record(Path(row["run_root"]), profile_id=str(row["profile_id"]), source_document=str(row["source_document"]))
+        _assert_contract_matches(
+            label=f"reference row {row['profile_id']}",
+            actual=record["contract"],
+            expected={
+                "dataset_file": str(row["dataset_file"]),
+                "split_counts": dict(row["split_counts"]),
+                "max_windows_per_trajectory": int(row["max_windows_per_trajectory"]),
+                "history_len": int(row["history_len"]),
+                "epochs": int(row["epochs"]),
+                "batch_size": int(row["batch_size"]),
+                "training_loss": str(row["training_loss"]),
+                "metric_family": list(row["metric_family"]),
+            },
+        )
+        _assert_contract_matches(
+            label=f"reference row {row['profile_id']} vs author row",
+            actual=record["contract"],
+            expected=expected_contract,
+        )
+        selected_records.append(record)
+        included_required_rows.append(dict(row))
+
+    skipped_optional_rows: list[dict[str, Any]] = []
+    included_optional_rows: list[dict[str, Any]] = []
+    for row in optional_reference_rows or []:
+        try:
+            record = _load_run_record(
+                Path(row["run_root"]),
+                profile_id=str(row["profile_id"]),
+                source_document=str(row["source_document"]),
+            )
+            _assert_contract_matches(
+                label=f"optional row {row['profile_id']}",
+                actual=record["contract"],
+                expected={
+                    "dataset_file": str(row["dataset_file"]),
+                    "split_counts": dict(row["split_counts"]),
+                    "max_windows_per_trajectory": int(row["max_windows_per_trajectory"]),
+                    "history_len": int(row["history_len"]),
+                    "epochs": int(row["epochs"]),
+                    "batch_size": int(row["batch_size"]),
+                    "training_loss": str(row["training_loss"]),
+                    "metric_family": list(row["metric_family"]),
+                },
+            )
+            _assert_contract_matches(
+                label=f"optional row {row['profile_id']} vs author row",
+                actual=record["contract"],
+                expected=expected_contract,
+            )
+        except (FileNotFoundError, ValueError) as exc:
+            skipped_optional_rows.append(
+                {
+                    "profile_id": str(row["profile_id"]),
+                    "run_root": str(row["run_root"]),
+                    "reason": "contract_or_artifact_mismatch",
+                    "message": str(exc),
+                }
+            )
+            continue
+        selected_records.append(record)
+        included_optional_rows.append(dict(row))
+
+    gallery_artifacts, gallery_blocker = _maybe_render_cross_run_gallery(
+        records=selected_records,
+        output_root=output_root,
+        epoch_label=epoch_label,
+    )
+
+    profile_results = [record["row"] for record in selected_records]
+    payload = {
+        "schema_version": "pdebench_image128_cross_run_compare_v1",
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "task_id": "2d_cfd_cns",
+        "epoch_label": str(epoch_label),
+        "expected_epochs": int(expected_epochs),
+        "author_profile_id": str(author_profile_id),
+        "author_run_root": str(author_run_root),
+        "contract": expected_contract,
+        "profile_results": profile_results,
+        "included_required_reference_rows": included_required_rows,
+        "included_optional_reference_rows": included_optional_rows,
+        "skipped_optional_reference_rows": skipped_optional_rows,
+        "gallery_artifacts": gallery_artifacts,
+        "cross_run_gallery_blocked": gallery_blocker,
+    }
+
+    json_path = output_root / f"compare_{epoch_label}_against_existing.json"
+    csv_path = output_root / f"compare_{epoch_label}_against_existing.csv"
+    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    fields = [
+        "profile_id",
+        "status",
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high",
+        "parameter_count",
+        "run_root",
+        "source_document",
+        "epochs",
+        "training_loss",
+        "batch_size",
+    ]
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        for row in profile_results:
+            writer.writerow({field: row.get(field, "") for field in fields})
+    return json_path, csv_path, payload
