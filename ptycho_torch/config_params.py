@@ -76,6 +76,14 @@ class ModelConfig:
     offset: int = 6 # Offset parameter (for nearest neighbor patches)
     C_forward: int = field(default_factory=lambda: DataConfig().C, metadata={'frozen': True})  # Number of channels
 
+    #Architecture selection
+    architecture: Literal['unet', 'ccnf'] = field(default='unet', metadata={'frozen': True})
+    fourier_bands_film: int = 32
+    fourier_bands_coord: int = 10
+    neural_field_hidden: List[int] = field(default_factory=lambda: [512, 256, 128])
+    film_dim: int = 256
+    feature_volume_channels: int = 64
+
     #Loss
     loss_function: Literal['MAE', 'Poisson'] = 'Poisson' # Loss function to use ('MAE', 'MSE', etc.)
     amp_loss: Literal['Total_Variation', "Mean_Deviation", None] = None

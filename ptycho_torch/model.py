@@ -595,6 +595,7 @@ class Autoencoder(nn.Module):
 
         return x_real, x_imag
 
+
 #Other modules
 class CombineComplex(nn.Module):
     '''
@@ -1338,7 +1339,11 @@ class PtychoPINN_Lightning(L.LightningModule):
 
         #Model
         if model_config.mode == 'Unsupervised':
-            self.model = PtychoPINN(model_config, data_config, training_config)
+            if getattr(model_config, 'architecture', 'unet') == 'ccnf':
+                from ptycho_torch.beta_modules.latent_model import PtychoPINN_CCNF
+                self.model = PtychoPINN_CCNF(model_config, data_config, training_config)
+            else:
+                self.model = PtychoPINN(model_config, data_config, training_config)
         elif model_config.mode == 'Supervised':
             self.model = Ptycho_Supervised(model_config, data_config, training_config)
 
