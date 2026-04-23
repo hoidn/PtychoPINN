@@ -12,10 +12,12 @@ from typing import Any
 
 import numpy as np
 import torch
+from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 
 from scripts.studies.invocation_logging import capture_runtime_provenance, write_invocation_artifacts
 from scripts.studies.pdebench_image128.data import DarcyStaticOperatorDataset, inspect_darcy_hdf5
+from scripts.studies.pdebench_image128.distributed import DistributedRuntime, initialize_runtime, prepare_output_root
 from scripts.studies.pdebench_image128.metrics import static_operator_metric_payload
 from scripts.studies.pdebench_image128.models import ModelBuildBlocker, build_model_from_profile, describe_model
 from scripts.studies.pdebench_image128.normalization import compute_static_operator_stats, denormalize_batch
@@ -44,12 +46,6 @@ def _write_json(path: Path, payload: dict[str, Any]) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return path
-
-
-def _guard_output_root(output_root: Path, *, allow_existing: bool) -> None:
-    if output_root.exists() and any(output_root.iterdir()) and not allow_existing:
-        raise FileExistsError(f"refusing to write into non-empty output root: {output_root}")
-    output_root.mkdir(parents=True, exist_ok=True)
 
 
 def _resolve_device(requested: str) -> torch.device:
@@ -148,15 +144,17 @@ def _run_profile(
     plateau_threshold: float,
     device_name: str,
     num_workers: int,
+    runtime: DistributedRuntime | None = None,
 ) -> dict[str, Any]:
+    runtime = runtime or DistributedRuntime(requested_device=device_name, device=_resolve_device(device_name))
     profile = get_model_profile(profile_id)
     started = time.time()
-    device = _resolve_device(device_name)
+    device = runtime.device
     sample = train_dataset[0]
     in_channels = int(sample["input"].shape[0])
     out_channels = int(sample["target"].shape[0])
     try:
-        model = build_model_from_profile(
+        raw_model = build_model_from_profile(
             profile,
             in_channels=in_channels,
             out_channels=out_channels,
@@ -169,25 +167,30 @@ def _run_profile(
             "status": "blocked",
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
         }
-        _write_json(output_root / f"model_profile_{profile_id}.json", {**profile.to_model_config(), **blocker})
-        _write_json(output_root / f"metrics_{profile_id}.json", blocker)
-        return {"profile_id": profile_id, "status": "blocked", "blocker_reason": exc.reason}
+        if runtime.is_rank_zero:
+            _write_json(output_root / f"model_profile_{profile_id}.json", {**profile.to_model_config(), **blocker})
+            _write_json(output_root / f"metrics_{profile_id}.json", blocker)
+        return runtime.broadcast_object(
+            {"profile_id": profile_id, "status": "blocked", "blocker_reason": exc.reason},
+            src=0,
+        )
 
-    model_profile = describe_model(model, profile=profile)
-    _write_json(output_root / f"model_profile_{profile_id}.json", model_profile)
-    train_loader = DataLoader(
+    model_profile = describe_model(raw_model, profile=profile)
+    if runtime.is_rank_zero:
+        _write_json(output_root / f"model_profile_{profile_id}.json", model_profile)
+    model: torch.nn.Module = raw_model
+    if runtime.distributed_enabled:
+        ddp_kwargs: dict[str, Any] = {}
+        if device.type == "cuda":
+            ddp_kwargs["device_ids"] = [device.index]
+            ddp_kwargs["output_device"] = device.index
+        model = DistributedDataParallel(raw_model, **ddp_kwargs)
+    train_loader, train_sampler = runtime.build_training_loader(
         train_dataset,
         batch_size=batch_size,
-        shuffle=False,
         num_workers=num_workers,
         collate_fn=_collate,
-    )
-    eval_loader = DataLoader(
-        eval_dataset,
-        batch_size=batch_size,
         shuffle=False,
-        num_workers=num_workers,
-        collate_fn=_collate,
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=float(learning_rate))
     if loss_name == "mae":
@@ -208,10 +211,13 @@ def _run_profile(
             min_lr=float(plateau_min_lr),
             threshold=float(plateau_threshold),
         )
+    runtime.maybe_reset_peak_memory_stats()
     model.train()
-    train_batches = 0
+    total_train_batches = 0
     epoch_losses: list[float] = []
     for epoch_index in range(int(epochs)):
+        if train_sampler is not None:
+            train_sampler.set_epoch(epoch_index)
         epoch_loss = 0.0
         epoch_batches = 0
         for batch in train_loader:
@@ -223,53 +229,67 @@ def _run_profile(
             optimizer.step()
             epoch_loss += float(loss.detach().cpu().item())
             epoch_batches += 1
-            train_batches += 1
-        if epoch_batches:
-            mean_epoch_loss = epoch_loss / epoch_batches
+        global_epoch_loss = runtime.reduce_sum(epoch_loss)
+        global_epoch_batches = int(round(runtime.reduce_sum(epoch_batches)))
+        total_train_batches += global_epoch_batches
+        if global_epoch_batches:
+            mean_epoch_loss = global_epoch_loss / global_epoch_batches
             epoch_losses.append(mean_epoch_loss)
-            print(
-                f"EPOCH_LOSS profile={profile_id} epoch={epoch_index + 1} "
-                f"loss={mean_epoch_loss:.10g} loss_name={loss_name}",
-                flush=True,
-            )
+            if runtime.is_rank_zero:
+                print(
+                    f"EPOCH_LOSS profile={profile_id} epoch={epoch_index + 1} "
+                    f"loss={mean_epoch_loss:.10g} loss_name={loss_name}",
+                    flush=True,
+                )
             if scheduler is not None:
                 scheduler.step(mean_epoch_loss)
 
-    model.eval()
-    predictions: list[torch.Tensor] = []
-    targets: list[torch.Tensor] = []
-    with torch.no_grad():
-        for batch in eval_loader:
-            x = batch["input"].to(device)
-            y = batch["target"].to(device)
-            predictions.append(model(x).cpu())
-            targets.append(y.cpu())
-    metrics = static_operator_metric_payload(predictions, targets, normalized=True, target_stats=target_stats)
-    comparison_artifacts = _write_prediction_comparison(
-        output_root=output_root,
-        profile_id=profile_id,
-        predictions=predictions,
-        targets=targets,
-        target_stats=target_stats,
-    )
-    runtime_sec = time.time() - started
-    peak_memory = int(torch.cuda.max_memory_allocated(device)) if device.type == "cuda" else None
-    payload = {
-        **metrics,
-        "run_id": run_id,
-        "profile_id": profile_id,
-        "train_batches": int(train_batches),
-        "train_epoch_losses": epoch_losses,
-        "training_loss": loss_name,
-        "training_loss_definition": "mean over samples of ||prediction-target||_2 / ||target||_2",
-        "scheduler": scheduler_name,
-        "runtime_sec": runtime_sec,
-        "peak_cuda_memory_bytes": peak_memory,
-        "model_profile": model_profile,
-        **comparison_artifacts,
-    }
-    _write_json(output_root / f"metrics_{profile_id}.json", payload)
-    return _profile_result_from_metrics(profile_id, payload, model_profile)
+    runtime.barrier()
+    peak_memory = runtime.max_cuda_memory_bytes()
+    result: dict[str, Any] | None = None
+    if runtime.is_rank_zero:
+        eval_loader = DataLoader(
+            eval_dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            collate_fn=_collate,
+        )
+        raw_model.eval()
+        predictions: list[torch.Tensor] = []
+        targets: list[torch.Tensor] = []
+        with torch.no_grad():
+            for batch in eval_loader:
+                x = batch["input"].to(device)
+                y = batch["target"].to(device)
+                predictions.append(raw_model(x).cpu())
+                targets.append(y.cpu())
+        metrics = static_operator_metric_payload(predictions, targets, normalized=True, target_stats=target_stats)
+        comparison_artifacts = _write_prediction_comparison(
+            output_root=output_root,
+            profile_id=profile_id,
+            predictions=predictions,
+            targets=targets,
+            target_stats=target_stats,
+        )
+        payload = {
+            **metrics,
+            "run_id": run_id,
+            "profile_id": profile_id,
+            "train_batches": int(total_train_batches),
+            "train_epoch_losses": epoch_losses,
+            "training_loss": loss_name,
+            "training_loss_definition": "mean over samples of ||prediction-target||_2 / ||target||_2",
+            "scheduler": scheduler_name,
+            "runtime_sec": time.time() - started,
+            "peak_cuda_memory_bytes": peak_memory,
+            "model_profile": model_profile,
+            **runtime.training_runtime_payload(),
+            **comparison_artifacts,
+        }
+        _write_json(output_root / f"metrics_{profile_id}.json", payload)
+        result = _profile_result_from_metrics(profile_id, payload, model_profile)
+    return runtime.broadcast_object(result, src=0)
 
 
 def _write_dataset_manifest(output_root: Path, *, metadata: dict[str, Any]) -> Path:
@@ -314,174 +334,194 @@ def run_darcy(
     run_budget: Path | None = None,
     allow_existing_output_root: bool = False,
     raw_argv: list[str] | None = None,
+    runtime: DistributedRuntime | None = None,
 ) -> int:
     if task_id != "darcy":
         raise ValueError("run_darcy only supports task_id='darcy'")
     if mode not in {"inspect", "readiness", "benchmark"}:
         raise ValueError("Darcy mode must be inspect, readiness, or benchmark")
+    runtime_owned = runtime is None
+    runtime = runtime or initialize_runtime(device)
     output_root = Path(output_root)
-    _guard_output_root(output_root, allow_existing=allow_existing_output_root)
-    data_file = Path(data_root) / "darcy" / DARCY_FILENAME
-    if not data_file.exists():
-        raise FileNotFoundError(f"missing Darcy data file: {data_file}")
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
-    write_invocation_artifacts(
-        output_dir=output_root,
-        script_path=SCRIPT_PATH,
-        argv=raw_argv or [],
-        parsed_args={
-            "task_id": task_id,
-            "mode": mode,
-            "data_root": str(data_root),
-            "output_root": str(output_root),
-            "profile_ids": profile_ids,
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "max_train_samples": max_train_samples,
-            "max_val_samples": max_val_samples,
-            "max_test_samples": max_test_samples,
-            "device": device,
-            "num_workers": num_workers,
-            "run_budget": str(run_budget) if run_budget else None,
-        },
-        extra={"run_id": run_id, "runtime_provenance": capture_runtime_provenance(), "pid": os.getpid()},
-    )
-    metadata = inspect_darcy_hdf5(data_file)
-    _write_json(output_root / "hdf5_metadata.json", metadata)
-    _write_dataset_manifest(output_root, metadata=metadata)
-    write_literature_context(output_root, task_id="darcy")
-    if mode == "inspect":
-        return 0
+    try:
+        prepare_output_root(output_root, allow_existing=allow_existing_output_root, runtime=runtime)
+        data_file = Path(data_root) / "darcy" / DARCY_FILENAME
+        if not data_file.exists():
+            raise FileNotFoundError(f"missing Darcy data file: {data_file}")
+        run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+        if runtime.is_rank_zero:
+            write_invocation_artifacts(
+                output_dir=output_root,
+                script_path=SCRIPT_PATH,
+                argv=raw_argv or [],
+                parsed_args={
+                    "task_id": task_id,
+                    "mode": mode,
+                    "data_root": str(data_root),
+                    "output_root": str(output_root),
+                    "profile_ids": profile_ids,
+                    "epochs": epochs,
+                    "batch_size": batch_size,
+                    "max_train_samples": max_train_samples,
+                    "max_val_samples": max_val_samples,
+                    "max_test_samples": max_test_samples,
+                    "device": device,
+                    "num_workers": num_workers,
+                    "run_budget": str(run_budget) if run_budget else None,
+                    **runtime.training_runtime_payload(),
+                },
+                extra={"run_id": run_id, "runtime_provenance": capture_runtime_provenance(), "pid": os.getpid()},
+            )
+        metadata = inspect_darcy_hdf5(data_file)
+        if runtime.is_rank_zero:
+            _write_json(output_root / "hdf5_metadata.json", metadata)
+            _write_dataset_manifest(output_root, metadata=metadata)
+            write_literature_context(output_root, task_id="darcy")
+        if mode == "inspect":
+            return 0
 
-    full_split = _split_for_run(metadata, mode=mode)
-    if mode == "benchmark":
-        budget_payload = json.loads(Path(run_budget).read_text(encoding="utf-8")) if run_budget else {
-            "task_id": "darcy",
-            "mode": "benchmark",
-            "train_count": 8000,
-            "val_count": 1000,
-            "test_count": 1000,
-            "primary_profiles": PRIMARY_DARCY_PROFILE_IDS,
-            "training_seed": 20260420,
-            "loss": "relative_l2",
-            "optimizer": "adam",
-            "learning_rate": 2e-4,
-            "scheduler": "ReduceLROnPlateau",
-            "plateau_factor": 0.5,
-            "plateau_patience": 2,
-            "plateau_min_lr": 1e-5,
-            "plateau_threshold": 0.0,
-            "batch_size": batch_size,
-            "epochs": epochs,
-            "precision": "float32",
-            "device": device,
-            "num_workers": num_workers,
-        }
-        budget = validate_darcy_run_budget(budget_payload)
-        profile_ids = list(budget["primary_profiles"])
-        epochs = int(budget["epochs"])
-        batch_size = int(budget["batch_size"])
-        device = str(budget["device"])
-        num_workers = int(budget["num_workers"])
-        learning_rate = float(budget["learning_rate"])
-        loss_name = str(budget["loss"])
-        scheduler_name = str(budget["scheduler"])
-        plateau_factor = float(budget["plateau_factor"])
-        plateau_patience = int(budget["plateau_patience"])
-        plateau_min_lr = float(budget["plateau_min_lr"])
-        plateau_threshold = float(budget["plateau_threshold"])
-        run_split = full_split
-    else:
-        learning_rate = 2e-4
-        loss_name = "relative_l2"
-        scheduler_name = "ReduceLROnPlateau"
-        plateau_factor = 0.5
-        plateau_patience = 2
-        plateau_min_lr = 1e-5
-        plateau_threshold = 0.0
-        profile_ids = profile_ids or ["unet_tiny_smoke"]
-        run_split = capped_split(
-            full_split,
-            max_train_samples=max_train_samples,
-            max_val_samples=max_val_samples,
-            max_test_samples=max_test_samples,
+        full_split = _split_for_run(metadata, mode=mode)
+        if mode == "benchmark":
+            budget_payload = json.loads(Path(run_budget).read_text(encoding="utf-8")) if run_budget else {
+                "task_id": "darcy",
+                "mode": "benchmark",
+                "train_count": 8000,
+                "val_count": 1000,
+                "test_count": 1000,
+                "primary_profiles": PRIMARY_DARCY_PROFILE_IDS,
+                "training_seed": 20260420,
+                "loss": "relative_l2",
+                "optimizer": "adam",
+                "learning_rate": 2e-4,
+                "scheduler": "ReduceLROnPlateau",
+                "plateau_factor": 0.5,
+                "plateau_patience": 2,
+                "plateau_min_lr": 1e-5,
+                "plateau_threshold": 0.0,
+                "batch_size": batch_size,
+                "epochs": epochs,
+                "precision": "float32",
+                "device": device,
+                "num_workers": num_workers,
+            }
+            budget = validate_darcy_run_budget(budget_payload)
+            if str(budget["device"]) != str(runtime.requested_device):
+                raise ValueError(
+                    f"run_budget device {budget['device']!r} must match launch --device {runtime.requested_device!r}"
+                )
+            profile_ids = list(budget["primary_profiles"])
+            epochs = int(budget["epochs"])
+            batch_size = int(budget["batch_size"])
+            device = str(budget["device"])
+            num_workers = int(budget["num_workers"])
+            learning_rate = float(budget["learning_rate"])
+            loss_name = str(budget["loss"])
+            scheduler_name = str(budget["scheduler"])
+            plateau_factor = float(budget["plateau_factor"])
+            plateau_patience = int(budget["plateau_patience"])
+            plateau_min_lr = float(budget["plateau_min_lr"])
+            plateau_threshold = float(budget["plateau_threshold"])
+            run_split = full_split
+        else:
+            learning_rate = 2e-4
+            loss_name = "relative_l2"
+            scheduler_name = "ReduceLROnPlateau"
+            plateau_factor = 0.5
+            plateau_patience = 2
+            plateau_min_lr = 1e-5
+            plateau_threshold = 0.0
+            profile_ids = profile_ids or ["unet_tiny_smoke"]
+            run_split = capped_split(
+                full_split,
+                max_train_samples=max_train_samples,
+                max_val_samples=max_val_samples,
+                max_test_samples=max_test_samples,
+            )
+
+        if runtime.is_rank_zero:
+            write_sample_split_manifest(
+                output_root=output_root,
+                data_file=data_file,
+                split=run_split,
+                beta=metadata["beta"],
+                input_dataset=metadata["input_dataset"],
+                target_dataset=metadata["target_dataset"],
+                extra={
+                    "full_split_counts": {name: len(full_split[name]) for name in ("train", "val", "test")},
+                    "run_mode": mode,
+                    **runtime.training_runtime_payload(),
+                },
+            )
+        input_stats, target_stats = compute_static_operator_stats(
+            data_file=data_file,
+            input_dataset=metadata["input_dataset"],
+            target_dataset=metadata["target_dataset"],
+            train_indices=run_split["train"],
         )
+        input_stats = {**input_stats, "run_id": run_id}
+        target_stats = {**target_stats, "run_id": run_id}
+        if runtime.is_rank_zero:
+            _write_json(output_root / "normalization_stats_input.json", input_stats)
+            _write_json(output_root / "normalization_stats_target.json", target_stats)
 
-    write_sample_split_manifest(
-        output_root=output_root,
-        data_file=data_file,
-        split=run_split,
-        beta=metadata["beta"],
-        input_dataset=metadata["input_dataset"],
-        target_dataset=metadata["target_dataset"],
-        extra={
-            "full_split_counts": {name: len(full_split[name]) for name in ("train", "val", "test")},
-            "run_mode": mode,
-        },
-    )
-    input_stats, target_stats = compute_static_operator_stats(
-        data_file=data_file,
-        input_dataset=metadata["input_dataset"],
-        target_dataset=metadata["target_dataset"],
-        train_indices=run_split["train"],
-    )
-    input_stats = {**input_stats, "run_id": run_id}
-    target_stats = {**target_stats, "run_id": run_id}
-    _write_json(output_root / "normalization_stats_input.json", input_stats)
-    _write_json(output_root / "normalization_stats_target.json", target_stats)
-
-    train_dataset = DarcyStaticOperatorDataset(
-        data_file=data_file,
-        sample_indices=run_split["train"],
-        input_stats=input_stats,
-        target_stats=target_stats,
-    )
-    eval_indices = run_split["test"] or run_split["val"] or run_split["train"]
-    eval_dataset = DarcyStaticOperatorDataset(
-        data_file=data_file,
-        sample_indices=eval_indices,
-        input_stats=input_stats,
-        target_stats=target_stats,
-    )
-    sample = train_dataset[0]
-    spatial_shape = (int(sample["input"].shape[-2]), int(sample["input"].shape[-1]))
-    torch.manual_seed(20260420)
-    profile_results = []
-    blockers = []
-    for profile_id in profile_ids:
-        result = _run_profile(
-            profile_id=profile_id,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
+        train_dataset = DarcyStaticOperatorDataset(
+            data_file=data_file,
+            sample_indices=run_split["train"],
+            input_stats=input_stats,
             target_stats=target_stats,
-            spatial_shape=spatial_shape,
-            output_root=output_root,
-            run_id=run_id,
-            epochs=epochs,
-            batch_size=batch_size,
-            learning_rate=learning_rate,
-            loss_name=loss_name,
-            scheduler_name=scheduler_name,
-            plateau_factor=plateau_factor,
-            plateau_patience=plateau_patience,
-            plateau_min_lr=plateau_min_lr,
-            plateau_threshold=plateau_threshold,
-            device_name=device,
-            num_workers=num_workers,
         )
-        profile_results.append(result)
-        if result.get("status") != "completed":
-            blockers.append(result)
-    summary = build_comparison_summary(
-        task_id="darcy",
-        mode=mode,
-        output_root=output_root,
-        profile_results=profile_results,
-        run_id=run_id,
-        blockers=blockers,
-    )
-    write_comparison_summary(summary, output_root)
-    return 0 if any(item.get("status") == "completed" for item in profile_results) else 1
+        eval_indices = run_split["test"] or run_split["val"] or run_split["train"]
+        eval_dataset = DarcyStaticOperatorDataset(
+            data_file=data_file,
+            sample_indices=eval_indices,
+            input_stats=input_stats,
+            target_stats=target_stats,
+        )
+        sample = train_dataset[0]
+        spatial_shape = (int(sample["input"].shape[-2]), int(sample["input"].shape[-1]))
+        torch.manual_seed(20260420)
+        profile_results = []
+        blockers = []
+        for profile_id in profile_ids:
+            result = _run_profile(
+                profile_id=profile_id,
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                target_stats=target_stats,
+                spatial_shape=spatial_shape,
+                output_root=output_root,
+                run_id=run_id,
+                epochs=epochs,
+                batch_size=batch_size,
+                learning_rate=learning_rate,
+                loss_name=loss_name,
+                scheduler_name=scheduler_name,
+                plateau_factor=plateau_factor,
+                plateau_patience=plateau_patience,
+                plateau_min_lr=plateau_min_lr,
+                plateau_threshold=plateau_threshold,
+                device_name=device,
+                num_workers=num_workers,
+                runtime=runtime,
+            )
+            profile_results.append(result)
+            if result.get("status") != "completed":
+                blockers.append(result)
+        if runtime.is_rank_zero:
+            summary = build_comparison_summary(
+                task_id="darcy",
+                mode=mode,
+                output_root=output_root,
+                profile_results=profile_results,
+                run_id=run_id,
+                blockers=blockers,
+            )
+            summary.update(runtime.training_runtime_payload())
+            write_comparison_summary(summary, output_root)
+        return 0 if any(item.get("status") == "completed" for item in profile_results) else 1
+    finally:
+        if runtime_owned:
+            runtime.finalize()
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:

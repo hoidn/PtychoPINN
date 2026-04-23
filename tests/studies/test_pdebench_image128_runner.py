@@ -1,10 +1,133 @@
 import csv
 import json
+import sys
+import types
 from pathlib import Path
 
 import h5py
 import numpy as np
 import torch
+
+
+class _WorkerRuntime:
+    def __init__(self, *, broadcast_value):
+        self.requested_device = "cpu"
+        self.device = torch.device("cpu")
+        self.rank = 1
+        self.local_rank = 1
+        self.world_size = 2
+        self.backend = "gloo"
+        self.distributed_enabled = False
+        self.launched_via_torchrun = True
+        self._broadcast_value = broadcast_value
+
+    @property
+    def is_rank_zero(self):
+        return False
+
+    def build_training_loader(self, dataset, *, batch_size, num_workers, collate_fn, shuffle=False):
+        from torch.utils.data import DataLoader
+
+        return (
+            DataLoader(
+                dataset,
+                batch_size=batch_size,
+                shuffle=shuffle,
+                num_workers=num_workers,
+                collate_fn=collate_fn,
+            ),
+            None,
+        )
+
+    def maybe_reset_peak_memory_stats(self):
+        return None
+
+    def reduce_sum(self, value):
+        return float(value)
+
+    def reduce_sum_dict(self, values):
+        return {str(key): float(value) for key, value in values.items()}
+
+    def barrier(self):
+        return None
+
+    def max_cuda_memory_bytes(self):
+        return None
+
+    def training_runtime_payload(self):
+        return {
+            "requested_device": "cpu",
+            "resolved_device": "cpu",
+            "distributed_enabled": False,
+            "distributed_world_size": 2,
+            "distributed_rank": 1,
+            "distributed_local_rank": 1,
+            "distributed_backend": "gloo",
+            "launched_via_torchrun": True,
+        }
+
+    def broadcast_object(self, value, *, src=0):
+        return value if value is not None else dict(self._broadcast_value)
+
+
+class _DistributedRankZeroRuntime:
+    def __init__(self, *, world_size=2):
+        self.requested_device = "cpu"
+        self.device = torch.device("cpu")
+        self.rank = 0
+        self.local_rank = 0
+        self.world_size = int(world_size)
+        self.backend = "gloo"
+        self.distributed_enabled = True
+        self.launched_via_torchrun = True
+
+    @property
+    def is_rank_zero(self):
+        return True
+
+    def build_training_loader(self, dataset, *, batch_size, num_workers, collate_fn, shuffle=False):
+        from torch.utils.data import DataLoader
+
+        return (
+            DataLoader(
+                dataset,
+                batch_size=batch_size,
+                shuffle=shuffle,
+                num_workers=num_workers,
+                collate_fn=collate_fn,
+            ),
+            None,
+        )
+
+    def maybe_reset_peak_memory_stats(self):
+        return None
+
+    def reduce_sum(self, value):
+        return float(value) * float(self.world_size)
+
+    def reduce_sum_dict(self, values):
+        return {str(key): float(value) * float(self.world_size) for key, value in values.items()}
+
+    def barrier(self):
+        return None
+
+    def max_cuda_memory_bytes(self):
+        return None
+
+    def training_runtime_payload(self):
+        return {
+            "requested_device": "cpu",
+            "resolved_device": "cpu",
+            "distributed_enabled": True,
+            "distributed_world_size": int(self.world_size),
+            "distributed_rank": 0,
+            "distributed_local_rank": 0,
+            "distributed_backend": "gloo",
+            "launched_via_torchrun": True,
+        }
+
+    def broadcast_object(self, value, *, src=0):
+        return value
 
 
 def _write_tiny_darcy(path: Path, *, n: int = 12) -> Path:
@@ -15,6 +138,47 @@ def _write_tiny_darcy(path: Path, *, n: int = 12) -> Path:
         handle.create_dataset("nu", data=rng.normal(size=(n, 8, 8)).astype(np.float32))
         handle.create_dataset("tensor", data=rng.normal(size=(n, 1, 8, 8)).astype(np.float32))
     return path
+
+
+def _stub_skimage(monkeypatch):
+    if "skimage" in sys.modules:
+        return
+    draw_module = types.ModuleType("skimage.draw")
+    morphology_module = types.ModuleType("skimage.morphology")
+    skimage_module = types.ModuleType("skimage")
+    skimage_module.draw = draw_module
+    skimage_module.morphology = morphology_module
+    monkeypatch.setitem(sys.modules, "skimage", skimage_module)
+    monkeypatch.setitem(sys.modules, "skimage.draw", draw_module)
+    monkeypatch.setitem(sys.modules, "skimage.morphology", morphology_module)
+
+
+def _stub_pdebench_models_module(monkeypatch):
+    module_name = "scripts.studies.pdebench_image128.models"
+    if module_name in sys.modules:
+        return
+
+    fake_models = types.ModuleType(module_name)
+
+    class ModelBuildBlocker(Exception):
+        reason = "blocked"
+
+        def to_payload(self, *, run_id):
+            return {"run_id": run_id, "blocker_reason": self.reason}
+
+    def build_model_from_profile(*args, **kwargs):
+        raise AssertionError("test must monkeypatch build_model_from_profile after import")
+
+    def describe_model(model, *, profile):
+        return {
+            "parameter_count": int(sum(parameter.numel() for parameter in model.parameters())),
+            "profile_config": profile.to_model_config(),
+        }
+
+    fake_models.ModelBuildBlocker = ModelBuildBlocker
+    fake_models.build_model_from_profile = build_model_from_profile
+    fake_models.describe_model = describe_model
+    monkeypatch.setitem(sys.modules, module_name, fake_models)
 
 
 def _write_tiny_cfd_cns(path: Path, *, n: int = 5, t: int = 4) -> Path:
@@ -180,6 +344,11 @@ def test_darcy_readiness_runner_writes_required_artifacts(tmp_path):
     summary = json.loads((output_root / "comparison_summary.json").read_text(encoding="utf-8"))
     assert summary["evidence_scope"] == "smoke_feasibility_only"
     assert summary["performance_assessment_complete"] is False
+    assert summary["distributed_enabled"] is False
+    assert summary["distributed_world_size"] == 1
+    metrics = json.loads((output_root / "metrics_unet_tiny_smoke.json").read_text(encoding="utf-8"))
+    assert metrics["distributed_enabled"] is False
+    assert metrics["distributed_world_size"] == 1
     with (output_root / "comparison_summary.csv").open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
     assert rows[0]["profile_id"] == "unet_tiny_smoke"
@@ -248,7 +417,11 @@ def test_cfd_cns_readiness_runner_writes_history_window_artifacts(tmp_path):
     assert summary["task_id"] == "2d_cfd_cns"
     assert summary["history_len"] == 2
     assert summary["evidence_scope"] == "smoke_feasibility_only"
+    assert summary["distributed_enabled"] is False
+    assert summary["distributed_world_size"] == 1
     assert "fRMSE_high" in summary["profile_results"][0]
+    assert metrics["distributed_enabled"] is False
+    assert metrics["distributed_world_size"] == 1
 
 
 def test_cfd_cns_readiness_runner_artifacts_history1_contract(tmp_path):
@@ -584,6 +757,310 @@ def test_cfd_cns_author_ffno_profile_uses_equal_footing_training_recipe(tmp_path
     assert metrics["scheduler"] == "ReduceLROnPlateau"
     assert metrics["learning_rate"] == 2e-4
     assert metrics["weight_decay"] == 0.0
+
+
+def test_darcy_worker_runtime_skips_rank_zero_eval_and_artifacts(tmp_path, monkeypatch):
+    _stub_skimage(monkeypatch)
+    _stub_pdebench_models_module(monkeypatch)
+    from scripts.studies.pdebench_image128 import darcy
+    from scripts.studies.pdebench_image128.data import DarcyStaticOperatorDataset
+    from scripts.studies.pdebench_image128.normalization import compute_static_operator_stats
+
+    data_file = _write_tiny_darcy(tmp_path / "data" / "darcy" / "2D_DarcyFlow_beta1.0_Train.hdf5")
+    input_stats, target_stats = compute_static_operator_stats(
+        data_file=data_file,
+        input_dataset="nu",
+        target_dataset="tensor",
+        train_indices=[0, 1, 2, 3],
+    )
+    train_dataset = DarcyStaticOperatorDataset(
+        data_file=data_file,
+        sample_indices=[0, 1, 2, 3],
+        input_stats=input_stats,
+        target_stats=target_stats,
+    )
+    eval_dataset = DarcyStaticOperatorDataset(
+        data_file=data_file,
+        sample_indices=[4, 5],
+        input_stats=input_stats,
+        target_stats=target_stats,
+    )
+
+    class TinyModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.proj = torch.nn.Conv2d(1, 1, kernel_size=1)
+
+        def forward(self, x):
+            return self.proj(x)
+
+    monkeypatch.setattr(darcy, "build_model_from_profile", lambda *args, **kwargs: TinyModel())
+    monkeypatch.setattr(darcy, "_write_json", lambda path, payload: (_ for _ in ()).throw(AssertionError("worker should not write json")))
+    monkeypatch.setattr(
+        darcy,
+        "_evaluate_loader",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("worker should not evaluate")),
+        raising=False,
+    )
+
+    result = darcy._run_profile(
+        profile_id="unet_tiny_smoke",
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        target_stats=target_stats,
+        spatial_shape=(8, 8),
+        output_root=tmp_path / "out",
+        run_id="darcy-worker-runtime-test",
+        epochs=1,
+        batch_size=2,
+        learning_rate=2e-4,
+        loss_name="relative_l2",
+        scheduler_name="ReduceLROnPlateau",
+        plateau_factor=0.5,
+        plateau_patience=2,
+        plateau_min_lr=1e-5,
+        plateau_threshold=0.0,
+        device_name="cpu",
+        num_workers=0,
+        runtime=_WorkerRuntime(
+            broadcast_value={
+                "profile_id": "unet_tiny_smoke",
+                "status": "completed",
+                "err_RMSE": 0.1,
+                "err_nRMSE": 0.1,
+                "relative_l2": 0.1,
+                "parameter_count": 2,
+            }
+        ),
+    )
+
+    assert result["status"] == "completed"
+    assert not (tmp_path / "out" / "metrics_unet_tiny_smoke.json").exists()
+
+
+def test_cfd_cns_worker_runtime_skips_rank_zero_eval_and_artifacts(tmp_path, monkeypatch):
+    _stub_skimage(monkeypatch)
+    _stub_pdebench_models_module(monkeypatch)
+    from scripts.studies.pdebench_image128 import cfd_cns
+    from scripts.studies.pdebench_image128.data import MultiFieldHistoryWindowDataset, inspect_cfd_cns_hdf5
+    from scripts.studies.pdebench_image128.normalization import compute_multifield_dynamic_stats
+
+    data_file = _write_tiny_cfd_cns(
+        tmp_path / "data" / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+    )
+    metadata = inspect_cfd_cns_hdf5(data_file, history_len=2)
+    state_stats = compute_multifield_dynamic_stats(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        axis_order=metadata["field_axis_order"],
+        train_trajectory_ids=[0, 1],
+    )
+    train_dataset = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        trajectory_ids=[0, 1],
+        axis_order=metadata["field_axis_order"],
+        history_len=2,
+        normalization=state_stats,
+        max_windows_per_trajectory=1,
+    )
+    eval_dataset = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        trajectory_ids=[2],
+        axis_order=metadata["field_axis_order"],
+        history_len=2,
+        normalization=state_stats,
+        max_windows_per_trajectory=1,
+    )
+
+    class TinyModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.proj = torch.nn.Conv2d(8, 4, kernel_size=1)
+
+        def forward(self, x):
+            return self.proj(x)
+
+    monkeypatch.setattr(cfd_cns, "build_model_from_profile", lambda *args, **kwargs: TinyModel())
+    monkeypatch.setattr(cfd_cns, "_write_json", lambda path, payload: (_ for _ in ()).throw(AssertionError("worker should not write json")))
+    monkeypatch.setattr(
+        cfd_cns,
+        "_evaluate_loader",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("worker should not evaluate")),
+    )
+
+    result = cfd_cns._run_profile(
+        profile_id="unet_tiny_smoke",
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        state_stats=state_stats,
+        spatial_shape=(8, 8),
+        output_root=tmp_path / "out",
+        run_id="cfd-worker-runtime-test",
+        metadata=metadata,
+        epochs=1,
+        batch_size=1,
+        learning_rate=2e-4,
+        device_name="cpu",
+        num_workers=0,
+        physics_config=cfd_cns.PhysicsRegularizationConfig(),
+        runtime=_WorkerRuntime(
+            broadcast_value={
+                "profile_id": "unet_tiny_smoke",
+                "status": "completed",
+                "err_RMSE": 0.1,
+                "err_nRMSE": 0.1,
+                "relative_l2": 0.1,
+                "fRMSE_low": 0.1,
+                "fRMSE_mid": 0.1,
+                "fRMSE_high": 0.1,
+                "parameter_count": 2,
+            }
+        ),
+    )
+
+    assert result["status"] == "completed"
+    assert not (tmp_path / "out" / "metrics_unet_tiny_smoke.json").exists()
+
+
+def test_darcy_distributed_train_batches_counts_global_batches_once_per_epoch(tmp_path, monkeypatch):
+    _stub_skimage(monkeypatch)
+    _stub_pdebench_models_module(monkeypatch)
+    from scripts.studies.pdebench_image128 import darcy
+    from scripts.studies.pdebench_image128.data import DarcyStaticOperatorDataset
+    from scripts.studies.pdebench_image128.normalization import compute_static_operator_stats
+
+    data_file = _write_tiny_darcy(tmp_path / "data" / "darcy" / "2D_DarcyFlow_beta1.0_Train.hdf5")
+    input_stats, target_stats = compute_static_operator_stats(
+        data_file=data_file,
+        input_dataset="nu",
+        target_dataset="tensor",
+        train_indices=[0, 1, 2, 3],
+    )
+    train_dataset = DarcyStaticOperatorDataset(
+        data_file=data_file,
+        sample_indices=[0, 1, 2, 3],
+        input_stats=input_stats,
+        target_stats=target_stats,
+    )
+    eval_dataset = DarcyStaticOperatorDataset(
+        data_file=data_file,
+        sample_indices=[4, 5],
+        input_stats=input_stats,
+        target_stats=target_stats,
+    )
+
+    class TinyModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.proj = torch.nn.Conv2d(1, 1, kernel_size=1)
+
+        def forward(self, x):
+            return self.proj(x)
+
+    monkeypatch.setattr(darcy, "build_model_from_profile", lambda *args, **kwargs: TinyModel())
+    monkeypatch.setattr(darcy, "DistributedDataParallel", lambda model, **kwargs: model)
+
+    result = darcy._run_profile(
+        profile_id="unet_tiny_smoke",
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        target_stats=target_stats,
+        spatial_shape=(8, 8),
+        output_root=tmp_path / "out",
+        run_id="darcy-ddp-train-batches-test",
+        epochs=2,
+        batch_size=2,
+        learning_rate=2e-4,
+        loss_name="relative_l2",
+        scheduler_name="ReduceLROnPlateau",
+        plateau_factor=0.5,
+        plateau_patience=2,
+        plateau_min_lr=1e-5,
+        plateau_threshold=0.0,
+        device_name="cpu",
+        num_workers=0,
+        runtime=_DistributedRankZeroRuntime(world_size=2),
+    )
+
+    assert result["status"] == "completed"
+    metrics = json.loads((tmp_path / "out" / "metrics_unet_tiny_smoke.json").read_text(encoding="utf-8"))
+    assert metrics["distributed_enabled"] is True
+    assert metrics["distributed_world_size"] == 2
+    assert metrics["train_batches"] == 8
+
+
+def test_cfd_cns_distributed_train_batches_counts_global_batches_once_per_epoch(tmp_path, monkeypatch):
+    _stub_skimage(monkeypatch)
+    _stub_pdebench_models_module(monkeypatch)
+    from scripts.studies.pdebench_image128 import cfd_cns
+    from scripts.studies.pdebench_image128.data import MultiFieldHistoryWindowDataset, inspect_cfd_cns_hdf5
+    from scripts.studies.pdebench_image128.normalization import compute_multifield_dynamic_stats
+
+    data_file = _write_tiny_cfd_cns(
+        tmp_path / "data" / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+    )
+    metadata = inspect_cfd_cns_hdf5(data_file, history_len=2)
+    state_stats = compute_multifield_dynamic_stats(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        axis_order=metadata["field_axis_order"],
+        train_trajectory_ids=[0, 1],
+    )
+    train_dataset = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        trajectory_ids=[0, 1],
+        axis_order=metadata["field_axis_order"],
+        history_len=2,
+        normalization=state_stats,
+        max_windows_per_trajectory=1,
+    )
+    eval_dataset = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        trajectory_ids=[2],
+        axis_order=metadata["field_axis_order"],
+        history_len=2,
+        normalization=state_stats,
+        max_windows_per_trajectory=1,
+    )
+
+    class TinyModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.proj = torch.nn.Conv2d(8, 4, kernel_size=1)
+
+        def forward(self, x):
+            return self.proj(x)
+
+    monkeypatch.setattr(cfd_cns, "build_model_from_profile", lambda *args, **kwargs: TinyModel())
+    monkeypatch.setattr(cfd_cns, "DistributedDataParallel", lambda model, **kwargs: model)
+
+    result = cfd_cns._run_profile(
+        profile_id="unet_tiny_smoke",
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        state_stats=state_stats,
+        spatial_shape=(8, 8),
+        output_root=tmp_path / "out",
+        run_id="cfd-ddp-train-batches-test",
+        metadata=metadata,
+        epochs=2,
+        batch_size=1,
+        learning_rate=2e-4,
+        device_name="cpu",
+        num_workers=0,
+        physics_config=cfd_cns.PhysicsRegularizationConfig(),
+        runtime=_DistributedRankZeroRuntime(world_size=2),
+    )
+
+    assert result["status"] == "completed"
+    metrics = json.loads((tmp_path / "out" / "metrics_unet_tiny_smoke.json").read_text(encoding="utf-8"))
+    assert metrics["distributed_enabled"] is True
+    assert metrics["distributed_world_size"] == 2
+    assert metrics["train_batches"] == 8
 
 
 def test_darcy_relative_l2_training_loss_is_sample_mean():

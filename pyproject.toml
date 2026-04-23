@@ -30,6 +30,7 @@ dependencies = [
     "tensorflow-hub",
     "tensorflow-metadata",
     "tensorflow-probability",
+    "tensordict",
     "torch",
     "tqdm",
     "ujson",

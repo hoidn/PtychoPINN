@@ -13,6 +13,7 @@ from typing import Any
 
 import numpy as np
 import torch
+from torch.nn.parallel import DistributedDataParallel
 from torch.utils.data import DataLoader
 
 from scripts.studies.invocation_logging import capture_runtime_provenance, write_invocation_artifacts
@@ -21,6 +22,7 @@ from scripts.studies.pdebench_image128.data import (
     MultiFieldHistoryWindowDataset,
     inspect_cfd_cns_hdf5,
 )
+from scripts.studies.pdebench_image128.distributed import DistributedRuntime, initialize_runtime, prepare_output_root
 from scripts.studies.pdebench_image128.metrics import dynamic_state_metric_payload
 from scripts.studies.pdebench_image128.models import ModelBuildBlocker, build_model_from_profile, describe_model
 from scripts.studies.pdebench_image128.normalization import compute_multifield_dynamic_stats, denormalize_batch
@@ -155,12 +157,6 @@ def _parse_physics_loss_weights(spec: str | None) -> dict[str, float]:
     return payload
 
 
-def _guard_output_root(output_root: Path, *, allow_existing: bool) -> None:
-    if output_root.exists() and any(output_root.iterdir()) and not allow_existing:
-        raise FileExistsError(f"refusing to write into non-empty output root: {output_root}")
-    output_root.mkdir(parents=True, exist_ok=True)
-
-
 def _resolve_device(requested: str) -> torch.device:
     if requested == "cuda" and not torch.cuda.is_available():
         return torch.device("cpu")
@@ -289,10 +285,12 @@ def _run_profile(
     device_name: str,
     num_workers: int,
     physics_config: PhysicsRegularizationConfig,
+    runtime: DistributedRuntime | None = None,
 ) -> dict[str, Any]:
+    runtime = runtime or DistributedRuntime(requested_device=device_name, device=_resolve_device(device_name))
     profile = get_model_profile(profile_id)
     started = time.time()
-    device = _resolve_device(device_name)
+    device = runtime.device
     sample = train_dataset[0]
     task_metadata = {
         "task_id": "2d_cfd_cns",
@@ -314,7 +312,7 @@ def _run_profile(
         "sample_contract": str(metadata["dynamic_history_contract"]),
     }
     try:
-        model = build_model_from_profile(
+        raw_model = build_model_from_profile(
             profile,
             in_channels=int(sample["input"].shape[0]),
             out_channels=int(sample["target"].shape[0]),
@@ -328,14 +326,31 @@ def _run_profile(
             "status": "blocked",
             "created_at_utc": datetime.now(timezone.utc).isoformat(),
         }
-        _write_json(output_root / f"model_profile_{profile_id}.json", {**profile.to_model_config(), **blocker})
-        _write_json(output_root / f"metrics_{profile_id}.json", blocker)
-        return {"profile_id": profile_id, "status": "blocked", "blocker_reason": exc.reason}
+        if runtime.is_rank_zero:
+            _write_json(output_root / f"model_profile_{profile_id}.json", {**profile.to_model_config(), **blocker})
+            _write_json(output_root / f"metrics_{profile_id}.json", blocker)
+        return runtime.broadcast_object(
+            {"profile_id": profile_id, "status": "blocked", "blocker_reason": exc.reason},
+            src=0,
+        )
 
-    model_profile = describe_model(model, profile=profile)
-    _write_json(output_root / f"model_profile_{profile_id}.json", model_profile)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=_collate)
-    eval_loader = DataLoader(eval_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, collate_fn=_collate)
+    model_profile = describe_model(raw_model, profile=profile)
+    if runtime.is_rank_zero:
+        _write_json(output_root / f"model_profile_{profile_id}.json", model_profile)
+    model: torch.nn.Module = raw_model
+    if runtime.distributed_enabled:
+        ddp_kwargs: dict[str, Any] = {}
+        if device.type == "cuda":
+            ddp_kwargs["device_ids"] = [device.index]
+            ddp_kwargs["output_device"] = device.index
+        model = DistributedDataParallel(raw_model, **ddp_kwargs)
+    train_loader, train_sampler = runtime.build_training_loader(
+        train_dataset,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        collate_fn=_collate,
+        shuffle=False,
+    )
     training_recipe = _build_cfd_cns_training_recipe(
         profile=profile,
         default_learning_rate=float(learning_rate),
@@ -363,12 +378,15 @@ def _run_profile(
     )
     scheduler = training_recipe["scheduler_factory"](optimizer)
 
+    runtime.maybe_reset_peak_memory_stats()
     model.train()
-    train_batches = 0
+    total_train_batches = 0
     epoch_losses: list[float] = []
     supervised_epoch_losses: list[float] = []
     physics_epoch_history: list[dict[str, Any]] = []
     for epoch_index in range(int(epochs)):
+        if train_sampler is not None:
+            train_sampler.set_epoch(epoch_index)
         epoch_loss = 0.0
         epoch_supervised = 0.0
         epoch_physics_total = 0.0
@@ -395,82 +413,111 @@ def _run_profile(
             for name, value in physics_result.weighted_terms.items():
                 epoch_weighted_term_totals[name] += float(value.detach().cpu().item())
             epoch_batches += 1
-            train_batches += 1
-        if epoch_batches:
-            mean_epoch_loss = epoch_loss / epoch_batches
+        global_epoch_loss = runtime.reduce_sum(epoch_loss)
+        global_epoch_supervised = runtime.reduce_sum(epoch_supervised)
+        global_epoch_physics_total = runtime.reduce_sum(epoch_physics_total)
+        global_epoch_batches = int(round(runtime.reduce_sum(epoch_batches)))
+        total_train_batches += global_epoch_batches
+        global_epoch_terms = runtime.reduce_sum_dict(epoch_term_totals)
+        global_epoch_weighted_terms = runtime.reduce_sum_dict(epoch_weighted_term_totals)
+        if global_epoch_batches:
+            mean_epoch_loss = global_epoch_loss / global_epoch_batches
             epoch_losses.append(mean_epoch_loss)
-            mean_supervised_loss = epoch_supervised / epoch_batches
+            mean_supervised_loss = global_epoch_supervised / global_epoch_batches
             supervised_epoch_losses.append(mean_supervised_loss)
-            mean_physics_total = epoch_physics_total / epoch_batches
+            mean_physics_total = global_epoch_physics_total / global_epoch_batches
             epoch_physics_payload = {
                 "total": mean_physics_total,
-                "terms": {name: value / epoch_batches for name, value in sorted(epoch_term_totals.items())},
+                "terms": {name: value / global_epoch_batches for name, value in sorted(global_epoch_terms.items())},
                 "weighted_terms": {
-                    name: value / epoch_batches for name, value in sorted(epoch_weighted_term_totals.items())
+                    name: value / global_epoch_batches for name, value in sorted(global_epoch_weighted_terms.items())
                 },
             }
             physics_epoch_history.append(epoch_physics_payload)
-            print(
-                f"EPOCH_LOSS profile={profile_id} epoch={epoch_index + 1} "
-                f"loss={mean_epoch_loss:.10g} loss_name={training_recipe['loss_name']} "
-                f"supervised={mean_supervised_loss:.10g} physics_total={mean_physics_total:.10g} "
-                f"physics_terms={json.dumps(epoch_physics_payload['terms'], sort_keys=True)}",
-                flush=True,
-            )
+            if runtime.is_rank_zero:
+                print(
+                    f"EPOCH_LOSS profile={profile_id} epoch={epoch_index + 1} "
+                    f"loss={mean_epoch_loss:.10g} loss_name={training_recipe['loss_name']} "
+                    f"supervised={mean_supervised_loss:.10g} physics_total={mean_physics_total:.10g} "
+                    f"physics_terms={json.dumps(epoch_physics_payload['terms'], sort_keys=True)}",
+                    flush=True,
+                )
             if training_recipe["scheduler_step_mode"] == "epoch":
                 scheduler.step(mean_epoch_loss)
 
-    model.eval()
-    _, _, train_split_metrics = _evaluate_loader(
-        model=model,
-        data_loader=train_loader,
-        device=device,
-        state_stats=state_stats,
-    )
-    predictions, targets, metrics = _evaluate_loader(
-        model=model,
-        data_loader=eval_loader,
-        device=device,
-        state_stats=state_stats,
-    )
-    comparison_artifacts = _write_prediction_comparison(
-        output_root=output_root,
-        profile_id=profile_id,
-        predictions=predictions,
-        targets=targets,
-        state_stats=state_stats,
-        field_order=list(train_dataset.field_order),
-    )
-    payload = {
-        **metrics,
-        "run_id": run_id,
-        "profile_id": profile_id,
-        "train_batches": int(train_batches),
-        "train_epoch_losses": epoch_losses,
-        "train_supervised_epoch_losses": supervised_epoch_losses,
-        "training_loss": training_recipe["loss_name"],
-        "training_loss_definition": training_recipe["loss_definition"],
-        "training_loss_rationale": training_recipe["loss_rationale"],
-        "optimizer": training_recipe["optimizer_name"],
-        "learning_rate": float(training_recipe["learning_rate"]),
-        "weight_decay": float(training_recipe["weight_decay"]),
-        "train_split_eval": {
-            **train_split_metrics,
-            "split_name": "train",
-        },
-        "physics_regularization_enabled": bool(physics_config.enabled),
-        "physics_loss_terms": physics_config.active_terms(),
-        "physics_loss_weights": physics_config.to_payload()["weights"],
-        "physics_last_epoch": physics_epoch_history[-1] if physics_epoch_history else {"total": 0.0, "terms": {}, "weighted_terms": {}},
-        "physics_epoch_history": physics_epoch_history,
-        "scheduler": training_recipe["scheduler_name"],
-        "runtime_sec": time.time() - started,
-        "peak_cuda_memory_bytes": int(torch.cuda.max_memory_allocated(device)) if device.type == "cuda" else None,
-        "model_profile": model_profile,
-        **comparison_artifacts,
-    }
-    _write_json(output_root / f"metrics_{profile_id}.json", payload)
-    return _profile_result_from_metrics(profile_id, payload, model_profile)
+    runtime.barrier()
+    peak_memory = runtime.max_cuda_memory_bytes()
+    result: dict[str, Any] | None = None
+    if runtime.is_rank_zero:
+        train_eval_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            collate_fn=_collate,
+        )
+        eval_loader = DataLoader(
+            eval_dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            collate_fn=_collate,
+        )
+        raw_model.eval()
+        _, _, train_split_metrics = _evaluate_loader(
+            model=raw_model,
+            data_loader=train_eval_loader,
+            device=device,
+            state_stats=state_stats,
+        )
+        predictions, targets, metrics = _evaluate_loader(
+            model=raw_model,
+            data_loader=eval_loader,
+            device=device,
+            state_stats=state_stats,
+        )
+        comparison_artifacts = _write_prediction_comparison(
+            output_root=output_root,
+            profile_id=profile_id,
+            predictions=predictions,
+            targets=targets,
+            state_stats=state_stats,
+            field_order=list(train_dataset.field_order),
+        )
+        payload = {
+            **metrics,
+            "run_id": run_id,
+            "profile_id": profile_id,
+            "train_batches": int(total_train_batches),
+            "train_epoch_losses": epoch_losses,
+            "train_supervised_epoch_losses": supervised_epoch_losses,
+            "training_loss": training_recipe["loss_name"],
+            "training_loss_definition": training_recipe["loss_definition"],
+            "training_loss_rationale": training_recipe["loss_rationale"],
+            "optimizer": training_recipe["optimizer_name"],
+            "learning_rate": float(training_recipe["learning_rate"]),
+            "weight_decay": float(training_recipe["weight_decay"]),
+            "train_split_eval": {
+                **train_split_metrics,
+                "split_name": "train",
+            },
+            "physics_regularization_enabled": bool(physics_config.enabled),
+            "physics_loss_terms": physics_config.active_terms(),
+            "physics_loss_weights": physics_config.to_payload()["weights"],
+            "physics_last_epoch": (
+                physics_epoch_history[-1] if physics_epoch_history else {"total": 0.0, "terms": {}, "weighted_terms": {}}
+            ),
+            "physics_epoch_history": physics_epoch_history,
+            "scheduler": training_recipe["scheduler_name"],
+            "runtime_sec": time.time() - started,
+            "peak_cuda_memory_bytes": peak_memory,
+            "model_profile": model_profile,
+            **runtime.training_runtime_payload(),
+            **comparison_artifacts,
+        }
+        _write_json(output_root / f"metrics_{profile_id}.json", payload)
+        result = _profile_result_from_metrics(profile_id, payload, model_profile)
+    return runtime.broadcast_object(result, src=0)
 
 
 def _write_dataset_manifest(output_root: Path, *, metadata: dict[str, Any]) -> Path:
@@ -522,137 +569,156 @@ def run_cfd_cns(
     allow_existing_output_root: bool = False,
     physics_config: PhysicsRegularizationConfig | None = None,
     raw_argv: list[str] | None = None,
+    runtime: DistributedRuntime | None = None,
 ) -> int:
     if task_id != "2d_cfd_cns":
         raise ValueError("run_cfd_cns only supports task_id='2d_cfd_cns'")
     if mode not in {"inspect", "readiness", "benchmark"}:
         raise ValueError("2d_cfd_cns mode must be inspect, readiness, or benchmark")
+    runtime_owned = runtime is None
+    runtime = runtime or initialize_runtime(device)
     output_root = Path(output_root)
-    _guard_output_root(output_root, allow_existing=allow_existing_output_root)
-    physics_config = physics_config or PhysicsRegularizationConfig()
-    data_file = Path(data_root) / "2d_cfd_cns" / CFD_CNS_FILENAME
-    if not data_file.exists():
-        raise FileNotFoundError(f"missing 2D CFD CNS data file: {data_file}")
-    run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
-    write_invocation_artifacts(
-        output_dir=output_root,
-        script_path=SCRIPT_PATH,
-        argv=raw_argv or [],
-        parsed_args={
-            "task_id": task_id,
-            "mode": mode,
-            "data_root": str(data_root),
-            "output_root": str(output_root),
-            "profile_ids": profile_ids,
-            "history_len": history_len,
-            "epochs": epochs,
-            "batch_size": batch_size,
-            "max_train_trajectories": max_train_trajectories,
-            "max_val_trajectories": max_val_trajectories,
-            "max_test_trajectories": max_test_trajectories,
-            "max_windows_per_trajectory": max_windows_per_trajectory,
-            "device": device,
-            "num_workers": num_workers,
-            "physics_regularization_enabled": bool(physics_config.enabled),
-            "physics_loss_terms": physics_config.active_terms(),
-            "physics_loss_weights": physics_config.to_payload()["weights"],
-        },
-        extra={"run_id": run_id, "runtime_provenance": capture_runtime_provenance(), "pid": os.getpid()},
-    )
-    metadata = inspect_cfd_cns_hdf5(data_file, history_len=history_len)
-    _write_json(output_root / "hdf5_metadata.json", metadata)
-    _write_dataset_manifest(output_root, metadata=metadata)
-    if mode == "inspect":
-        return 0
+    try:
+        prepare_output_root(output_root, allow_existing=allow_existing_output_root, runtime=runtime)
+        physics_config = physics_config or PhysicsRegularizationConfig()
+        data_file = Path(data_root) / "2d_cfd_cns" / CFD_CNS_FILENAME
+        if not data_file.exists():
+            raise FileNotFoundError(f"missing 2D CFD CNS data file: {data_file}")
+        run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
+        if runtime.is_rank_zero:
+            write_invocation_artifacts(
+                output_dir=output_root,
+                script_path=SCRIPT_PATH,
+                argv=raw_argv or [],
+                parsed_args={
+                    "task_id": task_id,
+                    "mode": mode,
+                    "data_root": str(data_root),
+                    "output_root": str(output_root),
+                    "profile_ids": profile_ids,
+                    "history_len": history_len,
+                    "epochs": epochs,
+                    "batch_size": batch_size,
+                    "max_train_trajectories": max_train_trajectories,
+                    "max_val_trajectories": max_val_trajectories,
+                    "max_test_trajectories": max_test_trajectories,
+                    "max_windows_per_trajectory": max_windows_per_trajectory,
+                    "device": device,
+                    "num_workers": num_workers,
+                    "physics_regularization_enabled": bool(physics_config.enabled),
+                    "physics_loss_terms": physics_config.active_terms(),
+                    "physics_loss_weights": physics_config.to_payload()["weights"],
+                    **runtime.training_runtime_payload(),
+                },
+                extra={"run_id": run_id, "runtime_provenance": capture_runtime_provenance(), "pid": os.getpid()},
+            )
+        metadata = inspect_cfd_cns_hdf5(data_file, history_len=history_len)
+        if runtime.is_rank_zero:
+            _write_json(output_root / "hdf5_metadata.json", metadata)
+            _write_dataset_manifest(output_root, metadata=metadata)
+        if mode == "inspect":
+            return 0
 
-    full_split = _split_for_run(metadata)
-    run_split = capped_trajectory_split(
-        full_split,
-        max_train_trajectories=max_train_trajectories,
-        max_val_trajectories=max_val_trajectories,
-        max_test_trajectories=max_test_trajectories,
-    )
-    write_trajectory_split_manifest(
-        output_root=output_root,
-        data_file=data_file,
-        split=run_split,
-        state_dataset=",".join(metadata["field_order"]),
-        axis_order=metadata["field_axis_order"],
-        shape=metadata["state_shape"],
-        history_len=int(history_len),
-        max_windows_per_trajectory=max_windows_per_trajectory,
-        extra={"full_split_counts": {name: len(full_split[name]) for name in ("train", "val", "test")}, "run_mode": mode},
-    )
-    state_stats = compute_multifield_dynamic_stats(
-        data_file=data_file,
-        field_order=metadata["field_order"],
-        axis_order=metadata["field_axis_order"],
-        train_trajectory_ids=run_split["train"],
-    )
-    state_stats = {**state_stats, "run_id": run_id, "history_len": int(history_len)}
-    _write_json(output_root / "normalization_stats_state.json", state_stats)
-
-    profile_ids = profile_ids or (PRIMARY_CFD_CNS_PROFILE_IDS if mode == "benchmark" else READINESS_CFD_CNS_PROFILE_IDS)
-    if mode == "benchmark" and "unet_tiny_smoke" in profile_ids:
-        raise ValueError("unet_tiny_smoke is readiness-only and cannot be used for benchmark mode")
-
-    train_dataset = MultiFieldHistoryWindowDataset(
-        data_file=data_file,
-        field_order=metadata["field_order"],
-        trajectory_ids=run_split["train"],
-        axis_order=metadata["field_axis_order"],
-        history_len=int(history_len),
-        normalization=state_stats,
-        max_windows_per_trajectory=max_windows_per_trajectory,
-    )
-    eval_ids = run_split["test"] or run_split["val"] or run_split["train"]
-    eval_dataset = MultiFieldHistoryWindowDataset(
-        data_file=data_file,
-        field_order=metadata["field_order"],
-        trajectory_ids=eval_ids,
-        axis_order=metadata["field_axis_order"],
-        history_len=int(history_len),
-        normalization=state_stats,
-        max_windows_per_trajectory=max_windows_per_trajectory,
-    )
-    sample = train_dataset[0]
-    spatial_shape = (int(sample["input"].shape[-2]), int(sample["input"].shape[-1]))
-    torch.manual_seed(20260420)
-    profile_results = []
-    blockers = []
-    for profile_id in profile_ids:
-        result = _run_profile(
-            profile_id=profile_id,
-            train_dataset=train_dataset,
-            eval_dataset=eval_dataset,
-            state_stats=state_stats,
-            spatial_shape=spatial_shape,
-            output_root=output_root,
-            run_id=run_id,
-            metadata=metadata,
-            epochs=epochs,
-            batch_size=batch_size,
-            learning_rate=2e-4,
-            device_name=device,
-            num_workers=num_workers,
-            physics_config=physics_config,
+        full_split = _split_for_run(metadata)
+        run_split = capped_trajectory_split(
+            full_split,
+            max_train_trajectories=max_train_trajectories,
+            max_val_trajectories=max_val_trajectories,
+            max_test_trajectories=max_test_trajectories,
         )
-        profile_results.append(result)
-        if result.get("status") != "completed":
-            blockers.append(result)
-    summary = build_comparison_summary(
-        task_id="2d_cfd_cns",
-        mode=mode,
-        output_root=output_root,
-        profile_results=profile_results,
-        run_id=run_id,
-        blockers=blockers,
-    )
-    summary["history_len"] = int(history_len)
-    summary["dynamic_history_contract"] = metadata["dynamic_history_contract"]
-    summary["field_order"] = metadata["field_order"]
-    write_comparison_summary(summary, output_root)
-    return 0 if any(item.get("status") == "completed" for item in profile_results) else 1
+        if runtime.is_rank_zero:
+            write_trajectory_split_manifest(
+                output_root=output_root,
+                data_file=data_file,
+                split=run_split,
+                state_dataset=",".join(metadata["field_order"]),
+                axis_order=metadata["field_axis_order"],
+                shape=metadata["state_shape"],
+                history_len=int(history_len),
+                max_windows_per_trajectory=max_windows_per_trajectory,
+                extra={
+                    "full_split_counts": {name: len(full_split[name]) for name in ("train", "val", "test")},
+                    "run_mode": mode,
+                    **runtime.training_runtime_payload(),
+                },
+            )
+        state_stats = compute_multifield_dynamic_stats(
+            data_file=data_file,
+            field_order=metadata["field_order"],
+            axis_order=metadata["field_axis_order"],
+            train_trajectory_ids=run_split["train"],
+        )
+        state_stats = {**state_stats, "run_id": run_id, "history_len": int(history_len)}
+        if runtime.is_rank_zero:
+            _write_json(output_root / "normalization_stats_state.json", state_stats)
+
+        profile_ids = profile_ids or (PRIMARY_CFD_CNS_PROFILE_IDS if mode == "benchmark" else READINESS_CFD_CNS_PROFILE_IDS)
+        if mode == "benchmark" and "unet_tiny_smoke" in profile_ids:
+            raise ValueError("unet_tiny_smoke is readiness-only and cannot be used for benchmark mode")
+
+        train_dataset = MultiFieldHistoryWindowDataset(
+            data_file=data_file,
+            field_order=metadata["field_order"],
+            trajectory_ids=run_split["train"],
+            axis_order=metadata["field_axis_order"],
+            history_len=int(history_len),
+            normalization=state_stats,
+            max_windows_per_trajectory=max_windows_per_trajectory,
+        )
+        eval_ids = run_split["test"] or run_split["val"] or run_split["train"]
+        eval_dataset = MultiFieldHistoryWindowDataset(
+            data_file=data_file,
+            field_order=metadata["field_order"],
+            trajectory_ids=eval_ids,
+            axis_order=metadata["field_axis_order"],
+            history_len=int(history_len),
+            normalization=state_stats,
+            max_windows_per_trajectory=max_windows_per_trajectory,
+        )
+        sample = train_dataset[0]
+        spatial_shape = (int(sample["input"].shape[-2]), int(sample["input"].shape[-1]))
+        torch.manual_seed(20260420)
+        profile_results = []
+        blockers = []
+        for profile_id in profile_ids:
+            result = _run_profile(
+                profile_id=profile_id,
+                train_dataset=train_dataset,
+                eval_dataset=eval_dataset,
+                state_stats=state_stats,
+                spatial_shape=spatial_shape,
+                output_root=output_root,
+                run_id=run_id,
+                metadata=metadata,
+                epochs=epochs,
+                batch_size=batch_size,
+                learning_rate=2e-4,
+                device_name=device,
+                num_workers=num_workers,
+                physics_config=physics_config,
+                runtime=runtime,
+            )
+            profile_results.append(result)
+            if result.get("status") != "completed":
+                blockers.append(result)
+        if runtime.is_rank_zero:
+            summary = build_comparison_summary(
+                task_id="2d_cfd_cns",
+                mode=mode,
+                output_root=output_root,
+                profile_results=profile_results,
+                run_id=run_id,
+                blockers=blockers,
+            )
+            summary["history_len"] = int(history_len)
+            summary["dynamic_history_contract"] = metadata["dynamic_history_contract"]
+            summary["field_order"] = metadata["field_order"]
+            summary.update(runtime.training_runtime_payload())
+            write_comparison_summary(summary, output_root)
+        return 0 if any(item.get("status") == "completed" for item in profile_results) else 1
+    finally:
+        if runtime_owned:
+            runtime.finalize()
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
