@@ -395,6 +395,60 @@ Relative to the existing local rows on this capped slice:
 This author-FFNO lane is still capped-readiness, decision-support-only evidence.
 It does not change the benchmark-complete boundary for CNS.
 
+## Official GNOT Paper-Default Follow-Up
+
+The official GNOT baseline is tracked separately from both the authored FFNO
+lane and the local FFNO-close bottleneck proxy in:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_gnot_cns_compare_summary.md`
+
+That summary now covers three distinct GNOT checkpoints on the same capped CNS
+contract:
+
+- first equal-footing fairness probe:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-gnot-cns-compare/cns-gnot-vs-spectral-cap512-10ep-20260422T200900Z`
+- fresh paper-default smoke gate:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-gnot-cns-compare/gnot-paper-default-smoke-20260423T015239Z`
+- same-day paper-default `40`-epoch follow-up:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-gnot-cns-compare/cns-gnot-paper-default-40ep-20260422T214016Z`
+
+The fixed local contract stayed:
+
+- task: `2d_cfd_cns`
+- `history_len=2`
+- trajectories: `512 / 64 / 64`
+- `max_windows_per_trajectory=8`
+- batch size: `4`
+
+The paper-default follow-up switched only the GNOT training recipe:
+
+- `training_loss=relative_l2`
+- `optimizer=AdamW`
+- `scheduler=OneCycleLR`
+- `learning_rate=1e-3`
+- `weight_decay=5e-5`
+
+Observed paper-default `40`-epoch GNOT result:
+
+- `err_nRMSE=0.1759552360`
+- `relative_l2=0.1759552360`
+- `fRMSE_low=10.1596441269`
+- `fRMSE_high=0.0415550619`
+
+Directional read:
+
+- paper-default GNOT improved materially over the first fairness-probe GNOT row
+  (`relative_l2 0.24565 -> 0.17596`)
+- paper-default GNOT still trails the pinned spectral `40`-epoch anchor badly
+  on aggregate error (`relative_l2 0.17596` vs `0.06156`)
+- the remaining GNOT gap is still mainly low-frequency/global structure error,
+  not high-frequency shock detail
+- GNOT remains weaker than the authored `40`-epoch FFNO row on this capped
+  contract
+
+This GNOT lane is still capped-readiness, decision-support-only evidence. It
+does not change the benchmark-complete boundary for CNS.
+
 ## Verification
 
 Commands run from `/home/ollie/Documents/PtychoPINN`:

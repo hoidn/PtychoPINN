@@ -959,6 +959,99 @@
         "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
         "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-pdebench-author-ffno-equal-footing-cns/execution_report.md"
       ]
+    },
+    {
+      "tranche_id": "2026-04-22-pdebench-gnot-paper-default-cns-compare",
+      "updated_at_utc": "2026-04-23T02:01:37Z",
+      "update_reason": "Completed the durable paper-default GNOT CNS backlog item after a fresh paper-default smoke rerun, anchored compare collation, and verification of the same-day completed 40-epoch paper-default run root.",
+      "decision": "Paper-default GNOT improved materially over the first fairness-probe row on the fixed capped CNS contract, but it still trails the pinned spectral anchor badly on aggregate error and remains primarily limited by low-frequency/global-structure error.",
+      "decision_scope": "complete_gnot_paper_default_cns_backlog_item",
+      "design_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-22-pdebench-gnot-paper-default-cns-compare/execution_plan.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-gnot-cns-compare",
+      "fresh_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-gnot-cns-compare/cns-gnot-paper-default-40ep-20260422T214016Z",
+      "smoke_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-gnot-cns-compare/gnot-paper-default-smoke-20260423T015239Z",
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_gnot_cns_compare_summary.md",
+      "cns_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "findings_changed": true,
+      "performance_assessment_complete": false,
+      "evidence_scope": "smoke_feasibility_only",
+      "metric_interpretation": "sanity_only_not_benchmark_performance",
+      "host_environment": {
+        "env": "ptycho311_2",
+        "python_executable": "/home/ollie/miniconda3/envs/ptycho311_2/bin/python3.11",
+        "torch": "2.4.1+cu124",
+        "dgl": "2.4.0+cu124"
+      },
+      "pinned_spectral_anchor_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep",
+      "prior_fairness_probe_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-gnot-cns-compare/cns-gnot-vs-spectral-cap512-10ep-20260422T200900Z",
+      "paper_default_recipe": {
+        "gnot_hidden": 128,
+        "training_loss": "relative_l2",
+        "optimizer": "AdamW",
+        "scheduler": "OneCycleLR",
+        "learning_rate": 0.001,
+        "weight_decay": 0.00005
+      },
+      "local_equal_footing_contract": {
+        "task": "2d_cfd_cns",
+        "history_len": 2,
+        "train_trajectories": 512,
+        "val_trajectories": 64,
+        "test_trajectories": 64,
+        "train_windows": 4096,
+        "val_windows": 512,
+        "test_windows": 512,
+        "max_windows_per_trajectory": 8,
+        "batch_size": 4
+      },
+      "gnot_metrics": {
+        "err_RMSE": 4.252298355102539,
+        "err_nRMSE": 0.17595523595809937,
+        "relative_l2": 0.17595523595809937,
+        "fRMSE_low": 10.15964412689209,
+        "fRMSE_mid": 0.1153646782040596,
+        "fRMSE_high": 0.04155506193637848,
+        "parameter_count": 2184967
+      },
+      "spectral_anchor_metrics": {
+        "err_RMSE": 1.4877649545669556,
+        "err_nRMSE": 0.061562005430459976,
+        "relative_l2": 0.061562005430459976,
+        "fRMSE_low": 3.4756414890289307,
+        "fRMSE_mid": 0.28004488348960876,
+        "fRMSE_high": 0.43493345379829407,
+        "parameter_count": 8186726
+      },
+      "delta_vs_fairness_probe": {
+        "relative_l2": -0.06969283521175385,
+        "err_nRMSE": -0.06969283521175385,
+        "err_RMSE": -1.6842617988586426,
+        "fRMSE_low": -4.026562690734863,
+        "fRMSE_high": 0.023804128170013428
+      },
+      "compare_artifacts": {
+        "json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-gnot-cns-compare/cns-gnot-paper-default-40ep-20260422T214016Z/compare_40ep_against_existing.json",
+        "csv": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-gnot-cns-compare/cns-gnot-paper-default-40ep-20260422T214016Z/compare_40ep_against_existing.csv"
+      },
+      "verification": [
+        "python -m pytest tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py -q -> 50 passed in 33.50s",
+        "python -m pytest tests/studies/test_pdebench_image128_runner.py::test_cfd_cns_gnot_profile_uses_paper_default_training_recipe -q -> 1 passed in 5.57s",
+        "python -m compileall -q scripts/studies/pdebench_image128 -> exit 0",
+        "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-gnot-cns-compare/gnot-paper-default-smoke-20260423T015239Z --profiles gnot_cns_base --history-len 2 --epochs 1 --batch-size 4 --max-train-trajectories 8 --max-val-trajectories 2 --max-test-trajectories 2 --max-windows-per-trajectory 2 --device cuda --num-workers 0 -> exit 0",
+        "paper-default smoke artifact/recipe verification -> pass",
+        "same-day paper-default 40-epoch run root artifact/metric verification -> pass",
+        "one-off anchored compare collation -> compare_40ep_against_existing.json/csv written"
+      ],
+      "affected_surfaces": [
+        "docs/findings.md",
+        "docs/index.md",
+        "docs/studies/index.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_gnot_cns_compare_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+        "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-22-pdebench-gnot-paper-default-cns-compare/execution_report.md"
+      ]
     }
   ]
 }

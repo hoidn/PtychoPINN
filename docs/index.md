@@ -178,6 +178,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, pdebench, cns, gnot, paper-default, baseline, compare, dgl
 **Use this when:** Queueing or implementing the paper-default GNOT rerun on the local CNS contract, or checking which environment, recipe, and comparison surface must stay fixed.
 
+### [NeurIPS Hybrid ResNet PDEBench GNOT CNS Compare Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_gnot_cns_compare_summary.md)
+**Description:** Implementation summary for the official GNOT CNS baseline lane, covering the `ptycho311_2` CUDA+DGL host requirement, the first equal-footing fairness probe, a fresh paper-default smoke gate, the same-contract paper-default `40`-epoch follow-up, and the anchored compare sidecar against the pinned spectral `40`-epoch row.
+**Keywords:** neurips, pdebench, cns, gnot, paper-default, spectral_resnet, dgl, summary
+**Use this when:** Checking the current local GNOT interpretation on the capped CNS contract, locating the smoke/run roots and compare sidecar, or distinguishing the fairness probe from the paper-default follow-up.
+
 ### [NeurIPS Hybrid ResNet PDEBench Spectral Weight-Sharing CNS Compare Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_weight_sharing_summary.md)
 **Description:** Implementation summary for the shared-vs-non-shared spectral bottleneck tranche, covering the manual `spectral_resnet_bottleneck_noshare` profile, the fixed canonical CNS skip-add shell fairness boundary, targeted verification, the capped two-row CNS comparison, and the rendered prediction/error galleries.
 **Keywords:** neurips, hybrid_resnet, pdebench, spectral-resnet, weight-sharing, cns, summary, capped-compare
