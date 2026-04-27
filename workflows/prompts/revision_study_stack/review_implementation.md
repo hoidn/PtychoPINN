@@ -19,6 +19,7 @@ When reviewing:
 - identify compile or inspection failures
 - identify edits to unrelated files or the seed revision design
 - identify verification that was claimed but not actually run
+- for parity or benchmark work, reject implementations where validation data is part of the production mechanism being validated, unless the approved design explicitly defines the feature as reference-data lookup. Validation data includes expected outputs, oracle data, fixtures, generated evidence, checked-in answer tables, derived reference templates, or equivalent encoded answers. It may support tests, diagnostics, and review evidence; it must not be what makes production behavior pass.
 - distinguish:
   - remaining required plan work
   - defects in already-implemented work that block subsequent required plan work or materially distort revision-study evidence

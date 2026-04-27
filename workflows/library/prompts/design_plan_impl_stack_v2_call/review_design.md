@@ -1,7 +1,6 @@
 take the role of a principal engineer, expert in PLs, compilers, and agentic engineering. review the design / ADR with no holds barred skepticism
 
-Read the `Consumed Artifacts` section first and treat it as the authoritative input list.
-Read the consumed `brief`, `design`, and `open_findings` artifacts before acting.
+Use the `Consumed Artifacts` section as the authoritative input list.
 
 First, review the current design from scratch.
 Then reconcile your fresh review against the carried-forward `open_findings` ledger.
@@ -29,7 +28,7 @@ Each finding must include a `scope_classification` of:
 - `recommended_followup`
 - `out_of_scope`
 
-Write JSON to the `design_review_report_path` path specified in the Output Contract using this shape:
+For the output contract's `design_review_report_path`, read the path recorded in that file and write JSON to that current-checkout-relative path using this shape. Leave the `design_review_report_path` file containing only the path.
 
 ```json
 {
@@ -56,5 +55,6 @@ Also write:
 - the unresolved high count integer to the `unresolved_high_count` path specified in the Output Contract
 - the unresolved medium count integer to the `unresolved_medium_count` path specified in the Output Contract
 
-Use `BLOCK` only when the design should not proceed to planning without earlier refactoring or problem redefinition.
+Use `REVISE`, not `BLOCK`, when the design can be made acceptable by editing the design document itself, even if the required change is major.
+Use `BLOCK` only when progress requires work outside the design artifact, such as an upstream refactor, missing or contradictory task authority, unavailable prerequisites, or a human scope decision.
 Approve only if there are no unresolved high findings and the design is ready for planning.

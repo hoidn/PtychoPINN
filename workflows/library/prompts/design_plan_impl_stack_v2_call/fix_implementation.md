@@ -24,6 +24,7 @@ Prioritize in this order:
 3. record genuine follow-up work without implementing it
 
 For numerical parity failures already in scope, first rule out semantic causes such as inputs, units, axes, shapes, metadata, row meanings, normalization, and domain assumptions. If the remaining discrepancy is supported by evidence as numerical-method drift, apply a narrow tolerance or comparison-standard change at the authoritative spec, catalog, test helper, or gate; keep unrelated invariant checks strict; record the affected comparison, old and new standard, output scale, precision/backend context, and residual evidence in the execution report. If the evidence is incomplete or the authoritative standard is unclear, preserve the blocker and report the proposed change instead.
+For parity or benchmark work, expected outputs, oracle data, fixtures, and generated evidence may be used only for tests, diagnostics, or validation. Do not use them as production answers or runtime lookup tables unless the approved design explicitly defines the feature as reference-data lookup.
 
 For the output contract's `execution_report_path`, read the path recorded in that file and write the concise execution report to that current-checkout-relative path. Leave the `execution_report_path` file containing only the path.
 

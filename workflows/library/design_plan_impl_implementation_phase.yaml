@@ -256,7 +256,7 @@ steps:
                         freshness: any
                       - artifact: implementation_review_report
                         policy: latest_successful
-                        freshness: since_last_consume
+                        freshness: any
                     prompt_consumes: ["design", "plan", "execution_report", "implementation_review_report"]
                     expected_outputs:
                       - name: execution_report_path

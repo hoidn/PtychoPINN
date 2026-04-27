@@ -254,7 +254,7 @@ steps:
                         freshness: any
                       - artifact: plan_review_report
                         policy: latest_successful
-                        freshness: since_last_consume
+                        freshness: any
                     prompt_consumes: ["design", "plan", "plan_review_report"]
                     expected_outputs:
                       - name: plan_path

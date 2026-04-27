@@ -9,6 +9,7 @@ Do not edit the original revision design seed unless the approved plan explicitl
 Do not commit unless the approved plan explicitly requires a commit.
 
 Follow the plan's provenance and pivot gates. If evidence shows that a planned metric, figure, experiment, or manuscript claim would be scientifically unsafe, record the stop or pivot in the execution report instead of papering over it.
+For parity or benchmark work, expected outputs, oracle data, fixtures, and generated evidence may be used only for tests, diagnostics, or validation. Do not use them as production answers or runtime lookup tables unless the approved design explicitly defines the feature as reference-data lookup.
 
 Write a concise execution report to the path recorded by the `execution_report_path` output-contract pointer.
 

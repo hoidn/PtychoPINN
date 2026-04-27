@@ -9,6 +9,7 @@ Reject plans that ignore or weaken design or roadmap layout and ownership decisi
 Reject plans that need an Implementation Architecture section because correctness or maintainability depends on a boundary decision, but do not define implementable units and owned boundaries. Boundary decisions include component or file ownership, API or command surface, data or artifact contract, authored-vs-derived split, dependency direction, compatibility or migration boundary, and future consumer contract. A single-unit plan is acceptable only when the plan explicitly says no such boundary decision is needed.
 Reject plans whose task list is dominated by exhaustive case matrices unless those matrices are part of the current-scope contract.
 Reject plans that blur authored and derived artifacts or introduce reusable code without a maintainability rationale.
+Check verification gates for practical executability and claim fit. Required commands must exist or be added by the plan before they are used as gates; environment-dependent commands must name their prerequisite or fallback; broad regression sweeps must say how pre-existing failures are separated from regressions caused by this work; and evidence gates must be strong enough for the claim being made.
 Then reconcile your fresh review against the carried-forward `open_findings` ledger.
 
 For each prior finding, classify it as one of:

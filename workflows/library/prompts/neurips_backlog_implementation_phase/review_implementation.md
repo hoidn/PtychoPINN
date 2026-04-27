@@ -13,6 +13,7 @@ When reviewing:
 - identify material design or plan requirements that were deferred without clear authority, rationale, and handoff criteria
 - identify concrete implementation bugs, regressions, and contract mismatches
 - treat failing required `check_commands` as blocking unless the approved plan explicitly justified a narrower or stronger replacement and the implementation updated the authoritative check accordingly
+- for parity or benchmark work, reject implementations where validation data is part of the production mechanism being validated, unless the approved design explicitly defines the feature as reference-data lookup. Validation data includes expected outputs, oracle data, fixtures, generated evidence, checked-in answer tables, derived reference templates, or equivalent encoded answers. It may support tests, diagnostics, and review evidence; it must not be what makes production behavior pass.
 - distinguish:
   - unfinished current-scope work
   - defects in already-implemented work that block delivered behavior

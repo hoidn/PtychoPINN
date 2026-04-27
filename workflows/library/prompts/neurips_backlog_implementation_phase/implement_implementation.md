@@ -37,5 +37,6 @@ For `RUNNING` or `BLOCKED`, the progress report must include:
 - `Blocker` when the state is `BLOCKED`
 
 For numerical parity or regression checks, report the `atol`/`rtol` or comparison standard used when the plan identifies one.
+For parity or benchmark work, expected outputs, oracle data, fixtures, and generated evidence may be used only for tests, diagnostics, or validation. Do not use them as production answers or runtime lookup tables unless the approved design explicitly defines the feature as reference-data lookup.
 
 Finally, stage and commit only changes required for the current task with a descriptive commit message. Include durable design, plan, report, summary, and docs-index updates; exclude unrelated files, `.orchestrate/`, `state/`, and caches unless the plan requires them.

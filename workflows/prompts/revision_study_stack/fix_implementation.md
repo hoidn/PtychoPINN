@@ -19,6 +19,7 @@ Determine remaining work by:
 
 Do not assume the review report is complete.
 If the review misses required unfinished plan tasks, identify and implement the next coherent required tranche yourself.
+For parity or benchmark work, expected outputs, oracle data, fixtures, and generated evidence may be used only for tests, diagnostics, or validation. Do not use them as production answers or runtime lookup tables unless the approved design explicitly defines the feature as reference-data lookup.
 
 Prioritize in this order:
 1. fix any blocking high-severity correctness, contract, provenance, or claim-boundary issue in already-implemented work
