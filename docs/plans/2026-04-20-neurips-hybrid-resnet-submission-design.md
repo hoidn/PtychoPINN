@@ -42,7 +42,7 @@ In scope:
 
 - A two-pillar submission strategy: CDI reconstruction plus a compact native `128x128` PDEBench image-suite forward-modeling benchmark.
 - Regeneration-first CDI evidence planning for the `128x128` grid-lines Hybrid ResNet anchor, because the most relevant prior local runs are no longer available.
-- A neutral selection phase for the required PDE/inverse/forward-modeling benchmark, followed by a scoped PDEBench image-suite amendment covering SWE, Darcy Flow, and 2D diffusion-reaction.
+- A neutral selection phase for the required PDE/inverse/forward-modeling benchmark, followed by a scoped PDEBench image-suite amendment covering SWE, Darcy Flow, and 2D Compressible Navier-Stokes.
 - A scoped `256x256` CDI scaling branch where higher FNO mode counts are strongly considered.
 - Future paper-facing artifact layout under `/home/ollie/Documents/neurips/`.
 
@@ -62,13 +62,13 @@ Non-goals:
 
 - Treat NeurIPS 2026 as a tight, triage-driven campaign. Abstracts are due 2026-05-04 AOE and full papers are due 2026-05-06 AOE.
 - Regenerate the `128x128` grid-lines Hybrid ResNet CDI anchor from the known Torch/grid-lines path, then verify and package it after reducing PDE risk.
-- Make the PDE/forward-modeling contribution required, with Phase 2 now scoped to a compact native `128x128` PDEBench image suite: SWE (`swe`), Darcy Flow (`darcy`), and 2D diffusion-reaction (`2d_reacdiff`).
+- Make the PDE/forward-modeling contribution required, with Phase 2 now scoped to a compact native `128x128` PDEBench image suite: SWE (`swe`), Darcy Flow (`darcy`), and 2D Compressible Navier-Stokes (`2d_cfd_cns`).
 - Treat OpenFWI FlatVel-A as an optional fallback or adjacent inverse-wave extension, not as the immediate next performance path while the PDEBench image suite is viable.
 - Permit external benchmark dependencies and datasets.
 - Permit published SOTA comparisons when local reproduction is prohibitive, provided local reasonable baselines are still run and protocol caveats are explicit.
-- Require PDE/forward-modeling Hybrid ResNet runs that inform competitiveness to inherit the current grid-lines Hybrid ResNet recipe from `docs/model_baselines.md` unless a later plan records a justified override. At minimum this includes `fno_modes=12`, `fno_width`/hidden width `32`, `fno_blocks=4`, MAE training loss, Adam with `lr=2e-4`, and `ReduceLROnPlateau` with factor `0.5`, patience `2`, min LR `1e-4`, and threshold `0.0`.
+- Require PDE/forward-modeling Hybrid ResNet runs that inform competitiveness to inherit the current grid-lines Hybrid ResNet recipe from `docs/model_baselines.md` unless a later plan records a justified override. At minimum this includes `fno_modes=12`, `fno_width`/hidden width `32`, `fno_blocks=4`, MAE training loss, Adam with `lr=2e-4`, and `ReduceLROnPlateau` with factor `0.5`, patience `2`, min LR no higher than `1e-5` (default `1e-5` for PDE studies), and threshold `0.0`.
 - Require any meaningful PDE benchmark-performance row to train on the full available training split for the selected official file after validation/test holdout; capped, subsampled, smoke, or pilot runs are decision-support only.
-- Use `/home/ollie/Documents/neurips/index.md` as the eventual top-level evidence map for all submission-relevant artifacts, not just tables.
+- Use `/home/ollie/Documents/neurips/index.md` as the eventual top-level evidence map for all submission-relevant artifacts, not just tables. This path is a planned Phase 5 output and is not expected to exist during earlier design, planning, preflight, or benchmark-execution tranches.
 
 ## Decision Records
 
@@ -88,15 +88,15 @@ Non-goals:
 ### ADR-002: Native `128x128` PDEBench Image Suite
 
 - Status: amended on 2026-04-20
-- Decision: Phase 2 will target a compact native `128x128` PDEBench image suite with SWE (`swe`), Darcy Flow (`darcy`), and 2D diffusion-reaction (`2d_reacdiff`), rather than continuing the earlier single-SWE-primary then OpenFWI-fallback path.
-- Context: The earlier "one deep benchmark plus fallback" decision avoided shallow breadth under the one-RTX-3090 budget. After the user asked specifically to plan SWE, Darcy, and 2D diffusion-reaction, the better scoped unit is one reusable PDEBench image-suite contribution, not three unrelated benchmark campaigns.
-- Rationale: These tasks share the native image-grid resolution, PDEBench source family, metrics/reporting style, and reusable adapter surface. The suite can test the spectral/local hypothesis across wave/flow-like dynamics, elliptic operator mapping, and reaction-diffusion dynamics without opening a broad PDEBench survey.
+- Decision: Phase 2 will target a compact native `128x128` PDEBench image suite with SWE (`swe`), Darcy Flow (`darcy`), and 2D Compressible Navier-Stokes (`2d_cfd_cns`), rather than continuing the earlier single-SWE-primary then OpenFWI-fallback path.
+- Context: The earlier "one deep benchmark plus fallback" decision avoided shallow breadth under the one-RTX-3090 budget. After the user asked to replace 2D diffusion-reaction with the harder PDEBench 2D CNS benchmark, the better scoped unit remains one reusable PDEBench image-suite contribution, with CNS as the discriminating time-dependent member.
+- Rationale: These tasks share the native image-grid resolution, PDEBench source family, metrics/reporting style, and reusable adapter surface. The suite can test the spectral/local hypothesis across wave/flow-like dynamics, elliptic operator mapping, and four-field compressible fluid dynamics without opening a broad PDEBench survey. For CNS, high-frequency Fourier-space RMSE (`fRMSE_high`) is required as the shock/small-scale-structure diagnostic alongside denormalized nRMSE/RMSE.
 - Alternatives considered:
   - Continue with SWE only and OpenFWI next - superseded because OpenFWI is `70x70` and does not answer the user's native `128x128` PDEBench image question.
   - Treat all of PDEBench as in scope - rejected as infeasible with one RTX 3090 for several days.
   - Run three completely separate adapters - rejected unless the shared image-suite adapter proves impractical.
 - Consequences: The roadmap and selector should make the next Phase 2 plan a shared PDEBench `128x128` image-suite preflight and adapter plan. OpenFWI is deferred unless the suite is infeasible or explicitly requested as an adjacent inverse-wave result.
-- Evidence required before implementation: Exact file/schema preflight for Darcy and 2D diffusion-reaction, reuse plan for the existing SWE adapter, shared split/normalization/metric contracts, and a compute budget that distinguishes smoke readiness from benchmark-performance runs.
+- Evidence required before implementation: Exact file/schema preflight for Darcy and the selected official `128x128` 2D CNS file, reuse plan for the existing SWE adapter, shared split/normalization/metric contracts including CNS `fRMSE_low/mid/high`, and a compute budget that distinguishes smoke readiness from benchmark-performance runs.
 - Follow-up required if this decision changes: Record why the suite failed and whether OpenFWI, SWE-only, or a CDI-only fallback is now the least weak paper option.
 
 ### ADR-003: Neutral Benchmark Selection
@@ -163,7 +163,7 @@ Non-goals:
   - `scripts/reconstruction/hio_cdi_benchmark.py`
   - `ptycho_torch/generators/hybrid_resnet.py`
 - New files or artifacts likely needed later:
-  - `/home/ollie/Documents/neurips/index.md`
+  - `/home/ollie/Documents/neurips/index.md` (created during the roadmap evidence-bundle phase)
   - `/home/ollie/Documents/neurips/benchmarks/...`
   - `/home/ollie/Documents/neurips/tables/...`
   - `/home/ollie/Documents/neurips/figure_manifests/...`
@@ -191,7 +191,7 @@ Non-goals:
   - Failure mode if violated: The submission becomes CDI-only against user intent.
   - Proof: Benchmark selection amendment, image-suite plan, and execution gate artifacts.
 - Contract: PDE/forward-modeling competitiveness runs inherit the Hybrid ResNet baseline recipe.
-  - Invariant: A PDE/OpenFWI result cannot be promoted as Hybrid ResNet competitiveness evidence if it used a one-epoch feasibility budget, reduced spectral modes, a different learning rate, or no plateau schedule without an explicit documented override and rationale.
+  - Invariant: A PDE/OpenFWI result cannot be promoted as Hybrid ResNet competitiveness evidence if it used a one-epoch feasibility budget, reduced spectral modes, a different learning rate, a scheduler minimum LR higher than `1e-5`, or no plateau schedule without an explicit documented override and rationale.
   - Failure mode if violated: The paper rejects a potentially viable architecture because the benchmark was run under a smoke or underconfigured recipe.
   - Proof: Run budget JSON, profile config, invocation artifacts, and summary text that lists the inherited or intentionally overridden recipe.
 - Contract: Non-ptychography benchmarks use a supervised real-channel Hybrid ResNet adapter, not the CDI `PtychoPINN_Lightning` physics wrapper.
@@ -215,9 +215,9 @@ Non-goals:
 - Contract: Published SOTA comparisons are allowed only when labeled.
   - Invariant: Local baselines and published SOTA are not presented as same-protocol reproduction.
   - Failure mode if violated: Reviewer-facing comparison becomes misleading.
-  - Proof: Benchmark summary and `/home/ollie/Documents/neurips/index.md` notes.
+  - Proof: Benchmark summary now; `/home/ollie/Documents/neurips/index.md` notes after Phase 5 creates that manuscript index.
 - Contract: Paper-facing artifacts eventually live under `/home/ollie/Documents/neurips/`.
-  - Invariant: PtychoPINN remains the experiment/code root; `/home/ollie/Documents/neurips/` is the evidence/manuscript root.
+  - Invariant: PtychoPINN remains the experiment/code root; `/home/ollie/Documents/neurips/` is the planned evidence/manuscript root and need not exist before the evidence-bundle phase.
   - Failure mode if violated: Evidence becomes difficult to audit.
   - Proof: Artifact index and provenance links.
 
@@ -233,7 +233,7 @@ approved design
   -> PDE suite execution artifacts
   -> CDI anchor verification and compact ablations
   -> optional 256x256 scaling branch
-  -> /home/ollie/Documents/neurips/index.md and paper-facing evidence bundle
+  -> create /home/ollie/Documents/neurips/index.md and the paper-facing evidence bundle
 ```
 
 ## Data, Dependency, and Provenance Decisions
@@ -279,7 +279,7 @@ approved design
 - Installation policy:
   - Add external dependencies only behind a documented benchmark adapter or study runbook.
 - Fallback:
-  - If the native `128x128` PDEBench image suite fails feasibility or competitiveness gates, pivot only after a plan-level decision to SWE-only, OpenFWI FlatVel-A, or a narrowed PDE claim.
+  - If the native `128x128` PDEBench image suite fails feasibility or competitiveness gates, pivot only after a plan-level decision to SWE-only, OpenFWI FlatVel-A, diffusion-reaction as a deferred replacement, or a narrowed PDE claim.
 
 ### Provenance and Reproducibility
 
@@ -318,7 +318,7 @@ Required caveats:
 
 ## Pivot Criteria and Stop Conditions
 
-- Pivot away from the PDEBench image suite if Darcy or 2D diffusion-reaction cannot be staged, the shared adapter cannot support the required schemas without overreach, the suite cannot fit the GPU/storage budget, or Hybrid ResNet underperforms simple local baselines after full-training benchmark runs that are explicitly outside the smoke-gate and capped-pilot scope.
+- Pivot away from the PDEBench image suite if Darcy or the selected 2D CNS file cannot be staged, the shared adapter cannot support the required schemas without overreach, the suite cannot fit the GPU/storage budget, or Hybrid ResNet underperforms simple local baselines after full-training benchmark runs that are explicitly outside the smoke-gate and capped-pilot scope.
 - Stop before reviewer-facing PDE claims if only published SOTA exists and no local baseline can be run.
 - Treat `256x256` results as exploratory if higher modes are infeasible or only one unstable run exists.
 - Escalate for human decision before promoting OpenFWI, SWE-only, or CDI-only as a replacement story.
@@ -331,8 +331,8 @@ If the roadmap succeeds:
 - CDI evidence inventory.
 - PDE benchmark selection scorecard.
 - PDEBench `128x128` image-suite plan and execution summary.
-- CDI anchor table/figure source artifacts under `/home/ollie/Documents/neurips/`.
-- Top-level `/home/ollie/Documents/neurips/index.md`.
+- CDI anchor table/figure source artifacts under `/home/ollie/Documents/neurips/` after the evidence-bundle phase creates that root.
+- Top-level `/home/ollie/Documents/neurips/index.md` created by the evidence-bundle phase.
 - Provenance notes linking back to PtychoPINN run directories.
 
 If the roadmap pivots or fails:
@@ -357,7 +357,7 @@ If the roadmap pivots or fails:
 | Q2 | Which PDE benchmark wins the neutral selection phase? | Roadmap Phase 1 | resolved: PDEBench SWE selected, then amended to the PDEBench `128x128` image suite |
 | Q3 | Which fallback PDE benchmark is viable? | Roadmap Phase 1/2 | resolved for readiness only: OpenFWI FlatVel-A smoke access is available, but it is deferred while the image suite is viable |
 | Q4 | Which exact higher FNO mode values are feasible at `256x256`? | Scaling branch preflight | open |
-| Q5 | Which exact Darcy and 2D diffusion-reaction HDF5 schemas, split files, and checksums are available locally or through an external data root? | PDEBench image-suite preflight | open |
+| Q5 | Which exact Darcy and 2D CNS HDF5 schemas, split files, and checksums are available locally or through an external data root? | PDEBench image-suite preflight | open |
 
 ## Planning Handoff Checklist
 
@@ -366,5 +366,5 @@ If the roadmap pivots or fails:
 - [x] The PDE contribution is required.
 - [x] The CDI headline is `128x128`.
 - [x] `256x256` higher FNO modes are included as a targeted scaling hypothesis.
-- [x] `/home/ollie/Documents/neurips/index.md` is the future evidence map.
+- [x] `/home/ollie/Documents/neurips/index.md` is the future evidence map and is not expected to exist until Phase 5 creates it.
 - [x] No manuscript prose or `/home/ollie/Documents/neurips/` artifacts are written by this design.

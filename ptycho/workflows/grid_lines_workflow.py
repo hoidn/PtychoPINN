@@ -1493,7 +1493,6 @@ def run_grid_lines_workflow(
                 pinn_stitched,
                 YY_gt,
                 label="pinn",
-                single_image_frc=True,
             )
             recons["pinn"] = {
                 "amp": pinn_amp[0, :, :, 0],
@@ -1510,7 +1509,6 @@ def run_grid_lines_workflow(
             base_stitched,
             YY_gt,
             label="baseline",
-            single_image_frc=True,
         )
         recons["baseline"] = {
             "amp": base_amp[0, :, :, 0],

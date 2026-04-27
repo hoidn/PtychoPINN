@@ -28,17 +28,17 @@ _PROFILES: dict[str, ModelProfile] = {
     "hybrid_resnet_base": ModelProfile(
         profile_id="hybrid_resnet_base",
         base_model="hybrid_resnet",
-        hidden_channels=16,
-        fno_modes=8,
+        hidden_channels=32,
+        fno_modes=12,
         fno_blocks=4,
-        hybrid_downsample_steps=1,
-        hybrid_resnet_blocks=2,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
     ),
     "fno_base": ModelProfile(
         profile_id="fno_base",
         base_model="fno",
-        hidden_channels=16,
-        fno_modes=8,
+        hidden_channels=32,
+        fno_modes=12,
         fno_blocks=4,
     ),
     "unet_base": ModelProfile(
@@ -49,20 +49,20 @@ _PROFILES: dict[str, ModelProfile] = {
     "hybrid_resnet_spectral_reduced": ModelProfile(
         profile_id="hybrid_resnet_spectral_reduced",
         base_model="hybrid_resnet",
-        hidden_channels=16,
-        fno_modes=2,
+        hidden_channels=32,
+        fno_modes=6,
         fno_blocks=4,
-        hybrid_downsample_steps=1,
-        hybrid_resnet_blocks=2,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
     ),
     "hybrid_resnet_local_reduced": ModelProfile(
         profile_id="hybrid_resnet_local_reduced",
         base_model="hybrid_resnet",
-        hidden_channels=16,
-        fno_modes=8,
+        hidden_channels=32,
+        fno_modes=12,
         fno_blocks=4,
-        hybrid_downsample_steps=1,
-        hybrid_resnet_blocks=1,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=2,
     ),
 }
 
@@ -121,6 +121,35 @@ def validate_run_budget(payload: dict[str, Any]) -> dict[str, Any]:
     if float(budget.get("learning_rate", 0.0)) <= 0.0:
         raise ValueError("run budget learning_rate must be positive")
     budget["learning_rate"] = float(budget["learning_rate"])
+    budget["scheduler"] = str(budget.get("scheduler", "ReduceLROnPlateau"))
+    if budget["scheduler"] not in {"Default", "ReduceLROnPlateau"}:
+        raise ValueError("run budget scheduler must be Default or ReduceLROnPlateau")
+    budget["plateau_factor"] = float(budget.get("plateau_factor", 0.5))
+    if not 0.0 < budget["plateau_factor"] < 1.0:
+        raise ValueError("run budget plateau_factor must be in (0, 1)")
+    budget["plateau_patience"] = int(budget.get("plateau_patience", 2))
+    if budget["plateau_patience"] < 0:
+        raise ValueError("run budget plateau_patience must be non-negative")
+    budget["plateau_min_lr"] = float(budget.get("plateau_min_lr", 1e-5))
+    if budget["plateau_min_lr"] < 0:
+        raise ValueError("run budget plateau_min_lr must be non-negative")
+    if budget["plateau_min_lr"] > 1e-5:
+        raise ValueError("run budget plateau_min_lr must be no higher than 1e-5 for PDE studies")
+    budget["plateau_threshold"] = float(budget.get("plateau_threshold", 0.0))
+    if budget["plateau_threshold"] < 0:
+        raise ValueError("run budget plateau_threshold must be non-negative")
+    budget["optimizer"] = str(budget.get("optimizer", "adam")).lower()
+    if budget["optimizer"] != "adam":
+        raise ValueError("run budget optimizer must be adam")
+    budget["weight_decay"] = float(budget.get("weight_decay", 0.0))
+    if budget["weight_decay"] < 0:
+        raise ValueError("run budget weight_decay must be non-negative")
+    budget["beta1"] = float(budget.get("beta1", 0.9))
+    budget["beta2"] = float(budget.get("beta2", 0.999))
+    if not 0 <= budget["beta1"] < 1:
+        raise ValueError("run budget beta1 must be in [0, 1)")
+    if not 0 <= budget["beta2"] < 1:
+        raise ValueError("run budget beta2 must be in [0, 1)")
     if "training_seed" not in budget:
         raise ValueError("run budget missing required field: training_seed")
     training_seed = int(budget["training_seed"])

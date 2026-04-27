@@ -1,0 +1,391 @@
+version: "2.7"
+name: "backlog-item-design-plan-impl-stack"
+
+imports:
+  design_phase: tracked_design_phase.yaml
+  plan_phase: tracked_plan_phase.yaml
+  implementation_phase: design_plan_impl_implementation_phase.yaml
+
+inputs:
+  item_state_root:
+    type: relpath
+    under: state
+  design_phase_state_root:
+    type: relpath
+    under: state
+  plan_phase_state_root:
+    type: relpath
+    under: state
+  implementation_phase_state_root:
+    type: relpath
+    under: state
+  brief_path:
+    type: relpath
+    under: docs
+    must_exist_target: true
+  design_target_path:
+    type: relpath
+    under: docs/plans
+  design_review_report_target_path:
+    type: relpath
+    under: artifacts/review
+  plan_target_path:
+    type: relpath
+    under: docs/plans
+  plan_review_report_target_path:
+    type: relpath
+    under: artifacts/review
+  execution_report_target_path:
+    type: relpath
+    under: artifacts/work
+  implementation_review_report_target_path:
+    type: relpath
+    under: artifacts/review
+  item_summary_target_path:
+    type: relpath
+    under: artifacts/work
+
+outputs:
+  item_outcome:
+    kind: scalar
+    type: enum
+    allowed: ["APPROVED", "SKIPPED_AFTER_DESIGN", "SKIPPED_AFTER_PLAN", "SKIPPED_AFTER_IMPLEMENTATION"]
+    from:
+      ref: root.steps.PublishItemOutputs.artifacts.item_outcome
+  execution_report_path:
+    type: relpath
+    under: artifacts/work
+    must_exist_target: true
+    from:
+      ref: root.steps.PublishItemOutputs.artifacts.execution_report_path
+  item_summary_path:
+    type: relpath
+    under: artifacts/work
+    must_exist_target: true
+    from:
+      ref: root.steps.PublishItemOutputs.artifacts.item_summary_path
+
+steps:
+  - name: InitializeItemState
+    id: initialize_item_state
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p \
+          "${inputs.item_state_root}" \
+          "${inputs.design_phase_state_root}" \
+          "${inputs.plan_phase_state_root}" \
+          "${inputs.implementation_phase_state_root}" \
+          artifacts/work \
+          artifacts/review \
+          docs/plans
+
+  - name: RunDesignPhase
+    id: run_design_phase
+    call: design_phase
+    with:
+      state_root:
+        ref: inputs.design_phase_state_root
+      brief_path:
+        ref: inputs.brief_path
+      design_target_path:
+        ref: inputs.design_target_path
+      design_review_report_target_path:
+        ref: inputs.design_review_report_target_path
+    on:
+      failure:
+        goto: FinalizeSkippedAfterDesign
+
+  - name: RunPlanPhase
+    id: run_plan_phase
+    call: plan_phase
+    with:
+      state_root:
+        ref: inputs.plan_phase_state_root
+      design_path:
+        ref: root.steps.RunDesignPhase.artifacts.design_path
+      plan_target_path:
+        ref: inputs.plan_target_path
+      plan_review_report_target_path:
+        ref: inputs.plan_review_report_target_path
+    on:
+      failure:
+        goto: FinalizeSkippedAfterPlan
+
+  - name: RunImplementationPhase
+    id: run_implementation_phase
+    call: implementation_phase
+    with:
+      state_root:
+        ref: inputs.implementation_phase_state_root
+      design_path:
+        ref: root.steps.RunDesignPhase.artifacts.design_path
+      plan_path:
+        ref: root.steps.RunPlanPhase.artifacts.plan_path
+      execution_report_target_path:
+        ref: inputs.execution_report_target_path
+      implementation_review_report_target_path:
+        ref: inputs.implementation_review_report_target_path
+    on:
+      success:
+        goto: FinalizeApprovedItem
+      failure:
+        goto: FinalizeSkippedAfterImplementation
+
+  - name: FinalizeApprovedItem
+    id: finalize_approved_item
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import sys
+
+        item_state_root = pathlib.Path(sys.argv[1])
+        brief_path = sys.argv[2]
+        design_target_path = sys.argv[3]
+        plan_target_path = sys.argv[4]
+        execution_report_target_path = sys.argv[5]
+        item_summary_target_path = sys.argv[6]
+
+        summary_path = pathlib.Path(item_summary_target_path)
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text(
+            json.dumps(
+                {
+                    "brief_path": brief_path,
+                    "item_outcome": "APPROVED",
+                    "failed_phase": None,
+                    "design_path": design_target_path,
+                    "plan_path": plan_target_path,
+                    "execution_report_path": execution_report_target_path,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        (item_state_root / "item_outcome.txt").write_text("APPROVED\n", encoding="utf-8")
+        (item_state_root / "final_execution_report_path.txt").write_text(
+            execution_report_target_path + "\n",
+            encoding="utf-8",
+        )
+        (item_state_root / "final_item_summary_path.txt").write_text(
+            item_summary_target_path + "\n",
+            encoding="utf-8",
+        )
+      - ${inputs.item_state_root}
+      - ${inputs.brief_path}
+      - ${inputs.design_target_path}
+      - ${inputs.plan_target_path}
+      - ${inputs.execution_report_target_path}
+      - ${inputs.item_summary_target_path}
+    on:
+      success:
+        goto: PublishItemOutputs
+
+  - name: FinalizeSkippedAfterDesign
+    id: finalize_skipped_after_design
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import sys
+
+        item_state_root = pathlib.Path(sys.argv[1])
+        brief_path = sys.argv[2]
+        design_target_path = sys.argv[3]
+        plan_target_path = sys.argv[4]
+        execution_report_target_path = sys.argv[5]
+        item_summary_target_path = sys.argv[6]
+
+        execution_report_path = pathlib.Path(execution_report_target_path)
+        execution_report_path.parent.mkdir(parents=True, exist_ok=True)
+        execution_report_path.write_text(
+            "Skipped before plan and implementation because design phase failed.\n",
+            encoding="utf-8",
+        )
+
+        summary_path = pathlib.Path(item_summary_target_path)
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text(
+            json.dumps(
+                {
+                    "brief_path": brief_path,
+                    "item_outcome": "SKIPPED_AFTER_DESIGN",
+                    "failed_phase": "design",
+                    "design_path": design_target_path,
+                    "plan_path": plan_target_path,
+                    "execution_report_path": execution_report_target_path,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        (item_state_root / "item_outcome.txt").write_text("SKIPPED_AFTER_DESIGN\n", encoding="utf-8")
+        (item_state_root / "final_execution_report_path.txt").write_text(
+            execution_report_target_path + "\n",
+            encoding="utf-8",
+        )
+        (item_state_root / "final_item_summary_path.txt").write_text(
+            item_summary_target_path + "\n",
+            encoding="utf-8",
+        )
+      - ${inputs.item_state_root}
+      - ${inputs.brief_path}
+      - ${inputs.design_target_path}
+      - ${inputs.plan_target_path}
+      - ${inputs.execution_report_target_path}
+      - ${inputs.item_summary_target_path}
+    on:
+      success:
+        goto: PublishItemOutputs
+
+  - name: FinalizeSkippedAfterPlan
+    id: finalize_skipped_after_plan
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import sys
+
+        item_state_root = pathlib.Path(sys.argv[1])
+        brief_path = sys.argv[2]
+        design_target_path = sys.argv[3]
+        plan_target_path = sys.argv[4]
+        execution_report_target_path = sys.argv[5]
+        item_summary_target_path = sys.argv[6]
+
+        execution_report_path = pathlib.Path(execution_report_target_path)
+        execution_report_path.parent.mkdir(parents=True, exist_ok=True)
+        execution_report_path.write_text(
+            "Skipped before implementation because plan phase failed.\n",
+            encoding="utf-8",
+        )
+
+        summary_path = pathlib.Path(item_summary_target_path)
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text(
+            json.dumps(
+                {
+                    "brief_path": brief_path,
+                    "item_outcome": "SKIPPED_AFTER_PLAN",
+                    "failed_phase": "plan",
+                    "design_path": design_target_path,
+                    "plan_path": plan_target_path,
+                    "execution_report_path": execution_report_target_path,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        (item_state_root / "item_outcome.txt").write_text("SKIPPED_AFTER_PLAN\n", encoding="utf-8")
+        (item_state_root / "final_execution_report_path.txt").write_text(
+            execution_report_target_path + "\n",
+            encoding="utf-8",
+        )
+        (item_state_root / "final_item_summary_path.txt").write_text(
+            item_summary_target_path + "\n",
+            encoding="utf-8",
+        )
+      - ${inputs.item_state_root}
+      - ${inputs.brief_path}
+      - ${inputs.design_target_path}
+      - ${inputs.plan_target_path}
+      - ${inputs.execution_report_target_path}
+      - ${inputs.item_summary_target_path}
+    on:
+      success:
+        goto: PublishItemOutputs
+
+  - name: FinalizeSkippedAfterImplementation
+    id: finalize_skipped_after_implementation
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import sys
+
+        item_state_root = pathlib.Path(sys.argv[1])
+        brief_path = sys.argv[2]
+        design_target_path = sys.argv[3]
+        plan_target_path = sys.argv[4]
+        execution_report_target_path = sys.argv[5]
+        item_summary_target_path = sys.argv[6]
+
+        execution_report_path = pathlib.Path(execution_report_target_path)
+        execution_report_path.parent.mkdir(parents=True, exist_ok=True)
+        if not execution_report_path.exists():
+            execution_report_path.write_text(
+                "Implementation phase failed before producing a report.\n",
+                encoding="utf-8",
+            )
+
+        summary_path = pathlib.Path(item_summary_target_path)
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text(
+            json.dumps(
+                {
+                    "brief_path": brief_path,
+                    "item_outcome": "SKIPPED_AFTER_IMPLEMENTATION",
+                    "failed_phase": "implementation",
+                    "design_path": design_target_path,
+                    "plan_path": plan_target_path,
+                    "execution_report_path": execution_report_target_path,
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+        (item_state_root / "item_outcome.txt").write_text("SKIPPED_AFTER_IMPLEMENTATION\n", encoding="utf-8")
+        (item_state_root / "final_execution_report_path.txt").write_text(
+            execution_report_target_path + "\n",
+            encoding="utf-8",
+        )
+        (item_state_root / "final_item_summary_path.txt").write_text(
+            item_summary_target_path + "\n",
+            encoding="utf-8",
+        )
+      - ${inputs.item_state_root}
+      - ${inputs.brief_path}
+      - ${inputs.design_target_path}
+      - ${inputs.plan_target_path}
+      - ${inputs.execution_report_target_path}
+      - ${inputs.item_summary_target_path}
+    on:
+      success:
+        goto: PublishItemOutputs
+
+  - name: PublishItemOutputs
+    id: publish_item_outputs
+    command: ["bash", "-lc", "true"]
+    expected_outputs:
+      - name: item_outcome
+        path: ${inputs.item_state_root}/item_outcome.txt
+        type: enum
+        allowed: ["APPROVED", "SKIPPED_AFTER_DESIGN", "SKIPPED_AFTER_PLAN", "SKIPPED_AFTER_IMPLEMENTATION"]
+      - name: execution_report_path
+        path: ${inputs.item_state_root}/final_execution_report_path.txt
+        type: relpath
+        under: artifacts/work
+        must_exist_target: true
+      - name: item_summary_path
+        path: ${inputs.item_state_root}/final_item_summary_path.txt
+        type: relpath
+        under: artifacts/work
+        must_exist_target: true

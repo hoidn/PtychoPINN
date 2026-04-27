@@ -1,5 +1,6 @@
 Read the `Consumed Artifacts` section first and treat it as the authoritative input list.
 Read the consumed `steering`, `design`, `roadmap`, `selected_item_context`, `progress_ledger`, `plan`, and `plan_review_report` artifacts before acting.
+Treat `selected_item_context` as the authoritative backlog-item content and queue location; use any `selection_source_path` there only as provenance.
 
 Revise the plan to resolve the review findings while preserving the steering constraints, approved design, roadmap order and gates, and selected backlog scope.
 

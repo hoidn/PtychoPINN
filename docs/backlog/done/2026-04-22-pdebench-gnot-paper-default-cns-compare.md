@@ -1,6 +1,6 @@
 ---
 priority: 13
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_gnot_paper_default_cns_compare_plan.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-22-pdebench-gnot-paper-default-cns-compare/execution_plan.md
 check_commands:
   - python -m pytest tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py -q
   - python -m compileall -q scripts/studies/pdebench_image128

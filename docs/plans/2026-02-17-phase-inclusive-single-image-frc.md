@@ -2,6 +2,8 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+> **Historical note (2026-04-13):** Superseded by `docs/plans/2026-04-13-single-image-frc-removal.md`. The no-reference single-image FRC feature and `single_frc50` / `single_frc1over7` API are removed from tracked code; do not execute this plan as current guidance.
+
 **Goal:** Add no-ground-truth single-image FRC metrics for both amplitude and phase (phase via support-weighted phasor), supporting both spatial interleaved splitting and binomial splitting, and report both 0.5 and 1/7 thresholds across grid-lines study outputs.
 
 **Architecture:** Keep existing ground-truth metrics unchanged, and add a separate single-image FRC path in `ptycho/evaluation.py` that operates on the reconstructed image alone. Implement two split backends: (1) 2x2 diagonal interleaved spatial split and (2) Poisson/binomial count split with deterministic RNG control. Reuse the existing FRC backend for curve/cutoff extraction, expose split-mode selection as explicit API/CLI knobs, and integrate metric keys into study runners/wrappers and downstream table/aggregation consumers using the existing metric-pair schema (`metric -> [amp, phase]`) to minimize debt and avoid format divergence.

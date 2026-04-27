@@ -861,6 +861,11 @@ def _train_with_lightning(
             'hybrid_encoder_spectral_hidden_channels',
             'hybrid_resnet_blocks',
             'hybrid_skip_style',
+            'spectral_bottleneck_blocks',
+            'spectral_bottleneck_modes',
+            'spectral_bottleneck_share_weights',
+            'spectral_bottleneck_gate_init',
+            'spectral_bottleneck_gate_mode',
         ):
             field_val = getattr(execution_config, field_name, None)
             if field_val is not None:

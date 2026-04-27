@@ -9,9 +9,18 @@ from typing import Any
 PRIMARY_PROFILE_IDS = ["hybrid_resnet_smoke", "unet_smoke"]
 OPTIONAL_PROFILE_IDS = ["fno_smoke", "official_inversionnet_probe"]
 DEFAULT_RUN_BUDGET = {
-    "epochs": 1,
-    "batch_size": 4,
-    "learning_rate": 1e-3,
+    "epochs": 5,
+    "batch_size": 16,
+    "learning_rate": 2e-4,
+    "scheduler": "ReduceLROnPlateau",
+    "plateau_factor": 0.5,
+    "plateau_patience": 2,
+    "plateau_min_lr": 1e-5,
+    "plateau_threshold": 0.0,
+    "optimizer": "adam",
+    "weight_decay": 0.0,
+    "beta1": 0.9,
+    "beta2": 0.999,
     "train_samples": 32,
     "val_samples": 16,
     "test_samples": 16,
@@ -39,19 +48,19 @@ _PROFILES = {
     "hybrid_resnet_smoke": ModelProfile(
         profile_id="hybrid_resnet_smoke",
         base_model="hybrid_resnet",
-        hidden_channels=8,
-        fno_modes=4,
-        fno_blocks=2,
-        hybrid_downsample_steps=1,
-        hybrid_resnet_blocks=1,
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
     ),
     "unet_smoke": ModelProfile(profile_id="unet_smoke", base_model="unet", hidden_channels=8),
     "fno_smoke": ModelProfile(
         profile_id="fno_smoke",
         base_model="fno",
-        hidden_channels=8,
-        fno_modes=4,
-        fno_blocks=2,
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
     ),
     "official_inversionnet_probe": ModelProfile(
         profile_id="official_inversionnet_probe",
@@ -93,6 +102,35 @@ def validate_run_budget(payload: dict[str, Any]) -> dict[str, Any]:
     budget["learning_rate"] = float(budget["learning_rate"])
     if budget["learning_rate"] <= 0:
         raise ValueError("learning_rate must be positive")
+    budget["scheduler"] = str(budget.get("scheduler", "ReduceLROnPlateau"))
+    if budget["scheduler"] not in {"Default", "ReduceLROnPlateau"}:
+        raise ValueError("scheduler must be Default or ReduceLROnPlateau")
+    budget["plateau_factor"] = float(budget["plateau_factor"])
+    if not 0.0 < budget["plateau_factor"] < 1.0:
+        raise ValueError("plateau_factor must be in (0, 1)")
+    budget["plateau_patience"] = int(budget["plateau_patience"])
+    if budget["plateau_patience"] < 0:
+        raise ValueError("plateau_patience must be non-negative")
+    budget["plateau_min_lr"] = float(budget["plateau_min_lr"])
+    if budget["plateau_min_lr"] < 0:
+        raise ValueError("plateau_min_lr must be non-negative")
+    if budget["plateau_min_lr"] > 1e-5:
+        raise ValueError("plateau_min_lr must be no higher than 1e-5 for PDE studies")
+    budget["plateau_threshold"] = float(budget["plateau_threshold"])
+    if budget["plateau_threshold"] < 0:
+        raise ValueError("plateau_threshold must be non-negative")
+    budget["optimizer"] = str(budget.get("optimizer", "adam")).lower()
+    if budget["optimizer"] != "adam":
+        raise ValueError("optimizer must be adam")
+    budget["weight_decay"] = float(budget["weight_decay"])
+    if budget["weight_decay"] < 0:
+        raise ValueError("weight_decay must be non-negative")
+    budget["beta1"] = float(budget["beta1"])
+    budget["beta2"] = float(budget["beta2"])
+    if not 0 <= budget["beta1"] < 1:
+        raise ValueError("beta1 must be in [0, 1)")
+    if not 0 <= budget["beta2"] < 1:
+        raise ValueError("beta2 must be in [0, 1)")
     budget["device"] = str(budget.get("device", "cuda"))
     budget["profiles"] = parse_profile_ids(budget.get("profiles"))
     return budget

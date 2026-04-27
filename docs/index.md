@@ -68,6 +68,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, workflow, backlog, steering, roadmap, implementation-plan, selection, smoke-test
 **Use this when:** Implementing the adaptive backlog workflow, checking which files and prompts belong to each phase, or verifying the required helper tests, runtime smoke, and orchestrator dry-run coverage.
 
+### [NeurIPS Backlog Implementation-State Contract Plan](plans/2026-04-23-neurips-backlog-implementation-state-contract-plan.md)
+**Description:** Follow-on implementation plan for fixing the backlog drain's execution-state model so long-running selected items can end in `WAITING` instead of being incorrectly marked `BLOCKED`, with explicit `COMPLETED | RUNNING | BLOCKED` semantics, separate progress versus final report surfaces, and workflow routing changes across the implementation phase, selected-item workflow, and top-level drain.
+**Keywords:** neurips, workflow, backlog, implementation, waiting, blocked, running, execution-state
+**Use this when:** Fixing the selected-item implementation-state bug, updating the drain to support non-terminal experiment progress, or reviewing how to separate semantic item state from workflow failure.
+
 ### [NeurIPS Steering Document](steering.md)
 **Description:** Human-authored strategic intent for the NeurIPS Hybrid ResNet backlog drain, capturing ordered priorities, comparison standards, fairness constraints, known blockers, and non-goals.
 **Keywords:** neurips, steering, priorities, fairness, blockers, workflow

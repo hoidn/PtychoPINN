@@ -24,10 +24,14 @@ def test_collator_handles_metrics_and_blocker_files(tmp_path):
 
     summary = collate_comparison(run_root, profiles=["hybrid_resnet_smoke", "unet_smoke"], run_id="r1")
 
-    assert summary["hybrid_MAE"] == pytest.approx(3.0)
-    assert summary["best_baseline_MAE"] == pytest.approx(2.0)
-    assert summary["relative_gap_vs_best_baseline"] == pytest.approx(0.5)
-    assert summary["recommended_decision_input"] == "proceed_candidate"
+    assert summary["schema_version"] == "openfwi_flatvel_a_comparison_summary_v2"
+    assert summary["evidence_scope"] == "smoke_feasibility_only"
+    assert summary["metric_interpretation"] == "sanity_only_not_benchmark_performance"
+    assert summary["performance_assessment_complete"] is False
+    assert summary["recommended_decision_input"] == "smoke_contract_complete"
+    assert "hybrid_MAE" not in summary
+    assert "best_baseline_MAE" not in summary
+    assert "relative_gap_vs_best_baseline" not in summary
     assert (run_root / "comparison_summary.json").exists()
     assert (run_root / "comparison_summary.csv").exists()
 
@@ -53,6 +57,7 @@ def test_collator_emits_data_access_block_decision(tmp_path):
 
     assert summary["data_access_complete"] is False
     assert summary["recommended_decision_input"] == "block_data_access"
+    assert summary["performance_assessment_complete"] is False
 
 
 def test_collator_ignores_stale_data_access_blocker_when_current_metrics_exist(tmp_path):
@@ -72,5 +77,6 @@ def test_collator_ignores_stale_data_access_blocker_when_current_metrics_exist(t
     summary = collate_comparison(run_root, profiles=["hybrid_resnet_smoke", "unet_smoke"], run_id="current")
 
     assert summary["data_access_complete"] is True
-    assert summary["recommended_decision_input"] == "proceed_candidate"
+    assert summary["recommended_decision_input"] == "smoke_contract_complete"
+    assert summary["metric_interpretation"] == "sanity_only_not_benchmark_performance"
     assert summary["ignored_stale_data_access_blocker"]["run_id"] == "old"

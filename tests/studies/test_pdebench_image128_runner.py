@@ -410,6 +410,25 @@ def test_cfd_cns_comparison_summary_uses_task_specific_required_primary_profiles
     assert payload["performance_assessment_complete"] is True
 
 
+def test_cfd_cns_pilot_comparison_summary_marks_capped_decision_support_only(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import build_comparison_summary
+
+    payload = build_comparison_summary(
+        task_id="2d_cfd_cns",
+        mode="pilot",
+        output_root=tmp_path,
+        profile_results=[
+            {"profile_id": "spectral_resnet_bottleneck_base", "status": "completed"},
+            {"profile_id": "spectral_resnet_bottleneck_noshare", "status": "completed"},
+        ],
+    )
+
+    assert payload["mode"] == "pilot"
+    assert payload["evidence_scope"] == "capped_decision_support_only"
+    assert payload["metric_interpretation"] == "decision_support_not_benchmark_performance"
+    assert payload["performance_assessment_complete"] is False
+
+
 def test_reference_run_manifest_records_row_local_contract_fields(tmp_path):
     from scripts.studies.pdebench_image128.reporting import build_reference_run_manifest, write_reference_run_manifest
 
@@ -719,6 +738,305 @@ def test_cross_run_compare_records_gallery_blocker_when_targets_do_not_align(tmp
         "missing_sample_artifact",
         "target_mismatch",
     }
+
+
+def test_history1_cross_run_compare_records_allowed_delta_and_rows(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import write_history_delta_compare
+
+    history1_root = tmp_path / "history1"
+    _write_fake_cfd_cns_compare_run(
+        history1_root,
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=10,
+        err_nrmse=0.08,
+        history_len=1,
+    )
+    _write_fake_cfd_cns_compare_run(
+        history1_root,
+        profile_id="hybrid_resnet_cns",
+        epochs=10,
+        err_nrmse=0.10,
+        history_len=1,
+    )
+    _write_fake_cfd_cns_compare_run(
+        history1_root,
+        profile_id="fno_base",
+        epochs=10,
+        err_nrmse=0.12,
+        history_len=1,
+    )
+    _write_fake_cfd_cns_compare_run(
+        history1_root,
+        profile_id="unet_strong",
+        epochs=10,
+        err_nrmse=0.21,
+        history_len=1,
+    )
+
+    spectral_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "history2-spectral",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=10,
+        err_nrmse=0.11,
+        history_len=2,
+    )
+    hybrid_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "history2-hybrid",
+        profile_id="hybrid_resnet_cns",
+        epochs=10,
+        err_nrmse=0.19,
+        history_len=2,
+    )
+    fno_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "history2-fno",
+        profile_id="fno_base",
+        epochs=10,
+        err_nrmse=0.23,
+        history_len=2,
+    )
+    unet_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "history2-unet",
+        profile_id="unet_strong",
+        epochs=10,
+        err_nrmse=0.31,
+        history_len=2,
+    )
+
+    json_path, csv_path, payload = write_history_delta_compare(
+        output_root=tmp_path / "out",
+        epoch_label="10ep",
+        fresh_run_root=history1_root,
+        fresh_profile_ids=[
+            "spectral_resnet_bottleneck_base",
+            "hybrid_resnet_cns",
+            "fno_base",
+            "unet_strong",
+        ],
+        reference_rows=[
+            {
+                "run_root": str(spectral_root),
+                "profile_id": "spectral_resnet_bottleneck_base",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/spectral.md",
+            },
+            {
+                "run_root": str(hybrid_root),
+                "profile_id": "hybrid_resnet_cns",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/hybrid.md",
+            },
+            {
+                "run_root": str(fno_root),
+                "profile_id": "fno_base",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/fno.md",
+            },
+            {
+                "run_root": str(unet_root),
+                "profile_id": "unet_strong",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/unet.md",
+            },
+        ],
+    )
+
+    assert json_path.exists()
+    assert csv_path.exists()
+    assert payload["fixed_contract"]["dataset_file"] == "/tmp/fake-cfd-cns.hdf5"
+    assert payload["allowed_contract_delta"] == {
+        "delta_kind": "history_len_only",
+        "reference_history_len": 2,
+        "fresh_history_len": 1,
+        "reference_sample_contract": "concat u[t-2:t] -> u[t]",
+        "fresh_sample_contract": "concat u[t-1:t] -> u[t]",
+        "reference_input_channels": 8,
+        "fresh_input_channels": 4,
+        "target_channels": 4,
+    }
+    assert [item["profile_id"] for item in payload["fresh_profile_results"]] == [
+        "spectral_resnet_bottleneck_base",
+        "hybrid_resnet_cns",
+        "fno_base",
+        "unet_strong",
+    ]
+    assert [item["profile_id"] for item in payload["reference_profile_results"]] == [
+        "spectral_resnet_bottleneck_base",
+        "hybrid_resnet_cns",
+        "fno_base",
+        "unet_strong",
+    ]
+    assert payload["cross_run_gallery_blocked"] is None
+    assert (tmp_path / "out" / "compare_10ep_sample0.png").exists()
+    assert (tmp_path / "out" / "compare_10ep_sample0_error.png").exists()
+
+
+def test_history1_cross_run_compare_rejects_fixed_contract_mismatch(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import write_history_delta_compare
+
+    history1_root = tmp_path / "history1"
+    _write_fake_cfd_cns_compare_run(
+        history1_root,
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=10,
+        err_nrmse=0.08,
+        history_len=1,
+        batch_size=2,
+    )
+
+    spectral_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "history2-spectral",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=10,
+        err_nrmse=0.11,
+        history_len=2,
+        batch_size=4,
+    )
+
+    try:
+        write_history_delta_compare(
+            output_root=tmp_path / "out",
+            epoch_label="10ep",
+            fresh_run_root=history1_root,
+            fresh_profile_ids=["spectral_resnet_bottleneck_base"],
+            reference_rows=[
+                {
+                    "run_root": str(spectral_root),
+                    "profile_id": "spectral_resnet_bottleneck_base",
+                    "epochs": 10,
+                    "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                    "split_counts": {"train": 512, "val": 64, "test": 64},
+                    "max_windows_per_trajectory": 8,
+                    "history_len": 2,
+                    "training_loss": "mse",
+                    "batch_size": 4,
+                    "metric_family": [
+                        "err_RMSE",
+                        "err_nRMSE",
+                        "relative_l2",
+                        "fRMSE_low",
+                        "fRMSE_mid",
+                        "fRMSE_high",
+                    ],
+                    "source_document": "docs/spectral.md",
+                }
+            ],
+        )
+    except ValueError as exc:
+        assert "batch_size" in str(exc)
+    else:
+        raise AssertionError("history compare must reject fixed-contract mismatches outside the history delta")
+
+
+def test_history1_cross_run_compare_rejects_hybrid_base_proxy_anchor(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import write_history_delta_compare
+
+    history1_root = tmp_path / "history1"
+    _write_fake_cfd_cns_compare_run(
+        history1_root,
+        profile_id="hybrid_resnet_cns",
+        epochs=40,
+        err_nrmse=0.10,
+        history_len=1,
+    )
+
+    hybrid_base_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "history2-hybrid-base",
+        profile_id="hybrid_resnet_base",
+        epochs=40,
+        err_nrmse=0.15,
+        history_len=2,
+    )
+
+    try:
+        write_history_delta_compare(
+            output_root=tmp_path / "out",
+            epoch_label="40ep",
+            fresh_run_root=history1_root,
+            fresh_profile_ids=["hybrid_resnet_cns"],
+            reference_rows=[
+                {
+                    "run_root": str(hybrid_base_root),
+                    "profile_id": "hybrid_resnet_base",
+                    "epochs": 40,
+                    "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                    "split_counts": {"train": 512, "val": 64, "test": 64},
+                    "max_windows_per_trajectory": 8,
+                    "history_len": 2,
+                    "training_loss": "mse",
+                    "batch_size": 4,
+                    "metric_family": [
+                        "err_RMSE",
+                        "err_nRMSE",
+                        "relative_l2",
+                        "fRMSE_low",
+                        "fRMSE_mid",
+                        "fRMSE_high",
+                    ],
+                    "source_document": "docs/hybrid-base.md",
+                }
+            ],
+        )
+    except ValueError as exc:
+        assert "profile_id" in str(exc)
+        assert "hybrid_resnet_base" in str(exc)
+    else:
+        raise AssertionError("history compare must reject hybrid_resnet_base as a proxy anchor")
 
 
 def test_validate_darcy_benchmark_budget_requires_full_split_and_primary_profiles():
@@ -1678,3 +1996,95 @@ def test_image128_cli_keeps_preflight_default_and_supports_darcy_readiness(tmp_p
     assert cfd_metrics["training_loss"] == "mse"
     assert cfd_metrics["physics_regularization_enabled"] is True
     assert cfd_metrics["physics_loss_terms"] == ["positivity", "continuity", "global_mass"]
+
+
+def test_cfd_cns_pilot_runner_requires_explicit_profiles_and_writes_required_artifacts(tmp_path):
+    from scripts.studies.pdebench_image128.cfd_cns import run_cfd_cns
+
+    data_root = tmp_path / "data"
+    _write_tiny_cfd_cns(
+        data_root / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+    )
+
+    missing_profiles_root = tmp_path / "pilot_missing_profiles"
+    try:
+        run_cfd_cns(
+            task_id="2d_cfd_cns",
+            mode="pilot",
+            data_root=data_root,
+            output_root=missing_profiles_root,
+            history_len=2,
+            epochs=1,
+            batch_size=2,
+            max_train_trajectories=2,
+            max_val_trajectories=1,
+            max_test_trajectories=1,
+            max_windows_per_trajectory=1,
+            device="cpu",
+            num_workers=0,
+            allow_existing_output_root=True,
+            raw_argv=["--task", "2d_cfd_cns", "--mode", "pilot"],
+        )
+    except ValueError as exc:
+        assert "profile_ids" in str(exc)
+    else:
+        raise AssertionError("pilot mode must require explicit profile_ids")
+
+    output_root = tmp_path / "pilot_run"
+    exit_code = run_cfd_cns(
+        task_id="2d_cfd_cns",
+        mode="pilot",
+        data_root=data_root,
+        output_root=output_root,
+        profile_ids=["spectral_resnet_bottleneck_base"],
+        history_len=2,
+        epochs=1,
+        batch_size=2,
+        max_train_trajectories=2,
+        max_val_trajectories=1,
+        max_test_trajectories=1,
+        max_windows_per_trajectory=1,
+        device="cpu",
+        num_workers=0,
+        allow_existing_output_root=True,
+        raw_argv=[
+            "--task",
+            "2d_cfd_cns",
+            "--mode",
+            "pilot",
+            "--profiles",
+            "spectral_resnet_bottleneck_base",
+        ],
+    )
+
+    assert exit_code == 0
+    required = [
+        "invocation.json",
+        "invocation.sh",
+        "dataset_manifest.json",
+        "split_manifest.json",
+        "comparison_summary.json",
+        "comparison_summary.csv",
+        "model_profile_spectral_resnet_bottleneck_base.json",
+        "metrics_spectral_resnet_bottleneck_base.json",
+        "comparison_spectral_resnet_bottleneck_base_sample0.png",
+        "comparison_spectral_resnet_bottleneck_base_sample0.npz",
+    ]
+    for name in required:
+        assert (output_root / name).exists(), name
+
+    model_profile = json.loads(
+        (output_root / "model_profile_spectral_resnet_bottleneck_base.json").read_text(encoding="utf-8")
+    )
+    profile_config = model_profile["profile_config"]
+    assert profile_config["hybrid_skip_connections"] is True
+    assert profile_config["hybrid_skip_style"] == "add"
+    assert profile_config["hybrid_upsampler"] == "pixelshuffle"
+    assert profile_config["spectral_bottleneck_share_weights"] is True
+    assert profile_config["spectral_bottleneck_blocks"] == 6
+
+    summary = json.loads((output_root / "comparison_summary.json").read_text(encoding="utf-8"))
+    assert summary["mode"] == "pilot"
+    assert summary["evidence_scope"] == "capped_decision_support_only"
+    assert summary["metric_interpretation"] == "decision_support_not_benchmark_performance"
+    assert summary["performance_assessment_complete"] is False

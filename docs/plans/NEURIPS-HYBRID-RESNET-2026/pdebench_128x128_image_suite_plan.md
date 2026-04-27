@@ -133,7 +133,7 @@ Required primary profiles:
 
 Task-local CNS override:
 
-- The canonical CNS Hybrid row is `hybrid_resnet_cns`, which inherits the `hybrid_resnet_base` shell but enables `hybrid_skip_connections=on` with `hybrid_skip_style=add`.
+- The canonical CNS Hybrid row is `hybrid_resnet_cns`, which inherits the `hybrid_resnet_base` shell, enables `hybrid_skip_connections=on` with `hybrid_skip_style=add`, and now defaults to `hybrid_upsampler=pixelshuffle`.
 - This is a task-local override for `2d_cfd_cns`, not a global rename of `hybrid_resnet_base`.
 
 Darcy-specific strong baseline rule:

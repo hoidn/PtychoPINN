@@ -112,6 +112,9 @@
 - after fresh plan approval, the selected backlog item's `plan_path` is rewritten to the fresh approved plan before implementation begins.
 - the fresh approved plan must carry forward the selected backlog objective/scope, relevant roadmap and steering constraints, and the authoritative `check_commands` / verification expectations so the implementation phase can stay narrow.
 - backlog `check_commands` are preserved and must run before each implementation review pass.
+- the implementation phase must distinguish semantic item state from workflow failure via `COMPLETED | RUNNING | BLOCKED`.
+- `RUNNING` must yield a progress report and a top-level drain outcome of `WAITING`, not a blocked ledger entry.
+- raw workflow/contract failure must fail the run rather than automatically marking the selected backlog item blocked.
 - blocked or failed items remain in `docs/backlog/in_progress/` with durable blocker state. Recovery is resume-first; later drain passes may reclaim the item when the owner run is gone and the recorded blocker is cleared.
 
 ## Phases
@@ -236,11 +239,17 @@
     - `plan_path`
     - `check_commands_path`
     - report target paths
+  - Boundary outputs should stay narrow:
+    - `implementation_state`
+    - `implementation_review_decision`
+    - detailed report/check/progress paths remain deterministic phase-state files under the implementation state root
   - It must run:
     1. implementation execution
-    2. deterministic `check_commands`
-    3. implementation review against design + plan + execution report + checks report
-    4. fix pass and re-check on `REVISE`
+    2. classify the result as `COMPLETED | RUNNING | BLOCKED`
+    3. deterministic `check_commands` only for `COMPLETED`
+    4. implementation review against design + plan + execution report + checks report only for `COMPLETED`
+    5. fix pass and re-check on `REVISE`
+    6. progress-report publication for `RUNNING` and `BLOCKED`
 - [ ] Implement `workflows/library/scripts/run_neurips_backlog_checks.py`.
   - Reads `check_commands` as a JSON list.
   - Executes them from the repo root.
@@ -249,6 +258,9 @@
   - `workflows/library/prompts/neurips_backlog_implementation_phase/review_implementation.md`
   - `workflows/library/prompts/neurips_backlog_implementation_phase/fix_implementation.md`
 - [ ] Add tests that assert:
+  - the implementation phase publishes `implementation_state`
+  - `RUNNING` does not require a final execution report or review artifacts
+  - `BLOCKED` is reserved for explicit semantic blockers, not incomplete long-running work
   - the implementation phase publishes a checks report artifact
   - the implementation phase consumes `check_commands_path`
   - review consumes the checks report
@@ -261,6 +273,7 @@
   - Build manifest.
   - Select next item.
   - Exit `DONE` when no eligible items remain.
+  - Exit `WAITING` when the selected item is still running and should remain in `in_progress/`.
   - Exit `BLOCKED` when active items remain but none are runnable.
   - Materialize selected item inputs, including `check_commands_path`.
   - Move selected item to `in_progress/` or reclaim a recoverable `in_progress/` item based on `selection_mode`.
@@ -283,11 +296,16 @@
   - roadmap-sync routing
   - authoritative roadmap pointer update routing
   - plan rewrite contract
+  - implementation-state routing and `WAITING`
   - check-command preservation and routing
   - done/blocked terminal behavior
 - [ ] Add one runtime smoke test modeled on the `WorkflowExecutor` / `ProviderExecutor` patch tests used in `agent-orchestration/tests/test_major_project_workflows.py`.
   - Run the new workflow in a temporary workspace copied from the fixture tree.
   - Patch provider execution to return deterministic selector, roadmap-sync, plan-review, and implementation-review outputs.
+  - Cover:
+    - a completed item
+    - a `RUNNING -> WAITING` item
+    - an explicit semantic `BLOCKED` item
   - Prove that the workflow performs manifest build, item move, roadmap sync, plan publication, `check_commands` wiring, implementation call wiring, and root output export.
 - [ ] Run one orchestrator CLI smoke from the PtychoPINN repo root after implementation.
   - Dry-run is acceptable for schema/control-flow proof.

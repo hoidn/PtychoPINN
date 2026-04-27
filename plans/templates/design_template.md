@@ -3,17 +3,26 @@
 > Copy this file to the design location for the initiative and customize it.
 > Use this before writing an implementation plan when the work needs design,
 > scientific/provenance decisions, architecture choices, or ADR-style rationale.
+>
+> Keep the design as small as the decision requires. For narrow changes, write
+> concise answers and mark optional subsections `N/A`; do not pad the document to
+> satisfy headings that are irrelevant. For workflow-driven design-plan-implement
+> stacks, use this document as the design source of truth before planning.
 
 ## Design Metadata
 
 - ID: `<initiative-or-study-id>`
 - Title: `<short title>`
-- Status: draft | approved | superseded | abandoned
+- Status: draft | candidate | approved | superseded | abandoned
 - Owner: `<name>` (optional)
 - Date: `<YYYY-MM-DD>`
 - Source brief / issue: `<path or tracker id>`
 - Related plan: `<path>` (leave blank until planning starts)
 - Related checklist / backlog item: `<path>` (optional)
+
+Use `approved` only after the review loop or human owner accepts the design.
+Drafting prompts should create a `draft` or `candidate` design, not an
+"approved" design.
 
 ## Consumed Inputs and Authority
 
@@ -21,10 +30,18 @@ List the documents and artifacts that constrain this design. Prefer specific
 paths and sections over broad references.
 
 - Primary source: `<path>`
+- Docs index: `docs/index.md` read first? `<yes | no | absent>`
 - Normative specs: `<path> §section>`
+- Architecture docs: `<path> §section>`
+- Workflow guides / runbooks: `<path> §section>`
 - Project docs: `<path> §section>`
 - Prior artifacts or reports: `<path>`
 - Known findings / policies: `<Finding ID or policy>`
+
+When `docs/index.md` exists, read it first and use it to select the relevant
+specs, architecture docs, workflow guides, runbooks, and `docs/findings.md`.
+List only the documents that actually constrain the design; do not turn broad
+doc globs into a required reading list.
 
 Authority order for this design:
 
@@ -95,6 +112,9 @@ planner to produce concrete tasks.
 - Files or APIs likely touched:
 - Files or APIs that must not be touched:
 - One-off versus reusable boundary:
+- Design-plan-implement boundary:
+  - Decisions this design must make:
+  - Details intentionally deferred to the implementation plan:
 
 ### Core Contracts and Invariants
 
@@ -113,6 +133,25 @@ List the properties that must hold even if implementation details change.
   -> <artifact/output>
   -> <consumer/verification>
 ```
+
+### Workflow / Artifact Contract (if workflow-affecting)
+
+Use this subsection when the design may author, modify, or be executed by an
+orchestration workflow. Keep the workflow-level contract surface small; local
+implementation files belong in the implementation plan.
+
+- Workflow or stack affected:
+- Workflow-level artifacts:
+
+| Artifact | Producer | Consumer | Type | Validation / gate rule |
+|---|---|---|---|---|
+| `<artifact>` | `<step>` | `<step>` | `<file/json/report/etc>` | `<rule>` |
+
+- Runtime-only or local artifacts not promoted to workflow contract:
+- Prompt-owned judgment standard:
+- Workflow-owned deterministic control:
+- Resume / re-run implications:
+- Non-contract details deferred to implementation plan:
 
 ## Data, Dependency, and Provenance Decisions
 
@@ -217,8 +256,11 @@ Track unknowns that must be resolved before implementation planning.
 
 ## Planning Handoff Checklist
 
-- [ ] Design status is `approved` or explicitly marked as an exploratory draft.
+- [ ] Design status is `draft`, `candidate`, or post-review `approved` with approval source recorded.
+- [ ] `docs/index.md` was used when present, and selected specs/docs/findings are listed.
+- [ ] Optional sections are concise, omitted, or marked `N/A`; the design is not padded for small changes.
 - [ ] ADR entries record consequential choices and rejected alternatives.
+- [ ] Workflow/artifact contract is filled in or marked `N/A`; workflow-level artifacts have producer, consumer, and gate rule.
 - [ ] Dependency discovery is specified if new packages/tools might be needed.
 - [ ] Data/provenance contracts include enough fields to audit outputs.
 - [ ] Pivot and stop conditions are concrete enough for an implementation review.

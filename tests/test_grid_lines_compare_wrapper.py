@@ -179,20 +179,16 @@ def test_wrapper_accepts_architecture_list(tmp_path):
     assert args.architectures == ("cnn", "fno")
 
 
-def test_wrapper_parse_args_single_image_frc_controls(tmp_path):
+def test_wrapper_parse_args_rejects_single_image_frc_controls(tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import parse_args
 
-    args = parse_args([
-        "--N", "64",
-        "--gridsize", "1",
-        "--output-dir", str(tmp_path),
-        "--torch-no-single-image-frc",
-        "--torch-single-image-frc-split-mode", "binomial",
-        "--torch-single-image-frc-rng-seed", "11",
-    ])
-    assert args.torch_single_image_frc is False
-    assert args.torch_single_image_frc_split_mode == "binomial"
-    assert args.torch_single_image_frc_rng_seed == 11
+    with pytest.raises(SystemExit):
+        parse_args([
+            "--N", "64",
+            "--gridsize", "1",
+            "--output-dir", str(tmp_path),
+            "--torch-no-single-image-frc",
+        ])
 
 
 def test_parse_args_default_architectures_excludes_baseline(tmp_path):
@@ -643,7 +639,7 @@ def test_harmonized_metrics_run_on_canonical_gt_grid(tmp_path):
     assert out["pinn_hybrid"]["reference_shape"] == [392, 392]
 
 
-def test_evaluate_selected_models_enables_single_image_frc(monkeypatch, tmp_path):
+def test_evaluate_selected_models_does_not_pass_single_image_frc(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import evaluate_selected_models
 
     gt_path = tmp_path / "recons" / "gt" / "recon.npz"
@@ -658,19 +654,18 @@ def test_evaluate_selected_models_enables_single_image_frc(monkeypatch, tmp_path
 
     captured = {}
 
-    def fake_eval(pred_obj, gt_obj, label="", single_image_frc=False, **kwargs):
+    def fake_eval(pred_obj, gt_obj, label="", **kwargs):
         _ = (pred_obj, gt_obj, label)
-        _ = kwargs
-        captured["single_image_frc"] = single_image_frc
+        captured["kwargs"] = dict(kwargs)
         return {"mse": 0.0}
 
     monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
 
     _ = evaluate_selected_models({"pinn_hybrid": pred_path}, gt_path)
-    assert captured["single_image_frc"] is True
+    assert not any(key.startswith("single_image_frc") for key in captured["kwargs"])
 
 
-def test_evaluate_selected_models_adds_binomial_single_image_frc_metrics(monkeypatch, tmp_path):
+def test_evaluate_selected_models_omits_binomial_single_image_frc_metrics(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import evaluate_selected_models
 
     gt_path = tmp_path / "recons" / "gt" / "recon.npz"
@@ -683,45 +678,16 @@ def test_evaluate_selected_models_adds_binomial_single_image_frc_metrics(monkeyp
     pred = (np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64)
     np.savez(pred_path, YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
 
-    def fake_eval(pred_obj, gt_obj, label="", single_image_frc=False, **kwargs):
-        _ = (pred_obj, gt_obj, label, single_image_frc, kwargs)
+    def fake_eval(pred_obj, gt_obj, label="", **kwargs):
+        _ = (pred_obj, gt_obj, label, kwargs)
         return {"mse": 0.0}
 
-    def fake_single_image_frc_metrics(
-        stitched_obj,
-        *,
-        split_mode="spatial",
-        rng_seed=None,
-        phase_align_method="plane",
-        support_amp_floor_ratio=0.05,
-        frc_sigma=0.0,
-        spatial_antialias_sigma=None,
-        spatial_calibration_json=None,
-        spatial_calibration_profile=None,
-    ):
-        _ = (
-            stitched_obj,
-            split_mode,
-            rng_seed,
-            phase_align_method,
-            support_amp_floor_ratio,
-            frc_sigma,
-            spatial_antialias_sigma,
-            spatial_calibration_json,
-            spatial_calibration_profile,
-        )
-        return {
-            "single_frc50": (12.5, 10.25),
-            "single_frc1over7": (24.0, 21.0),
-        }
-
     monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
-    monkeypatch.setattr("ptycho.evaluation.single_image_frc_metrics", fake_single_image_frc_metrics)
 
     out = evaluate_selected_models({"pinn_hybrid": pred_path}, gt_path)
     metrics = out["pinn_hybrid"]["metrics"]
-    assert metrics["single_frc50_binomial"] == (12.5, 10.25)
-    assert metrics["single_frc1over7_binomial"] == (24.0, 21.0)
+    assert "single_frc50_binomial" not in metrics
+    assert "single_frc1over7_binomial" not in metrics
 
 
 def test_wrapper_defaults_torch_loss_mode_mae(tmp_path):
@@ -783,15 +749,15 @@ def test_wrapper_passes_torch_mae_pred_l2_match_target_to_runner(monkeypatch, tm
     assert captured["torch_mae_pred_l2_match_target"] is True
 
 
-def test_wrapper_passes_single_image_frc_controls_to_torch_runner(monkeypatch, tmp_path):
+def test_wrapper_does_not_pass_single_image_frc_controls_to_torch_runner(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
 
     captured = {}
 
     def fake_torch_run(cfg):
-        captured["single_image_frc"] = cfg.single_image_frc
-        captured["split_mode"] = cfg.single_image_frc_split_mode
-        captured["rng_seed"] = cfg.single_image_frc_rng_seed
+        captured["has_single_image_frc"] = hasattr(cfg, "single_image_frc")
+        captured["has_split_mode"] = hasattr(cfg, "single_image_frc_split_mode")
+        captured["has_rng_seed"] = hasattr(cfg, "single_image_frc_rng_seed")
         return {"metrics": {"mse": 0.3}}
 
     _mock_dataset_builder(monkeypatch)
@@ -803,14 +769,11 @@ def test_wrapper_passes_single_image_frc_controls_to_torch_runner(monkeypatch, t
         output_dir=tmp_path,
         architectures=("fno",),
         probe_npz=Path("dummy_probe.npz"),
-        torch_single_image_frc=False,
-        torch_single_image_frc_split_mode="binomial",
-        torch_single_image_frc_rng_seed=7,
     )
 
-    assert captured["single_image_frc"] is False
-    assert captured["split_mode"] == "binomial"
-    assert captured["rng_seed"] == 7
+    assert captured["has_single_image_frc"] is False
+    assert captured["has_split_mode"] is False
+    assert captured["has_rng_seed"] is False
 
 
 def test_wrapper_cnn_only_excludes_baseline_metrics(monkeypatch, tmp_path):

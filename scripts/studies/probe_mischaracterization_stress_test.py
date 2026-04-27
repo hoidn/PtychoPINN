@@ -50,6 +50,28 @@ MILD_CONDITION_IDS = (
     "amplitude_blur_sigma_px_0p5",
     "phase_noise_sigma_rad_0p1pi_seed11",
 )
+PERTURBATION_FIGURE_ORDER = (
+    "amplitude_blur_sigma_px",
+    "phase_curvature_scale",
+    "phase_noise_sigma_rad",
+)
+PERTURBATION_FIGURE_LABELS = {
+    "amplitude_blur_sigma_px": r"blur $\sigma$",
+    "phase_curvature_scale": r"curv. err. $1-s$",
+    "phase_noise_sigma_rad": r"noise $\sigma_\phi$",
+}
+DEFAULT_PROBE_FIGURE_AMPLITUDE_CONDITION_IDS = (
+    "amplitude_blur_sigma_px_1p0",
+)
+DEFAULT_PROBE_FIGURE_PHASE_CONDITION_IDS = (
+    "phase_noise_sigma_rad_0p2pi_seed17",
+)
+PROBE_CONTEXT_TITLE_FONTSIZE = 14
+STRESS_AXIS_LABEL_FONTSIZE = 16
+STRESS_TICK_LABEL_FONTSIZE = 14
+STRESS_LEGEND_FONTSIZE = 14
+STRESS_FIGURE_SIZE = (10.0, 35.0 / 6.0)
+STRESS_FIGURE_DPI = 240
 SMOKE_ONLY_SIZE = 96
 SMOKE_ONLY_OUTER_OFFSET = 32
 SMOKE_ONLY_NIMGS_TRAIN = 1
@@ -1295,6 +1317,69 @@ def _probe_from_npz(path: Path) -> np.ndarray:
     raise ValueError(f"{path} does not contain a probe array")
 
 
+def _find_probe_figure_condition(
+    output_root: Path,
+    preferred_condition_ids: tuple[str, ...],
+    fallback_prefixes: tuple[str, ...],
+) -> tuple[str, Path, bool] | None:
+    for candidate_id in preferred_condition_ids:
+        candidate_path = output_root / "conditions" / candidate_id / "assumed_probe.npz"
+        if candidate_path.exists():
+            return candidate_id, candidate_path, False
+
+    all_candidates = sorted(
+        path
+        for path in (output_root / "conditions").glob("*/assumed_probe.npz")
+        if path.parent.name != "baseline"
+    )
+    candidates: list[Path] = []
+    for prefix in fallback_prefixes:
+        candidates.extend(path for path in all_candidates if path.parent.name.startswith(prefix))
+    candidates.extend(
+        path for path in all_candidates if not path.parent.name.startswith(fallback_prefixes)
+    )
+    if not candidates:
+        return None
+    selected = candidates[0]
+    return selected.parent.name, selected, True
+
+
+def load_probe_figure_context(
+    output_root: Path,
+    amplitude_condition_ids: tuple[str, ...] = DEFAULT_PROBE_FIGURE_AMPLITUDE_CONDITION_IDS,
+    phase_condition_ids: tuple[str, ...] = DEFAULT_PROBE_FIGURE_PHASE_CONDITION_IDS,
+) -> dict[str, Any] | None:
+    output_root = Path(output_root)
+    true_probe_path = output_root / "probes" / "true_probe.npz"
+    if not true_probe_path.exists():
+        return None
+
+    amplitude_selection = _find_probe_figure_condition(
+        output_root,
+        amplitude_condition_ids,
+        ("amplitude_blur_sigma_px", "phase_noise_sigma_rad"),
+    )
+    phase_selection = _find_probe_figure_condition(
+        output_root,
+        phase_condition_ids,
+        ("phase_noise_sigma_rad", "amplitude_blur_sigma_px"),
+    )
+    if amplitude_selection is None or phase_selection is None:
+        return None
+    amplitude_condition_id, amplitude_path, amplitude_fallback_used = amplitude_selection
+    phase_condition_id, phase_path, phase_fallback_used = phase_selection
+
+    return {
+        "true_probe": np.asarray(_probe_from_npz(true_probe_path), dtype=np.complex64),
+        "amplitude_condition_id": amplitude_condition_id,
+        "amplitude_probe": np.asarray(_probe_from_npz(amplitude_path), dtype=np.complex64),
+        "amplitude_fallback_used": amplitude_fallback_used,
+        "phase_condition_id": phase_condition_id,
+        "phase_probe": np.asarray(_probe_from_npz(phase_path), dtype=np.complex64),
+        "phase_fallback_used": phase_fallback_used,
+    }
+
+
 def build_assumed_probe_checksums(
     *,
     train_container: Any,
@@ -1923,6 +2008,174 @@ def write_metrics_outputs(output_root: Path, condition_results: dict[str, dict[s
     return metrics_json, metrics_csv
 
 
+def _stress_plot_magnitude(result: dict[str, Any]) -> float:
+    value = result.get("value")
+    if value is None:
+        raise ValueError(f"missing perturbation value for {result.get('condition_id')}")
+    if result.get("perturbation_type") == "phase_curvature_scale":
+        return 1.0 - float(value)
+    return float(value)
+
+
+def build_stress_figure_series(
+    condition_results: dict[str, dict[str, Any]], metric_key: str
+) -> list[dict[str, Any]]:
+    ok_results = [result for result in condition_results.values() if result.get("status") == "ok"]
+    baseline = next((item for item in ok_results if item.get("condition_id") == "baseline"), None)
+    baseline_value = None if baseline is None else baseline.get(metric_key)
+
+    series: list[dict[str, Any]] = []
+    perturbation_types = {
+        item.get("perturbation_type")
+        for item in ok_results
+        if item.get("perturbation_type") not in (None, "baseline") and item.get(metric_key) is not None
+    }
+    order = {name: index for index, name in enumerate(PERTURBATION_FIGURE_ORDER)}
+    for perturbation_type in sorted(
+        perturbation_types,
+        key=lambda name: (order.get(str(name), len(order)), str(name)),
+    ):
+        group = [
+            item
+            for item in ok_results
+            if item.get("perturbation_type") == perturbation_type and item.get(metric_key) is not None
+        ]
+        if not group:
+            continue
+        group.sort(key=_stress_plot_magnitude)
+        x_values: list[float] = []
+        y_values: list[float] = []
+        raw_values: list[float] = []
+        if baseline_value is not None:
+            x_values.append(0.0)
+            y_values.append(float(baseline_value))
+            raw_values.append(1.0 if perturbation_type == "phase_curvature_scale" else 0.0)
+        for item in group:
+            x_values.append(_stress_plot_magnitude(item))
+            y_values.append(float(item[metric_key]))
+            raw_values.append(float(item["value"]))
+        series.append(
+            {
+                "perturbation_type": perturbation_type,
+                "label": PERTURBATION_FIGURE_LABELS.get(str(perturbation_type), str(perturbation_type)),
+                "x": x_values,
+                "y": y_values,
+                "raw_values": raw_values,
+            }
+        )
+    return series
+
+
+def format_probe_condition_label(condition_id: str) -> str:
+    if condition_id.startswith("amplitude_blur_sigma_px_"):
+        value = condition_id.removeprefix("amplitude_blur_sigma_px_").replace("p", ".")
+        return rf"Amplitude blur" "\n" rf"$\sigma={value}$ px"
+    if condition_id.startswith("phase_noise_sigma_rad_"):
+        rest = condition_id.removeprefix("phase_noise_sigma_rad_")
+        multiple = rest.split("_seed", 1)[0]
+        if multiple.endswith("pi"):
+            value = multiple.removesuffix("pi").replace("p", ".")
+            return rf"Phase noise" "\n" rf"$\sigma_\phi={value}\pi$"
+        return f"Phase noise {multiple.replace('p', '.')}"
+    return condition_id.replace("_", " ")
+
+
+def draw_probe_context_panels(axes: list[Any], context: dict[str, Any]) -> None:
+    true_probe = context["true_probe"]
+    amplitude_probe = context["amplitude_probe"]
+    phase_probe = context["phase_probe"]
+    amplitude_label = format_probe_condition_label(str(context["amplitude_condition_id"]))
+    phase_label = format_probe_condition_label(str(context["phase_condition_id"]))
+    amp_vmax = float(max(np.abs(true_probe).max(initial=0.0), np.abs(amplitude_probe).max(initial=0.0)))
+    panels = [
+        (np.abs(true_probe), "True amplitude", "viridis", 0.0, amp_vmax),
+        (np.abs(amplitude_probe), amplitude_label, "viridis", 0.0, amp_vmax),
+        (np.angle(true_probe), "True phase", "twilight", -math.pi, math.pi),
+        (np.angle(phase_probe), phase_label, "twilight", -math.pi, math.pi),
+    ]
+    for axis, (image, title, cmap, vmin, vmax) in zip(axes, panels):
+        axis.imshow(image, cmap=cmap, vmin=vmin, vmax=vmax)
+        axis.set_title(title, fontsize=PROBE_CONTEXT_TITLE_FONTSIZE)
+        axis.set_xticks([])
+        axis.set_yticks([])
+
+
+def build_stress_figure_visual_context(output_root: Path) -> dict[str, Any] | None:
+    probe_context = load_probe_figure_context(output_root)
+    if probe_context is None:
+        return None
+    return {
+        "amplitude_condition_id": probe_context["amplitude_condition_id"],
+        "phase_condition_id": probe_context["phase_condition_id"],
+        "amplitude_fallback_used": bool(probe_context["amplitude_fallback_used"]),
+        "phase_fallback_used": bool(probe_context["phase_fallback_used"]),
+        "panel_policy": "separate_probe_context_panels_not_insets",
+        "display_channels": ["amplitude", "phase"],
+    }
+
+
+def _plot_stress_metric_axis(
+    axis: Any,
+    condition_results: dict[str, dict[str, Any]],
+    metric_key: str,
+    ylabel: str,
+) -> None:
+    for series in build_stress_figure_series(condition_results, metric_key):
+        axis.plot(
+            series["x"],
+            series["y"],
+            marker="o",
+            label=series["label"],
+        )
+    axis.set_xlabel("Perturbation magnitude\n(0 = unperturbed)", fontsize=STRESS_AXIS_LABEL_FONTSIZE)
+    axis.set_ylabel(ylabel, fontsize=STRESS_AXIS_LABEL_FONTSIZE)
+    axis.tick_params(axis="both", labelsize=STRESS_TICK_LABEL_FONTSIZE)
+    axis.grid(True, alpha=0.3)
+
+
+def draw_shared_stress_legend(legend_axis: Any, axes: list[Any]) -> None:
+    handles: list[Any] = []
+    labels: list[str] = []
+    seen: set[str] = set()
+    for axis in axes:
+        axis_handles, axis_labels = axis.get_legend_handles_labels()
+        for handle, label in zip(axis_handles, axis_labels):
+            if label in seen:
+                continue
+            handles.append(handle)
+            labels.append(label)
+            seen.add(label)
+    legend_axis.axis("off")
+    if not labels:
+        return
+    legend_axis.legend(
+        handles,
+        labels,
+        loc="center",
+        ncol=len(labels),
+        fontsize=STRESS_LEGEND_FONTSIZE,
+        frameon=False,
+        handlelength=1.5,
+        columnspacing=1.4,
+    )
+
+
+def draw_figure_stress_legend(fig: Any, axes: list[Any]) -> None:
+    handles, labels = axes[0].get_legend_handles_labels()
+    if not labels:
+        return
+    fig.legend(
+        handles,
+        labels,
+        loc="lower center",
+        ncol=len(labels),
+        fontsize=STRESS_LEGEND_FONTSIZE,
+        frameon=False,
+        handlelength=1.5,
+        columnspacing=1.4,
+    )
+
+
 def write_stress_figure(output_root: Path, condition_results: dict[str, dict[str, Any]]) -> Path | None:
     import matplotlib.pyplot as plt
 
@@ -1933,35 +2186,30 @@ def write_stress_figure(output_root: Path, condition_results: dict[str, dict[str
     figures_dir.mkdir(parents=True, exist_ok=True)
     fig_path = figures_dir / "probe_mischaracterization_stress.png"
 
-    fig, axes = plt.subplots(1, 2, figsize=(11, 4), squeeze=False)
-    for metric_key, axis, ylabel in (
-        ("amp_ssim", axes[0, 0], "Amplitude SSIM"),
-        ("amp_psnr", axes[0, 1], "Amplitude PSNR (dB)"),
-    ):
-        baseline = next((item for item in ok_results if item["condition_id"] == "baseline"), None)
-        if baseline and baseline.get(metric_key) is not None:
-            axis.axhline(float(baseline[metric_key]), color="0.4", linestyle="--", label="baseline")
-        for perturbation_type in sorted({item["perturbation_type"] for item in ok_results if item["perturbation_type"] != "baseline"}):
-            group = [
-                item
-                for item in ok_results
-                if item["perturbation_type"] == perturbation_type and item.get(metric_key) is not None
-            ]
-            if not group:
-                continue
-            group.sort(key=lambda item: float(item["value"]))
-            axis.plot(
-                [float(item["value"]) for item in group],
-                [float(item[metric_key]) for item in group],
-                marker="o",
-                label=perturbation_type,
-            )
-        axis.set_xlabel("Perturbation value")
-        axis.set_ylabel(ylabel)
-        axis.grid(True, alpha=0.3)
-        axis.legend(fontsize=8)
-    fig.tight_layout()
-    fig.savefig(fig_path, dpi=200)
+    probe_context = load_probe_figure_context(output_root)
+    if probe_context is not None:
+        fig = plt.figure(figsize=STRESS_FIGURE_SIZE, constrained_layout=True)
+        grid = fig.add_gridspec(3, 4, height_ratios=[1.0, 0.18, 1.25])
+        probe_axes = [fig.add_subplot(grid[0, col]) for col in range(4)]
+        draw_probe_context_panels(probe_axes, probe_context)
+        legend_axis = fig.add_subplot(grid[1, :])
+        axes = [
+            fig.add_subplot(grid[2, 0:2]),
+            fig.add_subplot(grid[2, 2:4]),
+        ]
+    else:
+        fig, axis_grid = plt.subplots(1, 2, figsize=(7.5, 3.2), squeeze=False)
+        axes = [axis_grid[0, 0], axis_grid[0, 1]]
+        legend_axis = None
+
+    _plot_stress_metric_axis(axes[0], condition_results, "amp_ssim", "Amplitude SSIM")
+    _plot_stress_metric_axis(axes[1], condition_results, "amp_psnr", "Amplitude PSNR (dB)")
+    if legend_axis is not None:
+        draw_shared_stress_legend(legend_axis, axes)
+    else:
+        draw_figure_stress_legend(fig, axes)
+        fig.tight_layout(rect=(0.0, 0.14, 1.0, 1.0))
+    fig.savefig(fig_path, dpi=STRESS_FIGURE_DPI)
     plt.close(fig)
     return fig_path
 
@@ -2406,6 +2654,9 @@ def run_full_or_smoke(
     fig_path = write_stress_figure(output_root, condition_results)
     if fig_path is not None:
         manifest["stress_figure"] = str(fig_path)
+        visual_context = build_stress_figure_visual_context(output_root)
+        if visual_context is not None:
+            manifest["stress_figure_visual_context"] = visual_context
     if smoke.get("baseline_history") is not None:
         manifest["baseline_history"] = smoke["baseline_history"]
     write_json(output_root / "manifest.json", manifest)

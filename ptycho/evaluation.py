@@ -82,8 +82,6 @@ import matplotlib
 import tensorflow as tf
 from skimage.metrics import structural_similarity
 from pathlib import Path
-from ptycho.single_image_frc import single_image_frc_metrics as _single_image_frc_metrics_impl
-
 from ptycho import params
 from ptycho import misc
 
@@ -520,50 +518,8 @@ def frc50(target, pred, frc_sigma = 0, debug_save_images=False, debug_dir=None, 
     return shellcorr, frc50_value
 
 
-def single_image_frc_metrics(
-    stitched_obj: np.ndarray,
-    *,
-    split_mode: str = "spatial",
-    rng_seed: int | None = None,
-    phase_align_method: str = "plane",
-    support_amp_floor_ratio: float = 0.05,
-    frc_sigma: float = 0.0,
-    spatial_antialias_sigma: float | None = None,
-    spatial_calibration_json: str | None = None,
-    spatial_calibration_profile: str | None = None,
-    binomial_mean_lambda: float = 10.0,
-    binomial_normalize_intensity: bool = True,
-    binomial_count_scale: float | None = None,
-) -> dict[str, tuple[float, float]]:
-    """Compatibility wrapper delegating single-image FRC metrics to in-repo frc helpers."""
-    offset = params.get("offset")
-    offset = 0 if offset is None else int(offset)
-    return _single_image_frc_metrics_impl(
-        stitched_obj,
-        offset=offset,
-        split_mode=split_mode,
-        rng_seed=rng_seed,
-        phase_align_method=phase_align_method,
-        support_amp_floor_ratio=support_amp_floor_ratio,
-        frc_sigma=frc_sigma,
-        spatial_antialias_sigma=spatial_antialias_sigma,
-        spatial_calibration_json=spatial_calibration_json,
-        spatial_calibration_profile=spatial_calibration_profile,
-        binomial_mean_lambda=binomial_mean_lambda,
-        binomial_normalize_intensity=binomial_normalize_intensity,
-        binomial_count_scale=binomial_count_scale,
-    )
-
-
-
 def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
-        label = '', phase_align_method='plane', frc_sigma=0, debug_save_images=False, ms_ssim_sigma=1.0,
-        single_image_frc=False, single_image_frc_split_mode="spatial", single_image_frc_rng_seed=None,
-        single_image_frc_spatial_antialias_sigma=None, single_image_frc_spatial_calibration_json=None,
-        single_image_frc_spatial_calibration_profile=None,
-        single_image_frc_binomial_mean_lambda=10.0,
-        single_image_frc_binomial_normalize_intensity=True,
-        single_image_frc_binomial_count_scale=None):
+        label = '', phase_align_method='plane', frc_sigma=0, debug_save_images=False, ms_ssim_sigma=1.0):
     """
     Evaluate reconstruction quality against ground truth using multiple metrics.
     
@@ -709,22 +665,6 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
         'frc50': (frc50_amp, frc50_phi),
         'frc1over7': (frc1over7_amp, frc1over7_phi),
         'frc': (frc_amp, frc_phi)}
-    if single_image_frc:
-        out.update(
-            single_image_frc_metrics(
-                stitched_obj,
-                split_mode=single_image_frc_split_mode,
-                rng_seed=single_image_frc_rng_seed,
-                phase_align_method=phase_align_method,
-                frc_sigma=frc_sigma,
-                spatial_antialias_sigma=single_image_frc_spatial_antialias_sigma,
-                spatial_calibration_json=single_image_frc_spatial_calibration_json,
-                spatial_calibration_profile=single_image_frc_spatial_calibration_profile,
-                binomial_mean_lambda=single_image_frc_binomial_mean_lambda,
-                binomial_normalize_intensity=single_image_frc_binomial_normalize_intensity,
-                binomial_count_scale=single_image_frc_binomial_count_scale,
-            )
-        )
     return out
 
 

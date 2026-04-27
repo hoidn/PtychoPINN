@@ -122,6 +122,11 @@ class TorchRunnerConfig:
     hybrid_encoder_spectral_hidden_channels: Optional[int] = None
     hybrid_resnet_blocks: int = 6
     hybrid_skip_style: str = "add"
+    spectral_bottleneck_blocks: int = 6
+    spectral_bottleneck_modes: int = 12
+    spectral_bottleneck_share_weights: bool = True
+    spectral_bottleneck_gate_init: float = 0.1
+    spectral_bottleneck_gate_mode: str = "shared"
     optimizer: str = 'adam'  # 'adam', 'adamw', or 'sgd'
     weight_decay: float = 0.0
     momentum: float = 0.9
@@ -149,9 +154,6 @@ class TorchRunnerConfig:
     position_reassembly_batch_size: int = 64
     # None means auto default (min(patch_h, patch_w) // 4).
     position_crop_border: Optional[int] = None
-    single_image_frc: bool = True
-    single_image_frc_split_mode: str = "spatial"  # "spatial" | "binomial"
-    single_image_frc_rng_seed: Optional[int] = None
 
 
 def _validate_position_reassembly_config(cfg: TorchRunnerConfig) -> None:
@@ -581,13 +583,13 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     # Cast N and architecture to their Literal types
     N_literal = cast(Literal[64, 128, 256], cfg.N)
     arch_literal = cast(
-        Literal['cnn', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet'],
+        Literal['cnn', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'],
         cfg.architecture,
     )
-    if cfg.architecture == "hybrid_resnet":
+    if cfg.architecture in {"hybrid_resnet", "spectral_resnet_bottleneck_net"}:
         if cfg.fno_blocks < 3:
             raise ValueError(
-                "hybrid_resnet requires --fno-blocks >= 3 to downsample to N/4 "
+                f"{cfg.architecture} requires --fno-blocks >= 3 to downsample to N/4 "
                 f"(got {cfg.fno_blocks})."
             )
         if cfg.hybrid_downsample_steps not in {1, 2}:
@@ -653,6 +655,25 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
                     "--torch-resnet-width must be divisible by 4 so the CycleGAN "
                     f"upsamplers produce integer channel sizes (got {cfg.resnet_width})."
                 )
+    if cfg.architecture == "spectral_resnet_bottleneck_net":
+        if cfg.spectral_bottleneck_blocks <= 0:
+            raise ValueError(
+                f"spectral_bottleneck_blocks must be positive (got {cfg.spectral_bottleneck_blocks})."
+            )
+        if cfg.spectral_bottleneck_modes <= 0:
+            raise ValueError(
+                f"spectral_bottleneck_modes must be positive (got {cfg.spectral_bottleneck_modes})."
+            )
+        if not math.isfinite(float(cfg.spectral_bottleneck_gate_init)):
+            raise ValueError(
+                "spectral_bottleneck_gate_init must be finite "
+                f"(got {cfg.spectral_bottleneck_gate_init})."
+            )
+        if cfg.spectral_bottleneck_gate_mode not in {"shared", "per_block"}:
+            raise ValueError(
+                "spectral_bottleneck_gate_mode must be one of ['per_block', 'shared'] "
+                f"(got {cfg.spectral_bottleneck_gate_mode!r})."
+            )
 
     model_config = ModelConfig(
         N=N_literal,
@@ -719,6 +740,11 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         hybrid_encoder_spectral_hidden_channels=cfg.hybrid_encoder_spectral_hidden_channels,
         hybrid_resnet_blocks=cfg.hybrid_resnet_blocks,
         hybrid_skip_style=cfg.hybrid_skip_style,
+        spectral_bottleneck_blocks=cfg.spectral_bottleneck_blocks,
+        spectral_bottleneck_modes=cfg.spectral_bottleneck_modes,
+        spectral_bottleneck_share_weights=cfg.spectral_bottleneck_share_weights,
+        spectral_bottleneck_gate_init=cfg.spectral_bottleneck_gate_init,
+        spectral_bottleneck_gate_mode=cfg.spectral_bottleneck_gate_mode,
         recon_log_every_n_epochs=cfg.recon_log_every_n_epochs,
         recon_log_num_patches=cfg.recon_log_num_patches,
         recon_log_fixed_indices=cfg.recon_log_fixed_indices,
@@ -892,9 +918,6 @@ def compute_metrics(
     predictions: np.ndarray,
     ground_truth: np.ndarray,
     label: str,
-    single_image_frc: bool = True,
-    single_image_frc_split_mode: str = "spatial",
-    single_image_frc_rng_seed: Optional[int] = None,
 ) -> Dict[str, float]:
     """Compute reconstruction metrics compatible with TF workflow.
 
@@ -902,9 +925,6 @@ def compute_metrics(
         predictions: Model predictions (complex)
         ground_truth: Ground truth (complex)
         label: Label for metrics (e.g., 'pinn_fno')
-        single_image_frc: Enable no-reference single-image FRC metrics.
-        single_image_frc_split_mode: Split backend ('spatial' or 'binomial').
-        single_image_frc_rng_seed: Optional deterministic RNG seed for binomial split.
 
     Returns:
         Metrics dict with MSE, SSIM, etc.
@@ -927,9 +947,6 @@ def compute_metrics(
         pred,
         gt,
         label=label,
-        single_image_frc=single_image_frc,
-        single_image_frc_split_mode=single_image_frc_split_mode,
-        single_image_frc_rng_seed=single_image_frc_rng_seed,
     )
 
 
@@ -1129,9 +1146,6 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
         pred_for_metrics,
         ground_truth,
         f"pinn_{cfg.architecture}",
-        single_image_frc=cfg.single_image_frc,
-        single_image_frc_split_mode=cfg.single_image_frc_split_mode,
-        single_image_frc_rng_seed=cfg.single_image_frc_rng_seed,
     )
 
     # Step 5: Save artifacts
@@ -1182,7 +1196,7 @@ def main(argv=None) -> None:
     parser.add_argument("--output-dir", type=Path, required=True,
                         help="Output directory for artifacts")
     parser.add_argument("--architecture", type=str, required=True,
-                        choices=['fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet'],
+                        choices=['fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'],
                         help="Generator architecture to use")
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed for reproducibility (random if omitted)")
@@ -1329,6 +1343,44 @@ def main(argv=None) -> None:
         choices=["add", "concat", "gated_add"],
         help="Hybrid skip-fusion style for hybrid_resnet.",
     )
+    parser.add_argument(
+        "--spectral-bottleneck-blocks",
+        type=int,
+        default=6,
+        help="Spectral ResNet bottleneck depth.",
+    )
+    parser.add_argument(
+        "--spectral-bottleneck-modes",
+        type=int,
+        default=12,
+        help="Low-mode count per axis for the shared spectral bottleneck branch.",
+    )
+    parser.add_argument(
+        "--spectral-bottleneck-share-weights",
+        dest="spectral_bottleneck_share_weights",
+        action="store_true",
+        default=True,
+        help="Share one factorized spectral operator across bottleneck depth.",
+    )
+    parser.add_argument(
+        "--no-spectral-bottleneck-share-weights",
+        dest="spectral_bottleneck_share_weights",
+        action="store_false",
+        help="Use separate spectral operators per bottleneck block.",
+    )
+    parser.add_argument(
+        "--spectral-bottleneck-gate-init",
+        type=float,
+        default=0.1,
+        help="Initial scalar gate for the spectral residual branch.",
+    )
+    parser.add_argument(
+        "--spectral-bottleneck-gate-mode",
+        type=str,
+        default="shared",
+        choices=["shared", "per_block"],
+        help="Gate sharing policy for the spectral residual branch.",
+    )
     parser.add_argument("--torch-resnet-width", type=int, default=None,
                         help="Hybrid ResNet bottleneck width (must be divisible by 4)")
     parser.add_argument("--fno-modes", type=int, default=12,
@@ -1395,33 +1447,6 @@ def main(argv=None) -> None:
                         help="Log stitched full-resolution reconstructions")
     parser.add_argument("--recon-log-max-stitch-samples", type=int, default=None,
                         help="Cap on stitched samples (default: no limit)")
-    parser.add_argument(
-        "--single-image-frc",
-        dest="single_image_frc",
-        action="store_true",
-        default=True,
-        help="Enable single-image FRC metrics (default: enabled).",
-    )
-    parser.add_argument(
-        "--no-single-image-frc",
-        dest="single_image_frc",
-        action="store_false",
-        help="Disable single-image FRC metrics.",
-    )
-    parser.add_argument(
-        "--single-image-frc-split-mode",
-        type=str,
-        choices=["spatial", "binomial"],
-        default="spatial",
-        help="Split mode for single-image FRC (default: spatial).",
-    )
-    parser.add_argument(
-        "--single-image-frc-rng-seed",
-        type=int,
-        default=None,
-        help="Optional RNG seed for single-image FRC binomial mode.",
-    )
-
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO)
@@ -1478,6 +1503,11 @@ def main(argv=None) -> None:
         hybrid_encoder_spectral_hidden_channels=args.hybrid_encoder_spectral_hidden,
         hybrid_resnet_blocks=args.hybrid_resnet_blocks,
         hybrid_skip_style=args.hybrid_skip_style,
+        spectral_bottleneck_blocks=args.spectral_bottleneck_blocks,
+        spectral_bottleneck_modes=args.spectral_bottleneck_modes,
+        spectral_bottleneck_share_weights=args.spectral_bottleneck_share_weights,
+        spectral_bottleneck_gate_init=args.spectral_bottleneck_gate_init,
+        spectral_bottleneck_gate_mode=args.spectral_bottleneck_gate_mode,
         fno_modes=args.fno_modes,
         fno_width=args.fno_width,
         fno_blocks=args.fno_blocks,
@@ -1503,9 +1533,6 @@ def main(argv=None) -> None:
         recon_log_fixed_indices=args.recon_log_fixed_indices,
         recon_log_stitch=args.recon_log_stitch,
         recon_log_max_stitch_samples=args.recon_log_max_stitch_samples,
-        single_image_frc=args.single_image_frc,
-        single_image_frc_split_mode=args.single_image_frc_split_mode,
-        single_image_frc_rng_seed=args.single_image_frc_rng_seed,
         position_crop_border=args.position_crop_border,
     )
 

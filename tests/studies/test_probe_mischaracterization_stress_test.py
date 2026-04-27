@@ -811,6 +811,324 @@ def test_mild_perturbation_gate_records_sensitivity_claim_boundary():
     assert gate["mild_conditions"]["phase_curvature_scale_0p75"]["amp_ssim_drop"] == pytest.approx(0.15)
 
 
+def test_stress_figure_series_anchor_each_family_at_baseline():
+    from scripts.studies import probe_mischaracterization_stress_test as study
+
+    series = study.build_stress_figure_series(
+        {
+            "baseline": {
+                "condition_id": "baseline",
+                "perturbation_type": "baseline",
+                "status": "ok",
+                "amp_ssim": 0.91,
+            },
+            "phase_curvature_scale_0p75": {
+                "condition_id": "phase_curvature_scale_0p75",
+                "perturbation_type": "phase_curvature_scale",
+                "value": 0.75,
+                "status": "ok",
+                "amp_ssim": 0.70,
+            },
+            "phase_curvature_scale_1p25": {
+                "condition_id": "phase_curvature_scale_1p25",
+                "perturbation_type": "phase_curvature_scale",
+                "value": 1.25,
+                "status": "ok",
+                "amp_ssim": 0.68,
+            },
+            "amplitude_blur_sigma_px_0p5": {
+                "condition_id": "amplitude_blur_sigma_px_0p5",
+                "perturbation_type": "amplitude_blur_sigma_px",
+                "value": 0.5,
+                "status": "ok",
+                "amp_ssim": 0.89,
+            },
+            "phase_noise_sigma_rad_0p2pi_seed17": {
+                "condition_id": "phase_noise_sigma_rad_0p2pi_seed17",
+                "perturbation_type": "phase_noise_sigma_rad",
+                "value": 0.2 * np.pi,
+                "status": "ok",
+                "amp_ssim": 0.62,
+            },
+        },
+        "amp_ssim",
+    )
+
+    by_type = {item["perturbation_type"]: item for item in series}
+    assert by_type["amplitude_blur_sigma_px"]["x"] == pytest.approx([0.0, 0.5])
+    assert by_type["phase_noise_sigma_rad"]["x"] == pytest.approx([0.0, 0.2 * np.pi])
+    assert by_type["phase_curvature_scale"]["x"] == pytest.approx([0.0, -0.25, 0.25])
+    assert by_type["phase_curvature_scale"]["raw_values"] == pytest.approx([1.0, 1.25, 0.75])
+    assert all(item["y"][0] == pytest.approx(0.91) for item in series)
+
+
+def test_load_probe_figure_context_uses_preferred_corrupted_probe(tmp_path):
+    from scripts.studies import probe_mischaracterization_stress_test as study
+
+    true_probe = _toy_probe()
+    amplitude_corrupted = (0.8 * true_probe).astype(np.complex64)
+    phase_corrupted = (true_probe * np.exp(0.25j)).astype(np.complex64)
+    (tmp_path / "probes").mkdir()
+    amplitude_dir = tmp_path / "conditions" / "amplitude_blur_sigma_px_1p0"
+    amplitude_dir.mkdir(parents=True)
+    phase_dir = tmp_path / "conditions" / "phase_noise_sigma_rad_0p2pi_seed17"
+    phase_dir.mkdir(parents=True)
+    np.savez(tmp_path / "probes" / "true_probe.npz", probe=true_probe)
+    np.savez(amplitude_dir / "assumed_probe.npz", probe=amplitude_corrupted)
+    np.savez(phase_dir / "assumed_probe.npz", probe=phase_corrupted)
+
+    context = study.load_probe_figure_context(tmp_path)
+
+    assert context is not None
+    assert context["amplitude_condition_id"] == "amplitude_blur_sigma_px_1p0"
+    assert context["phase_condition_id"] == "phase_noise_sigma_rad_0p2pi_seed17"
+    assert context["amplitude_fallback_used"] is False
+    assert context["phase_fallback_used"] is False
+    assert np.array_equal(context["true_probe"], true_probe)
+    assert np.array_equal(context["amplitude_probe"], amplitude_corrupted)
+    assert np.array_equal(context["phase_probe"], phase_corrupted)
+
+
+def test_load_probe_figure_context_falls_back_to_available_nonbaseline_probe(tmp_path):
+    from scripts.studies import probe_mischaracterization_stress_test as study
+
+    true_probe = _toy_probe()
+    corrupted = (true_probe * np.exp(0.10j)).astype(np.complex64)
+    (tmp_path / "probes").mkdir()
+    condition_dir = tmp_path / "conditions" / "phase_noise_sigma_rad_0p1pi_seed11"
+    condition_dir.mkdir(parents=True)
+    np.savez(tmp_path / "probes" / "true_probe.npz", probe=true_probe)
+    np.savez(condition_dir / "assumed_probe.npz", probe=corrupted)
+
+    context = study.load_probe_figure_context(tmp_path)
+
+    assert context is not None
+    assert context["amplitude_condition_id"] == "phase_noise_sigma_rad_0p1pi_seed11"
+    assert context["phase_condition_id"] == "phase_noise_sigma_rad_0p1pi_seed11"
+    assert context["amplitude_fallback_used"] is True
+    assert context["phase_fallback_used"] is True
+
+
+def test_format_probe_condition_label_handles_default_visual_conditions():
+    from scripts.studies import probe_mischaracterization_stress_test as study
+
+    assert study.format_probe_condition_label("amplitude_blur_sigma_px_1p0") == "Amplitude blur\n" r"$\sigma=1.0$ px"
+    assert (
+        study.format_probe_condition_label("phase_noise_sigma_rad_0p2pi_seed17")
+        == "Phase noise\n" r"$\sigma_\phi=0.2\pi$"
+    )
+
+
+def test_stress_figure_series_labels_use_math_formatting():
+    from scripts.studies import probe_mischaracterization_stress_test as study
+
+    condition_results = {
+        "baseline": {
+            "condition_id": "baseline",
+            "perturbation_type": "baseline",
+            "status": "ok",
+            "amp_ssim": 0.91,
+        },
+        "amplitude_blur_sigma_px_1p0": {
+            "condition_id": "amplitude_blur_sigma_px_1p0",
+            "perturbation_type": "amplitude_blur_sigma_px",
+            "value": 1.0,
+            "status": "ok",
+            "amp_ssim": 0.86,
+        },
+        "phase_curvature_scale_0p75": {
+            "condition_id": "phase_curvature_scale_0p75",
+            "perturbation_type": "phase_curvature_scale",
+            "value": 0.75,
+            "status": "ok",
+            "amp_ssim": 0.55,
+        },
+        "phase_noise_sigma_rad_0p2pi_seed17": {
+            "condition_id": "phase_noise_sigma_rad_0p2pi_seed17",
+            "perturbation_type": "phase_noise_sigma_rad",
+            "value": 0.2 * np.pi,
+            "status": "ok",
+            "amp_ssim": 0.64,
+        },
+    }
+
+    labels = [series["label"] for series in study.build_stress_figure_series(condition_results, "amp_ssim")]
+
+    assert labels == [
+        r"blur $\sigma$",
+        r"curv. err. $1-s$",
+        r"noise $\sigma_\phi$",
+    ]
+
+
+def test_stress_metric_axes_do_not_add_per_axis_legends(monkeypatch):
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+    import matplotlib.pyplot as plt
+    from scripts.studies import probe_mischaracterization_stress_test as study
+
+    condition_results = {
+        "baseline": {
+            "condition_id": "baseline",
+            "perturbation_type": "baseline",
+            "status": "ok",
+            "amp_ssim": 0.91,
+        },
+        "amplitude_blur_sigma_px_1p0": {
+            "condition_id": "amplitude_blur_sigma_px_1p0",
+            "perturbation_type": "amplitude_blur_sigma_px",
+            "value": 1.0,
+            "status": "ok",
+            "amp_ssim": 0.86,
+        },
+        "phase_noise_sigma_rad_0p2pi_seed17": {
+            "condition_id": "phase_noise_sigma_rad_0p2pi_seed17",
+            "perturbation_type": "phase_noise_sigma_rad",
+            "value": 0.2 * np.pi,
+            "status": "ok",
+            "amp_ssim": 0.64,
+        },
+    }
+
+    fig, axis = plt.subplots()
+    try:
+        study._plot_stress_metric_axis(axis, condition_results, "amp_ssim", "Amplitude SSIM")
+        assert axis.get_legend() is None
+    finally:
+        plt.close(fig)
+
+
+def test_shared_stress_legend_uses_compact_labels_outside_metric_axes(monkeypatch):
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+    import matplotlib.pyplot as plt
+    from scripts.studies import probe_mischaracterization_stress_test as study
+
+    condition_results = {
+        "baseline": {
+            "condition_id": "baseline",
+            "perturbation_type": "baseline",
+            "status": "ok",
+            "amp_ssim": 0.91,
+        },
+        "amplitude_blur_sigma_px_1p0": {
+            "condition_id": "amplitude_blur_sigma_px_1p0",
+            "perturbation_type": "amplitude_blur_sigma_px",
+            "value": 1.0,
+            "status": "ok",
+            "amp_ssim": 0.86,
+        },
+        "phase_curvature_scale_0p75": {
+            "condition_id": "phase_curvature_scale_0p75",
+            "perturbation_type": "phase_curvature_scale",
+            "value": 0.75,
+            "status": "ok",
+            "amp_ssim": 0.55,
+        },
+        "phase_noise_sigma_rad_0p2pi_seed17": {
+            "condition_id": "phase_noise_sigma_rad_0p2pi_seed17",
+            "perturbation_type": "phase_noise_sigma_rad",
+            "value": 0.2 * np.pi,
+            "status": "ok",
+            "amp_ssim": 0.64,
+        },
+    }
+
+    fig = plt.figure()
+    metric_axis = fig.add_subplot(1, 2, 1)
+    legend_axis = fig.add_subplot(1, 2, 2)
+    try:
+        study._plot_stress_metric_axis(metric_axis, condition_results, "amp_ssim", "Amplitude SSIM")
+        study.draw_shared_stress_legend(legend_axis, [metric_axis])
+
+        legend = legend_axis.get_legend()
+        assert metric_axis.get_legend() is None
+        assert legend is not None
+        assert legend_axis.axison is False
+        assert [text.get_text() for text in legend.texts] == [
+            r"blur $\sigma$",
+            r"curv. err. $1-s$",
+            r"noise $\sigma_\phi$",
+        ]
+    finally:
+        plt.close(fig)
+
+
+def test_stress_figure_font_sizes_are_readable_at_manuscript_scale():
+    from scripts.studies import probe_mischaracterization_stress_test as study
+
+    assert study.PROBE_CONTEXT_TITLE_FONTSIZE >= 14
+    assert study.STRESS_AXIS_LABEL_FONTSIZE >= 12
+    assert study.STRESS_TICK_LABEL_FONTSIZE >= 10
+    assert study.STRESS_LEGEND_FONTSIZE >= 10
+    assert study.STRESS_FIGURE_SIZE[0] <= 10.0
+    assert study.STRESS_FIGURE_SIZE[0] * study.STRESS_FIGURE_DPI >= 2400
+
+
+def test_write_stress_figure_with_probe_context_writes_composite_png(tmp_path, monkeypatch):
+    monkeypatch.setenv("MPLBACKEND", "Agg")
+    from PIL import Image
+    from scripts.studies import probe_mischaracterization_stress_test as study
+
+    true_probe = _toy_probe()
+    amplitude_corrupted = (0.8 * true_probe).astype(np.complex64)
+    phase_corrupted = (true_probe * np.exp(0.25j)).astype(np.complex64)
+    (tmp_path / "probes").mkdir()
+    amplitude_dir = tmp_path / "conditions" / "amplitude_blur_sigma_px_1p0"
+    amplitude_dir.mkdir(parents=True)
+    phase_dir = tmp_path / "conditions" / "phase_noise_sigma_rad_0p2pi_seed17"
+    phase_dir.mkdir(parents=True)
+    np.savez(tmp_path / "probes" / "true_probe.npz", probe=true_probe)
+    np.savez(amplitude_dir / "assumed_probe.npz", probe=amplitude_corrupted)
+    np.savez(phase_dir / "assumed_probe.npz", probe=phase_corrupted)
+
+    condition_results = {
+        "baseline": {
+            "condition_id": "baseline",
+            "perturbation_type": "baseline",
+            "status": "ok",
+            "amp_ssim": 0.91,
+            "amp_psnr": 68.0,
+        },
+        "amplitude_blur_sigma_px_1p0": {
+            "condition_id": "amplitude_blur_sigma_px_1p0",
+            "perturbation_type": "amplitude_blur_sigma_px",
+            "value": 1.0,
+            "status": "ok",
+            "amp_ssim": 0.86,
+            "amp_psnr": 67.0,
+        },
+    }
+
+    figure_path = study.write_stress_figure(tmp_path, condition_results)
+
+    assert figure_path == tmp_path / "figures" / "probe_mischaracterization_stress.png"
+    with Image.open(figure_path) as image:
+        assert image.size[0] > image.size[1]
+        assert image.size[1] >= 1000
+
+
+def test_stress_figure_visual_context_metadata_records_panel_policy(tmp_path):
+    from scripts.studies import probe_mischaracterization_stress_test as study
+
+    true_probe = _toy_probe()
+    corrupted = (true_probe * np.exp(0.10j)).astype(np.complex64)
+    (tmp_path / "probes").mkdir()
+    condition_dir = tmp_path / "conditions" / "phase_noise_sigma_rad_0p2pi_seed17"
+    condition_dir.mkdir(parents=True)
+    np.savez(tmp_path / "probes" / "true_probe.npz", probe=true_probe)
+    np.savez(condition_dir / "assumed_probe.npz", probe=corrupted)
+
+    metadata = study.build_stress_figure_visual_context(tmp_path)
+
+    assert metadata == {
+        "amplitude_condition_id": "phase_noise_sigma_rad_0p2pi_seed17",
+        "phase_condition_id": "phase_noise_sigma_rad_0p2pi_seed17",
+        "amplitude_fallback_used": True,
+        "phase_fallback_used": False,
+        "panel_policy": "separate_probe_context_panels_not_insets",
+        "display_channels": ["amplitude", "phase"],
+    }
+
+
 def test_export_paper_assets_requires_gates_and_carries_baseline_policy(tmp_path):
     from scripts.studies import probe_mischaracterization_stress_test as study
 

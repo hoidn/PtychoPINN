@@ -139,6 +139,9 @@ The intended control flow is:
 5. Run a narrow roadmap-sync phase
 6. Draft and review a fresh plan for the selected item
 7. Run a repo-local implementation phase that executes the work, runs backlog `check_commands`, and reviews/fixes against the design, plan, and checks report
+   - implementation must report an explicit semantic state: `COMPLETED | RUNNING | BLOCKED`
+   - `RUNNING` means long-running execution is still in progress and the drain should end cleanly as `WAITING`, not mark the item blocked
+   - final execution reports are required only for `COMPLETED`; `RUNNING` and `BLOCKED` publish a progress report instead
 8. Update backlog location and progress state
 9. Repeat
 
@@ -164,6 +167,12 @@ Lifecycle:
 5. `in_progress/` is exclusive while its owning workflow run is still active
 6. resume the owning run when possible
 7. if the owning run is no longer active and the recorded blocker predicate is now satisfied, a later drain pass may reclaim the `in_progress/` item instead of leaving it stranded
+
+Implementation-state rule:
+
+- keep semantic item state separate from workflow failure
+- only explicit semantic `BLOCKED` should add a backlog item to the blocked ledger
+- raw workflow or contract failure should fail the run rather than poisoning backlog state
 
 ## Steering Document Contract
 
@@ -323,16 +332,17 @@ Implementation should consume:
 Implementation-phase behavior:
 
 1. execute the approved plan
-2. run the selected backlog item's `check_commands`
-3. write a checks log/report artifact
-4. review against design, self-contained plan, execution report, and checks report
-5. if revised, fix the implementation and rerun checks before the next review pass
+2. publish `COMPLETED | RUNNING | BLOCKED` as an explicit implementation-state outcome
+3. for `COMPLETED`, publish the final execution report, run the selected backlog item's `check_commands`, and enter the review/fix loop
+4. for `RUNNING`, publish a progress report and return control without recording a blocker
+5. for `BLOCKED`, publish a progress report describing the blocker and record a semantic block
+6. if revised after `COMPLETED`, fix the implementation and rerun checks before the next review pass
 
 Expected outputs:
 
-- implementation execution report
-- checks report / log
-- implementation review report
+- implementation state
+- implementation review decision
+- deterministic phase-state files for execution/progress/check/review artifacts
 - item summary
 - updated backlog state
 

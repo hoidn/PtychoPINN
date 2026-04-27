@@ -23,6 +23,14 @@ def _walk_steps(steps: list[dict], prefix: str = ""):
             for case_name, case in match.get("cases", {}).items():
                 case_steps = case.get("steps", case) if isinstance(case, dict) else case
                 yield from _walk_steps(case_steps, f"{path} > case {case_name}")
+        if_branch = step.get("if")
+        if isinstance(if_branch, dict):
+            then_block = step.get("then", {})
+            then_steps = then_block.get("steps", []) if isinstance(then_block, dict) else []
+            else_block = step.get("else", {})
+            else_steps = else_block.get("steps", []) if isinstance(else_block, dict) else []
+            yield from _walk_steps(then_steps, f"{path} > then")
+            yield from _walk_steps(else_steps, f"{path} > else")
 
 
 def _step_by_name(workflow: dict, name: str) -> dict:
@@ -133,26 +141,97 @@ def test_neurips_drain_workflow_dispatches_selected_items_through_local_selected
     }
 
 
+def test_neurips_drain_workflow_supports_waiting_as_a_clean_terminal_outcome():
+    workflow = _load_yaml("workflows/examples/neurips_steered_backlog_drain.yaml")
+
+    assert workflow["outputs"]["drain_status"]["allowed"] == [
+        "CONTINUE",
+        "DONE",
+        "WAITING",
+        "BLOCKED",
+    ]
+
+    drain_loop = _step_by_name(workflow, "DrainBacklogItems")["repeat_until"]
+    assert drain_loop["outputs"]["drain_status"]["allowed"] == [
+        "CONTINUE",
+        "DONE",
+        "WAITING",
+        "BLOCKED",
+    ]
+
+    waiting_compares = [
+        predicate["compare"]["right"]
+        for predicate in drain_loop["condition"]["any_of"]
+        if isinstance(predicate, dict) and "compare" in predicate
+    ]
+    assert "WAITING" in waiting_compares
+
+
 def test_neurips_drain_workflow_asserts_plan_and_implementation_approval_before_completion():
     workflow = _load_yaml("workflows/library/neurips_selected_backlog_item.yaml")
 
     assert _on_config(_step_by_name(workflow, "AssertPlanApproved"))["failure"]["goto"] == "RecordPlanBlocked"
-    assert _on_config(_step_by_name(workflow, "AssertImplementationApproved"))["failure"]["goto"] == "RecordImplementationBlocked"
 
     record_completed = _step_by_name(workflow, "RecordCompletedItem")
+    assert record_completed["when"]["all_of"][0]["compare"]["right"] == "COMPLETED"
+    assert record_completed["when"]["all_of"][1]["compare"]["right"] == "APPROVE"
+
+    record_waiting = _step_by_name(workflow, "RecordImplementationWaiting")
+    assert record_waiting["when"]["compare"]["right"] == "RUNNING"
+
+    finalize = _step_by_name(workflow, "FinalizeSelectedItemOutcome")
+    assert finalize["expected_outputs"][0]["allowed"] == ["CONTINUE", "WAITING", "BLOCKED"]
+
     script = record_completed["command"][2]
     assert "final_checks_report_path.txt" in script
     assert record_completed["command"][-1] == "${steps.ApplyRoadmapSyncDecision.artifacts.current_roadmap_path}"
 
 
-def test_neurips_backlog_implementation_phase_runs_checks_inside_review_loop():
+def test_neurips_backlog_implementation_phase_emits_explicit_execution_state():
     workflow = _load_yaml("workflows/library/neurips_backlog_implementation_phase.yaml")
 
     assert workflow["inputs"]["check_commands_path"]["under"] == "state"
     assert workflow["inputs"]["checks_report_target_path"]["under"] == "artifacts/checks"
+    assert workflow["artifacts"]["execution_report_target"]["pointer"] == (
+        "${inputs.state_root}/execution_report_target_path.txt"
+    )
+    assert workflow["outputs"]["implementation_state"]["allowed"] == ["COMPLETED", "RUNNING", "BLOCKED"]
+    assert workflow["outputs"]["implementation_review_decision"]["allowed"] == [
+        "APPROVE",
+        "REVISE",
+        "NOT_APPLICABLE",
+    ]
 
-    loop = _step_by_name(workflow, "ImplementationReviewLoop")["repeat_until"]["steps"]
-    assert [step["name"] for step in loop[:2]] == ["RunTargetedChecks", "ReviewImplementation"]
+    initialize = _step_by_name(workflow, "InitializeImplementationPhasePaths")
+    init_outputs = {entry["name"] for entry in initialize["expected_outputs"]}
+    assert "execution_report_target_path" in init_outputs
+    assert "progress_report_target_path" in init_outputs
+    assert "execution_report_path" not in init_outputs
+
+    execute = _step_by_name(workflow, "ExecuteImplementation")
+    assert execute["asset_file"] == "prompts/neurips_backlog_implementation_phase/implement_implementation.md"
+    assert execute["prompt_consumes"] == ["design", "plan", "execution_report_target", "progress_report_target"]
+    assert "output_bundle" in execute
+    bundle_fields = {field["name"]: field for field in execute["output_bundle"]["fields"]}
+    assert bundle_fields["implementation_state"]["allowed"] == ["COMPLETED", "RUNNING", "BLOCKED"]
+    assert bundle_fields["progress_report_path"]["required"] is False
+    assert bundle_fields["execution_report_path"]["required"] is False
+
+    publish_execution = _step_by_name(workflow, "PublishExecutionReport")
+    assert publish_execution["when"]["compare"]["right"] == "COMPLETED"
+
+    publish_progress = _step_by_name(workflow, "PublishProgressReport")
+    assert publish_progress["when"]["compare"]["right"] == "RUNNING"
+
+    publish_blocked_progress = _step_by_name(workflow, "PublishBlockedProgressReport")
+    assert publish_blocked_progress["when"]["compare"]["right"] == "BLOCKED"
+
+    review_loop_step = _step_by_name(workflow, "ImplementationReviewLoop")
+    loop = review_loop_step["repeat_until"]["steps"]
+    assert loop[0]["name"] == "RouteIterationWork"
+
+    route_iteration = _step_by_name(workflow, "RouteIterationWork")
+    assert route_iteration["if"]["compare"]["right"] == "COMPLETED"
 
     run_checks = _step_by_name(workflow, "RunTargetedChecks")
     assert run_checks["command"][:2] == [
@@ -160,6 +239,12 @@ def test_neurips_backlog_implementation_phase_runs_checks_inside_review_loop():
         "workflows/library/scripts/run_neurips_backlog_checks.py",
     ]
     assert {publish["artifact"] for publish in run_checks["publishes"]} == {"checks_report"}
+
+    publish_execution_report = _step_by_name(workflow, "PublishExecutionReport")
+    assert publish_execution_report["publishes"] == [
+        {"artifact": "execution_report", "from": "execution_report_path"}
+    ]
+    assert publish_execution_report["expected_outputs"][0]["path"].endswith("execution_report_path.txt")
 
     review = _step_by_name(workflow, "ReviewImplementation")
     assert review["asset_file"] == "prompts/neurips_backlog_implementation_phase/review_implementation.md"
@@ -171,8 +256,16 @@ def test_neurips_backlog_implementation_phase_runs_checks_inside_review_loop():
         "design",
         "plan",
         "execution_report",
+        "execution_report_target",
         "checks_report",
         "implementation_review_report",
+    ]
+    assert "expected_outputs" not in fix
+    assert "publishes" not in fix
+
+    publish_updated_execution_report = _step_by_name(workflow, "PublishUpdatedExecutionReport")
+    assert publish_updated_execution_report["publishes"] == [
+        {"artifact": "execution_report", "from": "execution_report_path"}
     ]
 
 

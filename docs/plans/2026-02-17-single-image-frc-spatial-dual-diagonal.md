@@ -2,6 +2,8 @@
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
+> **Historical note (2026-04-13):** Superseded by `docs/plans/2026-04-13-single-image-frc-removal.md`. The no-reference single-image FRC feature and `single_frc50` / `single_frc1over7` API are removed from tracked code; do not execute this plan as current guidance.
+
 **Goal:** Replace the current problematic spatial single-image FRC split with a robust dual-diagonal strided method (no averaging), while preserving reproducibility via an explicit legacy mode and keeping binomial as the default reported mode.
 
 **Architecture:** Implement the full spatial dual-diagonal logic in `../frc/frc/single_image_frc.py` (the external package that now owns single-image FRC). Keep three explicit split modes: `binomial`, `spatial_dual` (new robust mode), and `spatial_legacy` (old interpolated split for reproducibility only). Route `spatial` to `spatial_dual` to avoid future confusion. Use curve-level dual-pair averaging with ring-count weighting to reduce directional bias.

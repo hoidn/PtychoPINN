@@ -8,6 +8,8 @@ from typing import Any
 
 import numpy as np
 
+from scripts.studies.pdebench_image128.visualization import cfd_cns_field_visual_spec
+
 
 def _parse_profile_ids(value: str) -> list[str]:
     return [item.strip() for item in str(value).split(",") if item.strip()]
@@ -59,18 +61,15 @@ def _render_gallery(
         squeeze=False,
         constrained_layout=True,
     )
-    cmap = "magma" if is_error else "viridis"
     for channel in range(channels):
         label = field_order[channel] if channel < len(field_order) else f"c{channel}"
         if is_error:
-            shared_min = 0.0
-            shared_max = float(max(np.max(image[channel]) for _, image in panels))
+            spec = cfd_cns_field_visual_spec(label, [image[channel] for _, image in panels], is_error=True)
         else:
-            shared_min = float(min(np.min(target[channel]), *(np.min(image[channel]) for _, image in panels)))
-            shared_max = float(max(np.max(target[channel]), *(np.max(image[channel]) for _, image in panels)))
+            spec = cfd_cns_field_visual_spec(label, [target[channel], *(image[channel] for _, image in panels)])
         for col, (title, image) in enumerate(panels):
             axis = axes[channel][col]
-            handle = axis.imshow(image[channel], cmap=cmap, vmin=shared_min, vmax=shared_max)
+            handle = axis.imshow(image[channel], cmap=spec["cmap"], vmin=spec["vmin"], vmax=spec["vmax"])
             if channel == 0:
                 axis.set_title(title)
             if col == 0:

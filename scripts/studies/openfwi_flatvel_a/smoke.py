@@ -37,7 +37,7 @@ from scripts.studies.openfwi_flatvel_a.manifest import (
 from scripts.studies.openfwi_flatvel_a.metrics import metric_payload
 from scripts.studies.openfwi_flatvel_a.models import build_model, describe_model, probe_official_inversionnet
 from scripts.studies.openfwi_flatvel_a.reporting import collate_comparison
-from scripts.studies.openfwi_flatvel_a.run_config import parse_profile_ids, validate_run_budget
+from scripts.studies.openfwi_flatvel_a.run_config import DEFAULT_RUN_BUDGET, validate_run_budget
 
 
 DEFAULT_RAW_ROOT = ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate"
@@ -53,15 +53,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--license-note", default="")
     parser.add_argument("--profiles", default="hybrid_resnet_smoke,unet_smoke")
     parser.add_argument("--official-openfwi-repo", type=Path, default=None)
-    parser.add_argument("--epochs", type=int, default=1)
-    parser.add_argument("--batch-size", type=int, default=4)
-    parser.add_argument("--learning-rate", type=float, default=1e-3)
-    parser.add_argument("--train-samples", type=int, default=32)
-    parser.add_argument("--val-samples", type=int, default=16)
-    parser.add_argument("--test-samples", type=int, default=16)
-    parser.add_argument("--split-seed", type=int, default=20260420)
-    parser.add_argument("--device", default="cuda")
-    parser.add_argument("--num-workers", type=int, default=0)
+    parser.add_argument("--epochs", type=int, default=DEFAULT_RUN_BUDGET["epochs"])
+    parser.add_argument("--batch-size", type=int, default=DEFAULT_RUN_BUDGET["batch_size"])
+    parser.add_argument("--learning-rate", type=float, default=DEFAULT_RUN_BUDGET["learning_rate"])
+    parser.add_argument("--scheduler", default=DEFAULT_RUN_BUDGET["scheduler"])
+    parser.add_argument("--plateau-factor", type=float, default=DEFAULT_RUN_BUDGET["plateau_factor"])
+    parser.add_argument("--plateau-patience", type=int, default=DEFAULT_RUN_BUDGET["plateau_patience"])
+    parser.add_argument("--plateau-min-lr", type=float, default=DEFAULT_RUN_BUDGET["plateau_min_lr"])
+    parser.add_argument("--plateau-threshold", type=float, default=DEFAULT_RUN_BUDGET["plateau_threshold"])
+    parser.add_argument("--optimizer", default=DEFAULT_RUN_BUDGET["optimizer"])
+    parser.add_argument("--weight-decay", type=float, default=DEFAULT_RUN_BUDGET["weight_decay"])
+    parser.add_argument("--beta1", type=float, default=DEFAULT_RUN_BUDGET["beta1"])
+    parser.add_argument("--beta2", type=float, default=DEFAULT_RUN_BUDGET["beta2"])
+    parser.add_argument("--train-samples", type=int, default=DEFAULT_RUN_BUDGET["train_samples"])
+    parser.add_argument("--val-samples", type=int, default=DEFAULT_RUN_BUDGET["val_samples"])
+    parser.add_argument("--test-samples", type=int, default=DEFAULT_RUN_BUDGET["test_samples"])
+    parser.add_argument("--split-seed", type=int, default=DEFAULT_RUN_BUDGET["split_seed"])
+    parser.add_argument("--device", default=DEFAULT_RUN_BUDGET["device"])
+    parser.add_argument("--num-workers", type=int, default=DEFAULT_RUN_BUDGET["num_workers"])
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--allow-existing-output-root", action="store_true")
     parser.add_argument("--allow-synthetic-shard-samples", action="store_true", help=argparse.SUPPRESS)
@@ -207,6 +216,49 @@ def _eval_model(model: torch.nn.Module, loader: DataLoader, device: torch.device
     return metric_payload(predictions, targets, normalized=True, target_stats=stats)
 
 
+def _mean_l1_loss(model: torch.nn.Module, loader: DataLoader, device: torch.device) -> float:
+    total_loss = 0.0
+    total_batches = 0
+    model.eval()
+    with torch.no_grad():
+        for batch in loader:
+            x = batch["input"].to(device)
+            y = batch["target"].to(device)
+            total_loss += float(torch.nn.functional.l1_loss(model(x), y).detach().cpu())
+            total_batches += 1
+    if total_batches == 0:
+        raise RuntimeError("loss evaluation produced no batches")
+    return total_loss / total_batches
+
+
+def _build_optimizer(model: torch.nn.Module, args: argparse.Namespace) -> torch.optim.Optimizer:
+    if args.optimizer != "adam":
+        raise ValueError(f"unsupported optimizer: {args.optimizer}")
+    return torch.optim.Adam(
+        model.parameters(),
+        lr=args.learning_rate,
+        weight_decay=args.weight_decay,
+        betas=(args.beta1, args.beta2),
+    )
+
+
+def _build_scheduler(
+    optimizer: torch.optim.Optimizer,
+    args: argparse.Namespace,
+) -> torch.optim.lr_scheduler.ReduceLROnPlateau | None:
+    if args.scheduler == "Default":
+        return None
+    if args.scheduler != "ReduceLROnPlateau":
+        raise ValueError(f"unsupported scheduler: {args.scheduler}")
+    return torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        factor=args.plateau_factor,
+        patience=args.plateau_patience,
+        min_lr=args.plateau_min_lr,
+        threshold=args.plateau_threshold,
+    )
+
+
 def _run_profile(
     *,
     profile_id: str,
@@ -242,8 +294,12 @@ def _run_profile(
     train_loader = _loader(train_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
     val_loader = _loader(val_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
     test_loader = _loader(test_dataset, batch_size=args.batch_size, num_workers=args.num_workers)
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
-    for _epoch in range(args.epochs):
+    optimizer = _build_optimizer(model, args)
+    scheduler = _build_scheduler(optimizer, args)
+    training_history: list[dict[str, Any]] = []
+    for epoch_index in range(args.epochs):
+        epoch_loss = 0.0
+        epoch_batches = 0
         model.train()
         for batch in train_loader:
             x = batch["input"].to(device)
@@ -252,6 +308,22 @@ def _run_profile(
             loss = torch.nn.functional.l1_loss(model(x), y)
             loss.backward()
             optimizer.step()
+            epoch_loss += float(loss.detach().cpu())
+            epoch_batches += 1
+        if epoch_batches == 0:
+            raise RuntimeError("training produced no batches")
+        train_loss = epoch_loss / epoch_batches
+        scheduler_metric = _mean_l1_loss(model, val_loader, device) if len(val_dataset) else train_loss
+        if scheduler is not None:
+            scheduler.step(scheduler_metric)
+        training_history.append(
+            {
+                "epoch": epoch_index + 1,
+                "train_l1": train_loss,
+                "scheduler_metric_l1": scheduler_metric,
+                "learning_rate": optimizer.param_groups[0]["lr"],
+            }
+        )
 
     val_metrics = _eval_model(model, val_loader, device, stats) if len(val_dataset) else {}
     test_metrics = _eval_model(model, test_loader, device, stats) if len(test_dataset) else {}
@@ -267,6 +339,21 @@ def _run_profile(
         "runtime_sec": runtime_sec,
         "peak_cuda_memory_bytes": int(torch.cuda.max_memory_allocated(device)) if device.type == "cuda" else None,
         "model_description": description,
+        "training_history": training_history,
+        "training_config": {
+            "epochs": int(args.epochs),
+            "batch_size": int(args.batch_size),
+            "learning_rate": float(args.learning_rate),
+            "optimizer": args.optimizer,
+            "weight_decay": float(args.weight_decay),
+            "beta1": float(args.beta1),
+            "beta2": float(args.beta2),
+            "scheduler": args.scheduler,
+            "plateau_factor": float(args.plateau_factor),
+            "plateau_patience": int(args.plateau_patience),
+            "plateau_min_lr": float(args.plateau_min_lr),
+            "plateau_threshold": float(args.plateau_threshold),
+        },
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
     }
     write_json(profile_root / "metrics.json", payload)
@@ -278,6 +365,7 @@ def _run_profile(
             "pid": os.getpid(),
             "runtime_sec": runtime_sec,
             "model_description": description,
+            "training_config": payload["training_config"],
         },
     )
 
@@ -289,7 +377,10 @@ def run(args: argparse.Namespace, *, raw_argv: list[str]) -> int:
     _guard_output_root(output_root, allow_existing=args.allow_existing_output_root)
     _seed_everything(int(args.split_seed))
     budget = validate_run_budget(vars(args))
-    profiles = parse_profile_ids(args.profiles)
+    for key, value in budget.items():
+        if key != "profiles":
+            setattr(args, key, value)
+    profiles = budget["profiles"]
     root_provenance = capture_smoke_provenance(run_id=run_id, output_root=output_root, data_root=data_root)
     write_invocation_artifacts(
         output_dir=output_root,

@@ -573,8 +573,8 @@ def run_cfd_cns(
 ) -> int:
     if task_id != "2d_cfd_cns":
         raise ValueError("run_cfd_cns only supports task_id='2d_cfd_cns'")
-    if mode not in {"inspect", "readiness", "benchmark"}:
-        raise ValueError("2d_cfd_cns mode must be inspect, readiness, or benchmark")
+    if mode not in {"inspect", "readiness", "pilot", "benchmark"}:
+        raise ValueError("2d_cfd_cns mode must be inspect, readiness, pilot, or benchmark")
     runtime_owned = runtime is None
     runtime = runtime or initialize_runtime(device)
     output_root = Path(output_root)
@@ -584,6 +584,8 @@ def run_cfd_cns(
         data_file = Path(data_root) / "2d_cfd_cns" / CFD_CNS_FILENAME
         if not data_file.exists():
             raise FileNotFoundError(f"missing 2D CFD CNS data file: {data_file}")
+        if mode == "pilot" and not profile_ids:
+            raise ValueError("2d_cfd_cns pilot mode requires explicit profile_ids")
         run_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S.%fZ")
         if runtime.is_rank_zero:
             write_invocation_artifacts(
@@ -652,7 +654,12 @@ def run_cfd_cns(
         if runtime.is_rank_zero:
             _write_json(output_root / "normalization_stats_state.json", state_stats)
 
-        profile_ids = profile_ids or (PRIMARY_CFD_CNS_PROFILE_IDS if mode == "benchmark" else READINESS_CFD_CNS_PROFILE_IDS)
+        if profile_ids:
+            profile_ids = list(profile_ids)
+        elif mode == "benchmark":
+            profile_ids = list(PRIMARY_CFD_CNS_PROFILE_IDS)
+        else:
+            profile_ids = list(READINESS_CFD_CNS_PROFILE_IDS)
         if mode == "benchmark" and "unet_tiny_smoke" in profile_ids:
             raise ValueError("unet_tiny_smoke is readiness-only and cannot be used for benchmark mode")
 
@@ -724,7 +731,7 @@ def run_cfd_cns(
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--task", default="2d_cfd_cns")
-    parser.add_argument("--mode", choices=["inspect", "readiness", "benchmark"], default="readiness")
+    parser.add_argument("--mode", choices=["inspect", "readiness", "pilot", "benchmark"], default="readiness")
     parser.add_argument("--data-root", type=Path, required=True)
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--profiles", default=None)

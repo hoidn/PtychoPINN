@@ -186,11 +186,14 @@ def _write_plan_review(workspace: Path) -> None:
 
 
 def _write_execution_report(workspace: Path) -> None:
-    pointer_candidates = sorted(workspace.glob("state/**/implementation-phase/execution_report_path.txt"))
-    for pointer in pointer_candidates:
-        target = _target_from_pointer(workspace, pointer.relative_to(workspace).as_posix())
-        if target.exists():
+    state_roots = sorted(workspace.glob("state/**/implementation-phase"))
+    for state_root in state_roots:
+        bundle_path = state_root / "implementation_state.json"
+        if bundle_path.exists():
             continue
+        target = _target_from_pointer(
+            workspace, (state_root / "execution_report_target_path.txt").relative_to(workspace).as_posix()
+        )
         target.write_text(
             "\n".join(
                 [
@@ -215,8 +218,99 @@ def _write_execution_report(workspace: Path) -> None:
             + "\n",
             encoding="utf-8",
         )
+        bundle_path.write_text(
+            json.dumps(
+                {
+                    "implementation_state": "COMPLETED",
+                    "execution_report_path": target.relative_to(workspace).as_posix(),
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         return
     raise AssertionError("No pending execution report pointer found")
+
+
+def _write_running_execution_state(workspace: Path) -> None:
+    state_roots = sorted(workspace.glob("state/**/implementation-phase"))
+    for state_root in state_roots:
+        bundle_path = state_root / "implementation_state.json"
+        if bundle_path.exists():
+            continue
+        progress_report = (
+            workspace
+            / "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-22-ready-item/progress_report.md"
+        )
+        progress_report.parent.mkdir(parents=True, exist_ok=True)
+        progress_report.write_text(
+            "\n".join(
+                [
+                    "# Progress Report",
+                    "",
+                    "## Active Work",
+                    "- Long-running readiness or training task is still in progress.",
+                    "",
+                    "## Next Resume Condition",
+                    "- Resume when the external execution finishes and the final report can be written.",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        bundle_path.write_text(
+            json.dumps(
+                {
+                    "implementation_state": "RUNNING",
+                    "progress_report_path": progress_report.relative_to(workspace).as_posix(),
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return
+    raise AssertionError("No pending implementation-phase state root found for RUNNING bundle")
+
+
+def _write_blocked_execution_state(workspace: Path) -> None:
+    state_roots = sorted(workspace.glob("state/**/implementation-phase"))
+    for state_root in state_roots:
+        bundle_path = state_root / "implementation_state.json"
+        if bundle_path.exists():
+            continue
+        progress_report = (
+            workspace
+            / "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-22-ready-item/blocked_progress_report.md"
+        )
+        progress_report.parent.mkdir(parents=True, exist_ok=True)
+        progress_report.write_text(
+            "\n".join(
+                [
+                    "# Blocked Progress Report",
+                    "",
+                    "## Blocker",
+                    "- Required upstream artifact is unavailable.",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        bundle_path.write_text(
+            json.dumps(
+                {
+                    "implementation_state": "BLOCKED",
+                    "progress_report_path": progress_report.relative_to(workspace).as_posix(),
+                    "block_reason": "Required upstream artifact is unavailable.",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return
+    raise AssertionError("No pending implementation-phase state root found for BLOCKED bundle")
 
 
 def _write_implementation_review(workspace: Path) -> None:
@@ -331,3 +425,138 @@ def test_neurips_steered_backlog_runtime_smoke(tmp_path):
     )
     assert checks_report["status"] == "PASS"
     assert checks_report["failed_count"] == 0
+
+
+def test_neurips_steered_backlog_runtime_waiting_for_running_item(tmp_path):
+    workspace = tmp_path / "workspace"
+    workflow_path = _copy_runtime_files(workspace)
+
+    provider_sequence = [
+        ("SelectNextItem", _write_first_selector),
+        ("ReviewOrUpdateRoadmap", _write_roadmap_sync_outputs),
+        ("DraftPlan", _write_plan_draft),
+        ("ReviewPlanTracked", _write_plan_review),
+        ("ExecuteImplementation", _write_running_execution_state),
+    ]
+    call_index = {"value": 0}
+
+    def _prepare_invocation(_self, *args, **kwargs):
+        return SimpleNamespace(input_mode="stdin", prompt=kwargs.get("prompt_content", "")), None
+
+    def _execute(_self, _invocation, **kwargs):
+        expected_step, writer = provider_sequence[call_index["value"]]
+        actual_step = kwargs.get("step_name")
+        if actual_step is not None:
+            assert actual_step == expected_step
+        call_index["value"] += 1
+        writer(workspace)
+        return SimpleNamespace(
+            exit_code=0,
+            stdout=b"ok",
+            stderr=b"",
+            duration_ms=1,
+            error=None,
+            missing_placeholders=None,
+            invalid_prompt_placeholder=False,
+            raw_stdout=None,
+            normalized_stdout=None,
+            provider_session=None,
+        )
+
+    loader = WorkflowLoader(workspace)
+    workflow = loader.load(workflow_path)
+    workflow_relpath = workflow_path.relative_to(workspace).as_posix()
+    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), {}, workspace)
+    state_manager = StateManager(workspace=workspace, run_id="test-run")
+    state_manager.initialize(workflow_relpath, _bundle_context_dict(workflow), bound_inputs=bound_inputs)
+    executor = WorkflowExecutor(workflow, workspace, state_manager)
+
+    with patch.object(ProviderExecutor, "prepare_invocation", _prepare_invocation), patch.object(
+        ProviderExecutor, "execute", _execute
+    ):
+        state = executor.execute()
+
+    assert call_index["value"] == 5
+    summary = json.loads(
+        (workspace / "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog-drain-summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    run_state = json.loads(
+        (workspace / "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/run_state.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert summary["drain_status"] == "WAITING"
+    assert run_state["blocked_items"] == {}
+    assert run_state["current_item"]["item_id"] == "2026-04-22-ready-item"
+    assert (workspace / "docs/backlog/in_progress/2026-04-22-ready-item.md").is_file()
+
+
+def test_neurips_steered_backlog_runtime_marks_semantic_block_only_on_explicit_block(tmp_path):
+    workspace = tmp_path / "workspace"
+    workflow_path = _copy_runtime_files(workspace)
+
+    provider_sequence = [
+        ("SelectNextItem", _write_first_selector),
+        ("ReviewOrUpdateRoadmap", _write_roadmap_sync_outputs),
+        ("DraftPlan", _write_plan_draft),
+        ("ReviewPlanTracked", _write_plan_review),
+        ("ExecuteImplementation", _write_blocked_execution_state),
+    ]
+    call_index = {"value": 0}
+
+    def _prepare_invocation(_self, *args, **kwargs):
+        return SimpleNamespace(input_mode="stdin", prompt=kwargs.get("prompt_content", "")), None
+
+    def _execute(_self, _invocation, **kwargs):
+        expected_step, writer = provider_sequence[call_index["value"]]
+        actual_step = kwargs.get("step_name")
+        if actual_step is not None:
+            assert actual_step == expected_step
+        call_index["value"] += 1
+        writer(workspace)
+        return SimpleNamespace(
+            exit_code=0,
+            stdout=b"ok",
+            stderr=b"",
+            duration_ms=1,
+            error=None,
+            missing_placeholders=None,
+            invalid_prompt_placeholder=False,
+            raw_stdout=None,
+            normalized_stdout=None,
+            provider_session=None,
+        )
+
+    loader = WorkflowLoader(workspace)
+    workflow = loader.load(workflow_path)
+    workflow_relpath = workflow_path.relative_to(workspace).as_posix()
+    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), {}, workspace)
+    state_manager = StateManager(workspace=workspace, run_id="test-run")
+    state_manager.initialize(workflow_relpath, _bundle_context_dict(workflow), bound_inputs=bound_inputs)
+    executor = WorkflowExecutor(workflow, workspace, state_manager)
+
+    with patch.object(ProviderExecutor, "prepare_invocation", _prepare_invocation), patch.object(
+        ProviderExecutor, "execute", _execute
+    ):
+        state = executor.execute()
+
+    assert call_index["value"] == 5
+    summary = json.loads(
+        (workspace / "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog-drain-summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    run_state = json.loads(
+        (workspace / "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/run_state.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert summary["drain_status"] == "BLOCKED"
+    assert (
+        run_state["blocked_items"]["2026-04-22-ready-item"]["reason"]
+        == "Implementation phase reported a semantic blocker. See progress report."
+    )

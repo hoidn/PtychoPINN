@@ -120,7 +120,11 @@ def test_materialize_selected_item_inputs_writes_check_command_artifacts(tmp_pat
     assert check_commands_path.is_file()
     assert json.loads(check_commands_path.read_text(encoding="utf-8")) == ['python -c "print(\'ready-check\')"']
     assert context_path.is_file()
-    assert "Required Check Commands" in context_path.read_text(encoding="utf-8")
+    context_text = context_path.read_text(encoding="utf-8")
+    assert "Required Check Commands" in context_text
+    assert "authoritative_item_path: `docs/backlog/in_progress/2026-04-22-ready-item.md`" in context_text
+    assert "selection_source_path: `docs/backlog/active/2026-04-22-ready-item.md`" in context_text
+    assert "selected_item_path:" not in context_text
 
 
 def test_move_item_allows_legal_transitions_and_rejects_illegal_ones(tmp_path):

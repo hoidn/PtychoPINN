@@ -20,12 +20,14 @@ def test_main_table_keeps_one_cell_per_metric_when_values_missing():
     assert all(cell == "-" for cell in cells[3:])
 
 
-def test_main_table_header_contains_binomial_single_image_frc_columns():
+def test_main_table_header_omits_binomial_single_image_frc_columns():
     metrics = {"pinn": {"mae": (0.1, 0.2)}}
     table = _build_main_table(metrics, model_ns={"pinn": 64})
     header = next(line for line in table.splitlines() if line.startswith("N & Model"))
-    assert "1FRC50 Bin (A/P)" in header
-    assert "1FRC1/7 Bin (A/P)" in header
+    assert "1FRC50 Bin (A/P)" not in header
+    assert "1FRC1/7 Bin (A/P)" not in header
+    assert "single_frc50_binomial" not in {metric for metric, _ in METRICS}
+    assert "single_frc1over7_binomial" not in {metric for metric, _ in METRICS}
 
 
 def test_main_table_escapes_underscore_in_fallback_model_labels():

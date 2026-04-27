@@ -1405,18 +1405,64 @@ CSV_FIELDNAMES = [
 ]
 
 
-def _format_metric(value: Any) -> str:
+def _format_metric(value: Any, *, bold: bool = False) -> str:
     if value is None:
         return "--"
     number = float(value)
     if abs(number) >= 100:
-        return f"{number:.1f}"
-    if abs(number) >= 1:
-        return f"{number:.3f}"
-    return f"{number:.4g}"
+        text = f"{number:.1f}"
+    elif abs(number) >= 1:
+        text = f"{number:.3f}"
+    else:
+        text = f"{number:.4g}"
+    if bold:
+        return rf"\textbf{{{text}}}"
+    return text
+
+
+TABLE_METRIC_SOURCES = {
+    "amplitude_mse": "amplitude_mse_unscaled",
+    "amplitude_psnr": "amplitude_psnr_unscaled",
+    "amplitude_ssim": "amplitude_ssim",
+    "phase_mse": "phase_mse",
+    "phase_psnr": "phase_psnr",
+    "phase_ssim": "phase_ssim",
+}
+
+
+def _table_metric_value(row: dict[str, Any], metric_key: str) -> Any:
+    return row.get(TABLE_METRIC_SOURCES.get(metric_key, metric_key))
+
+
+def _best_metric_keys_by_condition(rows: list[dict[str, Any]]) -> set[tuple[str, str, str]]:
+    best_keys: set[tuple[str, str, str]] = set()
+    metric_directions = {
+        "amplitude_mse": "min",
+        "amplitude_psnr": "max",
+        "amplitude_ssim": "max",
+        "phase_mse": "min",
+        "phase_psnr": "max",
+        "phase_ssim": "max",
+    }
+    for condition in sorted({str(row.get("condition")) for row in rows}):
+        condition_rows = [row for row in rows if str(row.get("condition")) == condition]
+        for metric_key, direction in metric_directions.items():
+            scored = [
+                (row, float(value))
+                for row in condition_rows
+                if (value := _table_metric_value(row, metric_key)) is not None
+            ]
+            if not scored:
+                continue
+            best_value = min(value for _row, value in scored) if direction == "min" else max(value for _row, value in scored)
+            for row, value in scored:
+                if math.isclose(value, best_value, rel_tol=1e-12, abs_tol=1e-12):
+                    best_keys.add((condition, str(row.get("model")), metric_key))
+    return best_keys
 
 
 def render_metrics_table(rows: list[dict[str, Any]]) -> str:
+    best_keys = _best_metric_keys_by_condition(rows)
     lines = [
         r"\begin{tabular}{llrrrrrr}",
         r"\toprule",
@@ -1424,17 +1470,19 @@ def render_metrics_table(rows: list[dict[str, Any]]) -> str:
         r"\midrule",
     ]
     for row in rows:
+        condition = str(row["condition"])
+        model = str(row["model"])
         lines.append(
             " & ".join(
                 [
-                    str(row["condition"]),
-                    str(row["model"]).replace("_", r"\_"),
-                    _format_metric(row.get("amplitude_mse")),
-                    _format_metric(row.get("amplitude_psnr")),
-                    _format_metric(row.get("amplitude_ssim")),
-                    _format_metric(row.get("phase_mse")),
-                    _format_metric(row.get("phase_psnr")),
-                    _format_metric(row.get("phase_ssim")),
+                    condition,
+                    model.replace("_", r"\_"),
+                    _format_metric(_table_metric_value(row, "amplitude_mse"), bold=(condition, model, "amplitude_mse") in best_keys),
+                    _format_metric(_table_metric_value(row, "amplitude_psnr"), bold=(condition, model, "amplitude_psnr") in best_keys),
+                    _format_metric(_table_metric_value(row, "amplitude_ssim"), bold=(condition, model, "amplitude_ssim") in best_keys),
+                    _format_metric(_table_metric_value(row, "phase_mse"), bold=(condition, model, "phase_mse") in best_keys),
+                    _format_metric(_table_metric_value(row, "phase_psnr"), bold=(condition, model, "phase_psnr") in best_keys),
+                    _format_metric(_table_metric_value(row, "phase_ssim"), bold=(condition, model, "phase_ssim") in best_keys),
                 ]
             )
             + r" \\"
@@ -2152,7 +2200,7 @@ def metric_policy(args: argparse.Namespace) -> dict[str, Any]:
         "min_post_eval_trim_dim": int(getattr(args, "min_post_eval_trim_dim", MIN_POST_EVAL_TRIM_DIM)),
         "phase_policy": f"phase_align_method={args.phase_align_method}; absolute global phase and removed linear phase ramps are not scored",
         "background_policy": "no support/background mask; background pixels included after coordinate crop and eval offset trim",
-        "amplitude_policy": "mean scale factor computed on post-eval-trim amplitude arrays; PSNR is derived from MSE on the post-trim arrays",
+        "amplitude_policy": "Table Amp. MSE and Amp. PSNR use unscaled post-eval-trim amplitude arrays; legacy mean-scaled amplitude metrics are retained in JSON/CSV for sensitivity; Amp. PSNR is MSE-derived",
         "frc_policy": "FRC values are artifact-only unless reference-based FRC succeeds for all rows with the same field of view as core metrics",
     }
 

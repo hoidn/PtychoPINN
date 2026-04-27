@@ -50,7 +50,7 @@ class ModelConfig:
     #Mode Category
     mode: Literal['Supervised', 'Unsupervised'] = 'Unsupervised' # Training mode, affects all aspects of model
     architecture: Literal[
-        'cnn', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet'
+        'cnn', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'
     ] = 'cnn'  # Generator architecture selection
     fno_modes: int = 12
     fno_width: int = 32
@@ -69,6 +69,11 @@ class ModelConfig:
     hybrid_encoder_spectral_hidden_channels: Optional[int] = None
     hybrid_resnet_blocks: int = 6
     hybrid_skip_style: Literal['add', 'concat', 'gated_add'] = 'add'
+    spectral_bottleneck_blocks: int = 6
+    spectral_bottleneck_modes: int = 12
+    spectral_bottleneck_share_weights: bool = True
+    spectral_bottleneck_gate_init: float = 0.1
+    spectral_bottleneck_gate_mode: Literal['shared', 'per_block'] = 'shared'
     generator_output_mode: Literal['real_imag', 'amp_phase_logits', 'amp_phase'] = 'real_imag'
 
     #Intensity Parameters

@@ -466,7 +466,7 @@ def test_run_grid_lines_workflow_tf_models_baseline_only(monkeypatch, tmp_path: 
     assert calls["baseline_infer"] == 1
 
 
-def test_run_grid_lines_workflow_enables_single_image_frc(monkeypatch, tmp_path: Path):
+def test_run_grid_lines_workflow_does_not_pass_single_image_frc(monkeypatch, tmp_path: Path):
     DummyModel = _stub_grid_lines_simulation(monkeypatch, tmp_path)
 
     monkeypatch.setattr(
@@ -490,12 +490,12 @@ def test_run_grid_lines_workflow_enables_single_image_frc(monkeypatch, tmp_path:
         lambda output_dir, order: {},
     )
 
-    captured = {"pinn": None}
+    captured = {"pinn_has_single_image_frc_kwarg": None}
 
     def fake_eval(*args, **kwargs):
         label = kwargs.get("label")
         if label == "pinn":
-            captured["pinn"] = kwargs.get("single_image_frc")
+            captured["pinn_has_single_image_frc_kwarg"] = "single_image_frc" in kwargs
         return {"mse": 0.0}
 
     monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
@@ -505,7 +505,7 @@ def test_run_grid_lines_workflow_enables_single_image_frc(monkeypatch, tmp_path:
     cfg = GridLinesConfig(N=8, gridsize=1, output_dir=tmp_path, probe_npz=probe_path)
 
     _ = run_grid_lines_workflow(cfg, tf_models=("pinn",))
-    assert captured["pinn"] is True
+    assert captured["pinn_has_single_image_frc_kwarg"] is False
 
 
 def test_run_grid_lines_workflow_default_runs_both_models(monkeypatch, tmp_path: Path):

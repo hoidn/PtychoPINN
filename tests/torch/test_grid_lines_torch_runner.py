@@ -564,37 +564,26 @@ class TestRunGridLinesTorchScaffold:
         assert captured["gt_shape"] == (64, 64, 1)
         assert captured["label"] == "pinn_hybrid_resnet"
 
-    def test_compute_metrics_passes_single_image_frc_flag(self, monkeypatch):
+    def test_compute_metrics_does_not_pass_single_image_frc_kwargs(self, monkeypatch):
         captured = {}
 
-        def fake_eval(
-            pred,
-            gt,
-            label="",
-            single_image_frc=False,
-            single_image_frc_split_mode="spatial",
-            single_image_frc_rng_seed=None,
-        ):
+        def fake_eval(pred, gt, label="", **kwargs):
             captured["pred_shape"] = tuple(np.asarray(pred).shape)
             captured["gt_shape"] = tuple(np.asarray(gt).shape)
             captured["label"] = label
-            captured["single_image_frc"] = single_image_frc
-            captured["single_image_frc_split_mode"] = single_image_frc_split_mode
-            captured["single_image_frc_rng_seed"] = single_image_frc_rng_seed
+            captured["kwargs"] = dict(kwargs)
             return {"mse": 0.0}
 
         monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
 
         pred = np.ones((64, 64), dtype=np.complex64)
         gt = np.ones((64, 64), dtype=np.complex64)
-        out = compute_metrics(pred, gt, label="pinn_hybrid_resnet", single_image_frc=True)
+        out = compute_metrics(pred, gt, label="pinn_hybrid_resnet")
 
         assert out["mse"] == 0.0
         assert captured["pred_shape"] == (64, 64, 1)
         assert captured["gt_shape"] == (64, 64, 1)
-        assert captured["single_image_frc"] is True
-        assert captured["single_image_frc_split_mode"] == "spatial"
-        assert captured["single_image_frc_rng_seed"] is None
+        assert not any(key.startswith("single_image_frc") for key in captured["kwargs"])
 
     def test_compute_metrics_normalizes_channel_first_real_imag_ground_truth(self, monkeypatch):
         captured = {}
@@ -1244,6 +1233,18 @@ class TestChannelGridsizeAlignment:
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.model.architecture == "hybrid_resnet"
 
+    def test_runner_accepts_spectral_resnet_bottleneck_net(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="spectral_resnet_bottleneck_net",
+        )
+        training_config, execution_config = setup_torch_configs(cfg)
+        assert training_config.model.architecture == "spectral_resnet_bottleneck_net"
+        assert execution_config.spectral_bottleneck_blocks == 6
+        assert execution_config.spectral_bottleneck_modes == 12
+
     def test_runner_accepts_fno_vanilla(self, tmp_path):
         """Test that setup_torch_configs accepts 'fno_vanilla' architecture."""
         cfg = TorchRunnerConfig(
@@ -1443,6 +1444,59 @@ class TestChannelGridsizeAlignment:
             hybrid_resnet_blocks=0,
         )
         with pytest.raises(ValueError, match="hybrid_resnet_blocks"):
+            setup_torch_configs(cfg)
+
+    def test_runner_torch_only_spectral_bottleneck_fields_stay_out_of_model_config(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="spectral_resnet_bottleneck_net",
+            spectral_bottleneck_blocks=8,
+            spectral_bottleneck_modes=10,
+            spectral_bottleneck_share_weights=False,
+            spectral_bottleneck_gate_init=0.2,
+            spectral_bottleneck_gate_mode="per_block",
+        )
+        training_config, execution_config = setup_torch_configs(cfg)
+        assert execution_config.spectral_bottleneck_blocks == 8
+        assert execution_config.spectral_bottleneck_modes == 10
+        assert execution_config.spectral_bottleneck_share_weights is False
+        assert execution_config.spectral_bottleneck_gate_init == 0.2
+        assert execution_config.spectral_bottleneck_gate_mode == "per_block"
+        assert not hasattr(training_config.model, "spectral_bottleneck_blocks")
+
+    def test_runner_rejects_invalid_spectral_bottleneck_blocks(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="spectral_resnet_bottleneck_net",
+            spectral_bottleneck_blocks=0,
+        )
+        with pytest.raises(ValueError, match="spectral_bottleneck_blocks"):
+            setup_torch_configs(cfg)
+
+    def test_runner_rejects_invalid_spectral_bottleneck_modes(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="spectral_resnet_bottleneck_net",
+            spectral_bottleneck_modes=0,
+        )
+        with pytest.raises(ValueError, match="spectral_bottleneck_modes"):
+            setup_torch_configs(cfg)
+
+    def test_runner_rejects_invalid_spectral_bottleneck_gate_mode(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="spectral_resnet_bottleneck_net",
+            spectral_bottleneck_gate_mode="bad_mode",
+        )
+        with pytest.raises(ValueError, match="spectral_bottleneck_gate_mode"):
             setup_torch_configs(cfg)
 
     def test_runner_torch_only_skip_style_stays_out_of_model_config(self, tmp_path):
@@ -1997,6 +2051,58 @@ def test_main_hybrid_resnet_defaults_bias_local_branch(tmp_path, monkeypatch):
     assert captured["cfg"].hybrid_encoder_spectral_hidden_scale == 1.0
 
 
+def test_main_accepts_spectral_resnet_bottleneck_flags(tmp_path, monkeypatch):
+    from scripts.studies import grid_lines_torch_runner as runner
+
+    captured = {"cfg": None}
+
+    def fake_run_grid_lines_torch(cfg):
+        captured["cfg"] = cfg
+        run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return {"run_dir": str(run_dir), "metrics": {}}
+
+    monkeypatch.setattr(runner, "run_grid_lines_torch", fake_run_grid_lines_torch)
+
+    out_dir = tmp_path / "output"
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    train_npz.write_bytes(b"stub")
+    test_npz.write_bytes(b"stub")
+
+    runner.main(
+        [
+            "--train-npz",
+            str(train_npz),
+            "--test-npz",
+            str(test_npz),
+            "--output-dir",
+            str(out_dir),
+            "--architecture",
+            "spectral_resnet_bottleneck_net",
+            "--epochs",
+            "1",
+            "--spectral-bottleneck-blocks",
+            "8",
+            "--spectral-bottleneck-modes",
+            "10",
+            "--spectral-bottleneck-share-weights",
+            "--spectral-bottleneck-gate-init",
+            "0.2",
+            "--spectral-bottleneck-gate-mode",
+            "per_block",
+        ]
+    )
+
+    assert captured["cfg"] is not None
+    assert captured["cfg"].architecture == "spectral_resnet_bottleneck_net"
+    assert captured["cfg"].spectral_bottleneck_blocks == 8
+    assert captured["cfg"].spectral_bottleneck_modes == 10
+    assert captured["cfg"].spectral_bottleneck_share_weights is True
+    assert captured["cfg"].spectral_bottleneck_gate_init == 0.2
+    assert captured["cfg"].spectral_bottleneck_gate_mode == "per_block"
+
+
 def test_main_maps_torch_logger_none_to_disabled(tmp_path, monkeypatch):
     from scripts.studies import grid_lines_torch_runner as runner
 
@@ -2037,7 +2143,7 @@ def test_main_maps_torch_logger_none_to_disabled(tmp_path, monkeypatch):
     assert captured["cfg"].logger_backend is None
 
 
-def test_main_defaults_single_image_frc_enabled(tmp_path, monkeypatch):
+def test_main_does_not_expose_single_image_frc_config(tmp_path, monkeypatch):
     from scripts.studies import grid_lines_torch_runner as runner
 
     captured = {"cfg": None}
@@ -2071,21 +2177,13 @@ def test_main_defaults_single_image_frc_enabled(tmp_path, monkeypatch):
         ]
     )
     assert captured["cfg"] is not None
-    assert captured["cfg"].single_image_frc is True
+    assert not hasattr(captured["cfg"], "single_image_frc")
+    assert not hasattr(captured["cfg"], "single_image_frc_split_mode")
+    assert not hasattr(captured["cfg"], "single_image_frc_rng_seed")
 
 
-def test_main_allows_disabling_single_image_frc(tmp_path, monkeypatch):
+def test_main_rejects_removed_single_image_frc_flag(tmp_path):
     from scripts.studies import grid_lines_torch_runner as runner
-
-    captured = {"cfg": None}
-
-    def fake_run_grid_lines_torch(cfg):
-        captured["cfg"] = cfg
-        run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
-        run_dir.mkdir(parents=True, exist_ok=True)
-        return {"run_dir": str(run_dir), "metrics": {}}
-
-    monkeypatch.setattr(runner, "run_grid_lines_torch", fake_run_grid_lines_torch)
 
     out_dir = tmp_path / "output"
     train_npz = tmp_path / "train.npz"
@@ -2093,37 +2191,26 @@ def test_main_allows_disabling_single_image_frc(tmp_path, monkeypatch):
     train_npz.write_bytes(b"stub")
     test_npz.write_bytes(b"stub")
 
-    runner.main(
-        [
-            "--train-npz",
-            str(train_npz),
-            "--test-npz",
-            str(test_npz),
-            "--output-dir",
-            str(out_dir),
-            "--architecture",
-            "fno",
-            "--epochs",
-            "1",
-            "--no-single-image-frc",
-        ]
-    )
-    assert captured["cfg"] is not None
-    assert captured["cfg"].single_image_frc is False
+    with pytest.raises(SystemExit):
+        runner.main(
+            [
+                "--train-npz",
+                str(train_npz),
+                "--test-npz",
+                str(test_npz),
+                "--output-dir",
+                str(out_dir),
+                "--architecture",
+                "fno",
+                "--epochs",
+                "1",
+                "--no-single-image-frc",
+            ]
+        )
 
 
-def test_main_passes_single_image_frc_split_mode_and_seed(tmp_path, monkeypatch):
+def test_main_rejects_removed_single_image_frc_split_mode(tmp_path):
     from scripts.studies import grid_lines_torch_runner as runner
-
-    captured = {"cfg": None}
-
-    def fake_run_grid_lines_torch(cfg):
-        captured["cfg"] = cfg
-        run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
-        run_dir.mkdir(parents=True, exist_ok=True)
-        return {"run_dir": str(run_dir), "metrics": {}}
-
-    monkeypatch.setattr(runner, "run_grid_lines_torch", fake_run_grid_lines_torch)
 
     out_dir = tmp_path / "output"
     train_npz = tmp_path / "train.npz"
@@ -2131,24 +2218,20 @@ def test_main_passes_single_image_frc_split_mode_and_seed(tmp_path, monkeypatch)
     train_npz.write_bytes(b"stub")
     test_npz.write_bytes(b"stub")
 
-    runner.main(
-        [
-            "--train-npz",
-            str(train_npz),
-            "--test-npz",
-            str(test_npz),
-            "--output-dir",
-            str(out_dir),
-            "--architecture",
-            "fno",
-            "--epochs",
-            "1",
-            "--single-image-frc-split-mode",
-            "binomial",
-            "--single-image-frc-rng-seed",
-            "123",
-        ]
-    )
-    assert captured["cfg"] is not None
-    assert captured["cfg"].single_image_frc_split_mode == "binomial"
-    assert captured["cfg"].single_image_frc_rng_seed == 123
+    with pytest.raises(SystemExit):
+        runner.main(
+            [
+                "--train-npz",
+                str(train_npz),
+                "--test-npz",
+                str(test_npz),
+                "--output-dir",
+                str(out_dir),
+                "--architecture",
+                "fno",
+                "--epochs",
+                "1",
+                "--single-image-frc-split-mode",
+                "binomial",
+            ]
+        )

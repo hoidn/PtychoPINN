@@ -83,6 +83,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--epochs", type=int, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--learning-rate", type=float, default=None)
+    parser.add_argument("--scheduler", default=None)
+    parser.add_argument("--plateau-factor", type=float, default=None)
+    parser.add_argument("--plateau-patience", type=int, default=None)
+    parser.add_argument("--plateau-min-lr", type=float, default=None)
+    parser.add_argument("--plateau-threshold", type=float, default=None)
+    parser.add_argument("--optimizer", default=None)
+    parser.add_argument("--weight-decay", type=float, default=None)
+    parser.add_argument("--beta1", type=float, default=None)
+    parser.add_argument("--beta2", type=float, default=None)
     parser.add_argument("--device", default=None)
     parser.add_argument("--num-workers", type=int, default=None)
     parser.add_argument("--normalization-max-samples", type=int, default=None)
@@ -256,6 +265,15 @@ def _apply_budget_defaults(args: argparse.Namespace) -> tuple[list[str], list[st
             "epochs": budget["epochs"],
             "batch_size": budget["batch_size"],
             "learning_rate": budget["learning_rate"],
+            "scheduler": budget["scheduler"],
+            "plateau_factor": budget["plateau_factor"],
+            "plateau_patience": budget["plateau_patience"],
+            "plateau_min_lr": budget["plateau_min_lr"],
+            "plateau_threshold": budget["plateau_threshold"],
+            "optimizer": budget["optimizer"],
+            "weight_decay": budget["weight_decay"],
+            "beta1": budget["beta1"],
+            "beta2": budget["beta2"],
             "max_train_trajectories": budget["max_train_trajectories"],
             "max_val_trajectories": budget["max_val_trajectories"],
             "max_test_trajectories": budget["max_test_trajectories"],
@@ -272,9 +290,18 @@ def _apply_budget_defaults(args: argparse.Namespace) -> tuple[list[str], list[st
             args.eval_splits = ",".join(budget["eval_splits"])
 
     fallback_defaults = {
-        "epochs": 1,
-        "batch_size": 2,
-        "learning_rate": 1e-3,
+        "epochs": 5,
+        "batch_size": 16,
+        "learning_rate": 2e-4,
+        "scheduler": "ReduceLROnPlateau",
+        "plateau_factor": 0.5,
+        "plateau_patience": 2,
+        "plateau_min_lr": 1e-5,
+        "plateau_threshold": 0.0,
+        "optimizer": "adam",
+        "weight_decay": 0.0,
+        "beta1": 0.9,
+        "beta2": 0.999,
         "max_train_trajectories": None,
         "max_val_trajectories": None,
         "max_test_trajectories": None,
@@ -291,6 +318,33 @@ def _apply_budget_defaults(args: argparse.Namespace) -> tuple[list[str], list[st
     args.training_seed = int(args.training_seed)
     if args.training_seed < 0 or args.training_seed >= 2**32:
         raise ValueError("training_seed must be in [0, 2**32)")
+    args.scheduler = str(args.scheduler)
+    if args.scheduler not in {"Default", "ReduceLROnPlateau"}:
+        raise ValueError("scheduler must be Default or ReduceLROnPlateau")
+    args.plateau_factor = float(args.plateau_factor)
+    if not 0.0 < args.plateau_factor < 1.0:
+        raise ValueError("plateau_factor must be in (0, 1)")
+    args.plateau_patience = int(args.plateau_patience)
+    if args.plateau_patience < 0:
+        raise ValueError("plateau_patience must be non-negative")
+    args.plateau_min_lr = float(args.plateau_min_lr)
+    if args.plateau_min_lr < 0:
+        raise ValueError("plateau_min_lr must be non-negative")
+    args.plateau_threshold = float(args.plateau_threshold)
+    if args.plateau_threshold < 0:
+        raise ValueError("plateau_threshold must be non-negative")
+    args.optimizer = str(args.optimizer).lower()
+    if args.optimizer != "adam":
+        raise ValueError("optimizer must be adam")
+    args.weight_decay = float(args.weight_decay)
+    if args.weight_decay < 0:
+        raise ValueError("weight_decay must be non-negative")
+    args.beta1 = float(args.beta1)
+    args.beta2 = float(args.beta2)
+    if not 0 <= args.beta1 < 1:
+        raise ValueError("beta1 must be in [0, 1)")
+    if not 0 <= args.beta2 < 1:
+        raise ValueError("beta2 must be in [0, 1)")
 
     primary_profiles = parse_profile_ids(
         args.profiles if args.profiles is not None else (
@@ -372,6 +426,62 @@ def _evaluate(
     return metric_payload(prediction_batches, target_batches, normalized=True, stats=stats)
 
 
+def _mean_l1_loss(
+    *,
+    model: torch.nn.Module,
+    dataset: SweOneStepDataset,
+    args: argparse.Namespace,
+    device: torch.device,
+) -> float:
+    loader = DataLoader(
+        dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+        collate_fn=_collate,
+    )
+    total_loss = 0.0
+    total_batches = 0
+    model.eval()
+    with torch.no_grad():
+        for batch in loader:
+            x = batch["input"].to(device)
+            y = batch["target"].to(device)
+            total_loss += float(torch.nn.functional.l1_loss(model(x), y).detach().cpu())
+            total_batches += 1
+    if total_batches == 0:
+        raise RuntimeError("loss evaluation produced no batches")
+    return total_loss / total_batches
+
+
+def _build_optimizer(model: torch.nn.Module, args: argparse.Namespace) -> torch.optim.Optimizer:
+    if args.optimizer != "adam":
+        raise ValueError(f"unsupported optimizer: {args.optimizer}")
+    return torch.optim.Adam(
+        model.parameters(),
+        lr=args.learning_rate,
+        weight_decay=args.weight_decay,
+        betas=(args.beta1, args.beta2),
+    )
+
+
+def _build_scheduler(
+    optimizer: torch.optim.Optimizer,
+    args: argparse.Namespace,
+) -> torch.optim.lr_scheduler.ReduceLROnPlateau | None:
+    if args.scheduler == "Default":
+        return None
+    if args.scheduler != "ReduceLROnPlateau":
+        raise ValueError(f"unsupported scheduler: {args.scheduler}")
+    return torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        factor=args.plateau_factor,
+        patience=args.plateau_patience,
+        min_lr=args.plateau_min_lr,
+        threshold=args.plateau_threshold,
+    )
+
+
 def _run_profile(
     *,
     profile_id: str,
@@ -421,11 +531,15 @@ def _run_profile(
         num_workers=args.num_workers,
         collate_fn=_collate,
     )
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
-    criterion = torch.nn.MSELoss()
+    optimizer = _build_optimizer(model, args)
+    scheduler = _build_scheduler(optimizer, args)
+    criterion = torch.nn.L1Loss()
     train_batches = 0
-    model.train()
-    for _epoch in range(args.epochs):
+    training_history: list[dict[str, Any]] = []
+    for epoch_index in range(args.epochs):
+        epoch_loss = 0.0
+        epoch_batches = 0
+        model.train()
         for batch in train_loader:
             x = batch["input"].to(device)
             y = batch["target"].to(device)
@@ -433,7 +547,28 @@ def _run_profile(
             loss = criterion(model(x), y)
             loss.backward()
             optimizer.step()
+            epoch_loss += float(loss.detach().cpu())
+            epoch_batches += 1
             train_batches += 1
+        if epoch_batches == 0:
+            raise RuntimeError("training produced no batches")
+        train_loss = epoch_loss / epoch_batches
+        scheduler_metric = _mean_l1_loss(
+            model=model,
+            dataset=datasets["val"] if len(datasets["val"]) else datasets["train"],
+            args=args,
+            device=device,
+        )
+        if scheduler is not None:
+            scheduler.step(scheduler_metric)
+        training_history.append(
+            {
+                "epoch": epoch_index + 1,
+                "train_l1": train_loss,
+                "scheduler_metric_l1": scheduler_metric,
+                "learning_rate": optimizer.param_groups[0]["lr"],
+            }
+        )
 
     eval_payload = {
         split: _evaluate(model=model, dataset=datasets[split], args=args, device=device, stats=stats)
@@ -470,9 +605,20 @@ def _run_profile(
             "epochs": int(args.epochs),
             "batch_size": int(args.batch_size),
             "learning_rate": float(args.learning_rate),
+            "training_loss": "mae",
+            "optimizer": args.optimizer,
+            "weight_decay": float(args.weight_decay),
+            "beta1": float(args.beta1),
+            "beta2": float(args.beta2),
+            "scheduler": args.scheduler,
+            "plateau_factor": float(args.plateau_factor),
+            "plateau_patience": int(args.plateau_patience),
+            "plateau_min_lr": float(args.plateau_min_lr),
+            "plateau_threshold": float(args.plateau_threshold),
             "max_pairs_per_trajectory": args.max_pairs_per_trajectory,
             "training_seed": int(args.training_seed),
         },
+        "training_history": training_history,
     }
     _write_json(profile_root / "metrics.json", payload)
     _write_json(

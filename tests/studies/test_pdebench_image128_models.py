@@ -518,8 +518,64 @@ def test_spectral_noshare_profile_builds_under_canonical_cns_shell():
     y = model(torch.zeros(1, 8, 128, 128))
 
     assert tuple(y.shape) == (1, 4, 128, 128)
-    assert model.module.skip_connections is True
-    assert model.module.hybrid_skip_style == "add"
+
+
+def test_cns_hybrid_spectral_ablation_profiles_pin_fixed_shell_and_vary_only_registered_axes():
+    from scripts.studies.pdebench_image128.run_config import (
+        PRIMARY_CFD_CNS_PROFILE_IDS,
+        READINESS_CFD_CNS_PROFILE_IDS,
+        get_model_profile,
+    )
+
+    profile_ids = [
+        "spectral_resnet_bottleneck_base",
+        "spectral_resnet_bottleneck_shared_blocks8",
+        "spectral_resnet_bottleneck_shared_blocks10",
+        "spectral_resnet_bottleneck_noshare",
+        "spectral_resnet_bottleneck_noshare_blocks8",
+        "spectral_resnet_bottleneck_noshare_blocks10",
+    ]
+    fixed_shell = {
+        "base_model": "spectral_resnet_bottleneck_net",
+        "hidden_channels": 32,
+        "fno_modes": 12,
+        "fno_blocks": 4,
+        "hybrid_downsample_steps": 2,
+        "hybrid_resnet_blocks": 6,
+        "hybrid_skip_connections": True,
+        "hybrid_skip_style": "add",
+        "hybrid_upsampler": "pixelshuffle",
+        "spectral_bottleneck_modes": 12,
+        "spectral_bottleneck_gate_init": 0.1,
+        "spectral_bottleneck_gate_mode": "shared",
+    }
+
+    configs = {profile_id: get_model_profile(profile_id).to_model_config() for profile_id in profile_ids}
+
+    assert list(configs) == profile_ids
+    for profile_id, config in configs.items():
+        for key, value in fixed_shell.items():
+            assert config[key] == value, (profile_id, key, config.get(key))
+        assert profile_id not in PRIMARY_CFD_CNS_PROFILE_IDS
+        assert profile_id not in READINESS_CFD_CNS_PROFILE_IDS
+
+    for config in configs.values():
+        varying = {
+            "spectral_bottleneck_share_weights": config["spectral_bottleneck_share_weights"],
+            "spectral_bottleneck_blocks": config["spectral_bottleneck_blocks"],
+        }
+        fixed = {
+            key: value
+            for key, value in config.items()
+            if key not in {"profile_id", "evidence_scope", "spectral_bottleneck_share_weights", "spectral_bottleneck_blocks"}
+        }
+        assert varying["spectral_bottleneck_share_weights"] in {True, False}
+        assert varying["spectral_bottleneck_blocks"] in {6, 8, 10}
+        assert fixed == {
+            key: value
+            for key, value in configs["spectral_resnet_bottleneck_base"].items()
+            if key not in {"profile_id", "evidence_scope", "spectral_bottleneck_share_weights", "spectral_bottleneck_blocks"}
+        }
 
 
 def test_ffno_bottleneck_profile_uses_same_cns_skip_shell():

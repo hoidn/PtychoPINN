@@ -6,6 +6,7 @@ If `docs/index.md` is present, read it first and then consult only the specific 
 Select the next backlog item to draft, review, implement, and verify.
 
 Use the steering document as strategic intent, the roadmap as ordered execution authority, the design as scope authority, the manifest as the active candidate list, the progress ledger as durable project progress, and the run-state ledger as durable backlog-run state.
+Treat the manifest as authoritative for which backlog items remain active candidates in this drain. If an item is still active in the manifest, progress-ledger or summary evidence about related completed work is context or queue drift, not automatic closure.
 
 Choose from active backlog items only. Do not reselect `in_progress` items automatically.
 
@@ -13,8 +14,10 @@ Decision rules:
 - Return `DONE` only when the manifest shows no active items.
 - Return `BLOCKED` only when active items remain but none can be selected without violating prerequisites, roadmap gates, blocking state, or steering constraints.
 - Otherwise return `SELECTED` for exactly one item.
+- Do not return `BLOCKED` merely because broader roadmap work remains unfinished or because the roadmap also names non-backlog work. If the current roadmap and steering still allow at least one active backlog item as bounded follow-up or decision-support work, choose among the active items.
 - Do not degrade into deterministic first-item order unless the steering, roadmap, prerequisites, and current state genuinely make one item the only defensible choice.
 - Treat prerequisite strings as satisfied when they are clearly present in `run_state.completed_items` or `progress_ledger.completed_tranches`.
+- If manifest state conflicts with progress-ledger item-completion notes, treat that as state drift to mention in the rationale or `roadmap_sync_hint`, not as a standalone reason to return `BLOCKED`.
 - Do not select an item whose required inputs, fairness constraints, or upstream evidence are not actually available.
 - Prefer the item that most directly advances the current steering objective without skipping required roadmap order or safety gates.
 

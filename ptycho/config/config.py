@@ -98,7 +98,7 @@ class ModelConfig:
     n_filters_scale: int = 2
     model_type: Literal['pinn', 'supervised'] = 'pinn'
     architecture: Literal[
-        'cnn', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet'
+        'cnn', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'
     ] = 'cnn'
     fno_modes: int = 12
     fno_width: int = 32
@@ -294,6 +294,11 @@ class PyTorchExecutionConfig:
     hybrid_encoder_spectral_hidden_channels: Optional[int] = None
     hybrid_resnet_blocks: int = 6
     hybrid_skip_style: Literal['add', 'concat', 'gated_add'] = 'add'
+    spectral_bottleneck_blocks: int = 6
+    spectral_bottleneck_modes: int = 12
+    spectral_bottleneck_share_weights: bool = True
+    spectral_bottleneck_gate_init: float = 0.1
+    spectral_bottleneck_gate_mode: Literal['shared', 'per_block'] = 'shared'
 
     # Inference-specific knobs
     inference_batch_size: Optional[int] = None  # Override batch_size for inference (None = use training batch_size)
@@ -458,6 +463,25 @@ class PyTorchExecutionConfig:
             raise ValueError(
                 f"hybrid_resnet_blocks must be positive, got {self.hybrid_resnet_blocks}."
             )
+        if self.spectral_bottleneck_blocks <= 0:
+            raise ValueError(
+                f"spectral_bottleneck_blocks must be positive, got {self.spectral_bottleneck_blocks}."
+            )
+        if self.spectral_bottleneck_modes <= 0:
+            raise ValueError(
+                f"spectral_bottleneck_modes must be positive, got {self.spectral_bottleneck_modes}."
+            )
+        if not math.isfinite(float(self.spectral_bottleneck_gate_init)):
+            raise ValueError(
+                "spectral_bottleneck_gate_init must be finite, "
+                f"got {self.spectral_bottleneck_gate_init}."
+            )
+        valid_gate_modes = {'shared', 'per_block'}
+        if self.spectral_bottleneck_gate_mode not in valid_gate_modes:
+            raise ValueError(
+                f"Invalid spectral_bottleneck_gate_mode '{self.spectral_bottleneck_gate_mode}'. "
+                f"Expected one of {sorted(valid_gate_modes)}."
+            )
 
         valid_skip_styles = {'add', 'concat', 'gated_add'}
         if self.hybrid_skip_style not in valid_skip_styles:
@@ -469,16 +493,24 @@ class PyTorchExecutionConfig:
 
 def validate_model_config(config: ModelConfig) -> None:
     """Validate model configuration."""
-    valid_arches = {'cnn', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet'}
+    valid_arches = {
+        'cnn',
+        'fno',
+        'hybrid',
+        'stable_hybrid',
+        'fno_vanilla',
+        'hybrid_resnet',
+        'spectral_resnet_bottleneck_net',
+    }
     if config.architecture not in valid_arches:
         raise ValueError(
             f"Invalid architecture '{config.architecture}'. "
             f"Expected one of {sorted(valid_arches)}."
         )
-    if config.architecture == "hybrid_resnet":
+    if config.architecture in {"hybrid_resnet", "spectral_resnet_bottleneck_net"}:
         if config.fno_blocks < 3:
             raise ValueError(
-                "hybrid_resnet requires fno_blocks >= 3 to downsample to N/4 "
+                f"{config.architecture} requires fno_blocks >= 3 to downsample to N/4 "
                 f"(got fno_blocks={config.fno_blocks})."
             )
         if config.resnet_width is not None:

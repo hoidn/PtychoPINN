@@ -1,0 +1,148 @@
+version: "2.7"
+name: "revision-study-design-plan-impl-stack"
+
+imports:
+  design_phase: revision_study_design_phase.yaml
+  plan_phase: revision_study_plan_phase.yaml
+  implementation_phase: revision_study_implementation_phase.yaml
+
+inputs:
+  revision_design_path:
+    type: relpath
+    must_exist_target: true
+    description: Human-authored revision study design seed. Treated as read-only.
+  revision_context_path:
+    type: relpath
+    default: reviewer_revision_checklist.md
+    description: Optional reviewer checklist or revision context file. If missing, the workflow generates a minimal context note.
+  approved_design_target_path:
+    type: relpath
+    under: artifacts/revision_studies
+    default: artifacts/revision_studies/current/approved_design.md
+  design_review_report_target_path:
+    type: relpath
+    under: artifacts/revision_studies
+    default: artifacts/revision_studies/current/design_review.json
+  plan_target_path:
+    type: relpath
+    under: artifacts/revision_studies
+    default: artifacts/revision_studies/current/implementation_plan.md
+  plan_review_report_target_path:
+    type: relpath
+    under: artifacts/revision_studies
+    default: artifacts/revision_studies/current/plan_review.json
+  execution_report_target_path:
+    type: relpath
+    under: artifacts/revision_studies
+    default: artifacts/revision_studies/current/execution_report.md
+  implementation_review_report_target_path:
+    type: relpath
+    under: artifacts/revision_studies
+    default: artifacts/revision_studies/current/implementation_review.md
+
+outputs:
+  approved_design_path:
+    type: relpath
+    under: artifacts/revision_studies
+    must_exist_target: true
+    from:
+      ref: root.steps.RunRevisionDesignPhase.artifacts.approved_design_path
+  revision_context_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+    from:
+      ref: root.steps.RunRevisionDesignPhase.artifacts.revision_context_path
+  design_review_report_path:
+    type: relpath
+    under: artifacts/revision_studies
+    must_exist_target: true
+    from:
+      ref: root.steps.RunRevisionDesignPhase.artifacts.design_review_report_path
+  design_review_decision:
+    kind: scalar
+    type: enum
+    allowed: ["APPROVE", "REVISE", "BLOCK"]
+    from:
+      ref: root.steps.RunRevisionDesignPhase.artifacts.design_review_decision
+  plan_path:
+    type: relpath
+    under: artifacts/revision_studies
+    must_exist_target: true
+    from:
+      ref: root.steps.RunRevisionPlanPhase.artifacts.plan_path
+  plan_review_report_path:
+    type: relpath
+    under: artifacts/revision_studies
+    must_exist_target: true
+    from:
+      ref: root.steps.RunRevisionPlanPhase.artifacts.plan_review_report_path
+  plan_review_decision:
+    kind: scalar
+    type: enum
+    allowed: ["APPROVE", "REVISE"]
+    from:
+      ref: root.steps.RunRevisionPlanPhase.artifacts.plan_review_decision
+  execution_report_path:
+    type: relpath
+    under: artifacts/revision_studies
+    must_exist_target: true
+    from:
+      ref: root.steps.RunRevisionImplementationPhase.artifacts.execution_report_path
+  implementation_review_report_path:
+    type: relpath
+    under: artifacts/revision_studies
+    must_exist_target: true
+    from:
+      ref: root.steps.RunRevisionImplementationPhase.artifacts.implementation_review_report_path
+  implementation_review_decision:
+    kind: scalar
+    type: enum
+    allowed: ["APPROVE", "REVISE"]
+    from:
+      ref: root.steps.RunRevisionImplementationPhase.artifacts.implementation_review_decision
+
+steps:
+  - name: RunRevisionDesignPhase
+    id: run_revision_design_phase
+    call: design_phase
+    with:
+      state_root: state/revision-study-design
+      revision_design_path:
+        ref: inputs.revision_design_path
+      revision_context_path:
+        ref: inputs.revision_context_path
+      approved_design_target_path:
+        ref: inputs.approved_design_target_path
+      design_review_report_target_path:
+        ref: inputs.design_review_report_target_path
+
+  - name: RunRevisionPlanPhase
+    id: run_revision_plan_phase
+    call: plan_phase
+    with:
+      state_root: state/revision-study-plan
+      approved_design_path:
+        ref: root.steps.RunRevisionDesignPhase.artifacts.approved_design_path
+      revision_context_path:
+        ref: root.steps.RunRevisionDesignPhase.artifacts.revision_context_path
+      plan_target_path:
+        ref: inputs.plan_target_path
+      plan_review_report_target_path:
+        ref: inputs.plan_review_report_target_path
+
+  - name: RunRevisionImplementationPhase
+    id: run_revision_implementation_phase
+    call: implementation_phase
+    with:
+      state_root: state/revision-study-implementation
+      approved_design_path:
+        ref: root.steps.RunRevisionDesignPhase.artifacts.approved_design_path
+      revision_context_path:
+        ref: root.steps.RunRevisionDesignPhase.artifacts.revision_context_path
+      plan_path:
+        ref: root.steps.RunRevisionPlanPhase.artifacts.plan_path
+      execution_report_target_path:
+        ref: inputs.execution_report_target_path
+      implementation_review_report_target_path:
+        ref: inputs.implementation_review_report_target_path

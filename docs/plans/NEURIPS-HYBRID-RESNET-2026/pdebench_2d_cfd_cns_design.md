@@ -81,7 +81,7 @@ Field order must be explicit and stable: `[density, Vx, Vy, pressure]`.
 
 All same-protocol rows use the supervised real-channel PDE adapter:
 
-- `hybrid_resnet_cns`: canonical CNS Hybrid row. It keeps `fno_modes=12`, hidden width `32`, `fno_blocks=4`, and Hybrid ResNet downsample/local depth `2/6`, but enables encoder-decoder skip fusion with `hybrid_skip_connections=on` and `hybrid_skip_style=add`.
+- `hybrid_resnet_cns`: canonical CNS Hybrid row. It keeps `fno_modes=12`, hidden width `32`, `fno_blocks=4`, and Hybrid ResNet downsample/local depth `2/6`, enables encoder-decoder skip fusion with `hybrid_skip_connections=on` and `hybrid_skip_style=add`, and now defaults to `hybrid_upsampler=pixelshuffle`.
 - `hybrid_resnet_base`: remains the generic supervised Hybrid profile for other tasks; it is not the default CNS benchmark row anymore.
 - `fno_base`: same history/target tensors and task split.
 - Strong U-Net: a non-toy U-Net profile with recorded parameter count.

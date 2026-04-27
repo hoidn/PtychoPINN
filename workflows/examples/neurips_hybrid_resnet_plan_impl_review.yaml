@@ -1,0 +1,499 @@
+version: "2.7"
+name: "neurips-hybrid-resnet-tranche-drain-plan-impl-review"
+
+imports:
+  tranche_selector: ../library/roadmap_tranche_selector.yaml
+  plan_phase: ../library/roadmap_seeded_plan_phase.yaml
+  implementation_phase: ../library/design_plan_impl_implementation_phase.yaml
+
+context:
+  workflow_model: "gpt-5.4"
+  workflow_effort: "high"
+
+inputs:
+  design_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+    default: docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md
+  roadmap_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+    default: docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md
+  drain_state_root:
+    type: relpath
+    under: state
+    default: state/NEURIPS-HYBRID-RESNET-2026/tranche-drain
+  progress_ledger_target_path:
+    type: relpath
+    under: state
+    default: state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json
+  drain_summary_target_path:
+    type: relpath
+    under: artifacts/work
+    default: artifacts/work/NEURIPS-HYBRID-RESNET-2026/tranche-drain-summary.json
+
+outputs:
+  drain_status:
+    kind: scalar
+    type: enum
+    allowed: ["CONTINUE", "DONE", "BLOCKED"]
+    from:
+      ref: root.steps.DrainRoadmapTranches.artifacts.drain_status
+  progress_ledger_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+    from:
+      ref: root.steps.PublishDrainSummary.artifacts.progress_ledger_path
+  drain_summary_path:
+    type: relpath
+    under: artifacts/work
+    must_exist_target: true
+    from:
+      ref: root.steps.PublishDrainSummary.artifacts.drain_summary_path
+
+artifacts:
+  design:
+    pointer: ${inputs.drain_state_root}/design_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  roadmap:
+    pointer: ${inputs.drain_state_root}/roadmap_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  progress_ledger:
+    pointer: ${inputs.drain_state_root}/progress_ledger_path.txt
+    type: relpath
+    under: state
+    must_exist_target: true
+  drain_status:
+    kind: scalar
+    type: enum
+    allowed: ["CONTINUE", "DONE", "BLOCKED"]
+
+steps:
+  - name: InitializeSubmissionDrain
+    id: initialize_submission_drain
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import sys
+
+        design_path = sys.argv[1]
+        roadmap_path = sys.argv[2]
+        ledger_path = pathlib.Path(sys.argv[3])
+        state_root = pathlib.Path(sys.argv[4])
+
+        state_root.mkdir(parents=True, exist_ok=True)
+        ledger_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "project_id": "NEURIPS-HYBRID-RESNET-2026",
+            "design_path": design_path,
+            "roadmap_path": roadmap_path,
+            "completed_tranches": [],
+            "blocked_tranches": [],
+            "iterations": [],
+        }
+        ledger_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        (state_root / "design_path.txt").write_text(design_path + "\n", encoding="utf-8")
+        (state_root / "roadmap_path.txt").write_text(roadmap_path + "\n", encoding="utf-8")
+        (state_root / "progress_ledger_path.txt").write_text(ledger_path.as_posix() + "\n", encoding="utf-8")
+      - ${inputs.design_path}
+      - ${inputs.roadmap_path}
+      - ${inputs.progress_ledger_target_path}
+      - ${inputs.drain_state_root}
+    expected_outputs:
+      - name: design_path
+        path: ${inputs.drain_state_root}/design_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: roadmap_path
+        path: ${inputs.drain_state_root}/roadmap_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: progress_ledger_path
+        path: ${inputs.drain_state_root}/progress_ledger_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+    publishes:
+      - artifact: design
+        from: design_path
+      - artifact: roadmap
+        from: roadmap_path
+      - artifact: progress_ledger
+        from: progress_ledger_path
+
+  - name: DrainRoadmapTranches
+    id: drain_roadmap_tranches
+    repeat_until:
+      id: drain_roadmap_tranche_iteration
+      max_iterations: 12
+      outputs:
+        drain_status:
+          kind: scalar
+          type: enum
+          allowed: ["CONTINUE", "DONE", "BLOCKED"]
+          from:
+            ref: self.steps.RouteTrancheSelection.artifacts.drain_status
+      condition:
+        any_of:
+          - compare:
+              left:
+                ref: self.outputs.drain_status
+              op: eq
+              right: DONE
+          - compare:
+              left:
+                ref: self.outputs.drain_status
+              op: eq
+              right: BLOCKED
+      steps:
+        - name: PrepareSelectorInputs
+          id: prepare_selector_inputs
+          command:
+            - bash
+            - -lc
+            - |
+              mkdir -p "${inputs.drain_state_root}/iterations/${loop.index}"
+              printf '{"selector_state_root":"%s"}\n' \
+                "${inputs.drain_state_root}/iterations/${loop.index}/selector" \
+                > "${inputs.drain_state_root}/iterations/${loop.index}/selector-inputs.json"
+          output_bundle:
+            path: ${inputs.drain_state_root}/iterations/${loop.index}/selector-inputs.json
+            fields:
+              - name: selector_state_root
+                json_pointer: /selector_state_root
+                type: relpath
+                under: state
+
+        - name: SelectNextTranche
+          id: select_next_tranche
+          call: tranche_selector
+          with:
+            state_root:
+              ref: self.steps.PrepareSelectorInputs.artifacts.selector_state_root
+            design_path:
+              ref: root.steps.InitializeSubmissionDrain.artifacts.design_path
+            roadmap_path:
+              ref: root.steps.InitializeSubmissionDrain.artifacts.roadmap_path
+            progress_ledger_path:
+              ref: root.steps.InitializeSubmissionDrain.artifacts.progress_ledger_path
+
+        - name: RouteTrancheSelection
+          id: route_tranche_selection
+          match:
+            ref: self.steps.SelectNextTranche.artifacts.selection_status
+            cases:
+              SELECTED:
+                id: selected_tranche_path
+                outputs:
+                  drain_status:
+                    kind: scalar
+                    type: enum
+                    allowed: ["CONTINUE", "DONE", "BLOCKED"]
+                    from:
+                      ref: self.steps.RecordCompletedTranche.artifacts.drain_status
+                steps:
+                  - name: MaterializeSelectedTranchePaths
+                    id: materialize_selected_tranche_paths
+                    command:
+                      - python
+                      - -c
+                      - |
+                        import json
+                        import pathlib
+                        import re
+                        import sys
+
+                        selection_path = pathlib.Path(sys.argv[1])
+                        state_root = sys.argv[2].rstrip("/")
+                        output_path = pathlib.Path(sys.argv[3])
+
+                        selection = json.loads(selection_path.read_text(encoding="utf-8"))
+                        context_rel = selection.get("tranche_context_path")
+                        if not isinstance(context_rel, str) or not context_rel:
+                            raise SystemExit("SELECTED tranche requires tranche_context_path")
+                        context_path = pathlib.Path(context_rel)
+                        if context_path.parts[:1] != ("state",):
+                            raise SystemExit(f"tranche_context_path must live under state/: {context_rel}")
+                        if context_path.name != "tranche-context.md":
+                            raise SystemExit("tranche_context_path must end with tranche-context.md")
+                        tranche_id = context_path.parent.name
+                        if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", tranche_id):
+                            raise SystemExit(f"Unsafe tranche id from context path: {tranche_id}")
+                        if not context_path.is_file():
+                            raise SystemExit(f"Missing tranche context file: {context_rel}")
+
+                        item_root = f"{state_root}/items/{tranche_id}"
+                        payload = {
+                            "tranche_context_path": context_rel,
+                            "plan_phase_state_root": f"{item_root}/plan-phase",
+                            "implementation_phase_state_root": f"{item_root}/implementation-phase",
+                            "plan_target_path": f"docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/{tranche_id}/execution_plan.md",
+                            "plan_review_report_target_path": f"artifacts/review/NEURIPS-HYBRID-RESNET-2026/{tranche_id}-plan-review.json",
+                            "execution_report_target_path": f"artifacts/work/NEURIPS-HYBRID-RESNET-2026/{tranche_id}-execution-report.md",
+                            "implementation_review_report_target_path": f"artifacts/review/NEURIPS-HYBRID-RESNET-2026/{tranche_id}-implementation-review.md",
+                        }
+                        output_path.parent.mkdir(parents=True, exist_ok=True)
+                        output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+                      - ${inputs.drain_state_root}/iterations/${loop.index}/selector/selection.json
+                      - ${inputs.drain_state_root}
+                      - ${inputs.drain_state_root}/iterations/${loop.index}/selected-paths.json
+                    output_bundle:
+                      path: ${inputs.drain_state_root}/iterations/${loop.index}/selected-paths.json
+                      fields:
+                        - name: tranche_context_path
+                          json_pointer: /tranche_context_path
+                          type: relpath
+                          under: state
+                          must_exist_target: true
+                        - name: plan_phase_state_root
+                          json_pointer: /plan_phase_state_root
+                          type: relpath
+                          under: state
+                        - name: implementation_phase_state_root
+                          json_pointer: /implementation_phase_state_root
+                          type: relpath
+                          under: state
+                        - name: plan_target_path
+                          json_pointer: /plan_target_path
+                          type: relpath
+                          under: docs/plans
+                        - name: plan_review_report_target_path
+                          json_pointer: /plan_review_report_target_path
+                          type: relpath
+                          under: artifacts/review
+                        - name: execution_report_target_path
+                          json_pointer: /execution_report_target_path
+                          type: relpath
+                          under: artifacts/work
+                        - name: implementation_review_report_target_path
+                          json_pointer: /implementation_review_report_target_path
+                          type: relpath
+                          under: artifacts/review
+
+                  - name: RunRoadmapSeededPlanPhase
+                    id: run_roadmap_seeded_plan_phase
+                    call: plan_phase
+                    with:
+                      state_root:
+                        ref: self.steps.MaterializeSelectedTranchePaths.artifacts.plan_phase_state_root
+                      design_path:
+                        ref: root.steps.InitializeSubmissionDrain.artifacts.design_path
+                      roadmap_path:
+                        ref: root.steps.InitializeSubmissionDrain.artifacts.roadmap_path
+                      tranche_context_path:
+                        ref: self.steps.MaterializeSelectedTranchePaths.artifacts.tranche_context_path
+                      plan_target_path:
+                        ref: self.steps.MaterializeSelectedTranchePaths.artifacts.plan_target_path
+                      plan_review_report_target_path:
+                        ref: self.steps.MaterializeSelectedTranchePaths.artifacts.plan_review_report_target_path
+
+                  - name: RunImplementationPhase
+                    id: run_implementation_phase
+                    call: implementation_phase
+                    with:
+                      state_root:
+                        ref: self.steps.MaterializeSelectedTranchePaths.artifacts.implementation_phase_state_root
+                      design_path:
+                        ref: root.steps.InitializeSubmissionDrain.artifacts.design_path
+                      plan_path:
+                        ref: self.steps.RunRoadmapSeededPlanPhase.artifacts.plan_path
+                      execution_report_target_path:
+                        ref: self.steps.MaterializeSelectedTranchePaths.artifacts.execution_report_target_path
+                      implementation_review_report_target_path:
+                        ref: self.steps.MaterializeSelectedTranchePaths.artifacts.implementation_review_report_target_path
+
+                  - name: RecordCompletedTranche
+                    id: record_completed_tranche
+                    command:
+                      - python
+                      - -c
+                      - |
+                        import json
+                        import pathlib
+                        import sys
+
+                        paths_path = pathlib.Path(sys.argv[1])
+                        ledger_path = pathlib.Path(sys.argv[2])
+                        output_path = pathlib.Path(sys.argv[3])
+
+                        paths = json.loads(paths_path.read_text(encoding="utf-8"))
+                        ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+
+                        def read_text(relpath):
+                            path = pathlib.Path(relpath)
+                            if not path.is_file():
+                                raise SystemExit(f"Missing required file: {relpath}")
+                            text = path.read_text(encoding="utf-8").strip()
+                            if not text:
+                                raise SystemExit(f"Required file is empty: {relpath}")
+                            return text
+
+                        def require_target(relpath, label):
+                            path = pathlib.Path(relpath)
+                            if not path.is_file():
+                                raise SystemExit(f"{label} target does not exist: {relpath}")
+                            return relpath
+
+                        plan_root = pathlib.Path(paths["plan_phase_state_root"])
+                        impl_root = pathlib.Path(paths["implementation_phase_state_root"])
+                        plan_path = require_target(read_text(plan_root / "final_plan_path.txt"), "plan_path")
+                        plan_review_report_path = require_target(
+                            read_text(plan_root / "final_plan_review_report_path.txt"),
+                            "plan_review_report_path",
+                        )
+                        plan_review_decision = read_text(plan_root / "final_plan_review_decision.txt")
+                        execution_report_path = require_target(
+                            read_text(impl_root / "final_execution_report_path.txt"),
+                            "execution_report_path",
+                        )
+                        implementation_review_report_path = require_target(
+                            read_text(impl_root / "final_implementation_review_report_path.txt"),
+                            "implementation_review_report_path",
+                        )
+                        implementation_review_decision = read_text(impl_root / "final_implementation_review_decision.txt")
+                        if plan_review_decision != "APPROVE":
+                            raise SystemExit(f"Plan phase did not approve: {plan_review_decision}")
+                        if implementation_review_decision != "APPROVE":
+                            raise SystemExit(f"Implementation phase did not approve: {implementation_review_decision}")
+
+                        context_path = paths["tranche_context_path"]
+                        tranche_id = pathlib.Path(context_path).parent.name
+                        entry = {
+                            "tranche_id": tranche_id,
+                            "tranche_context_path": context_path,
+                            "plan_path": plan_path,
+                            "plan_review_report_path": plan_review_report_path,
+                            "execution_report_path": execution_report_path,
+                            "implementation_review_report_path": implementation_review_report_path,
+                            "implementation_review_decision": implementation_review_decision,
+                        }
+                        ledger.setdefault("iterations", []).append(entry)
+                        completed = ledger.setdefault("completed_tranches", [])
+                        if tranche_id not in completed:
+                            completed.append(tranche_id)
+                        ledger_path.write_text(json.dumps(ledger, indent=2) + "\n", encoding="utf-8")
+
+                        output = {
+                            "drain_status": "CONTINUE",
+                            "progress_ledger_path": ledger_path.as_posix(),
+                            "plan_path": plan_path,
+                            "execution_report_path": execution_report_path,
+                        }
+                        output_path.parent.mkdir(parents=True, exist_ok=True)
+                        output_path.write_text(json.dumps(output, indent=2) + "\n", encoding="utf-8")
+                      - ${inputs.drain_state_root}/iterations/${loop.index}/selected-paths.json
+                      - ${inputs.progress_ledger_target_path}
+                      - ${inputs.drain_state_root}/iterations/${loop.index}/completion-record.json
+                    output_bundle:
+                      path: ${inputs.drain_state_root}/iterations/${loop.index}/completion-record.json
+                      fields:
+                        - name: drain_status
+                          json_pointer: /drain_status
+                          type: enum
+                          allowed: ["CONTINUE"]
+                        - name: progress_ledger_path
+                          json_pointer: /progress_ledger_path
+                          type: relpath
+                          under: state
+                          must_exist_target: true
+                        - name: plan_path
+                          json_pointer: /plan_path
+                          type: relpath
+                          under: docs/plans
+                          must_exist_target: true
+                        - name: execution_report_path
+                          json_pointer: /execution_report_path
+                          type: relpath
+                          under: artifacts/work
+                          must_exist_target: true
+                    publishes:
+                      - artifact: progress_ledger
+                        from: progress_ledger_path
+
+              DONE:
+                id: completed_roadmap_path
+                outputs:
+                  drain_status:
+                    kind: scalar
+                    type: enum
+                    allowed: ["CONTINUE", "DONE", "BLOCKED"]
+                    from:
+                      ref: self.steps.WriteDrainDone.artifacts.drain_status
+                steps:
+                  - name: WriteDrainDone
+                    id: write_drain_done
+                    set_scalar:
+                      artifact: drain_status
+                      value: DONE
+              BLOCKED:
+                id: blocked_roadmap_path
+                outputs:
+                  drain_status:
+                    kind: scalar
+                    type: enum
+                    allowed: ["CONTINUE", "DONE", "BLOCKED"]
+                    from:
+                      ref: self.steps.WriteDrainBlocked.artifacts.drain_status
+                steps:
+                  - name: WriteDrainBlocked
+                    id: write_drain_blocked
+                    set_scalar:
+                      artifact: drain_status
+                      value: BLOCKED
+
+  - name: PublishDrainSummary
+    id: publish_drain_summary
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import sys
+
+        ledger_path = pathlib.Path(sys.argv[1])
+        drain_status = sys.argv[2]
+        summary_path = pathlib.Path(sys.argv[3])
+        state_root = pathlib.Path(sys.argv[4])
+
+        ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+        summary = {
+            "drain_status": drain_status,
+            "progress_ledger_path": ledger_path.as_posix(),
+            "completed_tranche_count": len(ledger.get("completed_tranches", [])),
+            "completed_tranches": ledger.get("completed_tranches", []),
+            "blocked_tranches": ledger.get("blocked_tranches", []),
+            "iteration_count": len(ledger.get("iterations", [])),
+        }
+        summary_path.parent.mkdir(parents=True, exist_ok=True)
+        summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+        state_root.mkdir(parents=True, exist_ok=True)
+        (state_root / "drain_summary_path.txt").write_text(summary_path.as_posix() + "\n", encoding="utf-8")
+        (state_root / "final_progress_ledger_path.txt").write_text(ledger_path.as_posix() + "\n", encoding="utf-8")
+      - ${inputs.progress_ledger_target_path}
+      - ${steps.DrainRoadmapTranches.artifacts.drain_status}
+      - ${inputs.drain_summary_target_path}
+      - ${inputs.drain_state_root}
+    expected_outputs:
+      - name: drain_summary_path
+        path: ${inputs.drain_state_root}/drain_summary_path.txt
+        type: relpath
+        under: artifacts/work
+        must_exist_target: true
+      - name: progress_ledger_path
+        path: ${inputs.drain_state_root}/final_progress_ledger_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true

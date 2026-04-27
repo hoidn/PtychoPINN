@@ -1,5 +1,5 @@
 Read the `Consumed Artifacts` section first and treat it as the authoritative input list.
-Read the consumed `design`, `plan`, `execution_report`, `checks_report`, and `implementation_review_report` artifacts before acting.
+Read the consumed `design`, `plan`, `execution_report`, `execution_report_target`, `checks_report`, and `implementation_review_report` artifacts before acting.
 
 Use executing-plans to address the implementation review while staying aligned with the design and plan.
 Do not use `git worktree` or another checkout.
@@ -21,7 +21,7 @@ Prioritize in this order:
 
 If a failing check should change rather than the implementation, make that change only when the approved plan or review makes the authoritative verification contract itself part of the current scope. Record the rationale clearly in the execution report.
 
-For the output contract's `execution_report_path`, read the path recorded in that file and update the concise execution report there. Leave the pointer file containing only the path.
+Read the path recorded in the consumed `execution_report_target` artifact and update the concise execution report at that exact current-checkout-relative target path. Do not modify workflow pointer files; the workflow publishes them deterministically.
 
 The execution report must include:
 - `Completed In This Pass`

@@ -34,8 +34,6 @@ METRICS = (
     ("psnr", "PSNR"),
     ("ssim", "SSIM"),
     ("frc50", "FRC50"),
-    ("single_frc50_binomial", "1FRC50 Bin"),
-    ("single_frc1over7_binomial", "1FRC1/7 Bin"),
 )
 
 LOWER_BETTER = {"mae", "mse"}
@@ -84,7 +82,7 @@ def _ordered_models(metrics: Mapping[str, dict]) -> List[str]:
 
 
 def _format_value(metric_key: str, value: float, bold: bool = False) -> str:
-    if metric_key in {"frc50", "single_frc50_binomial", "single_frc1over7_binomial"}:
+    if metric_key == "frc50":
         text = f"{value:.2f}"
     else:
         text = f"{value:.6f}"

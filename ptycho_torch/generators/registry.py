@@ -21,6 +21,7 @@ from ptycho_torch.generators.cnn import CnnGenerator
 from ptycho_torch.generators.fno import FnoGenerator, HybridGenerator, StableHybridGenerator
 from ptycho_torch.generators.fno_vanilla import FnoVanillaGenerator
 from ptycho_torch.generators.hybrid_resnet import HybridResnetGenerator
+from ptycho_torch.generators.spectral_resnet_bottleneck import SpectralResnetBottleneckGenerator
 
 _REGISTRY = {
     'cnn': CnnGenerator,
@@ -29,6 +30,7 @@ _REGISTRY = {
     'stable_hybrid': StableHybridGenerator,
     'fno_vanilla': FnoVanillaGenerator,
     'hybrid_resnet': HybridResnetGenerator,
+    'spectral_resnet_bottleneck_net': SpectralResnetBottleneckGenerator,
 }
 
 

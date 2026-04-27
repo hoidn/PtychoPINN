@@ -13,7 +13,7 @@
 ## Initiative
 
 - ID: `non-ml-single-shot-cdi-known-probe-hio-er`
-- Status: pending
+- Status: implemented; diagnostic interpretation still pending outcome review
 - Source design: `docs/plans/revision-studies/non-ml-single-shot-cdi-benchmark-design-seed.md`
 - Prior active solver plan: `docs/plans/revision-studies/non-ml-single-shot-cdi-benchmark-pynx-replacement-plan.md`
 - Current implementation file: `scripts/reconstruction/hio_cdi_benchmark.py`
@@ -563,9 +563,9 @@ Do not update paper claims until the metrics and artifact contracts are reviewed
 
 ```bash
 python -m pytest tests/scripts/test_hio_cdi_benchmark.py -k "known_probe" -q
+python -m py_compile scripts/reconstruction/hio_cdi_benchmark.py tests/scripts/test_hio_cdi_benchmark.py
 python -m pytest tests/scripts/test_hio_cdi_benchmark.py -q
 python -m pytest tests/scripts/test_hio_cdi_benchmark.py --collect-only -q
-python -m py_compile scripts/reconstruction/hio_cdi_benchmark.py
 ```
 
 ## Completion Criteria
@@ -576,12 +576,15 @@ python -m py_compile scripts/reconstruction/hio_cdi_benchmark.py
 - [x] Output manifests and row labels distinguish known-probe object-domain HIO/ER from PyNX exit-wave CDI.
 - [x] A bounded smoke run against the same-split bundle succeeds or produces an actionable blocker.
 - [x] Focused tests and compile checks pass.
+- [x] Patch-level high-iteration diagnostics exist for visual inspection and are labeled diagnostic-only, not full-grid reviewer-facing evidence.
 
 ## Artifacts Index
 
 - Plan: `docs/plans/revision-studies/non-ml-single-shot-cdi-known-probe-hio-er-plan.md`
 - Benchmark artifact root: `.artifacts/revision_studies/non_ml_single_shot_cdi_benchmark/`
 - Existing PyNX replacement report: `.artifacts/work/revision-studies/non-ml-single-shot-cdi-benchmark-execution-report.md`
+- High-iteration patch diagnostic PNG: `tmp/hio_er_patch0_diagnostic.png`
+- High-iteration patch diagnostic metrics: `.artifacts/revision_studies/non_ml_single_shot_cdi_benchmark/known_probe_patch0_high_iter_diagnostic.json`
 - Paper checklist: `/home/ollie/Documents/ptychopinnpaper2/reviewer_revision_checklist.md`
 
 ## Execution Notes
@@ -603,3 +606,18 @@ python -m py_compile scripts/reconstruction/hio_cdi_benchmark.py
   - Smoke selected solver: `known_probe_object_hio_er`; solver manifest marks this candidate accepted and marks `pynx_cdi_hio_er` not accepted for the smoke row.
   - Smoke residual payload recorded 2 patches. First patch selected final residual was `0.15846437254189952` with selected curve `[2.2679662709276475e-08, 0.46271156801017627, 0.4627799090285935, 0.4454860556741642, 0.43677658476509834, 0.15846437254189952]`.
   - Metrics JSON has `eval_status: failed` with `ValueError('stitched reconstruction spatial shape (10, 10) does not match stored YY_ground_truth shape (330, 330); run without --max-test-frames for reviewer-facing metrics')`. This is an expected bounded-smoke limitation, not a solver crash. The result is diagnostic only until a full-grid run, or a separately approved metric contract, produces reviewer-facing metrics.
+- 2026-04-13: Restored the known-probe symbols after later PyNX-adapter edits had removed the live API from `scripts/reconstruction/hio_cdi_benchmark.py`.
+  - Restored public surface: `KNOWN_PROBE_SOLVER`, `known_probe_forward_amplitude(...)`, `project_known_probe_fourier_magnitude(...)`, `known_probe_fourier_residual(...)`, `known_probe_hio_update(...)`, `known_probe_er_cleanup(...)`, and `run_known_probe_restarts(...)`.
+  - Preserved the newer PyNX adapter behavior in the same file, including `to_pynx_intensity(..., intensity_scale_factor=1.0)`, `PynxCdiAdapter(intensity_scale_factor=1.0)`, `get_obj(shift=True)`, and `FreePU` cleanup.
+  - Fresh verification after the restore:
+    - `python -m pytest tests/scripts/test_hio_cdi_benchmark.py -k "known_probe" -q` -> 7 passed, 34 deselected.
+    - `python -m py_compile scripts/reconstruction/hio_cdi_benchmark.py tests/scripts/test_hio_cdi_benchmark.py` -> passed.
+    - `python -m pytest tests/scripts/test_hio_cdi_benchmark.py -q` -> 41 passed.
+- 2026-04-13: Regenerated the patch-0 visual diagnostic with higher iteration counts.
+  - PNG: `tmp/hio_er_patch0_diagnostic.png`.
+  - Metrics JSON: `.artifacts/revision_studies/non_ml_single_shot_cdi_benchmark/known_probe_patch0_high_iter_diagnostic.json`.
+  - Diagnostic cases:
+    - known-probe `200 HIO + 50 ER`: final residual `0.0694108795610936`, support amplitude MAE `0.2925032990825463`, support phase-aligned complex MAE `0.7849620741418095`.
+    - known-probe `50 ER + 200 HIO + 50 ER`: final residual `0.07209453474197634`, support amplitude MAE `0.31982089847865036`, support phase-aligned complex MAE `0.7837390618810375`.
+    - PyNX exit-wave `200 HIO + 50 ER`, probe-divided: final residual `0.06931697248655655`, support amplitude MAE `0.2842127838491639`, support phase-aligned complex MAE `0.7533331292584299`.
+  - Interpretation: this artifact is a patch-level diagnostic for visual inspection and iteration-schedule triage. It is not a full-grid same-split reviewer-facing row and must not be used to select the primary benchmark schedule by ground-truth metrics.

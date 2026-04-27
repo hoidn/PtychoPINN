@@ -10,6 +10,13 @@
   evidence.
 - Avoid spending execution budget on optional follow-ups while required
   prerequisite evidence is still missing.
+- For the current PDEBench CNS external-baseline queue, run the author-FFNO
+  equal-footing compare before the paper-default GNOT rerun unless FFNO is
+  explicitly blocked.
+- For external PDEBench CNS baselines, treat the paper-default GNOT rerun and
+  the author-FFNO baseline as both valid comparison candidates. Choose ordering
+  pragmatically based on expected baseline strength, setup cost, and training
+  cost on the local equal-footing contract.
 
 ## Required Comparison Standards
 
@@ -39,3 +46,7 @@
 - Use steering as strategic intent, the roadmap as ordered execution authority,
   backlog items as candidate work units, and fresh approved plans as the
   implementation authority for a selected item.
+- Treat author FFNO as a real external CNS baseline, not just an optional
+  follow-up. GNOT and FFNO can both be justified baseline work, but for the
+  current queue FFNO should be attempted first and GNOT should follow only
+  after FFNO completes or is recorded blocked.

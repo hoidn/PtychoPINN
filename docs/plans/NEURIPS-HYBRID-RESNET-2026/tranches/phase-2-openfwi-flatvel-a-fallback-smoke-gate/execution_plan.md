@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Prove whether the selected OpenFWI FlatVel-A fallback can support the required non-CDI PDE/inverse benchmark pillar by validating smoke-shard access, data contracts, MAE/RMSE/SSIM metrics, and tiny Hybrid ResNet-compatible plus local-baseline supervised inversion runs.
+**Goal:** Prove whether the selected OpenFWI FlatVel-A fallback can proceed to a later benchmark-performance run by validating smoke-shard access, data contracts, MAE/RMSE/SSIM metric plumbing, and tiny Hybrid ResNet-compatible plus local-baseline supervised inversion execution. This smoke gate is readiness evidence only, not a model-performance assessment.
 
-**Architecture:** Keep this as the Roadmap Phase 2 fallback smoke/data-access gate after the approved PDEBench SWE pivot, not full OpenFWI execution and not CDI polish. Add a narrow study harness under `scripts/studies/openfwi_flatvel_a/` that owns shard manifests, shape validation, deterministic smoke splits, normalization, MAE/RMSE/SSIM metrics, tiny model adapters, command/provenance IO, and a durable proceed/block/reject summary. Bulky data, logs, checkpoints, and machine-readable evidence stay under `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate/` or another ignored/external root named in the summary.
+**Architecture:** Keep this as the Roadmap Phase 2 fallback smoke/data-access gate after the approved PDEBench SWE pivot, not full OpenFWI execution, not a benchmark-performance tranche, and not CDI polish. Add a narrow study harness under `scripts/studies/openfwi_flatvel_a/` that owns shard manifests, shape validation, deterministic smoke splits, normalization, MAE/RMSE/SSIM metrics, tiny model adapters, command/provenance IO, and a durable proceed/block/reject summary whose decision is limited to readiness and operational viability. Bulky data, logs, checkpoints, and machine-readable evidence stay under `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-openfwi-flatvel-a-fallback-smoke-gate/` or another ignored/external root named in the summary.
 
 **Tech Stack:** Python 3.11 via PATH `python`, `ptycho311` for long-running tmux launches, NumPy `.npy` shards, PyTorch, existing `ptycho_torch` Hybrid ResNet components, `scikit-image` SSIM, Markdown/JSON/CSV provenance artifacts, optional external OpenFWI repository checkout for official InversionNet compatibility only.
 
@@ -32,6 +32,7 @@
 - [ ] **Smoke-Shard Scope:** Start with `data1.npy`/`model1.npy` for train smoke and `data49.npy`/`model49.npy` for validation/test smoke when shard-level access exists. Do not download or train on the full 43 GB FlatVel-A dataset unless limited to a bounded preflight that does not replace a later longer-execution tranche.
 - [ ] **Shape Contract:** Validate seismic shard shape `(500, 5, 1000, 70)` and velocity shard shape `(500, 1, 70, 70)`, or document the official schema difference before any training.
 - [ ] **Shared Contract Across Models:** Hybrid ResNet-compatible and baseline smoke runs must share the same shard manifest, deterministic sample caps, seed `20260420`, normalization, target preprocessing, metrics, and evaluation budget.
+- [ ] **Smoke Evidence Boundary:** Treat all smoke metrics as sanity/provenance artifacts only. Do not compute or publish model-ranking summary fields, do not call Hybrid ResNet competitive/noncompetitive from this gate, and do not reject the fallback for performance from smoke metrics.
 - [ ] **Baseline Requirement:** Attempt official InversionNet compatibility first if practical. If official compatibility is blocked, run at least one local baseline, preferably `unet_smoke`, under the same smoke contract and record official OpenFWI rows only as protocol-caveated published context.
 - [ ] **Metrics:** Report MAE as primary and RMSE/SSIM as secondary. Metrics must be computed on denormalized velocity maps when target normalization is used.
 - [ ] **External Code Boundary:** Do not vendor OpenFWI source or add unscoped production dependencies. If official code is needed, use an external checkout path supplied by CLI and record its URL, commit, license, and compatibility status.
@@ -112,7 +113,7 @@ This tranche needs an Implementation Architecture section because it crosses ext
 ### Material Decisions And Missing Decisions
 
 - **Pinned decision:** OpenFWI FlatVel-A is the fallback. This plan must not expand to OpenFWI CurveVel, Fault, Style, Kimberlina, PDEArena, or a SWE rerun.
-- **Pinned decision:** The smoke gate proves data access, data contract, metric writing, and tiny supervised inversion execution. It does not produce full official OpenFWI evidence.
+- **Pinned decision:** The smoke gate proves data access, data contract, metric writing, and tiny supervised inversion execution. It does not produce full official OpenFWI evidence, benchmark-performance evidence, or a Hybrid ResNet competitiveness judgment.
 - **Pinned smoke preprocessing:** Local Hybrid ResNet-compatible and local U-Net smoke profiles may use a documented deterministic resize of seismic shot-gather inputs from `(5, 1000, 70)` to `(5, 70, 70)` before the 2D image-to-image adapter. This is a smoke adapter boundary, not a claim that the full OpenFWI protocol uses that preprocessing.
 - **Official baseline boundary:** Official InversionNet compatibility is preferred, but the plan cannot assume the older official code runs in the current environment. If compatibility fails, write an official-code blocker and run a local baseline substitute under the same smoke shards.
 - **Missing decision to call out during implementation if needed:** The exact official or verified shard download/access path may not support individual `data1.npy`/`model1.npy` and `data49.npy`/`model49.npy` retrieval. If shard-level access is unavailable and full 43 GB staging lacks approved storage, the tranche must write `block for storage/data/human decision` rather than downloading the full dataset implicitly.
@@ -212,20 +213,20 @@ This tranche needs an Implementation Architecture section because it crosses ext
 - **Compatibility boundary:** default behavior refuses non-empty output roots unless `--allow-existing-output-root` is passed and freshness validation is enabled. Any live PID marker is rejected. Any PID marker without exit-code evidence is rejected.
 - **Focused tests:** CLI help mentions required flags; duplicate-root rejection; prelaunch marker allowance; live/stale PID guards; synthetic CPU smoke run writes invocation, manifest, metrics, provenance, and comparison files; run ID mismatch rejected; nonzero exit-code freshness rejected; official InversionNet blocker still allows local `unet_smoke` baseline path.
 
-### Unit 6: Comparison Collation and Gate Input
+### Unit 6: Smoke Contract Collation and Gate Input
 
-- **Owns:** deterministic comparison CSV/JSON, local-baseline completeness checks, same-contract validation across profiles, official InversionNet compatibility status, and machine-readable decision input for the durable summary.
+- **Owns:** deterministic smoke CSV/JSON, local-baseline completeness checks, same-contract validation across profiles, official InversionNet compatibility status, explicit smoke-only evidence-scope fields, and machine-readable readiness input for the durable summary.
 - **Proposed files:**
   - Create: `scripts/studies/openfwi_flatvel_a/reporting.py`
   - Test: `tests/studies/test_openfwi_flatvel_a_reporting.py`
 - **Stable interfaces/artifacts:**
   - `comparison_summary.csv`
   - `comparison_summary.json`
-  - Gate fields: `data_access_complete`, `shape_validation_complete`, `hybrid_profile_complete`, `local_baseline_complete`, `official_inversionnet_status`, `best_baseline_MAE`, `hybrid_MAE`, `relative_gap_vs_best_baseline`, `recommended_decision_input`.
-- **Must not own:** running models, altering metrics, or making human-facing claims without the executor's review.
+  - Gate fields: `evidence_scope`, `metric_interpretation`, `performance_assessment_complete`, `data_access_complete`, `shape_validation_complete`, `hybrid_profile_complete`, `local_baseline_complete`, `official_inversionnet_status`, `recommended_decision_input`, and `profiles`.
+- **Must not own:** running models, altering metrics, computing model-ranking summary fields, or making human-facing performance claims without a later benchmark-performance plan.
 - **Dependency direction:** consumes Unit 5 profile artifacts and feeds Unit 7.
 - **Compatibility boundary:** missing official InversionNet is not fatal if a local baseline completed and the official blocker is recorded. Missing both official and local baseline evidence is fatal for this gate.
-- **Focused tests:** collator rejects incomparable run IDs/split manifests/normalization stats, handles blocker files separately from metrics, computes best baseline and relative gap deterministically, writes stable CSV column order, emits allowed `recommended_decision_input` values only.
+- **Focused tests:** collator rejects incomparable run IDs/split manifests/normalization stats, handles blocker files separately from metrics, writes stable CSV column order, emits explicit smoke-only evidence-scope fields, omits `hybrid_MAE`/`best_baseline_MAE`/`relative_gap_vs_best_baseline` summary fields, and emits allowed `recommended_decision_input` values only.
 
 ### Unit 7: Durable Smoke Summary and Discoverability
 
@@ -883,8 +884,9 @@ Required test coverage:
 
 - Collator handles metrics and blocker files.
 - Collator rejects mismatched run IDs or split manifests.
-- Collator computes `best_baseline_MAE` and `relative_gap_vs_best_baseline`.
-- Collator emits one of `proceed_candidate`, `block_data_access`, `block_baseline_incomplete`, `reject_nonviable`, or `block_metrics_incomplete` as `recommended_decision_input`.
+- Collator emits `evidence_scope: smoke_feasibility_only`, `metric_interpretation: sanity_only_not_benchmark_performance`, and `performance_assessment_complete: false`.
+- Collator does not compute or publish `hybrid_MAE`, `best_baseline_MAE`, or `relative_gap_vs_best_baseline` in the JSON summary.
+- Collator emits one of `smoke_contract_complete`, `block_data_access`, `block_baseline_incomplete`, or `block_metrics_incomplete` as `recommended_decision_input`.
 
 - [ ] H2: Implement reporting collation.
 
@@ -975,6 +977,10 @@ decisions = [
 hits = [decision for decision in decisions if decision in text]
 if len(hits) != 1:
     raise SystemExit(f"expected exactly one allowed decision, found {hits}")
+required_boundary_terms = ["smoke", "not benchmark-performance", "performance_assessment_complete: false"]
+missing_boundary = [term for term in required_boundary_terms if term.lower() not in text.lower()]
+if missing_boundary:
+    raise SystemExit(f"summary missing smoke evidence boundary terms: {missing_boundary}")
 for forbidden in ["/home/ollie/Documents/neurips/index.md", "CDI anchor", "256x256 scaling"]:
     if forbidden in text and "non-goal" not in text.lower():
         raise SystemExit(f"summary appears to promote forbidden later-phase work: {forbidden}")
@@ -1098,6 +1104,8 @@ decisions = [
     "Decision: reject fallback as nonviable",
 ]
 assert sum(decision in text for decision in decisions) == 1
+for term in ["not benchmark-performance", "performance_assessment_complete: false"]:
+    assert term in text
 print("OpenFWI fallback smoke gate summary decision is valid")
 PY
 ```

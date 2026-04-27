@@ -23,6 +23,8 @@ CSV_COLUMNS = [
     "blocker_reason",
 ]
 
+SUMMARY_SCHEMA_VERSION = "openfwi_flatvel_a_comparison_summary_v2"
+
 
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -117,8 +119,11 @@ def collate_comparison(run_root: Path, *, profiles: list[str], run_id: str | Non
                 for profile in profiles
             ]
             summary = {
-                "schema_version": "openfwi_flatvel_a_comparison_summary_v1",
+                "schema_version": SUMMARY_SCHEMA_VERSION,
                 "run_id": run_id,
+                "evidence_scope": "smoke_feasibility_only",
+                "metric_interpretation": "sanity_only_not_benchmark_performance",
+                "performance_assessment_complete": False,
                 "data_access_complete": False,
                 "shape_validation_complete": False,
                 "hybrid_profile_complete": False,
@@ -141,13 +146,8 @@ def collate_comparison(run_root: Path, *, profiles: list[str], run_id: str | Non
         for row in rows
         if row["profile_id"] != "hybrid_resnet_smoke" and row["status"] == "metrics"
     ]
-    hybrid_mae = _finite(hybrid.get("test_MAE"))
-    baseline_maes = [_finite(row.get("test_MAE")) for row in baseline_rows]
-    baseline_maes = [item for item in baseline_maes if item is not None]
-    best_baseline = min(baseline_maes) if baseline_maes else None
-    relative_gap = None
-    if hybrid_mae is not None and best_baseline is not None and best_baseline > 0:
-        relative_gap = (hybrid_mae - best_baseline) / best_baseline
+    hybrid_metric_present = _finite(hybrid.get("test_MAE")) is not None
+    baseline_metric_present = any(_finite(row.get("test_MAE")) is not None for row in baseline_rows)
     official_path = run_root / "official_inversionnet_compatibility.json"
     official_blocker_path = run_root / "official_inversionnet_blocker.json"
     if official_path.exists():
@@ -159,24 +159,24 @@ def collate_comparison(run_root: Path, *, profiles: list[str], run_id: str | Non
 
     hybrid_complete = hybrid.get("status") == "metrics"
     baseline_complete = bool(baseline_rows)
-    metrics_complete = hybrid_mae is not None and best_baseline is not None
+    metrics_complete = hybrid_metric_present and baseline_metric_present
     if not baseline_complete:
         decision = "block_baseline_incomplete"
     elif not hybrid_complete or not metrics_complete:
         decision = "block_metrics_incomplete"
     else:
-        decision = "proceed_candidate"
+        decision = "smoke_contract_complete"
     summary = {
-        "schema_version": "openfwi_flatvel_a_comparison_summary_v1",
+        "schema_version": SUMMARY_SCHEMA_VERSION,
         "run_id": run_id,
+        "evidence_scope": "smoke_feasibility_only",
+        "metric_interpretation": "sanity_only_not_benchmark_performance",
+        "performance_assessment_complete": False,
         "data_access_complete": True,
         "shape_validation_complete": (run_root / "shard_shapes.json").exists(),
         "hybrid_profile_complete": hybrid_complete,
         "local_baseline_complete": baseline_complete,
         "official_inversionnet_status": official_status,
-        "best_baseline_MAE": best_baseline,
-        "hybrid_MAE": hybrid_mae,
-        "relative_gap_vs_best_baseline": relative_gap,
         "recommended_decision_input": decision,
         "profiles": profiles_by_id,
     }

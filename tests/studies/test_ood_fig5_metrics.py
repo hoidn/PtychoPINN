@@ -209,6 +209,76 @@ def test_missing_or_nonfinite_arrays_are_rejected_before_metrics(tmp_path):
         )
 
 
+def test_metrics_table_bolds_best_values_within_each_condition():
+    study = _import_study()
+
+    table = study.render_metrics_table(
+        [
+            {
+                "condition": "ID",
+                "model": "PtychoPINN",
+                "amplitude_mse": 0.01504,
+                "amplitude_mse_unscaled": 0.015008098945888785,
+                "amplitude_psnr": 66.358,
+                "amplitude_psnr_unscaled": 17.53946844649455,
+                "amplitude_ssim": 0.4955,
+                "phase_mse": 0.1553,
+                "phase_psnr": 56.219,
+                "phase_ssim": 0.7687,
+            },
+            {
+                "condition": "ID",
+                "model": "Supervised baseline",
+                "amplitude_mse": 0.01246,
+                "amplitude_mse_unscaled": 0.013047583730996593,
+                "amplitude_psnr": 67.176,
+                "amplitude_psnr_unscaled": 18.147424363658715,
+                "amplitude_ssim": 0.538,
+                "phase_mse": 0.07434,
+                "phase_psnr": 59.418,
+                "phase_ssim": 0.8119,
+            },
+            {
+                "condition": "OOD",
+                "model": "PtychoPINN",
+                "amplitude_mse": 0.02412,
+                "amplitude_mse_unscaled": 0.03223916468129783,
+                "amplitude_psnr": 64.307,
+                "amplitude_psnr_unscaled": 14.218887482422423,
+                "amplitude_ssim": 0.1757,
+                "phase_mse": 0.295,
+                "phase_psnr": 53.432,
+                "phase_ssim": 0.5137,
+            },
+            {
+                "condition": "OOD",
+                "model": "Supervised baseline",
+                "amplitude_mse": 0.02182,
+                "amplitude_mse_unscaled": 0.24756047207007909,
+                "amplitude_psnr": 64.742,
+                "amplitude_psnr_unscaled": 5.365912267523627,
+                "amplitude_ssim": 0.07236,
+                "phase_mse": 0.3981,
+                "phase_psnr": 52.131,
+                "phase_ssim": 0.3805,
+            },
+        ]
+    )
+
+    assert (
+        r"ID & Supervised baseline & \textbf{0.01305} & \textbf{18.147} & \textbf{0.538} & \textbf{0.07434} & \textbf{59.418} & \textbf{0.8119} \\"
+        in table
+    )
+    assert (
+        r"OOD & PtychoPINN & \textbf{0.03224} & \textbf{14.219} & \textbf{0.1757} & \textbf{0.295} & \textbf{53.432} & \textbf{0.5137} \\"
+        in table
+    )
+    assert (
+        r"OOD & Supervised baseline & 0.2476 & 5.366 & 0.07236 & 0.3981 & 52.131 & 0.3805 \\"
+        in table
+    )
+
+
 def test_output_root_lock_is_acquired_before_invocation_artifacts_are_written(tmp_path):
     study = _import_study()
     output_root = tmp_path / "run"

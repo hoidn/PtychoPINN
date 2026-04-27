@@ -155,3 +155,48 @@ def test_grid_lines_hybrid_resnet_metrics(grid_lines_scratch_root):
         else:
             assert cur_amp >= base_amp - tol_amp
             assert cur_phase >= base_phase - tol_phase
+
+
+@pytest.mark.integration
+def test_grid_lines_spectral_resnet_bottleneck_smoke(grid_lines_scratch_root):
+    train_npz, test_npz = _ensure_dataset(grid_lines_scratch_root)
+
+    cmd = [
+        "python",
+        "scripts/studies/grid_lines_torch_runner.py",
+        "--output-dir", str(grid_lines_scratch_root),
+        "--architecture", "spectral_resnet_bottleneck_net",
+        "--train-npz", str(train_npz),
+        "--test-npz", str(test_npz),
+        "--N", "128",
+        "--gridsize", "1",
+        "--epochs", "1",
+        "--batch-size", "16",
+        "--infer-batch-size", "16",
+        "--learning-rate", "2e-4",
+        "--scheduler", "ReduceLROnPlateau",
+        "--plateau-factor", "0.5",
+        "--plateau-patience", "2",
+        "--plateau-min-lr", "1e-4",
+        "--plateau-threshold", "0.0",
+        "--seed", "3",
+        "--optimizer", "adam",
+        "--weight-decay", "0.0",
+        "--beta1", "0.9",
+        "--beta2", "0.999",
+        "--torch-loss-mode", "mae",
+        "--output-mode", "real_imag",
+        "--probe-source", "custom",
+        "--fno-modes", "12",
+        "--fno-width", "32",
+        "--fno-blocks", "4",
+        "--fno-cnn-blocks", "2",
+        "--torch-logger", "csv",
+    ]
+
+    subprocess.run(cmd, check=True)
+
+    metrics_path = grid_lines_scratch_root / "runs/pinn_spectral_resnet_bottleneck_net/metrics.json"
+    visuals_dir = grid_lines_scratch_root / "visuals"
+    assert metrics_path.exists()
+    assert (visuals_dir / "amp_phase_pinn_spectral_resnet_bottleneck_net.png").exists()

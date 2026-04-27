@@ -1,0 +1,393 @@
+version: "2.7"
+name: "roadmap-seeded-plan-phase"
+
+context:
+  workflow_model: "gpt-5.4"
+  workflow_effort: "high"
+
+inputs:
+  state_root:
+    type: relpath
+    under: state
+  design_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  roadmap_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  tranche_context_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+  plan_target_path:
+    type: relpath
+    under: docs/plans
+  plan_review_report_target_path:
+    type: relpath
+    under: artifacts/review
+
+outputs:
+  plan_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizePlanPhaseOutputs.artifacts.plan_path
+  plan_review_report_path:
+    type: relpath
+    under: artifacts/review
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizePlanPhaseOutputs.artifacts.plan_review_report_path
+  plan_review_decision:
+    kind: scalar
+    type: enum
+    allowed: ["APPROVE", "REVISE"]
+    from:
+      ref: root.steps.FinalizePlanPhaseOutputs.artifacts.plan_review_decision
+
+providers:
+  codex:
+    command: ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check", "--model", "${model}", "--config", "reasoning_effort=${effort}"]
+    input_mode: "stdin"
+    defaults:
+      model: "${context.workflow_model}"
+      effort: "${context.workflow_effort}"
+
+artifacts:
+  design:
+    pointer: ${inputs.state_root}/design_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  roadmap:
+    pointer: ${inputs.state_root}/roadmap_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  tranche_context:
+    pointer: ${inputs.state_root}/tranche_context_path.txt
+    type: relpath
+    under: state
+    must_exist_target: true
+  plan:
+    pointer: ${inputs.state_root}/plan_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  plan_review_report:
+    pointer: ${inputs.state_root}/plan_review_report_path.txt
+    type: relpath
+    under: artifacts/review
+    must_exist_target: true
+  plan_review_decision:
+    kind: scalar
+    type: enum
+    allowed: ["APPROVE", "REVISE"]
+  open_findings:
+    pointer: ${inputs.state_root}/open_findings_path.txt
+    type: relpath
+    under: state
+    must_exist_target: true
+  review_decision:
+    kind: scalar
+    type: enum
+    allowed: ["APPROVE", "REVISE"]
+
+steps:
+  - name: InitializePlanPhasePaths
+    id: initialize_plan_phase_paths
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p "${inputs.state_root}" "$(dirname "${inputs.plan_target_path}")" "$(dirname "${inputs.plan_review_report_target_path}")"
+        printf '%s\n' "${inputs.plan_target_path}" > "${inputs.state_root}/plan_path.txt"
+        printf '%s\n' "${inputs.plan_review_report_target_path}" > "${inputs.state_root}/plan_review_report_path.txt"
+        printf '%s\n' "${inputs.state_root}/open_findings.json" > "${inputs.state_root}/open_findings_path.txt"
+        cat > "${inputs.state_root}/open_findings.json" <<'JSON'
+        {
+          "findings": []
+        }
+        JSON
+    expected_outputs:
+      - name: plan_path
+        path: ${inputs.state_root}/plan_path.txt
+        type: relpath
+        under: docs/plans
+      - name: plan_review_report_path
+        path: ${inputs.state_root}/plan_review_report_path.txt
+        type: relpath
+        under: artifacts/review
+      - name: open_findings_path
+        path: ${inputs.state_root}/open_findings_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+    publishes:
+      - artifact: open_findings
+        from: open_findings_path
+
+  - name: PublishPlanContextInputs
+    id: publish_plan_context_inputs
+    command:
+      - bash
+      - -lc
+      - |
+        if [ ! -f "${inputs.design_path}" ]; then
+          echo "Missing design file: ${inputs.design_path}" >&2
+          exit 1
+        fi
+        if [ ! -f "${inputs.roadmap_path}" ]; then
+          echo "Missing roadmap file: ${inputs.roadmap_path}" >&2
+          exit 1
+        fi
+        if [ ! -f "${inputs.tranche_context_path}" ]; then
+          echo "Missing tranche context file: ${inputs.tranche_context_path}" >&2
+          exit 1
+        fi
+        printf '%s\n' "${inputs.design_path}" > "${inputs.state_root}/design_path.txt"
+        printf '%s\n' "${inputs.roadmap_path}" > "${inputs.state_root}/roadmap_path.txt"
+        printf '%s\n' "${inputs.tranche_context_path}" > "${inputs.state_root}/tranche_context_path.txt"
+    expected_outputs:
+      - name: design_path
+        path: ${inputs.state_root}/design_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: roadmap_path
+        path: ${inputs.state_root}/roadmap_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: tranche_context_path
+        path: ${inputs.state_root}/tranche_context_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+    publishes:
+      - artifact: design
+        from: design_path
+      - artifact: roadmap
+        from: roadmap_path
+      - artifact: tranche_context
+        from: tranche_context_path
+
+  - name: DraftPlan
+    id: draft_plan
+    provider: codex
+    asset_file: prompts/roadmap_seeded_plan_phase/draft_plan.md
+    timeout_sec: 3600
+    consumes:
+      - artifact: design
+        policy: latest_successful
+        freshness: any
+      - artifact: roadmap
+        policy: latest_successful
+        freshness: any
+      - artifact: tranche_context
+        policy: latest_successful
+        freshness: any
+    prompt_consumes: ["design", "roadmap", "tranche_context"]
+    expected_outputs:
+      - name: plan_path
+        path: ${inputs.state_root}/plan_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+    publishes:
+      - artifact: plan
+        from: plan_path
+
+  - name: PlanReviewLoop
+    id: plan_review_loop
+    repeat_until:
+      id: plan_review_iteration
+      max_iterations: 12
+      outputs:
+        review_decision:
+          kind: scalar
+          type: enum
+          allowed: ["APPROVE", "REVISE"]
+          from:
+            ref: self.steps.RoutePlanDecision.artifacts.review_decision
+      condition:
+        compare:
+          left:
+            ref: self.outputs.review_decision
+          op: eq
+          right: APPROVE
+      steps:
+        - name: ReviewPlanTracked
+          id: review_plan_tracked
+          provider: codex
+          asset_file: prompts/roadmap_seeded_plan_phase/review_plan.md
+          timeout_sec: 1800
+          consumes:
+            - artifact: design
+              policy: latest_successful
+              freshness: any
+            - artifact: roadmap
+              policy: latest_successful
+              freshness: any
+            - artifact: tranche_context
+              policy: latest_successful
+              freshness: any
+            - artifact: plan
+              policy: latest_successful
+              freshness: any
+            - artifact: open_findings
+              policy: latest_successful
+              freshness: any
+          prompt_consumes: ["design", "roadmap", "tranche_context", "plan", "open_findings"]
+          expected_outputs:
+            - name: plan_review_report_path
+              path: ${inputs.state_root}/plan_review_report_path.txt
+              type: relpath
+              under: artifacts/review
+              must_exist_target: true
+            - name: plan_review_decision
+              path: ${inputs.state_root}/plan_review_decision.txt
+              type: enum
+              allowed: ["APPROVE", "REVISE"]
+            - name: unresolved_high_count
+              path: ${inputs.state_root}/unresolved_high_count.txt
+              type: integer
+            - name: unresolved_medium_count
+              path: ${inputs.state_root}/unresolved_medium_count.txt
+              type: integer
+          publishes:
+            - artifact: plan_review_report
+              from: plan_review_report_path
+            - artifact: plan_review_decision
+              from: plan_review_decision
+
+        - name: RoutePlanDecision
+          id: route_plan_decision
+          match:
+            ref: self.steps.ReviewPlanTracked.artifacts.plan_review_decision
+            cases:
+              APPROVE:
+                id: approve_plan_path
+                outputs:
+                  review_decision:
+                    kind: scalar
+                    type: enum
+                    allowed: ["APPROVE", "REVISE"]
+                    from:
+                      ref: self.steps.WriteApprovedPlanDecision.artifacts.review_decision
+                steps:
+                  - name: WriteApprovedPlanDecision
+                    id: write_approved_plan_decision
+                    set_scalar:
+                      artifact: review_decision
+                      value: APPROVE
+              REVISE:
+                id: revise_plan_path
+                outputs:
+                  review_decision:
+                    kind: scalar
+                    type: enum
+                    allowed: ["APPROVE", "REVISE"]
+                    from:
+                      ref: self.steps.WriteRevisedPlanDecision.artifacts.review_decision
+                steps:
+                  - name: RevisePlanTracked
+                    id: revise_plan_tracked
+                    provider: codex
+                    asset_file: prompts/roadmap_seeded_plan_phase/revise_plan.md
+                    timeout_sec: 3600
+                    consumes:
+                      - artifact: design
+                        policy: latest_successful
+                        freshness: any
+                      - artifact: roadmap
+                        policy: latest_successful
+                        freshness: any
+                      - artifact: tranche_context
+                        policy: latest_successful
+                        freshness: any
+                      - artifact: plan
+                        policy: latest_successful
+                        freshness: any
+                      - artifact: plan_review_report
+                        policy: latest_successful
+                        freshness: any
+                    prompt_consumes: ["design", "roadmap", "tranche_context", "plan", "plan_review_report"]
+                    expected_outputs:
+                      - name: plan_path
+                        path: ${inputs.state_root}/plan_path.txt
+                        type: relpath
+                        under: docs/plans
+                        must_exist_target: true
+                    publishes:
+                      - artifact: plan
+                        from: plan_path
+                  - name: ExtractOpenPlanFindings
+                    id: extract_open_plan_findings
+                    command:
+                      - bash
+                      - -lc
+                      - |
+                        python - <<'PY'
+                        import json
+                        from pathlib import Path
+
+                        review_pointer = Path("${inputs.state_root}/plan_review_report_path.txt")
+                        review_path = Path(review_pointer.read_text(encoding="utf-8").strip())
+                        report = json.loads(review_path.read_text(encoding="utf-8"))
+
+                        carried = []
+                        for finding in report.get("findings", []):
+                            if finding.get("status") in {"STILL_OPEN", "NEW", "SPLIT"}:
+                                carried.append(finding)
+
+                        open_findings_pointer = Path("${inputs.state_root}/open_findings_path.txt")
+                        open_findings_path = Path(open_findings_pointer.read_text(encoding="utf-8").strip())
+                        open_findings_path.parent.mkdir(parents=True, exist_ok=True)
+                        open_findings_path.write_text(
+                            json.dumps({"findings": carried}, indent=2) + "\n",
+                            encoding="utf-8",
+                        )
+                        PY
+                    expected_outputs:
+                      - name: open_findings_path
+                        path: ${inputs.state_root}/open_findings_path.txt
+                        type: relpath
+                        under: state
+                        must_exist_target: true
+                    publishes:
+                      - artifact: open_findings
+                        from: open_findings_path
+                  - name: WriteRevisedPlanDecision
+                    id: write_revised_plan_decision
+                    set_scalar:
+                      artifact: review_decision
+                      value: REVISE
+
+  - name: FinalizePlanPhaseOutputs
+    id: finalize_plan_phase_outputs
+    command:
+      - bash
+      - -lc
+      - |
+        cat "${inputs.state_root}/plan_path.txt" > "${inputs.state_root}/final_plan_path.txt"
+        cat "${inputs.state_root}/plan_review_report_path.txt" > "${inputs.state_root}/final_plan_review_report_path.txt"
+        cat "${inputs.state_root}/plan_review_decision.txt" > "${inputs.state_root}/final_plan_review_decision.txt"
+    expected_outputs:
+      - name: plan_path
+        path: ${inputs.state_root}/final_plan_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: plan_review_report_path
+        path: ${inputs.state_root}/final_plan_review_report_path.txt
+        type: relpath
+        under: artifacts/review
+        must_exist_target: true
+      - name: plan_review_decision
+        path: ${inputs.state_root}/final_plan_review_decision.txt
+        type: enum
+        allowed: ["APPROVE", "REVISE"]
