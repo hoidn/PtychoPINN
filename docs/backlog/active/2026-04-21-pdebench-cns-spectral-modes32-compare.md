@@ -4,7 +4,6 @@ plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_modes32_compa
 check_commands:
   - pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py
   - python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py
-prerequisites: []
 related_roadmap_phases:
   - phase-2-pdebench-128x128-image-suite
 ---
