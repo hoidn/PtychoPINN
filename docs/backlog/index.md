@@ -8,6 +8,7 @@ Current source of truth:
 
 - strategic order: [steering.md](../steering.md)
 - roadmap gates: [2026-04-20-neurips-hybrid-resnet-submission-roadmap.md](../plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md)
+- deterministic active gate: [roadmap_gate.json](roadmap_gate.json)
 - queue items: [`docs/backlog/active/`](active/) and [`docs/backlog/in_progress/`](in_progress/)
 
 ## Rules
@@ -19,37 +20,36 @@ Current source of truth:
   dependency.
 - Parallel items on the same roadmap phase are explicitly listed as such so the
   selector does not invent a false serial order.
+- `docs/backlog/roadmap_gate.json` is applied before provider selection. If no
+  active item satisfies that gate and the missing work is already authorized by
+  the roadmap, the workflow may draft a new active backlog item instead of
+  selecting later-phase work.
 
 ## Current Queue Graph
 
 | Item | Status | Roadmap Phase | Dependency Relation | Notes |
 |---|---|---|---|---|
-| [2026-04-21-pdebench-cns-markov-history1-compare.md](active/2026-04-21-pdebench-cns-markov-history1-compare.md) | `active` | `phase-2-pdebench-128x128-image-suite` | Independent ablation lane; no active backlog prerequisite | Depends only on already-available `history_len=2` capped anchors for comparison. Must rerun the full four-row shell on `history_len=1`. |
-| [2026-04-21-pdebench-cns-spectral-modes32-compare.md](active/2026-04-21-pdebench-cns-spectral-modes32-compare.md) | `active` | `phase-2-pdebench-128x128-image-suite` | Independent ablation lane; no active backlog prerequisite | Depends only on the existing `12/12` spectral anchor family, which is already available. |
-| [2026-04-22-pdebench-cns-hybrid-spectral-architecture-ablation.md](active/2026-04-22-pdebench-cns-hybrid-spectral-architecture-ablation.md) | `active` | `phase-2-pdebench-128x128-image-suite` | Independent ablation lane; no active backlog prerequisite | Requeued after clearing stale pre-`WAITING` implementation-phase drain state. Assumes the fixed canonical CNS shell (`skip-add` + `pixelshuffle`) and existing shared/noshare anchor evidence. Separate from Markov and modes studies. |
-| [2026-04-27-pdebench-ffno-convolutional-features-cns.md](active/2026-04-27-pdebench-ffno-convolutional-features-cns.md) | `active` | `phase-2-pdebench-128x128-image-suite` | FFNO-family CNS extension; no active backlog prerequisite | Builds on completed authored-FFNO and FFNO-close context, but is not blocked by any remaining active item. |
-| [2026-04-27-cdi-ffno-generator-lines-best-config.md](active/2026-04-27-cdi-ffno-generator-lines-best-config.md) | `active` | `phase-3-cdi-anchor-regeneration` | CDI/ptycho generator lane; no active backlog prerequisite | Uses the study-indexed best lines configuration and must not reuse CNS evidence as CDI evidence. |
+| [2026-04-28-pdebench-cns-spectral-modes24-convergence-compare.md](active/2026-04-28-pdebench-cns-spectral-modes24-convergence-compare.md) | `active` | `phase-2-pdebench-128x128-image-suite` | Depends on completed modes-32 compare | Reruns `12/12` and new `24/24` spectral rows at `1024 / 128 / 128` with batch size `16` under the same convergence-oriented budget, so mode-count interpretation is not confounded by old under-converged batch-4 rows. |
+| [2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap.md](active/2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap.md) | `active` | `phase-2-pdebench-128x128-image-suite` | Depends on completed Hybrid-spectral architecture ablation | Reruns only the `spectral_resnet_bottleneck_base` and `spectral_resnet_bottleneck_shared_blocks10` finalists at `2048 / 256 / 256` to compare `512 -> 1024 -> 2048` capped scaling deltas. |
+| [2026-04-27-cdi-ffno-generator-lines-best-config.md](in_progress/2026-04-27-cdi-ffno-generator-lines-best-config.md) | `in_progress` | `phase-3-cdi-anchor-regeneration` | CDI/ptycho generator lane; no active backlog prerequisite | Uses the study-indexed best lines configuration and must not reuse CNS evidence as CDI evidence. Currently blocked by roadmap routing unless Phase 3 is explicitly opened. |
 | [2026-04-27-hybrid-spectral-ffno-parameter-space-cns-cdi.md](active/2026-04-27-hybrid-spectral-ffno-parameter-space-cns-cdi.md) | `active` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Blocked on narrower architecture and FFNO follow-ups | Depends on `2026-04-22-pdebench-cns-hybrid-spectral-architecture-ablation`, `2026-04-27-pdebench-ffno-convolutional-features-cns`, and `2026-04-27-cdi-ffno-generator-lines-best-config`. |
 | [2026-03-13-lines256-experiment-history-summary-input.md](active/2026-03-13-lines256-experiment-history-summary-input.md) | `active` | n/a | Separate non-NeurIPS queue branch | Does not block or unlock the CNS benchmark queue. |
 
 ## Implications For Selection
 
-- Most active items remain independently runnable, but
-  `2026-04-27-hybrid-spectral-ffno-parameter-space-cns-cdi` is intentionally
-  blocked on narrower architecture and FFNO follow-ups.
-- The Phase 2 CNS queue currently has **four immediate ablation/extension
-  lanes** (`history_len=1`, `modes32`, hybrid-spectral architecture, and
-  FFNO-with-convolutional-features). All four are selectable active items; the
-  old hybrid-spectral architecture `in_progress` state was stale fallout from
-  the pre-`WAITING` drain contract, not a live semantic blocker.
+- The immediate roadmap-consistent Phase 2 CNS queue now has two active
+  follow-up lanes: the converged-budget `12/12` versus `24/24` mode-count
+  compare, and the `2048 / 256 / 256` Hybrid-spectral finalist scaling check.
 - The FFNO-as-CDI-generator lane is separate from CNS and belongs to the CDI
-  evidence track.
+  evidence track. It should not be selected while the current roadmap routing
+  still requires remaining Phase 2 PDEBench work.
 - The broader Hybrid-spectral-to-FFNO parameter-space study is intentionally
   blocked on the narrower CNS architecture, CNS FFNO-conv, and CDI FFNO
   generator items.
-- The paper-default GNOT rerun and author-FFNO equal-footing compare are now
-  completed external-baseline lanes, so they should not stay in the active
-  queue or be treated as prerequisites for the remaining CNS items.
+- The Markov history-1, modes-32, Hybrid-spectral architecture, FFNO local-conv,
+  paper-default GNOT, and author-FFNO equal-footing lanes are completed. The
+  modes-24 convergence item may use the completed modes-32 run as context, but
+  it should not treat that old item as still-runnable active work.
 - For the independently runnable lanes, the selector should choose between them
   using steering and roadmap value, not a fabricated prerequisite chain.
 - If a future backlog item truly requires another backlog item to land first,

@@ -1,6 +1,6 @@
 ---
 priority: 16
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_modes32_compare_plan.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-pdebench-cns-spectral-modes32-compare/execution_plan.md
 check_commands:
   - pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py
   - python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py

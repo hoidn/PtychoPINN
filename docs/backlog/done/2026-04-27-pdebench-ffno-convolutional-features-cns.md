@@ -1,6 +1,6 @@
 ---
 priority: 19
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_convolutional_features_cns_plan.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-pdebench-ffno-convolutional-features-cns/execution_plan.md
 check_commands:
   - pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py
   - python -m compileall -q scripts/studies/pdebench_image128
