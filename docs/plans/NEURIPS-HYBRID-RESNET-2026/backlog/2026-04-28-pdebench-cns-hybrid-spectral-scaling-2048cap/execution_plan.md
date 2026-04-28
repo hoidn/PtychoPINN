@@ -205,6 +205,35 @@ The scaling payload must be built from these already-completed roots and no othe
   - `docs/findings.md` only if execution uncovers a reusable engineering or reporting rule beyond this one backlog item
   - `docs/studies/index.md` only if a durable runbook/discoverability contract changes
 
+## Review Amendment: Inspect-Gate Sequencing Deviation
+
+The original execution contract in this plan remains authoritative for future work:
+Task 2 inspect proof must go green before Task 3 launches the expensive `2048cap`
+run.
+
+For this already-executed backlog item, implementation review established that
+the actual order differed:
+
+- fresh `2048cap` run launch timestamp from
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/cns-hybrid-spectral-finalists-2048cap-40ep-20260428T201926Z/invocation.json`:
+  `2026-04-28T20:20:10.547417+00:00`
+- generated inspect-proof timestamp from
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/inspect-2048cap-20260428T232104Z/invocation.json`:
+  `2026-04-28T23:20:12.056160+00:00`
+
+Closeout for this item is therefore amended as follows:
+
+- do not describe Task 2 as having gated the already-finished `2048cap` launch
+- treat `inspect-2048cap-20260428T232104Z/` as a post-run contract repair only
+- record the deviation and rationale consistently in the execution report, the
+  `2048cap` durable summary, the broader CNS summary, and the progress ledger
+- no rerun is required for this review closeout as long as those durable
+  surfaces disclose the sequencing deviation explicitly and the required
+  verification checks remain green
+
+This amendment is backlog-item-specific. Any future rerun of this tranche must
+restore the original Task 2 -> Task 3 ordering from this plan.
+
 ### Task 1: Freeze Reference Manifests And Run Deterministic Preflight
 
 **Files:**

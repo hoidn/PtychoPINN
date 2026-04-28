@@ -702,6 +702,18 @@ Fresh `2048cap` run root:
 
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/cns-hybrid-spectral-finalists-2048cap-40ep-20260428T201926Z`
 
+Review-closeout deviation record:
+
+- the generated inspect proof for this tranche lives at
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/inspect-2048cap-20260428T232104Z/`
+- the fresh `2048cap` run launch timestamp was `2026-04-28T20:20:10.547417+00:00`
+  while the generated inspect-proof timestamp was
+  `2026-04-28T23:20:12.056160+00:00`
+- this tranche therefore closes as a documented inspect-gate sequencing
+  deviation rather than as a clean inspect-before-launch execution; see the
+  governing execution plan amendment and the `2048cap` summary for the exact
+  rationale and boundaries
+
 Observed `2048 / 256 / 256` metrics:
 
 - `spectral_resnet_bottleneck_base`:
@@ -716,6 +728,8 @@ Directional read:
 - the `2048cap` extension strengthened the bounded conclusion from the earlier `1024cap` confirmation:
   - `spectral_resnet_bottleneck_base` still improves slightly on aggregate beyond `1024cap`
   - `spectral_resnet_bottleneck_shared_blocks10` regresses on aggregate beyond `1024cap`
+- the post-run inspect repair does not change the model interpretation above; it
+  only narrows what can be claimed about execution sequencing
 - this item remains capped decision-support evidence only and does not justify promoting either spectral row into a benchmark-complete or default-profile claim
 
 Reporting warning:

@@ -1500,8 +1500,8 @@
     },
     {
       "tranche_id": "2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap",
-      "updated_at_utc": "2026-04-28T23:05:13Z",
-      "update_reason": "Completed the capped 2048-cap hybrid-spectral CNS scaling follow-up after the tracked tmux run exited cleanly and the helper-generated scaling payload plus durable summaries were written.",
+      "updated_at_utc": "2026-04-28T23:40:41Z",
+      "update_reason": "Recorded the implementation-review closeout for the capped 2048-cap hybrid-spectral CNS scaling follow-up by documenting that the generated inspect proof was created after the tracked run launch, while keeping the existing scaling result and verification evidence unchanged.",
       "decision": "The shared base spectral row remains the stronger aggregate local reference as the capped CNS slice grows to 2048 trajectories. The deeper shared-blocks10 row keeps only narrower `fRMSE_mid/high` advantages and regresses on aggregate beyond 1024 trajectories, so this follow-up does not justify a default-profile promotion.",
       "decision_scope": "complete_cns_hybrid_spectral_scaling_2048cap_backlog_item",
       "design_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
@@ -1512,6 +1512,14 @@
         "1024cap": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/reference_runs_1024cap_40ep.json"
       },
       "fresh_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/cns-hybrid-spectral-finalists-2048cap-40ep-20260428T201926Z",
+      "inspect_proof_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/inspect-2048cap-20260428T232104Z",
+      "execution_deviation": {
+        "kind": "inspect_gate_recorded_post_run",
+        "run_launch_timestamp_utc": "2026-04-28T20:20:10.547417+00:00",
+        "inspect_proof_timestamp_utc": "2026-04-28T23:20:12.056160+00:00",
+        "disposition": "documented_closeout_without_rerun",
+        "notes": "The governing execution plan required Task 2 inspect proof before Task 3 launch. Review closeout accepted the existing capped run only after the plan, summaries, docs index, and execution report explicitly recorded that the generated inspect proof was produced after launch."
+      },
       "scaling_payload_paths": {
         "json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/finalist_scaling_trend_512_1024_2048.json",
         "csv": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/finalist_scaling_trend_512_1024_2048.csv"
@@ -1677,7 +1685,10 @@
         "pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/final_pytest.log",
         "python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/final_compileall.log",
         "artifact validation -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/final_artifact_validation.log",
-        "scaling helper regression test evidence retained at .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/runner_scaling_trend.log"
+        "scaling helper regression test evidence retained at .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/runner_scaling_trend.log",
+        "review closeout pytest rerun -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/review_closeout_pytest.log",
+        "review closeout compileall rerun -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/review_closeout_compileall.log",
+        "review closeout sequencing check -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/review_closeout_sequence_check.log"
       ],
       "affected_surfaces": [
         "docs/index.md",

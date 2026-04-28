@@ -82,6 +82,21 @@ Fresh `2048cap` run root:
 
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/cns-hybrid-spectral-finalists-2048cap-40ep-20260428T201926Z`
 
+## Execution Deviation Record
+
+- fresh `2048cap` run launch timestamp from that run root's `invocation.json`:
+  `2026-04-28T20:20:10.547417+00:00`
+- generated inspect-proof timestamp from
+  `inspect-2048cap-20260428T232104Z/invocation.json`:
+  `2026-04-28T23:20:12.056160+00:00`
+- the original Task 2 -> Task 3 sequencing contract from the governing
+  execution plan was therefore not met for this already-finished run
+- the generated inspect root proves the fixed `2048 / 256 / 256`,
+  `history_len=2`, `max_windows_per_trajectory=8` contract only post hoc
+- per the review amendment recorded in the governing execution plan and
+  execution report, this backlog item closes only as a documented sequencing
+  deviation; it does not claim that inspect mode greenlit the earlier launch
+
 Scaling payloads:
 
 - JSON:
@@ -191,6 +206,9 @@ Preflight and helper evidence:
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/review_fix_pytest.log`
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/review_fix_compileall.log`
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/review_fix_summary_sync.log`
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/review_closeout_pytest.log`
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/review_closeout_compileall.log`
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/review_closeout_sequence_check.log`
 
 Fresh completion verification:
 
@@ -209,6 +227,8 @@ Run-completion proof:
 ## Claim Boundary
 
 - this is capped CNS decision-support evidence only
+- this item is accepted only with the inspect-gate sequencing deviation
+  disclosed in the governing plan, execution report, and summaries
 - it does not satisfy the PDEBench full-training benchmark gate
 - it does not justify changing the canonical CNS shell
 - it does not justify promoting `spectral_resnet_bottleneck_shared_blocks10` into a default profile
