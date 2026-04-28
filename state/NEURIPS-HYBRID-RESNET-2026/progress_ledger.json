@@ -1160,6 +1160,102 @@
         "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
         "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-pdebench-cns-markov-history1-compare/execution_report.md"
       ]
+    },
+    {
+      "tranche_id": "2026-04-21-pdebench-cns-spectral-modes32-compare",
+      "updated_at_utc": "2026-04-28T02:18:33Z",
+      "update_reason": "Completed the durable modes-32 CNS backlog item after auditing the reused 10-epoch row, accepting the tracked 40-epoch run root as authoritative, and writing the anchored 10/40-epoch compare sidecars.",
+      "decision": "Raising both spectral mode knobs to 32 improved the capped 10-epoch CNS row over the shared 12/12 spectral reference, but at 40 epochs the modes-32 row only improved `fRMSE_mid/high` while regressing aggregate denormalized error and `fRMSE_low`; keep the modes-32 profile manual-only and do not promote it over the shared 12/12 spectral row.",
+      "decision_scope": "complete_spectral_modes32_cns_backlog_item",
+      "design_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-pdebench-cns-spectral-modes32-compare/execution_plan.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare",
+      "reference_manifest_paths": {
+        "10ep": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/reference_runs_10ep.json",
+        "40ep": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/reference_runs_40ep.json"
+      },
+      "fresh_run_roots": {
+        "10ep": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/cns-spectral-modes32-10ep-20260428T010825Z",
+        "40ep": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/cns-spectral-modes32-40ep-20260428T014353Z"
+      },
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_modes32_compare_summary.md",
+      "cns_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "findings_changed": false,
+      "performance_assessment_complete": false,
+      "evidence_scope": "capped_decision_support_only",
+      "metric_interpretation": "decision_support_not_benchmark_performance",
+      "comparison_standard": "Only `fno_modes` and `spectral_bottleneck_modes` may change together; task, dataset, split, history length, batch size, training loss, and metric family remain fixed.",
+      "local_equal_footing_contract": {
+        "task": "2d_cfd_cns",
+        "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        "train_trajectories": 512,
+        "val_trajectories": 64,
+        "test_trajectories": 64,
+        "max_windows_per_trajectory": 8,
+        "history_len": 2,
+        "batch_size": 4,
+        "training_loss": "mse",
+        "metric_family": [
+          "err_RMSE",
+          "err_nRMSE",
+          "relative_l2",
+          "fRMSE_low",
+          "fRMSE_mid",
+          "fRMSE_high"
+        ]
+      },
+      "mode_delta_metrics": {
+        "10ep": {
+          "shared_err_nRMSE": 0.08699385821819305,
+          "modes32_err_nRMSE": 0.08404020220041275,
+          "err_nRMSE_delta_vs_shared": -0.002953656017780304,
+          "shared_fRMSE_high": 0.6955373287200928,
+          "modes32_fRMSE_high": 0.6861363053321838,
+          "fRMSE_high_delta_vs_shared": -0.009401023387908936
+        },
+        "40ep": {
+          "shared_err_nRMSE": 0.061562005430459976,
+          "modes32_err_nRMSE": 0.06455051153898239,
+          "err_nRMSE_delta_vs_shared": 0.002988506108522415,
+          "shared_fRMSE_low": 3.4756414890289307,
+          "modes32_fRMSE_low": 3.6761436462402344,
+          "fRMSE_low_delta_vs_shared": 0.2005021572113037,
+          "shared_fRMSE_mid": 0.28004488348960876,
+          "modes32_fRMSE_mid": 0.24246205389499664,
+          "fRMSE_mid_delta_vs_shared": -0.03758282959461212,
+          "shared_fRMSE_high": 0.43493345379829407,
+          "modes32_fRMSE_high": 0.34717807173728943,
+          "fRMSE_high_delta_vs_shared": -0.08775538206100464
+        }
+      },
+      "compare_artifacts": {
+        "10ep": {
+          "json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/compare_10ep_against_existing.json",
+          "csv": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/compare_10ep_against_existing.csv",
+          "prediction_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/compare_10ep_sample0.png",
+          "error_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/compare_10ep_sample0_error.png"
+        },
+        "40ep": {
+          "json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/compare_40ep_against_existing.json",
+          "csv": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/compare_40ep_against_existing.csv",
+          "prediction_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/compare_40ep_sample0.png",
+          "error_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/compare_40ep_sample0_error.png"
+        }
+      },
+      "verification": [
+        "pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py -> 65 passed",
+        "python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py -> exit 0",
+        "required output check -> pdebench_spectral_modes32_compare_summary.md, compare_10ep_against_existing.json, compare_40ep_against_existing.json all present",
+        "write_cross_run_compare 40ep -> compare_40ep_against_existing.json/csv written; cross-run gallery rendered"
+      ],
+      "affected_surfaces": [
+        "docs/index.md",
+        "docs/studies/index.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_modes32_compare_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-pdebench-cns-spectral-modes32-compare/execution_report.md"
+      ]
     }
   ]
 }

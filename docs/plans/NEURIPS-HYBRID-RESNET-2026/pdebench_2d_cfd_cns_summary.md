@@ -314,6 +314,53 @@ So the current local decision-support ranking for capped 40-epoch CNS is:
 This is still capped-readiness evidence only, not benchmark-complete CNS
 ranking evidence.
 
+## Spectral Modes-32 Compare
+
+The dedicated higher-mode follow-up is summarized in:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_modes32_compare_summary.md`
+
+That backlog item kept the capped local CNS contract fixed and changed only:
+
+- `fno_modes: 12 -> 32`
+- `spectral_bottleneck_modes: 12 -> 32`
+
+Recovered and fresh run roots:
+
+- reused fresh `10`-epoch row:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/cns-spectral-modes32-10ep-20260428T010825Z`
+- authoritative fresh `40`-epoch row:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/cns-spectral-modes32-40ep-20260428T014353Z`
+
+Anchored compare sidecars:
+
+- `10ep`:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/compare_10ep_against_existing.json`
+- `40ep`:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/compare_40ep_against_existing.json`
+
+Observed outcome:
+
+- at `10` epochs, modes-32 improved every tracked eval metric over the shared
+  `12/12` spectral row and stayed ahead of the reused `fno_base` and
+  `unet_strong` anchors
+- at `40` epochs, modes-32 no longer beat the shared `12/12` spectral row on
+  aggregate denormalized error:
+  - `err_nRMSE 0.0645505` vs `0.0615620`
+  - `err_RMSE 1.55999` vs `1.48776`
+  - `fRMSE_low 3.6761` vs `3.4756`
+- the same `40`-epoch run did improve the higher-frequency side of the
+  contract:
+  - `fRMSE_mid 0.2425` vs `0.2800`
+  - `fRMSE_high 0.3472` vs `0.4349`
+
+Interpretation boundary:
+
+- the higher-mode row remains manual-only
+- it is useful as capped high-frequency decision-support evidence
+- it does not replace the shared `12/12` spectral row as the aggregate local
+  capped `40`-epoch spectral reference
+
 ## Markov History-1 Compare
 
 The controlled lower-context follow-up is summarized in:
