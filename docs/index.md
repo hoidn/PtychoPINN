@@ -163,6 +163,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, pdebench, cns, markov, history_len, history-1, spectral_resnet, fno, unet, compare
 **Use this when:** Planning or executing the lower-context Markov-style CNS compare, or checking what must stay fixed for a fair `history_len=1` versus `history_len=2` result.
 
+### [NeurIPS Hybrid ResNet PDEBench CNS Markov History-1 Compare Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_markov_history1_compare_summary.md)
+**Description:** Implementation summary for the controlled PDEBench `2d_cfd_cns` Markov-style history-length ablation, covering the frozen `history_len=2` reference manifest, the missing `40`-epoch `hybrid_resnet_cns` backfill, the fresh capped `history_len=1` pilot runs at `10` and `40` epochs, and the cross-history compare sidecars.
+**Keywords:** neurips, pdebench, cns, markov, history_len, history-1, spectral_resnet, hybrid_resnet_cns, fno, unet, summary
+**Use this when:** Checking whether reducing CNS temporal context helped the spectral row, whether the capped four-row ranking changed, or locating the audited reference manifest and cross-history compare artifacts.
+
 ### [NeurIPS Hybrid ResNet PDEBench Hybrid-Spectral CNS Architecture Ablation Design](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_hybrid_spectral_cns_architecture_ablation_design.md)
 **Description:** Design for a CNS-only Hybrid-spectral architecture ablation that fixes the canonical skip-add plus pixelshuffle shell and studies spectral-family internals such as weight sharing and bottleneck depth without mixing in CDI/ptycho, Markov-history, or physics-regularization changes.
 **Keywords:** neurips, pdebench, cns, hybrid-spectral, architecture, ablation, weight-sharing, depth, pixelshuffle, skip-add

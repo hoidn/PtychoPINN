@@ -1052,6 +1052,114 @@
         "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
         "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-22-pdebench-gnot-paper-default-cns-compare/execution_report.md"
       ]
+    },
+    {
+      "tranche_id": "2026-04-21-pdebench-cns-markov-history1-compare",
+      "updated_at_utc": "2026-04-28T00:35:43Z",
+      "update_reason": "Completed the durable Markov-style CNS backlog item after auditing the frozen history-2 anchors, backfilling the missing 40-epoch `hybrid_resnet_cns` reference row, and writing the final cross-history compare sidecars.",
+      "decision": "Reducing the capped local CNS contract from `history_len=2` to `history_len=1` did not improve `spectral_resnet_bottleneck_base` or change the four-row ranking at 10 or 40 epochs; aggregate denormalized error worsened for spectral, `hybrid_resnet_cns`, and `fno_base`, while only `unet_strong` improved and still remained last.",
+      "decision_scope": "complete_markov_history1_cns_backlog_item",
+      "design_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-pdebench-cns-markov-history1-compare/execution_plan.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare",
+      "reference_manifest_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2_reference_runs.json",
+      "backfill_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z",
+      "fresh_run_roots": {
+        "10ep": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history1-pilot-10ep-20260423T224907Z",
+        "40ep": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history1-pilot-40ep-20260423T230352Z"
+      },
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_markov_history1_compare_summary.md",
+      "cns_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "findings_changed": false,
+      "performance_assessment_complete": false,
+      "evidence_scope": "capped_decision_support_only",
+      "metric_interpretation": "decision_support_not_benchmark_performance",
+      "comparison_standard": "Only history_len and its derived sample/input-channel contract may differ.",
+      "gallery_alignment_tolerance": {
+        "atol": 1e-06,
+        "rtol": 1e-06
+      },
+      "local_equal_footing_contract": {
+        "task": "2d_cfd_cns",
+        "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        "train_trajectories": 512,
+        "val_trajectories": 64,
+        "test_trajectories": 64,
+        "max_windows_per_trajectory": 8,
+        "batch_size": 4,
+        "training_loss": "mse",
+        "metric_family": [
+          "err_RMSE",
+          "err_nRMSE",
+          "relative_l2",
+          "fRMSE_low",
+          "fRMSE_mid",
+          "fRMSE_high"
+        ]
+      },
+      "history_delta_metrics": {
+        "10ep": {
+          "reference_ranking_by_err_nRMSE": [
+            "spectral_resnet_bottleneck_base",
+            "hybrid_resnet_cns",
+            "fno_base",
+            "unet_strong"
+          ],
+          "fresh_ranking_by_err_nRMSE": [
+            "spectral_resnet_bottleneck_base",
+            "hybrid_resnet_cns",
+            "fno_base",
+            "unet_strong"
+          ],
+          "spectral_err_nRMSE_reference": 0.08699385821819305,
+          "spectral_err_nRMSE_fresh": 0.11395309865474701,
+          "spectral_err_nRMSE_delta": 0.026959240436553955,
+          "unet_err_nRMSE_delta": -0.012393951416015625
+        },
+        "40ep": {
+          "reference_ranking_by_err_nRMSE": [
+            "spectral_resnet_bottleneck_base",
+            "hybrid_resnet_cns",
+            "fno_base",
+            "unet_strong"
+          ],
+          "fresh_ranking_by_err_nRMSE": [
+            "spectral_resnet_bottleneck_base",
+            "hybrid_resnet_cns",
+            "fno_base",
+            "unet_strong"
+          ],
+          "spectral_err_nRMSE_reference": 0.061562005430459976,
+          "spectral_err_nRMSE_fresh": 0.0998256728053093,
+          "spectral_err_nRMSE_delta": 0.03826366737484932,
+          "unet_err_nRMSE_delta": -0.049397408962249756
+        }
+      },
+      "compare_artifacts": {
+        "10ep": {
+          "json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/compare_10ep_against_history2.json",
+          "csv": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/compare_10ep_against_history2.csv"
+        },
+        "40ep": {
+          "json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/compare_40ep_against_history2.json",
+          "csv": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/compare_40ep_against_history2.csv"
+        }
+      },
+      "verification": [
+        "pytest -q tests/studies/test_pdebench_image128_runner.py tests/studies/test_pdebench_cfd_cns_data.py tests/studies/test_pdebench_cfd_cns_metrics.py -> 31 passed in 35.64s",
+        "pytest log archived at .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/pytest_markov_history1_compare_20260428T003543Z.log",
+        "python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py -> exit 0",
+        "write_history_delta_compare 40ep -> compare_40ep_against_history2.json/csv written",
+        "JSON validation -> progress_ledger.json and compare_40ep_against_history2.json parsed successfully"
+      ],
+      "affected_surfaces": [
+        "docs/index.md",
+        "docs/studies/index.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_markov_history1_compare_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+        "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-pdebench-cns-markov-history1-compare/execution_report.md"
+      ]
     }
   ]
 }

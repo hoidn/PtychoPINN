@@ -314,6 +314,55 @@ So the current local decision-support ranking for capped 40-epoch CNS is:
 This is still capped-readiness evidence only, not benchmark-complete CNS
 ranking evidence.
 
+## Markov History-1 Compare
+
+The controlled lower-context follow-up is summarized in:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_markov_history1_compare_summary.md`
+
+That backlog item fixed dataset, trajectories, `max_windows_per_trajectory`,
+batch size, `mse`, metric family, and epoch budgets, then changed only the
+temporal-context contract from `history_len=2` to `history_len=1`:
+
+- frozen history-2 manifest:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2_reference_runs.json`
+- backfilled `40`-epoch `hybrid_resnet_cns` anchor:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z`
+- fresh history-1 `10`-epoch run:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history1-pilot-10ep-20260423T224907Z`
+- fresh history-1 `40`-epoch run:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history1-pilot-40ep-20260423T230352Z`
+
+Observed result on the capped four-row family:
+
+- `spectral_resnet_bottleneck_base` did not improve under `history_len=1`
+  at either budget:
+  - `10ep`: `err_nRMSE 0.0869938582 -> 0.1139530987`
+  - `40ep`: `err_nRMSE 0.0615620054 -> 0.0998256728`
+- the four-row ranking stayed the same at both budgets:
+  `spectral_resnet_bottleneck_base > hybrid_resnet_cns > fno_base > unet_strong`
+- `hybrid_resnet_cns` and `fno_base` also worsened on aggregate denormalized
+  error at both budgets
+- `unet_strong` improved slightly at `10ep` and more clearly at `40ep`, but
+  remained the worst row overall
+
+Cross-history compare sidecars were written for both budgets:
+
+- `compare_10ep_against_history2.json`
+- `compare_40ep_against_history2.json`
+
+Both sidecars blocked merged cross-run galleries because the saved sample-0
+targets did not align exactly across the separate run roots. That blocker is
+non-fatal and uses the explicit target-alignment check
+`np.allclose(..., atol=1e-6, rtol=1e-6)`.
+
+Interpretation boundary:
+
+- this is capped pilot decision-support evidence only
+- it does not replace the benchmark-complete gate
+- it should be read against the frozen history-2 family above, not against the
+  forbidden older `hybrid_resnet_base` proxy for the canonical CNS shell
+
 ## Official Author FFNO Equal-Footing Follow-Up
 
 The official authored FFNO baseline is tracked separately from the local
