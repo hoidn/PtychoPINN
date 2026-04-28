@@ -1,23 +1,27 @@
 ## Active Work
 
 - Completed the approved Task 2 `10`-epoch sharing tranche at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-10ep-20260428T032825Z`, including `artifact_audit.json`, `gallery_sharing_sample0.png`, `gallery_sharing_sample0_error.png`, and `sharing_ranking_10ep.json`.
-- Launched the approved Task 3 `40`-epoch sharing tranche under tmux session `cns_share40_20260428T035154Z` on socket `/tmp/claude-tmux-sockets/claude.sock` with guarded PID tracking:
+- Continued the approved Task 3 `40`-epoch sharing tranche under tmux session `cns_share40_20260428T035154Z` on socket `/tmp/claude-tmux-sockets/claude.sock` with the plan-required tracked-PID launcher:
   - run root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z`
   - tracker root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z.launch`
   - tracked Python PID: `278753`
 
 ## Current Status
 
-- Deterministic preflight from the prior pass remains green and still covers the approved runner surface:
+- Deterministic preflight remains green for the approved runner surface:
   - `pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py` -> `65 passed in 42.77s`
   - `python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py` -> exit `0`
   - `pytest -q tests/studies/test_pdebench_image128_models.py -k "spectral_resnet_bottleneck"` -> `6 passed, 31 deselected in 4.85s`
   - `pytest -q tests/studies/test_pdebench_image128_runner.py -k "pilot or cfd_cns"` -> `12 passed, 16 deselected in 12.71s`
-- The completed Task 2 ranking currently favors `spectral_resnet_bottleneck_noshare` on the plan’s comparison standard (`lower relative_l2`, then `err_nRMSE`, then `fRMSE_high`):
-  - `spectral_resnet_bottleneck_noshare`: `relative_l2=0.07957875728607178`, `err_nRMSE=0.07957875728607178`, `fRMSE_high=0.7858846783638`
-  - `spectral_resnet_bottleneck_base`: `relative_l2=0.08300281316041946`, `err_nRMSE=0.08300281316041946`, `fRMSE_high=0.7511703968048096`
-- The gallery renderer needed an operational `PYTHONPATH=/home/ollie/Documents/PtychoPINN` prefix because `python scripts/studies/pdebench_image128/render_hybrid_upsampler_gallery.py` did not resolve the repo-root package import from the script path alone. This was handled without repo code changes.
-- The approved Task 3 `40`-epoch sharing run is active. Its run root already contains startup/provenance artifacts (`invocation.json`, `invocation.sh`, `dataset_manifest.json`, `split_manifest.json`, `normalization_stats_state.json`, `hdf5_metadata.json`, and `model_profile_spectral_resnet_bottleneck_base.json`), and tracker log `stdout.log` shows the Python process started successfully.
+- The Task 3 run is still active and has not produced the launcher completion file yet:
+  - tracker `exit_code.txt`: missing
+  - tracked PID `278753`: still alive as of `2026-04-28T04:11:06Z`
+- The fresh Task 3 run has completed the `spectral_resnet_bottleneck_base` row through epoch `40` and has already started `spectral_resnet_bottleneck_noshare`; the latest captured loss lines are:
+  - `spectral_resnet_bottleneck_base` epoch `40`: loss `0.006558187157`
+  - `spectral_resnet_bottleneck_noshare` epoch `1`: loss `0.1715243343`
+  - `spectral_resnet_bottleneck_noshare` epoch `2`: loss `0.07655663363`
+- The Task 3 run root already contains fresh partial artifacts for the active tranche, including `comparison_spectral_resnet_bottleneck_base_sample0.{png,npz}`, `metrics_spectral_resnet_bottleneck_base.json`, `model_profile_spectral_resnet_bottleneck_noshare.json`, plus the shared provenance files (`invocation.json`, `invocation.sh`, `dataset_manifest.json`, `split_manifest.json`, `normalization_stats_state.json`, `hdf5_metadata.json`).
+- No blocker is present. Remaining work is ordered-plan execution that depends on the active Task 3 run finishing cleanly before Task 4 and Task 5 finalist selection can begin.
 
 ## Next Resume Condition
 
