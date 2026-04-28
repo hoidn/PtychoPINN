@@ -675,6 +675,58 @@ Directional read:
 This GNOT lane is still capped-readiness, decision-support-only evidence. It
 does not change the benchmark-complete boundary for CNS.
 
+## Hybrid-Spectral 2048-Cap Scaling Follow-Up
+
+The capped finalist scaling follow-up is tracked in:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_scaling_2048cap_summary.md`
+
+That tranche kept the same fixed CNS contract and reused the frozen architecture-ablation finalists:
+
+- task: `2d_cfd_cns`
+- training loss: `mse`
+- `history_len=2`
+- `max_windows_per_trajectory=8`
+- batch size: `4`
+- epochs: `40`
+- profiles:
+  - `spectral_resnet_bottleneck_base`
+  - `spectral_resnet_bottleneck_shared_blocks10`
+
+Reference manifests:
+
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/reference_runs_512cap_40ep.json`
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/reference_runs_1024cap_40ep.json`
+
+Fresh `2048cap` run root:
+
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/cns-hybrid-spectral-finalists-2048cap-40ep-20260428T201926Z`
+
+Observed `2048 / 256 / 256` metrics:
+
+- `spectral_resnet_bottleneck_base`:
+  `relative_l2=0.0421656668`, `err_nRMSE=0.0421656668`, `fRMSE_low=2.3713548183`, `fRMSE_mid=0.2230527103`, `fRMSE_high=0.3117601573`
+- `spectral_resnet_bottleneck_shared_blocks10`:
+  `relative_l2=0.0504393019`, `err_nRMSE=0.0504393019`, `fRMSE_low=2.8665962219`, `fRMSE_mid=0.2082921267`, `fRMSE_high=0.2969700098`
+
+Directional read:
+
+- the shared base row kept the aggregate lead at `2048cap`
+- the deeper shared row retained only narrower `fRMSE_mid/high` advantages
+- the `2048cap` extension strengthened the bounded conclusion from the earlier `1024cap` confirmation:
+  - `spectral_resnet_bottleneck_base` still improves slightly on aggregate beyond `1024cap`
+  - `spectral_resnet_bottleneck_shared_blocks10` regresses on aggregate beyond `1024cap`
+- this item remains capped decision-support evidence only and does not justify promoting either spectral row into a benchmark-complete or default-profile claim
+
+Reporting warning:
+
+- the helper-generated scaling JSON/CSV succeeded
+- the optional cross-run gallery was skipped because saved sample targets differ across the frozen reference roots, which is recorded in the scaling summary and payload as a non-fatal warning
+
+This follow-up does not change the next gate for CNS:
+
+- full-training same-protocol benchmark runs on the full available training split are still required for `hybrid_resnet_cns`, `fno_base`, and `unet_strong`
+
 ## Verification
 
 Commands run from `/home/ollie/Documents/PtychoPINN`:

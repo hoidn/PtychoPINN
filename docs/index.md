@@ -193,6 +193,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, pdebench, cns, hybrid-spectral, architecture, weight-sharing, depth, spectral_resnet, summary
 **Use this when:** Checking whether disabling weight sharing still helps after `40` epochs, whether deeper shared spectral bottlenecks survive a larger-cap confirmation pass, or locating the final capped comparison artifacts for this CNS-only architecture lane.
 
+### [NeurIPS Hybrid ResNet PDEBench CNS Hybrid-Spectral 2048-Cap Scaling Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_scaling_2048cap_summary.md)
+**Description:** Implementation summary for the capped CNS hybrid-spectral scaling follow-up, covering the frozen `512cap` and `1024cap` finalist manifests, the fresh `2048 / 256 / 256` `40`-epoch rerun, the helper-generated `512 -> 1024 -> 2048` scaling payload, and the bounded result that the shared base row remains the stronger aggregate local reference while the deeper shared row keeps only narrower higher-frequency advantages.
+**Keywords:** neurips, pdebench, cns, hybrid-spectral, scaling, 2048cap, spectral_resnet, summary
+**Use this when:** Checking whether either hybrid-spectral finalist scales faster as the capped CNS training slice grows to `2048`, locating the authoritative scaling JSON/CSV payload, or reviewing why the `2048cap` follow-up does not justify a default-profile promotion.
+
 ### [NeurIPS Hybrid ResNet PDEBench CNS Hybrid-Spectral Architectural Ablation Plan](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_arch_ablation_plan.md)
 **Description:** Implementation plan for a bounded PDEBench `2d_cfd_cns` hybrid-spectral architectural ablation that fixes the canonical CNS shell (`skip-add` + `pixelshuffle`) and varies only spectral bottleneck sharing and depth, with explicit external-audit invariants and larger-cap confirmation.
 **Keywords:** neurips, pdebench, cns, hybrid-spectral, spectral_resnet, ablation, skip-add, pixelshuffle, depth, weight-sharing
