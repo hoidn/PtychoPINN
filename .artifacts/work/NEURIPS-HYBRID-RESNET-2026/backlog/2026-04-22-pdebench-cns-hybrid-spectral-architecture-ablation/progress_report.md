@@ -29,12 +29,11 @@
   - `python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py` -> exit `0`
   - `pytest -q tests/studies/test_pdebench_image128_models.py -k "spectral_resnet_bottleneck"` -> `6 passed, 31 deselected in 4.85s`
   - `pytest -q tests/studies/test_pdebench_image128_runner.py -k "pilot or cfd_cns"` -> `12 passed, 16 deselected in 12.71s`
-- As of `2026-04-28T06:37:36Z` (`2026-04-27T23:37:36-0700` local), the tracked Stage 4 run is still actively progressing:
+- As of `2026-04-28T06:50:33Z` (`2026-04-27T23:50:33-0700` local), the tracked Stage 4 run is still actively progressing:
   - `ps -p 304669` still shows the exact planned Python process alive
   - `.launch/exit_code.txt` is still absent, so the PID-wait launcher has not completed
-  - `.launch/stdout.log` advanced during a 30-second poll from `62` to `63` lines, confirming forward progress rather than a hung-but-alive process
-  - the log now shows `spectral_resnet_bottleneck_base` completed its `40`-epoch loop and `spectral_resnet_bottleneck_shared_blocks10` has reached `epoch=13`
-  - partial Stage 4 artifacts exist for the first finalist row, including `metrics_spectral_resnet_bottleneck_base.json` and `comparison_spectral_resnet_bottleneck_base_sample0.{png,npz}`
+  - `spectral_resnet_bottleneck_base` has already emitted `metrics_spectral_resnet_bottleneck_base.json` and `comparison_spectral_resnet_bottleneck_base_sample0.{png,npz}`
+  - `spectral_resnet_bottleneck_shared_blocks10` has not yet emitted its metrics or comparison outputs
   - Stage 4 is not complete yet because the run root still lacks:
     - `comparison_summary.json`
     - `comparison_summary.csv`
