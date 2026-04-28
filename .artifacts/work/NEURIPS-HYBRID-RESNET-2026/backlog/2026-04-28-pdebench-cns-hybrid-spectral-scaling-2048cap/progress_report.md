@@ -20,7 +20,7 @@
 ## Current Status
 
 - Implementation is `RUNNING`.
-- The tracked Python PID is `543096` and was still live at the latest check (`ps` status `Rl+`, elapsed `12:20`).
+- The tracked Python PID is `543096` and was still live at the latest check (`ps` status `Rl+`, elapsed `25:11`, `%CPU 754`, `%MEM 1.5`).
 - The tmux session is `cns-scale2048-201926` on socket `/tmp/claude-tmux-sockets/claude.sock`.
 - Initial required fresh artifacts already exist under the run root:
   - `invocation.json`
@@ -28,6 +28,7 @@
   - `dataset_manifest.json`
   - `split_manifest.json`
   - `hdf5_metadata.json`
+- The fresh run is still actively writing to `.launch/stdout.log`; the latest observed training line reached `EPOCH_LOSS profile=spectral_resnet_bottleneck_base epoch=14`.
 - The launch sidecar still has no `exit_code.txt`, and the fresh run root still lacks the final metrics and comparison payloads required for completion.
 
 ## Next Resume Condition
