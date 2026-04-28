@@ -29,9 +29,10 @@
   - `python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py` -> exit `0`
   - `pytest -q tests/studies/test_pdebench_image128_models.py -k "spectral_resnet_bottleneck"` -> `6 passed, 31 deselected in 4.85s`
   - `pytest -q tests/studies/test_pdebench_image128_runner.py -k "pilot or cfd_cns"` -> `12 passed, 16 deselected in 12.71s`
-- As of `2026-04-28T06:50:33Z` (`2026-04-27T23:50:33-0700` local), the tracked Stage 4 run is still actively progressing:
+- As of `2026-04-28T07:02:32Z` (`2026-04-28T00:02:32-07:00` local), the tracked Stage 4 run is still actively progressing:
   - `ps -p 304669` still shows the exact planned Python process alive
   - `.launch/exit_code.txt` is still absent, so the PID-wait launcher has not completed
+  - `.launch/stdout.log` was freshly updated at `2026-04-28T00:02:32-07:00` local and now shows `spectral_resnet_bottleneck_shared_blocks10` through epoch `36 / 40`, so the run is active rather than semantically blocked
   - `spectral_resnet_bottleneck_base` has already emitted `metrics_spectral_resnet_bottleneck_base.json` and `comparison_spectral_resnet_bottleneck_base_sample0.{png,npz}`
   - `spectral_resnet_bottleneck_shared_blocks10` has not yet emitted its metrics or comparison outputs
   - Stage 4 is not complete yet because the run root still lacks:
@@ -55,6 +56,7 @@
   - `comparison_spectral_resnet_bottleneck_shared_blocks10_sample0.png`
   - `comparison_spectral_resnet_bottleneck_base_sample0.npz`
   - `comparison_spectral_resnet_bottleneck_shared_blocks10_sample0.npz`
+- If the tracked PID exits nonzero or the launcher writes `exit_code.txt` before the missing Stage 4 files appear, treat that as a real execution failure and update the next pass to `BLOCKED` with the launcher log excerpt.
 - Once that completion condition is met, continue the approved plan in order:
   - emit `compare_finalists_1024cap_40ep_within_run.{json,csv}`
   - write `finalist_delta_1024cap.json`
