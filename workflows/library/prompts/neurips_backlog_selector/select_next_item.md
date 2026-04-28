@@ -6,7 +6,7 @@ If `docs/index.md` is present, read it first and then consult only the specific 
 Select the next backlog item to draft, review, implement, and verify.
 
 Use the steering document as strategic intent, the roadmap as ordered execution authority, the design as scope authority, the manifest as the active candidate list, the progress ledger as durable project progress, and the run-state ledger as durable backlog-run state.
-Treat the manifest as authoritative for which backlog items remain active candidates in this drain. If an item is still active in the manifest, progress-ledger or summary evidence about related completed work is context or queue drift, not automatic closure.
+The manifest has already been filtered by deterministic roadmap-gate checks. Rank only the items in this manifest; do not select work outside it and do not decide broader phase legality here. If an item is still active in the manifest, progress-ledger or summary evidence about related completed work is context or queue drift, not automatic closure.
 
 Choose from active backlog items only. Do not reselect `in_progress` items automatically.
 

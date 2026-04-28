@@ -6,7 +6,7 @@ check_commands:
 prerequisites:
   - phase-0-evidence-inventory
 related_roadmap_phases:
-  - phase-1-ready-work
+  - phase-2-pdebench-ready-work
 ---
 
 # Backlog Item: Ready Item

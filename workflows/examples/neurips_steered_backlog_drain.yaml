@@ -4,6 +4,7 @@ name: "neurips-steered-backlog-drain"
 imports:
   selector: ../library/neurips_backlog_selector.yaml
   selected_item: ../library/neurips_selected_backlog_item.yaml
+  gap_drafter: ../library/neurips_backlog_gap_drafter.yaml
 
 context:
   workflow_model: "gpt-5.4"
@@ -29,6 +30,11 @@ inputs:
     type: relpath
     under: docs/backlog
     default: docs/backlog/active
+  roadmap_gate_path:
+    type: relpath
+    under: docs/backlog
+    must_exist_target: true
+    default: docs/backlog/roadmap_gate.json
   progress_ledger_path:
     type: relpath
     under: state
@@ -88,6 +94,11 @@ artifacts:
     type: relpath
     under: state
     must_exist_target: true
+  roadmap_gate:
+    pointer: ${inputs.drain_state_root}/roadmap_gate_path.txt
+    type: relpath
+    under: docs/backlog
+    must_exist_target: true
   run_state:
     pointer: ${inputs.drain_state_root}/run_state_path.txt
     type: relpath
@@ -109,6 +120,7 @@ steps:
         printf '%s\n' "${inputs.steering_path}" > "${inputs.drain_state_root}/steering_path.txt"
         printf '%s\n' "${inputs.design_path}" > "${inputs.drain_state_root}/design_path.txt"
         printf '%s\n' "${inputs.roadmap_path}" > "${inputs.drain_state_root}/current_roadmap_path.txt"
+        printf '%s\n' "${inputs.roadmap_gate_path}" > "${inputs.drain_state_root}/roadmap_gate_path.txt"
         printf '%s\n' "${inputs.progress_ledger_path}" > "${inputs.drain_state_root}/progress_ledger_path.txt"
         printf '%s\n' "${inputs.run_state_target_path}" > "${inputs.drain_state_root}/run_state_path.txt"
         python workflows/library/scripts/update_neurips_backlog_run_state.py \
@@ -137,6 +149,11 @@ steps:
         type: relpath
         under: state
         must_exist_target: true
+      - name: roadmap_gate_path
+        path: ${inputs.drain_state_root}/roadmap_gate_path.txt
+        type: relpath
+        under: docs/backlog
+        must_exist_target: true
       - name: run_state_path
         path: ${inputs.drain_state_root}/run_state_path.txt
         type: relpath
@@ -151,6 +168,8 @@ steps:
         from: current_roadmap_path
       - artifact: progress_ledger
         from: progress_ledger_path
+      - artifact: roadmap_gate
+        from: roadmap_gate_path
       - artifact: run_state
         from: run_state_path
 
@@ -178,11 +197,6 @@ steps:
                 ref: self.outputs.drain_status
               op: eq
               right: BLOCKED
-          - compare:
-              left:
-                ref: self.outputs.drain_status
-              op: eq
-              right: WAITING
       steps:
         - name: BuildBacklogManifest
           id: build_backlog_manifest
@@ -248,8 +262,114 @@ steps:
                 type: relpath
                 under: state
 
+        - name: RecoverCurrentInProgressSelection
+          id: recover_current_in_progress_selection
+          command:
+            - python
+            - -c
+            - |
+              import json
+              import pathlib
+              import sys
+
+              run_state_path = pathlib.Path(sys.argv[1])
+              selector_state_root = pathlib.Path(sys.argv[2])
+              output_path = pathlib.Path(sys.argv[3])
+
+              run_state = json.loads(run_state_path.read_text(encoding="utf-8"))
+              current = run_state.get("current_item") or {}
+              item_id = current.get("item_id")
+              item_path = current.get("item_path")
+
+              selector_state_root.mkdir(parents=True, exist_ok=True)
+              payload = {"recovery_status": "NONE"}
+              if isinstance(item_id, str) and isinstance(item_path, str):
+                  path = pathlib.Path(item_path)
+                  if (
+                      item_id not in set(run_state.get("completed_items", []))
+                      and item_id not in set((run_state.get("blocked_items") or {}).keys())
+                      and len(path.parts) >= 4
+                      and path.parts[:3] == ("docs", "backlog", "in_progress")
+                      and path.is_file()
+                  ):
+                      selection_path = selector_state_root / "selection.json"
+                      selection_path.write_text(
+                          json.dumps(
+                              {
+                                  "selection_status": "SELECTED",
+                                  "selection_mode": "RECOVERED_IN_PROGRESS",
+                                  "selected_item_id": item_id,
+                                  "selected_item_path": item_path,
+                                  "selection_rationale": "Recovering the current in-progress item from run state.",
+                                  "roadmap_sync_hint": "NO_CHANGE",
+                              },
+                              indent=2,
+                          )
+                          + "\n",
+                          encoding="utf-8",
+                      )
+                      payload = {"recovery_status": "RECOVERED"}
+
+              output_path.parent.mkdir(parents=True, exist_ok=True)
+              output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            - ${inputs.run_state_target_path}
+            - ${steps.PrepareSelectorInputs.artifacts.selector_state_root}
+            - ${inputs.drain_state_root}/iterations/${loop.index}/selector-recovery.json
+          output_bundle:
+            path: ${inputs.drain_state_root}/iterations/${loop.index}/selector-recovery.json
+            fields:
+              - name: recovery_status
+                json_pointer: /recovery_status
+                type: enum
+                allowed: ["RECOVERED", "NONE"]
+
+        - name: ReconcileBacklogRoadmapGate
+          id: reconcile_backlog_roadmap_gate
+          command:
+            - python
+            - workflows/library/scripts/reconcile_neurips_backlog_roadmap_gate.py
+            - --manifest-path
+            - ${steps.BuildBacklogManifest.artifacts.manifest_path}
+            - --gate-policy-path
+            - ${inputs.roadmap_gate_path}
+            - --progress-ledger-path
+            - ${inputs.progress_ledger_path}
+            - --run-state-path
+            - ${inputs.run_state_target_path}
+            - --output
+            - ${inputs.drain_state_root}/iterations/${loop.index}/roadmap-gate.json
+          output_bundle:
+            path: ${inputs.drain_state_root}/iterations/${loop.index}/roadmap-gate.json
+            fields:
+              - name: gate_status
+                json_pointer: /gate_status
+                type: enum
+                allowed: ["ELIGIBLE", "BACKLOG_GAP", "DONE", "BLOCKED"]
+              - name: eligible_manifest_path
+                json_pointer: /eligible_manifest_path
+                type: relpath
+                under: state
+                must_exist_target: true
+              - name: gap_request_path
+                json_pointer: /gap_request_path
+                type: relpath
+                under: state
+                must_exist_target: true
+
         - name: SelectNextItem
           id: select_next_item
+          when:
+            all_of:
+              - compare:
+                  left:
+                    ref: self.steps.RecoverCurrentInProgressSelection.artifacts.recovery_status
+                  op: eq
+                  right: NONE
+              - compare:
+                  left:
+                    ref: self.steps.ReconcileBacklogRoadmapGate.artifacts.gate_status
+                  op: eq
+                  right: ELIGIBLE
           call: selector
           with:
             state_root:
@@ -261,11 +381,116 @@ steps:
             roadmap_path:
               ref: self.steps.ReadCurrentRoadmapPointer.artifacts.current_roadmap_path
             manifest_path:
-              ref: self.steps.BuildBacklogManifest.artifacts.manifest_path
+              ref: self.steps.ReconcileBacklogRoadmapGate.artifacts.eligible_manifest_path
             progress_ledger_path:
               ref: root.steps.InitializeBacklogDrain.artifacts.progress_ledger_path
             run_state_path:
               ref: root.steps.InitializeBacklogDrain.artifacts.run_state_path
+
+        - name: PrepareGapDrafterInputs
+          id: prepare_gap_drafter_inputs
+          command:
+            - bash
+            - -lc
+            - |
+              mkdir -p "${inputs.drain_state_root}/iterations/${loop.index}/gap-drafter"
+              printf '{"state_root":"%s"}\n' \
+                "${inputs.drain_state_root}/iterations/${loop.index}/gap-drafter" \
+                > "${inputs.drain_state_root}/iterations/${loop.index}/gap-drafter-inputs.json"
+          output_bundle:
+            path: ${inputs.drain_state_root}/iterations/${loop.index}/gap-drafter-inputs.json
+            fields:
+              - name: state_root
+                json_pointer: /state_root
+                type: relpath
+                under: state
+
+        - name: DraftMissingBacklogItem
+          id: draft_missing_backlog_item
+          when:
+            all_of:
+              - compare:
+                  left:
+                    ref: self.steps.RecoverCurrentInProgressSelection.artifacts.recovery_status
+                  op: eq
+                  right: NONE
+              - compare:
+                  left:
+                    ref: self.steps.ReconcileBacklogRoadmapGate.artifacts.gate_status
+                  op: eq
+                  right: BACKLOG_GAP
+          call: gap_drafter
+          with:
+            state_root:
+              ref: self.steps.PrepareGapDrafterInputs.artifacts.state_root
+            steering_path:
+              ref: root.steps.InitializeBacklogDrain.artifacts.steering_path
+            design_path:
+              ref: root.steps.InitializeBacklogDrain.artifacts.design_path
+            roadmap_path:
+              ref: self.steps.ReadCurrentRoadmapPointer.artifacts.current_roadmap_path
+            progress_ledger_path:
+              ref: root.steps.InitializeBacklogDrain.artifacts.progress_ledger_path
+            gate_policy_path:
+              ref: root.steps.InitializeBacklogDrain.artifacts.roadmap_gate_path
+            gap_request_path:
+              ref: self.steps.ReconcileBacklogRoadmapGate.artifacts.gap_request_path
+
+        - name: ResolveItemSelection
+          id: resolve_item_selection
+          command:
+            - python
+            - -c
+            - |
+              import json
+              import pathlib
+              import sys
+
+              selector_state_root = pathlib.Path(sys.argv[1])
+              gate_status = sys.argv[2]
+              draft_validation_path = pathlib.Path(sys.argv[3])
+              gap_request_path = pathlib.Path(sys.argv[4])
+              status_output = pathlib.Path(sys.argv[5])
+              bundle_output = pathlib.Path(sys.argv[6])
+              selection_path = selector_state_root / "selection.json"
+              if selection_path.is_file():
+                  selection = json.loads(selection_path.read_text(encoding="utf-8"))
+                  status = selection.get("selection_status")
+                  bundle_path = selection_path
+              elif draft_validation_path.is_file():
+                  draft = json.loads(draft_validation_path.read_text(encoding="utf-8"))
+                  draft_status = draft.get("draft_validation_status")
+                  status = "BACKLOG_DRAFTED" if draft_status == "VALID" else "BLOCKED"
+                  bundle_path = draft_validation_path
+              elif gate_status in {"DONE", "BLOCKED"}:
+                  status = gate_status
+                  bundle_path = gap_request_path
+              elif gate_status == "BACKLOG_GAP":
+                  status = "BLOCKED"
+                  bundle_path = gap_request_path
+              else:
+                  raise SystemExit("Eligible roadmap gate did not produce a selector decision")
+              if status not in {"SELECTED", "DONE", "BLOCKED", "BACKLOG_DRAFTED"}:
+                  raise SystemExit(f"Invalid selection_status: {status}")
+              status_output.parent.mkdir(parents=True, exist_ok=True)
+              status_output.write_text(status + "\n", encoding="utf-8")
+              bundle_output.write_text(bundle_path.as_posix() + "\n", encoding="utf-8")
+            - ${steps.PrepareSelectorInputs.artifacts.selector_state_root}
+            - ${steps.ReconcileBacklogRoadmapGate.artifacts.gate_status}
+            - ${inputs.drain_state_root}/iterations/${loop.index}/gap-drafter/draft-validation.json
+            - ${steps.ReconcileBacklogRoadmapGate.artifacts.gap_request_path}
+            - ${inputs.drain_state_root}/iterations/${loop.index}/selection_status.txt
+            - ${inputs.drain_state_root}/iterations/${loop.index}/selection_bundle_path.txt
+          expected_outputs:
+            - name: selection_status
+              path: ${inputs.drain_state_root}/iterations/${loop.index}/selection_status.txt
+              type: enum
+              allowed: ["SELECTED", "DONE", "BLOCKED", "BACKLOG_DRAFTED"]
+            - name: selection_bundle_path
+              path: ${inputs.drain_state_root}/iterations/${loop.index}/selection_bundle_path.txt
+              type: relpath
+              under: state
+              must_exist_target: true
 
         - name: PrepareSelectedItemCallInputs
           id: prepare_selected_item_call_inputs
@@ -294,7 +519,7 @@ steps:
         - name: RouteItemSelection
           id: route_item_selection
           match:
-            ref: self.steps.SelectNextItem.artifacts.selection_status
+            ref: self.steps.ResolveItemSelection.artifacts.selection_status
             cases:
               SELECTED:
                 id: selected_item_path
@@ -360,6 +585,22 @@ steps:
                     set_scalar:
                       artifact: drain_status
                       value: BLOCKED
+
+              BACKLOG_DRAFTED:
+                id: backlog_drafted_path
+                outputs:
+                  drain_status:
+                    kind: scalar
+                    type: enum
+                    allowed: ["CONTINUE", "DONE", "WAITING", "BLOCKED"]
+                    from:
+                      ref: self.steps.WriteDrainContinue.artifacts.drain_status
+                steps:
+                  - name: WriteDrainContinue
+                    id: write_drain_continue
+                    set_scalar:
+                      artifact: drain_status
+                      value: CONTINUE
 
   - name: PublishDrainSummary
     id: publish_drain_summary

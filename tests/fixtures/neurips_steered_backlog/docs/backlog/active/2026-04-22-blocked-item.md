@@ -6,7 +6,7 @@ check_commands:
 prerequisites:
   - phase-99-not-done
 related_roadmap_phases:
-  - phase-9-blocked-work
+  - phase-2-pdebench-blocked-work
 ---
 
 # Backlog Item: Blocked Item

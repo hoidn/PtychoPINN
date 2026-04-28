@@ -40,6 +40,10 @@ def _step_by_name(workflow: dict, name: str) -> dict:
     raise AssertionError(f"Missing step {name}")
 
 
+def _step_names(workflow: dict) -> list[str]:
+    return [step["name"] for _, step in _walk_steps(workflow["steps"])]
+
+
 def _on_config(step: dict) -> dict:
     return step.get("on", step.get(True, {}))
 
@@ -51,6 +55,7 @@ def test_neurips_drain_workflow_uses_local_backlog_implementation_phase():
     assert workflow["imports"] == {
         "selector": "../library/neurips_backlog_selector.yaml",
         "selected_item": "../library/neurips_selected_backlog_item.yaml",
+        "gap_drafter": "../library/neurips_backlog_gap_drafter.yaml",
     }
     assert selected_item_workflow["imports"] == {
         "roadmap_sync_phase": "./neurips_backlog_roadmap_sync_phase.yaml",
@@ -58,6 +63,7 @@ def test_neurips_drain_workflow_uses_local_backlog_implementation_phase():
         "implementation_phase": "./neurips_backlog_implementation_phase.yaml",
     }
     assert workflow["inputs"]["backlog_root"]["default"] == "docs/backlog/active"
+    assert workflow["inputs"]["roadmap_gate_path"]["default"] == "docs/backlog/roadmap_gate.json"
 
 
 def test_neurips_drain_workflow_tracks_authoritative_current_roadmap_path():
@@ -153,7 +159,45 @@ def test_neurips_drain_workflow_dispatches_selected_items_through_local_selected
     }
 
 
-def test_neurips_drain_workflow_supports_waiting_as_a_clean_terminal_outcome():
+def test_neurips_drain_workflow_gates_manifest_before_selection_and_drafts_gaps():
+    workflow = _load_yaml("workflows/examples/neurips_steered_backlog_drain.yaml")
+
+    reconcile_gate = _step_by_name(workflow, "ReconcileBacklogRoadmapGate")
+    assert reconcile_gate["command"][:2] == [
+        "python",
+        "workflows/library/scripts/reconcile_neurips_backlog_roadmap_gate.py",
+    ]
+    gate_fields = {field["name"] for field in reconcile_gate["output_bundle"]["fields"]}
+    assert {"gate_status", "eligible_manifest_path", "gap_request_path"} <= gate_fields
+
+    select_next = _step_by_name(workflow, "SelectNextItem")
+    assert select_next["when"]["all_of"][0]["compare"]["right"] == "NONE"
+    assert select_next["when"]["all_of"][1]["compare"]["right"] == "ELIGIBLE"
+    assert select_next["with"]["manifest_path"] == {
+        "ref": "self.steps.ReconcileBacklogRoadmapGate.artifacts.eligible_manifest_path"
+    }
+
+    draft_gap = _step_by_name(workflow, "DraftMissingBacklogItem")
+    assert draft_gap["call"] == "gap_drafter"
+    assert draft_gap["when"]["all_of"][0]["compare"]["right"] == "NONE"
+    assert draft_gap["when"]["all_of"][1]["compare"]["right"] == "BACKLOG_GAP"
+    assert draft_gap["with"]["gap_request_path"] == {
+        "ref": "self.steps.ReconcileBacklogRoadmapGate.artifacts.gap_request_path"
+    }
+
+    resolve = _step_by_name(workflow, "ResolveItemSelection")
+    assert resolve["expected_outputs"][0]["allowed"] == [
+        "SELECTED",
+        "DONE",
+        "BLOCKED",
+        "BACKLOG_DRAFTED",
+    ]
+
+    route = _step_by_name(workflow, "RouteItemSelection")
+    assert set(route["match"]["cases"]) == {"SELECTED", "DONE", "BLOCKED", "BACKLOG_DRAFTED"}
+
+
+def test_neurips_drain_workflow_treats_waiting_as_a_resumable_loop_outcome():
     workflow = _load_yaml("workflows/examples/neurips_steered_backlog_drain.yaml")
 
     assert workflow["outputs"]["drain_status"]["allowed"] == [
@@ -176,7 +220,21 @@ def test_neurips_drain_workflow_supports_waiting_as_a_clean_terminal_outcome():
         for predicate in drain_loop["condition"]["any_of"]
         if isinstance(predicate, dict) and "compare" in predicate
     ]
-    assert "WAITING" in waiting_compares
+    assert "WAITING" not in waiting_compares
+
+    recover_current = _step_by_name(workflow, "RecoverCurrentInProgressSelection")
+    assert recover_current["output_bundle"]["fields"][0]["name"] == "recovery_status"
+
+    select_next = _step_by_name(workflow, "SelectNextItem")
+    assert select_next["when"]["all_of"][0]["compare"]["left"] == {
+        "ref": "self.steps.RecoverCurrentInProgressSelection.artifacts.recovery_status"
+    }
+    assert select_next["when"]["all_of"][0]["compare"]["op"] == "eq"
+    assert select_next["when"]["all_of"][0]["compare"]["right"] == "NONE"
+    assert select_next["when"]["all_of"][1]["compare"]["left"] == {
+        "ref": "self.steps.ReconcileBacklogRoadmapGate.artifacts.gate_status"
+    }
+    assert select_next["when"]["all_of"][1]["compare"]["right"] == "ELIGIBLE"
 
 
 def test_neurips_drain_workflow_asserts_plan_and_implementation_approval_before_completion():
@@ -197,6 +255,25 @@ def test_neurips_drain_workflow_asserts_plan_and_implementation_approval_before_
     script = record_completed["command"][2]
     assert "final_checks_report_path.txt" in script
     assert record_completed["command"][-1] == "${steps.ApplyRoadmapSyncDecision.artifacts.current_roadmap_path}"
+
+
+def test_neurips_selected_item_moves_to_in_progress_only_after_roadmap_sync_accepts():
+    workflow = _load_yaml("workflows/library/neurips_selected_backlog_item.yaml")
+    names = _step_names(workflow)
+
+    assert names.index("RunRoadmapSyncPhase") < names.index("MoveSelectedItemToInProgress")
+    assert names.index("ApplyRoadmapSyncDecision") < names.index("MoveSelectedItemToInProgress")
+    assert names.index("MoveSelectedItemToInProgress") < names.index("RecordCurrentSelection")
+
+    roadmap_sync = _step_by_name(workflow, "RunRoadmapSyncPhase")
+    assert _on_config(roadmap_sync)["failure"]["goto"] == "RecordSelectionRejected"
+
+    apply_sync = _step_by_name(workflow, "ApplyRoadmapSyncDecision")
+    assert _on_config(apply_sync)["failure"]["goto"] == "RecordSelectionRejected"
+
+    rejected = _step_by_name(workflow, "RecordSelectionRejected")
+    assert "SELECTION_REJECTED" in rejected["command"][2]
+    assert "update_neurips_backlog_run_state.py" not in rejected["command"][2]
 
 
 def test_neurips_backlog_implementation_phase_emits_explicit_execution_state():

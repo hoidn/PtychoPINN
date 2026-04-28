@@ -200,10 +200,19 @@ steps:
             item_id = selection.get("selected_item_id")
             item_path = selection.get("selected_item_path")
             hint = selection.get("roadmap_sync_hint")
+            selection_mode = str(selection.get("selection_mode") or "ACTIVE_SELECTION")
             if not isinstance(item_id, str) or not item_id:
                 raise SystemExit("SELECTED selection must include selected_item_id")
-            if not isinstance(item_path, str) or not item_path.startswith("docs/backlog/active/"):
-                raise SystemExit("SELECTED selection must include selected_item_path under docs/backlog/active/")
+            if selection_mode == "ACTIVE_SELECTION":
+                if not isinstance(item_path, str) or not item_path.startswith("docs/backlog/active/"):
+                    raise SystemExit("ACTIVE_SELECTION must include selected_item_path under docs/backlog/active/")
+            elif selection_mode == "RECOVERED_IN_PROGRESS":
+                if not isinstance(item_path, str) or not item_path.startswith("docs/backlog/in_progress/"):
+                    raise SystemExit(
+                        "RECOVERED_IN_PROGRESS must include selected_item_path under docs/backlog/in_progress/"
+                    )
+            else:
+                raise SystemExit(f"Invalid selection_mode: {selection_mode}")
             if hint not in {"NO_CHANGE", "REVIEW_RECOMMENDED"}:
                 raise SystemExit(f"Invalid roadmap_sync_hint: {hint}")
         (state_root / "selection_status.txt").write_text(status + "\n", encoding="utf-8")

@@ -1,0 +1,111 @@
+version: "2.7"
+name: "neurips-backlog-gap-drafter"
+
+context:
+  workflow_model: "gpt-5.4"
+  workflow_effort: "high"
+
+inputs:
+  state_root:
+    type: relpath
+    under: state
+  steering_path:
+    type: relpath
+    under: docs
+    must_exist_target: true
+  design_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  roadmap_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  progress_ledger_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+  gate_policy_path:
+    type: relpath
+    under: docs/backlog
+    must_exist_target: true
+  gap_request_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+
+outputs:
+  draft_status:
+    kind: scalar
+    type: enum
+    allowed: ["VALID", "BLOCKED"]
+    from:
+      ref: root.steps.ValidateBacklogGapDraft.artifacts.draft_validation_status
+
+providers:
+  codex:
+    command: ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check", "--model", "${model}", "--config", "reasoning_effort=${effort}"]
+    input_mode: "stdin"
+    defaults:
+      model: "${context.workflow_model}"
+      effort: "${context.workflow_effort}"
+
+steps:
+  - name: DraftMissingBacklogItem
+    id: draft_missing_backlog_item
+    provider: codex
+    asset_file: prompts/neurips_backlog_gap_drafter/draft_missing_item.md
+    timeout_sec: 1800
+    depends_on:
+      required:
+        - docs/index.md
+        - ${inputs.steering_path}
+        - ${inputs.design_path}
+        - ${inputs.roadmap_path}
+        - ${inputs.progress_ledger_path}
+        - ${inputs.gate_policy_path}
+        - ${inputs.gap_request_path}
+      inject:
+        mode: content
+        position: prepend
+        instruction: "Use these files as the authoritative context for drafting the missing backlog item:"
+    output_bundle:
+      path: ${inputs.state_root}/draft-bundle.json
+      fields:
+        - name: draft_status
+          json_pointer: /draft_status
+          type: enum
+          allowed: ["DRAFTED", "BLOCKED"]
+
+  - name: ValidateBacklogGapDraft
+    id: validate_backlog_gap_draft
+    command:
+      - python
+      - workflows/library/scripts/validate_neurips_backlog_gap_draft.py
+      - --gap-request-path
+      - ${inputs.gap_request_path}
+      - --draft-bundle-path
+      - ${inputs.state_root}/draft-bundle.json
+      - --gate-policy-path
+      - ${inputs.gate_policy_path}
+      - --output
+      - ${inputs.state_root}/draft-validation.json
+    output_bundle:
+      path: ${inputs.state_root}/draft-validation.json
+      fields:
+        - name: draft_validation_status
+          json_pointer: /draft_validation_status
+          type: enum
+          allowed: ["VALID", "BLOCKED"]
+        - name: backlog_item_path
+          json_pointer: /backlog_item_path
+          type: relpath
+          under: docs/backlog/active
+          required: false
+          must_exist_target: true
+        - name: seed_plan_path
+          json_pointer: /seed_plan_path
+          type: relpath
+          under: docs/plans
+          required: false
+          must_exist_target: true

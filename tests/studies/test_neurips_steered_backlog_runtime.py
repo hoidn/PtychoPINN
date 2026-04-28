@@ -47,6 +47,7 @@ def _copy_runtime_files(workspace: Path) -> Path:
     files = [
         "workflows/examples/neurips_steered_backlog_drain.yaml",
         "workflows/library/neurips_backlog_selector.yaml",
+        "workflows/library/neurips_backlog_gap_drafter.yaml",
         "workflows/library/neurips_backlog_roadmap_sync_phase.yaml",
         "workflows/library/neurips_backlog_seeded_plan_phase.yaml",
         "workflows/library/neurips_backlog_implementation_phase.yaml",
@@ -55,6 +56,8 @@ def _copy_runtime_files(workspace: Path) -> Path:
         "workflows/library/scripts/materialize_neurips_selected_item_inputs.py",
         "workflows/library/scripts/move_neurips_backlog_item.py",
         "workflows/library/scripts/reconcile_neurips_selected_item.py",
+        "workflows/library/scripts/reconcile_neurips_backlog_roadmap_gate.py",
+        "workflows/library/scripts/validate_neurips_backlog_gap_draft.py",
         "workflows/library/scripts/run_neurips_backlog_checks.py",
         "workflows/library/scripts/update_neurips_backlog_run_state.py",
     ]
@@ -118,9 +121,9 @@ def _write_second_selector_blocked(workspace: Path) -> None:
 def _write_roadmap_sync_outputs(workspace: Path) -> None:
     pointer_candidates = sorted(workspace.glob("state/**/roadmap-sync/roadmap_sync_report_path.txt"))
     for pointer in pointer_candidates:
-        target = _target_from_pointer(workspace, pointer.relative_to(workspace).as_posix())
-        if target.exists():
+        if (pointer.parent / "roadmap_sync_status.txt").exists():
             continue
+        target = _target_from_pointer(workspace, pointer.relative_to(workspace).as_posix())
         target.write_text("NO_CHANGE\n", encoding="utf-8")
         (pointer.parent / "roadmap_sync_status.txt").write_text("NO_CHANGE\n", encoding="utf-8")
         return
@@ -130,9 +133,9 @@ def _write_roadmap_sync_outputs(workspace: Path) -> None:
 def _write_plan_draft(workspace: Path) -> None:
     pointer_candidates = sorted(workspace.glob("state/**/plan-phase/plan_path.txt"))
     for pointer in pointer_candidates:
-        target = _target_from_pointer(workspace, pointer.relative_to(workspace).as_posix())
-        if target.exists():
+        if (pointer.parent / "final_plan_path.txt").exists():
             continue
+        target = _target_from_pointer(workspace, pointer.relative_to(workspace).as_posix())
         target.write_text(
             "\n".join(
                 [
@@ -161,9 +164,9 @@ def _write_plan_draft(workspace: Path) -> None:
 def _write_plan_review(workspace: Path) -> None:
     pointer_candidates = sorted(workspace.glob("state/**/plan-phase/plan_review_report_path.txt"))
     for pointer in pointer_candidates:
-        target = _target_from_pointer(workspace, pointer.relative_to(workspace).as_posix())
-        if target.exists():
+        if (pointer.parent / "plan_review_decision.txt").exists():
             continue
+        target = _target_from_pointer(workspace, pointer.relative_to(workspace).as_posix())
         target.write_text(
             json.dumps(
                 {
@@ -327,12 +330,149 @@ def _write_blocked_execution_state(workspace: Path) -> None:
     raise AssertionError("No pending implementation-phase state root found for BLOCKED bundle")
 
 
+def _replace_active_backlog_with_future_phase_gap_fixture(workspace: Path) -> None:
+    active_root = workspace / "docs/backlog/active"
+    for item in active_root.glob("*.md"):
+        item.unlink()
+    (active_root / "2026-04-27-cdi-item.md").write_text(
+        "\n".join(
+            [
+                "---",
+                "priority: 5",
+                "plan_path: docs/plans/legacy-ready-plan.md",
+                "check_commands:",
+                "  - python -c \"print('cdi-check')\"",
+                "related_roadmap_phases:",
+                "  - phase-3-cdi-anchor-regeneration",
+                "---",
+                "",
+                "# Backlog Item: CDI Item",
+                "",
+                "## Objective",
+                "- Represent future CDI work.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (active_root / "2026-03-13-support-item.md").write_text(
+        "\n".join(
+            [
+                "---",
+                "priority: 10",
+                "plan_path: docs/plans/legacy-ready-plan.md",
+                "check_commands:",
+                "  - python -c \"print('support-check')\"",
+                "---",
+                "",
+                "# Backlog Item: Support Item",
+                "",
+                "## Objective",
+                "- Represent support work without a roadmap phase.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def _write_gap_draft(workspace: Path) -> None:
+    state_roots = sorted(workspace.glob("state/**/gap-drafter"))
+    for state_root in state_roots:
+        bundle_path = state_root / "draft-bundle.json"
+        if bundle_path.exists():
+            continue
+        plan_path = (
+            workspace
+            / "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps/2026-04-28-phase2-gap.md"
+        )
+        plan_path.parent.mkdir(parents=True, exist_ok=True)
+        plan_path.write_text(
+            "\n".join(
+                [
+                    "# Phase 2 Gap Plan",
+                    "",
+                    "## Objective",
+                    "- Close the missing Phase 2 full-training evidence gate.",
+                    "",
+                    "## Verification",
+                    "- `python -c \"print('phase2-gap-check')\"`",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        item_path = workspace / "docs/backlog/active/2026-04-28-phase2-gap.md"
+        item_path.write_text(
+            "\n".join(
+                [
+                    "---",
+                    "priority: 1",
+                    "plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps/2026-04-28-phase2-gap.md",
+                    "check_commands:",
+                    "  - python -c \"print('phase2-gap-check')\"",
+                    "related_roadmap_phases:",
+                    "  - phase-2-pdebench-full-training-evidence",
+                    "---",
+                    "",
+                    "# Backlog Item: Phase 2 Gap",
+                    "",
+                    "## Objective",
+                    "- Close the missing Phase 2 full-training evidence gate.",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        bundle_path.write_text(
+            json.dumps(
+                {
+                    "draft_status": "DRAFTED",
+                    "backlog_item_path": item_path.relative_to(workspace).as_posix(),
+                    "seed_plan_path": plan_path.relative_to(workspace).as_posix(),
+                    "summary": "Drafted missing Phase 2 backlog work.",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        return
+    raise AssertionError("No pending gap-drafter state root found")
+
+
+def _write_selector_blocked_after_gap(workspace: Path) -> None:
+    manifests = sorted(workspace.glob("state/**/eligible_manifest.json"))
+    assert manifests, "No eligible manifest produced after gap draft"
+    latest = manifests[-1]
+    manifest = json.loads(latest.read_text(encoding="utf-8"))
+    assert any(item["item_id"] == "2026-04-28-phase2-gap" for item in manifest["items"])
+    selector_dirs = sorted(path for path in workspace.glob("state/**/selector") if not (path / "selection.json").exists())
+    assert selector_dirs, "No pending selector directory found"
+    selector_dir = selector_dirs[-1]
+    (selector_dir / "selection.json").write_text(
+        json.dumps(
+            {
+                "selection_status": "BLOCKED",
+                "selection_rationale": "Runtime smoke stops after proving the drafted Phase 2 item became selectable.",
+                "blocking_reasons": ["smoke stops before executing drafted item"],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
 def _write_implementation_review(workspace: Path) -> None:
     pointer_candidates = sorted(workspace.glob("state/**/implementation-phase/implementation_review_report_path.txt"))
     for pointer in pointer_candidates:
-        target = _target_from_pointer(workspace, pointer.relative_to(workspace).as_posix())
-        if target.exists():
+        if (pointer.parent / "implementation_review_decision.txt").exists():
             continue
+        state_path = pointer.parent / "implementation_state.txt"
+        if not state_path.exists() or state_path.read_text(encoding="utf-8").strip() != "COMPLETED":
+            continue
+        target = _target_from_pointer(workspace, pointer.relative_to(workspace).as_posix())
         target.write_text(
             "\n".join(
                 [
@@ -373,7 +513,6 @@ def _run_with_mocked_providers(workspace: Path, workflow_path: Path) -> dict:
         ("ReviewPlanTracked", _write_plan_review),
         ("ExecuteImplementation", _write_execution_report),
         ("ReviewImplementation", _write_implementation_review),
-        ("SelectNextItem", _write_second_selector_blocked),
     ]
     call_index = {"value": 0}
 
@@ -414,7 +553,7 @@ def test_neurips_steered_backlog_runtime_smoke(tmp_path):
 
     state = _run_with_mocked_providers(workspace, workflow_path)
 
-    assert state["__provider_calls"] == 7
+    assert state["__provider_calls"] == 6
     summary = json.loads(
         (workspace / "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog-drain-summary.json").read_text(
             encoding="utf-8"
@@ -457,7 +596,6 @@ def test_neurips_steered_backlog_runtime_recovers_queue_path_drift_after_plan_re
         ("ReviewPlanTracked", _write_plan_review_and_restore_active_item),
         ("ExecuteImplementation", _write_execution_report),
         ("ReviewImplementation", _write_implementation_review_and_restore_active_item),
-        ("SelectNextItem", _write_second_selector_blocked),
     ]
     call_index = {"value": 0}
 
@@ -497,7 +635,7 @@ def test_neurips_steered_backlog_runtime_recovers_queue_path_drift_after_plan_re
     ):
         executor.execute()
 
-    assert call_index["value"] == 7
+    assert call_index["value"] == 6
     assert not (workspace / "docs/backlog/active/2026-04-22-ready-item.md").exists()
     done_path = workspace / "docs/backlog/done/2026-04-22-ready-item.md"
     assert done_path.is_file()
@@ -506,7 +644,7 @@ def test_neurips_steered_backlog_runtime_recovers_queue_path_drift_after_plan_re
     )
 
 
-def test_neurips_steered_backlog_runtime_waiting_for_running_item(tmp_path):
+def test_neurips_steered_backlog_runtime_recovers_running_item_without_relaunch(tmp_path):
     workspace = tmp_path / "workspace"
     workflow_path = _copy_runtime_files(workspace)
 
@@ -516,6 +654,11 @@ def test_neurips_steered_backlog_runtime_waiting_for_running_item(tmp_path):
         ("DraftPlan", _write_plan_draft),
         ("ReviewPlanTracked", _write_plan_review),
         ("ExecuteImplementation", _write_running_execution_state),
+        ("ReviewOrUpdateRoadmap", _write_roadmap_sync_outputs),
+        ("DraftPlan", _write_plan_draft),
+        ("ReviewPlanTracked", _write_plan_review),
+        ("ExecuteImplementation", _write_execution_report),
+        ("ReviewImplementation", _write_implementation_review),
     ]
     call_index = {"value": 0}
 
@@ -555,7 +698,7 @@ def test_neurips_steered_backlog_runtime_waiting_for_running_item(tmp_path):
     ):
         state = executor.execute()
 
-    assert call_index["value"] == 5
+    assert call_index["value"] == 10
     summary = json.loads(
         (workspace / "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog-drain-summary.json").read_text(
             encoding="utf-8"
@@ -567,10 +710,13 @@ def test_neurips_steered_backlog_runtime_waiting_for_running_item(tmp_path):
         )
     )
 
-    assert summary["drain_status"] == "WAITING"
+    assert summary["drain_status"] == "BLOCKED"
+    assert summary["completed_item_count"] == 1
     assert run_state["blocked_items"] == {}
-    assert run_state["current_item"]["item_id"] == "2026-04-22-ready-item"
-    assert (workspace / "docs/backlog/in_progress/2026-04-22-ready-item.md").is_file()
+    assert run_state["current_item"] is None
+    assert run_state["completed_items"] == ["2026-04-22-ready-item"]
+    assert (workspace / "docs/backlog/done/2026-04-22-ready-item.md").is_file()
+    assert not (workspace / "docs/backlog/in_progress/2026-04-22-ready-item.md").exists()
 
 
 def test_neurips_steered_backlog_runtime_marks_semantic_block_only_on_explicit_block(tmp_path):
@@ -639,3 +785,61 @@ def test_neurips_steered_backlog_runtime_marks_semantic_block_only_on_explicit_b
         run_state["blocked_items"]["2026-04-22-ready-item"]["reason"]
         == "Implementation phase reported a semantic blocker. See progress report."
     )
+
+
+def test_neurips_steered_backlog_runtime_drafts_gap_item_and_continues_without_relaunch(tmp_path):
+    workspace = tmp_path / "workspace"
+    workflow_path = _copy_runtime_files(workspace)
+    _replace_active_backlog_with_future_phase_gap_fixture(workspace)
+
+    provider_sequence = [
+        ("DraftMissingBacklogItem", _write_gap_draft),
+        ("SelectNextItem", _write_selector_blocked_after_gap),
+    ]
+    call_index = {"value": 0}
+
+    def _prepare_invocation(_self, *args, **kwargs):
+        return SimpleNamespace(input_mode="stdin", prompt=kwargs.get("prompt_content", "")), None
+
+    def _execute(_self, _invocation, **kwargs):
+        expected_step, writer = provider_sequence[call_index["value"]]
+        actual_step = kwargs.get("step_name")
+        if actual_step is not None:
+            assert actual_step == expected_step
+        call_index["value"] += 1
+        writer(workspace)
+        return SimpleNamespace(
+            exit_code=0,
+            stdout=b"ok",
+            stderr=b"",
+            duration_ms=1,
+            error=None,
+            missing_placeholders=None,
+            invalid_prompt_placeholder=False,
+            raw_stdout=None,
+            normalized_stdout=None,
+            provider_session=None,
+        )
+
+    loader = WorkflowLoader(workspace)
+    workflow = loader.load(workflow_path)
+    workflow_relpath = workflow_path.relative_to(workspace).as_posix()
+    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), {}, workspace)
+    state_manager = StateManager(workspace=workspace, run_id="test-run")
+    state_manager.initialize(workflow_relpath, _bundle_context_dict(workflow), bound_inputs=bound_inputs)
+    executor = WorkflowExecutor(workflow, workspace, state_manager)
+
+    with patch.object(ProviderExecutor, "prepare_invocation", _prepare_invocation), patch.object(
+        ProviderExecutor, "execute", _execute
+    ):
+        executor.execute()
+
+    assert call_index["value"] == 2
+    assert (workspace / "docs/backlog/active/2026-04-27-cdi-item.md").is_file()
+    assert (workspace / "docs/backlog/active/2026-04-28-phase2-gap.md").is_file()
+    summary = json.loads(
+        (workspace / "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog-drain-summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert summary["drain_status"] == "BLOCKED"

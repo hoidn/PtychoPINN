@@ -16,6 +16,7 @@ ownership boundaries.
 
 - `docs/steering.md`
 - the approved NeurIPS design and roadmap
+- `docs/backlog/roadmap_gate.json`
 - `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json`
 - active backlog items under `docs/backlog/active/*.md`
 - workflow-managed run state under `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/`
@@ -23,17 +24,24 @@ ownership boundaries.
 ## Queue Lifecycle
 
 1. Build a deterministic manifest from `docs/backlog/active/*.md`
-2. Select one next item with provider judgment
-3. Move the item `active -> in_progress`
-4. Run narrow roadmap sync
-5. Draft and review a fresh plan
-6. Rewrite the item's `plan_path` to that fresh approved plan
-7. Run implementation, deterministic targeted checks, and implementation review in one local phase
-8. Move the item to `done` on success, or leave it in `in_progress` with blocker
+2. Reconcile the manifest against `docs/backlog/roadmap_gate.json`
+3. If eligible items exist, select one next item with provider judgment from the filtered manifest only
+4. If no eligible item exists because authorized roadmap work is missing from the queue, draft one controlled backlog-gap item and loop
+5. Run narrow roadmap sync for the selected item
+6. Move the item `active -> in_progress` only after roadmap sync accepts it
+7. Draft and review a fresh plan
+8. Rewrite the item's `plan_path` to that fresh approved plan
+9. Run implementation, deterministic targeted checks, and implementation review in one local phase
+10. Move the item to `done` on success, or leave it in `in_progress` with blocker
    state on failure
 
 The workflow keeps `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/current_roadmap_path.txt`
 as the authoritative roadmap pointer after each roadmap-sync decision.
+
+`docs/backlog/roadmap_gate.json` is the deterministic phase gate. The selector
+does not decide phase legality; it ranks only already-eligible items. The gap
+drafter may create a missing active backlog item for already-authorized roadmap
+work, but it must not edit the roadmap or advance to later phases.
 
 ## Launch
 

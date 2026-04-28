@@ -81,7 +81,6 @@ steps:
           json_pointer: /selected_item_active_path
           type: relpath
           under: docs/backlog/active
-          must_exist_target: true
         - name: selected_item_in_progress_path
           json_pointer: /selected_item_in_progress_path
           type: relpath
@@ -141,8 +140,75 @@ steps:
           type: relpath
           under: state
 
+  - name: RunRoadmapSyncPhase
+    id: run_roadmap_sync_phase
+    call: roadmap_sync_phase
+    with:
+      state_root:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.roadmap_sync_state_root
+      steering_path:
+        ref: inputs.steering_path
+      design_path:
+        ref: inputs.design_path
+      roadmap_path:
+        ref: inputs.current_roadmap_path
+      selected_item_context_path:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.selected_item_context_path
+      progress_ledger_path:
+        ref: inputs.progress_ledger_path
+      roadmap_sync_report_target_path:
+        ref: root.steps.MaterializeSelectedItemInputs.artifacts.roadmap_sync_report_target_path
+    on:
+      failure:
+        goto: RecordSelectionRejected
+
+  - name: ApplyRoadmapSyncDecision
+    id: apply_roadmap_sync_decision
+    command:
+      - python
+      - -c
+      - |
+        import pathlib
+        import sys
+
+        current_pointer_path = pathlib.Path(sys.argv[1])
+        emitted_status = sys.argv[2]
+        emitted_path = sys.argv[3]
+        output_path = pathlib.Path(sys.argv[4])
+
+        if emitted_status == "BLOCKED":
+            raise SystemExit("Roadmap sync blocked the selected backlog item")
+        if emitted_status not in {"NO_CHANGE", "UPDATED"}:
+            raise SystemExit(f"Unexpected roadmap sync status: {emitted_status}")
+        target = pathlib.Path(emitted_path)
+        if not target.is_file():
+            raise SystemExit(f"Roadmap sync emitted missing roadmap path: {emitted_path}")
+
+        current_pointer_path.write_text(emitted_path + "\n", encoding="utf-8")
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(emitted_path + "\n", encoding="utf-8")
+      - ${inputs.current_roadmap_pointer_path}
+      - ${steps.RunRoadmapSyncPhase.artifacts.roadmap_sync_status}
+      - ${steps.RunRoadmapSyncPhase.artifacts.roadmap_path}
+      - ${inputs.state_root}/updated_current_roadmap_path.txt
+    on:
+      failure:
+        goto: RecordSelectionRejected
+    expected_outputs:
+      - name: current_roadmap_path
+        path: ${inputs.state_root}/updated_current_roadmap_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+
   - name: MoveSelectedItemToInProgress
     id: move_selected_item_to_in_progress
+    when:
+      compare:
+        left:
+          ref: self.steps.MaterializeSelectedItemInputs.artifacts.selection_mode
+        op: eq
+        right: ACTIVE_SELECTION
     command:
       - python
       - workflows/library/scripts/move_neurips_backlog_item.py
@@ -185,68 +251,7 @@ steps:
         )
       - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_in_progress_path}
       - ${inputs.run_state_path}
-      - ${inputs.current_roadmap_path}
-
-  - name: RunRoadmapSyncPhase
-    id: run_roadmap_sync_phase
-    call: roadmap_sync_phase
-    with:
-      state_root:
-        ref: root.steps.MaterializeSelectedItemInputs.artifacts.roadmap_sync_state_root
-      steering_path:
-        ref: inputs.steering_path
-      design_path:
-        ref: inputs.design_path
-      roadmap_path:
-        ref: inputs.current_roadmap_path
-      selected_item_context_path:
-        ref: root.steps.MaterializeSelectedItemInputs.artifacts.selected_item_context_path
-      progress_ledger_path:
-        ref: inputs.progress_ledger_path
-      roadmap_sync_report_target_path:
-        ref: root.steps.MaterializeSelectedItemInputs.artifacts.roadmap_sync_report_target_path
-    on:
-      failure:
-        goto: RecordRoadmapBlocked
-
-  - name: ApplyRoadmapSyncDecision
-    id: apply_roadmap_sync_decision
-    command:
-      - python
-      - -c
-      - |
-        import pathlib
-        import sys
-
-        current_pointer_path = pathlib.Path(sys.argv[1])
-        emitted_status = sys.argv[2]
-        emitted_path = sys.argv[3]
-        output_path = pathlib.Path(sys.argv[4])
-
-        if emitted_status == "BLOCKED":
-            raise SystemExit("Roadmap sync blocked the selected backlog item")
-        if emitted_status not in {"NO_CHANGE", "UPDATED"}:
-            raise SystemExit(f"Unexpected roadmap sync status: {emitted_status}")
-        target = pathlib.Path(emitted_path)
-        if not target.is_file():
-            raise SystemExit(f"Roadmap sync emitted missing roadmap path: {emitted_path}")
-
-        current_pointer_path.write_text(emitted_path + "\n", encoding="utf-8")
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(emitted_path + "\n", encoding="utf-8")
-      - ${inputs.current_roadmap_pointer_path}
-      - ${steps.RunRoadmapSyncPhase.artifacts.roadmap_sync_status}
-      - ${steps.RunRoadmapSyncPhase.artifacts.roadmap_path}
-      - ${inputs.state_root}/updated_current_roadmap_path.txt
-    on:
-      failure:
-        goto: RecordRoadmapBlocked
-    expected_outputs:
-      - name: current_roadmap_path
-        path: ${inputs.state_root}/updated_current_roadmap_path.txt
-        type: relpath
-        under: docs/plans
-        must_exist_target: true
+      - ${steps.ApplyRoadmapSyncDecision.artifacts.current_roadmap_path}
 
   - name: RunFreshPlanPhase
     id: run_fresh_plan_phase
@@ -700,6 +705,61 @@ steps:
       - ${steps.MaterializeSelectedItemInputs.artifacts.outcome_bundle_path}
       - ${inputs.run_state_path}
       - ${steps.ApplyRoadmapSyncDecision.artifacts.current_roadmap_path}
+    on:
+      success:
+        goto: FinalizeSelectedItemOutcome
+
+  - name: RecordSelectionRejected
+    id: record_selection_rejected
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import sys
+
+        active_path = pathlib.Path(sys.argv[1])
+        in_progress_path = pathlib.Path(sys.argv[2])
+        summary_path = pathlib.Path(sys.argv[3])
+        outcome_path = pathlib.Path(sys.argv[4])
+        current_roadmap_path = sys.argv[5]
+
+        item_path = active_path if active_path.is_file() else in_progress_path
+        item_id = item_path.stem
+        summary_target = pathlib.Path(summary_path)
+        summary_target.parent.mkdir(parents=True, exist_ok=True)
+        summary_target.write_text(
+            json.dumps(
+                {
+                    "item_id": item_id,
+                    "item_outcome": "SELECTION_REJECTED",
+                    "failed_stage": "roadmap_sync",
+                    "item_path": item_path.as_posix(),
+                    "roadmap_path": current_roadmap_path,
+                    "reason": "Roadmap sync rejected the selected backlog item before queue ownership changed.",
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        pathlib.Path(outcome_path).write_text(
+            json.dumps(
+                {
+                    "drain_status": "BLOCKED",
+                    "item_summary_path": summary_target.as_posix(),
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_active_path}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_in_progress_path}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.item_summary_target_path}
+      - ${steps.MaterializeSelectedItemInputs.artifacts.outcome_bundle_path}
+      - ${inputs.current_roadmap_path}
     on:
       success:
         goto: FinalizeSelectedItemOutcome

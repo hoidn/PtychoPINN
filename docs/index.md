@@ -73,6 +73,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, workflow, backlog, implementation, waiting, blocked, running, execution-state
 **Use this when:** Fixing the selected-item implementation-state bug, updating the drain to support non-terminal experiment progress, or reviewing how to separate semantic item state from workflow failure.
 
+### [NeurIPS Backlog Roadmap Gap Fix Plan](plans/2026-04-28-neurips-backlog-roadmap-gap-fix-plan.md)
+**Description:** Implementation plan for hardening the NeurIPS backlog drain so deterministic roadmap gating happens before provider selection, missing authorized Phase 2 work can be drafted as a controlled backlog-gap item, and active items move to `in_progress` only after roadmap sync accepts them.
+**Keywords:** neurips, workflow, backlog, roadmap-gate, gap-draft, selector, in-progress
+**Use this when:** Fixing or reviewing backlog drain phase-routing behavior, especially when active items are out of phase with the current roadmap gate.
+
 ### [NeurIPS Steering Document](steering.md)
 **Description:** Human-authored strategic intent for the NeurIPS Hybrid ResNet backlog drain, capturing ordered priorities, comparison standards, fairness constraints, known blockers, and non-goals.
 **Keywords:** neurips, steering, priorities, fairness, blockers, workflow

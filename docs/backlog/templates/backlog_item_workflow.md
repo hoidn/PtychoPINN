@@ -46,6 +46,7 @@ related_roadmap_phases:
 - `related_roadmap_phases`:
   - optional YAML list of roadmap phase or tranche ids
   - helps the selector and reviewers keep backlog work aligned with roadmap order
+  - the NeurIPS drain's deterministic roadmap gate uses this field before provider selection; future-phase items are not passed to the selector while an earlier phase is active
 
 ## Queue Placement
 
@@ -56,3 +57,9 @@ related_roadmap_phases:
 
 The workflows move approved items from `active` to `done` automatically.
 For the NeurIPS drain, `plan_path` may be rewritten to the fresh approved plan before implementation begins, so backlog items should treat the frontmatter `plan_path` as workflow-managed state after selection.
+
+When the NeurIPS drain finds no active item allowed by `docs/backlog/roadmap_gate.json`,
+it may draft a missing backlog item under `docs/backlog/active/` only for work
+already authorized by the current roadmap gate. Drafted items must include a
+real seed `plan_path`, non-empty `check_commands`, and an allowed
+`related_roadmap_phases` value.

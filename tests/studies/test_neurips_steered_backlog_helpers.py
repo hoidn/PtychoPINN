@@ -68,6 +68,222 @@ def test_build_manifest_rejects_malformed_frontmatter(tmp_path):
     assert "frontmatter" in result.stderr.lower()
 
 
+def test_roadmap_gate_filters_out_phase3_cdi_when_phase2_required(tmp_path):
+    workspace = _workspace(tmp_path)
+    cdi_item = workspace / "docs/backlog/active/2026-04-27-cdi-item.md"
+    cdi_item.write_text(
+        "\n".join(
+            [
+                "---",
+                "priority: 5",
+                "plan_path: docs/plans/legacy-ready-plan.md",
+                "check_commands:",
+                "  - python -c \"print('cdi-check')\"",
+                "related_roadmap_phases:",
+                "  - phase-3-cdi-anchor-regeneration",
+                "---",
+                "",
+                "# Backlog Item: CDI Item",
+                "",
+                "## Objective",
+                "- Represent future CDI work.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest_path = workspace / "state/manifest.json"
+    _run_script(
+        workspace,
+        "workflows/library/scripts/build_neurips_backlog_manifest.py",
+        "--backlog-root",
+        "docs/backlog/active",
+        "--output",
+        str(manifest_path),
+    )
+
+    output_path = workspace / "state/gate.json"
+    _run_script(
+        workspace,
+        "workflows/library/scripts/reconcile_neurips_backlog_roadmap_gate.py",
+        "--manifest-path",
+        str(manifest_path),
+        "--gate-policy-path",
+        "docs/backlog/roadmap_gate.json",
+        "--progress-ledger-path",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+        "--run-state-path",
+        "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/run_state.json",
+        "--output",
+        str(output_path),
+    )
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["gate_status"] == "ELIGIBLE"
+    assert {item["item_id"] for item in payload["eligible_items"]} == {"2026-04-22-ready-item"}
+    assert "2026-04-27-cdi-item" in {item["item_id"] for item in payload["ineligible_items"]}
+    eligible_manifest = json.loads((workspace / payload["eligible_manifest_path"]).read_text(encoding="utf-8"))
+    assert eligible_manifest["active_count"] == 1
+    assert eligible_manifest["items"][0]["item_id"] == "2026-04-22-ready-item"
+
+
+def test_roadmap_gate_reports_backlog_gap_when_only_future_phase_items_remain(tmp_path):
+    workspace = _workspace(tmp_path)
+    active_root = workspace / "docs/backlog/active"
+    for item in active_root.glob("*.md"):
+        item.unlink()
+    (active_root / "2026-04-27-cdi-item.md").write_text(
+        "\n".join(
+            [
+                "---",
+                "priority: 5",
+                "plan_path: docs/plans/legacy-ready-plan.md",
+                "check_commands:",
+                "  - python -c \"print('cdi-check')\"",
+                "related_roadmap_phases:",
+                "  - phase-3-cdi-anchor-regeneration",
+                "---",
+                "",
+                "# Backlog Item: CDI Item",
+                "",
+                "## Objective",
+                "- Represent future CDI work.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (active_root / "2026-03-13-support-item.md").write_text(
+        "\n".join(
+            [
+                "---",
+                "priority: 10",
+                "plan_path: docs/plans/legacy-ready-plan.md",
+                "check_commands:",
+                "  - python -c \"print('support-check')\"",
+                "---",
+                "",
+                "# Backlog Item: Support Item",
+                "",
+                "## Objective",
+                "- Represent support work without a roadmap phase.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest_path = workspace / "state/manifest.json"
+    _run_script(
+        workspace,
+        "workflows/library/scripts/build_neurips_backlog_manifest.py",
+        "--backlog-root",
+        "docs/backlog/active",
+        "--output",
+        str(manifest_path),
+    )
+
+    output_path = workspace / "state/gate.json"
+    _run_script(
+        workspace,
+        "workflows/library/scripts/reconcile_neurips_backlog_roadmap_gate.py",
+        "--manifest-path",
+        str(manifest_path),
+        "--gate-policy-path",
+        "docs/backlog/roadmap_gate.json",
+        "--progress-ledger-path",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+        "--run-state-path",
+        "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/run_state.json",
+        "--output",
+        str(output_path),
+    )
+
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    assert payload["gate_status"] == "BACKLOG_GAP"
+    assert payload["eligible_count"] == 0
+    gap_request = json.loads((workspace / payload["gap_request_path"]).read_text(encoding="utf-8"))
+    assert gap_request["required_scope_summary"] == "Remaining Phase 2 PDEBench full-training evidence gate"
+    assert gap_request["gap_item_target_dir"] == "docs/backlog/active"
+
+
+def test_roadmap_gate_reports_done_for_empty_manifest(tmp_path):
+    workspace = _workspace(tmp_path)
+    active_root = workspace / "docs/backlog/active"
+    for item in active_root.glob("*.md"):
+        item.unlink()
+    manifest_path = workspace / "state/manifest.json"
+    _run_script(
+        workspace,
+        "workflows/library/scripts/build_neurips_backlog_manifest.py",
+        "--backlog-root",
+        "docs/backlog/active",
+        "--output",
+        str(manifest_path),
+    )
+
+    output_path = workspace / "state/gate.json"
+    _run_script(
+        workspace,
+        "workflows/library/scripts/reconcile_neurips_backlog_roadmap_gate.py",
+        "--manifest-path",
+        str(manifest_path),
+        "--gate-policy-path",
+        "docs/backlog/roadmap_gate.json",
+        "--progress-ledger-path",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+        "--run-state-path",
+        "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/run_state.json",
+        "--output",
+        str(output_path),
+    )
+
+    assert json.loads(output_path.read_text(encoding="utf-8"))["gate_status"] == "DONE"
+
+
+def test_roadmap_gate_rejects_policy_without_allowed_prefixes(tmp_path):
+    workspace = _workspace(tmp_path)
+    bad_policy = workspace / "docs/backlog/bad_gate.json"
+    bad_policy.write_text(
+        json.dumps(
+            {
+                "gate_version": 1,
+                "allowed_roadmap_phase_prefixes": [],
+                "disallowed_roadmap_phase_prefixes": ["phase-3-"],
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest_path = workspace / "state/manifest.json"
+    _run_script(
+        workspace,
+        "workflows/library/scripts/build_neurips_backlog_manifest.py",
+        "--backlog-root",
+        "docs/backlog/active",
+        "--output",
+        str(manifest_path),
+    )
+
+    result = _run_script(
+        workspace,
+        "workflows/library/scripts/reconcile_neurips_backlog_roadmap_gate.py",
+        "--manifest-path",
+        str(manifest_path),
+        "--gate-policy-path",
+        bad_policy.relative_to(workspace).as_posix(),
+        "--progress-ledger-path",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+        "--run-state-path",
+        "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/run_state.json",
+        "--output",
+        str(workspace / "state/gate.json"),
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "allowed_roadmap_phase_prefixes" in result.stderr
+
+
 def test_materialize_selected_item_inputs_writes_check_command_artifacts(tmp_path):
     workspace = _workspace(tmp_path)
     manifest_path = workspace / "state/manifest.json"
@@ -125,6 +341,158 @@ def test_materialize_selected_item_inputs_writes_check_command_artifacts(tmp_pat
     assert "authoritative_item_path: `docs/backlog/in_progress/2026-04-22-ready-item.md`" in context_text
     assert "selection_source_path: `docs/backlog/active/2026-04-22-ready-item.md`" in context_text
     assert "selected_item_path:" not in context_text
+
+
+def test_gap_draft_validator_accepts_valid_phase2_item(tmp_path):
+    workspace = _workspace(tmp_path)
+    gap_request = workspace / "state/gap_request.json"
+    gap_request.parent.mkdir(parents=True, exist_ok=True)
+    gap_request.write_text(
+        json.dumps(
+            {
+                "current_gate_id": "phase-2-pdebench-full-training-evidence",
+                "allowed_roadmap_phase_prefixes": ["phase-2-pdebench-"],
+                "disallowed_roadmap_phase_prefixes": ["phase-3-"],
+                "gap_item_target_dir": "docs/backlog/active",
+                "gap_plan_target_root": "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps",
+                "required_scope_summary": "Remaining Phase 2 PDEBench full-training evidence gate",
+                "roadmap_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    plan_path = workspace / "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps/2026-04-28-phase2.md"
+    plan_path.parent.mkdir(parents=True, exist_ok=True)
+    plan_path.write_text("# Phase 2 Gap Plan\n", encoding="utf-8")
+    item_path = workspace / "docs/backlog/active/2026-04-28-phase2-gap.md"
+    item_path.write_text(
+        "\n".join(
+            [
+                "---",
+                "priority: 5",
+                "plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps/2026-04-28-phase2.md",
+                "check_commands:",
+                "  - python -m pytest tests/studies/test_neurips_steered_backlog_helpers.py -q",
+                "related_roadmap_phases:",
+                "  - phase-2-pdebench-full-training-evidence",
+                "---",
+                "",
+                "# Backlog Item: Phase 2 Gap",
+                "",
+                "## Objective",
+                "- Close the missing Phase 2 evidence gap.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    draft_bundle = workspace / "state/draft_bundle.json"
+    draft_bundle.write_text(
+        json.dumps(
+            {
+                "draft_status": "DRAFTED",
+                "backlog_item_path": item_path.relative_to(workspace).as_posix(),
+                "seed_plan_path": plan_path.relative_to(workspace).as_posix(),
+                "summary": "Drafted Phase 2 gap item.",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    output = workspace / "state/draft_validation.json"
+    _run_script(
+        workspace,
+        "workflows/library/scripts/validate_neurips_backlog_gap_draft.py",
+        "--gap-request-path",
+        str(gap_request),
+        "--draft-bundle-path",
+        str(draft_bundle),
+        "--gate-policy-path",
+        "docs/backlog/roadmap_gate.json",
+        "--output",
+        str(output),
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["draft_validation_status"] == "VALID"
+    assert payload["backlog_item_path"] == "docs/backlog/active/2026-04-28-phase2-gap.md"
+
+
+def test_gap_draft_validator_rejects_future_phase_item(tmp_path):
+    workspace = _workspace(tmp_path)
+    gap_request = workspace / "state/gap_request.json"
+    gap_request.parent.mkdir(parents=True, exist_ok=True)
+    gap_request.write_text(
+        json.dumps(
+            {
+                "allowed_roadmap_phase_prefixes": ["phase-2-pdebench-"],
+                "disallowed_roadmap_phase_prefixes": ["phase-3-"],
+                "gap_item_target_dir": "docs/backlog/active",
+                "gap_plan_target_root": "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps",
+                "roadmap_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    plan_path = workspace / "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps/2026-04-28-future.md"
+    plan_path.parent.mkdir(parents=True, exist_ok=True)
+    plan_path.write_text("# Future Plan\n", encoding="utf-8")
+    item_path = workspace / "docs/backlog/active/2026-04-28-future.md"
+    item_path.write_text(
+        "\n".join(
+            [
+                "---",
+                "priority: 5",
+                "plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps/2026-04-28-future.md",
+                "check_commands:",
+                "  - python -c \"print('future')\"",
+                "related_roadmap_phases:",
+                "  - phase-3-cdi-anchor-regeneration",
+                "---",
+                "",
+                "# Backlog Item: Future",
+                "",
+                "## Objective",
+                "- Future work.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    draft_bundle = workspace / "state/draft_bundle.json"
+    draft_bundle.write_text(
+        json.dumps(
+            {
+                "draft_status": "DRAFTED",
+                "backlog_item_path": item_path.relative_to(workspace).as_posix(),
+                "seed_plan_path": plan_path.relative_to(workspace).as_posix(),
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = _run_script(
+        workspace,
+        "workflows/library/scripts/validate_neurips_backlog_gap_draft.py",
+        "--gap-request-path",
+        str(gap_request),
+        "--draft-bundle-path",
+        str(draft_bundle),
+        "--gate-policy-path",
+        "docs/backlog/roadmap_gate.json",
+        "--output",
+        str(workspace / "state/draft_validation.json"),
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "disallowed" in result.stderr.lower() or "allowed" in result.stderr.lower()
 
 
 def test_move_item_allows_legal_transitions_and_rejects_illegal_ones(tmp_path):

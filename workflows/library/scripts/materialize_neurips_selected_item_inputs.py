@@ -36,6 +36,41 @@ def _parse_backlog_body(path: Path) -> str:
     return text[end + len("\n---\n") :].strip()
 
 
+def _parse_frontmatter_and_body(path: Path) -> tuple[dict[str, object], str]:
+    text = path.read_text(encoding="utf-8")
+    if not text.startswith("---\n"):
+        raise SystemExit(f"Missing frontmatter start fence: {path}")
+    end = text.find("\n---\n", 4)
+    if end == -1:
+        raise SystemExit(f"Missing frontmatter end fence: {path}")
+
+    payload: dict[str, object] = {}
+    current_list_key: str | None = None
+    for raw_line in text[4:end].splitlines():
+        line = raw_line.rstrip()
+        if not line:
+            continue
+        if line.startswith("  - ") or line.startswith("- "):
+            if not current_list_key:
+                raise SystemExit(f"List item without owning key in frontmatter: {path}: {line}")
+            payload.setdefault(current_list_key, [])
+            assert isinstance(payload[current_list_key], list)
+            payload[current_list_key].append(line.split("- ", 1)[1].strip())
+            continue
+        if ":" not in line:
+            raise SystemExit(f"Malformed frontmatter line in {path}: {line}")
+        key, value = line.split(":", 1)
+        key = key.strip()
+        value = value.strip()
+        if value == "":
+            payload[key] = []
+            current_list_key = key
+        else:
+            payload[key] = value
+            current_list_key = None
+    return payload, text[end + len("\n---\n") :].strip()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--selection-path", required=True)
@@ -64,22 +99,45 @@ def main() -> int:
         raise SystemExit(f"Unsupported selection_mode: {selection_mode}")
     if not isinstance(item_id, str) or not re.fullmatch(r"[a-z0-9][a-z0-9-]*", item_id):
         raise SystemExit(f"Unsafe or missing selected_item_id: {item_id}")
-    if not isinstance(item_path_rel, str) or not item_path_rel.startswith("docs/backlog/active/"):
-        raise SystemExit(f"Selected item must come from docs/backlog/active/: {item_path_rel}")
-
-    manifest_items = manifest.get("items")
-    if not isinstance(manifest_items, list):
-        raise SystemExit("Manifest items payload is missing or invalid")
-    manifest_entry = next(
-        (
-            entry
-            for entry in manifest_items
-            if entry.get("item_id") == item_id and entry.get("path") == item_path_rel
-        ),
-        None,
-    )
-    if manifest_entry is None:
-        raise SystemExit(f"Selected item {item_id} was not found in the manifest")
+    manifest_entry: dict[str, object]
+    selected_item_active_path: str
+    selected_item_in_progress_path: str
+    if selection_mode == "ACTIVE_SELECTION":
+        if not isinstance(item_path_rel, str) or not item_path_rel.startswith("docs/backlog/active/"):
+            raise SystemExit(f"Active selection must come from docs/backlog/active/: {item_path_rel}")
+        manifest_items = manifest.get("items")
+        if not isinstance(manifest_items, list):
+            raise SystemExit("Manifest items payload is missing or invalid")
+        found_entry = next(
+            (
+                entry
+                for entry in manifest_items
+                if entry.get("item_id") == item_id and entry.get("path") == item_path_rel
+            ),
+            None,
+        )
+        if found_entry is None:
+            raise SystemExit(f"Selected item {item_id} was not found in the manifest")
+        manifest_entry = found_entry
+        selected_item_active_path = item_path_rel
+        selected_item_in_progress_path = f"docs/backlog/in_progress/{Path(item_path_rel).name}"
+    else:
+        if not isinstance(item_path_rel, str) or not item_path_rel.startswith("docs/backlog/in_progress/"):
+            raise SystemExit(f"Recovered selection must come from docs/backlog/in_progress/: {item_path_rel}")
+        item_frontmatter, item_body = _parse_frontmatter_and_body(REPO_ROOT / item_path_rel)
+        check_commands_value = item_frontmatter.get("check_commands")
+        if not isinstance(check_commands_value, list) or not check_commands_value:
+            raise SystemExit(f"Recovered item missing non-empty check_commands for {item_id}")
+        manifest_entry = {
+            "item_id": item_id,
+            "title": item_id,
+            "path": item_path_rel,
+            "plan_path": str(item_frontmatter.get("plan_path") or "").strip(),
+            "check_commands": check_commands_value,
+            "summary": item_body.splitlines()[0].strip() if item_body.splitlines() else "",
+        }
+        selected_item_active_path = f"docs/backlog/active/{Path(item_path_rel).name}"
+        selected_item_in_progress_path = item_path_rel
 
     item_path = REPO_ROOT / item_path_rel
     if not item_path.is_file():
@@ -147,8 +205,8 @@ def main() -> int:
     payload = {
         "item_id": item_id,
         "selection_mode": selection_mode,
-        "selected_item_active_path": item_path_rel,
-        "selected_item_in_progress_path": f"docs/backlog/in_progress/{item_path.name}",
+        "selected_item_active_path": selected_item_active_path,
+        "selected_item_in_progress_path": selected_item_in_progress_path,
         "selected_item_context_path": _repo_relpath(context_path),
         "check_commands_path": _repo_relpath(check_commands_path),
         "check_commands_pointer_path": _repo_relpath(check_commands_pointer),
