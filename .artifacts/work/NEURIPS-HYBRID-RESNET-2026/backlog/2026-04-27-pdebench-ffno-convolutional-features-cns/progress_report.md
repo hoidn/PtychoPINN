@@ -1,23 +1,21 @@
 ## Active Work
 
-- Validated the fresh `10`-epoch local-conv pilot at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-10ep-20260428T082501Z` as authoritative for this revised plan (`mode: "pilot"`, `evidence_scope: "capped_decision_support_only"`).
-- Wrote the anchored `10`-epoch compare sidecars at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/compare_10ep_against_existing.json` and `.csv`, plus `compare_10ep_sample0.png` and `compare_10ep_sample0_error.png`.
-- Confirmed there is still no authoritative same-contract `40`-epoch `ffno_bottleneck_base` root to reuse for the fairness-critical FFNO-close row.
-- Launched the required `40`-epoch FFNO-close backfill at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-close-backfill-40ep-20260428T084852Z` in tmux session `ffno-close-backfill-40ep` with tracked shell PID marker `__PID__:367965`.
+- Kept the fresh `10`-epoch local-conv pilot and anchored `compare_10ep_against_existing.{json,csv}` sidecars as the authoritative `10`-epoch evidence for this backlog item.
+- Completed the fairness-critical `40`-epoch FFNO-close backfill at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-close-backfill-40ep-20260428T084852Z`; the run exited `0` and now provides `comparison_summary.json`, `comparison_summary.csv`, `metrics_ffno_bottleneck_base.json`, and `model_profile_ffno_bottleneck_base.json` under `mode: "pilot"` / `evidence_scope: "capped_decision_support_only"`.
+- Launched the authoritative `40`-epoch local-conv pilot at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-40ep-20260428T090626Z` in tmux session `ffno-localconv-40ep` with tracked PID marker `__PID__:374787`.
 
 ## Current Status
 
-- Deterministic checks completed successfully:
+- Deterministic checks remain the latest completed repo verification for this item:
   - `pytest -q tests/torch/test_ffno_bottleneck.py`
   - `pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py`
   - `python -m compileall -q scripts/studies/pdebench_image128`
   - `python -m compileall -q ptycho_torch/generators/ffno_bottleneck.py`
-- The inspect run exited `0` and produced `hdf5_metadata.json`, `dataset_manifest.json`, `invocation.json`, and `invocation.sh`; the runner emitted canonical `split_manifest.json` rather than the plan text's `trajectory_split_manifest.json`. Treat this as an artifact-name deviation, not a semantic blocker, because the existing PDEBench runner/reporting surface already consumes `split_manifest.json`.
-- The fresh `10`-epoch local-conv compare now includes the required fairness core `author_ffno_cns_base`, `ffno_bottleneck_base`, and `spectral_resnet_bottleneck_base`, plus aligned optional continuity rows `hybrid_resnet_cns`, `fno_base`, and `unet_strong`.
-- The current `10`-epoch row beats the existing local FFNO-close anchor on aggregate and high-frequency error (`relative_l2 0.08463` vs `0.11107`, `fRMSE_high 0.63692` vs `0.72765`), edges the authored FFNO row on aggregate error (`0.08463` vs `0.08783`), and trails the authored FFNO row on `fRMSE_high` (`0.63692` vs `0.25970`).
-- The `40`-epoch FFNO-close backfill is still running. The run root already contains `dataset_manifest.json`, `hdf5_metadata.json`, `invocation.json`, `invocation.sh`, `model_profile_ffno_bottleneck_base.json`, `normalization_stats_state.json`, and `split_manifest.json`, but it does not yet have final metrics or compare summaries.
+- The `40`-epoch FFNO-close backfill closed the only known fairness gap for the `40`-epoch compare. Its pilot summary reports `relative_l2=0.0762241706`, `err_RMSE=1.8421044350`, `fRMSE_low=4.3475513458`, `fRMSE_mid=0.2654404044`, and `fRMSE_high=0.3934273422`.
+- The authoritative `40`-epoch local-conv pilot is still running. Its output root already contains fresh provenance artifacts (`invocation.json`, `invocation.sh`, `dataset_manifest.json`, `hdf5_metadata.json`, `split_manifest.json`, `normalization_stats_state.json`, `model_profile_ffno_bottleneck_localconv_base.json`), and the tmux pane has reached epoch `6 / 40` without errors.
+- No durable summary, CNS-summary sync, docs-index update, progress-ledger completion entry, or execution report is ready yet because the `40`-epoch local-conv metrics and anchored `compare_40ep_against_existing` sidecars do not exist yet.
 
 ## Next Resume Condition
 
-- Resume when tmux session `ffno-close-backfill-40ep` reports `__EXIT__:0` and the backfill root contains fresh `comparison_summary.json`, `comparison_summary.csv`, `metrics_ffno_bottleneck_base.json`, and `model_profile_ffno_bottleneck_base.json`.
-- Then freeze `reference_runs_40ep.json`, launch the fresh `cns-ffno-localconv-40ep-<timestamp>` pilot, collate `compare_40ep_against_existing.json/.csv`, and finish the durable summary, CNS-summary sync, docs index updates, progress-ledger completion entry, execution report, and final implementation-state handoff.
+- Resume when tmux session `ffno-localconv-40ep` reports `__EXIT__:0` and `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-40ep-20260428T090626Z` contains fresh `comparison_summary.json`, `comparison_summary.csv`, `metrics_ffno_bottleneck_localconv_base.json`, and `model_profile_ffno_bottleneck_localconv_base.json`.
+- Then freeze `reference_runs_40ep.json`, collate `compare_40ep_against_existing.{json,csv}` plus any aligned galleries, update `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_convolutional_features_cns_summary.md`, sync `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md`, refresh `docs/studies/index.md` / `docs/index.md`, append the completion entry to `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json`, write the final execution report, and switch the implementation-state bundle to `COMPLETED`.
