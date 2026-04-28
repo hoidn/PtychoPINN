@@ -38,6 +38,11 @@ from dataclasses import fields
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from ptycho import probe, params
 from ptycho.raw_data import RawData
 from ptycho.workflows.components import load_data, setup_configuration, parse_arguments
@@ -646,6 +651,7 @@ def save_probe_visualization(test_data: RawData, output_path: str):
 
 def main():
     """Main entry point for the ptychography inference script."""
+    config = None
     try:
         print("Starting ptychography inference script...")
         args = parse_arguments()
@@ -816,7 +822,7 @@ def main():
     finally:
         print("Cleaning up resources...")
         # Only call TensorFlow cleanup if we used TensorFlow backend
-        if config.backend == 'tensorflow':
+        if config is not None and config.backend == 'tensorflow':
             tf.keras.backend.clear_session()
 
 if __name__ == "__main__":
