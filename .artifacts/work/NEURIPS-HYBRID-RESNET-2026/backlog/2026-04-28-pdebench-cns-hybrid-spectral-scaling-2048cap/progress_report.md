@@ -5,7 +5,7 @@
 - The capped `2048 / 256 / 256`, `40`-epoch PDEBench `2d_cfd_cns` finalist compare is still actively running for:
   - `spectral_resnet_bottleneck_base`
   - `spectral_resnet_bottleneck_shared_blocks10`
-- The current task's frozen reference manifests and green verification logs remain under:
+- Frozen reference manifests and green preflight logs remain under:
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/`
 - Active run root:
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/cns-hybrid-spectral-finalists-2048cap-40ep-20260428T201926Z`
@@ -17,7 +17,7 @@
 ## Current Status
 
 - Implementation is `RUNNING`.
-- The tracked Python PID is `543096` and was still live at the latest check on `2026-04-28 15:15:45 -0700` (`ps` status `Rl+`, elapsed `01:55:51`, `%CPU 713`, `%MEM 9.1`).
+- The tracked Python PID is `543096` and was still live at `2026-04-28 15:28:50 -0700` with `ps` status `Rl+`, elapsed `7695` seconds, `%CPU 704`, `%MEM 9.1`.
 - Required fresh contract artifacts already exist under the run root:
   - `invocation.json`
   - `invocation.sh`
@@ -37,7 +37,7 @@
   - `fRMSE_mid=0.2230527103`
   - `fRMSE_high=0.3117601573`
   - `runtime_sec=4311.1880`
-- The latest observed stdout line is `EPOCH_LOSS profile=spectral_resnet_bottleneck_shared_blocks10 epoch=19 loss=0.01068468894`, and `.launch/stdout.log` was last updated at `2026-04-28 15:14:15 -0700`.
+- The latest observed stdout line is `EPOCH_LOSS profile=spectral_resnet_bottleneck_shared_blocks10 epoch=25 loss=0.009028125308`, and `.launch/stdout.log` was last updated at `2026-04-28 15:27:26 -0700`.
 - The run root also contains `model_profile_spectral_resnet_bottleneck_shared_blocks10.json`, but it does not yet contain:
   - `metrics_spectral_resnet_bottleneck_shared_blocks10.json`
   - `comparison_spectral_resnet_bottleneck_shared_blocks10_sample0.npz`
@@ -49,4 +49,4 @@
 ## Next Resume Condition
 
 - Resume when PID `543096` exits and `.launch/exit_code.txt` records `0`.
-- Then validate the fresh run emitted the remaining per-profile metrics plus `comparison_summary.json` and `comparison_summary.csv`, generate `finalist_scaling_trend_512_1024_2048.json` and `.csv`, archive completion verification, and finish the durable summary / index / ledger sync before marking the item complete.
+- Then verify the fresh run emitted the remaining per-profile metrics plus `comparison_summary.json` and `comparison_summary.csv`, generate `finalist_scaling_trend_512_1024_2048.json` and `.csv`, archive completion verification, and finish the durable summary / CNS summary / ledger sync before marking the item complete.
