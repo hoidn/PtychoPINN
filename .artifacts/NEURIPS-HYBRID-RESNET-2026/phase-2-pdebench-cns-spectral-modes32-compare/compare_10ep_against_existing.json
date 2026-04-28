@@ -1,0 +1,293 @@
+{
+  "contract": {
+    "batch_size": 4,
+    "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+    "epochs": 10,
+    "history_len": 2,
+    "max_windows_per_trajectory": 8,
+    "metric_family": [
+      "err_RMSE",
+      "err_nRMSE",
+      "relative_l2",
+      "fRMSE_low",
+      "fRMSE_mid",
+      "fRMSE_high"
+    ],
+    "split_counts": {
+      "test": 64,
+      "train": 512,
+      "val": 64
+    },
+    "training_loss": "mse"
+  },
+  "created_at_utc": "2026-04-28T01:41:54.776776+00:00",
+  "cross_run_gallery_blocked": null,
+  "epoch_label": "10ep",
+  "expected_epochs": 10,
+  "fresh_profile_id": "spectral_resnet_bottleneck_modes32",
+  "fresh_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/cns-spectral-modes32-10ep-20260428T010825Z",
+  "gallery_artifacts": {
+    "error_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/compare_10ep_sample0_error.png",
+    "prediction_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/compare_10ep_sample0.png"
+  },
+  "included_optional_reference_rows": [],
+  "included_required_reference_rows": [
+    {
+      "batch_size": 4,
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "epochs": 10,
+      "history_len": 2,
+      "max_windows_per_trajectory": 8,
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
+      "profile_id": "spectral_resnet_bottleneck_base",
+      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T203200Z-ffno-cns-10ep",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_bottleneck_summary.md",
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "training_loss": "mse"
+    },
+    {
+      "batch_size": 4,
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "epochs": 10,
+      "history_len": 2,
+      "max_windows_per_trajectory": 8,
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
+      "profile_id": "fno_base",
+      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T183717Z-10ep-mse",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "training_loss": "mse"
+    },
+    {
+      "batch_size": 4,
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "epochs": 10,
+      "history_len": 2,
+      "max_windows_per_trajectory": 8,
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
+      "profile_id": "unet_strong",
+      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T183717Z-10ep-mse",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "training_loss": "mse"
+    }
+  ],
+  "profile_results": [
+    {
+      "batch_size": 4,
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "epochs": 10,
+      "err_RMSE": 2.030993938446045,
+      "err_nRMSE": 0.08404020220041275,
+      "evidence_scope": "smoke_feasibility_only",
+      "fRMSE_high": 0.6861363053321838,
+      "fRMSE_low": 4.724026203155518,
+      "fRMSE_mid": 0.37881049513816833,
+      "field_order": [
+        "density",
+        "Vx",
+        "Vy",
+        "pressure"
+      ],
+      "history_len": 2,
+      "input_channels": 8,
+      "max_windows_per_trajectory": 8,
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
+      "metric_interpretation": "sanity_only_not_benchmark_performance",
+      "mode": "readiness",
+      "parameter_count": 42388614,
+      "profile_id": "spectral_resnet_bottleneck_modes32",
+      "relative_l2": 0.08404020220041275,
+      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/cns-spectral-modes32-10ep-20260428T010825Z",
+      "sample_contract": "concat u[t-2:t] -> u[t]",
+      "source_document": "fresh_run",
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "status": "completed",
+      "target_channels": 4,
+      "task_id": "2d_cfd_cns",
+      "training_loss": "mse"
+    },
+    {
+      "batch_size": 4,
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "epochs": 10,
+      "err_RMSE": 2.102374792098999,
+      "err_nRMSE": 0.08699385821819305,
+      "evidence_scope": "smoke_feasibility_only",
+      "fRMSE_high": 0.6955373287200928,
+      "fRMSE_low": 4.88623571395874,
+      "fRMSE_mid": 0.422122597694397,
+      "field_order": [
+        "density",
+        "Vx",
+        "Vy",
+        "pressure"
+      ],
+      "history_len": 2,
+      "input_channels": 8,
+      "max_windows_per_trajectory": 8,
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
+      "metric_interpretation": "sanity_only_not_benchmark_performance",
+      "mode": "readiness",
+      "parameter_count": 8186726,
+      "profile_id": "spectral_resnet_bottleneck_base",
+      "relative_l2": 0.08699385821819305,
+      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T203200Z-ffno-cns-10ep",
+      "sample_contract": "concat u[t-2:t] -> u[t]",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_bottleneck_summary.md",
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "status": "completed",
+      "target_channels": 4,
+      "task_id": "2d_cfd_cns",
+      "training_loss": "mse"
+    },
+    {
+      "batch_size": 4,
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "epochs": 10,
+      "err_RMSE": 2.5699915885925293,
+      "err_nRMSE": 0.10634330660104752,
+      "evidence_scope": "smoke_feasibility_only",
+      "fRMSE_high": 0.9280493259429932,
+      "fRMSE_low": 6.006234645843506,
+      "fRMSE_mid": 0.231134295463562,
+      "field_order": [
+        "density",
+        "Vx",
+        "Vy",
+        "pressure"
+      ],
+      "history_len": 2,
+      "input_channels": 8,
+      "max_windows_per_trajectory": 8,
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
+      "metric_interpretation": "sanity_only_not_benchmark_performance",
+      "mode": "readiness",
+      "parameter_count": 357860,
+      "profile_id": "fno_base",
+      "relative_l2": 0.10634330660104752,
+      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T183717Z-10ep-mse",
+      "sample_contract": "concat u[t-2:t] -> u[t]",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "status": "completed",
+      "target_channels": 4,
+      "task_id": "2d_cfd_cns",
+      "training_loss": "mse"
+    },
+    {
+      "batch_size": 4,
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "epochs": 10,
+      "err_RMSE": 15.037874221801758,
+      "err_nRMSE": 0.6222500205039978,
+      "evidence_scope": "smoke_feasibility_only",
+      "fRMSE_high": 3.6293647289276123,
+      "fRMSE_low": 35.593013763427734,
+      "fRMSE_mid": 0.7862535715103149,
+      "field_order": [
+        "density",
+        "Vx",
+        "Vy",
+        "pressure"
+      ],
+      "history_len": 2,
+      "input_channels": 8,
+      "max_windows_per_trajectory": 8,
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
+      "metric_interpretation": "sanity_only_not_benchmark_performance",
+      "mode": "readiness",
+      "parameter_count": 7764580,
+      "profile_id": "unet_strong",
+      "relative_l2": 0.6222500205039978,
+      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T183717Z-10ep-mse",
+      "sample_contract": "concat u[t-2:t] -> u[t]",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "status": "completed",
+      "target_channels": 4,
+      "task_id": "2d_cfd_cns",
+      "training_loss": "mse"
+    }
+  ],
+  "schema_version": "pdebench_image128_cross_run_compare_v2",
+  "skipped_optional_reference_rows": [],
+  "task_id": "2d_cfd_cns"
+}
