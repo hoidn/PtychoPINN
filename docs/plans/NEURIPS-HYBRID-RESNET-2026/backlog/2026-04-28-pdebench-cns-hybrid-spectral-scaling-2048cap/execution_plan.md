@@ -4,7 +4,7 @@
 
 **Goal:** Run one fresh capped `2048 / 256 / 256`, `40`-epoch PDEBench `2d_cfd_cns` finalist compare for `spectral_resnet_bottleneck_base` and `spectral_resnet_bottleneck_shared_blocks10`, then publish an auditable `512 -> 1024 -> 2048` scaling trend without widening the claim boundary beyond capped decision-support evidence.
 
-**Architecture:** Treat this item as a narrow continuation of the completed CNS hybrid-spectral architecture ablation. Freeze the existing `512 / 64 / 64` and `1024 / 128 / 128` finalist artifacts into explicit reference manifests, verify that the current runner/reporting path is ready for the fresh `2048` lane, repair only concrete workflow blockers, then run exactly one fresh capped compare and summarize the resulting scaling deltas. The expensive `2048` run must wait for green deterministic checks and any stronger targeted checks triggered by code changes.
+**Architecture:** Treat this item as a narrow continuation of the completed CNS hybrid-spectral architecture ablation. Freeze the existing `512 / 64 / 64` and `1024 / 128 / 128` finalist artifacts into explicit reference manifests, prove the fixed contract only changes in `split_counts`, confirm the current runner/reporting path is ready for the fresh `2048` lane, repair only concrete study-local blockers if preflight exposes them, then run exactly one fresh capped compare and summarize the scaling deltas. The expensive `2048` run must wait for green deterministic checks and any stronger targeted checks triggered by code changes.
 
 **Tech Stack:** PATH `python`; tmux + `ptycho311` for the long run; PyTorch/Lightning; `scripts/studies/pdebench_image128/`; pytest; compileall; Markdown/JSON/CSV artifacts under `.artifacts/`
 
@@ -16,34 +16,35 @@
 - Backlog item: `2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap`
 - Selection mode: `RECOVERED_IN_PROGRESS`
 - Date: `2026-04-28`
-- Selected-item authority: `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/3/items/2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap/selected-item-context.md`
-- Plan-path authority: `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/3/items/2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap/plan-phase/plan_path.txt`
+- Consumed selected-item authority: `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/4/items/2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap/selected-item-context.md`
+- Plan-path authority: `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/4/items/2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap/plan-phase/plan_path.txt`
+- Previous plan note: the recovered draft at this same plan path is background context only and is superseded by this document.
 - Durable summary target: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_scaling_2048cap_summary.md`
 - CNS summary sync target: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md`
 - Artifact root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/`
 
-This document supersedes any recovered draft for this backlog item and is the execution authority for implementation.
+This document supersedes any recovered draft for this backlog item and is the new execution authority.
 
 ## Inputs Read
 
 - `docs/index.md`
 - `docs/findings.md`
 - `docs/INITIATIVE_WORKFLOW_GUIDE.md`
-- `docs/TESTING_GUIDE.md`
 - `docs/DEVELOPER_GUIDE.md`
+- `docs/TESTING_GUIDE.md`
 - `docs/COMMANDS_REFERENCE.md`
 - `docs/studies/index.md`
 - `docs/steering.md`
 - `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md`
 - `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md`
 - `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json`
-- `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/3/items/2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap/selected-item-context.md`
+- `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/4/items/2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap/selected-item-context.md`
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_arch_ablation_plan.md`
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_arch_ablation_summary.md`
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md`
-- `scripts/studies/run_pdebench_image128_suite.py`
-- `scripts/studies/pdebench_image128/cfd_cns.py`
 - `scripts/studies/pdebench_image128/reporting.py`
+- `scripts/studies/pdebench_image128/cfd_cns.py`
+- `scripts/studies/run_pdebench_image128_suite.py`
 - `tests/studies/test_pdebench_image128_models.py`
 - `tests/studies/test_pdebench_image128_runner.py`
 
@@ -100,13 +101,13 @@ This document supersedes any recovered draft for this backlog item and is the ex
   - this item stays capped decision-support evidence only
   - it does not satisfy the roadmap’s full-available-training-split benchmark gate
   - it does not reopen Phase 2 ordering or external-baseline decisions
-- The backlog reviewer notes are binding:
+- The selected-item reviewer notes are binding:
   - this is a trend check, not a benchmark claim
   - the central question is scaling separation between the two finalists
   - if the trend is ambiguous, keep the bounded conclusion instead of forcing a promotion
 - `REPORTING-ARTIFACT-BOUNDARY-001` applies:
   - required metrics, manifests, provenance, and scaling payloads must exist
-  - optional gallery/rerender failures may be recorded as warnings instead of turning a metrics-complete run into a failed study
+  - optional gallery or rerender failures may be recorded as warnings instead of turning a metrics-complete run into a failed study
 - `PYTHON-ENV-001` applies:
   - invoke Python as plain PATH `python`
 - Long-run guardrail for the `2048` compare:
@@ -115,8 +116,8 @@ This document supersedes any recovered draft for this backlog item and is the ex
   - launch exactly one run against a fresh `--output-root`
   - track the exact launched PID and wait on that PID
   - do not use broad `pgrep -f` polling as the completion check
-  - only accept completion after exit code `0` and freshly written required artifacts
-- Normal check, import, path, or harness failures are not automatic `BLOCKED` outcomes:
+  - accept completion only after exit code `0` and freshly written required artifacts
+- Normal check, import, path, harness, or manifest failures are not automatic `BLOCKED` outcomes:
   - diagnose
   - apply the narrowest in-scope fix
   - rerun the affected checks
@@ -128,9 +129,15 @@ This document supersedes any recovered draft for this backlog item and is the ex
 
 - The CNS hybrid-spectral architecture ablation is complete and already narrowed the finalists:
   - `spectral_resnet_bottleneck_shared_blocks10` won the shared-depth `512 / 64 / 64` lane
-  - `spectral_resnet_bottleneck_base` recovered the aggregate lead on the stronger `1024 / 128 / 128` confirmation lane
-- The official CNS file, split/normalization contract, denormalized metric family, and supervised runner already exist and are verified.
-- `scripts/studies/pdebench_image128.reporting.write_split_cap_scaling_trend` and its tests already exist, so repo code changes are justified only if the audit exposes a real `2048` workflow blocker.
+  - `spectral_resnet_bottleneck_base` recovered the aggregate lead on the `1024 / 128 / 128` confirmation lane
+- The official CNS file, split/normalization contract, denormalized metric family, and supervised runner already exist and are verified in the current repo state.
+- `scripts/studies/pdebench_image128.reporting.write_split_cap_scaling_trend` and dedicated regression tests already exist, so repo code changes are justified only if the audit or `2048` preflight exposes a real workflow blocker.
+
+### Progress-Ledger Context That Matters
+
+- The ledger already records the completed CNS hybrid-spectral architecture ablation and the exact artifact roots needed for the frozen `512` and `1024` references.
+- The ledger and current CNS summary already record that the official `2d_cfd_cns` HDF5 is staged and verified, so this item is not data-blocked.
+- No roadmap entry authorizes broadening this item into full-training or paper-claim work; the current ledger/design state continues to treat capped CNS rows as decision-support only.
 
 ### Frozen Reference Roots
 
@@ -197,6 +204,7 @@ This document supersedes any recovered draft for this backlog item and is the ex
 - verification archive:
   - `verification/preflight_pytest.log`
   - `verification/preflight_compileall.log`
+  - `verification/workflow_fix_focused.log` if repo code changes
   - `verification/workflow_fix_pytest.log` if repo code changes
   - `verification/workflow_fix_compileall.log` if repo code changes
   - `verification/workflow_fix_integration.log` if broader production workflow code changes
@@ -214,9 +222,23 @@ pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdeb
 python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py
 ```
 
-Use stronger checks when the edit surface demands them:
+Use stronger targeted checks when the edit surface demands them:
 
-- If `reporting.py`, `cfd_cns.py`, or `run_pdebench_image128_suite.py` changes, run a focused selector that directly covers the repaired behavior before rerunning the full required pytest command.
+- If `reporting.py` or the scaling-payload path changes, run these targeted regressions before rerunning the full required selector:
+
+```bash
+pytest -q \
+  tests/studies/test_pdebench_image128_runner.py::test_scaling_trend_split_cap_delta_writes_outputs_and_deltas \
+  tests/studies/test_pdebench_image128_runner.py::test_split_cap_delta_rejects_contract_drift_outside_split_counts \
+  tests/studies/test_pdebench_image128_runner.py::test_scaling_trend_records_nonfatal_gallery_blocker
+```
+
+- If `cfd_cns.py` or inspect-mode artifact writing changes, run this targeted regression before rerunning the full required selector:
+
+```bash
+pytest -q tests/studies/test_pdebench_image128_runner.py::test_cfd_cns_inspect_runner_writes_split_manifest
+```
+
 - If broader production workflow plumbing changes rather than only study-local code, rerun `pytest -v -m integration` before the expensive `2048` run and again before completion, per `docs/TESTING_GUIDE.md`.
 - The expensive `2048` run must wait for green required checks and any triggered stronger checks.
 
@@ -230,7 +252,7 @@ Use stronger checks when the edit surface demands them:
 - Create: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/inspect-2048cap-<timestamp>/`
 
 - [ ] Audit the frozen `512` and `1024` roots and write explicit reference manifests containing only the two finalist rows plus the fixed contract fields that `write_split_cap_scaling_trend` validates.
-- [ ] Confirm that the two reference manifests prove equality on every scaling-invariant contract field and differ only on `split_counts`.
+- [ ] Confirm the two reference manifests prove equality on every scaling-invariant contract field and differ only on `split_counts`.
 - [ ] Run the backlog item’s required pytest and compileall checks before any expensive execution, archiving logs under `verification/`.
 - [ ] Run a fresh `inspect`-mode preflight for the target `2048 / 256 / 256` cap so the split manifest, dataset manifest, and HDF5 metadata for the exact fresh lane exist before training starts.
 - [ ] Diagnose and fix any normal harness, manifest, import, or path defect in scope instead of marking the item blocked.
@@ -285,7 +307,7 @@ python scripts/studies/run_pdebench_image128_suite.py \
 
 **Verification**
 
-- [ ] Archive focused regression evidence under `verification/workflow_fix_*.log`.
+- [ ] Archive focused regression evidence under `verification/workflow_fix_focused.log` or a similarly specific log name for the repaired surface.
 - [ ] Archive the rerun required checks under:
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/workflow_fix_pytest.log`
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/workflow_fix_compileall.log`
