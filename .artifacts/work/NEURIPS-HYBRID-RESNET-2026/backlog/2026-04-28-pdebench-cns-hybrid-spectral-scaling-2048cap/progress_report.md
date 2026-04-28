@@ -20,7 +20,7 @@
 ## Current Status
 
 - Implementation is `RUNNING`.
-- The tracked Python PID is `543096` and was still live at the latest check (`ps` status `Rl+`, elapsed `01:14:41`, `%CPU 763`, `%MEM 9.1`).
+- The tracked Python PID is `543096` and was still live at the latest check on `2026-04-28 14:47:11 -0700` (`ps` status `Rl+`, elapsed `01:27:13`, `%CPU 743`, `%MEM 9.1`).
 - The tmux session is `cns-scale2048-201926` on socket `/tmp/claude-tmux-sockets/claude.sock`.
 - Initial required fresh artifacts already exist under the run root:
   - `invocation.json`
@@ -41,9 +41,11 @@
   - `fRMSE_mid=0.2230527103`
   - `fRMSE_high=0.3117601573`
   - `runtime_sec=4311.1880`
-- The latest observed stdout line is still `EPOCH_LOSS profile=spectral_resnet_bottleneck_base epoch=40`, and `.launch/stdout.log` was last updated at `2026-04-28 14:30:24 -0700`.
+- The latest observed stdout line is `EPOCH_LOSS profile=spectral_resnet_bottleneck_shared_blocks10 epoch=6 loss=0.02309973628`, and `.launch/stdout.log` was last updated at `2026-04-28 14:45:34 -0700`.
 - The run root now also contains `model_profile_spectral_resnet_bottleneck_shared_blocks10.json`, but it does not yet contain:
   - `metrics_spectral_resnet_bottleneck_shared_blocks10.json`
+  - `comparison_spectral_resnet_bottleneck_shared_blocks10_sample0.npz`
+  - `comparison_spectral_resnet_bottleneck_shared_blocks10_sample0.png`
   - `comparison_summary.json`
 - The launch sidecar still has no `exit_code.txt`, so the run has not satisfied the completion guardrail.
 
