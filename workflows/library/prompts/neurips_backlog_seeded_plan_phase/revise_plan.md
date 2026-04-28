@@ -10,4 +10,12 @@ Preserve the plan's self-contained execution role: after revision, implementatio
 
 Keep the backlog item's required `check_commands` unless the finding requires a documented replacement.
 
+Do not resolve a review finding by telling implementation to mark the item
+`BLOCKED` for ordinary failing tests, import errors, path issues, environment
+propagation issues, or test-harness failures. If a check gates an expensive
+later step, revise the plan to require diagnose/fix/rerun before that step.
+Reserve `BLOCKED` for missing resources, unavailable hardware, roadmap
+conflict, external dependency outside current authority, user decision
+required, or unrecoverable failure after a documented narrow fix attempt.
+
 For the output contract's `plan_path`, read the path recorded in that file and update the plan document there. Leave the `plan_path` file containing only the path.

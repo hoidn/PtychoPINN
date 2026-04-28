@@ -24,6 +24,15 @@ The plan must include:
 - the backlog item's `check_commands` as required deterministic checks unless the plan explicitly justifies a narrower or stronger replacement
 - any required documentation or index updates when durable project knowledge changes
 
+When a check must pass before an expensive training, benchmark, or scientific
+run, state that the expensive step must wait for a green check. Do not instruct
+implementation to mark the item `BLOCKED` merely because a normal verification
+check, import, path, environment, or test-harness failure occurs. Instead,
+require diagnose/fix/rerun first, and reserve `BLOCKED` for missing resources,
+unavailable hardware, roadmap conflict, external dependency outside current
+authority, user decision required, or a failure that remains unrecoverable after
+a documented narrow fix attempt.
+
 Do not silently expand the work to later roadmap phases or unrelated backlog items.
 
 For the output contract's `plan_path`, read the path recorded in that file and write the plan document there. Leave the `plan_path` file containing only the path.

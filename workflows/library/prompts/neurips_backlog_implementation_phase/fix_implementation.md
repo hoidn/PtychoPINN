@@ -19,6 +19,12 @@ Prioritize in this order:
 3. complete any current-scope work still required for approval
 4. record genuine follow-up work without implementing it
 
+Treat failing checks, import errors, path issues, environment propagation
+issues, and test-harness failures as presumed recoverable implementation work.
+Diagnose and fix them narrowly when they are within current authority. A failed
+check may gate an expensive later step, but it is not by itself a reason to
+abandon the current item.
+
 If a failing check should change rather than the implementation, make that change only when the approved plan or review makes the authoritative verification contract itself part of the current scope. Record the rationale clearly in the execution report.
 For parity or benchmark work, expected outputs, oracle data, fixtures, and generated evidence may be used only for tests, diagnostics, or validation. Do not use them as production answers or runtime lookup tables unless the approved design explicitly defines the feature as reference-data lookup.
 

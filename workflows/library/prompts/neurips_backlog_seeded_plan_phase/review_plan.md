@@ -12,6 +12,13 @@ Reject plans that:
 - weaken or drop the backlog item's required `check_commands` without an explicit rationale and replacement
 - collapse multiple meaningful responsibilities or durable boundaries into vague shared work
 - blur maintained source files and generated outputs or omit concrete validation for generated artifacts
+- convert ordinary failing tests, import errors, path issues, environment
+  propagation issues, or test-harness failures directly into item-level
+  `BLOCKED`. A failed check may gate an expensive later step, but the plan must
+  require diagnose/fix/rerun before allowing `BLOCKED`, unless the blocker is a
+  missing resource, unavailable hardware, roadmap conflict, external dependency
+  outside current authority, user decision required, or unrecoverable after a
+  documented narrow fix attempt.
 
 Then reconcile your fresh review against the carried-forward `open_findings` ledger.
 

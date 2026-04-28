@@ -219,6 +219,17 @@ steps:
           under: artifacts/work
           must_exist_target: true
           required: false
+        - name: blocker_class
+          json_pointer: /blocker_class
+          type: enum
+          allowed:
+            - missing_resource
+            - unavailable_hardware
+            - roadmap_conflict
+            - external_dependency_outside_authority
+            - user_decision_required
+            - unrecoverable_after_fix_attempt
+          required: false
 
   - name: WriteImplementationState
     id: write_implementation_state
