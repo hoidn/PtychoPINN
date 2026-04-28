@@ -13,6 +13,7 @@
 ### GitHub Plugin
 - Available for GitHub operations (issues, PRs, commits)
 - Project repo: `anthropics/claude-code` for feedback/issues
+- Do not add claude coauthorship to commit notes/messages
 
 ### Conda environment
 The correct conda environment for python to import is called PtychoPINN_torch, located at `/local/miniconda3/envs/PtychoPINN_torch`
@@ -35,7 +36,7 @@ Other directories such as ptycho contain other implementations that we cannot, a
 
 ## Core Files
 
-### Model Architecture (`model.py`, `beta_modules/model_unet.py`)
+### Model Architecture (`model.py`, `beta_modules/model_unet.py`, `beta_modules/latent_model.py`)
 
 **PtychoPINN_Lightning** - Main Lightning module for training
 - Multi-stage training with configurable RMS/physics normalization weights
@@ -48,6 +49,12 @@ Other directories such as ptycho contain other implementations that we cannot, a
 - Decoder_amp: Amplitude decoder with SiLU activation
 - Decoder_phase: Phase decoder with tanh activation (batch norm enabled)
 - Forward: Returns (amplitude, phase) tuple
+
+**Latent Autoencoder** - Alternate latent autoencoder using joint latents encoding shared overlapping information
+- Encoder: Either conv or Fourier Neural Operator + conv into latent space representation of canvas
+- Positional encoding: Fourier based positional encoding for latent pixel distances from measurement positions
+- Measurement fusion: Uses geometry-aware cross-attention to merge measurement latents
+- Decoder: Neural field decoder extracting objects from joint representation
 
 **ForwardModel** - Physics-informed forward pass
 - Reassembles patches using `reassemble_patches_position_real()`
