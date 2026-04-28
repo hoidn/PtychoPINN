@@ -71,7 +71,12 @@ Item-local reference manifests:
 
 Inspect contract proof:
 
-- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/inspect-20260428T190521Z/inspection_summary.json`
+- generated inspect root:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/inspect-2048cap-20260428T232104Z/`
+- generated contract artifacts:
+  `invocation.json`, `dataset_manifest.json`, `split_manifest.json`, `hdf5_metadata.json`, `invocation.sh`
+- superseded context only:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/inspect-20260428T190521Z/inspection_summary.json`
 
 Fresh `2048cap` run root:
 
@@ -183,6 +188,9 @@ Preflight and helper evidence:
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/preflight_pytest.log`
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/preflight_compileall.log`
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/runner_scaling_trend.log`
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/review_fix_pytest.log`
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/review_fix_compileall.log`
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/verification/review_fix_summary_sync.log`
 
 Fresh completion verification:
 
