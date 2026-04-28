@@ -1,0 +1,37 @@
+{
+  "comparison_standard": [
+    "lower relative_l2 wins",
+    "tie-breaker: lower err_nRMSE",
+    "tie-breaker: lower fRMSE_high",
+    "tie-breaker: lower parameter_count",
+    "final tie-breaker: lexicographic profile_id"
+  ],
+  "evidence_scope": "capped_decision_support_only",
+  "metric_interpretation": "decision_support_not_benchmark_performance",
+  "ordered_rows": [
+    {
+      "err_RMSE": 1.468910574913025,
+      "err_nRMSE": 0.06078183650970459,
+      "fRMSE_high": 0.38784870505332947,
+      "fRMSE_low": 3.4476962089538574,
+      "fRMSE_mid": 0.2428373098373413,
+      "parameter_count": 8391814,
+      "profile_id": "spectral_resnet_bottleneck_base",
+      "relative_l2": 0.06078183650970459
+    },
+    {
+      "err_RMSE": 1.5589690208435059,
+      "err_nRMSE": 0.064508356153965,
+      "fRMSE_high": 0.43440333008766174,
+      "fRMSE_low": 3.656792640686035,
+      "fRMSE_mid": 0.24676966667175293,
+      "parameter_count": 10751110,
+      "profile_id": "spectral_resnet_bottleneck_noshare",
+      "relative_l2": 0.064508356153965
+    }
+  ],
+  "ranking_label": "sharing_40ep",
+  "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z",
+  "schema_version": "pdebench_cns_arch_ablation_ranking_v1",
+  "winner_profile_id": "spectral_resnet_bottleneck_base"
+}

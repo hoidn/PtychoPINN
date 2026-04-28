@@ -1,0 +1,155 @@
+{
+  "contract": {
+    "batch_size": 4,
+    "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+    "epochs": 40,
+    "history_len": 2,
+    "max_windows_per_trajectory": 8,
+    "metric_family": [
+      "err_RMSE",
+      "err_nRMSE",
+      "relative_l2",
+      "fRMSE_low",
+      "fRMSE_mid",
+      "fRMSE_high"
+    ],
+    "split_counts": {
+      "test": 64,
+      "train": 512,
+      "val": 64
+    },
+    "training_loss": "mse"
+  },
+  "created_at_utc": "2026-04-28T04:34:18.100892+00:00",
+  "cross_run_gallery_blocked": null,
+  "epoch_label": "sharing_40ep",
+  "expected_epochs": 40,
+  "fresh_profile_id": "spectral_resnet_bottleneck_noshare",
+  "fresh_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z",
+  "gallery_artifacts": {
+    "error_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/compare_sharing_40ep_sample0_error.png",
+    "prediction_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/compare_sharing_40ep_sample0.png"
+  },
+  "included_optional_reference_rows": [],
+  "included_required_reference_rows": [
+    {
+      "batch_size": 4,
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "epochs": 40,
+      "history_len": 2,
+      "max_windows_per_trajectory": 8,
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
+      "profile_id": "spectral_resnet_bottleneck_base",
+      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z",
+      "source_document": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z",
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "training_loss": "mse"
+    }
+  ],
+  "profile_results": [
+    {
+      "batch_size": 4,
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "epochs": 40,
+      "err_RMSE": 1.5589690208435059,
+      "err_nRMSE": 0.064508356153965,
+      "evidence_scope": "capped_decision_support_only",
+      "fRMSE_high": 0.43440333008766174,
+      "fRMSE_low": 3.656792640686035,
+      "fRMSE_mid": 0.24676966667175293,
+      "field_order": [
+        "density",
+        "Vx",
+        "Vy",
+        "pressure"
+      ],
+      "history_len": 2,
+      "input_channels": 8,
+      "max_windows_per_trajectory": 8,
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
+      "metric_interpretation": "decision_support_not_benchmark_performance",
+      "mode": "pilot",
+      "parameter_count": 10751110,
+      "profile_id": "spectral_resnet_bottleneck_noshare",
+      "relative_l2": 0.064508356153965,
+      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z",
+      "sample_contract": "concat u[t-2:t] -> u[t]",
+      "source_document": "fresh_run",
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "status": "completed",
+      "target_channels": 4,
+      "task_id": "2d_cfd_cns",
+      "training_loss": "mse"
+    },
+    {
+      "batch_size": 4,
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "epochs": 40,
+      "err_RMSE": 1.468910574913025,
+      "err_nRMSE": 0.06078183650970459,
+      "evidence_scope": "capped_decision_support_only",
+      "fRMSE_high": 0.38784870505332947,
+      "fRMSE_low": 3.4476962089538574,
+      "fRMSE_mid": 0.2428373098373413,
+      "field_order": [
+        "density",
+        "Vx",
+        "Vy",
+        "pressure"
+      ],
+      "history_len": 2,
+      "input_channels": 8,
+      "max_windows_per_trajectory": 8,
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
+      "metric_interpretation": "decision_support_not_benchmark_performance",
+      "mode": "pilot",
+      "parameter_count": 8391814,
+      "profile_id": "spectral_resnet_bottleneck_base",
+      "relative_l2": 0.06078183650970459,
+      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z",
+      "sample_contract": "concat u[t-2:t] -> u[t]",
+      "source_document": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z",
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "status": "completed",
+      "target_channels": 4,
+      "task_id": "2d_cfd_cns",
+      "training_loss": "mse"
+    }
+  ],
+  "schema_version": "pdebench_image128_cross_run_compare_v2",
+  "skipped_optional_reference_rows": [],
+  "task_id": "2d_cfd_cns"
+}

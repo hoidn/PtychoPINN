@@ -1,10 +1,19 @@
 ## Active Work
 
-- Completed the approved Task 2 `10`-epoch sharing tranche at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-10ep-20260428T032825Z`, including `artifact_audit.json`, `gallery_sharing_sample0.png`, `gallery_sharing_sample0_error.png`, and `sharing_ranking_10ep.json`.
-- Continued the approved Task 3 `40`-epoch sharing tranche under tmux session `cns_share40_20260428T035154Z` on socket `/tmp/claude-tmux-sockets/claude.sock` with the plan-required tracked-PID launcher:
-  - run root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z`
-  - tracker root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z.launch`
-  - tracked Python PID: `278753`
+- Closed the fresh Stage 1 sharing tranche on the approved fixed CNS contract:
+  - `10` epochs run root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-10ep-20260428T032825Z`
+  - `40` epochs run root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z`
+  - study-root compare sidecars and manifests now exist for both budgets:
+    - `compare_manifest_sharing_10ep.json`
+    - `compare_manifest_sharing_40ep.json`
+    - `compare_sharing_10ep_against_existing.{json,csv}`
+    - `compare_sharing_40ep_against_existing.{json,csv}`
+    - `sharing_10ep_ranking.json`
+    - `sharing_40ep_ranking.json`
+- Launched the approved Task 4 shared-depth `40`-epoch tranche under tmux session `cns_depth40_20260428T043715Z` on socket `/tmp/claude-tmux-sockets/claude.sock` with the plan-required tracked-PID wrapper:
+  - run root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-depth-shared-40ep-20260428T043715Z`
+  - tracker root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-depth-shared-40ep-20260428T043715Z.launch`
+  - tracked Python PID: `285260`
 
 ## Current Status
 
@@ -13,32 +22,38 @@
   - `python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py` -> exit `0`
   - `pytest -q tests/studies/test_pdebench_image128_models.py -k "spectral_resnet_bottleneck"` -> `6 passed, 31 deselected in 4.85s`
   - `pytest -q tests/studies/test_pdebench_image128_runner.py -k "pilot or cfd_cns"` -> `12 passed, 16 deselected in 12.71s`
-- The Task 3 run is still active and has not produced the launcher completion file yet:
-  - tracker `exit_code.txt`: missing
-  - tracked PID `278753`: still alive as of `2026-04-28T04:11:06Z`
-- The fresh Task 3 run has completed the `spectral_resnet_bottleneck_base` row through epoch `40` and has already started `spectral_resnet_bottleneck_noshare`; the latest captured loss lines are:
-  - `spectral_resnet_bottleneck_base` epoch `40`: loss `0.006558187157`
-  - `spectral_resnet_bottleneck_noshare` epoch `1`: loss `0.1715243343`
-  - `spectral_resnet_bottleneck_noshare` epoch `2`: loss `0.07655663363`
-- The Task 3 run root already contains fresh partial artifacts for the active tranche, including `comparison_spectral_resnet_bottleneck_base_sample0.{png,npz}`, `metrics_spectral_resnet_bottleneck_base.json`, `model_profile_spectral_resnet_bottleneck_noshare.json`, plus the shared provenance files (`invocation.json`, `invocation.sh`, `dataset_manifest.json`, `split_manifest.json`, `normalization_stats_state.json`, `hdf5_metadata.json`).
-- No blocker is present. Remaining work is ordered-plan execution that depends on the active Task 3 run finishing cleanly before Task 4 and Task 5 finalist selection can begin.
+- Stage 1 fresh results are fully materialized and ranked on the capped `512 / 64 / 64`, `history_len=2`, `mse`, batch-size `4` contract:
+  - `sharing_10ep_ranking.json` winner: `spectral_resnet_bottleneck_noshare`
+  - `sharing_40ep_ranking.json` winner: `spectral_resnet_bottleneck_base`
+- The Stage 2 depth run is active with a live tracked PID and runner output already streaming into the launch log:
+  - tracker `python_pid.txt`: present with `285260`
+  - tracker `exit_code.txt`: not present yet
+  - latest observable state: process `285260` is running `python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode pilot ... --profiles spectral_resnet_bottleneck_base,spectral_resnet_bottleneck_shared_blocks8,spectral_resnet_bottleneck_shared_blocks10`
+  - launch log path: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-depth-shared-40ep-20260428T043715Z.launch/stdout.log`
+- No semantic blocker is present. Remaining work is ordered execution: finish Task 4, emit the depth compare/ranking artifacts, select finalists, then launch Task 5.
 
 ## Next Resume Condition
 
-- Resume when tracker file `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z.launch/exit_code.txt` exists and records `0`, the tracked Python PID `278753` has exited, and the Task 3 run root contains the required completion artifacts:
+- Resume when `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-depth-shared-40ep-20260428T043715Z.launch/exit_code.txt` exists and records `0`, tracked PID `285260` has exited, and the Stage 2 run root contains the required completion artifacts:
   - `comparison_summary.json`
   - `comparison_summary.csv`
   - `metrics_spectral_resnet_bottleneck_base.json`
-  - `metrics_spectral_resnet_bottleneck_noshare.json`
+  - `metrics_spectral_resnet_bottleneck_shared_blocks8.json`
+  - `metrics_spectral_resnet_bottleneck_shared_blocks10.json`
   - `model_profile_spectral_resnet_bottleneck_base.json`
-  - `model_profile_spectral_resnet_bottleneck_noshare.json`
+  - `model_profile_spectral_resnet_bottleneck_shared_blocks8.json`
+  - `model_profile_spectral_resnet_bottleneck_shared_blocks10.json`
   - `comparison_spectral_resnet_bottleneck_base_sample0.png`
-  - `comparison_spectral_resnet_bottleneck_noshare_sample0.png`
+  - `comparison_spectral_resnet_bottleneck_shared_blocks8_sample0.png`
+  - `comparison_spectral_resnet_bottleneck_shared_blocks10_sample0.png`
   - `comparison_spectral_resnet_bottleneck_base_sample0.npz`
-  - `comparison_spectral_resnet_bottleneck_noshare_sample0.npz`
+  - `comparison_spectral_resnet_bottleneck_shared_blocks8_sample0.npz`
+  - `comparison_spectral_resnet_bottleneck_shared_blocks10_sample0.npz`
 - Once that condition is met, continue the approved plan in order:
-  - write Task 3 `artifact_audit.json`
-  - render the fresh Task 3 sharing galleries
-  - write `sharing_ranking_40ep.json`
-  - launch the separate `depth-shared-40ep` and `finalists-1024cap-40ep` tranches
-  - only after those tranches complete, update the durable summary/docs/state surfaces and switch this backlog item to `COMPLETED`
+  - write Task 4 `artifact_audit.json`
+  - materialize `compare_manifest_depth_40ep.json`
+  - emit `compare_depth_40ep_against_existing.{json,csv}` and the sample galleries
+  - write `depth_40ep_ranking.json`
+  - build `selected_finalists_1024cap.json`
+  - launch the separate `finalists-1024cap-40ep` tranche
+  - only after Task 5 completes, update the durable summary/docs/state surfaces and switch this backlog item to `COMPLETED`
