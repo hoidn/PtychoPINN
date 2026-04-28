@@ -1598,6 +1598,8 @@ class PtychoPINN_Lightning(L.LightningModule):
                     grad_norm = decoder.head_real.conv1.weight.grad.norm()
                 else:
                     grad_norm = decoder.head.conv1.weight.grad.norm()
-            else:
+            elif hasattr(self.model.autoencoder, 'decoder_amp'):
                 grad_norm = self.model.autoencoder.decoder_amp.amp.conv1.weight.grad.norm()
+            else:
+                return
             self.log("grad_norm", grad_norm, on_step=True, prog_bar=True, logger=True)

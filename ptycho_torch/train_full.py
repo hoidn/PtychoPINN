@@ -188,11 +188,13 @@ if __name__ == '__main__':
     print(f"Configuration file: {config_path}")
     print(f"Current working directory: {os.getcwd()}")
 
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
     try:
         #Prepare data
         configs, training_path = prepare_data(ptycho_dir, mode, config_path,
                                               synthetic_path = synth_dir)
-        main(training_path, config_path, configs)
+        main(training_path, config_path, existing_config=None)
 
     except Exception as e:
         print(f"Training failed: {str(e)}")

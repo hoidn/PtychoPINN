@@ -254,31 +254,17 @@ def plot_amp_and_phase(obj_amp, obj_phase, gt_amp, gt_phase, save_dir = None, fi
                        obj_phase_name = 'Object Phase',
                        gt_amp_name = 'Ground Truth Amp',
                        gt_phase_name = 'Ground Truth Phase'):
-    fig, axs = plt.subplots(2,2, figsize=(5,5))
+    fig, axs = plt.subplots(2, 2, figsize=(5, 4), layout='constrained')
 
-    #Object amp
-    obj_plot = axs[0,0].imshow(obj_amp, cmap = 'gray')
-    plt.colorbar(obj_plot, ax = axs[0,0])
-    axs[0,0].set_title(obj_amp_name)
-    axs[0,0].axis('off')
-
-    #Object Phase
-    phase_plot = axs[0,1].imshow(obj_phase, cmap = 'gray')#, vmin=-1, vmax=1)
-    plt.colorbar(phase_plot, ax = axs[0,1])
-    axs[0,1].set_title(obj_phase_name)
-    axs[0,1].axis('off')
-
-    #Ground turth amp
-    gtamp_plot = axs[1,0].imshow(gt_amp, cmap = 'gray')
-    plt.colorbar(gtamp_plot, ax = axs[1,0])
-    axs[1,0].set_title(gt_amp_name)
-    axs[1,0].axis('off')
-
-    #ground truth phase
-    gtphase_plot = axs[1,1].imshow(gt_phase, cmap = 'gray')
-    plt.colorbar(gtphase_plot, ax = axs[1,1])
-    axs[1,1].set_title(gt_phase_name)
-    axs[1,1].axis('off')
+    for ax, data, title in zip(
+        [axs[0,0], axs[0,1], axs[1,0], axs[1,1]],
+        [obj_amp, obj_phase, gt_amp, gt_phase],
+        [obj_amp_name, obj_phase_name, gt_amp_name, gt_phase_name],
+    ):
+        im = ax.imshow(data, cmap='gray')
+        plt.colorbar(im, ax=ax, shrink=0.75, aspect=20, pad=0.02)
+        ax.set_title(title)
+        ax.axis('off')
 
     # Save the plot if save_dir is provided
     if save_dir is not None:

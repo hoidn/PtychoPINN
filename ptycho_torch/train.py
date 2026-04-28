@@ -265,9 +265,10 @@ def main(ptycho_dir,
     if execution_config is None:
         from ptycho.config.config import PyTorchExecutionConfig
         execution_config = PyTorchExecutionConfig(
-            accelerator='cpu',
+            accelerator='auto',
             deterministic=True,
             num_workers=0,
+            enable_progress_bar=True,
         )
 
     # Resolve accelerator (prefer execution_config, fallback to training_config logic)
