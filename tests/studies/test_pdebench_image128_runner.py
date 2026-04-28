@@ -629,6 +629,172 @@ def test_cross_run_compare_writes_merged_outputs_and_gallery(tmp_path):
     ]
 
 
+def test_cross_run_compare_accepts_generic_fresh_run_fields_for_modes32_lane(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import write_cross_run_compare
+
+    fresh_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "fresh",
+        profile_id="spectral_resnet_bottleneck_modes32",
+        epochs=10,
+        err_nrmse=0.09,
+    )
+    spectral_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "spectral",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=10,
+        err_nrmse=0.11,
+    )
+    fno_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "fno",
+        profile_id="fno_base",
+        epochs=10,
+        err_nrmse=0.23,
+    )
+    unet_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "unet",
+        profile_id="unet_strong",
+        epochs=10,
+        err_nrmse=0.31,
+    )
+
+    json_path, csv_path, payload = write_cross_run_compare(
+        output_root=tmp_path / "out",
+        epoch_label="10ep",
+        expected_epochs=10,
+        fresh_run_root=fresh_root,
+        fresh_profile_id="spectral_resnet_bottleneck_modes32",
+        required_reference_rows=[
+            {
+                "run_root": str(spectral_root),
+                "profile_id": "spectral_resnet_bottleneck_base",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/spectral.md",
+            },
+            {
+                "run_root": str(fno_root),
+                "profile_id": "fno_base",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/fno.md",
+            },
+            {
+                "run_root": str(unet_root),
+                "profile_id": "unet_strong",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/unet.md",
+            },
+        ],
+    )
+
+    assert json_path.exists()
+    assert csv_path.exists()
+    assert payload["fresh_profile_id"] == "spectral_resnet_bottleneck_modes32"
+    assert payload["fresh_run_root"] == str(fresh_root)
+    assert "author_profile_id" not in payload
+    assert "author_run_root" not in payload
+    assert [row["profile_id"] for row in payload["profile_results"]] == [
+        "spectral_resnet_bottleneck_modes32",
+        "spectral_resnet_bottleneck_base",
+        "fno_base",
+        "unet_strong",
+    ]
+
+
+def test_cross_run_compare_rejects_fixed_contract_mismatch_for_modes32_lane(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import write_cross_run_compare
+
+    fresh_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "fresh",
+        profile_id="spectral_resnet_bottleneck_modes32",
+        epochs=10,
+        err_nrmse=0.09,
+        batch_size=2,
+    )
+    spectral_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "spectral",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=10,
+        err_nrmse=0.11,
+        batch_size=4,
+    )
+
+    try:
+        write_cross_run_compare(
+            output_root=tmp_path / "out",
+            epoch_label="10ep",
+            expected_epochs=10,
+            fresh_run_root=fresh_root,
+            fresh_profile_id="spectral_resnet_bottleneck_modes32",
+            required_reference_rows=[
+                {
+                    "run_root": str(spectral_root),
+                    "profile_id": "spectral_resnet_bottleneck_base",
+                    "epochs": 10,
+                    "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                    "split_counts": {"train": 512, "val": 64, "test": 64},
+                    "max_windows_per_trajectory": 8,
+                    "history_len": 2,
+                    "training_loss": "mse",
+                    "batch_size": 4,
+                    "metric_family": [
+                        "err_RMSE",
+                        "err_nRMSE",
+                        "relative_l2",
+                        "fRMSE_low",
+                        "fRMSE_mid",
+                        "fRMSE_high",
+                    ],
+                    "source_document": "docs/spectral.md",
+                }
+            ],
+        )
+    except ValueError as exc:
+        assert "batch_size" in str(exc)
+    else:
+        raise AssertionError("cross-run compare must reject fixed-contract mismatches for reused anchors")
+
+
 def test_cross_run_compare_records_gallery_blocker_when_targets_do_not_align(tmp_path):
     from scripts.studies.pdebench_image128.reporting import write_cross_run_compare
 
@@ -2088,3 +2254,47 @@ def test_cfd_cns_pilot_runner_requires_explicit_profiles_and_writes_required_art
     assert summary["evidence_scope"] == "capped_decision_support_only"
     assert summary["metric_interpretation"] == "decision_support_not_benchmark_performance"
     assert summary["performance_assessment_complete"] is False
+
+
+def test_cfd_cns_pilot_runner_writes_modes32_profile_config_with_explicit_mode_values(tmp_path):
+    from scripts.studies.pdebench_image128.cfd_cns import run_cfd_cns
+
+    data_root = tmp_path / "data"
+    _write_tiny_cfd_cns(
+        data_root / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+    )
+
+    output_root = tmp_path / "pilot_modes32"
+    exit_code = run_cfd_cns(
+        task_id="2d_cfd_cns",
+        mode="pilot",
+        data_root=data_root,
+        output_root=output_root,
+        profile_ids=["spectral_resnet_bottleneck_modes32"],
+        history_len=2,
+        epochs=1,
+        batch_size=2,
+        max_train_trajectories=2,
+        max_val_trajectories=1,
+        max_test_trajectories=1,
+        max_windows_per_trajectory=1,
+        device="cpu",
+        num_workers=0,
+        allow_existing_output_root=True,
+        raw_argv=[
+            "--task",
+            "2d_cfd_cns",
+            "--mode",
+            "pilot",
+            "--profiles",
+            "spectral_resnet_bottleneck_modes32",
+        ],
+    )
+
+    assert exit_code == 0
+    model_profile = json.loads(
+        (output_root / "model_profile_spectral_resnet_bottleneck_modes32.json").read_text(encoding="utf-8")
+    )
+    profile_config = model_profile["profile_config"]
+    assert profile_config["fno_modes"] == 32
+    assert profile_config["spectral_bottleneck_modes"] == 32

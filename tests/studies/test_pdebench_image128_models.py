@@ -618,6 +618,42 @@ def test_optional_bottleneck_profiles_stay_out_of_default_bundle_sets():
         assert profile_id not in READINESS_CFD_CNS_PROFILE_IDS
 
 
+def test_spectral_resnet_bottleneck_modes32_profile_stays_manual_and_out_of_default_bundles():
+    from scripts.studies.pdebench_image128.run_config import (
+        PRIMARY_CFD_CNS_PROFILE_IDS,
+        PRIMARY_DARCY_PROFILE_IDS,
+        READINESS_CFD_CNS_PROFILE_IDS,
+        get_model_profile,
+    )
+
+    profile = get_model_profile("spectral_resnet_bottleneck_modes32").to_model_config()
+
+    assert profile["base_model"] == "spectral_resnet_bottleneck_net"
+    assert profile["evidence_scope"] == "manual-only"
+    assert "spectral_resnet_bottleneck_modes32" not in PRIMARY_DARCY_PROFILE_IDS
+    assert "spectral_resnet_bottleneck_modes32" not in PRIMARY_CFD_CNS_PROFILE_IDS
+    assert "spectral_resnet_bottleneck_modes32" not in READINESS_CFD_CNS_PROFILE_IDS
+
+
+def test_spectral_resnet_bottleneck_modes32_profile_only_changes_the_two_mode_knobs():
+    from scripts.studies.pdebench_image128.run_config import get_model_profile
+
+    base = get_model_profile("spectral_resnet_bottleneck_base").to_model_config()
+    modes32 = get_model_profile("spectral_resnet_bottleneck_modes32").to_model_config()
+
+    assert modes32["fno_modes"] == 32
+    assert modes32["spectral_bottleneck_modes"] == 32
+    assert {
+        key: value
+        for key, value in modes32.items()
+        if key not in {"profile_id", "fno_modes", "spectral_bottleneck_modes"}
+    } == {
+        key: value
+        for key, value in base.items()
+        if key not in {"profile_id", "fno_modes", "spectral_bottleneck_modes"}
+    }
+
+
 def test_unet_tiny_smoke_is_not_a_strong_baseline():
     from scripts.studies.pdebench_image128.models import assert_strong_baseline_profile
     from scripts.studies.pdebench_image128.run_config import get_model_profile

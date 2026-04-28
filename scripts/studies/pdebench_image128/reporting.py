@@ -477,13 +477,26 @@ def write_cross_run_compare(
     output_root: Path,
     epoch_label: str,
     expected_epochs: int,
-    author_run_root: Path,
-    author_profile_id: str,
+    fresh_run_root: Path | None = None,
+    fresh_profile_id: str | None = None,
     required_reference_rows: list[dict[str, Any]],
     optional_reference_rows: list[dict[str, Any]] | None = None,
+    author_run_root: Path | None = None,
+    author_profile_id: str | None = None,
 ) -> tuple[Path, Path, dict[str, Any]]:
     output_root = Path(output_root)
     output_root.mkdir(parents=True, exist_ok=True)
+
+    if fresh_run_root is None:
+        fresh_run_root = author_run_root
+    elif author_run_root is not None and Path(author_run_root) != Path(fresh_run_root):
+        raise ValueError("fresh_run_root and author_run_root must match when both are provided")
+    if fresh_profile_id is None:
+        fresh_profile_id = author_profile_id
+    elif author_profile_id is not None and str(author_profile_id) != str(fresh_profile_id):
+        raise ValueError("fresh_profile_id and author_profile_id must match when both are provided")
+    if fresh_run_root is None or fresh_profile_id is None:
+        raise ValueError("write_cross_run_compare requires fresh_run_root and fresh_profile_id")
 
     required_reference_rows = list(required_reference_rows)
     if not required_reference_rows:
@@ -499,18 +512,18 @@ def write_cross_run_compare(
         "metric_family": list(required_reference_rows[0]["metric_family"]),
     }
 
-    author_record = _load_run_record(
-        Path(author_run_root),
-        profile_id=str(author_profile_id),
-        source_document="fresh_author_run",
+    fresh_record = _load_run_record(
+        Path(fresh_run_root),
+        profile_id=str(fresh_profile_id),
+        source_document="fresh_run",
     )
     _assert_contract_matches(
-        label=f"author row {author_profile_id}",
-        actual=author_record["contract"],
+        label=f"fresh row {fresh_profile_id}",
+        actual=fresh_record["contract"],
         expected=expected_contract,
     )
 
-    selected_records = [author_record]
+    selected_records = [fresh_record]
     included_required_rows: list[dict[str, Any]] = []
     for row in required_reference_rows:
         record = _load_run_record(Path(row["run_root"]), profile_id=str(row["profile_id"]), source_document=str(row["source_document"]))
@@ -529,7 +542,7 @@ def write_cross_run_compare(
             },
         )
         _assert_contract_matches(
-            label=f"reference row {row['profile_id']} vs author row",
+            label=f"reference row {row['profile_id']} vs fresh row",
             actual=record["contract"],
             expected=expected_contract,
         )
@@ -560,7 +573,7 @@ def write_cross_run_compare(
                 },
             )
             _assert_contract_matches(
-                label=f"optional row {row['profile_id']} vs author row",
+                label=f"optional row {row['profile_id']} vs fresh row",
                 actual=record["contract"],
                 expected=expected_contract,
             )
@@ -585,13 +598,13 @@ def write_cross_run_compare(
 
     profile_results = [record["row"] for record in selected_records]
     payload = {
-        "schema_version": "pdebench_image128_cross_run_compare_v1",
+        "schema_version": "pdebench_image128_cross_run_compare_v2",
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "task_id": "2d_cfd_cns",
         "epoch_label": str(epoch_label),
         "expected_epochs": int(expected_epochs),
-        "author_profile_id": str(author_profile_id),
-        "author_run_root": str(author_run_root),
+        "fresh_profile_id": str(fresh_profile_id),
+        "fresh_run_root": str(fresh_run_root),
         "contract": expected_contract,
         "profile_results": profile_results,
         "included_required_reference_rows": included_required_rows,
