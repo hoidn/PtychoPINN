@@ -1,5 +1,17 @@
 # Hybrid-Spectral To FFNO Parameter-Space Backlog Plan
 
+## Status
+
+Superseded by two roadmap-phase-specific plans:
+
+- Phase 2 CNS:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-28-pdebench-cns-hybrid-spectral-ffno-parameter-space/execution_plan.md`
+- Phase 3 CDI:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/hybrid_spectral_ffno_parameter_space_cdi_plan.md`
+
+Keep this file as provenance for the original mixed-scope intent. New workflow
+selection should use the split backlog items instead of this combined plan.
+
 ## Goal
 
 Explore intermediate architecture points between Hybrid-spectral and FFNO, with

@@ -272,12 +272,25 @@ After the 2026-04-21 CNS readiness and capped-comparison updates, the selector m
 
 Current backlog dependency relations for the Phase 2 CNS queue are tracked in
 `docs/backlog/index.md`. As of this roadmap revision, the paper-default GNOT
-rerun and the author-FFNO compare are parallel external-baseline items on the
-same local `2d_cfd_cns` contract, and neither is a prerequisite for the other.
-Likewise, the `history_len=1` Markov compare, the `modes32` compare, and the
-hybrid-spectral architecture ablation are separate capped CNS ablation lanes
-that all reuse already-available `history_len=2` anchors. They should not be
-serialized unless a later backlog item introduces an explicit prerequisite.
+rerun and the author-FFNO compare are now completed external-baseline lanes on
+the same local `2d_cfd_cns` contract; they should not stay in the active queue
+or be treated as prerequisites for later CNS follow-ups. The current immediate
+Phase 2 CNS lanes are the active converged-budget spectral mode-count follow-up
+(`12/12` versus `24/24`, which depends on the completed `modes32` compare) and
+the in-progress Hybrid-spectral finalist scaling follow-up at `2048 / 256 /
+256` (which depends on the completed Hybrid-spectral
+architecture ablation and reuses the frozen `512 / 64 / 64` and
+`1024 / 128 / 128` finalist rows as scaling references). A lower-priority
+Phase 2 CNS-only Hybrid-spectral-to-FFNO parameter-space split may follow those
+bounded lanes after the completed Hybrid-spectral architecture and CNS
+FFNO-convolutional-feature items, but it must remain CNS-only and capped
+decision-support evidence. The matching CDI parameter-space follow-up belongs
+to Phase 3 and should remain excluded by the deterministic Phase 2 roadmap gate
+until Phase 3 is explicitly opened. The earlier `history_len=1` Markov compare,
+`modes32` compare, Hybrid-spectral architecture ablation, and
+FFNO-with-convolutional-features extension are now completed capped CNS lanes,
+not active queue items. These independent capped CNS studies should not be
+serialized unless a backlog item introduces an explicit prerequisite.
 
 ## Completion Criteria
 
