@@ -30,10 +30,26 @@ class FactorizedFfnoBlock(nn.Module):
         mlp_ratio: float = 2.0,
         gate: nn.Parameter | None = None,
         norm: str = "instance",
+        local_conv_kernel_size: int | None = None,
     ):
         super().__init__()
         hidden = max(channels, int(round(channels * float(mlp_ratio))))
         self.shared_spectral = shared_spectral
+        if local_conv_kernel_size is not None:
+            kernel_size = int(local_conv_kernel_size)
+            if kernel_size <= 0 or kernel_size % 2 == 0:
+                raise ValueError(
+                    "local_conv_kernel_size must be a positive odd integer "
+                    f"(got {local_conv_kernel_size!r})."
+                )
+            self.local_conv: nn.Conv2d | None = nn.Conv2d(
+                channels,
+                channels,
+                kernel_size=kernel_size,
+                padding=kernel_size // 2,
+            )
+        else:
+            self.local_conv = None
         self.norm = _build_norm(norm, channels)
         self.expand = nn.Conv2d(channels, hidden, kernel_size=1)
         self.act = nn.GELU()
@@ -53,6 +69,8 @@ class FactorizedFfnoBlock(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         update = self.shared_spectral(x)
+        if self.local_conv is not None:
+            update = update + self.local_conv(x)
         update = self.norm(update)
         update = self.expand(update)
         update = self.act(update)
@@ -73,6 +91,7 @@ class SharedFactorizedFfnoBottleneck(nn.Module):
         mlp_ratio: float = 2.0,
         gate_init: float = 0.1,
         norm: str = "instance",
+        local_conv_kernel_size: int | None = None,
     ):
         super().__init__()
         if n_blocks <= 0:
@@ -96,6 +115,7 @@ class SharedFactorizedFfnoBottleneck(nn.Module):
                     mlp_ratio=mlp_ratio,
                     gate=gate,
                     norm=norm,
+                    local_conv_kernel_size=local_conv_kernel_size,
                 )
             )
 
@@ -118,6 +138,7 @@ class FfnoBottleneckGeneratorModule(nn.Module):
         mlp_ratio: float = 2.0,
         gate_init: float = 0.1,
         norm: str = "instance",
+        local_conv_kernel_size: int | None = None,
     ):
         super().__init__()
         self.bottleneck = SharedFactorizedFfnoBottleneck(
@@ -128,6 +149,7 @@ class FfnoBottleneckGeneratorModule(nn.Module):
             mlp_ratio=mlp_ratio,
             gate_init=gate_init,
             norm=norm,
+            local_conv_kernel_size=local_conv_kernel_size,
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

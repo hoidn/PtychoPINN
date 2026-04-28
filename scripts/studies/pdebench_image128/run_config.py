@@ -31,6 +31,8 @@ class ModelProfile:
     ffno_bottleneck_mlp_ratio: float | None = None
     ffno_bottleneck_gate_init: float | None = None
     ffno_bottleneck_norm: str | None = None
+    ffno_bottleneck_local_conv: bool | None = None
+    ffno_bottleneck_local_conv_kernel_size: int | None = None
     author_ffno_width: int | None = None
     author_ffno_modes: int | None = None
     author_ffno_layers: int | None = None
@@ -325,6 +327,26 @@ _PROFILES: dict[str, ModelProfile] = {
         ffno_bottleneck_gate_init=0.1,
         ffno_bottleneck_norm="instance",
         evidence_scope="readiness-only",
+    ),
+    "ffno_bottleneck_localconv_base": ModelProfile(
+        profile_id="ffno_bottleneck_localconv_base",
+        base_model="ffno_bottleneck_net",
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        hybrid_downsample_steps=2,
+        hybrid_resnet_blocks=6,
+        hybrid_skip_connections=True,
+        hybrid_skip_style="add",
+        ffno_bottleneck_blocks=6,
+        ffno_bottleneck_modes=12,
+        ffno_bottleneck_share_weights=True,
+        ffno_bottleneck_mlp_ratio=2.0,
+        ffno_bottleneck_gate_init=0.1,
+        ffno_bottleneck_norm="instance",
+        ffno_bottleneck_local_conv=True,
+        ffno_bottleneck_local_conv_kernel_size=3,
+        evidence_scope="manual-only",
     ),
     "author_ffno_cns_base": ModelProfile(
         profile_id="author_ffno_cns_base",

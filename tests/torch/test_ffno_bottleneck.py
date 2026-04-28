@@ -62,3 +62,25 @@ def test_ffno_bottleneck_generator_module_forward_preserves_shape():
     y = model(x)
 
     assert tuple(y.shape) == (2, 128, 32, 32)
+
+
+def test_factorized_ffno_block_localconv_preserves_shape_and_exposes_explicit_branch():
+    from ptycho_torch.generators.ffno_bottleneck import FactorizedFfnoBlock
+    from ptycho_torch.generators.spectral_resnet_bottleneck import FactorizedSpectralConv2d
+
+    shared = FactorizedSpectralConv2d(channels=64, modes=12)
+    block = FactorizedFfnoBlock(
+        channels=64,
+        shared_spectral=shared,
+        mlp_ratio=2.0,
+        norm="instance",
+        local_conv_kernel_size=3,
+    )
+    x = torch.randn(2, 64, 32, 32)
+
+    y = block(x)
+
+    assert tuple(y.shape) == (2, 64, 32, 32)
+    assert isinstance(block.local_conv, torch.nn.Conv2d)
+    assert block.local_conv.kernel_size == (3, 3)
+    assert block.local_conv.padding == (1, 1)

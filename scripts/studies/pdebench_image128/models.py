@@ -341,6 +341,8 @@ class FfnoBottleneckImageModel(_SharedPdebenchHybridShell):
         ffno_bottleneck_mlp_ratio: float,
         ffno_bottleneck_gate_init: float,
         ffno_bottleneck_norm: str,
+        ffno_bottleneck_local_conv: bool,
+        ffno_bottleneck_local_conv_kernel_size: int | None,
         upsampler: str = "cyclegan_transpose",
         skip_connections: bool = False,
         hybrid_skip_style: str = "add",
@@ -364,6 +366,11 @@ class FfnoBottleneckImageModel(_SharedPdebenchHybridShell):
                 mlp_ratio=ffno_bottleneck_mlp_ratio,
                 gate_init=ffno_bottleneck_gate_init,
                 norm=ffno_bottleneck_norm,
+                local_conv_kernel_size=(
+                    int(ffno_bottleneck_local_conv_kernel_size)
+                    if ffno_bottleneck_local_conv and ffno_bottleneck_local_conv_kernel_size is not None
+                    else None
+                ),
             ),
         )
 
@@ -524,6 +531,12 @@ def build_model_from_profile(
                 ffno_bottleneck_mlp_ratio=float(config.get("ffno_bottleneck_mlp_ratio", 2.0)),
                 ffno_bottleneck_gate_init=float(config.get("ffno_bottleneck_gate_init", 0.1)),
                 ffno_bottleneck_norm=str(config.get("ffno_bottleneck_norm", "instance")),
+                ffno_bottleneck_local_conv=bool(config.get("ffno_bottleneck_local_conv", False)),
+                ffno_bottleneck_local_conv_kernel_size=(
+                    int(config["ffno_bottleneck_local_conv_kernel_size"])
+                    if config.get("ffno_bottleneck_local_conv_kernel_size") is not None
+                    else None
+                ),
                 upsampler=str(config.get("hybrid_upsampler", "cyclegan_transpose")),
                 skip_connections=bool(config.get("hybrid_skip_connections", False)),
                 hybrid_skip_style=str(config.get("hybrid_skip_style", "add")),

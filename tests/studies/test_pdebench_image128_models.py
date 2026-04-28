@@ -15,6 +15,7 @@ def test_image128_model_profiles_build_and_record_parameter_counts():
         "spectral_resnet_bottleneck_base",
         "spectral_resnet_bottleneck_noshare",
         "ffno_bottleneck_base",
+        "ffno_bottleneck_localconv_base",
         "fno_base",
         "unet_strong",
         "unet_tiny_smoke",
@@ -228,6 +229,54 @@ def test_ffno_bottleneck_profile_builds_under_canonical_cns_skip_add_shell():
     assert [plan["key"] for plan in model.module.skip_fusion_plan] == ["d2", "d1"]
     assert set(model.module.skip_fusion_projections.keys()) == {"d1", "d2"}
     y = model(torch.zeros(1, 8, 128, 128))
+    assert tuple(y.shape) == (1, 4, 128, 128)
+
+
+def test_ffno_bottleneck_localconv_profile_only_changes_local_branch_markers():
+    from scripts.studies.pdebench_image128.run_config import get_model_profile
+
+    base = get_model_profile("ffno_bottleneck_base").to_model_config()
+    localconv = get_model_profile("ffno_bottleneck_localconv_base").to_model_config()
+
+    assert localconv["ffno_bottleneck_local_conv"] is True
+    assert localconv["ffno_bottleneck_local_conv_kernel_size"] == 3
+    assert {
+        key: value
+        for key, value in localconv.items()
+        if key
+        not in {
+            "profile_id",
+            "evidence_scope",
+            "ffno_bottleneck_local_conv",
+            "ffno_bottleneck_local_conv_kernel_size",
+        }
+    } == {key: value for key, value in base.items() if key not in {"profile_id", "evidence_scope"}}
+
+
+def test_ffno_bottleneck_localconv_profile_builds_and_records_explicit_local_branch():
+    from scripts.studies.pdebench_image128.models import PadCropWrapper, build_model_from_profile, describe_model
+    from scripts.studies.pdebench_image128.run_config import get_model_profile
+
+    profile = get_model_profile("ffno_bottleneck_localconv_base")
+    model = build_model_from_profile(
+        profile,
+        in_channels=8,
+        out_channels=4,
+        spatial_shape=(128, 128),
+    )
+
+    assert isinstance(model, PadCropWrapper)
+    assert model.module.skip_connections is True
+    assert model.module.hybrid_skip_style == "add"
+    first_block = model.module.resnet.blocks[0]
+    assert isinstance(first_block.local_conv, torch.nn.Conv2d)
+    assert first_block.local_conv.kernel_size == (3, 3)
+    description = describe_model(model, profile=profile)
+    assert description["profile_config"]["ffno_bottleneck_local_conv"] is True
+    assert description["profile_config"]["ffno_bottleneck_local_conv_kernel_size"] == 3
+
+    y = model(torch.zeros(1, 8, 128, 128))
+
     assert tuple(y.shape) == (1, 4, 128, 128)
 
 
