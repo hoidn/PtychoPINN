@@ -401,6 +401,11 @@ Anchored compare sidecars:
 - `1024 / 128 / 128` finalist confirmation:
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/compare_finalists_1024cap_40ep_within_run.json`
 
+During implementation-review repair, the sharing sidecars were regenerated from
+the frozen reference manifests so both fresh spectral rows now appear as fresh
+rows rather than substituting the shared base row into the required-reference
+set. That repair did not change the interpretation below.
+
 Observed outcome:
 
 - at `10` epochs, disabling weight sharing improved aggregate denormalized error

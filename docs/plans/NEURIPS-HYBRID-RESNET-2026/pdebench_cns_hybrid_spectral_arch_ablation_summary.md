@@ -81,6 +81,12 @@ Anchored sidecars:
 - `40` epochs:
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/compare_sharing_40ep_against_existing.json`
 
+The sharing sidecars were regenerated from the frozen `reference_runs_10ep.json`
+and `reference_runs_40ep.json` manifests during implementation-review repair, so
+they now keep the fresh spectral rows separate from the frozen FNO/U-Net context
+rows and the optional `10`-epoch hybrid context row. This bookkeeping repair did
+not change the study interpretation below.
+
 Observed `10`-epoch sharing outcome:
 
 - `spectral_resnet_bottleneck_noshare`:

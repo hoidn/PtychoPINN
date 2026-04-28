@@ -1,8 +1,11 @@
 {
-  "created_at_utc": "2026-04-28T04:34:16.927387+00:00",
+  "created_at_utc": "2026-04-28T07:39:09.607186+00:00",
   "epoch_label": "sharing_40ep",
   "expected_epochs": 40,
-  "fresh_profile_id": "spectral_resnet_bottleneck_noshare",
+  "fresh_profile_ids": [
+    "spectral_resnet_bottleneck_base",
+    "spectral_resnet_bottleneck_noshare"
+  ],
   "fresh_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z",
   "optional_reference_rows": [],
   "required_reference_rows": [
@@ -20,9 +23,60 @@
         "fRMSE_mid",
         "fRMSE_high"
       ],
-      "profile_id": "spectral_resnet_bottleneck_base",
-      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z",
-      "source_document": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z",
+      "profile_id": "hybrid_resnet_cns",
+      "quantitative_eligibility": "required_quantitative",
+      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_markov_history1_compare_summary.md",
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "training_loss": "mse"
+    },
+    {
+      "batch_size": 4,
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "epochs": 40,
+      "history_len": 2,
+      "max_windows_per_trajectory": 8,
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
+      "profile_id": "fno_base",
+      "quantitative_eligibility": "required_quantitative",
+      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "training_loss": "mse"
+    },
+    {
+      "batch_size": 4,
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "epochs": 40,
+      "history_len": 2,
+      "max_windows_per_trajectory": 8,
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
+      "profile_id": "unet_strong",
+      "quantitative_eligibility": "required_quantitative",
+      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
       "split_counts": {
         "test": 64,
         "train": 512,

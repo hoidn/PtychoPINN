@@ -479,6 +479,7 @@ def write_cross_run_compare(
     expected_epochs: int,
     fresh_run_root: Path | None = None,
     fresh_profile_id: str | None = None,
+    fresh_profile_ids: list[str] | None = None,
     required_reference_rows: list[dict[str, Any]],
     optional_reference_rows: list[dict[str, Any]] | None = None,
     author_run_root: Path | None = None,
@@ -496,7 +497,20 @@ def write_cross_run_compare(
     elif author_profile_id is not None and str(author_profile_id) != str(fresh_profile_id):
         raise ValueError("fresh_profile_id and author_profile_id must match when both are provided")
     if fresh_run_root is None or fresh_profile_id is None:
-        raise ValueError("write_cross_run_compare requires fresh_run_root and fresh_profile_id")
+        if not fresh_profile_ids:
+            raise ValueError("write_cross_run_compare requires fresh_run_root and a fresh profile selection")
+
+    normalized_fresh_profile_ids: list[str] = []
+    if fresh_profile_ids is not None:
+        normalized_fresh_profile_ids = [str(profile_id) for profile_id in fresh_profile_ids]
+        if not normalized_fresh_profile_ids:
+            raise ValueError("fresh_profile_ids must not be empty when provided")
+        if fresh_profile_id is not None:
+            raise ValueError("fresh_profile_id and fresh_profile_ids are mutually exclusive")
+    elif fresh_profile_id is not None:
+        normalized_fresh_profile_ids = [str(fresh_profile_id)]
+    else:
+        raise ValueError("write_cross_run_compare requires fresh_run_root and a fresh profile selection")
 
     required_reference_rows = list(required_reference_rows)
     if not required_reference_rows:
@@ -512,18 +526,21 @@ def write_cross_run_compare(
         "metric_family": list(required_reference_rows[0]["metric_family"]),
     }
 
-    fresh_record = _load_run_record(
-        Path(fresh_run_root),
-        profile_id=str(fresh_profile_id),
-        source_document="fresh_run",
-    )
-    _assert_contract_matches(
-        label=f"fresh row {fresh_profile_id}",
-        actual=fresh_record["contract"],
-        expected=expected_contract,
-    )
+    fresh_records: list[dict[str, Any]] = []
+    for profile_id in normalized_fresh_profile_ids:
+        fresh_record = _load_run_record(
+            Path(fresh_run_root),
+            profile_id=profile_id,
+            source_document="fresh_run",
+        )
+        _assert_contract_matches(
+            label=f"fresh row {profile_id}",
+            actual=fresh_record["contract"],
+            expected=expected_contract,
+        )
+        fresh_records.append(fresh_record)
 
-    selected_records = [fresh_record]
+    selected_records = list(fresh_records)
     included_required_rows: list[dict[str, Any]] = []
     for row in required_reference_rows:
         record = _load_run_record(Path(row["run_root"]), profile_id=str(row["profile_id"]), source_document=str(row["source_document"]))
@@ -603,7 +620,6 @@ def write_cross_run_compare(
         "task_id": "2d_cfd_cns",
         "epoch_label": str(epoch_label),
         "expected_epochs": int(expected_epochs),
-        "fresh_profile_id": str(fresh_profile_id),
         "fresh_run_root": str(fresh_run_root),
         "contract": expected_contract,
         "profile_results": profile_results,
@@ -613,6 +629,10 @@ def write_cross_run_compare(
         "gallery_artifacts": gallery_artifacts,
         "cross_run_gallery_blocked": gallery_blocker,
     }
+    if len(normalized_fresh_profile_ids) == 1:
+        payload["fresh_profile_id"] = normalized_fresh_profile_ids[0]
+    else:
+        payload["fresh_profile_ids"] = normalized_fresh_profile_ids
 
     json_path = output_root / f"compare_{epoch_label}_against_existing.json"
     csv_path = output_root / f"compare_{epoch_label}_against_existing.csv"

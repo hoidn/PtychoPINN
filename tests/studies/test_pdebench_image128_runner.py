@@ -741,6 +741,139 @@ def test_cross_run_compare_accepts_generic_fresh_run_fields_for_modes32_lane(tmp
     ]
 
 
+def test_cross_run_compare_accepts_multiple_fresh_rows_plus_frozen_context(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import write_cross_run_compare
+
+    fresh_root = tmp_path / "fresh-sharing"
+    _write_fake_cfd_cns_compare_run(
+        fresh_root,
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.11,
+    )
+    _write_fake_cfd_cns_compare_run(
+        fresh_root,
+        profile_id="spectral_resnet_bottleneck_noshare",
+        epochs=40,
+        err_nrmse=0.09,
+    )
+    fno_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "fno",
+        profile_id="fno_base",
+        epochs=40,
+        err_nrmse=0.23,
+    )
+    unet_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "unet",
+        profile_id="unet_strong",
+        epochs=40,
+        err_nrmse=0.31,
+    )
+    hybrid_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "hybrid",
+        profile_id="hybrid_resnet_cns",
+        epochs=40,
+        err_nrmse=0.19,
+    )
+
+    json_path, csv_path, payload = write_cross_run_compare(
+        output_root=tmp_path / "out",
+        epoch_label="sharing_40ep",
+        expected_epochs=40,
+        fresh_run_root=fresh_root,
+        fresh_profile_ids=[
+            "spectral_resnet_bottleneck_base",
+            "spectral_resnet_bottleneck_noshare",
+        ],
+        required_reference_rows=[
+            {
+                "run_root": str(fno_root),
+                "profile_id": "fno_base",
+                "epochs": 40,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/fno.md",
+            },
+            {
+                "run_root": str(unet_root),
+                "profile_id": "unet_strong",
+                "epochs": 40,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/unet.md",
+            },
+        ],
+        optional_reference_rows=[
+            {
+                "run_root": str(hybrid_root),
+                "profile_id": "hybrid_resnet_cns",
+                "epochs": 40,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/hybrid.md",
+            }
+        ],
+    )
+
+    assert json_path.exists()
+    assert csv_path.exists()
+    assert payload["fresh_profile_ids"] == [
+        "spectral_resnet_bottleneck_base",
+        "spectral_resnet_bottleneck_noshare",
+    ]
+    assert "fresh_profile_id" not in payload
+    assert [row["profile_id"] for row in payload["profile_results"]] == [
+        "spectral_resnet_bottleneck_base",
+        "spectral_resnet_bottleneck_noshare",
+        "fno_base",
+        "unet_strong",
+        "hybrid_resnet_cns",
+    ]
+    assert [row["profile_id"] for row in payload["included_required_reference_rows"]] == [
+        "fno_base",
+        "unet_strong",
+    ]
+    assert [row["profile_id"] for row in payload["included_optional_reference_rows"]] == [
+        "hybrid_resnet_cns",
+    ]
+
+
 def test_cross_run_compare_rejects_fixed_contract_mismatch_for_modes32_lane(tmp_path):
     from scripts.studies.pdebench_image128.reporting import write_cross_run_compare
 

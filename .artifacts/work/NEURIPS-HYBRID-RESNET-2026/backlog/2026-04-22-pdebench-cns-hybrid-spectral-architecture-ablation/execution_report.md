@@ -1,38 +1,22 @@
 ## Completed In This Pass
 
-- Accepted the tracked Stage 4 finalist-confirmation run as complete after the launcher wrote exit code `0` and the run root contained the required metrics and compare outputs for `spectral_resnet_bottleneck_base` and `spectral_resnet_bottleneck_shared_blocks10`.
-- Wrote the remaining Task 5 sidecars:
-  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/compare_finalists_1024cap_40ep_within_run.{json,csv}`
-  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/finalist_delta_1024cap.json`
-- Published the durable repo-local summary and discoverability/state updates:
-  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_arch_ablation_summary.md`
-  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md`
-  - `docs/studies/index.md`
-  - `docs/index.md`
-  - `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json`
-- Wrote the implementation-state bundle for this implementation phase.
+- Added a regression test and reporting-helper support for multi-fresh cross-run compares so sharing tranches can include both fresh spectral rows without mislabeling one as a frozen reference.
+- Regenerated `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/compare_sharing_{10ep,40ep}_against_existing.{json,csv}` from `reference_runs_10ep.json` and `reference_runs_40ep.json`, and rewrote `compare_manifest_sharing_{10ep,40ep}.json` to preserve the frozen reference rows plus the correct fresh profile set.
+- Removed the non-authoritative pointer files `stage1_sharing_40ep_run_root.txt` and `stage2_depth_40ep_run_root.txt`.
+- Updated the durable study summaries to note that the repaired anchored sidecars now point at the frozen context manifests and that the interpretation did not change.
 
-## Completed Plan Tasks
+## Completed Current-Scope Work
 
-- Task 5: selected the unique finalists from the fresh `40`-epoch sharing and shared-depth rankings, completed the larger-cap `1024 / 128 / 128` confirmation run, and published the within-run finalist compare plus the `512`-cap to `1024`-cap delta payload.
-- Task 6: published the durable study summary, synced the broader CNS summary, updated docs discoverability, appended the progress-ledger completion entry, and reran the required deterministic checks against the final repo state.
+- The blocking review item is resolved: the sharing compare sidecars now implement the approved "against existing" contract instead of substituting the same-run shared base row as a required reference.
+- The current-scope backlog work is complete again after the repair. No additional plan items remain open for this bounded architecture-ablation lane.
 
-## Remaining Required Plan Tasks
+## Follow-Up Work
 
-- None. The approved current-scope work for this backlog item is complete.
-
-## Verification
-
-- `pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py` -> `65 passed in 42.32s`
-  - log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/verification/final_pytest.log`
-- `python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py` -> exit `0`
-  - log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/verification/final_compileall.log`
-- Finalist launcher completion proof:
-  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z.launch/exit_code.txt` contains `0`
-  - the paired run root contains `comparison_summary.{json,csv}`, `metrics_spectral_resnet_bottleneck_base.json`, `metrics_spectral_resnet_bottleneck_shared_blocks10.json`, and both per-profile sample outputs
+- Full-training CNS benchmark completeness remains outside this backlog item. These repaired sharing sidecars are still capped decision-support evidence only.
+- If another backlog item needs anchored compares with multiple fresh rows, reuse the new `write_cross_run_compare(..., fresh_profile_ids=[...])` path instead of hand-assembling manifests.
 
 ## Residual Risks
 
-- This backlog item remains capped decision-support evidence only. It does not satisfy the PDEBench full-training benchmark gate.
-- The larger-cap confirmation favors `spectral_resnet_bottleneck_base` on aggregate error, but `spectral_resnet_bottleneck_shared_blocks10` keeps a slight `fRMSE_mid/high` edge; the tradeoff may shift again under a full-training benchmark budget.
-- The non-shared row’s `10`-epoch aggregate improvement did not persist at `40` epochs, so weight-sharing conclusions should stay limited to this capped lane.
+- This backlog item still does not satisfy the PDEBench full-training benchmark gate.
+- The larger-cap confirmation still favors `spectral_resnet_bottleneck_base` on aggregate error while `spectral_resnet_bottleneck_shared_blocks10` keeps a narrow `fRMSE_mid/high` edge; that tradeoff may move again under a full-training budget.
+- The non-shared row’s `10`-epoch aggregate gain still disappears by `40` epochs, so any weight-sharing conclusion must stay limited to this capped lane.
