@@ -209,7 +209,7 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Queueing or planning the FFNO-family CNS extension that adds convolutional feature paths without changing the local CNS contract.
 
 ### [NeurIPS Hybrid ResNet PDEBench FFNO Convolutional Features CNS Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_convolutional_features_cns_summary.md)
-**Description:** Implementation summary for the capped FFNO local-convolution CNS backlog item, covering the reused `10`-epoch anchors, the required `40`-epoch FFNO-close backfill, the fresh `10`/`40`-epoch local-conv rows, the anchored compare sidecars, and the result that the local branch materially improved the repo-local FFNO proxy and beat the capped shared-spectral local row while still trailing the official authored FFNO `40`-epoch row.
+**Description:** Implementation summary for the capped FFNO local-convolution CNS backlog item, covering the Task 1 inspection audit, the required `40`-epoch FFNO-close backfill, the authoritative `10`/`40`-epoch local-conv rows, the anchored compare sidecars, and the result that the local branch materially improved the repo-local FFNO proxy and beat the capped shared-spectral local row while still trailing the official authored FFNO `40`-epoch row.
 **Keywords:** neurips, pdebench, cns, ffno, convolution, local-features, summary
 **Use this when:** Checking whether the local-conv FFNO follow-up is worth carrying forward, locating the authoritative capped compare artifacts, or reviewing the exact fixed-contract boundary for this FFNO-family extension.
 

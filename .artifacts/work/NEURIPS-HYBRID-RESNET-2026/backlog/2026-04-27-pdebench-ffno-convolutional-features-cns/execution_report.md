@@ -1,27 +1,31 @@
 ## Completed In This Pass
 
-- Accepted the tracked `40`-epoch local-conv tmux run as authoritative after the pane reported `__EXIT__:0` and the required fresh artifacts were present under `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-40ep-20260428T090626Z`.
-- Wrote the missing `reference_runs_40ep.json` and `compare_40ep_against_existing.{json,csv}` sidecars, with rendered `compare_40ep_sample0.png` / `compare_40ep_sample0_error.png`.
-- Published the dedicated durable summary, synced the CNS summary, updated the docs indexes, appended the backlog-item completion record to `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json`, and wrote the implementation-state bundle.
+- Added the missing Task 1 inspection artifact at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/inspect-20260428T082501Z/inspection_manifest.json`, recording that the bounded local-conv code support was already present, that execution could proceed without model or runner edits, and that the authoritative `40`-epoch work still needed the FFNO-close backfill plus the later local-conv pilot run.
+- Documented the authoritative-versus-non-authoritative `40`-epoch local-conv roots in that manifest so future audits do not need to infer that `cns-ffno-localconv-40ep-20260428T090543Z` is a partial root and `cns-ffno-localconv-40ep-20260428T090626Z` is the authoritative row.
+- Corrected the durable reporting surfaces to match the actual artifact state by updating this execution report and the FFNO local-convolution summaries/index entries.
 
-## Completed Plan Tasks
+## Completed Current-Scope Work
 
-- Task 3 complete: the `40`-epoch fairness gap was closed with the fresh `pilot` backfill root `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-close-backfill-40ep-20260428T084852Z`, and the authoritative local-conv `40`-epoch row completed at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-40ep-20260428T090626Z`.
-- Task 4 complete: the new durable summary is `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_convolutional_features_cns_summary.md`, the synced lane summary is `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md`, and the completion/reporting state is now recorded in the docs indexes, progress ledger, and state bundle.
+- Task 1 is now complete: the required inspection artifact exists and captures the Task 1 conclusions, including the already-landed local-conv code support and the historical-anchor caveat for reused readiness-provenance references.
+- Task 2 remains complete with the authoritative `10`-epoch local-conv root `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-10ep-20260428T082501Z` plus `reference_runs_10ep.json` and `compare_10ep_against_existing.{json,csv}`.
+- Task 3 remains complete with the fresh `pilot` fairness backfill root `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-close-backfill-40ep-20260428T084852Z` and the authoritative `40`-epoch local-conv root `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-40ep-20260428T090626Z`.
+- Task 4 remains complete with the durable summary at `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_convolutional_features_cns_summary.md`, the CNS lane sync at `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md`, and the discoverability updates in `docs/index.md` and `docs/studies/index.md`.
 
-## Remaining Required Plan Tasks
+## Follow-Up Work
 
-- None for the approved scope of `2026-04-27-pdebench-ffno-convolutional-features-cns`.
+- Optional artifact-hygiene cleanup only: if a later artifact-maintenance pass wants stricter on-disk signaling, it can archive or add an explicit tombstone file inside `cns-ffno-localconv-40ep-20260428T090543Z`. This is no longer approval-blocking because the inspection manifest and summaries now record that it is non-authoritative.
 
 ## Verification
 
-- `pytest -q tests/torch/test_ffno_bottleneck.py` -> `5 passed in 4.63s`
-- `pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py` -> `69 passed in 46.42s`
-- `python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py ptycho_torch/generators/ffno_bottleneck.py` -> exit `0`
+- `pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py` -> `69 passed in 45.98s`
+- `python -m compileall -q scripts/studies/pdebench_image128` -> exit `0`
+- artifact/report validation script -> `artifact/report validation passed`
+- `pytest -q tests/torch/test_ffno_bottleneck.py` was not rerun in this remediation pass because no generator or profile code changed; the earlier implementation-pass evidence remains `5 passed in 4.63s`
 - Archived verification logs:
-  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/verification/pytest_ffno_bottleneck_20260428T1600Z.log`
-  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/verification/pytest_pdebench_image128_20260428T1600Z.log`
-  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/verification/compileall_20260428T1600Z.log`
+  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/verification/pytest_pdebench_image128_20260428T094530Z.log`
+  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/verification/compileall_20260428T094530Z.log`
+  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/verification/artifact_validation_20260428T094530Z.log`
+  - prior code-level implementation evidence retained at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/verification/pytest_ffno_bottleneck_20260428T1600Z.log`
 - Comparison standard used: exact fixed-contract equality on task, dataset file, split counts, `history_len=2`, `max_windows_per_trajectory=8`, epochs, batch size, training loss `mse`, and metric family `err_RMSE` / `err_nRMSE` / `relative_l2` / `fRMSE_low` / `fRMSE_mid` / `fRMSE_high`.
 
 ## Residual Risks

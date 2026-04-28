@@ -41,8 +41,12 @@ The only intended model change was the bottleneck interior:
 
 ## Implementation Audit
 
-The execution-plan audit confirmed that the bounded local-conv profile was
-already landed before this pass:
+The Task 1 execution-plan inspection artifact is now recorded at:
+
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/inspect-20260428T082501Z/inspection_manifest.json`
+
+That audit confirmed that the bounded local-conv profile was already landed
+before this pass:
 
 - generator support: `ptycho_torch/generators/ffno_bottleneck.py`
 - model wiring: `scripts/studies/pdebench_image128/models.py`
@@ -71,6 +75,12 @@ Fresh or newly generated roots in this item:
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-close-backfill-40ep-20260428T084852Z`
 - authoritative `40`-epoch local-conv row:
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-40ep-20260428T090626Z`
+
+The earlier root
+`.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-40ep-20260428T090543Z`
+is non-authoritative. It retains invocation and fixed-contract metadata only,
+while the later `20260428T090626Z` root is the one with the required pilot-mode
+comparison and metrics artifacts.
 
 Reused historical anchors:
 

@@ -582,6 +582,10 @@ Authoritative local-conv run roots:
 - `40`-epoch:
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-40ep-20260428T090626Z`
 
+The earlier partial root `cns-ffno-localconv-40ep-20260428T090543Z` is
+documented as non-authoritative in the Task 1 inspection manifest and should
+not be used as the `40`-epoch local-conv reference.
+
 The item also had to backfill the missing same-contract `40`-epoch FFNO-close
 anchor before the final compare:
 
