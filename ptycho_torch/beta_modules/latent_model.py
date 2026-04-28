@@ -15,9 +15,8 @@ from torch import nn
 import torch.nn.functional as F
 
 from ptycho_torch.config_params import ModelConfig, DataConfig, TrainingConfig
-from ptycho_torch.model import Encoder, ForwardModel, IntensityScalerModule
+from ptycho_torch.model import Encoder, ForwardModel, IntensityScalerModule, ConvPoolBlock
 from ptycho_torch.model_attention import CBAM
-import ptycho_torch.helper as hh
 
 
 class FourierPositionalEncoding(nn.Module):
@@ -62,112 +61,133 @@ class FourierPositionalEncoding(nn.Module):
         return features
 
 
-class FiLMConditioning(nn.Module):
-    """Feature-wise Linear Modulation conditioned on spatial coordinates.
+def compute_canvas_scale(coords: torch.Tensor, N: int, M_lat: int,
+                         margin: int = 2) -> torch.Tensor:
+    """Compute per-batch, per-axis scale factors for dynamic canvas mapping.
 
-    Encodes patch positions via Fourier features, then produces per-patch
-    scale (gamma) and shift (beta) vectors to modulate latent feature maps.
+    Maps the coordinate bounding box plus patch extent to fill the latent
+    canvas, with independent scaling for x and y axes.
+
+    Args:
+        coords: (B, C, 1, 2) relative coordinates in pixel units
+        N: diffraction pattern size (e.g., 64)
+        M_lat: canvas size in canvas pixels (e.g., 16)
+        margin: canvas margin in pixels per side (default 2 total)
+    Returns:
+        scale: (B, 1, 2) canvas pixels per real pixel, per axis
     """
-    def __init__(self, model_config: ModelConfig):
-        super().__init__()
-        self.pos_encoder = FourierPositionalEncoding(
-            num_bands=model_config.fourier_bands_film
-        )
-        pos_dim = self.pos_encoder.output_dim
-        latent_channels = model_config.n_filters_scale * 128
-
-        self.mlp = nn.Sequential(
-            nn.Linear(pos_dim, model_config.film_dim),
-            nn.ReLU(inplace=True),
-            nn.Linear(model_config.film_dim, 2 * latent_channels)
-        )
-        self.latent_channels = latent_channels
-
-    def forward(self, latent: torch.Tensor, coords: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            latent: (B, C, D, H, W) per-patch latent feature maps
-            coords: (B, C, 2) relative coordinates per patch
-        Returns:
-            (B, C, D, H, W) conditioned latent
-        """
-        pos_features = self.pos_encoder(coords)       # (B, C, pos_dim)
-        gamma_beta = self.mlp(pos_features)            # (B, C, 2*D)
-        gamma, beta = gamma_beta.chunk(2, dim=-1)      # each (B, C, D)
-        gamma = gamma.unsqueeze(-1).unsqueeze(-1)      # (B, C, D, 1, 1)
-        beta = beta.unsqueeze(-1).unsqueeze(-1)
-        return latent * torch.sigmoid(gamma) + beta
+    coords_2d = coords.squeeze(2)  # (B, C, 2)
+    bbox = coords_2d.max(dim=1).values - coords_2d.min(dim=1).values  # (B, 2)
+    total_extent = (bbox + N).clamp(min=float(N))  # (B, 2) in pixels
+    scale = (M_lat - margin) / total_extent  # (B, 2)
+    return scale.unsqueeze(1)  # (B, 1, 2)
 
 
-class LatentCanvasAssembler(nn.Module):
-    """Assembles per-patch latents onto a shared spatial canvas.
+class GeometryTaggedAttentionFusion(nn.Module):
+    """Geometry-tagged cross-attention fusion for assembling per-patch latents.
 
-    Translates each patch's latent feature map to its correct position
-    on a larger canvas using the existing Translation() infrastructure,
-    then averages overlapping contributions.
+    Bilinearly splats each patch's feature map onto a shared canvas, attaches
+    local geometry offset tags, and fuses contributions via multi-head
+    cross-attention. Uses dynamic per-batch, per-axis scaling to map
+    coordinates to the canvas.
     """
-    def __init__(self, data_config: DataConfig, model_config: ModelConfig):
+    def __init__(self, model_config: ModelConfig, data_config: DataConfig):
         super().__init__()
-        self.data_config = data_config
-        self.model_config = model_config
-        M = hh.get_padded_size(data_config, model_config)
-        self.canvas_size = math.ceil(M / 8)
-        self.spatial_size = 8  # encoder output is 8x8 for N=64
+        D = model_config.n_filters_scale * 128
+        M_lat = model_config.latent_canvas_size
+        self.D = D
+        self.canvas_size = M_lat
+        self.N = data_config.N
+        self.n_heads = model_config.fusion_heads
+
+        self.tag_encoder = FourierPositionalEncoding(
+            num_bands=model_config.fusion_tag_bands
+        )
+        tag_dim = self.tag_encoder.output_dim
+
+        self.q_proj = nn.Linear(D, D)
+        self.k_proj = nn.Linear(D + tag_dim, D)
+        self.v_proj = nn.Linear(D, D)
+        self.out_proj = nn.Linear(D, D)
+        self.layer_norm = nn.LayerNorm(D)
+
+        nn.init.zeros_(self.out_proj.weight)
+        nn.init.zeros_(self.out_proj.bias)
+
+        half = (M_lat - 1) / 2.0
+        gy, gx = torch.meshgrid(
+            torch.arange(M_lat, dtype=torch.float32) - half,
+            torch.arange(M_lat, dtype=torch.float32) - half,
+            indexing='ij'
+        )
+        self.register_buffer('canvas_grid', torch.stack([gx, gy], dim=-1))
 
     def forward(self, latents: torch.Tensor, coords: torch.Tensor,
+                scale: torch.Tensor,
                 probe: Optional[torch.Tensor] = None) -> torch.Tensor:
         """
         Args:
-            latents: (B, C, D, 8, 8) position-conditioned latent feature maps
-            coords: (B, C, 1, 2) relative coordinates
-            probe: (B, C, P, N, N) complex probe (optional, for weighting)
+            latents: (B, C, D, H, W) per-patch latent feature maps
+            coords: (B, C, 1, 2) relative coordinates per patch (pixel units)
+            scale: (B, 1, 2) per-axis canvas scale (canvas pixels per real pixel)
+            probe: (B, C, P, N, N) complex probe (optional, unused)
         Returns:
-            canvas: (B, D, M_lat, M_lat) assembled latent canvas
+            (B, D, M_lat, M_lat) fused latent canvas
         """
         B, C, D, H, W = latents.shape
         M_lat = self.canvas_size
-        device = latents.device
+        N = self.N
+        S = M_lat * M_lat
 
-        latent_coords = coords / self.spatial_size  # scale to latent resolution
+        patch_centers = coords.squeeze(2) * scale  # (B, C, 2) in canvas pixels
 
-        pad_total = M_lat - H
-        pad_left = pad_total // 2
-        pad_right = pad_total - pad_left
+        # Bilinear splatting: sample each patch's features at every canvas position
+        canvas_positions = self.canvas_grid.reshape(1, 1, S, 2)  # (1, 1, S, 2)
+        centers = patch_centers.unsqueeze(2)  # (B, C, 1, 2)
+        local_coords = canvas_positions - centers  # (B, C, S, 2) in canvas pixels
 
-        canvas_num = torch.zeros(B, D, M_lat, M_lat, device=device)
-        canvas_den = torch.zeros(B, 1, M_lat, M_lat, device=device)
+        # Normalize for grid_sample on H×W encoder output:
+        # encoder covers N real pixels = N*scale canvas pixels per axis
+        scale_norm = (N * scale).unsqueeze(2)  # (B, 1, 1, 2) broadcasts to (B, C, S, 2)
+        norm_local = local_coords * 2.0 / scale_norm
+        sample_grid = norm_local.reshape(B * C, M_lat, M_lat, 2)
 
-        if probe is not None:
-            probe_weights = torch.sum(torch.abs(probe) ** 2, dim=2)  # (B, C, N, N)
-            probe_weights = F.adaptive_avg_pool2d(
-                probe_weights.flatten(0, 1), (H, W)
-            ).reshape(B, C, H, W)
-        else:
-            probe_weights = torch.ones(B, C, H, W, device=device)
+        latents_flat = latents.reshape(B * C, D, H, W)
+        splatted = F.grid_sample(
+            latents_flat, sample_grid,
+            mode='bilinear', align_corners=False, padding_mode='zeros'
+        )  # (B*C, D, M_lat, M_lat)
+        splatted = splatted.reshape(B, C, D, M_lat, M_lat)
 
-        for i in range(C):
-            lat_i = latents[:, i]  # (B, D, H, W)
-            w_i = probe_weights[:, i]  # (B, H, W)
-            off_i = latent_coords[:, i]  # (B, 1, 2)
+        # Reshape for attention: (B, S, C, D)
+        features = splatted.permute(0, 3, 4, 1, 2).reshape(B, S, C, D)
 
-            lat_i_padded = F.pad(lat_i, (pad_left, pad_right, pad_left, pad_right))
-            w_i_padded = F.pad(w_i, (pad_left, pad_right, pad_left, pad_right))
+        # Geometry tags: Fourier encode local offsets
+        tags = self.tag_encoder(local_coords)  # (B, C, S, tag_dim)
+        tags = tags.permute(0, 2, 1, 3)  # (B, S, C, tag_dim)
 
-            # Translation expects (N, H, W) and (N, 1, 2), returns (N, 1, H, W)
-            # Reshape D into batch dim: (B, D, M, M) -> (B*D, M, M)
-            lat_flat = lat_i_padded.reshape(B * D, M_lat, M_lat)
-            # Repeat each batch element's offset D times: (B, 1, 2) -> (B*D, 1, 2)
-            off_expanded = off_i.repeat_interleave(D, dim=0)
-            translated = hh.Translation(lat_flat, off_expanded, 0.0)  # (B*D, 1, M, M)
-            translated = translated.squeeze(1).reshape(B, D, M_lat, M_lat)
+        # Cross-attention
+        d_head = D // self.n_heads
 
-            # w_i_padded is already (B, M_lat, M_lat)
-            w_translated = hh.Translation(w_i_padded, off_i, 0.0).squeeze(1)  # (B, M_lat, M_lat)
+        q = self.q_proj(features.mean(dim=2))  # (B, S, D)
+        k = self.k_proj(torch.cat([features, tags], dim=-1))  # (B, S, C, D)
+        v = self.v_proj(features)  # (B, S, C, D)
 
-            canvas_num += translated * w_translated.unsqueeze(1)
-            canvas_den += w_translated.unsqueeze(1)
+        q_residual = q  # save for residual connection
 
-        canvas = canvas_num / torch.clamp(canvas_den, min=1e-6)
+        q = q.reshape(B, S, self.n_heads, d_head).transpose(1, 2)  # (B, heads, S, d_head)
+        k = k.reshape(B, S, C, self.n_heads, d_head).permute(0, 3, 1, 2, 4)  # (B, heads, S, C, d_head)
+        v = v.reshape(B, S, C, self.n_heads, d_head).permute(0, 3, 1, 2, 4)  # (B, heads, S, C, d_head)
+
+        attn_logits = (q.unsqueeze(3) * k).sum(dim=-1) / math.sqrt(d_head)  # (B, heads, S, C)
+        attn_weights = F.softmax(attn_logits, dim=-1)  # (B, heads, S, C)
+
+        out = (attn_weights.unsqueeze(-1) * v).sum(dim=3)  # (B, heads, S, d_head)
+        out = out.transpose(1, 2).reshape(B, S, D)  # (B, S, D)
+
+        out = self.layer_norm(self.out_proj(out) + q_residual)
+
+        canvas = out.reshape(B, M_lat, M_lat, D).permute(0, 3, 1, 2)
         return canvas
 
 
@@ -203,7 +223,7 @@ class MultiResolutionFeatureVolume(nn.Module):
 class NeuralFieldDecoder(nn.Module):
     """Coordinate-conditioned MLP decoder with Fourier positional encoding.
 
-    Evaluates f(r, z_canvas) -> (amplitude, phase) at each query coordinate
+    Evaluates f(r, z_canvas) -> (x_real, x_imag) at each query coordinate
     by sampling the feature volume and concatenating with Fourier-encoded positions.
     """
     def __init__(self, model_config: ModelConfig, data_config: DataConfig):
@@ -226,19 +246,19 @@ class NeuralFieldDecoder(nn.Module):
             layers.append(nn.Linear(prev_dim, h))
             layers.append(nn.SiLU(inplace=True))
             prev_dim = h
-        layers.append(nn.Linear(prev_dim, 2))  # amplitude, phase
+        layers.append(nn.Linear(prev_dim, 2))  # real, imaginary
         self.mlp = nn.Sequential(*layers)
 
-        M = hh.get_padded_size(data_config, model_config)
-        self.canvas_size = math.ceil(M / 8)
-        self.spatial_size = 8
+        self.canvas_size = model_config.latent_canvas_size
 
     def forward(self, feature_volume: torch.Tensor,
-                coords: torch.Tensor) -> torch.Tensor:
+                coords: torch.Tensor,
+                scale: torch.Tensor) -> torch.Tensor:
         """
         Args:
             feature_volume: (B, F, M_lat, M_lat) multi-resolution feature volume
-            coords: (B, C, 1, 2) relative coordinates
+            coords: (B, C, 1, 2) relative coordinates (pixel units)
+            scale: (B, 1, 2) per-axis canvas scale (canvas pixels per real pixel)
         Returns:
             (B, C, N, N) complex64 object patches
         """
@@ -254,20 +274,18 @@ class NeuralFieldDecoder(nn.Module):
         grid_local = torch.stack([gx, gy], dim=-1)  # (N, N, 2)
         grid_local = grid_local.reshape(1, 1, N * N, 2)  # (1, 1, N², 2)
 
-        # Offset to canvas coordinates (in pixel units, then normalize for grid_sample)
+        # Offset to canvas coordinates (in pixel units)
         offsets = coords.squeeze(2)  # (B, C, 2)
         offsets = offsets.unsqueeze(2)  # (B, C, 1, 2)
-        r_canvas = grid_local + offsets  # (B, C, N², 2) broadcast
+        r_canvas = grid_local + offsets  # (B, C, N², 2) broadcast, pixel units
 
-        # Normalize to [-1, 1] for F.grid_sample (canvas is M_lat × M_lat, in latent pixel units)
-        r_canvas_latent = r_canvas / self.spatial_size
-        r_normalized = r_canvas_latent / (M_lat / 2)  # map to [-1, 1] range approximately
-        # Flip x,y for grid_sample (expects [x, y] but grid_sample indexes [y, x])
-        r_sample = r_normalized[..., [1, 0]]
+        # Dynamic scaling: pixel coords → canvas coords → normalized [-1, 1]
+        scale_expanded = scale.unsqueeze(2)  # (B, 1, 1, 2)
+        r_canvas_scaled = r_canvas * scale_expanded  # (B, C, N², 2) canvas pixels
+        r_normalized = r_canvas_scaled / (M_lat / 2)
 
         # Sample features for all patches at once
-        r_sample_flat = r_sample.reshape(B, C * N * N, 1, 2)  # (B, C*N², 1, 2)
-        # grid_sample expects (B, C_feat, H, W) input, (B, H_out, W_out, 2) grid
+        r_sample_flat = r_normalized.reshape(B, C * N * N, 1, 2)  # (B, C*N², 1, 2)
         sampled = F.grid_sample(
             feature_volume, r_sample_flat,
             mode='bilinear', align_corners=False, padding_mode='zeros'
@@ -282,27 +300,170 @@ class NeuralFieldDecoder(nn.Module):
         mlp_input = torch.cat([coord_features, sampled], dim=-1)  # (B, C*N², input_dim)
         output = self.mlp(mlp_input)  # (B, C*N², 2)
 
-        # Apply activations
-        amplitude = torch.sigmoid(output[..., 0])  # [0, 1]
-        phase = 1.2 * torch.tanh(output[..., 1])   # [-1.2, 1.2]
+        # Apply activations (real/imaginary decomposition)
+        x_real = 0.2 + torch.tanh(output[..., 0])  # [-0.8, 1.2]
+        x_imag = 1.2 * torch.tanh(output[..., 1])   # [-1.2, 1.2]
 
         # Combine to complex and reshape
-        amplitude = amplitude.reshape(B, C, N, N)
-        phase = phase.reshape(B, C, N, N)
-        result = amplitude.to(torch.complex64) + 1j * phase.to(torch.complex64)
+        x_real = x_real.reshape(B, C, N, N)
+        x_imag = x_imag.reshape(B, C, N, N)
+        result = x_real.to(torch.complex64) + 1j * x_imag.to(torch.complex64)
 
-        return result, amplitude, phase
+        return result, x_real, x_imag
+
+
+class SpectralConv2d(nn.Module):
+    """Learnable spectral convolution via truncated Fourier modes.
+
+    Multiplies the input's Fourier transform by a learnable complex weight
+    tensor, truncated to the lowest `modes` frequencies in each dimension.
+    Uses rfft2 (real FFT) so the frequency tensor has shape (H, W//2+1).
+    """
+    def __init__(self, in_channels: int, out_channels: int, modes: int):
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.modes = modes
+
+        scale = 1.0 / (in_channels * out_channels)
+        self.weight = nn.Parameter(
+            scale * torch.randn(in_channels, out_channels, modes, modes, 2)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        B, C_in, H, W = x.shape
+
+        x_ft = torch.fft.rfft2(x, norm='ortho')
+
+        w = torch.view_as_complex(self.weight)
+
+        out_ft = torch.zeros(
+            B, self.out_channels, H, W // 2 + 1,
+            dtype=torch.cfloat, device=x.device
+        )
+
+        # Positive ky, positive kx corner
+        out_ft[:, :, :self.modes, :self.modes] = torch.einsum(
+            'bixy,ioxy->boxy',
+            x_ft[:, :, :self.modes, :self.modes], w
+        )
+
+        # Negative ky (wrapped), positive kx corner
+        out_ft[:, :, -self.modes:, :self.modes] = torch.einsum(
+            'bixy,ioxy->boxy',
+            x_ft[:, :, -self.modes:, :self.modes], w
+        )
+
+        return torch.fft.irfft2(out_ft, s=(H, W), norm='ortho')
+
+
+class FNOBlock(nn.Module):
+    """Single Fourier Neural Operator block.
+
+    Combines a global spectral path (SpectralConv2d) with a local pointwise
+    bypass (1x1 conv), InstanceNorm, GELU activation, and residual connection.
+    """
+    def __init__(self, in_channels: int, out_channels: int, modes: int):
+        super().__init__()
+        self.spectral_conv = SpectralConv2d(in_channels, out_channels, modes)
+        self.local_conv = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        self.norm = nn.InstanceNorm2d(out_channels, affine=True)
+        self.activation = nn.GELU()
+        self.residual = (in_channels == out_channels)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        identity = x
+        out = self.spectral_conv(x) + self.local_conv(x)
+        out = self.norm(out)
+        out = self.activation(out)
+        if self.residual:
+            out = out + identity
+        return out
+
+
+class FNOCNNEncoder(nn.Module):
+    """Hybrid FNO+CNN encoder for ptychographic diffraction patterns.
+
+    FNO blocks at full spatial resolution provide global context (Friedel pairs,
+    radial ring structure, speckle correlations). CNN blocks then compress
+    spatially to the 8x8 bottleneck required by the latent canvas.
+    """
+    def __init__(self, model_config: ModelConfig, data_config: DataConfig):
+        super().__init__()
+        N = data_config.N
+        nfs = model_config.n_filters_scale
+        fno_width = model_config.fno_width
+        fno_modes = model_config.fno_modes
+        n_fno_blocks = model_config.fno_blocks
+
+        max_modes = N // 2 + 1
+        if fno_modes > max_modes:
+            raise ValueError(
+                f"fno_modes={fno_modes} exceeds max for N={N} "
+                f"(rfft2 gives {max_modes} frequency bins)"
+            )
+
+        self.lifting = nn.Conv2d(1, fno_width, kernel_size=1)
+
+        self.fno_blocks = nn.ModuleList([
+            FNOBlock(fno_width, fno_width, fno_modes)
+            for _ in range(n_fno_blocks)
+        ])
+
+        if N < 16 or (N & (N - 1)) != 0:
+            raise ValueError(f"N must be a power of 2 >= 16, got N={N}")
+        n_cnn_pools = int(math.log2(N / 8))
+        n_cnn_blocks = n_cnn_pools - 1
+        cnn_filter_list = [fno_width] + [
+            nfs * (128 >> i) for i in range(n_cnn_blocks - 1, -1, -1)
+        ]
+
+        self.cnn_blocks = nn.ModuleList()
+        for i in range(len(cnn_filter_list) - 1):
+            self.cnn_blocks.append(
+                ConvPoolBlock(
+                    in_channels=cnn_filter_list[i],
+                    out_channels=cnn_filter_list[i + 1],
+                    model_config=model_config,
+                    batch_norm=model_config.batch_norm
+                )
+            )
+
+        self.final_pool = nn.MaxPool2d(kernel_size=2)
+
+        self.blocks = nn.ModuleList(
+            list(self.fno_blocks) + list(self.cnn_blocks)
+        )
+
+        self.filters = [1] + [fno_width] * n_fno_blocks + cnn_filter_list[1:]
+
+    def forward(self, x: torch.Tensor):
+        skips = []
+
+        x = self.lifting(x)
+
+        for fno_block in self.fno_blocks:
+            x = fno_block(x)
+            skips.append(x)
+
+        for cnn_block in self.cnn_blocks:
+            x = cnn_block.forward_conv(x)
+            skips.append(x)
+            x = cnn_block.forward_pool(x)
+
+        x = self.final_pool(x)
+
+        return x, skips
 
 
 class AutoencoderCCNF(nn.Module):
     """Position-Conditioned Shared Canvas + Neural Field Decoder.
 
     Replaces the standard Autoencoder with:
-    1. Weight-shared CNN encoder (per-patch, single-channel input)
-    2. FiLM positional conditioning at the bottleneck
-    3. Latent-space canvas assembly via Translation()
-    4. Multi-resolution feature volume extraction
-    5. Neural field MLP decoder with Fourier coordinate encoding
+    1. Weight-shared encoder (per-patch, single-channel input; CNN or FNO+CNN)
+    2. Geometry-tagged cross-attention fusion onto shared canvas
+    3. Multi-resolution feature volume extraction
+    4. Neural field MLP decoder with Fourier coordinate encoding
     """
     def __init__(self, model_config: ModelConfig, data_config: DataConfig):
         super().__init__()
@@ -312,7 +473,11 @@ class AutoencoderCCNF(nn.Module):
         encoder_config = copy.deepcopy(model_config)
         object.__setattr__(encoder_config, 'C_model', 1)
         object.__setattr__(encoder_config, 'object_big', False)
-        self.encoder = Encoder(encoder_config, data_config)
+
+        if getattr(model_config, 'encoder_type', 'cnn') == 'fno_cnn':
+            self.encoder = FNOCNNEncoder(encoder_config, data_config)
+        else:
+            self.encoder = Encoder(encoder_config, data_config)
 
         if model_config.cbam_bottleneck:
             bottleneck_channels = self.encoder.filters[-1]
@@ -320,8 +485,7 @@ class AutoencoderCCNF(nn.Module):
         else:
             self.bottleneck_cbam = nn.Identity()
 
-        self.film = FiLMConditioning(model_config)
-        self.canvas_assembler = LatentCanvasAssembler(data_config, model_config)
+        self.fusion = GeometryTaggedAttentionFusion(model_config, data_config)
         self.feature_volume = MultiResolutionFeatureVolume(model_config)
         self.decoder = NeuralFieldDecoder(model_config, data_config)
 
@@ -330,14 +494,18 @@ class AutoencoderCCNF(nn.Module):
         """
         Args:
             x: (B, C, N, N) diffraction patterns (already intensity-scaled)
-            coords: (B, C, 1, 2) relative coordinates
+            coords: (B, C, 1, 2) relative coordinates (pixel units)
             probe: (B, C, P, N, N) complex probe (optional)
         Returns:
             complex_out: (B, C, N, N) complex64 object patches
-            amplitude: (B, C, N, N) amplitude component
-            phase: (B, C, N, N) phase component
+            x_real: (B, C, N, N) real component
+            x_imag: (B, C, N, N) imaginary component
         """
         B, C, N, _ = x.shape
+
+        # Compute per-batch, per-axis canvas scale
+        M_lat = self.model_config.latent_canvas_size
+        scale = compute_canvas_scale(coords, N, M_lat)
 
         # 1. Weight-shared encoding: process each patch independently
         x_flat = x.reshape(B * C, 1, N, N)
@@ -346,20 +514,16 @@ class AutoencoderCCNF(nn.Module):
         D = z_flat.shape[1]
         z = z_flat.reshape(B, C, D, z_flat.shape[2], z_flat.shape[3])  # (B, C, D, 8, 8)
 
-        # 2. FiLM positional conditioning
-        coords_2d = coords.squeeze(2)  # (B, C, 2)
-        z = self.film(z, coords_2d)    # (B, C, D, 8, 8)
+        # 2. Geometry-tagged cross-attention fusion
+        canvas = self.fusion(z, coords, scale)  # (B, D, M_lat, M_lat)
 
-        # 3. Assemble latent canvas
-        canvas = self.canvas_assembler(z, coords, probe)  # (B, D, M_lat, M_lat)
-
-        # 4. Multi-resolution feature extraction
+        # 3. Multi-resolution feature extraction
         feat_vol = self.feature_volume(canvas)  # (B, F, M_lat, M_lat)
 
-        # 5. Neural field decoding
-        complex_out, amplitude, phase = self.decoder(feat_vol, coords)
+        # 4. Neural field decoding
+        complex_out, x_real, x_imag = self.decoder(feat_vol, coords, scale)
 
-        return complex_out, amplitude, phase
+        return complex_out, x_real, x_imag
 
 
 class PtychoPINN_CCNF(nn.Module):

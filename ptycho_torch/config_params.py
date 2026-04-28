@@ -84,6 +84,17 @@ class ModelConfig:
     film_dim: int = 256
     feature_volume_channels: int = 64
 
+    #FNO-CNN Hybrid Encoder
+    encoder_type: Literal['cnn', 'fno_cnn'] = field(default='cnn', metadata={'frozen': True})
+    fno_modes: int = field(default=16, metadata={'frozen': True})
+    fno_width: int = field(default=32, metadata={'frozen': True})
+    fno_blocks: int = field(default=2, metadata={'frozen': True})
+
+    #Attention Fusion
+    latent_canvas_size: int = 32
+    fusion_heads: int = 4
+    fusion_tag_bands: int = 3
+
     #Loss
     loss_function: Literal['MAE', 'Poisson'] = 'Poisson' # Loss function to use ('MAE', 'MSE', etc.)
     amp_loss: Literal['Total_Variation', "Mean_Deviation", None] = None
@@ -99,6 +110,9 @@ class TrainingConfig:
     """Configuration parameters related to the training process."""
     # Directories (only used in train_full)
     training_directories: List[str] = field(default_factory=list)
+
+    # Dataloader variant
+    dataloader_mode: Literal['materialized', 'indexed'] = 'materialized'
 
     # Device/Loss
     nll: bool = True # Use Negative Log Likelihood loss component
