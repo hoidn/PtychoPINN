@@ -25,11 +25,12 @@
   - `python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py` -> exit `0`
   - `pytest -q tests/studies/test_pdebench_image128_models.py -k "spectral_resnet_bottleneck"` -> `6 passed, 31 deselected in 4.85s`
   - `pytest -q tests/studies/test_pdebench_image128_runner.py -k "pilot or cfd_cns"` -> `12 passed, 16 deselected in 12.71s`
-- As of `2026-04-28T06:10:55Z` (`2026-04-27T23:10:55-0700` local), the larger-cap confirmation tranche is still actively executing:
+- As of `2026-04-28T06:23:38Z` (`2026-04-27T23:23:38-0700` local), the larger-cap confirmation tranche is still actively executing:
   - `ps -p 304669` shows the tracked Python process still alive on the exact planned command line
   - launcher sentinel `.launch/exit_code.txt` is still absent
-  - the latest launcher log line is `EPOCH_LOSS profile=spectral_resnet_bottleneck_base epoch=27 loss=0.006722350593`, so the run is advancing rather than semantically blocked
-  - required Stage 4 completion artifacts such as `comparison_summary.json`, `metrics_spectral_resnet_bottleneck_*.json`, and the sample PNG/NPZ outputs are not present yet
+  - the launcher log now shows `spectral_resnet_bottleneck_base` completed its `40`-epoch training loop and `spectral_resnet_bottleneck_shared_blocks10` has started (`epoch=1`)
+  - partial Stage 4 artifacts now exist for the first finalist row, including `metrics_spectral_resnet_bottleneck_base.json` and `comparison_spectral_resnet_bottleneck_base_sample0.{png,npz}`
+  - required completion artifacts are still incomplete: `comparison_summary.json`, `comparison_summary.csv`, `metrics_spectral_resnet_bottleneck_shared_blocks10.json`, and the shared-blocks10 sample PNG/NPZ outputs are not present yet
 - No semantic blocker is present; the backlog item remains in the long-running execution phase only.
 
 ## Next Resume Condition
