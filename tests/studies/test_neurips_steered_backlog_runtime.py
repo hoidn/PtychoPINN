@@ -843,3 +843,55 @@ def test_neurips_steered_backlog_runtime_drafts_gap_item_and_continues_without_r
         )
     )
     assert summary["drain_status"] == "BLOCKED"
+
+
+def test_neurips_steered_backlog_runtime_ignores_stale_selector_state_when_gate_blocks(tmp_path):
+    workspace = tmp_path / "workspace"
+    workflow_path = _copy_runtime_files(workspace)
+    (workspace / "docs/backlog/active/2026-04-22-ready-item.md").unlink()
+
+    selector_dir = workspace / "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/0/selector"
+    selector_dir.mkdir(parents=True, exist_ok=True)
+    (selector_dir / "selection.json").write_text(
+        json.dumps(
+            {
+                "selection_status": "SELECTED",
+                "selection_mode": "RECOVERED_IN_PROGRESS",
+                "selected_item_id": "2026-04-21-stale-item",
+                "selected_item_path": "docs/backlog/in_progress/2026-04-21-stale-item.md",
+                "selection_rationale": "Stale decision from a previous run.",
+                "roadmap_sync_hint": "NO_CHANGE",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    loader = WorkflowLoader(workspace)
+    workflow = loader.load(workflow_path)
+    workflow_relpath = workflow_path.relative_to(workspace).as_posix()
+    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), {}, workspace)
+    state_manager = StateManager(workspace=workspace, run_id="test-run")
+    state_manager.initialize(workflow_relpath, _bundle_context_dict(workflow), bound_inputs=bound_inputs)
+    executor = WorkflowExecutor(workflow, workspace, state_manager)
+
+    def _provider_should_not_run(*_args, **_kwargs):
+        raise AssertionError("provider selector should not run when the roadmap gate blocks")
+
+    with patch.object(ProviderExecutor, "execute", _provider_should_not_run):
+        executor.execute()
+
+    summary = json.loads(
+        (workspace / "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog-drain-summary.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert summary["drain_status"] == "BLOCKED"
+    assert not (selector_dir / "selection.json").exists()
+    gate = json.loads(
+        (workspace / "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/0/roadmap-gate.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert gate["gate_status"] == "BLOCKED"
