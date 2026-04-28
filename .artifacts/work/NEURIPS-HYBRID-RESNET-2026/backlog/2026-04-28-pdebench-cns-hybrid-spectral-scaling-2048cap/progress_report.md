@@ -5,7 +5,7 @@
 - The capped `2048 / 256 / 256`, `40`-epoch PDEBench `2d_cfd_cns` finalist compare is still actively running for:
   - `spectral_resnet_bottleneck_base`
   - `spectral_resnet_bottleneck_shared_blocks10`
-- Frozen reference manifests and green preflight logs remain under:
+- Frozen reference manifests, inspect evidence, and archived verification logs remain under:
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/`
 - Active run root:
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/cns-hybrid-spectral-finalists-2048cap-40ep-20260428T201926Z`
@@ -17,7 +17,7 @@
 ## Current Status
 
 - Implementation is `RUNNING`.
-- The tracked Python PID is `543096` and was still live at `2026-04-28 15:28:50 -0700` with `ps` status `Rl+`, elapsed `7695` seconds, `%CPU 704`, `%MEM 9.1`.
+- The tracked Python PID is `543096` and was still live at `2026-04-28 15:40:12 -0700` with `ps` status `Rl+`, elapsed `02:19:23`, `%CPU 698`, `%MEM 9.1`.
 - Required fresh contract artifacts already exist under the run root:
   - `invocation.json`
   - `invocation.sh`
@@ -37,7 +37,7 @@
   - `fRMSE_mid=0.2230527103`
   - `fRMSE_high=0.3117601573`
   - `runtime_sec=4311.1880`
-- The latest observed stdout line is `EPOCH_LOSS profile=spectral_resnet_bottleneck_shared_blocks10 epoch=25 loss=0.009028125308`, and `.launch/stdout.log` was last updated at `2026-04-28 15:27:26 -0700`.
+- The latest observed stdout line is `EPOCH_LOSS profile=spectral_resnet_bottleneck_shared_blocks10 epoch=30 loss=0.008248754625`, and `.launch/stdout.log` was last updated at `2026-04-28 15:38:32 -0700`.
 - The run root also contains `model_profile_spectral_resnet_bottleneck_shared_blocks10.json`, but it does not yet contain:
   - `metrics_spectral_resnet_bottleneck_shared_blocks10.json`
   - `comparison_spectral_resnet_bottleneck_shared_blocks10_sample0.npz`
