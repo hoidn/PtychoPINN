@@ -1,0 +1,48 @@
+{
+  "comparison_standard": [
+    "lower relative_l2 wins",
+    "tie-breaker: lower err_nRMSE",
+    "tie-breaker: lower fRMSE_high",
+    "tie-breaker: lower parameter_count",
+    "final tie-breaker: lexicographic profile_id"
+  ],
+  "evidence_scope": "capped_decision_support_only",
+  "metric_interpretation": "decision_support_not_benchmark_performance",
+  "ordered_rows": [
+    {
+      "err_RMSE": 1.3144866228103638,
+      "err_nRMSE": 0.054391950368881226,
+      "fRMSE_high": 0.3401203751564026,
+      "fRMSE_low": 3.083242177963257,
+      "fRMSE_mid": 0.23262734711170197,
+      "parameter_count": 9574534,
+      "profile_id": "spectral_resnet_bottleneck_shared_blocks10",
+      "relative_l2": 0.054391950368881226
+    },
+    {
+      "err_RMSE": 1.3354917764663696,
+      "err_nRMSE": 0.055261120200157166,
+      "fRMSE_high": 0.3531905710697174,
+      "fRMSE_low": 3.129964590072632,
+      "fRMSE_mid": 0.2410842925310135,
+      "parameter_count": 8391814,
+      "profile_id": "spectral_resnet_bottleneck_base",
+      "relative_l2": 0.055261120200157166
+    },
+    {
+      "err_RMSE": 1.8558353185653687,
+      "err_nRMSE": 0.07679233700037003,
+      "fRMSE_high": 0.35496786236763,
+      "fRMSE_low": 4.386180877685547,
+      "fRMSE_mid": 0.266807496547699,
+      "parameter_count": 8983174,
+      "profile_id": "spectral_resnet_bottleneck_shared_blocks8",
+      "relative_l2": 0.07679233700037003
+    }
+  ],
+  "ranking_label": "depth_40ep",
+  "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-depth-shared-40ep-20260428T043715Z",
+  "runner_up_profile_id": "spectral_resnet_bottleneck_base",
+  "schema_version": "pdebench_cns_arch_ablation_ranking_v1",
+  "winner_profile_id": "spectral_resnet_bottleneck_shared_blocks10"
+}

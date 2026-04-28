@@ -32,6 +32,8 @@
   ],
   "ranking_label": "sharing_40ep",
   "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z",
+  "runner_up_profile_id": "spectral_resnet_bottleneck_noshare",
   "schema_version": "pdebench_cns_arch_ablation_ranking_v1",
+  "winner_change_vs_sharing_10ep": "flipped",
   "winner_profile_id": "spectral_resnet_bottleneck_base"
 }
