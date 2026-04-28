@@ -41,6 +41,19 @@ STRICT_CONTRACT_FIELDS = [
     *FIXED_CONTRACT_FIELDS,
     "history_len",
 ]
+SCALING_INVARIANT_CONTRACT_FIELDS = [
+    "dataset_file",
+    "max_windows_per_trajectory",
+    "epochs",
+    "batch_size",
+    "training_loss",
+    "metric_family",
+    "history_len",
+    "sample_contract",
+    "field_order",
+    "input_channels",
+    "target_channels",
+]
 
 
 def darcy_literature_context() -> dict[str, Any]:
@@ -304,6 +317,7 @@ def _load_run_record(run_root: Path, *, profile_id: str, source_document: str) -
     row = {
         "profile_id": profile_id,
         "status": str(metrics.get("status", "completed")),
+        "runtime_sec": metrics.get("runtime_sec"),
         "err_RMSE": metrics.get("err_RMSE"),
         "err_nRMSE": metrics.get("err_nRMSE"),
         "relative_l2": metrics.get("relative_l2"),
@@ -359,6 +373,17 @@ def _assert_fixed_contract_matches(
     expected: dict[str, Any],
 ) -> None:
     for key in FIXED_CONTRACT_FIELDS:
+        if actual.get(key) != expected.get(key):
+            raise ValueError(f"{label} contract mismatch for {key}: {actual.get(key)!r} != {expected.get(key)!r}")
+
+
+def _assert_scaling_invariant_contract_matches(
+    *,
+    label: str,
+    actual: dict[str, Any],
+    expected: dict[str, Any],
+) -> None:
+    for key in SCALING_INVARIANT_CONTRACT_FIELDS:
         if actual.get(key) != expected.get(key):
             raise ValueError(f"{label} contract mismatch for {key}: {actual.get(key)!r} != {expected.get(key)!r}")
 
@@ -889,4 +914,277 @@ def write_history_delta_compare(
             writer.writerow(
                 {"row_family": "reference_history2", **{field: row.get(field, "") for field in fields if field != "row_family"}}
             )
+    return json_path, csv_path, payload
+
+
+def _cap_label(split_counts: dict[str, Any]) -> str:
+    train_count = int(split_counts.get("train"))
+    return f"{train_count}cap"
+
+
+def _metrics_with_runtime(row: dict[str, Any]) -> dict[str, float]:
+    payload: dict[str, float] = {}
+    for field in COMPARISON_METRIC_FIELDS:
+        payload[field] = float(row[field])
+    runtime_sec = row.get("runtime_sec")
+    if runtime_sec is None:
+        raise ValueError(f"missing runtime_sec for {row.get('profile_id')}")
+    payload["runtime_sec"] = float(runtime_sec)
+    return payload
+
+
+def _rounded(value: float) -> float:
+    return round(float(value), 15)
+
+
+def _load_reference_manifest_payload(
+    manifest_path: Path,
+    *,
+    profile_ids: list[str],
+) -> tuple[dict[str, Any], dict[str, dict[str, Any]], str]:
+    payload = _load_json(Path(manifest_path))
+    required_rows = payload.get("required_rows", {})
+    if not required_rows:
+        raise ValueError(f"reference manifest has no required_rows: {manifest_path}")
+    rows: list[dict[str, Any]] = []
+    for items in required_rows.values():
+        rows.extend(items)
+    rows_by_profile = {str(row["profile_id"]): row for row in rows}
+    expected_profile_ids = [str(profile_id) for profile_id in profile_ids]
+    if sorted(rows_by_profile) != sorted(expected_profile_ids):
+        raise ValueError(
+            f"reference manifest profile_ids mismatch for {manifest_path}: "
+            f"{sorted(rows_by_profile)} != {sorted(expected_profile_ids)}"
+        )
+    split_counts = dict(payload.get("split_counts", {}))
+    if not split_counts:
+        raise ValueError(f"reference manifest missing split_counts: {manifest_path}")
+    return payload, rows_by_profile, _cap_label(split_counts)
+
+
+def write_split_cap_scaling_trend(
+    *,
+    output_root: Path,
+    profile_ids: list[str],
+    reference_manifest_paths: list[Path],
+    fresh_run_root: Path,
+    fresh_profile_ids: list[str],
+    fresh_source_document: str,
+) -> tuple[Path, Path, dict[str, Any]]:
+    output_root = Path(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+
+    profile_ids = [str(profile_id) for profile_id in profile_ids]
+    fresh_profile_ids = [str(profile_id) for profile_id in fresh_profile_ids]
+    if not profile_ids or not reference_manifest_paths:
+        raise ValueError("write_split_cap_scaling_trend requires profile_ids and reference_manifest_paths")
+    if sorted(profile_ids) != sorted(fresh_profile_ids):
+        raise ValueError(
+            f"fresh_profile_ids mismatch: {sorted(fresh_profile_ids)} != {sorted(profile_ids)}"
+        )
+
+    cap_rows: dict[str, dict[str, dict[str, Any]]] = {}
+    cap_contracts: dict[str, dict[str, Any]] = {}
+    manifest_records: list[str] = []
+    invariant_contract: dict[str, Any] | None = None
+
+    for manifest_path in reference_manifest_paths:
+        manifest_payload, rows_by_profile, cap_label = _load_reference_manifest_payload(
+            Path(manifest_path),
+            profile_ids=profile_ids,
+        )
+        manifest_records.append(str(manifest_path))
+        profile_records: dict[str, dict[str, Any]] = {}
+        for profile_id in profile_ids:
+            row = rows_by_profile[profile_id]
+            record = _load_run_record(
+                Path(row["run_root"]),
+                profile_id=profile_id,
+                source_document=str(row["source_document"]),
+            )
+            expected_contract = {
+                "dataset_file": str(row["dataset_file"]),
+                "split_counts": dict(row["split_counts"]),
+                "max_windows_per_trajectory": int(row["max_windows_per_trajectory"]),
+                "history_len": int(row["history_len"]),
+                "epochs": int(row["epochs"]),
+                "batch_size": int(row["batch_size"]),
+                "training_loss": str(row["training_loss"]),
+                "metric_family": list(row["metric_family"]),
+            }
+            _assert_contract_matches(
+                label=f"reference row {profile_id} ({cap_label})",
+                actual=record["contract"],
+                expected=expected_contract,
+            )
+            profile_records[profile_id] = record
+            if invariant_contract is None:
+                invariant_contract = {
+                    key: record["contract"].get(key) for key in SCALING_INVARIANT_CONTRACT_FIELDS
+                }
+            else:
+                _assert_scaling_invariant_contract_matches(
+                    label=f"reference row {profile_id} ({cap_label})",
+                    actual=record["contract"],
+                    expected=invariant_contract,
+                )
+        cap_rows[cap_label] = profile_records
+        cap_contracts[cap_label] = {
+            "split_counts": dict(manifest_payload["split_counts"]),
+            "epochs": int(manifest_payload["required_rows"][next(iter(manifest_payload["required_rows"]))][0]["epochs"]),
+        }
+
+    fresh_run_root = Path(fresh_run_root)
+    fresh_records: dict[str, dict[str, Any]] = {}
+    fresh_cap_label: str | None = None
+    for profile_id in profile_ids:
+        record = _load_run_record(
+            fresh_run_root,
+            profile_id=profile_id,
+            source_document=str(fresh_source_document),
+        )
+        if invariant_contract is None:
+            invariant_contract = {
+                key: record["contract"].get(key) for key in SCALING_INVARIANT_CONTRACT_FIELDS
+            }
+        else:
+            _assert_scaling_invariant_contract_matches(
+                label=f"fresh row {profile_id}",
+                actual=record["contract"],
+                expected=invariant_contract,
+            )
+        current_cap_label = _cap_label(record["contract"]["split_counts"])
+        if fresh_cap_label is None:
+            fresh_cap_label = current_cap_label
+        elif fresh_cap_label != current_cap_label:
+            raise ValueError(
+                f"fresh run split-count mismatch across profiles: {fresh_cap_label!r} != {current_cap_label!r}"
+            )
+        fresh_records[profile_id] = record
+
+    if fresh_cap_label is None:
+        raise ValueError("unable to determine fresh cap label")
+    cap_rows[fresh_cap_label] = fresh_records
+    cap_contracts[fresh_cap_label] = {
+        "split_counts": dict(next(iter(fresh_records.values()))["contract"]["split_counts"]),
+        "epochs": int(next(iter(fresh_records.values()))["contract"]["epochs"]),
+    }
+
+    cap_sequence = sorted(cap_rows, key=lambda label: int(cap_contracts[label]["split_counts"]["train"]))
+    if len(cap_sequence) < 2:
+        raise ValueError("split-cap scaling trend requires at least two cap checkpoints")
+
+    allowed_contract_delta = {
+        "delta_kind": "split_counts_only",
+        "split_counts_by_cap": {
+            label: dict(cap_contracts[label]["split_counts"]) for label in cap_sequence
+        },
+    }
+
+    profiles_payload: list[dict[str, Any]] = []
+    csv_rows: list[dict[str, Any]] = []
+    gallery_records: list[dict[str, Any]] = []
+    for profile_id in profile_ids:
+        metrics_by_cap: dict[str, dict[str, float]] = {}
+        deltas: dict[str, dict[str, float]] = {}
+        runtime_deltas: dict[str, float] = {}
+        improvement_per_added: dict[str, dict[str, float]] = {}
+        for label in cap_sequence:
+            record = cap_rows[label][profile_id]
+            metrics_by_cap[label] = _metrics_with_runtime(record["row"])
+            gallery_record = {
+                **record,
+                "row": {
+                    **record["row"],
+                    "profile_id": f"{profile_id}@{label}",
+                },
+            }
+            gallery_records.append(gallery_record)
+            csv_rows.append(
+                {
+                    "profile_id": profile_id,
+                    "cap_label": label,
+                    "train_trajectories": int(record["row"]["split_counts"]["train"]),
+                    "val_trajectories": int(record["row"]["split_counts"]["val"]),
+                    "test_trajectories": int(record["row"]["split_counts"]["test"]),
+                    **metrics_by_cap[label],
+                }
+            )
+
+        for previous, current in zip(cap_sequence, cap_sequence[1:]):
+            previous_train = int(cap_contracts[previous]["split_counts"]["train"])
+            current_train = int(cap_contracts[current]["split_counts"]["train"])
+            delta_key = f"{current_train}_minus_{previous_train}"
+            previous_metrics = metrics_by_cap[previous]
+            current_metrics = metrics_by_cap[current]
+            deltas[delta_key] = {
+                field: _rounded(current_metrics[field] - previous_metrics[field])
+                for field in COMPARISON_METRIC_FIELDS
+            }
+            runtime_deltas[delta_key] = _rounded(current_metrics["runtime_sec"] - previous_metrics["runtime_sec"])
+            added_training = current_train - previous_train
+            if added_training <= 0:
+                raise ValueError(f"non-increasing train split between {previous} and {current}")
+            improvement_per_added[delta_key] = {
+                "err_nRMSE": _rounded(
+                    float(previous_metrics["err_nRMSE"] - current_metrics["err_nRMSE"]) / float(added_training)
+                ),
+                "relative_l2": _rounded(
+                    float(previous_metrics["relative_l2"] - current_metrics["relative_l2"]) / float(added_training)
+                ),
+                "fRMSE_high": _rounded(
+                    float(previous_metrics["fRMSE_high"] - current_metrics["fRMSE_high"]) / float(added_training)
+                ),
+            }
+
+        profile_payload = {
+            "profile_id": profile_id,
+            "metrics_by_cap": metrics_by_cap,
+            "improvement_per_added_training_trajectory": improvement_per_added,
+        }
+        for delta_key, delta_payload in deltas.items():
+            profile_payload[f"delta_{delta_key}"] = delta_payload
+            profile_payload[f"runtime_delta_{delta_key}"] = runtime_deltas[delta_key]
+        profiles_payload.append(profile_payload)
+
+    gallery_artifacts, gallery_blocker = _maybe_render_cross_run_gallery(
+        records=gallery_records,
+        output_root=output_root,
+        epoch_label="scaling_512_1024_2048",
+    )
+
+    payload = {
+        "schema_version": "pdebench_image128_split_cap_scaling_trend_v1",
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "task_id": "2d_cfd_cns",
+        "profile_ids": profile_ids,
+        "cap_sequence": cap_sequence,
+        "fixed_contract": invariant_contract,
+        "allowed_contract_delta": allowed_contract_delta,
+        "evidence_scope": "capped_decision_support_only",
+        "metric_interpretation": "decision_support_not_benchmark_performance",
+        "reference_manifest_paths": manifest_records,
+        "fresh_run_root": str(fresh_run_root),
+        "profiles": profiles_payload,
+        "gallery_artifacts": gallery_artifacts,
+        "cross_run_gallery_blocked": gallery_blocker,
+    }
+
+    json_path = output_root / "finalist_scaling_trend_512_1024_2048.json"
+    csv_path = output_root / "finalist_scaling_trend_512_1024_2048.csv"
+    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    fields = [
+        "profile_id",
+        "cap_label",
+        "train_trajectories",
+        "val_trajectories",
+        "test_trajectories",
+        "runtime_sec",
+        *COMPARISON_METRIC_FIELDS,
+    ]
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        for row in csv_rows:
+            writer.writerow({field: row.get(field, "") for field in fields})
     return json_path, csv_path, payload

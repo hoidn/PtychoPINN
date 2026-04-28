@@ -201,6 +201,7 @@ def _write_fake_cfd_cns_compare_run(
     profile_id: str,
     epochs: int,
     err_nrmse: float,
+    runtime_sec: float = 100.0,
     batch_size: int = 4,
     history_len: int = 2,
     max_windows_per_trajectory: int = 8,
@@ -210,6 +211,9 @@ def _write_fake_cfd_cns_compare_run(
     field_order: list[str] | None = None,
     target_offset: float = 0.0,
     with_npz: bool = True,
+    mode: str = "pilot",
+    evidence_scope: str = "capped_decision_support_only",
+    metric_interpretation: str = "decision_support_not_benchmark_performance",
 ) -> Path:
     field_order = field_order or ["density", "Vx", "Vy", "pressure"]
     split_counts = split_counts or {"train": 512, "val": 64, "test": 64}
@@ -220,7 +224,7 @@ def _write_fake_cfd_cns_compare_run(
             {
                 "parsed_args": {
                     "task_id": "2d_cfd_cns",
-                    "mode": "readiness",
+                    "mode": mode,
                     "epochs": int(epochs),
                     "batch_size": int(batch_size),
                     "history_len": int(history_len),
@@ -266,6 +270,7 @@ def _write_fake_cfd_cns_compare_run(
     metric_payload = {
         "profile_id": profile_id,
         "status": "completed",
+        "runtime_sec": float(runtime_sec),
         "training_loss": training_loss,
         "err_RMSE": float(err_nrmse * 10.0),
         "err_nRMSE": float(err_nrmse),
@@ -298,10 +303,10 @@ def _write_fake_cfd_cns_compare_run(
         json.dumps(
             {
                 "task_id": "2d_cfd_cns",
-                "mode": "readiness",
+                "mode": mode,
                 "history_len": int(history_len),
-                "evidence_scope": "smoke_feasibility_only",
-                "metric_interpretation": "sanity_only_not_benchmark_performance",
+                "evidence_scope": evidence_scope,
+                "metric_interpretation": metric_interpretation,
                 "profile_results": [metric_payload],
             },
             indent=2,
@@ -1037,6 +1042,318 @@ def test_cross_run_compare_records_gallery_blocker_when_targets_do_not_align(tmp
         "missing_sample_artifact",
         "target_mismatch",
     }
+
+
+def test_scaling_trend_split_cap_delta_writes_outputs_and_deltas(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import (
+        build_reference_run_manifest,
+        write_reference_run_manifest,
+        write_split_cap_scaling_trend,
+    )
+
+    profile_ids = [
+        "spectral_resnet_bottleneck_base",
+        "spectral_resnet_bottleneck_shared_blocks10",
+    ]
+    metric_family = [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high",
+    ]
+    dataset_file = "/tmp/fake-cfd-cns.hdf5"
+
+    base_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "cap512-base",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.060,
+        runtime_sec=1100.0,
+        split_counts={"train": 512, "val": 64, "test": 64},
+    )
+    shared10_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "cap512-shared10",
+        profile_id="spectral_resnet_bottleneck_shared_blocks10",
+        epochs=40,
+        err_nrmse=0.055,
+        runtime_sec=1350.0,
+        split_counts={"train": 512, "val": 64, "test": 64},
+    )
+    cap1024 = tmp_path / "cap1024"
+    _write_fake_cfd_cns_compare_run(
+        cap1024,
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.044,
+        runtime_sec=2200.0,
+        split_counts={"train": 1024, "val": 128, "test": 128},
+    )
+    _write_fake_cfd_cns_compare_run(
+        cap1024,
+        profile_id="spectral_resnet_bottleneck_shared_blocks10",
+        epochs=40,
+        err_nrmse=0.045,
+        runtime_sec=2750.0,
+        split_counts={"train": 1024, "val": 128, "test": 128},
+    )
+    cap2048 = tmp_path / "cap2048"
+    _write_fake_cfd_cns_compare_run(
+        cap2048,
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.033,
+        runtime_sec=3600.0,
+        split_counts={"train": 2048, "val": 256, "test": 256},
+    )
+    _write_fake_cfd_cns_compare_run(
+        cap2048,
+        profile_id="spectral_resnet_bottleneck_shared_blocks10",
+        epochs=40,
+        err_nrmse=0.034,
+        runtime_sec=4300.0,
+        split_counts={"train": 2048, "val": 256, "test": 256},
+    )
+
+    manifest_512 = write_reference_run_manifest(
+        build_reference_run_manifest(
+            task_id="2d_cfd_cns",
+            dataset_file=dataset_file,
+            split_counts={"train": 512, "val": 64, "test": 64},
+            max_windows_per_trajectory=8,
+            history_len=2,
+            training_loss="mse",
+            batch_size=4,
+            metric_family=metric_family,
+            required_rows={
+                "40ep": [
+                    {
+                        "run_root": str(base_512),
+                        "profile_id": "spectral_resnet_bottleneck_base",
+                        "epochs": 40,
+                        "source_document": "docs/base512.md",
+                    },
+                    {
+                        "run_root": str(shared10_512),
+                        "profile_id": "spectral_resnet_bottleneck_shared_blocks10",
+                        "epochs": 40,
+                        "source_document": "docs/shared10-512.md",
+                    },
+                ]
+            },
+        ),
+        tmp_path / "reference_runs_512cap_40ep.json",
+    )
+    manifest_1024 = write_reference_run_manifest(
+        build_reference_run_manifest(
+            task_id="2d_cfd_cns",
+            dataset_file=dataset_file,
+            split_counts={"train": 1024, "val": 128, "test": 128},
+            max_windows_per_trajectory=8,
+            history_len=2,
+            training_loss="mse",
+            batch_size=4,
+            metric_family=metric_family,
+            required_rows={
+                "40ep": [
+                    {
+                        "run_root": str(cap1024),
+                        "profile_id": "spectral_resnet_bottleneck_base",
+                        "epochs": 40,
+                        "source_document": "docs/base1024.md",
+                    },
+                    {
+                        "run_root": str(cap1024),
+                        "profile_id": "spectral_resnet_bottleneck_shared_blocks10",
+                        "epochs": 40,
+                        "source_document": "docs/shared10-1024.md",
+                    },
+                ]
+            },
+        ),
+        tmp_path / "reference_runs_1024cap_40ep.json",
+    )
+
+    json_path, csv_path, payload = write_split_cap_scaling_trend(
+        output_root=tmp_path / "out",
+        profile_ids=profile_ids,
+        reference_manifest_paths=[manifest_512, manifest_1024],
+        fresh_run_root=cap2048,
+        fresh_profile_ids=profile_ids,
+        fresh_source_document="fresh_run",
+    )
+
+    assert json_path.exists()
+    assert csv_path.exists()
+    assert payload["evidence_scope"] == "capped_decision_support_only"
+    assert payload["metric_interpretation"] == "decision_support_not_benchmark_performance"
+    assert payload["allowed_contract_delta"]["delta_kind"] == "split_counts_only"
+    assert payload["cap_sequence"] == ["512cap", "1024cap", "2048cap"]
+    assert payload["cross_run_gallery_blocked"] is None
+    assert (tmp_path / "out" / "compare_scaling_512_1024_2048_sample0.png").exists()
+    assert (tmp_path / "out" / "compare_scaling_512_1024_2048_sample0_error.png").exists()
+
+    profiles = {item["profile_id"]: item for item in payload["profiles"]}
+    base = profiles["spectral_resnet_bottleneck_base"]
+    assert base["metrics_by_cap"]["512cap"]["err_nRMSE"] == 0.060
+    assert base["metrics_by_cap"]["1024cap"]["err_nRMSE"] == 0.044
+    assert base["metrics_by_cap"]["2048cap"]["err_nRMSE"] == 0.033
+    assert base["delta_1024_minus_512"]["err_nRMSE"] == -0.016
+    assert base["delta_2048_minus_1024"]["err_nRMSE"] == -0.011
+    assert base["runtime_delta_1024_minus_512"] == 1100.0
+    assert base["runtime_delta_2048_minus_1024"] == 1400.0
+    assert base["improvement_per_added_training_trajectory"]["1024_minus_512"]["err_nRMSE"] == 0.016 / 512.0
+    assert base["improvement_per_added_training_trajectory"]["2048_minus_1024"]["relative_l2"] == 0.011 / 1024.0
+    assert base["improvement_per_added_training_trajectory"]["2048_minus_1024"]["fRMSE_high"] == 0.0055 / 1024.0
+
+
+def test_split_cap_delta_rejects_contract_drift_outside_split_counts(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import (
+        build_reference_run_manifest,
+        write_reference_run_manifest,
+        write_split_cap_scaling_trend,
+    )
+
+    base_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "cap512-base",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.060,
+        split_counts={"train": 512, "val": 64, "test": 64},
+    )
+    shared10_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "cap512-shared10",
+        profile_id="spectral_resnet_bottleneck_shared_blocks10",
+        epochs=40,
+        err_nrmse=0.055,
+        split_counts={"train": 512, "val": 64, "test": 64},
+    )
+    bad_2048 = tmp_path / "cap2048-bad"
+    _write_fake_cfd_cns_compare_run(
+        bad_2048,
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.033,
+        batch_size=2,
+        split_counts={"train": 2048, "val": 256, "test": 256},
+    )
+    _write_fake_cfd_cns_compare_run(
+        bad_2048,
+        profile_id="spectral_resnet_bottleneck_shared_blocks10",
+        epochs=40,
+        err_nrmse=0.034,
+        batch_size=2,
+        split_counts={"train": 2048, "val": 256, "test": 256},
+    )
+
+    manifest_512 = write_reference_run_manifest(
+        build_reference_run_manifest(
+            task_id="2d_cfd_cns",
+            dataset_file="/tmp/fake-cfd-cns.hdf5",
+            split_counts={"train": 512, "val": 64, "test": 64},
+            max_windows_per_trajectory=8,
+            history_len=2,
+            training_loss="mse",
+            batch_size=4,
+            metric_family=["err_RMSE", "err_nRMSE", "relative_l2", "fRMSE_low", "fRMSE_mid", "fRMSE_high"],
+            required_rows={
+                "40ep": [
+                    {"run_root": str(base_512), "profile_id": "spectral_resnet_bottleneck_base", "epochs": 40, "source_document": "docs/base512.md"},
+                    {"run_root": str(shared10_512), "profile_id": "spectral_resnet_bottleneck_shared_blocks10", "epochs": 40, "source_document": "docs/shared10-512.md"},
+                ]
+            },
+        ),
+        tmp_path / "reference_runs_512cap_40ep.json",
+    )
+
+    try:
+        write_split_cap_scaling_trend(
+            output_root=tmp_path / "out",
+            profile_ids=["spectral_resnet_bottleneck_base", "spectral_resnet_bottleneck_shared_blocks10"],
+            reference_manifest_paths=[manifest_512],
+            fresh_run_root=bad_2048,
+            fresh_profile_ids=["spectral_resnet_bottleneck_base", "spectral_resnet_bottleneck_shared_blocks10"],
+            fresh_source_document="fresh_run",
+        )
+    except ValueError as exc:
+        assert "batch_size" in str(exc)
+    else:
+        raise AssertionError("split-cap scaling trend must reject contract drift outside split_counts")
+
+
+def test_scaling_trend_records_nonfatal_gallery_blocker(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import (
+        build_reference_run_manifest,
+        write_reference_run_manifest,
+        write_split_cap_scaling_trend,
+    )
+
+    base_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "cap512-base",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.060,
+        split_counts={"train": 512, "val": 64, "test": 64},
+    )
+    shared10_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "cap512-shared10",
+        profile_id="spectral_resnet_bottleneck_shared_blocks10",
+        epochs=40,
+        err_nrmse=0.055,
+        split_counts={"train": 512, "val": 64, "test": 64},
+        target_offset=5.0,
+    )
+    cap2048 = tmp_path / "cap2048"
+    _write_fake_cfd_cns_compare_run(
+        cap2048,
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.033,
+        split_counts={"train": 2048, "val": 256, "test": 256},
+        with_npz=False,
+    )
+    _write_fake_cfd_cns_compare_run(
+        cap2048,
+        profile_id="spectral_resnet_bottleneck_shared_blocks10",
+        epochs=40,
+        err_nrmse=0.034,
+        split_counts={"train": 2048, "val": 256, "test": 256},
+    )
+
+    manifest_512 = write_reference_run_manifest(
+        build_reference_run_manifest(
+            task_id="2d_cfd_cns",
+            dataset_file="/tmp/fake-cfd-cns.hdf5",
+            split_counts={"train": 512, "val": 64, "test": 64},
+            max_windows_per_trajectory=8,
+            history_len=2,
+            training_loss="mse",
+            batch_size=4,
+            metric_family=["err_RMSE", "err_nRMSE", "relative_l2", "fRMSE_low", "fRMSE_mid", "fRMSE_high"],
+            required_rows={
+                "40ep": [
+                    {"run_root": str(base_512), "profile_id": "spectral_resnet_bottleneck_base", "epochs": 40, "source_document": "docs/base512.md"},
+                    {"run_root": str(shared10_512), "profile_id": "spectral_resnet_bottleneck_shared_blocks10", "epochs": 40, "source_document": "docs/shared10-512.md"},
+                ]
+            },
+        ),
+        tmp_path / "reference_runs_512cap_40ep.json",
+    )
+
+    json_path, csv_path, payload = write_split_cap_scaling_trend(
+        output_root=tmp_path / "out",
+        profile_ids=["spectral_resnet_bottleneck_base", "spectral_resnet_bottleneck_shared_blocks10"],
+        reference_manifest_paths=[manifest_512],
+        fresh_run_root=cap2048,
+        fresh_profile_ids=["spectral_resnet_bottleneck_base", "spectral_resnet_bottleneck_shared_blocks10"],
+        fresh_source_document="fresh_run",
+    )
+
+    assert json_path.exists()
+    assert csv_path.exists()
+    assert payload["gallery_artifacts"] is None
+    assert payload["cross_run_gallery_blocked"]["reason"] in {"missing_sample_artifact", "target_mismatch"}
 
 
 def test_history1_cross_run_compare_records_allowed_delta_and_rows(tmp_path):
