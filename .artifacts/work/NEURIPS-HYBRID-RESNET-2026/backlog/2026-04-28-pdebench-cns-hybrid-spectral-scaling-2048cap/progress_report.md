@@ -20,7 +20,7 @@
 ## Current Status
 
 - Implementation is `RUNNING`.
-- The tracked Python PID is `543096` and was still live at the latest check (`ps` status `Rl+`, elapsed `01:01:01`, `%CPU 758`, `%MEM 1.5`).
+- The tracked Python PID is `543096` and was still live at the latest check (`ps` status `Rl+`, elapsed `01:14:41`, `%CPU 763`, `%MEM 9.1`).
 - The tmux session is `cns-scale2048-201926` on socket `/tmp/claude-tmux-sockets/claude.sock`.
 - Initial required fresh artifacts already exist under the run root:
   - `invocation.json`
@@ -28,11 +28,22 @@
   - `dataset_manifest.json`
   - `split_manifest.json`
   - `hdf5_metadata.json`
-- The fresh run is still actively writing to `.launch/stdout.log`; the latest observed training line reached `EPOCH_LOSS profile=spectral_resnet_bottleneck_base epoch=34`.
-- The run root currently contains only the base profile metadata (`model_profile_spectral_resnet_bottleneck_base.json`) and does not yet contain:
+- The base finalist row has completed and already emitted:
   - `metrics_spectral_resnet_bottleneck_base.json`
+  - `model_profile_spectral_resnet_bottleneck_base.json`
+  - `comparison_spectral_resnet_bottleneck_base_sample0.npz`
+  - `comparison_spectral_resnet_bottleneck_base_sample0.png`
+- Latest available base metrics from `metrics_spectral_resnet_bottleneck_base.json`:
+  - `err_nRMSE=0.0421656668`
+  - `err_RMSE=1.0198297501`
+  - `relative_l2=0.0421656668`
+  - `fRMSE_low=2.3713548183`
+  - `fRMSE_mid=0.2230527103`
+  - `fRMSE_high=0.3117601573`
+  - `runtime_sec=4311.1880`
+- The latest observed stdout line is still `EPOCH_LOSS profile=spectral_resnet_bottleneck_base epoch=40`, and `.launch/stdout.log` was last updated at `2026-04-28 14:30:24 -0700`.
+- The run root now also contains `model_profile_spectral_resnet_bottleneck_shared_blocks10.json`, but it does not yet contain:
   - `metrics_spectral_resnet_bottleneck_shared_blocks10.json`
-  - `model_profile_spectral_resnet_bottleneck_shared_blocks10.json`
   - `comparison_summary.json`
 - The launch sidecar still has no `exit_code.txt`, so the run has not satisfied the completion guardrail.
 
