@@ -559,6 +559,64 @@ Relative to the existing local rows on this capped slice:
 This author-FFNO lane is still capped-readiness, decision-support-only evidence.
 It does not change the benchmark-complete boundary for CNS.
 
+## FFNO Local-Convolution Follow-Up
+
+The repo-local FFNO-family extension that adds an explicit local residual branch
+inside the FFNO-close bottleneck is tracked in:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_convolutional_features_cns_summary.md`
+
+That backlog item kept the same capped CNS contract fixed:
+
+- task: `2d_cfd_cns`
+- `history_len=2`
+- trajectories: `512 / 64 / 64`
+- `max_windows_per_trajectory=8`
+- training loss: `mse`
+- batch size: `4`
+
+Authoritative local-conv run roots:
+
+- `10`-epoch:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-10ep-20260428T082501Z`
+- `40`-epoch:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-40ep-20260428T090626Z`
+
+The item also had to backfill the missing same-contract `40`-epoch FFNO-close
+anchor before the final compare:
+
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-close-backfill-40ep-20260428T084852Z`
+
+Frozen cross-run compares:
+
+- `10`-epoch:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/compare_10ep_against_existing.json`
+- `40`-epoch:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/compare_40ep_against_existing.json`
+
+Observed local-conv metrics:
+
+- `10` epochs:
+  `relative_l2=0.0846254751`, `fRMSE_high=0.6369161010`
+- `40` epochs:
+  `relative_l2=0.0557734184`, `fRMSE_high=0.3090891540`
+
+Directional read:
+
+- local-conv materially improved the repo-local `ffno_bottleneck_base` row on
+  both approved budgets
+- local-conv also beat the capped shared-spectral local anchor on aggregate
+  error and `fRMSE_high` at both `10` and `40` epochs
+- the official authored FFNO row remained stronger than the local-conv row on
+  the `40`-epoch capped contract, so this result does not displace the authored
+  lane or change the benchmark-complete boundary
+
+Decision:
+
+- carry `ffno_bottleneck_localconv_base` forward as the stronger repo-local
+  FFNO-family follow-up profile for future bounded local studies
+- do not promote it into a primary bundle from capped evidence alone
+
 ## Official GNOT Paper-Default Follow-Up
 
 The official GNOT baseline is tracked separately from both the authored FFNO

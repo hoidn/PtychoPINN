@@ -1,0 +1,257 @@
+{
+  "comparison_npz": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-10ep-20260428T082501Z/comparison_ffno_bottleneck_localconv_base_sample0.npz",
+  "comparison_png": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-10ep-20260428T082501Z/comparison_ffno_bottleneck_localconv_base_sample0.png",
+  "distributed_backend": null,
+  "distributed_enabled": false,
+  "distributed_local_rank": 0,
+  "distributed_rank": 0,
+  "distributed_world_size": 1,
+  "err_RMSE": 2.045138120651245,
+  "err_nRMSE": 0.0846254751086235,
+  "fRMSE_high": 0.6369161009788513,
+  "fRMSE_low": 4.773987770080566,
+  "fRMSE_mid": 0.36389708518981934,
+  "fourier_band_counts": {
+    "high": 4943,
+    "low": 2869,
+    "mid": 8572
+  },
+  "fourier_band_definition": "fftshifted_radial_frequency_thirds",
+  "fourier_metric_units": "denormalized_state_units_fft_ortho",
+  "horizon": "one_step",
+  "launched_via_torchrun": false,
+  "learning_rate": 0.0002,
+  "metric_units": "denormalized_state_units",
+  "model_profile": {
+    "base_model": "ffno_bottleneck_net",
+    "class_name": "PadCropWrapper",
+    "evidence_scope": "manual-only",
+    "parameter_count": 7695205,
+    "profile_config": {
+      "base_model": "ffno_bottleneck_net",
+      "evidence_scope": "manual-only",
+      "ffno_bottleneck_blocks": 6,
+      "ffno_bottleneck_gate_init": 0.1,
+      "ffno_bottleneck_local_conv": true,
+      "ffno_bottleneck_local_conv_kernel_size": 3,
+      "ffno_bottleneck_mlp_ratio": 2.0,
+      "ffno_bottleneck_modes": 12,
+      "ffno_bottleneck_norm": "instance",
+      "ffno_bottleneck_share_weights": true,
+      "fno_blocks": 4,
+      "fno_modes": 12,
+      "hidden_channels": 32,
+      "hybrid_downsample_steps": 2,
+      "hybrid_resnet_blocks": 6,
+      "hybrid_skip_connections": true,
+      "hybrid_skip_style": "add",
+      "profile_id": "ffno_bottleneck_localconv_base",
+      "strong_baseline": false
+    },
+    "profile_id": "ffno_bottleneck_localconv_base",
+    "schema_version": "pdebench_image128_model_profile_v1",
+    "strong_baseline": false
+  },
+  "normalization": "train_split_state_stats",
+  "num_eval_batches": 128,
+  "num_eval_samples": 512,
+  "optimizer": "Adam",
+  "peak_cuda_memory_bytes": 455095296,
+  "per_channel": {
+    "err_RMSE": [
+      0.4790295958518982,
+      0.12875057756900787,
+      0.12404392659664154,
+      4.058191776275635
+    ],
+    "err_nRMSE": [
+      0.07375282049179077,
+      0.25015345215797424,
+      0.24218396842479706,
+      0.08473992347717285
+    ],
+    "fRMSE_high": [
+      0.11568056792020798,
+      0.02618260309100151,
+      0.02286582440137863,
+      1.2680920362472534
+    ],
+    "fRMSE_low": [
+      1.1229536533355713,
+      0.3044144809246063,
+      0.2935102581977844,
+      9.472275733947754
+    ],
+    "fRMSE_mid": [
+      0.09390950947999954,
+      0.016519911587238312,
+      0.016575459390878677,
+      0.7213301658630371
+    ],
+    "relative_l2": [
+      0.07375282049179077,
+      0.25015345215797424,
+      0.24218396842479706,
+      0.08473992347717285
+    ]
+  },
+  "physics_epoch_history": [
+    {
+      "terms": {},
+      "total": 0.0,
+      "weighted_terms": {}
+    },
+    {
+      "terms": {},
+      "total": 0.0,
+      "weighted_terms": {}
+    },
+    {
+      "terms": {},
+      "total": 0.0,
+      "weighted_terms": {}
+    },
+    {
+      "terms": {},
+      "total": 0.0,
+      "weighted_terms": {}
+    },
+    {
+      "terms": {},
+      "total": 0.0,
+      "weighted_terms": {}
+    },
+    {
+      "terms": {},
+      "total": 0.0,
+      "weighted_terms": {}
+    },
+    {
+      "terms": {},
+      "total": 0.0,
+      "weighted_terms": {}
+    },
+    {
+      "terms": {},
+      "total": 0.0,
+      "weighted_terms": {}
+    },
+    {
+      "terms": {},
+      "total": 0.0,
+      "weighted_terms": {}
+    },
+    {
+      "terms": {},
+      "total": 0.0,
+      "weighted_terms": {}
+    }
+  ],
+  "physics_last_epoch": {
+    "terms": {},
+    "total": 0.0,
+    "weighted_terms": {}
+  },
+  "physics_loss_terms": [],
+  "physics_loss_weights": {
+    "continuity": 0.0,
+    "global_mass": 0.0,
+    "positivity": 0.0
+  },
+  "physics_regularization_enabled": false,
+  "profile_id": "ffno_bottleneck_localconv_base",
+  "relative_l2": 0.0846254751086235,
+  "requested_device": "cuda",
+  "resolved_device": "cuda:0",
+  "run_id": "20260428T082608.462663Z",
+  "runtime_sec": 275.3996057510376,
+  "scheduler": "ReduceLROnPlateau",
+  "train_batches": 10240,
+  "train_epoch_losses": [
+    0.17936302440739382,
+    0.07716521419933997,
+    0.06009276977715672,
+    0.050409918552077215,
+    0.04335264442852349,
+    0.03694842042818891,
+    0.03375477726342524,
+    0.03295100337186341,
+    0.0302205582482884,
+    0.02660107476617668
+  ],
+  "train_split_eval": {
+    "err_RMSE": 1.6043009757995605,
+    "err_nRMSE": 0.06883817166090012,
+    "fRMSE_high": 0.6071532964706421,
+    "fRMSE_low": 3.698089122772217,
+    "fRMSE_mid": 0.35995110869407654,
+    "fourier_band_counts": {
+      "high": 4943,
+      "low": 2869,
+      "mid": 8572
+    },
+    "fourier_band_definition": "fftshifted_radial_frequency_thirds",
+    "fourier_metric_units": "denormalized_state_units_fft_ortho",
+    "horizon": "one_step",
+    "metric_units": "denormalized_state_units",
+    "normalization": "train_split_state_stats",
+    "num_eval_batches": 1024,
+    "num_eval_samples": 4096,
+    "per_channel": {
+      "err_RMSE": [
+        0.4101412296295166,
+        0.10834838449954987,
+        0.10661932080984116,
+        3.1786482334136963
+      ],
+      "err_nRMSE": [
+        0.06828857958316803,
+        0.19715024530887604,
+        0.19505098462104797,
+        0.06877851486206055
+      ],
+      "fRMSE_high": [
+        0.11023451387882233,
+        0.025832215324044228,
+        0.02259235456585884,
+        1.2088056802749634
+      ],
+      "fRMSE_low": [
+        0.9570395946502686,
+        0.2550692558288574,
+        0.2513989806175232,
+        7.325246334075928
+      ],
+      "fRMSE_mid": [
+        0.08919645100831985,
+        0.016665777191519737,
+        0.01673251762986183,
+        0.7139649391174316
+      ],
+      "relative_l2": [
+        0.06828857958316803,
+        0.19715024530887604,
+        0.19505098462104797,
+        0.06877851486206055
+      ]
+    },
+    "relative_l2": 0.06883817166090012,
+    "split_name": "train"
+  },
+  "train_supervised_epoch_losses": [
+    0.17936302440739382,
+    0.07716521419933997,
+    0.06009276977715672,
+    0.050409918552077215,
+    0.04335264442852349,
+    0.03694842042818891,
+    0.03375477726342524,
+    0.03295100337186341,
+    0.0302205582482884,
+    0.02660107476617668
+  ],
+  "training_loss": "mse",
+  "training_loss_definition": "mean squared error on normalized CNS fields",
+  "training_loss_rationale": "Matches the official PDEBench FNO and U-Net forward baseline training code, which uses nn.MSELoss(reduction='mean') for the compressible CFD benchmarks.",
+  "weight_decay": 0.0
+}

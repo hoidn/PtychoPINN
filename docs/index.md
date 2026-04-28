@@ -208,6 +208,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, pdebench, cns, ffno, convolution, local-features, ablation
 **Use this when:** Queueing or planning the FFNO-family CNS extension that adds convolutional feature paths without changing the local CNS contract.
 
+### [NeurIPS Hybrid ResNet PDEBench FFNO Convolutional Features CNS Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_convolutional_features_cns_summary.md)
+**Description:** Implementation summary for the capped FFNO local-convolution CNS backlog item, covering the reused `10`-epoch anchors, the required `40`-epoch FFNO-close backfill, the fresh `10`/`40`-epoch local-conv rows, the anchored compare sidecars, and the result that the local branch materially improved the repo-local FFNO proxy and beat the capped shared-spectral local row while still trailing the official authored FFNO `40`-epoch row.
+**Keywords:** neurips, pdebench, cns, ffno, convolution, local-features, summary
+**Use this when:** Checking whether the local-conv FFNO follow-up is worth carrying forward, locating the authoritative capped compare artifacts, or reviewing the exact fixed-contract boundary for this FFNO-family extension.
+
 ### [NeurIPS Hybrid ResNet CDI FFNO Generator Lines Plan](plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_plan.md)
 **Description:** Backlog plan for using FFNO as a CDI/ptycho Torch generator on the best study-indexed lines configuration and comparing it against Hybrid ResNet under the same data, training, stitching, and metric contract.
 **Keywords:** neurips, cdi, ptycho, ffno, generator, lines_256, hybrid_resnet

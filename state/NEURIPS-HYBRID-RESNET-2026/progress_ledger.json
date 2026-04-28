@@ -1380,6 +1380,123 @@
         "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
         ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-22-pdebench-cns-hybrid-spectral-architecture-ablation/execution_report.md"
       ]
+    },
+    {
+      "tranche_id": "2026-04-27-pdebench-ffno-convolutional-features-cns",
+      "updated_at_utc": "2026-04-28T09:28:44Z",
+      "update_reason": "Completed the durable FFNO local-convolution CNS backlog item after the tracked 40-epoch tmux run finished cleanly, the fairness-critical FFNO-close backfill was accepted, and the missing 40-epoch compare/reporting surfaces were written.",
+      "decision": "Adding an explicit local convolutional branch to the repo-local FFNO-close bottleneck materially improved both aggregate error and `fRMSE_high` on the capped CNS contract, beating the local FFNO-close and capped shared-spectral local anchors at 10 and 40 epochs. Keep `ffno_bottleneck_localconv_base` as the stronger repo-local FFNO-family follow-up profile, but do not promote it into a primary bundle from capped evidence alone because the official authored FFNO 40-epoch row is still materially stronger.",
+      "decision_scope": "complete_ffno_convolutional_features_cns_backlog_item",
+      "design_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-pdebench-ffno-convolutional-features-cns/execution_plan.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns",
+      "reference_manifest_paths": {
+        "10ep": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/reference_runs_10ep.json",
+        "40ep": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/reference_runs_40ep.json"
+      },
+      "fresh_run_roots": {
+        "10ep": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-10ep-20260428T082501Z",
+        "40ep": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-40ep-20260428T090626Z"
+      },
+      "backfill_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-close-backfill-40ep-20260428T084852Z",
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_convolutional_features_cns_summary.md",
+      "cns_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "findings_changed": false,
+      "backfill_needed": true,
+      "performance_assessment_complete": false,
+      "evidence_scope": "capped_decision_support_only",
+      "metric_interpretation": "decision_support_not_benchmark_performance",
+      "comparison_standard": "Only the bottleneck internals may change for `ffno_bottleneck_localconv_base`; task, dataset file, split counts, `history_len=2`, `max_windows_per_trajectory=8`, epoch budget, batch size, training loss `mse`, and metric family remain fixed.",
+      "local_equal_footing_contract": {
+        "task": "2d_cfd_cns",
+        "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        "train_trajectories": 512,
+        "val_trajectories": 64,
+        "test_trajectories": 64,
+        "max_windows_per_trajectory": 8,
+        "history_len": 2,
+        "batch_size": 4,
+        "training_loss": "mse",
+        "metric_family": [
+          "err_RMSE",
+          "err_nRMSE",
+          "relative_l2",
+          "fRMSE_low",
+          "fRMSE_mid",
+          "fRMSE_high"
+        ]
+      },
+      "implementation_audit": {
+        "code_support_already_present": true,
+        "generator_surface": "ptycho_torch/generators/ffno_bottleneck.py",
+        "model_surface": "scripts/studies/pdebench_image128/models.py",
+        "run_config_surface": "scripts/studies/pdebench_image128/run_config.py"
+      },
+      "outcomes": {
+        "10ep": {
+          "localconv_relative_l2": 0.0846254751086235,
+          "localconv_fRMSE_high": 0.6369161009788513,
+          "ffno_close_relative_l2": 0.11107040196657181,
+          "ffno_close_fRMSE_high": 0.7276504635810852,
+          "spectral_relative_l2": 0.08699385821819305,
+          "spectral_fRMSE_high": 0.6955373287200928,
+          "author_relative_l2": 0.0878334790468216,
+          "author_fRMSE_high": 0.2596977651119232
+        },
+        "40ep": {
+          "localconv_relative_l2": 0.05577341839671135,
+          "localconv_fRMSE_high": 0.30908915400505066,
+          "ffno_close_relative_l2": 0.07622417062520981,
+          "ffno_close_fRMSE_high": 0.3934273421764374,
+          "spectral_relative_l2": 0.061562005430459976,
+          "spectral_fRMSE_high": 0.43493345379829407,
+          "author_relative_l2": 0.028147730976343155,
+          "author_fRMSE_high": 0.12101411819458008
+        }
+      },
+      "cost_context": {
+        "localconv_parameter_count": 7695205,
+        "ffno_close_parameter_count": 6809701,
+        "spectral_parameter_count": 8186726,
+        "author_parameter_count": 1073672,
+        "localconv_runtime_sec_10ep": 275.3996057510376,
+        "localconv_runtime_sec_40ep": 1031.2165131568909,
+        "ffno_close_runtime_sec_40ep": 980.5158934593201,
+        "spectral_runtime_sec_40ep": 1861.6251845359802,
+        "author_runtime_sec_40ep": 4725.511692285538
+      },
+      "compare_artifacts": {
+        "10ep": {
+          "json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/compare_10ep_against_existing.json",
+          "csv": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/compare_10ep_against_existing.csv",
+          "prediction_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/compare_10ep_sample0.png",
+          "error_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/compare_10ep_sample0_error.png"
+        },
+        "40ep": {
+          "json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/compare_40ep_against_existing.json",
+          "csv": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/compare_40ep_against_existing.csv",
+          "prediction_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/compare_40ep_sample0.png",
+          "error_gallery": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/compare_40ep_sample0_error.png"
+        }
+      },
+      "verification": [
+        "pytest -q tests/torch/test_ffno_bottleneck.py -> 5 passed in 4.63s",
+        "pytest log archived at .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/verification/pytest_ffno_bottleneck_20260428T1600Z.log",
+        "pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py -> 69 passed in 46.42s",
+        "pytest log archived at .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/verification/pytest_pdebench_image128_20260428T1600Z.log",
+        "python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py ptycho_torch/generators/ffno_bottleneck.py -> exit 0",
+        "compileall log archived at .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/verification/compileall_20260428T1600Z.log",
+        "write_cross_run_compare 40ep -> compare_40ep_against_existing.json/csv written; cross-run gallery rendered",
+        "JSON validation -> reference_runs_40ep.json, compare_40ep_against_existing.json, and implementation_state.json parsed successfully"
+      ],
+      "affected_surfaces": [
+        "docs/index.md",
+        "docs/studies/index.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_convolutional_features_cns_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-pdebench-ffno-convolutional-features-cns/execution_report.md"
+      ]
     }
   ]
 }

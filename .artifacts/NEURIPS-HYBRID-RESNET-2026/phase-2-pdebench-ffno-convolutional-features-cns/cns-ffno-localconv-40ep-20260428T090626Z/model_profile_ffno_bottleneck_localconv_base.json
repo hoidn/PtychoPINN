@@ -1,0 +1,30 @@
+{
+  "base_model": "ffno_bottleneck_net",
+  "class_name": "PadCropWrapper",
+  "evidence_scope": "manual-only",
+  "parameter_count": 7695205,
+  "profile_config": {
+    "base_model": "ffno_bottleneck_net",
+    "evidence_scope": "manual-only",
+    "ffno_bottleneck_blocks": 6,
+    "ffno_bottleneck_gate_init": 0.1,
+    "ffno_bottleneck_local_conv": true,
+    "ffno_bottleneck_local_conv_kernel_size": 3,
+    "ffno_bottleneck_mlp_ratio": 2.0,
+    "ffno_bottleneck_modes": 12,
+    "ffno_bottleneck_norm": "instance",
+    "ffno_bottleneck_share_weights": true,
+    "fno_blocks": 4,
+    "fno_modes": 12,
+    "hidden_channels": 32,
+    "hybrid_downsample_steps": 2,
+    "hybrid_resnet_blocks": 6,
+    "hybrid_skip_connections": true,
+    "hybrid_skip_style": "add",
+    "profile_id": "ffno_bottleneck_localconv_base",
+    "strong_baseline": false
+  },
+  "profile_id": "ffno_bottleneck_localconv_base",
+  "schema_version": "pdebench_image128_model_profile_v1",
+  "strong_baseline": false
+}

@@ -1,0 +1,28 @@
+{
+  "axis_order": "NTHW",
+  "field_order": [
+    "density",
+    "Vx",
+    "Vy",
+    "pressure"
+  ],
+  "history_len": 2,
+  "mean": [
+    5.148869622182099,
+    0.006403532549444725,
+    -9.775887194141211e-05,
+    34.16993374426683
+  ],
+  "num_time_steps_per_trajectory": 21,
+  "num_trajectories": 512,
+  "num_values_per_field": 176160768,
+  "run_id": "20260428T082608.462663Z",
+  "schema_version": "pdebench_image128_multifield_dynamic_normalization_stats_v1",
+  "source": "train_split_trajectories_all_time_steps",
+  "std": [
+    3.0449966207622783,
+    0.5962986257984083,
+    0.5951434249845496,
+    30.34981273002383
+  ]
+}
