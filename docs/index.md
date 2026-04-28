@@ -183,6 +183,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, pdebench, cns, spectral_resnet, modes32, fno_modes, spectral_bottleneck_modes, summary
 **Use this when:** Checking whether the higher-mode spectral row should replace the shared `12/12` capped CNS reference, locating the fresh modes-32 artifacts, or reviewing the exact fixed-contract compare boundary.
 
+### [NeurIPS Hybrid ResNet PDEBench CNS Hybrid-Spectral Architecture Ablation Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_arch_ablation_summary.md)
+**Description:** Implementation summary for the capped CNS hybrid-spectral architecture backlog item, covering the fresh `10`/`40`-epoch sharing pilots, the fresh `40`-epoch shared-depth pilot, the larger-cap finalist confirmation sidecars, and the result that the `10`-block shared bottleneck won the depth pilot but the shared base row recovered the aggregate lead on the `1024 / 128 / 128` confirmation slice.
+**Keywords:** neurips, pdebench, cns, hybrid-spectral, architecture, weight-sharing, depth, spectral_resnet, summary
+**Use this when:** Checking whether disabling weight sharing still helps after `40` epochs, whether deeper shared spectral bottlenecks survive a larger-cap confirmation pass, or locating the final capped comparison artifacts for this CNS-only architecture lane.
+
 ### [NeurIPS Hybrid ResNet PDEBench CNS Hybrid-Spectral Architectural Ablation Plan](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_arch_ablation_plan.md)
 **Description:** Implementation plan for a bounded PDEBench `2d_cfd_cns` hybrid-spectral architectural ablation that fixes the canonical CNS shell (`skip-add` + `pixelshuffle`) and varies only spectral bottleneck sharing and depth, with explicit external-audit invariants and larger-cap confirmation.
 **Keywords:** neurips, pdebench, cns, hybrid-spectral, spectral_resnet, ablation, skip-add, pixelshuffle, depth, weight-sharing

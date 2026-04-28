@@ -361,6 +361,69 @@ Interpretation boundary:
 - it does not replace the shared `12/12` spectral row as the aggregate local
   capped `40`-epoch spectral reference
 
+## Hybrid-Spectral Architecture Ablation
+
+The dedicated same-shell sharing-plus-depth follow-up is summarized in:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_arch_ablation_summary.md`
+
+That backlog item kept dataset, split family, `history_len=2`, `mse`, batch
+size, metrics, and the canonical CNS shell fixed, then reran only the approved
+hybrid-spectral internal axes:
+
+- weight sharing:
+  - shared `spectral_resnet_bottleneck_base`
+  - non-shared `spectral_resnet_bottleneck_noshare`
+- shared spectral bottleneck depth:
+  - `6` blocks: `spectral_resnet_bottleneck_base`
+  - `8` blocks: `spectral_resnet_bottleneck_shared_blocks8`
+  - `10` blocks: `spectral_resnet_bottleneck_shared_blocks10`
+
+Fresh run roots:
+
+- sharing `10` epochs:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-10ep-20260428T032825Z`
+- sharing `40` epochs:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z`
+- shared-depth `40` epochs:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-depth-shared-40ep-20260428T043715Z`
+- finalist confirmation `1024 / 128 / 128`, `40` epochs:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z`
+
+Anchored compare sidecars:
+
+- `10`-epoch sharing:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/compare_sharing_10ep_against_existing.json`
+- `40`-epoch sharing:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/compare_sharing_40ep_against_existing.json`
+- `40`-epoch shared depth:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/compare_depth_40ep_against_existing.json`
+- `1024 / 128 / 128` finalist confirmation:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/compare_finalists_1024cap_40ep_within_run.json`
+
+Observed outcome:
+
+- at `10` epochs, disabling weight sharing improved aggregate denormalized error
+  versus the shared base row, but it did not improve `fRMSE_high`
+- at `40` epochs, the shared base row beat the non-shared row on every tracked
+  eval metric, so the earlier non-shared gain did not hold
+- on the separate shared-depth `40`-epoch tranche, the `10`-block shared row
+  beat both `6` and `8` blocks on every tracked eval metric
+- on the larger-cap `1024 / 128 / 128` confirmation slice, the aggregate lead
+  returned to the shared base row:
+  - `spectral_resnet_bottleneck_base`:
+    `err_nRMSE=0.0435010`, `fRMSE_high=0.2983`
+  - `spectral_resnet_bottleneck_shared_blocks10`:
+    `err_nRMSE=0.0445733`, `fRMSE_high=0.2940`
+
+Interpretation boundary:
+
+- deeper shared spectral bottlenecks can help on the smaller capped lane
+- the larger-cap confirmation does not support promoting the deeper shared row
+  over the shared base row as the aggregate local capped reference
+- this entire architecture lane remains capped decision-support evidence only,
+  not a benchmark-complete CNS conclusion
+
 ## Markov History-1 Compare
 
 The controlled lower-context follow-up is summarized in:
