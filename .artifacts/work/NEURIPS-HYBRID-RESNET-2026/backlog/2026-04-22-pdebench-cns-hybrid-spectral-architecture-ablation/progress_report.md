@@ -25,10 +25,11 @@
 - Stage 1 fresh results are fully materialized and ranked on the capped `512 / 64 / 64`, `history_len=2`, `mse`, batch-size `4` contract:
   - `sharing_10ep_ranking.json` winner: `spectral_resnet_bottleneck_noshare`
   - `sharing_40ep_ranking.json` winner: `spectral_resnet_bottleneck_base`
-- As of `2026-04-28T04:54:42Z`, the Stage 2 depth run is still live:
+- As of `2026-04-28T05:06:05Z`, the Stage 2 depth run is still live:
   - `ps` shows PID `285260` active for `python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode pilot ... --profiles spectral_resnet_bottleneck_base,spectral_resnet_bottleneck_shared_blocks8,spectral_resnet_bottleneck_shared_blocks10`
   - tracker `exit_code.txt` is still absent
-  - latest logged training progress in `stdout.log` is `EPOCH_LOSS profile=spectral_resnet_bottleneck_base epoch=33 ...`
+  - the run root already contains partial emitted artifacts for the completed `spectral_resnet_bottleneck_base` row, including `metrics_spectral_resnet_bottleneck_base.json` and `comparison_spectral_resnet_bottleneck_base_sample0.{png,npz}`
+  - latest logged training progress in `stdout.log` is `EPOCH_LOSS profile=spectral_resnet_bottleneck_shared_blocks8 epoch=16 ...`
 - No semantic blocker is present. Remaining work is still the approved execution sequence: finish Task 4, emit the depth compare and ranking artifacts, select finalists, then launch Task 5.
 
 ## Next Resume Condition
