@@ -54,6 +54,7 @@ def _copy_runtime_files(workspace: Path) -> Path:
         "workflows/library/scripts/build_neurips_backlog_manifest.py",
         "workflows/library/scripts/materialize_neurips_selected_item_inputs.py",
         "workflows/library/scripts/move_neurips_backlog_item.py",
+        "workflows/library/scripts/reconcile_neurips_selected_item.py",
         "workflows/library/scripts/run_neurips_backlog_checks.py",
         "workflows/library/scripts/update_neurips_backlog_run_state.py",
     ]
@@ -183,6 +184,19 @@ def _write_plan_review(workspace: Path) -> None:
         (phase_root / "unresolved_medium_count.txt").write_text("0\n", encoding="utf-8")
         return
     raise AssertionError("No pending plan review pointer found")
+
+
+def _restore_ready_item_to_active(workspace: Path) -> None:
+    in_progress = workspace / "docs/backlog/in_progress/2026-04-22-ready-item.md"
+    active = workspace / "docs/backlog/active/2026-04-22-ready-item.md"
+    if in_progress.exists() and not active.exists():
+        active.parent.mkdir(parents=True, exist_ok=True)
+        in_progress.rename(active)
+
+
+def _write_plan_review_and_restore_active_item(workspace: Path) -> None:
+    _write_plan_review(workspace)
+    _restore_ready_item_to_active(workspace)
 
 
 def _write_execution_report(workspace: Path) -> None:
@@ -338,6 +352,11 @@ def _write_implementation_review(workspace: Path) -> None:
     raise AssertionError("No pending implementation review pointer found")
 
 
+def _write_implementation_review_and_restore_active_item(workspace: Path) -> None:
+    _write_implementation_review(workspace)
+    _restore_ready_item_to_active(workspace)
+
+
 def _run_with_mocked_providers(workspace: Path, workflow_path: Path) -> dict:
     loader = WorkflowLoader(workspace)
     workflow = loader.load(workflow_path)
@@ -425,6 +444,66 @@ def test_neurips_steered_backlog_runtime_smoke(tmp_path):
     )
     assert checks_report["status"] == "PASS"
     assert checks_report["failed_count"] == 0
+
+
+def test_neurips_steered_backlog_runtime_recovers_queue_path_drift_after_plan_review(tmp_path):
+    workspace = tmp_path / "workspace"
+    workflow_path = _copy_runtime_files(workspace)
+
+    provider_sequence = [
+        ("SelectNextItem", _write_first_selector),
+        ("ReviewOrUpdateRoadmap", _write_roadmap_sync_outputs),
+        ("DraftPlan", _write_plan_draft),
+        ("ReviewPlanTracked", _write_plan_review_and_restore_active_item),
+        ("ExecuteImplementation", _write_execution_report),
+        ("ReviewImplementation", _write_implementation_review_and_restore_active_item),
+        ("SelectNextItem", _write_second_selector_blocked),
+    ]
+    call_index = {"value": 0}
+
+    def _prepare_invocation(_self, *args, **kwargs):
+        return SimpleNamespace(input_mode="stdin", prompt=kwargs.get("prompt_content", "")), None
+
+    def _execute(_self, _invocation, **kwargs):
+        expected_step, writer = provider_sequence[call_index["value"]]
+        actual_step = kwargs.get("step_name")
+        if actual_step is not None:
+            assert actual_step == expected_step
+        call_index["value"] += 1
+        writer(workspace)
+        return SimpleNamespace(
+            exit_code=0,
+            stdout=b"ok",
+            stderr=b"",
+            duration_ms=1,
+            error=None,
+            missing_placeholders=None,
+            invalid_prompt_placeholder=False,
+            raw_stdout=None,
+            normalized_stdout=None,
+            provider_session=None,
+        )
+
+    loader = WorkflowLoader(workspace)
+    workflow = loader.load(workflow_path)
+    workflow_relpath = workflow_path.relative_to(workspace).as_posix()
+    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), {}, workspace)
+    state_manager = StateManager(workspace=workspace, run_id="test-run")
+    state_manager.initialize(workflow_relpath, _bundle_context_dict(workflow), bound_inputs=bound_inputs)
+    executor = WorkflowExecutor(workflow, workspace, state_manager)
+
+    with patch.object(ProviderExecutor, "prepare_invocation", _prepare_invocation), patch.object(
+        ProviderExecutor, "execute", _execute
+    ):
+        executor.execute()
+
+    assert call_index["value"] == 7
+    assert not (workspace / "docs/backlog/active/2026-04-22-ready-item.md").exists()
+    done_path = workspace / "docs/backlog/done/2026-04-22-ready-item.md"
+    assert done_path.is_file()
+    assert "plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-22-ready-item/execution_plan.md" in (
+        done_path.read_text(encoding="utf-8")
+    )
 
 
 def test_neurips_steered_backlog_runtime_waiting_for_running_item(tmp_path):

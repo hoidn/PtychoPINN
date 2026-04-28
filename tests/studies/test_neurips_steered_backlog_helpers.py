@@ -164,6 +164,32 @@ def test_move_item_allows_legal_transitions_and_rejects_illegal_ones(tmp_path):
     assert done.stdout.strip() == "docs/backlog/done/2026-04-22-ready-item.md"
 
 
+def test_reconcile_selected_item_recovers_active_path_drift_and_rewrites_plan_path(tmp_path):
+    workspace = _workspace(tmp_path)
+    output_path = workspace / "state/reconciled_item_path.txt"
+    plan_path = "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-22-ready-item/execution_plan.md"
+
+    result = _run_script(
+        workspace,
+        "workflows/library/scripts/reconcile_neurips_selected_item.py",
+        "--active-path",
+        "docs/backlog/active/2026-04-22-ready-item.md",
+        "--in-progress-path",
+        "docs/backlog/in_progress/2026-04-22-ready-item.md",
+        "--plan-path",
+        plan_path,
+        "--output-path",
+        str(output_path),
+    )
+
+    assert result.stdout.strip() == "docs/backlog/in_progress/2026-04-22-ready-item.md"
+    assert not (workspace / "docs/backlog/active/2026-04-22-ready-item.md").exists()
+    item_path = workspace / "docs/backlog/in_progress/2026-04-22-ready-item.md"
+    assert item_path.is_file()
+    assert output_path.read_text(encoding="utf-8").strip() == item_path.relative_to(workspace).as_posix()
+    assert f"plan_path: {plan_path}" in item_path.read_text(encoding="utf-8")
+
+
 def test_run_state_persists_blockers_and_current_roadmap(tmp_path):
     workspace = _workspace(tmp_path)
     state_path = "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/run_state.json"

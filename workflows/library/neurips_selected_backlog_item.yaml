@@ -292,36 +292,21 @@ steps:
     id: rewrite_selected_item_plan_path
     command:
       - python
-      - -c
-      - |
-        import pathlib
-        import sys
-
-        item_path = pathlib.Path(sys.argv[1])
-        new_plan_path = sys.argv[2]
-        if not item_path.is_file():
-            raise SystemExit(f"Missing backlog item to rewrite: {item_path}")
-        text = item_path.read_text(encoding="utf-8")
-        if not text.startswith("---\n"):
-            raise SystemExit(f"Missing frontmatter in {item_path}")
-        end = text.find("\n---\n", 4)
-        if end == -1:
-            raise SystemExit(f"Missing frontmatter end fence in {item_path}")
-        header = text[4:end].splitlines()
-        body = text[end + len("\n---\n") :]
-        updated = []
-        replaced = False
-        for line in header:
-            if line.startswith("plan_path:"):
-                updated.append(f"plan_path: {new_plan_path}")
-                replaced = True
-            else:
-                updated.append(line)
-        if not replaced:
-            raise SystemExit(f"plan_path missing in {item_path}")
-        item_path.write_text("---\n" + "\n".join(updated) + "\n---\n" + body, encoding="utf-8")
+      - workflows/library/scripts/reconcile_neurips_selected_item.py
+      - --active-path
+      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_active_path}
+      - --in-progress-path
       - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_in_progress_path}
+      - --plan-path
       - ${steps.RunFreshPlanPhase.artifacts.plan_path}
+      - --output-path
+      - ${inputs.state_root}/reconciled_selected_item_path.txt
+    expected_outputs:
+      - name: selected_item_in_progress_path
+        path: ${inputs.state_root}/reconciled_selected_item_path.txt
+        type: relpath
+        under: docs/backlog
+        must_exist_target: true
 
   - name: RunImplementationPhase
     id: run_implementation_phase
@@ -341,6 +326,26 @@ steps:
         ref: root.steps.MaterializeSelectedItemInputs.artifacts.checks_report_target_path
       implementation_review_report_target_path:
         ref: root.steps.MaterializeSelectedItemInputs.artifacts.implementation_review_report_target_path
+
+  - name: ReconcileSelectedItemQueueAfterImplementation
+    id: reconcile_selected_item_queue_after_implementation
+    command:
+      - python
+      - workflows/library/scripts/reconcile_neurips_selected_item.py
+      - --active-path
+      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_active_path}
+      - --in-progress-path
+      - ${steps.RewriteSelectedItemPlanPath.artifacts.selected_item_in_progress_path}
+      - --plan-path
+      - ${steps.RunFreshPlanPhase.artifacts.plan_path}
+      - --output-path
+      - ${inputs.state_root}/post_implementation_selected_item_path.txt
+    expected_outputs:
+      - name: selected_item_in_progress_path
+        path: ${inputs.state_root}/post_implementation_selected_item_path.txt
+        type: relpath
+        under: docs/backlog
+        must_exist_target: true
 
   - name: RecordCompletedItem
     id: record_completed_item
@@ -443,7 +448,7 @@ steps:
             + "\n",
             encoding="utf-8",
         )
-      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_in_progress_path}
+      - ${steps.ReconcileSelectedItemQueueAfterImplementation.artifacts.selected_item_in_progress_path}
       - ${steps.MaterializeSelectedItemInputs.artifacts.implementation_phase_state_root}
       - ${steps.RunFreshPlanPhase.artifacts.plan_path}
       - ${steps.MaterializeSelectedItemInputs.artifacts.item_summary_target_path}
@@ -541,7 +546,7 @@ steps:
             + "\n",
             encoding="utf-8",
         )
-      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_in_progress_path}
+      - ${steps.ReconcileSelectedItemQueueAfterImplementation.artifacts.selected_item_in_progress_path}
       - ${steps.MaterializeSelectedItemInputs.artifacts.implementation_phase_state_root}
       - ${steps.RunFreshPlanPhase.artifacts.plan_path}
       - ${steps.MaterializeSelectedItemInputs.artifacts.item_summary_target_path}
@@ -607,7 +612,7 @@ steps:
             + "\n",
             encoding="utf-8",
         )
-      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_in_progress_path}
+      - ${steps.ReconcileSelectedItemQueueAfterImplementation.artifacts.selected_item_in_progress_path}
       - ${steps.MaterializeSelectedItemInputs.artifacts.implementation_phase_state_root}
       - ${steps.MaterializeSelectedItemInputs.artifacts.item_summary_target_path}
       - ${steps.MaterializeSelectedItemInputs.artifacts.outcome_bundle_path}
@@ -689,7 +694,7 @@ steps:
             + "\n",
             encoding="utf-8",
         )
-      - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_in_progress_path}
+      - ${steps.ReconcileSelectedItemQueueAfterImplementation.artifacts.selected_item_in_progress_path}
       - ${steps.MaterializeSelectedItemInputs.artifacts.implementation_phase_state_root}
       - ${steps.MaterializeSelectedItemInputs.artifacts.item_summary_target_path}
       - ${steps.MaterializeSelectedItemInputs.artifacts.outcome_bundle_path}

@@ -110,9 +110,21 @@ def test_neurips_drain_workflow_materializes_selected_item_inputs_and_rewrites_p
     assert "item_id" not in field_names
 
     rewrite = _step_by_name(workflow, "RewriteSelectedItemPlanPath")
-    rewrite_script = rewrite["command"][2]
-    assert "plan_path:" in rewrite_script
-    assert "Missing frontmatter" in rewrite_script
+    assert rewrite["command"][:2] == [
+        "python",
+        "workflows/library/scripts/reconcile_neurips_selected_item.py",
+    ]
+    assert "--active-path" in rewrite["command"]
+    assert "--in-progress-path" in rewrite["command"]
+    assert rewrite["expected_outputs"][0]["name"] == "selected_item_in_progress_path"
+    assert rewrite["expected_outputs"][0]["must_exist_target"] is True
+
+    post_implementation_reconcile = _step_by_name(workflow, "ReconcileSelectedItemQueueAfterImplementation")
+    assert post_implementation_reconcile["command"][:2] == [
+        "python",
+        "workflows/library/scripts/reconcile_neurips_selected_item.py",
+    ]
+    assert post_implementation_reconcile["expected_outputs"][0]["name"] == "selected_item_in_progress_path"
 
 
 def test_neurips_drain_workflow_dispatches_selected_items_through_local_selected_item_subworkflow():
