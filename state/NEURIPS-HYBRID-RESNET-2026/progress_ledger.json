@@ -1259,8 +1259,8 @@
     },
     {
       "tranche_id": "2026-04-22-pdebench-cns-hybrid-spectral-architecture-ablation",
-      "updated_at_utc": "2026-04-28T07:25:42Z",
-      "update_reason": "Completed the bounded CNS hybrid-spectral architecture backlog item after the tracked `1024 / 128 / 128` finalist confirmation run finished cleanly, then published the durable summary, within-run finalist compare, and larger-cap delta payload.",
+      "updated_at_utc": "2026-04-28T07:54:41Z",
+      "update_reason": "Repaired the implementation-review follow-up for this backlog item by fixing the `inspect`-mode split-manifest contract, regenerating the inspect snapshot, and resynchronizing the durable summary plus verification/state metadata.",
       "decision": "Under the fixed canonical CNS shell, non-shared spectral weights helped aggregate error at `10` epochs but lost every tracked eval metric to the shared base row at `40` epochs; the fresh shared-depth pilot favored `spectral_resnet_bottleneck_shared_blocks10` on the `512 / 64 / 64` lane, but the larger-cap `1024 / 128 / 128` confirmation restored the aggregate lead to `spectral_resnet_bottleneck_base` while `shared_blocks10` kept only a slight `fRMSE_mid/high` edge and a larger runtime cost.",
       "decision_scope": "complete_hybrid_spectral_architecture_ablation_backlog_item",
       "design_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
@@ -1271,7 +1271,7 @@
         "40ep": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/reference_runs_40ep.json"
       },
       "fresh_run_roots": {
-        "inspect": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/inspect-20260428T054400Z",
+        "inspect": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/inspect-20260428T075333Z",
         "sharing_10ep": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-10ep-20260428T032825Z",
         "sharing_40ep": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-40ep-20260428T035154Z",
         "depth_40ep": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-depth-shared-40ep-20260428T043715Z",
@@ -1365,18 +1365,18 @@
         }
       },
       "verification": [
-        "pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py -> 65 passed in 42.32s",
-        "pytest log archived at .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/verification/final_pytest.log",
+        "pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py -> 67 passed in 45.46s",
+        "pytest logs archived at .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/verification/preflight_pytest.log and verification/final_pytest.log",
         "python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py -> exit 0",
-        "compileall log archived at .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/verification/final_compileall.log",
+        "compileall logs archived at .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/verification/preflight_compileall.log and verification/final_compileall.log",
+        "inspect contract check -> inspect_run_root.txt points at inspect-20260428T075333Z and hdf5_metadata.json, dataset_manifest.json, split_manifest.json all parse",
         "tracked Stage 4 launcher exit code -> .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z.launch/exit_code.txt = 0",
         "required output check -> final summary, within-run finalist compare, finalist delta payload, and execution report all present"
       ],
       "affected_surfaces": [
-        "docs/index.md",
-        "docs/studies/index.md",
+        "scripts/studies/pdebench_image128/cfd_cns.py",
+        "tests/studies/test_pdebench_image128_runner.py",
         "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_arch_ablation_summary.md",
-        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
         "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
         ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-22-pdebench-cns-hybrid-spectral-architecture-ablation/execution_report.md"
       ]

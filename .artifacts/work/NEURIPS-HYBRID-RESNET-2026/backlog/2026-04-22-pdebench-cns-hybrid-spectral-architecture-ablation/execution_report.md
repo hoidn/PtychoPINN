@@ -1,19 +1,20 @@
 ## Completed In This Pass
 
-- Added a regression test and reporting-helper support for multi-fresh cross-run compares so sharing tranches can include both fresh spectral rows without mislabeling one as a frozen reference.
-- Regenerated `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/compare_sharing_{10ep,40ep}_against_existing.{json,csv}` from `reference_runs_10ep.json` and `reference_runs_40ep.json`, and rewrote `compare_manifest_sharing_{10ep,40ep}.json` to preserve the frozen reference rows plus the correct fresh profile set.
-- Removed the non-authoritative pointer files `stage1_sharing_40ep_run_root.txt` and `stage2_depth_40ep_run_root.txt`.
-- Updated the durable study summaries to note that the repaired anchored sidecars now point at the frozen context manifests and that the interpretation did not change.
+- Added `test_cfd_cns_inspect_runner_writes_split_manifest` and fixed `scripts/studies/pdebench_image128/cfd_cns.py` so `inspect` mode writes `split_manifest.json` before returning.
+- Reran the backlog-item deterministic checks and archived fresh preflight/final verification logs; the final targeted pytest gate now reports `67 passed`.
+- Regenerated the inspect snapshot at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/inspect-20260428T075333Z`, updated `inspect_run_root.txt`, and verified that `hdf5_metadata.json`, `dataset_manifest.json`, and `split_manifest.json` all parse successfully.
+- Resynchronized the durable summary and progress ledger so they now reference the repaired inspect artifact, the new test coverage, and the current verification counts.
 
 ## Completed Current-Scope Work
 
-- The blocking review item is resolved: the sharing compare sidecars now implement the approved "against existing" contract instead of substituting the same-run shared base row as a required reference.
-- The current-scope backlog work is complete again after the repair. No additional plan items remain open for this bounded architecture-ablation lane.
+- The blocking inspect-contract defect is resolved: the fresh inspect artifact now satisfies the approved Task 1 contract instead of exiting before `split_manifest.json` was written.
+- The medium-severity durable-state issue is resolved: the ledger and summary now reflect the repair-pass code/test surfaces and the current `67 passed` verification evidence.
+- The current-scope backlog work is complete again after this repair pass. No additional approved-plan items remain open for this bounded architecture-ablation lane.
 
 ## Follow-Up Work
 
-- Full-training CNS benchmark completeness remains outside this backlog item. These repaired sharing sidecars are still capped decision-support evidence only.
-- If another backlog item needs anchored compares with multiple fresh rows, reuse the new `write_cross_run_compare(..., fresh_profile_ids=[...])` path instead of hand-assembling manifests.
+- Full-training CNS benchmark completeness remains outside this backlog item. The repaired inspect snapshot and capped pilots are still decision-support evidence only.
+- If another backlog item adds an `inspect`-mode contract to a study runner, keep a direct runner test for the required manifests so future bookkeeping refactors cannot silently drop them.
 
 ## Residual Risks
 

@@ -50,12 +50,14 @@ The only intended ablation axes were:
   - `spectral_resnet_bottleneck_shared_blocks8`: `spectral_bottleneck_blocks=8`
   - `spectral_resnet_bottleneck_shared_blocks10`: `spectral_bottleneck_blocks=10`
 
-No production-code patching was needed after the required deterministic preflight checks.
+The implementation-review repair added one narrow runner fix so `inspect` mode
+emits the required `split_manifest.json` before returning. That contract repair
+does not change the ablation interpretation below.
 
 ## Fresh Run Roots
 
 - inspect snapshot:
-  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/inspect-20260428T054400Z`
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/inspect-20260428T075333Z`
 - sharing `10` epochs:
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-sharing-10ep-20260428T032825Z`
 - sharing `40` epochs:

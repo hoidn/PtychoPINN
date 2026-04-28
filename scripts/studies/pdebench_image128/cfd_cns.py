@@ -618,8 +618,6 @@ def run_cfd_cns(
         if runtime.is_rank_zero:
             _write_json(output_root / "hdf5_metadata.json", metadata)
             _write_dataset_manifest(output_root, metadata=metadata)
-        if mode == "inspect":
-            return 0
 
         full_split = _split_for_run(metadata)
         run_split = capped_trajectory_split(
@@ -644,6 +642,8 @@ def run_cfd_cns(
                     **runtime.training_runtime_payload(),
                 },
             )
+        if mode == "inspect":
+            return 0
         state_stats = compute_multifield_dynamic_stats(
             data_file=data_file,
             field_order=metadata["field_order"],

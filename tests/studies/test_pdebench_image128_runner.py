@@ -1515,6 +1515,53 @@ def test_cfd_cns_readiness_runner_writes_history_window_artifacts(tmp_path):
     assert metrics["distributed_world_size"] == 1
 
 
+def test_cfd_cns_inspect_runner_writes_split_manifest(tmp_path):
+    from scripts.studies.pdebench_image128.cfd_cns import run_cfd_cns
+
+    data_root = tmp_path / "data"
+    _write_tiny_cfd_cns(
+        data_root / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+    )
+    output_root = tmp_path / "inspect"
+
+    exit_code = run_cfd_cns(
+        task_id="2d_cfd_cns",
+        mode="inspect",
+        data_root=data_root,
+        output_root=output_root,
+        profile_ids=None,
+        history_len=2,
+        epochs=1,
+        batch_size=2,
+        max_train_trajectories=2,
+        max_val_trajectories=1,
+        max_test_trajectories=1,
+        max_windows_per_trajectory=1,
+        device="cpu",
+        num_workers=0,
+        allow_existing_output_root=True,
+        raw_argv=["--task", "2d_cfd_cns", "--mode", "inspect", "--history-len", "2"],
+    )
+
+    assert exit_code == 0
+    required = [
+        "dataset_manifest.json",
+        "hdf5_metadata.json",
+        "split_manifest.json",
+        "invocation.json",
+        "invocation.sh",
+    ]
+    for name in required:
+        assert (output_root / name).exists(), name
+
+    split_manifest = json.loads((output_root / "split_manifest.json").read_text(encoding="utf-8"))
+    assert split_manifest["history_len"] == 2
+    assert split_manifest["split_counts"] == {"train": 2, "val": 1, "test": 1}
+    assert split_manifest["max_windows_per_trajectory"] == 1
+    assert split_manifest["run_mode"] == "inspect"
+    assert split_manifest["full_split_counts"] == {"train": 3, "val": 1, "test": 1}
+
+
 def test_cfd_cns_readiness_runner_artifacts_history1_contract(tmp_path):
     from scripts.studies.pdebench_image128.cfd_cns import run_cfd_cns
     from scripts.studies.pdebench_image128.data import MultiFieldHistoryWindowDataset
