@@ -113,6 +113,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, cdi, lines128, grid-lines, hybrid_resnet, fno, ffno, benchmark, paper-grade
 **Use this when:** Planning or reviewing the CDI `lines128` benchmark rows, preflight contract reconstruction, FFNO generator integration, or paper-grade CDI table and figure generation.
 
+### [NeurIPS Lines128 Paper Benchmark Preflight](plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md)
+**Description:** Recovery and launch-safety preflight for the fixed-contract `N=128` CDI `ffno` versus `hybrid_resnet` row pair, capturing the recovered contract sources, stable-root audit, active-writer check, exact command, and the no-duplicate-run resume decision.
+**Keywords:** neurips, cdi, lines128, preflight, ffno, hybrid_resnet, grid-lines, contract, resume
+**Use this when:** Checking whether the active Lines128 FFNO-versus-Hybrid compare should resume or relaunch, or auditing which historical and live artifacts fixed the contract.
+
 ### [NeurIPS Hybrid ResNet CDI FFNO Generator Lines Best-Config Summary](plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md)
 **Description:** Execution summary for the fixed-contract `N=128` CDI `ffno` versus `hybrid_resnet` row pair, pinning the recovered `lines128` contract, stable artifact root, exact compare command, and the claim boundary that this pair is prerequisite evidence for the later paper benchmark rather than the full four-row package.
 **Keywords:** neurips, cdi, ffno, hybrid_resnet, lines128, grid-lines, compare, summary

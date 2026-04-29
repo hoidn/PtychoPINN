@@ -348,6 +348,8 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   contract.
 - Status: in progress until the launched compare finishes and the summary is
   updated with final metrics.
+- Preflight:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md`
 - Summary: `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md`
 - Output directory:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet`

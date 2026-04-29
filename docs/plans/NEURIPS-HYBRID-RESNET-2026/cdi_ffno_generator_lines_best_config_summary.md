@@ -3,8 +3,9 @@
 - Backlog item: `2026-04-27-cdi-ffno-generator-lines-best-config`
 - Governing plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/execution_plan.md`
 - Downstream design authority: `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md`
+- Recovery preflight: `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md`
 - Study-contract authority: `docs/studies/index.md#grid-lines-n128-hybrid-resnet-legacy-best-e40-seed3`
-- Current state: `run_launched_pending_completion`
+- Current state: `run_launched_pending_completion` with active writer confirmed on `2026-04-29`
 
 ## Fixed Contract
 
@@ -73,6 +74,9 @@ python scripts/studies/grid_lines_compare_wrapper.py \
 - This row pair is a prerequisite CDI evidence slice for later `lines128`
   paper-benchmark packaging. It does not replace the planned four-row paper
   benchmark harness or table.
+- The checked-in preflight note records the recovered contract, stable output
+  root, active PID audit, and the no-duplicate-run decision to keep resuming
+  the current root rather than relaunching into a second location.
 - The historical `grid-lines-n128-hybrid-resnet-legacy-best-e40-seed3` root is
   decision-support-only because it lacks full child invocation provenance. This
   execution is the fresh auditable row pair for `hybrid_resnet` versus `ffno`.
