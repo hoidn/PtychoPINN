@@ -32,7 +32,7 @@
     `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260429T213028Z/live_stdout.log`
   - observed phase at this handoff: TensorFlow `baseline` and `pinn` completed, Torch `pinn_hybrid_resnet` completed with row-local artifacts, and Torch `pinn_fno_vanilla` is now the active row.
   - observed state: root-level `metrics.json` still reflects only the completed TensorFlow rows, `recons/pinn_hybrid_resnet/recon.npz` plus `runs/pinn_hybrid_resnet/{metrics.json,history.json,model.pt,randomness_contract.json}` are present, and `runs/pinn_fno_vanilla/invocation.{json,sh}` has been created for the final row.
-  - latest live-log observation (`2026-04-29T22:13:51Z`): `pinn_fno_vanilla` Lightning training is in progress around `Epoch 17/40`, so the chosen root remains an in-flight partial bundle rather than a completed four-row result.
+  - latest live-log observation (`2026-04-29T22:15:12Z`): `pinn_fno_vanilla` Lightning training is in progress around `Epoch 25/40`, so the chosen root remains an in-flight partial bundle rather than a completed four-row result.
 
 # Next Resume Condition
 
