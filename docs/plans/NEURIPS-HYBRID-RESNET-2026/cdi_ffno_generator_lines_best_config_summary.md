@@ -5,7 +5,7 @@
 - Downstream design authority: `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md`
 - Recovery preflight: `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md`
 - Study-contract authority: `docs/studies/index.md#grid-lines-n128-hybrid-resnet-legacy-best-e40-seed3`
-- Current state: `run_launched_pending_completion` with active writer confirmed on `2026-04-29`
+- Current state: `completed` on `2026-04-29`
 
 ## Fixed Contract
 
@@ -34,6 +34,33 @@
 
 - Stable compare root:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet`
+
+## Final Metrics
+
+- `pinn_hybrid_resnet`
+  - amp/phase MAE: `0.026939474 / 0.072063477`
+  - amp/phase SSIM: `0.988114297 / 0.994739987`
+  - amp/phase PSNR: `77.519370679 / 69.216286834`
+- `pinn_ffno`
+  - amp/phase MAE: `0.062772475 / 0.082838669`
+  - amp/phase SSIM: `0.934830340 / 0.981591519`
+  - amp/phase PSNR: `70.190080563 / 67.775916878`
+
+## Final Artifact Set
+
+- Wrapper outputs:
+  - `metrics.json`
+  - `metrics_table.tex`
+  - `metrics_table_best.tex`
+  - `visuals/compare_amp_phase.png`
+- Row outputs:
+  - `runs/pinn_hybrid_resnet/{metrics.json,history.json,model.pt,randomness_contract.json}`
+  - `runs/pinn_ffno/{metrics.json,history.json,model.pt,randomness_contract.json}`
+  - `recons/pinn_hybrid_resnet/recon.npz`
+  - `recons/pinn_ffno/recon.npz`
+- Fresh verification evidence:
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/verification/20260429T032022Z_pytest.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/verification/20260429T032022Z_compileall.log`
 
 ## Compare Command
 
@@ -74,12 +101,18 @@ python scripts/studies/grid_lines_compare_wrapper.py \
 - This row pair is a prerequisite CDI evidence slice for later `lines128`
   paper-benchmark packaging. It does not replace the planned four-row paper
   benchmark harness or table.
-- The checked-in preflight note records the recovered contract, stable output
-  root, active PID audit, and the no-duplicate-run decision to keep resuming
-  the current root rather than relaunching into a second location.
+- The checked-in preflight note now records the recovered contract, the
+  completed stable output root, and the no-relaunch completion decision.
 - The historical `grid-lines-n128-hybrid-resnet-legacy-best-e40-seed3` root is
   decision-support-only because it lacks full child invocation provenance. This
   execution is the fresh auditable row pair for `hybrid_resnet` versus `ffno`.
 - Deterministic code gates completed before launch:
   - `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
   - `python -m compileall -q ptycho_torch scripts/studies`
+- Residual provenance caveat:
+  - this completed root includes wrapper-level `invocation.json` /
+    `invocation.sh`, but not separate per-row `runs/.../invocation.json`
+    artifacts;
+  - per-row provenance is therefore carried here by the wrapper invocation plus
+    `metrics.json`, `history.json`, `randomness_contract.json`, and the saved
+    reconstructions.

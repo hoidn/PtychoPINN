@@ -49,30 +49,34 @@ Recovered fixed contract fields:
   - use `seed=3` for both rows
   - do not broaden this item into a multi-seed benchmark
 
-## Active Root Audit
+## Completion Audit
 
-Audit time: `2026-04-29` local checkout review.
+Audit time: `2026-04-29` local checkout review after the launched compare
+finished.
 
-- Active writer confirmed:
-  - tracked shell PID `831894`
-  - live wrapper PID `831899`
+- Active writer no longer present:
+  - previously tracked shell PID `831894` has exited
+  - previously tracked wrapper PID `831899` has exited
 - Wrapper invocation present:
   - `invocation.json`
   - `invocation.sh`
-- Shared dataset generation has started under:
-  - `datasets/N128/gs1/`
-- Partial runtime evidence exists:
-  - `tmux.log`
-  - `lightning_logs/`
-  - transient `checkpoints/`
-  - `recons/gt/recon.npz`
-- Completion artifacts are still incomplete:
-  - no wrapper-level merged `metrics.json`
-  - no wrapper-level tables or combined visuals
-  - no completed `runs/pinn_hybrid_resnet/`
-  - no completed `runs/pinn_ffno/`
+- Shared dataset provenance present under:
+  - `datasets/N128/gs1/train.npz`
+  - `datasets/N128/gs1/test.npz`
+- Completed wrapper artifacts present:
+  - `metrics.json`
+  - `metrics_table.tex`
+  - `metrics_table_best.tex`
+  - `visuals/compare_amp_phase.png`
+  - `visuals/amp_phase_pinn_hybrid_resnet.png`
+  - `visuals/amp_phase_pinn_ffno.png`
+- Completed row artifacts present for both models:
+  - `runs/pinn_hybrid_resnet/{metrics.json,history.json,model.pt,randomness_contract.json}`
+  - `runs/pinn_ffno/{metrics.json,history.json,model.pt,randomness_contract.json}`
+  - `recons/pinn_hybrid_resnet/recon.npz`
+  - `recons/pinn_ffno/recon.npz`
 
-This root is therefore recoverable in-progress state, not proof of completion.
+This root is now a completed candidate and no longer needs resume or relaunch.
 
 ## Resume Command
 
@@ -110,20 +114,21 @@ python scripts/studies/grid_lines_compare_wrapper.py \
 
 ## Go / No-Go Decision
 
-- Decision: `GO - resume the active root; do not relaunch`
+- Decision: `COMPLETE - do not relaunch`
 - Reason:
-  - an active writer is still attached to the stable output root
-  - the wrapper command matches the recovered fixed contract
-  - launching another compare into the same root would violate the
-    no-duplicate-run guardrail and risk mixing artifacts
+  - the active writer exited and the stable root now contains both completed
+    row trees plus wrapper-level merged metrics, tables, and visuals
+  - the observed artifact set matches the recovered fixed contract closely
+    enough for this backlog item's prerequisite-evidence scope
+  - launching another compare into the same root would only risk replacing the
+    finished auditable pair without improving the current-scope claim boundary
 
 ## Partial-Output Preservation Policy
 
-- While PID `831894` is active, preserve the stable root in place and treat all
-  current files as transient partial outputs only.
-- If the tracked PID exits non-zero or the wrapper root remains incomplete after
-  exit, preserve `invocation.json`, `invocation.sh`, and `tmux.log` as the
-  stale-attempt record before any relaunch decision.
-- Do not allow wrapper-only files, checkpoints, or dataset byproducts to
-  masquerade as completion without fresh merged metrics, visuals, and both row
-  result trees.
+- Preserve the finished stable root in place as the authoritative output for
+  this backlog item.
+- If later paper-benchmark work needs a broader row set, consume this root as a
+  completed prerequisite evidence slice rather than rewriting it in place.
+- Do not treat leftover `tmux.log`, `lightning_logs/`, or `checkpoints/`
+  byproducts as stronger provenance than the wrapper invocation, merged
+  metrics/tables, and completed row/result trees.

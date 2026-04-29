@@ -346,8 +346,8 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   study-indexed `grid-lines-n128-hybrid-resnet-legacy-best-e40-seed3`
   contract without changing the CDI dataset, probe, scheduler, or output
   contract.
-- Status: in progress until the launched compare finishes and the summary is
-  updated with final metrics.
+- Status: completed on `2026-04-29`; the stable root is ready as prerequisite
+  CDI evidence for later `lines128` paper packaging.
 - Preflight:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md`
 - Summary: `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md`
@@ -356,6 +356,11 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Models:
   - `pinn_hybrid_resnet`
   - `pinn_ffno`
+- Final metrics:
+  - `pinn_hybrid_resnet` amp/phase MAE `0.026939474 / 0.072063477`, amp/phase
+    SSIM `0.988114297 / 0.994739987`
+  - `pinn_ffno` amp/phase MAE `0.062772475 / 0.082838669`, amp/phase SSIM
+    `0.934830340 / 0.981591519`
 - Boundary: this is the prerequisite FFNO-versus-Hybrid CDI row pair for later
   `lines128` paper packaging, not the final four-row paper benchmark.
 
