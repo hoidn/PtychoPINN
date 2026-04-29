@@ -1,31 +1,29 @@
 ## Active Work
 
-- The fresh paired `80`-epoch CNS run is active at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/cns-spectral-modes24-vs-base-1024cap-80ep`.
-- The tracked launcher state is `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/.launch/cns-spectral-modes24-vs-base-1024cap-80ep/`; the launcher shell PID is `655019` and the active Python worker PID is `655030`.
-- Task 1 and Task 2 remain complete for this backlog item: the manual `spectral_resnet_bottleneck_modes24` profile is present, the exact-contract inspect succeeded, the paired one-epoch pilot confirmed the shared batch size at `16`, and the item-local `resolved_batch_size.json` now records that decision.
+- The fresh paired `80`-epoch capped CNS compare remains active at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/cns-spectral-modes24-vs-base-1024cap-80ep`.
+- The tracked launcher state remains `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/.launch/cns-spectral-modes24-vs-base-1024cap-80ep/` with launcher PID `655019` and Python worker PID `655030`.
+- Task 1 and Task 2 remain complete for this backlog item: preflight verification logs exist, the exact-contract inspect root exists, and `resolved_batch_size.json` confirms the shared batch size stayed at `16` with no fallback.
 
 ## Current Status
 
 - `implementation_state`: `RUNNING`
-- `last_checked_utc`: `2026-04-29T01:27:02Z`
+- `last_checked_utc`: `2026-04-29T01:38:49Z`
 - `validated_batch_size`: `16`
 - `tracked_pid`: `655019`
 - `worker_pid`: `655030`
 - `tracked_pid_live`: `true`
 - `tracked_exit_code_present`: `false`
-- Latest observed training progress from `.launch/.../stdout_stderr.log`: `spectral_resnet_bottleneck_base` has completed its `80 / 80` training slice and emitted `metrics_spectral_resnet_bottleneck_base.json`; `spectral_resnet_bottleneck_modes24` is currently at epoch `16 / 80`.
-- Required long-run startup artifacts already present in the run root: `dataset_manifest.json`, `hdf5_metadata.json`, `split_manifest.json`, `invocation.json`, `invocation.sh`, `normalization_stats_state.json`, and `model_profile_spectral_resnet_bottleneck_base.json`.
-- Task 3 completion artifacts are still incomplete as of the last check:
-  `comparison_summary.{json,csv}` and `metrics_spectral_resnet_bottleneck_modes24.json` are not present yet, while `metrics_spectral_resnet_bottleneck_base.json`, `model_profile_spectral_resnet_bottleneck_base.json`, and `model_profile_spectral_resnet_bottleneck_modes24.json` are already present in the run root.
-- Verification evidence written in this pass:
+- Latest observed training progress from `.launch/.../stdout_stderr.log`: `spectral_resnet_bottleneck_base` has completed all `80 / 80` epochs and written `metrics_spectral_resnet_bottleneck_base.json`; `spectral_resnet_bottleneck_modes24` has reached epoch `33 / 80` with latest logged loss `0.00627313083`.
+- The long-run root already contains `dataset_manifest.json`, `hdf5_metadata.json`, `split_manifest.json`, `invocation.json`, `invocation.sh`, `normalization_stats_state.json`, `model_profile_spectral_resnet_bottleneck_base.json`, `model_profile_spectral_resnet_bottleneck_modes24.json`, and `metrics_spectral_resnet_bottleneck_base.json`.
+- Task 3 completion artifacts are still incomplete at this check: `metrics_spectral_resnet_bottleneck_modes24.json`, `comparison_summary.json`, and `comparison_summary.csv` are not present yet.
+- Verification evidence already available for this item:
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/verification/preflight_pytest.log`
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/verification/preflight_integration.log`
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/verification/preflight_compileall.log`
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/verification/inspect_and_batch_preflight.log`
-  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/resolved_batch_size.json`
 
 ## Next Resume Condition
 
-- Resume when tracked PID `655019` exits and the long-run root contains both metrics files, both model-profile JSONs, and the `comparison_summary.{json,csv}` artifacts required by Task 3.
-- After the run exits cleanly, write `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/convergence_audit.{json,csv}` with the new helper, then finish the durable summary, CNS summary/index updates, and final verification.
-- If the tracker writes a non-zero exit code before those artifacts exist, inspect `.launch/cns-spectral-modes24-vs-base-1024cap-80ep/stdout_stderr.log`, apply at most one narrow repair, rerun the required checks if code changes, and relaunch under the same fixed contract.
+- Resume when tracked PID `655019` exits and the long-run root contains both metrics JSONs, both model-profile JSONs, and `comparison_summary.{json,csv}`.
+- After clean exit, publish `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/convergence_audit.{json,csv}`, finish the durable summary/index/progress-ledger updates from Task 4, and run final artifact validation.
+- If the tracked launcher writes a non-zero exit code before those artifacts appear, inspect `.launch/cns-spectral-modes24-vs-base-1024cap-80ep/stdout_stderr.log`, apply at most one narrow fix if needed, rerun the required checks for any code change, and relaunch under the same fixed contract with a fresh output root.
