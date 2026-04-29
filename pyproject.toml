@@ -11,32 +11,36 @@ license = {file = "LICENSE"}
 dependencies = [
     "Pillow",
     "dill",
-    "imageio", 
+    "imageio",
     "ipywidgets",
     "jupyter",
+    "lightning",
     "matplotlib",
+    "mlflow",
     "neuraloperator",
     "numba",
     "numpy",
-    "opencv-python",
     "pandas",
     "pandas-datareader",
     "pathos",
     "scikit-image",
     "scikit-learn",
     "scipy",
-    "tensorflow>=2.13.0",
+    "tensordict",
+    "tensorflow[and-cuda]",
     "tensorflow-datasets",
     "tensorflow-hub",
     "tensorflow-metadata",
-    "tensorflow-probability",
+    "tensorflow-probability[tf]",
     "torch",
+    "torchmetrics",
     "tqdm",
     "ujson",
 ]
 dynamic = ["version"]
 
- 
+[project.optional-dependencies]
+datagen = ["opencv-python", "perlin_noise"]
 
 [project.scripts]
 ptycho_train = "scripts.training.train:main"

@@ -1,6 +1,5 @@
 import numpy as np
 from skimage.registration import phase_cross_correlation
-import cv2
 from scipy.ndimage import fourier_shift
 from scipy.signal.windows import tukey
 import warnings
