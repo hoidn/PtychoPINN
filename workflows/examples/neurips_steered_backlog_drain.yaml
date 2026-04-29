@@ -57,7 +57,7 @@ outputs:
   drain_status:
     kind: scalar
     type: enum
-    allowed: ["CONTINUE", "DONE", "WAITING", "BLOCKED"]
+    allowed: ["CONTINUE", "DONE", "BLOCKED"]
     from:
       ref: root.steps.DrainBacklogItems.artifacts.drain_status
   run_state_path:
@@ -107,7 +107,7 @@ artifacts:
   drain_status:
     kind: scalar
     type: enum
-    allowed: ["CONTINUE", "DONE", "WAITING", "BLOCKED"]
+    allowed: ["CONTINUE", "DONE", "BLOCKED"]
 
 steps:
   - name: InitializeBacklogDrain
@@ -177,12 +177,12 @@ steps:
     id: drain_backlog_items
     repeat_until:
       id: drain_backlog_iteration
-      max_iterations: 24
+      max_iterations: 240
       outputs:
         drain_status:
           kind: scalar
           type: enum
-          allowed: ["CONTINUE", "DONE", "WAITING", "BLOCKED"]
+          allowed: ["CONTINUE", "DONE", "BLOCKED"]
           from:
             ref: self.steps.RouteItemSelection.artifacts.drain_status
       condition:
@@ -542,7 +542,7 @@ steps:
                   drain_status:
                     kind: scalar
                     type: enum
-                    allowed: ["CONTINUE", "DONE", "WAITING", "BLOCKED"]
+                    allowed: ["CONTINUE", "DONE", "BLOCKED"]
                     from:
                       ref: self.steps.RunSelectedItem.artifacts.drain_status
                 steps:
@@ -575,7 +575,7 @@ steps:
                   drain_status:
                     kind: scalar
                     type: enum
-                    allowed: ["CONTINUE", "DONE", "WAITING", "BLOCKED"]
+                    allowed: ["CONTINUE", "DONE", "BLOCKED"]
                     from:
                       ref: self.steps.WriteDrainDone.artifacts.drain_status
                 steps:
@@ -591,7 +591,7 @@ steps:
                   drain_status:
                     kind: scalar
                     type: enum
-                    allowed: ["CONTINUE", "DONE", "WAITING", "BLOCKED"]
+                    allowed: ["CONTINUE", "DONE", "BLOCKED"]
                     from:
                       ref: self.steps.WriteDrainBlocked.artifacts.drain_status
                 steps:
@@ -607,7 +607,7 @@ steps:
                   drain_status:
                     kind: scalar
                     type: enum
-                    allowed: ["CONTINUE", "DONE", "WAITING", "BLOCKED"]
+                    allowed: ["CONTINUE", "DONE", "BLOCKED"]
                     from:
                       ref: self.steps.WriteDrainContinue.artifacts.drain_status
                 steps:

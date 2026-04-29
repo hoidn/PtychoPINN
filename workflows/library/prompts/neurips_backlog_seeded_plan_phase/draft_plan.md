@@ -9,6 +9,7 @@ The steering document, roadmap, and selected backlog item are binding planning c
 The approved plan will later be implemented through a generic implementation phase that sees only the approved design and this approved plan. Make the plan self-contained enough that implementation does not need to reread the raw backlog item, steering document, or roadmap to discover scope, claim boundaries, prerequisites, or required checks.
 
 Use the selected backlog item's previous `plan_path` and any previous plan content only as background context. The fresh plan you write is the new execution authority.
+Plans must keep ordinary long-running commands under implementation ownership until terminal success or recoverable failure handling is complete.
 
 Before writing the task checklist, decide whether the work needs an `Implementation Architecture` section.
 

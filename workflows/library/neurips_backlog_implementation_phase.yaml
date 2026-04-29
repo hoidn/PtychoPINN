@@ -35,7 +35,7 @@ outputs:
   implementation_state:
     kind: scalar
     type: enum
-    allowed: ["COMPLETED", "RUNNING", "BLOCKED"]
+    allowed: ["COMPLETED", "BLOCKED"]
     from:
       ref: root.steps.FinalizeImplementationPhaseOutputs.artifacts.implementation_state
   implementation_review_decision:
@@ -185,7 +185,7 @@ steps:
     id: execute_implementation
     provider: codex
     asset_file: prompts/neurips_backlog_implementation_phase/implement_implementation.md
-    timeout_sec: 43200
+    timeout_sec: 86400
     consumes:
       - artifact: design
         policy: latest_successful
@@ -206,7 +206,7 @@ steps:
         - name: implementation_state
           json_pointer: /implementation_state
           type: enum
-          allowed: ["COMPLETED", "RUNNING", "BLOCKED"]
+          allowed: ["COMPLETED", "BLOCKED"]
         - name: progress_report_path
           json_pointer: /progress_report_path
           type: relpath
@@ -242,7 +242,7 @@ steps:
 
         state = sys.argv[1].strip()
         output_path = pathlib.Path(sys.argv[2])
-        if state not in {"COMPLETED", "RUNNING", "BLOCKED"}:
+        if state not in {"COMPLETED", "BLOCKED"}:
             raise SystemExit(f"Invalid implementation_state: {state}")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(state + "\n", encoding="utf-8")
@@ -252,7 +252,7 @@ steps:
       - name: implementation_state
         path: ${inputs.state_root}/implementation_state.txt
         type: enum
-        allowed: ["COMPLETED", "RUNNING", "BLOCKED"]
+        allowed: ["COMPLETED", "BLOCKED"]
 
   - name: PublishExecutionReport
     id: publish_execution_report
@@ -288,38 +288,6 @@ steps:
     publishes:
       - artifact: execution_report
         from: execution_report_path
-
-  - name: PublishProgressReport
-    id: publish_progress_report
-    when:
-      compare:
-        left:
-          ref: self.steps.WriteImplementationState.artifacts.implementation_state
-        op: eq
-        right: RUNNING
-    command:
-      - python
-      - -c
-      - |
-        import pathlib
-        import sys
-
-        target_path = pathlib.Path(sys.argv[1])
-        pointer_path = pathlib.Path(sys.argv[2])
-
-        if not target_path.is_file():
-            raise SystemExit(f"Progress report target does not exist: {target_path}")
-
-        pointer_path.parent.mkdir(parents=True, exist_ok=True)
-        pointer_path.write_text(target_path.as_posix() + "\n", encoding="utf-8")
-      - ${steps.ExecuteImplementation.artifacts.progress_report_path}
-      - ${inputs.state_root}/progress_report_path.txt
-    expected_outputs:
-      - name: progress_report_path
-        path: ${inputs.state_root}/progress_report_path.txt
-        type: relpath
-        under: artifacts/work
-        must_exist_target: true
 
   - name: PublishBlockedProgressReport
     id: publish_blocked_progress_report
@@ -454,7 +422,7 @@ steps:
                     right: REVISE
                 provider: codex
                 asset_file: prompts/neurips_backlog_implementation_phase/fix_implementation.md
-                timeout_sec: 43200
+                timeout_sec: 86400
                 consumes:
                   - artifact: design
                     policy: latest_successful
@@ -575,7 +543,7 @@ steps:
             return value
 
         implementation_state = read_text("implementation_state.txt")
-        if implementation_state not in {"COMPLETED", "RUNNING", "BLOCKED"}:
+        if implementation_state not in {"COMPLETED", "BLOCKED"}:
             raise SystemExit(f"Unexpected implementation state: {implementation_state}")
         (state_root / "final_implementation_state.txt").write_text(implementation_state + "\n", encoding="utf-8")
 
@@ -600,14 +568,6 @@ steps:
             (state_root / "final_implementation_review_decision.txt").write_text(
                 implementation_review_decision + "\n", encoding="utf-8"
             )
-        elif implementation_state == "RUNNING":
-            progress_report_path = read_pointer("progress_report_path.txt")
-            (state_root / "final_progress_report_path.txt").write_text(
-                progress_report_path + "\n", encoding="utf-8"
-            )
-            (state_root / "final_implementation_review_decision.txt").write_text(
-                "NOT_APPLICABLE\n", encoding="utf-8"
-            )
         else:
             progress_report_path = read_pointer("progress_report_path.txt")
             (state_root / "final_progress_report_path.txt").write_text(
@@ -621,7 +581,7 @@ steps:
       - name: implementation_state
         path: ${inputs.state_root}/final_implementation_state.txt
         type: enum
-        allowed: ["COMPLETED", "RUNNING", "BLOCKED"]
+        allowed: ["COMPLETED", "BLOCKED"]
       - name: progress_report_path
         path: ${inputs.state_root}/final_progress_report_path.txt
         type: relpath
