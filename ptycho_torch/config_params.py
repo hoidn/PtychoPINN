@@ -83,6 +83,12 @@ class ModelConfig:
     neural_field_hidden: List[int] = field(default_factory=lambda: [512, 256, 128])
     film_dim: int = 256
     feature_volume_channels: int = 64
+    nf_chunk_size: int = 4096
+
+    #CNN decoder for CCNF
+    ccnf_decoder_type: Literal['neural_field', 'cnn'] = field(default='neural_field', metadata={'frozen': True})
+    cnn_decoder_base_ch: int = 128
+    cnn_decoder_crop_size: int = 8
 
     #FNO-CNN Hybrid Encoder
     encoder_type: Literal['cnn', 'fno_cnn'] = field(default='cnn', metadata={'frozen': True})

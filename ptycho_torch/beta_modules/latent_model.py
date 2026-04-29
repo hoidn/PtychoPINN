@@ -250,6 +250,7 @@ class NeuralFieldDecoder(nn.Module):
         self.mlp = nn.Sequential(*layers)
 
         self.canvas_size = model_config.latent_canvas_size
+        self.chunk_size = getattr(model_config, 'nf_chunk_size', 4096)
 
     def forward(self, feature_volume: torch.Tensor,
                 coords: torch.Tensor,
@@ -284,27 +285,197 @@ class NeuralFieldDecoder(nn.Module):
         r_canvas_scaled = r_canvas * scale_expanded  # (B, C, N², 2) canvas pixels
         r_normalized = r_canvas_scaled / (M_lat / 2)
 
-        # Sample features for all patches at once
-        r_sample_flat = r_normalized.reshape(B, C * N * N, 1, 2)  # (B, C*N², 1, 2)
-        sampled = F.grid_sample(
-            feature_volume, r_sample_flat,
+        Q = C * N * N
+        r_flat = r_normalized.reshape(B, Q, 2)
+        r_canvas_flat = r_canvas.reshape(B, Q, 2)
+
+        chunk_size = self.chunk_size
+        outputs = []
+
+        for start in range(0, Q, chunk_size):
+            end = min(start + chunk_size, Q)
+            r_chunk = r_flat[:, start:end, :]
+            rc_chunk = r_canvas_flat[:, start:end, :]
+
+            sampled = F.grid_sample(
+                feature_volume,
+                r_chunk.unsqueeze(2),
+                mode='bilinear', align_corners=False, padding_mode='zeros'
+            ).squeeze(-1).permute(0, 2, 1)
+
+            coord_features = self.coord_encoder(rc_chunk)
+            mlp_input = torch.cat([coord_features, sampled], dim=-1)
+            outputs.append(self.mlp(mlp_input))
+
+        output = torch.cat(outputs, dim=1)  # (B, Q, 2)
+
+        x_real = 0.2 + torch.tanh(output[..., 0])
+        x_imag = 1.2 * torch.tanh(output[..., 1])
+
+        x_real = x_real.reshape(B, C, N, N)
+        x_imag = x_imag.reshape(B, C, N, N)
+        result = x_real.to(torch.complex64) + 1j * x_imag.to(torch.complex64)
+
+        return result, x_real, x_imag
+
+
+class LayerNorm2d(nn.Module):
+    """Channel-last LayerNorm for (B, C, H, W) tensors."""
+    def __init__(self, num_channels: int, eps: float = 1e-6):
+        super().__init__()
+        self.norm = nn.LayerNorm(num_channels, eps=eps)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.norm(x.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
+
+
+class ConvNeXtBlock(nn.Module):
+    """ConvNeXt V1 block with depthwise conv, inverted bottleneck, and layer scale."""
+    def __init__(self, channels: int, expansion_factor: int = 4,
+                 layer_scale_init: float = 1e-6):
+        super().__init__()
+        expanded = channels * expansion_factor
+        self.dwconv = nn.Conv2d(channels, channels, kernel_size=7,
+                                padding=3, groups=channels)
+        self.norm = LayerNorm2d(channels)
+        self.pwconv1 = nn.Conv2d(channels, expanded, kernel_size=1)
+        self.act = nn.GELU()
+        self.pwconv2 = nn.Conv2d(expanded, channels, kernel_size=1)
+        self.layer_scale = nn.Parameter(
+            layer_scale_init * torch.ones(1, channels, 1, 1)
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        residual = x
+        x = self.dwconv(x)
+        x = self.norm(x)
+        x = self.pwconv1(x)
+        x = self.act(x)
+        x = self.pwconv2(x)
+        x = self.layer_scale * x
+        return x + residual
+
+
+class PixelShuffleUpsampleStage(nn.Module):
+    """2x spatial upsampling via PixelShuffle followed by ConvNeXt refinement."""
+    def __init__(self, ch_in: int, ch_out: int):
+        super().__init__()
+        self.upsample_conv = nn.Conv2d(ch_in, 4 * ch_out, kernel_size=1)
+        self.pixel_shuffle = nn.PixelShuffle(upscale_factor=2)
+        self.refine = ConvNeXtBlock(ch_out)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.upsample_conv(x)
+        x = self.pixel_shuffle(x)
+        x = self.refine(x)
+        return x
+
+
+class CNNCanvasDecoder(nn.Module):
+    """CNN-based decoder for the PC-CCNF architecture.
+
+    Extracts per-patch crops from the feature volume using grid_sample,
+    then upsamples through ConvNeXt blocks with PixelShuffle to reconstruct
+    complex-valued object patches.
+    """
+    def __init__(self, model_config: ModelConfig, data_config: DataConfig):
+        super().__init__()
+        self.N = data_config.N
+        self.canvas_size = model_config.latent_canvas_size
+        self.crop_size = getattr(model_config, 'cnn_decoder_crop_size', 8)
+
+        F_in = 3 * model_config.feature_volume_channels
+        base_ch = getattr(model_config, 'cnn_decoder_base_ch', 128)
+        n_stages = int(math.log2(self.N / self.crop_size))
+
+        assert self.crop_size <= self.canvas_size, (
+            f"crop_size={self.crop_size} must be <= "
+            f"latent_canvas_size={self.canvas_size}"
+        )
+        assert self.N == self.crop_size * (2 ** n_stages), (
+            f"N={self.N} must be crop_size * 2^k for integer k"
+        )
+
+        self.stem = nn.Sequential(
+            nn.Conv2d(F_in, base_ch, kernel_size=1),
+            LayerNorm2d(base_ch),
+            nn.GELU(),
+        )
+
+        channels = [base_ch]
+        ch = base_ch
+        for s in range(n_stages):
+            ch_out = max(16, ch // 2) if s > 0 else ch
+            channels.append(ch_out)
+            ch = ch_out
+
+        self.stages = nn.ModuleList()
+        for s in range(n_stages):
+            self.stages.append(
+                PixelShuffleUpsampleStage(channels[s], channels[s + 1])
+            )
+
+        last_ch = channels[-1]
+        self.head_real = nn.Conv2d(last_ch, 1, kernel_size=3, padding=1)
+        self.head_imag = nn.Conv2d(last_ch, 1, kernel_size=3, padding=1)
+
+        nn.init.zeros_(self.head_real.bias)
+        nn.init.zeros_(self.head_imag.bias)
+
+    def _build_sample_grid(self, feature_volume: torch.Tensor,
+                           coords: torch.Tensor,
+                           scale: torch.Tensor) -> torch.Tensor:
+        B, F, M_lat, _ = feature_volume.shape
+        C = coords.shape[1]
+        S = self.crop_size
+        N = self.N
+        device = feature_volume.device
+
+        patch_centers = coords.squeeze(2) * scale  # (B, C, 2)
+
+        half = (N - 1) / 2.0
+        lin = torch.linspace(-half, half, S, device=device)
+        gy, gx = torch.meshgrid(lin, lin, indexing='ij')
+        local_grid = torch.stack([gx, gy], dim=-1)  # (S, S, 2) pixel units
+
+        local_grid = local_grid.reshape(1, 1, S, S, 2)
+        centers = patch_centers.reshape(B, C, 1, 1, 2)
+        scale_exp = scale.reshape(B, 1, 1, 1, 2)
+
+        sample_grid = local_grid * scale_exp + centers
+        sample_grid = sample_grid / (M_lat / 2.0)
+        return sample_grid.reshape(B * C, S, S, 2)
+
+    def _decode_crops(self, crops: torch.Tensor) -> torch.Tensor:
+        x = self.stem(crops)
+        for stage in self.stages:
+            x = stage(x)
+        return x
+
+    def forward(self, feature_volume: torch.Tensor,
+                coords: torch.Tensor,
+                scale: torch.Tensor) -> torch.Tensor:
+        B = feature_volume.shape[0]
+        C = coords.shape[1]
+        N = self.N
+        M_lat = self.canvas_size
+        F_ch = feature_volume.shape[1]
+
+        sample_grid = self._build_sample_grid(feature_volume, coords, scale)
+
+        fv_expanded = feature_volume.unsqueeze(1).expand(-1, C, -1, -1, -1)
+        fv_flat = fv_expanded.reshape(B * C, F_ch, M_lat, M_lat)
+
+        crops = F.grid_sample(
+            fv_flat, sample_grid,
             mode='bilinear', align_corners=False, padding_mode='zeros'
-        )  # (B, F, C*N², 1)
-        sampled = sampled.squeeze(-1).permute(0, 2, 1)  # (B, C*N², F)
+        )
 
-        # Fourier encode the query coordinates (in pixel units for meaningful frequencies)
-        r_for_encoding = r_canvas.reshape(B, C * N * N, 2)  # (B, C*N², 2)
-        coord_features = self.coord_encoder(r_for_encoding)   # (B, C*N², coord_dim)
+        x = self._decode_crops(crops)
 
-        # Concatenate and run MLP
-        mlp_input = torch.cat([coord_features, sampled], dim=-1)  # (B, C*N², input_dim)
-        output = self.mlp(mlp_input)  # (B, C*N², 2)
+        x_real = 0.2 + torch.tanh(self.head_real(x))
+        x_imag = 1.2 * torch.tanh(self.head_imag(x))
 
-        # Apply activations (real/imaginary decomposition)
-        x_real = 0.2 + torch.tanh(output[..., 0])  # [-0.8, 1.2]
-        x_imag = 1.2 * torch.tanh(output[..., 1])   # [-1.2, 1.2]
-
-        # Combine to complex and reshape
         x_real = x_real.reshape(B, C, N, N)
         x_imag = x_imag.reshape(B, C, N, N)
         result = x_real.to(torch.complex64) + 1j * x_imag.to(torch.complex64)
@@ -487,7 +658,11 @@ class AutoencoderCCNF(nn.Module):
 
         self.fusion = GeometryTaggedAttentionFusion(model_config, data_config)
         self.feature_volume = MultiResolutionFeatureVolume(model_config)
-        self.decoder = NeuralFieldDecoder(model_config, data_config)
+
+        if getattr(model_config, 'ccnf_decoder_type', 'neural_field') == 'cnn':
+            self.decoder = CNNCanvasDecoder(model_config, data_config)
+        else:
+            self.decoder = NeuralFieldDecoder(model_config, data_config)
 
     def forward(self, x: torch.Tensor, coords: torch.Tensor,
                 probe: Optional[torch.Tensor] = None) -> tuple:
