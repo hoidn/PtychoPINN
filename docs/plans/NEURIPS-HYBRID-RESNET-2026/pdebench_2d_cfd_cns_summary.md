@@ -769,6 +769,49 @@ This follow-up does not change the current CNS gate:
 - full-training same-protocol benchmark runs on the full available training split are still the next required step
 - the `24/24` row remains manual-only and capped decision-support evidence
 
+## Shared-Blocks10 1024-Cap Longer-Convergence Follow-Up
+
+The capped longer-budget shared-blocks10 follow-up is tracked in:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_shared_blocks10_1024cap_longer_convergence_summary.md`
+
+That tranche held the same official `2d_cfd_cns` file and fixed `1024 / 128 / 128` shell contract from the completed hybrid-spectral architecture-ablation item, but reran only one profile:
+
+- `spectral_resnet_bottleneck_shared_blocks10`
+- split: `1024 / 128 / 128`
+- `history_len=2`
+- `max_windows_per_trajectory=8`
+- training loss: `mse`
+- batch size: `4`
+- reference budget: `40` epochs
+- fresh budget: `80` epochs
+
+Observed outcome:
+
+- the fresh `80`-epoch shared-blocks10 row improved every tracked eval metric against its frozen `40`-epoch `1024cap` reference:
+  - `err_nRMSE 0.0445733 -> 0.0375677`
+  - `err_RMSE 1.06304 -> 0.895959`
+  - `fRMSE_low 2.48274 -> 2.10180`
+  - `fRMSE_mid 0.216790 -> 0.170457`
+  - `fRMSE_high 0.293987 -> 0.215245`
+- the fixed convergence audit still marks the row as materially improving at stop time because `late_window_ratio=0.790954 < 0.95`
+- relative to the frozen `1024cap`, `40`-epoch shared-base row from the prerequisite architecture-ablation tranche, the fresh `80`-epoch shared-blocks10 row is now lower on every reported metric
+
+Directional read:
+
+- the old `40`-epoch shared-blocks10 `1024cap` row was materially under-converged
+- that changes the earlier bounded `1024cap` interpretation that treated shared-blocks10 as only a narrow mid/high-frequency trade-off at that cap
+- this remains mixed-budget capped evidence, not a same-budget architecture verdict:
+  - the shared base row was not rerun at `80` epochs
+  - the fresh shared-blocks10 row is still improving at the capped stop
+  - the equal-budget `2048cap`, `40`-epoch follow-up still kept the shared base row ahead on aggregate while shared-blocks10 kept only narrower `fRMSE_mid/high` advantages
+
+This follow-up does not change the current CNS gate:
+
+- full-training same-protocol benchmark runs on the full available training split are still the next required step
+- deeper shared spectral depth remains a manual follow-up rather than a default-profile promotion
+- the longer-convergence result should be treated as capped decision-support evidence only
+
 ## Verification
 
 Commands run from `/home/ollie/Documents/PtychoPINN`:

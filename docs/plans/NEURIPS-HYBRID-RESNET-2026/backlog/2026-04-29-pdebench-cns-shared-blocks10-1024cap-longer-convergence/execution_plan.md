@@ -17,7 +17,9 @@
 - Selection mode: `RECOVERED_IN_PROGRESS`
 - Plan date: `2026-04-28`
 - Authoritative selected-item context:
-  `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/23/items/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/selected-item-context.md`
+  `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/0/items/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/selected-item-context.md`
+- Authoritative backlog item:
+  `docs/backlog/in_progress/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence.md`
 - Authoritative plan path:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/execution_plan.md`
 - Previous plan path used only as background:
@@ -29,7 +31,7 @@
 - Artifact root:
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/`
 
-This file is the new execution authority for the selected backlog item. Implementation should not rely on the raw backlog item, steering document, or roadmap for unstated scope decisions after this plan is approved.
+This file is the new execution authority for the selected backlog item. Implementation must not rely on the raw backlog item, steering document, roadmap, or prior plan for unstated scope decisions after this plan is approved.
 
 ## Inputs Read
 
@@ -41,9 +43,10 @@ This file is the new execution authority for the selected backlog item. Implemen
 - `docs/steering.md`
 - `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md`
 - `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md`
-- `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/23/items/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/selected-item-context.md`
+- `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/0/items/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/selected-item-context.md`
 - `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json`
 - `docs/backlog/in_progress/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence.md`
+- `docs/backlog/index.md`
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_arch_ablation_summary.md`
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_scaling_2048cap_summary.md`
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md`
@@ -120,10 +123,10 @@ This file is the new execution authority for the selected backlog item. Implemen
 - The roadmap routing state is binding:
   - the immediate active CNS lane is this shared-blocks10 longer-convergence follow-up at `1024 / 128 / 128`
   - the outcome must be interpreted against the completed `40`-epoch finalist row and the completed `2048cap` scaling summary
-- Prerequisite status from the progress ledger and durable summaries:
-  - `2026-04-22-pdebench-cns-hybrid-spectral-architecture-ablation` is complete and froze the authoritative `1024cap`, `40`-epoch finalist root:
+- Prerequisite status from the progress ledger matters here:
+  - `2026-04-22-pdebench-cns-hybrid-spectral-architecture-ablation` is completed in `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json` with `updated_at_utc="2026-04-28T07:54:41Z"`, and it froze the authoritative `1024cap`, `40`-epoch finalist root:
     `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z`
-  - `2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap` is complete and established the bounded prior interpretation that the shared base row remains the stronger aggregate local reference beyond `1024cap`
+  - `2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap` is completed in `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json` with `updated_at_utc="2026-04-28T23:40:41Z"`, and it preserved the bounded interpretation that the shared base row remains the stronger aggregate local reference beyond `1024cap`
 - `REPORTING-ARTIFACT-BOUNDARY-001` applies:
   - required metrics, manifests, delta payloads, convergence payloads, and summary updates decide completion
   - optional galleries or convenience visuals may warn without invalidating the tranche if the required artifacts succeed
@@ -134,7 +137,7 @@ This file is the new execution authority for the selected backlog item. Implemen
   - track the exact launched PID and wait on that PID
   - declare the run complete only when the tracked PID exits `0` and the required fresh artifacts exist
 - Failure handling:
-  - if pytest, compileall, inspect mode, import, path, or reporting-helper checks fail, diagnose/fix/rerun before considering any block
+  - if pytest, compileall, inspect mode, import, path, or reporting-helper checks fail, diagnose, fix, and rerun before considering a block
   - reserve `BLOCKED` for missing dataset access, unavailable hardware, roadmap conflict outside current authority, user decision required, or unrecoverable failure after a documented narrow fix attempt
 
 ## Frozen Reference Inputs

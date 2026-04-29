@@ -193,6 +193,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, pdebench, cns, spectral_resnet, modes24, convergence, fno_modes, spectral_bottleneck_modes, summary
 **Use this when:** Checking whether the shared spectral `24/24` row looks worthwhile once obvious under-convergence is reduced, locating the convergence-audit payload and resolved batch-size record, or reviewing why this capped `80`-epoch follow-up still does not justify a default-profile promotion.
 
+### [NeurIPS Hybrid ResNet PDEBench CNS Shared-Blocks10 1024-Cap Longer-Convergence Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_shared_blocks10_1024cap_longer_convergence_summary.md)
+**Description:** Implementation summary for the capped shared-blocks10 longer-convergence backlog item, covering the frozen `40`-epoch `1024cap` reference manifest, exact `80`-epoch inspect proof, fresh shared-blocks10 rerun, emitted convergence audit, shell-validated `40ep -> 80ep` delta payload, and the bounded mixed-budget result that the earlier `40`-epoch `1024cap` row materially understated shared-blocks10 without settling the same-budget architecture ranking.
+**Keywords:** neurips, pdebench, cns, spectral_resnet, shared_blocks10, convergence, 1024cap, 80ep, summary
+**Use this when:** Checking whether the old `1024cap` shared-blocks10 row was under-converged, locating the convergence-audit and epoch-budget-delta payloads, or reviewing why the refreshed result still stays capped decision-support evidence rather than a default-profile promotion.
+
 ### [NeurIPS Hybrid ResNet PDEBench CNS Hybrid-Spectral Architecture Ablation Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_arch_ablation_summary.md)
 **Description:** Implementation summary for the capped CNS hybrid-spectral architecture backlog item, covering the fresh `10`/`40`-epoch sharing pilots, the fresh `40`-epoch shared-depth pilot, the larger-cap finalist confirmation sidecars, and the result that the `10`-block shared bottleneck won the depth pilot but the shared base row recovered the aggregate lead on the `1024 / 128 / 128` confirmation slice.
 **Keywords:** neurips, pdebench, cns, hybrid-spectral, architecture, weight-sharing, depth, spectral_resnet, summary

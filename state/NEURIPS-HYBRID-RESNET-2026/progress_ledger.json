@@ -1698,6 +1698,128 @@
         "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
         ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap/execution_report.md"
       ]
+    },
+    {
+      "tranche_id": "2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence",
+      "updated_at_utc": "2026-04-29T06:43:53Z",
+      "update_reason": "Closed the shared-blocks10 longer-convergence backlog item after the previously launched `80`-epoch rerun finished cleanly, the required convergence and same-profile epoch-budget payloads were generated, and the durable CNS summaries/state were synchronized.",
+      "decision": "The frozen `40`-epoch shared-blocks10 `1024cap` row was materially under-converged. Extending the same shell-fixed row to `80` epochs improved every tracked eval metric and now beats the frozen `1024cap`, `40`-epoch shared-base row on all reported metrics, but the evidence remains mixed-budget and capped because the base row was not rerun at `80` epochs and the fresh shared-blocks10 row still satisfies the material-improvement audit rule.",
+      "decision_scope": "complete_shared_blocks10_1024cap_longer_convergence_backlog_item",
+      "design_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
+      "plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/execution_plan.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence",
+      "reference_manifest_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/reference_runs_1024cap_40ep.json",
+      "shell_contract_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/reference_shell_contract_shared_blocks10_1024cap.json",
+      "inspect_proof_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/inspect-1024cap-80ep-20260429T025556Z",
+      "fresh_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/cns-shared-blocks10-1024cap-80ep-20260429T025641Z",
+      "launch_sidecar": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/cns-shared-blocks10-1024cap-80ep-20260429T025641Z.launch",
+      "convergence_audit_paths": {
+        "json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/convergence_audit.json",
+        "csv": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/convergence_audit.csv"
+      },
+      "epoch_budget_delta_paths": {
+        "json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/shared_blocks10_1024cap_40ep_vs_80ep.json",
+        "csv": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/shared_blocks10_1024cap_40ep_vs_80ep.csv"
+      },
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_shared_blocks10_1024cap_longer_convergence_summary.md",
+      "cns_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "findings_changed": false,
+      "performance_assessment_complete": false,
+      "evidence_scope": "capped_decision_support_only",
+      "metric_interpretation": "decision_support_not_benchmark_performance",
+      "comparison_standard": "Keep task, dataset file, split counts, `history_len=2`, `max_windows_per_trajectory=8`, batch size `4`, training loss `mse`, and the full shared-blocks10 shell fixed; the only allowed contract delta is the epoch budget (`40 -> 80`).",
+      "local_equal_footing_contract": {
+        "task": "2d_cfd_cns",
+        "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        "history_len": 2,
+        "batch_size": 4,
+        "training_loss": "mse",
+        "max_windows_per_trajectory": 8,
+        "metric_family": [
+          "err_RMSE",
+          "err_nRMSE",
+          "relative_l2",
+          "fRMSE_low",
+          "fRMSE_mid",
+          "fRMSE_high"
+        ],
+        "split_counts": {
+          "train": 1024,
+          "val": 128,
+          "test": 128
+        }
+      },
+      "allowed_contract_delta": {
+        "delta_kind": "epochs_only",
+        "reference_epochs": 40,
+        "fresh_epochs": 80
+      },
+      "convergence_outcome": {
+        "profile_id": "spectral_resnet_bottleneck_shared_blocks10",
+        "loss_count": 80,
+        "late_window_mean_prev": 0.002342,
+        "late_window_mean_final": 0.001852,
+        "late_window_ratio": 0.790954,
+        "last5_delta": -5.8e-05,
+        "still_materially_improving": true
+      },
+      "reference_vs_fresh_metrics": {
+        "reference_40ep": {
+          "err_RMSE": 1.0630357265472412,
+          "err_nRMSE": 0.04457326605916023,
+          "relative_l2": 0.04457326605916023,
+          "fRMSE_low": 2.482743978500366,
+          "fRMSE_mid": 0.21679042279720306,
+          "fRMSE_high": 0.29398733377456665,
+          "runtime_sec": 2703.717624902725
+        },
+        "fresh_80ep": {
+          "err_RMSE": 0.8959585428237915,
+          "err_nRMSE": 0.03756769374012947,
+          "relative_l2": 0.03756769374012947,
+          "fRMSE_low": 2.101804494857788,
+          "fRMSE_mid": 0.17045710980892181,
+          "fRMSE_high": 0.2152452915906906,
+          "runtime_sec": 5364.487813234329
+        },
+        "delta_80_minus_40": {
+          "err_RMSE": -0.16707718372345,
+          "err_nRMSE": -0.007005572319031,
+          "relative_l2": -0.007005572319031,
+          "fRMSE_low": -0.380939483642578,
+          "fRMSE_mid": -0.046333312988281,
+          "fRMSE_high": -0.078742042183876,
+          "runtime_sec": 2660.770188331604
+        }
+      },
+      "frozen_base_40ep_context": {
+        "profile_id": "spectral_resnet_bottleneck_base",
+        "epochs": 40,
+        "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z",
+        "err_RMSE": 1.0374627113342285,
+        "err_nRMSE": 0.04350099340081215,
+        "relative_l2": 0.04350099340081215,
+        "fRMSE_low": 2.417743444442749,
+        "fRMSE_mid": 0.2224166840314865,
+        "fRMSE_high": 0.2982962727546692
+      },
+      "verification": [
+        "pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/verification/final_pytest.log (`79 passed in 51.91s`)",
+        "python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/verification/final_compileall.log",
+        "inspect contract validation -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/verification/inspect_contract_validation.log",
+        "convergence audit generation -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/verification/convergence_audit.log",
+        "epoch-budget delta generation -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/verification/epoch_budget_delta.log",
+        "payload validation -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/verification/payload_validation.log",
+        "tracked launcher exit code -> .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/cns-shared-blocks10-1024cap-80ep-20260429T025641Z.launch/exit_code.txt = 0"
+      ],
+      "affected_surfaces": [
+        "docs/index.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/execution_plan.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_shared_blocks10_1024cap_longer_convergence_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/execution_report.md"
+      ]
     }
   ]
 }
