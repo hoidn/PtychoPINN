@@ -31,7 +31,7 @@
   - stdout/stderr log:
     `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260429T213028Z/live_stdout.log`
   - observed phase at this handoff: Torch `pinn_hybrid_resnet` training after the TensorFlow `baseline` and `pinn` rows completed and emitted stitched reconstructions plus merged partial metrics.
-  - observed state: `datasets/N128/gs1/{train,test}.npz`, `recons/gt/recon.npz`, `recons/{baseline,pinn}/recon.npz`, root-level `metrics.json`, and `runs/pinn_hybrid_resnet/invocation.{json,sh}` are freshly written; the live log has progressed through Lightning `Epoch 17/40`, so the root is still an in-flight partial bundle rather than a completed four-row result.
+  - observed state: `datasets/N128/gs1/{train,test}.npz`, `recons/gt/recon.npz`, `recons/{baseline,pinn}/recon.npz`, root-level `metrics.json`, and `runs/pinn_hybrid_resnet/invocation.{json,sh}` are freshly written; the live log has progressed through Lightning `Epoch 20/40`, so the root is still an in-flight partial bundle rather than a completed four-row result.
 
 # Next Resume Condition
 
