@@ -18,8 +18,18 @@ from scipy.ndimage import gaussian_filter # For blurring the 2D noise
 from perlin_noise import PerlinNoise
 from scipy.spatial.transform import Rotation # For 3D rotations
 import random
-import cv2
 from sklearn.mixture import GaussianMixture
+
+
+def _import_cv2():
+    try:
+        import cv2
+        return cv2
+    except ImportError:
+        raise ImportError(
+            "opencv-python is required for synthetic data generation. "
+            "Install it with: pip install ptychopinn[datagen]"
+        ) from None
 
 
 # Function to handle safe normalization per image in a batch
@@ -160,6 +170,7 @@ def create_white_noise_clustered_reim(img_shape, obj_arg):
     -------
     np.ndarray : complex64 object of shape img_shape
     """
+    cv2 = _import_cv2()
     rng = np.random.default_rng()
 
     # --- Get or fit GMM parameters ---
@@ -1158,6 +1169,7 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
                        thickness,
                        min_phase, max_phase,
                        min_amp, max_amp):
+    cv2 = _import_cv2()
     # --- Initialize Canvases ---
     # These will store the material properties (beta, delta) of the TOPMOST leaf at each pixel
     beta_map = np.zeros((res, res), dtype=np.float32)
@@ -1309,7 +1321,6 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
 
 ## BEta features
 import numpy as np
-import cv2
 from typing import Tuple, Optional, Union, List
 
 def create_density_centered_histogram(
@@ -1872,6 +1883,7 @@ def _draw_random_leaf(
     max_extent : float
         Maximum extent of the shape from center (for coverage tracking).
     """
+    cv2 = _import_cv2()
     def sample_dim():
         return dim_min_px * np.power(1.0 + rng.uniform() * coef, 1.0 / beta)
 
@@ -1983,6 +1995,7 @@ def generate_dead_leaves_reim(
     """
     rng = np.random.default_rng(seed)
 
+    cv2 = _import_cv2()
     # Initialize canvas to vacuum
     real_map = np.full((height, width), vacuum_re, dtype=np.float32)
     imag_map = np.full((height, width), vacuum_im, dtype=np.float32)
@@ -2092,6 +2105,7 @@ def generate_dead_leaves_reim_histogram(
     imag_map : np.ndarray (height, width)
     num_leaves : int
     """
+    cv2 = _import_cv2()
     if material_hist is None:
         raise ValueError("material_hist is required for histogram-based generation")
 
@@ -2207,6 +2221,7 @@ def generate_dead_leaves_reim_gmm(
     imag_map : np.ndarray (height, width)
     num_leaves : int
     """
+    cv2 = _import_cv2()
     rng = np.random.default_rng(seed)
 
     # Initialize canvas to vacuum
@@ -2514,6 +2529,7 @@ def generate_dead_leaves_constrained_phase(
     phase_map : np.ndarray (height, width)
     num_leaves : int
     """
+    cv2 = _import_cv2()
     rng = np.random.default_rng(seed)
 
     if phase_center is None:
@@ -2852,7 +2868,8 @@ def generate_dead_leaves_uniform(
     - Phase is sampled uniformly: φ = U(φ_min, φ_max)
     - Uses alpha blending with anti-aliased coverage masks for smooth edges
     """
-    
+    cv2 = _import_cv2()
+
     # Validate inputs
     if dim_min_px >= dim_max_px:
         raise ValueError('dim_min_px must be less than dim_max_px')
@@ -3085,6 +3102,7 @@ def generate_dead_leaves_uniform_reim(
     - Shape geometry and power-law dimension sampling are identical to
       generate_dead_leaves_uniform.
     """
+    cv2 = _import_cv2()
 
     # Validate inputs
     if dim_min_px >= dim_max_px:
@@ -3241,7 +3259,6 @@ def generate_dead_leaves_uniform_reim(
 
 ## New experimental stuff (02/10/2026)
 
-import cv2
 from scipy.spatial import Voronoi
 from typing import Tuple, Optional, List
 
@@ -3295,7 +3312,8 @@ def generate_hierarchical_constrained_object(
     blur_sigma: float = 0.5,
     seed: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
-    
+
+    cv2 = _import_cv2()
     rng = np.random.default_rng(seed)
     
     # --- 1. Sampling Helpers ---
