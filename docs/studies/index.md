@@ -375,6 +375,32 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Boundary: this is the prerequisite FFNO-versus-Hybrid CDI row pair for later
   `lines128` paper packaging, not the final four-row paper benchmark.
 
+### `grid-lines-n128-paper-benchmark-harness-readiness`
+
+- Purpose: freeze the later `lines128` paper benchmark harness contract,
+  capture the selected FNO comparator and row roster, and emit readiness-only
+  schema/collation artifacts without launching the full multi-row benchmark.
+- Status: harness-ready on `2026-04-29`; full benchmark still unlaunched.
+- Harness preflight:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_harness_preflight.md`
+- Harness summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_harness_summary.md`
+- Decision manifest:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/preflight/benchmark_decisions.json`
+- Readiness bundle:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/validation/readiness_only_preflight`
+- Minimum supported subset:
+  - `pinn_hybrid_resnet`
+  - `pinn`
+  - `pinn_fno_vanilla`
+- Additional supported rows:
+  - `pinn_spectral_resnet_bottleneck_net`
+  - `pinn_ffno`
+- Boundary:
+  - the readiness bundle is intentionally `benchmark_incomplete`
+  - the later execution item still owns fresh row runs, paper-grade visuals,
+    and final table completeness
+
 ### `grid-lines-n64-pinn-hybrid-resnet-e20`
 
 - Purpose: Run `N=64` grid-lines with `pinn` (TF) and `pinn_hybrid_resnet` (Torch) at `20` epochs, then render combined visuals.

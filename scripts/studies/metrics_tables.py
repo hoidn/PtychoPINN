@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 
@@ -16,6 +17,7 @@ MODEL_LABELS = {
     "pinn_hybrid": "Hybrid",
     "pinn_stable_hybrid": "Stable Hybrid",
     "pinn_hybrid_resnet": "Hybrid ResNet",
+    "pinn_spectral_resnet_bottleneck_net": "Spectral ResNet Bottleneck",
     "pinn_ptychovit": "PtychoViT",
 }
 
@@ -28,6 +30,7 @@ MODEL_ORDER = (
     "pinn_hybrid",
     "pinn_stable_hybrid",
     "pinn_hybrid_resnet",
+    "pinn_spectral_resnet_bottleneck_net",
     "pinn_ptychovit",
 )
 
@@ -36,10 +39,22 @@ METRICS = (
     ("mse", "MSE"),
     ("psnr", "PSNR"),
     ("ssim", "SSIM"),
+    ("ms_ssim", "MS-SSIM"),
     ("frc50", "FRC50"),
 )
 
 LOWER_BETTER = {"mae", "mse"}
+PAPER_BENCHMARK_STATUS_VALUES = ("paper_complete", "benchmark_incomplete")
+PAPER_REQUIRED_FIELDS = (
+    "model_label",
+    "parameter_count",
+    "epoch_budget",
+    "final_completed_epoch",
+    "final_train_loss",
+    "validation_loss",
+    "runtime_hardware_summary",
+    "caveats",
+)
 
 
 def _latex_escape(text: str) -> str:
@@ -302,4 +317,118 @@ def write_metrics_tables(
         "metrics_table_tex": str(main_tex),
         "metrics_table_best_tex": str(best_tex),
         "metrics_table_csv": str(csv_path),
+    }
+
+
+def _validate_validation_loss(payload: object) -> bool:
+    if not isinstance(payload, Mapping):
+        return False
+    status = payload.get("status")
+    if not isinstance(status, str) or not status:
+        return False
+    if status == "no_validation_series":
+        return "value" in payload
+    value = payload.get("value")
+    return value is None or isinstance(value, (int, float))
+
+
+def _missing_paper_fields(row_payload: Mapping[str, object]) -> List[str]:
+    missing: List[str] = []
+    for field in PAPER_REQUIRED_FIELDS:
+        value = row_payload.get(field)
+        if field == "validation_loss":
+            if not _validate_validation_loss(value):
+                missing.append(field)
+            continue
+        if field == "caveats":
+            if not isinstance(value, list):
+                missing.append(field)
+            continue
+        if value is None:
+            missing.append(field)
+            continue
+    metrics = row_payload.get("metrics")
+    if not isinstance(metrics, Mapping):
+        return [*missing, *(f"metrics.{metric_key}" for metric_key, _ in METRICS)]
+    for metric_key, _metric_label in METRICS:
+        if _extract_pair(metrics, metric_key) is None:
+            missing.append(f"metrics.{metric_key}")
+    return missing
+
+
+def _build_metric_schema() -> Dict[str, object]:
+    metric_fields = [
+        {
+            "name": metric_key,
+            "label": metric_label,
+            "pair_axes": ["amplitude", "phase"],
+            "required": True,
+        }
+        for metric_key, metric_label in METRICS
+    ]
+    return {
+        "status_values": list(PAPER_BENCHMARK_STATUS_VALUES),
+        "required_fields": list(PAPER_REQUIRED_FIELDS),
+        "metric_fields": metric_fields,
+        "downgrade_rule": "Any missing required field or required metric downgrades the merged result to benchmark_incomplete.",
+    }
+
+
+def write_paper_benchmark_bundle(
+    *,
+    output_dir: Path,
+    row_payloads: Mapping[str, Mapping[str, object]],
+    required_rows: Iterable[str],
+    fixed_sample_ids: Iterable[int],
+    shared_visual_scales: Mapping[str, object],
+    selected_fno_comparator: Optional[str] = None,
+    row_statuses: Optional[Mapping[str, Mapping[str, object]]] = None,
+    evidence_scope: str = "readiness_only_not_benchmark_performance",
+) -> Dict[str, str]:
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    required_rows = tuple(required_rows)
+    missing_fields_by_row: Dict[str, List[str]] = {}
+    model_ns: Dict[str, int] = {}
+    metrics_only: Dict[str, dict] = {}
+
+    incomplete = False
+    for model_id, payload in row_payloads.items():
+        missing = _missing_paper_fields(payload)
+        missing_fields_by_row[model_id] = missing
+        if missing:
+            incomplete = True
+        metrics_only[model_id] = dict(payload.get("metrics", {}))
+        model_ns[model_id] = int(payload.get("N", 128))
+
+    for model_id in required_rows:
+        if model_id not in row_payloads:
+            incomplete = True
+            missing_fields_by_row[model_id] = ["row_missing"]
+
+    benchmark_status = "benchmark_incomplete" if incomplete else "paper_complete"
+    bundle_payload = {
+        "benchmark_status": benchmark_status,
+        "required_rows": list(required_rows),
+        "selected_fno_comparator": selected_fno_comparator,
+        "evidence_scope": evidence_scope,
+        "missing_fields_by_row": missing_fields_by_row,
+        "row_statuses": dict(row_statuses or {}),
+        "visual_collation": {
+            "fixed_sample_ids": list(fixed_sample_ids),
+            "shared_visual_scales": dict(shared_visual_scales),
+        },
+        "rows": row_payloads,
+    }
+
+    metrics_json = output_dir / "metrics.json"
+    metric_schema_json = output_dir / "metric_schema.json"
+    metrics_json.write_text(json.dumps(bundle_payload, indent=2), encoding="utf-8")
+    metric_schema_json.write_text(json.dumps(_build_metric_schema(), indent=2), encoding="utf-8")
+    table_paths = write_metrics_tables(output_dir, metrics_only, model_ns=model_ns)
+    return {
+        "metrics_json": str(metrics_json),
+        "metric_schema_json": str(metric_schema_json),
+        **table_paths,
     }

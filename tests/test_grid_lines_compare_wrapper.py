@@ -20,7 +20,7 @@ def _full_pair_metrics(amp: float, phase: float):
 
 
 def _mock_dataset_builder(monkeypatch):
-    def fake_build_grid_lines_datasets(cfg):
+    def fake_build_grid_lines_datasets(cfg, *args, **kwargs):
         datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
         datasets_dir.mkdir(parents=True, exist_ok=True)
         train_npz = datasets_dir / "train.npz"
@@ -75,6 +75,45 @@ def test_wrapper_merges_metrics(monkeypatch, tmp_path):
     assert "pinn_fno" in merged
     assert "pinn_hybrid" in merged
     assert "metrics" in result
+
+
+def test_wrapper_routes_spectral_resnet_bottleneck_from_explicit_models(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    _mock_dataset_builder(monkeypatch)
+    captured = {}
+
+    def fake_torch_run(cfg):
+        captured["architecture"] = cfg.architecture
+        model_id = f"pinn_{cfg.architecture}"
+        recon_dir = cfg.output_dir / "recons" / model_id
+        recon_dir.mkdir(parents=True, exist_ok=True)
+        gt = (np.ones((cfg.N, cfg.N)) + 1j * np.ones((cfg.N, cfg.N))).astype(np.complex64)
+        np.savez(recon_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+        return {"recon_npz": str(recon_dir / "recon.npz")}
+
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+    monkeypatch.setattr(
+        "ptycho.evaluation.eval_reconstruction",
+        lambda pred, gt, label, **kwargs: _full_pair_metrics(0.02, 0.03),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals",
+        lambda output_dir, order: {},
+    )
+
+    result = run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        probe_npz=Path("dummy_probe.npz"),
+        architectures=(),
+        models=("pinn_spectral_resnet_bottleneck_net",),
+        model_n={"pinn_spectral_resnet_bottleneck_net": 128},
+    )
+
+    assert captured["architecture"] == "spectral_resnet_bottleneck_net"
+    assert "pinn_spectral_resnet_bottleneck_net" in result["metrics"]
 
 
 def test_wrapper_writes_metrics_table_tex_architecture_mode(monkeypatch, tmp_path):

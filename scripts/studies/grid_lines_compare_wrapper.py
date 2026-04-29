@@ -30,6 +30,7 @@ LEGACY_ARCH_TO_MODEL = {
     "stable_hybrid": "pinn_stable_hybrid",
     "fno_vanilla": "pinn_fno_vanilla",
     "hybrid_resnet": "pinn_hybrid_resnet",
+    "spectral_resnet_bottleneck_net": "pinn_spectral_resnet_bottleneck_net",
 }
 
 MODEL_TO_LEGACY_ARCH = {model_id: arch for arch, model_id in LEGACY_ARCH_TO_MODEL.items()}
@@ -43,6 +44,7 @@ TORCH_MODEL_IDS = {
     "pinn_stable_hybrid",
     "pinn_fno_vanilla",
     "pinn_hybrid_resnet",
+    "pinn_spectral_resnet_bottleneck_net",
 }
 
 
@@ -639,7 +641,15 @@ def run_grid_lines_compare(
         merged["baseline"] = tf_metrics["baseline"]
 
     for arch in selected_architectures:
-        if arch in ("ffno", "fno", "hybrid", "stable_hybrid", "fno_vanilla", "hybrid_resnet"):
+        if arch in (
+            "ffno",
+            "fno",
+            "hybrid",
+            "stable_hybrid",
+            "fno_vanilla",
+            "hybrid_resnet",
+            "spectral_resnet_bottleneck_net",
+        ):
             torch_cfg = TorchRunnerConfig(
                 train_npz=train_npz,
                 test_npz=test_npz,
@@ -704,6 +714,8 @@ def run_grid_lines_compare(
         order.append("pinn_fno_vanilla")
     if "hybrid_resnet" in selected_architectures:
         order.append("pinn_hybrid_resnet")
+    if "spectral_resnet_bottleneck_net" in selected_architectures:
+        order.append("pinn_spectral_resnet_bottleneck_net")
 
     model_ns_for_metrics = {model_id: int(N) for model_id in merged.keys()}
     _finalize_compare_outputs(
