@@ -1,5 +1,5 @@
 ---
-priority: 41
+priority: 120
 plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-inverse-source-preflight/execution_plan.md
 check_commands:
   - |
@@ -16,11 +16,11 @@ check_commands:
     PY
 prerequisites: []
 related_roadmap_phases:
-  - phase-2-pdebench-128x128-image-suite
+  - candidate-wavebench-inverse-source-preflight
 signals_for_selection:
   - The manuscript may benefit from an additional 2D known-forward-model inverse-wave benchmark candidate alongside CDI and CNS.
   - WaveBench inverse source reconstruction has a 2D target, known wave forward model, and published FNO/U-Net baseline infrastructure, but local dataset/checkpoint/solver compatibility is not yet verified.
-  - This preflight decides whether WaveBench should become an additional manuscript evidence target before any roadmap-level addition is attempted.
+  - This preflight is on equal footing with the BRDT candidate preflight: active, concurrent, lower priority than core CDI/CNS evidence, and non-authorizing for paper claims until promoted by a later amendment.
 ---
 
 # Backlog Item: Preflight WaveBench Inverse Source Benchmark
@@ -48,13 +48,16 @@ signals_for_selection:
   - `ready_for_supervised_and_physics_plan`
   - `needs_dataset_or_checkpoint_decision`
   - `not_suitable_for_current_manuscript`
-- Do not run the full benchmark and do not alter the CDI or CNS paper lanes in this
-  item.
+- Do not run the full benchmark and do not alter the CDI or CNS paper lanes in
+  this item.
+- This item is active candidate work. Selection should be governed by priority
+  and steering, not by a WaveBench-specific gate.
 
 ## Notes for Reviewer
 
 - Keep WaveBench as a candidate evidence lane until data, baseline, and forward
   solver compatibility are verified.
+- Do not present WaveBench as Phase 2 PDEBench work.
 - Do not describe WaveBench inverse source as geology, full waveform inversion,
   or material-property inversion.
 - Do not accept a physics-informed row unless `F_c(q_0) ~= y` is demonstrated

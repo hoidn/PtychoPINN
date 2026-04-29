@@ -21,12 +21,15 @@ Current source of truth:
 - Parallel items on the same roadmap phase are explicitly listed as such so the
   selector does not invent a false serial order.
 - `docs/backlog/roadmap_gate.json` is applied before provider selection. The
-  current gate is a Phase 2 PDEBench plus Phase 3 CDI-preparation selection
-  window: Phase 2 PDEBench evidence remains preferred, and Phase 3 CDI
-  preparation may be selected as useful parallel work without counting as
-  completed Phase 2 evidence. If no active item satisfies the current window and
-  the missing work is already authorized by the roadmap, the workflow may draft
-  a new active backlog item instead of selecting later-phase work.
+  current gate admits active NeurIPS evidence work across Phase 2 PDEBench,
+  Phase 3 CDI, and `candidate-*` preflights. Relative selection should be
+  expressed through backlog `priority` values and steering value rather than
+  brittle one-off gate prefixes. Phase 2 PDEBench remains preferred by priority,
+  Phase 3 CDI may be selected as useful parallel work, and candidate preflights
+  may run concurrently without counting as completed Phase 2 or Phase 3
+  evidence. If no active item satisfies the current window and the missing work
+  is already authorized by the roadmap, the workflow may draft a new active
+  backlog item instead of selecting later-phase work.
 
 ## Current Queue Graph
 
@@ -47,6 +50,8 @@ Current source of truth:
 | [2026-04-27-hybrid-spectral-ffno-parameter-space-cdi.md](active/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on completed CDI FFNO generator baseline | Phase 3 CDI-only split of the former mixed CNS/CDI parameter-space item. The dependency is now satisfied, so selection is governed by roadmap value rather than prerequisite blocking. |
 | [2026-04-29-paper-evidence-package-audit.md](active/2026-04-29-paper-evidence-package-audit.md) | `active` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Depends on minimum CDI table and CNS table/figure bundle | Creates the repo-local paper evidence manifest and completeness audit without creating the Phase 5 paper-facing evidence map. |
 | [2026-04-29-cns-paper-2048cap-row-extension.md](active/2026-04-29-cns-paper-2048cap-row-extension.md) | `active` | `phase-2-pdebench-128x128-image-suite` | Depends on paper evidence package audit | Later long-running CNS evidence-strengthening pass for same-cap `2048 / 256 / 256` FFNO/FNO/U-Net rows; not a blocker for the current 1024-cap table/figure bundle. |
+| [2026-04-29-brdt-candidate-preflight.md](active/2026-04-29-brdt-candidate-preflight.md) | `active` | `candidate-brdt-preflight` | No active backlog prerequisite | Concurrent candidate inverse-scattering preflight for Born/Rytov diffraction tomography. It is intentionally lower priority than core CDI/CNS evidence and cannot replace those required lanes or support paper-table claims without a later evidence-package amendment. |
+| [2026-04-29-wavebench-inverse-source-preflight.md](active/2026-04-29-wavebench-inverse-source-preflight.md) | `active` | `candidate-wavebench-inverse-source-preflight` | No active backlog prerequisite | Concurrent candidate inverse-source preflight for WaveBench. It is intentionally lower priority than core CDI/CNS evidence and is on equal footing with BRDT as optional candidate work, not a replacement paper pillar. |
 | [2026-04-29-paper-facing-evidence-index.md](paused/2026-04-29-paper-facing-evidence-index.md) | `paused` | `phase-5-paper-facing-evidence-bundle` | Depends on paper evidence package audit | Creates `/home/ollie/Documents/neurips/index.md` and the evidence checklist only after the roadmap reaches Phase 5. |
 | [2026-04-29-manuscript-draft-continuity.md](paused/2026-04-29-manuscript-draft-continuity.md) | `paused` | `phase-5-paper-facing-evidence-bundle` | Depends on paper-facing evidence index | Requires future manuscript-drafting tasks to start from `docs/plans/NEURIPS-HYBRID-RESNET-2026/hybrid_resnet_neurips_first_draft.tex` so they reuse the existing introduction, context, methods, benchmark framing, result framing, and associated reconstruction figure instead of reinventing them. |
 | [2026-03-13-lines256-experiment-history-summary-input.md](active/2026-03-13-lines256-experiment-history-summary-input.md) | `active` | n/a | Separate non-NeurIPS queue branch | Does not block or unlock the CNS benchmark queue. |
@@ -94,6 +99,12 @@ Current source of truth:
 - The broader Hybrid-spectral-to-FFNO parameter-space study has been split by
   roadmap phase. The CNS half is complete; the CDI half is active with its CDI
   FFNO generator prerequisite satisfied.
+- BRDT and WaveBench inverse source are active concurrent `candidate-*`
+  preflights on equal footing. Their lower priority keeps CDI/CNS ahead in the
+  queue unless steering chooses otherwise. They must stay within their
+  preflight scopes and do not close CDI, CNS, or paper-evidence-package gates.
+  Do not add one-off gate prefixes for either candidate; use priority and
+  steering.
 - The Markov history-1, modes-32, Hybrid-spectral architecture, FFNO local-conv,
   paper-default GNOT, author-FFNO equal-footing, modes-24 convergence,
   2048-cap scaling, shared-blocks10 longer-convergence, history-length-beyond-2,

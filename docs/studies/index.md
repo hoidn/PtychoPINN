@@ -2,6 +2,35 @@
 
 ## PDE / Forward-Modeling Studies
 
+### `born-rytov-dt-candidate-preflight` (candidate; active backlog)
+
+- Purpose: Evaluate whether 2D Born/Rytov diffraction tomography is practical
+  as an additional inverse-scattering evidence lane for the SRU-Net manuscript.
+- Design: `docs/plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md`
+- Backlog item: `docs/backlog/active/2026-04-29-brdt-candidate-preflight.md`
+- Roadmap phase: `candidate-brdt-preflight`
+- Scope: physical-target and normalization lock, differentiable Born operator
+  validation, synthetic dataset feasibility, task-specific adapters, and a
+  four-row decision-support preflight.
+- Boundary: additive candidate work only. It does not replace CDI `lines128`,
+  does not replace PDEBench CNS, and cannot support manuscript result claims
+  without a later roadmap/evidence-package amendment.
+
+### `wavebench-inverse-source-candidate-preflight` (candidate; active backlog)
+
+- Purpose: Evaluate whether WaveBench inverse source reconstruction is
+  practical as an additional 2D known-forward-model inverse-wave lane for the
+  SRU-Net manuscript.
+- Design: `docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_benchmark_design.md`
+- Backlog item: `docs/backlog/active/2026-04-29-wavebench-inverse-source-preflight.md`
+- Roadmap phase: `candidate-wavebench-inverse-source-preflight`
+- Scope: dataset/checkpoint feasibility, native FNO/U-Net baseline inspection,
+  exact tensor contract, local adapter feasibility, and forward-model
+  reproduction checks for physics-informed variants.
+- Boundary: additive candidate work only. It is on equal footing with BRDT, does
+  not replace CDI `lines128` or PDEBench CNS, and cannot support manuscript
+  result claims without a later roadmap/evidence-package amendment.
+
 ### `pdebench-128x128-image-suite` (planned)
 
 - Purpose: Run the amended Roadmap Phase 2 native `128x128` PDEBench image suite covering SWE, Darcy Flow, and 2D Compressible Navier-Stokes.

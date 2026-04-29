@@ -284,7 +284,7 @@ The full available training-split rule is a binding selector input for Phase 2. 
 
 The PDEBench image-suite amendment is now a binding selector input for Phase 2. With Darcy preflight/plan work complete and the official 2D CNS file now checksum-verified, adapter-supported, and capped-compare ready, the next selected PDE scope should come from the live suite plan and progress ledger: either the Darcy full-training benchmark tranche or a bounded CNS follow-up compare/ablation that stays explicitly capped and decision-support-only. OpenFWI FlatVel-A should not be selected as the next performance tranche unless the suite plan records a blocker, the user explicitly re-prioritizes it, or the selector documents why OpenFWI is the least risky replacement contribution.
 
-The paper-evidence package design is a binding selector input for late Phase 2 and Phase 3 packaging. CNS paper work must pass through the contract-decision, row-lock, and table/figure-bundle sequence before claims are drafted. CDI paper work must distinguish the minimum draftable `hybrid_resnet`/paired-CDI-cnn-U-Net-class/FNO subset from the complete `lines128` benchmark table required by the detailed `lines128` design, including `spectral_resnet_bottleneck_net` and FFNO. Phase 5 paper-facing index work remains paused until the roadmap gate changes; do not make `phase-5-*` selectable while `docs/backlog/roadmap_gate.json` disallows it.
+The paper-evidence package design is a binding selector input for late Phase 2 and Phase 3 packaging. CNS paper work must pass through the contract-decision, row-lock, and table/figure-bundle sequence before claims are drafted. CDI paper work must distinguish the minimum draftable `hybrid_resnet`/paired-CDI-cnn-U-Net-class/FNO subset from the complete `lines128` benchmark table required by the detailed `lines128` design, including `spectral_resnet_bottleneck_net` and FFNO. Candidate inverse-wave preflights, including Born/Rytov diffraction tomography and WaveBench inverse source, may execute concurrently under `candidate-*` roadmap phases; priority values in backlog frontmatter should control when they run relative to CDI/CNS work instead of adding brittle one-off gate prefixes. BRDT and WaveBench are on equal footing as optional candidate lanes: neither may replace CDI or CNS, neither may consume paper-critical claims before a later evidence-package amendment, and each must stay limited to its checked-in preflight scope. Phase 5 paper-facing index work remains paused until the roadmap gate changes; do not make `phase-5-*` selectable while `docs/backlog/roadmap_gate.json` disallows it.
 
 After the 2026-04-21 CNS readiness and capped-comparison updates, the selector may choose either `phase-2-pdebench-darcy-static-operator-benchmark` as the next full-training benchmark scope or a capped CNS comparison scope that reuses the verified `history_len=2` MSE anchor and records any follow-up variant against that anchor. If the selected CNS scope is an equal-footing history-contract compare, it must rerun the full four-row shell (`spectral_resnet_bottleneck_base`, `hybrid_resnet_cns`, `fno_base`, and `unet_strong`) rather than probing only a single row. These CNS follow-up compares remain benchmark-incomplete until full-training Hybrid ResNet, FNO, and `unet_strong` rows run on the full available training split. The Darcy tranche is defined by `docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md` and should implement Darcy static-operator support, strong local U-Net/FNO baselines, and literature-calibrated reporting before any full-suite summary.
 
@@ -314,13 +314,17 @@ headline bundle. The Hybrid-spectral finalist scaling follow-up at
 finished Hybrid-spectral architecture ablation and reuses the frozen
 `512 / 64 / 64` and `1024 / 128 / 128` finalist rows as scaling references.
 The converged-budget `modes24` compare remains in progress.
-The deterministic backlog gate is now a Phase 2
-PDEBench plus Phase 3 CDI-preparation selection window: selectors should still
-prefer remaining Phase 2 PDEBench evidence, but may select Phase 3 CDI
-preparation when it is the most useful parallel work. Phase 3 CDI items remain
-Phase 3 work and must not count as satisfying Phase 2 PDEBench evidence. The
-earlier `history_len=1` Markov compare, `modes32` compare, Hybrid-spectral
-architecture ablation, Hybrid-spectral-scaling `2048cap` follow-up, and
+The deterministic backlog gate now admits active NeurIPS evidence work across
+Phase 2 PDEBench, Phase 3 CDI, and `candidate-*` preflights. Selection order
+should be governed by backlog priority and steering value rather than narrow
+gate-prefix churn: remaining Phase 2 PDEBench evidence stays preferred by
+priority, Phase 3 CDI may run as useful parallel work, and candidate preflights
+may run concurrently when their lower priority is reached. Phase 3 CDI items
+remain Phase 3 work and must not count as satisfying Phase 2 PDEBench evidence.
+Candidate work remains additional preflight work and must not count as
+satisfying Phase 2 PDEBench or Phase 3 CDI evidence. The earlier
+`history_len=1` Markov compare, `modes32` compare, Hybrid-spectral architecture
+ablation, Hybrid-spectral-scaling `2048cap` follow-up, and
 FFNO-with-convolutional-features extension are now completed capped CNS lanes,
 not active queue items.
 These independent capped CNS studies should not be serialized unless a backlog

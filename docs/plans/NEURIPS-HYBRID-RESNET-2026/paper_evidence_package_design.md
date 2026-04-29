@@ -17,6 +17,9 @@
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md`
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md`
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/inverse_wave_benchmark_rationale.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_benchmark_design.md`
   - `docs/studies/index.md`
   - `docs/model_baselines.md`
 
@@ -69,6 +72,13 @@ physics-modeling evidence. Each pillar must produce:
 Drafting may begin before every result is complete, but result claims must stay
 as placeholders until the corresponding table and figure bundle are locked.
 
+Candidate inverse-wave preflights may run concurrently with this two-pillar
+work when their backlog priority makes them selectable. They are not a third
+required pillar by default. The BRDT and WaveBench inverse-source preflights are
+on equal footing as active candidate work. A candidate lane can become
+manuscript evidence only after a checked-in roadmap/evidence amendment promotes
+it and names the exact rows, artifacts, and claim boundary.
+
 The package should prefer the best available Hybrid-family row for each pillar
 when writing claim language, but row selection must not narrow the benchmark
 tables themselves:
@@ -91,18 +101,17 @@ Complete CDI benchmark table rows:
 - `spectral_resnet_bottleneck_net`
 - FNO comparator, selected before launch as either `fno` or `fno_vanilla`
 - FFNO row, after FFNO satisfies the CDI/grid-lines generator contract
-- U-Net/SRU-Net + PINN row as the local non-spectral neural baseline required
-  by this package-level paper-evidence design; use a simpler CNN/PINN row only
-  as an explicit fallback if U-Net/SRU-Net is not protocol-compatible with the
-  locked Lines128 runner contract
+- paired local convolutional rows using the CDI `cnn` U-Net-class architecture:
+  - CDI `cnn` U-Net-class + supervised
+  - CDI `cnn` U-Net-class + PINN
 - optional classical CDI row, preferably HIO/ER/PyNX, if it can be made
   protocol-compatible without changing the task contract
 
 Minimum draftable CDI claim rows:
 
 - `hybrid_resnet`
-- U-Net/SRU-Net + PINN local-baseline row, or the explicit CNN/PINN fallback
-  if U-Net/SRU-Net is not protocol-compatible
+- CDI `cnn` U-Net-class + supervised
+- CDI `cnn` U-Net-class + PINN
 - selected FNO comparator
 
 This minimum subset can unblock manuscript table shells and bounded preliminary
@@ -225,6 +234,32 @@ CNS claim gate:
 - Current capped studies may select which rows deserve full-training budget, but
   they do not by themselves satisfy the full-training benchmark gate.
 
+## Candidate Additive Lanes
+
+Born/Rytov diffraction tomography is an active concurrent candidate preflight
+under `candidate-brdt-preflight`. It is governed by
+`docs/plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md`.
+
+WaveBench inverse source is an active concurrent candidate preflight under
+`candidate-wavebench-inverse-source-preflight`. It is governed by
+`docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_benchmark_design.md`.
+
+These lanes are additive:
+
+- it does not replace CDI `lines128` or PDEBench CNS;
+- they do not satisfy either pillar's evidence gate;
+- they should run only when backlog priority and steering select them;
+- they must stay limited to their preflight scopes until a later amendment
+  promotes one or both.
+
+The BRDT preflight should answer whether the differentiable Born operator,
+normalization contract, synthetic dataset, and task adapters are trustworthy
+enough to justify later paper-evidence promotion. The WaveBench preflight should
+answer whether the dataset, native baselines, adapter contract, and
+differentiable forward-model reproduction are trustworthy enough to justify
+later paper-evidence promotion. Neither preflight may add rows to manuscript
+tables or result claims by itself.
+
 ## Shared Provenance Contract
 
 Every paper-grade table row must have:
@@ -278,10 +313,10 @@ Do not draft as final claims yet:
 
 Minimum result-claim gate:
 
-- CDI table has at least Hybrid-family, U-Net/SRU-Net + PINN local-baseline,
-  and FNO rows under one paper-grade contract, while clearly labeling the
-  result as the minimum draftable CDI subset rather than the complete
-  `lines128` benchmark
+- CDI table has at least Hybrid-family, paired CDI `cnn` U-Net-class
+  supervised and PINN rows, and FNO rows under one paper-grade contract, while
+  clearly labeling the result as the minimum draftable CDI subset rather than
+  the complete `lines128` benchmark
 - CNS table has at least Hybrid-family, FNO, and U-Net/CNN-style rows under one
   explicitly labeled contract
 - each pillar has at least one visual comparison bundle
@@ -301,8 +336,11 @@ Recommended backlog items:
    - output complete provenance, metrics, and visuals
 
 2. CDI `lines128` baseline table
-   - run U-Net/SRU-Net + PINN and FNO under the same CDI contract, with
-     CNN/PINN only as a documented fallback if U-Net/SRU-Net is incompatible
+   - run the CDI `cnn` U-Net-class architecture under both supervised and PINN
+     training procedures, plus FNO, under the same CDI contract
+   - explicitly label this as the CDI-side U-Net/CNN-style local baseline
+     family aligned to CNS `unet_strong`, while recording that it is not the
+     same implementation
    - emit table-ready metrics and visuals
 
 3. CDI spectral row

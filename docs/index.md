@@ -108,6 +108,21 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, hybrid_resnet, paper, evidence, cdi, cns, tables, figures, provenance
 **Use this when:** Deciding what evidence must exist before drafting result claims, splitting paper-evidence work into backlog items, or checking paper-grade versus decision-support boundaries across CDI and CNS.
 
+### [NeurIPS Born/Rytov Diffraction Tomography Candidate Lane Design](plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md)
+**Description:** Active candidate additional inverse-scattering lane for the NeurIPS SRU-Net manuscript, defining the Born/Rytov physical model, dataset contract, operator validation gates, dependencies, environment requirements, and a limited four-row preflight. This is concurrent candidate work on equal footing with WaveBench inverse source; it does not replace CDI `lines128` or PDEBench CNS and cannot support paper-table claims without a later evidence-package amendment.
+**Keywords:** neurips, brdt, born, rytov, diffraction-tomography, inverse-scattering, candidate, sru-net, physics
+**Use this when:** Planning or reviewing the BRDT candidate preflight, checking physical target and normalization conventions, or deciding whether a cheap-forward inverse-scattering lane is ready for a later roadmap/evidence amendment.
+
+### [NeurIPS Inverse-Wave Benchmark Rationale](plans/NEURIPS-HYBRID-RESNET-2026/inverse_wave_benchmark_rationale.md)
+**Description:** Decision rationale comparing BRDT, WaveBench inverse source, OpenFWI, OpenSWI, Fourier ptychography, holography, and diffraction tomography as possible additional inverse-wave lanes. It records why BRDT and WaveBench are both active candidate preflights and why neither candidate can replace CDI `lines128` or PDEBench CNS.
+**Keywords:** neurips, inverse-wave, brdt, wavebench, openfwi, openswi, benchmark-rationale, candidate
+**Use this when:** Deciding how optional inverse-wave candidate work should be routed, reviewing why BRDT and WaveBench are on equal footing, or preventing optional benchmark work from being confused with the required CDI/CNS evidence package.
+
+### [NeurIPS WaveBench Inverse Source Benchmark Design](plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_benchmark_design.md)
+**Description:** Active candidate design for WaveBench inverse source reconstruction as a possible inverse-wave evidence lane, including supervised and physics-informed variants, dataset/forward-model validation requirements, baseline compatibility, and shared-encoder cautions. This is concurrent candidate work on equal footing with BRDT.
+**Keywords:** neurips, wavebench, inverse-source, wave-equation, fno, unet, candidate
+**Use this when:** Planning or reviewing the WaveBench candidate preflight, checking what must be verified before physics-informed rows are credible, or distinguishing WaveBench inverse source from OpenFWI and BRDT.
+
 ### [NeurIPS Hybrid ResNet PDEBench CNS Paper Contract Decision](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md)
 **Description:** Durable decision that fixes the authoritative CNS paper lane to the bounded capped `history_len=2` contract, records the exact normalization and training-recipe bindings, names the exact headline row roster and authored-FFNO cutoff/status, rejects immediate full-training on compute/deadline grounds, and keeps `history_len=3` as adjacent capped context only.
 **Keywords:** neurips, hybrid_resnet, pdebench, cns, paper-contract, capped, history_len, ffno, claim-boundary

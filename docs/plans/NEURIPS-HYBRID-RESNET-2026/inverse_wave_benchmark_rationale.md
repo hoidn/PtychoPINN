@@ -2,8 +2,8 @@
 
 ## Purpose
 
-This note records the benchmark discussion that led to the WaveBench inverse
-source preflight. It is meant to prevent future manuscript or workflow tasks
+This note records the inverse-wave benchmark discussion behind the current
+candidate lanes. It is meant to prevent future manuscript or workflow tasks
 from rediscovering the same options and accidentally changing the evidence
 strategy.
 
@@ -14,8 +14,9 @@ The current manuscript evidence package remains:
 2. PDEBench `2d_cfd_cns` as the required cross-domain global/local dynamics
    benchmark.
 
-WaveBench inverse source reconstruction is an additional candidate evidence
-lane alongside CDI and CNS. It is an addition to those pillars.
+Candidate inverse-wave lanes are additions to CDI and CNS. They may execute
+concurrently only when selected by backlog priority and steering, and they do
+not replace either required pillar.
 
 ## Goal Of The Search
 
@@ -64,7 +65,7 @@ problem with coherent large-scale flow and local high-gradient structures.
 It is not an inverse reconstruction task in the same sense as CDI, but it is
 already part of the active roadmap and evidence package. It stays as the
 required second pillar unless a separate roadmap decision changes the paper
-strategy. This WaveBench discussion does not make that change.
+strategy. This inverse-wave candidate discussion does not make that change.
 
 ## Benchmarks Considered
 
@@ -197,8 +198,9 @@ Reasons it was not chosen:
 - It is still optical wave imaging, so it broadens the imaging story less than
   a non-optical wave benchmark.
 
-Conclusion: promising but not as ready as WaveBench for immediate benchmark
-preflight.
+Conclusion: promising but under-specified in the first comparison. The later
+BRDT design makes the Born/Rytov variant concrete enough to run as an active
+candidate preflight on equal footing with WaveBench.
 
 ### Diffraction Tomography
 
@@ -218,13 +220,16 @@ Reasons it is attractive:
 - Born/Rytov versions can be much cheaper than full multiple-scattering
   solvers.
 
-Reasons it was not chosen:
+Reasons it was not chosen in the first discussion:
 
 - Ready ML baselines and benchmark splits are less standardized.
 - A paper-grade benchmark would likely require significant design work.
 - Full multiple-scattering versions can become expensive and solver-heavy.
 
-Conclusion: conceptually strong, but not ready enough for this manuscript path.
+Revised conclusion: Born/Rytov diffraction tomography is an active preflight
+candidate because the cheap FFT-heavy forward model is close to CDI's
+computational shape while adding a distinct inverse-scattering task. Its active
+scope is a limited preflight, not a paper table.
 
 ### WaveBench Inverse Source Reconstruction
 
@@ -270,37 +275,62 @@ Limitations:
 - Native WaveBench baselines and shared-encoder rows are not automatically the
   same comparison and must be labeled separately.
 
-Conclusion: WaveBench inverse source is the best immediate candidate for an
-additional controlled 2D inverse-wave evidence lane, provided preflight confirms
-data, baseline, adapter, and forward-model feasibility.
+Conclusion: WaveBench inverse source is also an active preflight candidate. Its
+native FNO/U-Net baseline infrastructure is stronger than BRDT's, while its
+boundary-time measurement geometry and local forward solver reproduction
+requirements create a different integration risk profile.
 
-## Why WaveBench Was Chosen For Preflight
+## Candidate Priority Decision
 
-WaveBench inverse source best balances the constraints:
+The active candidate decision is:
 
-| Criterion | WaveBench inverse source | OpenFWI | OpenSWI | Optical alternatives |
+1. Born/Rytov diffraction tomography and WaveBench inverse source are both
+   active candidate preflights.
+2. They are on equal footing as optional additions, not required paper pillars.
+3. They share the same candidate priority class so neither is hard-coded ahead
+   of the other.
+
+The reason is not that either candidate replaces CDI or CNS. BRDT has a cheaper
+and more CDI-like differentiable physics loop. WaveBench has stronger native ML
+benchmark infrastructure and FNO/U-Net baselines. The preflights should test
+those tradeoffs directly.
+
+Comparison summary:
+
+| Criterion | BRDT | WaveBench inverse source | OpenFWI | OpenSWI |
 | --- | --- | --- | --- | --- |
-| 2D target | yes | yes | no | yes |
-| Known forward model | yes | yes | yes | yes |
-| Supervised training possible | yes | yes | yes | yes |
-| Physics-informed training possible | yes, if solver aligns | yes, expensive | yes, but 1D | yes |
-| FNO is a strong baseline | yes | only after encoder adaptation | not canonical | plausible but less canonical |
-| Ready ML baselines | yes, FNO/U-Net | yes, but different native models | yes, but 1D | fragmented |
-| Distinct from CDI | yes | yes | yes, but wrong target type | mixed |
-| Immediate feasibility | medium-high | medium-low | high, but weak fit | medium-low |
+| 2D target | yes | yes | yes | no |
+| Known forward model | yes, linearized | yes | yes | yes |
+| Cheap differentiable physics loop | yes | maybe, after solver alignment | no | yes, but 1D |
+| Close to CDI computational shape | high | medium | low | low |
+| Existing ML baselines | weaker | stronger | strong | yes, but 1D |
+| Distinct from CDI | yes | yes | yes | yes, but wrong target type |
+| Immediate manuscript fit | high as preflight | high as preflight | low | low |
 
-The decision is not that WaveBench is more important than CDI or CNS. The
-decision is that, if we add a third benchmark lane, WaveBench inverse source is
-the most practical controlled 2D inverse-wave candidate to preflight first.
+The routing should use backlog priority rather than adding a special gate for
+each candidate. `candidate-*` items are allowed by the current gate, and lower
+priority numbers stay ahead of candidate preflights.
 
 ## Resulting Work Items
 
-The design produced two local planning artifacts:
+Active candidates:
 
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md`
+- `docs/backlog/active/2026-04-29-brdt-candidate-preflight.md`
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_benchmark_design.md`
 - `docs/backlog/active/2026-04-29-wavebench-inverse-source-preflight.md`
 
-The backlog item is intentionally a preflight. It should answer:
+The BRDT preflight should answer:
+
+- Is the physical target locked as
+  `q = k_m^2 ((n / n_m)^2 - 1)`?
+- Does the PyTorch Born operator pass independent correctness checks?
+- Is normalization safe for the physics loss?
+- Can the synthetic dataset and adapters support the four-row decision-support
+  roster?
+- Should BRDT be promoted by a later evidence-package amendment?
+
+The WaveBench preflight should answer:
 
 - Which WaveBench inverse-source variant should be used?
 - What are the exact input/target shapes, sample counts, splits, and data
@@ -312,12 +342,14 @@ The backlog item is intentionally a preflight. It should answer:
   ground-truth `q_0`?
 - Should WaveBench become an additional roadmap evidence lane?
 
-No full WaveBench benchmark should run until that preflight is complete.
+No full BRDT or WaveBench benchmark should run until its preflight is complete
+and a later amendment promotes that lane.
 
 ## Current Decision
 
-Keep CDI and CNS as the governing manuscript pillars. Add WaveBench inverse
-source reconstruction only as a candidate third evidence lane, pending
-preflight. Do not use OpenSWI as a main benchmark because it is 1D. Do not start
-OpenFWI physics-informed work now because the solver and input-geometry burden
-is too large for the immediate manuscript path.
+Keep CDI and CNS as the governing manuscript pillars. Run BRDT and WaveBench
+inverse source as active concurrent candidate preflights under the broad
+`candidate-*` gate and the same low-priority candidate class. Do not use OpenSWI
+as a main benchmark because it is 1D. Do not start OpenFWI physics-informed
+work now because the solver and input-geometry burden is too large for the
+immediate manuscript path.
