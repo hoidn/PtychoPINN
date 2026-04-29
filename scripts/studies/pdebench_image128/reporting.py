@@ -1673,6 +1673,9 @@ def build_cns_paper_table_bundle(
 
 def validate_cns_paper_table_bundle(payload: dict[str, Any]) -> dict[str, Any]:
     rows = list(payload.get("rows", []))
+    table_row_ids = [str(row.get("row_id", "")) for row in rows]
+    headline_row_ids = [str(row_id) for row_id in payload.get("headline_row_ids", [])]
+    continuity_row_ids = [str(row_id) for row_id in payload.get("continuity_row_ids", [])]
     headline_rows = [row for row in rows if row.get("row_role") == "headline"]
     split_labels = {row.get("split_label") for row in headline_rows}
     mixed_cap = len(split_labels) > 1
@@ -1688,6 +1691,9 @@ def validate_cns_paper_table_bundle(payload: dict[str, Any]) -> dict[str, Any]:
         "all_rows_capped_decision_support": all_rows_capped,
         "no_paper_grade_or_full_training_labels": no_paper_grade,
         "benchmark_status": str(payload.get("benchmark_status", "")),
+        "table_row_ids": table_row_ids,
+        "table_headline_row_ids": headline_row_ids,
+        "table_continuity_row_ids": continuity_row_ids,
     }
 
 

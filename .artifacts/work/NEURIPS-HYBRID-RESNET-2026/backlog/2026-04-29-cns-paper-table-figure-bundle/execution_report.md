@@ -4,37 +4,42 @@
 
 - Fixed the review gaps in
   `scripts/studies/pdebench_image128/cns_paper_bundle.py`:
-  - compatible `1024 / 128 / 128` candidate discovery now rejects
-    non-authoritative roots unless `status=completed` and
-    `evidence_scope=capped_decision_support_only`
-  - missing `1024` headline rows now emit a durable
-    `1024_rerun_manifest.json` and support an optional tmux/PID-tracked rerun
-    execution path with explicit `upgrade_ready_after_reruns`
-  - shared field/error scales are computed once across the full selected sample
-    set before rendering, so manifests and PNGs stay aligned even when more
-    than one sample is bundled
+  - missing `1024` headline rows now emit `pilot`-mode rerun commands, so
+    successful reruns can satisfy the existing
+    `capped_decision_support_only` authority contract instead of being trapped
+    in `smoke_feasibility_only`
+  - expensive rerun launch is now gated by the plan-required
+    `pytest`/`compileall` preflight commands, with durable evidence written to
+    `verification/rerun_preflight_checks.json`
+  - `bundle_validation.json` now records the accepted table roster, the visual
+    bundle roster, and explicit agreement checks between the table payload,
+    `fixed_sample_manifest.json`, `figure_manifest.json`, and the rendered
+    figure entries
 - Added focused regression coverage in
   `tests/studies/test_pdebench_image128_runner.py` for:
-  - successful post-rerun `1024` audit promotion
+  - successful post-rerun `1024` audit promotion through a real tiny
+    `pilot`-mode rerun
   - rejection of non-authoritative matching `1024` roots
-  - cross-sample shared-scale manifest correctness
+  - enforced pre-rerun verification gating
+  - durable bundle-validation roster agreement
 - Rebuilt the real CNS bundle artifact root with the repaired code so the
   checked-out artifacts now include the refreshed
-  `1024_same_cap_audit.{json,md}`, the new `1024_rerun_manifest.json`, and
-  fresh verification logs.
+  `1024_same_cap_audit.{json,md}`, `1024_rerun_manifest.json`,
+  `bundle_validation.json`, and fresh verification logs.
 
 ## Completed Current-Scope Work
 
 - High review item resolved: the approved rerun-capable `1024` upgrade path now
-  exists end-to-end in code. The audit can remain `upgrade_ready`, advance to
-  `upgrade_ready_after_reruns`, or fall back cleanly to `512`, and the rerun
-  path records exact output roots plus tracked PID/exit-code evidence.
-- Medium review item resolved: figure scale manifests no longer depend on the
-  last processed sample. The bundle computes global per-field value/error
-  scales across the full selected visual set before any panel is written.
-- Medium review item resolved: `_discover_compatible_run()` no longer treats a
-  failed, smoke-only, or otherwise non-authoritative run tree as a valid
-  `1024` headline row just because its contract metadata matches.
+  exists end-to-end in code under the approved capped contract. The audit can
+  remain `upgrade_ready`, advance to `upgrade_ready_after_reruns`, or fall back
+  cleanly to `512`, and the rerun path now points at a mode that can become
+  authoritative after completion.
+- Medium review item resolved: the only path that can spend GPU time now
+  enforces the required local verification gate before launch instead of
+  relying on operator discipline.
+- Medium review item resolved: the durable validation payload now proves row
+  roster, claim-boundary, and figure/table agreement inside the bundle root
+  rather than relying on an external verification note.
 - The authoritative checked-in bundle still stays on the locked
   `512 / 64 / 64` lane because this pass fixed the implementation and refreshed
   the fallback audit, but did not launch the expensive real `1024` reruns.
@@ -53,10 +58,10 @@
 
 - `pytest -q tests/studies/test_pdebench_cfd_cns_metrics.py tests/studies/test_pdebench_image128_runner.py`
   Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/verification/pytest_required.log`
-  Result: `49 passed in 53.31s`
+  Result: `51 passed in 65.23s`
 - `pytest -q tests/studies/test_pdebench_image128_visualization.py`
   Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/verification/pytest_visualization.log`
-  Result: `6 passed in 0.98s`
+  Result: `6 passed in 0.96s`
 - `python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py`
   Log: `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/verification/compileall.log`
   Result: exit `0`
@@ -67,6 +72,9 @@
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/verification/bundle_verify.log`
   Result: `sample_ids=[0]`, `figure_entries=44`,
   `validation_benchmark_status=paper_complete`,
+  `validation_table_visual_agreement=True`,
+  `validation_sample_figure_agreement=True`,
+  `validation_figure_entry_agreement=True`,
   `audit_outcome=fallback_to_512_required`
 
 ## Residual Risks

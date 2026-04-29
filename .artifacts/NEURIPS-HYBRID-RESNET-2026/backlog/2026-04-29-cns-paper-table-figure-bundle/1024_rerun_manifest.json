@@ -1,5 +1,5 @@
 {
-  "created_at_utc": "2026-04-29T19:29:10.609316+00:00",
+  "created_at_utc": "2026-04-29T19:52:59.796958+00:00",
   "expected_contract": {
     "batch_size": 4,
     "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
@@ -30,7 +30,7 @@
       },
       "output_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/fno-1024cap-40ep",
       "reason": "missing_same_contract_1024_row",
-      "rerun_command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/fno-1024cap-40ep --profiles fno_base --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 1024 --max-val-trajectories 128 --max-test-trajectories 128 --max-windows-per-trajectory 8 --device cuda --num-workers 0",
+      "rerun_command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode pilot --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/fno-1024cap-40ep --profiles fno_base --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 1024 --max-val-trajectories 128 --max-test-trajectories 128 --max-windows-per-trajectory 8 --device cuda --num-workers 0",
       "row_id": "fno_base",
       "stderr_log_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/fno-1024cap-40ep/logs/cns_bundle_rerun.stderr.log",
       "stdout_log_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/fno-1024cap-40ep/logs/cns_bundle_rerun.stdout.log",
@@ -47,7 +47,7 @@
       },
       "output_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/unet_strong-1024cap-40ep",
       "reason": "missing_same_contract_1024_row",
-      "rerun_command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/unet_strong-1024cap-40ep --profiles unet_strong --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 1024 --max-val-trajectories 128 --max-test-trajectories 128 --max-windows-per-trajectory 8 --device cuda --num-workers 0",
+      "rerun_command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode pilot --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/unet_strong-1024cap-40ep --profiles unet_strong --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 1024 --max-val-trajectories 128 --max-test-trajectories 128 --max-windows-per-trajectory 8 --device cuda --num-workers 0",
       "row_id": "unet_strong",
       "stderr_log_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/unet_strong-1024cap-40ep/logs/cns_bundle_rerun.stderr.log",
       "stdout_log_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/unet_strong-1024cap-40ep/logs/cns_bundle_rerun.stdout.log",
@@ -64,7 +64,7 @@
       },
       "output_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/author_ffno_cns-1024cap-40ep",
       "reason": "missing_same_contract_1024_row",
-      "rerun_command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/author_ffno_cns-1024cap-40ep --profiles author_ffno_cns_base --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 1024 --max-val-trajectories 128 --max-test-trajectories 128 --max-windows-per-trajectory 8 --device cuda --num-workers 0",
+      "rerun_command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode pilot --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/author_ffno_cns-1024cap-40ep --profiles author_ffno_cns_base --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 1024 --max-val-trajectories 128 --max-test-trajectories 128 --max-windows-per-trajectory 8 --device cuda --num-workers 0",
       "row_id": "author_ffno_cns_base",
       "stderr_log_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/author_ffno_cns-1024cap-40ep/logs/cns_bundle_rerun.stderr.log",
       "stdout_log_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/rerun_candidates/author_ffno_cns-1024cap-40ep/logs/cns_bundle_rerun.stdout.log",

@@ -60,6 +60,28 @@ RERUN_REQUIRED_LOGS = {
     "pid": "cns_bundle_rerun.pid",
     "exit_code": "cns_bundle_rerun.exit_code",
 }
+RERUN_PREFLIGHT_COMMANDS = [
+    (
+        "pytest_required.log",
+        [
+            "pytest",
+            "-q",
+            "tests/studies/test_pdebench_cfd_cns_metrics.py",
+            "tests/studies/test_pdebench_image128_runner.py",
+        ],
+    ),
+    (
+        "compileall.log",
+        [
+            "python",
+            "-m",
+            "compileall",
+            "-q",
+            "scripts/studies/pdebench_image128",
+            "scripts/studies/run_pdebench_image128_suite.py",
+        ],
+    ),
+]
 AUTHORITATIVE_EVIDENCE_SCOPE = "capped_decision_support_only"
 AUTHORITATIVE_ROW_STATUS = "completed"
 
@@ -169,7 +191,7 @@ def _rerun_command(profile_id: str, *, expected_contract: dict[str, Any], output
     return (
         "python scripts/studies/run_pdebench_image128_suite.py "
         "--task 2d_cfd_cns "
-        "--mode readiness "
+        "--mode pilot "
         f"--data-root {data_root} "
         f"--output-root {_rerun_output_root(profile_id, output_root)} "
         f"--profiles {profile_id} "
@@ -353,6 +375,40 @@ def _default_rerun_executor(
     return payload
 
 
+def _default_rerun_preflight_verifier(*, output_root: Path) -> dict[str, Any]:
+    verification_root = Path(output_root) / "verification"
+    verification_root.mkdir(parents=True, exist_ok=True)
+    results: list[dict[str, Any]] = []
+    for log_name, command in RERUN_PREFLIGHT_COMMANDS:
+        completed = subprocess.run(
+            command,
+            cwd=REPO_ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+        )
+        log_path = verification_root / log_name
+        log_path.write_text(completed.stdout or "", encoding="utf-8")
+        results.append(
+            {
+                "command": " ".join(command),
+                "exit_code": int(completed.returncode),
+                "log_path": str(log_path),
+            }
+        )
+    payload = {
+        "schema_version": "pdebench_cns_rerun_preflight_v1",
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "status": "passed" if all(item["exit_code"] == 0 for item in results) else "failed",
+        "results": results,
+    }
+    _write_json(verification_root / "rerun_preflight_checks.json", payload)
+    if payload["status"] != "passed":
+        raise RuntimeError("rerun preflight checks failed")
+    return payload
+
+
 def audit_cns_paper_bundle_upgrade(
     *,
     locked_rows_path: Path,
@@ -361,6 +417,7 @@ def audit_cns_paper_bundle_upgrade(
     preferred_run_roots: dict[str, Path] | None = None,
     execute_missing_reruns: bool = False,
     rerun_executor: Callable[..., dict[str, Any]] | None = None,
+    rerun_preflight_verifier: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     locked_rows_payload = _load_json(Path(locked_rows_path))
     output_root = Path(output_root)
@@ -392,7 +449,10 @@ def audit_cns_paper_bundle_upgrade(
     _write_json(output_root / "1024_rerun_manifest.json", rerun_manifest)
 
     rerun_execution: dict[str, Any] | None = None
+    rerun_preflight: dict[str, Any] | None = None
     if missing_rows and execute_missing_reruns:
+        verifier = rerun_preflight_verifier or _default_rerun_preflight_verifier
+        rerun_preflight = verifier(output_root=output_root)
         executor = rerun_executor or _default_rerun_executor
         rerun_execution = executor(
             rerun_candidates=missing_rows,
@@ -422,6 +482,7 @@ def audit_cns_paper_bundle_upgrade(
         "compatible_1024_rows": compatible_rows,
         "missing_or_incompatible_rows": missing_rows,
         "rerun_manifest_path": str(output_root / "1024_rerun_manifest.json"),
+        "rerun_preflight": rerun_preflight,
         "rerun_execution": rerun_execution,
         "comparison_standard": "Exact match on dataset file, split counts, max_windows_per_trajectory, history_len, epochs, batch_size, training_loss, and metric_family.",
         "authority_standard": "Rows must be completed and expose evidence_scope=capped_decision_support_only.",
@@ -687,6 +748,7 @@ def run_cns_paper_bundle(
     search_roots: list[Path] | None = None,
     execute_missing_1024_reruns: bool = False,
     rerun_executor: Callable[..., dict[str, Any]] | None = None,
+    rerun_preflight_verifier: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     locked_rows_path = Path(locked_rows_path)
     output_root = Path(output_root)
@@ -698,6 +760,7 @@ def run_cns_paper_bundle(
         search_roots=search_roots,
         execute_missing_reruns=execute_missing_1024_reruns,
         rerun_executor=rerun_executor,
+        rerun_preflight_verifier=rerun_preflight_verifier,
     )
     locked_rows_payload = _load_json(locked_rows_path)
     bundle_kind = (
@@ -722,6 +785,30 @@ def run_cns_paper_bundle(
     )
     table_json, table_csv, table_tex = write_cns_paper_table_bundle(table_payload, output_root)
     figure_payload = _build_figure_bundle(locked_rows_payload, output_root=output_root)
+    sample_manifest = _load_json(Path(figure_payload["sample_manifest_path"]))
+    figure_manifest = _load_json(Path(figure_payload["figure_manifest_path"]))
+
+    table_rows = list(table_payload.get("rows", []))
+    rows_by_id = {str(row["row_id"]): row for row in table_rows}
+    headline_row_ids = [str(row_id) for row_id in table_payload.get("headline_row_ids", [])]
+    continuity_row_ids = [str(row_id) for row_id in table_payload.get("continuity_row_ids", [])]
+    headline_split_label = str(rows_by_id[headline_row_ids[0]]["split_label"]) if headline_row_ids else ""
+    expected_visual_row_ids = list(headline_row_ids)
+    expected_visual_row_ids.extend(
+        row_id
+        for row_id in continuity_row_ids
+        if str(rows_by_id[row_id]["split_label"]) == headline_split_label
+    )
+    sample_manifest_row_ids = [str(row_id) for row_id in sample_manifest.get("rows_in_visual_bundle", [])]
+    figure_manifest_row_ids = [str(row_id) for row_id in figure_manifest.get("rows_in_visual_bundle", [])]
+    figure_entry_row_ids = sorted(
+        {
+            str(entry["row_id"])
+            for entry in figure_manifest.get("entries", [])
+            if str(entry.get("row_id", "")) != "ground_truth"
+        }
+    )
+    figure_entry_sample_ids = sorted({int(entry["sample_id"]) for entry in figure_manifest.get("entries", [])})
 
     validation_payload = {
         **validate_cns_paper_table_bundle(table_payload),
@@ -730,6 +817,23 @@ def run_cns_paper_bundle(
         "table_tex_path": str(table_tex),
         "figure_manifest_path": figure_payload["figure_manifest_path"],
         "sample_manifest_path": figure_payload["sample_manifest_path"],
+        "visual_bundle_row_ids": expected_visual_row_ids,
+        "sample_manifest_row_ids": sample_manifest_row_ids,
+        "figure_manifest_row_ids": figure_manifest_row_ids,
+        "figure_entry_row_ids": figure_entry_row_ids,
+        "sample_manifest_matches_figure_manifest": (
+            sample_manifest.get("sample_ids") == figure_manifest.get("sample_ids")
+            and sample_manifest.get("field_order") == figure_manifest.get("field_order")
+            and sample_manifest_row_ids == figure_manifest_row_ids
+        ),
+        "table_and_visual_row_rosters_agree": (
+            expected_visual_row_ids == sample_manifest_row_ids == figure_manifest_row_ids
+        ),
+        "figure_entries_match_visual_bundle": (
+            sorted(expected_visual_row_ids) == figure_entry_row_ids
+            and list(sample_manifest.get("sample_ids", [])) == list(figure_manifest.get("sample_ids", []))
+            and figure_entry_sample_ids == sorted(int(item) for item in sample_manifest.get("sample_ids", []))
+        ),
     }
     _write_json(output_root / "bundle_validation.json", validation_payload)
     return {

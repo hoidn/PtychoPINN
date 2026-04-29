@@ -37,6 +37,10 @@ Audit result:
 - rerun commands were emitted for those missing rows, but the checked-in bundle
   remains on the existing authoritative `512 / 64 / 64` lock until a widened
   contract and row-lock are actually checked in
+- any later `--execute-missing-1024-reruns` launch is now required to pass the
+  bundle-local `pytest` and `compileall` preflight gate first, with evidence
+  recorded in
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/verification/rerun_preflight_checks.json`
 
 ## Final Bundle Contract
 
@@ -111,6 +115,10 @@ Validation:
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/bundle_validation.json`
 - bundle input manifest:
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/bundle_input_manifest.json`
+- the bundle validation payload now records the headline/continuity row sets,
+  the shared visual-bundle roster, and explicit agreement checks across the
+  table rows, fixed-sample manifest, figure manifest, and rendered figure
+  entries
 
 ## Provenance Boundary
 
