@@ -143,6 +143,10 @@ Selected contract as of `2026-04-29`:
 
 - authoritative decision:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md`
+- durable row-lock summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_row_lock_summary.md`
+- machine-readable locked-row manifest:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/cns_paper_locked_rows.json`
 - Selected contract: `bounded_capped_decision_support`
 - Selected history lane: `history_len=2`, `40` epochs, `512 / 64 / 64` trajectories, `max_windows_per_trajectory=8`, emitted windows `4096 / 512 / 512`
 - Selected normalization contract: train-only per-field normalization fit on the `512` training trajectories, reused across all history slots and target channels, with evaluation reported in denormalized target space.
@@ -158,6 +162,14 @@ Selected contract as of `2026-04-29`:
 The package no longer leaves the CNS contract open-ended. Future readers should
 not recover normalization or training recipe rules from older summaries; the
 decision document above is now the authority surface for both.
+
+The row-lock pass also freezes the accepted run roots for downstream
+table/figure assembly. That lock is intentionally narrower than the package's
+paper-grade provenance target: the accepted capped roots expose invocation,
+dataset/split, normalization, profile, metrics, and source-array assets, but
+they do not emit standalone repo-git, run-log, or exit-code artifacts. Treat
+the locked manifest as bounded `capped_decision_support` authority only, not as
+proof that the CNS pillar has reached `paper_grade` provenance completeness.
 
 Required CNS table rows:
 

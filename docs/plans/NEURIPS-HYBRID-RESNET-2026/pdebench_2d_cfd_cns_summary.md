@@ -19,6 +19,7 @@ This summary records implementation/readiness state only. It does not create man
 The CNS paper contract is now fixed by:
 
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md`
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_row_lock_summary.md`
 
 Selected paper path:
 
@@ -41,6 +42,16 @@ Claim boundary:
   requires a checked-in decision update rather than silent table drift
 - downstream consumers should use the decision document above, not older
   summaries, as the authority for normalization and training recipe wording
+
+Row-lock follow-up:
+
+- the durable row authority for downstream table/figure work is now
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_row_lock_summary.md`
+- the machine-readable locked-row manifest is
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/cns_paper_locked_rows.json`
+- accepted rows remain usable for `capped_decision_support` assembly only; the
+  reused roots still lack standalone repo-git, run-log, and exit-code artifacts,
+  so this lock does not make them paper-grade provenance-complete rows
 
 ## Implemented Contract
 
