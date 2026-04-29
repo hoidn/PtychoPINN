@@ -534,6 +534,102 @@ def test_spectral_resnet_bottleneck_profile_uses_same_cns_skip_shell():
     assert tuple(y.shape) == (1, 4, 128, 128)
 
 
+def test_spectral_resnet_bottleneck_base_down1_profile_stays_manual_and_changes_only_downsample_depth():
+    from scripts.studies.pdebench_image128.run_config import (
+        PRIMARY_CFD_CNS_PROFILE_IDS,
+        READINESS_CFD_CNS_PROFILE_IDS,
+        get_model_profile,
+    )
+
+    base = get_model_profile("spectral_resnet_bottleneck_base").to_model_config()
+    down1 = get_model_profile("spectral_resnet_bottleneck_base_down1").to_model_config()
+
+    assert down1["base_model"] == "spectral_resnet_bottleneck_net"
+    assert down1["evidence_scope"] == "manual-only"
+    assert down1["hybrid_downsample_steps"] == 1
+    assert "spectral_resnet_bottleneck_base_down1" not in PRIMARY_CFD_CNS_PROFILE_IDS
+    assert "spectral_resnet_bottleneck_base_down1" not in READINESS_CFD_CNS_PROFILE_IDS
+    assert {
+        key: value
+        for key, value in down1.items()
+        if key not in {"profile_id", "evidence_scope", "hybrid_downsample_steps"}
+    } == {
+        key: value
+        for key, value in base.items()
+        if key not in {"profile_id", "evidence_scope", "hybrid_downsample_steps"}
+    }
+
+
+def test_spectral_resnet_bottleneck_base_down1_builds_single_stage_shell():
+    from scripts.studies.pdebench_image128.models import PadCropWrapper, build_model_from_profile
+    from scripts.studies.pdebench_image128.run_config import get_model_profile
+
+    model = build_model_from_profile(
+        get_model_profile("spectral_resnet_bottleneck_base_down1"),
+        in_channels=8,
+        out_channels=4,
+        spatial_shape=(128, 128),
+    )
+
+    assert isinstance(model, PadCropWrapper)
+    assert len(model.module.downsample_layers) == 1
+    assert len(model.module.upsample_layers) == 1
+    assert model.module.skip_connections is True
+    assert model.module.hybrid_skip_style == "add"
+
+    y = model(torch.zeros(1, 8, 128, 128))
+
+    assert tuple(y.shape) == (1, 4, 128, 128)
+
+
+def test_spectral_resnet_bottleneck_base_transpose_profile_stays_manual_and_changes_only_decoder_choice():
+    from scripts.studies.pdebench_image128.run_config import (
+        PRIMARY_CFD_CNS_PROFILE_IDS,
+        READINESS_CFD_CNS_PROFILE_IDS,
+        get_model_profile,
+    )
+
+    base = get_model_profile("spectral_resnet_bottleneck_base").to_model_config()
+    transpose = get_model_profile("spectral_resnet_bottleneck_base_transpose").to_model_config()
+
+    assert transpose["base_model"] == "spectral_resnet_bottleneck_net"
+    assert transpose["evidence_scope"] == "manual-only"
+    assert transpose["hybrid_upsampler"] == "cyclegan_transpose"
+    assert "spectral_resnet_bottleneck_base_transpose" not in PRIMARY_CFD_CNS_PROFILE_IDS
+    assert "spectral_resnet_bottleneck_base_transpose" not in READINESS_CFD_CNS_PROFILE_IDS
+    assert {
+        key: value
+        for key, value in transpose.items()
+        if key not in {"profile_id", "evidence_scope", "hybrid_upsampler"}
+    } == {
+        key: value
+        for key, value in base.items()
+        if key not in {"profile_id", "evidence_scope", "hybrid_upsampler"}
+    }
+
+
+def test_spectral_resnet_bottleneck_base_transpose_builds_under_canonical_skip_shell():
+    from scripts.studies.pdebench_image128.models import PadCropWrapper, build_model_from_profile
+    from scripts.studies.pdebench_image128.run_config import get_model_profile
+
+    model = build_model_from_profile(
+        get_model_profile("spectral_resnet_bottleneck_base_transpose"),
+        in_channels=8,
+        out_channels=4,
+        spatial_shape=(128, 128),
+    )
+
+    assert isinstance(model, PadCropWrapper)
+    assert len(model.module.downsample_layers) == 2
+    assert len(model.module.upsample_layers) == 2
+    assert model.module.skip_connections is True
+    assert model.module.hybrid_skip_style == "add"
+
+    y = model(torch.zeros(1, 8, 128, 128))
+
+    assert tuple(y.shape) == (1, 4, 128, 128)
+
+
 def test_spectral_noshare_profile_only_flips_weight_sharing():
     from scripts.studies.pdebench_image128.run_config import get_model_profile
 
