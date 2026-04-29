@@ -13,6 +13,7 @@ def test_image128_model_profiles_build_and_record_parameter_counts():
         "hybrid_resnet_skip_add",
         "hybrid_resnet_modes24",
         "spectral_resnet_bottleneck_base",
+        "spectral_resnet_bottleneck_modes24",
         "spectral_resnet_bottleneck_noshare",
         "ffno_bottleneck_base",
         "ffno_bottleneck_localconv_base",
@@ -659,12 +660,49 @@ def test_optional_bottleneck_profiles_stay_out_of_default_bundle_sets():
 
     for profile_id in [
         "spectral_resnet_bottleneck_base",
+        "spectral_resnet_bottleneck_modes24",
         "spectral_resnet_bottleneck_noshare",
         "ffno_bottleneck_base",
     ]:
         assert profile_id not in PRIMARY_DARCY_PROFILE_IDS
         assert profile_id not in PRIMARY_CFD_CNS_PROFILE_IDS
         assert profile_id not in READINESS_CFD_CNS_PROFILE_IDS
+
+
+def test_spectral_resnet_bottleneck_modes24_profile_stays_manual_and_out_of_default_bundles():
+    from scripts.studies.pdebench_image128.run_config import (
+        PRIMARY_CFD_CNS_PROFILE_IDS,
+        PRIMARY_DARCY_PROFILE_IDS,
+        READINESS_CFD_CNS_PROFILE_IDS,
+        get_model_profile,
+    )
+
+    profile = get_model_profile("spectral_resnet_bottleneck_modes24").to_model_config()
+
+    assert profile["base_model"] == "spectral_resnet_bottleneck_net"
+    assert profile["evidence_scope"] == "manual-only"
+    assert "spectral_resnet_bottleneck_modes24" not in PRIMARY_DARCY_PROFILE_IDS
+    assert "spectral_resnet_bottleneck_modes24" not in PRIMARY_CFD_CNS_PROFILE_IDS
+    assert "spectral_resnet_bottleneck_modes24" not in READINESS_CFD_CNS_PROFILE_IDS
+
+
+def test_spectral_resnet_bottleneck_modes24_profile_only_changes_the_two_mode_knobs():
+    from scripts.studies.pdebench_image128.run_config import get_model_profile
+
+    base = get_model_profile("spectral_resnet_bottleneck_base").to_model_config()
+    modes24 = get_model_profile("spectral_resnet_bottleneck_modes24").to_model_config()
+
+    assert modes24["fno_modes"] == 24
+    assert modes24["spectral_bottleneck_modes"] == 24
+    assert {
+        key: value
+        for key, value in modes24.items()
+        if key not in {"profile_id", "fno_modes", "spectral_bottleneck_modes"}
+    } == {
+        key: value
+        for key, value in base.items()
+        if key not in {"profile_id", "fno_modes", "spectral_bottleneck_modes"}
+    }
 
 
 def test_spectral_resnet_bottleneck_modes32_profile_stays_manual_and_out_of_default_bundles():

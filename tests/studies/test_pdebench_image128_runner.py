@@ -2795,3 +2795,47 @@ def test_cfd_cns_pilot_runner_writes_modes32_profile_config_with_explicit_mode_v
     profile_config = model_profile["profile_config"]
     assert profile_config["fno_modes"] == 32
     assert profile_config["spectral_bottleneck_modes"] == 32
+
+
+def test_cfd_cns_pilot_runner_writes_modes24_profile_config_with_explicit_mode_values(tmp_path):
+    from scripts.studies.pdebench_image128.cfd_cns import run_cfd_cns
+
+    data_root = tmp_path / "data"
+    _write_tiny_cfd_cns(
+        data_root / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+    )
+
+    output_root = tmp_path / "pilot_modes24"
+    exit_code = run_cfd_cns(
+        task_id="2d_cfd_cns",
+        mode="pilot",
+        data_root=data_root,
+        output_root=output_root,
+        profile_ids=["spectral_resnet_bottleneck_modes24"],
+        history_len=2,
+        epochs=1,
+        batch_size=2,
+        max_train_trajectories=2,
+        max_val_trajectories=1,
+        max_test_trajectories=1,
+        max_windows_per_trajectory=1,
+        device="cpu",
+        num_workers=0,
+        allow_existing_output_root=True,
+        raw_argv=[
+            "--task",
+            "2d_cfd_cns",
+            "--mode",
+            "pilot",
+            "--profiles",
+            "spectral_resnet_bottleneck_modes24",
+        ],
+    )
+
+    assert exit_code == 0
+    model_profile = json.loads(
+        (output_root / "model_profile_spectral_resnet_bottleneck_modes24.json").read_text(encoding="utf-8")
+    )
+    profile_config = model_profile["profile_config"]
+    assert profile_config["fno_modes"] == 24
+    assert profile_config["spectral_bottleneck_modes"] == 24
