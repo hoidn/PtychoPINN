@@ -1753,6 +1753,238 @@ def test_write_cfd_cns_convergence_audit_rejects_short_loss_history(tmp_path):
         raise AssertionError("convergence audit must reject short loss histories")
 
 
+def test_same_profile_epoch_budget_delta_records_shell_validated_payload(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import (
+        build_reference_run_manifest,
+        write_reference_run_manifest,
+        write_same_profile_epoch_budget_delta,
+    )
+
+    reference_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "reference-40ep",
+        profile_id="spectral_resnet_bottleneck_shared_blocks10",
+        epochs=40,
+        err_nrmse=0.0445732661,
+        runtime_sec=2703.7176,
+        split_counts={"train": 1024, "val": 128, "test": 128},
+    )
+    fresh_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "fresh-80ep",
+        profile_id="spectral_resnet_bottleneck_shared_blocks10",
+        epochs=80,
+        err_nrmse=0.0410000000,
+        runtime_sec=5300.0000,
+        split_counts={"train": 1024, "val": 128, "test": 128},
+        train_epoch_losses=[0.2] * 80,
+    )
+
+    shell_profile = {
+        "profile_id": "spectral_resnet_bottleneck_shared_blocks10",
+        "base_model": "spectral_resnet_bottleneck_net",
+        "parameter_count": 654321,
+        "profile_config": {
+            "profile_id": "spectral_resnet_bottleneck_shared_blocks10",
+            "base_model": "spectral_resnet_bottleneck_net",
+            "hidden_channels": 32,
+            "fno_modes": 12,
+            "fno_blocks": 4,
+            "hybrid_downsample_steps": 2,
+            "hybrid_resnet_blocks": 6,
+            "hybrid_skip_connections": True,
+            "hybrid_skip_style": "add",
+            "hybrid_upsampler": "pixelshuffle",
+            "spectral_bottleneck_modes": 12,
+            "spectral_bottleneck_gate_init": 0.1,
+            "spectral_bottleneck_gate_mode": "shared",
+            "spectral_bottleneck_share_weights": True,
+            "spectral_bottleneck_blocks": 10,
+            "evidence_scope": "manual-only",
+        },
+    }
+    for run_root in (reference_root, fresh_root):
+        (run_root / "model_profile_spectral_resnet_bottleneck_shared_blocks10.json").write_text(
+            json.dumps(shell_profile, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    shell_contract_path = tmp_path / "reference_shell_contract_shared_blocks10_1024cap.json"
+    shell_contract_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "pdebench_image128_shell_contract_v1",
+                "profile_id": "spectral_resnet_bottleneck_shared_blocks10",
+                "base_model": "spectral_resnet_bottleneck_net",
+                "profile_config": dict(shell_profile["profile_config"]),
+                "parameter_count": 654321,
+                "source_run_root": str(reference_root),
+                "source_document": "docs/reference-shell.md",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    manifest_path = write_reference_run_manifest(
+        build_reference_run_manifest(
+            task_id="2d_cfd_cns",
+            dataset_file="/tmp/fake-cfd-cns.hdf5",
+            split_counts={"train": 1024, "val": 128, "test": 128},
+            max_windows_per_trajectory=8,
+            history_len=2,
+            training_loss="mse",
+            batch_size=4,
+            metric_family=["err_RMSE", "err_nRMSE", "relative_l2", "fRMSE_low", "fRMSE_mid", "fRMSE_high"],
+            required_rows={
+                "40ep": [
+                    {
+                        "run_root": str(reference_root),
+                        "profile_id": "spectral_resnet_bottleneck_shared_blocks10",
+                        "epochs": 40,
+                        "source_document": "docs/reference-40ep.md",
+                    }
+                ]
+            },
+        ),
+        tmp_path / "reference_runs_1024cap_40ep.json",
+    )
+
+    json_path, csv_path, payload = write_same_profile_epoch_budget_delta(
+        output_root=tmp_path / "out",
+        reference_manifest_path=manifest_path,
+        fresh_run_root=fresh_root,
+        profile_id="spectral_resnet_bottleneck_shared_blocks10",
+        fresh_source_document="docs/fresh-80ep.md",
+        shell_contract_path=shell_contract_path,
+    )
+
+    assert json_path.exists()
+    assert csv_path.exists()
+    assert json_path.name == "shared_blocks10_1024cap_40ep_vs_80ep.json"
+    assert csv_path.name == "shared_blocks10_1024cap_40ep_vs_80ep.csv"
+    assert payload["schema_version"] == "pdebench_image128_same_profile_epoch_budget_delta_v1"
+    assert payload["evidence_scope"] == "capped_decision_support_only"
+    assert payload["metric_interpretation"] == "decision_support_not_benchmark_performance"
+    assert payload["allowed_contract_delta"] == {
+        "delta_kind": "epochs_only",
+        "reference_epochs": 40,
+        "fresh_epochs": 80,
+    }
+    assert payload["fixed_contract"]["split_counts"] == {"train": 1024, "val": 128, "test": 128}
+    assert payload["shell_contract"]["path"] == str(shell_contract_path)
+    assert payload["shell_contract"]["profile_id"] == "spectral_resnet_bottleneck_shared_blocks10"
+
+    reference_row = payload["reference_profile_result"]
+    fresh_row = payload["fresh_profile_result"]
+    assert reference_row["epochs"] == 40
+    assert fresh_row["epochs"] == 80
+    assert reference_row["source_document"] == "docs/reference-40ep.md"
+    assert fresh_row["source_document"] == "docs/fresh-80ep.md"
+
+    delta = payload["metric_deltas"]
+    assert delta["err_nRMSE"] == pytest.approx(0.0410000000 - 0.0445732661)
+    assert delta["relative_l2"] == pytest.approx(0.0410000000 - 0.0445732661)
+    assert delta["runtime_sec"] == pytest.approx(5300.0000 - 2703.7176)
+
+
+def test_same_profile_epoch_budget_delta_rejects_shell_contract_drift(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import (
+        build_reference_run_manifest,
+        write_reference_run_manifest,
+        write_same_profile_epoch_budget_delta,
+    )
+
+    reference_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "reference-40ep",
+        profile_id="spectral_resnet_bottleneck_shared_blocks10",
+        epochs=40,
+        err_nrmse=0.0445732661,
+        split_counts={"train": 1024, "val": 128, "test": 128},
+    )
+    fresh_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "fresh-80ep",
+        profile_id="spectral_resnet_bottleneck_shared_blocks10",
+        epochs=80,
+        err_nrmse=0.0410000000,
+        split_counts={"train": 1024, "val": 128, "test": 128},
+    )
+
+    reference_profile = {
+        "profile_id": "spectral_resnet_bottleneck_shared_blocks10",
+        "base_model": "spectral_resnet_bottleneck_net",
+        "parameter_count": 654321,
+        "profile_config": {"profile_id": "spectral_resnet_bottleneck_shared_blocks10", "spectral_bottleneck_blocks": 10},
+    }
+    fresh_profile = {
+        "profile_id": "spectral_resnet_bottleneck_shared_blocks10",
+        "base_model": "spectral_resnet_bottleneck_net",
+        "parameter_count": 654321,
+        "profile_config": {"profile_id": "spectral_resnet_bottleneck_shared_blocks10", "spectral_bottleneck_blocks": 8},
+    }
+    (reference_root / "model_profile_spectral_resnet_bottleneck_shared_blocks10.json").write_text(
+        json.dumps(reference_profile, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (fresh_root / "model_profile_spectral_resnet_bottleneck_shared_blocks10.json").write_text(
+        json.dumps(fresh_profile, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    shell_contract_path = tmp_path / "reference_shell_contract_shared_blocks10_1024cap.json"
+    shell_contract_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "pdebench_image128_shell_contract_v1",
+                "profile_id": "spectral_resnet_bottleneck_shared_blocks10",
+                "base_model": "spectral_resnet_bottleneck_net",
+                "profile_config": dict(reference_profile["profile_config"]),
+                "parameter_count": 654321,
+                "source_run_root": str(reference_root),
+                "source_document": "docs/reference-shell.md",
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    manifest_path = write_reference_run_manifest(
+        build_reference_run_manifest(
+            task_id="2d_cfd_cns",
+            dataset_file="/tmp/fake-cfd-cns.hdf5",
+            split_counts={"train": 1024, "val": 128, "test": 128},
+            max_windows_per_trajectory=8,
+            history_len=2,
+            training_loss="mse",
+            batch_size=4,
+            metric_family=["err_RMSE", "err_nRMSE", "relative_l2", "fRMSE_low", "fRMSE_mid", "fRMSE_high"],
+            required_rows={
+                "40ep": [
+                    {
+                        "run_root": str(reference_root),
+                        "profile_id": "spectral_resnet_bottleneck_shared_blocks10",
+                        "epochs": 40,
+                        "source_document": "docs/reference-40ep.md",
+                    }
+                ]
+            },
+        ),
+        tmp_path / "reference_runs_1024cap_40ep.json",
+    )
+
+    with pytest.raises(ValueError, match="profile_config"):
+        write_same_profile_epoch_budget_delta(
+            output_root=tmp_path / "out",
+            reference_manifest_path=manifest_path,
+            fresh_run_root=fresh_root,
+            profile_id="spectral_resnet_bottleneck_shared_blocks10",
+            fresh_source_document="docs/fresh-80ep.md",
+            shell_contract_path=shell_contract_path,
+        )
+
+
 def test_validate_darcy_benchmark_budget_requires_full_split_and_primary_profiles():
     from scripts.studies.pdebench_image128.run_config import validate_darcy_run_budget
 

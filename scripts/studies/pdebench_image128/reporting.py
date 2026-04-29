@@ -54,6 +54,19 @@ SCALING_INVARIANT_CONTRACT_FIELDS = [
     "input_channels",
     "target_channels",
 ]
+EPOCH_BUDGET_INVARIANT_CONTRACT_FIELDS = [
+    "dataset_file",
+    "split_counts",
+    "max_windows_per_trajectory",
+    "history_len",
+    "batch_size",
+    "training_loss",
+    "metric_family",
+    "sample_contract",
+    "field_order",
+    "input_channels",
+    "target_channels",
+]
 
 
 def darcy_literature_context() -> dict[str, Any]:
@@ -352,6 +365,7 @@ def _load_run_record(run_root: Path, *, profile_id: str, source_document: str) -
         "row": row,
         "contract": contract,
         "metrics": metrics,
+        "model_profile": model_profile,
         "npz_path": comparison_npz if comparison_npz.exists() else None,
     }
 
@@ -376,6 +390,34 @@ def _assert_fixed_contract_matches(
     for key in FIXED_CONTRACT_FIELDS:
         if actual.get(key) != expected.get(key):
             raise ValueError(f"{label} contract mismatch for {key}: {actual.get(key)!r} != {expected.get(key)!r}")
+
+
+def _assert_contract_fields_match(
+    *,
+    label: str,
+    actual: dict[str, Any],
+    expected: dict[str, Any],
+    fields: list[str],
+) -> None:
+    for key in fields:
+        if actual.get(key) != expected.get(key):
+            raise ValueError(f"{label} contract mismatch for {key}: {actual.get(key)!r} != {expected.get(key)!r}")
+
+
+def _assert_shell_contract_matches(
+    *,
+    label: str,
+    actual_model_profile: dict[str, Any],
+    shell_contract: dict[str, Any],
+) -> None:
+    for key in ["profile_id", "base_model", "parameter_count"]:
+        if actual_model_profile.get(key) != shell_contract.get(key):
+            raise ValueError(
+                f"{label} shell contract mismatch for {key}: "
+                f"{actual_model_profile.get(key)!r} != {shell_contract.get(key)!r}"
+            )
+    if actual_model_profile.get("profile_config") != shell_contract.get("profile_config"):
+        raise ValueError(f"{label} shell contract mismatch for profile_config")
 
 
 def _assert_scaling_invariant_contract_matches(
@@ -1058,6 +1100,169 @@ def write_cfd_cns_convergence_audit(
         writer.writeheader()
         for row in csv_rows:
             writer.writerow({field: row.get(field, "") for field in fields})
+    return json_path, csv_path, payload
+
+
+def _profile_output_label(profile_id: str) -> str:
+    for prefix in ["spectral_resnet_bottleneck_", "hybrid_resnet_"]:
+        if profile_id.startswith(prefix):
+            return profile_id[len(prefix) :]
+    return profile_id
+
+
+def write_same_profile_epoch_budget_delta(
+    *,
+    output_root: Path,
+    reference_manifest_path: Path,
+    fresh_run_root: Path,
+    profile_id: str,
+    fresh_source_document: str,
+    shell_contract_path: Path,
+) -> tuple[Path, Path, dict[str, Any]]:
+    output_root = Path(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+
+    profile_id = str(profile_id)
+    manifest_payload, rows_by_profile, cap_label = _load_reference_manifest_payload(
+        Path(reference_manifest_path),
+        profile_ids=[profile_id],
+    )
+    reference_row = rows_by_profile[profile_id]
+    reference_expected_contract = {
+        "dataset_file": str(reference_row["dataset_file"]),
+        "split_counts": dict(reference_row["split_counts"]),
+        "max_windows_per_trajectory": int(reference_row["max_windows_per_trajectory"]),
+        "history_len": int(reference_row["history_len"]),
+        "epochs": int(reference_row["epochs"]),
+        "batch_size": int(reference_row["batch_size"]),
+        "training_loss": str(reference_row["training_loss"]),
+        "metric_family": list(reference_row["metric_family"]),
+    }
+    reference_record = _load_run_record(
+        Path(reference_row["run_root"]),
+        profile_id=profile_id,
+        source_document=str(reference_row["source_document"]),
+    )
+    _assert_contract_matches(
+        label=f"reference row {profile_id}",
+        actual=reference_record["contract"],
+        expected=reference_expected_contract,
+    )
+
+    shell_contract = _load_json(Path(shell_contract_path))
+    _assert_shell_contract_matches(
+        label=f"reference row {profile_id}",
+        actual_model_profile=reference_record["model_profile"],
+        shell_contract=shell_contract,
+    )
+
+    fresh_record = _load_run_record(
+        Path(fresh_run_root),
+        profile_id=profile_id,
+        source_document=str(fresh_source_document),
+    )
+    invariant_contract = {
+        key: reference_record["contract"].get(key) for key in EPOCH_BUDGET_INVARIANT_CONTRACT_FIELDS
+    }
+    _assert_contract_fields_match(
+        label=f"fresh row {profile_id}",
+        actual=fresh_record["contract"],
+        expected=invariant_contract,
+        fields=EPOCH_BUDGET_INVARIANT_CONTRACT_FIELDS,
+    )
+
+    reference_epochs = int(reference_record["contract"]["epochs"])
+    fresh_epochs = int(fresh_record["contract"]["epochs"])
+    if fresh_epochs <= reference_epochs:
+        raise ValueError(
+            f"fresh row {profile_id} must use a longer epoch budget than the reference row: "
+            f"{fresh_epochs} !> {reference_epochs}"
+        )
+
+    _assert_shell_contract_matches(
+        label=f"fresh row {profile_id}",
+        actual_model_profile=fresh_record["model_profile"],
+        shell_contract=shell_contract,
+    )
+
+    metric_deltas = {
+        field: _rounded(float(fresh_record["row"][field]) - float(reference_record["row"][field]))
+        for field in COMPARISON_METRIC_FIELDS
+    }
+    metric_deltas["runtime_sec"] = _rounded(
+        float(fresh_record["row"]["runtime_sec"]) - float(reference_record["row"]["runtime_sec"])
+    )
+
+    gallery_artifacts, gallery_blocker = _maybe_render_cross_run_gallery(
+        records=[fresh_record, reference_record],
+        output_root=output_root,
+        epoch_label=f"{reference_epochs}ep_vs_{fresh_epochs}ep",
+    )
+
+    payload = {
+        "schema_version": "pdebench_image128_same_profile_epoch_budget_delta_v1",
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "task_id": "2d_cfd_cns",
+        "profile_id": profile_id,
+        "cap_label": cap_label,
+        "fixed_contract": invariant_contract,
+        "allowed_contract_delta": {
+            "delta_kind": "epochs_only",
+            "reference_epochs": reference_epochs,
+            "fresh_epochs": fresh_epochs,
+        },
+        "evidence_scope": str(fresh_record["row"]["evidence_scope"]),
+        "metric_interpretation": str(fresh_record["row"]["metric_interpretation"]),
+        "reference_manifest_path": str(reference_manifest_path),
+        "reference_profile_result": reference_record["row"],
+        "fresh_profile_result": fresh_record["row"],
+        "metric_deltas": metric_deltas,
+        "shell_contract": {
+            "path": str(shell_contract_path),
+            "profile_id": str(shell_contract.get("profile_id")),
+            "base_model": str(shell_contract.get("base_model")),
+            "parameter_count": shell_contract.get("parameter_count"),
+            "source_run_root": str(shell_contract.get("source_run_root")),
+            "source_document": str(shell_contract.get("source_document")),
+            "profile_config": shell_contract.get("profile_config"),
+        },
+        "gallery_artifacts": gallery_artifacts,
+        "cross_run_gallery_blocked": gallery_blocker,
+    }
+
+    stem = f"{_profile_output_label(profile_id)}_{cap_label}_{reference_epochs}ep_vs_{fresh_epochs}ep"
+    json_path = output_root / f"{stem}.json"
+    csv_path = output_root / f"{stem}.csv"
+    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    fields = [
+        "row_family",
+        "profile_id",
+        "status",
+        "epochs",
+        "runtime_sec",
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high",
+        "parameter_count",
+        "run_root",
+        "source_document",
+        "training_loss",
+        "batch_size",
+        "evidence_scope",
+    ]
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerow(
+            {"row_family": "reference", **{field: payload["reference_profile_result"].get(field, "") for field in fields if field != "row_family"}}
+        )
+        writer.writerow(
+            {"row_family": "fresh", **{field: payload["fresh_profile_result"].get(field, "") for field in fields if field != "row_family"}}
+        )
+        writer.writerow({"row_family": "delta", **{field: payload["metric_deltas"].get(field, "") for field in fields if field != "row_family"}})
     return json_path, csv_path, payload
 
 
