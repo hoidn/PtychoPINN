@@ -1,0 +1,155 @@
+{
+  "benchmark_status": "benchmark_incomplete",
+  "required_rows": [
+    "pinn_hybrid_resnet",
+    "pinn",
+    "pinn_fno_vanilla"
+  ],
+  "selected_fno_comparator": "fno_vanilla",
+  "evidence_scope": "readiness_only_not_benchmark_performance",
+  "missing_fields_by_row": {
+    "pinn_hybrid_resnet": [
+      "parameter_count",
+      "epoch_budget",
+      "final_completed_epoch",
+      "final_train_loss",
+      "validation_loss",
+      "runtime_hardware_summary",
+      "caveats",
+      "metrics.mae",
+      "metrics.mse",
+      "metrics.psnr",
+      "metrics.ssim",
+      "metrics.ms_ssim",
+      "metrics.frc50"
+    ],
+    "pinn": [
+      "parameter_count",
+      "epoch_budget",
+      "final_completed_epoch",
+      "final_train_loss",
+      "validation_loss",
+      "runtime_hardware_summary",
+      "caveats",
+      "metrics.mae",
+      "metrics.mse",
+      "metrics.psnr",
+      "metrics.ssim",
+      "metrics.ms_ssim",
+      "metrics.frc50"
+    ],
+    "pinn_fno_vanilla": [
+      "parameter_count",
+      "epoch_budget",
+      "final_completed_epoch",
+      "final_train_loss",
+      "validation_loss",
+      "runtime_hardware_summary",
+      "caveats",
+      "metrics.mae",
+      "metrics.mse",
+      "metrics.psnr",
+      "metrics.ssim",
+      "metrics.ms_ssim",
+      "metrics.frc50"
+    ],
+    "pinn_spectral_resnet_bottleneck_net": [
+      "parameter_count",
+      "epoch_budget",
+      "final_completed_epoch",
+      "final_train_loss",
+      "validation_loss",
+      "runtime_hardware_summary",
+      "caveats",
+      "metrics.mae",
+      "metrics.mse",
+      "metrics.psnr",
+      "metrics.ssim",
+      "metrics.ms_ssim",
+      "metrics.frc50"
+    ],
+    "pinn_ffno": [
+      "parameter_count",
+      "epoch_budget",
+      "final_completed_epoch",
+      "final_train_loss",
+      "validation_loss",
+      "runtime_hardware_summary",
+      "caveats",
+      "metrics.mae",
+      "metrics.mse",
+      "metrics.psnr",
+      "metrics.ssim",
+      "metrics.ms_ssim",
+      "metrics.frc50"
+    ]
+  },
+  "row_statuses": {
+    "pinn_hybrid_resnet": {
+      "status": "supported_for_harness"
+    },
+    "pinn": {
+      "status": "supported_for_harness"
+    },
+    "pinn_fno_vanilla": {
+      "status": "supported_for_harness"
+    },
+    "pinn_spectral_resnet_bottleneck_net": {
+      "status": "supported_for_harness"
+    },
+    "pinn_ffno": {
+      "status": "supported_for_harness"
+    }
+  },
+  "visual_collation": {
+    "fixed_sample_ids": [
+      0,
+      1
+    ],
+    "shared_visual_scales": {
+      "amp": {
+        "strategy": "shared_across_rows",
+        "source": "stitched_numeric_arrays"
+      },
+      "phase": {
+        "strategy": "shared_across_rows",
+        "source": "stitched_numeric_arrays"
+      },
+      "amp_abs_error": {
+        "strategy": "shared_across_rows",
+        "source": "derived_from_stitched_numeric_arrays"
+      },
+      "phase_abs_error": {
+        "strategy": "shared_across_rows",
+        "source": "derived_from_stitched_numeric_arrays"
+      }
+    }
+  },
+  "rows": {
+    "pinn_hybrid_resnet": {
+      "model_label": "Hybrid ResNet",
+      "N": 128,
+      "metrics": {}
+    },
+    "pinn": {
+      "model_label": "PtychoPINN (CNN)",
+      "N": 128,
+      "metrics": {}
+    },
+    "pinn_fno_vanilla": {
+      "model_label": "FNO Vanilla",
+      "N": 128,
+      "metrics": {}
+    },
+    "pinn_spectral_resnet_bottleneck_net": {
+      "model_label": "Spectral ResNet Bottleneck",
+      "N": 128,
+      "metrics": {}
+    },
+    "pinn_ffno": {
+      "model_label": "FFNO",
+      "N": 128,
+      "metrics": {}
+    }
+  }
+}

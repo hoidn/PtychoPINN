@@ -1,0 +1,6 @@
+model_id,model_label,N,mae_amp,mae_phase,mse_amp,mse_phase,psnr_amp,psnr_phase,ssim_amp,ssim_phase,ms_ssim_amp,ms_ssim_phase,frc50_amp,frc50_phase
+pinn,PtychoPINN (CNN),128,,,,,,,,,,,,
+pinn_ffno,FFNO,128,,,,,,,,,,,,
+pinn_fno_vanilla,FNO Vanilla,128,,,,,,,,,,,,
+pinn_hybrid_resnet,Hybrid ResNet,128,,,,,,,,,,,,
+pinn_spectral_resnet_bottleneck_net,Spectral ResNet Bottleneck,128,,,,,,,,,,,,

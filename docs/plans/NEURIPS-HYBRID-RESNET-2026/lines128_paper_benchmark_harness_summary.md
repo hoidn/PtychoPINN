@@ -11,12 +11,18 @@
   - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/preflight/benchmark_decisions.json`
 - corrected the readiness harness entry point:
   - `scripts/studies/lines128_paper_benchmark.py`
+  - the harness now consumes the machine-readable fixed contract, seed policy,
+    and go/no-go state from `benchmark_decisions.json` instead of relying on a
+    hardcoded Python contract
+  - the harness now fails closed if the delegated compare-wrapper preflight
+    reports contract drift relative to the decision artifact
 - extended the compare wrapper / table helpers so the harness can:
   - route `pinn_spectral_resnet_bottleneck_net`
   - preserve an explicit FNO comparator decision
   - delegate readiness validation through `run_grid_lines_compare(..., preflight_only=True)`
     instead of synthesizing mock row metrics
   - validate that the resolved contract note path exists before preflight starts
+  - emit the full delegated preflight contract surface needed for drift checks
   - emit paper-schema validation artifacts with `paper_complete` versus
     `benchmark_incomplete` status plus explicit field definitions, units, and
     nullability metadata
@@ -65,6 +71,6 @@ remains `benchmark_incomplete` because the later execution item still owes:
 - readiness bundle:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/validation/readiness_only_preflight`
 - verification logs:
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/verification/20260429T125043Z_focused_pytest.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/verification/20260429T125043Z_required_pytest.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/verification/20260429T125043Z_compileall.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/verification/20260429T134542Z_focused_review_fix_pytest.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/verification/20260429T134542Z_required_pytest.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/verification/20260429T134542Z_compileall.log`

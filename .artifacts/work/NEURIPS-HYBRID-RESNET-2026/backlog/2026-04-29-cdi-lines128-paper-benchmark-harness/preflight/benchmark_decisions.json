@@ -1,0 +1,324 @@
+{
+  "selected_fno_comparator": "fno_vanilla",
+  "fno_comparator_decision": {
+    "selected": "fno_vanilla",
+    "rationale": "Use the less Hybrid-adjacent Fourier baseline for the minimum paper subset, and lock that choice before execution so later benchmark rows cannot drift between fno and fno_vanilla.",
+    "sources": [
+      "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+      "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_harness_preflight.md"
+    ]
+  },
+  "seed_policy": {
+    "type": "fixed",
+    "seed": 3,
+    "rationale": "The harness item preserves the recovered legacy-best fixed-seed contract and does not authorize a multi-seed extension.",
+    "sources": [
+      "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+      "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md",
+      "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_harness_preflight.md"
+    ]
+  },
+  "go_no_go": {
+    "state": "go_for_harness_preflight_only",
+    "full_benchmark_launch_authorized": false,
+    "authorized_scope": [
+      "checked-in contract freeze",
+      "machine-readable decision manifest",
+      "bounded readiness-only harness validation artifacts",
+      "required deterministic verification gates"
+    ],
+    "not_authorized": [
+      "full multi-row paper benchmark launch",
+      "paper_complete performance claims",
+      "contract changes to accommodate a row family"
+    ]
+  },
+  "contract_note": {
+    "path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_harness_preflight.md",
+    "status": "resolved"
+  },
+  "fixed_contract": {
+    "N": 128,
+    "gridsize": 1,
+    "dataset_source": "synthetic_lines",
+    "set_phi": true,
+    "probe_source": "custom",
+    "probe_npz": "datasets/Run1084_recon3_postPC_shrunk_3.npz",
+    "probe_scale_mode": "pad_extrapolate",
+    "probe_smoothing_sigma": 0.5,
+    "probe_mask_diameter": null,
+    "nimgs_train": 2,
+    "nimgs_test": 2,
+    "nphotons": 1000000000.0,
+    "seed": 3,
+    "torch_epochs": 40,
+    "torch_learning_rate": 0.0002,
+    "torch_scheduler": "ReduceLROnPlateau",
+    "torch_plateau_factor": 0.5,
+    "torch_plateau_patience": 2,
+    "torch_plateau_min_lr": 0.0001,
+    "torch_plateau_threshold": 0.0,
+    "torch_loss_mode": "mae",
+    "torch_mae_pred_l2_match_target": false,
+    "torch_output_mode": "real_imag",
+    "fno_modes": 12,
+    "fno_width": 32,
+    "fno_blocks": 4,
+    "fno_cnn_blocks": 2
+  },
+  "fixed_contract_provenance": {
+    "N": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md"
+      ]
+    },
+    "gridsize": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md"
+      ]
+    },
+    "dataset_source": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md"
+      ]
+    },
+    "set_phi": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md"
+      ]
+    },
+    "probe_source": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "probe_npz": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "probe_scale_mode": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "probe_smoothing_sigma": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "probe_mask_diameter": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md"
+      ]
+    },
+    "nimgs_train": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "nimgs_test": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "nphotons": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "seed": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "torch_epochs": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "torch_learning_rate": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "torch_scheduler": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "torch_plateau_factor": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "torch_plateau_patience": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "torch_plateau_min_lr": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "torch_plateau_threshold": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "torch_loss_mode": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "torch_mae_pred_l2_match_target": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "torch_output_mode": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "fno_modes": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "fno_width": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "fno_blocks": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    },
+    "fno_cnn_blocks": {
+      "confidence": "high",
+      "sources": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet/invocation.json"
+      ]
+    }
+  },
+  "approved_deviations": [],
+  "rows": [
+    {
+      "model_id": "pinn_hybrid_resnet",
+      "model_label": "Hybrid ResNet",
+      "architecture": "hybrid_resnet",
+      "status": "supported_for_harness",
+      "required_for_minimum_subset": true,
+      "source": "lines128_paper_benchmark_design"
+    },
+    {
+      "model_id": "pinn",
+      "model_label": "PtychoPINN (CNN)",
+      "architecture": "cnn",
+      "status": "supported_for_harness",
+      "required_for_minimum_subset": true,
+      "source": "grid_lines_compare_wrapper"
+    },
+    {
+      "model_id": "pinn_fno_vanilla",
+      "model_label": "FNO Vanilla",
+      "architecture": "fno_vanilla",
+      "status": "supported_for_harness",
+      "required_for_minimum_subset": true,
+      "source": "grid_lines_torch_runner"
+    },
+    {
+      "model_id": "pinn_spectral_resnet_bottleneck_net",
+      "model_label": "Spectral ResNet Bottleneck",
+      "architecture": "spectral_resnet_bottleneck_net",
+      "status": "supported_for_harness",
+      "required_for_minimum_subset": false,
+      "source": "spectral_resnet_bottleneck_n128_integration_summary"
+    },
+    {
+      "model_id": "pinn_ffno",
+      "model_label": "FFNO",
+      "architecture": "ffno",
+      "status": "supported_for_harness",
+      "required_for_minimum_subset": false,
+      "source": "cdi_ffno_generator_lines_best_config_summary"
+    }
+  ],
+  "fixed_sample_ids": [
+    0,
+    1
+  ],
+  "shared_visual_scales": {
+    "amp": {
+      "strategy": "shared_across_rows",
+      "source": "stitched_numeric_arrays"
+    },
+    "phase": {
+      "strategy": "shared_across_rows",
+      "source": "stitched_numeric_arrays"
+    },
+    "amp_abs_error": {
+      "strategy": "shared_across_rows",
+      "source": "derived_from_stitched_numeric_arrays"
+    },
+    "phase_abs_error": {
+      "strategy": "shared_across_rows",
+      "source": "derived_from_stitched_numeric_arrays"
+    }
+  }
+}

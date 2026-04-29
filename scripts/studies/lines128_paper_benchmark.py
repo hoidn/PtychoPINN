@@ -8,7 +8,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping
+from typing import Any, Dict, Iterable, List, Mapping
 
 from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
 from scripts.studies.metrics_tables import write_paper_benchmark_bundle
@@ -19,31 +19,66 @@ FNO_COMPARATOR_MODEL_IDS = {
     "fno_vanilla": "pinn_fno_vanilla",
 }
 REPO_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_PROBE_NPZ = REPO_ROOT / "datasets/Run1084_recon3_postPC_shrunk_3.npz"
-FIXED_CONTRACT = {
-    "N": 128,
-    "gridsize": 1,
-    "nimgs_train": 2,
-    "nimgs_test": 2,
-    "nphotons": 1e9,
-    "set_phi": True,
-    "probe_scale_mode": "pad_extrapolate",
-    "probe_smoothing_sigma": 0.5,
-    "seed": 3,
-    "torch_epochs": 40,
-    "torch_learning_rate": 2e-4,
-    "torch_scheduler": "ReduceLROnPlateau",
-    "torch_plateau_factor": 0.5,
-    "torch_plateau_patience": 2,
-    "torch_plateau_min_lr": 1e-4,
-    "torch_plateau_threshold": 0.0,
-    "torch_loss_mode": "mae",
-    "torch_output_mode": "real_imag",
-    "fno_modes": 12,
-    "fno_width": 32,
-    "fno_blocks": 4,
-    "fno_cnn_blocks": 2,
-}
+ALLOWED_GO_NO_GO_STATE = "go_for_harness_preflight_only"
+REQUIRED_FIXED_CONTRACT_FIELDS = (
+    "N",
+    "gridsize",
+    "dataset_source",
+    "set_phi",
+    "probe_source",
+    "probe_npz",
+    "probe_scale_mode",
+    "probe_smoothing_sigma",
+    "probe_mask_diameter",
+    "nimgs_train",
+    "nimgs_test",
+    "nphotons",
+    "seed",
+    "torch_epochs",
+    "torch_learning_rate",
+    "torch_scheduler",
+    "torch_plateau_factor",
+    "torch_plateau_patience",
+    "torch_plateau_min_lr",
+    "torch_plateau_threshold",
+    "torch_loss_mode",
+    "torch_mae_pred_l2_match_target",
+    "torch_output_mode",
+    "fno_modes",
+    "fno_width",
+    "fno_blocks",
+    "fno_cnn_blocks",
+)
+
+
+def _normalize_bool(value: object, *, field_name: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"Decision artifact fixed contract field '{field_name}' must be a boolean")
+    return value
+
+
+def _normalize_int(value: object, *, field_name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"Decision artifact fixed contract field '{field_name}' must be an integer")
+    return int(value)
+
+
+def _normalize_float(value: object, *, field_name: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"Decision artifact fixed contract field '{field_name}' must be numeric")
+    return float(value)
+
+
+def _normalize_optional_int(value: object, *, field_name: str) -> int | None:
+    if value is None:
+        return None
+    return _normalize_int(value, field_name=field_name)
+
+
+def _normalize_str(value: object, *, field_name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"Decision artifact fixed contract field '{field_name}' must be a non-empty string")
+    return value
 
 
 def _load_decision_artifact(path: Path) -> Dict[str, object]:
@@ -76,6 +111,147 @@ def _validate_contract_note(payload: Mapping[str, object]) -> Path:
     if not contract_note_path.exists():
         raise FileNotFoundError(f"Missing resolved contract note for harness preflight: {contract_note_path}")
     return contract_note_path
+
+
+def _validate_fixed_contract(payload: Mapping[str, object]) -> Dict[str, Any]:
+    contract = payload.get("fixed_contract")
+    if not isinstance(contract, Mapping):
+        raise ValueError("Decision artifact missing fixed contract metadata")
+    missing = [field for field in REQUIRED_FIXED_CONTRACT_FIELDS if field not in contract]
+    if missing:
+        raise ValueError(f"Decision artifact fixed contract is missing required fields: {', '.join(missing)}")
+
+    normalized = {
+        "N": _normalize_int(contract["N"], field_name="N"),
+        "gridsize": _normalize_int(contract["gridsize"], field_name="gridsize"),
+        "dataset_source": _normalize_str(contract["dataset_source"], field_name="dataset_source"),
+        "set_phi": _normalize_bool(contract["set_phi"], field_name="set_phi"),
+        "probe_source": _normalize_str(contract["probe_source"], field_name="probe_source"),
+        "probe_npz": _normalize_str(contract["probe_npz"], field_name="probe_npz"),
+        "probe_scale_mode": _normalize_str(contract["probe_scale_mode"], field_name="probe_scale_mode"),
+        "probe_smoothing_sigma": _normalize_float(
+            contract["probe_smoothing_sigma"], field_name="probe_smoothing_sigma"
+        ),
+        "probe_mask_diameter": _normalize_optional_int(
+            contract["probe_mask_diameter"],
+            field_name="probe_mask_diameter",
+        ),
+        "nimgs_train": _normalize_int(contract["nimgs_train"], field_name="nimgs_train"),
+        "nimgs_test": _normalize_int(contract["nimgs_test"], field_name="nimgs_test"),
+        "nphotons": _normalize_float(contract["nphotons"], field_name="nphotons"),
+        "seed": _normalize_int(contract["seed"], field_name="seed"),
+        "torch_epochs": _normalize_int(contract["torch_epochs"], field_name="torch_epochs"),
+        "torch_learning_rate": _normalize_float(
+            contract["torch_learning_rate"],
+            field_name="torch_learning_rate",
+        ),
+        "torch_scheduler": _normalize_str(contract["torch_scheduler"], field_name="torch_scheduler"),
+        "torch_plateau_factor": _normalize_float(
+            contract["torch_plateau_factor"],
+            field_name="torch_plateau_factor",
+        ),
+        "torch_plateau_patience": _normalize_int(
+            contract["torch_plateau_patience"],
+            field_name="torch_plateau_patience",
+        ),
+        "torch_plateau_min_lr": _normalize_float(
+            contract["torch_plateau_min_lr"],
+            field_name="torch_plateau_min_lr",
+        ),
+        "torch_plateau_threshold": _normalize_float(
+            contract["torch_plateau_threshold"],
+            field_name="torch_plateau_threshold",
+        ),
+        "torch_loss_mode": _normalize_str(contract["torch_loss_mode"], field_name="torch_loss_mode"),
+        "torch_mae_pred_l2_match_target": _normalize_bool(
+            contract["torch_mae_pred_l2_match_target"],
+            field_name="torch_mae_pred_l2_match_target",
+        ),
+        "torch_output_mode": _normalize_str(contract["torch_output_mode"], field_name="torch_output_mode"),
+        "fno_modes": _normalize_int(contract["fno_modes"], field_name="fno_modes"),
+        "fno_width": _normalize_int(contract["fno_width"], field_name="fno_width"),
+        "fno_blocks": _normalize_int(contract["fno_blocks"], field_name="fno_blocks"),
+        "fno_cnn_blocks": _normalize_int(contract["fno_cnn_blocks"], field_name="fno_cnn_blocks"),
+    }
+    return normalized
+
+
+def _validate_fixed_contract_provenance(payload: Mapping[str, object], fixed_contract: Mapping[str, object]) -> None:
+    provenance = payload.get("fixed_contract_provenance")
+    if not isinstance(provenance, Mapping):
+        raise ValueError("Decision artifact missing fixed contract provenance metadata")
+    missing = [field for field in fixed_contract if field not in provenance]
+    if missing:
+        raise ValueError(
+            "Decision artifact fixed contract provenance is missing fields: " + ", ".join(missing)
+        )
+    for field in fixed_contract:
+        record = provenance.get(field)
+        if not isinstance(record, Mapping):
+            raise ValueError(f"Decision artifact provenance for '{field}' must be an object")
+        confidence = record.get("confidence")
+        sources = record.get("sources")
+        if not isinstance(confidence, str) or not confidence.strip():
+            raise ValueError(f"Decision artifact provenance for '{field}' must include confidence")
+        if not isinstance(sources, list) or not sources or not all(
+            isinstance(source, str) and source.strip() for source in sources
+        ):
+            raise ValueError(f"Decision artifact provenance for '{field}' must include non-empty sources")
+
+
+def _validate_seed_policy(payload: Mapping[str, object], fixed_contract: Mapping[str, object]) -> int:
+    seed_policy = payload.get("seed_policy")
+    if not isinstance(seed_policy, Mapping):
+        raise ValueError("Decision artifact missing seed policy metadata")
+    if seed_policy.get("type") != "fixed":
+        raise ValueError("Harness preflight requires a fixed seed policy")
+    seed = _normalize_int(seed_policy.get("seed"), field_name="seed_policy.seed")
+    if seed != int(fixed_contract["seed"]):
+        raise ValueError("Decision artifact seed policy must match the fixed contract seed")
+    return seed
+
+
+def _validate_go_no_go(payload: Mapping[str, object]) -> None:
+    go_no_go = payload.get("go_no_go")
+    if not isinstance(go_no_go, Mapping):
+        raise ValueError("Decision artifact missing go/no-go metadata")
+    if go_no_go.get("state") != ALLOWED_GO_NO_GO_STATE:
+        raise ValueError("Decision artifact go/no-go state does not authorize harness preflight only")
+    if go_no_go.get("full_benchmark_launch_authorized") is not False:
+        raise ValueError("Decision artifact go/no-go must keep full benchmark launch disabled")
+
+
+def _validate_approved_deviations(payload: Mapping[str, object]) -> None:
+    deviations = payload.get("approved_deviations")
+    if not isinstance(deviations, list):
+        raise ValueError("Decision artifact must include an approved_deviations list")
+
+
+def _expected_runtime_contract(fixed_contract: Mapping[str, object]) -> Dict[str, Any]:
+    expected = dict(fixed_contract)
+    expected["probe_npz"] = str(_resolve_repo_path(fixed_contract["probe_npz"]))
+    return expected
+
+
+def _validate_compare_preflight_contract(
+    compare_preflight: Mapping[str, object],
+    fixed_contract: Mapping[str, object],
+    *,
+    seed: int,
+) -> None:
+    if compare_preflight.get("seed") != seed:
+        raise ValueError("Compare-wrapper preflight seed drifted from the decision artifact seed policy")
+    runtime_contract = compare_preflight.get("contract")
+    if not isinstance(runtime_contract, Mapping):
+        raise ValueError("Compare-wrapper preflight did not return contract metadata")
+    expected_contract = _expected_runtime_contract(fixed_contract)
+    drift = [
+        field
+        for field, expected_value in expected_contract.items()
+        if runtime_contract.get(field) != expected_value
+    ]
+    if drift:
+        raise ValueError("Compare-wrapper preflight contract drift detected for: " + ", ".join(drift))
 
 
 def _validate_fno_comparator(payload: Mapping[str, object], rows_by_id: Mapping[str, Mapping[str, object]]) -> str:
@@ -125,42 +301,47 @@ def _validate_required_rows(required_rows: Iterable[str], row_statuses: Mapping[
 def _run_compare_preflight(
     *,
     supported_rows: Iterable[Mapping[str, object]],
+    fixed_contract: Mapping[str, object],
     output_dir: Path,
 ) -> Dict[str, object]:
     supported_rows = list(supported_rows)
     selected_models = tuple(str(row["model_id"]) for row in supported_rows)
     model_n = {
-        str(row["model_id"]): int(row.get("N", FIXED_CONTRACT["N"]))
+        str(row["model_id"]): int(row.get("N", fixed_contract["N"]))
         for row in supported_rows
     }
     return run_grid_lines_compare(
-        N=int(FIXED_CONTRACT["N"]),
-        gridsize=int(FIXED_CONTRACT["gridsize"]),
+        N=int(fixed_contract["N"]),
+        gridsize=int(fixed_contract["gridsize"]),
         output_dir=output_dir / "compare_wrapper_preflight",
-        probe_npz=DEFAULT_PROBE_NPZ,
+        probe_npz=_resolve_repo_path(fixed_contract["probe_npz"]),
         architectures=(),
         models=selected_models,
         model_n=model_n,
-        seed=int(FIXED_CONTRACT["seed"]),
-        nimgs_train=int(FIXED_CONTRACT["nimgs_train"]),
-        nimgs_test=int(FIXED_CONTRACT["nimgs_test"]),
-        nphotons=float(FIXED_CONTRACT["nphotons"]),
-        set_phi=bool(FIXED_CONTRACT["set_phi"]),
-        probe_scale_mode=str(FIXED_CONTRACT["probe_scale_mode"]),
-        probe_smoothing_sigma=float(FIXED_CONTRACT["probe_smoothing_sigma"]),
-        torch_epochs=int(FIXED_CONTRACT["torch_epochs"]),
-        torch_learning_rate=float(FIXED_CONTRACT["torch_learning_rate"]),
-        torch_scheduler=str(FIXED_CONTRACT["torch_scheduler"]),
-        torch_plateau_factor=float(FIXED_CONTRACT["torch_plateau_factor"]),
-        torch_plateau_patience=int(FIXED_CONTRACT["torch_plateau_patience"]),
-        torch_plateau_min_lr=float(FIXED_CONTRACT["torch_plateau_min_lr"]),
-        torch_plateau_threshold=float(FIXED_CONTRACT["torch_plateau_threshold"]),
-        torch_loss_mode=str(FIXED_CONTRACT["torch_loss_mode"]),
-        torch_output_mode=str(FIXED_CONTRACT["torch_output_mode"]),
-        fno_modes=int(FIXED_CONTRACT["fno_modes"]),
-        fno_width=int(FIXED_CONTRACT["fno_width"]),
-        fno_blocks=int(FIXED_CONTRACT["fno_blocks"]),
-        fno_cnn_blocks=int(FIXED_CONTRACT["fno_cnn_blocks"]),
+        seed=int(fixed_contract["seed"]),
+        nimgs_train=int(fixed_contract["nimgs_train"]),
+        nimgs_test=int(fixed_contract["nimgs_test"]),
+        nphotons=float(fixed_contract["nphotons"]),
+        set_phi=bool(fixed_contract["set_phi"]),
+        probe_source=str(fixed_contract["probe_source"]),
+        probe_scale_mode=str(fixed_contract["probe_scale_mode"]),
+        probe_smoothing_sigma=float(fixed_contract["probe_smoothing_sigma"]),
+        probe_mask_diameter=fixed_contract["probe_mask_diameter"],
+        torch_epochs=int(fixed_contract["torch_epochs"]),
+        torch_learning_rate=float(fixed_contract["torch_learning_rate"]),
+        torch_scheduler=str(fixed_contract["torch_scheduler"]),
+        torch_plateau_factor=float(fixed_contract["torch_plateau_factor"]),
+        torch_plateau_patience=int(fixed_contract["torch_plateau_patience"]),
+        torch_plateau_min_lr=float(fixed_contract["torch_plateau_min_lr"]),
+        torch_plateau_threshold=float(fixed_contract["torch_plateau_threshold"]),
+        torch_loss_mode=str(fixed_contract["torch_loss_mode"]),
+        torch_mae_pred_l2_match_target=bool(fixed_contract["torch_mae_pred_l2_match_target"]),
+        torch_output_mode=str(fixed_contract["torch_output_mode"]),
+        fno_modes=int(fixed_contract["fno_modes"]),
+        fno_width=int(fixed_contract["fno_width"]),
+        fno_blocks=int(fixed_contract["fno_blocks"]),
+        fno_cnn_blocks=int(fixed_contract["fno_cnn_blocks"]),
+        dataset_source=str(fixed_contract["dataset_source"]),
         preflight_only=True,
     )
 
@@ -169,6 +350,7 @@ def _build_row_payloads(
     *,
     rows_by_id: Mapping[str, Mapping[str, object]],
     compare_preflight: Mapping[str, object],
+    fixed_contract: Mapping[str, object],
 ) -> Dict[str, Dict[str, object]]:
     row_plan = compare_preflight.get("row_plan")
     if not isinstance(row_plan, list):
@@ -186,7 +368,7 @@ def _build_row_payloads(
         preflight_row = preflight_rows.get(model_id, {})
         row_payloads[model_id] = {
             "model_label": row.get("model_label", model_id),
-            "N": int(preflight_row.get("N", row.get("N", FIXED_CONTRACT["N"]))),
+            "N": int(preflight_row.get("N", row.get("N", fixed_contract["N"]))),
             # Readiness bundles must use the real preflight route but remain
             # benchmark_incomplete until later execution produces row metrics.
             "metrics": {},
@@ -201,6 +383,11 @@ def run_lines128_paper_benchmark_preflight(
 ) -> Dict[str, object]:
     payload = _load_decision_artifact(decision_artifact)
     contract_note_path = _validate_contract_note(payload)
+    fixed_contract = _validate_fixed_contract(payload)
+    _validate_fixed_contract_provenance(payload, fixed_contract)
+    seed = _validate_seed_policy(payload, fixed_contract)
+    _validate_go_no_go(payload)
+    _validate_approved_deviations(payload)
 
     rows = payload.get("rows")
     if not isinstance(rows, list) or not rows:
@@ -219,14 +406,17 @@ def run_lines128_paper_benchmark_preflight(
     output_dir.mkdir(parents=True, exist_ok=True)
     compare_preflight = _run_compare_preflight(
         supported_rows=_supported_rows(rows_by_id),
+        fixed_contract=fixed_contract,
         output_dir=output_dir,
     )
+    _validate_compare_preflight_contract(compare_preflight, fixed_contract, seed=seed)
     compare_preflight_path = output_dir / "compare_wrapper_preflight.json"
     compare_preflight_path.write_text(json.dumps(compare_preflight, indent=2), encoding="utf-8")
 
     row_payloads = _build_row_payloads(
         rows_by_id=rows_by_id,
         compare_preflight=compare_preflight,
+        fixed_contract=fixed_contract,
     )
     bundle_paths = write_paper_benchmark_bundle(
         output_dir=output_dir,
@@ -241,6 +431,7 @@ def run_lines128_paper_benchmark_preflight(
     bundle_paths["compare_preflight_json"] = str(compare_preflight_path)
     return {
         "contract_note_path": str(contract_note_path),
+        "fixed_contract": dict(fixed_contract),
         "selected_models": list(compare_preflight.get("selected_models", [])),
         "required_rows": required_rows,
         "compare_preflight": compare_preflight,
