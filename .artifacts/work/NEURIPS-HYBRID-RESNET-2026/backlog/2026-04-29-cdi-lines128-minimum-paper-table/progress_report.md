@@ -30,12 +30,13 @@
   - Python worker PID: `1158854`
   - stdout/stderr log:
     `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260429T213028Z/live_stdout.log`
-  - observed phase at this handoff: Torch `pinn_hybrid_resnet` training after the TensorFlow `baseline` and `pinn` rows completed and emitted stitched reconstructions plus merged partial metrics.
-  - observed state: `datasets/N128/gs1/{train,test}.npz`, `recons/gt/recon.npz`, `recons/{baseline,pinn}/recon.npz`, root-level `metrics.json`, and `runs/pinn_hybrid_resnet/invocation.{json,sh}` are freshly written; the live log has progressed through Lightning `Epoch 20/40`, so the root is still an in-flight partial bundle rather than a completed four-row result.
+  - observed phase at this handoff: TensorFlow `baseline` and `pinn` completed, Torch `pinn_hybrid_resnet` completed with row-local artifacts, and Torch `pinn_fno_vanilla` is now the active row.
+  - observed state: root-level `metrics.json` still reflects only the completed TensorFlow rows, `recons/pinn_hybrid_resnet/recon.npz` plus `runs/pinn_hybrid_resnet/{metrics.json,history.json,model.pt,randomness_contract.json}` are present, and `runs/pinn_fno_vanilla/invocation.{json,sh}` has been created for the final row.
+  - latest live-log observation (`2026-04-29T22:13:51Z`): `pinn_fno_vanilla` Lightning training is in progress around `Epoch 17/40`, so the chosen root remains an in-flight partial bundle rather than a completed four-row result.
 
 # Next Resume Condition
 
 - Resume when tmux session `lines128-min-rerun` prints `__EXIT__:0` and the run root
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260429T213028Z`
-  contains fresh row-local artifacts plus the merged bundle surfaces (`metrics.json`, `metric_schema.json`, `model_manifest.json`, CSV/TeX tables, visuals, FRC/source artifacts as emitted by the harness).
+  contains fresh row-local artifacts for `pinn_fno_vanilla` plus the merged bundle surfaces (`metrics.json`, `metric_schema.json`, `model_manifest.json`, CSV/TeX tables, visuals, FRC/source artifacts as emitted by the harness).
 - If the tmux run exits nonzero, capture the pane, diagnose the concrete failure, patch narrowly, and relaunch into a fresh `minimum_subset_<timestamp>` root without changing the frozen contract.
