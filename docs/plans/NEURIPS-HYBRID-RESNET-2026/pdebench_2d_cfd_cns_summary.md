@@ -741,6 +741,34 @@ This follow-up does not change the next gate for CNS:
 
 - full-training same-protocol benchmark runs on the full available training split are still required for `hybrid_resnet_cns`, `fno_base`, and `unet_strong`
 
+## Spectral Modes-24 Convergence Follow-Up
+
+The capped convergence-oriented shared spectral follow-up is tracked in:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_modes24_convergence_summary.md`
+
+That tranche kept the same official `2d_cfd_cns` file and shell family but tightened the compare to exactly two rows on a larger capped slice:
+
+- `spectral_resnet_bottleneck_base` with `fno_modes=12`, `spectral_bottleneck_modes=12`
+- `spectral_resnet_bottleneck_modes24` with `fno_modes=24`, `spectral_bottleneck_modes=24`
+- split: `1024 / 128 / 128`
+- `history_len=2`
+- `max_windows_per_trajectory=8`
+- training loss: `mse`
+- epochs: `80`
+- batch size: `16`
+
+Observed outcome:
+
+- the shared `12/12` base row finished ahead on every final reported eval metric at the capped `80`-epoch stop
+- the generated convergence audit still marked both rows as materially improving because both late-window ratios stayed below the fixed `0.95` threshold
+- the correct interpretation is therefore inconclusive capped evidence, not a clean promotion or rejection verdict for `24/24`
+
+This follow-up does not change the current CNS gate:
+
+- full-training same-protocol benchmark runs on the full available training split are still the next required step
+- the `24/24` row remains manual-only and capped decision-support evidence
+
 ## Verification
 
 Commands run from `/home/ollie/Documents/PtychoPINN`:
