@@ -410,6 +410,48 @@ class TestRunGridLinesTorchScaffold:
         assert 'inference_time_s' in result
         assert isinstance(result['inference_time_s'], float)
 
+    def test_runner_emits_paper_row_payload(self, synthetic_npz, tmp_path):
+        """Runner should emit paper-row metadata for bundle collation."""
+        train_path, test_path = synthetic_npz
+        output_dir = tmp_path / "output"
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=output_dir,
+            architecture="hybrid_resnet",
+            epochs=2,
+        )
+
+        with patch('scripts.studies.grid_lines_torch_runner.run_torch_training') as mock_train:
+            mock_train.return_value = {
+                'model': None,
+                'history': {'train_loss': [0.4, 0.2]},
+                'generator': 'hybrid_resnet',
+                'scaffold': True,
+            }
+            with patch('scripts.studies.grid_lines_torch_runner.run_torch_inference') as mock_infer:
+                mock_infer.return_value = np.random.rand(64, 64).astype(np.complex64)
+                with patch('scripts.studies.grid_lines_torch_runner.compute_metrics') as mock_metrics:
+                    mock_metrics.return_value = {
+                        'mae': [0.1, 0.2],
+                        'mse': [0.01, 0.02],
+                        'psnr': [70.0, 65.0],
+                        'ssim': [0.9, 0.8],
+                        'ms_ssim': [0.85, 0.75],
+                        'frc50': [64, 48],
+                    }
+                    result = run_grid_lines_torch(cfg)
+
+        payload = result["paper_row_payload"]
+        assert payload["model_label"] == "Hybrid ResNet + PINN"
+        assert payload["architecture_id"] == "hybrid_resnet"
+        assert payload["training_procedure"] == "pinn"
+        assert payload["epoch_budget"] == 2
+        assert payload["final_completed_epoch"] == 2
+        assert payload["final_train_loss"] == 0.2
+        assert payload["row_status"] == "completed"
+
     def test_runner_writes_randomness_contract(self, synthetic_npz, tmp_path):
         """Runner should publish the effective randomness contract per run."""
         train_path, test_path = synthetic_npz

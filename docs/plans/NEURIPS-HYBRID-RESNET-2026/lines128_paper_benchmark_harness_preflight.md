@@ -30,6 +30,13 @@ The JSON decision artifact is now the harness source of truth. The harness must
 consume its fixed contract, seed policy, and go/no-go state directly and fail
 closed if the delegated compare-wrapper preflight drifts from those fields.
 
+For the later backlog item that launches the minimum draftable CDI subset under
+the same frozen contract, see
+`docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_minimum_paper_table_execution_authority.md`.
+That separate note supersedes launch authority only for the minimum-subset
+execution item; this preflight note remains readiness-only authority for the
+harness prerequisite item.
+
 ## Fixed Contract Reconstruction
 
 The recovered paper-harness contract stays aligned with the approved

@@ -38,6 +38,7 @@ import logging
 import math
 import random
 import sys
+import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -50,6 +51,17 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 logger = logging.getLogger(__name__)
+
+
+PAPER_MODEL_LABELS = {
+    "ffno": "FFNO + PINN",
+    "fno": "FNO + PINN",
+    "hybrid": "Hybrid + PINN",
+    "stable_hybrid": "Stable Hybrid + PINN",
+    "fno_vanilla": "FNO Vanilla + PINN",
+    "hybrid_resnet": "Hybrid ResNet + PINN",
+    "spectral_resnet_bottleneck_net": "Spectral ResNet Bottleneck + PINN",
+}
 
 
 def derive_channel_count(gridsize: int) -> int:
@@ -1165,6 +1177,74 @@ def _build_randomness_contract(cfg: TorchRunnerConfig) -> Dict[str, int | None]:
     }
 
 
+def _history_series(history: object, *keys: str) -> List[float]:
+    if not isinstance(history, dict):
+        return []
+    for key in keys:
+        values = history.get(key)
+        if isinstance(values, list):
+            try:
+                return [float(value) for value in values]
+            except Exception:
+                return []
+    return []
+
+
+def _torch_hardware_summary() -> Dict[str, object]:
+    try:
+        import torch
+    except Exception:
+        return {"backend": "pytorch", "accelerator": "unknown"}
+
+    accelerator = "cpu"
+    if torch.cuda.is_available():
+        try:
+            accelerator = torch.cuda.get_device_name(torch.cuda.current_device())
+        except Exception:
+            accelerator = "cuda"
+    else:
+        mps_backend = getattr(torch.backends, "mps", None)
+        if mps_backend is not None and mps_backend.is_available():
+            accelerator = "mps"
+    return {
+        "backend": "pytorch",
+        "accelerator": accelerator,
+    }
+
+
+def _build_paper_row_payload(
+    cfg: TorchRunnerConfig,
+    *,
+    metrics: Dict[str, Any],
+    history: object,
+    model_params: int,
+    train_wall_time_sec: float,
+    inference_time_s: float,
+) -> Dict[str, object]:
+    train_loss_series = _history_series(history, "train_loss", "loss")
+    final_completed_epoch = int(len(train_loss_series) or cfg.epochs)
+    final_train_loss = float(train_loss_series[-1]) if train_loss_series else None
+    return {
+        "model_label": PAPER_MODEL_LABELS.get(cfg.architecture, cfg.architecture),
+        "architecture_id": str(cfg.architecture),
+        "training_procedure": "pinn",
+        "N": int(cfg.N),
+        "parameter_count": int(model_params),
+        "epoch_budget": int(cfg.epochs),
+        "final_completed_epoch": final_completed_epoch,
+        "final_train_loss": final_train_loss,
+        "validation_loss": {"status": "not_emitted", "value": None},
+        "runtime_summary": {
+            "train_wall_time_sec": float(train_wall_time_sec),
+            "inference_time_sec": float(inference_time_s),
+        },
+        "hardware_summary": _torch_hardware_summary(),
+        "row_status": "completed",
+        "caveats": [],
+        "metrics": dict(metrics),
+    }
+
+
 def run_grid_lines_torch(
     cfg: TorchRunnerConfig,
     *,
@@ -1211,7 +1291,9 @@ def run_grid_lines_torch(
 
         # Step 2: Train model
         logger.info(f"Training {cfg.architecture} model...")
+        train_start = time.perf_counter()
         results = run_torch_training(cfg, train_data, test_data, train_metadata=train_metadata, test_metadata=test_metadata)
+        train_wall_time_sec = time.perf_counter() - train_start
 
         # Step 3: Run inference
         logger.info("Running inference...")
@@ -1223,7 +1305,6 @@ def run_grid_lines_torch(
         if model is not None and hasattr(model, "parameters"):
             model_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-        import time
         try:
             import torch
             cuda_available = torch.cuda.is_available()
@@ -1306,6 +1387,14 @@ def run_grid_lines_torch(
             'position_reassembly_runtime_contract': position_reassembly_runtime_contract,
             'randomness_contract': randomness_contract,
         }
+        result_dict['paper_row_payload'] = _build_paper_row_payload(
+            cfg,
+            metrics=metrics,
+            history=results.get('history', {}),
+            model_params=int(model_params),
+            train_wall_time_sec=float(train_wall_time_sec),
+            inference_time_s=float(inference_time_s),
+        )
 
         # Step 6: Render post-run visuals (best-effort)
         try:

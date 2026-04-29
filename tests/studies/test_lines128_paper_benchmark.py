@@ -1,6 +1,8 @@
 """Tests for the lines128 paper benchmark harness preflight layer."""
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -121,6 +123,97 @@ def _write_decision_artifact(
     return path
 
 
+def _minimum_subset_rows_payload() -> list[dict]:
+    return [
+        {
+            "model_id": "baseline",
+            "model_label": "CDI CNN + supervised",
+            "architecture_id": "cnn",
+            "training_procedure": "supervised",
+            "required_for_minimum_subset": True,
+        },
+        {
+            "model_id": "pinn",
+            "model_label": "CDI CNN + PINN",
+            "architecture_id": "cnn",
+            "training_procedure": "pinn",
+            "required_for_minimum_subset": True,
+        },
+        {
+            "model_id": "pinn_hybrid_resnet",
+            "model_label": "Hybrid ResNet + PINN",
+            "architecture_id": "hybrid_resnet",
+            "training_procedure": "pinn",
+            "required_for_minimum_subset": True,
+        },
+        {
+            "model_id": "pinn_fno_vanilla",
+            "model_label": "FNO Vanilla + PINN",
+            "architecture_id": "fno_vanilla",
+            "training_procedure": "pinn",
+            "required_for_minimum_subset": True,
+        },
+    ]
+
+
+def _write_execution_authority_note(path: Path, *, rows: list[dict] | None = None) -> Path:
+    payload = {
+        "state": "go_for_minimum_subset_execution",
+        "prerequisite_preflight_decision_artifact": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/preflight/benchmark_decisions.json",
+        "prerequisite_preflight_note": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_harness_preflight.md",
+        "selected_fno_comparator": "fno_vanilla",
+        "seed_policy": {"type": "fixed", "seed": 3},
+        "fixed_contract": _fixed_contract_payload(),
+        "fixed_sample_ids": [0, 1],
+        "shared_visual_scales": {
+            "amp": {"vmin": 0.0, "vmax": 1.0},
+            "phase": {"vmin": -3.14, "vmax": 3.14},
+        },
+        "rows": rows or _minimum_subset_rows_payload(),
+        "later_complete_table_rows": [
+            "pinn_spectral_resnet_bottleneck_net",
+            "pinn_ffno",
+        ],
+    }
+    note = "\n".join(
+        [
+            "# Lines128 Minimum Paper Table Execution Authority",
+            "",
+            "This note supersedes the preflight-only state for this backlog item.",
+            "",
+            "<!-- lines128_execution_authority_json:start -->",
+            json.dumps(payload, indent=2),
+            "<!-- lines128_execution_authority_json:end -->",
+            "",
+        ]
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(note, encoding="utf-8")
+    return path
+
+
+def _write_execution_manifest(path: Path, *, rows: list[dict] | None = None) -> Path:
+    payload = {
+        "state": "go_for_minimum_subset_execution",
+        "selected_fno_comparator": "fno_vanilla",
+        "seed_policy": {"type": "fixed", "seed": 3},
+        "fixed_contract": _fixed_contract_payload(),
+        "fixed_sample_ids": [0, 1],
+        "shared_visual_scales": {
+            "amp": {"vmin": 0.0, "vmax": 1.0},
+            "phase": {"vmin": -3.14, "vmax": 3.14},
+        },
+        "rows": rows or _minimum_subset_rows_payload(),
+        "later_complete_table_rows": [
+            "pinn_spectral_resnet_bottleneck_net",
+            "pinn_ffno",
+        ],
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
+
+
 def test_preflight_requires_decision_artifact(tmp_path):
     from scripts.studies.lines128_paper_benchmark import run_lines128_paper_benchmark_preflight
 
@@ -129,6 +222,18 @@ def test_preflight_requires_decision_artifact(tmp_path):
             decision_artifact=tmp_path / "missing.json",
             output_dir=tmp_path / "out",
         )
+
+
+def test_cli_help_runs_from_script_path():
+    completed = subprocess.run(
+        [sys.executable, "scripts/studies/lines128_paper_benchmark.py", "--help"],
+        cwd=Path(__file__).resolve().parents[2],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0
+    assert "lines128" in completed.stdout.lower()
 
 
 def test_preflight_rejects_unresolved_contract_note(tmp_path):
@@ -174,6 +279,171 @@ def test_preflight_rejects_missing_fixed_contract(tmp_path):
             decision_artifact=decision_artifact,
             output_dir=tmp_path / "out",
         )
+
+
+def test_minimum_subset_rejects_execution_manifest_drift(tmp_path):
+    from scripts.studies.lines128_paper_benchmark import run_lines128_paper_benchmark
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+    authority_note = _write_execution_authority_note(tmp_path / "authority.md")
+    drift_rows = _minimum_subset_rows_payload()
+    drift_rows[-1] = {
+        **drift_rows[-1],
+        "model_label": "Wrong FNO label",
+    }
+    execution_manifest = _write_execution_manifest(
+        tmp_path / "execution" / "benchmark_execution_decisions.json",
+        rows=drift_rows,
+    )
+
+    with pytest.raises(ValueError, match="execution manifest"):
+        run_lines128_paper_benchmark(
+            decision_artifact=decision_artifact,
+            execution_authority_note=authority_note,
+            execution_manifest=execution_manifest,
+            output_dir=tmp_path / "out",
+        )
+
+
+def test_minimum_subset_executes_four_locked_rows_and_emits_bundle(tmp_path, monkeypatch):
+    from scripts.studies.lines128_paper_benchmark import run_lines128_paper_benchmark
+
+    captured = {}
+
+    def fake_run_grid_lines_compare(**kwargs):
+        captured.update(kwargs)
+        return {
+            "selected_models": list(kwargs["models"]),
+            "row_payloads": {
+                "baseline": {
+                    "model_label": "CDI CNN + supervised",
+                    "architecture_id": "cnn",
+                    "training_procedure": "supervised",
+                    "N": 128,
+                    "parameter_count": 100,
+                    "epoch_budget": 40,
+                    "final_completed_epoch": 40,
+                    "final_train_loss": 0.4,
+                    "validation_loss": {"status": "not_emitted", "value": None},
+                    "runtime_summary": {"train_wall_time_sec": 9.0, "inference_time_sec": 0.4},
+                    "hardware_summary": {"backend": "tensorflow", "accelerator": "rtx3090"},
+                    "row_status": "completed",
+                    "caveats": [],
+                    "metrics": {
+                        "mae": (0.2, 0.3),
+                        "mse": (0.02, 0.03),
+                        "psnr": (60.0, 55.0),
+                        "ssim": (0.7, 0.6),
+                        "ms_ssim": (0.65, 0.55),
+                        "frc50": (32, 24),
+                    },
+                },
+                "pinn": {
+                    "model_label": "CDI CNN + PINN",
+                    "architecture_id": "cnn",
+                    "training_procedure": "pinn",
+                    "N": 128,
+                    "parameter_count": 101,
+                    "epoch_budget": 40,
+                    "final_completed_epoch": 40,
+                    "final_train_loss": 0.3,
+                    "validation_loss": {"status": "not_emitted", "value": None},
+                    "runtime_summary": {"train_wall_time_sec": 10.0, "inference_time_sec": 0.5},
+                    "hardware_summary": {"backend": "tensorflow", "accelerator": "rtx3090"},
+                    "row_status": "completed",
+                    "caveats": [],
+                    "metrics": {
+                        "mae": (0.19, 0.29),
+                        "mse": (0.019, 0.029),
+                        "psnr": (61.0, 56.0),
+                        "ssim": (0.71, 0.61),
+                        "ms_ssim": (0.66, 0.56),
+                        "frc50": (33, 25),
+                    },
+                },
+                "pinn_hybrid_resnet": {
+                    "model_label": "Hybrid ResNet + PINN",
+                    "architecture_id": "hybrid_resnet",
+                    "training_procedure": "pinn",
+                    "N": 128,
+                    "parameter_count": 102,
+                    "epoch_budget": 40,
+                    "final_completed_epoch": 40,
+                    "final_train_loss": 0.2,
+                    "validation_loss": {"status": "not_emitted", "value": None},
+                    "runtime_summary": {"train_wall_time_sec": 11.0, "inference_time_sec": 0.6},
+                    "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
+                    "row_status": "completed",
+                    "caveats": [],
+                    "metrics": {
+                        "mae": (0.1, 0.2),
+                        "mse": (0.01, 0.02),
+                        "psnr": (70.0, 65.0),
+                        "ssim": (0.9, 0.8),
+                        "ms_ssim": (0.85, 0.75),
+                        "frc50": (64, 48),
+                    },
+                },
+                "pinn_fno_vanilla": {
+                    "model_label": "FNO Vanilla + PINN",
+                    "architecture_id": "fno_vanilla",
+                    "training_procedure": "pinn",
+                    "N": 128,
+                    "parameter_count": 103,
+                    "epoch_budget": 40,
+                    "final_completed_epoch": 40,
+                    "final_train_loss": 0.25,
+                    "validation_loss": {"status": "not_emitted", "value": None},
+                    "runtime_summary": {"train_wall_time_sec": 12.0, "inference_time_sec": 0.7},
+                    "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
+                    "row_status": "completed",
+                    "caveats": [],
+                    "metrics": {
+                        "mae": (0.12, 0.22),
+                        "mse": (0.012, 0.022),
+                        "psnr": (68.0, 63.0),
+                        "ssim": (0.88, 0.78),
+                        "ms_ssim": (0.83, 0.73),
+                        "frc50": (60, 44),
+                    },
+                },
+            },
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines128_paper_benchmark.run_grid_lines_compare",
+        fake_run_grid_lines_compare,
+    )
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+    authority_note = _write_execution_authority_note(tmp_path / "authority.md")
+    execution_manifest = _write_execution_manifest(
+        tmp_path / "execution" / "benchmark_execution_decisions.json",
+    )
+    result = run_lines128_paper_benchmark(
+        decision_artifact=decision_artifact,
+        execution_authority_note=authority_note,
+        execution_manifest=execution_manifest,
+        output_dir=tmp_path / "out",
+    )
+
+    metrics_payload = json.loads((tmp_path / "out" / "metrics.json").read_text(encoding="utf-8"))
+    model_manifest = json.loads((tmp_path / "out" / "model_manifest.json").read_text(encoding="utf-8"))
+    assert captured["models"] == (
+        "baseline",
+        "pinn",
+        "pinn_hybrid_resnet",
+        "pinn_fno_vanilla",
+    )
+    assert metrics_payload["benchmark_status"] == "paper_complete"
+    assert metrics_payload["selected_fno_comparator"] == "fno_vanilla"
+    assert model_manifest["rows"][0]["training_procedure"] == "supervised"
+    assert result["required_rows"] == [
+        "baseline",
+        "pinn",
+        "pinn_hybrid_resnet",
+        "pinn_fno_vanilla",
+    ]
 
 
 def test_preflight_rejects_seed_policy_that_does_not_match_fixed_contract(tmp_path):

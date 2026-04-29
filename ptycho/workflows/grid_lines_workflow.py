@@ -14,6 +14,7 @@ from typing import Any, Dict, Iterable, Optional, Tuple
 import gc
 import json
 import re
+import time
 import numpy as np
 from skimage.restoration import unwrap_phase
 
@@ -843,6 +844,91 @@ def train_baseline_model(X_train, Y_I_train, Y_phi_train):
     return model, history
 
 
+def _history_loss_series(history: object) -> list[float]:
+    if isinstance(history, dict):
+        loss = history.get("loss", [])
+        if isinstance(loss, list):
+            return [float(value) for value in loss]
+    raw_history = getattr(history, "history", None)
+    if isinstance(raw_history, dict):
+        loss = raw_history.get("loss", [])
+        if isinstance(loss, list):
+            return [float(value) for value in loss]
+    return []
+
+
+def _history_final_epoch(history: object, *, fallback_epochs: int) -> int:
+    loss_series = _history_loss_series(history)
+    if loss_series:
+        return int(len(loss_series))
+    epoch_series = getattr(history, "epoch", None)
+    if isinstance(epoch_series, list) and epoch_series:
+        return int(max(epoch_series) + 1)
+    return int(fallback_epochs)
+
+
+def _history_final_loss(history: object) -> float | None:
+    loss_series = _history_loss_series(history)
+    if loss_series:
+        return float(loss_series[-1])
+    return None
+
+
+def _count_model_parameters(model: object) -> int | None:
+    count_params = getattr(model, "count_params", None)
+    if callable(count_params):
+        try:
+            return int(count_params())
+        except Exception:
+            return None
+    return None
+
+
+def _tf_hardware_summary() -> Dict[str, object]:
+    import tensorflow as tf
+
+    gpus = tf.config.list_physical_devices("GPU")
+    accelerator = "cpu"
+    if gpus:
+        accelerator = getattr(gpus[0], "name", None) or "gpu"
+    return {
+        "backend": "tensorflow",
+        "accelerator": accelerator,
+    }
+
+
+def _build_tf_row_payload(
+    *,
+    model_id: str,
+    model_label: str,
+    model: object,
+    history: object,
+    metrics: Dict[str, object],
+    epoch_budget: int,
+    train_wall_time_sec: float,
+    inference_time_sec: float,
+) -> Dict[str, object]:
+    return {
+        "model_label": model_label,
+        "architecture_id": "cnn",
+        "training_procedure": "supervised" if model_id == "baseline" else "pinn",
+        "N": None,
+        "parameter_count": _count_model_parameters(model),
+        "epoch_budget": int(epoch_budget),
+        "final_completed_epoch": _history_final_epoch(history, fallback_epochs=epoch_budget),
+        "final_train_loss": _history_final_loss(history),
+        "validation_loss": {"status": "not_emitted", "value": None},
+        "runtime_summary": {
+            "train_wall_time_sec": float(train_wall_time_sec),
+            "inference_time_sec": float(inference_time_sec),
+        },
+        "hardware_summary": _tf_hardware_summary(),
+        "row_status": "completed",
+        "caveats": [],
+        "metrics": dict(metrics),
+    }
+
+
 def run_pinn_inference(model, X_test, coords_nominal):
     """Run PINN inference on test data.
 
@@ -1451,13 +1537,21 @@ def run_grid_lines_workflow(
     print(f"[4/7] Training selected TF models: {selected_models}...")
     pinn_model = None
     base_model = None
+    pinn_history = None
+    base_history = None
+    pinn_train_time_s = 0.0
+    base_train_time_s = 0.0
     if "pinn" in selected_models:
-        pinn_model, _ = train_pinn_model(sim["train"]["container"])
+        pinn_train_start = time.perf_counter()
+        pinn_model, pinn_history = train_pinn_model(sim["train"]["container"])
+        pinn_train_time_s = time.perf_counter() - pinn_train_start
         save_pinn_model(cfg)
     if "baseline" in selected_models:
-        base_model, _ = train_baseline_model(
+        base_train_start = time.perf_counter()
+        base_model, base_history = train_baseline_model(
             sim["train"]["X"], sim["train"]["Y_I"], sim["train"]["Y_phi"]
         )
+        base_train_time_s = time.perf_counter() - base_train_start
         base_dir = cfg.output_dir / "baseline"
         base_dir.mkdir(parents=True, exist_ok=True)
         base_model.save(base_dir / "baseline.keras")
@@ -1466,14 +1560,20 @@ def run_grid_lines_workflow(
     print(f"[5/7] Running selected inference paths: {selected_models}...")
     pinn_pred = None
     base_pred = None
+    pinn_inference_time_s = 0.0
+    base_inference_time_s = 0.0
     if "pinn" in selected_models:
+        pinn_infer_start = time.perf_counter()
         pinn_pred = run_pinn_inference(
             pinn_model, sim["test"]["X"], sim["test"]["coords_nominal"]
         )
+        pinn_inference_time_s = time.perf_counter() - pinn_infer_start
         if pinn_pred is None:
             print("[5/7] WARNING: PINN inference failed (XLA issue). Skipping PINN evaluation.")
     if "baseline" in selected_models:
+        base_infer_start = time.perf_counter()
         base_pred = run_baseline_inference(base_model, sim["test"]["X"])
+        base_inference_time_s = time.perf_counter() - base_infer_start
 
     # Step 6: Stitch and evaluate
     print("[6/7] Stitching and computing metrics...")
@@ -1483,6 +1583,7 @@ def run_grid_lines_workflow(
     recons: Dict[str, Dict[str, np.ndarray]] = {}
     pinn_stitched = None
     base_stitched = None
+    row_payloads: Dict[str, Dict[str, object]] = {}
 
     if "pinn" in selected_models:
         if pinn_pred is not None:
@@ -1493,6 +1594,16 @@ def run_grid_lines_workflow(
                 pinn_stitched,
                 YY_gt,
                 label="pinn",
+            )
+            row_payloads["pinn"] = _build_tf_row_payload(
+                model_id="pinn",
+                model_label="CDI CNN + PINN",
+                model=pinn_model,
+                history=pinn_history,
+                metrics=metrics_payload["pinn"],
+                epoch_budget=int(cfg.nepochs),
+                train_wall_time_sec=float(pinn_train_time_s),
+                inference_time_sec=float(pinn_inference_time_s),
             )
             recons["pinn"] = {
                 "amp": pinn_amp[0, :, :, 0],
@@ -1509,6 +1620,16 @@ def run_grid_lines_workflow(
             base_stitched,
             YY_gt,
             label="baseline",
+        )
+        row_payloads["baseline"] = _build_tf_row_payload(
+            model_id="baseline",
+            model_label="CDI CNN + supervised",
+            model=base_model,
+            history=base_history,
+            metrics=metrics_payload["baseline"],
+            epoch_budget=int(cfg.nepochs),
+            train_wall_time_sec=float(base_train_time_s),
+            inference_time_sec=float(base_inference_time_s),
         )
         recons["baseline"] = {
             "amp": base_amp[0, :, :, 0],
@@ -1548,4 +1669,5 @@ def run_grid_lines_workflow(
         "metrics_json": str(metrics_path),
         "comparison_png": str(png_path),
         "metrics": metrics_payload,
+        "row_payloads": row_payloads,
     }

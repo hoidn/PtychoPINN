@@ -537,6 +537,48 @@ def test_run_grid_lines_workflow_default_runs_both_models(monkeypatch, tmp_path:
     assert "baseline" in result["metrics"]
 
 
+def test_run_grid_lines_workflow_emits_paper_row_payloads(monkeypatch, tmp_path: Path):
+    DummyModel = _stub_grid_lines_simulation(monkeypatch, tmp_path)
+
+    class CountedModel(DummyModel):
+        def __init__(self, params: int):
+            self._params = params
+
+        def count_params(self):
+            return self._params
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_pinn_model",
+        lambda *args, **kwargs: (CountedModel(101), {"loss": [0.4, 0.3]}),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_baseline_model",
+        lambda *args, **kwargs: (CountedModel(202), {"loss": [0.6, 0.5]}),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_pinn_inference",
+        lambda *args, **kwargs: np.zeros((1, 1, 1, 1), dtype=np.complex64),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_baseline_inference",
+        lambda *args, **kwargs: np.zeros((1, 1, 1, 1), dtype=np.complex64),
+    )
+
+    probe_path = tmp_path / "probe.npz"
+    np.savez(probe_path, probeGuess=(np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64))
+    cfg = GridLinesConfig(N=8, gridsize=1, output_dir=tmp_path, probe_npz=probe_path, nepochs=2)
+
+    result = run_grid_lines_workflow(cfg)
+
+    assert result["row_payloads"]["baseline"]["training_procedure"] == "supervised"
+    assert result["row_payloads"]["baseline"]["architecture_id"] == "cnn"
+    assert result["row_payloads"]["baseline"]["parameter_count"] == 202
+    assert result["row_payloads"]["baseline"]["final_train_loss"] == 0.5
+    assert result["row_payloads"]["pinn"]["training_procedure"] == "pinn"
+    assert result["row_payloads"]["pinn"]["parameter_count"] == 101
+    assert result["row_payloads"]["pinn"]["row_status"] == "completed"
+
+
 class TestDatasetPersistence:
     """Tests for simulation and dataset persistence helpers (Task 3)."""
 

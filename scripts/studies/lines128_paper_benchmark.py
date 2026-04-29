@@ -10,6 +10,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
 from scripts.studies.metrics_tables import write_paper_benchmark_bundle
 
@@ -18,8 +22,10 @@ FNO_COMPARATOR_MODEL_IDS = {
     "fno": "pinn_fno",
     "fno_vanilla": "pinn_fno_vanilla",
 }
-REPO_ROOT = Path(__file__).resolve().parents[2]
 ALLOWED_GO_NO_GO_STATE = "go_for_harness_preflight_only"
+MINIMUM_SUBSET_EXECUTION_STATE = "go_for_minimum_subset_execution"
+AUTHORITY_JSON_START = "<!-- lines128_execution_authority_json:start -->"
+AUTHORITY_JSON_END = "<!-- lines128_execution_authority_json:end -->"
 REQUIRED_FIXED_CONTRACT_FIELDS = (
     "N",
     "gridsize",
@@ -90,6 +96,12 @@ def _load_decision_artifact(path: Path) -> Dict[str, object]:
     if not isinstance(payload, dict):
         raise ValueError("Decision artifact must be a JSON object")
     return payload
+
+
+def _normalize_relaxed_json_payload(payload: object, *, source_name: str) -> Dict[str, object]:
+    if not isinstance(payload, Mapping):
+        raise ValueError(f"{source_name} must be a JSON object")
+    return dict(payload)
 
 
 def _resolve_repo_path(path_value: object) -> Path:
@@ -295,6 +307,180 @@ def _validate_fno_comparator(payload: Mapping[str, object], rows_by_id: Mapping[
     return str(comparator)
 
 
+def _extract_authority_payload(path: Path) -> Dict[str, object]:
+    note_path = Path(path)
+    if not note_path.exists():
+        raise FileNotFoundError(f"Missing execution authority note: {note_path}")
+    text = note_path.read_text(encoding="utf-8")
+    try:
+        start = text.index(AUTHORITY_JSON_START) + len(AUTHORITY_JSON_START)
+        end = text.index(AUTHORITY_JSON_END, start)
+    except ValueError as exc:
+        raise ValueError("Execution authority note is missing the embedded JSON payload") from exc
+    payload_text = text[start:end].strip()
+    try:
+        payload = json.loads(payload_text)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Execution authority note contains invalid JSON") from exc
+    return _normalize_relaxed_json_payload(payload, source_name="Execution authority note")
+
+
+def _minimum_subset_row_key(row: Mapping[str, object]) -> tuple[str, str, str, bool]:
+    model_id = row.get("model_id")
+    model_label = row.get("model_label")
+    architecture_id = row.get("architecture_id")
+    training_procedure = row.get("training_procedure")
+    required = row.get("required_for_minimum_subset")
+    if not isinstance(model_id, str) or not model_id.strip():
+        raise ValueError("Minimum-subset execution row is missing model_id")
+    if not isinstance(model_label, str) or not model_label.strip():
+        raise ValueError(f"Minimum-subset execution row {model_id} is missing model_label")
+    if not isinstance(architecture_id, str) or not architecture_id.strip():
+        raise ValueError(f"Minimum-subset execution row {model_id} is missing architecture_id")
+    if training_procedure not in {"supervised", "pinn"}:
+        raise ValueError(
+            f"Minimum-subset execution row {model_id} has unsupported training_procedure={training_procedure!r}"
+        )
+    if not isinstance(required, bool):
+        raise ValueError(f"Minimum-subset execution row {model_id} must declare required_for_minimum_subset")
+    return str(model_id), str(model_label), str(architecture_id), bool(required)
+
+
+def _normalize_execution_surface(
+    payload: Mapping[str, object],
+    *,
+    fixed_contract: Mapping[str, object],
+    source_name: str,
+) -> Dict[str, object]:
+    state = payload.get("state")
+    if state != MINIMUM_SUBSET_EXECUTION_STATE:
+        raise ValueError(f"{source_name} does not authorize minimum-subset execution")
+    comparator = payload.get("selected_fno_comparator")
+    if comparator not in FNO_COMPARATOR_MODEL_IDS:
+        raise ValueError(f"{source_name} must select an explicit FNO comparator")
+
+    seed_policy = payload.get("seed_policy")
+    if not isinstance(seed_policy, Mapping):
+        raise ValueError(f"{source_name} is missing seed_policy")
+    normalized_seed = _validate_seed_policy({"seed_policy": seed_policy, "fixed_contract": fixed_contract}, fixed_contract)
+
+    payload_contract = _validate_fixed_contract({"fixed_contract": payload.get("fixed_contract")})
+    if payload_contract != dict(fixed_contract):
+        raise ValueError(f"{source_name} fixed contract drifted from the harness decision artifact")
+
+    rows = payload.get("rows")
+    if not isinstance(rows, list) or len(rows) != 4:
+        raise ValueError(f"{source_name} must authorize exactly four minimum-subset rows")
+    normalized_rows: List[Dict[str, object]] = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            raise ValueError(f"{source_name} row entries must be JSON objects")
+        model_id, model_label, architecture_id, required = _minimum_subset_row_key(row)
+        normalized_rows.append(
+            {
+                "model_id": model_id,
+                "model_label": model_label,
+                "architecture_id": architecture_id,
+                "training_procedure": str(row["training_procedure"]),
+                "required_for_minimum_subset": required,
+            }
+        )
+    required_rows = [row["model_id"] for row in normalized_rows if row["required_for_minimum_subset"]]
+    if required_rows != ["baseline", "pinn", "pinn_hybrid_resnet", "pinn_fno_vanilla"]:
+        raise ValueError(
+            f"{source_name} must lock the required four-row roster in order; got {required_rows}"
+        )
+
+    baseline_row = normalized_rows[0]
+    pinn_row = normalized_rows[1]
+    if baseline_row["architecture_id"] != "cnn" or pinn_row["architecture_id"] != "cnn":
+        raise ValueError(f"{source_name} must keep the paired CDI cnn supervised/PINN rows")
+    if baseline_row["training_procedure"] != "supervised" or pinn_row["training_procedure"] != "pinn":
+        raise ValueError(f"{source_name} must distinguish the CDI cnn supervised and PINN rows")
+    if baseline_row["model_label"] == pinn_row["model_label"]:
+        raise ValueError(f"{source_name} must not collapse the supervised and PINN CDI cnn labels")
+
+    fixed_sample_ids = payload.get("fixed_sample_ids")
+    if not isinstance(fixed_sample_ids, list) or any(not isinstance(item, int) for item in fixed_sample_ids):
+        raise ValueError(f"{source_name} must provide integer fixed_sample_ids")
+    shared_visual_scales = payload.get("shared_visual_scales")
+    if not isinstance(shared_visual_scales, Mapping):
+        raise ValueError(f"{source_name} must provide shared_visual_scales")
+    later_rows = payload.get("later_complete_table_rows")
+    if later_rows != ["pinn_spectral_resnet_bottleneck_net", "pinn_ffno"]:
+        raise ValueError(
+            f"{source_name} must record spectral and FFNO as the later complete-table rows"
+        )
+
+    return {
+        "state": MINIMUM_SUBSET_EXECUTION_STATE,
+        "selected_fno_comparator": str(comparator),
+        "seed_policy": {"type": "fixed", "seed": normalized_seed},
+        "fixed_contract": dict(payload_contract),
+        "fixed_sample_ids": list(fixed_sample_ids),
+        "shared_visual_scales": dict(shared_visual_scales),
+        "rows": normalized_rows,
+        "later_complete_table_rows": list(later_rows),
+    }
+
+
+def _load_execution_manifest(
+    path: Path,
+    *,
+    fixed_contract: Mapping[str, object],
+) -> Dict[str, object]:
+    manifest_path = Path(path)
+    if not manifest_path.exists():
+        raise FileNotFoundError(f"Missing execution manifest: {manifest_path}")
+    with manifest_path.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return _normalize_execution_surface(payload, fixed_contract=fixed_contract, source_name="Execution manifest")
+
+
+def _run_compare_execution(
+    *,
+    execution_surface: Mapping[str, object],
+    fixed_contract: Mapping[str, object],
+    output_dir: Path,
+) -> Dict[str, object]:
+    rows = execution_surface["rows"]
+    selected_models = tuple(str(row["model_id"]) for row in rows if row["required_for_minimum_subset"])
+    model_n = {model_id: int(fixed_contract["N"]) for model_id in selected_models}
+    return run_grid_lines_compare(
+        N=int(fixed_contract["N"]),
+        gridsize=int(fixed_contract["gridsize"]),
+        output_dir=output_dir,
+        probe_npz=_resolve_repo_path(fixed_contract["probe_npz"]),
+        architectures=(),
+        models=selected_models,
+        model_n=model_n,
+        seed=int(fixed_contract["seed"]),
+        nimgs_train=int(fixed_contract["nimgs_train"]),
+        nimgs_test=int(fixed_contract["nimgs_test"]),
+        nphotons=float(fixed_contract["nphotons"]),
+        set_phi=bool(fixed_contract["set_phi"]),
+        probe_source=str(fixed_contract["probe_source"]),
+        probe_scale_mode=str(fixed_contract["probe_scale_mode"]),
+        probe_smoothing_sigma=float(fixed_contract["probe_smoothing_sigma"]),
+        probe_mask_diameter=fixed_contract["probe_mask_diameter"],
+        torch_epochs=int(fixed_contract["torch_epochs"]),
+        torch_learning_rate=float(fixed_contract["torch_learning_rate"]),
+        torch_scheduler=str(fixed_contract["torch_scheduler"]),
+        torch_plateau_factor=float(fixed_contract["torch_plateau_factor"]),
+        torch_plateau_patience=int(fixed_contract["torch_plateau_patience"]),
+        torch_plateau_min_lr=float(fixed_contract["torch_plateau_min_lr"]),
+        torch_plateau_threshold=float(fixed_contract["torch_plateau_threshold"]),
+        torch_loss_mode=str(fixed_contract["torch_loss_mode"]),
+        torch_mae_pred_l2_match_target=bool(fixed_contract["torch_mae_pred_l2_match_target"]),
+        torch_output_mode=str(fixed_contract["torch_output_mode"]),
+        fno_modes=int(fixed_contract["fno_modes"]),
+        fno_width=int(fixed_contract["fno_width"]),
+        fno_blocks=int(fixed_contract["fno_blocks"]),
+        fno_cnn_blocks=int(fixed_contract["fno_cnn_blocks"]),
+        dataset_source=str(fixed_contract["dataset_source"]),
+    )
+
+
 def _row_statuses(rows_by_id: Mapping[str, Mapping[str, object]]) -> Dict[str, Dict[str, object]]:
     statuses: Dict[str, Dict[str, object]] = {}
     for model_id, row in rows_by_id.items():
@@ -471,9 +657,82 @@ def run_lines128_paper_benchmark_preflight(
     }
 
 
+def run_lines128_paper_benchmark(
+    *,
+    decision_artifact: Path,
+    execution_authority_note: Path,
+    execution_manifest: Path,
+    output_dir: Path,
+) -> Dict[str, object]:
+    payload = _load_decision_artifact(decision_artifact)
+    fixed_contract = _validate_fixed_contract(payload)
+    comparator = _validate_fno_comparator(
+        payload,
+        {
+            str(row["model_id"]): row
+            for row in payload.get("rows", [])
+            if isinstance(row, Mapping) and "model_id" in row
+        },
+    )
+
+    authority_payload = _extract_authority_payload(execution_authority_note)
+    authority_surface = _normalize_execution_surface(
+        authority_payload,
+        fixed_contract=fixed_contract,
+        source_name="Execution authority note",
+    )
+    if authority_surface["selected_fno_comparator"] != comparator:
+        raise ValueError("Execution authority note selected_fno_comparator drifted from the harness decision artifact")
+
+    manifest_surface = _load_execution_manifest(
+        execution_manifest,
+        fixed_contract=fixed_contract,
+    )
+    if manifest_surface != authority_surface:
+        raise ValueError("Derived execution manifest drifted from the checked-in execution authority note")
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    compare_result = _run_compare_execution(
+        execution_surface=authority_surface,
+        fixed_contract=fixed_contract,
+        output_dir=output_dir,
+    )
+
+    row_payloads = compare_result.get("row_payloads")
+    if not isinstance(row_payloads, Mapping):
+        raise ValueError("Compare wrapper did not return row_payloads for minimum-subset execution")
+
+    required_rows = [str(row["model_id"]) for row in authority_surface["rows"] if row["required_for_minimum_subset"]]
+    missing_rows = [model_id for model_id in required_rows if model_id not in row_payloads]
+    if missing_rows:
+        raise ValueError(
+            "Compare wrapper row_payloads are missing required rows: " + ", ".join(missing_rows)
+        )
+
+    bundle_paths = write_paper_benchmark_bundle(
+        output_dir=output_dir,
+        row_payloads=row_payloads,
+        required_rows=required_rows,
+        fixed_sample_ids=authority_surface["fixed_sample_ids"],
+        shared_visual_scales=authority_surface["shared_visual_scales"],
+        selected_fno_comparator=authority_surface["selected_fno_comparator"],
+        evidence_scope="minimum_subset_benchmark_execution",
+        claim_boundary="minimum_draftable_cdi_subset",
+    )
+    return {
+        "required_rows": required_rows,
+        "bundle_paths": bundle_paths,
+        "compare_result": compare_result,
+    }
+
+
 def parse_args(argv=None):
-    parser = argparse.ArgumentParser(description="Run lines128 paper benchmark preflight validation")
+    parser = argparse.ArgumentParser(description="Run lines128 paper benchmark utilities")
+    parser.add_argument("--mode", choices=("preflight", "minimum_subset"), default="preflight")
     parser.add_argument("--decision-artifact", type=Path, required=True)
+    parser.add_argument("--execution-authority-note", type=Path)
+    parser.add_argument("--execution-manifest", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     return parser.parse_args(argv)
 
@@ -499,10 +758,22 @@ def main(argv=None) -> None:
         },
     )
     try:
-        run_lines128_paper_benchmark_preflight(
-            decision_artifact=args.decision_artifact,
-            output_dir=args.output_dir,
-        )
+        if args.mode == "preflight":
+            run_lines128_paper_benchmark_preflight(
+                decision_artifact=args.decision_artifact,
+                output_dir=args.output_dir,
+            )
+        else:
+            if args.execution_authority_note is None or args.execution_manifest is None:
+                raise ValueError(
+                    "minimum_subset mode requires --execution-authority-note and --execution-manifest"
+                )
+            run_lines128_paper_benchmark(
+                decision_artifact=args.decision_artifact,
+                execution_authority_note=args.execution_authority_note,
+                execution_manifest=args.execution_manifest,
+                output_dir=args.output_dir,
+            )
         update_invocation_artifacts(
             invocation_json,
             status="completed",

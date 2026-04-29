@@ -138,6 +138,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, cdi, lines128, harness, preflight, hybrid_resnet, fno_vanilla, ffno, spectral
 **Use this when:** Checking which rows are in the minimum harness subset, what the selected FNO comparator is, whether spectral/FFNO are supported for the harness, or whether the current item authorizes a full paper benchmark launch.
 
+### [NeurIPS Lines128 Minimum Paper Table Execution Authority](plans/NEURIPS-HYBRID-RESNET-2026/lines128_minimum_paper_table_execution_authority.md)
+**Description:** Checked-in launch authority for the minimum draftable `lines128` CDI subset, preserving the frozen contract/comparator/seed from the harness preflight while authorizing exactly four rows: supervised CDI `cnn`, PINN CDI `cnn`, `pinn_hybrid_resnet`, and `pinn_fno_vanilla`.
+**Keywords:** neurips, cdi, lines128, execution-authority, minimum-subset, cnn, hybrid_resnet, fno_vanilla
+**Use this when:** Verifying whether the minimum draftable CDI subset may launch, auditing the exact four-row roster and training procedures, or checking which later rows remain out of scope for the complete table.
+
 ### [NeurIPS Lines128 Paper Benchmark Harness Summary](plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_harness_summary.md)
 **Description:** Implementation summary for the readiness-only `lines128` paper benchmark harness pass, covering the thin harness entry point, spectral-row wrapper routing, paper-schema validation artifacts, and the explicit boundary that the full benchmark remains unlaunched.
 **Keywords:** neurips, cdi, lines128, harness, summary, benchmark_incomplete, spectral, ffno

@@ -12,7 +12,7 @@ import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 
 import numpy as np
 
@@ -46,6 +46,25 @@ TORCH_MODEL_IDS = {
     "pinn_hybrid_resnet",
     "pinn_spectral_resnet_bottleneck_net",
 }
+PAPER_MODEL_LABELS = {
+    "baseline": "CDI CNN + supervised",
+    "pinn": "CDI CNN + PINN",
+    "pinn_ffno": "FFNO + PINN",
+    "pinn_fno": "FNO + PINN",
+    "pinn_hybrid": "Hybrid + PINN",
+    "pinn_stable_hybrid": "Stable Hybrid + PINN",
+    "pinn_fno_vanilla": "FNO Vanilla + PINN",
+    "pinn_hybrid_resnet": "Hybrid ResNet + PINN",
+    "pinn_spectral_resnet_bottleneck_net": "Spectral ResNet Bottleneck + PINN",
+    "pinn_ptychovit": "PtychoViT + PINN",
+}
+PAPER_ARCHITECTURE_OVERRIDES = {
+    "baseline": "cnn",
+    "pinn": "cnn",
+}
+PAPER_TRAINING_PROCEDURE_OVERRIDES = {
+    "baseline": "supervised",
+}
 
 
 def _parse_architectures(value: str) -> Tuple[str, ...]:
@@ -64,6 +83,54 @@ def _json_default(value):
     if isinstance(value, np.ndarray):
         return value.tolist()
     raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def _default_paper_row_payload(model_id: str, *, n_value: int) -> Dict[str, object]:
+    architecture_id = PAPER_ARCHITECTURE_OVERRIDES.get(model_id, MODEL_TO_LEGACY_ARCH.get(model_id, model_id))
+    training_procedure = PAPER_TRAINING_PROCEDURE_OVERRIDES.get(model_id, "pinn")
+    return {
+        "model_label": PAPER_MODEL_LABELS.get(model_id, model_id),
+        "architecture_id": architecture_id,
+        "training_procedure": training_procedure,
+        "N": int(n_value),
+        "parameter_count": None,
+        "epoch_budget": None,
+        "final_completed_epoch": None,
+        "final_train_loss": None,
+        "validation_loss": {"status": "not_emitted", "value": None},
+        "runtime_summary": None,
+        "hardware_summary": None,
+        "row_status": None,
+        "caveats": [],
+        "metrics": {},
+    }
+
+
+def _coerce_paper_row_payload(
+    model_id: str,
+    payload: object,
+    *,
+    n_value: int,
+    metrics: Optional[Mapping[str, object]] = None,
+) -> Dict[str, object]:
+    normalized = _default_paper_row_payload(model_id, n_value=n_value)
+    if isinstance(payload, Mapping):
+        normalized.update(dict(payload))
+    normalized["N"] = int(normalized.get("N", n_value))
+    normalized["model_label"] = str(normalized.get("model_label") or PAPER_MODEL_LABELS.get(model_id, model_id))
+    normalized["architecture_id"] = str(
+        normalized.get("architecture_id") or PAPER_ARCHITECTURE_OVERRIDES.get(model_id, MODEL_TO_LEGACY_ARCH.get(model_id, model_id))
+    )
+    normalized["training_procedure"] = str(
+        normalized.get("training_procedure") or PAPER_TRAINING_PROCEDURE_OVERRIDES.get(model_id, "pinn")
+    )
+    caveats = normalized.get("caveats")
+    normalized["caveats"] = list(caveats) if isinstance(caveats, list) else []
+    if metrics is not None:
+        normalized["metrics"] = dict(metrics)
+    elif not isinstance(normalized.get("metrics"), Mapping):
+        normalized["metrics"] = {}
+    return normalized
 
 
 def _parse_models(value: str) -> Tuple[str, ...]:
@@ -625,6 +692,7 @@ def run_grid_lines_compare(
         gt_path = Path(next(iter(gt_candidates)))
 
         recon_paths: Dict[str, Path] = {}
+        row_payloads: Dict[str, Dict[str, object]] = {}
         tf_models_by_n: Dict[int, Tuple[str, ...]] = {}
         for model_id in selected_models:
             if model_id in TF_MODEL_IDS:
@@ -665,7 +733,8 @@ def run_grid_lines_compare(
                 probe_scale_mode=probe_scale_mode,
                 set_phi=set_phi,
             )
-            _run_tf_workflow_with_selected_models(tf_workflow, tf_model_cfg, tf_models_for_n)
+            tf_result = _run_tf_workflow_with_selected_models(tf_workflow, tf_model_cfg, tf_models_for_n)
+            tf_row_payloads = tf_result.get("row_payloads", {})
             for model_id in tf_models_for_n:
                 recon_path = output_dir / "recons" / model_id / "recon.npz"
                 if not recon_path.exists():
@@ -673,6 +742,11 @@ def run_grid_lines_compare(
                         f"Expected recon artifact missing for {model_id}: {recon_path}"
                     )
                 recon_paths[model_id] = recon_path
+                row_payloads[model_id] = _coerce_paper_row_payload(
+                    model_id,
+                    tf_row_payloads.get(model_id),
+                    n_value=int(resolved_model_n.get(model_id, n_for_model)),
+                )
 
         for model_id in selected_models:
             if model_id in recon_paths:
@@ -736,6 +810,11 @@ def run_grid_lines_compare(
                 if recon_path is None:
                     recon_path = output_dir / "recons" / model_id / "recon.npz"
                 recon_paths[model_id] = Path(recon_path)
+                row_payloads[model_id] = _coerce_paper_row_payload(
+                    model_id,
+                    torch_result.get("paper_row_payload"),
+                    n_value=int(n_for_model),
+                )
                 continue
 
             if model_id == "pinn_ptychovit":
@@ -776,6 +855,11 @@ def run_grid_lines_compare(
                 )
                 pvit_result = run_grid_lines_ptychovit(pvit_cfg)
                 recon_paths[model_id] = Path(pvit_result["recon_npz"])
+                row_payloads[model_id] = _coerce_paper_row_payload(
+                    model_id,
+                    pvit_result.get("paper_row_payload"),
+                    n_value=int(n_for_model),
+                )
                 continue
 
             if model_id in TF_MODEL_IDS:
@@ -803,6 +887,13 @@ def run_grid_lines_compare(
         legacy_metrics = {
             model_id: payload["metrics"] for model_id, payload in metrics_by_model.items()
         }
+        for model_id in selected_models:
+            row_payloads[model_id] = _coerce_paper_row_payload(
+                model_id,
+                row_payloads.get(model_id),
+                n_value=int(resolved_model_n.get(model_id, N)),
+                metrics=legacy_metrics.get(model_id, {}),
+            )
         model_ns_for_metrics = {
             model_id: int(resolved_model_n.get(model_id, N))
             for model_id in legacy_metrics.keys()
@@ -821,6 +912,7 @@ def run_grid_lines_compare(
             "metrics_by_model": metrics_by_model,
             "gt_recon": str(gt_path),
             "recon_paths": {k: str(v) for k, v in recon_paths.items()},
+            "row_payloads": row_payloads,
         }
 
     dataset_dir = output_dir / "datasets" / f"N{N}" / f"gs{gridsize}"
@@ -828,6 +920,7 @@ def run_grid_lines_compare(
     test_npz = dataset_dir / "test.npz"
 
     tf_metrics = {}
+    row_payloads: Dict[str, Dict[str, object]] = {}
     selected_architectures = architectures if not models else tuple(
         MODEL_TO_LEGACY_ARCH[m]
         for m in selected_models
@@ -863,6 +956,13 @@ def run_grid_lines_compare(
         tf_result = _run_tf_workflow_with_selected_models(tf_workflow, tf_cfg, selected_tf_models)
         train_npz = Path(tf_result["train_npz"])
         test_npz = Path(tf_result["test_npz"])
+        tf_row_payloads = tf_result.get("row_payloads", {})
+        for model_id in selected_tf_models:
+            row_payloads[model_id] = _coerce_paper_row_payload(
+                model_id,
+                tf_row_payloads.get(model_id),
+                n_value=int(N),
+            )
     elif not train_npz.exists() or not test_npz.exists():
         tf_cfg = GridLinesConfig(
             N=N,
@@ -952,7 +1052,14 @@ def run_grid_lines_compare(
             from scripts.studies import grid_lines_torch_runner as torch_runner
             torch_result = torch_runner.run_grid_lines_torch(torch_cfg)
             if "metrics" in torch_result:
-                merged[f"pinn_{arch}"] = torch_result["metrics"]
+                model_id = f"pinn_{arch}"
+                merged[model_id] = torch_result["metrics"]
+                row_payloads[model_id] = _coerce_paper_row_payload(
+                    model_id,
+                    torch_result.get("paper_row_payload"),
+                    n_value=int(N),
+                    metrics=torch_result["metrics"],
+                )
 
     order = ["gt"]
     if "cnn" in selected_architectures:
@@ -985,6 +1092,7 @@ def run_grid_lines_compare(
         "train_npz": str(train_npz),
         "test_npz": str(test_npz),
         "metrics": merged,
+        "row_payloads": row_payloads,
     }
 
 

@@ -174,6 +174,138 @@ def test_wrapper_preflight_only_validates_supported_rows_without_running_backend
     assert result["row_plan"][0]["backend"] == "tf"
 
 
+def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    _mock_dataset_builder(monkeypatch)
+
+    def fake_tf_run(cfg, tf_models=None):
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        (datasets_dir / "train.npz").write_bytes(b"stub")
+        (datasets_dir / "test.npz").write_bytes(b"stub")
+        for model_id in ("baseline", "pinn"):
+            recon_dir = cfg.output_dir / "recons" / model_id
+            recon_dir.mkdir(parents=True, exist_ok=True)
+            gt = (np.ones((cfg.N, cfg.N)) + 1j * np.ones((cfg.N, cfg.N))).astype(np.complex64)
+            np.savez(recon_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+        return {
+            "train_npz": str(datasets_dir / "train.npz"),
+            "test_npz": str(datasets_dir / "test.npz"),
+            "row_payloads": {
+                "baseline": {
+                    "model_label": "CDI CNN + supervised",
+                    "architecture_id": "cnn",
+                    "training_procedure": "supervised",
+                    "N": 128,
+                    "parameter_count": 10,
+                    "epoch_budget": 40,
+                    "final_completed_epoch": 40,
+                    "final_train_loss": 0.4,
+                    "validation_loss": {"status": "not_emitted", "value": None},
+                    "runtime_summary": {"train_wall_time_sec": 4.0, "inference_time_sec": 0.2},
+                    "hardware_summary": {"backend": "tensorflow", "accelerator": "rtx3090"},
+                    "row_status": "completed",
+                    "caveats": [],
+                    "metrics": _full_pair_metrics(0.2, 0.3),
+                },
+                "pinn": {
+                    "model_label": "CDI CNN + PINN",
+                    "architecture_id": "cnn",
+                    "training_procedure": "pinn",
+                    "N": 128,
+                    "parameter_count": 11,
+                    "epoch_budget": 40,
+                    "final_completed_epoch": 40,
+                    "final_train_loss": 0.3,
+                    "validation_loss": {"status": "not_emitted", "value": None},
+                    "runtime_summary": {"train_wall_time_sec": 5.0, "inference_time_sec": 0.3},
+                    "hardware_summary": {"backend": "tensorflow", "accelerator": "rtx3090"},
+                    "row_status": "completed",
+                    "caveats": [],
+                    "metrics": _full_pair_metrics(0.19, 0.29),
+                },
+            },
+        }
+
+    def fake_torch_run(cfg):
+        model_id = f"pinn_{cfg.architecture}"
+        recon_dir = cfg.output_dir / "recons" / model_id
+        recon_dir.mkdir(parents=True, exist_ok=True)
+        gt = (np.ones((cfg.N, cfg.N)) + 1j * np.ones((cfg.N, cfg.N))).astype(np.complex64)
+        np.savez(recon_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+        return {
+            "recon_npz": str(recon_dir / "recon.npz"),
+            "paper_row_payload": {
+                "model_label": "Torch row",
+                "architecture_id": cfg.architecture,
+                "training_procedure": "pinn",
+                "N": cfg.N,
+                "parameter_count": 12,
+                "epoch_budget": cfg.epochs,
+                "final_completed_epoch": cfg.epochs,
+                "final_train_loss": 0.2,
+                "validation_loss": {"status": "not_emitted", "value": None},
+                "runtime_summary": {"train_wall_time_sec": 6.0, "inference_time_sec": 0.4},
+                "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
+                "row_status": "completed",
+                "caveats": [],
+            },
+        }
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fake_torch_run)
+    monkeypatch.setattr(
+        "ptycho.evaluation.eval_reconstruction",
+        lambda pred, gt, label, **kwargs: _full_pair_metrics(0.01, 0.03),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals",
+        lambda output_dir, order: {},
+    )
+
+    result = run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=(),
+        models=("baseline", "pinn", "pinn_hybrid_resnet", "pinn_fno_vanilla"),
+        model_n={
+            "baseline": 128,
+            "pinn": 128,
+            "pinn_hybrid_resnet": 128,
+            "pinn_fno_vanilla": 128,
+        },
+        probe_npz=tmp_path / "probe.npz",
+        seed=3,
+        set_phi=True,
+        probe_source="custom",
+        probe_scale_mode="pad_extrapolate",
+        torch_epochs=40,
+        torch_learning_rate=2e-4,
+        torch_scheduler="ReduceLROnPlateau",
+        torch_plateau_factor=0.5,
+        torch_plateau_patience=2,
+        torch_plateau_min_lr=1e-4,
+        torch_plateau_threshold=0.0,
+        torch_loss_mode="mae",
+        torch_output_mode="real_imag",
+        nimgs_train=2,
+        nimgs_test=2,
+        nphotons=1e9,
+    )
+
+    assert set(result["row_payloads"]) == {
+        "baseline",
+        "pinn",
+        "pinn_hybrid_resnet",
+        "pinn_fno_vanilla",
+    }
+    assert result["row_payloads"]["baseline"]["training_procedure"] == "supervised"
+    assert result["row_payloads"]["pinn_hybrid_resnet"]["architecture_id"] == "hybrid_resnet"
+    assert "metrics" in result["row_payloads"]["pinn_fno_vanilla"]
+
+
 def test_wrapper_writes_metrics_table_tex_architecture_mode(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
 

@@ -47,23 +47,31 @@ LOWER_BETTER = {"mae", "mse"}
 PAPER_BENCHMARK_STATUS_VALUES = ("paper_complete", "benchmark_incomplete")
 PAPER_REQUIRED_FIELDS = (
     "model_label",
+    "architecture_id",
+    "training_procedure",
     "parameter_count",
     "epoch_budget",
     "final_completed_epoch",
     "final_train_loss",
     "validation_loss",
-    "runtime_hardware_summary",
+    "runtime_summary",
+    "hardware_summary",
+    "row_status",
     "caveats",
 )
 PAPER_REQUIRED_FIELD_DEFINITIONS = (
     {"name": "model_key", "units": None, "nullable": False, "source": "row_map_key"},
     {"name": "model_label", "units": None, "nullable": False},
+    {"name": "architecture_id", "units": None, "nullable": False},
+    {"name": "training_procedure", "units": None, "nullable": False},
     {"name": "parameter_count", "units": "parameters", "nullable": False},
     {"name": "epoch_budget", "units": "epochs", "nullable": False},
     {"name": "final_completed_epoch", "units": "epochs", "nullable": False},
     {"name": "final_train_loss", "units": "training_loss_units", "nullable": False},
     {"name": "validation_loss", "units": "training_loss_units", "nullable": True},
-    {"name": "runtime_hardware_summary", "units": None, "nullable": False},
+    {"name": "runtime_summary", "units": None, "nullable": False},
+    {"name": "hardware_summary", "units": None, "nullable": False},
+    {"name": "row_status", "units": None, "nullable": False},
     {"name": "caveats", "units": None, "nullable": False},
 )
 PAPER_METRIC_FIELD_DEFINITIONS = (
@@ -404,6 +412,14 @@ def _missing_paper_fields(row_payload: Mapping[str, object]) -> List[str]:
             if not _validate_validation_loss(value):
                 missing.append(field)
             continue
+        if field in {"architecture_id", "training_procedure", "row_status"}:
+            if not isinstance(value, str) or not value.strip():
+                missing.append(field)
+            continue
+        if field in {"runtime_summary", "hardware_summary"}:
+            if not isinstance(value, Mapping):
+                missing.append(field)
+            continue
         if field == "caveats":
             if not isinstance(value, list):
                 missing.append(field)
@@ -430,6 +446,41 @@ def _build_metric_schema() -> Dict[str, object]:
     }
 
 
+def _build_model_manifest(
+    *,
+    row_payloads: Mapping[str, Mapping[str, object]],
+    missing_fields_by_row: Mapping[str, List[str]],
+    benchmark_status: str,
+    claim_boundary: str,
+) -> Dict[str, object]:
+    rows: List[Dict[str, object]] = []
+    for model_id in row_payloads.keys():
+        payload = row_payloads[model_id]
+        rows.append(
+            {
+                "model_id": model_id,
+                "model_label": payload.get("model_label"),
+                "architecture_id": payload.get("architecture_id"),
+                "training_procedure": payload.get("training_procedure"),
+                "N": payload.get("N"),
+                "parameter_count": payload.get("parameter_count"),
+                "epoch_budget": payload.get("epoch_budget"),
+                "final_completed_epoch": payload.get("final_completed_epoch"),
+                "final_train_loss": payload.get("final_train_loss"),
+                "validation_loss": payload.get("validation_loss"),
+                "runtime_summary": payload.get("runtime_summary"),
+                "hardware_summary": payload.get("hardware_summary"),
+                "row_status": payload.get("row_status"),
+                "missing_fields": list(missing_fields_by_row.get(model_id, [])),
+            }
+        )
+    return {
+        "benchmark_status": benchmark_status,
+        "claim_boundary": claim_boundary,
+        "rows": rows,
+    }
+
+
 def write_paper_benchmark_bundle(
     *,
     output_dir: Path,
@@ -440,6 +491,7 @@ def write_paper_benchmark_bundle(
     selected_fno_comparator: Optional[str] = None,
     row_statuses: Optional[Mapping[str, Mapping[str, object]]] = None,
     evidence_scope: str = "readiness_only_not_benchmark_performance",
+    claim_boundary: str = "minimum_draftable_cdi_subset",
 ) -> Dict[str, str]:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -477,6 +529,7 @@ def write_paper_benchmark_bundle(
     benchmark_status = "benchmark_incomplete" if incomplete else "paper_complete"
     bundle_payload = {
         "benchmark_status": benchmark_status,
+        "claim_boundary": claim_boundary,
         "required_rows": list(required_rows),
         "selected_fno_comparator": selected_fno_comparator,
         "evidence_scope": evidence_scope,
@@ -491,11 +544,25 @@ def write_paper_benchmark_bundle(
 
     metrics_json = output_dir / "metrics.json"
     metric_schema_json = output_dir / "metric_schema.json"
+    model_manifest_json = output_dir / "model_manifest.json"
     metrics_json.write_text(json.dumps(bundle_payload, indent=2), encoding="utf-8")
     metric_schema_json.write_text(json.dumps(_build_metric_schema(), indent=2), encoding="utf-8")
+    model_manifest_json.write_text(
+        json.dumps(
+            _build_model_manifest(
+                row_payloads=row_payloads,
+                missing_fields_by_row=missing_fields_by_row,
+                benchmark_status=benchmark_status,
+                claim_boundary=claim_boundary,
+            ),
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     table_paths = write_metrics_tables(output_dir, metrics_only, model_ns=model_ns)
     return {
         "metrics_json": str(metrics_json),
         "metric_schema_json": str(metric_schema_json),
+        "model_manifest_json": str(model_manifest_json),
         **table_paths,
     }
