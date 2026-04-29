@@ -7,6 +7,8 @@ import json
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 
+import numpy as np
+
 
 MODEL_LABELS = {
     "pinn": "PtychoPINN (CNN)",
@@ -143,6 +145,20 @@ def _latex_escape(text: str) -> str:
         .replace("^", r"\textasciicircum{}")
     )
     return escaped
+
+
+def _json_default(value: object) -> object:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
 def _to_float(value: object) -> float:
@@ -545,7 +561,7 @@ def write_paper_benchmark_bundle(
     metrics_json = output_dir / "metrics.json"
     metric_schema_json = output_dir / "metric_schema.json"
     model_manifest_json = output_dir / "model_manifest.json"
-    metrics_json.write_text(json.dumps(bundle_payload, indent=2), encoding="utf-8")
+    metrics_json.write_text(json.dumps(bundle_payload, indent=2, default=_json_default), encoding="utf-8")
     metric_schema_json.write_text(json.dumps(_build_metric_schema(), indent=2), encoding="utf-8")
     model_manifest_json.write_text(
         json.dumps(
@@ -556,6 +572,7 @@ def write_paper_benchmark_bundle(
                 claim_boundary=claim_boundary,
             ),
             indent=2,
+            default=_json_default,
         ),
         encoding="utf-8",
     )
