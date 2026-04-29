@@ -5,10 +5,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shlex
 import shutil
+import subprocess
+import tempfile
+import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import numpy as np
 
@@ -50,6 +55,13 @@ CONTRACT_KEYS = [
     "training_loss",
     "metric_family",
 ]
+RERUN_REQUIRED_LOGS = {
+    "started_at_ns": "cns_bundle_rerun.started_at_ns",
+    "pid": "cns_bundle_rerun.pid",
+    "exit_code": "cns_bundle_rerun.exit_code",
+}
+AUTHORITATIVE_EVIDENCE_SCOPE = "capped_decision_support_only"
+AUTHORITATIVE_ROW_STATUS = "completed"
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -92,6 +104,14 @@ def _dedupe_paths(paths: list[Path]) -> list[Path]:
     return deduped
 
 
+def _row_is_authoritative(record: dict[str, Any]) -> bool:
+    row = dict(record.get("row", {}))
+    return (
+        str(row.get("status", "")) == AUTHORITATIVE_ROW_STATUS
+        and str(row.get("evidence_scope", "")) == AUTHORITATIVE_EVIDENCE_SCOPE
+    )
+
+
 def _discover_compatible_run(
     profile_id: str,
     *,
@@ -112,7 +132,7 @@ def _discover_compatible_run(
             record = _load_run_record(run_root, profile_id=profile_id, source_document="artifact_scan")
         except (FileNotFoundError, ValueError):
             continue
-        if _contract_matches(record["contract"], expected_contract):
+        if _contract_matches(record["contract"], expected_contract) and _row_is_authoritative(record):
             return {
                 "row_id": profile_id,
                 "run_root": str(run_root),
@@ -125,6 +145,21 @@ def _discover_compatible_run(
 def _rerun_output_root(profile_id: str, output_root: Path) -> Path:
     stem = profile_id.replace("_base", "")
     return output_root / "rerun_candidates" / f"{stem}-1024cap-40ep"
+
+
+def _tmux_socket_path() -> Path:
+    socket_dir = Path(os.environ.get("CLAUDE_TMUX_SOCKET_DIR", Path(tempfile.gettempdir()) / "claude-tmux-sockets"))
+    socket_dir.mkdir(parents=True, exist_ok=True)
+    return socket_dir / "claude.sock"
+
+
+def _tmux_session_name(profile_id: str) -> str:
+    return f"cns1024-{profile_id.replace('_', '-')[:36]}"
+
+
+def _rerun_log_paths(run_root: Path) -> dict[str, Path]:
+    logs_dir = Path(run_root) / "logs"
+    return {name: logs_dir / filename for name, filename in RERUN_REQUIRED_LOGS.items()}
 
 
 def _rerun_command(profile_id: str, *, expected_contract: dict[str, Any], output_root: Path) -> str:
@@ -150,12 +185,182 @@ def _rerun_command(profile_id: str, *, expected_contract: dict[str, Any], output
     )
 
 
+def _rerun_candidate(profile_id: str, *, expected_contract: dict[str, Any], output_root: Path) -> dict[str, Any]:
+    run_root = _rerun_output_root(profile_id, output_root)
+    socket_path = _tmux_socket_path()
+    session_name = _tmux_session_name(profile_id)
+    log_paths = _rerun_log_paths(run_root)
+    stdout_path = run_root / "logs" / "cns_bundle_rerun.stdout.log"
+    stderr_path = run_root / "logs" / "cns_bundle_rerun.stderr.log"
+    return {
+        "row_id": profile_id,
+        "reason": "missing_same_contract_1024_row",
+        "output_root": str(run_root),
+        "rerun_command": _rerun_command(profile_id, expected_contract=expected_contract, output_root=output_root),
+        "tmux_socket_path": str(socket_path),
+        "tmux_session_name": session_name,
+        "tmux_attach_command": f"tmux -S {shlex.quote(str(socket_path))} attach -t {shlex.quote(session_name)}",
+        "tmux_capture_command": (
+            f"tmux -S {shlex.quote(str(socket_path))} capture-pane -p -J -t {shlex.quote(session_name)}:0.0 -S -200"
+        ),
+        "log_paths": {name: str(path) for name, path in log_paths.items()},
+        "stdout_log_path": str(stdout_path),
+        "stderr_log_path": str(stderr_path),
+    }
+
+
+def _required_rerun_artifact_paths(run_root: Path, profile_id: str) -> list[Path]:
+    log_paths = _rerun_log_paths(run_root)
+    return [
+        run_root / "invocation.json",
+        run_root / "dataset_manifest.json",
+        run_root / "split_manifest.json",
+        run_root / "comparison_summary.json",
+        run_root / f"metrics_{profile_id}.json",
+        run_root / f"model_profile_{profile_id}.json",
+        log_paths["started_at_ns"],
+        log_paths["pid"],
+        log_paths["exit_code"],
+    ]
+
+
+def _guard_rerun_output_root(run_root: Path) -> None:
+    run_root = Path(run_root)
+    if not run_root.exists():
+        return
+    if not any(run_root.iterdir()):
+        return
+    raise ValueError(f"rerun output root must be empty before launch: {run_root}")
+
+
+def _launch_tmux_rerun(candidate: dict[str, Any]) -> dict[str, Any]:
+    run_root = Path(candidate["output_root"])
+    _guard_rerun_output_root(run_root)
+    log_paths = _rerun_log_paths(run_root)
+    for path in [*log_paths.values(), run_root / "logs" / "cns_bundle_rerun.stdout.log", run_root / "logs" / "cns_bundle_rerun.stderr.log"]:
+        path.parent.mkdir(parents=True, exist_ok=True)
+    for path in log_paths.values():
+        if path.exists():
+            path.unlink()
+
+    shell_lines = [
+        "set -euo pipefail",
+        f"cd {shlex.quote(str(REPO_ROOT))}",
+        "source ~/miniconda3/etc/profile.d/conda.sh",
+        "conda activate ptycho311",
+        f"printf '%s\\n' \"$(date +%s%N)\" > {shlex.quote(str(log_paths['started_at_ns']))}",
+        f"{candidate['rerun_command']} > {shlex.quote(str(run_root / 'logs' / 'cns_bundle_rerun.stdout.log'))} "
+        f"2> {shlex.quote(str(run_root / 'logs' / 'cns_bundle_rerun.stderr.log'))} &",
+        "pid=$!",
+        f"printf '%s\\n' \"$pid\" > {shlex.quote(str(log_paths['pid']))}",
+        "set +e",
+        "wait \"$pid\"",
+        "rc=$?",
+        "set -e",
+        f"printf '%s\\n' \"$rc\" > {shlex.quote(str(log_paths['exit_code']))}",
+        "exit \"$rc\"",
+    ]
+    socket_path = Path(str(candidate["tmux_socket_path"]))
+    session_name = str(candidate["tmux_session_name"])
+    command = ["tmux", "-S", str(socket_path), "new-session", "-d", "-s", session_name, "bash", "-lc", "\n".join(shell_lines)]
+    subprocess.run(command, check=True)
+    return {
+        "row_id": str(candidate["row_id"]),
+        "output_root": str(run_root),
+        "tmux_socket_path": str(socket_path),
+        "tmux_session_name": session_name,
+        "tmux_attach_command": str(candidate["tmux_attach_command"]),
+        "tmux_capture_command": str(candidate["tmux_capture_command"]),
+        "log_paths": dict(candidate["log_paths"]),
+    }
+
+
+def _wait_for_tmux_session(result: dict[str, Any], *, poll_interval_sec: float = 2.0) -> None:
+    socket_path = str(result["tmux_socket_path"])
+    session_name = str(result["tmux_session_name"])
+    while True:
+        has_session = subprocess.run(
+            ["tmux", "-S", socket_path, "has-session", "-t", session_name],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
+        if has_session.returncode != 0:
+            return
+        time.sleep(poll_interval_sec)
+
+
+def _verify_rerun_completion(candidate: dict[str, Any], *, expected_contract: dict[str, Any]) -> dict[str, Any]:
+    run_root = Path(candidate["output_root"])
+    row_id = str(candidate["row_id"])
+    log_paths = _rerun_log_paths(run_root)
+    for path in _required_rerun_artifact_paths(run_root, row_id):
+        if not path.exists():
+            raise FileNotFoundError(f"missing rerun artifact for {row_id}: {path}")
+
+    started_at_ns = int(log_paths["started_at_ns"].read_text(encoding="utf-8").strip())
+    pid = log_paths["pid"].read_text(encoding="utf-8").strip()
+    if not pid.isdigit():
+        raise ValueError(f"tracked rerun pid is not numeric for {row_id}: {pid!r}")
+    exit_code = log_paths["exit_code"].read_text(encoding="utf-8").strip()
+    if exit_code != "0":
+        raise ValueError(f"rerun for {row_id} failed with exit code {exit_code}")
+
+    invocation = _load_json(run_root / "invocation.json")
+    if str(invocation.get("pid")) != pid:
+        raise ValueError(f"invocation pid mismatch for {row_id}: {invocation.get('pid')!r} != {pid!r}")
+
+    record = _load_run_record(run_root, profile_id=row_id, source_document="rerun_execution")
+    if not _contract_matches(record["contract"], expected_contract):
+        raise ValueError(f"rerun contract mismatch for {row_id}")
+    if not _row_is_authoritative(record):
+        raise ValueError(f"rerun output is not authoritative for {row_id}")
+
+    for artifact_path in _required_rerun_artifact_paths(run_root, row_id):
+        if artifact_path.stat().st_mtime_ns < started_at_ns:
+            raise ValueError(f"stale rerun artifact for {row_id}: {artifact_path}")
+
+    return {
+        "row_id": row_id,
+        "run_root": str(run_root),
+        "contract": record["contract"],
+        "metrics": record["row"],
+        "verified_pid": pid,
+        "verified_exit_code": exit_code,
+    }
+
+
+def _default_rerun_executor(
+    *,
+    rerun_candidates: list[dict[str, Any]],
+    expected_contract: dict[str, Any],
+    output_root: Path,
+) -> dict[str, Any]:
+    output_root = Path(output_root)
+    launched: list[dict[str, Any]] = []
+    for candidate in rerun_candidates:
+        launch_result = _launch_tmux_rerun(candidate)
+        launched.append(launch_result)
+    for launch_result in launched:
+        _wait_for_tmux_session(launch_result)
+    payload = {
+        "executor": "tmux",
+        "launched_row_ids": [str(item["row_id"]) for item in rerun_candidates],
+        "launches": launched,
+        "expected_contract": expected_contract,
+    }
+    _write_json(output_root / "1024_rerun_execution.json", payload)
+    return payload
+
+
 def audit_cns_paper_bundle_upgrade(
     *,
     locked_rows_path: Path,
     output_root: Path,
     search_roots: list[Path] | None = None,
     preferred_run_roots: dict[str, Path] | None = None,
+    execute_missing_reruns: bool = False,
+    rerun_executor: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     locked_rows_payload = _load_json(Path(locked_rows_path))
     output_root = Path(output_root)
@@ -174,17 +379,39 @@ def audit_cns_paper_bundle_upgrade(
             preferred_run_root=preferred_run_roots.get(row_id),
         )
         if match is None:
-            missing_rows.append(
-                {
-                    "row_id": row_id,
-                    "reason": "missing_same_contract_1024_row",
-                    "rerun_command": _rerun_command(row_id, expected_contract=expected_contract, output_root=output_root),
-                }
-            )
+            missing_rows.append(_rerun_candidate(row_id, expected_contract=expected_contract, output_root=output_root))
             continue
         compatible_rows[row_id] = match
 
-    audit_outcome = "upgrade_ready" if not missing_rows else "fallback_to_512_required"
+    rerun_manifest = {
+        "schema_version": "pdebench_cns_paper_bundle_rerun_manifest_v1",
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "expected_contract": expected_contract,
+        "rerun_candidates": missing_rows,
+    }
+    _write_json(output_root / "1024_rerun_manifest.json", rerun_manifest)
+
+    rerun_execution: dict[str, Any] | None = None
+    if missing_rows and execute_missing_reruns:
+        executor = rerun_executor or _default_rerun_executor
+        rerun_execution = executor(
+            rerun_candidates=missing_rows,
+            expected_contract=expected_contract,
+            output_root=output_root,
+        )
+        rerun_verified: dict[str, Any] = {}
+        for candidate in missing_rows:
+            verified = _verify_rerun_completion(candidate, expected_contract=expected_contract)
+            rerun_verified[str(candidate["row_id"])] = verified
+        compatible_rows.update(rerun_verified)
+        missing_rows = []
+
+    if not missing_rows and rerun_execution is None:
+        audit_outcome = "upgrade_ready"
+    elif not missing_rows:
+        audit_outcome = "upgrade_ready_after_reruns"
+    else:
+        audit_outcome = "fallback_to_512_required"
     payload = {
         "schema_version": "pdebench_cns_paper_bundle_audit_v1",
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
@@ -194,7 +421,10 @@ def audit_cns_paper_bundle_upgrade(
         "expected_1024_contract": expected_contract,
         "compatible_1024_rows": compatible_rows,
         "missing_or_incompatible_rows": missing_rows,
+        "rerun_manifest_path": str(output_root / "1024_rerun_manifest.json"),
+        "rerun_execution": rerun_execution,
         "comparison_standard": "Exact match on dataset file, split counts, max_windows_per_trajectory, history_len, epochs, batch_size, training_loss, and metric_family.",
+        "authority_standard": "Rows must be completed and expose evidence_scope=capped_decision_support_only.",
     }
     _write_json(output_root / "1024_same_cap_audit.json", payload)
     _write_audit_markdown(output_root / "1024_same_cap_audit.md", payload)
@@ -207,6 +437,7 @@ def _write_audit_markdown(path: Path, payload: dict[str, Any]) -> Path:
         "",
         f"- Outcome: `{payload['audit_outcome']}`",
         f"- Locked fallback manifest: `{payload['fallback_locked_rows_path']}`",
+        f"- Rerun manifest: `{payload['rerun_manifest_path']}`",
         "",
         "## Compatible 1024 Rows",
     ]
@@ -222,6 +453,11 @@ def _write_audit_markdown(path: Path, payload: dict[str, Any]) -> Path:
             lines.append(f"  rerun: `{row['rerun_command']}`")
     else:
         lines.append("- none")
+    if payload.get("rerun_execution"):
+        lines.extend(["", "## Rerun Execution"])
+        lines.append(f"- executor: `{payload['rerun_execution'].get('executor', '')}`")
+        launched = payload["rerun_execution"].get("launched_row_ids", [])
+        lines.append(f"- launched rows: `{', '.join(str(item) for item in launched)}`")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
@@ -306,8 +542,7 @@ def _build_figure_bundle(locked_rows_payload: dict[str, Any], *, output_root: Pa
     rows = _visual_rows_from_locked_payload(locked_rows_payload)
     sample_ids, sample_paths = _resolve_shared_sample_ids(rows)
     field_order: list[str] | None = None
-    shared_field_scales: dict[str, Any] = {}
-    shared_error_scales: dict[str, Any] = {}
+    loaded_by_sample: dict[int, dict[str, dict[str, Any]]] = {}
     entries: list[dict[str, Any]] = []
 
     for sample_id in sample_ids:
@@ -333,21 +568,45 @@ def _build_figure_bundle(locked_rows_payload: dict[str, Any], *, output_root: Pa
                 raise ValueError(f"field-order mismatch for sample {sample_id}: {row_id}")
             if not np.allclose(payload["target"], reference_target, atol=1e-6, rtol=1e-6):
                 raise ValueError(f"target mismatch for sample {sample_id}: {row_id}")
-        field_order = list(reference_field_order)
+        sample_field_order = list(reference_field_order)
+        if field_order is None:
+            field_order = sample_field_order
+        elif sample_field_order != field_order:
+            raise ValueError(f"field-order mismatch across samples for sample {sample_id}")
+        loaded_by_sample[sample_id] = loaded_rows
 
+    field_order = field_order or []
+    shared_field_scales: dict[str, Any] = {}
+    shared_error_scales: dict[str, Any] = {}
+    first_row_id = str(rows[0]["row_id"])
+    for channel, field_name in enumerate(field_order):
+        value_arrays = []
+        error_arrays = []
+        for sample_id in sample_ids:
+            loaded_rows = loaded_by_sample[sample_id]
+            value_arrays.append(loaded_rows[first_row_id]["target"][channel])
+            value_arrays.extend(payload["prediction"][channel] for payload in loaded_rows.values())
+            error_arrays.extend(payload["abs_error"][channel] for payload in loaded_rows.values())
+        bundle = cfd_cns_shared_scale_bundle(
+            field_name,
+            value_arrays=value_arrays,
+            error_arrays=error_arrays,
+        )
+        shared_field_scales[field_name] = bundle["value_scale"]
+        shared_error_scales[field_name] = bundle["error_scale"]
+
+    for sample_id in sample_ids:
+        sample_label = f"sample{sample_id:03d}"
+        loaded_rows = loaded_by_sample[sample_id]
+        reference_target = loaded_rows[first_row_id]["target"]
         for channel, field_name in enumerate(field_order):
-            bundle = cfd_cns_shared_scale_bundle(
-                field_name,
-                value_arrays=[reference_target[channel], *[payload["prediction"][channel] for payload in loaded_rows.values()]],
-                error_arrays=[payload["abs_error"][channel] for payload in loaded_rows.values()],
-            )
-            shared_field_scales[field_name] = bundle["value_scale"]
-            shared_error_scales[field_name] = bundle["error_scale"]
+            value_scale = shared_field_scales[field_name]
+            error_scale = shared_error_scales[field_name]
 
             target_path = _save_panel(
                 output_root / "figures" / sample_label / f"{field_name}__target.png",
                 reference_target[channel],
-                bundle["value_scale"],
+                value_scale,
             )
             entries.append(
                 {
@@ -364,12 +623,12 @@ def _build_figure_bundle(locked_rows_payload: dict[str, Any], *, output_root: Pa
                 prediction_path = _save_panel(
                     output_root / "figures" / sample_label / f"{field_name}__{row_id}__prediction.png",
                     loaded_rows[row_id]["prediction"][channel],
-                    bundle["value_scale"],
+                    value_scale,
                 )
                 error_path = _save_panel(
                     output_root / "figures" / sample_label / f"{field_name}__{row_id}__abs_error.png",
                     loaded_rows[row_id]["abs_error"][channel],
-                    bundle["error_scale"],
+                    error_scale,
                 )
                 entries.extend(
                     [
@@ -394,7 +653,6 @@ def _build_figure_bundle(locked_rows_payload: dict[str, Any], *, output_root: Pa
                     ]
                 )
 
-    field_order = field_order or []
     field_scale_path = _write_json(output_root / "shared_field_scales.json", shared_field_scales)
     error_scale_path = _write_json(output_root / "shared_error_scales.json", shared_error_scales)
     sample_manifest = {
@@ -427,6 +685,8 @@ def run_cns_paper_bundle(
     locked_rows_path: Path = DEFAULT_LOCKED_ROWS_PATH,
     output_root: Path = DEFAULT_OUTPUT_ROOT,
     search_roots: list[Path] | None = None,
+    execute_missing_1024_reruns: bool = False,
+    rerun_executor: Callable[..., dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     locked_rows_path = Path(locked_rows_path)
     output_root = Path(output_root)
@@ -436,6 +696,8 @@ def run_cns_paper_bundle(
         locked_rows_path=locked_rows_path,
         output_root=output_root,
         search_roots=search_roots,
+        execute_missing_reruns=execute_missing_1024_reruns,
+        rerun_executor=rerun_executor,
     )
     locked_rows_payload = _load_json(locked_rows_path)
     bundle_kind = (
@@ -486,6 +748,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--locked-rows-path", type=Path, default=DEFAULT_LOCKED_ROWS_PATH)
     parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--search-root", dest="search_roots", action="append", type=Path)
+    parser.add_argument("--execute-missing-1024-reruns", action="store_true")
     return parser.parse_args()
 
 
@@ -495,6 +758,7 @@ def main() -> int:
         locked_rows_path=args.locked_rows_path,
         output_root=args.output_root,
         search_roots=args.search_roots,
+        execute_missing_1024_reruns=args.execute_missing_1024_reruns,
     )
     return 0
 
