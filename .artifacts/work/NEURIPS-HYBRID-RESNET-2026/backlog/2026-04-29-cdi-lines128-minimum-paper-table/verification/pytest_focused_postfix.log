@@ -1,7 +1,6 @@
-........................................................................ [ 30%]
-........................................................................ [ 61%]
-........................................................................ [ 91%]
-...................                                                      [100%]
+........................................................................ [ 39%]
+........................................................................ [ 78%]
+........................................                                 [100%]
 =============================== warnings summary ===============================
 tests/test_grid_lines_compare_wrapper.py::test_harmonized_metrics_run_on_canonical_gt_grid
   /home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/skimage/metrics/_structural_similarity.py:269: RuntimeWarning: invalid value encountered in divide
@@ -22,7 +21,6 @@ tests/torch/test_grid_lines_torch_runner.py: 11 warnings
 
 tests/test_grid_lines_compare_wrapper.py: 10 warnings
 tests/torch/test_grid_lines_torch_runner.py: 9 warnings
-tests/test_grid_lines_workflow.py: 5 warnings
   /home/ollie/Documents/PtychoPINN/ptycho/workflows/grid_lines_workflow.py:1368: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
     plt.tight_layout()
 
@@ -35,4 +33,4 @@ tests/torch/test_grid_lines_torch_runner.py::TestChannelGridsizeAlignment::test_
     warnings.warn(
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-235 passed, 50 warnings in 30.45s
+184 passed, 45 warnings in 28.14s

@@ -1,6 +1,6 @@
-........................................................................ [ 43%]
-........................................................................ [ 86%]
-......................                                                   [100%]
+........................................................................ [ 42%]
+........................................................................ [ 85%]
+........................                                                 [100%]
 =============================== warnings summary ===============================
 tests/torch/test_grid_lines_torch_runner.py: 11 warnings
 tests/test_grid_lines_compare_wrapper.py: 10 warnings
@@ -33,4 +33,4 @@ tests/test_grid_lines_compare_wrapper.py::test_harmonized_metrics_run_on_canonic
     warnings.warn(f"NaN SSIM value encountered in MS-SSIM calculation at level {level}. "
 
 -- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-166 passed, 45 warnings in 285.34s (0:04:45)
+168 passed, 45 warnings in 285.69s (0:04:45)

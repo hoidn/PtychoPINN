@@ -116,7 +116,8 @@ def _coerce_paper_row_payload(
     normalized = _default_paper_row_payload(model_id, n_value=n_value)
     if isinstance(payload, Mapping):
         normalized.update(dict(payload))
-    normalized["N"] = int(normalized.get("N", n_value))
+    n_payload = normalized.get("N")
+    normalized["N"] = int(n_value if n_payload is None else n_payload)
     normalized["model_label"] = str(normalized.get("model_label") or PAPER_MODEL_LABELS.get(model_id, model_id))
     normalized["architecture_id"] = str(
         normalized.get("architecture_id") or PAPER_ARCHITECTURE_OVERRIDES.get(model_id, MODEL_TO_LEGACY_ARCH.get(model_id, model_id))
