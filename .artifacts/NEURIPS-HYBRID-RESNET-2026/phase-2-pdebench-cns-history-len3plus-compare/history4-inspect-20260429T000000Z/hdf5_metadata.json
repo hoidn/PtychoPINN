@@ -1,0 +1,74 @@
+{
+  "available_windows": 170000,
+  "boundary_condition": "periodic",
+  "data_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+  "dimensions": {
+    "channels": 1,
+    "height": 128,
+    "num_trajectories": 10000,
+    "time_steps": 21,
+    "width": 128
+  },
+  "dt": 0.05000000074505806,
+  "dx": 0.0078125,
+  "dy": 0.0078125,
+  "dynamic_history_contract": "concat u[t-4:t] -> u[t]",
+  "eta": 0.01,
+  "field_axis_order": "NTHW",
+  "field_dtypes": {
+    "Vx": "float32",
+    "Vy": "float32",
+    "density": "float32",
+    "pressure": "float32"
+  },
+  "field_order": [
+    "density",
+    "Vx",
+    "Vy",
+    "pressure"
+  ],
+  "field_shapes": {
+    "Vx": [
+      10000,
+      21,
+      128,
+      128
+    ],
+    "Vy": [
+      10000,
+      21,
+      128,
+      128
+    ],
+    "density": [
+      10000,
+      21,
+      128,
+      128
+    ],
+    "pressure": [
+      10000,
+      21,
+      128,
+      128
+    ]
+  },
+  "file_size_bytes": 55050245208,
+  "history_len": 4,
+  "input_channels": 16,
+  "pde_name": "2d_cfd",
+  "schema_version": "pdebench_2d_cfd_cns_hdf5_metadata_v1",
+  "state_channels": 4,
+  "state_shape": [
+    10000,
+    21,
+    128,
+    128
+  ],
+  "target_channels": 4,
+  "task_id": "2d_cfd_cns",
+  "time_steps": 21,
+  "trajectory_count": 10000,
+  "windows_per_trajectory": 17,
+  "zeta": 0.01
+}

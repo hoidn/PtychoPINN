@@ -494,6 +494,7 @@ def _maybe_render_cross_run_gallery(
     records: list[dict[str, Any]],
     output_root: Path,
     epoch_label: str,
+    compare_stem: str | None = None,
 ) -> tuple[dict[str, str] | None, dict[str, Any] | None]:
     try:
         npz_records = [_load_npz_record(record) for record in records]
@@ -520,18 +521,19 @@ def _maybe_render_cross_run_gallery(
         (record["profile_id"], record["prediction"]) for record in npz_records
     ]
     error_panels = [(record["profile_id"], record["abs_error"]) for record in npz_records]
+    compare_stem = str(compare_stem or f"compare_{epoch_label}")
     prediction_path = _render_gallery(
         target=first["target"],
         panels=prediction_panels,
         field_order=first["field_order"],
-        output_path=output_root / f"compare_{epoch_label}_sample0.png",
+        output_path=output_root / f"{compare_stem}_sample0.png",
         is_error=False,
     )
     error_path = _render_gallery(
         target=first["target"],
         panels=error_panels,
         field_order=first["field_order"],
-        output_path=output_root / f"compare_{epoch_label}_sample0_error.png",
+        output_path=output_root / f"{compare_stem}_sample0_error.png",
         is_error=True,
     )
     return {
@@ -765,7 +767,6 @@ def write_history_delta_compare(
 
     first_reference_row = reference_rows_by_profile[fresh_profile_ids[0]]
     fixed_contract = _fixed_contract(first_reference_row)
-    reference_history_len = int(first_reference_row["history_len"])
 
     fresh_records: list[dict[str, Any]] = []
     frozen_records: list[dict[str, Any]] = []
@@ -801,7 +802,7 @@ def write_history_delta_compare(
         fresh_record = _load_run_record(
             Path(fresh_run_root),
             profile_id=profile_id,
-            source_document="fresh_history1_run",
+            source_document="fresh_history_run",
         )
         _assert_fixed_contract_matches(
             label=f"fresh row {profile_id}",
@@ -892,29 +893,40 @@ def write_history_delta_compare(
         raise ValueError(
             f"reference history_len mismatch for history compare: {reference_history_len!r} != {first_reference_row['history_len']!r}"
         )
-    if fresh_history_len >= reference_history_len:
-        raise ValueError(
-            f"history compare expects the fresh run to reduce temporal context: {fresh_history_len!r} !< {reference_history_len!r}"
-        )
+    if fresh_history_len > reference_history_len:
+        delta_direction = "increase_temporal_context"
+    else:
+        delta_direction = "reduce_temporal_context"
+    fresh_row_family = f"fresh_history{fresh_history_len}"
+    reference_row_family = f"reference_history{reference_history_len}"
+    compare_stem = f"compare_{epoch_label}_history{fresh_history_len}_against_history{reference_history_len}"
 
     gallery_records = [*fresh_records, *frozen_records]
     gallery_artifacts, gallery_blocker = _maybe_render_cross_run_gallery(
         records=gallery_records,
         output_root=output_root,
         epoch_label=epoch_label,
+        compare_stem=compare_stem,
     )
 
     payload = {
-        "schema_version": "pdebench_image128_history_delta_compare_v1",
+        "schema_version": "pdebench_image128_history_delta_compare_v2",
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "task_id": "2d_cfd_cns",
         "epoch_label": str(epoch_label),
         "fresh_run_root": str(fresh_run_root),
         "fixed_contract": fixed_contract,
-        "allowed_contract_delta": allowed_contract_delta,
+        "allowed_contract_delta": {
+            **allowed_contract_delta,
+            "delta_direction": delta_direction,
+        },
         "comparison_standard": "Only history_len and its derived sample/input-channel contract may differ.",
         "evidence_scope": "capped_decision_support_only",
         "metric_interpretation": "decision_support_not_benchmark_performance",
+        "row_family_labels": {
+            "fresh": fresh_row_family,
+            "reference": reference_row_family,
+        },
         "fresh_profile_results": [record["row"] for record in fresh_records],
         "reference_profile_results": [record["row"] for record in frozen_records],
         "profile_comparisons": comparisons,
@@ -922,8 +934,8 @@ def write_history_delta_compare(
         "cross_run_gallery_blocked": gallery_blocker,
     }
 
-    json_path = output_root / f"compare_{epoch_label}_against_history2.json"
-    csv_path = output_root / f"compare_{epoch_label}_against_history2.csv"
+    json_path = output_root / f"{compare_stem}.json"
+    csv_path = output_root / f"{compare_stem}.csv"
     json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     fields = [
         "row_family",
@@ -952,10 +964,15 @@ def write_history_delta_compare(
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
         for row in payload["fresh_profile_results"]:
-            writer.writerow({"row_family": "fresh_history1", **{field: row.get(field, "") for field in fields if field != "row_family"}})
+            writer.writerow(
+                {"row_family": fresh_row_family, **{field: row.get(field, "") for field in fields if field != "row_family"}}
+            )
         for row in payload["reference_profile_results"]:
             writer.writerow(
-                {"row_family": "reference_history2", **{field: row.get(field, "") for field in fields if field != "row_family"}}
+                {
+                    "row_family": reference_row_family,
+                    **{field: row.get(field, "") for field in fields if field != "row_family"},
+                }
             )
     return json_path, csv_path, payload
 

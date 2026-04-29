@@ -1521,9 +1521,12 @@ def test_history1_cross_run_compare_records_allowed_delta_and_rows(tmp_path):
 
     assert json_path.exists()
     assert csv_path.exists()
+    assert json_path.name == "compare_10ep_history1_against_history2.json"
+    assert csv_path.name == "compare_10ep_history1_against_history2.csv"
     assert payload["fixed_contract"]["dataset_file"] == "/tmp/fake-cfd-cns.hdf5"
     assert payload["allowed_contract_delta"] == {
         "delta_kind": "history_len_only",
+        "delta_direction": "reduce_temporal_context",
         "reference_history_len": 2,
         "fresh_history_len": 1,
         "reference_sample_contract": "concat u[t-2:t] -> u[t]",
@@ -1531,6 +1534,10 @@ def test_history1_cross_run_compare_records_allowed_delta_and_rows(tmp_path):
         "reference_input_channels": 8,
         "fresh_input_channels": 4,
         "target_channels": 4,
+    }
+    assert payload["row_family_labels"] == {
+        "fresh": "fresh_history1",
+        "reference": "reference_history2",
     }
     assert [item["profile_id"] for item in payload["fresh_profile_results"]] == [
         "spectral_resnet_bottleneck_base",
@@ -1545,8 +1552,188 @@ def test_history1_cross_run_compare_records_allowed_delta_and_rows(tmp_path):
         "unet_strong",
     ]
     assert payload["cross_run_gallery_blocked"] is None
-    assert (tmp_path / "out" / "compare_10ep_sample0.png").exists()
-    assert (tmp_path / "out" / "compare_10ep_sample0_error.png").exists()
+    assert (tmp_path / "out" / "compare_10ep_history1_against_history2_sample0.png").exists()
+    assert (tmp_path / "out" / "compare_10ep_history1_against_history2_sample0_error.png").exists()
+
+
+def test_history3_cross_run_compare_records_increase_direction_and_dynamic_labels(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import write_history_delta_compare
+
+    history3_root = tmp_path / "history3"
+    _write_fake_cfd_cns_compare_run(
+        history3_root,
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=10,
+        err_nrmse=0.08,
+        history_len=3,
+    )
+    _write_fake_cfd_cns_compare_run(
+        history3_root,
+        profile_id="hybrid_resnet_cns",
+        epochs=10,
+        err_nrmse=0.10,
+        history_len=3,
+    )
+    _write_fake_cfd_cns_compare_run(
+        history3_root,
+        profile_id="fno_base",
+        epochs=10,
+        err_nrmse=0.12,
+        history_len=3,
+    )
+    _write_fake_cfd_cns_compare_run(
+        history3_root,
+        profile_id="unet_strong",
+        epochs=10,
+        err_nrmse=0.21,
+        history_len=3,
+    )
+
+    spectral_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "history2-spectral",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=10,
+        err_nrmse=0.11,
+        history_len=2,
+    )
+    hybrid_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "history2-hybrid",
+        profile_id="hybrid_resnet_cns",
+        epochs=10,
+        err_nrmse=0.19,
+        history_len=2,
+    )
+    fno_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "history2-fno",
+        profile_id="fno_base",
+        epochs=10,
+        err_nrmse=0.23,
+        history_len=2,
+    )
+    unet_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "history2-unet",
+        profile_id="unet_strong",
+        epochs=10,
+        err_nrmse=0.31,
+        history_len=2,
+    )
+
+    json_path, csv_path, payload = write_history_delta_compare(
+        output_root=tmp_path / "out",
+        epoch_label="10ep",
+        fresh_run_root=history3_root,
+        fresh_profile_ids=[
+            "spectral_resnet_bottleneck_base",
+            "hybrid_resnet_cns",
+            "fno_base",
+            "unet_strong",
+        ],
+        reference_rows=[
+            {
+                "run_root": str(spectral_root),
+                "profile_id": "spectral_resnet_bottleneck_base",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/spectral.md",
+            },
+            {
+                "run_root": str(hybrid_root),
+                "profile_id": "hybrid_resnet_cns",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/hybrid.md",
+            },
+            {
+                "run_root": str(fno_root),
+                "profile_id": "fno_base",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/fno.md",
+            },
+            {
+                "run_root": str(unet_root),
+                "profile_id": "unet_strong",
+                "epochs": 10,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/unet.md",
+            },
+        ],
+    )
+
+    assert json_path.name == "compare_10ep_history3_against_history2.json"
+    assert csv_path.name == "compare_10ep_history3_against_history2.csv"
+    assert payload["allowed_contract_delta"] == {
+        "delta_kind": "history_len_only",
+        "delta_direction": "increase_temporal_context",
+        "reference_history_len": 2,
+        "fresh_history_len": 3,
+        "reference_sample_contract": "concat u[t-2:t] -> u[t]",
+        "fresh_sample_contract": "concat u[t-3:t] -> u[t]",
+        "reference_input_channels": 8,
+        "fresh_input_channels": 12,
+        "target_channels": 4,
+    }
+    assert payload["row_family_labels"] == {
+        "fresh": "fresh_history3",
+        "reference": "reference_history2",
+    }
+    assert (tmp_path / "out" / "compare_10ep_history3_against_history2_sample0.png").exists()
+    assert (tmp_path / "out" / "compare_10ep_history3_against_history2_sample0_error.png").exists()
+    rows = list(csv.DictReader(csv_path.open("r", encoding="utf-8")))
+    assert [row["row_family"] for row in rows[:4]] == ["fresh_history3"] * 4
+    assert [row["row_family"] for row in rows[4:]] == ["reference_history2"] * 4
 
 
 def test_history1_cross_run_compare_rejects_fixed_contract_mismatch(tmp_path):
