@@ -694,6 +694,52 @@ Decision:
   FFNO-family follow-up profile for future bounded local studies
 - do not promote it into a primary bundle from capped evidence alone
 
+## Hybrid-Spectral To FFNO Parameter-Space Shell Probes
+
+The bounded shell-bridge follow-up between the current shared-spectral lane and
+the repo-local FFNO-family lane is tracked in:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_ffno_parameter_space_summary.md`
+
+That item kept the same capped CNS contract fixed and reused the frozen
+Hybrid-spectral plus FFNO local-conv authorities. It only launched two fresh
+`10`-epoch shell probes against `spectral_resnet_bottleneck_base`:
+
+- `spectral_resnet_bottleneck_base_down1`
+- `spectral_resnet_bottleneck_base_transpose`
+
+Anchored compare artifacts:
+
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-ffno-parameter-space/compare_10ep_against_existing.json`
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-ffno-parameter-space/compare_10ep_against_existing.csv`
+
+Observed fresh-row metrics:
+
+- `spectral_resnet_bottleneck_base_down1`:
+  `relative_l2=0.1049272269`, `fRMSE_high=0.9592211246`
+- `spectral_resnet_bottleneck_base_transpose`:
+  `relative_l2=0.1664283574`, `fRMSE_high=0.7184003592`
+- anchor `spectral_resnet_bottleneck_base`:
+  `relative_l2=0.0869938582`, `fRMSE_high=0.6955373287`
+
+Directional read:
+
+- the reduced-downsampling row cut parameter count and runtime sharply, but
+  still lost on the declared promotion keys
+- the transpose-decoder row was worse still on aggregate error and carried a
+  large low-band penalty
+- because neither probe was competitive or ambiguous relative to the spectral
+  anchor on `relative_l2`, then `err_nRMSE`, then `fRMSE_high`, the `40`-epoch
+  promotion set stayed empty
+
+Decision:
+
+- keep `spectral_resnet_bottleneck_base` as the aggregate local shell anchor
+- keep `ffno_bottleneck_localconv_base` as the stronger repo-local FFNO-family
+  alternative from the earlier local-conv follow-up
+- treat this lane as a negative shell result on the capped contract, not as a
+  benchmark or promotion signal
+
 ## Official GNOT Paper-Default Follow-Up
 
 The official GNOT baseline is tracked separately from both the authored FFNO

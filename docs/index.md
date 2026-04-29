@@ -258,6 +258,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, pdebench, cns, ffno, convolution, local-features, summary
 **Use this when:** Checking whether the local-conv FFNO follow-up is worth carrying forward, locating the authoritative capped compare artifacts, or reviewing the exact fixed-contract boundary for this FFNO-family extension.
 
+### [NeurIPS Hybrid ResNet PDEBench CNS Hybrid-Spectral To FFNO Parameter-Space Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_ffno_parameter_space_summary.md)
+**Description:** Implementation summary for the capped CNS shell-bridge follow-up between the current Hybrid-spectral and repo-local FFNO-family lanes, covering the frozen study matrix, the fresh `spectral_resnet_bottleneck_base_down1` and `spectral_resnet_bottleneck_base_transpose` probes, the anchored `10`-epoch compare sidecar, the closed `40`-epoch promotion gate, and the carry-forward result that the spectral anchor remains the aggregate local shell reference while FFNO local-conv stays the stronger repo-local FFNO-family alternative.
+**Keywords:** neurips, pdebench, cns, hybrid-spectral, ffno, parameter-space, shell, decoder, downsampling, summary
+**Use this when:** Checking whether the Hybrid-spectral shell should move toward a lighter downsampling path or a transpose decoder on the capped CNS contract, locating the anchored `10`-epoch compare artifacts, or reviewing why the item closed without a `40`-epoch follow-up.
+
 ### [NeurIPS Hybrid ResNet CDI FFNO Generator Lines Plan](plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_plan.md)
 **Description:** Backlog plan for using FFNO as a CDI/ptycho Torch generator on the best study-indexed lines configuration and comparing it against Hybrid ResNet under the same data, training, stitching, and metric contract.
 **Keywords:** neurips, cdi, ptycho, ffno, generator, lines_256, hybrid_resnet
