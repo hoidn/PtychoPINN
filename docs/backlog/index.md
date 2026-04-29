@@ -39,9 +39,9 @@ Current source of truth:
 | [2026-04-29-cns-paper-table-figure-bundle.md](in_progress/2026-04-29-cns-paper-table-figure-bundle.md) | `in_progress` | `phase-2-pdebench-128x128-image-suite` | Depends on completed CNS paper benchmark rows | Builds the CNS JSON/CSV/TeX table, fixed-sample field visuals, source-array manifest, and claim-boundary summary; it should upgrade the immediate bundle to `1024 / 128 / 128` when same-cap rows can be recovered or run, without mixing caps. |
 | [2026-04-27-cdi-ffno-generator-lines-best-config.md](done/2026-04-27-cdi-ffno-generator-lines-best-config.md) | `done` | `phase-3-cdi-anchor-regeneration` | CDI/ptycho generator lane; no active backlog prerequisite | Completed CDI FFNO generator baseline work. It unlocks CDI FFNO-dependent lanes but does not satisfy the Phase 2 PDEBench evidence gate. |
 | [2026-04-29-cdi-lines128-paper-benchmark-harness.md](done/2026-04-29-cdi-lines128-paper-benchmark-harness.md) | `done` | `phase-3-cdi-anchor-regeneration` | No active backlog prerequisite | Completed shared Lines128 paper-benchmark wrapper/harness, contract-reconstruction preflight, FNO/seed decision manifest, and metric-schema downgrade gate. |
-| [2026-04-29-cdi-lines128-minimum-paper-table.md](active/2026-04-29-cdi-lines128-minimum-paper-table.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on completed Lines128 paper benchmark harness | Produces the minimum paper-grade CDI subset and visual bundle for `hybrid_resnet`, CNN/PINN-style baseline, and selected FNO comparator. |
+| [2026-04-29-cdi-lines128-minimum-paper-table.md](active/2026-04-29-cdi-lines128-minimum-paper-table.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on completed Lines128 paper benchmark harness | Produces the minimum paper-grade CDI subset and visual bundle for `hybrid_resnet`, U-Net/SRU-Net + PINN local baseline, and selected FNO comparator, with CNN/PINN only as an explicit compatibility fallback. |
 | [2026-04-29-cdi-lines128-paper-benchmark-execution.md](active/2026-04-29-cdi-lines128-paper-benchmark-execution.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on completed CDI FFNO generator baseline, completed Lines128 harness, and the active minimum CDI table | Extends the minimum CDI subset with required `spectral_resnet_bottleneck_net` and FFNO rows, then publishes the complete CDI table and reconstruction package. |
-| [2026-04-29-cdi-lines128-supervised-equivalent-rows.md](active/2026-04-29-cdi-lines128-supervised-equivalent-rows.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution | Adds supervised-training equivalents for CNN, FNO, SRU-Net, and FFNO under the locked Lines128 contract so the paper can separate model-body effects from PINN forward-model training effects. |
+| [2026-04-29-cdi-lines128-supervised-equivalent-rows.md](active/2026-04-29-cdi-lines128-supervised-equivalent-rows.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution | Adds targeted supervised CDI controls, anchored by U-Net/SRU-Net + supervised, so the paper can separate model-body effects from PINN training without requiring supervised counterparts for every architecture. |
 | [2026-04-29-cdi-lines128-classical-baseline-feasibility.md](active/2026-04-29-cdi-lines128-classical-baseline-feasibility.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on completed Lines128 paper benchmark harness | Attempts a protocol-compatible HIO/ER/PyNX-style classical CDI row or records an explicit `not_protocol_compatible` outcome. |
 | [2026-04-27-hybrid-spectral-ffno-parameter-space-cdi.md](active/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on completed CDI FFNO generator baseline | Phase 3 CDI-only split of the former mixed CNS/CDI parameter-space item. The dependency is now satisfied, so selection is governed by roadmap value rather than prerequisite blocking. |
 | [2026-04-29-paper-evidence-package-audit.md](active/2026-04-29-paper-evidence-package-audit.md) | `active` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Depends on minimum CDI table and CNS table/figure bundle | Creates the repo-local paper evidence manifest and completeness audit without creating the Phase 5 paper-facing evidence map. |
@@ -71,9 +71,9 @@ Current source of truth:
 - The FFNO-as-CDI-generator lane is complete. It remains separate from CNS and
   does not close any remaining Phase 2 PDEBench evidence requirement.
 - The Lines128 paper-quality CDI harness is complete. The minimum
-  `hybrid_resnet`/CNN-PINN/FNO paper subset can proceed, and the complete CDI
-  execution item is now blocked only by the minimum CDI table, not by the FFNO
-  generator or harness prerequisites.
+  `hybrid_resnet`/U-Net-or-SRU-Net-plus-PINN/FNO paper subset can proceed, and
+  the complete CDI execution item is now blocked only by the minimum CDI table,
+  not by the FFNO generator or harness prerequisites.
 - The classical CDI item is optional paper-strengthening work. It must return a
   protocol-compatible row or an explicit incompatibility note; it should not
   force a solver into a misleading same-protocol comparison.
@@ -82,9 +82,11 @@ Current source of truth:
   Phase 2 PDEBench evidence and should not be used to close the PDEBench
   image-suite gate.
 - The supervised Lines128 CDI extension is deliberately downstream of the
-  complete PINN-trained CDI table. It should reuse the locked contract and label
-  rows as architecture plus training procedure, not reopen the primary benchmark
-  definition.
+  complete PINN-trained CDI table. It should reuse the locked contract, require
+  only the local U-Net/SRU-Net supervised control when compatible, and add at
+  most one predeclared FNO or FFNO supervised control if it answers a concrete
+  training-procedure question; it should not become a full supervised mirror of
+  every architecture row.
 - The broader Hybrid-spectral-to-FFNO parameter-space study has been split by
   roadmap phase. The CNS half is complete; the CDI half is active with its CDI
   FFNO generator prerequisite satisfied.

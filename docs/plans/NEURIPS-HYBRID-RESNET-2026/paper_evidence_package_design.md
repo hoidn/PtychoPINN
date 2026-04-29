@@ -91,15 +91,18 @@ Complete CDI benchmark table rows:
 - `spectral_resnet_bottleneck_net`
 - FNO comparator, selected before launch as either `fno` or `fno_vanilla`
 - FFNO row, after FFNO satisfies the CDI/grid-lines generator contract
-- CNN/PINN row as the local non-spectral neural baseline required by this
-  package-level paper-evidence design
+- U-Net/SRU-Net + PINN row as the local non-spectral neural baseline required
+  by this package-level paper-evidence design; use a simpler CNN/PINN row only
+  as an explicit fallback if U-Net/SRU-Net is not protocol-compatible with the
+  locked Lines128 runner contract
 - optional classical CDI row, preferably HIO/ER/PyNX, if it can be made
   protocol-compatible without changing the task contract
 
 Minimum draftable CDI claim rows:
 
 - `hybrid_resnet`
-- CNN/PINN row
+- U-Net/SRU-Net + PINN local-baseline row, or the explicit CNN/PINN fallback
+  if U-Net/SRU-Net is not protocol-compatible
 - selected FNO comparator
 
 This minimum subset can unblock manuscript table shells and bounded preliminary
@@ -275,9 +278,10 @@ Do not draft as final claims yet:
 
 Minimum result-claim gate:
 
-- CDI table has at least Hybrid-family, CNN/PINN, and FNO rows under one
-  paper-grade contract, while clearly labeling the result as the minimum
-  draftable CDI subset rather than the complete `lines128` benchmark
+- CDI table has at least Hybrid-family, U-Net/SRU-Net + PINN local-baseline,
+  and FNO rows under one paper-grade contract, while clearly labeling the
+  result as the minimum draftable CDI subset rather than the complete
+  `lines128` benchmark
 - CNS table has at least Hybrid-family, FNO, and U-Net/CNN-style rows under one
   explicitly labeled contract
 - each pillar has at least one visual comparison bundle
@@ -297,7 +301,8 @@ Recommended backlog items:
    - output complete provenance, metrics, and visuals
 
 2. CDI `lines128` baseline table
-   - run CNN/PINN and FNO under the same CDI contract
+   - run U-Net/SRU-Net + PINN and FNO under the same CDI contract, with
+     CNN/PINN only as a documented fallback if U-Net/SRU-Net is incompatible
    - emit table-ready metrics and visuals
 
 3. CDI spectral row

@@ -39,6 +39,9 @@ The project needs a paper-quality CDI/ptycho benchmark on the study-indexed
 - `spectral_resnet_bottleneck_net`
 - an FNO comparator, selected before launch as either `fno` or `fno_vanilla`
 - FFNO as a CDI/grid-lines generator
+- U-Net/SRU-Net + PINN as the local convolutional baseline required by the
+  package-level paper evidence design, with a simpler CNN/PINN row only as an
+  explicit fallback if U-Net/SRU-Net cannot satisfy the locked runner contract
 
 The result must be suitable for paper tables and visual reconstruction figures,
 not just local decision support. In scope:
