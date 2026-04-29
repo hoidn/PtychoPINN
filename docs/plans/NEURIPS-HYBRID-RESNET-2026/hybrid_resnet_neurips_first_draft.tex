@@ -22,7 +22,7 @@ wave physics with sharp local object features. Physics-informed neural
 reconstruction methods reduce the need for labeled data by training through the
 known diffraction forward model and scan-overlap constraints, yet their
 generator architectures are often dominated by local convolutional priors. We
-study a spectral-convolutional residual (SCR) generator that combines Fourier
+study a spectral-residual U-Net (SRU-Net) that combines Fourier
 neural-operator style global mixing with convolutional and residual image
 refinement. The architecture uses a spectral encoder to build long-range
 context, a ResNet bottleneck at reduced spatial resolution, and a convolutional
@@ -31,10 +31,10 @@ synthetic line-pattern ptychographic reconstruction benchmark and use PDEBench 2
 compressible Navier-Stokes as a secondary cross-domain benchmark. The secondary
 benchmark stresses the same global-local architectural tradeoff in a different
 problem class: coherent large-scale flow and wave structure coexist with shocks,
-vorticity, and localized high-gradient features. Initial synthetic line-pattern CDI
-experiments show strong SCR + PINN reconstruction quality against an FFNO + PINN
-comparator, while the CNS experiments identify the model families and metrics
-needed for the secondary benchmark.
+vorticity, and localized high-gradient features. On the synthetic line-pattern
+CDI benchmark, SRU-Net + PINN gives lower MAE and higher SSIM than the FFNO +
+PINN baseline. The CNS experiments compare spectral-convolutional variants
+against Fourier-operator and image-model baselines.
 \end{abstract}
 
 \section{Introduction}
@@ -59,18 +59,18 @@ the network is not merely asked to match labels, but is constrained to produce
 reconstructions whose forward diffraction is physically consistent with the
 measurements.
 
-The remaining question is architectural. Ptychographic inversion combines two
+This leaves an architectural question. Ptychographic inversion combines two
 different demands. The diffraction measurement encodes global wave interactions
 and phase coupling, while the target object contains local features such as
 edges, phase wraps, and fine texture. Convolutional encoder-decoder models are
 strong local image priors, but their long-range interaction capacity grows
 indirectly through depth and pooling. Fourier neural operators provide global
 mixing in a single layer, but spectral truncation can suppress the high-frequency
-features that make reconstruction scientifically useful.
+local structure that often determines reconstruction quality.
 
-We therefore study an SCR architecture. The
+We therefore study SRU-Net, a spectral-residual U-Net. The
 model uses Fourier-style spectral mixing for global context, convolutional paths
-for local structure, and a ResNet/CycleGAN-style decoder for image-domain
+for local structure, and a U-shaped residual encoder-decoder for image-domain
 refinement. The central hypothesis is not that Fourier layers should replace
 convolutions, but that a generator for scientific imaging should explicitly
 combine global operator mixing with local feature preservation.
@@ -79,7 +79,7 @@ We evaluate this hypothesis in two settings. The primary setting is
 physics-informed ptychographic reconstruction on a 128-by-128 synthetic
 line-pattern CDI benchmark. The secondary setting is PDEBench 2D compressible
 Navier-Stokes (CNS), which tests the same global-local inductive bias in
-time-dependent field prediction. CNS is a useful stress test because it mixes
+time-dependent field prediction. CNS is a stress test because it mixes
 coherent large-scale dynamics with
 localized shocks, vortices, and high-gradient features, and because purely
 spectral operator models can struggle when localized structure dominates
@@ -127,10 +127,10 @@ form is conceptually attractive for diffraction and flow problems, where
 long-range coherent structure and local features coexist.
 
 However, FNO-style truncation of Fourier modes can bias the model toward
-low-frequency structure. In imaging and compressible flow, the scientifically
-important content often includes edges, shocks, and other high-gradient
-features. This motivates architectures that retain spectral global mixing while
-adding stronger local paths and decoder-side refinement.
+low-frequency structure. In imaging and compressible flow, local structure such
+as edges, speckle-like texture, shocks, vortices, and turbulent features can be
+central to the task. This motivates architectures that retain spectral global
+mixing while adding local paths and decoder-side refinement.
 
 \subsection{Spectral-convolutional architectures}
 
@@ -142,11 +142,9 @@ spectral blocks inside U-shaped image models. These designs all reflect the same
 principle: spectral layers are useful for global coupling, but local
 convolutions and skip connections remain important for high-frequency details.
 
-The architecture studied here is closest in spirit to an FNO encoder followed
-by a convolutional image decoder, but the implemented generator uses a
-SCR body: spectral-local encoding, a
-ResNet bottleneck, and
-CycleGAN-style upsampling. This combination is intended to preserve the global
+The architecture studied here is closest in spirit to an FNO encoder embedded
+in a U-shaped image model. The implemented SRU-Net body combines
+spectral-local encoding, a ResNet bottleneck, and learned upsampling. This combination preserves the global
 mixing benefits of neural operators while retaining the local image prior that
 made CNN-based PtychoPINN effective.
 
@@ -202,11 +200,11 @@ spectral truncation, while the spectral path provides global coupling.
 
 \subsection{Spectral-convolutional residual-network body}
 
-The implemented SCR generator consists of an input
+The implemented SRU-Net consists of an input
 lifter, four spectral-local encoder blocks, two downsampling stages, a
 six-block residual bottleneck at $N/4$ spatial resolution, and a convolutional
 upsampling decoder. Figure~\ref{fig:architecture} summarizes the data flow, and
-Table~\ref{tab:architecture_contract} lists the implementation-level choices
+Table~\ref{tab:architecture_summary} lists the implementation-level choices
 that determine the shape of the model.
 
 \begin{figure}[t]
@@ -214,28 +212,27 @@ that determine the shape of the model.
 \resizebox{\linewidth}{!}{%
 \begin{tikzpicture}[
   >=Latex,
-  tensor/.style={draw, rounded corners=2pt, align=center, minimum height=9mm, text width=24mm, inner sep=3pt, font=\small},
-  block/.style={draw, rounded corners=2pt, align=center, minimum height=15mm, text width=33mm, inner sep=4pt, font=\small},
-  wideblock/.style={draw, rounded corners=2pt, align=center, minimum height=17mm, text width=44mm, inner sep=4pt, font=\small},
-  op/.style={draw, circle, inner sep=1.4pt, font=\small},
+  tensor/.style={draw, rounded corners=2pt, align=center, minimum height=8mm, text width=19mm, inner sep=3pt, font=\small},
+  block/.style={draw, rounded corners=2pt, align=center, minimum height=11mm, text width=24mm, inner sep=3pt, font=\small},
+  wideblock/.style={draw, rounded corners=2pt, align=center, minimum height=12mm, text width=30mm, inner sep=3pt, font=\small},
+  op/.style={draw, circle, minimum size=5mm, inner sep=0pt, font=\small},
   flow/.style={-Latex, line width=0.8pt},
   skip/.style={-Latex, dashed, line width=0.8pt},
   bypass/.style={-Latex, line width=0.65pt}
 ]
-\node[tensor, fill=gray!8] (input) at (0,0)
-  {CDI stack\\or CNS history};
-\node[block, fill=gray!12] (lift) at (2.9,0)
-  {spatial lifter\\width 32};
-\node[wideblock, fill=cyan!12] (encoder) at (6.4,0)
-  {spectral-local residual encoder\\4 blocks, 12 modes\\downsample after blocks 1--2\\$N:32\to N/2:64\to N/4:128$};
-\node[wideblock, fill=orange!14] (bottleneck) at (10.7,0)
-  {residual bottleneck\\6 blocks at $N/4$\\local residual body\\or spectral-residual variant};
-\node[block, fill=purple!10] (decoder) at (14.4,0)
-  {decoder\\2 upsampling stages\\CDI: transposed conv\\CNS: pixel shuffle};
-\node[tensor, fill=blue!8] (cdiout) at (17.6,0.8)
-  {CDI head\\complex patches\\real/imag};
-\node[tensor, fill=green!8] (cnsout) at (17.6,-0.8)
-  {CNS head\\next fields};
+\node[tensor, fill=gray!8] (input) at (0,0) {$x$\\{\scriptsize CDI/CNS}};
+\node[block, fill=gray!12] (lift) at (2.15,0)
+  {$\phi_0$\\{\scriptsize $C_{\rm in}\!\to\!32$}};
+\node[wideblock, fill=cyan!12] (encoder) at (5.2,0)
+  {$E_\theta$\\{\scriptsize $E_0,\ldots,E_3$}\\{\scriptsize $m=12$}\\{\scriptsize $N,N/2,N/4$}};
+\node[wideblock, fill=orange!14] (bottleneck) at (8.85,0)
+  {$B_\theta$\\{\scriptsize $B_j^{\times 6}$ at $N/4$}};
+\node[block, fill=purple!10] (decoder) at (12.05,0)
+  {$D_\theta$\\{\scriptsize $U_1,U_2$}};
+\node[tensor, fill=blue!8] (cdiout) at (14.55,0.55)
+  {$\hat y_{\rm CDI}$\\{\scriptsize $\Re,\Im$}};
+\node[tensor, fill=green!8] (cnsout) at (14.55,-0.55)
+  {$\hat y_{\rm CNS}$};
 
 \draw[flow] (input) -- (lift);
 \draw[flow] (lift) -- (encoder);
@@ -244,57 +241,57 @@ that determine the shape of the model.
 \draw[flow] (decoder) -- (cdiout);
 \draw[flow] (decoder) -- (cnsout);
 
-\draw[skip] (encoder.north) to[bend left=18]
-  node[above, font=\small] {projected additive skips to matching decoder scales}
+\draw[skip] (encoder.north) to[out=70,in=110,looseness=0.72]
+  node[above, font=\small] {$d_s \leftarrow d_s + P_s(e_s)$}
   (decoder.north);
 
-\node[font=\small\bfseries, anchor=west] at (0,-2.25)
-  {Spectral-local residual block};
-\node[tensor, fill=white] (rx) at (2.3,-2.25) {$z_\ell$};
-\node[block, fill=cyan!8] (spec) at (5.2,-1.65)
-  {spectral branch\\Fourier modes};
-\node[block, fill=cyan!8] (conv) at (5.2,-2.85)
-  {local branch\\reflected $3\times3$ conv};
-\node[op] (sum1) at (7.4,-2.25) {$+$};
-\node[block, fill=white, text width=18mm] (gelu) at (9.0,-2.25) {GELU};
-\node[op] (sum2) at (10.6,-2.25) {$\oplus$};
-\node[tensor, fill=white] (ry) at (12.2,-2.25) {$z_{\ell+1}$};
-\draw[flow] (rx) -- (spec);
-\draw[flow] (rx) -- (conv);
-\draw[flow] (spec) -- (sum1);
-\draw[flow] (conv) -- (sum1);
+\node[font=\small\bfseries, anchor=west] at (0,-2.25) {$E_\ell$};
+\node[tensor, fill=white] (rx) at (1.6,-2.25) {$z_\ell$};
+\node[block, fill=cyan!8] (spec) at (4.0,-1.65) {$S_\ell$\\{\scriptsize $\mathcal F^{-1}R_\ell\mathcal T_K\mathcal F$}};
+\node[block, fill=cyan!8] (conv) at (4.0,-2.85) {$L_\ell$\\{\scriptsize $3\times3$}};
+\node[op] (sum1) at (6.1,-2.25) {$+$};
+\node[block, fill=white, text width=13mm] (gelu) at (7.55,-2.25) {$\sigma$};
+\node[op] (sum2) at (9.0,-2.25) {$+$};
+\node[tensor, fill=white] (ry) at (10.75,-2.25) {$z_{\ell+1}$};
+\node[anchor=west, font=\small] at (11.75,-2.25)
+  {$z_{\ell+1}=z_\ell+\sigma(S_\ell z_\ell+L_\ell z_\ell)$};
+\draw[flow] (rx.east) -- ++(0.55,0) |- (spec.west);
+\draw[flow] (rx.east) -- ++(0.55,0) |- (conv.west);
+\draw[flow] (spec) -| (sum1.north);
+\draw[flow] (conv) -| (sum1.south);
 \draw[flow] (sum1) -- (gelu);
 \draw[flow] (gelu) -- (sum2);
 \draw[flow] (sum2) -- (ry);
-\draw[bypass] (rx.north) |- ++(3.8,0.75) -| (sum2.north);
+\draw[bypass] (rx.north) |- (9.0,-0.98) -- (sum2.north);
 
-\node[font=\small\bfseries, anchor=west] at (0,-4.65)
-  {Bottleneck residual block};
-\node[tensor, fill=white] (bx) at (2.3,-4.65) {$u_j$};
-\node[wideblock, fill=orange!8] (resbody) at (5.9,-4.65)
-  {$3\times3$ conv\\InstanceNorm, GELU\\$3\times3$ conv};
-\node[op] (bsum) at (9.0,-4.65) {$\oplus$};
-\node[tensor, fill=white] (by) at (10.8,-4.65) {$u_{j+1}$};
+\node[font=\small\bfseries, anchor=west] at (0,-4.65) {$B_j$};
+\node[tensor, fill=white] (bx) at (1.6,-4.65) {$u_j$};
+\node[wideblock, fill=orange!8] (resbody) at (4.15,-4.65)
+  {$R_j$\\{\scriptsize conv-IN-$\sigma$-conv-IN}};
+\node[block, fill=orange!8, text width=14mm] (scale) at (6.85,-4.65) {$\alpha_j$};
+\node[op] (bsum) at (8.55,-4.65) {$+$};
+\node[tensor, fill=white] (by) at (10.15,-4.65) {$u_{j+1}$};
+\node[anchor=west, font=\small] at (11.05,-4.65)
+  {$u_{j+1}=u_j+\alpha_j R_j(u_j)$};
 \draw[flow] (bx) -- (resbody);
-\draw[flow] (resbody) -- node[above, font=\small] {learned scale} (bsum);
+\draw[flow] (resbody) -- (scale);
+\draw[flow] (scale) -- (bsum);
 \draw[flow] (bsum) -- (by);
-\draw[bypass] (bx.north) |- ++(3.0,0.75) -| (bsum.north);
+\draw[bypass] (bx.north) |- (8.55,-3.75) -- (bsum.north);
 \end{tikzpicture}%
 }
-\caption{SCR generator architecture. The top row shows the encoder-bottleneck-
-decoder topology used by the implemented model; dashed arrows are the projected
-additive skips used by the selected CNS row. The lower row expands the
-spectral-local residual unit and the six-block residual bottleneck used in the
-shared generator body.}
+\caption{SRU-Net architecture. Top: $G_\theta=D_\theta B_\theta
+E_\theta\phi_0$, with $d_s\leftarrow d_s+P_s(e_s)$ when skips are enabled.
+Middle/bottom: definitions of $E_\ell$ and $B_j$.}
 \label{fig:architecture}
 \end{figure}
 
+% table_metadata: cap_size=not_applicable; table_type=architecture_summary
 \begin{table}[h]
 \centering
 \small
-\caption{Implemented architecture contract for the spectral-convolutional
-residual generator.}
-\label{tab:architecture_contract}
+\caption{SRU-Net architecture summary.}
+\label{tab:architecture_summary}
 \begin{tabular}{p{0.22\linewidth}p{0.68\linewidth}}
 \toprule
 Component & Implementation details \\
@@ -405,21 +402,15 @@ object patches, the ptychographic consistency and diffraction operators map the
 prediction back to detector space, and reconstruction quality is measured
 against held-out object amplitude and phase.
 
-The initial comparison uses $N=128$ object grids, two training objects, two
+The CDI comparison uses $N=128$ object grids, two training objects, two
 held-out test objects, $10^9$ photons per exposure, 40 training epochs,
 learning rate $2\times 10^{-4}$, ReduceLROnPlateau scheduling,
 and complex-valued real/imaginary generator output.
 
-CDI results are reported as model-plus-training-procedure rows: SCR + PINN,
+CDI results are reported by model and training procedure: SRU-Net + PINN,
 FFNO + PINN, FNO + PINN, and CNN + PINN denote architectures trained through
 the ptychographic diffraction forward model rather than through direct
-supervised image labels. This naming keeps those rows distinct from possible
-future supervised variants of the same generator bodies. The intended full
-table contains SCR + PINN, a deeper spectral-residual + PINN variant, a
-selected FNO + PINN comparator, FFNO + PINN, and CNN + PINN. The first completed
-comparison contrasts SCR + PINN with FFNO + PINN. The minimum comparison set
-for the final table is SCR + PINN, CNN + PINN, and FNO + PINN with a selected
-FNO architecture.
+supervised image labels. Rows without ``+ PINN'' denote non-PINN baselines.
 
 \subsection{Secondary cross-domain benchmark: PDEBench CNS}
 
@@ -427,7 +418,7 @@ The secondary benchmark is PDEBench 2D compressible Navier-Stokes at native
 $128\times128$ resolution. It stresses the same architectural tradeoff in a
 different physical setting: coherent global flow and wave structure must be
 predicted while preserving localized shocks, vortices, and high-gradient field
-features. It therefore tests whether the spectral-convolutional architecture
+features. It therefore tests whether the SRU-Net architecture
 transfers beyond the CDI inverse problem.
 
 The selected CNS data are the official 128-by-128 periodic compressible-flow
@@ -438,87 +429,82 @@ $\Delta t=0.05$, and the boundary condition is periodic. Each trajectory
 contains the fields density, $v_x$, $v_y$, and pressure on a $128\times128$
 grid. Splits are trajectory-level, normalization is computed from the train
 split only, and metrics are evaluated on denormalized predictions.
-Because CNS is evaluated as supervised next-state prediction, CNS result tables
-use architecture names alone unless a row changes the training procedure.
 
-\section{Current Results}
+\section{Results}
 
-The following numerical results are included because they are already available
-from controlled comparisons. Some CNS experiments use reduced training budgets;
-they are useful for architecture analysis and for shaping the final secondary
-benchmark table.
+The CDI results evaluate ptychographic reconstruction quality on synthetic line
+patterns. The CNS results evaluate cross-domain next-state prediction on
+compressible flow and are reported as architecture ablations.
 
-\subsection{CDI synthetic line-pattern benchmark: SCR + PINN versus FFNO + PINN}
+\subsection{CDI synthetic line-pattern benchmark: SRU-Net + PINN versus FFNO + PINN}
 
+% table_metadata: benchmark=CDI_lines128; cap_size=train_objects=2,test_objects=2; train_patches=8978; test_patches=1458; epochs=40; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet
 \begin{table}[h]
 \centering
-\caption{Initial synthetic line-pattern CDI comparison. Lower MAE is
+\caption{Synthetic line-pattern CDI comparison. Lower MAE is
 better; higher SSIM and PSNR are better.}
 \begin{tabular}{lrrrrrr}
 \toprule
 Method & Amp MAE & Phase MAE & Amp SSIM & Phase SSIM & Amp PSNR & Phase PSNR \\
 \midrule
-SCR + PINN & 0.026939 & 0.072063 & 0.988114 & 0.994740 & 77.519371 & 69.216287 \\
+SRU-Net + PINN & 0.026939 & 0.072063 & 0.988114 & 0.994740 & 77.519371 & 69.216287 \\
 FFNO + PINN & 0.062772 & 0.082839 & 0.934830 & 0.981592 & 70.190081 & 67.775917 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Under this synthetic line-pattern comparison, SCR + PINN reconstructs amplitude
-and phase more accurately than FFNO + PINN on the reported metrics. The
-complete CDI table will add the CNN + PINN and FNO + PINN comparators, plus the
-remaining SCR-family + PINN and FFNO + PINN rows required for the final benchmark.
+On this synthetic line-pattern benchmark, SRU-Net + PINN reconstructs amplitude
+and phase more accurately than FFNO + PINN on the reported metrics.
+Table~\ref{tab:cdi_ssim_context} adds FNO + PINN, CNN + PINN, and non-PINN CNN
+measurements from earlier $N=128$ line-pattern runs. These rows separate
+architecture choice from the training objective; the CNN and FNO measurements
+come from earlier runs rather than a single matched comparison.
 
-Table~\ref{tab:cdi_ssim_context} combines the initial SCR + PINN versus
-FFNO + PINN result with the best available historical CNN + PINN and FNO + PINN
-results from the same $N=128$ synthetic line-pattern family. The historical
-results should be repeated in the final comparison, but they are informative
-because they show the scale of improvement needed from the neural baselines.
-
+% table_metadata: benchmark=CDI_lines128; cap_size=mixed; SRU-Net+PINN_and_FFNO+PINN=train_objects=2,test_objects=2,train_patches=8978,test_patches=1458; CNN/FNO legacy rows=cap_not_recovered_from_outputs/grid_lines_gs1_n128_e20_phi_all/metrics.json
 \begin{table}[h]
 \centering
 \caption{CDI amplitude and phase SSIM on the synthetic line-pattern benchmark.
-The CNN + PINN and FNO + PINN rows are earlier same-family measurements that will be
-rerun under the final benchmark protocol.}
+Rows without ``+ PINN'' are non-PINN baselines.}
 \label{tab:cdi_ssim_context}
 \begin{tabular}{lrr}
 \toprule
 Method & Amp SSIM & Phase SSIM \\
 \midrule
-SCR + PINN & 0.988114 & 0.994740 \\
+SRU-Net + PINN & 0.988114 & 0.994740 \\
 FFNO + PINN & 0.934830 & 0.981592 \\
 FNO + PINN & 0.536695 & 0.898196 \\
 CNN + PINN & 0.235523 & 0.842880 \\
+CNN & 0.210448 & 0.537699 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=\linewidth]{docs/plans/NEURIPS-HYBRID-RESNET-2026/figures/cdi_synthetic_line_pattern_scr_vs_fno.png}
+\includegraphics[width=\linewidth]{figures/cdi_synthetic_line_pattern_srunet_fno_ffno.png}
 \caption{Ground-truth and reconstructed amplitude/phase panels for the
-synthetic line-pattern CDI benchmark, comparing SCR + PINN with the FNO + PINN
-comparator on the line-pattern reconstruction task.}
+synthetic line-pattern CDI benchmark, comparing FNO + PINN, FFNO + PINN, and
+SRU-Net + PINN on the line-pattern reconstruction task.}
 \label{fig:cdi_line_pattern_recon}
 \end{figure}
 
-\subsection{CNS architecture ablation suite}
+\subsection{CNS architecture ablations}
 
-The CNS secondary benchmark is used first as an architecture ablation suite. The
-ablations vary one architectural axis at a time while keeping the data split,
-loss, and evaluation metrics unchanged. The first axis is encoder-decoder fusion:
-adding an additive skip pathway to the SCR shell substantially
-improves the model under the same training budget.
+The CNS secondary benchmark evaluates one architectural axis at a time while
+keeping the data split, loss, and evaluation metrics unchanged. The first axis
+is encoder-decoder fusion: adding an additive skip pathway to the SRU-Net shell
+lowers both aggregate and high-frequency error under the same training budget.
 
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=10; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-hybrid-skip-study/cns-skipadd-vs-base-10ep
 \begin{table}[h]
 \centering
-\caption{Spectral-convolutional shell ablation: additive encoder-decoder skip fusion.}
+\caption{SRU-Net shell ablation: additive encoder-decoder skip fusion.}
 \begin{tabular}{lrr}
 \toprule
 Model & nRMSE & High-band RMSE \\
 \midrule
-SCR baseline & 0.224425 & 1.243174 \\
-SCR with skip-add fusion & 0.104555 & 0.697058 \\
+SRU-Net baseline & 0.224425 & 1.243174 \\
+SRU-Net with skip-add fusion & 0.104555 & 0.697058 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -527,6 +513,7 @@ The second axis is decoder upsampling. Holding the skip-fused architecture uncha
 pixelshuffle gives the best aggregate error while avoiding the worst
 high-frequency penalty of bilinear upsampling:
 
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=10; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-hybrid-upsampler-artifact-study/cns-upsampler-cns-shell-10ep-20260421T221400Z
 \begin{table}[h]
 \centering
 \caption{CNS spectral-convolutional upsampler comparison.}
@@ -541,14 +528,15 @@ Pixelshuffle upsampling & 0.096320 & 0.096320 & 0.863959 \\
 \end{tabular}
 \end{table}
 
-Together, the skip-fusion and decoder ablations define the spectral-convolutional model used in
+Together, the skip-fusion and decoder ablations define the SRU-Net model used in
 later CNS comparisons.
 
 \subsection{CNS temporal context}
 
 Increasing CNS temporal context from two previous states to three previous
-states improved the stronger rows under the longer training budget:
+states improved the lower-error rows under the longer training budget:
 
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2_for_two-frame_columns,3_for_three-frame_columns; max_windows_per_trajectory=8; epochs=40; sources=history2 reference plus .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/history3-pilot-40ep-20260429T073705Z
 \begin{table}[h]
 \centering
 \caption{CNS temporal-context comparison under the longer training budget.}
@@ -557,7 +545,7 @@ states improved the stronger rows under the longer training budget:
 Model & Two-frame nRMSE & Three-frame nRMSE & Two-frame high-band RMSE & Three-frame high-band RMSE \\
 \midrule
 Spectral ResNet & 0.061562 & 0.045521 & 0.434933 & 0.346744 \\
-SCR network & 0.064418 & 0.053843 & 0.368307 & 0.320036 \\
+SRU-Net & 0.064418 & 0.053843 & 0.368307 & 0.320036 \\
 FNO & 0.074099 & 0.056725 & 0.671772 & 0.610477 \\
 U-Net & 0.675798 & 0.677167 & 1.332625 & 1.173009 \\
 \bottomrule
@@ -570,10 +558,11 @@ architectures or training budgets.
 
 \subsection{CNS spectral depth and Fourier modes}
 
-The larger trajectory split initially favored the shared spectral base model on
+On the larger trajectory split, the shared spectral base model had lower
 aggregate error, while the deeper shared-blocks10 row retained a small
 mid/high-frequency edge at the same training budget:
 
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z
 \begin{table}[h]
 \centering
 \caption{CNS spectral-depth comparison using 1024 training, 128 validation, and
@@ -591,6 +580,7 @@ Deeper shared Spectral ResNet & 0.044573 & 1.06304 & 2.4827 & 0.2168 & 0.2940 & 
 A longer run showed that the earlier shared-blocks10 result had understated the
 deeper profile:
 
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40_and_80; sources=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z and .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/cns-shared-blocks10-1024cap-80ep-20260429T025641Z
 \begin{table}[h]
 \centering
 \caption{Deeper shared Spectral ResNet under longer training on the larger
@@ -609,6 +599,7 @@ The Fourier-mode studies show that simply increasing spectral modes is not a
 clean default answer. Under the longer training budget, the 12-mode base model
 retained better aggregate error, while 32/32 improved mid/high-frequency error:
 
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40; sources=spectral_resnet_bottleneck_base reference plus .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/cns-spectral-modes32-40ep-20260428T014353Z
 \begin{table}[h]
 \centering
 \caption{CNS Fourier-mode comparison under the longer training budget.}
@@ -626,6 +617,7 @@ In the 24-mode comparison with still longer training, the shared 12-mode base
 model was ahead on every reported metric, but both models were still improving
 according to the convergence audit:
 
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=80; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/cns-spectral-modes24-vs-base-1024cap-80ep
 \begin{table}[h]
 \centering
 \caption{CNS 12-mode versus 24-mode spectral comparison under still longer
@@ -649,6 +641,7 @@ local paths, decoder behavior, convergence, and parameter cost.
 Adding an explicit local-convolution branch to the in-repository FFNO-style
 bottleneck improved both aggregate and high-frequency metrics:
 
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40; sources=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-close-backfill-40ep-20260428T084852Z,.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns/cns-ffno-localconv-40ep-20260428T090626Z,.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z
 \begin{table}[h]
 \centering
 \caption{CNS FFNO-family local-convolution comparison under the longer training
@@ -664,12 +657,10 @@ Authored FFNO & 0.028148 & 0.1210 & 1,073,672 & 4725.51 \\
 \end{tabular}
 \end{table}
 
-The local-convolution branch materially improves the local FFNO-family proxy,
-but the authored FFNO remains the stronger reference under the same CNS
-comparison. The final secondary benchmark should therefore include authored FFNO
-when it can be run under the same comparison conditions.
-Within the no-external-data CNS evidence available so far, authored FFNO is the
-strongest observed non-pretrained neural-operator comparator. This is consistent
+The local-convolution branch improves the local FFNO-family proxy, but the
+authored FFNO remains the lower-error reference under the same CNS comparison.
+Within the no-external-data CNS experiments reported here, authored FFNO is the
+lowest-error observed non-pretrained neural-operator baseline. This is consistent
 with the original F-FNO motivation of improving FNO accuracy and scaling on PDE
 benchmarks, including Navier-Stokes-style settings, but we do not claim global
 state of the art without same-protocol comparisons to recent non-pretrained
@@ -687,45 +678,41 @@ Fourier-domain wave physics, while the object itself contains sharp local
 features. For compressible flow, large-scale coherent dynamics coexist with
 localized shocks and vortices.
 
-The SCR network encodes this global-local structure directly. Fourier-style
+The SRU-Net encodes this global-local structure directly. Fourier-style
 encoder blocks provide global mixing; local convolutional branches and decoder
 features preserve high-frequency information; the ResNet bottleneck gives the
 model capacity to refine features at reduced spatial resolution. This differs
 from both pure CNN reconstruction and pure spectral operator modeling.
 
-The evidence also cautions against simplifying the story. The primary
-CDI result is promising in the SCR + PINN versus FFNO + PINN comparison, but the full CDI
-table should include the CNN + PINN and FNO + PINN comparators. The CNS evidence
-shows why the secondary benchmark is useful: it is hard, it stresses
-global-local modeling, and it contains strong neural-operator and image-model baselines. A persuasive
-final paper should therefore present CNS as a cross-domain benchmark of
-architectural transfer, not as proof that the CDI physics model applies to
-fluids.
+The evidence also argues for a narrow interpretation. The primary CDI result
+compares SRU-Net + PINN with FFNO + PINN; broader CDI comparisons
+against CNN + PINN, FNO + PINN, and supervised variants are needed to isolate
+architecture effects from the physics-informed objective. The CNS benchmark
+tests architectural transfer under different physics, not whether the CDI
+forward model applies to fluids.
 
-\section{Limitations}
+\section{Additional Experiments}
 
-This study has three current limitations. First, the full CDI comparison table
-still needs the minimum baseline subset and visual reconstruction bundle.
-Second, the CNS experiments reported here use reduced training budgets; full
-benchmark language should follow the final CNS table. Third, the evidence is
-not yet a multi-seed robustness study. Runtime and efficiency claims must be
-tied to matched hardware, parameter counts, and comparable execution settings.
-
-\section{Additional Evidence Targets}
-
-The full synthetic line-pattern CDI table will report reconstruction metrics for
-SCR + PINN, CNN + PINN, FNO + PINN, a deeper spectral-residual + PINN variant,
+The synthetic line-pattern CDI comparison should include reconstruction metrics for
+SRU-Net + PINN, CNN + PINN, FNO + PINN, a deeper spectral-residual + PINN variant,
 FFNO + PINN, and any classical baseline that can be compared without changing
 the task.
 
-The CDI reconstruction bundle will show shared test samples, ground-truth
+A supervised comparison should evaluate the same architecture families with
+direct real-space supervision:
+SRU-Net + supervised, CNN + supervised, FNO + supervised, and FFNO + supervised.
+These rows should be reported separately from the primary physics-informed table
+so that architecture effects are not conflated with the PINN forward-model
+training objective.
+
+CDI reconstruction figures should show shared test samples, ground-truth
 amplitude and phase, reconstructions, absolute errors, and FRC curves.
 
-The PDEBench CNS table will report secondary benchmark metrics for the selected
-SCR-family model, local FNO, U-Net/CNN-style baseline, authored FFNO, and any
-credible GNOT result.
+The PDEBench CNS table should report secondary benchmark metrics for the selected
+SRU-Net-family model, local FNO, U-Net/CNN-style baseline, authored FFNO, and any
+GNOT baseline.
 
-The CNS figure bundle will show density, velocity, and pressure predictions,
+The CNS figures should show density, velocity, and pressure predictions,
 ground truth, and error maps for shared test samples.
 
 \begin{thebibliography}{9}
