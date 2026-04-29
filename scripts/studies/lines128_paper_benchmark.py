@@ -254,6 +254,36 @@ def _validate_compare_preflight_contract(
         raise ValueError("Compare-wrapper preflight contract drift detected for: " + ", ".join(drift))
 
 
+def _validate_compare_preflight_rows(
+    compare_preflight: Mapping[str, object],
+    *,
+    supported_model_ids: Iterable[str],
+) -> None:
+    expected_models = list(supported_model_ids)
+
+    selected_models = compare_preflight.get("selected_models")
+    if not isinstance(selected_models, list) or any(not isinstance(model_id, str) for model_id in selected_models):
+        raise ValueError("Compare-wrapper preflight did not return selected_models")
+    if selected_models != expected_models:
+        raise ValueError("Compare-wrapper preflight selected_models drifted from supported decision rows")
+
+    row_plan = compare_preflight.get("row_plan")
+    if not isinstance(row_plan, list):
+        raise ValueError("Compare-wrapper preflight did not return row_plan")
+
+    row_plan_ids: List[str] = []
+    for item in row_plan:
+        if not isinstance(item, Mapping) or not isinstance(item.get("model_id"), str):
+            raise ValueError("Compare-wrapper preflight row_plan contains an invalid row entry")
+        model_id = str(item["model_id"])
+        row_plan_ids.append(model_id)
+        if item.get("status") != "supported_for_harness":
+            raise ValueError(f"Compare-wrapper preflight row_plan has unsupported status for {model_id}")
+
+    if row_plan_ids != expected_models:
+        raise ValueError("Compare-wrapper preflight row_plan drifted from supported decision rows")
+
+
 def _validate_fno_comparator(payload: Mapping[str, object], rows_by_id: Mapping[str, Mapping[str, object]]) -> str:
     comparator = payload.get("selected_fno_comparator")
     if comparator not in FNO_COMPARATOR_MODEL_IDS:
@@ -404,12 +434,14 @@ def run_lines128_paper_benchmark_preflight(
 
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    supported_model_ids = [str(row["model_id"]) for row in _supported_rows(rows_by_id)]
     compare_preflight = _run_compare_preflight(
-        supported_rows=_supported_rows(rows_by_id),
+        supported_rows=[rows_by_id[model_id] for model_id in supported_model_ids],
         fixed_contract=fixed_contract,
         output_dir=output_dir,
     )
     _validate_compare_preflight_contract(compare_preflight, fixed_contract, seed=seed)
+    _validate_compare_preflight_rows(compare_preflight, supported_model_ids=supported_model_ids)
     compare_preflight_path = output_dir / "compare_wrapper_preflight.json"
     compare_preflight_path.write_text(json.dumps(compare_preflight, indent=2), encoding="utf-8")
 

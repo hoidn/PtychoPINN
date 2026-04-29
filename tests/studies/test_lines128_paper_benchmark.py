@@ -334,3 +334,81 @@ def test_preflight_rejects_compare_preflight_contract_drift(tmp_path, monkeypatc
             decision_artifact=decision_artifact,
             output_dir=tmp_path / "out",
         )
+
+
+def test_preflight_rejects_compare_preflight_when_selected_models_omit_supported_row(tmp_path, monkeypatch):
+    from scripts.studies.lines128_paper_benchmark import run_lines128_paper_benchmark_preflight
+
+    def fake_run_grid_lines_compare(**kwargs):
+        selected_models = [model_id for model_id in kwargs["models"] if model_id != "pinn_fno_vanilla"]
+        return {
+            "mode": "preflight_only",
+            "selected_models": selected_models,
+            "resolved_model_n": dict(kwargs["model_n"]),
+            "seed": kwargs["seed"],
+            "contract": {
+                **_fixed_contract_payload(),
+                "probe_npz": str(kwargs["probe_npz"]),
+            },
+            "row_plan": [
+                {
+                    "model_id": model_id,
+                    "status": "supported_for_harness",
+                    "backend": "tf" if model_id == "pinn" else "torch",
+                    "N": kwargs["model_n"].get(model_id, kwargs["N"]),
+                }
+                for model_id in selected_models
+            ],
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines128_paper_benchmark.run_grid_lines_compare",
+        fake_run_grid_lines_compare,
+    )
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+
+    with pytest.raises(ValueError, match="selected_models"):
+        run_lines128_paper_benchmark_preflight(
+            decision_artifact=decision_artifact,
+            output_dir=tmp_path / "out",
+        )
+
+
+def test_preflight_rejects_compare_preflight_when_row_plan_omits_supported_row(tmp_path, monkeypatch):
+    from scripts.studies.lines128_paper_benchmark import run_lines128_paper_benchmark_preflight
+
+    def fake_run_grid_lines_compare(**kwargs):
+        return {
+            "mode": "preflight_only",
+            "selected_models": list(kwargs["models"]),
+            "resolved_model_n": dict(kwargs["model_n"]),
+            "seed": kwargs["seed"],
+            "contract": {
+                **_fixed_contract_payload(),
+                "probe_npz": str(kwargs["probe_npz"]),
+            },
+            "row_plan": [
+                {
+                    "model_id": model_id,
+                    "status": "supported_for_harness",
+                    "backend": "tf" if model_id == "pinn" else "torch",
+                    "N": kwargs["model_n"].get(model_id, kwargs["N"]),
+                }
+                for model_id in kwargs["models"]
+                if model_id != "pinn_fno_vanilla"
+            ],
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines128_paper_benchmark.run_grid_lines_compare",
+        fake_run_grid_lines_compare,
+    )
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+
+    with pytest.raises(ValueError, match="row_plan"):
+        run_lines128_paper_benchmark_preflight(
+            decision_artifact=decision_artifact,
+            output_dir=tmp_path / "out",
+        )

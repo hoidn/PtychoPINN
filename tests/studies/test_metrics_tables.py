@@ -114,3 +114,39 @@ def test_write_paper_bundle_marks_paper_complete_when_required_fields_present(tm
     metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
     assert metrics_payload["benchmark_status"] == "paper_complete"
     assert metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"] == []
+
+
+def test_write_paper_bundle_marks_benchmark_incomplete_when_required_row_status_is_blocked(tmp_path):
+    row_payloads = {
+        "pinn_hybrid_resnet": {
+            "model_label": "Hybrid ResNet",
+            "N": 128,
+            "parameter_count": 123456,
+            "epoch_budget": 40,
+            "final_completed_epoch": 40,
+            "final_train_loss": 0.123,
+            "validation_loss": {"status": "no_validation_series", "value": None},
+            "runtime_hardware_summary": {"train_wall_time_sec": 12.5, "accelerator": "rtx3090"},
+            "caveats": [],
+            "metrics": {
+                "mae": (0.1, 0.2),
+                "mse": (0.01, 0.02),
+                "psnr": (70.0, 65.0),
+                "ssim": (0.9, 0.8),
+                "ms_ssim": (0.85, 0.75),
+                "frc50": (64, 48),
+            },
+        }
+    }
+
+    write_paper_benchmark_bundle(
+        output_dir=tmp_path,
+        row_payloads=row_payloads,
+        required_rows=("pinn_hybrid_resnet",),
+        fixed_sample_ids=[0, 1],
+        shared_visual_scales={"amp": {"vmin": 0.0, "vmax": 1.0}},
+        row_statuses={"pinn_hybrid_resnet": {"status": "row_blocker", "reason": "route failed"}},
+    )
+
+    metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "benchmark_incomplete"

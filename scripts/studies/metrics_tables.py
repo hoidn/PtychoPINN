@@ -445,6 +445,8 @@ def write_paper_benchmark_bundle(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     required_rows = tuple(required_rows)
+    row_statuses = dict(row_statuses or {})
+    has_row_statuses = bool(row_statuses)
     missing_fields_by_row: Dict[str, List[str]] = {}
     model_ns: Dict[str, int] = {}
     metrics_only: Dict[str, dict] = {}
@@ -462,6 +464,15 @@ def write_paper_benchmark_bundle(
         if model_id not in row_payloads:
             incomplete = True
             missing_fields_by_row[model_id] = ["row_missing"]
+            continue
+
+        if has_row_statuses:
+            status = None
+            status_payload = row_statuses.get(model_id)
+            if isinstance(status_payload, Mapping):
+                status = status_payload.get("status")
+            if status != "supported_for_harness":
+                incomplete = True
 
     benchmark_status = "benchmark_incomplete" if incomplete else "paper_complete"
     bundle_payload = {
@@ -470,7 +481,7 @@ def write_paper_benchmark_bundle(
         "selected_fno_comparator": selected_fno_comparator,
         "evidence_scope": evidence_scope,
         "missing_fields_by_row": missing_fields_by_row,
-        "row_statuses": dict(row_statuses or {}),
+        "row_statuses": row_statuses,
         "visual_collation": {
             "fixed_sample_ids": list(fixed_sample_ids),
             "shared_visual_scales": dict(shared_visual_scales),
