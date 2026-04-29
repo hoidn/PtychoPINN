@@ -478,6 +478,79 @@ Interpretation boundary:
 - it should be read against the frozen history-2 family above, not against the
   forbidden older `hybrid_resnet_base` proxy for the canonical CNS shell
 
+## Longer History-3 Plus Compare
+
+The controlled longer-context follow-up is summarized in:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history_len3plus_compare_summary.md`
+
+That backlog item kept dataset, trajectories, `max_windows_per_trajectory`,
+batch size, `mse`, metric family, and epoch budgets fixed, then changed only
+the temporal-context contract from `history_len=2` to `history_len=3`:
+
+- frozen history-2 manifest:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/history2_reference_runs.json`
+- fresh history-3 `10`-epoch run:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/history3-pilot-10ep-20260429T071905Z`
+- fresh history-3 `40`-epoch run:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/history3-pilot-40ep-20260429T073705Z`
+
+The raw eligible-window contract tightened exactly as expected:
+
+- reference `history_len=2`: `19` windows per trajectory, `190000` total raw
+  windows
+- fresh `history_len=3`: `18` windows per trajectory, `180000` total raw
+  windows
+- optional `history_len=4` inspect-only proof:
+  `17` windows per trajectory, `170000` total raw windows
+
+The emitted capped split counts stayed fixed at `4096 / 512 / 512` because the
+same `max_windows_per_trajectory=8` cap was preserved across all contexts.
+
+Observed result on the capped four-row family:
+
+- at `10` epochs, `history_len=3` did not help the stronger spectral or
+  canonical Hybrid rows on aggregate error:
+  - `spectral_resnet_bottleneck_base`:
+    `err_nRMSE 0.0869938582 -> 0.1407901347`
+  - `hybrid_resnet_cns`:
+    `err_nRMSE 0.0944002941 -> 0.1119609326`
+  - `fno_base` improved and moved into first place on the capped `10`-epoch
+    slice:
+    `err_nRMSE 0.1063433066 -> 0.0953909084`
+- at `40` epochs, the longer-context contract materially improved the three
+  stronger rows on aggregate denormalized metrics and `fRMSE_high`:
+  - `spectral_resnet_bottleneck_base`:
+    `err_nRMSE 0.0615620054 -> 0.0455205254`,
+    `fRMSE_high 0.4349334538 -> 0.3467437923`
+  - `hybrid_resnet_cns`:
+    `err_nRMSE 0.0644183308 -> 0.0538428985`,
+    `fRMSE_high 0.3683068156 -> 0.3200356364`
+  - `fno_base`:
+    `err_nRMSE 0.0740992129 -> 0.0567254014`,
+    `fRMSE_high 0.6717720628 -> 0.6104770303`
+  - `unet_strong` stayed last and was effectively flat-to-worse on aggregate
+
+The optional `history_len=4` branch stayed closed:
+
+- gate record:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/history4_gate_decision.json`
+- reason:
+  the `40`-epoch spectral row satisfied the gate rule, but the `10`-epoch and
+  `40`-epoch spectral signals disagreed and no written scientific reason was
+  added to override the default-closed rule
+- consequence:
+  no `history_len=4` pilot or `compare_*_history4_against_history2.*` payloads
+  were authorized
+
+Interpretation boundary:
+
+- this is capped pilot decision-support evidence only
+- it does not replace the benchmark-complete gate
+- it suggests `history_len=3` can help the stronger rows once trained longer,
+  but the mixed `10`/`40`-epoch signal is not stable enough to justify an
+  automatic move to `history_len=4`
+
 ## Official Author FFNO Equal-Footing Follow-Up
 
 The official authored FFNO baseline is tracked separately from the local
