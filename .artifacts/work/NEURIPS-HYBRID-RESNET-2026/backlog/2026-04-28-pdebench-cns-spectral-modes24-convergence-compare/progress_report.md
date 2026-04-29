@@ -7,13 +7,13 @@
 ## Current Status
 
 - `implementation_state`: `RUNNING`
-- `last_checked_utc`: `2026-04-29T01:48:03Z`
+- `last_checked_utc`: `2026-04-29T02:04:43Z`
 - `validated_batch_size`: `16`
 - `tracked_pid`: `655019`
 - `worker_pid`: `655030`
 - `tracked_pid_live`: `true`
 - `tracked_exit_code_present`: `false`
-- Latest observed training progress from `.launch/.../stdout_stderr.log`: `spectral_resnet_bottleneck_base` has completed all `80 / 80` epochs and written `metrics_spectral_resnet_bottleneck_base.json`; `spectral_resnet_bottleneck_modes24` has reached epoch `47 / 80` with latest logged loss `0.00325149413`.
+- Latest observed training progress from `.launch/.../stdout_stderr.log`: `spectral_resnet_bottleneck_base` has completed all `80 / 80` epochs and written `metrics_spectral_resnet_bottleneck_base.json`; `spectral_resnet_bottleneck_modes24` has reached epoch `71 / 80` with latest logged loss `0.002387358616`.
 - The long-run root already contains `dataset_manifest.json`, `hdf5_metadata.json`, `split_manifest.json`, `invocation.json`, `invocation.sh`, `normalization_stats_state.json`, `model_profile_spectral_resnet_bottleneck_base.json`, `model_profile_spectral_resnet_bottleneck_modes24.json`, and `metrics_spectral_resnet_bottleneck_base.json`.
 - Task 3 completion artifacts are still incomplete at this check: `metrics_spectral_resnet_bottleneck_modes24.json`, `comparison_summary.json`, and `comparison_summary.csv` are not present yet.
 - Verification evidence already available for this item:
