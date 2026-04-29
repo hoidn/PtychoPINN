@@ -109,9 +109,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Deciding what evidence must exist before drafting result claims, splitting paper-evidence work into backlog items, or checking paper-grade versus decision-support boundaries across CDI and CNS.
 
 ### [NeurIPS Hybrid ResNet PDEBench CNS Paper Contract Decision](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md)
-**Description:** Durable decision that fixes the authoritative CNS paper lane to the bounded capped `history_len=2` contract, records the exact headline row roster and authored-FFNO cutoff/status, rejects immediate full-training on compute/deadline grounds, and keeps `history_len=3` as adjacent capped context only.
+**Description:** Durable decision that fixes the authoritative CNS paper lane to the bounded capped `history_len=2` contract, records the exact normalization and training-recipe bindings, names the exact headline row roster and authored-FFNO cutoff/status, rejects immediate full-training on compute/deadline grounds, and keeps `history_len=3` as adjacent capped context only.
 **Keywords:** neurips, hybrid_resnet, pdebench, cns, paper-contract, capped, history_len, ffno, claim-boundary
-**Use this when:** Locking the CNS headline row contract, deciding whether a later item may reuse existing capped CNS rows, or checking why the current paper lane is not a full-training benchmark claim.
+**Use this when:** Locking the CNS headline row contract, deciding whether a later item may reuse existing capped CNS rows, checking the exact normalization or training recipe wording that downstream items must repeat, or checking why the current paper lane is not a full-training benchmark claim.
 
 ### [NeurIPS Lines128 Paper-Quality CDI Benchmark Design](plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md)
 **Description:** Detailed design for a paper-quality `N=128` grid-lines CDI benchmark, including the fixed `lines128` contract, required Hybrid/FNO/FFNO rows, metric schema, visual comparison artifacts, provenance requirements, and benchmark execution handoff.

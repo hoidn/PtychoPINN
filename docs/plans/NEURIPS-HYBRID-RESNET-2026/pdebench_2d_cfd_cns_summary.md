@@ -22,10 +22,10 @@ The CNS paper contract is now fixed by:
 
 Selected paper path:
 
-- `bounded_capped_decision_support`
-- headline lane:
-  `history_len=2`, `40` epochs, `512 / 64 / 64` trajectories,
-  `max_windows_per_trajectory=8`, `mse`
+- Selected contract: `bounded_capped_decision_support`
+- Selected history lane: `history_len=2`, `40` epochs, `512 / 64 / 64` trajectories, `max_windows_per_trajectory=8`, emitted windows `4096 / 512 / 512`
+- Selected normalization contract: train-only per-field normalization fit on the `512` training trajectories, reused across all history slots and target channels, with evaluation reported in denormalized target space.
+- Selected training recipe contract: keep the CNS task-local `mse` override relative to the design's generic `mae` baseline; use `Adam` with learning rate `2e-4`; use `ReduceLROnPlateau` with factor `0.5`, patience `2`, threshold `0.0`, and `min_lr=1e-5`; keep batch size `4`; keep the metric family `err_RMSE`, `err_nRMSE`, `relative_l2`, `fRMSE_low`, `fRMSE_mid`, `fRMSE_high`.
 - locked headline rows:
   `spectral_resnet_bottleneck_base`, `fno_base`, `unet_strong`,
   `author_ffno_cns_base`
@@ -39,6 +39,8 @@ Claim boundary:
 - it is not a same-protocol full-training benchmark claim
 - any later move to a full-training or `history_len=3` headline contract now
   requires a checked-in decision update rather than silent table drift
+- downstream consumers should use the decision document above, not older
+  summaries, as the authority for normalization and training recipe wording
 
 ## Implemented Contract
 

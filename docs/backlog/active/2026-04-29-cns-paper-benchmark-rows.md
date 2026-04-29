@@ -24,12 +24,18 @@ signals_for_selection:
 Selected contract note:
 
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md`
-  now fixes the headline CNS lane to the bounded capped `history_len=2`,
-  `40`-epoch contract (`512 / 64 / 64` trajectories,
-  `max_windows_per_trajectory=8`, `mse`).
+  now fixes the headline CNS lane and must be treated as the only contract
+  authority for this item.
+- Selected contract: `bounded_capped_decision_support`
+- Selected history lane: `history_len=2`, `40` epochs, `512 / 64 / 64` trajectories, `max_windows_per_trajectory=8`, emitted windows `4096 / 512 / 512`
+- Selected normalization contract: train-only per-field normalization fit on the `512` training trajectories, reused across all history slots and target channels, with evaluation reported in denormalized target space.
+- Selected training recipe contract: keep the CNS task-local `mse` override relative to the design's generic `mae` baseline; use `Adam` with learning rate `2e-4`; use `ReduceLROnPlateau` with factor `0.5`, patience `2`, threshold `0.0`, and `min_lr=1e-5`; keep batch size `4`; keep the metric family `err_RMSE`, `err_nRMSE`, `relative_l2`, `fRMSE_low`, `fRMSE_mid`, `fRMSE_high`.
 - Under that decision, the locked headline row roster is:
   `spectral_resnet_bottleneck_base`, `fno_base`, `unet_strong`,
   `author_ffno_cns_base`.
+- Authored FFNO cutoff outcome: use only the accepted completed
+  `author_ffno_cns_base` `history_len=2`, `40`-epoch row; do not wait for or
+  imply any `history_len=3` authored rerun.
 - `hybrid_resnet_cns` remains an audited continuity/support row rather than a
   required headline-table row in this pass.
 
@@ -37,6 +43,8 @@ Selected contract note:
 
 - Consume the CNS paper contract decision as the only authority for full
   training versus bounded capped evidence.
+- Reuse the exact selected history lane, normalization contract, and training
+  recipe contract above verbatim when writing row manifests and summaries.
 - For `full_training_paper_benchmark`, run the required rows under the same
   official file, split, history length, normalization, loss, scheduler,
   training budget, and metric schema.

@@ -143,10 +143,10 @@ Selected contract as of `2026-04-29`:
 
 - authoritative decision:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md`
-- selected CNS paper contract: `bounded_capped_decision_support`
-- locked headline lane:
-  `history_len=2`, `40` epochs, `512 / 64 / 64` trajectories,
-  `max_windows_per_trajectory=8`, `mse`
+- Selected contract: `bounded_capped_decision_support`
+- Selected history lane: `history_len=2`, `40` epochs, `512 / 64 / 64` trajectories, `max_windows_per_trajectory=8`, emitted windows `4096 / 512 / 512`
+- Selected normalization contract: train-only per-field normalization fit on the `512` training trajectories, reused across all history slots and target channels, with evaluation reported in denormalized target space.
+- Selected training recipe contract: keep the CNS task-local `mse` override relative to the design's generic `mae` baseline; use `Adam` with learning rate `2e-4`; use `ReduceLROnPlateau` with factor `0.5`, patience `2`, threshold `0.0`, and `min_lr=1e-5`; keep batch size `4`; keep the metric family `err_RMSE`, `err_nRMSE`, `relative_l2`, `fRMSE_low`, `fRMSE_mid`, `fRMSE_high`.
 - locked headline rows:
   `spectral_resnet_bottleneck_base`, `fno_base`, `unet_strong`,
   `author_ffno_cns_base`
@@ -154,6 +154,10 @@ Selected contract as of `2026-04-29`:
   `hybrid_resnet_cns`
 - adjacent-only context:
   `history_len=3` capped pilots, GNOT, and repo-local FFNO proxy rows
+
+The package no longer leaves the CNS contract open-ended. Future readers should
+not recover normalization or training recipe rules from older summaries; the
+decision document above is now the authority surface for both.
 
 Required CNS table rows:
 

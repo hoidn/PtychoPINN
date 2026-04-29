@@ -2090,6 +2090,10 @@
         "task_id": "2d_cfd_cns",
         "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
         "history_len": 2,
+        "selected_contract_line": "Selected contract: `bounded_capped_decision_support`",
+        "selected_history_lane": "Selected history lane: `history_len=2`, `40` epochs, `512 / 64 / 64` trajectories, `max_windows_per_trajectory=8`, emitted windows `4096 / 512 / 512`",
+        "selected_normalization_contract": "Selected normalization contract: train-only per-field normalization fit on the `512` training trajectories, reused across all history slots and target channels, with evaluation reported in denormalized target space.",
+        "selected_training_recipe_contract": "Selected training recipe contract: keep the CNS task-local `mse` override relative to the design's generic `mae` baseline; use `Adam` with learning rate `2e-4`; use `ReduceLROnPlateau` with factor `0.5`, patience `2`, threshold `0.0`, and `min_lr=1e-5`; keep batch size `4`; keep the metric family `err_RMSE`, `err_nRMSE`, `relative_l2`, `fRMSE_low`, `fRMSE_mid`, `fRMSE_high`.",
         "split_counts": {
           "train": 512,
           "val": 64,
@@ -2117,6 +2121,8 @@
       },
       "authored_ffno_cutoff": {
         "status": "completed",
+        "cutoff_line": "Authored FFNO cutoff: include authored FFNO only from the already completed same-contract `history_len=2`, `40`-epoch row recorded in this decision; do not wait for or imply any `history_len=3` authored rerun for the current headline table.",
+        "status_line": "Authored FFNO status: `completed`; accepted row id `author_ffno_cns_base`; accepted run root `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z`.",
         "accepted_profile_id": "author_ffno_cns_base",
         "accepted_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z"
       },
@@ -2134,7 +2140,10 @@
       },
       "verification": [
         "pytest -q tests/studies/test_pdebench_image128_runner.py tests/studies/test_pdebench_cfd_cns_data.py tests/studies/test_pdebench_cfd_cns_metrics.py -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/pytest_cns_contract_20260429.log (`47 passed in 53.21s`)",
-        "python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/compileall_cns_contract_20260429.log"
+        "python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/compileall_cns_contract_20260429.log",
+        "decision doc structure check -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/decision_doc_structure.log",
+        "downstream contract sync check -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/downstream_contract_sync.log",
+        "final contract consistency check -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/final_contract_consistency.log"
       ],
       "affected_surfaces": [
         "docs/index.md",
