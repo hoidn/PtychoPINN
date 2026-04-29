@@ -351,6 +351,7 @@ def _load_run_record(run_root: Path, *, profile_id: str, source_document: str) -
     return {
         "row": row,
         "contract": contract,
+        "metrics": metrics,
         "npz_path": comparison_npz if comparison_npz.exists() else None,
     }
 
@@ -931,6 +932,133 @@ def _metrics_with_runtime(row: dict[str, Any]) -> dict[str, float]:
         raise ValueError(f"missing runtime_sec for {row.get('profile_id')}")
     payload["runtime_sec"] = float(runtime_sec)
     return payload
+
+
+def _rounded_convergence(value: float) -> float:
+    return round(float(value), 6)
+
+
+def write_cfd_cns_convergence_audit(
+    *,
+    output_root: Path,
+    run_root: Path,
+    profile_ids: list[str],
+    expected_loss_count: int = 80,
+) -> tuple[Path, Path, dict[str, Any]]:
+    output_root = Path(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+    run_root = Path(run_root)
+
+    normalized_profile_ids = [str(profile_id) for profile_id in profile_ids]
+    if not normalized_profile_ids:
+        raise ValueError("profile_ids must not be empty")
+
+    prev_window = slice(expected_loss_count - 20, expected_loss_count - 10)
+    final_window = slice(expected_loss_count - 10, expected_loss_count)
+    convergence_rule = {
+        "late_window_prev_epoch_range": [prev_window.start + 1, prev_window.stop],
+        "late_window_final_epoch_range": [final_window.start + 1, final_window.stop],
+        "late_window_ratio_lt": 0.95,
+        "last5_delta_lte": -0.001,
+        "expected_loss_count": int(expected_loss_count),
+    }
+
+    records = [
+        _load_run_record(run_root, profile_id=profile_id, source_document="fresh_run")
+        for profile_id in normalized_profile_ids
+    ]
+    first_record = records[0]
+    if first_record["row"]["task_id"] != "2d_cfd_cns":
+        raise ValueError(f"convergence audit requires 2d_cfd_cns task_id, got {first_record['row']['task_id']!r}")
+    fixed_contract = dict(first_record["contract"])
+    for record in records[1:]:
+        _assert_contract_matches(
+            label=f"convergence audit row {record['row']['profile_id']}",
+            actual=record["contract"],
+            expected=fixed_contract,
+        )
+
+    profile_rows: list[dict[str, Any]] = []
+    csv_rows: list[dict[str, Any]] = []
+    for record in records:
+        metrics = dict(record["metrics"])
+        losses = metrics.get("train_epoch_losses")
+        if not isinstance(losses, list) or len(losses) != expected_loss_count:
+            raise ValueError(
+                f"profile {record['row']['profile_id']} expected {expected_loss_count} train_epoch_losses, "
+                f"found {0 if not isinstance(losses, list) else len(losses)}"
+            )
+        loss_values = [float(value) for value in losses]
+        late_window_mean_prev = float(np.mean(loss_values[prev_window]))
+        if abs(late_window_mean_prev) < 1e-12:
+            raise ValueError(f"profile {record['row']['profile_id']} has zero late_window_mean_prev")
+        late_window_mean_final = float(np.mean(loss_values[final_window]))
+        late_window_ratio = late_window_mean_final / late_window_mean_prev
+        last5_delta = loss_values[-1] - loss_values[-6]
+        still_materially_improving = bool(
+            late_window_ratio < convergence_rule["late_window_ratio_lt"]
+            or last5_delta <= convergence_rule["last5_delta_lte"]
+        )
+        payload_row = {
+            "profile_id": record["row"]["profile_id"],
+            "loss_count": len(loss_values),
+            "late_window_mean_prev": _rounded_convergence(late_window_mean_prev),
+            "late_window_mean_final": _rounded_convergence(late_window_mean_final),
+            "late_window_ratio": _rounded_convergence(late_window_ratio),
+            "last5_delta": _rounded_convergence(last5_delta),
+            "still_materially_improving": still_materially_improving,
+            "final_eval_metrics": {
+                field: metrics[field]
+                for field in COMPARISON_METRIC_FIELDS
+                if field in metrics
+            },
+        }
+        profile_rows.append(payload_row)
+        csv_rows.append(
+            {
+                "profile_id": payload_row["profile_id"],
+                "loss_count": payload_row["loss_count"],
+                "late_window_mean_prev": payload_row["late_window_mean_prev"],
+                "late_window_mean_final": payload_row["late_window_mean_final"],
+                "late_window_ratio": payload_row["late_window_ratio"],
+                "last5_delta": payload_row["last5_delta"],
+                "still_materially_improving": payload_row["still_materially_improving"],
+                **payload_row["final_eval_metrics"],
+            }
+        )
+
+    payload = {
+        "schema_version": "pdebench_image128_cfd_cns_convergence_audit_v1",
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "task_id": "2d_cfd_cns",
+        "run_root": str(run_root),
+        "profile_ids": normalized_profile_ids,
+        "fixed_contract": fixed_contract,
+        "convergence_rule": convergence_rule,
+        "evidence_scope": str(first_record["row"]["evidence_scope"]),
+        "metric_interpretation": str(first_record["row"]["metric_interpretation"]),
+        "profiles": profile_rows,
+    }
+
+    json_path = output_root / "convergence_audit.json"
+    csv_path = output_root / "convergence_audit.csv"
+    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    fields = [
+        "profile_id",
+        "loss_count",
+        "late_window_mean_prev",
+        "late_window_mean_final",
+        "late_window_ratio",
+        "last5_delta",
+        "still_materially_improving",
+        *COMPARISON_METRIC_FIELDS,
+    ]
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        for row in csv_rows:
+            writer.writerow({field: row.get(field, "") for field in fields})
+    return json_path, csv_path, payload
 
 
 def _rounded(value: float) -> float:

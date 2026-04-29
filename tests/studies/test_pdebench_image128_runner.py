@@ -6,6 +6,7 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+import pytest
 import torch
 
 
@@ -214,6 +215,7 @@ def _write_fake_cfd_cns_compare_run(
     mode: str = "pilot",
     evidence_scope: str = "capped_decision_support_only",
     metric_interpretation: str = "decision_support_not_benchmark_performance",
+    train_epoch_losses: list[float] | None = None,
 ) -> Path:
     field_order = field_order or ["density", "Vx", "Vy", "pressure"]
     split_counts = split_counts or {"train": 512, "val": 64, "test": 64}
@@ -281,6 +283,11 @@ def _write_fake_cfd_cns_compare_run(
         "parameter_count": 123456,
         "metric_units": "denormalized_state_units",
         "fourier_metric_units": "denormalized_state_units_fft_ortho",
+        "train_epoch_losses": (
+            list(train_epoch_losses)
+            if train_epoch_losses is not None
+            else [float(epochs - index) / float(max(1, epochs)) for index in range(int(epochs))]
+        ),
     }
     (run_root / f"metrics_{profile_id}.json").write_text(
         json.dumps(metric_payload, indent=2, sort_keys=True) + "\n",
@@ -1653,6 +1660,97 @@ def test_history1_cross_run_compare_rejects_hybrid_base_proxy_anchor(tmp_path):
         assert "hybrid_resnet_base" in str(exc)
     else:
         raise AssertionError("history compare must reject hybrid_resnet_base as a proxy anchor")
+
+
+def test_write_cfd_cns_convergence_audit_writes_expected_payload(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import write_cfd_cns_convergence_audit
+
+    run_root = tmp_path / "run"
+    base_losses = [0.2000] * 60 + [0.1200] * 10 + [0.1200] * 5 + [0.1190] * 5
+    modes24_losses = [0.3000] * 60 + [0.2000] * 10 + [0.1700] * 5 + [0.1600] * 5
+    _write_fake_cfd_cns_compare_run(
+        run_root,
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=80,
+        err_nrmse=0.041,
+        split_counts={"train": 1024, "val": 128, "test": 128},
+        batch_size=16,
+        train_epoch_losses=base_losses,
+    )
+    _write_fake_cfd_cns_compare_run(
+        run_root,
+        profile_id="spectral_resnet_bottleneck_modes24",
+        epochs=80,
+        err_nrmse=0.043,
+        split_counts={"train": 1024, "val": 128, "test": 128},
+        batch_size=16,
+        train_epoch_losses=modes24_losses,
+    )
+
+    json_path, csv_path, payload = write_cfd_cns_convergence_audit(
+        output_root=tmp_path / "out",
+        run_root=run_root,
+        profile_ids=[
+            "spectral_resnet_bottleneck_base",
+            "spectral_resnet_bottleneck_modes24",
+        ],
+    )
+
+    assert json_path.exists()
+    assert csv_path.exists()
+    assert payload["task_id"] == "2d_cfd_cns"
+    assert payload["evidence_scope"] == "capped_decision_support_only"
+    assert payload["metric_interpretation"] == "decision_support_not_benchmark_performance"
+    assert payload["fixed_contract"]["split_counts"] == {"train": 1024, "val": 128, "test": 128}
+    assert payload["convergence_rule"] == {
+        "late_window_prev_epoch_range": [61, 70],
+        "late_window_final_epoch_range": [71, 80],
+        "late_window_ratio_lt": 0.95,
+        "last5_delta_lte": -0.001,
+        "expected_loss_count": 80,
+    }
+
+    rows = {row["profile_id"]: row for row in payload["profiles"]}
+    base_row = rows["spectral_resnet_bottleneck_base"]
+    assert base_row["loss_count"] == 80
+    assert base_row["late_window_mean_prev"] == 0.12
+    assert base_row["late_window_mean_final"] == 0.1195
+    assert base_row["late_window_ratio"] == pytest.approx(0.995833, abs=1e-6)
+    assert base_row["last5_delta"] == -0.001
+    assert base_row["still_materially_improving"] is True
+    assert base_row["final_eval_metrics"]["err_nRMSE"] == 0.041
+
+    modes24_row = rows["spectral_resnet_bottleneck_modes24"]
+    assert modes24_row["late_window_mean_prev"] == 0.2
+    assert modes24_row["late_window_mean_final"] == 0.165
+    assert modes24_row["late_window_ratio"] == 0.825
+    assert modes24_row["last5_delta"] == -0.01
+    assert modes24_row["still_materially_improving"] is True
+    assert modes24_row["final_eval_metrics"]["fRMSE_high"] == 0.0215
+
+
+def test_write_cfd_cns_convergence_audit_rejects_short_loss_history(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import write_cfd_cns_convergence_audit
+
+    run_root = tmp_path / "run"
+    _write_fake_cfd_cns_compare_run(
+        run_root,
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=80,
+        err_nrmse=0.041,
+        train_epoch_losses=[0.2] * 79,
+    )
+
+    try:
+        write_cfd_cns_convergence_audit(
+            output_root=tmp_path / "out",
+            run_root=run_root,
+            profile_ids=["spectral_resnet_bottleneck_base"],
+        )
+    except ValueError as exc:
+        assert "expected 80 train_epoch_losses" in str(exc)
+    else:
+        raise AssertionError("convergence audit must reject short loss histories")
 
 
 def test_validate_darcy_benchmark_budget_requires_full_split_and_primary_profiles():
