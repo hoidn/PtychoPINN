@@ -2,30 +2,30 @@
 
 ## Completed In This Pass
 
-- Ran the required deterministic CNS checks and archived the logs.
-- Audited the existing CNS evidence into explicit same-contract lanes.
-- Chose and recorded the authoritative CNS paper contract:
-  `bounded_capped_decision_support` on the `history_len=2`, `40`-epoch,
-  `512 / 64 / 64`, `max_windows_per_trajectory=8`, `mse` lane.
-- Wrote durable audit and full-training cost-estimate artifacts.
-- Updated the durable decision doc, downstream backlog/docs/state surfaces, and
-  verification artifacts so later items consume the same contract without
-  re-inferring normalization or recipe details.
+- Completed the missing row-level provenance contract in the CNS same-contract
+  audit Markdown and JSON artifacts.
+- Made the `history_len=3` authored-FFNO gap explicit as a blocked
+  same-contract row instead of leaving it implicit at the lane level.
+- Reran the required deterministic CNS checks from `ptycho311` and archived
+  fresh logs after the audit fix.
+- Added a focused audit-consistency validation log so Task 1 completion is
+  backed by machine-checked row-level fields, not just narrative text.
 
 ## Completed Current-Scope Work
 
-- Task 1: completed the lane-by-lane same-contract audit and separated
-  headline-eligible rows from contract-divergent context.
-- Task 2: completed the full-training compute/deadline estimate using the
-  existing capped `40`-epoch roots.
-- Task 3: rewrote the durable CNS contract decision to use the exact required
-  authority labels, including explicit normalization and training-recipe
-  contract lines, the authored FFNO cutoff/status, and the locked row roster.
-- Task 4: completed the downstream sync for the CNS row-lock item, the paper
-  evidence package design, the CNS summary/discoverability indexes, and the
-  NeurIPS progress ledger.
-- Task 5: archived the structure, downstream-consistency, and final-consistency
-  verification logs alongside the required deterministic-check logs.
+- Task 1: now complete to plan. The audit separates Lane A, Lane B, and
+  contract-divergent context, and each candidate row now records row ID,
+  run root, environment, dataset path, split counts, `history_len`,
+  `max_windows_per_trajectory`, normalization contract, training loss, model
+  profile ID, optimizer/scheduler fields, epoch budget, metrics, parameter
+  count, runtime, and evidence status.
+- Task 2: no additional work was required in this pass; the existing
+  full-training compute/deadline estimate remains current.
+- Task 3: no additional decision-doc edits were required once the audit
+  contract was brought up to the approved row-level detail.
+- Task 4: no additional downstream sync changes were required in this pass.
+- Task 5: refreshed deterministic-check evidence and added an audit-contract
+  consistency validation log for the corrected audit artifacts.
 
 ## Follow-Up Work
 
@@ -40,34 +40,20 @@
 ## Verification
 
 - `pytest -q tests/studies/test_pdebench_image128_runner.py tests/studies/test_pdebench_cfd_cns_data.py tests/studies/test_pdebench_cfd_cns_metrics.py`
-  - result: `47 passed in 53.21s`
+  - result: `47 passed in 53.42s`
   - log:
-    `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/pytest_cns_contract_20260429.log`
+    `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/pytest_cns_contract_20260429_rerun.log`
 - `python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py`
   - result: exit code `0`
   - log:
-    `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/compileall_cns_contract_20260429.log`
-- Decision-doc structure check
-  - result: `decision doc structure looks complete`
+    `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/compileall_cns_contract_20260429_rerun.log`
+- Audit contract consistency check
+  - result: `audit contract consistency looks complete`
   - log:
-    `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/decision_doc_structure.log`
-- Downstream contract sync check
-  - result: `downstream files reference the decision doc and selected contract`
-  - log:
-    `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/downstream_contract_sync.log`
-- Final contract consistency check
-  - result: `final contract consistency looks complete`
-  - log:
-    `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/final_contract_consistency.log`
+    `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/audit_contract_consistency.log`
 - Parsed successfully:
-  - `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json`
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/cns_same_contract_audit.json`
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/cns_full_training_cost_estimate.json`
-- Comparison standards carried into the decision:
-  - cross-history sidecars:
-    `Only history_len and its derived sample/input-channel contract may differ.`
-  - cross-run gallery alignment where applicable:
-    `np.allclose(..., atol=1e-6, rtol=1e-6)`
 
 ## Residual Risks
 
