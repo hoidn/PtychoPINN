@@ -26,9 +26,11 @@
   - inspect contract validation receipt written at `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/verification/inspect_contract_validation.log`
 - Task 3 launched:
   - tracked PID `713934` is still live
-  - live launch log currently shows `EPOCH_LOSS` through epoch `20`
+  - live launch log currently shows `EPOCH_LOSS` through epoch `31`
   - no `exit_code.txt` sidecar exists yet, so the run has not reached the plan’s completion proof
   - final metrics and compare payloads are not present yet (`metrics_spectral_resnet_bottleneck_shared_blocks10.json`, `comparison_summary.json`)
+  - latest observed train loss from the live launch log:
+    `epoch=31`, `loss=0.01001432786`
   - required fresh run root artifacts already present at startup:
     `invocation.json`, `dataset_manifest.json`, `split_manifest.json`, `hdf5_metadata.json`, `model_profile_spectral_resnet_bottleneck_shared_blocks10.json`, `normalization_stats_state.json`
 - Launch deviation recovered narrowly:

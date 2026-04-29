@@ -274,13 +274,19 @@ Current backlog dependency relations for the Phase 2 CNS queue are tracked in
 `docs/backlog/index.md`. As of this roadmap revision, the paper-default GNOT
 rerun and the author-FFNO compare are now completed external-baseline lanes on
 the same local `2d_cfd_cns` contract; they should not stay in the active queue
-or be treated as prerequisites for later CNS follow-ups. The current immediate
-Phase 2 CNS lane is the active converged-budget spectral mode-count follow-up
-(`12/12` versus `24/24`, which depends on the completed `modes32` compare).
-The Hybrid-spectral finalist scaling follow-up at `2048 / 256 / 256` is now a
-completed capped CNS lane that depends on the finished Hybrid-spectral
-architecture ablation and reuses the frozen `512 / 64 / 64` and
-`1024 / 128 / 128` finalist rows as scaling references. A lower-priority
+or be treated as prerequisites for later CNS follow-ups. The earlier
+converged-budget spectral mode-count follow-up (`12/12` versus `24/24`, which
+depended on the completed `modes32` compare) is now a completed capped CNS
+lane. The current immediate Phase 2 CNS lane is the active shared-blocks10
+longer-convergence follow-up at `1024 / 128 / 128`, which reruns only
+`spectral_resnet_bottleneck_shared_blocks10` against the completed 40-epoch
+finalist row and the completed `2048cap` scaling summary to test whether the
+aggregate-vs-frequency interpretation changes under a longer budget while
+remaining explicitly capped and decision-support-only. The Hybrid-spectral
+finalist scaling follow-up at `2048 / 256 / 256` is now a completed capped CNS
+lane that depends on the finished Hybrid-spectral architecture ablation and
+reuses the frozen `512 / 64 / 64` and `1024 / 128 / 128` finalist rows as
+scaling references. A lower-priority
 Phase 2 CNS-only Hybrid-spectral-to-FFNO parameter-space split may follow
 those bounded lanes after the completed Hybrid-spectral architecture and CNS
 FFNO-convolutional-feature items, but it must remain CNS-only and capped
@@ -289,11 +295,12 @@ PDEBench plus Phase 3 CDI-preparation selection window: selectors should still
 prefer remaining Phase 2 PDEBench evidence, but may select Phase 3 CDI
 preparation when it is the most useful parallel work. Phase 3 CDI items remain
 Phase 3 work and must not count as satisfying Phase 2 PDEBench evidence. The
-earlier `history_len=1` Markov compare, `modes32` compare, Hybrid-spectral
-architecture ablation, and
-FFNO-with-convolutional-features extension are now completed capped CNS lanes,
-not active queue items. These independent capped CNS studies should not be
-serialized unless a backlog item introduces an explicit prerequisite.
+earlier `history_len=1` Markov compare, `modes32` compare, `modes24`
+convergence compare, Hybrid-spectral architecture ablation,
+Hybrid-spectral-scaling `2048cap` follow-up, and FFNO-with-convolutional-
+features extension are now completed capped CNS lanes, not active queue items.
+These independent capped CNS studies should not be serialized unless a backlog
+item introduces an explicit prerequisite.
 
 ## Completion Criteria
 

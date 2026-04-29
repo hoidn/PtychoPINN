@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Run one fresh longer-budget `spectral_resnet_bottleneck_shared_blocks10` PDEBench CNS pilot at the fixed `1024 / 128 / 128` cap so the tranche can answer whether the prior `40`-epoch `1024cap` row was under-converged, without widening this item beyond capped decision-support evidence.
+**Goal:** Run one fresh longer-budget `spectral_resnet_bottleneck_shared_blocks10` PDEBench CNS pilot at the fixed `1024 / 128 / 128` cap so this backlog item can answer whether the prior `40`-epoch `1024cap` row was materially under-converged, without widening the tranche beyond capped decision-support evidence.
 
-**Architecture:** Reuse the frozen `1024cap`, `40`-epoch finalist row from the completed CNS hybrid-spectral architecture ablation, freeze its full shell contract from the saved `model_profile_*.json`, then launch exactly one fresh `80`-epoch `pilot` rerun under the same dataset, split, history, loss, batch, and shell settings. Publish two reporting surfaces from that fixed contract: a convergence audit for the fresh run and a same-profile `40ep -> 80ep` delta payload that permits only the epoch budget to change, then sync the bounded interpretation into the durable CNS summaries and progress ledger.
+**Architecture:** Freeze the authoritative `1024cap`, `40`-epoch shared-blocks10 reference row and shell contract from the completed CNS hybrid-spectral architecture-ablation tranche, prove the exact `80`-epoch follow-up contract in `inspect` mode, then launch exactly one fresh `pilot` rerun under the same dataset, split, history, loss, batch, and shell settings. After the run completes, generate a convergence audit plus a shell-validated `40ep -> 80ep` delta payload, then sync the bounded interpretation into the durable CNS summaries, progress ledger, and docs index.
 
 **Tech Stack:** PATH `python`; tmux with `ptycho311` active for the long run; PyTorch; `scripts/studies/pdebench_image128/`; pytest; compileall; Markdown/JSON/CSV artifacts under `.artifacts/`.
 
@@ -15,9 +15,11 @@
 - ID: `NEURIPS-HYBRID-RESNET-2026`
 - Backlog item: `2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence`
 - Selection mode: `RECOVERED_IN_PROGRESS`
-- Date: `2026-04-28`
+- Plan date: `2026-04-28`
 - Authoritative selected-item context:
-  `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/22/items/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/selected-item-context.md`
+  `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/23/items/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/selected-item-context.md`
+- Authoritative plan path:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/execution_plan.md`
 - Previous plan path used only as background:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/execution_plan.md`
 - Durable summary target:
@@ -27,7 +29,7 @@
 - Artifact root:
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/`
 
-This file is the new execution authority for the selected backlog item. It supersedes prior plan text at this path.
+This file is the new execution authority for the selected backlog item. Implementation should not rely on the raw backlog item, steering document, or roadmap for unstated scope decisions after this plan is approved.
 
 ## Inputs Read
 
@@ -35,34 +37,30 @@ This file is the new execution authority for the selected backlog item. It super
 - `docs/findings.md`
 - `docs/INITIATIVE_WORKFLOW_GUIDE.md`
 - `docs/TESTING_GUIDE.md`
+- `docs/DEVELOPER_GUIDE.md`
 - `docs/steering.md`
 - `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md`
 - `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md`
+- `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/23/items/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/selected-item-context.md`
+- `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json`
 - `docs/backlog/in_progress/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence.md`
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_arch_ablation_summary.md`
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_scaling_2048cap_summary.md`
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md`
-- `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json`
-- `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/22/items/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/selected-item-context.md`
-- `.artifacts/review/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence-plan-review.json`
-
-## Review Findings Addressed In This Revision
-
-- `PLAN-M1`: if this item requires changes to production workflow/config-plumbing files, closeout must rerun `pytest -v -m integration` and archive the resulting log under the item artifact root, in addition to the backlog item's required check commands.
-- `PLAN-M2`: the item-local payload gate and the final closeout gate now use an explicit inline artifact-validation command that checks the real reporting payload schema, shell-contract match, durable-doc presence, and launch exit-code sidecar.
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence/execution_plan.md` as background only
 
 ## Selected Objective
 
-- Rerun `spectral_resnet_bottleneck_shared_blocks10` on PDEBench `2d_cfd_cns` with the fixed `1024 / 128 / 128` cap and a bounded longer `80`-epoch budget.
+- Rerun `spectral_resnet_bottleneck_shared_blocks10` on PDEBench `2d_cfd_cns` at the fixed `1024 / 128 / 128` cap with a bounded longer `80`-epoch budget.
 - Answer one narrow question:
-  - does the more converged `shared_blocks10` row materially change the existing bounded interpretation that the shared base row remains the better aggregate local reference while `shared_blocks10` keeps only narrower `fRMSE_mid/high` advantages?
+  does the more converged shared-blocks10 row materially change the existing bounded interpretation that the shared base row remains the better aggregate local reference while shared-blocks10 keeps only narrower `fRMSE_mid/high` advantages?
 - Publish:
   - the frozen `40`-epoch reference manifest for the authoritative `1024cap` row
   - the frozen shell contract for `spectral_resnet_bottleneck_shared_blocks10`
-  - one fresh `80`-epoch run root with launch proof
+  - one fresh `80`-epoch run root with launch-completion proof
   - one fresh convergence audit based on the `80`-epoch train-loss trajectory
   - one shell-validated same-profile `40ep -> 80ep` delta payload
-  - a durable summary and CNS summary sync that keep the claim explicitly capped and decision-support-only
+  - a durable summary plus CNS summary sync that keep the claim explicitly capped and decision-support-only
 
 ## Scope
 
@@ -93,18 +91,18 @@ This file is the new execution authority for the selected backlog item. It super
     - `spectral_bottleneck_gate_mode="shared"`
     - `spectral_bottleneck_share_weights=True`
     - `spectral_bottleneck_blocks=10`
-- Freeze the shell from the authoritative saved model-profile artifact and require both the live repo profile and the fresh run's model-profile artifact to match it exactly.
+- Freeze the shell from the authoritative saved model-profile artifact and require both the live repo profile and the fresh run model-profile artifact to match it exactly.
 - Lock the longer budget at `80` epochs for this item. Do not extend further within this tranche.
 - Preserve capped decision-support scope. This item must not be presented as full-training benchmark evidence.
 
 ## Explicit Non-Goals
 
-- Do not rerun `spectral_resnet_bottleneck_base` or any other profile.
+- Do not rerun `spectral_resnet_bottleneck_base` or any other profile unless an unexpected contract problem makes a same-budget control unavoidable and that decision is documented first.
 - Do not rerun `512cap` or `2048cap` lanes.
-- Do not change cap size, split family, history length, loss, batch size, or shell fields to make the run easier.
-- Do not reinterpret this item as a same-budget architecture winner test; the base row is not rerun at `80` epochs here.
-- Do not auto-extend past `80` epochs even if the loss curve is still dropping; report that bounded outcome.
-- Do not expand to Darcy, the full PDEBench suite, external baselines, CDI work, or `/home/ollie/Documents/neurips/` artifact assembly.
+- Do not change cap size, split family, history length, training loss, batch size, or shell fields to make the run easier.
+- Do not reinterpret this item as a same-budget architecture winner test. The base row is not rerun at `80` epochs here.
+- Do not auto-extend past `80` epochs even if the loss curve is still dropping; report the bounded outcome instead.
+- Do not expand into Darcy, the full PDEBench suite, external baselines, CDI work, or `/home/ollie/Documents/neurips/` artifact assembly.
 - Do not touch `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py`.
 - Do not create worktrees.
 
@@ -117,18 +115,18 @@ This file is the new execution authority for the selected backlog item. It super
 - The approved design and roadmap are binding:
   - this item remains Phase 2 PDEBench CNS work
   - it stays explicitly capped and decision-support-only
-  - it does not satisfy the roadmap’s full available training-split benchmark gate
+  - it does not satisfy the roadmap's full available training-split benchmark gate
   - it must not expand to later roadmap phases or unrelated backlog items
-- The roadmap’s current routing state is binding:
+- The roadmap routing state is binding:
   - the immediate active CNS lane is this shared-blocks10 longer-convergence follow-up at `1024 / 128 / 128`
-  - the outcome must be read against the completed `40`-epoch finalist row and the completed `2048cap` scaling summary
+  - the outcome must be interpreted against the completed `40`-epoch finalist row and the completed `2048cap` scaling summary
 - Prerequisite status from the progress ledger and durable summaries:
   - `2026-04-22-pdebench-cns-hybrid-spectral-architecture-ablation` is complete and froze the authoritative `1024cap`, `40`-epoch finalist root:
     `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z`
   - `2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap` is complete and established the bounded prior interpretation that the shared base row remains the stronger aggregate local reference beyond `1024cap`
 - `REPORTING-ARTIFACT-BOUNDARY-001` applies:
   - required metrics, manifests, delta payloads, convergence payloads, and summary updates decide completion
-  - optional gallery warnings may be recorded without invalidating the tranche if required artifacts are present
+  - optional galleries or convenience visuals may warn without invalidating the tranche if the required artifacts succeed
 - `PYTHON-ENV-001` applies: invoke Python as plain PATH `python`
 - Long-run guardrails are mandatory:
   - use tmux with `ptycho311` active
@@ -136,7 +134,7 @@ This file is the new execution authority for the selected backlog item. It super
   - track the exact launched PID and wait on that PID
   - declare the run complete only when the tracked PID exits `0` and the required fresh artifacts exist
 - Failure handling:
-  - if pytest, compileall, inspect mode, import, or reporting-helper checks fail, diagnose/fix/rerun before considering any block
+  - if pytest, compileall, inspect mode, import, path, or reporting-helper checks fail, diagnose/fix/rerun before considering any block
   - reserve `BLOCKED` for missing dataset access, unavailable hardware, roadmap conflict outside current authority, user decision required, or unrecoverable failure after a documented narrow fix attempt
 
 ## Frozen Reference Inputs
@@ -151,27 +149,28 @@ This file is the new execution authority for the selected backlog item. It super
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z/model_profile_spectral_resnet_bottleneck_shared_blocks10.json`
 - Live profile-definition source that must still match the frozen shell:
   `scripts/studies/pdebench_image128/run_config.py::get_model_profile("spectral_resnet_bottleneck_shared_blocks10")`
-- Existing reporting helpers that are part of the default execution path:
-  - `scripts/studies/pdebench_image128.reporting::build_reference_run_manifest`
-  - `scripts/studies/pdebench_image128.reporting::write_reference_run_manifest`
-  - `scripts/studies/pdebench_image128.reporting::write_cfd_cns_convergence_audit`
-  - `scripts/studies/pdebench_image128.reporting::write_same_profile_epoch_budget_delta`
+- Existing reporting helpers that are part of the intended execution path:
+  - `scripts.studies.pdebench_image128.reporting::build_reference_run_manifest`
+  - `scripts.studies.pdebench_image128.reporting::write_reference_run_manifest`
+  - `scripts.studies.pdebench_image128.reporting::write_cfd_cns_convergence_audit`
+  - `scripts.studies.pdebench_image128.reporting::write_same_profile_epoch_budget_delta`
 
 ## Implementation Architecture
 
-- Contract-freeze unit:
-  - create the item-local reference manifest and shell-contract artifact from the frozen `40`-epoch row and verify the current repo profile still matches before any expensive work
+- Contract-freeze and gate-clear unit:
+  generate the item-local reference manifest and shell-contract artifact from the frozen `40`-epoch row, run the required deterministic checks, and prove the live repo profile has not drifted before any expensive work.
 - Inspect-and-launch unit:
-  - run the required deterministic checks, prove the `1024 / 128 / 128`, `history_len=2`, `mse`, batch-`4`, `80`-epoch pilot contract through `inspect` mode, then launch exactly one fresh run under tmux
+  run the exact `1024 / 128 / 128`, `history_len=2`, `mse`, batch-`4`, `80`-epoch contract through `inspect` mode first, then launch exactly one fresh tmux-backed `pilot` run with PID-tracked completion proof.
 - Reporting-and-sync unit:
-  - generate the convergence audit and shell-validated `40ep -> 80ep` delta payload, then update the durable summary, CNS summary, progress ledger, and docs index
+  emit the convergence audit and shell-validated `40ep -> 80ep` delta payload, then update the durable summary, CNS summary, progress ledger, and docs index with the bounded outcome.
 
 ## Concrete File And Artifact Targets
 
-- Study code and tests that may change only if preflight exposes a real blocker:
+- Study code and tests that may change only if preflight or inspect expose a real blocker:
   - `scripts/studies/pdebench_image128/reporting.py`
   - `scripts/studies/pdebench_image128/run_config.py`
   - `scripts/studies/pdebench_image128/cfd_cns.py`
+  - `scripts/studies/run_pdebench_image128_suite.py`
   - `tests/studies/test_pdebench_image128_models.py`
   - `tests/studies/test_pdebench_image128_runner.py`
 - Item-local artifacts to create:
@@ -190,20 +189,20 @@ This file is the new execution authority for the selected backlog item. It super
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md`
   - `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json`
   - `docs/index.md`
-  - `docs/findings.md` only if a reusable engineering rule is discovered during execution
+  - `docs/findings.md` only if a reusable engineering rule is discovered
 
-### Task 1: Freeze The Reference Contract And Clear The Deterministic Gates
+### Task 1: Freeze The Reference Contract And Clear The Required Deterministic Gates
 
 **Files:**
 - Create: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/reference_runs_1024cap_40ep.json`
 - Create: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/reference_shell_contract_shared_blocks10_1024cap.json`
-- Modify only if a preflight failure exposes real drift: `scripts/studies/pdebench_image128/reporting.py`
-- Modify only if a preflight failure exposes real drift: `scripts/studies/pdebench_image128/run_config.py`
+- Modify only if a gate failure exposes real drift: `scripts/studies/pdebench_image128/reporting.py`
+- Modify only if a gate failure exposes real drift: `scripts/studies/pdebench_image128/run_config.py`
 - Test: `tests/studies/test_pdebench_image128_models.py`
 - Test: `tests/studies/test_pdebench_image128_runner.py`
 
 - [ ] Create the item artifact root and `verification/` subdirectory.
-- [ ] Run the backlog item’s required deterministic checks and archive both logs under the item artifact root before inspect or training:
+- [ ] Run the backlog item's required deterministic checks and archive both logs before inspect or training. The expensive run must wait for these checks to pass green:
 
 ```bash
 pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py \
@@ -213,8 +212,8 @@ python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pd
   2>&1 | tee .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/verification/preflight_compileall.log
 ```
 
-- [ ] If either required check fails, diagnose and fix the narrow cause first, then rerun both commands to green before any expensive run. Do not label the item `BLOCKED` for an ordinary local verification failure.
-- [ ] Write the item-local frozen reference manifest for the authoritative `40`-epoch row using the existing reporting helper, not hand-edited JSON:
+- [ ] If either required check fails, diagnose and fix the narrow cause first, then rerun both commands to green before any expensive step. Do not mark the item `BLOCKED` for an ordinary local verification failure.
+- [ ] Write the item-local frozen reference manifest for the authoritative `40`-epoch row using the reporting helper, not hand-edited JSON:
 
 ```bash
 python - <<'PY'
@@ -264,7 +263,7 @@ frozen_model_profile_path = Path(
     "cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z/"
     "model_profile_spectral_resnet_bottleneck_shared_blocks10.json"
 )
-frozen = json.loads(frozen_model_profile_path.read_text())
+frozen = json.loads(frozen_model_profile_path.read_text(encoding="utf-8"))
 shell_contract = {
     "schema_version": "pdebench_image128_shell_contract_v1",
     "profile_id": frozen["profile_id"],
@@ -288,16 +287,16 @@ print("frozen shell contract recorded and live profile matches")
 PY
 ```
 
-- [ ] Verify the two frozen artifacts exist and that the frozen reference row still records `epochs=40`, `split_counts=1024/128/128`, `history_len=2`, `training_loss=mse`, and `profile_id=spectral_resnet_bottleneck_shared_blocks10`.
+- [ ] Verify the two frozen artifacts exist and that the frozen reference row still records `epochs=40`, split counts `1024/128/128`, `history_len=2`, `training_loss=mse`, and `profile_id=spectral_resnet_bottleneck_shared_blocks10`.
 
-### Task 2: Prove The Fresh 80-Epoch Contract In Inspect Mode Before Training
+### Task 2: Prove The Exact 80-Epoch Contract In Inspect Mode Before Training
 
 **Files:**
 - Create: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/inspect-1024cap-80ep-<timestamp>/`
 - Modify only if inspect exposes a real runner bug: `scripts/studies/pdebench_image128/cfd_cns.py`
 - Test only if code changes: `tests/studies/test_pdebench_image128_runner.py`
 
-- [ ] Generate a unique inspect root and run the exact capped contract through `inspect` mode. Training must not launch until this inspect step is green:
+- [ ] Generate a unique inspect root and run the exact capped contract through `inspect` mode. The long run must not launch until this inspect step is green:
 
 ```bash
 python -m scripts.studies.pdebench_image128.cfd_cns \
@@ -318,7 +317,7 @@ python -m scripts.studies.pdebench_image128.cfd_cns \
 ```
 
 - [ ] Confirm the inspect root contains `invocation.json`, `dataset_manifest.json`, `split_manifest.json`, `hdf5_metadata.json`, and `invocation.sh`.
-- [ ] Validate from those inspect artifacts that the fresh run contract still fixes:
+- [ ] Validate from those inspect artifacts that the run contract still fixes:
   - `mode="inspect"`
   - `task_id="2d_cfd_cns"`
   - `profiles=["spectral_resnet_bottleneck_shared_blocks10"]`
@@ -329,7 +328,7 @@ python -m scripts.studies.pdebench_image128.cfd_cns \
   - `max_val_trajectories=128`
   - `max_test_trajectories=128`
   - `max_windows_per_trajectory=8`
-- [ ] If inspect exposes a runner or contract bug, fix it narrowly, rerun the required deterministic checks from Task 1, and rerun inspect to green before training. Do not bypass inspect.
+- [ ] If inspect exposes a runner or contract bug, fix it narrowly, rerun the Task 1 deterministic checks, and rerun inspect to green before training. Do not bypass inspect.
 
 ### Task 3: Launch Exactly One Fresh 80-Epoch Pilot Run With PID-Tracked Completion Proof
 
@@ -367,9 +366,9 @@ python -m scripts.studies.pdebench_image128.cfd_cns \
   - the fresh run root contains `metrics_spectral_resnet_bottleneck_shared_blocks10.json`
   - the fresh run root contains `model_profile_spectral_resnet_bottleneck_shared_blocks10.json`
   - the fresh metrics payload records exactly `80` `train_epoch_losses`
-- [ ] If the process exits nonzero or required artifacts are missing/stale, diagnose and retry within scope before considering a block.
+- [ ] If the process exits nonzero or required artifacts are missing or stale, diagnose and retry within scope before considering a block.
 
-### Task 4: Generate The Reporting Payloads And Sync Durable State
+### Task 4: Generate Reporting Payloads And Sync Durable State
 
 **Files:**
 - Create: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/convergence_audit.json`
@@ -421,7 +420,7 @@ write_same_profile_epoch_budget_delta(
 PY
 ```
 
-- [ ] Validate the payloads with an item-local artifact check that confirms:
+- [ ] Run an item-local payload validation that confirms:
   - convergence audit JSON and CSV exist
   - delta JSON and CSV exist
   - the fresh run profile still matches the frozen shell contract
@@ -448,10 +447,6 @@ required_paths = [
     artifact_root / "cns-shared-blocks10-1024cap-80ep-<timestamp>.launch" / "exit_code.txt",
     fresh_run_root / "model_profile_spectral_resnet_bottleneck_shared_blocks10.json",
     fresh_run_root / "metrics_spectral_resnet_bottleneck_shared_blocks10.json",
-    Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_shared_blocks10_1024cap_longer_convergence_summary.md"),
-    Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md"),
-    Path("state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json"),
-    Path("docs/index.md"),
 ]
 missing = [str(path) for path in required_paths if not path.exists()]
 if missing:
@@ -503,13 +498,13 @@ PY
 
 - [ ] Write the durable summary with:
   - the fixed fairness contract
-  - frozen references and fresh run root
+  - frozen references and the fresh run root
   - the fresh `80`-epoch train-loss trajectory
   - the fresh held-out eval metrics
   - the shell-validated `40ep -> 80ep` metric deltas
   - the bounded interpretation against the frozen `40`-epoch row and the completed `2048cap` scaling summary
   - explicit claim boundaries that this remains capped decision-support evidence only
-- [ ] Update `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md` with a concise note that this capped longer-budget follow-up was completed and how it changed or preserved the existing local interpretation.
+- [ ] Update `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md` with a concise note that this capped follow-up completed and whether it changed or preserved the prior local interpretation.
 - [ ] Update `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json` with the item completion record, including:
   - plan path
   - artifact root
@@ -518,16 +513,16 @@ PY
   - inspect proof root
   - fresh run root
   - convergence-audit paths
-  - same-profile epoch-budget delta paths
+  - same-profile epoch-budget-delta paths
   - durable summary path
   - verification log paths
   - final bounded decision statement
 - [ ] Update `docs/index.md` so the new durable summary is discoverable.
-- [ ] Update `docs/findings.md` only if the work uncovered a reusable engineering rule rather than a one-off study outcome.
+- [ ] Update `docs/findings.md` only if the work uncovers a reusable engineering rule rather than a one-off study outcome.
 
 ## Final Verification
 
-- [ ] If any production code changed during Tasks 1-4, rerun the backlog item’s required deterministic checks and archive fresh final logs:
+- [ ] If any production code changed during Tasks 1-4, rerun the backlog item's required deterministic checks and archive fresh final logs:
 
 ```bash
 pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py \
@@ -537,14 +532,14 @@ python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pd
   2>&1 | tee .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/verification/final_compileall.log
 ```
 
-- [ ] If any production workflow/config-plumbing file changed during Tasks 1-4 (`scripts/studies/pdebench_image128/reporting.py`, `scripts/studies/pdebench_image128/run_config.py`, `scripts/studies/pdebench_image128/cfd_cns.py`, or `scripts/studies/run_pdebench_image128_suite.py`), rerun the required integration marker and archive the log per `docs/TESTING_GUIDE.md`:
+- [ ] If any production workflow or config-plumbing file changed during Tasks 1-4 (`scripts/studies/pdebench_image128/reporting.py`, `scripts/studies/pdebench_image128/run_config.py`, `scripts/studies/pdebench_image128/cfd_cns.py`, or `scripts/studies/run_pdebench_image128_suite.py`), rerun the required integration marker and archive the log per `docs/TESTING_GUIDE.md`:
 
 ```bash
 pytest -v -m integration \
   2>&1 | tee .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/verification/final_integration.log
 ```
 
-- [ ] Run the explicit final artifact-validation command and archive its log at
+- [ ] After the durable docs and ledger updates are written, rerun the final artifact-validation command and archive it as
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/verification/final_artifact_validation.log`:
 
 ```bash
@@ -617,6 +612,7 @@ if convergence_payload.get("metric_interpretation") != "decision_support_not_ben
 print("final artifact validation passed")
 PY
 ```
+
 - [ ] Confirm the launch sidecar `exit_code.txt` records `0` and the final artifact-validation log confirms all required item-local outputs and durable docs exist.
 
 ## Completion Criteria
