@@ -9,6 +9,7 @@ The generator registry enables architecture selection via the `config.model.arch
 | Architecture | Description | Status |
 |--------------|-------------|--------|
 | `cnn` | U-Net based CNN generator (default) | ✅ Integrated |
+| `ffno` | Constant-resolution factorized Fourier flow baseline | ✅ Integrated |
 | `fno` | Cascaded FNO + CNN refiner (Arch A) | ✅ Integrated |
 | `hybrid` | Hybrid U-NO (Arch B) | ✅ Integrated |
 | `stable_hybrid` | InstanceNorm-stabilized Hybrid U-NO | ✅ Integrated |
@@ -52,6 +53,18 @@ The FNO Vanilla architecture (`architecture='fno_vanilla'`) removes down/upsampl
 1. Spatial lifter (3×3 convs)
 2. Constant‑resolution FNO block stack
 3. 1×1 output projection
+
+### FFNO (constant-resolution factorized Fourier flow)
+The FFNO architecture (`architecture='ffno'`) keeps the constant-resolution CDI shell but swaps the spectral stack to factorized Fourier operators:
+1. Spatial lifter (3×3 convs)
+2. Constant‑resolution FFNO block stack
+3. Optional local residual refiners controlled by `fno_cnn_blocks`
+4. 1×1 output projection
+
+**Key parameters:**
+- `fno_blocks`: Number of FFNO blocks (default: 4)
+- `fno_cnn_blocks`: Number of local residual refiners after the FFNO stack (default: 2)
+- `fno_modes`: Spectral modes per axis (default: min(12, N//4))
 
 ### Hybrid ResNet‑6
 The Hybrid ResNet architecture (`architecture='hybrid_resnet'`) replaces the Hybrid U‑NO bottleneck/decoder with the CycleGAN backend:

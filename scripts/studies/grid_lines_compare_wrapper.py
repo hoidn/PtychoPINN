@@ -23,6 +23,7 @@ from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig
 LEGACY_ARCH_TO_MODEL = {
     "cnn": "pinn",
     "baseline": "baseline",
+    "ffno": "pinn_ffno",
     "fno": "pinn_fno",
     "hybrid": "pinn_hybrid",
     "stable_hybrid": "pinn_stable_hybrid",
@@ -35,6 +36,7 @@ SUPPORTED_MODEL_IDS = set(LEGACY_ARCH_TO_MODEL.values()) | {"pinn_ptychovit"}
 MODEL_DEFAULT_N = {"pinn_ptychovit": 256}
 TF_MODEL_IDS = {"pinn", "baseline"}
 TORCH_MODEL_IDS = {
+    "pinn_ffno",
     "pinn_fno",
     "pinn_hybrid",
     "pinn_stable_hybrid",
@@ -636,7 +638,7 @@ def run_grid_lines_compare(
         merged["baseline"] = tf_metrics["baseline"]
 
     for arch in selected_architectures:
-        if arch in ("fno", "hybrid", "stable_hybrid", "fno_vanilla", "hybrid_resnet"):
+        if arch in ("ffno", "fno", "hybrid", "stable_hybrid", "fno_vanilla", "hybrid_resnet"):
             torch_cfg = TorchRunnerConfig(
                 train_npz=train_npz,
                 test_npz=test_npz,
@@ -689,6 +691,8 @@ def run_grid_lines_compare(
         order.append("pinn")
     if "baseline" in selected_architectures:
         order.append("baseline")
+    if "ffno" in selected_architectures:
+        order.append("pinn_ffno")
     if "fno" in selected_architectures:
         order.append("pinn_fno")
     if "hybrid" in selected_architectures:

@@ -1256,6 +1256,17 @@ class TestChannelGridsizeAlignment:
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.model.architecture == "fno_vanilla"
 
+    def test_runner_accepts_ffno(self, tmp_path):
+        """Test that setup_torch_configs accepts 'ffno' architecture."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="ffno",
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.model.architecture == "ffno"
+
     def test_runner_rejects_hybrid_resnet_shallow_blocks(self, tmp_path):
         """hybrid_resnet should reject fno_blocks < 3 with a clear error."""
         cfg = TorchRunnerConfig(

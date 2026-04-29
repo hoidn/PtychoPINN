@@ -340,6 +340,23 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   - no durable child `runs/pinn_hybrid_resnet/invocation.json` was recovered in the historical root;
   - the contract above is reconstructed from the historical metrics/history artifacts plus the contemporaneous wrapper command documented in the legacy workflow docs.
 
+### `grid-lines-n128-ffno-vs-hybrid-resnet-best-contract`
+
+- Purpose: Run a fresh auditable `ffno` versus `hybrid_resnet` pair on the
+  study-indexed `grid-lines-n128-hybrid-resnet-legacy-best-e40-seed3`
+  contract without changing the CDI dataset, probe, scheduler, or output
+  contract.
+- Status: in progress until the launched compare finishes and the summary is
+  updated with final metrics.
+- Summary: `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md`
+- Output directory:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet`
+- Models:
+  - `pinn_hybrid_resnet`
+  - `pinn_ffno`
+- Boundary: this is the prerequisite FFNO-versus-Hybrid CDI row pair for later
+  `lines128` paper packaging, not the final four-row paper benchmark.
+
 ### `grid-lines-n64-pinn-hybrid-resnet-e20`
 
 - Purpose: Run `N=64` grid-lines with `pinn` (TF) and `pinn_hybrid_resnet` (Torch) at `20` epochs, then render combined visuals.

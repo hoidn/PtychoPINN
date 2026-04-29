@@ -88,7 +88,7 @@ class TorchRunnerConfig:
     train_npz: Path
     test_npz: Path
     output_dir: Path
-    architecture: str  # 'fno' or 'hybrid'
+    architecture: str  # 'ffno', 'fno', or 'hybrid'
     seed: int = 42
     epochs: int = 50
     batch_size: int = 16
@@ -583,7 +583,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     # Cast N and architecture to their Literal types
     N_literal = cast(Literal[64, 128, 256], cfg.N)
     arch_literal = cast(
-        Literal['cnn', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'],
+        Literal['cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'],
         cfg.architecture,
     )
     if cfg.architecture in {"hybrid_resnet", "spectral_resnet_bottleneck_net"}:
@@ -960,6 +960,7 @@ def _collect_visual_order(output_dir: Path, architecture: str) -> Tuple[str, ...
         "gt",
         "baseline",
         "pinn",
+        "pinn_ffno",
         "pinn_fno",
         "pinn_hybrid",
         "pinn_stable_hybrid",
@@ -1196,7 +1197,7 @@ def main(argv=None) -> None:
     parser.add_argument("--output-dir", type=Path, required=True,
                         help="Output directory for artifacts")
     parser.add_argument("--architecture", type=str, required=True,
-                        choices=['fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'],
+                        choices=['ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'],
                         help="Generator architecture to use")
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed for reproducibility (random if omitted)")

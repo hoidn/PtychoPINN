@@ -987,6 +987,7 @@ def test_wrapper_handles_stable_hybrid(monkeypatch, tmp_path):
 @pytest.mark.parametrize(
     "arch,metric_key",
     [
+        ("ffno", "pinn_ffno"),
         ("fno_vanilla", "pinn_fno_vanilla"),
         ("hybrid_resnet", "pinn_hybrid_resnet"),
     ],

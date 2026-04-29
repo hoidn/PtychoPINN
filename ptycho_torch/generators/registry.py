@@ -18,6 +18,7 @@ Supported architectures:
     - 'hybrid': Hybrid U-NO generator (Arch B)
 """
 from ptycho_torch.generators.cnn import CnnGenerator
+from ptycho_torch.generators.ffno import FfnoGenerator
 from ptycho_torch.generators.fno import FnoGenerator, HybridGenerator, StableHybridGenerator
 from ptycho_torch.generators.fno_vanilla import FnoVanillaGenerator
 from ptycho_torch.generators.hybrid_resnet import HybridResnetGenerator
@@ -25,6 +26,7 @@ from ptycho_torch.generators.spectral_resnet_bottleneck import SpectralResnetBot
 
 _REGISTRY = {
     'cnn': CnnGenerator,
+    'ffno': FfnoGenerator,
     'fno': FnoGenerator,
     'hybrid': HybridGenerator,
     'stable_hybrid': StableHybridGenerator,

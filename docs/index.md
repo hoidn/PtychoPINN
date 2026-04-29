@@ -54,9 +54,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Planning or executing the Hybrid ResNet NeurIPS submission work, deciding which CDI/PDE evidence is in scope, or assembling paper-facing artifacts.
 
 ### [NeurIPS Hybrid ResNet Submission Roadmap](plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md)
-**Description:** Phase-by-phase roadmap for the NeurIPS 2026 Hybrid ResNet campaign, prioritizing evidence inventory with explicit lost-run handling, required PDEBench `128x128` image-suite execution, fresh `128x128` CDI anchor regeneration/verification, optional `256x256` scaling evidence, and later evidence-bundle assembly.
-**Keywords:** neurips, hybrid_resnet, roadmap, phases, pde, cdi, artifact-index
-**Use this when:** You need the execution order, gates, expected artifacts, or fallback decisions for the submission campaign.
+**Description:** Phase-by-phase roadmap for the NeurIPS 2026 Hybrid ResNet campaign, prioritizing evidence inventory with explicit lost-run handling, required PDEBench `128x128` image-suite execution, CNS paper-contract packaging, fresh `128x128` CDI anchor regeneration/verification, complete `lines128` benchmark packaging, optional `256x256` scaling evidence, and later evidence-bundle assembly.
+**Keywords:** neurips, hybrid_resnet, roadmap, phases, pde, cdi, cns, lines128, paper-evidence, artifact-index
+**Use this when:** You need the execution order, gates, expected artifacts, fallback decisions, or paper-evidence package routing for the submission campaign.
 
 ### [NeurIPS Steered Backlog Drain Workflow Design](plans/2026-04-22-neurips-steered-backlog-drain-workflow-design.md)
 **Description:** Design for a steering-aware backlog drain workflow that selects the next NeurIPS backlog item from strategic intent, roadmap state, and repo progress; moves it into `docs/backlog/in_progress/`; optionally syncs the roadmap; always drafts a fresh plan; then runs implementation/review before repeating.
@@ -102,6 +102,21 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Description:** Phase 0 regeneration note for the missing paper-grade `128x128` grid-lines Hybrid ResNet anchor, including baseline settings, wrapper/runner command source, provenance capture, metric contract, qualitative output plan, and runtime guardrails.
 **Keywords:** neurips, hybrid_resnet, cdi, regeneration, 128x128, grid-lines, provenance
 **Use this when:** Preparing the Roadmap Phase 3 fresh CDI anchor run after confirming no complete paper-grade historical anchor was recovered.
+
+### [NeurIPS Hybrid ResNet Paper Evidence Package Design](plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_package_design.md)
+**Description:** Package-level design for the paper evidence needed before result claims are drafted, tying together CDI `lines128`, PDEBench CNS, provenance, numeric tables, visual comparison bundles, claim boundaries, and backlog decomposition.
+**Keywords:** neurips, hybrid_resnet, paper, evidence, cdi, cns, tables, figures, provenance
+**Use this when:** Deciding what evidence must exist before drafting result claims, splitting paper-evidence work into backlog items, or checking paper-grade versus decision-support boundaries across CDI and CNS.
+
+### [NeurIPS Lines128 Paper-Quality CDI Benchmark Design](plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md)
+**Description:** Detailed design for a paper-quality `N=128` grid-lines CDI benchmark, including the fixed `lines128` contract, required Hybrid/FNO/FFNO rows, metric schema, visual comparison artifacts, provenance requirements, and benchmark execution handoff.
+**Keywords:** neurips, cdi, lines128, grid-lines, hybrid_resnet, fno, ffno, benchmark, paper-grade
+**Use this when:** Planning or reviewing the CDI `lines128` benchmark rows, preflight contract reconstruction, FFNO generator integration, or paper-grade CDI table and figure generation.
+
+### [NeurIPS Hybrid ResNet CDI FFNO Generator Lines Best-Config Summary](plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md)
+**Description:** Execution summary for the fixed-contract `N=128` CDI `ffno` versus `hybrid_resnet` row pair, pinning the recovered `lines128` contract, stable artifact root, exact compare command, and the claim boundary that this pair is prerequisite evidence for the later paper benchmark rather than the full four-row package.
+**Keywords:** neurips, cdi, ffno, hybrid_resnet, lines128, grid-lines, compare, summary
+**Use this when:** Checking the exact FFNO-versus-Hybrid CDI compare contract, locating the fresh artifact root, or distinguishing this prerequisite row pair from the later paper-quality benchmark harness.
 
 ### [NeurIPS Hybrid ResNet PDE Benchmark Selection](plans/NEURIPS-HYBRID-RESNET-2026/pde_benchmark_selection.md)
 **Description:** Roadmap Phase 1 benchmark scorecard and primary/fallback provenance for the required PDE pillar, originally selecting PDEBench SWE as primary and OpenFWI FlatVel-A as fallback, then amended to a compact native `128x128` PDEBench image suite covering SWE, Darcy Flow, and 2D Compressible Navier-Stokes.
