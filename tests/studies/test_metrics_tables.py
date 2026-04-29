@@ -72,6 +72,12 @@ def test_write_paper_bundle_marks_benchmark_incomplete_when_required_fields_miss
     assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
     assert "parameter_count" in metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"]
     assert schema_payload["status_values"] == ["paper_complete", "benchmark_incomplete"]
+    field_definitions = {field["name"]: field for field in schema_payload["field_definitions"]}
+    assert field_definitions["parameter_count"]["units"] == "parameters"
+    assert field_definitions["validation_loss"]["nullable"] is True
+    metric_fields = {field["name"]: field for field in schema_payload["metric_fields"]}
+    assert metric_fields["psnr"]["units"] == {"amplitude": "dB", "phase": "dB"}
+    assert metric_fields["frc50"]["nullable"] is False
 
 
 def test_write_paper_bundle_marks_paper_complete_when_required_fields_present(tmp_path):

@@ -12,7 +12,7 @@ import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import numpy as np
 
@@ -178,6 +178,188 @@ def _finalize_compare_outputs(
     }
 
 
+def _validate_preflight_probe(*, probe_source: str, probe_npz: Path) -> None:
+    if probe_source != "custom":
+        return
+    probe_path = Path(probe_npz)
+    if not probe_path.exists():
+        raise FileNotFoundError(f"Probe NPZ not found for compare preflight: {probe_path}")
+
+
+def _run_compare_preflight(
+    *,
+    N: int,
+    gridsize: int,
+    output_dir: Path,
+    probe_npz: Path,
+    selected_models: Tuple[str, ...],
+    resolved_model_n: Dict[str, int],
+    seed: int,
+    dataset_source: str,
+    train_data: Optional[Path],
+    test_data: Optional[Path],
+    probe_source: str,
+    set_phi: bool,
+    nimgs_train: int,
+    nimgs_test: int,
+    nphotons: float,
+    torch_epochs: Optional[int],
+    nepochs: int,
+    torch_batch_size: Optional[int],
+    batch_size: int,
+    torch_learning_rate: float,
+    torch_infer_batch_size: int,
+    torch_gradient_clip_val: float,
+    torch_gradient_clip_algorithm: str,
+    torch_output_mode: str,
+    torch_loss_mode: str,
+    torch_mae_pred_l2_match_target: bool,
+    fno_modes: int,
+    fno_width: int,
+    fno_blocks: int,
+    fno_cnn_blocks: int,
+    fno_input_transform: str,
+    torch_max_hidden_channels: Optional[int],
+    torch_resnet_width: Optional[int],
+    torch_optimizer: str,
+    torch_weight_decay: float,
+    torch_momentum: float,
+    torch_beta1: float,
+    torch_beta2: float,
+    torch_scheduler: str,
+    torch_lr_warmup_epochs: int,
+    torch_lr_min_ratio: float,
+    torch_plateau_factor: float,
+    torch_plateau_patience: int,
+    torch_plateau_min_lr: float,
+    torch_plateau_threshold: float,
+    torch_position_reassembly_backend: str,
+    torch_position_reassembly_batch_size: int,
+    torch_position_crop_border: Optional[int],
+    probe_scale_mode: str,
+    probe_smoothing_sigma: float,
+    probe_mask_diameter: Optional[int],
+) -> dict:
+    _validate_preflight_probe(probe_source=probe_source, probe_npz=probe_npz)
+    if dataset_source == "external_raw_npz":
+        if train_data is None or not Path(train_data).exists():
+            raise FileNotFoundError(f"Missing external_raw_npz train_data for compare preflight: {train_data}")
+        if test_data is None or not Path(test_data).exists():
+            raise FileNotFoundError(f"Missing external_raw_npz test_data for compare preflight: {test_data}")
+
+    row_plan: List[Dict[str, object]] = []
+    tf_models: List[str] = []
+    from scripts.studies import grid_lines_torch_runner as torch_runner
+
+    external_mode = dataset_source == "external_raw_npz"
+    for model_id in selected_models:
+        n_for_model = int(resolved_model_n.get(model_id, N))
+        if model_id in TF_MODEL_IDS:
+            tf_models.append(model_id)
+            row_plan.append(
+                {
+                    "model_id": model_id,
+                    "architecture": MODEL_TO_LEGACY_ARCH[model_id],
+                    "backend": "tf",
+                    "N": n_for_model,
+                    "status": "supported_for_harness",
+                }
+            )
+            continue
+
+        if model_id in TORCH_MODEL_IDS:
+            arch = MODEL_TO_LEGACY_ARCH[model_id]
+            torch_cfg = TorchRunnerConfig(
+                train_npz=Path(train_data) if train_data is not None else output_dir / "preflight_train.npz",
+                test_npz=Path(test_data) if test_data is not None else output_dir / "preflight_test.npz",
+                output_dir=output_dir,
+                architecture=arch,
+                seed=seed,
+                epochs=torch_epochs or nepochs,
+                batch_size=torch_batch_size or batch_size,
+                learning_rate=torch_learning_rate,
+                infer_batch_size=torch_infer_batch_size,
+                gradient_clip_val=torch_gradient_clip_val,
+                gradient_clip_algorithm=torch_gradient_clip_algorithm,
+                generator_output_mode=torch_output_mode,
+                N=n_for_model,
+                gridsize=gridsize,
+                torch_loss_mode=torch_loss_mode,
+                torch_mae_pred_l2_match_target=torch_mae_pred_l2_match_target,
+                fno_modes=fno_modes,
+                fno_width=fno_width,
+                fno_blocks=fno_blocks,
+                fno_cnn_blocks=fno_cnn_blocks,
+                fno_input_transform=fno_input_transform,
+                max_hidden_channels=torch_max_hidden_channels,
+                resnet_width=torch_resnet_width,
+                optimizer=torch_optimizer,
+                weight_decay=torch_weight_decay,
+                momentum=torch_momentum,
+                adam_beta1=torch_beta1,
+                adam_beta2=torch_beta2,
+                scheduler=torch_scheduler,
+                lr_warmup_epochs=torch_lr_warmup_epochs,
+                lr_min_ratio=torch_lr_min_ratio,
+                plateau_factor=torch_plateau_factor,
+                plateau_patience=torch_plateau_patience,
+                plateau_min_lr=torch_plateau_min_lr,
+                plateau_threshold=torch_plateau_threshold,
+                reassembly_mode="position" if external_mode else "grid_lines",
+                position_reassembly_backend=torch_position_reassembly_backend,
+                position_reassembly_batch_size=torch_position_reassembly_batch_size,
+                position_crop_border=torch_position_crop_border,
+                probe_mask_diameter=probe_mask_diameter,
+            )
+            torch_runner.setup_torch_configs(torch_cfg)
+            row_plan.append(
+                {
+                    "model_id": model_id,
+                    "architecture": arch,
+                    "backend": "torch",
+                    "N": n_for_model,
+                    "status": "supported_for_harness",
+                }
+            )
+            continue
+
+        if model_id == "pinn_ptychovit":
+            row_plan.append(
+                {
+                    "model_id": model_id,
+                    "architecture": "ptychovit",
+                    "backend": "ptychovit",
+                    "N": n_for_model,
+                    "status": "supported_for_harness",
+                }
+            )
+            continue
+
+        raise ValueError(f"Unsupported model '{model_id}'")
+
+    return {
+        "mode": "preflight_only",
+        "selected_models": list(selected_models),
+        "resolved_model_n": dict(resolved_model_n),
+        "tf_models": tf_models,
+        "dataset_source": dataset_source,
+        "probe_source": probe_source,
+        "probe_npz": str(probe_npz),
+        "seed": seed,
+        "contract": {
+            "N": N,
+            "gridsize": gridsize,
+            "set_phi": bool(set_phi),
+            "nimgs_train": int(nimgs_train),
+            "nimgs_test": int(nimgs_test),
+            "nphotons": float(nphotons),
+            "probe_scale_mode": probe_scale_mode,
+            "probe_smoothing_sigma": float(probe_smoothing_sigma),
+        },
+        "row_plan": row_plan,
+    }
+
+
 def run_grid_lines_compare(
     *,
     N: int,
@@ -239,6 +421,7 @@ def run_grid_lines_compare(
     dataset_source: str = "synthetic_lines",
     train_data: Optional[Path] = None,
     test_data: Optional[Path] = None,
+    preflight_only: bool = False,
 ) -> dict:
     os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
     output_dir = Path(output_dir)
@@ -275,6 +458,61 @@ def run_grid_lines_compare(
             )
         if len(set(required_ns)) != 1:
             raise ValueError("external_raw_npz mode currently supports only a single N override.")
+
+    if preflight_only:
+        return _run_compare_preflight(
+            N=N,
+            gridsize=gridsize,
+            output_dir=output_dir,
+            probe_npz=probe_npz,
+            selected_models=selected_models,
+            resolved_model_n=resolved_model_n,
+            seed=seed,
+            dataset_source=dataset_source,
+            train_data=train_data,
+            test_data=test_data,
+            probe_source=probe_source,
+            set_phi=set_phi,
+            nimgs_train=nimgs_train,
+            nimgs_test=nimgs_test,
+            nphotons=nphotons,
+            torch_epochs=torch_epochs,
+            nepochs=nepochs,
+            torch_batch_size=torch_batch_size,
+            batch_size=batch_size,
+            torch_learning_rate=torch_learning_rate,
+            torch_infer_batch_size=torch_infer_batch_size,
+            torch_gradient_clip_val=torch_gradient_clip_val,
+            torch_gradient_clip_algorithm=torch_gradient_clip_algorithm,
+            torch_output_mode=torch_output_mode,
+            torch_loss_mode=torch_loss_mode,
+            torch_mae_pred_l2_match_target=torch_mae_pred_l2_match_target,
+            fno_modes=fno_modes,
+            fno_width=fno_width,
+            fno_blocks=fno_blocks,
+            fno_cnn_blocks=fno_cnn_blocks,
+            fno_input_transform=fno_input_transform,
+            torch_max_hidden_channels=torch_max_hidden_channels,
+            torch_resnet_width=torch_resnet_width,
+            torch_optimizer=torch_optimizer,
+            torch_weight_decay=torch_weight_decay,
+            torch_momentum=torch_momentum,
+            torch_beta1=torch_beta1,
+            torch_beta2=torch_beta2,
+            torch_scheduler=torch_scheduler,
+            torch_lr_warmup_epochs=torch_lr_warmup_epochs,
+            torch_lr_min_ratio=torch_lr_min_ratio,
+            torch_plateau_factor=torch_plateau_factor,
+            torch_plateau_patience=torch_plateau_patience,
+            torch_plateau_min_lr=torch_plateau_min_lr,
+            torch_plateau_threshold=torch_plateau_threshold,
+            torch_position_reassembly_backend=torch_position_reassembly_backend,
+            torch_position_reassembly_batch_size=torch_position_reassembly_batch_size,
+            torch_position_crop_border=torch_position_crop_border,
+            probe_scale_mode=probe_scale_mode,
+            probe_smoothing_sigma=probe_smoothing_sigma,
+            probe_mask_diameter=probe_mask_diameter,
+        )
 
     if models or external_mode:
         from ptycho.interop.ptychovit.convert import convert_npz_split_to_hdf5_pair
@@ -783,6 +1021,11 @@ def parse_args(argv=None):
         help="Reuse existing recon artifacts in output-dir instead of re-running selected backends.",
     )
     parser.add_argument(
+        "--preflight-only",
+        action="store_true",
+        help="Validate dataset/probe/row routing without launching backend training or inference.",
+    )
+    parser.add_argument(
         "--ptychovit-repo",
         type=Path,
         default=Path("/home/ollie/Documents/ptycho-vit"),
@@ -980,6 +1223,7 @@ def main(argv=None) -> None:
             dataset_source=args.dataset_source,
             train_data=args.train_data,
             test_data=args.test_data,
+            preflight_only=args.preflight_only,
         )
         update_invocation_artifacts(
             invocation_json,

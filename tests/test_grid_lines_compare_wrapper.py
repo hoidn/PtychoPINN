@@ -116,6 +116,64 @@ def test_wrapper_routes_spectral_resnet_bottleneck_from_explicit_models(monkeypa
     assert "pinn_spectral_resnet_bottleneck_net" in result["metrics"]
 
 
+def test_wrapper_preflight_only_validates_supported_rows_without_running_backends(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    probe_path = tmp_path / "probe.npz"
+    probe_path.write_bytes(b"stub")
+    captured = {"architectures": []}
+
+    def fake_setup_torch_configs(cfg):
+        captured["architectures"].append(cfg.architecture)
+        return object(), object()
+
+    def fail_torch_run(cfg):
+        raise AssertionError("preflight_only should not launch the torch runner")
+
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.setup_torch_configs", fake_setup_torch_configs)
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.run_grid_lines_torch", fail_torch_run)
+
+    result = run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        probe_npz=probe_path,
+        architectures=(),
+        models=("pinn", "pinn_hybrid_resnet", "pinn_fno_vanilla"),
+        model_n={
+            "pinn": 128,
+            "pinn_hybrid_resnet": 128,
+            "pinn_fno_vanilla": 128,
+        },
+        preflight_only=True,
+        seed=3,
+        set_phi=True,
+        probe_scale_mode="pad_extrapolate",
+        torch_epochs=40,
+        torch_learning_rate=2e-4,
+        torch_scheduler="ReduceLROnPlateau",
+        torch_plateau_factor=0.5,
+        torch_plateau_patience=2,
+        torch_plateau_min_lr=1e-4,
+        torch_plateau_threshold=0.0,
+        torch_loss_mode="mae",
+        torch_output_mode="real_imag",
+        nimgs_train=2,
+        nimgs_test=2,
+        nphotons=1e9,
+    )
+
+    assert result["mode"] == "preflight_only"
+    assert result["selected_models"] == [
+        "pinn",
+        "pinn_hybrid_resnet",
+        "pinn_fno_vanilla",
+    ]
+    assert captured["architectures"] == ["hybrid_resnet", "fno_vanilla"]
+    assert result["row_plan"][0]["model_id"] == "pinn"
+    assert result["row_plan"][0]["backend"] == "tf"
+
+
 def test_wrapper_writes_metrics_table_tex_architecture_mode(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
 

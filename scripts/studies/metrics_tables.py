@@ -55,6 +55,70 @@ PAPER_REQUIRED_FIELDS = (
     "runtime_hardware_summary",
     "caveats",
 )
+PAPER_REQUIRED_FIELD_DEFINITIONS = (
+    {"name": "model_key", "units": None, "nullable": False, "source": "row_map_key"},
+    {"name": "model_label", "units": None, "nullable": False},
+    {"name": "parameter_count", "units": "parameters", "nullable": False},
+    {"name": "epoch_budget", "units": "epochs", "nullable": False},
+    {"name": "final_completed_epoch", "units": "epochs", "nullable": False},
+    {"name": "final_train_loss", "units": "training_loss_units", "nullable": False},
+    {"name": "validation_loss", "units": "training_loss_units", "nullable": True},
+    {"name": "runtime_hardware_summary", "units": None, "nullable": False},
+    {"name": "caveats", "units": None, "nullable": False},
+)
+PAPER_METRIC_FIELD_DEFINITIONS = (
+    {
+        "name": "mae",
+        "label": "MAE",
+        "pair_axes": ["amplitude", "phase"],
+        "units": {"amplitude": "normalized_amplitude", "phase": "radians"},
+        "nullable": False,
+        "required": True,
+    },
+    {
+        "name": "mse",
+        "label": "MSE",
+        "pair_axes": ["amplitude", "phase"],
+        "units": {
+            "amplitude": "normalized_amplitude_squared",
+            "phase": "radians_squared",
+        },
+        "nullable": False,
+        "required": True,
+    },
+    {
+        "name": "psnr",
+        "label": "PSNR",
+        "pair_axes": ["amplitude", "phase"],
+        "units": {"amplitude": "dB", "phase": "dB"},
+        "nullable": False,
+        "required": True,
+    },
+    {
+        "name": "ssim",
+        "label": "SSIM",
+        "pair_axes": ["amplitude", "phase"],
+        "units": {"amplitude": "unitless", "phase": "unitless"},
+        "nullable": False,
+        "required": True,
+    },
+    {
+        "name": "ms_ssim",
+        "label": "MS-SSIM",
+        "pair_axes": ["amplitude", "phase"],
+        "units": {"amplitude": "unitless", "phase": "unitless"},
+        "nullable": False,
+        "required": True,
+    },
+    {
+        "name": "frc50",
+        "label": "FRC50",
+        "pair_axes": ["amplitude", "phase"],
+        "units": {"amplitude": "frequency_bin", "phase": "frequency_bin"},
+        "nullable": False,
+        "required": True,
+    },
+)
 
 
 def _latex_escape(text: str) -> str:
@@ -357,19 +421,11 @@ def _missing_paper_fields(row_payload: Mapping[str, object]) -> List[str]:
 
 
 def _build_metric_schema() -> Dict[str, object]:
-    metric_fields = [
-        {
-            "name": metric_key,
-            "label": metric_label,
-            "pair_axes": ["amplitude", "phase"],
-            "required": True,
-        }
-        for metric_key, metric_label in METRICS
-    ]
     return {
         "status_values": list(PAPER_BENCHMARK_STATUS_VALUES),
         "required_fields": list(PAPER_REQUIRED_FIELDS),
-        "metric_fields": metric_fields,
+        "field_definitions": list(PAPER_REQUIRED_FIELD_DEFINITIONS),
+        "metric_fields": list(PAPER_METRIC_FIELD_DEFINITIONS),
         "downgrade_rule": "Any missing required field or required metric downgrades the merged result to benchmark_incomplete.",
     }
 
