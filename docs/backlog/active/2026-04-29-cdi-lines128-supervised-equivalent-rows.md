@@ -10,34 +10,33 @@ related_roadmap_phases:
   - phase-3-cdi-anchor-regeneration
 signals_for_selection:
   - The main Lines128 CDI table should first lock the physics-informed rows and shared contract before supervised equivalents are launched.
-  - The supervised extension exists to separate architecture effects from the PINN forward-model training procedure without requiring supervised counterparts for every architecture family.
+  - The minimum CDI table already owns the CDI `cnn` U-Net-class supervised versus PINN pair; this extension owns the required supervised FFNO control row.
 ---
 
-# Backlog Item: Add Targeted Lines128 Supervised CDI Control Rows
+# Backlog Item: Add Required Lines128 Supervised FFNO Control Row
 
 ## Objective
 
-- Extend the fixed Lines128 CDI evidence set with targeted supervised-training
-  control rows, anchored by the local U-Net/SRU-Net architecture, so the paper
-  can distinguish model-body effects from the PINN forward-model training
-  procedure without running supervised counterparts for every architecture.
+- Extend the fixed Lines128 CDI evidence set with a required supervised FFNO
+  control row after the CDI `cnn` U-Net-class supervised versus PINN pair and
+  the complete PINN-trained Lines128 table are locked.
 
 ## Scope
 
 - Reuse the final locked Lines128 dataset, split, probe preprocessing,
   normalization, sample IDs, metric schema, and visual scales from the complete
   paper-quality CDI execution.
-- Add a supervised row for the same local convolutional architecture used by
-  the minimum CDI table, preferably `U-Net/SRU-Net + supervised` paired against
-  `U-Net/SRU-Net + PINN`.
-- Add at most one additional supervised comparator, chosen before launch, only
-  if it answers a concrete paper question:
-  - selected FNO + supervised, if the paper needs a spectral-operator
-    training-procedure control
-  - FFNO + supervised, if the FFNO generator path is mature and the paper needs
-    a Fourier-factorized training-procedure control
+- Do not rerun the CDI `cnn` U-Net-class supervised row here; it belongs to the
+  minimum CDI table alongside the matching CDI `cnn` U-Net-class + PINN row.
+- Run the FFNO + supervised row under the same locked Lines128 contract as the
+  complete FFNO + PINN row. This row is required; do not substitute supervised
+  FNO for it.
+- If the supervised FFNO training path is not protocol-compatible with the
+  locked Lines128 contract, record a precise `not_protocol_compatible` outcome
+  with the missing interface or artifact contract rather than silently dropping
+  the row or replacing it with a different architecture.
 - Label rows by both architecture and training procedure, for example
-  `SRU-Net + supervised` versus `SRU-Net + PINN`, so result tables do not conflate the
+  `FFNO + supervised` versus `FFNO + PINN`, so result tables do not conflate the
   model body with the training objective.
 - Emit table-ready JSON/CSV/TeX fragments, provenance manifests, source
   reconstruction arrays, fixed-sample amplitude/phase panels, error panels, and
@@ -55,7 +54,6 @@ signals_for_selection:
   making the training-procedure distinction explicit in table labels and prose.
 - Do not reuse historical supervised outputs as paper-grade evidence unless
   they exactly match the locked Lines128 contract and have complete provenance.
-- If the local U-Net/SRU-Net supervised row cannot be trained under the locked
-  contract, report it as `not_protocol_compatible` with the exact interface or
-  data-contract mismatch and do not expand to unrelated supervised rows as a
+- If FFNO has no supervised training path under the locked contract, record
+  `not_protocol_compatible` and do not invent a broader supervised sweep as a
   substitute.
