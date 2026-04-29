@@ -1,0 +1,157 @@
+{
+  "artifact_type": "cns_same_contract_audit",
+  "created_at_utc": "2026-04-29T00:00:00Z",
+  "selected_headline_contract": "bounded_capped_decision_support",
+  "selected_headline_lane_id": "history_len_2_capped_40ep",
+  "headline_lane": {
+    "task_id": "2d_cfd_cns",
+    "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+    "history_len": 2,
+    "sample_contract": "concat u[t-2:t] -> u[t]",
+    "training_loss": "mse",
+    "batch_size": 4,
+    "split_counts": {
+      "train": 512,
+      "val": 64,
+      "test": 64
+    },
+    "max_windows_per_trajectory": 8,
+    "window_counts": {
+      "train": 4096,
+      "val": 512,
+      "test": 512
+    },
+    "metric_family": [
+      "err_RMSE",
+      "err_nRMSE",
+      "relative_l2",
+      "fRMSE_low",
+      "fRMSE_mid",
+      "fRMSE_high"
+    ],
+    "headline_rows": [
+      {
+        "profile_id": "spectral_resnet_bottleneck_base",
+        "row_family": "best_hybrid_family",
+        "status": "completed",
+        "relative_l2": 0.061562005430459976,
+        "err_nRMSE": 0.061562005430459976,
+        "fRMSE_low": 3.4756414890289307,
+        "fRMSE_mid": 0.28004488348960876,
+        "fRMSE_high": 0.43493345379829407,
+        "parameter_count": 8186726,
+        "runtime_sec": 1861.6251845359802,
+        "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep"
+      },
+      {
+        "profile_id": "fno_base",
+        "row_family": "local_fno",
+        "status": "completed",
+        "relative_l2": 0.07409921288490295,
+        "err_nRMSE": 0.07409921288490295,
+        "fRMSE_low": 4.16710090637207,
+        "fRMSE_mid": 0.23907285928726196,
+        "fRMSE_high": 0.6717720627784729,
+        "runtime_sec": 1137.9493689537048,
+        "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse"
+      },
+      {
+        "profile_id": "unet_strong",
+        "row_family": "local_unet",
+        "status": "completed",
+        "relative_l2": 0.6757976412773132,
+        "err_nRMSE": 0.6757976412773132,
+        "fRMSE_low": 38.979515075683594,
+        "fRMSE_mid": 0.5071899890899658,
+        "fRMSE_high": 1.332625389099121,
+        "runtime_sec": 1366.6471712589264,
+        "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse"
+      },
+      {
+        "profile_id": "author_ffno_cns_base",
+        "row_family": "authored_ffno",
+        "status": "completed",
+        "relative_l2": 0.028147730976343155,
+        "err_nRMSE": 0.028147730976343155,
+        "fRMSE_low": 1.6124732494354248,
+        "fRMSE_mid": 0.07592882961034775,
+        "fRMSE_high": 0.12101411819458008,
+        "parameter_count": 1073672,
+        "runtime_sec": 4725.511692285538,
+        "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z"
+      }
+    ],
+    "continuity_rows": [
+      {
+        "profile_id": "hybrid_resnet_cns",
+        "status": "completed",
+        "relative_l2": 0.06441833078861237,
+        "err_nRMSE": 0.06441833078861237,
+        "fRMSE_low": 3.6567487716674805,
+        "fRMSE_mid": 0.2804315388202667,
+        "fRMSE_high": 0.36830681562423706,
+        "parameter_count": 7793509,
+        "runtime_sec": 886.2511508464813,
+        "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z"
+      }
+    ]
+  },
+  "adjacent_same_contract_context": {
+    "history_len_3_capped_40ep": {
+      "allowed_contract_delta": "history_len_only",
+      "comparison_standard": "Only history_len and its derived sample/input-channel contract may differ.",
+      "rows": [
+        {
+          "profile_id": "spectral_resnet_bottleneck_base",
+          "relative_l2": 0.04552052542567253,
+          "err_nRMSE": 0.04552052542567253,
+          "fRMSE_high": 0.34674379229545593,
+          "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/history3-pilot-40ep-20260429T073705Z"
+        },
+        {
+          "profile_id": "hybrid_resnet_cns",
+          "relative_l2": 0.053842898458242416,
+          "err_nRMSE": 0.053842898458242416,
+          "fRMSE_high": 0.3200356364250183,
+          "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/history3-pilot-40ep-20260429T073705Z"
+        },
+        {
+          "profile_id": "fno_base",
+          "relative_l2": 0.0567254014313221,
+          "err_nRMSE": 0.0567254014313221,
+          "fRMSE_high": 0.6104770302772522,
+          "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/history3-pilot-40ep-20260429T073705Z"
+        },
+        {
+          "profile_id": "unet_strong",
+          "relative_l2": 0.6771671175956726,
+          "err_nRMSE": 0.6771671175956726,
+          "fRMSE_high": 1.173008680343628,
+          "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/history3-pilot-40ep-20260429T073705Z"
+        }
+      ],
+      "headline_eligibility": "rejected_missing_authored_ffno_same_contract"
+    }
+  },
+  "contract_divergent_context": [
+    {
+      "category": "history_len_1",
+      "headline_eligibility": "rejected_different_temporal_contract"
+    },
+    {
+      "category": "gnot",
+      "headline_eligibility": "rejected_different_environment_and_recipe"
+    },
+    {
+      "category": "repo_local_ffno_proxy",
+      "headline_eligibility": "rejected_not_authored_ffno"
+    }
+  ],
+  "comparison_standards": {
+    "headline_lane_selection": "same dataset, split counts, history length, loss, metric family, and capped/full-training status",
+    "cross_history_gallery_alignment": {
+      "atol": 1e-06,
+      "rtol": 1e-06
+    }
+  }
+}

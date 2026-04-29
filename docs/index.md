@@ -108,6 +108,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, hybrid_resnet, paper, evidence, cdi, cns, tables, figures, provenance
 **Use this when:** Deciding what evidence must exist before drafting result claims, splitting paper-evidence work into backlog items, or checking paper-grade versus decision-support boundaries across CDI and CNS.
 
+### [NeurIPS Hybrid ResNet PDEBench CNS Paper Contract Decision](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md)
+**Description:** Durable decision that fixes the authoritative CNS paper lane to the bounded capped `history_len=2` contract, records the exact headline row roster and authored-FFNO cutoff/status, rejects immediate full-training on compute/deadline grounds, and keeps `history_len=3` as adjacent capped context only.
+**Keywords:** neurips, hybrid_resnet, pdebench, cns, paper-contract, capped, history_len, ffno, claim-boundary
+**Use this when:** Locking the CNS headline row contract, deciding whether a later item may reuse existing capped CNS rows, or checking why the current paper lane is not a full-training benchmark claim.
+
 ### [NeurIPS Lines128 Paper-Quality CDI Benchmark Design](plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md)
 **Description:** Detailed design for a paper-quality `N=128` grid-lines CDI benchmark, including the fixed `lines128` contract, required Hybrid/FNO/FFNO rows, metric schema, visual comparison artifacts, provenance requirements, and benchmark execution handoff.
 **Keywords:** neurips, cdi, lines128, grid-lines, hybrid_resnet, fno, ffno, benchmark, paper-grade
@@ -159,9 +164,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Planning or reviewing CNS physics-loss work, deciding what terms belong in the first physics-regularized training path, or checking the reusable-vs-task-local boundary before implementation.
 
 ### [NeurIPS Hybrid ResNet PDEBench 2D Compressible Navier-Stokes Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md)
-**Description:** Roadmap Phase 2 implementation summary for the PDEBench `2d_cfd_cns` adapter, including the selected official `128x128` CNS file, field/history contract, verification evidence, the canonical `hybrid_resnet_cns` skip-add-plus-pixelshuffle profile decision, readiness-smoke follow-up, and the implemented default-off CNS physics-regularization framework.
-**Keywords:** neurips, hybrid_resnet, pdebench, 2d_cfd, cns, implementation-summary, data-gate, readiness, physics-regularization
-**Use this when:** Checking what CNS support is implemented, whether the official HDF5 has been checksum-verified, how the default-off physics-loss framework is wired, or why suite-level benchmark claims remain blocked.
+**Description:** Roadmap Phase 2 implementation summary for the PDEBench `2d_cfd_cns` adapter, including the selected official `128x128` CNS file, field/history contract, verification evidence, the canonical `hybrid_resnet_cns` skip-add-plus-pixelshuffle profile decision, readiness-smoke follow-up, the implemented default-off CNS physics-regularization framework, and the later pointer to the separate CNS paper-contract decision.
+**Keywords:** neurips, hybrid_resnet, pdebench, 2d_cfd, cns, implementation-summary, data-gate, readiness, physics-regularization, paper-contract
+**Use this when:** Checking what CNS support is implemented, whether the official HDF5 has been checksum-verified, how the default-off physics-loss framework is wired, or where the later headline paper-contract decision is recorded.
 
 ### [Hybrid Upsampler Artifact Study Results](plans/2026-04-21-hybrid-upsampler-artifact-study-results.md)
 **Description:** Results summary for the post-skip-add PDEBench `2d_cfd_cns` upsampler rerun, comparing transpose, bilinear-conv, and pixelshuffle decoders under the same canonical CNS shell and recording the promotion of `pixelshuffle` into the default `hybrid_resnet_cns` profile.

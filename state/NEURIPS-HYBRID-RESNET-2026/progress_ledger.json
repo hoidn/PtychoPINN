@@ -2078,6 +2078,75 @@
         "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
         ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-28-pdebench-cns-hybrid-spectral-ffno-parameter-space/execution_report.md"
       ]
+    },
+    {
+      "tranche_id": "phase-2-cns-paper-contract-decision",
+      "updated_at_utc": "2026-04-29T00:00:00Z",
+      "update_reason": "Locked the authoritative CNS paper evidence contract before the row-lock and table/figure backlog items.",
+      "decision": "Use the bounded capped history_len=2 CNS lane as the current paper headline contract and treat history_len=3 as adjacent capped context only.",
+      "decision_scope": "paper_contract_decision",
+      "selected_contract": {
+        "contract_type": "bounded_capped_decision_support",
+        "task_id": "2d_cfd_cns",
+        "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        "history_len": 2,
+        "split_counts": {
+          "train": 512,
+          "val": 64,
+          "test": 64
+        },
+        "max_windows_per_trajectory": 8,
+        "epochs": 40,
+        "training_loss": "mse",
+        "headline_rows": [
+          "spectral_resnet_bottleneck_base",
+          "fno_base",
+          "unet_strong",
+          "author_ffno_cns_base"
+        ],
+        "continuity_rows": [
+          "hybrid_resnet_cns"
+        ],
+        "adjacent_context_only": [
+          "history_len=3 pilots",
+          "history_len=1 pilots",
+          "gnot",
+          "ffno_bottleneck_base",
+          "ffno_bottleneck_localconv_base"
+        ]
+      },
+      "authored_ffno_cutoff": {
+        "status": "completed",
+        "accepted_profile_id": "author_ffno_cns_base",
+        "accepted_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z"
+      },
+      "full_training_estimate": {
+        "scale_factor_vs_capped_train_windows": 37.109375,
+        "headline_core4_estimated_hours": 93.71904021465323,
+        "five_row_hedge_estimated_hours": 102.85465863158203
+      },
+      "supporting_artifacts": {
+        "decision_doc": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md",
+        "same_contract_audit_md": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/cns_same_contract_audit.md",
+        "same_contract_audit_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/cns_same_contract_audit.json",
+        "full_training_cost_md": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/cns_full_training_cost_estimate.md",
+        "full_training_cost_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/cns_full_training_cost_estimate.json"
+      },
+      "verification": [
+        "pytest -q tests/studies/test_pdebench_image128_runner.py tests/studies/test_pdebench_cfd_cns_data.py tests/studies/test_pdebench_cfd_cns_metrics.py -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/pytest_cns_contract_20260429.log (`47 passed in 53.21s`)",
+        "python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py -> see .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/verification/compileall_cns_contract_20260429.log"
+      ],
+      "affected_surfaces": [
+        "docs/index.md",
+        "docs/studies/index.md",
+        "docs/backlog/active/2026-04-29-cns-paper-benchmark-rows.md",
+        "docs/backlog/active/2026-04-29-paper-evidence-package-audit.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_package_design.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/execution_report.md"
+      ]
     }
   ]
 }

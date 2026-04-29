@@ -14,6 +14,32 @@
 
 This summary records implementation/readiness state only. It does not create manuscript artifacts, benchmark-performance claims, model rankings, or `/home/ollie/Documents/neurips/` outputs.
 
+## Paper Contract Decision
+
+The CNS paper contract is now fixed by:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md`
+
+Selected paper path:
+
+- `bounded_capped_decision_support`
+- headline lane:
+  `history_len=2`, `40` epochs, `512 / 64 / 64` trajectories,
+  `max_windows_per_trajectory=8`, `mse`
+- locked headline rows:
+  `spectral_resnet_bottleneck_base`, `fno_base`, `unet_strong`,
+  `author_ffno_cns_base`
+- `hybrid_resnet_cns` stays as an audited continuity/support row
+- `history_len=3` capped pilots remain adjacent context only and are not part
+  of the locked headline table
+
+Claim boundary:
+
+- current CNS paper evidence is explicitly capped decision-support evidence
+- it is not a same-protocol full-training benchmark claim
+- any later move to a full-training or `history_len=3` headline contract now
+  requires a checked-in decision update rather than silent table drift
+
 ## Implemented Contract
 
 - Active suite tasks are now `swe`, `darcy`, and `2d_cfd_cns`.
