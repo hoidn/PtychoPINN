@@ -296,6 +296,9 @@ def test_preflight_delegates_to_compare_wrapper_and_emits_validation_bundle_with
     assert metrics_payload["row_statuses"]["pinn_ffno"]["status"] == "row_blocker"
     assert metrics_payload["row_statuses"]["pinn_ffno"]["reason"] == "example blocker"
     assert metrics_payload["visual_collation"]["fixed_sample_ids"] == [0, 1]
+    assert metrics_payload["visual_collation"]["shared_visual_scales"] == {
+        "amp": {"vmin": 0.0, "vmax": 1.0},
+    }
 
 
 def test_preflight_rejects_compare_preflight_contract_drift(tmp_path, monkeypatch):
