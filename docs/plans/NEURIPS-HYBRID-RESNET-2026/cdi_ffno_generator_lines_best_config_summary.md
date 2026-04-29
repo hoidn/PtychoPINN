@@ -50,12 +50,13 @@
 
 - Wrapper outputs:
   - `metrics.json`
+  - `metrics_table.csv`
   - `metrics_table.tex`
   - `metrics_table_best.tex`
   - `visuals/compare_amp_phase.png`
 - Row outputs:
-  - `runs/pinn_hybrid_resnet/{metrics.json,history.json,model.pt,randomness_contract.json}`
-  - `runs/pinn_ffno/{metrics.json,history.json,model.pt,randomness_contract.json}`
+  - `runs/pinn_hybrid_resnet/{invocation.json,invocation.sh,metrics.json,history.json,model.pt,randomness_contract.json}`
+  - `runs/pinn_ffno/{invocation.json,invocation.sh,metrics.json,history.json,model.pt,randomness_contract.json}`
   - `recons/pinn_hybrid_resnet/recon.npz`
   - `recons/pinn_ffno/recon.npz`
 - Fresh verification evidence:
@@ -106,13 +107,14 @@ python scripts/studies/grid_lines_compare_wrapper.py \
 - The historical `grid-lines-n128-hybrid-resnet-legacy-best-e40-seed3` root is
   decision-support-only because it lacks full child invocation provenance. This
   execution is the fresh auditable row pair for `hybrid_resnet` versus `ffno`.
+- Implementation-review repair backfilled `metrics_table.csv`, the per-row
+  `runs/.../invocation.*` artifacts, and wrapper completion metadata from the
+  fixed contract without relaunching the finished compare.
 - Deterministic code gates completed before launch:
   - `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
   - `python -m compileall -q ptycho_torch scripts/studies`
 - Residual provenance caveat:
-  - this completed root includes wrapper-level `invocation.json` /
-    `invocation.sh`, but not separate per-row `runs/.../invocation.json`
-    artifacts;
-  - per-row provenance is therefore carried here by the wrapper invocation plus
-    `metrics.json`, `history.json`, `randomness_contract.json`, and the saved
-    reconstructions.
+  - the per-row invocation artifacts were backfilled from the fixed wrapper
+    contract after the original in-process compare completed, so the row
+    invocation timestamps reflect the repair pass rather than the original
+    training start time.

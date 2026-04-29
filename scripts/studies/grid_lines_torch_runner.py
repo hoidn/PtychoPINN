@@ -38,7 +38,8 @@ import logging
 import math
 import random
 import sys
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -154,6 +155,132 @@ class TorchRunnerConfig:
     position_reassembly_batch_size: int = 64
     # None means auto default (min(patch_h, patch_w) // 4).
     position_crop_border: Optional[int] = None
+
+
+def _build_runner_cli_argv(cfg: TorchRunnerConfig) -> List[str]:
+    argv = [
+        "--train-npz", str(cfg.train_npz),
+        "--test-npz", str(cfg.test_npz),
+        "--output-dir", str(cfg.output_dir),
+        "--architecture", str(cfg.architecture),
+        "--seed", str(cfg.seed),
+        "--epochs", str(cfg.epochs),
+        "--batch-size", str(cfg.batch_size),
+        "--learning-rate", str(cfg.learning_rate),
+        "--infer-batch-size", str(cfg.infer_batch_size),
+        "--grad-clip", str(cfg.gradient_clip_val or 0.0),
+        "--gradient-clip-algorithm", str(cfg.gradient_clip_algorithm),
+        "--output-mode", str(cfg.generator_output_mode),
+        "--torch-loss-mode", str(cfg.torch_loss_mode),
+        "--fno-modes", str(cfg.fno_modes),
+        "--fno-width", str(cfg.fno_width),
+        "--fno-blocks", str(cfg.fno_blocks),
+        "--fno-cnn-blocks", str(cfg.fno_cnn_blocks),
+        "--optimizer", str(cfg.optimizer),
+        "--weight-decay", str(cfg.weight_decay),
+        "--momentum", str(cfg.momentum),
+        "--beta1", str(cfg.adam_beta1),
+        "--beta2", str(cfg.adam_beta2),
+        "--scheduler", str(cfg.scheduler),
+        "--lr-warmup-epochs", str(cfg.lr_warmup_epochs),
+        "--lr-min-ratio", str(cfg.lr_min_ratio),
+        "--plateau-factor", str(cfg.plateau_factor),
+        "--plateau-patience", str(cfg.plateau_patience),
+        "--plateau-min-lr", str(cfg.plateau_min_lr),
+        "--plateau-threshold", str(cfg.plateau_threshold),
+        "--N", str(cfg.N),
+        "--gridsize", str(cfg.gridsize),
+    ]
+    if cfg.probe_source:
+        argv.extend(["--probe-source", str(cfg.probe_source)])
+    if cfg.torch_mae_pred_l2_match_target:
+        argv.append("--torch-mae-pred-l2-match-target")
+    else:
+        argv.append("--no-torch-mae-pred-l2-match-target")
+    if cfg.probe_mask:
+        argv.append("--probe-mask")
+    else:
+        argv.append("--no-probe-mask")
+    argv.extend(["--probe-mask-sigma", str(cfg.probe_mask_sigma)])
+    if cfg.probe_mask_diameter is not None:
+        argv.extend(["--probe-mask-diameter", str(cfg.probe_mask_diameter)])
+    if cfg.hybrid_skip_connections:
+        argv.append("--hybrid-skip-connections")
+    else:
+        argv.append("--no-hybrid-skip-connections")
+    argv.extend(
+        [
+            "--hybrid-downsample-steps", str(cfg.hybrid_downsample_steps),
+            "--hybrid-downsample-op", str(cfg.hybrid_downsample_op),
+            "--hybrid-encoder-conv-hidden-scale", str(cfg.hybrid_encoder_conv_hidden_scale),
+            "--hybrid-encoder-spectral-hidden-scale", str(cfg.hybrid_encoder_spectral_hidden_scale),
+            "--hybrid-resnet-blocks", str(cfg.hybrid_resnet_blocks),
+            "--hybrid-skip-style", str(cfg.hybrid_skip_style),
+            "--spectral-bottleneck-blocks", str(cfg.spectral_bottleneck_blocks),
+            "--spectral-bottleneck-modes", str(cfg.spectral_bottleneck_modes),
+            "--spectral-bottleneck-gate-init", str(cfg.spectral_bottleneck_gate_init),
+            "--spectral-bottleneck-gate-mode", str(cfg.spectral_bottleneck_gate_mode),
+        ]
+    )
+    if cfg.spectral_bottleneck_share_weights:
+        argv.append("--spectral-bottleneck-share-weights")
+    else:
+        argv.append("--no-spectral-bottleneck-share-weights")
+    if cfg.hybrid_encoder_conv_hidden_channels is not None:
+        argv.extend(["--hybrid-encoder-conv-hidden", str(cfg.hybrid_encoder_conv_hidden_channels)])
+    if cfg.hybrid_encoder_spectral_hidden_channels is not None:
+        argv.extend(["--hybrid-encoder-spectral-hidden", str(cfg.hybrid_encoder_spectral_hidden_channels)])
+    if cfg.resnet_width is not None:
+        argv.extend(["--torch-resnet-width", str(cfg.resnet_width)])
+    if cfg.log_grad_norm:
+        argv.append("--log-grad-norm")
+    argv.extend(["--grad-norm-log-freq", str(cfg.grad_norm_log_freq)])
+    if cfg.position_crop_border is not None:
+        argv.extend(["--position-crop-border", str(cfg.position_crop_border)])
+    if cfg.logger_backend is None:
+        argv.extend(["--torch-logger", "none"])
+    else:
+        argv.extend(["--torch-logger", str(cfg.logger_backend)])
+    if cfg.recon_log_every_n_epochs is not None:
+        argv.extend(["--recon-log-every-n-epochs", str(cfg.recon_log_every_n_epochs)])
+    argv.extend(["--recon-log-num-patches", str(cfg.recon_log_num_patches)])
+    if cfg.recon_log_fixed_indices:
+        argv.extend(["--recon-log-fixed-indices", *[str(v) for v in cfg.recon_log_fixed_indices]])
+    if cfg.recon_log_stitch:
+        argv.append("--recon-log-stitch")
+    if cfg.recon_log_max_stitch_samples is not None:
+        argv.extend(["--recon-log-max-stitch-samples", str(cfg.recon_log_max_stitch_samples)])
+    return argv
+
+
+def _write_runner_invocation_artifacts(
+    cfg: TorchRunnerConfig,
+    *,
+    argv: Optional[List[str]] = None,
+    extra: Optional[Dict[str, Any]] = None,
+) -> Path:
+    from scripts.studies.invocation_logging import (
+        capture_runtime_provenance,
+        get_git_commit,
+        write_invocation_artifacts,
+    )
+
+    run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
+    invocation_extra: Dict[str, Any] = {
+        "runtime_provenance": capture_runtime_provenance(),
+        "git_commit": get_git_commit(REPO_ROOT),
+        "invocation_mode": "library",
+    }
+    if extra:
+        invocation_extra.update(extra)
+    json_path, _ = write_invocation_artifacts(
+        output_dir=run_dir,
+        script_path="scripts/studies/grid_lines_torch_runner.py",
+        argv=list(argv) if argv is not None else _build_runner_cli_argv(cfg),
+        parsed_args=asdict(cfg),
+        extra=invocation_extra,
+    )
+    return json_path
 
 
 def _validate_position_reassembly_config(cfg: TorchRunnerConfig) -> None:
@@ -1038,7 +1165,12 @@ def _build_randomness_contract(cfg: TorchRunnerConfig) -> Dict[str, int | None]:
     }
 
 
-def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
+def run_grid_lines_torch(
+    cfg: TorchRunnerConfig,
+    *,
+    invocation_argv: Optional[List[str]] = None,
+    invocation_extra: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """Main entry point for Torch grid-lines runner.
 
     Orchestrates: load data → train → infer → compute metrics → save artifacts
@@ -1051,138 +1183,160 @@ def run_grid_lines_torch(cfg: TorchRunnerConfig) -> Dict[str, Any]:
     """
     logger.info(f"Starting Torch grid-lines runner: arch={cfg.architecture}")
     _validate_position_reassembly_config(cfg)
+    from scripts.studies.invocation_logging import update_invocation_artifacts
 
-    # Step 1: Load cached datasets
-    logger.info(f"Loading train data from {cfg.train_npz}")
-    train_data, train_metadata = load_cached_dataset_with_metadata(cfg.train_npz)
-
-    logger.info(f"Loading test data from {cfg.test_npz}")
-    test_data, test_metadata = load_cached_dataset_with_metadata(cfg.test_npz)
-    if cfg.probe_source:
-        meta_probe_source = None
-        if test_metadata:
-            meta_probe_source = test_metadata.get("additional_parameters", {}).get("probe_source")
-        if meta_probe_source and meta_probe_source != cfg.probe_source:
-            logger.warning(
-                "Probe source mismatch: CLI=%s metadata=%s",
-                cfg.probe_source,
-                meta_probe_source,
-            )
-
-    # Step 2: Train model
-    logger.info(f"Training {cfg.architecture} model...")
-    results = run_torch_training(cfg, train_data, test_data, train_metadata=train_metadata, test_metadata=test_metadata)
-
-    # Step 3: Run inference
-    logger.info("Running inference...")
-    model = results.get('model')
-    if model is None and isinstance(results.get('models'), dict):
-        model = results['models'].get('diffraction_to_obj')
-
-    model_params = 0
-    if model is not None and hasattr(model, "parameters"):
-        model_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-
-    import time
-    try:
-        import torch
-        cuda_available = torch.cuda.is_available()
-    except Exception:
-        cuda_available = False
-    if cuda_available:
-        torch.cuda.synchronize()
-    start = time.perf_counter()
-    predictions = run_torch_inference(model, test_data, cfg, metadata=test_metadata)
-    if cuda_available:
-        torch.cuda.synchronize()
-    inference_time_s = time.perf_counter() - start
-
-    # Step 3b: Convert real/imag predictions to complex if needed
-    # FNO/Hybrid models output (B, H, W, C, 2) format; convert to complex
-    predictions_complex = None
-    if predictions.ndim >= 2 and predictions.shape[-1] == 2:
-        predictions_complex = to_complex_patches(predictions)
-        logger.info(f"Converted predictions to complex: {predictions_complex.shape}")
-
-    # Step 4: Compute metrics
-    logger.info("Computing metrics...")
-    ground_truth = test_data.get("YY_ground_truth")
-    if ground_truth is None:
-        ground_truth = test_data.get("YY_full")
-    if ground_truth is None:
-        ground_truth = test_data.get("objectGuess")
-    if ground_truth is None:
-        raise ValueError("Test data must provide one of: YY_ground_truth, YY_full, objectGuess.")
-    # Use complex predictions for metrics if available
-    pred_for_metrics = predictions_complex if predictions_complex is not None else predictions
-    position_reassembly_runtime_contract: Dict[str, object] = {}
-    if cfg.reassembly_mode == "position":
-        pred_for_metrics = _reassemble_with_coords_offsets(
-            pred_for_metrics,
-            test_data,
-            M=cfg.N,
-            backend=cfg.position_reassembly_backend,
-            batch_size=cfg.position_reassembly_batch_size,
-            position_crop_border=cfg.position_crop_border,
-            runtime_contract_out=position_reassembly_runtime_contract,
-        )
-    elif pred_for_metrics.ndim >= 3:
-        pred_h, pred_w = pred_for_metrics.shape[-3], pred_for_metrics.shape[-2]
-        gt_h, gt_w = ground_truth.shape[-2], ground_truth.shape[-1]
-        if (pred_h, pred_w) != (gt_h, gt_w):
-            norm_Y_I = test_data.get("norm_Y_I", 1.0)
-            pred_for_metrics = _stitch_for_metrics(
-                pred_for_metrics,
-                cfg,
-                test_metadata,
-                norm_Y_I,
-            )
-    pred_for_metrics = _harmonize_prediction_shape(pred_for_metrics, ground_truth)
-    from ptycho.workflows.grid_lines_workflow import save_recon_artifact
-    recon_target = pred_for_metrics
-    if not np.iscomplexobj(recon_target):
-        recon_target = recon_target.astype(np.complex64)
-    recon_path = save_recon_artifact(cfg.output_dir, f"pinn_{cfg.architecture}", recon_target)
-    metrics = compute_metrics(
-        pred_for_metrics,
-        ground_truth,
-        f"pinn_{cfg.architecture}",
+    invocation_json = _write_runner_invocation_artifacts(
+        cfg,
+        argv=invocation_argv,
+        extra=invocation_extra,
     )
 
-    # Step 5: Save artifacts
-    randomness_contract = _build_randomness_contract(cfg)
-    run_dir = save_run_artifacts(cfg, results, metrics, randomness_contract)
-
-    logger.info(f"Torch runner complete. Artifacts in {run_dir}")
-
-    result_dict = {
-        'architecture': cfg.architecture,
-        'run_dir': str(run_dir),
-        'metrics': metrics,
-        'history': results.get('history', {}),
-        'recon_path': str(recon_path),
-        'model_params': int(model_params),
-        'inference_time_s': float(inference_time_s),
-        'position_reassembly_runtime_contract': position_reassembly_runtime_contract,
-        'randomness_contract': randomness_contract,
-    }
-
-    # Step 6: Render post-run visuals (best-effort)
     try:
-        from ptycho.workflows.grid_lines_workflow import render_grid_lines_visuals
-        _save_gt_recon_if_missing(cfg.output_dir, ground_truth)
-        order = _collect_visual_order(cfg.output_dir, cfg.architecture)
-        if order:
-            visuals = render_grid_lines_visuals(cfg.output_dir, order=order)
-            result_dict["visuals"] = visuals
-    except Exception as e:
-        logger.warning("Failed to render visuals: %s", e)
+        # Step 1: Load cached datasets
+        logger.info(f"Loading train data from {cfg.train_npz}")
+        train_data, train_metadata = load_cached_dataset_with_metadata(cfg.train_npz)
 
-    # Include complex predictions if conversion was done
-    if predictions_complex is not None:
-        result_dict['predictions_complex'] = predictions_complex
+        logger.info(f"Loading test data from {cfg.test_npz}")
+        test_data, test_metadata = load_cached_dataset_with_metadata(cfg.test_npz)
+        if cfg.probe_source:
+            meta_probe_source = None
+            if test_metadata:
+                meta_probe_source = test_metadata.get("additional_parameters", {}).get("probe_source")
+            if meta_probe_source and meta_probe_source != cfg.probe_source:
+                logger.warning(
+                    "Probe source mismatch: CLI=%s metadata=%s",
+                    cfg.probe_source,
+                    meta_probe_source,
+                )
 
-    return result_dict
+        # Step 2: Train model
+        logger.info(f"Training {cfg.architecture} model...")
+        results = run_torch_training(cfg, train_data, test_data, train_metadata=train_metadata, test_metadata=test_metadata)
+
+        # Step 3: Run inference
+        logger.info("Running inference...")
+        model = results.get('model')
+        if model is None and isinstance(results.get('models'), dict):
+            model = results['models'].get('diffraction_to_obj')
+
+        model_params = 0
+        if model is not None and hasattr(model, "parameters"):
+            model_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+        import time
+        try:
+            import torch
+            cuda_available = torch.cuda.is_available()
+        except Exception:
+            cuda_available = False
+        if cuda_available:
+            torch.cuda.synchronize()
+        start = time.perf_counter()
+        predictions = run_torch_inference(model, test_data, cfg, metadata=test_metadata)
+        if cuda_available:
+            torch.cuda.synchronize()
+        inference_time_s = time.perf_counter() - start
+
+        # Step 3b: Convert real/imag predictions to complex if needed
+        # FNO/Hybrid models output (B, H, W, C, 2) format; convert to complex
+        predictions_complex = None
+        if predictions.ndim >= 2 and predictions.shape[-1] == 2:
+            predictions_complex = to_complex_patches(predictions)
+            logger.info(f"Converted predictions to complex: {predictions_complex.shape}")
+
+        # Step 4: Compute metrics
+        logger.info("Computing metrics...")
+        ground_truth = test_data.get("YY_ground_truth")
+        if ground_truth is None:
+            ground_truth = test_data.get("YY_full")
+        if ground_truth is None:
+            ground_truth = test_data.get("objectGuess")
+        if ground_truth is None:
+            raise ValueError("Test data must provide one of: YY_ground_truth, YY_full, objectGuess.")
+        # Use complex predictions for metrics if available
+        pred_for_metrics = predictions_complex if predictions_complex is not None else predictions
+        position_reassembly_runtime_contract: Dict[str, object] = {}
+        if cfg.reassembly_mode == "position":
+            pred_for_metrics = _reassemble_with_coords_offsets(
+                pred_for_metrics,
+                test_data,
+                M=cfg.N,
+                backend=cfg.position_reassembly_backend,
+                batch_size=cfg.position_reassembly_batch_size,
+                position_crop_border=cfg.position_crop_border,
+                runtime_contract_out=position_reassembly_runtime_contract,
+            )
+        elif pred_for_metrics.ndim >= 3:
+            pred_h, pred_w = pred_for_metrics.shape[-3], pred_for_metrics.shape[-2]
+            gt_h, gt_w = ground_truth.shape[-2], ground_truth.shape[-1]
+            if (pred_h, pred_w) != (gt_h, gt_w):
+                norm_Y_I = test_data.get("norm_Y_I", 1.0)
+                pred_for_metrics = _stitch_for_metrics(
+                    pred_for_metrics,
+                    cfg,
+                    test_metadata,
+                    norm_Y_I,
+                )
+        pred_for_metrics = _harmonize_prediction_shape(pred_for_metrics, ground_truth)
+        from ptycho.workflows.grid_lines_workflow import save_recon_artifact
+        recon_target = pred_for_metrics
+        if not np.iscomplexobj(recon_target):
+            recon_target = recon_target.astype(np.complex64)
+        recon_path = save_recon_artifact(cfg.output_dir, f"pinn_{cfg.architecture}", recon_target)
+        metrics = compute_metrics(
+            pred_for_metrics,
+            ground_truth,
+            f"pinn_{cfg.architecture}",
+        )
+
+        # Step 5: Save artifacts
+        randomness_contract = _build_randomness_contract(cfg)
+        run_dir = save_run_artifacts(cfg, results, metrics, randomness_contract)
+
+        logger.info(f"Torch runner complete. Artifacts in {run_dir}")
+
+        result_dict = {
+            'architecture': cfg.architecture,
+            'run_dir': str(run_dir),
+            'metrics': metrics,
+            'history': results.get('history', {}),
+            'recon_path': str(recon_path),
+            'model_params': int(model_params),
+            'inference_time_s': float(inference_time_s),
+            'position_reassembly_runtime_contract': position_reassembly_runtime_contract,
+            'randomness_contract': randomness_contract,
+        }
+
+        # Step 6: Render post-run visuals (best-effort)
+        try:
+            from ptycho.workflows.grid_lines_workflow import render_grid_lines_visuals
+            _save_gt_recon_if_missing(cfg.output_dir, ground_truth)
+            order = _collect_visual_order(cfg.output_dir, cfg.architecture)
+            if order:
+                visuals = render_grid_lines_visuals(cfg.output_dir, order=order)
+                result_dict["visuals"] = visuals
+        except Exception as e:
+            logger.warning("Failed to render visuals: %s", e)
+
+        # Include complex predictions if conversion was done
+        if predictions_complex is not None:
+            result_dict['predictions_complex'] = predictions_complex
+
+        update_invocation_artifacts(
+            invocation_json,
+            status="completed",
+            finished_at_utc=datetime.now(timezone.utc).isoformat(),
+            run_dir=str(run_dir),
+        )
+        return result_dict
+    except Exception as exc:
+        update_invocation_artifacts(
+            invocation_json,
+            status="failed",
+            finished_at_utc=datetime.now(timezone.utc).isoformat(),
+            error=str(exc),
+        )
+        raise
 
 
 def main(argv=None) -> None:
@@ -1452,21 +1606,8 @@ def main(argv=None) -> None:
 
     logging.basicConfig(level=logging.INFO)
 
-    # Persist exact invocation details alongside run artifacts.
-    from scripts.studies.invocation_logging import (
-        capture_runtime_provenance,
-        write_invocation_artifacts,
-    )
-
     raw_argv = list(argv) if argv is not None else sys.argv[1:]
-    run_dir = args.output_dir / "runs" / f"pinn_{args.architecture}"
-    write_invocation_artifacts(
-        output_dir=run_dir,
-        script_path="scripts/studies/grid_lines_torch_runner.py",
-        argv=raw_argv,
-        parsed_args=vars(args),
-        extra={"runtime_provenance": capture_runtime_provenance()},
-    )
+    from scripts.studies.invocation_logging import capture_runtime_provenance
 
     seed = args.seed if args.seed is not None else random.SystemRandom().randrange(0, 2**32)
     if args.seed is None:
@@ -1537,7 +1678,14 @@ def main(argv=None) -> None:
         position_crop_border=args.position_crop_border,
     )
 
-    result = run_grid_lines_torch(cfg)
+    result = run_grid_lines_torch(
+        cfg,
+        invocation_argv=raw_argv,
+        invocation_extra={
+            "runtime_provenance": capture_runtime_provenance(),
+            "invocation_mode": "cli",
+        },
+    )
     print(json.dumps(result, indent=2, default=str))
 
 

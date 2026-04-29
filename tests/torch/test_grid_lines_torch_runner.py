@@ -1912,10 +1912,17 @@ def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):
     fake_ptycho_init.parent.mkdir(parents=True, exist_ok=True)
     fake_ptycho_init.write_text("MARKER = 'runner-test'\n", encoding="utf-8")
 
-    def fake_run_grid_lines_torch(cfg):
+    def fake_run_grid_lines_torch(cfg, **kwargs):
         called["run"] = True
+        assert "invocation_argv" in kwargs
+        assert "invocation_extra" in kwargs
         run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
         run_dir.mkdir(parents=True, exist_ok=True)
+        runner._write_runner_invocation_artifacts(
+            cfg,
+            argv=kwargs["invocation_argv"],
+            extra=kwargs["invocation_extra"],
+        )
         return {"run_dir": str(run_dir), "metrics": {}}
 
     monkeypatch.setattr(runner, "run_grid_lines_torch", fake_run_grid_lines_torch)
@@ -1955,6 +1962,71 @@ def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):
     assert payload["extra"]["runtime_provenance"]["ptycho_torch_file"] == str(fake_ptycho_init)
 
 
+def test_library_run_writes_invocation_artifacts(tmp_path, monkeypatch):
+    from scripts.studies import grid_lines_torch_runner as runner
+
+    class FakeModel:
+        def parameters(self):
+            return []
+
+        def state_dict(self):
+            return {"weights": np.array([1.0], dtype=np.float32)}
+
+    dataset = {
+        "YY_ground_truth": np.ones((4, 4), dtype=np.complex64),
+    }
+
+    monkeypatch.setattr(runner, "load_cached_dataset_with_metadata", lambda path: (dataset, None))
+    monkeypatch.setattr(
+        runner,
+        "run_torch_training",
+        lambda cfg, train_data, test_data, train_metadata=None, test_metadata=None: {
+            "history": {"train_loss": [0.1]},
+            "model": FakeModel(),
+        },
+    )
+    monkeypatch.setattr(
+        runner,
+        "run_torch_inference",
+        lambda model, test_data, cfg, metadata=None: np.ones((4, 4), dtype=np.complex64),
+    )
+    monkeypatch.setattr(
+        runner,
+        "compute_metrics",
+        lambda pred, gt, label: {"mae": [0.1, 0.2], "mse": [0.01, 0.02]},
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.save_recon_artifact",
+        lambda output_dir, model_id, recon: output_dir / "recons" / model_id / "recon.npz",
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals",
+        lambda output_dir, order: {},
+    )
+
+    cfg = TorchRunnerConfig(
+        train_npz=tmp_path / "train.npz",
+        test_npz=tmp_path / "test.npz",
+        output_dir=tmp_path,
+        architecture="hybrid_resnet",
+        epochs=1,
+    )
+    cfg.train_npz.write_bytes(b"stub")
+    cfg.test_npz.write_bytes(b"stub")
+
+    runner.run_grid_lines_torch(cfg)
+
+    inv_json = tmp_path / "runs" / "pinn_hybrid_resnet" / "invocation.json"
+    inv_sh = tmp_path / "runs" / "pinn_hybrid_resnet" / "invocation.sh"
+    assert inv_json.exists()
+    assert inv_sh.exists()
+    payload = json.loads(inv_json.read_text())
+    assert payload["script"] == "scripts/studies/grid_lines_torch_runner.py"
+    assert payload["parsed_args"]["architecture"] == "hybrid_resnet"
+    assert payload["status"] == "completed"
+    assert payload["finished_at_utc"]
+
+
 def test_script_path_execution_bootstraps_repo_imports(tmp_path):
     repo_root = Path(__file__).resolve().parents[2]
     out_dir = tmp_path / "output"
@@ -1990,7 +2062,7 @@ def test_main_defaults_torch_logger_to_csv(tmp_path, monkeypatch):
 
     captured = {"cfg": None}
 
-    def fake_run_grid_lines_torch(cfg):
+    def fake_run_grid_lines_torch(cfg, **kwargs):
         captured["cfg"] = cfg
         run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -2028,7 +2100,7 @@ def test_main_hybrid_resnet_defaults_bias_local_branch(tmp_path, monkeypatch):
 
     captured = {"cfg": None}
 
-    def fake_run_grid_lines_torch(cfg):
+    def fake_run_grid_lines_torch(cfg, **kwargs):
         captured["cfg"] = cfg
         run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -2067,7 +2139,7 @@ def test_main_accepts_spectral_resnet_bottleneck_flags(tmp_path, monkeypatch):
 
     captured = {"cfg": None}
 
-    def fake_run_grid_lines_torch(cfg):
+    def fake_run_grid_lines_torch(cfg, **kwargs):
         captured["cfg"] = cfg
         run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -2119,7 +2191,7 @@ def test_main_maps_torch_logger_none_to_disabled(tmp_path, monkeypatch):
 
     captured = {"cfg": None}
 
-    def fake_run_grid_lines_torch(cfg):
+    def fake_run_grid_lines_torch(cfg, **kwargs):
         captured["cfg"] = cfg
         run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
         run_dir.mkdir(parents=True, exist_ok=True)
@@ -2159,7 +2231,7 @@ def test_main_does_not_expose_single_image_frc_config(tmp_path, monkeypatch):
 
     captured = {"cfg": None}
 
-    def fake_run_grid_lines_torch(cfg):
+    def fake_run_grid_lines_torch(cfg, **kwargs):
         captured["cfg"] = cfg
         run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
         run_dir.mkdir(parents=True, exist_ok=True)

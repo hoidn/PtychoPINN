@@ -10,6 +10,7 @@ import importlib
 import json
 import os
 import shlex
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -49,6 +50,22 @@ def capture_runtime_provenance() -> Dict[str, Any]:
     return payload
 
 
+def get_git_commit(repo_root: Path | None = None) -> str | None:
+    """Return the current git commit for repo_root when available."""
+    repo_root = Path(repo_root or Path.cwd())
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "HEAD"],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+    except Exception:
+        return None
+    commit = result.stdout.strip()
+    return commit or None
+
+
 def write_invocation_artifacts(
     output_dir: Path,
     script_path: str,
@@ -83,3 +100,27 @@ def write_invocation_artifacts(
     json_path.write_text(json.dumps(payload, indent=2))
     sh_path.write_text(command + "\n")
     return json_path, sh_path
+
+
+def update_invocation_artifacts(
+    json_path: Path,
+    *,
+    extra: Dict[str, Any] | None = None,
+    **fields: Any,
+) -> Path:
+    """Update an existing invocation JSON payload with additional metadata."""
+    json_path = Path(json_path)
+    payload = json.loads(json_path.read_text())
+
+    if extra:
+        merged_extra = payload.get("extra", {})
+        if not isinstance(merged_extra, dict):
+            merged_extra = {}
+        merged_extra.update(_to_jsonable(extra))
+        payload["extra"] = merged_extra
+
+    for key, value in fields.items():
+        payload[key] = _to_jsonable(value)
+
+    json_path.write_text(json.dumps(payload, indent=2))
+    return json_path

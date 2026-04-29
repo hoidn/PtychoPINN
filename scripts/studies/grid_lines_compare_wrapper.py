@@ -10,6 +10,7 @@ import os
 import random
 import shutil
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Iterable, Optional, Tuple
 
@@ -888,77 +889,99 @@ def parse_args(argv=None):
 
 def main(argv=None) -> None:
     args = parse_args(argv)
-    from scripts.studies.invocation_logging import write_invocation_artifacts
+    from scripts.studies.invocation_logging import (
+        capture_runtime_provenance,
+        get_git_commit,
+        update_invocation_artifacts,
+        write_invocation_artifacts,
+    )
 
     raw_argv = list(argv) if argv is not None else sys.argv[1:]
-    write_invocation_artifacts(
+    invocation_json, _ = write_invocation_artifacts(
         output_dir=args.output_dir,
         script_path="scripts/studies/grid_lines_compare_wrapper.py",
         argv=raw_argv,
         parsed_args=vars(args),
+        extra={
+            "runtime_provenance": capture_runtime_provenance(),
+            "git_commit": get_git_commit(Path(__file__).resolve().parents[2]),
+        },
     )
-
-    run_grid_lines_compare(
-        N=args.N,
-        gridsize=args.gridsize,
-        output_dir=args.output_dir,
-        probe_npz=args.probe_npz,
-        architectures=args.architectures,
-        models=args.models,
-        model_n=args.model_n,
-        reuse_existing_recons=args.reuse_existing_recons,
-        ptychovit_repo=args.ptychovit_repo,
-        seed=args.seed,
-        nimgs_train=args.nimgs_train,
-        nimgs_test=args.nimgs_test,
-        nphotons=args.nphotons,
-        nepochs=args.nepochs,
-        batch_size=args.batch_size,
-        nll_weight=args.nll_weight,
-        mae_weight=args.mae_weight,
-        realspace_weight=args.realspace_weight,
-        probe_smoothing_sigma=args.probe_smoothing_sigma,
-        probe_mask_diameter=args.probe_mask_diameter,
-        probe_source=args.probe_source,
-        probe_scale_mode=args.probe_scale_mode,
-        set_phi=args.set_phi,
-        torch_epochs=args.torch_epochs,
-        torch_batch_size=args.torch_batch_size,
-        torch_learning_rate=args.torch_learning_rate,
-        torch_infer_batch_size=args.torch_infer_batch_size,
-        torch_gradient_clip_val=args.torch_grad_clip,
-        torch_gradient_clip_algorithm=args.torch_grad_clip_algorithm,
-        torch_output_mode=args.torch_output_mode,
-        torch_loss_mode=args.torch_loss_mode,
-        torch_mae_pred_l2_match_target=args.torch_mae_pred_l2_match_target,
-        torch_log_grad_norm=args.torch_log_grad_norm,
-        torch_grad_norm_log_freq=args.torch_grad_norm_log_freq,
-        fno_modes=args.fno_modes,
-        fno_width=args.fno_width,
-        fno_blocks=args.fno_blocks,
-        fno_cnn_blocks=args.fno_cnn_blocks,
-        fno_input_transform=args.fno_input_transform,
-        torch_max_hidden_channels=args.torch_max_hidden_channels,
-        torch_resnet_width=args.torch_resnet_width,
-        torch_optimizer=args.torch_optimizer,
-        torch_weight_decay=args.torch_weight_decay,
-        torch_momentum=args.torch_momentum,
-        torch_beta1=args.torch_beta1,
-        torch_beta2=args.torch_beta2,
-        torch_scheduler=args.torch_scheduler,
-        torch_lr_warmup_epochs=args.torch_lr_warmup_epochs,
-        torch_lr_min_ratio=args.torch_lr_min_ratio,
-        torch_plateau_factor=args.torch_plateau_factor,
-        torch_plateau_patience=args.torch_plateau_patience,
-        torch_plateau_min_lr=args.torch_plateau_min_lr,
-        torch_plateau_threshold=args.torch_plateau_threshold,
-        torch_position_reassembly_backend=args.torch_position_reassembly_backend,
-        torch_position_reassembly_batch_size=args.torch_position_reassembly_batch_size,
-        torch_position_crop_border=args.torch_position_crop_border,
-        dataset_source=args.dataset_source,
-        train_data=args.train_data,
-        test_data=args.test_data,
-    )
+    try:
+        run_grid_lines_compare(
+            N=args.N,
+            gridsize=args.gridsize,
+            output_dir=args.output_dir,
+            probe_npz=args.probe_npz,
+            architectures=args.architectures,
+            models=args.models,
+            model_n=args.model_n,
+            reuse_existing_recons=args.reuse_existing_recons,
+            ptychovit_repo=args.ptychovit_repo,
+            seed=args.seed,
+            nimgs_train=args.nimgs_train,
+            nimgs_test=args.nimgs_test,
+            nphotons=args.nphotons,
+            nepochs=args.nepochs,
+            batch_size=args.batch_size,
+            nll_weight=args.nll_weight,
+            mae_weight=args.mae_weight,
+            realspace_weight=args.realspace_weight,
+            probe_smoothing_sigma=args.probe_smoothing_sigma,
+            probe_mask_diameter=args.probe_mask_diameter,
+            probe_source=args.probe_source,
+            probe_scale_mode=args.probe_scale_mode,
+            set_phi=args.set_phi,
+            torch_epochs=args.torch_epochs,
+            torch_batch_size=args.torch_batch_size,
+            torch_learning_rate=args.torch_learning_rate,
+            torch_infer_batch_size=args.torch_infer_batch_size,
+            torch_gradient_clip_val=args.torch_grad_clip,
+            torch_gradient_clip_algorithm=args.torch_grad_clip_algorithm,
+            torch_output_mode=args.torch_output_mode,
+            torch_loss_mode=args.torch_loss_mode,
+            torch_mae_pred_l2_match_target=args.torch_mae_pred_l2_match_target,
+            torch_log_grad_norm=args.torch_log_grad_norm,
+            torch_grad_norm_log_freq=args.torch_grad_norm_log_freq,
+            fno_modes=args.fno_modes,
+            fno_width=args.fno_width,
+            fno_blocks=args.fno_blocks,
+            fno_cnn_blocks=args.fno_cnn_blocks,
+            fno_input_transform=args.fno_input_transform,
+            torch_max_hidden_channels=args.torch_max_hidden_channels,
+            torch_resnet_width=args.torch_resnet_width,
+            torch_optimizer=args.torch_optimizer,
+            torch_weight_decay=args.torch_weight_decay,
+            torch_momentum=args.torch_momentum,
+            torch_beta1=args.torch_beta1,
+            torch_beta2=args.torch_beta2,
+            torch_scheduler=args.torch_scheduler,
+            torch_lr_warmup_epochs=args.torch_lr_warmup_epochs,
+            torch_lr_min_ratio=args.torch_lr_min_ratio,
+            torch_plateau_factor=args.torch_plateau_factor,
+            torch_plateau_patience=args.torch_plateau_patience,
+            torch_plateau_min_lr=args.torch_plateau_min_lr,
+            torch_plateau_threshold=args.torch_plateau_threshold,
+            torch_position_reassembly_backend=args.torch_position_reassembly_backend,
+            torch_position_reassembly_batch_size=args.torch_position_reassembly_batch_size,
+            torch_position_crop_border=args.torch_position_crop_border,
+            dataset_source=args.dataset_source,
+            train_data=args.train_data,
+            test_data=args.test_data,
+        )
+        update_invocation_artifacts(
+            invocation_json,
+            status="completed",
+            finished_at_utc=datetime.now(timezone.utc).isoformat(),
+        )
+    except Exception as exc:
+        update_invocation_artifacts(
+            invocation_json,
+            status="failed",
+            finished_at_utc=datetime.now(timezone.utc).isoformat(),
+            error=str(exc),
+        )
+        raise
 
 
 if __name__ == "__main__":

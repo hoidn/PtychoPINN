@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 
@@ -9,6 +10,7 @@ from typing import Dict, Iterable, List, Mapping, Optional, Tuple
 MODEL_LABELS = {
     "pinn": "PtychoPINN (CNN)",
     "baseline": "Baseline",
+    "pinn_ffno": "FFNO",
     "pinn_fno_vanilla": "FNO Vanilla",
     "pinn_fno": "FNO",
     "pinn_hybrid": "Hybrid",
@@ -20,6 +22,7 @@ MODEL_LABELS = {
 MODEL_ORDER = (
     "pinn",
     "baseline",
+    "pinn_ffno",
     "pinn_fno_vanilla",
     "pinn_fno",
     "pinn_hybrid",
@@ -239,6 +242,43 @@ def _build_best_table(metrics: Mapping[str, dict], model_ns: Optional[Mapping[st
     return "\n".join(lines) + "\n"
 
 
+def _write_csv_table(
+    output_path: Path,
+    metrics: Mapping[str, dict],
+    model_ns: Optional[Mapping[str, int]],
+) -> Path:
+    grouped_models = _group_models_by_n(metrics, model_ns)
+    fieldnames = [
+        "model_id",
+        "model_label",
+        "N",
+    ]
+    for metric_key, _metric_label in METRICS:
+        fieldnames.extend([f"{metric_key}_amp", f"{metric_key}_phase"])
+
+    with output_path.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer.writeheader()
+        for n_value, models in grouped_models:
+            for model in models:
+                row = {
+                    "model_id": model,
+                    "model_label": MODEL_LABELS.get(model, model),
+                    "N": "" if n_value is None else int(n_value),
+                }
+                model_metrics = metrics.get(model, {})
+                for metric_key, _metric_label in METRICS:
+                    pair = _extract_pair(model_metrics, metric_key)
+                    if pair is None:
+                        row[f"{metric_key}_amp"] = ""
+                        row[f"{metric_key}_phase"] = ""
+                        continue
+                    row[f"{metric_key}_amp"] = pair[0]
+                    row[f"{metric_key}_phase"] = pair[1]
+                writer.writerow(row)
+    return output_path
+
+
 def write_metrics_tables(
     output_dir: Path,
     metrics: Dict[str, dict],
@@ -254,9 +294,12 @@ def write_metrics_tables(
 
     main_tex = output_dir / "metrics_table.tex"
     best_tex = output_dir / "metrics_table_best.tex"
+    csv_path = output_dir / "metrics_table.csv"
     main_tex.write_text(_build_main_table(metrics, model_ns))
     best_tex.write_text(_build_best_table(metrics, model_ns))
+    _write_csv_table(csv_path, metrics, model_ns)
     return {
         "metrics_table_tex": str(main_tex),
         "metrics_table_best_tex": str(best_tex),
+        "metrics_table_csv": str(csv_path),
     }

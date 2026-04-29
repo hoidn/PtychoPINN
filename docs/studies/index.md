@@ -353,6 +353,12 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Summary: `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md`
 - Output directory:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet`
+- Artifact contract notes:
+  - wrapper root includes `metrics.json`, `metrics_table.csv`,
+    `metrics_table.tex`, `metrics_table_best.tex`, and the compare visuals
+  - both `runs/pinn_hybrid_resnet/` and `runs/pinn_ffno/` include
+    `invocation.json`, `invocation.sh`, metrics/history, model, and randomness
+    provenance
 - Models:
   - `pinn_hybrid_resnet`
   - `pinn_ffno`

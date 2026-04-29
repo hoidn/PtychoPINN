@@ -113,18 +113,23 @@ def test_wrapper_writes_metrics_table_tex_architecture_mode(monkeypatch, tmp_pat
         N=64,
         gridsize=1,
         output_dir=tmp_path,
-        architectures=("cnn", "baseline", "fno"),
+        architectures=("cnn", "baseline", "ffno"),
         probe_npz=Path("dummy_probe.npz"),
     )
     table_path = tmp_path / "metrics_table.tex"
+    csv_path = tmp_path / "metrics_table.csv"
     assert table_path.exists()
+    assert csv_path.exists()
     table_text = table_path.read_text()
+    csv_text = csv_path.read_text()
     assert "N & Model" in table_text
     assert "MAE" in table_text
     assert "64" in table_text
     assert "PtychoPINN (CNN)" in table_text
     assert "Baseline" in table_text
-    assert "FNO" in table_text
+    assert "FFNO" in table_text
+    assert "model_id,model_label,N" in csv_text
+    assert "pinn_ffno,FFNO,64" in csv_text
 
 
 def test_wrapper_writes_metrics_table_tex_models_reuse_path(monkeypatch, tmp_path):
@@ -1393,6 +1398,11 @@ def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):
         return {"metrics": {}}
 
     monkeypatch.setattr(wrapper, "run_grid_lines_compare", fake_run_grid_lines_compare)
+    monkeypatch.setattr(
+        "scripts.studies.invocation_logging.capture_runtime_provenance",
+        lambda: {"python_executable": "/usr/bin/python3", "pythonpath": "/tmp/session_repo"},
+    )
+    monkeypatch.setattr("scripts.studies.invocation_logging.get_git_commit", lambda repo_root=None: "abc123")
 
     wrapper.main(
         [
@@ -1415,3 +1425,7 @@ def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):
     payload = json.loads(inv_json.read_text())
     assert "grid_lines_compare_wrapper.py" in payload["command"]
     assert "--architectures" in payload["argv"]
+    assert payload["extra"]["runtime_provenance"]["python_executable"] == "/usr/bin/python3"
+    assert payload["extra"]["git_commit"] == "abc123"
+    assert payload["status"] == "completed"
+    assert payload["finished_at_utc"]

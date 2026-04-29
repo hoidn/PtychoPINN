@@ -65,14 +65,15 @@ finished.
   - `datasets/N128/gs1/test.npz`
 - Completed wrapper artifacts present:
   - `metrics.json`
+  - `metrics_table.csv`
   - `metrics_table.tex`
   - `metrics_table_best.tex`
   - `visuals/compare_amp_phase.png`
   - `visuals/amp_phase_pinn_hybrid_resnet.png`
   - `visuals/amp_phase_pinn_ffno.png`
 - Completed row artifacts present for both models:
-  - `runs/pinn_hybrid_resnet/{metrics.json,history.json,model.pt,randomness_contract.json}`
-  - `runs/pinn_ffno/{metrics.json,history.json,model.pt,randomness_contract.json}`
+  - `runs/pinn_hybrid_resnet/{invocation.json,invocation.sh,metrics.json,history.json,model.pt,randomness_contract.json}`
+  - `runs/pinn_ffno/{invocation.json,invocation.sh,metrics.json,history.json,model.pt,randomness_contract.json}`
   - `recons/pinn_hybrid_resnet/recon.npz`
   - `recons/pinn_ffno/recon.npz`
 
@@ -118,8 +119,9 @@ python scripts/studies/grid_lines_compare_wrapper.py \
 - Reason:
   - the active writer exited and the stable root now contains both completed
     row trees plus wrapper-level merged metrics, tables, and visuals
-  - the observed artifact set matches the recovered fixed contract closely
-    enough for this backlog item's prerequisite-evidence scope
+  - the observed artifact set now matches the recovered fixed contract,
+    including the required `metrics_table.csv` and per-row invocation
+    artifacts, without relaunching the finished compare
   - launching another compare into the same root would only risk replacing the
     finished auditable pair without improving the current-scope claim boundary
 
