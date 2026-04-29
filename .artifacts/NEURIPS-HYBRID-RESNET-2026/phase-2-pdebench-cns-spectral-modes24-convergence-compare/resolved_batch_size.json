@@ -1,0 +1,14 @@
+{
+  "schema_version": "pdebench_cns_resolved_batch_size_v1",
+  "initiative_id": "NEURIPS-HYBRID-RESNET-2026",
+  "backlog_item": "2026-04-28-pdebench-cns-spectral-modes24-convergence-compare",
+  "task_id": "2d_cfd_cns",
+  "target_batch_size": 16,
+  "resolved_batch_size": 16,
+  "fallback_applied": false,
+  "fallback_reason": null,
+  "decision": "confirmed_target_batch_size",
+  "probe_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/preflight-batch16-1ep",
+  "inspect_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/inspect-1024cap",
+  "recorded_at_utc": "2026-04-29T01:27:02Z"
+}
