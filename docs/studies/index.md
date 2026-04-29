@@ -342,10 +342,10 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 
 ### `grid-lines-n128-ffno-vs-hybrid-resnet-best-contract`
 
-- Purpose: Run a fresh auditable `ffno` versus `hybrid_resnet` pair on the
-  study-indexed `grid-lines-n128-hybrid-resnet-legacy-best-e40-seed3`
-  contract without changing the CDI dataset, probe, scheduler, or output
-  contract.
+- Purpose: Run and preserve one repaired stable `ffno` versus
+  `hybrid_resnet` pair on the study-indexed
+  `grid-lines-n128-hybrid-resnet-legacy-best-e40-seed3` contract without
+  changing the CDI dataset, probe, scheduler, or output contract.
 - Status: completed on `2026-04-29`; the stable root is ready as prerequisite
   CDI evidence for later `lines128` paper packaging.
 - Preflight:
@@ -359,6 +359,10 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   - both `runs/pinn_hybrid_resnet/` and `runs/pinn_ffno/` include
     `invocation.json`, `invocation.sh`, metrics/history, model, and randomness
     provenance
+  - the row-level `invocation.*` files were reconstructed during the repair
+    pass from the fixed wrapper contract after the original compare finished,
+    so they should be read as backfilled provenance rather than original
+    runner-emitted start-time records
 - Models:
   - `pinn_hybrid_resnet`
   - `pinn_ffno`

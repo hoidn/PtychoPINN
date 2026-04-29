@@ -60,8 +60,8 @@
   - `recons/pinn_hybrid_resnet/recon.npz`
   - `recons/pinn_ffno/recon.npz`
 - Fresh verification evidence:
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/verification/20260429T032022Z_pytest.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/verification/20260429T032022Z_compileall.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/verification/20260429T111254Z_pytest.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/verification/20260429T111848Z_compileall.log`
 
 ## Compare Command
 
@@ -106,13 +106,17 @@ python scripts/studies/grid_lines_compare_wrapper.py \
   completed stable output root, and the no-relaunch completion decision.
 - The historical `grid-lines-n128-hybrid-resnet-legacy-best-e40-seed3` root is
   decision-support-only because it lacks full child invocation provenance. This
-  execution is the fresh auditable row pair for `hybrid_resnet` versus `ffno`.
+  execution is the repaired stable `hybrid_resnet` versus `ffno` row pair for
+  prerequisite CDI evidence, with row-level invocation provenance caveats noted
+  below.
 - Implementation-review repair backfilled `metrics_table.csv`, the per-row
   `runs/.../invocation.*` artifacts, and wrapper completion metadata from the
   fixed contract without relaunching the finished compare.
-- Deterministic code gates completed before launch:
-  - `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
-  - `python -m compileall -q ptycho_torch scripts/studies`
+- Deterministic verification evidence archived for closeout:
+  - `20260429T111254Z_pytest.log` records the required backlog pytest command,
+    stable root, start/finish timestamps, and passing output.
+  - `20260429T111848Z_compileall.log` records the required `compileall`
+    command, stable root, start/finish timestamps, and exit `0`.
 - Residual provenance caveat:
   - the per-row invocation artifacts were backfilled from the fixed wrapper
     contract after the original in-process compare completed, so the row

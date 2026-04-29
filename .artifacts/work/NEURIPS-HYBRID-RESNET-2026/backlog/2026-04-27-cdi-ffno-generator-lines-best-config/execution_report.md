@@ -1,52 +1,45 @@
 # Completed In This Pass
 
-- Patched the shared compare/reporting surfaces so grid-lines compare runs now
-  emit `metrics_table.csv`, wrapper invocations record runtime/commit/completion
-  metadata, and library-driven Torch runner calls persist per-row
-  `invocation.json` / `invocation.sh` artifacts.
-- Backfilled the completed stable root at
-  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet`
-  without relaunching training by writing the missing CSV table, row-level
-  invocation artifacts for `pinn_hybrid_resnet` and `pinn_ffno`, and repaired
-  wrapper completion metadata.
-- Updated the durable preflight, summary, and studies index so they describe the
-  repaired stable-root contract instead of the earlier incomplete artifact set.
+- Re-ran the required closeout checks and archived new verification logs that
+  include the exact command, stable output root, and start/finish timestamps in
+  the log body.
+- Updated the durable summary and studies index so they cite the new compliant
+  verification evidence and qualify the repaired stable root’s backfilled
+  row-level invocation provenance consistently.
+- Left the implementation unchanged in this pass because the remaining review
+  findings were audit-trail and wording gaps, not an FFNO/CDI execution bug.
 
 # Completed Current-Scope Work
 
 - The implementation-review blockers are closed:
-  - wrapper root now includes `metrics.json`, `metrics_table.csv`,
-    `metrics_table.tex`, `metrics_table_best.tex`, and the required compare
-    visuals
-  - both `runs/pinn_hybrid_resnet/` and `runs/pinn_ffno/` now include
-    `invocation.json`, `invocation.sh`, `metrics.json`, `history.json`,
-    `model.pt`, and `randomness_contract.json`
-  - wrapper `invocation.json` now records runtime provenance, git commit, and
-    completion metadata
-- Fresh verification for this repair pass:
-  - `pytest -q tests/test_grid_lines_invocation_logging.py tests/test_grid_lines_compare_wrapper.py`
-    -> `50 passed, 23 warnings in 7.76s`
-  - `pytest -q tests/torch/test_grid_lines_torch_runner.py`
-    -> `111 passed, 20 warnings in 19.49s`
+  - the required backlog pytest log now records the command, stable output
+    root, timestamps, passing output, and exit code in
+    `verification/20260429T111254Z_pytest.log`
+  - the required `compileall` log now records the command, stable output root,
+    timestamps, and exit `0` in
+    `verification/20260429T111848Z_compileall.log`
+  - the summary and studies index now describe the stable root as repaired
+    prerequisite CDI evidence with backfilled row-level invocation provenance,
+    rather than as a fully fresh runner-emitted pair
+- Fresh verification for this pass:
   - required backlog gate:
     `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
-    -> `162 passed, 43 warnings in 283.25s`
+    -> `162 passed, 43 warnings in 281.83s`
   - required backlog gate:
     `python -m compileall -q ptycho_torch scripts/studies`
     -> exit `0`
-  - workflow-policy integration marker:
-    `pytest -q -m integration`
-    -> `5 passed, 4 skipped, 1645 deselected in 299.91s`
 - Archived logs for this pass:
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/verification/20260429T104852Z_pytest.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/verification/20260429T105343Z_compileall.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/verification/20260429T105350Z_integration.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/verification/20260429T111254Z_pytest.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/verification/20260429T111848Z_compileall.log`
 
 # Follow-Up Work
 
 - Add a small stable-root validator so future backlog items cannot be marked
   complete while required files such as `metrics_table.csv` or per-row
   invocation artifacts are still missing.
+- Normalize reconstructed row-level invocation metadata with an explicit
+  `reconstructed_at_utc` field if later automation needs to distinguish repair
+  timestamps from original run timestamps without parsing free-form caveats.
 
 # Residual Risks
 
@@ -54,5 +47,7 @@
   from the fixed wrapper contract after the original in-process compare had
   already finished, so their timestamps reflect the repair pass rather than the
   original training start time.
-- The integration-marker run still carries four pre-existing skips documented by
-  the test suite itself; this pass did not change those dependencies.
+- The new pytest verification log contains a harmless shell `printf` warning
+  before the test output because of a header-formatting typo during capture, but
+  the required command, stable root, timestamps, full passing test body, and
+  exit code are all present in the archived artifact.

@@ -1,0 +1,8 @@
+command: python -m compileall -q ptycho_torch scripts/studies
+stable_output_root: .artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet
+started_at_utc: 2026-04-29T11:18:48Z
+--- begin stdout/stderr ---
+
+--- end stdout/stderr ---
+exit_code: 0
+finished_at_utc: 2026-04-29T11:18:48Z
