@@ -39,6 +39,7 @@ Current source of truth:
 | [2026-04-27-cdi-ffno-generator-lines-best-config.md](active/2026-04-27-cdi-ffno-generator-lines-best-config.md) | `active` | `phase-3-cdi-anchor-regeneration` | CDI/ptycho generator lane; no active backlog prerequisite | Uses the study-indexed best Lines128 configuration needed by the paper benchmark design and must not reuse CNS evidence as CDI evidence. Eligible as Phase 3 CDI-preparation work, but it does not satisfy the Phase 2 PDEBench evidence gate. |
 | [2026-04-29-cdi-lines128-paper-benchmark-harness.md](active/2026-04-29-cdi-lines128-paper-benchmark-harness.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on CDI FFNO generator baseline | Adds the shared Lines128 paper-benchmark wrapper/harness, contract-reconstruction preflight artifact, FNO/seed decision manifest, and metric-schema downgrade gate. Does not launch the full benchmark. |
 | [2026-04-29-cdi-lines128-paper-benchmark-execution.md](active/2026-04-29-cdi-lines128-paper-benchmark-execution.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on CDI FFNO generator baseline and Lines128 paper-benchmark harness | Runs the full four-row Lines128 paper-quality CDI benchmark and publishes metrics tables, visual reconstruction comparisons, provenance manifests, and durable summaries. |
+| [2026-04-29-cdi-lines128-supervised-equivalent-rows.md](active/2026-04-29-cdi-lines128-supervised-equivalent-rows.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution | Adds supervised-training equivalents for CNN, FNO, SCR, and FFNO under the locked Lines128 contract so the paper can separate model-body effects from PINN forward-model training effects. |
 | [2026-04-27-hybrid-spectral-ffno-parameter-space-cdi.md](active/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on CDI FFNO generator baseline | Phase 3 CDI-only split of the former mixed CNS/CDI parameter-space item. It becomes eligible only after the CDI FFNO generator baseline completes. |
 | [2026-03-13-lines256-experiment-history-summary-input.md](active/2026-03-13-lines256-experiment-history-summary-input.md) | `active` | n/a | Separate non-NeurIPS queue branch | Does not block or unlock the CNS benchmark queue. |
 
@@ -66,6 +67,10 @@ Current source of truth:
   allowed by the current deterministic gate as CDI-track work, but they do not
   count as Phase 2 PDEBench evidence and should not be used to close the PDEBench
   image-suite gate.
+- The supervised Lines128 CDI extension is deliberately downstream of the
+  complete PINN-trained CDI table. It should reuse the locked contract and label
+  rows as architecture plus training procedure, not reopen the primary benchmark
+  definition.
 - The broader Hybrid-spectral-to-FFNO parameter-space study has been split by
   roadmap phase. The CNS half is selectable under the Phase 2 gate after its
   CNS prerequisites; the CDI half remains blocked until the CDI FFNO generator
