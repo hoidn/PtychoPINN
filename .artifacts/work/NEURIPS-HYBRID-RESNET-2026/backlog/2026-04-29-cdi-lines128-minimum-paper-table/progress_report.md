@@ -30,8 +30,8 @@
   - Python worker PID: `1158854`
   - stdout/stderr log:
     `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260429T213028Z/live_stdout.log`
-  - observed phase at this handoff: `[4/7] Training selected TF models: ('baseline', 'pinn')...`
-  - observed state: `datasets/N128/gs1/{train,test}.npz` and `recons/gt/recon.npz` are freshly written, and the live log has progressed through `Epoch 8/40`; no new semantic blocker is currently known.
+  - observed phase at this handoff: Torch `pinn_hybrid_resnet` training after the TensorFlow `baseline` and `pinn` rows completed and emitted stitched reconstructions plus merged partial metrics.
+  - observed state: `datasets/N128/gs1/{train,test}.npz`, `recons/gt/recon.npz`, `recons/{baseline,pinn}/recon.npz`, root-level `metrics.json`, and `runs/pinn_hybrid_resnet/invocation.{json,sh}` are freshly written; the live log has progressed through Lightning `Epoch 17/40`, so the root is still an in-flight partial bundle rather than a completed four-row result.
 
 # Next Resume Condition
 
