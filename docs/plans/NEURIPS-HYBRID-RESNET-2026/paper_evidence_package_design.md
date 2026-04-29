@@ -171,19 +171,21 @@ they do not emit standalone repo-git, run-log, or exit-code artifacts. Treat
 the locked manifest as bounded `capped_decision_support` authority only, not as
 proof that the CNS pillar has reached `paper_grade` provenance completeness.
 
-Required CNS table rows:
+Required CNS table rows for the current locked bounded capped contract:
 
-- best Hybrid/Hybrid-spectral row under the selected CNS contract
-- local FNO row
-- U-Net or CNN-style local baseline
-- authored FFNO as a cutoff-gated extension row:
-  - if authored FFNO is available by the CNS contract-decision cutoff and can
-    obey the same local CNS contract, include it in the locked table
-  - if it is not available or cannot obey the contract, record an explicit
-    `blocked` or `not_protocol_compatible` row and state that CNS claims compare
-    against local FNO/U-Net baselines but not authored FFNO
-- optional GNOT row if its environment/protocol is credible enough to compare
-  without hiding caveats
+- `spectral_resnet_bottleneck_base`
+- `fno_base`
+- `unet_strong`
+- `author_ffno_cns_base`
+
+Additional CNS row-handling rules:
+
+- `hybrid_resnet_cns` remains an audited continuity/support row only. It may be
+  cited as same-contract context, but it must not silently replace or expand the
+  locked headline roster.
+- `history_len=1` and `history_len=3` rows, GNOT rows, and repo-local FFNO
+  proxy rows remain adjacent-only context unless a checked-in CNS contract
+  decision explicitly promotes them into a later table contract.
 
 Required CNS metrics:
 

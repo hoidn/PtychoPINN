@@ -2,56 +2,58 @@
 
 ## Completed In This Pass
 
-- Ran the required deterministic CNS selectors and archived the logs under
-  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/verification/`.
-- Audited the accepted `history_len=2` capped CNS run roots against the locked
-  paper contract and confirmed contract parity for the four headline rows plus
-  the `hybrid_resnet_cns` continuity row.
-- Emitted the row-lock artifacts:
-  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/cns_paper_row_lock_audit.md`
-  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/cns_paper_row_lock_audit.json`
-  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/cns_paper_locked_rows.json`
-- Wrote the durable summary
+- Rebuilt
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/cns_paper_locked_rows.json`
+  so the machine-readable row-lock authority now exposes a unified `rows` list
+  plus the missing per-row `claim_scope`, copied contract fields,
+  `asset_pointers`, and row-level `notes`.
+- Normalized
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_package_design.md`
+  to the already locked CNS roster by removing the stale authored-FFNO
+  cutoff-gated wording and restating the exact locked headline rows.
+- Tightened
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_row_lock_summary.md`
-  and updated the discoverability/package surfaces that now point to it.
+  so the summary now states the capped decision-support claim boundary in the
+  literal wording expected by the execution-plan final validation.
+- Reran the required deterministic checks and archived fresh logs under
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/verification/`.
 
-## Completed Plan Tasks
+## Completed Current-Scope Work
 
-- Task 1 complete: required deterministic checks ran green and the accepted CNS
-  rows were audited for same-contract parity, provenance pointers, metric
-  values, and downstream sample-asset availability.
-- Task 2 complete with no code patch required: the audit found no missing field
-  that forced a runner/reporting change or rerun for this bounded capped lock.
-- Task 3 complete: the locked-row manifest, durable summary, docs-index updates,
-  and progress-ledger update were all written.
+- The implementation-review blocker on Task 3 is resolved: the locked-row
+  manifest now satisfies the reviewed per-row schema required for downstream CNS
+  table/figure consumers.
+- The current-scope package-design cleanup is complete: the paper evidence
+  package design now matches the authoritative row-lock summary and accepted
+  authored-FFNO outcome.
+- Final verification for this pass completed successfully:
+  - `pytest -q tests/studies/test_pdebench_image128_runner.py tests/studies/test_pdebench_cfd_cns_data.py tests/studies/test_pdebench_cfd_cns_metrics.py`
+    - log:
+      `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/verification/pytest_20260429T182152Z.log`
+    - result: `47 passed in 53.53s`
+  - `python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py`
+    - log:
+      `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/verification/compileall_20260429T182152Z.log`
+    - result: exit `0`
+  - Final manifest/package-design/summary/pointer sanity check
+    - log:
+      `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/verification/final_bundle_validation_20260429T182152Z.log`
+    - result: `locked CNS row manifest, package design, summary, and plan pointer look consistent`
 
-## Remaining Required Plan Tasks
+## Follow-Up Work
 
-- None for this execution plan.
-- The downstream CNS table/figure assembly remains a separate backlog item:
-  `2026-04-29-cns-paper-table-figure-bundle`.
-
-## Verification
-
-- `pytest -q tests/studies/test_pdebench_image128_runner.py tests/studies/test_pdebench_cfd_cns_data.py tests/studies/test_pdebench_cfd_cns_metrics.py`
-  - log:
-    `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/verification/pytest_20260429T000000Z.log`
-  - result: `47 passed in 53.59s`
-- `python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py`
-  - log:
-    `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/verification/compileall_20260429T000000Z.log`
-  - result: exit `0`
-- Row-lock artifact and docs-sync validation
-  - log:
-    `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/verification/row_lock_consistency_20260429T000000Z.log`
-  - result: locked rows, audit, and discoverability references are consistent
+- If any locked CNS row is later promoted beyond `capped_decision_support`,
+  recover or newly emit standalone repo git SHA, dirty-state, run-log, and
+  exit-code artifacts for the reused run roots instead of relying on the
+  current bounded lock alone.
 
 ## Residual Risks
 
-- The reused accepted run roots still do not emit standalone repo git SHA,
-  dirty-state, run-log, or exit-code artifacts, so the locked bundle remains
-  `capped_decision_support` only and cannot be relabeled as `paper_grade` or
-  `full_training` evidence from this pass alone.
-- `hybrid_resnet_cns` remains continuity/support only; downstream consumers
-  must preserve the locked headline roster exactly as recorded in the contract
-  decision and row-lock manifest.
+- The row-lock bundle is still bounded capped evidence only. The reused run
+  roots remain missing standalone repo git SHA, dirty-state, run-log, and
+  exit-code artifacts, so they still do not meet a paper-grade or full-training
+  provenance bar.
+- `hybrid_resnet_cns` remains continuity/support only. Downstream CNS table or
+  figure assembly must keep the locked headline roster exactly
+  `spectral_resnet_bottleneck_base`, `fno_base`, `unet_strong`, and
+  `author_ffno_cns_base`.

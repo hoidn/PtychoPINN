@@ -1,6 +1,6 @@
 {
-  "schema_version": "pdebench_cns_paper_locked_rows_v1",
-  "generated_at_utc": "2026-04-29T18:06:56.145098Z",
+  "schema_version": "pdebench_cns_paper_locked_rows_v2",
+  "generated_at_utc": "2026-04-29T18:19:37.001348Z",
   "contract_authority": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md",
   "contract_type": "bounded_capped_decision_support",
   "task_id": "2d_cfd_cns",
@@ -28,13 +28,78 @@
     "fRMSE_mid",
     "fRMSE_high"
   ],
-  "headline_rows": [
+  "selected_contract": {
+    "task_id": "2d_cfd_cns",
+    "contract_type": "bounded_capped_decision_support",
+    "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+    "history_len": 2,
+    "epochs": 40,
+    "split_counts": {
+      "train": 512,
+      "val": 64,
+      "test": 64
+    },
+    "max_windows_per_trajectory": 8,
+    "emitted_window_counts": {
+      "train": 4096,
+      "val": 512,
+      "test": 512
+    },
+    "normalization_contract_summary": "train-only per-field normalization fit on the 512 training trajectories, reused across all history slots and target channels, with evaluation reported in denormalized target space",
+    "training_recipe_summary": "task-local mse override; Adam lr=2e-4; ReduceLROnPlateau(factor=0.5, patience=2, threshold=0.0, min_lr=1e-5); batch_size=4; epochs=40",
+    "metric_family": [
+      "err_RMSE",
+      "err_nRMSE",
+      "relative_l2",
+      "fRMSE_low",
+      "fRMSE_mid",
+      "fRMSE_high"
+    ]
+  },
+  "headline_row_ids": [
+    "spectral_resnet_bottleneck_base",
+    "fno_base",
+    "unet_strong",
+    "author_ffno_cns_base"
+  ],
+  "continuity_row_ids": [
+    "hybrid_resnet_cns"
+  ],
+  "rows": [
     {
       "row_id": "spectral_resnet_bottleneck_base",
       "row_role": "headline",
       "row_status": "capped_decision_support",
+      "claim_scope": "bounded_capped_decision_support_only",
       "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep",
       "run_mode": "readiness",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_bottleneck_summary.md",
+      "task_id": "2d_cfd_cns",
+      "contract_type": "bounded_capped_decision_support",
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "history_len": 2,
+      "epochs": 40,
+      "split_counts": {
+        "train": 512,
+        "val": 64,
+        "test": 64
+      },
+      "max_windows_per_trajectory": 8,
+      "emitted_window_counts": {
+        "train": 4096,
+        "val": 512,
+        "test": 512
+      },
+      "normalization_contract_summary": "train-only per-field normalization fit on the 512 training trajectories, reused across all history slots and target channels, with evaluation reported in denormalized target space",
+      "training_recipe_summary": "task-local mse override; Adam lr=2e-4; ReduceLROnPlateau(factor=0.5, patience=2, threshold=0.0, min_lr=1e-5); batch_size=4; epochs=40",
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
       "metrics": {
         "err_RMSE": 1.4877649545669556,
         "err_nRMSE": 0.061562005430459976,
@@ -45,8 +110,7 @@
       },
       "parameter_count": 8186726,
       "runtime_sec": 1861.6251845359802,
-      "sample_npz": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep/comparison_spectral_resnet_bottleneck_base_sample0.npz",
-      "sample_png": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep/comparison_spectral_resnet_bottleneck_base_sample0.png",
+      "peak_cuda_memory_bytes": 476279296,
       "provenance_pointers": {
         "invocation_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep/invocation.json",
         "invocation_sh": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep/invocation.sh",
@@ -57,19 +121,62 @@
         "metrics_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep/metrics_spectral_resnet_bottleneck_base.json",
         "comparison_summary_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep/comparison_summary.json"
       },
+      "asset_pointers": {
+        "sample_npz": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep/comparison_spectral_resnet_bottleneck_base_sample0.npz",
+        "sample_png": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep/comparison_spectral_resnet_bottleneck_base_sample0.png"
+      },
+      "command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep --profiles spectral_resnet_bottleneck_base --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 512 --max-val-trajectories 64 --max-test-trajectories 64 --max-windows-per-trajectory 8 --device cuda --num-workers 0",
+      "runtime_provenance": {
+        "python_executable": "/home/ollie/miniconda3/envs/ptycho311/bin/python3.11",
+        "cwd": "/home/ollie/Documents/PtychoPINN",
+        "pythonpath": "",
+        "ptycho_torch_file": "/home/ollie/Documents/PtychoPINN/ptycho_torch/__init__.py"
+      },
       "known_provenance_gaps": {
         "repo_git_sha": "missing in run root artifacts",
         "repo_dirty_state": "missing in run root artifacts",
         "run_log": "no standalone run log emitted in run root",
         "exit_code_artifact": "no standalone exit-code artifact emitted in run root"
-      }
+      },
+      "notes": [
+        "Locked headline row for downstream CNS table/figure assembly under the approved bounded capped contract.",
+        "Reused run root lacks standalone repo git SHA, dirty-state, run-log, and exit-code artifacts; keep this row at capped decision-support scope only."
+      ]
     },
     {
       "row_id": "fno_base",
       "row_role": "headline",
       "row_status": "capped_decision_support",
+      "claim_scope": "bounded_capped_decision_support_only",
       "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse",
       "run_mode": "readiness",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "task_id": "2d_cfd_cns",
+      "contract_type": "bounded_capped_decision_support",
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "history_len": 2,
+      "epochs": 40,
+      "split_counts": {
+        "train": 512,
+        "val": 64,
+        "test": 64
+      },
+      "max_windows_per_trajectory": 8,
+      "emitted_window_counts": {
+        "train": 4096,
+        "val": 512,
+        "test": 512
+      },
+      "normalization_contract_summary": "train-only per-field normalization fit on the 512 training trajectories, reused across all history slots and target channels, with evaluation reported in denormalized target space",
+      "training_recipe_summary": "task-local mse override; Adam lr=2e-4; ReduceLROnPlateau(factor=0.5, patience=2, threshold=0.0, min_lr=1e-5); batch_size=4; epochs=40",
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
       "metrics": {
         "err_RMSE": 1.7907506227493286,
         "err_nRMSE": 0.07409921288490295,
@@ -80,8 +187,7 @@
       },
       "parameter_count": 357860,
       "runtime_sec": 1137.9493689537048,
-      "sample_npz": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/comparison_fno_base_sample0.npz",
-      "sample_png": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/comparison_fno_base_sample0.png",
+      "peak_cuda_memory_bytes": 419467264,
       "provenance_pointers": {
         "invocation_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/invocation.json",
         "invocation_sh": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/invocation.sh",
@@ -92,19 +198,62 @@
         "metrics_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/metrics_fno_base.json",
         "comparison_summary_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/comparison_summary.json"
       },
+      "asset_pointers": {
+        "sample_npz": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/comparison_fno_base_sample0.npz",
+        "sample_png": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/comparison_fno_base_sample0.png"
+      },
+      "command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root /home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse --profiles hybrid_resnet_base,fno_base,unet_strong --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 512 --max-val-trajectories 64 --max-test-trajectories 64 --max-windows-per-trajectory 8 --device cuda --num-workers 0",
+      "runtime_provenance": {
+        "python_executable": "/home/ollie/miniconda3/envs/ptycho311/bin/python3.11",
+        "cwd": "/home/ollie/Documents/PtychoPINN",
+        "pythonpath": "",
+        "ptycho_torch_file": "/home/ollie/Documents/PtychoPINN/ptycho_torch/__init__.py"
+      },
       "known_provenance_gaps": {
         "repo_git_sha": "missing in run root artifacts",
         "repo_dirty_state": "missing in run root artifacts",
         "run_log": "no standalone run log emitted in run root",
         "exit_code_artifact": "no standalone exit-code artifact emitted in run root"
-      }
+      },
+      "notes": [
+        "Locked headline row for downstream CNS table/figure assembly under the approved bounded capped contract.",
+        "Reused run root lacks standalone repo git SHA, dirty-state, run-log, and exit-code artifacts; keep this row at capped decision-support scope only."
+      ]
     },
     {
       "row_id": "unet_strong",
       "row_role": "headline",
       "row_status": "capped_decision_support",
+      "claim_scope": "bounded_capped_decision_support_only",
       "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse",
       "run_mode": "readiness",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+      "task_id": "2d_cfd_cns",
+      "contract_type": "bounded_capped_decision_support",
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "history_len": 2,
+      "epochs": 40,
+      "split_counts": {
+        "train": 512,
+        "val": 64,
+        "test": 64
+      },
+      "max_windows_per_trajectory": 8,
+      "emitted_window_counts": {
+        "train": 4096,
+        "val": 512,
+        "test": 512
+      },
+      "normalization_contract_summary": "train-only per-field normalization fit on the 512 training trajectories, reused across all history slots and target channels, with evaluation reported in denormalized target space",
+      "training_recipe_summary": "task-local mse override; Adam lr=2e-4; ReduceLROnPlateau(factor=0.5, patience=2, threshold=0.0, min_lr=1e-5); batch_size=4; epochs=40",
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
       "metrics": {
         "err_RMSE": 16.331954956054688,
         "err_nRMSE": 0.6757976412773132,
@@ -115,8 +264,7 @@
       },
       "parameter_count": 7764580,
       "runtime_sec": 1366.6471712589264,
-      "sample_npz": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/comparison_unet_strong_sample0.npz",
-      "sample_png": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/comparison_unet_strong_sample0.png",
+      "peak_cuda_memory_bytes": 419467264,
       "provenance_pointers": {
         "invocation_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/invocation.json",
         "invocation_sh": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/invocation.sh",
@@ -127,19 +275,62 @@
         "metrics_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/metrics_unet_strong.json",
         "comparison_summary_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/comparison_summary.json"
       },
+      "asset_pointers": {
+        "sample_npz": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/comparison_unet_strong_sample0.npz",
+        "sample_png": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse/comparison_unet_strong_sample0.png"
+      },
+      "command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root /home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse --profiles hybrid_resnet_base,fno_base,unet_strong --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 512 --max-val-trajectories 64 --max-test-trajectories 64 --max-windows-per-trajectory 8 --device cuda --num-workers 0",
+      "runtime_provenance": {
+        "python_executable": "/home/ollie/miniconda3/envs/ptycho311/bin/python3.11",
+        "cwd": "/home/ollie/Documents/PtychoPINN",
+        "pythonpath": "",
+        "ptycho_torch_file": "/home/ollie/Documents/PtychoPINN/ptycho_torch/__init__.py"
+      },
       "known_provenance_gaps": {
         "repo_git_sha": "missing in run root artifacts",
         "repo_dirty_state": "missing in run root artifacts",
         "run_log": "no standalone run log emitted in run root",
         "exit_code_artifact": "no standalone exit-code artifact emitted in run root"
-      }
+      },
+      "notes": [
+        "Locked headline row for downstream CNS table/figure assembly under the approved bounded capped contract.",
+        "Reused run root lacks standalone repo git SHA, dirty-state, run-log, and exit-code artifacts; keep this row at capped decision-support scope only."
+      ]
     },
     {
       "row_id": "author_ffno_cns_base",
       "row_role": "headline",
       "row_status": "capped_decision_support",
+      "claim_scope": "bounded_capped_decision_support_only",
       "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z",
       "run_mode": "readiness",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_author_ffno_equal_footing_summary.md",
+      "task_id": "2d_cfd_cns",
+      "contract_type": "bounded_capped_decision_support",
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "history_len": 2,
+      "epochs": 40,
+      "split_counts": {
+        "train": 512,
+        "val": 64,
+        "test": 64
+      },
+      "max_windows_per_trajectory": 8,
+      "emitted_window_counts": {
+        "train": 4096,
+        "val": 512,
+        "test": 512
+      },
+      "normalization_contract_summary": "train-only per-field normalization fit on the 512 training trajectories, reused across all history slots and target channels, with evaluation reported in denormalized target space",
+      "training_recipe_summary": "task-local mse override; Adam lr=2e-4; ReduceLROnPlateau(factor=0.5, patience=2, threshold=0.0, min_lr=1e-5); batch_size=4; epochs=40",
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
       "metrics": {
         "err_RMSE": 0.6802443265914917,
         "err_nRMSE": 0.028147730976343155,
@@ -150,8 +341,7 @@
       },
       "parameter_count": 1073672,
       "runtime_sec": 4725.511692285538,
-      "sample_npz": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z/comparison_author_ffno_cns_base_sample0.npz",
-      "sample_png": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z/comparison_author_ffno_cns_base_sample0.png",
+      "peak_cuda_memory_bytes": 3410884096,
       "provenance_pointers": {
         "invocation_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z/invocation.json",
         "invocation_sh": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z/invocation.sh",
@@ -162,21 +352,62 @@
         "metrics_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z/metrics_author_ffno_cns_base.json",
         "comparison_summary_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z/comparison_summary.json"
       },
+      "asset_pointers": {
+        "sample_npz": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z/comparison_author_ffno_cns_base_sample0.npz",
+        "sample_png": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z/comparison_author_ffno_cns_base_sample0.png"
+      },
+      "command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode readiness --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z --profiles author_ffno_cns_base --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 512 --max-val-trajectories 64 --max-test-trajectories 64 --max-windows-per-trajectory 8 --device cuda --num-workers 0",
+      "runtime_provenance": {
+        "python_executable": "/home/ollie/miniconda3/envs/ptycho311/bin/python3.11",
+        "cwd": "/home/ollie/Documents/PtychoPINN",
+        "pythonpath": "",
+        "ptycho_torch_file": "/home/ollie/Documents/PtychoPINN/ptycho_torch/__init__.py"
+      },
       "known_provenance_gaps": {
         "repo_git_sha": "missing in run root artifacts",
         "repo_dirty_state": "missing in run root artifacts",
         "run_log": "no standalone run log emitted in run root",
         "exit_code_artifact": "no standalone exit-code artifact emitted in run root"
-      }
-    }
-  ],
-  "continuity_rows": [
+      },
+      "notes": [
+        "Locked headline row for downstream CNS table/figure assembly under the approved bounded capped contract.",
+        "Reused run root lacks standalone repo git SHA, dirty-state, run-log, and exit-code artifacts; keep this row at capped decision-support scope only."
+      ]
+    },
     {
       "row_id": "hybrid_resnet_cns",
       "row_role": "continuity",
       "row_status": "capped_decision_support",
+      "claim_scope": "bounded_capped_decision_support_only",
       "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z",
       "run_mode": "pilot",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_markov_history1_compare_summary.md",
+      "task_id": "2d_cfd_cns",
+      "contract_type": "bounded_capped_decision_support",
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "history_len": 2,
+      "epochs": 40,
+      "split_counts": {
+        "train": 512,
+        "val": 64,
+        "test": 64
+      },
+      "max_windows_per_trajectory": 8,
+      "emitted_window_counts": {
+        "train": 4096,
+        "val": 512,
+        "test": 512
+      },
+      "normalization_contract_summary": "train-only per-field normalization fit on the 512 training trajectories, reused across all history slots and target channels, with evaluation reported in denormalized target space",
+      "training_recipe_summary": "task-local mse override; Adam lr=2e-4; ReduceLROnPlateau(factor=0.5, patience=2, threshold=0.0, min_lr=1e-5); batch_size=4; epochs=40",
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
       "metrics": {
         "err_RMSE": 1.5567935705184937,
         "err_nRMSE": 0.06441833078861237,
@@ -187,8 +418,7 @@
       },
       "parameter_count": 7998597,
       "runtime_sec": 886.2511508464813,
-      "sample_npz": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z/comparison_hybrid_resnet_cns_sample0.npz",
-      "sample_png": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z/comparison_hybrid_resnet_cns_sample0.png",
+      "peak_cuda_memory_bytes": 432515584,
       "provenance_pointers": {
         "invocation_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z/invocation.json",
         "invocation_sh": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z/invocation.sh",
@@ -199,12 +429,27 @@
         "metrics_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z/metrics_hybrid_resnet_cns.json",
         "comparison_summary_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z/comparison_summary.json"
       },
+      "asset_pointers": {
+        "sample_npz": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z/comparison_hybrid_resnet_cns_sample0.npz",
+        "sample_png": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z/comparison_hybrid_resnet_cns_sample0.png"
+      },
+      "command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode pilot --data-root /home/ollie/Documents/pdebench-data --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z --profiles hybrid_resnet_cns --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 512 --max-val-trajectories 64 --max-test-trajectories 64 --max-windows-per-trajectory 8 --device cuda --num-workers 0",
+      "runtime_provenance": {
+        "python_executable": "/home/ollie/miniconda3/envs/ptycho311/bin/python3.11",
+        "cwd": "/home/ollie/Documents/PtychoPINN",
+        "pythonpath": "/home/ollie/Documents/agent-orchestration",
+        "ptycho_torch_file": "/home/ollie/Documents/PtychoPINN/ptycho_torch/__init__.py"
+      },
       "known_provenance_gaps": {
         "repo_git_sha": "missing in run root artifacts",
         "repo_dirty_state": "missing in run root artifacts",
         "run_log": "no standalone run log emitted in run root",
         "exit_code_artifact": "no standalone exit-code artifact emitted in run root"
-      }
+      },
+      "notes": [
+        "Audited continuity/support row only; preserve it as context without promoting it into the locked headline roster.",
+        "Reused run root lacks standalone repo git SHA, dirty-state, run-log, and exit-code artifacts; keep this row at capped decision-support scope only."
+      ]
     }
   ],
   "excluded_adjacent_context": [
@@ -239,5 +484,5 @@
       "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md"
     }
   ],
-  "provenance_note": "Locked for bounded capped decision-support reuse. Accepted roots do not emit standalone repo git SHA, run-log, or exit-code artifacts, so this manifest is not sufficient to relabel the rows as paper_grade or full_training evidence."
+  "provenance_note": "Locked for bounded capped decision-support reuse. Reused run roots do not emit standalone repo git SHA, run-log, dirty-state, or exit-code artifacts, so these rows must not be relabeled as paper_grade or full_training evidence without additional provenance recovery."
 }

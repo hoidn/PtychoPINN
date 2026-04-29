@@ -14,8 +14,9 @@
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/cns_paper_locked_rows.json`
 
 This summary records the durable row authority for the current CNS paper lane.
-It does not promote the capped lane to a same-protocol full-training benchmark
-claim, and it does not create `/home/ollie/Documents/neurips/` outputs.
+It preserves the current bundle as capped decision-support evidence only, does
+not promote the capped lane to a same-protocol full-training benchmark claim,
+and does not create `/home/ollie/Documents/neurips/` outputs.
 
 ## Locked Contract
 
