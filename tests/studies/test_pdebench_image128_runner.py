@@ -3446,3 +3446,355 @@ def test_cfd_cns_pilot_runner_writes_transpose_profile_config_with_explicit_deco
     profile_config = model_profile["profile_config"]
     assert profile_config["hybrid_downsample_steps"] == 2
     assert profile_config["hybrid_upsampler"] == "cyclegan_transpose"
+
+
+def _build_fake_locked_rows_payload(
+    row_specs: list[dict],
+    *,
+    split_counts: dict[str, int] | None = None,
+    contract_type: str = "bounded_capped_decision_support",
+) -> dict:
+    split_counts = split_counts or {"train": 512, "val": 64, "test": 64}
+    metric_family = [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high",
+    ]
+    rows = []
+    for spec in row_specs:
+        run_root = Path(spec["run_root"])
+        row_id = str(spec["row_id"])
+        metrics = json.loads((run_root / f"metrics_{row_id}.json").read_text(encoding="utf-8"))
+        model_profile = json.loads((run_root / f"model_profile_{row_id}.json").read_text(encoding="utf-8"))
+        rows.append(
+            {
+                "row_id": row_id,
+                "row_role": str(spec["row_role"]),
+                "row_status": str(spec.get("row_status", "capped_decision_support")),
+                "claim_scope": str(spec.get("claim_scope", "bounded_capped_decision_support_only")),
+                "run_root": str(run_root),
+                "source_document": str(spec.get("source_document", "docs/example.md")),
+                "task_id": "2d_cfd_cns",
+                "contract_type": contract_type,
+                "dataset_file": str(spec.get("dataset_file", "/tmp/fake-cfd-cns.hdf5")),
+                "history_len": int(spec.get("history_len", 2)),
+                "epochs": int(spec.get("epochs", 40)),
+                "split_counts": dict(spec.get("split_counts", split_counts)),
+                "max_windows_per_trajectory": int(spec.get("max_windows_per_trajectory", 8)),
+                "emitted_window_counts": dict(
+                    spec.get(
+                        "emitted_window_counts",
+                        {
+                            "train": int(spec.get("split_counts", split_counts)["train"]) * 8,
+                            "val": int(spec.get("split_counts", split_counts)["val"]) * 8,
+                            "test": int(spec.get("split_counts", split_counts)["test"]) * 8,
+                        },
+                    )
+                ),
+                "normalization_contract_summary": "train-only per-field normalization",
+                "training_recipe_summary": "task-local mse override; Adam lr=2e-4",
+                "metric_family": list(metric_family),
+                "metrics": {
+                    key: float(metrics[key])
+                    for key in ["err_RMSE", "err_nRMSE", "relative_l2", "fRMSE_low", "fRMSE_mid", "fRMSE_high"]
+                },
+                "parameter_count": int(model_profile["parameter_count"]),
+                "runtime_sec": float(metrics["runtime_sec"]),
+                "provenance_pointers": {
+                    "invocation_json": str(run_root / "invocation.json"),
+                    "dataset_manifest_json": str(run_root / "dataset_manifest.json"),
+                    "split_manifest_json": str(run_root / "split_manifest.json"),
+                    "metrics_json": str(run_root / f"metrics_{row_id}.json"),
+                    "model_profile_json": str(run_root / f"model_profile_{row_id}.json"),
+                    "comparison_summary_json": str(run_root / "comparison_summary.json"),
+                },
+                "asset_pointers": {
+                    "sample_npz": str(run_root / f"comparison_{row_id}_sample0.npz"),
+                },
+                "runtime_provenance": {
+                    "python_executable": "/tmp/fake-python",
+                    "cwd": str(tmp_path := run_root.parent),
+                },
+                "known_provenance_gaps": {
+                    "accelerator": "missing in run root artifacts",
+                },
+            }
+        )
+    headline_row_ids = [str(spec["row_id"]) for spec in row_specs if spec["row_role"] == "headline"]
+    continuity_row_ids = [str(spec["row_id"]) for spec in row_specs if spec["row_role"] == "continuity"]
+    return {
+        "schema_version": "pdebench_cns_paper_locked_rows_v2",
+        "contract_authority": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md",
+        "contract_type": contract_type,
+        "task_id": "2d_cfd_cns",
+        "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+        "history_len": 2,
+        "epochs": 40,
+        "split_counts": dict(split_counts),
+        "max_windows_per_trajectory": 8,
+        "emitted_window_counts": {
+            "train": int(split_counts["train"]) * 8,
+            "val": int(split_counts["val"]) * 8,
+            "test": int(split_counts["test"]) * 8,
+        },
+        "training_loss": "mse",
+        "batch_size": 4,
+        "metric_family": list(metric_family),
+        "selected_contract": {
+            "task_id": "2d_cfd_cns",
+            "contract_type": contract_type,
+            "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+            "history_len": 2,
+            "epochs": 40,
+            "split_counts": dict(split_counts),
+            "max_windows_per_trajectory": 8,
+            "emitted_window_counts": {
+                "train": int(split_counts["train"]) * 8,
+                "val": int(split_counts["val"]) * 8,
+                "test": int(split_counts["test"]) * 8,
+            },
+            "normalization_contract_summary": "train-only per-field normalization",
+            "training_recipe_summary": "task-local mse override; Adam lr=2e-4",
+            "metric_family": list(metric_family),
+        },
+        "headline_row_ids": headline_row_ids,
+        "continuity_row_ids": continuity_row_ids,
+        "rows": rows,
+    }
+
+
+def test_cns_paper_bundle_audit_falls_back_when_1024_roster_is_incomplete(tmp_path):
+    from scripts.studies.pdebench_image128.cns_paper_bundle import audit_cns_paper_bundle_upgrade
+
+    spectral_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "spectral512",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.06,
+    )
+    fno_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "fno512",
+        profile_id="fno_base",
+        epochs=40,
+        err_nrmse=0.07,
+    )
+    unet_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "unet512",
+        profile_id="unet_strong",
+        epochs=40,
+        err_nrmse=0.67,
+    )
+    author_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "author512",
+        profile_id="author_ffno_cns_base",
+        epochs=40,
+        err_nrmse=0.03,
+    )
+    hybrid_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "hybrid512",
+        profile_id="hybrid_resnet_cns",
+        epochs=40,
+        err_nrmse=0.064,
+    )
+    spectral_1024 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "spectral1024",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.05,
+        split_counts={"train": 1024, "val": 128, "test": 128},
+    )
+
+    locked_rows_path = tmp_path / "locked_rows.json"
+    locked_rows_path.write_text(
+        json.dumps(
+            _build_fake_locked_rows_payload(
+                [
+                    {"row_id": "spectral_resnet_bottleneck_base", "row_role": "headline", "run_root": spectral_512},
+                    {"row_id": "fno_base", "row_role": "headline", "run_root": fno_512},
+                    {"row_id": "unet_strong", "row_role": "headline", "run_root": unet_512},
+                    {"row_id": "author_ffno_cns_base", "row_role": "headline", "run_root": author_512},
+                    {"row_id": "hybrid_resnet_cns", "row_role": "continuity", "run_root": hybrid_512},
+                ]
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = audit_cns_paper_bundle_upgrade(
+        locked_rows_path=locked_rows_path,
+        output_root=tmp_path / "bundle",
+        search_roots=[tmp_path],
+        preferred_run_roots={"spectral_resnet_bottleneck_base": spectral_1024},
+    )
+
+    assert payload["audit_outcome"] == "fallback_to_512_required"
+    assert payload["fallback_locked_rows_path"] == str(locked_rows_path)
+    assert payload["compatible_1024_rows"]["spectral_resnet_bottleneck_base"]["run_root"] == str(spectral_1024)
+    assert {item["row_id"] for item in payload["missing_or_incompatible_rows"]} == {
+        "fno_base",
+        "unet_strong",
+        "author_ffno_cns_base",
+    }
+    assert all("run_pdebench_image128_suite.py" in item["rerun_command"] for item in payload["missing_or_incompatible_rows"])
+    assert (tmp_path / "bundle" / "1024_same_cap_audit.json").exists()
+    assert (tmp_path / "bundle" / "1024_same_cap_audit.md").exists()
+
+
+def test_cns_paper_bundle_writes_tables_figures_and_validation_from_locked_rows(tmp_path):
+    from scripts.studies.pdebench_image128.cns_paper_bundle import run_cns_paper_bundle
+
+    spectral_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "spectral",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.06,
+    )
+    fno_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "fno",
+        profile_id="fno_base",
+        epochs=40,
+        err_nrmse=0.07,
+    )
+    unet_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "unet",
+        profile_id="unet_strong",
+        epochs=40,
+        err_nrmse=0.67,
+    )
+    author_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "author",
+        profile_id="author_ffno_cns_base",
+        epochs=40,
+        err_nrmse=0.03,
+    )
+    hybrid_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "hybrid",
+        profile_id="hybrid_resnet_cns",
+        epochs=40,
+        err_nrmse=0.064,
+    )
+
+    locked_rows_path = tmp_path / "locked_rows.json"
+    locked_rows_path.write_text(
+        json.dumps(
+            _build_fake_locked_rows_payload(
+                [
+                    {"row_id": "spectral_resnet_bottleneck_base", "row_role": "headline", "run_root": spectral_root},
+                    {"row_id": "fno_base", "row_role": "headline", "run_root": fno_root},
+                    {"row_id": "unet_strong", "row_role": "headline", "run_root": unet_root},
+                    {"row_id": "author_ffno_cns_base", "row_role": "headline", "run_root": author_root},
+                    {"row_id": "hybrid_resnet_cns", "row_role": "continuity", "run_root": hybrid_root},
+                ]
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = run_cns_paper_bundle(
+        locked_rows_path=locked_rows_path,
+        output_root=tmp_path / "bundle",
+        search_roots=[tmp_path],
+    )
+
+    table_payload = json.loads((tmp_path / "bundle" / "cns_paper_table_rows.json").read_text(encoding="utf-8"))
+    validation = json.loads((tmp_path / "bundle" / "bundle_validation.json").read_text(encoding="utf-8"))
+    sample_manifest = json.loads((tmp_path / "bundle" / "fixed_sample_manifest.json").read_text(encoding="utf-8"))
+    figure_manifest = json.loads((tmp_path / "bundle" / "figure_manifest.json").read_text(encoding="utf-8"))
+
+    assert result["bundle_kind"] == "fallback_512_bundle_used"
+    assert table_payload["benchmark_status"] == "paper_complete"
+    assert table_payload["headline_row_ids"] == [
+        "spectral_resnet_bottleneck_base",
+        "fno_base",
+        "unet_strong",
+        "author_ffno_cns_base",
+    ]
+    assert table_payload["continuity_row_ids"] == ["hybrid_resnet_cns"]
+    assert (tmp_path / "bundle" / "cns_paper_table_rows.csv").exists()
+    assert (tmp_path / "bundle" / "cns_paper_table_rows.tex").exists()
+    assert (tmp_path / "bundle" / "shared_field_scales.json").exists()
+    assert (tmp_path / "bundle" / "shared_error_scales.json").exists()
+    assert sample_manifest["sample_ids"] == [0]
+    assert validation["headline_contract_consistent"] is True
+    assert validation["mixed_cap_headline_table"] is False
+    assert validation["all_rows_capped_decision_support"] is True
+    assert figure_manifest["sample_ids"] == [0]
+    assert figure_manifest["rows_in_visual_bundle"] == [
+        "spectral_resnet_bottleneck_base",
+        "fno_base",
+        "unet_strong",
+        "author_ffno_cns_base",
+        "hybrid_resnet_cns",
+    ]
+    assert (tmp_path / "bundle" / "figures" / "sample000" / "density__target.png").exists()
+    assert (tmp_path / "bundle" / "figure_sources" / "sample000" / "spectral_resnet_bottleneck_base.npz").exists()
+
+
+def test_cns_paper_bundle_rejects_mixed_cap_headline_rows(tmp_path):
+    from scripts.studies.pdebench_image128.cns_paper_bundle import run_cns_paper_bundle
+
+    spectral_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "spectral",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.06,
+    )
+    fno_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "fno",
+        profile_id="fno_base",
+        epochs=40,
+        err_nrmse=0.07,
+        split_counts={"train": 1024, "val": 128, "test": 128},
+    )
+    unet_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "unet",
+        profile_id="unet_strong",
+        epochs=40,
+        err_nrmse=0.67,
+    )
+    author_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "author",
+        profile_id="author_ffno_cns_base",
+        epochs=40,
+        err_nrmse=0.03,
+    )
+
+    locked_rows_path = tmp_path / "locked_rows.json"
+    locked_rows_path.write_text(
+        json.dumps(
+            _build_fake_locked_rows_payload(
+                [
+                    {"row_id": "spectral_resnet_bottleneck_base", "row_role": "headline", "run_root": spectral_root},
+                    {
+                        "row_id": "fno_base",
+                        "row_role": "headline",
+                        "run_root": fno_root,
+                        "split_counts": {"train": 1024, "val": 128, "test": 128},
+                        "emitted_window_counts": {"train": 8192, "val": 1024, "test": 1024},
+                    },
+                    {"row_id": "unet_strong", "row_role": "headline", "run_root": unet_root},
+                    {"row_id": "author_ffno_cns_base", "row_role": "headline", "run_root": author_root},
+                ]
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="mixed-cap headline"):
+        run_cns_paper_bundle(
+            locked_rows_path=locked_rows_path,
+            output_root=tmp_path / "bundle",
+            search_roots=[tmp_path],
+        )

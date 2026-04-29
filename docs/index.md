@@ -118,6 +118,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, hybrid_resnet, pdebench, cns, row-lock, capped, manifest, ffno, provenance
 **Use this when:** Building the downstream CNS table/figure bundle, checking which run roots are the locked bounded rows, or confirming why the reused rows are acceptable for capped assembly but not yet paper-grade provenance-complete evidence.
 
+### [PDEBench CNS Paper Table/Figure Bundle Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md)
+**Description:** Durable summary for the assembled bounded CNS paper table/figure bundle, including the `1024` same-cap audit outcome, the final `512 / 64 / 64` fallback lock decision, the fixed sample/shared-scale policy, the emitted JSON/CSV/TeX plus figure artifacts, and the preserved provenance boundary that still blocks `paper_grade`.
+**Keywords:** neurips, hybrid_resnet, pdebench, cns, table, figure, bundle, fallback, scales
+**Use this when:** Locating the assembled CNS paper bundle artifacts, checking whether the bundle used the `1024` or `512` lane, or confirming the exact fixed-sample and claim-boundary policy.
+
 ### [NeurIPS Lines128 Paper-Quality CDI Benchmark Design](plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md)
 **Description:** Detailed design for a paper-quality `N=128` grid-lines CDI benchmark, including the fixed `lines128` contract, required Hybrid/FNO/FFNO rows, metric schema, visual comparison artifacts, provenance requirements, and benchmark execution handoff.
 **Keywords:** neurips, cdi, lines128, grid-lines, hybrid_resnet, fno, ffno, benchmark, paper-grade

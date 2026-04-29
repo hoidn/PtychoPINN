@@ -32,3 +32,16 @@ def test_docs_index_links_openfwi_flatvel_a_fallback_smoke_gate():
     index = Path("docs/index.md").read_text()
     assert "OpenFWI FlatVel-A Fallback Smoke Gate" in index
     assert Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/openfwi_flatvel_a_fallback_smoke_gate.md").exists()
+
+
+def test_study_index_registers_cns_paper_bundle_builder():
+    index = Path("docs/studies/index.md").read_text()
+    assert "cns-paper-table-figure-bundle" in index
+    assert "scripts/studies/pdebench_image128/cns_paper_bundle.py" in index
+    assert Path("scripts/studies/pdebench_image128/cns_paper_bundle.py").exists()
+
+
+def test_docs_index_links_cns_paper_bundle_summary():
+    index = Path("docs/index.md").read_text()
+    assert "PDEBench CNS Paper Table/Figure Bundle Summary" in index
+    assert Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md").exists()

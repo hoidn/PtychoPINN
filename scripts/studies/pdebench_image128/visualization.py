@@ -43,3 +43,15 @@ def cfd_cns_field_visual_spec(
         "vmin": float(min(np.min(item) for item in stack)),
         "vmax": float(max(np.max(item) for item in stack)),
     }
+
+
+def cfd_cns_shared_scale_bundle(
+    field_name: str,
+    *,
+    value_arrays: Sequence[np.ndarray],
+    error_arrays: Sequence[np.ndarray],
+) -> dict[str, Any]:
+    return {
+        "value_scale": cfd_cns_field_visual_spec(field_name, value_arrays, is_error=False),
+        "error_scale": cfd_cns_field_visual_spec(field_name, error_arrays, is_error=True),
+    }

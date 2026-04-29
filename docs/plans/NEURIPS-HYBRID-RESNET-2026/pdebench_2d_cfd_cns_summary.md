@@ -52,6 +52,10 @@ Row-lock follow-up:
 - accepted rows remain usable for `capped_decision_support` assembly only; the
   reused roots still lack standalone repo-git, run-log, and exit-code artifacts,
   so this lock does not make them paper-grade provenance-complete rows
+- the assembled paper table/figure bundle is summarized in
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md`
+  and stored under
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/`
 
 ## Implemented Contract
 

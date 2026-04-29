@@ -1538,3 +1538,214 @@ def write_split_cap_scaling_trend(
         for row in csv_rows:
             writer.writerow({field: row.get(field, "") for field in fields})
     return json_path, csv_path, payload
+
+
+_CNS_PAPER_TABLE_FIELDS = [
+    "row_id",
+    "row_role",
+    "row_status",
+    "claim_scope",
+    "split_label",
+    "cap_label",
+    "training_scope",
+    "err_nRMSE",
+    "err_RMSE",
+    "relative_l2",
+    "fRMSE_low",
+    "fRMSE_mid",
+    "fRMSE_high",
+    "parameter_count",
+    "runtime_sec",
+    "hardware_label",
+    "hardware_runtime_note",
+    "source_run_root",
+]
+
+
+def _row_split_label(split_counts: dict[str, Any]) -> str:
+    return f"{int(split_counts['train'])} / {int(split_counts['val'])} / {int(split_counts['test'])}"
+
+
+def _row_cap_label(split_counts: dict[str, Any]) -> str:
+    return f"{int(split_counts['train'])}_{int(split_counts['val'])}_{int(split_counts['test'])}"
+
+
+def _hardware_fields_for_locked_row(row: dict[str, Any]) -> tuple[str, str]:
+    runtime_provenance = row.get("runtime_provenance", {}) or {}
+    accelerator = runtime_provenance.get("accelerator")
+    python_executable = runtime_provenance.get("python_executable")
+    if isinstance(accelerator, str) and accelerator.strip():
+        note_bits = [f"accelerator={accelerator.strip()}"]
+        if isinstance(python_executable, str) and python_executable.strip():
+            note_bits.append(f"python={python_executable.strip()}")
+        return accelerator.strip(), "; ".join(note_bits)
+    missing_note = "artifact_missing_precise_accelerator"
+    if isinstance(python_executable, str) and python_executable.strip():
+        return missing_note, f"{missing_note}; python={python_executable.strip()}"
+    return missing_note, missing_note
+
+
+def build_cns_paper_table_bundle(
+    locked_rows_payload: dict[str, Any],
+    *,
+    authoritative_manifest_path: str,
+) -> dict[str, Any]:
+    rows = list(locked_rows_payload.get("rows", []))
+    if not rows:
+        raise ValueError("locked rows payload must contain rows")
+
+    rows_by_id = {str(row["row_id"]): dict(row) for row in rows}
+    headline_row_ids = [str(row_id) for row_id in locked_rows_payload.get("headline_row_ids", [])]
+    continuity_row_ids = [str(row_id) for row_id in locked_rows_payload.get("continuity_row_ids", [])]
+    if not headline_row_ids:
+        raise ValueError("locked rows payload must contain headline_row_ids")
+
+    missing_rows = [row_id for row_id in [*headline_row_ids, *continuity_row_ids] if row_id not in rows_by_id]
+    if missing_rows:
+        raise ValueError(f"locked rows payload missing row entries for: {', '.join(missing_rows)}")
+
+    headline_split_labels = {_row_split_label(rows_by_id[row_id]["split_counts"]) for row_id in headline_row_ids}
+    if len(headline_split_labels) != 1:
+        raise ValueError(f"mixed-cap headline rows are not allowed: {sorted(headline_split_labels)}")
+
+    normalized_rows: list[dict[str, Any]] = []
+    benchmark_incomplete = False
+    for row_id in [*headline_row_ids, *continuity_row_ids]:
+        row = rows_by_id[row_id]
+        metrics = dict(row.get("metrics", {}))
+        hardware_label, hardware_runtime_note = _hardware_fields_for_locked_row(row)
+        normalized = {
+            "row_id": row_id,
+            "row_role": str(row.get("row_role", "")),
+            "row_status": str(row.get("row_status", "")),
+            "claim_scope": str(row.get("claim_scope", "")),
+            "split_label": _row_split_label(row["split_counts"]),
+            "cap_label": _row_cap_label(row["split_counts"]),
+            "training_scope": "capped_decision_support",
+            "err_nRMSE": metrics.get("err_nRMSE"),
+            "err_RMSE": metrics.get("err_RMSE"),
+            "relative_l2": metrics.get("relative_l2"),
+            "fRMSE_low": metrics.get("fRMSE_low"),
+            "fRMSE_mid": metrics.get("fRMSE_mid"),
+            "fRMSE_high": metrics.get("fRMSE_high"),
+            "parameter_count": row.get("parameter_count"),
+            "runtime_sec": row.get("runtime_sec"),
+            "hardware_label": hardware_label,
+            "hardware_runtime_note": hardware_runtime_note,
+            "source_run_root": str(row.get("run_root", "")),
+            "missing_fields": [],
+        }
+        for field in [
+            "err_nRMSE",
+            "err_RMSE",
+            "relative_l2",
+            "fRMSE_low",
+            "fRMSE_mid",
+            "fRMSE_high",
+            "parameter_count",
+            "runtime_sec",
+            "source_run_root",
+        ]:
+            value = normalized.get(field)
+            if value in (None, ""):
+                normalized["missing_fields"].append(field)
+        if normalized["row_status"] != "capped_decision_support":
+            normalized["missing_fields"].append("row_status_not_capped_decision_support")
+        if "paper_grade" in normalized["claim_scope"] or "full_training" in normalized["claim_scope"]:
+            normalized["missing_fields"].append("claim_scope_out_of_bounds")
+        if normalized["missing_fields"]:
+            benchmark_incomplete = True
+        normalized_rows.append(normalized)
+
+    return {
+        "schema_version": "pdebench_cns_paper_table_bundle_v1",
+        "authoritative_locked_rows_path": str(authoritative_manifest_path),
+        "contract_authority": str(locked_rows_payload.get("contract_authority", "")),
+        "headline_row_ids": headline_row_ids,
+        "continuity_row_ids": continuity_row_ids,
+        "headline_rows": [row for row in normalized_rows if row["row_role"] == "headline"],
+        "continuity_rows": [row for row in normalized_rows if row["row_role"] != "headline"],
+        "rows": normalized_rows,
+        "benchmark_status": "benchmark_incomplete" if benchmark_incomplete else "paper_complete",
+        "claim_boundary": "capped_decision_support_only",
+    }
+
+
+def validate_cns_paper_table_bundle(payload: dict[str, Any]) -> dict[str, Any]:
+    rows = list(payload.get("rows", []))
+    headline_rows = [row for row in rows if row.get("row_role") == "headline"]
+    split_labels = {row.get("split_label") for row in headline_rows}
+    mixed_cap = len(split_labels) > 1
+    all_rows_capped = all(str(row.get("row_status")) == "capped_decision_support" for row in rows)
+    no_paper_grade = all(
+        "paper_grade" not in str(row.get("claim_scope", "")) and "full_training" not in str(row.get("claim_scope", ""))
+        for row in rows
+    )
+    return {
+        "schema_version": "pdebench_cns_paper_table_validation_v1",
+        "headline_contract_consistent": not mixed_cap,
+        "mixed_cap_headline_table": mixed_cap,
+        "all_rows_capped_decision_support": all_rows_capped,
+        "no_paper_grade_or_full_training_labels": no_paper_grade,
+        "benchmark_status": str(payload.get("benchmark_status", "")),
+    }
+
+
+def write_cns_paper_table_bundle(payload: dict[str, Any], output_root: Path) -> tuple[Path, Path, Path]:
+    output_root = Path(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+    json_path = output_root / "cns_paper_table_rows.json"
+    csv_path = output_root / "cns_paper_table_rows.csv"
+    tex_path = output_root / "cns_paper_table_rows.tex"
+
+    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=[*_CNS_PAPER_TABLE_FIELDS, "missing_fields"])
+        writer.writeheader()
+        for row in payload.get("rows", []):
+            writer.writerow(
+                {
+                    **{field: row.get(field, "") for field in _CNS_PAPER_TABLE_FIELDS},
+                    "missing_fields": ",".join(row.get("missing_fields", [])),
+                }
+            )
+
+    lines = [
+        "% Auto-generated CNS paper table bundle",
+        "\\begin{tabular}{lllrrrrrrrl}",
+        "Row & Role & Split & nRMSE & RMSE & relL2 & fLow & fMid & fHigh & Params & Runtime \\\\",
+        "\\hline",
+    ]
+    for row in payload.get("rows", []):
+        lines.append(
+            " & ".join(
+                [
+                    str(row.get("row_id", "")),
+                    str(row.get("row_role", "")),
+                    str(row.get("split_label", "")),
+                    _format_tex_value(row.get("err_nRMSE")),
+                    _format_tex_value(row.get("err_RMSE")),
+                    _format_tex_value(row.get("relative_l2")),
+                    _format_tex_value(row.get("fRMSE_low")),
+                    _format_tex_value(row.get("fRMSE_mid")),
+                    _format_tex_value(row.get("fRMSE_high")),
+                    _format_tex_value(row.get("parameter_count")),
+                    _format_tex_value(row.get("runtime_sec")),
+                ]
+            )
+            + " \\\\"
+        )
+    lines.append("\\end{tabular}")
+    tex_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return json_path, csv_path, tex_path
+
+
+def _format_tex_value(value: Any) -> str:
+    if value in (None, ""):
+        return "\\textit{missing}"
+    if isinstance(value, (int, np.integer)):
+        return str(int(value))
+    if isinstance(value, (float, np.floating)):
+        return f"{float(value):.6g}"
+    return str(value)
