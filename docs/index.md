@@ -108,6 +108,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, hybrid_resnet, paper, evidence, cdi, cns, tables, figures, provenance
 **Use this when:** Deciding what evidence must exist before drafting result claims, splitting paper-evidence work into backlog items, or checking paper-grade versus decision-support boundaries across CDI and CNS.
 
+### [NeurIPS Hybrid ResNet Paper Evidence Index](plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md)
+**Description:** Durable outcome map for completed NeurIPS backlog items, linking each completed CNS/CDI evidence item to its summary authority, artifact root, evidence tier, protocol/cap, and downstream paper use.
+**Keywords:** neurips, hybrid_resnet, paper, evidence-index, completed-backlog, outcomes, artifacts, claim-boundary
+**Use this when:** Locating completed backlog results, checking whether an artifact is paper-facing or decision-support only, finding table/figure bundle roots, or auditing which summary owns a claim.
+
 ### [NeurIPS Born/Rytov Diffraction Tomography Candidate Lane Design](plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md)
 **Description:** Active candidate additional inverse-scattering lane for the NeurIPS SRU-Net manuscript, defining the Born/Rytov physical model, dataset contract, operator validation gates, dependencies, environment requirements, and a limited four-row preflight. This is concurrent candidate work on equal footing with WaveBench inverse source; it does not replace CDI `lines128` or PDEBench CNS and cannot support paper-table claims without a later evidence-package amendment.
 **Keywords:** neurips, brdt, born, rytov, diffraction-tomography, inverse-scattering, candidate, sru-net, physics
@@ -157,6 +162,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Description:** Checked-in launch authority for the minimum draftable `lines128` CDI subset, preserving the frozen contract/comparator/seed from the harness preflight while authorizing exactly four rows: supervised CDI `cnn`, PINN CDI `cnn`, `pinn_hybrid_resnet`, and `pinn_fno_vanilla`.
 **Keywords:** neurips, cdi, lines128, execution-authority, minimum-subset, cnn, hybrid_resnet, fno_vanilla
 **Use this when:** Verifying whether the minimum draftable CDI subset may launch, auditing the exact four-row roster and training procedures, or checking which later rows remain out of scope for the complete table.
+
+### [NeurIPS Lines128 Minimum Paper Table Summary](plans/NEURIPS-HYBRID-RESNET-2026/lines128_minimum_paper_table_summary.md)
+**Description:** Durable completion summary for the minimum draftable `lines128` CDI subset, recording the chosen same-root recovery path, the recovered `paper_complete` four-row bundle, archived verification evidence, exact row roster, and the preserved boundary between this minimum subset and the later complete `lines128` table.
+**Keywords:** neurips, cdi, lines128, minimum-subset, paper-complete, same-root-recovery, hybrid_resnet, fno_vanilla
+**Use this when:** Locating the finished minimum CDI paper-table artifacts, checking which root was promoted to the authoritative four-row bundle, or confirming what remains out of scope for the later complete `lines128` benchmark.
 
 ### [NeurIPS Lines128 Paper Benchmark Harness Summary](plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_harness_summary.md)
 **Description:** Implementation summary for the readiness-only `lines128` paper benchmark harness pass, covering the thin harness entry point, spectral-row wrapper routing, paper-schema validation artifacts, and the explicit boundary that the full benchmark remains unlaunched.

@@ -446,6 +446,69 @@ def test_minimum_subset_executes_four_locked_rows_and_emits_bundle(tmp_path, mon
     ]
 
 
+def test_minimum_subset_can_request_existing_recon_reuse(tmp_path, monkeypatch):
+    from scripts.studies.lines128_paper_benchmark import run_lines128_paper_benchmark
+
+    captured = {}
+
+    def fake_run_grid_lines_compare(**kwargs):
+        captured.update(kwargs)
+        return {
+            "row_payloads": {
+                model_id: {
+                    "model_label": model_id,
+                    "architecture_id": "cnn" if model_id in {"baseline", "pinn"} else model_id.replace("pinn_", ""),
+                    "training_procedure": "supervised" if model_id == "baseline" else "pinn",
+                    "N": 128,
+                    "parameter_count": 1,
+                    "epoch_budget": 40,
+                    "final_completed_epoch": 40,
+                    "final_train_loss": 0.1,
+                    "validation_loss": {"status": "not_emitted", "value": None},
+                    "runtime_summary": {"recovered_from_existing_artifacts": True},
+                    "hardware_summary": {"backend": "test"},
+                    "row_status": "completed",
+                    "caveats": [],
+                    "metrics": {
+                        "mae": (0.1, 0.1),
+                        "mse": (0.01, 0.01),
+                        "psnr": (1.0, 1.0),
+                        "ssim": (0.9, 0.9),
+                        "ms_ssim": (0.8, 0.8),
+                        "frc50": (2, 2),
+                    },
+                }
+                for model_id in (
+                    "baseline",
+                    "pinn",
+                    "pinn_hybrid_resnet",
+                    "pinn_fno_vanilla",
+                )
+            }
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines128_paper_benchmark.run_grid_lines_compare",
+        fake_run_grid_lines_compare,
+    )
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+    authority_note = _write_execution_authority_note(tmp_path / "authority.md")
+    execution_manifest = _write_execution_manifest(
+        tmp_path / "execution" / "benchmark_execution_decisions.json",
+    )
+
+    run_lines128_paper_benchmark(
+        decision_artifact=decision_artifact,
+        execution_authority_note=authority_note,
+        execution_manifest=execution_manifest,
+        output_dir=tmp_path / "out",
+        reuse_existing_recons=True,
+    )
+
+    assert captured["reuse_existing_recons"] is True
+
+
 def test_preflight_rejects_seed_policy_that_does_not_match_fixed_contract(tmp_path):
     from scripts.studies.lines128_paper_benchmark import run_lines128_paper_benchmark_preflight
 

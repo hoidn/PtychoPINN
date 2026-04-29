@@ -164,6 +164,10 @@ def _json_default(value: object) -> object:
 def _to_float(value: object) -> float:
     if isinstance(value, bool):
         raise TypeError("Boolean is not a valid metric value")
+    if isinstance(value, np.integer):
+        return float(int(value))
+    if isinstance(value, np.floating):
+        return float(value)
     if isinstance(value, (int, float)):
         return float(value)
     if isinstance(value, str):
@@ -173,6 +177,8 @@ def _to_float(value: object) -> float:
 
 def _extract_pair(model_metrics: dict, metric_key: str) -> Optional[Tuple[float, float]]:
     raw = model_metrics.get(metric_key)
+    if isinstance(raw, np.ndarray):
+        raw = raw.tolist()
     if not isinstance(raw, (list, tuple)) or len(raw) < 2:
         return None
     try:

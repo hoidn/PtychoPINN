@@ -8,11 +8,12 @@ import inspect
 import json
 import os
 import random
+import re
 import shutil
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Iterable, List, Mapping, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 import numpy as np
 
@@ -83,6 +84,201 @@ def _json_default(value):
     if isinstance(value, np.ndarray):
         return value.tolist()
     raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+def _load_json_if_exists(path: Path) -> Dict[str, Any]:
+    candidate = Path(path)
+    if not candidate.exists():
+        return {}
+    with candidate.open("r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+    return dict(payload) if isinstance(payload, dict) else {}
+
+
+def _current_torch_hardware_summary() -> Dict[str, object]:
+    try:
+        import torch
+    except Exception:
+        return {"backend": "pytorch", "accelerator": "unknown"}
+
+    accelerator = "cpu"
+    if torch.cuda.is_available():
+        try:
+            accelerator = torch.cuda.get_device_name(torch.cuda.current_device())
+        except Exception:
+            accelerator = "cuda"
+    else:
+        mps_backend = getattr(torch.backends, "mps", None)
+        if mps_backend is not None and mps_backend.is_available():
+            accelerator = "mps"
+    return {
+        "backend": "pytorch",
+        "accelerator": accelerator,
+    }
+
+
+def _current_tf_hardware_summary() -> Dict[str, object]:
+    try:
+        import tensorflow as tf
+    except Exception:
+        return {"backend": "tensorflow", "accelerator": "unknown"}
+
+    gpus = tf.config.list_physical_devices("GPU")
+    accelerator = "cpu"
+    if gpus:
+        accelerator = getattr(gpus[0], "name", None) or "gpu"
+    return {
+        "backend": "tensorflow",
+        "accelerator": accelerator,
+    }
+
+
+def _parse_wall_time_seconds(payload: Mapping[str, Any]) -> Optional[float]:
+    started = payload.get("started_at_utc") or payload.get("timestamp_utc")
+    finished = payload.get("finished_at_utc")
+    if not isinstance(started, str) or not isinstance(finished, str):
+        return None
+    try:
+        start_dt = datetime.fromisoformat(started)
+        finish_dt = datetime.fromisoformat(finished)
+    except ValueError:
+        return None
+    return max(0.0, (finish_dt - start_dt).total_seconds())
+
+
+def _recovered_runtime_summary(invocation_payload: Mapping[str, Any]) -> Dict[str, object]:
+    summary: Dict[str, object] = {"recovered_from_existing_artifacts": True}
+    wall_time = _parse_wall_time_seconds(invocation_payload)
+    if wall_time is not None:
+        summary["command_wall_time_sec"] = float(wall_time)
+    return summary
+
+
+def _count_torch_state_dict_parameters(model_path: Path) -> Optional[int]:
+    try:
+        import torch
+    except Exception:
+        return None
+
+    path = Path(model_path)
+    if not path.exists():
+        return None
+    payload = torch.load(path, map_location="cpu")
+    state_dict = payload.get("state_dict") if isinstance(payload, Mapping) and "state_dict" in payload else payload
+    if not isinstance(state_dict, Mapping):
+        return None
+    total = 0
+    for tensor in state_dict.values():
+        numel = getattr(tensor, "numel", None)
+        if callable(numel):
+            total += int(numel())
+    return total or None
+
+
+def _recover_tf_final_train_loss(log_text: str, model_id: str) -> Optional[float]:
+    if model_id == "pinn":
+        matches = re.findall(r"loss:\s*([0-9.eE+-]+)\s*-\s*pred_intensity_loss", log_text)
+    else:
+        matches = re.findall(
+            r"conv2d_[^\n]*?-\s*loss:\s*([0-9.eE+-]+)(?:\s*-\s*val_|$)",
+            log_text,
+        )
+    if not matches:
+        return None
+    try:
+        return float(matches[-1])
+    except ValueError:
+        return None
+
+
+def _load_tf_parameter_count(output_dir: Path, model_id: str) -> Optional[int]:
+    if model_id == "baseline":
+        model_path = output_dir / "baseline" / "baseline.keras"
+        if not model_path.exists():
+            return None
+        import tensorflow as tf
+
+        model = tf.keras.models.load_model(model_path, compile=False)
+        count_params = getattr(model, "count_params", None)
+        return int(count_params()) if callable(count_params) else None
+
+    archive_zip = output_dir / "pinn" / "wts.h5.zip"
+    if not archive_zip.exists():
+        return None
+    from ptycho import model_manager
+
+    loaded = model_manager.ModelManager.load_multiple_models(
+        str(archive_zip.with_suffix("")),
+        ["autoencoder"],
+    )
+    model = loaded.get("autoencoder") if isinstance(loaded, Mapping) else None
+    if model is None and isinstance(loaded, Mapping) and loaded:
+        model = next(iter(loaded.values()))
+    count_params = getattr(model, "count_params", None)
+    return int(count_params()) if callable(count_params) else None
+
+
+def _recover_tf_row_payload(
+    *,
+    output_dir: Path,
+    model_id: str,
+    n_value: int,
+    epoch_budget: int,
+    metrics: Mapping[str, object],
+) -> Dict[str, object]:
+    log_text = ""
+    log_path = output_dir / "live_stdout.log"
+    if log_path.exists():
+        log_text = log_path.read_text(encoding="utf-8", errors="ignore")
+    invocation_payload = _load_json_if_exists(output_dir / "invocation.json")
+    return {
+        "model_label": PAPER_MODEL_LABELS.get(model_id, model_id),
+        "architecture_id": PAPER_ARCHITECTURE_OVERRIDES.get(model_id, MODEL_TO_LEGACY_ARCH.get(model_id, model_id)),
+        "training_procedure": PAPER_TRAINING_PROCEDURE_OVERRIDES.get(model_id, "pinn"),
+        "N": int(n_value),
+        "parameter_count": _load_tf_parameter_count(output_dir, model_id),
+        "epoch_budget": int(epoch_budget),
+        "final_completed_epoch": int(epoch_budget),
+        "final_train_loss": _recover_tf_final_train_loss(log_text, model_id),
+        "validation_loss": {"status": "not_emitted", "value": None},
+        "runtime_summary": _recovered_runtime_summary(invocation_payload),
+        "hardware_summary": _current_tf_hardware_summary(),
+        "row_status": "completed",
+        "caveats": ["recovered_from_existing_artifacts"],
+        "metrics": dict(metrics),
+    }
+
+
+def _recover_torch_row_payload(
+    *,
+    output_dir: Path,
+    model_id: str,
+    n_value: int,
+    metrics: Mapping[str, object],
+) -> Dict[str, object]:
+    run_dir = output_dir / "runs" / model_id
+    history_payload = _load_json_if_exists(run_dir / "history.json")
+    train_loss = history_payload.get("train_loss", [])
+    invocation_payload = _load_json_if_exists(run_dir / "invocation.json")
+    parsed_args = invocation_payload.get("parsed_args", {})
+    epoch_budget = parsed_args.get("epochs", len(train_loss) or None)
+    final_train_loss = float(train_loss[-1]) if isinstance(train_loss, list) and train_loss else None
+    return {
+        "model_label": PAPER_MODEL_LABELS.get(model_id, model_id),
+        "architecture_id": PAPER_ARCHITECTURE_OVERRIDES.get(model_id, MODEL_TO_LEGACY_ARCH.get(model_id, model_id)),
+        "training_procedure": PAPER_TRAINING_PROCEDURE_OVERRIDES.get(model_id, "pinn"),
+        "N": int(n_value),
+        "parameter_count": _count_torch_state_dict_parameters(run_dir / "model.pt"),
+        "epoch_budget": int(epoch_budget) if epoch_budget is not None else None,
+        "final_completed_epoch": int(len(train_loss) or epoch_budget or 0),
+        "final_train_loss": final_train_loss,
+        "validation_loss": {"status": "not_emitted", "value": None},
+        "runtime_summary": _recovered_runtime_summary(invocation_payload),
+        "hardware_summary": _current_torch_hardware_summary(),
+        "row_status": "completed",
+        "caveats": ["recovered_from_existing_artifacts"],
+        "metrics": dict(metrics),
+    }
 
 
 def _default_paper_row_payload(model_id: str, *, n_value: int) -> Dict[str, object]:
@@ -628,6 +824,39 @@ def run_grid_lines_compare(
             legacy_metrics = {
                 model_id: payload["metrics"] for model_id, payload in metrics_by_model.items()
             }
+            row_payloads: Dict[str, Dict[str, object]] = {}
+            for model_id in selected_models:
+                n_for_model = int(resolved_model_n.get(model_id, N))
+                metric_payload = legacy_metrics.get(model_id, {})
+                try:
+                    if model_id in TF_MODEL_IDS:
+                        recovered = _recover_tf_row_payload(
+                            output_dir=output_dir,
+                            model_id=model_id,
+                            n_value=n_for_model,
+                            epoch_budget=int(torch_epochs or nepochs),
+                            metrics=metric_payload,
+                        )
+                    elif model_id in TORCH_MODEL_IDS:
+                        recovered = _recover_torch_row_payload(
+                            output_dir=output_dir,
+                            model_id=model_id,
+                            n_value=n_for_model,
+                            metrics=metric_payload,
+                        )
+                    else:
+                        recovered = {"metrics": metric_payload}
+                except Exception:
+                    recovered = {
+                        "caveats": ["recovered_from_existing_artifacts", "row_payload_recovery_failed"],
+                        "metrics": metric_payload,
+                    }
+                row_payloads[model_id] = _coerce_paper_row_payload(
+                    model_id,
+                    recovered,
+                    n_value=n_for_model,
+                    metrics=metric_payload,
+                )
             for model_id in selected_models:
                 run_dir = output_dir / "runs" / model_id
                 run_dir.mkdir(parents=True, exist_ok=True)
@@ -653,6 +882,7 @@ def run_grid_lines_compare(
                 "metrics_by_model": metrics_by_model,
                 "gt_recon": str(precomputed_gt),
                 "recon_paths": {k: str(v) for k, v in precomputed_recons.items()},
+                "row_payloads": row_payloads,
             }
 
         tf_cfg = GridLinesConfig(

@@ -122,6 +122,86 @@ def test_write_paper_bundle_marks_paper_complete_when_required_fields_present(tm
     assert metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"] == []
 
 
+def test_write_paper_bundle_accepts_numpy_metric_pairs(tmp_path):
+    row_payloads = {
+        "pinn_hybrid_resnet": {
+            "model_label": "Hybrid ResNet",
+            "architecture_id": "hybrid_resnet",
+            "training_procedure": "pinn",
+            "N": 128,
+            "parameter_count": 123456,
+            "epoch_budget": 40,
+            "final_completed_epoch": 40,
+            "final_train_loss": 0.123,
+            "validation_loss": {"status": "no_validation_series", "value": None},
+            "runtime_summary": {"train_wall_time_sec": 12.5},
+            "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
+            "row_status": "completed",
+            "caveats": [],
+            "metrics": {
+                "mae": np.array([0.1, 0.2], dtype=np.float32),
+                "mse": np.array([0.01, 0.02], dtype=np.float32),
+                "psnr": np.array([70.0, 65.0], dtype=np.float32),
+                "ssim": np.array([0.9, 0.8], dtype=np.float32),
+                "ms_ssim": np.array([0.85, 0.75], dtype=np.float32),
+                "frc50": np.array([64, 48], dtype=np.float32),
+            },
+        }
+    }
+
+    write_paper_benchmark_bundle(
+        output_dir=tmp_path,
+        row_payloads=row_payloads,
+        required_rows=("pinn_hybrid_resnet",),
+        fixed_sample_ids=[0, 1],
+        shared_visual_scales={"amp": {"vmin": 0.0, "vmax": 1.0}},
+    )
+
+    metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "paper_complete"
+    assert metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"] == []
+
+
+def test_write_paper_bundle_accepts_numpy_scalar_pairs_in_tuples(tmp_path):
+    row_payloads = {
+        "pinn_hybrid_resnet": {
+            "model_label": "Hybrid ResNet",
+            "architecture_id": "hybrid_resnet",
+            "training_procedure": "pinn",
+            "N": 128,
+            "parameter_count": 123456,
+            "epoch_budget": 40,
+            "final_completed_epoch": 40,
+            "final_train_loss": 0.123,
+            "validation_loss": {"status": "no_validation_series", "value": None},
+            "runtime_summary": {"train_wall_time_sec": 12.5},
+            "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
+            "row_status": "completed",
+            "caveats": [],
+            "metrics": {
+                "mae": (np.float32(0.1), np.float32(0.2)),
+                "mse": (np.float32(0.01), np.float32(0.02)),
+                "psnr": (np.float32(70.0), np.float32(65.0)),
+                "ssim": (np.float32(0.9), np.float32(0.8)),
+                "ms_ssim": (np.float32(0.85), np.float32(0.75)),
+                "frc50": (np.float32(64), np.float32(48)),
+            },
+        }
+    }
+
+    write_paper_benchmark_bundle(
+        output_dir=tmp_path,
+        row_payloads=row_payloads,
+        required_rows=("pinn_hybrid_resnet",),
+        fixed_sample_ids=[0, 1],
+        shared_visual_scales={"amp": {"vmin": 0.0, "vmax": 1.0}},
+    )
+
+    metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "paper_complete"
+    assert metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"] == []
+
+
 def test_write_paper_bundle_emits_model_manifest_with_row_identity_fields(tmp_path):
     row_payloads = {
         "baseline": {

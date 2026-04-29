@@ -23,8 +23,8 @@
   - classification: `failed_recoverable`
   - basis: TensorFlow `baseline` and `pinn` training/inference plus stitched metrics completed, but row collation failed before Torch rows launched.
 - `runs/minimum_subset_20260429T213028Z`
-  - classification: `failed_recoverable`
-  - basis: all four required rows completed and row-local artifacts were written, but final bundle collation crashed in `scripts/studies/metrics_tables.py` on nested `numpy.float32` JSON serialization.
+  - classification: `recovered_same_root_paper_complete`
+  - basis: all four required rows had already completed in this root; the remaining collation gaps were closed by same-root recovery, and the root now emits a `paper_complete` merged bundle with no missing required row fields.
 - `runs/minimum_subset_20260429T224103Z`
   - classification: `failed_recoverable`
   - basis: post-fix fresh-root rerun started under tmux with a tracked PID, then failed during dataset NPZ writing with `OSError: [Errno 28] No space left on device`.
@@ -36,7 +36,26 @@
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/execution/benchmark_execution_decisions.json`
   remain the launch-controlling surfaces for this item.
 
-## Next Action Root
+## Chosen Execution Path
+
+- chosen path: `same_root_recovery`
+- chosen root:
+  `runs/minimum_subset_20260429T213028Z`
+- completion basis:
+  - final recovery used the existing row-local TensorFlow and PyTorch artifacts
+    from the chosen root
+  - no cross-root row mixing was used
+  - no retraining was required after the deterministic gates passed on the
+    patched recovery code
+  - the merged root now reports:
+    - `benchmark_status=paper_complete`
+    - `claim_boundary=minimum_draftable_cdi_subset`
+    - empty `missing_fields_by_row` for all four required rows
+
+## Current Root Status
 
 - No active writer remains.
-- A compliant fresh rerun now requires additional free space on `/` before a new `minimum_subset_<timestamp>` root can be launched.
+- The authoritative minimum-table bundle root is now
+  `runs/minimum_subset_20260429T213028Z`.
+- Any future fresh rerun still requires additional free space on `/` before a
+  new `minimum_subset_<timestamp>` root can be launched.

@@ -442,6 +442,7 @@ def _run_compare_execution(
     execution_surface: Mapping[str, object],
     fixed_contract: Mapping[str, object],
     output_dir: Path,
+    reuse_existing_recons: bool = False,
 ) -> Dict[str, object]:
     rows = execution_surface["rows"]
     selected_models = tuple(str(row["model_id"]) for row in rows if row["required_for_minimum_subset"])
@@ -478,6 +479,7 @@ def _run_compare_execution(
         fno_blocks=int(fixed_contract["fno_blocks"]),
         fno_cnn_blocks=int(fixed_contract["fno_cnn_blocks"]),
         dataset_source=str(fixed_contract["dataset_source"]),
+        reuse_existing_recons=reuse_existing_recons,
     )
 
 
@@ -663,6 +665,7 @@ def run_lines128_paper_benchmark(
     execution_authority_note: Path,
     execution_manifest: Path,
     output_dir: Path,
+    reuse_existing_recons: bool = False,
 ) -> Dict[str, object]:
     payload = _load_decision_artifact(decision_artifact)
     fixed_contract = _validate_fixed_contract(payload)
@@ -697,6 +700,7 @@ def run_lines128_paper_benchmark(
         execution_surface=authority_surface,
         fixed_contract=fixed_contract,
         output_dir=output_dir,
+        reuse_existing_recons=reuse_existing_recons,
     )
 
     row_payloads = compare_result.get("row_payloads")
@@ -734,6 +738,11 @@ def parse_args(argv=None):
     parser.add_argument("--execution-authority-note", type=Path)
     parser.add_argument("--execution-manifest", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--reuse-existing-recons",
+        action="store_true",
+        help="Recover the minimum-subset bundle from existing recon and row-local artifacts in output-dir.",
+    )
     return parser.parse_args(argv)
 
 
@@ -773,6 +782,7 @@ def main(argv=None) -> None:
                 execution_authority_note=args.execution_authority_note,
                 execution_manifest=args.execution_manifest,
                 output_dir=args.output_dir,
+                reuse_existing_recons=args.reuse_existing_recons,
             )
         update_invocation_artifacts(
             invocation_json,
