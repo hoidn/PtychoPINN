@@ -228,6 +228,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, cdi, ptycho, ffno, generator, lines_256, hybrid_resnet
 **Use this when:** Planning the CDI/ptycho FFNO generator experiment or checking why CNS FFNO evidence does not answer CDI generator quality.
 
+### [NeurIPS Lines128 Paper-Quality CDI Benchmark Design](plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md)
+**Description:** Draft design for a paper-quality `N=128` grid-lines CDI benchmark comparing Hybrid ResNet, Hybrid-spectral, FNO/FNO-vanilla, and FFNO under one frozen best-configuration contract, with shared runner/wrapper architecture, metrics-table requirements, visual reconstruction outputs, provenance gates, and backlog decomposition.
+**Keywords:** neurips, cdi, ptycho, grid-lines, lines128, hybrid_resnet, hybrid-spectral, fno, ffno, benchmark, paper-quality
+**Use this when:** Planning the NeurIPS CDI benchmark table/figure tranche, deciding why FFNO support must land before the full benchmark, or checking the fixed `N=128` benchmark contract and required paper-grade artifacts.
+
 ### [NeurIPS Hybrid ResNet Hybrid-Spectral To FFNO Parameter-Space Plan](plans/NEURIPS-HYBRID-RESNET-2026/hybrid_spectral_ffno_parameter_space_cns_cdi_plan.md)
 **Description:** Backlog plan for a staged architecture study across intermediate points between Hybrid-spectral and FFNO, including encoder/downsampling, decoder, and bottleneck axes on both CNS and CDI/ptycho.
 **Keywords:** neurips, hybrid-spectral, ffno, architecture, parameter-space, cns, cdi, ptycho

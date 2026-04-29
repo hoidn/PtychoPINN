@@ -5,7 +5,8 @@
 
 ## Ordered Near-Term Priorities
 
-- Preserve the approved NeurIPS roadmap gates and phase order.
+- Preserve the approved NeurIPS roadmap gates and phase labels while allowing
+  the current Phase 2 plus Phase 3 CDI-preparation selection window.
 - Prefer work that removes active paper blockers or strengthens core comparison
   evidence.
 - Avoid spending execution budget on optional follow-ups while required

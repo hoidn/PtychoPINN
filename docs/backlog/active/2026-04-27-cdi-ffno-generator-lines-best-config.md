@@ -14,11 +14,17 @@ related_roadmap_phases:
 
 - Add an FFNO generator option to the CDI/ptycho Torch reconstruction path and
   compare it against Hybrid ResNet on the best documented lines data/training
-  configuration.
+  configuration needed by the Lines128 paper-quality CDI benchmark design.
 
 ## Scope
 
 - Use `docs/studies/index.md` to identify the relevant best lines run contract.
+- Treat
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md`
+  as the downstream benchmark authority: the paper-benchmark target is the
+  study-indexed `N=128`, `gridsize=1`, fixed-seed `seed=3` grid-lines contract,
+  unless a later checked-in pre-run decision artifact changes that contract for
+  every row.
 - Keep dataset, split, probe-scaling, loss, training budget, stitching, and
   metrics aligned with the Hybrid comparison row.
 - Produce quantitative metrics plus standard amplitude/phase comparison figures.
@@ -29,3 +35,5 @@ related_roadmap_phases:
 - If FFNO cannot satisfy the generator output contract, record a blocker rather
   than changing the CDI workflow silently.
 - Keep this separate from CNS-only FFNO and Hybrid-spectral ablations.
+- This item unlocks the Lines128 paper benchmark harness; it does not by itself
+  produce the full four-row paper table.
