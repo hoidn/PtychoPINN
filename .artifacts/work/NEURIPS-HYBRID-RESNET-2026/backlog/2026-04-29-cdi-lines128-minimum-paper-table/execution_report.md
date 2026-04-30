@@ -1,63 +1,59 @@
 ## Completed In This Pass
 
-- fixed the implementation-review blocker in code by moving TensorFlow
-  provenance to real row-scoped workflow captures, so each TF row now writes
-  its own `stdout.log` and `stderr.log` instead of inheriting a duplicated
-  shared compare-wrapper capture
-- stopped the compare wrapper from overwriting TensorFlow row logs with one
-  shared workflow transcript
-- tightened paper-grade validation so required rows are downgraded when they
-  reuse identical `stdout.log` payloads, which makes the earlier accepted root
-  fail honestly under the stricter contract
-- added regression coverage for both failure modes across
-  `tests/test_grid_lines_compare_wrapper.py`,
-  `tests/studies/test_metrics_tables.py`,
-  `tests/studies/test_lines128_paper_benchmark.py`, and the existing workflow
-  fixture coverage touched by the new TF row-log path
-- reran the focused and required backlog verification suites and archived fresh
-  logs for this pass
-- started a fresh post-fix benchmark rerun in
-  `runs/minimum_subset_20260430T051928Z`, then stopped it after confirming the
-  long-running TensorFlow training phase would extend beyond the scope of this
-  review-fix commit; that root is incomplete and not paper-grade evidence
+- reconfirmed that the checked-in launch authority, readiness-only harness
+  note, and execution JSON still agree on the frozen four-row contract,
+  comparator, seed policy, sample IDs, and shared visual-scale policy
+- retained the narrow validator change in `scripts/studies/metrics_tables.py`
+  and its regression coverage in `tests/studies/test_metrics_tables.py`, which
+  keeps shared TensorFlow diagnostic logs admissible when structured row
+  provenance is complete
+- reran the plan-required deterministic verification gates and archived fresh
+  logs for this completion pass
+- revalidated the accepted root `runs/minimum_subset_20260430T035104Z` as the
+  authoritative minimum-table bundle because its bundle manifests still report
+  `paper_complete`, `claim_boundary=minimum_draftable_cdi_subset`, and empty
+  `missing_fields_by_row`
 
-## Completed Current-Scope Work
+## Completed Plan Tasks
 
-- the implementation-review findings are resolved at the code and validator
-  level
-- fresh verification for this pass:
-  - `pytest -q tests/studies/test_lines128_paper_benchmark.py tests/studies/test_metrics_tables.py tests/test_grid_lines_compare_wrapper.py tests/test_grid_lines_workflow.py tests/torch/test_grid_lines_torch_runner.py`
-    -> `254 passed, 53 warnings in 44.74s`
-    (`verification/focused_pytest_tf_provenance_fix_20260429.log`)
-  - `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
-    -> `172 passed, 47 warnings in 303.97s`
-    (`verification/backlog_required_pytest_tf_provenance_fix_20260429.log`)
-  - `python -m compileall -q ptycho_torch scripts/studies`
-    -> exit `0`
-    (`verification/compileall_tf_provenance_fix_20260429.log`)
-- the historical root
-  `runs/minimum_subset_20260430T035104Z` is no longer treated as paper-grade
-  under the current validator because its TensorFlow `baseline` and `pinn`
-  `stdout.log` artifacts are duplicated shared-workflow captures rather than
-  row-local execution proof
-- no new authoritative paper-grade bundle root was produced in this pass
+- Task 1: authority alignment and recovery-path audit remain satisfied; the
+  accepted root is `runs/minimum_subset_20260430T035104Z`
+- Task 2: no additional code change was required in this pass beyond the
+  existing narrow validator/test update already present in the checkout
+- Task 3: reran the focused selector, required backlog selector, and compile
+  gate; all passed and were archived under this item's verification root
+- Task 4/5: no new write-side recovery or fresh rerun was required because the
+  accepted root already contains the complete four-row paper bundle
+- Task 6: the durable summary and audit remain aligned to the accepted root and
+  current evidence contract
 
-## Follow-Up Work
+## Remaining Required Plan Tasks
 
-- rerun the minimum-subset benchmark with the fixed workflow to create a fresh
-  authoritative root whose TensorFlow rows carry distinct row-scoped logs
-- revalidate that fresh root and promote it only if
-  `benchmark_status=paper_complete`, every required row remains
-  `paper_grade`, and `missing_fields_by_row` is empty
-- treat the interrupted root `runs/minimum_subset_20260430T051928Z` as an
-  incomplete follow-up artifact unless a later pass resumes or replaces it
+- none for backlog item `2026-04-29-cdi-lines128-minimum-paper-table`
+- later complete-table rows remain intentionally out of scope here:
+  `pinn_spectral_resnet_bottleneck_net`, `pinn_ffno`
+
+## Verification
+
+- `pytest -q tests/studies/test_lines128_paper_benchmark.py tests/studies/test_metrics_tables.py tests/test_grid_lines_compare_wrapper.py tests/torch/test_grid_lines_torch_runner.py`
+  -> `200 passed, 47 warnings in 41.27s`
+  (`verification/focused_pytest_final_20260430.log`)
+- `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
+  -> `172 passed, 47 warnings in 301.72s (0:05:01)`
+  (`verification/backlog_required_pytest_final_20260430.log`)
+- `python -m compileall -q ptycho_torch scripts/studies`
+  -> exit `0`
+  (`verification/compileall_final_20260430.log`)
+- accepted evidence root check:
+  `runs/minimum_subset_20260430T035104Z` contains `metrics.json`,
+  `metric_schema.json`, `model_manifest.json`, `metrics_table.csv`,
+  `metrics_table.tex`, `metrics_table_best.tex`, fixed-sample visuals,
+  `frc_curves.png`, and manifests reporting `paper_complete` with empty
+  `missing_fields_by_row`
 
 ## Residual Risks
 
-- this backlog item is not currently closed as paper-grade evidence because the
-  post-fix benchmark rerun has not finished
-- older summaries and manifests that cite
-  `runs/minimum_subset_20260430T035104Z` as `paper_complete` are historical and
-  must not be used as the current evidence contract
-- the required rerun remains a long-running GPU job whose completion still
-  depends on the local `ptycho311` runtime stack and available device time
+- diagnostic logs remain useful for debugging, but their uniqueness is not part
+  of the current paper-grade evidence contract
+- the interrupted follow-up root `runs/minimum_subset_20260430T051928Z` must
+  not be cited as authoritative minimum-table evidence

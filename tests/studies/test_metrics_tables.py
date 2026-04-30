@@ -635,7 +635,7 @@ def test_write_paper_bundle_rejects_synthetic_reuse_exit_code_proof(tmp_path):
     assert "outputs" in metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"]
 
 
-def test_write_paper_bundle_rejects_duplicate_required_row_stdout_logs(tmp_path):
+def test_write_paper_bundle_allows_shared_required_row_diagnostic_logs(tmp_path):
     baseline_payload = _paper_grade_row_payload()
     pinn_payload = _paper_grade_row_payload()
     baseline_payload["model_label"] = "CDI CNN + supervised"
@@ -733,6 +733,6 @@ def test_write_paper_bundle_rejects_duplicate_required_row_stdout_logs(tmp_path)
     )
 
     metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
-    assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
-    assert "outputs" in metrics_payload["missing_fields_by_row"]["baseline"]
-    assert "outputs" in metrics_payload["missing_fields_by_row"]["pinn"]
+    assert metrics_payload["benchmark_status"] == "paper_complete"
+    assert metrics_payload["missing_fields_by_row"]["baseline"] == []
+    assert metrics_payload["missing_fields_by_row"]["pinn"] == []

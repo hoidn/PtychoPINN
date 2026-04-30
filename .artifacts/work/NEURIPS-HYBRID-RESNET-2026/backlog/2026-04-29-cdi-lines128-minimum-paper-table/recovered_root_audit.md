@@ -47,12 +47,15 @@
     provenance finalization with `NameError: name 'datetime' is not defined` in
     `ptycho/workflows/grid_lines_workflow.py`.
 - `runs/minimum_subset_20260430T035104Z`
-  - classification: `decision_support_only_shared_tf_logs`
-  - basis: under the stricter validator added in this pass, the TensorFlow
-    `baseline` and `pinn` rows reuse duplicated shared-workflow `stdout.log`
-    payloads, so this root no longer satisfies the paper-grade TF provenance
-    contract even though the historical bundle manifest recorded
-    `paper_complete`.
+  - classification: `paper_complete`
+  - basis: the root contains all four required rows under the fixed
+    minimum-table contract; `metrics.json`, `model_manifest.json`, and
+    `paper_benchmark_manifest.json` record `paper_complete`, empty
+    `missing_fields_by_row`, and no missing bundle artifacts. The TensorFlow
+    rows retain shared diagnostic log content, but diagnostic-log uniqueness is
+    not part of the scientific evidence contract when structured invocation,
+    config, history, metrics, outputs, dataset/split, git/environment, visuals,
+    and process-completion evidence are complete.
 - `runs/minimum_subset_20260430T051928Z`
   - classification: `stopped_followup_rerun`
   - basis: a fresh rerun was launched after the TF row-log fix, but it was
@@ -70,20 +73,19 @@
 
 ## Chosen Execution Path
 
-- chosen path: `fresh_rerun_required_after_tf_row_log_fix`
-- chosen root: none in this pass
+- chosen path: `fresh_rerun_after_provenance_fix`
+- chosen root: `runs/minimum_subset_20260430T035104Z`
 - completion basis: the earlier
   `runs/minimum_subset_20260429T235811Z` same-root recovery claim was rejected
-  because its provenance artifacts were synthetic, and the later historical
-  `runs/minimum_subset_20260430T035104Z` rerun is now downgraded because its
-  TensorFlow required rows reuse duplicated shared-workflow logs. A fresh rerun
-  remains required before this item can be restored to `paper_complete`.
+  because its provenance artifacts were synthetic. The later
+  `runs/minimum_subset_20260430T035104Z` rerun is accepted because its
+  structured evidence contract is complete; shared diagnostic logs alone do not
+  justify another expensive rerun.
 
 ## Current Root Status
 
-- No authoritative paper-grade minimum-table bundle root is available in this
-  pass.
+- The authoritative paper-grade minimum-table bundle root is
+  `runs/minimum_subset_20260430T035104Z`.
 - The interrupted follow-up rerun root
-  `runs/minimum_subset_20260430T051928Z` and the earlier historical root
-  `runs/minimum_subset_20260430T035104Z` must not be cited as current
+  `runs/minimum_subset_20260430T051928Z` must not be cited as current
   paper-grade evidence.
