@@ -501,7 +501,7 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Execution authority:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_execution_authority.md`
 - Authoritative extension root:
-  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T170808Z`
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z`
 - Included bundle rows:
   - `pinn_ffno`
   - `supervised_ffno`

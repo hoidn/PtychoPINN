@@ -1,6 +1,8 @@
 # tests/test_grid_lines_compare_wrapper.py
 """Tests for grid_lines_compare_wrapper orchestration."""
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import h5py
@@ -889,6 +891,165 @@ def test_wrapper_preflight_supports_supervised_ffno_row(monkeypatch, tmp_path):
     assert captured["training_procedure"] == "supervised"
     assert result["row_plan"][0]["model_id"] == "supervised_ffno"
     assert result["row_plan"][0]["status"] == "supported_for_harness"
+
+
+def test_recover_torch_row_payload_marks_current_root_rows_as_fresh(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import _recover_torch_row_payload
+
+    run_dir = tmp_path / "runs" / "supervised_ffno"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "history.json").write_text(
+        json.dumps({"train_loss": [0.5, 0.4], "val_loss": [0.6, 0.5]}),
+        encoding="utf-8",
+    )
+    (run_dir / "invocation.json").write_text(
+        json.dumps(
+            {
+                "timestamp_utc": "2026-04-30T17:09:15.697374+00:00",
+                "finished_at_utc": "2026-04-30T17:22:54.631787+00:00",
+                "parsed_args": {
+                    "epochs": 40,
+                    "output_dir": str(tmp_path),
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "model.pt").write_text("stub", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "scripts.studies.grid_lines_compare_wrapper._count_torch_state_dict_parameters",
+        lambda path: 123,
+    )
+
+    payload = _recover_torch_row_payload(
+        output_dir=tmp_path,
+        model_id="supervised_ffno",
+        n_value=128,
+        metrics={},
+    )
+
+    assert payload["runtime_summary"]["recovered_from_existing_artifacts"] is False
+    assert payload["runtime_summary"]["row_payload_rebuilt_from_row_artifacts"] is True
+    assert payload["runtime_summary"]["command_wall_time_sec"] == pytest.approx(818.934413)
+    assert "recovered_from_existing_artifacts" not in payload["caveats"]
+    assert "row_payload_rebuilt_from_row_artifacts" in payload["caveats"]
+
+
+def test_enrich_paper_row_payload_recovers_missing_direct_runner_logs(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import (
+        _enrich_paper_row_payload,
+        _recover_torch_row_payload,
+    )
+    from scripts.studies.metrics_tables import _missing_paper_fields
+
+    run_dir = tmp_path / "runs" / "supervised_ffno"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    recons_dir = tmp_path / "recons" / "supervised_ffno"
+    recons_dir.mkdir(parents=True, exist_ok=True)
+    visuals_dir = tmp_path / "visuals"
+    visuals_dir.mkdir(parents=True, exist_ok=True)
+
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    probe_npz = tmp_path / "probe.npz"
+    for path in (train_npz, test_npz, probe_npz):
+        path.write_bytes(b"stub")
+
+    gt = (np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64)
+    np.savez(recons_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+    (visuals_dir / "amp_phase_supervised_ffno.png").write_bytes(b"png")
+    (visuals_dir / "amp_phase_error_supervised_ffno.png").write_bytes(b"png")
+
+    (run_dir / "history.json").write_text(
+        json.dumps({"train_loss": [0.5, 0.4], "val_loss": [0.6, 0.5]}),
+        encoding="utf-8",
+    )
+    (run_dir / "invocation.json").write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "pid": 12345,
+                "exit_code": 0,
+                "timestamp_utc": "2026-04-30T17:09:15.697374+00:00",
+                "finished_at_utc": "2026-04-30T17:22:54.631787+00:00",
+                "parsed_args": {
+                    "epochs": 40,
+                    "seed": 3,
+                    "output_dir": str(tmp_path),
+                    "train_npz": str(train_npz),
+                    "test_npz": str(test_npz),
+                },
+                "extra": {
+                    "git_commit": "abc123",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "invocation.sh").write_text("python grid_lines_torch_runner.py\n", encoding="utf-8")
+    (run_dir / "metrics.json").write_text(json.dumps(_full_pair_metrics(0.01, 0.02)), encoding="utf-8")
+    (run_dir / "model.pt").write_text("stub", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "scripts.studies.grid_lines_compare_wrapper._count_torch_state_dict_parameters",
+        lambda path: 123,
+    )
+
+    recovered = _recover_torch_row_payload(
+        output_dir=tmp_path,
+        model_id="supervised_ffno",
+        n_value=128,
+        metrics=_full_pair_metrics(0.01, 0.02),
+    )
+    enriched = _enrich_paper_row_payload(
+        model_id="supervised_ffno",
+        payload=recovered,
+        output_dir=tmp_path,
+        train_npz=train_npz,
+        test_npz=test_npz,
+        seed=3,
+        nimgs_train=2,
+        nimgs_test=2,
+        gridsize=1,
+        set_phi=True,
+        probe_npz=probe_npz,
+        dataset_source="synthetic_lines",
+        probe_source="custom",
+        probe_scale_mode="pad_extrapolate",
+    )
+
+    assert enriched["row_status"] == "paper_grade"
+    assert "row_output_logs_recovered_from_invocation" in enriched["caveats"]
+    assert enriched["outputs"]["exit_code_proof_json"] == "runs/supervised_ffno/exit_code_proof.json"
+    assert (run_dir / "stdout.log").exists()
+    assert (run_dir / "stderr.log").exists()
+    assert "Recovered row log placeholder" in (run_dir / "stdout.log").read_text(encoding="utf-8")
+    assert _missing_paper_fields(
+        enriched,
+        model_id="supervised_ffno",
+        require_row_provenance=True,
+        output_dir=tmp_path,
+    ) == []
+
+
+def test_compare_wrapper_script_path_bootstraps_repo_imports():
+    repo_root = Path(__file__).resolve().parents[1]
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/studies/grid_lines_compare_wrapper.py",
+            "--help",
+        ],
+        cwd=repo_root,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0
+    assert "ModuleNotFoundError" not in result.stderr
 
 
 def test_wrapper_reuse_path_does_not_attribute_tf_runtime_to_wrapper_repair_pass(monkeypatch, tmp_path):

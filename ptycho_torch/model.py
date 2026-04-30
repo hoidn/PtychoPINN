@@ -81,6 +81,37 @@ def _real_imag_to_complex_channel_first(real_imag: torch.Tensor) -> torch.Tensor
     return complex_last.permute(0, 3, 1, 2).contiguous()  # (B, C, H, W)
 
 
+def _predict_complex_patches(
+    autoencoder: nn.Module,
+    combine_complex: nn.Module,
+    generator_output: str,
+    x: torch.Tensor,
+):
+    """Normalize generator outputs onto the shared complex/amp/phase contract."""
+    if generator_output == "amp_phase":
+        amp, phase = autoencoder(x)
+        x_complex = combine_complex(amp, phase)
+    elif generator_output == "amp_phase_logits":
+        patches = autoencoder(x)
+        if patches.shape[-1] != 2:
+            raise ValueError(
+                f"amp_phase_logits expects last dim=2, got shape {patches.shape}"
+            )
+        amp_logits = patches[..., 0].permute(0, 3, 1, 2).contiguous()
+        phase_logits = patches[..., 1].permute(0, 3, 1, 2).contiguous()
+        amp = torch.sigmoid(amp_logits)
+        phase = math.pi * torch.tanh(phase_logits)
+        x_complex = combine_complex(amp, phase)
+    elif generator_output == "real_imag":
+        patches = autoencoder(x)
+        x_complex = _real_imag_to_complex_channel_first(patches)
+        amp = torch.abs(x_complex)
+        phase = torch.angle(x_complex)
+    else:
+        raise ValueError(f"Unsupported generator_output='{generator_output}'")
+    return x_complex, amp, phase
+
+
 #Helping modules
 #Activation functions
 class Tanh_custom_act(nn.Module):
@@ -1018,31 +1049,12 @@ class PtychoPINN(nn.Module):
         Returns:
             Tuple of (x_complex, amp, phase) tensors.
         """
-        if self.generator_output == "amp_phase":
-            # CNN-based autoencoder: returns (amp, phase) tensors
-            amp, phase = self.autoencoder(x)
-            x_complex = self.combine_complex(amp, phase)
-        elif self.generator_output == "amp_phase_logits":
-            # Generator returns (B, H, W, C, 2) with amp/phase logits
-            patches = self.autoencoder(x)
-            if patches.shape[-1] != 2:
-                raise ValueError(
-                    f"amp_phase_logits expects last dim=2, got shape {patches.shape}"
-                )
-            amp_logits = patches[..., 0].permute(0, 3, 1, 2).contiguous()
-            phase_logits = patches[..., 1].permute(0, 3, 1, 2).contiguous()
-            amp = torch.sigmoid(amp_logits)
-            phase = math.pi * torch.tanh(phase_logits)
-            x_complex = self.combine_complex(amp, phase)
-        elif self.generator_output == "real_imag":
-            # FNO/Hybrid generators: return (B, H, W, C, 2) real/imag tensor
-            patches = self.autoencoder(x)
-            x_complex = _real_imag_to_complex_channel_first(patches)
-            amp = torch.abs(x_complex)
-            phase = torch.angle(x_complex)
-        else:
-            raise ValueError(f"Unsupported generator_output='{self.generator_output}'")
-        return x_complex, amp, phase
+        return _predict_complex_patches(
+            self.autoencoder,
+            self.combine_complex,
+            self.generator_output,
+            x,
+        )
 
     def forward(self, x, positions, probe, input_scale_factor, output_scale_factor, experiment_ids = None):
 
@@ -1082,7 +1094,14 @@ class Ptycho_Supervised(nn.Module):
     probe - Tensor input, comes from dataset/dataloader __get__ function (returns x, probe) . Unused, dummy input kept for compatibility
 
     '''
-    def __init__(self, model_config: ModelConfig, data_config: DataConfig, training_config: TrainingConfig):
+    def __init__(
+        self,
+        model_config: ModelConfig,
+        data_config: DataConfig,
+        training_config: TrainingConfig,
+        generator: Optional[nn.Module] = None,
+        generator_output: str = "amp_phase",
+    ):
         super().__init__()
         self.model_config = model_config
         self.data_config = data_config
@@ -1090,12 +1109,21 @@ class Ptycho_Supervised(nn.Module):
 
         self.n_filters_scale = self.model_config.n_filters_scale
 
-        #Autoencoder - Pass configs
-        self.autoencoder = Autoencoder(model_config, data_config)
+        self.generator = generator
+        self.generator_output = generator_output
+        self.autoencoder = Autoencoder(model_config, data_config) if generator is None else generator
         self.combine_complex = CombineComplex()
 
         #Scaler - Pass config
         self.scaler = IntensityScalerModule(model_config)
+
+    def _predict_complex(self, x):
+        return _predict_complex_patches(
+            self.autoencoder,
+            self.combine_complex,
+            self.generator_output,
+            x,
+        )
 
     def forward(
         self,
@@ -1112,11 +1140,7 @@ class Ptycho_Supervised(nn.Module):
 
         #Scaling
         x = self.scaler.scale(x, input_scale_factor)
-        #Autoencoder result
-        x_amp, x_phase = self.autoencoder(x)
-        #Combine amp and phase
-    
-        x_combined = self.combine_complex(x_amp, x_phase)
+        x_combined, x_amp, x_phase = self._predict_complex(x)
 
         return x_combined, x_amp, x_phase
     
@@ -1127,10 +1151,7 @@ class Ptycho_Supervised(nn.Module):
         """
         #Scaling
         x = self.scaler.scale(x, input_scale_factor)
-        #Autoencoder result
-        x_amp, x_phase = self.autoencoder(x)
-        #Combine amp and phase
-        x_combined = self.combine_complex(x_amp, x_phase)
+        x_combined, _, _ = self._predict_complex(x)
 
         return x_combined
 
@@ -1222,7 +1243,13 @@ class PtychoPINN_Lightning(L.LightningModule):
                 generator_output=generator_output,
             )
         elif model_config.mode == 'Supervised':
-            self.model = Ptycho_Supervised(model_config, data_config, training_config)
+            self.model = Ptycho_Supervised(
+                model_config,
+                data_config,
+                training_config,
+                generator=generator_module,
+                generator_output=generator_output,
+            )
 
         # Enforce single-stage training (legacy stage_* knobs are ignored)
         self.total_epochs = training_config.epochs

@@ -61,3 +61,37 @@ def test_ffno_generator_builds_lightning_model():
     model = gen.build_model(pt_configs)
     assert isinstance(model, PtychoPINN_Lightning)
     assert model.model.generator.__class__.__name__ == "FfnoGeneratorModule"
+
+
+def test_ffno_generator_builds_supervised_lightning_model():
+    from ptycho_torch.config_params import (
+        DataConfig,
+        InferenceConfig as PTInferenceConfig,
+        ModelConfig as PTModelConfig,
+        TrainingConfig as PTTrainingConfig,
+    )
+    from ptycho_torch.model import PtychoPINN_Lightning, Ptycho_Supervised
+
+    cfg = TrainingConfig(model=ModelConfig(architecture='ffno', model_type='supervised', N=64, gridsize=1))
+    gen = resolve_generator(cfg)
+
+    pt_configs = {
+        "data_config": DataConfig(N=64, C=1, grid_size=(1, 1)),
+        "model_config": PTModelConfig(
+            mode='Supervised',
+            architecture='ffno',
+            fno_width=32,
+            fno_blocks=4,
+            fno_cnn_blocks=2,
+            generator_output_mode='real_imag',
+            loss_function='MAE',
+        ),
+        "training_config": PTTrainingConfig(torch_loss_mode='mae'),
+        "inference_config": PTInferenceConfig(),
+    }
+
+    model = gen.build_model(pt_configs)
+    assert isinstance(model, PtychoPINN_Lightning)
+    assert isinstance(model.model, Ptycho_Supervised)
+    assert model.model.autoencoder.__class__.__name__ == "FfnoGeneratorModule"
+    assert model.model.generator_output == "real_imag"

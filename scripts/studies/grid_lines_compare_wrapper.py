@@ -19,6 +19,10 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple
 
 import numpy as np
 
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from ptycho.image.harmonize import resize_complex_to_shape
 from ptycho.workflows.grid_lines_workflow import GridLinesConfig
 from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig
@@ -81,7 +85,6 @@ PAPER_TRAINING_PROCEDURE_OVERRIDES = {
     "baseline": "supervised",
     "supervised_ffno": "supervised",
 }
-REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _parse_architectures(value: str) -> Tuple[str, ...]:
@@ -211,8 +214,39 @@ def _parse_wall_time_seconds(payload: Mapping[str, Any]) -> Optional[float]:
     return max(0.0, (finish_dt - start_dt).total_seconds())
 
 
-def _recovered_runtime_summary(invocation_payload: Mapping[str, Any]) -> Dict[str, object]:
-    summary: Dict[str, object] = {"recovered_from_existing_artifacts": True}
+def _invocation_output_dir_matches_current_root(
+    invocation_payload: Mapping[str, Any],
+    *,
+    current_output_dir: Path,
+) -> bool:
+    parsed_args = invocation_payload.get("parsed_args")
+    if not isinstance(parsed_args, Mapping):
+        return False
+    raw_output_dir = parsed_args.get("output_dir")
+    if not isinstance(raw_output_dir, str) or not raw_output_dir:
+        return False
+    invocation_output_dir = Path(raw_output_dir)
+    if not invocation_output_dir.is_absolute():
+        invocation_output_dir = (REPO_ROOT / invocation_output_dir).resolve()
+    else:
+        invocation_output_dir = invocation_output_dir.resolve()
+    return invocation_output_dir == Path(current_output_dir).resolve()
+
+
+def _recovered_runtime_summary(
+    invocation_payload: Mapping[str, Any],
+    *,
+    current_output_dir: Path,
+) -> Dict[str, object]:
+    summary: Dict[str, object] = {
+        "recovered_from_existing_artifacts": True,
+    }
+    if _invocation_output_dir_matches_current_root(
+        invocation_payload,
+        current_output_dir=current_output_dir,
+    ):
+        summary["recovered_from_existing_artifacts"] = False
+        summary["row_payload_rebuilt_from_row_artifacts"] = True
     wall_time = _parse_wall_time_seconds(invocation_payload)
     if wall_time is not None:
         summary["command_wall_time_sec"] = float(wall_time)
@@ -371,6 +405,15 @@ def _recover_torch_row_payload(
     train_loss = history_payload.get("train_loss", [])
     val_loss = history_payload.get("val_loss", [])
     invocation_payload = _load_json_if_exists(run_dir / "invocation.json")
+    runtime_summary = _recovered_runtime_summary(
+        invocation_payload,
+        current_output_dir=output_dir,
+    )
+    caveats = (
+        ["recovered_from_existing_artifacts"]
+        if runtime_summary.get("recovered_from_existing_artifacts", True)
+        else ["row_payload_rebuilt_from_row_artifacts"]
+    )
     parsed_args = invocation_payload.get("parsed_args", {})
     epoch_budget = parsed_args.get("epochs", len(train_loss) or None)
     final_train_loss = float(train_loss[-1]) if isinstance(train_loss, list) and train_loss else None
@@ -387,10 +430,10 @@ def _recover_torch_row_payload(
             "status": "emitted" if isinstance(val_loss, list) and val_loss else "no_validation_series",
             "value": float(val_loss[-1]) if isinstance(val_loss, list) and val_loss else None,
         },
-        "runtime_summary": _recovered_runtime_summary(invocation_payload),
+        "runtime_summary": runtime_summary,
         "hardware_summary": _current_torch_hardware_summary(),
         "row_status": "decision_support",
-        "caveats": ["recovered_from_existing_artifacts"],
+        "caveats": caveats,
         "metrics": dict(metrics),
     }
 
@@ -476,6 +519,43 @@ def _maybe_write_recovered_torch_config(
     return config_path
 
 
+def _maybe_materialize_recovered_torch_row_logs(
+    *,
+    output_dir: Path,
+    model_id: str,
+    invocation_payload: Mapping[str, Any],
+) -> bool:
+    run_dir = output_dir / "runs" / model_id
+    stdout_log = run_dir / "stdout.log"
+    stderr_log = run_dir / "stderr.log"
+    if stdout_log.exists() and stderr_log.exists():
+        return False
+    if not _invocation_output_dir_matches_current_root(
+        invocation_payload,
+        current_output_dir=output_dir,
+    ):
+        return False
+    if invocation_payload.get("status") != "completed" or invocation_payload.get("exit_code") != 0:
+        return False
+
+    timestamp = invocation_payload.get("finished_at_utc") or invocation_payload.get("timestamp_utc") or "unknown"
+    note_lines = [
+        "Recovered row log placeholder generated during compare-wrapper bundle repair.",
+        "Original per-row direct-runner stdout/stderr logs were not captured.",
+        f"model_id={model_id}",
+        f"timestamp_utc={timestamp}",
+    ]
+    stdout_log.parent.mkdir(parents=True, exist_ok=True)
+    if not stdout_log.exists():
+        stdout_log.write_text("\n".join(note_lines) + "\n", encoding="utf-8")
+    if not stderr_log.exists():
+        stderr_log.write_text(
+            "Recovered row stderr placeholder generated during compare-wrapper bundle repair.\n",
+            encoding="utf-8",
+        )
+    return True
+
+
 def _enrich_paper_row_payload(
     *,
     model_id: str,
@@ -503,6 +583,15 @@ def _enrich_paper_row_payload(
             model_id=model_id,
             invocation_payload=invocation_payload,
         )
+        if _maybe_materialize_recovered_torch_row_logs(
+            output_dir=output_dir,
+            model_id=model_id,
+            invocation_payload=invocation_payload,
+        ):
+            caveats = list(row.get("caveats")) if isinstance(row.get("caveats"), list) else []
+            if "row_output_logs_recovered_from_invocation" not in caveats:
+                caveats.append("row_output_logs_recovered_from_invocation")
+            row["caveats"] = caveats
     config_path = run_dir / "config.json"
     if not row.get("invocation") and invocation_path.exists():
         row["invocation"] = {

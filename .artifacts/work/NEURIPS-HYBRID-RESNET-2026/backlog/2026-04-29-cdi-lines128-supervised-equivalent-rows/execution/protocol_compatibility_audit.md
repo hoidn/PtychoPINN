@@ -20,57 +20,65 @@
 ## Reviewed Failure Mode
 
 The delivered extension was not protocol-correct because the claimed
-`supervised_ffno` row silently trained in unsupervised PINN mode.
+`supervised_ffno` row did not actually execute the intended supervised FFNO
+path, and the repaired current-root bundle recovery still under-described the
+rerun.
 
-- `_train_with_lightning()` passed `model_type='Supervised'` into the training
-  payload build
-- `create_training_payload()` updated `PTModelConfig` directly, but
-  `PTModelConfig` exposes `mode`, not `model_type`, so the override was
-  ignored and the effective mode stayed `Unsupervised`
-- once the mode handoff was corrected, the real supervised path exposed a
-  second compatibility defect: `Ptycho_Supervised.forward(...)` did not accept
-  the `experiment_ids` argument passed by the supervised loss path
+- `Ptycho_Supervised` always instantiated the legacy `Autoencoder`, so the
+  claimed `supervised_ffno` row could not actually bind to the configured FFNO
+  generator even when the launcher requested `architecture: ffno`
+- `PtychoPINN_Lightning(... mode='Supervised' ...)` did not pass the selected
+  generator module or generator output contract into `Ptycho_Supervised`
+- after the corrected direct rerun, the compare-wrapper recovery path still
+  treated the current-root row like recovered evidence and omitted row-local
+  `stdout.log`, `stderr.log`, and `exit_code_proof.json`, which kept the
+  adjacent bundle at `decision_support`
 
 ## Narrow Fix Applied
 
-- mapped training-payload override aliases from `model_type` to
-  `PTModelConfig.mode` in `ptycho_torch/config_factory.py`
-- updated `Ptycho_Supervised.forward(...)` in `ptycho_torch/model.py` to accept
-  the supervised-path `experiment_ids` argument
+- updated `ptycho_torch/model.py` so `Ptycho_Supervised` accepts an injected
+  generator plus output contract and uses the same complex-prediction helper as
+  the PINN path
+- updated `PtychoPINN_Lightning` to pass the selected generator module and
+  generator output mode into supervised runs
+- updated `scripts/studies/grid_lines_compare_wrapper.py` to:
+  - bootstrap repo-root imports for direct script execution
+  - mark current-root Torch rows as freshly rebuilt instead of recovered
+  - materialize missing row-local logs during bundle repair so
+    `exit_code_proof.json` and `paper_grade` promotion can be emitted
 - added regressions covering:
-  - the training-factory alias bridge
-  - the `_train_with_lightning()` supervised mode/loss handoff
-  - the supervised FFNO loss path with `experiment_ids`
+  - supervised FFNO generator wiring in Lightning
+  - fresh current-root Torch-row recovery semantics
+  - recovered row-log enrichment to `paper_grade`
+  - direct compare-wrapper script import bootstrap
 
 ## Verification Status
 
 - targeted review regressions are green:
-  - `tests/torch/test_loss_modes.py::test_supervised_compute_loss_accepts_experiment_ids`
-  - `tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_maps_model_type_override_to_pt_mode`
-  - `tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_train_with_lightning_builds_supervised_model_config`
-  - `tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_supervised_mode_enforces_mae_loss`
+  - `tests/torch/test_generator_registry.py::test_ffno_generator_builds_supervised_lightning_model`
+  - `tests/test_grid_lines_compare_wrapper.py::test_recover_torch_row_payload_marks_current_root_rows_as_fresh`
+  - `tests/test_grid_lines_compare_wrapper.py::test_enrich_paper_row_payload_recovers_missing_direct_runner_logs`
+  - `tests/test_grid_lines_compare_wrapper.py::test_compare_wrapper_script_path_bootstraps_repo_imports`
   - archived log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_targeted_20260430T173424Z.log`
-- focused regression surface is green:
-  - archived log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_focused_20260430T173446Z.log`
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_targeted_20260430_supervised_equivalent_rows.log`
 - required deterministic gate is green:
   - archived log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_required_20260430T173548Z.log`
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_20260430_supervised_equivalent_rows.log`
 - compile gate is green:
   - archived log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/compileall_required_20260430T174105Z.log`
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/compileall_20260430_supervised_equivalent_rows.log`
 - supervised launch completed successfully under the frozen contract:
   - archived log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/supervised_ffno_launch_20260430T170808Z.log`
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/supervised_ffno_launch_20260430T180217Z.log`
   - corrected run evidence:
     `lightning_logs/version_0/hparams.yaml` in the authoritative extension
-    root records `mode: Supervised` and `loss_function: MAE`
+    root records `mode: Supervised`, `architecture: ffno`, and
+    `generator_output: real_imag`
 - the rebuilt adjacent extension bundle is `paper_complete`:
   - authoritative root:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T170808Z`
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z`
   - bundle regeneration log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/supervised_ffno_bundle_20260430T173326Z.log`
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/supervised_ffno_bundle_20260430T180217Z.log`
 - the corrected comparison audit is archived at:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/execution/supervised_ffno_parity_audit.json`
 
