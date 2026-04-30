@@ -50,6 +50,37 @@ def relative_to_output_dir(output_dir: Path, path: Path) -> str:
         return str(path)
 
 
+def _parse_invocation_started_at_utc(payload: Mapping[str, Any]) -> datetime | None:
+    timestamp = payload.get("started_at_utc") or payload.get("timestamp_utc")
+    if not isinstance(timestamp, str) or not timestamp:
+        return None
+    try:
+        return datetime.fromisoformat(timestamp)
+    except ValueError:
+        return None
+
+
+def _current_root_launcher_log_is_fresh(
+    output_dir: Path,
+    *,
+    wrapper_invocation: Mapping[str, Any],
+    launcher_log: Path | None,
+) -> bool:
+    if launcher_log is None or not launcher_log.exists():
+        return False
+    try:
+        if launcher_log.resolve().parent != Path(output_dir).resolve():
+            return True
+    except OSError:
+        return False
+    started_at = _parse_invocation_started_at_utc(wrapper_invocation)
+    if started_at is None:
+        return False
+    # Filesystem mtimes can be slightly earlier than the parsed start time due to
+    # coarse timestamp precision, so allow a small tolerance.
+    return launcher_log.stat().st_mtime + 1.0 >= started_at.timestamp()
+
+
 def file_identity(path: Path, *, source: str | None = None) -> dict[str, Any]:
     path = Path(path).expanduser().resolve()
     if not path.exists():
@@ -293,7 +324,11 @@ def write_launcher_completion_evidence(
         return None
 
     payload = None
-    if launcher_stderr_log.exists():
+    if launcher_stderr_log.exists() and _current_root_launcher_log_is_fresh(
+        output_dir,
+        wrapper_invocation=wrapper_invocation,
+        launcher_log=launcher_stderr_log,
+    ):
         log_lines = launcher_stderr_log.read_text(encoding="utf-8", errors="ignore").splitlines()
         matched_log_lines: list[str] = []
         required_prefixes = (
@@ -330,7 +365,16 @@ def write_launcher_completion_evidence(
                 "matched_log_lines": matched_log_lines,
             }
 
-    if payload is None and launcher_stdout_log is not None and launcher_stdout_log.exists():
+    if (
+        payload is None
+        and launcher_stdout_log is not None
+        and launcher_stdout_log.exists()
+        and _current_root_launcher_log_is_fresh(
+            output_dir,
+            wrapper_invocation=wrapper_invocation,
+            launcher_log=launcher_stdout_log,
+        )
+    ):
         marker = f"DEBUG eval_reconstruction [{model_id}]:"
         matched_log_lines = [
             line.strip()

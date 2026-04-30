@@ -1,51 +1,44 @@
 ## Completed In This Pass
 
-- fixed the implementation-review correctness bug in `ptycho_torch/model.py`
-  by allowing supervised Lightning runs to use the configured generator
-  module instead of always instantiating the legacy `Autoencoder`
-- passed the selected generator and output mode through
-  `PtychoPINN_Lightning(... mode='Supervised' ...)`, so `supervised_ffno`
-  now executes the real FFNO supervised path
-- fixed `scripts/studies/grid_lines_compare_wrapper.py` so the wrapper script
-  bootstraps repository imports from the repo root and current-root Torch-row
-  recovery can materialize missing `stdout.log`, `stderr.log`, and
-  `exit_code_proof.json` artifacts for direct-runner rows
-- added targeted regressions for the supervised FFNO generator wiring, fresh
-  current-root Torch-row recovery semantics, recovered row-log enrichment, and
-  direct script import bootstrap; reran the required same-contract
-  `supervised_ffno` row under the frozen `lines128` contract
-- replayed the reuse-only compare-wrapper pass in tmux for the corrected
-  `180217Z` root and rebuilt `metrics.json`, `model_manifest.json`,
-  `paper_benchmark_manifest.json`, and
-  `execution/supervised_ffno_parity_audit.json` from the corrected artifacts
+- fixed the remaining implementation-review provenance defect in
+  `scripts/studies/paper_provenance.py` by rejecting stale current-root
+  launcher logs that predate the wrapper invocation claiming completion
+- updated `scripts/studies/grid_lines_compare_wrapper.py` so the wrapper root
+  always writes fresh `launcher_stdout.log` / `launcher_stderr.log` artifacts
+  and performs a post-completion launcher-evidence refresh after
+  `invocation.json` is marked `completed`
+- added regressions for:
+  - stale current-root launcher-log rejection
+  - root launcher-log emission from `grid_lines_compare_wrapper.main()`
+  - post-completion `launcher_completion.json` materialization for reused Torch rows
+- reran the focused harness selectors plus the mandatory backlog gate and
+  compileall after the wrapper/provenance patch
+- replayed the reuse-only compare-wrapper pass in tmux for the authoritative
+  `supervised_ffno_extension_20260430T180217Z` root, which refreshed the root
+  launcher logs and rewrote `runs/supervised_ffno/launcher_completion.json`
+  with the current supervised FFNO eval markers
 
 ## Completed Current-Scope Work
 
-- the row is now genuinely supervised:
-  `lightning_logs/version_0/hparams.yaml` under
-  `runs/supervised_ffno_extension_20260430T180217Z/` records
-  `mode: Supervised`, `architecture: ffno`, and `generator_output: real_imag`
-- the authoritative adjacent extension root is now truthfully
-  `paper_complete` at
+- the authoritative adjacent extension root remains
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z`
-- the rebuilt supervised row is `paper_grade` with no missing bundle fields;
-  `model_manifest.json` and `paper_benchmark_manifest.json` at the corrected
-  root now both validate cleanly
-- the stale parity claim is retired: the rebuilt comparison audit records
-  `comparison_outcome: non_identical_same_contract_comparison`
-- durable summary, studies-index, execution-manifest, and protocol-audit
-  entries now point at the corrected `180217Z` root
-- archived verification for the completed scope is current:
-  - supervised rerun launch:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/supervised_ffno_launch_20260430T180217Z.log`
-  - reuse-only wrapper regeneration:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/supervised_ffno_bundle_20260430T180217Z.log`
-  - targeted regressions:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_targeted_20260430_supervised_equivalent_rows.log`
+  and is now internally consistent again
+- `runs/supervised_ffno/launcher_completion.json` in that root was rewritten at
+  `2026-04-30T19:18:37Z` and now cites the current root
+  `launcher_stdout.log` markers with
+  `DEBUG eval_reconstruction [supervised_ffno]: amp_pred stats: mean=26.012983`
+- current verification evidence for approval is archived at:
+  - focused harness suite:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_focus_20260430_wrapper_provenance.log`
+    Note: command result was `226 passed, 47 warnings in 44.93s`
   - required deterministic gate:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_20260430_supervised_equivalent_rows.log`
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_20260430_supervised_equivalent_rows_final.log`
+    Note: tmux-tracked PID `1524068` exited `0`; command result was
+    `182 passed, 47 warnings in 303.60s`
   - compile gate:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/compileall_20260430_supervised_equivalent_rows.log`
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/compileall_20260430_supervised_equivalent_rows_final.log`
+  - authoritative root refresh:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/supervised_ffno_bundle_20260430_root_refresh_final.log`
 
 ## Follow-Up Work
 

@@ -1,6 +1,8 @@
 """Tests for paper-grade provenance helpers."""
 
 import json
+import os
+from datetime import datetime
 from pathlib import Path
 
 from scripts.studies.paper_provenance import (
@@ -52,6 +54,7 @@ def test_write_launcher_completion_evidence_requires_row_completion_markers(tmp_
             {
                 "status": "completed",
                 "exit_code": 0,
+                "timestamp_utc": "2026-04-29T23:59:59+00:00",
                 "finished_at_utc": "2026-04-30T00:00:00+00:00",
                 "parsed_args": {"reuse_existing_recons": True},
             }
@@ -82,6 +85,7 @@ def test_write_launcher_completion_evidence_accepts_stdout_eval_markers_for_reus
             {
                 "status": "completed",
                 "exit_code": 0,
+                "timestamp_utc": "2026-04-29T23:59:59+00:00",
                 "finished_at_utc": "2026-04-30T00:00:00+00:00",
                 "parsed_args": {"reuse_existing_recons": True},
             }
@@ -115,3 +119,48 @@ def test_write_launcher_completion_evidence_accepts_stdout_eval_markers_for_reus
     payload = json.loads(evidence_path.read_text(encoding="utf-8"))
     assert payload["evidence_source"] == "wrapper_launcher_stdout_eval_markers"
     assert payload["launcher_stdout_log"] == "launcher_stdout.log"
+
+
+def test_write_launcher_completion_evidence_rejects_stale_current_root_stdout_log(tmp_path):
+    wrapper_invocation = tmp_path / "invocation.json"
+    invocation_started = "2026-04-30T01:00:00+00:00"
+    _write_text(
+        wrapper_invocation,
+        json.dumps(
+            {
+                "status": "completed",
+                "exit_code": 0,
+                "timestamp_utc": invocation_started,
+                "finished_at_utc": "2026-04-30T01:00:05+00:00",
+                "parsed_args": {"reuse_existing_recons": True},
+            }
+        ),
+    )
+    launcher_stderr = tmp_path / "launcher_stderr.log"
+    launcher_stdout = tmp_path / "launcher_stdout.log"
+    _write_text(launcher_stderr, "")
+    _write_text(
+        launcher_stdout,
+        "\n".join(
+            [
+                "DEBUG eval_reconstruction [pinn_ffno]: amp_target stats: mean=1.0",
+                "DEBUG eval_reconstruction [pinn_ffno]: amp_pred stats: mean=9.9",
+            ]
+        ),
+    )
+    stale_epoch = datetime.fromisoformat("2026-04-30T00:00:00+00:00").timestamp()
+    os.utime(launcher_stdout, (stale_epoch, stale_epoch))
+    _write_text(tmp_path / "runs" / "pinn_ffno" / "metrics.json", "{}")
+    _write_text(tmp_path / "runs" / "pinn_ffno" / "history.json", "{}")
+    _write_text(tmp_path / "recons" / "pinn_ffno" / "recon.npz")
+
+    evidence_path = write_launcher_completion_evidence(
+        tmp_path,
+        model_id="pinn_ffno",
+        wrapper_invocation_json=wrapper_invocation,
+        launcher_stderr_log=launcher_stderr,
+        launcher_stdout_log=launcher_stdout,
+    )
+
+    assert evidence_path is None
+    assert not (tmp_path / "runs" / "pinn_ffno" / "launcher_completion.json").exists()
