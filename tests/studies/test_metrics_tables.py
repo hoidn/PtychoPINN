@@ -368,8 +368,61 @@ def test_write_paper_bundle_requires_paper_grade_row_status_for_paper_complete(t
         required_rows=("pinn_hybrid_resnet",),
         fixed_sample_ids=[0, 1],
         shared_visual_scales={"amp": {"vmin": 0.0, "vmax": 1.0}},
+        require_row_provenance=True,
     )
 
     metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
     assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
     assert "row_status" in metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"]
+
+
+def test_write_paper_bundle_requires_row_provenance_for_paper_complete(tmp_path):
+    row_payloads = {
+        "pinn_hybrid_resnet": {
+            "model_label": "Hybrid ResNet",
+            "architecture_id": "hybrid_resnet",
+            "training_procedure": "pinn",
+            "N": 128,
+            "parameter_count": 123456,
+            "epoch_budget": 40,
+            "final_completed_epoch": 40,
+            "final_train_loss": 0.123,
+            "validation_loss": {"status": "emitted", "value": 0.045},
+            "runtime_summary": {"train_wall_time_sec": 12.5, "inference_time_sec": 1.5},
+            "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
+            "row_status": "paper_grade",
+            "caveats": [],
+            "metrics": {
+                "mae": (0.1, 0.2),
+                "mse": (0.01, 0.02),
+                "psnr": (70.0, 65.0),
+                "ssim": (0.9, 0.8),
+                "ms_ssim": (0.85, 0.75),
+                "frc50": (64, 48),
+            },
+        }
+    }
+
+    write_paper_benchmark_bundle(
+        output_dir=tmp_path,
+        row_payloads=row_payloads,
+        required_rows=("pinn_hybrid_resnet",),
+        fixed_sample_ids=[0, 1],
+        shared_visual_scales={"amp": {"vmin": 0.0, "vmax": 1.0}},
+        require_row_provenance=True,
+    )
+
+    metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
+    missing = set(metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"])
+    assert {
+        "invocation",
+        "config",
+        "git",
+        "environment",
+        "dataset",
+        "splits",
+        "randomness",
+        "outputs",
+        "visuals",
+    } <= missing

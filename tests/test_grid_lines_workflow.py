@@ -27,6 +27,7 @@ from ptycho.workflows.grid_lines_workflow import (
     parse_probe_transform_pipeline,
     normalize_probe_transform_pipeline,
 )
+from ptycho.workflows import grid_lines_workflow as grid_lines_workflow_module
 from ptycho.config.config import ModelConfig, TrainingConfig
 from ptycho import params as p
 
@@ -395,6 +396,21 @@ def _stub_grid_lines_simulation(monkeypatch, tmp_path: Path):
         lambda *args, **kwargs: tmp_path / "compare.png",
     )
     return DummyModel
+
+
+def test_build_tf_row_payload_uses_emitted_validation_loss():
+    payload = grid_lines_workflow_module._build_tf_row_payload(
+        model_id="baseline",
+        model_label="CDI CNN + supervised",
+        model=None,
+        history={"loss": [0.4, 0.2], "val_loss": [0.3, 0.05]},
+        metrics={"mae": [0.1, 0.2]},
+        epoch_budget=2,
+        train_wall_time_sec=1.0,
+        inference_time_sec=0.5,
+    )
+
+    assert payload["validation_loss"] == {"status": "emitted", "value": 0.05}
 
 
 def test_run_grid_lines_workflow_tf_models_pinn_only(monkeypatch, tmp_path: Path):

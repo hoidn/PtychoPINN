@@ -146,6 +146,13 @@ def _parse_wall_time_seconds(payload: Mapping[str, Any]) -> Optional[float]:
     return max(0.0, (finish_dt - start_dt).total_seconds())
 
 
+def _relative_to_output_dir(output_dir: Path, path: Path) -> str:
+    try:
+        return str(path.relative_to(output_dir))
+    except ValueError:
+        return str(path)
+
+
 def _recovered_runtime_summary(invocation_payload: Mapping[str, Any]) -> Dict[str, object]:
     summary: Dict[str, object] = {"recovered_from_existing_artifacts": True}
     wall_time = _parse_wall_time_seconds(invocation_payload)
@@ -191,6 +198,17 @@ def _recover_tf_final_train_loss(log_text: str, model_id: str) -> Optional[float
         return None
 
 
+def _history_series(payload: Mapping[str, Any], *keys: str) -> List[float]:
+    for key in keys:
+        values = payload.get(key)
+        if isinstance(values, list) and values:
+            try:
+                return [float(value) for value in values]
+            except Exception:
+                return []
+    return []
+
+
 def _load_tf_parameter_count(output_dir: Path, model_id: str) -> Optional[int]:
     if model_id == "baseline":
         model_path = output_dir / "baseline" / "baseline.keras"
@@ -231,6 +249,9 @@ def _recover_tf_row_payload(
     if log_path.exists():
         log_text = log_path.read_text(encoding="utf-8", errors="ignore")
     invocation_payload = _load_json_if_exists(output_dir / "invocation.json")
+    history_payload = _load_json_if_exists(output_dir / "runs" / model_id / "history.json")
+    loss_series = _history_series(history_payload, "loss")
+    val_loss = history_payload.get("val_loss", [])
     return {
         "model_label": PAPER_MODEL_LABELS.get(model_id, model_id),
         "architecture_id": PAPER_ARCHITECTURE_OVERRIDES.get(model_id, MODEL_TO_LEGACY_ARCH.get(model_id, model_id)),
@@ -238,9 +259,16 @@ def _recover_tf_row_payload(
         "N": int(n_value),
         "parameter_count": _load_tf_parameter_count(output_dir, model_id),
         "epoch_budget": int(epoch_budget),
-        "final_completed_epoch": int(epoch_budget),
-        "final_train_loss": _recover_tf_final_train_loss(log_text, model_id),
-        "validation_loss": {"status": "not_emitted", "value": None},
+        "final_completed_epoch": int(len(loss_series) or epoch_budget),
+        "final_train_loss": (
+            float(loss_series[-1])
+            if loss_series
+            else _recover_tf_final_train_loss(log_text, model_id)
+        ),
+        "validation_loss": {
+            "status": "emitted" if isinstance(val_loss, list) and val_loss else "no_validation_series",
+            "value": float(val_loss[-1]) if isinstance(val_loss, list) and val_loss else None,
+        },
         "runtime_summary": _recovered_runtime_summary(invocation_payload),
         "hardware_summary": _current_tf_hardware_summary(),
         "row_status": "decision_support",
@@ -259,6 +287,7 @@ def _recover_torch_row_payload(
     run_dir = output_dir / "runs" / model_id
     history_payload = _load_json_if_exists(run_dir / "history.json")
     train_loss = history_payload.get("train_loss", [])
+    val_loss = history_payload.get("val_loss", [])
     invocation_payload = _load_json_if_exists(run_dir / "invocation.json")
     parsed_args = invocation_payload.get("parsed_args", {})
     epoch_budget = parsed_args.get("epochs", len(train_loss) or None)
@@ -272,7 +301,10 @@ def _recover_torch_row_payload(
         "epoch_budget": int(epoch_budget) if epoch_budget is not None else None,
         "final_completed_epoch": int(len(train_loss) or epoch_budget or 0),
         "final_train_loss": final_train_loss,
-        "validation_loss": {"status": "not_emitted", "value": None},
+        "validation_loss": {
+            "status": "emitted" if isinstance(val_loss, list) and val_loss else "no_validation_series",
+            "value": float(val_loss[-1]) if isinstance(val_loss, list) and val_loss else None,
+        },
         "runtime_summary": _recovered_runtime_summary(invocation_payload),
         "hardware_summary": _current_torch_hardware_summary(),
         "row_status": "decision_support",
@@ -298,6 +330,15 @@ def _default_paper_row_payload(model_id: str, *, n_value: int) -> Dict[str, obje
         "hardware_summary": None,
         "row_status": None,
         "caveats": [],
+        "invocation": None,
+        "config": None,
+        "git": None,
+        "environment": None,
+        "dataset": None,
+        "splits": None,
+        "randomness": None,
+        "outputs": None,
+        "visuals": None,
         "metrics": {},
     }
 
@@ -328,6 +369,138 @@ def _coerce_paper_row_payload(
     elif not isinstance(normalized.get("metrics"), Mapping):
         normalized["metrics"] = {}
     return normalized
+
+
+def _maybe_write_recovered_torch_config(
+    *,
+    output_dir: Path,
+    model_id: str,
+    invocation_payload: Mapping[str, Any],
+) -> Path:
+    run_dir = output_dir / "runs" / model_id
+    config_path = run_dir / "config.json"
+    if config_path.exists():
+        return config_path
+    parsed_args = invocation_payload.get("parsed_args", {})
+    payload = {
+        "torch_runner_config": parsed_args,
+        "model_label": PAPER_MODEL_LABELS.get(model_id, model_id),
+        "training_procedure": PAPER_TRAINING_PROCEDURE_OVERRIDES.get(model_id, "pinn"),
+        "train_npz": parsed_args.get("train_npz"),
+        "test_npz": parsed_args.get("test_npz"),
+        "recon_npz": _relative_to_output_dir(output_dir, output_dir / "recons" / model_id / "recon.npz"),
+    }
+    config_path.write_text(json.dumps(payload, indent=2, default=_json_default), encoding="utf-8")
+    return config_path
+
+
+def _enrich_paper_row_payload(
+    *,
+    model_id: str,
+    payload: Mapping[str, Any],
+    output_dir: Path,
+    train_npz: Path,
+    test_npz: Path,
+    seed: int,
+    nimgs_train: int,
+    nimgs_test: int,
+    gridsize: int,
+    set_phi: bool,
+    probe_npz: Path,
+    probe_source: str,
+    probe_scale_mode: str,
+) -> Dict[str, object]:
+    row = dict(payload)
+    run_dir = output_dir / "runs" / model_id
+    invocation_path = run_dir / "invocation.json"
+    invocation_payload = _load_json_if_exists(invocation_path)
+    if model_id in TORCH_MODEL_IDS and invocation_payload:
+        _maybe_write_recovered_torch_config(
+            output_dir=output_dir,
+            model_id=model_id,
+            invocation_payload=invocation_payload,
+        )
+    config_path = run_dir / "config.json"
+    if not row.get("invocation") and invocation_path.exists():
+        row["invocation"] = {
+            "json": _relative_to_output_dir(output_dir, invocation_path),
+            "shell": _relative_to_output_dir(output_dir, invocation_path.with_suffix(".sh")),
+        }
+    if not row.get("config") and config_path.exists():
+        row["config"] = {
+            "json": _relative_to_output_dir(output_dir, config_path),
+        }
+    extra = invocation_payload.get("extra", {}) if isinstance(invocation_payload, Mapping) else {}
+    runtime = extra.get("runtime_provenance", {})
+    git_commit = extra.get("git_commit")
+    if not row.get("environment") and isinstance(runtime, Mapping) and runtime:
+        row["environment"] = dict(runtime)
+    if not row.get("git") and isinstance(git_commit, str) and git_commit:
+        row["git"] = {"commit": git_commit}
+    if not row.get("dataset"):
+        row["dataset"] = {
+            "train_npz": str(train_npz),
+            "test_npz": str(test_npz),
+            "probe_npz": str(probe_npz),
+            "probe_source": probe_source,
+            "probe_scale_mode": probe_scale_mode,
+        }
+    if not row.get("splits"):
+        row["splits"] = {
+            "nimgs_train": int(nimgs_train),
+            "nimgs_test": int(nimgs_test),
+            "gridsize": int(gridsize),
+            "set_phi": bool(set_phi),
+        }
+    randomness = row.get("randomness")
+    if not isinstance(randomness, Mapping) or not randomness:
+        randomness_path = run_dir / "randomness_contract.json"
+        if randomness_path.exists():
+            row["randomness"] = _load_json_if_exists(randomness_path)
+        else:
+            row["randomness"] = {"seed": int(seed), "requested_seed": int(seed)}
+    if not row.get("outputs"):
+        row["outputs"] = {
+            "metrics_json": _relative_to_output_dir(output_dir, run_dir / "metrics.json"),
+            "history_json": _relative_to_output_dir(output_dir, run_dir / "history.json"),
+            "recon_npz": _relative_to_output_dir(output_dir, output_dir / "recons" / model_id / "recon.npz"),
+        }
+    if not row.get("visuals"):
+        row["visuals"] = {
+            "amp_phase_png": f"visuals/amp_phase_{model_id}.png",
+            "amp_phase_error_png": f"visuals/amp_phase_error_{model_id}.png",
+        }
+    if row.get("row_status") in {None, "decision_support"}:
+        required_paths = [
+            invocation_path,
+            run_dir / "config.json",
+            run_dir / "history.json",
+            run_dir / "metrics.json",
+            output_dir / "recons" / model_id / "recon.npz",
+        ]
+        if all(path.exists() for path in required_paths):
+            row["row_status"] = "paper_grade"
+    return row
+
+
+def _recover_existing_dataset_paths(output_dir: Path) -> Tuple[Path, Path]:
+    dataset_candidates = sorted((output_dir / "datasets").glob("N*/gs*/train.npz"))
+    if dataset_candidates:
+        train_npz = dataset_candidates[0]
+        return train_npz, train_npz.with_name("test.npz")
+    for run_dir in sorted((output_dir / "runs").glob("*")):
+        config_payload = _load_json_if_exists(run_dir / "config.json")
+        train_npz = config_payload.get("train_npz")
+        test_npz = config_payload.get("test_npz")
+        if isinstance(train_npz, str) and isinstance(test_npz, str):
+            return Path(train_npz), Path(test_npz)
+        invocation_payload = _load_json_if_exists(run_dir / "invocation.json")
+        parsed_args = invocation_payload.get("parsed_args", {}) if isinstance(invocation_payload, Mapping) else {}
+        train_npz = parsed_args.get("train_npz")
+        test_npz = parsed_args.get("test_npz")
+        if isinstance(train_npz, str) and isinstance(test_npz, str):
+            return Path(train_npz), Path(test_npz)
+    return output_dir / "train.npz", output_dir / "test.npz"
 
 
 def _parse_models(value: str) -> Tuple[str, ...]:
@@ -815,6 +988,7 @@ def run_grid_lines_compare(
             if (output_dir / "recons" / model_id / "recon.npz").exists()
         }
         if reuse_existing_recons and precomputed_gt.exists() and len(precomputed_recons) == len(selected_models):
+            train_npz, test_npz = _recover_existing_dataset_paths(output_dir)
             metrics_by_model = evaluate_selected_models(
                 precomputed_recons,
                 precomputed_gt,
@@ -857,6 +1031,21 @@ def run_grid_lines_compare(
                     n_value=n_for_model,
                     metrics=metric_payload,
                 )
+                row_payloads[model_id] = _enrich_paper_row_payload(
+                    model_id=model_id,
+                    payload=row_payloads[model_id],
+                    output_dir=output_dir,
+                    train_npz=train_npz,
+                    test_npz=test_npz,
+                    seed=int(seed),
+                    nimgs_train=int(nimgs_train),
+                    nimgs_test=int(nimgs_test),
+                    gridsize=int(gridsize),
+                    set_phi=bool(set_phi),
+                    probe_npz=Path(probe_npz),
+                    probe_source=str(probe_source),
+                    probe_scale_mode=str(probe_scale_mode),
+                )
             for model_id in selected_models:
                 run_dir = output_dir / "runs" / model_id
                 run_dir.mkdir(parents=True, exist_ok=True)
@@ -876,8 +1065,8 @@ def run_grid_lines_compare(
                 model_ns=model_ns_for_metrics,
             )
             return {
-                "train_npz": "",
-                "test_npz": "",
+                "train_npz": str(train_npz),
+                "test_npz": str(test_npz),
                 "metrics": legacy_metrics,
                 "metrics_by_model": metrics_by_model,
                 "gt_recon": str(precomputed_gt),
@@ -936,6 +1125,8 @@ def run_grid_lines_compare(
         # Run TF workflow at most once per N for the selected TF models.
         for n_for_model, tf_models_for_n in tf_models_by_n.items():
             bundle = bundles_by_n[n_for_model]
+            tf_train_npz = Path(bundle["train_npz"])
+            tf_test_npz = Path(bundle["test_npz"])
             existing_tf_recons = {
                 model_id: output_dir / "recons" / model_id / "recon.npz"
                 for model_id in tf_models_for_n
@@ -977,6 +1168,21 @@ def run_grid_lines_compare(
                     model_id,
                     tf_row_payloads.get(model_id),
                     n_value=int(resolved_model_n.get(model_id, n_for_model)),
+                )
+                row_payloads[model_id] = _enrich_paper_row_payload(
+                    model_id=model_id,
+                    payload=row_payloads[model_id],
+                    output_dir=output_dir,
+                    train_npz=tf_train_npz,
+                    test_npz=tf_test_npz,
+                    seed=int(seed),
+                    nimgs_train=int(nimgs_train),
+                    nimgs_test=int(nimgs_test),
+                    gridsize=int(gridsize),
+                    set_phi=bool(set_phi),
+                    probe_npz=Path(probe_npz),
+                    probe_source=str(probe_source),
+                    probe_scale_mode=str(probe_scale_mode),
                 )
 
         for model_id in selected_models:
@@ -1045,6 +1251,21 @@ def run_grid_lines_compare(
                     model_id,
                     torch_result.get("paper_row_payload"),
                     n_value=int(n_for_model),
+                )
+                row_payloads[model_id] = _enrich_paper_row_payload(
+                    model_id=model_id,
+                    payload=row_payloads[model_id],
+                    output_dir=output_dir,
+                    train_npz=train_npz,
+                    test_npz=test_npz,
+                    seed=int(seed),
+                    nimgs_train=int(nimgs_train),
+                    nimgs_test=int(nimgs_test),
+                    gridsize=int(gridsize),
+                    set_phi=bool(set_phi),
+                    probe_npz=Path(probe_npz),
+                    probe_source=str(probe_source),
+                    probe_scale_mode=str(probe_scale_mode),
                 )
                 continue
 
@@ -1119,11 +1340,29 @@ def run_grid_lines_compare(
             model_id: payload["metrics"] for model_id, payload in metrics_by_model.items()
         }
         for model_id in selected_models:
+            bundle = bundles_by_n[int(resolved_model_n.get(model_id, N))]
+            row_train_npz = Path(bundle["train_npz"])
+            row_test_npz = Path(bundle["test_npz"])
             row_payloads[model_id] = _coerce_paper_row_payload(
                 model_id,
                 row_payloads.get(model_id),
                 n_value=int(resolved_model_n.get(model_id, N)),
                 metrics=legacy_metrics.get(model_id, {}),
+            )
+            row_payloads[model_id] = _enrich_paper_row_payload(
+                model_id=model_id,
+                payload=row_payloads[model_id],
+                output_dir=output_dir,
+                train_npz=row_train_npz,
+                test_npz=row_test_npz,
+                seed=int(seed),
+                nimgs_train=int(nimgs_train),
+                nimgs_test=int(nimgs_test),
+                gridsize=int(gridsize),
+                set_phi=bool(set_phi),
+                probe_npz=Path(probe_npz),
+                probe_source=str(probe_source),
+                probe_scale_mode=str(probe_scale_mode),
             )
         model_ns_for_metrics = {
             model_id: int(resolved_model_n.get(model_id, N))
@@ -1193,6 +1432,21 @@ def run_grid_lines_compare(
                 model_id,
                 tf_row_payloads.get(model_id),
                 n_value=int(N),
+            )
+            row_payloads[model_id] = _enrich_paper_row_payload(
+                model_id=model_id,
+                payload=row_payloads[model_id],
+                output_dir=output_dir,
+                train_npz=train_npz,
+                test_npz=test_npz,
+                seed=int(seed),
+                nimgs_train=int(nimgs_train),
+                nimgs_test=int(nimgs_test),
+                gridsize=int(gridsize),
+                set_phi=bool(set_phi),
+                probe_npz=Path(probe_npz),
+                probe_source=str(probe_source),
+                probe_scale_mode=str(probe_scale_mode),
             )
     elif not train_npz.exists() or not test_npz.exists():
         tf_cfg = GridLinesConfig(
@@ -1290,6 +1544,21 @@ def run_grid_lines_compare(
                     torch_result.get("paper_row_payload"),
                     n_value=int(N),
                     metrics=torch_result["metrics"],
+                )
+                row_payloads[model_id] = _enrich_paper_row_payload(
+                    model_id=model_id,
+                    payload=row_payloads[model_id],
+                    output_dir=output_dir,
+                    train_npz=train_npz,
+                    test_npz=test_npz,
+                    seed=int(seed),
+                    nimgs_train=int(nimgs_train),
+                    nimgs_test=int(nimgs_test),
+                    gridsize=int(gridsize),
+                    set_phi=bool(set_phi),
+                    probe_npz=Path(probe_npz),
+                    probe_source=str(probe_source),
+                    probe_scale_mode=str(probe_scale_mode),
                 )
 
     order = ["gt"]

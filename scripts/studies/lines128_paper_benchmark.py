@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,6 +56,111 @@ REQUIRED_FIXED_CONTRACT_FIELDS = (
     "fno_blocks",
     "fno_cnn_blocks",
 )
+
+
+def _load_json_if_exists(path: Path) -> Dict[str, Any]:
+    candidate = Path(path)
+    if not candidate.exists():
+        return {}
+    payload = json.loads(candidate.read_text(encoding="utf-8"))
+    return dict(payload) if isinstance(payload, dict) else {}
+
+
+def _relative_to_output_dir(output_dir: Path, path: Path) -> str:
+    try:
+        return str(path.relative_to(output_dir))
+    except ValueError:
+        return str(path)
+
+
+def _git_dirty(repo_root: Path) -> bool | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "status", "--short"],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+    except Exception:
+        return None
+    return bool(result.stdout.strip())
+
+
+def _build_paper_benchmark_manifest(
+    *,
+    output_dir: Path,
+    compare_result: Mapping[str, object],
+    authority_surface: Mapping[str, object],
+    required_rows: List[str],
+    benchmark_status: str,
+    claim_boundary: str,
+) -> Dict[str, object]:
+    output_dir = Path(output_dir)
+    invocation_payload = _load_json_if_exists(output_dir / "invocation.json")
+    invocation_extra = invocation_payload.get("extra", {}) if isinstance(invocation_payload, Mapping) else {}
+    runtime_provenance = invocation_extra.get("runtime_provenance", {})
+    git_commit = invocation_extra.get("git_commit")
+    train_npz = str(compare_result.get("train_npz", ""))
+    test_npz = str(compare_result.get("test_npz", ""))
+    gt_recon = str(compare_result.get("gt_recon", ""))
+    recon_paths = compare_result.get("recon_paths", {})
+    row_records: List[Dict[str, object]] = []
+    for model_id in required_rows:
+        run_dir = output_dir / "runs" / model_id
+        row_paths = {
+            "invocation_json": run_dir / "invocation.json",
+            "config_json": run_dir / "config.json",
+            "history_json": run_dir / "history.json",
+            "metrics_json": run_dir / "metrics.json",
+            "recon_npz": Path(str(recon_paths.get(model_id, output_dir / "recons" / model_id / "recon.npz"))),
+        }
+        row_records.append(
+            {
+                "model_id": model_id,
+                "row_root": _relative_to_output_dir(output_dir, run_dir),
+                "artifacts": {
+                    name: _relative_to_output_dir(output_dir, path)
+                    for name, path in row_paths.items()
+                },
+                "artifact_mtimes": {
+                    name: path.stat().st_mtime if path.exists() else None
+                    for name, path in row_paths.items()
+                },
+            }
+        )
+    return {
+        "benchmark_status": benchmark_status,
+        "claim_boundary": claim_boundary,
+        "selected_fno_comparator": authority_surface["selected_fno_comparator"],
+        "seed_policy": authority_surface["seed_policy"],
+        "fixed_contract": authority_surface["fixed_contract"],
+        "dataset": {
+            "train_npz": train_npz,
+            "test_npz": test_npz,
+            "gt_recon": gt_recon,
+        },
+        "wrapper_invocation": {
+            "json": _relative_to_output_dir(output_dir, output_dir / "invocation.json"),
+            "shell": _relative_to_output_dir(output_dir, output_dir / "invocation.sh"),
+        },
+        "git": {
+            "commit": git_commit,
+            "dirty": _git_dirty(REPO_ROOT),
+        },
+        "environment": runtime_provenance,
+        "bundle_artifacts": {
+            name: name
+            for name in (
+                "metrics.json",
+                "metric_schema.json",
+                "model_manifest.json",
+                "metrics_table.csv",
+                "metrics_table.tex",
+                "metrics_table_best.tex",
+            )
+        },
+        "rows": row_records,
+    }
 
 
 def _normalize_bool(value: object, *, field_name: str) -> bool:
@@ -723,7 +829,20 @@ def run_lines128_paper_benchmark(
         selected_fno_comparator=authority_surface["selected_fno_comparator"],
         evidence_scope="minimum_subset_benchmark_execution",
         claim_boundary="minimum_draftable_cdi_subset",
+        require_row_provenance=True,
     )
+    bundle_payload = json.loads(Path(bundle_paths["metrics_json"]).read_text(encoding="utf-8"))
+    manifest_payload = _build_paper_benchmark_manifest(
+        output_dir=output_dir,
+        compare_result=compare_result,
+        authority_surface=authority_surface,
+        required_rows=required_rows,
+        benchmark_status=str(bundle_payload["benchmark_status"]),
+        claim_boundary="minimum_draftable_cdi_subset",
+    )
+    manifest_path = output_dir / "paper_benchmark_manifest.json"
+    manifest_path.write_text(json.dumps(manifest_payload, indent=2), encoding="utf-8")
+    bundle_paths["paper_benchmark_manifest_json"] = str(manifest_path)
     return {
         "required_rows": required_rows,
         "bundle_paths": bundle_paths,

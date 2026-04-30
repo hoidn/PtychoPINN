@@ -64,6 +64,20 @@ PAPER_MODEL_LABELS = {
 }
 
 
+def _json_default(value: object) -> object:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
 def derive_channel_count(gridsize: int) -> int:
     """Derive channel count (C) from gridsize.
 
@@ -1130,6 +1144,8 @@ def save_run_artifacts(
     results: Dict[str, Any],
     metrics: Dict[str, float],
     randomness_contract: Dict[str, int | None],
+    *,
+    recon_path: Optional[Path] = None,
 ) -> Path:
     """Save run artifacts to output directory.
 
@@ -1144,16 +1160,27 @@ def save_run_artifacts(
     # Save metrics
     metrics_path = run_dir / "metrics.json"
     with open(metrics_path, 'w') as f:
-        json.dump(metrics, f, indent=2, default=str)
+        json.dump(metrics, f, indent=2, default=_json_default)
 
     # Save training history
     history_path = run_dir / "history.json"
     with open(history_path, 'w') as f:
-        json.dump(results.get('history', {}), f, indent=2)
+        json.dump(results.get('history', {}), f, indent=2, default=_json_default)
 
     randomness_path = run_dir / "randomness_contract.json"
     with open(randomness_path, 'w') as f:
         json.dump(randomness_contract, f, indent=2)
+
+    config_payload = {
+        "torch_runner_config": asdict(cfg),
+        "model_label": PAPER_MODEL_LABELS.get(cfg.architecture, cfg.architecture),
+        "training_procedure": "pinn",
+        "train_npz": str(cfg.train_npz),
+        "test_npz": str(cfg.test_npz),
+        "recon_npz": str(recon_path) if recon_path is not None else None,
+    }
+    with open(run_dir / "config.json", "w") as f:
+        json.dump(config_payload, f, indent=2, default=_json_default)
 
     # Save model checkpoint
     model_to_save = results.get('model')
@@ -1190,6 +1217,13 @@ def _history_series(history: object, *keys: str) -> List[float]:
     return []
 
 
+def _history_validation_loss(history: object) -> Dict[str, object]:
+    val_loss = _history_series(history, "val_loss")
+    if val_loss:
+        return {"status": "emitted", "value": float(val_loss[-1])}
+    return {"status": "no_validation_series", "value": None}
+
+
 def _torch_hardware_summary() -> Dict[str, object]:
     try:
         import torch
@@ -1220,11 +1254,14 @@ def _build_paper_row_payload(
     model_params: int,
     train_wall_time_sec: float,
     inference_time_s: float,
+    run_dir: Optional[Path] = None,
+    recon_path: Optional[Path] = None,
+    invocation_json: Optional[Path] = None,
 ) -> Dict[str, object]:
     train_loss_series = _history_series(history, "train_loss", "loss")
     final_completed_epoch = int(len(train_loss_series) or cfg.epochs)
     final_train_loss = float(train_loss_series[-1]) if train_loss_series else None
-    return {
+    payload = {
         "model_label": PAPER_MODEL_LABELS.get(cfg.architecture, cfg.architecture),
         "architecture_id": str(cfg.architecture),
         "training_procedure": "pinn",
@@ -1233,7 +1270,7 @@ def _build_paper_row_payload(
         "epoch_budget": int(cfg.epochs),
         "final_completed_epoch": final_completed_epoch,
         "final_train_loss": final_train_loss,
-        "validation_loss": {"status": "not_emitted", "value": None},
+        "validation_loss": _history_validation_loss(history),
         "runtime_summary": {
             "train_wall_time_sec": float(train_wall_time_sec),
             "inference_time_sec": float(inference_time_s),
@@ -1243,6 +1280,52 @@ def _build_paper_row_payload(
         "caveats": [],
         "metrics": dict(metrics),
     }
+    if run_dir is not None:
+        run_dir = Path(run_dir)
+        payload["config"] = {"json": str((run_dir / "config.json").relative_to(cfg.output_dir))}
+        payload["outputs"] = {
+            "metrics_json": str((run_dir / "metrics.json").relative_to(cfg.output_dir)),
+            "history_json": str((run_dir / "history.json").relative_to(cfg.output_dir)),
+            "recon_npz": str(Path(recon_path).relative_to(cfg.output_dir)) if recon_path is not None else "",
+            "model_artifact": str((run_dir / "model.pt").relative_to(cfg.output_dir)),
+        }
+    if invocation_json is not None:
+        invocation_json = Path(invocation_json)
+        payload["invocation"] = {
+            "json": str(invocation_json.relative_to(cfg.output_dir)),
+            "shell": str(invocation_json.with_suffix(".sh").relative_to(cfg.output_dir)),
+        }
+        invocation_payload = json.loads(invocation_json.read_text(encoding="utf-8"))
+        extra = invocation_payload.get("extra", {})
+        runtime = extra.get("runtime_provenance", {})
+        git_commit = extra.get("git_commit")
+        if runtime:
+            payload["environment"] = dict(runtime)
+        if isinstance(git_commit, str) and git_commit:
+            payload["git"] = {"commit": git_commit}
+    payload.setdefault(
+        "dataset",
+        {
+            "train_npz": str(cfg.train_npz),
+            "test_npz": str(cfg.test_npz),
+            "probe_source": str(cfg.probe_source),
+        },
+    )
+    payload.setdefault(
+        "splits",
+        {
+            "gridsize": int(cfg.gridsize),
+        },
+    )
+    payload.setdefault("randomness", _build_randomness_contract(cfg))
+    payload.setdefault(
+        "visuals",
+        {
+            "amp_phase_png": f"visuals/amp_phase_pinn_{cfg.architecture}.png",
+            "amp_phase_error_png": f"visuals/amp_phase_error_pinn_{cfg.architecture}.png",
+        },
+    )
+    return payload
 
 
 def run_grid_lines_torch(
@@ -1372,7 +1455,13 @@ def run_grid_lines_torch(
 
         # Step 5: Save artifacts
         randomness_contract = _build_randomness_contract(cfg)
-        run_dir = save_run_artifacts(cfg, results, metrics, randomness_contract)
+        run_dir = save_run_artifacts(
+            cfg,
+            results,
+            metrics,
+            randomness_contract,
+            recon_path=Path(recon_path),
+        )
 
         logger.info(f"Torch runner complete. Artifacts in {run_dir}")
 
@@ -1394,6 +1483,9 @@ def run_grid_lines_torch(
             model_params=int(model_params),
             train_wall_time_sec=float(train_wall_time_sec),
             inference_time_s=float(inference_time_s),
+            run_dir=Path(run_dir),
+            recon_path=Path(recon_path),
+            invocation_json=invocation_json,
         )
 
         # Step 6: Render post-run visuals (best-effort)

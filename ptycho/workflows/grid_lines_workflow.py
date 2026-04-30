@@ -891,6 +891,19 @@ def _history_final_loss(history: object) -> float | None:
     return None
 
 
+def _history_validation_loss(history: object) -> Dict[str, object]:
+    if isinstance(history, dict):
+        val_loss = history.get("val_loss", [])
+        if isinstance(val_loss, list) and val_loss:
+            return {"status": "emitted", "value": float(val_loss[-1])}
+    raw_history = getattr(history, "history", None)
+    if isinstance(raw_history, dict):
+        val_loss = raw_history.get("val_loss", [])
+        if isinstance(val_loss, list) and val_loss:
+            return {"status": "emitted", "value": float(val_loss[-1])}
+    return {"status": "no_validation_series", "value": None}
+
+
 def _count_model_parameters(model: object) -> int | None:
     count_params = getattr(model, "count_params", None)
     if callable(count_params):
@@ -934,7 +947,7 @@ def _build_tf_row_payload(
         "epoch_budget": int(epoch_budget),
         "final_completed_epoch": _history_final_epoch(history, fallback_epochs=epoch_budget),
         "final_train_loss": _history_final_loss(history),
-        "validation_loss": {"status": "not_emitted", "value": None},
+        "validation_loss": _history_validation_loss(history),
         "runtime_summary": {
             "train_wall_time_sec": float(train_wall_time_sec),
             "inference_time_sec": float(inference_time_sec),
@@ -1043,6 +1056,8 @@ def _write_tf_row_provenance(
         },
         extra=invocation_extra,
     )
+    invocation_json = run_dir / "invocation.json"
+    invocation_sh = run_dir / "invocation.sh"
     config_payload = {
         "grid_lines_config": asdict(cfg),
         "row_model_id": model_id,
@@ -1073,6 +1088,46 @@ def _write_tf_row_provenance(
     )
     (run_dir / "stdout.log").write_text(stdout_text, encoding="utf-8")
     (run_dir / "stderr.log").write_text("", encoding="utf-8")
+
+    row_payload["invocation"] = {
+        "json": str(invocation_json.relative_to(cfg.output_dir)),
+        "shell": str(invocation_sh.relative_to(cfg.output_dir)),
+    }
+    row_payload["config"] = {
+        "json": str((run_dir / "config.json").relative_to(cfg.output_dir)),
+    }
+    row_payload["git"] = {
+        "commit": invocation_extra["git_commit"],
+    }
+    row_payload["environment"] = dict(invocation_extra["runtime_provenance"])
+    row_payload["dataset"] = {
+        "train_npz": str(train_npz),
+        "test_npz": str(test_npz),
+        "probe_npz": str(cfg.probe_npz),
+        "probe_source": str(cfg.probe_source),
+        "probe_scale_mode": str(cfg.probe_scale_mode),
+    }
+    row_payload["splits"] = {
+        "nimgs_train": int(cfg.nimgs_train),
+        "nimgs_test": int(cfg.nimgs_test),
+        "gridsize": int(cfg.gridsize),
+        "set_phi": bool(cfg.set_phi),
+    }
+    row_payload["randomness"] = {
+        "seed_policy": "shared_wrapper_seed_contract",
+    }
+    row_payload["outputs"] = {
+        "metrics_json": str((run_dir / "metrics.json").relative_to(cfg.output_dir)),
+        "history_json": str((run_dir / "history.json").relative_to(cfg.output_dir)),
+        "recon_npz": str(recon_path.relative_to(cfg.output_dir)),
+        "stdout_log": str((run_dir / "stdout.log").relative_to(cfg.output_dir)),
+        "stderr_log": str((run_dir / "stderr.log").relative_to(cfg.output_dir)),
+        "model_artifact": str(model_artifact.relative_to(cfg.output_dir)),
+    }
+    row_payload["visuals"] = {
+        "amp_phase_png": f"visuals/amp_phase_{model_id}.png",
+        "amp_phase_error_png": f"visuals/amp_phase_error_{model_id}.png",
+    }
 
 
 def run_pinn_inference(model, X_test, coords_nominal):
@@ -1983,7 +2038,7 @@ def run_grid_lines_workflow(
     if "pinn" in selected_models and pinn_stitched is not None:
         pinn_recon_path = save_recon_artifact(cfg.output_dir, "pinn", pinn_stitched)
 
-    if "baseline" in row_payloads and baseline_recon_path is not None:
+    if "baseline" in row_payloads and baseline_recon_path is not None and train_npz is not None and test_npz is not None:
         _write_tf_row_provenance(
             cfg=cfg,
             model_id="baseline",
@@ -1994,7 +2049,7 @@ def run_grid_lines_workflow(
             model_artifact=cfg.output_dir / "baseline" / "baseline.keras",
             recon_path=baseline_recon_path,
         )
-    if "pinn" in row_payloads and pinn_recon_path is not None:
+    if "pinn" in row_payloads and pinn_recon_path is not None and train_npz is not None and test_npz is not None:
         _write_tf_row_provenance(
             cfg=cfg,
             model_id="pinn",

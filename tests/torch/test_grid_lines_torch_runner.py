@@ -14,6 +14,7 @@ from ptycho.metadata import MetadataManager
 
 from scripts.studies.grid_lines_torch_runner import (
     TorchRunnerConfig,
+    _build_paper_row_payload,
     compute_metrics,
     load_cached_dataset,
     _resolve_position_crop_border,
@@ -487,6 +488,67 @@ class TestRunGridLinesTorchScaffold:
             "effective_subsample_seed": 11,
             "effective_lightning_seed": 11,
         }
+
+    def test_runner_writes_config_and_json_stable_metrics(self, synthetic_npz, tmp_path):
+        train_path, test_path = synthetic_npz
+        output_dir = tmp_path / "output"
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=output_dir,
+            architecture="hybrid_resnet",
+            epochs=1,
+        )
+
+        with patch('scripts.studies.grid_lines_torch_runner.run_torch_training') as mock_train:
+            mock_train.return_value = {
+                'model': None,
+                'history': {'train_loss': [0.2], 'val_loss': [0.05]},
+                'generator': 'hybrid_resnet',
+                'scaffold': True,
+            }
+            with patch('scripts.studies.grid_lines_torch_runner.run_torch_inference') as mock_infer:
+                mock_infer.return_value = np.random.rand(64, 64).astype(np.complex64)
+                with patch('scripts.studies.grid_lines_torch_runner.compute_metrics') as mock_metrics:
+                    mock_metrics.return_value = {
+                        'mae': np.array([0.1, 0.2], dtype=np.float32),
+                        'mse': np.array([0.01, 0.02], dtype=np.float32),
+                        'psnr': np.array([70.0, 65.0], dtype=np.float32),
+                        'ssim': np.array([0.9, 0.8], dtype=np.float32),
+                        'ms_ssim': np.array([0.85, 0.75], dtype=np.float32),
+                        'frc50': np.array([64, 48], dtype=np.float32),
+                    }
+                    result = run_grid_lines_torch(cfg)
+
+        run_dir = Path(result['run_dir'])
+        config_path = run_dir / "config.json"
+        metrics_path = run_dir / "metrics.json"
+        assert config_path.exists()
+        metrics_payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+        assert metrics_payload["mae"] == [0.10000000149011612, 0.20000000298023224]
+        assert isinstance(metrics_payload["frc50"], list)
+
+    def test_build_paper_row_payload_uses_emitted_validation_loss_when_present(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            epochs=2,
+            N=128,
+        )
+
+        payload = _build_paper_row_payload(
+            cfg,
+            metrics={"mae": [0.1, 0.2]},
+            history={"train_loss": [0.4, 0.2], "val_loss": [0.3, 0.05]},
+            model_params=123,
+            train_wall_time_sec=1.0,
+            inference_time_s=0.5,
+        )
+
+        assert payload["validation_loss"] == {"status": "emitted", "value": 0.05}
 
     def test_runner_creates_run_directory_structure(self, synthetic_npz, tmp_path):
         """Test runner creates proper directory structure."""

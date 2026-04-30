@@ -312,101 +312,85 @@ def test_minimum_subset_executes_four_locked_rows_and_emits_bundle(tmp_path, mon
 
     def fake_run_grid_lines_compare(**kwargs):
         captured.update(kwargs)
+        def _row(model_id, model_label, architecture_id, training_procedure, parameter_count, final_train_loss, runtime, metrics):
+            return {
+                "model_label": model_label,
+                "architecture_id": architecture_id,
+                "training_procedure": training_procedure,
+                "N": 128,
+                "parameter_count": parameter_count,
+                "epoch_budget": 40,
+                "final_completed_epoch": 40,
+                "final_train_loss": final_train_loss,
+                "validation_loss": {"status": "no_validation_series", "value": None},
+                "runtime_summary": {"train_wall_time_sec": runtime, "inference_time_sec": runtime / 20.0},
+                "hardware_summary": {"backend": "tensorflow" if architecture_id == "cnn" else "pytorch", "accelerator": "rtx3090"},
+                "row_status": "paper_grade",
+                "caveats": [],
+                "invocation": {"json": f"runs/{model_id}/invocation.json", "shell": f"runs/{model_id}/invocation.sh"},
+                "config": {"json": f"runs/{model_id}/config.json"},
+                "git": {"commit": "abc123"},
+                "environment": {"python_executable": "/usr/bin/python"},
+                "dataset": {"train_npz": "train.npz", "test_npz": "test.npz"},
+                "splits": {"nimgs_train": 2, "nimgs_test": 2},
+                "randomness": {"requested_seed": 3},
+                "outputs": {
+                    "metrics_json": f"runs/{model_id}/metrics.json",
+                    "history_json": f"runs/{model_id}/history.json",
+                    "recon_npz": f"recons/{model_id}/recon.npz",
+                },
+                "visuals": {
+                    "amp_phase_png": f"visuals/amp_phase_{model_id}.png",
+                    "amp_phase_error_png": f"visuals/amp_phase_error_{model_id}.png",
+                },
+                "metrics": metrics,
+            }
         return {
             "selected_models": list(kwargs["models"]),
+            "train_npz": str(tmp_path / "train.npz"),
+            "test_npz": str(tmp_path / "test.npz"),
+            "recon_paths": {
+                model_id: str(tmp_path / "out" / "recons" / model_id / "recon.npz")
+                for model_id in (
+                    "baseline",
+                    "pinn",
+                    "pinn_hybrid_resnet",
+                    "pinn_fno_vanilla",
+                )
+            },
             "row_payloads": {
-                "baseline": {
-                    "model_label": "CDI CNN + supervised",
-                    "architecture_id": "cnn",
-                    "training_procedure": "supervised",
-                    "N": 128,
-                    "parameter_count": 100,
-                    "epoch_budget": 40,
-                    "final_completed_epoch": 40,
-                    "final_train_loss": 0.4,
-                    "validation_loss": {"status": "not_emitted", "value": None},
-                    "runtime_summary": {"train_wall_time_sec": 9.0, "inference_time_sec": 0.4},
-                    "hardware_summary": {"backend": "tensorflow", "accelerator": "rtx3090"},
-                    "row_status": "paper_grade",
-                    "caveats": [],
-                    "metrics": {
-                        "mae": (0.2, 0.3),
-                        "mse": (0.02, 0.03),
-                        "psnr": (60.0, 55.0),
-                        "ssim": (0.7, 0.6),
-                        "ms_ssim": (0.65, 0.55),
-                        "frc50": (32, 24),
-                    },
-                },
-                "pinn": {
-                    "model_label": "CDI CNN + PINN",
-                    "architecture_id": "cnn",
-                    "training_procedure": "pinn",
-                    "N": 128,
-                    "parameter_count": 101,
-                    "epoch_budget": 40,
-                    "final_completed_epoch": 40,
-                    "final_train_loss": 0.3,
-                    "validation_loss": {"status": "not_emitted", "value": None},
-                    "runtime_summary": {"train_wall_time_sec": 10.0, "inference_time_sec": 0.5},
-                    "hardware_summary": {"backend": "tensorflow", "accelerator": "rtx3090"},
-                    "row_status": "paper_grade",
-                    "caveats": [],
-                    "metrics": {
-                        "mae": (0.19, 0.29),
-                        "mse": (0.019, 0.029),
-                        "psnr": (61.0, 56.0),
-                        "ssim": (0.71, 0.61),
-                        "ms_ssim": (0.66, 0.56),
-                        "frc50": (33, 25),
-                    },
-                },
-                "pinn_hybrid_resnet": {
-                    "model_label": "Hybrid ResNet + PINN",
-                    "architecture_id": "hybrid_resnet",
-                    "training_procedure": "pinn",
-                    "N": 128,
-                    "parameter_count": 102,
-                    "epoch_budget": 40,
-                    "final_completed_epoch": 40,
-                    "final_train_loss": 0.2,
-                    "validation_loss": {"status": "not_emitted", "value": None},
-                    "runtime_summary": {"train_wall_time_sec": 11.0, "inference_time_sec": 0.6},
-                    "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
-                    "row_status": "paper_grade",
-                    "caveats": [],
-                    "metrics": {
-                        "mae": (0.1, 0.2),
-                        "mse": (0.01, 0.02),
-                        "psnr": (70.0, 65.0),
-                        "ssim": (0.9, 0.8),
-                        "ms_ssim": (0.85, 0.75),
-                        "frc50": (64, 48),
-                    },
-                },
-                "pinn_fno_vanilla": {
-                    "model_label": "FNO Vanilla + PINN",
-                    "architecture_id": "fno_vanilla",
-                    "training_procedure": "pinn",
-                    "N": 128,
-                    "parameter_count": 103,
-                    "epoch_budget": 40,
-                    "final_completed_epoch": 40,
-                    "final_train_loss": 0.25,
-                    "validation_loss": {"status": "not_emitted", "value": None},
-                    "runtime_summary": {"train_wall_time_sec": 12.0, "inference_time_sec": 0.7},
-                    "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
-                    "row_status": "paper_grade",
-                    "caveats": [],
-                    "metrics": {
-                        "mae": (0.12, 0.22),
-                        "mse": (0.012, 0.022),
-                        "psnr": (68.0, 63.0),
-                        "ssim": (0.88, 0.78),
-                        "ms_ssim": (0.83, 0.73),
-                        "frc50": (60, 44),
-                    },
-                },
+                "baseline": _row("baseline", "CDI CNN + supervised", "cnn", "supervised", 100, 0.4, 9.0, {
+                    "mae": (0.2, 0.3),
+                    "mse": (0.02, 0.03),
+                    "psnr": (60.0, 55.0),
+                    "ssim": (0.7, 0.6),
+                    "ms_ssim": (0.65, 0.55),
+                    "frc50": (32, 24),
+                }),
+                "pinn": _row("pinn", "CDI CNN + PINN", "cnn", "pinn", 101, 0.3, 10.0, {
+                    "mae": (0.19, 0.29),
+                    "mse": (0.019, 0.029),
+                    "psnr": (61.0, 56.0),
+                    "ssim": (0.71, 0.61),
+                    "ms_ssim": (0.66, 0.56),
+                    "frc50": (33, 25),
+                }),
+                "pinn_hybrid_resnet": _row("pinn_hybrid_resnet", "Hybrid ResNet + PINN", "hybrid_resnet", "pinn", 102, 0.2, 11.0, {
+                    "mae": (0.1, 0.2),
+                    "mse": (0.01, 0.02),
+                    "psnr": (70.0, 65.0),
+                    "ssim": (0.9, 0.8),
+                    "ms_ssim": (0.85, 0.75),
+                    "frc50": (64, 48),
+                }),
+                "pinn_fno_vanilla": _row("pinn_fno_vanilla", "FNO Vanilla + PINN", "fno_vanilla", "pinn", 103, 0.25, 12.0, {
+                    "mae": (0.12, 0.22),
+                    "mse": (0.012, 0.022),
+                    "psnr": (68.0, 63.0),
+                    "ssim": (0.88, 0.78),
+                    "ms_ssim": (0.83, 0.73),
+                    "frc50": (60, 44),
+                }),
             },
         }
 
@@ -507,6 +491,104 @@ def test_minimum_subset_can_request_existing_recon_reuse(tmp_path, monkeypatch):
     )
 
     assert captured["reuse_existing_recons"] is True
+
+
+def test_minimum_subset_emits_wrapper_manifest_for_shared_provenance(tmp_path, monkeypatch):
+    from scripts.studies.lines128_paper_benchmark import run_lines128_paper_benchmark
+
+    def fake_run_grid_lines_compare(**kwargs):
+        return {
+            "train_npz": str(tmp_path / "train.npz"),
+            "test_npz": str(tmp_path / "test.npz"),
+            "gt_recon": str(tmp_path / "out" / "recons" / "gt" / "recon.npz"),
+            "recon_paths": {
+                model_id: str(tmp_path / "out" / "recons" / model_id / "recon.npz")
+                for model_id in (
+                    "baseline",
+                    "pinn",
+                    "pinn_hybrid_resnet",
+                    "pinn_fno_vanilla",
+                )
+            },
+            "row_payloads": {
+                model_id: {
+                    "model_label": {
+                        "baseline": "CDI CNN + supervised",
+                        "pinn": "CDI CNN + PINN",
+                        "pinn_hybrid_resnet": "Hybrid ResNet + PINN",
+                        "pinn_fno_vanilla": "FNO Vanilla + PINN",
+                    }[model_id],
+                    "architecture_id": "cnn" if model_id in {"baseline", "pinn"} else model_id.replace("pinn_", ""),
+                    "training_procedure": "supervised" if model_id == "baseline" else "pinn",
+                    "N": 128,
+                    "parameter_count": 1,
+                    "epoch_budget": 40,
+                    "final_completed_epoch": 40,
+                    "final_train_loss": 0.1,
+                    "validation_loss": {"status": "emitted", "value": 0.05},
+                    "runtime_summary": {"train_wall_time_sec": 1.0, "inference_time_sec": 0.1},
+                    "hardware_summary": {"backend": "test"},
+                    "row_status": "paper_grade",
+                    "caveats": [],
+                    "invocation": {"json": f"runs/{model_id}/invocation.json", "shell": f"runs/{model_id}/invocation.sh"},
+                    "config": {"json": f"runs/{model_id}/config.json"},
+                    "git": {"commit": "abc123"},
+                    "environment": {"python_executable": "/usr/bin/python"},
+                    "dataset": {"train_npz": "train.npz", "test_npz": "test.npz"},
+                    "splits": {"nimgs_train": 2, "nimgs_test": 2},
+                    "randomness": {"requested_seed": 3},
+                    "outputs": {
+                        "metrics_json": f"runs/{model_id}/metrics.json",
+                        "history_json": f"runs/{model_id}/history.json",
+                        "recon_npz": f"recons/{model_id}/recon.npz",
+                    },
+                    "visuals": {
+                        "amp_phase_png": f"visuals/amp_phase_{model_id}.png",
+                        "amp_phase_error_png": f"visuals/amp_phase_error_{model_id}.png",
+                    },
+                    "metrics": {
+                        "mae": (0.1, 0.1),
+                        "mse": (0.01, 0.01),
+                        "psnr": (1.0, 1.0),
+                        "ssim": (0.9, 0.9),
+                        "ms_ssim": (0.8, 0.8),
+                        "frc50": (2, 2),
+                    },
+                }
+                for model_id in (
+                    "baseline",
+                    "pinn",
+                    "pinn_hybrid_resnet",
+                    "pinn_fno_vanilla",
+                )
+            },
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines128_paper_benchmark.run_grid_lines_compare",
+        fake_run_grid_lines_compare,
+    )
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+    authority_note = _write_execution_authority_note(tmp_path / "authority.md")
+    execution_manifest = _write_execution_manifest(
+        tmp_path / "execution" / "benchmark_execution_decisions.json",
+    )
+
+    run_lines128_paper_benchmark(
+        decision_artifact=decision_artifact,
+        execution_authority_note=authority_note,
+        execution_manifest=execution_manifest,
+        output_dir=tmp_path / "out",
+    )
+
+    manifest_path = tmp_path / "out" / "paper_benchmark_manifest.json"
+    assert manifest_path.exists()
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["benchmark_status"] == "paper_complete"
+    assert manifest["selected_fno_comparator"] == "fno_vanilla"
+    assert manifest["dataset"]["train_npz"].endswith("train.npz")
+    assert manifest["rows"][0]["row_root"] == "runs/baseline"
 
 
 def test_preflight_rejects_seed_policy_that_does_not_match_fixed_contract(tmp_path):

@@ -3,25 +3,20 @@
 - Date: `2026-04-29`
 - Backlog item: `2026-04-29-cdi-lines128-minimum-paper-table`
 - State: `paper_complete`
-- Chosen execution path: `fresh_rerun_required`
+- Chosen execution path: `same_root_recovery`
 - Authoritative root:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260429T235811Z`
 
 ## Completed In This Pass
 
-- revalidated the implementation review findings and rejected the earlier
-  `minimum_subset_20260429T213028Z` same-root promotion because it did not meet
-  the required row-local provenance or visual-bundle contract
-- tightened the paper-bundle status contract so only `paper_grade` rows can
-  produce `benchmark_status=paper_complete`; recovered rows are now labeled
-  `decision_support`
-- extended the TensorFlow grid-lines workflow to emit row-local
-  `invocation`, `config`, `history`, and `metrics` artifacts for `baseline` and
-  `pinn`
-- expanded the final visual bundle to include per-row absolute-error panels and
-  `frc_curves.png`
-- reran the full four-row minimum subset into a brand-new root and verified the
-  tracked tmux shell PID exited `0`
+- fixed the review-blocking code gaps for paper-grade provenance gating,
+  emitted validation-loss propagation, wrapper manifest emission, and stable
+  Torch row-local provenance serialization
+- reused the existing authoritative root
+  `minimum_subset_20260429T235811Z` and reran only the same-root bundle
+  collation path with `--reuse-existing-recons`
+- regenerated the merged bundle so every required row now reports complete
+  provenance blocks, emitted validation loss, and `row_status=paper_grade`
 
 ## Final Bundle Contract
 
@@ -51,24 +46,30 @@
   - `metrics_table.csv`
   - `metrics_table.tex`
   - `metrics_table_best.tex`
+  - `paper_benchmark_manifest.json`
 - row-local provenance now exists for every required row:
   - `runs/baseline/`: `invocation.json`, `invocation.sh`, `config.json`,
     `history.json`, `metrics.json`, `stdout.log`, `stderr.log`
   - `runs/pinn/`: `invocation.json`, `invocation.sh`, `config.json`,
     `history.json`, `metrics.json`, `stdout.log`, `stderr.log`
-  - `runs/pinn_hybrid_resnet/` and `runs/pinn_fno_vanilla/` retain their Torch
-    invocation, history, metrics, checkpoint, and randomness artifacts
+  - `runs/pinn_hybrid_resnet/` and `runs/pinn_fno_vanilla/` now also include
+    recovered `config.json` alongside their Torch invocation, history, metrics,
+    checkpoint, and randomness artifacts
 - final row metadata in the completed bundle:
   - `baseline`: `parameter_count=4612418`, `final_completed_epoch=40`,
-    `final_train_loss=0.07900754362344742`
+    `final_train_loss=0.07928212732076645`,
+    `validation_loss=0.09419603645801544`
   - `pinn`: `parameter_count=4661212`, `final_completed_epoch=40`,
-    `final_train_loss=6.772934436798096`
+    `final_train_loss=10.780830383300781`,
+    `validation_loss=10.800644874572754`
   - `pinn_hybrid_resnet`: `parameter_count=18006600`,
     `final_completed_epoch=40`,
-    `final_train_loss=0.027469921857118607`
+    `final_train_loss=0.027469921857118607`,
+    `validation_loss=0.037633031606674194`
   - `pinn_fno_vanilla`: `parameter_count=1272902`,
     `final_completed_epoch=40`,
-    `final_train_loss=0.0719698816537857`
+    `final_train_loss=0.0719698816537857`,
+    `validation_loss=0.07295490801334381`
 - final required visuals in the authoritative root:
   - `compare_amp_phase.png`
   - per-row `amp_phase_*.png`
@@ -78,22 +79,22 @@
 ## Verification
 
 - focused review-fix regression suite:
-  `pytest -q tests/studies/test_lines128_paper_benchmark.py tests/studies/test_metrics_tables.py tests/test_grid_lines_compare_wrapper.py tests/torch/test_grid_lines_torch_runner.py`
-  -> `190 passed, 45 warnings in 36.44s`
+  `pytest -q tests/studies/test_lines128_paper_benchmark.py tests/studies/test_metrics_tables.py tests/test_grid_lines_compare_wrapper.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_workflow.py`
+  -> `248 passed, 53 warnings in 41.74s`
 - required deterministic gates:
   `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
-  -> `169 passed, 45 warnings in 296.75s`
+  -> `171 passed, 47 warnings in 298.38s`
 - required compile gate:
   `python -m compileall -q ptycho_torch scripts/studies`
   -> exit `0`
-- fresh rerun command:
-  `python scripts/studies/lines128_paper_benchmark.py --mode minimum_subset --decision-artifact .artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/preflight/benchmark_decisions.json --execution-authority-note docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_minimum_paper_table_execution_authority.md --execution-manifest .artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/execution/benchmark_execution_decisions.json --output-dir .artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260429T235811Z`
-  -> tracked tmux shell PID `1211720`, exit `0`
+- same-root recovery command:
+  `python scripts/studies/lines128_paper_benchmark.py --mode minimum_subset --decision-artifact .artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/preflight/benchmark_decisions.json --execution-authority-note docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_minimum_paper_table_execution_authority.md --execution-manifest .artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/execution/benchmark_execution_decisions.json --output-dir .artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260429T235811Z --reuse-existing-recons`
+  -> exit `0`
 - archived logs:
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/pytest_focused_review_fix.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/pytest_deterministic_gates_review_fix.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/compileall_review_fix.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/lines128_fresh_rerun_20260429T235811Z.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/pytest_focused_review_fix_current.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/pytest_deterministic_gates_review_fix_current.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/compileall_review_fix_current.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/lines128_same_root_recovery_20260429T235811Z.log`
 
 ## Boundary And Remaining Scope
 

@@ -36,11 +36,15 @@
   - basis: an earlier fresh-root rerun failed during dataset NPZ writing with
     `OSError: [Errno 28] No space left on device`.
 - `runs/minimum_subset_20260429T235811Z`
-  - classification: `paper_complete_fresh_rerun`
-  - basis: all four required rows completed under one fresh root, the tracked
-    tmux shell PID exited `0`, the merged bundle reports `paper_complete`, all
-    rows report `paper_grade`, and the root now contains the required row-local
-    provenance plus the required error-panel and FRC visual surfaces.
+  - classification: `paper_complete_recovered_in_place`
+  - basis: the root still originates from the successful four-row fresh rerun,
+    but this pass completed the approved same-root recovery path in place:
+    the merged bundle was regenerated from the existing row-local artifacts,
+    emitted validation loss now propagates correctly, the wrapper-level
+    `paper_benchmark_manifest.json` now exists, Torch row-local `config.json`
+    artifacts were recovered honestly from invocation metadata, and the merged
+    root again reports `paper_complete` with `paper_grade` rows and empty
+    `missing_fields_by_row`.
 
 ## Authority Boundary
 
@@ -51,16 +55,17 @@
 
 ## Chosen Execution Path
 
-- chosen path: `fresh_rerun_required`
+- chosen path: `same_root_recovery`
 - chosen root:
   `runs/minimum_subset_20260429T235811Z`
 - completion basis:
-  - same-root recovery in `minimum_subset_20260429T213028Z` was explicitly
-    rejected after the review-validated provenance/visual gaps were rechecked
-  - the fresh rerun launched under tmux into a brand-new root with tracked
-    shell PID `1211720`
-  - the tracked PID exited `0`
-  - the fresh root now reports:
+  - the earlier `minimum_subset_20260429T213028Z` same-root candidate remains
+    rejected because its provenance and visual gaps were real
+  - the current authoritative root `minimum_subset_20260429T235811Z` already
+    contains all four required completed rows, so this pass reused that root
+    without retraining and reran only the bundle/collation path with
+    `--reuse-existing-recons`
+  - the regenerated bundle now reports:
     - `benchmark_status=paper_complete`
     - `claim_boundary=minimum_draftable_cdi_subset`
     - empty `missing_fields_by_row` for all four required rows
@@ -71,6 +76,5 @@
 - No active writer remains.
 - The authoritative minimum-table bundle root is now
   `runs/minimum_subset_20260429T235811Z`.
-- The former missing-resource blocker is resolved for this item; the successful
-  fresh rerun demonstrates that enough free space was available for the full
-  write-side path during this pass.
+- The former missing-resource blocker remains resolved for this item; this pass
+  performed in-place recovery only and did not need another expensive row rerun.

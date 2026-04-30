@@ -67,6 +67,17 @@ PAPER_REQUIRED_FIELDS = (
     "row_status",
     "caveats",
 )
+PAPER_PROVENANCE_FIELDS = (
+    "invocation",
+    "config",
+    "git",
+    "environment",
+    "dataset",
+    "splits",
+    "randomness",
+    "outputs",
+    "visuals",
+)
 PAPER_REQUIRED_FIELD_DEFINITIONS = (
     {"name": "model_key", "units": None, "nullable": False, "source": "row_map_key"},
     {"name": "model_label", "units": None, "nullable": False},
@@ -81,6 +92,15 @@ PAPER_REQUIRED_FIELD_DEFINITIONS = (
     {"name": "hardware_summary", "units": None, "nullable": False},
     {"name": "row_status", "units": None, "nullable": False},
     {"name": "caveats", "units": None, "nullable": False},
+    {"name": "invocation", "units": None, "nullable": False, "paper_grade_only": True},
+    {"name": "config", "units": None, "nullable": False, "paper_grade_only": True},
+    {"name": "git", "units": None, "nullable": False, "paper_grade_only": True},
+    {"name": "environment", "units": None, "nullable": False, "paper_grade_only": True},
+    {"name": "dataset", "units": None, "nullable": False, "paper_grade_only": True},
+    {"name": "splits", "units": None, "nullable": False, "paper_grade_only": True},
+    {"name": "randomness", "units": None, "nullable": False, "paper_grade_only": True},
+    {"name": "outputs", "units": None, "nullable": False, "paper_grade_only": True},
+    {"name": "visuals", "units": None, "nullable": False, "paper_grade_only": True},
 )
 PAPER_METRIC_FIELD_DEFINITIONS = (
     {
@@ -426,13 +446,59 @@ def _validate_validation_loss(payload: object) -> bool:
     status = payload.get("status")
     if not isinstance(status, str) or not status:
         return False
-    if status == "no_validation_series":
+    if status in {"no_validation_series", "not_emitted"}:
         return "value" in payload
     value = payload.get("value")
     return value is None or isinstance(value, (int, float))
 
 
-def _missing_paper_fields(row_payload: Mapping[str, object]) -> List[str]:
+def _validate_string_fields(payload: object, required_keys: Tuple[str, ...]) -> bool:
+    if not isinstance(payload, Mapping):
+        return False
+    for key in required_keys:
+        value = payload.get(key)
+        if not isinstance(value, str) or not value.strip():
+            return False
+    return True
+
+
+def _validate_git_payload(payload: object) -> bool:
+    return _validate_string_fields(payload, ("commit",))
+
+
+def _validate_environment_payload(payload: object) -> bool:
+    return _validate_string_fields(payload, ("python_executable",))
+
+
+def _validate_dataset_payload(payload: object) -> bool:
+    return _validate_string_fields(payload, ("train_npz", "test_npz"))
+
+
+def _validate_splits_payload(payload: object) -> bool:
+    if not isinstance(payload, Mapping):
+        return False
+    return payload.get("nimgs_train") is not None and payload.get("nimgs_test") is not None
+
+
+def _validate_randomness_payload(payload: object) -> bool:
+    if not isinstance(payload, Mapping):
+        return False
+    return any(payload.get(key) is not None for key in ("requested_seed", "seed", "seed_policy"))
+
+
+def _validate_outputs_payload(payload: object) -> bool:
+    return _validate_string_fields(payload, ("metrics_json", "history_json", "recon_npz"))
+
+
+def _validate_visuals_payload(payload: object) -> bool:
+    return _validate_string_fields(payload, ("amp_phase_png", "amp_phase_error_png"))
+
+
+def _missing_paper_fields(
+    row_payload: Mapping[str, object],
+    *,
+    require_row_provenance: bool = False,
+) -> List[str]:
     missing: List[str] = []
     for field in PAPER_REQUIRED_FIELDS:
         value = row_payload.get(field)
@@ -459,6 +525,22 @@ def _missing_paper_fields(row_payload: Mapping[str, object]) -> List[str]:
         if value is None:
             missing.append(field)
             continue
+    if require_row_provenance:
+        provenance_validators = {
+            "invocation": lambda value: _validate_string_fields(value, ("json", "shell")),
+            "config": lambda value: _validate_string_fields(value, ("json",)),
+            "git": _validate_git_payload,
+            "environment": _validate_environment_payload,
+            "dataset": _validate_dataset_payload,
+            "splits": _validate_splits_payload,
+            "randomness": _validate_randomness_payload,
+            "outputs": _validate_outputs_payload,
+            "visuals": _validate_visuals_payload,
+        }
+        for field in PAPER_PROVENANCE_FIELDS:
+            validator = provenance_validators[field]
+            if not validator(row_payload.get(field)):
+                missing.append(field)
     metrics = row_payload.get("metrics")
     if not isinstance(metrics, Mapping):
         return [*missing, *(f"metrics.{metric_key}" for metric_key, _ in METRICS)]
@@ -473,6 +555,7 @@ def _build_metric_schema() -> Dict[str, object]:
         "status_values": list(PAPER_BENCHMARK_STATUS_VALUES),
         "row_status_values": list(PAPER_ROW_STATUS_VALUES),
         "required_fields": list(PAPER_REQUIRED_FIELDS),
+        "paper_grade_provenance_fields": list(PAPER_PROVENANCE_FIELDS),
         "field_definitions": list(PAPER_REQUIRED_FIELD_DEFINITIONS),
         "metric_fields": list(PAPER_METRIC_FIELD_DEFINITIONS),
         "downgrade_rule": "Any missing required field or required metric downgrades the merged result to benchmark_incomplete.",
@@ -525,6 +608,7 @@ def write_paper_benchmark_bundle(
     row_statuses: Optional[Mapping[str, Mapping[str, object]]] = None,
     evidence_scope: str = "readiness_only_not_benchmark_performance",
     claim_boundary: str = "minimum_draftable_cdi_subset",
+    require_row_provenance: bool = False,
 ) -> Dict[str, str]:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -538,7 +622,7 @@ def write_paper_benchmark_bundle(
 
     incomplete = False
     for model_id, payload in row_payloads.items():
-        missing = _missing_paper_fields(payload)
+        missing = _missing_paper_fields(payload, require_row_provenance=require_row_provenance)
         missing_fields_by_row[model_id] = missing
         if missing:
             incomplete = True
