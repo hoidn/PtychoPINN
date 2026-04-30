@@ -2,64 +2,38 @@
 
 ## Completed In This Pass
 
-- Implemented a complete-table execution path in `scripts/studies/lines128_paper_benchmark.py` that can promote audited prerequisite rows, rerun only still-missing rows, and finalize the six-row Lines128 paper bundle.
-- Added complete-table recovery and provenance regressions in:
-  - `tests/studies/test_lines128_paper_benchmark.py`
-  - `tests/studies/test_paper_provenance.py`
-- Wrote the deterministic pre-launch audit surfaces:
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/execution/row_audit_manifest.json`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/execution/complete_execution_manifest.json`
-- Launched the initial complete-table root at:
-  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T134500Z`
-  - this root completed the fresh `pinn_spectral_resnet_bottleneck_net` training/inference pass with tracked `exit_code=0`
-  - it remained `benchmark_incomplete` because promoted-row recovery still omitted TensorFlow parameter-count source files and FFNO completion-proof recovery
-- Repaired the promotion/finalization path, emitted:
-  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/execution/complete_execution_manifest_repair.json`,
-  and published the authoritative repaired root at:
-  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T141325Z_repair`
-- Wrote the durable summary and study-index updates for the final six-row `paper_complete` bundle.
+- Fixed complete-table finalization so promoted recovered PyTorch rows are treated as reuse-backed evidence during `complete_table` runs, even though the top-level CLI does not set `--reuse-existing-recons`.
+- Passed `launcher_stdout.log` into recovery finalization so rows promoted from mixed source roots can synthesize `launcher_completion.json` from the wrapper eval markers when copied `launcher_stderr.log` is not authoritative for that row.
+- Added an end-to-end complete-table regression in `tests/studies/test_lines128_paper_benchmark.py` that exercises promoted rows from both the minimum-subset root and the separate FFNO prerequisite root, then asserts `launcher_completion.json` is present in both `metrics.json` and `paper_benchmark_manifest.json`.
 
-## Completed Plan Tasks
+## Completed Current-Scope Work
 
-- Tranche 1: complete-table execution authority and row-audit artifacts are frozen and recorded with final per-row promote/rerun decisions.
-- Tranche 2: the harness/execution surface now supports full six-row complete-table assembly without regressing existing `preflight` or `minimum_subset` behavior.
-- Tranche 3: the spectral row was rerun once in the initial complete-table root, then the final authoritative bundle was rebuilt in a fresh repaired root with all six rows present and paper-grade complete.
-- Tranche 4: `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md`, `docs/studies/index.md`, and `docs/index.md` now point to the same authoritative repaired root and claim boundary.
-- Tranche 5: focused regression, required deterministic pytest gates, and `compileall` were rerun with archived logs under this item’s verification directory.
+- The blocking review issue is resolved: complete-table repaired bundles no longer rely on `paper_complete` status without row-local `launcher_completion.json` for promoted recovered PyTorch rows.
+- Focused and required verification for the approved backlog contract passed again after the fix.
 
-## Remaining Required Plan Tasks
+## Follow-Up Work
 
-- None for the approved current scope.
-- The earlier root `complete_table_20260430T134500Z` remains preserved as the fresh spectral-rerun source, but it is superseded and not the claim-bearing bundle.
+- Top-level `launcher_stdout.log` / `launcher_stderr.log` in repaired roots can still originate from copied promoted-source artifacts before the recovery pass writes its own wrapper logs. That did not block the current fix because row-local `launcher_completion.json` now comes from the wrapper recovery markers, but the bundle would be cleaner if repair-root launcher logs were always emitted fresh or source-root logs were kept strictly row-scoped.
 
 ## Verification
 
-- Final authoritative root:
-  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T141325Z_repair`
-  - `invocation.json`: `status=completed`, `exit_code=0`
-  - `metrics.json`: `benchmark_status=paper_complete`, `selected_fno_comparator=fno_vanilla`, no missing bundle artifacts, no missing row fields
-  - `model_manifest.json` and `paper_benchmark_manifest.json`: `benchmark_status=paper_complete`
-- Focused execution-surface regression:
+- Focused regression:
   - `pytest -q tests/studies/test_lines128_paper_benchmark.py tests/studies/test_paper_provenance.py tests/test_grid_lines_compare_wrapper.py`
-  - result: `79 passed, 23 warnings in 18.99s`
+  - result: `80 passed, 23 warnings in 18.11s`
   - log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/verification/pytest_focused_20260430T141325Z.log`
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/verification/pytest_focused_20260430T143750Z.log`
 - Required deterministic gate:
   - `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
-  - result: `173 passed, 47 warnings in 301.74s (0:05:01)`
+  - result: `173 passed, 47 warnings in 300.80s (0:05:00)`
   - log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/verification/pytest_required_20260430T141325Z.log`
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/verification/pytest_required_20260430T143750Z.log`
 - Compile gate:
   - `python -m compileall -q ptycho_torch scripts/studies`
   - result: exit `0`
   - log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/verification/compileall_required_20260430T141325Z.log`
-- Repair command logs:
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/verification/lines128_complete_bundle_regen_20260430T070700Z.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/verification/lines128_complete_table_repair_20260430T140954Z.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/verification/lines128_complete_table_repair_20260430T141325Z.log`
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/verification/compileall_required_20260430T143750Z.log`
 
 ## Residual Risks
 
-- The authoritative bundle is the repaired root `complete_table_20260430T141325Z_repair`; consumers must not use the earlier `complete_table_20260430T134500Z` root for paper-facing claims.
-- FFNO row provenance still depends on backfilled row invocation records from the prerequisite repair pass, but the authoritative repaired root now includes the row-local completion proof required by the current complete-table bundle contract.
+- The authoritative paper-facing root remains `complete_table_20260430T141325Z_repair`; this pass repaired the code path and regression coverage, but it did not rewrite historical claim-bearing artifacts.
+- The remaining cleanliness issue is top-level launcher-log provenance in repaired roots, as noted above under Follow-Up Work.

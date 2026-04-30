@@ -298,7 +298,10 @@ def _update_bundle_status(
 def _wrapper_reuses_existing_recons(output_dir: Path) -> bool:
     invocation_payload = _load_json_if_exists(output_dir / "invocation.json")
     parsed_args = invocation_payload.get("parsed_args")
-    return isinstance(parsed_args, Mapping) and bool(parsed_args.get("reuse_existing_recons"))
+    return isinstance(parsed_args, Mapping) and (
+        bool(parsed_args.get("reuse_existing_recons"))
+        or parsed_args.get("mode") == "complete_table"
+    )
 
 
 def _row_requires_launcher_completion_evidence(row_payload: Mapping[str, object], *, output_dir: Path) -> bool:
@@ -330,6 +333,7 @@ def _refresh_row_payloads_after_wrapper_completion(
                 model_id=str(model_id),
                 wrapper_invocation_json=output_dir / "invocation.json",
                 launcher_stderr_log=output_dir / "launcher_stderr.log",
+                launcher_stdout_log=output_dir / "launcher_stdout.log",
             )
             if launcher_completion_path is not None:
                 outputs_payload["launcher_completion_json"] = relative_to_output_dir(

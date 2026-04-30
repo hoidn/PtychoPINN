@@ -275,7 +275,12 @@ def write_launcher_completion_evidence(
     ):
         return None
     parsed_args = wrapper_invocation.get("parsed_args", {})
-    if not isinstance(parsed_args, Mapping) or not bool(parsed_args.get("reuse_existing_recons")):
+    if not isinstance(parsed_args, Mapping):
+        return None
+    if not (
+        bool(parsed_args.get("reuse_existing_recons"))
+        or parsed_args.get("mode") == "complete_table"
+    ):
         return None
 
     row_root = Path(output_dir) / "runs" / model_id
