@@ -66,6 +66,23 @@ def get_git_commit(repo_root: Path | None = None) -> str | None:
     return commit or None
 
 
+def _capture_tmux_launcher_metadata() -> Dict[str, str] | None:
+    session_name = os.environ.get("CODEX_TMUX_SESSION_NAME", "").strip()
+    socket_path = os.environ.get("CODEX_TMUX_SOCKET_PATH", "").strip()
+    attach_command = os.environ.get("CODEX_TMUX_ATTACH_COMMAND", "").strip()
+    capture_command = os.environ.get("CODEX_TMUX_CAPTURE_COMMAND", "").strip()
+    if not session_name:
+        return None
+    payload = {"session_name": session_name}
+    if socket_path:
+        payload["socket_path"] = socket_path
+    if attach_command:
+        payload["attach_command"] = attach_command
+    if capture_command:
+        payload["capture_command"] = capture_command
+    return payload
+
+
 def write_invocation_artifacts(
     output_dir: Path,
     script_path: str,
@@ -92,8 +109,21 @@ def write_invocation_artifacts(
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "pid": os.getpid(),
     }
+    merged_extra: Dict[str, Any] = {}
     if extra:
-        payload["extra"] = _to_jsonable(extra)
+        merged_extra.update(_to_jsonable(extra))
+    tmux_payload = _capture_tmux_launcher_metadata()
+    if tmux_payload:
+        existing_tmux = merged_extra.get("tmux")
+        if isinstance(existing_tmux, dict):
+            merged = dict(existing_tmux)
+            for key, value in tmux_payload.items():
+                merged.setdefault(key, value)
+            merged_extra["tmux"] = merged
+        else:
+            merged_extra["tmux"] = tmux_payload
+    if merged_extra:
+        payload["extra"] = merged_extra
 
     json_path = output_dir / "invocation.json"
     sh_path = output_dir / "invocation.sh"

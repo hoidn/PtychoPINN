@@ -173,16 +173,49 @@ def _resolve_output_artifact(output_dir: Path, value: object) -> Path | None:
     return candidate
 
 
-def _collect_missing_bundle_artifacts(output_dir: Path, compare_result: Mapping[str, object]) -> List[str]:
+def _collect_missing_bundle_artifacts(
+    output_dir: Path,
+    *,
+    gt_recon: object | None = None,
+) -> List[str]:
     missing: List[str] = []
     for relative_path in REQUIRED_MINIMUM_SUBSET_WRAPPER_ARTIFACTS + REQUIRED_MINIMUM_SUBSET_BUNDLE_ARTIFACTS:
         if not (output_dir / relative_path).exists():
             missing.append(relative_path)
 
-    gt_recon = _resolve_output_artifact(output_dir, compare_result.get("gt_recon"))
-    if gt_recon is None or not gt_recon.exists():
+    gt_recon_path = _resolve_output_artifact(output_dir, gt_recon)
+    if gt_recon_path is None:
+        gt_recon_path = output_dir / "recons" / "gt" / "recon.npz"
+    if not gt_recon_path.exists():
         missing.append("recons/gt/recon.npz")
+    if not _wrapper_invocation_contract_is_valid(output_dir / "invocation.json"):
+        missing.append("launcher_invocation_contract")
     return missing
+
+
+def _wrapper_invocation_contract_is_valid(invocation_path: Path) -> bool:
+    invocation_payload = _load_json_if_exists(invocation_path)
+    if not invocation_payload:
+        return False
+    if invocation_payload.get("status") != "completed":
+        return False
+    finished_at_utc = invocation_payload.get("finished_at_utc")
+    pid = invocation_payload.get("pid")
+    exit_code = invocation_payload.get("exit_code")
+    if not isinstance(finished_at_utc, str) or not finished_at_utc:
+        return False
+    if isinstance(pid, bool) or not isinstance(pid, int) or pid <= 0:
+        return False
+    if isinstance(exit_code, bool) or not isinstance(exit_code, int) or exit_code != 0:
+        return False
+    extra = invocation_payload.get("extra")
+    if not isinstance(extra, Mapping):
+        return False
+    tmux_payload = extra.get("tmux")
+    if not isinstance(tmux_payload, Mapping):
+        return False
+    session_name = tmux_payload.get("session_name")
+    return isinstance(session_name, str) and bool(session_name.strip())
 
 
 def _update_bundle_status(
@@ -203,6 +236,38 @@ def _update_bundle_status(
     model_manifest_payload["missing_bundle_artifacts"] = list(missing_bundle_artifacts)
     model_manifest_path.write_text(json.dumps(model_manifest_payload, indent=2), encoding="utf-8")
     return metrics_payload
+
+
+def _finalize_minimum_subset_bundle_status(
+    *,
+    output_dir: Path,
+    bundle_paths: Mapping[str, str],
+) -> Dict[str, object]:
+    metrics_path = Path(bundle_paths["metrics_json"])
+    metrics_payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+    missing_bundle_artifacts = _collect_missing_bundle_artifacts(output_dir)
+    missing_fields_by_row = metrics_payload.get("missing_fields_by_row", {})
+    has_row_gaps = any(
+        isinstance(missing_fields, list) and bool(missing_fields)
+        for missing_fields in missing_fields_by_row.values()
+    ) if isinstance(missing_fields_by_row, Mapping) else True
+    benchmark_status = "paper_complete"
+    if missing_bundle_artifacts or has_row_gaps:
+        benchmark_status = "benchmark_incomplete"
+    updated_metrics_payload = _update_bundle_status(
+        bundle_paths=bundle_paths,
+        benchmark_status=benchmark_status,
+        missing_bundle_artifacts=missing_bundle_artifacts,
+    )
+
+    manifest_path = output_dir / "paper_benchmark_manifest.json"
+    if manifest_path.exists():
+        manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest_payload["benchmark_status"] = benchmark_status
+        manifest_payload["missing_bundle_artifacts"] = list(missing_bundle_artifacts)
+        manifest_path.write_text(json.dumps(manifest_payload, indent=2), encoding="utf-8")
+
+    return updated_metrics_payload
 
 
 def _normalize_bool(value: object, *, field_name: str) -> bool:
@@ -874,7 +939,10 @@ def run_lines128_paper_benchmark(
         require_row_provenance=True,
     )
     bundle_payload = json.loads(Path(bundle_paths["metrics_json"]).read_text(encoding="utf-8"))
-    missing_bundle_artifacts = _collect_missing_bundle_artifacts(output_dir, compare_result)
+    missing_bundle_artifacts = _collect_missing_bundle_artifacts(
+        output_dir,
+        gt_recon=compare_result.get("gt_recon"),
+    )
     benchmark_status = str(bundle_payload["benchmark_status"])
     if missing_bundle_artifacts:
         benchmark_status = "benchmark_incomplete"
@@ -937,6 +1005,7 @@ def main(argv=None) -> None:
             "git_commit": get_git_commit(REPO_ROOT),
         },
     )
+    minimum_subset_result = None
     try:
         if args.mode == "preflight":
             run_lines128_paper_benchmark_preflight(
@@ -948,7 +1017,7 @@ def main(argv=None) -> None:
                 raise ValueError(
                     "minimum_subset mode requires --execution-authority-note and --execution-manifest"
                 )
-            run_lines128_paper_benchmark(
+            minimum_subset_result = run_lines128_paper_benchmark(
                 decision_artifact=args.decision_artifact,
                 execution_authority_note=args.execution_authority_note,
                 execution_manifest=args.execution_manifest,
@@ -958,12 +1027,19 @@ def main(argv=None) -> None:
         update_invocation_artifacts(
             invocation_json,
             status="completed",
+            exit_code=0,
             finished_at_utc=datetime.now(timezone.utc).isoformat(),
         )
+        if minimum_subset_result is not None:
+            _finalize_minimum_subset_bundle_status(
+                output_dir=args.output_dir,
+                bundle_paths=minimum_subset_result["bundle_paths"],
+            )
     except Exception as exc:
         update_invocation_artifacts(
             invocation_json,
             status="failed",
+            exit_code=1,
             finished_at_utc=datetime.now(timezone.utc).isoformat(),
             error=str(exc),
         )

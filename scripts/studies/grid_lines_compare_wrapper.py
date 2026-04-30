@@ -1190,6 +1190,7 @@ def run_grid_lines_compare(
             gridsize=gridsize,
             output_dir=output_dir,
             probe_npz=probe_npz,
+            seed=seed,
             nimgs_train=nimgs_train,
             nimgs_test=nimgs_test,
             nphotons=nphotons,
@@ -1252,6 +1253,7 @@ def run_grid_lines_compare(
                 gridsize=gridsize,
                 output_dir=output_dir,
                 probe_npz=probe_npz,
+                seed=seed,
                 nimgs_train=nimgs_train,
                 nimgs_test=nimgs_test,
                 nphotons=nphotons,
@@ -1534,6 +1536,7 @@ def run_grid_lines_compare(
             gridsize=gridsize,
             output_dir=output_dir,
             probe_npz=probe_npz,
+            seed=seed,
             nimgs_train=nimgs_train,
             nimgs_test=nimgs_test,
             nphotons=nphotons,
@@ -1581,6 +1584,7 @@ def run_grid_lines_compare(
             gridsize=gridsize,
             output_dir=output_dir,
             probe_npz=probe_npz,
+            seed=seed,
             nimgs_train=nimgs_train,
             nimgs_test=nimgs_test,
             nphotons=nphotons,
@@ -1983,12 +1987,14 @@ def main(argv=None) -> None:
         update_invocation_artifacts(
             invocation_json,
             status="completed",
+            exit_code=0,
             finished_at_utc=datetime.now(timezone.utc).isoformat(),
         )
     except Exception as exc:
         update_invocation_artifacts(
             invocation_json,
             status="failed",
+            exit_code=1,
             finished_at_utc=datetime.now(timezone.utc).isoformat(),
             error=str(exc),
         )

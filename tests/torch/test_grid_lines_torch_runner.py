@@ -2128,6 +2128,7 @@ def test_library_run_writes_invocation_artifacts(tmp_path, monkeypatch):
     assert payload["script"] == "scripts/studies/grid_lines_torch_runner.py"
     assert payload["parsed_args"]["architecture"] == "hybrid_resnet"
     assert payload["status"] == "completed"
+    assert payload["exit_code"] == 0
     assert payload["finished_at_utc"]
 
 

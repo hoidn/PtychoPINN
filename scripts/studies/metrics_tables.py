@@ -551,10 +551,112 @@ def _validate_splits_payload(payload: object) -> bool:
     )
 
 
-def _validate_randomness_payload(payload: object) -> bool:
+def _extract_int_seed(payload: object, keys: Tuple[str, ...]) -> int | None:
     if not isinstance(payload, Mapping):
+        return None
+    for key in keys:
+        value = payload.get(key)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int):
+            return int(value)
+    return None
+
+
+def _extract_seed_from_invocation_payload(payload: object) -> int | None:
+    if not isinstance(payload, Mapping):
+        return None
+    parsed_args = payload.get("parsed_args")
+    direct_seed = _extract_int_seed(parsed_args, ("seed",))
+    if direct_seed is not None:
+        return direct_seed
+    if isinstance(parsed_args, Mapping):
+        for nested_key in ("grid_lines_config", "torch_runner_config"):
+            nested_seed = _extract_int_seed(parsed_args.get(nested_key), ("seed",))
+            if nested_seed is not None:
+                return nested_seed
+    argv = payload.get("argv")
+    if isinstance(argv, list):
+        for idx, token in enumerate(argv[:-1]):
+            if token == "--seed":
+                try:
+                    return int(argv[idx + 1])
+                except (TypeError, ValueError):
+                    return None
+    return None
+
+
+def _extract_seed_from_config_payload(payload: object) -> int | None:
+    if not isinstance(payload, Mapping):
+        return None
+    direct_seed = _extract_int_seed(payload, ("seed",))
+    if direct_seed is not None:
+        return direct_seed
+    for nested_key in ("grid_lines_config", "torch_runner_config"):
+        nested_seed = _extract_int_seed(payload.get(nested_key), ("seed",))
+        if nested_seed is not None:
+            return nested_seed
+    return None
+
+
+def _validate_invocation_payload(payload: object, *, output_dir: Path) -> bool:
+    if not _validate_existing_path_fields(payload, ("json", "shell"), output_dir=output_dir):
         return False
-    return any(payload.get(key) is not None for key in ("requested_seed", "seed", "seed_policy"))
+    invocation_path = _resolve_output_path(output_dir, payload.get("json") if isinstance(payload, Mapping) else None)
+    if invocation_path is None or not invocation_path.exists():
+        return False
+    invocation_payload = json.loads(invocation_path.read_text(encoding="utf-8"))
+    if not isinstance(invocation_payload, Mapping):
+        return False
+    finished_at_utc = invocation_payload.get("finished_at_utc")
+    pid = invocation_payload.get("pid")
+    exit_code = invocation_payload.get("exit_code")
+    return (
+        invocation_payload.get("status") == "completed"
+        and isinstance(finished_at_utc, str)
+        and bool(finished_at_utc)
+        and isinstance(pid, int)
+        and not isinstance(pid, bool)
+        and pid > 0
+        and isinstance(exit_code, int)
+        and not isinstance(exit_code, bool)
+        and exit_code == 0
+    )
+
+
+def _validate_randomness_payload(
+    row_payload: Mapping[str, object],
+    *,
+    output_dir: Path,
+) -> bool:
+    randomness = row_payload.get("randomness")
+    if not isinstance(randomness, Mapping):
+        return False
+    requested_seed = _extract_int_seed(randomness, ("requested_seed", "seed"))
+    if requested_seed is None:
+        return False
+
+    splits_seed = _extract_int_seed(row_payload.get("splits"), ("seed",))
+    if splits_seed != requested_seed:
+        return False
+
+    invocation_payload = row_payload.get("invocation")
+    config_payload = row_payload.get("config")
+    if not isinstance(invocation_payload, Mapping) or not isinstance(config_payload, Mapping):
+        return False
+
+    invocation_path = _resolve_output_path(output_dir, invocation_payload.get("json"))
+    config_path = _resolve_output_path(output_dir, config_payload.get("json"))
+    if invocation_path is None or config_path is None or not invocation_path.exists() or not config_path.exists():
+        return False
+
+    invocation_seed = _extract_seed_from_invocation_payload(
+        json.loads(invocation_path.read_text(encoding="utf-8"))
+    )
+    config_seed = _extract_seed_from_config_payload(
+        json.loads(config_path.read_text(encoding="utf-8"))
+    )
+    return invocation_seed == requested_seed and config_seed == requested_seed
 
 
 def _validate_outputs_payload(payload: object, *, output_dir: Path) -> bool:
@@ -632,13 +734,13 @@ def _missing_paper_fields(
         if output_dir is None:
             raise ValueError("output_dir is required when require_row_provenance=True")
         provenance_validators = {
-            "invocation": lambda value: _validate_existing_path_fields(value, ("json", "shell"), output_dir=output_dir),
+            "invocation": lambda value: _validate_invocation_payload(value, output_dir=output_dir),
             "config": lambda value: _validate_existing_path_fields(value, ("json",), output_dir=output_dir),
             "git": _validate_git_payload,
             "environment": _validate_environment_payload,
             "dataset": lambda value: _validate_dataset_payload(value, output_dir=output_dir),
             "splits": _validate_splits_payload,
-            "randomness": _validate_randomness_payload,
+            "randomness": lambda _value: _validate_randomness_payload(row_payload, output_dir=output_dir),
             "outputs": lambda value: _validate_outputs_payload(value, output_dir=output_dir),
             "visuals": lambda value: _validate_visuals_payload(value, output_dir=output_dir),
         }

@@ -224,6 +224,7 @@ def _materialize_minimum_subset_bundle_artifacts(
     output_dir: Path,
     *,
     omit_relative_paths: set[str] | None = None,
+    include_wrapper_artifacts: bool = True,
 ) -> None:
     omit_relative_paths = set(omit_relative_paths or set())
 
@@ -232,14 +233,30 @@ def _materialize_minimum_subset_bundle_artifacts(
             return
         _write_text(output_dir / relative_path, contents)
 
-    for relative_path in ("invocation.json", "invocation.sh"):
-        if relative_path == "invocation.json":
-            write_relative(
-                relative_path,
-                json.dumps({"status": "completed", "finished_at_utc": "2026-04-29T00:00:00+00:00"}),
-            )
-        else:
-            write_relative(relative_path, "python fake_row.py\n")
+    if include_wrapper_artifacts:
+        for relative_path in ("invocation.json", "invocation.sh"):
+            if relative_path == "invocation.json":
+                write_relative(
+                    relative_path,
+                    json.dumps(
+                        {
+                            "status": "completed",
+                            "exit_code": 0,
+                            "finished_at_utc": "2026-04-29T00:00:00+00:00",
+                            "pid": 999,
+                            "extra": {
+                                "tmux": {
+                                    "session_name": "lines128-minimum-subset",
+                                    "socket_path": "/tmp/lines128-minimum-subset.sock",
+                                    "attach_command": "tmux -S /tmp/lines128-minimum-subset.sock attach -t lines128-minimum-subset",
+                                    "capture_command": "tmux -S /tmp/lines128-minimum-subset.sock capture-pane -p -t lines128-minimum-subset:0.0",
+                                }
+                            }
+                        }
+                    ),
+                )
+            else:
+                write_relative(relative_path, "python fake_row.py\n")
     for relative_path in ("train.npz", "test.npz"):
         write_relative(relative_path)
     _write_text(
@@ -273,10 +290,21 @@ def _materialize_minimum_subset_bundle_artifacts(
             if relative_path.endswith("invocation.json"):
                 write_relative(
                     relative_path,
-                    json.dumps({"status": "completed", "finished_at_utc": "2026-04-29T00:00:00+00:00"}),
+                    json.dumps(
+                        {
+                            "argv": ["--seed", "3"],
+                            "parsed_args": {"seed": 3, "grid_lines_config": {"seed": 3}},
+                            "status": "completed",
+                            "exit_code": 0,
+                            "finished_at_utc": "2026-04-29T00:00:00+00:00",
+                            "pid": 12345,
+                        }
+                    ),
                 )
             elif relative_path.endswith("invocation.sh"):
                 write_relative(relative_path, "python fake_row.py\n")
+            elif relative_path.endswith("config.json"):
+                write_relative(relative_path, json.dumps({"seed": 3, "grid_lines_config": {"seed": 3}}))
             elif relative_path.endswith("stdout.log"):
                 write_relative(relative_path, f"[row:{model_id}] fixture stdout\n")
             elif relative_path.endswith("stderr.log"):
@@ -723,6 +751,266 @@ def test_minimum_subset_emits_wrapper_manifest_for_shared_provenance(tmp_path, m
     assert "gpu" in manifest["environment"]
     assert "host" in manifest["environment"]
     assert manifest["rows"][0]["row_root"] == "runs/baseline"
+
+
+def test_minimum_subset_downgrades_without_wrapper_launcher_contract(tmp_path, monkeypatch):
+    from scripts.studies.lines128_paper_benchmark import run_lines128_paper_benchmark
+
+    output_dir = tmp_path / "out"
+
+    def fake_run_grid_lines_compare(**_kwargs):
+        _materialize_minimum_subset_bundle_artifacts(output_dir)
+        _write_text(
+            output_dir / "invocation.json",
+            json.dumps(
+                {
+                    "status": "completed",
+                    "finished_at_utc": "2026-04-29T00:00:00+00:00",
+                    "pid": 999,
+                }
+            ),
+        )
+        return {
+            "train_npz": str(tmp_path / "train.npz"),
+            "test_npz": str(tmp_path / "test.npz"),
+            "gt_recon": str(output_dir / "recons" / "gt" / "recon.npz"),
+            "recon_paths": {
+                model_id: str(output_dir / "recons" / model_id / "recon.npz")
+                for model_id in (
+                    "baseline",
+                    "pinn",
+                    "pinn_hybrid_resnet",
+                    "pinn_fno_vanilla",
+                )
+            },
+            "row_payloads": {
+                model_id: {
+                    "model_label": {
+                        "baseline": "CDI CNN + supervised",
+                        "pinn": "CDI CNN + PINN",
+                        "pinn_hybrid_resnet": "Hybrid ResNet + PINN",
+                        "pinn_fno_vanilla": "FNO Vanilla + PINN",
+                    }[model_id],
+                    "architecture_id": "cnn" if model_id in {"baseline", "pinn"} else model_id.replace("pinn_", ""),
+                    "training_procedure": "supervised" if model_id == "baseline" else "pinn",
+                    "N": 128,
+                    "parameter_count": 1,
+                    "epoch_budget": 40,
+                    "final_completed_epoch": 40,
+                    "final_train_loss": 0.1,
+                    "validation_loss": {"status": "emitted", "value": 0.05},
+                    "runtime_summary": {"train_wall_time_sec": 1.0, "inference_time_sec": 0.1},
+                    "hardware_summary": {"backend": "test"},
+                    "row_status": "paper_grade",
+                    "caveats": [],
+                    "invocation": {"json": f"runs/{model_id}/invocation.json", "shell": f"runs/{model_id}/invocation.sh"},
+                    "config": {"json": f"runs/{model_id}/config.json"},
+                    "git": {"commit": "abc123", "dirty_state_note": {"source": "test", "dirty": False}},
+                    "environment": {
+                        "python_executable": "/usr/bin/python",
+                        "python_version": "3.11.0",
+                        "torch_version": "2.4.1",
+                        "cuda_version": "12.1",
+                        "gpu": "rtx3090",
+                        "host": "test-host",
+                    },
+                    "dataset": {
+                        "train_npz": "train.npz",
+                        "test_npz": "test.npz",
+                        "dataset_source": "synthetic_lines",
+                        "manifest_json": "dataset_identity_manifest.json",
+                    },
+                    "splits": {"nimgs_train": 2, "nimgs_test": 2, "seed": 3, "manifest_json": "split_manifest.json"},
+                    "randomness": {"requested_seed": 3},
+                    "outputs": {
+                        "metrics_json": f"runs/{model_id}/metrics.json",
+                        "history_json": f"runs/{model_id}/history.json",
+                        "recon_npz": f"recons/{model_id}/recon.npz",
+                        "stdout_log": f"runs/{model_id}/stdout.log",
+                        "stderr_log": f"runs/{model_id}/stderr.log",
+                        "exit_code_proof_json": f"runs/{model_id}/exit_code_proof.json",
+                    },
+                    "visuals": {
+                        "amp_phase_png": f"visuals/amp_phase_{model_id}.png",
+                        "amp_phase_error_png": f"visuals/amp_phase_error_{model_id}.png",
+                    },
+                    "metrics": {
+                        "mae": (0.1, 0.1),
+                        "mse": (0.01, 0.01),
+                        "psnr": (1.0, 1.0),
+                        "ssim": (0.9, 0.9),
+                        "ms_ssim": (0.8, 0.8),
+                        "frc50": (2, 2),
+                    },
+                }
+                for model_id in (
+                    "baseline",
+                    "pinn",
+                    "pinn_hybrid_resnet",
+                    "pinn_fno_vanilla",
+                )
+            },
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines128_paper_benchmark.run_grid_lines_compare",
+        fake_run_grid_lines_compare,
+    )
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+    authority_note = _write_execution_authority_note(tmp_path / "authority.md")
+    execution_manifest = _write_execution_manifest(
+        tmp_path / "execution" / "benchmark_execution_decisions.json",
+    )
+
+    run_lines128_paper_benchmark(
+        decision_artifact=decision_artifact,
+        execution_authority_note=authority_note,
+        execution_manifest=execution_manifest,
+        output_dir=output_dir,
+    )
+
+    metrics_payload = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
+    assert "launcher_invocation_contract" in metrics_payload["missing_bundle_artifacts"]
+
+
+def test_main_finalizes_bundle_after_wrapper_invocation_completes(tmp_path, monkeypatch):
+    from scripts.studies import lines128_paper_benchmark as benchmark
+
+    output_dir = tmp_path / "out"
+
+    def fake_run_grid_lines_compare(**_kwargs):
+        _materialize_minimum_subset_bundle_artifacts(
+            output_dir,
+            include_wrapper_artifacts=False,
+        )
+        return {
+            "train_npz": str(output_dir / "train.npz"),
+            "test_npz": str(output_dir / "test.npz"),
+            "gt_recon": str(output_dir / "recons" / "gt" / "recon.npz"),
+            "recon_paths": {
+                model_id: str(output_dir / "recons" / model_id / "recon.npz")
+                for model_id in (
+                    "baseline",
+                    "pinn",
+                    "pinn_hybrid_resnet",
+                    "pinn_fno_vanilla",
+                )
+            },
+            "row_payloads": {
+                model_id: {
+                    "model_label": {
+                        "baseline": "CDI CNN + supervised",
+                        "pinn": "CDI CNN + PINN",
+                        "pinn_hybrid_resnet": "Hybrid ResNet + PINN",
+                        "pinn_fno_vanilla": "FNO Vanilla + PINN",
+                    }[model_id],
+                    "architecture_id": "cnn" if model_id in {"baseline", "pinn"} else model_id.replace("pinn_", ""),
+                    "training_procedure": "supervised" if model_id == "baseline" else "pinn",
+                    "N": 128,
+                    "parameter_count": 1,
+                    "epoch_budget": 40,
+                    "final_completed_epoch": 40,
+                    "final_train_loss": 0.1,
+                    "validation_loss": {"status": "emitted", "value": 0.05},
+                    "runtime_summary": {"train_wall_time_sec": 1.0, "inference_time_sec": 0.1},
+                    "hardware_summary": {"backend": "test"},
+                    "row_status": "paper_grade",
+                    "caveats": [],
+                    "invocation": {"json": f"runs/{model_id}/invocation.json", "shell": f"runs/{model_id}/invocation.sh"},
+                    "config": {"json": f"runs/{model_id}/config.json"},
+                    "git": {"commit": "abc123", "dirty_state_note": {"source": "test", "dirty": False}},
+                    "environment": {
+                        "python_executable": "/usr/bin/python",
+                        "python_version": "3.11.0",
+                        "torch_version": "2.4.1",
+                        "cuda_version": "12.1",
+                        "gpu": "rtx3090",
+                        "host": "test-host",
+                    },
+                    "dataset": {
+                        "train_npz": "train.npz",
+                        "test_npz": "test.npz",
+                        "dataset_source": "synthetic_lines",
+                        "manifest_json": "dataset_identity_manifest.json",
+                    },
+                    "splits": {"nimgs_train": 2, "nimgs_test": 2, "seed": 3, "manifest_json": "split_manifest.json"},
+                    "randomness": {"requested_seed": 3},
+                    "outputs": {
+                        "metrics_json": f"runs/{model_id}/metrics.json",
+                        "history_json": f"runs/{model_id}/history.json",
+                        "recon_npz": f"recons/{model_id}/recon.npz",
+                        "stdout_log": f"runs/{model_id}/stdout.log",
+                        "stderr_log": f"runs/{model_id}/stderr.log",
+                        "exit_code_proof_json": f"runs/{model_id}/exit_code_proof.json",
+                    },
+                    "visuals": {
+                        "amp_phase_png": f"visuals/amp_phase_{model_id}.png",
+                        "amp_phase_error_png": f"visuals/amp_phase_error_{model_id}.png",
+                    },
+                    "metrics": {
+                        "mae": (0.1, 0.1),
+                        "mse": (0.01, 0.01),
+                        "psnr": (1.0, 1.0),
+                        "ssim": (0.9, 0.9),
+                        "ms_ssim": (0.8, 0.8),
+                        "frc50": (2, 2),
+                    },
+                }
+                for model_id in (
+                    "baseline",
+                    "pinn",
+                    "pinn_hybrid_resnet",
+                    "pinn_fno_vanilla",
+                )
+            },
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines128_paper_benchmark.run_grid_lines_compare",
+        fake_run_grid_lines_compare,
+    )
+    monkeypatch.setenv("CODEX_TMUX_SESSION_NAME", "lines128-test")
+    monkeypatch.setenv("CODEX_TMUX_SOCKET_PATH", "/tmp/lines128-test.sock")
+    monkeypatch.setenv(
+        "CODEX_TMUX_ATTACH_COMMAND",
+        "tmux -S /tmp/lines128-test.sock attach -t lines128-test",
+    )
+    monkeypatch.setenv(
+        "CODEX_TMUX_CAPTURE_COMMAND",
+        "tmux -S /tmp/lines128-test.sock capture-pane -p -t lines128-test:0.0",
+    )
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+    authority_note = _write_execution_authority_note(tmp_path / "authority.md")
+    execution_manifest = _write_execution_manifest(
+        tmp_path / "execution" / "benchmark_execution_decisions.json",
+    )
+
+    benchmark.main(
+        [
+            "--mode",
+            "minimum_subset",
+            "--decision-artifact",
+            str(decision_artifact),
+            "--execution-authority-note",
+            str(authority_note),
+            "--execution-manifest",
+            str(execution_manifest),
+            "--output-dir",
+            str(output_dir),
+        ]
+    )
+
+    metrics_payload = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
+    manifest_payload = json.loads((output_dir / "paper_benchmark_manifest.json").read_text(encoding="utf-8"))
+    wrapper_invocation_payload = json.loads((output_dir / "invocation.json").read_text(encoding="utf-8"))
+    assert wrapper_invocation_payload["status"] == "completed"
+    assert wrapper_invocation_payload["exit_code"] == 0
+    assert metrics_payload["benchmark_status"] == "paper_complete"
+    assert metrics_payload["missing_bundle_artifacts"] == []
+    assert manifest_payload["benchmark_status"] == "paper_complete"
 
 
 def test_minimum_subset_downgrades_when_required_bundle_visual_is_missing(tmp_path, monkeypatch):

@@ -1506,6 +1506,7 @@ def run_grid_lines_torch(
         update_invocation_artifacts(
             invocation_json,
             status="completed",
+            exit_code=0,
             finished_at_utc=datetime.now(timezone.utc).isoformat(),
             run_dir=str(run_dir),
         )
@@ -1514,6 +1515,7 @@ def run_grid_lines_torch(
         update_invocation_artifacts(
             invocation_json,
             status="failed",
+            exit_code=1,
             finished_at_utc=datetime.now(timezone.utc).isoformat(),
             error=str(exc),
         )

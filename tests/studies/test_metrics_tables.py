@@ -17,6 +17,37 @@ def _write_text(path: Path, contents: str = "x") -> None:
     path.write_text(contents, encoding="utf-8")
 
 
+def _write_valid_row_invocation_and_config(tmp_path: Path, model_id: str, *, seed: int = 3) -> None:
+    _write_text(
+        tmp_path / "runs" / model_id / "invocation.json",
+        json.dumps(
+            {
+                "argv": ["--seed", str(seed)],
+                "parsed_args": {
+                    "seed": seed,
+                    "grid_lines_config": {"seed": seed},
+                    "torch_runner_config": {"seed": seed},
+                },
+                "pid": 12345,
+                "status": "completed",
+                "exit_code": 0,
+                "finished_at_utc": "2026-04-29T00:00:00+00:00",
+            }
+        ),
+    )
+    _write_text(tmp_path / "runs" / model_id / "invocation.sh", "#!/usr/bin/env bash\n")
+    _write_text(
+        tmp_path / "runs" / model_id / "config.json",
+        json.dumps(
+            {
+                "seed": seed,
+                "grid_lines_config": {"seed": seed},
+                "torch_runner_config": {"seed": seed},
+            }
+        ),
+    )
+
+
 def _paper_grade_row_payload() -> dict:
     return {
         "model_label": "Hybrid ResNet",
@@ -635,6 +666,92 @@ def test_write_paper_bundle_rejects_synthetic_reuse_exit_code_proof(tmp_path):
     assert "outputs" in metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"]
 
 
+def test_write_paper_bundle_requires_seed_replayability_for_paper_complete(tmp_path):
+    row_payloads = {"baseline": _paper_grade_row_payload()}
+    row_payloads["baseline"]["model_label"] = "CDI CNN + supervised"
+    row_payloads["baseline"]["training_procedure"] = "supervised"
+    row_payloads["baseline"]["invocation"] = {
+        "json": "runs/baseline/invocation.json",
+        "shell": "runs/baseline/invocation.sh",
+    }
+    row_payloads["baseline"]["config"] = {"json": "runs/baseline/config.json"}
+    row_payloads["baseline"]["outputs"] = {
+        "metrics_json": "runs/baseline/metrics.json",
+        "history_json": "runs/baseline/history.json",
+        "recon_npz": "recons/baseline/recon.npz",
+        "stdout_log": "runs/baseline/stdout.log",
+        "stderr_log": "runs/baseline/stderr.log",
+        "exit_code_proof_json": "runs/baseline/exit_code_proof.json",
+    }
+    row_payloads["baseline"]["visuals"] = {
+        "amp_phase_png": "visuals/amp_phase_baseline.png",
+        "amp_phase_error_png": "visuals/amp_phase_error_baseline.png",
+    }
+    row_payloads["baseline"]["randomness"] = {"seed_policy": "shared_wrapper_seed_contract"}
+
+    _write_text(
+        tmp_path / "runs" / "baseline" / "invocation.json",
+        json.dumps(
+            {
+                "status": "completed",
+                "exit_code": 0,
+                "finished_at_utc": "2026-04-29T00:00:00+00:00",
+                "pid": 12345,
+            }
+        ),
+    )
+    _write_text(tmp_path / "runs" / "baseline" / "invocation.sh", "#!/usr/bin/env bash\n")
+    _write_text(tmp_path / "runs" / "baseline" / "config.json", "{}")
+    _write_text(tmp_path / "datasets" / "train.npz")
+    _write_text(tmp_path / "datasets" / "test.npz")
+    _write_text(
+        tmp_path / "dataset_identity_manifest.json",
+        json.dumps(
+            {
+                "train_npz": {"size_bytes": 1, "sha256": "train-sha", "source": "synthetic_lines"},
+                "test_npz": {"size_bytes": 1, "sha256": "test-sha", "source": "synthetic_lines"},
+            }
+        ),
+    )
+    _write_text(
+        tmp_path / "split_manifest.json",
+        json.dumps({"seed": 3, "nimgs_train": 2, "nimgs_test": 2}),
+    )
+    _write_text(tmp_path / "runs" / "baseline" / "metrics.json", "{}")
+    _write_text(tmp_path / "runs" / "baseline" / "history.json", "{}")
+    _write_text(tmp_path / "runs" / "baseline" / "stdout.log", "row stdout\n")
+    _write_text(tmp_path / "runs" / "baseline" / "stderr.log", "")
+    _write_text(
+        tmp_path / "runs" / "baseline" / "exit_code_proof.json",
+        json.dumps(
+            {
+                "exit_code": 0,
+                "proof_source": "row_artifacts_present_after_successful_compare_flow",
+                "invocation_json": "runs/baseline/invocation.json",
+                "invocation_status": "completed",
+                "stdout_log": "runs/baseline/stdout.log",
+                "stderr_log": "runs/baseline/stderr.log",
+            }
+        ),
+    )
+    _write_text(tmp_path / "recons" / "baseline" / "recon.npz")
+    _write_text(tmp_path / "visuals" / "amp_phase_baseline.png")
+    _write_text(tmp_path / "visuals" / "amp_phase_error_baseline.png")
+
+    write_paper_benchmark_bundle(
+        output_dir=tmp_path,
+        row_payloads=row_payloads,
+        required_rows=("baseline",),
+        fixed_sample_ids=[0, 1],
+        shared_visual_scales={"amp": {"vmin": 0.0, "vmax": 1.0}},
+        require_row_provenance=True,
+    )
+
+    metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
+    assert "randomness" in metrics_payload["missing_fields_by_row"]["baseline"]
+
+
 def test_write_paper_bundle_allows_shared_required_row_diagnostic_logs(tmp_path):
     baseline_payload = _paper_grade_row_payload()
     pinn_payload = _paper_grade_row_payload()
@@ -680,12 +797,7 @@ def test_write_paper_bundle_allows_shared_required_row_diagnostic_logs(tmp_path)
     }
 
     for model_id in ("baseline", "pinn"):
-        _write_text(
-            tmp_path / "runs" / model_id / "invocation.json",
-            json.dumps({"status": "completed", "finished_at_utc": "2026-04-29T00:00:00+00:00"}),
-        )
-        _write_text(tmp_path / "runs" / model_id / "invocation.sh", "#!/usr/bin/env bash\n")
-        _write_text(tmp_path / "runs" / model_id / "config.json", "{}")
+        _write_valid_row_invocation_and_config(tmp_path, model_id, seed=3)
         _write_text(tmp_path / "runs" / model_id / "metrics.json", "{}")
         _write_text(tmp_path / "runs" / model_id / "history.json", "{}")
         _write_text(tmp_path / "runs" / model_id / "stdout.log", "shared combined workflow stdout\n")

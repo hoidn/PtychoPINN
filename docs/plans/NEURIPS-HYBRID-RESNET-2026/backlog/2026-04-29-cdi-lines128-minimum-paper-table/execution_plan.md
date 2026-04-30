@@ -6,6 +6,13 @@
 
 **Architecture:** Treat the checked-in minimum-subset execution authority as the launch-controlling contract, the harness preflight note as readiness-only background, and the recovered-root audit as the current state surface. Prefer completing the best existing same-root candidate (`minimum_subset_20260429T213028Z`) because all four required rows already finished there and the known collation crash has already been fixed in `scripts/studies/metrics_tables.py`; fall back to a fresh four-row rerun only if that root cannot be completed honestly under the full provenance contract. Any long-running rerun stays under implementation ownership until the tracked tmux/PID path exits `0` and the required artifacts are freshly written.
 
+## Outcome Note
+
+- Same-root recovery of `minimum_subset_20260429T213028Z` remained non-authoritative under the tightened review-fix provenance contract.
+- The current authoritative minimum-table evidence root is
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z`,
+  reached via `fresh_rerun_then_same_root_bundle_regeneration`.
+
 **Tech Stack:** PATH `python`, tmux with `ptycho311` for long-running commands, TensorFlow grid-lines workflow for `baseline` and `pinn`, PyTorch/Lightning for `pinn_hybrid_resnet` and `pinn_fno_vanilla`, `scripts/studies/lines128_paper_benchmark.py`, `scripts/studies/grid_lines_compare_wrapper.py`, `scripts/studies/grid_lines_torch_runner.py`, `scripts/studies/metrics_tables.py`, pytest, `compileall`, Markdown/JSON/CSV/TeX artifacts.
 
 ---
@@ -18,7 +25,7 @@
   - `pinn`: CDI `cnn` + PINN
   - `pinn_hybrid_resnet`: Hybrid ResNet + PINN
   - `pinn_fno_vanilla`: FNO Vanilla + PINN
-- Emit merged JSON/CSV/TeX tables, metric schema, source reconstruction arrays, fixed-sample amplitude/phase panels, error panels, FRC curves, row-local provenance, and a durable summary under `docs/plans/NEURIPS-HYBRID-RESNET-2026/`.
+- Emit merged JSON/CSV/TeX tables, metric schema, source reconstruction arrays, fixed-sample amplitude/phase panels, error panels, FRC curves, structured row provenance, and a durable summary under `docs/plans/NEURIPS-HYBRID-RESNET-2026/`.
 - Mark the subset `paper_grade` only if every required row in the chosen root has complete invocation, config, git, environment, dataset, split, metric, and visual provenance.
 
 ## Scope And Explicit Non-Goals
@@ -45,6 +52,11 @@ Explicit non-goals:
 - Do not mix rows from multiple output roots into a paper-grade bundle.
 - Do not promote incomplete historical roots to paper-grade evidence.
 - Do not silently relax the locked CDI contract to make a row easier to run.
+- Do not require unique row-local diagnostic logs as a scientific evidence
+  field. `stdout.log` and `stderr.log` are diagnostics; shared or duplicated
+  log content is acceptable when structured invocation, config, history,
+  metrics, outputs, dataset/split, git/environment, visuals, and
+  process-completion evidence are complete.
 - Do not treat SRU-Net as interchangeable with the CDI `cnn` row family or PDEBench `unet_strong`.
 - Do not create `/home/ollie/Documents/neurips/` artifacts in this item.
 - Do not broaden into the complete `lines128` benchmark, later roadmap phases, or unrelated backlog items.
@@ -172,7 +184,7 @@ Primary artifact surfaces:
 
 - [ ] Confirm the execution-authority note and derived JSON still match exactly on state, comparator, fixed contract, seed policy, fixed sample ids, shared visual-scale policy, and the four-row minimum roster.
 - [ ] Confirm the harness preflight note and prerequisite decision artifact still match the execution authority on only the fields they are supposed to freeze.
-- [ ] Recheck that `minimum_subset_20260429T213028Z` contains all four required row-local outputs and is the preferred same-root completion candidate.
+- [ ] Recheck that `minimum_subset_20260429T213028Z` contains all four required structured row outputs and is the preferred same-root completion candidate.
 - [ ] Recheck that `minimum_subset_20260429T224103Z` is not reusable for launch because it failed during dataset writing under disk exhaustion.
 - [ ] Decide one of two execution paths and record it explicitly in the audit note:
   - `same_root_recovery` using `minimum_subset_20260429T213028Z`
@@ -251,7 +263,7 @@ python -m compileall -q ptycho_torch scripts/studies
 - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260429T213028Z/`
 
 - [ ] Re-run only the missing final bundle/collation path needed to finish the paper bundle from the already completed row-local artifacts in this root.
-- [ ] Do not retrain or reroute any of the four rows if the existing row-local artifacts remain contract-complete.
+- [ ] Do not retrain or reroute any of the four rows if the existing structured row artifacts remain contract-complete.
 - [ ] Emit or refresh all missing required bundle outputs in the same root:
   - `metrics.json`
   - `metric_schema.json`
@@ -262,7 +274,7 @@ python -m compileall -q ptycho_torch scripts/studies
   - fixed-sample visuals
   - FRC curves
   - source arrays sufficient to regenerate figures
-- [ ] Validate that wrapper-level provenance, row-local provenance, dataset/split identity, and visual/sample policy are complete enough for `paper_grade`.
+- [ ] Validate that wrapper-level provenance, structured row provenance, dataset/split identity, and visual/sample policy are complete enough for `paper_grade`.
 - [ ] If same-root recovery still fails or a previously hidden provenance gap makes paper-grade promotion dishonest, stop using this path, update the audit note with the exact reason, and continue to Task 5 instead.
 
 **Verification after Task 4:**

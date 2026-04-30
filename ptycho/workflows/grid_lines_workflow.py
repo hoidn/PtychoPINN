@@ -13,6 +13,7 @@ from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
 import io
 from pathlib import Path
+import random
 import sys
 from typing import Any, Dict, Iterable, Optional, Tuple
 import gc
@@ -119,6 +120,7 @@ class GridLinesConfig:
     probe_scale_mode: str = "pad_preserve"
     probe_transform_pipeline: Optional[str] = None
     set_phi: bool = False
+    seed: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------
@@ -1029,7 +1031,7 @@ def _build_tf_row_invocation_argv(
     train_npz: Path,
     test_npz: Path,
 ) -> list[str]:
-    return [
+    argv = [
         "--model-id",
         model_id,
         "--N",
@@ -1061,6 +1063,21 @@ def _build_tf_row_invocation_argv(
         "--probe-smoothing-sigma",
         str(cfg.probe_smoothing_sigma),
     ]
+    if cfg.seed is not None:
+        argv.extend(["--seed", str(cfg.seed)])
+    return argv
+
+
+def _apply_execution_seed(seed: int | None) -> None:
+    if seed is None:
+        return
+    random.seed(int(seed))
+    np.random.seed(int(seed))
+    try:
+        import tensorflow as tf
+    except Exception:
+        return
+    tf.keras.utils.set_random_seed(int(seed))
 
 
 def _write_tf_row_provenance(
@@ -1110,6 +1127,7 @@ def _write_tf_row_provenance(
     update_invocation_artifacts(
         invocation_json,
         status="completed",
+        exit_code=0,
         finished_at_utc=datetime.now(timezone.utc).isoformat(),
         run_dir=str(run_dir),
     )
@@ -1159,10 +1177,13 @@ def _write_tf_row_provenance(
         "nimgs_test": int(cfg.nimgs_test),
         "gridsize": int(cfg.gridsize),
         "set_phi": bool(cfg.set_phi),
+        "seed": int(cfg.seed) if cfg.seed is not None else None,
     }
-    row_payload["randomness"] = {
-        "seed_policy": "shared_wrapper_seed_contract",
-    }
+    randomness_payload: Dict[str, object] = {"seed_policy": "shared_wrapper_seed_contract"}
+    if cfg.seed is not None:
+        randomness_payload["seed"] = int(cfg.seed)
+        randomness_payload["requested_seed"] = int(cfg.seed)
+    row_payload["randomness"] = randomness_payload
     row_payload["outputs"] = {
         "metrics_json": str((run_dir / "metrics.json").relative_to(cfg.output_dir)),
         "history_json": str((run_dir / "history.json").relative_to(cfg.output_dir)),
@@ -1920,6 +1941,7 @@ def run_grid_lines_workflow(
     selected_models = tuple(deduped)
 
     print(f"[grid_lines_workflow] Starting N={cfg.N}, gridsize={cfg.gridsize}")
+    _apply_execution_seed(cfg.seed)
 
     # Step 1: Probe preparation
     print("[1/7] Loading and scaling probe...")
@@ -1972,6 +1994,7 @@ def run_grid_lines_workflow(
     row_payloads: Dict[str, Dict[str, object]] = {}
     if "pinn" in selected_models:
         with _capture_tf_row_logs(cfg.output_dir, "pinn"):
+            _apply_execution_seed(cfg.seed)
             print("[4/7][row:pinn] Training PINN model...")
             pinn_train_start = time.perf_counter()
             pinn_model, pinn_history = train_pinn_model(sim["train"]["container"])
@@ -2026,6 +2049,7 @@ def run_grid_lines_workflow(
 
     if "baseline" in selected_models:
         with _capture_tf_row_logs(cfg.output_dir, "baseline"):
+            _apply_execution_seed(cfg.seed)
             print("[4/7][row:baseline] Training baseline model...")
             base_train_start = time.perf_counter()
             base_model, base_history = train_baseline_model(

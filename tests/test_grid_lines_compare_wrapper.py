@@ -2055,4 +2055,5 @@ def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):
     assert payload["extra"]["runtime_provenance"]["python_executable"] == "/usr/bin/python3"
     assert payload["extra"]["git_commit"] == "abc123"
     assert payload["status"] == "completed"
+    assert payload["exit_code"] == 0
     assert payload["finished_at_utc"]

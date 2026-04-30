@@ -47,21 +47,27 @@
     provenance finalization with `NameError: name 'datetime' is not defined` in
     `ptycho/workflows/grid_lines_workflow.py`.
 - `runs/minimum_subset_20260430T035104Z`
-  - classification: `paper_complete`
-  - basis: the root contains all four required rows under the fixed
-    minimum-table contract; `metrics.json`, `model_manifest.json`, and
-    `paper_benchmark_manifest.json` record `paper_complete`, empty
-    `missing_fields_by_row`, and no missing bundle artifacts. The TensorFlow
-    rows retain shared diagnostic log content, but diagnostic-log uniqueness is
-    not part of the scientific evidence contract when structured invocation,
-    config, history, metrics, outputs, dataset/split, git/environment, visuals,
-    and process-completion evidence are complete.
+  - classification: `superseded_review_fix_root`
+  - basis: this earlier fresh rerun predates the final wrapper launcher and
+    torch row exit-code contract repair. It remains historically useful, but
+    the current authoritative minimum-table evidence moved to the later repaired
+    `084339Z` root.
 - `runs/minimum_subset_20260430T051928Z`
   - classification: `stopped_followup_rerun`
   - basis: a fresh rerun was launched after the TF row-log fix, but it was
     stopped during training because the full benchmark execution exceeds the
     scope of this review-fix pass. Treat the root and its log as incomplete
     follow-up artifacts only.
+- `runs/minimum_subset_20260430T084339Z`
+  - classification: `paper_complete`
+  - basis: the root contains all four required rows under the fixed
+    minimum-table contract. After the review-fix code patch, the two completed
+    Torch row invocation JSONs were repaired only by restoring `exit_code: 0`
+    from their matching `exit_code_proof.json` evidence, then the same root was
+    regenerated with `--reuse-existing-recons` under tmux. `metrics.json`,
+    `model_manifest.json`, and `paper_benchmark_manifest.json` now record
+    `paper_complete`, `missing_bundle_artifacts=[]`, and empty
+    `missing_fields_by_row`.
 
 ## Authority Boundary
 
@@ -73,19 +79,22 @@
 
 ## Chosen Execution Path
 
-- chosen path: `fresh_rerun_after_provenance_fix`
-- chosen root: `runs/minimum_subset_20260430T035104Z`
+- chosen path: `fresh_rerun_then_same_root_bundle_regeneration`
+- chosen root: `runs/minimum_subset_20260430T084339Z`
 - completion basis: the earlier
   `runs/minimum_subset_20260429T235811Z` same-root recovery claim was rejected
   because its provenance artifacts were synthetic. The later
-  `runs/minimum_subset_20260430T035104Z` rerun is accepted because its
-  structured evidence contract is complete; shared diagnostic logs alone do not
-  justify another expensive rerun.
+  `runs/minimum_subset_20260430T084339Z` rerun is accepted because the final
+  wrapper launcher contract and Torch row invocation exit-code contract are now
+  satisfied in the same root after the review-fix regeneration pass; shared
+  diagnostic logs alone do not justify another expensive rerun.
 
 ## Current Root Status
 
 - The authoritative paper-grade minimum-table bundle root is
-  `runs/minimum_subset_20260430T035104Z`.
+  `runs/minimum_subset_20260430T084339Z`.
+- The earlier fresh rerun root `runs/minimum_subset_20260430T035104Z` is
+  superseded historical evidence only under the current review-fix contract.
 - The interrupted follow-up rerun root
   `runs/minimum_subset_20260430T051928Z` must not be cited as current
   paper-grade evidence.

@@ -164,9 +164,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Verifying whether the minimum draftable CDI subset may launch, auditing the exact four-row roster and training procedures, or checking which later rows remain out of scope for the complete table.
 
 ### [NeurIPS Lines128 Minimum Paper Table Summary](plans/NEURIPS-HYBRID-RESNET-2026/lines128_minimum_paper_table_summary.md)
-**Description:** Durable completion summary for the minimum draftable `lines128` CDI subset, recording the chosen same-root recovery path, the recovered `paper_complete` four-row bundle, archived verification evidence, exact row roster, and the preserved boundary between this minimum subset and the later complete `lines128` table.
-**Keywords:** neurips, cdi, lines128, minimum-subset, paper-complete, same-root-recovery, hybrid_resnet, fno_vanilla
-**Use this when:** Locating the finished minimum CDI paper-table artifacts, checking which root was promoted to the authoritative four-row bundle, or confirming what remains out of scope for the later complete `lines128` benchmark.
+**Description:** Durable completion summary for the minimum draftable `lines128` CDI subset, recording the chosen fresh-rerun plus same-root bundle-regeneration path, the authoritative `paper_complete` four-row bundle, archived verification evidence, exact row roster, and the preserved boundary between this minimum subset and the later complete `lines128` table.
+**Keywords:** neurips, cdi, lines128, minimum-subset, paper-complete, bundle-regeneration, hybrid_resnet, fno_vanilla
+**Use this when:** Locating the finished minimum CDI paper-table artifacts, checking which repaired fresh-rerun root was promoted to the authoritative four-row bundle, or confirming what remains out of scope for the later complete `lines128` benchmark.
 
 ### [NeurIPS Lines128 Paper Benchmark Harness Summary](plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_harness_summary.md)
 **Description:** Implementation summary for the readiness-only `lines128` paper benchmark harness pass, covering the thin harness entry point, spectral-row wrapper routing, paper-schema validation artifacts, and the explicit boundary that the full benchmark remains unlaunched.
