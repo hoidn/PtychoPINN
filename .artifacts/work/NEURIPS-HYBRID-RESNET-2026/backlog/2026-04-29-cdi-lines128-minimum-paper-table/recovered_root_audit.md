@@ -62,13 +62,13 @@
   - classification: `paper_complete`
   - basis: the root contains all four required rows under the fixed
     minimum-table contract. This pass hardened the row-local exit-code proof
-    contract in code and attached independent persisted Torch-row completion
-    evidence from `launcher_stderr.log` under
-    `verification/torch_row_exit_evidence_20260430T104510Z.md`, so the root no
-    longer relies only on the repaired row-local
-    `invocation.json` / `exit_code_proof.json` pair. `metrics.json`,
-    `model_manifest.json`, and `paper_benchmark_manifest.json` record
-    `paper_complete`, `missing_bundle_artifacts=[]`, and empty
+    contract in code, added machine-readable recovered-Torch completion
+    evidence at
+    `runs/pinn_hybrid_resnet/launcher_completion.json` and
+    `runs/pinn_fno_vanilla/launcher_completion.json`, and updated the bundle
+    validators/manifests to consume that structured row provenance directly.
+    `metrics.json`, `model_manifest.json`, and `paper_benchmark_manifest.json`
+    now record `paper_complete`, `missing_bundle_artifacts=[]`, and empty
     `missing_fields_by_row`.
 
 ## Authority Boundary
@@ -88,10 +88,12 @@
   because its provenance artifacts were synthetic. The later
   `runs/minimum_subset_20260430T084339Z` rerun is accepted because the final
   wrapper launcher contract is satisfied, the Torch proof writer is now
-  hardened for future runs, and the retained root has separate persisted
-  launcher evidence for both Torch rows in
-  `verification/torch_row_exit_evidence_20260430T104510Z.md`; shared
-  diagnostic logs alone do not justify another expensive rerun.
+  hardened for future runs, and the retained root now carries structured
+  launcher-completion provenance for both recovered Torch rows in
+  `runs/*/launcher_completion.json`. The companion note
+  `verification/torch_row_exit_evidence_20260430T104510Z.md` is retained as a
+  human-readable explanation only; shared diagnostic logs alone do not justify
+  another expensive rerun.
 
 ## Current Root Status
 

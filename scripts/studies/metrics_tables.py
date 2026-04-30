@@ -468,10 +468,12 @@ def _resolve_output_path(output_dir: Path, value: object) -> Path | None:
     candidate = Path(value)
     if candidate.is_absolute():
         return candidate
+    output_candidate = output_dir / candidate
+    if output_candidate.exists():
+        return output_candidate
     if candidate.exists():
         return candidate
-    candidate = output_dir / candidate
-    return candidate
+    return output_candidate
 
 
 def _validate_existing_path_fields(
@@ -720,11 +722,109 @@ def _validate_outputs_payload(
         log_text = log_path.read_text(encoding="utf-8", errors="ignore")
         if "Skipped backend execution; reused existing reconstruction artifact." in log_text:
             return False
+    if _requires_launcher_completion_evidence(row_payload, output_dir=output_dir):
+        launcher_completion_path = _resolve_output_path(output_dir, payload.get("launcher_completion_json"))
+        if launcher_completion_path is None or not launcher_completion_path.exists():
+            return False
+        launcher_completion = json.loads(launcher_completion_path.read_text(encoding="utf-8"))
+        if not _validate_launcher_completion_payload(
+            launcher_completion,
+            output_dir=output_dir,
+            model_id=model_id,
+        ):
+            return False
     return True
 
 
 def _validate_visuals_payload(payload: object, *, output_dir: Path) -> bool:
     return _validate_existing_path_fields(payload, ("amp_phase_png", "amp_phase_error_png"), output_dir=output_dir)
+
+
+def _root_wrapper_reuses_existing_recons(output_dir: Path) -> bool:
+    wrapper_invocation_path = output_dir / "invocation.json"
+    if not wrapper_invocation_path.exists():
+        return False
+    wrapper_invocation = json.loads(wrapper_invocation_path.read_text(encoding="utf-8"))
+    if not isinstance(wrapper_invocation, Mapping):
+        return False
+    parsed_args = wrapper_invocation.get("parsed_args")
+    return isinstance(parsed_args, Mapping) and bool(parsed_args.get("reuse_existing_recons"))
+
+
+def _requires_launcher_completion_evidence(
+    row_payload: Mapping[str, object],
+    *,
+    output_dir: Path,
+) -> bool:
+    runtime_summary = row_payload.get("runtime_summary")
+    hardware_summary = row_payload.get("hardware_summary")
+    if not isinstance(runtime_summary, Mapping) or not isinstance(hardware_summary, Mapping):
+        return False
+    if hardware_summary.get("backend") != "pytorch":
+        return False
+    if not bool(runtime_summary.get("recovered_from_existing_artifacts")):
+        return False
+    return _root_wrapper_reuses_existing_recons(output_dir)
+
+
+def _validate_launcher_completion_payload(
+    payload: object,
+    *,
+    output_dir: Path,
+    model_id: str,
+) -> bool:
+    if not isinstance(payload, Mapping):
+        return False
+    if payload.get("model_id") != model_id:
+        return False
+    evidence_source = payload.get("evidence_source")
+    if not isinstance(evidence_source, str) or not evidence_source.strip():
+        return False
+    wrapper_invocation_path = _resolve_output_path(output_dir, payload.get("wrapper_invocation_json"))
+    launcher_stderr_path = _resolve_output_path(output_dir, payload.get("launcher_stderr_log"))
+    row_root_path = _resolve_output_path(output_dir, payload.get("row_root"))
+    if (
+        wrapper_invocation_path is None
+        or launcher_stderr_path is None
+        or row_root_path is None
+        or not wrapper_invocation_path.exists()
+        or not launcher_stderr_path.exists()
+        or not row_root_path.exists()
+    ):
+        return False
+
+    wrapper_invocation = json.loads(wrapper_invocation_path.read_text(encoding="utf-8"))
+    if not isinstance(wrapper_invocation, Mapping):
+        return False
+    parsed_args = wrapper_invocation.get("parsed_args")
+    if (
+        wrapper_invocation.get("status") != "completed"
+        or wrapper_invocation.get("exit_code") != 0
+        or not isinstance(parsed_args, Mapping)
+        or not bool(parsed_args.get("reuse_existing_recons"))
+    ):
+        return False
+
+    row_artifacts = payload.get("row_artifacts")
+    if not isinstance(row_artifacts, Mapping):
+        return False
+    for key in ("metrics_json", "history_json", "recon_npz"):
+        candidate = _resolve_output_path(output_dir, row_artifacts.get(key))
+        if candidate is None or not candidate.exists():
+            return False
+
+    matched_log_lines = payload.get("matched_log_lines")
+    if not isinstance(matched_log_lines, list) or len(matched_log_lines) < 2:
+        return False
+    log_text = launcher_stderr_path.read_text(encoding="utf-8", errors="ignore")
+    if not any("Saved artifacts to " in str(line) for line in matched_log_lines):
+        return False
+    if not any("Torch runner complete. Artifacts in " in str(line) for line in matched_log_lines):
+        return False
+    for line in matched_log_lines:
+        if not isinstance(line, str) or not line.strip() or line not in log_text:
+            return False
+    return True
 
 
 def _missing_paper_fields(

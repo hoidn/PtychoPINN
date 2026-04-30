@@ -3,7 +3,10 @@
 import json
 from pathlib import Path
 
-from scripts.studies.paper_provenance import write_exit_code_proof
+from scripts.studies.paper_provenance import (
+    write_exit_code_proof,
+    write_launcher_completion_evidence,
+)
 
 
 def _write_text(path: Path, contents: str = "x") -> None:
@@ -39,3 +42,33 @@ def test_write_exit_code_proof_requires_recorded_zero_exit_code(tmp_path):
 
     assert proof_path is None
     assert not (tmp_path / "runs" / "pinn_hybrid_resnet" / "exit_code_proof.json").exists()
+
+
+def test_write_launcher_completion_evidence_requires_row_completion_markers(tmp_path):
+    wrapper_invocation = tmp_path / "invocation.json"
+    _write_text(
+        wrapper_invocation,
+        json.dumps(
+            {
+                "status": "completed",
+                "exit_code": 0,
+                "finished_at_utc": "2026-04-30T00:00:00+00:00",
+                "parsed_args": {"reuse_existing_recons": True},
+            }
+        ),
+    )
+    launcher_stderr = tmp_path / "launcher_stderr.log"
+    _write_text(launcher_stderr, "launcher log without row completion markers\n")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "metrics.json", "{}")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "history.json", "{}")
+    _write_text(tmp_path / "recons" / "pinn_hybrid_resnet" / "recon.npz")
+
+    evidence_path = write_launcher_completion_evidence(
+        tmp_path,
+        model_id="pinn_hybrid_resnet",
+        wrapper_invocation_json=wrapper_invocation,
+        launcher_stderr_log=launcher_stderr,
+    )
+
+    assert evidence_path is None
+    assert not (tmp_path / "runs" / "pinn_hybrid_resnet" / "launcher_completion.json").exists()

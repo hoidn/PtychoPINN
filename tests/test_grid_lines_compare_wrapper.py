@@ -738,6 +738,28 @@ def test_wrapper_reuse_path_recovers_row_payloads_from_existing_artifacts(monkey
         ),
         encoding="utf-8",
     )
+    (tmp_path / "invocation.json").write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "exit_code": 0,
+                "finished_at_utc": "2026-04-29T22:00:00+00:00",
+                "parsed_args": {"reuse_existing_recons": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "launcher_stderr.log").write_text(
+        "\n".join(
+            [
+                f"Saved artifacts to {tmp_path / 'runs' / 'pinn_hybrid_resnet'}",
+                f"Torch runner complete. Artifacts in {tmp_path / 'runs' / 'pinn_hybrid_resnet'}",
+                f"Saved artifacts to {tmp_path / 'runs' / 'pinn_fno_vanilla'}",
+                f"Torch runner complete. Artifacts in {tmp_path / 'runs' / 'pinn_fno_vanilla'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
 
     for model_id in ("pinn_hybrid_resnet", "pinn_fno_vanilla"):
         run_dir = tmp_path / "runs" / model_id
@@ -746,6 +768,7 @@ def test_wrapper_reuse_path_recovers_row_payloads_from_existing_artifacts(monkey
             json.dumps({"train_loss": [0.5, 0.4], "val_loss": [0.6, 0.5]}),
             encoding="utf-8",
         )
+        (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
         (run_dir / "invocation.json").write_text(
             json.dumps(
                 {
@@ -818,6 +841,14 @@ def test_wrapper_reuse_path_recovers_row_payloads_from_existing_artifacts(monkey
     assert result["row_payloads"]["pinn_hybrid_resnet"]["final_completed_epoch"] == 2
     assert result["row_payloads"]["baseline"]["row_status"] == "decision_support"
     assert result["row_payloads"]["pinn"]["row_status"] == "decision_support"
+    assert (
+        result["row_payloads"]["pinn_hybrid_resnet"]["outputs"]["launcher_completion_json"]
+        == "runs/pinn_hybrid_resnet/launcher_completion.json"
+    )
+    assert (
+        result["row_payloads"]["pinn_fno_vanilla"]["outputs"]["launcher_completion_json"]
+        == "runs/pinn_fno_vanilla/launcher_completion.json"
+    )
 
 
 def test_wrapper_accepts_architecture_list(tmp_path):

@@ -1,0 +1,17 @@
+{
+  "model_id": "pinn_hybrid_resnet",
+  "validated_at_utc": "2026-04-30T11:33:20.815137+00:00",
+  "evidence_source": "wrapper_launcher_stderr_row_completion_markers",
+  "wrapper_invocation_json": "invocation.json",
+  "launcher_stderr_log": "launcher_stderr.log",
+  "row_root": "runs/pinn_hybrid_resnet",
+  "row_artifacts": {
+    "metrics_json": "runs/pinn_hybrid_resnet/metrics.json",
+    "history_json": "runs/pinn_hybrid_resnet/history.json",
+    "recon_npz": "recons/pinn_hybrid_resnet/recon.npz"
+  },
+  "matched_log_lines": [
+    "2026-04-30 02:23:32,262 - INFO - Saved artifacts to .artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z/runs/pinn_hybrid_resnet",
+    "2026-04-30 02:23:32,263 - INFO - Torch runner complete. Artifacts in .artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z/runs/pinn_hybrid_resnet"
+  ]
+}

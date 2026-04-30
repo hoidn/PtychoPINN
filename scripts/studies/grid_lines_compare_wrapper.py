@@ -28,6 +28,7 @@ from scripts.studies.paper_provenance import (
     relative_to_output_dir,
     write_dataset_identity_manifest,
     write_exit_code_proof,
+    write_launcher_completion_evidence,
     write_split_manifest,
 )
 
@@ -570,6 +571,16 @@ def _enrich_paper_row_payload(
     )
     if exit_code_proof is not None:
         outputs_payload["exit_code_proof_json"] = relative_to_output_dir(output_dir, exit_code_proof)
+    launcher_completion = None
+    if model_id in TORCH_MODEL_IDS:
+        launcher_completion = write_launcher_completion_evidence(
+            output_dir,
+            model_id=model_id,
+            wrapper_invocation_json=output_dir / "invocation.json",
+            launcher_stderr_log=output_dir / "launcher_stderr.log",
+        )
+    if launcher_completion is not None:
+        outputs_payload["launcher_completion_json"] = relative_to_output_dir(output_dir, launcher_completion)
     row["outputs"] = outputs_payload
     if not row.get("visuals"):
         row["visuals"] = {

@@ -252,3 +252,71 @@ def write_exit_code_proof(
         "stderr_log": relative_to_output_dir(output_dir, stderr_log),
     }
     return write_json(Path(output_dir) / "runs" / model_id / "exit_code_proof.json", payload)
+
+
+def write_launcher_completion_evidence(
+    output_dir: Path,
+    *,
+    model_id: str,
+    wrapper_invocation_json: Path,
+    launcher_stderr_log: Path,
+) -> Path | None:
+    wrapper_invocation_json = Path(wrapper_invocation_json)
+    launcher_stderr_log = Path(launcher_stderr_log)
+    if not wrapper_invocation_json.exists() or not launcher_stderr_log.exists():
+        return None
+
+    wrapper_invocation = load_json_if_exists(wrapper_invocation_json)
+    if (
+        wrapper_invocation.get("status") != "completed"
+        or wrapper_invocation.get("exit_code") != 0
+    ):
+        return None
+    parsed_args = wrapper_invocation.get("parsed_args", {})
+    if not isinstance(parsed_args, Mapping) or not bool(parsed_args.get("reuse_existing_recons")):
+        return None
+
+    row_root = Path(output_dir) / "runs" / model_id
+    row_artifacts = {
+        "metrics_json": row_root / "metrics.json",
+        "history_json": row_root / "history.json",
+        "recon_npz": Path(output_dir) / "recons" / model_id / "recon.npz",
+    }
+    if not all(path.exists() for path in row_artifacts.values()):
+        return None
+
+    log_lines = launcher_stderr_log.read_text(encoding="utf-8", errors="ignore").splitlines()
+    matched_log_lines: list[str] = []
+    required_prefixes = (
+        "Saved artifacts to ",
+        "Torch runner complete. Artifacts in ",
+    )
+    expected_row_suffix = str(Path("runs") / model_id).replace("\\", "/")
+    for prefix in required_prefixes:
+        match = next(
+            (
+                line.strip()
+                for line in log_lines
+                if prefix in line
+                and line.strip().replace("\\", "/").endswith(expected_row_suffix)
+            ),
+            None,
+        )
+        if match is None:
+            return None
+        matched_log_lines.append(match)
+
+    payload = {
+        "model_id": model_id,
+        "validated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "evidence_source": "wrapper_launcher_stderr_row_completion_markers",
+        "wrapper_invocation_json": relative_to_output_dir(output_dir, wrapper_invocation_json),
+        "launcher_stderr_log": relative_to_output_dir(output_dir, launcher_stderr_log),
+        "row_root": relative_to_output_dir(output_dir, row_root),
+        "row_artifacts": {
+            name: relative_to_output_dir(output_dir, path)
+            for name, path in row_artifacts.items()
+        },
+        "matched_log_lines": matched_log_lines,
+    }
+    return write_json(Path(output_dir) / "runs" / model_id / "launcher_completion.json", payload)

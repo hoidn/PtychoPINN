@@ -46,7 +46,7 @@
     "shell": "invocation.sh"
   },
   "git": {
-    "commit": "63fedb9404c6713dab3abc52345bbe3df6b10c18",
+    "commit": "15700f6c278c273439cc68f6f0c6fbf1b690648f",
     "dirty_state_note": {
       "source": "wrapper_manifest_write",
       "dirty": true
@@ -120,14 +120,16 @@
         "config_json": "runs/pinn_hybrid_resnet/config.json",
         "history_json": "runs/pinn_hybrid_resnet/history.json",
         "metrics_json": "runs/pinn_hybrid_resnet/metrics.json",
-        "recon_npz": "recons/pinn_hybrid_resnet/recon.npz"
+        "recon_npz": "recons/pinn_hybrid_resnet/recon.npz",
+        "launcher_completion_json": "runs/pinn_hybrid_resnet/launcher_completion.json"
       },
       "artifact_mtimes": {
         "invocation_json": 1777542009.657431,
         "config_json": 1777541012.2143166,
         "history_json": 1777541012.2140548,
         "metrics_json": 1777541012.2131233,
-        "recon_npz": 1777541012.0271213
+        "recon_npz": 1777541012.0271213,
+        "launcher_completion_json": 1777548800.8152294
       }
     },
     {
@@ -138,14 +140,16 @@
         "config_json": "runs/pinn_fno_vanilla/config.json",
         "history_json": "runs/pinn_fno_vanilla/history.json",
         "metrics_json": "runs/pinn_fno_vanilla/metrics.json",
-        "recon_npz": "recons/pinn_fno_vanilla/recon.npz"
+        "recon_npz": "recons/pinn_fno_vanilla/recon.npz",
+        "launcher_completion_json": "runs/pinn_fno_vanilla/launcher_completion.json"
       },
       "artifact_mtimes": {
         "invocation_json": 1777542009.6576846,
         "config_json": 1777541522.639033,
         "history_json": 1777541522.638773,
         "metrics_json": 1777541522.637911,
-        "recon_npz": 1777541522.4552991
+        "recon_npz": 1777541522.4552991,
+        "launcher_completion_json": 1777548801.6736362
       }
     }
   ]

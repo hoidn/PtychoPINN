@@ -115,6 +115,9 @@ def _build_paper_benchmark_manifest(
             "metrics_json": run_dir / "metrics.json",
             "recon_npz": Path(str(recon_paths.get(model_id, output_dir / "recons" / model_id / "recon.npz"))),
         }
+        launcher_completion = run_dir / "launcher_completion.json"
+        if launcher_completion.exists():
+            row_paths["launcher_completion_json"] = launcher_completion
         row_records.append(
             {
                 "model_id": model_id,

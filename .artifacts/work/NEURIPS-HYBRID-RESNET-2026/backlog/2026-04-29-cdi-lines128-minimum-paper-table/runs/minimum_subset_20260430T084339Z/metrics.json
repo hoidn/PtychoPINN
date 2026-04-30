@@ -55,7 +55,8 @@
         "value": 0.10263705998659134
       },
       "runtime_summary": {
-        "recovered_from_existing_artifacts": true
+        "recovered_from_existing_artifacts": true,
+        "command_wall_time_sec": 12.759214
       },
       "hardware_summary": {
         "backend": "tensorflow",
@@ -552,7 +553,8 @@
         "value": 6.8079609870910645
       },
       "runtime_summary": {
-        "recovered_from_existing_artifacts": true
+        "recovered_from_existing_artifacts": true,
+        "command_wall_time_sec": 12.759214
       },
       "hardware_summary": {
         "backend": "tensorflow",
@@ -1113,7 +1115,8 @@
         "recon_npz": "recons/pinn_hybrid_resnet/recon.npz",
         "stdout_log": "runs/pinn_hybrid_resnet/stdout.log",
         "stderr_log": "runs/pinn_hybrid_resnet/stderr.log",
-        "exit_code_proof_json": "runs/pinn_hybrid_resnet/exit_code_proof.json"
+        "exit_code_proof_json": "runs/pinn_hybrid_resnet/exit_code_proof.json",
+        "launcher_completion_json": "runs/pinn_hybrid_resnet/launcher_completion.json"
       },
       "visuals": {
         "amp_phase_png": "visuals/amp_phase_pinn_hybrid_resnet.png",
@@ -1612,7 +1615,8 @@
         "recon_npz": "recons/pinn_fno_vanilla/recon.npz",
         "stdout_log": "runs/pinn_fno_vanilla/stdout.log",
         "stderr_log": "runs/pinn_fno_vanilla/stderr.log",
-        "exit_code_proof_json": "runs/pinn_fno_vanilla/exit_code_proof.json"
+        "exit_code_proof_json": "runs/pinn_fno_vanilla/exit_code_proof.json",
+        "launcher_completion_json": "runs/pinn_fno_vanilla/launcher_completion.json"
       },
       "visuals": {
         "amp_phase_png": "visuals/amp_phase_pinn_fno_vanilla.png",

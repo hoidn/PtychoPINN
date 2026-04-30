@@ -1,0 +1,82 @@
+2026-04-30 04:33:11.731513: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1777548791.742759 1404497 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1777548791.746583 1404497 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1777548791.756623 1404497 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1777548791.756635 1404497 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1777548791.756637 1404497 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1777548791.756639 1404497 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-04-30 04:33:11.759593: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+I0000 00:00:1777548794.171761 1404497 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1777548794.173094 1404497 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22203 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/keras/src/layers/layer.py:421: UserWarning: `build()` was called on layer 'center_mask_layer_1', however the layer does not have a `build()` method implemented and it looks like it has unbuilt state. This will cause the layer to be marked as built, despite not being actually built, which may cause failures down the line. Make sure to implement a proper `build()` method.
+  warnings.warn(
+/home/ollie/Documents/PtychoPINN/ptycho/workflows/grid_lines_workflow.py:1680: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+Amplitude normalization scale factor: 0.115575
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [baseline]: amp_target stats: mean=2.976817, std=0.648537, shape=(266, 266, 1)
+DEBUG eval_reconstruction [baseline]: amp_pred stats: mean=25.756580, std=7.230021, shape=(266, 266, 1)
+DEBUG eval_reconstruction [baseline]: phi_target stats: mean=0.000000, std=0.239496, shape=(266, 266)
+DEBUG eval_reconstruction [baseline]: phi_pred stats: mean=0.000000, std=1.210472, shape=(266, 266)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [-0.641, 0.703] -> scaled range [0.398, 0.612]
+performed by index method
+performed by index method
+performed by index method
+Amplitude normalization scale factor: 0.920838
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn]: amp_target stats: mean=2.976817, std=0.648537, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn]: amp_pred stats: mean=3.232725, std=0.651528, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn]: phi_target stats: mean=0.000000, std=0.239496, shape=(266, 266)
+DEBUG eval_reconstruction [pinn]: phi_pred stats: mean=0.000000, std=1.191461, shape=(266, 266)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [-0.641, 0.703] -> scaled range [0.398, 0.612]
+performed by index method
+performed by index method
+performed by index method
+Amplitude normalization scale factor: 1.246201
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_hybrid_resnet]: amp_target stats: mean=2.976817, std=0.648537, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_hybrid_resnet]: amp_pred stats: mean=2.388714, std=0.514509, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_hybrid_resnet]: phi_target stats: mean=0.000000, std=0.239496, shape=(266, 266)
+DEBUG eval_reconstruction [pinn_hybrid_resnet]: phi_pred stats: mean=-0.000000, std=0.182677, shape=(266, 266)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [-0.641, 0.703] -> scaled range [0.398, 0.612]
+performed by index method
+performed by index method
+performed by index method
+Amplitude normalization scale factor: 1.256674
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_fno_vanilla]: amp_target stats: mean=2.976817, std=0.648537, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_fno_vanilla]: amp_pred stats: mean=2.368806, std=0.496746, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_fno_vanilla]: phi_target stats: mean=0.000000, std=0.239496, shape=(266, 266)
+DEBUG eval_reconstruction [pinn_fno_vanilla]: phi_pred stats: mean=0.000000, std=0.123862, shape=(266, 266)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [-0.641, 0.703] -> scaled range [0.398, 0.612]
+performed by index method
+performed by index method
+performed by index method
