@@ -1,0 +1,475 @@
+{
+  "schema_version": 1,
+  "scope": "NEURIPS-HYBRID-RESNET-2026",
+  "status": "draft",
+  "last_updated_utc": "2026-04-30T00:00:00Z",
+  "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
+  "primary_authorities": {
+    "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
+    "paper_evidence_manifest": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_manifest.json",
+    "cdi_complete_lines128": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
+    "cdi_supervised_extension": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md",
+    "cns_table_bundle": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md"
+  },
+  "dataset_contracts": {
+    "cdi_lines128_seed3": {
+      "task": "cdi",
+      "dataset_label": "synthetic grid-lines N=128",
+      "gridsize": 1,
+      "seed": 3,
+      "nimgs_train": 2,
+      "nimgs_test": 2,
+      "probe_source": "Run1084 custom probe",
+      "probe_scale_mode": "pad_extrapolate",
+      "torch_epochs": 40,
+      "metric_family": [
+        "amp_mae",
+        "phase_mae",
+        "amp_ssim",
+        "phase_ssim",
+        "amp_psnr",
+        "phase_psnr",
+        "amp_frc50",
+        "phase_frc50"
+      ]
+    },
+    "cns_history2_cap512_40ep": {
+      "task": "pdebench_cns",
+      "dataset_label": "PDEBench 2D_CFD CNS 128x128 periodic train file",
+      "split": "512 / 64 / 64 trajectories",
+      "history_len": 2,
+      "max_windows_per_trajectory": 8,
+      "epochs": 40,
+      "training_loss": "mse",
+      "claim_boundary": "capped_decision_support_only",
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ]
+    },
+    "cns_history2_cap1024_80ep": {
+      "task": "pdebench_cns",
+      "dataset_label": "PDEBench 2D_CFD CNS 128x128 periodic train file",
+      "split": "1024 / 128 / 128 trajectories",
+      "history_len": 2,
+      "max_windows_per_trajectory": 8,
+      "epochs": 80,
+      "training_loss": "mse",
+      "claim_boundary": "decision_support"
+    },
+    "legacy_cdi_lines256_skip_mode_search": {
+      "task": "cdi",
+      "dataset_label": "legacy lines_256 architecture search",
+      "claim_boundary": "legacy_ablation_context",
+      "authority": "docs/studies/index.md#hybrid-resnet-mode-skip-sweep"
+    }
+  },
+  "model_variants": [
+    {
+      "variant_id": "cdi_lines128__cnn__supervised__complete_table",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "baseline",
+      "paper_label": "CDI CNN + supervised",
+      "architecture_id": "cnn",
+      "model_family": "local_cnn",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-04-29-cdi-lines128-paper-benchmark-execution",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux",
+      "metrics_json": "runs/baseline/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_baseline.png",
+        "visuals/amp_phase_error_baseline.png"
+      ],
+      "parameter_count": 4612418,
+      "metrics": {
+        "amp_mae": 0.4026719033718109,
+        "phase_mae": 0.7861943717040095,
+        "amp_ssim": 0.277214069257086,
+        "phase_ssim": 0.4963532061083504,
+        "amp_psnr": 53.60377362086858,
+        "phase_psnr": 47.53162421804892,
+        "amp_frc50": 24.403635172448002,
+        "phase_frc50": 5.658232802117156
+      },
+      "evidence_status": "paper_grade"
+    },
+    {
+      "variant_id": "cdi_lines128__cnn__pinn__complete_table",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn",
+      "paper_label": "CDI CNN + PINN",
+      "architecture_id": "cnn",
+      "model_family": "local_cnn",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-04-29-cdi-lines128-paper-benchmark-execution",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux",
+      "metrics_json": "runs/pinn/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn.png",
+        "visuals/amp_phase_error_pinn.png"
+      ],
+      "parameter_count": 4661212,
+      "metrics": {
+        "amp_mae": 0.12317091226577759,
+        "phase_mae": 0.7863222464274442,
+        "amp_ssim": 0.7325678081610691,
+        "phase_ssim": 0.2638148037194811,
+        "amp_psnr": 64.3884803553361,
+        "phase_psnr": 47.396103069771115,
+        "amp_frc50": 26.142560717863365,
+        "phase_frc50": 5.2697829748545075
+      },
+      "evidence_status": "paper_grade"
+    },
+    {
+      "variant_id": "cdi_lines128__hybrid_resnet__pinn__complete_table",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_hybrid_resnet",
+      "paper_label": "Hybrid ResNet + PINN",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-04-29-cdi-lines128-paper-benchmark-execution",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux",
+      "metrics_json": "runs/pinn_hybrid_resnet/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_hybrid_resnet.png",
+        "visuals/amp_phase_error_pinn_hybrid_resnet.png"
+      ],
+      "parameter_count": 18006600,
+      "metrics": {
+        "amp_mae": 0.026939474046230316,
+        "phase_mae": 0.07206347709561367,
+        "amp_ssim": 0.9881142973635324,
+        "phase_ssim": 0.9947399866043689,
+        "amp_psnr": 77.51937067873057,
+        "phase_psnr": 69.21628683417748,
+        "amp_frc50": 135.46422193425383,
+        "phase_frc50": 106.80060877638415
+      },
+      "evidence_status": "paper_grade"
+    },
+    {
+      "variant_id": "cdi_lines128__fno_vanilla__pinn__complete_table",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_fno_vanilla",
+      "paper_label": "FNO Vanilla + PINN",
+      "architecture_id": "fno_vanilla",
+      "model_family": "spectral_operator",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-04-29-cdi-lines128-paper-benchmark-execution",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux",
+      "metrics_json": "runs/pinn_fno_vanilla/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_fno_vanilla.png",
+        "visuals/amp_phase_error_pinn_fno_vanilla.png"
+      ],
+      "parameter_count": 1272902,
+      "metrics": {
+        "amp_mae": 0.12481639534235,
+        "phase_mae": 0.1435395349328455,
+        "amp_ssim": 0.7409360685258843,
+        "phase_ssim": 0.9334635911261081,
+        "amp_psnr": 64.32852438158606,
+        "phase_psnr": 63.03932866159216,
+        "amp_frc50": 25.711232615241986,
+        "phase_frc50": 52.17392775302108
+      },
+      "evidence_status": "paper_grade"
+    },
+    {
+      "variant_id": "cdi_lines128__spectral_resnet_bottleneck_net__pinn__complete_table",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_spectral_resnet_bottleneck_net",
+      "paper_label": "Spectral ResNet Bottleneck + PINN",
+      "architecture_id": "spectral_resnet_bottleneck_net",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-04-29-cdi-lines128-paper-benchmark-execution",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux",
+      "metrics_json": "runs/pinn_spectral_resnet_bottleneck_net/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_spectral_resnet_bottleneck_net.png",
+        "visuals/amp_phase_error_pinn_spectral_resnet_bottleneck_net.png"
+      ],
+      "parameter_count": 23429454,
+      "metrics": {
+        "amp_mae": 0.02494361810386181,
+        "phase_mae": 0.09288138595108876,
+        "amp_ssim": 0.9898549878226934,
+        "phase_ssim": 0.9722190667280742,
+        "amp_psnr": 78.18976150952388,
+        "phase_psnr": 55.45498727608557,
+        "amp_frc50": 135.93572415434704,
+        "phase_frc50": 4.718473736341113
+      },
+      "evidence_status": "paper_grade"
+    },
+    {
+      "variant_id": "cdi_lines128__ffno__pinn__complete_table",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_ffno",
+      "paper_label": "FFNO + PINN",
+      "architecture_id": "ffno",
+      "model_family": "factorized_fourier_operator",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-04-29-cdi-lines128-paper-benchmark-execution",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux",
+      "metrics_json": "runs/pinn_ffno/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_ffno.png",
+        "visuals/amp_phase_error_pinn_ffno.png"
+      ],
+      "parameter_count": 323918,
+      "metrics": {
+        "amp_mae": 0.0627724751830101,
+        "phase_mae": 0.08283866878648244,
+        "amp_ssim": 0.934830339980703,
+        "phase_ssim": 0.9815915191210483,
+        "amp_psnr": 70.19008056259318,
+        "phase_psnr": 67.77591687814196,
+        "amp_frc50": 68.90094687002035,
+        "phase_frc50": 67.84086901019204
+      },
+      "evidence_status": "paper_grade_with_recovered_invocation_caveat"
+    },
+    {
+      "variant_id": "cdi_lines128__ffno__supervised__extension",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "supervised_ffno",
+      "paper_label": "FFNO + supervised",
+      "architecture_id": "ffno",
+      "model_family": "factorized_fourier_operator",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-04-29-cdi-lines128-supervised-equivalent-rows",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z",
+      "metrics_json": "metrics.json",
+      "visuals": [
+        "visuals/amp_phase_supervised_ffno.png",
+        "visuals/amp_phase_error_supervised_ffno.png",
+        "visuals/compare_amp_phase.png",
+        "visuals/frc_curves.png"
+      ],
+      "metrics": {
+        "amp_mae": 0.38641318678855896,
+        "phase_mae": 0.046562865303675434,
+        "amp_ssim": 0.24842735671882815,
+        "phase_ssim": 0.9371787178129534,
+        "amp_psnr": 53.87601920695603,
+        "phase_psnr": 72.9407193911999,
+        "amp_frc50": 24.249801607899727,
+        "phase_frc50": 36.659701657247595
+      },
+      "comparison_outcome": "non_identical_same_contract_comparison",
+      "evidence_status": "paper_complete_extension"
+    },
+    {
+      "variant_id": "cns_history2_cap512__author_ffno_cns_base__supervised__paper_bundle",
+      "dataset_contract_id": "cns_history2_cap512_40ep",
+      "row_id": "author_ffno_cns_base",
+      "paper_label": "Author FFNO",
+      "architecture_id": "author_ffno_cns_base",
+      "model_family": "factorized_fourier_operator",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-04-29-cns-paper-table-figure-bundle",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z",
+      "parameter_count": 1073672,
+      "runtime_sec": 4725.511692285538,
+      "metrics": {
+        "relative_l2": 0.028147730976343155,
+        "err_nRMSE": 0.028147730976343155,
+        "err_RMSE": 0.6802443265914917,
+        "fRMSE_low": 1.6124732494354248,
+        "fRMSE_mid": 0.07592882961034775,
+        "fRMSE_high": 0.12101411819458008
+      },
+      "evidence_status": "capped_decision_support_headline"
+    },
+    {
+      "variant_id": "cns_history2_cap512__spectral_resnet_bottleneck_base__supervised__paper_bundle",
+      "dataset_contract_id": "cns_history2_cap512_40ep",
+      "row_id": "spectral_resnet_bottleneck_base",
+      "paper_label": "Spectral ResNet Bottleneck",
+      "architecture_id": "spectral_resnet_bottleneck_base",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-04-29-cns-paper-table-figure-bundle",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-bottleneck-cns-compare/readiness-cap-20260421T221008Z-spectral40ep",
+      "parameter_count": 8186726,
+      "runtime_sec": 1861.6251845359802,
+      "metrics": {
+        "relative_l2": 0.061562005430459976,
+        "err_nRMSE": 0.061562005430459976,
+        "err_RMSE": 1.4877649545669556,
+        "fRMSE_low": 3.4756414890289307,
+        "fRMSE_mid": 0.28004488348960876,
+        "fRMSE_high": 0.43493345379829407
+      },
+      "evidence_status": "capped_decision_support_headline"
+    },
+    {
+      "variant_id": "cns_history2_cap512__fno_base__supervised__paper_bundle",
+      "dataset_contract_id": "cns_history2_cap512_40ep",
+      "row_id": "fno_base",
+      "paper_label": "FNO",
+      "architecture_id": "fno_base",
+      "model_family": "spectral_operator",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-04-29-cns-paper-table-figure-bundle",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse",
+      "parameter_count": 357860,
+      "runtime_sec": 1137.9493689537048,
+      "metrics": {
+        "relative_l2": 0.07409921288490295,
+        "err_nRMSE": 0.07409921288490295,
+        "err_RMSE": 1.7907506227493286,
+        "fRMSE_low": 4.16710090637207,
+        "fRMSE_mid": 0.23907285928726196,
+        "fRMSE_high": 0.6717720627784729
+      },
+      "evidence_status": "capped_decision_support_headline"
+    },
+    {
+      "variant_id": "cns_history2_cap512__unet_strong__supervised__paper_bundle",
+      "dataset_contract_id": "cns_history2_cap512_40ep",
+      "row_id": "unet_strong",
+      "paper_label": "U-Net",
+      "architecture_id": "unet_strong",
+      "model_family": "unet_local_baseline",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-04-29-cns-paper-table-figure-bundle",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse",
+      "parameter_count": 7764580,
+      "runtime_sec": 1366.6471712589264,
+      "metrics": {
+        "relative_l2": 0.6757976412773132,
+        "err_nRMSE": 0.6757976412773132,
+        "err_RMSE": 16.331954956054688,
+        "fRMSE_low": 38.979515075683594,
+        "fRMSE_mid": 0.5071899890899658,
+        "fRMSE_high": 1.332625389099121
+      },
+      "evidence_status": "capped_decision_support_headline"
+    },
+    {
+      "variant_id": "cns_history2_cap512__hybrid_resnet_cns__supervised__continuity",
+      "dataset_contract_id": "cns_history2_cap512_40ep",
+      "row_id": "hybrid_resnet_cns",
+      "paper_label": "Hybrid ResNet continuity",
+      "architecture_id": "hybrid_resnet_cns",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-04-29-cns-paper-table-figure-bundle",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare/history2-hybrid-cns-pilot-40ep-20260423T223143Z",
+      "parameter_count": 7998597,
+      "runtime_sec": 886.2511508464813,
+      "metrics": {
+        "relative_l2": 0.06441833078861237,
+        "err_nRMSE": 0.06441833078861237,
+        "err_RMSE": 1.5567935705184937,
+        "fRMSE_low": 3.6567487716674805,
+        "fRMSE_mid": 0.2804315388202667,
+        "fRMSE_high": 0.36830681562423706
+      },
+      "evidence_status": "capped_decision_support_continuity"
+    },
+    {
+      "variant_id": "cns_history2_cap1024__spectral_resnet_bottleneck_shared_blocks10__supervised__80ep",
+      "dataset_contract_id": "cns_history2_cap1024_80ep",
+      "row_id": "spectral_resnet_bottleneck_shared_blocks10",
+      "paper_label": "Spectral ResNet Bottleneck shared-blocks10",
+      "architecture_id": "spectral_resnet_bottleneck_shared_blocks10",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_shared_blocks10_1024cap_longer_convergence_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/cns-shared-blocks10-1024cap-80ep-20260429T025641Z",
+      "metrics_json": "metrics_spectral_resnet_bottleneck_shared_blocks10.json",
+      "metrics": {
+        "relative_l2": 0.0375677,
+        "err_nRMSE": 0.0375677,
+        "err_RMSE": 0.895959,
+        "fRMSE_low": 2.1018,
+        "fRMSE_mid": 0.170457,
+        "fRMSE_high": 0.215245
+      },
+      "evidence_status": "decision_support_underconverged"
+    },
+    {
+      "variant_id": "cns_history2_cap1024__spectral_resnet_bottleneck_modes24__supervised__80ep",
+      "dataset_contract_id": "cns_history2_cap1024_80ep",
+      "row_id": "spectral_resnet_bottleneck_modes24",
+      "paper_label": "Spectral ResNet Bottleneck modes24",
+      "architecture_id": "spectral_resnet_bottleneck_modes24",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-04-28-pdebench-cns-spectral-modes24-convergence-compare",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_modes24_convergence_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/cns-spectral-modes24-vs-base-1024cap-80ep",
+      "metrics_json": "metrics_spectral_resnet_bottleneck_modes24.json",
+      "metrics": {
+        "relative_l2": 0.0395326,
+        "err_nRMSE": 0.0395326,
+        "err_RMSE": 0.942819,
+        "fRMSE_low": 2.17721,
+        "fRMSE_mid": 0.241145,
+        "fRMSE_high": 0.306903
+      },
+      "evidence_status": "decision_support_no_promotion"
+    }
+  ],
+  "completed_backlog_outputs_represented": [
+    "2026-04-21-pdebench-author-ffno-equal-footing-cns",
+    "2026-04-22-pdebench-gnot-paper-default-cns-compare",
+    "2026-04-21-pdebench-cns-markov-history1-compare",
+    "2026-04-21-pdebench-cns-spectral-modes32-compare",
+    "2026-04-22-pdebench-cns-hybrid-spectral-architecture-ablation",
+    "2026-04-27-pdebench-ffno-convolutional-features-cns",
+    "2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap",
+    "2026-04-28-pdebench-cns-spectral-modes24-convergence-compare",
+    "2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence",
+    "2026-04-29-pdebench-cns-history-len3plus-compare",
+    "2026-04-27-cdi-ffno-generator-lines-best-config",
+    "2026-04-28-pdebench-cns-hybrid-spectral-ffno-parameter-space",
+    "2026-04-29-cdi-lines128-paper-benchmark-harness",
+    "2026-04-29-cns-paper-contract-decision",
+    "2026-04-29-cns-paper-benchmark-rows",
+    "2026-04-29-cns-paper-table-figure-bundle",
+    "2026-04-29-cdi-lines128-minimum-paper-table",
+    "2026-04-29-cdi-lines128-paper-benchmark-execution",
+    "2026-04-29-cdi-lines128-supervised-equivalent-rows",
+    "2026-04-29-paper-evidence-package-audit",
+    "2026-02-26-hybrid-resnet-skip-mode-search-design",
+    "2026-02-26-hybrid-resnet-skip-mode-search-stage-a-execution",
+    "2026-02-26-hybrid-resnet-skip-mode-search-stage-b-execution",
+    "2026-02-26-hybrid-resnet-skip-mode-search-stage-c-execution",
+    "2026-02-26-hybrid-resnet-skip-mode-search-stage-d-execution",
+    "2026-02-26-hybrid-resnet-skip-mode-search-stage-e-execution"
+  ],
+  "maintenance_rules": [
+    "Every future completed backlog item that emits model metrics must add or update at least one model_variants entry.",
+    "If a completed item is purely a harness, decision, or audit output, represent it in ablation_index.json and evidence_matrix.md even when no new model_variants row exists.",
+    "Do not use the evidence_status field as the claim source of truth. Use the source_summary and paper evidence audit for claim wording."
+  ]
+}

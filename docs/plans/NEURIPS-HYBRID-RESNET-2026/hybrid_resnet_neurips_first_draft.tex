@@ -8,7 +8,7 @@
 \usepackage{hyperref}
 \usetikzlibrary{arrows.meta,positioning}
 
-\title{Deep Spectral-Convolutional Netsfor Physics-Informed Ptychographic Reconstruction}
+\title{Deep Spectral-Convolutional Nets for Physics-Informed Ptychographic Reconstruction}
 \author{Anonymous Authors}
 \date{\today}
 
@@ -16,25 +16,15 @@
 \maketitle
 
 \begin{abstract}
-Coherent diffractive imaging and ptychography recover real-space structure from
-intensity-only diffraction measurements, but the inverse problem couples global
-wave physics with sharp local object features. Physics-informed neural
-reconstruction methods reduce the need for labeled data by training through the
-known diffraction forward model and scan-overlap constraints, yet their
-generator architectures are often dominated by local convolutional priors. We
-study a spectral-residual U-Net (SRU-Net) that combines Fourier
-neural-operator style global mixing with convolutional and residual image
-refinement. The architecture uses a spectral encoder to build long-range
-context, a ResNet bottleneck at reduced spatial resolution, and a convolutional
-decoder to recover local structure. We evaluate the resulting model on a primary
-synthetic line-pattern ptychographic reconstruction benchmark and use PDEBench 2D
-compressible Navier-Stokes as a secondary cross-domain benchmark. The secondary
-benchmark stresses the same global-local architectural tradeoff in a different
-problem class: coherent large-scale flow and wave structure coexist with shocks,
-vorticity, and localized high-gradient features. On the synthetic line-pattern
-CDI benchmark, SRU-Net + PINN gives lower MAE and higher SSIM than the FFNO +
-PINN baseline. The CNS experiments compare spectral-convolutional variants
-against Fourier-operator and image-model baselines.
+Coherent diffractive imaging and ptychography recover structure from
+intensity-only diffraction measurements, coupling global wave physics with sharp
+local object features. We introduce SRU-Net, a spectral-residual U-Net that
+combines Fourier-style global mixing with convolutional local recovery inside a
+physics-informed reconstruction loop. On synthetic line-pattern CDI, SRU-Net +
+PINN improves amplitude and phase reconstruction over FFNO + PINN on matched
+metrics. On PDEBench CNS, a secondary supervised benchmark, FFNO is the
+lowest-error row while SRU-Net$^*$ remains ahead of FNO and U-Net baselines,
+supporting the broader global-local architecture thesis.
 \end{abstract}
 
 \section{Introduction}
@@ -96,6 +86,18 @@ The contributions are:
   reconstruction and secondary PDEBench CNS prediction.
 \end{enumerate}
 
+% figure_metadata: task=CDI_lines128; visible_rows=ground_truth,FNO+PINN,FFNO+PINN,SRU-Net+PINN; fields=amplitude,phase; source=docs/plans/NEURIPS-HYBRID-RESNET-2026/figures/cdi_synthetic_line_pattern_srunet_fno_ffno.png
+% figure_gap: CDI main qualitative lacks CNN + PINN and error-map columns; add when the full Lines128 visual bundle exists.
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/cdi_synthetic_line_pattern_srunet_fno_ffno.png}
+\caption{\textbf{Physics-informed CDI reconstruction on synthetic line
+patterns.} The shared test sample compares FNO + PINN, FFNO + PINN, and
+SRU-Net + PINN against the ground truth. SRU-Net preserves line amplitude and
+phase structure more accurately in this available comparison.}
+\label{fig:cdi_main_qualitative}
+\end{figure}
+
 \section{Related Work}
 
 \subsection{Physics-informed ptychographic reconstruction}
@@ -119,12 +121,12 @@ should encode the same global-local structure as the inverse problem itself.
 \subsection{Fourier neural operators and spectral mixing}
 
 Fourier neural operators (FNOs) learn mappings between functions by applying
-global spectral convolutions in Fourier space. This gives every spectral layer a
-global receptive field and is well matched to wave-like and PDE-governed
-systems. Standard FNO layers also include a local transform added to the
-spectral path, usually a pointwise channel mixing term. This spectral-plus-local
-form is conceptually attractive for diffraction and flow problems, where
-long-range coherent structure and local features coexist.
+global spectral convolutions in Fourier space~\cite{fno}. This gives every
+spectral layer a global receptive field and is well matched to wave-like and
+PDE-governed systems. Standard FNO layers also include a local transform added
+to the spectral path, usually a pointwise channel mixing term. This
+spectral-plus-local form is conceptually attractive for diffraction and flow
+problems, where long-range coherent structure and local features coexist.
 
 However, FNO-style truncation of Fourier modes can bias the model toward
 low-frequency structure. In imaging and compressible flow, local structure such
@@ -136,11 +138,12 @@ mixing while adding local paths and decoder-side refinement.
 
 Recent neural-operator variants and hybrid models combine Fourier blocks with
 CNN or U-Net structure. U-FNO-style architectures add U-Net multiscale structure
-around Fourier layers. Localized-kernel neural operators augment global spectral
-layers with stronger local kernels. FourierUnet-like architectures place
-spectral blocks inside U-shaped image models. These designs all reflect the same
-principle: spectral layers are useful for global coupling, but local
-convolutions and skip connections remain important for high-frequency details.
+around Fourier layers~\cite{ufno}. Localized-kernel neural operators augment
+global spectral layers with stronger local kernels~\cite{localno}.
+FourierUnet-like architectures place spectral blocks inside U-shaped image
+models. These designs all reflect the same principle: spectral layers are useful
+for global coupling, but local convolutions and skip connections remain
+important for high-frequency details.
 
 The architecture studied here is closest in spirit to an FNO encoder embedded
 in a U-shaped image model. The implemented SRU-Net body combines
@@ -203,7 +206,7 @@ spectral truncation, while the spectral path provides global coupling.
 The implemented SRU-Net consists of an input
 lifter, four spectral-local encoder blocks, two downsampling stages, a
 six-block residual bottleneck at $N/4$ spatial resolution, and a convolutional
-upsampling decoder. Figure~\ref{fig:architecture} summarizes the data flow, and
+upsampling decoder. Figure~\ref{fig:srunet_architecture} summarizes the data flow, and
 Table~\ref{tab:architecture_summary} lists the implementation-level choices
 that determine the shape of the model.
 
@@ -280,17 +283,21 @@ that determine the shape of the model.
 \draw[bypass] (bx.north) |- (8.55,-3.75) -- (bsum.north);
 \end{tikzpicture}%
 }
-\caption{SRU-Net architecture. Top: $G_\theta=D_\theta B_\theta
-E_\theta\phi_0$, with $d_s\leftarrow d_s+P_s(e_s)$ when skips are enabled.
-Middle/bottom: definitions of $E_\ell$ and $B_j$.}
-\label{fig:architecture}
+\caption{\textbf{SRU-Net combines spectral global mixing with local image
+recovery.} The generator uses spectral-local encoder blocks, a residual
+bottleneck, and a convolutional decoder. The block equations summarize the
+spectral-local encoder update and residual bottleneck update used by the
+architecture.}
+\label{fig:srunet_architecture}
 \end{figure}
 
 % table_metadata: cap_size=not_applicable; table_type=architecture_summary
 \begin{table}[h]
 \centering
 \small
-\caption{SRU-Net architecture summary.}
+\caption{\textbf{SRU-Net implementation summary.} The same generator principle
+is used across the CDI reconstruction path and the CNS field-prediction adapter,
+with task-specific input/output projections and losses.}
 \label{tab:architecture_summary}
 \begin{tabular}{p{0.22\linewidth}p{0.68\linewidth}}
 \toprule
@@ -354,8 +361,8 @@ where $r$ denotes scan positions and $P$ is the probe. The CDI objective is
 defined in measurement space:
 \begin{equation}
   \mathcal{L}_{\mathrm{CDI}}
-  = \mathcal{D}(x, \hat{x})
-  + \lambda R(\hat{o}).
+  = \mathcal{D}\left(x, F_d(F_c(G_{\theta}(x); r); P)\right)
+  + \lambda R(G_{\theta}(x)).
 \end{equation}
 Here $\mathcal{D}$ is the experiment-specific measurement loss, such as Poisson
 negative log likelihood or amplitude/intensity reconstruction error, and $R$
@@ -434,77 +441,167 @@ split only, and metrics are evaluated on denormalized predictions.
 
 The CDI results evaluate ptychographic reconstruction quality on synthetic line
 patterns. The CNS results evaluate cross-domain next-state prediction on
-compressible flow and are reported as architecture ablations.
+compressible flow through a secondary benchmark table and targeted architecture
+ablations.
 
 \subsection{CDI synthetic line-pattern benchmark: SRU-Net + PINN versus FFNO + PINN}
 
-% table_metadata: benchmark=CDI_lines128; cap_size=train_objects=2,test_objects=2; train_patches=8978; test_patches=1458; epochs=40; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet
-\begin{table}[h]
+% table_metadata: task=CDI_lines128; model_rows=SRU-Net+PINN,FFNO+PINN; train_objects=2; test_objects=2; train_patches=8978; test_patches=1458; photons=1e9; epochs=40; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet
+\begin{table}[t]
 \centering
-\caption{Synthetic line-pattern CDI comparison. Lower MAE is
-better; higher SSIM and PSNR are better.}
-\begin{tabular}{lrrrrrr}
+\small
+\caption{\textbf{Synthetic line-pattern CDI reconstruction.} Both models are
+trained through the ptychographic forward model. Lower MAE and higher SSIM are
+better.}
+\label{tab:cdi_headline}
+\begin{tabular}{llrrrr}
 \toprule
-Method & Amp MAE & Phase MAE & Amp SSIM & Phase SSIM & Amp PSNR & Phase PSNR \\
+Model & Training & Amp MAE $\downarrow$ & Phase MAE $\downarrow$ &
+Amp SSIM $\uparrow$ & Phase SSIM $\uparrow$ \\
 \midrule
-SRU-Net + PINN & 0.026939 & 0.072063 & 0.988114 & 0.994740 & 77.519371 & 69.216287 \\
-FFNO + PINN & 0.062772 & 0.082839 & 0.934830 & 0.981592 & 70.190081 & 67.775917 \\
+FFNO & PINN & 0.0628 & 0.0828 & 0.9348 & 0.9816 \\
+SRU-Net & PINN & \textbf{0.0269} & \textbf{0.0721} &
+\textbf{0.9881} & \textbf{0.9947} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
 On this synthetic line-pattern benchmark, SRU-Net + PINN reconstructs amplitude
-and phase more accurately than FFNO + PINN on the reported metrics.
-Table~\ref{tab:cdi_ssim_context} adds FNO + PINN, CNN + PINN, and non-PINN CNN
-measurements from earlier $N=128$ line-pattern runs. These rows separate
-architecture choice from the training objective; the CNN and FNO measurements
-come from earlier runs rather than a single matched comparison.
+and phase more accurately than FFNO + PINN on the reported metrics; the
+qualitative comparison is shown in Figure~\ref{fig:cdi_main_qualitative}.
+Table~\ref{tab:cdi_context} extends the matched $N=128$ evidence with the
+complete paper-benchmark rows and a same-contract supervised FFNO row generated
+after the initial table assembly. This separates architecture choice from the
+training objective without mixing in older legacy line-pattern results.
 
-% table_metadata: benchmark=CDI_lines128; cap_size=mixed; SRU-Net+PINN_and_FFNO+PINN=train_objects=2,test_objects=2,train_patches=8978,test_patches=1458; CNN/FNO legacy rows=cap_not_recovered_from_outputs/grid_lines_gs1_n128_e20_phi_all/metrics.json
-\begin{table}[h]
+% table_metadata: task=CDI_lines128; provenance=matched_complete_bundle_plus_same_contract_extension; complete_bundle_rows=baseline,pinn,pinn_hybrid_resnet,pinn_fno_vanilla,pinn_spectral_resnet_bottleneck_net,pinn_ffno; extension_rows=supervised_ffno; contract=N128_gridsize1_seed3_train2_test2_epochs40_custom_Run1084_probe_pad_extrapolate; sources=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux,.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z
+\begin{table}[t]
 \centering
-\caption{CDI amplitude and phase SSIM on the synthetic line-pattern benchmark.
-Rows without ``+ PINN'' are non-PINN baselines.}
-\label{tab:cdi_ssim_context}
-\begin{tabular}{lrr}
+\small
+\caption{\textbf{CDI line-pattern benchmark rows under the locked $N=128$
+contract.} Six rows come from the complete paper-benchmark bundle; the
+supervised FFNO row is appended from a later same-contract extension. Lower MAE
+and higher SSIM are better.}
+\label{tab:cdi_context}
+\begin{tabular}{llrrrr}
 \toprule
-Method & Amp SSIM & Phase SSIM \\
+Model & Training & Amp MAE $\downarrow$ & Phase MAE $\downarrow$ &
+Amp SSIM $\uparrow$ & Phase SSIM $\uparrow$ \\
 \midrule
-SRU-Net + PINN & 0.988114 & 0.994740 \\
-FFNO + PINN & 0.934830 & 0.981592 \\
-FNO + PINN & 0.536695 & 0.898196 \\
-CNN + PINN & 0.235523 & 0.842880 \\
-CNN & 0.210448 & 0.537699 \\
+CNN & supervised & 0.4027 & 0.7862 & 0.2772 & 0.4964 \\
+CNN & PINN & 0.1232 & 0.7863 & 0.7326 & 0.2638 \\
+FNO & PINN & 0.1248 & 0.1435 & 0.7409 & 0.9335 \\
+FFNO & supervised & 0.3864 & \textbf{0.0466} & 0.2484 & 0.9372 \\
+FFNO & PINN & 0.0628 & 0.0828 & 0.9348 & 0.9816 \\
+SRU-Net & PINN & 0.0269 & 0.0721 & 0.9881 & \textbf{0.9947} \\
+Spectral SRU-Net & PINN & \textbf{0.0249} & 0.0929 &
+\textbf{0.9899} & 0.9722 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
+\subsection{PDEBench CNS secondary benchmark}
+
+Table~\ref{tab:cns_bundle} reports the assembled CNS comparison under the same
+reduced training setting: 512 training trajectories, 64 validation trajectories,
+64 test trajectories, at most eight windows per trajectory, two-frame history,
+and 40 epochs. The rows are assembled from separate runs, but use the same split,
+sample window limit, temporal context, epoch count, training loss, and metric definitions.
+Authored FFNO gives the lowest aggregate and Fourier-band errors. Among the local
+project rows, SRU-Net$^*$ gives lower aggregate error than FNO and U-Net. The
+U-Net row is much less accurate on this setting, consistent with the need for
+long-range mixing in compressible-flow prediction.
+
+% table_metadata: task=PDEBench_CNS; train_trajectories=512; val_trajectories=64; test_trajectories=64; train_windows=4096; val_windows=512; test_windows=512; full_split=train8000_val1000_test1000; history_frames=2; max_windows_per_trajectory=8; epochs=40; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/cns_paper_table_rows.csv; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; omitted_visible_row=hybrid_resnet_cns formerly shown as SRU-Net; reconciliation_note=CDI and CNS naming will be reconciled later
+\begin{table}[t]
+\centering
+\small
+\caption{\textbf{PDEBench CNS secondary benchmark.} All rows use the same
+supervised next-state prediction task. Lower values are better.}
+\label{tab:cns_bundle}
+\begin{tabular}{lrrrr}
+\toprule
+Model & nRMSE $\downarrow$ & Rel. $L_2$ $\downarrow$ &
+High-band RMSE $\downarrow$ & Params \\
+\midrule
+U-Net & 0.676 & 0.676 & 1.333 & 7.76M \\
+FNO & 0.074 & 0.074 & 0.672 & 0.36M \\
+SRU-Net$^*$ & 0.062 & 0.062 & 0.435 & 8.19M \\
+% restore_if_needed: SRU-Net continuity row maps to repo row hybrid_resnet_cns; visible row removed until CDI/CNS naming is reconciled. Row values: SRU-Net & 0.064 & 0.064 & 0.368 & 8.00M \\
+FFNO & \textbf{0.028} & \textbf{0.028} & \textbf{0.121} & 1.07M \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% figure_metadata: task=PDEBench_CNS; train_trajectories=512; val_trajectories=64; test_trajectories=64; fixed_sample=0; visible_rows=target,author_ffno_cns_base,spectral_resnet_bottleneck_base,fno_base,unet_strong; omitted_row=hybrid_resnet_cns; fields=density,pressure; panels=prediction_and_abs_error; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; reconciliation_note=CDI and CNS naming will be reconciled later; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/figures/sample000
+% restore_if_needed: omitted CNS figure column maps visible label SRU-Net to repo row hybrid_resnet_cns. Source panels: density__hybrid_resnet_cns__prediction.png, density__hybrid_resnet_cns__abs_error.png, Vx__hybrid_resnet_cns__prediction.png, Vx__hybrid_resnet_cns__abs_error.png, Vy__hybrid_resnet_cns__prediction.png, Vy__hybrid_resnet_cns__abs_error.png, pressure__hybrid_resnet_cns__prediction.png, pressure__hybrid_resnet_cns__abs_error.png.
 \begin{figure}[h]
 \centering
-\includegraphics[width=\linewidth]{figures/cdi_synthetic_line_pattern_srunet_fno_ffno.png}
-\caption{Ground-truth and reconstructed amplitude/phase panels for the
-synthetic line-pattern CDI benchmark, comparing FNO + PINN, FFNO + PINN, and
-SRU-Net + PINN on the line-pattern reconstruction task.}
-\label{fig:cdi_line_pattern_recon}
+\includegraphics[width=\linewidth]{figures/pdebench_cns_sample000_predictions.png}
+\caption{\textbf{PDEBench CNS fixed-sample predictions and errors.} The shared
+test frame shows density and pressure fields for the same supervised
+next-state-prediction task. Error panels expose the local high-gradient
+structure that is suppressed most strongly by the FNO and U-Net rows in this
+example.}
+\label{fig:cns_sample_predictions}
 \end{figure}
+
+The CNS table uses a reduced trajectory split and should be read as secondary
+architecture evidence, not as a full-training PDEBench leaderboard. The asterisk
+marks the CNS spectral-bottleneck row currently reported under the SRU-Net name;
+the CDI and CNS naming will be reconciled in a later draft.
+
+\subsection{CNS component ablation}
+
+The component results in Table~\ref{tab:cns_ablation} summarize the main CNS
+architecture lessons without turning every diagnostic run into a separate
+main-paper table. Skip fusion improves the earlier local shell, and the
+SRU-Net$^*$ rows show that additional temporal context and spectral-capacity
+choices affect aggregate and high-frequency errors differently.
+
+% table_metadata: task=PDEBench_CNS; ablation=SRU-Net_components; source=multiple existing bounded CNS studies; detailed source rows preserved in supplement_candidate block below
+\begin{table}[t]
+\centering
+\small
+\caption{\textbf{SRU-Net component ablations on PDEBench CNS.} Rows vary one
+architectural or input-context choice at a time under the available CNS
+setting. Lower values are better.}
+\label{tab:cns_ablation}
+\begin{tabular}{lrr}
+\toprule
+Variant & nRMSE $\downarrow$ & High-band RMSE $\downarrow$ \\
+\midrule
+Earlier local shell baseline & 0.224 & 1.243 \\
+Earlier local shell + skip-add & 0.105 & 0.697 \\
+SRU-Net$^*$, two-frame & 0.062 & 0.435 \\
+% restore_if_needed: SRU-Net continuity row maps to repo row hybrid_resnet_cns; visible row removed until CDI/CNS naming is reconciled. Row values: SRU-Net, two-frame & 0.064 & 0.368 \\
+SRU-Net$^*$, three-frame & 0.046 & 0.347 \\
+SRU-Net$^*$, 24 modes, longer run & 0.040 & 0.307 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% supplement_candidate: detailed CNS architecture, temporal-context, spectral-depth, Fourier-mode, convergence, and FFNO-local-feature tables preserved below for restoration or supplement migration. They are hidden from the main draft to keep the paper near the style-guide table budget.
+\iffalse
 
 \subsection{CNS architecture ablations}
 
 The CNS secondary benchmark evaluates one architectural axis at a time while
 keeping the data split, loss, and evaluation metrics unchanged. The first axis
-is encoder-decoder fusion: adding an additive skip pathway to the SRU-Net shell
-lowers both aggregate and high-frequency error under the same training budget.
+is encoder-decoder fusion in the legacy hybrid shell: adding an additive skip
+pathway lowers both aggregate and high-frequency error under the same training
+budget.
 
 % table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=10; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-hybrid-skip-study/cns-skipadd-vs-base-10ep
 \begin{table}[h]
 \centering
-\caption{SRU-Net shell ablation: additive encoder-decoder skip fusion.}
+\caption{Legacy hybrid shell ablation: additive encoder-decoder skip fusion.}
 \begin{tabular}{lrr}
 \toprule
 Model & nRMSE & High-band RMSE \\
 \midrule
-SRU-Net baseline & 0.224425 & 1.243174 \\
-SRU-Net with skip-add fusion & 0.104555 & 0.697058 \\
+Legacy hybrid shell baseline & 0.224425 & 1.243174 \\
+Legacy hybrid shell with skip-add fusion & 0.104555 & 0.697058 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -528,15 +625,16 @@ Pixelshuffle upsampling & 0.096320 & 0.096320 & 0.863959 \\
 \end{tabular}
 \end{table}
 
-Together, the skip-fusion and decoder ablations define the SRU-Net model used in
-later CNS comparisons.
+Together, the skip-fusion and decoder ablations define the legacy hybrid
+continuity row that is kept in metadata but not shown as a separate SRU-Net row
+in the main CNS table.
 
 \subsection{CNS temporal context}
 
 Increasing CNS temporal context from two previous states to three previous
 states improved the lower-error rows under the longer training budget:
 
-% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2_for_two-frame_columns,3_for_three-frame_columns; max_windows_per_trajectory=8; epochs=40; sources=history2 reference plus .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/history3-pilot-40ep-20260429T073705Z
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2_for_two-frame_columns,3_for_three-frame_columns; max_windows_per_trajectory=8; epochs=40; sources=history2 reference plus .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/history3-pilot-40ep-20260429T073705Z; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; omitted_visible_row=hybrid_resnet_cns formerly shown as SRU-Net; reconciliation_note=CDI and CNS naming will be reconciled later
 \begin{table}[h]
 \centering
 \caption{CNS temporal-context comparison under the longer training budget.}
@@ -544,8 +642,8 @@ states improved the lower-error rows under the longer training budget:
 \toprule
 Model & Two-frame nRMSE & Three-frame nRMSE & Two-frame high-band RMSE & Three-frame high-band RMSE \\
 \midrule
-Spectral ResNet & 0.061562 & 0.045521 & 0.434933 & 0.346744 \\
-SRU-Net & 0.064418 & 0.053843 & 0.368307 & 0.320036 \\
+SRU-Net$^*$ & 0.061562 & 0.045521 & 0.434933 & 0.346744 \\
+% restore_if_needed: SRU-Net continuity row maps to repo row hybrid_resnet_cns; visible row removed until CDI/CNS naming is reconciled. Row values: SRU-Net & 0.064418 & 0.053843 & 0.368307 & 0.320036 \\
 FNO & 0.074099 & 0.056725 & 0.671772 & 0.610477 \\
 U-Net & 0.675798 & 0.677167 & 1.332625 & 1.173009 \\
 \bottomrule
@@ -562,7 +660,7 @@ On the larger trajectory split, the shared spectral base model had lower
 aggregate error, while the deeper shared-blocks10 row retained a small
 mid/high-frequency edge at the same training budget:
 
-% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; reconciliation_note=CDI and CNS naming will be reconciled later; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z
 \begin{table}[h]
 \centering
 \caption{CNS spectral-depth comparison using 1024 training, 128 validation, and
@@ -571,8 +669,8 @@ mid/high-frequency edge at the same training budget:
 \toprule
 Model & nRMSE & RMSE & Low-band RMSE & Mid-band RMSE & High-band RMSE & Runtime (s) \\
 \midrule
-Spectral ResNet & 0.043501 & 1.03746 & 2.4177 & 0.2224 & 0.2983 & 2162.70 \\
-Deeper shared Spectral ResNet & 0.044573 & 1.06304 & 2.4827 & 0.2168 & 0.2940 & 2703.72 \\
+SRU-Net$^*$ & 0.043501 & 1.03746 & 2.4177 & 0.2224 & 0.2983 & 2162.70 \\
+Deeper shared SRU-Net$^*$ & 0.044573 & 1.06304 & 2.4827 & 0.2168 & 0.2940 & 2703.72 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -580,10 +678,10 @@ Deeper shared Spectral ResNet & 0.044573 & 1.06304 & 2.4827 & 0.2168 & 0.2940 & 
 A longer run showed that the earlier shared-blocks10 result had understated the
 deeper profile:
 
-% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40_and_80; sources=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z and .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/cns-shared-blocks10-1024cap-80ep-20260429T025641Z
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40_and_80; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; reconciliation_note=CDI and CNS naming will be reconciled later; sources=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z and .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/cns-shared-blocks10-1024cap-80ep-20260429T025641Z
 \begin{table}[h]
 \centering
-\caption{Deeper shared Spectral ResNet under longer training on the larger
+\caption{Deeper shared SRU-Net$^*$ under longer training on the larger
 trajectory split.}
 \begin{tabular}{lrrrrrr}
 \toprule
@@ -599,7 +697,7 @@ The Fourier-mode studies show that simply increasing spectral modes is not a
 clean default answer. Under the longer training budget, the 12-mode base model
 retained better aggregate error, while 32/32 improved mid/high-frequency error:
 
-% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40; sources=spectral_resnet_bottleneck_base reference plus .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/cns-spectral-modes32-40ep-20260428T014353Z
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; reconciliation_note=CDI and CNS naming will be reconciled later; sources=spectral_resnet_bottleneck_base reference plus .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/cns-spectral-modes32-40ep-20260428T014353Z
 \begin{table}[h]
 \centering
 \caption{CNS Fourier-mode comparison under the longer training budget.}
@@ -607,8 +705,8 @@ retained better aggregate error, while 32/32 improved mid/high-frequency error:
 \toprule
 Model & nRMSE & RMSE & Mid-band RMSE & High-band RMSE & Params & Runtime (s) \\
 \midrule
-Spectral ResNet, 12 modes & 0.061562 & 1.48776 & 0.2800 & 0.4349 & 8,186,726 & 1861.63 \\
-Spectral ResNet, 32 modes & 0.064551 & 1.55999 & 0.2425 & 0.3472 & 42,388,614 & 1382.12 \\
+SRU-Net$^*$, 12 modes & 0.061562 & 1.48776 & 0.2800 & 0.4349 & 8,186,726 & 1861.63 \\
+SRU-Net$^*$, 32 modes & 0.064551 & 1.55999 & 0.2425 & 0.3472 & 42,388,614 & 1382.12 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -617,7 +715,7 @@ In the 24-mode comparison with still longer training, the shared 12-mode base
 model was ahead on every reported metric, but both models were still improving
 according to the convergence audit:
 
-% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=80; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/cns-spectral-modes24-vs-base-1024cap-80ep
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=80; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; reconciliation_note=CDI and CNS naming will be reconciled later; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/cns-spectral-modes24-vs-base-1024cap-80ep
 \begin{table}[h]
 \centering
 \caption{CNS 12-mode versus 24-mode spectral comparison under still longer
@@ -626,8 +724,8 @@ training.}
 \toprule
 Model & nRMSE & RMSE & Low-band RMSE & Mid-band RMSE & High-band RMSE & Params \\
 \midrule
-Spectral ResNet, 12 modes & 0.038269 & 0.912674 & 2.11528 & 0.220081 & 0.282737 & 8,391,814 \\
-Spectral ResNet, 24 modes & 0.039533 & 0.942819 & 2.17721 & 0.241145 & 0.306903 & 25,152,646 \\
+SRU-Net$^*$, 12 modes & 0.038269 & 0.912674 & 2.11528 & 0.220081 & 0.282737 & 8,391,814 \\
+SRU-Net$^*$, 24 modes & 0.039533 & 0.942819 & 2.17721 & 0.241145 & 0.306903 & 25,152,646 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -666,6 +764,8 @@ benchmarks, including Navier-Stokes-style settings, but we do not claim global
 state of the art without same-protocol comparisons to recent non-pretrained
 operator variants~\cite{ffno,pdebench}.
 
+\fi
+
 \section{Discussion}
 
 The core architectural claim is that physics-informed scientific reconstruction
@@ -685,11 +785,14 @@ model capacity to refine features at reduced spatial resolution. This differs
 from both pure CNN reconstruction and pure spectral operator modeling.
 
 The evidence also argues for a narrow interpretation. The primary CDI result
-compares SRU-Net + PINN with FFNO + PINN; broader CDI comparisons
-against CNN + PINN, FNO + PINN, and supervised variants are needed to isolate
-architecture effects from the physics-informed objective. The CNS benchmark
-tests architectural transfer under different physics, not whether the CDI
-forward model applies to fluids.
+compares SRU-Net + PINN with FFNO + PINN; broader CDI comparisons against CNN +
+PINN, FNO + PINN, and supervised variants are needed to isolate architecture
+effects from the physics-informed objective. The CNS results use a reduced
+trajectory split and should be treated as secondary cross-domain architecture
+evidence. They test architectural transfer under different physics, not whether
+the CDI forward model applies to fluids. The SRU-Net$^*$ notation marks a
+temporary naming mismatch between the CDI and CNS implementations that should be
+resolved before submission.
 
 \section{Additional Experiments}
 
@@ -708,12 +811,10 @@ training objective.
 CDI reconstruction figures should show shared test samples, ground-truth
 amplitude and phase, reconstructions, absolute errors, and FRC curves.
 
-The PDEBench CNS table should report secondary benchmark metrics for the selected
-SRU-Net-family model, local FNO, U-Net/CNN-style baseline, authored FFNO, and any
-GNOT baseline.
-
-The CNS figures should show density, velocity, and pressure predictions,
-ground truth, and error maps for shared test samples.
+Additional CNS figures should include matched error maps for the same samples.
+Broader CNS extensions should use the larger trajectory split and may add GNOT
+or other neural-operator baselines if they can be evaluated under the same data
+and metric definitions.
 
 \begin{thebibliography}{9}
 
@@ -725,13 +826,26 @@ resolution scanning coherent diffraction reconstruction.
 \newblock \url{https://www.nature.com/articles/s41598-023-48351-7}.
 
 \bibitem{fno}
-Placeholder for Fourier Neural Operator reference.
+Zongyi Li, Nikola Kovachki, Kamyar Azizzadenesheli, Burigede Liu,
+Kaushik Bhattacharya, Andrew Stuart, and Anima Anandkumar.
+\newblock Fourier neural operator for parametric partial differential equations.
+\newblock \emph{International Conference on Learning Representations}, 2021.
+\newblock \url{https://arxiv.org/abs/2010.08895}.
 
 \bibitem{localno}
-Placeholder for localized-kernel neural operator reference.
+Miguel Liu-Schiaffini, Julius Berner, Boris Bonev, Thorsten Kurth,
+Kamyar Azizzadenesheli, and Anima Anandkumar.
+\newblock Neural operators with localized integral and differential kernels.
+\newblock \emph{International Conference on Machine Learning}, 2024.
+\newblock \url{https://arxiv.org/abs/2402.16845}.
 
 \bibitem{ufno}
-Placeholder for U-FNO or hybrid Fourier/U-Net reference.
+Gege Wen, Zongyi Li, Kamyar Azizzadenesheli, Anima Anandkumar, and
+Sally M. Benson.
+\newblock U-FNO -- an enhanced Fourier neural operator-based deep-learning
+model for multiphase flow.
+\newblock \emph{Advances in Water Resources}, 163:104180, 2022.
+\newblock \url{https://doi.org/10.1016/j.advwatres.2022.104180}.
 
 \bibitem{ffno}
 Alasdair Tran, Alexander Mathews, Lexing Xie, and Cheng Soon Ong.

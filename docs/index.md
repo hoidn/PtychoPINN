@@ -118,6 +118,21 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, hybrid_resnet, paper, evidence-index, completed-backlog, outcomes, artifacts, claim-boundary
 **Use this when:** Locating completed backlog results, checking whether an artifact is paper-facing or decision-support only, finding table/figure bundle roots, or auditing which summary owns a claim.
 
+### [NeurIPS Hybrid ResNet Evidence Matrix](plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md)
+**Description:** Human-facing master matrix for NeurIPS/SRU-Net evidence, keyed by dataset, model/config surface, training mode, ablation family, completed backlog item, summary authority, and artifact root.
+**Keywords:** neurips, hybrid_resnet, sru-net, evidence-matrix, model-variants, ablations, completed-backlog, cdi, cns
+**Use this when:** You need one place to scan all completed CDI/CNS rows, ablations, generated outputs, and which authority owns each result before editing manuscript tables or planning new rows.
+
+### [NeurIPS Hybrid ResNet Model Variant Index](plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json)
+**Description:** Machine-readable index of model variants keyed by dataset contract, row id, architecture id, training mode, metrics, source backlog item, summary authority, and artifact paths.
+**Keywords:** neurips, hybrid_resnet, sru-net, model-variant-index, json, metrics, cdi, cns, supervised, pinn
+**Use this when:** Programmatically locating model rows or checking whether a dataset/model/training-mode combination already has generated metrics and artifact provenance.
+
+### [NeurIPS Hybrid ResNet Ablation Index](plans/NEURIPS-HYBRID-RESNET-2026/ablation_index.json)
+**Description:** Machine-readable index grouping completed backlog outputs into ablation families, including changed factors, fixed contracts, rows, artifact roots, and current interpretation.
+**Keywords:** neurips, hybrid_resnet, sru-net, ablation-index, json, architecture-ablation, history-len, spectral-modes, completed-backlog
+**Use this when:** Auditing whether all completed ablation work is represented, deciding where a new backlog result belongs, or tracing why a model/config was or was not promoted.
+
 ### [NeurIPS Born/Rytov Diffraction Tomography Candidate Lane Design](plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md)
 **Description:** Active candidate additional inverse-scattering lane for the NeurIPS SRU-Net manuscript, defining the Born/Rytov physical model, dataset contract, operator validation gates, dependencies, environment requirements, and a limited four-row preflight. This is concurrent candidate work on equal footing with WaveBench inverse source; it does not replace CDI `lines128` or PDEBench CNS and cannot support paper-table claims without a later evidence-package amendment.
 **Keywords:** neurips, brdt, born, rytov, diffraction-tomography, inverse-scattering, candidate, sru-net, physics

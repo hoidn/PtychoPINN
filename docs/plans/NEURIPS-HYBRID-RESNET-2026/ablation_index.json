@@ -1,0 +1,349 @@
+{
+  "schema_version": 1,
+  "scope": "NEURIPS-HYBRID-RESNET-2026",
+  "status": "draft",
+  "last_updated_utc": "2026-04-30T00:00:00Z",
+  "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
+  "ablation_families": [
+    {
+      "family_id": "cdi_lines128_headline_architecture_table",
+      "task": "cdi",
+      "fixed_contract": "cdi_lines128_seed3",
+      "changed_factors": [
+        "architecture_id",
+        "training_mode for cnn-only supervised comparator"
+      ],
+      "completed_items": [
+        "2026-04-29-cdi-lines128-paper-benchmark-harness",
+        "2026-04-29-cdi-lines128-minimum-paper-table",
+        "2026-04-29-cdi-lines128-paper-benchmark-execution"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_harness_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_minimum_paper_table_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/validation/readiness_only_preflight",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux"
+      ],
+      "rows": [
+        "baseline",
+        "pinn",
+        "pinn_hybrid_resnet",
+        "pinn_fno_vanilla",
+        "pinn_spectral_resnet_bottleneck_net",
+        "pinn_ffno"
+      ],
+      "interpretation": "The six-row complete Lines128 CDI table is the current CDI headline authority. Hybrid ResNet and spectral-bottleneck rows dominate the local CNN and FNO/FFNO rows on amplitude; Hybrid ResNet has the stronger phase/FRC balance among the hybrid-family rows."
+    },
+    {
+      "family_id": "cdi_lines128_ffno_training_mode_extension",
+      "task": "cdi",
+      "fixed_contract": "cdi_lines128_seed3",
+      "changed_factors": [
+        "training_mode"
+      ],
+      "completed_items": [
+        "2026-04-29-cdi-lines128-supervised-equivalent-rows"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z"
+      ],
+      "rows": [
+        "pinn_ffno",
+        "supervised_ffno"
+      ],
+      "interpretation": "The supervised FFNO row is a real FFNO-generator row and does not collapse to the PINN FFNO output. It improves phase MAE but is much worse on amplitude MAE/SSIM/FRC50 than FFNO + PINN."
+    },
+    {
+      "family_id": "cdi_lines128_ffno_generator_prerequisite_pair",
+      "task": "cdi",
+      "fixed_contract": "cdi_lines128_seed3",
+      "changed_factors": [
+        "architecture_id"
+      ],
+      "completed_items": [
+        "2026-04-27-cdi-ffno-generator-lines-best-config"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet"
+      ],
+      "rows": [
+        "pinn_hybrid_resnet",
+        "pinn_ffno"
+      ],
+      "interpretation": "Hybrid ResNet beat FFNO on amp/phase MAE, SSIM, and PSNR in the prerequisite pair. The row pair is represented separately because the complete six-row bundle supersedes it for paper-table claims but reuses its FFNO evidence with provenance caveats."
+    },
+    {
+      "family_id": "cns_paper_contract_and_bundle",
+      "task": "pdebench_cns",
+      "fixed_contract": "cns_history2_cap512_40ep",
+      "changed_factors": [
+        "architecture_id"
+      ],
+      "completed_items": [
+        "2026-04-29-cns-paper-contract-decision",
+        "2026-04-29-cns-paper-benchmark-rows",
+        "2026-04-29-cns-paper-table-figure-bundle"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_row_lock_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle"
+      ],
+      "rows": [
+        "author_ffno_cns_base",
+        "spectral_resnet_bottleneck_base",
+        "fno_base",
+        "unet_strong",
+        "hybrid_resnet_cns"
+      ],
+      "interpretation": "The CNS bundle is bounded capped evidence, not a full-training SOTA claim. Author FFNO is the strongest locked row by relative_l2 and fRMSE_high; Hybrid ResNet is continuity/support; spectral-bottleneck is the best local hybrid-family headline row."
+    },
+    {
+      "family_id": "cns_author_ffno_equal_footing",
+      "task": "pdebench_cns",
+      "fixed_contract": "cns_history2_cap512_40ep",
+      "changed_factors": [
+        "implementation_source",
+        "architecture_id"
+      ],
+      "completed_items": [
+        "2026-04-21-pdebench-author-ffno-equal-footing-cns"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_author_ffno_equal_footing_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns"
+      ],
+      "rows": [
+        "author_ffno_cns_base"
+      ],
+      "interpretation": "The actual authored FourierFlow FFNO row became the strongest bounded capped CNS row and was later locked into the CNS paper bundle."
+    },
+    {
+      "family_id": "cns_gnot_paper_default",
+      "task": "pdebench_cns",
+      "fixed_contract": "local CNS paper-default follow-up",
+      "changed_factors": [
+        "architecture_id"
+      ],
+      "completed_items": [
+        "2026-04-22-pdebench-gnot-paper-default-cns-compare"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_gnot_cns_compare_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-gnot-cns-compare"
+      ],
+      "rows": [
+        "gnot_paper_default"
+      ],
+      "interpretation": "GNOT showed lower high-frequency error than the spectral anchor in the recorded follow-up but much worse aggregate error, so it was not promoted to headline CNS evidence."
+    },
+    {
+      "family_id": "cns_history_length",
+      "task": "pdebench_cns",
+      "fixed_contract": "same capped CNS contract except history_len and derived input channels",
+      "changed_factors": [
+        "history_len"
+      ],
+      "completed_items": [
+        "2026-04-21-pdebench-cns-markov-history1-compare",
+        "2026-04-29-pdebench-cns-history-len3plus-compare"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_markov_history1_compare_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history_len3plus_compare_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare"
+      ],
+      "rows": [
+        "history_len_1: spectral_resnet_bottleneck_base, hybrid_resnet_cns, fno_base, unet_strong",
+        "history_len_2: frozen paper-lane reference",
+        "history_len_3: spectral_resnet_bottleneck_base, hybrid_resnet_cns, fno_base, unet_strong",
+        "history_len_4: inspect/gate only"
+      ],
+      "interpretation": "history_len=1 worsened the useful rows and did not change the ranking. history_len=3 was mixed at 10 epochs and helped most 40-epoch rows, but it stayed adjacent context because the history_len=4 gate did not pass and the paper contract remained history_len=2."
+    },
+    {
+      "family_id": "cns_spectral_modes",
+      "task": "pdebench_cns",
+      "fixed_contract": "spectral_resnet_bottleneck shell",
+      "changed_factors": [
+        "fno_modes",
+        "spectral_bottleneck_modes",
+        "epoch_budget",
+        "cap"
+      ],
+      "completed_items": [
+        "2026-04-21-pdebench-cns-spectral-modes32-compare",
+        "2026-04-28-pdebench-cns-spectral-modes24-convergence-compare"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_modes32_compare_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_spectral_modes24_convergence_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare"
+      ],
+      "rows": [
+        "spectral_resnet_bottleneck_base",
+        "spectral_resnet_bottleneck_modes24",
+        "spectral_resnet_bottleneck_modes32"
+      ],
+      "interpretation": "Higher modes did not justify a default-profile promotion. modes32 helped some high-frequency metrics at 40 epochs but lost aggregate error; the modes24 80-epoch paired run still favored the 12/12 base row."
+    },
+    {
+      "family_id": "cns_hybrid_spectral_architecture",
+      "task": "pdebench_cns",
+      "fixed_contract": "spectral_resnet_bottleneck shell with sharing/depth changes",
+      "changed_factors": [
+        "spectral_bottleneck_blocks",
+        "sharing",
+        "cap",
+        "epoch_budget"
+      ],
+      "completed_items": [
+        "2026-04-22-pdebench-cns-hybrid-spectral-architecture-ablation",
+        "2026-04-28-pdebench-cns-hybrid-spectral-scaling-2048cap",
+        "2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_arch_ablation_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_scaling_2048cap_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_shared_blocks10_1024cap_longer_convergence_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence"
+      ],
+      "rows": [
+        "spectral_resnet_bottleneck_base",
+        "spectral_resnet_bottleneck_shared_blocks10",
+        "sharing variants",
+        "2048-cap scaling variants"
+      ],
+      "interpretation": "Shared-blocks10 won the smaller depth tranche but base spectral recovered aggregate lead in the 1024 confirmation. The 80-epoch shared-blocks10 run improved substantially and remained under-converged, but still did not justify default promotion."
+    },
+    {
+      "family_id": "cns_ffno_family_local_convolution",
+      "task": "pdebench_cns",
+      "fixed_contract": "repo-local FFNO-family CNS follow-up",
+      "changed_factors": [
+        "local convolution branch"
+      ],
+      "completed_items": [
+        "2026-04-27-pdebench-ffno-convolutional-features-cns"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_ffno_convolutional_features_cns_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-ffno-convolutional-features-cns"
+      ],
+      "rows": [
+        "ffno_close",
+        "ffno_local_conv"
+      ],
+      "interpretation": "Local convolution materially improved the repo-local FFNO proxy and beat the local shared-spectral row at 40 epochs, but authored FFNO still remained the stronger paper-bundle row."
+    },
+    {
+      "family_id": "cns_hybrid_spectral_ffno_parameter_space",
+      "task": "pdebench_cns",
+      "fixed_contract": "bounded shell-bridge probes",
+      "changed_factors": [
+        "downsample strategy",
+        "decoder strategy",
+        "FFNO-near shell configuration"
+      ],
+      "completed_items": [
+        "2026-04-28-pdebench-cns-hybrid-spectral-ffno-parameter-space"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_hybrid_spectral_ffno_parameter_space_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-ffno-parameter-space"
+      ],
+      "rows": [
+        "down1 probe",
+        "transpose decoder probe"
+      ],
+      "interpretation": "The bridge probes worsened promotion keys and closed the 40-epoch promotion gate; local-conv remains the stronger repo-local FFNO-family alternative."
+    },
+    {
+      "family_id": "paper_evidence_audit",
+      "task": "cross_pillar",
+      "fixed_contract": "current completed CDI/CNS authorities",
+      "changed_factors": [
+        "none; consistency and claim-boundary audit"
+      ],
+      "completed_items": [
+        "2026-04-29-paper-evidence-package-audit"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_package_audit_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit"
+      ],
+      "rows": [],
+      "interpretation": "The audit preserves CDI as paper-grade and CNS as capped decision-support, names draftable manuscript sections, and prevents completed evidence from being misrepresented."
+    },
+    {
+      "family_id": "legacy_cdi_lines256_hybrid_resnet_skip_mode_search",
+      "task": "cdi",
+      "fixed_contract": "legacy lines_256 architecture search contracts",
+      "changed_factors": [
+        "mode count",
+        "skip setting",
+        "width",
+        "branch capacity",
+        "stage-specific structural axes"
+      ],
+      "completed_items": [
+        "2026-02-26-hybrid-resnet-skip-mode-search-design",
+        "2026-02-26-hybrid-resnet-skip-mode-search-stage-a-execution",
+        "2026-02-26-hybrid-resnet-skip-mode-search-stage-b-execution",
+        "2026-02-26-hybrid-resnet-skip-mode-search-stage-c-execution",
+        "2026-02-26-hybrid-resnet-skip-mode-search-stage-d-execution",
+        "2026-02-26-hybrid-resnet-skip-mode-search-stage-e-execution"
+      ],
+      "summary_authorities": [
+        "docs/studies/index.md#hybrid-resnet-mode-skip-sweep"
+      ],
+      "artifact_roots": [
+        "outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221",
+        "state/lines_256_arch_improvement/results.tsv"
+      ],
+      "rows": [
+        "stage A-E hybrid_resnet mode/skip/width candidates"
+      ],
+      "interpretation": "Legacy architecture-search context only. It is represented here so all completed ablation work remains discoverable, but it does not replace the current Lines128 paper bundle or CNS paper bundle."
+    }
+  ],
+  "maintenance_rules": [
+    "Every completed backlog item must appear in at least one ablation_families.completed_items entry, even when it produces no new model row.",
+    "Use changed_factors to distinguish true ablations from table assembly, harness, or audit work.",
+    "When a later item supersedes an interpretation, keep the older family entry and add a superseded_by field instead of deleting historical coverage."
+  ]
+}
