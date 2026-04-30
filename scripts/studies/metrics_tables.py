@@ -537,18 +537,25 @@ def _validate_dataset_payload(payload: object, *, output_dir: Path) -> bool:
     return True
 
 
-def _validate_splits_payload(payload: object) -> bool:
+def _validate_splits_payload(payload: object, *, output_dir: Path) -> bool:
     if not isinstance(payload, Mapping):
         return False
     manifest_path = payload.get("manifest_json")
-    seed = payload.get("seed")
-    return (
-        payload.get("nimgs_train") is not None
-        and payload.get("nimgs_test") is not None
-        and seed is not None
-        and isinstance(manifest_path, str)
-        and bool(manifest_path.strip())
-    )
+    if not isinstance(manifest_path, str) or not manifest_path.strip():
+        return False
+    resolved_manifest = _resolve_output_path(output_dir, manifest_path)
+    if resolved_manifest is None or not resolved_manifest.exists():
+        return False
+    manifest_payload = json.loads(resolved_manifest.read_text(encoding="utf-8"))
+    if not isinstance(manifest_payload, Mapping):
+        return False
+    for key in ("nimgs_train", "nimgs_test", "seed"):
+        expected_value = payload.get(key)
+        if not isinstance(expected_value, int) or isinstance(expected_value, bool):
+            return False
+        if manifest_payload.get(key) != expected_value:
+            return False
+    return True
 
 
 def _extract_int_seed(payload: object, keys: Tuple[str, ...]) -> int | None:
@@ -659,7 +666,13 @@ def _validate_randomness_payload(
     return invocation_seed == requested_seed and config_seed == requested_seed
 
 
-def _validate_outputs_payload(payload: object, *, output_dir: Path) -> bool:
+def _validate_outputs_payload(
+    payload: object,
+    *,
+    output_dir: Path,
+    model_id: str,
+    row_payload: Mapping[str, object],
+) -> bool:
     if not _validate_existing_path_fields(
         payload,
         ("metrics_json", "history_json", "recon_npz", "stdout_log", "stderr_log", "exit_code_proof_json"),
@@ -676,16 +689,27 @@ def _validate_outputs_payload(payload: object, *, output_dir: Path) -> bool:
         return False
     if proof.get("exit_code") != 0 or not isinstance(proof.get("proof_source"), str):
         return False
+    if proof.get("model_id") != model_id:
+        return False
     if proof.get("invocation_status") != "completed":
         return False
-    invocation_path = _resolve_output_path(output_dir, proof.get("invocation_json"))
+    invocation_payload_ref = row_payload.get("invocation")
+    if not isinstance(invocation_payload_ref, Mapping):
+        return False
+    expected_invocation_json = invocation_payload_ref.get("json")
+    if not isinstance(expected_invocation_json, str) or proof.get("invocation_json") != expected_invocation_json:
+        return False
+    invocation_path = _resolve_output_path(output_dir, expected_invocation_json)
     if invocation_path is None or not invocation_path.exists():
         return False
     invocation_payload = json.loads(invocation_path.read_text(encoding="utf-8"))
     if not isinstance(invocation_payload, Mapping) or invocation_payload.get("status") != "completed":
         return False
     for log_key in ("stdout_log", "stderr_log"):
-        log_path = _resolve_output_path(output_dir, proof.get(log_key))
+        expected_log = payload.get(log_key)
+        if not isinstance(expected_log, str) or proof.get(log_key) != expected_log:
+            return False
+        log_path = _resolve_output_path(output_dir, expected_log)
         if log_path is None or not log_path.exists():
             return False
         log_text = log_path.read_text(encoding="utf-8", errors="ignore")
@@ -701,6 +725,7 @@ def _validate_visuals_payload(payload: object, *, output_dir: Path) -> bool:
 def _missing_paper_fields(
     row_payload: Mapping[str, object],
     *,
+    model_id: str | None = None,
     require_row_provenance: bool = False,
     output_dir: Path | None = None,
 ) -> List[str]:
@@ -739,9 +764,14 @@ def _missing_paper_fields(
             "git": _validate_git_payload,
             "environment": _validate_environment_payload,
             "dataset": lambda value: _validate_dataset_payload(value, output_dir=output_dir),
-            "splits": _validate_splits_payload,
+            "splits": lambda value: _validate_splits_payload(value, output_dir=output_dir),
             "randomness": lambda _value: _validate_randomness_payload(row_payload, output_dir=output_dir),
-            "outputs": lambda value: _validate_outputs_payload(value, output_dir=output_dir),
+            "outputs": lambda value: _validate_outputs_payload(
+                value,
+                output_dir=output_dir,
+                model_id=model_id or "",
+                row_payload=row_payload,
+            ),
             "visuals": lambda value: _validate_visuals_payload(value, output_dir=output_dir),
         }
         for field in PAPER_PROVENANCE_FIELDS:
@@ -831,6 +861,7 @@ def write_paper_benchmark_bundle(
     for model_id, payload in row_payloads.items():
         missing = _missing_paper_fields(
             payload,
+            model_id=model_id,
             require_row_provenance=require_row_provenance,
             output_dir=output_dir,
         )

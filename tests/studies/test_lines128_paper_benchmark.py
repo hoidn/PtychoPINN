@@ -268,7 +268,10 @@ def _materialize_minimum_subset_bundle_artifacts(
             }
         ),
     )
-    _write_text(output_dir / "split_manifest.json", json.dumps({"seed": 3}))
+    _write_text(
+        output_dir / "split_manifest.json",
+        json.dumps({"seed": 3, "nimgs_train": 2, "nimgs_test": 2}),
+    )
     gt_recon = output_dir / "recons" / "gt" / "recon.npz"
     gt_recon.parent.mkdir(parents=True, exist_ok=True)
     if "recons/gt/recon.npz" not in omit_relative_paths:
@@ -315,6 +318,7 @@ def _materialize_minimum_subset_bundle_artifacts(
             output_dir / "runs" / model_id / "exit_code_proof.json",
             json.dumps(
                 {
+                    "model_id": model_id,
                     "exit_code": 0,
                     "proof_source": "test",
                     "invocation_json": f"runs/{model_id}/invocation.json",
