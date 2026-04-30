@@ -108,6 +108,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, hybrid_resnet, paper, evidence, cdi, cns, tables, figures, provenance
 **Use this when:** Deciding what evidence must exist before drafting result claims, splitting paper-evidence work into backlog items, or checking paper-grade versus decision-support boundaries across CDI and CNS.
 
+### [NeurIPS Hybrid ResNet Paper Evidence Package Audit Summary](plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_package_audit_summary.md)
+**Description:** Current-state cross-pillar audit of the paper evidence package, stating which CDI and CNS authorities are claim-ready now, which manuscript sections are draftable, and which claims must remain bounded, blocked, or placeholder-only.
+**Keywords:** neurips, hybrid_resnet, paper, evidence, audit, draftability, claim-boundary, cdi, cns
+**Use this when:** You need the shortest authoritative answer to “what can the paper claim right now?” without rereading the package design, roadmap, or individual backlog summaries.
+
 ### [NeurIPS Hybrid ResNet Paper Evidence Index](plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md)
 **Description:** Durable outcome map for completed NeurIPS backlog items, linking each completed CNS/CDI evidence item to its summary authority, artifact root, evidence tier, protocol/cap, and downstream paper use.
 **Keywords:** neurips, hybrid_resnet, paper, evidence-index, completed-backlog, outcomes, artifacts, claim-boundary
@@ -177,6 +182,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Description:** Durable completion summary for the authoritative six-row `lines128` CDI paper bundle, recording the initial spectral-rerun root, the corrected promoted-row launcher-proof recovery path, the final tmux-backed `paper_complete` authoritative root, archived verification logs, and the preserved distinction between prerequisite FFNO evidence, minimum-subset evidence, and the final complete-table bundle.
 **Keywords:** neurips, cdi, lines128, paper-complete, ffno, spectral, benchmark, summary
 **Use this when:** Locating the finished six-row CDI paper bundle, checking which repaired tmux-backed root is authoritative, or verifying how the spectral rerun and promoted FFNO/minimum-subset rows were assembled into the final claim-bearing package.
+
+### [NeurIPS Lines128 U-NO Table Extension Design](plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_design.md)
+**Description:** Draft design for appending external NeuralOperator U-NO rows to the completed `lines128` CDI paper table, including the `ptycho311`/`neuraloperator==2.0.0` environment contract, `neuralop_uno` architecture naming, supervised and PINN row requirements, and the rule that existing completed rows are promoted into a new extended bundle rather than rerun.
+**Keywords:** neurips, cdi, lines128, uno, neuraloperator, neuralop, append-only, supervised, pinn
+**Use this when:** Planning U-NO as an additional Lines128 CDI comparator, checking the required environment/package setup, or ensuring a U-NO extension appends to existing paper-table artifacts without rerunning completed rows.
 
 ### [NeurIPS Hybrid ResNet CDI FFNO Generator Lines Best-Config Summary](plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md)
 **Description:** Execution summary for the fixed-contract `N=128` CDI `ffno` versus `hybrid_resnet` row pair, pinning the recovered `lines128` contract, stable artifact root, exact compare command, and the claim boundary that this pair is prerequisite evidence for the later paper benchmark rather than the full four-row package.
