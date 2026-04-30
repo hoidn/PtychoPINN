@@ -1,6 +1,6 @@
 ---
 priority: 40
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_package_design.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/execution_plan.md
 check_commands:
   - |
     python - <<'PY'

@@ -524,32 +524,6 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   - the supervised CNN minimum-subset evidence remains a referenced sibling,
     not a rerun or silently merged extension row
 
-### `grid-lines-n128-classical-cdi-feasibility`
-
-- Purpose: decide whether the current classical HIO/ER/PyNX study path can be
-  published as one optional same-contract `lines128` CDI extension row.
-- Status: completed on `2026-04-30` as `not_protocol_compatible`; no classical
-  `lines128` row was launched.
-- Summary:
-  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_classical_cdi_baseline_summary.md`
-- Execution authority:
-  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_classical_cdi_execution_authority.md`
-- Authoritative incompatibility root:
-  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-classical-baseline-feasibility/`
-- Audited solver branches:
-  - `pynx_cdi_hio_er`
-  - `known_probe_object_hio_er`
-- Main result:
-  the currently exposed classical path remains tied to the older Table-2
-  `N=64` study contract and emits row-local exploratory outputs rather than the
-  required `lines128` paper-bundle schema, so the truthful closeout is
-  `not_protocol_compatible`.
-- Boundary:
-  - the preserved six-row `lines128` CDI bundle remains the headline authority
-  - this item adds no same-contract classical row to that bundle
-  - any future classical `lines128` attempt needs a broader reviewed plan, not
-    another narrow compatibility patch on the current Table-2 study script
-
 ### `grid-lines-n64-pinn-hybrid-resnet-e20`
 
 - Purpose: Run `N=64` grid-lines with `pinn` (TF) and `pinn_hybrid_resnet` (Torch) at `20` epochs, then render combined visuals.

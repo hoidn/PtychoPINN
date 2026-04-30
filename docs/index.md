@@ -198,11 +198,6 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, cdi, lines128, paper-complete, ffno, spectral, benchmark, summary
 **Use this when:** Locating the finished six-row CDI paper bundle, checking which repaired tmux-backed root is authoritative, or verifying how the spectral rerun and promoted FFNO/minimum-subset rows were assembled into the final claim-bearing package.
 
-### [NeurIPS Lines128 Classical CDI Feasibility Summary](plans/NEURIPS-HYBRID-RESNET-2026/lines128_classical_cdi_baseline_summary.md)
-**Description:** Durable closeout summary for the optional classical HIO/ER/PyNX `lines128` CDI extension audit, recording that the current classical path is not protocol compatible with the locked `N=128` paper bundle because it remains tied to the older Table-2 `N=64` lane and does not emit the required paper-bundle schema and provenance surfaces.
-**Keywords:** neurips, cdi, lines128, classical, hio, er, pynx, not-protocol-compatible, summary
-**Use this when:** Checking why no classical row was added to the `lines128` paper bundle, locating the incompatibility audit artifacts, or deciding whether a future classical `N=128` effort needs a broader reviewed plan.
-
 ### [NeurIPS Lines128 U-NO Table Extension Design](plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_design.md)
 **Description:** Draft design for appending external NeuralOperator U-NO rows to the completed `lines128` CDI paper table, including the `ptycho311`/`neuraloperator==2.0.0` environment contract, `neuralop_uno` architecture naming, supervised and PINN row requirements, and the rule that existing completed rows are promoted into a new extended bundle rather than rerun.
 **Keywords:** neurips, cdi, lines128, uno, neuraloperator, neuralop, append-only, supervised, pinn

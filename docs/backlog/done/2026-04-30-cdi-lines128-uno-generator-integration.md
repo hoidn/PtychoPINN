@@ -1,6 +1,6 @@
 ---
 priority: 36
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_design.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-generator-integration/execution_plan.md
 check_commands:
   - pytest -q tests/torch/test_generator_registry.py tests/torch/test_loss_modes.py
   - python -m compileall -q ptycho_torch scripts/studies

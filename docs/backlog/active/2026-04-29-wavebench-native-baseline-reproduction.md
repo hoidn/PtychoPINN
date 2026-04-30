@@ -1,12 +1,12 @@
 ---
-priority: 42
-plan_path: TBD_AFTER_PREFLIGHT
+priority: 31
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-native-baseline-reproduction/execution_plan.md
 check_commands:
   - |
     python - <<'PY'
     from pathlib import Path
     required = [
-        Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight.md"),
+        Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight_summary.md"),
     ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
@@ -20,6 +20,7 @@ related_roadmap_phases:
 signals_for_selection:
   - Select only if the WaveBench preflight status is `ready_for_supervised_plan` or `ready_for_supervised_and_physics_plan`.
   - Native WaveBench FNO/U-Net rows are needed before repo-local shared-encoder rows can be interpreted against the published benchmark context.
+  - Steering on 2026-04-30 moved this WaveBench follow-up ahead of remaining optional U-NO table-extension work, subject to the preflight outcome.
 ---
 
 # Backlog Item: Reproduce Native WaveBench FNO/U-Net Baselines

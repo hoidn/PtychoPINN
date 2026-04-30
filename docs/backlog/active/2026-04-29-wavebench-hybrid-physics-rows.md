@@ -1,12 +1,12 @@
 ---
-priority: 45
-plan_path: TBD_AFTER_PREFLIGHT_AND_FORWARD_VALIDATION
+priority: 34
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-hybrid-physics-rows/execution_plan.md
 check_commands:
   - |
     python - <<'PY'
     from pathlib import Path
     required = [
-        Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight.md"),
+        Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight_summary.md"),
     ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
@@ -21,6 +21,7 @@ related_roadmap_phases:
 signals_for_selection:
   - Select only if the supervised WaveBench rows exist and the forward-model validation gate passed.
   - This item tests whether wave-equation consistency improves selected learned inverse models.
+  - Steering on 2026-04-30 moved this WaveBench follow-up ahead of remaining optional U-NO table-extension work, subject to the supervised and forward-model gates.
 ---
 
 # Backlog Item: Run WaveBench Hybrid Physics-Informed Rows

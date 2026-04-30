@@ -1,6 +1,6 @@
 ---
 priority: 35
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_design.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-design-preflight/execution_plan.md
 check_commands:
   - |
     python - <<'PY'

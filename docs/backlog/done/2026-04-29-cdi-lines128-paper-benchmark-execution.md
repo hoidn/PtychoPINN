@@ -1,6 +1,6 @@
 ---
 priority: 20
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/execution_plan.md
 check_commands:
   - pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py
   - python -m compileall -q ptycho_torch scripts/studies

@@ -1,5 +1,5 @@
 ---
-priority: 120
+priority: 30
 plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-inverse-source-preflight/execution_plan.md
 check_commands:
   - |
@@ -20,7 +20,8 @@ related_roadmap_phases:
 signals_for_selection:
   - The manuscript may benefit from an additional 2D known-forward-model inverse-wave benchmark candidate alongside CDI and CNS.
   - WaveBench inverse source reconstruction has a 2D target, known wave forward model, and published FNO/U-Net baseline infrastructure, but local dataset/checkpoint/solver compatibility is not yet verified.
-  - This preflight is on equal footing with the BRDT candidate preflight: active, concurrent, lower priority than core CDI/CNS evidence, and non-authorizing for paper claims until promoted by a later amendment.
+  - Steering on 2026-04-30 moved the WaveBench candidate chain ahead of remaining optional U-NO table-extension work; this item should be attempted before new U-NO rows are added.
+  - This preflight remains on equal footing with the BRDT candidate preflight as optional candidate work, and is non-authorizing for paper claims until promoted by a later amendment.
 ---
 
 # Backlog Item: Preflight WaveBench Inverse Source Benchmark
@@ -48,6 +49,8 @@ signals_for_selection:
   - `ready_for_supervised_and_physics_plan`
   - `needs_dataset_or_checkpoint_decision`
   - `not_suitable_for_current_manuscript`
+- Write the durable summary to
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight_summary.md`.
 - Do not run the full benchmark and do not alter the CDI or CNS paper lanes in
   this item.
 - This item is active candidate work. Selection should be governed by priority

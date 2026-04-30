@@ -1,15 +1,13 @@
 ---
 priority: 20
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/execution_plan.md
 check_commands:
   - pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py
   - python -m compileall -q ptycho_torch scripts/studies
-prerequisites:
-  - 2026-04-27-cdi-ffno-generator-lines-best-config
 related_roadmap_phases:
   - phase-3-cdi-anchor-regeneration
 signals_for_selection:
-  - The Lines128 paper benchmark design requires a shared wrapper/harness before the full benchmark can be run without dataset, metric, or provenance drift.
+  - The Lines128 paper benchmark design requires a shared wrapper/harness before the minimum paper rows or the later spectral/FFNO complete benchmark rows can run without dataset, metric, or provenance drift.
   - This item creates the pre-run contract and decision artifacts that prevent post-hoc comparator or metric selection.
 ---
 
@@ -17,9 +15,10 @@ signals_for_selection:
 
 ## Objective
 
-- Extend the CDI/grid-lines benchmark path so Hybrid ResNet, Hybrid-spectral,
-  FNO/FNO-vanilla, and FFNO can be run through one paper-quality Lines128
-  wrapper or thin harness with shared dataset, provenance, metrics, and figures.
+- Extend the CDI/grid-lines benchmark path so Hybrid ResNet, CNN/PINN,
+  `spectral_resnet_bottleneck_net`, FNO/FNO-vanilla, and FFNO can be run
+  through one paper-quality Lines128 wrapper or thin harness with shared
+  dataset, provenance, metrics, and figures.
 
 ## Scope
 
@@ -29,8 +28,13 @@ signals_for_selection:
 - Keep `scripts/studies/grid_lines_torch_runner.py` as the per-model authority
   for model construction, training, inference, stitching, per-model metrics,
   and reconstruction arrays.
-- Add wrapper/harness routing for `spectral_resnet_bottleneck_net` and the
-  newly available FFNO CDI/grid-lines generator profile.
+- Add wrapper/harness routing for the minimum paper rows:
+  `hybrid_resnet`, a CNN/PINN-style local baseline, and the selected FNO
+  comparator.
+- Add wrapper/harness routing or explicit row-level blockers for
+  `spectral_resnet_bottleneck_net` and the FFNO CDI/grid-lines generator
+  profile. Missing spectral/FFNO support must not block the core harness unless
+  implementation proves the shared contract cannot be represented without it.
 - Produce a durable pre-run contract-reconstruction validation artifact that
   names the historical sources, confidence for each reconstructed contract
   field, launch flags, go/no-go status, selected FNO comparator, and seed
@@ -47,6 +51,10 @@ signals_for_selection:
 
 - Do not launch the full paper benchmark from this item. This is the harness,
   preflight, and contract-validation tranche.
+- Do not block the minimum Hybrid/CNN-PINN/FNO paper subset on spectral or FFNO
+  availability. `spectral_resnet_bottleneck_net` and FFNO remain required rows
+  for the complete `lines128` benchmark, not prerequisites for the core
+  contract.
 - Do not choose `fno` versus `fno_vanilla` inside implementation code without
   writing the durable decision artifact required by the design.
 - Do not change the CDI task contract to accommodate FFNO. If FFNO cannot emit

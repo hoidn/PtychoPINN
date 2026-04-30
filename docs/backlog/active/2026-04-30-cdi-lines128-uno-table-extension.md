@@ -1,5 +1,5 @@
 ---
-priority: 37
+priority: 70
 plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_design.md
 check_commands:
   - pytest -q tests/test_grid_lines_compare_wrapper.py tests/torch/test_grid_lines_torch_runner.py
@@ -24,6 +24,7 @@ related_roadmap_phases:
 signals_for_selection:
   - This item appends U-NO rows to the completed Lines128 CDI table without rerunning already completed rows.
   - The output should be a new extended bundle, not a rewrite of the authoritative six-row root.
+  - Steering on 2026-04-30 moved WaveBench candidate work ahead of this optional U-NO table extension; do not select this until eligible WaveBench items have been attempted or blocked by their own gates.
 ---
 
 # Backlog Item: Append U-NO Rows To Lines128 CDI Table

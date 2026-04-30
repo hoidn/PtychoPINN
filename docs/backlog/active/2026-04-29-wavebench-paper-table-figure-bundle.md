@@ -1,12 +1,12 @@
 ---
-priority: 46
-plan_path: TBD_AFTER_WAVEBENCH_RESULTS
+priority: 35
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-paper-table-figure-bundle/execution_plan.md
 check_commands:
   - |
     python - <<'PY'
     from pathlib import Path
     required = [
-        Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight.md"),
+        Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight_summary.md"),
     ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
@@ -19,6 +19,7 @@ related_roadmap_phases:
   - wavebench-additional-inverse-wave-extension
 signals_for_selection:
   - Select only after WaveBench has been approved as an additional manuscript evidence lane and at least the supervised shared-encoder results exist.
+  - Steering on 2026-04-30 moved WaveBench ahead of remaining optional U-NO table-extension work, but this bundle remains gated on evidence-lane approval.
 ---
 
 # Backlog Item: Assemble WaveBench Paper Table And Figure Bundle

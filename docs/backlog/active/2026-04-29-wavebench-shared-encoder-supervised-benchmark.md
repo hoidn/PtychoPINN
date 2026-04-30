@@ -1,12 +1,12 @@
 ---
-priority: 43
-plan_path: TBD_AFTER_PREFLIGHT
+priority: 33
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/execution_plan.md
 check_commands:
   - |
     python - <<'PY'
     from pathlib import Path
     required = [
-        Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight.md"),
+        Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight_summary.md"),
     ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
@@ -21,6 +21,7 @@ related_roadmap_phases:
 signals_for_selection:
   - Select only after preflight confirms supervised shared-encoder readiness and native WaveBench baseline status is known.
   - This item is the first actual repo-local SRU-Net/hybrid-spectral WaveBench architecture comparison.
+  - Steering on 2026-04-30 moved this WaveBench follow-up ahead of remaining optional U-NO table-extension work, subject to the preflight and native-baseline outcomes.
 ---
 
 # Backlog Item: Run WaveBench Shared-Encoder Supervised Benchmark

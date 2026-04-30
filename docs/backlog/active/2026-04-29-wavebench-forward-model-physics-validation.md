@@ -1,12 +1,12 @@
 ---
-priority: 44
-plan_path: TBD_AFTER_PREFLIGHT
+priority: 32
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-forward-model-physics-validation/execution_plan.md
 check_commands:
   - |
     python - <<'PY'
     from pathlib import Path
     required = [
-        Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight.md"),
+        Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight_summary.md"),
     ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
@@ -20,6 +20,7 @@ related_roadmap_phases:
 signals_for_selection:
   - Select only if preflight classifies physics readiness as `exact_physics_loop_ready` or identifies a narrow solver-alignment task likely to reach that status.
   - This item is required before any WaveBench row can be called physics-informed.
+  - Steering on 2026-04-30 moved this WaveBench follow-up ahead of remaining optional U-NO table-extension work, subject to the preflight outcome.
 ---
 
 # Backlog Item: Validate WaveBench Forward Model For Physics-Informed Rows
