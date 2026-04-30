@@ -74,6 +74,12 @@ def test_write_paper_bundle_marks_benchmark_incomplete_when_required_fields_miss
     assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
     assert "parameter_count" in metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"]
     assert schema_payload["status_values"] == ["paper_complete", "benchmark_incomplete"]
+    assert schema_payload["row_status_values"] == [
+        "paper_grade",
+        "decision_support",
+        "blocked",
+        "not_protocol_compatible",
+    ]
     field_definitions = {field["name"]: field for field in schema_payload["field_definitions"]}
     assert field_definitions["parameter_count"]["units"] == "parameters"
     assert field_definitions["validation_loss"]["nullable"] is True
@@ -96,7 +102,7 @@ def test_write_paper_bundle_marks_paper_complete_when_required_fields_present(tm
             "validation_loss": {"status": "no_validation_series", "value": None},
             "runtime_summary": {"train_wall_time_sec": 12.5, "inference_time_sec": 1.5},
             "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
-            "row_status": "completed",
+            "row_status": "paper_grade",
             "caveats": [],
             "metrics": {
                 "mae": (0.1, 0.2),
@@ -136,7 +142,7 @@ def test_write_paper_bundle_accepts_numpy_metric_pairs(tmp_path):
             "validation_loss": {"status": "no_validation_series", "value": None},
             "runtime_summary": {"train_wall_time_sec": 12.5},
             "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
-            "row_status": "completed",
+            "row_status": "paper_grade",
             "caveats": [],
             "metrics": {
                 "mae": np.array([0.1, 0.2], dtype=np.float32),
@@ -176,7 +182,7 @@ def test_write_paper_bundle_accepts_numpy_scalar_pairs_in_tuples(tmp_path):
             "validation_loss": {"status": "no_validation_series", "value": None},
             "runtime_summary": {"train_wall_time_sec": 12.5},
             "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
-            "row_status": "completed",
+            "row_status": "paper_grade",
             "caveats": [],
             "metrics": {
                 "mae": (np.float32(0.1), np.float32(0.2)),
@@ -216,7 +222,7 @@ def test_write_paper_bundle_emits_model_manifest_with_row_identity_fields(tmp_pa
             "validation_loss": {"status": "not_emitted", "value": None},
             "runtime_summary": {"train_wall_time_sec": 9.0, "inference_time_sec": 0.4},
             "hardware_summary": {"backend": "tensorflow", "accelerator": "rtx3090"},
-            "row_status": "completed",
+            "row_status": "paper_grade",
             "caveats": [],
             "metrics": {
                 "mae": (0.2, 0.3),
@@ -245,7 +251,7 @@ def test_write_paper_bundle_emits_model_manifest_with_row_identity_fields(tmp_pa
     assert manifest["rows"][0]["model_label"] == "CDI CNN + supervised"
     assert manifest["rows"][0]["architecture_id"] == "cnn"
     assert manifest["rows"][0]["training_procedure"] == "supervised"
-    assert manifest["rows"][0]["row_status"] == "completed"
+    assert manifest["rows"][0]["row_status"] == "paper_grade"
 
 
 def test_write_paper_bundle_marks_benchmark_incomplete_when_required_row_status_is_blocked(tmp_path):
@@ -262,7 +268,7 @@ def test_write_paper_bundle_marks_benchmark_incomplete_when_required_row_status_
             "validation_loss": {"status": "no_validation_series", "value": None},
             "runtime_summary": {"train_wall_time_sec": 12.5, "inference_time_sec": 1.5},
             "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
-            "row_status": "completed",
+            "row_status": "paper_grade",
             "caveats": [],
             "metrics": {
                 "mae": (0.1, 0.2),
@@ -302,7 +308,7 @@ def test_write_paper_bundle_serializes_numpy_scalars_in_nested_payloads(tmp_path
             "validation_loss": {"status": "emitted", "value": np.float32(0.045)},
             "runtime_summary": {"train_wall_time_sec": np.float32(12.5), "inference_time_sec": np.float32(1.5)},
             "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
-            "row_status": "completed",
+            "row_status": "paper_grade",
             "caveats": [],
             "metrics": {
                 "mae": (0.1, 0.2),
@@ -327,3 +333,43 @@ def test_write_paper_bundle_serializes_numpy_scalars_in_nested_payloads(tmp_path
     assert metrics_payload["rows"]["pinn_hybrid_resnet"]["final_train_loss"] == 0.12300000339746475
     assert metrics_payload["rows"]["pinn_hybrid_resnet"]["validation_loss"]["value"] == 0.04500000178813934
     assert metrics_payload["visual_collation"]["shared_visual_scales"]["amp"]["vmax"] == 1.0
+
+
+def test_write_paper_bundle_requires_paper_grade_row_status_for_paper_complete(tmp_path):
+    row_payloads = {
+        "pinn_hybrid_resnet": {
+            "model_label": "Hybrid ResNet",
+            "architecture_id": "hybrid_resnet",
+            "training_procedure": "pinn",
+            "N": 128,
+            "parameter_count": 123456,
+            "epoch_budget": 40,
+            "final_completed_epoch": 40,
+            "final_train_loss": 0.123,
+            "validation_loss": {"status": "no_validation_series", "value": None},
+            "runtime_summary": {"train_wall_time_sec": 12.5, "inference_time_sec": 1.5},
+            "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
+            "row_status": "completed",
+            "caveats": [],
+            "metrics": {
+                "mae": (0.1, 0.2),
+                "mse": (0.01, 0.02),
+                "psnr": (70.0, 65.0),
+                "ssim": (0.9, 0.8),
+                "ms_ssim": (0.85, 0.75),
+                "frc50": (64, 48),
+            },
+        }
+    }
+
+    write_paper_benchmark_bundle(
+        output_dir=tmp_path,
+        row_payloads=row_payloads,
+        required_rows=("pinn_hybrid_resnet",),
+        fixed_sample_ids=[0, 1],
+        shared_visual_scales={"amp": {"vmin": 0.0, "vmax": 1.0}},
+    )
+
+    metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
+    assert "row_status" in metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"]

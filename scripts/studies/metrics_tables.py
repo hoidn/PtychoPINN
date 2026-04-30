@@ -47,6 +47,12 @@ METRICS = (
 
 LOWER_BETTER = {"mae", "mse"}
 PAPER_BENCHMARK_STATUS_VALUES = ("paper_complete", "benchmark_incomplete")
+PAPER_ROW_STATUS_VALUES = (
+    "paper_grade",
+    "decision_support",
+    "blocked",
+    "not_protocol_compatible",
+)
 PAPER_REQUIRED_FIELDS = (
     "model_label",
     "architecture_id",
@@ -434,8 +440,12 @@ def _missing_paper_fields(row_payload: Mapping[str, object]) -> List[str]:
             if not _validate_validation_loss(value):
                 missing.append(field)
             continue
-        if field in {"architecture_id", "training_procedure", "row_status"}:
+        if field in {"architecture_id", "training_procedure"}:
             if not isinstance(value, str) or not value.strip():
+                missing.append(field)
+            continue
+        if field == "row_status":
+            if not isinstance(value, str) or value not in PAPER_ROW_STATUS_VALUES:
                 missing.append(field)
             continue
         if field in {"runtime_summary", "hardware_summary"}:
@@ -461,6 +471,7 @@ def _missing_paper_fields(row_payload: Mapping[str, object]) -> List[str]:
 def _build_metric_schema() -> Dict[str, object]:
     return {
         "status_values": list(PAPER_BENCHMARK_STATUS_VALUES),
+        "row_status_values": list(PAPER_ROW_STATUS_VALUES),
         "required_fields": list(PAPER_REQUIRED_FIELDS),
         "field_definitions": list(PAPER_REQUIRED_FIELD_DEFINITIONS),
         "metric_fields": list(PAPER_METRIC_FIELD_DEFINITIONS),
@@ -539,6 +550,12 @@ def write_paper_benchmark_bundle(
             incomplete = True
             missing_fields_by_row[model_id] = ["row_missing"]
             continue
+        row_status = row_payloads[model_id].get("row_status")
+        if row_status != "paper_grade":
+            incomplete = True
+            row_missing = missing_fields_by_row.setdefault(model_id, [])
+            if "row_status" not in row_missing:
+                row_missing.append("row_status")
 
         if has_row_statuses:
             status = None

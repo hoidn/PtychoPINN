@@ -18,16 +18,29 @@
 
 - `runs/minimum_subset_20260429T204000Z`
   - classification: `stale_do_not_reuse`
-  - basis: invocation artifacts and canonical GT recon exist, but the root never produced the required four-row same-root bundle surfaces and is superseded by later audited recovery attempts.
+  - basis: invocation artifacts and canonical GT recon exist, but the root
+    never produced the required four-row same-root bundle surfaces and is
+    superseded by later audited attempts.
 - `runs/minimum_subset_20260429T204642Z`
   - classification: `failed_recoverable`
-  - basis: TensorFlow `baseline` and `pinn` training/inference plus stitched metrics completed, but row collation failed before Torch rows launched.
+  - basis: TensorFlow `baseline` and `pinn` completed, but row collation failed
+    before the Torch rows launched.
 - `runs/minimum_subset_20260429T213028Z`
-  - classification: `recovered_same_root_paper_complete`
-  - basis: all four required rows had already completed in this root; the remaining collation gaps were closed by same-root recovery, and the root now emits a `paper_complete` merged bundle with no missing required row fields.
+  - classification: `decision_support_only_not_paper_grade`
+  - basis: the implementation review was correct that this root lacked the
+    required TensorFlow row-local provenance and the required visual bundle
+    (`amp_phase_error_*`, `frc_curves.png`), so same-root recovery here is not
+    honest paper-grade evidence.
 - `runs/minimum_subset_20260429T224103Z`
   - classification: `failed_recoverable`
-  - basis: post-fix fresh-root rerun started under tmux with a tracked PID, then failed during dataset NPZ writing with `OSError: [Errno 28] No space left on device`.
+  - basis: an earlier fresh-root rerun failed during dataset NPZ writing with
+    `OSError: [Errno 28] No space left on device`.
+- `runs/minimum_subset_20260429T235811Z`
+  - classification: `paper_complete_fresh_rerun`
+  - basis: all four required rows completed under one fresh root, the tracked
+    tmux shell PID exited `0`, the merged bundle reports `paper_complete`, all
+    rows report `paper_grade`, and the root now contains the required row-local
+    provenance plus the required error-panel and FRC visual surfaces.
 
 ## Authority Boundary
 
@@ -38,24 +51,26 @@
 
 ## Chosen Execution Path
 
-- chosen path: `same_root_recovery`
+- chosen path: `fresh_rerun_required`
 - chosen root:
-  `runs/minimum_subset_20260429T213028Z`
+  `runs/minimum_subset_20260429T235811Z`
 - completion basis:
-  - final recovery used the existing row-local TensorFlow and PyTorch artifacts
-    from the chosen root
-  - no cross-root row mixing was used
-  - no retraining was required after the deterministic gates passed on the
-    patched recovery code
-  - the merged root now reports:
+  - same-root recovery in `minimum_subset_20260429T213028Z` was explicitly
+    rejected after the review-validated provenance/visual gaps were rechecked
+  - the fresh rerun launched under tmux into a brand-new root with tracked
+    shell PID `1211720`
+  - the tracked PID exited `0`
+  - the fresh root now reports:
     - `benchmark_status=paper_complete`
     - `claim_boundary=minimum_draftable_cdi_subset`
     - empty `missing_fields_by_row` for all four required rows
+    - `row_status=paper_grade` for every required row
 
 ## Current Root Status
 
 - No active writer remains.
 - The authoritative minimum-table bundle root is now
-  `runs/minimum_subset_20260429T213028Z`.
-- Any future fresh rerun still requires additional free space on `/` before a
-  new `minimum_subset_<timestamp>` root can be launched.
+  `runs/minimum_subset_20260429T235811Z`.
+- The former missing-resource blocker is resolved for this item; the successful
+  fresh rerun demonstrates that enough free space was available for the full
+  write-side path during this pass.

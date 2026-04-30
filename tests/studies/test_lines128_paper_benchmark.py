@@ -327,7 +327,7 @@ def test_minimum_subset_executes_four_locked_rows_and_emits_bundle(tmp_path, mon
                     "validation_loss": {"status": "not_emitted", "value": None},
                     "runtime_summary": {"train_wall_time_sec": 9.0, "inference_time_sec": 0.4},
                     "hardware_summary": {"backend": "tensorflow", "accelerator": "rtx3090"},
-                    "row_status": "completed",
+                    "row_status": "paper_grade",
                     "caveats": [],
                     "metrics": {
                         "mae": (0.2, 0.3),
@@ -350,7 +350,7 @@ def test_minimum_subset_executes_four_locked_rows_and_emits_bundle(tmp_path, mon
                     "validation_loss": {"status": "not_emitted", "value": None},
                     "runtime_summary": {"train_wall_time_sec": 10.0, "inference_time_sec": 0.5},
                     "hardware_summary": {"backend": "tensorflow", "accelerator": "rtx3090"},
-                    "row_status": "completed",
+                    "row_status": "paper_grade",
                     "caveats": [],
                     "metrics": {
                         "mae": (0.19, 0.29),
@@ -373,7 +373,7 @@ def test_minimum_subset_executes_four_locked_rows_and_emits_bundle(tmp_path, mon
                     "validation_loss": {"status": "not_emitted", "value": None},
                     "runtime_summary": {"train_wall_time_sec": 11.0, "inference_time_sec": 0.6},
                     "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
-                    "row_status": "completed",
+                    "row_status": "paper_grade",
                     "caveats": [],
                     "metrics": {
                         "mae": (0.1, 0.2),
@@ -396,7 +396,7 @@ def test_minimum_subset_executes_four_locked_rows_and_emits_bundle(tmp_path, mon
                     "validation_loss": {"status": "not_emitted", "value": None},
                     "runtime_summary": {"train_wall_time_sec": 12.0, "inference_time_sec": 0.7},
                     "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
-                    "row_status": "completed",
+                    "row_status": "paper_grade",
                     "caveats": [],
                     "metrics": {
                         "mae": (0.12, 0.22),
@@ -467,7 +467,7 @@ def test_minimum_subset_can_request_existing_recon_reuse(tmp_path, monkeypatch):
                     "validation_loss": {"status": "not_emitted", "value": None},
                     "runtime_summary": {"recovered_from_existing_artifacts": True},
                     "hardware_summary": {"backend": "test"},
-                    "row_status": "completed",
+                    "row_status": "paper_grade",
                     "caveats": [],
                     "metrics": {
                         "mae": (0.1, 0.1),

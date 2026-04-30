@@ -8,7 +8,7 @@ Data contracts: see specs/data_contracts.md
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Tuple
 import gc
@@ -21,6 +21,23 @@ from skimage.restoration import unwrap_phase
 from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
 from scripts.tools.prepare_data_tool import interpolate_array, smooth_complex_array
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _json_default(value):
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
 
 
 @dataclass
@@ -923,10 +940,139 @@ def _build_tf_row_payload(
             "inference_time_sec": float(inference_time_sec),
         },
         "hardware_summary": _tf_hardware_summary(),
-        "row_status": "completed",
+        "row_status": "paper_grade",
         "caveats": [],
         "metrics": dict(metrics),
     }
+
+
+def _serialize_history_payload(history: object) -> Dict[str, object]:
+    if isinstance(history, dict):
+        return dict(history)
+    payload: Dict[str, object] = {}
+    history_dict = getattr(history, "history", None)
+    if isinstance(history_dict, dict):
+        payload.update(history_dict)
+    epoch_series = getattr(history, "epoch", None)
+    if isinstance(epoch_series, list):
+        payload["epoch"] = list(epoch_series)
+    return payload
+
+
+def _build_tf_row_invocation_argv(
+    *,
+    cfg: GridLinesConfig,
+    model_id: str,
+    train_npz: Path,
+    test_npz: Path,
+) -> list[str]:
+    return [
+        "--model-id",
+        model_id,
+        "--N",
+        str(cfg.N),
+        "--gridsize",
+        str(cfg.gridsize),
+        "--output-dir",
+        str(cfg.output_dir),
+        "--probe-npz",
+        str(cfg.probe_npz),
+        "--train-npz",
+        str(train_npz),
+        "--test-npz",
+        str(test_npz),
+        "--nimgs-train",
+        str(cfg.nimgs_train),
+        "--nimgs-test",
+        str(cfg.nimgs_test),
+        "--nphotons",
+        str(cfg.nphotons),
+        "--nepochs",
+        str(cfg.nepochs),
+        "--batch-size",
+        str(cfg.batch_size),
+        "--probe-source",
+        str(cfg.probe_source),
+        "--probe-scale-mode",
+        str(cfg.probe_scale_mode),
+        "--probe-smoothing-sigma",
+        str(cfg.probe_smoothing_sigma),
+    ]
+
+
+def _write_tf_row_provenance(
+    *,
+    cfg: GridLinesConfig,
+    model_id: str,
+    row_payload: Dict[str, object],
+    history: object,
+    train_npz: Path,
+    test_npz: Path,
+    model_artifact: Path,
+    recon_path: Path,
+) -> None:
+    from scripts.studies.invocation_logging import (
+        capture_runtime_provenance,
+        get_git_commit,
+        write_invocation_artifacts,
+    )
+
+    run_dir = cfg.output_dir / "runs" / model_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    invocation_extra = {
+        "runtime_provenance": capture_runtime_provenance(),
+        "git_commit": get_git_commit(REPO_ROOT),
+        "invocation_mode": "library",
+        "row_model_id": model_id,
+        "shared_root_output_dir": str(cfg.output_dir),
+    }
+    write_invocation_artifacts(
+        output_dir=run_dir,
+        script_path="ptycho/workflows/grid_lines_workflow.py",
+        argv=_build_tf_row_invocation_argv(
+            cfg=cfg,
+            model_id=model_id,
+            train_npz=train_npz,
+            test_npz=test_npz,
+        ),
+        parsed_args={
+            "grid_lines_config": asdict(cfg),
+            "row_model_id": model_id,
+            "train_npz": str(train_npz),
+            "test_npz": str(test_npz),
+        },
+        extra=invocation_extra,
+    )
+    config_payload = {
+        "grid_lines_config": asdict(cfg),
+        "row_model_id": model_id,
+        "model_label": row_payload.get("model_label"),
+        "training_procedure": row_payload.get("training_procedure"),
+        "train_npz": str(train_npz),
+        "test_npz": str(test_npz),
+        "model_artifact": str(model_artifact),
+        "recon_npz": str(recon_path),
+    }
+    (run_dir / "config.json").write_text(
+        json.dumps(config_payload, indent=2, default=_json_default),
+        encoding="utf-8",
+    )
+    (run_dir / "history.json").write_text(
+        json.dumps(_serialize_history_payload(history), indent=2, default=_json_default),
+        encoding="utf-8",
+    )
+    (run_dir / "metrics.json").write_text(
+        json.dumps(row_payload.get("metrics", {}), indent=2, default=_json_default),
+        encoding="utf-8",
+    )
+    root_log = cfg.output_dir / "live_stdout.log"
+    stdout_text = (
+        f"TensorFlow row executed via shared grid_lines_workflow library call.\nShared root log: {root_log}\n"
+        if root_log.exists()
+        else "TensorFlow row executed via shared grid_lines_workflow library call.\n"
+    )
+    (run_dir / "stdout.log").write_text(stdout_text, encoding="utf-8")
+    (run_dir / "stderr.log").write_text("", encoding="utf-8")
 
 
 def run_pinn_inference(model, X_test, coords_nominal):
@@ -1260,6 +1406,8 @@ def save_comparison_png_dynamic(
     order: Tuple[str, ...],
     border_pixels: Optional[int] = None,
     probe: Optional[Dict[str, np.ndarray]] = None,
+    amp_bounds: Tuple[float, float] | None = None,
+    phase_bounds: Tuple[float, float] | None = None,
 ) -> Path:
     """Save comparison plot with GT plus available model reconstructions."""
     import matplotlib.pyplot as plt
@@ -1277,8 +1425,8 @@ def save_comparison_png_dynamic(
 
     amp_arrays = [gt_amp]
     phase_arrays = [gt_phase]
-    amp_gt_bounds = _display_bounds(gt_amp, border_pixels=resolved_border)
-    phase_gt_bounds = _display_bounds(gt_phase, border_pixels=resolved_border)
+    amp_gt_bounds = amp_bounds or _display_bounds(gt_amp, border_pixels=resolved_border)
+    phase_gt_bounds = phase_bounds or _display_bounds(gt_phase, border_pixels=resolved_border)
 
     amp_gt_kwargs = {}
     if amp_gt_bounds is not None:
@@ -1298,14 +1446,14 @@ def save_comparison_png_dynamic(
         amp = recons[label]["amp"]
         phase = recons[label]["phase"]
         title = _LABEL_TITLES.get(label, label)
-        amp_bounds = _display_bounds(amp, border_pixels=resolved_border)
-        phase_bounds = _display_bounds(phase, border_pixels=resolved_border)
+        amp_label_bounds = amp_bounds or _display_bounds(amp, border_pixels=resolved_border)
+        phase_label_bounds = phase_bounds or _display_bounds(phase, border_pixels=resolved_border)
         amp_kwargs = {}
-        if amp_bounds is not None:
-            amp_kwargs = {"vmin": amp_bounds[0], "vmax": amp_bounds[1]}
+        if amp_label_bounds is not None:
+            amp_kwargs = {"vmin": amp_label_bounds[0], "vmax": amp_label_bounds[1]}
         phase_kwargs = {}
-        if phase_bounds is not None:
-            phase_kwargs = {"vmin": phase_bounds[0], "vmax": phase_bounds[1]}
+        if phase_label_bounds is not None:
+            phase_kwargs = {"vmin": phase_label_bounds[0], "vmax": phase_label_bounds[1]}
 
         amp_arrays.append(amp)
         phase_arrays.append(phase)
@@ -1377,14 +1525,16 @@ def save_amp_phase_png(
     amp: np.ndarray,
     phase: np.ndarray,
     border_pixels: int = 0,
+    amp_bounds: Tuple[float, float] | None = None,
+    phase_bounds: Tuple[float, float] | None = None,
 ) -> Path:
     """Save per-model amplitude/phase visualization."""
     import matplotlib.pyplot as plt
 
     fig, axes = plt.subplots(2, 1, figsize=(6, 8), squeeze=False)
     title = _LABEL_TITLES.get(label, label)
-    amp_bounds = _display_bounds(amp, border_pixels=border_pixels)
-    phase_bounds = _display_bounds(phase, border_pixels=border_pixels)
+    amp_bounds = amp_bounds or _display_bounds(amp, border_pixels=border_pixels)
+    phase_bounds = phase_bounds or _display_bounds(phase, border_pixels=border_pixels)
     amp_kwargs = {}
     if amp_bounds is not None:
         amp_kwargs = {"vmin": amp_bounds[0], "vmax": amp_bounds[1]}
@@ -1404,6 +1554,112 @@ def save_amp_phase_png(
     _add_row_colorbars(fig, axes[1], [phase_mappable], [phase])
 
     out_path = visuals_dir / f"amp_phase_{label}.png"
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+def _shared_display_bounds(
+    arrays: Iterable[np.ndarray],
+    *,
+    border_pixels: int,
+) -> Tuple[float, float] | None:
+    bounds = [
+        _display_bounds(np.asarray(array), border_pixels=border_pixels)
+        for array in arrays
+    ]
+    finite_bounds = [item for item in bounds if item is not None]
+    if not finite_bounds:
+        return None
+    return (
+        min(item[0] for item in finite_bounds),
+        max(item[1] for item in finite_bounds),
+    )
+
+
+def save_amp_phase_error_png(
+    visuals_dir: Path,
+    label: str,
+    amp: np.ndarray,
+    phase: np.ndarray,
+    gt_amp: np.ndarray,
+    gt_phase: np.ndarray,
+    *,
+    amp_bounds: Tuple[float, float] | None,
+    phase_bounds: Tuple[float, float] | None,
+    amp_error_bounds: Tuple[float, float] | None,
+    phase_error_bounds: Tuple[float, float] | None,
+) -> Path:
+    import matplotlib.pyplot as plt
+
+    title = _LABEL_TITLES.get(label, label)
+    amp_abs_error = np.abs(np.asarray(amp) - np.asarray(gt_amp))
+    phase_abs_error = np.abs(np.asarray(phase) - np.asarray(gt_phase))
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 8), squeeze=False)
+    amp_kwargs = {}
+    if amp_bounds is not None:
+        amp_kwargs = {"vmin": amp_bounds[0], "vmax": amp_bounds[1]}
+    phase_kwargs = {}
+    if phase_bounds is not None:
+        phase_kwargs = {"vmin": phase_bounds[0], "vmax": phase_bounds[1]}
+    amp_error_kwargs = {}
+    if amp_error_bounds is not None:
+        amp_error_kwargs = {"vmin": amp_error_bounds[0], "vmax": amp_error_bounds[1]}
+    phase_error_kwargs = {}
+    if phase_error_bounds is not None:
+        phase_error_kwargs = {"vmin": phase_error_bounds[0], "vmax": phase_error_bounds[1]}
+
+    amp_mappable = axes[0, 0].imshow(amp, cmap="viridis", **amp_kwargs)
+    axes[0, 0].set_title(f"{title} Amplitude")
+    axes[0, 0].axis("off")
+    amp_err_mappable = axes[0, 1].imshow(amp_abs_error, cmap="magma", **amp_error_kwargs)
+    axes[0, 1].set_title(f"{title} |Amp Error|")
+    axes[0, 1].axis("off")
+    phase_mappable = axes[1, 0].imshow(phase, cmap="twilight", **phase_kwargs)
+    axes[1, 0].set_title(f"{title} Phase")
+    axes[1, 0].axis("off")
+    phase_err_mappable = axes[1, 1].imshow(phase_abs_error, cmap="magma", **phase_error_kwargs)
+    axes[1, 1].set_title(f"{title} |Phase Error|")
+    axes[1, 1].axis("off")
+
+    fig.colorbar(amp_mappable, ax=axes[0, 0], shrink=0.8)
+    fig.colorbar(amp_err_mappable, ax=axes[0, 1], shrink=0.8)
+    fig.colorbar(phase_mappable, ax=axes[1, 0], shrink=0.8)
+    fig.colorbar(phase_err_mappable, ax=axes[1, 1], shrink=0.8)
+
+    out_path = visuals_dir / f"amp_phase_error_{label}.png"
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+def save_frc_curves_png(
+    visuals_dir: Path,
+    frc_by_label: Dict[str, Tuple[np.ndarray, np.ndarray]],
+) -> Path:
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), squeeze=False)
+    amp_ax = axes[0, 0]
+    phase_ax = axes[0, 1]
+    for label, (amp_curve, phase_curve) in frc_by_label.items():
+        title = _LABEL_TITLES.get(label, label)
+        amp_x = np.linspace(0.0, 1.0, num=len(amp_curve))
+        phase_x = np.linspace(0.0, 1.0, num=len(phase_curve))
+        amp_ax.plot(amp_x, amp_curve, label=title)
+        phase_ax.plot(phase_x, phase_curve, label=title)
+    for ax, ax_title in ((amp_ax, "Amplitude FRC"), (phase_ax, "Phase FRC")):
+        ax.axhline(0.5, color="black", linestyle="--", linewidth=1.0)
+        ax.axhline(1.0 / 7.0, color="gray", linestyle=":", linewidth=1.0)
+        ax.set_title(ax_title)
+        ax.set_xlabel("Normalized Spatial Frequency")
+        ax.set_ylabel("Correlation")
+        ax.set_ylim(0.0, 1.05)
+        ax.legend()
+    out_path = visuals_dir / "frc_curves.png"
     plt.tight_layout()
     plt.savefig(out_path, dpi=150)
     plt.close(fig)
@@ -1434,12 +1690,60 @@ def render_grid_lines_visuals(output_dir: Path, order: Tuple[str, ...]) -> Dict[
         )
 
     outputs: Dict[str, str] = {}
+    amp_bounds = _shared_display_bounds(
+        [data["amp"] for data in recons.values()],
+        border_pixels=resolved_border,
+    )
+    phase_bounds = _shared_display_bounds(
+        [data["phase"] for data in recons.values()],
+        border_pixels=resolved_border,
+    )
     for label, path in per_model_paths.items():
         outputs[f"amp_phase_{label}"] = path
 
     gt = recons.get("gt")
     if gt is None:
         return outputs
+
+    for label, data in recons.items():
+        label_border = 0 if label == "gt" else resolved_border
+        per_model_paths[label] = str(
+            save_amp_phase_png(
+                visuals_dir,
+                label,
+                data["amp"],
+                data["phase"],
+                border_pixels=label_border,
+                amp_bounds=amp_bounds,
+                phase_bounds=phase_bounds,
+            )
+        )
+        outputs[f"amp_phase_{label}"] = per_model_paths[label]
+
+    error_labels = [label for label in order if label in recons and label != "gt"]
+    amp_error_bounds = _shared_display_bounds(
+        [np.abs(recons[label]["amp"] - gt["amp"]) for label in error_labels],
+        border_pixels=resolved_border,
+    )
+    phase_error_bounds = _shared_display_bounds(
+        [np.abs(recons[label]["phase"] - gt["phase"]) for label in error_labels],
+        border_pixels=resolved_border,
+    )
+    for label in error_labels:
+        outputs[f"amp_phase_error_{label}"] = str(
+            save_amp_phase_error_png(
+                visuals_dir,
+                label,
+                recons[label]["amp"],
+                recons[label]["phase"],
+                gt["amp"],
+                gt["phase"],
+                amp_bounds=amp_bounds,
+                phase_bounds=phase_bounds,
+                amp_error_bounds=amp_error_bounds,
+                phase_error_bounds=phase_error_bounds,
+            )
+        )
 
     compare = save_comparison_png_dynamic(
         output_dir,
@@ -1449,8 +1753,32 @@ def render_grid_lines_visuals(output_dir: Path, order: Tuple[str, ...]) -> Dict[
         order=tuple(label for label in order if label != "gt"),
         border_pixels=resolved_border,
         probe=_resolve_probe_for_visuals(output_dir),
+        amp_bounds=amp_bounds,
+        phase_bounds=phase_bounds,
     )
     outputs["compare"] = str(compare)
+
+    metrics_path = output_dir / "metrics.json"
+    if metrics_path.exists():
+        with metrics_path.open("r", encoding="utf-8") as handle:
+            metrics_payload = json.load(handle)
+        frc_by_label: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
+        if isinstance(metrics_payload, dict):
+            for label in error_labels:
+                payload = metrics_payload.get(label)
+                if not isinstance(payload, dict):
+                    continue
+                frc_payload = payload.get("frc")
+                if (
+                    isinstance(frc_payload, (list, tuple))
+                    and len(frc_payload) == 2
+                ):
+                    amp_curve = np.asarray(frc_payload[0], dtype=np.float64)
+                    phase_curve = np.asarray(frc_payload[1], dtype=np.float64)
+                    if amp_curve.ndim == 1 and phase_curve.ndim == 1:
+                        frc_by_label[label] = (amp_curve, phase_curve)
+        if frc_by_label:
+            outputs["frc_curves"] = str(save_frc_curves_png(visuals_dir, frc_by_label))
     return outputs
 
 
@@ -1648,10 +1976,35 @@ def run_grid_lines_workflow(
     gt_phase_2d = np.angle(gt_squeezed)
 
     save_recon_artifact(cfg.output_dir, "gt", gt_squeezed)
+    baseline_recon_path = None
+    pinn_recon_path = None
     if "baseline" in selected_models and base_stitched is not None:
-        save_recon_artifact(cfg.output_dir, "baseline", base_stitched)
+        baseline_recon_path = save_recon_artifact(cfg.output_dir, "baseline", base_stitched)
     if "pinn" in selected_models and pinn_stitched is not None:
-        save_recon_artifact(cfg.output_dir, "pinn", pinn_stitched)
+        pinn_recon_path = save_recon_artifact(cfg.output_dir, "pinn", pinn_stitched)
+
+    if "baseline" in row_payloads and baseline_recon_path is not None:
+        _write_tf_row_provenance(
+            cfg=cfg,
+            model_id="baseline",
+            row_payload=row_payloads["baseline"],
+            history=base_history,
+            train_npz=Path(train_npz),
+            test_npz=Path(test_npz),
+            model_artifact=cfg.output_dir / "baseline" / "baseline.keras",
+            recon_path=baseline_recon_path,
+        )
+    if "pinn" in row_payloads and pinn_recon_path is not None:
+        _write_tf_row_provenance(
+            cfg=cfg,
+            model_id="pinn",
+            row_payload=row_payloads["pinn"],
+            history=pinn_history,
+            train_npz=Path(train_npz),
+            test_npz=Path(test_npz),
+            model_artifact=cfg.output_dir / "pinn" / "wts.h5.zip",
+            recon_path=pinn_recon_path,
+        )
 
     png_path = save_comparison_png_dynamic(
         cfg.output_dir,

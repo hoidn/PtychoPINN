@@ -1239,7 +1239,7 @@ def _build_paper_row_payload(
             "inference_time_sec": float(inference_time_s),
         },
         "hardware_summary": _torch_hardware_summary(),
-        "row_status": "completed",
+        "row_status": "paper_grade",
         "caveats": [],
         "metrics": dict(metrics),
     }

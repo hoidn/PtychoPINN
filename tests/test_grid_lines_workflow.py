@@ -14,6 +14,7 @@ from ptycho.workflows.grid_lines_workflow import (
     scale_probe,
     apply_probe_mask,
     run_grid_lines_workflow,
+    render_grid_lines_visuals,
     save_split_npz,
     dataset_out_dir,
     stitch_predictions,
@@ -574,9 +575,47 @@ def test_run_grid_lines_workflow_emits_paper_row_payloads(monkeypatch, tmp_path:
     assert result["row_payloads"]["baseline"]["architecture_id"] == "cnn"
     assert result["row_payloads"]["baseline"]["parameter_count"] == 202
     assert result["row_payloads"]["baseline"]["final_train_loss"] == 0.5
+    assert (tmp_path / "runs" / "baseline" / "invocation.json").exists()
+    assert (tmp_path / "runs" / "baseline" / "config.json").exists()
+    assert (tmp_path / "runs" / "baseline" / "history.json").exists()
+    assert (tmp_path / "runs" / "baseline" / "metrics.json").exists()
     assert result["row_payloads"]["pinn"]["training_procedure"] == "pinn"
     assert result["row_payloads"]["pinn"]["parameter_count"] == 101
-    assert result["row_payloads"]["pinn"]["row_status"] == "completed"
+    assert result["row_payloads"]["pinn"]["row_status"] == "paper_grade"
+    assert (tmp_path / "runs" / "pinn" / "invocation.json").exists()
+    assert (tmp_path / "runs" / "pinn" / "config.json").exists()
+    assert (tmp_path / "runs" / "pinn" / "history.json").exists()
+    assert (tmp_path / "runs" / "pinn" / "metrics.json").exists()
+
+
+def test_render_grid_lines_visuals_emits_error_panels_and_frc_curves(tmp_path: Path):
+    gt_dir = tmp_path / "recons" / "gt"
+    pred_dir = tmp_path / "recons" / "baseline"
+    gt_dir.mkdir(parents=True, exist_ok=True)
+    pred_dir.mkdir(parents=True, exist_ok=True)
+
+    gt = (np.ones((16, 16)) + 1j * np.ones((16, 16))).astype(np.complex64)
+    pred = (0.5 * np.ones((16, 16)) + 1j * 0.25 * np.ones((16, 16))).astype(np.complex64)
+    np.savez(gt_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+    np.savez(pred_dir / "recon.npz", YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
+    (tmp_path / "metrics.json").write_text(
+        json.dumps(
+            {
+                "baseline": {
+                    "frc": [
+                        [1.0, 0.8, 0.6, 0.4],
+                        [1.0, 0.7, 0.5, 0.3],
+                    ]
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    outputs = render_grid_lines_visuals(tmp_path, order=("gt", "baseline"))
+
+    assert Path(outputs["amp_phase_error_baseline"]).exists()
+    assert Path(outputs["frc_curves"]).exists()
 
 
 class TestDatasetPersistence:

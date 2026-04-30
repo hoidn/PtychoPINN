@@ -243,7 +243,7 @@ def _recover_tf_row_payload(
         "validation_loss": {"status": "not_emitted", "value": None},
         "runtime_summary": _recovered_runtime_summary(invocation_payload),
         "hardware_summary": _current_tf_hardware_summary(),
-        "row_status": "completed",
+        "row_status": "decision_support",
         "caveats": ["recovered_from_existing_artifacts"],
         "metrics": dict(metrics),
     }
@@ -275,7 +275,7 @@ def _recover_torch_row_payload(
         "validation_loss": {"status": "not_emitted", "value": None},
         "runtime_summary": _recovered_runtime_summary(invocation_payload),
         "hardware_summary": _current_torch_hardware_summary(),
-        "row_status": "completed",
+        "row_status": "decision_support",
         "caveats": ["recovered_from_existing_artifacts"],
         "metrics": dict(metrics),
     }

@@ -450,7 +450,7 @@ class TestRunGridLinesTorchScaffold:
         assert payload["epoch_budget"] == 2
         assert payload["final_completed_epoch"] == 2
         assert payload["final_train_loss"] == 0.2
-        assert payload["row_status"] == "completed"
+        assert payload["row_status"] == "paper_grade"
 
     def test_runner_writes_randomness_contract(self, synthetic_npz, tmp_path):
         """Runner should publish the effective randomness contract per run."""

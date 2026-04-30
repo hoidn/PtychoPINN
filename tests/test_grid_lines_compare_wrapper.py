@@ -205,7 +205,7 @@ def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tm
                     "validation_loss": {"status": "not_emitted", "value": None},
                     "runtime_summary": {"train_wall_time_sec": 4.0, "inference_time_sec": 0.2},
                     "hardware_summary": {"backend": "tensorflow", "accelerator": "rtx3090"},
-                    "row_status": "completed",
+                    "row_status": "paper_grade",
                     "caveats": [],
                     "metrics": _full_pair_metrics(0.2, 0.3),
                 },
@@ -221,7 +221,7 @@ def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tm
                     "validation_loss": {"status": "not_emitted", "value": None},
                     "runtime_summary": {"train_wall_time_sec": 5.0, "inference_time_sec": 0.3},
                     "hardware_summary": {"backend": "tensorflow", "accelerator": "rtx3090"},
-                    "row_status": "completed",
+                    "row_status": "paper_grade",
                     "caveats": [],
                     "metrics": _full_pair_metrics(0.19, 0.29),
                 },
@@ -248,7 +248,7 @@ def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tm
                 "validation_loss": {"status": "not_emitted", "value": None},
                 "runtime_summary": {"train_wall_time_sec": 6.0, "inference_time_sec": 0.4},
                 "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
-                "row_status": "completed",
+                "row_status": "paper_grade",
                 "caveats": [],
             },
         }
@@ -660,6 +660,8 @@ def test_wrapper_reuse_path_recovers_row_payloads_from_existing_artifacts(monkey
     assert result["row_payloads"]["baseline"]["final_train_loss"] == pytest.approx(0.1383)
     assert result["row_payloads"]["pinn"]["final_train_loss"] == pytest.approx(13.2960)
     assert result["row_payloads"]["pinn_hybrid_resnet"]["final_completed_epoch"] == 2
+    assert result["row_payloads"]["baseline"]["row_status"] == "decision_support"
+    assert result["row_payloads"]["pinn"]["row_status"] == "decision_support"
 
 
 def test_wrapper_accepts_architecture_list(tmp_path):
