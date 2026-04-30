@@ -2,17 +2,17 @@
 
 ## Completed In This Pass
 
-- Fixed `scripts/studies/paper_evidence_audit.py` to fail closed on CDI authoritative-root identity by rejecting `paper_manifest.json`, `metrics.json`, and `model_manifest.json` paths that do not resolve to the approved complete-bundle root.
-- Normalized the CNS adjacent-context statuses onto the approved shared vocabulary by mapping the raw locked-row `excluded_adjacent_context` label to emitted `not_protocol_compatible` entries while preserving the source label as metadata.
-- Extended the emitted audit surfaces to record the final manifest path, summary path, validation payload path, and archived verification-log paths in both the input manifest/output targets and the durable summary closeout section.
-- Added focused regression coverage in `tests/studies/test_paper_evidence_audit.py` for the new root-identity guard, frozen status vocabulary enforcement, and summary closeout metadata requirements.
+- Fixed `scripts/studies/paper_evidence_audit.py` to fail closed on CNS machine-readable bundle identity by rejecting `cns_paper_table_rows.json`, `bundle_validation.json`, `figure_manifest.json`, and `fixed_sample_manifest.json` paths that do not resolve under the approved CNS bundle root.
+- Added focused CNS regression coverage in `tests/studies/test_paper_evidence_audit.py` for:
+  - same-pillar headline-roster disagreement across CNS sources
+  - non-authoritative CNS bundle payload copies outside the approved root
+- Re-ran the repo-local audit entrypoint after the fix so the emitted manifest and validation payload reflect the guarded CNS loader behavior.
 
 ## Completed Current-Scope Work
 
-- Resolved all blocking implementation-review findings for this backlog item:
-  - missing CDI fail-closed root-identity enforcement
-  - leaked out-of-schema `excluded_adjacent_context` statuses in emitted audit surfaces
-  - missing summary closeout references to the final outputs and archived validation logs
+- Resolved the remaining implementation-review findings for this backlog item:
+  - missing CNS fail-closed bundle-root identity enforcement
+  - missing CNS regression coverage for same-pillar disagreement and non-authoritative bundle payloads
 - Re-ran the approved verification contract for this item:
   - required deterministic input check: `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/verification/required_inputs_check.log`
   - focused pytest selector: `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/verification/pytest_paper_evidence_audit.log`

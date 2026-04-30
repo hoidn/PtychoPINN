@@ -390,6 +390,18 @@ def load_cns_authority(cns_inputs: dict[str, Any], *, repo_root: Path) -> dict[s
         if required_text not in (contract_text + row_lock_text + bundle_text):
             raise ValueError(f"CNS authorities do not consistently mention {required_text}")
 
+    _assert_paths_match_authoritative_root(
+        repo_root=repo_root,
+        authoritative_root=cns_inputs["bundle_root"],
+        path_values={
+            "table_rows_path": cns_inputs["table_rows_path"],
+            "bundle_validation_path": cns_inputs["bundle_validation_path"],
+            "figure_manifest_path": cns_inputs["figure_manifest_path"],
+            "fixed_sample_manifest_path": cns_inputs["fixed_sample_manifest_path"],
+        },
+        pillar_label="CNS",
+    )
+
     locked_rows = _load_json(repo_root, cns_inputs["locked_rows_path"])
     table_rows = _load_json(repo_root, cns_inputs["table_rows_path"])
     bundle_validation = _load_json(repo_root, cns_inputs["bundle_validation_path"])

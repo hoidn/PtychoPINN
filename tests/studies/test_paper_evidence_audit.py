@@ -104,6 +104,47 @@ def test_load_cns_authority_preserves_capped_claim_boundary():
     assert all(row["row_status"] == "capped_decision_support" for row in cns["headline_rows"])
 
 
+def test_load_cns_authority_detects_same_pillar_source_disagreement():
+    module = _load_audit_module()
+    inputs = _default_inputs()
+    cns_inputs = dict(inputs["cns"])
+
+    bundle_validation = json.loads(Path(cns_inputs["bundle_validation_path"]).read_text(encoding="utf-8"))
+    bundle_validation["table_headline_row_ids"] = ["spectral_resnet_bottleneck_base", "fno_base"]
+    bundle_root = REPO_ROOT / cns_inputs["bundle_root"]
+    tampered_bundle_validation = bundle_root / "bundle_validation_tampered.json"
+    tampered_bundle_validation.write_text(json.dumps(bundle_validation, indent=2), encoding="utf-8")
+    cns_inputs["bundle_validation_path"] = str(tampered_bundle_validation.relative_to(REPO_ROOT))
+
+    try:
+        with pytest.raises(ValueError, match="CNS source disagreement on headline roster"):
+            module.load_cns_authority(cns_inputs, repo_root=REPO_ROOT)
+    finally:
+        tampered_bundle_validation.unlink(missing_ok=True)
+
+
+def test_load_cns_authority_rejects_non_authoritative_bundle_file_paths(tmp_path):
+    module = _load_audit_module()
+    inputs = _default_inputs()
+    cns_inputs = dict(inputs["cns"])
+
+    copied_paths = {}
+    for key in (
+        "table_rows_path",
+        "bundle_validation_path",
+        "figure_manifest_path",
+        "fixed_sample_manifest_path",
+    ):
+        source_path = REPO_ROOT / cns_inputs[key]
+        copied_path = tmp_path / source_path.name
+        copied_path.write_text(source_path.read_text(encoding="utf-8"), encoding="utf-8")
+        copied_paths[key] = str(copied_path)
+    cns_inputs.update(copied_paths)
+
+    with pytest.raises(ValueError, match="CNS.*authoritative root identity"):
+        module.load_cns_authority(cns_inputs, repo_root=REPO_ROOT)
+
+
 def test_repo_local_output_guard_rejects_neurips_output_root():
     module = _load_audit_module()
 
