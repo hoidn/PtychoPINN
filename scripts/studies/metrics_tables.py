@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional, Tuple
@@ -596,6 +597,32 @@ def _validate_visuals_payload(payload: object, *, output_dir: Path) -> bool:
     return _validate_existing_path_fields(payload, ("amp_phase_png", "amp_phase_error_png"), output_dir=output_dir)
 
 
+def _duplicate_required_row_stdout_logs(
+    row_payloads: Mapping[str, Mapping[str, object]],
+    *,
+    required_rows: Iterable[str],
+    output_dir: Path,
+) -> Dict[str, List[str]]:
+    signatures: Dict[str, List[str]] = {}
+    for model_id in required_rows:
+        row_payload = row_payloads.get(model_id)
+        if not isinstance(row_payload, Mapping):
+            continue
+        outputs = row_payload.get("outputs")
+        if not isinstance(outputs, Mapping):
+            continue
+        stdout_path = _resolve_output_path(output_dir, outputs.get("stdout_log"))
+        if stdout_path is None or not stdout_path.exists():
+            continue
+        digest = hashlib.sha256(stdout_path.read_bytes()).hexdigest()
+        signatures.setdefault(digest, []).append(model_id)
+    return {
+        digest: model_ids
+        for digest, model_ids in signatures.items()
+        if len(model_ids) > 1
+    }
+
+
 def _missing_paper_fields(
     row_payload: Mapping[str, object],
     *,
@@ -757,6 +784,19 @@ def write_paper_benchmark_bundle(
                 status = status_payload.get("status")
             if status != "supported_for_harness":
                 incomplete = True
+
+    if require_row_provenance:
+        duplicate_logs = _duplicate_required_row_stdout_logs(
+            row_payloads,
+            required_rows=required_rows,
+            output_dir=output_dir,
+        )
+        for model_ids in duplicate_logs.values():
+            incomplete = True
+            for model_id in model_ids:
+                row_missing = missing_fields_by_row.setdefault(model_id, [])
+                if "outputs" not in row_missing:
+                    row_missing.append("outputs")
 
     benchmark_status = "benchmark_incomplete" if incomplete else "paper_complete"
     bundle_payload = {

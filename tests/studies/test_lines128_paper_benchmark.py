@@ -277,6 +277,10 @@ def _materialize_minimum_subset_bundle_artifacts(
                 )
             elif relative_path.endswith("invocation.sh"):
                 write_relative(relative_path, "python fake_row.py\n")
+            elif relative_path.endswith("stdout.log"):
+                write_relative(relative_path, f"[row:{model_id}] fixture stdout\n")
+            elif relative_path.endswith("stderr.log"):
+                write_relative(relative_path, "")
             else:
                 write_relative(relative_path, "{}")
         _write_text(

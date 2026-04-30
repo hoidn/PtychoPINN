@@ -199,6 +199,8 @@ def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tm
             (run_dir / "config.json").write_text("{}", encoding="utf-8")
             (run_dir / "history.json").write_text("{}", encoding="utf-8")
             (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+            (run_dir / "stdout.log").write_text(f"[row:{model_id}] tf stdout\n", encoding="utf-8")
+            (run_dir / "stderr.log").write_text("", encoding="utf-8")
         return {
             "train_npz": str(datasets_dir / "train.npz"),
             "test_npz": str(datasets_dir / "test.npz"),
@@ -254,6 +256,8 @@ def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tm
         (run_dir / "config.json").write_text("{}", encoding="utf-8")
         (run_dir / "history.json").write_text("{}", encoding="utf-8")
         (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+        (run_dir / "stdout.log").write_text(f"[row:{model_id}] torch stdout\n", encoding="utf-8")
+        (run_dir / "stderr.log").write_text("", encoding="utf-8")
         return {
             "recon_npz": str(recon_dir / "recon.npz"),
             "paper_row_payload": {
@@ -335,6 +339,106 @@ def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tm
     assert baseline_payload["outputs"]["stdout_log"] == "runs/baseline/stdout.log"
     assert baseline_payload["outputs"]["exit_code_proof_json"] == "runs/baseline/exit_code_proof.json"
     assert (tmp_path / baseline_payload["outputs"]["exit_code_proof_json"]).exists()
+
+
+def test_wrapper_preserves_distinct_tf_row_logs(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    _mock_dataset_builder(monkeypatch)
+
+    def fake_tf_run(cfg, tf_models=None):
+        datasets_dir = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        datasets_dir.mkdir(parents=True, exist_ok=True)
+        (datasets_dir / "train.npz").write_bytes(b"stub")
+        (datasets_dir / "test.npz").write_bytes(b"stub")
+        row_payloads = {}
+        for model_id in tf_models or ():
+            run_dir = cfg.output_dir / "runs" / model_id
+            run_dir.mkdir(parents=True, exist_ok=True)
+            recon_dir = cfg.output_dir / "recons" / model_id
+            recon_dir.mkdir(parents=True, exist_ok=True)
+            gt = (np.ones((cfg.N, cfg.N)) + 1j * np.ones((cfg.N, cfg.N))).astype(np.complex64)
+            np.savez(recon_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+            (run_dir / "invocation.json").write_text(
+                json.dumps({"status": "completed", "finished_at_utc": "2026-04-29T00:00:00+00:00"}),
+                encoding="utf-8",
+            )
+            (run_dir / "invocation.sh").write_text("python fake_tf_run.py\n", encoding="utf-8")
+            (run_dir / "config.json").write_text("{}", encoding="utf-8")
+            (run_dir / "history.json").write_text("{}", encoding="utf-8")
+            (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+            (run_dir / "stdout.log").write_text(
+                f"[row:{model_id}] distinct stdout\n",
+                encoding="utf-8",
+            )
+            (run_dir / "stderr.log").write_text(
+                f"[row:{model_id}] distinct stderr\n",
+                encoding="utf-8",
+            )
+            row_payloads[model_id] = {
+                "model_label": PAPER_MODEL_LABELS[model_id] if "PAPER_MODEL_LABELS" in globals() else model_id,
+                "architecture_id": "cnn",
+                "training_procedure": "supervised" if model_id == "baseline" else "pinn",
+                "N": cfg.N,
+                "parameter_count": 10,
+                "epoch_budget": 40,
+                "final_completed_epoch": 40,
+                "final_train_loss": 0.4,
+                "validation_loss": {"status": "not_emitted", "value": None},
+                "runtime_summary": {"train_wall_time_sec": 4.0, "inference_time_sec": 0.2},
+                "hardware_summary": {"backend": "tensorflow", "accelerator": "rtx3090"},
+                "row_status": "paper_grade",
+                "caveats": [],
+                "metrics": _full_pair_metrics(0.2, 0.3),
+            }
+        print("shared wrapper output that should stay out of row-local logs")
+        return {
+            "train_npz": str(datasets_dir / "train.npz"),
+            "test_npz": str(datasets_dir / "test.npz"),
+            "row_payloads": row_payloads,
+        }
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.run_grid_lines_workflow", fake_tf_run)
+    monkeypatch.setattr(
+        "ptycho.evaluation.eval_reconstruction",
+        lambda pred, gt, label, **kwargs: _full_pair_metrics(0.02, 0.03),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals",
+        lambda output_dir, order: {},
+    )
+
+    run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        probe_npz=Path("dummy_probe.npz"),
+        architectures=(),
+        models=("baseline", "pinn"),
+        model_n={"baseline": 128, "pinn": 128},
+        seed=3,
+        set_phi=True,
+        probe_source="custom",
+        probe_scale_mode="pad_extrapolate",
+        torch_epochs=40,
+        torch_learning_rate=2e-4,
+        torch_scheduler="ReduceLROnPlateau",
+        torch_plateau_factor=0.5,
+        torch_plateau_patience=2,
+        torch_plateau_min_lr=1e-4,
+        torch_plateau_threshold=0.0,
+        torch_loss_mode="mae",
+        torch_output_mode="real_imag",
+        nimgs_train=2,
+        nimgs_test=2,
+        nphotons=1e9,
+    )
+
+    baseline_stdout = (tmp_path / "runs" / "baseline" / "stdout.log").read_text(encoding="utf-8")
+    pinn_stdout = (tmp_path / "runs" / "pinn" / "stdout.log").read_text(encoding="utf-8")
+    assert baseline_stdout == "[row:baseline] distinct stdout\n"
+    assert pinn_stdout == "[row:pinn] distinct stdout\n"
+    assert baseline_stdout != pinn_stdout
 
 
 def test_wrapper_uses_locked_epoch_budget_for_tf_rows_in_explicit_model_mode(monkeypatch, tmp_path):

@@ -1266,11 +1266,9 @@ def run_grid_lines_compare(
                 probe_scale_mode=probe_scale_mode,
                 set_phi=set_phi,
             )
-            tf_stdout_targets = [output_dir / "runs" / model_id / "stdout.log" for model_id in tf_models_for_n]
-            tf_stderr_targets = [output_dir / "runs" / model_id / "stderr.log" for model_id in tf_models_for_n]
             with _capture_execution_logs(
-                stdout_overwrite_targets=tf_stdout_targets,
-                stderr_overwrite_targets=tf_stderr_targets,
+                stdout_overwrite_targets=(),
+                stderr_overwrite_targets=(),
                 stdout_append_targets=(output_dir / "live_stdout.log",),
                 stderr_append_targets=(output_dir / "live_stderr.log",),
             ):

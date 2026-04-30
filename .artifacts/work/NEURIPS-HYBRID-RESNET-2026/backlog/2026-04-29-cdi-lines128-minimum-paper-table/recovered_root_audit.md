@@ -47,13 +47,18 @@
     provenance finalization with `NameError: name 'datetime' is not defined` in
     `ptycho/workflows/grid_lines_workflow.py`.
 - `runs/minimum_subset_20260430T035104Z`
-  - classification: `paper_complete_fresh_rerun`
-  - basis: the rerun completed with exit code `0`, emitted honest root-level
-    `live_stdout.log` and `live_stderr.log`, produced real row-local
-    `stdout.log`, `stderr.log`, `invocation.json`, and `exit_code_proof.json`
-    artifacts for all four required rows, and the merged bundle reports
-    `paper_complete` with `paper_grade` rows, empty `missing_fields_by_row`, and
-    empty `missing_bundle_artifacts`.
+  - classification: `decision_support_only_shared_tf_logs`
+  - basis: under the stricter validator added in this pass, the TensorFlow
+    `baseline` and `pinn` rows reuse duplicated shared-workflow `stdout.log`
+    payloads, so this root no longer satisfies the paper-grade TF provenance
+    contract even though the historical bundle manifest recorded
+    `paper_complete`.
+- `runs/minimum_subset_20260430T051928Z`
+  - classification: `stopped_followup_rerun`
+  - basis: a fresh rerun was launched after the TF row-log fix, but it was
+    stopped during training because the full benchmark execution exceeds the
+    scope of this review-fix pass. Treat the root and its log as incomplete
+    follow-up artifacts only.
 
 ## Authority Boundary
 
@@ -65,22 +70,20 @@
 
 ## Chosen Execution Path
 
-- chosen path: `fresh_rerun_after_review_fix`
-- chosen root: `runs/minimum_subset_20260430T035104Z`
+- chosen path: `fresh_rerun_required_after_tf_row_log_fix`
+- chosen root: none in this pass
 - completion basis: the earlier
   `runs/minimum_subset_20260429T235811Z` same-root recovery claim was rejected
-  because its provenance artifacts were synthetic. The authoritative completion
-  therefore comes from a fresh rerun after the provenance-contract fix and the
-  follow-up `datetime` import fix. The accepted root now reports
-  `benchmark_status=paper_complete`,
-  `claim_boundary=minimum_draftable_cdi_subset`,
-  empty `missing_fields_by_row`, empty `missing_bundle_artifacts`, and
-  `row_status=paper_grade` for every required row.
+  because its provenance artifacts were synthetic, and the later historical
+  `runs/minimum_subset_20260430T035104Z` rerun is now downgraded because its
+  TensorFlow required rows reuse duplicated shared-workflow logs. A fresh rerun
+  remains required before this item can be restored to `paper_complete`.
 
 ## Current Root Status
 
-- No active writer remains.
-- The authoritative minimum-table bundle root is now
-  `runs/minimum_subset_20260430T035104Z`.
-- The earlier synthetic-proof recovery root is retained only for audit history
-  and must not be reused as paper-grade evidence.
+- No authoritative paper-grade minimum-table bundle root is available in this
+  pass.
+- The interrupted follow-up rerun root
+  `runs/minimum_subset_20260430T051928Z` and the earlier historical root
+  `runs/minimum_subset_20260430T035104Z` must not be cited as current
+  paper-grade evidence.

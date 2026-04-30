@@ -8,9 +8,12 @@ Data contracts: see specs/data_contracts.md
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime, timezone
+import io
 from pathlib import Path
+import sys
 from typing import Any, Dict, Iterable, Optional, Tuple
 import gc
 import json
@@ -39,6 +42,52 @@ def _json_default(value):
     if isinstance(value, np.ndarray):
         return value.tolist()
     raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+class _TeeTextStream(io.TextIOBase):
+    def __init__(self, *streams: io.TextIOBase) -> None:
+        self._streams = streams
+
+    def write(self, s: str) -> int:
+        for stream in self._streams:
+            stream.write(s)
+            stream.flush()
+        return len(s)
+
+    def flush(self) -> None:
+        for stream in self._streams:
+            stream.flush()
+
+
+def _write_log_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+@contextlib.contextmanager
+def _capture_tf_row_logs(output_dir: Path, model_id: str):
+    run_dir = output_dir / "runs" / model_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    tee_stdout = _TeeTextStream(sys.stdout, stdout_buffer)
+    tee_stderr = _TeeTextStream(sys.stderr, stderr_buffer)
+    try:
+        with contextlib.redirect_stdout(tee_stdout), contextlib.redirect_stderr(tee_stderr):
+            print(f"[row:{model_id}] Starting row-local execution")
+            try:
+                yield
+            except Exception as exc:
+                print(
+                    f"[row:{model_id}] Row execution failed: {exc.__class__.__name__}: {exc}",
+                    file=sys.stderr,
+                )
+                raise
+            else:
+                print(f"[row:{model_id}] Completed row-local execution")
+    finally:
+        _write_log_text(run_dir / "stdout.log", stdout_buffer.getvalue())
+        _write_log_text(run_dir / "stderr.log", stderr_buffer.getvalue())
 
 
 @dataclass
@@ -1914,111 +1963,122 @@ def run_grid_lines_workflow(
         probe_transform_steps=normalized_steps,
     )
 
-    # Step 4: Training
-    print(f"[4/7] Training selected TF models: {selected_models}...")
-    pinn_model = None
-    base_model = None
-    pinn_history = None
-    base_history = None
-    pinn_train_time_s = 0.0
-    base_train_time_s = 0.0
-    if "pinn" in selected_models:
-        pinn_train_start = time.perf_counter()
-        pinn_model, pinn_history = train_pinn_model(sim["train"]["container"])
-        pinn_train_time_s = time.perf_counter() - pinn_train_start
-        save_pinn_model(cfg)
-    if "baseline" in selected_models:
-        base_train_start = time.perf_counter()
-        base_model, base_history = train_baseline_model(
-            sim["train"]["X"], sim["train"]["Y_I"], sim["train"]["Y_phi"]
-        )
-        base_train_time_s = time.perf_counter() - base_train_start
-        base_dir = cfg.output_dir / "baseline"
-        base_dir.mkdir(parents=True, exist_ok=True)
-        base_model.save(base_dir / "baseline.keras")
-
-    # Step 5: Inference
-    print(f"[5/7] Running selected inference paths: {selected_models}...")
-    pinn_pred = None
-    base_pred = None
-    pinn_inference_time_s = 0.0
-    base_inference_time_s = 0.0
-    if "pinn" in selected_models:
-        pinn_infer_start = time.perf_counter()
-        pinn_pred = run_pinn_inference(
-            pinn_model, sim["test"]["X"], sim["test"]["coords_nominal"]
-        )
-        pinn_inference_time_s = time.perf_counter() - pinn_infer_start
-        if pinn_pred is None:
-            print("[5/7] WARNING: PINN inference failed (XLA issue). Skipping PINN evaluation.")
-    if "baseline" in selected_models:
-        base_infer_start = time.perf_counter()
-        base_pred = run_baseline_inference(base_model, sim["test"]["X"])
-        base_inference_time_s = time.perf_counter() - base_infer_start
-
-    # Step 6: Stitch and evaluate
-    print("[6/7] Stitching and computing metrics...")
+    # Step 4-6: Execute row-local train -> infer -> evaluate segments.
+    print(f"[4/7] Executing selected TF rows with row-local provenance: {selected_models}...")
     norm_Y_I = sim["test"]["norm_Y_I"]
     YY_gt = sim["test"]["YY_ground_truth"]
     metrics_payload: Dict[str, Any] = {}
     recons: Dict[str, Dict[str, np.ndarray]] = {}
-    pinn_stitched = None
-    base_stitched = None
     row_payloads: Dict[str, Dict[str, object]] = {}
-
     if "pinn" in selected_models:
-        if pinn_pred is not None:
-            pinn_amp = stitch_predictions(pinn_pred, norm_Y_I, part="amp")
-            pinn_phase = stitch_predictions(pinn_pred, norm_Y_I, part="phase")
-            pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
-            metrics_payload["pinn"] = eval_reconstruction(
-                pinn_stitched,
-                YY_gt,
-                label="pinn",
+        with _capture_tf_row_logs(cfg.output_dir, "pinn"):
+            print("[4/7][row:pinn] Training PINN model...")
+            pinn_train_start = time.perf_counter()
+            pinn_model, pinn_history = train_pinn_model(sim["train"]["container"])
+            pinn_train_time_s = time.perf_counter() - pinn_train_start
+            save_pinn_model(cfg)
+
+            print("[5/7][row:pinn] Running PINN inference...")
+            pinn_infer_start = time.perf_counter()
+            pinn_pred = run_pinn_inference(
+                pinn_model, sim["test"]["X"], sim["test"]["coords_nominal"]
             )
-            row_payloads["pinn"] = _build_tf_row_payload(
-                model_id="pinn",
-                model_label="CDI CNN + PINN",
-                model=pinn_model,
-                history=pinn_history,
-                metrics=metrics_payload["pinn"],
-                epoch_budget=int(cfg.nepochs),
-                train_wall_time_sec=float(pinn_train_time_s),
-                inference_time_sec=float(pinn_inference_time_s),
-            )
-            recons["pinn"] = {
-                "amp": pinn_amp[0, :, :, 0],
-                "phase": pinn_phase[0, :, :, 0],
-            }
-        else:
-            metrics_payload["pinn"] = {"error": "PINN inference failed (XLA issue)"}
+            pinn_inference_time_s = time.perf_counter() - pinn_infer_start
+            if pinn_pred is None:
+                print("[5/7][row:pinn] WARNING: PINN inference failed (XLA issue). Skipping PINN evaluation.")
+                metrics_payload["pinn"] = {"error": "PINN inference failed (XLA issue)"}
+            else:
+                print("[6/7][row:pinn] Stitching and computing metrics...")
+                pinn_amp = stitch_predictions(pinn_pred, norm_Y_I, part="amp")
+                pinn_phase = stitch_predictions(pinn_pred, norm_Y_I, part="phase")
+                pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
+                metrics_payload["pinn"] = eval_reconstruction(
+                    pinn_stitched,
+                    YY_gt,
+                    label="pinn",
+                )
+                row_payloads["pinn"] = _build_tf_row_payload(
+                    model_id="pinn",
+                    model_label="CDI CNN + PINN",
+                    model=pinn_model,
+                    history=pinn_history,
+                    metrics=metrics_payload["pinn"],
+                    epoch_budget=int(cfg.nepochs),
+                    train_wall_time_sec=float(pinn_train_time_s),
+                    inference_time_sec=float(pinn_inference_time_s),
+                )
+                recons["pinn"] = {
+                    "amp": pinn_amp[0, :, :, 0],
+                    "phase": pinn_phase[0, :, :, 0],
+                }
+                pinn_recon_path = save_recon_artifact(cfg.output_dir, "pinn", pinn_stitched)
+                if train_npz is not None and test_npz is not None:
+                    _write_tf_row_provenance(
+                        cfg=cfg,
+                        model_id="pinn",
+                        row_payload=row_payloads["pinn"],
+                        history=pinn_history,
+                        train_npz=Path(train_npz),
+                        test_npz=Path(test_npz),
+                        model_artifact=cfg.output_dir / "pinn" / "wts.h5.zip",
+                        recon_path=pinn_recon_path,
+                    )
 
     if "baseline" in selected_models:
-        base_amp = stitch_predictions(base_pred, norm_Y_I, part="amp")
-        base_phase = stitch_predictions(base_pred, norm_Y_I, part="phase")
-        base_stitched = base_amp * np.exp(1j * base_phase)
-        metrics_payload["baseline"] = eval_reconstruction(
-            base_stitched,
-            YY_gt,
-            label="baseline",
-        )
-        row_payloads["baseline"] = _build_tf_row_payload(
-            model_id="baseline",
-            model_label="CDI CNN + supervised",
-            model=base_model,
-            history=base_history,
-            metrics=metrics_payload["baseline"],
-            epoch_budget=int(cfg.nepochs),
-            train_wall_time_sec=float(base_train_time_s),
-            inference_time_sec=float(base_inference_time_s),
-        )
-        recons["baseline"] = {
-            "amp": base_amp[0, :, :, 0],
-            "phase": base_phase[0, :, :, 0],
-        }
+        with _capture_tf_row_logs(cfg.output_dir, "baseline"):
+            print("[4/7][row:baseline] Training baseline model...")
+            base_train_start = time.perf_counter()
+            base_model, base_history = train_baseline_model(
+                sim["train"]["X"], sim["train"]["Y_I"], sim["train"]["Y_phi"]
+            )
+            base_train_time_s = time.perf_counter() - base_train_start
+            base_dir = cfg.output_dir / "baseline"
+            base_dir.mkdir(parents=True, exist_ok=True)
+            base_model.save(base_dir / "baseline.keras")
+
+            print("[5/7][row:baseline] Running baseline inference...")
+            base_infer_start = time.perf_counter()
+            base_pred = run_baseline_inference(base_model, sim["test"]["X"])
+            base_inference_time_s = time.perf_counter() - base_infer_start
+
+            print("[6/7][row:baseline] Stitching and computing metrics...")
+            base_amp = stitch_predictions(base_pred, norm_Y_I, part="amp")
+            base_phase = stitch_predictions(base_pred, norm_Y_I, part="phase")
+            base_stitched = base_amp * np.exp(1j * base_phase)
+            metrics_payload["baseline"] = eval_reconstruction(
+                base_stitched,
+                YY_gt,
+                label="baseline",
+            )
+            row_payloads["baseline"] = _build_tf_row_payload(
+                model_id="baseline",
+                model_label="CDI CNN + supervised",
+                model=base_model,
+                history=base_history,
+                metrics=metrics_payload["baseline"],
+                epoch_budget=int(cfg.nepochs),
+                train_wall_time_sec=float(base_train_time_s),
+                inference_time_sec=float(base_inference_time_s),
+            )
+            recons["baseline"] = {
+                "amp": base_amp[0, :, :, 0],
+                "phase": base_phase[0, :, :, 0],
+            }
+            baseline_recon_path = save_recon_artifact(cfg.output_dir, "baseline", base_stitched)
+            if train_npz is not None and test_npz is not None:
+                _write_tf_row_provenance(
+                    cfg=cfg,
+                    model_id="baseline",
+                    row_payload=row_payloads["baseline"],
+                    history=base_history,
+                    train_npz=Path(train_npz),
+                    test_npz=Path(test_npz),
+                    model_artifact=cfg.output_dir / "baseline" / "baseline.keras",
+                    recon_path=baseline_recon_path,
+                )
 
     # Step 7: Save outputs
-    print("[7/7] Saving outputs...")
+    print("[7/7] Saving merged outputs...")
 
     metrics_path = cfg.output_dir / "metrics.json"
     metrics_path.write_text(json.dumps(metrics_payload, indent=2, default=str))
@@ -2029,35 +2089,6 @@ def run_grid_lines_workflow(
     gt_phase_2d = np.angle(gt_squeezed)
 
     save_recon_artifact(cfg.output_dir, "gt", gt_squeezed)
-    baseline_recon_path = None
-    pinn_recon_path = None
-    if "baseline" in selected_models and base_stitched is not None:
-        baseline_recon_path = save_recon_artifact(cfg.output_dir, "baseline", base_stitched)
-    if "pinn" in selected_models and pinn_stitched is not None:
-        pinn_recon_path = save_recon_artifact(cfg.output_dir, "pinn", pinn_stitched)
-
-    if "baseline" in row_payloads and baseline_recon_path is not None and train_npz is not None and test_npz is not None:
-        _write_tf_row_provenance(
-            cfg=cfg,
-            model_id="baseline",
-            row_payload=row_payloads["baseline"],
-            history=base_history,
-            train_npz=Path(train_npz),
-            test_npz=Path(test_npz),
-            model_artifact=cfg.output_dir / "baseline" / "baseline.keras",
-            recon_path=baseline_recon_path,
-        )
-    if "pinn" in row_payloads and pinn_recon_path is not None and train_npz is not None and test_npz is not None:
-        _write_tf_row_provenance(
-            cfg=cfg,
-            model_id="pinn",
-            row_payload=row_payloads["pinn"],
-            history=pinn_history,
-            train_npz=Path(train_npz),
-            test_npz=Path(test_npz),
-            model_artifact=cfg.output_dir / "pinn" / "wts.h5.zip",
-            recon_path=pinn_recon_path,
-        )
 
     png_path = save_comparison_png_dynamic(
         cfg.output_dir,

@@ -633,3 +633,106 @@ def test_write_paper_bundle_rejects_synthetic_reuse_exit_code_proof(tmp_path):
     metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
     assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
     assert "outputs" in metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"]
+
+
+def test_write_paper_bundle_rejects_duplicate_required_row_stdout_logs(tmp_path):
+    baseline_payload = _paper_grade_row_payload()
+    pinn_payload = _paper_grade_row_payload()
+    baseline_payload["model_label"] = "CDI CNN + supervised"
+    baseline_payload["training_procedure"] = "supervised"
+    baseline_payload["invocation"] = {
+        "json": "runs/baseline/invocation.json",
+        "shell": "runs/baseline/invocation.sh",
+    }
+    baseline_payload["config"] = {"json": "runs/baseline/config.json"}
+    baseline_payload["outputs"] = {
+        "metrics_json": "runs/baseline/metrics.json",
+        "history_json": "runs/baseline/history.json",
+        "recon_npz": "recons/baseline/recon.npz",
+        "stdout_log": "runs/baseline/stdout.log",
+        "stderr_log": "runs/baseline/stderr.log",
+        "exit_code_proof_json": "runs/baseline/exit_code_proof.json",
+    }
+    baseline_payload["visuals"] = {
+        "amp_phase_png": "visuals/amp_phase_baseline.png",
+        "amp_phase_error_png": "visuals/amp_phase_error_baseline.png",
+    }
+    pinn_payload["invocation"] = {
+        "json": "runs/pinn/invocation.json",
+        "shell": "runs/pinn/invocation.sh",
+    }
+    pinn_payload["config"] = {"json": "runs/pinn/config.json"}
+    pinn_payload["outputs"] = {
+        "metrics_json": "runs/pinn/metrics.json",
+        "history_json": "runs/pinn/history.json",
+        "recon_npz": "recons/pinn/recon.npz",
+        "stdout_log": "runs/pinn/stdout.log",
+        "stderr_log": "runs/pinn/stderr.log",
+        "exit_code_proof_json": "runs/pinn/exit_code_proof.json",
+    }
+    pinn_payload["visuals"] = {
+        "amp_phase_png": "visuals/amp_phase_pinn.png",
+        "amp_phase_error_png": "visuals/amp_phase_error_pinn.png",
+    }
+    row_payloads = {
+        "baseline": baseline_payload,
+        "pinn": pinn_payload,
+    }
+
+    for model_id in ("baseline", "pinn"):
+        _write_text(
+            tmp_path / "runs" / model_id / "invocation.json",
+            json.dumps({"status": "completed", "finished_at_utc": "2026-04-29T00:00:00+00:00"}),
+        )
+        _write_text(tmp_path / "runs" / model_id / "invocation.sh", "#!/usr/bin/env bash\n")
+        _write_text(tmp_path / "runs" / model_id / "config.json", "{}")
+        _write_text(tmp_path / "runs" / model_id / "metrics.json", "{}")
+        _write_text(tmp_path / "runs" / model_id / "history.json", "{}")
+        _write_text(tmp_path / "runs" / model_id / "stdout.log", "shared combined workflow stdout\n")
+        _write_text(tmp_path / "runs" / model_id / "stderr.log", "")
+        _write_text(
+            tmp_path / "runs" / model_id / "exit_code_proof.json",
+            json.dumps(
+                {
+                    "exit_code": 0,
+                    "proof_source": "row_artifacts_present_after_successful_compare_flow",
+                    "invocation_json": f"runs/{model_id}/invocation.json",
+                    "invocation_status": "completed",
+                    "stdout_log": f"runs/{model_id}/stdout.log",
+                    "stderr_log": f"runs/{model_id}/stderr.log",
+                }
+            ),
+        )
+        _write_text(tmp_path / "recons" / model_id / "recon.npz")
+        _write_text(tmp_path / "visuals" / f"amp_phase_{model_id}.png")
+        _write_text(tmp_path / "visuals" / f"amp_phase_error_{model_id}.png")
+
+    _write_text(tmp_path / "datasets" / "train.npz")
+    _write_text(tmp_path / "datasets" / "test.npz")
+    _write_text(
+        tmp_path / "dataset_identity_manifest.json",
+        json.dumps(
+            {
+                "train_npz": {"size_bytes": 1, "sha256": "train-sha", "source": "synthetic_lines"},
+                "test_npz": {"size_bytes": 1, "sha256": "test-sha", "source": "synthetic_lines"},
+            }
+        ),
+    )
+    _write_text(
+        tmp_path / "split_manifest.json",
+        json.dumps({"seed": 3, "nimgs_train": 2, "nimgs_test": 2}),
+    )
+
+    write_paper_benchmark_bundle(
+        output_dir=tmp_path,
+        row_payloads=row_payloads,
+        required_rows=("baseline", "pinn"),
+        fixed_sample_ids=[0, 1],
+        shared_visual_scales={"amp": {"vmin": 0.0, "vmax": 1.0}},
+        require_row_provenance=True,
+    )
+
+    metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
+    assert "outputs" in metrics_payload["missing_fields_by_row"]["baseline"]
+    assert "outputs" in metrics_payload["missing_fields_by_row"]["pinn"]
