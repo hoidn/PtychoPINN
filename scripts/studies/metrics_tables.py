@@ -462,6 +462,33 @@ def _validate_string_fields(payload: object, required_keys: Tuple[str, ...]) -> 
     return True
 
 
+def _resolve_output_path(output_dir: Path, value: object) -> Path | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    candidate = Path(value)
+    if candidate.is_absolute():
+        return candidate
+    if candidate.exists():
+        return candidate
+    candidate = output_dir / candidate
+    return candidate
+
+
+def _validate_existing_path_fields(
+    payload: object,
+    required_keys: Tuple[str, ...],
+    *,
+    output_dir: Path,
+) -> bool:
+    if not isinstance(payload, Mapping):
+        return False
+    for key in required_keys:
+        candidate = _resolve_output_path(output_dir, payload.get(key))
+        if candidate is None or not candidate.exists():
+            return False
+    return True
+
+
 def _validate_git_payload(payload: object) -> bool:
     return _validate_string_fields(payload, ("commit",))
 
@@ -470,8 +497,8 @@ def _validate_environment_payload(payload: object) -> bool:
     return _validate_string_fields(payload, ("python_executable",))
 
 
-def _validate_dataset_payload(payload: object) -> bool:
-    return _validate_string_fields(payload, ("train_npz", "test_npz"))
+def _validate_dataset_payload(payload: object, *, output_dir: Path) -> bool:
+    return _validate_existing_path_fields(payload, ("train_npz", "test_npz"), output_dir=output_dir)
 
 
 def _validate_splits_payload(payload: object) -> bool:
@@ -486,18 +513,19 @@ def _validate_randomness_payload(payload: object) -> bool:
     return any(payload.get(key) is not None for key in ("requested_seed", "seed", "seed_policy"))
 
 
-def _validate_outputs_payload(payload: object) -> bool:
-    return _validate_string_fields(payload, ("metrics_json", "history_json", "recon_npz"))
+def _validate_outputs_payload(payload: object, *, output_dir: Path) -> bool:
+    return _validate_existing_path_fields(payload, ("metrics_json", "history_json", "recon_npz"), output_dir=output_dir)
 
 
-def _validate_visuals_payload(payload: object) -> bool:
-    return _validate_string_fields(payload, ("amp_phase_png", "amp_phase_error_png"))
+def _validate_visuals_payload(payload: object, *, output_dir: Path) -> bool:
+    return _validate_existing_path_fields(payload, ("amp_phase_png", "amp_phase_error_png"), output_dir=output_dir)
 
 
 def _missing_paper_fields(
     row_payload: Mapping[str, object],
     *,
     require_row_provenance: bool = False,
+    output_dir: Path | None = None,
 ) -> List[str]:
     missing: List[str] = []
     for field in PAPER_REQUIRED_FIELDS:
@@ -526,16 +554,18 @@ def _missing_paper_fields(
             missing.append(field)
             continue
     if require_row_provenance:
+        if output_dir is None:
+            raise ValueError("output_dir is required when require_row_provenance=True")
         provenance_validators = {
-            "invocation": lambda value: _validate_string_fields(value, ("json", "shell")),
-            "config": lambda value: _validate_string_fields(value, ("json",)),
+            "invocation": lambda value: _validate_existing_path_fields(value, ("json", "shell"), output_dir=output_dir),
+            "config": lambda value: _validate_existing_path_fields(value, ("json",), output_dir=output_dir),
             "git": _validate_git_payload,
             "environment": _validate_environment_payload,
-            "dataset": _validate_dataset_payload,
+            "dataset": lambda value: _validate_dataset_payload(value, output_dir=output_dir),
             "splits": _validate_splits_payload,
             "randomness": _validate_randomness_payload,
-            "outputs": _validate_outputs_payload,
-            "visuals": _validate_visuals_payload,
+            "outputs": lambda value: _validate_outputs_payload(value, output_dir=output_dir),
+            "visuals": lambda value: _validate_visuals_payload(value, output_dir=output_dir),
         }
         for field in PAPER_PROVENANCE_FIELDS:
             validator = provenance_validators[field]
@@ -622,7 +652,11 @@ def write_paper_benchmark_bundle(
 
     incomplete = False
     for model_id, payload in row_payloads.items():
-        missing = _missing_paper_fields(payload, require_row_provenance=require_row_provenance)
+        missing = _missing_paper_fields(
+            payload,
+            require_row_provenance=require_row_provenance,
+            output_dir=output_dir,
+        )
         missing_fields_by_row[model_id] = missing
         if missing:
             incomplete = True

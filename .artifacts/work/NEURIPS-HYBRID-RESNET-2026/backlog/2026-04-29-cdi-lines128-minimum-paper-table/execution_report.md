@@ -1,48 +1,31 @@
 ## Completed In This Pass
 
-- fixed the review-blocking bundle contract gaps in the checked-in code:
-  paper-grade provenance gating, emitted validation-loss propagation,
-  wrapper-level `paper_benchmark_manifest.json`, and schema-stable Torch
-  row-local `config.json` / `metrics.json`
-- reran the minimum-subset collation in place against the existing
-  authoritative root
-  `runs/minimum_subset_20260429T235811Z` with
-  `--reuse-existing-recons`, without retraining any row
-- regenerated the merged bundle so every required row now carries complete
-  invocation/config/git/environment/dataset/split/randomness/output/visual
-  provenance and emitted validation loss in the authoritative root
+- fixed the review-blocking provenance contract bug so paper-grade validation now
+  requires referenced row-local files to exist, not just non-empty path strings
+- tightened same-root recovery so recovered rows only promote to `paper_grade`
+  when `invocation.sh` and row visual PNGs exist alongside the prior config,
+  history, metrics, and recon artifacts
+- added final bundle validation for wrapper/root artifacts and reran the
+  authoritative same-root collation in
+  `runs/minimum_subset_20260429T235811Z` with `--reuse-existing-recons`
 
 ## Completed Current-Scope Work
 
-- current authoritative root:
+- authoritative root remains:
   `runs/minimum_subset_20260429T235811Z`
-- final bundle state:
+- final bundle state after the rerun:
   `benchmark_status=paper_complete`,
-  `claim_boundary=minimum_draftable_cdi_subset`
-- required rows now all report `row_status=paper_grade` with empty
-  `missing_fields_by_row`:
+  `claim_boundary=minimum_draftable_cdi_subset`,
+  `missing_bundle_artifacts=[]`
+- required rows remain complete with empty `missing_fields_by_row`:
   `baseline`, `pinn`, `pinn_hybrid_resnet`, `pinn_fno_vanilla`
-- required merged artifacts are freshly written in the authoritative root:
-  `metrics.json`, `metric_schema.json`, `model_manifest.json`,
-  `metrics_table.csv`, `metrics_table.tex`, `metrics_table_best.tex`,
-  `paper_benchmark_manifest.json`
-- required visuals now exist in the authoritative root:
-  `compare_amp_phase.png`, per-row `amp_phase_*.png`,
-  per-row `amp_phase_error_*.png`, and `frc_curves.png`
-- row-local provenance now exists for every required row, including the
-  synthesized Torch `runs/pinn_hybrid_resnet/config.json` and
-  `runs/pinn_fno_vanilla/config.json` recovered honestly from the saved
-  invocation artifacts in the same authoritative root
-- emitted validation loss now propagates into the merged paper bundle:
-  - `baseline`: `0.09419603645801544`
-  - `pinn`: `10.800644874572754`
-  - `pinn_hybrid_resnet`: `0.037633031606674194`
-  - `pinn_fno_vanilla`: `0.07295490801334381`
+- updated bundle artifacts in the authoritative root:
+  `metrics.json`, `model_manifest.json`, `paper_benchmark_manifest.json`
 - verification:
-  - `pytest -q tests/studies/test_lines128_paper_benchmark.py tests/studies/test_metrics_tables.py tests/test_grid_lines_compare_wrapper.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_workflow.py`
-    -> `248 passed, 53 warnings in 41.74s`
+  - `pytest -q tests/studies/test_lines128_paper_benchmark.py tests/studies/test_metrics_tables.py tests/test_grid_lines_compare_wrapper.py tests/torch/test_grid_lines_torch_runner.py`
+    -> `196 passed, 47 warnings in 39.96s`
   - `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
-    -> `171 passed, 47 warnings in 298.38s`
+    -> `171 passed, 47 warnings in 299.93s`
   - `python -m compileall -q ptycho_torch scripts/studies`
     -> exit `0`
   - same-root recovery command:
@@ -53,19 +36,17 @@
 
 - later complete-table CDI rows `pinn_spectral_resnet_bottleneck_net` and
   `pinn_ffno` remain intentionally out of scope for this minimum-subset item
-- if the project wants recovery-path parameter counts to preserve the original
-  fresh-run semantics rather than the recovered row-local model payload values,
-  that contract should be pinned explicitly in a later follow-up; it is not
-  needed for this minimum-subset approval because the current authoritative
-  bundle and durable summary are internally consistent again
+- wrapper dirty-state provenance is still derived from the current workspace at
+  manifest-write time; persisting that value directly at invocation time remains
+  a separate follow-up if the project wants that field to be immutable
 
 ## Residual Risks
 
 - this item still closes only the minimum draftable CDI subset, not the later
   complete `lines128` paper table
-- the authoritative bundle now depends on honest same-root recovery of the
-  existing fresh root; deleting those row-local artifacts would require another
-  full rerun under the frozen contract
-- future reproductions still depend on the recorded local runtime stack
-  (`ptycho311`, local GPU, local TF/Torch installs); the new manifest reduces
-  ambiguity but does not remove host dependency
+- paper-grade validity still depends on the recovered authoritative root
+  remaining intact; deleting row-local or visual artifacts from that root would
+  correctly downgrade the bundle on the next validation pass
+- reproduction still depends on the recorded local runtime stack
+  (`ptycho311`, local GPU, local TF/Torch installs) even though the path-based
+  provenance gate is now enforced honestly

@@ -473,11 +473,18 @@ def _enrich_paper_row_payload(
     if row.get("row_status") in {None, "decision_support"}:
         required_paths = [
             invocation_path,
+            run_dir / "invocation.sh",
             run_dir / "config.json",
             run_dir / "history.json",
             run_dir / "metrics.json",
             output_dir / "recons" / model_id / "recon.npz",
         ]
+        visuals = row.get("visuals")
+        if isinstance(visuals, Mapping):
+            for key in ("amp_phase_png", "amp_phase_error_png"):
+                relative_path = visuals.get(key)
+                if isinstance(relative_path, str) and relative_path:
+                    required_paths.append(output_dir / relative_path)
         if all(path.exists() for path in required_paths):
             row["row_status"] = "paper_grade"
     return row

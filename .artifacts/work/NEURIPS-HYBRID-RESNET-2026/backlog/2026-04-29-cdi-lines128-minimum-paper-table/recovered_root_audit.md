@@ -38,13 +38,14 @@
 - `runs/minimum_subset_20260429T235811Z`
   - classification: `paper_complete_recovered_in_place`
   - basis: the root still originates from the successful four-row fresh rerun,
-    but this pass completed the approved same-root recovery path in place:
-    the merged bundle was regenerated from the existing row-local artifacts,
-    emitted validation loss now propagates correctly, the wrapper-level
-    `paper_benchmark_manifest.json` now exists, Torch row-local `config.json`
-    artifacts were recovered honestly from invocation metadata, and the merged
-    root again reports `paper_complete` with `paper_grade` rows and empty
-    `missing_fields_by_row`.
+    and the latest review-fix pass completed the approved same-root recovery
+    path under the stricter existence-based provenance gate: the merged bundle
+    was regenerated from the existing row-local artifacts, emitted validation
+    loss still propagates correctly, wrapper/root artifact validation now checks
+    the required files rather than trusting strings, Torch row-local
+    `config.json` artifacts remain recovered honestly from invocation metadata,
+    and the merged root again reports `paper_complete` with `paper_grade` rows,
+    empty `missing_fields_by_row`, and empty `missing_bundle_artifacts`.
 
 ## Authority Boundary
 
@@ -56,20 +57,17 @@
 ## Chosen Execution Path
 
 - chosen path: `same_root_recovery`
-- chosen root:
-  `runs/minimum_subset_20260429T235811Z`
-- completion basis:
-  - the earlier `minimum_subset_20260429T213028Z` same-root candidate remains
-    rejected because its provenance and visual gaps were real
-  - the current authoritative root `minimum_subset_20260429T235811Z` already
-    contains all four required completed rows, so this pass reused that root
-    without retraining and reran only the bundle/collation path with
-    `--reuse-existing-recons`
-  - the regenerated bundle now reports:
-    - `benchmark_status=paper_complete`
-    - `claim_boundary=minimum_draftable_cdi_subset`
-    - empty `missing_fields_by_row` for all four required rows
-    - `row_status=paper_grade` for every required row
+- chosen root: `runs/minimum_subset_20260429T235811Z`
+- completion basis: the earlier `minimum_subset_20260429T213028Z` same-root
+  candidate remains rejected because its provenance and visual gaps were real.
+  The current authoritative root already contained all four required completed
+  rows, so this pass reused that root without retraining and reran only the
+  bundle/collation path with `--reuse-existing-recons` after tightening
+  provenance/path validation. The regenerated bundle now reports
+  `benchmark_status=paper_complete`,
+  `claim_boundary=minimum_draftable_cdi_subset`,
+  empty `missing_fields_by_row`, empty `missing_bundle_artifacts`, and
+  `row_status=paper_grade` for every required row.
 
 ## Current Root Status
 

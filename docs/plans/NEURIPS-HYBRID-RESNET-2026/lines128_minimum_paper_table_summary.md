@@ -9,14 +9,19 @@
 
 ## Completed In This Pass
 
-- fixed the review-blocking code gaps for paper-grade provenance gating,
-  emitted validation-loss propagation, wrapper manifest emission, and stable
-  Torch row-local provenance serialization
+- fixed the review-blocking provenance gate so paper-grade validation now
+  requires referenced row-local files to exist, not just non-empty path strings
+- tightened same-root recovery so recovered rows promote to `paper_grade` only
+  when `invocation.sh` and row visual PNGs exist alongside the earlier config,
+  history, metrics, and reconstruction artifacts
+- added wrapper/root bundle-artifact validation before the final merged result
+  can remain `paper_complete`
 - reused the existing authoritative root
   `minimum_subset_20260429T235811Z` and reran only the same-root bundle
   collation path with `--reuse-existing-recons`
 - regenerated the merged bundle so every required row now reports complete
-  provenance blocks, emitted validation loss, and `row_status=paper_grade`
+  provenance blocks, emitted validation loss, `row_status=paper_grade`, and an
+  empty `missing_bundle_artifacts` list
 
 ## Final Bundle Contract
 
@@ -31,6 +36,8 @@
   `minimum_draftable_cdi_subset`
 - status:
   `paper_complete`
+- bundle completeness:
+  `missing_bundle_artifacts=[]`
 - fixed sample ids:
   `0`, `1`
 - shared visual-scale policy:
@@ -79,11 +86,11 @@
 ## Verification
 
 - focused review-fix regression suite:
-  `pytest -q tests/studies/test_lines128_paper_benchmark.py tests/studies/test_metrics_tables.py tests/test_grid_lines_compare_wrapper.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_workflow.py`
-  -> `248 passed, 53 warnings in 41.74s`
+  `pytest -q tests/studies/test_lines128_paper_benchmark.py tests/studies/test_metrics_tables.py tests/test_grid_lines_compare_wrapper.py tests/torch/test_grid_lines_torch_runner.py`
+  -> `196 passed, 47 warnings in 39.96s`
 - required deterministic gates:
   `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
-  -> `171 passed, 47 warnings in 298.38s`
+  -> `171 passed, 47 warnings in 299.93s`
 - required compile gate:
   `python -m compileall -q ptycho_torch scripts/studies`
   -> exit `0`

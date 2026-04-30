@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 
@@ -214,6 +215,53 @@ def _write_execution_manifest(path: Path, *, rows: list[dict] | None = None) -> 
     return path
 
 
+def _write_text(path: Path, contents: str = "x") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(contents, encoding="utf-8")
+
+
+def _materialize_minimum_subset_bundle_artifacts(
+    output_dir: Path,
+    *,
+    omit_relative_paths: set[str] | None = None,
+) -> None:
+    omit_relative_paths = set(omit_relative_paths or set())
+
+    def write_relative(relative_path: str, contents: str = "x") -> None:
+        if relative_path in omit_relative_paths:
+            return
+        _write_text(output_dir / relative_path, contents)
+
+    for relative_path in ("invocation.json", "invocation.sh"):
+        write_relative(relative_path, "{}")
+    for relative_path in ("train.npz", "test.npz"):
+        write_relative(relative_path)
+    gt_recon = output_dir / "recons" / "gt" / "recon.npz"
+    gt_recon.parent.mkdir(parents=True, exist_ok=True)
+    if "recons/gt/recon.npz" not in omit_relative_paths:
+        np.savez(gt_recon, YY_pred=np.ones((2, 2), dtype=np.complex64))
+
+    for model_id in ("baseline", "pinn", "pinn_hybrid_resnet", "pinn_fno_vanilla"):
+        for relative_path in (
+            f"runs/{model_id}/invocation.json",
+            f"runs/{model_id}/invocation.sh",
+            f"runs/{model_id}/config.json",
+            f"runs/{model_id}/history.json",
+            f"runs/{model_id}/metrics.json",
+            f"recons/{model_id}/recon.npz",
+            f"visuals/amp_phase_{model_id}.png",
+            f"visuals/amp_phase_error_{model_id}.png",
+        ):
+            write_relative(relative_path, "{}")
+
+    for relative_path in (
+        "visuals/amp_phase_gt.png",
+        "visuals/compare_amp_phase.png",
+        "visuals/frc_curves.png",
+    ):
+        write_relative(relative_path, "png")
+
+
 def test_preflight_requires_decision_artifact(tmp_path):
     from scripts.studies.lines128_paper_benchmark import run_lines128_paper_benchmark_preflight
 
@@ -309,9 +357,12 @@ def test_minimum_subset_executes_four_locked_rows_and_emits_bundle(tmp_path, mon
     from scripts.studies.lines128_paper_benchmark import run_lines128_paper_benchmark
 
     captured = {}
+    output_dir = tmp_path / "out"
 
     def fake_run_grid_lines_compare(**kwargs):
         captured.update(kwargs)
+        _materialize_minimum_subset_bundle_artifacts(output_dir)
+
         def _row(model_id, model_label, architecture_id, training_procedure, parameter_count, final_train_loss, runtime, metrics):
             return {
                 "model_label": model_label,
@@ -349,8 +400,9 @@ def test_minimum_subset_executes_four_locked_rows_and_emits_bundle(tmp_path, mon
             "selected_models": list(kwargs["models"]),
             "train_npz": str(tmp_path / "train.npz"),
             "test_npz": str(tmp_path / "test.npz"),
+            "gt_recon": str(output_dir / "recons" / "gt" / "recon.npz"),
             "recon_paths": {
-                model_id: str(tmp_path / "out" / "recons" / model_id / "recon.npz")
+                model_id: str(output_dir / "recons" / model_id / "recon.npz")
                 for model_id in (
                     "baseline",
                     "pinn",
@@ -408,11 +460,11 @@ def test_minimum_subset_executes_four_locked_rows_and_emits_bundle(tmp_path, mon
         decision_artifact=decision_artifact,
         execution_authority_note=authority_note,
         execution_manifest=execution_manifest,
-        output_dir=tmp_path / "out",
+        output_dir=output_dir,
     )
 
-    metrics_payload = json.loads((tmp_path / "out" / "metrics.json").read_text(encoding="utf-8"))
-    model_manifest = json.loads((tmp_path / "out" / "model_manifest.json").read_text(encoding="utf-8"))
+    metrics_payload = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
+    model_manifest = json.loads((output_dir / "model_manifest.json").read_text(encoding="utf-8"))
     assert captured["models"] == (
         "baseline",
         "pinn",
@@ -495,14 +547,16 @@ def test_minimum_subset_can_request_existing_recon_reuse(tmp_path, monkeypatch):
 
 def test_minimum_subset_emits_wrapper_manifest_for_shared_provenance(tmp_path, monkeypatch):
     from scripts.studies.lines128_paper_benchmark import run_lines128_paper_benchmark
+    output_dir = tmp_path / "out"
 
     def fake_run_grid_lines_compare(**kwargs):
+        _materialize_minimum_subset_bundle_artifacts(output_dir)
         return {
             "train_npz": str(tmp_path / "train.npz"),
             "test_npz": str(tmp_path / "test.npz"),
-            "gt_recon": str(tmp_path / "out" / "recons" / "gt" / "recon.npz"),
+            "gt_recon": str(output_dir / "recons" / "gt" / "recon.npz"),
             "recon_paths": {
-                model_id: str(tmp_path / "out" / "recons" / model_id / "recon.npz")
+                model_id: str(output_dir / "recons" / model_id / "recon.npz")
                 for model_id in (
                     "baseline",
                     "pinn",
@@ -579,16 +633,113 @@ def test_minimum_subset_emits_wrapper_manifest_for_shared_provenance(tmp_path, m
         decision_artifact=decision_artifact,
         execution_authority_note=authority_note,
         execution_manifest=execution_manifest,
-        output_dir=tmp_path / "out",
+        output_dir=output_dir,
     )
 
-    manifest_path = tmp_path / "out" / "paper_benchmark_manifest.json"
+    manifest_path = output_dir / "paper_benchmark_manifest.json"
     assert manifest_path.exists()
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["benchmark_status"] == "paper_complete"
     assert manifest["selected_fno_comparator"] == "fno_vanilla"
     assert manifest["dataset"]["train_npz"].endswith("train.npz")
     assert manifest["rows"][0]["row_root"] == "runs/baseline"
+
+
+def test_minimum_subset_downgrades_when_required_bundle_visual_is_missing(tmp_path, monkeypatch):
+    from scripts.studies.lines128_paper_benchmark import run_lines128_paper_benchmark
+
+    output_dir = tmp_path / "out"
+
+    def fake_run_grid_lines_compare(**kwargs):
+        _materialize_minimum_subset_bundle_artifacts(
+            output_dir,
+            omit_relative_paths={"visuals/frc_curves.png"},
+        )
+        return {
+            "train_npz": str(tmp_path / "train.npz"),
+            "test_npz": str(tmp_path / "test.npz"),
+            "gt_recon": str(output_dir / "recons" / "gt" / "recon.npz"),
+            "recon_paths": {
+                model_id: str(output_dir / "recons" / model_id / "recon.npz")
+                for model_id in (
+                    "baseline",
+                    "pinn",
+                    "pinn_hybrid_resnet",
+                    "pinn_fno_vanilla",
+                )
+            },
+            "row_payloads": {
+                model_id: {
+                    "model_label": model_id,
+                    "architecture_id": "cnn" if model_id in {"baseline", "pinn"} else model_id.replace("pinn_", ""),
+                    "training_procedure": "supervised" if model_id == "baseline" else "pinn",
+                    "N": 128,
+                    "parameter_count": 1,
+                    "epoch_budget": 40,
+                    "final_completed_epoch": 40,
+                    "final_train_loss": 0.1,
+                    "validation_loss": {"status": "emitted", "value": 0.05},
+                    "runtime_summary": {"train_wall_time_sec": 1.0, "inference_time_sec": 0.1},
+                    "hardware_summary": {"backend": "test"},
+                    "row_status": "paper_grade",
+                    "caveats": [],
+                    "invocation": {"json": f"runs/{model_id}/invocation.json", "shell": f"runs/{model_id}/invocation.sh"},
+                    "config": {"json": f"runs/{model_id}/config.json"},
+                    "git": {"commit": "abc123"},
+                    "environment": {"python_executable": "/usr/bin/python"},
+                    "dataset": {"train_npz": "train.npz", "test_npz": "test.npz"},
+                    "splits": {"nimgs_train": 2, "nimgs_test": 2},
+                    "randomness": {"requested_seed": 3},
+                    "outputs": {
+                        "metrics_json": f"runs/{model_id}/metrics.json",
+                        "history_json": f"runs/{model_id}/history.json",
+                        "recon_npz": f"recons/{model_id}/recon.npz",
+                    },
+                    "visuals": {
+                        "amp_phase_png": f"visuals/amp_phase_{model_id}.png",
+                        "amp_phase_error_png": f"visuals/amp_phase_error_{model_id}.png",
+                    },
+                    "metrics": {
+                        "mae": (0.1, 0.1),
+                        "mse": (0.01, 0.01),
+                        "psnr": (1.0, 1.0),
+                        "ssim": (0.9, 0.9),
+                        "ms_ssim": (0.8, 0.8),
+                        "frc50": (2, 2),
+                    },
+                }
+                for model_id in (
+                    "baseline",
+                    "pinn",
+                    "pinn_hybrid_resnet",
+                    "pinn_fno_vanilla",
+                )
+            },
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines128_paper_benchmark.run_grid_lines_compare",
+        fake_run_grid_lines_compare,
+    )
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+    authority_note = _write_execution_authority_note(tmp_path / "authority.md")
+    execution_manifest = _write_execution_manifest(
+        tmp_path / "execution" / "benchmark_execution_decisions.json",
+    )
+
+    run_lines128_paper_benchmark(
+        decision_artifact=decision_artifact,
+        execution_authority_note=authority_note,
+        execution_manifest=execution_manifest,
+        output_dir=output_dir,
+    )
+
+    metrics_payload = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
+    manifest_payload = json.loads((output_dir / "paper_benchmark_manifest.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
+    assert "visuals/frc_curves.png" in metrics_payload["missing_bundle_artifacts"]
+    assert manifest_payload["benchmark_status"] == "benchmark_incomplete"
 
 
 def test_preflight_rejects_seed_policy_that_does_not_match_fixed_contract(tmp_path):

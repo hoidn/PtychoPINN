@@ -1,6 +1,7 @@
 """Tests for study metrics table rendering."""
 
 import json
+from pathlib import Path
 
 import numpy as np
 
@@ -9,6 +10,56 @@ from scripts.studies.metrics_tables import (
     _build_main_table,
     write_paper_benchmark_bundle,
 )
+
+
+def _write_text(path: Path, contents: str = "x") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(contents, encoding="utf-8")
+
+
+def _paper_grade_row_payload() -> dict:
+    return {
+        "model_label": "Hybrid ResNet",
+        "architecture_id": "hybrid_resnet",
+        "training_procedure": "pinn",
+        "N": 128,
+        "parameter_count": 123456,
+        "epoch_budget": 40,
+        "final_completed_epoch": 40,
+        "final_train_loss": 0.123,
+        "validation_loss": {"status": "no_validation_series", "value": None},
+        "runtime_summary": {"train_wall_time_sec": 12.5, "inference_time_sec": 1.5},
+        "hardware_summary": {"backend": "pytorch", "accelerator": "rtx3090"},
+        "row_status": "paper_grade",
+        "caveats": [],
+        "invocation": {
+            "json": "runs/pinn_hybrid_resnet/invocation.json",
+            "shell": "runs/pinn_hybrid_resnet/invocation.sh",
+        },
+        "config": {"json": "runs/pinn_hybrid_resnet/config.json"},
+        "git": {"commit": "abc123"},
+        "environment": {"python_executable": "/usr/bin/python"},
+        "dataset": {"train_npz": "datasets/train.npz", "test_npz": "datasets/test.npz"},
+        "splits": {"nimgs_train": 2, "nimgs_test": 2},
+        "randomness": {"requested_seed": 3},
+        "outputs": {
+            "metrics_json": "runs/pinn_hybrid_resnet/metrics.json",
+            "history_json": "runs/pinn_hybrid_resnet/history.json",
+            "recon_npz": "recons/pinn_hybrid_resnet/recon.npz",
+        },
+        "visuals": {
+            "amp_phase_png": "visuals/amp_phase_pinn_hybrid_resnet.png",
+            "amp_phase_error_png": "visuals/amp_phase_error_pinn_hybrid_resnet.png",
+        },
+        "metrics": {
+            "mae": (0.1, 0.2),
+            "mse": (0.01, 0.02),
+            "psnr": (70.0, 65.0),
+            "ssim": (0.9, 0.8),
+            "ms_ssim": (0.85, 0.75),
+            "frc50": (64, 48),
+        },
+    }
 
 
 def test_main_table_keeps_one_cell_per_metric_when_values_missing():
@@ -426,3 +477,31 @@ def test_write_paper_bundle_requires_row_provenance_for_paper_complete(tmp_path)
         "outputs",
         "visuals",
     } <= missing
+
+
+def test_write_paper_bundle_requires_existing_provenance_paths_for_paper_complete(tmp_path):
+    row_payloads = {"pinn_hybrid_resnet": _paper_grade_row_payload()}
+
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "invocation.json", "{}")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "invocation.sh", "#!/usr/bin/env bash\n")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "config.json", "{}")
+    _write_text(tmp_path / "datasets" / "train.npz")
+    _write_text(tmp_path / "datasets" / "test.npz")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "metrics.json", "{}")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "history.json", "{}")
+    _write_text(tmp_path / "recons" / "pinn_hybrid_resnet" / "recon.npz")
+    _write_text(tmp_path / "visuals" / "amp_phase_pinn_hybrid_resnet.png")
+    # Intentionally omit amp_phase_error_png to prove the validator checks the referenced file.
+
+    write_paper_benchmark_bundle(
+        output_dir=tmp_path,
+        row_payloads=row_payloads,
+        required_rows=("pinn_hybrid_resnet",),
+        fixed_sample_ids=[0, 1],
+        shared_visual_scales={"amp": {"vmin": 0.0, "vmax": 1.0}},
+        require_row_provenance=True,
+    )
+
+    metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
+    assert "visuals" in metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"]

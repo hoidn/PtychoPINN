@@ -56,6 +56,21 @@ REQUIRED_FIXED_CONTRACT_FIELDS = (
     "fno_blocks",
     "fno_cnn_blocks",
 )
+REQUIRED_MINIMUM_SUBSET_BUNDLE_ARTIFACTS = (
+    "metrics.json",
+    "metric_schema.json",
+    "model_manifest.json",
+    "metrics_table.csv",
+    "metrics_table.tex",
+    "metrics_table_best.tex",
+    "visuals/amp_phase_gt.png",
+    "visuals/compare_amp_phase.png",
+    "visuals/frc_curves.png",
+)
+REQUIRED_MINIMUM_SUBSET_WRAPPER_ARTIFACTS = (
+    "invocation.json",
+    "invocation.sh",
+)
 
 
 def _load_json_if_exists(path: Path) -> Dict[str, Any]:
@@ -94,6 +109,7 @@ def _build_paper_benchmark_manifest(
     required_rows: List[str],
     benchmark_status: str,
     claim_boundary: str,
+    missing_bundle_artifacts: List[str] | None = None,
 ) -> Dict[str, object]:
     output_dir = Path(output_dir)
     invocation_payload = _load_json_if_exists(output_dir / "invocation.json")
@@ -150,17 +166,55 @@ def _build_paper_benchmark_manifest(
         "environment": runtime_provenance,
         "bundle_artifacts": {
             name: name
-            for name in (
-                "metrics.json",
-                "metric_schema.json",
-                "model_manifest.json",
-                "metrics_table.csv",
-                "metrics_table.tex",
-                "metrics_table_best.tex",
-            )
+            for name in REQUIRED_MINIMUM_SUBSET_BUNDLE_ARTIFACTS
         },
+        "missing_bundle_artifacts": list(missing_bundle_artifacts or []),
         "rows": row_records,
     }
+
+
+def _resolve_output_artifact(output_dir: Path, value: object) -> Path | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    candidate = Path(value)
+    if candidate.is_absolute():
+        return candidate
+    if candidate.exists():
+        return candidate
+    candidate = output_dir / candidate
+    return candidate
+
+
+def _collect_missing_bundle_artifacts(output_dir: Path, compare_result: Mapping[str, object]) -> List[str]:
+    missing: List[str] = []
+    for relative_path in REQUIRED_MINIMUM_SUBSET_WRAPPER_ARTIFACTS + REQUIRED_MINIMUM_SUBSET_BUNDLE_ARTIFACTS:
+        if not (output_dir / relative_path).exists():
+            missing.append(relative_path)
+
+    gt_recon = _resolve_output_artifact(output_dir, compare_result.get("gt_recon"))
+    if gt_recon is None or not gt_recon.exists():
+        missing.append("recons/gt/recon.npz")
+    return missing
+
+
+def _update_bundle_status(
+    *,
+    bundle_paths: Mapping[str, str],
+    benchmark_status: str,
+    missing_bundle_artifacts: List[str],
+) -> Dict[str, object]:
+    metrics_path = Path(bundle_paths["metrics_json"])
+    metrics_payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+    metrics_payload["benchmark_status"] = benchmark_status
+    metrics_payload["missing_bundle_artifacts"] = list(missing_bundle_artifacts)
+    metrics_path.write_text(json.dumps(metrics_payload, indent=2), encoding="utf-8")
+
+    model_manifest_path = Path(bundle_paths["model_manifest_json"])
+    model_manifest_payload = json.loads(model_manifest_path.read_text(encoding="utf-8"))
+    model_manifest_payload["benchmark_status"] = benchmark_status
+    model_manifest_payload["missing_bundle_artifacts"] = list(missing_bundle_artifacts)
+    model_manifest_path.write_text(json.dumps(model_manifest_payload, indent=2), encoding="utf-8")
+    return metrics_payload
 
 
 def _normalize_bool(value: object, *, field_name: str) -> bool:
@@ -832,6 +886,15 @@ def run_lines128_paper_benchmark(
         require_row_provenance=True,
     )
     bundle_payload = json.loads(Path(bundle_paths["metrics_json"]).read_text(encoding="utf-8"))
+    missing_bundle_artifacts = _collect_missing_bundle_artifacts(output_dir, compare_result)
+    benchmark_status = str(bundle_payload["benchmark_status"])
+    if missing_bundle_artifacts:
+        benchmark_status = "benchmark_incomplete"
+    bundle_payload = _update_bundle_status(
+        bundle_paths=bundle_paths,
+        benchmark_status=benchmark_status,
+        missing_bundle_artifacts=missing_bundle_artifacts,
+    )
     manifest_payload = _build_paper_benchmark_manifest(
         output_dir=output_dir,
         compare_result=compare_result,
@@ -839,6 +902,7 @@ def run_lines128_paper_benchmark(
         required_rows=required_rows,
         benchmark_status=str(bundle_payload["benchmark_status"]),
         claim_boundary="minimum_draftable_cdi_subset",
+        missing_bundle_artifacts=missing_bundle_artifacts,
     )
     manifest_path = output_dir / "paper_benchmark_manifest.json"
     manifest_path.write_text(json.dumps(manifest_payload, indent=2), encoding="utf-8")
