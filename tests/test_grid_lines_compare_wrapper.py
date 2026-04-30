@@ -192,7 +192,14 @@ def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tm
             gt = (np.ones((cfg.N, cfg.N)) + 1j * np.ones((cfg.N, cfg.N))).astype(np.complex64)
             np.savez(recon_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
             (run_dir / "invocation.json").write_text(
-                json.dumps({"status": "completed", "finished_at_utc": "2026-04-29T00:00:00+00:00"}),
+                json.dumps(
+                    {
+                        "status": "completed",
+                        "finished_at_utc": "2026-04-29T00:00:00+00:00",
+                        "exit_code": 0,
+                        "pid": 12345,
+                    }
+                ),
                 encoding="utf-8",
             )
             (run_dir / "invocation.sh").write_text("python fake_tf_run.py\n", encoding="utf-8")
@@ -249,7 +256,14 @@ def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tm
         gt = (np.ones((cfg.N, cfg.N)) + 1j * np.ones((cfg.N, cfg.N))).astype(np.complex64)
         np.savez(recon_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
         (run_dir / "invocation.json").write_text(
-            json.dumps({"status": "completed", "finished_at_utc": "2026-04-29T00:00:00+00:00"}),
+            json.dumps(
+                {
+                    "status": "completed",
+                    "finished_at_utc": "2026-04-29T00:00:00+00:00",
+                    "exit_code": 0,
+                    "pid": 12345,
+                }
+            ),
             encoding="utf-8",
         )
         (run_dir / "invocation.sh").write_text("python fake_torch_run.py\n", encoding="utf-8")
@@ -360,7 +374,14 @@ def test_wrapper_preserves_distinct_tf_row_logs(monkeypatch, tmp_path):
             gt = (np.ones((cfg.N, cfg.N)) + 1j * np.ones((cfg.N, cfg.N))).astype(np.complex64)
             np.savez(recon_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
             (run_dir / "invocation.json").write_text(
-                json.dumps({"status": "completed", "finished_at_utc": "2026-04-29T00:00:00+00:00"}),
+                json.dumps(
+                    {
+                        "status": "completed",
+                        "finished_at_utc": "2026-04-29T00:00:00+00:00",
+                        "exit_code": 0,
+                        "pid": 12345,
+                    }
+                ),
                 encoding="utf-8",
             )
             (run_dir / "invocation.sh").write_text("python fake_tf_run.py\n", encoding="utf-8")

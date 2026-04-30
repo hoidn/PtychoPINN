@@ -549,12 +549,17 @@ def _validate_splits_payload(payload: object, *, output_dir: Path) -> bool:
     manifest_payload = json.loads(resolved_manifest.read_text(encoding="utf-8"))
     if not isinstance(manifest_payload, Mapping):
         return False
-    for key in ("nimgs_train", "nimgs_test", "seed"):
+    for key in ("nimgs_train", "nimgs_test", "seed", "gridsize"):
         expected_value = payload.get(key)
         if not isinstance(expected_value, int) or isinstance(expected_value, bool):
             return False
         if manifest_payload.get(key) != expected_value:
             return False
+    expected_set_phi = payload.get("set_phi")
+    if not isinstance(expected_set_phi, bool):
+        return False
+    if manifest_payload.get("set_phi") is not expected_set_phi:
+        return False
     return True
 
 

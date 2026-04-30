@@ -61,11 +61,13 @@
 - `runs/minimum_subset_20260430T084339Z`
   - classification: `paper_complete`
   - basis: the root contains all four required rows under the fixed
-    minimum-table contract. After the review-fix code patch, the two completed
-    Torch row invocation JSONs were repaired only by restoring `exit_code: 0`
-    from their matching `exit_code_proof.json` evidence, then the same root was
-    regenerated with `--reuse-existing-recons` under tmux. `metrics.json`,
-    `model_manifest.json`, and `paper_benchmark_manifest.json` now record
+    minimum-table contract. This pass hardened the row-local exit-code proof
+    contract in code and attached independent persisted Torch-row completion
+    evidence from `launcher_stderr.log` under
+    `verification/torch_row_exit_evidence_20260430T104510Z.md`, so the root no
+    longer relies only on the repaired row-local
+    `invocation.json` / `exit_code_proof.json` pair. `metrics.json`,
+    `model_manifest.json`, and `paper_benchmark_manifest.json` record
     `paper_complete`, `missing_bundle_artifacts=[]`, and empty
     `missing_fields_by_row`.
 
@@ -85,8 +87,10 @@
   `runs/minimum_subset_20260429T235811Z` same-root recovery claim was rejected
   because its provenance artifacts were synthetic. The later
   `runs/minimum_subset_20260430T084339Z` rerun is accepted because the final
-  wrapper launcher contract and Torch row invocation exit-code contract are now
-  satisfied in the same root after the review-fix regeneration pass; shared
+  wrapper launcher contract is satisfied, the Torch proof writer is now
+  hardened for future runs, and the retained root has separate persisted
+  launcher evidence for both Torch rows in
+  `verification/torch_row_exit_evidence_20260430T104510Z.md`; shared
   diagnostic logs alone do not justify another expensive rerun.
 
 ## Current Root Status

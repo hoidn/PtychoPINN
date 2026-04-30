@@ -270,7 +270,7 @@ def _materialize_minimum_subset_bundle_artifacts(
     )
     _write_text(
         output_dir / "split_manifest.json",
-        json.dumps({"seed": 3, "nimgs_train": 2, "nimgs_test": 2}),
+        json.dumps({"seed": 3, "nimgs_train": 2, "nimgs_test": 2, "gridsize": 1, "set_phi": True}),
     )
     gt_recon = output_dir / "recons" / "gt" / "recon.npz"
     gt_recon.parent.mkdir(parents=True, exist_ok=True)
@@ -470,7 +470,14 @@ def test_minimum_subset_executes_four_locked_rows_and_emits_bundle(tmp_path, mon
                     "dataset_source": "synthetic_lines",
                     "manifest_json": "dataset_identity_manifest.json",
                 },
-                "splits": {"nimgs_train": 2, "nimgs_test": 2, "seed": 3, "manifest_json": "split_manifest.json"},
+                "splits": {
+                    "nimgs_train": 2,
+                    "nimgs_test": 2,
+                    "gridsize": 1,
+                    "set_phi": True,
+                    "seed": 3,
+                    "manifest_json": "split_manifest.json",
+                },
                 "randomness": {"requested_seed": 3},
                 "outputs": {
                     "metrics_json": f"runs/{model_id}/metrics.json",
@@ -691,7 +698,14 @@ def test_minimum_subset_emits_wrapper_manifest_for_shared_provenance(tmp_path, m
                         "dataset_source": "synthetic_lines",
                         "manifest_json": "dataset_identity_manifest.json",
                     },
-                    "splits": {"nimgs_train": 2, "nimgs_test": 2, "seed": 3, "manifest_json": "split_manifest.json"},
+                    "splits": {
+                        "nimgs_train": 2,
+                        "nimgs_test": 2,
+                        "gridsize": 1,
+                        "set_phi": True,
+                        "seed": 3,
+                        "manifest_json": "split_manifest.json",
+                    },
                     "randomness": {"requested_seed": 3},
                     "outputs": {
                         "metrics_json": f"runs/{model_id}/metrics.json",
@@ -824,7 +838,14 @@ def test_minimum_subset_downgrades_without_wrapper_launcher_contract(tmp_path, m
                         "dataset_source": "synthetic_lines",
                         "manifest_json": "dataset_identity_manifest.json",
                     },
-                    "splits": {"nimgs_train": 2, "nimgs_test": 2, "seed": 3, "manifest_json": "split_manifest.json"},
+                    "splits": {
+                        "nimgs_train": 2,
+                        "nimgs_test": 2,
+                        "gridsize": 1,
+                        "set_phi": True,
+                        "seed": 3,
+                        "manifest_json": "split_manifest.json",
+                    },
                     "randomness": {"requested_seed": 3},
                     "outputs": {
                         "metrics_json": f"runs/{model_id}/metrics.json",
@@ -939,7 +960,14 @@ def test_main_finalizes_bundle_after_wrapper_invocation_completes(tmp_path, monk
                         "dataset_source": "synthetic_lines",
                         "manifest_json": "dataset_identity_manifest.json",
                     },
-                    "splits": {"nimgs_train": 2, "nimgs_test": 2, "seed": 3, "manifest_json": "split_manifest.json"},
+                    "splits": {
+                        "nimgs_train": 2,
+                        "nimgs_test": 2,
+                        "gridsize": 1,
+                        "set_phi": True,
+                        "seed": 3,
+                        "manifest_json": "split_manifest.json",
+                    },
                     "randomness": {"requested_seed": 3},
                     "outputs": {
                         "metrics_json": f"runs/{model_id}/metrics.json",
@@ -1072,7 +1100,14 @@ def test_minimum_subset_downgrades_when_required_bundle_visual_is_missing(tmp_pa
                         "dataset_source": "synthetic_lines",
                         "manifest_json": "dataset_identity_manifest.json",
                     },
-                    "splits": {"nimgs_train": 2, "nimgs_test": 2, "seed": 3, "manifest_json": "split_manifest.json"},
+                    "splits": {
+                        "nimgs_train": 2,
+                        "nimgs_test": 2,
+                        "gridsize": 1,
+                        "set_phi": True,
+                        "seed": 3,
+                        "manifest_json": "split_manifest.json",
+                    },
                     "randomness": {"requested_seed": 3},
                     "outputs": {
                         "metrics_json": f"runs/{model_id}/metrics.json",

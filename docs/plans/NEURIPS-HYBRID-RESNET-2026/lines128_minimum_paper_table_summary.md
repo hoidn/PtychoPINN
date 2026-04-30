@@ -12,6 +12,11 @@
 - fixed the remaining review-blocking provenance path in code so the wrapper
   and both Torch rows persist the launcher/row exit-code contract that the
   minimum-subset validator now enforces
+- attached independent persisted Torch-row completion evidence for
+  `minimum_subset_20260430T084339Z` under
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/torch_row_exit_evidence_20260430T104510Z.md`,
+  using launcher-level log lines rather than the previously circular
+  row-local proof pair alone
 - relaxed the diagnostic-log contract so shared or duplicated `stdout.log` /
   `stderr.log` content is not by itself a paper-grade blocker when structured
   row evidence is complete
@@ -21,9 +26,9 @@
   compare-wrapper exit-code contract, the torch-runner row exit-code contract,
   and the diagnostic-log admissibility rule
 - repaired the completed fresh rerun root
-  `minimum_subset_20260430T084339Z` in place by adding `exit_code: 0` only to
-  the two completed Torch row invocation JSONs that already had matching
-  `exit_code_proof.json` evidence
+  `minimum_subset_20260430T084339Z` in place; the retained paper-grade claim in
+  this pass depends on the new independent launcher-evidence note above rather
+  than on the repaired row-local Torch invocation/proof pair alone
 - reran same-root minimum-subset bundle regeneration under tmux with tracked
   PID `1367035`; it exited `0` and rewrote `metrics.json`,
   `model_manifest.json`, and `paper_benchmark_manifest.json` to
@@ -33,7 +38,8 @@
 - accepted `minimum_subset_20260430T084339Z` as the authoritative minimum-table
   root: its metrics, model manifest, and paper benchmark manifest report
   `paper_complete`, empty `missing_fields_by_row`, and no missing bundle
-  artifacts
+  artifacts, and the review-requested independent Torch-row completion evidence
+  is now recorded separately
 - retained the earlier `minimum_subset_20260430T035104Z` rerun and the stopped
   `minimum_subset_20260430T051928Z` follow-up as historical, non-authoritative
   roots under the current launcher/row invocation contract
@@ -67,9 +73,9 @@
   - status: `paper_complete`
   - reason: structured row provenance, metrics, source arrays, visuals,
     dataset/split identity, git/environment metadata, process-completion
-    evidence, wrapper launcher provenance, and torch row exit-code persistence
-    all satisfy the current evidence contract. Shared or duplicated diagnostic
-    logs are not a paper-grade blocker by themselves.
+    evidence, wrapper launcher provenance, and the separate Torch-row
+    launcher-evidence note now satisfy the current evidence contract. Shared or
+    duplicated diagnostic logs are not a paper-grade blocker by themselves.
 - superseded earlier fresh rerun:
   `runs/minimum_subset_20260430T035104Z`
   - reason: this root predates the final wrapper/torch invocation contract
@@ -83,7 +89,7 @@
 ## Verification
 
 - focused review-fix regression suite:
-  `pytest -q tests/studies/test_lines128_paper_benchmark.py tests/studies/test_metrics_tables.py tests/test_grid_lines_compare_wrapper.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_invocation_logging.py`
+  `pytest -q tests/studies/test_paper_provenance.py tests/studies/test_lines128_paper_benchmark.py tests/studies/test_metrics_tables.py tests/test_grid_lines_compare_wrapper.py tests/torch/test_grid_lines_torch_runner.py`
   -> `207 passed, 47 warnings in 41.18s`
 - required deterministic gates:
   `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
@@ -92,9 +98,10 @@
   `python -m compileall -q ptycho_torch scripts/studies`
   -> exit `0`
 - archived logs:
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/focused_pytest_20260430_review_fix_v2.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/backlog_required_pytest_20260430_review_fix_v2.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/compileall_20260430_review_fix_v2.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/pytest_focused_20260430T104510Z.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/pytest_required_20260430T103703Z.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/compileall_required_20260430T103703Z.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/torch_row_exit_evidence_20260430T104510Z.md`
   - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/lines128_same_root_bundle_regen_20260430T084339Z.log`
 
 ## Boundary And Remaining Scope

@@ -227,7 +227,15 @@ def write_exit_code_proof(
     invocation_payload = load_json_if_exists(invocation_json)
     invocation_status = invocation_payload.get("status")
     finished_at_utc = invocation_payload.get("finished_at_utc")
-    if invocation_status != "completed" or not isinstance(finished_at_utc, str) or not finished_at_utc:
+    exit_code = invocation_payload.get("exit_code")
+    if (
+        invocation_status != "completed"
+        or not isinstance(finished_at_utc, str)
+        or not finished_at_utc
+        or isinstance(exit_code, bool)
+        or not isinstance(exit_code, int)
+        or exit_code != 0
+    ):
         return None
     if not stdout_log.exists() or not stderr_log.exists():
         return None
