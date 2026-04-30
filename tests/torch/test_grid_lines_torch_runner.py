@@ -1371,6 +1371,16 @@ class TestChannelGridsizeAlignment:
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.model.architecture == "ffno"
 
+    def test_runner_accepts_neuralop_uno(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="neuralop_uno",
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.model.architecture == "neuralop_uno"
+
     def test_runner_accepts_supervised_training_procedure(self, tmp_path):
         cfg = TorchRunnerConfig(
             train_npz=tmp_path / "train.npz",
@@ -2202,6 +2212,29 @@ def test_build_paper_row_payload_uses_supervised_ffno_label(tmp_path):
         inference_time_s=0.4,
     )
     assert payload["model_label"] == "FFNO + supervised"
+    assert payload["training_procedure"] == "supervised"
+
+
+def test_build_paper_row_payload_uses_neuralop_uno_labels(tmp_path):
+    cfg = TorchRunnerConfig(
+        train_npz=tmp_path / "train.npz",
+        test_npz=tmp_path / "test.npz",
+        output_dir=tmp_path,
+        architecture="neuralop_uno",
+        training_procedure="supervised",
+        epochs=1,
+        N=128,
+    )
+    payload = _build_paper_row_payload(
+        cfg,
+        metrics={"mae": [0.1, 0.2]},
+        history={"train_loss": [0.3]},
+        model_params=123,
+        train_wall_time_sec=1.5,
+        inference_time_s=0.4,
+    )
+    assert payload["model_label"] == "U-NO + supervised"
+    assert payload["architecture_id"] == "neuralop_uno"
     assert payload["training_procedure"] == "supervised"
 
 

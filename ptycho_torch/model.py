@@ -183,6 +183,24 @@ def _build_generator_module_from_config(
             n_blocks=getattr(model_config, "fno_blocks", 4),
         )
 
+    if architecture == "neuralop_uno":
+        from ptycho_torch.generators.neuralop_uno import NeuralopUnoGeneratorModule
+
+        if int(getattr(data_config, "N", 128)) != 128:
+            raise ValueError(
+                "neuralop_uno checkpoint rebuild only supports the locked Lines128 "
+                f"CDI contract (N=128); got N={getattr(data_config, 'N', None)}."
+            )
+        if tuple(getattr(data_config, "grid_size", (1, 1))) != (1, 1):
+            raise ValueError(
+                "neuralop_uno checkpoint rebuild only supports the locked "
+                f"gridsize=1 CDI contract; got grid_size={getattr(data_config, 'grid_size', None)}."
+            )
+        return NeuralopUnoGeneratorModule(
+            C=getattr(data_config, "C", 1),
+            output_mode=generator_mode,
+        )
+
     if architecture == "hybrid_resnet":
         from ptycho_torch.generators.hybrid_resnet import HybridResnetGeneratorModule
 

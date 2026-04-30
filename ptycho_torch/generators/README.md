@@ -14,6 +14,7 @@ The generator registry enables architecture selection via the `config.model.arch
 | `hybrid` | Hybrid U-NO (Arch B) | ✅ Integrated |
 | `stable_hybrid` | InstanceNorm-stabilized Hybrid U-NO | ✅ Integrated |
 | `fno_vanilla` | Constant-resolution FNO baseline | ✅ Integrated |
+| `neuralop_uno` | External NeuralOperator U-NO adapter for locked Lines128 CDI | ✅ Integrated |
 | `hybrid_resnet` | FNO encoder + CycleGAN ResNet‑6 decoder | ✅ Integrated |
 
 All registered generator architectures in this package train through `PtychoPINN_Lightning` with the same physics loss and stitching behavior. Study-specific supervised adapters that reuse generator components live outside this registry and define their own `model(x) -> y` channel contract.
@@ -53,6 +54,15 @@ The FNO Vanilla architecture (`architecture='fno_vanilla'`) removes down/upsampl
 1. Spatial lifter (3×3 convs)
 2. Constant‑resolution FNO block stack
 3. 1×1 output projection
+
+### NeuralOperator U-NO (locked Lines128 CDI adapter)
+The `neuralop_uno` architecture wraps the external `neuralop.models.UNO` implementation behind the existing CDI generator contract.
+
+Current scope is intentionally narrow:
+- requires external `neuraloperator==2.0.0`
+- supports only the locked Lines128 CDI lane (`N=128`, `gridsize=1`, `C=1`)
+- supports only `generator_output_mode='real_imag'`
+- validates that raw UNO output is exactly `(B, 2, 128, 128)` before adapting to `(B, H, W, 1, 2)`
 
 ### FFNO (constant-resolution factorized Fourier flow)
 The FFNO architecture (`architecture='ffno'`) keeps the constant-resolution CDI shell but swaps the spectral stack to factorized Fourier operators:

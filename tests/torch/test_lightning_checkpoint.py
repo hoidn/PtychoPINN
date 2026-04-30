@@ -41,6 +41,7 @@ GENERATOR_CLASS_BY_ARCHITECTURE = {
     "hybrid": "HybridUNOGenerator",
     "stable_hybrid": "StableHybridUNOGenerator",
     "fno_vanilla": "FnoVanillaGeneratorModule",
+    "neuralop_uno": "NeuralopUnoGeneratorModule",
     "hybrid_resnet": "HybridResnetGeneratorModule",
     "spectral_resnet_bottleneck_net": "SpectralResnetBottleneckGeneratorModule",
 }
@@ -289,6 +290,7 @@ class TestLightningCheckpointSerialization:
             "hybrid",
             "stable_hybrid",
             "fno_vanilla",
+            "neuralop_uno",
             "hybrid_resnet",
             "spectral_resnet_bottleneck_net",
         ],
@@ -334,8 +336,9 @@ class TestLightningCheckpointSerialization:
 
     @staticmethod
     def _build_generator_checkpoint_config(tmp_path, *, architecture, mode):
+        image_size = 128 if architecture == "neuralop_uno" else 64
         data_cfg = DataConfig(
-            N=64,
+            N=image_size,
             C=1,
             grid_size=(1, 1),
         )
@@ -358,7 +361,7 @@ class TestLightningCheckpointSerialization:
         infer_cfg = InferenceConfig()
 
         tf_model_cfg = TFModelConfig(
-            N=64,
+            N=image_size,
             gridsize=1,
             model_type='supervised' if mode == "Supervised" else 'pinn',
             amp_activation='silu',

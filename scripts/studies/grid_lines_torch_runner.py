@@ -59,6 +59,7 @@ PAPER_MODEL_LABELS = {
     "hybrid": "Hybrid + PINN",
     "stable_hybrid": "Stable Hybrid + PINN",
     "fno_vanilla": "FNO Vanilla + PINN",
+    "neuralop_uno": "U-NO + PINN",
     "hybrid_resnet": "Hybrid ResNet + PINN",
     "spectral_resnet_bottleneck_net": "Spectral ResNet Bottleneck + PINN",
 }
@@ -753,7 +754,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     # Cast N and architecture to their Literal types
     N_literal = cast(Literal[64, 128, 256], cfg.N)
     arch_literal = cast(
-        Literal['cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'],
+        Literal['cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'],
         cfg.architecture,
     )
     if cfg.architecture in {"hybrid_resnet", "spectral_resnet_bottleneck_net"}:
@@ -1578,7 +1579,7 @@ def main(argv=None) -> None:
     parser.add_argument("--output-dir", type=Path, required=True,
                         help="Output directory for artifacts")
     parser.add_argument("--architecture", type=str, required=True,
-                        choices=['ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'],
+                        choices=['ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'],
                         help="Generator architecture to use")
     parser.add_argument(
         "--training-procedure",

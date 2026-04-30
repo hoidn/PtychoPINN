@@ -34,6 +34,12 @@ def test_resolve_generator_ffno():
     assert gen.name == 'ffno'
 
 
+def test_resolve_generator_neuralop_uno():
+    cfg = TrainingConfig(model=ModelConfig(architecture='neuralop_uno'))
+    gen = resolve_generator(cfg)
+    assert gen.name == 'neuralop_uno'
+
+
 def test_ffno_generator_builds_lightning_model():
     from ptycho_torch.config_params import (
         DataConfig,

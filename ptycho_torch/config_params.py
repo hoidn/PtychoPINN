@@ -50,7 +50,7 @@ class ModelConfig:
     #Mode Category
     mode: Literal['Supervised', 'Unsupervised'] = 'Unsupervised' # Training mode, affects all aspects of model
     architecture: Literal[
-        'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'
+        'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'
     ] = 'cnn'  # Generator architecture selection
     fno_modes: int = 12
     fno_width: int = 32

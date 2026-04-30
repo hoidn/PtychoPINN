@@ -98,7 +98,7 @@ class ModelConfig:
     n_filters_scale: int = 2
     model_type: Literal['pinn', 'supervised'] = 'pinn'
     architecture: Literal[
-        'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'
+        'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'
     ] = 'cnn'
     fno_modes: int = 12
     fno_width: int = 32
@@ -500,6 +500,7 @@ def validate_model_config(config: ModelConfig) -> None:
         'hybrid',
         'stable_hybrid',
         'fno_vanilla',
+        'neuralop_uno',
         'hybrid_resnet',
         'spectral_resnet_bottleneck_net',
     }
