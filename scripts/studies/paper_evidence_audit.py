@@ -405,6 +405,8 @@ def load_cns_authority(cns_inputs: dict[str, Any], *, repo_root: Path) -> dict[s
     locked_rows = _load_json(repo_root, cns_inputs["locked_rows_path"])
     table_rows = _load_json(repo_root, cns_inputs["table_rows_path"])
     bundle_validation = _load_json(repo_root, cns_inputs["bundle_validation_path"])
+    figure_manifest = _load_json(repo_root, cns_inputs["figure_manifest_path"])
+    fixed_sample_manifest = _load_json(repo_root, cns_inputs["fixed_sample_manifest_path"])
 
     if locked_rows.get("contract_type") != "bounded_capped_decision_support":
         raise ValueError(f"CNS locked rows changed contract type: {locked_rows.get('contract_type')}")
@@ -414,6 +416,55 @@ def load_cns_authority(cns_inputs: dict[str, Any], *, repo_root: Path) -> dict[s
         raise ValueError("CNS bundle validation no longer confirms capped row statuses")
     if not bundle_validation.get("no_paper_grade_or_full_training_labels", False):
         raise ValueError("CNS bundle validation no longer rejects paper-grade/full-training promotion")
+    if table_rows.get("benchmark_status") != bundle_validation.get("benchmark_status"):
+        raise ValueError(
+            "CNS source disagreement on benchmark status: "
+            f"table={table_rows.get('benchmark_status')} "
+            f"validation={bundle_validation.get('benchmark_status')}"
+        )
+
+    locked_row_ids = [str(row["row_id"]) for row in locked_rows.get("rows", [])]
+    table_row_ids = [str(row["row_id"]) for row in table_rows.get("rows", [])]
+    validation_row_ids = [str(row_id) for row_id in bundle_validation.get("table_row_ids", [])]
+    figure_row_ids = [str(row_id) for row_id in figure_manifest.get("rows_in_visual_bundle", [])]
+    fixed_sample_row_ids = [str(row_id) for row_id in fixed_sample_manifest.get("rows_in_visual_bundle", [])]
+    validation_figure_row_ids = [str(row_id) for row_id in bundle_validation.get("figure_manifest_row_ids", [])]
+    validation_sample_row_ids = [str(row_id) for row_id in bundle_validation.get("sample_manifest_row_ids", [])]
+    validation_visual_row_ids = [str(row_id) for row_id in bundle_validation.get("visual_bundle_row_ids", [])]
+    if not (
+        locked_row_ids
+        == table_row_ids
+        == validation_row_ids
+        == figure_row_ids
+        == fixed_sample_row_ids
+        == validation_figure_row_ids
+        == validation_sample_row_ids
+        == validation_visual_row_ids
+    ):
+        raise ValueError(
+            "CNS source disagreement on visual roster: "
+            f"locked={locked_row_ids} table={table_row_ids} validation={validation_row_ids} "
+            f"figure={figure_row_ids} sample={fixed_sample_row_ids} "
+            f"validation_figure={validation_figure_row_ids} "
+            f"validation_sample={validation_sample_row_ids} "
+            f"validation_visual={validation_visual_row_ids}"
+        )
+
+    figure_sample_ids = list(figure_manifest.get("sample_ids", []))
+    fixed_sample_ids = list(fixed_sample_manifest.get("sample_ids", []))
+    if figure_sample_ids != fixed_sample_ids:
+        raise ValueError(
+            "CNS source disagreement on visual sample ids: "
+            f"figure={figure_sample_ids} sample={fixed_sample_ids}"
+        )
+
+    figure_field_order = list(figure_manifest.get("field_order", []))
+    fixed_field_order = list(fixed_sample_manifest.get("field_order", []))
+    if figure_field_order != fixed_field_order:
+        raise ValueError(
+            "CNS source disagreement on visual field order: "
+            f"figure={figure_field_order} sample={fixed_field_order}"
+        )
 
     locked_headline = list(locked_rows.get("headline_row_ids", []))
     table_headline = list(table_rows.get("headline_row_ids", []))

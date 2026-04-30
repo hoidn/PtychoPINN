@@ -123,6 +123,44 @@ def test_load_cns_authority_detects_same_pillar_source_disagreement():
         tampered_bundle_validation.unlink(missing_ok=True)
 
 
+def test_load_cns_authority_detects_conflicting_table_bundle_status_within_authoritative_root():
+    module = _load_audit_module()
+    inputs = _default_inputs()
+    cns_inputs = dict(inputs["cns"])
+
+    table_rows = json.loads(Path(cns_inputs["table_rows_path"]).read_text(encoding="utf-8"))
+    table_rows["benchmark_status"] = "benchmark_incomplete"
+    bundle_root = REPO_ROOT / cns_inputs["bundle_root"]
+    tampered_table_rows = bundle_root / "cns_paper_table_rows_tampered.json"
+    tampered_table_rows.write_text(json.dumps(table_rows, indent=2), encoding="utf-8")
+    cns_inputs["table_rows_path"] = str(tampered_table_rows.relative_to(REPO_ROOT))
+
+    try:
+        with pytest.raises(ValueError, match="CNS source disagreement on benchmark status"):
+            module.load_cns_authority(cns_inputs, repo_root=REPO_ROOT)
+    finally:
+        tampered_table_rows.unlink(missing_ok=True)
+
+
+def test_load_cns_authority_detects_same_root_figure_manifest_roster_disagreement():
+    module = _load_audit_module()
+    inputs = _default_inputs()
+    cns_inputs = dict(inputs["cns"])
+
+    figure_manifest = json.loads(Path(cns_inputs["figure_manifest_path"]).read_text(encoding="utf-8"))
+    figure_manifest["rows_in_visual_bundle"] = ["spectral_resnet_bottleneck_base", "fno_base"]
+    bundle_root = REPO_ROOT / cns_inputs["bundle_root"]
+    tampered_figure_manifest = bundle_root / "figure_manifest_tampered.json"
+    tampered_figure_manifest.write_text(json.dumps(figure_manifest, indent=2), encoding="utf-8")
+    cns_inputs["figure_manifest_path"] = str(tampered_figure_manifest.relative_to(REPO_ROOT))
+
+    try:
+        with pytest.raises(ValueError, match="CNS source disagreement on visual roster"):
+            module.load_cns_authority(cns_inputs, repo_root=REPO_ROOT)
+    finally:
+        tampered_figure_manifest.unlink(missing_ok=True)
+
+
 def test_load_cns_authority_rejects_non_authoritative_bundle_file_paths(tmp_path):
     module = _load_audit_module()
     inputs = _default_inputs()
