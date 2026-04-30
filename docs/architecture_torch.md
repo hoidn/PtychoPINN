@@ -131,20 +131,24 @@ The generator registry enables architecture selection via `config.model.architec
 | Architecture | Generator Class | Description |
 |--------------|-----------------|-------------|
 | `cnn` (default) | `CnnGenerator` | U-Net based CNN from `ptycho_torch/model.py` |
+| `ffno` | `FfnoGenerator` | Constant-resolution factorized Fourier-flow baseline |
 | `fno` | `FnoGenerator` | Cascaded FNO → CNN (Arch A) |
 | `hybrid` | `HybridGenerator` | Hybrid U-NO with spectral encoder + CNN decoder (Arch B) |
 | `stable_hybrid` | `StableHybridGenerator` | Hybrid U-NO with InstanceNorm-stabilized residual blocks |
 | `fno_vanilla` | `FnoVanillaGenerator` | Constant‑resolution FNO baseline (no down/upsampling) |
 | `neuralop_uno` | `NeuralopUnoGenerator` | External NeuralOperator U-NO adapter for locked Lines128 CDI (`N=128`, `gridsize=1`, `C=1`, `real_imag`) |
 | `hybrid_resnet` | `HybridResnetGenerator` | FNO encoder + CycleGAN ResNet‑6 bottleneck + CycleGAN upsamplers |
+| `spectral_resnet_bottleneck_net` | `SpectralResnetBottleneckGenerator` | Hybrid ResNet shell with a configurable spectral ResNet bottleneck |
 
 **Key modules in `ptycho_torch/generators/`:**
 - `registry.py`: `resolve_generator(config)` returns generator instance
+- `ffno.py`: FFNO generator with factorized Fourier operators
 - `cnn.py`: CNN generator wrapping `PtychoPINN_Lightning`
 - `fno.py`: FNO and Hybrid generators with spectral convolutions
 - `fno_vanilla.py`: Constant-resolution FNO baseline
 - `neuralop_uno.py`: External NeuralOperator U-NO adapter with fail-closed Lines128 CDI contract checks
 - `hybrid_resnet.py`: FNO encoder + CycleGAN ResNet‑6 decoder (supports optional fixed `resnet_width`)
+- `spectral_resnet_bottleneck.py`: Spectral ResNet bottleneck variant on the Hybrid ResNet shell
 
 **FNO Architecture Components (`fno.py`):**
 - `SpatialLifter`: 2×3x3 convs with GELU before Fourier layers
@@ -164,7 +168,7 @@ generator = resolve_generator(config)
 model = generator.build_model(pt_configs)
 ```
 
-**Torch Runner:** `scripts/studies/grid_lines_torch_runner.py` provides CLI for training FNO/hybrid models (including `stable_hybrid`, `fno_vanilla`, `neuralop_uno`, and `hybrid_resnet`) on cached datasets from the grid-lines workflow.
+**Torch Runner:** `scripts/studies/grid_lines_torch_runner.py` provides CLI for training Torch generator architectures on cached datasets from the grid-lines workflow, including `ffno`, `stable_hybrid`, `fno_vanilla`, `spectral_resnet_bottleneck_net`, `neuralop_uno`, and `hybrid_resnet`.
 
 **Hybrid ResNet Schematics (TikZ/DOT):** Use `scripts/studies/render_hybrid_resnet_schematics.py` to generate a shape-backed architecture manifest and source schematics:
 
@@ -186,7 +190,7 @@ predictions = model(X)  # X = diffraction patterns only
 ```
 Unlike CNN which may accept `model(X, coords)` for position encoding, FNO/Hybrid learn spatial relationships through spectral convolutions and do NOT accept coordinate inputs. The `run_torch_inference()` function enforces this:
 ```python
-if cfg.architecture in ('fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet'):
+if cfg.architecture in ('ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'):
     predictions = model(X_test)  # No coords
 else:
     predictions = model(X_test, coords)  # CNN path

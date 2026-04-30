@@ -845,6 +845,21 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
                 "spectral_bottleneck_gate_mode must be one of ['per_block', 'shared'] "
                 f"(got {cfg.spectral_bottleneck_gate_mode!r})."
             )
+    if cfg.architecture == "neuralop_uno":
+        if cfg.N != 128:
+            raise ValueError(
+                "neuralop_uno only supports the locked Lines128 CDI contract "
+                f"(N=128); got N={cfg.N}."
+            )
+        if cfg.gridsize != 1:
+            raise ValueError(
+                "neuralop_uno only supports the locked gridsize=1 CDI contract; "
+                f"got gridsize={cfg.gridsize}."
+            )
+        if cfg.generator_output_mode != "real_imag":
+            raise ValueError(
+                "neuralop_uno only supports generator_output_mode='real_imag'."
+            )
 
     training_config = TrainingConfig(
         model=ModelConfig(

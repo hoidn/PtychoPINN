@@ -2,41 +2,55 @@
 
 ## Completed In This Pass
 
-- Added `ptycho_torch/generators/neuralop_uno.py` as the external NeuralOperator U-NO adapter for the locked Lines128 CDI contract, with lazy dependency loading, frozen preflight constructor settings, `real_imag` output adaptation to `(B, H, W, 1, 2)`, and fail-closed checks for `N=128`, `gridsize=1`, and `C=1`.
-- Wired `neuralop_uno` through the Torch generator registry, both config architecture literal surfaces, checkpoint rebuild, and the direct grid-lines Torch runner label/CLI surface so both PINN and supervised routes use the same U-NO body.
-- Added focused regression coverage for adapter shape/dependency failures, registry resolution, supervised and PINN Lightning construction, checkpoint reload, and runner acceptance/labeling.
-- Updated durable architecture/workflow/config docs to describe the supported `neuralop_uno` surface and its current limits. `docs/index.md` was not changed because no new durable document was added and discovery paths did not change.
-- No benchmark row, append-only bundle, compare-wrapper model-ID work, or paper-bundle mutation was launched in this pass.
+- Added the missing direct-runner regression coverage for `architecture="neuralop_uno"` with `training_procedure="supervised"` so the runner now proves acceptance for both approved procedures.
+- Added red-first runner contract tests proving `setup_torch_configs()` rejects unsupported `neuralop_uno` combinations at setup time for:
+  - `N != 128`
+  - `gridsize != 1`
+  - `generator_output_mode != "real_imag"`
+- Narrowly updated `scripts/studies/grid_lines_torch_runner.py` to enforce that locked Lines128 U-NO contract during config setup instead of failing later during model construction.
+- Corrected the durable supported-architecture documentation in:
+  - `docs/CONFIGURATION.md`
+  - `docs/workflows/pytorch.md`
+  - `docs/architecture_torch.md`
+  - `ptycho_torch/generators/README.md`
+  so the documented live Torch architecture surface now matches the actual registry/config literals, including `ffno` and `spectral_resnet_bottleneck_net`.
+- Kept scope unchanged: no benchmark rows, compare-wrapper model-ID work, YAML/prompt edits, or paper-bundle mutation were introduced.
 
-## Completed Plan Tasks
+## Completed Current-Scope Work
 
-- Task 1: Added red-first tests for registry resolution, adapter behavior, supervised and PINN construction, checkpoint rebuild, and runner labeling.
-- Task 2: Implemented the external U-NO adapter with the locked Lines128 CDI contract and actionable dependency/shape errors.
-- Task 3: Wired registry, config, checkpoint rebuild, and direct runner support for `neuralop_uno`.
-- Task 4: Updated durable docs for the supported architecture surface and its intentional limits.
-- Task 5: Ran the focused selector plus all required deterministic gates and archived the logs under the item verification root.
+- Task 1 review gap closed: direct-runner coverage now includes `TorchRunnerConfig(architecture="neuralop_uno", training_procedure="supervised")`.
+- Task 4 review gap closed: the durable docs named above now agree with the live supported architecture surface rather than omitting registered architectures.
+- The non-blocking maintainability defect identified in review was fixed in scope: `neuralop_uno` invalid runner inputs now fail closed in `setup_torch_configs()` with actionable errors instead of surviving until deeper model construction.
+- All approved current-scope implementation work for this backlog item is complete in the current checkout.
 
-## Remaining Required Plan Tasks
+## Follow-Up Work
 
-- None for the approved scope of this backlog item.
-
-## Verification
-
-- Focused selector: `pytest -q tests/torch/test_neuralop_uno_generator.py tests/torch/test_generator_registry.py tests/torch/test_lightning_checkpoint.py tests/torch/test_grid_lines_torch_runner.py`
-  - Result: `146 passed`
-  - Log: `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-generator-integration/verification/pytest_focused.log`
-- Required deterministic pytest gate: `pytest -q tests/torch/test_generator_registry.py tests/torch/test_loss_modes.py`
-  - Result: `12 passed`
-  - Log: `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-generator-integration/verification/pytest_required.log`
-- Required compile gate: `python -m compileall -q ptycho_torch scripts/studies`
-  - Log: `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-generator-integration/verification/compileall.log`
-- Required output check:
-  - Command verifies `ptycho_torch/generators/neuralop_uno.py` and `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_design.md` exist.
-  - Result: `U-NO integration outputs present`
-  - Log: `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-generator-integration/verification/required_outputs_check.log`
+- Compare-wrapper model-ID routing and append-only U-NO paper-row execution remain separate follow-on items by design.
+- Any expansion of `neuralop_uno` beyond the locked Lines128 CDI lane (`N=128`, `gridsize=1`, `C=1`, `real_imag`) still requires a new approved plan.
+- A lightweight doc-surface regression check tying architecture tables to the registry/config literals would reduce future drift, but it was not required to approve this backlog item.
 
 ## Residual Risks
 
-- `neuralop_uno` intentionally supports only the locked Lines128 CDI lane (`N=128`, `gridsize=1`, `C=1`, `generator_output_mode=real_imag`). Any broader U-NO contract still requires a separate approved plan.
-- The architecture now exists for direct runner and checkpoint use, but compare-wrapper model-ID integration and append-only U-NO benchmark-row execution remain explicit follow-on work.
-- The runtime depends on external `neuraloperator==2.0.0`; future environment drift will fail closed with actionable errors rather than silently substituting another model surface.
+- `neuralop_uno` still depends on external `neuraloperator==2.0.0`; future environment drift will fail closed rather than silently substituting a different implementation.
+- The adapter and runner intentionally reject broader CDI contracts; users attempting `gridsize>1`, non-`real_imag`, or non-`128x128` U-NO runs will need separate implementation work.
+- The broader paper-table extension path is still unimplemented here, so direct runner support should not be read as completed benchmark integration.
+
+## Verification
+
+- Red-first runner selector:
+  - `pytest -q tests/torch/test_grid_lines_torch_runner.py -k 'neuralop_uno and (supervised_training or non_lines128 or non_unit_gridsize or non_real_imag_output)'`
+  - Result: `3 failed, 1 passed` before the runner guard was added, then `4 passed` after the fix.
+- Focused selector:
+  - `pytest -q tests/torch/test_neuralop_uno_generator.py tests/torch/test_generator_registry.py tests/torch/test_lightning_checkpoint.py tests/torch/test_grid_lines_torch_runner.py`
+  - Result: `150 passed`
+  - Log: `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-generator-integration/verification/pytest_focused.log`
+- Required deterministic pytest gate:
+  - `pytest -q tests/torch/test_generator_registry.py tests/torch/test_loss_modes.py`
+  - Result: `12 passed`
+  - Log: `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-generator-integration/verification/pytest_required.log`
+- Required compile gate:
+  - `python -m compileall -q ptycho_torch scripts/studies`
+  - Log: `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-generator-integration/verification/compileall.log`
+- Required output check:
+  - Result: `U-NO integration outputs present`
+  - Log: `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-generator-integration/verification/required_outputs_check.log`

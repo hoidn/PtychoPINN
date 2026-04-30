@@ -16,6 +16,7 @@ The generator registry enables architecture selection via the `config.model.arch
 | `fno_vanilla` | Constant-resolution FNO baseline | ✅ Integrated |
 | `neuralop_uno` | External NeuralOperator U-NO adapter for locked Lines128 CDI | ✅ Integrated |
 | `hybrid_resnet` | FNO encoder + CycleGAN ResNet‑6 decoder | ✅ Integrated |
+| `spectral_resnet_bottleneck_net` | Hybrid ResNet shell with spectral ResNet bottleneck | ✅ Integrated |
 
 All registered generator architectures in this package train through `PtychoPINN_Lightning` with the same physics loss and stitching behavior. Study-specific supervised adapters that reuse generator components live outside this registry and define their own `model(x) -> y` channel contract.
 

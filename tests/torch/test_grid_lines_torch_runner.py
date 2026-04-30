@@ -1377,6 +1377,9 @@ class TestChannelGridsizeAlignment:
             test_npz=tmp_path / "test.npz",
             output_dir=tmp_path / "out",
             architecture="neuralop_uno",
+            N=128,
+            gridsize=1,
+            generator_output_mode="real_imag",
         )
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.model.architecture == "neuralop_uno"
@@ -1391,6 +1394,56 @@ class TestChannelGridsizeAlignment:
         )
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.model.model_type == "supervised"
+
+    def test_runner_accepts_neuralop_uno_for_supervised_training(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="neuralop_uno",
+            training_procedure="supervised",
+            N=128,
+            gridsize=1,
+            generator_output_mode="real_imag",
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.model.architecture == "neuralop_uno"
+        assert training_config.model.model_type == "supervised"
+
+    def test_runner_rejects_neuralop_uno_non_lines128_size(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="neuralop_uno",
+            N=64,
+        )
+        with pytest.raises(ValueError, match="N=128"):
+            setup_torch_configs(cfg)
+
+    def test_runner_rejects_neuralop_uno_non_unit_gridsize(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="neuralop_uno",
+            N=128,
+            gridsize=2,
+        )
+        with pytest.raises(ValueError, match="gridsize=1"):
+            setup_torch_configs(cfg)
+
+    def test_runner_rejects_neuralop_uno_non_real_imag_output(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="neuralop_uno",
+            N=128,
+            generator_output_mode="amp_phase",
+        )
+        with pytest.raises(ValueError, match="real_imag"):
+            setup_torch_configs(cfg)
 
     def test_runner_rejects_hybrid_resnet_shallow_blocks(self, tmp_path):
         """hybrid_resnet should reject fno_blocks < 3 with a clear error."""
