@@ -25,6 +25,7 @@
 - [ ] **Baseline Authority:** `docs/model_baselines.md` - inherit the recommended Hybrid ResNet baseline unless a study explicitly overrides it.
 - [ ] **Study Discovery:** `docs/studies/index.md` - reuse existing study runbooks and artifact contracts where possible.
 - [ ] **Known Findings:** `docs/findings.md` - obey active PyTorch/grid-lines findings, including probe-mask and reassembly contracts.
+- [ ] **Evidence Index Maintenance:** Result-producing NeurIPS work must consult and update the durable evidence indexes before it is marked complete.
 - [ ] **Artifact Policy:** Do not write manuscript prose or generated paper-facing artifacts until the roadmap reaches the artifact assembly phase.
 
 ## Context Priming
@@ -45,6 +46,37 @@ For non-ML CDI comparator context, also read:
 
 - `docs/plans/revision-studies/non-ml-single-shot-cdi-benchmark-design-seed.md`
 - `scripts/reconstruction/hio_cdi_benchmark.py`
+
+## Evidence Index Maintenance Policy
+
+Any NeurIPS backlog item that trains, evaluates, packages, or audits a model
+variant, ablation, hyperparameter study, or paper-facing run must consult the
+project evidence indexes before implementation closes:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md`
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json`
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/ablation_index.json`
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md` for
+  paper-facing outputs, claim-boundary decisions, or completed backlog outcomes
+
+Completion requires one of:
+
+- add or update `model_variant_index.json` for any new or changed evaluated
+  model row;
+- add or update `ablation_index.json` for any ablation, hparam study,
+  architecture/config probe, harness, audit, or decision output;
+- add or update `evidence_matrix.md` for every durable generated output that a
+  later manuscript/table/planning task should discover;
+- for paper-facing evidence, add or update `paper_evidence_index.md`, or
+  explicitly point to the authoritative paper-evidence summary that already
+  owns the row;
+- if no index update is applicable, state that explicitly in the execution
+  report with the reason.
+
+Backlog plans and implementation reviews should reject result-producing items
+that leave these surfaces stale. This policy applies to append-only extensions
+as well as fresh runs; promoting existing rows into a new table or bundle still
+requires the index lineage to be current.
 
 ## Phase 0 - Evidence Inventory and Regeneration Plan
 
@@ -192,6 +224,7 @@ Purpose: regenerate the missing `128x128` Hybrid ResNet CDI anchor, then package
 - [ ] 3.3c: Complete the `lines128` benchmark table required by `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md`: `hybrid_resnet`, paired CDI `cnn` U-Net-class supervised and PINN rows, `spectral_resnet_bottleneck_net`, selected FNO comparator, and FFNO as a CDI/grid-lines generator. Optional classical CDI rows may be added under the same contract.
 - [ ] 3.3d: Assess a classical HIO/ER/PyNX-style CDI baseline only if it can obey the same `lines128` data, probe, split, metric, and provenance contract; otherwise record an explicit `not_protocol_compatible` outcome.
 - [ ] 3.3e: Add the required supervised FFNO CDI control row only after the minimum local supervised/PINN pair and physics-informed Lines128 table are locked, so the complete FFNO + PINN row has a same-contract training-procedure comparator.
+- [ ] 3.3f: After the authoritative six-row `lines128` CDI bundle is locked, optional append-only comparator extensions may run only from a checked-in design/preflight that preserves the immutable base root, launches only the new rows, and records explicit lineage to the authoritative complete-table bundle. The current approved candidate for this lane is the external NeuralOperator U-NO extension defined in `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_design.md`.
 - [ ] 3.4: Run only the highest-value CDI ablations: spectral/FNO mode or capacity, local/ResNet capacity, and skip routing if already supported. Do not let ablations replace the complete `lines128` table unless a checked-in design amendment changes the required rows.
 - [ ] 3.5: Prepare qualitative figure inputs from regenerated or verified reconstructions.
 - [ ] 3.6: Write `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_anchor_summary.md`.
@@ -204,6 +237,7 @@ Gate:
 - [ ] The minimum draftable CDI subset is labeled as a subset and not as the complete `lines128` benchmark.
 - [ ] The complete `lines128` CDI benchmark includes `hybrid_resnet`, `spectral_resnet_bottleneck_net`, the selected FNO comparator, and FFNO, or records explicit row-level blockers / a checked-in design amendment.
 - [ ] The minimum CDI subset includes both supervised and PINN rows for the CDI `cnn` U-Net-class architecture; after the complete Lines128 table is locked, the required supervised FFNO control is run under the same contract. Other supervised counterparts remain non-required unless a checked-in design amendment adds them.
+- [ ] Optional post-table comparator extensions remain append-only follow-up evidence: they cannot rewrite the authoritative six-row root, cannot silently change the locked `lines128` contract, and do not become required Phase 3 completion work unless a later checked-in design amendment promotes them.
 - [ ] Qualitative outputs match the quantitative claim.
 - [ ] Any non-ML CDI baseline row is labeled with its exact prior/solver contract.
 
@@ -286,6 +320,8 @@ The PDEBench image-suite amendment is now a binding selector input for Phase 2. 
 
 The paper-evidence package design is a binding selector input for late Phase 2 and Phase 3 packaging. CNS paper work must pass through the contract-decision, row-lock, and table/figure-bundle sequence before claims are drafted. CDI paper work must distinguish the minimum draftable `hybrid_resnet`/paired-CDI-cnn-U-Net-class/FNO subset from the complete `lines128` benchmark table required by the detailed `lines128` design, including `spectral_resnet_bottleneck_net` and FFNO. Candidate inverse-wave preflights, including Born/Rytov diffraction tomography and WaveBench inverse source, may execute concurrently under `candidate-*` roadmap phases; priority values in backlog frontmatter should control when they run relative to CDI/CNS work instead of adding brittle one-off gate prefixes. BRDT and WaveBench are on equal footing as optional candidate lanes: neither may replace CDI or CNS, neither may consume paper-critical claims before a later evidence-package amendment, and each must stay limited to its checked-in preflight scope. Phase 5 paper-facing index work remains paused until the roadmap gate changes; do not make `phase-5-*` selectable while `docs/backlog/roadmap_gate.json` disallows it.
 
+After the authoritative six-row `lines128` CDI bundle is complete, Phase 3 may also admit optional append-only comparator preflights that preserve the locked base bundle and run no existing rows again. The selected `2026-04-30-cdi-lines128-uno-design-preflight` item falls in this lane: it may verify the `neuraloperator`/`neuralop.models.UNO` environment and freeze the later `neuralop_uno` row contract, but it must not reopen the required six-row roster or silently promote U-NO into Phase 3 completion criteria without a checked-in design amendment.
+
 After the 2026-04-21 CNS readiness and capped-comparison updates, the selector may choose either `phase-2-pdebench-darcy-static-operator-benchmark` as the next full-training benchmark scope or a capped CNS comparison scope that reuses the verified `history_len=2` MSE anchor and records any follow-up variant against that anchor. If the selected CNS scope is an equal-footing history-contract compare, it must rerun the full four-row shell (`spectral_resnet_bottleneck_base`, `hybrid_resnet_cns`, `fno_base`, and `unet_strong`) rather than probing only a single row. These CNS follow-up compares remain benchmark-incomplete until full-training Hybrid ResNet, FNO, and `unet_strong` rows run on the full available training split. The Darcy tranche is defined by `docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md` and should implement Darcy static-operator support, strong local U-Net/FNO baselines, and literature-calibrated reporting before any full-suite summary.
 
 Current backlog dependency relations for the Phase 2 CNS queue are tracked in
@@ -345,6 +381,7 @@ item introduces an explicit prerequisite.
 - Roadmap: `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md`
 - Paper evidence package design: `docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_package_design.md`
 - Lines128 CDI benchmark design: `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md`
+- Lines128 U-NO extension design: `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_design.md`
 - Backlog dependency index: `docs/backlog/index.md`
 - PDEBench image-suite plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md`
 - Initiative docs root: `docs/plans/NEURIPS-HYBRID-RESNET-2026/`
