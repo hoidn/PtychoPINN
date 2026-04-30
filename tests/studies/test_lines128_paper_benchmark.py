@@ -1045,6 +1045,176 @@ def test_main_finalizes_bundle_after_wrapper_invocation_completes(tmp_path, monk
     assert manifest_payload["benchmark_status"] == "paper_complete"
 
 
+def test_main_finalizes_recovered_torch_launcher_completion_after_wrapper_completion(tmp_path, monkeypatch):
+    from scripts.studies import lines128_paper_benchmark as benchmark
+
+    output_dir = tmp_path / "out"
+
+    def fake_run_grid_lines_compare(**_kwargs):
+        _materialize_minimum_subset_bundle_artifacts(
+            output_dir,
+            include_wrapper_artifacts=False,
+        )
+        _write_text(
+            output_dir / "launcher_stderr.log",
+            "\n".join(
+                [
+                    f"Saved artifacts to {output_dir / 'runs' / 'pinn_hybrid_resnet'}",
+                    f"Torch runner complete. Artifacts in {output_dir / 'runs' / 'pinn_hybrid_resnet'}",
+                    f"Saved artifacts to {output_dir / 'runs' / 'pinn_fno_vanilla'}",
+                    f"Torch runner complete. Artifacts in {output_dir / 'runs' / 'pinn_fno_vanilla'}",
+                ]
+            )
+            + "\n",
+        )
+        row_payloads = {}
+        for model_id, backend in (
+            ("baseline", "tensorflow"),
+            ("pinn", "tensorflow"),
+            ("pinn_hybrid_resnet", "pytorch"),
+            ("pinn_fno_vanilla", "pytorch"),
+        ):
+            row_payloads[model_id] = {
+                "model_label": {
+                    "baseline": "CDI CNN + supervised",
+                    "pinn": "CDI CNN + PINN",
+                    "pinn_hybrid_resnet": "Hybrid ResNet + PINN",
+                    "pinn_fno_vanilla": "FNO Vanilla + PINN",
+                }[model_id],
+                "architecture_id": "cnn" if model_id in {"baseline", "pinn"} else model_id.replace("pinn_", ""),
+                "training_procedure": "supervised" if model_id == "baseline" else "pinn",
+                "N": 128,
+                "parameter_count": 1,
+                "epoch_budget": 40,
+                "final_completed_epoch": 40,
+                "final_train_loss": 0.1,
+                "validation_loss": {"status": "emitted", "value": 0.05},
+                "runtime_summary": {
+                    "recovered_from_existing_artifacts": True,
+                    "runtime_source": "unavailable_under_recovery" if backend == "tensorflow" else "row_invocation",
+                },
+                "hardware_summary": {"backend": backend},
+                "row_status": "paper_grade",
+                "caveats": ["recovered_from_existing_artifacts"],
+                "invocation": {"json": f"runs/{model_id}/invocation.json", "shell": f"runs/{model_id}/invocation.sh"},
+                "config": {"json": f"runs/{model_id}/config.json"},
+                "git": {"commit": "abc123", "dirty_state_note": {"source": "test", "dirty": False}},
+                "environment": {
+                    "python_executable": "/usr/bin/python",
+                    "python_version": "3.11.0",
+                    "torch_version": "2.4.1",
+                    "cuda_version": "12.1",
+                    "gpu": "rtx3090",
+                    "host": "test-host",
+                },
+                "dataset": {
+                    "train_npz": "train.npz",
+                    "test_npz": "test.npz",
+                    "dataset_source": "synthetic_lines",
+                    "manifest_json": "dataset_identity_manifest.json",
+                },
+                "splits": {
+                    "nimgs_train": 2,
+                    "nimgs_test": 2,
+                    "gridsize": 1,
+                    "set_phi": True,
+                    "seed": 3,
+                    "manifest_json": "split_manifest.json",
+                },
+                "randomness": {"requested_seed": 3},
+                "outputs": {
+                    "metrics_json": f"runs/{model_id}/metrics.json",
+                    "history_json": f"runs/{model_id}/history.json",
+                    "recon_npz": f"recons/{model_id}/recon.npz",
+                    "stdout_log": f"runs/{model_id}/stdout.log",
+                    "stderr_log": f"runs/{model_id}/stderr.log",
+                    "exit_code_proof_json": f"runs/{model_id}/exit_code_proof.json",
+                },
+                "visuals": {
+                    "amp_phase_png": f"visuals/amp_phase_{model_id}.png",
+                    "amp_phase_error_png": f"visuals/amp_phase_error_{model_id}.png",
+                },
+                "metrics": {
+                    "mae": (0.1, 0.1),
+                    "mse": (0.2, 0.2),
+                    "psnr": (1.0, 1.0),
+                    "ssim": (0.9, 0.9),
+                    "ms_ssim": (0.8, 0.8),
+                    "frc50": (0.7, 0.7),
+                },
+            }
+        return {
+            "train_npz": str(output_dir / "train.npz"),
+            "test_npz": str(output_dir / "test.npz"),
+            "gt_recon": str(output_dir / "recons" / "gt" / "recon.npz"),
+            "recon_paths": {
+                model_id: str(output_dir / "recons" / model_id / "recon.npz")
+                for model_id in row_payloads
+            },
+            "row_payloads": row_payloads,
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines128_paper_benchmark.run_grid_lines_compare",
+        fake_run_grid_lines_compare,
+    )
+    monkeypatch.setenv("CODEX_TMUX_SESSION_NAME", "lines128-test")
+    monkeypatch.setenv("CODEX_TMUX_SOCKET_PATH", "/tmp/lines128-test.sock")
+    monkeypatch.setenv(
+        "CODEX_TMUX_ATTACH_COMMAND",
+        "tmux -S /tmp/lines128-test.sock attach -t lines128-test",
+    )
+    monkeypatch.setenv(
+        "CODEX_TMUX_CAPTURE_COMMAND",
+        "tmux -S /tmp/lines128-test.sock capture-pane -p -t lines128-test:0.0",
+    )
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+    authority_note = _write_execution_authority_note(tmp_path / "authority.md")
+    execution_manifest = _write_execution_manifest(
+        tmp_path / "execution" / "benchmark_execution_decisions.json",
+    )
+
+    benchmark.main(
+        [
+            "--mode",
+            "minimum_subset",
+            "--decision-artifact",
+            str(decision_artifact),
+            "--execution-authority-note",
+            str(authority_note),
+            "--execution-manifest",
+            str(execution_manifest),
+            "--output-dir",
+            str(output_dir),
+            "--reuse-existing-recons",
+        ]
+    )
+
+    metrics_payload = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
+    manifest_payload = json.loads((output_dir / "paper_benchmark_manifest.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "paper_complete"
+    assert metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"] == []
+    assert metrics_payload["missing_fields_by_row"]["pinn_fno_vanilla"] == []
+    assert (
+        metrics_payload["rows"]["pinn_hybrid_resnet"]["outputs"]["launcher_completion_json"]
+        == "runs/pinn_hybrid_resnet/launcher_completion.json"
+    )
+    assert (
+        metrics_payload["rows"]["pinn_fno_vanilla"]["outputs"]["launcher_completion_json"]
+        == "runs/pinn_fno_vanilla/launcher_completion.json"
+    )
+    assert manifest_payload["benchmark_status"] == "paper_complete"
+    assert (
+        manifest_payload["rows"][2]["artifacts"]["launcher_completion_json"]
+        == "runs/pinn_hybrid_resnet/launcher_completion.json"
+    )
+    assert (
+        manifest_payload["rows"][3]["artifacts"]["launcher_completion_json"]
+        == "runs/pinn_fno_vanilla/launcher_completion.json"
+    )
+
+
 def test_minimum_subset_downgrades_when_required_bundle_visual_is_missing(tmp_path, monkeypatch):
     from scripts.studies.lines128_paper_benchmark import run_lines128_paper_benchmark
 

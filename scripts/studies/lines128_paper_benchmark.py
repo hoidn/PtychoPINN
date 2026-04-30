@@ -21,6 +21,7 @@ from scripts.studies.paper_provenance import (
     merge_git_provenance,
     merge_runtime_provenance,
     relative_to_output_dir,
+    write_launcher_completion_evidence,
 )
 
 
@@ -241,6 +242,83 @@ def _update_bundle_status(
     return metrics_payload
 
 
+def _wrapper_reuses_existing_recons(output_dir: Path) -> bool:
+    invocation_payload = _load_json_if_exists(output_dir / "invocation.json")
+    parsed_args = invocation_payload.get("parsed_args")
+    return isinstance(parsed_args, Mapping) and bool(parsed_args.get("reuse_existing_recons"))
+
+
+def _row_requires_launcher_completion_evidence(row_payload: Mapping[str, object], *, output_dir: Path) -> bool:
+    runtime_summary = row_payload.get("runtime_summary")
+    hardware_summary = row_payload.get("hardware_summary")
+    if not isinstance(runtime_summary, Mapping) or not isinstance(hardware_summary, Mapping):
+        return False
+    if hardware_summary.get("backend") != "pytorch":
+        return False
+    if not bool(runtime_summary.get("recovered_from_existing_artifacts")):
+        return False
+    return _wrapper_reuses_existing_recons(output_dir)
+
+
+def _refresh_row_payloads_after_wrapper_completion(
+    output_dir: Path,
+    row_payloads: Mapping[str, object],
+) -> Dict[str, object]:
+    refreshed: Dict[str, object] = {}
+    for model_id, payload in row_payloads.items():
+        if not isinstance(payload, Mapping):
+            refreshed[model_id] = payload
+            continue
+        row_payload = dict(payload)
+        outputs_payload = dict(row_payload.get("outputs")) if isinstance(row_payload.get("outputs"), Mapping) else {}
+        if _row_requires_launcher_completion_evidence(row_payload, output_dir=output_dir):
+            launcher_completion_path = write_launcher_completion_evidence(
+                output_dir,
+                model_id=str(model_id),
+                wrapper_invocation_json=output_dir / "invocation.json",
+                launcher_stderr_log=output_dir / "launcher_stderr.log",
+            )
+            if launcher_completion_path is not None:
+                outputs_payload["launcher_completion_json"] = relative_to_output_dir(
+                    output_dir,
+                    launcher_completion_path,
+                )
+        if outputs_payload:
+            row_payload["outputs"] = outputs_payload
+        refreshed[str(model_id)] = row_payload
+    return refreshed
+
+
+def _refresh_manifest_row_artifacts(output_dir: Path, rows: object) -> List[Dict[str, object]] | object:
+    if not isinstance(rows, list):
+        return rows
+    refreshed_rows: List[Dict[str, object]] = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            refreshed_rows.append(dict(row) if isinstance(row, dict) else {"value": row})
+            continue
+        row_payload = dict(row)
+        model_id = row_payload.get("model_id")
+        artifacts = dict(row_payload.get("artifacts")) if isinstance(row_payload.get("artifacts"), Mapping) else {}
+        artifact_mtimes = (
+            dict(row_payload.get("artifact_mtimes"))
+            if isinstance(row_payload.get("artifact_mtimes"), Mapping)
+            else {}
+        )
+        if isinstance(model_id, str):
+            launcher_completion_path = output_dir / "runs" / model_id / "launcher_completion.json"
+            if launcher_completion_path.exists():
+                artifacts["launcher_completion_json"] = relative_to_output_dir(
+                    output_dir,
+                    launcher_completion_path,
+                )
+                artifact_mtimes["launcher_completion_json"] = launcher_completion_path.stat().st_mtime
+        row_payload["artifacts"] = artifacts
+        row_payload["artifact_mtimes"] = artifact_mtimes
+        refreshed_rows.append(row_payload)
+    return refreshed_rows
+
+
 def _finalize_minimum_subset_bundle_status(
     *,
     output_dir: Path,
@@ -248,6 +326,30 @@ def _finalize_minimum_subset_bundle_status(
 ) -> Dict[str, object]:
     metrics_path = Path(bundle_paths["metrics_json"])
     metrics_payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+    row_payloads = metrics_payload.get("rows")
+    if not isinstance(row_payloads, Mapping):
+        raise ValueError("metrics.json rows payload must be a JSON object")
+    visual_collation = metrics_payload.get("visual_collation")
+    if not isinstance(visual_collation, Mapping):
+        raise ValueError("metrics.json visual_collation payload must be a JSON object")
+    fixed_sample_ids = visual_collation.get("fixed_sample_ids")
+    shared_visual_scales = visual_collation.get("shared_visual_scales")
+    if not isinstance(fixed_sample_ids, list) or not isinstance(shared_visual_scales, Mapping):
+        raise ValueError("metrics.json visual_collation fields are malformed")
+    refreshed_row_payloads = _refresh_row_payloads_after_wrapper_completion(output_dir, row_payloads)
+    bundle_paths = write_paper_benchmark_bundle(
+        output_dir=output_dir,
+        row_payloads=refreshed_row_payloads,
+        required_rows=metrics_payload.get("required_rows", ()),
+        fixed_sample_ids=fixed_sample_ids,
+        shared_visual_scales=shared_visual_scales,
+        selected_fno_comparator=metrics_payload.get("selected_fno_comparator"),
+        row_statuses=metrics_payload.get("row_statuses"),
+        evidence_scope=str(metrics_payload.get("evidence_scope", "minimum_subset_benchmark_execution")),
+        claim_boundary=str(metrics_payload.get("claim_boundary", "minimum_draftable_cdi_subset")),
+        require_row_provenance=True,
+    )
+    metrics_payload = json.loads(Path(bundle_paths["metrics_json"]).read_text(encoding="utf-8"))
     missing_bundle_artifacts = _collect_missing_bundle_artifacts(output_dir)
     missing_fields_by_row = metrics_payload.get("missing_fields_by_row", {})
     has_row_gaps = any(
@@ -268,6 +370,7 @@ def _finalize_minimum_subset_bundle_status(
         manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
         manifest_payload["benchmark_status"] = benchmark_status
         manifest_payload["missing_bundle_artifacts"] = list(missing_bundle_artifacts)
+        manifest_payload["rows"] = _refresh_manifest_row_artifacts(output_dir, manifest_payload.get("rows"))
         manifest_path.write_text(json.dumps(manifest_payload, indent=2), encoding="utf-8")
 
     return updated_metrics_payload

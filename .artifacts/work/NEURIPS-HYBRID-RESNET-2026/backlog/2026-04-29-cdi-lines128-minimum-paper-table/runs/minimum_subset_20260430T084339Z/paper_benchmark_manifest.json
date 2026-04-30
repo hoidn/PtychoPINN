@@ -1,5 +1,5 @@
 {
-  "benchmark_status": "benchmark_incomplete",
+  "benchmark_status": "paper_complete",
   "claim_boundary": "minimum_draftable_cdi_subset",
   "selected_fno_comparator": "fno_vanilla",
   "seed_policy": {
@@ -46,7 +46,7 @@
     "shell": "invocation.sh"
   },
   "git": {
-    "commit": "e10bde122226e4f1ccf719b8f1802bb1f919e084",
+    "commit": "4748b703185851ea16b9e049eaabb26991e1a2b0",
     "dirty_state_note": {
       "source": "wrapper_manifest_write",
       "dirty": true
@@ -74,9 +74,7 @@
     "visuals/compare_amp_phase.png": "visuals/compare_amp_phase.png",
     "visuals/frc_curves.png": "visuals/frc_curves.png"
   },
-  "missing_bundle_artifacts": [
-    "launcher_invocation_contract"
-  ],
+  "missing_bundle_artifacts": [],
   "rows": [
     {
       "model_id": "baseline",
@@ -131,7 +129,7 @@
         "history_json": 1777541012.2140548,
         "metrics_json": 1777541012.2131233,
         "recon_npz": 1777541012.0271213,
-        "launcher_completion_json": 1777548800.8152294
+        "launcher_completion_json": 1777553252.71524
       }
     },
     {
@@ -151,7 +149,7 @@
         "history_json": 1777541522.638773,
         "metrics_json": 1777541522.637911,
         "recon_npz": 1777541522.4552991,
-        "launcher_completion_json": 1777548801.6736362
+        "launcher_completion_json": 1777553252.7155485
       }
     }
   ]

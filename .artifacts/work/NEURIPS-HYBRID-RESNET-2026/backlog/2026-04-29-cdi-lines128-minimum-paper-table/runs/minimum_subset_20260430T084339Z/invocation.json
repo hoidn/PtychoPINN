@@ -23,8 +23,8 @@
     "reuse_existing_recons": true
   },
   "cwd": "/home/ollie/Documents/PtychoPINN",
-  "timestamp_utc": "2026-04-30T11:59:26.230910+00:00",
-  "pid": 1412363,
+  "timestamp_utc": "2026-04-30T12:47:19.780031+00:00",
+  "pid": 1428743,
   "extra": {
     "runtime_provenance": {
       "python_executable": "/home/ollie/miniconda3/envs/ptycho311/bin/python3.11",
@@ -32,15 +32,15 @@
       "pythonpath": "/home/ollie/Documents/agent-orchestration:/home/ollie/Documents/agent-orchestration:/home/ollie/Documents/agent-orchestration:/home/ollie/Documents/agent-orchestration",
       "ptycho_torch_file": "/home/ollie/Documents/PtychoPINN/ptycho_torch/__init__.py"
     },
-    "git_commit": "e10bde122226e4f1ccf719b8f1802bb1f919e084",
+    "git_commit": "4748b703185851ea16b9e049eaabb26991e1a2b0",
     "tmux": {
-      "session_name": "lines128-runtime-regen",
-      "socket_path": "/tmp/claude-tmux-sockets/lines128-runtime-regen.sock",
-      "attach_command": "tmux -S /tmp/claude-tmux-sockets/lines128-runtime-regen.sock attach -t lines128-runtime-regen",
-      "capture_command": "tmux -S /tmp/claude-tmux-sockets/lines128-runtime-regen.sock capture-pane -p -J -t lines128-runtime-regen:0.0 -S -200"
+      "session_name": "lines128-finalize",
+      "socket_path": "/tmp/claude-tmux-sockets/lines128-finalize.sock",
+      "attach_command": "tmux -S /tmp/claude-tmux-sockets/lines128-finalize.sock attach -t lines128-finalize",
+      "capture_command": "tmux -S /tmp/claude-tmux-sockets/lines128-finalize.sock capture-pane -p -J -t lines128-finalize:0.0 -S -200"
     }
   },
   "status": "completed",
   "exit_code": 0,
-  "finished_at_utc": "2026-04-30T11:59:39.089503+00:00"
+  "finished_at_utc": "2026-04-30T12:47:32.714374+00:00"
 }

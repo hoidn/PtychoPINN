@@ -1,6 +1,6 @@
 {
   "model_id": "pinn_fno_vanilla",
-  "validated_at_utc": "2026-04-30T11:33:21.673531+00:00",
+  "validated_at_utc": "2026-04-30T12:47:32.715453+00:00",
   "evidence_source": "wrapper_launcher_stderr_row_completion_markers",
   "wrapper_invocation_json": "invocation.json",
   "launcher_stderr_log": "launcher_stderr.log",

@@ -9,38 +9,27 @@
 
 ## Completed In This Pass
 
-- fixed the remaining review-blocking provenance path in code so the wrapper
-  and both Torch rows persist the launcher/row exit-code contract that the
-  minimum-subset validator now enforces
-- added machine-readable recovered-Torch completion evidence for
-  `minimum_subset_20260430T084339Z` at
-  `runs/pinn_hybrid_resnet/launcher_completion.json` and
-  `runs/pinn_fno_vanilla/launcher_completion.json`, with launcher-level log
-  matches rather than the previously circular row-local proof pair alone
-- relaxed the diagnostic-log contract so shared or duplicated `stdout.log` /
-  `stderr.log` content is not by itself a paper-grade blocker when structured
-  row evidence is complete
-- retained the stricter rejection of synthetic reuse proof, missing outputs,
-  missing visuals, incomplete invocation status, and contract/provenance gaps
-- added regression coverage for the wrapper-finalization race, the top-level
-  compare-wrapper exit-code contract, the torch-runner row exit-code contract,
-  and the diagnostic-log admissibility rule
-- repaired the completed fresh rerun root
-  `minimum_subset_20260430T084339Z` in place; the retained paper-grade claim in
-  this pass now depends on the structured `launcher_completion.json` row
-  provenance above rather than on the repaired row-local Torch
-  invocation/proof pair alone
-- reran same-root minimum-subset bundle regeneration under tmux with tracked
-  PID `1367035`; it exited `0` and rewrote `metrics.json`,
-  `model_manifest.json`, and `paper_benchmark_manifest.json` to
+- fixed the review-blocking wrapper-finalization gap in
+  `scripts/studies/lines128_paper_benchmark.py`: once the wrapper invocation is
+  `completed`, the finalizer now reattaches recovered-Torch
+  `launcher_completion.json` evidence into the row `outputs` payloads, rewrites
+  `metrics.json` / `model_manifest.json` from those refreshed rows, and
+  refreshes `paper_benchmark_manifest.json` row artifacts to match
+- added a regression in
+  `tests/studies/test_lines128_paper_benchmark.py` that reproduces the exact
+  retained-root failure mode under `--reuse-existing-recons`
+- reran same-root minimum-subset bundle regeneration under a dedicated tmux
+  launcher contract and refreshed the authoritative
+  `minimum_subset_20260430T084339Z` root so `metrics.json`,
+  `model_manifest.json`, and `paper_benchmark_manifest.json` now all agree on
   `paper_complete`
-- reran the focused and required backlog verification gates plus `compileall`
-  with fresh passing evidence
+- reran the focused suite, required backlog verification gate, and
+  `compileall` with fresh passing evidence
 - accepted `minimum_subset_20260430T084339Z` as the authoritative minimum-table
   root: its metrics, model manifest, and paper benchmark manifest report
   `paper_complete`, empty `missing_fields_by_row`, and no missing bundle
-  artifacts, and the review-requested independent Torch-row completion evidence
-  is now recorded separately
+  artifacts, and the recovered-Torch launcher-completion evidence is now
+  attached directly inside the row outputs/manifests
 - retained the earlier `minimum_subset_20260430T035104Z` rerun and the stopped
   `minimum_subset_20260430T051928Z` follow-up as historical, non-authoritative
   roots under the current launcher/row invocation contract
@@ -99,20 +88,19 @@
 ## Verification
 
 - focused review-fix regression suite:
-  `pytest -q tests/studies/test_lines128_paper_benchmark.py tests/studies/test_metrics_tables.py tests/test_grid_lines_compare_wrapper.py tests/studies/test_paper_provenance.py`
-  -> `96 passed, 23 warnings in 17.49s`
+  `pytest -q tests/studies/test_lines128_paper_benchmark.py tests/test_grid_lines_compare_wrapper.py tests/studies/test_paper_provenance.py`
+  -> `76 passed, 23 warnings in 19.15s`
 - required deterministic gates:
   `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
-  -> `172 passed, 47 warnings in 300.78s (0:05:00)`
+  -> `173 passed, 47 warnings in 301.72s (0:05:01)`
 - required compile gate:
   `python -m compileall -q ptycho_torch scripts/studies`
   -> exit `0`
 - archived logs:
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/pytest_focused_20260430T1130Z.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/pytest_required_20260430T1130Z.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/compileall_required_20260430T1130Z.log`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/torch_row_exit_evidence_20260430T104510Z.md`
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/lines128_same_root_bundle_regen_20260430T084339Z_review_fix_final.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/pytest_focused_20260430T122925Z.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/pytest_required_20260430T122925Z.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/compileall_required_20260430T122925Z.log`
+  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/lines128_same_root_bundle_regen_20260430T122925Z.log`
 
 ## Boundary And Remaining Scope
 
