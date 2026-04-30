@@ -35,6 +35,16 @@ STATUS_VOCABULARY = {
 }
 
 
+def _verification_log_paths(artifact_root: str) -> dict[str, str]:
+    verification_root = f"{artifact_root}/verification"
+    return {
+        "required_inputs_check_log": f"{verification_root}/required_inputs_check.log",
+        "pytest_log": f"{verification_root}/pytest_paper_evidence_audit.log",
+        "audit_output_validation_log": f"{verification_root}/audit_output_validation.log",
+        "audit_direct_entrypoint_log": f"{verification_root}/audit_direct_entrypoint.log",
+    }
+
+
 def _now_utc() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -61,6 +71,23 @@ def _load_json(repo_root: Path, path_value: str | Path) -> dict[str, Any]:
     if not payload:
         raise ValueError(f"missing required JSON payload: {path_value}")
     return payload
+
+
+def _assert_paths_match_authoritative_root(
+    *,
+    repo_root: Path,
+    authoritative_root: str,
+    path_values: dict[str, str],
+    pillar_label: str,
+) -> None:
+    authoritative_root_path = _resolve(repo_root, authoritative_root).resolve()
+    for label, path_value in path_values.items():
+        resolved_path = _resolve(repo_root, path_value).resolve()
+        if resolved_path.parent != authoritative_root_path:
+            raise ValueError(
+                f"{pillar_label} authoritative root identity mismatch for {label}: "
+                f"expected parent {authoritative_root_path}, got {resolved_path.parent}"
+            )
 
 
 def ensure_repo_local_output_path(path_value: str | Path, *, repo_root: Path | None = None) -> Path:
@@ -104,6 +131,7 @@ def build_default_input_manifest(repo_root: Path | str) -> dict[str, Any]:
             "audit_validation_path": validation_path,
             "manifest_path": manifest_path,
             "summary_path": summary_path,
+            "verification_logs": _verification_log_paths(artifact_root),
         },
         "cdi": {
             "pillar_id": "cdi",
@@ -205,6 +233,16 @@ def load_cdi_authority(cdi_inputs: dict[str, Any], *, repo_root: Path) -> dict[s
     authoritative_root = cdi_inputs["authoritative_root"]
     if authoritative_root not in summary_text:
         raise ValueError(f"CDI summary does not name authoritative root {authoritative_root}")
+    _assert_paths_match_authoritative_root(
+        repo_root=repo_root,
+        authoritative_root=authoritative_root,
+        path_values={
+            "paper_manifest_path": cdi_inputs["paper_manifest_path"],
+            "metrics_path": cdi_inputs["metrics_path"],
+            "model_manifest_path": cdi_inputs["model_manifest_path"],
+        },
+        pillar_label="CDI",
+    )
 
     paper_manifest = _load_json(repo_root, cdi_inputs["paper_manifest_path"])
     metrics_payload = _load_json(repo_root, cdi_inputs["metrics_path"])
@@ -330,6 +368,16 @@ def _normalize_cns_row(
     }
 
 
+def _normalize_cns_adjacent_context(context_payload: dict[str, Any]) -> dict[str, Any]:
+    normalized = deepcopy(context_payload)
+    source_status = str(normalized.get("status", ""))
+    if source_status == "excluded_adjacent_context":
+        normalized["status"] = "not_protocol_compatible"
+    if source_status:
+        normalized["source_status"] = source_status
+    return normalized
+
+
 def load_cns_authority(cns_inputs: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
     contract_text = _read_text(repo_root, cns_inputs["contract_decision_path"])
     row_lock_text = _read_text(repo_root, cns_inputs["row_lock_summary_path"])
@@ -389,7 +437,10 @@ def load_cns_authority(cns_inputs: dict[str, Any], *, repo_root: Path) -> dict[s
             cns_inputs["fixed_sample_manifest_path"],
             cns_inputs["bundle_root"] + "/figures",
         ],
-        "adjacent_context": deepcopy(locked_rows.get("excluded_adjacent_context", [])),
+        "adjacent_context": [
+            _normalize_cns_adjacent_context(context)
+            for context in locked_rows.get("excluded_adjacent_context", [])
+        ],
         "provenance_gaps": sorted(
             {
                 gap
@@ -563,7 +614,15 @@ def validate_manifest(manifest: dict[str, Any]) -> dict[str, bool]:
         outputs["audit_validation_path"],
         outputs["manifest_path"],
         outputs["summary_path"],
+        *outputs["verification_logs"].values(),
     ]
+    status_values = {
+        manifest["pillar_summaries"]["cdi"]["headline_status"],
+        manifest["pillar_summaries"]["cns"]["headline_status"],
+        *(context["row_status"] for context in manifest["pillar_summaries"]["cdi"]["adjacent_context"]),
+        *(context["status"] for context in manifest["pillar_summaries"]["cns"]["adjacent_context"]),
+        *(entry["status"] for entry in manifest["blocked_claims"]),
+    }
     return {
         "cdi_headline_is_paper_grade": manifest["pillar_summaries"]["cdi"]["headline_status"] == "paper_grade",
         "cns_headline_is_capped_decision_support": (
@@ -576,6 +635,7 @@ def validate_manifest(manifest: dict[str, Any]) -> dict[str, bool]:
             context["row_status"] != "paper_grade"
             for context in manifest["pillar_summaries"]["cdi"]["adjacent_context"]
         ),
+        "all_statuses_within_frozen_vocabulary": status_values <= set(manifest["status_vocabulary"]),
         "no_output_targets_under_neurips": not any(path.startswith(str(NEURIPS_MANUSCRIPT_ROOT)) for path in output_values),
     }
 
@@ -583,6 +643,7 @@ def validate_manifest(manifest: dict[str, Any]) -> dict[str, bool]:
 def render_audit_summary(manifest: dict[str, Any]) -> str:
     cdi = manifest["pillar_summaries"]["cdi"]
     cns = manifest["pillar_summaries"]["cns"]
+    outputs = manifest["output_targets"]
     adjacent_cdi_lines = "\n".join(
         f"- `{context['artifact_id']}`: `{context['row_status']}` under `{context['claim_boundary']}` from `{context['source_root']}`."
         for context in cdi["adjacent_context"]
@@ -590,6 +651,9 @@ def render_audit_summary(manifest: dict[str, Any]) -> str:
     cns_adjacent_lines = "\n".join(
         f"- `{context['context_id']}`: `{context['status']}` because {context['reason']}"
         for context in cns["adjacent_context"]
+    )
+    verification_lines = "\n".join(
+        f"- `{label}`: `{path}`" for label, path in outputs["verification_logs"].items()
     )
     vocabulary_lines = "\n".join(
         f"- `{status}`: {description}" for status, description in manifest["status_vocabulary"].items()
@@ -614,6 +678,14 @@ def render_audit_summary(manifest: dict[str, Any]) -> str:
 - CNS headline authority: `{cns['headline_status']}` under `{cns['claim_boundary']}` from `{cns['source_root']}`.
 - CNS bundle status: `{cns['bundle_status']}` reflects table/figure assembly completeness only; it does not upgrade the pillar beyond `{cns['headline_status']}`.
 - No outputs from this item target `/home/ollie/Documents/neurips/`; all emitted paths stay repo-local.
+
+## Emitted Outputs
+
+- Manifest path: `{outputs['manifest_path']}`
+- Summary path: `{outputs['summary_path']}`
+- Validation payload: `{outputs['audit_validation_path']}`
+Verification logs:
+{verification_lines}
 
 ## Draftable Now
 

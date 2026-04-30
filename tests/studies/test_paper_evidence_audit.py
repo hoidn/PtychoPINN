@@ -57,11 +57,32 @@ def test_load_cdi_authority_detects_same_pillar_source_disagreement(tmp_path):
 
     model_manifest = json.loads(Path(cdi_inputs["model_manifest_path"]).read_text(encoding="utf-8"))
     model_manifest["benchmark_status"] = "benchmark_incomplete"
-    tampered_model_manifest = tmp_path / "model_manifest.json"
+    authoritative_root = REPO_ROOT / cdi_inputs["authoritative_root"]
+    tampered_model_manifest = authoritative_root / "model_manifest_tampered.json"
     tampered_model_manifest.write_text(json.dumps(model_manifest, indent=2), encoding="utf-8")
-    cdi_inputs["model_manifest_path"] = str(tampered_model_manifest)
+    cdi_inputs["model_manifest_path"] = str(tampered_model_manifest.relative_to(REPO_ROOT))
 
-    with pytest.raises(ValueError, match="CDI.*benchmark status"):
+    try:
+        with pytest.raises(ValueError, match="CDI.*benchmark status"):
+            module.load_cdi_authority(cdi_inputs, repo_root=REPO_ROOT)
+    finally:
+        tampered_model_manifest.unlink(missing_ok=True)
+
+
+def test_load_cdi_authority_rejects_non_authoritative_bundle_file_paths(tmp_path):
+    module = _load_audit_module()
+    inputs = _default_inputs()
+    cdi_inputs = dict(inputs["cdi"])
+
+    copied_paths = {}
+    for key in ("paper_manifest_path", "metrics_path", "model_manifest_path"):
+        source_path = REPO_ROOT / cdi_inputs[key]
+        copied_path = tmp_path / source_path.name
+        copied_path.write_text(source_path.read_text(encoding="utf-8"), encoding="utf-8")
+        copied_paths[key] = str(copied_path)
+    cdi_inputs.update(copied_paths)
+
+    with pytest.raises(ValueError, match="CDI.*authoritative root identity"):
         module.load_cdi_authority(cdi_inputs, repo_root=REPO_ROOT)
 
 
@@ -131,3 +152,33 @@ def test_summary_mentions_same_authorities_and_claim_limits():
     assert sync_validation["cdi_status_present"] is True
     assert sync_validation["cns_status_present"] is True
     assert sync_validation["claim_boundaries_present"] is True
+
+
+def test_manifest_and_summary_use_only_frozen_status_vocabulary():
+    module = _load_audit_module()
+    manifest = module.build_manifest(_default_inputs(), repo_root=REPO_ROOT)
+    summary = module.render_audit_summary(manifest)
+    allowed_statuses = set(manifest["status_vocabulary"])
+
+    manifest_statuses = {
+        manifest["pillar_summaries"]["cdi"]["headline_status"],
+        manifest["pillar_summaries"]["cns"]["headline_status"],
+        *(context["row_status"] for context in manifest["pillar_summaries"]["cdi"]["adjacent_context"]),
+        *(context["status"] for context in manifest["pillar_summaries"]["cns"]["adjacent_context"]),
+        *(entry["status"] for entry in manifest["blocked_claims"]),
+    }
+
+    assert manifest_statuses <= allowed_statuses
+    assert "excluded_adjacent_context" not in summary
+
+
+def test_summary_records_emitted_paths_and_verification_logs():
+    module = _load_audit_module()
+    manifest = module.build_manifest(_default_inputs(), repo_root=REPO_ROOT)
+    summary = module.render_audit_summary(manifest)
+
+    assert manifest["output_targets"]["manifest_path"] in summary
+    assert manifest["output_targets"]["summary_path"] in summary
+    assert manifest["output_targets"]["audit_validation_path"] in summary
+    for log_path in manifest["output_targets"]["verification_logs"].values():
+        assert log_path in summary

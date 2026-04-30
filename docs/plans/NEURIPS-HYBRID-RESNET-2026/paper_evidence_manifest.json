@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-04-30T20:41:50.289495+00:00",
+  "generated_at_utc": "2026-04-30T20:53:06.023606+00:00",
   "status_vocabulary": {
     "paper_grade": "Evidence satisfies the current paper-facing provenance contract and may support headline claims.",
     "full_training": "Evidence proves a same-protocol full-training benchmark lane rather than a capped substitute.",
@@ -13,7 +13,13 @@
     "audit_inputs_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/audit_inputs.json",
     "audit_validation_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/audit_validation.json",
     "manifest_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_manifest.json",
-    "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_package_audit_summary.md"
+    "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_package_audit_summary.md",
+    "verification_logs": {
+      "required_inputs_check_log": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/verification/required_inputs_check.log",
+      "pytest_log": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/verification/pytest_paper_evidence_audit.log",
+      "audit_output_validation_log": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/verification/audit_output_validation.log",
+      "audit_direct_entrypoint_log": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/verification/audit_direct_entrypoint.log"
+    }
   },
   "authoritative_inputs": {
     "cdi": {
@@ -667,33 +673,38 @@
       "adjacent_context": [
         {
           "context_id": "history_len=3 pilots",
-          "status": "excluded_adjacent_context",
+          "status": "not_protocol_compatible",
           "reason": "history_len diverges from the selected history_len=2 headline lane and the authored FFNO row was not completed under that alternate temporal contract by the cutoff",
-          "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md"
+          "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md",
+          "source_status": "excluded_adjacent_context"
         },
         {
           "context_id": "history_len=1 pilots",
-          "status": "excluded_adjacent_context",
+          "status": "not_protocol_compatible",
           "reason": "lower-context Markov ablation is contract-divergent temporal context only, not part of the locked headline table",
-          "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md"
+          "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md",
+          "source_status": "excluded_adjacent_context"
         },
         {
           "context_id": "gnot",
-          "status": "excluded_adjacent_context",
+          "status": "not_protocol_compatible",
           "reason": "protocol-divergent environment and recipe lane; not part of the required same-contract headline roster",
-          "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md"
+          "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md",
+          "source_status": "excluded_adjacent_context"
         },
         {
           "context_id": "ffno_bottleneck_base",
-          "status": "excluded_adjacent_context",
+          "status": "not_protocol_compatible",
           "reason": "repo-local FFNO proxy row is explicitly not an authored FFNO substitute for the locked paper row bundle",
-          "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md"
+          "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md",
+          "source_status": "excluded_adjacent_context"
         },
         {
           "context_id": "ffno_bottleneck_localconv_base",
-          "status": "excluded_adjacent_context",
+          "status": "not_protocol_compatible",
           "reason": "repo-local FFNO proxy with local branch is explicitly adjacent context only and cannot replace authored FFNO in the locked roster",
-          "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md"
+          "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md",
+          "source_status": "excluded_adjacent_context"
         }
       ],
       "provenance_gaps": [
