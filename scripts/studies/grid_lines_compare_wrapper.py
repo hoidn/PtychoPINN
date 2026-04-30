@@ -215,6 +215,30 @@ def _recovered_runtime_summary(invocation_payload: Mapping[str, Any]) -> Dict[st
     return summary
 
 
+def _recovered_tf_runtime_summary(invocation_payload: Mapping[str, Any]) -> Dict[str, object]:
+    summary: Dict[str, object] = {"recovered_from_existing_artifacts": True}
+    extra = invocation_payload.get("extra")
+    if isinstance(extra, Mapping) and extra.get("invocation_mode") == "library":
+        summary["runtime_source"] = "unavailable_under_recovery"
+        summary["runtime_unavailable_reason"] = (
+            "Recovered TensorFlow row invocation records wrapper library completion, "
+            "not standalone training runtime; wrapper bundle-repair pass wall time is excluded."
+        )
+        return summary
+
+    wall_time = _parse_wall_time_seconds(invocation_payload)
+    if wall_time is not None:
+        summary["runtime_source"] = "row_invocation"
+        summary["command_wall_time_sec"] = float(wall_time)
+        return summary
+
+    summary["runtime_source"] = "unavailable_under_recovery"
+    summary["runtime_unavailable_reason"] = (
+        "Recovered TensorFlow row invocation did not provide standalone runtime timestamps."
+    )
+    return summary
+
+
 def _count_torch_state_dict_parameters(model_path: Path) -> Optional[int]:
     try:
         import torch
@@ -302,7 +326,7 @@ def _recover_tf_row_payload(
     log_path = output_dir / "live_stdout.log"
     if log_path.exists():
         log_text = log_path.read_text(encoding="utf-8", errors="ignore")
-    invocation_payload = _load_json_if_exists(output_dir / "invocation.json")
+    invocation_payload = _load_json_if_exists(output_dir / "runs" / model_id / "invocation.json")
     history_payload = _load_json_if_exists(output_dir / "runs" / model_id / "history.json")
     loss_series = _history_series(history_payload, "loss")
     val_loss = history_payload.get("val_loss", [])
@@ -323,7 +347,7 @@ def _recover_tf_row_payload(
             "status": "emitted" if isinstance(val_loss, list) and val_loss else "no_validation_series",
             "value": float(val_loss[-1]) if isinstance(val_loss, list) and val_loss else None,
         },
-        "runtime_summary": _recovered_runtime_summary(invocation_payload),
+        "runtime_summary": _recovered_tf_runtime_summary(invocation_payload),
         "hardware_summary": _current_tf_hardware_summary(),
         "row_status": "decision_support",
         "caveats": ["recovered_from_existing_artifacts"],

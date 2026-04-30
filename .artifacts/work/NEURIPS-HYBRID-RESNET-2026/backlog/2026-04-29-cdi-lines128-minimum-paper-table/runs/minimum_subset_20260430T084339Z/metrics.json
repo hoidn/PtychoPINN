@@ -56,7 +56,8 @@
       },
       "runtime_summary": {
         "recovered_from_existing_artifacts": true,
-        "command_wall_time_sec": 12.759214
+        "runtime_source": "unavailable_under_recovery",
+        "runtime_unavailable_reason": "Recovered TensorFlow row invocation records wrapper library completion, not standalone training runtime; wrapper bundle-repair pass wall time is excluded."
       },
       "hardware_summary": {
         "backend": "tensorflow",
@@ -554,7 +555,8 @@
       },
       "runtime_summary": {
         "recovered_from_existing_artifacts": true,
-        "command_wall_time_sec": 12.759214
+        "runtime_source": "unavailable_under_recovery",
+        "runtime_unavailable_reason": "Recovered TensorFlow row invocation records wrapper library completion, not standalone training runtime; wrapper bundle-repair pass wall time is excluded."
       },
       "hardware_summary": {
         "backend": "tensorflow",

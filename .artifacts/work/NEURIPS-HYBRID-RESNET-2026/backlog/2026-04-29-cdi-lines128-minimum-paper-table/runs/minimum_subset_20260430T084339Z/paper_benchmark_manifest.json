@@ -1,5 +1,5 @@
 {
-  "benchmark_status": "paper_complete",
+  "benchmark_status": "benchmark_incomplete",
   "claim_boundary": "minimum_draftable_cdi_subset",
   "selected_fno_comparator": "fno_vanilla",
   "seed_policy": {
@@ -46,7 +46,7 @@
     "shell": "invocation.sh"
   },
   "git": {
-    "commit": "15700f6c278c273439cc68f6f0c6fbf1b690648f",
+    "commit": "e10bde122226e4f1ccf719b8f1802bb1f919e084",
     "dirty_state_note": {
       "source": "wrapper_manifest_write",
       "dirty": true
@@ -74,7 +74,9 @@
     "visuals/compare_amp_phase.png": "visuals/compare_amp_phase.png",
     "visuals/frc_curves.png": "visuals/frc_curves.png"
   },
-  "missing_bundle_artifacts": [],
+  "missing_bundle_artifacts": [
+    "launcher_invocation_contract"
+  ],
   "rows": [
     {
       "model_id": "baseline",

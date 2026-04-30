@@ -851,6 +851,161 @@ def test_wrapper_reuse_path_recovers_row_payloads_from_existing_artifacts(monkey
     )
 
 
+def test_wrapper_reuse_path_does_not_attribute_tf_runtime_to_wrapper_repair_pass(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    gt_recon = tmp_path / "recons" / "gt" / "recon.npz"
+    gt_recon.parent.mkdir(parents=True, exist_ok=True)
+    gt = (np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64)
+    np.savez(gt_recon, YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+
+    for model_id in ("baseline", "pinn", "pinn_hybrid_resnet", "pinn_fno_vanilla"):
+        recon_path = tmp_path / "recons" / model_id / "recon.npz"
+        recon_path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(recon_path, YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+
+    (tmp_path / "baseline").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "baseline" / "baseline.keras").write_text("stub", encoding="utf-8")
+    (tmp_path / "pinn").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "pinn" / "wts.h5.zip").write_text("stub", encoding="utf-8")
+    (tmp_path / "live_stdout.log").write_text(
+        "\n".join(
+            [
+                "Epoch 40/40",
+                "loss: 13.2960 - pred_intensity_loss: -1833342.8750",
+                "conv2d_12_loss: 0.0148 - conv2d_19_loss: 0.1235 - loss: 0.1383 - val_loss: 0.1379",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "invocation.json").write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "exit_code": 0,
+                "timestamp_utc": "2026-04-30T11:24:58.708304+00:00",
+                "finished_at_utc": "2026-04-30T11:25:11.467518+00:00",
+                "parsed_args": {"reuse_existing_recons": True},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "launcher_stderr.log").write_text(
+        "\n".join(
+            [
+                f"Saved artifacts to {tmp_path / 'runs' / 'pinn_hybrid_resnet'}",
+                f"Torch runner complete. Artifacts in {tmp_path / 'runs' / 'pinn_hybrid_resnet'}",
+                f"Saved artifacts to {tmp_path / 'runs' / 'pinn_fno_vanilla'}",
+                f"Torch runner complete. Artifacts in {tmp_path / 'runs' / 'pinn_fno_vanilla'}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    tf_row_invocations = {
+        "baseline": {
+            "timestamp_utc": "2026-04-30T09:05:32.963983+00:00",
+            "finished_at_utc": "2026-04-30T09:05:32.964175+00:00",
+        },
+        "pinn": {
+            "timestamp_utc": "2026-04-30T08:55:15.794780+00:00",
+            "finished_at_utc": "2026-04-30T08:55:15.795060+00:00",
+        },
+    }
+    for model_id, timing in tf_row_invocations.items():
+        run_dir = tmp_path / "runs" / model_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "invocation.json").write_text(
+            json.dumps(
+                {
+                    "status": "completed",
+                    "exit_code": 0,
+                    "timestamp_utc": timing["timestamp_utc"],
+                    "finished_at_utc": timing["finished_at_utc"],
+                    "extra": {
+                        "invocation_mode": "library",
+                        "row_model_id": model_id,
+                        "shared_root_output_dir": str(tmp_path),
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        (run_dir / "history.json").write_text("{}", encoding="utf-8")
+
+    for model_id in ("pinn_hybrid_resnet", "pinn_fno_vanilla"):
+        run_dir = tmp_path / "runs" / model_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "history.json").write_text(
+            json.dumps({"train_loss": [0.5, 0.4], "val_loss": [0.6, 0.5]}),
+            encoding="utf-8",
+        )
+        (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+        (run_dir / "invocation.json").write_text(
+            json.dumps(
+                {
+                    "timestamp_utc": "2026-04-29T21:00:00+00:00",
+                    "finished_at_utc": "2026-04-29T21:00:05+00:00",
+                    "parsed_args": {"epochs": 40},
+                }
+            ),
+            encoding="utf-8",
+        )
+        (run_dir / "model.pt").write_text("stub", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals",
+        lambda output_dir, order: {},
+    )
+    monkeypatch.setattr(
+        "ptycho.evaluation.eval_reconstruction",
+        lambda pred, gt, label, **kwargs: _full_pair_metrics(0.01, 0.03),
+    )
+
+    class _FakeModel:
+        def __init__(self, count):
+            self._count = count
+
+        def count_params(self):
+            return self._count
+
+    monkeypatch.setattr(
+        "tensorflow.keras.models.load_model",
+        lambda path, compile=False: _FakeModel(10),
+    )
+    monkeypatch.setattr(
+        "ptycho.model_manager.ModelManager.load_multiple_models",
+        lambda path, model_names=None: {"autoencoder": _FakeModel(11)},
+    )
+    monkeypatch.setattr(
+        "scripts.studies.grid_lines_compare_wrapper._count_torch_state_dict_parameters",
+        lambda path: 12 if "hybrid" in str(path) else 13,
+    )
+
+    result = run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        architectures=(),
+        models=("baseline", "pinn", "pinn_hybrid_resnet", "pinn_fno_vanilla"),
+        model_n={
+            "baseline": 128,
+            "pinn": 128,
+            "pinn_hybrid_resnet": 128,
+            "pinn_fno_vanilla": 128,
+        },
+        probe_npz=Path("dummy_probe.npz"),
+        reuse_existing_recons=True,
+    )
+
+    for model_id in ("baseline", "pinn"):
+        runtime_summary = result["row_payloads"][model_id]["runtime_summary"]
+        assert runtime_summary["recovered_from_existing_artifacts"] is True
+        assert runtime_summary["runtime_source"] == "unavailable_under_recovery"
+        assert "command_wall_time_sec" not in runtime_summary
+        assert "wrapper bundle-repair pass" in runtime_summary["runtime_unavailable_reason"]
+
+
 def test_wrapper_accepts_architecture_list(tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import parse_args
 
