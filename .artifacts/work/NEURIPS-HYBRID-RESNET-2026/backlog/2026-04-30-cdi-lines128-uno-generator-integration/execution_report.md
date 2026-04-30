@@ -2,26 +2,18 @@
 
 ## Completed In This Pass
 
-- Added the missing direct-runner regression coverage for `architecture="neuralop_uno"` with `training_procedure="supervised"` so the runner now proves acceptance for both approved procedures.
-- Added red-first runner contract tests proving `setup_torch_configs()` rejects unsupported `neuralop_uno` combinations at setup time for:
-  - `N != 128`
-  - `gridsize != 1`
-  - `generator_output_mode != "real_imag"`
-- Narrowly updated `scripts/studies/grid_lines_torch_runner.py` to enforce that locked Lines128 U-NO contract during config setup instead of failing later during model construction.
-- Corrected the durable supported-architecture documentation in:
-  - `docs/CONFIGURATION.md`
-  - `docs/workflows/pytorch.md`
-  - `docs/architecture_torch.md`
-  - `ptycho_torch/generators/README.md`
-  so the documented live Torch architecture surface now matches the actual registry/config literals, including `ffno` and `spectral_resnet_bottleneck_net`.
+- Added a checkpoint-path regression in `tests/torch/test_lightning_checkpoint.py` that tampers saved `neuralop_uno` hyperparameters and proves reload now fails closed for both unsupported saved modes:
+  - `generator_output_mode="amp_phase"`
+  - `generator_output_mode="amp_phase_logits"`
+- Narrowly updated `ptycho_torch/model.py` so checkpoint/module rebuild preserves the saved `neuralop_uno` output mode verbatim for validation instead of coercing every non-`amp_phase` mode to `real_imag`.
+- Re-ran the focused U-NO selector plus the backlog item’s deterministic gates and refreshed the archived verification logs under `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-generator-integration/verification/`.
 - Kept scope unchanged: no benchmark rows, compare-wrapper model-ID work, YAML/prompt edits, or paper-bundle mutation were introduced.
 
 ## Completed Current-Scope Work
 
-- Task 1 review gap closed: direct-runner coverage now includes `TorchRunnerConfig(architecture="neuralop_uno", training_procedure="supervised")`.
-- Task 4 review gap closed: the durable docs named above now agree with the live supported architecture surface rather than omitting registered architectures.
-- The non-blocking maintainability defect identified in review was fixed in scope: `neuralop_uno` invalid runner inputs now fail closed in `setup_torch_configs()` with actionable errors instead of surviving until deeper model construction.
-- All approved current-scope implementation work for this backlog item is complete in the current checkout.
+- The blocking implementation-review defect is fixed in scope: `neuralop_uno` checkpoint rebuild no longer accepts an invalid saved output mode by silently coercing `amp_phase_logits` to `real_imag`.
+- Checkpoint reload now matches the approved plan/design contract for the locked Lines128 CDI lane: `neuralop_uno` supports only `generator_output_mode="real_imag"` and raises a clear error for other saved modes.
+- The previously completed direct-runner guardrails and documentation updates remain intact, and the current checkout now satisfies the remaining approved current-scope work for this backlog item.
 
 ## Follow-Up Work
 
@@ -37,12 +29,16 @@
 
 ## Verification
 
+- Red-first checkpoint selector:
+  - `pytest -q tests/torch/test_lightning_checkpoint.py -k 'neuralop_uno_checkpoint_rejects_invalid_saved_output_mode'`
+  - Result before patch: `1 failed, 1 passed`
+  - Result after patch: `2 passed`
 - Red-first runner selector:
   - `pytest -q tests/torch/test_grid_lines_torch_runner.py -k 'neuralop_uno and (supervised_training or non_lines128 or non_unit_gridsize or non_real_imag_output)'`
   - Result: `3 failed, 1 passed` before the runner guard was added, then `4 passed` after the fix.
 - Focused selector:
   - `pytest -q tests/torch/test_neuralop_uno_generator.py tests/torch/test_generator_registry.py tests/torch/test_lightning_checkpoint.py tests/torch/test_grid_lines_torch_runner.py`
-  - Result: `150 passed`
+  - Result: `152 passed`
   - Log: `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-generator-integration/verification/pytest_focused.log`
 - Required deterministic pytest gate:
   - `pytest -q tests/torch/test_generator_registry.py tests/torch/test_loss_modes.py`

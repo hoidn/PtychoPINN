@@ -319,6 +319,34 @@ class TestLightningCheckpointSerialization:
         assert loaded_module.model_config.architecture == architecture
         assert type(loaded_module.model.autoencoder).__name__ == GENERATOR_CLASS_BY_ARCHITECTURE[architecture]
 
+    @pytest.mark.parametrize("invalid_output_mode", ["amp_phase", "amp_phase_logits"])
+    def test_neuralop_uno_checkpoint_rejects_invalid_saved_output_mode(
+        self,
+        tmp_path,
+        invalid_output_mode,
+    ):
+        """neuralop_uno checkpoint reload must fail closed on unsupported output modes."""
+        data_cfg, model_cfg, train_cfg, infer_cfg = self._build_generator_checkpoint_config(
+            tmp_path,
+            architecture="neuralop_uno",
+            mode="Unsupervised",
+        )
+        lightning_module = PtychoPINN_Lightning(
+            model_config=model_cfg,
+            data_config=data_cfg,
+            training_config=train_cfg,
+            inference_config=infer_cfg,
+        )
+        ckpt_path = self._save_checkpoint(lightning_module, tmp_path / f"neuralop_uno_{invalid_output_mode}.ckpt", tmp_path)
+
+        checkpoint = torch.load(ckpt_path)
+        checkpoint["hyper_parameters"]["model_config"]["generator_output_mode"] = invalid_output_mode
+        checkpoint["hyper_parameters"]["generator_output"] = invalid_output_mode
+        torch.save(checkpoint, ckpt_path)
+
+        with pytest.raises(ValueError, match="real_imag"):
+            PtychoPINN_Lightning.load_from_checkpoint(str(ckpt_path))
+
     @staticmethod
     def _save_checkpoint(lightning_module, ckpt_path, root_dir):
         trainer = Trainer(

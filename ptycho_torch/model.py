@@ -128,7 +128,9 @@ def _build_generator_module_from_config(
     if architecture == "cnn":
         return None
 
-    generator_mode = _generator_output_mode_for_core(generator_output)
+    generator_mode = generator_output
+    if architecture != "neuralop_uno":
+        generator_mode = _generator_output_mode_for_core(generator_output)
     common_kwargs = {
         "in_channels": 1,
         "out_channels": 2,
