@@ -35,6 +35,17 @@ if TORCH_AVAILABLE:
     from ptycho_torch.model import PtychoPINN_Lightning
 
 
+GENERATOR_CLASS_BY_ARCHITECTURE = {
+    "ffno": "FfnoGeneratorModule",
+    "fno": "CascadedFNOGenerator",
+    "hybrid": "HybridUNOGenerator",
+    "stable_hybrid": "StableHybridUNOGenerator",
+    "fno_vanilla": "FnoVanillaGeneratorModule",
+    "hybrid_resnet": "HybridResnetGeneratorModule",
+    "spectral_resnet_bottleneck_net": "SpectralResnetBottleneckGeneratorModule",
+}
+
+
 @pytest.mark.skipif(not TORCH_AVAILABLE, reason="PyTorch backend requires torch>=2.2")
 class TestLightningCheckpointSerialization:
     """
@@ -238,3 +249,134 @@ class TestLightningCheckpointSerialization:
                 for key, value in cfg_dict.items():
                     assert not isinstance(value, Path), \
                         f"{cfg_name}.{key} contains Path object {value} — must convert to str"
+
+    @pytest.mark.parametrize(
+        ("architecture", "mode"),
+        [("ffno", "Supervised")],
+    )
+    def test_supervised_generator_checkpoint_rebuilds_configured_module(
+        self,
+        tmp_path,
+        architecture,
+        mode,
+    ):
+        """Checkpoint-only reload must restore the configured supervised generator."""
+        data_cfg, model_cfg, train_cfg, infer_cfg = self._build_generator_checkpoint_config(
+            tmp_path,
+            architecture=architecture,
+            mode=mode,
+        )
+        lightning_module = PtychoPINN_Lightning(
+            model_config=model_cfg,
+            data_config=data_cfg,
+            training_config=train_cfg,
+            inference_config=infer_cfg,
+        )
+        ckpt_path = self._save_checkpoint(lightning_module, tmp_path / f"{architecture}_{mode}.ckpt", tmp_path)
+
+        loaded_module = PtychoPINN_Lightning.load_from_checkpoint(str(ckpt_path))
+
+        assert loaded_module.model_config.architecture == architecture
+        assert loaded_module.model_config.mode == mode
+        assert type(loaded_module.model.autoencoder).__name__ == GENERATOR_CLASS_BY_ARCHITECTURE[architecture]
+        assert type(loaded_module.model.autoencoder).__name__ != "Autoencoder"
+
+    @pytest.mark.parametrize(
+        "architecture",
+        [
+            "ffno",
+            "fno",
+            "hybrid",
+            "stable_hybrid",
+            "fno_vanilla",
+            "hybrid_resnet",
+            "spectral_resnet_bottleneck_net",
+        ],
+    )
+    def test_generator_architecture_checkpoint_rebuilds_without_manual_injection(
+        self,
+        tmp_path,
+        architecture,
+    ):
+        """Registered generator architectures must reload from checkpoint alone."""
+        data_cfg, model_cfg, train_cfg, infer_cfg = self._build_generator_checkpoint_config(
+            tmp_path,
+            architecture=architecture,
+            mode="Unsupervised",
+        )
+        lightning_module = PtychoPINN_Lightning(
+            model_config=model_cfg,
+            data_config=data_cfg,
+            training_config=train_cfg,
+            inference_config=infer_cfg,
+        )
+        ckpt_path = self._save_checkpoint(lightning_module, tmp_path / f"{architecture}.ckpt", tmp_path)
+
+        loaded_module = PtychoPINN_Lightning.load_from_checkpoint(str(ckpt_path))
+
+        assert loaded_module.model_config.architecture == architecture
+        assert type(loaded_module.model.autoencoder).__name__ == GENERATOR_CLASS_BY_ARCHITECTURE[architecture]
+
+    @staticmethod
+    def _save_checkpoint(lightning_module, ckpt_path, root_dir):
+        trainer = Trainer(
+            max_epochs=0,
+            enable_checkpointing=True,
+            deterministic=True,
+            default_root_dir=root_dir,
+            logger=False,
+            enable_progress_bar=False,
+            accelerator='cpu',
+        )
+        trainer.strategy._lightning_module = lightning_module
+        trainer.save_checkpoint(ckpt_path)
+        return ckpt_path
+
+    @staticmethod
+    def _build_generator_checkpoint_config(tmp_path, *, architecture, mode):
+        data_cfg = DataConfig(
+            N=64,
+            C=1,
+            grid_size=(1, 1),
+        )
+        model_cfg = ModelConfig(
+            mode=mode,
+            architecture=architecture,
+            generator_output_mode="real_imag",
+            probe_mask=False,
+            object_big=False,
+            probe_big=False,
+            loss_function="MAE" if mode == "Supervised" else "Poisson",
+        )
+        train_cfg = TrainingConfig(
+            epochs=0,
+            batch_size=2,
+            learning_rate=1e-4,
+            torch_loss_mode="mae" if mode == "Supervised" else "poisson",
+            output_dir=str(tmp_path),
+        )
+        infer_cfg = InferenceConfig()
+
+        tf_model_cfg = TFModelConfig(
+            N=64,
+            gridsize=1,
+            model_type='supervised' if mode == "Supervised" else 'pinn',
+            amp_activation='silu',
+            n_filters_scale=1,
+            architecture=architecture,
+        )
+        tf_train_cfg = TFTrainingConfig(
+            model=tf_model_cfg,
+            train_data_file=Path('dummy_train.npz'),
+            test_data_file=None,
+            n_groups=2,
+            batch_size=2,
+            nepochs=0,
+            nphotons=1e6,
+            neighbor_count=4,
+            output_dir=tmp_path,
+            torch_loss_mode="mae" if mode == "Supervised" else "poisson",
+        )
+        update_legacy_dict(p.cfg, tf_train_cfg)
+
+        return data_cfg, model_cfg, train_cfg, infer_cfg

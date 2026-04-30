@@ -40,14 +40,20 @@ rerun.
   generator plus output contract and uses the same complex-prediction helper as
   the PINN path
 - updated `PtychoPINN_Lightning` to pass the selected generator module and
-  generator output mode into supervised runs
+  generator output mode into supervised runs, and to rebuild generator-backed
+  modules from saved config state during checkpoint-only reload
 - updated `scripts/studies/grid_lines_compare_wrapper.py` to:
   - bootstrap repo-root imports for direct script execution
   - mark current-root Torch rows as freshly rebuilt instead of recovered
   - materialize missing row-local logs during bundle repair so
     `exit_code_proof.json` and `paper_grade` promotion can be emitted
+- refreshed the authoritative extension root's canonical `last.ckpt` from the
+  valid rerun `last-v1.ckpt` after verifying the review-cited reload path still
+  pointed at a stale pre-fix checkpoint
 - added regressions covering:
   - supervised FFNO generator wiring in Lightning
+  - generator-backed checkpoint round-trips across the registered Lightning
+    architectures
   - fresh current-root Torch-row recovery semantics
   - recovered row-log enrichment to `paper_grade`
   - direct compare-wrapper script import bootstrap
@@ -63,10 +69,18 @@ rerun.
     `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_targeted_20260430_supervised_equivalent_rows.log`
 - required deterministic gate is green:
   - archived log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_20260430_supervised_equivalent_rows.log`
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_20260430_supervised_equivalent_rows_checkpoint_fix.log`
 - compile gate is green:
   - archived log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/compileall_20260430_supervised_equivalent_rows.log`
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/compileall_20260430_supervised_equivalent_rows_checkpoint_fix.log`
+- checkpoint reload contract is green on both synthetic and real artifacts:
+  - synthetic regression log:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_checkpoint_reload_20260430.log`
+  - real reviewed artifact proof:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/checkpoint_reload_real_artifact_20260430.log`
+- repo integration marker is green:
+  - archived log:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_integration_20260430_supervised_equivalent_rows_checkpoint_fix.log`
 - supervised launch completed successfully under the frozen contract:
   - archived log:
     `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/supervised_ffno_launch_20260430T180217Z.log`

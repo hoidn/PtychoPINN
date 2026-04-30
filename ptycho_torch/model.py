@@ -112,6 +112,190 @@ def _predict_complex_patches(
     return x_complex, amp, phase
 
 
+def _generator_output_mode_for_core(generator_output: str) -> str:
+    """Map Lightning output contract onto generator-core output mode."""
+    return "amp_phase" if generator_output == "amp_phase" else "real_imag"
+
+
+def _build_generator_module_from_config(
+    model_config: ModelConfig,
+    data_config: DataConfig,
+    *,
+    generator_output: str,
+) -> Optional[nn.Module]:
+    """Rebuild a registered generator core from saved config state."""
+    architecture = getattr(model_config, "architecture", "cnn")
+    if architecture == "cnn":
+        return None
+
+    generator_mode = _generator_output_mode_for_core(generator_output)
+    common_kwargs = {
+        "in_channels": 1,
+        "out_channels": 2,
+        "hidden_channels": getattr(model_config, "fno_width", 32),
+        "modes": getattr(model_config, "fno_modes", 12),
+        "C": getattr(data_config, "C", 4),
+        "input_transform": getattr(model_config, "fno_input_transform", "none"),
+        "output_mode": generator_mode,
+    }
+
+    if architecture == "ffno":
+        from ptycho_torch.generators.ffno import FfnoGeneratorModule
+
+        return FfnoGeneratorModule(
+            **common_kwargs,
+            n_blocks=getattr(model_config, "fno_blocks", 4),
+            cnn_blocks=getattr(model_config, "fno_cnn_blocks", 2),
+        )
+
+    if architecture == "fno":
+        from ptycho_torch.generators.fno import CascadedFNOGenerator
+
+        return CascadedFNOGenerator(
+            **common_kwargs,
+            fno_blocks=getattr(model_config, "fno_blocks", 4),
+            cnn_blocks=getattr(model_config, "fno_cnn_blocks", 2),
+        )
+
+    if architecture == "hybrid":
+        from ptycho_torch.generators.fno import HybridUNOGenerator
+
+        return HybridUNOGenerator(
+            **common_kwargs,
+            n_blocks=getattr(model_config, "fno_blocks", 4),
+            max_hidden_channels=getattr(model_config, "max_hidden_channels", None),
+        )
+
+    if architecture == "stable_hybrid":
+        from ptycho_torch.generators.fno import StableHybridUNOGenerator
+
+        return StableHybridUNOGenerator(
+            **common_kwargs,
+            n_blocks=getattr(model_config, "fno_blocks", 4),
+            max_hidden_channels=getattr(model_config, "max_hidden_channels", None),
+        )
+
+    if architecture == "fno_vanilla":
+        from ptycho_torch.generators.fno_vanilla import FnoVanillaGeneratorModule
+
+        return FnoVanillaGeneratorModule(
+            **common_kwargs,
+            n_blocks=getattr(model_config, "fno_blocks", 4),
+        )
+
+    if architecture == "hybrid_resnet":
+        from ptycho_torch.generators.hybrid_resnet import HybridResnetGeneratorModule
+
+        return HybridResnetGeneratorModule(
+            **common_kwargs,
+            n_blocks=getattr(model_config, "fno_blocks", 4),
+            max_hidden_channels=getattr(model_config, "max_hidden_channels", None),
+            resnet_width=getattr(model_config, "resnet_width", None),
+            resnet_blocks=getattr(model_config, "hybrid_resnet_blocks", 6),
+            skip_connections=getattr(model_config, "hybrid_skip_connections", False),
+            hybrid_downsample_steps=getattr(model_config, "hybrid_downsample_steps", 2),
+            hybrid_downsample_op=getattr(model_config, "hybrid_downsample_op", "stride_conv"),
+            hybrid_encoder_conv_hidden_scale=getattr(
+                model_config,
+                "hybrid_encoder_conv_hidden_scale",
+                1.0,
+            ),
+            hybrid_encoder_spectral_hidden_scale=getattr(
+                model_config,
+                "hybrid_encoder_spectral_hidden_scale",
+                1.0,
+            ),
+            hybrid_encoder_conv_hidden_channels=getattr(
+                model_config,
+                "hybrid_encoder_conv_hidden_channels",
+                None,
+            ),
+            hybrid_encoder_spectral_hidden_channels=getattr(
+                model_config,
+                "hybrid_encoder_spectral_hidden_channels",
+                None,
+            ),
+            hybrid_skip_style=getattr(model_config, "hybrid_skip_style", "add"),
+        )
+
+    if architecture == "spectral_resnet_bottleneck_net":
+        from ptycho_torch.generators.spectral_resnet_bottleneck import (
+            SpectralResnetBottleneckGeneratorModule,
+        )
+
+        return SpectralResnetBottleneckGeneratorModule(
+            **common_kwargs,
+            n_blocks=getattr(model_config, "fno_blocks", 4),
+            max_hidden_channels=getattr(model_config, "max_hidden_channels", None),
+            resnet_width=getattr(model_config, "resnet_width", None),
+            resnet_blocks=getattr(model_config, "hybrid_resnet_blocks", 6),
+            hybrid_downsample_steps=getattr(model_config, "hybrid_downsample_steps", 2),
+            hybrid_downsample_op=getattr(model_config, "hybrid_downsample_op", "stride_conv"),
+            hybrid_encoder_conv_hidden_scale=getattr(
+                model_config,
+                "hybrid_encoder_conv_hidden_scale",
+                1.0,
+            ),
+            hybrid_encoder_spectral_hidden_scale=getattr(
+                model_config,
+                "hybrid_encoder_spectral_hidden_scale",
+                1.0,
+            ),
+            hybrid_encoder_conv_hidden_channels=getattr(
+                model_config,
+                "hybrid_encoder_conv_hidden_channels",
+                None,
+            ),
+            hybrid_encoder_spectral_hidden_channels=getattr(
+                model_config,
+                "hybrid_encoder_spectral_hidden_channels",
+                None,
+            ),
+            spectral_bottleneck_blocks=getattr(model_config, "spectral_bottleneck_blocks", 6),
+            spectral_bottleneck_modes=getattr(model_config, "spectral_bottleneck_modes", 12),
+            spectral_bottleneck_share_weights=getattr(
+                model_config,
+                "spectral_bottleneck_share_weights",
+                True,
+            ),
+            spectral_bottleneck_gate_init=getattr(
+                model_config,
+                "spectral_bottleneck_gate_init",
+                0.1,
+            ),
+            spectral_bottleneck_gate_mode=getattr(
+                model_config,
+                "spectral_bottleneck_gate_mode",
+                "shared",
+            ),
+        )
+
+    raise ValueError(
+        f"Unsupported generator architecture '{architecture}' for checkpoint rebuild."
+    )
+
+
+def _resolve_generator_from_config(
+    model_config: ModelConfig,
+    data_config: DataConfig,
+    generator: Optional[nn.Module],
+    generator_output: str,
+) -> tuple[Optional[nn.Module], str]:
+    """Resolve generator module/output contract from config plus optional injection."""
+    architecture = getattr(model_config, "architecture", "cnn")
+    configured_output_mode = getattr(model_config, "generator_output_mode", None)
+    resolved_output = generator_output
+    if architecture != "cnn" and configured_output_mode:
+        resolved_output = configured_output_mode
+    if generator is None and architecture != "cnn":
+        generator = _build_generator_module_from_config(
+            model_config,
+            data_config,
+            generator_output=resolved_output,
+        )
+    return generator, resolved_output
+
+
 #Helping modules
 #Activation functions
 class Tanh_custom_act(nn.Module):
@@ -986,38 +1170,12 @@ class PtychoPINN(nn.Module):
         self.model_config = model_config
         self.data_config = data_config
         self.training_config = training_config # Store training config
-        resolved_generator = generator
-        resolved_generator_output = generator_output
-        configured_output_mode = getattr(self.model_config, "generator_output_mode", None)
-
-        if resolved_generator is None and self.model_config.architecture in ("fno", "hybrid"):
-            from ptycho_torch.generators.fno import CascadedFNOGenerator, HybridUNOGenerator
-            fno_modes = getattr(self.model_config, "fno_modes", 12)
-            fno_width = getattr(self.model_config, "fno_width", 32)
-            fno_blocks = getattr(self.model_config, "fno_blocks", 4)
-            fno_cnn_blocks = getattr(self.model_config, "fno_cnn_blocks", 2)
-            generator_mode = "amp_phase" if configured_output_mode == "amp_phase" else "real_imag"
-            if self.model_config.architecture == "fno":
-                resolved_generator = CascadedFNOGenerator(
-                    hidden_channels=fno_width,
-                    fno_blocks=fno_blocks,
-                    cnn_blocks=fno_cnn_blocks,
-                    modes=fno_modes,
-                    C=data_config.C,
-                    output_mode=generator_mode,
-                )
-            else:
-                resolved_generator = HybridUNOGenerator(
-                    hidden_channels=fno_width,
-                    n_blocks=fno_blocks,
-                    modes=fno_modes,
-                    C=data_config.C,
-                    output_mode=generator_mode,
-                )
-            resolved_generator_output = "real_imag"
-
-        if configured_output_mode and self.model_config.architecture in ("fno", "hybrid"):
-            resolved_generator_output = configured_output_mode
+        resolved_generator, resolved_generator_output = _resolve_generator_from_config(
+            model_config,
+            data_config,
+            generator,
+            generator_output,
+        )
 
         self.generator = resolved_generator
         self.generator_output = resolved_generator_output
@@ -1109,9 +1267,17 @@ class Ptycho_Supervised(nn.Module):
 
         self.n_filters_scale = self.model_config.n_filters_scale
 
-        self.generator = generator
-        self.generator_output = generator_output
-        self.autoencoder = Autoencoder(model_config, data_config) if generator is None else generator
+        self.generator, self.generator_output = _resolve_generator_from_config(
+            model_config,
+            data_config,
+            generator,
+            generator_output,
+        )
+        self.autoencoder = (
+            Autoencoder(model_config, data_config)
+            if self.generator is None
+            else self.generator
+        )
         self.combine_complex = CombineComplex()
 
         #Scaler - Pass config
@@ -1188,6 +1354,13 @@ class PtychoPINN_Lightning(L.LightningModule):
             training_config = TrainingConfig(**training_config)
         if isinstance(inference_config, dict):
             inference_config = InferenceConfig(**inference_config)
+
+        generator_module, generator_output = _resolve_generator_from_config(
+            model_config,
+            data_config,
+            generator_module,
+            generator_output,
+        )
 
         # Save hyperparameters for checkpoint serialization (Phase D1c requirement)
         # Convert dataclass instances to dicts to ensure serializability
