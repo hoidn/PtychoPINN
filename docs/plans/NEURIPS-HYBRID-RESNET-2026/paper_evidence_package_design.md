@@ -146,6 +146,9 @@ CDI paper-grade gate:
 - every row in the headline table must be regenerated or recovered with complete
   invocation/config/git/environment/dataset/split/metric/visual provenance
 - historical rows can appear only as sanity context unless they satisfy that bar
+- row status is assigned by the current evidence audit; exploratory,
+  decision-support, or historical origin labels are advisory rather than
+  disqualifying
 - no FFNO row may count unless it uses the same CDI dataset, split, stitching,
   metric, and generator-output contract as the Hybrid row
 

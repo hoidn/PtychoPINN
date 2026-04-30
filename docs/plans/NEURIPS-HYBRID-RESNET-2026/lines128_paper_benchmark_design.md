@@ -26,9 +26,10 @@
   - `scripts/studies/grid_lines_compare_wrapper.py` owns shared grid-lines
     dataset generation, wrapper-level provenance, multi-model routing, merged
     metrics, and combined visuals.
-  - Paper-grade evidence must be regenerated when historical roots lack
-    complete invocation, config, git/environment, dataset, metric, and visual
-    provenance.
+  - Paper-grade evidence must satisfy the current row contract. Existing roots
+    may be audited, recovered, and promoted when their contract and provenance
+    are complete; rerun only when a required field is missing, inconsistent, or
+    unrecoverable.
 
 ## Problem And Scope
 
@@ -39,15 +40,17 @@ The project needs a paper-quality CDI/ptycho benchmark on the study-indexed
 - `spectral_resnet_bottleneck_net`
 - an FNO comparator, selected before launch as either `fno` or `fno_vanilla`
 - FFNO as a CDI/grid-lines generator
-- U-Net/SRU-Net + PINN as the local convolutional baseline required by the
-  package-level paper evidence design, with a simpler CNN/PINN row only as an
-  explicit fallback if U-Net/SRU-Net cannot satisfy the locked runner contract
+- paired local convolutional baselines required by the package-level paper
+  evidence design: run the CDI `cnn` U-Net-class architecture as both
+  supervised and PINN. This row family is aligned with the CNS `unet_strong`
+  local-baseline role, but the implementations are task-local and not
+  identical. Do not treat SRU-Net as interchangeable with either row family.
 
 The result must be suitable for paper tables and visual reconstruction figures,
 not just local decision support. In scope:
 
-- regenerate all benchmark rows under one fixed dataset/split/training/metric
-  contract
+- produce or promote all benchmark rows under one fixed
+  dataset/split/training/metric contract
 - expose or add missing runner/wrapper support needed for
   `spectral_resnet_bottleneck_net` and FFNO
 - produce metrics tables, merged machine-readable metrics, and visual
@@ -58,7 +61,8 @@ Out of scope:
 
 - using PDEBench CNS FFNO evidence as CDI generator evidence
 - changing the CDI grid-lines task contract to fit FFNO
-- promoting historical incomplete roots into paper-grade claims
+- promoting roots with unrecoverable contract or provenance gaps into
+  paper-grade claims
 - broad Hybrid-spectral/FFNO parameter sweeps beyond the named benchmark rows
 - manuscript prose beyond producing paper-facing artifacts and summaries
 
@@ -135,9 +139,12 @@ The benchmark's primary contract is the recovered study-indexed
 - `fno_blocks=4`
 - `fno_cnn_blocks=2`
 
-Historical decision-support metrics from this contract may be used only as
-sanity context, not as the benchmark result. The paper benchmark must regenerate
-fresh rows for all included models under one output root.
+Historical or decision-support labels are advisory, not disqualifying. Existing
+rows from this contract may become benchmark rows only after an explicit audit
+shows that the dataset, split, probe, training budget, metrics, visuals, and
+provenance satisfy the current paper contract, either directly or through
+deterministic recovery. If that audit fails, keep the row as sanity context and
+rerun only the affected row.
 
 Before the full benchmark launches, the implementation must write a durable
 contract-reconstruction validation artifact. Suggested path:
@@ -308,8 +315,9 @@ Invariants:
   scheduler, epoch budget, output mode, or metric family
 - FFNO must adapt to the CDI generator contract; the CDI task contract must not
   silently change to make FFNO easier
-- historical artifacts remain decision-support only unless the regenerated run
-  reproduces the paper-grade artifact contract
+- historical artifacts remain decision-support only unless an audit shows that
+  they satisfy the current paper-grade artifact contract directly or after
+  deterministic recovery
 - model labels must not obscure architecture identity
 
 Expected failure modes:
