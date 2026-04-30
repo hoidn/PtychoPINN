@@ -173,6 +173,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, cdi, lines128, harness, summary, benchmark_incomplete, spectral, ffno
 **Use this when:** Auditing what the harness pass completed, locating the readiness-only validation artifacts, or confirming why the merged validation result is intentionally incomplete.
 
+### [NeurIPS Lines128 Complete Paper Benchmark Summary](plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md)
+**Description:** Durable completion summary for the authoritative six-row `lines128` CDI paper bundle, recording the initial spectral-rerun root, the repaired promoted-row recovery path, the final `paper_complete` authoritative root, archived verification logs, and the preserved distinction between prerequisite FFNO evidence, minimum-subset evidence, and the final complete-table bundle.
+**Keywords:** neurips, cdi, lines128, paper-complete, ffno, spectral, benchmark, summary
+**Use this when:** Locating the finished six-row CDI paper bundle, checking which repaired root is authoritative, or verifying how the spectral rerun and promoted FFNO/minimum-subset rows were assembled into the final claim-bearing package.
+
 ### [NeurIPS Hybrid ResNet CDI FFNO Generator Lines Best-Config Summary](plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md)
 **Description:** Execution summary for the fixed-contract `N=128` CDI `ffno` versus `hybrid_resnet` row pair, pinning the recovered `lines128` contract, stable artifact root, exact compare command, and the claim boundary that this pair is prerequisite evidence for the later paper benchmark rather than the full four-row package.
 **Keywords:** neurips, cdi, ffno, hybrid_resnet, lines128, grid-lines, compare, summary

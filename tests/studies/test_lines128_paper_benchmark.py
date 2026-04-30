@@ -215,6 +215,226 @@ def _write_execution_manifest(path: Path, *, rows: list[dict] | None = None) -> 
     return path
 
 
+def _complete_table_rows_payload(
+    minimum_subset_root: Path,
+    ffno_root: Path,
+) -> list[dict]:
+    return [
+        {
+            "model_id": "baseline",
+            "model_label": "CDI CNN + supervised",
+            "architecture_id": "cnn",
+            "training_procedure": "supervised",
+            "required_for_complete_table": True,
+            "decision": "promote_existing",
+            "source_root": str(minimum_subset_root),
+        },
+        {
+            "model_id": "pinn",
+            "model_label": "CDI CNN + PINN",
+            "architecture_id": "cnn",
+            "training_procedure": "pinn",
+            "required_for_complete_table": True,
+            "decision": "promote_existing",
+            "source_root": str(minimum_subset_root),
+        },
+        {
+            "model_id": "pinn_hybrid_resnet",
+            "model_label": "Hybrid ResNet + PINN",
+            "architecture_id": "hybrid_resnet",
+            "training_procedure": "pinn",
+            "required_for_complete_table": True,
+            "decision": "promote_existing",
+            "source_root": str(minimum_subset_root),
+        },
+        {
+            "model_id": "pinn_fno_vanilla",
+            "model_label": "FNO Vanilla + PINN",
+            "architecture_id": "fno_vanilla",
+            "training_procedure": "pinn",
+            "required_for_complete_table": True,
+            "decision": "promote_existing",
+            "source_root": str(minimum_subset_root),
+        },
+        {
+            "model_id": "pinn_spectral_resnet_bottleneck_net",
+            "model_label": "Spectral ResNet Bottleneck + PINN",
+            "architecture_id": "spectral_resnet_bottleneck_net",
+            "training_procedure": "pinn",
+            "required_for_complete_table": True,
+            "decision": "rerun_required",
+            "source_root": None,
+        },
+        {
+            "model_id": "pinn_ffno",
+            "model_label": "FFNO + PINN",
+            "architecture_id": "ffno",
+            "training_procedure": "pinn",
+            "required_for_complete_table": True,
+            "decision": "promote_existing",
+            "source_root": str(ffno_root),
+        },
+    ]
+
+
+def _write_complete_execution_manifest(
+    path: Path,
+    *,
+    minimum_subset_root: Path,
+    ffno_root: Path,
+) -> Path:
+    payload = {
+        "state": "go_for_complete_table_execution",
+        "selected_fno_comparator": "fno_vanilla",
+        "seed_policy": {"type": "fixed", "seed": 3},
+        "fixed_contract": _fixed_contract_payload(),
+        "fixed_sample_ids": [0, 1],
+        "shared_visual_scales": {
+            "amp": {"vmin": 0.0, "vmax": 1.0},
+            "phase": {"vmin": -3.14, "vmax": 3.14},
+        },
+        "minimum_subset_root": str(minimum_subset_root),
+        "ffno_prerequisite_root": str(ffno_root),
+        "rows": _complete_table_rows_payload(minimum_subset_root, ffno_root),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
+
+
+def _write_complete_row_payload(
+    output_dir: Path,
+    *,
+    model_id: str,
+    model_label: str,
+    architecture_id: str,
+    training_procedure: str,
+    parameter_count: int,
+    final_train_loss: float,
+    runtime: float,
+    metrics: dict,
+) -> dict:
+    return {
+        "model_label": model_label,
+        "architecture_id": architecture_id,
+        "training_procedure": training_procedure,
+        "N": 128,
+        "parameter_count": parameter_count,
+        "epoch_budget": 40,
+        "final_completed_epoch": 40,
+        "final_train_loss": final_train_loss,
+        "validation_loss": {"status": "emitted", "value": final_train_loss + 0.01},
+        "runtime_summary": {
+            "recovered_from_existing_artifacts": training_procedure != "pinn" or architecture_id != "spectral_resnet_bottleneck_net",
+            "train_wall_time_sec": runtime,
+            "inference_time_sec": runtime / 20.0,
+        },
+        "hardware_summary": {
+            "backend": "tensorflow" if architecture_id == "cnn" else "pytorch",
+            "accelerator": "rtx3090",
+        },
+        "row_status": "paper_grade",
+        "caveats": [],
+        "invocation": {"json": f"runs/{model_id}/invocation.json", "shell": f"runs/{model_id}/invocation.sh"},
+        "config": {"json": f"runs/{model_id}/config.json"},
+        "git": {"commit": "abc123", "dirty_state_note": {"source": "test", "dirty": False}},
+        "environment": {
+            "python_executable": "/usr/bin/python",
+            "python_version": "3.11.0",
+            "torch_version": "2.4.1",
+            "cuda_version": "12.1",
+            "gpu": "rtx3090",
+            "host": "test-host",
+        },
+        "dataset": {
+            "train_npz": str(output_dir / "datasets" / "N128" / "gs1" / "train.npz"),
+            "test_npz": str(output_dir / "datasets" / "N128" / "gs1" / "test.npz"),
+            "dataset_source": "synthetic_lines",
+            "manifest_json": "dataset_identity_manifest.json",
+        },
+        "splits": {
+            "nimgs_train": 2,
+            "nimgs_test": 2,
+            "gridsize": 1,
+            "set_phi": True,
+            "seed": 3,
+            "manifest_json": "split_manifest.json",
+        },
+        "randomness": {"requested_seed": 3},
+        "outputs": {
+            "metrics_json": f"runs/{model_id}/metrics.json",
+            "history_json": f"runs/{model_id}/history.json",
+            "recon_npz": f"recons/{model_id}/recon.npz",
+            "stdout_log": f"runs/{model_id}/stdout.log",
+            "stderr_log": f"runs/{model_id}/stderr.log",
+            "exit_code_proof_json": f"runs/{model_id}/exit_code_proof.json",
+        },
+        "visuals": {
+            "amp_phase_png": f"visuals/amp_phase_{model_id}.png",
+            "amp_phase_error_png": f"visuals/amp_phase_error_{model_id}.png",
+        },
+        "metrics": metrics,
+    }
+
+
+def _write_complete_source_root(
+    output_dir: Path,
+    *,
+    rows: list[dict],
+) -> None:
+    _materialize_minimum_subset_bundle_artifacts(output_dir)
+    _write_text(output_dir / "baseline" / "baseline.keras")
+    _write_text(output_dir / "pinn" / "wts.h5.zip")
+    dataset_dir = output_dir / "datasets" / "N128" / "gs1"
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    _write_text(dataset_dir / "train.npz")
+    _write_text(dataset_dir / "test.npz")
+    for row in rows:
+        payload = _write_complete_row_payload(output_dir, **row)
+        _write_text(
+            output_dir / payload["invocation"]["json"],
+            json.dumps(
+                {
+                    "status": "completed",
+                    "exit_code": 0,
+                    "finished_at_utc": "2026-04-30T00:00:00+00:00",
+                    "pid": 12345,
+                    "parsed_args": {"seed": 3},
+                }
+            ),
+        )
+        _write_text(output_dir / payload["invocation"]["shell"], "python fake_row.py\n")
+        _write_text(output_dir / payload["config"]["json"], json.dumps({"seed": 3}))
+        _write_text(
+            output_dir / payload["outputs"]["history_json"],
+            json.dumps({"train_loss": [0.2, row["final_train_loss"]], "val_loss": [0.3, row["final_train_loss"] + 0.01]}),
+        )
+        _write_text(output_dir / payload["outputs"]["metrics_json"], json.dumps(row["metrics"]))
+        _write_text(output_dir / payload["outputs"]["stdout_log"], "row stdout\n")
+        _write_text(output_dir / payload["outputs"]["stderr_log"], "")
+        _write_text(output_dir / payload["outputs"]["exit_code_proof_json"], json.dumps({"exit_code": 0}))
+        _write_text(output_dir / payload["visuals"]["amp_phase_png"])
+        _write_text(output_dir / payload["visuals"]["amp_phase_error_png"])
+        recon_npz = output_dir / payload["outputs"]["recon_npz"]
+        recon_npz.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(recon_npz, YY_pred=np.ones((2, 2), dtype=np.complex64))
+
+    metrics_payload = {row["model_id"]: _write_complete_row_payload(output_dir, **row) for row in rows}
+    from scripts.studies.metrics_tables import write_paper_benchmark_bundle
+
+    write_paper_benchmark_bundle(
+        output_dir=output_dir,
+        row_payloads=metrics_payload,
+        required_rows=tuple(row["model_id"] for row in rows),
+        fixed_sample_ids=[0, 1],
+        shared_visual_scales={"amp": {"vmin": 0.0, "vmax": 1.0}, "phase": {"vmin": -3.14, "vmax": 3.14}},
+        selected_fno_comparator="fno_vanilla",
+        evidence_scope="test_fixture",
+        claim_boundary="test_fixture",
+        require_row_provenance=True,
+    )
+
+
 def _write_text(path: Path, contents: str = "x") -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(contents, encoding="utf-8")
@@ -314,9 +534,9 @@ def _materialize_minimum_subset_bundle_artifacts(
                 write_relative(relative_path, "")
             else:
                 write_relative(relative_path, "{}")
-        _write_text(
-            output_dir / "runs" / model_id / "exit_code_proof.json",
-            json.dumps(
+            _write_text(
+                output_dir / "runs" / model_id / "exit_code_proof.json",
+                json.dumps(
                 {
                     "model_id": model_id,
                     "exit_code": 0,
@@ -1573,3 +1793,192 @@ def test_preflight_rejects_compare_preflight_when_row_plan_omits_supported_row(t
             decision_artifact=decision_artifact,
             output_dir=tmp_path / "out",
         )
+
+
+def test_parse_args_accepts_complete_table_mode(tmp_path):
+    from scripts.studies.lines128_paper_benchmark import parse_args
+
+    parsed = parse_args(
+        [
+            "--mode",
+            "complete_table",
+            "--decision-artifact",
+            str(tmp_path / "decision.json"),
+            "--execution-manifest",
+            str(tmp_path / "execution.json"),
+            "--output-dir",
+            str(tmp_path / "out"),
+        ]
+    )
+
+    assert parsed.mode == "complete_table"
+    assert parsed.execution_manifest == tmp_path / "execution.json"
+
+
+def test_complete_table_reuses_existing_rows_and_reruns_only_spectral_row(tmp_path, monkeypatch):
+    from scripts.studies.lines128_paper_benchmark import run_lines128_complete_benchmark
+
+    minimum_subset_root = tmp_path / "minimum_subset_root"
+    ffno_root = tmp_path / "ffno_root"
+    output_dir = tmp_path / "complete_root"
+    captured_calls = []
+
+    minimum_rows = [
+        {
+            "model_id": "baseline",
+            "model_label": "CDI CNN + supervised",
+            "architecture_id": "cnn",
+            "training_procedure": "supervised",
+            "parameter_count": 100,
+            "final_train_loss": 0.4,
+            "runtime": 9.0,
+            "metrics": {"mae": (0.2, 0.3), "mse": (0.02, 0.03), "psnr": (60.0, 55.0), "ssim": (0.7, 0.6), "ms_ssim": (0.65, 0.55), "frc50": (32, 24)},
+        },
+        {
+            "model_id": "pinn",
+            "model_label": "CDI CNN + PINN",
+            "architecture_id": "cnn",
+            "training_procedure": "pinn",
+            "parameter_count": 101,
+            "final_train_loss": 0.3,
+            "runtime": 10.0,
+            "metrics": {"mae": (0.19, 0.29), "mse": (0.019, 0.029), "psnr": (61.0, 56.0), "ssim": (0.71, 0.61), "ms_ssim": (0.66, 0.56), "frc50": (33, 25)},
+        },
+        {
+            "model_id": "pinn_hybrid_resnet",
+            "model_label": "Hybrid ResNet + PINN",
+            "architecture_id": "hybrid_resnet",
+            "training_procedure": "pinn",
+            "parameter_count": 102,
+            "final_train_loss": 0.2,
+            "runtime": 11.0,
+            "metrics": {"mae": (0.1, 0.2), "mse": (0.01, 0.02), "psnr": (70.0, 65.0), "ssim": (0.9, 0.8), "ms_ssim": (0.85, 0.75), "frc50": (64, 48)},
+        },
+        {
+            "model_id": "pinn_fno_vanilla",
+            "model_label": "FNO Vanilla + PINN",
+            "architecture_id": "fno_vanilla",
+            "training_procedure": "pinn",
+            "parameter_count": 103,
+            "final_train_loss": 0.25,
+            "runtime": 12.0,
+            "metrics": {"mae": (0.12, 0.22), "mse": (0.012, 0.022), "psnr": (68.0, 63.0), "ssim": (0.88, 0.78), "ms_ssim": (0.83, 0.73), "frc50": (60, 44)},
+        },
+    ]
+    ffno_rows = [
+        {
+            "model_id": "pinn_ffno",
+            "model_label": "FFNO + PINN",
+            "architecture_id": "ffno",
+            "training_procedure": "pinn",
+            "parameter_count": 104,
+            "final_train_loss": 0.21,
+            "runtime": 13.0,
+            "metrics": {"mae": (0.13, 0.23), "mse": (0.013, 0.023), "psnr": (67.0, 62.0), "ssim": (0.87, 0.77), "ms_ssim": (0.82, 0.72), "frc50": (58, 42)},
+        },
+    ]
+    _write_complete_source_root(minimum_subset_root, rows=minimum_rows)
+    _write_complete_source_root(ffno_root, rows=ffno_rows)
+
+    def fake_run_grid_lines_compare(**kwargs):
+        captured_calls.append(dict(kwargs))
+        spectral_row = _write_complete_row_payload(
+            output_dir,
+            model_id="pinn_spectral_resnet_bottleneck_net",
+            model_label="Spectral ResNet Bottleneck + PINN",
+            architecture_id="spectral_resnet_bottleneck_net",
+            training_procedure="pinn",
+            parameter_count=105,
+            final_train_loss=0.18,
+            runtime=14.0,
+            metrics={"mae": (0.11, 0.21), "mse": (0.011, 0.021), "psnr": (69.0, 64.0), "ssim": (0.89, 0.79), "ms_ssim": (0.84, 0.74), "frc50": (62, 46)},
+        )
+        _write_text(output_dir / spectral_row["invocation"]["json"], json.dumps({"status": "completed", "exit_code": 0, "finished_at_utc": "2026-04-30T00:00:00+00:00", "pid": 777, "parsed_args": {"epochs": 40, "seed": 3}}))
+        _write_text(output_dir / spectral_row["invocation"]["shell"], "python fake_row.py\n")
+        _write_text(output_dir / spectral_row["config"]["json"], json.dumps({"seed": 3}))
+        _write_text(output_dir / spectral_row["outputs"]["history_json"], json.dumps({"train_loss": [0.2, 0.18], "val_loss": [0.3, 0.19]}))
+        _write_text(output_dir / spectral_row["outputs"]["metrics_json"], json.dumps(spectral_row["metrics"]))
+        _write_text(output_dir / spectral_row["outputs"]["stdout_log"], "row stdout\n")
+        _write_text(output_dir / spectral_row["outputs"]["stderr_log"], "")
+        _write_text(
+            output_dir / spectral_row["outputs"]["exit_code_proof_json"],
+            json.dumps(
+                {
+                    "model_id": "pinn_spectral_resnet_bottleneck_net",
+                    "proof_source": "test",
+                    "exit_code": 0,
+                    "invocation_json": spectral_row["invocation"]["json"],
+                    "invocation_status": "completed",
+                    "stdout_log": spectral_row["outputs"]["stdout_log"],
+                    "stderr_log": spectral_row["outputs"]["stderr_log"],
+                }
+            ),
+        )
+        _write_text(output_dir / spectral_row["visuals"]["amp_phase_png"])
+        _write_text(output_dir / spectral_row["visuals"]["amp_phase_error_png"])
+        recon_npz = output_dir / spectral_row["outputs"]["recon_npz"]
+        recon_npz.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(recon_npz, YY_pred=np.ones((2, 2), dtype=np.complex64))
+        if kwargs.get("reuse_existing_recons"):
+            for model_id in kwargs["models"]:
+                _write_text(output_dir / f"visuals/amp_phase_{model_id}.png")
+                _write_text(output_dir / f"visuals/amp_phase_error_{model_id}.png")
+            _write_text(output_dir / "visuals/amp_phase_gt.png")
+            _write_text(output_dir / "visuals/compare_amp_phase.png")
+            _write_text(output_dir / "visuals/frc_curves.png")
+        return {
+            "train_npz": str(output_dir / "datasets" / "N128" / "gs1" / "train.npz"),
+            "test_npz": str(output_dir / "datasets" / "N128" / "gs1" / "test.npz"),
+            "gt_recon": str(output_dir / "recons" / "gt" / "recon.npz"),
+            "recon_paths": {
+                "pinn_spectral_resnet_bottleneck_net": str(recon_npz),
+            },
+            "row_payloads": {
+                "pinn_spectral_resnet_bottleneck_net": spectral_row,
+            },
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines128_paper_benchmark.run_grid_lines_compare",
+        fake_run_grid_lines_compare,
+    )
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+    execution_manifest = _write_complete_execution_manifest(
+        tmp_path / "execution" / "complete_execution.json",
+        minimum_subset_root=minimum_subset_root,
+        ffno_root=ffno_root,
+    )
+
+    result = run_lines128_complete_benchmark(
+        decision_artifact=decision_artifact,
+        execution_manifest=execution_manifest,
+        output_dir=output_dir,
+    )
+
+    metrics_payload = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
+    assert captured_calls[0]["models"] == ("pinn_spectral_resnet_bottleneck_net",)
+    assert not captured_calls[0].get("reuse_existing_recons", False)
+    assert captured_calls[1]["models"] == (
+        "baseline",
+        "pinn",
+        "pinn_hybrid_resnet",
+        "pinn_fno_vanilla",
+        "pinn_spectral_resnet_bottleneck_net",
+        "pinn_ffno",
+    )
+    assert captured_calls[1].get("reuse_existing_recons") is True
+    assert metrics_payload["benchmark_status"] == "paper_complete"
+    assert metrics_payload["required_rows"] == [
+        "baseline",
+        "pinn",
+        "pinn_hybrid_resnet",
+        "pinn_fno_vanilla",
+        "pinn_spectral_resnet_bottleneck_net",
+        "pinn_ffno",
+    ]
+    assert (output_dir / "baseline" / "baseline.keras").exists()
+    assert (output_dir / "pinn" / "wts.h5.zip").exists()
+    ffno_invocation = json.loads((output_dir / "runs" / "pinn_ffno" / "invocation.json").read_text(encoding="utf-8"))
+    assert ffno_invocation["exit_code"] == 0
+    assert result["required_rows"][-1] == "pinn_ffno"

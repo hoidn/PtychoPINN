@@ -602,6 +602,7 @@ def _enrich_paper_row_payload(
             model_id=model_id,
             wrapper_invocation_json=output_dir / "invocation.json",
             launcher_stderr_log=output_dir / "launcher_stderr.log",
+            launcher_stdout_log=output_dir / "launcher_stdout.log",
         )
     if launcher_completion is not None:
         outputs_payload["launcher_completion_json"] = relative_to_output_dir(output_dir, launcher_completion)

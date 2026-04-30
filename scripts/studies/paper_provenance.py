@@ -260,10 +260,12 @@ def write_launcher_completion_evidence(
     model_id: str,
     wrapper_invocation_json: Path,
     launcher_stderr_log: Path,
+    launcher_stdout_log: Path | None = None,
 ) -> Path | None:
     wrapper_invocation_json = Path(wrapper_invocation_json)
     launcher_stderr_log = Path(launcher_stderr_log)
-    if not wrapper_invocation_json.exists() or not launcher_stderr_log.exists():
+    launcher_stdout_log = Path(launcher_stdout_log) if launcher_stdout_log is not None else None
+    if not wrapper_invocation_json.exists():
         return None
 
     wrapper_invocation = load_json_if_exists(wrapper_invocation_json)
@@ -285,38 +287,66 @@ def write_launcher_completion_evidence(
     if not all(path.exists() for path in row_artifacts.values()):
         return None
 
-    log_lines = launcher_stderr_log.read_text(encoding="utf-8", errors="ignore").splitlines()
-    matched_log_lines: list[str] = []
-    required_prefixes = (
-        "Saved artifacts to ",
-        "Torch runner complete. Artifacts in ",
-    )
-    expected_row_suffix = str(Path("runs") / model_id).replace("\\", "/")
-    for prefix in required_prefixes:
-        match = next(
-            (
-                line.strip()
-                for line in log_lines
-                if prefix in line
-                and line.strip().replace("\\", "/").endswith(expected_row_suffix)
-            ),
-            None,
+    payload = None
+    if launcher_stderr_log.exists():
+        log_lines = launcher_stderr_log.read_text(encoding="utf-8", errors="ignore").splitlines()
+        matched_log_lines: list[str] = []
+        required_prefixes = (
+            "Saved artifacts to ",
+            "Torch runner complete. Artifacts in ",
         )
-        if match is None:
-            return None
-        matched_log_lines.append(match)
+        expected_row_suffix = str(Path("runs") / model_id).replace("\\", "/")
+        for prefix in required_prefixes:
+            match = next(
+                (
+                    line.strip()
+                    for line in log_lines
+                    if prefix in line
+                    and line.strip().replace("\\", "/").endswith(expected_row_suffix)
+                ),
+                None,
+            )
+            if match is None:
+                matched_log_lines = []
+                break
+            matched_log_lines.append(match)
+        if matched_log_lines:
+            payload = {
+                "model_id": model_id,
+                "validated_at_utc": datetime.now(timezone.utc).isoformat(),
+                "evidence_source": "wrapper_launcher_stderr_row_completion_markers",
+                "wrapper_invocation_json": relative_to_output_dir(output_dir, wrapper_invocation_json),
+                "launcher_stderr_log": relative_to_output_dir(output_dir, launcher_stderr_log),
+                "row_root": relative_to_output_dir(output_dir, row_root),
+                "row_artifacts": {
+                    name: relative_to_output_dir(output_dir, path)
+                    for name, path in row_artifacts.items()
+                },
+                "matched_log_lines": matched_log_lines,
+            }
 
-    payload = {
-        "model_id": model_id,
-        "validated_at_utc": datetime.now(timezone.utc).isoformat(),
-        "evidence_source": "wrapper_launcher_stderr_row_completion_markers",
-        "wrapper_invocation_json": relative_to_output_dir(output_dir, wrapper_invocation_json),
-        "launcher_stderr_log": relative_to_output_dir(output_dir, launcher_stderr_log),
-        "row_root": relative_to_output_dir(output_dir, row_root),
-        "row_artifacts": {
-            name: relative_to_output_dir(output_dir, path)
-            for name, path in row_artifacts.items()
-        },
-        "matched_log_lines": matched_log_lines,
-    }
+    if payload is None and launcher_stdout_log is not None and launcher_stdout_log.exists():
+        marker = f"DEBUG eval_reconstruction [{model_id}]:"
+        matched_log_lines = [
+            line.strip()
+            for line in launcher_stdout_log.read_text(encoding="utf-8", errors="ignore").splitlines()
+            if marker in line
+        ]
+        if matched_log_lines:
+            payload = {
+                "model_id": model_id,
+                "validated_at_utc": datetime.now(timezone.utc).isoformat(),
+                "evidence_source": "wrapper_launcher_stdout_eval_markers",
+                "wrapper_invocation_json": relative_to_output_dir(output_dir, wrapper_invocation_json),
+                "launcher_stdout_log": relative_to_output_dir(output_dir, launcher_stdout_log),
+                "row_root": relative_to_output_dir(output_dir, row_root),
+                "row_artifacts": {
+                    name: relative_to_output_dir(output_dir, path)
+                    for name, path in row_artifacts.items()
+                },
+                "matched_log_lines": matched_log_lines,
+            }
+
+    if payload is None:
+        return None
     return write_json(Path(output_dir) / "runs" / model_id / "launcher_completion.json", payload)

@@ -1,0 +1,75 @@
+{
+  "generated_at_utc": "2026-04-30T13:40:00Z",
+  "selected_fno_comparator": "fno_vanilla",
+  "seed_policy": {
+    "type": "fixed",
+    "seed": 3
+  },
+  "fixed_sample_ids": [0, 1],
+  "shared_visual_scales": {
+    "amp": {
+      "strategy": "shared_across_rows",
+      "source": "stitched_numeric_arrays"
+    },
+    "phase": {
+      "strategy": "shared_across_rows",
+      "source": "stitched_numeric_arrays"
+    },
+    "amp_abs_error": {
+      "strategy": "shared_across_rows",
+      "source": "derived_from_stitched_numeric_arrays"
+    },
+    "phase_abs_error": {
+      "strategy": "shared_across_rows",
+      "source": "derived_from_stitched_numeric_arrays"
+    }
+  },
+  "rows": [
+    {
+      "model_id": "baseline",
+      "decision": "promote_existing",
+      "source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z",
+      "audit_status": "contract_complete",
+      "notes": []
+    },
+    {
+      "model_id": "pinn",
+      "decision": "promote_existing",
+      "source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z",
+      "audit_status": "contract_complete",
+      "notes": []
+    },
+    {
+      "model_id": "pinn_hybrid_resnet",
+      "decision": "promote_existing",
+      "source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z",
+      "audit_status": "contract_complete",
+      "notes": []
+    },
+    {
+      "model_id": "pinn_fno_vanilla",
+      "decision": "promote_existing",
+      "source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z",
+      "audit_status": "contract_complete",
+      "notes": []
+    },
+    {
+      "model_id": "pinn_spectral_resnet_bottleneck_net",
+      "decision": "rerun_required",
+      "source_root": null,
+      "audit_status": "rerun_required",
+      "notes": [
+        "Only the one-epoch N=128 integration prototype was found; no contract-complete paper-grade spectral root exists."
+      ]
+    },
+    {
+      "model_id": "pinn_ffno",
+      "decision": "promote_existing",
+      "source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet",
+      "audit_status": "contract_complete_with_recovered_provenance",
+      "notes": [
+        "Per-row invocation artifacts were backfilled during the repaired prerequisite pass and must remain labeled as recovered provenance."
+      ]
+    }
+  ]
+}

@@ -782,13 +782,12 @@ def _validate_launcher_completion_payload(
         return False
     wrapper_invocation_path = _resolve_output_path(output_dir, payload.get("wrapper_invocation_json"))
     launcher_stderr_path = _resolve_output_path(output_dir, payload.get("launcher_stderr_log"))
+    launcher_stdout_path = _resolve_output_path(output_dir, payload.get("launcher_stdout_log"))
     row_root_path = _resolve_output_path(output_dir, payload.get("row_root"))
     if (
         wrapper_invocation_path is None
-        or launcher_stderr_path is None
         or row_root_path is None
         or not wrapper_invocation_path.exists()
-        or not launcher_stderr_path.exists()
         or not row_root_path.exists()
     ):
         return False
@@ -814,12 +813,27 @@ def _validate_launcher_completion_payload(
             return False
 
     matched_log_lines = payload.get("matched_log_lines")
-    if not isinstance(matched_log_lines, list) or len(matched_log_lines) < 2:
+    if not isinstance(matched_log_lines, list) or not matched_log_lines:
         return False
-    log_text = launcher_stderr_path.read_text(encoding="utf-8", errors="ignore")
-    if not any("Saved artifacts to " in str(line) for line in matched_log_lines):
+    if evidence_source == "wrapper_launcher_stderr_row_completion_markers":
+        if launcher_stderr_path is None or not launcher_stderr_path.exists() or len(matched_log_lines) < 2:
+            return False
+        log_text = launcher_stderr_path.read_text(encoding="utf-8", errors="ignore")
+        if not any("Saved artifacts to " in str(line) for line in matched_log_lines):
+            return False
+        if not any("Torch runner complete. Artifacts in " in str(line) for line in matched_log_lines):
+            return False
+        for line in matched_log_lines:
+            if not isinstance(line, str) or not line.strip() or line not in log_text:
+                return False
+        return True
+    if evidence_source != "wrapper_launcher_stdout_eval_markers":
         return False
-    if not any("Torch runner complete. Artifacts in " in str(line) for line in matched_log_lines):
+    if launcher_stdout_path is None or not launcher_stdout_path.exists():
+        return False
+    log_text = launcher_stdout_path.read_text(encoding="utf-8", errors="ignore")
+    marker = f"DEBUG eval_reconstruction [{model_id}]:"
+    if not any(marker in str(line) for line in matched_log_lines):
         return False
     for line in matched_log_lines:
         if not isinstance(line, str) or not line.strip() or line not in log_text:

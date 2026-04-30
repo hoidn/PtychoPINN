@@ -35,6 +35,7 @@
 
 - Purpose: Run the amended Roadmap Phase 2 native `128x128` PDEBench image suite covering SWE, Darcy Flow, and 2D Compressible Navier-Stokes.
 - Plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md`
+- Paper evidence index: `docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md`; this is the cross-study outcome map for completed NeurIPS backlog items, summary authorities, artifact roots, evidence tiers, protocol/cap labels, and claim boundaries.
 - Preflight summary: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_preflight.md`; this is the discoverable source for staged-file status, raw HDF5 shapes, axis orders, and available supervision-unit counts.
 - Darcy execution plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md`; this is the source for the beta `1.0` static-operator contract, strong U-Net/FNO baseline gates, and literature calibration targets.
 - 2D CNS design: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_design.md`; this is the source for official `128x128` 2D_CFD file selection, storage gates, four-field stacking, `history_len=2` primary input, `history_len=1` ablation, trajectory/sample-level split rules, and required `fRMSE_high` shock-capture reporting.
@@ -434,6 +435,55 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   - the readiness bundle is intentionally `benchmark_incomplete`
   - the later execution item still owns fresh row runs, paper-grade visuals,
     and final table completeness
+
+### `grid-lines-n128-complete-paper-benchmark`
+
+- Purpose: publish the authoritative six-row `N=128` CDI paper bundle under
+  the frozen `fno_vanilla` comparator, fixed `seed=3`, fixed samples `{0,1}`,
+  and shared visual-scale contract.
+- Status: completed on `2026-04-30`; the repaired root is the authoritative
+  `paper_complete` Lines128 CDI benchmark bundle.
+- Design:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md`
+- Summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md`
+- Authoritative root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T141325Z_repair`
+- Repair note:
+  the earlier root
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T134500Z`
+  contains the fresh spectral rerun but is superseded because promoted-row
+  completeness recovery was repaired afterward.
+- Accepted rows:
+  - `baseline`
+  - `pinn`
+  - `pinn_hybrid_resnet`
+  - `pinn_fno_vanilla`
+  - `pinn_spectral_resnet_bottleneck_net`
+  - `pinn_ffno`
+- Row provenance:
+  - minimum-subset promoted rows:
+    `baseline`, `pinn`, `pinn_hybrid_resnet`, `pinn_fno_vanilla`
+  - fresh spectral row:
+    `pinn_spectral_resnet_bottleneck_net` reran in the superseded complete
+    root and was promoted into the repaired authoritative root
+  - prerequisite FFNO row:
+    `pinn_ffno` promoted from the fixed-contract FFNO-vs-Hybrid prerequisite
+    root with explicit repaired row-local completion proof
+- Bundle artifacts:
+  - `metrics.json`
+  - `metric_schema.json`
+  - `model_manifest.json`
+  - `metrics_table.csv`
+  - `metrics_table.tex`
+  - `metrics_table_best.tex`
+  - `visuals/compare_amp_phase.png`
+  - `visuals/frc_curves.png`
+- Boundary:
+  - this is the authoritative complete CDI paper bundle for Lines128
+  - prerequisite pair evidence and the four-row minimum subset remain distinct,
+    preserved evidence roots and should not be mistaken for the final six-row
+    package
 
 ### `grid-lines-n64-pinn-hybrid-resnet-e20`
 

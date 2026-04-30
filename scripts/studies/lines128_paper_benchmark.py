@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -16,6 +17,12 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+from scripts.studies.grid_lines_compare_wrapper import (
+    _coerce_paper_row_payload,
+    _enrich_paper_row_payload,
+    _recover_tf_row_payload,
+    _recover_torch_row_payload,
+)
 from scripts.studies.metrics_tables import write_paper_benchmark_bundle
 from scripts.studies.paper_provenance import (
     merge_git_provenance,
@@ -31,6 +38,7 @@ FNO_COMPARATOR_MODEL_IDS = {
 }
 ALLOWED_GO_NO_GO_STATE = "go_for_harness_preflight_only"
 MINIMUM_SUBSET_EXECUTION_STATE = "go_for_minimum_subset_execution"
+COMPLETE_TABLE_EXECUTION_STATE = "go_for_complete_table_execution"
 AUTHORITY_JSON_START = "<!-- lines128_execution_authority_json:start -->"
 AUTHORITY_JSON_END = "<!-- lines128_execution_authority_json:end -->"
 REQUIRED_FIXED_CONTRACT_FIELDS = (
@@ -77,6 +85,14 @@ REQUIRED_MINIMUM_SUBSET_WRAPPER_ARTIFACTS = (
     "invocation.json",
     "invocation.sh",
 )
+COMPLETE_TABLE_REQUIRED_ROWS = (
+    "baseline",
+    "pinn",
+    "pinn_hybrid_resnet",
+    "pinn_fno_vanilla",
+    "pinn_spectral_resnet_bottleneck_net",
+    "pinn_ffno",
+)
 
 
 def _load_json_if_exists(path: Path) -> Dict[str, Any]:
@@ -85,6 +101,43 @@ def _load_json_if_exists(path: Path) -> Dict[str, Any]:
         return {}
     payload = json.loads(candidate.read_text(encoding="utf-8"))
     return dict(payload) if isinstance(payload, dict) else {}
+
+
+def _copy_path(src: Path, dst: Path) -> None:
+    src = Path(src)
+    dst = Path(dst)
+    if not src.exists():
+        return
+    if src.is_dir():
+        shutil.copytree(src, dst, dirs_exist_ok=True)
+        return
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+
+
+def _normalize_promoted_invocation(
+    *,
+    output_dir: Path,
+    source_root: Path,
+    model_id: str,
+) -> None:
+    invocation_path = output_dir / "runs" / model_id / "invocation.json"
+    if not invocation_path.exists():
+        return
+    payload = json.loads(invocation_path.read_text(encoding="utf-8"))
+    if not isinstance(payload, Mapping):
+        return
+    if payload.get("status") != "completed":
+        return
+    exit_code = payload.get("exit_code")
+    if isinstance(exit_code, int) and not isinstance(exit_code, bool):
+        return
+    extra = dict(payload.get("extra", {})) if isinstance(payload.get("extra"), Mapping) else {}
+    extra["recovered_exit_code_from_completed_promotion"] = True
+    extra["promotion_source_root"] = str(source_root)
+    payload["extra"] = extra
+    payload["exit_code"] = 0
+    invocation_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
 def _build_paper_benchmark_manifest(
@@ -756,6 +809,206 @@ def _load_execution_manifest(
     return _normalize_execution_surface(payload, fixed_contract=fixed_contract, source_name="Execution manifest")
 
 
+def _complete_table_row_key(row: Mapping[str, object]) -> Dict[str, object]:
+    model_id = row.get("model_id")
+    model_label = row.get("model_label")
+    architecture_id = row.get("architecture_id")
+    training_procedure = row.get("training_procedure")
+    required = row.get("required_for_complete_table")
+    decision = row.get("decision")
+    source_root = row.get("source_root")
+    if not isinstance(model_id, str) or not model_id.strip():
+        raise ValueError("Complete-table execution row is missing model_id")
+    if not isinstance(model_label, str) or not model_label.strip():
+        raise ValueError(f"Complete-table execution row {model_id} is missing model_label")
+    if not isinstance(architecture_id, str) or not architecture_id.strip():
+        raise ValueError(f"Complete-table execution row {model_id} is missing architecture_id")
+    if training_procedure not in {"supervised", "pinn"}:
+        raise ValueError(
+            f"Complete-table execution row {model_id} has unsupported training_procedure={training_procedure!r}"
+        )
+    if not isinstance(required, bool):
+        raise ValueError(f"Complete-table execution row {model_id} must declare required_for_complete_table")
+    if decision not in {"promote_existing", "rerun_required", "blocked"}:
+        raise ValueError(f"Complete-table execution row {model_id} has unsupported decision={decision!r}")
+    normalized_source_root = None
+    if source_root is not None:
+        if not isinstance(source_root, str) or not source_root.strip():
+            raise ValueError(f"Complete-table execution row {model_id} has invalid source_root")
+        normalized_source_root = source_root
+    if decision == "promote_existing" and normalized_source_root is None:
+        raise ValueError(f"Complete-table execution row {model_id} must declare source_root for promote_existing")
+    return {
+        "model_id": str(model_id),
+        "model_label": str(model_label),
+        "architecture_id": str(architecture_id),
+        "training_procedure": str(training_procedure),
+        "required_for_complete_table": bool(required),
+        "decision": str(decision),
+        "source_root": normalized_source_root,
+    }
+
+
+def _normalize_complete_execution_manifest(
+    payload: Mapping[str, object],
+    *,
+    fixed_contract: Mapping[str, object],
+) -> Dict[str, object]:
+    state = payload.get("state")
+    if state != COMPLETE_TABLE_EXECUTION_STATE:
+        raise ValueError("Execution manifest does not authorize complete-table execution")
+    comparator = payload.get("selected_fno_comparator")
+    if comparator not in FNO_COMPARATOR_MODEL_IDS:
+        raise ValueError("Complete-table execution manifest must select an explicit FNO comparator")
+
+    seed_policy = payload.get("seed_policy")
+    if not isinstance(seed_policy, Mapping):
+        raise ValueError("Complete-table execution manifest is missing seed_policy")
+    normalized_seed = _validate_seed_policy({"seed_policy": seed_policy, "fixed_contract": fixed_contract}, fixed_contract)
+
+    payload_contract = _validate_fixed_contract({"fixed_contract": payload.get("fixed_contract")})
+    if payload_contract != dict(fixed_contract):
+        raise ValueError("Complete-table execution manifest fixed contract drifted from the harness decision artifact")
+
+    rows = payload.get("rows")
+    if not isinstance(rows, list) or len(rows) != len(COMPLETE_TABLE_REQUIRED_ROWS):
+        raise ValueError("Complete-table execution manifest must authorize exactly six rows")
+    normalized_rows = [_complete_table_row_key(row) for row in rows if isinstance(row, Mapping)]
+    required_rows = [row["model_id"] for row in normalized_rows if row["required_for_complete_table"]]
+    if required_rows != list(COMPLETE_TABLE_REQUIRED_ROWS):
+        raise ValueError(
+            f"Complete-table execution manifest must lock the six-row roster in order; got {required_rows}"
+        )
+
+    fixed_sample_ids = payload.get("fixed_sample_ids")
+    if not isinstance(fixed_sample_ids, list) or any(not isinstance(item, int) for item in fixed_sample_ids):
+        raise ValueError("Complete-table execution manifest must provide integer fixed_sample_ids")
+    shared_visual_scales = payload.get("shared_visual_scales")
+    if not isinstance(shared_visual_scales, Mapping):
+        raise ValueError("Complete-table execution manifest must provide shared_visual_scales")
+
+    return {
+        "state": COMPLETE_TABLE_EXECUTION_STATE,
+        "selected_fno_comparator": str(comparator),
+        "seed_policy": {"type": "fixed", "seed": normalized_seed},
+        "fixed_contract": dict(payload_contract),
+        "fixed_sample_ids": list(fixed_sample_ids),
+        "shared_visual_scales": dict(shared_visual_scales),
+        "rows": normalized_rows,
+    }
+
+
+def _ensure_promoted_row_sidecars(output_dir: Path, model_id: str) -> None:
+    run_dir = output_dir / "runs" / model_id
+    for name in ("stdout.log", "stderr.log"):
+        candidate = run_dir / name
+        if not candidate.exists():
+            candidate.parent.mkdir(parents=True, exist_ok=True)
+            candidate.write_text("", encoding="utf-8")
+
+
+def _promote_existing_row_artifacts(
+    *,
+    source_root: Path,
+    output_dir: Path,
+    model_id: str,
+) -> None:
+    _copy_path(source_root / "runs" / model_id, output_dir / "runs" / model_id)
+    _copy_path(source_root / "recons" / model_id, output_dir / "recons" / model_id)
+    _copy_path(source_root / "recons" / "gt", output_dir / "recons" / "gt")
+    if model_id == "baseline":
+        _copy_path(source_root / "baseline", output_dir / "baseline")
+    elif model_id == "pinn":
+        _copy_path(source_root / "pinn", output_dir / "pinn")
+    _copy_path(source_root / "datasets", output_dir / "datasets")
+    _copy_path(source_root / "dataset_identity_manifest.json", output_dir / "dataset_identity_manifest.json")
+    _copy_path(source_root / "split_manifest.json", output_dir / "split_manifest.json")
+    for relative_path in (
+        f"visuals/amp_phase_{model_id}.png",
+        f"visuals/amp_phase_error_{model_id}.png",
+        "visuals/amp_phase_gt.png",
+    ):
+        _copy_path(source_root / relative_path, output_dir / relative_path)
+    for relative_path in ("invocation.json", "invocation.sh", "launcher_stdout.log", "launcher_stderr.log"):
+        src = source_root / relative_path
+        dst = output_dir / relative_path
+        if not dst.exists():
+            _copy_path(src, dst)
+    _ensure_promoted_row_sidecars(output_dir, model_id)
+    _normalize_promoted_invocation(
+        output_dir=output_dir,
+        source_root=source_root,
+        model_id=model_id,
+    )
+
+
+def _recover_promoted_row_payload(
+    *,
+    source_root: Path,
+    output_dir: Path,
+    model_id: str,
+    fixed_contract: Mapping[str, object],
+) -> Dict[str, object]:
+    metrics_payload = _load_json_if_exists(source_root / "metrics.json")
+    row_payloads = metrics_payload.get("rows") if isinstance(metrics_payload, Mapping) else None
+    recovered_payload = None
+    if isinstance(row_payloads, Mapping) and isinstance(row_payloads.get(model_id), Mapping):
+        recovered_payload = row_payloads.get(model_id)
+
+    row_metrics = {}
+    if isinstance(recovered_payload, Mapping) and isinstance(recovered_payload.get("metrics"), Mapping):
+        row_metrics = dict(recovered_payload.get("metrics", {}))
+    else:
+        row_metrics_path = output_dir / "runs" / model_id / "metrics.json"
+        if row_metrics_path.exists():
+            loaded_metrics = json.loads(row_metrics_path.read_text(encoding="utf-8"))
+            if isinstance(loaded_metrics, Mapping):
+                row_metrics = dict(loaded_metrics)
+
+    n_value = int(fixed_contract["N"])
+    if not isinstance(recovered_payload, Mapping):
+        if model_id in {"baseline", "pinn"}:
+            recovered_payload = _recover_tf_row_payload(
+                output_dir=output_dir,
+                model_id=model_id,
+                n_value=n_value,
+                epoch_budget=int(fixed_contract["torch_epochs"]),
+                metrics=row_metrics,
+            )
+        else:
+            recovered_payload = _recover_torch_row_payload(
+                output_dir=output_dir,
+                model_id=model_id,
+                n_value=n_value,
+                metrics=row_metrics,
+            )
+
+    row_payload = _coerce_paper_row_payload(
+        model_id,
+        recovered_payload,
+        n_value=n_value,
+        metrics=row_metrics,
+    )
+    train_npz = output_dir / "datasets" / f"N{fixed_contract['N']}" / f"gs{fixed_contract['gridsize']}" / "train.npz"
+    test_npz = train_npz.with_name("test.npz")
+    return _enrich_paper_row_payload(
+        model_id=model_id,
+        payload=row_payload,
+        output_dir=output_dir,
+        train_npz=train_npz,
+        test_npz=test_npz,
+        seed=int(fixed_contract["seed"]),
+        nimgs_train=int(fixed_contract["nimgs_train"]),
+        nimgs_test=int(fixed_contract["nimgs_test"]),
+        gridsize=int(fixed_contract["gridsize"]),
+        set_phi=bool(fixed_contract["set_phi"]),
+        probe_npz=_resolve_repo_path(fixed_contract["probe_npz"]),
+        dataset_source=str(fixed_contract["dataset_source"]),
+        probe_source=str(fixed_contract["probe_source"]),
+        probe_scale_mode=str(fixed_contract["probe_scale_mode"]),
+    )
+
+
 def _run_compare_execution(
     *,
     execution_surface: Mapping[str, object],
@@ -1076,9 +1329,177 @@ def run_lines128_paper_benchmark(
     }
 
 
+def run_lines128_complete_benchmark(
+    *,
+    decision_artifact: Path,
+    execution_manifest: Path,
+    output_dir: Path,
+) -> Dict[str, object]:
+    payload = _load_decision_artifact(decision_artifact)
+    fixed_contract = _validate_fixed_contract(payload)
+    rows_by_id = {
+        str(row["model_id"]): row
+        for row in payload.get("rows", [])
+        if isinstance(row, Mapping) and "model_id" in row
+    }
+    comparator = _validate_fno_comparator(payload, rows_by_id)
+
+    manifest_payload = _load_decision_artifact(execution_manifest)
+    execution_surface = _normalize_complete_execution_manifest(
+        manifest_payload,
+        fixed_contract=fixed_contract,
+    )
+    if execution_surface["selected_fno_comparator"] != comparator:
+        raise ValueError("Complete-table execution manifest selected_fno_comparator drifted from the harness decision artifact")
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    promoted_rows = [row for row in execution_surface["rows"] if row["decision"] == "promote_existing"]
+    rerun_rows = [row for row in execution_surface["rows"] if row["decision"] == "rerun_required"]
+    blocked_rows = [row for row in execution_surface["rows"] if row["decision"] == "blocked"]
+    if blocked_rows:
+        blocked_ids = ", ".join(str(row["model_id"]) for row in blocked_rows)
+        raise ValueError(f"Complete-table execution manifest contains blocked rows: {blocked_ids}")
+
+    for row in promoted_rows:
+        source_root = Path(str(row["source_root"]))
+        _promote_existing_row_artifacts(
+            source_root=source_root,
+            output_dir=output_dir,
+            model_id=str(row["model_id"]),
+        )
+
+    compare_result: Dict[str, object] = {"row_payloads": {}}
+    if rerun_rows:
+        rerun_models = tuple(str(row["model_id"]) for row in rerun_rows)
+        compare_result = run_grid_lines_compare(
+            N=int(fixed_contract["N"]),
+            gridsize=int(fixed_contract["gridsize"]),
+            output_dir=output_dir,
+            probe_npz=_resolve_repo_path(fixed_contract["probe_npz"]),
+            architectures=(),
+            models=rerun_models,
+            model_n={model_id: int(fixed_contract["N"]) for model_id in rerun_models},
+            seed=int(fixed_contract["seed"]),
+            nimgs_train=int(fixed_contract["nimgs_train"]),
+            nimgs_test=int(fixed_contract["nimgs_test"]),
+            nphotons=float(fixed_contract["nphotons"]),
+            set_phi=bool(fixed_contract["set_phi"]),
+            probe_source=str(fixed_contract["probe_source"]),
+            probe_scale_mode=str(fixed_contract["probe_scale_mode"]),
+            probe_smoothing_sigma=float(fixed_contract["probe_smoothing_sigma"]),
+            probe_mask_diameter=fixed_contract["probe_mask_diameter"],
+            torch_epochs=int(fixed_contract["torch_epochs"]),
+            torch_learning_rate=float(fixed_contract["torch_learning_rate"]),
+            torch_scheduler=str(fixed_contract["torch_scheduler"]),
+            torch_plateau_factor=float(fixed_contract["torch_plateau_factor"]),
+            torch_plateau_patience=int(fixed_contract["torch_plateau_patience"]),
+            torch_plateau_min_lr=float(fixed_contract["torch_plateau_min_lr"]),
+            torch_plateau_threshold=float(fixed_contract["torch_plateau_threshold"]),
+            torch_loss_mode=str(fixed_contract["torch_loss_mode"]),
+            torch_mae_pred_l2_match_target=bool(fixed_contract["torch_mae_pred_l2_match_target"]),
+            torch_output_mode=str(fixed_contract["torch_output_mode"]),
+            fno_modes=int(fixed_contract["fno_modes"]),
+            fno_width=int(fixed_contract["fno_width"]),
+            fno_blocks=int(fixed_contract["fno_blocks"]),
+            fno_cnn_blocks=int(fixed_contract["fno_cnn_blocks"]),
+            dataset_source=str(fixed_contract["dataset_source"]),
+        )
+
+    all_models = tuple(str(row["model_id"]) for row in execution_surface["rows"])
+    recovered_compare = run_grid_lines_compare(
+        N=int(fixed_contract["N"]),
+        gridsize=int(fixed_contract["gridsize"]),
+        output_dir=output_dir,
+        probe_npz=_resolve_repo_path(fixed_contract["probe_npz"]),
+        architectures=(),
+        models=all_models,
+        model_n={model_id: int(fixed_contract["N"]) for model_id in all_models},
+        seed=int(fixed_contract["seed"]),
+        nimgs_train=int(fixed_contract["nimgs_train"]),
+        nimgs_test=int(fixed_contract["nimgs_test"]),
+        nphotons=float(fixed_contract["nphotons"]),
+        set_phi=bool(fixed_contract["set_phi"]),
+        probe_source=str(fixed_contract["probe_source"]),
+        probe_scale_mode=str(fixed_contract["probe_scale_mode"]),
+        probe_smoothing_sigma=float(fixed_contract["probe_smoothing_sigma"]),
+        probe_mask_diameter=fixed_contract["probe_mask_diameter"],
+        torch_epochs=int(fixed_contract["torch_epochs"]),
+        torch_learning_rate=float(fixed_contract["torch_learning_rate"]),
+        torch_scheduler=str(fixed_contract["torch_scheduler"]),
+        torch_plateau_factor=float(fixed_contract["torch_plateau_factor"]),
+        torch_plateau_patience=int(fixed_contract["torch_plateau_patience"]),
+        torch_plateau_min_lr=float(fixed_contract["torch_plateau_min_lr"]),
+        torch_plateau_threshold=float(fixed_contract["torch_plateau_threshold"]),
+        torch_loss_mode=str(fixed_contract["torch_loss_mode"]),
+        torch_mae_pred_l2_match_target=bool(fixed_contract["torch_mae_pred_l2_match_target"]),
+        torch_output_mode=str(fixed_contract["torch_output_mode"]),
+        fno_modes=int(fixed_contract["fno_modes"]),
+        fno_width=int(fixed_contract["fno_width"]),
+        fno_blocks=int(fixed_contract["fno_blocks"]),
+        fno_cnn_blocks=int(fixed_contract["fno_cnn_blocks"]),
+        dataset_source=str(fixed_contract["dataset_source"]),
+        reuse_existing_recons=True,
+    )
+
+    row_payloads = dict(recovered_compare.get("row_payloads", {})) if isinstance(recovered_compare.get("row_payloads"), Mapping) else {}
+    for row in promoted_rows:
+        model_id = str(row["model_id"])
+        row_payloads[model_id] = _recover_promoted_row_payload(
+            source_root=Path(str(row["source_root"])),
+            output_dir=output_dir,
+            model_id=model_id,
+            fixed_contract=fixed_contract,
+        )
+
+    required_rows = list(COMPLETE_TABLE_REQUIRED_ROWS)
+    bundle_paths = write_paper_benchmark_bundle(
+        output_dir=output_dir,
+        row_payloads=row_payloads,
+        required_rows=required_rows,
+        fixed_sample_ids=execution_surface["fixed_sample_ids"],
+        shared_visual_scales=execution_surface["shared_visual_scales"],
+        selected_fno_comparator=execution_surface["selected_fno_comparator"],
+        evidence_scope="complete_table_benchmark_execution",
+        claim_boundary="complete_lines128_cdi_benchmark",
+        require_row_provenance=True,
+    )
+    bundle_payload = json.loads(Path(bundle_paths["metrics_json"]).read_text(encoding="utf-8"))
+    missing_bundle_artifacts = _collect_missing_bundle_artifacts(
+        output_dir,
+        gt_recon=recovered_compare.get("gt_recon") or compare_result.get("gt_recon"),
+    )
+    benchmark_status = str(bundle_payload["benchmark_status"])
+    if missing_bundle_artifacts:
+        benchmark_status = "benchmark_incomplete"
+    bundle_payload = _update_bundle_status(
+        bundle_paths=bundle_paths,
+        benchmark_status=benchmark_status,
+        missing_bundle_artifacts=missing_bundle_artifacts,
+    )
+    manifest_payload = _build_paper_benchmark_manifest(
+        output_dir=output_dir,
+        compare_result=recovered_compare,
+        authority_surface=execution_surface,
+        required_rows=required_rows,
+        benchmark_status=str(bundle_payload["benchmark_status"]),
+        claim_boundary="complete_lines128_cdi_benchmark",
+        missing_bundle_artifacts=missing_bundle_artifacts,
+    )
+    manifest_path = output_dir / "paper_benchmark_manifest.json"
+    manifest_path.write_text(json.dumps(manifest_payload, indent=2), encoding="utf-8")
+    bundle_paths["paper_benchmark_manifest_json"] = str(manifest_path)
+    return {
+        "required_rows": required_rows,
+        "bundle_paths": bundle_paths,
+        "compare_result": recovered_compare,
+    }
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Run lines128 paper benchmark utilities")
-    parser.add_argument("--mode", choices=("preflight", "minimum_subset"), default="preflight")
+    parser.add_argument("--mode", choices=("preflight", "minimum_subset", "complete_table"), default="preflight")
     parser.add_argument("--decision-artifact", type=Path, required=True)
     parser.add_argument("--execution-authority-note", type=Path)
     parser.add_argument("--execution-manifest", type=Path)
@@ -1118,7 +1539,7 @@ def main(argv=None) -> None:
                 decision_artifact=args.decision_artifact,
                 output_dir=args.output_dir,
             )
-        else:
+        elif args.mode == "minimum_subset":
             if args.execution_authority_note is None or args.execution_manifest is None:
                 raise ValueError(
                     "minimum_subset mode requires --execution-authority-note and --execution-manifest"
@@ -1129,6 +1550,14 @@ def main(argv=None) -> None:
                 execution_manifest=args.execution_manifest,
                 output_dir=args.output_dir,
                 reuse_existing_recons=args.reuse_existing_recons,
+            )
+        else:
+            if args.execution_manifest is None:
+                raise ValueError("complete_table mode requires --execution-manifest")
+            minimum_subset_result = run_lines128_complete_benchmark(
+                decision_artifact=args.decision_artifact,
+                execution_manifest=args.execution_manifest,
+                output_dir=args.output_dir,
             )
         update_invocation_artifacts(
             invocation_json,
