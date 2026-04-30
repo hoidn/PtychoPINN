@@ -570,7 +570,26 @@ def _validate_outputs_payload(payload: object, *, output_dir: Path) -> bool:
     if proof_path is None or not proof_path.exists():
         return False
     proof = json.loads(proof_path.read_text(encoding="utf-8"))
-    return isinstance(proof, Mapping) and proof.get("exit_code") == 0 and isinstance(proof.get("proof_source"), str)
+    if not isinstance(proof, Mapping):
+        return False
+    if proof.get("exit_code") != 0 or not isinstance(proof.get("proof_source"), str):
+        return False
+    if proof.get("invocation_status") != "completed":
+        return False
+    invocation_path = _resolve_output_path(output_dir, proof.get("invocation_json"))
+    if invocation_path is None or not invocation_path.exists():
+        return False
+    invocation_payload = json.loads(invocation_path.read_text(encoding="utf-8"))
+    if not isinstance(invocation_payload, Mapping) or invocation_payload.get("status") != "completed":
+        return False
+    for log_key in ("stdout_log", "stderr_log"):
+        log_path = _resolve_output_path(output_dir, proof.get(log_key))
+        if log_path is None or not log_path.exists():
+            return False
+        log_text = log_path.read_text(encoding="utf-8", errors="ignore")
+        if "Skipped backend execution; reused existing reconstruction artifact." in log_text:
+            return False
+    return True
 
 
 def _validate_visuals_payload(payload: object, *, output_dir: Path) -> bool:

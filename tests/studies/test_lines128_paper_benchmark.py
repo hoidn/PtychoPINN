@@ -233,7 +233,13 @@ def _materialize_minimum_subset_bundle_artifacts(
         _write_text(output_dir / relative_path, contents)
 
     for relative_path in ("invocation.json", "invocation.sh"):
-        write_relative(relative_path, "{}")
+        if relative_path == "invocation.json":
+            write_relative(
+                relative_path,
+                json.dumps({"status": "completed", "finished_at_utc": "2026-04-29T00:00:00+00:00"}),
+            )
+        else:
+            write_relative(relative_path, "python fake_row.py\n")
     for relative_path in ("train.npz", "test.npz"):
         write_relative(relative_path)
     _write_text(
@@ -264,10 +270,27 @@ def _materialize_minimum_subset_bundle_artifacts(
             f"visuals/amp_phase_{model_id}.png",
             f"visuals/amp_phase_error_{model_id}.png",
         ):
-            write_relative(relative_path, "{}")
+            if relative_path.endswith("invocation.json"):
+                write_relative(
+                    relative_path,
+                    json.dumps({"status": "completed", "finished_at_utc": "2026-04-29T00:00:00+00:00"}),
+                )
+            elif relative_path.endswith("invocation.sh"):
+                write_relative(relative_path, "python fake_row.py\n")
+            else:
+                write_relative(relative_path, "{}")
         _write_text(
             output_dir / "runs" / model_id / "exit_code_proof.json",
-            json.dumps({"exit_code": 0, "proof_source": "test"}),
+            json.dumps(
+                {
+                    "exit_code": 0,
+                    "proof_source": "test",
+                    "invocation_json": f"runs/{model_id}/invocation.json",
+                    "invocation_status": "completed",
+                    "stdout_log": f"runs/{model_id}/stdout.log",
+                    "stderr_log": f"runs/{model_id}/stderr.log",
+                }
+            ),
         )
 
     for relative_path in (

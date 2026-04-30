@@ -578,3 +578,58 @@ def test_write_paper_bundle_requires_existing_provenance_paths_for_paper_complet
     metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
     assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
     assert "visuals" in metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"]
+
+
+def test_write_paper_bundle_rejects_synthetic_reuse_exit_code_proof(tmp_path):
+    row_payloads = {"pinn_hybrid_resnet": _paper_grade_row_payload()}
+
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "invocation.json", json.dumps({"status": None}))
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "invocation.sh", "#!/usr/bin/env bash\n")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "config.json", "{}")
+    _write_text(tmp_path / "datasets" / "train.npz")
+    _write_text(tmp_path / "datasets" / "test.npz")
+    _write_text(
+        tmp_path / "dataset_identity_manifest.json",
+        json.dumps(
+            {
+                "train_npz": {"size_bytes": 1, "sha256": "train-sha", "source": "synthetic_lines"},
+                "test_npz": {"size_bytes": 1, "sha256": "test-sha", "source": "synthetic_lines"},
+            }
+        ),
+    )
+    _write_text(tmp_path / "split_manifest.json", json.dumps({"seed": 3}))
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "metrics.json", "{}")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "history.json", "{}")
+    _write_text(
+        tmp_path / "runs" / "pinn_hybrid_resnet" / "stdout.log",
+        "Skipped backend execution; reused existing reconstruction artifact.\n",
+    )
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "stderr.log")
+    _write_text(
+        tmp_path / "runs" / "pinn_hybrid_resnet" / "exit_code_proof.json",
+        json.dumps(
+            {
+                "exit_code": 0,
+                "proof_source": "row_artifacts_present_after_successful_compare_flow",
+                "invocation_status": None,
+                "stdout_log": "runs/pinn_hybrid_resnet/stdout.log",
+                "stderr_log": "runs/pinn_hybrid_resnet/stderr.log",
+            }
+        ),
+    )
+    _write_text(tmp_path / "recons" / "pinn_hybrid_resnet" / "recon.npz")
+    _write_text(tmp_path / "visuals" / "amp_phase_pinn_hybrid_resnet.png")
+    _write_text(tmp_path / "visuals" / "amp_phase_error_pinn_hybrid_resnet.png")
+
+    write_paper_benchmark_bundle(
+        output_dir=tmp_path,
+        row_payloads=row_payloads,
+        required_rows=("pinn_hybrid_resnet",),
+        fixed_sample_ids=[0, 1],
+        shared_visual_scales={"amp": {"vmin": 0.0, "vmax": 1.0}},
+        require_row_provenance=True,
+    )
+
+    metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
+    assert "outputs" in metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"]

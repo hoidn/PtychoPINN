@@ -185,10 +185,20 @@ def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tm
         (datasets_dir / "train.npz").write_bytes(b"stub")
         (datasets_dir / "test.npz").write_bytes(b"stub")
         for model_id in ("baseline", "pinn"):
+            run_dir = cfg.output_dir / "runs" / model_id
+            run_dir.mkdir(parents=True, exist_ok=True)
             recon_dir = cfg.output_dir / "recons" / model_id
             recon_dir.mkdir(parents=True, exist_ok=True)
             gt = (np.ones((cfg.N, cfg.N)) + 1j * np.ones((cfg.N, cfg.N))).astype(np.complex64)
             np.savez(recon_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+            (run_dir / "invocation.json").write_text(
+                json.dumps({"status": "completed", "finished_at_utc": "2026-04-29T00:00:00+00:00"}),
+                encoding="utf-8",
+            )
+            (run_dir / "invocation.sh").write_text("python fake_tf_run.py\n", encoding="utf-8")
+            (run_dir / "config.json").write_text("{}", encoding="utf-8")
+            (run_dir / "history.json").write_text("{}", encoding="utf-8")
+            (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
         return {
             "train_npz": str(datasets_dir / "train.npz"),
             "test_npz": str(datasets_dir / "test.npz"),
@@ -230,10 +240,20 @@ def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tm
 
     def fake_torch_run(cfg):
         model_id = f"pinn_{cfg.architecture}"
+        run_dir = cfg.output_dir / "runs" / model_id
+        run_dir.mkdir(parents=True, exist_ok=True)
         recon_dir = cfg.output_dir / "recons" / model_id
         recon_dir.mkdir(parents=True, exist_ok=True)
         gt = (np.ones((cfg.N, cfg.N)) + 1j * np.ones((cfg.N, cfg.N))).astype(np.complex64)
         np.savez(recon_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+        (run_dir / "invocation.json").write_text(
+            json.dumps({"status": "completed", "finished_at_utc": "2026-04-29T00:00:00+00:00"}),
+            encoding="utf-8",
+        )
+        (run_dir / "invocation.sh").write_text("python fake_torch_run.py\n", encoding="utf-8")
+        (run_dir / "config.json").write_text("{}", encoding="utf-8")
+        (run_dir / "history.json").write_text("{}", encoding="utf-8")
+        (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
         return {
             "recon_npz": str(recon_dir / "recon.npz"),
             "paper_row_payload": {
@@ -1126,8 +1146,8 @@ def test_wrapper_reuses_precomputed_recons_when_opted_in(monkeypatch, tmp_path):
     )
     assert called["build"] == 0
     assert called["torch"] == 0
-    stdout_log = tmp_path / "runs" / "pinn_hybrid" / "stdout.log"
-    assert "Skipped backend execution; reused existing reconstruction artifact." in stdout_log.read_text()
+    assert not (tmp_path / "runs" / "pinn_hybrid" / "stdout.log").exists()
+    assert not (tmp_path / "runs" / "pinn_hybrid" / "exit_code_proof.json").exists()
 
 
 def test_harmonized_metrics_run_on_canonical_gt_grid(tmp_path):

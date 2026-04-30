@@ -9,6 +9,7 @@ Data contracts: see specs/data_contracts.md
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, replace
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, Optional, Tuple
 import gc
@@ -1027,6 +1028,7 @@ def _write_tf_row_provenance(
     from scripts.studies.invocation_logging import (
         capture_runtime_provenance,
         get_git_commit,
+        update_invocation_artifacts,
         write_invocation_artifacts,
     )
 
@@ -1039,7 +1041,7 @@ def _write_tf_row_provenance(
         "row_model_id": model_id,
         "shared_root_output_dir": str(cfg.output_dir),
     }
-    write_invocation_artifacts(
+    invocation_json, invocation_sh = write_invocation_artifacts(
         output_dir=run_dir,
         script_path="ptycho/workflows/grid_lines_workflow.py",
         argv=_build_tf_row_invocation_argv(
@@ -1056,8 +1058,12 @@ def _write_tf_row_provenance(
         },
         extra=invocation_extra,
     )
-    invocation_json = run_dir / "invocation.json"
-    invocation_sh = run_dir / "invocation.sh"
+    update_invocation_artifacts(
+        invocation_json,
+        status="completed",
+        finished_at_utc=datetime.now(timezone.utc).isoformat(),
+        run_dir=str(run_dir),
+    )
     config_payload = {
         "grid_lines_config": asdict(cfg),
         "row_model_id": model_id,
@@ -1080,14 +1086,6 @@ def _write_tf_row_provenance(
         json.dumps(row_payload.get("metrics", {}), indent=2, default=_json_default),
         encoding="utf-8",
     )
-    root_log = cfg.output_dir / "live_stdout.log"
-    stdout_text = (
-        f"TensorFlow row executed via shared grid_lines_workflow library call.\nShared root log: {root_log}\n"
-        if root_log.exists()
-        else "TensorFlow row executed via shared grid_lines_workflow library call.\n"
-    )
-    (run_dir / "stdout.log").write_text(stdout_text, encoding="utf-8")
-    (run_dir / "stderr.log").write_text("", encoding="utf-8")
 
     row_payload["invocation"] = {
         "json": str(invocation_json.relative_to(cfg.output_dir)),

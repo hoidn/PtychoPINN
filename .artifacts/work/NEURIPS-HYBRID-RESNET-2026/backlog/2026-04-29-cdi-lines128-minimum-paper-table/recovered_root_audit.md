@@ -19,51 +19,59 @@
 - `runs/minimum_subset_20260429T204000Z`
   - classification: `stale_do_not_reuse`
   - basis: invocation artifacts and canonical GT recon exist, but the root
-    never produced the required four-row same-root bundle surfaces and is
-    superseded by later audited attempts.
+    never produced the required four-row bundle surfaces and is superseded by
+    later audited attempts.
 - `runs/minimum_subset_20260429T204642Z`
   - classification: `failed_recoverable`
   - basis: TensorFlow `baseline` and `pinn` completed, but row collation failed
     before the Torch rows launched.
 - `runs/minimum_subset_20260429T213028Z`
   - classification: `decision_support_only_not_paper_grade`
-  - basis: the implementation review was correct that this root lacked the
-    required TensorFlow row-local provenance and the required visual bundle
-    (`amp_phase_error_*`, `frc_curves.png`), so same-root recovery here is not
-    honest paper-grade evidence.
+  - basis: the root lacked the required TensorFlow row-local provenance and the
+    required visual bundle (`amp_phase_error_*`, `frc_curves.png`), so same-root
+    recovery here is not honest paper-grade evidence.
 - `runs/minimum_subset_20260429T224103Z`
   - classification: `failed_recoverable`
   - basis: an earlier fresh-root rerun failed during dataset NPZ writing with
     `OSError: [Errno 28] No space left on device`.
 - `runs/minimum_subset_20260429T235811Z`
-  - classification: `paper_complete_recovered_in_place`
-  - basis: the root still originates from the successful four-row fresh rerun,
-    and the latest review-fix pass completed the approved same-root recovery
-    path under the stricter existence-based provenance gate: the merged bundle
-    was regenerated from the existing row-local artifacts, emitted validation
-    loss still propagates correctly, wrapper/root artifact validation now checks
-    the required files rather than trusting strings, Torch row-local
-    `config.json` artifacts remain recovered honestly from invocation metadata,
-    and the merged root again reports `paper_complete` with `paper_grade` rows,
-    empty `missing_fields_by_row`, and empty `missing_bundle_artifacts`.
+  - classification: `rejected_synthetic_proof_root`
+  - basis: the implementation review was correct that the
+    `--reuse-existing-recons` path fabricated row-local `stdout.log`,
+    `stderr.log`, and `exit_code_proof.json` artifacts. After hardening the
+    provenance contract, this root no longer qualifies as honest paper-grade
+    evidence and is retained only as a rejected historical recovery attempt.
+- `runs/minimum_subset_20260430T031228Z`
+  - classification: `failed_fresh_rerun`
+  - basis: the first honest fresh rerun failed during TensorFlow row
+    provenance finalization with `NameError: name 'datetime' is not defined` in
+    `ptycho/workflows/grid_lines_workflow.py`.
+- `runs/minimum_subset_20260430T035104Z`
+  - classification: `paper_complete_fresh_rerun`
+  - basis: the rerun completed with exit code `0`, emitted honest root-level
+    `live_stdout.log` and `live_stderr.log`, produced real row-local
+    `stdout.log`, `stderr.log`, `invocation.json`, and `exit_code_proof.json`
+    artifacts for all four required rows, and the merged bundle reports
+    `paper_complete` with `paper_grade` rows, empty `missing_fields_by_row`, and
+    empty `missing_bundle_artifacts`.
 
 ## Authority Boundary
 
-- The harness preflight note remains readiness-only authority for the prerequisite item.
+- The harness preflight note remains readiness-only authority for the
+  prerequisite item.
 - The minimum-subset execution-authority note plus
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/execution/benchmark_execution_decisions.json`
   remain the launch-controlling surfaces for this item.
 
 ## Chosen Execution Path
 
-- chosen path: `same_root_recovery`
-- chosen root: `runs/minimum_subset_20260429T235811Z`
-- completion basis: the earlier `minimum_subset_20260429T213028Z` same-root
-  candidate remains rejected because its provenance and visual gaps were real.
-  The current authoritative root already contained all four required completed
-  rows, so this pass reused that root without retraining and reran only the
-  bundle/collation path with `--reuse-existing-recons` after tightening
-  provenance/path validation. The regenerated bundle now reports
+- chosen path: `fresh_rerun_after_review_fix`
+- chosen root: `runs/minimum_subset_20260430T035104Z`
+- completion basis: the earlier
+  `runs/minimum_subset_20260429T235811Z` same-root recovery claim was rejected
+  because its provenance artifacts were synthetic. The authoritative completion
+  therefore comes from a fresh rerun after the provenance-contract fix and the
+  follow-up `datetime` import fix. The accepted root now reports
   `benchmark_status=paper_complete`,
   `claim_boundary=minimum_draftable_cdi_subset`,
   empty `missing_fields_by_row`, empty `missing_bundle_artifacts`, and
@@ -73,6 +81,6 @@
 
 - No active writer remains.
 - The authoritative minimum-table bundle root is now
-  `runs/minimum_subset_20260429T235811Z`.
-- The former missing-resource blocker remains resolved for this item; this pass
-  performed in-place recovery only and did not need another expensive row rerun.
+  `runs/minimum_subset_20260430T035104Z`.
+- The earlier synthetic-proof recovery root is retained only for audit history
+  and must not be reused as paper-grade evidence.

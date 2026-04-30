@@ -35,6 +35,14 @@ def load_json_if_exists(path: Path) -> dict[str, Any]:
     return dict(payload) if isinstance(payload, dict) else {}
 
 
+def log_contains_skipped_backend_marker(path: Path) -> bool:
+    candidate = Path(path)
+    if not candidate.exists():
+        return False
+    text = candidate.read_text(encoding="utf-8", errors="ignore")
+    return "Skipped backend execution; reused existing reconstruction artifact." in text
+
+
 def relative_to_output_dir(output_dir: Path, path: Path) -> str:
     try:
         return str(path.relative_to(output_dir))
@@ -213,15 +221,25 @@ def write_exit_code_proof(
     stdout_log: Path,
     stderr_log: Path,
     proof_source: str,
-) -> Path:
-    invocation_payload = load_json_if_exists(invocation_json) if invocation_json is not None else {}
+) -> Path | None:
+    if invocation_json is None:
+        return None
+    invocation_payload = load_json_if_exists(invocation_json)
+    invocation_status = invocation_payload.get("status")
+    finished_at_utc = invocation_payload.get("finished_at_utc")
+    if invocation_status != "completed" or not isinstance(finished_at_utc, str) or not finished_at_utc:
+        return None
+    if not stdout_log.exists() or not stderr_log.exists():
+        return None
+    if log_contains_skipped_backend_marker(stdout_log) or log_contains_skipped_backend_marker(stderr_log):
+        return None
     payload = {
         "model_id": model_id,
         "validated_at_utc": datetime.now(timezone.utc).isoformat(),
         "proof_source": proof_source,
         "exit_code": 0,
         "invocation_json": relative_to_output_dir(output_dir, invocation_json) if invocation_json is not None else None,
-        "invocation_status": invocation_payload.get("status"),
+        "invocation_status": invocation_status,
         "stdout_log": relative_to_output_dir(output_dir, stdout_log),
         "stderr_log": relative_to_output_dir(output_dir, stderr_log),
     }

@@ -4,7 +4,9 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import inspect
+import io
 import json
 import os
 import random
@@ -102,6 +104,55 @@ def _load_json_if_exists(path: Path) -> Dict[str, Any]:
     with candidate.open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
     return dict(payload) if isinstance(payload, dict) else {}
+
+
+class _TeeTextStream(io.TextIOBase):
+    def __init__(self, *streams: io.TextIOBase) -> None:
+        self._streams = streams
+
+    def write(self, s: str) -> int:
+        for stream in self._streams:
+            stream.write(s)
+            stream.flush()
+        return len(s)
+
+    def flush(self) -> None:
+        for stream in self._streams:
+            stream.flush()
+
+
+def _write_log_text(path: Path, text: str, *, append: bool) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a" if append else "w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
+@contextlib.contextmanager
+def _capture_execution_logs(
+    *,
+    stdout_overwrite_targets: Iterable[Path],
+    stderr_overwrite_targets: Iterable[Path],
+    stdout_append_targets: Iterable[Path] = (),
+    stderr_append_targets: Iterable[Path] = (),
+):
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    tee_stdout = _TeeTextStream(sys.stdout, stdout_buffer)
+    tee_stderr = _TeeTextStream(sys.stderr, stderr_buffer)
+    try:
+        with contextlib.redirect_stdout(tee_stdout), contextlib.redirect_stderr(tee_stderr):
+            yield
+    finally:
+        stdout_text = stdout_buffer.getvalue()
+        stderr_text = stderr_buffer.getvalue()
+        for target in stdout_overwrite_targets:
+            _write_log_text(Path(target), stdout_text, append=False)
+        for target in stderr_overwrite_targets:
+            _write_log_text(Path(target), stderr_text, append=False)
+        for target in stdout_append_targets:
+            _write_log_text(Path(target), stdout_text, append=True)
+        for target in stderr_append_targets:
+            _write_log_text(Path(target), stderr_text, append=True)
 
 
 def _current_torch_hardware_summary() -> Dict[str, object]:
@@ -515,9 +566,10 @@ def _enrich_paper_row_payload(
             "recon_npz": relative_to_output_dir(output_dir, output_dir / "recons" / model_id / "recon.npz"),
             "stdout_log": relative_to_output_dir(output_dir, stdout_log),
             "stderr_log": relative_to_output_dir(output_dir, stderr_log),
-            "exit_code_proof_json": relative_to_output_dir(output_dir, exit_code_proof),
         }
     )
+    if exit_code_proof is not None:
+        outputs_payload["exit_code_proof_json"] = relative_to_output_dir(output_dir, exit_code_proof)
     row["outputs"] = outputs_payload
     if not row.get("visuals"):
         row["visuals"] = {
@@ -531,8 +583,12 @@ def _enrich_paper_row_payload(
             run_dir / "config.json",
             run_dir / "history.json",
             run_dir / "metrics.json",
+            run_dir / "stdout.log",
+            run_dir / "stderr.log",
             output_dir / "recons" / model_id / "recon.npz",
         ]
+        if exit_code_proof is not None:
+            required_paths.append(exit_code_proof)
         visuals = row.get("visuals")
         if isinstance(visuals, Mapping):
             for key in ("amp_phase_png", "amp_phase_error_png"):
@@ -1108,13 +1164,6 @@ def run_grid_lines_compare(
                     probe_source=str(probe_source),
                     probe_scale_mode=str(probe_scale_mode),
                 )
-            for model_id in selected_models:
-                run_dir = output_dir / "runs" / model_id
-                run_dir.mkdir(parents=True, exist_ok=True)
-                (run_dir / "stdout.log").write_text(
-                    "Skipped backend execution; reused existing reconstruction artifact.\n"
-                )
-                (run_dir / "stderr.log").write_text("")
 
             model_ns_for_metrics = {
                 model_id: int(resolved_model_n.get(model_id, N))
@@ -1217,7 +1266,15 @@ def run_grid_lines_compare(
                 probe_scale_mode=probe_scale_mode,
                 set_phi=set_phi,
             )
-            tf_result = _run_tf_workflow_with_selected_models(tf_workflow, tf_model_cfg, tf_models_for_n)
+            tf_stdout_targets = [output_dir / "runs" / model_id / "stdout.log" for model_id in tf_models_for_n]
+            tf_stderr_targets = [output_dir / "runs" / model_id / "stderr.log" for model_id in tf_models_for_n]
+            with _capture_execution_logs(
+                stdout_overwrite_targets=tf_stdout_targets,
+                stderr_overwrite_targets=tf_stderr_targets,
+                stdout_append_targets=(output_dir / "live_stdout.log",),
+                stderr_append_targets=(output_dir / "live_stderr.log",),
+            ):
+                tf_result = _run_tf_workflow_with_selected_models(tf_workflow, tf_model_cfg, tf_models_for_n)
             tf_row_payloads = tf_result.get("row_payloads", {})
             for model_id in tf_models_for_n:
                 recon_path = output_dir / "recons" / model_id / "recon.npz"
@@ -1305,7 +1362,13 @@ def run_grid_lines_compare(
                     position_reassembly_batch_size=torch_position_reassembly_batch_size,
                     position_crop_border=torch_position_crop_border,
                 )
-                torch_result = torch_runner.run_grid_lines_torch(torch_cfg)
+                with _capture_execution_logs(
+                    stdout_overwrite_targets=(output_dir / "runs" / model_id / "stdout.log",),
+                    stderr_overwrite_targets=(output_dir / "runs" / model_id / "stderr.log",),
+                    stdout_append_targets=(output_dir / "live_stdout.log",),
+                    stderr_append_targets=(output_dir / "live_stderr.log",),
+                ):
+                    torch_result = torch_runner.run_grid_lines_torch(torch_cfg)
                 recon_path = torch_result.get("recon_npz")
                 if recon_path is None:
                     recon_path = output_dir / "recons" / model_id / "recon.npz"
