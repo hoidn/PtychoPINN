@@ -23,9 +23,9 @@ ownership boundaries.
 
 ## Queue Lifecycle
 
-1. Build a deterministic manifest from `docs/backlog/active/*.md`
-2. Reconcile the manifest against `docs/backlog/roadmap_gate.json`
-3. If eligible items exist, select one next item with provider judgment from the filtered manifest only
+1. Build a deterministic raw manifest from `docs/backlog/active/*.md`
+2. Reconcile the raw manifest against `docs/backlog/roadmap_gate.json` and emit a derived eligible manifest
+3. If eligible items exist, select one next item with provider judgment from the eligible manifest only
 4. If no eligible item exists because authorized roadmap work is missing from the queue, draft one controlled backlog-gap item and loop
 5. Run narrow roadmap sync for the selected item
 6. Move the item `active -> in_progress` only after roadmap sync accepts it
@@ -42,6 +42,13 @@ as the authoritative roadmap pointer after each roadmap-sync decision.
 does not decide phase legality; it ranks only already-eligible items. The gap
 drafter may create a missing active backlog item for already-authorized roadmap
 work, but it must not edit the roadmap or advance to later phases.
+
+The raw manifest and eligible manifest are intentionally not equal. The raw
+manifest is gate input and provenance; the eligible manifest is the downstream
+authority for both selection and active selected-item execution. The eligible
+manifest records `source_manifest_path`, and active selected-item materialization
+rejects manifests that do not carry gated-manifest lineage or do not contain the
+selected item.
 
 ## Launch
 

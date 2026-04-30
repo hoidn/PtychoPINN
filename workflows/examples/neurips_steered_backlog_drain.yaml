@@ -559,7 +559,7 @@ steps:
                       selector_state_root:
                         ref: parent.steps.PrepareSelectorInputs.artifacts.selector_state_root
                       manifest_path:
-                        ref: parent.steps.BuildBacklogManifest.artifacts.manifest_path
+                        ref: parent.steps.ReconcileBacklogRoadmapGate.artifacts.eligible_manifest_path
                       steering_path:
                         ref: root.steps.InitializeBacklogDrain.artifacts.steering_path
                       design_path:

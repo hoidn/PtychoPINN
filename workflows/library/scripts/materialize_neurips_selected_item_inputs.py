@@ -103,6 +103,11 @@ def main() -> int:
     selected_item_active_path: str
     selected_item_in_progress_path: str
     if selection_mode == "ACTIVE_SELECTION":
+        source_manifest_path = manifest.get("source_manifest_path")
+        if not isinstance(source_manifest_path, str) or not source_manifest_path.strip():
+            raise SystemExit("Active selection manifest must be roadmap-gated: missing source_manifest_path")
+        if manifest.get("roadmap_gate_status") != "ELIGIBLE":
+            raise SystemExit("Active selection manifest must be roadmap-gated with roadmap_gate_status=ELIGIBLE")
         if not isinstance(item_path_rel, str) or not item_path_rel.startswith("docs/backlog/active/"):
             raise SystemExit(f"Active selection must come from docs/backlog/active/: {item_path_rel}")
         manifest_items = manifest.get("items")
