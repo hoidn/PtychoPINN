@@ -1,0 +1,135 @@
+{
+  "state": "not_protocol_compatible",
+  "claim_boundary": "lines128_classical_optional_extension",
+  "allowed_closeout_states": [
+    "classical_row_executed",
+    "not_protocol_compatible"
+  ],
+  "fixed_contract": {
+    "N": 128,
+    "gridsize": 1,
+    "dataset_source": "synthetic_lines",
+    "set_phi": true,
+    "probe_source": "custom",
+    "probe_npz": "datasets/Run1084_recon3_postPC_shrunk_3.npz",
+    "probe_scale_mode": "pad_extrapolate",
+    "probe_smoothing_sigma": 0.5,
+    "probe_mask_diameter": null,
+    "nimgs_train": 2,
+    "nimgs_test": 2,
+    "nphotons": 1000000000.0,
+    "seed": 3,
+    "torch_epochs": 40,
+    "torch_learning_rate": 0.0002,
+    "torch_scheduler": "ReduceLROnPlateau",
+    "torch_plateau_factor": 0.5,
+    "torch_plateau_patience": 2,
+    "torch_plateau_min_lr": 0.0001,
+    "torch_plateau_threshold": 0.0,
+    "torch_loss_mode": "mae",
+    "torch_mae_pred_l2_match_target": false,
+    "torch_output_mode": "real_imag",
+    "fno_modes": 12,
+    "fno_width": 32,
+    "fno_blocks": 4,
+    "fno_cnn_blocks": 2
+  },
+  "fixed_sample_ids": [
+    0,
+    1
+  ],
+  "shared_visual_scales": {
+    "amp": {
+      "strategy": "shared_across_rows",
+      "source": "stitched_numeric_arrays"
+    },
+    "phase": {
+      "strategy": "shared_across_rows",
+      "source": "stitched_numeric_arrays"
+    },
+    "amp_abs_error": {
+      "strategy": "shared_across_rows",
+      "source": "derived_from_stitched_numeric_arrays"
+    },
+    "phase_abs_error": {
+      "strategy": "shared_across_rows",
+      "source": "derived_from_stitched_numeric_arrays"
+    }
+  },
+  "required_extension_bundle_artifacts": [
+    "metrics.json",
+    "metrics_table.csv",
+    "metrics_table.tex",
+    "metrics_table_best.tex",
+    "metric_schema.json",
+    "model_manifest.json",
+    "paper_benchmark_manifest.json",
+    "benchmark_decisions.json",
+    "visuals/",
+    "source_arrays"
+  ],
+  "required_row_level_fields": [
+    "model_label",
+    "architecture_id",
+    "training_procedure",
+    "parameter_count",
+    "epoch_budget",
+    "final_completed_epoch",
+    "final_train_loss",
+    "validation_loss",
+    "runtime_summary",
+    "hardware_summary",
+    "row_status",
+    "caveats"
+  ],
+  "required_paper_grade_provenance_fields": [
+    "invocation",
+    "config",
+    "git",
+    "environment",
+    "dataset",
+    "splits",
+    "randomness",
+    "outputs",
+    "visuals"
+  ],
+  "downgrade_rule": "Any missing required field or extension-bundle artifact downgrades the row to benchmark_incomplete and prevents same-contract publication.",
+  "preserved_roots": {
+    "complete_table_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux"
+  },
+  "audit": {
+    "protocol_compatibility_audit": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-classical-baseline-feasibility/execution/protocol_compatibility_audit.md",
+    "audited_script": "scripts/reconstruction/hio_cdi_benchmark.py",
+    "solver_branches": [
+      {
+        "solver": "pynx_cdi_hio_er",
+        "decision": "not_protocol_compatible",
+        "incompatibility_categories": [
+          "spatial size / split identity",
+          "metric unavailability or untrusted metric path",
+          "provenance gap",
+          "other concrete contract mismatch"
+        ],
+        "narrow_fix_assessment": "broad_rework_required_not_permitted_in_this_pass"
+      },
+      {
+        "solver": "known_probe_object_hio_er",
+        "decision": "not_protocol_compatible",
+        "incompatibility_categories": [
+          "spatial size / split identity",
+          "probe/object representation mismatch",
+          "metric unavailability or untrusted metric path",
+          "provenance gap",
+          "other concrete contract mismatch"
+        ],
+        "narrow_fix_assessment": "broad_rework_required_not_permitted_in_this_pass"
+      }
+    ]
+  },
+  "final_outcome": {
+    "closeout_state": "not_protocol_compatible",
+    "classical_row_executed": false,
+    "authoritative_incompatibility_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-classical-baseline-feasibility",
+    "preserved_primary_bundle_unchanged": true
+  }
+}
