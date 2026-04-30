@@ -74,6 +74,11 @@ class _UnoReturnsWrongChannels(torch.nn.Module):
         return torch.zeros((batch, 3, height, width), dtype=x.dtype, device=x.device)
 
 
+class _UnoRaisesValueError(torch.nn.Module):
+    def __init__(self, *args, **kwargs):
+        raise ValueError("bad constructor shape")
+
+
 def test_run_lines128_uno_preflight_blocks_when_neuralop_import_is_missing(tmp_path, monkeypatch):
     from scripts.studies import lines128_uno_preflight as preflight
 
@@ -95,6 +100,81 @@ def test_run_lines128_uno_preflight_blocks_when_neuralop_import_is_missing(tmp_p
     assert "neuralop" in decision["blocker_reason"]
     assert (tmp_path / "preflight_decision.json").exists()
     assert _read_json(tmp_path / "preflight_decision.json")["status"] == decision["status"]
+
+
+def test_run_lines128_uno_preflight_retries_missing_import_after_install_attempt(tmp_path, monkeypatch):
+    from scripts.studies import lines128_uno_preflight as preflight
+
+    fake_neuralop = type("__FakeNeuralOp__", (), {"__version__": "2.0.0", "__file__": "/tmp/neuralop/__init__.py"})
+    import_attempts = {"count": 0}
+    install_attempts: list[str] = []
+    pip_show_texts = iter(
+        [
+            "WARNING: Package(s) not found: neuraloperator\n",
+            "Name: neuraloperator\nVersion: 2.0.0\n",
+        ]
+    )
+
+    def _import_once_missing_then_succeed():
+        import_attempts["count"] += 1
+        if import_attempts["count"] == 1:
+            raise ModuleNotFoundError("no module named neuralop")
+        return fake_neuralop, _UnoReturnsBchw
+
+    monkeypatch.setattr(preflight, "_import_uno_dependencies", _import_once_missing_then_succeed)
+    monkeypatch.setattr(preflight, "_capture_pip_show_text", lambda: next(pip_show_texts))
+    monkeypatch.setattr(
+        preflight,
+        "_attempt_neuraloperator_install",
+        lambda: install_attempts.append("neuraloperator==2.0.0"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        preflight,
+        "current_runtime_provenance",
+        lambda **_kwargs: {"python_executable": "python", "torch_version": "2.6.0", "gpu": "unknown"},
+    )
+
+    decision = preflight.run_lines128_uno_preflight(output_root=tmp_path)
+
+    assert install_attempts == ["neuraloperator==2.0.0"]
+    assert import_attempts["count"] == 2
+    assert decision["status"] == "ready_for_uno_generator_integration"
+    assert decision["package_provenance"]["pip_show_present"] is True
+    assert "Name: neuraloperator" in (tmp_path / "pip_show_neuraloperator.txt").read_text(encoding="utf-8")
+
+
+def test_run_lines128_uno_preflight_marks_pip_show_missing_warning_as_not_present(tmp_path, monkeypatch):
+    from scripts.studies import lines128_uno_preflight as preflight
+
+    install_attempts: list[str] = []
+
+    def _missing_import():
+        raise ModuleNotFoundError("no module named neuralop")
+
+    monkeypatch.setattr(preflight, "_import_uno_dependencies", _missing_import)
+    monkeypatch.setattr(
+        preflight,
+        "_capture_pip_show_text",
+        lambda: "WARNING: Package(s) not found: neuraloperator\n",
+    )
+    monkeypatch.setattr(
+        preflight,
+        "_attempt_neuraloperator_install",
+        lambda: install_attempts.append("neuraloperator==2.0.0"),
+        raising=False,
+    )
+    monkeypatch.setattr(
+        preflight,
+        "current_runtime_provenance",
+        lambda **_kwargs: {"python_executable": "python", "torch_version": "2.6.0", "gpu": "unknown"},
+    )
+
+    decision = preflight.run_lines128_uno_preflight(output_root=tmp_path)
+
+    assert install_attempts == ["neuraloperator==2.0.0"]
+    assert decision["status"] == "blocked_neuraloperator_missing_or_incompatible"
+    assert decision["package_provenance"]["pip_show_present"] is False
 
 
 def test_run_lines128_uno_preflight_records_signature_provenance_and_frozen_defaults(
@@ -211,3 +291,33 @@ def test_run_lines128_uno_preflight_blocks_on_unmappable_output_layout(tmp_path,
     assert decision["shape_probe"]["accepted"] is False
     assert decision["shape_probe"]["raw_output_shape"] == [2, 3, 128, 128]
     assert "real_imag" in decision["blocker_reason"]
+
+
+def test_run_lines128_uno_preflight_blocks_on_non_typeerror_constructor_incompatibility(
+    tmp_path,
+    monkeypatch,
+):
+    from scripts.studies import lines128_uno_preflight as preflight
+
+    fake_neuralop = type("__FakeNeuralOp__", (), {"__version__": "2.0.0", "__file__": "/tmp/neuralop/__init__.py"})
+    monkeypatch.setattr(
+        preflight,
+        "_import_uno_dependencies",
+        lambda: (fake_neuralop, _UnoRaisesValueError),
+    )
+    monkeypatch.setattr(preflight, "_capture_pip_show_text", lambda: "Name: neuraloperator\nVersion: 2.0.0\n")
+    monkeypatch.setattr(
+        preflight,
+        "current_runtime_provenance",
+        lambda **_kwargs: {"python_executable": "python", "torch_version": "2.6.0", "gpu": "unknown"},
+    )
+
+    try:
+        decision = preflight.run_lines128_uno_preflight(output_root=tmp_path)
+    except Exception as exc:  # pragma: no cover - converted into an assertion failure
+        pytest.fail(f"preflight should emit a blocker artifact instead of raising: {exc}")
+
+    assert decision["status"] == "blocked_neuraloperator_missing_or_incompatible"
+    assert decision["package_status"] == "constructor_incompatible"
+    assert "bad constructor shape" in decision["blocker_reason"]
+    assert (tmp_path / "preflight_decision.json").exists()

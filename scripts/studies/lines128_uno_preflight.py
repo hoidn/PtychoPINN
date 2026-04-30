@@ -24,6 +24,7 @@ from scripts.studies.paper_provenance import current_runtime_provenance, git_dir
 READY_STATUS = "ready_for_uno_generator_integration"
 BLOCKED_PACKAGE_STATUS = "blocked_neuraloperator_missing_or_incompatible"
 BLOCKED_SHAPE_STATUS = "blocked_uno_shape_contract_mismatch"
+NEURALOPERATOR_REQUIREMENT = "neuraloperator==2.0.0"
 
 LOCKED_CONTRACT: dict[str, Any] = {
     "N": 128,
@@ -81,6 +82,44 @@ def _capture_pip_show_text() -> str:
     if stderr:
         return stderr + "\n"
     return ""
+
+
+def _pip_show_present(pip_show_text: str) -> bool:
+    stripped = pip_show_text.strip()
+    if not stripped:
+        return False
+    lines = [line.strip() for line in stripped.splitlines() if line.strip()]
+    if not lines:
+        return False
+    if lines[0].startswith("WARNING: Package(s) not found:"):
+        return False
+    return any(line.startswith("Name:") for line in lines)
+
+
+def _attempt_neuraloperator_install() -> None:
+    result = subprocess.run(
+        ["python", "-m", "pip", "install", NEURALOPERATOR_REQUIREMENT],
+        check=False,
+        text=True,
+        capture_output=True,
+    )
+    if result.returncode == 0:
+        return
+    stdout = result.stdout.strip()
+    stderr = result.stderr.strip()
+    details = "\n".join(part for part in (stdout, stderr) if part)
+    if details:
+        raise RuntimeError(f"pip install {NEURALOPERATOR_REQUIREMENT} failed:\n{details}")
+    raise RuntimeError(f"pip install {NEURALOPERATOR_REQUIREMENT} failed with exit code {result.returncode}")
+
+
+def _is_missing_neuraloperator_error(exc: Exception) -> bool:
+    if isinstance(exc, ModuleNotFoundError):
+        missing_name = getattr(exc, "name", None)
+        if missing_name in {None, "neuralop", "neuraloperator", "neuralop.models"}:
+            return True
+    message = str(exc)
+    return "neuralop" in message or "neuraloperator" in message
 
 
 def _import_uno_dependencies():
@@ -195,7 +234,7 @@ def _package_provenance(neuralop_module: Any | None, pip_show_text: str, *, repo
         "module_name": "neuralop",
         "module_version": getattr(neuralop_module, "__version__", None) if neuralop_module is not None else None,
         "module_file": str(Path(neuralop_module.__file__).resolve()) if neuralop_module is not None and getattr(neuralop_module, "__file__", None) else None,
-        "pip_show_present": bool(pip_show_text.strip()),
+        "pip_show_present": _pip_show_present(pip_show_text),
         "git_commit": get_git_commit(repo_root),
         "git_dirty": git_dirty(repo_root),
     }
@@ -270,11 +309,31 @@ def run_lines128_uno_preflight(*, output_root: Path, repo_root: Path | None = No
         "reason": "UNO forward probe was not attempted.",
     }
 
+    install_attempted = False
+    import_exc: Exception | None = None
     try:
         neuralop_module, uno_cls = _import_uno_dependencies()
     except Exception as exc:
+        if _is_missing_neuraloperator_error(exc):
+            install_attempted = True
+            try:
+                _attempt_neuraloperator_install()
+                pip_show_text = _capture_pip_show_text()
+                neuralop_module, uno_cls = _import_uno_dependencies()
+            except Exception as retry_exc:
+                import_exc = retry_exc
+        else:
+            import_exc = exc
+
+    if import_exc is not None:
         package_provenance = _package_provenance(None, pip_show_text, repo_root=repo_root)
-        empty_signature["error"] = f"{type(exc).__name__}: {exc}"
+        empty_signature["error"] = f"{type(import_exc).__name__}: {import_exc}"
+        blocker_reason = f"Unable to import neuralop.models.UNO: {import_exc}"
+        if install_attempted:
+            blocker_reason = (
+                f"Unable to import neuralop.models.UNO after one install attempt of "
+                f"{NEURALOPERATOR_REQUIREMENT}: {import_exc}"
+            )
         decision = _blocked_decision(
             status=BLOCKED_PACKAGE_STATUS,
             package_status="missing_or_incompatible",
@@ -282,7 +341,7 @@ def run_lines128_uno_preflight(*, output_root: Path, repo_root: Path | None = No
             package_provenance=package_provenance,
             uno_signature=empty_signature,
             shape_probe=not_attempted_shape,
-            blocker_reason=f"Unable to import neuralop.models.UNO: {exc}",
+            blocker_reason=blocker_reason,
             next_item_recommendation="resolve_neuraloperator_environment",
         )
         _write_artifacts(
@@ -301,7 +360,7 @@ def run_lines128_uno_preflight(*, output_root: Path, repo_root: Path | None = No
 
     try:
         model, frozen_settings = _instantiate_with_mode_probe(uno_cls, signature_payload)
-    except TypeError as exc:
+    except Exception as exc:
         blocked_shape = dict(not_attempted_shape)
         decision = _blocked_decision(
             status=BLOCKED_PACKAGE_STATUS,
@@ -310,7 +369,10 @@ def run_lines128_uno_preflight(*, output_root: Path, repo_root: Path | None = No
             package_provenance=package_provenance,
             uno_signature=signature_payload,
             shape_probe=blocked_shape,
-            blocker_reason=f"UNO constructor could not satisfy the frozen lines128 preflight settings: {exc}",
+            blocker_reason=(
+                "UNO constructor could not satisfy the frozen lines128 preflight settings: "
+                f"{type(exc).__name__}: {exc}"
+            ),
             next_item_recommendation="resolve_uno_constructor_contract",
         )
         _write_artifacts(
