@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -87,6 +88,29 @@ def test_repo_local_output_guard_rejects_neurips_output_root():
 
     with pytest.raises(ValueError, match=str(NEURIPS_ROOT)):
         module.ensure_repo_local_output_path(NEURIPS_ROOT / "index.md")
+
+
+def test_direct_script_entrypoint_runs_audit_successfully():
+    script_path = REPO_ROOT / "scripts/studies/paper_evidence_audit.py"
+
+    result = subprocess.run(
+        ["python", str(script_path), "--repo-root", str(REPO_ROOT)],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    payload = json.loads(result.stdout)
+    assert payload["manifest_path"] == "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_manifest.json"
+    assert payload["summary_path"] == (
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_package_audit_summary.md"
+    )
+    assert payload["validation_path"] == (
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/"
+        "audit_validation.json"
+    )
 
 
 def test_summary_mentions_same_authorities_and_claim_limits():
