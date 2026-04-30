@@ -488,6 +488,39 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
     preserved evidence roots and should not be mistaken for the final six-row
     package
 
+### `grid-lines-n128-supervised-ffno-extension`
+
+- Purpose: publish the adjacent same-contract `FFNO + PINN` versus
+  `FFNO + supervised` comparison under the frozen `lines128` `N=128`,
+  `seed=3`, fixed-sample, shared-visual-scale contract without rewriting the
+  primary six-row CDI benchmark claim.
+- Status: completed on `2026-04-30`; the extension root is
+  `paper_complete`.
+- Summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md`
+- Execution authority:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_execution_authority.md`
+- Authoritative extension root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z`
+- Included bundle rows:
+  - `pinn_ffno`
+  - `supervised_ffno`
+- Reference-only same-contract supervised CNN row:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z`
+- Parity evidence:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/execution/supervised_ffno_parity_audit.json`
+- Main result:
+  the supervised FFNO rerun executed successfully and produced exact parity
+  with the preserved `pinn_ffno` comparator under the locked contract,
+  validated by SHA-256 identity for `recon.npz`, `history.json`, and
+  `model.pt`, plus `numpy.allclose(..., rtol=0.0, atol=0.0)` on the
+  reconstruction arrays.
+- Boundary:
+  - this is adjacent evidence for the Lines128 CDI lane
+  - it does not replace the preserved six-row primary CDI benchmark root
+  - the supervised CNN minimum-subset evidence remains a referenced sibling,
+    not a rerun or silently merged extension row
+
 ### `grid-lines-n64-pinn-hybrid-resnet-e20`
 
 - Purpose: Run `N=64` grid-lines with `pinn` (TF) and `pinn_hybrid_resnet` (Torch) at `20` epochs, then render combined visuals.

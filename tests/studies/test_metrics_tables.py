@@ -169,6 +169,18 @@ def test_main_table_escapes_underscore_in_fallback_model_labels():
     assert "pinn\\_custom\\_model" in table
 
 
+def test_main_table_uses_supervised_ffno_display_label():
+    metrics = {"supervised_ffno": {"mae": (0.1, 0.2)}}
+    table = _build_main_table(metrics, model_ns={"supervised_ffno": 128})
+    assert "FFNO + supervised" in table
+
+
+def test_main_table_uses_pinn_ffno_display_label():
+    metrics = {"pinn_ffno": {"mae": (0.1, 0.2)}}
+    table = _build_main_table(metrics, model_ns={"pinn_ffno": 128})
+    assert "FFNO + PINN" in table
+
+
 def test_write_paper_bundle_marks_benchmark_incomplete_when_required_fields_missing(tmp_path):
     row_payloads = {
         "pinn_hybrid_resnet": {

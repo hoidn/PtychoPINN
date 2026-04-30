@@ -46,10 +46,12 @@ LEGACY_ARCH_TO_MODEL = {
 }
 
 MODEL_TO_LEGACY_ARCH = {model_id: arch for arch, model_id in LEGACY_ARCH_TO_MODEL.items()}
-SUPPORTED_MODEL_IDS = set(LEGACY_ARCH_TO_MODEL.values()) | {"pinn_ptychovit"}
+MODEL_TO_LEGACY_ARCH["supervised_ffno"] = "ffno"
+SUPPORTED_MODEL_IDS = set(LEGACY_ARCH_TO_MODEL.values()) | {"pinn_ptychovit", "supervised_ffno"}
 MODEL_DEFAULT_N = {"pinn_ptychovit": 256}
 TF_MODEL_IDS = {"pinn", "baseline"}
 TORCH_MODEL_IDS = {
+    "supervised_ffno",
     "pinn_ffno",
     "pinn_fno",
     "pinn_hybrid",
@@ -61,6 +63,7 @@ TORCH_MODEL_IDS = {
 PAPER_MODEL_LABELS = {
     "baseline": "CDI CNN + supervised",
     "pinn": "CDI CNN + PINN",
+    "supervised_ffno": "FFNO + supervised",
     "pinn_ffno": "FFNO + PINN",
     "pinn_fno": "FNO + PINN",
     "pinn_hybrid": "Hybrid + PINN",
@@ -76,6 +79,7 @@ PAPER_ARCHITECTURE_OVERRIDES = {
 }
 PAPER_TRAINING_PROCEDURE_OVERRIDES = {
     "baseline": "supervised",
+    "supervised_ffno": "supervised",
 }
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -660,6 +664,14 @@ def _parse_models(value: str) -> Tuple[str, ...]:
     return tuple(x.strip() for x in value.split(",") if x.strip())
 
 
+def _torch_model_route(model_id: str) -> Tuple[str, str]:
+    architecture = MODEL_TO_LEGACY_ARCH.get(model_id)
+    if architecture is None:
+        raise ValueError(f"Unsupported torch model route for {model_id!r}")
+    training_procedure = str(PAPER_TRAINING_PROCEDURE_OVERRIDES.get(model_id, "pinn"))
+    return architecture, training_procedure
+
+
 def _parse_model_n(value: str) -> Dict[str, int]:
     out: Dict[str, int] = {}
     if not value:
@@ -858,12 +870,13 @@ def _run_compare_preflight(
             continue
 
         if model_id in TORCH_MODEL_IDS:
-            arch = MODEL_TO_LEGACY_ARCH[model_id]
+            arch, training_procedure = _torch_model_route(model_id)
             torch_cfg = TorchRunnerConfig(
                 train_npz=Path(train_data) if train_data is not None else output_dir / "preflight_train.npz",
                 test_npz=Path(test_data) if test_data is not None else output_dir / "preflight_test.npz",
                 output_dir=output_dir,
                 architecture=arch,
+                training_procedure=training_procedure,
                 seed=seed,
                 epochs=torch_epochs or nepochs,
                 batch_size=torch_batch_size or batch_size,
@@ -1354,12 +1367,13 @@ def run_grid_lines_compare(
                 continue
 
             if model_id in TORCH_MODEL_IDS:
-                arch = MODEL_TO_LEGACY_ARCH[model_id]
+                arch, training_procedure = _torch_model_route(model_id)
                 torch_cfg = TorchRunnerConfig(
                     train_npz=train_npz,
                     test_npz=test_npz,
                     output_dir=output_dir,
                     architecture=arch,
+                    training_procedure=training_procedure,
                     seed=seed,
                     epochs=torch_epochs or nepochs,
                     batch_size=torch_batch_size or batch_size,
@@ -1664,6 +1678,7 @@ def run_grid_lines_compare(
                 test_npz=test_npz,
                 output_dir=output_dir,
                 architecture=arch,
+                training_procedure="pinn",
                 seed=seed,
                 epochs=torch_epochs or nepochs,
                 batch_size=torch_batch_size or batch_size,

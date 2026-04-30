@@ -1,0 +1,44 @@
+{
+  "claim_boundary": "lines128_supervised_ffno_extension",
+  "authoritative_extension_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z",
+  "comparison_standard": "exact_sha256_identity_plus_numpy_allclose",
+  "allclose_rtol": 0.0,
+  "allclose_atol": 0.0,
+  "artifacts": {
+    "supervised_ffno_recon": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z/recons/supervised_ffno/recon.npz",
+    "pinn_ffno_recon": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z/recons/pinn_ffno/recon.npz",
+    "supervised_ffno_history": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z/runs/supervised_ffno/history.json",
+    "pinn_ffno_history": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z/runs/pinn_ffno/history.json",
+    "supervised_ffno_model": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z/runs/supervised_ffno/model.pt",
+    "pinn_ffno_model": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z/runs/pinn_ffno/model.pt"
+  },
+  "sha256": {
+    "recon_supervised_ffno": "abbb3337c9d7cbfccaf93d36ce518cf3c0ef6a419b81179c0803059d40fe9510",
+    "recon_pinn_ffno": "abbb3337c9d7cbfccaf93d36ce518cf3c0ef6a419b81179c0803059d40fe9510",
+    "history_supervised_ffno": "74190b11a013a61abe71aa483bc82013629a9b9c4c793356fee0da0a9c2f0b21",
+    "history_pinn_ffno": "74190b11a013a61abe71aa483bc82013629a9b9c4c793356fee0da0a9c2f0b21",
+    "model_supervised_ffno": "19510bbd7e253ada859a162b2c1a4990c056a0ee4309185435e68dd34ba720ea",
+    "model_pinn_ffno": "19510bbd7e253ada859a162b2c1a4990c056a0ee4309185435e68dd34ba720ea"
+  },
+  "numpy_checks": {
+    "recon_shape_supervised_ffno": [
+      270,
+      270
+    ],
+    "recon_shape_pinn_ffno": [
+      270,
+      270
+    ],
+    "recon_allclose": true,
+    "recon_max_abs_diff": 0.0
+  },
+  "bundle_status": "paper_complete",
+  "missing_bundle_artifacts": [],
+  "missing_fields_by_row": {
+    "pinn_ffno": [],
+    "supervised_ffno": []
+  },
+  "reference_only_rows": [
+    "baseline"
+  ]
+}

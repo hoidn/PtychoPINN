@@ -668,7 +668,7 @@ def test_wrapper_writes_metrics_table_tex_architecture_mode(monkeypatch, tmp_pat
     assert "Baseline" in table_text
     assert "FFNO" in table_text
     assert "model_id,model_label,N" in csv_text
-    assert "pinn_ffno,FFNO,64" in csv_text
+    assert "pinn_ffno,FFNO + PINN,64" in csv_text
 
 
 def test_wrapper_writes_metrics_table_tex_models_reuse_path(monkeypatch, tmp_path):
@@ -841,14 +841,54 @@ def test_wrapper_reuse_path_recovers_row_payloads_from_existing_artifacts(monkey
     assert result["row_payloads"]["pinn_hybrid_resnet"]["final_completed_epoch"] == 2
     assert result["row_payloads"]["baseline"]["row_status"] == "decision_support"
     assert result["row_payloads"]["pinn"]["row_status"] == "decision_support"
-    assert (
-        result["row_payloads"]["pinn_hybrid_resnet"]["outputs"]["launcher_completion_json"]
-        == "runs/pinn_hybrid_resnet/launcher_completion.json"
+
+
+def test_wrapper_preflight_supports_supervised_ffno_row(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    probe_path = tmp_path / "probe.npz"
+    probe_path.write_bytes(b"stub")
+    captured = {}
+
+    def fake_setup_torch_configs(cfg):
+        captured["architecture"] = cfg.architecture
+        captured["training_procedure"] = cfg.training_procedure
+        return object(), object()
+
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.setup_torch_configs", fake_setup_torch_configs)
+
+    result = run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        probe_npz=probe_path,
+        architectures=(),
+        models=("supervised_ffno",),
+        model_n={"supervised_ffno": 128},
+        preflight_only=True,
+        seed=3,
+        set_phi=True,
+        probe_scale_mode="pad_extrapolate",
+        torch_epochs=40,
+        torch_learning_rate=2e-4,
+        torch_scheduler="ReduceLROnPlateau",
+        torch_plateau_factor=0.5,
+        torch_plateau_patience=2,
+        torch_plateau_min_lr=1e-4,
+        torch_plateau_threshold=0.0,
+        torch_loss_mode="mae",
+        torch_output_mode="real_imag",
+        nimgs_train=2,
+        nimgs_test=2,
+        nphotons=1e9,
     )
-    assert (
-        result["row_payloads"]["pinn_fno_vanilla"]["outputs"]["launcher_completion_json"]
-        == "runs/pinn_fno_vanilla/launcher_completion.json"
-    )
+
+    assert result["mode"] == "preflight_only"
+    assert result["selected_models"] == ["supervised_ffno"]
+    assert captured["architecture"] == "ffno"
+    assert captured["training_procedure"] == "supervised"
+    assert result["row_plan"][0]["model_id"] == "supervised_ffno"
+    assert result["row_plan"][0]["status"] == "supported_for_harness"
 
 
 def test_wrapper_reuse_path_does_not_attribute_tf_runtime_to_wrapper_repair_pass(monkeypatch, tmp_path):

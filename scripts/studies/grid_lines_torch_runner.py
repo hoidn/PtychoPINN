@@ -64,6 +64,21 @@ PAPER_MODEL_LABELS = {
 }
 
 
+def _runner_model_id(architecture: str, training_procedure: str) -> str:
+    if training_procedure == "supervised":
+        return f"supervised_{architecture}"
+    return f"pinn_{architecture}"
+
+
+def _paper_model_label(architecture: str, training_procedure: str) -> str:
+    label = PAPER_MODEL_LABELS.get(architecture, architecture)
+    if training_procedure == "supervised":
+        if label.endswith(" + PINN"):
+            return label[:-7] + " + supervised"
+        return f"{label} + supervised"
+    return label
+
+
 def _json_default(value: object) -> object:
     if isinstance(value, Path):
         return str(value)
@@ -116,6 +131,7 @@ class TorchRunnerConfig:
     test_npz: Path
     output_dir: Path
     architecture: str  # 'ffno', 'fno', or 'hybrid'
+    training_procedure: str = "pinn"
     seed: int = 42
     epochs: int = 50
     batch_size: int = 16
@@ -189,6 +205,7 @@ def _build_runner_cli_argv(cfg: TorchRunnerConfig) -> List[str]:
         "--test-npz", str(cfg.test_npz),
         "--output-dir", str(cfg.output_dir),
         "--architecture", str(cfg.architecture),
+        "--training-procedure", str(cfg.training_procedure),
         "--seed", str(cfg.seed),
         "--epochs", str(cfg.epochs),
         "--batch-size", str(cfg.batch_size),
@@ -291,7 +308,7 @@ def _write_runner_invocation_artifacts(
         write_invocation_artifacts,
     )
 
-    run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
+    run_dir = cfg.output_dir / "runs" / _runner_model_id(cfg.architecture, cfg.training_procedure)
     invocation_extra: Dict[str, Any] = {
         "runtime_provenance": capture_runtime_provenance(),
         "git_commit": get_git_commit(REPO_ROOT),
@@ -828,27 +845,26 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
                 f"(got {cfg.spectral_bottleneck_gate_mode!r})."
             )
 
-    model_config = ModelConfig(
-        N=N_literal,
-        gridsize=cfg.gridsize,
-        architecture=arch_literal,
-        fno_modes=cfg.fno_modes,
-        fno_width=cfg.fno_width,
-        fno_blocks=cfg.fno_blocks,
-        fno_cnn_blocks=cfg.fno_cnn_blocks,
-        fno_input_transform=cfg.fno_input_transform,
-        max_hidden_channels=cfg.max_hidden_channels,
-        resnet_width=cfg.resnet_width,
-        generator_output_mode=cfg.generator_output_mode,
-        object_big=False,
-        probe_big=False,
-        probe_mask=cfg.probe_mask,
-        probe_mask_sigma=cfg.probe_mask_sigma,
-        probe_mask_diameter=cfg.probe_mask_diameter,
-    )
-
     training_config = TrainingConfig(
-        model=model_config,
+        model=ModelConfig(
+            N=N_literal,
+            gridsize=cfg.gridsize,
+            model_type=cast(Literal['pinn', 'supervised'], cfg.training_procedure),
+            architecture=arch_literal,
+            fno_modes=cfg.fno_modes,
+            fno_width=cfg.fno_width,
+            fno_blocks=cfg.fno_blocks,
+            fno_cnn_blocks=cfg.fno_cnn_blocks,
+            fno_input_transform=cfg.fno_input_transform,
+            max_hidden_channels=cfg.max_hidden_channels,
+            resnet_width=cfg.resnet_width,
+            generator_output_mode=cfg.generator_output_mode,
+            object_big=False,
+            probe_big=False,
+            probe_mask=cfg.probe_mask,
+            probe_mask_sigma=cfg.probe_mask_sigma,
+            probe_mask_diameter=cfg.probe_mask_diameter,
+        ),
         train_data_file=cfg.train_npz,
         test_data_file=cfg.test_npz,
         output_dir=cfg.output_dir,
@@ -954,6 +970,16 @@ def run_torch_training(
         "coords_relative": coords,
         "probe": probe,
     }
+    if cfg.training_procedure == "supervised":
+        label_amp = train_data.get("Y_I")
+        label_phase = train_data.get("Y_phi")
+        if label_amp is None or label_phase is None:
+            raise RuntimeError(
+                "Supervised grid-lines Torch runs require Y_I and Y_phi so they can be bridged "
+                "to label_amp/label_phase."
+            )
+        train_container["label_amp"] = np.asarray(label_amp, dtype=np.float32)
+        train_container["label_phase"] = np.asarray(label_phase, dtype=np.float32)
 
     test_container = None
     if test_data:
@@ -970,6 +996,16 @@ def run_torch_training(
             "coords_relative": coords_te,
             "probe": test_probe,
         }
+        if cfg.training_procedure == "supervised":
+            label_amp = test_data.get("Y_I")
+            label_phase = test_data.get("Y_phi")
+            if label_amp is None or label_phase is None:
+                raise RuntimeError(
+                    "Supervised grid-lines Torch runs require Y_I and Y_phi so they can be bridged "
+                    "to label_amp/label_phase."
+                )
+            test_container["label_amp"] = np.asarray(label_amp, dtype=np.float32)
+            test_container["label_phase"] = np.asarray(label_phase, dtype=np.float32)
 
     results = _train_with_lightning(
         train_container,
@@ -1108,11 +1144,12 @@ def _collect_visual_order(output_dir: Path, architecture: str) -> Tuple[str, ...
     if not recon_dir.exists():
         return ()
     existing = {path.name for path in recon_dir.iterdir() if path.is_dir()}
-    arch_label = f"pinn_{architecture}"
+    arch_label = _runner_model_id(architecture, "pinn")
     preferred = [
         "gt",
         "baseline",
         "pinn",
+        "supervised_ffno",
         "pinn_ffno",
         "pinn_fno",
         "pinn_hybrid",
@@ -1154,7 +1191,8 @@ def save_run_artifacts(
         - output_dir/runs/pinn_<arch>/metrics.json
         - output_dir/runs/pinn_<arch>/history.json
     """
-    run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
+    model_id = _runner_model_id(cfg.architecture, cfg.training_procedure)
+    run_dir = cfg.output_dir / "runs" / model_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # Save metrics
@@ -1173,8 +1211,8 @@ def save_run_artifacts(
 
     config_payload = {
         "torch_runner_config": asdict(cfg),
-        "model_label": PAPER_MODEL_LABELS.get(cfg.architecture, cfg.architecture),
-        "training_procedure": "pinn",
+        "model_label": _paper_model_label(cfg.architecture, cfg.training_procedure),
+        "training_procedure": cfg.training_procedure,
         "train_npz": str(cfg.train_npz),
         "test_npz": str(cfg.test_npz),
         "recon_npz": str(recon_path) if recon_path is not None else None,
@@ -1262,9 +1300,9 @@ def _build_paper_row_payload(
     final_completed_epoch = int(len(train_loss_series) or cfg.epochs)
     final_train_loss = float(train_loss_series[-1]) if train_loss_series else None
     payload = {
-        "model_label": PAPER_MODEL_LABELS.get(cfg.architecture, cfg.architecture),
+        "model_label": _paper_model_label(cfg.architecture, cfg.training_procedure),
         "architecture_id": str(cfg.architecture),
-        "training_procedure": "pinn",
+        "training_procedure": cfg.training_procedure,
         "N": int(cfg.N),
         "parameter_count": int(model_params),
         "epoch_budget": int(cfg.epochs),
@@ -1321,8 +1359,8 @@ def _build_paper_row_payload(
     payload.setdefault(
         "visuals",
         {
-            "amp_phase_png": f"visuals/amp_phase_pinn_{cfg.architecture}.png",
-            "amp_phase_error_png": f"visuals/amp_phase_error_pinn_{cfg.architecture}.png",
+            "amp_phase_png": f"visuals/amp_phase_{_runner_model_id(cfg.architecture, cfg.training_procedure)}.png",
+            "amp_phase_error_png": f"visuals/amp_phase_error_{_runner_model_id(cfg.architecture, cfg.training_procedure)}.png",
         },
     )
     return payload
@@ -1344,7 +1382,12 @@ def run_grid_lines_torch(
     Returns:
         Dict with metrics, artifact paths, and run metadata
     """
-    logger.info(f"Starting Torch grid-lines runner: arch={cfg.architecture}")
+    model_id = _runner_model_id(cfg.architecture, cfg.training_procedure)
+    logger.info(
+        "Starting Torch grid-lines runner: arch=%s training_procedure=%s",
+        cfg.architecture,
+        cfg.training_procedure,
+    )
     _validate_position_reassembly_config(cfg)
     from scripts.studies.invocation_logging import update_invocation_artifacts
 
@@ -1446,11 +1489,11 @@ def run_grid_lines_torch(
         recon_target = pred_for_metrics
         if not np.iscomplexobj(recon_target):
             recon_target = recon_target.astype(np.complex64)
-        recon_path = save_recon_artifact(cfg.output_dir, f"pinn_{cfg.architecture}", recon_target)
+        recon_path = save_recon_artifact(cfg.output_dir, model_id, recon_target)
         metrics = compute_metrics(
             pred_for_metrics,
             ground_truth,
-            f"pinn_{cfg.architecture}",
+            model_id,
         )
 
         # Step 5: Save artifacts
@@ -1467,6 +1510,7 @@ def run_grid_lines_torch(
 
         result_dict = {
             'architecture': cfg.architecture,
+            'model_id': model_id,
             'run_dir': str(run_dir),
             'metrics': metrics,
             'history': results.get('history', {}),
@@ -1536,6 +1580,13 @@ def main(argv=None) -> None:
     parser.add_argument("--architecture", type=str, required=True,
                         choices=['ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'],
                         help="Generator architecture to use")
+    parser.add_argument(
+        "--training-procedure",
+        type=str,
+        default="pinn",
+        choices=["pinn", "supervised"],
+        help="Training procedure contract for this Torch row.",
+    )
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed for reproducibility (random if omitted)")
     parser.add_argument("--epochs", type=int, default=50,
@@ -1803,6 +1854,7 @@ def main(argv=None) -> None:
         test_npz=args.test_npz,
         output_dir=args.output_dir,
         architecture=args.architecture,
+        training_procedure=args.training_procedure,
         seed=seed,
         epochs=args.epochs,
         batch_size=args.batch_size,

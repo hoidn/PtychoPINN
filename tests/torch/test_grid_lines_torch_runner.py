@@ -1371,6 +1371,17 @@ class TestChannelGridsizeAlignment:
         training_config, _ = setup_torch_configs(cfg)
         assert training_config.model.architecture == "ffno"
 
+    def test_runner_accepts_supervised_training_procedure(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="ffno",
+            training_procedure="supervised",
+        )
+        training_config, _ = setup_torch_configs(cfg)
+        assert training_config.model.model_type == "supervised"
+
     def test_runner_rejects_hybrid_resnet_shallow_blocks(self, tmp_path):
         """hybrid_resnet should reject fno_blocks < 3 with a clear error."""
         cfg = TorchRunnerConfig(
@@ -2006,6 +2017,46 @@ class TestTorchTrainingPath:
         assert called["train"] is True
         assert "models" in result
 
+    def test_runner_bridges_supervised_labels_from_grid_lines_targets(self, synthetic_npz, tmp_path, monkeypatch):
+        """Supervised study runs should bridge Y_I/Y_phi into label_amp/label_phase."""
+        from unittest.mock import MagicMock
+
+        train_path, test_path = synthetic_npz
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=tmp_path,
+            architecture="ffno",
+            training_procedure="supervised",
+        )
+
+        train_data = load_cached_dataset(train_path)
+        test_data = load_cached_dataset(test_path)
+
+        captured = {}
+
+        def fake_train(train_container, test_container, config, execution_config=None, overrides=None):
+            captured["train_container"] = train_container
+            captured["test_container"] = test_container
+            captured["model_type"] = config.model.model_type
+            return {
+                "history": {"train_loss": []},
+                "models": {"diffraction_to_obj": MagicMock()},
+            }
+
+        monkeypatch.setattr("ptycho_torch.workflows.components._train_with_lightning", fake_train)
+
+        run_torch_training(cfg, train_data, test_data)
+
+        assert captured["model_type"] == "supervised"
+        assert "label_amp" in captured["train_container"]
+        assert "label_phase" in captured["train_container"]
+        assert "label_amp" in captured["test_container"]
+        assert "label_phase" in captured["test_container"]
+        np.testing.assert_allclose(captured["train_container"]["label_amp"], train_data["Y_I"])
+        np.testing.assert_allclose(captured["train_container"]["label_phase"], train_data["Y_phi"])
+
 
 def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):
     import ptycho_torch
@@ -2130,6 +2181,28 @@ def test_library_run_writes_invocation_artifacts(tmp_path, monkeypatch):
     assert payload["status"] == "completed"
     assert payload["exit_code"] == 0
     assert payload["finished_at_utc"]
+
+
+def test_build_paper_row_payload_uses_supervised_ffno_label(tmp_path):
+    cfg = TorchRunnerConfig(
+        train_npz=tmp_path / "train.npz",
+        test_npz=tmp_path / "test.npz",
+        output_dir=tmp_path,
+        architecture="ffno",
+        training_procedure="supervised",
+        epochs=1,
+        N=128,
+    )
+    payload = _build_paper_row_payload(
+        cfg,
+        metrics={"mae": [0.1, 0.2]},
+        history={"train_loss": [0.3]},
+        model_params=123,
+        train_wall_time_sec=1.5,
+        inference_time_s=0.4,
+    )
+    assert payload["model_label"] == "FFNO + supervised"
+    assert payload["training_procedure"] == "supervised"
 
 
 def test_script_path_execution_bootstraps_repo_imports(tmp_path):

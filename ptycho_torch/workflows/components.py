@@ -436,10 +436,17 @@ def _build_lightning_dataloaders(
             self.physics_scaling_constant = _get_tensor(container, 'physics_scaling_constant')
             self.probe = _get_tensor(container, 'probe')
             self.scaling_constant = _get_tensor(container, 'scaling_constant')
+            self.label_amp = _get_tensor(container, 'label_amp')
+            self.label_phase = _get_tensor(container, 'label_phase')
 
             # Validate required tensors
             if self.images is None:
                 raise ValueError("Container must contain 'X' (images) tensor")
+            if getattr(self.model_config, 'model_type', 'pinn') == 'supervised':
+                if self.label_amp is None or self.label_phase is None:
+                    raise ValueError(
+                        "Supervised training requires label_amp and label_phase on the container."
+                    )
 
             self.length = self.images.size(0)
 
@@ -488,6 +495,17 @@ def _build_lightning_dataloaders(
                 # Single sample case: (1, 2, C) → (C, 1, 2)
                 coords_rel = coords_rel.permute(2, 0, 1).contiguous()
 
+            label_amp = self.label_amp[idx] if self.label_amp is not None else None
+            label_phase = self.label_phase[idx] if self.label_phase is not None else None
+            if label_amp is not None and label_amp.ndim == 4:
+                label_amp = label_amp.permute(0, 3, 1, 2).contiguous()
+            elif label_amp is not None and label_amp.ndim == 3:
+                label_amp = label_amp.permute(2, 0, 1).contiguous()
+            if label_phase is not None and label_phase.ndim == 4:
+                label_phase = label_phase.permute(0, 3, 1, 2).contiguous()
+            elif label_phase is not None and label_phase.ndim == 3:
+                label_phase = label_phase.permute(2, 0, 1).contiguous()
+
             def _select_scale(scale):
                 if scale is None:
                     return torch.ones(1, 1, 1)
@@ -517,6 +535,10 @@ def _build_lightning_dataloaders(
                 'physics_scaling_constant': phys_scale,
                 'experiment_id': torch.tensor(0, dtype=torch.long),  # Scalar - collation gives (batch_size,)
             }
+            if label_amp is not None:
+                tensor_dict['label_amp'] = label_amp
+            if label_phase is not None:
+                tensor_dict['label_phase'] = label_phase
 
             # Broadcast probe for batch (single probe applies to all samples)
             if self.probe is not None:

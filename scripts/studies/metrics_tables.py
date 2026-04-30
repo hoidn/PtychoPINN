@@ -13,7 +13,8 @@ import numpy as np
 MODEL_LABELS = {
     "pinn": "PtychoPINN (CNN)",
     "baseline": "Baseline",
-    "pinn_ffno": "FFNO",
+    "supervised_ffno": "FFNO + supervised",
+    "pinn_ffno": "FFNO + PINN",
     "pinn_fno_vanilla": "FNO Vanilla",
     "pinn_fno": "FNO",
     "pinn_hybrid": "Hybrid",
@@ -26,6 +27,7 @@ MODEL_LABELS = {
 MODEL_ORDER = (
     "pinn",
     "baseline",
+    "supervised_ffno",
     "pinn_ffno",
     "pinn_fno_vanilla",
     "pinn_fno",
