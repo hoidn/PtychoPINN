@@ -48,6 +48,7 @@ Current source of truth:
 | [2026-04-29-cdi-lines128-supervised-equivalent-rows.md](active/2026-04-29-cdi-lines128-supervised-equivalent-rows.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution | Adds the required supervised FFNO CDI control row as the same-contract training-procedure comparator for the complete FFNO + PINN Lines128 row. |
 | [2026-04-29-cdi-lines128-classical-baseline-feasibility.md](active/2026-04-29-cdi-lines128-classical-baseline-feasibility.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on completed Lines128 paper benchmark harness | Attempts a protocol-compatible HIO/ER/PyNX-style classical CDI row or records an explicit `not_protocol_compatible` outcome. |
 | [2026-04-27-hybrid-spectral-ffno-parameter-space-cdi.md](active/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on completed CDI FFNO generator baseline | Phase 3 CDI-only split of the former mixed CNS/CDI parameter-space item. The dependency is now satisfied, so selection is governed by roadmap value rather than prerequisite blocking. |
+| [2026-04-21-hybrid-resnet-encoder-fusion-variants.md](active/2026-04-21-hybrid-resnet-encoder-fusion-variants.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution | Narrow Hybrid ResNet encoder-fusion ablation that tests learned encoder update scaling and spectral/local branch gates against the fixed N=128 grid-lines contract, without changing probe, loss, bottleneck, or decoder settings. |
 | [2026-04-29-paper-evidence-package-audit.md](active/2026-04-29-paper-evidence-package-audit.md) | `active` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Depends on minimum CDI table and CNS table/figure bundle | Creates the repo-local paper evidence manifest and completeness audit without creating the Phase 5 paper-facing evidence map. |
 | [2026-04-29-cns-paper-2048cap-row-extension.md](active/2026-04-29-cns-paper-2048cap-row-extension.md) | `active` | `phase-2-pdebench-128x128-image-suite` | Depends on paper evidence package audit | Later long-running CNS evidence-strengthening pass for same-cap `2048 / 256 / 256` FFNO/FNO/U-Net rows; not a blocker for the current 1024-cap table/figure bundle. |
 | [2026-04-29-brdt-operator-validation.md](active/2026-04-29-brdt-operator-validation.md) | `active` | `candidate-brdt-preflight` | No active backlog prerequisite | First BRDT execution item. Implements and validates the differentiable Born operator with independent checks before any dataset or training evidence is trusted. |
@@ -101,6 +102,11 @@ Current source of truth:
   belongs to the minimum CDI table next to the matching CDI `cnn` PINN row;
   this downstream extension must add the supervised FFNO row as the
   same-contract training-procedure comparator for the complete FFNO + PINN row.
+- The Hybrid ResNet encoder-fusion variants item is active Phase 3 CDI
+  architecture-ablation work. It should test encoder update scaling and
+  spectral/local branch gates against the fixed N=128 grid-lines contract, but
+  it is not a prerequisite for the completed Lines128 bundle or the U-NO
+  append-only extension unless a later reviewed plan explicitly promotes it.
 - The broader Hybrid-spectral-to-FFNO parameter-space study has been split by
   roadmap phase. The CNS half is complete; the CDI half is active with its CDI
   FFNO generator prerequisite satisfied.

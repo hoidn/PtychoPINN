@@ -1,7 +1,23 @@
+---
+priority: 38
+plan_path: docs/backlog/active/2026-04-21-hybrid-resnet-encoder-fusion-variants.md
+check_commands:
+  - pytest -q tests/torch/test_fno_generators.py -k "hybrid_resnet_encoder or hybrid_encoder"
+  - pytest -q tests/torch/test_grid_lines_torch_runner.py -k "hybrid_encoder"
+prerequisites:
+  - 2026-04-29-cdi-lines128-paper-benchmark-execution
+related_roadmap_phases:
+  - phase-3-cdi-anchor-regeneration
+signals_for_selection:
+  - The current Hybrid ResNet encoder hard-codes equal additive spectral/local branch fusion; this item tests whether learned branch balance or encoder update scaling improves the CDI anchor family.
+  - This is a narrow architecture ablation, not a replacement for the completed Lines128 paper table or the U-NO append-only comparator lane.
+  - The first comparison should reuse the fixed N=128 grid-lines contract and avoid simultaneous probe, loss, bottleneck, or decoder changes.
+---
+
 # Backlog: Hybrid ResNet Encoder Fusion Variants
 
 **Created:** 2026-04-21
-**Status:** Paused
+**Status:** Active
 **Priority:** Medium
 **Related:** `ptycho_torch/generators/hybrid_resnet.py`, `ptycho_torch/generators/resnet_components.py`, `tests/torch/test_grid_lines_hybrid_resnet_integration.py`, `docs/studies/index.md`, `.artifacts/NEURIPS-HYBRID-RESNET-2026/hybrid_resnet_n128_padex_e40_no_l2_20260421T211500Z/`
 **Impacts:** Hybrid ResNet encoder stability, `N=128` grid-lines follow-on ablations, future PDE/CNS encoder experiments
@@ -53,7 +69,7 @@ Where:
 
 - `alpha` is a learned scalar,
 - initialize conservatively, for example `0.1`,
-- share or not share across encoder blocks only if the experiment plan says so explicitly.
+- the implementation plan should either test per-block scalars only or test both shared-across-encoder-blocks and per-block scalar forms; shared-only is not sufficient.
 
 Why this is promising:
 
@@ -72,6 +88,7 @@ Minimum viable form:
 - learned scalar `g_s` for the spectral branch,
 - learned scalar `g_c` for the local branch,
 - initialize both small but nonzero, for example `0.1`.
+- the implementation plan should either test per-block scalar gates only or test both shared-across-encoder-blocks and per-block scalar gate forms; shared-only is not sufficient.
 
 Why this is promising:
 
@@ -113,6 +130,11 @@ If this backlog is resumed, run the variants in this order:
 4. optional normalized-fusion follow-up only if one of the first two is promising
 
 That order keeps the first tranche easy to interpret and prevents normalization from obscuring the simpler questions.
+For the learned-scalar variants, the implementation plan should explicitly
+decide whether the first scored pass uses per-block scalars only or compares
+shared and per-block scalars. It should treat shared versus per-block scalar
+placement as an architecture axis rather than an incidental implementation
+detail, and it should not satisfy this item with shared-only scalar gates.
 
 ## Naming Guidance
 
