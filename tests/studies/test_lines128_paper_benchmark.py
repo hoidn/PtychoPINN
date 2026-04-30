@@ -2180,3 +2180,369 @@ def test_main_finalizes_complete_table_recovered_torch_launcher_completion(tmp_p
         manifest_rows["pinn_ffno"]["artifacts"]["launcher_completion_json"]
         == "runs/pinn_ffno/launcher_completion.json"
     )
+
+
+def test_main_complete_table_uses_promoted_source_logs_for_recovered_launcher_completion(tmp_path, monkeypatch):
+    from scripts.studies import lines128_paper_benchmark as benchmark
+
+    minimum_subset_root = tmp_path / "minimum_subset_root"
+    ffno_root = tmp_path / "ffno_root"
+    output_dir = tmp_path / "complete_root"
+
+    minimum_rows = [
+        {
+            "model_id": "baseline",
+            "model_label": "CDI CNN + supervised",
+            "architecture_id": "cnn",
+            "training_procedure": "supervised",
+            "parameter_count": 100,
+            "final_train_loss": 0.4,
+            "runtime": 9.0,
+            "metrics": {"mae": (0.2, 0.3), "mse": (0.02, 0.03), "psnr": (60.0, 55.0), "ssim": (0.7, 0.6), "ms_ssim": (0.65, 0.55), "frc50": (32, 24)},
+        },
+        {
+            "model_id": "pinn",
+            "model_label": "CDI CNN + PINN",
+            "architecture_id": "cnn",
+            "training_procedure": "pinn",
+            "parameter_count": 101,
+            "final_train_loss": 0.3,
+            "runtime": 10.0,
+            "metrics": {"mae": (0.19, 0.29), "mse": (0.019, 0.029), "psnr": (61.0, 56.0), "ssim": (0.71, 0.61), "ms_ssim": (0.66, 0.56), "frc50": (33, 25)},
+        },
+        {
+            "model_id": "pinn_hybrid_resnet",
+            "model_label": "Hybrid ResNet + PINN",
+            "architecture_id": "hybrid_resnet",
+            "training_procedure": "pinn",
+            "parameter_count": 102,
+            "final_train_loss": 0.2,
+            "runtime": 11.0,
+            "metrics": {"mae": (0.1, 0.2), "mse": (0.01, 0.02), "psnr": (70.0, 65.0), "ssim": (0.9, 0.8), "ms_ssim": (0.85, 0.75), "frc50": (64, 48)},
+        },
+        {
+            "model_id": "pinn_fno_vanilla",
+            "model_label": "FNO Vanilla + PINN",
+            "architecture_id": "fno_vanilla",
+            "training_procedure": "pinn",
+            "parameter_count": 103,
+            "final_train_loss": 0.25,
+            "runtime": 12.0,
+            "metrics": {"mae": (0.12, 0.22), "mse": (0.012, 0.022), "psnr": (68.0, 63.0), "ssim": (0.88, 0.78), "ms_ssim": (0.83, 0.73), "frc50": (60, 44)},
+        },
+    ]
+    ffno_rows = [
+        {
+            "model_id": "pinn_ffno",
+            "model_label": "FFNO + PINN",
+            "architecture_id": "ffno",
+            "training_procedure": "pinn",
+            "parameter_count": 104,
+            "final_train_loss": 0.21,
+            "runtime": 13.0,
+            "metrics": {"mae": (0.13, 0.23), "mse": (0.013, 0.023), "psnr": (67.0, 62.0), "ssim": (0.87, 0.77), "ms_ssim": (0.82, 0.72), "frc50": (58, 42)},
+        },
+    ]
+    _write_complete_source_root(minimum_subset_root, rows=minimum_rows)
+    _write_complete_source_root(ffno_root, rows=ffno_rows)
+    _write_text(
+        minimum_subset_root / "launcher_stderr.log",
+        "\n".join(
+            [
+                f"Saved artifacts to {minimum_subset_root / 'runs' / 'pinn_hybrid_resnet'}",
+                f"Torch runner complete. Artifacts in {minimum_subset_root / 'runs' / 'pinn_hybrid_resnet'}",
+                f"Saved artifacts to {minimum_subset_root / 'runs' / 'pinn_fno_vanilla'}",
+                f"Torch runner complete. Artifacts in {minimum_subset_root / 'runs' / 'pinn_fno_vanilla'}",
+            ]
+        )
+        + "\n",
+    )
+    _write_text(minimum_subset_root / "launcher_stdout.log", "")
+    _write_text(
+        ffno_root / "tmux.log",
+        "DEBUG eval_reconstruction [pinn_ffno]: amp_target stats: mean=1.0\n",
+    )
+
+    def fake_run_grid_lines_compare(**kwargs):
+        spectral_row = _write_complete_row_payload(
+            output_dir,
+            model_id="pinn_spectral_resnet_bottleneck_net",
+            model_label="Spectral ResNet Bottleneck + PINN",
+            architecture_id="spectral_resnet_bottleneck_net",
+            training_procedure="pinn",
+            parameter_count=105,
+            final_train_loss=0.18,
+            runtime=14.0,
+            metrics={"mae": (0.11, 0.21), "mse": (0.011, 0.021), "psnr": (69.0, 64.0), "ssim": (0.89, 0.79), "ms_ssim": (0.84, 0.74), "frc50": (62, 46)},
+        )
+        _write_text(output_dir / spectral_row["invocation"]["json"], json.dumps({"status": "completed", "exit_code": 0, "finished_at_utc": "2026-04-30T00:00:00+00:00", "pid": 777, "parsed_args": {"epochs": 40, "seed": 3}}))
+        _write_text(output_dir / spectral_row["invocation"]["shell"], "python fake_row.py\n")
+        _write_text(output_dir / spectral_row["config"]["json"], json.dumps({"seed": 3}))
+        _write_text(output_dir / spectral_row["outputs"]["history_json"], json.dumps({"train_loss": [0.2, 0.18], "val_loss": [0.3, 0.19]}))
+        _write_text(output_dir / spectral_row["outputs"]["metrics_json"], json.dumps(spectral_row["metrics"]))
+        _write_text(output_dir / spectral_row["outputs"]["stdout_log"], "row stdout\n")
+        _write_text(output_dir / spectral_row["outputs"]["stderr_log"], "")
+        _write_text(
+            output_dir / spectral_row["outputs"]["exit_code_proof_json"],
+            json.dumps(
+                {
+                    "model_id": "pinn_spectral_resnet_bottleneck_net",
+                    "proof_source": "test",
+                    "exit_code": 0,
+                    "invocation_json": spectral_row["invocation"]["json"],
+                    "invocation_status": "completed",
+                    "stdout_log": spectral_row["outputs"]["stdout_log"],
+                    "stderr_log": spectral_row["outputs"]["stderr_log"],
+                }
+            ),
+        )
+        _write_text(output_dir / spectral_row["visuals"]["amp_phase_png"])
+        _write_text(output_dir / spectral_row["visuals"]["amp_phase_error_png"])
+        recon_npz = output_dir / spectral_row["outputs"]["recon_npz"]
+        recon_npz.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(recon_npz, YY_pred=np.ones((2, 2), dtype=np.complex64))
+        if kwargs.get("reuse_existing_recons"):
+            for model_id in kwargs["models"]:
+                _write_text(output_dir / f"visuals/amp_phase_{model_id}.png")
+                _write_text(output_dir / f"visuals/amp_phase_error_{model_id}.png")
+            _write_text(output_dir / "visuals/amp_phase_gt.png")
+            _write_text(output_dir / "visuals/compare_amp_phase.png")
+            _write_text(output_dir / "visuals/frc_curves.png")
+        return {
+            "train_npz": str(output_dir / "datasets" / "N128" / "gs1" / "train.npz"),
+            "test_npz": str(output_dir / "datasets" / "N128" / "gs1" / "test.npz"),
+            "gt_recon": str(output_dir / "recons" / "gt" / "recon.npz"),
+            "recon_paths": {
+                "pinn_spectral_resnet_bottleneck_net": str(recon_npz),
+            },
+            "row_payloads": {
+                "pinn_spectral_resnet_bottleneck_net": spectral_row,
+            },
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines128_paper_benchmark.run_grid_lines_compare",
+        fake_run_grid_lines_compare,
+    )
+    monkeypatch.setenv("CODEX_TMUX_SESSION_NAME", "lines128-complete")
+    monkeypatch.setenv("CODEX_TMUX_SOCKET_PATH", "/tmp/lines128-complete.sock")
+    monkeypatch.setenv(
+        "CODEX_TMUX_ATTACH_COMMAND",
+        "tmux -S /tmp/lines128-complete.sock attach -t lines128-complete",
+    )
+    monkeypatch.setenv(
+        "CODEX_TMUX_CAPTURE_COMMAND",
+        "tmux -S /tmp/lines128-complete.sock capture-pane -p -t lines128-complete:0.0",
+    )
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+    execution_manifest = _write_complete_execution_manifest(
+        tmp_path / "execution" / "complete_execution.json",
+        minimum_subset_root=minimum_subset_root,
+        ffno_root=ffno_root,
+    )
+
+    benchmark.main(
+        [
+            "--mode",
+            "complete_table",
+            "--decision-artifact",
+            str(decision_artifact),
+            "--execution-manifest",
+            str(execution_manifest),
+            "--output-dir",
+            str(output_dir),
+        ]
+    )
+
+    metrics_payload = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
+    manifest_payload = json.loads((output_dir / "paper_benchmark_manifest.json").read_text(encoding="utf-8"))
+    manifest_rows = {row["model_id"]: row for row in manifest_payload["rows"]}
+
+    assert metrics_payload["benchmark_status"] == "paper_complete"
+    assert metrics_payload["missing_fields_by_row"]["pinn_ffno"] == []
+    assert (
+        metrics_payload["rows"]["pinn_ffno"]["outputs"]["launcher_completion_json"]
+        == "runs/pinn_ffno/launcher_completion.json"
+    )
+    assert (
+        manifest_rows["pinn_ffno"]["artifacts"]["launcher_completion_json"]
+        == "runs/pinn_ffno/launcher_completion.json"
+    )
+
+
+def test_main_complete_table_downgrades_without_recovered_launcher_completion(tmp_path, monkeypatch):
+    from scripts.studies import lines128_paper_benchmark as benchmark
+
+    minimum_subset_root = tmp_path / "minimum_subset_root"
+    ffno_root = tmp_path / "ffno_root"
+    output_dir = tmp_path / "complete_root"
+
+    minimum_rows = [
+        {
+            "model_id": "baseline",
+            "model_label": "CDI CNN + supervised",
+            "architecture_id": "cnn",
+            "training_procedure": "supervised",
+            "parameter_count": 100,
+            "final_train_loss": 0.4,
+            "runtime": 9.0,
+            "metrics": {"mae": (0.2, 0.3), "mse": (0.02, 0.03), "psnr": (60.0, 55.0), "ssim": (0.7, 0.6), "ms_ssim": (0.65, 0.55), "frc50": (32, 24)},
+        },
+        {
+            "model_id": "pinn",
+            "model_label": "CDI CNN + PINN",
+            "architecture_id": "cnn",
+            "training_procedure": "pinn",
+            "parameter_count": 101,
+            "final_train_loss": 0.3,
+            "runtime": 10.0,
+            "metrics": {"mae": (0.19, 0.29), "mse": (0.019, 0.029), "psnr": (61.0, 56.0), "ssim": (0.71, 0.61), "ms_ssim": (0.66, 0.56), "frc50": (33, 25)},
+        },
+        {
+            "model_id": "pinn_hybrid_resnet",
+            "model_label": "Hybrid ResNet + PINN",
+            "architecture_id": "hybrid_resnet",
+            "training_procedure": "pinn",
+            "parameter_count": 102,
+            "final_train_loss": 0.2,
+            "runtime": 11.0,
+            "metrics": {"mae": (0.1, 0.2), "mse": (0.01, 0.02), "psnr": (70.0, 65.0), "ssim": (0.9, 0.8), "ms_ssim": (0.85, 0.75), "frc50": (64, 48)},
+        },
+        {
+            "model_id": "pinn_fno_vanilla",
+            "model_label": "FNO Vanilla + PINN",
+            "architecture_id": "fno_vanilla",
+            "training_procedure": "pinn",
+            "parameter_count": 103,
+            "final_train_loss": 0.25,
+            "runtime": 12.0,
+            "metrics": {"mae": (0.12, 0.22), "mse": (0.012, 0.022), "psnr": (68.0, 63.0), "ssim": (0.88, 0.78), "ms_ssim": (0.83, 0.73), "frc50": (60, 44)},
+        },
+    ]
+    ffno_rows = [
+        {
+            "model_id": "pinn_ffno",
+            "model_label": "FFNO + PINN",
+            "architecture_id": "ffno",
+            "training_procedure": "pinn",
+            "parameter_count": 104,
+            "final_train_loss": 0.21,
+            "runtime": 13.0,
+            "metrics": {"mae": (0.13, 0.23), "mse": (0.013, 0.023), "psnr": (67.0, 62.0), "ssim": (0.87, 0.77), "ms_ssim": (0.82, 0.72), "frc50": (58, 42)},
+        },
+    ]
+    _write_complete_source_root(minimum_subset_root, rows=minimum_rows)
+    _write_complete_source_root(ffno_root, rows=ffno_rows)
+    _write_text(
+        minimum_subset_root / "launcher_stderr.log",
+        "\n".join(
+            [
+                f"Saved artifacts to {minimum_subset_root / 'runs' / 'pinn_hybrid_resnet'}",
+                f"Torch runner complete. Artifacts in {minimum_subset_root / 'runs' / 'pinn_hybrid_resnet'}",
+                f"Saved artifacts to {minimum_subset_root / 'runs' / 'pinn_fno_vanilla'}",
+                f"Torch runner complete. Artifacts in {minimum_subset_root / 'runs' / 'pinn_fno_vanilla'}",
+            ]
+        )
+        + "\n",
+    )
+    _write_text(minimum_subset_root / "launcher_stdout.log", "")
+    _write_text(ffno_root / "launcher_stdout.log", "")
+    _write_text(ffno_root / "launcher_stderr.log", "")
+
+    def fake_run_grid_lines_compare(**kwargs):
+        spectral_row = _write_complete_row_payload(
+            output_dir,
+            model_id="pinn_spectral_resnet_bottleneck_net",
+            model_label="Spectral ResNet Bottleneck + PINN",
+            architecture_id="spectral_resnet_bottleneck_net",
+            training_procedure="pinn",
+            parameter_count=105,
+            final_train_loss=0.18,
+            runtime=14.0,
+            metrics={"mae": (0.11, 0.21), "mse": (0.011, 0.021), "psnr": (69.0, 64.0), "ssim": (0.89, 0.79), "ms_ssim": (0.84, 0.74), "frc50": (62, 46)},
+        )
+        _write_text(output_dir / spectral_row["invocation"]["json"], json.dumps({"status": "completed", "exit_code": 0, "finished_at_utc": "2026-04-30T00:00:00+00:00", "pid": 777, "parsed_args": {"epochs": 40, "seed": 3}}))
+        _write_text(output_dir / spectral_row["invocation"]["shell"], "python fake_row.py\n")
+        _write_text(output_dir / spectral_row["config"]["json"], json.dumps({"seed": 3}))
+        _write_text(output_dir / spectral_row["outputs"]["history_json"], json.dumps({"train_loss": [0.2, 0.18], "val_loss": [0.3, 0.19]}))
+        _write_text(output_dir / spectral_row["outputs"]["metrics_json"], json.dumps(spectral_row["metrics"]))
+        _write_text(output_dir / spectral_row["outputs"]["stdout_log"], "row stdout\n")
+        _write_text(output_dir / spectral_row["outputs"]["stderr_log"], "")
+        _write_text(
+            output_dir / spectral_row["outputs"]["exit_code_proof_json"],
+            json.dumps(
+                {
+                    "model_id": "pinn_spectral_resnet_bottleneck_net",
+                    "proof_source": "test",
+                    "exit_code": 0,
+                    "invocation_json": spectral_row["invocation"]["json"],
+                    "invocation_status": "completed",
+                    "stdout_log": spectral_row["outputs"]["stdout_log"],
+                    "stderr_log": spectral_row["outputs"]["stderr_log"],
+                }
+            ),
+        )
+        _write_text(output_dir / spectral_row["visuals"]["amp_phase_png"])
+        _write_text(output_dir / spectral_row["visuals"]["amp_phase_error_png"])
+        recon_npz = output_dir / spectral_row["outputs"]["recon_npz"]
+        recon_npz.parent.mkdir(parents=True, exist_ok=True)
+        np.savez(recon_npz, YY_pred=np.ones((2, 2), dtype=np.complex64))
+        if kwargs.get("reuse_existing_recons"):
+            for model_id in kwargs["models"]:
+                _write_text(output_dir / f"visuals/amp_phase_{model_id}.png")
+                _write_text(output_dir / f"visuals/amp_phase_error_{model_id}.png")
+            _write_text(output_dir / "visuals/amp_phase_gt.png")
+            _write_text(output_dir / "visuals/compare_amp_phase.png")
+            _write_text(output_dir / "visuals/frc_curves.png")
+        return {
+            "train_npz": str(output_dir / "datasets" / "N128" / "gs1" / "train.npz"),
+            "test_npz": str(output_dir / "datasets" / "N128" / "gs1" / "test.npz"),
+            "gt_recon": str(output_dir / "recons" / "gt" / "recon.npz"),
+            "recon_paths": {
+                "pinn_spectral_resnet_bottleneck_net": str(recon_npz),
+            },
+            "row_payloads": {
+                "pinn_spectral_resnet_bottleneck_net": spectral_row,
+            },
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines128_paper_benchmark.run_grid_lines_compare",
+        fake_run_grid_lines_compare,
+    )
+    monkeypatch.setenv("CODEX_TMUX_SESSION_NAME", "lines128-complete")
+    monkeypatch.setenv("CODEX_TMUX_SOCKET_PATH", "/tmp/lines128-complete.sock")
+    monkeypatch.setenv(
+        "CODEX_TMUX_ATTACH_COMMAND",
+        "tmux -S /tmp/lines128-complete.sock attach -t lines128-complete",
+    )
+    monkeypatch.setenv(
+        "CODEX_TMUX_CAPTURE_COMMAND",
+        "tmux -S /tmp/lines128-complete.sock capture-pane -p -t lines128-complete:0.0",
+    )
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+    execution_manifest = _write_complete_execution_manifest(
+        tmp_path / "execution" / "complete_execution.json",
+        minimum_subset_root=minimum_subset_root,
+        ffno_root=ffno_root,
+    )
+
+    benchmark.main(
+        [
+            "--mode",
+            "complete_table",
+            "--decision-artifact",
+            str(decision_artifact),
+            "--execution-manifest",
+            str(execution_manifest),
+            "--output-dir",
+            str(output_dir),
+        ]
+    )
+
+    metrics_payload = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
+    assert "outputs" in metrics_payload["missing_fields_by_row"]["pinn_ffno"]
+    assert "launcher_completion_json" not in metrics_payload["rows"]["pinn_ffno"]["outputs"]

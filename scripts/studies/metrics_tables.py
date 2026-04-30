@@ -748,7 +748,10 @@ def _root_wrapper_reuses_existing_recons(output_dir: Path) -> bool:
     if not isinstance(wrapper_invocation, Mapping):
         return False
     parsed_args = wrapper_invocation.get("parsed_args")
-    return isinstance(parsed_args, Mapping) and bool(parsed_args.get("reuse_existing_recons"))
+    return isinstance(parsed_args, Mapping) and (
+        bool(parsed_args.get("reuse_existing_recons"))
+        or parsed_args.get("mode") == "complete_table"
+    )
 
 
 def _requires_launcher_completion_evidence(
@@ -800,7 +803,10 @@ def _validate_launcher_completion_payload(
         wrapper_invocation.get("status") != "completed"
         or wrapper_invocation.get("exit_code") != 0
         or not isinstance(parsed_args, Mapping)
-        or not bool(parsed_args.get("reuse_existing_recons"))
+        or not (
+            bool(parsed_args.get("reuse_existing_recons"))
+            or parsed_args.get("mode") == "complete_table"
+        )
     ):
         return False
 

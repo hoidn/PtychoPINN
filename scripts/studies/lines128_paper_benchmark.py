@@ -328,13 +328,26 @@ def _refresh_row_payloads_after_wrapper_completion(
         row_payload = dict(payload)
         outputs_payload = dict(row_payload.get("outputs")) if isinstance(row_payload.get("outputs"), Mapping) else {}
         if _row_requires_launcher_completion_evidence(row_payload, output_dir=output_dir):
-            launcher_completion_path = write_launcher_completion_evidence(
-                output_dir,
-                model_id=str(model_id),
-                wrapper_invocation_json=output_dir / "invocation.json",
-                launcher_stderr_log=output_dir / "launcher_stderr.log",
-                launcher_stdout_log=output_dir / "launcher_stdout.log",
+            launcher_completion_path = None
+            log_candidates = (
+                (
+                    _promoted_source_launcher_log_path(output_dir, str(model_id), "stderr"),
+                    _promoted_source_launcher_log_path(output_dir, str(model_id), "stdout"),
+                ),
+                (output_dir / "launcher_stderr.log", output_dir / "launcher_stdout.log"),
             )
+            for launcher_stderr_log, launcher_stdout_log in log_candidates:
+                if not launcher_stderr_log.exists() and not launcher_stdout_log.exists():
+                    continue
+                launcher_completion_path = write_launcher_completion_evidence(
+                    output_dir,
+                    model_id=str(model_id),
+                    wrapper_invocation_json=output_dir / "invocation.json",
+                    launcher_stderr_log=launcher_stderr_log,
+                    launcher_stdout_log=launcher_stdout_log if launcher_stdout_log.exists() else None,
+                )
+                if launcher_completion_path is not None:
+                    break
             if launcher_completion_path is not None:
                 outputs_payload["launcher_completion_json"] = relative_to_output_dir(
                     output_dir,
@@ -911,6 +924,33 @@ def _ensure_promoted_row_sidecars(output_dir: Path, model_id: str) -> None:
             candidate.write_text("", encoding="utf-8")
 
 
+def _promoted_source_launcher_log_path(output_dir: Path, model_id: str, stream: str) -> Path:
+    return output_dir / "runs" / model_id / f"promoted_source_launcher_{stream}.log"
+
+
+def _resolve_promoted_source_launcher_log(source_root: Path, stream: str) -> Path | None:
+    candidates = [
+        source_root / f"launcher_{stream}.log",
+        source_root / f"live_{stream}.log",
+        source_root / "tmux.log",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return None
+
+
+def _copy_promoted_source_launcher_logs(*, source_root: Path, output_dir: Path, model_id: str) -> None:
+    for stream in ("stdout", "stderr"):
+        source_log = _resolve_promoted_source_launcher_log(source_root, stream)
+        if source_log is None:
+            continue
+        _copy_path(
+            source_log,
+            _promoted_source_launcher_log_path(output_dir, model_id, stream),
+        )
+
+
 def _promote_existing_row_artifacts(
     *,
     source_root: Path,
@@ -939,6 +979,11 @@ def _promote_existing_row_artifacts(
         if not dst.exists():
             _copy_path(src, dst)
     _ensure_promoted_row_sidecars(output_dir, model_id)
+    _copy_promoted_source_launcher_logs(
+        source_root=source_root,
+        output_dir=output_dir,
+        model_id=model_id,
+    )
     _normalize_promoted_invocation(
         output_dir=output_dir,
         source_root=source_root,

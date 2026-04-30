@@ -441,19 +441,21 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Purpose: publish the authoritative six-row `N=128` CDI paper bundle under
   the frozen `fno_vanilla` comparator, fixed `seed=3`, fixed samples `{0,1}`,
   and shared visual-scale contract.
-- Status: completed on `2026-04-30`; the repaired root is the authoritative
-  `paper_complete` Lines128 CDI benchmark bundle.
+- Status: completed on `2026-04-30`; the tmux-backed repaired root is the
+  authoritative `paper_complete` Lines128 CDI benchmark bundle.
 - Design:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md`
 - Summary:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md`
 - Authoritative root:
-  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T141325Z_repair`
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux`
 - Repair note:
-  the earlier root
+  the earlier roots
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T134500Z`
-  contains the fresh spectral rerun but is superseded because promoted-row
-  completeness recovery was repaired afterward.
+  and
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T141325Z_repair`
+  are superseded because promoted-row launcher-completion recovery and the
+  wrapper tmux invocation contract were repaired afterward.
 - Accepted rows:
   - `baseline`
   - `pinn`
@@ -469,7 +471,8 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
     root and was promoted into the repaired authoritative root
   - prerequisite FFNO row:
     `pinn_ffno` promoted from the fixed-contract FFNO-vs-Hybrid prerequisite
-    root with explicit repaired row-local completion proof
+    root with repaired row-local completion proof rebuilt from durable
+    promoted-source wrapper logs
 - Bundle artifacts:
   - `metrics.json`
   - `metric_schema.json`
