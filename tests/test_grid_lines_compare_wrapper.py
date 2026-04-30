@@ -304,6 +304,17 @@ def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tm
     assert result["row_payloads"]["baseline"]["training_procedure"] == "supervised"
     assert result["row_payloads"]["pinn_hybrid_resnet"]["architecture_id"] == "hybrid_resnet"
     assert "metrics" in result["row_payloads"]["pinn_fno_vanilla"]
+    baseline_payload = result["row_payloads"]["baseline"]
+    assert baseline_payload["git"]["dirty_state_note"]["source"]
+    assert baseline_payload["environment"]["host"]
+    assert "torch_version" in baseline_payload["environment"]
+    assert baseline_payload["dataset"]["manifest_json"] == "dataset_identity_manifest.json"
+    assert (tmp_path / baseline_payload["dataset"]["manifest_json"]).exists()
+    assert baseline_payload["splits"]["manifest_json"] == "split_manifest.json"
+    assert (tmp_path / baseline_payload["splits"]["manifest_json"]).exists()
+    assert baseline_payload["outputs"]["stdout_log"] == "runs/baseline/stdout.log"
+    assert baseline_payload["outputs"]["exit_code_proof_json"] == "runs/baseline/exit_code_proof.json"
+    assert (tmp_path / baseline_payload["outputs"]["exit_code_proof_json"]).exists()
 
 
 def test_wrapper_uses_locked_epoch_budget_for_tf_rows_in_explicit_model_mode(monkeypatch, tmp_path):

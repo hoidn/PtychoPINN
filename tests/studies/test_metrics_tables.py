@@ -37,15 +37,41 @@ def _paper_grade_row_payload() -> dict:
             "shell": "runs/pinn_hybrid_resnet/invocation.sh",
         },
         "config": {"json": "runs/pinn_hybrid_resnet/config.json"},
-        "git": {"commit": "abc123"},
-        "environment": {"python_executable": "/usr/bin/python"},
-        "dataset": {"train_npz": "datasets/train.npz", "test_npz": "datasets/test.npz"},
-        "splits": {"nimgs_train": 2, "nimgs_test": 2},
+        "git": {
+            "commit": "abc123",
+            "dirty_state_note": {
+                "source": "test_fixture",
+                "dirty": False,
+            },
+        },
+        "environment": {
+            "python_executable": "/usr/bin/python",
+            "python_version": "3.11.0",
+            "torch_version": "2.4.1",
+            "cuda_version": "12.1",
+            "gpu": "rtx3090",
+            "host": "test-host",
+        },
+        "dataset": {
+            "train_npz": "datasets/train.npz",
+            "test_npz": "datasets/test.npz",
+            "dataset_source": "synthetic_lines",
+            "manifest_json": "dataset_identity_manifest.json",
+        },
+        "splits": {
+            "nimgs_train": 2,
+            "nimgs_test": 2,
+            "seed": 3,
+            "manifest_json": "split_manifest.json",
+        },
         "randomness": {"requested_seed": 3},
         "outputs": {
             "metrics_json": "runs/pinn_hybrid_resnet/metrics.json",
             "history_json": "runs/pinn_hybrid_resnet/history.json",
             "recon_npz": "recons/pinn_hybrid_resnet/recon.npz",
+            "stdout_log": "runs/pinn_hybrid_resnet/stdout.log",
+            "stderr_log": "runs/pinn_hybrid_resnet/stderr.log",
+            "exit_code_proof_json": "runs/pinn_hybrid_resnet/exit_code_proof.json",
         },
         "visuals": {
             "amp_phase_png": "visuals/amp_phase_pinn_hybrid_resnet.png",
@@ -479,8 +505,21 @@ def test_write_paper_bundle_requires_row_provenance_for_paper_complete(tmp_path)
     } <= missing
 
 
-def test_write_paper_bundle_requires_existing_provenance_paths_for_paper_complete(tmp_path):
-    row_payloads = {"pinn_hybrid_resnet": _paper_grade_row_payload()}
+def test_write_paper_bundle_rejects_shallow_paper_grade_provenance(tmp_path):
+    row_payload = _paper_grade_row_payload()
+    row_payload["git"] = {"commit": "abc123"}
+    row_payload["environment"] = {"python_executable": "/usr/bin/python"}
+    row_payload["dataset"] = {
+        "train_npz": "datasets/train.npz",
+        "test_npz": "datasets/test.npz",
+    }
+    row_payload["splits"] = {"nimgs_train": 2, "nimgs_test": 2}
+    row_payload["outputs"] = {
+        "metrics_json": "runs/pinn_hybrid_resnet/metrics.json",
+        "history_json": "runs/pinn_hybrid_resnet/history.json",
+        "recon_npz": "recons/pinn_hybrid_resnet/recon.npz",
+    }
+    row_payloads = {"pinn_hybrid_resnet": row_payload}
 
     _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "invocation.json", "{}")
     _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "invocation.sh", "#!/usr/bin/env bash\n")
@@ -489,6 +528,40 @@ def test_write_paper_bundle_requires_existing_provenance_paths_for_paper_complet
     _write_text(tmp_path / "datasets" / "test.npz")
     _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "metrics.json", "{}")
     _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "history.json", "{}")
+    _write_text(tmp_path / "recons" / "pinn_hybrid_resnet" / "recon.npz")
+    _write_text(tmp_path / "visuals" / "amp_phase_pinn_hybrid_resnet.png")
+    _write_text(tmp_path / "visuals" / "amp_phase_error_pinn_hybrid_resnet.png")
+
+    write_paper_benchmark_bundle(
+        output_dir=tmp_path,
+        row_payloads=row_payloads,
+        required_rows=("pinn_hybrid_resnet",),
+        fixed_sample_ids=[0, 1],
+        shared_visual_scales={"amp": {"vmin": 0.0, "vmax": 1.0}},
+        require_row_provenance=True,
+    )
+
+    metrics_payload = json.loads((tmp_path / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
+    missing = set(metrics_payload["missing_fields_by_row"]["pinn_hybrid_resnet"])
+    assert {"git", "environment", "dataset", "splits", "outputs"} <= missing
+
+
+def test_write_paper_bundle_requires_existing_provenance_paths_for_paper_complete(tmp_path):
+    row_payloads = {"pinn_hybrid_resnet": _paper_grade_row_payload()}
+
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "invocation.json", "{}")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "invocation.sh", "#!/usr/bin/env bash\n")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "config.json", "{}")
+    _write_text(tmp_path / "datasets" / "train.npz")
+    _write_text(tmp_path / "datasets" / "test.npz")
+    _write_text(tmp_path / "dataset_identity_manifest.json", "{}")
+    _write_text(tmp_path / "split_manifest.json", "{}")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "metrics.json", "{}")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "history.json", "{}")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "stdout.log")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "stderr.log")
+    _write_text(tmp_path / "runs" / "pinn_hybrid_resnet" / "exit_code_proof.json", "{}")
     _write_text(tmp_path / "recons" / "pinn_hybrid_resnet" / "recon.npz")
     _write_text(tmp_path / "visuals" / "amp_phase_pinn_hybrid_resnet.png")
     # Intentionally omit amp_phase_error_png to prove the validator checks the referenced file.

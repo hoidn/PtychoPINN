@@ -20,6 +20,14 @@ import numpy as np
 from ptycho.image.harmonize import resize_complex_to_shape
 from ptycho.workflows.grid_lines_workflow import GridLinesConfig
 from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig
+from scripts.studies.paper_provenance import (
+    merge_git_provenance,
+    merge_runtime_provenance,
+    relative_to_output_dir,
+    write_dataset_identity_manifest,
+    write_exit_code_proof,
+    write_split_manifest,
+)
 
 
 LEGACY_ARCH_TO_MODEL = {
@@ -66,6 +74,7 @@ PAPER_ARCHITECTURE_OVERRIDES = {
 PAPER_TRAINING_PROCEDURE_OVERRIDES = {
     "baseline": "supervised",
 }
+REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _parse_architectures(value: str) -> Tuple[str, ...]:
@@ -144,13 +153,6 @@ def _parse_wall_time_seconds(payload: Mapping[str, Any]) -> Optional[float]:
     except ValueError:
         return None
     return max(0.0, (finish_dt - start_dt).total_seconds())
-
-
-def _relative_to_output_dir(output_dir: Path, path: Path) -> str:
-    try:
-        return str(path.relative_to(output_dir))
-    except ValueError:
-        return str(path)
 
 
 def _recovered_runtime_summary(invocation_payload: Mapping[str, Any]) -> Dict[str, object]:
@@ -388,7 +390,7 @@ def _maybe_write_recovered_torch_config(
         "training_procedure": PAPER_TRAINING_PROCEDURE_OVERRIDES.get(model_id, "pinn"),
         "train_npz": parsed_args.get("train_npz"),
         "test_npz": parsed_args.get("test_npz"),
-        "recon_npz": _relative_to_output_dir(output_dir, output_dir / "recons" / model_id / "recon.npz"),
+        "recon_npz": relative_to_output_dir(output_dir, output_dir / "recons" / model_id / "recon.npz"),
     }
     config_path.write_text(json.dumps(payload, indent=2, default=_json_default), encoding="utf-8")
     return config_path
@@ -407,6 +409,7 @@ def _enrich_paper_row_payload(
     gridsize: int,
     set_phi: bool,
     probe_npz: Path,
+    dataset_source: str,
     probe_source: str,
     probe_scale_mode: str,
 ) -> Dict[str, object]:
@@ -423,35 +426,70 @@ def _enrich_paper_row_payload(
     config_path = run_dir / "config.json"
     if not row.get("invocation") and invocation_path.exists():
         row["invocation"] = {
-            "json": _relative_to_output_dir(output_dir, invocation_path),
-            "shell": _relative_to_output_dir(output_dir, invocation_path.with_suffix(".sh")),
+            "json": relative_to_output_dir(output_dir, invocation_path),
+            "shell": relative_to_output_dir(output_dir, invocation_path.with_suffix(".sh")),
         }
     if not row.get("config") and config_path.exists():
         row["config"] = {
-            "json": _relative_to_output_dir(output_dir, config_path),
+            "json": relative_to_output_dir(output_dir, config_path),
         }
     extra = invocation_payload.get("extra", {}) if isinstance(invocation_payload, Mapping) else {}
     runtime = extra.get("runtime_provenance", {})
     git_commit = extra.get("git_commit")
-    if not row.get("environment") and isinstance(runtime, Mapping) and runtime:
-        row["environment"] = dict(runtime)
-    if not row.get("git") and isinstance(git_commit, str) and git_commit:
-        row["git"] = {"commit": git_commit}
-    if not row.get("dataset"):
-        row["dataset"] = {
+    row["environment"] = merge_runtime_provenance(
+        row.get("environment") if row.get("environment") else runtime,
+        hardware_summary=row.get("hardware_summary") if isinstance(row.get("hardware_summary"), Mapping) else None,
+    )
+    row["git"] = merge_git_provenance(
+        row.get("git"),
+        repo_root=REPO_ROOT,
+        commit=str(git_commit) if isinstance(git_commit, str) and git_commit else None,
+        note_source="recovered_bundle_write",
+    )
+    dataset_manifest = write_dataset_identity_manifest(
+        output_dir,
+        train_npz=train_npz,
+        test_npz=test_npz,
+        dataset_source=dataset_source,
+        probe_npz=probe_npz,
+        probe_source=probe_source,
+        probe_scale_mode=probe_scale_mode,
+    )
+    dataset_payload = dict(row.get("dataset")) if isinstance(row.get("dataset"), Mapping) else {}
+    dataset_payload.update(
+        {
             "train_npz": str(train_npz),
             "test_npz": str(test_npz),
             "probe_npz": str(probe_npz),
             "probe_source": probe_source,
             "probe_scale_mode": probe_scale_mode,
+            "dataset_source": dataset_source,
+            "manifest_json": relative_to_output_dir(output_dir, dataset_manifest),
         }
-    if not row.get("splits"):
-        row["splits"] = {
+    )
+    row["dataset"] = dataset_payload
+    split_manifest = write_split_manifest(
+        output_dir,
+        train_npz=train_npz,
+        test_npz=test_npz,
+        seed=seed,
+        nimgs_train=nimgs_train,
+        nimgs_test=nimgs_test,
+        gridsize=gridsize,
+        set_phi=set_phi,
+    )
+    split_payload = dict(row.get("splits")) if isinstance(row.get("splits"), Mapping) else {}
+    split_payload.update(
+        {
             "nimgs_train": int(nimgs_train),
             "nimgs_test": int(nimgs_test),
             "gridsize": int(gridsize),
             "set_phi": bool(set_phi),
+            "seed": int(seed),
+            "manifest_json": relative_to_output_dir(output_dir, split_manifest),
         }
+    )
+    row["splits"] = split_payload
     randomness = row.get("randomness")
     if not isinstance(randomness, Mapping) or not randomness:
         randomness_path = run_dir / "randomness_contract.json"
@@ -459,12 +497,28 @@ def _enrich_paper_row_payload(
             row["randomness"] = _load_json_if_exists(randomness_path)
         else:
             row["randomness"] = {"seed": int(seed), "requested_seed": int(seed)}
-    if not row.get("outputs"):
-        row["outputs"] = {
-            "metrics_json": _relative_to_output_dir(output_dir, run_dir / "metrics.json"),
-            "history_json": _relative_to_output_dir(output_dir, run_dir / "history.json"),
-            "recon_npz": _relative_to_output_dir(output_dir, output_dir / "recons" / model_id / "recon.npz"),
+    outputs_payload = dict(row.get("outputs")) if isinstance(row.get("outputs"), Mapping) else {}
+    stdout_log = run_dir / "stdout.log"
+    stderr_log = run_dir / "stderr.log"
+    exit_code_proof = write_exit_code_proof(
+        output_dir,
+        model_id=model_id,
+        invocation_json=invocation_path if invocation_path.exists() else None,
+        stdout_log=stdout_log,
+        stderr_log=stderr_log,
+        proof_source="row_artifacts_present_after_successful_compare_flow",
+    )
+    outputs_payload.update(
+        {
+            "metrics_json": relative_to_output_dir(output_dir, run_dir / "metrics.json"),
+            "history_json": relative_to_output_dir(output_dir, run_dir / "history.json"),
+            "recon_npz": relative_to_output_dir(output_dir, output_dir / "recons" / model_id / "recon.npz"),
+            "stdout_log": relative_to_output_dir(output_dir, stdout_log),
+            "stderr_log": relative_to_output_dir(output_dir, stderr_log),
+            "exit_code_proof_json": relative_to_output_dir(output_dir, exit_code_proof),
         }
+    )
+    row["outputs"] = outputs_payload
     if not row.get("visuals"):
         row["visuals"] = {
             "amp_phase_png": f"visuals/amp_phase_{model_id}.png",
@@ -1050,6 +1104,7 @@ def run_grid_lines_compare(
                     gridsize=int(gridsize),
                     set_phi=bool(set_phi),
                     probe_npz=Path(probe_npz),
+                    dataset_source=str(dataset_source),
                     probe_source=str(probe_source),
                     probe_scale_mode=str(probe_scale_mode),
                 )
@@ -1188,6 +1243,7 @@ def run_grid_lines_compare(
                     gridsize=int(gridsize),
                     set_phi=bool(set_phi),
                     probe_npz=Path(probe_npz),
+                    dataset_source=str(dataset_source),
                     probe_source=str(probe_source),
                     probe_scale_mode=str(probe_scale_mode),
                 )
@@ -1271,6 +1327,7 @@ def run_grid_lines_compare(
                     gridsize=int(gridsize),
                     set_phi=bool(set_phi),
                     probe_npz=Path(probe_npz),
+                    dataset_source=str(dataset_source),
                     probe_source=str(probe_source),
                     probe_scale_mode=str(probe_scale_mode),
                 )
@@ -1368,6 +1425,7 @@ def run_grid_lines_compare(
                 gridsize=int(gridsize),
                 set_phi=bool(set_phi),
                 probe_npz=Path(probe_npz),
+                dataset_source=str(dataset_source),
                 probe_source=str(probe_source),
                 probe_scale_mode=str(probe_scale_mode),
             )
@@ -1452,6 +1510,7 @@ def run_grid_lines_compare(
                 gridsize=int(gridsize),
                 set_phi=bool(set_phi),
                 probe_npz=Path(probe_npz),
+                dataset_source=str(dataset_source),
                 probe_source=str(probe_source),
                 probe_scale_mode=str(probe_scale_mode),
             )
@@ -1564,6 +1623,7 @@ def run_grid_lines_compare(
                     gridsize=int(gridsize),
                     set_phi=bool(set_phi),
                     probe_npz=Path(probe_npz),
+                    dataset_source=str(dataset_source),
                     probe_source=str(probe_source),
                     probe_scale_mode=str(probe_scale_mode),
                 )

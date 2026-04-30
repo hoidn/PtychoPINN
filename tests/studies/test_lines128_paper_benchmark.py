@@ -236,6 +236,16 @@ def _materialize_minimum_subset_bundle_artifacts(
         write_relative(relative_path, "{}")
     for relative_path in ("train.npz", "test.npz"):
         write_relative(relative_path)
+    _write_text(
+        output_dir / "dataset_identity_manifest.json",
+        json.dumps(
+            {
+                "train_npz": {"size_bytes": 1, "sha256": "train-sha", "source": "synthetic_lines"},
+                "test_npz": {"size_bytes": 1, "sha256": "test-sha", "source": "synthetic_lines"},
+            }
+        ),
+    )
+    _write_text(output_dir / "split_manifest.json", json.dumps({"seed": 3}))
     gt_recon = output_dir / "recons" / "gt" / "recon.npz"
     gt_recon.parent.mkdir(parents=True, exist_ok=True)
     if "recons/gt/recon.npz" not in omit_relative_paths:
@@ -248,11 +258,17 @@ def _materialize_minimum_subset_bundle_artifacts(
             f"runs/{model_id}/config.json",
             f"runs/{model_id}/history.json",
             f"runs/{model_id}/metrics.json",
+            f"runs/{model_id}/stdout.log",
+            f"runs/{model_id}/stderr.log",
             f"recons/{model_id}/recon.npz",
             f"visuals/amp_phase_{model_id}.png",
             f"visuals/amp_phase_error_{model_id}.png",
         ):
             write_relative(relative_path, "{}")
+        _write_text(
+            output_dir / "runs" / model_id / "exit_code_proof.json",
+            json.dumps({"exit_code": 0, "proof_source": "test"}),
+        )
 
     for relative_path in (
         "visuals/amp_phase_gt.png",
@@ -380,15 +396,30 @@ def test_minimum_subset_executes_four_locked_rows_and_emits_bundle(tmp_path, mon
                 "caveats": [],
                 "invocation": {"json": f"runs/{model_id}/invocation.json", "shell": f"runs/{model_id}/invocation.sh"},
                 "config": {"json": f"runs/{model_id}/config.json"},
-                "git": {"commit": "abc123"},
-                "environment": {"python_executable": "/usr/bin/python"},
-                "dataset": {"train_npz": "train.npz", "test_npz": "test.npz"},
-                "splits": {"nimgs_train": 2, "nimgs_test": 2},
+                "git": {"commit": "abc123", "dirty_state_note": {"source": "test", "dirty": False}},
+                "environment": {
+                    "python_executable": "/usr/bin/python",
+                    "python_version": "3.11.0",
+                    "torch_version": "2.4.1",
+                    "cuda_version": "12.1",
+                    "gpu": "rtx3090",
+                    "host": "test-host",
+                },
+                "dataset": {
+                    "train_npz": "train.npz",
+                    "test_npz": "test.npz",
+                    "dataset_source": "synthetic_lines",
+                    "manifest_json": "dataset_identity_manifest.json",
+                },
+                "splits": {"nimgs_train": 2, "nimgs_test": 2, "seed": 3, "manifest_json": "split_manifest.json"},
                 "randomness": {"requested_seed": 3},
                 "outputs": {
                     "metrics_json": f"runs/{model_id}/metrics.json",
                     "history_json": f"runs/{model_id}/history.json",
                     "recon_npz": f"recons/{model_id}/recon.npz",
+                    "stdout_log": f"runs/{model_id}/stdout.log",
+                    "stderr_log": f"runs/{model_id}/stderr.log",
+                    "exit_code_proof_json": f"runs/{model_id}/exit_code_proof.json",
                 },
                 "visuals": {
                     "amp_phase_png": f"visuals/amp_phase_{model_id}.png",
@@ -586,15 +617,30 @@ def test_minimum_subset_emits_wrapper_manifest_for_shared_provenance(tmp_path, m
                     "caveats": [],
                     "invocation": {"json": f"runs/{model_id}/invocation.json", "shell": f"runs/{model_id}/invocation.sh"},
                     "config": {"json": f"runs/{model_id}/config.json"},
-                    "git": {"commit": "abc123"},
-                    "environment": {"python_executable": "/usr/bin/python"},
-                    "dataset": {"train_npz": "train.npz", "test_npz": "test.npz"},
-                    "splits": {"nimgs_train": 2, "nimgs_test": 2},
+                    "git": {"commit": "abc123", "dirty_state_note": {"source": "test", "dirty": False}},
+                    "environment": {
+                        "python_executable": "/usr/bin/python",
+                        "python_version": "3.11.0",
+                        "torch_version": "2.4.1",
+                        "cuda_version": "12.1",
+                        "gpu": "rtx3090",
+                        "host": "test-host",
+                    },
+                    "dataset": {
+                        "train_npz": "train.npz",
+                        "test_npz": "test.npz",
+                        "dataset_source": "synthetic_lines",
+                        "manifest_json": "dataset_identity_manifest.json",
+                    },
+                    "splits": {"nimgs_train": 2, "nimgs_test": 2, "seed": 3, "manifest_json": "split_manifest.json"},
                     "randomness": {"requested_seed": 3},
                     "outputs": {
                         "metrics_json": f"runs/{model_id}/metrics.json",
                         "history_json": f"runs/{model_id}/history.json",
                         "recon_npz": f"recons/{model_id}/recon.npz",
+                        "stdout_log": f"runs/{model_id}/stdout.log",
+                        "stderr_log": f"runs/{model_id}/stderr.log",
+                        "exit_code_proof_json": f"runs/{model_id}/exit_code_proof.json",
                     },
                     "visuals": {
                         "amp_phase_png": f"visuals/amp_phase_{model_id}.png",
@@ -642,6 +688,13 @@ def test_minimum_subset_emits_wrapper_manifest_for_shared_provenance(tmp_path, m
     assert manifest["benchmark_status"] == "paper_complete"
     assert manifest["selected_fno_comparator"] == "fno_vanilla"
     assert manifest["dataset"]["train_npz"].endswith("train.npz")
+    assert manifest["dataset"]["manifest_json"] == "dataset_identity_manifest.json"
+    assert manifest["git"]["dirty_state_note"]["source"]
+    assert "python_version" in manifest["environment"]
+    assert "torch_version" in manifest["environment"]
+    assert "cuda_version" in manifest["environment"]
+    assert "gpu" in manifest["environment"]
+    assert "host" in manifest["environment"]
     assert manifest["rows"][0]["row_root"] == "runs/baseline"
 
 
@@ -685,15 +738,30 @@ def test_minimum_subset_downgrades_when_required_bundle_visual_is_missing(tmp_pa
                     "caveats": [],
                     "invocation": {"json": f"runs/{model_id}/invocation.json", "shell": f"runs/{model_id}/invocation.sh"},
                     "config": {"json": f"runs/{model_id}/config.json"},
-                    "git": {"commit": "abc123"},
-                    "environment": {"python_executable": "/usr/bin/python"},
-                    "dataset": {"train_npz": "train.npz", "test_npz": "test.npz"},
-                    "splits": {"nimgs_train": 2, "nimgs_test": 2},
+                    "git": {"commit": "abc123", "dirty_state_note": {"source": "test", "dirty": False}},
+                    "environment": {
+                        "python_executable": "/usr/bin/python",
+                        "python_version": "3.11.0",
+                        "torch_version": "2.4.1",
+                        "cuda_version": "12.1",
+                        "gpu": "rtx3090",
+                        "host": "test-host",
+                    },
+                    "dataset": {
+                        "train_npz": "train.npz",
+                        "test_npz": "test.npz",
+                        "dataset_source": "synthetic_lines",
+                        "manifest_json": "dataset_identity_manifest.json",
+                    },
+                    "splits": {"nimgs_train": 2, "nimgs_test": 2, "seed": 3, "manifest_json": "split_manifest.json"},
                     "randomness": {"requested_seed": 3},
                     "outputs": {
                         "metrics_json": f"runs/{model_id}/metrics.json",
                         "history_json": f"runs/{model_id}/history.json",
                         "recon_npz": f"recons/{model_id}/recon.npz",
+                        "stdout_log": f"runs/{model_id}/stdout.log",
+                        "stderr_log": f"runs/{model_id}/stderr.log",
+                        "exit_code_proof_json": f"runs/{model_id}/exit_code_proof.json",
                     },
                     "visuals": {
                         "amp_phase_png": f"visuals/amp_phase_{model_id}.png",

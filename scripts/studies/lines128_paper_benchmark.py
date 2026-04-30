@@ -17,6 +17,11 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
 from scripts.studies.metrics_tables import write_paper_benchmark_bundle
+from scripts.studies.paper_provenance import (
+    merge_git_provenance,
+    merge_runtime_provenance,
+    relative_to_output_dir,
+)
 
 
 FNO_COMPARATOR_MODEL_IDS = {
@@ -81,26 +86,6 @@ def _load_json_if_exists(path: Path) -> Dict[str, Any]:
     return dict(payload) if isinstance(payload, dict) else {}
 
 
-def _relative_to_output_dir(output_dir: Path, path: Path) -> str:
-    try:
-        return str(path.relative_to(output_dir))
-    except ValueError:
-        return str(path)
-
-
-def _git_dirty(repo_root: Path) -> bool | None:
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(repo_root), "status", "--short"],
-            check=True,
-            text=True,
-            capture_output=True,
-        )
-    except Exception:
-        return None
-    return bool(result.stdout.strip())
-
-
 def _build_paper_benchmark_manifest(
     *,
     output_dir: Path,
@@ -114,7 +99,7 @@ def _build_paper_benchmark_manifest(
     output_dir = Path(output_dir)
     invocation_payload = _load_json_if_exists(output_dir / "invocation.json")
     invocation_extra = invocation_payload.get("extra", {}) if isinstance(invocation_payload, Mapping) else {}
-    runtime_provenance = invocation_extra.get("runtime_provenance", {})
+    runtime_provenance = merge_runtime_provenance(invocation_extra.get("runtime_provenance", {}))
     git_commit = invocation_extra.get("git_commit")
     train_npz = str(compare_result.get("train_npz", ""))
     test_npz = str(compare_result.get("test_npz", ""))
@@ -133,9 +118,9 @@ def _build_paper_benchmark_manifest(
         row_records.append(
             {
                 "model_id": model_id,
-                "row_root": _relative_to_output_dir(output_dir, run_dir),
+                "row_root": relative_to_output_dir(output_dir, run_dir),
                 "artifacts": {
-                    name: _relative_to_output_dir(output_dir, path)
+                    name: relative_to_output_dir(output_dir, path)
                     for name, path in row_paths.items()
                 },
                 "artifact_mtimes": {
@@ -154,15 +139,18 @@ def _build_paper_benchmark_manifest(
             "train_npz": train_npz,
             "test_npz": test_npz,
             "gt_recon": gt_recon,
+            "manifest_json": "dataset_identity_manifest.json",
         },
         "wrapper_invocation": {
-            "json": _relative_to_output_dir(output_dir, output_dir / "invocation.json"),
-            "shell": _relative_to_output_dir(output_dir, output_dir / "invocation.sh"),
+            "json": relative_to_output_dir(output_dir, output_dir / "invocation.json"),
+            "shell": relative_to_output_dir(output_dir, output_dir / "invocation.sh"),
         },
-        "git": {
-            "commit": git_commit,
-            "dirty": _git_dirty(REPO_ROOT),
-        },
+        "git": merge_git_provenance(
+            {"commit": git_commit} if git_commit else {},
+            repo_root=REPO_ROOT,
+            commit=git_commit if isinstance(git_commit, str) else None,
+            note_source="wrapper_manifest_write",
+        ),
         "environment": runtime_provenance,
         "bundle_artifacts": {
             name: name

@@ -490,21 +490,65 @@ def _validate_existing_path_fields(
 
 
 def _validate_git_payload(payload: object) -> bool:
-    return _validate_string_fields(payload, ("commit",))
+    if not _validate_string_fields(payload, ("commit",)):
+        return False
+    if not isinstance(payload, Mapping):
+        return False
+    dirty_note = payload.get("dirty_state_note")
+    return (
+        isinstance(dirty_note, Mapping)
+        and isinstance(dirty_note.get("source"), str)
+        and bool(dirty_note.get("source"))
+        and isinstance(dirty_note.get("dirty"), (bool, type(None)))
+    )
 
 
 def _validate_environment_payload(payload: object) -> bool:
-    return _validate_string_fields(payload, ("python_executable",))
+    return _validate_string_fields(
+        payload,
+        ("python_executable", "python_version", "host", "torch_version", "cuda_version", "gpu"),
+    )
 
 
 def _validate_dataset_payload(payload: object, *, output_dir: Path) -> bool:
-    return _validate_existing_path_fields(payload, ("train_npz", "test_npz"), output_dir=output_dir)
+    if not _validate_existing_path_fields(payload, ("train_npz", "test_npz", "manifest_json"), output_dir=output_dir):
+        return False
+    if not isinstance(payload, Mapping):
+        return False
+    dataset_source = payload.get("dataset_source")
+    if not isinstance(dataset_source, str) or not dataset_source.strip():
+        return False
+    manifest_path = _resolve_output_path(output_dir, payload.get("manifest_json"))
+    if manifest_path is None or not manifest_path.exists():
+        return False
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if not isinstance(manifest, Mapping):
+        return False
+    for key in ("train_npz", "test_npz"):
+        record = manifest.get(key)
+        if not isinstance(record, Mapping):
+            return False
+        if not isinstance(record.get("size_bytes"), int):
+            return False
+        if not isinstance(record.get("sha256"), str) or not record.get("sha256"):
+            return False
+        if not isinstance(record.get("source"), str) or not record.get("source"):
+            return False
+    return True
 
 
 def _validate_splits_payload(payload: object) -> bool:
     if not isinstance(payload, Mapping):
         return False
-    return payload.get("nimgs_train") is not None and payload.get("nimgs_test") is not None
+    manifest_path = payload.get("manifest_json")
+    seed = payload.get("seed")
+    return (
+        payload.get("nimgs_train") is not None
+        and payload.get("nimgs_test") is not None
+        and seed is not None
+        and isinstance(manifest_path, str)
+        and bool(manifest_path.strip())
+    )
 
 
 def _validate_randomness_payload(payload: object) -> bool:
@@ -514,7 +558,19 @@ def _validate_randomness_payload(payload: object) -> bool:
 
 
 def _validate_outputs_payload(payload: object, *, output_dir: Path) -> bool:
-    return _validate_existing_path_fields(payload, ("metrics_json", "history_json", "recon_npz"), output_dir=output_dir)
+    if not _validate_existing_path_fields(
+        payload,
+        ("metrics_json", "history_json", "recon_npz", "stdout_log", "stderr_log", "exit_code_proof_json"),
+        output_dir=output_dir,
+    ):
+        return False
+    if not isinstance(payload, Mapping):
+        return False
+    proof_path = _resolve_output_path(output_dir, payload.get("exit_code_proof_json"))
+    if proof_path is None or not proof_path.exists():
+        return False
+    proof = json.loads(proof_path.read_text(encoding="utf-8"))
+    return isinstance(proof, Mapping) and proof.get("exit_code") == 0 and isinstance(proof.get("proof_source"), str)
 
 
 def _validate_visuals_payload(payload: object, *, output_dir: Path) -> bool:
