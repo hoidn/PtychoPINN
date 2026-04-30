@@ -1,0 +1,55 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.13, pytest-8.4.1, pluggy-1.6.0 -- /home/ollie/miniconda3/envs/ptycho311/bin/python3.11
+cachedir: .pytest_cache
+PyTorch: available
+PyTorch version: 2.9.1+cu128
+rootdir: /home/ollie/Documents/PtychoPINN
+configfile: pyproject.toml
+plugins: timeout-2.4.0, mock-3.15.1, cov-7.0.0, typeguard-2.13.3, anyio-4.9.0
+collecting ... collected 1 item
+
+tests/studies/test_lines128_uno_preflight.py::test_run_lines128_uno_preflight_records_signature_provenance_and_frozen_defaults FAILED [100%]
+
+=================================== FAILURES ===================================
+_ test_run_lines128_uno_preflight_records_signature_provenance_and_frozen_defaults _
+
+tmp_path = PosixPath('/tmp/pytest-of-ollie/pytest-2917/test_run_lines128_uno_prefligh0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7ef346ba9650>
+
+    def test_run_lines128_uno_preflight_records_signature_provenance_and_frozen_defaults(
+        tmp_path,
+        monkeypatch,
+    ):
+        from scripts.studies import lines128_uno_preflight as preflight
+    
+        fake_neuralop = type("__FakeNeuralOp__", (), {"__version__": "2.0.0", "__file__": "/tmp/neuralop/__init__.py"})
+        monkeypatch.setattr(
+            preflight,
+            "_import_uno_dependencies",
+            lambda: (fake_neuralop, _UnoReturnsBchw),
+        )
+        monkeypatch.setattr(preflight, "_capture_pip_show_text", lambda: "Name: neuraloperator\nVersion: 2.0.0\n")
+        monkeypatch.setattr(
+            preflight,
+            "current_runtime_provenance",
+            lambda **_kwargs: {"python_executable": "python", "torch_version": "2.6.0", "gpu": "unknown"},
+        )
+    
+        decision = preflight.run_lines128_uno_preflight(output_root=tmp_path)
+    
+        assert decision["status"] == "ready_for_uno_generator_integration"
+        assert decision["package_provenance"]["module_version"] == "2.0.0"
+        assert decision["frozen_uno_settings"]["hidden_channels"] == 32
+        assert decision["frozen_uno_settings"]["lifting_channels"] == 128
+        assert decision["frozen_uno_settings"]["projection_channels"] == 128
+        assert decision["frozen_uno_settings"]["n_layers"] == 4
+        assert decision["frozen_uno_settings"]["positional_embedding"] == "grid"
+        assert decision["frozen_uno_settings"]["generator_output_mode"] == "real_imag"
+>       assert decision["frozen_uno_settings"]["uno_out_channels"] == [32, 64, 64, 32]
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       KeyError: 'uno_out_channels'
+
+tests/studies/test_lines128_uno_preflight.py:129: KeyError
+=========================== short test summary info ============================
+FAILED tests/studies/test_lines128_uno_preflight.py::test_run_lines128_uno_preflight_records_signature_provenance_and_frozen_defaults
+============================== 1 failed in 0.95s ===============================

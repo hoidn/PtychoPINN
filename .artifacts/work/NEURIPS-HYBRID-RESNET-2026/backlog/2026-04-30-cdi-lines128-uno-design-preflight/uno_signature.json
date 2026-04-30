@@ -1,0 +1,210 @@
+{
+  "text": "(in_channels, out_channels, hidden_channels, lifting_channels=256, projection_channels=256, positional_embedding='grid', n_layers=4, uno_out_channels=None, uno_n_modes=None, uno_scalings=None, horizontal_skips_map=None, channel_mlp_dropout=0, channel_mlp_expansion=0.5, non_linearity=<built-in function gelu>, norm=None, preactivation=False, fno_skip='linear', horizontal_skip='linear', channel_mlp_skip='soft-gating', separable=False, factorization=None, rank=1.0, fixed_rank_modes=False, integral_operator=<class 'neuralop.layers.spectral_convolution.SpectralConv'>, operator_block=<class 'neuralop.layers.fno_block.FNOBlocks'>, implementation='factorized', decomposition_kwargs={}, domain_padding=None, verbose=False)",
+  "parameters": [
+    {
+      "name": "in_channels",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": null,
+      "annotation": null
+    },
+    {
+      "name": "out_channels",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": null,
+      "annotation": null
+    },
+    {
+      "name": "hidden_channels",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": null,
+      "annotation": null
+    },
+    {
+      "name": "lifting_channels",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "256",
+      "annotation": null
+    },
+    {
+      "name": "projection_channels",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "256",
+      "annotation": null
+    },
+    {
+      "name": "positional_embedding",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "'grid'",
+      "annotation": null
+    },
+    {
+      "name": "n_layers",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "4",
+      "annotation": null
+    },
+    {
+      "name": "uno_out_channels",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "None",
+      "annotation": null
+    },
+    {
+      "name": "uno_n_modes",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "None",
+      "annotation": null
+    },
+    {
+      "name": "uno_scalings",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "None",
+      "annotation": null
+    },
+    {
+      "name": "horizontal_skips_map",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "None",
+      "annotation": null
+    },
+    {
+      "name": "channel_mlp_dropout",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "0",
+      "annotation": null
+    },
+    {
+      "name": "channel_mlp_expansion",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "0.5",
+      "annotation": null
+    },
+    {
+      "name": "non_linearity",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "<built-in function gelu>",
+      "annotation": null
+    },
+    {
+      "name": "norm",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "None",
+      "annotation": null
+    },
+    {
+      "name": "preactivation",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "False",
+      "annotation": null
+    },
+    {
+      "name": "fno_skip",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "'linear'",
+      "annotation": null
+    },
+    {
+      "name": "horizontal_skip",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "'linear'",
+      "annotation": null
+    },
+    {
+      "name": "channel_mlp_skip",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "'soft-gating'",
+      "annotation": null
+    },
+    {
+      "name": "separable",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "False",
+      "annotation": null
+    },
+    {
+      "name": "factorization",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "None",
+      "annotation": null
+    },
+    {
+      "name": "rank",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "1.0",
+      "annotation": null
+    },
+    {
+      "name": "fixed_rank_modes",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "False",
+      "annotation": null
+    },
+    {
+      "name": "integral_operator",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "<class 'neuralop.layers.spectral_convolution.SpectralConv'>",
+      "annotation": null
+    },
+    {
+      "name": "operator_block",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "<class 'neuralop.layers.fno_block.FNOBlocks'>",
+      "annotation": null
+    },
+    {
+      "name": "implementation",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "'factorized'",
+      "annotation": null
+    },
+    {
+      "name": "decomposition_kwargs",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "{}",
+      "annotation": null
+    },
+    {
+      "name": "domain_padding",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "None",
+      "annotation": null
+    },
+    {
+      "name": "verbose",
+      "kind": "POSITIONAL_OR_KEYWORD",
+      "default": "False",
+      "annotation": null
+    }
+  ],
+  "parameter_names": [
+    "in_channels",
+    "out_channels",
+    "hidden_channels",
+    "lifting_channels",
+    "projection_channels",
+    "positional_embedding",
+    "n_layers",
+    "uno_out_channels",
+    "uno_n_modes",
+    "uno_scalings",
+    "horizontal_skips_map",
+    "channel_mlp_dropout",
+    "channel_mlp_expansion",
+    "non_linearity",
+    "norm",
+    "preactivation",
+    "fno_skip",
+    "horizontal_skip",
+    "channel_mlp_skip",
+    "separable",
+    "factorization",
+    "rank",
+    "fixed_rank_modes",
+    "integral_operator",
+    "operator_block",
+    "implementation",
+    "decomposition_kwargs",
+    "domain_padding",
+    "verbose"
+  ]
+}

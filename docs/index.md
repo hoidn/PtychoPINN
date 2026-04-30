@@ -208,6 +208,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, cdi, lines128, uno, neuraloperator, neuralop, append-only, supervised, pinn
 **Use this when:** Planning U-NO as an additional Lines128 CDI comparator, checking the required environment/package setup, or ensuring a U-NO extension appends to existing paper-table artifacts without rerunning completed rows.
 
+### [NeurIPS Lines128 U-NO Preflight Summary](plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_preflight_summary.md)
+**Description:** Durable readiness summary for the external NeuralOperator U-NO preflight on the locked `lines128` CDI contract, recording the verified `ptycho311` runtime/package surface, observed `UNO` signature, frozen constructor settings (`uno_out_channels`, nested `uno_n_modes`, `uno_scalings`, `channel_mlp_skip`), direct `B x 2 x 128 x 128` output acceptance, and the handoff boundary to generator integration.
+**Keywords:** neurips, cdi, lines128, uno, neuraloperator, neuralop, preflight, readiness, signature, real-imag
+**Use this when:** Checking the exact verified U-NO environment/API contract, reusing the frozen pre-metric settings for implementation, or confirming that no U-NO benchmark rows ran in the preflight pass.
+
 ### [NeurIPS Hybrid ResNet CDI FFNO Generator Lines Best-Config Summary](plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md)
 **Description:** Execution summary for the fixed-contract `N=128` CDI `ffno` versus `hybrid_resnet` row pair, pinning the recovered `lines128` contract, stable artifact root, exact compare command, and the claim boundary that this pair is prerequisite evidence for the later paper benchmark rather than the full four-row package.
 **Keywords:** neurips, cdi, ffno, hybrid_resnet, lines128, grid-lines, compare, summary

@@ -12,6 +12,7 @@
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md`
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md`
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_preflight_summary.md`
   - `docs/workflows/pytorch.md`
   - `ptycho_torch/generators/README.md`
 
@@ -47,6 +48,9 @@ Planned rows:
 
 Primary environment: `ptycho311`.
 
+Current environment-contract authority:
+`docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_preflight_summary.md`.
+
 The U-NO implementation should use the installed NeuralOperator package:
 
 - distribution package: `neuraloperator`
@@ -79,10 +83,15 @@ print(UNO)
 PY
 ```
 
-The design does not require cloning an external U-NO repository. If
-`neuralop.models.UNO` is unavailable or its constructor API is incompatible, the
-implementation must stop with a row-level environment/API blocker instead of
-substituting a different U-NO-like model.
+The design does not require cloning an external U-NO repository. The verified
+2026-04-30 preflight confirmed that `neuralop.models.UNO` is importable in
+`ptycho311`, but the live constructor requires explicit `uno_out_channels` and
+`uno_scalings` despite signature defaults of `None`, and the accepted
+`uno_n_modes` contract is a nested per-layer `2D` list. Implementation must
+use the frozen settings from the preflight summary instead of re-inferring these
+details from the signature text alone. If a future environment loses this
+surface, stop with a row-level environment/API blocker instead of substituting
+a different U-NO-like model.
 
 Each U-NO row must record:
 
@@ -116,25 +125,30 @@ UNO(
 )
 ```
 
-The U-NO preflight must freeze the exact values before benchmark execution.
-Initial recommended settings:
+The U-NO preflight froze the exact constructor values before benchmark
+execution. Current verified settings:
 
 - `in_channels`: derived from the same real-valued input channel contract as
   existing Torch generators
 - `out_channels`: `2`, for real/imag output before the existing complex-output
   adapter
 - `hidden_channels`: `32`
-- `lifting_channels`: `128` unless memory preflight requires `64`
-- `projection_channels`: `128` unless memory preflight requires `64`
+- `lifting_channels`: `128`
+- `projection_channels`: `128`
 - `n_layers`: `4`
-- `uno_n_modes`: align with the locked `fno_modes=12` contract where the API
-  accepts per-layer modes
+- `uno_out_channels`: `[32, 64, 64, 32]`
+- `uno_n_modes`:
+  `[[12, 12], [12, 12], [12, 12], [12, 12]]`
+- `uno_scalings`:
+  `[[1.0, 1.0], [0.5, 0.5], [1, 1], [2, 2]]`
 - `positional_embedding`: `grid`
+- `channel_mlp_skip`: `linear`
 - `generator_output_mode`: `real_imag`
 
-The implementation may adjust these defaults only in the preflight/design
-amendment, before seeing benchmark metrics. Do not tune U-NO after observing
-the other rows.
+The preflight also verified that the raw dummy-forward output is already
+`B x 2 x 128 x 128`, so the later wrapper does not need a deeper semantic
+conversion beyond the normal repo output-layout handling. Do not tune U-NO
+after observing the other rows.
 
 ## Fixed Lines128 Contract
 
@@ -236,7 +250,7 @@ Recommended backlog items:
    - verify environment and U-NO API
    - freeze constructor defaults
    - write install/API summary
-   - produce `ready_for_uno_rows` or an explicit blocker
+   - produce `ready_for_uno_generator_integration` or an explicit blocker
 
 2. `2026-04-30-cdi-lines128-uno-generator-integration`
    - implement `neuralop_uno` generator registry support

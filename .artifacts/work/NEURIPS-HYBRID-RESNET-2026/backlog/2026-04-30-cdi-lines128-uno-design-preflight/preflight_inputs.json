@@ -1,0 +1,63 @@
+{
+  "generated_by": "implementation_preflight_setup",
+  "authorities": {
+    "selected_item_context": "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/5/items/2026-04-30-cdi-lines128-uno-design-preflight/selected-item-context.md",
+    "uno_extension_design": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_design.md",
+    "lines128_paper_benchmark_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
+    "lines128_supervised_equivalent_rows_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md",
+    "execution_plan": "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-design-preflight/execution_plan.md"
+  },
+  "locked_contract": {
+    "N": 128,
+    "gridsize": 1,
+    "set_phi": true,
+    "probe_source": "custom Run1084 probe",
+    "probe_scale_mode": "pad_extrapolate",
+    "probe_smoothing_sigma": 0.5,
+    "nimgs_train": 2,
+    "nimgs_test": 2,
+    "nphotons": 1000000000.0,
+    "seed": 3,
+    "torch_output_mode": "real_imag",
+    "torch_epochs": 40,
+    "torch_learning_rate": 0.0002,
+    "torch_scheduler": "ReduceLROnPlateau",
+    "torch_plateau_factor": 0.5,
+    "torch_plateau_patience": 2,
+    "torch_plateau_min_lr": 0.0001,
+    "torch_plateau_threshold": 0.0,
+    "torch_loss_mode": "mae",
+    "fno_modes": 12,
+    "fno_width": 32,
+    "fno_blocks": 4,
+    "selected_fno_comparator": "fno_vanilla",
+    "fixed_sample_ids": [
+      0,
+      1
+    ]
+  },
+  "frozen_uno_channel_policy": {
+    "in_channels": 1,
+    "out_channels": 2,
+    "generator_output_mode": "real_imag"
+  },
+  "decision_schema": {
+    "required_top_level_fields": [
+      "status",
+      "package_status",
+      "runtime_provenance",
+      "package_provenance",
+      "uno_signature",
+      "locked_contract",
+      "frozen_uno_settings",
+      "shape_probe",
+      "next_item_recommendation",
+      "blocker_reason"
+    ],
+    "allowed_status_values": [
+      "ready_for_uno_generator_integration",
+      "blocked_neuraloperator_missing_or_incompatible",
+      "blocked_uno_shape_contract_mismatch"
+    ]
+  }
+}
