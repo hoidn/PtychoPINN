@@ -19,6 +19,11 @@
 - updated the recovered-root audit and durable summary to cite the independent
   launcher evidence note rather than relying on the repaired row-local Torch
   invocation/proof pair alone
+- completed the remaining Task 6 handoff contract in
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_minimum_paper_table_summary.md`
+  by recording the fixed `seed=3` policy and the required note that CDI `cnn`
+  and PDEBench CNS `unet_strong` serve analogous local-baseline roles while
+  remaining task-local, non-identical implementations
 - reran the focused selector, required backlog pytest gate, and `compileall`,
   archiving fresh logs under
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/verification/`
@@ -32,6 +37,9 @@
 - the artifact-level approval blocker is addressed for the current authoritative
   root by attaching independent persisted launcher evidence for the two Torch
   rows, satisfying the review’s alternative to a fresh rerun
+- the durable summary is now self-contained for downstream paper assembly on
+  the reviewed points: it names the fixed comparator, fixed `seed=3` policy,
+  and the required CDI `cnn` versus PDEBench CNS `unet_strong` labeling note
 - current verification evidence for this pass:
   - `pytest_focused_20260430T104510Z.log`
   - `pytest_required_20260430T103703Z.log`
@@ -44,6 +52,10 @@
   `pinn_spectral_resnet_bottleneck_net`, `pinn_ffno`
 - if future paper-grade validators add more provenance fields, the synthetic
   minimum-subset fixtures will need to keep tracking that contract explicitly
+- if downstream manifests need to distinguish fresh-rerun recovery from
+  historical-artifact recovery more mechanically, clarify
+  `fresh_rerun_then_same_root_bundle_regeneration` wording in the
+  machine-readable provenance surfaces
 - the existing `084339Z` root still contains historically repaired Torch
   row-local invocation files; the new launcher-evidence note is what makes the
   retained root acceptable under the current review-fix decision

@@ -53,6 +53,9 @@
   `FNO Vanilla + PINN`
 - selected FNO comparator:
   `fno_vanilla`
+- fixed seed policy:
+  `seed=3` for all four rows under the frozen minimum-subset contract; no
+  row-specific reseeding or post-metric seed changes were allowed
 - claim boundary:
   `minimum_draftable_cdi_subset`
 - status:
@@ -65,6 +68,11 @@
 - shared visual-scale policy:
   stitched numeric arrays for amplitude/phase and derived shared absolute-error
   scales
+- baseline-family labeling note:
+  the CDI `cnn` rows (`baseline`, `pinn`) fill the same paper-facing
+  local-baseline role here that `unet_strong` fills in the bounded PDEBench CNS
+  package, but they remain task-local implementations and are not identical or
+  interchangeable model families
 
 ## Root Status
 
