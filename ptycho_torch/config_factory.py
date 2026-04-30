@@ -211,6 +211,9 @@ def create_training_payload(
     if 'neighbor_count' in overrides and 'K' not in overrides:
         overrides['K'] = overrides['neighbor_count']
         overrides_applied['K'] = overrides['neighbor_count']
+    if 'model_type' in overrides and 'mode' not in overrides:
+        overrides['mode'] = overrides['model_type']
+        overrides_applied['mode'] = overrides['model_type']
 
     # Step 1: Validate required arguments
     if not train_data_file.exists():

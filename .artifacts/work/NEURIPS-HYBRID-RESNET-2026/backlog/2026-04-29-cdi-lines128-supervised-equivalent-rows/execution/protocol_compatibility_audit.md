@@ -2,75 +2,83 @@
 
 - Date: `2026-04-30`
 - Backlog item: `2026-04-29-cdi-lines128-supervised-equivalent-rows`
-- Audit status: `executed_same_contract_parity`
+- Audit status: `executed_same_contract_comparison`
 
 ## Contract Check
 
-- Locked dataset/split/probe/sample/metric contract remains the frozen `lines128` `N=128`,
-  `gridsize=1`, `set_phi=True`, custom Run1084 probe, `pad_extrapolate`, fixed `seed=3`,
-  `40`-epoch MAE Torch recipe already used by the authoritative minimum-subset and complete-table
-  roots.
-- The new row id is fixed as `supervised_ffno` with paper label `FFNO + supervised`.
-- The reused same-architecture comparator is fixed as `pinn_ffno` from the authoritative
-  complete-table root.
-- The reused supervised CNN reference is fixed as `baseline` from the authoritative
-  minimum-subset root.
+- the locked dataset/split/probe/sample/metric contract remains the frozen
+  `lines128` `N=128`, `gridsize=1`, `set_phi=True`, custom Run1084 probe,
+  `pad_extrapolate`, fixed `seed=3`, `40`-epoch MAE Torch recipe already used
+  by the authoritative minimum-subset and complete-table roots
+- the new row id remains `supervised_ffno` with paper label
+  `FFNO + supervised`
+- the reused same-architecture comparator remains `pinn_ffno` from the
+  authoritative complete-table root
+- the reused supervised CNN reference remains `baseline` from the authoritative
+  minimum-subset root
 
-## Original Gap
+## Reviewed Failure Mode
 
-Before this pass, the row-local Torch execution path was not protocol-compatible for the required
-same-contract supervised FFNO row because:
+The delivered extension was not protocol-correct because the claimed
+`supervised_ffno` row silently trained in unsupervised PINN mode.
 
-- `scripts/studies/grid_lines_torch_runner.py` hard-wired Torch rows to `training_procedure=pinn`
-  and `model_type='pinn'`
-- the grid-lines Torch study path did not bridge the locked dataset’s `Y_I` / `Y_phi` tensors into
-  the supervised dataloader contract keys `label_amp` / `label_phase`
-- `scripts/studies/grid_lines_compare_wrapper.py` could not route a distinct supervised FFNO model
-  id while preserving the existing `ffno` PINN row
-- metrics-table display labels did not have a stable `supervised_ffno` paper label
+- `_train_with_lightning()` passed `model_type='Supervised'` into the training
+  payload build
+- `create_training_payload()` updated `PTModelConfig` directly, but
+  `PTModelConfig` exposes `mode`, not `model_type`, so the override was
+  ignored and the effective mode stayed `Unsupervised`
+- once the mode handoff was corrected, the real supervised path exposed a
+  second compatibility defect: `Ptycho_Supervised.forward(...)` did not accept
+  the `experiment_ids` argument passed by the supervised loss path
 
 ## Narrow Fix Applied
 
-- Added explicit `training_procedure` support to the Torch runner and compare-wrapper routing.
-- Added the deterministic `Y_I` / `Y_phi` -> `label_amp` / `label_phase` bridge for the locked
-  grid-lines dataset path.
-- Preserved legacy architecture-mode behavior as PINN-only while adding explicit
-  `supervised_ffno` model-id routing.
-- Added `supervised_ffno` display-label support to the paper metrics-table surface.
+- mapped training-payload override aliases from `model_type` to
+  `PTModelConfig.mode` in `ptycho_torch/config_factory.py`
+- updated `Ptycho_Supervised.forward(...)` in `ptycho_torch/model.py` to accept
+  the supervised-path `experiment_ids` argument
+- added regressions covering:
+  - the training-factory alias bridge
+  - the `_train_with_lightning()` supervised mode/loss handoff
+  - the supervised FFNO loss path with `experiment_ids`
 
 ## Verification Status
 
-- Focused regression surface is green after the narrow fix and final label
-  update:
-  - `tests/torch/test_grid_lines_torch_runner.py`
-  - `tests/test_grid_lines_compare_wrapper.py`
-  - `tests/studies/test_metrics_tables.py`
-  - `tests/studies/test_lines128_paper_benchmark.py`
+- targeted review regressions are green:
+  - `tests/torch/test_loss_modes.py::test_supervised_compute_loss_accepts_experiment_ids`
+  - `tests/torch/test_config_factory.py::TestTrainingPayloadStructure::test_training_payload_maps_model_type_override_to_pt_mode`
+  - `tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_train_with_lightning_builds_supervised_model_config`
+  - `tests/scripts/test_training_backend_selector.py::TestTrainingCliBackendDispatch::test_supervised_mode_enforces_mae_loss`
   - archived log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_focused_20260430T163023Z.log`
-- Required deterministic gate is green:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_targeted_20260430T173424Z.log`
+- focused regression surface is green:
   - archived log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_required_20260430T163124Z.log`
-- Compile gate is green:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_focused_20260430T173446Z.log`
+- required deterministic gate is green:
   - archived log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/compileall_required_20260430T163124Z.log`
-- Launch completed successfully under tmux:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_required_20260430T173548Z.log`
+- compile gate is green:
   - archived log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/supervised_ffno_launch_20260430T160218Z.log`
-- Pairwise extension bundle is `paper_complete`:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/compileall_required_20260430T174105Z.log`
+- supervised launch completed successfully under the frozen contract:
+  - archived log:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/supervised_ffno_launch_20260430T170808Z.log`
+  - corrected run evidence:
+    `lightning_logs/version_0/hparams.yaml` in the authoritative extension
+    root records `mode: Supervised` and `loss_function: MAE`
+- the rebuilt adjacent extension bundle is `paper_complete`:
   - authoritative root:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z`
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T170808Z`
   - bundle regeneration log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/supervised_ffno_bundle_20260430T162807Z.log`
-- Exact parity between `supervised_ffno` and preserved `pinn_ffno` is archived
-  at:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/supervised_ffno_bundle_20260430T173326Z.log`
+- the corrected comparison audit is archived at:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/execution/supervised_ffno_parity_audit.json`
 
 ## Final Outcome
 
-`executed_same_contract_parity`
+`executed_same_contract_comparison`
 
-The supervised FFNO row ran successfully under the frozen `lines128` contract,
-the adjacent extension root validates as `paper_complete`, and the resulting
-`FFNO + supervised` artifacts are exactly identical to the preserved
-`FFNO + PINN` row under the comparison standard recorded in the parity audit.
+The supervised FFNO row now runs truthfully under the frozen `lines128`
+contract, the adjacent extension root validates as `paper_complete`, and the
+rebuilt comparison audit shows the corrected supervised row is not identical to
+the preserved `FFNO + PINN` comparator.

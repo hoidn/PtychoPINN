@@ -1,72 +1,56 @@
 ## Completed In This Pass
 
-- added explicit supervised FFNO routing to the Lines128 Torch compare path,
-  including the locked-dataset `Y_I` / `Y_phi` to `label_amp` / `label_phase`
-  bridge and explicit paper labels for `FFNO + PINN` versus
-  `FFNO + supervised`
-- launched the required same-contract `supervised_ffno` row in tmux under the
-  frozen `N=128`, `seed=3`, `40`-epoch custom-probe contract and completed the
-  run successfully
-- promoted the preserved `pinn_ffno` comparator into the new extension root,
-  regenerated the adjacent pairwise bundle, repaired the wrapper tmux
-  invocation metadata, and finalized the root as `paper_complete`
-- verified exact supervised/PINN FFNO parity using a stronger-than-tolerance
-  standard: SHA-256 identity for `recon.npz`, `history.json`, and `model.pt`,
-  plus `numpy.allclose(..., rtol=0.0, atol=0.0)` on the reconstruction arrays
+- fixed the implementation-review correctness bug in
+  `ptycho_torch/config_factory.py` by mapping training-payload
+  `model_type` overrides onto `PTModelConfig.mode`
+- fixed the real supervised-path crash in `ptycho_torch/model.py` by allowing
+  `Ptycho_Supervised.forward(...)` to accept `experiment_ids`
+- added targeted regressions for the supervised mode/loss handoff and the
+  supervised FFNO loss path, then reran the required same-contract
+  `supervised_ffno` row under the frozen `lines128` contract
+- promoted the preserved `pinn_ffno` comparator into the corrected
+  `170808Z` root, replayed the compare-wrapper recovery path in tmux, and
+  rebuilt `metrics.json`, `model_manifest.json`,
+  `paper_benchmark_manifest.json`, and
+  `execution/supervised_ffno_parity_audit.json` from corrected artifacts
 
-## Completed Plan Tasks
+## Completed Current-Scope Work
 
-- Tranche 1: froze the extension authority, preserved prerequisite roots, and
-  recorded the protocol-compatibility audit
-- Tranche 2: closed the minimal supervised FFNO execution gap in the Torch
-  runner, compare wrapper, dataset plumbing, and metrics-label surface
-- Tranche 3: ran the required deterministic gate before the expensive launch
-  and archived the pre-launch pytest / compile logs
-- Tranche 4: completed the supervised FFNO tmux launch and validated the
-  required row-local artifacts under
-  `runs/supervised_ffno_extension_20260430T160218Z/runs/supervised_ffno`
-- Tranche 5: built the adjacent extension bundle, paper benchmark manifest,
-  parity audit, and durable summary / study-index entry
-- Tranche 6: reran the focused selector, required deterministic gate, and
-  `compileall` with fresh archived logs
+- the row is now genuinely supervised:
+  `lightning_logs/version_0/hparams.yaml` under
+  `runs/supervised_ffno_extension_20260430T170808Z/` records
+  `mode: Supervised` and `loss_function: MAE`
+- the adjacent extension root is now truthfully `paper_complete` at
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T170808Z`
+- the stale parity claim is retired: the rebuilt comparison audit records
+  `comparison_outcome: non_identical_same_contract_comparison`
+- durable summary and studies-index entries now point at the corrected
+  `170808Z` root instead of the superseded `160218Z` root
+- archived verification for the completed scope is current:
+  - targeted review regressions:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_targeted_20260430T173424Z.log`
+  - focused selector:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_focused_20260430T173446Z.log`
+  - required deterministic gate:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_required_20260430T173548Z.log`
+  - compile gate:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/compileall_required_20260430T174105Z.log`
 
-## Remaining Required Plan Tasks
+## Follow-Up Work
 
-- None. Current-scope plan work is complete for this backlog item.
-
-## Verification
-
-- supervised FFNO tmux launch:
-  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/supervised_ffno_launch_20260430T160218Z.log`
-  - tracked launcher exited `0`
-- extension bundle regeneration:
-  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/supervised_ffno_bundle_20260430T162807Z.log`
-  - final root status: `paper_complete`
-- parity audit:
-  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/execution/supervised_ffno_parity_audit.json`
-  - comparison standard: exact SHA-256 identity plus `numpy.allclose` with
-    `rtol=0.0`, `atol=0.0`
-- focused regression suite:
-  `pytest -q tests/studies/test_lines128_paper_benchmark.py tests/studies/test_metrics_tables.py tests/test_grid_lines_compare_wrapper.py tests/torch/test_grid_lines_torch_runner.py`
-  - `221 passed, 47 warnings in 42.13s`
-  - log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_focused_20260430T163023Z.log`
-- required deterministic gate:
-  `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
-  - `177 passed, 47 warnings in 301.19s (0:05:01)`
-  - log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/pytest_required_20260430T163124Z.log`
-- compile gate:
-  `python -m compileall -q ptycho_torch scripts/studies`
-  - exit `0`
-  - log:
-    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/verification/compileall_required_20260430T163124Z.log`
+- none is required for current-scope backlog approval
+- if paper-facing interpretation needs a stronger supervised FFNO control row,
+  that is new experimental scope rather than remaining implementation debt on
+  this item
 
 ## Residual Risks
 
-- the promoted `pinn_ffno` row inside the extension root remains recovered
-  prerequisite evidence rather than a fresh rerun from this pass
-- the extension is intentionally adjacent evidence and does not replace the
-  preserved six-row primary CDI benchmark claim authority
-- verification still emits the known non-fatal `tight_layout`, `skimage` SSIM,
-  and FRC warnings already present on related Lines128 study surfaces
+- the extension still reuses the accepted `pinn_ffno` comparator by promotion
+  instead of rerunning it in this pass
+- any manuscript, table, or downstream summary that still references the
+  superseded `160218Z` root or the earlier exact-parity claim is now wrong and
+  must be updated to the corrected `170808Z` root plus the rebuilt comparison
+  audit
+- verification logs still contain the known non-fatal `tight_layout`,
+  `skimage` SSIM, and FRC warnings already present on related Lines128 study
+  surfaces

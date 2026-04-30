@@ -310,6 +310,19 @@ class TestTrainingPayloadStructure:
         assert payload.pt_data_config.N == 128
         assert payload.tf_training_config.model.N == 128
 
+    def test_training_payload_maps_model_type_override_to_pt_mode(self, mock_train_npz, temp_output_dir):
+        """Legacy model_type override must drive the PyTorch mode enum."""
+        payload = create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={
+                'n_groups': 512,
+                'model_type': 'Supervised',
+            },
+        )
+        assert payload.pt_model_config.mode == 'Supervised'
+        assert payload.tf_training_config.model.model_type == 'supervised'
+
 
 class TestInferencePayloadStructure:
     """Verify create_inference_payload() returns InferencePayload with all required fields."""

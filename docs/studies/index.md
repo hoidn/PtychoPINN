@@ -501,20 +501,20 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Execution authority:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_execution_authority.md`
 - Authoritative extension root:
-  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z`
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T170808Z`
 - Included bundle rows:
   - `pinn_ffno`
   - `supervised_ffno`
 - Reference-only same-contract supervised CNN row:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z`
-- Parity evidence:
+- Comparison audit:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/execution/supervised_ffno_parity_audit.json`
 - Main result:
-  the supervised FFNO rerun executed successfully and produced exact parity
-  with the preserved `pinn_ffno` comparator under the locked contract,
-  validated by SHA-256 identity for `recon.npz`, `history.json`, and
-  `model.pt`, plus `numpy.allclose(..., rtol=0.0, atol=0.0)` on the
-  reconstruction arrays.
+  the corrected supervised FFNO rerun executed successfully under the locked
+  contract and produced a truthful `paper_complete` adjacent extension root,
+  but not exact parity with the preserved `pinn_ffno` comparator. The rebuilt
+  comparison audit records
+  `comparison_outcome: non_identical_same_contract_comparison`.
 - Boundary:
   - this is adjacent evidence for the Lines128 CDI lane
   - it does not replace the preserved six-row primary CDI benchmark root

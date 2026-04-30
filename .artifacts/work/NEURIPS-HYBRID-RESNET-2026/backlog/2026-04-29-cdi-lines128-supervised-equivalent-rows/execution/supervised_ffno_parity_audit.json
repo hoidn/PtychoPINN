@@ -1,36 +1,60 @@
 {
   "claim_boundary": "lines128_supervised_ffno_extension",
-  "authoritative_extension_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z",
+  "authoritative_extension_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T170808Z",
   "comparison_standard": "exact_sha256_identity_plus_numpy_allclose",
   "allclose_rtol": 0.0,
   "allclose_atol": 0.0,
+  "comparison_outcome": "non_identical_same_contract_comparison",
   "artifacts": {
-    "supervised_ffno_recon": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z/recons/supervised_ffno/recon.npz",
-    "pinn_ffno_recon": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z/recons/pinn_ffno/recon.npz",
-    "supervised_ffno_history": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z/runs/supervised_ffno/history.json",
-    "pinn_ffno_history": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z/runs/pinn_ffno/history.json",
-    "supervised_ffno_model": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z/runs/supervised_ffno/model.pt",
-    "pinn_ffno_model": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T160218Z/runs/pinn_ffno/model.pt"
+    "supervised_ffno_recon": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T170808Z/recons/supervised_ffno/recon.npz",
+    "pinn_ffno_recon": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T170808Z/recons/pinn_ffno/recon.npz",
+    "supervised_ffno_history": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T170808Z/runs/supervised_ffno/history.json",
+    "pinn_ffno_history": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T170808Z/runs/pinn_ffno/history.json",
+    "supervised_ffno_model": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T170808Z/runs/supervised_ffno/model.pt",
+    "pinn_ffno_model": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T170808Z/runs/pinn_ffno/model.pt"
   },
   "sha256": {
-    "recon_supervised_ffno": "abbb3337c9d7cbfccaf93d36ce518cf3c0ef6a419b81179c0803059d40fe9510",
+    "recon_supervised_ffno": "4d5ea12ab257ce7f858b3005cfafcfc3aadec389f32507ed05019172eebc8bb5",
     "recon_pinn_ffno": "abbb3337c9d7cbfccaf93d36ce518cf3c0ef6a419b81179c0803059d40fe9510",
-    "history_supervised_ffno": "74190b11a013a61abe71aa483bc82013629a9b9c4c793356fee0da0a9c2f0b21",
+    "history_supervised_ffno": "a3cff3ce2d60231ef81563ebd253c5388798731db3d4f8ec0c36e041ac0264f2",
     "history_pinn_ffno": "74190b11a013a61abe71aa483bc82013629a9b9c4c793356fee0da0a9c2f0b21",
-    "model_supervised_ffno": "19510bbd7e253ada859a162b2c1a4990c056a0ee4309185435e68dd34ba720ea",
+    "model_supervised_ffno": "ce688e298641a0aab1c761a032dba477930f58ba5a3abacc5ab540c51784c460",
     "model_pinn_ffno": "19510bbd7e253ada859a162b2c1a4990c056a0ee4309185435e68dd34ba720ea"
   },
   "numpy_checks": {
-    "recon_shape_supervised_ffno": [
+    "YY_pred_shape_supervised_ffno": [
       270,
       270
     ],
-    "recon_shape_pinn_ffno": [
+    "YY_pred_shape_pinn_ffno": [
       270,
       270
     ],
-    "recon_allclose": true,
-    "recon_max_abs_diff": 0.0
+    "YY_pred_exact_equal": false,
+    "YY_pred_allclose": false,
+    "YY_pred_max_abs_diff": 7.772671222686768,
+    "amp_shape_supervised_ffno": [
+      270,
+      270
+    ],
+    "amp_shape_pinn_ffno": [
+      270,
+      270
+    ],
+    "amp_exact_equal": false,
+    "amp_allclose": false,
+    "amp_max_abs_diff": 3.779193162918091,
+    "phase_shape_supervised_ffno": [
+      270,
+      270
+    ],
+    "phase_shape_pinn_ffno": [
+      270,
+      270
+    ],
+    "phase_exact_equal": false,
+    "phase_allclose": false,
+    "phase_max_abs_diff": 2.349961519241333
   },
   "bundle_status": "paper_complete",
   "missing_bundle_artifacts": [],

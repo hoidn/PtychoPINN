@@ -1097,7 +1097,18 @@ class Ptycho_Supervised(nn.Module):
         #Scaler - Pass config
         self.scaler = IntensityScalerModule(model_config)
 
-    def forward(self, x, positions, probe, input_scale_factor, output_scaling_factor):
+    def forward(
+        self,
+        x,
+        positions,
+        probe,
+        input_scale_factor,
+        output_scaling_factor,
+        experiment_ids=None,
+    ):
+        # Supervised models ignore experiment ids, but the Lightning wrapper
+        # always threads them through the shared forward contract.
+        del positions, probe, output_scaling_factor, experiment_ids
 
         #Scaling
         x = self.scaler.scale(x, input_scale_factor)

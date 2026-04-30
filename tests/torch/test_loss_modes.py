@@ -110,3 +110,41 @@ def test_mae_pred_l2_match_target_scales_prediction_per_sample():
 
     assert loss_default > 0
     assert torch.isclose(loss_matched, torch.tensor(0.0), atol=1e-6, rtol=0.0)
+
+
+@pytest.mark.torch
+def test_supervised_compute_loss_accepts_experiment_ids():
+    model_cfg = ModelConfig(
+        mode='Supervised',
+        loss_function='MAE',
+        C_forward=1,
+        C_model=1,
+    )
+    data_cfg = DataConfig(N=64, C=1, grid_size=(1, 1))
+    train_cfg = TrainingConfig(
+        epochs=1,
+        batch_size=1,
+        n_devices=1,
+        n_groups=1,
+        torch_loss_mode='mae',
+    )
+    infer_cfg = InferenceConfig()
+    module = PtychoPINN_Lightning(model_cfg, data_cfg, train_cfg, infer_cfg)
+
+    batch = (
+        {
+            'images': torch.ones((1, 1, 64, 64), dtype=torch.float32),
+            'coords_relative': torch.zeros((1, 1, 1, 2), dtype=torch.float32),
+            'rms_scaling_constant': torch.ones((1, 1, 1, 1), dtype=torch.float32),
+            'physics_scaling_constant': torch.ones((1, 1, 1, 1), dtype=torch.float32),
+            'experiment_id': torch.zeros(1, dtype=torch.long),
+            'label_amp': torch.ones((1, 1, 64, 64), dtype=torch.float32),
+            'label_phase': torch.zeros((1, 1, 64, 64), dtype=torch.float32),
+        },
+        torch.ones((1, 1, 64, 64), dtype=torch.complex64),
+        torch.ones(1, dtype=torch.float32),
+    )
+
+    loss = module.compute_loss(batch)
+
+    assert torch.isfinite(loss)
