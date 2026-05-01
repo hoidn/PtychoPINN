@@ -109,6 +109,118 @@ def _ensure_row_not_active(output_root: Path, model_id: str) -> None:
         raise RuntimeError(f"row output root already appears active for {model_id}: {invocation_path}")
 
 
+def _fresh_row_required_paths(output_root: Path, model_id: str) -> Dict[str, Path]:
+    run_dir = Path(output_root) / "runs" / model_id
+    recon_dir = Path(output_root) / "recons" / model_id
+    return {
+        "invocation_json": run_dir / "invocation.json",
+        "config_json": run_dir / "config.json",
+        "history_json": run_dir / "history.json",
+        "metrics_json": run_dir / "metrics.json",
+        "exit_code_proof_json": run_dir / "exit_code_proof.json",
+        "recon_npz": recon_dir / "recon.npz",
+    }
+
+
+def _fresh_row_has_completion_proof(output_root: Path, model_id: str) -> bool:
+    required = _fresh_row_required_paths(output_root, model_id)
+    if not all(path.exists() for path in required.values()):
+        return False
+    payload = _load_json(required["invocation_json"])
+    return payload.get("status") == "completed" and payload.get("exit_code") == 0
+
+
+def _scrub_row_outputs(output_root: Path, model_id: str) -> None:
+    for root_name in ("runs", "recons"):
+        row_path = Path(output_root) / root_name / model_id
+        if row_path.is_symlink() or row_path.is_file():
+            row_path.unlink()
+        elif row_path.exists():
+            shutil.rmtree(row_path)
+
+
+def _prepare_fresh_row_for_launch(output_root: Path, model_id: str) -> bool:
+    _ensure_row_not_active(output_root, model_id)
+    if _fresh_row_has_completion_proof(output_root, model_id):
+        return True
+    required = _fresh_row_required_paths(output_root, model_id)
+    if any(path.exists() for path in required.values()):
+        _scrub_row_outputs(output_root, model_id)
+    return False
+
+
+def _collect_reused_root_drift(
+    *,
+    output_root: Path,
+    reference_runs_path: Path,
+    authoritative_root: str | None = None,
+) -> Dict[str, List[str]]:
+    reference_runs = _load_json(Path(reference_runs_path))
+    reused_root_drift: Dict[str, List[str]] = {}
+    if authoritative_root is not None and authoritative_root != reference_runs.get("authoritative_root"):
+        reused_root_drift["__authoritative_root__"] = [
+            f"materialized_authoritative_root={authoritative_root!r}",
+            f"reference_runs.authoritative_root={reference_runs.get('authoritative_root')!r}",
+        ]
+    for row in reference_runs.get("reused_rows", []):
+        model_id = str(row["model_id"])
+        problems: List[str] = []
+        local_run_dir = Path(output_root) / "runs" / model_id
+        local_recon_dir = Path(output_root) / "recons" / model_id
+        if local_run_dir.is_symlink():
+            problems.append(f"run dir is still a symlink: {local_run_dir}")
+        if local_recon_dir.is_symlink():
+            problems.append(f"recon dir is still a symlink: {local_recon_dir}")
+        for key, expected_sha in row.get("validation", {}).get("source_sha256", {}).items():
+            local_path = {
+                "invocation_json": local_run_dir / "invocation.json",
+                "config_json": local_run_dir / "config.json",
+                "history_json": local_run_dir / "history.json",
+                "metrics_json": local_run_dir / "metrics.json",
+                "recon_npz": local_recon_dir / "recon.npz",
+            }[key]
+            if local_path.is_symlink():
+                problems.append(f"artifact is symlinked: {local_path}")
+                continue
+            if not local_path.exists():
+                problems.append(f"artifact missing: {local_path}")
+                continue
+            actual_sha = _sha256(local_path)
+            if actual_sha != expected_sha:
+                problems.append(f"{key} sha256 drifted: expected {expected_sha}, found {actual_sha}")
+        if problems:
+            reused_root_drift[model_id] = problems
+    return reused_root_drift
+
+
+def _format_validation_failures(validation: Dict[str, Any]) -> str:
+    parts: List[str] = []
+    if validation.get("missing_rows"):
+        parts.append("missing_rows=" + ", ".join(validation["missing_rows"]))
+    for model_id, problems in validation.get("reused_root_drift", {}).items():
+        parts.append(f"{model_id}: " + "; ".join(problems))
+    if validation.get("missing_artifacts"):
+        parts.append("missing_artifacts=" + json.dumps(validation["missing_artifacts"], sort_keys=True))
+    return " | ".join(parts) if parts else json.dumps(validation, sort_keys=True)
+
+
+def _validate_reused_anchor_materialization(
+    *,
+    output_root: Path,
+    reference_runs_path: Path,
+    authoritative_root: str,
+) -> Dict[str, Any]:
+    reused_root_drift = _collect_reused_root_drift(
+        output_root=Path(output_root),
+        reference_runs_path=Path(reference_runs_path),
+        authoritative_root=authoritative_root,
+    )
+    return {
+        "ok": not reused_root_drift,
+        "reused_root_drift": reused_root_drift,
+    }
+
+
 def validate_cdi_parameter_space_bundle(
     *,
     output_root: Path,
@@ -134,40 +246,11 @@ def validate_cdi_parameter_space_bundle(
             row_reports[model_id] = missing
     reused_root_drift: Dict[str, List[str]] = {}
     if reference_runs_path is not None:
-        reference_runs = _load_json(Path(reference_runs_path))
-        if matrix.get("authoritative_anchor_root") != reference_runs.get("authoritative_root"):
-            reused_root_drift["__authoritative_root__"] = [
-                f"study_matrix.authoritative_anchor_root={matrix.get('authoritative_anchor_root')!r}",
-                f"reference_runs.authoritative_root={reference_runs.get('authoritative_root')!r}",
-            ]
-        for row in reference_runs.get("reused_rows", []):
-            model_id = str(row["model_id"])
-            problems: List[str] = []
-            local_run_dir = Path(output_root) / "runs" / model_id
-            local_recon_dir = Path(output_root) / "recons" / model_id
-            if local_run_dir.is_symlink():
-                problems.append(f"run dir is still a symlink: {local_run_dir}")
-            if local_recon_dir.is_symlink():
-                problems.append(f"recon dir is still a symlink: {local_recon_dir}")
-            for key, expected_sha in row.get("validation", {}).get("source_sha256", {}).items():
-                local_path = {
-                    "invocation_json": local_run_dir / "invocation.json",
-                    "config_json": local_run_dir / "config.json",
-                    "history_json": local_run_dir / "history.json",
-                    "metrics_json": local_run_dir / "metrics.json",
-                    "recon_npz": local_recon_dir / "recon.npz",
-                }[key]
-                if local_path.is_symlink():
-                    problems.append(f"artifact is symlinked: {local_path}")
-                    continue
-                if not local_path.exists():
-                    problems.append(f"artifact missing: {local_path}")
-                    continue
-                actual_sha = _sha256(local_path)
-                if actual_sha != expected_sha:
-                    problems.append(f"{key} sha256 drifted: expected {expected_sha}, found {actual_sha}")
-            if problems:
-                reused_root_drift[model_id] = problems
+        reused_root_drift = _collect_reused_root_drift(
+            output_root=Path(output_root),
+            reference_runs_path=Path(reference_runs_path),
+            authoritative_root=matrix.get("authoritative_anchor_root"),
+        )
     return {
         "ok": not missing_rows and not reused_root_drift,
         "missing_rows": missing_rows,
@@ -213,16 +296,28 @@ def run_cdi_parameter_space_study(
         authoritative_root=Path(authoritative_root),
         output_root=Path(output_root),
     )
+    reused_validation = _validate_reused_anchor_materialization(
+        output_root=Path(output_root),
+        reference_runs_path=Path(preflight_paths["reference_runs_path"]),
+        authoritative_root=str(authoritative_root),
+    )
+    result["reused_anchor_validation"] = reused_validation
+    if not reused_validation["ok"]:
+        raise RuntimeError(
+            "reused-anchor validation failed before fresh launches: "
+            + _format_validation_failures(reused_validation)
+        )
 
     for spec in fresh_specs:
         model_id = str(spec["model_id"])
-        _ensure_row_not_active(Path(output_root), model_id)
+        if _prepare_fresh_row_for_launch(Path(output_root), model_id):
+            continue
         run_grid_lines_compare(
             **_fixed_compare_kwargs(Path(output_root), Path(probe_npz)),
             models=(model_id,),
             row_specs=(spec,),
             model_n={model_id: 128},
-            reuse_existing_recons=True,
+            reuse_existing_recons=False,
         )
 
     all_models = _all_row_ids()
@@ -239,6 +334,11 @@ def run_cdi_parameter_space_study(
         reference_runs_path=Path(preflight_paths["reference_runs_path"]),
     )
     _write_json(Path(output_root) / "analysis" / "bundle_validation.json", result["bundle_validation"])
+    if not result["bundle_validation"]["ok"]:
+        raise RuntimeError(
+            "bundle validation failed after collation: "
+            + _format_validation_failures(result["bundle_validation"])
+        )
     return result
 
 

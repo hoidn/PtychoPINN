@@ -174,6 +174,7 @@ def _build_fake_authoritative_root(tmp_path: Path, *, bad_row_overrides: dict[st
         _write_json(run_dir / "config.json", {"model_id": model_id})
         _write_json(run_dir / "history.json", {"train_loss": [0.1], "val_loss": [0.2]})
         _write_json(run_dir / "metrics.json", {"mae": [0.1, 0.2]})
+        _write_json(run_dir / "exit_code_proof.json", {"exit_code": 0})
         (recon_dir / "recon.npz").write_bytes(model_id.encode("utf-8"))
     return root
 
@@ -417,3 +418,139 @@ def test_validate_bundle_rejects_reused_symlink_materialization(tmp_path):
 
     assert report["ok"] is False
     assert "pinn_ffno" in report["reused_root_drift"]
+
+
+def _write_completed_fresh_row(study_root: Path, model_id: str) -> None:
+    run_dir = study_root / "runs" / model_id
+    recon_dir = study_root / "recons" / model_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    recon_dir.mkdir(parents=True, exist_ok=True)
+    _write_json(run_dir / "invocation.json", {"status": "completed", "exit_code": 0})
+    _write_json(run_dir / "config.json", {"model_id": model_id})
+    _write_json(run_dir / "history.json", {"train_loss": [0.1], "val_loss": [0.2]})
+    _write_json(run_dir / "metrics.json", {"mae": [0.1, 0.2]})
+    _write_json(run_dir / "exit_code_proof.json", {"exit_code": 0})
+    (recon_dir / "recon.npz").write_bytes(model_id.encode("utf-8"))
+
+
+def test_runbook_reruns_failed_fresh_row_instead_of_reusing_stale_recon(monkeypatch, tmp_path):
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        run_cdi_parameter_space_study,
+    )
+
+    authoritative_root = _build_fake_authoritative_root(tmp_path)
+    output_root = tmp_path / "study"
+    stale_model_id = "pinn_spectral_resnet_bottleneck_ds1"
+    stale_run_dir = output_root / "runs" / stale_model_id
+    stale_recon_dir = output_root / "recons" / stale_model_id
+    stale_run_dir.mkdir(parents=True, exist_ok=True)
+    stale_recon_dir.mkdir(parents=True, exist_ok=True)
+    _write_json(stale_run_dir / "invocation.json", {"status": "failed", "exit_code": 1})
+    (stale_recon_dir / "recon.npz").write_bytes(b"stale-recon")
+
+    compare_calls: list[tuple[tuple[str, ...], bool]] = []
+
+    def fake_compare(**kwargs):
+        models = tuple(kwargs["models"])
+        compare_calls.append((models, bool(kwargs.get("reuse_existing_recons", False))))
+        if models == (stale_model_id,):
+            assert not (output_root / "recons" / stale_model_id / "recon.npz").exists()
+            assert not (output_root / "runs" / stale_model_id / "invocation.json").exists()
+        if len(models) == 1:
+            _write_completed_fresh_row(output_root, models[0])
+        return {"selected_models": list(models)}
+
+    monkeypatch.setattr(
+        "scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space.run_grid_lines_compare",
+        fake_compare,
+    )
+
+    run_cdi_parameter_space_study(
+        authoritative_root=authoritative_root,
+        output_root=output_root,
+        preflight_root=tmp_path / "preflight",
+        note_path=tmp_path / "cdi_preflight.md",
+    )
+
+    assert compare_calls[0] == ((stale_model_id,), False)
+    assert any(models == ("pinn_spectral_resnet_bottleneck_linear_decoder",) for models, _ in compare_calls)
+    assert any(models == ("pinn_hybrid_resnet_ffno_bottleneck",) for models, _ in compare_calls)
+    assert compare_calls[-1][1] is True
+    assert json.loads((output_root / "runs" / stale_model_id / "invocation.json").read_text(encoding="utf-8"))[
+        "status"
+    ] == "completed"
+
+
+def test_runbook_fails_closed_before_fresh_launch_when_reused_copy_drifted(monkeypatch, tmp_path):
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        _materialize_reused_rows,
+        run_cdi_parameter_space_study,
+    )
+
+    authoritative_root = _build_fake_authoritative_root(tmp_path)
+    output_root = tmp_path / "study"
+    _materialize_reused_rows(authoritative_root=authoritative_root, output_root=output_root)
+    (output_root / "recons" / "pinn_ffno" / "recon.npz").write_bytes(b"drifted-local-copy")
+
+    compare_calls: list[tuple[str, ...]] = []
+
+    def fake_compare(**kwargs):
+        compare_calls.append(tuple(kwargs["models"]))
+        return {"selected_models": list(kwargs["models"])}
+
+    monkeypatch.setattr(
+        "scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space.run_grid_lines_compare",
+        fake_compare,
+    )
+
+    try:
+        run_cdi_parameter_space_study(
+            authoritative_root=authoritative_root,
+            output_root=output_root,
+            preflight_root=tmp_path / "preflight",
+            note_path=tmp_path / "cdi_preflight.md",
+        )
+    except RuntimeError as exc:
+        assert "reused" in str(exc).lower()
+        assert "pinn_ffno" in str(exc)
+    else:
+        raise AssertionError("expected reused-root drift failure before fresh launches")
+
+    assert compare_calls == []
+
+
+def test_runbook_raises_when_final_bundle_validation_fails(monkeypatch, tmp_path):
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        run_cdi_parameter_space_study,
+    )
+
+    authoritative_root = _build_fake_authoritative_root(tmp_path)
+    output_root = tmp_path / "study"
+
+    def fake_compare(**kwargs):
+        models = tuple(kwargs["models"])
+        if len(models) == 1:
+            _write_completed_fresh_row(output_root, models[0])
+        return {"selected_models": list(models)}
+
+    monkeypatch.setattr(
+        "scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space.run_grid_lines_compare",
+        fake_compare,
+    )
+    monkeypatch.setattr(
+        "scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space.validate_cdi_parameter_space_bundle",
+        lambda **_: {"ok": False, "missing_rows": [], "missing_artifacts": {}, "reused_root_drift": {"pinn_ffno": ["sha drift"]}},
+    )
+
+    try:
+        run_cdi_parameter_space_study(
+            authoritative_root=authoritative_root,
+            output_root=output_root,
+            preflight_root=tmp_path / "preflight",
+            note_path=tmp_path / "cdi_preflight.md",
+        )
+    except RuntimeError as exc:
+        assert "bundle validation failed" in str(exc).lower()
+        assert "pinn_ffno" in str(exc)
+    else:
+        raise AssertionError("expected final bundle validation failure")

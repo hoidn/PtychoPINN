@@ -45,6 +45,11 @@ does not change the current paper-grade `lines128` CDI authority.
   - phase MAE: `0.0928813860 -> 0.0643633276`
   - amp SSIM: `0.9898549878 -> 0.9799357611`
   - phase SSIM: `0.9722190667 -> 0.9939341632`
+- reused `pinn_ffno` endpoint compare:
+  - amp MAE: `0.0627724752 -> 0.0354603752`
+  - phase MAE: `0.0828386688 -> 0.0643633276`
+  - amp SSIM: `0.9348303400 -> 0.9799357611`
+  - phase SSIM: `0.9815915191 -> 0.9939341632`
 
 Interpretation:
 
@@ -53,6 +58,9 @@ Interpretation:
 - the row did not dominate either existing shell anchor: the spectral anchor
   kept the best amplitude fidelity, while the Hybrid anchor kept the stronger
   balanced local-shell reference point
+- relative to the reused `pinn_ffno` endpoint, the DS1 row is clearly stronger
+  on this fixed CDI contract, but that does not change the study's no-promotion
+  boundary
 - this row remains decision-support context only
 
 ### Decoder Bridge
@@ -64,12 +72,19 @@ Interpretation:
   - phase MAE: `0.0928813860 -> 0.1169255985`
   - amp SSIM: `0.9898549878 -> 0.7234640576`
   - phase SSIM: `0.9722190667 -> 0.9042721953`
+- reused `pinn_ffno` endpoint compare:
+  - amp MAE: `0.0627724752 -> 0.1347432733`
+  - phase MAE: `0.0828386688 -> 0.1169255985`
+  - amp SSIM: `0.9348303400 -> 0.7234640576`
+  - phase SSIM: `0.9815915191 -> 0.9042721953`
 
 Interpretation:
 
 - on the fixed CDI contract, this decoder swap is not viable as an
   FFNO-adjacent bridge
 - the existing transpose-decoder spectral shell remains decisively better
+- the row also underperforms the reused `pinn_ffno` endpoint, so this decoder
+  family should not be the next CDI bridge target
 
 ### Bottleneck Bridge
 
@@ -80,6 +95,11 @@ Interpretation:
   - phase MAE: `0.0720634771 -> 0.0875998761`
   - amp SSIM: `0.9881142974 -> 0.9835814654`
   - phase SSIM: `0.9947399866 -> 0.9909663579`
+- reused `pinn_ffno` endpoint compare:
+  - amp MAE: `0.0627724752 -> 0.0311762355`
+  - phase MAE: `0.0828386688 -> 0.0875998761`
+  - amp SSIM: `0.9348303400 -> 0.9835814654`
+  - phase SSIM: `0.9815915191 -> 0.9909663579`
 
 Interpretation:
 
@@ -87,6 +107,9 @@ Interpretation:
   current Hybrid anchor on this CDI slice
 - the result weakens the case that the local FFNO endpoint should be approached
   first by swapping only the bottleneck family
+- relative to the reused `pinn_ffno` endpoint, this row improves amplitude
+  fidelity and both SSIMs but gives back phase MAE, so it is still a mixed
+  bridge rather than a clean FFNO-path improvement
 
 ## Carry-Forward Result
 
@@ -109,41 +132,35 @@ Interpretation:
   override model ID, the overwritten reused spectral recon was restored from a
   clean sibling authoritative root, the DS1 recon was preserved under its own
   row ID, and the remaining fresh rows were resumed successfully
-- the study harness and the current artifact root now use copy-on-write
-  materialization for reused anchors rather than live symlinks, and the
-  preflight/reference manifests plus `analysis/bundle_validation.json` now
-  fail closed if a reused row drifts from the frozen authoritative bundle or
-  reappears as a symlinked path
+- the repaired harness now uses copy-on-write materialization for reused
+  anchors, validates those copied reused rows against the frozen authoritative
+  digests before any fresh launch, scrubs failed or incomplete fresh-row
+  leftovers before relaunch, and aborts if final bundle validation reports
+  reused-root drift or missing required artifacts
 
 ## Verification
 
 Commands run from `/home/ollie/Documents/PtychoPINN`:
 
 ```bash
-pytest -q tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_runner_writes_recon_artifact_under_model_id_override
+pytest -q tests/studies/test_cdi_hybrid_spectral_ffno_parameter_space.py
 pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py
 python -m compileall -q ptycho_torch scripts/studies
 pytest -v -m integration
-python scripts/studies/runbooks/run_cdi_hybrid_spectral_ffno_parameter_space.py \
-  --authoritative-root .artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux \
-  --output-root .artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi \
-  --preflight-root .artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi/preflight \
-  --note-path docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_preflight.md \
-  --preflight-only
 ```
 
 Observed results:
 
-- override regression selector: `1 passed in 5.69s`
+- review-fix harness selector: `11 passed in 3.16s`
 - targeted closeout selector:
-  `191 passed, 49 warnings in 305.67s (0:05:05)`
+  `191 passed, 49 warnings in 304.13s (0:05:04)`
 - `compileall`: exit `0`
 - `pytest -v -m integration`:
-  `5 passed, 4 skipped, 1800 deselected, 2 warnings in 302.76s (0:05:02)`
+  `5 passed, 4 skipped, 1807 deselected, 2 warnings in 302.21s (0:05:02)`
 - final study launcher proof:
   `logs/launcher_resume.log` ends with `__EXIT__:0`
-- deterministic bundle validation:
-  `analysis/bundle_validation.json` reports `"ok": true`
+- review-fix deterministic bundle validation:
+  `verification/artifact_validation_review_fix2.log` reports `"ok": true`
 
 Archived logs for this pass live under:
 
