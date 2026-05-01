@@ -15,7 +15,17 @@
       "last_modified_http": "Sun, 12 Apr 2026 23:15:36 GMT"
     },
     "selected_variant_expected_files": [
-      "wavebench_dataset/time_varying/is/thick_lines_gaussian_lens.beton",
+      "wavebench_dataset/time_varying/is/thick_lines_gaussian_lens.beton"
+    ],
+    "selected_variant_observed_member": {
+      "zip_member": "wavebench_dataset/time_varying/is/thick_lines_gaussian_lens.beton",
+      "compressed_size_bytes": 645549619,
+      "uncompressed_size_bytes": 1376211712,
+      "inspection_method": "remote_zip_range_extract_and_local_ffcv_header_parse",
+      "inspection_artifact": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-inverse-source-preflight/verification/dataset_slice_inspection.json",
+      "local_temp_copy_retained": false
+    },
+    "generator_stage_memmaps_not_distributed": [
       "wavebench_dataset/time_varying/is/thick_lines_gaussian_lens_initial_pressure_dataset.npy",
       "wavebench_dataset/time_varying/is/thick_lines_gaussian_lens_boundary_measurement_dataset.npy"
     ]
@@ -27,6 +37,7 @@
     "checkpoint_folder_url": "https://drive.google.com/drive/folders/11xLtRWP3q31ki_r4vsV09yM84BPffcJU?usp=sharing",
     "notes": [
       "Zenodo archive is publicly reachable.",
+      "The public archive distributes the selected variant as a single `.beton` member; raw generator-stage `.npy` memmaps are referenced by upstream conversion code but are not published in the Zenodo bundle.",
       "The Google Drive folder is publicly reachable, but this pass did not recover exact per-file checkpoint identifiers non-interactively."
     ]
   },
@@ -40,7 +51,8 @@
   "staging_path": {
     "expected_repo_relative": "wavebench_dataset/time_varying/is",
     "expected_local_checkout": "/home/ollie/Documents/PtychoPINN/tmp/wavebench_repo/wavebench_dataset/time_varying/is",
-    "observed_local_path": null
+    "observed_local_path": null,
+    "inspection_mode": "remote_archive_member_only"
   },
   "selected_variant": {
     "problem_family": "time_varying/is",
@@ -50,7 +62,12 @@
   },
   "selected_split": {
     "name": "seed42_random_permutation_train_val_test",
-    "source": "wavebench.dataloaders.is_loader.get_dataloaders_is_thick_lines"
+    "source": "wavebench.dataloaders.is_loader.get_dataloaders_is_thick_lines",
+    "inspected_sample_ids": {
+      "train_sample": 7542,
+      "validation_sample": 59,
+      "test_sample": 5238
+    }
   },
   "sample_counts": {
     "train": 9000,
@@ -63,26 +80,83 @@
         334,
         128
       ],
+      "archive_shape_per_sample": [
+        1,
+        128,
+        128
+      ],
       "loader_shape_per_sample": [
         1,
         128,
         128
       ],
       "dtype": "float32",
-      "normalization": "No extra amplitude normalization in the loader; nearest-neighbor interpolation maps boundary-time measurements from 334x128 to 128x128."
+      "normalization": "No extra amplitude normalization in the loader; nearest-neighbor interpolation maps boundary-time measurements from 334x128 to the distributed 128x128 `input` image.",
+      "raw_shape_source": "wavebench/generate_data/time_varying/generate_data_is.py and wavebench/dataloaders/is_loader.py",
+      "observed_loader_value_ranges": {
+        "train_sample": {
+          "min": -0.16386933624744415,
+          "max": 0.35499006509780884,
+          "mean": 0.01426614448428154,
+          "std": 0.05298986658453941,
+          "nonzero_fraction": 1.0
+        },
+        "validation_sample": {
+          "min": -0.3118942677974701,
+          "max": 0.7099959254264832,
+          "mean": 0.016858337447047234,
+          "std": 0.06630342453718185,
+          "nonzero_fraction": 1.0
+        },
+        "test_sample": {
+          "min": -0.062387917190790176,
+          "max": 0.13764168322086334,
+          "mean": 0.005238271318376064,
+          "std": 0.02466994896531105,
+          "nonzero_fraction": 1.0
+        }
+      }
     },
     "target_q0": {
       "raw_shape_per_sample": [
         128,
         128
       ],
+      "archive_shape_per_sample": [
+        1,
+        128,
+        128
+      ],
       "loader_shape_per_sample": [
         1,
         128,
         128
       ],
       "dtype": "float32",
-      "normalization": "PNG sources are divided by 255 before storage; stored target remains the original 128x128 image-space source field."
+      "normalization": "PNG sources are divided by 255 before storage; the distributed `target` field remains the original 128x128 image-space source field.",
+      "observed_loader_value_ranges": {
+        "train_sample": {
+          "min": 0.0,
+          "max": 1.0,
+          "mean": 0.040918685495853424,
+          "std": 0.1665589064359665,
+          "nonzero_fraction": 0.071044921875
+        },
+        "validation_sample": {
+          "min": 0.0,
+          "max": 1.0,
+          "mean": 0.046563126146793365,
+          "std": 0.16798272728919983,
+          "nonzero_fraction": 0.09637451171875
+        },
+        "test_sample": {
+          "min": 0.0,
+          "max": 0.7803921699523926,
+          "mean": 0.019768929108977318,
+          "std": 0.09514257311820984,
+          "nonzero_fraction": 0.0562744140625
+        }
+      }
     },
     "wavespeed_cx": {
       "shape": [
@@ -90,7 +164,11 @@
         128
       ],
       "dtype": "float32",
-      "normalization": "Procedural gaussian-lens field normalized to [1400, 4000] m/s in code."
+      "normalization": "Procedural gaussian-lens field normalized to [1400, 4000] m/s in code.",
+      "value_range_m_per_s": [
+        1400.0,
+        4000.0
+      ]
     },
     "receiver_metadata": {
       "shape": [
@@ -101,19 +179,36 @@
   },
   "native_baselines": {
     "fno": {
-      "status": "checkpoint_reusable",
-      "checkpoint_identifier": "Public Google Drive checkpoint folder for WaveBench baselines; exact thick_lines_gaussian_lens filename unresolved in this pass.",
+      "status": "retrain_required",
+      "checkpoint_identifier": null,
       "evaluation_load_path": "wavebench.nn.pl_model_wrapper.LitModel.load_from_checkpoint(...)",
       "local_checkpoint_path": null,
-      "blocker_reason": "Per-file checkpoint identifiers were not enumerable from the public folder via the non-interactive probe used here."
+      "blocker_reason": "The public Google Drive folder did not reveal the exact thick_lines_gaussian_lens checkpoint filename non-interactively, so reuse is not currently auditable."
     },
     "unet": {
-      "status": "checkpoint_reusable",
-      "checkpoint_identifier": "Public Google Drive checkpoint folder for WaveBench baselines; exact thick_lines_gaussian_lens filename unresolved in this pass.",
+      "status": "retrain_required",
+      "checkpoint_identifier": null,
       "evaluation_load_path": "wavebench.nn.pl_model_wrapper.LitModel.load_from_checkpoint(...)",
       "local_checkpoint_path": null,
-      "blocker_reason": "Per-file checkpoint identifiers were not enumerable from the public folder via the non-interactive probe used here."
+      "blocker_reason": "The public Google Drive folder did not reveal the exact thick_lines_gaussian_lens checkpoint filename non-interactively, so reuse is not currently auditable."
     }
+  },
+  "supervised_readiness": {
+    "measurement_image_contract": "stable_2d_loader_image",
+    "measurement_image_notes": "The distributed archive already stores `input` as a deterministic 1x128x128 float32 image, so a shared encoder can consume it directly as the first supervised follow-up contract. The original 334x128 boundary-time aspect ratio is only recoverable from upstream generation code, not from the published archive member.",
+    "in_repo_model_families": [
+      "scripts/studies/pdebench_swe/models.py::HybridResnetSweModel",
+      "scripts/studies/pdebench_swe/models.py::SmallUNet",
+      "scripts/studies/openfwi_flatvel_a/models.py::HybridResnetSmoke",
+      "scripts/studies/openfwi_flatvel_a/models.py::SmallUNet"
+    ],
+    "adapter_gap": "A later WaveBench supervised item still needs a WaveBench-specific dataloader wrapper plus a boundary-measurement encoder that projects the archived 128x128 input image to the chosen latent width C without reusing the CDI physics wrapper.",
+    "recommended_channel_widths": [
+      "C=32",
+      "C=64"
+    ],
+    "first_followup_target": "both_with_c32_as_minimum_first_row",
+    "status": "dataset_and_checkpoint_provisioning_pending"
   },
   "forward_model": {
     "availability": "portable_with_narrow_work",
@@ -138,7 +233,7 @@
     },
     "sample_count": 0,
     "normalization": {
-      "observed_y": "Not re-normalized beyond upstream generation and loader reshape",
+      "observed_y": "Not re-normalized beyond upstream generation and the distributed loader reshape to 128x128.",
       "reproduced_F_c_q0": "Not measured in this pass"
     },
     "metrics": {
@@ -148,17 +243,19 @@
       "normalized_residual": null
     },
     "accepted_thresholds": {
-      "median_normalized_residual_atol": null,
-      "median_normalized_residual_rtol": null,
+      "median_normalized_residual_max": 0.02,
+      "fraction_examples_above_residual_ceiling_max": 0.05,
+      "per_example_normalized_residual_ceiling": 0.05,
+      "minimum_reproduction_sample_count": 16,
       "comparison_standard": "Approved design gate: median normalized residual <= 0.02 and at most 5% of checked examples above 0.05."
     },
     "physics_readiness": "physics_loop_deferred",
-    "blocker_reason": "No local dataset staging and the active environment lacks jax, jwave, ffcv, and ml_collections, so the reproduction check could not be executed."
+    "blocker_reason": "No local WaveBench-capable environment with jax, jwave, ffcv, and ml_collections was provisioned, so the forward-model reproduction check could not be executed."
   },
   "setup_risks": [
     "README/code disagreement on dataset archive and extracted-directory naming.",
     "Active environment lacks ffcv, jwave, jax, and ml_collections.",
-    "No local WaveBench dataset tree or native baseline checkpoints were present."
+    "No persistent local WaveBench dataset tree or native baseline checkpoints were present."
   ],
   "local_compatibility": {
     "python_executable": "/home/ollie/miniconda3/envs/ptycho311/bin/python",
@@ -178,11 +275,18 @@
       "memory_mib": 24576
     }
   },
-  "final_status": "needs_dataset_or_checkpoint_decision",
+  "follow_up_routes": {
+    "supervised_shared_encoder_benchmark": "Stage the selected `.beton` under `<wavebench repo>/wavebench_dataset/time_varying/is/`, keep the distributed 128x128 input contract, and plan a shared-encoder benchmark that runs both C=32 and C=64 with C=32 as the minimum first row.",
+    "native_baseline_reproduction": "Either recover exact thick_lines_gaussian_lens FNO and U-Net checkpoint identifiers or plan a clean native WaveBench baseline reproduction from the upstream train_fno_is.py and train_unet_is.py surfaces.",
+    "forward_model_validation_or_physics_loss": "Provision a WaveBench-capable environment with jax, jwave, ffcv, and ml_collections, then run the F_c(q0) ~= y reproduction gate before any physics-loss or physics-informed row is authorized.",
+    "paper_bundle_assembly": "Do not plan paper-table, figure, or evidence-bundle assembly for WaveBench until the supervised and native-baseline items land and the forward-model gate either passes or is explicitly waived by a later design."
+  },
   "follow_up_directions": [
-    "Stage the WaveBench dataset under <wavebench repo>/wavebench_dataset/ and normalize the singular/plural path mismatch explicitly.",
+    "Stage the distributed WaveBench `.beton` member under <wavebench repo>/wavebench_dataset/time_varying/is/ and normalize the singular/plural path mismatch explicitly.",
     "Resolve exact FNO and U-Net checkpoint artifacts for thick_lines_gaussian_lens or choose a native baseline retraining path.",
     "Provision a dedicated environment with ffcv, jax, jwave, and ml_collections before loader or forward-model smoke.",
-    "Run the native-baseline reproduction and forward-model validation backlog items before any shared-encoder supervised implementation."
-  ]
+    "Run the shared-encoder supervised benchmark with C=32 and C=64 only after the dataset and baseline decisions are resolved.",
+    "Do not start any WaveBench paper-bundle assembly item until supervised/native/physics follow-ups produce claim-bearing evidence."
+  ],
+  "final_status": "needs_dataset_or_checkpoint_decision"
 }
