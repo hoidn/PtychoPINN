@@ -29,7 +29,7 @@ If the design lacks a material architectural decision needed to plan safely, cal
 
 Determine the implementation scope from the consumed design and any consumed brief, roadmap, or selection context. Preserve the intended deliverable: if the design calls for full implementation, plan all material design requirements. If the work is intentionally staged or too large to implement coherently in one pass, define the current slice and justify the boundary. Every material design requirement must be accounted for as current work or named Follow-Up Work with the reason it is deferred and the handoff criteria for picking it up. Do not use follow-up work to avoid required design obligations.
 
-Do not turn generated projections, report bundles, summaries, or incidental evidence artifacts into current-scope plan work unless the design identifies them as authoritative, as stable downstream inputs, or as explicit user-facing deliverables.
+Do not turn generated projections, report bundles, summaries, or incidental evidence artifacts into current-scope plan work unless the design identifies them as authoritative, stable downstream inputs, explicit user-facing deliverables, or required for provenance, claim boundaries, or discoverability; distinguish those mandatory contract outputs from preferred packaging.
 
 The plan should:
 - define the current implementation scope, including whether it is the whole design or a justified slice

@@ -19,7 +19,7 @@ The plan must include:
 - the selected backlog objective, scope, and explicit non-goals
 - steering and roadmap constraints that bound the work
 - prerequisite status from the progress ledger when it matters
-- the concrete file and artifact targets likely to change
+- the concrete file and artifact targets likely to change, distinguishing mandatory contract outputs from preferred packaging
 - proportionate implementation tasks in execution order
 - verification steps for each meaningful tranche
 - the backlog item's `check_commands` as required deterministic checks unless the plan explicitly justifies a narrower or stronger replacement
