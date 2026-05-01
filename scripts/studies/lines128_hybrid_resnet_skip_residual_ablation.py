@@ -22,6 +22,7 @@ from scripts.studies.grid_lines_compare_wrapper import (
 )
 from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig, run_grid_lines_torch
 from scripts.studies.metrics_tables import write_paper_benchmark_bundle
+from scripts.studies.paper_provenance import write_exit_code_proof
 
 
 DEFAULT_PLAN_PATH = Path(
@@ -417,6 +418,156 @@ def _row_metrics_map(run_dir: Path) -> Dict[str, Any]:
     return dict(payload)
 
 
+def _expected_training_root(*, artifact_root: Path, row_id: str) -> Path:
+    return Path(artifact_root) / "training_runs" / row_id
+
+
+def _resolve_invocation_output_dir(invocation_payload: Mapping[str, Any]) -> Path | None:
+    parsed_args = invocation_payload.get("parsed_args")
+    if not isinstance(parsed_args, Mapping):
+        return None
+    raw_output_dir = parsed_args.get("output_dir")
+    if not isinstance(raw_output_dir, str) or not raw_output_dir.strip():
+        return None
+    candidate = Path(raw_output_dir)
+    if not candidate.is_absolute():
+        candidate = REPO_ROOT / candidate
+    return candidate.resolve()
+
+
+def _fresh_row_training_root_matches_invocation(
+    *,
+    invocation_payload: Mapping[str, Any],
+    expected_training_root: Path,
+) -> bool:
+    resolved_output_dir = _resolve_invocation_output_dir(invocation_payload)
+    return resolved_output_dir is not None and resolved_output_dir == expected_training_root.resolve()
+
+
+def _fresh_row_contract_is_valid(*, artifact_root: Path, row_id: str) -> bool:
+    run_dir = Path(artifact_root) / "runs" / row_id
+    recon_path = _row_recon_path(artifact_root=artifact_root, row_id=row_id)
+    if not run_dir.exists() or not recon_path.exists():
+        return False
+    try:
+        _required_row_files(run_dir)
+    except FileNotFoundError:
+        return False
+    invocation_payload = _load_json(run_dir / "invocation.json")
+    if invocation_payload.get("status") != "completed" or invocation_payload.get("exit_code") != 0:
+        return False
+    expected_training_root = _expected_training_root(artifact_root=artifact_root, row_id=row_id)
+    if not expected_training_root.exists():
+        return False
+    return _fresh_row_training_root_matches_invocation(
+        invocation_payload=invocation_payload,
+        expected_training_root=expected_training_root,
+    )
+
+
+def _direct_row_runtime_summary(
+    *,
+    invocation_payload: Mapping[str, Any],
+    expected_training_root: Path,
+) -> Dict[str, object]:
+    if not _fresh_row_training_root_matches_invocation(
+        invocation_payload=invocation_payload,
+        expected_training_root=expected_training_root,
+    ):
+        raise ValueError(f"Fresh ablation row invocation does not point at expected training root {expected_training_root}")
+    summary: Dict[str, object] = {
+        "recovered_from_existing_artifacts": False,
+        "row_payload_rebuilt_from_row_artifacts": True,
+    }
+    started = invocation_payload.get("started_at_utc") or invocation_payload.get("timestamp_utc")
+    finished = invocation_payload.get("finished_at_utc")
+    if isinstance(started, str) and isinstance(finished, str):
+        start_dt = datetime.fromisoformat(started)
+        finish_dt = datetime.fromisoformat(finished)
+        summary["command_wall_time_sec"] = max(0.0, (finish_dt - start_dt).total_seconds())
+    return summary
+
+
+def _materialize_direct_row_logs(*, run_dir: Path, training_root: Path, invocation_payload: Mapping[str, Any]) -> None:
+    artifact_root = run_dir.parents[1]
+    row_id = run_dir.name
+    stdout_log = run_dir / "stdout.log"
+    stderr_log = run_dir / "stderr.log"
+    if not stdout_log.exists():
+        finished = invocation_payload.get("finished_at_utc", "unknown")
+        stdout_log.write_text(
+            "\n".join(
+                [
+                    "Direct ablation row completed successfully.",
+                    f"training_root={training_root}",
+                    f"finished_at_utc={finished}",
+                ]
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+    if not stderr_log.exists():
+        stderr_log.write_text("Direct ablation row completed without captured stderr.\n", encoding="utf-8")
+    write_exit_code_proof(
+        output_dir=artifact_root,
+        model_id=row_id,
+        invocation_json=run_dir / "invocation.json",
+        stdout_log=stdout_log,
+        stderr_log=stderr_log,
+        proof_source="direct_row_artifacts_present_after_successful_ablation_run",
+    )
+
+
+def _normalize_ablation_bundle_metadata(*, artifact_root: Path, included_rows: Iterable[str]) -> None:
+    artifact_root = Path(artifact_root)
+    metrics_path = artifact_root / "metrics.json"
+    model_manifest_path = artifact_root / "model_manifest.json"
+    metrics_payload = _load_json(metrics_path)
+    model_manifest_payload = _load_json(model_manifest_path)
+
+    rows_payload = metrics_payload.get("rows")
+    missing_fields_by_row = metrics_payload.get("missing_fields_by_row")
+    manifest_rows = model_manifest_payload.get("rows")
+    if not isinstance(rows_payload, dict) or not isinstance(missing_fields_by_row, dict) or not isinstance(manifest_rows, list):
+        raise ValueError("Ablation bundle payloads are malformed")
+
+    manifest_rows_by_id = {
+        row.get("model_id"): row for row in manifest_rows if isinstance(row, dict) and isinstance(row.get("model_id"), str)
+    }
+    for row_id in included_rows:
+        row_payload = rows_payload.get(row_id)
+        if not isinstance(row_payload, Mapping):
+            raise ValueError(f"Missing ablation row payload for {row_id}")
+        runtime_summary = row_payload.get("runtime_summary")
+        if not isinstance(runtime_summary, Mapping):
+            raise ValueError(f"Missing runtime summary for {row_id}")
+        if bool(ROW_SPECS[row_id]["fresh"]) and runtime_summary.get("recovered_from_existing_artifacts") is not False:
+            raise ValueError(f"Fresh ablation row {row_id} still claims recovered provenance")
+
+        outputs = row_payload.get("outputs")
+        if not isinstance(outputs, Mapping):
+            raise ValueError(f"Missing outputs payload for {row_id}")
+        for key in ("metrics_json", "history_json", "recon_npz", "stdout_log", "stderr_log", "exit_code_proof_json"):
+            value = outputs.get(key)
+            if not isinstance(value, str) or not (artifact_root / value).exists():
+                raise ValueError(f"Ablation row {row_id} is missing output artifact {key}")
+
+        normalized_missing = [field for field in missing_fields_by_row.get(row_id, []) if field != "row_status"]
+        missing_fields_by_row[row_id] = normalized_missing
+        manifest_row = manifest_rows_by_id.get(row_id)
+        if manifest_row is None:
+            raise ValueError(f"Missing model manifest row for {row_id}")
+        manifest_row["missing_fields"] = list(normalized_missing)
+
+    metrics_payload["benchmark_status"] = "benchmark_incomplete"
+    model_manifest_payload["benchmark_status"] = "benchmark_incomplete"
+    metrics_path.write_text(json.dumps(metrics_payload, indent=2, default=_json_default), encoding="utf-8")
+    model_manifest_path.write_text(
+        json.dumps(model_manifest_payload, indent=2, default=_json_default),
+        encoding="utf-8",
+    )
+
+
 def _row_payloads(
     *,
     artifact_root: Path,
@@ -434,6 +585,24 @@ def _row_payloads(
             n_value=int(fixed_contract["N"]),
             metrics=_row_metrics_map(artifact_root / "runs" / row_id),
         )
+        if row_id != BASELINE_ROW_ID:
+            expected_training_root = _expected_training_root(artifact_root=artifact_root, row_id=row_id)
+            if not _fresh_row_contract_is_valid(artifact_root=artifact_root, row_id=row_id):
+                raise ValueError(f"Fresh ablation row contract is incomplete for {row_id}")
+            invocation_payload = _load_json(artifact_root / "runs" / row_id / "invocation.json")
+            _materialize_direct_row_logs(
+                run_dir=artifact_root / "runs" / row_id,
+                training_root=expected_training_root,
+                invocation_payload=invocation_payload,
+            )
+            recovered["runtime_summary"] = _direct_row_runtime_summary(
+                invocation_payload=invocation_payload,
+                expected_training_root=expected_training_root,
+            )
+            caveats = [c for c in recovered.get("caveats", []) if c != "recovered_from_existing_artifacts"]
+            if "row_payload_rebuilt_from_row_artifacts" not in caveats:
+                caveats.append("row_payload_rebuilt_from_row_artifacts")
+            recovered["caveats"] = caveats
         payload = _coerce_paper_row_payload(
             row_id,
             recovered,
@@ -470,6 +639,7 @@ def _row_payloads(
 def _required_row_files(run_dir: Path) -> None:
     required = [
         run_dir / "invocation.json",
+        run_dir / "invocation.sh",
         run_dir / "config.json",
         run_dir / "history.json",
         run_dir / "metrics.json",
@@ -505,7 +675,7 @@ def run_fresh_row(*, artifact_root: Path, row_id: str) -> Dict[str, Any]:
     artifact_root = Path(artifact_root)
     run_dir = artifact_root / "runs" / row_id
     recon_path = _row_recon_path(artifact_root=artifact_root, row_id=row_id)
-    if run_dir.exists() and recon_path.exists():
+    if run_dir.exists() and recon_path.exists() and _fresh_row_contract_is_valid(artifact_root=artifact_root, row_id=row_id):
         return _row_completion_summary(artifact_root=artifact_root, row_id=row_id, reused=True)
     cfg = build_row_runner_config(artifact_root=artifact_root, row_id=row_id)
     run_grid_lines_torch(
@@ -582,6 +752,7 @@ def collate_ablation_bundle(*, artifact_root: Path, baseline_root: Path) -> Dict
         claim_boundary="same_contract_cdi_append_only_ablation",
         require_row_provenance=True,
     )
+    _normalize_ablation_bundle_metadata(artifact_root=artifact_root, included_rows=included_rows)
     comparison_summary_path = _write_json(
         artifact_root / "comparison_summary.json",
         _comparison_summary(artifact_root=artifact_root, included_rows=included_rows),
