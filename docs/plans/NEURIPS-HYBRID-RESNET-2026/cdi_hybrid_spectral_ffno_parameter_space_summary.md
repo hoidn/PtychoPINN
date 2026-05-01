@@ -158,35 +158,37 @@ Commands run from `/home/ollie/Documents/PtychoPINN`:
 
 ```bash
 pytest -q tests/studies/test_cdi_hybrid_spectral_ffno_parameter_space.py
+pytest -q tests/test_grid_lines_compare_wrapper.py
 pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py
-pytest -v -m integration
 python -m compileall -q ptycho_torch scripts/studies
 ```
 
 Observed results:
 
-- final review-fix harness selector: `20 passed in 3.70s`
+- final review-fix harness selector: `21 passed in 3.64s`
 - focused compare-wrapper selector:
-  `62 passed, 23 warnings in 17.97s`
+  `63 passed, 23 warnings in 17.75s`
 - targeted closeout selector:
-  `191 passed, 49 warnings in 306.15s (0:05:06)`
-- required production-workflow integration selector:
-  `5 passed, 4 skipped, 1816 deselected, 2 warnings in 301.99s (0:05:01)`
+  `192 passed, 49 warnings in 303.88s (0:05:03)`
 - `compileall`: exit `0`
 - final study launcher proof:
   `logs/launcher_resume.log` ends with `__EXIT__:0`
 - review-fix deterministic bundle validation:
   `analysis/bundle_validation.json` and
-  `verification/artifact_validation_review_fix7.log` report `"ok": true` and
-  confirm the repaired top-level `model_manifest.json`
+  `verification/artifact_validation_review_fix8.log` report `"ok": true`,
+  preserve
+  `claim_boundary: "no_paper_promotion_without_later_authority"`, and confirm
+  the repaired top-level `model_manifest.json`
 
 Archived logs for this pass live under:
 
 - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi/logs/`
 - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi/verification/`
-  - including `verification/pytest_integration_review_fix7.log` for the final
-    required integration rerun and
-    `verification/artifact_validation_review_fix7.log` for the archived bundle
+  - including `verification/pytest_study_harness_review_fix8.log`,
+    `verification/pytest_grid_compare_wrapper_review_fix8.log`,
+    `verification/pytest_backlog_checks_review_fix8.log`,
+    `verification/compileall_review_fix8.log`, and
+    `verification/artifact_validation_review_fix8.log` for the archived bundle
     repair
 
 ## Boundary

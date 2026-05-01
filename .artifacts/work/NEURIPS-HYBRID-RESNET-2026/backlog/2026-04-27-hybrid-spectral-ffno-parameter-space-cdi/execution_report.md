@@ -1,5 +1,8 @@
 ## Completed In This Pass
 
+- refreshed the durable checked-in CDI bridge-study summary so the indexed
+  authority now points at the final `review_fix8` evidence instead of the stale
+  `review_fix7` verification state
 - resolved the remaining implementation-review blocker by preserving the study
   claim boundary in the collated `model_manifest.json` and by preventing the
   three fresh bridge rows from auto-upgrading to `paper_grade` on artifact
@@ -15,6 +18,11 @@
 
 ## Completed Current-Scope Work
 
+- checked-in summary authority repaired:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_summary.md`
+  now reports the final `review_fix8` verification counts and archived log
+  paths (`21` harness tests, `63` compare-wrapper tests, `192` backlog-gate
+  tests, and `verification/artifact_validation_review_fix8.log`)
 - review finding resolved: the delivered study bundle now records
   `claim_boundary: "no_paper_promotion_without_later_authority"` at
   `model_manifest.json`
@@ -43,6 +51,11 @@
 
 ## Follow-Up Work
 
+- consider either populating
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi/verification/preflight.log`
+  or removing that empty file in favor of the existing
+  `preflight/preflight_validation.json`, so the archived preflight evidence
+  surface is unambiguous
 - expose the stricter bundle validator as a standalone CLI if later backlog
   work needs to audit archived CDI bridge-study roots without importing the
   runbook module
@@ -72,7 +85,7 @@
   -> `21 passed in 3.64s`
 - focused compare-wrapper selector:
   `pytest -q tests/test_grid_lines_compare_wrapper.py`
-  -> `63 passed, 23 warnings in 17.85s`
+  -> `63 passed, 23 warnings in 17.75s`
 - required backlog gate:
   `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
   -> `192 passed, 49 warnings in 303.88s (0:05:03)`
