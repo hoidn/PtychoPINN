@@ -69,6 +69,8 @@ class ModelConfig:
     hybrid_encoder_spectral_hidden_channels: Optional[int] = None
     hybrid_resnet_blocks: int = 6
     hybrid_skip_style: Literal['add', 'concat', 'gated_add'] = 'add'
+    hybrid_resnet_bottleneck_layerscale_mode: Literal['learned', 'fixed'] = 'learned'
+    hybrid_resnet_bottleneck_layerscale_value: Optional[float] = None
     spectral_bottleneck_blocks: int = 6
     spectral_bottleneck_modes: int = 12
     spectral_bottleneck_share_weights: bool = True

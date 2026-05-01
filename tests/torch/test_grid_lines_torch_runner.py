@@ -1752,6 +1752,33 @@ class TestChannelGridsizeAlignment:
         with pytest.raises(ValueError, match="hybrid_skip_style"):
             setup_torch_configs(cfg)
 
+    def test_hybrid_skip_residual_fixed_knobs_stay_out_of_model_config(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_resnet_bottleneck_layerscale_mode="fixed",
+            hybrid_resnet_bottleneck_layerscale_value=1.0,
+        )
+        training_config, execution_config = setup_torch_configs(cfg)
+        assert execution_config.hybrid_resnet_bottleneck_layerscale_mode == "fixed"
+        assert execution_config.hybrid_resnet_bottleneck_layerscale_value == 1.0
+        assert not hasattr(training_config.model, "hybrid_resnet_bottleneck_layerscale_mode")
+        assert not hasattr(training_config.model, "hybrid_resnet_bottleneck_layerscale_value")
+
+    def test_hybrid_skip_rejects_invalid_residual_fixed_mode_combo(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_resnet_bottleneck_layerscale_mode="learned",
+            hybrid_resnet_bottleneck_layerscale_value=1.0,
+        )
+        with pytest.raises(ValueError, match="hybrid_resnet_bottleneck_layerscale_value"):
+            setup_torch_configs(cfg)
+
     def test_runner_channels_derived_from_gridsize(self, synthetic_npz, tmp_path):
         """Test that channel count C = gridsize^2 is derived correctly.
 
@@ -1910,6 +1937,39 @@ class TestArchitecturePropagation:
                 execution_config=exec_cfg,
             )
         assert captured["overrides"]["hybrid_skip_style"] == "gated_add"
+
+    def test_workflow_forwards_hybrid_skip_residual_fixed_knobs_to_factory(self, monkeypatch, tmp_path):
+        from pathlib import Path
+        from ptycho_torch.workflows import components
+        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+
+        cfg = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=1, architecture="hybrid_resnet"),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            output_dir=tmp_path,
+            backend="pytorch",
+            n_groups=4,
+        )
+        exec_cfg = PyTorchExecutionConfig(
+            hybrid_resnet_bottleneck_layerscale_mode="fixed",
+            hybrid_resnet_bottleneck_layerscale_value=1.0,
+        )
+        captured = {}
+
+        def spy_create_payload(*args, **kwargs):
+            captured["overrides"] = kwargs["overrides"]
+            raise RuntimeError("stop")
+
+        monkeypatch.setattr("ptycho_torch.config_factory.create_training_payload", spy_create_payload)
+        with pytest.raises(RuntimeError, match="stop"):
+            components._train_with_lightning(
+                train_container=object(),
+                test_container=None,
+                config=cfg,
+                execution_config=exec_cfg,
+            )
+        assert captured["overrides"]["hybrid_resnet_bottleneck_layerscale_mode"] == "fixed"
+        assert captured["overrides"]["hybrid_resnet_bottleneck_layerscale_value"] == 1.0
 
 
 class TestForwardSignatureEnforcement:

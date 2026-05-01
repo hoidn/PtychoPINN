@@ -236,6 +236,16 @@ def _build_generator_module_from_config(
                 None,
             ),
             hybrid_skip_style=getattr(model_config, "hybrid_skip_style", "add"),
+            bottleneck_layerscale_mode=getattr(
+                model_config,
+                "hybrid_resnet_bottleneck_layerscale_mode",
+                "learned",
+            ),
+            bottleneck_layerscale_value=getattr(
+                model_config,
+                "hybrid_resnet_bottleneck_layerscale_value",
+                None,
+            ),
         )
 
     if architecture == "spectral_resnet_bottleneck_net":

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-01T23:30:00Z",
+  "last_updated_utc": "2026-05-01T12:51:59Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -109,6 +109,31 @@
         "pinn_hybrid_resnet_ffno_bottleneck"
       ],
       "interpretation": "No fresh bridge row earned promotion. The DS1 spectral shell improved phase alignment but lost amplitude fidelity versus the spectral anchor, the linear-decoder bridge regressed sharply, and the FFNO bottleneck did not beat the Hybrid anchor on the fixed CDI contract."
+    },
+    {
+      "family_id": "cdi_lines128_hybrid_resnet_skip_residual_ablation",
+      "task": "cdi",
+      "fixed_contract": "cdi_lines128_seed3",
+      "changed_factors": [
+        "decoder skip fusion enablement/mode",
+        "bottleneck residual-scale mode"
+      ],
+      "completed_items": [
+        "2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_hybrid_resnet_skip_residual_ablation_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation"
+      ],
+      "rows": [
+        "pinn_hybrid_resnet",
+        "pinn_hybrid_resnet_skip_add",
+        "pinn_hybrid_resnet_residual_fixed",
+        "pinn_hybrid_resnet_skip_add_residual_fixed"
+      ],
+      "interpretation": "Skip-add helps phase-side metrics without displacing the Hybrid anchor, fixed residual scale helps amplitude-side metrics, and the combined row does not beat the simpler single-factor variants. This family is same-contract decision-support only and does not replace the six-row CDI headline bundle."
     },
     {
       "family_id": "cdi_lines128_neuralop_uno_preflight",

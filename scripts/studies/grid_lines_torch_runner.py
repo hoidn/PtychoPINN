@@ -182,6 +182,8 @@ class TorchRunnerConfig:
     hybrid_encoder_spectral_hidden_channels: Optional[int] = None
     hybrid_resnet_blocks: int = 6
     hybrid_skip_style: str = "add"
+    hybrid_resnet_bottleneck_layerscale_mode: str = "learned"
+    hybrid_resnet_bottleneck_layerscale_value: Optional[float] = None
     spectral_bottleneck_blocks: int = 6
     spectral_bottleneck_modes: int = 12
     spectral_bottleneck_share_weights: bool = True
@@ -253,6 +255,10 @@ def _build_runner_cli_argv(cfg: TorchRunnerConfig) -> List[str]:
     ]
     if cfg.probe_source:
         argv.extend(["--probe-source", str(cfg.probe_source)])
+    if cfg.model_id_override:
+        argv.extend(["--model-id-override", str(cfg.model_id_override)])
+    if cfg.model_label_override:
+        argv.extend(["--model-label-override", str(cfg.model_label_override)])
     if cfg.torch_mae_pred_l2_match_target:
         argv.append("--torch-mae-pred-l2-match-target")
     else:
@@ -276,12 +282,21 @@ def _build_runner_cli_argv(cfg: TorchRunnerConfig) -> List[str]:
             "--hybrid-encoder-spectral-hidden-scale", str(cfg.hybrid_encoder_spectral_hidden_scale),
             "--hybrid-resnet-blocks", str(cfg.hybrid_resnet_blocks),
             "--hybrid-skip-style", str(cfg.hybrid_skip_style),
+            "--hybrid-resnet-bottleneck-layerscale-mode",
+            str(cfg.hybrid_resnet_bottleneck_layerscale_mode),
             "--spectral-bottleneck-blocks", str(cfg.spectral_bottleneck_blocks),
             "--spectral-bottleneck-modes", str(cfg.spectral_bottleneck_modes),
             "--spectral-bottleneck-gate-init", str(cfg.spectral_bottleneck_gate_init),
             "--spectral-bottleneck-gate-mode", str(cfg.spectral_bottleneck_gate_mode),
         ]
     )
+    if cfg.hybrid_resnet_bottleneck_layerscale_value is not None:
+        argv.extend(
+            [
+                "--hybrid-resnet-bottleneck-layerscale-value",
+                str(cfg.hybrid_resnet_bottleneck_layerscale_value),
+            ]
+        )
     if cfg.spectral_bottleneck_share_weights:
         argv.append("--spectral-bottleneck-share-weights")
     else:
@@ -841,6 +856,33 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
                 f"hybrid_skip_style must be one of {sorted(valid_skip_styles)} "
                 f"(got {cfg.hybrid_skip_style!r})."
             )
+        valid_layerscale_modes = {"learned", "fixed"}
+        if cfg.hybrid_resnet_bottleneck_layerscale_mode not in valid_layerscale_modes:
+            raise ValueError(
+                "hybrid_resnet_bottleneck_layerscale_mode must be one of "
+                f"{sorted(valid_layerscale_modes)} "
+                f"(got {cfg.hybrid_resnet_bottleneck_layerscale_mode!r})."
+            )
+        if cfg.hybrid_resnet_bottleneck_layerscale_mode == "learned":
+            if cfg.hybrid_resnet_bottleneck_layerscale_value is not None:
+                raise ValueError(
+                    "hybrid_resnet_bottleneck_layerscale_value must be omitted when "
+                    "hybrid_resnet_bottleneck_layerscale_mode='learned'."
+                )
+        else:
+            if cfg.hybrid_resnet_bottleneck_layerscale_value is None:
+                raise ValueError(
+                    "hybrid_resnet_bottleneck_layerscale_value must be provided when "
+                    "hybrid_resnet_bottleneck_layerscale_mode='fixed'."
+                )
+            if (
+                not math.isfinite(float(cfg.hybrid_resnet_bottleneck_layerscale_value))
+                or float(cfg.hybrid_resnet_bottleneck_layerscale_value) <= 0.0
+            ):
+                raise ValueError(
+                    "hybrid_resnet_bottleneck_layerscale_value must be finite and > 0 "
+                    f"(got {cfg.hybrid_resnet_bottleneck_layerscale_value})."
+                )
         if cfg.resnet_width is not None:
             if cfg.resnet_width <= 0:
                 raise ValueError(
@@ -953,6 +995,8 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         hybrid_encoder_spectral_hidden_channels=cfg.hybrid_encoder_spectral_hidden_channels,
         hybrid_resnet_blocks=cfg.hybrid_resnet_blocks,
         hybrid_skip_style=cfg.hybrid_skip_style,
+        hybrid_resnet_bottleneck_layerscale_mode=cfg.hybrid_resnet_bottleneck_layerscale_mode,
+        hybrid_resnet_bottleneck_layerscale_value=cfg.hybrid_resnet_bottleneck_layerscale_value,
         spectral_bottleneck_blocks=cfg.spectral_bottleneck_blocks,
         spectral_bottleneck_modes=cfg.spectral_bottleneck_modes,
         spectral_bottleneck_share_weights=cfg.spectral_bottleneck_share_weights,
@@ -1651,6 +1695,18 @@ def main(argv=None) -> None:
         choices=["pinn", "supervised"],
         help="Training procedure contract for this Torch row.",
     )
+    parser.add_argument(
+        "--model-id-override",
+        type=str,
+        default=None,
+        help="Optional explicit row id override for artifact naming.",
+    )
+    parser.add_argument(
+        "--model-label-override",
+        type=str,
+        default=None,
+        help="Optional explicit paper-label override for this row.",
+    )
     parser.add_argument("--seed", type=int, default=None,
                         help="Random seed for reproducibility (random if omitted)")
     parser.add_argument("--epochs", type=int, default=50,
@@ -1797,6 +1853,19 @@ def main(argv=None) -> None:
         help="Hybrid skip-fusion style for hybrid_resnet.",
     )
     parser.add_argument(
+        "--hybrid-resnet-bottleneck-layerscale-mode",
+        type=str,
+        default="learned",
+        choices=["learned", "fixed"],
+        help="Shared bottleneck residual-multiplier mode for hybrid_resnet.",
+    )
+    parser.add_argument(
+        "--hybrid-resnet-bottleneck-layerscale-value",
+        type=float,
+        default=None,
+        help="Fixed bottleneck residual multiplier when the hybrid_resnet mode is fixed.",
+    )
+    parser.add_argument(
         "--spectral-bottleneck-blocks",
         type=int,
         default=6,
@@ -1919,6 +1988,8 @@ def main(argv=None) -> None:
         output_dir=args.output_dir,
         architecture=args.architecture,
         training_procedure=args.training_procedure,
+        model_id_override=args.model_id_override,
+        model_label_override=args.model_label_override,
         seed=seed,
         epochs=args.epochs,
         batch_size=args.batch_size,
@@ -1944,6 +2015,8 @@ def main(argv=None) -> None:
         hybrid_encoder_spectral_hidden_channels=args.hybrid_encoder_spectral_hidden,
         hybrid_resnet_blocks=args.hybrid_resnet_blocks,
         hybrid_skip_style=args.hybrid_skip_style,
+        hybrid_resnet_bottleneck_layerscale_mode=args.hybrid_resnet_bottleneck_layerscale_mode,
+        hybrid_resnet_bottleneck_layerscale_value=args.hybrid_resnet_bottleneck_layerscale_value,
         spectral_bottleneck_blocks=args.spectral_bottleneck_blocks,
         spectral_bottleneck_modes=args.spectral_bottleneck_modes,
         spectral_bottleneck_share_weights=args.spectral_bottleneck_share_weights,

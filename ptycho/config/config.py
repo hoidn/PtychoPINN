@@ -294,6 +294,8 @@ class PyTorchExecutionConfig:
     hybrid_encoder_spectral_hidden_channels: Optional[int] = None
     hybrid_resnet_blocks: int = 6
     hybrid_skip_style: Literal['add', 'concat', 'gated_add'] = 'add'
+    hybrid_resnet_bottleneck_layerscale_mode: Literal['learned', 'fixed'] = 'learned'
+    hybrid_resnet_bottleneck_layerscale_value: Optional[float] = None
     spectral_bottleneck_blocks: int = 6
     spectral_bottleneck_modes: int = 12
     spectral_bottleneck_share_weights: bool = True
@@ -489,6 +491,33 @@ class PyTorchExecutionConfig:
                 f"Invalid hybrid_skip_style '{self.hybrid_skip_style}'. "
                 f"Expected one of {sorted(valid_skip_styles)}."
             )
+        valid_layerscale_modes = {'learned', 'fixed'}
+        if self.hybrid_resnet_bottleneck_layerscale_mode not in valid_layerscale_modes:
+            raise ValueError(
+                "Invalid hybrid_resnet_bottleneck_layerscale_mode "
+                f"'{self.hybrid_resnet_bottleneck_layerscale_mode}'. "
+                f"Expected one of {sorted(valid_layerscale_modes)}."
+            )
+        if self.hybrid_resnet_bottleneck_layerscale_mode == 'learned':
+            if self.hybrid_resnet_bottleneck_layerscale_value is not None:
+                raise ValueError(
+                    "hybrid_resnet_bottleneck_layerscale_value must be omitted when "
+                    "hybrid_resnet_bottleneck_layerscale_mode='learned'."
+                )
+        else:
+            if self.hybrid_resnet_bottleneck_layerscale_value is None:
+                raise ValueError(
+                    "hybrid_resnet_bottleneck_layerscale_value must be provided when "
+                    "hybrid_resnet_bottleneck_layerscale_mode='fixed'."
+                )
+            if (
+                not math.isfinite(float(self.hybrid_resnet_bottleneck_layerscale_value))
+                or float(self.hybrid_resnet_bottleneck_layerscale_value) <= 0.0
+            ):
+                raise ValueError(
+                    "hybrid_resnet_bottleneck_layerscale_value must be finite and > 0 "
+                    f"(got {self.hybrid_resnet_bottleneck_layerscale_value})."
+                )
 
 
 def validate_model_config(config: ModelConfig) -> None:

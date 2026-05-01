@@ -1,5 +1,5 @@
 """CycleGAN-style ResNet components used by hybrid_resnet generator."""
-from typing import Optional
+from typing import Optional, Literal
 
 import torch
 import torch.nn as nn
@@ -44,9 +44,44 @@ class ResnetBlock(nn.Module):
 class ResnetBottleneck(nn.Module):
     """Stack of ResNet blocks at constant resolution with one shared residual gate."""
 
-    def __init__(self, channels: int, n_blocks: int = 6, layerscale_init: float = 0.1):
+    def __init__(
+        self,
+        channels: int,
+        n_blocks: int = 6,
+        layerscale_init: float = 0.1,
+        *,
+        layerscale_mode: Literal["learned", "fixed"] = "learned",
+        layerscale_value: Optional[float] = None,
+    ):
         super().__init__()
-        self.layerscale = nn.Parameter(torch.tensor(float(layerscale_init)))
+        if layerscale_mode not in {"learned", "fixed"}:
+            raise ValueError(
+                f"layerscale_mode must be 'learned' or 'fixed' (got {layerscale_mode!r})."
+            )
+        if layerscale_mode == "learned":
+            if layerscale_value is not None:
+                raise ValueError(
+                    "layerscale_value must be omitted when layerscale_mode='learned'."
+                )
+            self.layerscale = nn.Parameter(torch.tensor(float(layerscale_init)))
+        else:
+            if layerscale_value is None:
+                raise ValueError(
+                    "layerscale_value must be provided when layerscale_mode='fixed'."
+                )
+            fixed_value = float(layerscale_value)
+            if not torch.isfinite(torch.tensor(fixed_value)):
+                raise ValueError(
+                    f"layerscale_value must be finite when fixed (got {layerscale_value!r})."
+                )
+            if fixed_value <= 0.0:
+                raise ValueError(
+                    f"layerscale_value must be > 0 when fixed (got {layerscale_value!r})."
+                )
+            self.layerscale = nn.Parameter(
+                torch.tensor(fixed_value),
+                requires_grad=False,
+            )
         self.blocks = nn.Sequential(
             *[
                 ResnetBlock(channels, shared_layerscale=self.layerscale)

@@ -883,6 +883,8 @@ def _train_with_lightning(
             'hybrid_encoder_spectral_hidden_channels',
             'hybrid_resnet_blocks',
             'hybrid_skip_style',
+            'hybrid_resnet_bottleneck_layerscale_mode',
+            'hybrid_resnet_bottleneck_layerscale_value',
             'spectral_bottleneck_blocks',
             'spectral_bottleneck_modes',
             'spectral_bottleneck_share_weights',

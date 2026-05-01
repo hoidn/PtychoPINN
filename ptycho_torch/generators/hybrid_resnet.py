@@ -133,6 +133,8 @@ class HybridResnetGeneratorModule(nn.Module):
         hybrid_encoder_conv_hidden_channels: Optional[int] = None,
         hybrid_encoder_spectral_hidden_channels: Optional[int] = None,
         hybrid_skip_style: Literal["add", "concat", "gated_add"] = "add",
+        bottleneck_layerscale_mode: Literal["learned", "fixed"] = "learned",
+        bottleneck_layerscale_value: Optional[float] = None,
     ):
         super().__init__()
         if hybrid_downsample_steps not in (1, 2):
@@ -180,6 +182,30 @@ class HybridResnetGeneratorModule(nn.Module):
             )
         if resnet_blocks <= 0:
             raise ValueError(f"resnet_blocks must be positive, got {resnet_blocks}.")
+        if bottleneck_layerscale_mode not in {"learned", "fixed"}:
+            raise ValueError(
+                "bottleneck_layerscale_mode must be one of ['fixed', 'learned'] "
+                f"(got {bottleneck_layerscale_mode!r})."
+            )
+        if bottleneck_layerscale_mode == "learned" and bottleneck_layerscale_value is not None:
+            raise ValueError(
+                "bottleneck_layerscale_value must be omitted when "
+                "bottleneck_layerscale_mode='learned'."
+            )
+        if bottleneck_layerscale_mode == "fixed":
+            if bottleneck_layerscale_value is None:
+                raise ValueError(
+                    "bottleneck_layerscale_value must be provided when "
+                    "bottleneck_layerscale_mode='fixed'."
+                )
+            if (
+                not math.isfinite(float(bottleneck_layerscale_value))
+                or float(bottleneck_layerscale_value) <= 0.0
+            ):
+                raise ValueError(
+                    "bottleneck_layerscale_value must be finite and > 0 when fixed "
+                    f"(got {bottleneck_layerscale_value})."
+                )
         if n_blocks < 3:
             raise ValueError(
                 "hybrid_resnet requires fno_blocks >= 3 for current topology "
@@ -193,6 +219,10 @@ class HybridResnetGeneratorModule(nn.Module):
         self.hybrid_downsample_steps = int(hybrid_downsample_steps)
         self.hybrid_encoder_conv_hidden_scale = float(hybrid_encoder_conv_hidden_scale)
         self.hybrid_encoder_spectral_hidden_scale = float(hybrid_encoder_spectral_hidden_scale)
+        self.bottleneck_layerscale_mode = str(bottleneck_layerscale_mode)
+        self.bottleneck_layerscale_value = (
+            None if bottleneck_layerscale_value is None else float(bottleneck_layerscale_value)
+        )
 
         self.lifter = SpatialLifter(
             in_channels * C,
@@ -262,7 +292,12 @@ class HybridResnetGeneratorModule(nn.Module):
         if ch != target_width:
             self.adapter = nn.Conv2d(ch, target_width, kernel_size=1)
 
-        self.resnet = ResnetBottleneck(target_width, n_blocks=resnet_blocks)
+        self.resnet = ResnetBottleneck(
+            target_width,
+            n_blocks=resnet_blocks,
+            layerscale_mode=self.bottleneck_layerscale_mode,
+            layerscale_value=self.bottleneck_layerscale_value,
+        )
 
         decoder_widths = [target_width]
         for _ in range(self.hybrid_downsample_steps):
@@ -463,6 +498,16 @@ class HybridResnetGenerator:
                 None,
             ),
             hybrid_skip_style=getattr(model_config, "hybrid_skip_style", "add"),
+            bottleneck_layerscale_mode=getattr(
+                model_config,
+                "hybrid_resnet_bottleneck_layerscale_mode",
+                "learned",
+            ),
+            bottleneck_layerscale_value=getattr(
+                model_config,
+                "hybrid_resnet_bottleneck_layerscale_value",
+                None,
+            ),
         )
 
         return PtychoPINN_Lightning(

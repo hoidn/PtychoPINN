@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-01T23:30:00Z",
+  "last_updated_utc": "2026-05-01T12:51:59Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -227,6 +227,96 @@
         "phase_frc50": 106.80060877638415
       },
       "evidence_status": "paper_grade"
+    },
+    {
+      "variant_id": "cdi_lines128__hybrid_resnet_skip_add__pinn__skip_residual_ablation",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_hybrid_resnet_skip_add",
+      "paper_label": "Hybrid ResNet + PINN + skip-add",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_hybrid_resnet_skip_residual_ablation_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation",
+      "metrics_json": "runs/pinn_hybrid_resnet_skip_add/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_hybrid_resnet_skip_add.png",
+        "visuals/amp_phase_error_pinn_hybrid_resnet_skip_add.png"
+      ],
+      "parameter_count": 18017032,
+      "metrics": {
+        "amp_mae": 0.026446592062711716,
+        "phase_mae": 0.061022171910286895,
+        "amp_ssim": 0.9886810823393292,
+        "phase_ssim": 0.9938947452405007,
+        "amp_psnr": 77.68188438183857,
+        "phase_psnr": 70.48880294883458,
+        "amp_frc50": 135.38982577748973,
+        "phase_frc50": 135.96063981817153
+      },
+      "nearest_anchor_row": "pinn_hybrid_resnet",
+      "evidence_status": "decision_support"
+    },
+    {
+      "variant_id": "cdi_lines128__hybrid_resnet_residual_fixed__pinn__skip_residual_ablation",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_hybrid_resnet_residual_fixed",
+      "paper_label": "Hybrid ResNet + PINN + fixed residual scale",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_hybrid_resnet_skip_residual_ablation_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation",
+      "metrics_json": "runs/pinn_hybrid_resnet_residual_fixed/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_hybrid_resnet_residual_fixed.png",
+        "visuals/amp_phase_error_pinn_hybrid_resnet_residual_fixed.png"
+      ],
+      "parameter_count": 18006600,
+      "metrics": {
+        "amp_mae": 0.02461072988808155,
+        "phase_mae": 0.07732174985357627,
+        "amp_ssim": 0.9900029595055171,
+        "phase_ssim": 0.9942976250334118,
+        "amp_psnr": 78.25660095964535,
+        "phase_psnr": 68.60620224821933,
+        "amp_frc50": 135.91688558925645,
+        "phase_frc50": 106.67971914012732
+      },
+      "nearest_anchor_row": "pinn_hybrid_resnet",
+      "evidence_status": "decision_support"
+    },
+    {
+      "variant_id": "cdi_lines128__hybrid_resnet_skip_add_residual_fixed__pinn__skip_residual_ablation",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_hybrid_resnet_skip_add_residual_fixed",
+      "paper_label": "Hybrid ResNet + PINN + skip-add + fixed residual scale",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_hybrid_resnet_skip_residual_ablation_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation",
+      "metrics_json": "runs/pinn_hybrid_resnet_skip_add_residual_fixed/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_hybrid_resnet_skip_add_residual_fixed.png",
+        "visuals/amp_phase_error_pinn_hybrid_resnet_skip_add_residual_fixed.png"
+      ],
+      "parameter_count": 18017032,
+      "metrics": {
+        "amp_mae": 0.028889842331409454,
+        "phase_mae": 0.06325889893516053,
+        "amp_ssim": 0.9867968825757856,
+        "phase_ssim": 0.9928502625684098,
+        "amp_psnr": 76.8901129293456,
+        "phase_psnr": 70.13606609948691,
+        "amp_frc50": 135.41385180012995,
+        "phase_frc50": 106.88403457456675
+      },
+      "nearest_anchor_row": "pinn_hybrid_resnet",
+      "evidence_status": "decision_support"
     },
     {
       "variant_id": "cdi_lines128__fno_vanilla__pinn__complete_table",

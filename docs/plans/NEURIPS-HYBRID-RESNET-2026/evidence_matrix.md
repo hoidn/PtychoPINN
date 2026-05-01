@@ -73,6 +73,28 @@ Current read:
 - the linear-decoder bridge regressed sharply
 - the FFNO bottleneck did not improve the Hybrid anchor
 
+## CDI Lines128 Hybrid Skip/Residual Ablation
+
+Fixed contract: same `lines128` CDI contract as the complete six-row bundle;
+decision-support only.
+
+| Row | Changed factor | Nearest anchor | Amp MAE | Phase MAE | Amp SSIM | Phase SSIM | Source |
+|---|---|---|---:|---:|---:|---:|---|
+| `pinn_hybrid_resnet_skip_add` | decoder skip fusion `concat -> add` | `pinn_hybrid_resnet` | 0.026447 | 0.061022 | 0.988681 | 0.993895 | CDI skip/residual ablation |
+| `pinn_hybrid_resnet_residual_fixed` | bottleneck residual scale `learned -> fixed` | `pinn_hybrid_resnet` | 0.024611 | 0.077322 | 0.990003 | 0.994298 | CDI skip/residual ablation |
+| `pinn_hybrid_resnet_skip_add_residual_fixed` | skip-add plus fixed residual scale | `pinn_hybrid_resnet` | 0.028890 | 0.063259 | 0.986797 | 0.992850 | CDI skip/residual ablation |
+
+Skip/residual artifact root:
+
+- `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation`
+
+Current read:
+
+- skip-add is the clearest phase-oriented decision-support variant; it materially improves phase MAE and phase FRC50 while leaving amplitude quality roughly flat to slightly better
+- fixed residual scale is the clearest amplitude-oriented decision-support variant; it improves amplitude MAE and SSIM but worsens phase MAE versus the Hybrid anchor
+- the combined skip-add plus fixed-residual row does not beat the simpler single-factor rows
+- this family does not replace the paper-grade Hybrid baseline or the six-row CDI headline bundle
+
 ## PDEBench CNS Model Matrix
 
 Fixed paper bundle contract: PDEBench 2D_CFD CNS `128x128`,
@@ -126,6 +148,7 @@ Bundle outputs include:
 | `2026-04-29-cdi-lines128-paper-benchmark-execution` | CDI complete six-row table | `lines128_paper_benchmark_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux` |
 | `2026-04-29-cdi-lines128-supervised-equivalent-rows` | CDI supervised FFNO extension | `lines128_supervised_equivalent_rows_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z` |
 | `2026-04-27-hybrid-spectral-ffno-parameter-space-cdi` | CDI Hybrid/spectral to FFNO bridge study | `cdi_hybrid_spectral_ffno_parameter_space_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi` |
+| `2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation` | CDI Hybrid skip/residual same-contract ablation | `lines128_hybrid_resnet_skip_residual_ablation_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation` |
 | `2026-04-30-cdi-lines128-uno-design-preflight` | CDI U-NO environment/API readiness | `lines128_uno_preflight_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-design-preflight/` |
 | `2026-04-29-paper-evidence-package-audit` | cross-pillar evidence audit | `paper_evidence_package_audit_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-design` | legacy CDI architecture-search design | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
@@ -142,6 +165,7 @@ Bundle outputs include:
 | CDI `lines128` headline architecture table | harness, minimum subset, complete table | complete six-row CDI bundle is current paper authority |
 | CDI FFNO training mode | supervised FFNO extension | supervised FFNO improves phase MAE but loses badly on amplitude quality |
 | CDI Hybrid/spectral to FFNO bridge | hybrid-spectral/FFNO parameter-space | no fresh bridge row beat the existing anchors; DS1 is a phase-leaning trade only |
+| CDI Hybrid skip/residual controls | same-contract skip/residual ablation | skip-add helps phase-side metrics without displacing the anchor, fixed residual helps amplitude-side metrics, and the combined row shows no constructive interaction |
 | CDI U-NO extension readiness | U-NO design preflight | external `UNO` imports cleanly in `ptycho311`; later integration must preserve the frozen `uno_out_channels`, nested `uno_n_modes`, `uno_scalings`, and direct real/imag output contract |
 | CDI FFNO generator prerequisite pair | FFNO vs Hybrid pair | prerequisite evidence, superseded for table claims by complete bundle |
 | CNS paper contract and bundle | contract, row lock, table/figure bundle | bounded capped CNS table only; no full-training SOTA claim |

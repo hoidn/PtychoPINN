@@ -557,6 +557,37 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
     authority
   - does not promote any fresh row into manuscript claim territory
 
+### `grid-lines-n128-hybrid-resnet-skip-residual-ablation`
+
+- Purpose: run a bounded same-contract CDI ablation over Hybrid decoder
+  skip-fusion mode and bottleneck residual-scale mode without reopening the
+  six-row paper bundle.
+- Status: completed on `2026-05-01`; the output remains decision-support only
+  with no paper-grade promotion.
+- Plan:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation/execution_plan.md`
+- Summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_hybrid_resnet_skip_residual_ablation_summary.md`
+- Artifact root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation`
+- Reused anchor:
+  - `pinn_hybrid_resnet`
+- Fresh rows:
+  - `pinn_hybrid_resnet_skip_add`
+  - `pinn_hybrid_resnet_residual_fixed`
+  - `pinn_hybrid_resnet_skip_add_residual_fixed`
+- Optional deferred row:
+  - `pinn_hybrid_resnet_skip_gated_add`
+- Main result:
+  skip-add is the clearest phase-oriented trade, fixed residual scale is the
+  clearest amplitude-oriented trade, and the combined row does not beat the
+  simpler single-factor variants.
+- Boundary:
+  - CDI-only decision-support evidence
+  - does not replace the paper-grade `pinn_hybrid_resnet` anchor
+  - does not replace the six-row `lines128` CDI headline bundle
+  - leaves the optional gated-add follow-up deferred for later bounded work
+
 ### `grid-lines-n64-pinn-hybrid-resnet-e20`
 
 - Purpose: Run `N=64` grid-lines with `pinn` (TF) and `pinn_hybrid_resnet` (Torch) at `20` epochs, then render combined visuals.

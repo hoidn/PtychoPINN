@@ -238,6 +238,56 @@ class TestHybridResnetGenerator:
         out = block(x)
         assert torch.allclose(out, x, atol=1e-6, rtol=1e-6)
 
+    def test_hybrid_resnet_fixed_bottleneck_layerscale_is_non_trainable(self):
+        bottleneck = ResnetBottleneck(
+            channels=8,
+            n_blocks=3,
+            layerscale_mode="fixed",
+            layerscale_value=1.0,
+        )
+
+        assert bottleneck.layerscale.numel() == 1
+        assert bottleneck.layerscale.requires_grad is False
+        assert bottleneck.layerscale.item() == pytest.approx(1.0)
+        for block in bottleneck.blocks:
+            assert block.layerscale is bottleneck.layerscale
+
+    def test_hybrid_resnet_rejects_invalid_fixed_bottleneck_layerscale_value(self):
+        with pytest.raises(ValueError, match="layerscale_value"):
+            ResnetBottleneck(
+                channels=8,
+                n_blocks=3,
+                layerscale_mode="fixed",
+                layerscale_value=None,
+            )
+
+    def test_hybrid_resnet_rejects_invalid_bottleneck_layerscale_mode_combo(self):
+        with pytest.raises(ValueError, match="layerscale_value"):
+            ResnetBottleneck(
+                channels=8,
+                n_blocks=3,
+                layerscale_mode="learned",
+                layerscale_value=1.0,
+            )
+
+    def test_hybrid_resnet_fixed_bottleneck_layerscale_preserves_shape(self):
+        model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            bottleneck_layerscale_mode="fixed",
+            bottleneck_layerscale_value=1.0,
+        )
+        x = torch.randn(2, 4, 32, 32)
+
+        out = model(x)
+
+        assert out.shape == (2, 32, 32, 4, 2)
+        assert model.resnet.layerscale.requires_grad is False
+
     def test_output_shape_real_imag(self):
         """HybridResnetGenerator should preserve resolution and emit real/imag output."""
         model = HybridResnetGeneratorModule(
