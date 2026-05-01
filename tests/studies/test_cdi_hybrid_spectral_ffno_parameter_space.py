@@ -517,6 +517,8 @@ def _write_shared_contract_artifacts(study_root: Path, source_root: Path) -> Non
 
 
 def _write_collated_outputs(study_root: Path, row_ids: list[str], *, model_labels: dict[str, str]) -> None:
+    from scripts.studies.metrics_tables import write_model_manifest
+
     metrics_by_model = {
         model_id: {
             "reference_shape": [128, 128],
@@ -544,6 +546,28 @@ def _write_collated_outputs(study_root: Path, row_ids: list[str], *, model_label
         + "\n".join(tex_rows)
         + "\n\\bottomrule\n\\end{tabular}\n",
         encoding="utf-8",
+    )
+    write_model_manifest(
+        output_dir=study_root,
+        row_payloads={
+            model_id: {
+                "model_label": model_labels[model_id],
+                "architecture_id": model_id.replace("pinn_", ""),
+                "training_procedure": "pinn",
+                "N": 128,
+                "parameter_count": 1,
+                "epoch_budget": 40,
+                "final_completed_epoch": 40,
+                "final_train_loss": 0.1,
+                "validation_loss": {"status": "not_emitted", "value": None},
+                "runtime_summary": {"train_wall_time_sec": 1.0},
+                "hardware_summary": {"backend": "pytorch"},
+                "row_status": "decision_support",
+            }
+            for model_id in row_ids
+        },
+        benchmark_status="decision_support_complete",
+        claim_boundary="test_bundle",
     )
 
 
@@ -763,6 +787,7 @@ def test_validate_bundle_rejects_missing_merged_outputs(tmp_path):
     for path in [
         study_root / "metrics_by_model.json",
         study_root / "metrics.json",
+        study_root / "model_manifest.json",
         study_root / "metrics_table.csv",
         study_root / "metrics_table.tex",
     ]:
@@ -780,6 +805,7 @@ def test_validate_bundle_rejects_missing_merged_outputs(tmp_path):
         "metrics_by_model.json",
         "metrics_table.csv",
         "metrics_table.tex",
+        "model_manifest.json",
     ]
 
 

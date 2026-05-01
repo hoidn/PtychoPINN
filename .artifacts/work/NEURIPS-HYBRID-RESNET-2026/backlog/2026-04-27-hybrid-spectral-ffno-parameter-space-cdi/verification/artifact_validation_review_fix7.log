@@ -1,0 +1,126 @@
+2026-05-01 00:56:18.295037: E external/local_xla/xla/stream_executor/cuda/cuda_fft.cc:467] Unable to register cuFFT factory: Attempting to register factory for plugin cuFFT when one has already been registered
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+E0000 00:00:1777622178.306401 1715599 cuda_dnn.cc:8579] Unable to register cuDNN factory: Attempting to register factory for plugin cuDNN when one has already been registered
+E0000 00:00:1777622178.309999 1715599 cuda_blas.cc:1407] Unable to register cuBLAS factory: Attempting to register factory for plugin cuBLAS when one has already been registered
+W0000 00:00:1777622178.320078 1715599 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1777622178.320088 1715599 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1777622178.320089 1715599 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+W0000 00:00:1777622178.320091 1715599 computation_placer.cc:177] computation placer already registered. Please check linkage and avoid linking the same target more than once.
+2026-05-01 00:56:18.322802: I tensorflow/core/platform/cpu_feature_guard.cc:210] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: AVX2 FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+I0000 00:00:1777622180.727251 1715599 gpu_process_state.cc:208] Using CUDA malloc Async allocator for GPU: 0
+I0000 00:00:1777622180.728555 1715599 gpu_device.cc:2019] Created device /job:localhost/replica:0/task:0/device:GPU:0 with 22203 MB memory:  -> device: 0, name: NVIDIA GeForce RTX 3090, pci bus id: 0000:04:00.0, compute capability: 8.6
+/home/ollie/Documents/PtychoPINN/ptycho/workflows/grid_lines_workflow.py:1680: UserWarning: This figure includes Axes that are not compatible with tight_layout, so results might be incorrect.
+  plt.tight_layout()
+Amplitude normalization scale factor: 1.246201
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_hybrid_resnet]: amp_target stats: mean=2.976817, std=0.648537, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_hybrid_resnet]: amp_pred stats: mean=2.388714, std=0.514509, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_hybrid_resnet]: phi_target stats: mean=0.000000, std=0.239496, shape=(266, 266)
+DEBUG eval_reconstruction [pinn_hybrid_resnet]: phi_pred stats: mean=-0.000000, std=0.182677, shape=(266, 266)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [-0.641, 0.703] -> scaled range [0.398, 0.612]
+performed by index method
+performed by index method
+performed by index method
+Amplitude normalization scale factor: 1.256295
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_spectral_resnet_bottleneck_net]: amp_target stats: mean=2.976817, std=0.648537, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_spectral_resnet_bottleneck_net]: amp_pred stats: mean=2.369521, std=0.510616, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_spectral_resnet_bottleneck_net]: phi_target stats: mean=0.000000, std=0.239496, shape=(266, 266)
+DEBUG eval_reconstruction [pinn_spectral_resnet_bottleneck_net]: phi_pred stats: mean=0.000000, std=0.426495, shape=(266, 266)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [-0.641, 0.703] -> scaled range [0.398, 0.612]
+performed by index method
+performed by index method
+performed by index method
+Amplitude normalization scale factor: 1.260822
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_ffno]: amp_target stats: mean=2.976817, std=0.648537, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_ffno]: amp_pred stats: mean=2.361014, std=0.517234, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_ffno]: phi_target stats: mean=0.000000, std=0.239496, shape=(266, 266)
+DEBUG eval_reconstruction [pinn_ffno]: phi_pred stats: mean=-0.000000, std=0.158265, shape=(266, 266)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [-0.641, 0.703] -> scaled range [0.398, 0.612]
+performed by index method
+performed by index method
+performed by index method
+Amplitude normalization scale factor: 1.275365
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_spectral_resnet_bottleneck_ds1]: amp_target stats: mean=2.976817, std=0.648537, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_spectral_resnet_bottleneck_ds1]: amp_pred stats: mean=2.334090, std=0.507461, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_spectral_resnet_bottleneck_ds1]: phi_target stats: mean=0.000000, std=0.239496, shape=(266, 266)
+DEBUG eval_reconstruction [pinn_spectral_resnet_bottleneck_ds1]: phi_pred stats: mean=0.000000, std=0.182053, shape=(266, 266)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [-0.641, 0.703] -> scaled range [0.398, 0.612]
+performed by index method
+performed by index method
+performed by index method
+Amplitude normalization scale factor: 1.283010
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_spectral_resnet_bottleneck_linear_decoder]: amp_target stats: mean=2.976817, std=0.648537, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_spectral_resnet_bottleneck_linear_decoder]: amp_pred stats: mean=2.320183, std=0.508826, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_spectral_resnet_bottleneck_linear_decoder]: phi_target stats: mean=0.000000, std=0.239496, shape=(266, 266)
+DEBUG eval_reconstruction [pinn_spectral_resnet_bottleneck_linear_decoder]: phi_pred stats: mean=0.000000, std=0.156244, shape=(266, 266)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [-0.641, 0.703] -> scaled range [0.398, 0.612]
+performed by index method
+performed by index method
+performed by index method
+Amplitude normalization scale factor: 1.262337
+mean scale adjustment: 1
+mean scale adjustment: 1
+DEBUG eval_reconstruction [pinn_hybrid_resnet_ffno_bottleneck]: amp_target stats: mean=2.976817, std=0.648537, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_hybrid_resnet_ffno_bottleneck]: amp_pred stats: mean=2.358180, std=0.511160, shape=(266, 266, 1)
+DEBUG eval_reconstruction [pinn_hybrid_resnet_ffno_bottleneck]: phi_target stats: mean=0.000000, std=0.239496, shape=(266, 266)
+DEBUG eval_reconstruction [pinn_hybrid_resnet_ffno_bottleneck]: phi_pred stats: mean=-0.000000, std=0.155519, shape=(266, 266)
+performed by index method
+performed by index method
+performed by index method
+mean scale adjustment: 1
+mean scale adjustment: 1
+Phase preprocessing: plane-fitted range [-0.641, 0.703] -> scaled range [0.398, 0.612]
+performed by index method
+performed by index method
+performed by index method
+{
+  "ok": true,
+  "model_manifest_exists": true,
+  "model_manifest_path": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi/model_manifest.json",
+  "analysis_path": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi/analysis/bundle_validation.json",
+  "rows": [
+    "pinn_ffno",
+    "pinn_hybrid_resnet",
+    "pinn_hybrid_resnet_ffno_bottleneck",
+    "pinn_spectral_resnet_bottleneck_ds1",
+    "pinn_spectral_resnet_bottleneck_linear_decoder",
+    "pinn_spectral_resnet_bottleneck_net"
+  ],
+  "missing_merged_outputs": [],
+  "merged_output_failures": {}
+}

@@ -5,7 +5,9 @@
 - Initiative: `NEURIPS-HYBRID-RESNET-2026`
 - Backlog item: `2026-04-27-hybrid-spectral-ffno-parameter-space-cdi`
 - Date: `2026-05-01`
-- Status: implementation complete with refreshed closeout verification; CDI-only decision-support evidence with no paper promotion
+- Status: implementation complete with refreshed closeout verification and
+  repaired collated model-manifest bundle; CDI-only decision-support evidence
+  with no paper promotion
 - Governing plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi/execution_plan.md`
 - Artifact root: `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi`
 - Preflight note: `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_preflight.md`
@@ -32,10 +34,12 @@ does not change the current paper-grade `lines128` CDI authority.
 - frozen machine-readable authorities:
   - `preflight/study_matrix.json`
   - `preflight/reference_runs.json`
+  - `model_manifest.json`
   - `analysis/bundle_validation.json`
     - refreshed to carry the stricter closeout fields
       `fresh_row_completion_failures`, `missing_merged_outputs`,
-  `merged_output_failures`, and canonical `probe_npz` digest validation
+      `merged_output_failures`, canonical `probe_npz` digest validation, and
+      required collated model-manifest presence
 
 ## Per-Axis Results
 
@@ -143,6 +147,10 @@ Interpretation:
   reused-root drift, missing required row artifacts, fresh-row
   invocation/config contract drift, failed fresh-row completion proof, or
   missing/malformed merged comparison outputs
+- the closeout repair also persisted the previously missing top-level
+  `model_manifest.json` from the collated row payloads and upgraded the bundle
+  validator so the archived study root now fails closed if that manifest is
+  absent or drifts from the frozen six-row roster
 
 ## Verification
 
@@ -157,24 +165,29 @@ python -m compileall -q ptycho_torch scripts/studies
 
 Observed results:
 
-- final review-fix harness selector: `20 passed in 3.42s`
+- final review-fix harness selector: `20 passed in 3.70s`
+- focused compare-wrapper selector:
+  `62 passed, 23 warnings in 17.97s`
 - targeted closeout selector:
-  `191 passed, 49 warnings in 304.61s (0:05:04)`
+  `191 passed, 49 warnings in 306.15s (0:05:06)`
 - required production-workflow integration selector:
-  `5 passed, 4 skipped, 1816 deselected, 2 warnings in 301.63s (0:05:01)`
+  `5 passed, 4 skipped, 1816 deselected, 2 warnings in 301.99s (0:05:01)`
 - `compileall`: exit `0`
 - final study launcher proof:
   `logs/launcher_resume.log` ends with `__EXIT__:0`
 - review-fix deterministic bundle validation:
   `analysis/bundle_validation.json` and
-  `verification/artifact_validation_review_fix6.log` report `"ok": true`
+  `verification/artifact_validation_review_fix7.log` report `"ok": true` and
+  confirm the repaired top-level `model_manifest.json`
 
 Archived logs for this pass live under:
 
 - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi/logs/`
 - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi/verification/`
-  - including `verification/pytest_integration_review_fix6.log` for the final
-    required integration rerun
+  - including `verification/pytest_integration_review_fix7.log` for the final
+    required integration rerun and
+    `verification/artifact_validation_review_fix7.log` for the archived bundle
+    repair
 
 ## Boundary
 

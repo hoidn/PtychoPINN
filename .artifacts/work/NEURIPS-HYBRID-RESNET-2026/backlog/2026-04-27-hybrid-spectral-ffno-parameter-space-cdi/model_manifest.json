@@ -1,0 +1,159 @@
+{
+  "benchmark_status": "decision_support_complete",
+  "claim_boundary": "grid_lines_compare_bundle",
+  "rows": [
+    {
+      "model_id": "pinn_hybrid_resnet",
+      "model_label": "Hybrid ResNet + PINN",
+      "architecture_id": "hybrid_resnet",
+      "training_procedure": "pinn",
+      "N": 128,
+      "parameter_count": 18006600,
+      "epoch_budget": 40,
+      "final_completed_epoch": 40,
+      "final_train_loss": 0.027469921857118607,
+      "validation_loss": {
+        "status": "emitted",
+        "value": 0.037633031606674194
+      },
+      "runtime_summary": {
+        "recovered_from_existing_artifacts": true,
+        "command_wall_time_sec": 1081.543966
+      },
+      "hardware_summary": {
+        "backend": "pytorch",
+        "accelerator": "NVIDIA GeForce RTX 3090"
+      },
+      "row_status": "paper_grade",
+      "missing_fields": []
+    },
+    {
+      "model_id": "pinn_spectral_resnet_bottleneck_net",
+      "model_label": "Spectral ResNet Bottleneck + PINN",
+      "architecture_id": "spectral_resnet_bottleneck_net",
+      "training_procedure": "pinn",
+      "N": 128,
+      "parameter_count": 23429454,
+      "epoch_budget": 40,
+      "final_completed_epoch": 40,
+      "final_train_loss": 0.026021551340818405,
+      "validation_loss": {
+        "status": "emitted",
+        "value": 0.030727731063961983
+      },
+      "runtime_summary": {
+        "recovered_from_existing_artifacts": true,
+        "command_wall_time_sec": 1379.319665
+      },
+      "hardware_summary": {
+        "backend": "pytorch",
+        "accelerator": "NVIDIA GeForce RTX 3090"
+      },
+      "row_status": "paper_grade",
+      "missing_fields": []
+    },
+    {
+      "model_id": "pinn_ffno",
+      "model_label": "FFNO + PINN",
+      "architecture_id": "ffno",
+      "training_procedure": "pinn",
+      "N": 128,
+      "parameter_count": 323918,
+      "epoch_budget": 40,
+      "final_completed_epoch": 40,
+      "final_train_loss": 0.051990605890750885,
+      "validation_loss": {
+        "status": "emitted",
+        "value": 0.05204252898693085
+      },
+      "runtime_summary": {
+        "recovered_from_existing_artifacts": true,
+        "command_wall_time_sec": 0.0
+      },
+      "hardware_summary": {
+        "backend": "pytorch",
+        "accelerator": "NVIDIA GeForce RTX 3090"
+      },
+      "row_status": "paper_grade",
+      "missing_fields": []
+    },
+    {
+      "model_id": "pinn_spectral_resnet_bottleneck_ds1",
+      "model_label": "Spectral ResNet Bottleneck DS1 + PINN",
+      "architecture_id": "spectral_resnet_bottleneck_net",
+      "training_procedure": "pinn",
+      "N": 128,
+      "parameter_count": 7268302,
+      "epoch_budget": 40,
+      "final_completed_epoch": 40,
+      "final_train_loss": 0.03262139484286308,
+      "validation_loss": {
+        "status": "emitted",
+        "value": 0.03697752580046654
+      },
+      "runtime_summary": {
+        "recovered_from_existing_artifacts": false,
+        "row_payload_rebuilt_from_row_artifacts": true,
+        "command_wall_time_sec": 1603.732205
+      },
+      "hardware_summary": {
+        "backend": "pytorch",
+        "accelerator": "NVIDIA GeForce RTX 3090"
+      },
+      "row_status": "paper_grade",
+      "missing_fields": []
+    },
+    {
+      "model_id": "pinn_spectral_resnet_bottleneck_linear_decoder",
+      "model_label": "Spectral ResNet Linear Decoder + PINN",
+      "architecture_id": "spectral_resnet_bottleneck_linear_decoder",
+      "training_procedure": "pinn",
+      "N": 128,
+      "parameter_count": 23121870,
+      "epoch_budget": 40,
+      "final_completed_epoch": 40,
+      "final_train_loss": 0.049933210015296936,
+      "validation_loss": {
+        "status": "emitted",
+        "value": 0.05173887684941292
+      },
+      "runtime_summary": {
+        "recovered_from_existing_artifacts": false,
+        "row_payload_rebuilt_from_row_artifacts": true,
+        "command_wall_time_sec": 2280.776586
+      },
+      "hardware_summary": {
+        "backend": "pytorch",
+        "accelerator": "NVIDIA GeForce RTX 3090"
+      },
+      "row_status": "paper_grade",
+      "missing_fields": []
+    },
+    {
+      "model_id": "pinn_hybrid_resnet_ffno_bottleneck",
+      "model_label": "Hybrid ResNet FFNO Bottleneck + PINN",
+      "architecture_id": "hybrid_resnet_ffno_bottleneck",
+      "training_procedure": "pinn",
+      "N": 128,
+      "parameter_count": 20757576,
+      "epoch_budget": 40,
+      "final_completed_epoch": 40,
+      "final_train_loss": 0.03167172893881798,
+      "validation_loss": {
+        "status": "emitted",
+        "value": 0.0361262783408165
+      },
+      "runtime_summary": {
+        "recovered_from_existing_artifacts": false,
+        "row_payload_rebuilt_from_row_artifacts": true,
+        "command_wall_time_sec": 1161.913485
+      },
+      "hardware_summary": {
+        "backend": "pytorch",
+        "accelerator": "NVIDIA GeForce RTX 3090"
+      },
+      "row_status": "paper_grade",
+      "missing_fields": []
+    }
+  ]
+}

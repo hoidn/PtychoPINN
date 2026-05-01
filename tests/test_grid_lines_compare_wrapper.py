@@ -412,6 +412,15 @@ def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tm
     assert baseline_payload["outputs"]["stdout_log"] == "runs/baseline/stdout.log"
     assert baseline_payload["outputs"]["exit_code_proof_json"] == "runs/baseline/exit_code_proof.json"
     assert (tmp_path / baseline_payload["outputs"]["exit_code_proof_json"]).exists()
+    model_manifest = json.loads((tmp_path / "model_manifest.json").read_text(encoding="utf-8"))
+    assert model_manifest["rows"][0]["model_id"] == "baseline"
+    assert model_manifest["rows"][0]["training_procedure"] == "supervised"
+    assert [row["model_id"] for row in model_manifest["rows"]] == [
+        "baseline",
+        "pinn",
+        "pinn_hybrid_resnet",
+        "pinn_fno_vanilla",
+    ]
 
 
 def test_wrapper_preserves_distinct_tf_row_logs(monkeypatch, tmp_path):

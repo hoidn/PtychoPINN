@@ -977,6 +977,33 @@ def _build_model_manifest(
     }
 
 
+def write_model_manifest(
+    *,
+    output_dir: Path,
+    row_payloads: Mapping[str, Mapping[str, object]],
+    benchmark_status: str,
+    claim_boundary: str,
+    missing_fields_by_row: Optional[Mapping[str, List[str]]] = None,
+) -> Path:
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    model_manifest_json = output_dir / "model_manifest.json"
+    model_manifest_json.write_text(
+        json.dumps(
+            _build_model_manifest(
+                row_payloads=row_payloads,
+                missing_fields_by_row=dict(missing_fields_by_row or {}),
+                benchmark_status=benchmark_status,
+                claim_boundary=claim_boundary,
+            ),
+            indent=2,
+            default=_json_default,
+        ),
+        encoding="utf-8",
+    )
+    return model_manifest_json
+
+
 def write_paper_benchmark_bundle(
     *,
     output_dir: Path,
@@ -1052,21 +1079,14 @@ def write_paper_benchmark_bundle(
 
     metrics_json = output_dir / "metrics.json"
     metric_schema_json = output_dir / "metric_schema.json"
-    model_manifest_json = output_dir / "model_manifest.json"
     metrics_json.write_text(json.dumps(bundle_payload, indent=2, default=_json_default), encoding="utf-8")
     metric_schema_json.write_text(json.dumps(_build_metric_schema(), indent=2), encoding="utf-8")
-    model_manifest_json.write_text(
-        json.dumps(
-            _build_model_manifest(
-                row_payloads=row_payloads,
-                missing_fields_by_row=missing_fields_by_row,
-                benchmark_status=benchmark_status,
-                claim_boundary=claim_boundary,
-            ),
-            indent=2,
-            default=_json_default,
-        ),
-        encoding="utf-8",
+    model_manifest_json = write_model_manifest(
+        output_dir=output_dir,
+        row_payloads=row_payloads,
+        benchmark_status=benchmark_status,
+        claim_boundary=claim_boundary,
+        missing_fields_by_row=missing_fields_by_row,
     )
     table_paths = write_metrics_tables(output_dir, metrics_only, model_ns=model_ns)
     return {

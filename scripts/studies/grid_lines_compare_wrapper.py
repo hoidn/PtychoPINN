@@ -962,12 +962,13 @@ def _finalize_compare_outputs(
     visual_order: Tuple[str, ...],
     model_ns: Optional[Dict[str, int]] = None,
     model_labels: Optional[Mapping[str, str]] = None,
+    row_payloads: Optional[Mapping[str, Mapping[str, object]]] = None,
 ) -> Dict[str, str]:
     metrics_path = output_dir / "metrics.json"
     metrics_path.write_text(json.dumps(merged_metrics, indent=2, default=_json_default))
 
     from ptycho.workflows.grid_lines_workflow import render_grid_lines_visuals
-    from scripts.studies.metrics_tables import write_metrics_tables
+    from scripts.studies.metrics_tables import write_metrics_tables, write_model_manifest
 
     render_grid_lines_visuals(output_dir, order=visual_order)
     table_paths = write_metrics_tables(
@@ -976,10 +977,19 @@ def _finalize_compare_outputs(
         model_ns=model_ns,
         model_labels=model_labels,
     )
-    return {
+    finalized = {
         "metrics_path": str(metrics_path),
         **table_paths,
     }
+    if row_payloads:
+        model_manifest_path = write_model_manifest(
+            output_dir=output_dir,
+            row_payloads=row_payloads,
+            benchmark_status="decision_support_complete",
+            claim_boundary="grid_lines_compare_bundle",
+        )
+        finalized["model_manifest_path"] = str(model_manifest_path)
+    return finalized
 
 
 def _build_metrics_model_labels(
@@ -1487,6 +1497,7 @@ def run_grid_lines_compare(
                     row_specs_by_model=row_specs_by_model,
                     row_payloads=row_payloads,
                 ),
+                row_payloads=row_payloads,
             )
             return {
                 "train_npz": str(train_npz),
@@ -1826,6 +1837,7 @@ def run_grid_lines_compare(
                 row_specs_by_model=row_specs_by_model,
                 row_payloads=row_payloads,
             ),
+            row_payloads=row_payloads,
         )
         first_bundle = bundles_by_n[required_ns[0]]
         return {
@@ -2050,6 +2062,7 @@ def run_grid_lines_compare(
             row_specs_by_model=row_specs_by_model,
             row_payloads=row_payloads,
         ),
+        row_payloads=row_payloads,
     )
     return {
         "train_npz": str(train_npz),

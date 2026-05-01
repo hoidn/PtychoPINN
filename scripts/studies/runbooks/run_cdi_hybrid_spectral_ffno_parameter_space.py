@@ -409,6 +409,7 @@ def _validate_merged_outputs(
     required_outputs = {
         "metrics_by_model.json": Path(output_root) / "metrics_by_model.json",
         "metrics.json": Path(output_root) / "metrics.json",
+        "model_manifest.json": Path(output_root) / "model_manifest.json",
         "metrics_table.csv": Path(output_root) / "metrics_table.csv",
         "metrics_table.tex": Path(output_root) / "metrics_table.tex",
     }
@@ -444,6 +445,28 @@ def _validate_merged_outputs(
                 failures["metrics.json"] = [
                     "missing expected row IDs: " + ", ".join(missing_ids)
                 ]
+
+    model_manifest_path = required_outputs["model_manifest.json"]
+    if model_manifest_path.exists():
+        try:
+            model_manifest = _load_json(model_manifest_path)
+        except json.JSONDecodeError as exc:
+            failures["model_manifest.json"] = [f"parse failed: {exc}"]
+        else:
+            rows = model_manifest.get("rows")
+            if not isinstance(rows, list):
+                failures["model_manifest.json"] = ["missing rows list"]
+            else:
+                found_ids = {
+                    str(row.get("model_id", "")).strip()
+                    for row in rows
+                    if isinstance(row, dict)
+                }
+                missing_ids = sorted(expected_ids - found_ids)
+                if missing_ids:
+                    failures["model_manifest.json"] = [
+                        "missing expected row IDs: " + ", ".join(missing_ids)
+                    ]
 
     table_csv_path = required_outputs["metrics_table.csv"]
     if table_csv_path.exists():
