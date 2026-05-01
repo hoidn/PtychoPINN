@@ -1,78 +1,62 @@
 ## Completed In This Pass
 
-- implemented the CDI bridge-study surfaces needed by the approved plan:
-  row-matrix helpers, a dedicated runbook, row-spec-aware wrapper plumbing,
-  override-aware Torch runner support, and the two new generator entries
-  `spectral_resnet_bottleneck_linear_decoder` and
-  `hybrid_resnet_ffno_bottleneck`
-- added focused study and runner coverage for the frozen row roster, including
-  a regression that fails unless row-local `model_id_override` controls the
-  recon output path
-- generated the checked-in preflight note plus machine-readable authorities
-  `preflight/study_matrix.json` and `preflight/reference_runs.json`
-- launched the fresh-row study under tmux, hit a recoverable recon-path bug on
-  the first pass, repaired the runner, restored the reused spectral-anchor
-  recon from a clean authoritative sibling root, resumed the remaining rows,
-  and completed the final bundle with `analysis/bundle_validation.json`
-  reporting `ok: true`
-- wrote the durable CDI study summary and updated the repo discoverability and
-  evidence indexes to register the new decision-support output
+- hardened the CDI bridge-study preflight so it now freezes the authoritative
+  `lines128` bundle contract from the complete-table manifests, validates
+  reused-row runner arguments and provenance fail-closed, and emits a richer
+  checked-in preflight note plus v2 `study_matrix.json` and
+  `reference_runs.json`
+- changed reused-anchor materialization in the runbook from live symlinks to
+  copy-on-write copies and extended bundle validation to reject reused-row
+  symlinks or digest drift against the frozen authoritative bundle
+- repaired the existing study artifact root in place by replacing the reused
+  `runs/*`, `recons/*`, and `recons/gt` symlinks with copied directories, then
+  regenerated `analysis/bundle_validation.json` so the current durable output
+  validates under the new contract
+- updated durable discoverability and summary docs so the preflight authority
+  and copy-on-write repair are reflected in repo docs
 
-## Completed Plan Tasks
+## Completed Current-Scope Work
 
-- reconstructed the fixed CDI contract and wrote the checked-in preflight note
-- froze the exact reused-anchor and fresh-bridge matrix in checked-in Markdown
-  plus machine-readable manifests
-- extended the wrapper and runner so reused anchors and fresh same-base rows
-  can coexist with distinct row IDs and row-local override payloads
-- implemented the three frozen bridge rows exactly as authorized:
-  `pinn_spectral_resnet_bottleneck_ds1`,
-  `pinn_spectral_resnet_bottleneck_linear_decoder`, and
-  `pinn_hybrid_resnet_ffno_bottleneck`
-- added focused tests for matrix generation, row routing, registry plumbing,
-  and the recon-path override regression
-- ran the required deterministic checks before and after the expensive study
-  launch
-- completed the tmux-backed fresh-row execution and final anchored bundle
-  collation
-- produced the durable summary plus evidence/discoverability updates required
-  by the roadmap gate
+- review finding 1 resolved: the study root no longer exposes writable
+  symlinks into the authoritative complete-table bundle, and the harness now
+  refuses that materialization mode
+- review finding 2 resolved: reused-root contract and provenance validation now
+  happens before launch through the authoritative bundle manifests plus
+  row-local invocation checks, and final bundle validation now checks copied
+  reused rows against frozen source digests
+- review finding 3 resolved: the checked-in preflight note now repeats the
+  frozen row roster, nearest anchors, expression paths, display labels,
+  output-root layout, and reuse-acceptability rationale required by Task 1
 
-## Remaining Required Plan Tasks
+## Follow-Up Work
 
-- none
-
-## Verification
-
-- `pytest -q tests/torch/test_grid_lines_torch_runner.py::TestRunGridLinesTorchScaffold::test_runner_writes_recon_artifact_under_model_id_override`
-  - result: `1 passed, 2 warnings in 5.69s`
-- `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
-  - result: `191 passed, 49 warnings in 305.67s (0:05:05)`
-- `python -m compileall -q ptycho_torch scripts/studies`
-  - result: exit `0`
-- `pytest -v -m integration`
-  - result: `5 passed, 4 skipped, 1800 deselected, 2 warnings in 302.76s (0:05:02)`
-- deterministic artifact validation:
-  - `verification/artifact_validation.log` confirms that every frozen row has
-    `invocation.json`, `config.json`, `history.json`, `metrics.json`,
-    `exit_code_proof.json`, and `recons/<model_id>/recon.npz`
-  - `analysis/bundle_validation.json` reports `"ok": true`
-- archived launcher evidence:
-  - `logs/launcher_first_attempt.log`
-  - `logs/launcher_resume.log`
-  - the resumed launcher ends with `__EXIT__:0`
+- none for this backlog item
 
 ## Residual Risks
 
-- the study remains decision-support-only. No fresh bridge row is promoted into
-  the current paper-grade CDI claim surface.
-- the root-level `checkpoints/` and `lightning_logs/` directories are shared
-  study-root transients rather than row-local durable provenance units; this is
-  acceptable for the current harness but should remain out of any paper-facing
-  provenance contract.
-- the known non-fatal warning set remains present in verification:
-  `tight_layout`, `skimage` SSIM/MS-SSIM warnings on degenerate cases, FRC
-  divide warnings, and the pre-existing TensorFlow Addons compatibility
-  warnings during `pytest -m integration`.
-- `/home/ollie/Documents/neurips` was not present in this environment, so no
-  manuscript-side evidence-map update was possible from this pass.
+- this item remains CDI-only decision-support evidence; no fresh bridge row is
+  promoted into paper-facing claim territory
+- the pre-existing warning set in the closeout pytest runs remains unchanged:
+  `tight_layout`, degenerate-case SSIM/MS-SSIM, FRC divide warnings, and the
+  known TensorFlow Addons compatibility warnings in `pytest -m integration`
+
+## Verification
+
+- focused harness selector:
+  `pytest -q tests/studies/test_cdi_hybrid_spectral_ffno_parameter_space.py`
+  -> `8 passed in 3.20s`
+- required backlog gate:
+  `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
+  -> `191 passed, 49 warnings in 303.94s (0:05:03)`
+- compile check:
+  `python -m compileall -q ptycho_torch scripts/studies` -> exit `0`
+- integration marker:
+  `pytest -v -m integration`
+  -> `5 passed, 4 skipped, 1804 deselected, 2 warnings in 301.58s (0:05:01)`
+- repaired bundle validation:
+  `analysis/bundle_validation.json` -> `"ok": true`, `"reused_root_drift": {}`
+- archived logs:
+  - `verification/pytest_study_harness_review_fix.log`
+  - `verification/pytest_backlog_checks_review_fix.log`
+  - `verification/compileall_review_fix.log`
+  - `verification/pytest_integration_review_fix.log`

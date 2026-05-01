@@ -109,6 +109,11 @@ Interpretation:
   override model ID, the overwritten reused spectral recon was restored from a
   clean sibling authoritative root, the DS1 recon was preserved under its own
   row ID, and the remaining fresh rows were resumed successfully
+- the study harness and the current artifact root now use copy-on-write
+  materialization for reused anchors rather than live symlinks, and the
+  preflight/reference manifests plus `analysis/bundle_validation.json` now
+  fail closed if a reused row drifts from the frozen authoritative bundle or
+  reappears as a symlinked path
 
 ## Verification
 

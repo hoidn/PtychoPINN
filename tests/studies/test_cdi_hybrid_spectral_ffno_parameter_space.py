@@ -4,6 +4,38 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+import shutil
+
+
+FIXED_CONTRACT = {
+    "N": 128,
+    "gridsize": 1,
+    "dataset_source": "synthetic_lines",
+    "set_phi": True,
+    "probe_source": "custom",
+    "probe_npz": "datasets/Run1084_recon3_postPC_shrunk_3.npz",
+    "probe_scale_mode": "pad_extrapolate",
+    "probe_smoothing_sigma": 0.5,
+    "probe_mask_diameter": None,
+    "nimgs_train": 2,
+    "nimgs_test": 2,
+    "nphotons": 1e9,
+    "seed": 3,
+    "torch_epochs": 40,
+    "torch_learning_rate": 2e-4,
+    "torch_scheduler": "ReduceLROnPlateau",
+    "torch_plateau_factor": 0.5,
+    "torch_plateau_patience": 2,
+    "torch_plateau_min_lr": 1e-4,
+    "torch_plateau_threshold": 0.0,
+    "torch_loss_mode": "mae",
+    "torch_mae_pred_l2_match_target": False,
+    "torch_output_mode": "real_imag",
+    "fno_modes": 12,
+    "fno_width": 32,
+    "fno_blocks": 4,
+    "fno_cnn_blocks": 2,
+}
 
 
 AUTHORITATIVE_ROOT = (
@@ -11,6 +43,139 @@ AUTHORITATIVE_ROOT = (
     / "2026-04-29-cdi-lines128-paper-benchmark-execution/runs"
     / "complete_table_20260430T150757Z_repair_tmux"
 )
+
+
+def _write_json(path: Path, payload: object) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def _fake_row_invocation(*, architecture: str, overrides: dict[str, object] | None = None) -> dict[str, object]:
+    parsed_args = {
+        "architecture": architecture,
+        "seed": 3,
+        "epochs": 40,
+        "learning_rate": 2e-4,
+        "generator_output_mode": "real_imag",
+        "N": 128,
+        "gridsize": 1,
+        "probe_source": "custom",
+        "torch_loss_mode": "mae",
+        "torch_mae_pred_l2_match_target": False,
+        "probe_mask": False,
+        "fno_modes": 12,
+        "fno_width": 32,
+        "fno_blocks": 4,
+        "fno_cnn_blocks": 2,
+        "hybrid_downsample_steps": 2,
+        "hybrid_downsample_op": "stride_conv",
+        "spectral_bottleneck_blocks": 6,
+        "spectral_bottleneck_modes": 12,
+        "spectral_bottleneck_share_weights": True,
+        "spectral_bottleneck_gate_init": 0.1,
+        "spectral_bottleneck_gate_mode": "shared",
+        "scheduler": "ReduceLROnPlateau",
+        "plateau_factor": 0.5,
+        "plateau_patience": 2,
+        "plateau_min_lr": 1e-4,
+        "plateau_threshold": 0.0,
+    }
+    if overrides:
+        parsed_args.update(overrides)
+    return {
+        "script": "scripts/studies/grid_lines_torch_runner.py",
+        "status": "completed",
+        "exit_code": 0,
+        "parsed_args": parsed_args,
+        "extra": {
+            "git_commit": "deadbeef",
+            "runtime_provenance": {
+                "python_executable": "/tmp/python",
+                "cwd": "/tmp/repo",
+                "pythonpath": "/tmp/repo",
+                "ptycho_torch_file": "/tmp/repo/ptycho_torch/__init__.py",
+            },
+            "invocation_mode": "library",
+        },
+    }
+
+
+def _build_fake_authoritative_root(tmp_path: Path, *, bad_row_overrides: dict[str, dict[str, object]] | None = None) -> Path:
+    root = tmp_path / "authoritative"
+    bad_row_overrides = bad_row_overrides or {}
+    _write_json(
+        root / "paper_benchmark_manifest.json",
+        {
+            "benchmark_status": "paper_complete",
+            "claim_boundary": "complete_lines128_cdi_benchmark",
+            "fixed_contract": dict(FIXED_CONTRACT),
+            "dataset": {
+                "train_npz": str(root / "datasets" / "N128" / "gs1" / "train.npz"),
+                "test_npz": str(root / "datasets" / "N128" / "gs1" / "test.npz"),
+                "gt_recon": str(root / "recons" / "gt" / "recon.npz"),
+                "manifest_json": "dataset_identity_manifest.json",
+            },
+        },
+    )
+    _write_json(
+        root / "dataset_identity_manifest.json",
+        {
+            "dataset_source": "synthetic_lines",
+            "probe_source": "custom",
+            "probe_scale_mode": "pad_extrapolate",
+            "probe_npz": {
+                "path": str(root / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz"),
+                "sha256": "abc123",
+            },
+            "train_npz": {"path": str(root / "datasets" / "N128" / "gs1" / "train.npz"), "sha256": "train"},
+            "test_npz": {"path": str(root / "datasets" / "N128" / "gs1" / "test.npz"), "sha256": "test"},
+        },
+    )
+    _write_json(
+        root / "split_manifest.json",
+        {
+            "train_npz": str(root / "datasets" / "N128" / "gs1" / "train.npz"),
+            "test_npz": str(root / "datasets" / "N128" / "gs1" / "test.npz"),
+            "seed": 3,
+            "nimgs_train": 2,
+            "nimgs_test": 2,
+            "gridsize": 1,
+            "set_phi": True,
+        },
+    )
+    _write_json(root / "invocation.json", {"status": "completed", "exit_code": 0})
+    _write_json(root / "metrics.json", {"benchmark_status": "paper_complete"})
+    _write_json(root / "model_manifest.json", {"rows": []})
+    datasets_dir = root / "datasets" / "N128" / "gs1"
+    datasets_dir.mkdir(parents=True, exist_ok=True)
+    (datasets_dir / "train.npz").write_bytes(b"train")
+    (datasets_dir / "test.npz").write_bytes(b"test")
+    (root / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz").write_bytes(b"probe")
+    (root / "recons" / "gt").mkdir(parents=True, exist_ok=True)
+    (root / "recons" / "gt" / "recon.npz").write_bytes(b"gt")
+
+    row_architectures = {
+        "pinn_hybrid_resnet": "hybrid_resnet",
+        "pinn_spectral_resnet_bottleneck_net": "spectral_resnet_bottleneck_net",
+        "pinn_ffno": "ffno",
+    }
+    for model_id, architecture in row_architectures.items():
+        run_dir = root / "runs" / model_id
+        recon_dir = root / "recons" / model_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        recon_dir.mkdir(parents=True, exist_ok=True)
+        _write_json(
+            run_dir / "invocation.json",
+            _fake_row_invocation(
+                architecture=architecture,
+                overrides=bad_row_overrides.get(model_id),
+            ),
+        )
+        _write_json(run_dir / "config.json", {"model_id": model_id})
+        _write_json(run_dir / "history.json", {"train_loss": [0.1], "val_loss": [0.2]})
+        _write_json(run_dir / "metrics.json", {"mae": [0.1, 0.2]})
+        (recon_dir / "recon.npz").write_bytes(model_id.encode("utf-8"))
+    return root
 
 
 def test_preflight_artifacts_freeze_exact_six_row_matrix(tmp_path):
@@ -44,6 +209,28 @@ def test_preflight_artifacts_freeze_exact_six_row_matrix(tmp_path):
     ]
 
 
+def test_preflight_note_repeats_row_details_and_output_layout(tmp_path):
+    from scripts.studies.cdi_hybrid_spectral_ffno_parameter_space import (
+        build_preflight_artifacts,
+    )
+
+    result = build_preflight_artifacts(
+        authoritative_root=AUTHORITATIVE_ROOT,
+        artifact_root=tmp_path / "study",
+        note_path=tmp_path / "cdi_preflight.md",
+        matrix_path=tmp_path / "preflight" / "study_matrix.json",
+        reference_runs_path=tmp_path / "preflight" / "reference_runs.json",
+    )
+
+    note = Path(result["note_path"]).read_text(encoding="utf-8")
+    assert "Output-root layout" in note
+    assert "`pinn_spectral_resnet_bottleneck_ds1`" in note
+    assert "Nearest anchor: `pinn_spectral_resnet_bottleneck_net`" in note
+    assert "Expression path: runner override on `spectral_resnet_bottleneck_net`" in note
+    assert "Display label: `Spectral ResNet Bottleneck DS1 + PINN`" in note
+    assert "Reuse acceptability" in note
+
+
 def test_reference_runs_manifest_maps_reused_rows_to_authoritative_root(tmp_path):
     from scripts.studies.cdi_hybrid_spectral_ffno_parameter_space import (
         build_preflight_artifacts,
@@ -66,6 +253,8 @@ def test_reference_runs_manifest_maps_reused_rows_to_authoritative_root(tmp_path
         "pinn_ffno",
     ]
     assert payload["reused_rows"][0]["run_dir"].endswith("runs/pinn_hybrid_resnet")
+    assert payload["fixed_contract"]["probe_scale_mode"] == "pad_extrapolate"
+    assert payload["reused_rows"][0]["validation"]["status"] == "accepted"
 
 
 def test_runbook_preflight_only_validates_fresh_rows_without_training(monkeypatch, tmp_path):
@@ -107,6 +296,52 @@ def test_runbook_preflight_only_validates_fresh_rows_without_training(monkeypatc
     assert result["preflight_validation"]["selected_models"] == list(captured["models"])
 
 
+def test_materialize_reused_rows_copies_without_mutating_authoritative_root(tmp_path):
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        _materialize_reused_rows,
+    )
+
+    authoritative_root = _build_fake_authoritative_root(tmp_path)
+    output_root = tmp_path / "study"
+    _materialize_reused_rows(authoritative_root=authoritative_root, output_root=output_root)
+
+    copied_run_dir = output_root / "runs" / "pinn_hybrid_resnet"
+    copied_recon = output_root / "recons" / "pinn_hybrid_resnet" / "recon.npz"
+    source_recon = authoritative_root / "recons" / "pinn_hybrid_resnet" / "recon.npz"
+
+    assert copied_run_dir.exists()
+    assert copied_run_dir.is_symlink() is False
+    assert copied_recon.is_symlink() is False
+
+    copied_recon.write_bytes(b"mutated-study-copy")
+    assert source_recon.read_bytes() == b"pinn_hybrid_resnet"
+
+
+def test_build_preflight_artifacts_fails_closed_on_contract_mismatch(tmp_path):
+    from scripts.studies.cdi_hybrid_spectral_ffno_parameter_space import (
+        build_preflight_artifacts,
+    )
+
+    authoritative_root = _build_fake_authoritative_root(
+        tmp_path,
+        bad_row_overrides={"pinn_ffno": {"epochs": 10}},
+    )
+
+    try:
+        build_preflight_artifacts(
+            authoritative_root=authoritative_root,
+            artifact_root=tmp_path / "study",
+            note_path=tmp_path / "cdi_preflight.md",
+            matrix_path=tmp_path / "preflight" / "study_matrix.json",
+            reference_runs_path=tmp_path / "preflight" / "reference_runs.json",
+        )
+    except ValueError as exc:
+        assert "pinn_ffno" in str(exc)
+        assert "epochs" in str(exc)
+    else:
+        raise AssertionError("expected contract validation failure")
+
+
 def test_validate_bundle_reports_missing_frozen_rows(tmp_path):
     from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
         validate_cdi_parameter_space_bundle,
@@ -128,3 +363,57 @@ def test_validate_bundle_reports_missing_frozen_rows(tmp_path):
 
     assert report["ok"] is False
     assert "pinn_hybrid_resnet" in report["missing_rows"]
+
+
+def test_validate_bundle_rejects_reused_symlink_materialization(tmp_path):
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        validate_cdi_parameter_space_bundle,
+    )
+    from scripts.studies.cdi_hybrid_spectral_ffno_parameter_space import build_preflight_artifacts
+
+    authoritative_root = _build_fake_authoritative_root(tmp_path)
+    paths = build_preflight_artifacts(
+        authoritative_root=authoritative_root,
+        artifact_root=tmp_path / "study",
+        note_path=tmp_path / "cdi_preflight.md",
+        matrix_path=tmp_path / "preflight" / "study_matrix.json",
+        reference_runs_path=tmp_path / "preflight" / "reference_runs.json",
+    )
+
+    study_root = tmp_path / "study"
+    (study_root / "runs").mkdir(parents=True, exist_ok=True)
+    (study_root / "recons").mkdir(parents=True, exist_ok=True)
+    shutil.copytree(authoritative_root / "runs" / "pinn_hybrid_resnet", study_root / "runs" / "pinn_hybrid_resnet")
+    shutil.copytree(authoritative_root / "runs" / "pinn_ffno", study_root / "runs" / "pinn_ffno")
+    shutil.copytree(authoritative_root / "runs" / "pinn_spectral_resnet_bottleneck_net", study_root / "runs" / "pinn_spectral_resnet_bottleneck_net")
+    shutil.copytree(authoritative_root / "recons" / "pinn_hybrid_resnet", study_root / "recons" / "pinn_hybrid_resnet")
+    shutil.copytree(authoritative_root / "recons" / "pinn_ffno", study_root / "recons" / "pinn_ffno")
+    shutil.copytree(authoritative_root / "recons" / "pinn_spectral_resnet_bottleneck_net", study_root / "recons" / "pinn_spectral_resnet_bottleneck_net")
+    shutil.copytree(authoritative_root / "recons" / "gt", study_root / "recons" / "gt")
+    for model_id in [
+        "pinn_spectral_resnet_bottleneck_ds1",
+        "pinn_spectral_resnet_bottleneck_linear_decoder",
+        "pinn_hybrid_resnet_ffno_bottleneck",
+    ]:
+        run_dir = study_root / "runs" / model_id
+        recon_dir = study_root / "recons" / model_id
+        run_dir.mkdir(parents=True, exist_ok=True)
+        recon_dir.mkdir(parents=True, exist_ok=True)
+        _write_json(run_dir / "invocation.json", {"status": "completed"})
+        _write_json(run_dir / "config.json", {})
+        _write_json(run_dir / "history.json", {})
+        _write_json(run_dir / "metrics.json", {})
+        _write_json(run_dir / "exit_code_proof.json", {"exit_code": 0})
+        (recon_dir / "recon.npz").write_bytes(model_id.encode("utf-8"))
+
+    shutil.rmtree(study_root / "recons" / "pinn_ffno")
+    (study_root / "recons" / "pinn_ffno").symlink_to(authoritative_root / "recons" / "pinn_ffno", target_is_directory=True)
+
+    report = validate_cdi_parameter_space_bundle(
+        output_root=study_root,
+        study_matrix_path=paths["study_matrix_path"],
+        reference_runs_path=paths["reference_runs_path"],
+    )
+
+    assert report["ok"] is False
+    assert "pinn_ffno" in report["reused_root_drift"]

@@ -218,8 +218,13 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, cdi, ffno, hybrid_resnet, lines128, grid-lines, compare, summary
 **Use this when:** Checking the exact FFNO-versus-Hybrid CDI compare contract, locating the fresh artifact root, or distinguishing this prerequisite row pair from the later paper-quality benchmark harness.
 
+### [NeurIPS CDI Hybrid-Spectral To FFNO Parameter-Space Preflight](plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_preflight.md)
+**Description:** Human-auditable preflight authority for the bounded CDI-only bridge study, freezing the six-row matrix, the complete `lines128` reused-anchor bundle, the copy-on-write study-root policy, and the fail-closed contract/provenance validation required before fresh-row launches or bundle collation.
+**Keywords:** neurips, cdi, lines128, hybrid_resnet, spectral_resnet, ffno, preflight, contract, provenance, copy-on-write
+**Use this when:** Verifying that the CDI bridge study still points at the authorized complete-table bundle, checking the exact reused and fresh row roster, or auditing whether the study root is allowed to launch or collate results.
+
 ### [NeurIPS CDI Hybrid-Spectral To FFNO Parameter-Space Summary](plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_summary.md)
-**Description:** Durable decision-support summary for the bounded CDI-only bridge study between the existing `lines128` Hybrid/spectral anchors and three FFNO-adjacent architecture changes, including the frozen study matrix, the recovered row-local recon-path bugfix, the fresh DS1, linear-decoder, and FFNO-bottleneck row outcomes, and the explicit no-promotion boundary.
+**Description:** Durable decision-support summary for the bounded CDI-only bridge study between the existing `lines128` Hybrid/spectral anchors and three FFNO-adjacent architecture changes, including the frozen study matrix, the recovered row-local recon-path bugfix, the copy-on-write authoritative-anchor repair, the fresh DS1, linear-decoder, and FFNO-bottleneck row outcomes, and the explicit no-promotion boundary.
 **Keywords:** neurips, cdi, lines128, hybrid_resnet, spectral_resnet, ffno, parameter-space, bridge, decision-support
 **Use this when:** Checking whether any same-contract CDI bridge row improved on the current anchors, locating the six-row bridge-study artifact root, or auditing the row-local recovery and no-promotion decision.
 

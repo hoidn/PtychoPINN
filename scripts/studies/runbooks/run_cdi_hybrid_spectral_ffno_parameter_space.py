@@ -17,6 +17,7 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.studies.cdi_hybrid_spectral_ffno_parameter_space import (
     FRESH_ROWS,
     REUSED_ROWS,
+    _sha256,
     build_preflight_artifacts,
 )
 from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
@@ -79,25 +80,24 @@ def _load_json(path: Path) -> Dict[str, Any]:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def _link_or_copy(src: Path, dst: Path) -> None:
+def _copy_path(src: Path, dst: Path) -> None:
     dst.parent.mkdir(parents=True, exist_ok=True)
-    if dst.exists() or dst.is_symlink():
+    if dst.is_symlink():
+        raise RuntimeError(f"refusing to reuse symlinked path for authoritative materialization: {dst}")
+    if dst.exists():
         return
-    try:
-        dst.symlink_to(src.resolve(), target_is_directory=src.is_dir())
-    except OSError:
-        if src.is_dir():
-            shutil.copytree(src, dst)
-        else:
-            shutil.copy2(src, dst)
+    if src.is_dir():
+        shutil.copytree(src, dst)
+    else:
+        shutil.copy2(src, dst)
 
 
 def _materialize_reused_rows(*, authoritative_root: Path, output_root: Path) -> None:
-    _link_or_copy(authoritative_root / "recons" / "gt", output_root / "recons" / "gt")
+    _copy_path(authoritative_root / "recons" / "gt", output_root / "recons" / "gt")
     for row in REUSED_ROWS:
         model_id = str(row["model_id"])
-        _link_or_copy(authoritative_root / "runs" / model_id, output_root / "runs" / model_id)
-        _link_or_copy(authoritative_root / "recons" / model_id, output_root / "recons" / model_id)
+        _copy_path(authoritative_root / "runs" / model_id, output_root / "runs" / model_id)
+        _copy_path(authoritative_root / "recons" / model_id, output_root / "recons" / model_id)
 
 
 def _ensure_row_not_active(output_root: Path, model_id: str) -> None:
@@ -113,6 +113,7 @@ def validate_cdi_parameter_space_bundle(
     *,
     output_root: Path,
     study_matrix_path: Path,
+    reference_runs_path: Path | None = None,
 ) -> Dict[str, Any]:
     matrix = _load_json(Path(study_matrix_path))
     missing_rows: List[str] = []
@@ -131,10 +132,47 @@ def validate_cdi_parameter_space_bundle(
         if missing:
             missing_rows.append(model_id)
             row_reports[model_id] = missing
+    reused_root_drift: Dict[str, List[str]] = {}
+    if reference_runs_path is not None:
+        reference_runs = _load_json(Path(reference_runs_path))
+        if matrix.get("authoritative_anchor_root") != reference_runs.get("authoritative_root"):
+            reused_root_drift["__authoritative_root__"] = [
+                f"study_matrix.authoritative_anchor_root={matrix.get('authoritative_anchor_root')!r}",
+                f"reference_runs.authoritative_root={reference_runs.get('authoritative_root')!r}",
+            ]
+        for row in reference_runs.get("reused_rows", []):
+            model_id = str(row["model_id"])
+            problems: List[str] = []
+            local_run_dir = Path(output_root) / "runs" / model_id
+            local_recon_dir = Path(output_root) / "recons" / model_id
+            if local_run_dir.is_symlink():
+                problems.append(f"run dir is still a symlink: {local_run_dir}")
+            if local_recon_dir.is_symlink():
+                problems.append(f"recon dir is still a symlink: {local_recon_dir}")
+            for key, expected_sha in row.get("validation", {}).get("source_sha256", {}).items():
+                local_path = {
+                    "invocation_json": local_run_dir / "invocation.json",
+                    "config_json": local_run_dir / "config.json",
+                    "history_json": local_run_dir / "history.json",
+                    "metrics_json": local_run_dir / "metrics.json",
+                    "recon_npz": local_recon_dir / "recon.npz",
+                }[key]
+                if local_path.is_symlink():
+                    problems.append(f"artifact is symlinked: {local_path}")
+                    continue
+                if not local_path.exists():
+                    problems.append(f"artifact missing: {local_path}")
+                    continue
+                actual_sha = _sha256(local_path)
+                if actual_sha != expected_sha:
+                    problems.append(f"{key} sha256 drifted: expected {expected_sha}, found {actual_sha}")
+            if problems:
+                reused_root_drift[model_id] = problems
     return {
-        "ok": not missing_rows,
+        "ok": not missing_rows and not reused_root_drift,
         "missing_rows": missing_rows,
         "missing_artifacts": row_reports,
+        "reused_root_drift": reused_root_drift,
     }
 
 
@@ -198,6 +236,7 @@ def run_cdi_parameter_space_study(
     result["bundle_validation"] = validate_cdi_parameter_space_bundle(
         output_root=Path(output_root),
         study_matrix_path=Path(preflight_paths["study_matrix_path"]),
+        reference_runs_path=Path(preflight_paths["reference_runs_path"]),
     )
     _write_json(Path(output_root) / "analysis" / "bundle_validation.json", result["bundle_validation"])
     return result
