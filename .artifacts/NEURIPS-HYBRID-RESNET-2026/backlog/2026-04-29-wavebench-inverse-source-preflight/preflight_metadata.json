@@ -49,11 +49,74 @@
     "contract_risk": "README and code disagree on archive and extracted-directory naming; code path was treated as authoritative for follow-up execution."
   },
   "staging_path": {
-    "expected_repo_relative": "wavebench_dataset/time_varying/is",
-    "expected_local_checkout": "/home/ollie/Documents/PtychoPINN/tmp/wavebench_repo/wavebench_dataset/time_varying/is",
+    "followup_target_repo_relative": "wavebench_dataset/time_varying/is/",
+    "followup_target_description": "<wavebench repo>/wavebench_dataset/time_varying/is/",
     "observed_local_path": null,
+    "retained_checkout_path": null,
     "inspection_mode": "remote_archive_member_only"
   },
+  "inverse_source_variant_inventory": [
+    {
+      "variant_id": "time_varying/is/thick_lines_gaussian_lens",
+      "dataset_name": "thick_lines",
+      "medium_type": "gaussian_lens",
+      "role": "selected_primary_trainable",
+      "sample_count": 10000,
+      "wavespeed_contract": "fixed procedural gaussian lens synthesized in code",
+      "wavespeed_dependency": "no external GRF wavespeed file required",
+      "split_semantics": "seed-42 random permutation into 9000 train / 500 val / 500 test via `get_dataloaders_is_thick_lines`"
+    },
+    {
+      "variant_id": "time_varying/is/thick_lines_grf_isotropic",
+      "dataset_name": "thick_lines",
+      "medium_type": "grf_isotropic",
+      "role": "trainable_alternate_medium",
+      "sample_count": 10000,
+      "wavespeed_contract": "fixed isotropic GRF wavespeed field loaded from `time_varying/wavespeed/isotropic_cp_128x128_00001.H@`",
+      "wavespeed_dependency": "requires published isotropic GRF wavespeed file in the local dataset tree",
+      "split_semantics": "seed-42 random permutation into 9000 train / 500 val / 500 test via `get_dataloaders_is_thick_lines`"
+    },
+    {
+      "variant_id": "time_varying/is/thick_lines_grf_anisotropic",
+      "dataset_name": "thick_lines",
+      "medium_type": "grf_anisotropic",
+      "role": "trainable_alternate_medium",
+      "sample_count": 10000,
+      "wavespeed_contract": "fixed anisotropic GRF wavespeed field loaded from `time_varying/wavespeed/anisotropic_cp_128x128_00001.H@`",
+      "wavespeed_dependency": "requires published anisotropic GRF wavespeed file in the local dataset tree",
+      "split_semantics": "seed-42 random permutation into 9000 train / 500 val / 500 test via `get_dataloaders_is_thick_lines`"
+    },
+    {
+      "variant_id": "time_varying/is/mnist_gaussian_lens",
+      "dataset_name": "mnist",
+      "medium_type": "gaussian_lens",
+      "role": "ood_only_probe",
+      "sample_count": 50,
+      "wavespeed_contract": "fixed procedural gaussian lens synthesized in code",
+      "wavespeed_dependency": "no external GRF wavespeed file required",
+      "split_semantics": "sequential evaluation-only loader via `get_dataloaders_is_mnist`; no train/val/test split is defined in the upstream loader"
+    },
+    {
+      "variant_id": "time_varying/is/mnist_grf_isotropic",
+      "dataset_name": "mnist",
+      "medium_type": "grf_isotropic",
+      "role": "ood_only_probe",
+      "sample_count": 50,
+      "wavespeed_contract": "fixed isotropic GRF wavespeed field loaded from `time_varying/wavespeed/isotropic_cp_128x128_00001.H@`",
+      "wavespeed_dependency": "requires published isotropic GRF wavespeed file in the local dataset tree",
+      "split_semantics": "sequential evaluation-only loader via `get_dataloaders_is_mnist`; no train/val/test split is defined in the upstream loader"
+    },
+    {
+      "variant_id": "time_varying/is/mnist_grf_anisotropic",
+      "dataset_name": "mnist",
+      "medium_type": "grf_anisotropic",
+      "role": "ood_only_probe",
+      "sample_count": 50,
+      "wavespeed_contract": "fixed anisotropic GRF wavespeed field loaded from `time_varying/wavespeed/anisotropic_cp_128x128_00001.H@`",
+      "wavespeed_dependency": "requires published anisotropic GRF wavespeed file in the local dataset tree",
+      "split_semantics": "sequential evaluation-only loader via `get_dataloaders_is_mnist`; no train/val/test split is defined in the upstream loader"
+    }
+  ],
   "selected_variant": {
     "problem_family": "time_varying/is",
     "dataset_name": "thick_lines",

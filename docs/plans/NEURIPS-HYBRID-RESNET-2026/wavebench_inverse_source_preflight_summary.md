@@ -40,10 +40,43 @@ Observed setup-risk mismatch:
 - The code resolves `wavebench_dataset_path` as `<repo>/wavebench_dataset`
   (singular).
 
-The preflight therefore treats `<wavebench repo>/wavebench_dataset/` as the
-authoritative local staging path for any later smoke or training run, and it
-records the README naming drift as an upstream contract risk that should be
-normalized before follow-up execution.
+The preflight therefore treats
+`<wavebench repo>/wavebench_dataset/time_varying/is/` as the authoritative
+follow-up staging target for any later inverse-source smoke or training run. No
+persistent local checkout-relative dataset path was retained in this pass, so
+the durable contract records only that stable repo-relative target plus the
+fact that inspection happened directly against the remote archive member. The
+README naming drift remains an upstream contract risk that should be normalized
+before follow-up execution.
+
+## Variant Inventory
+
+The upstream inverse-source family includes six published variants, and this
+preflight now records all of them so later planners do not have to reopen the
+WaveBench sources to recover the selection context:
+
+- Trainable thick-lines variants with the seeded `9000 / 500 / 500`
+  `train/val/test` split from
+  `wavebench.dataloaders.is_loader.get_dataloaders_is_thick_lines`:
+  `thick_lines_gaussian_lens`,
+  `thick_lines_grf_isotropic`,
+  `thick_lines_grf_anisotropic`
+- OOD-only MNIST probes with no upstream `train/val/test` split and only the
+  sequential evaluation loader
+  `wavebench.dataloaders.is_loader.get_dataloaders_is_mnist`:
+  `mnist_gaussian_lens`,
+  `mnist_grf_isotropic`,
+  `mnist_grf_anisotropic`
+
+The fixed-versus-random-medium distinction is also now durable:
+
+- `gaussian_lens` is a fixed procedural medium synthesized in code and does not
+  depend on an external wavespeed file.
+- `grf_isotropic` and `grf_anisotropic` are fixed alternate media that depend
+  on published GRF wavespeed files under `time_varying/wavespeed/`.
+- The MNIST variants are explicitly OOD probes, not first-line training
+  candidates, because upstream generates only `50` examples and exposes them
+  through a sequential evaluation loader.
 
 ## Selected Variant And Tensor Contract
 
@@ -157,7 +190,7 @@ physics-readiness question.
 
 This is enough to authorize later supervised planning once the dataset and
 native-baseline provisioning decision is resolved, but not enough to promote
-the overall preflight to `ready_for_supervised_plan` yet.
+the overall preflight into a supervised-ready final state yet.
 
 ## Local Compatibility
 
@@ -178,8 +211,9 @@ Current local status:
 Interpretation:
 
 - Supervised follow-up is structurally plausible once the dataset is staged
-  under the expected local path and the exact baseline-checkpoint decision is
-  made.
+  under the stable target
+  `<wavebench repo>/wavebench_dataset/time_varying/is/` and the exact
+  baseline-checkpoint decision is made.
 - Physics-informed follow-up is not yet authorized because the forward-model
   reproduction check was not runnable in the current environment and no
   measured residuals were produced.

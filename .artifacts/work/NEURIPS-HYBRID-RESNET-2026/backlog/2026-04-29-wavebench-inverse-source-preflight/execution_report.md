@@ -19,11 +19,22 @@
   `checkpoint_reusable` to `retrain_required`, recorded stable numeric
   forward-model thresholds, filled in the missing paper-bundle follow-up route,
   and added a narrow validator plus pytest selector for the preflight contract
+- completed the missing Tranche 1 variant inventory by recording all six
+  published inverse-source variants, their split semantics, and the
+  fixed-medium versus GRF/OOD distinctions directly in the durable metadata and
+  summary
+- replaced the transient temp-checkout staging-path pin with the stable
+  follow-up target
+  `<wavebench repo>/wavebench_dataset/time_varying/is/`, then tightened the
+  validator and pytest coverage so summary/metadata agreement on that contract
+  is enforced
 
 ## Completed Current-Scope Work
 
 - Tranche 1 complete: repo identity, dataset DOI/source, archive identity,
-  access notes, setup risks, and native baseline entry points remain recorded
+  access notes, setup risks, native baseline entry points, full inverse-source
+  variant inventory, split semantics, and fixed-versus-GRF/OOD distinctions are
+  now all recorded durably
 - Tranche 2 complete: the selected variant remains
   `thick_lines_gaussian_lens`; the selected split and `9000 / 500 / 500`
   counts remain fixed; the distributed on-disk schema is now directly observed
@@ -38,7 +49,8 @@
   physics deferred because no reproduction metrics were measured
 - Tranche 5 complete: the checked-in summary, machine-readable metadata,
   execution report, verification artifacts, and docs-hub discoverability all
-  agree on the final status token
+  agree on the final status token, the full inverse-source variant inventory,
+  and the stable follow-up staging target
 
 ## Verification
 
@@ -62,16 +74,23 @@
   - result: `wavebench preflight contract validated`
   - log:
     `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-inverse-source-preflight/verification/contract_validator.log`
+- stronger final consistency check:
+  `python - <<'PY' ...`
+  - result:
+    `wavebench preflight summary, metadata, and index references are consistent`
+  - log:
+    `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-inverse-source-preflight/verification/final_consistency_check.log`
 - targeted regression selector:
   `pytest tests/studies/test_wavebench_preflight_contract.py -q`
-  - result: pass
+  - result: `3 passed in 0.92s`
   - log:
     `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-inverse-source-preflight/verification/pytest_wavebench_preflight_contract.log`
 
 ## Follow-Up Work
 
-- stage the selected `.beton` member under the expected local WaveBench dataset
-  path before any later loader smoke or training item
+- stage the selected `.beton` member under
+  `<wavebench repo>/wavebench_dataset/time_varying/is/` before any later loader
+  smoke or training item
 - resolve exact FNO and U-Net checkpoint identifiers or choose a native
   baseline retraining path explicitly
 - provision a WaveBench-capable environment with `ffcv`, `jax`, `jwave`, and

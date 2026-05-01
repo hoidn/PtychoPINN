@@ -70,6 +70,7 @@ def main() -> None:
         "dataset_access",
         "dataset_provenance",
         "staging_path",
+        "inverse_source_variant_inventory",
         "selected_variant",
         "selected_split",
         "sample_counts",
@@ -98,6 +99,58 @@ def main() -> None:
     require(
         observed_member.get("zip_member") == inspection.get("remote_member"),
         "metadata observed-member zip path must match inspection artifact",
+    )
+
+    staging_path = metadata["staging_path"]
+    stable_target = "<wavebench repo>/wavebench_dataset/time_varying/is/"
+    require(
+        staging_path.get("followup_target_repo_relative") == "wavebench_dataset/time_varying/is/",
+        "staging_path must record the stable repo-relative follow-up target",
+    )
+    require(
+        staging_path.get("followup_target_description") == stable_target,
+        "staging_path must record the stable follow-up target description",
+    )
+    require(
+        staging_path.get("retained_checkout_path") is None,
+        "staging_path must not pin a transient retained checkout path",
+    )
+    require(
+        stable_target in summary,
+        "summary must name the stable WaveBench inverse-source follow-up target",
+    )
+
+    inventory = metadata["inverse_source_variant_inventory"]
+    require(
+        isinstance(inventory, list) and len(inventory) == 6,
+        "metadata must record all six inverse-source variants",
+    )
+    by_variant = {entry.get("variant_id"): entry for entry in inventory}
+    require(
+        set(by_variant)
+        == {
+            "time_varying/is/thick_lines_gaussian_lens",
+            "time_varying/is/thick_lines_grf_isotropic",
+            "time_varying/is/thick_lines_grf_anisotropic",
+            "time_varying/is/mnist_gaussian_lens",
+            "time_varying/is/mnist_grf_isotropic",
+            "time_varying/is/mnist_grf_anisotropic",
+        },
+        "inverse_source_variant_inventory must enumerate the full thick-lines and MNIST variant roster",
+    )
+    require(
+        by_variant["time_varying/is/thick_lines_gaussian_lens"].get("split_semantics")
+        == "seed-42 random permutation into 9000 train / 500 val / 500 test via `get_dataloaders_is_thick_lines`",
+        "thick_lines_gaussian_lens must retain the seeded train/val/test split semantics",
+    )
+    require(
+        by_variant["time_varying/is/mnist_gaussian_lens"].get("role") == "ood_only_probe",
+        "mnist_gaussian_lens must remain marked as an OOD-only probe",
+    )
+    require(
+        by_variant["time_varying/is/mnist_gaussian_lens"].get("split_semantics")
+        == "sequential evaluation-only loader via `get_dataloaders_is_mnist`; no train/val/test split is defined in the upstream loader",
+        "mnist_gaussian_lens must retain the evaluation-only split semantics",
     )
 
     for key in ("train", "validation", "test"):
@@ -184,6 +237,9 @@ def main() -> None:
         "normalized residual",
         "C=32",
         "C=64",
+        "Variant Inventory",
+        "mnist_gaussian_lens",
+        "thick_lines_grf_anisotropic",
     )
     for term in summary_terms:
         require(term in summary, f"summary missing required term: {term}")
