@@ -1,6 +1,6 @@
 {
   "benchmark_status": "decision_support_complete",
-  "claim_boundary": "grid_lines_compare_bundle",
+  "claim_boundary": "no_paper_promotion_without_later_authority",
   "rows": [
     {
       "model_id": "pinn_hybrid_resnet",
@@ -100,7 +100,7 @@
         "backend": "pytorch",
         "accelerator": "NVIDIA GeForce RTX 3090"
       },
-      "row_status": "paper_grade",
+      "row_status": "decision_support",
       "missing_fields": []
     },
     {
@@ -126,7 +126,7 @@
         "backend": "pytorch",
         "accelerator": "NVIDIA GeForce RTX 3090"
       },
-      "row_status": "paper_grade",
+      "row_status": "decision_support",
       "missing_fields": []
     },
     {
@@ -152,7 +152,7 @@
         "backend": "pytorch",
         "accelerator": "NVIDIA GeForce RTX 3090"
       },
-      "row_status": "paper_grade",
+      "row_status": "decision_support",
       "missing_fields": []
     }
   ]

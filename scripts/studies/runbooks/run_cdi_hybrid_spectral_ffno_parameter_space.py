@@ -18,6 +18,7 @@ if str(REPO_ROOT) not in sys.path:
 from scripts.studies.cdi_hybrid_spectral_ffno_parameter_space import (
     FRESH_ROWS,
     REUSED_ROWS,
+    STUDY_CLAIM_BOUNDARY,
     _sha256,
     build_preflight_artifacts,
 )
@@ -405,6 +406,7 @@ def _validate_merged_outputs(
     *,
     output_root: Path,
     matrix_rows: List[Dict[str, Any]],
+    expected_claim_boundary: str,
 ) -> Tuple[List[str], Dict[str, List[str]]]:
     required_outputs = {
         "metrics_by_model.json": Path(output_root) / "metrics_by_model.json",
@@ -453,9 +455,16 @@ def _validate_merged_outputs(
         except json.JSONDecodeError as exc:
             failures["model_manifest.json"] = [f"parse failed: {exc}"]
         else:
+            manifest_problems: List[str] = []
+            actual_claim_boundary = model_manifest.get("claim_boundary")
+            if actual_claim_boundary != expected_claim_boundary:
+                manifest_problems.append(
+                    "claim_boundary mismatch: "
+                    f"expected {expected_claim_boundary!r}, found {actual_claim_boundary!r}"
+                )
             rows = model_manifest.get("rows")
             if not isinstance(rows, list):
-                failures["model_manifest.json"] = ["missing rows list"]
+                manifest_problems.append("missing rows list")
             else:
                 found_ids = {
                     str(row.get("model_id", "")).strip()
@@ -464,9 +473,27 @@ def _validate_merged_outputs(
                 }
                 missing_ids = sorted(expected_ids - found_ids)
                 if missing_ids:
-                    failures["model_manifest.json"] = [
-                        "missing expected row IDs: " + ", ".join(missing_ids)
-                    ]
+                    manifest_problems.append("missing expected row IDs: " + ", ".join(missing_ids))
+                expected_row_statuses = {
+                    str(row["model_id"]): str(row["row_status"])
+                    for row in matrix_rows
+                    if isinstance(row.get("row_status"), str) and str(row.get("row_status")).strip()
+                }
+                for row in rows:
+                    if not isinstance(row, dict):
+                        continue
+                    model_id = str(row.get("model_id", "")).strip()
+                    expected_row_status = expected_row_statuses.get(model_id)
+                    if expected_row_status is None:
+                        continue
+                    actual_row_status = row.get("row_status")
+                    if actual_row_status != expected_row_status:
+                        manifest_problems.append(
+                            f"row_status mismatch for {model_id}: "
+                            f"expected {expected_row_status!r}, found {actual_row_status!r}"
+                        )
+            if manifest_problems:
+                failures["model_manifest.json"] = manifest_problems
 
     table_csv_path = required_outputs["metrics_table.csv"]
     if table_csv_path.exists():
@@ -618,6 +645,7 @@ def validate_cdi_parameter_space_bundle(
     missing_merged_outputs, merged_output_failures = _validate_merged_outputs(
         output_root=Path(output_root),
         matrix_rows=matrix_rows,
+        expected_claim_boundary=str(matrix.get("claim_boundary", "")),
     )
     shared_contract_failures = _collect_shared_contract_failures(
         output_root=Path(output_root),
@@ -711,6 +739,7 @@ def run_cdi_parameter_space_study(
         row_specs=tuple(all_specs),
         model_n={model_id: 128 for model_id in all_models},
         reuse_existing_recons=True,
+        manifest_claim_boundary=STUDY_CLAIM_BOUNDARY,
     )
     result["bundle_validation"] = validate_cdi_parameter_space_bundle(
         output_root=Path(output_root),

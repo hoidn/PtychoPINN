@@ -516,9 +516,17 @@ def _write_shared_contract_artifacts(study_root: Path, source_root: Path) -> Non
     _write_json(study_root / "preflight" / "preflight_validation.json", {"contract": dict(FIXED_CONTRACT)})
 
 
-def _write_collated_outputs(study_root: Path, row_ids: list[str], *, model_labels: dict[str, str]) -> None:
+def _write_collated_outputs(
+    study_root: Path,
+    row_ids: list[str],
+    *,
+    model_labels: dict[str, str],
+    claim_boundary: str = "no_paper_promotion_without_later_authority",
+    row_status_by_model: dict[str, str] | None = None,
+) -> None:
     from scripts.studies.metrics_tables import write_model_manifest
 
+    row_status_by_model = dict(row_status_by_model or {})
     metrics_by_model = {
         model_id: {
             "reference_shape": [128, 128],
@@ -562,12 +570,12 @@ def _write_collated_outputs(study_root: Path, row_ids: list[str], *, model_label
                 "validation_loss": {"status": "not_emitted", "value": None},
                 "runtime_summary": {"train_wall_time_sec": 1.0},
                 "hardware_summary": {"backend": "pytorch"},
-                "row_status": "decision_support",
+                "row_status": row_status_by_model.get(model_id, "decision_support"),
             }
             for model_id in row_ids
         },
         benchmark_status="decision_support_complete",
-        claim_boundary="test_bundle",
+        claim_boundary=claim_boundary,
     )
 
 
@@ -807,6 +815,39 @@ def test_validate_bundle_rejects_missing_merged_outputs(tmp_path):
         "metrics_table.tex",
         "model_manifest.json",
     ]
+
+
+def test_validate_bundle_rejects_claim_boundary_and_fresh_row_status_drift(tmp_path):
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        validate_cdi_parameter_space_bundle,
+    )
+
+    study_root, paths = _build_completed_study_root(tmp_path)
+    model_manifest_path = study_root / "model_manifest.json"
+    model_manifest = json.loads(model_manifest_path.read_text(encoding="utf-8"))
+    model_manifest["claim_boundary"] = "grid_lines_compare_bundle"
+    for row in model_manifest["rows"]:
+        if row["model_id"] in {
+            "pinn_spectral_resnet_bottleneck_ds1",
+            "pinn_spectral_resnet_bottleneck_linear_decoder",
+            "pinn_hybrid_resnet_ffno_bottleneck",
+        }:
+            row["row_status"] = "paper_grade"
+    _write_json(model_manifest_path, model_manifest)
+
+    report = validate_cdi_parameter_space_bundle(
+        output_root=study_root,
+        study_matrix_path=paths["study_matrix_path"],
+        reference_runs_path=paths["reference_runs_path"],
+    )
+
+    assert report["ok"] is False
+    assert "model_manifest.json" in report["merged_output_failures"]
+    assert any("claim_boundary" in issue for issue in report["merged_output_failures"]["model_manifest.json"])
+    assert any(
+        "pinn_spectral_resnet_bottleneck_ds1" in issue and "decision_support" in issue
+        for issue in report["merged_output_failures"]["model_manifest.json"]
+    )
 
 
 def test_validate_bundle_rejects_malformed_metrics_table_tex(tmp_path):

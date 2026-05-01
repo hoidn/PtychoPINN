@@ -669,6 +669,7 @@ def _enrich_paper_row_payload(
     dataset_source: str,
     probe_source: str,
     probe_scale_mode: str,
+    row_spec: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, object]:
     row = dict(payload)
     run_dir = output_dir / "runs" / model_id
@@ -802,7 +803,14 @@ def _enrich_paper_row_payload(
             "amp_phase_png": f"visuals/amp_phase_{model_id}.png",
             "amp_phase_error_png": f"visuals/amp_phase_error_{model_id}.png",
         }
-    if row.get("row_status") in {None, "decision_support"}:
+    locked_row_status: Optional[str] = None
+    if isinstance(row_spec, Mapping):
+        candidate_row_status = row_spec.get("row_status")
+        if isinstance(candidate_row_status, str) and candidate_row_status.strip():
+            locked_row_status = candidate_row_status.strip()
+            row["row_status"] = locked_row_status
+    lock_row_status = bool(row_spec.get("lock_row_status", False)) if isinstance(row_spec, Mapping) else False
+    if not lock_row_status and row.get("row_status") in {None, "decision_support"}:
         required_paths = [
             invocation_path,
             run_dir / "invocation.sh",
@@ -823,6 +831,8 @@ def _enrich_paper_row_payload(
                     required_paths.append(output_dir / relative_path)
         if all(path.exists() for path in required_paths):
             row["row_status"] = "paper_grade"
+    elif lock_row_status and locked_row_status is not None:
+        row["row_status"] = locked_row_status
     return row
 
 
@@ -963,6 +973,7 @@ def _finalize_compare_outputs(
     model_ns: Optional[Dict[str, int]] = None,
     model_labels: Optional[Mapping[str, str]] = None,
     row_payloads: Optional[Mapping[str, Mapping[str, object]]] = None,
+    manifest_claim_boundary: str = "grid_lines_compare_bundle",
 ) -> Dict[str, str]:
     metrics_path = output_dir / "metrics.json"
     metrics_path.write_text(json.dumps(merged_metrics, indent=2, default=_json_default))
@@ -986,7 +997,7 @@ def _finalize_compare_outputs(
             output_dir=output_dir,
             row_payloads=row_payloads,
             benchmark_status="decision_support_complete",
-            claim_boundary="grid_lines_compare_bundle",
+            claim_boundary=manifest_claim_boundary,
         )
         finalized["model_manifest_path"] = str(model_manifest_path)
     return finalized
@@ -1307,6 +1318,7 @@ def run_grid_lines_compare(
     train_data: Optional[Path] = None,
     test_data: Optional[Path] = None,
     preflight_only: bool = False,
+    manifest_claim_boundary: str = "grid_lines_compare_bundle",
 ) -> dict:
     os.environ.setdefault("PTYCHO_MEMOIZE_KEY_MODE", "dataset")
     output_dir = Path(output_dir)
@@ -1481,6 +1493,7 @@ def run_grid_lines_compare(
                     dataset_source=str(dataset_source),
                     probe_source=str(probe_source),
                     probe_scale_mode=str(probe_scale_mode),
+                    row_spec=(row_specs_by_model or {}).get(model_id),
                 )
 
             model_ns_for_metrics = {
@@ -1498,6 +1511,7 @@ def run_grid_lines_compare(
                     row_payloads=row_payloads,
                 ),
                 row_payloads=row_payloads,
+                manifest_claim_boundary=manifest_claim_boundary,
             )
             return {
                 "train_npz": str(train_npz),
@@ -1627,6 +1641,7 @@ def run_grid_lines_compare(
                     dataset_source=str(dataset_source),
                     probe_source=str(probe_source),
                     probe_scale_mode=str(probe_scale_mode),
+                    row_spec=(row_specs_by_model or {}).get(model_id),
                 )
 
         for model_id in selected_models:
@@ -1724,6 +1739,7 @@ def run_grid_lines_compare(
                     dataset_source=str(dataset_source),
                     probe_source=str(probe_source),
                     probe_scale_mode=str(probe_scale_mode),
+                    row_spec=(row_specs_by_model or {}).get(model_id),
                 )
                 continue
 
@@ -1822,6 +1838,7 @@ def run_grid_lines_compare(
                 dataset_source=str(dataset_source),
                 probe_source=str(probe_source),
                 probe_scale_mode=str(probe_scale_mode),
+                row_spec=(row_specs_by_model or {}).get(model_id),
             )
         model_ns_for_metrics = {
             model_id: int(resolved_model_n.get(model_id, N))
@@ -1838,6 +1855,7 @@ def run_grid_lines_compare(
                 row_payloads=row_payloads,
             ),
             row_payloads=row_payloads,
+            manifest_claim_boundary=manifest_claim_boundary,
         )
         first_bundle = bundles_by_n[required_ns[0]]
         return {
@@ -1914,6 +1932,7 @@ def run_grid_lines_compare(
                 dataset_source=str(dataset_source),
                 probe_source=str(probe_source),
                 probe_scale_mode=str(probe_scale_mode),
+                row_spec=(row_specs_by_model or {}).get(model_id),
             )
     elif not train_npz.exists() or not test_npz.exists():
         tf_cfg = GridLinesConfig(
@@ -2029,6 +2048,7 @@ def run_grid_lines_compare(
                     dataset_source=str(dataset_source),
                     probe_source=str(probe_source),
                     probe_scale_mode=str(probe_scale_mode),
+                    row_spec=(row_specs_by_model or {}).get(model_id),
                 )
 
     order = ["gt"]
@@ -2063,6 +2083,7 @@ def run_grid_lines_compare(
             row_payloads=row_payloads,
         ),
         row_payloads=row_payloads,
+        manifest_claim_boundary=manifest_claim_boundary,
     )
     return {
         "train_npz": str(train_npz),

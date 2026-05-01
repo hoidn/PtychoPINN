@@ -66,6 +66,8 @@ EXPECTED_ROW_ARGS: Dict[str, Any] = {
     "spectral_bottleneck_gate_mode": "shared",
 }
 
+STUDY_CLAIM_BOUNDARY = "no_paper_promotion_without_later_authority"
+
 REUSED_ROWS = [
     {
         "model_id": "pinn_hybrid_resnet",
@@ -102,6 +104,8 @@ FRESH_ROWS = [
         "nearest_anchor": "pinn_spectral_resnet_bottleneck_net",
         "expression_path": "runner override on `spectral_resnet_bottleneck_net`",
         "overrides": {"hybrid_downsample_steps": 1},
+        "row_status": "decision_support",
+        "lock_row_status": True,
     },
     {
         "model_id": "pinn_spectral_resnet_bottleneck_linear_decoder",
@@ -111,6 +115,8 @@ FRESH_ROWS = [
         "nearest_anchor": "pinn_spectral_resnet_bottleneck_net",
         "expression_path": "generator registry entry `spectral_resnet_bottleneck_linear_decoder`",
         "overrides": {},
+        "row_status": "decision_support",
+        "lock_row_status": True,
     },
     {
         "model_id": "pinn_hybrid_resnet_ffno_bottleneck",
@@ -120,6 +126,8 @@ FRESH_ROWS = [
         "nearest_anchor": "pinn_hybrid_resnet",
         "expression_path": "generator registry entry `hybrid_resnet_ffno_bottleneck`",
         "overrides": {},
+        "row_status": "decision_support",
+        "lock_row_status": True,
     },
 ]
 
@@ -323,7 +331,7 @@ def build_study_matrix_payload(*, authoritative_root: Path, artifact_root: Path)
     return {
         "schema_version": "cdi_hybrid_spectral_ffno_parameter_space_v2",
         "study_scope": "cdi_only_decision_support",
-        "claim_boundary": "no_paper_promotion_without_later_authority",
+        "claim_boundary": STUDY_CLAIM_BOUNDARY,
         "authoritative_anchor_root": str(authoritative_root),
         "materialization_policy": "copy_on_write",
         "shared_contract": _shared_contract_projection(artifact_root),

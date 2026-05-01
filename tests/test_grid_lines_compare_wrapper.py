@@ -1099,6 +1099,92 @@ def test_enrich_paper_row_payload_recovers_missing_direct_runner_logs(monkeypatc
     ) == []
 
 
+def test_enrich_paper_row_payload_respects_locked_decision_support_status(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import (
+        _enrich_paper_row_payload,
+        _recover_torch_row_payload,
+    )
+
+    run_dir = tmp_path / "runs" / "supervised_ffno"
+    recons_dir = tmp_path / "recons" / "supervised_ffno"
+    visuals_dir = tmp_path / "visuals"
+    run_dir.mkdir(parents=True)
+    recons_dir.mkdir(parents=True)
+    visuals_dir.mkdir(parents=True)
+
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    probe_npz = tmp_path / "probe.npz"
+    for path in (train_npz, test_npz, probe_npz):
+        path.write_bytes(b"stub")
+
+    gt = (np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64)
+    np.savez(recons_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+    (visuals_dir / "amp_phase_supervised_ffno.png").write_bytes(b"png")
+    (visuals_dir / "amp_phase_error_supervised_ffno.png").write_bytes(b"png")
+
+    (run_dir / "history.json").write_text(
+        json.dumps({"train_loss": [0.5, 0.4], "val_loss": [0.6, 0.5]}),
+        encoding="utf-8",
+    )
+    (run_dir / "invocation.json").write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "pid": 12345,
+                "exit_code": 0,
+                "timestamp_utc": "2026-04-30T17:09:15.697374+00:00",
+                "finished_at_utc": "2026-04-30T17:22:54.631787+00:00",
+                "parsed_args": {
+                    "epochs": 40,
+                    "seed": 3,
+                    "output_dir": str(tmp_path),
+                    "train_npz": str(train_npz),
+                    "test_npz": str(test_npz),
+                },
+                "extra": {
+                    "git_commit": "abc123",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "invocation.sh").write_text("python grid_lines_torch_runner.py\n", encoding="utf-8")
+    (run_dir / "metrics.json").write_text(json.dumps(_full_pair_metrics(0.01, 0.02)), encoding="utf-8")
+    (run_dir / "model.pt").write_text("stub", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "scripts.studies.grid_lines_compare_wrapper._count_torch_state_dict_parameters",
+        lambda path: 123,
+    )
+
+    recovered = _recover_torch_row_payload(
+        output_dir=tmp_path,
+        model_id="supervised_ffno",
+        n_value=128,
+        metrics=_full_pair_metrics(0.01, 0.02),
+    )
+    enriched = _enrich_paper_row_payload(
+        model_id="supervised_ffno",
+        payload=recovered,
+        output_dir=tmp_path,
+        train_npz=train_npz,
+        test_npz=test_npz,
+        seed=3,
+        nimgs_train=2,
+        nimgs_test=2,
+        gridsize=1,
+        set_phi=True,
+        probe_npz=probe_npz,
+        dataset_source="synthetic_lines",
+        probe_source="custom",
+        probe_scale_mode="pad_extrapolate",
+        row_spec={"row_status": "decision_support", "lock_row_status": True},
+    )
+
+    assert enriched["row_status"] == "decision_support"
+
+
 def test_compare_wrapper_script_path_bootstraps_repo_imports():
     repo_root = Path(__file__).resolve().parents[1]
 
