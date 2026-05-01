@@ -148,6 +148,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, wavebench, inverse-source, wave-equation, fno, unet, candidate
 **Use this when:** Planning or reviewing the WaveBench candidate preflight, checking what must be verified before physics-informed rows are credible, or distinguishing WaveBench inverse source from OpenFWI and BRDT.
 
+### [NeurIPS WaveBench Inverse Source Preflight Summary](plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight_summary.md)
+**Description:** Durable preflight decision for the optional WaveBench inverse-source lane, locking the first runnable `thick_lines_gaussian_lens` contract, recording the README-versus-code dataset-path mismatch, noting missing local dataset/checkpoint provisioning, and deferring physics-readiness claims until the forward-model reproduction gate is actually run.
+**Keywords:** neurips, wavebench, inverse-source, preflight, thick-lines, gaussian-lens, checkpoint, physics-gate
+**Use this when:** Deciding whether WaveBench is ready for a supervised follow-up, checking the exact tensor and split contract for the selected inverse-source variant, or understanding why the current outcome is a dataset/checkpoint decision rather than a benchmark launch.
+
 ### [NeurIPS Hybrid ResNet PDEBench CNS Paper Contract Decision](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md)
 **Description:** Durable decision that fixes the authoritative CNS paper lane to the bounded capped `history_len=2` contract, records the exact normalization and training-recipe bindings, names the exact headline row roster and authored-FFNO cutoff/status, rejects immediate full-training on compute/deadline grounds, and keeps `history_len=3` as adjacent capped context only.
 **Keywords:** neurips, hybrid_resnet, pdebench, cns, paper-contract, capped, history_len, ffno, claim-boundary

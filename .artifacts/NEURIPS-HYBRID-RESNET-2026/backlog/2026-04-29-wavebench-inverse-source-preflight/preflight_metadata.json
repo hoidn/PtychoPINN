@@ -1,0 +1,188 @@
+{
+  "repo_url": "https://github.com/wavebench/wavebench.git",
+  "repo_revision": "2bea258d9f05ec7182741293be11be1e545576ae",
+  "dataset_source": {
+    "zenodo_record_url": "https://zenodo.org/records/8015145",
+    "doi": "10.5281/zenodo.8015145",
+    "alternate_host_url": "https://drive.switch.ch/index.php/s/L7LeTyb9B9HMuG6",
+    "license": "CC BY 4.0"
+  },
+  "dataset_files": {
+    "archive": {
+      "name": "wavebench_dataset.zip",
+      "size_bytes": 75625669111,
+      "md5": "1519b4f1ce1b9f594460ab27580809d5",
+      "last_modified_http": "Sun, 12 Apr 2026 23:15:36 GMT"
+    },
+    "selected_variant_expected_files": [
+      "wavebench_dataset/time_varying/is/thick_lines_gaussian_lens.beton",
+      "wavebench_dataset/time_varying/is/thick_lines_gaussian_lens_initial_pressure_dataset.npy",
+      "wavebench_dataset/time_varying/is/thick_lines_gaussian_lens_boundary_measurement_dataset.npy"
+    ]
+  },
+  "dataset_access": {
+    "local_dataset_present": false,
+    "local_checkpoint_present": false,
+    "manual_credentials_required": false,
+    "checkpoint_folder_url": "https://drive.google.com/drive/folders/11xLtRWP3q31ki_r4vsV09yM84BPffcJU?usp=sharing",
+    "notes": [
+      "Zenodo archive is publicly reachable.",
+      "The Google Drive folder is publicly reachable, but this pass did not recover exact per-file checkpoint identifiers non-interactively."
+    ]
+  },
+  "dataset_provenance": {
+    "readme_archive_name": "wavebench_datasets.zip",
+    "observed_archive_name": "wavebench_dataset.zip",
+    "code_expected_dataset_dir": "wavebench_dataset",
+    "readme_documented_dataset_dir": "wavebench_datasets",
+    "contract_risk": "README and code disagree on archive and extracted-directory naming; code path was treated as authoritative for follow-up execution."
+  },
+  "staging_path": {
+    "expected_repo_relative": "wavebench_dataset/time_varying/is",
+    "expected_local_checkout": "/home/ollie/Documents/PtychoPINN/tmp/wavebench_repo/wavebench_dataset/time_varying/is",
+    "observed_local_path": null
+  },
+  "selected_variant": {
+    "problem_family": "time_varying/is",
+    "dataset_name": "thick_lines",
+    "medium_type": "gaussian_lens",
+    "selection_rationale": "Procedural fixed-medium setup avoids external GRF wavespeed files and matches the canonical 10k-sample thick-lines training surface used by the native inverse-source scripts."
+  },
+  "selected_split": {
+    "name": "seed42_random_permutation_train_val_test",
+    "source": "wavebench.dataloaders.is_loader.get_dataloaders_is_thick_lines"
+  },
+  "sample_counts": {
+    "train": 9000,
+    "validation": 500,
+    "test": 500
+  },
+  "tensor_contracts": {
+    "observed_y": {
+      "raw_shape_per_sample": [
+        334,
+        128
+      ],
+      "loader_shape_per_sample": [
+        1,
+        128,
+        128
+      ],
+      "dtype": "float32",
+      "normalization": "No extra amplitude normalization in the loader; nearest-neighbor interpolation maps boundary-time measurements from 334x128 to 128x128."
+    },
+    "target_q0": {
+      "raw_shape_per_sample": [
+        128,
+        128
+      ],
+      "loader_shape_per_sample": [
+        1,
+        128,
+        128
+      ],
+      "dtype": "float32",
+      "normalization": "PNG sources are divided by 255 before storage; stored target remains the original 128x128 image-space source field."
+    },
+    "wavespeed_cx": {
+      "shape": [
+        128,
+        128
+      ],
+      "dtype": "float32",
+      "normalization": "Procedural gaussian-lens field normalized to [1400, 4000] m/s in code."
+    },
+    "receiver_metadata": {
+      "shape": [
+        128
+      ],
+      "definition": "Top-boundary receiver line from p.on_grid[medium.pml_size, ...] over 334 time steps."
+    }
+  },
+  "native_baselines": {
+    "fno": {
+      "status": "checkpoint_reusable",
+      "checkpoint_identifier": "Public Google Drive checkpoint folder for WaveBench baselines; exact thick_lines_gaussian_lens filename unresolved in this pass.",
+      "evaluation_load_path": "wavebench.nn.pl_model_wrapper.LitModel.load_from_checkpoint(...)",
+      "local_checkpoint_path": null,
+      "blocker_reason": "Per-file checkpoint identifiers were not enumerable from the public folder via the non-interactive probe used here."
+    },
+    "unet": {
+      "status": "checkpoint_reusable",
+      "checkpoint_identifier": "Public Google Drive checkpoint folder for WaveBench baselines; exact thick_lines_gaussian_lens filename unresolved in this pass.",
+      "evaluation_load_path": "wavebench.nn.pl_model_wrapper.LitModel.load_from_checkpoint(...)",
+      "local_checkpoint_path": null,
+      "blocker_reason": "Per-file checkpoint identifiers were not enumerable from the public folder via the non-interactive probe used here."
+    }
+  },
+  "forward_model": {
+    "availability": "portable_with_narrow_work",
+    "implementation_surface": [
+      "wavebench/generate_data/time_varying/generate_data_is.py",
+      "wavebench/generate_data/test/test_generate_is.py"
+    ],
+    "physics_contract": {
+      "grid": [
+        128,
+        128
+      ],
+      "domain_dx": 8,
+      "time_axis": {
+        "construction": "TimeAxis.from_medium(medium, cfl=0.3, t_end=0.2)",
+        "num_time_steps": 334
+      },
+      "boundary_condition": "Top-boundary pressure sensor trace with PML size 2",
+      "fixed_wavespeed": "Selected variant uses procedural gaussian-lens wavespeed",
+      "receiver_layout": "128 top-boundary receivers",
+      "initial_condition": "Zero-padded 128x128 canvas with a bicubic-resized 64x64 source inserted near the top center"
+    },
+    "sample_count": 0,
+    "normalization": {
+      "observed_y": "Not re-normalized beyond upstream generation and loader reshape",
+      "reproduced_F_c_q0": "Not measured in this pass"
+    },
+    "metrics": {
+      "waveform_mae": null,
+      "waveform_rmse": null,
+      "relative_l2": null,
+      "normalized_residual": null
+    },
+    "accepted_thresholds": {
+      "median_normalized_residual_atol": null,
+      "median_normalized_residual_rtol": null,
+      "comparison_standard": "Approved design gate: median normalized residual <= 0.02 and at most 5% of checked examples above 0.05."
+    },
+    "physics_readiness": "physics_loop_deferred",
+    "blocker_reason": "No local dataset staging and the active environment lacks jax, jwave, ffcv, and ml_collections, so the reproduction check could not be executed."
+  },
+  "setup_risks": [
+    "README/code disagreement on dataset archive and extracted-directory naming.",
+    "Active environment lacks ffcv, jwave, jax, and ml_collections.",
+    "No local WaveBench dataset tree or native baseline checkpoints were present."
+  ],
+  "local_compatibility": {
+    "python_executable": "/home/ollie/miniconda3/envs/ptycho311/bin/python",
+    "python_version": "3.11.13",
+    "available_imports": [
+      "pytorch_lightning",
+      "cv2"
+    ],
+    "missing_imports": [
+      "ffcv",
+      "jwave",
+      "jax",
+      "ml_collections"
+    ],
+    "gpu": {
+      "name": "NVIDIA GeForce RTX 3090",
+      "memory_mib": 24576
+    }
+  },
+  "final_status": "needs_dataset_or_checkpoint_decision",
+  "follow_up_directions": [
+    "Stage the WaveBench dataset under <wavebench repo>/wavebench_dataset/ and normalize the singular/plural path mismatch explicitly.",
+    "Resolve exact FNO and U-Net checkpoint artifacts for thick_lines_gaussian_lens or choose a native baseline retraining path.",
+    "Provision a dedicated environment with ffcv, jax, jwave, and ml_collections before loader or forward-model smoke.",
+    "Run the native-baseline reproduction and forward-model validation backlog items before any shared-encoder supervised implementation."
+  ]
+}
