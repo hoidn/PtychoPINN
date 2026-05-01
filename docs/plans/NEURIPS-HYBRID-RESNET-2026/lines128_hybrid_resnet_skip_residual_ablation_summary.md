@@ -22,7 +22,7 @@ Same-contract comparison against the reused `pinn_hybrid_resnet` anchor:
 | Row | Changed factor | Amp MAE | Phase MAE | Amp SSIM | Phase SSIM | Amp FRC50 | Phase FRC50 |
 |---|---|---:|---:|---:|---:|---:|---:|
 | `pinn_hybrid_resnet` | reused baseline | 0.026939 | 0.072063 | 0.988114 | 0.994740 | 135.464222 | 106.800609 |
-| `pinn_hybrid_resnet_skip_add` | decoder skip fusion `concat -> add` | 0.026447 | 0.061022 | 0.988681 | 0.993895 | 135.389826 | 135.960640 |
+| `pinn_hybrid_resnet_skip_add` | enable decoder skip fusion with `add` style | 0.026447 | 0.061022 | 0.988681 | 0.993895 | 135.389826 | 135.960640 |
 | `pinn_hybrid_resnet_residual_fixed` | bottleneck residual scale `learned -> fixed` | 0.024611 | 0.077322 | 0.990003 | 0.994298 | 135.916886 | 106.679719 |
 | `pinn_hybrid_resnet_skip_add_residual_fixed` | skip-add plus fixed residual scale | 0.028890 | 0.063259 | 0.986797 | 0.992850 | 135.413852 | 106.884035 |
 
@@ -37,12 +37,13 @@ Bundle notes:
 
 - `metrics.json` and `model_manifest.json` intentionally report `benchmark_status: "benchmark_incomplete"` because the bundle is append-only same-contract ablation evidence and all rows remain `decision_support`, not `paper_grade`.
 - The optional `pinn_hybrid_resnet_skip_gated_add` row was intentionally deferred to keep the run budget bounded after the three required fresh rows.
+- The fresh-row training outputs are now isolated under `training_runs/<row_id>/...` and recorded in `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation/training_output_recovery.json`. Those row-local roots were recovered post-review from the original shared Lightning output root without rewriting the completed row metrics or run-level invocation history.
 
 ## Cross-References
 
 - Legacy skip/mode study: `docs/studies/index.md#hybrid-resnet-mode-skip-sweep`
 - CNS skip-add context: `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md`
-- Encoder-fusion follow-up: `docs/backlog/in_progress/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation.md`
+- Encoder-fusion follow-up: `docs/backlog/active/2026-04-21-hybrid-resnet-encoder-fusion-variants.md`
 
 ## Claim Boundary
 
@@ -52,3 +53,4 @@ Append-only same-contract CDI ablation. This does not replace the completed six-
 
 - The skip-add read is based on a two-sample test split under the frozen `lines128` contract and should not be overgeneralized beyond decision-support without a later promotion plan.
 - The fixed residual-scale knob is only validated here as a same-contract hybrid-shell ablation. Broader transfer to other datasets or model families remains untested.
+- The recovered `training_runs/<row_id>/` roots are faithful copies of the original per-version Lightning logs and checkpoints, but the original shared-root launch history remains visible in the preserved invocation artifacts and legacy shared `lightning_logs/` directory.

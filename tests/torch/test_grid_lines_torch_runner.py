@@ -1812,6 +1812,30 @@ class TestChannelGridsizeAlignment:
         assert payload.pt_model_config.C_forward == 1
         assert payload.pt_model_config.C_model == 1
 
+    def test_create_training_payload_keeps_hybrid_residual_fixed_knobs_out_of_pt_model_config(
+        self, synthetic_ptycho_npz, tmp_path
+    ):
+        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.config_factory import create_training_payload
+
+        train_npz, _ = synthetic_ptycho_npz
+        execution_config = PyTorchExecutionConfig(
+            hybrid_resnet_bottleneck_layerscale_mode="fixed",
+            hybrid_resnet_bottleneck_layerscale_value=1.0,
+        )
+
+        payload = create_training_payload(
+            train_data_file=train_npz,
+            output_dir=tmp_path,
+            overrides={"n_groups": 4, "gridsize": 1, "architecture": "hybrid_resnet"},
+            execution_config=execution_config,
+        )
+
+        assert payload.execution_config.hybrid_resnet_bottleneck_layerscale_mode == "fixed"
+        assert payload.execution_config.hybrid_resnet_bottleneck_layerscale_value == 1.0
+        assert not hasattr(payload.pt_model_config, "hybrid_resnet_bottleneck_layerscale_mode")
+        assert not hasattr(payload.pt_model_config, "hybrid_resnet_bottleneck_layerscale_value")
+
 
 class TestArchitecturePropagation:
     """Tests for architecture propagation into torch factory overrides."""

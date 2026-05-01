@@ -146,6 +146,12 @@ def test_prepare_execution_scaffold_writes_manifest_surfaces(tmp_path):
         "pinn_hybrid_resnet_residual_fixed",
         "pinn_hybrid_resnet_skip_add_residual_fixed",
     ]
+    cross_reference_manifest = json.loads(
+        Path(result["cross_reference_manifest_path"]).read_text(encoding="utf-8")
+    )
+    assert cross_reference_manifest["encoder_fusion_backlog"]["path"] == (
+        "docs/backlog/active/2026-04-21-hybrid-resnet-encoder-fusion-variants.md"
+    )
 
 
 def test_build_row_runner_config_applies_skip_and_fixed_residual_changes(tmp_path):
@@ -180,3 +186,9 @@ def test_build_row_runner_config_applies_skip_and_fixed_residual_changes(tmp_pat
     assert interaction_cfg.hybrid_skip_connections is True
     assert interaction_cfg.hybrid_skip_style == "add"
     assert interaction_cfg.hybrid_resnet_bottleneck_layerscale_mode == "fixed"
+    assert residual_cfg.output_dir == artifact_root / "training_runs" / "pinn_hybrid_resnet_residual_fixed"
+    assert interaction_cfg.output_dir == (
+        artifact_root / "training_runs" / "pinn_hybrid_resnet_skip_add_residual_fixed"
+    )
+    assert residual_cfg.artifact_root == artifact_root
+    assert interaction_cfg.artifact_root == artifact_root

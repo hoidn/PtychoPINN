@@ -58,7 +58,7 @@ SUMMARY_CROSS_REFERENCES = {
         "context": "non-CDI CNS skip-add context only",
     },
     "encoder_fusion_backlog": {
-        "path": "docs/backlog/in_progress/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation.md",
+        "path": "docs/backlog/active/2026-04-21-hybrid-resnet-encoder-fusion-variants.md",
         "context": "active separate future-work surface",
     },
 }
@@ -242,6 +242,7 @@ def prepare_execution_scaffold(
     artifact_root.mkdir(parents=True, exist_ok=True)
     (artifact_root / "runs").mkdir(parents=True, exist_ok=True)
     (artifact_root / "recons").mkdir(parents=True, exist_ok=True)
+    (artifact_root / "training_runs").mkdir(parents=True, exist_ok=True)
     (artifact_root / "verification").mkdir(parents=True, exist_ok=True)
 
     row_metadata = _build_row_metadata()
@@ -332,7 +333,8 @@ def build_row_runner_config(*, artifact_root: Path, row_id: str) -> TorchRunnerC
     cfg_kwargs: Dict[str, Any] = {
         "train_npz": Path(baseline_args["train_npz"]),
         "test_npz": Path(baseline_args["test_npz"]),
-        "output_dir": artifact_root,
+        "output_dir": artifact_root / "training_runs" / row_id,
+        "artifact_root": artifact_root,
         "architecture": str(baseline_args["architecture"]),
         "training_procedure": str(baseline_args.get("training_procedure", "pinn")),
         "model_id_override": row_id,

@@ -938,6 +938,7 @@ def _train_with_lightning(
         "data_config": pt_data_config,
         "training_config": pt_training_config,
         "inference_config": pt_inference_config,
+        "execution_config": execution_config,
     }
 
     generator = resolve_generator(config)

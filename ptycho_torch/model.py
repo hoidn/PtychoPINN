@@ -10,7 +10,7 @@ import torch.distributions as dist
 #Other math
 import numpy as np
 import math
-from typing import Optional
+from typing import Any, Dict, Optional
 
 #Helper
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
@@ -122,6 +122,7 @@ def _build_generator_module_from_config(
     data_config: DataConfig,
     *,
     generator_output: str,
+    generator_overrides: Optional[Dict[str, Any]] = None,
 ) -> Optional[nn.Module]:
     """Rebuild a registered generator core from saved config state."""
     architecture = getattr(model_config, "architecture", "cnn")
@@ -205,6 +206,7 @@ def _build_generator_module_from_config(
 
     if architecture == "hybrid_resnet":
         from ptycho_torch.generators.hybrid_resnet import HybridResnetGeneratorModule
+        generator_overrides = generator_overrides or {}
 
         return HybridResnetGeneratorModule(
             **common_kwargs,
@@ -236,15 +238,13 @@ def _build_generator_module_from_config(
                 None,
             ),
             hybrid_skip_style=getattr(model_config, "hybrid_skip_style", "add"),
-            bottleneck_layerscale_mode=getattr(
-                model_config,
+            bottleneck_layerscale_mode=generator_overrides.get(
                 "hybrid_resnet_bottleneck_layerscale_mode",
-                "learned",
+                getattr(model_config, "hybrid_resnet_bottleneck_layerscale_mode", "learned"),
             ),
-            bottleneck_layerscale_value=getattr(
-                model_config,
+            bottleneck_layerscale_value=generator_overrides.get(
                 "hybrid_resnet_bottleneck_layerscale_value",
-                None,
+                getattr(model_config, "hybrid_resnet_bottleneck_layerscale_value", None),
             ),
         )
 
@@ -310,6 +310,7 @@ def _resolve_generator_from_config(
     data_config: DataConfig,
     generator: Optional[nn.Module],
     generator_output: str,
+    generator_overrides: Optional[Dict[str, Any]] = None,
 ) -> tuple[Optional[nn.Module], str]:
     """Resolve generator module/output contract from config plus optional injection."""
     architecture = getattr(model_config, "architecture", "cnn")
@@ -322,6 +323,7 @@ def _resolve_generator_from_config(
             model_config,
             data_config,
             generator_output=resolved_output,
+            generator_overrides=generator_overrides,
         )
     return generator, resolved_output
 
@@ -1370,7 +1372,8 @@ class PtychoPINN_Lightning(L.LightningModule):
         training_config: TrainingConfig,
         inference_config: InferenceConfig,
         generator_module: Optional[nn.Module] = None,
-        generator_output: str = "amp_phase"
+        generator_output: str = "amp_phase",
+        generator_overrides: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
 
@@ -1390,6 +1393,7 @@ class PtychoPINN_Lightning(L.LightningModule):
             data_config,
             generator_module,
             generator_output,
+            generator_overrides=generator_overrides,
         )
 
         # Save hyperparameters for checkpoint serialization (Phase D1c requirement)
@@ -1402,6 +1406,7 @@ class PtychoPINN_Lightning(L.LightningModule):
             'training_config': asdict(training_config),
             'inference_config': asdict(inference_config),
             'generator_output': generator_output,
+            'generator_overrides': dict(generator_overrides or {}),
         })
 
         self.n_filters_scale = model_config.n_filters_scale

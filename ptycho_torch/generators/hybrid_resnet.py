@@ -451,6 +451,7 @@ class HybridResnetGenerator:
         model_config = pt_configs["model_config"]
         training_config = pt_configs["training_config"]
         inference_config = pt_configs["inference_config"]
+        execution_config = pt_configs.get("execution_config")
 
         C = getattr(data_config, "C", 4)
         fno_width = getattr(model_config, "fno_width", 32)
@@ -499,14 +500,14 @@ class HybridResnetGenerator:
             ),
             hybrid_skip_style=getattr(model_config, "hybrid_skip_style", "add"),
             bottleneck_layerscale_mode=getattr(
-                model_config,
+                execution_config,
                 "hybrid_resnet_bottleneck_layerscale_mode",
-                "learned",
+                getattr(model_config, "hybrid_resnet_bottleneck_layerscale_mode", "learned"),
             ),
             bottleneck_layerscale_value=getattr(
-                model_config,
+                execution_config,
                 "hybrid_resnet_bottleneck_layerscale_value",
-                None,
+                getattr(model_config, "hybrid_resnet_bottleneck_layerscale_value", None),
             ),
         )
 
@@ -517,4 +518,16 @@ class HybridResnetGenerator:
             inference_config=inference_config,
             generator_module=core,
             generator_output=output_mode,
+            generator_overrides={
+                "hybrid_resnet_bottleneck_layerscale_mode": getattr(
+                    execution_config,
+                    "hybrid_resnet_bottleneck_layerscale_mode",
+                    "learned",
+                ),
+                "hybrid_resnet_bottleneck_layerscale_value": getattr(
+                    execution_config,
+                    "hybrid_resnet_bottleneck_layerscale_value",
+                    None,
+                ),
+            },
         )

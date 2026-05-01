@@ -146,6 +146,7 @@ class TorchRunnerConfig:
     test_npz: Path
     output_dir: Path
     architecture: str  # 'ffno', 'fno', or 'hybrid'
+    artifact_root: Optional[Path] = None
     training_procedure: str = "pinn"
     model_id_override: Optional[str] = None
     model_label_override: Optional[str] = None
@@ -216,6 +217,19 @@ class TorchRunnerConfig:
     position_reassembly_batch_size: int = 64
     # None means auto default (min(patch_h, patch_w) // 4).
     position_crop_border: Optional[int] = None
+
+
+def _artifact_root_for_cfg(cfg: TorchRunnerConfig) -> Path:
+    return Path(cfg.artifact_root) if cfg.artifact_root is not None else Path(cfg.output_dir)
+
+
+def _run_dir_for_cfg(cfg: TorchRunnerConfig, model_id: Optional[str] = None) -> Path:
+    resolved_model_id = model_id or _runner_model_id(
+        cfg.architecture,
+        cfg.training_procedure,
+        cfg.model_id_override,
+    )
+    return _artifact_root_for_cfg(cfg) / "runs" / resolved_model_id
 
 
 def _build_runner_cli_argv(cfg: TorchRunnerConfig) -> List[str]:
@@ -340,11 +354,7 @@ def _write_runner_invocation_artifacts(
         write_invocation_artifacts,
     )
 
-    run_dir = cfg.output_dir / "runs" / _runner_model_id(
-        cfg.architecture,
-        cfg.training_procedure,
-        cfg.model_id_override,
-    )
+    run_dir = _run_dir_for_cfg(cfg)
     invocation_extra: Dict[str, Any] = {
         "runtime_provenance": capture_runtime_provenance(),
         "git_commit": get_git_commit(REPO_ROOT),
@@ -1281,7 +1291,7 @@ def save_run_artifacts(
     """
     model_id = _runner_model_id(cfg.architecture, cfg.training_procedure)
     model_id = _runner_model_id(cfg.architecture, cfg.training_procedure, cfg.model_id_override)
-    run_dir = cfg.output_dir / "runs" / model_id
+    run_dir = _run_dir_for_cfg(cfg, model_id)
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # Save metrics
@@ -1417,18 +1427,20 @@ def _build_paper_row_payload(
     }
     if run_dir is not None:
         run_dir = Path(run_dir)
-        payload["config"] = {"json": str((run_dir / "config.json").relative_to(cfg.output_dir))}
+        artifact_root = _artifact_root_for_cfg(cfg)
+        payload["config"] = {"json": str((run_dir / "config.json").relative_to(artifact_root))}
         payload["outputs"] = {
-            "metrics_json": str((run_dir / "metrics.json").relative_to(cfg.output_dir)),
-            "history_json": str((run_dir / "history.json").relative_to(cfg.output_dir)),
-            "recon_npz": str(Path(recon_path).relative_to(cfg.output_dir)) if recon_path is not None else "",
-            "model_artifact": str((run_dir / "model.pt").relative_to(cfg.output_dir)),
+            "metrics_json": str((run_dir / "metrics.json").relative_to(artifact_root)),
+            "history_json": str((run_dir / "history.json").relative_to(artifact_root)),
+            "recon_npz": str(Path(recon_path).relative_to(artifact_root)) if recon_path is not None else "",
+            "model_artifact": str((run_dir / "model.pt").relative_to(artifact_root)),
         }
     if invocation_json is not None:
         invocation_json = Path(invocation_json)
+        artifact_root = _artifact_root_for_cfg(cfg)
         payload["invocation"] = {
-            "json": str(invocation_json.relative_to(cfg.output_dir)),
-            "shell": str(invocation_json.with_suffix(".sh").relative_to(cfg.output_dir)),
+            "json": str(invocation_json.relative_to(artifact_root)),
+            "shell": str(invocation_json.with_suffix(".sh").relative_to(artifact_root)),
         }
         invocation_payload = json.loads(invocation_json.read_text(encoding="utf-8"))
         extra = invocation_payload.get("extra", {})
@@ -1596,7 +1608,8 @@ def run_grid_lines_torch(
         recon_target = pred_for_metrics
         if not np.iscomplexobj(recon_target):
             recon_target = recon_target.astype(np.complex64)
-        recon_path = save_recon_artifact(cfg.output_dir, model_id, recon_target)
+        artifact_root = _artifact_root_for_cfg(cfg)
+        recon_path = save_recon_artifact(artifact_root, model_id, recon_target)
         metrics = compute_metrics(
             pred_for_metrics,
             ground_truth,
@@ -1643,10 +1656,11 @@ def run_grid_lines_torch(
         # Step 6: Render post-run visuals (best-effort)
         try:
             from ptycho.workflows.grid_lines_workflow import render_grid_lines_visuals
-            _save_gt_recon_if_missing(cfg.output_dir, ground_truth)
-            order = _collect_visual_order(cfg.output_dir, cfg.architecture)
+            artifact_root = _artifact_root_for_cfg(cfg)
+            _save_gt_recon_if_missing(artifact_root, ground_truth)
+            order = _collect_visual_order(artifact_root, cfg.architecture)
             if order:
-                visuals = render_grid_lines_visuals(cfg.output_dir, order=order)
+                visuals = render_grid_lines_visuals(artifact_root, order=order)
                 result_dict["visuals"] = visuals
         except Exception as e:
             logger.warning("Failed to render visuals: %s", e)

@@ -1,0 +1,14 @@
+{
+  "legacy_skip_mode_study": {
+    "path": "docs/studies/index.md#hybrid-resnet-mode-skip-sweep",
+    "context": "legacy CDI architecture-search context only"
+  },
+  "cns_skip_add_context": {
+    "path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md",
+    "context": "non-CDI CNS skip-add context only"
+  },
+  "encoder_fusion_backlog": {
+    "path": "docs/backlog/active/2026-04-21-hybrid-resnet-encoder-fusion-variants.md",
+    "context": "active separate future-work surface"
+  }
+}

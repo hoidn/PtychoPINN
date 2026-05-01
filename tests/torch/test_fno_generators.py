@@ -768,6 +768,44 @@ class TestGeneratorRegistry:
         assert isinstance(model, PtychoPINN_Lightning)
         assert isinstance(model.model.generator, HybridUNOGenerator)
 
+    def test_hybrid_resnet_generator_builds_fixed_residual_from_execution_overrides(self):
+        """Hybrid ResNet fixed residual control should stay out of PTModelConfig but still build."""
+        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.config_params import (
+            DataConfig,
+            InferenceConfig as PTInferenceConfig,
+            ModelConfig as PTModelConfig,
+            TrainingConfig as PTTrainingConfig,
+        )
+        from ptycho_torch.generators.hybrid_resnet import HybridResnetGenerator
+        from ptycho_torch.model import PtychoPINN_Lightning
+
+        config = TrainingConfig(
+            model=ModelConfig(architecture="hybrid_resnet", N=64, gridsize=1)
+        )
+        gen = HybridResnetGenerator(config)
+        execution_config = PyTorchExecutionConfig(
+            hybrid_resnet_bottleneck_layerscale_mode="fixed",
+            hybrid_resnet_bottleneck_layerscale_value=1.0,
+        )
+        pt_model_config = PTModelConfig(architecture="hybrid_resnet")
+        pt_configs = {
+            "data_config": DataConfig(N=64, C=1),
+            "model_config": pt_model_config,
+            "training_config": PTTrainingConfig(),
+            "inference_config": PTInferenceConfig(),
+            "execution_config": execution_config,
+        }
+
+        model = gen.build_model(pt_configs)
+
+        assert isinstance(model, PtychoPINN_Lightning)
+        assert model.model.generator.resnet.layerscale.requires_grad is False
+        assert model.hparams["generator_overrides"]["hybrid_resnet_bottleneck_layerscale_mode"] == "fixed"
+        assert model.hparams["generator_overrides"]["hybrid_resnet_bottleneck_layerscale_value"] == 1.0
+        assert "hybrid_resnet_bottleneck_layerscale_mode" not in model.hparams["model_config"]
+        assert "hybrid_resnet_bottleneck_layerscale_value" not in model.hparams["model_config"]
+
     def test_resolve_stable_hybrid_generator(self):
         """Registry should resolve stable_hybrid generator."""
         config = TrainingConfig(
