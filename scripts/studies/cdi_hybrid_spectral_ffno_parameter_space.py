@@ -286,6 +286,12 @@ def _validate_reused_row(*, authoritative_root: Path, row: Dict[str, Any]) -> Di
     }
 
 
+def _fresh_row_contract_projection(row: Dict[str, Any]) -> Dict[str, Any]:
+    projection = {"architecture": row["architecture"], **EXPECTED_ROW_ARGS}
+    projection.update(row.get("overrides", {}))
+    return projection
+
+
 def build_study_matrix_payload(*, authoritative_root: Path, artifact_root: Path) -> Dict[str, Any]:
     rows: List[Dict[str, Any]] = []
     for row in [*REUSED_ROWS, *FRESH_ROWS]:
@@ -295,6 +301,8 @@ def build_study_matrix_payload(*, authoritative_root: Path, artifact_root: Path)
         row_payload["analysis_output_root"] = str(artifact_root / "runs" / model_id)
         row_payload["analysis_run_dir"] = str(artifact_root / "runs" / model_id)
         row_payload["analysis_recon_dir"] = str(artifact_root / "recons" / model_id)
+        if row["row_kind"] == "fresh_bridge":
+            row_payload["contract_projection"] = _fresh_row_contract_projection(row)
         rows.append(row_payload)
     return {
         "schema_version": "cdi_hybrid_spectral_ffno_parameter_space_v2",

@@ -421,12 +421,32 @@ def test_validate_bundle_rejects_reused_symlink_materialization(tmp_path):
 
 
 def _write_completed_fresh_row(study_root: Path, model_id: str) -> None:
+    row_architectures = {
+        "pinn_spectral_resnet_bottleneck_ds1": "spectral_resnet_bottleneck_net",
+        "pinn_spectral_resnet_bottleneck_linear_decoder": "spectral_resnet_bottleneck_linear_decoder",
+        "pinn_hybrid_resnet_ffno_bottleneck": "hybrid_resnet_ffno_bottleneck",
+    }
+    row_overrides = {
+        "pinn_spectral_resnet_bottleneck_ds1": {"hybrid_downsample_steps": 1},
+        "pinn_spectral_resnet_bottleneck_linear_decoder": {},
+        "pinn_hybrid_resnet_ffno_bottleneck": {},
+    }
     run_dir = study_root / "runs" / model_id
     recon_dir = study_root / "recons" / model_id
     run_dir.mkdir(parents=True, exist_ok=True)
     recon_dir.mkdir(parents=True, exist_ok=True)
-    _write_json(run_dir / "invocation.json", {"status": "completed", "exit_code": 0})
-    _write_json(run_dir / "config.json", {"model_id": model_id})
+    invocation = _fake_row_invocation(
+        architecture=row_architectures[model_id],
+        overrides=row_overrides[model_id],
+    )
+    _write_json(run_dir / "invocation.json", invocation)
+    _write_json(
+        run_dir / "config.json",
+        {
+            "model_id": model_id,
+            "torch_runner_config": dict(invocation["parsed_args"]),
+        },
+    )
     _write_json(run_dir / "history.json", {"train_loss": [0.1], "val_loss": [0.2]})
     _write_json(run_dir / "metrics.json", {"mae": [0.1, 0.2]})
     _write_json(run_dir / "exit_code_proof.json", {"exit_code": 0})
@@ -452,10 +472,14 @@ def _write_collated_outputs(study_root: Path, row_ids: list[str]) -> None:
         + "\n",
         encoding="utf-8",
     )
+    tex_rows = []
+    for model_id in row_ids:
+        escaped_model_id = model_id.replace("_", "\\_")
+        tex_rows.append(f"128 & {escaped_model_id} & 0.1 \\\\")
     (study_root / "metrics_table.tex").write_text(
-        "\\begin{tabular}{lll}\nModel & N & amp\\_mae \\\\\n"
-        + "\n".join(f"{model_id} & 128 & 0.1 \\\\" for model_id in row_ids)
-        + "\n\\end{tabular}\n",
+        "\\begin{tabular}{lll}\n\\toprule\nN & Model & amp\\_mae \\\\\n\\midrule\n"
+        + "\n".join(tex_rows)
+        + "\n\\bottomrule\n\\end{tabular}\n",
         encoding="utf-8",
     )
 
@@ -515,6 +539,37 @@ def test_validate_bundle_rejects_failed_fresh_row_completion_proof(tmp_path):
     assert any("exit_code=1" in issue for issue in report["fresh_row_completion_failures"][failed_model_id])
 
 
+def test_validate_bundle_rejects_fresh_row_contract_drift(tmp_path):
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        validate_cdi_parameter_space_bundle,
+    )
+
+    study_root, paths = _build_completed_study_root(tmp_path)
+    drifted_model_id = "pinn_spectral_resnet_bottleneck_ds1"
+    _write_json(
+        study_root / "runs" / drifted_model_id / "invocation.json",
+        _fake_row_invocation(
+            architecture="wrong_arch",
+            overrides={"epochs": 5, "hybrid_downsample_steps": 99},
+        ),
+    )
+
+    report = validate_cdi_parameter_space_bundle(
+        output_root=study_root,
+        study_matrix_path=paths["study_matrix_path"],
+        reference_runs_path=paths["reference_runs_path"],
+    )
+
+    assert report["ok"] is False
+    assert drifted_model_id in report["fresh_row_completion_failures"]
+    assert any("architecture" in issue for issue in report["fresh_row_completion_failures"][drifted_model_id])
+    assert any("epochs" in issue for issue in report["fresh_row_completion_failures"][drifted_model_id])
+    assert any(
+        "hybrid_downsample_steps" in issue
+        for issue in report["fresh_row_completion_failures"][drifted_model_id]
+    )
+
+
 def test_validate_bundle_rejects_missing_merged_outputs(tmp_path):
     from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
         validate_cdi_parameter_space_bundle,
@@ -542,6 +597,25 @@ def test_validate_bundle_rejects_missing_merged_outputs(tmp_path):
         "metrics_table.csv",
         "metrics_table.tex",
     ]
+
+
+def test_validate_bundle_rejects_malformed_metrics_table_tex(tmp_path):
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        validate_cdi_parameter_space_bundle,
+    )
+
+    study_root, paths = _build_completed_study_root(tmp_path)
+    (study_root / "metrics_table.tex").write_text("not a real table", encoding="utf-8")
+
+    report = validate_cdi_parameter_space_bundle(
+        output_root=study_root,
+        study_matrix_path=paths["study_matrix_path"],
+        reference_runs_path=paths["reference_runs_path"],
+    )
+
+    assert report["ok"] is False
+    assert "metrics_table.tex" in report["merged_output_failures"]
+    assert any("missing expected row IDs" in issue for issue in report["merged_output_failures"]["metrics_table.tex"])
 
 
 def test_runbook_reruns_failed_fresh_row_instead_of_reusing_stale_recon(monkeypatch, tmp_path):

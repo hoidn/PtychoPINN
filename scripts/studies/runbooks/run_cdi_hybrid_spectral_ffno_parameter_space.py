@@ -211,6 +211,23 @@ def _format_validation_failures(validation: Dict[str, Any]) -> str:
     return " | ".join(parts) if parts else json.dumps(validation, sort_keys=True)
 
 
+def _collect_contract_projection_mismatches(
+    *,
+    model_id: str,
+    scope: str,
+    actual: Dict[str, Any],
+    expected: Dict[str, Any],
+) -> List[str]:
+    problems: List[str] = []
+    for key, expected_value in expected.items():
+        actual_value = actual.get(key)
+        if actual_value != expected_value:
+            problems.append(
+                f"{scope} contract mismatch for {key}: expected {expected_value!r}, found {actual_value!r}"
+            )
+    return problems
+
+
 def _validate_fresh_row_completion(
     *,
     output_root: Path,
@@ -231,6 +248,11 @@ def _validate_fresh_row_completion(
             problems.append(f"invocation.json parse failed: {exc}")
             invocation_payload = {}
         try:
+            config_payload = _load_json(required["config_json"])
+        except json.JSONDecodeError as exc:
+            problems.append(f"config.json parse failed: {exc}")
+            config_payload = {}
+        try:
             exit_code_payload = _load_json(required["exit_code_proof_json"])
         except json.JSONDecodeError as exc:
             problems.append(f"exit_code_proof.json parse failed: {exc}")
@@ -244,6 +266,29 @@ def _validate_fresh_row_completion(
             problems.append(f"expected invocation exit_code=0, found exit_code={exit_code!r}")
         if proof_exit_code != 0:
             problems.append(f"expected exit_code_proof exit_code=0, found exit_code={proof_exit_code!r}")
+        contract_projection = row.get("contract_projection", {})
+        if contract_projection:
+            parsed_args = invocation_payload.get("parsed_args", {})
+            problems.extend(
+                _collect_contract_projection_mismatches(
+                    model_id=model_id,
+                    scope="invocation.parsed_args",
+                    actual=parsed_args,
+                    expected=contract_projection,
+                )
+            )
+            torch_runner_config = config_payload.get("torch_runner_config")
+            if isinstance(torch_runner_config, dict):
+                problems.extend(
+                    _collect_contract_projection_mismatches(
+                        model_id=model_id,
+                        scope="config.torch_runner_config",
+                        actual=torch_runner_config,
+                        expected=contract_projection,
+                    )
+                )
+            else:
+                problems.append("config.json missing torch_runner_config mapping for contract validation")
         if problems:
             failures[model_id] = problems
     return failures
@@ -252,7 +297,7 @@ def _validate_fresh_row_completion(
 def _validate_merged_outputs(
     *,
     output_root: Path,
-    expected_row_ids: Tuple[str, ...],
+    matrix_rows: List[Dict[str, Any]],
 ) -> Tuple[List[str], Dict[str, List[str]]]:
     required_outputs = {
         "metrics_by_model.json": Path(output_root) / "metrics_by_model.json",
@@ -262,6 +307,7 @@ def _validate_merged_outputs(
     }
     missing_outputs = [name for name, path in required_outputs.items() if not path.exists()]
     failures: Dict[str, List[str]] = {}
+    expected_row_ids = tuple(str(row["model_id"]) for row in matrix_rows)
     expected_ids = set(expected_row_ids)
 
     metrics_by_model_path = required_outputs["metrics_by_model.json"]
@@ -322,6 +368,55 @@ def _validate_merged_outputs(
         else:
             if not table_tex.strip():
                 failures["metrics_table.tex"] = ["table is empty"]
+            else:
+                allowed_tex_names: Dict[str, str] = {}
+                for row in matrix_rows:
+                    model_id = str(row["model_id"])
+                    label = str(row.get("display_label") or row.get("model_label") or model_id)
+                    for candidate in {model_id, model_id.replace("_", r"\_"), label, label.replace("_", r"\_")}:
+                        allowed_tex_names[candidate] = model_id
+                    if label.endswith(" + PINN"):
+                        trimmed = label[: -len(" + PINN")]
+                        allowed_tex_names[trimmed] = model_id
+                        allowed_tex_names[trimmed.replace("_", r"\_")] = model_id
+
+                body_lines = []
+                in_body = False
+                for raw_line in table_tex.splitlines():
+                    line = raw_line.strip()
+                    if line == r"\midrule":
+                        in_body = True
+                        continue
+                    if line == r"\bottomrule":
+                        break
+                    if in_body and "&" in line:
+                        body_lines.append(line)
+
+                tex_problems: List[str] = []
+                if len(body_lines) != len(expected_row_ids):
+                    tex_problems.append(
+                        f"expected {len(expected_row_ids)} table rows between \\midrule and \\bottomrule, "
+                        f"found {len(body_lines)}"
+                    )
+
+                found_ids = set()
+                for line in body_lines:
+                    columns = [column.strip() for column in line.split("&")]
+                    if len(columns) < 2:
+                        tex_problems.append(f"malformed table row: {line}")
+                        continue
+                    model_cell = columns[1]
+                    resolved_model_id = allowed_tex_names.get(model_cell)
+                    if resolved_model_id is None:
+                        tex_problems.append(f"unexpected model cell {model_cell!r}")
+                        continue
+                    found_ids.add(resolved_model_id)
+
+                missing_ids = sorted(expected_ids - found_ids)
+                if missing_ids:
+                    tex_problems.append("missing expected row IDs: " + ", ".join(missing_ids))
+                if tex_problems:
+                    failures["metrics_table.tex"] = tex_problems
 
     return missing_outputs, failures
 
@@ -380,7 +475,7 @@ def validate_cdi_parameter_space_bundle(
     )
     missing_merged_outputs, merged_output_failures = _validate_merged_outputs(
         output_root=Path(output_root),
-        expected_row_ids=tuple(str(row["model_id"]) for row in matrix_rows),
+        matrix_rows=matrix_rows,
     )
     return {
         "ok": (

@@ -33,6 +33,9 @@ does not change the current paper-grade `lines128` CDI authority.
   - `preflight/study_matrix.json`
   - `preflight/reference_runs.json`
   - `analysis/bundle_validation.json`
+    - refreshed to carry the stricter closeout fields
+      `fresh_row_completion_failures`, `missing_merged_outputs`, and
+      `merged_output_failures`
 
 ## Per-Axis Results
 
@@ -135,9 +138,11 @@ Interpretation:
 - the repaired harness now uses copy-on-write materialization for reused
   anchors, validates those copied reused rows against the frozen authoritative
   digests before any fresh launch, scrubs failed or incomplete fresh-row
-  leftovers before relaunch, and aborts if final bundle validation reports
-  reused-root drift, missing required row artifacts, failed fresh-row
-  completion proof, or missing/malformed merged comparison outputs
+  leftovers before relaunch, records an explicit fresh-row contract projection
+  in the frozen preflight matrix, and aborts if final bundle validation reports
+  reused-root drift, missing required row artifacts, fresh-row
+  invocation/config contract drift, failed fresh-row completion proof, or
+  missing/malformed merged comparison outputs
 
 ## Verification
 
@@ -152,16 +157,17 @@ pytest -v -m integration
 
 Observed results:
 
-- final review-fix harness selector: `13 passed in 3.20s`
+- final review-fix harness selector: `15 passed in 3.44s`
 - targeted closeout selector:
-  `191 passed, 49 warnings in 304.75s (0:05:04)`
+  `191 passed, 49 warnings in 304.19s (0:05:04)`
 - `compileall`: exit `0`
 - `pytest -v -m integration`:
-  `5 passed, 4 skipped, 1809 deselected, 2 warnings in 302.57s (0:05:02)`
+  `5 passed, 4 skipped, 1811 deselected, 2 warnings in 302.88s (0:05:02)`
 - final study launcher proof:
   `logs/launcher_resume.log` ends with `__EXIT__:0`
 - review-fix deterministic bundle validation:
-  `verification/artifact_validation_review_fix3.log` reports `"ok": true`
+  `analysis/bundle_validation.json` and
+  `verification/artifact_validation_review_fix4.log` report `"ok": true`
 
 Archived logs for this pass live under:
 
