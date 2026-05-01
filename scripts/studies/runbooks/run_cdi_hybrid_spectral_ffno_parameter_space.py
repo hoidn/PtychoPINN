@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import shutil
 import sys
@@ -199,9 +200,130 @@ def _format_validation_failures(validation: Dict[str, Any]) -> str:
         parts.append("missing_rows=" + ", ".join(validation["missing_rows"]))
     for model_id, problems in validation.get("reused_root_drift", {}).items():
         parts.append(f"{model_id}: " + "; ".join(problems))
+    for model_id, problems in validation.get("fresh_row_completion_failures", {}).items():
+        parts.append(f"{model_id}: " + "; ".join(problems))
     if validation.get("missing_artifacts"):
         parts.append("missing_artifacts=" + json.dumps(validation["missing_artifacts"], sort_keys=True))
+    if validation.get("missing_merged_outputs"):
+        parts.append("missing_merged_outputs=" + ", ".join(validation["missing_merged_outputs"]))
+    for output_name, problems in validation.get("merged_output_failures", {}).items():
+        parts.append(f"{output_name}: " + "; ".join(problems))
     return " | ".join(parts) if parts else json.dumps(validation, sort_keys=True)
+
+
+def _validate_fresh_row_completion(
+    *,
+    output_root: Path,
+    matrix_rows: List[Dict[str, Any]],
+) -> Dict[str, List[str]]:
+    failures: Dict[str, List[str]] = {}
+    for row in matrix_rows:
+        if row.get("row_kind") != "fresh_bridge":
+            continue
+        model_id = str(row["model_id"])
+        required = _fresh_row_required_paths(output_root, model_id)
+        if not all(path.exists() for path in required.values()):
+            continue
+        problems: List[str] = []
+        try:
+            invocation_payload = _load_json(required["invocation_json"])
+        except json.JSONDecodeError as exc:
+            problems.append(f"invocation.json parse failed: {exc}")
+            invocation_payload = {}
+        try:
+            exit_code_payload = _load_json(required["exit_code_proof_json"])
+        except json.JSONDecodeError as exc:
+            problems.append(f"exit_code_proof.json parse failed: {exc}")
+            exit_code_payload = {}
+        status = invocation_payload.get("status")
+        exit_code = invocation_payload.get("exit_code")
+        proof_exit_code = exit_code_payload.get("exit_code")
+        if status != "completed":
+            problems.append(f"expected invocation status='completed', found status={status!r}")
+        if exit_code != 0:
+            problems.append(f"expected invocation exit_code=0, found exit_code={exit_code!r}")
+        if proof_exit_code != 0:
+            problems.append(f"expected exit_code_proof exit_code=0, found exit_code={proof_exit_code!r}")
+        if problems:
+            failures[model_id] = problems
+    return failures
+
+
+def _validate_merged_outputs(
+    *,
+    output_root: Path,
+    expected_row_ids: Tuple[str, ...],
+) -> Tuple[List[str], Dict[str, List[str]]]:
+    required_outputs = {
+        "metrics_by_model.json": Path(output_root) / "metrics_by_model.json",
+        "metrics.json": Path(output_root) / "metrics.json",
+        "metrics_table.csv": Path(output_root) / "metrics_table.csv",
+        "metrics_table.tex": Path(output_root) / "metrics_table.tex",
+    }
+    missing_outputs = [name for name, path in required_outputs.items() if not path.exists()]
+    failures: Dict[str, List[str]] = {}
+    expected_ids = set(expected_row_ids)
+
+    metrics_by_model_path = required_outputs["metrics_by_model.json"]
+    if metrics_by_model_path.exists():
+        try:
+            metrics_by_model = _load_json(metrics_by_model_path)
+        except json.JSONDecodeError as exc:
+            failures["metrics_by_model.json"] = [f"parse failed: {exc}"]
+        else:
+            found_ids = set(metrics_by_model.keys())
+            missing_ids = sorted(expected_ids - found_ids)
+            if missing_ids:
+                failures["metrics_by_model.json"] = [
+                    "missing expected row IDs: " + ", ".join(missing_ids)
+                ]
+
+    metrics_path = required_outputs["metrics.json"]
+    if metrics_path.exists():
+        try:
+            merged_metrics = _load_json(metrics_path)
+        except json.JSONDecodeError as exc:
+            failures["metrics.json"] = [f"parse failed: {exc}"]
+        else:
+            found_ids = set(merged_metrics.keys())
+            missing_ids = sorted(expected_ids - found_ids)
+            if missing_ids:
+                failures["metrics.json"] = [
+                    "missing expected row IDs: " + ", ".join(missing_ids)
+                ]
+
+    table_csv_path = required_outputs["metrics_table.csv"]
+    if table_csv_path.exists():
+        try:
+            with table_csv_path.open(newline="", encoding="utf-8") as handle:
+                rows = list(csv.DictReader(handle))
+        except (csv.Error, UnicodeDecodeError) as exc:
+            failures["metrics_table.csv"] = [f"parse failed: {exc}"]
+        else:
+            if not rows:
+                failures["metrics_table.csv"] = ["table is empty"]
+            else:
+                if "model_id" not in rows[0]:
+                    failures["metrics_table.csv"] = ["missing model_id column"]
+                else:
+                    found_ids = {str(row.get("model_id", "")).strip() for row in rows}
+                    missing_ids = sorted(expected_ids - found_ids)
+                    if missing_ids:
+                        failures["metrics_table.csv"] = [
+                            "missing expected row IDs: " + ", ".join(missing_ids)
+                        ]
+
+    table_tex_path = required_outputs["metrics_table.tex"]
+    if table_tex_path.exists():
+        try:
+            table_tex = table_tex_path.read_text(encoding="utf-8")
+        except UnicodeDecodeError as exc:
+            failures["metrics_table.tex"] = [f"read failed: {exc}"]
+        else:
+            if not table_tex.strip():
+                failures["metrics_table.tex"] = ["table is empty"]
+
+    return missing_outputs, failures
 
 
 def _validate_reused_anchor_materialization(
@@ -230,7 +352,8 @@ def validate_cdi_parameter_space_bundle(
     matrix = _load_json(Path(study_matrix_path))
     missing_rows: List[str] = []
     row_reports: Dict[str, List[str]] = {}
-    for row in matrix.get("rows", []):
+    matrix_rows = list(matrix.get("rows", []))
+    for row in matrix_rows:
         model_id = str(row["model_id"])
         required = [
             Path(output_root) / "runs" / model_id / "invocation.json",
@@ -251,11 +374,28 @@ def validate_cdi_parameter_space_bundle(
             reference_runs_path=Path(reference_runs_path),
             authoritative_root=matrix.get("authoritative_anchor_root"),
         )
+    fresh_row_completion_failures = _validate_fresh_row_completion(
+        output_root=Path(output_root),
+        matrix_rows=matrix_rows,
+    )
+    missing_merged_outputs, merged_output_failures = _validate_merged_outputs(
+        output_root=Path(output_root),
+        expected_row_ids=tuple(str(row["model_id"]) for row in matrix_rows),
+    )
     return {
-        "ok": not missing_rows and not reused_root_drift,
+        "ok": (
+            not missing_rows
+            and not reused_root_drift
+            and not fresh_row_completion_failures
+            and not missing_merged_outputs
+            and not merged_output_failures
+        ),
         "missing_rows": missing_rows,
         "missing_artifacts": row_reports,
         "reused_root_drift": reused_root_drift,
+        "fresh_row_completion_failures": fresh_row_completion_failures,
+        "missing_merged_outputs": missing_merged_outputs,
+        "merged_output_failures": merged_output_failures,
     }
 
 

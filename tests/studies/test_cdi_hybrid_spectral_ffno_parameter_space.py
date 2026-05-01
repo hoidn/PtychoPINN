@@ -433,6 +433,117 @@ def _write_completed_fresh_row(study_root: Path, model_id: str) -> None:
     (recon_dir / "recon.npz").write_bytes(model_id.encode("utf-8"))
 
 
+def _write_collated_outputs(study_root: Path, row_ids: list[str]) -> None:
+    metrics_by_model = {
+        model_id: {
+            "reference_shape": [128, 128],
+            "metrics": {"amp_mae": 0.1, "phase_mae": 0.2},
+        }
+        for model_id in row_ids
+    }
+    _write_json(study_root / "metrics_by_model.json", metrics_by_model)
+    _write_json(
+        study_root / "metrics.json",
+        {model_id: payload["metrics"] for model_id, payload in metrics_by_model.items()},
+    )
+    (study_root / "metrics_table.csv").write_text(
+        "model_id,model_label,N,amp_mae,phase_mae\n"
+        + "\n".join(f"{model_id},{model_id},128,0.1,0.2" for model_id in row_ids)
+        + "\n",
+        encoding="utf-8",
+    )
+    (study_root / "metrics_table.tex").write_text(
+        "\\begin{tabular}{lll}\nModel & N & amp\\_mae \\\\\n"
+        + "\n".join(f"{model_id} & 128 & 0.1 \\\\" for model_id in row_ids)
+        + "\n\\end{tabular}\n",
+        encoding="utf-8",
+    )
+
+
+def _build_completed_study_root(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
+    from scripts.studies.cdi_hybrid_spectral_ffno_parameter_space import build_preflight_artifacts
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        _all_row_ids,
+        _materialize_reused_rows,
+    )
+
+    authoritative_root = _build_fake_authoritative_root(tmp_path)
+    paths = build_preflight_artifacts(
+        authoritative_root=authoritative_root,
+        artifact_root=tmp_path / "study",
+        note_path=tmp_path / "cdi_preflight.md",
+        matrix_path=tmp_path / "preflight" / "study_matrix.json",
+        reference_runs_path=tmp_path / "preflight" / "reference_runs.json",
+    )
+    study_root = tmp_path / "study"
+    _materialize_reused_rows(authoritative_root=authoritative_root, output_root=study_root)
+    for model_id in [
+        "pinn_spectral_resnet_bottleneck_ds1",
+        "pinn_spectral_resnet_bottleneck_linear_decoder",
+        "pinn_hybrid_resnet_ffno_bottleneck",
+    ]:
+        _write_completed_fresh_row(study_root, model_id)
+    _write_collated_outputs(study_root, list(_all_row_ids()))
+    return study_root, paths
+
+
+def test_validate_bundle_rejects_failed_fresh_row_completion_proof(tmp_path):
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        validate_cdi_parameter_space_bundle,
+    )
+
+    study_root, paths = _build_completed_study_root(tmp_path)
+    failed_model_id = "pinn_spectral_resnet_bottleneck_ds1"
+    _write_json(
+        study_root / "runs" / failed_model_id / "invocation.json",
+        {"status": "failed", "exit_code": 1},
+    )
+    _write_json(
+        study_root / "runs" / failed_model_id / "exit_code_proof.json",
+        {"exit_code": 1},
+    )
+
+    report = validate_cdi_parameter_space_bundle(
+        output_root=study_root,
+        study_matrix_path=paths["study_matrix_path"],
+        reference_runs_path=paths["reference_runs_path"],
+    )
+
+    assert report["ok"] is False
+    assert failed_model_id in report["fresh_row_completion_failures"]
+    assert any("status='failed'" in issue for issue in report["fresh_row_completion_failures"][failed_model_id])
+    assert any("exit_code=1" in issue for issue in report["fresh_row_completion_failures"][failed_model_id])
+
+
+def test_validate_bundle_rejects_missing_merged_outputs(tmp_path):
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        validate_cdi_parameter_space_bundle,
+    )
+
+    study_root, paths = _build_completed_study_root(tmp_path)
+    for path in [
+        study_root / "metrics_by_model.json",
+        study_root / "metrics.json",
+        study_root / "metrics_table.csv",
+        study_root / "metrics_table.tex",
+    ]:
+        path.unlink()
+
+    report = validate_cdi_parameter_space_bundle(
+        output_root=study_root,
+        study_matrix_path=paths["study_matrix_path"],
+        reference_runs_path=paths["reference_runs_path"],
+    )
+
+    assert report["ok"] is False
+    assert sorted(report["missing_merged_outputs"]) == [
+        "metrics.json",
+        "metrics_by_model.json",
+        "metrics_table.csv",
+        "metrics_table.tex",
+    ]
+
+
 def test_runbook_reruns_failed_fresh_row_instead_of_reusing_stale_recon(monkeypatch, tmp_path):
     from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
         run_cdi_parameter_space_study,
@@ -458,6 +569,8 @@ def test_runbook_reruns_failed_fresh_row_instead_of_reusing_stale_recon(monkeypa
             assert not (output_root / "runs" / stale_model_id / "invocation.json").exists()
         if len(models) == 1:
             _write_completed_fresh_row(output_root, models[0])
+        else:
+            _write_collated_outputs(output_root, list(models))
         return {"selected_models": list(models)}
 
     monkeypatch.setattr(

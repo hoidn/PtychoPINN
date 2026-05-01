@@ -136,7 +136,8 @@ Interpretation:
   anchors, validates those copied reused rows against the frozen authoritative
   digests before any fresh launch, scrubs failed or incomplete fresh-row
   leftovers before relaunch, and aborts if final bundle validation reports
-  reused-root drift or missing required artifacts
+  reused-root drift, missing required row artifacts, failed fresh-row
+  completion proof, or missing/malformed merged comparison outputs
 
 ## Verification
 
@@ -151,16 +152,16 @@ pytest -v -m integration
 
 Observed results:
 
-- review-fix harness selector: `11 passed in 3.16s`
+- final review-fix harness selector: `13 passed in 3.20s`
 - targeted closeout selector:
-  `191 passed, 49 warnings in 304.13s (0:05:04)`
+  `191 passed, 49 warnings in 304.75s (0:05:04)`
 - `compileall`: exit `0`
 - `pytest -v -m integration`:
-  `5 passed, 4 skipped, 1807 deselected, 2 warnings in 302.21s (0:05:02)`
+  `5 passed, 4 skipped, 1809 deselected, 2 warnings in 302.57s (0:05:02)`
 - final study launcher proof:
   `logs/launcher_resume.log` ends with `__EXIT__:0`
 - review-fix deterministic bundle validation:
-  `verification/artifact_validation_review_fix2.log` reports `"ok": true`
+  `verification/artifact_validation_review_fix3.log` reports `"ok": true`
 
 Archived logs for this pass live under:
 

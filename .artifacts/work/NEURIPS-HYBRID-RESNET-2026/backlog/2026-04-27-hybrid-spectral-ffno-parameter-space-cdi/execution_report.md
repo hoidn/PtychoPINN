@@ -2,22 +2,26 @@
 
 - added review-fix regression coverage for the CDI bridge-study harness:
   failed fresh-row leftovers must be scrubbed and relaunched, reused-anchor
-  drift must abort before fresh launches, and final bundle validation must
-  raise instead of returning a false-but-nonfatal report
+  drift must abort before fresh launches, final bundle validation must enforce
+  fresh-row completion proof plus merged-output integrity, and failed
+  validation must raise instead of returning a false-but-nonfatal report
 - repaired `scripts/studies/runbooks/run_cdi_hybrid_spectral_ffno_parameter_space.py`
   so fresh rows only reuse outputs when they have full completion proof,
   stale failed/incomplete row outputs are deleted before relaunch, copied
   reused anchors are revalidated fail-closed before any fresh launch, and final
-  bundle validation aborts on drift or missing required artifacts
+  bundle validation aborts on drift, missing required artifacts, failed
+  fresh-row completion proof, or missing/malformed merged outputs
 - updated the durable CDI study summary to complete the Task 5 reporting
   contract for the reused `pinn_ffno` endpoint and to describe the repaired
   fail-closed/relaunch behavior without overclaiming
 
 ## Completed Current-Scope Work
 
-- review finding 1 resolved: a leftover fresh-row `recon.npz` no longer causes
-  silent reuse after a failed or incomplete run; the harness now scrubs the row
-  root and relaunches unless the row has full completion proof
+- review finding 1 resolved: the deterministic closeout validator now fails
+  closed unless each fresh row has metrics/history/recon artifacts, a completed
+  zero-exit invocation record, matching zero-exit proof, and the collated
+  `metrics_by_model.json` / `metrics.json` / table outputs parse with the
+  expected fixed row roster
 - review finding 2 resolved: reused-anchor drift now aborts before fresh
   launches and after final collation, rather than being written to JSON as a
   non-fatal warning
@@ -45,21 +49,21 @@
 
 - focused harness selector:
   `pytest -q tests/studies/test_cdi_hybrid_spectral_ffno_parameter_space.py`
-  -> `11 passed in 3.16s`
+  -> `13 passed in 3.20s`
 - required backlog gate:
   `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
-  -> `191 passed, 49 warnings in 304.13s (0:05:04)`
+  -> `191 passed, 49 warnings in 304.75s (0:05:04)`
 - compile check:
   `python -m compileall -q ptycho_torch scripts/studies` -> exit `0`
 - integration marker:
   `pytest -v -m integration`
-  -> `5 passed, 4 skipped, 1807 deselected, 2 warnings in 302.21s (0:05:02)`
+  -> `5 passed, 4 skipped, 1809 deselected, 2 warnings in 302.57s (0:05:02)`
 - repaired bundle validation on the archived study root:
-  `verification/artifact_validation_review_fix2.log`
-  -> `"ok": true`, `"reused_root_drift": {}`
+  `verification/artifact_validation_review_fix3.log`
+  -> `"ok": true`, `"reused_root_drift": {}`, `"fresh_row_completion_failures": {}`, `"merged_output_failures": {}`
 - archived logs:
-  - `verification/pytest_study_harness_review_fix2.log`
-  - `verification/pytest_backlog_checks_review_fix2.log`
-  - `verification/compileall_review_fix2.log`
-  - `verification/pytest_integration_review_fix2.log`
-  - `verification/artifact_validation_review_fix2.log`
+  - `verification/pytest_study_harness_review_fix3.log`
+  - `verification/pytest_backlog_checks_review_fix3.log`
+  - `verification/compileall_review_fix3.log`
+  - `verification/pytest_integration_review_fix3.log`
+  - `verification/artifact_validation_review_fix3.log`
