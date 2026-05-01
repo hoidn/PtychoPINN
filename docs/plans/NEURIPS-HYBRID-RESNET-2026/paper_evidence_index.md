@@ -38,6 +38,18 @@ Last synchronized from:
 | `2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation` | Phase 3 / CDI Lines128 | `decision_support` | same-contract `lines128`, `seed=3`, `40` epochs | [Lines128 Hybrid skip/residual ablation summary](lines128_hybrid_resnet_skip_residual_ablation_summary.md) | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation/` | Three fresh same-contract Hybrid ablations. Skip-add is the clearest phase-side trade, fixed residual scale is the clearest amplitude-side trade, and the combined row shows no constructive interaction. No row displaces the paper-grade `pinn_hybrid_resnet` anchor. |
 | `2026-04-29-paper-evidence-package-audit` | Phase 2 + Phase 3 / cross-pillar paper package | `feasibility` | repo-local current-state audit over the locked CDI and CNS authorities | [Paper evidence package audit summary](paper_evidence_package_audit_summary.md) | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/` | Records what the manuscript can claim now, preserves CDI `paper_grade` versus CNS `capped_decision_support`, names draftable sections, and keeps blocked claims explicit without reopening the underlying row contracts. |
 
+## Manuscript Incorporation Map
+
+Current manuscript draft:
+`docs/plans/NEURIPS-HYBRID-RESNET-2026/hybrid_resnet_neurips_first_draft.tex`
+
+| Evidence source | Manuscript target |
+|---|---|
+| Complete Lines128 CDI bundle | `tab:cdi_lines128_complete`, `fig:cdi_main_qualitative`, `fig:cdi_frc_curves` |
+| Supervised FFNO extension | `tab:cdi_ffno_supervised_control` |
+| CNS paper table/figure bundle | `tab:cns_bundle`, `fig:cns_sample_predictions` |
+| Hybrid skip/residual ablation | `tab:cdi_skip_residual_ablation` |
+
 ## CNS Ablation And Baseline Evidence
 
 | Backlog item | Phase / benchmark | Tier | Protocol / cap | Summary authority | Artifact root | Outcome / downstream use |

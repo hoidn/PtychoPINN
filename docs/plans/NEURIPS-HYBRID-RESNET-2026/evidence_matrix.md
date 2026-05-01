@@ -24,6 +24,18 @@ Machine-readable companions:
 | Cross-pillar claim audit | `paper_evidence_package_audit_summary.md` | preserves CDI/CNS claim asymmetry |
 | Completed backlog outcome map | `paper_evidence_index.md` | first-stop durable outcome index |
 
+## Manuscript Incorporation Map
+
+Current manuscript draft:
+`docs/plans/NEURIPS-HYBRID-RESNET-2026/hybrid_resnet_neurips_first_draft.tex`
+
+| Evidence source | Manuscript target |
+|---|---|
+| Complete Lines128 CDI bundle | `tab:cdi_lines128_complete`, `fig:cdi_main_qualitative`, `fig:cdi_frc_curves` |
+| Supervised FFNO extension | `tab:cdi_ffno_supervised_control` |
+| CNS paper table/figure bundle | `tab:cns_bundle`, `fig:cns_sample_predictions` |
+| Hybrid skip/residual ablation | `tab:cdi_skip_residual_ablation` |
+
 ## CDI Lines128 Model Matrix
 
 Fixed contract: synthetic grid-lines `N=128`, `gridsize=1`, `seed=3`,

@@ -20,9 +20,10 @@ Coherent diffractive imaging and ptychography recover structure from
 intensity-only diffraction measurements, coupling global wave physics with sharp
 local object features. We introduce SRU-Net, a spectral-residual U-Net that
 combines Fourier-style global mixing with convolutional local recovery inside a
-physics-informed reconstruction loop. On synthetic line-pattern CDI, SRU-Net +
-PINN improves amplitude and phase reconstruction over FFNO + PINN on matched
-metrics. On PDEBench CNS, a secondary supervised benchmark, FFNO is the
+physics-informed reconstruction loop. On synthetic line-pattern CDI, hybrid
+spectral-convolutional rows improve reconstruction quality over CNN, FNO, and
+FFNO alternatives under a matched protocol. On PDEBench CNS, a secondary
+supervised benchmark run with a reduced trajectory split, FFNO is the
 lowest-error row while SRU-Net$^*$ remains ahead of FNO and U-Net baselines,
 supporting the broader global-local architecture thesis.
 \end{abstract}
@@ -86,15 +87,13 @@ The contributions are:
   reconstruction and secondary PDEBench CNS prediction.
 \end{enumerate}
 
-% figure_metadata: task=CDI_lines128; visible_rows=ground_truth,FNO+PINN,FFNO+PINN,SRU-Net+PINN; fields=amplitude,phase; source=docs/plans/NEURIPS-HYBRID-RESNET-2026/figures/cdi_synthetic_line_pattern_srunet_fno_ffno.png
-% figure_gap: CDI main qualitative lacks CNN + PINN and error-map columns; add when the full Lines128 visual bundle exists.
+% figure_metadata: task=CDI_lines128; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux/visuals/compare_amp_phase.png; paper_copy=figures/cdi_lines128_complete_compare_amp_phase.png; rows=baseline,pinn,pinn_hybrid_resnet,pinn_fno_vanilla,pinn_spectral_resnet_bottleneck_net,pinn_ffno
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{figures/cdi_synthetic_line_pattern_srunet_fno_ffno.png}
-\caption{\textbf{Physics-informed CDI reconstruction on synthetic line
-patterns.} The shared test sample compares FNO + PINN, FFNO + PINN, and
-SRU-Net + PINN against the ground truth. SRU-Net preserves line amplitude and
-phase structure more accurately in this available comparison.}
+\includegraphics[width=\linewidth]{figures/cdi_lines128_complete_compare_amp_phase.png}
+\caption{\textbf{Matched Lines128 CDI reconstruction comparison.} The
+comparison covers CNN, FNO, FFNO, SRU-Net, and spectral SRU-Net rows under the
+same $N=128$ line-pattern protocol.}
 \label{fig:cdi_main_qualitative}
 \end{figure}
 
@@ -444,45 +443,21 @@ patterns. The CNS results evaluate cross-domain next-state prediction on
 compressible flow through a secondary benchmark table and targeted architecture
 ablations.
 
-\subsection{CDI synthetic line-pattern benchmark: SRU-Net + PINN versus FFNO + PINN}
+\subsection{CDI synthetic line-pattern benchmark}
 
-% table_metadata: task=CDI_lines128; model_rows=SRU-Net+PINN,FFNO+PINN; train_objects=2; test_objects=2; train_patches=8978; test_patches=1458; photons=1e9; epochs=40; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet
+The Lines128 benchmark compares local, spectral, and hybrid
+spectral-convolutional generators under the same synthetic line-pattern
+protocol. Figure~\ref{fig:cdi_main_qualitative} shows the matched qualitative
+comparison. Table~\ref{tab:cdi_lines128_complete} reports the corresponding
+amplitude and phase metrics.
+
+% table_metadata: task=CDI_lines128; authority=complete_lines128_cdi_benchmark; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux/metrics_table.tex; contract=N128_gridsize1_seed3_train2_test2_epochs40_custom_Run1084_probe_pad_extrapolate
 \begin{table}[t]
 \centering
 \small
-\caption{\textbf{Synthetic line-pattern CDI reconstruction.} Both models are
-trained through the ptychographic forward model. Lower MAE and higher SSIM are
-better.}
-\label{tab:cdi_headline}
-\begin{tabular}{llrrrr}
-\toprule
-Model & Training & Amp MAE $\downarrow$ & Phase MAE $\downarrow$ &
-Amp SSIM $\uparrow$ & Phase SSIM $\uparrow$ \\
-\midrule
-FFNO & PINN & 0.0628 & 0.0828 & 0.9348 & 0.9816 \\
-SRU-Net & PINN & \textbf{0.0269} & \textbf{0.0721} &
-\textbf{0.9881} & \textbf{0.9947} \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-On this synthetic line-pattern benchmark, SRU-Net + PINN reconstructs amplitude
-and phase more accurately than FFNO + PINN on the reported metrics; the
-qualitative comparison is shown in Figure~\ref{fig:cdi_main_qualitative}.
-Table~\ref{tab:cdi_context} extends the matched $N=128$ evidence with the
-complete paper-benchmark rows and a same-contract supervised FFNO row generated
-after the initial table assembly. This separates architecture choice from the
-training objective without mixing in older legacy line-pattern results.
-
-% table_metadata: task=CDI_lines128; provenance=matched_complete_bundle_plus_same_contract_extension; complete_bundle_rows=baseline,pinn,pinn_hybrid_resnet,pinn_fno_vanilla,pinn_spectral_resnet_bottleneck_net,pinn_ffno; extension_rows=supervised_ffno; contract=N128_gridsize1_seed3_train2_test2_epochs40_custom_Run1084_probe_pad_extrapolate; sources=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux,.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z
-\begin{table}[t]
-\centering
-\small
-\caption{\textbf{CDI line-pattern benchmark rows under the locked $N=128$
-contract.} Six rows come from the complete paper-benchmark bundle; the
-supervised FFNO row is appended from a later same-contract extension. Lower MAE
-and higher SSIM are better.}
-\label{tab:cdi_context}
+\caption{\textbf{Matched Lines128 CDI benchmark.} All rows use the same
+$N=128$ synthetic line-pattern protocol. Lower MAE and higher SSIM are better.}
+\label{tab:cdi_lines128_complete}
 \begin{tabular}{llrrrr}
 \toprule
 Model & Training & Amp MAE $\downarrow$ & Phase MAE $\downarrow$ &
@@ -491,14 +466,54 @@ Amp SSIM $\uparrow$ & Phase SSIM $\uparrow$ \\
 CNN & supervised & 0.4027 & 0.7862 & 0.2772 & 0.4964 \\
 CNN & PINN & 0.1232 & 0.7863 & 0.7326 & 0.2638 \\
 FNO & PINN & 0.1248 & 0.1435 & 0.7409 & 0.9335 \\
-FFNO & supervised & 0.3864 & \textbf{0.0466} & 0.2484 & 0.9372 \\
 FFNO & PINN & 0.0628 & 0.0828 & 0.9348 & 0.9816 \\
-SRU-Net & PINN & 0.0269 & 0.0721 & 0.9881 & \textbf{0.9947} \\
+SRU-Net & PINN & 0.0269 & \textbf{0.0721} & 0.9881 & \textbf{0.9947} \\
 Spectral SRU-Net & PINN & \textbf{0.0249} & 0.0929 &
 \textbf{0.9899} & 0.9722 \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+The Lines128 benchmark shows a clear separation between purely local, purely
+spectral, and hybrid spectral-convolutional rows. SRU-Net gives the best
+phase-side reconstruction among the PINN rows, while the spectral SRU-Net
+variant gives the best amplitude-side MAE and SSIM. FFNO improves strongly over
+the CNN and FNO PINN rows but does not match the hybrid rows on this CDI task.
+
+% figure_metadata: task=CDI_lines128; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux/visuals/frc_curves.png; paper_copy=figures/cdi_lines128_complete_frc_curves.png
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/cdi_lines128_complete_frc_curves.png}
+\caption{\textbf{Fourier ring correlation for the matched Lines128 CDI rows.}
+FRC curves provide a spatial-frequency view of the same reconstruction
+comparison used for Table~\ref{tab:cdi_lines128_complete}.}
+\label{fig:cdi_frc_curves}
+\end{figure}
+
+\subsection{FFNO training-procedure control}
+
+% table_metadata: task=CDI_lines128; authority=lines128_supervised_ffno_extension; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z; comparison_outcome=non_identical_same_contract_comparison
+\begin{table}[t]
+\centering
+\small
+\caption{\textbf{FFNO training-procedure control on Lines128 CDI.} The
+supervised FFNO row uses the same data protocol as the FFNO PINN row. Lower MAE
+and higher SSIM are better.}
+\label{tab:cdi_ffno_supervised_control}
+\begin{tabular}{lrrrr}
+\toprule
+Training & Amp MAE $\downarrow$ & Phase MAE $\downarrow$ &
+Amp SSIM $\uparrow$ & Phase SSIM $\uparrow$ \\
+\midrule
+supervised & 0.3864 & \textbf{0.0466} & 0.2484 & 0.9372 \\
+PINN & \textbf{0.0628} & 0.0828 & \textbf{0.9348} & \textbf{0.9816} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The supervised FFNO control improves phase MAE but collapses amplitude quality
+relative to FFNO + PINN, indicating that the physics-informed objective is not
+just a weaker substitute for direct labels in this low-sample CDI setting.
 
 \subsection{PDEBench CNS secondary benchmark}
 
@@ -516,8 +531,9 @@ long-range mixing in compressible-flow prediction.
 \begin{table}[t]
 \centering
 \small
-\caption{\textbf{PDEBench CNS secondary benchmark.} All rows use the same
-supervised next-state prediction task. Lower values are better.}
+\caption{\textbf{PDEBench CNS secondary benchmark.} All rows use 512 training
+trajectories, 64 validation trajectories, 64 test trajectories, two-frame
+history, and 40 epochs. Lower values are better.}
 \label{tab:cns_bundle}
 \begin{tabular}{lrrrr}
 \toprule
@@ -539,17 +555,17 @@ FFNO & \textbf{0.028} & \textbf{0.028} & \textbf{0.121} & 1.07M \\
 \centering
 \includegraphics[width=\linewidth]{figures/pdebench_cns_sample000_predictions.png}
 \caption{\textbf{PDEBench CNS fixed-sample predictions and errors.} The shared
-test frame shows density and pressure fields for the same supervised
-next-state-prediction task. Error panels expose the local high-gradient
+test frame uses the same reduced-data protocol and fixed sample as
+Table~\ref{tab:cns_bundle}. Error panels expose the local high-gradient
 structure that is suppressed most strongly by the FNO and U-Net rows in this
 example.}
 \label{fig:cns_sample_predictions}
 \end{figure}
 
 The CNS table uses a reduced trajectory split and should be read as secondary
-architecture evidence, not as a full-training PDEBench leaderboard. The asterisk
-marks the CNS spectral-bottleneck row currently reported under the SRU-Net name;
-the CDI and CNS naming will be reconciled in a later draft.
+architecture evidence, not as a complete-split PDEBench comparison. The asterisk
+marks the CNS spectral-bottleneck row reported under the SRU-Net name; the CDI
+and CNS naming will be reconciled before submission.
 
 \subsection{CNS component ablation}
 
@@ -760,8 +776,8 @@ authored FFNO remains the lower-error reference under the same CNS comparison.
 Within the no-external-data CNS experiments reported here, authored FFNO is the
 lowest-error observed non-pretrained neural-operator baseline. This is consistent
 with the original F-FNO motivation of improving FNO accuracy and scaling on PDE
-benchmarks, including Navier-Stokes-style settings, but we do not claim global
-state of the art without same-protocol comparisons to recent non-pretrained
+benchmarks, including Navier-Stokes-style settings, but we do not claim a broad
+performance ranking without same-protocol comparisons to recent non-pretrained
 operator variants~\cite{ffno,pdebench}.
 
 \fi
@@ -785,36 +801,56 @@ model capacity to refine features at reduced spatial resolution. This differs
 from both pure CNN reconstruction and pure spectral operator modeling.
 
 The evidence also argues for a narrow interpretation. The primary CDI result
-compares SRU-Net + PINN with FFNO + PINN; broader CDI comparisons against CNN +
-PINN, FNO + PINN, and supervised variants are needed to isolate architecture
-effects from the physics-informed objective. The CNS results use a reduced
-trajectory split and should be treated as secondary cross-domain architecture
-evidence. They test architectural transfer under different physics, not whether
-the CDI forward model applies to fluids. The SRU-Net$^*$ notation marks a
-temporary naming mismatch between the CDI and CNS implementations that should be
-resolved before submission.
+compares local CNN, FNO, FFNO, SRU-Net, and spectral SRU-Net rows under one
+synthetic line-pattern protocol, while the supervised FFNO control isolates one
+training-procedure contrast. The CNS results use a reduced trajectory split and
+should be treated as secondary cross-domain architecture evidence. They test
+architectural transfer under different physics, not whether the CDI forward
+model applies to fluids. The SRU-Net$^*$ notation marks a naming mismatch
+between the CDI and CNS implementations that should be resolved before
+submission.
 
 \section{Additional Experiments}
 
-The synthetic line-pattern CDI comparison should include reconstruction metrics for
-SRU-Net + PINN, CNN + PINN, FNO + PINN, a deeper spectral-residual + PINN variant,
-FFNO + PINN, and any classical baseline that can be compared without changing
-the task.
+\subsection{Hybrid skip and residual-scale controls}
 
-A supervised comparison should evaluate the same architecture families with
-direct real-space supervision:
-SRU-Net + supervised, CNN + supervised, FNO + supervised, and FFNO + supervised.
-These rows should be reported separately from the primary physics-informed table
-so that architecture effects are not conflated with the PINN forward-model
-training objective.
+% table_metadata: task=CDI_lines128; ablation=hybrid_skip_residual; authority=decision_support; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation
+\begin{table}[t]
+\centering
+\small
+\caption{\textbf{Hybrid skip/residual controls on Lines128 CDI.} Rows isolate
+skip-fusion and residual-scale choices under the same Lines128 protocol. Lower
+MAE and higher FRC50 are better.}
+\label{tab:cdi_skip_residual_ablation}
+\begin{tabular}{lrrrr}
+\toprule
+Variant & Amp MAE $\downarrow$ & Phase MAE $\downarrow$ &
+Amp FRC50 $\uparrow$ & Phase FRC50 $\uparrow$ \\
+\midrule
+SRU-Net anchor & 0.0269 & 0.0721 & 135.46 & 106.80 \\
+skip-add & 0.0264 & \textbf{0.0610} & 135.39 & \textbf{135.96} \\
+fixed residual scale & \textbf{0.0246} & 0.0773 & \textbf{135.92} & 106.68 \\
+skip-add + fixed residual & 0.0289 & 0.0633 & 135.41 & 106.88 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-CDI reconstruction figures should show shared test samples, ground-truth
-amplitude and phase, reconstructions, absolute errors, and FRC curves.
+Skip-add is the clearest phase-oriented variant, while fixed residual scaling is
+the clearest amplitude-oriented variant. Combining the two did not produce a
+constructive interaction in this small same-protocol ablation.
 
-Additional CNS figures should include matched error maps for the same samples.
-Broader CNS extensions should use the larger trajectory split and may add GNOT
-or other neural-operator baselines if they can be evaluated under the same data
-and metric definitions.
+\subsection{Extension scope}
+
+The Lines128 CDI comparison spans local CNN, FNO, FFNO, SRU-Net, and spectral
+SRU-Net generators under a shared synthetic line-pattern protocol. Additional
+architecture families should be added only when they can use the same reporting
+contract and answer a distinct comparison question.
+
+U-NO and WaveBench are outside the reported quantitative comparisons. They
+require completed benchmark rows under the same reporting standards before they
+can support numerical comparisons. Broader CNS extensions should use the larger
+trajectory split and may add GNOT or other neural-operator baselines if they
+can be evaluated under the same data and metric definitions.
 
 \begin{thebibliography}{9}
 
