@@ -11,8 +11,11 @@
 - Recorded the finished spectral `history_len=4` and `history_len=5`
   follow-up in the durable docs/index surfaces and evidence indexes without
   reopening the locked `history_len=2` paper lane.
+- Added the missing `paper_evidence_index.md` decision-support row for this
+  completed CNS ablation and aligned the durable summary with that
+  manuscript-navigation update.
 
-## Completed Plan Tasks
+## Completed Current-Scope Work
 
 - Plan Task 1: extended reporting/test support for the spectral-only
   multi-reference compare sidecars and verified the new path with targeted
@@ -23,8 +26,12 @@
 - Plan Task 3: updated the discoverability and evidence surfaces:
   `pdebench_2d_cfd_cns_summary.md`, `docs/studies/index.md`, `docs/index.md`,
   `evidence_matrix.md`, `ablation_index.json`, and `model_variant_index.json`.
+- Plan Task 5 discoverability closeout: updated
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md` because this
+  finished longer-history follow-up belongs in the same completed CNS
+  decision-support outcome map as the earlier history-length ablations.
 
-## Remaining Required Plan Tasks
+## Follow-Up Work
 
 - None under the approved scope for this backlog item.
 
@@ -37,7 +44,8 @@
 - Repo-local consistency check passed for:
   summary existence, `history5_gate_decision.json`, all four compare JSON/CSV
   sidecar pairs, `evidence_matrix.md`, `ablation_index.json`,
-  `model_variant_index.json`, `docs/index.md`, and `docs/studies/index.md`.
+  `model_variant_index.json`, `paper_evidence_index.md`, `docs/index.md`, and
+  `docs/studies/index.md`.
 - Comparison standard recorded for this evidence pass:
   fixed capped CNS contract with identical emitted windows
   `4096 / 512 / 512`; only `history_len` and derived input/sample contracts

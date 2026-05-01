@@ -234,7 +234,7 @@ Artifact validation performed in this pass:
 - all four compare sidecars confirmed present and labeled with
   `claim_scope=adjacent_capped_context_only`
 
-No `paper_evidence_index.md` update was needed because this item does not add a
-new paper-facing bundle or change the current manuscript-navigation authority;
-it only extends adjacent capped CNS context under the already locked paper
-contract.
+`paper_evidence_index.md` now includes this backlog item as a
+`decision_support` CNS ablation row so manuscript-facing navigation can find
+the completed longer-history follow-up without implying any change to the
+locked `history_len=2` paper contract.
