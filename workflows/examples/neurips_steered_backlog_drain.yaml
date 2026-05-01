@@ -52,6 +52,21 @@ inputs:
     type: relpath
     under: artifacts/work
     default: artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog-drain-summary.json
+  implementation_execute_provider:
+    kind: scalar
+    type: enum
+    allowed: ["codex", "claude_opus"]
+    default: "claude_opus"
+  implementation_review_provider:
+    kind: scalar
+    type: enum
+    allowed: ["codex", "claude_opus"]
+    default: "codex"
+  implementation_fix_provider:
+    kind: scalar
+    type: enum
+    allowed: ["codex", "claude_opus"]
+    default: "codex"
 
 outputs:
   drain_status:
@@ -568,6 +583,12 @@ steps:
                         ref: root.steps.InitializeBacklogDrain.artifacts.progress_ledger_path
                       run_state_path:
                         ref: root.steps.InitializeBacklogDrain.artifacts.run_state_path
+                      implementation_execute_provider:
+                        ref: inputs.implementation_execute_provider
+                      implementation_review_provider:
+                        ref: inputs.implementation_review_provider
+                      implementation_fix_provider:
+                        ref: inputs.implementation_fix_provider
 
               DONE:
                 id: done_path

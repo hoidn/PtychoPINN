@@ -41,6 +41,21 @@ inputs:
     type: relpath
     under: state
     must_exist_target: true
+  implementation_execute_provider:
+    kind: scalar
+    type: enum
+    allowed: ["codex", "claude_opus"]
+    default: "codex"
+  implementation_review_provider:
+    kind: scalar
+    type: enum
+    allowed: ["codex", "claude_opus"]
+    default: "codex"
+  implementation_fix_provider:
+    kind: scalar
+    type: enum
+    allowed: ["codex", "claude_opus"]
+    default: "codex"
 
 outputs:
   drain_status:
@@ -477,6 +492,12 @@ steps:
         ref: root.steps.MaterializeSelectedItemInputs.artifacts.checks_report_target_path
       implementation_review_report_target_path:
         ref: root.steps.MaterializeSelectedItemInputs.artifacts.implementation_review_report_target_path
+      implementation_execute_provider:
+        ref: inputs.implementation_execute_provider
+      implementation_review_provider:
+        ref: inputs.implementation_review_provider
+      implementation_fix_provider:
+        ref: inputs.implementation_fix_provider
 
   - name: ReconcileSelectedItemQueueAfterImplementation
     id: reconcile_selected_item_queue_after_implementation

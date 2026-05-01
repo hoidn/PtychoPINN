@@ -30,6 +30,21 @@ inputs:
   implementation_review_report_target_path:
     type: relpath
     under: artifacts/review
+  implementation_execute_provider:
+    kind: scalar
+    type: enum
+    allowed: ["codex", "claude_opus"]
+    default: "codex"
+  implementation_review_provider:
+    kind: scalar
+    type: enum
+    allowed: ["codex", "claude_opus"]
+    default: "codex"
+  implementation_fix_provider:
+    kind: scalar
+    type: enum
+    allowed: ["codex", "claude_opus"]
+    default: "codex"
 
 outputs:
   implementation_state:
@@ -52,6 +67,12 @@ providers:
     defaults:
       model: "${context.workflow_model}"
       effort: "${context.workflow_effort}"
+  claude_opus:
+    command: ["claude", "-p", "${PROMPT}", "--model", "${model}", "--effort", "${effort}", "--permission-mode", "bypassPermissions"]
+    input_mode: "argv"
+    defaults:
+      model: "claude-opus-4.7"
+      effort: "high"
 
 artifacts:
   design:
@@ -183,7 +204,7 @@ steps:
 
   - name: ExecuteImplementation
     id: execute_implementation
-    provider: codex
+    provider: "${inputs.implementation_execute_provider}"
     asset_file: prompts/neurips_backlog_implementation_phase/implement_implementation.md
     timeout_sec: 86400
     consumes:
@@ -379,7 +400,7 @@ steps:
 
               - name: ReviewImplementation
                 id: review_implementation
-                provider: codex
+                provider: "${inputs.implementation_review_provider}"
                 asset_file: prompts/neurips_backlog_implementation_phase/review_implementation.md
                 timeout_sec: 1800
                 consumes:
@@ -420,7 +441,7 @@ steps:
                       ref: self.steps.ReviewImplementation.artifacts.implementation_review_decision
                     op: eq
                     right: REVISE
-                provider: codex
+                provider: "${inputs.implementation_fix_provider}"
                 asset_file: prompts/neurips_backlog_implementation_phase/fix_implementation.md
                 timeout_sec: 86400
                 consumes:
