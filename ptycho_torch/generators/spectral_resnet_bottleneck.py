@@ -276,6 +276,7 @@ class SpectralResnetBottleneckGeneratorModule(nn.Module):
                     f"(got {resnet_width})."
                 )
         target_width = channels if resnet_width is None else int(resnet_width)
+        self.bottleneck_channels = int(target_width)
         self.adapter = nn.Identity()
         if target_width != channels:
             self.adapter = nn.Conv2d(channels, target_width, kernel_size=1)
@@ -291,6 +292,7 @@ class SpectralResnetBottleneckGeneratorModule(nn.Module):
         upsample_widths = [target_width]
         for _ in range(self.hybrid_downsample_steps):
             upsample_widths.append(max(hidden_channels, upsample_widths[-1] // 2))
+        self.decoder_widths = list(upsample_widths)
         self.upsample_layers = nn.ModuleList(
             [
                 CycleGanUpsampler(upsample_widths[index], upsample_widths[index + 1])

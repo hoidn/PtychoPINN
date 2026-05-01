@@ -521,8 +521,39 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Boundary:
   - this is adjacent evidence for the Lines128 CDI lane
   - it does not replace the preserved six-row primary CDI benchmark root
-  - the supervised CNN minimum-subset evidence remains a referenced sibling,
-    not a rerun or silently merged extension row
+- the supervised CNN minimum-subset evidence remains a referenced sibling,
+  not a rerun or silently merged extension row
+
+### `grid-lines-n128-hybrid-spectral-ffno-parameter-space`
+
+- Purpose: run a bounded same-contract CDI bridge study between the current
+  Hybrid and spectral shell anchors and FFNO-adjacent architectural changes.
+- Status: completed on `2026-04-30`; the output remains decision-support only
+  with no paper promotion.
+- Preflight:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_preflight.md`
+- Summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_summary.md`
+- Artifact root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi`
+- Reused anchors:
+  - `pinn_hybrid_resnet`
+  - `pinn_spectral_resnet_bottleneck_net`
+  - `pinn_ffno`
+- Fresh bridge rows:
+  - `pinn_spectral_resnet_bottleneck_ds1`
+  - `pinn_spectral_resnet_bottleneck_linear_decoder`
+  - `pinn_hybrid_resnet_ffno_bottleneck`
+- Main result:
+  no fresh bridge row displaced the existing CDI anchors. The DS1 shell created
+  a phase-leaning trade with weaker amplitude fidelity, the linear-decoder
+  bridge regressed badly, and the FFNO bottleneck did not improve the Hybrid
+  anchor.
+- Boundary:
+  - CDI-only decision-support evidence
+  - does not change the current paper-grade `lines128` complete-table
+    authority
+  - does not promote any fresh row into manuscript claim territory
 
 ### `grid-lines-n64-pinn-hybrid-resnet-e20`
 

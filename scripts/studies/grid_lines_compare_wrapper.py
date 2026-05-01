@@ -51,7 +51,6 @@ LEGACY_ARCH_TO_MODEL = {
 
 MODEL_TO_LEGACY_ARCH = {model_id: arch for arch, model_id in LEGACY_ARCH_TO_MODEL.items()}
 MODEL_TO_LEGACY_ARCH["supervised_ffno"] = "ffno"
-SUPPORTED_MODEL_IDS = set(LEGACY_ARCH_TO_MODEL.values()) | {"pinn_ptychovit", "supervised_ffno"}
 MODEL_DEFAULT_N = {"pinn_ptychovit": 256}
 TF_MODEL_IDS = {"pinn", "baseline"}
 TORCH_MODEL_IDS = {
@@ -63,7 +62,11 @@ TORCH_MODEL_IDS = {
     "pinn_fno_vanilla",
     "pinn_hybrid_resnet",
     "pinn_spectral_resnet_bottleneck_net",
+    "pinn_spectral_resnet_bottleneck_ds1",
+    "pinn_spectral_resnet_bottleneck_linear_decoder",
+    "pinn_hybrid_resnet_ffno_bottleneck",
 }
+SUPPORTED_MODEL_IDS = set(LEGACY_ARCH_TO_MODEL.values()) | TORCH_MODEL_IDS | {"pinn_ptychovit"}
 PAPER_MODEL_LABELS = {
     "baseline": "CDI CNN + supervised",
     "pinn": "CDI CNN + PINN",
@@ -75,6 +78,9 @@ PAPER_MODEL_LABELS = {
     "pinn_fno_vanilla": "FNO Vanilla + PINN",
     "pinn_hybrid_resnet": "Hybrid ResNet + PINN",
     "pinn_spectral_resnet_bottleneck_net": "Spectral ResNet Bottleneck + PINN",
+    "pinn_spectral_resnet_bottleneck_ds1": "Spectral ResNet Bottleneck DS1 + PINN",
+    "pinn_spectral_resnet_bottleneck_linear_decoder": "Spectral ResNet Linear Decoder + PINN",
+    "pinn_hybrid_resnet_ffno_bottleneck": "Hybrid ResNet FFNO Bottleneck + PINN",
     "pinn_ptychovit": "PtychoViT + PINN",
 }
 PAPER_ARCHITECTURE_OVERRIDES = {
@@ -86,9 +92,100 @@ PAPER_TRAINING_PROCEDURE_OVERRIDES = {
     "supervised_ffno": "supervised",
 }
 
+DEFAULT_TORCH_ROW_SPECS: Dict[str, Dict[str, Any]] = {
+    "supervised_ffno": {
+        "model_id": "supervised_ffno",
+        "architecture": "ffno",
+        "training_procedure": "supervised",
+    },
+    "pinn_ffno": {
+        "model_id": "pinn_ffno",
+        "architecture": "ffno",
+        "training_procedure": "pinn",
+    },
+    "pinn_fno": {
+        "model_id": "pinn_fno",
+        "architecture": "fno",
+        "training_procedure": "pinn",
+    },
+    "pinn_hybrid": {
+        "model_id": "pinn_hybrid",
+        "architecture": "hybrid",
+        "training_procedure": "pinn",
+    },
+    "pinn_stable_hybrid": {
+        "model_id": "pinn_stable_hybrid",
+        "architecture": "stable_hybrid",
+        "training_procedure": "pinn",
+    },
+    "pinn_fno_vanilla": {
+        "model_id": "pinn_fno_vanilla",
+        "architecture": "fno_vanilla",
+        "training_procedure": "pinn",
+    },
+    "pinn_hybrid_resnet": {
+        "model_id": "pinn_hybrid_resnet",
+        "architecture": "hybrid_resnet",
+        "training_procedure": "pinn",
+    },
+    "pinn_spectral_resnet_bottleneck_net": {
+        "model_id": "pinn_spectral_resnet_bottleneck_net",
+        "architecture": "spectral_resnet_bottleneck_net",
+        "training_procedure": "pinn",
+    },
+    "pinn_spectral_resnet_bottleneck_ds1": {
+        "model_id": "pinn_spectral_resnet_bottleneck_ds1",
+        "architecture": "spectral_resnet_bottleneck_net",
+        "training_procedure": "pinn",
+        "overrides": {"hybrid_downsample_steps": 1},
+    },
+    "pinn_spectral_resnet_bottleneck_linear_decoder": {
+        "model_id": "pinn_spectral_resnet_bottleneck_linear_decoder",
+        "architecture": "spectral_resnet_bottleneck_linear_decoder",
+        "training_procedure": "pinn",
+    },
+    "pinn_hybrid_resnet_ffno_bottleneck": {
+        "model_id": "pinn_hybrid_resnet_ffno_bottleneck",
+        "architecture": "hybrid_resnet_ffno_bottleneck",
+        "training_procedure": "pinn",
+    },
+}
+MODEL_TO_LEGACY_ARCH.update(
+    {
+        model_id: str(spec["architecture"])
+        for model_id, spec in DEFAULT_TORCH_ROW_SPECS.items()
+        if model_id not in MODEL_TO_LEGACY_ARCH
+    }
+)
+
 
 def _parse_architectures(value: str) -> Tuple[str, ...]:
     return tuple(a.strip() for a in value.split(",") if a.strip())
+
+
+def _normalize_row_specs(
+    row_specs: Optional[Iterable[Mapping[str, Any]]],
+) -> Dict[str, Dict[str, Any]]:
+    normalized = {model_id: dict(spec) for model_id, spec in DEFAULT_TORCH_ROW_SPECS.items()}
+    if not row_specs:
+        return normalized
+    for spec in row_specs:
+        spec_dict = dict(spec)
+        model_id = str(spec_dict.get("model_id", "")).strip()
+        architecture = str(spec_dict.get("architecture", "")).strip()
+        if not model_id or not architecture:
+            raise ValueError("row_specs entries require non-empty model_id and architecture")
+        spec_dict["model_id"] = model_id
+        spec_dict["architecture"] = architecture
+        spec_dict["training_procedure"] = str(spec_dict.get("training_procedure", "pinn"))
+        overrides = spec_dict.get("overrides", {})
+        if overrides is None:
+            overrides = {}
+        if not isinstance(overrides, Mapping):
+            raise ValueError(f"row_specs overrides must be a mapping for {model_id}")
+        spec_dict["overrides"] = dict(overrides)
+        normalized[model_id] = spec_dict
+    return normalized
 
 
 def _json_default(value):
@@ -753,12 +850,17 @@ def _parse_models(value: str) -> Tuple[str, ...]:
     return tuple(x.strip() for x in value.split(",") if x.strip())
 
 
-def _torch_model_route(model_id: str) -> Tuple[str, str]:
-    architecture = MODEL_TO_LEGACY_ARCH.get(model_id)
-    if architecture is None:
+def _torch_model_route(
+    model_id: str,
+    row_specs_by_model: Optional[Mapping[str, Mapping[str, Any]]] = None,
+) -> Tuple[str, str]:
+    spec = (row_specs_by_model or {}).get(model_id)
+    if spec is None:
+        spec = DEFAULT_TORCH_ROW_SPECS.get(model_id)
+    if spec is None:
         raise ValueError(f"Unsupported torch model route for {model_id!r}")
-    training_procedure = str(PAPER_TRAINING_PROCEDURE_OVERRIDES.get(model_id, "pinn"))
-    return architecture, training_procedure
+    training_procedure = str(spec.get("training_procedure", PAPER_TRAINING_PROCEDURE_OVERRIDES.get(model_id, "pinn")))
+    return str(spec["architecture"]), training_procedure
 
 
 def _parse_model_n(value: str) -> Dict[str, int]:
@@ -788,12 +890,17 @@ def _run_tf_workflow_with_selected_models(tf_workflow_module, cfg: GridLinesConf
     return run_fn(cfg)
 
 
-def validate_model_specs(models: Tuple[str, ...], model_n: Dict[str, int]) -> None:
+def validate_model_specs(
+    models: Tuple[str, ...],
+    model_n: Dict[str, int],
+    row_specs_by_model: Optional[Mapping[str, Mapping[str, Any]]] = None,
+) -> None:
+    supported_model_ids = set(SUPPORTED_MODEL_IDS) | set((row_specs_by_model or {}).keys())
     for model_id in models:
-        if model_id not in SUPPORTED_MODEL_IDS:
+        if model_id not in supported_model_ids:
             raise ValueError(f"Unsupported model '{model_id}'")
     for model_id, n_value in model_n.items():
-        if model_id not in SUPPORTED_MODEL_IDS:
+        if model_id not in supported_model_ids:
             raise ValueError(f"Unsupported model '{model_id}' in --model-n")
         if n_value <= 0:
             raise ValueError(f"Invalid N for model '{model_id}': {n_value}")
@@ -930,6 +1037,7 @@ def _run_compare_preflight(
     probe_scale_mode: str,
     probe_smoothing_sigma: float,
     probe_mask_diameter: Optional[int],
+    row_specs_by_model: Optional[Mapping[str, Mapping[str, Any]]] = None,
 ) -> dict:
     _validate_preflight_probe(probe_source=probe_source, probe_npz=probe_npz)
     if dataset_source == "external_raw_npz":
@@ -959,50 +1067,55 @@ def _run_compare_preflight(
             continue
 
         if model_id in TORCH_MODEL_IDS:
-            arch, training_procedure = _torch_model_route(model_id)
-            torch_cfg = TorchRunnerConfig(
-                train_npz=Path(train_data) if train_data is not None else output_dir / "preflight_train.npz",
-                test_npz=Path(test_data) if test_data is not None else output_dir / "preflight_test.npz",
-                output_dir=output_dir,
-                architecture=arch,
-                training_procedure=training_procedure,
-                seed=seed,
-                epochs=torch_epochs or nepochs,
-                batch_size=torch_batch_size or batch_size,
-                learning_rate=torch_learning_rate,
-                infer_batch_size=torch_infer_batch_size,
-                gradient_clip_val=torch_gradient_clip_val,
-                gradient_clip_algorithm=torch_gradient_clip_algorithm,
-                generator_output_mode=torch_output_mode,
-                N=n_for_model,
-                gridsize=gridsize,
-                torch_loss_mode=torch_loss_mode,
-                torch_mae_pred_l2_match_target=torch_mae_pred_l2_match_target,
-                fno_modes=fno_modes,
-                fno_width=fno_width,
-                fno_blocks=fno_blocks,
-                fno_cnn_blocks=fno_cnn_blocks,
-                fno_input_transform=fno_input_transform,
-                max_hidden_channels=torch_max_hidden_channels,
-                resnet_width=torch_resnet_width,
-                optimizer=torch_optimizer,
-                weight_decay=torch_weight_decay,
-                momentum=torch_momentum,
-                adam_beta1=torch_beta1,
-                adam_beta2=torch_beta2,
-                scheduler=torch_scheduler,
-                lr_warmup_epochs=torch_lr_warmup_epochs,
-                lr_min_ratio=torch_lr_min_ratio,
-                plateau_factor=torch_plateau_factor,
-                plateau_patience=torch_plateau_patience,
-                plateau_min_lr=torch_plateau_min_lr,
-                plateau_threshold=torch_plateau_threshold,
-                reassembly_mode="position" if external_mode else "grid_lines",
-                position_reassembly_backend=torch_position_reassembly_backend,
-                position_reassembly_batch_size=torch_position_reassembly_batch_size,
-                position_crop_border=torch_position_crop_border,
-                probe_mask_diameter=probe_mask_diameter,
-            )
+            row_spec = (row_specs_by_model or {}).get(model_id, DEFAULT_TORCH_ROW_SPECS.get(model_id, {}))
+            arch, training_procedure = _torch_model_route(model_id, row_specs_by_model)
+            torch_cfg_kwargs: Dict[str, Any] = {
+                "train_npz": Path(train_data) if train_data is not None else output_dir / "preflight_train.npz",
+                "test_npz": Path(test_data) if test_data is not None else output_dir / "preflight_test.npz",
+                "output_dir": output_dir,
+                "architecture": arch,
+                "training_procedure": training_procedure,
+                "model_id_override": model_id,
+                "model_label_override": row_spec.get("model_label", PAPER_MODEL_LABELS.get(model_id, model_id)),
+                "seed": seed,
+                "epochs": torch_epochs or nepochs,
+                "batch_size": torch_batch_size or batch_size,
+                "learning_rate": torch_learning_rate,
+                "infer_batch_size": torch_infer_batch_size,
+                "gradient_clip_val": torch_gradient_clip_val,
+                "gradient_clip_algorithm": torch_gradient_clip_algorithm,
+                "generator_output_mode": torch_output_mode,
+                "N": n_for_model,
+                "gridsize": gridsize,
+                "torch_loss_mode": torch_loss_mode,
+                "torch_mae_pred_l2_match_target": torch_mae_pred_l2_match_target,
+                "fno_modes": fno_modes,
+                "fno_width": fno_width,
+                "fno_blocks": fno_blocks,
+                "fno_cnn_blocks": fno_cnn_blocks,
+                "fno_input_transform": fno_input_transform,
+                "max_hidden_channels": torch_max_hidden_channels,
+                "resnet_width": torch_resnet_width,
+                "optimizer": torch_optimizer,
+                "weight_decay": torch_weight_decay,
+                "momentum": torch_momentum,
+                "adam_beta1": torch_beta1,
+                "adam_beta2": torch_beta2,
+                "scheduler": torch_scheduler,
+                "lr_warmup_epochs": torch_lr_warmup_epochs,
+                "lr_min_ratio": torch_lr_min_ratio,
+                "plateau_factor": torch_plateau_factor,
+                "plateau_patience": torch_plateau_patience,
+                "plateau_min_lr": torch_plateau_min_lr,
+                "plateau_threshold": torch_plateau_threshold,
+                "reassembly_mode": "position" if external_mode else "grid_lines",
+                "position_reassembly_backend": torch_position_reassembly_backend,
+                "position_reassembly_batch_size": torch_position_reassembly_batch_size,
+                "position_crop_border": torch_position_crop_border,
+                "probe_mask_diameter": probe_mask_diameter,
+            }
+            torch_cfg_kwargs.update(dict(row_spec.get("overrides", {})))
+            torch_cfg = TorchRunnerConfig(**torch_cfg_kwargs)
             torch_runner.setup_torch_configs(torch_cfg)
             row_plan.append(
                 {
@@ -1011,6 +1124,8 @@ def _run_compare_preflight(
                     "backend": "torch",
                     "N": n_for_model,
                     "status": "supported_for_harness",
+                    "model_label": row_spec.get("model_label", PAPER_MODEL_LABELS.get(model_id, model_id)),
+                    "overrides": dict(row_spec.get("overrides", {})),
                 }
             )
             continue
@@ -1098,6 +1213,7 @@ def run_grid_lines_compare(
     probe_npz: Path,
     architectures: Iterable[str],
     models: Optional[Tuple[str, ...]] = None,
+    row_specs: Optional[Iterable[Mapping[str, Any]]] = None,
     model_n: Optional[Dict[str, int]] = None,
     reuse_existing_recons: bool = False,
     ptychovit_repo: Optional[Path] = None,
@@ -1159,10 +1275,15 @@ def run_grid_lines_compare(
         seed = random.SystemRandom().randrange(0, 2**32)
         print(f"[grid_lines_compare_wrapper] Using random seed {seed}")
     architectures = tuple(architectures)
+    row_specs_by_model = _normalize_row_specs(row_specs)
     model_n = dict(model_n or {})
     selected_models: Tuple[str, ...]
     if models:
         selected_models = tuple(models)
+    elif row_specs is not None:
+        selected_models = tuple(
+            str(spec["model_id"]) for spec in row_specs if str(spec.get("model_id", "")).strip()
+        )
     else:
         selected_models = tuple(
             LEGACY_ARCH_TO_MODEL[arch]
@@ -1170,7 +1291,7 @@ def run_grid_lines_compare(
             if arch in LEGACY_ARCH_TO_MODEL
         )
     resolved_model_n = resolve_model_ns(selected_models, model_n, default_n=N)
-    validate_model_specs(selected_models, resolved_model_n)
+    validate_model_specs(selected_models, resolved_model_n, row_specs_by_model=row_specs_by_model)
     required_ns = compute_required_ns(selected_models, resolved_model_n, default_n=N)
     external_mode = dataset_source == "external_raw_npz"
 
@@ -1242,6 +1363,7 @@ def run_grid_lines_compare(
             probe_scale_mode=probe_scale_mode,
             probe_smoothing_sigma=probe_smoothing_sigma,
             probe_mask_diameter=probe_mask_diameter,
+            row_specs_by_model=row_specs_by_model,
         )
 
     if models or external_mode:
@@ -1475,51 +1597,56 @@ def run_grid_lines_compare(
                 continue
 
             if model_id in TORCH_MODEL_IDS:
-                arch, training_procedure = _torch_model_route(model_id)
-                torch_cfg = TorchRunnerConfig(
-                    train_npz=train_npz,
-                    test_npz=test_npz,
-                    output_dir=output_dir,
-                    architecture=arch,
-                    training_procedure=training_procedure,
-                    seed=seed,
-                    epochs=torch_epochs or nepochs,
-                    batch_size=torch_batch_size or batch_size,
-                    learning_rate=torch_learning_rate,
-                    infer_batch_size=torch_infer_batch_size,
-                    gradient_clip_val=torch_gradient_clip_val,
-                    gradient_clip_algorithm=torch_gradient_clip_algorithm,
-                    generator_output_mode=torch_output_mode,
-                    N=n_for_model,
-                    gridsize=gridsize,
-                    torch_loss_mode=torch_loss_mode,
-                    torch_mae_pred_l2_match_target=torch_mae_pred_l2_match_target,
-                    fno_modes=fno_modes,
-                    fno_width=fno_width,
-                    fno_blocks=fno_blocks,
-                    fno_cnn_blocks=fno_cnn_blocks,
-                    fno_input_transform=fno_input_transform,
-                    max_hidden_channels=torch_max_hidden_channels,
-                    resnet_width=torch_resnet_width,
-                    optimizer=torch_optimizer,
-                    weight_decay=torch_weight_decay,
-                    momentum=torch_momentum,
-                    adam_beta1=torch_beta1,
-                    adam_beta2=torch_beta2,
-                    log_grad_norm=torch_log_grad_norm,
-                    grad_norm_log_freq=torch_grad_norm_log_freq,
-                    scheduler=torch_scheduler,
-                    lr_warmup_epochs=torch_lr_warmup_epochs,
-                    lr_min_ratio=torch_lr_min_ratio,
-                    plateau_factor=torch_plateau_factor,
-                    plateau_patience=torch_plateau_patience,
-                    plateau_min_lr=torch_plateau_min_lr,
-                    plateau_threshold=torch_plateau_threshold,
-                    reassembly_mode="position" if external_mode else "grid_lines",
-                    position_reassembly_backend=torch_position_reassembly_backend,
-                    position_reassembly_batch_size=torch_position_reassembly_batch_size,
-                    position_crop_border=torch_position_crop_border,
-                )
+                row_spec = row_specs_by_model.get(model_id, DEFAULT_TORCH_ROW_SPECS.get(model_id, {}))
+                arch, training_procedure = _torch_model_route(model_id, row_specs_by_model)
+                torch_cfg_kwargs: Dict[str, Any] = {
+                    "train_npz": train_npz,
+                    "test_npz": test_npz,
+                    "output_dir": output_dir,
+                    "architecture": arch,
+                    "training_procedure": training_procedure,
+                    "model_id_override": model_id,
+                    "model_label_override": row_spec.get("model_label", PAPER_MODEL_LABELS.get(model_id, model_id)),
+                    "seed": seed,
+                    "epochs": torch_epochs or nepochs,
+                    "batch_size": torch_batch_size or batch_size,
+                    "learning_rate": torch_learning_rate,
+                    "infer_batch_size": torch_infer_batch_size,
+                    "gradient_clip_val": torch_gradient_clip_val,
+                    "gradient_clip_algorithm": torch_gradient_clip_algorithm,
+                    "generator_output_mode": torch_output_mode,
+                    "N": n_for_model,
+                    "gridsize": gridsize,
+                    "torch_loss_mode": torch_loss_mode,
+                    "torch_mae_pred_l2_match_target": torch_mae_pred_l2_match_target,
+                    "fno_modes": fno_modes,
+                    "fno_width": fno_width,
+                    "fno_blocks": fno_blocks,
+                    "fno_cnn_blocks": fno_cnn_blocks,
+                    "fno_input_transform": fno_input_transform,
+                    "max_hidden_channels": torch_max_hidden_channels,
+                    "resnet_width": torch_resnet_width,
+                    "optimizer": torch_optimizer,
+                    "weight_decay": torch_weight_decay,
+                    "momentum": torch_momentum,
+                    "adam_beta1": torch_beta1,
+                    "adam_beta2": torch_beta2,
+                    "log_grad_norm": torch_log_grad_norm,
+                    "grad_norm_log_freq": torch_grad_norm_log_freq,
+                    "scheduler": torch_scheduler,
+                    "lr_warmup_epochs": torch_lr_warmup_epochs,
+                    "lr_min_ratio": torch_lr_min_ratio,
+                    "plateau_factor": torch_plateau_factor,
+                    "plateau_patience": torch_plateau_patience,
+                    "plateau_min_lr": torch_plateau_min_lr,
+                    "plateau_threshold": torch_plateau_threshold,
+                    "reassembly_mode": "position" if external_mode else "grid_lines",
+                    "position_reassembly_backend": torch_position_reassembly_backend,
+                    "position_reassembly_batch_size": torch_position_reassembly_batch_size,
+                    "position_crop_border": torch_position_crop_border,
+                }
+                torch_cfg_kwargs.update(dict(row_spec.get("overrides", {})))
+                torch_cfg = TorchRunnerConfig(**torch_cfg_kwargs)
                 with _capture_execution_logs(
                     stdout_overwrite_targets=(output_dir / "runs" / model_id / "stdout.log",),
                     stderr_overwrite_targets=(output_dir / "runs" / model_id / "stderr.log",),

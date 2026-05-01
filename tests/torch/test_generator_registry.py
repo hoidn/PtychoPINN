@@ -28,6 +28,12 @@ def test_resolve_generator_hybrid_resnet():
     assert gen.name == 'hybrid_resnet'
 
 
+def test_resolve_generator_hybrid_resnet_ffno_bottleneck():
+    cfg = TrainingConfig(model=ModelConfig(architecture='hybrid_resnet_ffno_bottleneck'))
+    gen = resolve_generator(cfg)
+    assert gen.name == 'hybrid_resnet_ffno_bottleneck'
+
+
 def test_resolve_generator_ffno():
     cfg = TrainingConfig(model=ModelConfig(architecture='ffno'))
     gen = resolve_generator(cfg)
@@ -38,6 +44,12 @@ def test_resolve_generator_neuralop_uno():
     cfg = TrainingConfig(model=ModelConfig(architecture='neuralop_uno'))
     gen = resolve_generator(cfg)
     assert gen.name == 'neuralop_uno'
+
+
+def test_resolve_generator_spectral_resnet_bottleneck_linear_decoder():
+    cfg = TrainingConfig(model=ModelConfig(architecture='spectral_resnet_bottleneck_linear_decoder'))
+    gen = resolve_generator(cfg)
+    assert gen.name == 'spectral_resnet_bottleneck_linear_decoder'
 
 
 def test_ffno_generator_builds_lightning_model():

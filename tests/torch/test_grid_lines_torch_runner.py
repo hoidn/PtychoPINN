@@ -109,6 +109,16 @@ class TestTorchRunnerConfig:
         )
         assert cfg.generator_output_mode == "amp_phase_logits"
 
+    def test_model_id_override_is_configurable(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="spectral_resnet_bottleneck_net",
+            model_id_override="pinn_spectral_resnet_bottleneck_ds1",
+        )
+        assert cfg.model_id_override == "pinn_spectral_resnet_bottleneck_ds1"
+
     def test_position_strategy_defaults_are_stable(self, tmp_path):
         cfg = TorchRunnerConfig(
             train_npz=tmp_path / "train.npz",
@@ -379,6 +389,37 @@ class TestRunGridLinesTorchScaffold:
         recon_path = output_dir / "recons" / "pinn_fno" / "recon.npz"
         assert recon_path.exists()
         assert "recon_path" in result
+
+    def test_runner_writes_recon_artifact_under_model_id_override(self, synthetic_npz, tmp_path):
+        """Override-aware study rows should persist recon artifacts under the row id."""
+        train_path, test_path = synthetic_npz
+        output_dir = tmp_path / "output"
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=output_dir,
+            architecture="spectral_resnet_bottleneck_net",
+            model_id_override="pinn_spectral_resnet_bottleneck_ds1",
+            epochs=1,
+        )
+
+        with patch('scripts.studies.grid_lines_torch_runner.run_torch_training') as mock_train:
+            mock_train.return_value = {
+                'model': None,
+                'history': {},
+                'generator': 'spectral_resnet_bottleneck_net',
+                'scaffold': True,
+            }
+            with patch('scripts.studies.grid_lines_torch_runner.run_torch_inference') as mock_infer:
+                mock_infer.return_value = np.random.rand(64, 64).astype(np.complex64)
+                with patch('scripts.studies.grid_lines_torch_runner.compute_metrics') as mock_metrics:
+                    mock_metrics.return_value = {'mse': 0.1}
+                    result = run_grid_lines_torch(cfg)
+
+        recon_path = output_dir / "recons" / "pinn_spectral_resnet_bottleneck_ds1" / "recon.npz"
+        assert recon_path.exists()
+        assert result["recon_path"] == str(recon_path)
 
     def test_runner_reports_model_params_and_inference_time(self, synthetic_npz, tmp_path):
         """Runner should report model params and inference time."""

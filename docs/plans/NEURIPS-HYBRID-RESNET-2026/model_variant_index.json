@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-04-30T00:00:00Z",
+  "last_updated_utc": "2026-04-30T20:00:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -273,6 +273,99 @@
       },
       "comparison_outcome": "non_identical_same_contract_comparison",
       "evidence_status": "paper_complete_extension"
+    },
+    {
+      "variant_id": "cdi_lines128__spectral_resnet_bottleneck_ds1__pinn__bridge_study",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_spectral_resnet_bottleneck_ds1",
+      "paper_label": "Spectral ResNet Bottleneck DS1 + PINN",
+      "architecture_id": "spectral_resnet_bottleneck_net",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-04-27-hybrid-spectral-ffno-parameter-space-cdi",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi",
+      "metrics_json": "runs/pinn_spectral_resnet_bottleneck_ds1/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_spectral_resnet_bottleneck_ds1.png",
+        "visuals/amp_phase_error_pinn_spectral_resnet_bottleneck_ds1.png"
+      ],
+      "nearest_anchor_row": "pinn_spectral_resnet_bottleneck_net",
+      "bridge_axis": "encoder_downsampling_depth",
+      "metrics": {
+        "amp_mae": 0.035460375249385834,
+        "phase_mae": 0.0643633275572751,
+        "amp_ssim": 0.9799357610835127,
+        "phase_ssim": 0.9939341631952437,
+        "amp_psnr": 75.15516098774783,
+        "phase_psnr": 70.08100388638262,
+        "amp_frc50": 135.6808625110733,
+        "phase_frc50": 132.5108847149715
+      },
+      "comparison_outcome": "mixed_tradeoff_no_promotion",
+      "evidence_status": "decision_support_no_promotion"
+    },
+    {
+      "variant_id": "cdi_lines128__spectral_resnet_bottleneck_linear_decoder__pinn__bridge_study",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_spectral_resnet_bottleneck_linear_decoder",
+      "paper_label": "Spectral ResNet Linear Decoder + PINN",
+      "architecture_id": "spectral_resnet_bottleneck_linear_decoder",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-04-27-hybrid-spectral-ffno-parameter-space-cdi",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi",
+      "metrics_json": "runs/pinn_spectral_resnet_bottleneck_linear_decoder/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_spectral_resnet_bottleneck_linear_decoder.png",
+        "visuals/amp_phase_error_pinn_spectral_resnet_bottleneck_linear_decoder.png"
+      ],
+      "nearest_anchor_row": "pinn_spectral_resnet_bottleneck_net",
+      "bridge_axis": "decoder_family",
+      "metrics": {
+        "amp_mae": 0.13474327325820923,
+        "phase_mae": 0.11692559852040055,
+        "amp_ssim": 0.7234640575774952,
+        "phase_ssim": 0.9042721953231837,
+        "amp_psnr": 63.54830585547467,
+        "phase_psnr": 64.97919551390704,
+        "amp_frc50": 26.486205596948704,
+        "phase_frc50": 37.91985664014081
+      },
+      "comparison_outcome": "clear_regression_no_promotion",
+      "evidence_status": "decision_support_no_promotion"
+    },
+    {
+      "variant_id": "cdi_lines128__hybrid_resnet_ffno_bottleneck__pinn__bridge_study",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_hybrid_resnet_ffno_bottleneck",
+      "paper_label": "Hybrid ResNet FFNO Bottleneck + PINN",
+      "architecture_id": "hybrid_resnet_ffno_bottleneck",
+      "model_family": "hybrid_ffno_bridge",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-04-27-hybrid-spectral-ffno-parameter-space-cdi",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi",
+      "metrics_json": "runs/pinn_hybrid_resnet_ffno_bottleneck/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_hybrid_resnet_ffno_bottleneck.png",
+        "visuals/amp_phase_error_pinn_hybrid_resnet_ffno_bottleneck.png"
+      ],
+      "nearest_anchor_row": "pinn_hybrid_resnet",
+      "bridge_axis": "bottleneck_family",
+      "metrics": {
+        "amp_mae": 0.031176235526800156,
+        "phase_mae": 0.08759987610512324,
+        "amp_ssim": 0.9835814653910123,
+        "phase_ssim": 0.9909663579316513,
+        "amp_psnr": 76.26523122092651,
+        "phase_psnr": 67.36972331012001,
+        "amp_frc50": 133.9737743021349,
+        "phase_frc50": 95.64975930377418
+      },
+      "comparison_outcome": "no_gain_vs_hybrid_anchor",
+      "evidence_status": "decision_support_no_promotion"
     },
     {
       "variant_id": "cns_history2_cap512__author_ffno_cns_base__supervised__paper_bundle",

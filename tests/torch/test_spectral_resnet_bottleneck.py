@@ -65,3 +65,27 @@ def test_spectral_resnet_bottleneck_generator_module_forward():
     y = model(x)
 
     assert tuple(y.shape) == (2, 128, 128, 1, 2)
+
+
+def test_spectral_resnet_linear_decoder_generator_module_forward():
+    from ptycho_torch.generators.spectral_resnet_bottleneck_linear_decoder import (
+        SpectralResnetBottleneckLinearDecoderGeneratorModule,
+    )
+
+    model = SpectralResnetBottleneckLinearDecoderGeneratorModule(
+        in_channels=1,
+        out_channels=2,
+        hidden_channels=32,
+        n_blocks=4,
+        modes=12,
+        C=1,
+        hybrid_downsample_steps=2,
+        resnet_blocks=6,
+        spectral_bottleneck_blocks=6,
+        spectral_bottleneck_modes=12,
+    )
+    x = torch.randn(2, 1, 128, 128)
+
+    y = model(x)
+
+    assert tuple(y.shape) == (2, 128, 128, 1, 2)

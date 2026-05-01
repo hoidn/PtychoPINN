@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-04-30T00:00:00Z",
+  "last_updated_utc": "2026-04-30T20:00:00Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -81,6 +81,34 @@
         "pinn_ffno"
       ],
       "interpretation": "Hybrid ResNet beat FFNO on amp/phase MAE, SSIM, and PSNR in the prerequisite pair. The row pair is represented separately because the complete six-row bundle supersedes it for paper-table claims but reuses its FFNO evidence with provenance caveats."
+    },
+    {
+      "family_id": "cdi_lines128_hybrid_spectral_ffno_parameter_space",
+      "task": "cdi",
+      "fixed_contract": "cdi_lines128_seed3",
+      "changed_factors": [
+        "encoder/downsampling depth within the spectral shell",
+        "decoder family within the spectral shell",
+        "bottleneck family within the Hybrid shell"
+      ],
+      "completed_items": [
+        "2026-04-27-hybrid-spectral-ffno-parameter-space-cdi"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi"
+      ],
+      "rows": [
+        "pinn_hybrid_resnet",
+        "pinn_spectral_resnet_bottleneck_net",
+        "pinn_ffno",
+        "pinn_spectral_resnet_bottleneck_ds1",
+        "pinn_spectral_resnet_bottleneck_linear_decoder",
+        "pinn_hybrid_resnet_ffno_bottleneck"
+      ],
+      "interpretation": "No fresh bridge row earned promotion. The DS1 spectral shell improved phase alignment but lost amplitude fidelity versus the spectral anchor, the linear-decoder bridge regressed sharply, and the FFNO bottleneck did not beat the Hybrid anchor on the fixed CDI contract."
     },
     {
       "family_id": "cdi_lines128_neuralop_uno_preflight",

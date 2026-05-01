@@ -62,16 +62,30 @@ PAPER_MODEL_LABELS = {
     "neuralop_uno": "U-NO + PINN",
     "hybrid_resnet": "Hybrid ResNet + PINN",
     "spectral_resnet_bottleneck_net": "Spectral ResNet Bottleneck + PINN",
+    "spectral_resnet_bottleneck_linear_decoder": "Spectral ResNet Linear Decoder + PINN",
+    "hybrid_resnet_ffno_bottleneck": "Hybrid ResNet FFNO Bottleneck + PINN",
 }
 
 
-def _runner_model_id(architecture: str, training_procedure: str) -> str:
+def _runner_model_id(
+    architecture: str,
+    training_procedure: str,
+    model_id_override: Optional[str] = None,
+) -> str:
+    if model_id_override:
+        return str(model_id_override)
     if training_procedure == "supervised":
         return f"supervised_{architecture}"
     return f"pinn_{architecture}"
 
 
-def _paper_model_label(architecture: str, training_procedure: str) -> str:
+def _paper_model_label(
+    architecture: str,
+    training_procedure: str,
+    model_label_override: Optional[str] = None,
+) -> str:
+    if model_label_override:
+        return str(model_label_override)
     label = PAPER_MODEL_LABELS.get(architecture, architecture)
     if training_procedure == "supervised":
         if label.endswith(" + PINN"):
@@ -133,6 +147,8 @@ class TorchRunnerConfig:
     output_dir: Path
     architecture: str  # 'ffno', 'fno', or 'hybrid'
     training_procedure: str = "pinn"
+    model_id_override: Optional[str] = None
+    model_label_override: Optional[str] = None
     seed: int = 42
     epochs: int = 50
     batch_size: int = 16
@@ -309,7 +325,11 @@ def _write_runner_invocation_artifacts(
         write_invocation_artifacts,
     )
 
-    run_dir = cfg.output_dir / "runs" / _runner_model_id(cfg.architecture, cfg.training_procedure)
+    run_dir = cfg.output_dir / "runs" / _runner_model_id(
+        cfg.architecture,
+        cfg.training_procedure,
+        cfg.model_id_override,
+    )
     invocation_extra: Dict[str, Any] = {
         "runtime_provenance": capture_runtime_provenance(),
         "git_commit": get_git_commit(REPO_ROOT),
@@ -754,10 +774,15 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     # Cast N and architecture to their Literal types
     N_literal = cast(Literal[64, 128, 256], cfg.N)
     arch_literal = cast(
-        Literal['cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'],
+        Literal['cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck'],
         cfg.architecture,
     )
-    if cfg.architecture in {"hybrid_resnet", "spectral_resnet_bottleneck_net"}:
+    if cfg.architecture in {
+        "hybrid_resnet",
+        "spectral_resnet_bottleneck_net",
+        "spectral_resnet_bottleneck_linear_decoder",
+        "hybrid_resnet_ffno_bottleneck",
+    }:
         if cfg.fno_blocks < 3:
             raise ValueError(
                 f"{cfg.architecture} requires --fno-blocks >= 3 to downsample to N/4 "
@@ -826,7 +851,10 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
                     "--torch-resnet-width must be divisible by 4 so the CycleGAN "
                     f"upsamplers produce integer channel sizes (got {cfg.resnet_width})."
                 )
-    if cfg.architecture == "spectral_resnet_bottleneck_net":
+    if cfg.architecture in {
+        "spectral_resnet_bottleneck_net",
+        "spectral_resnet_bottleneck_linear_decoder",
+    }:
         if cfg.spectral_bottleneck_blocks <= 0:
             raise ValueError(
                 f"spectral_bottleneck_blocks must be positive (got {cfg.spectral_bottleneck_blocks})."
@@ -1208,6 +1236,7 @@ def save_run_artifacts(
         - output_dir/runs/pinn_<arch>/history.json
     """
     model_id = _runner_model_id(cfg.architecture, cfg.training_procedure)
+    model_id = _runner_model_id(cfg.architecture, cfg.training_procedure, cfg.model_id_override)
     run_dir = cfg.output_dir / "runs" / model_id
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1227,7 +1256,11 @@ def save_run_artifacts(
 
     config_payload = {
         "torch_runner_config": asdict(cfg),
-        "model_label": _paper_model_label(cfg.architecture, cfg.training_procedure),
+        "model_label": _paper_model_label(
+            cfg.architecture,
+            cfg.training_procedure,
+            cfg.model_label_override,
+        ),
         "training_procedure": cfg.training_procedure,
         "train_npz": str(cfg.train_npz),
         "test_npz": str(cfg.test_npz),
@@ -1316,7 +1349,11 @@ def _build_paper_row_payload(
     final_completed_epoch = int(len(train_loss_series) or cfg.epochs)
     final_train_loss = float(train_loss_series[-1]) if train_loss_series else None
     payload = {
-        "model_label": _paper_model_label(cfg.architecture, cfg.training_procedure),
+        "model_label": _paper_model_label(
+            cfg.architecture,
+            cfg.training_procedure,
+            cfg.model_label_override,
+        ),
         "architecture_id": str(cfg.architecture),
         "training_procedure": cfg.training_procedure,
         "N": int(cfg.N),
@@ -1375,8 +1412,14 @@ def _build_paper_row_payload(
     payload.setdefault(
         "visuals",
         {
-            "amp_phase_png": f"visuals/amp_phase_{_runner_model_id(cfg.architecture, cfg.training_procedure)}.png",
-            "amp_phase_error_png": f"visuals/amp_phase_error_{_runner_model_id(cfg.architecture, cfg.training_procedure)}.png",
+            "amp_phase_png": (
+                f"visuals/amp_phase_"
+                f"{_runner_model_id(cfg.architecture, cfg.training_procedure, cfg.model_id_override)}.png"
+            ),
+            "amp_phase_error_png": (
+                f"visuals/amp_phase_error_"
+                f"{_runner_model_id(cfg.architecture, cfg.training_procedure, cfg.model_id_override)}.png"
+            ),
         },
     )
     return payload
@@ -1398,7 +1441,11 @@ def run_grid_lines_torch(
     Returns:
         Dict with metrics, artifact paths, and run metadata
     """
-    model_id = _runner_model_id(cfg.architecture, cfg.training_procedure)
+    model_id = _runner_model_id(
+        cfg.architecture,
+        cfg.training_procedure,
+        cfg.model_id_override,
+    )
     logger.info(
         "Starting Torch grid-lines runner: arch=%s training_procedure=%s",
         cfg.architecture,
@@ -1531,6 +1578,7 @@ def run_grid_lines_torch(
             'metrics': metrics,
             'history': results.get('history', {}),
             'recon_path': str(recon_path),
+            'recon_npz': str(recon_path),
             'model_params': int(model_params),
             'inference_time_s': float(inference_time_s),
             'position_reassembly_runtime_contract': position_reassembly_runtime_contract,
@@ -1594,7 +1642,7 @@ def main(argv=None) -> None:
     parser.add_argument("--output-dir", type=Path, required=True,
                         help="Output directory for artifacts")
     parser.add_argument("--architecture", type=str, required=True,
-                        choices=['ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net'],
+                        choices=['ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck'],
                         help="Generator architecture to use")
     parser.add_argument(
         "--training-procedure",

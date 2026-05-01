@@ -176,6 +176,63 @@ def test_wrapper_preflight_only_validates_supported_rows_without_running_backend
     assert result["row_plan"][0]["backend"] == "tf"
 
 
+def test_wrapper_preflight_only_accepts_row_specs_with_same_base_architecture_override(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    probe_path = tmp_path / "probe.npz"
+    probe_path.write_bytes(b"stub")
+    captured = {}
+
+    def fake_setup_torch_configs(cfg):
+        captured["architecture"] = cfg.architecture
+        captured["model_id_override"] = cfg.model_id_override
+        captured["hybrid_downsample_steps"] = cfg.hybrid_downsample_steps
+        return object(), object()
+
+    monkeypatch.setattr("scripts.studies.grid_lines_torch_runner.setup_torch_configs", fake_setup_torch_configs)
+
+    result = run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        probe_npz=probe_path,
+        architectures=(),
+        models=("pinn_spectral_resnet_bottleneck_ds1",),
+        row_specs=(
+            {
+                "model_id": "pinn_spectral_resnet_bottleneck_ds1",
+                "architecture": "spectral_resnet_bottleneck_net",
+                "training_procedure": "pinn",
+                "overrides": {"hybrid_downsample_steps": 1},
+            },
+        ),
+        model_n={"pinn_spectral_resnet_bottleneck_ds1": 128},
+        preflight_only=True,
+        seed=3,
+        set_phi=True,
+        probe_scale_mode="pad_extrapolate",
+        torch_epochs=40,
+        torch_learning_rate=2e-4,
+        torch_scheduler="ReduceLROnPlateau",
+        torch_plateau_factor=0.5,
+        torch_plateau_patience=2,
+        torch_plateau_min_lr=1e-4,
+        torch_plateau_threshold=0.0,
+        torch_loss_mode="mae",
+        torch_output_mode="real_imag",
+        nimgs_train=2,
+        nimgs_test=2,
+        nphotons=1e9,
+    )
+
+    assert result["mode"] == "preflight_only"
+    assert result["selected_models"] == ["pinn_spectral_resnet_bottleneck_ds1"]
+    assert captured["architecture"] == "spectral_resnet_bottleneck_net"
+    assert captured["model_id_override"] == "pinn_spectral_resnet_bottleneck_ds1"
+    assert captured["hybrid_downsample_steps"] == 1
+    assert result["row_plan"][0]["model_id"] == "pinn_spectral_resnet_bottleneck_ds1"
+
+
 def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
 

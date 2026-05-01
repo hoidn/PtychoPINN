@@ -257,6 +257,7 @@ class HybridResnetGeneratorModule(nn.Module):
                     f"produce integer channel sizes (got {resnet_width})."
                 )
         target_width = ch if resnet_width is None else resnet_width
+        self.bottleneck_channels = int(target_width)
         self.adapter = nn.Identity()
         if ch != target_width:
             self.adapter = nn.Conv2d(ch, target_width, kernel_size=1)

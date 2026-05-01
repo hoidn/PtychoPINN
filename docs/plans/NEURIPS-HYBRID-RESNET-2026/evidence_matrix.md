@@ -50,6 +50,29 @@ CDI artifact roots:
 - Supervised FFNO extension:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z`
 
+## CDI Lines128 Bridge Study
+
+Fixed contract: same `lines128` CDI contract as the complete six-row bundle;
+decision-support only.
+
+| Row | Changed factor | Nearest anchor | Amp MAE | Phase MAE | Amp SSIM | Phase SSIM | Source |
+|---|---|---|---:|---:|---:|---:|---|
+| `pinn_spectral_resnet_bottleneck_ds1` | shallower encoder/downsampling | `pinn_spectral_resnet_bottleneck_net` | 0.035460 | 0.064363 | 0.979936 | 0.993934 | CDI bridge study |
+| `pinn_spectral_resnet_bottleneck_linear_decoder` | lighter bilinear+`1x1` decoder | `pinn_spectral_resnet_bottleneck_net` | 0.134743 | 0.116926 | 0.723464 | 0.904272 | CDI bridge study |
+| `pinn_hybrid_resnet_ffno_bottleneck` | FFNO bottleneck inside Hybrid shell | `pinn_hybrid_resnet` | 0.031176 | 0.087600 | 0.983581 | 0.990966 | CDI bridge study |
+
+Bridge-study artifact root:
+
+- `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi`
+
+Current read:
+
+- no fresh bridge row displaced the paper-grade CDI anchors
+- the DS1 row exposed a phase-leaning trade but lost amplitude fidelity versus
+  the spectral anchor
+- the linear-decoder bridge regressed sharply
+- the FFNO bottleneck did not improve the Hybrid anchor
+
 ## PDEBench CNS Model Matrix
 
 Fixed paper bundle contract: PDEBench 2D_CFD CNS `128x128`,
@@ -101,6 +124,7 @@ Bundle outputs include:
 | `2026-04-29-cdi-lines128-minimum-paper-table` | CDI minimum table | `lines128_minimum_paper_table_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z` |
 | `2026-04-29-cdi-lines128-paper-benchmark-execution` | CDI complete six-row table | `lines128_paper_benchmark_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux` |
 | `2026-04-29-cdi-lines128-supervised-equivalent-rows` | CDI supervised FFNO extension | `lines128_supervised_equivalent_rows_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z` |
+| `2026-04-27-hybrid-spectral-ffno-parameter-space-cdi` | CDI Hybrid/spectral to FFNO bridge study | `cdi_hybrid_spectral_ffno_parameter_space_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi` |
 | `2026-04-30-cdi-lines128-uno-design-preflight` | CDI U-NO environment/API readiness | `lines128_uno_preflight_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-design-preflight/` |
 | `2026-04-29-paper-evidence-package-audit` | cross-pillar evidence audit | `paper_evidence_package_audit_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-design` | legacy CDI architecture-search design | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
@@ -116,6 +140,7 @@ Bundle outputs include:
 |---|---|---|
 | CDI `lines128` headline architecture table | harness, minimum subset, complete table | complete six-row CDI bundle is current paper authority |
 | CDI FFNO training mode | supervised FFNO extension | supervised FFNO improves phase MAE but loses badly on amplitude quality |
+| CDI Hybrid/spectral to FFNO bridge | hybrid-spectral/FFNO parameter-space | no fresh bridge row beat the existing anchors; DS1 is a phase-leaning trade only |
 | CDI U-NO extension readiness | U-NO design preflight | external `UNO` imports cleanly in `ptycho311`; later integration must preserve the frozen `uno_out_channels`, nested `uno_n_modes`, `uno_scalings`, and direct real/imag output contract |
 | CDI FFNO generator prerequisite pair | FFNO vs Hybrid pair | prerequisite evidence, superseded for table claims by complete bundle |
 | CNS paper contract and bundle | contract, row lock, table/figure bundle | bounded capped CNS table only; no full-training SOTA claim |
