@@ -33,6 +33,10 @@ Selected paper path:
 - `hybrid_resnet_cns` stays as an audited continuity/support row
 - `history_len=3` capped pilots remain adjacent context only and are not part
   of the locked headline table
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_spectral_history_len4plus_compare_summary.md`
+  records the later spectral-only `history_len=4` and `history_len=5`
+  follow-up as adjacent capped context only and does not change the locked
+  `history_len=2` paper lane
 
 Claim boundary:
 
@@ -593,6 +597,17 @@ Interpretation boundary:
 - it suggests `history_len=3` can help the stronger rows once trained longer,
   but the mixed `10`/`40`-epoch signal is not stable enough to justify an
   automatic move to `history_len=4`
+
+The later spectral-only longer-context follow-up is summarized in:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_spectral_history_len4plus_compare_summary.md`
+
+That follow-up reopened the optional branch narrowly for
+`spectral_resnet_bottleneck_base`, recorded fresh `history_len=4` and
+`history_len=5` `10`/`40`-epoch pilots plus anchored compare sidecars, and
+found that longer context kept helping the spectral row at `40` epochs while
+the `10`-epoch behavior stayed mixed. Those rows remain adjacent capped
+context only and do not change the locked `history_len=2` CNS paper lane.
 
 ## Official Author FFNO Equal-Footing Follow-Up
 

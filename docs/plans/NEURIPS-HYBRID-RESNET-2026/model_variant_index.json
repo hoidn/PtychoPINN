@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-04-30T20:00:00Z",
+  "last_updated_utc": "2026-05-01T23:30:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -42,6 +42,78 @@
       "epochs": 40,
       "training_loss": "mse",
       "claim_boundary": "capped_decision_support_only",
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ]
+    },
+    "cns_history4_cap512_10ep": {
+      "task": "pdebench_cns",
+      "dataset_label": "PDEBench 2D_CFD CNS 128x128 periodic train file",
+      "split": "512 / 64 / 64 trajectories",
+      "history_len": 4,
+      "max_windows_per_trajectory": 8,
+      "epochs": 10,
+      "training_loss": "mse",
+      "claim_boundary": "adjacent_capped_context_only",
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ]
+    },
+    "cns_history4_cap512_40ep": {
+      "task": "pdebench_cns",
+      "dataset_label": "PDEBench 2D_CFD CNS 128x128 periodic train file",
+      "split": "512 / 64 / 64 trajectories",
+      "history_len": 4,
+      "max_windows_per_trajectory": 8,
+      "epochs": 40,
+      "training_loss": "mse",
+      "claim_boundary": "adjacent_capped_context_only",
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ]
+    },
+    "cns_history5_cap512_10ep": {
+      "task": "pdebench_cns",
+      "dataset_label": "PDEBench 2D_CFD CNS 128x128 periodic train file",
+      "split": "512 / 64 / 64 trajectories",
+      "history_len": 5,
+      "max_windows_per_trajectory": 8,
+      "epochs": 10,
+      "training_loss": "mse",
+      "claim_boundary": "adjacent_capped_context_only",
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ]
+    },
+    "cns_history5_cap512_40ep": {
+      "task": "pdebench_cns",
+      "dataset_label": "PDEBench 2D_CFD CNS 128x128 periodic train file",
+      "split": "512 / 64 / 64 trajectories",
+      "history_len": 5,
+      "max_windows_per_trajectory": 8,
+      "epochs": 40,
+      "training_loss": "mse",
+      "claim_boundary": "adjacent_capped_context_only",
       "metric_family": [
         "err_RMSE",
         "err_nRMSE",
@@ -488,6 +560,106 @@
       "evidence_status": "capped_decision_support_continuity"
     },
     {
+      "variant_id": "cns_history4_cap512__spectral_resnet_bottleneck_base__supervised__10ep_adjacent",
+      "dataset_contract_id": "cns_history4_cap512_10ep",
+      "row_id": "spectral_resnet_bottleneck_base",
+      "paper_label": "SRU-Net*",
+      "architecture_id": "spectral_resnet_bottleneck_base",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-04-29-cns-spectral-history-len4plus-compare",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_spectral_history_len4plus_compare_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare/history4-pilot-10ep-20260501T093239Z",
+      "metrics_json": "metrics_spectral_resnet_bottleneck_base.json",
+      "parameter_count": 8394118,
+      "runtime_sec": 352.7080326080322,
+      "metrics": {
+        "relative_l2": 0.06407293677330017,
+        "err_nRMSE": 0.06407293677330017,
+        "err_RMSE": 1.5474669933319092,
+        "fRMSE_low": 3.5263044834136963,
+        "fRMSE_mid": 0.27031317353248596,
+        "fRMSE_high": 0.7701910734176636
+      },
+      "evidence_status": "decision_support_adjacent_context"
+    },
+    {
+      "variant_id": "cns_history4_cap512__spectral_resnet_bottleneck_base__supervised__40ep_adjacent",
+      "dataset_contract_id": "cns_history4_cap512_40ep",
+      "row_id": "spectral_resnet_bottleneck_base",
+      "paper_label": "SRU-Net*",
+      "architecture_id": "spectral_resnet_bottleneck_base",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-04-29-cns-spectral-history-len4plus-compare",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_spectral_history_len4plus_compare_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare/history4-pilot-40ep-20260501T094209Z",
+      "metrics_json": "metrics_spectral_resnet_bottleneck_base.json",
+      "parameter_count": 8394118,
+      "runtime_sec": 1312.4203865528107,
+      "metrics": {
+        "relative_l2": 0.034329403191804886,
+        "err_nRMSE": 0.034329403191804886,
+        "err_RMSE": 0.8291117548942566,
+        "fRMSE_low": 1.9236305952072144,
+        "fRMSE_mid": 0.16783076524734497,
+        "fRMSE_high": 0.28624987602233887
+      },
+      "evidence_status": "decision_support_adjacent_context"
+    },
+    {
+      "variant_id": "cns_history5_cap512__spectral_resnet_bottleneck_base__supervised__10ep_adjacent",
+      "dataset_contract_id": "cns_history5_cap512_10ep",
+      "row_id": "spectral_resnet_bottleneck_base",
+      "paper_label": "SRU-Net*",
+      "architecture_id": "spectral_resnet_bottleneck_base",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-04-29-cns-spectral-history-len4plus-compare",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_spectral_history_len4plus_compare_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare/history5-pilot-10ep-20260501T100435Z",
+      "metrics_json": "metrics_spectral_resnet_bottleneck_base.json",
+      "parameter_count": 8395270,
+      "runtime_sec": 383.8926651477814,
+      "metrics": {
+        "relative_l2": 0.09397896379232407,
+        "err_nRMSE": 0.09397896379232407,
+        "err_RMSE": 2.2701683044433594,
+        "fRMSE_low": 5.350362300872803,
+        "fRMSE_mid": 0.29500821232795715,
+        "fRMSE_high": 0.5622383952140808
+      },
+      "evidence_status": "decision_support_adjacent_context"
+    },
+    {
+      "variant_id": "cns_history5_cap512__spectral_resnet_bottleneck_base__supervised__40ep_adjacent",
+      "dataset_contract_id": "cns_history5_cap512_40ep",
+      "row_id": "spectral_resnet_bottleneck_base",
+      "paper_label": "SRU-Net*",
+      "architecture_id": "spectral_resnet_bottleneck_base",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-04-29-cns-spectral-history-len4plus-compare",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_spectral_history_len4plus_compare_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare/history5-pilot-40ep-20260501T101147Z",
+      "metrics_json": "metrics_spectral_resnet_bottleneck_base.json",
+      "parameter_count": 8395270,
+      "runtime_sec": 1436.7038459777832,
+      "metrics": {
+        "relative_l2": 0.0330694355070591,
+        "err_nRMSE": 0.0330694355070591,
+        "err_RMSE": 0.7988296747207642,
+        "fRMSE_low": 1.8541778326034546,
+        "fRMSE_mid": 0.17134958505630493,
+        "fRMSE_high": 0.26221781969070435
+      },
+      "evidence_status": "decision_support_adjacent_context"
+    },
+    {
       "variant_id": "cns_history2_cap1024__spectral_resnet_bottleneck_shared_blocks10__supervised__80ep",
       "dataset_contract_id": "cns_history2_cap1024_80ep",
       "row_id": "spectral_resnet_bottleneck_shared_blocks10",
@@ -543,6 +715,7 @@
     "2026-04-28-pdebench-cns-spectral-modes24-convergence-compare",
     "2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence",
     "2026-04-29-pdebench-cns-history-len3plus-compare",
+    "2026-04-29-cns-spectral-history-len4plus-compare",
     "2026-04-27-cdi-ffno-generator-lines-best-config",
     "2026-04-28-pdebench-cns-hybrid-spectral-ffno-parameter-space",
     "2026-04-29-cdi-lines128-paper-benchmark-harness",

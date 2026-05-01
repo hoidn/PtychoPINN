@@ -296,6 +296,8 @@ def _load_run_record(run_root: Path, *, profile_id: str, source_document: str) -
     model_profile = _load_json(required_paths["model_profile"])
 
     history_len = int(split_manifest.get("history_len", dataset_manifest.get("history_len", 0)))
+    split_dimensions = dict(split_manifest.get("dimensions", {}))
+    window_counts = dict(split_manifest.get("window_counts", {}))
     metric_family = [field for field in COMPARISON_METRIC_FIELDS if field in metrics]
     field_order = [str(item) for item in dataset_manifest.get("field_order", [])]
     target_channels = int(
@@ -313,9 +315,19 @@ def _load_run_record(run_root: Path, *, profile_id: str, source_document: str) -
         or metrics.get("task_metadata", {}).get("sample_contract")
         or _canonical_sample_contract(history_len)
     )
+    raw_windows_per_trajectory = None
+    raw_available_windows = None
+    if split_dimensions:
+        time_steps = split_dimensions.get("time_steps")
+        num_trajectories = split_dimensions.get("num_trajectories")
+        if time_steps is not None:
+            raw_windows_per_trajectory = int(time_steps) - history_len
+        if raw_windows_per_trajectory is not None and num_trajectories is not None:
+            raw_available_windows = int(num_trajectories) * int(raw_windows_per_trajectory)
     contract = {
         "dataset_file": str(dataset_manifest.get("data_file") or split_manifest.get("source_file", {}).get("path", "")),
         "split_counts": dict(split_manifest.get("split_counts", {})),
+        "window_counts": window_counts,
         "max_windows_per_trajectory": int(split_manifest.get("max_windows_per_trajectory")),
         "history_len": history_len,
         "epochs": int(invocation.get("parsed_args", {}).get("epochs")),
@@ -346,6 +358,7 @@ def _load_run_record(run_root: Path, *, profile_id: str, source_document: str) -
         "epochs": contract["epochs"],
         "dataset_file": contract["dataset_file"],
         "split_counts": contract["split_counts"],
+        "window_counts": contract["window_counts"],
         "max_windows_per_trajectory": contract["max_windows_per_trajectory"],
         "history_len": contract["history_len"],
         "training_loss": contract["training_loss"],
@@ -355,6 +368,8 @@ def _load_run_record(run_root: Path, *, profile_id: str, source_document: str) -
         "field_order": contract["field_order"],
         "input_channels": contract["input_channels"],
         "target_channels": contract["target_channels"],
+        "raw_windows_per_trajectory": raw_windows_per_trajectory,
+        "raw_available_windows": raw_available_windows,
         "task_id": str(dataset_manifest.get("task_id", comparison_summary.get("task_id", ""))),
         "mode": str(comparison_summary.get("mode", "")),
         "evidence_scope": str(comparison_summary.get("evidence_scope", "")),
@@ -972,6 +987,238 @@ def write_history_delta_compare(
                 {
                     "row_family": reference_row_family,
                     **{field: row.get(field, "") for field in fields if field != "row_family"},
+                }
+            )
+    return json_path, csv_path, payload
+
+
+def _first_regressed_metric(metric_deltas: dict[str, float]) -> str | None:
+    for field in COMPARISON_METRIC_FIELDS:
+        if float(metric_deltas[field]) > 0.0:
+            return field
+    return None
+
+
+def write_same_profile_multi_reference_history_compare(
+    *,
+    output_root: Path,
+    epoch_label: str,
+    fresh_run_root: Path,
+    profile_id: str,
+    manuscript_label: str,
+    reference_rows: list[dict[str, Any]],
+    claim_scope: str = "adjacent_capped_context_only",
+) -> tuple[Path, Path, dict[str, Any]]:
+    output_root = Path(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+
+    profile_id = str(profile_id)
+    manuscript_label = str(manuscript_label)
+    reference_rows = list(reference_rows)
+    if not reference_rows:
+        raise ValueError("reference_rows must not be empty")
+
+    fixed_contract = _fixed_contract(reference_rows[0])
+    fresh_record = _load_run_record(
+        Path(fresh_run_root),
+        profile_id=profile_id,
+        source_document="fresh_history_run",
+    )
+    _assert_fixed_contract_matches(
+        label=f"fresh row {profile_id}",
+        actual=fresh_record["contract"],
+        expected=fixed_contract,
+    )
+
+    reference_records: list[dict[str, Any]] = []
+    reference_comparisons: list[dict[str, Any]] = []
+    reference_history_lens: list[int] = []
+    reference_profile_results: list[dict[str, Any]] = []
+
+    for row in sorted(reference_rows, key=lambda item: int(item["history_len"])):
+        if str(row["profile_id"]) != profile_id:
+            raise ValueError(
+                f"reference row profile_id mismatch for multi-reference history compare: "
+                f"{row['profile_id']!r} != {profile_id!r}"
+            )
+        expected_contract = {
+            "dataset_file": str(row["dataset_file"]),
+            "split_counts": dict(row["split_counts"]),
+            "max_windows_per_trajectory": int(row["max_windows_per_trajectory"]),
+            "history_len": int(row["history_len"]),
+            "epochs": int(row["epochs"]),
+            "batch_size": int(row["batch_size"]),
+            "training_loss": str(row["training_loss"]),
+            "metric_family": list(row["metric_family"]),
+        }
+        record = _load_run_record(
+            Path(row["run_root"]),
+            profile_id=profile_id,
+            source_document=str(row["source_document"]),
+        )
+        _assert_contract_matches(
+            label=f"reference row {profile_id} history{row['history_len']}",
+            actual=record["contract"],
+            expected=expected_contract,
+        )
+        _assert_fixed_contract_matches(
+            label=f"reference row {profile_id} history{row['history_len']}",
+            actual=record["contract"],
+            expected=fixed_contract,
+        )
+        if int(record["contract"]["history_len"]) == int(fresh_record["contract"]["history_len"]):
+            raise ValueError(f"reference row {profile_id} must differ from the fresh row on history_len")
+        if record["contract"]["field_order"] != fresh_record["contract"]["field_order"]:
+            raise ValueError(
+                f"multi-reference history compare requires matching field_order for {profile_id}: "
+                f"{record['contract']['field_order']!r} != {fresh_record['contract']['field_order']!r}"
+            )
+        if int(record["contract"]["target_channels"]) != int(fresh_record["contract"]["target_channels"]):
+            raise ValueError(
+                f"multi-reference history compare requires matching target_channels for {profile_id}: "
+                f"{record['contract']['target_channels']!r} != {fresh_record['contract']['target_channels']!r}"
+            )
+
+        reference_history_len = int(record["contract"]["history_len"])
+        reference_label = f"history{reference_history_len}"
+        reference_history_lens.append(reference_history_len)
+        reference_records.append(record)
+        reference_profile_results.append({**record["row"], "manuscript_label": manuscript_label, "claim_scope": claim_scope})
+
+        metric_deltas = {
+            field: _rounded(float(fresh_record["row"][field]) - float(record["row"][field]))
+            for field in COMPARISON_METRIC_FIELDS
+        }
+        metric_deltas["runtime_sec"] = _rounded(
+            float(fresh_record["row"]["runtime_sec"]) - float(record["row"]["runtime_sec"])
+        )
+        reference_comparisons.append(
+            {
+                "reference_history_label": reference_label,
+                "reference_history_len": reference_history_len,
+                "metric_deltas": metric_deltas,
+                "first_regressed_metric": _first_regressed_metric(metric_deltas),
+                "reference_profile_result": {
+                    **record["row"],
+                    "manuscript_label": manuscript_label,
+                    "claim_scope": claim_scope,
+                },
+            }
+        )
+
+    if len(set(reference_history_lens)) != len(reference_history_lens):
+        raise ValueError(f"duplicate reference history_len values are not allowed: {reference_history_lens!r}")
+
+    fresh_history_len = int(fresh_record["contract"]["history_len"])
+    target_channels = int(fresh_record["contract"]["target_channels"])
+    reference_history_labels = [f"history{value}" for value in reference_history_lens]
+    compare_stem = (
+        f"compare_{epoch_label}_history{fresh_history_len}_against_"
+        + "_".join(reference_history_labels)
+    )
+    gallery_artifacts, gallery_blocker = _maybe_render_cross_run_gallery(
+        records=[fresh_record, *reference_records],
+        output_root=output_root,
+        epoch_label=epoch_label,
+        compare_stem=compare_stem,
+    )
+
+    payload = {
+        "schema_version": "pdebench_image128_same_profile_multi_reference_history_compare_v1",
+        "created_at_utc": datetime.now(timezone.utc).isoformat(),
+        "task_id": "2d_cfd_cns",
+        "epoch_label": str(epoch_label),
+        "profile_id": profile_id,
+        "manuscript_label": manuscript_label,
+        "claim_scope": claim_scope,
+        "fresh_run_root": str(fresh_run_root),
+        "fixed_contract": fixed_contract,
+        "allowed_contract_delta": {
+            "delta_kind": "history_len_only",
+            "fresh_history_len": fresh_history_len,
+            "reference_history_lens": reference_history_lens,
+            "fresh_sample_contract": str(fresh_record["contract"]["sample_contract"]),
+            "reference_sample_contracts": {
+                f"history{int(record['contract']['history_len'])}": str(record["contract"]["sample_contract"])
+                for record in reference_records
+            },
+            "fresh_input_channels": int(fresh_record["contract"]["input_channels"]),
+            "reference_input_channels": {
+                f"history{int(record['contract']['history_len'])}": int(record["contract"]["input_channels"])
+                for record in reference_records
+            },
+            "target_channels": target_channels,
+        },
+        "comparison_standard": "Only history_len and its derived sample/input-channel contract may differ.",
+        "evidence_scope": str(fresh_record["row"]["evidence_scope"]),
+        "metric_interpretation": str(fresh_record["row"]["metric_interpretation"]),
+        "fresh_profile_result": {
+            **fresh_record["row"],
+            "manuscript_label": manuscript_label,
+            "claim_scope": claim_scope,
+        },
+        "reference_profile_results": reference_profile_results,
+        "reference_comparisons": reference_comparisons,
+        "gallery_artifacts": gallery_artifacts,
+        "cross_run_gallery_blocked": gallery_blocker,
+    }
+
+    json_path = output_root / f"{compare_stem}.json"
+    csv_path = output_root / f"{compare_stem}.csv"
+    json_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    fields = [
+        "row_family",
+        "profile_id",
+        "manuscript_label",
+        "claim_scope",
+        "status",
+        "history_len",
+        "sample_contract",
+        "input_channels",
+        "target_channels",
+        "split_counts",
+        "window_counts",
+        "raw_windows_per_trajectory",
+        "raw_available_windows",
+        "epochs",
+        "runtime_sec",
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high",
+        "parameter_count",
+        "run_root",
+        "source_document",
+        "training_loss",
+        "batch_size",
+        "evidence_scope",
+    ]
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerow(
+            {
+                "row_family": f"fresh_history{fresh_history_len}",
+                **{field: payload["fresh_profile_result"].get(field, "") for field in fields if field != "row_family"},
+            }
+        )
+        for record in payload["reference_profile_results"]:
+            writer.writerow(
+                {
+                    "row_family": f"reference_history{int(record['history_len'])}",
+                    **{field: record.get(field, "") for field in fields if field != "row_family"},
+                }
+            )
+        for comparison in reference_comparisons:
+            writer.writerow(
+                {
+                    "row_family": f"delta_vs_{comparison['reference_history_label']}",
+                    "profile_id": profile_id,
+                    "manuscript_label": manuscript_label,
+                    "claim_scope": claim_scope,
+                    **comparison["metric_deltas"],
                 }
             )
     return json_path, csv_path, payload

@@ -261,6 +261,16 @@ def _write_fake_cfd_cns_compare_run(
                 "history_len": int(history_len),
                 "max_windows_per_trajectory": int(max_windows_per_trajectory),
                 "split_counts": dict(split_counts),
+                "window_counts": {
+                    name: int(count) * int(max_windows_per_trajectory) for name, count in dict(split_counts).items()
+                },
+                "dimensions": {
+                    "num_trajectories": 10000,
+                    "time_steps": 21,
+                    "height": 128,
+                    "width": 128,
+                    "channels": 1,
+                },
                 "source_file": {"path": dataset_file},
             },
             indent=2,
@@ -1847,6 +1857,180 @@ def test_history1_cross_run_compare_rejects_hybrid_base_proxy_anchor(tmp_path):
         assert "hybrid_resnet_base" in str(exc)
     else:
         raise AssertionError("history compare must reject hybrid_resnet_base as a proxy anchor")
+
+
+def test_same_profile_multi_reference_history_compare_writes_dual_anchor_payload(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import write_same_profile_multi_reference_history_compare
+
+    history4_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "history4",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.041,
+        history_len=4,
+        runtime_sec=4100.0,
+    )
+    history2_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "history2",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.061,
+        history_len=2,
+        runtime_sec=3300.0,
+    )
+    history3_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "history3",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.045,
+        history_len=3,
+        runtime_sec=3700.0,
+    )
+
+    json_path, csv_path, payload = write_same_profile_multi_reference_history_compare(
+        output_root=tmp_path / "out",
+        epoch_label="40ep",
+        fresh_run_root=history4_root,
+        profile_id="spectral_resnet_bottleneck_base",
+        manuscript_label="SRU-Net*",
+        reference_rows=[
+            {
+                "run_root": str(history2_root),
+                "profile_id": "spectral_resnet_bottleneck_base",
+                "epochs": 40,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 2,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/history2.md",
+            },
+            {
+                "run_root": str(history3_root),
+                "profile_id": "spectral_resnet_bottleneck_base",
+                "epochs": 40,
+                "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                "split_counts": {"train": 512, "val": 64, "test": 64},
+                "max_windows_per_trajectory": 8,
+                "history_len": 3,
+                "training_loss": "mse",
+                "batch_size": 4,
+                "metric_family": [
+                    "err_RMSE",
+                    "err_nRMSE",
+                    "relative_l2",
+                    "fRMSE_low",
+                    "fRMSE_mid",
+                    "fRMSE_high",
+                ],
+                "source_document": "docs/history3.md",
+            },
+        ],
+    )
+
+    assert json_path.exists()
+    assert csv_path.exists()
+    assert json_path.name == "compare_40ep_history4_against_history2_history3.json"
+    assert csv_path.name == "compare_40ep_history4_against_history2_history3.csv"
+    assert payload["schema_version"] == "pdebench_image128_same_profile_multi_reference_history_compare_v1"
+    assert payload["profile_id"] == "spectral_resnet_bottleneck_base"
+    assert payload["manuscript_label"] == "SRU-Net*"
+    assert payload["claim_scope"] == "adjacent_capped_context_only"
+    assert payload["allowed_contract_delta"] == {
+        "delta_kind": "history_len_only",
+        "fresh_history_len": 4,
+        "reference_history_lens": [2, 3],
+        "fresh_sample_contract": "concat u[t-4:t] -> u[t]",
+        "reference_sample_contracts": {
+            "history2": "concat u[t-2:t] -> u[t]",
+            "history3": "concat u[t-3:t] -> u[t]",
+        },
+        "fresh_input_channels": 16,
+        "reference_input_channels": {
+            "history2": 8,
+            "history3": 12,
+        },
+        "target_channels": 4,
+    }
+    assert payload["fresh_profile_result"]["runtime_sec"] == 4100.0
+    assert payload["fresh_profile_result"]["window_counts"] == {"train": 4096, "val": 512, "test": 512}
+    assert payload["fresh_profile_result"]["raw_windows_per_trajectory"] == 17
+    assert payload["fresh_profile_result"]["raw_available_windows"] == 170000
+
+    comparisons = {item["reference_history_label"]: item for item in payload["reference_comparisons"]}
+    assert sorted(comparisons) == ["history2", "history3"]
+    assert comparisons["history2"]["metric_deltas"]["err_nRMSE"] == pytest.approx(-0.02)
+    assert comparisons["history2"]["metric_deltas"]["runtime_sec"] == pytest.approx(800.0)
+    assert comparisons["history2"]["metric_deltas"]["fRMSE_high"] == pytest.approx(-0.01)
+    assert comparisons["history3"]["metric_deltas"]["err_nRMSE"] == pytest.approx(-0.004)
+    assert comparisons["history3"]["reference_profile_result"]["raw_windows_per_trajectory"] == 18
+    assert comparisons["history3"]["reference_profile_result"]["raw_available_windows"] == 180000
+
+    rows = list(csv.DictReader(csv_path.open("r", encoding="utf-8")))
+    assert [row["row_family"] for row in rows] == ["fresh_history4", "reference_history2", "reference_history3", "delta_vs_history2", "delta_vs_history3"]
+    assert rows[0]["manuscript_label"] == "SRU-Net*"
+    assert rows[0]["claim_scope"] == "adjacent_capped_context_only"
+    assert rows[1]["raw_windows_per_trajectory"] == "19"
+    assert rows[4]["err_nRMSE"] == "-0.004"
+
+
+def test_same_profile_multi_reference_history_compare_rejects_profile_id_drift(tmp_path):
+    from scripts.studies.pdebench_image128.reporting import write_same_profile_multi_reference_history_compare
+
+    fresh_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "history4",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=10,
+        err_nrmse=0.08,
+        history_len=4,
+    )
+    bad_reference = _write_fake_cfd_cns_compare_run(
+        tmp_path / "bad-reference",
+        profile_id="hybrid_resnet_cns",
+        epochs=10,
+        err_nrmse=0.11,
+        history_len=2,
+    )
+
+    with pytest.raises(ValueError, match="profile_id"):
+        write_same_profile_multi_reference_history_compare(
+            output_root=tmp_path / "out",
+            epoch_label="10ep",
+            fresh_run_root=fresh_root,
+            profile_id="spectral_resnet_bottleneck_base",
+            manuscript_label="SRU-Net*",
+            reference_rows=[
+                {
+                    "run_root": str(bad_reference),
+                    "profile_id": "hybrid_resnet_cns",
+                    "epochs": 10,
+                    "dataset_file": "/tmp/fake-cfd-cns.hdf5",
+                    "split_counts": {"train": 512, "val": 64, "test": 64},
+                    "max_windows_per_trajectory": 8,
+                    "history_len": 2,
+                    "training_loss": "mse",
+                    "batch_size": 4,
+                    "metric_family": [
+                        "err_RMSE",
+                        "err_nRMSE",
+                        "relative_l2",
+                        "fRMSE_low",
+                        "fRMSE_mid",
+                        "fRMSE_high",
+                    ],
+                    "source_document": "docs/bad.md",
+                }
+            ],
+        )
 
 
 def test_write_cfd_cns_convergence_audit_writes_expected_payload(tmp_path):

@@ -303,6 +303,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, pdebench, cns, history_len, history-3, history-4, spectral_resnet, hybrid_resnet_cns, fno, unet, summary
 **Use this when:** Checking whether increasing CNS temporal context to `history_len=3` helped on the capped four-row contract, whether the ranking changed at `10` or `40` epochs, or why the optional `history_len=4` branch stayed closed.
 
+### [NeurIPS Hybrid ResNet PDEBench CNS Spectral History Length 4+ Compare Summary](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_spectral_history_len4plus_compare_summary.md)
+**Description:** Implementation summary for the later spectral-only longer-context PDEBench `2d_cfd_cns` follow-up, covering the frozen spectral `history_len=2/3` anchors, the fresh `history_len=4` and `history_len=5` inspect proofs plus `10`/`40`-epoch pilots, the anchored multi-reference compare sidecars, and the result that longer context kept helping the spectral row at `40` epochs while the locked paper lane stayed `history_len=2`.
+**Keywords:** neurips, pdebench, cns, history_len, history-4, history-5, spectral_resnet, sru-net, compare, summary
+**Use this when:** Checking whether the spectral CNS row benefited from longer temporal context beyond `history_len=3`, locating the fresh `history_len=4/5` artifacts, or confirming that these results remain adjacent capped context only.
+
 ### [NeurIPS Hybrid ResNet PDEBench Hybrid-Spectral CNS Architecture Ablation Design](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_hybrid_spectral_cns_architecture_ablation_design.md)
 **Description:** Design for a CNS-only Hybrid-spectral architecture ablation that fixes the canonical skip-add plus pixelshuffle shell and studies spectral-family internals such as weight sharing and bottleneck depth without mixing in CDI/ptycho, Markov-history, or physics-regularization changes.
 **Keywords:** neurips, pdebench, cns, hybrid-spectral, architecture, ablation, weight-sharing, depth, pixelshuffle, skip-add

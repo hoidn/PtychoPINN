@@ -1,7 +1,7 @@
 # NeurIPS Hybrid ResNet Evidence Matrix
 
 Status: draft  
-Last updated: 2026-04-30
+Last updated: 2026-05-01
 
 This is the human-facing master matrix for NeurIPS/SRU-Net evidence. It points
 to all relevant completed backlog outputs, keyed by dataset, model/config
@@ -115,6 +115,7 @@ Bundle outputs include:
 | `2026-04-28-pdebench-cns-spectral-modes24-convergence-compare` | CNS modes24 convergence ablation | `pdebench_spectral_modes24_convergence_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/` |
 | `2026-04-29-pdebench-cns-shared-blocks10-1024cap-longer-convergence` | CNS deeper shared-block convergence | `pdebench_cns_shared_blocks10_1024cap_longer_convergence_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/` |
 | `2026-04-29-pdebench-cns-history-len3plus-compare` | CNS longer-history ablation | `pdebench_cns_history_len3plus_compare_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/` |
+| `2026-04-29-cns-spectral-history-len4plus-compare` | CNS spectral longer-history follow-up | `pdebench_cns_spectral_history_len4plus_compare_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare/` |
 | `2026-04-27-cdi-ffno-generator-lines-best-config` | CDI FFNO prerequisite pair | `cdi_ffno_generator_lines_best_config_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet` |
 | `2026-04-28-pdebench-cns-hybrid-spectral-ffno-parameter-space` | CNS shell-bridge ablation | `pdebench_cns_hybrid_spectral_ffno_parameter_space_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-ffno-parameter-space/` |
 | `2026-04-29-cdi-lines128-paper-benchmark-harness` | CDI harness readiness | `lines128_paper_benchmark_harness_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/validation/readiness_only_preflight/` |
@@ -146,7 +147,7 @@ Bundle outputs include:
 | CNS paper contract and bundle | contract, row lock, table/figure bundle | bounded capped CNS table only; no full-training SOTA claim |
 | CNS authored FFNO | author FFNO equal-footing row | strongest locked capped CNS row |
 | CNS GNOT | paper-default GNOT compare | not promoted because aggregate error was poor |
-| CNS history length | history1 and history3+ compares | history1 bad; history3 adjacent context only |
+| CNS history length | history1, history3+, and spectral history4+ compares | history1 bad; history3 improved the stronger `40`-epoch rows; history4 and history5 kept helping the spectral row at `40` epochs but remained adjacent capped context only because `10`-epoch behavior stayed mixed and the paper lane is still locked to `history_len=2` |
 | CNS spectral modes | modes32 and modes24 compares | no higher-mode default promotion |
 | CNS hybrid-spectral architecture | sharing/depth, 2048-cap, shared-blocks10 longer convergence | deeper variants remain decision-support |
 | CNS FFNO-family local convolution | local-conv follow-up | improves repo-local FFNO proxy but not stronger than authored FFNO |
