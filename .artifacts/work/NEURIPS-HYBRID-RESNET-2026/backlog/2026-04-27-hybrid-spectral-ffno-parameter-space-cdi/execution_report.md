@@ -1,5 +1,9 @@
 ## Completed In This Pass
 
+- reran and archived the plan-required final integration sweep
+  (`pytest -v -m integration`) on the `review_fix8` code path, closing the
+  remaining live implementation-review blocker for production-workflow
+  verification
 - refreshed the durable checked-in CDI bridge-study summary so the indexed
   authority now points at the final `review_fix8` evidence instead of the stale
   `review_fix7` verification state
@@ -48,6 +52,10 @@
   `verification/pytest_grid_compare_wrapper_review_fix8.log`,
   `verification/pytest_backlog_checks_review_fix8.log`, and
   `verification/compileall_review_fix8.log`
+- plan-required production-workflow integration sweep refreshed on the final
+  delivered code path:
+  `verification/pytest_integration_review_fix8.log` now records `5 passed,
+  4 skipped, 1818 deselected, 2 warnings in 302.30s`
 
 ## Follow-Up Work
 
@@ -91,6 +99,9 @@
   -> `192 passed, 49 warnings in 303.88s (0:05:03)`
 - compile check:
   `python -m compileall -q ptycho_torch scripts/studies` -> exit `0`
+- required integration sweep:
+  `pytest -v -m integration`
+  -> `5 passed, 4 skipped, 1818 deselected, 2 warnings in 302.30s (0:05:02)`
 - archived bundle repair and deterministic validation:
   `verification/artifact_validation_review_fix8.log`
   -> `claim_boundary: "no_paper_promotion_without_later_authority"`,
@@ -99,5 +110,6 @@
   - `verification/pytest_study_harness_review_fix8.log`
   - `verification/pytest_grid_compare_wrapper_review_fix8.log`
   - `verification/pytest_backlog_checks_review_fix8.log`
+  - `verification/pytest_integration_review_fix8.log`
   - `verification/compileall_review_fix8.log`
   - `verification/artifact_validation_review_fix8.log`
