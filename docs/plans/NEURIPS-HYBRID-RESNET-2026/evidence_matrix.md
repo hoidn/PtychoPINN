@@ -80,7 +80,7 @@ decision-support only.
 
 | Row | Changed factor | Nearest anchor | Amp MAE | Phase MAE | Amp SSIM | Phase SSIM | Source |
 |---|---|---|---:|---:|---:|---:|---|
-| `pinn_hybrid_resnet_skip_add` | decoder skip fusion `concat -> add` | `pinn_hybrid_resnet` | 0.026447 | 0.061022 | 0.988681 | 0.993895 | CDI skip/residual ablation |
+| `pinn_hybrid_resnet_skip_add` | enable decoder skip fusion with `add` style | `pinn_hybrid_resnet` | 0.026447 | 0.061022 | 0.988681 | 0.993895 | CDI skip/residual ablation |
 | `pinn_hybrid_resnet_residual_fixed` | bottleneck residual scale `learned -> fixed` | `pinn_hybrid_resnet` | 0.024611 | 0.077322 | 0.990003 | 0.994298 | CDI skip/residual ablation |
 | `pinn_hybrid_resnet_skip_add_residual_fixed` | skip-add plus fixed residual scale | `pinn_hybrid_resnet` | 0.028890 | 0.063259 | 0.986797 | 0.992850 | CDI skip/residual ablation |
 
