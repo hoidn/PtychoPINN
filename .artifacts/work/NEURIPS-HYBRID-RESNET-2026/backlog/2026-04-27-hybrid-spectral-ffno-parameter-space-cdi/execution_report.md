@@ -1,30 +1,26 @@
 ## Completed In This Pass
 
-- added the missing review regression coverage for exact `probe_npz` identity:
-  the harness now fails when the manifest is repointed to a different
-  same-basename probe, and it separately proves that declared repo-relative
-  probe contracts still validate when they resolve to the canonical file
-- repaired shared-contract validation so `probe_npz` no longer trusts a
-  self-consistent manifest entry; it now checks the actual/recorded digest
-  against the canonical frozen-contract probe while preserving legitimate
-  byte-identical copies used by the study harness
-- refreshed the archived machine-readable validation artifact and synchronized
-  the durable checked-in summary so the documented focused-test count and
-  artifact-validation log now match the final repaired evidence
+- reran the final required production-workflow integration gate from the
+  approved execution plan in `ptycho311`; the tracked pytest PID exited `0`
+  and the archived log now lives at
+  `verification/pytest_integration_review_fix6.log`
+- synchronized this execution report and the durable checked-in study summary
+  so the closeout evidence now reflects the refreshed integration proof in
+  addition to the earlier `review_fix6` validator and harness repairs
 
 ## Completed Current-Scope Work
 
-- review finding 1 resolved: the bundle validator now rejects probe drift even
-  when the substituted file keeps the same basename and a recomputed manifest
-  SHA, because the recorded probe must match the canonical frozen-contract
-  digest
-- review finding 2 resolved: the durable checked-in summary now cites the
-  final focused harness count (`20 passed`) and the refreshed archived
-  validation log `verification/artifact_validation_review_fix6.log`
-- the refreshed archived validation artifact at
-  `analysis/bundle_validation.json` now reports `"ok": true` with empty
+- review finding resolved: the final required
+  `pytest -v -m integration` rerun is now archived at
+  `verification/pytest_integration_review_fix6.log` with
+  `5 passed, 4 skipped, 1816 deselected, 2 warnings in 301.63s (0:05:01)`,
+  so the repaired state now satisfies the execution plan's full closeout
+  verification contract
+- the earlier `review_fix6` repair remains in force:
+  `analysis/bundle_validation.json` still reports `"ok": true` with empty
   `shared_contract_failures`, `fresh_row_completion_failures`,
-  `merged_output_failures`, and `reused_root_drift`
+  `merged_output_failures`, and `reused_root_drift`, and the durable summary
+  stays aligned with the final archived validation log
 
 ## Follow-Up Work
 
@@ -37,8 +33,9 @@
 - this item remains CDI-only decision-support evidence; no fresh bridge row is
   promoted into paper-facing claim territory
 - the pre-existing warning set in the closeout pytest runs remains unchanged:
-  `tight_layout`, degenerate-case SSIM/MS-SSIM, and FRC divide warnings from
-  the approved backlog selector
+  `tight_layout`, degenerate-case SSIM/MS-SSIM, FRC divide warnings from the
+  approved backlog selector, plus the long-standing TensorFlow Addons
+  compatibility warnings emitted by the integration marker
 - this repair validates and metadata-repairs the archived study root; it does
   not rerun the full long CDI bridge study, so any future relaunch is still the
   point where launcher-native contract threading is exercised end to end
@@ -54,6 +51,9 @@
 - required backlog gate:
   `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
   -> `191 passed, 49 warnings in 304.61s (0:05:04)`
+- required production-workflow integration gate:
+  `pytest -v -m integration`
+  -> `5 passed, 4 skipped, 1816 deselected, 2 warnings in 301.63s (0:05:01)`
 - compile check:
   `python -m compileall -q ptycho_torch scripts/studies` -> exit `0`
 - repaired bundle validation on the archived study root after enforcing the
@@ -66,5 +66,6 @@
 - archived logs:
   - `verification/pytest_study_harness_review_fix6.log`
   - `verification/pytest_backlog_checks_review_fix6.log`
+  - `verification/pytest_integration_review_fix6.log`
   - `verification/compileall_review_fix6.log`
   - `verification/artifact_validation_review_fix6.log`

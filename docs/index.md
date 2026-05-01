@@ -224,9 +224,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Verifying that the CDI bridge study still points at the authorized complete-table bundle, checking the exact reused and fresh row roster, or auditing whether the study root is allowed to launch or collate results.
 
 ### [NeurIPS CDI Hybrid-Spectral To FFNO Parameter-Space Summary](plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_summary.md)
-**Description:** Durable decision-support summary for the bounded CDI-only bridge study between the existing `lines128` Hybrid/spectral anchors and three FFNO-adjacent architecture changes, including the frozen study matrix, the recovered row-local recon-path bugfix, the copy-on-write authoritative-anchor repair, the fresh DS1, linear-decoder, and FFNO-bottleneck row outcomes, and the explicit no-promotion boundary.
+**Description:** Durable decision-support summary for the bounded CDI-only bridge study between the existing `lines128` Hybrid/spectral anchors and three FFNO-adjacent architecture changes, including the frozen study matrix, the recovered row-local recon-path bugfix, the copy-on-write authoritative-anchor repair, the fresh DS1, linear-decoder, and FFNO-bottleneck row outcomes, the refreshed closeout integration-proof archive, and the explicit no-promotion boundary.
 **Keywords:** neurips, cdi, lines128, hybrid_resnet, spectral_resnet, ffno, parameter-space, bridge, decision-support
-**Use this when:** Checking whether any same-contract CDI bridge row improved on the current anchors, locating the six-row bridge-study artifact root, or auditing the row-local recovery and no-promotion decision.
+**Use this when:** Checking whether any same-contract CDI bridge row improved on the current anchors, locating the six-row bridge-study artifact root, or auditing the row-local recovery, refreshed closeout verification, and no-promotion decision.
 
 ### [NeurIPS Hybrid ResNet PDE Benchmark Selection](plans/NEURIPS-HYBRID-RESNET-2026/pde_benchmark_selection.md)
 **Description:** Roadmap Phase 1 benchmark scorecard and primary/fallback provenance for the required PDE pillar, originally selecting PDEBench SWE as primary and OpenFWI FlatVel-A as fallback, then amended to a compact native `128x128` PDEBench image suite covering SWE, Darcy Flow, and 2D Compressible Navier-Stokes.

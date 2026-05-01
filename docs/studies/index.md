@@ -528,8 +528,9 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 
 - Purpose: run a bounded same-contract CDI bridge study between the current
   Hybrid and spectral shell anchors and FFNO-adjacent architectural changes.
-- Status: completed on `2026-04-30`; the output remains decision-support only
-  with no paper promotion.
+- Status: completed on `2026-04-30` with closeout verification refreshed on
+  `2026-05-01`; the output remains decision-support only with no paper
+  promotion.
 - Preflight:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_preflight.md`
 - Summary:

@@ -4,8 +4,8 @@
 
 - Initiative: `NEURIPS-HYBRID-RESNET-2026`
 - Backlog item: `2026-04-27-hybrid-spectral-ffno-parameter-space-cdi`
-- Date: `2026-04-30`
-- Status: implementation complete; CDI-only decision-support evidence with no paper promotion
+- Date: `2026-05-01`
+- Status: implementation complete with refreshed closeout verification; CDI-only decision-support evidence with no paper promotion
 - Governing plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi/execution_plan.md`
 - Artifact root: `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi`
 - Preflight note: `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_preflight.md`
@@ -151,6 +151,7 @@ Commands run from `/home/ollie/Documents/PtychoPINN`:
 ```bash
 pytest -q tests/studies/test_cdi_hybrid_spectral_ffno_parameter_space.py
 pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py
+pytest -v -m integration
 python -m compileall -q ptycho_torch scripts/studies
 ```
 
@@ -159,6 +160,8 @@ Observed results:
 - final review-fix harness selector: `20 passed in 3.42s`
 - targeted closeout selector:
   `191 passed, 49 warnings in 304.61s (0:05:04)`
+- required production-workflow integration selector:
+  `5 passed, 4 skipped, 1816 deselected, 2 warnings in 301.63s (0:05:01)`
 - `compileall`: exit `0`
 - final study launcher proof:
   `logs/launcher_resume.log` ends with `__EXIT__:0`
@@ -170,6 +173,8 @@ Archived logs for this pass live under:
 
 - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi/logs/`
 - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi/verification/`
+  - including `verification/pytest_integration_review_fix6.log` for the final
+    required integration rerun
 
 ## Boundary
 
