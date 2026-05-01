@@ -181,6 +181,7 @@ Purpose: produce the required non-CDI empirical contribution.
 - [ ] 2.8d: Lock the CNS paper rows under the selected contract: best Hybrid/Hybrid-spectral row, local FNO row, U-Net/CNN-style row, and authored FFNO only if available by the predeclared cutoff under the same local CNS contract. If authored FFNO is unavailable or incompatible, record a row-level `blocked` or `not_protocol_compatible` status and limit claims accordingly.
 - [ ] 2.8e: Build the CNS paper table and figure bundle with JSON/CSV/TeX metrics, fixed-sample `density`/`Vx`/`Vy`/`pressure` prediction and error panels, source-array manifests, row-status labels, and explicit full-training versus capped-decision-support claim boundaries. Prefer a same-contract `1024 / 128 / 128` bounded bundle when the full headline roster can be recovered or rerun under one contract; if any required same-cap row is missing, fall back to the earlier complete `512 / 64 / 64` bounded row lock instead of mixing caps in one headline table.
 - [ ] 2.8f: Treat same-contract `2048 / 256 / 256` CNS comparator-row promotion as a later evidence-strengthening pass, not a blocker for the current `1024 / 128 / 128` CNS table/figure bundle or paper evidence audit.
+- [ ] 2.8g: Run a controlled authored-FFNO CNS history-length ablation only as adjacent temporal-context evidence: start from the locked `author_ffno_cns_base` `history_len=2` row, test `history_len=3` first under the same capped contract, gate `history_len=4/5` from observed deltas, and do not mix longer-history FFNO rows into the locked CNS headline table unless a later roadmap-level paper-contract decision reopens the history lane.
 - [ ] 2.9: Run focused ablations tied to the spectral/spatial design, such as spectral capacity reduction (`fno_modes=6`) and local branch reduction (`hybrid_resnet_blocks=2`), after full-training primary profiles complete and within the RTX 3090 budget.
 - [ ] 2.10: Write `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_summary.md`, and update or supersede `docs/plans/NEURIPS-HYBRID-RESNET-2026/pde_execution_summary.md` with suite-level interpretation.
 
@@ -197,6 +198,7 @@ Gate:
 - [ ] Metrics, configs, seeds, environment, task schemas, data identities, and split manifests are recorded.
 - [ ] CNS paper evidence has an explicit contract decision before final row locking; capped rows are never promoted to full-training benchmark claims by prose alone.
 - [ ] Authored FFNO is either present under the same CNS contract by the predeclared cutoff or recorded as a row-level blocker with the resulting claim limitation.
+- [ ] Authored-FFNO longer-history results, if run, are reported as within-model temporal-context ablation evidence and kept separate from same-history model-ranking tables unless a later roadmap-level paper-contract decision changes the CNS headline contract.
 - [ ] If the suite is infeasible or clearly noncompetitive after full-training benchmark runs, choose the next plan scope explicitly: SWE-only salvage, OpenFWI FlatVel-A fallback/extension, or a narrower PDE claim.
 
 Recommended verification:
@@ -324,7 +326,7 @@ The paper-evidence package design is a binding selector input for late Phase 2 a
 
 After the authoritative six-row `lines128` CDI bundle is complete, Phase 3 may also admit optional append-only comparator preflights that preserve the locked base bundle and run no existing rows again. The selected `2026-04-30-cdi-lines128-uno-design-preflight` item falls in this lane: it may verify the `neuraloperator`/`neuralop.models.UNO` environment and freeze the later `neuralop_uno` row contract, but it must not reopen the required six-row roster or silently promote U-NO into Phase 3 completion criteria without a checked-in design amendment. The U-NO table-extension item is now lower priority than WaveBench inverse-source candidate work.
 
-After the 2026-04-21 CNS readiness and capped-comparison updates, the selector may choose either `phase-2-pdebench-darcy-static-operator-benchmark` as the next full-training benchmark scope or a capped CNS comparison scope that reuses the verified `history_len=2` MSE anchor and records any follow-up variant against that anchor. If the selected CNS scope is an equal-footing history-contract compare, it must rerun the full four-row shell (`spectral_resnet_bottleneck_base`, `hybrid_resnet_cns`, `fno_base`, and `unet_strong`) rather than probing only a single row. These CNS follow-up compares remain benchmark-incomplete until full-training Hybrid ResNet, FNO, and `unet_strong` rows run on the full available training split. The Darcy tranche is defined by `docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md` and should implement Darcy static-operator support, strong local U-Net/FNO baselines, and literature-calibrated reporting before any full-suite summary.
+After the 2026-04-21 CNS readiness and capped-comparison updates, the selector may choose either `phase-2-pdebench-darcy-static-operator-benchmark` as the next full-training benchmark scope or a capped CNS comparison scope that reuses the verified `history_len=2` MSE anchor and records any follow-up variant against that anchor. If the selected CNS scope is an equal-footing whole-table history-contract compare, it must rerun the full four-row shell (`spectral_resnet_bottleneck_base`, `hybrid_resnet_cns`, `fno_base`, and `unet_strong`) rather than probing only a single row. A row-local temporal-context ablation is also allowed when it stays explicitly capped and decision-support-only, keeps the reduced-setting contract fixed, compares only against frozen spectral anchors, reports valid-window/runtime deltas, and does not masquerade as a headline model-ranking table update. These CNS follow-up compares remain benchmark-incomplete until full-training Hybrid ResNet, FNO, and `unet_strong` rows run on the full available training split. The Darcy tranche is defined by `docs/plans/NEURIPS-HYBRID-RESNET-2026/tranches/phase-2-pdebench-darcy-static-operator-benchmark/execution_plan.md` and should implement Darcy static-operator support, strong local U-Net/FNO baselines, and literature-calibrated reporting before any full-suite summary.
 
 Current backlog dependency relations for the Phase 2 CNS queue are tracked in
 `docs/backlog/index.md`. As of this roadmap revision, the paper-default GNOT
@@ -338,19 +340,32 @@ is now also a completed capped CNS lane after its `80`-epoch rerun closed on
 2026-04-29, so it no longer defines the immediate active queue. The
 history-length-beyond-2 compare is now also a completed capped CNS lane after
 its `2026-04-29` closeout, so it no longer defines the active queue. The
-current selected Phase 2 CNS follow-up is the paper table/figure bundle, which
-must consume the locked `history_len=2` bounded contract, preserve the current
-`capped_decision_support` claim boundary, and avoid mixing row caps in one
-headline table. That bundle may first try to upgrade to a same-contract
-`1024 / 128 / 128` bounded roster by reusing the existing spectral-family row
-and recovering or rerunning same-cap `author_ffno_cns_base`, `fno_base`, and
-`unet_strong` rows. If any required same-cap row cannot be produced honestly,
-the bundle must fall back to the earlier complete `512 / 64 / 64` locked row
-set rather than merging `1024 / 128 / 128` and `512 / 64 / 64` rows into one
-headline bundle. The Hybrid-spectral finalist scaling follow-up at
-`2048 / 256 / 256` is now a completed capped CNS lane that depends on the
-finished Hybrid-spectral architecture ablation and reuses the frozen
-`512 / 64 / 64` and `1024 / 128 / 128` finalist rows as scaling references.
+current recovered in-progress Phase 2 CNS evidence-strengthening follow-up is
+`2026-04-29-cns-paper-2048cap-row-extension`. It reuses the completed
+Hybrid-spectral finalist scaling lane at `2048 / 256 / 256` as the
+spectral-family anchor and recovers or reruns same-cap
+`author_ffno_cns_base`, `fno_base`, and `unet_strong` rows under the locked
+local `history_len=2`, `40`-epoch, `max_windows_per_trajectory=8` contract.
+This item must not delay or rewrite the current `1024 / 128 / 128` bounded
+table/figure bundle or paper evidence audit, must not mix `2048` rows with
+`1024` or `512` rows in one headline table, and may replace the current CNS
+bundle only if the full required same-cap roster completes with the same
+row-status and provenance checks. If any required same-cap row cannot be
+produced honestly, keep the current `1024 / 128 / 128` bounded bundle as the
+manuscript-supporting authority when complete, or fall back to the earlier
+complete `512 / 64 / 64` locked row set rather than merging caps in one
+headline bundle. The spectral-history
+`2026-04-29-cns-spectral-history-len4plus-compare` item remains a separate
+row-local capped ablation for `spectral_resnet_bottleneck_base` (`SRU-Net*` in
+manuscript-facing outputs). It must compare only against the frozen
+`history_len=2` and `history_len=3` spectral anchors under the same reduced
+training setting, preserve the repo-row to manuscript-label mapping in
+machine-readable outputs, gate any `history_len=5` run on aggregate
+improvement without an unacceptable `fRMSE_high` regression or on an explicit
+pre-run scientific rationale, must not rerun `fno_base`, `unet_strong`,
+authored FFNO, or `hybrid_resnet_cns` unless a later roadmap decision expands
+the contract, and must not be treated as permission to mix history lengths
+inside the CNS headline table.
 The converged-budget `modes24` compare remains in progress.
 The deterministic backlog gate now admits active NeurIPS evidence work across
 Phase 2 PDEBench, Phase 3 CDI, and `candidate-*` preflights. Selection order

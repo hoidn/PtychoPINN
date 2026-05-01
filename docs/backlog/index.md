@@ -37,6 +37,7 @@ Current source of truth:
 |---|---|---|---|---|
 | [2026-04-29-pdebench-cns-history-len3plus-compare.md](done/2026-04-29-pdebench-cns-history-len3plus-compare.md) | `done` | `phase-2-pdebench-128x128-image-suite` | Depends on completed Markov history-1 compare | Completed controlled longer-context CNS ablation; remains capped decision-support context, not full-training benchmark evidence. |
 | [2026-04-29-cns-spectral-history-len4plus-compare.md](active/2026-04-29-cns-spectral-history-len4plus-compare.md) | `active` | `phase-2-pdebench-128x128-image-suite` | Depends on completed history_len=3 comparison | Tests whether the spectral-bottleneck CNS row, currently labeled `SRU-Net*` in the manuscript, continues improving beyond history length 3 and quantifies the deltas without changing the headline CNS bundle. |
+| [2026-05-01-cns-author-ffno-history-length-study.md](active/2026-05-01-cns-author-ffno-history-length-study.md) | `active` | `phase-2-pdebench-128x128-image-suite` | Depends on completed authored-FFNO equal-footing row and completed SRU-Net longer-history context | Tests whether the authored FFNO CNS row benefits from additional temporal context, while keeping longer-history FFNO rows out of the locked same-history CNS headline table unless a later roadmap-level paper-contract decision reopens that lane. |
 | [2026-04-28-pdebench-cns-hybrid-spectral-ffno-parameter-space.md](done/2026-04-28-pdebench-cns-hybrid-spectral-ffno-parameter-space.md) | `done` | `phase-2-pdebench-128x128-image-suite` | Depends on completed Hybrid-spectral architecture and CNS FFNO-conv follow-ups | Completed Phase 2 CNS-only parameter-space study under the capped decision-support contract. |
 | [2026-04-29-cns-paper-contract-decision.md](done/2026-04-29-cns-paper-contract-decision.md) | `done` | `phase-2-pdebench-128x128-image-suite` | No active backlog prerequisite | Completed the bounded capped CNS paper-evidence contract decision. |
 | [2026-04-29-cns-paper-benchmark-rows.md](done/2026-04-29-cns-paper-benchmark-rows.md) | `done` | `phase-2-pdebench-128x128-image-suite` | Depends on completed CNS paper contract decision | Locked the bounded CNS row bundle for downstream table/figure assembly. |
@@ -84,6 +85,13 @@ Current source of truth:
   `spectral_resnet_bottleneck_base` / `SRU-Net*` row only; it should quantify
   whether improvement continues beyond three frames, not rewrite the current
   same-history CNS headline table.
+- The authored-FFNO history-length item is the analogous temporal-context
+  ablation for `author_ffno_cns_base`. It should start from the locked
+  `history_len=2` authored-FFNO anchor and gate longer histories from observed
+  deltas. It must not be used to mix FFNO longer-history rows with
+  `history_len=2` FNO/U-Net/SRU-Net rows in a headline model-ranking table
+  unless a later roadmap-level paper-contract decision reopens the CNS history
+  lane.
 - The CNS paper-contract decision is the gate that prevents capped
   decision-support rows and full-training benchmark rows from being mixed into
   one claim. It also sets the authored-FFNO inclusion cutoff and claim impact.
