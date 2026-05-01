@@ -281,7 +281,17 @@ def _group_models_by_n(
     return [(n_value, grouped[n_value]) for n_value in ordered_ns]
 
 
-def _build_main_table(metrics: Mapping[str, dict], model_ns: Optional[Mapping[str, int]]) -> str:
+def _resolve_model_label(model: str, model_labels: Optional[Mapping[str, str]]) -> str:
+    if model_labels and model in model_labels and str(model_labels[model]).strip():
+        return str(model_labels[model])
+    return MODEL_LABELS.get(model, model)
+
+
+def _build_main_table(
+    metrics: Mapping[str, dict],
+    model_ns: Optional[Mapping[str, int]],
+    model_labels: Optional[Mapping[str, str]],
+) -> str:
     grouped_models = _group_models_by_n(metrics, model_ns)
     best_by_n: Dict[Optional[int], Dict[str, Tuple[float, float]]] = {
         n_value: _compute_best(metrics, models)
@@ -300,7 +310,7 @@ def _build_main_table(metrics: Mapping[str, dict], model_ns: Optional[Mapping[st
     for group_idx, (n_value, models) in enumerate(grouped_models):
         best = best_by_n.get(n_value, {})
         for model_idx, model in enumerate(models):
-            label = MODEL_LABELS.get(model, model)
+            label = _resolve_model_label(model, model_labels)
             label = _latex_escape(label)
             n_text = str(n_value) if (model_idx == 0 and n_value is not None) else ""
             if model_idx == 0 and n_value is None:
@@ -329,7 +339,11 @@ def _build_main_table(metrics: Mapping[str, dict], model_ns: Optional[Mapping[st
     return "\n".join(lines) + "\n"
 
 
-def _build_best_table(metrics: Mapping[str, dict], model_ns: Optional[Mapping[str, int]]) -> str:
+def _build_best_table(
+    metrics: Mapping[str, dict],
+    model_ns: Optional[Mapping[str, int]],
+    model_labels: Optional[Mapping[str, str]],
+) -> str:
     grouped_models = _group_models_by_n(metrics, model_ns)
     lines = []
     lines.append(r"\begin{tabular}{llrr}")
@@ -348,7 +362,7 @@ def _build_best_table(metrics: Mapping[str, dict], model_ns: Optional[Mapping[st
                 if pair is None:
                     continue
                 amp, phase = pair
-                model_label = _latex_escape(MODEL_LABELS.get(model, model))
+                model_label = _latex_escape(_resolve_model_label(model, model_labels))
                 if best_amp is None:
                     best_amp = (amp, model_label)
                 else:
@@ -383,6 +397,7 @@ def _write_csv_table(
     output_path: Path,
     metrics: Mapping[str, dict],
     model_ns: Optional[Mapping[str, int]],
+    model_labels: Optional[Mapping[str, str]],
 ) -> Path:
     grouped_models = _group_models_by_n(metrics, model_ns)
     fieldnames = [
@@ -394,13 +409,13 @@ def _write_csv_table(
         fieldnames.extend([f"{metric_key}_amp", f"{metric_key}_phase"])
 
     with output_path.open("w", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for n_value, models in grouped_models:
             for model in models:
                 row = {
                     "model_id": model,
-                    "model_label": MODEL_LABELS.get(model, model),
+                    "model_label": _resolve_model_label(model, model_labels),
                     "N": "" if n_value is None else int(n_value),
                 }
                 model_metrics = metrics.get(model, {})
@@ -420,6 +435,7 @@ def write_metrics_tables(
     output_dir: Path,
     metrics: Dict[str, dict],
     model_ns: Optional[Mapping[str, int]] = None,
+    model_labels: Optional[Mapping[str, str]] = None,
 ) -> Dict[str, str]:
     """Write metrics comparison tables as LaTeX artifacts.
 
@@ -432,9 +448,9 @@ def write_metrics_tables(
     main_tex = output_dir / "metrics_table.tex"
     best_tex = output_dir / "metrics_table_best.tex"
     csv_path = output_dir / "metrics_table.csv"
-    main_tex.write_text(_build_main_table(metrics, model_ns))
-    best_tex.write_text(_build_best_table(metrics, model_ns))
-    _write_csv_table(csv_path, metrics, model_ns)
+    main_tex.write_text(_build_main_table(metrics, model_ns, model_labels))
+    best_tex.write_text(_build_best_table(metrics, model_ns, model_labels))
+    _write_csv_table(csv_path, metrics, model_ns, model_labels)
     return {
         "metrics_table_tex": str(main_tex),
         "metrics_table_best_tex": str(best_tex),

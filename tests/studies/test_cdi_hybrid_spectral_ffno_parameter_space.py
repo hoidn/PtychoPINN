@@ -50,7 +50,14 @@ def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
-def _fake_row_invocation(*, architecture: str, overrides: dict[str, object] | None = None) -> dict[str, object]:
+def _fake_row_invocation(
+    *,
+    architecture: str,
+    train_npz: str | None = None,
+    test_npz: str | None = None,
+    probe_source: str | None = "custom",
+    overrides: dict[str, object] | None = None,
+) -> dict[str, object]:
     parsed_args = {
         "architecture": architecture,
         "seed": 3,
@@ -79,6 +86,9 @@ def _fake_row_invocation(*, architecture: str, overrides: dict[str, object] | No
         "plateau_patience": 2,
         "plateau_min_lr": 1e-4,
         "plateau_threshold": 0.0,
+        "train_npz": train_npz,
+        "test_npz": test_npz,
+        "probe_source": probe_source,
     }
     if overrides:
         parsed_args.update(overrides)
@@ -159,6 +169,8 @@ def _build_fake_authoritative_root(tmp_path: Path, *, bad_row_overrides: dict[st
         "pinn_spectral_resnet_bottleneck_net": "spectral_resnet_bottleneck_net",
         "pinn_ffno": "ffno",
     }
+    train_npz = str(root / "datasets" / "N128" / "gs1" / "train.npz")
+    test_npz = str(root / "datasets" / "N128" / "gs1" / "test.npz")
     for model_id, architecture in row_architectures.items():
         run_dir = root / "runs" / model_id
         recon_dir = root / "recons" / model_id
@@ -168,6 +180,8 @@ def _build_fake_authoritative_root(tmp_path: Path, *, bad_row_overrides: dict[st
             run_dir / "invocation.json",
             _fake_row_invocation(
                 architecture=architecture,
+                train_npz=train_npz,
+                test_npz=test_npz,
                 overrides=bad_row_overrides.get(model_id),
             ),
         )
@@ -437,6 +451,8 @@ def _write_completed_fresh_row(study_root: Path, model_id: str) -> None:
     recon_dir.mkdir(parents=True, exist_ok=True)
     invocation = _fake_row_invocation(
         architecture=row_architectures[model_id],
+        train_npz=str(study_root / "datasets" / "N128" / "gs1" / "train.npz"),
+        test_npz=str(study_root / "datasets" / "N128" / "gs1" / "test.npz"),
         overrides=row_overrides[model_id],
     )
     _write_json(run_dir / "invocation.json", invocation)
@@ -453,7 +469,54 @@ def _write_completed_fresh_row(study_root: Path, model_id: str) -> None:
     (recon_dir / "recon.npz").write_bytes(model_id.encode("utf-8"))
 
 
-def _write_collated_outputs(study_root: Path, row_ids: list[str]) -> None:
+def _load_study_labels(study_root: Path, study_matrix_path: Path) -> dict[str, str]:
+    _ = study_root
+    matrix = json.loads(study_matrix_path.read_text(encoding="utf-8"))
+    return {
+        str(row["model_id"]): str(row.get("display_label") or row.get("model_label") or row["model_id"])
+        for row in matrix["rows"]
+    }
+
+
+def _write_shared_contract_artifacts(study_root: Path, source_root: Path) -> None:
+    from scripts.studies.cdi_hybrid_spectral_ffno_parameter_space import _sha256
+
+    dataset_dir = study_root / "datasets" / "N128" / "gs1"
+    dataset_dir.mkdir(parents=True, exist_ok=True)
+    train_npz = dataset_dir / "train.npz"
+    test_npz = dataset_dir / "test.npz"
+    probe_npz = study_root / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz"
+    shutil.copy2(source_root / "datasets" / "N128" / "gs1" / "train.npz", train_npz)
+    shutil.copy2(source_root / "datasets" / "N128" / "gs1" / "test.npz", test_npz)
+    shutil.copy2(source_root / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz", probe_npz)
+    _write_json(
+        study_root / "dataset_identity_manifest.json",
+        {
+            "dataset_source": "synthetic_lines",
+            "probe_source": "custom",
+            "probe_scale_mode": "pad_extrapolate",
+            "probe_npz": {"path": str(probe_npz), "sha256": _sha256(probe_npz)},
+            "train_npz": {"path": str(train_npz), "sha256": _sha256(train_npz)},
+            "test_npz": {"path": str(test_npz), "sha256": _sha256(test_npz)},
+        },
+    )
+    _write_json(
+        study_root / "split_manifest.json",
+        {
+            "train_npz": str(train_npz),
+            "test_npz": str(test_npz),
+            "seed": 3,
+            "nimgs_train": 2,
+            "nimgs_test": 2,
+            "gridsize": 1,
+            "set_phi": True,
+        },
+    )
+    (study_root / "preflight").mkdir(parents=True, exist_ok=True)
+    _write_json(study_root / "preflight" / "preflight_validation.json", {"contract": dict(FIXED_CONTRACT)})
+
+
+def _write_collated_outputs(study_root: Path, row_ids: list[str], *, model_labels: dict[str, str]) -> None:
     metrics_by_model = {
         model_id: {
             "reference_shape": [128, 128],
@@ -468,14 +531,14 @@ def _write_collated_outputs(study_root: Path, row_ids: list[str]) -> None:
     )
     (study_root / "metrics_table.csv").write_text(
         "model_id,model_label,N,amp_mae,phase_mae\n"
-        + "\n".join(f"{model_id},{model_id},128,0.1,0.2" for model_id in row_ids)
+        + "\n".join(f"{model_id},{model_labels[model_id]},128,0.1,0.2" for model_id in row_ids)
         + "\n",
         encoding="utf-8",
     )
     tex_rows = []
     for model_id in row_ids:
-        escaped_model_id = model_id.replace("_", "\\_")
-        tex_rows.append(f"128 & {escaped_model_id} & 0.1 \\\\")
+        escaped_label = model_labels[model_id].replace("_", "\\_")
+        tex_rows.append(f"128 & {escaped_label} & 0.1 \\\\")
     (study_root / "metrics_table.tex").write_text(
         "\\begin{tabular}{lll}\n\\toprule\nN & Model & amp\\_mae \\\\\n\\midrule\n"
         + "\n".join(tex_rows)
@@ -501,13 +564,20 @@ def _build_completed_study_root(tmp_path: Path) -> tuple[Path, dict[str, Path]]:
     )
     study_root = tmp_path / "study"
     _materialize_reused_rows(authoritative_root=authoritative_root, output_root=study_root)
+    _write_shared_contract_artifacts(study_root, authoritative_root)
+    shutil.copy2(paths["study_matrix_path"], study_root / "preflight" / "study_matrix.json")
+    shutil.copy2(paths["reference_runs_path"], study_root / "preflight" / "reference_runs.json")
     for model_id in [
         "pinn_spectral_resnet_bottleneck_ds1",
         "pinn_spectral_resnet_bottleneck_linear_decoder",
         "pinn_hybrid_resnet_ffno_bottleneck",
     ]:
         _write_completed_fresh_row(study_root, model_id)
-    _write_collated_outputs(study_root, list(_all_row_ids()))
+    _write_collated_outputs(
+        study_root,
+        list(_all_row_ids()),
+        model_labels=_load_study_labels(study_root, paths["study_matrix_path"]),
+    )
     return study_root, paths
 
 
@@ -570,6 +640,60 @@ def test_validate_bundle_rejects_fresh_row_contract_drift(tmp_path):
     )
 
 
+def test_validate_bundle_rejects_fresh_row_dataset_path_and_probe_source_drift(tmp_path):
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        validate_cdi_parameter_space_bundle,
+    )
+
+    study_root, paths = _build_completed_study_root(tmp_path)
+    drifted_model_id = "pinn_hybrid_resnet_ffno_bottleneck"
+    invocation_path = study_root / "runs" / drifted_model_id / "invocation.json"
+    invocation = json.loads(invocation_path.read_text(encoding="utf-8"))
+    invocation["parsed_args"]["train_npz"] = str(study_root / "datasets" / "N128" / "gs1" / "wrong_train.npz")
+    invocation["parsed_args"]["test_npz"] = str(study_root / "datasets" / "N128" / "gs1" / "wrong_test.npz")
+    invocation["parsed_args"]["probe_source"] = "wrong_probe"
+    _write_json(invocation_path, invocation)
+
+    report = validate_cdi_parameter_space_bundle(
+        output_root=study_root,
+        study_matrix_path=paths["study_matrix_path"],
+        reference_runs_path=paths["reference_runs_path"],
+    )
+
+    assert report["ok"] is False
+    assert drifted_model_id in report["fresh_row_completion_failures"]
+    assert any("train_npz" in issue for issue in report["fresh_row_completion_failures"][drifted_model_id])
+    assert any("test_npz" in issue for issue in report["fresh_row_completion_failures"][drifted_model_id])
+    assert any("probe_source" in issue for issue in report["fresh_row_completion_failures"][drifted_model_id])
+
+
+def test_validate_bundle_rejects_shared_contract_manifest_drift(tmp_path):
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        validate_cdi_parameter_space_bundle,
+    )
+
+    study_root, paths = _build_completed_study_root(tmp_path)
+    split_manifest_path = study_root / "split_manifest.json"
+    split_manifest = json.loads(split_manifest_path.read_text(encoding="utf-8"))
+    split_manifest["set_phi"] = False
+    _write_json(split_manifest_path, split_manifest)
+    dataset_manifest_path = study_root / "dataset_identity_manifest.json"
+    dataset_manifest = json.loads(dataset_manifest_path.read_text(encoding="utf-8"))
+    dataset_manifest["probe_scale_mode"] = "wrong_mode"
+    _write_json(dataset_manifest_path, dataset_manifest)
+
+    report = validate_cdi_parameter_space_bundle(
+        output_root=study_root,
+        study_matrix_path=paths["study_matrix_path"],
+        reference_runs_path=paths["reference_runs_path"],
+    )
+
+    assert report["ok"] is False
+    assert "shared_contract_failures" in report
+    assert any("set_phi" in issue for issue in report["shared_contract_failures"])
+    assert any("probe_scale_mode" in issue for issue in report["shared_contract_failures"])
+
+
 def test_validate_bundle_rejects_missing_merged_outputs(tmp_path):
     from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
         validate_cdi_parameter_space_bundle,
@@ -618,6 +742,47 @@ def test_validate_bundle_rejects_malformed_metrics_table_tex(tmp_path):
     assert any("missing expected row IDs" in issue for issue in report["merged_output_failures"]["metrics_table.tex"])
 
 
+def test_validate_bundle_rejects_metrics_tables_without_frozen_display_labels(tmp_path):
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        validate_cdi_parameter_space_bundle,
+    )
+
+    study_root, paths = _build_completed_study_root(tmp_path)
+    row_ids = [
+        "pinn_ffno",
+        "pinn_hybrid_resnet",
+        "pinn_spectral_resnet_bottleneck_net",
+        "pinn_hybrid_resnet_ffno_bottleneck",
+        "pinn_spectral_resnet_bottleneck_ds1",
+        "pinn_spectral_resnet_bottleneck_linear_decoder",
+    ]
+    (study_root / "metrics_table.csv").write_text(
+        "model_id,model_label,N,amp_mae,phase_mae\n"
+        + "\n".join(f"{model_id},{model_id},128,0.1,0.2" for model_id in row_ids)
+        + "\n",
+        encoding="utf-8",
+    )
+    tex_rows = [f"128 & {model_id.replace('_', chr(92) + chr(92) + '_')} & 0.1 \\\\" for model_id in row_ids]
+    (study_root / "metrics_table.tex").write_text(
+        "\\begin{tabular}{lll}\n\\toprule\nN & Model & amp\\_mae \\\\\n\\midrule\n"
+        + "\n".join(tex_rows)
+        + "\n\\bottomrule\n\\end{tabular}\n",
+        encoding="utf-8",
+    )
+
+    report = validate_cdi_parameter_space_bundle(
+        output_root=study_root,
+        study_matrix_path=paths["study_matrix_path"],
+        reference_runs_path=paths["reference_runs_path"],
+    )
+
+    assert report["ok"] is False
+    assert "metrics_table.csv" in report["merged_output_failures"]
+    assert any("model_label" in issue for issue in report["merged_output_failures"]["metrics_table.csv"])
+    assert "metrics_table.tex" in report["merged_output_failures"]
+    assert any("unexpected model cell" in issue for issue in report["merged_output_failures"]["metrics_table.tex"])
+
+
 def test_runbook_reruns_failed_fresh_row_instead_of_reusing_stale_recon(monkeypatch, tmp_path):
     from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
         run_cdi_parameter_space_study,
@@ -644,7 +809,19 @@ def test_runbook_reruns_failed_fresh_row_instead_of_reusing_stale_recon(monkeypa
         if len(models) == 1:
             _write_completed_fresh_row(output_root, models[0])
         else:
-            _write_collated_outputs(output_root, list(models))
+            _write_shared_contract_artifacts(output_root, authoritative_root)
+            _write_collated_outputs(
+                output_root,
+                list(models),
+                model_labels={
+                    "pinn_hybrid_resnet": "Hybrid ResNet + PINN",
+                    "pinn_spectral_resnet_bottleneck_net": "Spectral ResNet Bottleneck + PINN",
+                    "pinn_ffno": "FFNO + PINN",
+                    "pinn_spectral_resnet_bottleneck_ds1": "Spectral ResNet Bottleneck DS1 + PINN",
+                    "pinn_spectral_resnet_bottleneck_linear_decoder": "Spectral ResNet Linear Decoder + PINN",
+                    "pinn_hybrid_resnet_ffno_bottleneck": "Hybrid ResNet FFNO Bottleneck + PINN",
+                },
+            )
         return {"selected_models": list(models)}
 
     monkeypatch.setattr(

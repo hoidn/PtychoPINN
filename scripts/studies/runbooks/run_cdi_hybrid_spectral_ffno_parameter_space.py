@@ -208,6 +208,8 @@ def _format_validation_failures(validation: Dict[str, Any]) -> str:
         parts.append("missing_merged_outputs=" + ", ".join(validation["missing_merged_outputs"]))
     for output_name, problems in validation.get("merged_output_failures", {}).items():
         parts.append(f"{output_name}: " + "; ".join(problems))
+    if validation.get("shared_contract_failures"):
+        parts.append("shared_contract_failures=" + "; ".join(validation["shared_contract_failures"]))
     return " | ".join(parts) if parts else json.dumps(validation, sort_keys=True)
 
 
@@ -226,6 +228,104 @@ def _collect_contract_projection_mismatches(
                 f"{scope} contract mismatch for {key}: expected {expected_value!r}, found {actual_value!r}"
             )
     return problems
+
+
+def _collect_shared_contract_failures(
+    *,
+    output_root: Path,
+    shared_contract: Dict[str, Any],
+) -> List[str]:
+    failures: List[str] = []
+    dataset_manifest_path = Path(output_root) / "dataset_identity_manifest.json"
+    split_manifest_path = Path(output_root) / "split_manifest.json"
+    preflight_validation_path = Path(output_root) / "preflight" / "preflight_validation.json"
+
+    if not dataset_manifest_path.exists():
+        failures.append(f"missing dataset_identity_manifest.json: {dataset_manifest_path}")
+    else:
+        dataset_manifest = _load_json(dataset_manifest_path)
+        for key in ("dataset_source", "probe_source", "probe_scale_mode"):
+            actual = dataset_manifest.get(key)
+            expected = shared_contract.get(key)
+            if actual != expected:
+                failures.append(
+                    f"dataset_identity_manifest.json mismatch for {key}: expected {expected!r}, found {actual!r}"
+                )
+        for key in ("train_npz", "test_npz", "probe_npz"):
+            record = dataset_manifest.get(key)
+            if not isinstance(record, dict):
+                failures.append(f"dataset_identity_manifest.json missing mapping for {key}")
+                continue
+            actual_path = record.get("path")
+            expected_path = shared_contract.get(key)
+            expected_path_obj = Path(str(expected_path))
+            probe_path_mismatch = (
+                key == "probe_npz"
+                and (
+                    actual_path is None
+                    or Path(actual_path).name != Path(str(expected_path)).name
+                )
+            )
+            non_probe_path_mismatch = (
+                key != "probe_npz"
+                and (
+                    actual_path is None
+                    or Path(actual_path).resolve() != expected_path_obj.resolve()
+                )
+            )
+            if probe_path_mismatch or non_probe_path_mismatch:
+                failures.append(
+                    f"dataset_identity_manifest.json mismatch for {key}.path: "
+                    f"expected {expected_path!r}, found {actual_path!r}"
+                )
+            if actual_path and Path(actual_path).exists():
+                actual_sha = record.get("sha256")
+                expected_sha = _sha256(Path(actual_path))
+                if actual_sha != expected_sha:
+                    failures.append(
+                        f"dataset_identity_manifest.json mismatch for {key}.sha256: "
+                        f"expected {expected_sha!r}, found {actual_sha!r}"
+                    )
+            else:
+                failures.append(f"dataset_identity_manifest.json path missing on disk for {key}: {actual_path!r}")
+
+    if not split_manifest_path.exists():
+        failures.append(f"missing split_manifest.json: {split_manifest_path}")
+    else:
+        split_manifest = _load_json(split_manifest_path)
+        for key in ("seed", "nimgs_train", "nimgs_test", "gridsize", "set_phi"):
+            actual = split_manifest.get(key)
+            expected = shared_contract.get(key)
+            if actual != expected:
+                failures.append(f"split_manifest.json mismatch for {key}: expected {expected!r}, found {actual!r}")
+        for key in ("train_npz", "test_npz"):
+            actual_path = split_manifest.get(key)
+            expected_path = shared_contract.get(key)
+            expected_path_obj = Path(str(expected_path))
+            if actual_path is None or Path(actual_path).resolve() != expected_path_obj.resolve():
+                failures.append(
+                    f"split_manifest.json mismatch for {key}: expected {expected_path!r}, found {actual_path!r}"
+                )
+
+    if not preflight_validation_path.exists():
+        failures.append(f"missing preflight/preflight_validation.json: {preflight_validation_path}")
+    else:
+        preflight_validation = _load_json(preflight_validation_path)
+        preflight_contract = preflight_validation.get("contract")
+        if not isinstance(preflight_contract, dict):
+            failures.append("preflight/preflight_validation.json missing contract mapping")
+        else:
+            for key, expected in shared_contract.items():
+                if key in {"train_npz", "test_npz"}:
+                    continue
+                actual = preflight_contract.get(key)
+                if actual != expected:
+                    failures.append(
+                        f"preflight/preflight_validation.json mismatch for {key}: "
+                        f"expected {expected!r}, found {actual!r}"
+                    )
+
+    return failures
 
 
 def _validate_fresh_row_completion(
@@ -352,12 +452,27 @@ def _validate_merged_outputs(
                 if "model_id" not in rows[0]:
                     failures["metrics_table.csv"] = ["missing model_id column"]
                 else:
+                    expected_labels = {
+                        str(row["model_id"]): str(row.get("display_label") or row.get("model_label") or row["model_id"])
+                        for row in matrix_rows
+                    }
                     found_ids = {str(row.get("model_id", "")).strip() for row in rows}
                     missing_ids = sorted(expected_ids - found_ids)
+                    csv_problems: List[str] = []
                     if missing_ids:
-                        failures["metrics_table.csv"] = [
-                            "missing expected row IDs: " + ", ".join(missing_ids)
-                        ]
+                        csv_problems.append("missing expected row IDs: " + ", ".join(missing_ids))
+                    for row in rows:
+                        model_id = str(row.get("model_id", "")).strip()
+                        if model_id not in expected_labels:
+                            continue
+                        actual_label = str(row.get("model_label", "")).strip()
+                        expected_label = expected_labels[model_id]
+                        if actual_label != expected_label:
+                            csv_problems.append(
+                                f"model_label mismatch for {model_id}: expected {expected_label!r}, found {actual_label!r}"
+                            )
+                    if csv_problems:
+                        failures["metrics_table.csv"] = csv_problems
 
     table_tex_path = required_outputs["metrics_table.tex"]
     if table_tex_path.exists():
@@ -373,12 +488,8 @@ def _validate_merged_outputs(
                 for row in matrix_rows:
                     model_id = str(row["model_id"])
                     label = str(row.get("display_label") or row.get("model_label") or model_id)
-                    for candidate in {model_id, model_id.replace("_", r"\_"), label, label.replace("_", r"\_")}:
+                    for candidate in {label, label.replace("_", r"\_")}:
                         allowed_tex_names[candidate] = model_id
-                    if label.endswith(" + PINN"):
-                        trimmed = label[: -len(" + PINN")]
-                        allowed_tex_names[trimmed] = model_id
-                        allowed_tex_names[trimmed.replace("_", r"\_")] = model_id
 
                 body_lines = []
                 in_body = False
@@ -448,6 +559,7 @@ def validate_cdi_parameter_space_bundle(
     missing_rows: List[str] = []
     row_reports: Dict[str, List[str]] = {}
     matrix_rows = list(matrix.get("rows", []))
+    shared_contract = dict(matrix.get("shared_contract", {}))
     for row in matrix_rows:
         model_id = str(row["model_id"])
         required = [
@@ -477,6 +589,10 @@ def validate_cdi_parameter_space_bundle(
         output_root=Path(output_root),
         matrix_rows=matrix_rows,
     )
+    shared_contract_failures = _collect_shared_contract_failures(
+        output_root=Path(output_root),
+        shared_contract=shared_contract,
+    ) if shared_contract else []
     return {
         "ok": (
             not missing_rows
@@ -484,6 +600,7 @@ def validate_cdi_parameter_space_bundle(
             and not fresh_row_completion_failures
             and not missing_merged_outputs
             and not merged_output_failures
+            and not shared_contract_failures
         ),
         "missing_rows": missing_rows,
         "missing_artifacts": row_reports,
@@ -491,6 +608,7 @@ def validate_cdi_parameter_space_bundle(
         "fresh_row_completion_failures": fresh_row_completion_failures,
         "missing_merged_outputs": missing_merged_outputs,
         "merged_output_failures": merged_output_failures,
+        "shared_contract_failures": shared_contract_failures,
     }
 
 
@@ -514,6 +632,7 @@ def run_cdi_parameter_space_study(
     )
 
     fresh_specs = _fresh_row_specs()
+    all_specs = [*REUSED_ROWS, *fresh_specs]
     fresh_models = tuple(str(spec["model_id"]) for spec in fresh_specs)
     result: Dict[str, Any] = dict(preflight_paths)
     if preflight_only:
@@ -559,7 +678,7 @@ def run_cdi_parameter_space_study(
     result["collated_bundle"] = run_grid_lines_compare(
         **_fixed_compare_kwargs(Path(output_root), Path(probe_npz)),
         models=all_models,
-        row_specs=tuple(fresh_specs),
+        row_specs=tuple(all_specs),
         model_n={model_id: 128 for model_id in all_models},
         reuse_existing_recons=True,
     )

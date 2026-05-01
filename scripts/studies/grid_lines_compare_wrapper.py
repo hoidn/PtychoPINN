@@ -961,6 +961,7 @@ def _finalize_compare_outputs(
     merged_metrics: Dict[str, dict],
     visual_order: Tuple[str, ...],
     model_ns: Optional[Dict[str, int]] = None,
+    model_labels: Optional[Mapping[str, str]] = None,
 ) -> Dict[str, str]:
     metrics_path = output_dir / "metrics.json"
     metrics_path.write_text(json.dumps(merged_metrics, indent=2, default=_json_default))
@@ -969,11 +970,38 @@ def _finalize_compare_outputs(
     from scripts.studies.metrics_tables import write_metrics_tables
 
     render_grid_lines_visuals(output_dir, order=visual_order)
-    table_paths = write_metrics_tables(output_dir, merged_metrics, model_ns=model_ns)
+    table_paths = write_metrics_tables(
+        output_dir,
+        merged_metrics,
+        model_ns=model_ns,
+        model_labels=model_labels,
+    )
     return {
         "metrics_path": str(metrics_path),
         **table_paths,
     }
+
+
+def _build_metrics_model_labels(
+    model_ids: Iterable[str],
+    *,
+    row_specs_by_model: Optional[Mapping[str, Mapping[str, Any]]] = None,
+    row_payloads: Optional[Mapping[str, Mapping[str, object]]] = None,
+) -> Dict[str, str]:
+    labels: Dict[str, str] = {}
+    for model_id in model_ids:
+        label: Optional[object] = None
+        if row_specs_by_model:
+            spec = row_specs_by_model.get(model_id)
+            if spec is not None:
+                label = spec.get("display_label") or spec.get("model_label")
+                if not label and row_payloads:
+                    payload = row_payloads.get(model_id)
+                    if isinstance(payload, dict):
+                        label = payload.get("model_label")
+        if label:
+            labels[str(model_id)] = str(label)
+    return labels
 
 
 def _validate_preflight_probe(*, probe_source: str, probe_npz: Path) -> None:
@@ -1087,6 +1115,7 @@ def _run_compare_preflight(
                 "generator_output_mode": torch_output_mode,
                 "N": n_for_model,
                 "gridsize": gridsize,
+                "probe_source": probe_source,
                 "torch_loss_mode": torch_loss_mode,
                 "torch_mae_pred_l2_match_target": torch_mae_pred_l2_match_target,
                 "fno_modes": fno_modes,
@@ -1453,6 +1482,11 @@ def run_grid_lines_compare(
                 merged_metrics=legacy_metrics,
                 visual_order=tuple(["gt", *precomputed_recons.keys()]),
                 model_ns=model_ns_for_metrics,
+                model_labels=_build_metrics_model_labels(
+                    legacy_metrics.keys(),
+                    row_specs_by_model=row_specs_by_model,
+                    row_payloads=row_payloads,
+                ),
             )
             return {
                 "train_npz": str(train_npz),
@@ -1617,6 +1651,7 @@ def run_grid_lines_compare(
                     "generator_output_mode": torch_output_mode,
                     "N": n_for_model,
                     "gridsize": gridsize,
+                    "probe_source": probe_source,
                     "torch_loss_mode": torch_loss_mode,
                     "torch_mae_pred_l2_match_target": torch_mae_pred_l2_match_target,
                     "fno_modes": fno_modes,
@@ -1786,6 +1821,11 @@ def run_grid_lines_compare(
             merged_metrics=legacy_metrics,
             visual_order=tuple(["gt", *recon_paths.keys()]),
             model_ns=model_ns_for_metrics,
+            model_labels=_build_metrics_model_labels(
+                legacy_metrics.keys(),
+                row_specs_by_model=row_specs_by_model,
+                row_payloads=row_payloads,
+            ),
         )
         first_bundle = bundles_by_n[required_ns[0]]
         return {
@@ -2005,6 +2045,11 @@ def run_grid_lines_compare(
         merged_metrics=merged,
         visual_order=tuple(order),
         model_ns=model_ns_for_metrics,
+        model_labels=_build_metrics_model_labels(
+            merged.keys(),
+            row_specs_by_model=row_specs_by_model,
+            row_payloads=row_payloads,
+        ),
     )
     return {
         "train_npz": str(train_npz),

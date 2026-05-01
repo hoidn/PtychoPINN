@@ -286,8 +286,24 @@ def _validate_reused_row(*, authoritative_root: Path, row: Dict[str, Any]) -> Di
     }
 
 
-def _fresh_row_contract_projection(row: Dict[str, Any]) -> Dict[str, Any]:
-    projection = {"architecture": row["architecture"], **EXPECTED_ROW_ARGS}
+def _shared_contract_projection(artifact_root: Path) -> Dict[str, Any]:
+    dataset_root = Path(artifact_root) / "datasets" / f"N{EXPECTED_FIXED_CONTRACT['N']}" / f"gs{EXPECTED_FIXED_CONTRACT['gridsize']}"
+    return {
+        **EXPECTED_FIXED_CONTRACT,
+        "train_npz": str(dataset_root / "train.npz"),
+        "test_npz": str(dataset_root / "test.npz"),
+    }
+
+
+def _fresh_row_contract_projection(row: Dict[str, Any], *, artifact_root: Path) -> Dict[str, Any]:
+    shared_contract = _shared_contract_projection(artifact_root)
+    projection = {
+        "architecture": row["architecture"],
+        "train_npz": shared_contract["train_npz"],
+        "test_npz": shared_contract["test_npz"],
+        "probe_source": shared_contract["probe_source"],
+        **EXPECTED_ROW_ARGS,
+    }
     projection.update(row.get("overrides", {}))
     return projection
 
@@ -302,7 +318,7 @@ def build_study_matrix_payload(*, authoritative_root: Path, artifact_root: Path)
         row_payload["analysis_run_dir"] = str(artifact_root / "runs" / model_id)
         row_payload["analysis_recon_dir"] = str(artifact_root / "recons" / model_id)
         if row["row_kind"] == "fresh_bridge":
-            row_payload["contract_projection"] = _fresh_row_contract_projection(row)
+            row_payload["contract_projection"] = _fresh_row_contract_projection(row, artifact_root=artifact_root)
         rows.append(row_payload)
     return {
         "schema_version": "cdi_hybrid_spectral_ffno_parameter_space_v2",
@@ -310,6 +326,7 @@ def build_study_matrix_payload(*, authoritative_root: Path, artifact_root: Path)
         "claim_boundary": "no_paper_promotion_without_later_authority",
         "authoritative_anchor_root": str(authoritative_root),
         "materialization_policy": "copy_on_write",
+        "shared_contract": _shared_contract_projection(artifact_root),
         "rows": rows,
     }
 
