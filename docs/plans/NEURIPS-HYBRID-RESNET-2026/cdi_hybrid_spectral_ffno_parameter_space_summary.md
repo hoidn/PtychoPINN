@@ -34,8 +34,8 @@ does not change the current paper-grade `lines128` CDI authority.
   - `preflight/reference_runs.json`
   - `analysis/bundle_validation.json`
     - refreshed to carry the stricter closeout fields
-      `fresh_row_completion_failures`, `missing_merged_outputs`, and
-      `merged_output_failures`
+      `fresh_row_completion_failures`, `missing_merged_outputs`,
+  `merged_output_failures`, and canonical `probe_npz` digest validation
 
 ## Per-Axis Results
 
@@ -152,22 +152,19 @@ Commands run from `/home/ollie/Documents/PtychoPINN`:
 pytest -q tests/studies/test_cdi_hybrid_spectral_ffno_parameter_space.py
 pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py
 python -m compileall -q ptycho_torch scripts/studies
-pytest -v -m integration
 ```
 
 Observed results:
 
-- final review-fix harness selector: `15 passed in 3.44s`
+- final review-fix harness selector: `20 passed in 3.42s`
 - targeted closeout selector:
-  `191 passed, 49 warnings in 304.19s (0:05:04)`
+  `191 passed, 49 warnings in 304.61s (0:05:04)`
 - `compileall`: exit `0`
-- `pytest -v -m integration`:
-  `5 passed, 4 skipped, 1811 deselected, 2 warnings in 302.88s (0:05:02)`
 - final study launcher proof:
   `logs/launcher_resume.log` ends with `__EXIT__:0`
 - review-fix deterministic bundle validation:
   `analysis/bundle_validation.json` and
-  `verification/artifact_validation_review_fix4.log` report `"ok": true`
+  `verification/artifact_validation_review_fix6.log` report `"ok": true`
 
 Archived logs for this pass live under:
 

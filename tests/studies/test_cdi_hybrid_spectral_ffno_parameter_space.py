@@ -694,6 +694,66 @@ def test_validate_bundle_rejects_shared_contract_manifest_drift(tmp_path):
     assert any("probe_scale_mode" in issue for issue in report["shared_contract_failures"])
 
 
+def test_validate_bundle_rejects_exact_probe_identity_drift_with_same_basename(tmp_path):
+    from scripts.studies.cdi_hybrid_spectral_ffno_parameter_space import _sha256
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        validate_cdi_parameter_space_bundle,
+    )
+
+    study_root, paths = _build_completed_study_root(tmp_path)
+    wrong_probe_dir = study_root / "alternate_probe_root" / "datasets"
+    wrong_probe_dir.mkdir(parents=True, exist_ok=True)
+    wrong_probe_npz = wrong_probe_dir / "Run1084_recon3_postPC_shrunk_3.npz"
+    wrong_probe_npz.write_bytes(b"wrong probe bytes")
+
+    dataset_manifest_path = study_root / "dataset_identity_manifest.json"
+    dataset_manifest = json.loads(dataset_manifest_path.read_text(encoding="utf-8"))
+    dataset_manifest["probe_npz"] = {
+        "path": str(wrong_probe_npz),
+        "sha256": _sha256(wrong_probe_npz),
+    }
+    _write_json(dataset_manifest_path, dataset_manifest)
+
+    report = validate_cdi_parameter_space_bundle(
+        output_root=study_root,
+        study_matrix_path=paths["study_matrix_path"],
+        reference_runs_path=paths["reference_runs_path"],
+    )
+
+    assert report["ok"] is False
+    assert any("probe_npz" in issue for issue in report["shared_contract_failures"])
+
+
+def test_validate_bundle_accepts_repo_relative_probe_contract_path(tmp_path, monkeypatch):
+    from scripts.studies.cdi_hybrid_spectral_ffno_parameter_space import _sha256
+    from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
+        validate_cdi_parameter_space_bundle,
+    )
+
+    study_root, paths = _build_completed_study_root(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    expected_probe_npz = tmp_path / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz"
+    expected_probe_npz.parent.mkdir(parents=True, exist_ok=True)
+    expected_probe_npz.write_bytes(b"probe from cwd-relative contract")
+
+    dataset_manifest_path = study_root / "dataset_identity_manifest.json"
+    dataset_manifest = json.loads(dataset_manifest_path.read_text(encoding="utf-8"))
+    dataset_manifest["probe_npz"] = {
+        "path": str(expected_probe_npz),
+        "sha256": _sha256(expected_probe_npz),
+    }
+    _write_json(dataset_manifest_path, dataset_manifest)
+
+    report = validate_cdi_parameter_space_bundle(
+        output_root=study_root,
+        study_matrix_path=paths["study_matrix_path"],
+        reference_runs_path=paths["reference_runs_path"],
+    )
+
+    assert report["ok"] is True
+    assert report["shared_contract_failures"] == []
+
+
 def test_validate_bundle_rejects_missing_merged_outputs(tmp_path):
     from scripts.studies.runbooks.run_cdi_hybrid_spectral_ffno_parameter_space import (
         validate_cdi_parameter_space_bundle,
@@ -790,6 +850,10 @@ def test_runbook_reruns_failed_fresh_row_instead_of_reusing_stale_recon(monkeypa
 
     authoritative_root = _build_fake_authoritative_root(tmp_path)
     output_root = tmp_path / "study"
+    monkeypatch.chdir(tmp_path)
+    expected_probe_npz = tmp_path / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz"
+    expected_probe_npz.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(authoritative_root / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz", expected_probe_npz)
     stale_model_id = "pinn_spectral_resnet_bottleneck_ds1"
     stale_run_dir = output_root / "runs" / stale_model_id
     stale_recon_dir = output_root / "recons" / stale_model_id
@@ -834,6 +898,7 @@ def test_runbook_reruns_failed_fresh_row_instead_of_reusing_stale_recon(monkeypa
         output_root=output_root,
         preflight_root=tmp_path / "preflight",
         note_path=tmp_path / "cdi_preflight.md",
+        probe_npz=authoritative_root / "datasets" / "Run1084_recon3_postPC_shrunk_3.npz",
     )
 
     assert compare_calls[0] == ((stale_model_id,), False)

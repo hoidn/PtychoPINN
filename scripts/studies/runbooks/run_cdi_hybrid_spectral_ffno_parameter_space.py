@@ -259,35 +259,42 @@ def _collect_shared_contract_failures(
             actual_path = record.get("path")
             expected_path = shared_contract.get(key)
             expected_path_obj = Path(str(expected_path))
-            probe_path_mismatch = (
-                key == "probe_npz"
-                and (
-                    actual_path is None
-                    or Path(actual_path).name != Path(str(expected_path)).name
-                )
-            )
-            non_probe_path_mismatch = (
-                key != "probe_npz"
-                and (
-                    actual_path is None
-                    or Path(actual_path).resolve() != expected_path_obj.resolve()
-                )
-            )
-            if probe_path_mismatch or non_probe_path_mismatch:
+            if not expected_path_obj.is_absolute():
+                candidate_paths = [expected_path_obj, Path(output_root) / expected_path_obj]
+                expected_path_obj = next((path for path in candidate_paths if path.exists()), candidate_paths[-1])
+            if actual_path is None or not Path(actual_path).exists():
+                failures.append(f"dataset_identity_manifest.json path missing on disk for {key}: {actual_path!r}")
+                continue
+            actual_path_obj = Path(actual_path)
+            if key != "probe_npz" and actual_path_obj.resolve() != expected_path_obj.resolve():
                 failures.append(
                     f"dataset_identity_manifest.json mismatch for {key}.path: "
                     f"expected {expected_path!r}, found {actual_path!r}"
                 )
-            if actual_path and Path(actual_path).exists():
-                actual_sha = record.get("sha256")
-                expected_sha = _sha256(Path(actual_path))
+            actual_sha = _sha256(actual_path_obj)
+            recorded_sha = record.get("sha256")
+            if key == "probe_npz":
+                if not expected_path_obj.exists():
+                    failures.append(
+                        f"dataset_identity_manifest.json expected probe path missing on disk for {key}: {expected_path!r}"
+                    )
+                    continue
+                expected_sha = _sha256(expected_path_obj)
                 if actual_sha != expected_sha:
                     failures.append(
                         f"dataset_identity_manifest.json mismatch for {key}.sha256: "
-                        f"expected {expected_sha!r}, found {actual_sha!r}"
+                        f"expected canonical probe digest {expected_sha!r}, found {actual_sha!r}"
                     )
-            else:
-                failures.append(f"dataset_identity_manifest.json path missing on disk for {key}: {actual_path!r}")
+                if recorded_sha != expected_sha:
+                    failures.append(
+                        f"dataset_identity_manifest.json mismatch for {key}.recorded_sha256: "
+                        f"expected canonical probe digest {expected_sha!r}, found {recorded_sha!r}"
+                    )
+            elif recorded_sha != actual_sha:
+                failures.append(
+                    f"dataset_identity_manifest.json mismatch for {key}.sha256: "
+                    f"expected {actual_sha!r}, found {recorded_sha!r}"
+                )
 
     if not split_manifest_path.exists():
         failures.append(f"missing split_manifest.json: {split_manifest_path}")

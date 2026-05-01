@@ -1,10 +1,10 @@
 {
-  "ok": true,
-  "missing_rows": [],
-  "missing_artifacts": {},
-  "reused_root_drift": {},
   "fresh_row_completion_failures": {},
-  "missing_merged_outputs": [],
   "merged_output_failures": {},
+  "missing_artifacts": {},
+  "missing_merged_outputs": [],
+  "missing_rows": [],
+  "ok": true,
+  "reused_root_drift": {},
   "shared_contract_failures": []
 }
