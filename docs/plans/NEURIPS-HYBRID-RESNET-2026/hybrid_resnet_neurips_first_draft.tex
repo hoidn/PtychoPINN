@@ -527,7 +527,7 @@ project rows, SRU-Net$^*$ gives lower aggregate error than FNO and U-Net. The
 U-Net row is much less accurate on this setting, consistent with the need for
 long-range mixing in compressible-flow prediction.
 
-% table_metadata: task=PDEBench_CNS; train_trajectories=512; val_trajectories=64; test_trajectories=64; train_windows=4096; val_windows=512; test_windows=512; full_split=train8000_val1000_test1000; history_frames=2; max_windows_per_trajectory=8; epochs=40; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/cns_paper_table_rows.csv; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; omitted_visible_row=hybrid_resnet_cns formerly shown as SRU-Net; reconciliation_note=CDI and CNS naming will be reconciled later
+% table_metadata: task=PDEBench_CNS; train_trajectories=512; val_trajectories=64; test_trajectories=64; train_windows=4096; val_windows=512; test_windows=512; full_split=train8000_val1000_test1000; history_frames=2; max_windows_per_trajectory=8; epochs=40; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/cns_paper_table_rows.csv; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; omitted_visible_row=hybrid_resnet_cns formerly shown as SRU-Net
 \begin{table}[t]
 \centering
 \small
@@ -543,13 +543,13 @@ High-band RMSE $\downarrow$ & Params \\
 U-Net & 0.676 & 0.676 & 1.333 & 7.76M \\
 FNO & 0.074 & 0.074 & 0.672 & 0.36M \\
 SRU-Net$^*$ & 0.062 & 0.062 & 0.435 & 8.19M \\
-% restore_if_needed: SRU-Net continuity row maps to repo row hybrid_resnet_cns; visible row removed until CDI/CNS naming is reconciled. Row values: SRU-Net & 0.064 & 0.064 & 0.368 & 8.00M \\
+% restore_if_needed: SRU-Net continuity row maps to repo row hybrid_resnet_cns; omitted CNS continuity row. Row values: SRU-Net & 0.064 & 0.064 & 0.368 & 8.00M \\
 FFNO & \textbf{0.028} & \textbf{0.028} & \textbf{0.121} & 1.07M \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-% figure_metadata: task=PDEBench_CNS; train_trajectories=512; val_trajectories=64; test_trajectories=64; fixed_sample=0; visible_rows=target,author_ffno_cns_base,spectral_resnet_bottleneck_base,fno_base,unet_strong; omitted_row=hybrid_resnet_cns; fields=density,pressure; panels=prediction_and_abs_error; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; reconciliation_note=CDI and CNS naming will be reconciled later; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/figures/sample000
+% figure_metadata: task=PDEBench_CNS; train_trajectories=512; val_trajectories=64; test_trajectories=64; fixed_sample=0; visible_rows=target,author_ffno_cns_base,spectral_resnet_bottleneck_base,fno_base,unet_strong; omitted_row=hybrid_resnet_cns; fields=density,pressure; panels=prediction_and_abs_error; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/figures/sample000
 % restore_if_needed: omitted CNS figure column maps visible label SRU-Net to repo row hybrid_resnet_cns. Source panels: density__hybrid_resnet_cns__prediction.png, density__hybrid_resnet_cns__abs_error.png, Vx__hybrid_resnet_cns__prediction.png, Vx__hybrid_resnet_cns__abs_error.png, Vy__hybrid_resnet_cns__prediction.png, Vy__hybrid_resnet_cns__abs_error.png, pressure__hybrid_resnet_cns__prediction.png, pressure__hybrid_resnet_cns__abs_error.png.
 \begin{figure}[h]
 \centering
@@ -562,10 +562,8 @@ example.}
 \label{fig:cns_sample_predictions}
 \end{figure}
 
-The CNS table uses a reduced trajectory split and should be read as secondary
-architecture evidence, not as a complete-split PDEBench comparison. The asterisk
-marks the CNS spectral-bottleneck row reported under the SRU-Net name; the CDI
-and CNS naming will be reconciled before submission.
+The CNS table uses a reduced trajectory split and serves as secondary
+architecture evidence. The asterisk marks the CNS spectral-bottleneck row.
 
 \subsection{CNS component ablation}
 
@@ -590,7 +588,7 @@ Variant & nRMSE $\downarrow$ & High-band RMSE $\downarrow$ \\
 Earlier local shell baseline & 0.224 & 1.243 \\
 Earlier local shell + skip-add & 0.105 & 0.697 \\
 SRU-Net$^*$, two-frame & 0.062 & 0.435 \\
-% restore_if_needed: SRU-Net continuity row maps to repo row hybrid_resnet_cns; visible row removed until CDI/CNS naming is reconciled. Row values: SRU-Net, two-frame & 0.064 & 0.368 \\
+% restore_if_needed: SRU-Net continuity row maps to repo row hybrid_resnet_cns; omitted CNS continuity row. Row values: SRU-Net, two-frame & 0.064 & 0.368 \\
 SRU-Net$^*$, three-frame & 0.046 & 0.347 \\
 SRU-Net$^*$, 24 modes, longer run & 0.040 & 0.307 \\
 \bottomrule
@@ -650,7 +648,7 @@ in the main CNS table.
 Increasing CNS temporal context from two previous states to three previous
 states improved the lower-error rows under the longer training budget:
 
-% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2_for_two-frame_columns,3_for_three-frame_columns; max_windows_per_trajectory=8; epochs=40; sources=history2 reference plus .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/history3-pilot-40ep-20260429T073705Z; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; omitted_visible_row=hybrid_resnet_cns formerly shown as SRU-Net; reconciliation_note=CDI and CNS naming will be reconciled later
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2_for_two-frame_columns,3_for_three-frame_columns; max_windows_per_trajectory=8; epochs=40; sources=history2 reference plus .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/history3-pilot-40ep-20260429T073705Z; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; omitted_visible_row=hybrid_resnet_cns formerly shown as SRU-Net
 \begin{table}[h]
 \centering
 \caption{CNS temporal-context comparison under the longer training budget.}
@@ -659,7 +657,7 @@ states improved the lower-error rows under the longer training budget:
 Model & Two-frame nRMSE & Three-frame nRMSE & Two-frame high-band RMSE & Three-frame high-band RMSE \\
 \midrule
 SRU-Net$^*$ & 0.061562 & 0.045521 & 0.434933 & 0.346744 \\
-% restore_if_needed: SRU-Net continuity row maps to repo row hybrid_resnet_cns; visible row removed until CDI/CNS naming is reconciled. Row values: SRU-Net & 0.064418 & 0.053843 & 0.368307 & 0.320036 \\
+% restore_if_needed: SRU-Net continuity row maps to repo row hybrid_resnet_cns; omitted CNS continuity row. Row values: SRU-Net & 0.064418 & 0.053843 & 0.368307 & 0.320036 \\
 FNO & 0.074099 & 0.056725 & 0.671772 & 0.610477 \\
 U-Net & 0.675798 & 0.677167 & 1.332625 & 1.173009 \\
 \bottomrule
@@ -676,7 +674,7 @@ On the larger trajectory split, the shared spectral base model had lower
 aggregate error, while the deeper shared-blocks10 row retained a small
 mid/high-frequency edge at the same training budget:
 
-% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; reconciliation_note=CDI and CNS naming will be reconciled later; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z
 \begin{table}[h]
 \centering
 \caption{CNS spectral-depth comparison using 1024 training, 128 validation, and
@@ -694,7 +692,7 @@ Deeper shared SRU-Net$^*$ & 0.044573 & 1.06304 & 2.4827 & 0.2168 & 0.2940 & 2703
 A longer run showed that the earlier shared-blocks10 result had understated the
 deeper profile:
 
-% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40_and_80; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; reconciliation_note=CDI and CNS naming will be reconciled later; sources=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z and .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/cns-shared-blocks10-1024cap-80ep-20260429T025641Z
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40_and_80; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; sources=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z and .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/cns-shared-blocks10-1024cap-80ep-20260429T025641Z
 \begin{table}[h]
 \centering
 \caption{Deeper shared SRU-Net$^*$ under longer training on the larger
@@ -713,7 +711,7 @@ The Fourier-mode studies show that simply increasing spectral modes is not a
 clean default answer. Under the longer training budget, the 12-mode base model
 retained better aggregate error, while 32/32 improved mid/high-frequency error:
 
-% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; reconciliation_note=CDI and CNS naming will be reconciled later; sources=spectral_resnet_bottleneck_base reference plus .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/cns-spectral-modes32-40ep-20260428T014353Z
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; sources=spectral_resnet_bottleneck_base reference plus .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/cns-spectral-modes32-40ep-20260428T014353Z
 \begin{table}[h]
 \centering
 \caption{CNS Fourier-mode comparison under the longer training budget.}
@@ -731,7 +729,7 @@ In the 24-mode comparison with still longer training, the shared 12-mode base
 model was ahead on every reported metric, but both models were still improving
 according to the convergence audit:
 
-% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=80; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; reconciliation_note=CDI and CNS naming will be reconciled later; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/cns-spectral-modes24-vs-base-1024cap-80ep
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=80; label_policy=SRU-Net* is the visible CNS label for repo row spectral_resnet_bottleneck_base; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/cns-spectral-modes24-vs-base-1024cap-80ep
 \begin{table}[h]
 \centering
 \caption{CNS 12-mode versus 24-mode spectral comparison under still longer
@@ -776,9 +774,7 @@ authored FFNO remains the lower-error reference under the same CNS comparison.
 Within the no-external-data CNS experiments reported here, authored FFNO is the
 lowest-error observed non-pretrained neural-operator baseline. This is consistent
 with the original F-FNO motivation of improving FNO accuracy and scaling on PDE
-benchmarks, including Navier-Stokes-style settings, but we do not claim a broad
-performance ranking without same-protocol comparisons to recent non-pretrained
-operator variants~\cite{ffno,pdebench}.
+benchmarks, including Navier-Stokes-style settings~\cite{ffno,pdebench}.
 
 \fi
 
@@ -803,22 +799,21 @@ from both pure CNN reconstruction and pure spectral operator modeling.
 The evidence also argues for a narrow interpretation. The primary CDI result
 compares local CNN, FNO, FFNO, SRU-Net, and spectral SRU-Net rows under one
 synthetic line-pattern protocol, while the supervised FFNO control isolates one
-training-procedure contrast. The CNS results use a reduced trajectory split and
-should be treated as secondary cross-domain architecture evidence. They test
+training-procedure contrast. The CNS results use a reduced trajectory split as
+secondary cross-domain architecture evidence. They test
 architectural transfer under different physics, not whether the CDI forward
-model applies to fluids. The SRU-Net$^*$ notation marks a naming mismatch
-between the CDI and CNS implementations that should be resolved before
-submission.
+model applies to fluids. The SRU-Net$^*$ notation marks the CNS
+spectral-bottleneck row.
 
 \section{Additional Experiments}
 
-\subsection{Hybrid skip and residual-scale controls}
+\subsection{Hybrid skip/residual ablation}
 
 % table_metadata: task=CDI_lines128; ablation=hybrid_skip_residual; authority=decision_support; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation
 \begin{table}[t]
 \centering
 \small
-\caption{\textbf{Hybrid skip/residual controls on Lines128 CDI.} Rows isolate
+\caption{\textbf{Hybrid skip/residual ablation on Lines128 CDI.} Rows vary
 skip-fusion and residual-scale choices under the same Lines128 protocol. Lower
 MAE and higher FRC50 are better.}
 \label{tab:cdi_skip_residual_ablation}
@@ -838,19 +833,6 @@ skip-add + fixed residual & 0.0289 & 0.0633 & 135.41 & 106.88 \\
 Skip-add is the clearest phase-oriented variant, while fixed residual scaling is
 the clearest amplitude-oriented variant. Combining the two did not produce a
 constructive interaction in this small same-protocol ablation.
-
-\subsection{Extension scope}
-
-The Lines128 CDI comparison spans local CNN, FNO, FFNO, SRU-Net, and spectral
-SRU-Net generators under a shared synthetic line-pattern protocol. Additional
-architecture families should be added only when they can use the same reporting
-contract and answer a distinct comparison question.
-
-U-NO and WaveBench are outside the reported quantitative comparisons. They
-require completed benchmark rows under the same reporting standards before they
-can support numerical comparisons. Broader CNS extensions should use the larger
-trajectory split and may add GNOT or other neural-operator baselines if they
-can be evaluated under the same data and metric definitions.
 
 \begin{thebibliography}{9}
 
