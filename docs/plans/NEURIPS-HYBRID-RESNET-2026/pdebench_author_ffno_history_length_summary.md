@@ -264,7 +264,10 @@ Artifact validation performed in this pass:
 - the three compare sidecars are present, all carry the
   `delta_kind = history_len_only` allowed-delta declaration and a
   `claim_scope = adjacent_capped_context_only` claim-boundary label,
-  and the JSON / CSV pairs agree.
+  the `history_len=3` sidecar now records explicit per-profile metric
+  deltas against the frozen `history_len=2` anchor, and all JSON / CSV
+  pairs now surface runtime plus `peak_cuda_memory_bytes` for the fresh
+  and reference rows.
 
 The locked headline `history_len=2` authored-FFNO row reused by the
 current CNS paper bundle was not edited or replaced. Manuscript-facing

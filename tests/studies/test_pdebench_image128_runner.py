@@ -205,6 +205,7 @@ def _write_fake_cfd_cns_compare_run(
     epochs: int,
     err_nrmse: float,
     runtime_sec: float = 100.0,
+    peak_cuda_memory_bytes: int = 123456789,
     batch_size: int = 4,
     history_len: int = 2,
     max_windows_per_trajectory: int = 8,
@@ -285,6 +286,7 @@ def _write_fake_cfd_cns_compare_run(
         "profile_id": profile_id,
         "status": "completed",
         "runtime_sec": float(runtime_sec),
+        "peak_cuda_memory_bytes": int(peak_cuda_memory_bytes),
         "training_loss": training_loss,
         "err_RMSE": float(err_nrmse * 10.0),
         "err_nRMSE": float(err_nrmse),
@@ -1742,11 +1744,27 @@ def test_history3_cross_run_compare_records_increase_direction_and_dynamic_label
         "reference": "reference_history2",
     }
     assert payload["claim_scope"] == "adjacent_capped_context_only"
+    comparisons = {item["profile_id"]: item for item in payload["profile_comparisons"]}
+    assert comparisons["spectral_resnet_bottleneck_base"]["metric_deltas"] == {
+        "err_RMSE": pytest.approx(-0.3),
+        "err_nRMSE": pytest.approx(-0.03),
+        "relative_l2": pytest.approx(-0.03),
+        "fRMSE_low": pytest.approx(-0.06),
+        "fRMSE_mid": pytest.approx(-0.045),
+        "fRMSE_high": pytest.approx(-0.015),
+        "runtime_sec": pytest.approx(0.0),
+    }
+    assert comparisons["spectral_resnet_bottleneck_base"]["fresh_profile_result"]["peak_cuda_memory_bytes"] == 123456789
+    assert comparisons["spectral_resnet_bottleneck_base"]["reference_profile_result"]["peak_cuda_memory_bytes"] == 123456789
     assert (tmp_path / "out" / "compare_10ep_history3_against_history2_sample0.png").exists()
     assert (tmp_path / "out" / "compare_10ep_history3_against_history2_sample0_error.png").exists()
     rows = list(csv.DictReader(csv_path.open("r", encoding="utf-8")))
     assert [row["row_family"] for row in rows[:4]] == ["fresh_history3"] * 4
-    assert [row["row_family"] for row in rows[4:]] == ["reference_history2"] * 4
+    assert [row["row_family"] for row in rows[4:8]] == ["reference_history2"] * 4
+    assert [row["row_family"] for row in rows[8:]] == ["delta_history3_vs_history2"] * 4
+    assert rows[0]["peak_cuda_memory_bytes"] == "123456789"
+    assert rows[11]["profile_id"] == "unet_strong"
+    assert rows[11]["err_nRMSE"] == "-0.1"
 
 
 def test_history1_cross_run_compare_rejects_fixed_contract_mismatch(tmp_path):
@@ -1965,6 +1983,7 @@ def test_same_profile_multi_reference_history_compare_writes_dual_anchor_payload
         "target_channels": 4,
     }
     assert payload["fresh_profile_result"]["runtime_sec"] == 4100.0
+    assert payload["fresh_profile_result"]["peak_cuda_memory_bytes"] == 123456789
     assert payload["fresh_profile_result"]["window_counts"] == {"train": 4096, "val": 512, "test": 512}
     assert payload["fresh_profile_result"]["raw_windows_per_trajectory"] == 17
     assert payload["fresh_profile_result"]["raw_available_windows"] == 170000
@@ -1974,6 +1993,7 @@ def test_same_profile_multi_reference_history_compare_writes_dual_anchor_payload
     assert comparisons["history2"]["metric_deltas"]["err_nRMSE"] == pytest.approx(-0.02)
     assert comparisons["history2"]["metric_deltas"]["runtime_sec"] == pytest.approx(800.0)
     assert comparisons["history2"]["metric_deltas"]["fRMSE_high"] == pytest.approx(-0.01)
+    assert comparisons["history2"]["reference_profile_result"]["peak_cuda_memory_bytes"] == 123456789
     assert comparisons["history3"]["metric_deltas"]["err_nRMSE"] == pytest.approx(-0.004)
     assert comparisons["history3"]["reference_profile_result"]["raw_windows_per_trajectory"] == 18
     assert comparisons["history3"]["reference_profile_result"]["raw_available_windows"] == 180000
@@ -1982,6 +2002,7 @@ def test_same_profile_multi_reference_history_compare_writes_dual_anchor_payload
     assert [row["row_family"] for row in rows] == ["fresh_history4", "reference_history2", "reference_history3", "delta_vs_history2", "delta_vs_history3"]
     assert rows[0]["manuscript_label"] == "SRU-Net*"
     assert rows[0]["claim_scope"] == "adjacent_capped_context_only"
+    assert rows[0]["peak_cuda_memory_bytes"] == "123456789"
     assert rows[1]["raw_windows_per_trajectory"] == "19"
     assert rows[4]["err_nRMSE"] == "-0.004"
 

@@ -343,6 +343,7 @@ def _load_run_record(run_root: Path, *, profile_id: str, source_document: str) -
         "profile_id": profile_id,
         "status": str(metrics.get("status", "completed")),
         "runtime_sec": metrics.get("runtime_sec"),
+        "peak_cuda_memory_bytes": metrics.get("peak_cuda_memory_bytes"),
         "err_RMSE": metrics.get("err_RMSE"),
         "err_nRMSE": metrics.get("err_nRMSE"),
         "relative_l2": metrics.get("relative_l2"),
@@ -852,6 +853,17 @@ def write_history_delta_compare(
                 "target_channels": int(fresh_record["contract"]["target_channels"]),
                 "fresh_run_root": str(fresh_record["row"]["run_root"]),
                 "reference_run_root": str(frozen_record["row"]["run_root"]),
+                "metric_deltas": {
+                    **{
+                        field: _rounded(float(fresh_record["row"][field]) - float(frozen_record["row"][field]))
+                        for field in COMPARISON_METRIC_FIELDS
+                    },
+                    "runtime_sec": _rounded(
+                        float(fresh_record["row"]["runtime_sec"]) - float(frozen_record["row"]["runtime_sec"])
+                    ),
+                },
+                "fresh_profile_result": fresh_record["row"],
+                "reference_profile_result": frozen_record["row"],
             }
         )
 
@@ -965,11 +977,17 @@ def write_history_delta_compare(
         "fRMSE_low",
         "fRMSE_mid",
         "fRMSE_high",
+        "runtime_sec",
+        "peak_cuda_memory_bytes",
         "parameter_count",
         "run_root",
         "source_document",
         "epochs",
         "history_len",
+        "split_counts",
+        "window_counts",
+        "raw_windows_per_trajectory",
+        "raw_available_windows",
         "sample_contract",
         "input_channels",
         "target_channels",
@@ -995,6 +1013,15 @@ def write_history_delta_compare(
                     "row_family": reference_row_family,
                     "claim_scope": str(claim_scope),
                     **{field: row.get(field, "") for field in fields if field not in {"row_family", "claim_scope"}},
+                }
+            )
+        for comparison in payload["profile_comparisons"]:
+            writer.writerow(
+                {
+                    "row_family": f"delta_history{fresh_history_len}_vs_history{reference_history_len}",
+                    "profile_id": comparison["profile_id"],
+                    "claim_scope": str(claim_scope),
+                    **comparison["metric_deltas"],
                 }
             )
     return json_path, csv_path, payload
@@ -1100,6 +1127,13 @@ def write_same_profile_multi_reference_history_compare(
         metric_deltas["runtime_sec"] = _rounded(
             float(fresh_record["row"]["runtime_sec"]) - float(record["row"]["runtime_sec"])
         )
+        if (
+            fresh_record["row"].get("peak_cuda_memory_bytes") is not None
+            and record["row"].get("peak_cuda_memory_bytes") is not None
+        ):
+            metric_deltas["peak_cuda_memory_bytes"] = int(fresh_record["row"]["peak_cuda_memory_bytes"]) - int(
+                record["row"]["peak_cuda_memory_bytes"]
+            )
         reference_comparisons.append(
             {
                 "reference_history_label": reference_label,
@@ -1190,6 +1224,7 @@ def write_same_profile_multi_reference_history_compare(
         "raw_available_windows",
         "epochs",
         "runtime_sec",
+        "peak_cuda_memory_bytes",
         "err_RMSE",
         "err_nRMSE",
         "relative_l2",
