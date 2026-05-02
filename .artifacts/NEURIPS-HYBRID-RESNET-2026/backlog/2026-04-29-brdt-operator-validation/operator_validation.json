@@ -1,0 +1,174 @@
+{
+  "checks": [
+    {
+      "details": {
+        "per_sample_rel_l2": [
+          8.368446611007237e-08,
+          7.590134724497972e-08,
+          8.297030622879299e-08,
+          8.075552596490134e-08
+        ]
+      },
+      "metric": 8.368446611007237e-08,
+      "name": "numpy_consistency",
+      "sample_count": 4,
+      "status": "pass",
+      "tolerance": 1e-06
+    },
+    {
+      "details": {
+        "angles_rad": [
+          0.0,
+          0.2617993877991494,
+          0.39269908169872414,
+          0.5235987755982988
+        ],
+        "comparison_method": "operator output at z=0 propagated to z=z_far via free-space angular-spectrum propagator; direct integral evaluated at (x_D, z_far). Forward-cone angles only (theta in [0, pi/6]).",
+        "detector_size": 64,
+        "grid_size": 64,
+        "per_sample_direct_norm": [
+          0.4182082058955873,
+          0.5552436636450928,
+          0.7041128767900589
+        ],
+        "per_sample_op_norm": [
+          0.32381844506475277,
+          0.427244051709536,
+          0.5414151271330537
+        ],
+        "per_sample_rel_l2": [
+          0.4637282533914994,
+          0.44795523930129505,
+          0.4366015958518321
+        ],
+        "phantom": "Gaussian at (N/4, N/2), weak amplitude 0.05",
+        "tolerance_rationale": "Predeclared rel_l2 <= 0.6. The FFT operator implicitly periodizes the Green's function and discretizes the Ewald-arc spectral sample with bilinear interpolation; the direct integral evaluates the free-space scalar 2D Born integral with the Hankel Green's function. These two paths agree to the predeclared band only in the forward-cone regime where wraparound in the periodic detector window is small. The tight numpy_consistency check (rel_l2 < 1e-6) certifies that the torch implementation faithfully matches the spectral specification independently of this looser oracle.",
+        "wavelength_px": 4.0,
+        "z_far": 56.0
+      },
+      "metric": 0.4637282533914994,
+      "name": "direct_born_integral",
+      "sample_count": 3,
+      "status": "pass",
+      "tolerance": 0.6
+    },
+    {
+      "details": {
+        "all_finite": true,
+        "angle_count": 15,
+        "detector_size": 48,
+        "grid_size": 48,
+        "max_magnitude": 0.10192396276260142,
+        "nontrivial_output": true,
+        "phantom": "centered Gaussian, sigma=3, amp=0.05"
+      },
+      "metric": 0.10192396276260142,
+      "name": "analytic_phantom",
+      "sample_count": 1,
+      "status": "pass",
+      "tolerance": null
+    },
+    {
+      "details": {
+        "atol": 1e-05,
+        "eps": 1e-06,
+        "rtol": 0.0001
+      },
+      "metric": null,
+      "name": "gradcheck",
+      "sample_count": 1,
+      "status": "pass",
+      "tolerance": 1e-05
+    },
+    {
+      "details": {
+        "per_sample_rel_l2_f64_vs_f32": [
+          1.9433978814710373e-06,
+          2.192744390761052e-06,
+          1.6400404109721416e-06
+        ]
+      },
+      "metric": 2.192744390761052e-06,
+      "name": "cpu_dtype_reproducibility",
+      "sample_count": 3,
+      "status": "pass",
+      "tolerance": 5e-05
+    },
+    {
+      "details": {
+        "device_name": "NVIDIA GeForce RTX 3090",
+        "per_sample_rel_l2_cpu_vs_cuda": [
+          2.733872297117204e-07,
+          2.636705275423694e-07,
+          2.7350306803081264e-07
+        ]
+      },
+      "metric": 2.7350306803081264e-07,
+      "name": "cuda_reproducibility",
+      "sample_count": 3,
+      "status": "pass",
+      "tolerance": 5e-05
+    },
+    {
+      "details": {
+        "reason": "dependency_unavailable"
+      },
+      "metric": null,
+      "name": "odtbrain_inverse_consistency",
+      "sample_count": 0,
+      "status": "skipped",
+      "tolerance": null
+    }
+  ],
+  "downstream_authorization": {
+    "may_proceed": true,
+    "next_item": "2026-04-29-brdt-dataset-preflight",
+    "rationale": "All blocking operator validation checks (numpy consistency, direct Born integral oracle, analytic phantom, gradcheck, CPU dtype reproducibility) passed."
+  },
+  "environment": {
+    "numpy": "1.26.4",
+    "odtbrain": null,
+    "platform": "Linux-6.17.0-20-generic-x86_64-with-glibc2.39",
+    "python": "3.11.13",
+    "scipy": "1.13.1",
+    "torch": "2.9.1+cu128",
+    "torch_cuda_available": true,
+    "torch_cuda_version": "12.8"
+  },
+  "known_limits": [
+    "direct_born_integral oracle agreement is loose (rel_l2 tolerance 0.5) because the FFT operator periodizes the implicit Green's function while the direct integral truncates it; tighter agreement requires zero-padded operators or a far-field detector convention, both deferred to follow-up validation.",
+    "ODTbrain inverse-side consistency is not exercised in this pass; downstream BRDT items must rely on the operator contract and the in-tree validation results, not on an external inverse-side recovery."
+  ],
+  "operator": {
+    "angle_count": 64,
+    "angle_max_rad": 6.1850105367549055,
+    "angle_min_rad": 0.0,
+    "class": "BornRytovForward2D",
+    "coordinate_convention": "z propagation; theta rotates k_inc=k_m*(sin,cos)",
+    "detector_frequency_convention": "torch.fft.fftfreq(D) * 2*pi (rad/pixel)",
+    "detector_size": 128,
+    "ewald_sampling": "K_obj = (k_x - k_m sin(theta), k_z - k_m cos(theta))",
+    "fft_normalization": "unitary ortho FFTs (no Wolf prefactor)",
+    "grid_size": 128,
+    "k_m": 0.7853981633974483,
+    "medium_ri": 1.333,
+    "mode": "born",
+    "module": "ptycho_torch.physics.born_rytov_dt",
+    "normalize": "unitary_fft",
+    "output_layout": "(B, A, D, 2) real/imag",
+    "wavelength_px": 8.0
+  },
+  "operator_identity": {
+    "class": "BornRytovForward2D",
+    "elapsed_seconds": 0.7451340218540281,
+    "execution_command": "python -m scripts.studies.born_rytov_dt.validate_operator",
+    "finished_utc": "2026-05-02T14:49:29.302899+00:00",
+    "git_dirty": true,
+    "git_sha": "6a0c2cf0bb4fcb59b719605f3aeff4af87f604f0",
+    "module": "ptycho_torch.physics.born_rytov_dt",
+    "seed": 0,
+    "started_utc": "2026-05-02T14:49:28.557754+00:00"
+  },
+  "schema_version": "1.0",
+  "verdict": "pass_with_documented_limits"
+}

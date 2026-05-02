@@ -8,6 +8,12 @@
   as an additional inverse-scattering evidence lane for the SRU-Net manuscript.
 - Design: `docs/plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md`
 - Backlog item: `docs/backlog/active/2026-04-29-brdt-candidate-preflight.md`
+- Operator validation authority:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_operator_validation_report.md`
+  with machine-readable contract at
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-operator-validation/operator_validation.json`.
+  Downstream BRDT items must consume the operator contract from this report
+  rather than re-reading the candidate-lane design.
 - Roadmap phase: `candidate-brdt-preflight`
 - Scope: physical-target and normalization lock, differentiable Born operator
   validation, synthetic dataset feasibility, task-specific adapters, and a

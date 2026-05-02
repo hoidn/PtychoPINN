@@ -138,6 +138,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, brdt, born, rytov, diffraction-tomography, inverse-scattering, candidate, sru-net, physics
 **Use this when:** Planning or reviewing the BRDT candidate preflight, checking physical target and normalization conventions, or deciding whether a cheap-forward inverse-scattering lane is ready for a later roadmap/evidence amendment.
 
+### [NeurIPS BRDT Born Forward Operator Validation Report](plans/NEURIPS-HYBRID-RESNET-2026/brdt_operator_validation_report.md)
+**Description:** Locked operator contract and validation verdict for `ptycho_torch.physics.born_rytov_dt.BornRytovForward2D` (Born mode only). Records coordinate, angle, FFT-normalization, and Ewald-arc sampling conventions; reports independent-oracle results (NumPy spectral reimplementation and free-space direct Born integral with Hankel Green's function), gradient and CPU/CUDA dtype reproducibility outcomes, and the optional ODTbrain skip reason. Authoritative source for downstream BRDT dataset/adapter items and for any future paper-facing reference to the operator contract; remains feasibility-only and does not promote BRDT into manuscript evidence.
+**Keywords:** neurips, brdt, born, operator-validation, candidate, feasibility, gradcheck, dtype-reproducibility
+**Use this when:** Consuming the BRDT operator's locked contract from downstream items (dataset preflight, task adapters, four-row preflight), citing the operator validation outcome, or auditing the independent-oracle evidence supporting the candidate-lane gate.
+
 ### [NeurIPS Inverse-Wave Benchmark Rationale](plans/NEURIPS-HYBRID-RESNET-2026/inverse_wave_benchmark_rationale.md)
 **Description:** Decision rationale comparing BRDT, WaveBench inverse source, OpenFWI, OpenSWI, Fourier ptychography, holography, and diffraction tomography as possible additional inverse-wave lanes. It records why BRDT and WaveBench are both active candidate preflights and why neither candidate can replace CDI `lines128` or PDEBench CNS.
 **Keywords:** neurips, inverse-wave, brdt, wavebench, openfwi, openswi, benchmark-rationale, candidate
