@@ -9,7 +9,7 @@
     "paper_evidence_manifest": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_manifest.json",
     "cdi_complete_lines128": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
     "cdi_supervised_extension": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md",
-    "cns_table_bundle": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md"
+    "cns_table_bundle": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md"
   },
   "dataset_contracts": {
     "cdi_lines128_seed3": {
@@ -668,7 +668,7 @@
       "evidence_status": "capped_decision_support_continuity"
     },
     {
-      "variant_id": "cns_history2_cap2048__spectral_resnet_bottleneck_base__supervised__paper_bundle_companion",
+      "variant_id": "cns_history2_cap2048__spectral_resnet_bottleneck_base__supervised__paper_bundle_authority",
       "dataset_contract_id": "cns_history2_cap2048_40ep",
       "row_id": "spectral_resnet_bottleneck_base",
       "paper_label": "Spectral ResNet Bottleneck (2048cap)",
@@ -692,7 +692,7 @@
       "evidence_status": "capped_decision_support_headline"
     },
     {
-      "variant_id": "cns_history2_cap2048__fno_base__supervised__paper_bundle_companion",
+      "variant_id": "cns_history2_cap2048__fno_base__supervised__paper_bundle_authority",
       "dataset_contract_id": "cns_history2_cap2048_40ep",
       "row_id": "fno_base",
       "paper_label": "FNO (2048cap)",
@@ -716,7 +716,7 @@
       "evidence_status": "capped_decision_support_headline"
     },
     {
-      "variant_id": "cns_history2_cap2048__unet_strong__supervised__paper_bundle_companion",
+      "variant_id": "cns_history2_cap2048__unet_strong__supervised__paper_bundle_authority",
       "dataset_contract_id": "cns_history2_cap2048_40ep",
       "row_id": "unet_strong",
       "paper_label": "U-Net (2048cap)",
@@ -740,7 +740,7 @@
       "evidence_status": "capped_decision_support_headline"
     },
     {
-      "variant_id": "cns_history2_cap2048__author_ffno_cns_base__supervised__paper_bundle_companion",
+      "variant_id": "cns_history2_cap2048__author_ffno_cns_base__supervised__paper_bundle_authority",
       "dataset_contract_id": "cns_history2_cap2048_40ep",
       "row_id": "author_ffno_cns_base",
       "paper_label": "Author FFNO (2048cap)",

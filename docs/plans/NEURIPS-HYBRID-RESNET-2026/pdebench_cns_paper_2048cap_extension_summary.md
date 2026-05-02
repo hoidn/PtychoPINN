@@ -12,14 +12,16 @@
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/cns_paper_locked_rows_2048cap.json`
 - Contract authority:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md`
-- Prior 512cap bundle (still durable):
+- Historical 512cap fallback bundle:
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/`
 
-The capped decision-support claim boundary is unchanged. This extension adds a
-parallel `2048 / 256 / 256` lane built under exactly the same fairness contract
-as the existing `512 / 64 / 64` bundle. The 512cap bundle remains intact and
-authoritative; the 2048cap bundle is published alongside it as a wider-cap
-companion view, **not** as `paper_grade` or `full_training` evidence.
+The capped decision-support claim boundary is unchanged. This extension
+finishes the full same-contract `2048 / 256 / 256` headline roster under
+exactly the same fairness contract as the earlier `512 / 64 / 64` fallback
+bundle. The `2048` bundle is now the current capped CNS authority for
+discoverability and audit surfaces, while the `512` bundle remains preserved as
+historical provenance only. No row is relabelled `paper_grade` or
+`full_training`.
 
 ## Same-Cap Contract
 
@@ -106,10 +108,10 @@ That proof records the helper-tracked PID `1845354`, exit code `0`, the locked
 
 ## Authority Status
 
-- The existing `512 / 64 / 64` bundle remains the durable paper bundle and
-  the authoritative locked-rows manifest pointer.
-- The 2048cap bundle is published as a wider-cap companion under the same
-  capped decision-support claim boundary.
+- The `2048 / 256 / 256` bundle is the current capped CNS authority and the
+  active locked-rows manifest pointer for discoverability and audit surfaces.
+- The earlier `512 / 64 / 64` bundle is preserved as historical provenance
+  under the same capped decision-support claim boundary.
 - No row in either bundle is relabelled `paper_grade` or `full_training`.
 - The full-training benchmark gate is still unmet for every model in either
   bundle.
@@ -130,6 +132,6 @@ That proof records the helper-tracked PID `1845354`, exit code `0`, the locked
 - Hardware accelerator label is `artifact_missing_precise_accelerator` for all
   rows because the run roots do not record a precise accelerator string. This
   matches the prior 512cap bundle and does not change the claim boundary.
-- The 2048cap companion bundle remains under the
+- The current `2048` authority bundle remains under the
   `bounded_capped_decision_support_only` claim boundary. Full-training
   benchmark gates remain unmet for every model in either bundle.

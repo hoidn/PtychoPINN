@@ -112,6 +112,10 @@ def build_default_input_manifest(repo_root: Path | str) -> dict[str, Any]:
         "complete_table_20260430T150757Z_repair_tmux"
     )
     cns_bundle_root = (
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/"
+        "2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap"
+    )
+    cns_historical_bundle_root = (
         ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle"
     )
     artifact_root = DEFAULT_AUDIT_ARTIFACT_ROOT
@@ -163,14 +167,17 @@ def build_default_input_manifest(repo_root: Path | str) -> dict[str, Any]:
         "cns": {
             "pillar_id": "cns",
             "contract_decision_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md",
-            "row_lock_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_row_lock_summary.md",
-            "locked_rows_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/cns_paper_locked_rows.json",
-            "bundle_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md",
+            "row_lock_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
+            "locked_rows_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/cns_paper_locked_rows_2048cap.json",
+            "bundle_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
             "bundle_root": cns_bundle_root,
             "table_rows_path": f"{cns_bundle_root}/cns_paper_table_rows.json",
             "bundle_validation_path": f"{cns_bundle_root}/bundle_validation.json",
             "figure_manifest_path": f"{cns_bundle_root}/figure_manifest.json",
             "fixed_sample_manifest_path": f"{cns_bundle_root}/fixed_sample_manifest.json",
+            "historical_bundle_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md",
+            "historical_locked_rows_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/cns_paper_locked_rows.json",
+            "historical_bundle_root": cns_historical_bundle_root,
         },
         "index_surfaces": {
             "paper_evidence_index_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -706,6 +713,7 @@ def validate_manifest(manifest: dict[str, Any]) -> dict[str, bool]:
 def render_audit_summary(manifest: dict[str, Any]) -> str:
     cdi = manifest["pillar_summaries"]["cdi"]
     cns = manifest["pillar_summaries"]["cns"]
+    cns_inputs = manifest["authoritative_inputs"]["cns"]
     outputs = manifest["output_targets"]
     adjacent_cdi_lines = "\n".join(
         f"- `{context['artifact_id']}`: `{context['row_status']}` under `{context['claim_boundary']}` from `{context['source_root']}`."
@@ -740,6 +748,7 @@ def render_audit_summary(manifest: dict[str, Any]) -> str:
 - CDI bundle status: `{cdi['bundle_status']}` with selected comparator `{cdi['selected_fno_comparator']}` and fixed seed `{cdi['seed_policy'].get('seed')}`.
 - CNS headline authority: `{cns['headline_status']}` under `{cns['claim_boundary']}` from `{cns['source_root']}`.
 - CNS bundle status: `{cns['bundle_status']}` reflects table/figure assembly completeness only; it does not upgrade the pillar beyond `{cns['headline_status']}`.
+- Historical CNS fallback bundle preserved for provenance: `{cns_inputs['historical_bundle_root']}` under the same capped claim boundary; it is no longer the current discoverability target.
 - No outputs from this item target `/home/ollie/Documents/neurips/`; all emitted paths stay repo-local.
 
 ## Emitted Outputs

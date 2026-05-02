@@ -13,9 +13,9 @@
 
 - CDI headline authority: `paper_grade` under `complete_lines128_cdi_benchmark` from `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux`.
 - CDI bundle status: `paper_complete` with selected comparator `fno_vanilla` and fixed seed `3`.
-- CNS headline authority: `capped_decision_support` under `bounded_capped_decision_support_only` from `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle`.
+- CNS headline authority: `capped_decision_support` under `bounded_capped_decision_support_only` from `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap`.
 - CNS bundle status: `paper_complete` reflects table/figure assembly completeness only; it does not upgrade the pillar beyond `capped_decision_support`.
-- CNS 2048cap companion bundle: `capped_decision_support` under `bounded_capped_decision_support_only` from `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap` (same-contract `2048 / 256 / 256`, `history_len=2`, 40 epochs). Published alongside the 512cap bundle as a wider-cap companion view; does not relabel any row `paper_grade` or `full_training`.
+- Historical CNS fallback bundle preserved for provenance: `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle` under the same capped claim boundary; it is no longer the current discoverability target.
 - No outputs from this item target `/home/ollie/Documents/neurips/`; all emitted paths stay repo-local.
 
 ## Emitted Outputs
@@ -59,8 +59,4 @@ Verification logs:
 ### CNS Continuity Context
 
 - `hybrid_resnet_cns`: continuity/support only under the same capped contract.
-- `history_len=3 pilots`: `not_protocol_compatible` because history_len diverges from the selected history_len=2 headline lane and the authored FFNO row was not completed under that alternate temporal contract by the cutoff
-- `history_len=1 pilots`: `not_protocol_compatible` because lower-context Markov ablation is contract-divergent temporal context only, not part of the locked headline table
-- `gnot`: `not_protocol_compatible` because protocol-divergent environment and recipe lane; not part of the required same-contract headline roster
-- `ffno_bottleneck_base`: `not_protocol_compatible` because repo-local FFNO proxy row is explicitly not an authored FFNO substitute for the locked paper row bundle
-- `ffno_bottleneck_localconv_base`: `not_protocol_compatible` because repo-local FFNO proxy with local branch is explicitly adjacent context only and cannot replace authored FFNO in the locked roster
+

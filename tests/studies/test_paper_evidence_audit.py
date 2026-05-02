@@ -27,6 +27,29 @@ def _default_inputs():
     return module.build_default_input_manifest(REPO_ROOT)
 
 
+def test_default_inputs_promote_2048cap_cns_authority_and_preserve_512_history():
+    inputs = _default_inputs()
+    cns_inputs = inputs["cns"]
+
+    assert cns_inputs["bundle_summary_path"] == (
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md"
+    )
+    assert cns_inputs["bundle_root"] == (
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/"
+        "2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap"
+    )
+    assert cns_inputs["locked_rows_path"] == (
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/"
+        "2026-04-29-cns-paper-2048cap-row-extension/cns_paper_locked_rows_2048cap.json"
+    )
+    assert cns_inputs["historical_bundle_summary_path"] == (
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md"
+    )
+    assert cns_inputs["historical_bundle_root"] == (
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle"
+    )
+
+
 def test_build_manifest_from_real_authorities_preserves_distinct_pillar_statuses():
     module = _load_audit_module()
     manifest = module.build_manifest(_default_inputs(), repo_root=REPO_ROOT)
@@ -221,6 +244,7 @@ def test_summary_mentions_same_authorities_and_claim_limits():
 
     assert inputs["cdi"]["authoritative_root"] in summary
     assert inputs["cns"]["bundle_root"] in summary
+    assert inputs["cns"]["historical_bundle_root"] in summary
     assert "paper_grade" in summary
     assert "capped_decision_support" in summary
     assert "full-training CNS competitiveness claims remain blocked" in summary

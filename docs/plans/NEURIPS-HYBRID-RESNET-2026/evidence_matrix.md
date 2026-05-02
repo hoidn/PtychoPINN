@@ -20,8 +20,8 @@ Machine-readable companions:
 | CDI `lines128` complete table | `lines128_paper_benchmark_summary.md` | `paper_grade`, six-row complete CDI bundle |
 | CDI FFNO supervised extension | `lines128_supervised_equivalent_rows_summary.md` | paper-complete extension to existing table |
 | CDI U-NO extension readiness | `lines128_uno_preflight_summary.md` | feasibility-only external UNO environment/API authority before generator integration |
-| PDEBench CNS table/figures | `pdebench_cns_paper_table_figure_bundle_summary.md` | bounded capped decision-support only |
-| PDEBench CNS 2048cap companion | `pdebench_cns_paper_2048cap_extension_summary.md` | bounded capped decision-support only, parallel `2048 / 256 / 256` view |
+| PDEBench CNS table/figures | `pdebench_cns_paper_2048cap_extension_summary.md` | bounded capped decision-support only, current `2048 / 256 / 256` authority |
+| PDEBench CNS 512cap fallback provenance | `pdebench_cns_paper_table_figure_bundle_summary.md` | bounded capped decision-support only, preserved historical fallback |
 | Cross-pillar claim audit | `paper_evidence_package_audit_summary.md` | preserves CDI/CNS claim asymmetry |
 | Completed backlog outcome map | `paper_evidence_index.md` | first-stop durable outcome index |
 
@@ -110,27 +110,26 @@ Current read:
 
 ## PDEBench CNS Model Matrix
 
-Fixed paper bundle contract: PDEBench 2D_CFD CNS `128x128`,
-`history_len=2`, `512 / 64 / 64`, `40` epochs, `mse`, capped
+Fixed current paper bundle contract: PDEBench 2D_CFD CNS `128x128`,
+`history_len=2`, `2048 / 256 / 256`, `40` epochs, `mse`, capped
 decision-support boundary.
 
 | Row | Architecture | Training | relative_l2 | fRMSE_high | Role | Source |
 |---|---|---:|---:|---:|---|---|
-| `author_ffno_cns_base` | authored FFNO | supervised | 0.028148 | 0.121014 | headline | CNS table bundle |
-| `spectral_resnet_bottleneck_base` | spectral bottleneck | supervised | 0.061562 | 0.434933 | headline | CNS table bundle |
-| `fno_base` | FNO | supervised | 0.074099 | 0.671772 | headline | CNS table bundle |
-| `unet_strong` | U-Net | supervised | 0.675798 | 1.332625 | headline | CNS table bundle |
-| `hybrid_resnet_cns` | Hybrid ResNet | supervised | 0.064418 | 0.368307 | continuity | CNS table bundle |
+| `author_ffno_cns_base` | authored FFNO | supervised | 0.026314 | 0.067210 | headline | CNS 2048 authority bundle |
+| `spectral_resnet_bottleneck_base` | spectral bottleneck | supervised | 0.042166 | 0.311760 | headline | CNS 2048 authority bundle |
+| `fno_base` | FNO | supervised | 0.050722 | 0.495405 | headline | CNS 2048 authority bundle |
+| `unet_strong` | U-Net | supervised | 0.597567 | 0.709608 | headline | CNS 2048 authority bundle |
 
 Best observed capped CNS rows by model family, selected by lowest observed
 `relative_l2`/`err_nRMSE` across completed capped evidence:
 
 | Family | Row | Contract | relative_l2 | fRMSE_high | Source |
 |---|---|---|---:|---:|---|
-| FFNO | `author_ffno_cns_base` | `512 / 64 / 64`, `history_len=2`, `40` epochs | 0.028148 | 0.121014 | CNS table bundle |
+| FFNO | `author_ffno_cns_base` | `2048 / 256 / 256`, `history_len=2`, `40` epochs | 0.026314 | 0.067210 | CNS 2048 authority bundle |
 | SRU-Net | `spectral_resnet_bottleneck_base` | `512 / 64 / 64`, `history_len=5`, `40` epochs | 0.033069 | 0.262218 | `pdebench_cns_spectral_history_len4plus_compare_summary.md` |
-| FNO | `fno_base` | `512 / 64 / 64`, `history_len=3`, `40` epochs | 0.056725 | 0.610477 | `pdebench_cns_history_len3plus_compare_summary.md` |
-| U-Net | `unet_strong` | `512 / 64 / 64`, `history_len=2`, `40` epochs | 0.675798 | 1.332625 | CNS table bundle |
+| FNO | `fno_base` | `2048 / 256 / 256`, `history_len=2`, `40` epochs | 0.050722 | 0.495405 | CNS 2048 authority bundle |
+| U-Net | `unet_strong` | `2048 / 256 / 256`, `history_len=2`, `40` epochs | 0.597567 | 0.709608 | CNS 2048 authority bundle |
 
 Notes:
 
@@ -140,15 +139,21 @@ Notes:
   `spectral_resnet_bottleneck_shared_blocks10`, `1024 / 128 / 128`,
   `80` epochs, `relative_l2=0.037568`, `fRMSE_high=0.215245`; see
   `pdebench_cns_shared_blocks10_1024cap_longer_convergence_summary.md`.
-- The same-contract `2048 / 256 / 256`, `history_len=2`, 40-epoch companion
-  bundle is now complete and is published alongside the durable `512 / 64 / 64`
-  bundle as a wider-cap capped-decision-support view; see
+- The same-contract `2048 / 256 / 256`, `history_len=2`, 40-epoch bundle is
+  the current capped CNS authority; see
   `pdebench_cns_paper_2048cap_extension_summary.md` (bundle root
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/`).
-  The 512cap bundle remains the durable paper bundle and authoritative locked-
-  rows pointer; neither bundle is relabelled `paper_grade` or `full_training`.
+  The earlier `512 / 64 / 64` bundle is preserved as historical provenance
+  only. Neither bundle is relabelled `paper_grade` or `full_training`.
+- `hybrid_resnet_cns` remains continuity/support context from the historical
+  `512 / 64 / 64` fallback bundle because the promoted `2048` authority bundle
+  intentionally carries only the four headline rows.
 
-CNS table/figure bundle root:
+CNS current authority bundle root:
+
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap`
+
+Historical fallback bundle root:
 
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle`
 
@@ -160,7 +165,7 @@ Bundle outputs include:
 - fixed-sample prediction/error figures
 - `shared_field_scales.json`
 - `fixed_sample_manifest.json`
-- `1024_same_cap_audit.json`
+- `2048_same_cap_audit.json`
 
 ## Completed Backlog Output Coverage
 
@@ -182,8 +187,8 @@ Bundle outputs include:
 | `2026-04-29-cdi-lines128-paper-benchmark-harness` | CDI harness readiness | `lines128_paper_benchmark_harness_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/validation/readiness_only_preflight/` |
 | `2026-04-29-cns-paper-contract-decision` | CNS contract lock | `pdebench_cns_paper_contract_decision.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/cns_same_contract_audit.json` |
 | `2026-04-29-cns-paper-benchmark-rows` | CNS row lock | `pdebench_cns_paper_row_lock_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/` |
-| `2026-04-29-cns-paper-table-figure-bundle` | CNS table/figure bundle | `pdebench_cns_paper_table_figure_bundle_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/` |
-| `2026-04-29-cns-paper-2048cap-row-extension` | CNS 2048cap companion bundle | `pdebench_cns_paper_2048cap_extension_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/` |
+| `2026-04-29-cns-paper-table-figure-bundle` | CNS historical fallback bundle | `pdebench_cns_paper_table_figure_bundle_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/` |
+| `2026-04-29-cns-paper-2048cap-row-extension` | CNS current 2048cap authority bundle | `pdebench_cns_paper_2048cap_extension_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/` |
 | `2026-04-29-cdi-lines128-minimum-paper-table` | CDI minimum table | `lines128_minimum_paper_table_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z` |
 | `2026-04-29-cdi-lines128-paper-benchmark-execution` | CDI complete six-row table | `lines128_paper_benchmark_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux` |
 | `2026-04-29-cdi-lines128-supervised-equivalent-rows` | CDI supervised FFNO extension | `lines128_supervised_equivalent_rows_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z` |
