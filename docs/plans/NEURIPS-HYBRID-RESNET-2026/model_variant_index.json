@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-02T11:30:00Z",
+  "last_updated_utc": "2026-05-02T13:35:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -1011,7 +1011,7 @@
       "source_backlog_item": "2026-04-21-hybrid-resnet-encoder-fusion-variants",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_hybrid_resnet_encoder_fusion_variants_summary.md",
       "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants",
-      "metrics_json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_layerscale/metrics.json",
+      "metrics_json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_layerscale/metrics.json",
       "metrics": {
         "amp_mae": 0.028609447181224823,
         "phase_mae": 0.07624458714601623,
@@ -1037,7 +1037,7 @@
       "source_backlog_item": "2026-04-21-hybrid-resnet-encoder-fusion-variants",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_hybrid_resnet_encoder_fusion_variants_summary.md",
       "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants",
-      "metrics_json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated/metrics.json",
+      "metrics_json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated/metrics.json",
       "metrics": {
         "amp_mae": 0.02615419402718544,
         "phase_mae": 0.07420112458922379,
@@ -1063,7 +1063,7 @@
       "source_backlog_item": "2026-04-21-hybrid-resnet-encoder-fusion-variants",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_hybrid_resnet_encoder_fusion_variants_summary.md",
       "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants",
-      "metrics_json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/metrics.json",
+      "metrics_json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/metrics.json",
       "metrics": {
         "amp_mae": 0.0288888830691576,
         "phase_mae": 0.07342547700826348,

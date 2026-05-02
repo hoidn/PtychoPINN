@@ -1,6 +1,6 @@
 {
   "ablation_root": "/home/ollie/Documents/PtychoPINN/.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants",
-  "ablation_run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z",
+  "ablation_run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_rerun_20260502T121829Z",
   "fixed_baseline_source_root": "/home/ollie/Documents/PtychoPINN/.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux",
   "scalar_scope_decision": "per_block",
   "rows": {
@@ -9,16 +9,16 @@
       "model_label": "Hybrid ResNet + PINN (reused baseline)",
       "changed_factor": "none (reused baseline)",
       "artifacts": {
-        "config.json": "runs/encoder_fusion_20260502T104230Z/promoted_baseline/runs/pinn_hybrid_resnet/config.json",
-        "history.json": "runs/encoder_fusion_20260502T104230Z/promoted_baseline/runs/pinn_hybrid_resnet/history.json",
-        "metrics.json": "runs/encoder_fusion_20260502T104230Z/promoted_baseline/runs/pinn_hybrid_resnet/metrics.json",
-        "model.pt": "runs/encoder_fusion_20260502T104230Z/promoted_baseline/runs/pinn_hybrid_resnet/model.pt",
-        "invocation.json": "runs/encoder_fusion_20260502T104230Z/promoted_baseline/runs/pinn_hybrid_resnet/invocation.json",
-        "stdout.log": "runs/encoder_fusion_20260502T104230Z/promoted_baseline/runs/pinn_hybrid_resnet/stdout.log",
-        "stderr.log": "runs/encoder_fusion_20260502T104230Z/promoted_baseline/runs/pinn_hybrid_resnet/stderr.log",
-        "launcher_completion.json": "runs/encoder_fusion_20260502T104230Z/promoted_baseline/runs/pinn_hybrid_resnet/launcher_completion.json",
-        "randomness_contract.json": "runs/encoder_fusion_20260502T104230Z/promoted_baseline/runs/pinn_hybrid_resnet/randomness_contract.json",
-        "recon_npz": "runs/encoder_fusion_20260502T104230Z/promoted_baseline/recons/pinn_hybrid_resnet/recon.npz"
+        "config.json": "runs/encoder_fusion_rerun_20260502T121829Z/promoted_baseline/runs/pinn_hybrid_resnet/config.json",
+        "history.json": "runs/encoder_fusion_rerun_20260502T121829Z/promoted_baseline/runs/pinn_hybrid_resnet/history.json",
+        "metrics.json": "runs/encoder_fusion_rerun_20260502T121829Z/promoted_baseline/runs/pinn_hybrid_resnet/metrics.json",
+        "model.pt": "runs/encoder_fusion_rerun_20260502T121829Z/promoted_baseline/runs/pinn_hybrid_resnet/model.pt",
+        "invocation.json": "runs/encoder_fusion_rerun_20260502T121829Z/promoted_baseline/runs/pinn_hybrid_resnet/invocation.json",
+        "stdout.log": "runs/encoder_fusion_rerun_20260502T121829Z/promoted_baseline/runs/pinn_hybrid_resnet/stdout.log",
+        "stderr.log": "runs/encoder_fusion_rerun_20260502T121829Z/promoted_baseline/runs/pinn_hybrid_resnet/stderr.log",
+        "launcher_completion.json": "runs/encoder_fusion_rerun_20260502T121829Z/promoted_baseline/runs/pinn_hybrid_resnet/launcher_completion.json",
+        "randomness_contract.json": "runs/encoder_fusion_rerun_20260502T121829Z/promoted_baseline/runs/pinn_hybrid_resnet/randomness_contract.json",
+        "recon_npz": "runs/encoder_fusion_rerun_20260502T121829Z/promoted_baseline/recons/pinn_hybrid_resnet/recon.npz"
       }
     },
     "pinn_hybrid_resnet_encoder_layerscale": {
@@ -26,20 +26,20 @@
       "model_label": "Hybrid ResNet + per-block encoder LayerScale + PINN",
       "changed_factor": "encoder_fusion_mode=layerscale; per-block outer LayerScale on the fused update",
       "artifacts": {
-        "config.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_layerscale/config.json",
-        "history.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_layerscale/history.json",
-        "metrics.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_layerscale/metrics.json",
-        "model.pt": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_layerscale/model.pt",
-        "invocation.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_layerscale/invocation.json",
-        "randomness_contract.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_layerscale/randomness_contract.json",
-        "recon_npz": "runs/encoder_fusion_20260502T104230Z/recons/pinn_hybrid_resnet_encoder_layerscale/recon.npz",
-        "stdout_log": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_layerscale/stdout.log",
-        "stderr_log": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_layerscale/stderr.log",
-        "launcher_completion_json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_layerscale/launcher_completion.json",
-        "training_output_dir": "runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_layerscale",
-        "training_output_manifest.json": "runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_layerscale/training_output_manifest.json",
-        "checkpoint_dir": "runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_layerscale/checkpoints",
-        "lightning_metrics_csv": "runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_layerscale/lightning_logs/version_0/metrics.csv"
+        "config.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_layerscale/config.json",
+        "history.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_layerscale/history.json",
+        "metrics.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_layerscale/metrics.json",
+        "model.pt": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_layerscale/model.pt",
+        "invocation.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_layerscale/invocation.json",
+        "randomness_contract.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_layerscale/randomness_contract.json",
+        "recon_npz": "runs/encoder_fusion_rerun_20260502T121829Z/recons/pinn_hybrid_resnet_encoder_layerscale/recon.npz",
+        "stdout_log": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_layerscale/stdout.log",
+        "stderr_log": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_layerscale/stderr.log",
+        "launcher_completion_json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_layerscale/launcher_completion.json",
+        "training_output_dir": "runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_layerscale",
+        "training_output_manifest.json": "runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_layerscale/training_output_manifest.json",
+        "checkpoint_dir": "runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_layerscale/checkpoints",
+        "lightning_metrics_csv": "runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_layerscale/lightning_logs/version_0/metrics.csv"
       }
     },
     "pinn_hybrid_resnet_encoder_branch_gated": {
@@ -47,20 +47,20 @@
       "model_label": "Hybrid ResNet + per-block encoder branch gates + PINN",
       "changed_factor": "encoder_fusion_mode=branch_gated; per-block spectral and local branch gates",
       "artifacts": {
-        "config.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated/config.json",
-        "history.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated/history.json",
-        "metrics.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated/metrics.json",
-        "model.pt": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated/model.pt",
-        "invocation.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated/invocation.json",
-        "randomness_contract.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated/randomness_contract.json",
-        "recon_npz": "runs/encoder_fusion_20260502T104230Z/recons/pinn_hybrid_resnet_encoder_branch_gated/recon.npz",
-        "stdout_log": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated/stdout.log",
-        "stderr_log": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated/stderr.log",
-        "launcher_completion_json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated/launcher_completion.json",
-        "training_output_dir": "runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated",
-        "training_output_manifest.json": "runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated/training_output_manifest.json",
-        "checkpoint_dir": "runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated/checkpoints",
-        "lightning_metrics_csv": "runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated/lightning_logs/version_0/metrics.csv"
+        "config.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated/config.json",
+        "history.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated/history.json",
+        "metrics.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated/metrics.json",
+        "model.pt": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated/model.pt",
+        "invocation.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated/invocation.json",
+        "randomness_contract.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated/randomness_contract.json",
+        "recon_npz": "runs/encoder_fusion_rerun_20260502T121829Z/recons/pinn_hybrid_resnet_encoder_branch_gated/recon.npz",
+        "stdout_log": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated/stdout.log",
+        "stderr_log": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated/stderr.log",
+        "launcher_completion_json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated/launcher_completion.json",
+        "training_output_dir": "runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated",
+        "training_output_manifest.json": "runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated/training_output_manifest.json",
+        "checkpoint_dir": "runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated/checkpoints",
+        "lightning_metrics_csv": "runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated/lightning_logs/version_0/metrics.csv"
       }
     },
     "pinn_hybrid_resnet_encoder_branch_gated_layerscale": {
@@ -68,20 +68,20 @@
       "model_label": "Hybrid ResNet + per-block encoder branch gates + LayerScale + PINN",
       "changed_factor": "encoder_fusion_mode=branch_gated_layerscale; per-block branch gates + per-block LayerScale",
       "artifacts": {
-        "config.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/config.json",
-        "history.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/history.json",
-        "metrics.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/metrics.json",
-        "model.pt": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/model.pt",
-        "invocation.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/invocation.json",
-        "randomness_contract.json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/randomness_contract.json",
-        "recon_npz": "runs/encoder_fusion_20260502T104230Z/recons/pinn_hybrid_resnet_encoder_branch_gated_layerscale/recon.npz",
-        "stdout_log": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/stdout.log",
-        "stderr_log": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/stderr.log",
-        "launcher_completion_json": "runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/launcher_completion.json",
-        "training_output_dir": "runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale",
-        "training_output_manifest.json": "runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/training_output_manifest.json",
-        "checkpoint_dir": "runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/checkpoints",
-        "lightning_metrics_csv": "runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/lightning_logs/version_0/metrics.csv"
+        "config.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/config.json",
+        "history.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/history.json",
+        "metrics.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/metrics.json",
+        "model.pt": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/model.pt",
+        "invocation.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/invocation.json",
+        "randomness_contract.json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/randomness_contract.json",
+        "recon_npz": "runs/encoder_fusion_rerun_20260502T121829Z/recons/pinn_hybrid_resnet_encoder_branch_gated_layerscale/recon.npz",
+        "stdout_log": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/stdout.log",
+        "stderr_log": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/stderr.log",
+        "launcher_completion_json": "runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/launcher_completion.json",
+        "training_output_dir": "runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale",
+        "training_output_manifest.json": "runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/training_output_manifest.json",
+        "checkpoint_dir": "runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/checkpoints",
+        "lightning_metrics_csv": "runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/lightning_logs/version_0/metrics.csv"
       }
     }
   }

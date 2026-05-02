@@ -564,9 +564,9 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   encoder-fusion controls (per-block LayerScale and per-block branch gates)
   without reopening the six-row paper bundle.
 - Status: completed on `2026-05-02`; the output remains decision-support only
-  with no paper-grade promotion. Fresh-row row-local training provenance was
-  repaired afterward from preserved Lightning fusion-mode metadata and is now
-  recorded under the ablation run root.
+  with no paper-grade promotion. The authoritative fresh rerun is
+  `runs/encoder_fusion_rerun_20260502T121829Z`, where each mandatory fresh row
+  now has true row-local launch evidence, checkpoints, and Lightning logs.
 - Plan:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/execution_plan.md`
 - Summary:

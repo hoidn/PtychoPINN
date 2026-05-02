@@ -111,8 +111,20 @@ def _relative_to(root: Path, path: Path) -> str:
         return str(path)
 
 
-def _artifact_run_root(artifact_root: Path) -> Path:
-    return Path(artifact_root) / "runs" / RUN_ID
+def _resolve_run_id(artifact_root: Path, explicit_run_id: str | None = None) -> str:
+    if explicit_run_id:
+        return explicit_run_id
+    manifest_path = _execution_manifest_path(artifact_root)
+    if manifest_path.exists():
+        payload = _load_json(manifest_path)
+        run_id = payload.get("run_id")
+        if isinstance(run_id, str) and run_id:
+            return run_id
+    return RUN_ID
+
+
+def _artifact_run_root(artifact_root: Path, run_id: str | None = None) -> Path:
+    return Path(artifact_root) / "runs" / _resolve_run_id(artifact_root, explicit_run_id=run_id)
 
 
 def _execution_manifest_path(artifact_root: Path) -> Path:
@@ -135,7 +147,31 @@ def _baseline_manifest(baseline_root: Path) -> Dict[str, Any]:
     return _load_json(Path(baseline_root) / "paper_benchmark_manifest.json")
 
 
-def _write_summary_scaffold(*, summary_path: Path, baseline_root: Path, plan_path: Path) -> None:
+def _canonical_dataset_input_paths(baseline_root: Path) -> Dict[str, str]:
+    manifest = _baseline_manifest(baseline_root)
+    dataset = manifest.get("dataset")
+    if not isinstance(dataset, Mapping):
+        raise ValueError("Baseline paper_benchmark_manifest.json is missing dataset paths")
+    train_npz = dataset.get("train_npz")
+    test_npz = dataset.get("test_npz")
+    if not isinstance(train_npz, str) or not train_npz:
+        raise ValueError("Baseline dataset manifest is missing dataset.train_npz")
+    if not isinstance(test_npz, str) or not test_npz:
+        raise ValueError("Baseline dataset manifest is missing dataset.test_npz")
+    return {
+        "train_npz": train_npz,
+        "test_npz": test_npz,
+    }
+
+
+def _write_summary_scaffold(
+    *,
+    summary_path: Path,
+    baseline_root: Path,
+    artifact_root: Path,
+    plan_path: Path,
+    run_id: str,
+) -> None:
     lines = [
         "# Lines128 Hybrid ResNet Encoder Fusion Variants Summary",
         "",
@@ -144,7 +180,7 @@ def _write_summary_scaffold(*, summary_path: Path, baseline_root: Path, plan_pat
         "- Backlog item: `2026-04-21-hybrid-resnet-encoder-fusion-variants`",
         f"- Plan path: `{plan_path}`",
         f"- Fixed baseline source root: `{baseline_root}`",
-        f"- Authoritative ablation run root: `{_artifact_run_root(DEFAULT_ARTIFACT_ROOT)}`",
+        f"- Authoritative ablation run root: `{_artifact_run_root(artifact_root, run_id=run_id)}`",
         "",
         "## Intended Fresh Row Roster",
         "",
@@ -169,14 +205,16 @@ def prepare_execution_scaffold(
     artifact_root: Path,
     summary_path: Path,
     plan_path: Path,
+    run_id: str = RUN_ID,
 ) -> Dict[str, str]:
     baseline_root = Path(baseline_root)
     artifact_root = Path(artifact_root)
     summary_path = Path(summary_path)
     plan_path = Path(plan_path)
-    run_root = _artifact_run_root(artifact_root)
+    run_root = _artifact_run_root(artifact_root, run_id=run_id)
     baseline_args = _baseline_invocation_args(baseline_root)
     baseline_manifest = _baseline_manifest(baseline_root)
+    dataset_paths = _canonical_dataset_input_paths(baseline_root)
     artifact_root.mkdir(parents=True, exist_ok=True)
     run_root.mkdir(parents=True, exist_ok=True)
     (run_root / "runs").mkdir(parents=True, exist_ok=True)
@@ -188,7 +226,8 @@ def prepare_execution_scaffold(
         "baseline_row_id": BASELINE_ROW_ID,
         "baseline_invocation_args": baseline_args,
         "baseline_fixed_contract": baseline_manifest.get("fixed_contract", {}),
-        "run_id": RUN_ID,
+        "canonical_dataset_input_paths": dataset_paths,
+        "run_id": run_id,
         "run_root": str(run_root),
         "scalar_scope_decision": SCALAR_SCOPE_DECISION,
         "mandatory_fresh_rows": list(MANDATORY_FRESH_ROWS),
@@ -212,8 +251,8 @@ def prepare_execution_scaffold(
         "mandatory_fresh_rows": list(MANDATORY_FRESH_ROWS),
         "scalar_scope_decision": SCALAR_SCOPE_DECISION,
         "canonical_dataset_input_paths": {
-            "train_npz": str(baseline_args["train_npz"]),
-            "test_npz": str(baseline_args["test_npz"]),
+            "train_npz": dataset_paths["train_npz"],
+            "test_npz": dataset_paths["test_npz"],
         },
         "regenerated_row_local_output_paths_template": {
             "run_root": str(run_root),
@@ -230,7 +269,13 @@ def prepare_execution_scaffold(
         },
     }
 
-    _write_summary_scaffold(summary_path=summary_path, baseline_root=baseline_root, plan_path=plan_path)
+    _write_summary_scaffold(
+        summary_path=summary_path,
+        baseline_root=baseline_root,
+        artifact_root=artifact_root,
+        plan_path=plan_path,
+        run_id=run_id,
+    )
     _write_json(_execution_manifest_path(artifact_root), execution_manifest)
     _write_json(_row_contract_audit_path(artifact_root), row_contract_audit)
     return {
@@ -246,11 +291,12 @@ def build_row_runner_config(*, artifact_root: Path, row_id: str) -> TorchRunnerC
     artifact_root = Path(artifact_root)
     manifest = _load_json(_execution_manifest_path(artifact_root))
     baseline_args = dict(manifest["baseline_invocation_args"])
+    dataset_paths = dict(manifest["canonical_dataset_input_paths"])
     run_root = _artifact_run_root(artifact_root)
     spec = ROW_SPECS[row_id]
     return TorchRunnerConfig(
-        train_npz=Path(baseline_args["train_npz"]),
-        test_npz=Path(baseline_args["test_npz"]),
+        train_npz=Path(dataset_paths["train_npz"]),
+        test_npz=Path(dataset_paths["test_npz"]),
         output_dir=run_root / "training_runs" / row_id,
         artifact_root=run_root,
         architecture=str(baseline_args["architecture"]),
@@ -314,7 +360,7 @@ def build_row_runner_config(*, artifact_root: Path, row_id: str) -> TorchRunnerC
     )
 
 
-def _required_row_files(run_root: Path, row_id: str) -> None:
+def _missing_required_row_files(run_root: Path, row_id: str) -> list[str]:
     row_root = Path(run_root) / "runs" / row_id
     required = [
         row_root / "invocation.json",
@@ -326,14 +372,23 @@ def _required_row_files(run_root: Path, row_id: str) -> None:
         row_root / "randomness_contract.json",
         Path(run_root) / "recons" / row_id / "recon.npz",
     ]
-    missing = [str(path) for path in required if not path.exists()]
+    return [str(path) for path in required if not path.exists()]
+
+
+def _required_row_files(run_root: Path, row_id: str) -> None:
+    missing = _missing_required_row_files(run_root, row_id)
     if missing:
         raise FileNotFoundError("Missing row artifacts: " + ", ".join(missing))
 
 
 def run_fresh_row(*, artifact_root: Path, row_id: str) -> Dict[str, Any]:
     run_root = _artifact_run_root(artifact_root)
-    _required_row_files(run_root, row_id) if (run_root / "runs" / row_id).exists() else None
+    row_root = run_root / "runs" / row_id
+    if row_root.exists() and not _missing_required_row_files(run_root, row_id):
+        raise FileExistsError(
+            f"Fresh row {row_id} already has completed artifacts under {row_root}; "
+            "use a new run_id instead of relaunching into the same row root."
+        )
     cfg = build_row_runner_config(artifact_root=artifact_root, row_id=row_id)
     result = run_grid_lines_torch(
         cfg,
@@ -610,6 +665,7 @@ def main(argv: list[str] | None = None) -> None:
     prepare_parser.add_argument("--artifact-root", type=Path, default=DEFAULT_ARTIFACT_ROOT)
     prepare_parser.add_argument("--summary-path", type=Path, default=DEFAULT_SUMMARY_PATH)
     prepare_parser.add_argument("--plan-path", type=Path, default=DEFAULT_PLAN_PATH)
+    prepare_parser.add_argument("--run-id", type=str, default=RUN_ID)
 
     run_parser = subparsers.add_parser("run-row")
     run_parser.add_argument("--artifact-root", type=Path, default=DEFAULT_ARTIFACT_ROOT)
@@ -629,6 +685,7 @@ def main(argv: list[str] | None = None) -> None:
             artifact_root=args.artifact_root,
             summary_path=args.summary_path,
             plan_path=args.plan_path,
+            run_id=args.run_id,
         )
     elif args.command == "run-row":
         result = run_fresh_row(artifact_root=args.artifact_root, row_id=args.row_id)

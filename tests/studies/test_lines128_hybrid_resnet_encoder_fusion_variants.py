@@ -13,9 +13,11 @@ from scripts.studies.lines128_hybrid_resnet_encoder_fusion_variants import (
     BASELINE_ROW_ID,
     MANDATORY_FRESH_ROWS,
     RUN_ID,
+    _artifact_run_root,
     build_row_runner_config,
     collate_ablation_bundle,
     prepare_execution_scaffold,
+    run_fresh_row,
     repair_existing_run_provenance,
 )
 
@@ -40,10 +42,16 @@ def _write_torch_model(path: Path) -> None:
     torch.save({"weight": torch.zeros(1)}, path)
 
 
-def _baseline_manifest_payload() -> dict:
+def _baseline_manifest_payload(baseline_root: Path) -> dict:
     return {
         "selected_fno_comparator": "fno_vanilla",
         "seed_policy": {"type": "fixed", "seed": 3},
+        "dataset": {
+            "train_npz": str(baseline_root / "datasets" / "N128" / "gs1" / "train.npz"),
+            "test_npz": str(baseline_root / "datasets" / "N128" / "gs1" / "test.npz"),
+            "gt_recon": str(baseline_root / "recons" / "gt" / "recon.npz"),
+            "manifest_json": "dataset_identity_manifest.json",
+        },
         "fixed_contract": {
             "N": 128,
             "gridsize": 1,
@@ -183,7 +191,10 @@ def _row_history_payload(min_val: float) -> list[float]:
 
 
 def _seed_baseline_artifacts(baseline_root: Path) -> None:
-    _write_json(baseline_root / "paper_benchmark_manifest.json", _baseline_manifest_payload())
+    _write_json(
+        baseline_root / "paper_benchmark_manifest.json",
+        _baseline_manifest_payload(baseline_root),
+    )
     _write_json(baseline_root / "metrics.json", _baseline_metrics_payload())
     _write_numpy_archive(baseline_root / "datasets" / "N128" / "gs1" / "train.npz")
     _write_numpy_archive(baseline_root / "datasets" / "N128" / "gs1" / "test.npz")
@@ -365,6 +376,100 @@ def test_build_row_runner_config_uses_row_local_training_root(tmp_path):
     assert cfg.artifact_root == expected_run_root
     assert cfg.model_id_override == "pinn_hybrid_resnet_encoder_branch_gated"
     assert cfg.hybrid_encoder_fusion_mode == "branch_gated"
+
+
+def test_prepare_execution_scaffold_accepts_unique_run_id(tmp_path):
+    baseline_root = tmp_path / "complete_table"
+    bundle_root = tmp_path / "bundle"
+    summary_path = tmp_path / "summary.md"
+    plan_path = tmp_path / "plan.md"
+    _seed_baseline_artifacts(baseline_root)
+
+    prepare_execution_scaffold(
+        baseline_root=baseline_root,
+        artifact_root=bundle_root,
+        summary_path=summary_path,
+        plan_path=plan_path,
+        run_id="encoder_fusion_rerun_20260502T173500Z",
+    )
+
+    cfg = build_row_runner_config(
+        artifact_root=bundle_root,
+        row_id="pinn_hybrid_resnet_encoder_branch_gated_layerscale",
+    )
+    manifest_payload = json.loads((bundle_root / "execution_manifest.json").read_text(encoding="utf-8"))
+    audit_payload = json.loads((bundle_root / "row_contract_audit.json").read_text(encoding="utf-8"))
+
+    expected_run_root = bundle_root / "runs" / "encoder_fusion_rerun_20260502T173500Z"
+    assert manifest_payload["run_id"] == "encoder_fusion_rerun_20260502T173500Z"
+    assert Path(manifest_payload["run_root"]) == expected_run_root
+    assert Path(audit_payload["ablation_run_root"]) == expected_run_root
+    assert cfg.output_dir == expected_run_root / "training_runs" / "pinn_hybrid_resnet_encoder_branch_gated_layerscale"
+    assert cfg.artifact_root == expected_run_root
+
+
+def test_prepare_execution_scaffold_uses_manifest_dataset_paths(tmp_path):
+    baseline_root = tmp_path / "complete_table"
+    bundle_root = tmp_path / "bundle"
+    _seed_baseline_artifacts(baseline_root)
+
+    prepare_execution_scaffold(
+        baseline_root=baseline_root,
+        artifact_root=bundle_root,
+        summary_path=tmp_path / "summary.md",
+        plan_path=tmp_path / "plan.md",
+    )
+
+    manifest_payload = json.loads((bundle_root / "execution_manifest.json").read_text(encoding="utf-8"))
+    cfg = build_row_runner_config(
+        artifact_root=bundle_root,
+        row_id="pinn_hybrid_resnet_encoder_layerscale",
+    )
+
+    expected_train = baseline_root / "datasets" / "N128" / "gs1" / "train.npz"
+    expected_test = baseline_root / "datasets" / "N128" / "gs1" / "test.npz"
+    assert Path(manifest_payload["canonical_dataset_input_paths"]["train_npz"]) == expected_train
+    assert Path(manifest_payload["canonical_dataset_input_paths"]["test_npz"]) == expected_test
+    assert cfg.train_npz == expected_train
+    assert cfg.test_npz == expected_test
+
+
+def test_run_fresh_row_allows_precreated_log_directory(tmp_path, monkeypatch):
+    baseline_root = tmp_path / "complete_table"
+    bundle_root = tmp_path / "bundle"
+    _seed_baseline_artifacts(baseline_root)
+
+    prepare_execution_scaffold(
+        baseline_root=baseline_root,
+        artifact_root=bundle_root,
+        summary_path=tmp_path / "summary.md",
+        plan_path=tmp_path / "plan.md",
+    )
+
+    run_root = _artifact_run_root(bundle_root)
+    row_root = run_root / "runs" / "pinn_hybrid_resnet_encoder_layerscale"
+    _write_text(row_root / "stdout.log", "")
+    _write_text(row_root / "stderr.log", "")
+
+    seen = {}
+
+    def _fake_run_grid_lines_torch(cfg, *, invocation_extra):
+        seen["cfg"] = cfg
+        seen["invocation_extra"] = invocation_extra
+        return {
+            "run_dir": str(run_root / "runs" / "pinn_hybrid_resnet_encoder_layerscale"),
+            "recon_npz": str(run_root / "recons" / "pinn_hybrid_resnet_encoder_layerscale" / "recon.npz"),
+        }
+
+    monkeypatch.setattr(helper, "run_grid_lines_torch", _fake_run_grid_lines_torch)
+
+    result = run_fresh_row(
+        artifact_root=bundle_root,
+        row_id="pinn_hybrid_resnet_encoder_layerscale",
+    )
+
+    assert result["row_id"] == "pinn_hybrid_resnet_encoder_layerscale"
+    assert seen["cfg"].output_dir == run_root / "training_runs" / "pinn_hybrid_resnet_encoder_layerscale"
 
 
 def test_repair_existing_run_provenance_rebuilds_row_local_artifacts_and_manifest(tmp_path):

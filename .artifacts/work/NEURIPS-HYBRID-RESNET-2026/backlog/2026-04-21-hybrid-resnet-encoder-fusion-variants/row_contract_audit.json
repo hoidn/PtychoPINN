@@ -1,6 +1,7 @@
 {
   "authoritative_baseline_source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux",
-  "ablation_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/",
+  "ablation_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants",
+  "ablation_run_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_rerun_20260502T121829Z",
   "reused_baseline_row_id": "pinn_hybrid_resnet",
   "mandatory_fresh_rows": [
     "pinn_hybrid_resnet_encoder_layerscale",
@@ -8,142 +9,40 @@
     "pinn_hybrid_resnet_encoder_branch_gated_layerscale"
   ],
   "scalar_scope_decision": "per_block",
-  "frozen_semantic_model_fields": {
-    "source_files_canonical": [
-      "runs/pinn_hybrid_resnet/config.json (model/training/runtime contract fields, NOT path-bearing fields)",
-      "paper_benchmark_manifest.json (fixed_contract block)",
-      "model_manifest.json"
-    ],
-    "fields": {
-      "architecture": "hybrid_resnet",
-      "training_procedure": "pinn",
-      "model_label": "Hybrid ResNet + PINN",
-      "N": 128,
-      "gridsize": 1,
-      "seed": 3,
-      "epochs": 40,
-      "batch_size": 16,
-      "learning_rate": 0.0002,
-      "infer_batch_size": 128,
-      "gradient_clip_val": 0.0,
-      "gradient_clip_algorithm": "norm",
-      "generator_output_mode": "real_imag",
-      "torch_loss_mode": "mae",
-      "torch_mae_pred_l2_match_target": false,
-      "probe_mask": false,
-      "probe_mask_sigma": 1.0,
-      "probe_mask_diameter": null,
-      "probe_source": null,
-      "fno_modes": 12,
-      "fno_width": 32,
-      "fno_blocks": 4,
-      "fno_cnn_blocks": 2,
-      "fno_input_transform": "none",
-      "max_hidden_channels": null,
-      "resnet_width": null,
-      "hybrid_skip_connections": false,
-      "hybrid_downsample_steps": 2,
-      "hybrid_downsample_op": "stride_conv",
-      "hybrid_encoder_conv_hidden_scale": 2.0,
-      "hybrid_encoder_spectral_hidden_scale": 1.0,
-      "hybrid_encoder_conv_hidden_channels": null,
-      "hybrid_encoder_spectral_hidden_channels": null,
-      "hybrid_resnet_blocks": 6,
-      "hybrid_skip_style": "add",
-      "spectral_bottleneck_blocks": 6,
-      "spectral_bottleneck_modes": 12,
-      "spectral_bottleneck_share_weights": true,
-      "spectral_bottleneck_gate_init": 0.1,
-      "spectral_bottleneck_gate_mode": "shared",
-      "optimizer": "adam",
-      "weight_decay": 0.0,
-      "momentum": 0.9,
-      "adam_beta1": 0.9,
-      "adam_beta2": 0.999,
-      "log_grad_norm": false,
-      "grad_norm_log_freq": 1,
-      "enable_checkpointing": true,
-      "scheduler": "ReduceLROnPlateau",
-      "lr_warmup_epochs": 0,
-      "lr_min_ratio": 0.1,
-      "plateau_factor": 0.5,
-      "plateau_patience": 2,
-      "plateau_min_lr": 0.0001,
-      "plateau_threshold": 0.0,
-      "logger_backend": "csv",
-      "recon_log_num_patches": 4,
-      "reassembly_mode": "grid_lines",
-      "position_reassembly_backend": "auto",
-      "position_reassembly_batch_size": 64
-    },
-    "fixed_contract_extra_fields": {
-      "dataset_source": "synthetic_lines",
-      "set_phi": true,
-      "probe_source_kind": "custom",
-      "probe_npz": "datasets/Run1084_recon3_postPC_shrunk_3.npz",
-      "probe_scale_mode": "pad_extrapolate",
-      "probe_smoothing_sigma": 0.5,
-      "nimgs_train": 2,
-      "nimgs_test": 2,
-      "nphotons": 1000000000.0,
-      "torch_output_mode": "real_imag"
-    }
-  },
   "canonical_dataset_input_paths": {
-    "source": "paper_benchmark_manifest.json dataset block (NOT recovered baseline-row config.json)",
     "train_npz": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux/datasets/N128/gs1/train.npz",
-    "test_npz": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux/datasets/N128/gs1/test.npz",
-    "gt_recon": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux/recons/gt/recon.npz",
-    "dataset_identity_manifest": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux/dataset_identity_manifest.json"
+    "test_npz": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux/datasets/N128/gs1/test.npz"
   },
   "regenerated_row_local_output_paths_template": {
-    "run_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z",
+    "run_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_rerun_20260502T121829Z",
     "row_local": {
-      "output_dir": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z/training_runs/<row_id>",
-      "row_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z/runs/<row_id>",
-      "recon_npz": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z/recons/<row_id>/recon.npz",
-      "lightning_logs": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z/training_runs/<row_id>/lightning_logs/version_0",
-      "checkpoints": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z/training_runs/<row_id>/checkpoints"
+      "output_dir": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_rerun_20260502T121829Z/training_runs/<row_id>",
+      "row_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_rerun_20260502T121829Z/runs/<row_id>",
+      "recon_npz": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_rerun_20260502T121829Z/recons/<row_id>/recon.npz",
+      "lightning_logs": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_rerun_20260502T121829Z/training_runs/<row_id>/lightning_logs/version_0",
+      "checkpoints": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_rerun_20260502T121829Z/training_runs/<row_id>/checkpoints"
     }
   },
   "denylisted_path_keys_from_recovered_baseline_row_config": {
-    "rationale": "the recovered pinn_hybrid_resnet/config.json embeds older minimum-subset lineage paths because that row was promoted from minimum_subset, not freshly generated under the complete_table root; copying these keys forward would drift the new variant rows away from the canonical complete-table dataset records and would also point output/recon paths back into the older lineage",
     "keys": [
       "train_npz",
       "test_npz",
       "recon_npz",
       "output_dir"
-    ],
-    "additional_note": "any wrapper-invocation or row-local artifact path embedding the older minimum_subset run root is also denylisted from copy-forward and must be regenerated under the new ablation root for every fresh row"
+    ]
   },
-  "row_interpretations": {
-    "pinn_hybrid_resnet": "reused baseline; no encoder-fusion change",
-    "pinn_hybrid_resnet_encoder_layerscale": "fresh; per-block outer update LayerScale only",
-    "pinn_hybrid_resnet_encoder_branch_gated": "fresh; per-block spectral/local branch gates only",
-    "pinn_hybrid_resnet_encoder_branch_gated_layerscale": "fresh; per-block gates plus per-block outer LayerScale",
-    "pinn_hybrid_resnet_encoder_fusion_norm": "optional follow-up only after primary matrix completes; normalization around branch fusion"
-  },
-  "deferred_first_pass_axes": [
-    "shared-across-encoder-block scalars (treated as a separate architecture axis; not a substitution for per-block first-pass rows)"
-  ],
-  "ablation_run_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z",
-  "historical_shared_output_dir_repair": {
-    "repaired_at_utc": "2026-05-02T12:00:25.826478+00:00",
-    "shared_output_dir": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z",
-    "repair_reason": "The original launch used a shared output_dir for all fresh rows. Row-local training roots were reconstructed deterministically from preserved Lightning fusion-mode metadata and per-row invocation artifacts.",
-    "repaired_rows": {
-      "pinn_hybrid_resnet_encoder_layerscale": {
-        "training_output_manifest": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_layerscale/training_output_manifest.json",
-        "launcher_completion_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_layerscale/launcher_completion.json"
-      },
-      "pinn_hybrid_resnet_encoder_branch_gated": {
-        "training_output_manifest": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated/training_output_manifest.json",
-        "launcher_completion_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated/launcher_completion.json"
-      },
-      "pinn_hybrid_resnet_encoder_branch_gated_layerscale": {
-        "training_output_manifest": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/training_output_manifest.json",
-        "launcher_completion_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_20260502T104230Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/launcher_completion.json"
-      }
+  "actual_fresh_row_launches": {
+    "pinn_hybrid_resnet_encoder_layerscale": {
+      "launcher_completion_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_layerscale/launcher_completion.json",
+      "training_output_manifest": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_layerscale/training_output_manifest.json"
+    },
+    "pinn_hybrid_resnet_encoder_branch_gated": {
+      "launcher_completion_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated/launcher_completion.json",
+      "training_output_manifest": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated/training_output_manifest.json"
+    },
+    "pinn_hybrid_resnet_encoder_branch_gated_layerscale": {
+      "launcher_completion_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_rerun_20260502T121829Z/runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/launcher_completion.json",
+      "training_output_manifest": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/runs/encoder_fusion_rerun_20260502T121829Z/training_runs/pinn_hybrid_resnet_encoder_branch_gated_layerscale/training_output_manifest.json"
     }
   }
 }

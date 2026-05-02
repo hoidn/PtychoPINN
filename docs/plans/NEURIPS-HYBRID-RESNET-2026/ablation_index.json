@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-02T11:30:00Z",
+  "last_updated_utc": "2026-05-02T13:35:00Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
