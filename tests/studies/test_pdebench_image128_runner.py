@@ -1741,6 +1741,7 @@ def test_history3_cross_run_compare_records_increase_direction_and_dynamic_label
         "fresh": "fresh_history3",
         "reference": "reference_history2",
     }
+    assert payload["claim_scope"] == "adjacent_capped_context_only"
     assert (tmp_path / "out" / "compare_10ep_history3_against_history2_sample0.png").exists()
     assert (tmp_path / "out" / "compare_10ep_history3_against_history2_sample0_error.png").exists()
     rows = list(csv.DictReader(csv_path.open("r", encoding="utf-8")))

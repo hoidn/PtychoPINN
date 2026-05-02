@@ -218,7 +218,9 @@ The bounded takeaway is therefore:
 
 Required deterministic checks (run from `/home/ollie/Documents/PtychoPINN`,
 logs archived under
-`.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-01-cns-author-ffno-history-length-study/verification/`):
+`.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-01-cns-author-ffno-history-length-study/verification/`
+and copied into the authoritative backlog-item artifact root at
+`.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/verification/`):
 
 ```bash
 pytest -q tests/studies/test_pdebench_image128_models.py -k 'author_ffno'
@@ -243,6 +245,13 @@ Required contract proofs:
 
 Artifact validation performed in this pass:
 
+- `verification/history2_anchor_artifact_check.json` records the
+  blocking Task 1 frozen-anchor check under the authoritative backlog-
+  item artifact root and confirms the reused `history_len=2` authored-
+  FFNO anchor still contains `invocation.json`, `dataset_manifest.json`,
+  `split_manifest.json`, `comparison_summary.json`,
+  `model_profile_author_ffno_cns_base.json`, and
+  `metrics_author_ffno_cns_base.json`.
 - the three fresh `40`-epoch pilot run roots each contain
   `invocation.json`, `dataset_manifest.json`, `split_manifest.json`,
   `normalization_stats_state.json`, `comparison_summary.json`,
@@ -254,7 +263,7 @@ Artifact validation performed in this pass:
   `history_len=5` launch.
 - the three compare sidecars are present, all carry the
   `delta_kind = history_len_only` allowed-delta declaration and a
-  `claim_scope = adjacent_capped_context_only` evidence-scope label,
+  `claim_scope = adjacent_capped_context_only` claim-boundary label,
   and the JSON / CSV pairs agree.
 
 The locked headline `history_len=2` authored-FFNO row reused by the

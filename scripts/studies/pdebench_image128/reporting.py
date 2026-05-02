@@ -753,6 +753,7 @@ def write_history_delta_compare(
     fresh_run_root: Path,
     fresh_profile_ids: list[str],
     reference_rows: list[dict[str, Any]],
+    claim_scope: str = "adjacent_capped_context_only",
 ) -> tuple[Path, Path, dict[str, Any]]:
     output_root = Path(output_root)
     output_root.mkdir(parents=True, exist_ok=True)
@@ -929,6 +930,7 @@ def write_history_delta_compare(
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "task_id": "2d_cfd_cns",
         "epoch_label": str(epoch_label),
+        "claim_scope": str(claim_scope),
         "fresh_run_root": str(fresh_run_root),
         "fixed_contract": fixed_contract,
         "allowed_contract_delta": {
@@ -955,6 +957,7 @@ def write_history_delta_compare(
     fields = [
         "row_family",
         "profile_id",
+        "claim_scope",
         "status",
         "err_RMSE",
         "err_nRMSE",
@@ -980,13 +983,18 @@ def write_history_delta_compare(
         writer.writeheader()
         for row in payload["fresh_profile_results"]:
             writer.writerow(
-                {"row_family": fresh_row_family, **{field: row.get(field, "") for field in fields if field != "row_family"}}
+                {
+                    "row_family": fresh_row_family,
+                    "claim_scope": str(claim_scope),
+                    **{field: row.get(field, "") for field in fields if field not in {"row_family", "claim_scope"}},
+                }
             )
         for row in payload["reference_profile_results"]:
             writer.writerow(
                 {
                     "row_family": reference_row_family,
-                    **{field: row.get(field, "") for field in fields if field != "row_family"},
+                    "claim_scope": str(claim_scope),
+                    **{field: row.get(field, "") for field in fields if field not in {"row_family", "claim_scope"}},
                 }
             )
     return json_path, csv_path, payload

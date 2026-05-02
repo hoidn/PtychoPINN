@@ -1,0 +1,175 @@
+{
+  "allowed_contract_delta": {
+    "delta_direction": "increase_temporal_context",
+    "delta_kind": "history_len_only",
+    "fresh_history_len": 3,
+    "fresh_input_channels": 12,
+    "fresh_sample_contract": "concat u[t-3:t] -> u[t]",
+    "reference_history_len": 2,
+    "reference_input_channels": 8,
+    "reference_sample_contract": "concat u[t-2:t] -> u[t]",
+    "target_channels": 4
+  },
+  "claim_scope": "adjacent_capped_context_only",
+  "comparison_standard": "Only history_len and its derived sample/input-channel contract may differ.",
+  "created_at_utc": "2026-05-02T09:30:14.059345+00:00",
+  "cross_run_gallery_blocked": {
+    "message": "target mismatch between author_ffno_cns_base and author_ffno_cns_base",
+    "reason": "target_mismatch"
+  },
+  "epoch_label": "40ep",
+  "evidence_scope": "capped_decision_support_only",
+  "fixed_contract": {
+    "batch_size": 4,
+    "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+    "epochs": 40,
+    "max_windows_per_trajectory": 8,
+    "metric_family": [
+      "err_RMSE",
+      "err_nRMSE",
+      "relative_l2",
+      "fRMSE_low",
+      "fRMSE_mid",
+      "fRMSE_high"
+    ],
+    "split_counts": {
+      "test": 64,
+      "train": 512,
+      "val": 64
+    },
+    "training_loss": "mse"
+  },
+  "fresh_profile_results": [
+    {
+      "batch_size": 4,
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "epochs": 40,
+      "err_RMSE": 0.5554690361022949,
+      "err_nRMSE": 0.023003891110420227,
+      "evidence_scope": "capped_decision_support_only",
+      "fRMSE_high": 0.11767252534627914,
+      "fRMSE_low": 1.3145936727523804,
+      "fRMSE_mid": 0.05785238742828369,
+      "field_order": [
+        "density",
+        "Vx",
+        "Vy",
+        "pressure"
+      ],
+      "history_len": 3,
+      "input_channels": 12,
+      "max_windows_per_trajectory": 8,
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
+      "metric_interpretation": "decision_support_not_benchmark_performance",
+      "mode": "pilot",
+      "parameter_count": 1073928,
+      "profile_id": "author_ffno_cns_base",
+      "raw_available_windows": 180000,
+      "raw_windows_per_trajectory": 18,
+      "relative_l2": 0.023003891110420227,
+      "run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/history3-pilot-40ep-20260502T045955Z",
+      "runtime_sec": 4850.004317998886,
+      "sample_contract": "concat u[t-3:t] -> u[t]",
+      "source_document": "fresh_history_run",
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "status": "completed",
+      "target_channels": 4,
+      "task_id": "2d_cfd_cns",
+      "training_loss": "mse",
+      "window_counts": {
+        "test": 512,
+        "train": 4096,
+        "val": 512
+      }
+    }
+  ],
+  "fresh_run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/history3-pilot-40ep-20260502T045955Z",
+  "gallery_artifacts": null,
+  "metric_interpretation": "decision_support_not_benchmark_performance",
+  "profile_comparisons": [
+    {
+      "fresh_history_len": 3,
+      "fresh_input_channels": 12,
+      "fresh_run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/history3-pilot-40ep-20260502T045955Z",
+      "fresh_sample_contract": "concat u[t-3:t] -> u[t]",
+      "profile_id": "author_ffno_cns_base",
+      "reference_history_len": 2,
+      "reference_input_channels": 8,
+      "reference_run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z",
+      "reference_sample_contract": "concat u[t-2:t] -> u[t]",
+      "target_channels": 4
+    }
+  ],
+  "reference_profile_results": [
+    {
+      "batch_size": 4,
+      "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+      "epochs": 40,
+      "err_RMSE": 0.6802443265914917,
+      "err_nRMSE": 0.028147730976343155,
+      "evidence_scope": "smoke_feasibility_only",
+      "fRMSE_high": 0.12101411819458008,
+      "fRMSE_low": 1.6124732494354248,
+      "fRMSE_mid": 0.07592882961034775,
+      "field_order": [
+        "density",
+        "Vx",
+        "Vy",
+        "pressure"
+      ],
+      "history_len": 2,
+      "input_channels": 8,
+      "max_windows_per_trajectory": 8,
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ],
+      "metric_interpretation": "sanity_only_not_benchmark_performance",
+      "mode": "readiness",
+      "parameter_count": 1073672,
+      "profile_id": "author_ffno_cns_base",
+      "raw_available_windows": 190000,
+      "raw_windows_per_trajectory": 19,
+      "relative_l2": 0.028147730976343155,
+      "run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-equal-footing-cns/author-ffno-40ep-20260422T234340Z",
+      "runtime_sec": 4725.511692285538,
+      "sample_contract": "concat u[t-2:t] -> u[t]",
+      "source_document": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_author_ffno_equal_footing_summary.md",
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "status": "completed",
+      "target_channels": 4,
+      "task_id": "2d_cfd_cns",
+      "training_loss": "mse",
+      "window_counts": {
+        "test": 512,
+        "train": 4096,
+        "val": 512
+      }
+    }
+  ],
+  "row_family_labels": {
+    "fresh": "fresh_history3",
+    "reference": "reference_history2"
+  },
+  "schema_version": "pdebench_image128_history_delta_compare_v2",
+  "task_id": "2d_cfd_cns"
+}
