@@ -371,7 +371,8 @@ def test_build_row_runner_config_uses_row_local_training_root(tmp_path):
         row_id="pinn_hybrid_resnet_encoder_branch_gated",
     )
 
-    expected_run_root = bundle_root / "runs" / RUN_ID
+    manifest_payload = json.loads((bundle_root / "execution_manifest.json").read_text(encoding="utf-8"))
+    expected_run_root = Path(manifest_payload["run_root"])
     assert cfg.output_dir == expected_run_root / "training_runs" / "pinn_hybrid_resnet_encoder_branch_gated"
     assert cfg.artifact_root == expected_run_root
     assert cfg.model_id_override == "pinn_hybrid_resnet_encoder_branch_gated"
@@ -408,6 +409,26 @@ def test_prepare_execution_scaffold_accepts_unique_run_id(tmp_path):
     assert cfg.artifact_root == expected_run_root
 
 
+def test_prepare_execution_scaffold_generates_fresh_run_id_by_default(tmp_path):
+    baseline_root = tmp_path / "complete_table"
+    bundle_root = tmp_path / "bundle"
+    _seed_baseline_artifacts(baseline_root)
+
+    prepare_execution_scaffold(
+        baseline_root=baseline_root,
+        artifact_root=bundle_root,
+        summary_path=tmp_path / "summary.md",
+        plan_path=tmp_path / "plan.md",
+    )
+
+    manifest_payload = json.loads((bundle_root / "execution_manifest.json").read_text(encoding="utf-8"))
+    generated_run_id = manifest_payload["run_id"]
+
+    assert generated_run_id != RUN_ID
+    assert generated_run_id.startswith("encoder_fusion_")
+    assert Path(manifest_payload["run_root"]) == bundle_root / "runs" / generated_run_id
+
+
 def test_prepare_execution_scaffold_uses_manifest_dataset_paths(tmp_path):
     baseline_root = tmp_path / "complete_table"
     bundle_root = tmp_path / "bundle"
@@ -432,6 +453,40 @@ def test_prepare_execution_scaffold_uses_manifest_dataset_paths(tmp_path):
     assert Path(manifest_payload["canonical_dataset_input_paths"]["test_npz"]) == expected_test
     assert cfg.train_npz == expected_train
     assert cfg.test_npz == expected_test
+
+
+def test_prepare_execution_scaffold_writes_review_required_contract_sections(tmp_path):
+    baseline_root = tmp_path / "complete_table"
+    bundle_root = tmp_path / "bundle"
+    _seed_baseline_artifacts(baseline_root)
+
+    prepare_execution_scaffold(
+        baseline_root=baseline_root,
+        artifact_root=bundle_root,
+        summary_path=tmp_path / "summary.md",
+        plan_path=tmp_path / "plan.md",
+        run_id="encoder_fusion_rerun_20260502T173500Z",
+    )
+
+    manifest_payload = json.loads((bundle_root / "execution_manifest.json").read_text(encoding="utf-8"))
+    audit_payload = json.loads((bundle_root / "row_contract_audit.json").read_text(encoding="utf-8"))
+
+    assert "claim_boundary" in manifest_payload
+    assert "resume_condition_clearance" in manifest_payload
+    assert "train_npz" not in manifest_payload["baseline_invocation_args"]
+    assert "test_npz" not in manifest_payload["baseline_invocation_args"]
+    assert "output_dir" not in manifest_payload["baseline_invocation_args"]
+    assert audit_payload["canonical_dataset_input_paths"]["gt_recon"] == str(
+        baseline_root / "recons" / "gt" / "recon.npz"
+    )
+    assert "frozen_semantic_model_fields" in audit_payload
+    assert "generated_row_local_output_paths" in audit_payload
+    assert audit_payload["denylisted_path_keys_from_recovered_baseline_row_config"]["keys"] == [
+        "train_npz",
+        "test_npz",
+        "recon_npz",
+        "output_dir",
+    ]
 
 
 def test_run_fresh_row_allows_precreated_log_directory(tmp_path, monkeypatch):
@@ -481,6 +536,7 @@ def test_repair_existing_run_provenance_rebuilds_row_local_artifacts_and_manifes
         artifact_root=bundle_root,
         summary_path=tmp_path / "summary.md",
         plan_path=tmp_path / "plan.md",
+        run_id=RUN_ID,
     )
     run_root = _seed_existing_shared_run(bundle_root)
 

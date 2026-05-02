@@ -38,7 +38,23 @@ DEFAULT_ARTIFACT_ROOT = Path(
 )
 BASELINE_ROW_ID = "pinn_hybrid_resnet"
 RUN_ID = "encoder_fusion_20260502T104230Z"
+RUN_ID_PREFIX = "encoder_fusion_"
 SCALAR_SCOPE_DECISION = "per_block"
+CLAIM_BOUNDARY = "append-only same-contract CDI ablation, decision-support only"
+RESUME_CONDITION_CLEARANCE = {
+    "summary": (
+        "This backlog item is selectable now because the complete six-row lines128 CDI bundle "
+        "is already the paper-grade headline authority, the paper-evidence audit is complete, "
+        "and steering preserves the current Phase 2 plus Phase 3 selection window for one "
+        "bounded N=128 CDI-strengthening follow-on."
+    ),
+    "evidence": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_package_audit_summary.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/run_state.json",
+        "docs/steering.md",
+    ],
+}
+DENYLISTED_BASELINE_PATH_KEYS = ["train_npz", "test_npz", "recon_npz", "output_dir"]
 MANDATORY_FRESH_ROWS = [
     "pinn_hybrid_resnet_encoder_layerscale",
     "pinn_hybrid_resnet_encoder_branch_gated",
@@ -120,7 +136,8 @@ def _resolve_run_id(artifact_root: Path, explicit_run_id: str | None = None) -> 
         run_id = payload.get("run_id")
         if isinstance(run_id, str) and run_id:
             return run_id
-    return RUN_ID
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return f"{RUN_ID_PREFIX}{timestamp}"
 
 
 def _artifact_run_root(artifact_root: Path, run_id: str | None = None) -> Path:
@@ -140,7 +157,11 @@ def _baseline_invocation_args(baseline_root: Path) -> Dict[str, Any]:
     parsed_args = payload.get("parsed_args")
     if not isinstance(parsed_args, dict):
         raise ValueError("Baseline invocation is missing parsed_args")
-    return dict(parsed_args)
+    return {
+        key: value
+        for key, value in dict(parsed_args).items()
+        if key not in DENYLISTED_BASELINE_PATH_KEYS
+    }
 
 
 def _baseline_manifest(baseline_root: Path) -> Dict[str, Any]:
@@ -154,14 +175,22 @@ def _canonical_dataset_input_paths(baseline_root: Path) -> Dict[str, str]:
         raise ValueError("Baseline paper_benchmark_manifest.json is missing dataset paths")
     train_npz = dataset.get("train_npz")
     test_npz = dataset.get("test_npz")
+    gt_recon = dataset.get("gt_recon")
     if not isinstance(train_npz, str) or not train_npz:
         raise ValueError("Baseline dataset manifest is missing dataset.train_npz")
     if not isinstance(test_npz, str) or not test_npz:
         raise ValueError("Baseline dataset manifest is missing dataset.test_npz")
-    return {
+    if not isinstance(gt_recon, str) or not gt_recon:
+        raise ValueError("Baseline dataset manifest is missing dataset.gt_recon")
+    paths = {
         "train_npz": train_npz,
         "test_npz": test_npz,
+        "gt_recon": gt_recon,
     }
+    dataset_identity_manifest = dataset.get("manifest_json")
+    if isinstance(dataset_identity_manifest, str) and dataset_identity_manifest:
+        paths["dataset_identity_manifest"] = str(Path(baseline_root) / dataset_identity_manifest)
+    return paths
 
 
 def _write_summary_scaffold(
@@ -181,6 +210,15 @@ def _write_summary_scaffold(
         f"- Plan path: `{plan_path}`",
         f"- Fixed baseline source root: `{baseline_root}`",
         f"- Authoritative ablation run root: `{_artifact_run_root(artifact_root, run_id=run_id)}`",
+        "- Scalar-scope decision: first scored pass uses per-block learned scalars only.",
+        f"- Claim boundary: {CLAIM_BOUNDARY}.",
+        "",
+        "## Resume-Condition Clearance Note",
+        "",
+        RESUME_CONDITION_CLEARANCE["summary"],
+        "",
+        "Evidence surfaces:",
+        *[f"- `{path}`" for path in RESUME_CONDITION_CLEARANCE["evidence"]],
         "",
         "## Intended Fresh Row Roster",
         "",
@@ -194,6 +232,18 @@ def _write_summary_scaffold(
         "",
         "Pending row-local provenance repair and/or fresh-row execution through the checked-in helper.",
         "",
+        "## Claim Boundary",
+        "",
+        f"{CLAIM_BOUNDARY}.",
+        "",
+        "## Deferred Work",
+        "",
+        "Pending execution.",
+        "",
+        "## Index Updates",
+        "",
+        "Pending execution.",
+        "",
     ]
     summary_path.parent.mkdir(parents=True, exist_ok=True)
     summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -205,12 +255,13 @@ def prepare_execution_scaffold(
     artifact_root: Path,
     summary_path: Path,
     plan_path: Path,
-    run_id: str = RUN_ID,
+    run_id: str | None = None,
 ) -> Dict[str, str]:
     baseline_root = Path(baseline_root)
     artifact_root = Path(artifact_root)
     summary_path = Path(summary_path)
     plan_path = Path(plan_path)
+    run_id = _resolve_run_id(artifact_root, explicit_run_id=run_id)
     run_root = _artifact_run_root(artifact_root, run_id=run_id)
     baseline_args = _baseline_invocation_args(baseline_root)
     baseline_manifest = _baseline_manifest(baseline_root)
@@ -232,6 +283,8 @@ def prepare_execution_scaffold(
         "scalar_scope_decision": SCALAR_SCOPE_DECISION,
         "mandatory_fresh_rows": list(MANDATORY_FRESH_ROWS),
         "optional_rows": list(OPTIONAL_ROWS),
+        "claim_boundary": CLAIM_BOUNDARY,
+        "resume_condition_clearance": RESUME_CONDITION_CLEARANCE,
         "row_metadata": {
             row_id: {
                 "model_label": spec["model_label"],
@@ -250,11 +303,16 @@ def prepare_execution_scaffold(
         "reused_baseline_row_id": BASELINE_ROW_ID,
         "mandatory_fresh_rows": list(MANDATORY_FRESH_ROWS),
         "scalar_scope_decision": SCALAR_SCOPE_DECISION,
+        "claim_boundary": CLAIM_BOUNDARY,
+        "resume_condition_clearance": RESUME_CONDITION_CLEARANCE,
+        "frozen_semantic_model_fields": baseline_manifest.get("fixed_contract", {}),
+        "accepted_baseline_row_non_path_invocation_fields": baseline_args,
         "canonical_dataset_input_paths": {
             "train_npz": dataset_paths["train_npz"],
             "test_npz": dataset_paths["test_npz"],
+            "gt_recon": dataset_paths["gt_recon"],
         },
-        "regenerated_row_local_output_paths_template": {
+        "generated_row_local_output_paths": {
             "run_root": str(run_root),
             "row_local": {
                 "output_dir": str(run_root / "training_runs" / "<row_id>"),
@@ -265,9 +323,13 @@ def prepare_execution_scaffold(
             },
         },
         "denylisted_path_keys_from_recovered_baseline_row_config": {
-            "keys": ["train_npz", "test_npz", "recon_npz", "output_dir"],
+            "keys": list(DENYLISTED_BASELINE_PATH_KEYS),
         },
     }
+    if "dataset_identity_manifest" in dataset_paths:
+        row_contract_audit["canonical_dataset_input_paths"]["dataset_identity_manifest"] = dataset_paths[
+            "dataset_identity_manifest"
+        ]
 
     _write_summary_scaffold(
         summary_path=summary_path,
@@ -544,7 +606,7 @@ def repair_existing_run_provenance(*, artifact_root: Path) -> Dict[str, object]:
     if audit_path.exists():
         audit_payload = _load_json(audit_path)
         audit_payload["ablation_run_root"] = str(run_root)
-        audit_payload["regenerated_row_local_output_paths_template"] = {
+        audit_payload["generated_row_local_output_paths"] = {
             "run_root": str(run_root),
             "row_local": {
                 "output_dir": str(run_root / "training_runs" / "<row_id>"),
@@ -665,7 +727,7 @@ def main(argv: list[str] | None = None) -> None:
     prepare_parser.add_argument("--artifact-root", type=Path, default=DEFAULT_ARTIFACT_ROOT)
     prepare_parser.add_argument("--summary-path", type=Path, default=DEFAULT_SUMMARY_PATH)
     prepare_parser.add_argument("--plan-path", type=Path, default=DEFAULT_PLAN_PATH)
-    prepare_parser.add_argument("--run-id", type=str, default=RUN_ID)
+    prepare_parser.add_argument("--run-id", type=str)
 
     run_parser = subparsers.add_parser("run-row")
     run_parser.add_argument("--artifact-root", type=Path, default=DEFAULT_ARTIFACT_ROOT)

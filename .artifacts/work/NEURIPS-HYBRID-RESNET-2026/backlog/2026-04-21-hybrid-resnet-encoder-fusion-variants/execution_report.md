@@ -9,33 +9,22 @@
 
 ## Completed In This Pass
 
-- Fixed the checked-in helper `scripts/studies/lines128_hybrid_resnet_encoder_fusion_variants.py` so the current-scope rerun could satisfy the plan instead of reusing the historical repaired root:
-  - added `run_id` support to the execution scaffold so a fresh unique ablation run root can be created for a compliant rerun
-  - switched canonical dataset input sourcing from the recovered baseline-row invocation to the authoritative complete-table `paper_benchmark_manifest.json`
-  - fixed the relaunch guard so precreated row log directories do not masquerade as completed rows
-- Extended `tests/studies/test_lines128_hybrid_resnet_encoder_fusion_variants.py` to cover:
-  - unique `run_id` propagation through the execution scaffold
-  - canonical dataset-path sourcing from the authoritative baseline manifest
-  - fresh-row launches that start with only precreated `stdout.log` / `stderr.log`
-- Materialized a fresh scaffold under `runs/encoder_fusion_rerun_20260502T121829Z` and reran all three mandatory fresh rows in tmux from repo root with the `ptycho311` environment active:
-  - `pinn_hybrid_resnet_encoder_layerscale` — PID `1924774`, `2026-05-02T12:31:41+00:00` to `2026-05-02T12:49:56+00:00`
-  - `pinn_hybrid_resnet_encoder_branch_gated` — PID `1925654`, `2026-05-02T12:50:57+00:00` to `2026-05-02T13:09:31+00:00`
-  - `pinn_hybrid_resnet_encoder_branch_gated_layerscale` — PID `1927137`, `2026-05-02T13:10:08+00:00` to `2026-05-02T13:29:00+00:00`
-- For each fresh rerun row, wrote true row-local launch evidence under the fresh run root:
-  - `runs/<row_id>/launcher_completion.json`
-  - `training_runs/<row_id>/training_output_manifest.json`
-  - row-local `stdout.log` and `stderr.log`
-  - row-local Lightning logs and checkpoints under `training_runs/<row_id>/`
-- Rebuilt the append-only bundle against the fresh run root:
-  - refreshed `metrics.json`, `comparison_summary.json`, `metrics_table.csv`, `metrics_table.tex`, `model_manifest.json`, and root `visuals/`
-  - refreshed the durable summary to point at the fresh rerun rather than the historical repaired launch
+- Fixed the checked-in helper `scripts/studies/lines128_hybrid_resnet_encoder_fusion_variants.py` so a fresh `prepare` invocation no longer defaults to the historical repaired run root:
+  - `prepare_execution_scaffold()` now generates a unique `encoder_fusion_<timestamp>` run id when no explicit `--run-id` or existing manifest run id is present
+  - the CLI `prepare --run-id` flag is now optional instead of silently binding every fresh launch to `encoder_fusion_20260502T104230Z`
+- Repaired the checked-in Tranche 1 contract surfaces under `.artifacts/work/.../2026-04-21-hybrid-resnet-encoder-fusion-variants/`:
+  - `execution_manifest.json` now strips denylisted recovered-row path keys from `baseline_invocation_args`, records the full canonical dataset-input provenance surface (`train_npz`, `test_npz`, `gt_recon`, `dataset_identity_manifest`), and includes the required claim-boundary plus resume-condition-clearance sections
+  - `row_contract_audit.json` now records the required `frozen_semantic_model_fields`, accepted non-path baseline-row invocation fields, canonical dataset provenance, regenerated row-local output-path template, denylisted historical path keys, and the same claim-boundary plus resume-condition-clearance rationale
+- Extended `tests/studies/test_lines128_hybrid_resnet_encoder_fusion_variants.py` with review-specific coverage for:
+  - default fresh `run_id` generation
+  - required manifest/audit contract sections
+  - the existing unique-run-id, canonical-dataset-path, relaunch-guard, and repair paths after the run-id behavior change
 
 ## Completed Current-Scope Work
 
-- Blocking review item 1 is fixed with a true compliant rerun. The three mandatory fresh rows were re-executed under regenerated row-local `training_runs/<row_id>/` output roots inside a fresh unique ablation run root, instead of relying on repaired shared-output provenance.
-- Blocking review item 2 remains satisfied and is strengthened. The reviewed work still uses the checked-in repo-local helper, and that helper now owns the unique-run-root and canonical-dataset-path parts of the contract as well.
-- Medium review item 1 is fixed with fresh proof. The final archived integration log now has a complete footer and passing summary in `verification/final_integration.log`, so the execution report no longer relies on the previously truncated review-fix archive.
-- The published numerical read remains decision-support only and does not reopen the optional normalized-fusion lane:
+- Blocking review item 1 is fixed. The checked-in Tranche 1 contract artifacts now match the approved plan instead of carrying stale recovered-row path-bearing keys or an incomplete dataset/semantic-field audit surface.
+- Blocking review item 2 is fixed. The checked-in helper now owns the unique-run-root contract by default rather than relying on the already-existing rerun manifest to avoid the historical repaired root.
+- The previously completed fresh rerun rows, row-local launch evidence, rebuilt ablation bundle, durable summary, and decision-support numerical read remain the current-scope execution authority:
   - `pinn_hybrid_resnet_encoder_layerscale`: not an improvement
   - `pinn_hybrid_resnet_encoder_branch_gated`: closest to a constructive change, with a small amplitude win and small phase MAE trade
   - `pinn_hybrid_resnet_encoder_branch_gated_layerscale`: stronger phase FRC but not a constructive overall default
@@ -58,7 +47,7 @@ Final closeout evidence archived under `.artifacts/work/NEURIPS-HYBRID-RESNET-20
   - Result: `23 passed, 118 deselected`
 - `final_test_encoder_fusion_helper.log`
   - `pytest -q tests/studies/test_lines128_hybrid_resnet_encoder_fusion_variants.py`
-  - Result: `5 passed`
+  - Result: `7 passed`
 - `final_integration.log`
   - `pytest -v -m integration --timeout=900`
   - Result: `5 passed, 4 skipped`
@@ -73,6 +62,11 @@ Supporting recovery logs retained for the mid-pass helper fixes:
 - `rerun_prelaunch_integration.log`
 - `rerun_after_launch_guard_fix_test_encoder_fusion_helper.log`
 - `rerun_after_launch_guard_fix_compileall.log`
+- `final_review_fix_test_encoder_fusion_helper.log`
+- `final_review_fix_test_fno_generators.log`
+- `final_review_fix_test_grid_lines_torch_runner.log`
+- `final_review_fix_compileall.log`
+- `final_review_fix_integration.log`
 
 ## Residual Risks
 
