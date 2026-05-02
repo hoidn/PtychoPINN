@@ -44,7 +44,7 @@ companion view, **not** as `paper_grade` or `full_training` evidence.
 | --- | --- | ---: | ---: |
 | `spectral_resnet_bottleneck_base` | reused 2048cap scaling run | 0.04217 | 8,391,814 |
 | `fno_base` | item-local rerun (`rerun_candidates/fno-2048cap-40ep`) | 0.05072 | 357,860 |
-| `unet_strong` | item-local rerun (`rerun_candidates/unet_strong-2048cap-40ep`) | 0.59757 | 7,764,580 |
+| `unet_strong` | helper-tracked replacement rerun (`rerun_candidates/unet_strong-2048cap-40ep`) | 0.64315 | 7,764,580 |
 | `author_ffno_cns_base` | item-local rerun (`rerun_candidates/author_ffno_cns-2048cap-40ep`) | 0.02631 | 1,073,672 |
 
 Continuity row roster is empty for the 2048cap bundle.
@@ -62,8 +62,9 @@ Reused run root: `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hyb
 
 The initial pre-rerun audit reported `fallback_to_512_required` with three
 missing headline rows (`fno_base`, `unet_strong`, `author_ffno_cns_base`). After
-the same-contract reruns, the in-bundle audit copy under `bundle_2048cap/`
-reports `upgrade_ready`.
+the same-contract reruns, the item-root audit and the in-bundle audit copy
+under `bundle_2048cap/` both report `upgrade_ready`, and the rerun manifest is
+empty.
 
 ## Bundle Outputs
 
@@ -90,30 +91,18 @@ reports `upgrade_ready`.
 - `figure_entries_match_visual_bundle = true`
 - `sample_manifest_matches_figure_manifest = true`
 
-## Launcher-Script Deviation (Disclosed)
+## Replacement Rerun Proof
 
-The `unet_strong` 2048cap rerun was launched via an ad-hoc shell wrapper
-(`/tmp/launch_unet.sh`) that quoted the inner training command as a single
-`tmux ... bash -lc "$SCRIPT"` string. tmux passed that string through `sh -c`,
-which expanded `$pid`, `$!`, and `$rc` to empty values before the inner bash
-ever saw them. The training itself completed normally (40 epochs, full
-artifact set, `comparison_summary.json.status = completed`,
-`metrics_unet_strong.json` populated), but
-`cns_bundle_rerun.pid` and `cns_bundle_rerun.exit_code` were left empty.
+The earlier `unet_strong` 2048cap evidence with reconstructed PID/exit-code
+artifacts was archived under `rerun_candidates/` and is no longer the
+authoritative row source. The canonical `unet_strong` row now comes from a
+fresh helper-launched rerun at the original path
+`rerun_candidates/unet_strong-2048cap-40ep`, with verification captured in:
 
-To preserve guardrail discipline:
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/verification/unet_rerun_replacement_verification.json`
 
-- the PID file was reconstructed from `invocation.json.pid` (the Python process
-  PID recorded by the suite runner; matches the stderr TF banner)
-- the exit-code file was set to `0`, justified by the presence of all required
-  output artifacts and `comparison_summary.json.status = completed`
-
-The other two missing headline reruns (`fno_base`, `author_ffno_cns_base`) used
-the proven `bundle._launch_tmux_rerun()` helper, which passes argv entries
-separately to tmux and records PID and exit-code without shell quoting.
-
-Recommendation for any future same-contract reruns: always go through the
-helper, never through an ad-hoc shell wrapper.
+That proof records the helper-tracked PID `1845354`, exit code `0`, the locked
+2048 contract, and the final metrics for the replacement run.
 
 ## Authority Status
 
@@ -128,16 +117,19 @@ helper, never through an ad-hoc shell wrapper.
 ## Verification
 
 - `pytest -q tests/studies/test_pdebench_cfd_cns_metrics.py tests/studies/test_pdebench_image128_runner.py`
-  -> 57 passed (62.27s). Log:
+  -> 58 passed (61.93s). Log:
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/verification/pytest.log`
 - `python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py`
   -> exit 0. Log:
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/verification/compileall.log`
+- Helper verification: `verification/unet_rerun_replacement_verification.json`
+  records the replacement `unet_strong` rerun with PID `1845354` and exit code `0`.
 
 ## Residual Risks And Open Items
 
 - Hardware accelerator label is `artifact_missing_precise_accelerator` for all
   rows because the run roots do not record a precise accelerator string. This
   matches the prior 512cap bundle and does not change the claim boundary.
-- The unet_strong PID/exit-code reconstruction is documented but is a
-  procedural deviation; future rerun work should use the helper path only.
+- The 2048cap companion bundle remains under the
+  `bounded_capped_decision_support_only` claim boundary. Full-training
+  benchmark gates remain unmet for every model in either bundle.

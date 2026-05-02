@@ -1,8 +1,192 @@
 {
-  "audit_outcome": "fallback_to_512_required",
+  "audit_outcome": "upgrade_ready",
   "authority_standard": "Rows must be completed and expose evidence_scope=capped_decision_support_only.",
   "comparison_standard": "Exact match on dataset file, split counts, max_windows_per_trajectory, history_len, epochs, batch_size, training_loss, and metric_family.",
   "compatible_same_cap_rows": {
+    "author_ffno_cns_base": {
+      "contract": {
+        "batch_size": 4,
+        "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        "epochs": 40,
+        "field_order": [
+          "density",
+          "Vx",
+          "Vy",
+          "pressure"
+        ],
+        "history_len": 2,
+        "input_channels": 8,
+        "max_windows_per_trajectory": 8,
+        "metric_family": [
+          "err_RMSE",
+          "err_nRMSE",
+          "relative_l2",
+          "fRMSE_low",
+          "fRMSE_mid",
+          "fRMSE_high"
+        ],
+        "sample_contract": "concat u[t-2:t] -> u[t]",
+        "split_counts": {
+          "test": 256,
+          "train": 2048,
+          "val": 256
+        },
+        "target_channels": 4,
+        "training_loss": "mse",
+        "window_counts": {
+          "test": 2048,
+          "train": 16384,
+          "val": 2048
+        }
+      },
+      "metrics": {
+        "batch_size": 4,
+        "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        "epochs": 40,
+        "err_RMSE": 0.6364395022392273,
+        "err_nRMSE": 0.02631409280002117,
+        "evidence_scope": "capped_decision_support_only",
+        "fRMSE_high": 0.06721008569002151,
+        "fRMSE_low": 1.5135581493377686,
+        "fRMSE_mid": 0.06968466192483902,
+        "field_order": [
+          "density",
+          "Vx",
+          "Vy",
+          "pressure"
+        ],
+        "history_len": 2,
+        "input_channels": 8,
+        "max_windows_per_trajectory": 8,
+        "metric_family": [
+          "err_RMSE",
+          "err_nRMSE",
+          "relative_l2",
+          "fRMSE_low",
+          "fRMSE_mid",
+          "fRMSE_high"
+        ],
+        "metric_interpretation": "decision_support_not_benchmark_performance",
+        "mode": "pilot",
+        "parameter_count": 1073672,
+        "profile_id": "author_ffno_cns_base",
+        "raw_available_windows": 190000,
+        "raw_windows_per_trajectory": 19,
+        "relative_l2": 0.02631409280002117,
+        "run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep",
+        "runtime_sec": 18909.027126073837,
+        "sample_contract": "concat u[t-2:t] -> u[t]",
+        "source_document": "artifact_scan",
+        "split_counts": {
+          "test": 256,
+          "train": 2048,
+          "val": 256
+        },
+        "status": "completed",
+        "target_channels": 4,
+        "task_id": "2d_cfd_cns",
+        "training_loss": "mse",
+        "window_counts": {
+          "test": 2048,
+          "train": 16384,
+          "val": 2048
+        }
+      },
+      "row_id": "author_ffno_cns_base",
+      "run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep"
+    },
+    "fno_base": {
+      "contract": {
+        "batch_size": 4,
+        "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        "epochs": 40,
+        "field_order": [
+          "density",
+          "Vx",
+          "Vy",
+          "pressure"
+        ],
+        "history_len": 2,
+        "input_channels": 8,
+        "max_windows_per_trajectory": 8,
+        "metric_family": [
+          "err_RMSE",
+          "err_nRMSE",
+          "relative_l2",
+          "fRMSE_low",
+          "fRMSE_mid",
+          "fRMSE_high"
+        ],
+        "sample_contract": "concat u[t-2:t] -> u[t]",
+        "split_counts": {
+          "test": 256,
+          "train": 2048,
+          "val": 256
+        },
+        "target_channels": 4,
+        "training_loss": "mse",
+        "window_counts": {
+          "test": 2048,
+          "train": 16384,
+          "val": 2048
+        }
+      },
+      "metrics": {
+        "batch_size": 4,
+        "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        "epochs": 40,
+        "err_RMSE": 1.226780891418457,
+        "err_nRMSE": 0.05072222277522087,
+        "evidence_scope": "capped_decision_support_only",
+        "fRMSE_high": 0.4954054057598114,
+        "fRMSE_low": 2.839359760284424,
+        "fRMSE_mid": 0.19165422022342682,
+        "field_order": [
+          "density",
+          "Vx",
+          "Vy",
+          "pressure"
+        ],
+        "history_len": 2,
+        "input_channels": 8,
+        "max_windows_per_trajectory": 8,
+        "metric_family": [
+          "err_RMSE",
+          "err_nRMSE",
+          "relative_l2",
+          "fRMSE_low",
+          "fRMSE_mid",
+          "fRMSE_high"
+        ],
+        "metric_interpretation": "decision_support_not_benchmark_performance",
+        "mode": "pilot",
+        "parameter_count": 357860,
+        "profile_id": "fno_base",
+        "raw_available_windows": 190000,
+        "raw_windows_per_trajectory": 19,
+        "relative_l2": 0.05072222277522087,
+        "run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep",
+        "runtime_sec": 3135.4146196842194,
+        "sample_contract": "concat u[t-2:t] -> u[t]",
+        "source_document": "artifact_scan",
+        "split_counts": {
+          "test": 256,
+          "train": 2048,
+          "val": 256
+        },
+        "status": "completed",
+        "target_channels": 4,
+        "task_id": "2d_cfd_cns",
+        "training_loss": "mse",
+        "window_counts": {
+          "test": 2048,
+          "train": 16384,
+          "val": 2048
+        }
+      },
+      "row_id": "fno_base",
+      "run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep"
+    },
     "spectral_resnet_bottleneck_base": {
       "contract": {
         "batch_size": 4,
@@ -94,9 +278,101 @@
       },
       "row_id": "spectral_resnet_bottleneck_base",
       "run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/cns-hybrid-spectral-finalists-2048cap-40ep-20260428T201926Z"
+    },
+    "unet_strong": {
+      "contract": {
+        "batch_size": 4,
+        "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        "epochs": 40,
+        "field_order": [
+          "density",
+          "Vx",
+          "Vy",
+          "pressure"
+        ],
+        "history_len": 2,
+        "input_channels": 8,
+        "max_windows_per_trajectory": 8,
+        "metric_family": [
+          "err_RMSE",
+          "err_nRMSE",
+          "relative_l2",
+          "fRMSE_low",
+          "fRMSE_mid",
+          "fRMSE_high"
+        ],
+        "sample_contract": "concat u[t-2:t] -> u[t]",
+        "split_counts": {
+          "test": 256,
+          "train": 2048,
+          "val": 256
+        },
+        "target_channels": 4,
+        "training_loss": "mse",
+        "window_counts": {
+          "test": 2048,
+          "train": 16384,
+          "val": 2048
+        }
+      },
+      "metrics": {
+        "batch_size": 4,
+        "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        "epochs": 40,
+        "err_RMSE": 15.555444717407227,
+        "err_nRMSE": 0.643152117729187,
+        "evidence_scope": "capped_decision_support_only",
+        "fRMSE_high": 0.7354567050933838,
+        "fRMSE_low": 37.153900146484375,
+        "fRMSE_mid": 0.4025872051715851,
+        "field_order": [
+          "density",
+          "Vx",
+          "Vy",
+          "pressure"
+        ],
+        "history_len": 2,
+        "input_channels": 8,
+        "max_windows_per_trajectory": 8,
+        "metric_family": [
+          "err_RMSE",
+          "err_nRMSE",
+          "relative_l2",
+          "fRMSE_low",
+          "fRMSE_mid",
+          "fRMSE_high"
+        ],
+        "metric_interpretation": "decision_support_not_benchmark_performance",
+        "mode": "pilot",
+        "parameter_count": 7764580,
+        "profile_id": "unet_strong",
+        "raw_available_windows": 190000,
+        "raw_windows_per_trajectory": 19,
+        "relative_l2": 0.643152117729187,
+        "run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep",
+        "runtime_sec": 2898.552940607071,
+        "sample_contract": "concat u[t-2:t] -> u[t]",
+        "source_document": "artifact_scan",
+        "split_counts": {
+          "test": 256,
+          "train": 2048,
+          "val": 256
+        },
+        "status": "completed",
+        "target_channels": 4,
+        "task_id": "2d_cfd_cns",
+        "training_loss": "mse",
+        "window_counts": {
+          "test": 2048,
+          "train": 16384,
+          "val": 2048
+        }
+      },
+      "row_id": "unet_strong",
+      "run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep"
     }
   },
-  "created_at_utc": "2026-05-01T15:40:47.074069+00:00",
+  "created_at_utc": "2026-05-02T04:10:18.892304+00:00",
   "expected_same_cap_contract": {
     "batch_size": 4,
     "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
@@ -120,59 +396,7 @@
   },
   "fallback_locked_rows_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/cns_paper_locked_rows.json",
   "locked_rows_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/cns_paper_locked_rows.json",
-  "missing_or_incompatible_rows": [
-    {
-      "log_paths": {
-        "exit_code": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep/logs/cns_bundle_rerun.exit_code",
-        "pid": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep/logs/cns_bundle_rerun.pid",
-        "started_at_ns": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep/logs/cns_bundle_rerun.started_at_ns"
-      },
-      "output_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep",
-      "reason": "missing_same_contract_2048_row",
-      "rerun_command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode pilot --data-root /home/ollie/Documents/pdebench-data --output-root /home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep --profiles fno_base --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 2048 --max-val-trajectories 256 --max-test-trajectories 256 --max-windows-per-trajectory 8 --device cuda --num-workers 0",
-      "row_id": "fno_base",
-      "stderr_log_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep/logs/cns_bundle_rerun.stderr.log",
-      "stdout_log_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep/logs/cns_bundle_rerun.stdout.log",
-      "tmux_attach_command": "tmux -S /tmp/claude-tmux-sockets/claude.sock attach -t cns2048-fno-base",
-      "tmux_capture_command": "tmux -S /tmp/claude-tmux-sockets/claude.sock capture-pane -p -J -t cns2048-fno-base:0.0 -S -200",
-      "tmux_session_name": "cns2048-fno-base",
-      "tmux_socket_path": "/tmp/claude-tmux-sockets/claude.sock"
-    },
-    {
-      "log_paths": {
-        "exit_code": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep/logs/cns_bundle_rerun.exit_code",
-        "pid": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep/logs/cns_bundle_rerun.pid",
-        "started_at_ns": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep/logs/cns_bundle_rerun.started_at_ns"
-      },
-      "output_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep",
-      "reason": "missing_same_contract_2048_row",
-      "rerun_command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode pilot --data-root /home/ollie/Documents/pdebench-data --output-root /home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep --profiles unet_strong --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 2048 --max-val-trajectories 256 --max-test-trajectories 256 --max-windows-per-trajectory 8 --device cuda --num-workers 0",
-      "row_id": "unet_strong",
-      "stderr_log_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep/logs/cns_bundle_rerun.stderr.log",
-      "stdout_log_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep/logs/cns_bundle_rerun.stdout.log",
-      "tmux_attach_command": "tmux -S /tmp/claude-tmux-sockets/claude.sock attach -t cns2048-unet-strong",
-      "tmux_capture_command": "tmux -S /tmp/claude-tmux-sockets/claude.sock capture-pane -p -J -t cns2048-unet-strong:0.0 -S -200",
-      "tmux_session_name": "cns2048-unet-strong",
-      "tmux_socket_path": "/tmp/claude-tmux-sockets/claude.sock"
-    },
-    {
-      "log_paths": {
-        "exit_code": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep/logs/cns_bundle_rerun.exit_code",
-        "pid": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep/logs/cns_bundle_rerun.pid",
-        "started_at_ns": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep/logs/cns_bundle_rerun.started_at_ns"
-      },
-      "output_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep",
-      "reason": "missing_same_contract_2048_row",
-      "rerun_command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode pilot --data-root /home/ollie/Documents/pdebench-data --output-root /home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep --profiles author_ffno_cns_base --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 2048 --max-val-trajectories 256 --max-test-trajectories 256 --max-windows-per-trajectory 8 --device cuda --num-workers 0",
-      "row_id": "author_ffno_cns_base",
-      "stderr_log_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep/logs/cns_bundle_rerun.stderr.log",
-      "stdout_log_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep/logs/cns_bundle_rerun.stdout.log",
-      "tmux_attach_command": "tmux -S /tmp/claude-tmux-sockets/claude.sock attach -t cns2048-author-ffno-cns-base",
-      "tmux_capture_command": "tmux -S /tmp/claude-tmux-sockets/claude.sock capture-pane -p -J -t cns2048-author-ffno-cns-base:0.0 -S -200",
-      "tmux_session_name": "cns2048-author-ffno-cns-base",
-      "tmux_socket_path": "/tmp/claude-tmux-sockets/claude.sock"
-    }
-  ],
+  "missing_or_incompatible_rows": [],
   "rerun_execution": null,
   "rerun_manifest_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/2048_rerun_manifest.json",
   "rerun_preflight": null,

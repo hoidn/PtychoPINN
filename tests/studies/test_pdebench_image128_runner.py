@@ -1,6 +1,8 @@
 import csv
 import json
+import os
 import sys
+import time
 import types
 from pathlib import Path
 
@@ -4126,6 +4128,69 @@ def test_cns_paper_bundle_audit_uses_real_pilot_reruns_for_authoritative_rows(tm
     assert [item["row_id"] for item in rerun_manifest["rerun_candidates"]] == ["fno_base"]
     assert all("--mode pilot" in item["rerun_command"] for item in rerun_manifest["rerun_candidates"])
     assert all(f"--profiles {item['row_id']}" in item["rerun_command"] for item in rerun_manifest["rerun_candidates"])
+
+
+def test_cns_paper_bundle_verify_rerun_completion_allows_started_marker_clock_skew(tmp_path):
+    from scripts.studies.pdebench_image128 import cns_paper_bundle as bundle
+
+    dataset_file = str(tmp_path / "2d_cfd_cns.hdf5")
+    expected_contract = {
+        "dataset_file": dataset_file,
+        "split_counts": {"train": 2, "val": 1, "test": 1},
+        "max_windows_per_trajectory": 1,
+        "history_len": 2,
+        "epochs": 1,
+        "batch_size": 2,
+        "training_loss": "mse",
+        "metric_family": ["err_RMSE", "err_nRMSE", "relative_l2", "fRMSE_low", "fRMSE_mid", "fRMSE_high"],
+    }
+    run_root = _write_fake_cfd_cns_compare_run(
+        tmp_path / "rerun",
+        profile_id="unet_strong",
+        epochs=1,
+        err_nrmse=0.67,
+        split_counts=expected_contract["split_counts"],
+        batch_size=expected_contract["batch_size"],
+        max_windows_per_trajectory=expected_contract["max_windows_per_trajectory"],
+        dataset_file=dataset_file,
+    )
+    invocation_path = run_root / "invocation.json"
+    invocation_payload = json.loads(invocation_path.read_text(encoding="utf-8"))
+    invocation_payload["pid"] = 321
+    invocation_path.write_text(json.dumps(invocation_payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+    logs_dir = run_root / "logs"
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    started_at_ns = time.time_ns()
+    started_path = logs_dir / "cns_bundle_rerun.started_at_ns"
+    started_path.write_text(f"{started_at_ns}\n", encoding="utf-8")
+    os.utime(started_path, ns=(started_at_ns - 1_000_000, started_at_ns - 1_000_000))
+
+    pid_path = logs_dir / "cns_bundle_rerun.pid"
+    pid_path.write_text("321\n", encoding="utf-8")
+    exit_path = logs_dir / "cns_bundle_rerun.exit_code"
+    exit_path.write_text("0\n", encoding="utf-8")
+    os.utime(pid_path, ns=(started_at_ns - 500_000, started_at_ns - 500_000))
+
+    fresh_paths = [
+        invocation_path,
+        run_root / "dataset_manifest.json",
+        run_root / "split_manifest.json",
+        run_root / "comparison_summary.json",
+        run_root / "metrics_unet_strong.json",
+        run_root / "model_profile_unet_strong.json",
+        exit_path,
+    ]
+    for index, path in enumerate(fresh_paths, start=1):
+        ts = started_at_ns + index * 1_000_000
+        os.utime(path, ns=(ts, ts))
+
+    candidate = {"row_id": "unet_strong", "output_root": str(run_root)}
+    verified = bundle._verify_rerun_completion(candidate, expected_contract=expected_contract)
+
+    assert verified["row_id"] == "unet_strong"
+    assert verified["verified_pid"] == "321"
+    assert verified["verified_exit_code"] == "0"
 
 
 def test_cns_paper_bundle_audit_rejects_non_authoritative_matching_run(tmp_path):

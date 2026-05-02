@@ -346,6 +346,7 @@ def _verify_rerun_completion(candidate: dict[str, Any], *, expected_contract: di
             raise FileNotFoundError(f"missing rerun artifact for {row_id}: {path}")
 
     started_at_ns = int(log_paths["started_at_ns"].read_text(encoding="utf-8").strip())
+    freshness_threshold_ns = min(started_at_ns, log_paths["started_at_ns"].stat().st_mtime_ns)
     pid = log_paths["pid"].read_text(encoding="utf-8").strip()
     if not pid.isdigit():
         raise ValueError(f"tracked rerun pid is not numeric for {row_id}: {pid!r}")
@@ -364,7 +365,7 @@ def _verify_rerun_completion(candidate: dict[str, Any], *, expected_contract: di
         raise ValueError(f"rerun output is not authoritative for {row_id}")
 
     for artifact_path in _required_rerun_artifact_paths(run_root, row_id):
-        if artifact_path.stat().st_mtime_ns < started_at_ns:
+        if artifact_path.stat().st_mtime_ns < freshness_threshold_ns:
             raise ValueError(f"stale rerun artifact for {row_id}: {artifact_path}")
 
     return {

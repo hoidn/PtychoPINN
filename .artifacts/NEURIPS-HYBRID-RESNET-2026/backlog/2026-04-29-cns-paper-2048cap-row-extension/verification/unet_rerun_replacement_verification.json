@@ -1,0 +1,94 @@
+{
+  "contract": {
+    "batch_size": 4,
+    "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+    "epochs": 40,
+    "field_order": [
+      "density",
+      "Vx",
+      "Vy",
+      "pressure"
+    ],
+    "history_len": 2,
+    "input_channels": 8,
+    "max_windows_per_trajectory": 8,
+    "metric_family": [
+      "err_RMSE",
+      "err_nRMSE",
+      "relative_l2",
+      "fRMSE_low",
+      "fRMSE_mid",
+      "fRMSE_high"
+    ],
+    "sample_contract": "concat u[t-2:t] -> u[t]",
+    "split_counts": {
+      "test": 256,
+      "train": 2048,
+      "val": 256
+    },
+    "target_channels": 4,
+    "training_loss": "mse",
+    "window_counts": {
+      "test": 2048,
+      "train": 16384,
+      "val": 2048
+    }
+  },
+  "metrics": {
+    "batch_size": 4,
+    "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+    "epochs": 40,
+    "err_RMSE": 15.555444717407227,
+    "err_nRMSE": 0.643152117729187,
+    "evidence_scope": "capped_decision_support_only",
+    "fRMSE_high": 0.7354567050933838,
+    "fRMSE_low": 37.153900146484375,
+    "fRMSE_mid": 0.4025872051715851,
+    "field_order": [
+      "density",
+      "Vx",
+      "Vy",
+      "pressure"
+    ],
+    "history_len": 2,
+    "input_channels": 8,
+    "max_windows_per_trajectory": 8,
+    "metric_family": [
+      "err_RMSE",
+      "err_nRMSE",
+      "relative_l2",
+      "fRMSE_low",
+      "fRMSE_mid",
+      "fRMSE_high"
+    ],
+    "metric_interpretation": "decision_support_not_benchmark_performance",
+    "mode": "pilot",
+    "parameter_count": 7764580,
+    "profile_id": "unet_strong",
+    "raw_available_windows": 190000,
+    "raw_windows_per_trajectory": 19,
+    "relative_l2": 0.643152117729187,
+    "run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep",
+    "runtime_sec": 2898.552940607071,
+    "sample_contract": "concat u[t-2:t] -> u[t]",
+    "source_document": "rerun_execution",
+    "split_counts": {
+      "test": 256,
+      "train": 2048,
+      "val": 256
+    },
+    "status": "completed",
+    "target_channels": 4,
+    "task_id": "2d_cfd_cns",
+    "training_loss": "mse",
+    "window_counts": {
+      "test": 2048,
+      "train": 16384,
+      "val": 2048
+    }
+  },
+  "row_id": "unet_strong",
+  "run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep",
+  "verified_exit_code": "0",
+  "verified_pid": "1845354"
+}
