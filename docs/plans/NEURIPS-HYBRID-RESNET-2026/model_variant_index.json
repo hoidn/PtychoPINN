@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-01T12:51:59Z",
+  "last_updated_utc": "2026-05-02T08:30:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -42,6 +42,24 @@
       "epochs": 40,
       "training_loss": "mse",
       "claim_boundary": "capped_decision_support_only",
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2",
+        "fRMSE_low",
+        "fRMSE_mid",
+        "fRMSE_high"
+      ]
+    },
+    "cns_history3_cap512_40ep": {
+      "task": "pdebench_cns",
+      "dataset_label": "PDEBench 2D_CFD CNS 128x128 periodic train file",
+      "split": "512 / 64 / 64 trajectories",
+      "history_len": 3,
+      "max_windows_per_trajectory": 8,
+      "epochs": 40,
+      "training_loss": "mse",
+      "claim_boundary": "adjacent_capped_context_only",
       "metric_family": [
         "err_RMSE",
         "err_nRMSE",
@@ -860,6 +878,81 @@
         "fRMSE_low": 1.8541778326034546,
         "fRMSE_mid": 0.17134958505630493,
         "fRMSE_high": 0.26221781969070435
+      },
+      "evidence_status": "decision_support_adjacent_context"
+    },
+    {
+      "variant_id": "cns_history3_cap512_40ep__author_ffno_cns_base__supervised",
+      "dataset_contract_id": "cns_history3_cap512_40ep",
+      "row_id": "author_ffno_cns_base",
+      "paper_label": "Author FFNO",
+      "architecture_id": "author_ffno_cns_base",
+      "model_family": "factorized_fourier_operator",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-05-01-cns-author-ffno-history-length-study",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_author_ffno_history_length_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/history3-pilot-40ep-20260502T045955Z",
+      "metrics_json": "metrics_author_ffno_cns_base.json",
+      "parameter_count": 1073928,
+      "runtime_sec": 4850.004317998886,
+      "metrics": {
+        "relative_l2": 0.023003891110420227,
+        "err_nRMSE": 0.023003891110420227,
+        "err_RMSE": 0.5554690361022949,
+        "fRMSE_low": 1.3145936727523804,
+        "fRMSE_mid": 0.05785238742828369,
+        "fRMSE_high": 0.11767252534627914
+      },
+      "evidence_status": "decision_support_adjacent_context"
+    },
+    {
+      "variant_id": "cns_history4_cap512_40ep__author_ffno_cns_base__supervised",
+      "dataset_contract_id": "cns_history4_cap512_40ep",
+      "row_id": "author_ffno_cns_base",
+      "paper_label": "Author FFNO",
+      "architecture_id": "author_ffno_cns_base",
+      "model_family": "factorized_fourier_operator",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-05-01-cns-author-ffno-history-length-study",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_author_ffno_history_length_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/history4-pilot-40ep-20260502T062100Z",
+      "metrics_json": "metrics_author_ffno_cns_base.json",
+      "parameter_count": 1074184,
+      "runtime_sec": 4970.440123319626,
+      "metrics": {
+        "relative_l2": 0.01939718797802925,
+        "err_nRMSE": 0.01939718797802925,
+        "err_RMSE": 0.46847406029701233,
+        "fRMSE_low": 1.106440782546997,
+        "fRMSE_mid": 0.04760192707180977,
+        "fRMSE_high": 0.11385615915060043
+      },
+      "evidence_status": "decision_support_adjacent_context"
+    },
+    {
+      "variant_id": "cns_history5_cap512_40ep__author_ffno_cns_base__supervised",
+      "dataset_contract_id": "cns_history5_cap512_40ep",
+      "row_id": "author_ffno_cns_base",
+      "paper_label": "Author FFNO",
+      "architecture_id": "author_ffno_cns_base",
+      "model_family": "factorized_fourier_operator",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-05-01-cns-author-ffno-history-length-study",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_author_ffno_history_length_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/history5-pilot-40ep-20260502T074500Z",
+      "metrics_json": "metrics_author_ffno_cns_base.json",
+      "parameter_count": 1074440,
+      "runtime_sec": 5103.250108957291,
+      "metrics": {
+        "relative_l2": 0.019758449867367744,
+        "err_nRMSE": 0.019758449867367744,
+        "err_RMSE": 0.47728773951530457,
+        "fRMSE_low": 1.130386233329773,
+        "fRMSE_mid": 0.04206976667046547,
+        "fRMSE_high": 0.10180677473545074
       },
       "evidence_status": "decision_support_adjacent_context"
     },
