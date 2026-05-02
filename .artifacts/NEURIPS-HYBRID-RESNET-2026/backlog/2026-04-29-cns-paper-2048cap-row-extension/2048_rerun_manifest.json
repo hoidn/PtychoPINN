@@ -1,0 +1,78 @@
+{
+  "created_at_utc": "2026-05-01T16:05:44.172222+00:00",
+  "expected_contract": {
+    "batch_size": 4,
+    "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+    "epochs": 40,
+    "history_len": 2,
+    "max_windows_per_trajectory": 8,
+    "metric_family": [
+      "err_RMSE",
+      "err_nRMSE",
+      "relative_l2",
+      "fRMSE_low",
+      "fRMSE_mid",
+      "fRMSE_high"
+    ],
+    "split_counts": {
+      "test": 256,
+      "train": 2048,
+      "val": 256
+    },
+    "training_loss": "mse"
+  },
+  "rerun_candidates": [
+    {
+      "log_paths": {
+        "exit_code": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep/logs/cns_bundle_rerun.exit_code",
+        "pid": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep/logs/cns_bundle_rerun.pid",
+        "started_at_ns": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep/logs/cns_bundle_rerun.started_at_ns"
+      },
+      "output_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep",
+      "reason": "missing_same_contract_2048_row",
+      "rerun_command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode pilot --data-root /home/ollie/Documents/pdebench-data --output-root /home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep --profiles fno_base --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 2048 --max-val-trajectories 256 --max-test-trajectories 256 --max-windows-per-trajectory 8 --allow-existing-output-root --device cuda --num-workers 0",
+      "row_id": "fno_base",
+      "stderr_log_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep/logs/cns_bundle_rerun.stderr.log",
+      "stdout_log_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep/logs/cns_bundle_rerun.stdout.log",
+      "tmux_attach_command": "tmux -S /tmp/claude-tmux-sockets/claude.sock attach -t cns2048-fno-base",
+      "tmux_capture_command": "tmux -S /tmp/claude-tmux-sockets/claude.sock capture-pane -p -J -t cns2048-fno-base:0.0 -S -200",
+      "tmux_session_name": "cns2048-fno-base",
+      "tmux_socket_path": "/tmp/claude-tmux-sockets/claude.sock"
+    },
+    {
+      "log_paths": {
+        "exit_code": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep/logs/cns_bundle_rerun.exit_code",
+        "pid": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep/logs/cns_bundle_rerun.pid",
+        "started_at_ns": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep/logs/cns_bundle_rerun.started_at_ns"
+      },
+      "output_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep",
+      "reason": "missing_same_contract_2048_row",
+      "rerun_command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode pilot --data-root /home/ollie/Documents/pdebench-data --output-root /home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep --profiles unet_strong --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 2048 --max-val-trajectories 256 --max-test-trajectories 256 --max-windows-per-trajectory 8 --allow-existing-output-root --device cuda --num-workers 0",
+      "row_id": "unet_strong",
+      "stderr_log_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep/logs/cns_bundle_rerun.stderr.log",
+      "stdout_log_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep/logs/cns_bundle_rerun.stdout.log",
+      "tmux_attach_command": "tmux -S /tmp/claude-tmux-sockets/claude.sock attach -t cns2048-unet-strong",
+      "tmux_capture_command": "tmux -S /tmp/claude-tmux-sockets/claude.sock capture-pane -p -J -t cns2048-unet-strong:0.0 -S -200",
+      "tmux_session_name": "cns2048-unet-strong",
+      "tmux_socket_path": "/tmp/claude-tmux-sockets/claude.sock"
+    },
+    {
+      "log_paths": {
+        "exit_code": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep/logs/cns_bundle_rerun.exit_code",
+        "pid": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep/logs/cns_bundle_rerun.pid",
+        "started_at_ns": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep/logs/cns_bundle_rerun.started_at_ns"
+      },
+      "output_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep",
+      "reason": "missing_same_contract_2048_row",
+      "rerun_command": "python scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode pilot --data-root /home/ollie/Documents/pdebench-data --output-root /home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep --profiles author_ffno_cns_base --history-len 2 --epochs 40 --batch-size 4 --max-train-trajectories 2048 --max-val-trajectories 256 --max-test-trajectories 256 --max-windows-per-trajectory 8 --allow-existing-output-root --device cuda --num-workers 0",
+      "row_id": "author_ffno_cns_base",
+      "stderr_log_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep/logs/cns_bundle_rerun.stderr.log",
+      "stdout_log_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep/logs/cns_bundle_rerun.stdout.log",
+      "tmux_attach_command": "tmux -S /tmp/claude-tmux-sockets/claude.sock attach -t cns2048-author-ffno-cns-base",
+      "tmux_capture_command": "tmux -S /tmp/claude-tmux-sockets/claude.sock capture-pane -p -J -t cns2048-author-ffno-cns-base:0.0 -S -200",
+      "tmux_session_name": "cns2048-author-ffno-cns-base",
+      "tmux_socket_path": "/tmp/claude-tmux-sockets/claude.sock"
+    }
+  ],
+  "schema_version": "pdebench_cns_paper_bundle_rerun_manifest_v1"
+}

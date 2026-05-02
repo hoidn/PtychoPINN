@@ -4538,3 +4538,264 @@ def test_cns_paper_bundle_rejects_mixed_cap_headline_rows(tmp_path):
             output_root=tmp_path / "bundle",
             search_roots=[tmp_path],
         )
+
+
+def test_cns_paper_bundle_audit_supports_2048_same_cap_contract(tmp_path):
+    from scripts.studies.pdebench_image128.cns_paper_bundle import audit_cns_paper_bundle_upgrade
+
+    spectral_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "spectral512",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.06,
+    )
+    fno_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "fno512",
+        profile_id="fno_base",
+        epochs=40,
+        err_nrmse=0.07,
+    )
+    unet_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "unet512",
+        profile_id="unet_strong",
+        epochs=40,
+        err_nrmse=0.67,
+    )
+    author_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "author512",
+        profile_id="author_ffno_cns_base",
+        epochs=40,
+        err_nrmse=0.03,
+    )
+    spectral_2048 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "spectral2048",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.042,
+        split_counts={"train": 2048, "val": 256, "test": 256},
+    )
+
+    locked_rows_path = tmp_path / "locked_rows.json"
+    locked_rows_path.write_text(
+        json.dumps(
+            _build_fake_locked_rows_payload(
+                [
+                    {"row_id": "spectral_resnet_bottleneck_base", "row_role": "headline", "run_root": spectral_512},
+                    {"row_id": "fno_base", "row_role": "headline", "run_root": fno_512},
+                    {"row_id": "unet_strong", "row_role": "headline", "run_root": unet_512},
+                    {"row_id": "author_ffno_cns_base", "row_role": "headline", "run_root": author_512},
+                ]
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = audit_cns_paper_bundle_upgrade(
+        locked_rows_path=locked_rows_path,
+        output_root=tmp_path / "bundle2048",
+        search_roots=[tmp_path],
+        preferred_run_roots={"spectral_resnet_bottleneck_base": spectral_2048},
+        target_split_counts={"train": 2048, "val": 256, "test": 256},
+    )
+
+    assert payload["target_split_label"] == "2048cap"
+    assert payload["expected_same_cap_contract"]["split_counts"] == {"train": 2048, "val": 256, "test": 256}
+    assert payload["compatible_same_cap_rows"]["spectral_resnet_bottleneck_base"]["run_root"] == str(spectral_2048)
+    assert {item["row_id"] for item in payload["missing_or_incompatible_rows"]} == {
+        "fno_base",
+        "unet_strong",
+        "author_ffno_cns_base",
+    }
+    assert all("2048cap-40ep" in item["output_root"] for item in payload["missing_or_incompatible_rows"])
+    assert (tmp_path / "bundle2048" / "2048_same_cap_audit.json").exists()
+    assert (tmp_path / "bundle2048" / "2048_same_cap_audit.md").exists()
+    assert (tmp_path / "bundle2048" / "2048_rerun_manifest.json").exists()
+
+
+def test_cns_paper_bundle_writes_2048_same_cap_bundle(tmp_path):
+    from scripts.studies.pdebench_image128.cns_paper_bundle import run_cns_paper_bundle
+
+    split_counts = {"train": 2048, "val": 256, "test": 256}
+    row_roots = {}
+    row_errors = {
+        "spectral_resnet_bottleneck_base": 0.042,
+        "fno_base": 0.051,
+        "unet_strong": 0.61,
+        "author_ffno_cns_base": 0.029,
+        "hybrid_resnet_cns": 0.049,
+    }
+    for row_id, err_nrmse in row_errors.items():
+        row_roots[row_id] = _write_fake_cfd_cns_compare_run(
+            tmp_path / row_id,
+            profile_id=row_id,
+            epochs=40,
+            err_nrmse=err_nrmse,
+            split_counts=split_counts,
+        )
+
+    locked_rows_path = tmp_path / "locked_rows_2048.json"
+    locked_rows_path.write_text(
+        json.dumps(
+            _build_fake_locked_rows_payload(
+                [
+                    {
+                        "row_id": "spectral_resnet_bottleneck_base",
+                        "row_role": "headline",
+                        "run_root": row_roots["spectral_resnet_bottleneck_base"],
+                        "split_counts": split_counts,
+                    },
+                    {
+                        "row_id": "fno_base",
+                        "row_role": "headline",
+                        "run_root": row_roots["fno_base"],
+                        "split_counts": split_counts,
+                    },
+                    {
+                        "row_id": "unet_strong",
+                        "row_role": "headline",
+                        "run_root": row_roots["unet_strong"],
+                        "split_counts": split_counts,
+                    },
+                    {
+                        "row_id": "author_ffno_cns_base",
+                        "row_role": "headline",
+                        "run_root": row_roots["author_ffno_cns_base"],
+                        "split_counts": split_counts,
+                    },
+                    {
+                        "row_id": "hybrid_resnet_cns",
+                        "row_role": "continuity",
+                        "run_root": row_roots["hybrid_resnet_cns"],
+                        "split_counts": split_counts,
+                    },
+                ],
+                split_counts=split_counts,
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = run_cns_paper_bundle(
+        locked_rows_path=locked_rows_path,
+        output_root=tmp_path / "bundle2048",
+        search_roots=[tmp_path],
+        target_split_counts=split_counts,
+    )
+
+    bundle_input = json.loads((tmp_path / "bundle2048" / "bundle_input_manifest.json").read_text(encoding="utf-8"))
+    validation = json.loads((tmp_path / "bundle2048" / "bundle_validation.json").read_text(encoding="utf-8"))
+
+    assert result["bundle_kind"] == "same_contract_2048_bundle_complete"
+    assert bundle_input["bundle_kind"] == "same_contract_2048_bundle_complete"
+    assert validation["headline_contract_consistent"] is True
+    assert validation["mixed_cap_headline_table"] is False
+    assert validation["all_rows_capped_decision_support"] is True
+
+
+def test_cns_paper_bundle_same_cap_rerun_commands_allow_existing_output_root(tmp_path):
+    from scripts.studies.pdebench_image128.cns_paper_bundle import audit_cns_paper_bundle_upgrade
+
+    spectral_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "spectral512",
+        profile_id="spectral_resnet_bottleneck_base",
+        epochs=40,
+        err_nrmse=0.06,
+    )
+    fno_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "fno512",
+        profile_id="fno_base",
+        epochs=40,
+        err_nrmse=0.07,
+    )
+    unet_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "unet512",
+        profile_id="unet_strong",
+        epochs=40,
+        err_nrmse=0.67,
+    )
+    author_512 = _write_fake_cfd_cns_compare_run(
+        tmp_path / "author512",
+        profile_id="author_ffno_cns_base",
+        epochs=40,
+        err_nrmse=0.03,
+    )
+
+    locked_rows_path = tmp_path / "locked_rows.json"
+    locked_rows_path.write_text(
+        json.dumps(
+            _build_fake_locked_rows_payload(
+                [
+                    {"row_id": "spectral_resnet_bottleneck_base", "row_role": "headline", "run_root": spectral_512},
+                    {"row_id": "fno_base", "row_role": "headline", "run_root": fno_512},
+                    {"row_id": "unet_strong", "row_role": "headline", "run_root": unet_512},
+                    {"row_id": "author_ffno_cns_base", "row_role": "headline", "run_root": author_512},
+                ]
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    payload = audit_cns_paper_bundle_upgrade(
+        locked_rows_path=locked_rows_path,
+        output_root=tmp_path / "bundle2048",
+        search_roots=[tmp_path],
+        target_split_counts={"train": 2048, "val": 256, "test": 256},
+    )
+
+    assert payload["missing_or_incompatible_rows"]
+    assert all(
+        "--allow-existing-output-root" in item["rerun_command"]
+        for item in payload["missing_or_incompatible_rows"]
+    )
+
+
+def test_cns_paper_default_rerun_executor_waits_before_next_launch(tmp_path, monkeypatch):
+    from scripts.studies.pdebench_image128 import cns_paper_bundle as bundle
+
+    events = []
+
+    def fake_launch(candidate):
+        row_id = str(candidate["row_id"])
+        events.append(f"launch:{row_id}")
+        return {
+            "row_id": row_id,
+            "output_root": str(candidate["output_root"]),
+            "tmux_socket_path": "/tmp/fake.sock",
+            "tmux_session_name": f"fake-{row_id}",
+            "tmux_attach_command": "attach",
+            "tmux_capture_command": "capture",
+            "log_paths": {},
+        }
+
+    def fake_wait(result, *, poll_interval_sec=2.0):
+        events.append(f"wait:{result['row_id']}")
+
+    monkeypatch.setattr(bundle, "_launch_tmux_rerun", fake_launch)
+    monkeypatch.setattr(bundle, "_wait_for_tmux_session", fake_wait)
+
+    candidates = [
+        {"row_id": "fno_base", "output_root": tmp_path / "fno"},
+        {"row_id": "unet_strong", "output_root": tmp_path / "unet"},
+    ]
+    payload = bundle._default_rerun_executor(
+        rerun_candidates=candidates,
+        expected_contract={"split_counts": {"train": 2048, "val": 256, "test": 256}},
+        output_root=tmp_path,
+    )
+
+    assert events == [
+        "launch:fno_base",
+        "wait:fno_base",
+        "launch:unet_strong",
+        "wait:unet_strong",
+    ]
+    assert payload["launched_row_ids"] == ["fno_base", "unet_strong"]

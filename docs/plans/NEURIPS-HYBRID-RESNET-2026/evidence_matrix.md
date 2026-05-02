@@ -1,7 +1,7 @@
 # NeurIPS Hybrid ResNet Evidence Matrix
 
 Status: draft  
-Last updated: 2026-05-01
+Last updated: 2026-05-02
 
 This is the human-facing master matrix for NeurIPS/SRU-Net evidence. It points
 to all relevant completed backlog outputs, keyed by dataset, model/config
@@ -21,6 +21,7 @@ Machine-readable companions:
 | CDI FFNO supervised extension | `lines128_supervised_equivalent_rows_summary.md` | paper-complete extension to existing table |
 | CDI U-NO extension readiness | `lines128_uno_preflight_summary.md` | feasibility-only external UNO environment/API authority before generator integration |
 | PDEBench CNS table/figures | `pdebench_cns_paper_table_figure_bundle_summary.md` | bounded capped decision-support only |
+| PDEBench CNS 2048cap companion | `pdebench_cns_paper_2048cap_extension_summary.md` | bounded capped decision-support only, parallel `2048 / 256 / 256` view |
 | Cross-pillar claim audit | `paper_evidence_package_audit_summary.md` | preserves CDI/CNS claim asymmetry |
 | Completed backlog outcome map | `paper_evidence_index.md` | first-stop durable outcome index |
 
@@ -31,8 +32,8 @@ Current manuscript draft:
 
 | Evidence source | Manuscript target |
 |---|---|
-| Complete Lines128 CDI bundle | `tab:cdi_lines128_complete`, `fig:cdi_main_qualitative`, `fig:cdi_frc_curves` |
-| Supervised FFNO extension | `tab:cdi_ffno_supervised_control` |
+| Complete Lines128 CDI bundle | `tab:cdi_lines128_complete`, `fig:cdi_main_qualitative` |
+| Supervised FFNO extension | `tab:cdi_lines128_complete` |
 | CNS paper table/figure bundle | `tab:cns_bundle`, `fig:cns_sample_predictions` |
 | Hybrid skip/residual ablation | `tab:cdi_skip_residual_ablation` |
 
@@ -121,6 +122,32 @@ decision-support boundary.
 | `unet_strong` | U-Net | supervised | 0.675798 | 1.332625 | headline | CNS table bundle |
 | `hybrid_resnet_cns` | Hybrid ResNet | supervised | 0.064418 | 0.368307 | continuity | CNS table bundle |
 
+Best observed capped CNS rows by model family, selected by lowest observed
+`relative_l2`/`err_nRMSE` across completed capped evidence:
+
+| Family | Row | Contract | relative_l2 | fRMSE_high | Source |
+|---|---|---|---:|---:|---|
+| FFNO | `author_ffno_cns_base` | `512 / 64 / 64`, `history_len=2`, `40` epochs | 0.028148 | 0.121014 | CNS table bundle |
+| SRU-Net | `spectral_resnet_bottleneck_base` | `512 / 64 / 64`, `history_len=5`, `40` epochs | 0.033069 | 0.262218 | `pdebench_cns_spectral_history_len4plus_compare_summary.md` |
+| FNO | `fno_base` | `512 / 64 / 64`, `history_len=3`, `40` epochs | 0.056725 | 0.610477 | `pdebench_cns_history_len3plus_compare_summary.md` |
+| U-Net | `unet_strong` | `512 / 64 / 64`, `history_len=2`, `40` epochs | 0.675798 | 1.332625 | CNS table bundle |
+
+Notes:
+
+- The table above is not a same-contract ranking; it is a best-observed capped
+  evidence summary.
+- The best observed SRU-Net high-band row remains
+  `spectral_resnet_bottleneck_shared_blocks10`, `1024 / 128 / 128`,
+  `80` epochs, `relative_l2=0.037568`, `fRMSE_high=0.215245`; see
+  `pdebench_cns_shared_blocks10_1024cap_longer_convergence_summary.md`.
+- The same-contract `2048 / 256 / 256`, `history_len=2`, 40-epoch companion
+  bundle is now complete and is published alongside the durable `512 / 64 / 64`
+  bundle as a wider-cap capped-decision-support view; see
+  `pdebench_cns_paper_2048cap_extension_summary.md` (bundle root
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/`).
+  The 512cap bundle remains the durable paper bundle and authoritative locked-
+  rows pointer; neither bundle is relabelled `paper_grade` or `full_training`.
+
 CNS table/figure bundle root:
 
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle`
@@ -156,6 +183,7 @@ Bundle outputs include:
 | `2026-04-29-cns-paper-contract-decision` | CNS contract lock | `pdebench_cns_paper_contract_decision.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-contract-decision/cns_same_contract_audit.json` |
 | `2026-04-29-cns-paper-benchmark-rows` | CNS row lock | `pdebench_cns_paper_row_lock_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/` |
 | `2026-04-29-cns-paper-table-figure-bundle` | CNS table/figure bundle | `pdebench_cns_paper_table_figure_bundle_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/` |
+| `2026-04-29-cns-paper-2048cap-row-extension` | CNS 2048cap companion bundle | `pdebench_cns_paper_2048cap_extension_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/` |
 | `2026-04-29-cdi-lines128-minimum-paper-table` | CDI minimum table | `lines128_minimum_paper_table_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z` |
 | `2026-04-29-cdi-lines128-paper-benchmark-execution` | CDI complete six-row table | `lines128_paper_benchmark_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux` |
 | `2026-04-29-cdi-lines128-supervised-equivalent-rows` | CDI supervised FFNO extension | `lines128_supervised_equivalent_rows_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z` |

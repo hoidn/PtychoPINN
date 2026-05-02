@@ -15,6 +15,7 @@
 - CDI bundle status: `paper_complete` with selected comparator `fno_vanilla` and fixed seed `3`.
 - CNS headline authority: `capped_decision_support` under `bounded_capped_decision_support_only` from `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle`.
 - CNS bundle status: `paper_complete` reflects table/figure assembly completeness only; it does not upgrade the pillar beyond `capped_decision_support`.
+- CNS 2048cap companion bundle: `capped_decision_support` under `bounded_capped_decision_support_only` from `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap` (same-contract `2048 / 256 / 256`, `history_len=2`, 40 epochs). Published alongside the 512cap bundle as a wider-cap companion view; does not relabel any row `paper_grade` or `full_training`.
 - No outputs from this item target `/home/ollie/Documents/neurips/`; all emitted paths stay repo-local.
 
 ## Emitted Outputs

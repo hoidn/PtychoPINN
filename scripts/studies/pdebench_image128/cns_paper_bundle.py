@@ -96,9 +96,25 @@ def _write_json(path: Path, payload: dict[str, Any]) -> Path:
     return path
 
 
-def _expected_1024_contract(locked_rows_payload: dict[str, Any]) -> dict[str, Any]:
+def _split_counts(split_counts: dict[str, Any]) -> dict[str, int]:
+    return {key: int(split_counts[key]) for key in ["train", "val", "test"]}
+
+
+def _split_label(split_counts: dict[str, Any]) -> str:
+    return f"{int(split_counts['train'])}cap"
+
+
+def _bundle_kind_label(split_counts: dict[str, Any]) -> str:
+    return str(int(split_counts["train"]))
+
+
+def _expected_same_cap_contract(
+    locked_rows_payload: dict[str, Any],
+    *,
+    target_split_counts: dict[str, Any],
+) -> dict[str, Any]:
     selected = dict(locked_rows_payload.get("selected_contract", {}))
-    split_counts = {"train": 1024, "val": 128, "test": 128}
+    split_counts = _split_counts(target_split_counts)
     selected["split_counts"] = split_counts
     selected["max_windows_per_trajectory"] = int(selected.get("max_windows_per_trajectory", 8))
     selected["history_len"] = int(selected.get("history_len", locked_rows_payload.get("history_len", 2)))
@@ -108,6 +124,13 @@ def _expected_1024_contract(locked_rows_payload: dict[str, Any]) -> dict[str, An
     selected["metric_family"] = list(locked_rows_payload.get("metric_family", selected.get("metric_family", [])))
     selected["dataset_file"] = str(locked_rows_payload.get("dataset_file", selected.get("dataset_file", "")))
     return {key: selected.get(key) for key in CONTRACT_KEYS}
+
+
+def _expected_1024_contract(locked_rows_payload: dict[str, Any]) -> dict[str, Any]:
+    return _expected_same_cap_contract(
+        locked_rows_payload,
+        target_split_counts={"train": 1024, "val": 128, "test": 128},
+    )
 
 
 def _contract_matches(actual: dict[str, Any], expected: dict[str, Any]) -> bool:
@@ -164,9 +187,9 @@ def _discover_compatible_run(
     return None
 
 
-def _rerun_output_root(profile_id: str, output_root: Path) -> Path:
+def _rerun_output_root(profile_id: str, output_root: Path, *, expected_contract: dict[str, Any]) -> Path:
     stem = profile_id.replace("_base", "")
-    return output_root / "rerun_candidates" / f"{stem}-1024cap-40ep"
+    return output_root / "rerun_candidates" / f"{stem}-{_split_label(expected_contract['split_counts'])}-40ep"
 
 
 def _tmux_socket_path() -> Path:
@@ -175,8 +198,8 @@ def _tmux_socket_path() -> Path:
     return socket_dir / "claude.sock"
 
 
-def _tmux_session_name(profile_id: str) -> str:
-    return f"cns1024-{profile_id.replace('_', '-')[:36]}"
+def _tmux_session_name(profile_id: str, *, expected_contract: dict[str, Any]) -> str:
+    return f"cns{int(expected_contract['split_counts']['train'])}-{profile_id.replace('_', '-')[:36]}"
 
 
 def _rerun_log_paths(run_root: Path) -> dict[str, Path]:
@@ -193,7 +216,7 @@ def _rerun_command(profile_id: str, *, expected_contract: dict[str, Any], output
         "--task 2d_cfd_cns "
         "--mode pilot "
         f"--data-root {data_root} "
-        f"--output-root {_rerun_output_root(profile_id, output_root)} "
+        f"--output-root {_rerun_output_root(profile_id, output_root, expected_contract=expected_contract)} "
         f"--profiles {profile_id} "
         f"--history-len {int(expected_contract['history_len'])} "
         f"--epochs {int(expected_contract['epochs'])} "
@@ -202,21 +225,23 @@ def _rerun_command(profile_id: str, *, expected_contract: dict[str, Any], output
         f"--max-val-trajectories {int(split_counts['val'])} "
         f"--max-test-trajectories {int(split_counts['test'])} "
         f"--max-windows-per-trajectory {int(expected_contract['max_windows_per_trajectory'])} "
+        "--allow-existing-output-root "
         "--device cuda "
         "--num-workers 0"
     )
 
 
 def _rerun_candidate(profile_id: str, *, expected_contract: dict[str, Any], output_root: Path) -> dict[str, Any]:
-    run_root = _rerun_output_root(profile_id, output_root)
+    run_root = _rerun_output_root(profile_id, output_root, expected_contract=expected_contract)
     socket_path = _tmux_socket_path()
-    session_name = _tmux_session_name(profile_id)
+    session_name = _tmux_session_name(profile_id, expected_contract=expected_contract)
     log_paths = _rerun_log_paths(run_root)
     stdout_path = run_root / "logs" / "cns_bundle_rerun.stdout.log"
     stderr_path = run_root / "logs" / "cns_bundle_rerun.stderr.log"
+    target_train = int(expected_contract["split_counts"]["train"])
     return {
         "row_id": profile_id,
-        "reason": "missing_same_contract_1024_row",
+        "reason": f"missing_same_contract_{target_train}_row",
         "output_root": str(run_root),
         "rerun_command": _rerun_command(profile_id, expected_contract=expected_contract, output_root=output_root),
         "tmux_socket_path": str(socket_path),
@@ -359,11 +384,11 @@ def _default_rerun_executor(
     output_root: Path,
 ) -> dict[str, Any]:
     output_root = Path(output_root)
+    artifact_prefix = str(int(expected_contract["split_counts"]["train"]))
     launched: list[dict[str, Any]] = []
     for candidate in rerun_candidates:
         launch_result = _launch_tmux_rerun(candidate)
         launched.append(launch_result)
-    for launch_result in launched:
         _wait_for_tmux_session(launch_result)
     payload = {
         "executor": "tmux",
@@ -371,7 +396,7 @@ def _default_rerun_executor(
         "launches": launched,
         "expected_contract": expected_contract,
     }
-    _write_json(output_root / "1024_rerun_execution.json", payload)
+    _write_json(output_root / f"{artifact_prefix}_rerun_execution.json", payload)
     return payload
 
 
@@ -415,6 +440,8 @@ def audit_cns_paper_bundle_upgrade(
     output_root: Path,
     search_roots: list[Path] | None = None,
     preferred_run_roots: dict[str, Path] | None = None,
+    target_split_counts: dict[str, Any] | None = None,
+    required_headline_rows: list[str] | None = None,
     execute_missing_reruns: bool = False,
     rerun_executor: Callable[..., dict[str, Any]] | None = None,
     rerun_preflight_verifier: Callable[..., dict[str, Any]] | None = None,
@@ -423,12 +450,23 @@ def audit_cns_paper_bundle_upgrade(
     output_root = Path(output_root)
     output_root.mkdir(parents=True, exist_ok=True)
     search_roots = [Path(path) for path in (search_roots or DEFAULT_SEARCH_ROOTS)]
-    preferred_run_roots = {**PREFERRED_1024_RUN_ROOTS, **(preferred_run_roots or {})}
-    expected_contract = _expected_1024_contract(locked_rows_payload)
+    target_split_counts = _split_counts(target_split_counts or {"train": 1024, "val": 128, "test": 128})
+    target_split_label = _split_label(target_split_counts)
+    default_preferred_roots = PREFERRED_1024_RUN_ROOTS if target_split_counts["train"] == 1024 else {}
+    preferred_run_roots = {**default_preferred_roots, **(preferred_run_roots or {})}
+    if target_split_counts == {"train": 1024, "val": 128, "test": 128}:
+        expected_contract = _expected_1024_contract(locked_rows_payload)
+    else:
+        expected_contract = _expected_same_cap_contract(
+            locked_rows_payload,
+            target_split_counts=target_split_counts,
+        )
+    required_headline_rows = list(required_headline_rows or REQUIRED_1024_HEADLINE_ROWS)
+    rerun_manifest_path = output_root / f"{target_split_counts['train']}_rerun_manifest.json"
 
     compatible_rows: dict[str, Any] = {}
     missing_rows: list[dict[str, Any]] = []
-    for row_id in REQUIRED_1024_HEADLINE_ROWS:
+    for row_id in required_headline_rows:
         match = _discover_compatible_run(
             row_id,
             expected_contract=expected_contract,
@@ -446,7 +484,7 @@ def audit_cns_paper_bundle_upgrade(
         "expected_contract": expected_contract,
         "rerun_candidates": missing_rows,
     }
-    _write_json(output_root / "1024_rerun_manifest.json", rerun_manifest)
+    _write_json(rerun_manifest_path, rerun_manifest)
 
     rerun_execution: dict[str, Any] | None = None
     rerun_preflight: dict[str, Any] | None = None
@@ -478,32 +516,38 @@ def audit_cns_paper_bundle_upgrade(
         "locked_rows_path": str(locked_rows_path),
         "fallback_locked_rows_path": str(locked_rows_path),
         "audit_outcome": audit_outcome,
-        "expected_1024_contract": expected_contract,
-        "compatible_1024_rows": compatible_rows,
+        "target_split_counts": target_split_counts,
+        "target_split_label": target_split_label,
+        "expected_same_cap_contract": expected_contract,
+        "compatible_same_cap_rows": compatible_rows,
         "missing_or_incompatible_rows": missing_rows,
-        "rerun_manifest_path": str(output_root / "1024_rerun_manifest.json"),
+        "rerun_manifest_path": str(rerun_manifest_path),
         "rerun_preflight": rerun_preflight,
         "rerun_execution": rerun_execution,
         "comparison_standard": "Exact match on dataset file, split counts, max_windows_per_trajectory, history_len, epochs, batch_size, training_loss, and metric_family.",
         "authority_standard": "Rows must be completed and expose evidence_scope=capped_decision_support_only.",
     }
-    _write_json(output_root / "1024_same_cap_audit.json", payload)
-    _write_audit_markdown(output_root / "1024_same_cap_audit.md", payload)
+    if target_split_counts["train"] == 1024:
+        payload["expected_1024_contract"] = expected_contract
+        payload["compatible_1024_rows"] = compatible_rows
+    _write_json(output_root / f"{target_split_counts['train']}_same_cap_audit.json", payload)
+    _write_audit_markdown(output_root / f"{target_split_counts['train']}_same_cap_audit.md", payload)
     return payload
 
 
 def _write_audit_markdown(path: Path, payload: dict[str, Any]) -> Path:
     lines = [
-        "# 1024 Same-Cap Audit",
+        f"# {payload['target_split_counts']['train']} Same-Cap Audit",
         "",
         f"- Outcome: `{payload['audit_outcome']}`",
+        f"- Target split: `{payload['target_split_label']}`",
         f"- Locked fallback manifest: `{payload['fallback_locked_rows_path']}`",
         f"- Rerun manifest: `{payload['rerun_manifest_path']}`",
         "",
-        "## Compatible 1024 Rows",
+        f"## Compatible {payload['target_split_counts']['train']} Rows",
     ]
-    if payload["compatible_1024_rows"]:
-        for row_id, row in payload["compatible_1024_rows"].items():
+    if payload["compatible_same_cap_rows"]:
+        for row_id, row in payload["compatible_same_cap_rows"].items():
             lines.append(f"- `{row_id}`: `{row['run_root']}`")
     else:
         lines.append("- none")
@@ -746,6 +790,8 @@ def run_cns_paper_bundle(
     locked_rows_path: Path = DEFAULT_LOCKED_ROWS_PATH,
     output_root: Path = DEFAULT_OUTPUT_ROOT,
     search_roots: list[Path] | None = None,
+    target_split_counts: dict[str, Any] | None = None,
+    preferred_run_roots: dict[str, Path] | None = None,
     execute_missing_1024_reruns: bool = False,
     rerun_executor: Callable[..., dict[str, Any]] | None = None,
     rerun_preflight_verifier: Callable[..., dict[str, Any]] | None = None,
@@ -758,15 +804,18 @@ def run_cns_paper_bundle(
         locked_rows_path=locked_rows_path,
         output_root=output_root,
         search_roots=search_roots,
+        preferred_run_roots=preferred_run_roots,
+        target_split_counts=target_split_counts,
         execute_missing_reruns=execute_missing_1024_reruns,
         rerun_executor=rerun_executor,
         rerun_preflight_verifier=rerun_preflight_verifier,
     )
     locked_rows_payload = _load_json(locked_rows_path)
+    bundle_split_counts = _split_counts(locked_rows_payload["split_counts"])
     bundle_kind = (
-        "same_contract_1024_bundle_complete"
-        if int(locked_rows_payload["split_counts"]["train"]) == 1024
-        else "fallback_512_bundle_used"
+        "fallback_512_bundle_used"
+        if bundle_split_counts["train"] == 512
+        else f"same_contract_{_bundle_kind_label(bundle_split_counts)}_bundle_complete"
     )
     _write_json(
         output_root / "bundle_input_manifest.json",
@@ -775,6 +824,7 @@ def run_cns_paper_bundle(
             "authoritative_locked_rows_path": str(locked_rows_path),
             "contract_authority": str(locked_rows_payload.get("contract_authority", "")),
             "bundle_kind": bundle_kind,
+            "target_split_label": audit_payload["target_split_label"],
             "audit_outcome": audit_payload["audit_outcome"],
         },
     )
