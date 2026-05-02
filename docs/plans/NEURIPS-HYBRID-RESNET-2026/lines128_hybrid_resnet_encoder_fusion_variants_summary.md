@@ -16,6 +16,15 @@
 - Scalar-scope decision (first scored pass): per-block learned scalars; shared-across-encoder-block scalars remain a distinct architecture axis and are not part of this ablation.
 - Claim boundary: append-only same-contract CDI ablation, decision-support only. The completed six-row Lines128 paper bundle remains the unchanged headline authority.
 
+## Provenance Repair
+
+The original fresh-row launch preserved the scored row artifacts and shared-root Lightning outputs, but not row-local training roots. In the review-fix pass, the checked-in helper `scripts/studies/lines128_hybrid_resnet_encoder_fusion_variants.py` repaired that provenance deterministically from preserved fusion-mode metadata:
+
+- `runs/encoder_fusion_20260502T104230Z/training_runs/<row_id>/lightning_logs/version_0/` now contains the row-attributed Lightning log copy for each fresh row.
+- `runs/encoder_fusion_20260502T104230Z/training_runs/<row_id>/checkpoints/{last,best}.ckpt` now contains the row-attributed checkpoint copy for each fresh row.
+- `runs/encoder_fusion_20260502T104230Z/runs/<row_id>/{stdout.log,stderr.log,launcher_completion.json}` now contains row-local launch evidence for each fresh row.
+- `row_contract_audit.json` and `model_manifest.json` were updated to point at the repaired row-local paths rather than the historical shared `output_dir`.
+
 ## Resume-Condition Clearance Note
 
 This backlog item is selectable on this iteration because:
@@ -106,3 +115,4 @@ Archived under `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hy
 - `preflight_integration.log` — `pytest -v -m integration --timeout=900` (preflight, 5 passed, 4 skipped long-runners)
 - `final_test_fno_generators.log` and `final_test_grid_lines_torch_runner.log` — final closeout reruns of the backlog-required gates after row publication
 - `final_compileall.log` — `python -m compileall -q ptycho_torch scripts/studies` after code changes
+- `review_fix_test_fno_generators.log`, `review_fix_test_grid_lines_torch_runner.log`, `review_fix_test_encoder_fusion_helper.log`, `review_fix_integration.log`, and `review_fix_compileall.log` — review-fix reruns after the row-local provenance repair
