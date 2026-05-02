@@ -296,6 +296,15 @@ class PyTorchExecutionConfig:
     hybrid_skip_style: Literal['add', 'concat', 'gated_add'] = 'add'
     hybrid_resnet_bottleneck_layerscale_mode: Literal['learned', 'fixed'] = 'learned'
     hybrid_resnet_bottleneck_layerscale_value: Optional[float] = None
+    # Encoder-fusion controls (per-block scalars; Torch-only study plumbing).
+    hybrid_encoder_fusion_mode: Literal[
+        'baseline',
+        'layerscale',
+        'branch_gated',
+        'branch_gated_layerscale',
+    ] = 'baseline'
+    hybrid_encoder_layerscale_init: float = 0.1
+    hybrid_encoder_branch_gate_init: float = 0.1
     spectral_bottleneck_blocks: int = 6
     spectral_bottleneck_modes: int = 12
     spectral_bottleneck_share_weights: bool = True
@@ -518,6 +527,35 @@ class PyTorchExecutionConfig:
                     "hybrid_resnet_bottleneck_layerscale_value must be finite and > 0 "
                     f"(got {self.hybrid_resnet_bottleneck_layerscale_value})."
                 )
+
+        valid_encoder_fusion_modes = {
+            'baseline',
+            'layerscale',
+            'branch_gated',
+            'branch_gated_layerscale',
+        }
+        if self.hybrid_encoder_fusion_mode not in valid_encoder_fusion_modes:
+            raise ValueError(
+                "Invalid hybrid_encoder_fusion_mode "
+                f"'{self.hybrid_encoder_fusion_mode}'. "
+                f"Expected one of {sorted(valid_encoder_fusion_modes)}."
+            )
+        if (
+            not math.isfinite(float(self.hybrid_encoder_layerscale_init))
+            or float(self.hybrid_encoder_layerscale_init) <= 0.0
+        ):
+            raise ValueError(
+                "hybrid_encoder_layerscale_init must be finite and > 0, "
+                f"got {self.hybrid_encoder_layerscale_init}."
+            )
+        if (
+            not math.isfinite(float(self.hybrid_encoder_branch_gate_init))
+            or float(self.hybrid_encoder_branch_gate_init) <= 0.0
+        ):
+            raise ValueError(
+                "hybrid_encoder_branch_gate_init must be finite and > 0, "
+                f"got {self.hybrid_encoder_branch_gate_init}."
+            )
 
 
 def validate_model_config(config: ModelConfig) -> None:

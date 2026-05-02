@@ -62,8 +62,24 @@ class BlurPoolConvDownsample(nn.Module):
         return self.proj(x)
 
 
+ENCODER_FUSION_MODES = (
+    "baseline",
+    "layerscale",
+    "branch_gated",
+    "branch_gated_layerscale",
+)
+
+
 class HybridResnetEncoderBlock(nn.Module):
-    """Hybrid encoder block with optional branch-capacity decoupling."""
+    """Hybrid encoder block with optional branch-capacity decoupling and per-block encoder-fusion controls.
+
+    Encoder-fusion modes preserve the identity residual ``x_next = x + (...)``:
+
+    - ``baseline``: ``x + GELU(spectral(x) + conv(x))`` (default)
+    - ``layerscale``: ``x + alpha * GELU(spectral(x) + conv(x))`` with per-block ``alpha``
+    - ``branch_gated``: ``x + GELU(g_s * spectral(x) + g_l * conv(x))`` with per-block ``g_s``, ``g_l``
+    - ``branch_gated_layerscale``: ``x + alpha * GELU(g_s * spectral(x) + g_l * conv(x))``
+    """
 
     def __init__(
         self,
@@ -71,8 +87,31 @@ class HybridResnetEncoderBlock(nn.Module):
         modes: int,
         conv_hidden_channels: Optional[int] = None,
         spectral_hidden_channels: Optional[int] = None,
+        encoder_fusion_mode: str = "baseline",
+        encoder_layerscale_init: float = 0.1,
+        encoder_branch_gate_init: float = 0.1,
     ):
         super().__init__()
+
+        if encoder_fusion_mode not in ENCODER_FUSION_MODES:
+            raise ValueError(
+                "encoder_fusion_mode must be one of "
+                f"{list(ENCODER_FUSION_MODES)} (got {encoder_fusion_mode!r})."
+            )
+        if not math.isfinite(float(encoder_layerscale_init)) or float(encoder_layerscale_init) <= 0.0:
+            raise ValueError(
+                "encoder_layerscale_init must be finite and > 0 "
+                f"(got {encoder_layerscale_init})."
+            )
+        if not math.isfinite(float(encoder_branch_gate_init)) or float(encoder_branch_gate_init) <= 0.0:
+            raise ValueError(
+                "encoder_branch_gate_init must be finite and > 0 "
+                f"(got {encoder_branch_gate_init})."
+            )
+
+        self.encoder_fusion_mode = str(encoder_fusion_mode)
+        self.encoder_layerscale_init = float(encoder_layerscale_init)
+        self.encoder_branch_gate_init = float(encoder_branch_gate_init)
 
         conv_hidden = channels if conv_hidden_channels is None else int(conv_hidden_channels)
         spectral_hidden = channels if spectral_hidden_channels is None else int(spectral_hidden_channels)
@@ -103,10 +142,31 @@ class HybridResnetEncoderBlock(nn.Module):
 
         self.act = nn.GELU()
 
+        uses_layerscale = self.encoder_fusion_mode in {"layerscale", "branch_gated_layerscale"}
+        uses_branch_gates = self.encoder_fusion_mode in {"branch_gated", "branch_gated_layerscale"}
+
+        if uses_layerscale:
+            self.encoder_layerscale = nn.Parameter(torch.full((1,), float(self.encoder_layerscale_init)))
+        else:
+            self.register_parameter("encoder_layerscale", None)
+
+        if uses_branch_gates:
+            self.spectral_branch_gate = nn.Parameter(torch.full((1,), float(self.encoder_branch_gate_init)))
+            self.local_branch_gate = nn.Parameter(torch.full((1,), float(self.encoder_branch_gate_init)))
+        else:
+            self.register_parameter("spectral_branch_gate", None)
+            self.register_parameter("local_branch_gate", None)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         spectral = self.spectral_out(self.spectral(self.spectral_in(x)))
         conv = self.conv_out(self.local_conv(self.conv_in(x)))
-        return x + self.act(spectral + conv)
+        if self.spectral_branch_gate is not None:
+            spectral = self.spectral_branch_gate * spectral
+            conv = self.local_branch_gate * conv
+        update = self.act(spectral + conv)
+        if self.encoder_layerscale is not None:
+            update = self.encoder_layerscale * update
+        return x + update
 
 
 class HybridResnetGeneratorModule(nn.Module):
@@ -135,6 +195,9 @@ class HybridResnetGeneratorModule(nn.Module):
         hybrid_skip_style: Literal["add", "concat", "gated_add"] = "add",
         bottleneck_layerscale_mode: Literal["learned", "fixed"] = "learned",
         bottleneck_layerscale_value: Optional[float] = None,
+        encoder_fusion_mode: str = "baseline",
+        encoder_layerscale_init: float = 0.1,
+        encoder_branch_gate_init: float = 0.1,
     ):
         super().__init__()
         if hybrid_downsample_steps not in (1, 2):
@@ -212,11 +275,36 @@ class HybridResnetGeneratorModule(nn.Module):
                 f"(got fno_blocks={n_blocks})."
             )
 
+        if encoder_fusion_mode not in ENCODER_FUSION_MODES:
+            raise ValueError(
+                "encoder_fusion_mode must be one of "
+                f"{list(ENCODER_FUSION_MODES)} (got {encoder_fusion_mode!r})."
+            )
+        if (
+            not math.isfinite(float(encoder_layerscale_init))
+            or float(encoder_layerscale_init) <= 0.0
+        ):
+            raise ValueError(
+                "encoder_layerscale_init must be finite and > 0 "
+                f"(got {encoder_layerscale_init})."
+            )
+        if (
+            not math.isfinite(float(encoder_branch_gate_init))
+            or float(encoder_branch_gate_init) <= 0.0
+        ):
+            raise ValueError(
+                "encoder_branch_gate_init must be finite and > 0 "
+                f"(got {encoder_branch_gate_init})."
+            )
+
         self.C = C
         self.output_mode = output_mode
         self.skip_connections = bool(skip_connections)
         self.hybrid_skip_style = hybrid_skip_style
         self.hybrid_downsample_steps = int(hybrid_downsample_steps)
+        self.encoder_fusion_mode = str(encoder_fusion_mode)
+        self.encoder_layerscale_init = float(encoder_layerscale_init)
+        self.encoder_branch_gate_init = float(encoder_branch_gate_init)
         self.hybrid_encoder_conv_hidden_scale = float(hybrid_encoder_conv_hidden_scale)
         self.hybrid_encoder_spectral_hidden_scale = float(hybrid_encoder_spectral_hidden_scale)
         self.bottleneck_layerscale_mode = str(bottleneck_layerscale_mode)
@@ -261,6 +349,9 @@ class HybridResnetGeneratorModule(nn.Module):
                     modes=modes,
                     conv_hidden_channels=int(conv_hidden_channels),
                     spectral_hidden_channels=int(spectral_hidden_channels),
+                    encoder_fusion_mode=self.encoder_fusion_mode,
+                    encoder_layerscale_init=self.encoder_layerscale_init,
+                    encoder_branch_gate_init=self.encoder_branch_gate_init,
                 )
             )
             if i < self.hybrid_downsample_steps:
@@ -509,6 +600,21 @@ class HybridResnetGenerator:
                 "hybrid_resnet_bottleneck_layerscale_value",
                 getattr(model_config, "hybrid_resnet_bottleneck_layerscale_value", None),
             ),
+            encoder_fusion_mode=getattr(
+                execution_config,
+                "hybrid_encoder_fusion_mode",
+                getattr(model_config, "hybrid_encoder_fusion_mode", "baseline"),
+            ),
+            encoder_layerscale_init=getattr(
+                execution_config,
+                "hybrid_encoder_layerscale_init",
+                getattr(model_config, "hybrid_encoder_layerscale_init", 0.1),
+            ),
+            encoder_branch_gate_init=getattr(
+                execution_config,
+                "hybrid_encoder_branch_gate_init",
+                getattr(model_config, "hybrid_encoder_branch_gate_init", 0.1),
+            ),
         )
 
         return PtychoPINN_Lightning(
@@ -528,6 +634,21 @@ class HybridResnetGenerator:
                     execution_config,
                     "hybrid_resnet_bottleneck_layerscale_value",
                     None,
+                ),
+                "hybrid_encoder_fusion_mode": getattr(
+                    execution_config,
+                    "hybrid_encoder_fusion_mode",
+                    "baseline",
+                ),
+                "hybrid_encoder_layerscale_init": getattr(
+                    execution_config,
+                    "hybrid_encoder_layerscale_init",
+                    0.1,
+                ),
+                "hybrid_encoder_branch_gate_init": getattr(
+                    execution_config,
+                    "hybrid_encoder_branch_gate_init",
+                    0.1,
                 ),
             },
         )

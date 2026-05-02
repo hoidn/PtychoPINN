@@ -1676,6 +1676,73 @@ class TestChannelGridsizeAlignment:
         with pytest.raises(ValueError, match="hybrid_resnet_blocks"):
             setup_torch_configs(cfg)
 
+    def test_runner_torch_only_hybrid_encoder_fusion_mode_stays_out_of_canonical_model_config(
+        self, tmp_path
+    ):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_encoder_fusion_mode="branch_gated_layerscale",
+            hybrid_encoder_layerscale_init=0.05,
+            hybrid_encoder_branch_gate_init=0.2,
+        )
+        training_config, execution_config = setup_torch_configs(cfg)
+        assert execution_config.hybrid_encoder_fusion_mode == "branch_gated_layerscale"
+        assert execution_config.hybrid_encoder_layerscale_init == 0.05
+        assert execution_config.hybrid_encoder_branch_gate_init == 0.2
+        assert not hasattr(training_config.model, "hybrid_encoder_fusion_mode")
+        assert not hasattr(training_config.model, "hybrid_encoder_layerscale_init")
+        assert not hasattr(training_config.model, "hybrid_encoder_branch_gate_init")
+
+    def test_runner_default_hybrid_encoder_fusion_mode_is_baseline(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+        )
+        training_config, execution_config = setup_torch_configs(cfg)
+        assert execution_config.hybrid_encoder_fusion_mode == "baseline"
+        assert execution_config.hybrid_encoder_layerscale_init == 0.1
+        assert execution_config.hybrid_encoder_branch_gate_init == 0.1
+
+    def test_runner_rejects_invalid_hybrid_encoder_fusion_mode(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_encoder_fusion_mode="bogus",
+        )
+        with pytest.raises(ValueError, match="hybrid_encoder_fusion_mode"):
+            setup_torch_configs(cfg)
+
+    @pytest.mark.parametrize("bad_value", [0.0, -1.0, math.inf, math.nan])
+    def test_runner_rejects_invalid_hybrid_encoder_layerscale_init(self, tmp_path, bad_value):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_encoder_layerscale_init=bad_value,
+        )
+        with pytest.raises(ValueError, match="hybrid_encoder_layerscale_init"):
+            setup_torch_configs(cfg)
+
+    @pytest.mark.parametrize("bad_value", [0.0, -1.0, math.inf, math.nan])
+    def test_runner_rejects_invalid_hybrid_encoder_branch_gate_init(self, tmp_path, bad_value):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_encoder_branch_gate_init=bad_value,
+        )
+        with pytest.raises(ValueError, match="hybrid_encoder_branch_gate_init"):
+            setup_torch_configs(cfg)
+
     def test_runner_torch_only_spectral_bottleneck_fields_stay_out_of_model_config(self, tmp_path):
         cfg = TorchRunnerConfig(
             train_npz=tmp_path / "train.npz",
@@ -1932,6 +1999,41 @@ class TestArchitecturePropagation:
         assert captured["overrides"]["hybrid_encoder_conv_hidden_scale"] == 0.5
         assert captured["overrides"]["hybrid_encoder_spectral_hidden_scale"] == 2.0
         assert captured["overrides"]["hybrid_resnet_blocks"] == 8
+
+    def test_workflow_forwards_hybrid_encoder_fusion_mode_to_factory(self, monkeypatch, tmp_path):
+        from pathlib import Path
+        from ptycho_torch.workflows import components
+        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+
+        cfg = TrainingConfig(
+            model=ModelConfig(N=64, gridsize=1, architecture="hybrid_resnet"),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            output_dir=tmp_path,
+            backend="pytorch",
+            n_groups=4,
+        )
+        exec_cfg = PyTorchExecutionConfig(
+            hybrid_encoder_fusion_mode="branch_gated_layerscale",
+            hybrid_encoder_layerscale_init=0.05,
+            hybrid_encoder_branch_gate_init=0.2,
+        )
+        captured = {}
+
+        def spy_create_payload(*args, **kwargs):
+            captured["overrides"] = kwargs["overrides"]
+            raise RuntimeError("stop")
+
+        monkeypatch.setattr("ptycho_torch.config_factory.create_training_payload", spy_create_payload)
+        with pytest.raises(RuntimeError, match="stop"):
+            components._train_with_lightning(
+                train_container=object(),
+                test_container=None,
+                config=cfg,
+                execution_config=exec_cfg,
+            )
+        assert captured["overrides"]["hybrid_encoder_fusion_mode"] == "branch_gated_layerscale"
+        assert captured["overrides"]["hybrid_encoder_layerscale_init"] == 0.05
+        assert captured["overrides"]["hybrid_encoder_branch_gate_init"] == 0.2
 
     def test_workflow_forwards_skip_style_to_factory(self, monkeypatch, tmp_path):
         from pathlib import Path

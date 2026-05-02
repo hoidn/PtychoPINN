@@ -246,6 +246,18 @@ def _build_generator_module_from_config(
                 "hybrid_resnet_bottleneck_layerscale_value",
                 getattr(model_config, "hybrid_resnet_bottleneck_layerscale_value", None),
             ),
+            encoder_fusion_mode=generator_overrides.get(
+                "hybrid_encoder_fusion_mode",
+                getattr(model_config, "hybrid_encoder_fusion_mode", "baseline"),
+            ),
+            encoder_layerscale_init=generator_overrides.get(
+                "hybrid_encoder_layerscale_init",
+                getattr(model_config, "hybrid_encoder_layerscale_init", 0.1),
+            ),
+            encoder_branch_gate_init=generator_overrides.get(
+                "hybrid_encoder_branch_gate_init",
+                getattr(model_config, "hybrid_encoder_branch_gate_init", 0.1),
+            ),
         )
 
     if architecture == "spectral_resnet_bottleneck_net":

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-02T08:30:00Z",
+  "last_updated_utc": "2026-05-02T11:30:00Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -419,6 +419,32 @@
         "stage A-E hybrid_resnet mode/skip/width candidates"
       ],
       "interpretation": "Legacy architecture-search context only. It is represented here so all completed ablation work remains discoverable, but it does not replace the current Lines128 paper bundle or CNS paper bundle."
+    },
+    {
+      "family_id": "cdi_lines128_hybrid_resnet_encoder_fusion_variants",
+      "task": "cdi",
+      "fixed_contract": "cdi_lines128_seed3",
+      "changed_factors": [
+        "encoder fusion mode (per-block LayerScale)",
+        "encoder fusion mode (per-block branch gates)",
+        "encoder fusion mode (per-block branch gates + LayerScale)"
+      ],
+      "completed_items": [
+        "2026-04-21-hybrid-resnet-encoder-fusion-variants"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_hybrid_resnet_encoder_fusion_variants_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants"
+      ],
+      "rows": [
+        "pinn_hybrid_resnet",
+        "pinn_hybrid_resnet_encoder_layerscale",
+        "pinn_hybrid_resnet_encoder_branch_gated",
+        "pinn_hybrid_resnet_encoder_branch_gated_layerscale"
+      ],
+      "interpretation": "Per-block encoder LayerScale, per-block branch gates, and the combined per-block variant tested on the same Lines128 CDI contract; outcomes summarized in the durable summary. Decision-support only; the completed six-row Lines128 CDI bundle remains the unchanged headline authority. Shared-scope encoder scalars remain a distinct future architecture axis and are not represented here."
     }
   ],
   "maintenance_rules": [

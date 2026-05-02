@@ -185,6 +185,10 @@ class TorchRunnerConfig:
     hybrid_skip_style: str = "add"
     hybrid_resnet_bottleneck_layerscale_mode: str = "learned"
     hybrid_resnet_bottleneck_layerscale_value: Optional[float] = None
+    # Encoder-fusion controls (per-block scalars; Torch-only).
+    hybrid_encoder_fusion_mode: str = "baseline"
+    hybrid_encoder_layerscale_init: float = 0.1
+    hybrid_encoder_branch_gate_init: float = 0.1
     spectral_bottleneck_blocks: int = 6
     spectral_bottleneck_modes: int = 12
     spectral_bottleneck_share_weights: bool = True
@@ -298,6 +302,12 @@ def _build_runner_cli_argv(cfg: TorchRunnerConfig) -> List[str]:
             "--hybrid-skip-style", str(cfg.hybrid_skip_style),
             "--hybrid-resnet-bottleneck-layerscale-mode",
             str(cfg.hybrid_resnet_bottleneck_layerscale_mode),
+            "--hybrid-encoder-fusion-mode",
+            str(cfg.hybrid_encoder_fusion_mode),
+            "--hybrid-encoder-layerscale-init",
+            str(cfg.hybrid_encoder_layerscale_init),
+            "--hybrid-encoder-branch-gate-init",
+            str(cfg.hybrid_encoder_branch_gate_init),
             "--spectral-bottleneck-blocks", str(cfg.spectral_bottleneck_blocks),
             "--spectral-bottleneck-modes", str(cfg.spectral_bottleneck_modes),
             "--spectral-bottleneck-gate-init", str(cfg.spectral_bottleneck_gate_init),
@@ -903,6 +913,34 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
                     "--torch-resnet-width must be divisible by 4 so the CycleGAN "
                     f"upsamplers produce integer channel sizes (got {cfg.resnet_width})."
                 )
+        valid_encoder_fusion_modes = {
+            "baseline",
+            "layerscale",
+            "branch_gated",
+            "branch_gated_layerscale",
+        }
+        if cfg.hybrid_encoder_fusion_mode not in valid_encoder_fusion_modes:
+            raise ValueError(
+                "hybrid_encoder_fusion_mode must be one of "
+                f"{sorted(valid_encoder_fusion_modes)} "
+                f"(got {cfg.hybrid_encoder_fusion_mode!r})."
+            )
+        if (
+            not math.isfinite(float(cfg.hybrid_encoder_layerscale_init))
+            or float(cfg.hybrid_encoder_layerscale_init) <= 0.0
+        ):
+            raise ValueError(
+                "hybrid_encoder_layerscale_init must be finite and > 0 "
+                f"(got {cfg.hybrid_encoder_layerscale_init})."
+            )
+        if (
+            not math.isfinite(float(cfg.hybrid_encoder_branch_gate_init))
+            or float(cfg.hybrid_encoder_branch_gate_init) <= 0.0
+        ):
+            raise ValueError(
+                "hybrid_encoder_branch_gate_init must be finite and > 0 "
+                f"(got {cfg.hybrid_encoder_branch_gate_init})."
+            )
     if cfg.architecture in {
         "spectral_resnet_bottleneck_net",
         "spectral_resnet_bottleneck_linear_decoder",
@@ -1007,6 +1045,9 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         hybrid_skip_style=cfg.hybrid_skip_style,
         hybrid_resnet_bottleneck_layerscale_mode=cfg.hybrid_resnet_bottleneck_layerscale_mode,
         hybrid_resnet_bottleneck_layerscale_value=cfg.hybrid_resnet_bottleneck_layerscale_value,
+        hybrid_encoder_fusion_mode=cfg.hybrid_encoder_fusion_mode,
+        hybrid_encoder_layerscale_init=cfg.hybrid_encoder_layerscale_init,
+        hybrid_encoder_branch_gate_init=cfg.hybrid_encoder_branch_gate_init,
         spectral_bottleneck_blocks=cfg.spectral_bottleneck_blocks,
         spectral_bottleneck_modes=cfg.spectral_bottleneck_modes,
         spectral_bottleneck_share_weights=cfg.spectral_bottleneck_share_weights,
@@ -1874,6 +1915,31 @@ def main(argv=None) -> None:
         help="Shared bottleneck residual-multiplier mode for hybrid_resnet.",
     )
     parser.add_argument(
+        "--hybrid-encoder-fusion-mode",
+        type=str,
+        default="baseline",
+        choices=["baseline", "layerscale", "branch_gated", "branch_gated_layerscale"],
+        help=(
+            "Per-block hybrid_resnet encoder-fusion control. "
+            "'baseline' is x + GELU(spectral + conv); "
+            "'layerscale' adds a per-block outer scalar on the fused update; "
+            "'branch_gated' adds per-block scalars on each branch; "
+            "'branch_gated_layerscale' combines both."
+        ),
+    )
+    parser.add_argument(
+        "--hybrid-encoder-layerscale-init",
+        type=float,
+        default=0.1,
+        help="Initial value for the per-block encoder LayerScale scalar (must be > 0).",
+    )
+    parser.add_argument(
+        "--hybrid-encoder-branch-gate-init",
+        type=float,
+        default=0.1,
+        help="Initial value for per-block encoder spectral/local branch gates (must be > 0).",
+    )
+    parser.add_argument(
         "--hybrid-resnet-bottleneck-layerscale-value",
         type=float,
         default=None,
@@ -2031,6 +2097,9 @@ def main(argv=None) -> None:
         hybrid_skip_style=args.hybrid_skip_style,
         hybrid_resnet_bottleneck_layerscale_mode=args.hybrid_resnet_bottleneck_layerscale_mode,
         hybrid_resnet_bottleneck_layerscale_value=args.hybrid_resnet_bottleneck_layerscale_value,
+        hybrid_encoder_fusion_mode=args.hybrid_encoder_fusion_mode,
+        hybrid_encoder_layerscale_init=args.hybrid_encoder_layerscale_init,
+        hybrid_encoder_branch_gate_init=args.hybrid_encoder_branch_gate_init,
         spectral_bottleneck_blocks=args.spectral_bottleneck_blocks,
         spectral_bottleneck_modes=args.spectral_bottleneck_modes,
         spectral_bottleneck_share_weights=args.spectral_bottleneck_share_weights,

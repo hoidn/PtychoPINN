@@ -558,6 +558,33 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
     authority
   - does not promote any fresh row into manuscript claim territory
 
+### `grid-lines-n128-hybrid-resnet-encoder-fusion-variants`
+
+- Purpose: run a bounded same-contract CDI ablation over Hybrid ResNet
+  encoder-fusion controls (per-block LayerScale and per-block branch gates)
+  without reopening the six-row paper bundle.
+- Status: completed on `2026-05-02`; the output remains decision-support only
+  with no paper-grade promotion.
+- Plan:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/execution_plan.md`
+- Summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_hybrid_resnet_encoder_fusion_variants_summary.md`
+- Artifact root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/`
+- Reused anchor:
+  - `pinn_hybrid_resnet`
+- Fresh rows (per-block scalars only):
+  - `pinn_hybrid_resnet_encoder_layerscale`
+  - `pinn_hybrid_resnet_encoder_branch_gated`
+  - `pinn_hybrid_resnet_encoder_branch_gated_layerscale`
+- Optional deferred row:
+  - `pinn_hybrid_resnet_encoder_fusion_norm`
+- Boundary:
+  - CDI-only decision-support evidence
+  - does not replace the paper-grade `pinn_hybrid_resnet` anchor
+  - does not replace the six-row `lines128` CDI headline bundle
+  - shared-across-encoder-block scalar placement is a distinct future architecture axis
+
 ### `grid-lines-n128-hybrid-resnet-skip-residual-ablation`
 
 - Purpose: run a bounded same-contract CDI ablation over Hybrid decoder

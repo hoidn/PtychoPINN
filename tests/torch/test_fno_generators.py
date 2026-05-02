@@ -698,6 +698,169 @@ class TestHybridResnetGenerator:
         block = HybridResnetEncoderBlock(channels=16, modes=4)
         assert block.local_conv.padding_mode == "reflect"
 
+    def test_hybrid_resnet_encoder_baseline_has_no_fusion_scalars(self):
+        block = HybridResnetEncoderBlock(channels=16, modes=4)
+        assert block.encoder_fusion_mode == "baseline"
+        assert block.encoder_layerscale is None
+        assert block.spectral_branch_gate is None
+        assert block.local_branch_gate is None
+
+    def test_hybrid_resnet_encoder_layerscale_mode_initializes_per_block_scalar(self):
+        block = HybridResnetEncoderBlock(
+            channels=16, modes=4, encoder_fusion_mode="layerscale"
+        )
+        assert block.encoder_layerscale is not None
+        assert block.encoder_layerscale.shape == (1,)
+        assert float(block.encoder_layerscale.item()) == pytest.approx(0.1)
+        assert float(block.encoder_layerscale.item()) > 0.0
+        assert block.spectral_branch_gate is None
+        assert block.local_branch_gate is None
+
+    def test_hybrid_resnet_encoder_branch_gated_mode_initializes_per_block_gates(self):
+        block = HybridResnetEncoderBlock(
+            channels=16, modes=4, encoder_fusion_mode="branch_gated"
+        )
+        assert block.encoder_layerscale is None
+        assert block.spectral_branch_gate is not None
+        assert block.local_branch_gate is not None
+        assert float(block.spectral_branch_gate.item()) == pytest.approx(0.1)
+        assert float(block.local_branch_gate.item()) == pytest.approx(0.1)
+        assert float(block.spectral_branch_gate.item()) > 0.0
+        assert float(block.local_branch_gate.item()) > 0.0
+
+    def test_hybrid_resnet_encoder_branch_gated_layerscale_has_all_three_per_block_scalars(self):
+        block = HybridResnetEncoderBlock(
+            channels=16, modes=4, encoder_fusion_mode="branch_gated_layerscale"
+        )
+        assert block.encoder_layerscale is not None
+        assert block.spectral_branch_gate is not None
+        assert block.local_branch_gate is not None
+        for scalar in (
+            block.encoder_layerscale,
+            block.spectral_branch_gate,
+            block.local_branch_gate,
+        ):
+            assert float(scalar.item()) == pytest.approx(0.1)
+            assert float(scalar.item()) > 0.0
+
+    @pytest.mark.parametrize(
+        "fusion_mode",
+        ["baseline", "layerscale", "branch_gated", "branch_gated_layerscale"],
+    )
+    def test_hybrid_resnet_encoder_fusion_mode_preserves_shape(self, fusion_mode):
+        torch.manual_seed(11)
+        block = HybridResnetEncoderBlock(
+            channels=16, modes=4, encoder_fusion_mode=fusion_mode
+        )
+        x = torch.randn(2, 16, 32, 32)
+        y = block(x)
+        assert y.shape == x.shape
+
+    @pytest.mark.parametrize(
+        "fusion_mode",
+        ["baseline", "layerscale", "branch_gated", "branch_gated_layerscale"],
+    )
+    def test_hybrid_resnet_encoder_fusion_mode_preserves_identity_residual(self, fusion_mode):
+        """The identity residual path x_next = x + (...) must hold for all encoder fusion modes."""
+        torch.manual_seed(13)
+        block = HybridResnetEncoderBlock(
+            channels=16, modes=4, encoder_fusion_mode=fusion_mode
+        )
+        block.eval()
+        # Zero out all branch parameters so the update path emits a zero contribution
+        # and we can confirm the residual passthrough.
+        with torch.no_grad():
+            for p in block.spectral.parameters():
+                p.zero_()
+            for p in block.local_conv.parameters():
+                p.zero_()
+            # spectral_in / spectral_out / conv_in / conv_out are nn.Identity unless widths differ;
+            # with channels==hidden==16 there are no extra projections to zero.
+        x = torch.randn(2, 16, 32, 32)
+        y = block(x)
+        # GELU(0) = 0, so the update is zero and y == x.
+        assert torch.allclose(y, x, atol=1e-6, rtol=1e-6)
+
+    def test_hybrid_resnet_encoder_invalid_fusion_mode_raises(self):
+        with pytest.raises(ValueError, match="encoder_fusion_mode"):
+            HybridResnetEncoderBlock(channels=16, modes=4, encoder_fusion_mode="bogus")
+
+    @pytest.mark.parametrize("bad_value", [0.0, -0.1, math.inf, math.nan])
+    def test_hybrid_resnet_encoder_invalid_layerscale_init_raises(self, bad_value):
+        with pytest.raises(ValueError, match="encoder_layerscale_init"):
+            HybridResnetEncoderBlock(
+                channels=16,
+                modes=4,
+                encoder_fusion_mode="layerscale",
+                encoder_layerscale_init=bad_value,
+            )
+
+    @pytest.mark.parametrize("bad_value", [0.0, -0.1, math.inf, math.nan])
+    def test_hybrid_resnet_encoder_invalid_branch_gate_init_raises(self, bad_value):
+        with pytest.raises(ValueError, match="encoder_branch_gate_init"):
+            HybridResnetEncoderBlock(
+                channels=16,
+                modes=4,
+                encoder_fusion_mode="branch_gated",
+                encoder_branch_gate_init=bad_value,
+            )
+
+    @pytest.mark.parametrize(
+        "fusion_mode",
+        ["layerscale", "branch_gated", "branch_gated_layerscale"],
+    )
+    def test_hybrid_resnet_module_propagates_fusion_mode_per_block(self, fusion_mode):
+        model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            encoder_fusion_mode=fusion_mode,
+        )
+        assert model.encoder_fusion_mode == fusion_mode
+        for block in model.encoder_blocks:
+            assert block.encoder_fusion_mode == fusion_mode
+            if fusion_mode in {"layerscale", "branch_gated_layerscale"}:
+                assert block.encoder_layerscale is not None
+            else:
+                assert block.encoder_layerscale is None
+            if fusion_mode in {"branch_gated", "branch_gated_layerscale"}:
+                assert block.spectral_branch_gate is not None
+                assert block.local_branch_gate is not None
+            else:
+                assert block.spectral_branch_gate is None
+                assert block.local_branch_gate is None
+
+    def test_hybrid_resnet_module_invalid_fusion_mode_raises(self):
+        with pytest.raises(ValueError, match="encoder_fusion_mode"):
+            HybridResnetGeneratorModule(
+                in_channels=1,
+                out_channels=2,
+                hidden_channels=16,
+                n_blocks=3,
+                modes=4,
+                C=4,
+                encoder_fusion_mode="bogus",
+            )
+
+    def test_hybrid_resnet_module_default_fusion_mode_is_baseline(self):
+        """Default behavior is unchanged: no encoder-fusion scalars under default construction."""
+        model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+        )
+        assert model.encoder_fusion_mode == "baseline"
+        for block in model.encoder_blocks:
+            assert block.encoder_layerscale is None
+            assert block.spectral_branch_gate is None
+            assert block.local_branch_gate is None
+
 
 class TestGeneratorRegistry:
     """Tests for generator registry with FNO/Hybrid generators."""
