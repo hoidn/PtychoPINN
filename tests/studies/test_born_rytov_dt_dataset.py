@@ -135,6 +135,41 @@ def test_dry_run_writes_manifest_skeleton_and_exact_command(tmp_path):
     assert manifest["extra"]["generation_mode"] == "dry_run_manifest"
 
 
+def test_dry_run_missing_operator_validation_writes_not_ready_artifacts(tmp_path):
+    output_root = tmp_path / "dryrun_missing_operator"
+    missing_operator = tmp_path / "does-not-exist.json"
+    cmd = [
+        "--dry-run-manifest",
+        "--output-root",
+        str(output_root),
+        "--operator-validation",
+        str(missing_operator),
+    ]
+    result = subprocess.run(
+        ["python", "-m", GENERATOR_MODULE, *cmd],
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    summary_path = output_root / "dry_run_summary.json"
+    manifest_path = output_root / "dry_run_manifest.json"
+    assert result.returncode == 2
+    assert summary_path.exists()
+    assert manifest_path.exists()
+
+    summary = json.loads(summary_path.read_text())
+    manifest = json.loads(manifest_path.read_text())
+
+    assert summary["verdict"] == "not_ready"
+    assert summary["operator_authority_block"] is None
+    assert summary["blocking_issues"]
+    assert "operator validation artifact not found" in summary["blocking_issues"][0]
+    assert manifest["extra"]["verdict"] == "not_ready"
+    assert manifest["extra"]["blocking_issues"]
+
+
 def test_live_generation_reproducible_across_fresh_processes(tmp_path):
     output_root = tmp_path / "live"
     cmd = [

@@ -9,7 +9,7 @@
     "backlog_item": "2026-04-29-brdt-dataset-preflight",
     "generation_command": "python -m scripts.studies.born_rytov_dt.generate_brdt_dataset --dry-run-manifest",
     "git_dirty": true,
-    "git_sha": "ed3cde172b3dff6e806bc393364bbbd2e0eddc8c",
+    "git_sha": "d1465bd0db3f57679f7df875d285787a811ef0b5",
     "name": "brdt128_sparse_fullview_preflight",
     "output_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight",
     "tier": "feasibility"
@@ -24,6 +24,7 @@
   },
   "extra": {
     "array_generation_skipped": true,
+    "blocking_issues": [],
     "dry_run_summary_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight/dry_run_summary.json",
     "estimated_artifacts_only": true,
     "generation_mode": "dry_run_manifest",

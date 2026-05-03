@@ -135,6 +135,13 @@ schema with `normalization: null`, the same requested
 `extra.generation_mode: dry_run_manifest` so downstream tooling can
 consume a concrete dry-run contract rather than inferring one.
 
+When the operator-validation artifact is missing or unreadable, the
+dry-run path still emits both files but records the failure under
+`blocking_issues` (in both the summary and `manifest.extra`) and
+returns `verdict: not_ready` with a non-zero exit code, so missing
+dependency / storage / path issues are surfaced as a concrete
+machine-readable failure rather than an opaque crash.
+
 ## Reproducing The Smoke Dataset
 
 ```bash

@@ -261,14 +261,20 @@ def _write_split_h5(
 def write_dry_run(
     *,
     output_root: Path,
-    operator_authority: Dict[str, Any],
+    operator_authority: Optional[Dict[str, Any]],
     split_seed: int,
     counts: dc.SplitCounts,
     noise_sigma: float,
     operator_validation_path: Path,
     generation_command: str,
+    blocking_issues: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    mismatches = dc.validate_geometry_against_operator_authority(operator_authority)
+    blocking_issues = [] if blocking_issues is None else list(blocking_issues)
+    mismatches = (
+        dc.validate_geometry_against_operator_authority(operator_authority)
+        if operator_authority is not None
+        else []
+    )
     seeds = dc.deterministic_object_seeds(counts, split_seed=split_seed)
     families = dc.assign_phantom_families(counts, split_seed=split_seed)
     estimated_paths = {
@@ -276,7 +282,7 @@ def write_dry_run(
         for s in ("train", "val", "test")
     }
     sha, dirty = _git_revision(REPO_ROOT)
-    verdict = "ready_for_smoke_generation" if not mismatches else "not_ready"
+    verdict = "ready_for_smoke_generation" if not mismatches and not blocking_issues else "not_ready"
     manifest_skeleton_path = output_root / dc.DRY_RUN_MANIFEST_NAME
     summary_path = output_root / "dry_run_summary.json"
     manifest = dc.build_manifest(
@@ -299,6 +305,7 @@ def write_dry_run(
             "estimated_artifacts_only": True,
             "generation_mode": "dry_run_manifest",
             "verdict": verdict,
+            "blocking_issues": blocking_issues,
             "dry_run_summary_path": str(summary_path),
         },
     )
@@ -308,6 +315,7 @@ def write_dry_run(
         "mode": "dry_run_manifest",
         "operator_authority_path": str(operator_validation_path),
         "operator_authority_block": operator_authority,
+        "blocking_issues": blocking_issues,
         "geometry_mismatches": mismatches,
         "requested_geometry": {
             "grid_size": dc.LOCKED_GRID_SIZE,
@@ -497,10 +505,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     log_dir.mkdir(parents=True, exist_ok=True)
 
     counts = dc.SplitCounts(train=args.train_count, val=args.val_count, test=args.test_count)
-    operator_authority = load_operator_authority(args.operator_validation)
     generation_command = _generation_command(argv)
 
     if args.dry_run_manifest:
+        operator_authority: Optional[Dict[str, Any]] = None
+        blocking_issues: List[str] = []
+        try:
+            operator_authority = load_operator_authority(args.operator_validation)
+        except (FileNotFoundError, ValueError, json.JSONDecodeError, OSError) as exc:
+            blocking_issues.append(str(exc))
         summary = write_dry_run(
             output_root=output_root,
             operator_authority=operator_authority,
@@ -509,11 +522,13 @@ def main(argv: Optional[List[str]] = None) -> int:
             noise_sigma=args.noise_sigma,
             operator_validation_path=args.operator_validation,
             generation_command=generation_command,
+            blocking_issues=blocking_issues,
         )
         print(f"verdict: {summary['verdict']}", file=sys.stderr)
         print(f"wrote {output_root / 'dry_run_summary.json'}", file=sys.stderr)
         return 0 if summary["verdict"] == "ready_for_smoke_generation" else 2
 
+    operator_authority = load_operator_authority(args.operator_validation)
     started = time.perf_counter()
     print(f"[{datetime.now(timezone.utc).isoformat()}] generating BRDT smoke dataset", file=sys.stderr)
     result = run_live_generation(

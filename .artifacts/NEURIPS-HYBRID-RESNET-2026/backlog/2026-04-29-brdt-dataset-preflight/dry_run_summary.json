@@ -1,4 +1,5 @@
 {
+  "blocking_issues": [],
   "claim_boundary": "Feasibility-only smoke dataset. Adapters and four-row preflight remain out of scope for this item.",
   "environment": {
     "h5py": "3.14.0",
@@ -16,7 +17,7 @@
   "generation_command": "python -m scripts.studies.born_rytov_dt.generate_brdt_dataset --dry-run-manifest",
   "geometry_mismatches": [],
   "git_dirty": true,
-  "git_sha": "ed3cde172b3dff6e806bc393364bbbd2e0eddc8c",
+  "git_sha": "d1465bd0db3f57679f7df875d285787a811ef0b5",
   "manifest_skeleton_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight/dry_run_manifest.json",
   "mode": "dry_run_manifest",
   "noise_sigma_physical_units": 0.001,
