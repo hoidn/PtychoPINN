@@ -18,9 +18,14 @@ from __future__ import annotations
 import json
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, TypeVar
 
 import numpy as np
+
+# Array-like type variable used by the normalization helpers so they can
+# operate on both ``numpy.ndarray`` and ``torch.Tensor`` inputs without
+# pulling torch into this contract module.
+ArrayLike = TypeVar("ArrayLike")
 
 # Locked smoke-dataset geometry, copied from the operator-validation
 # contract. Downstream items must consume these values rather than
@@ -117,14 +122,23 @@ def compute_train_normalization(q_train: np.ndarray) -> NormalizationStats:
     )
 
 
-def normalize_q(q: np.ndarray, stats: NormalizationStats) -> np.ndarray:
-    """Apply ``(q - mean) / std`` using train-only stats."""
-    return (q - stats.mean) / stats.safe_std
+def normalize_q(q: ArrayLike, stats: NormalizationStats) -> ArrayLike:
+    """Apply ``(q - mean) / std`` using train-only stats.
+
+    Accepts any array-like that supports scalar arithmetic (``numpy.ndarray``
+    or ``torch.Tensor``) so the normalization rule lives in exactly one
+    place across the data pipeline and the training stack.
+    """
+    return (q - stats.mean) / stats.safe_std  # type: ignore[operator,return-value]
 
 
-def unnormalize_q(q_norm: np.ndarray, stats: NormalizationStats) -> np.ndarray:
-    """Invert ``normalize_q``: ``q_norm * std + mean``."""
-    return q_norm * stats.safe_std + stats.mean
+def unnormalize_q(q_norm: ArrayLike, stats: NormalizationStats) -> ArrayLike:
+    """Invert ``normalize_q``: ``q_norm * std + mean``.
+
+    Accepts any array-like that supports scalar arithmetic (``numpy.ndarray``
+    or ``torch.Tensor``).
+    """
+    return q_norm * stats.safe_std + stats.mean  # type: ignore[operator,return-value]
 
 
 @dataclass(frozen=True)

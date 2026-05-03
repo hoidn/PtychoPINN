@@ -245,7 +245,7 @@ class BRDTModelAdapter(nn.Module):
                 fno_modes=int(self.arch_kwargs.get("fno_modes", 8)),
                 fno_blocks=int(self.arch_kwargs.get("fno_blocks", 4)),
             )
-        elif architecture in ("hybrid_resnet", "sru_net"):
+        elif architecture == "hybrid_resnet":
             downsample_steps = int(self.arch_kwargs.get("downsample_steps", 1))
             body = _PadCropWrapper(
                 _BRDTHybridResnet(

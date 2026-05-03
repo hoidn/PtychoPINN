@@ -90,8 +90,27 @@ def test_default_roster_hybrid_label_sru_net():
     )
     by_id = {r.row_id: r for r in rows}
     assert "sru_net" in by_id
+    # Visible identity (row_id / paper_label) is "sru_net" / "SRU-Net";
+    # internal architecture (model) stays as the actual adapter body
+    # (``hybrid_resnet``). The execution-plan contract REQUIRES these
+    # two fields to be distinct so the visible label cannot drift into
+    # the internal architecture identifier.
     assert by_id["sru_net"].paper_label == "SRU-Net"
-    assert by_id["sru_net"].model == "sru_net"
+    assert by_id["sru_net"].model == run_config.HYBRID_FAMILY_MODEL == "hybrid_resnet"
+
+
+def test_row_config_rejects_sru_net_as_internal_model():
+    # ``sru_net`` is a visible paper label only; setting it as the
+    # internal architecture id (``model``) must fail.
+    with pytest.raises(ValueError, match="unsupported model"):
+        run_config.RowConfig(
+            row_id="sru_net",
+            model="sru_net",
+            training=run_config.DEFAULT_TRAINING_LABEL,
+            input_mode="born_init_image",
+            dataset_id="d",
+            operator_version="o",
+        )
 
 
 def test_row_rejects_direct_sinogram_input():
@@ -410,3 +429,119 @@ def test_evaluate_classical_emits_feasibility_row(tmp_path: Path):
     assert result["row_status"] == "feasibility_only"
     summary = json.loads((output_root / "eval_summary.json").read_text())
     assert summary["row_id"] == "classical_born_backprop"
+    # Implementation review HIGH-1: successful classical evaluation
+    # MUST emit the durable adapter_contract.json alongside the
+    # per-run summary so the four-row preflight can consume one
+    # shared row schema regardless of which entrypoint produced it.
+    contract_path = output_root / "adapter_contract.json"
+    assert contract_path.exists(), "successful classical eval must emit adapter_contract.json"
+    payload = json.loads(contract_path.read_text())
+    assert payload["schema_version"] == reporting.ADAPTER_CONTRACT_SCHEMA_VERSION
+    selected = next(r for r in payload["rows"] if r["row_id"] == "classical_born_backprop")
+    assert selected["row_status"] == "feasibility_only"
+    assert "sanity_summary" in selected
+
+
+def test_evaluate_neural_success_emits_adapter_contract(tmp_path: Path):
+    if not SMOKE_MANIFEST_PATH.exists():
+        pytest.skip("BRDT smoke manifest missing")
+    output_root = tmp_path / "eval_neural"
+    result = evaluate.run_evaluation(
+        architecture="unet",
+        manifest_path=SMOKE_MANIFEST_PATH,
+        output_root=output_root,
+        split="val",
+        batch_size=2,
+        device_choice="cpu",
+        in_channels=1,
+        hybrid_label="hybrid_resnet",
+        dry_run=False,
+    )
+    assert result["row_status"] == "feasibility_only"
+    contract_path = output_root / "adapter_contract.json"
+    assert contract_path.exists(), "successful neural eval must emit adapter_contract.json"
+    payload = json.loads(contract_path.read_text())
+    selected = next(r for r in payload["rows"] if r["row_id"] == "unet")
+    assert selected["row_status"] == "feasibility_only"
+    assert selected["sanity_summary"]["row_id"] == "unet"
+    # Loss-contract snapshot from the training module must include the
+    # operator-input routing guard reference (centralized invariant).
+    assert "operator_input_routing_guard" in payload["loss_contract"]
+
+
+def test_train_classical_only_emits_adapter_contract(tmp_path: Path):
+    if not SMOKE_MANIFEST_PATH.exists():
+        pytest.skip("BRDT smoke manifest missing")
+    output_root = tmp_path / "train_classical"
+    result = train.run_training(
+        architecture="classical_born_backprop",
+        manifest_path=SMOKE_MANIFEST_PATH,
+        output_root=output_root,
+        epochs=1,
+        batch_size=2,
+        learning_rate=2e-4,
+        device_choice="cpu",
+        fast_dev_run=True,
+        in_channels=1,
+        hybrid_label="hybrid_resnet",
+    )
+    assert result["row_status"] == "feasibility_only"
+    contract_path = output_root / "adapter_contract.json"
+    assert contract_path.exists(), "successful classical-only train must emit adapter_contract.json"
+    payload = json.loads(contract_path.read_text())
+    selected = next(r for r in payload["rows"] if r["row_id"] == "classical_born_backprop")
+    assert selected["row_status"] == "feasibility_only"
+
+
+def test_evaluate_sru_net_surfaces_distinct_row(tmp_path: Path):
+    """``--architecture sru_net`` must not silently resolve to ``hybrid_resnet``.
+
+    Implementation review HIGH-2: with the previous fallback, requesting
+    ``sru_net`` while ``hybrid_label`` defaulted to ``hybrid_resnet``
+    silently produced the ``hybrid_resnet`` row. The roster now follows
+    the architecture choice so the requested visible row identity is
+    preserved end-to-end, while ``model`` stays as the internal
+    ``hybrid_resnet`` adapter body.
+    """
+    if not SMOKE_MANIFEST_PATH.exists():
+        pytest.skip("BRDT smoke manifest missing")
+    output_root = tmp_path / "eval_sru_dry"
+    result = evaluate.run_evaluation(
+        architecture="sru_net",
+        manifest_path=SMOKE_MANIFEST_PATH,
+        output_root=output_root,
+        split="val",
+        batch_size=2,
+        device_choice="cpu",
+        in_channels=1,
+        hybrid_label="hybrid_resnet",  # default — must NOT cause silent resolution
+        dry_run=True,
+    )
+    assert result["summary"]["row_id"] == "sru_net"
+    contract_path = Path(result["adapter_contract_path"])
+    payload = json.loads(contract_path.read_text())
+    row_ids = {r["row_id"] for r in payload["rows"]}
+    assert "sru_net" in row_ids and "hybrid_resnet" not in row_ids
+    sru_row = next(r for r in payload["rows"] if r["row_id"] == "sru_net")
+    assert sru_row["model"] == "hybrid_resnet"
+    assert sru_row["paper_label"] == "SRU-Net"
+
+
+def test_resolve_hybrid_label_architecture_is_authoritative():
+    """When ``architecture`` names a Hybrid-family row, it takes precedence.
+
+    The implementation-review HIGH-2 defect was that ``architecture="sru_net"``
+    silently fell back to the ``hybrid_resnet`` row when ``hybrid_label``
+    defaulted. The resolver now forces the roster row_id to match the
+    requested architecture so the visible row identity cannot drift.
+    For non-Hybrid-family architectures the ``hybrid_label`` flag still
+    controls how the Hybrid-family row is presented in the roster.
+    """
+    # Architecture override: the requested visible row wins.
+    assert train._resolve_hybrid_label("sru_net", "hybrid_resnet") == "sru_net"
+    assert train._resolve_hybrid_label("hybrid_resnet", "sru_net") == "hybrid_resnet"
+    assert evaluate._resolve_hybrid_label("sru_net", "hybrid_resnet") == "sru_net"
+    assert evaluate._resolve_hybrid_label("hybrid_resnet", "sru_net") == "hybrid_resnet"
+    # Non-Hybrid architecture: hybrid_label controls roster presentation.
+    assert train._resolve_hybrid_label("unet", "sru_net") == "sru_net"
+    assert train._resolve_hybrid_label("unet", "hybrid_resnet") == "hybrid_resnet"

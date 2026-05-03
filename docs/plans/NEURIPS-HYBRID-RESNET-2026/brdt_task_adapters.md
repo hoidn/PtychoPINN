@@ -56,8 +56,8 @@ Each row carries the locked metadata fields (see `RowConfig`):
 
 | Field | Purpose |
 | --- | --- |
-| `row_id` | unique identifier inside one table |
-| `model` | internal architecture ID (`classical_born_backprop`, `unet`, `fno_vanilla`, `hybrid_resnet`, `sru_net`) |
+| `row_id` | unique identifier inside one table; visible row identity (e.g. `sru_net`) |
+| `model` | internal architecture ID; one of `classical_born_backprop`, `unet`, `fno_vanilla`, `hybrid_resnet` |
 | `training` | training procedure label (e.g. `supervised + Born consistency`); never relabeled `PINN` for supervised+physics rows |
 | `input_mode` | first-contract value is always `born_init_image` |
 | `dataset_id` | canonical dataset name (e.g. `brdt128_sparse_fullview_preflight`) |
@@ -65,9 +65,16 @@ Each row carries the locked metadata fields (see `RowConfig`):
 | `row_status` | one of `ready`, `blocked`, `feasibility_only`, `completed`, `skipped` |
 | `paper_label` | visible label (e.g. `SRU-Net`); distinct from internal architecture ID |
 
-The visible label and internal architecture ID stay distinct: the
-Hybrid-family row may be presented as either `Hybrid ResNet` or
-`SRU-Net`, with the internal ID and adapter unchanged.
+The visible row identity and the internal architecture ID stay
+distinct: the Hybrid-family row may be presented as either
+`Hybrid ResNet` (`row_id="hybrid_resnet"`, `paper_label="Hybrid ResNet"`)
+or `SRU-Net` (`row_id="sru_net"`, `paper_label="SRU-Net"`), but the
+internal `model` field is **always** `hybrid_resnet` because the
+adapter body is identical across both presentations. ``sru_net`` is a
+visible row identifier (in `SUPPORTED_ROW_IDS`), NOT a member of
+`SUPPORTED_ARCHITECTURES`. The CLI ``--architecture sru_net`` selects
+the visible SRU-Net row directly; the architecture choice is
+authoritative for the row identity surfaced in the adapter contract.
 
 `run_config.required_row_fields()` is the durable surface the four-row
 preflight should consume.
@@ -100,18 +107,32 @@ owns the supervised + Born consistency loss with image, physics,
 relative-physics, TV, and positivity terms. Default weights live in
 `run_config.LossWeights` and match the candidate-lane design.
 
-The unnormalize-before-physics rule is enforced in exactly one place:
+The unnormalize-before-physics rule is enforced in exactly one place
+inside `BRDTTrainingModule.to_physical_q`, which routes the conversion
+through `dataset_contract.unnormalize_q` and runs the
+`dataset_contract.reject_normalized_q_to_operator` guard with a
+routing tag derived from the conversion path actually taken (so the
+guard is not invoked with a literal):
 
 ```python
-q_phys = self.to_physical_q(q_pred)         # mirrors dataset_contract.unnormalize_q
-dc.reject_normalized_q_to_operator("physical_q")  # hard guard
-y_pred = self.operator(q_phys)
+def to_physical_q(self, q_pred):
+    routing = "normalized_q"           # default to unsafe
+    if self.output_space == "normalized_q":
+        q_phys = dc.unnormalize_q(q_pred, self.normalization)
+        routing = "physical_q"         # set ONLY after a successful conversion
+    elif self.output_space == "physical_q":
+        q_phys = q_pred
+        routing = "physical_q"
+    dc.reject_normalized_q_to_operator(routing)
+    return q_phys
 ```
 
-`reject_normalized_q_to_operator(...)` raises `ValueError` for any
-routing other than `"physical_q"`, so a future call site that tries to
-feed normalized `q` to the operator surfaces a contract violation
-rather than silent units drift.
+Callers (`compute_loss`, `train.py`, `evaluate.py`) MUST go through
+`to_physical_q` before invoking the operator; the guard then raises
+`ValueError` if the conversion path failed to mark the tensor as
+`physical_q`. The mean/std arithmetic itself is no longer duplicated
+in this module — both the data-loading path and the training path now
+share the single `dataset_contract.unnormalize_q` implementation.
 
 The default training label is `supervised + Born consistency`. Rows
 that pair supervised image loss with Born consistency are never
@@ -161,13 +182,24 @@ python -m scripts.studies.born_rytov_dt.evaluate \
 
 Both entrypoints accept `--architecture` from the bounded roster
 (`classical_born_backprop`, `unet`, `fno_vanilla`, `hybrid_resnet`,
-`sru_net`), the dataset manifest path, and an output root. They emit:
+`sru_net`), the dataset manifest path, and an output root. Every
+successful invocation — neural training, classical-only training,
+neural evaluation, classical evaluation, and `--dry-run` — emits:
 
 - `invocation.json` and `invocation.sh` provenance,
 - `adapter_contract.json` (durable adapter contract for downstream
   consumers; schema version `brdt_adapter_contract_v1`),
 - `eval_summary.json` (per-run sanity summary with `row_status` and
-  loss/eval metrics).
+  loss/eval metrics; omitted for the `--dry-run` path which only
+  validates the contract surface).
+
+The `adapter_contract.json` payload always carries the full bounded
+roster; the row matching the executed `--architecture` is annotated
+with the per-run `sanity_summary` and the resolved `row_status`. Both
+entrypoints treat `--architecture` as authoritative for the visible
+row identity: passing `--architecture sru_net` surfaces the SRU-Net
+row regardless of `--hybrid-label` (no silent fallback to the
+`hybrid_resnet` row).
 
 ## Reproduction
 

@@ -95,22 +95,35 @@ class BRDTTrainingModule(nn.Module):
             )
         self.model = model
         self.operator = operator
-        self._mean = float(normalization.mean)
-        self._std = float(normalization.safe_std)
+        self.normalization = normalization
         self.weights = weights or LossWeights()
         self.output_space = output_space
 
     def to_physical_q(self, q_pred: torch.Tensor) -> torch.Tensor:
-        """Unnormalize the model output before invoking the operator.
+        """Convert ``q_pred`` to physical q and verify the operator-input contract.
 
-        This routes through the same arithmetic as
+        Routes the unnormalize arithmetic through
         :func:`scripts.studies.born_rytov_dt.dataset_contract.unnormalize_q`
-        and is the only place in the BRDT training stack that converts
-        normalized predictions into physical q.
+        (the single source of truth for ``q_norm * std + mean``) and runs
+        :func:`scripts.studies.born_rytov_dt.dataset_contract.reject_normalized_q_to_operator`
+        with a routing tag derived from the conversion path actually
+        taken. Callers MUST use this helper before invoking
+        :attr:`operator`; the helper centralizes the unnormalize-before-physics
+        rule so future call sites cannot bypass the guard with a literal.
         """
-        if self.output_space == "physical_q":
-            return q_pred
-        return q_pred * self._std + self._mean
+        # Default routing is the unsafe value; only successful conversion
+        # paths flip it to "physical_q" so the guard cannot be vacuous.
+        routing = "normalized_q"
+        if self.output_space == "normalized_q":
+            q_phys = dc.unnormalize_q(q_pred, self.normalization)
+            routing = "physical_q"
+        elif self.output_space == "physical_q":
+            q_phys = q_pred
+            routing = "physical_q"
+        else:  # pragma: no cover - guarded in __init__
+            q_phys = q_pred
+        dc.reject_normalized_q_to_operator(routing)
+        return q_phys
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
@@ -148,10 +161,11 @@ class BRDTTrainingModule(nn.Module):
             target_image = q_true_physical
         image_loss = (q_pred - target_image).abs().mean()
 
-        # Physics loss: enforce contract by routing the operator input
-        # explicitly through the dataset-contract guard.
+        # Physics loss. ``to_physical_q`` already routes through
+        # ``dataset_contract.unnormalize_q`` and the
+        # ``reject_normalized_q_to_operator`` guard with a computed
+        # routing tag, so the operator only ever sees physical q.
         q_phys = self.to_physical_q(q_pred)
-        dc.reject_normalized_q_to_operator("physical_q")
         y_pred = self.operator(q_phys)
         if y_pred.shape != sinogram_obs.shape:
             raise ValueError(

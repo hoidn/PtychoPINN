@@ -42,9 +42,11 @@ from scripts.studies.born_rytov_dt.models import (
 from scripts.studies.born_rytov_dt.reporting import (
     SanitySummary,
     build_adapter_contract,
+    rows_with_sanity_summary,
     write_json,
 )
 from scripts.studies.born_rytov_dt.run_config import (
+    HYBRID_FAMILY_ROW_IDS,
     LossWeights,
     default_row_roster,
     make_blocked_row,
@@ -74,6 +76,22 @@ def _select_device(name: str) -> torch.device:
     return torch.device(name)
 
 
+def _resolve_hybrid_label(architecture: str, hybrid_label: str) -> str:
+    """Resolve the effective ``hybrid_label`` from the requested architecture.
+
+    Mirrors :func:`scripts.studies.born_rytov_dt.train._resolve_hybrid_label`
+    so the same row identity is surfaced regardless of which entrypoint
+    invoked the bounded roster. When the architecture is itself a
+    Hybrid-family row id, the architecture choice is authoritative and
+    the roster's row_id is forced to match — this prevents the silent
+    fallback flagged in the implementation review (HIGH-2) where
+    requesting ``sru_net`` produced the ``hybrid_resnet`` row.
+    """
+    if architecture in HYBRID_FAMILY_ROW_IDS:
+        return architecture
+    return hybrid_label
+
+
 def run_evaluation(
     *,
     architecture: str,
@@ -96,14 +114,13 @@ def run_evaluation(
     operator = _build_operator(device)
     backend = detect_classical_backend()
 
+    effective_hybrid_label = _resolve_hybrid_label(architecture, hybrid_label)
     rows = default_row_roster(
         dataset_id=authority.dataset_id,
         operator_version=authority.operator_version,
-        hybrid_label=hybrid_label,
+        hybrid_label=effective_hybrid_label,
     )
     selected = next((r for r in rows if r.row_id == architecture), None)
-    if selected is None and architecture in {"hybrid_resnet", "sru_net"}:
-        selected = next(r for r in rows if r.model in {"hybrid_resnet", "sru_net"})
     if selected is None:
         raise ValueError(
             f"architecture={architecture!r} not part of bounded roster: "
@@ -172,7 +189,22 @@ def run_evaluation(
             ),
         )
         write_json(output_root / "eval_summary.json", summary.to_dict())
-        return {"row_status": summary.row_status, "summary": summary.to_dict()}
+        contract_path = _write_eval_contract(
+            output_root=output_root,
+            authority=authority,
+            backend=backend,
+            rows=rows,
+            selected_row_id=selected.row_id,
+            summary=summary,
+            loss_contract={"training_label": selected.training},
+            split=split,
+            execution_path="classical_eval",
+        )
+        return {
+            "row_status": summary.row_status,
+            "summary": summary.to_dict(),
+            "adapter_contract_path": str(contract_path),
+        }
 
     try:
         adapter = build_neural_adapter(
@@ -246,7 +278,65 @@ def run_evaluation(
         note="evaluation-only sanity (untrained adapter)",
     )
     write_json(output_root / "eval_summary.json", summary.to_dict())
-    return {"row_status": summary.row_status, "summary": summary.to_dict()}
+    contract_path = _write_eval_contract(
+        output_root=output_root,
+        authority=authority,
+        backend=backend,
+        rows=rows,
+        selected_row_id=selected.row_id,
+        summary=summary,
+        loss_contract=module.loss_contract(),
+        split=split,
+        execution_path="neural_eval",
+    )
+    return {
+        "row_status": summary.row_status,
+        "summary": summary.to_dict(),
+        "adapter_contract_path": str(contract_path),
+    }
+
+
+def _write_eval_contract(
+    *,
+    output_root: Path,
+    authority: Any,
+    backend: Any,
+    rows: List[Any],
+    selected_row_id: str,
+    summary: SanitySummary,
+    loss_contract: Dict[str, Any],
+    split: str,
+    execution_path: str,
+) -> Path:
+    """Emit ``adapter_contract.json`` for an evaluation success path.
+
+    The successful classical and neural evaluation paths previously only
+    wrote ``eval_summary.json``; the durable adapter contract is required
+    on every successful run so the later four-row preflight can consume
+    a single shared row schema. See implementation review HIGH-1.
+    """
+    rows_payload = rows_with_sanity_summary(
+        rows, selected_row_id=selected_row_id, summary=summary
+    )
+    contract = build_adapter_contract(
+        dataset_id=authority.dataset_id,
+        operator_version=authority.operator_version,
+        rows=rows_payload,
+        classical_backend={
+            "name": backend.name,
+            "reason": backend.reason,
+            "claim_boundary": backend.claim_boundary,
+        },
+        loss_contract=loss_contract,
+        extra={
+            "manifest_path": str(authority.manifest_path),
+            "split": split,
+            "execution_path": execution_path,
+        },
+    )
+    contract_path = output_root / "adapter_contract.json"
+    write_json(contract_path, contract)
+    return contract_path
 
 
 def _build_argparser() -> argparse.ArgumentParser:

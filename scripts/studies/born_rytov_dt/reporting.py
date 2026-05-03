@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional
+from typing import Any, Dict, List, Mapping, Optional, Sequence
 
 from scripts.studies.born_rytov_dt import dataset_contract as dc
 from scripts.studies.born_rytov_dt.run_config import (
@@ -29,7 +29,7 @@ def build_adapter_contract(
     *,
     dataset_id: str,
     operator_version: str,
-    rows: List[Mapping[str, Any]],
+    rows: Sequence[Mapping[str, Any]],
     classical_backend: Mapping[str, Any],
     loss_contract: Mapping[str, Any],
     extra: Optional[Mapping[str, Any]] = None,
@@ -80,6 +80,28 @@ def write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(dict(payload), indent=2, sort_keys=True) + "\n")
+
+
+def rows_with_sanity_summary(
+    rows: List[Any],
+    *,
+    selected_row_id: str,
+    summary: "SanitySummary",
+) -> List[Dict[str, Any]]:
+    """Return ``[row.to_dict()...]`` with the selected row annotated.
+
+    Attaches ``sanity_summary`` and overrides ``row_status`` on the row
+    matching ``selected_row_id`` so the durable adapter contract carries
+    the per-run outcome alongside the static row metadata.
+    """
+    payload: List[Dict[str, Any]] = []
+    for row in rows:
+        row_dict = row.to_dict()
+        if row_dict.get("row_id") == selected_row_id:
+            row_dict["row_status"] = summary.row_status
+            row_dict["sanity_summary"] = summary.to_dict()
+        payload.append(row_dict)
+    return payload
 
 
 @dataclass(frozen=True)

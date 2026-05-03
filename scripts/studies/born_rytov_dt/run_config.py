@@ -43,18 +43,33 @@ ROW_STATUS_VALUES: Tuple[str, ...] = (
 )
 """Allowed row-status values. Distinct from ``model`` and ``training``."""
 
-# Internal architecture IDs. ``sru_net`` is the visible paper label for the
-# Hybrid-family row when presented as such; the underlying body is the
-# Hybrid ResNet adapter. The first bounded preflight may surface either
-# the ``hybrid_resnet`` or the ``sru_net`` row label, but only one in a
-# single table.
+# Internal architecture IDs. The Hybrid-family row's underlying body is
+# always ``hybrid_resnet``; ``sru_net`` is a visible paper label, NOT a
+# distinct internal architecture. ``RowConfig.model`` is restricted to
+# the internal IDs below so the visible row identity (``row_id`` /
+# ``paper_label``) and the internal adapter body (``model``) stay
+# explicitly distinct.
 SUPPORTED_ARCHITECTURES: Tuple[str, ...] = (
+    "classical_born_backprop",
+    "unet",
+    "fno_vanilla",
+    "hybrid_resnet",
+)
+
+# Visible row identifiers the bounded preflight may surface. ``sru_net``
+# appears here (paper-label form of the Hybrid-family row) but NOT in
+# ``SUPPORTED_ARCHITECTURES`` — the underlying adapter body remains
+# ``hybrid_resnet``.
+SUPPORTED_ROW_IDS: Tuple[str, ...] = (
     "classical_born_backprop",
     "unet",
     "fno_vanilla",
     "hybrid_resnet",
     "sru_net",
 )
+
+HYBRID_FAMILY_ROW_IDS: Tuple[str, ...] = ("hybrid_resnet", "sru_net")
+HYBRID_FAMILY_MODEL: str = "hybrid_resnet"
 
 
 @dataclass(frozen=True)
@@ -195,7 +210,7 @@ def default_row_roster(
         ),
         RowConfig(
             row_id=hybrid_label,
-            model=hybrid_label,
+            model=HYBRID_FAMILY_MODEL,
             training=DEFAULT_TRAINING_LABEL,
             input_mode="born_init_image",
             dataset_id=dataset_id,
@@ -264,13 +279,6 @@ DEFAULT_ARCH_KWARGS: Dict[str, Dict[str, Any]] = {
     "unet": {"hidden_channels": 16},
     "fno_vanilla": {"hidden_channels": 16, "fno_modes": 8, "fno_blocks": 4},
     "hybrid_resnet": {
-        "hidden_channels": 16,
-        "fno_modes": 8,
-        "fno_blocks": 2,
-        "resnet_blocks": 2,
-        "downsample_steps": 1,
-    },
-    "sru_net": {
         "hidden_channels": 16,
         "fno_modes": 8,
         "fno_blocks": 2,

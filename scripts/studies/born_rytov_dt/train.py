@@ -48,9 +48,11 @@ from scripts.studies.born_rytov_dt.models import (
 from scripts.studies.born_rytov_dt.reporting import (
     SanitySummary,
     build_adapter_contract,
+    rows_with_sanity_summary,
     write_json,
 )
 from scripts.studies.born_rytov_dt.run_config import (
+    HYBRID_FAMILY_ROW_IDS,
     LossWeights,
     RowConfig,
     default_row_roster,
@@ -125,26 +127,25 @@ def run_training(
     operator = _build_operator(device)
     backend = detect_classical_backend()
 
+    effective_hybrid_label = _resolve_hybrid_label(architecture, hybrid_label)
     rows: List[RowConfig] = default_row_roster(
         dataset_id=authority.dataset_id,
         operator_version=authority.operator_version,
-        hybrid_label=hybrid_label,
+        hybrid_label=effective_hybrid_label,
     )
     selected = next((r for r in rows if r.row_id == architecture), None)
     if selected is None:
-        # Allow building hybrid_resnet/sru_net synonyms from either label.
-        if architecture in {"hybrid_resnet", "sru_net"}:
-            selected = next(r for r in rows if r.model in {"hybrid_resnet", "sru_net"})
-        else:
-            raise ValueError(
-                f"architecture={architecture!r} is not part of the bounded roster: "
-                f"{[r.row_id for r in rows]}"
-            )
+        raise ValueError(
+            f"architecture={architecture!r} is not part of the bounded roster: "
+            f"{[r.row_id for r in rows]}"
+        )
 
     assert_input_mode_supported(selected.input_mode)
 
     if architecture == "classical_born_backprop":
         row_summary = _classical_only(
+            rows=rows,
+            selected=selected,
             authority=authority,
             operator=operator,
             backend=backend,
@@ -259,15 +260,9 @@ def run_training(
         note="fast_dev_run sanity execution" if fast_dev_run else None,
     )
 
-    rows_payload = []
-    for row in rows:
-        if row.row_id == selected.row_id:
-            row_dict = row.to_dict()
-            row_dict["row_status"] = summary.row_status
-            row_dict["sanity_summary"] = summary.to_dict()
-        else:
-            row_dict = row.to_dict()
-        rows_payload.append(row_dict)
+    rows_payload = rows_with_sanity_summary(
+        rows, selected_row_id=selected.row_id, summary=summary
+    )
     contract = build_adapter_contract(
         dataset_id=authority.dataset_id,
         operator_version=authority.operator_version,
@@ -297,8 +292,27 @@ def run_training(
     }
 
 
+def _resolve_hybrid_label(architecture: str, hybrid_label: str) -> str:
+    """Resolve the effective ``hybrid_label`` from the requested architecture.
+
+    The Hybrid-family row may be surfaced as ``hybrid_resnet`` or
+    ``sru_net``. When the architecture explicitly names one of those
+    Hybrid-family rows the architecture choice is authoritative — the
+    roster's ``row_id`` is forced to match so the requested visible row
+    cannot silently fall back to the other label (implementation-review
+    HIGH-2). For non-Hybrid-family architectures the ``hybrid_label``
+    flag controls how the Hybrid-family row is presented in the roster
+    that the contract emits.
+    """
+    if architecture in HYBRID_FAMILY_ROW_IDS:
+        return architecture
+    return hybrid_label
+
+
 def _classical_only(
     *,
+    rows: List[RowConfig],
+    selected: RowConfig,
     authority: DatasetAuthority,
     operator: BornRytovForward2D,
     backend: ClassicalBackendInfo,
@@ -320,8 +334,8 @@ def _classical_only(
     init = derive_born_init_image(sinogram, operator=operator, backend=backend)
     image_mae = float((init - batch["q_true_physical"].to(init.device)).abs().mean().item())
     summary = SanitySummary(
-        row_id="classical_born_backprop",
-        architecture="classical_born_backprop",
+        row_id=selected.row_id,
+        architecture=selected.model,
         parameter_count=0,
         train_steps=0,
         final_loss_total=float("nan"),
@@ -336,8 +350,30 @@ def _classical_only(
     )
     eval_path = output_root / "eval_summary.json"
     write_json(eval_path, summary.to_dict())
+    rows_payload = rows_with_sanity_summary(
+        rows, selected_row_id=selected.row_id, summary=summary
+    )
+    contract = build_adapter_contract(
+        dataset_id=authority.dataset_id,
+        operator_version=authority.operator_version,
+        rows=rows_payload,
+        classical_backend={
+            "name": backend.name,
+            "reason": backend.reason,
+            "claim_boundary": backend.claim_boundary,
+        },
+        loss_contract={"training_label": selected.training},
+        extra={
+            "manifest_path": str(authority.manifest_path),
+            "split": "train",
+            "execution_path": "classical_only",
+        },
+    )
+    contract_path = output_root / "adapter_contract.json"
+    write_json(contract_path, contract)
     return {
         "summary": summary.to_dict(),
+        "adapter_contract_path": str(contract_path),
         "eval_summary_path": str(eval_path),
         "row_status": summary.row_status,
     }
