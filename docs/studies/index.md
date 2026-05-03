@@ -24,6 +24,14 @@
   files). The dry-run manifest skeleton mirrors the live schema while
   leaving normalization/SNR unset. Smoke dataset only; not manuscript
   evidence.
+- Task-adapter authority:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_task_adapters.md` with
+  loader/Born-init/adapter/loss/train/eval surfaces under
+  `scripts/studies/born_rytov_dt/` and adapter-readiness sanity
+  artifacts at
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-task-adapters/fast_dev_run/`
+  (`adapter_contract.json`, schema `brdt_adapter_contract_v1`). Adapter
+  readiness only; not manuscript evidence.
 - Roadmap phase: `candidate-brdt-preflight`
 - Scope: physical-target and normalization lock, differentiable Born operator
   validation, synthetic dataset feasibility, task-specific adapters, and a

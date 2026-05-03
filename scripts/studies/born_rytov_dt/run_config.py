@@ -1,0 +1,285 @@
+"""BRDT row-schema and per-row configuration.
+
+Defines the first bounded row roster for the four-row preflight
+(`classical_born_backprop`, `unet`, `fno_vanilla`, `hybrid_resnet`/
+`sru_net`), enforces the locked input-mode contract (`born_init_image`
+only), and records explicit row metadata fields (`model`, `training`,
+`input_mode`, `dataset_id`, `operator_version`, `row_status`) so the
+later bounded preflight can aggregate rows under a shared contract.
+
+Reviewer-binding constraints encoded here:
+
+- direct sinogram input is rejected for the first bounded contract;
+- row labels separate model identity from training procedure;
+- supervised-plus-Born-consistency rows are NOT relabeled `PINN-only`.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Mapping, Optional, Tuple
+
+# ----------------------------------------------------------------------
+# Row schema constants
+# ----------------------------------------------------------------------
+SUPPORTED_INPUT_MODES: Tuple[str, ...] = ("born_init_image",)
+"""First bounded contract supports only ``born_init_image``."""
+
+REJECTED_INPUT_MODES: Tuple[str, ...] = ("sinogram", "direct_sinogram")
+"""Input modes the first bounded contract explicitly rejects."""
+
+DEFAULT_TRAINING_LABEL: str = "supervised + Born consistency"
+"""Default training-procedure label for neural rows."""
+
+CLASSICAL_TRAINING_LABEL: str = "none"
+"""Training-procedure label for the classical reference row."""
+
+ROW_STATUS_VALUES: Tuple[str, ...] = (
+    "ready",
+    "blocked",
+    "feasibility_only",
+    "completed",
+    "skipped",
+)
+"""Allowed row-status values. Distinct from ``model`` and ``training``."""
+
+# Internal architecture IDs. ``sru_net`` is the visible paper label for the
+# Hybrid-family row when presented as such; the underlying body is the
+# Hybrid ResNet adapter. The first bounded preflight may surface either
+# the ``hybrid_resnet`` or the ``sru_net`` row label, but only one in a
+# single table.
+SUPPORTED_ARCHITECTURES: Tuple[str, ...] = (
+    "classical_born_backprop",
+    "unet",
+    "fno_vanilla",
+    "hybrid_resnet",
+    "sru_net",
+)
+
+
+@dataclass(frozen=True)
+class RowConfig:
+    """Per-row metadata for the bounded BRDT preflight.
+
+    The fields here are exactly the ones the four-row preflight is
+    allowed to aggregate over. Adding fields is allowed; renaming or
+    removing them is not without an approved follow-up.
+    """
+
+    row_id: str
+    model: str  # internal architecture ID, one of SUPPORTED_ARCHITECTURES
+    training: str  # human-readable training procedure
+    input_mode: str  # must be in SUPPORTED_INPUT_MODES
+    dataset_id: str  # canonical dataset name, e.g. "brdt128_sparse_fullview_preflight"
+    operator_version: str  # operator git SHA or validation report path
+    row_status: str = "ready"  # one of ROW_STATUS_VALUES
+    paper_label: Optional[str] = None  # visible paper-table label, defaults to model
+    blocker_reason: Optional[str] = None  # only populated when row_status == "blocked"
+    blocker_message: Optional[str] = None
+    extra: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.input_mode not in SUPPORTED_INPUT_MODES:
+            if self.input_mode in REJECTED_INPUT_MODES:
+                raise ValueError(
+                    f"BRDT first bounded contract rejects input_mode={self.input_mode!r}. "
+                    "Direct sinogram rows must not be mixed with born_init_image rows."
+                )
+            raise ValueError(
+                f"unsupported input_mode={self.input_mode!r}; "
+                f"allowed: {SUPPORTED_INPUT_MODES}"
+            )
+        if self.model not in SUPPORTED_ARCHITECTURES:
+            raise ValueError(
+                f"unsupported model={self.model!r}; "
+                f"allowed: {SUPPORTED_ARCHITECTURES}"
+            )
+        if self.row_status not in ROW_STATUS_VALUES:
+            raise ValueError(
+                f"unsupported row_status={self.row_status!r}; "
+                f"allowed: {ROW_STATUS_VALUES}"
+            )
+        # Reviewer-binding: do not call supervised+Born-consistency rows "PINN".
+        normalized_training = self.training.lower()
+        if "pinn" in normalized_training and "supervised" not in normalized_training:
+            raise ValueError(
+                "Rows that combine supervised image loss with Born consistency must NOT be "
+                f"labeled as PINN-only. Got training={self.training!r}."
+            )
+        if self.row_status == "blocked" and not self.blocker_reason:
+            raise ValueError("blocked rows must record blocker_reason")
+
+    @property
+    def visible_label(self) -> str:
+        return self.paper_label or self.model
+
+    def to_dict(self) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
+            "row_id": self.row_id,
+            "model": self.model,
+            "training": self.training,
+            "input_mode": self.input_mode,
+            "dataset_id": self.dataset_id,
+            "operator_version": self.operator_version,
+            "row_status": self.row_status,
+            "paper_label": self.visible_label,
+        }
+        if self.blocker_reason:
+            payload["blocker_reason"] = self.blocker_reason
+        if self.blocker_message:
+            payload["blocker_message"] = self.blocker_message
+        if self.extra:
+            payload["extra"] = dict(self.extra)
+        return payload
+
+
+REQUIRED_ROW_FIELDS: Tuple[str, ...] = (
+    "row_id",
+    "model",
+    "training",
+    "input_mode",
+    "dataset_id",
+    "operator_version",
+    "row_status",
+)
+
+
+def required_row_fields() -> Tuple[str, ...]:
+    """Stable row-metadata fields the four-row preflight may rely on."""
+    return REQUIRED_ROW_FIELDS
+
+
+def default_row_roster(
+    *,
+    dataset_id: str,
+    operator_version: str,
+    hybrid_label: str = "hybrid_resnet",
+) -> List[RowConfig]:
+    """Return the four-row roster for the bounded BRDT preflight.
+
+    ``hybrid_label`` selects which label is surfaced for the Hybrid-family
+    row. Use ``"sru_net"`` to present the row with the manuscript label;
+    the internal architecture ID and adapter remain identical.
+    """
+    if hybrid_label not in ("hybrid_resnet", "sru_net"):
+        raise ValueError(
+            f"hybrid_label must be 'hybrid_resnet' or 'sru_net'; got {hybrid_label!r}"
+        )
+    rows: List[RowConfig] = [
+        RowConfig(
+            row_id="classical_born_backprop",
+            model="classical_born_backprop",
+            training=CLASSICAL_TRAINING_LABEL,
+            input_mode="born_init_image",
+            dataset_id=dataset_id,
+            operator_version=operator_version,
+            paper_label="Classical Born backprop",
+        ),
+        RowConfig(
+            row_id="unet",
+            model="unet",
+            training=DEFAULT_TRAINING_LABEL,
+            input_mode="born_init_image",
+            dataset_id=dataset_id,
+            operator_version=operator_version,
+            paper_label="U-Net",
+        ),
+        RowConfig(
+            row_id="fno_vanilla",
+            model="fno_vanilla",
+            training=DEFAULT_TRAINING_LABEL,
+            input_mode="born_init_image",
+            dataset_id=dataset_id,
+            operator_version=operator_version,
+            paper_label="FNO vanilla",
+        ),
+        RowConfig(
+            row_id=hybrid_label,
+            model=hybrid_label,
+            training=DEFAULT_TRAINING_LABEL,
+            input_mode="born_init_image",
+            dataset_id=dataset_id,
+            operator_version=operator_version,
+            paper_label="SRU-Net" if hybrid_label == "sru_net" else "Hybrid ResNet",
+        ),
+    ]
+    return rows
+
+
+def make_blocked_row(
+    row_id: str,
+    *,
+    model: str,
+    training: str,
+    dataset_id: str,
+    operator_version: str,
+    blocker_reason: str,
+    blocker_message: str,
+    paper_label: Optional[str] = None,
+) -> RowConfig:
+    """Construct a controlled row-level blocker for an optional dependency.
+
+    ``blocker_reason`` is a short tag (e.g. ``odtbrain_unavailable``,
+    ``neuralop_unavailable``, ``cuda_unavailable``) so downstream
+    aggregation can reason about cause without parsing prose.
+    """
+    return RowConfig(
+        row_id=row_id,
+        model=model,
+        training=training,
+        input_mode="born_init_image",
+        dataset_id=dataset_id,
+        operator_version=operator_version,
+        row_status="blocked",
+        paper_label=paper_label,
+        blocker_reason=blocker_reason,
+        blocker_message=blocker_message,
+    )
+
+
+@dataclass(frozen=True)
+class LossWeights:
+    """Loss weights for ``supervised + Born consistency`` neural rows."""
+
+    image: float = 1.0
+    physics: float = 0.1
+    relative_physics: float = 0.1
+    tv: float = 1e-5
+    positivity: float = 1e-4
+
+    def as_dict(self) -> Dict[str, float]:
+        return {
+            "image": float(self.image),
+            "physics": float(self.physics),
+            "relative_physics": float(self.relative_physics),
+            "tv": float(self.tv),
+            "positivity": float(self.positivity),
+        }
+
+
+# Reasonable architecture defaults for sanity-only adapter construction.
+# These are intentionally small so a fast-dev-run/single-batch step is
+# cheap. The later bounded preflight may override them.
+DEFAULT_ARCH_KWARGS: Dict[str, Dict[str, Any]] = {
+    "unet": {"hidden_channels": 16},
+    "fno_vanilla": {"hidden_channels": 16, "fno_modes": 8, "fno_blocks": 4},
+    "hybrid_resnet": {
+        "hidden_channels": 16,
+        "fno_modes": 8,
+        "fno_blocks": 2,
+        "resnet_blocks": 2,
+        "downsample_steps": 1,
+    },
+    "sru_net": {
+        "hidden_channels": 16,
+        "fno_modes": 8,
+        "fno_blocks": 2,
+        "resnet_blocks": 2,
+        "downsample_steps": 1,
+    },
+}
+
+
+def get_default_arch_kwargs(arch: str) -> Dict[str, Any]:
+    """Return a copy of the default arch kwargs for an architecture."""
+    return dict(DEFAULT_ARCH_KWARGS.get(arch, {}))
