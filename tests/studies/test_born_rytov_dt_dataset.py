@@ -9,9 +9,12 @@ phantom-family roster.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 from pathlib import Path
+import shlex
+import subprocess
 
 import numpy as np
 import pytest
@@ -23,6 +26,24 @@ from scripts.studies.born_rytov_dt.phantoms import (
     sparse_inclusions,
     soft_blobs,
 )
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+GENERATOR_MODULE = "scripts.studies.born_rytov_dt.generate_brdt_dataset"
+
+
+def _run_generator(*args: str) -> subprocess.CompletedProcess[str]:
+    cmd = ["python", "-m", GENERATOR_MODULE, *args]
+    return subprocess.run(
+        cmd,
+        cwd=REPO_ROOT,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 # ----------------------------------------------------------------------
@@ -80,6 +101,75 @@ def test_manifest_serializable(tmp_path):
     # Sorted keys, stable schema, lossless round-trip.
     assert reloaded["dataset_identity"]["name"] == dc.DATASET_NAME
     assert reloaded["physical_target"]["forward_input_is_physical_q"] is True
+
+
+def test_dry_run_writes_manifest_skeleton_and_exact_command(tmp_path):
+    output_root = tmp_path / "dryrun"
+    cmd = [
+        "--dry-run-manifest",
+        "--output-root",
+        str(output_root),
+        "--split-seed",
+        "123",
+        "--noise-sigma",
+        "0.002",
+    ]
+    _run_generator(*cmd)
+
+    summary_path = output_root / "dry_run_summary.json"
+    manifest_path = output_root / "dry_run_manifest.json"
+    assert summary_path.exists()
+    assert manifest_path.exists()
+
+    summary = json.loads(summary_path.read_text())
+    manifest = json.loads(manifest_path.read_text())
+    expected_command = shlex.join(["python", "-m", GENERATOR_MODULE, *cmd])
+
+    assert summary["generation_command"] == expected_command
+    assert summary["manifest_skeleton_path"] == str(manifest_path)
+    assert manifest["dataset_identity"]["generation_command"] == expected_command
+    assert manifest["normalization"] is None
+    assert manifest["noise"]["measured_snr"] is None
+    assert manifest["extra"]["generation_mode"] == "dry_run_manifest"
+
+
+def test_live_generation_reproducible_across_fresh_processes(tmp_path):
+    output_root = tmp_path / "live"
+    cmd = [
+        "--output-root",
+        str(output_root),
+        "--device",
+        "cpu",
+        "--split-seed",
+        "123",
+        "--train-count",
+        "2",
+        "--val-count",
+        "1",
+        "--test-count",
+        "1",
+        "--noise-sigma",
+        "0.002",
+    ]
+    expected_command = shlex.join(["python", "-m", GENERATOR_MODULE, *cmd])
+
+    def read_state() -> tuple[dict, dict]:
+        manifest = json.loads((output_root / "dataset_manifest.json").read_text())
+        hashes = {
+            split: _sha256(output_root / "dataset" / f"{dc.DATASET_NAME}_{split}.h5")
+            for split in ("train", "val", "test")
+        }
+        return manifest, hashes
+
+    _run_generator(*cmd)
+    manifest_a, hashes_a = read_state()
+    _run_generator(*cmd)
+    manifest_b, hashes_b = read_state()
+
+    assert manifest_a["noise"]["measured_snr"] == manifest_b["noise"]["measured_snr"]
+    assert hashes_a == hashes_b
+    assert manifest_a["dataset_identity"]["generation_command"] == expected_command
+    assert manifest_b["dataset_identity"]["generation_command"] == expected_command
 
 
 # ----------------------------------------------------------------------

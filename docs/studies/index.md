@@ -18,9 +18,12 @@
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_dataset_preflight.md`
   with smoke dataset and machine-readable manifest under
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight/`
-  (`dataset_manifest.json`, `dry_run_summary.json`, and the
-  `dataset/brdt128_sparse_fullview_preflight_{train,val,test}.h5` files).
-  Smoke dataset only; not manuscript evidence.
+  (`dataset_manifest.json`, `dry_run_manifest.json`,
+  `dry_run_summary.json`, and the
+  `dataset/brdt128_sparse_fullview_preflight_{train,val,test}.h5`
+  files). The dry-run manifest skeleton mirrors the live schema while
+  leaving normalization/SNR unset. Smoke dataset only; not manuscript
+  evidence.
 - Roadmap phase: `candidate-brdt-preflight`
 - Scope: physical-target and normalization lock, differentiable Born operator
   validation, synthetic dataset feasibility, task-specific adapters, and a

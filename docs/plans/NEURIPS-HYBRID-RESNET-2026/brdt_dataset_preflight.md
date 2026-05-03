@@ -11,6 +11,7 @@
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight/`
 - Machine-readable artifacts:
   - `dataset_manifest.json`
+  - `dry_run_manifest.json`
   - `dry_run_summary.json`
   - `dataset/brdt128_sparse_fullview_preflight_train.h5`
   - `dataset/brdt128_sparse_fullview_preflight_val.h5`
@@ -86,7 +87,8 @@ ready_for_smoke_generation` only when the comparison succeeds.
   `n_m = 1.333`.
 - Noise model: additive complex Gaussian with `noise_sigma = 1e-3` in
   physical sinogram units (recorded in the manifest); the generator
-  also records the measured per-split SNR in dB.
+  seeds the per-split noise deterministically and records the measured
+  per-split SNR in dB.
 
 For the default seed (42) the recorded SNR is approximately
 `train ~18.5 dB`, `val ~16.4 dB`, `test ~19.3 dB`.
@@ -122,12 +124,14 @@ Running
 python -m scripts.studies.born_rytov_dt.generate_brdt_dataset --dry-run-manifest
 ```
 
-with the default split seed produces
-`dry_run_summary.json` with `verdict: ready_for_smoke_generation`,
-zero geometry mismatches against the operator authority, and the
-estimated artifact paths. The summary records the exact generation
-command, git SHA, dirty-state, and environment so downstream items can
-audit the preflight without re-reading source.
+with the default split seed produces both `dry_run_summary.json` and
+`dry_run_manifest.json`. The summary reports
+`verdict: ready_for_smoke_generation`, zero geometry mismatches against
+the operator authority, the estimated artifact paths, and the exact
+generation command. The manifest skeleton mirrors the live manifest
+schema with `normalization: null`, `measured_snr: null`, and
+`extra.generation_mode: dry_run_manifest` so downstream tooling can
+consume a concrete dry-run contract rather than inferring one.
 
 ## Reproducing The Smoke Dataset
 
@@ -140,8 +144,8 @@ python -m scripts.studies.born_rytov_dt.generate_brdt_dataset
 
 Generation runtime is short (well under a minute on CUDA). For a fully
 fresh artifact root, pass `--output-root <path>`; the generator creates
-`logs/`, `dataset/`, `dataset_manifest.json`, and `dry_run_summary.json`
-under that root.
+`logs/`, `dataset/`, `dataset_manifest.json`, `dry_run_manifest.json`,
+and `dry_run_summary.json` under that root.
 
 Validation gates required by the plan:
 

@@ -1,0 +1,215 @@
+{
+  "artifacts": {
+    "test": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight/dataset/brdt128_sparse_fullview_preflight_test.h5",
+    "train": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight/dataset/brdt128_sparse_fullview_preflight_train.h5",
+    "val": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight/dataset/brdt128_sparse_fullview_preflight_val.h5"
+  },
+  "claim_boundary": "Feasibility-only smoke dataset. NOT manuscript evidence. The later larger decision-support split, BRDT task adapters, and four-row preflight remain out of scope for this item.",
+  "dataset_identity": {
+    "backlog_item": "2026-04-29-brdt-dataset-preflight",
+    "generation_command": "python -m scripts.studies.born_rytov_dt.generate_brdt_dataset",
+    "git_dirty": true,
+    "git_sha": "19ae615e30a06683e3569091a9dcb942bce63b37",
+    "name": "brdt128_sparse_fullview_preflight",
+    "output_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight",
+    "tier": "feasibility"
+  },
+  "environment": {
+    "h5py": "3.14.0",
+    "numpy": "1.26.4",
+    "platform": "Linux-6.17.0-20-generic-x86_64-with-glibc2.39",
+    "python": "3.11.13",
+    "torch": "2.9.1+cu128",
+    "torch_cuda_available": true
+  },
+  "extra": {
+    "angle_grid_rad": [
+      0.0,
+      0.09817477042468103,
+      0.19634954084936207,
+      0.2945243112740431,
+      0.39269908169872414,
+      0.4908738521234052,
+      0.5890486225480862,
+      0.6872233929727672,
+      0.7853981633974483,
+      0.8835729338221293,
+      0.9817477042468103,
+      1.0799224746714913,
+      1.1780972450961724,
+      1.2762720155208536,
+      1.3744467859455345,
+      1.4726215563702154,
+      1.5707963267948966,
+      1.6689710972195777,
+      1.7671458676442586,
+      1.8653206380689396,
+      1.9634954084936207,
+      2.061670178918302,
+      2.1598449493429825,
+      2.2580197197676637,
+      2.356194490192345,
+      2.454369260617026,
+      2.552544031041707,
+      2.650718801466388,
+      2.748893571891069,
+      2.84706834231575,
+      2.945243112740431,
+      3.043417883165112,
+      3.141592653589793,
+      3.2397674240144743,
+      3.3379421944391554,
+      3.436116964863836,
+      3.5342917352885173,
+      3.6324665057131984,
+      3.730641276137879,
+      3.8288160465625602,
+      3.9269908169872414,
+      4.025165587411922,
+      4.123340357836604,
+      4.221515128261284,
+      4.319689898685965,
+      4.417864669110647,
+      4.516039439535327,
+      4.614214209960009,
+      4.71238898038469,
+      4.81056375080937,
+      4.908738521234052,
+      5.006913291658733,
+      5.105088062083414,
+      5.203262832508095,
+      5.301437602932776,
+      5.399612373357457,
+      5.497787143782138,
+      5.595961914206819,
+      5.6941366846315,
+      5.792311455056181,
+      5.890486225480862,
+      5.988660995905543,
+      6.086835766330224,
+      6.1850105367549055
+    ],
+    "device": "cuda"
+  },
+  "noise": {
+    "measured_snr": {
+      "test_db": 19.309521118789167,
+      "train_db": 18.465376487786692,
+      "val_db": 16.3747234610113
+    },
+    "model": "complex_gaussian_iid",
+    "noise_sigma_physical_units": 0.001
+  },
+  "normalization": {
+    "q_max_train": 0.05002570093026218,
+    "q_mean_train": 0.0010357841884520217,
+    "q_min_train": -0.034497024813992264,
+    "q_std_train": 0.006255857205170991
+  },
+  "operator": {
+    "angle_count": 64,
+    "angle_coverage": "full_view_0_to_2pi",
+    "class": "BornRytovForward2D",
+    "detector_size": 128,
+    "grid_size": 128,
+    "k_m": 0.7853981633974483,
+    "medium_ri": 1.333,
+    "mode": "born",
+    "module": "ptycho_torch.physics.born_rytov_dt",
+    "normalize": "unitary_fft",
+    "output_layout": "(B, A, D, 2) real/imag",
+    "validation_artifact": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-operator-validation/operator_validation.json",
+    "validation_report": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_operator_validation_report.md",
+    "wavelength_px": 8.0
+  },
+  "phantom_distribution": {
+    "delta_n_max": 0.03,
+    "delta_n_min": 0.002,
+    "families": [
+      "overlapping_ellipses",
+      "soft_blobs",
+      "sparse_inclusions"
+    ],
+    "per_sample_family": {
+      "test": [
+        "overlapping_ellipses",
+        "overlapping_ellipses",
+        "sparse_inclusions",
+        "soft_blobs"
+      ],
+      "train": [
+        "sparse_inclusions",
+        "sparse_inclusions",
+        "soft_blobs",
+        "overlapping_ellipses",
+        "sparse_inclusions",
+        "soft_blobs",
+        "sparse_inclusions",
+        "overlapping_ellipses",
+        "soft_blobs",
+        "overlapping_ellipses",
+        "overlapping_ellipses",
+        "sparse_inclusions",
+        "soft_blobs",
+        "overlapping_ellipses",
+        "soft_blobs",
+        "overlapping_ellipses"
+      ],
+      "val": [
+        "overlapping_ellipses",
+        "overlapping_ellipses",
+        "sparse_inclusions",
+        "soft_blobs"
+      ]
+    }
+  },
+  "physical_target": {
+    "formula": "q(x,z) = k_m^2 * ((n(x,z) / n_m)^2 - 1)",
+    "forward_input_is_physical_q": true,
+    "model_output_space": "normalized_q",
+    "physics_loss_rule": "L_phys = || A(unnormalize(q_pred_norm)) - y || ; the operator always consumes physical q. Predictions in normalized space MUST be unnormalized via mean+std before being passed to A(...).",
+    "q_units": "1/pixel^2 (k_m in rad/pixel)"
+  },
+  "schema_version": "1.0",
+  "split": {
+    "counts": {
+      "test": 4,
+      "train": 16,
+      "val": 4
+    },
+    "object_seeds": {
+      "test": [
+        196,
+        306,
+        1095,
+        1285
+      ],
+      "train": [
+        130,
+        784,
+        1486,
+        1161,
+        1059,
+        656,
+        280,
+        1201,
+        1303,
+        991,
+        143,
+        689,
+        135,
+        1122,
+        767,
+        1171
+      ],
+      "val": [
+        665,
+        1423,
+        568,
+        801
+      ]
+    },
+    "object_seeds_disjoint": true,
+    "split_seed": 42
+  }
+}

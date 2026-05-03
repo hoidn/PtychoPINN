@@ -19,6 +19,7 @@ import argparse
 import json
 import math
 import platform
+import shlex
 import subprocess
 import sys
 import time
@@ -50,6 +51,7 @@ DEFAULT_OPERATOR_VALIDATION = (
     / "2026-04-29-brdt-operator-validation"
     / "operator_validation.json"
 )
+GENERATOR_MODULE = "scripts.studies.born_rytov_dt.generate_brdt_dataset"
 
 
 # ----------------------------------------------------------------------
@@ -91,6 +93,11 @@ def _env_summary() -> Dict[str, Any]:
         "numpy": np.__version__,
         "h5py": h5py_version,
     }
+
+
+def _generation_command(raw_args: Optional[List[str]]) -> str:
+    args = list(sys.argv[1:] if raw_args is None else raw_args)
+    return shlex.join(["python", "-m", GENERATOR_MODULE, *map(str, args)])
 
 
 # ----------------------------------------------------------------------
@@ -269,6 +276,31 @@ def write_dry_run(
     }
     sha, dirty = _git_revision(REPO_ROOT)
     verdict = "ready_for_smoke_generation" if not mismatches else "not_ready"
+    manifest_skeleton_path = output_root / dc.DRY_RUN_MANIFEST_NAME
+    summary_path = output_root / "dry_run_summary.json"
+    manifest = dc.build_manifest(
+        output_root=str(output_root),
+        operator_validation_path=str(operator_validation_path),
+        counts=counts,
+        split_seed=split_seed,
+        object_seeds=seeds,
+        families=families,
+        normalization=None,
+        noise_sigma=0.0,
+        measured_snr=None,
+        git_sha=sha,
+        git_dirty=dirty,
+        generation_command=generation_command,
+        environment=_env_summary(),
+        artifact_paths=estimated_paths,
+        extra={
+            "array_generation_skipped": True,
+            "estimated_artifacts_only": True,
+            "generation_mode": "dry_run_manifest",
+            "verdict": verdict,
+            "dry_run_summary_path": str(summary_path),
+        },
+    )
     summary = {
         "schema_version": "1.0",
         "verdict": verdict,
@@ -292,6 +324,7 @@ def write_dry_run(
             "phantom_family_assignment": families,
         },
         "estimated_artifact_paths": estimated_paths,
+        "manifest_skeleton_path": str(manifest_skeleton_path),
         "generation_command": generation_command,
         "git_sha": sha,
         "git_dirty": dirty,
@@ -302,8 +335,8 @@ def write_dry_run(
         ),
     }
     output_root.mkdir(parents=True, exist_ok=True)
-    out_path = output_root / "dry_run_summary.json"
-    with out_path.open("w", encoding="utf-8") as fh:
+    dc.write_manifest(manifest, str(manifest_skeleton_path))
+    with summary_path.open("w", encoding="utf-8") as fh:
         json.dump(summary, fh, indent=2, sort_keys=True)
     return summary
 
@@ -355,7 +388,11 @@ def run_live_generation(
     for split, q_arr in q_phys.items():
         clean = _operator_forward_batch(op, q_arr, torch_device)
         sino_clean[split] = clean
-        noisy = _add_complex_gaussian_noise(clean, noise_sigma, seed=split_seed * 101 + hash(split) % 997)
+        noisy = _add_complex_gaussian_noise(
+            clean,
+            noise_sigma,
+            seed=dc.deterministic_noise_seed(split_seed, split),
+        )
         sino_noisy[split] = noisy
         snr_per_split[f"{split}_db"] = _measured_snr_db(clean, noisy)
 
@@ -459,7 +496,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     counts = dc.SplitCounts(train=args.train_count, val=args.val_count, test=args.test_count)
     operator_authority = load_operator_authority(args.operator_validation)
-    generation_command = "python -m scripts.studies.born_rytov_dt.generate_brdt_dataset"
+    generation_command = _generation_command(argv)
 
     if args.dry_run_manifest:
         summary = write_dry_run(

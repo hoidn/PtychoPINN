@@ -45,6 +45,7 @@ PHYSICS_LOSS_RULE: str = (
 
 DATASET_NAME: str = "brdt128_sparse_fullview_preflight"
 DATASET_TIER: str = "feasibility"
+DRY_RUN_MANIFEST_NAME: str = "dry_run_manifest.json"
 
 # Phantom-family roster locked for this preflight (non-CDI families).
 PHANTOM_FAMILIES: Tuple[str, ...] = (
@@ -158,6 +159,19 @@ def deterministic_object_seeds(
     val = pool[counts.train : counts.train + counts.val]
     test = pool[counts.train + counts.val : counts.total]
     return {"train": list(train), "val": list(val), "test": list(test)}
+
+
+def deterministic_noise_seed(split_seed: int, split: str) -> int:
+    """Return a stable per-split noise seed.
+
+    Live generation must be reproducible across fresh interpreter
+    processes, so this helper avoids Python's process-randomized string
+    hash and uses a fixed split-to-offset mapping instead.
+    """
+    split_offsets = {"train": 0, "val": 1, "test": 2}
+    if split not in split_offsets:
+        raise ValueError(f"unknown split {split!r}")
+    return int(split_seed) * 101 + split_offsets[split]
 
 
 def assign_phantom_families(
