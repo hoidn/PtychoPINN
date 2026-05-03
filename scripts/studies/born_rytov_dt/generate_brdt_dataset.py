@@ -264,6 +264,7 @@ def write_dry_run(
     operator_authority: Dict[str, Any],
     split_seed: int,
     counts: dc.SplitCounts,
+    noise_sigma: float,
     operator_validation_path: Path,
     generation_command: str,
 ) -> Dict[str, Any]:
@@ -286,7 +287,7 @@ def write_dry_run(
         object_seeds=seeds,
         families=families,
         normalization=None,
-        noise_sigma=0.0,
+        noise_sigma=noise_sigma,
         measured_snr=None,
         git_sha=sha,
         git_dirty=dirty,
@@ -325,6 +326,7 @@ def write_dry_run(
         },
         "estimated_artifact_paths": estimated_paths,
         "manifest_skeleton_path": str(manifest_skeleton_path),
+        "noise_sigma_physical_units": float(noise_sigma),
         "generation_command": generation_command,
         "git_sha": sha,
         "git_dirty": dirty,
@@ -504,6 +506,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             operator_authority=operator_authority,
             split_seed=args.split_seed,
             counts=counts,
+            noise_sigma=args.noise_sigma,
             operator_validation_path=args.operator_validation,
             generation_command=generation_command,
         )

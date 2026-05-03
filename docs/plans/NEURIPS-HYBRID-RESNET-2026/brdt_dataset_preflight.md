@@ -127,9 +127,11 @@ python -m scripts.studies.born_rytov_dt.generate_brdt_dataset --dry-run-manifest
 with the default split seed produces both `dry_run_summary.json` and
 `dry_run_manifest.json`. The summary reports
 `verdict: ready_for_smoke_generation`, zero geometry mismatches against
-the operator authority, the estimated artifact paths, and the exact
-generation command. The manifest skeleton mirrors the live manifest
-schema with `normalization: null`, `measured_snr: null`, and
+the operator authority, the estimated artifact paths, the exact
+generation command, and the requested `noise_sigma` in physical
+sinogram units. The manifest skeleton mirrors the live manifest
+schema with `normalization: null`, the same requested
+`noise_sigma_physical_units`, `measured_snr: null`, and
 `extra.generation_mode: dry_run_manifest` so downstream tooling can
 consume a concrete dry-run contract rather than inferring one.
 

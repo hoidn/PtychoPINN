@@ -7,43 +7,26 @@
 
 ## Completed In This Pass
 
-- Fixed the review-blocking reproducibility defect in
-  `scripts/studies/born_rytov_dt/generate_brdt_dataset.py` by replacing
-  the process-randomized `hash(split)` noise seed path with the stable
-  dataset-contract helper
-  `dataset_contract.deterministic_noise_seed(split_seed, split)`.
-  Fresh-process reruns now reproduce identical noisy sinograms and
-  identical measured SNRs for the same CLI inputs.
-- Fixed provenance capture by deriving the stored generation command
-  from the actual invoked CLI arguments. Dry-run artifacts now record
-  `python -m scripts.studies.born_rytov_dt.generate_brdt_dataset --dry-run-manifest`
-  instead of a flag-less placeholder, and live artifacts retain the
-  exact flag set used for generation.
-- Completed the missing dry-run manifest-skeleton task. Dry-run mode now
-  writes `dry_run_manifest.json` alongside `dry_run_summary.json`, using
-  the live manifest schema with `normalization: null`,
-  `noise.measured_snr: null`, and
-  `extra.generation_mode: dry_run_manifest`.
-- Added regression coverage in
-  `tests/studies/test_born_rytov_dt_dataset.py` for:
-  - dry-run manifest-skeleton emission
-  - exact command capture with non-default flags
-  - fresh-process live-generation reproducibility via stable HDF5 hashes
-    and stable `measured_snr`
-- Refreshed the default smoke artifacts under
+- Fixed the remaining review-blocking dry-run contract defect in
+  `scripts/studies/born_rytov_dt/generate_brdt_dataset.py` by threading
+  the requested CLI `--noise-sigma` value through `write_dry_run()`.
+  Dry-run mode now records the requested noise configuration in both
+  `dry_run_manifest.json` (`noise.noise_sigma_physical_units`) and
+  `dry_run_summary.json` (`noise_sigma_physical_units`) instead of
+  hardcoding `0.0` or omitting the field.
+- Strengthened the dry-run regression in
+  `tests/studies/test_born_rytov_dt_dataset.py` to assert the requested
+  non-default `--noise-sigma 0.002` value in both machine-readable
+  outputs. The test failed before the generator patch and passes after
+  it.
+- Refreshed the checked-in dry-run artifacts under
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight/`
-  so the checked-in machine-readable evidence matches the fixed
-  generator:
-  - `dataset_manifest.json`
+  so the durable evidence matches the fixed contract:
   - `dry_run_manifest.json`
   - `dry_run_summary.json`
-  - `dataset/brdt128_sparse_fullview_preflight_{train,val,test}.h5`
-- Updated durable discoverability/docs surfaces to mention the dry-run
-  manifest skeleton and deterministic-noise/provenance fixes:
-  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_dataset_preflight.md`
-  - `docs/index.md`
-  - `docs/studies/index.md`
-  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md`
+- Updated the durable BRDT preflight summary to state that dry-run
+  outputs preserve the requested noise configuration alongside the exact
+  generation command.
 
 ## Completed Current-Scope Work
 
@@ -52,10 +35,11 @@
   `forward_input_is_physical_q: true`, `model_output_space:
   normalized_q`, deterministic disjoint object seeds, and feasibility-
   only claim boundaries.
-- The generator now satisfies the full current plan contract:
-  dry-run geometry validation, dry-run summary plus manifest skeleton,
-  exact command provenance, deterministic live generation, and live
-  HDF5/manifest emission under the approved artifact root.
+- The generator now satisfies the full current plan contract for the
+  dry-run path: geometry validation, exact command provenance, requested
+  noise-configuration capture, dry-run summary plus manifest skeleton,
+  deterministic live generation, and live HDF5/manifest emission under
+  the approved artifact root.
 - The approved backlog verification contract still passes, and the new
   regression coverage directly covers the review findings that caused
   `REVISE`.
@@ -87,23 +71,18 @@
 
 ## Verification
 
-- Review regression subset:
-  `pytest -q tests/studies/test_born_rytov_dt_dataset.py -k 'dry_run_writes_manifest_skeleton or live_generation_reproducible_across_fresh_processes'`
-  → `2 passed`.
 - Blocking pytest:
   `pytest -q tests/studies/test_born_rytov_dt_dataset.py`
   → passes.
 - Blocking compileall:
   `python -m compileall -q scripts/studies/born_rytov_dt`
   → success (no output, exit `0`).
+- Focused red/green regression:
+  `pytest -q tests/studies/test_born_rytov_dt_dataset.py -k dry_run_writes_manifest_skeleton_and_exact_command`
+  → failed before the generator patch with `KeyError:
+  'noise_sigma_physical_units'`, then passed after the patch.
 - Dry-run refresh:
   `python -m scripts.studies.born_rytov_dt.generate_brdt_dataset --dry-run-manifest`
   → wrote `dry_run_summary.json` and `dry_run_manifest.json` with
   `verdict: ready_for_smoke_generation`, zero geometry mismatches, and
-  the exact dry-run command string.
-- Live refresh:
-  `python -m scripts.studies.born_rytov_dt.generate_brdt_dataset`
-  → rewrote `dataset_manifest.json` plus the three HDF5 splits with
-  stable deterministic content and recorded SNR values:
-  `train_db=18.465376487786692`, `val_db=16.3747234610113`,
-  `test_db=19.309521118789167`.
+  `noise_sigma_physical_units: 0.001` in both outputs.

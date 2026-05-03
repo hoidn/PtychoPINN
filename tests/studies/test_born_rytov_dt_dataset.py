@@ -127,8 +127,10 @@ def test_dry_run_writes_manifest_skeleton_and_exact_command(tmp_path):
 
     assert summary["generation_command"] == expected_command
     assert summary["manifest_skeleton_path"] == str(manifest_path)
+    assert summary["noise_sigma_physical_units"] == 0.002
     assert manifest["dataset_identity"]["generation_command"] == expected_command
     assert manifest["normalization"] is None
+    assert manifest["noise"]["noise_sigma_physical_units"] == 0.002
     assert manifest["noise"]["measured_snr"] is None
     assert manifest["extra"]["generation_mode"] == "dry_run_manifest"
 
