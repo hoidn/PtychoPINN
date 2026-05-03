@@ -125,8 +125,8 @@ limits because:
 - ODTbrain is not exercised in this validation pass; downstream BRDT
   items must rely on the operator contract and the in-tree validation
   results, not on an external inverse-side recovery, until ODTbrain is
-  installed and an inverse-side check is added in a follow-up validation
-  extension.
+  installed locally and the implemented optional inverse-side check can
+  be exercised in this environment.
 
 ## Downstream Authorization
 

@@ -243,6 +243,64 @@ def gaussian_phantom(N: int, center: Tuple[float, float], sigma: float, amplitud
     return amplitude * np.exp(-(dx * dx + dz * dz) / (2.0 * sigma * sigma))
 
 
+def lowpass_fft(image: np.ndarray, cutoff_fraction: float) -> np.ndarray:
+    """Return a low-pass filtered version of a 2-D image."""
+    if image.ndim != 2:
+        raise ValueError("lowpass_fft expects a 2-D array")
+    fy = np.fft.fftfreq(image.shape[0], d=1.0)
+    fx = np.fft.fftfreq(image.shape[1], d=1.0)
+    fx_grid, fy_grid = np.meshgrid(fx, fy, indexing="xy")
+    radius = np.sqrt(fx_grid * fx_grid + fy_grid * fy_grid)
+    mask = radius <= float(cutoff_fraction)
+    return np.fft.ifft2(np.fft.fft2(image) * mask)
+
+
+def fit_complex_scale(source: np.ndarray, target: np.ndarray) -> complex:
+    """Least-squares complex scale that aligns ``source`` to ``target``."""
+    denom = np.vdot(source, source)
+    if abs(denom) < 1e-30:
+        return 0.0 + 0.0j
+    return np.vdot(source, target) / denom
+
+
+def normalized_correlation(a: np.ndarray, b: np.ndarray) -> float:
+    """Real-valued normalized correlation after mean-centering."""
+    a_flat = np.asarray(a, dtype=np.float64).ravel()
+    b_flat = np.asarray(b, dtype=np.float64).ravel()
+    a_centered = a_flat - a_flat.mean()
+    b_centered = b_flat - b_flat.mean()
+    denom = float(np.linalg.norm(a_centered) * np.linalg.norm(b_centered))
+    if denom < 1e-30:
+        return 0.0
+    return float(np.dot(a_centered, b_centered) / denom)
+
+
+def odtbrain_validation_cases(
+    sample_count: int,
+    grid_size: int,
+) -> List[np.ndarray]:
+    """Deterministic weak-scattering phantoms for inverse-side checks."""
+    centers_i = np.linspace(grid_size * 0.28, grid_size * 0.72, 4)
+    centers_j = np.linspace(grid_size * 0.28, grid_size * 0.72, 4)
+    cases: List[np.ndarray] = []
+    for idx, (center_i, center_j) in enumerate(
+        [(ci, cj) for ci in centers_i for cj in centers_j]
+    ):
+        if len(cases) >= sample_count:
+            break
+        sigma = 2.2 + 0.35 * (idx % 4)
+        amplitude = 0.025 + 0.003 * (idx % 5)
+        cases.append(
+            gaussian_phantom(
+                grid_size,
+                center=(float(center_i), float(center_j)),
+                sigma=float(sigma),
+                amplitude=float(amplitude),
+            ).astype(np.float64)
+        )
+    return cases
+
+
 # ----------------------------------------------------------------------
 # Result containers
 # ----------------------------------------------------------------------
@@ -580,28 +638,12 @@ def check_cuda_reproducibility(rng: np.random.Generator) -> CheckResult:
 
 
 def check_odtbrain_inverse_consistency() -> CheckResult:
+    sample_count = 16
+    corr_tol = 0.65
     try:
         import odtbrain  # type: ignore
 
         version = getattr(odtbrain, "__version__", "unknown")
-        return CheckResult(
-            name="odtbrain_inverse_consistency",
-            status="skipped",
-            sample_count=0,
-            tolerance=None,
-            metric=None,
-            details={
-                "reason": "wired_but_not_implemented",
-                "odtbrain_version": version,
-                "note": (
-                    "ODTbrain is installed locally but a full backpropagate_2d "
-                    "integration is intentionally out of scope for the operator "
-                    "validation gate. Wire-up will land in a follow-up "
-                    "validation extension if/when downstream BRDT items request "
-                    "an inverse-side check."
-                ),
-            },
-        )
     except ImportError:
         return CheckResult(
             name="odtbrain_inverse_consistency",
@@ -611,6 +653,131 @@ def check_odtbrain_inverse_consistency() -> CheckResult:
             metric=None,
             details={"reason": "dependency_unavailable"},
         )
+
+    api_name: Optional[str]
+    if hasattr(odtbrain, "backpropagate_2d"):
+        api_name = "backpropagate_2d"
+    elif hasattr(odtbrain, "fourier_map_2d"):
+        api_name = "fourier_map_2d"
+    else:
+        api_name = None
+
+    if api_name is None:
+        return CheckResult(
+            name="odtbrain_inverse_consistency",
+            status="fail",
+            sample_count=0,
+            tolerance=corr_tol,
+            metric=0.0,
+            details={
+                "reason": "missing_supported_api",
+                "odtbrain_version": version,
+                "expected_api": ["backpropagate_2d", "fourier_map_2d"],
+            },
+        )
+
+    grid_size = 48
+    detector_size = 48
+    wavelength_px = 8.0
+    medium_ri = 1.333
+    cutoff_fraction = 0.18
+    angles = np.linspace(0.0, 2.0 * math.pi, 17)[:-1]
+    cases = odtbrain_validation_cases(sample_count=sample_count, grid_size=grid_size)
+    operator = BornRytovForward2D(
+        grid_size=grid_size,
+        detector_size=detector_size,
+        angles=torch.tensor(angles, dtype=torch.float64),
+        wavelength_px=wavelength_px,
+        medium_ri=medium_ri,
+        mode="born",
+        normalize="odtbrain_compatible",
+    )
+
+    correlations: List[float] = []
+    rel_l2_values: List[float] = []
+    phase_offsets_deg: List[float] = []
+    scale_magnitudes: List[float] = []
+    api = getattr(odtbrain, api_name)
+
+    try:
+        for q in cases:
+            q_t = torch.from_numpy(q).double().unsqueeze(0).unsqueeze(0)
+            sinogram = operator(q_t).squeeze(0).numpy()
+            u_sin = sinogram[..., 0] + 1j * sinogram[..., 1]
+            recon = api(
+                u_sin,
+                angles,
+                wavelength_px,
+                medium_ri,
+                lD=0,
+                weight_angles=True,
+                onlyreal=False,
+                padding=False,
+            )
+            recon_np = np.asarray(recon)
+            if recon_np.shape != (grid_size, grid_size):
+                raise ValueError(
+                    f"expected ODTbrain reconstruction shape {(grid_size, grid_size)}, "
+                    f"got {recon_np.shape}"
+                )
+
+            q_low = np.real(lowpass_fft(q, cutoff_fraction))
+            recon_low = lowpass_fft(recon_np, cutoff_fraction)
+            scale = fit_complex_scale(recon_low, q_low)
+            matched = np.real(scale * recon_low)
+            correlations.append(normalized_correlation(matched, q_low))
+            rel_l2_values.append(_rel_l2(matched, q_low))
+            phase_offsets_deg.append(float(np.degrees(np.angle(scale))))
+            scale_magnitudes.append(float(abs(scale)))
+    except Exception as exc:  # noqa: BLE001 - surface ODTbrain failures clearly
+        return CheckResult(
+            name="odtbrain_inverse_consistency",
+            status="fail",
+            sample_count=len(correlations),
+            tolerance=corr_tol,
+            metric=float(min(correlations)) if correlations else 0.0,
+            details={
+                "reason": "runtime_error",
+                "odtbrain_version": version,
+                "used_api": api_name,
+                "error": repr(exc),
+            },
+        )
+
+    pass_count = sum(corr >= corr_tol for corr in correlations)
+    min_corr = float(min(correlations)) if correlations else 0.0
+    status = "pass" if pass_count == sample_count else "fail"
+    return CheckResult(
+        name="odtbrain_inverse_consistency",
+        status=status,
+        sample_count=sample_count,
+        tolerance=corr_tol,
+        metric=min_corr,
+        details={
+            "odtbrain_version": version,
+            "used_api": api_name,
+            "comparison": "lowpass_reconstruction_correlation",
+            "lowpass_cutoff_fraction": cutoff_fraction,
+            "correlation_threshold": corr_tol,
+            "pass_count": pass_count,
+            "per_sample_correlation": correlations,
+            "per_sample_rel_l2": rel_l2_values,
+            "mean_rel_l2": float(np.mean(rel_l2_values)),
+            "mean_phase_offset_deg": float(np.mean(phase_offsets_deg)),
+            "max_abs_phase_offset_deg": float(np.max(np.abs(phase_offsets_deg))),
+            "mean_scale_magnitude": float(np.mean(scale_magnitudes)),
+            "grid_size": grid_size,
+            "detector_size": detector_size,
+            "angle_count": int(len(angles)),
+            "wavelength_px": wavelength_px,
+            "medium_ri": medium_ri,
+            "note": (
+                "The pass criterion is low-frequency structure recovery after "
+                "least-squares complex scale alignment, not exact absolute-scale "
+                "agreement."
+            ),
+        },
+    )
 
 
 # ----------------------------------------------------------------------
@@ -679,6 +846,39 @@ def run_all(seed: int = 0, log_path: Optional[Path] = None) -> Dict[str, Any]:
         normalize="unitary_fft",
     )
 
+    direct_check = next(c for c in checks if c.name == "direct_born_integral")
+    odtbrain_check = next(c for c in checks if c.name == "odtbrain_inverse_consistency")
+    known_limits = [
+        (
+            "direct_born_integral oracle agreement is loose "
+            f"(rel_l2 tolerance {direct_check.tolerance:.1f}) because the FFT "
+            "operator periodizes the implicit Green's function while the direct "
+            "integral truncates it; tighter agreement requires zero-padded "
+            "operators or a far-field detector convention, both deferred to "
+            "follow-up validation."
+        ),
+    ]
+    if odtbrain_check.status == "skipped":
+        reason = odtbrain_check.details.get("reason", "unknown")
+        known_limits.append(
+            "ODTbrain inverse-side consistency is not exercised in this pass "
+            f"because `{reason}`; downstream BRDT items must rely on the operator "
+            "contract and the in-tree validation results until the optional "
+            "check can be run locally."
+        )
+    elif odtbrain_check.status == "pass":
+        known_limits.append(
+            "ODTbrain inverse-side consistency uses low-frequency correlation "
+            "after least-squares complex scale alignment, so the recovered phase "
+            "and absolute magnitude remain convention-dependent."
+        )
+    else:
+        known_limits.append(
+            "ODTbrain inverse-side consistency failed under the locally "
+            "available API and must be revalidated before any external "
+            "inverse-side claim is made."
+        )
+
     payload: Dict[str, Any] = {
         "schema_version": "1.0",
         "operator": contract_op.operator_contract(),
@@ -717,21 +917,7 @@ def run_all(seed: int = 0, log_path: Optional[Path] = None) -> Dict[str, Any]:
                 else "At least one blocking validation check failed."
             ),
         },
-        "known_limits": [
-            (
-                "direct_born_integral oracle agreement is loose (rel_l2 tolerance "
-                "0.5) because the FFT operator periodizes the implicit Green's "
-                "function while the direct integral truncates it; tighter "
-                "agreement requires zero-padded operators or a far-field "
-                "detector convention, both deferred to follow-up validation."
-            ),
-            (
-                "ODTbrain inverse-side consistency is not exercised in this "
-                "pass; downstream BRDT items must rely on the operator "
-                "contract and the in-tree validation results, not on an "
-                "external inverse-side recovery."
-            ),
-        ],
+        "known_limits": known_limits,
     }
     return payload
 

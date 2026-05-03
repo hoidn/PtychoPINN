@@ -136,8 +136,8 @@
     "torch_cuda_version": "12.8"
   },
   "known_limits": [
-    "direct_born_integral oracle agreement is loose (rel_l2 tolerance 0.5) because the FFT operator periodizes the implicit Green's function while the direct integral truncates it; tighter agreement requires zero-padded operators or a far-field detector convention, both deferred to follow-up validation.",
-    "ODTbrain inverse-side consistency is not exercised in this pass; downstream BRDT items must rely on the operator contract and the in-tree validation results, not on an external inverse-side recovery."
+    "direct_born_integral oracle agreement is loose (rel_l2 tolerance 0.6) because the FFT operator periodizes the implicit Green's function while the direct integral truncates it; tighter agreement requires zero-padded operators or a far-field detector convention, both deferred to follow-up validation.",
+    "ODTbrain inverse-side consistency is not exercised in this pass because `dependency_unavailable`; downstream BRDT items must rely on the operator contract and the in-tree validation results until the optional check can be run locally."
   ],
   "operator": {
     "angle_count": 64,
@@ -160,14 +160,14 @@
   },
   "operator_identity": {
     "class": "BornRytovForward2D",
-    "elapsed_seconds": 0.7451340218540281,
+    "elapsed_seconds": 0.7494230328593403,
     "execution_command": "python -m scripts.studies.born_rytov_dt.validate_operator",
-    "finished_utc": "2026-05-02T14:49:29.302899+00:00",
+    "finished_utc": "2026-05-03T04:55:18.540324+00:00",
     "git_dirty": true,
-    "git_sha": "6a0c2cf0bb4fcb59b719605f3aeff4af87f604f0",
+    "git_sha": "97898d05e96b9f8825bc8a798cf3d57c83f01577",
     "module": "ptycho_torch.physics.born_rytov_dt",
     "seed": 0,
-    "started_utc": "2026-05-02T14:49:28.557754+00:00"
+    "started_utc": "2026-05-03T04:55:17.790889+00:00"
   },
   "schema_version": "1.0",
   "verdict": "pass_with_documented_limits"

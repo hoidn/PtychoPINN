@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import json
 import math
+import sys
+import types
 from pathlib import Path
 
 import numpy as np
@@ -144,10 +146,39 @@ def test_check_cuda_reproducibility_recorded_either_way():
 def test_check_odtbrain_inverse_consistency_records_skip_reason():
     result = check_odtbrain_inverse_consistency()
     assert result.status == "skipped"
-    assert result.details.get("reason") in (
-        "dependency_unavailable",
-        "wired_but_not_implemented",
-    )
+    assert result.details.get("reason") == "dependency_unavailable"
+
+
+def test_check_odtbrain_inverse_consistency_uses_installed_package(monkeypatch: pytest.MonkeyPatch):
+    fake_module = types.ModuleType("odtbrain")
+    fake_module.__version__ = "test-double"
+
+    def fake_backpropagate_2d(
+        uSin,
+        angles,
+        res,
+        nm,
+        lD=0,
+        coords=None,
+        weight_angles=True,
+        onlyreal=False,
+        padding=True,
+        padval=0,
+        count=None,
+        max_count=None,
+        verbose=0,
+    ):
+        assert uSin.shape[0] == 16
+        return np.zeros((uSin.shape[-1], uSin.shape[-1]), dtype=np.complex128)
+
+    fake_module.backpropagate_2d = fake_backpropagate_2d
+    monkeypatch.setitem(sys.modules, "odtbrain", fake_module)
+
+    result = check_odtbrain_inverse_consistency()
+    assert result.status in ("pass", "fail")
+    assert result.sample_count == 16
+    assert result.details["odtbrain_version"] == "test-double"
+    assert result.details["used_api"] == "backpropagate_2d"
 
 
 # ----------------------------------------------------------------------
@@ -228,6 +259,9 @@ def test_run_all_produces_expected_schema(tmp_path: Path):
     auth = payload["downstream_authorization"]
     assert auth["next_item"] == "2026-04-29-brdt-dataset-preflight"
     assert auth["may_proceed"] is True
+    direct_tol = next(c["tolerance"] for c in payload["checks"] if c["name"] == "direct_born_integral")
+    assert f"{direct_tol:.1f}" in payload["known_limits"][0]
+    assert "0.5" not in payload["known_limits"][0]
 
 
 def test_run_all_writes_log_lines(tmp_path: Path):
@@ -258,3 +292,6 @@ def test_artifact_json_is_present_and_valid():
     payload = json.loads(DEFAULT_JSON_PATH.read_text())
     assert payload["verdict"] in ("pass", "pass_with_documented_limits")
     assert payload["downstream_authorization"]["may_proceed"] is True
+    direct_tol = next(c["tolerance"] for c in payload["checks"] if c["name"] == "direct_born_integral")
+    assert f"{direct_tol:.1f}" in payload["known_limits"][0]
+    assert "0.5" not in payload["known_limits"][0]
