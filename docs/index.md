@@ -143,6 +143,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, brdt, born, operator-validation, candidate, feasibility, gradcheck, dtype-reproducibility
 **Use this when:** Consuming the BRDT operator's locked contract from downstream items (dataset preflight, task adapters, four-row preflight), citing the operator validation outcome, or auditing the independent-oracle evidence supporting the candidate-lane gate.
 
+### [NeurIPS BRDT Dataset Preflight Summary](plans/NEURIPS-HYBRID-RESNET-2026/brdt_dataset_preflight.md)
+**Description:** Locked smoke/preflight dataset for the BRDT candidate lane. Freezes the physical target `q(x,z)=k_m^2((n/n_m)^2-1)`, train-only normalization, deterministic 16/4/4 splits with disjoint object seeds, the unnormalize-before-physics rule, and the non-CDI phantom-family roster (overlapping ellipses, soft blobs, sparse inclusions). Consumes the operator authority from `operator_validation.json` rather than redefining it. Generator: `scripts/studies/born_rytov_dt/generate_brdt_dataset.py`. Smoke artifacts under `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight/`. Feasibility-only; does not authorize BRDT manuscript evidence and does not start adapters or four-row preflight.
+**Keywords:** neurips, brdt, born, dataset, preflight, candidate, feasibility, smoke
+**Use this when:** Consuming the BRDT smoke dataset contract from `2026-04-29-brdt-task-adapters` or `2026-04-29-brdt-four-row-preflight`, citing the manifest schema, or checking the locked physical-target and normalization rule before adding any BRDT training surface.
+
 ### [NeurIPS Inverse-Wave Benchmark Rationale](plans/NEURIPS-HYBRID-RESNET-2026/inverse_wave_benchmark_rationale.md)
 **Description:** Decision rationale comparing BRDT, WaveBench inverse source, OpenFWI, OpenSWI, Fourier ptychography, holography, and diffraction tomography as possible additional inverse-wave lanes. It records why BRDT and WaveBench are both active candidate preflights and why neither candidate can replace CDI `lines128` or PDEBench CNS.
 **Keywords:** neurips, inverse-wave, brdt, wavebench, openfwi, openswi, benchmark-rationale, candidate
