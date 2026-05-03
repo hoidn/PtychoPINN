@@ -17,7 +17,7 @@
   "generation_command": "python -m scripts.studies.born_rytov_dt.generate_brdt_dataset --dry-run-manifest",
   "geometry_mismatches": [],
   "git_dirty": true,
-  "git_sha": "d1465bd0db3f57679f7df875d285787a811ef0b5",
+  "git_sha": "92dd58f5fc0ab7975a3fb0e08e639d8edaffa614",
   "manifest_skeleton_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight/dry_run_manifest.json",
   "mode": "dry_run_manifest",
   "noise_sigma_physical_units": 0.001,

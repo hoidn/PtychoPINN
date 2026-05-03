@@ -135,6 +135,61 @@ def test_dry_run_writes_manifest_skeleton_and_exact_command(tmp_path):
     assert manifest["extra"]["generation_mode"] == "dry_run_manifest"
 
 
+def test_dry_run_writes_invocation_provenance_artifacts(tmp_path):
+    output_root = tmp_path / "dryrun_invocation"
+    cmd = [
+        "--dry-run-manifest",
+        "--output-root",
+        str(output_root),
+        "--split-seed",
+        "7",
+    ]
+    _run_generator(*cmd)
+
+    invocation_json = output_root / "invocation.json"
+    invocation_sh = output_root / "invocation.sh"
+    assert invocation_json.exists()
+    assert invocation_sh.exists()
+
+    payload = json.loads(invocation_json.read_text())
+    assert payload["script"] == "scripts/studies/born_rytov_dt/generate_brdt_dataset.py"
+    assert payload["argv"] == cmd
+    assert payload["parsed_args"]["split_seed"] == 7
+    assert payload["parsed_args"]["dry_run_manifest"] is True
+    assert payload["extra"]["mode"] == "dry_run_manifest"
+    assert payload["extra"]["backlog_item"] == "2026-04-29-brdt-dataset-preflight"
+    sh_text = invocation_sh.read_text()
+    assert "generate_brdt_dataset" in sh_text
+    assert "--dry-run-manifest" in sh_text
+
+
+def test_live_writes_invocation_provenance_artifacts(tmp_path):
+    output_root = tmp_path / "live_invocation"
+    cmd = [
+        "--output-root",
+        str(output_root),
+        "--device",
+        "cpu",
+        "--split-seed",
+        "11",
+        "--train-count",
+        "2",
+        "--val-count",
+        "1",
+        "--test-count",
+        "1",
+    ]
+    _run_generator(*cmd)
+
+    invocation_json = output_root / "invocation.json"
+    invocation_sh = output_root / "invocation.sh"
+    assert invocation_json.exists()
+    assert invocation_sh.exists()
+    payload = json.loads(invocation_json.read_text())
+    assert payload["argv"] == cmd
+    assert payload["extra"]["mode"] == "live"
+
+
 def test_dry_run_missing_operator_validation_writes_not_ready_artifacts(tmp_path):
     output_root = tmp_path / "dryrun_missing_operator"
     missing_operator = tmp_path / "does-not-exist.json"
@@ -353,11 +408,25 @@ def test_phantom_generators_in_weak_scattering_envelope(family, fn):
     n_field = fn(seed=0, grid=grid, n_m=dc.LOCKED_MEDIUM_RI)
     assert n_field.shape == (grid, grid)
     delta = n_field - dc.LOCKED_MEDIUM_RI
-    # Allow some accumulation from overlapping objects but cap at small
-    # multiples of delta_n_max so we stay in the weak-scattering regime.
-    assert np.max(np.abs(delta)) <= 8.0 * dc.DELTA_N_MAX, (
+    # The candidate-lane contract requires |delta_n| <= DELTA_N_MAX so the
+    # Born approximation remains valid; phantoms must clip overlapping
+    # accumulations to that envelope.
+    assert np.max(np.abs(delta)) <= dc.DELTA_N_MAX + 1e-12, (
         f"{family} produced |delta_n|={np.max(np.abs(delta))}"
     )
+
+
+@pytest.mark.parametrize("family", list(dc.PHANTOM_FAMILIES))
+def test_phantom_envelope_holds_across_seeds_at_locked_grid(family):
+    # Sweep many seeds at the production grid size to confirm the
+    # weak-scattering cap is not just incidentally satisfied for seed=0.
+    for seed in range(32):
+        n_field = generate_refractive_index(family, seed=seed)
+        delta = n_field - dc.LOCKED_MEDIUM_RI
+        assert np.max(np.abs(delta)) <= dc.DELTA_N_MAX + 1e-12, (
+            f"{family}@seed={seed} produced |delta_n|="
+            f"{np.max(np.abs(delta))}"
+        )
 
 
 def test_phantom_dispatch_seed_determinism():

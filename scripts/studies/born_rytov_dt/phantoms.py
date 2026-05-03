@@ -33,6 +33,20 @@ def _sample_delta_n(rng: np.random.Generator) -> float:
     return float(rng.uniform(DELTA_N_MIN, DELTA_N_MAX))
 
 
+def _clip_to_weak_scattering(n_field: np.ndarray, n_m: float) -> np.ndarray:
+    """Clip deviation from the medium index to the weak-scattering envelope.
+
+    Phantom families accumulate per-object perturbations additively, which
+    can drive ``|n - n_m|`` beyond ``DELTA_N_MAX``. The candidate-lane
+    contract (see ``born_rytov_dt_candidate_lane_design.md``) requires the
+    final field to stay within ``delta_n in [-DELTA_N_MAX, +DELTA_N_MAX]``
+    so the Born approximation remains valid.
+    """
+    delta = n_field - float(n_m)
+    np.clip(delta, -DELTA_N_MAX, DELTA_N_MAX, out=delta)
+    return delta + float(n_m)
+
+
 def overlapping_ellipses(
     seed: int,
     grid: int = LOCKED_GRID_SIZE,
@@ -60,7 +74,7 @@ def overlapping_ellipses(
         inside = (xr * xr) / (a * a) + (zr * zr) / (b * b) <= 1.0
         delta = _sample_delta_n(rng) * (1.0 if rng.uniform() > 0.3 else -1.0)
         n_field[inside] += delta
-    return n_field
+    return _clip_to_weak_scattering(n_field, n_m)
 
 
 def soft_blobs(
@@ -83,7 +97,7 @@ def soft_blobs(
         dx = j_grid - cx
         dz = i_grid - cz
         n_field += amp * np.exp(-(dx * dx + dz * dz) / (2.0 * sigma * sigma))
-    return n_field
+    return _clip_to_weak_scattering(n_field, n_m)
 
 
 def sparse_inclusions(
@@ -106,7 +120,7 @@ def sparse_inclusions(
         dx = j_grid - cx
         dz = i_grid - cz
         n_field[dx * dx + dz * dz <= r * r] += amp
-    return n_field
+    return _clip_to_weak_scattering(n_field, n_m)
 
 
 def generate_refractive_index(

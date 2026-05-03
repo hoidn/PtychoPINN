@@ -13,6 +13,8 @@
   - `dataset_manifest.json`
   - `dry_run_manifest.json`
   - `dry_run_summary.json`
+  - `invocation.json` and `invocation.sh` (provenance per
+    `docs/development/INVOCATION_LOGGING_GUIDE.md`)
   - `dataset/brdt128_sparse_fullview_preflight_train.h5`
   - `dataset/brdt128_sparse_fullview_preflight_val.h5`
   - `dataset/brdt128_sparse_fullview_preflight_test.h5`
@@ -84,14 +86,19 @@ ready_for_smoke_generation` only when the comparison succeeds.
   - `soft_blobs`
   - `sparse_inclusions`
 - Refractive-index contrast envelope: `delta_n in [0.002, 0.03]` with
-  `n_m = 1.333`.
+  `n_m = 1.333`. Each phantom family draws individual perturbations from
+  this range and additionally clips the final field to
+  `|n - n_m| <= DELTA_N_MAX = 0.03` so cumulative overlaps cannot leave
+  the weak-scattering regime. Measured on the regenerated smoke dataset,
+  the maximum `|delta_n|` is `~0.0300` across all three splits, matching
+  the locked envelope.
 - Noise model: additive complex Gaussian with `noise_sigma = 1e-3` in
   physical sinogram units (recorded in the manifest); the generator
   seeds the per-split noise deterministically and records the measured
   per-split SNR in dB.
 
 For the default seed (42) the recorded SNR is approximately
-`train ~18.5 dB`, `val ~16.4 dB`, `test ~19.3 dB`.
+`train ~18.2 dB`, `val ~16.4 dB`, `test ~19.3 dB`.
 
 ## HDF5 Schema
 
@@ -154,7 +161,9 @@ python -m scripts.studies.born_rytov_dt.generate_brdt_dataset
 Generation runtime is short (well under a minute on CUDA). For a fully
 fresh artifact root, pass `--output-root <path>`; the generator creates
 `logs/`, `dataset/`, `dataset_manifest.json`, `dry_run_manifest.json`,
-and `dry_run_summary.json` under that root.
+`dry_run_summary.json`, and the canonical `invocation.json` /
+`invocation.sh` provenance artifacts under that root in both dry-run and
+live modes.
 
 Validation gates required by the plan:
 

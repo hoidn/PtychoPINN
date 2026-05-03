@@ -33,6 +33,10 @@ import torch
 from ptycho_torch.physics import BornRytovForward2D
 from scripts.studies.born_rytov_dt import dataset_contract as dc
 from scripts.studies.born_rytov_dt.phantoms import generate_refractive_index
+from scripts.studies.invocation_logging import (
+    capture_runtime_provenance,
+    write_invocation_artifacts,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -52,6 +56,7 @@ DEFAULT_OPERATOR_VALIDATION = (
     / "operator_validation.json"
 )
 GENERATOR_MODULE = "scripts.studies.born_rytov_dt.generate_brdt_dataset"
+SCRIPT_PATH = "scripts/studies/born_rytov_dt/generate_brdt_dataset.py"
 
 
 # ----------------------------------------------------------------------
@@ -506,6 +511,22 @@ def main(argv: Optional[List[str]] = None) -> int:
 
     counts = dc.SplitCounts(train=args.train_count, val=args.val_count, test=args.test_count)
     generation_command = _generation_command(argv)
+
+    raw_argv = list(argv) if argv is not None else list(sys.argv[1:])
+    sha, dirty = _git_revision(REPO_ROOT)
+    write_invocation_artifacts(
+        output_dir=output_root,
+        script_path=SCRIPT_PATH,
+        argv=raw_argv,
+        parsed_args=vars(args),
+        extra={
+            "git_sha": sha,
+            "git_dirty": dirty,
+            "runtime_provenance": capture_runtime_provenance(),
+            "mode": "dry_run_manifest" if args.dry_run_manifest else "live",
+            "backlog_item": "2026-04-29-brdt-dataset-preflight",
+        },
+    )
 
     if args.dry_run_manifest:
         operator_authority: Optional[Dict[str, Any]] = None

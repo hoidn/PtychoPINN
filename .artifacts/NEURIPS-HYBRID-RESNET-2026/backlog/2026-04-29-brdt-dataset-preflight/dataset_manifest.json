@@ -9,7 +9,7 @@
     "backlog_item": "2026-04-29-brdt-dataset-preflight",
     "generation_command": "python -m scripts.studies.born_rytov_dt.generate_brdt_dataset",
     "git_dirty": true,
-    "git_sha": "19ae615e30a06683e3569091a9dcb942bce63b37",
+    "git_sha": "92dd58f5fc0ab7975a3fb0e08e639d8edaffa614",
     "name": "brdt128_sparse_fullview_preflight",
     "output_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight",
     "tier": "feasibility"
@@ -93,18 +93,18 @@
   },
   "noise": {
     "measured_snr": {
-      "test_db": 19.309521118789167,
-      "train_db": 18.465376487786692,
+      "test_db": 19.259406293031812,
+      "train_db": 18.22254706267927,
       "val_db": 16.3747234610113
     },
     "model": "complex_gaussian_iid",
     "noise_sigma_physical_units": 0.001
   },
   "normalization": {
-    "q_max_train": 0.05002570093026218,
-    "q_mean_train": 0.0010357841884520217,
-    "q_min_train": -0.034497024813992264,
-    "q_std_train": 0.006255857205170991
+    "q_max_train": 0.028077640329534873,
+    "q_mean_train": 0.0010038840344458414,
+    "q_min_train": -0.02745276702843244,
+    "q_std_train": 0.006004037594229772
   },
   "operator": {
     "angle_count": 64,
