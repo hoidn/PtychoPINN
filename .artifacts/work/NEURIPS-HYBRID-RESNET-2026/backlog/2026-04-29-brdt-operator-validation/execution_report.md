@@ -2,48 +2,41 @@
 
 ## Completed In This Pass
 
-- Replaced the stubbed installed-`odtbrain` branch in
-  `scripts/studies/born_rytov_dt/validate_operator.py` with real optional
-  inverse-side wiring:
-  - prefers `odtbrain.backpropagate_2d`, with `fourier_map_2d` as a fallback
-    if needed;
-  - generates `16` deterministic held-out weak-scattering Gaussian phantoms;
-  - runs the Born operator in `odtbrain_compatible` mode to produce complex
-    sinograms;
-  - reconstructs with ODTbrain when available; and
-  - evaluates low-frequency recovery of `q` after least-squares complex-scale
-    alignment, recording `pass` or `fail` instead of the removed
-    `wired_but_not_implemented` stub state.
-- Added review-locking tests in
-  `tests/studies/test_born_rytov_dt_validation.py` that now require:
-  - the missing-dependency path to report only `dependency_unavailable`;
-  - the installed-`odtbrain` path to produce a real `pass`/`fail` result with
-    sample count and API provenance; and
-  - the generated payload and committed JSON artifact to derive their
-    direct-integral tolerance text from the actual check result.
-- Regenerated
-  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-operator-validation/operator_validation.json`
-  so the durable artifact now records the correct direct-integral tolerance
-  (`0.6`) and the current local optional-check skip reason
-  (`dependency_unavailable`).
+- Added two review-locking regression tests in
+  `tests/studies/test_born_rytov_dt_validation.py` and verified that they
+  failed before the fix:
+  - the installed-`backpropagate_2d` path was passing the in-medium
+    `wavelength_px` where ODTbrain expects vacuum `res`;
+  - the `fourier_map_2d` fallback path was receiving unsupported
+    `weight_angles`/`onlyreal`/`padding` kwargs and failed immediately.
+- Fixed `scripts/studies/born_rytov_dt/validate_operator.py` so the optional
+  ODTbrain check now:
+  - converts the BRDT in-medium wavelength to the vacuum wavelength expected
+    by ODTbrain via `lambda_0 = wavelength_px * medium_ri`;
+  - calls `backpropagate_2d` and `fourier_map_2d` with their own valid
+    signatures instead of reusing one incompatible kwarg set; and
+  - records the ODTbrain-side vacuum wavelength in the installed-package
+    check details for artifact transparency.
+- Regenerated the BRDT validation artifacts from the current checkout:
+  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-operator-validation/operator_validation.json`
+  - `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-operator-validation/logs/validate_operator.log`
 - Updated
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_operator_validation_report.md`
-  so the human-facing authority no longer implies the inverse-side check is
-  unimplemented; it now states that the check is implemented but not runnable
-  locally without ODTbrain.
+  so the durable authority now documents the API-specific ODTbrain wiring and
+  the vacuum-wavelength conversion at the optional inverse boundary.
 
 ## Completed Current-Scope Work
 
-- Fixed the blocking implementation-review issue: the optional ODTbrain
-  inverse-side consistency check is now actually wired for installed
-  environments and records `pass`, `fail`, or `dependency_unavailable` as the
-  approved plan requires.
-- Fixed the machine-readable artifact inconsistency: the `known_limits` text in
-  `operator_validation.json` now stays aligned with the direct-integral
-  tolerance emitted by the validation check itself.
+- Fixed both blocking review findings in already-implemented current-scope
+  work:
+  - the optional ODTbrain inverse-side check now has a real
+    `fourier_map_2d` fallback instead of a broken shared call path;
+  - the installed-package ODTbrain path now validates against the correct
+    physical units by converting to vacuum wavelength at the ODTbrain
+    boundary.
 - Re-ran the current-scope verification contract after the fixes:
   - `pytest -q tests/studies/test_born_rytov_dt_operator.py tests/studies/test_born_rytov_dt_validation.py`
-    → `31 passed`
+    → `33 passed`
   - `python -m compileall -q ptycho_torch scripts/studies/born_rytov_dt`
     → success
   - `python -m scripts.studies.born_rytov_dt.validate_operator`

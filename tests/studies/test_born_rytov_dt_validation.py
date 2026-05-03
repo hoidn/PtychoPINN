@@ -181,6 +181,109 @@ def test_check_odtbrain_inverse_consistency_uses_installed_package(monkeypatch: 
     assert result.details["used_api"] == "backpropagate_2d"
 
 
+def test_check_odtbrain_inverse_consistency_converts_medium_wavelength_to_vacuum(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    fake_module = types.ModuleType("odtbrain")
+    fake_module.__version__ = "test-double"
+    calls = []
+
+    def fake_backpropagate_2d(
+        uSin,
+        angles,
+        res,
+        nm,
+        lD=0,
+        coords=None,
+        weight_angles=True,
+        onlyreal=False,
+        padding=True,
+        padval=0,
+        count=None,
+        max_count=None,
+        verbose=0,
+    ):
+        calls.append(
+            {
+                "res": res,
+                "nm": nm,
+                "lD": lD,
+                "weight_angles": weight_angles,
+                "onlyreal": onlyreal,
+                "padding": padding,
+            }
+        )
+        return np.zeros((uSin.shape[-1], uSin.shape[-1]), dtype=np.complex128)
+
+    fake_module.backpropagate_2d = fake_backpropagate_2d
+    monkeypatch.setitem(sys.modules, "odtbrain", fake_module)
+
+    result = check_odtbrain_inverse_consistency()
+
+    assert result.status in ("pass", "fail")
+    assert calls, "expected fake backpropagate_2d to be invoked"
+    call = calls[0]
+    assert call["res"] == pytest.approx(8.0 * 1.333)
+    assert call["nm"] == pytest.approx(1.333)
+    assert call["lD"] == 0
+    assert call["weight_angles"] is True
+    assert call["onlyreal"] is False
+    assert call["padding"] is False
+
+
+def test_check_odtbrain_inverse_consistency_supports_fourier_map_only(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    fake_module = types.ModuleType("odtbrain")
+    fake_module.__version__ = "test-double"
+    calls = []
+
+    def fake_fourier_map_2d(
+        uSin,
+        angles,
+        res,
+        nm,
+        lD=0,
+        semi_coverage=False,
+        coords=None,
+        count=None,
+        max_count=None,
+        verbose=0,
+    ):
+        calls.append(
+            {
+                "res": res,
+                "nm": nm,
+                "lD": lD,
+                "semi_coverage": semi_coverage,
+                "coords": coords,
+                "count": count,
+                "max_count": max_count,
+                "verbose": verbose,
+            }
+        )
+        return np.zeros((uSin.shape[-1], uSin.shape[-1]), dtype=np.complex128)
+
+    fake_module.fourier_map_2d = fake_fourier_map_2d
+    monkeypatch.setitem(sys.modules, "odtbrain", fake_module)
+
+    result = check_odtbrain_inverse_consistency()
+
+    assert result.status in ("pass", "fail")
+    assert result.sample_count == 16
+    assert result.details["used_api"] == "fourier_map_2d"
+    assert calls, "expected fake fourier_map_2d to be invoked"
+    call = calls[0]
+    assert call["res"] == pytest.approx(8.0 * 1.333)
+    assert call["nm"] == pytest.approx(1.333)
+    assert call["lD"] == 0
+    assert call["semi_coverage"] is False
+    assert call["coords"] is None
+    assert call["count"] is None
+    assert call["max_count"] is None
+    assert call["verbose"] == 0
+
+
 # ----------------------------------------------------------------------
 # Driver tests
 # ----------------------------------------------------------------------

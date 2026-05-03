@@ -680,6 +680,7 @@ def check_odtbrain_inverse_consistency() -> CheckResult:
     detector_size = 48
     wavelength_px = 8.0
     medium_ri = 1.333
+    vacuum_wavelength_px = wavelength_px * medium_ri
     cutoff_fraction = 0.18
     angles = np.linspace(0.0, 2.0 * math.pi, 17)[:-1]
     cases = odtbrain_validation_cases(sample_count=sample_count, grid_size=grid_size)
@@ -704,16 +705,30 @@ def check_odtbrain_inverse_consistency() -> CheckResult:
             q_t = torch.from_numpy(q).double().unsqueeze(0).unsqueeze(0)
             sinogram = operator(q_t).squeeze(0).numpy()
             u_sin = sinogram[..., 0] + 1j * sinogram[..., 1]
-            recon = api(
-                u_sin,
-                angles,
-                wavelength_px,
-                medium_ri,
-                lD=0,
-                weight_angles=True,
-                onlyreal=False,
-                padding=False,
-            )
+            if api_name == "backpropagate_2d":
+                recon = api(
+                    u_sin,
+                    angles,
+                    vacuum_wavelength_px,
+                    medium_ri,
+                    lD=0,
+                    weight_angles=True,
+                    onlyreal=False,
+                    padding=False,
+                )
+            else:
+                recon = api(
+                    u_sin,
+                    angles,
+                    vacuum_wavelength_px,
+                    medium_ri,
+                    lD=0,
+                    semi_coverage=False,
+                    coords=None,
+                    count=None,
+                    max_count=None,
+                    verbose=0,
+                )
             recon_np = np.asarray(recon)
             if recon_np.shape != (grid_size, grid_size):
                 raise ValueError(
@@ -770,6 +785,7 @@ def check_odtbrain_inverse_consistency() -> CheckResult:
             "detector_size": detector_size,
             "angle_count": int(len(angles)),
             "wavelength_px": wavelength_px,
+            "odtbrain_vacuum_wavelength_px": vacuum_wavelength_px,
             "medium_ri": medium_ri,
             "note": (
                 "The pass criterion is low-frequency structure recovery after "

@@ -19,7 +19,9 @@
 - Python 3.11.13, PyTorch 2.9.1+cu128, NumPy 1.26.4, SciPy 1.13.1.
 - CUDA available (Torch CUDA 12.8); GPU validation exercised.
 - ODTbrain: not installed locally. Optional inverse-side consistency
-  recorded as `dependency_unavailable`.
+  recorded as `dependency_unavailable`. When ODTbrain is installed, the
+  harness prefers `backpropagate_2d` and falls back to `fourier_map_2d`
+  with its own valid call signature.
 
 ## Locked Operator Contract
 
@@ -47,6 +49,11 @@ The contract is implemented in
 `ptycho_torch/physics/born_rytov_dt.py` and is exposed both via the class
 constructor signature and via the helper method
 `BornRytovForward2D.operator_contract()`.
+
+For the optional ODTbrain inverse-side check, the harness converts the
+in-medium operator wavelength to the vacuum wavelength ODTbrain expects:
+`lambda_0 = wavelength_px * medium_ri`. The forward operator contract
+itself remains unchanged and continues to use the in-medium wavelength.
 
 ## Validation Suite Results
 
@@ -126,7 +133,9 @@ limits because:
   items must rely on the operator contract and the in-tree validation
   results, not on an external inverse-side recovery, until ODTbrain is
   installed locally and the implemented optional inverse-side check can
-  be exercised in this environment.
+  be exercised in this environment. That installed-package path is now
+  wired for both `backpropagate_2d` and `fourier_map_2d`, and uses the
+  vacuum-wavelength mapping above when invoking ODTbrain.
 
 ## Downstream Authorization
 

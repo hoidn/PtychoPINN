@@ -160,14 +160,14 @@
   },
   "operator_identity": {
     "class": "BornRytovForward2D",
-    "elapsed_seconds": 0.7494230328593403,
+    "elapsed_seconds": 0.7539300869684666,
     "execution_command": "python -m scripts.studies.born_rytov_dt.validate_operator",
-    "finished_utc": "2026-05-03T04:55:18.540324+00:00",
+    "finished_utc": "2026-05-03T05:05:10.610761+00:00",
     "git_dirty": true,
-    "git_sha": "97898d05e96b9f8825bc8a798cf3d57c83f01577",
+    "git_sha": "66fcd6f82546b0b92c65537c9aa9265367790e6e",
     "module": "ptycho_torch.physics.born_rytov_dt",
     "seed": 0,
-    "started_utc": "2026-05-03T04:55:17.790889+00:00"
+    "started_utc": "2026-05-03T05:05:09.856821+00:00"
   },
   "schema_version": "1.0",
   "verdict": "pass_with_documented_limits"
