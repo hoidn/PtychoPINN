@@ -52,6 +52,34 @@ DATASET_NAME: str = "brdt128_sparse_fullview_preflight"
 DATASET_TIER: str = "feasibility"
 DRY_RUN_MANIFEST_NAME: str = "dry_run_manifest.json"
 
+# ---------------------------------------------------------------------------
+# Dataset profile registry
+# ---------------------------------------------------------------------------
+# The smoke profile feeds the feasibility-only ``2026-04-29-brdt-dataset-preflight``
+# item; the decision-support profile owns the larger capped split that the
+# ``2026-04-29-brdt-four-row-preflight`` item runs the bounded four-row
+# preflight against. Each profile carries the four pieces of identity
+# downstream consumers need to keep the artifacts non-destructive against
+# each other: a unique dataset name, a tier label, the originating backlog
+# item, the claim-boundary string, and default split counts.
+DECISION_SUPPORT_DATASET_NAME: str = "brdt128_decision_support_preflight"
+DECISION_SUPPORT_DATASET_TIER: str = "decision_support"
+DECISION_SUPPORT_BACKLOG_ITEM: str = "2026-04-29-brdt-four-row-preflight"
+DECISION_SUPPORT_DEFAULT_TRAIN: int = 2048
+DECISION_SUPPORT_DEFAULT_VAL: int = 256
+DECISION_SUPPORT_DEFAULT_TEST: int = 256
+SMOKE_CLAIM_BOUNDARY: str = (
+    "Feasibility-only smoke dataset. NOT manuscript evidence. The later "
+    "larger decision-support split, BRDT task adapters, and four-row "
+    "preflight remain out of scope for this item."
+)
+DECISION_SUPPORT_CLAIM_BOUNDARY: str = (
+    "Decision-support preflight only. NOT manuscript or paper-grade "
+    "evidence. The four-row preflight aggregates rows under one shared "
+    "dataset/operator/input/split contract; bundle-level claim is "
+    "decision_support_preflight_only."
+)
+
 # Phantom-family roster locked for this preflight (non-CDI families).
 PHANTOM_FAMILIES: Tuple[str, ...] = (
     "overlapping_ellipses",
@@ -143,7 +171,12 @@ def unnormalize_q(q_norm: ArrayLike, stats: NormalizationStats) -> ArrayLike:
 
 @dataclass(frozen=True)
 class SplitCounts:
-    """Locked train/val/test split counts for the smoke dataset."""
+    """Train/val/test split counts.
+
+    Defaults match the smoke dataset (16/4/4). The decision-support
+    profile uses ``DECISION_SUPPORT_DEFAULT_*`` values, see
+    :func:`profile_default_counts`.
+    """
 
     train: int = 16
     val: int = 4
@@ -155,6 +188,64 @@ class SplitCounts:
 
     def as_dict(self) -> Dict[str, int]:
         return {"train": self.train, "val": self.val, "test": self.test}
+
+
+@dataclass(frozen=True)
+class DatasetProfile:
+    """Dataset identity bundle for the BRDT generator.
+
+    A profile fixes the dataset name, tier label, originating backlog
+    item, default split counts, and claim-boundary string so the smoke
+    and decision-support artifacts remain non-destructively separable.
+    Geometry, normalization helpers, and operator authority are NOT part
+    of the profile; they remain locked through the module-level
+    ``LOCKED_*`` constants and ``validate_geometry_against_operator_authority``.
+    """
+
+    name: str
+    tier: str
+    backlog_item: str
+    claim_boundary: str
+    default_counts: SplitCounts
+
+
+SMOKE_PROFILE: DatasetProfile = DatasetProfile(
+    name=DATASET_NAME,
+    tier=DATASET_TIER,
+    backlog_item="2026-04-29-brdt-dataset-preflight",
+    claim_boundary=SMOKE_CLAIM_BOUNDARY,
+    default_counts=SplitCounts(train=16, val=4, test=4),
+)
+
+DECISION_SUPPORT_PROFILE: DatasetProfile = DatasetProfile(
+    name=DECISION_SUPPORT_DATASET_NAME,
+    tier=DECISION_SUPPORT_DATASET_TIER,
+    backlog_item=DECISION_SUPPORT_BACKLOG_ITEM,
+    claim_boundary=DECISION_SUPPORT_CLAIM_BOUNDARY,
+    default_counts=SplitCounts(
+        train=DECISION_SUPPORT_DEFAULT_TRAIN,
+        val=DECISION_SUPPORT_DEFAULT_VAL,
+        test=DECISION_SUPPORT_DEFAULT_TEST,
+    ),
+)
+
+PROFILE_REGISTRY: Dict[str, DatasetProfile] = {
+    "smoke": SMOKE_PROFILE,
+    "decision_support": DECISION_SUPPORT_PROFILE,
+}
+
+
+def get_dataset_profile(profile: str) -> DatasetProfile:
+    """Look up a registered dataset profile by name."""
+    if profile not in PROFILE_REGISTRY:
+        allowed = sorted(PROFILE_REGISTRY)
+        raise ValueError(f"unknown dataset profile {profile!r}; allowed: {allowed}")
+    return PROFILE_REGISTRY[profile]
+
+
+def profile_default_counts(profile: str) -> SplitCounts:
+    """Default counts for the named profile."""
+    return get_dataset_profile(profile).default_counts
 
 
 def deterministic_object_seeds(
@@ -244,6 +335,7 @@ def build_manifest(
     environment: Dict[str, Any],
     artifact_paths: Dict[str, str],
     extra: Optional[Dict[str, Any]] = None,
+    profile: Optional[DatasetProfile] = None,
 ) -> Dict[str, Any]:
     """Assemble the dataset manifest with stable keys.
 
@@ -251,13 +343,18 @@ def build_manifest(
     downstream BRDT items (`brdt-task-adapters`, `brdt-four-row-preflight`)
     are allowed to depend on. New keys may be added; existing keys must
     not be renamed without an approved follow-up.
+
+    ``profile`` selects the dataset identity bundle (name, tier,
+    backlog_item, claim_boundary). Defaults to :data:`SMOKE_PROFILE` so
+    callers that predate the four-row preflight remain unaffected.
     """
+    selected_profile = profile if profile is not None else SMOKE_PROFILE
     manifest: Dict[str, Any] = {
         "schema_version": "1.0",
         "dataset_identity": {
-            "name": DATASET_NAME,
-            "tier": DATASET_TIER,
-            "backlog_item": "2026-04-29-brdt-dataset-preflight",
+            "name": selected_profile.name,
+            "tier": selected_profile.tier,
+            "backlog_item": selected_profile.backlog_item,
             "output_root": output_root,
             "generation_command": generation_command,
             "git_sha": git_sha,
@@ -291,11 +388,7 @@ def build_manifest(
         "normalization": (normalization.as_dict() if normalization is not None else None),
         "environment": environment,
         "artifacts": artifact_paths,
-        "claim_boundary": (
-            "Feasibility-only smoke dataset. NOT manuscript evidence. The "
-            "later larger decision-support split, BRDT task adapters, and "
-            "four-row preflight remain out of scope for this item."
-        ),
+        "claim_boundary": selected_profile.claim_boundary,
     }
     if extra:
         manifest["extra"] = extra

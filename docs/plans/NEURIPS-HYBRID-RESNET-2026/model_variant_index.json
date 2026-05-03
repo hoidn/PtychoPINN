@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-02T13:35:00Z",
+  "last_updated_utc": "2026-05-03T08:10:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -174,6 +174,15 @@
       "dataset_label": "legacy lines_256 architecture search",
       "claim_boundary": "legacy_ablation_context",
       "authority": "docs/studies/index.md#hybrid-resnet-mode-skip-sweep"
+    },
+    "brdt_decision_support_2048cap": {
+      "task": "candidate_brdt",
+      "dataset_label": "BRDT decision-support preflight (capped 2048/256/256, N=D=128, A=64)",
+      "dataset_id": "brdt128_decision_support_preflight",
+      "operator_authority": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-operator-validation/operator_validation.json",
+      "input_mode": "born_init_image",
+      "claim_boundary": "decision_support_preflight_only",
+      "authority": "docs/plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md"
     }
   },
   "model_variants": [
@@ -1077,6 +1086,115 @@
       "nearest_anchor_row": "pinn_hybrid_resnet",
       "evidence_status": "decision_support",
       "changed_factor": "encoder_fusion_mode=branch_gated_layerscale; per-block branch gates + per-block LayerScale"
+    },
+    {
+      "variant_id": "brdt__unet__supervised_plus_born_consistency__decision_support_preflight",
+      "dataset_contract_id": "brdt_decision_support_2048cap",
+      "row_id": "unet",
+      "paper_label": "U-Net",
+      "architecture_id": "unet",
+      "model_family": "compact_unet",
+      "training_mode": "supervised_plus_born_consistency",
+      "source_backlog_item": "2026-04-29-brdt-four-row-preflight",
+      "source_summary": "(durable summary owned by 2026-04-29-brdt-preflight-summary-promotion-decision)",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/",
+      "metrics_json": "metrics.json",
+      "visuals": [
+        "visuals/brdt_compare_q.png",
+        "visuals/brdt_error_q.png",
+        "visuals/brdt_sinogram_residual.png"
+      ],
+      "parameter_count": 18465,
+      "metrics": {
+        "image_mae_phys": 0.0018213507157159752,
+        "image_rmse_phys": 0.004902431220949277,
+        "image_relative_l2_phys": 0.8643639248515685,
+        "meas_mae": 0.0028092187782178374,
+        "meas_rmse": 0.005849262556866032,
+        "meas_relative_l2": 0.6906319627502214,
+        "psnr_phys": 21.08238687027673,
+        "ssim_phys": 0.6127763644335888
+      },
+      "evidence_status": "decision_support"
+    },
+    {
+      "variant_id": "brdt__fno_vanilla__supervised_plus_born_consistency__decision_support_preflight",
+      "dataset_contract_id": "brdt_decision_support_2048cap",
+      "row_id": "fno_vanilla",
+      "paper_label": "FNO vanilla",
+      "architecture_id": "fno_vanilla",
+      "model_family": "neuralop_fno",
+      "training_mode": "supervised_plus_born_consistency",
+      "source_backlog_item": "2026-04-29-brdt-four-row-preflight",
+      "source_summary": "(durable summary owned by 2026-04-29-brdt-preflight-summary-promotion-decision)",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/",
+      "metrics_json": "metrics.json",
+      "visuals": [
+        "visuals/brdt_compare_q.png",
+        "visuals/brdt_error_q.png",
+        "visuals/brdt_sinogram_residual.png"
+      ],
+      "parameter_count": 44465,
+      "metrics": {
+        "image_mae_phys": 0.0019491326175000508,
+        "image_rmse_phys": 0.005659417729581683,
+        "image_relative_l2_phys": 0.9978307294168545,
+        "meas_mae": 0.0036119582629218962,
+        "meas_rmse": 0.008426785872801547,
+        "meas_relative_l2": 0.9949643413044116,
+        "psnr_phys": 19.83518203844681,
+        "ssim_phys": 0.6539689174208715
+      },
+      "evidence_status": "decision_support"
+    },
+    {
+      "variant_id": "brdt__hybrid_resnet__supervised_plus_born_consistency__decision_support_preflight",
+      "dataset_contract_id": "brdt_decision_support_2048cap",
+      "row_id": "hybrid_resnet",
+      "paper_label": "Hybrid ResNet",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_resnet",
+      "training_mode": "supervised_plus_born_consistency",
+      "source_backlog_item": "2026-04-29-brdt-four-row-preflight",
+      "source_summary": "(durable summary owned by 2026-04-29-brdt-preflight-summary-promotion-decision)",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/",
+      "metrics_json": "metrics.json",
+      "visuals": [
+        "visuals/brdt_compare_q.png",
+        "visuals/brdt_error_q.png",
+        "visuals/brdt_sinogram_residual.png"
+      ],
+      "parameter_count": 142018,
+      "metrics": {
+        "image_mae_phys": 0.0006406454786648277,
+        "image_rmse_phys": 0.0018248613510219206,
+        "image_relative_l2_phys": 0.32174736341814814,
+        "meas_mae": 0.001106935649118539,
+        "meas_rmse": 0.0017763182390573493,
+        "meas_relative_l2": 0.20973278938712733,
+        "psnr_phys": 29.66601959254192,
+        "ssim_phys": 0.9471645036997667
+      },
+      "evidence_status": "decision_support"
+    },
+    {
+      "variant_id": "brdt__classical_born_backprop__none__decision_support_preflight",
+      "dataset_contract_id": "brdt_decision_support_2048cap",
+      "row_id": "classical_born_backprop",
+      "paper_label": "Classical Born backprop",
+      "architecture_id": "classical_born_backprop",
+      "model_family": "classical_reference",
+      "training_mode": "none",
+      "source_backlog_item": "2026-04-29-brdt-four-row-preflight",
+      "source_summary": "(durable summary owned by 2026-04-29-brdt-preflight-summary-promotion-decision)",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/",
+      "metrics_json": "metrics.json",
+      "visuals": [],
+      "parameter_count": 0,
+      "row_status": "blocked",
+      "blocker_reason": "odtbrain_unavailable",
+      "blocker_message": "Classical Born backprop reference requires ODTbrain for the decision-support claim boundary; only the local-adjoint fallback is available.",
+      "evidence_status": "blocked"
     }
   ],
   "completed_backlog_outputs_represented": [
@@ -1106,7 +1224,8 @@
     "2026-02-26-hybrid-resnet-skip-mode-search-stage-b-execution",
     "2026-02-26-hybrid-resnet-skip-mode-search-stage-c-execution",
     "2026-02-26-hybrid-resnet-skip-mode-search-stage-d-execution",
-    "2026-02-26-hybrid-resnet-skip-mode-search-stage-e-execution"
+    "2026-02-26-hybrid-resnet-skip-mode-search-stage-e-execution",
+    "2026-04-29-brdt-four-row-preflight"
   ],
   "maintenance_rules": [
     "Every future completed backlog item that emits model metrics must add or update at least one model_variants entry.",

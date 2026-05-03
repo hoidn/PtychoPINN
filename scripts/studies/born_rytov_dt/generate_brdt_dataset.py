@@ -40,13 +40,26 @@ from scripts.studies.invocation_logging import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_OUTPUT_ROOT = (
+SMOKE_OUTPUT_ROOT = (
     REPO_ROOT
     / ".artifacts"
     / "NEURIPS-HYBRID-RESNET-2026"
     / "backlog"
     / "2026-04-29-brdt-dataset-preflight"
 )
+DECISION_SUPPORT_OUTPUT_ROOT = (
+    REPO_ROOT
+    / ".artifacts"
+    / "NEURIPS-HYBRID-RESNET-2026"
+    / "backlog"
+    / "2026-04-29-brdt-four-row-preflight"
+    / "decision_support_dataset"
+)
+DEFAULT_OUTPUT_ROOT = SMOKE_OUTPUT_ROOT
+PROFILE_DEFAULT_OUTPUT_ROOT: Dict[str, Path] = {
+    "smoke": SMOKE_OUTPUT_ROOT,
+    "decision_support": DECISION_SUPPORT_OUTPUT_ROOT,
+}
 DEFAULT_OPERATOR_VALIDATION = (
     REPO_ROOT
     / ".artifacts"
@@ -192,13 +205,15 @@ def _write_split_h5(
     angles: np.ndarray,
     object_seeds: List[int],
     families: List[str],
+    *,
+    dataset_name: str = dc.DATASET_NAME,
 ) -> None:
     import h5py  # type: ignore
 
     path.parent.mkdir(parents=True, exist_ok=True)
     with h5py.File(path, "w") as f:
         f.attrs["split"] = split
-        f.attrs["dataset_name"] = dc.DATASET_NAME
+        f.attrs["dataset_name"] = dataset_name
         f.attrs["sample_count"] = q_phys.shape[0]
         f.attrs["forward_input_is_physical_q"] = True
         f.attrs["model_output_space"] = "normalized_q"
@@ -273,8 +288,10 @@ def write_dry_run(
     operator_validation_path: Path,
     generation_command: str,
     blocking_issues: Optional[List[str]] = None,
+    profile: Optional[dc.DatasetProfile] = None,
 ) -> Dict[str, Any]:
     blocking_issues = [] if blocking_issues is None else list(blocking_issues)
+    selected_profile = profile if profile is not None else dc.SMOKE_PROFILE
     mismatches = (
         dc.validate_geometry_against_operator_authority(operator_authority)
         if operator_authority is not None
@@ -283,7 +300,7 @@ def write_dry_run(
     seeds = dc.deterministic_object_seeds(counts, split_seed=split_seed)
     families = dc.assign_phantom_families(counts, split_seed=split_seed)
     estimated_paths = {
-        s: str(output_root / "dataset" / f"{dc.DATASET_NAME}_{s}.h5")
+        s: str(output_root / "dataset" / f"{selected_profile.name}_{s}.h5")
         for s in ("train", "val", "test")
     }
     sha, dirty = _git_revision(REPO_ROOT)
@@ -312,7 +329,9 @@ def write_dry_run(
             "verdict": verdict,
             "blocking_issues": blocking_issues,
             "dry_run_summary_path": str(summary_path),
+            "dataset_profile": selected_profile.name,
         },
+        profile=selected_profile,
     )
     summary = {
         "schema_version": "1.0",
@@ -344,10 +363,12 @@ def write_dry_run(
         "git_sha": sha,
         "git_dirty": dirty,
         "environment": _env_summary(),
-        "claim_boundary": (
-            "Feasibility-only smoke dataset. Adapters and four-row preflight "
-            "remain out of scope for this item."
-        ),
+        "claim_boundary": selected_profile.claim_boundary,
+        "dataset_profile": {
+            "name": selected_profile.name,
+            "tier": selected_profile.tier,
+            "backlog_item": selected_profile.backlog_item,
+        },
     }
     output_root.mkdir(parents=True, exist_ok=True)
     dc.write_manifest(manifest, str(manifest_skeleton_path))
@@ -369,7 +390,9 @@ def run_live_generation(
     noise_sigma: float,
     generation_command: str,
     device: Optional[str] = None,
+    profile: Optional[dc.DatasetProfile] = None,
 ) -> Dict[str, Any]:
+    selected_profile = profile if profile is not None else dc.SMOKE_PROFILE
     mismatches = dc.validate_geometry_against_operator_authority(operator_authority)
     if mismatches:
         raise ValueError(
@@ -415,7 +438,7 @@ def run_live_generation(
     artifact_paths: Dict[str, str] = {}
     dataset_dir = output_root / "dataset"
     for split in ("train", "val", "test"):
-        out_path = dataset_dir / f"{dc.DATASET_NAME}_{split}.h5"
+        out_path = dataset_dir / f"{selected_profile.name}_{split}.h5"
         q_norm = dc.normalize_q(q_phys[split], stats)
         _write_split_h5(
             path=out_path,
@@ -427,6 +450,7 @@ def run_live_generation(
             angles=angles,
             object_seeds=seeds[split],
             families=families[split],
+            dataset_name=selected_profile.name,
         )
         artifact_paths[split] = str(out_path)
 
@@ -449,7 +473,9 @@ def run_live_generation(
         extra={
             "device": str(torch_device),
             "angle_grid_rad": angles.tolist(),
+            "dataset_profile": selected_profile.name,
         },
+        profile=selected_profile,
     )
     manifest_path = output_root / "dataset_manifest.json"
     dc.write_manifest(manifest, str(manifest_path))
@@ -466,10 +492,24 @@ def run_live_generation(
 def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
+        "--dataset-profile",
+        choices=sorted(dc.PROFILE_REGISTRY),
+        default="smoke",
+        help=(
+            "Dataset profile selecting identity, defaults, and claim "
+            "boundary. 'smoke' is the original feasibility profile; "
+            "'decision_support' is the larger capped split owned by "
+            "the four-row preflight item."
+        ),
+    )
+    p.add_argument(
         "--output-root",
         type=Path,
-        default=DEFAULT_OUTPUT_ROOT,
-        help="Artifact root for the smoke dataset (default: item artifact root).",
+        default=None,
+        help=(
+            "Artifact root for the dataset. Defaults to the item artifact "
+            "root for the chosen --dataset-profile."
+        ),
     )
     p.add_argument(
         "--operator-validation",
@@ -478,9 +518,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Path to operator_validation.json that locks the operator contract.",
     )
     p.add_argument("--split-seed", type=int, default=42, help="Deterministic split seed.")
-    p.add_argument("--train-count", type=int, default=16)
-    p.add_argument("--val-count", type=int, default=4)
-    p.add_argument("--test-count", type=int, default=4)
+    p.add_argument(
+        "--train-count",
+        type=int,
+        default=None,
+        help="Override the profile default train split count.",
+    )
+    p.add_argument("--val-count", type=int, default=None)
+    p.add_argument("--test-count", type=int, default=None)
     p.add_argument(
         "--noise-sigma",
         type=float,
@@ -504,12 +549,21 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    output_root: Path = args.output_root.resolve()
+    profile = dc.get_dataset_profile(args.dataset_profile)
+    if args.output_root is None:
+        output_root = PROFILE_DEFAULT_OUTPUT_ROOT[args.dataset_profile].resolve()
+    else:
+        output_root = args.output_root.resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     log_dir = output_root / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    counts = dc.SplitCounts(train=args.train_count, val=args.val_count, test=args.test_count)
+    profile_counts = profile.default_counts
+    counts = dc.SplitCounts(
+        train=int(args.train_count if args.train_count is not None else profile_counts.train),
+        val=int(args.val_count if args.val_count is not None else profile_counts.val),
+        test=int(args.test_count if args.test_count is not None else profile_counts.test),
+    )
     generation_command = _generation_command(argv)
 
     raw_argv = list(argv) if argv is not None else list(sys.argv[1:])
@@ -524,7 +578,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             "git_dirty": dirty,
             "runtime_provenance": capture_runtime_provenance(),
             "mode": "dry_run_manifest" if args.dry_run_manifest else "live",
-            "backlog_item": "2026-04-29-brdt-dataset-preflight",
+            "backlog_item": profile.backlog_item,
+            "dataset_profile": profile.name,
         },
     )
 
@@ -544,6 +599,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             operator_validation_path=args.operator_validation,
             generation_command=generation_command,
             blocking_issues=blocking_issues,
+            profile=profile,
         )
         print(f"verdict: {summary['verdict']}", file=sys.stderr)
         print(f"wrote {output_root / 'dry_run_summary.json'}", file=sys.stderr)
@@ -561,6 +617,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         noise_sigma=args.noise_sigma,
         generation_command=generation_command,
         device=args.device,
+        profile=profile,
     )
     elapsed = time.perf_counter() - started
     print(f"manifest: {result['manifest_path']}", file=sys.stderr)
