@@ -2231,6 +2231,93 @@
         "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
         ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/execution_report.md"
       ]
+    },
+    {
+      "tranche_id": "phase-2-pdebench-darcy-static-operator-benchmark",
+      "backlog_item_id": "2026-05-04-pdebench-darcy-full-training-benchmark",
+      "updated_at_utc": "2026-05-04T19:15:00Z",
+      "update_reason": "Closed the Darcy full-training benchmark gap. Reconciled the stale benchmark budget to the authoritative relative-L2 / plateau_min_lr=1e-5 contract and produced same-contract benchmark rows for hybrid_resnet_base, fno_base, and unet_strong on the official PDEBench 2D_DarcyFlow_beta1.0_Train.hdf5 file under the locked 8000/1000/1000 split.",
+      "decision": "Darcy benchmark is complete; selector should treat hybrid_resnet_base, fno_base, and unet_strong as benchmark_performance evidence on the locked Darcy contract. Hybrid ResNet does not displace FNO under this fixed contract.",
+      "decision_scope": "benchmark_performance",
+      "evidence_scope": "benchmark_performance",
+      "performance_assessment_complete": true,
+      "selected_contract": {
+        "task_id": "darcy",
+        "dataset_file": "/home/ollie/Documents/pdebench-data/darcy/2D_DarcyFlow_beta1.0_Train.hdf5",
+        "split_counts": {
+          "train": 8000,
+          "val": 1000,
+          "test": 1000
+        },
+        "training_seed": 20260420,
+        "loss": "relative_l2",
+        "optimizer": "adam",
+        "learning_rate": 0.0002,
+        "scheduler": "ReduceLROnPlateau",
+        "plateau_factor": 0.5,
+        "plateau_patience": 2,
+        "plateau_min_lr": 1e-05,
+        "plateau_threshold": 0.0,
+        "epochs": 50,
+        "batch_size": 8,
+        "precision": "float32",
+        "device": "cuda",
+        "primary_profiles": [
+          "hybrid_resnet_base",
+          "fno_base",
+          "unet_strong"
+        ]
+      },
+      "headline_metrics": {
+        "hybrid_resnet_base": {
+          "err_RMSE": 0.01876744069159031,
+          "err_nRMSE": 0.08573537319898605,
+          "relative_l2": 0.08573537319898605,
+          "parameter_count": 7786178,
+          "status": "completed"
+        },
+        "fno_base": {
+          "err_RMSE": 0.018108993768692017,
+          "err_nRMSE": 0.08272738754749298,
+          "relative_l2": 0.08272738754749298,
+          "parameter_count": 357217,
+          "status": "completed"
+        },
+        "unet_strong": {
+          "err_RMSE": 0.02041541412472725,
+          "err_nRMSE": 0.09326382726430893,
+          "relative_l2": 0.09326382726430893,
+          "parameter_count": 7762465,
+          "status": "completed"
+        }
+      },
+      "claim_boundary": {
+        "row_status": "benchmark_performance",
+        "allowed_use": "same-contract Darcy static-operator full-training benchmark rows for hybrid_resnet_base, fno_base, and unet_strong",
+        "not_allowed": "relabeling these rows as same-protocol PDEBench/HAMLET reproduction; generalized Darcy SOTA claims; attributing the fno_base < hybrid_resnet_base gap beyond what the recorded provenance supports"
+      },
+      "tracked_pid": 2254398,
+      "tracked_exit_code": 0,
+      "run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/full_benchmark_20260504T182832Z",
+      "run_budget_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/run_budget.json",
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_darcy_static_operator_summary.md",
+      "verification": [
+        "python -m pytest -q tests/studies/test_pdebench_darcy_data.py tests/studies/test_pdebench_darcy_metrics.py tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py -> 108 passed in 67.99s",
+        "validate_darcy_run_budget(run_budget.json) -> darcy run budget valid",
+        "scripts/studies/run_pdebench_image128_suite.py --task darcy --mode benchmark exited rc=0 with all 16 mandatory artifacts present"
+      ],
+      "affected_surfaces": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/run_budget.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/full_benchmark_20260504T182832Z/",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_darcy_static_operator_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+        "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-pdebench-darcy-full-training-benchmark/execution_report.md",
+        "artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-pdebench-darcy-full-training-benchmark-checks.json",
+        "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-pdebench-darcy-full-training-benchmark-summary.json"
+      ]
     }
   ]
 }

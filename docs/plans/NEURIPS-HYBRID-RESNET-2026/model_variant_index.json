@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-04T10:50:00Z",
+  "last_updated_utc": "2026-05-04T19:15:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -11,6 +11,8 @@
     "cdi_supervised_extension": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md",
     "cns_table_bundle": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
     "cdi_extended_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended.tex",
+    "cdi_pinn_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_pinn_metrics.tex",
+    "cdi_objective_control_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_objective_comparison.tex",
     "brdt_candidate_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.tex",
     "brdt_candidate_recon_png": "docs/plans/NEURIPS-HYBRID-RESNET-2026/figures/brdt_decision_support_recon.png",
     "cns_history5_gap_item": "docs/backlog/active/2026-05-04-cns-history5-comparator-gap-fill.md"
@@ -187,6 +189,25 @@
       "input_mode": "born_init_image",
       "claim_boundary": "decision_support_preflight_only",
       "authority": "docs/plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md"
+    },
+    "darcy_static_operator_full_8000_1000_1000": {
+      "task": "pdebench_darcy",
+      "dataset_label": "PDEBench 2D_DarcyFlow_beta1.0_Train.hdf5 native 128x128",
+      "dataset_file": "/home/ollie/Documents/pdebench-data/darcy/2D_DarcyFlow_beta1.0_Train.hdf5",
+      "split": "8000 / 1000 / 1000 sample-level deterministic split, seed 20260420",
+      "training_loss": "relative_l2",
+      "optimizer": "adam",
+      "learning_rate": 0.0002,
+      "scheduler": "ReduceLROnPlateau(factor=0.5, patience=2, min_lr=1e-5, threshold=0.0)",
+      "epochs": 50,
+      "batch_size": 8,
+      "device": "cuda",
+      "claim_boundary": "benchmark_performance",
+      "metric_family": [
+        "err_RMSE",
+        "err_nRMSE",
+        "relative_l2"
+      ]
     }
   },
   "model_variants": [
@@ -1240,6 +1261,78 @@
       "evidence_status": "decision_support"
     },
     {
+      "variant_id": "darcy_full__hybrid_resnet_base__supervised__full_training_benchmark",
+      "dataset_contract_id": "darcy_static_operator_full_8000_1000_1000",
+      "row_id": "hybrid_resnet_base",
+      "paper_label": "Darcy Hybrid ResNet base + supervised",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-05-04-pdebench-darcy-full-training-benchmark",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_darcy_static_operator_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/full_benchmark_20260504T182832Z",
+      "metrics_json": "metrics_hybrid_resnet_base.json",
+      "visuals": [
+        "comparison_hybrid_resnet_base_sample0.png",
+        "comparison_hybrid_resnet_base_sample0.npz"
+      ],
+      "parameter_count": 7786178,
+      "metrics": {
+        "err_RMSE": 0.01876744069159031,
+        "err_nRMSE": 0.08573537319898605,
+        "relative_l2": 0.08573537319898605
+      },
+      "evidence_status": "benchmark_performance"
+    },
+    {
+      "variant_id": "darcy_full__fno_base__supervised__full_training_benchmark",
+      "dataset_contract_id": "darcy_static_operator_full_8000_1000_1000",
+      "row_id": "fno_base",
+      "paper_label": "Darcy FNO base + supervised",
+      "architecture_id": "fno",
+      "model_family": "neural_operator",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-05-04-pdebench-darcy-full-training-benchmark",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_darcy_static_operator_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/full_benchmark_20260504T182832Z",
+      "metrics_json": "metrics_fno_base.json",
+      "visuals": [
+        "comparison_fno_base_sample0.png",
+        "comparison_fno_base_sample0.npz"
+      ],
+      "parameter_count": 357217,
+      "metrics": {
+        "err_RMSE": 0.018108993768692017,
+        "err_nRMSE": 0.08272738754749298,
+        "relative_l2": 0.08272738754749298
+      },
+      "evidence_status": "benchmark_performance"
+    },
+    {
+      "variant_id": "darcy_full__unet_strong__supervised__full_training_benchmark",
+      "dataset_contract_id": "darcy_static_operator_full_8000_1000_1000",
+      "row_id": "unet_strong",
+      "paper_label": "Darcy U-Net strong + supervised",
+      "architecture_id": "unet_strong",
+      "model_family": "local_cnn",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-05-04-pdebench-darcy-full-training-benchmark",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_darcy_static_operator_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/full_benchmark_20260504T182832Z",
+      "metrics_json": "metrics_unet_strong.json",
+      "visuals": [
+        "comparison_unet_strong_sample0.png",
+        "comparison_unet_strong_sample0.npz"
+      ],
+      "parameter_count": 7762465,
+      "metrics": {
+        "err_RMSE": 0.02041541412472725,
+        "err_nRMSE": 0.09326382726430893,
+        "relative_l2": 0.09326382726430893
+      },
+      "evidence_status": "benchmark_performance"
+    },
+    {
       "variant_id": "brdt__classical_born_backprop__none__decision_support_preflight",
       "dataset_contract_id": "brdt_decision_support_2048cap",
       "row_id": "classical_born_backprop",
@@ -1289,7 +1382,8 @@
     "2026-02-26-hybrid-resnet-skip-mode-search-stage-d-execution",
     "2026-02-26-hybrid-resnet-skip-mode-search-stage-e-execution",
     "2026-04-29-brdt-four-row-preflight",
-    "2026-04-30-cdi-lines128-uno-table-extension"
+    "2026-04-30-cdi-lines128-uno-table-extension",
+    "2026-05-04-pdebench-darcy-full-training-benchmark"
   ],
   "maintenance_rules": [
     "Every future completed backlog item that emits model metrics must add or update at least one model_variants entry.",

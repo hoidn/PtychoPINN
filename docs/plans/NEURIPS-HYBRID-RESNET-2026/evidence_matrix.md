@@ -23,6 +23,7 @@ Machine-readable companions:
 | CDI U-NO table extension | `lines128_uno_table_extension_summary.md` | append-only `paper_grade` eight-row extended bundle; claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension` |
 | PDEBench CNS table/figures | `pdebench_cns_paper_2048cap_extension_summary.md` | bounded capped decision-support only, current `2048 / 256 / 256` authority |
 | PDEBench CNS 512cap fallback provenance | `pdebench_cns_paper_table_figure_bundle_summary.md` | bounded capped decision-support only, preserved historical fallback |
+| PDEBench Darcy static-operator full-training benchmark | `pdebench_darcy_static_operator_summary.md` | `benchmark_performance` for `hybrid_resnet_base`, `fno_base`, `unet_strong` under the locked `8000/1000/1000` split, relative-L2 loss, `50` epochs |
 | Cross-pillar claim audit | `paper_evidence_package_audit_summary.md` | preserves CDI/CNS claim asymmetry |
 | Completed backlog outcome map | `paper_evidence_index.md` | first-stop durable outcome index |
 
@@ -33,8 +34,8 @@ Current manuscript draft:
 
 | Evidence source | Manuscript target |
 |---|---|
-| Complete Lines128 CDI bundle plus U-NO extension | `tab:cdi_lines128_complete`, `fig:cdi_main_qualitative`; generated table assets: `tables/cdi_lines128_metrics_extended.tex`, `tables/cdi_lines128_metrics_extended.csv`, `tables/cdi_lines128_metrics_extended.json` |
-| Supervised FFNO extension | merged into `tables/cdi_lines128_metrics_extended.*` from the completed supervised-FFNO extension root |
+| Complete Lines128 CDI bundle plus U-NO extension | `tab:cdi_lines128_pinn`, `tab:cdi_lines128_objective_controls`, `fig:cdi_main_qualitative`; generated table assets: `tables/cdi_lines128_pinn_metrics.tex`, `tables/cdi_lines128_objective_comparison.tex`, `tables/cdi_lines128_metrics_extended.csv`, `tables/cdi_lines128_metrics_extended.json` |
+| Supervised FFNO extension | merged into the CDI objective-control table and `tables/cdi_lines128_metrics_extended.*` from the completed supervised-FFNO extension root |
 | CNS paper table/figure bundle | `tab:cns_bundle`, `fig:cns_sample_predictions` |
 | BRDT bounded preflight | `tab:brdt_candidate_metrics`, `fig:brdt_candidate_recon`; generated paper-local assets: `tables/brdt_decision_support_metrics.tex`, `tables/brdt_decision_support_metrics.csv`, `tables/brdt_decision_support_metrics.json`, `figures/brdt_decision_support_recon.png` |
 | Hybrid skip/residual ablation | `tab:cdi_skip_residual_ablation` |
@@ -72,8 +73,10 @@ CDI artifact roots:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z`
 - U-NO table extension (claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension`):
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z`
-- Generated current manuscript table:
-  `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended.tex`
+- Generated current manuscript tables:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_pinn_metrics.tex`
+  and
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_objective_comparison.tex`
 
 ## CDI Lines128 Bridge Study
 
@@ -119,6 +122,32 @@ Current read:
 - fixed residual scale is the clearest amplitude-oriented decision-support variant; it improves amplitude MAE and SSIM but worsens phase MAE versus the Hybrid anchor
 - the combined skip-add plus fixed-residual row does not beat the simpler single-factor rows
 - this family does not replace the paper-grade Hybrid baseline or the six-row CDI headline bundle
+
+## PDEBench Darcy Static-Operator Model Matrix
+
+Fixed contract: PDEBench `2D_DarcyFlow_beta1.0_Train.hdf5`, native `128x128`,
+sample-level deterministic split `8000 / 1000 / 1000` with seed `20260420`,
+relative-L2 loss, Adam `lr=2e-4`, `ReduceLROnPlateau(factor=0.5, patience=2,
+min_lr=1e-5, threshold=0.0)`, `50` epochs, batch size `8`, single RTX 3090.
+Metrics in denormalized target units.
+
+| Profile | Status | err_RMSE | err_nRMSE | relative_l2 | Parameters | Source |
+|---|---|---:|---:|---:|---:|---|
+| `hybrid_resnet_base` | completed | 0.018767 | 0.085735 | 0.085735 | 7,786,178 | Darcy full-training benchmark |
+| `fno_base` | completed | 0.018109 | 0.082727 | 0.082727 | 357,217 | Darcy full-training benchmark |
+| `unet_strong` | completed | 0.020415 | 0.093264 | 0.093264 | 7,762,465 | Darcy full-training benchmark |
+
+Same-contract ranking (`relative_l2`, lower is better):
+`fno_base < hybrid_resnet_base < unet_strong`.
+
+Darcy artifact root:
+
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/full_benchmark_20260504T182832Z`
+
+Literature calibration values recorded in
+`.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/full_benchmark_20260504T182832Z/literature_context.json`
+are calibration context only and use different (often `2x`-subsampled)
+protocols; they are not same-contract reproduction targets for the rows above.
 
 ## PDEBench CNS Model Matrix
 
@@ -234,6 +263,7 @@ completed four-row preflight for potential manuscript or supplement use:
 | `2026-04-29-brdt-dataset-preflight` | BRDT candidate-lane smoke dataset (feasibility, not paper evidence) | `brdt_dataset_preflight.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight/` |
 | `2026-04-29-brdt-task-adapters` | BRDT candidate-lane task-local adapters / loss / train-eval surfaces (adapter readiness only, not paper evidence) | `brdt_task_adapters.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-task-adapters/` |
 | `2026-04-29-brdt-four-row-preflight` | BRDT bounded four-row decision-support preflight (decision_support_preflight_only, not paper evidence) | `brdt_preflight_summary.md` (owned by `2026-04-29-brdt-preflight-summary-promotion-decision`) | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/` |
+| `2026-05-04-pdebench-darcy-full-training-benchmark` | PDEBench Darcy full-training benchmark | `pdebench_darcy_static_operator_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/full_benchmark_20260504T182832Z` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-design` | legacy CDI architecture-search design | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-stage-a-execution` | legacy CDI architecture-search execution | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-stage-b-execution` | legacy CDI architecture-search execution | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
