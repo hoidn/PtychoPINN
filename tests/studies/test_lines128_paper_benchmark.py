@@ -2546,3 +2546,511 @@ def test_main_complete_table_downgrades_without_recovered_launcher_completion(tm
     assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
     assert "outputs" in metrics_payload["missing_fields_by_row"]["pinn_ffno"]
     assert "launcher_completion_json" not in metrics_payload["rows"]["pinn_ffno"]["outputs"]
+
+
+# ---------------------------------------------------------------------------
+# U-NO table-extension fixtures + tests (append-only mode `extend_with_uno`).
+# ---------------------------------------------------------------------------
+
+
+def _uno_extension_rows_payload(base_root: Path) -> list[dict]:
+    base_rows = [
+        {
+            "model_id": "baseline",
+            "model_label": "CDI CNN + supervised",
+            "architecture_id": "cnn",
+            "training_procedure": "supervised",
+        },
+        {
+            "model_id": "pinn",
+            "model_label": "CDI CNN + PINN",
+            "architecture_id": "cnn",
+            "training_procedure": "pinn",
+        },
+        {
+            "model_id": "pinn_hybrid_resnet",
+            "model_label": "Hybrid ResNet + PINN",
+            "architecture_id": "hybrid_resnet",
+            "training_procedure": "pinn",
+        },
+        {
+            "model_id": "pinn_fno_vanilla",
+            "model_label": "FNO Vanilla + PINN",
+            "architecture_id": "fno_vanilla",
+            "training_procedure": "pinn",
+        },
+        {
+            "model_id": "pinn_spectral_resnet_bottleneck_net",
+            "model_label": "Spectral ResNet Bottleneck + PINN",
+            "architecture_id": "spectral_resnet_bottleneck_net",
+            "training_procedure": "pinn",
+        },
+        {
+            "model_id": "pinn_ffno",
+            "model_label": "FFNO + PINN",
+            "architecture_id": "ffno",
+            "training_procedure": "pinn",
+        },
+    ]
+    promoted = [
+        {
+            **row,
+            "required_for_uno_extension": True,
+            "decision": "promote_existing",
+            "source_root": str(base_root),
+        }
+        for row in base_rows
+    ]
+    fresh = [
+        {
+            "model_id": "pinn_neuralop_uno",
+            "model_label": "U-NO + PINN",
+            "architecture_id": "neuralop_uno",
+            "training_procedure": "pinn",
+            "required_for_uno_extension": True,
+            "decision": "rerun_required",
+            "source_root": None,
+        },
+        {
+            "model_id": "supervised_neuralop_uno",
+            "model_label": "U-NO + supervised",
+            "architecture_id": "neuralop_uno",
+            "training_procedure": "supervised",
+            "required_for_uno_extension": True,
+            "decision": "rerun_required",
+            "source_root": None,
+        },
+    ]
+    return promoted + fresh
+
+
+def _write_uno_extension_execution_manifest(
+    path: Path,
+    *,
+    base_root: Path,
+    rows: list[dict] | None = None,
+    state: str = "go_for_uno_extension_execution",
+) -> Path:
+    payload = {
+        "state": state,
+        "selected_fno_comparator": "fno_vanilla",
+        "seed_policy": {"type": "fixed", "seed": 3},
+        "fixed_contract": _fixed_contract_payload(),
+        "fixed_sample_ids": [0, 1],
+        "shared_visual_scales": {
+            "amp": {"vmin": 0.0, "vmax": 1.0},
+            "phase": {"vmin": -3.14, "vmax": 3.14},
+        },
+        "base_complete_table_root": str(base_root),
+        "rows": rows if rows is not None else _uno_extension_rows_payload(base_root),
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return path
+
+
+def _materialize_complete_six_row_base(base_root: Path) -> None:
+    base_rows = [
+        {
+            "model_id": "baseline",
+            "model_label": "CDI CNN + supervised",
+            "architecture_id": "cnn",
+            "training_procedure": "supervised",
+            "parameter_count": 100,
+            "final_train_loss": 0.4,
+            "runtime": 9.0,
+            "metrics": {"mae": (0.2, 0.3), "mse": (0.02, 0.03), "psnr": (60.0, 55.0), "ssim": (0.7, 0.6), "ms_ssim": (0.65, 0.55), "frc50": (32, 24)},
+        },
+        {
+            "model_id": "pinn",
+            "model_label": "CDI CNN + PINN",
+            "architecture_id": "cnn",
+            "training_procedure": "pinn",
+            "parameter_count": 101,
+            "final_train_loss": 0.3,
+            "runtime": 10.0,
+            "metrics": {"mae": (0.19, 0.29), "mse": (0.019, 0.029), "psnr": (61.0, 56.0), "ssim": (0.71, 0.61), "ms_ssim": (0.66, 0.56), "frc50": (33, 25)},
+        },
+        {
+            "model_id": "pinn_hybrid_resnet",
+            "model_label": "Hybrid ResNet + PINN",
+            "architecture_id": "hybrid_resnet",
+            "training_procedure": "pinn",
+            "parameter_count": 102,
+            "final_train_loss": 0.2,
+            "runtime": 11.0,
+            "metrics": {"mae": (0.1, 0.2), "mse": (0.01, 0.02), "psnr": (70.0, 65.0), "ssim": (0.9, 0.8), "ms_ssim": (0.85, 0.75), "frc50": (64, 48)},
+        },
+        {
+            "model_id": "pinn_fno_vanilla",
+            "model_label": "FNO Vanilla + PINN",
+            "architecture_id": "fno_vanilla",
+            "training_procedure": "pinn",
+            "parameter_count": 103,
+            "final_train_loss": 0.25,
+            "runtime": 12.0,
+            "metrics": {"mae": (0.12, 0.22), "mse": (0.012, 0.022), "psnr": (68.0, 63.0), "ssim": (0.88, 0.78), "ms_ssim": (0.83, 0.73), "frc50": (60, 44)},
+        },
+        {
+            "model_id": "pinn_spectral_resnet_bottleneck_net",
+            "model_label": "Spectral ResNet Bottleneck + PINN",
+            "architecture_id": "spectral_resnet_bottleneck_net",
+            "training_procedure": "pinn",
+            "parameter_count": 105,
+            "final_train_loss": 0.18,
+            "runtime": 14.0,
+            "metrics": {"mae": (0.11, 0.21), "mse": (0.011, 0.021), "psnr": (69.0, 64.0), "ssim": (0.89, 0.79), "ms_ssim": (0.84, 0.74), "frc50": (62, 46)},
+        },
+        {
+            "model_id": "pinn_ffno",
+            "model_label": "FFNO + PINN",
+            "architecture_id": "ffno",
+            "training_procedure": "pinn",
+            "parameter_count": 104,
+            "final_train_loss": 0.21,
+            "runtime": 13.0,
+            "metrics": {"mae": (0.13, 0.23), "mse": (0.013, 0.023), "psnr": (67.0, 62.0), "ssim": (0.87, 0.77), "ms_ssim": (0.82, 0.72), "frc50": (58, 42)},
+        },
+    ]
+    _write_complete_source_root(base_root, rows=base_rows)
+    metrics_path = base_root / "metrics.json"
+    if metrics_path.exists():
+        metrics_payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+        metrics_payload["claim_boundary"] = "complete_lines128_cdi_benchmark"
+        metrics_path.write_text(json.dumps(metrics_payload, indent=2), encoding="utf-8")
+    manifest_path = base_root / "paper_benchmark_manifest.json"
+    base_manifest_payload = {
+        "benchmark_status": "paper_complete",
+        "claim_boundary": "complete_lines128_cdi_benchmark",
+        "selected_fno_comparator": "fno_vanilla",
+        "rows": [
+            {"model_id": row["model_id"], "row_root": f"runs/{row['model_id']}"}
+            for row in base_rows
+        ],
+    }
+    manifest_path.write_text(json.dumps(base_manifest_payload, indent=2), encoding="utf-8")
+
+
+def test_uno_extension_manifest_rejects_unauthorized_state(tmp_path):
+    from scripts.studies.lines128_paper_benchmark import (
+        _normalize_uno_extension_execution_manifest,
+        _validate_fixed_contract,
+    )
+
+    base_root = tmp_path / "base"
+    base_root.mkdir()
+    manifest = _write_uno_extension_execution_manifest(
+        tmp_path / "manifest.json",
+        base_root=base_root,
+        state="go_for_complete_table_execution",
+    )
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    fixed_contract = _validate_fixed_contract({"fixed_contract": _fixed_contract_payload()})
+    with pytest.raises(ValueError, match="U-NO extension"):
+        _normalize_uno_extension_execution_manifest(payload, fixed_contract=fixed_contract)
+
+
+def test_uno_extension_manifest_requires_eight_rows_in_order(tmp_path):
+    from scripts.studies.lines128_paper_benchmark import (
+        _normalize_uno_extension_execution_manifest,
+        _validate_fixed_contract,
+    )
+
+    base_root = tmp_path / "base"
+    base_root.mkdir()
+    fixed_contract = _validate_fixed_contract({"fixed_contract": _fixed_contract_payload()})
+
+    rows = _uno_extension_rows_payload(base_root)
+    short_rows = rows[:-1]
+    manifest = _write_uno_extension_execution_manifest(
+        tmp_path / "manifest_short.json",
+        base_root=base_root,
+        rows=short_rows,
+    )
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    with pytest.raises(ValueError, match="exactly 8 rows"):
+        _normalize_uno_extension_execution_manifest(payload, fixed_contract=fixed_contract)
+
+    swapped_rows = list(rows)
+    swapped_rows[-2], swapped_rows[-1] = swapped_rows[-1], swapped_rows[-2]
+    manifest_swapped = _write_uno_extension_execution_manifest(
+        tmp_path / "manifest_swapped.json",
+        base_root=base_root,
+        rows=swapped_rows,
+    )
+    payload_swapped = json.loads(manifest_swapped.read_text(encoding="utf-8"))
+    with pytest.raises(ValueError, match="lock the eight-row roster in order"):
+        _normalize_uno_extension_execution_manifest(payload_swapped, fixed_contract=fixed_contract)
+
+
+def test_uno_extension_manifest_rejects_non_uno_rerun(tmp_path):
+    from scripts.studies.lines128_paper_benchmark import (
+        _normalize_uno_extension_execution_manifest,
+        _validate_fixed_contract,
+    )
+
+    base_root = tmp_path / "base"
+    base_root.mkdir()
+    fixed_contract = _validate_fixed_contract({"fixed_contract": _fixed_contract_payload()})
+
+    rows = _uno_extension_rows_payload(base_root)
+    rows[5] = {**rows[5], "decision": "rerun_required", "source_root": None}
+    manifest = _write_uno_extension_execution_manifest(
+        tmp_path / "manifest_bad_rerun.json",
+        base_root=base_root,
+        rows=rows,
+    )
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    with pytest.raises(ValueError, match="cannot be rerun_required"):
+        _normalize_uno_extension_execution_manifest(payload, fixed_contract=fixed_contract)
+
+
+def test_uno_extension_manifest_rejects_split_base_roots(tmp_path):
+    from scripts.studies.lines128_paper_benchmark import (
+        _normalize_uno_extension_execution_manifest,
+        _validate_fixed_contract,
+    )
+
+    base_root = tmp_path / "base"
+    base_root.mkdir()
+    other_root = tmp_path / "other"
+    other_root.mkdir()
+    fixed_contract = _validate_fixed_contract({"fixed_contract": _fixed_contract_payload()})
+
+    rows = _uno_extension_rows_payload(base_root)
+    rows[5] = {**rows[5], "source_root": str(other_root)}
+    manifest = _write_uno_extension_execution_manifest(
+        tmp_path / "manifest_split.json",
+        base_root=base_root,
+        rows=rows,
+    )
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    with pytest.raises(ValueError, match="same\\s+base_complete_table_root"):
+        _normalize_uno_extension_execution_manifest(payload, fixed_contract=fixed_contract)
+
+
+def test_uno_extension_manifest_rejects_non_neuralop_uno_architecture(tmp_path):
+    from scripts.studies.lines128_paper_benchmark import (
+        _normalize_uno_extension_execution_manifest,
+        _validate_fixed_contract,
+    )
+
+    base_root = tmp_path / "base"
+    base_root.mkdir()
+    fixed_contract = _validate_fixed_contract({"fixed_contract": _fixed_contract_payload()})
+
+    rows = _uno_extension_rows_payload(base_root)
+    rows[6] = {**rows[6], "architecture_id": "hybrid"}
+    manifest = _write_uno_extension_execution_manifest(
+        tmp_path / "manifest_bad_arch.json",
+        base_root=base_root,
+        rows=rows,
+    )
+    payload = json.loads(manifest.read_text(encoding="utf-8"))
+    with pytest.raises(ValueError, match="architecture_id=neuralop_uno"):
+        _normalize_uno_extension_execution_manifest(payload, fixed_contract=fixed_contract)
+
+
+def test_parse_args_accepts_extend_with_uno_mode(tmp_path):
+    from scripts.studies.lines128_paper_benchmark import parse_args
+
+    parsed = parse_args(
+        [
+            "--mode",
+            "extend_with_uno",
+            "--decision-artifact",
+            str(tmp_path / "decision.json"),
+            "--execution-manifest",
+            str(tmp_path / "execution.json"),
+            "--output-dir",
+            str(tmp_path / "out"),
+        ]
+    )
+    assert parsed.mode == "extend_with_uno"
+    assert parsed.execution_manifest == tmp_path / "execution.json"
+
+
+def _stage_uno_fresh_row(output_dir: Path, *, model_id: str, model_label: str, training_procedure: str) -> dict:
+    payload = _write_complete_row_payload(
+        output_dir,
+        model_id=model_id,
+        model_label=model_label,
+        architecture_id="neuralop_uno",
+        training_procedure=training_procedure,
+        parameter_count=200,
+        final_train_loss=0.15,
+        runtime=20.0,
+        metrics={"mae": (0.09, 0.18), "mse": (0.009, 0.018), "psnr": (71.0, 66.0), "ssim": (0.91, 0.81), "ms_ssim": (0.86, 0.76), "frc50": (66, 50)},
+    )
+    _write_text(
+        output_dir / payload["invocation"]["json"],
+        json.dumps(
+            {
+                "status": "completed",
+                "exit_code": 0,
+                "finished_at_utc": "2026-04-30T01:00:00+00:00",
+                "pid": 8888,
+                "parsed_args": {"epochs": 40, "seed": 3},
+            }
+        ),
+    )
+    _write_text(output_dir / payload["invocation"]["shell"], "python fake_uno.py\n")
+    _write_text(output_dir / payload["config"]["json"], json.dumps({"seed": 3}))
+    _write_text(
+        output_dir / payload["outputs"]["history_json"],
+        json.dumps({"train_loss": [0.2, 0.15], "val_loss": [0.3, 0.16]}),
+    )
+    _write_text(output_dir / payload["outputs"]["metrics_json"], json.dumps(payload["metrics"]))
+    _write_text(output_dir / payload["outputs"]["stdout_log"], "row stdout\n")
+    _write_text(output_dir / payload["outputs"]["stderr_log"], "")
+    _write_text(
+        output_dir / payload["outputs"]["exit_code_proof_json"],
+        json.dumps(
+            {
+                "model_id": model_id,
+                "proof_source": "test",
+                "exit_code": 0,
+                "invocation_json": payload["invocation"]["json"],
+                "invocation_status": "completed",
+                "stdout_log": payload["outputs"]["stdout_log"],
+                "stderr_log": payload["outputs"]["stderr_log"],
+            }
+        ),
+    )
+    _write_text(output_dir / payload["visuals"]["amp_phase_png"])
+    _write_text(output_dir / payload["visuals"]["amp_phase_error_png"])
+    recon_npz = output_dir / payload["outputs"]["recon_npz"]
+    recon_npz.parent.mkdir(parents=True, exist_ok=True)
+    np.savez(recon_npz, YY_pred=np.ones((2, 2), dtype=np.complex64))
+    return payload
+
+
+def test_uno_extension_promotes_six_base_rows_and_runs_only_uno_rows(tmp_path, monkeypatch):
+    from scripts.studies.lines128_paper_benchmark import (
+        UNO_EXTENSION_CLAIM_BOUNDARY,
+        UNO_EXTENSION_FRESH_ROWS,
+        UNO_EXTENSION_REQUIRED_ROWS,
+        run_lines128_uno_extension_benchmark,
+    )
+
+    base_root = tmp_path / "complete_table_base"
+    output_dir = tmp_path / "complete_table_plus_uno"
+    captured_calls = []
+    _materialize_complete_six_row_base(base_root)
+    base_metrics_before = (base_root / "metrics.json").read_bytes()
+    base_manifest_before = (base_root / "paper_benchmark_manifest.json").read_bytes()
+
+    def fake_run_grid_lines_compare(**kwargs):
+        captured_calls.append(dict(kwargs))
+        row_payloads = {}
+        for model_id in kwargs.get("models", ()):
+            if model_id in {"pinn_neuralop_uno", "supervised_neuralop_uno"}:
+                row_payload = _stage_uno_fresh_row(
+                    output_dir,
+                    model_id=model_id,
+                    model_label="U-NO + PINN" if model_id == "pinn_neuralop_uno" else "U-NO + supervised",
+                    training_procedure="pinn" if model_id == "pinn_neuralop_uno" else "supervised",
+                )
+                row_payloads[model_id] = row_payload
+        if kwargs.get("reuse_existing_recons"):
+            for model_id in kwargs["models"]:
+                _write_text(output_dir / f"visuals/amp_phase_{model_id}.png")
+                _write_text(output_dir / f"visuals/amp_phase_error_{model_id}.png")
+            _write_text(output_dir / "visuals/amp_phase_gt.png")
+            _write_text(output_dir / "visuals/compare_amp_phase.png")
+            _write_text(output_dir / "visuals/frc_curves.png")
+        return {
+            "train_npz": str(output_dir / "datasets" / "N128" / "gs1" / "train.npz"),
+            "test_npz": str(output_dir / "datasets" / "N128" / "gs1" / "test.npz"),
+            "gt_recon": str(output_dir / "recons" / "gt" / "recon.npz"),
+            "recon_paths": {
+                model_id: str(output_dir / f"recons/{model_id}/recon.npz")
+                for model_id in kwargs.get("models", ())
+            },
+            "row_payloads": row_payloads,
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines128_paper_benchmark.run_grid_lines_compare",
+        fake_run_grid_lines_compare,
+    )
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+    execution_manifest = _write_uno_extension_execution_manifest(
+        tmp_path / "execution" / "uno_extension_execution.json",
+        base_root=base_root,
+    )
+
+    result = run_lines128_uno_extension_benchmark(
+        decision_artifact=decision_artifact,
+        execution_manifest=execution_manifest,
+        output_dir=output_dir,
+    )
+
+    assert captured_calls[0]["models"] == UNO_EXTENSION_FRESH_ROWS
+    assert not captured_calls[0].get("reuse_existing_recons", False)
+    assert captured_calls[1]["models"] == UNO_EXTENSION_REQUIRED_ROWS
+    assert captured_calls[1].get("reuse_existing_recons") is True
+
+    metrics_payload = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
+    manifest_payload = json.loads((output_dir / "paper_benchmark_manifest.json").read_text(encoding="utf-8"))
+    assert metrics_payload["claim_boundary"] == UNO_EXTENSION_CLAIM_BOUNDARY
+    assert manifest_payload["claim_boundary"] == UNO_EXTENSION_CLAIM_BOUNDARY
+    assert manifest_payload["uno_extension_fresh_rows"] == list(UNO_EXTENSION_FRESH_ROWS)
+    assert manifest_payload["base_complete_table_root"] == str(base_root)
+    assert metrics_payload["required_rows"] == list(UNO_EXTENSION_REQUIRED_ROWS)
+
+    for model_id in (
+        "baseline",
+        "pinn",
+        "pinn_hybrid_resnet",
+        "pinn_fno_vanilla",
+        "pinn_spectral_resnet_bottleneck_net",
+        "pinn_ffno",
+    ):
+        assert (output_dir / "runs" / model_id / "metrics.json").exists()
+        assert (output_dir / "recons" / model_id / "recon.npz").exists()
+
+    for model_id in UNO_EXTENSION_FRESH_ROWS:
+        assert (output_dir / "runs" / model_id / "metrics.json").exists()
+        assert (output_dir / "runs" / model_id / "exit_code_proof.json").exists()
+        assert (output_dir / "recons" / model_id / "recon.npz").exists()
+
+    lineage_path = output_dir / "base_row_lineage.json"
+    assert lineage_path.exists()
+    lineage_payload = json.loads(lineage_path.read_text(encoding="utf-8"))
+    assert lineage_payload["claim_boundary"] == UNO_EXTENSION_CLAIM_BOUNDARY
+    assert lineage_payload["base_complete_table_root"] == str(base_root)
+    assert lineage_payload["base_claim_boundary"] == "complete_lines128_cdi_benchmark"
+    assert {row["model_id"] for row in lineage_payload["promoted_base_rows"]} == set(
+        UNO_EXTENSION_REQUIRED_ROWS[:6]
+    )
+    assert [row["model_id"] for row in lineage_payload["fresh_uno_rows"]] == list(
+        UNO_EXTENSION_FRESH_ROWS
+    )
+
+    assert (base_root / "metrics.json").read_bytes() == base_metrics_before
+    assert (base_root / "paper_benchmark_manifest.json").read_bytes() == base_manifest_before
+
+    assert result["base_complete_table_root"] == str(base_root)
+    assert result["fresh_uno_rows"] == list(UNO_EXTENSION_FRESH_ROWS)
+    assert "base_row_lineage_json" in result["bundle_paths"]
+
+
+def test_uno_extension_blocks_when_base_root_missing(tmp_path):
+    from scripts.studies.lines128_paper_benchmark import run_lines128_uno_extension_benchmark
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+    base_root = tmp_path / "base_does_not_exist"
+    execution_manifest = _write_uno_extension_execution_manifest(
+        tmp_path / "execution.json",
+        base_root=base_root,
+    )
+
+    with pytest.raises(FileNotFoundError, match="base_complete_table_root"):
+        run_lines128_uno_extension_benchmark(
+            decision_artifact=decision_artifact,
+            execution_manifest=execution_manifest,
+            output_dir=tmp_path / "out",
+        )
+

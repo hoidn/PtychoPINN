@@ -65,7 +65,7 @@ State Dependencies:
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Literal
+from typing import Dict, Any, List, Optional, Literal, Union
 import math
 import yaml
 import warnings
@@ -250,7 +250,7 @@ class PyTorchExecutionConfig:
     # Lightning Trainer knobs
     accelerator: str = 'auto'  # Options: 'cpu', 'gpu', 'tpu', 'mps', 'auto' (default 'auto' → 'cuda' if available, else 'cpu')
     strategy: str = 'auto'  # Options: 'auto', 'ddp', 'fsdp', 'deepspeed'
-    deterministic: bool = True  # Enforce reproducibility (seed_everything + deterministic mode)
+    deterministic: Union[bool, Literal["warn"]] = True  # Enforce reproducibility (seed_everything + deterministic mode); "warn" allows non-deterministic ops with a warning
     gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
     gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm
     accum_steps: int = 1  # Gradient accumulation steps (simulate larger batch size)

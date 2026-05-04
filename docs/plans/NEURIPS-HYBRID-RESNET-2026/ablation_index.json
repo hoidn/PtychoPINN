@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-02T13:35:00Z",
+  "last_updated_utc": "2026-05-04T10:50:00Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -154,6 +154,29 @@
       ],
       "rows": [],
       "interpretation": "Preflight-only readiness result. `ptycho311` imported `neuralop.models.UNO` from `neuraloperator==2.0.0`, the live constructor required explicit `uno_out_channels` and `uno_scalings`, the accepted `uno_n_modes` form was a nested per-layer 2D sequence, and the raw forward probe already returned `B x 2 x 128 x 128` real/imag output. No benchmark rows ran."
+    },
+    {
+      "family_id": "cdi_lines128_neuralop_uno_table_extension",
+      "task": "cdi",
+      "fixed_contract": "cdi_lines128_seed3",
+      "changed_factors": [
+        "append-only architecture row addition",
+        "external NeuralOperator U-NO body in PINN and supervised modes"
+      ],
+      "completed_items": [
+        "2026-04-30-cdi-lines128-uno-table-extension"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z"
+      ],
+      "rows": [
+        "pinn_neuralop_uno",
+        "supervised_neuralop_uno"
+      ],
+      "interpretation": "Append-only architecture-table extension. Promotes the immutable six-row complete-table authority by lineage and freshly launches only the pinn_neuralop_uno and supervised_neuralop_uno rows under the locked Lines128 contract. Claim boundary: complete_lines128_cdi_benchmark_plus_uno_extension. Neither U-NO row displaces existing anchors; PINN U-NO is competitive on phase, supervised U-NO mirrors the supervised-FFNO pattern (strong phase, weak amplitude)."
     },
     {
       "family_id": "cns_paper_contract_and_bundle",

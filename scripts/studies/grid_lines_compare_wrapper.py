@@ -51,6 +51,8 @@ LEGACY_ARCH_TO_MODEL = {
 
 MODEL_TO_LEGACY_ARCH = {model_id: arch for arch, model_id in LEGACY_ARCH_TO_MODEL.items()}
 MODEL_TO_LEGACY_ARCH["supervised_ffno"] = "ffno"
+MODEL_TO_LEGACY_ARCH["supervised_neuralop_uno"] = "neuralop_uno"
+MODEL_TO_LEGACY_ARCH["pinn_neuralop_uno"] = "neuralop_uno"
 MODEL_DEFAULT_N = {"pinn_ptychovit": 256}
 TF_MODEL_IDS = {"pinn", "baseline"}
 TORCH_MODEL_IDS = {
@@ -65,6 +67,8 @@ TORCH_MODEL_IDS = {
     "pinn_spectral_resnet_bottleneck_ds1",
     "pinn_spectral_resnet_bottleneck_linear_decoder",
     "pinn_hybrid_resnet_ffno_bottleneck",
+    "pinn_neuralop_uno",
+    "supervised_neuralop_uno",
 }
 SUPPORTED_MODEL_IDS = set(LEGACY_ARCH_TO_MODEL.values()) | TORCH_MODEL_IDS | {"pinn_ptychovit"}
 PAPER_MODEL_LABELS = {
@@ -81,6 +85,8 @@ PAPER_MODEL_LABELS = {
     "pinn_spectral_resnet_bottleneck_ds1": "Spectral ResNet Bottleneck DS1 + PINN",
     "pinn_spectral_resnet_bottleneck_linear_decoder": "Spectral ResNet Linear Decoder + PINN",
     "pinn_hybrid_resnet_ffno_bottleneck": "Hybrid ResNet FFNO Bottleneck + PINN",
+    "pinn_neuralop_uno": "U-NO + PINN",
+    "supervised_neuralop_uno": "U-NO + supervised",
     "pinn_ptychovit": "PtychoViT + PINN",
 }
 PAPER_ARCHITECTURE_OVERRIDES = {
@@ -90,6 +96,7 @@ PAPER_ARCHITECTURE_OVERRIDES = {
 PAPER_TRAINING_PROCEDURE_OVERRIDES = {
     "baseline": "supervised",
     "supervised_ffno": "supervised",
+    "supervised_neuralop_uno": "supervised",
 }
 
 DEFAULT_TORCH_ROW_SPECS: Dict[str, Dict[str, Any]] = {
@@ -148,6 +155,16 @@ DEFAULT_TORCH_ROW_SPECS: Dict[str, Dict[str, Any]] = {
         "model_id": "pinn_hybrid_resnet_ffno_bottleneck",
         "architecture": "hybrid_resnet_ffno_bottleneck",
         "training_procedure": "pinn",
+    },
+    "pinn_neuralop_uno": {
+        "model_id": "pinn_neuralop_uno",
+        "architecture": "neuralop_uno",
+        "training_procedure": "pinn",
+    },
+    "supervised_neuralop_uno": {
+        "model_id": "supervised_neuralop_uno",
+        "architecture": "neuralop_uno",
+        "training_procedure": "supervised",
     },
 }
 MODEL_TO_LEGACY_ARCH.update(

@@ -2692,3 +2692,39 @@ def test_main_finalizes_launcher_completion_after_invocation_completion(tmp_path
     payload = json.loads(completion_path.read_text(encoding="utf-8"))
     assert payload["evidence_source"] == "wrapper_launcher_stdout_eval_markers"
     assert payload["launcher_stdout_log"] == "launcher_stdout.log"
+
+
+def test_default_torch_row_specs_register_neuralop_uno_rows():
+    from scripts.studies.grid_lines_compare_wrapper import (
+        DEFAULT_TORCH_ROW_SPECS,
+        PAPER_MODEL_LABELS,
+        PAPER_TRAINING_PROCEDURE_OVERRIDES,
+        TORCH_MODEL_IDS,
+        _torch_model_route,
+    )
+
+    pinn_spec = DEFAULT_TORCH_ROW_SPECS["pinn_neuralop_uno"]
+    sup_spec = DEFAULT_TORCH_ROW_SPECS["supervised_neuralop_uno"]
+    assert pinn_spec["architecture"] == "neuralop_uno"
+    assert pinn_spec["training_procedure"] == "pinn"
+    assert sup_spec["architecture"] == "neuralop_uno"
+    assert sup_spec["training_procedure"] == "supervised"
+    assert "pinn_neuralop_uno" in TORCH_MODEL_IDS
+    assert "supervised_neuralop_uno" in TORCH_MODEL_IDS
+    assert PAPER_MODEL_LABELS["pinn_neuralop_uno"] == "U-NO + PINN"
+    assert PAPER_MODEL_LABELS["supervised_neuralop_uno"] == "U-NO + supervised"
+    assert PAPER_TRAINING_PROCEDURE_OVERRIDES["supervised_neuralop_uno"] == "supervised"
+
+    arch_pinn, proc_pinn = _torch_model_route("pinn_neuralop_uno")
+    arch_sup, proc_sup = _torch_model_route("supervised_neuralop_uno")
+    assert (arch_pinn, proc_pinn) == ("neuralop_uno", "pinn")
+    assert (arch_sup, proc_sup) == ("neuralop_uno", "supervised")
+
+
+def test_validate_model_specs_accepts_neuralop_uno_rows():
+    from scripts.studies.grid_lines_compare_wrapper import validate_model_specs
+
+    validate_model_specs(
+        ("pinn_neuralop_uno", "supervised_neuralop_uno"),
+        {"pinn_neuralop_uno": 128, "supervised_neuralop_uno": 128},
+    )

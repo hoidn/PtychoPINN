@@ -233,6 +233,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, cdi, lines128, uno, neuraloperator, neuralop, preflight, readiness, signature, real-imag
 **Use this when:** Checking the exact verified U-NO environment/API contract, reusing the frozen pre-metric settings for implementation, or confirming that no U-NO benchmark rows ran in the preflight pass.
 
+### [NeurIPS Lines128 U-NO Table Extension Summary](plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_summary.md)
+**Description:** Durable completion summary for the append-only U-NO extension to the locked Lines128 CDI paper bundle, recording the eight-row extended root, base-row lineage from the immutable complete-table authority, fresh `pinn_neuralop_uno` and `supervised_neuralop_uno` row provenance (including the U-NO-specific `deterministic="warn"` carve-out), recorded reconstruction metrics, claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension`, and verification log paths.
+**Keywords:** neurips, cdi, lines128, uno, neuraloperator, neuralop, append-only, extension, pinn, supervised, paper-complete
+**Use this when:** Locating the eight-row U-NO extended bundle, confirming that the original six-row authority remains untouched, checking the U-NO row metrics or row-local provenance, or distinguishing the extended claim boundary from the original complete-table boundary.
+
 ### [NeurIPS Hybrid ResNet CDI FFNO Generator Lines Best-Config Summary](plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md)
 **Description:** Execution summary for the fixed-contract `N=128` CDI `ffno` versus `hybrid_resnet` row pair, pinning the recovered `lines128` contract, stable artifact root, exact compare command, and the claim boundary that this pair is prerequisite evidence for the later paper benchmark rather than the full four-row package.
 **Keywords:** neurips, cdi, ffno, hybrid_resnet, lines128, grid-lines, compare, summary

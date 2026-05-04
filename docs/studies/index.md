@@ -547,6 +547,29 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Boundary:
   - this is adjacent evidence for the Lines128 CDI lane
   - it does not replace the preserved six-row primary CDI benchmark root
+
+### Lines128 CDI U-NO Table Extension
+- Purpose: append-only U-NO architecture extension over the locked Lines128
+  CDI paper bundle. Two fresh rows (`pinn_neuralop_uno`, `supervised_neuralop_uno`)
+  added under the same six-row contract; the immutable six-row authority
+  remains the unchanged headline.
+- Status: completed on `2026-05-04`; the extended root is `paper_complete`.
+- Summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_summary.md`
+- Authoritative extension root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z`
+- Promoted base authority (immutable):
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux`
+- Eight-row roster:
+  - promoted: `baseline`, `pinn`, `pinn_hybrid_resnet`, `pinn_fno_vanilla`,
+    `pinn_spectral_resnet_bottleneck_net`, `pinn_ffno`
+  - fresh: `pinn_neuralop_uno`, `supervised_neuralop_uno`
+- Claim boundary:
+  `complete_lines128_cdi_benchmark_plus_uno_extension`
+- Boundary:
+  - append-only paper-supporting comparator evidence; ranking statements must
+    cite the extended root and distinguish it from the original six-row
+    authority.
 - the supervised CNN minimum-subset evidence remains a referenced sibling,
   not a rerun or silently merged extension row
 

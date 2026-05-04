@@ -20,6 +20,7 @@ Machine-readable companions:
 | CDI `lines128` complete table | `lines128_paper_benchmark_summary.md` | `paper_grade`, six-row complete CDI bundle |
 | CDI FFNO supervised extension | `lines128_supervised_equivalent_rows_summary.md` | paper-complete extension to existing table |
 | CDI U-NO extension readiness | `lines128_uno_preflight_summary.md` | feasibility-only external UNO environment/API authority before generator integration |
+| CDI U-NO table extension | `lines128_uno_table_extension_summary.md` | append-only `paper_grade` eight-row extended bundle; claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension` |
 | PDEBench CNS table/figures | `pdebench_cns_paper_2048cap_extension_summary.md` | bounded capped decision-support only, current `2048 / 256 / 256` authority |
 | PDEBench CNS 512cap fallback provenance | `pdebench_cns_paper_table_figure_bundle_summary.md` | bounded capped decision-support only, preserved historical fallback |
 | Cross-pillar claim audit | `paper_evidence_package_audit_summary.md` | preserves CDI/CNS claim asymmetry |
@@ -51,6 +52,8 @@ Fixed contract: synthetic grid-lines `N=128`, `gridsize=1`, `seed=3`,
 | `pinn_spectral_resnet_bottleneck_net` | `spectral_resnet_bottleneck_net` | PINN | 0.024944 | 0.092881 | 0.989855 | 0.972219 | complete CDI table |
 | `pinn_ffno` | `ffno` | PINN | 0.062772 | 0.082839 | 0.934830 | 0.981592 | complete CDI table / prerequisite FFNO pair |
 | `supervised_ffno` | `ffno` | supervised | 0.386413 | 0.046563 | 0.248427 | 0.937179 | supervised FFNO extension |
+| `pinn_neuralop_uno` | `neuralop_uno` | PINN | 0.093164 | 0.068291 | 0.827995 | 0.956859 | U-NO table extension (append-only) |
+| `supervised_neuralop_uno` | `neuralop_uno` | supervised | 0.320684 | 0.056251 | 0.268940 | 0.910490 | U-NO table extension (append-only) |
 
 CDI artifact roots:
 
@@ -62,6 +65,8 @@ CDI artifact roots:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet`
 - Supervised FFNO extension:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z`
+- U-NO table extension (claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension`):
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z`
 
 ## CDI Lines128 Bridge Study
 

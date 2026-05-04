@@ -2809,3 +2809,47 @@ def test_main_rejects_removed_single_image_frc_split_mode(tmp_path):
                 "binomial",
             ]
         )
+
+
+def test_setup_torch_configs_uses_warn_only_determinism_for_neuralop_uno(tmp_path):
+    from scripts.studies.grid_lines_torch_runner import (
+        TorchRunnerConfig,
+        setup_torch_configs,
+    )
+
+    cfg = TorchRunnerConfig(
+        train_npz=tmp_path / "train.npz",
+        test_npz=tmp_path / "test.npz",
+        output_dir=tmp_path / "out",
+        architecture="neuralop_uno",
+        training_procedure="pinn",
+        seed=3,
+        epochs=1,
+        N=128,
+        gridsize=1,
+        generator_output_mode="real_imag",
+    )
+    _, execution_config = setup_torch_configs(cfg)
+    assert execution_config.deterministic == "warn"
+
+
+def test_setup_torch_configs_keeps_strict_determinism_for_other_architectures(tmp_path):
+    from scripts.studies.grid_lines_torch_runner import (
+        TorchRunnerConfig,
+        setup_torch_configs,
+    )
+
+    cfg = TorchRunnerConfig(
+        train_npz=tmp_path / "train.npz",
+        test_npz=tmp_path / "test.npz",
+        output_dir=tmp_path / "out",
+        architecture="hybrid_resnet",
+        training_procedure="pinn",
+        seed=3,
+        epochs=1,
+        N=128,
+        gridsize=1,
+        fno_blocks=4,
+    )
+    _, execution_config = setup_torch_configs(cfg)
+    assert execution_config.deterministic is True

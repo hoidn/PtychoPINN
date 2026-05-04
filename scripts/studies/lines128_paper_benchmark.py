@@ -39,6 +39,16 @@ FNO_COMPARATOR_MODEL_IDS = {
 ALLOWED_GO_NO_GO_STATE = "go_for_harness_preflight_only"
 MINIMUM_SUBSET_EXECUTION_STATE = "go_for_minimum_subset_execution"
 COMPLETE_TABLE_EXECUTION_STATE = "go_for_complete_table_execution"
+UNO_EXTENSION_EXECUTION_STATE = "go_for_uno_extension_execution"
+UNO_EXTENSION_CLAIM_BOUNDARY = "complete_lines128_cdi_benchmark_plus_uno_extension"
+UNO_EXTENSION_FRESH_ROWS = (
+    "pinn_neuralop_uno",
+    "supervised_neuralop_uno",
+)
+UNO_EXTENSION_FRESH_ROW_LABELS = {
+    "pinn_neuralop_uno": "U-NO + PINN",
+    "supervised_neuralop_uno": "U-NO + supervised",
+}
 AUTHORITY_JSON_START = "<!-- lines128_execution_authority_json:start -->"
 AUTHORITY_JSON_END = "<!-- lines128_execution_authority_json:end -->"
 REQUIRED_FIXED_CONTRACT_FIELDS = (
@@ -93,6 +103,7 @@ COMPLETE_TABLE_REQUIRED_ROWS = (
     "pinn_spectral_resnet_bottleneck_net",
     "pinn_ffno",
 )
+UNO_EXTENSION_REQUIRED_ROWS = COMPLETE_TABLE_REQUIRED_ROWS + UNO_EXTENSION_FRESH_ROWS
 
 
 def _load_json_if_exists(path: Path) -> Dict[str, Any]:
@@ -866,6 +877,148 @@ def _complete_table_row_key(row: Mapping[str, object]) -> Dict[str, object]:
     }
 
 
+def _uno_extension_row_key(row: Mapping[str, object]) -> Dict[str, object]:
+    model_id = row.get("model_id")
+    model_label = row.get("model_label")
+    architecture_id = row.get("architecture_id")
+    training_procedure = row.get("training_procedure")
+    required = row.get("required_for_uno_extension")
+    decision = row.get("decision")
+    source_root = row.get("source_root")
+    if not isinstance(model_id, str) or not model_id.strip():
+        raise ValueError("U-NO extension execution row is missing model_id")
+    if not isinstance(model_label, str) or not model_label.strip():
+        raise ValueError(f"U-NO extension execution row {model_id} is missing model_label")
+    if not isinstance(architecture_id, str) or not architecture_id.strip():
+        raise ValueError(f"U-NO extension execution row {model_id} is missing architecture_id")
+    if training_procedure not in {"supervised", "pinn"}:
+        raise ValueError(
+            f"U-NO extension execution row {model_id} has unsupported training_procedure={training_procedure!r}"
+        )
+    if not isinstance(required, bool):
+        raise ValueError(f"U-NO extension execution row {model_id} must declare required_for_uno_extension")
+    if decision not in {"promote_existing", "rerun_required"}:
+        raise ValueError(
+            f"U-NO extension execution row {model_id} has unsupported decision={decision!r}"
+            " (allowed: promote_existing, rerun_required)"
+        )
+    normalized_source_root = None
+    if source_root is not None:
+        if not isinstance(source_root, str) or not source_root.strip():
+            raise ValueError(f"U-NO extension execution row {model_id} has invalid source_root")
+        normalized_source_root = source_root
+    if decision == "promote_existing" and normalized_source_root is None:
+        raise ValueError(
+            f"U-NO extension execution row {model_id} must declare source_root for promote_existing"
+        )
+    if decision == "rerun_required":
+        if model_id not in UNO_EXTENSION_FRESH_ROWS:
+            raise ValueError(
+                f"U-NO extension execution row {model_id} cannot be rerun_required;"
+                f" only {list(UNO_EXTENSION_FRESH_ROWS)} are fresh-launch rows"
+            )
+        if architecture_id != "neuralop_uno":
+            raise ValueError(
+                f"U-NO extension fresh-launch row {model_id} must use architecture_id=neuralop_uno;"
+                f" got {architecture_id!r}"
+            )
+    return {
+        "model_id": str(model_id),
+        "model_label": str(model_label),
+        "architecture_id": str(architecture_id),
+        "training_procedure": str(training_procedure),
+        "required_for_uno_extension": bool(required),
+        "decision": str(decision),
+        "source_root": normalized_source_root,
+    }
+
+
+def _normalize_uno_extension_execution_manifest(
+    payload: Mapping[str, object],
+    *,
+    fixed_contract: Mapping[str, object],
+) -> Dict[str, object]:
+    state = payload.get("state")
+    if state != UNO_EXTENSION_EXECUTION_STATE:
+        raise ValueError("Execution manifest does not authorize U-NO extension execution")
+    comparator = payload.get("selected_fno_comparator")
+    if comparator not in FNO_COMPARATOR_MODEL_IDS:
+        raise ValueError("U-NO extension execution manifest must select an explicit FNO comparator")
+
+    seed_policy = payload.get("seed_policy")
+    if not isinstance(seed_policy, Mapping):
+        raise ValueError("U-NO extension execution manifest is missing seed_policy")
+    normalized_seed = _validate_seed_policy(
+        {"seed_policy": seed_policy, "fixed_contract": fixed_contract},
+        fixed_contract,
+    )
+
+    payload_contract = _validate_fixed_contract({"fixed_contract": payload.get("fixed_contract")})
+    if payload_contract != dict(fixed_contract):
+        raise ValueError(
+            "U-NO extension execution manifest fixed contract drifted from the harness decision artifact"
+        )
+
+    base_root = payload.get("base_complete_table_root")
+    if not isinstance(base_root, str) or not base_root.strip():
+        raise ValueError(
+            "U-NO extension execution manifest must declare base_complete_table_root pointing to the"
+            " immutable six-row authority"
+        )
+
+    rows = payload.get("rows")
+    if not isinstance(rows, list) or len(rows) != len(UNO_EXTENSION_REQUIRED_ROWS):
+        raise ValueError(
+            f"U-NO extension execution manifest must authorize exactly {len(UNO_EXTENSION_REQUIRED_ROWS)} rows"
+        )
+    normalized_rows = [_uno_extension_row_key(row) for row in rows if isinstance(row, Mapping)]
+    required_rows = [row["model_id"] for row in normalized_rows if row["required_for_uno_extension"]]
+    if required_rows != list(UNO_EXTENSION_REQUIRED_ROWS):
+        raise ValueError(
+            "U-NO extension execution manifest must lock the eight-row roster in order;"
+            f" got {required_rows}"
+        )
+    rerun_rows = [row["model_id"] for row in normalized_rows if row["decision"] == "rerun_required"]
+    if tuple(rerun_rows) != UNO_EXTENSION_FRESH_ROWS:
+        raise ValueError(
+            "U-NO extension execution manifest must mark exactly the U-NO rows as rerun_required;"
+            f" got {rerun_rows}"
+        )
+    promoted_rows = [row for row in normalized_rows if row["decision"] == "promote_existing"]
+    if [row["model_id"] for row in promoted_rows] != list(COMPLETE_TABLE_REQUIRED_ROWS):
+        raise ValueError(
+            "U-NO extension execution manifest must promote exactly the six base-table rows in order"
+        )
+    bad_promotion = [
+        row["model_id"]
+        for row in promoted_rows
+        if row["source_root"] != base_root
+    ]
+    if bad_promotion:
+        raise ValueError(
+            "U-NO extension execution manifest must promote all six base rows from the same"
+            f" base_complete_table_root; deviations: {bad_promotion}"
+        )
+
+    fixed_sample_ids = payload.get("fixed_sample_ids")
+    if not isinstance(fixed_sample_ids, list) or any(not isinstance(item, int) for item in fixed_sample_ids):
+        raise ValueError("U-NO extension execution manifest must provide integer fixed_sample_ids")
+    shared_visual_scales = payload.get("shared_visual_scales")
+    if not isinstance(shared_visual_scales, Mapping):
+        raise ValueError("U-NO extension execution manifest must provide shared_visual_scales")
+
+    return {
+        "state": UNO_EXTENSION_EXECUTION_STATE,
+        "selected_fno_comparator": str(comparator),
+        "seed_policy": {"type": "fixed", "seed": normalized_seed},
+        "fixed_contract": dict(payload_contract),
+        "fixed_sample_ids": list(fixed_sample_ids),
+        "shared_visual_scales": dict(shared_visual_scales),
+        "base_complete_table_root": str(base_root),
+        "rows": normalized_rows,
+    }
+
+
 def _normalize_complete_execution_manifest(
     payload: Mapping[str, object],
     *,
@@ -1546,9 +1699,256 @@ def run_lines128_complete_benchmark(
     }
 
 
+def _write_base_row_lineage(
+    *,
+    output_dir: Path,
+    base_root: Path,
+    promoted_rows: List[Mapping[str, object]],
+    fresh_rows: List[Mapping[str, object]],
+) -> Path:
+    output_dir = Path(output_dir)
+    base_root = Path(base_root)
+    base_metrics_path = base_root / "metrics.json"
+    base_metrics = _load_json_if_exists(base_metrics_path)
+    base_manifest = _load_json_if_exists(base_root / "paper_benchmark_manifest.json")
+    promoted_payload = []
+    for row in promoted_rows:
+        model_id = str(row["model_id"])
+        promoted_payload.append(
+            {
+                "model_id": model_id,
+                "model_label": str(row["model_label"]),
+                "architecture_id": str(row["architecture_id"]),
+                "training_procedure": str(row["training_procedure"]),
+                "source_root": str(row["source_root"]),
+                "source_row_root": f"runs/{model_id}",
+                "source_recon_root": f"recons/{model_id}",
+            }
+        )
+    fresh_payload = []
+    for row in fresh_rows:
+        fresh_payload.append(
+            {
+                "model_id": str(row["model_id"]),
+                "model_label": str(row["model_label"]),
+                "architecture_id": str(row["architecture_id"]),
+                "training_procedure": str(row["training_procedure"]),
+                "row_root": f"runs/{row['model_id']}",
+                "recon_root": f"recons/{row['model_id']}",
+            }
+        )
+    payload = {
+        "claim_boundary": UNO_EXTENSION_CLAIM_BOUNDARY,
+        "base_complete_table_root": str(base_root),
+        "base_complete_table_root_resolved": str(base_root.resolve()) if base_root.exists() else None,
+        "base_metrics_path": str(base_metrics_path) if base_metrics_path.exists() else None,
+        "base_metrics_mtime": (
+            base_metrics_path.stat().st_mtime if base_metrics_path.exists() else None
+        ),
+        "base_claim_boundary": (
+            base_metrics.get("claim_boundary") if isinstance(base_metrics, Mapping) else None
+        ) or (
+            base_manifest.get("claim_boundary") if isinstance(base_manifest, Mapping) else None
+        ),
+        "promoted_base_rows": promoted_payload,
+        "fresh_uno_rows": fresh_payload,
+    }
+    lineage_path = output_dir / "base_row_lineage.json"
+    lineage_path.parent.mkdir(parents=True, exist_ok=True)
+    lineage_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return lineage_path
+
+
+def run_lines128_uno_extension_benchmark(
+    *,
+    decision_artifact: Path,
+    execution_manifest: Path,
+    output_dir: Path,
+) -> Dict[str, object]:
+    payload = _load_decision_artifact(decision_artifact)
+    fixed_contract = _validate_fixed_contract(payload)
+    rows_by_id = {
+        str(row["model_id"]): row
+        for row in payload.get("rows", [])
+        if isinstance(row, Mapping) and "model_id" in row
+    }
+    comparator = _validate_fno_comparator(payload, rows_by_id)
+
+    manifest_payload = _load_decision_artifact(execution_manifest)
+    execution_surface = _normalize_uno_extension_execution_manifest(
+        manifest_payload,
+        fixed_contract=fixed_contract,
+    )
+    if execution_surface["selected_fno_comparator"] != comparator:
+        raise ValueError(
+            "U-NO extension execution manifest selected_fno_comparator drifted from the harness decision artifact"
+        )
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    base_root = Path(str(execution_surface["base_complete_table_root"]))
+    if not base_root.exists():
+        raise FileNotFoundError(
+            f"U-NO extension base_complete_table_root does not exist: {base_root}"
+        )
+
+    promoted_rows = [row for row in execution_surface["rows"] if row["decision"] == "promote_existing"]
+    rerun_rows = [row for row in execution_surface["rows"] if row["decision"] == "rerun_required"]
+
+    for row in promoted_rows:
+        source_root = Path(str(row["source_root"]))
+        _promote_existing_row_artifacts(
+            source_root=source_root,
+            output_dir=output_dir,
+            model_id=str(row["model_id"]),
+        )
+
+    rerun_models = tuple(str(row["model_id"]) for row in rerun_rows)
+    compare_result: Dict[str, object] = {"row_payloads": {}}
+    if rerun_models:
+        compare_result = run_grid_lines_compare(
+            N=int(fixed_contract["N"]),
+            gridsize=int(fixed_contract["gridsize"]),
+            output_dir=output_dir,
+            probe_npz=_resolve_repo_path(fixed_contract["probe_npz"]),
+            architectures=(),
+            models=rerun_models,
+            model_n={model_id: int(fixed_contract["N"]) for model_id in rerun_models},
+            seed=int(fixed_contract["seed"]),
+            nimgs_train=int(fixed_contract["nimgs_train"]),
+            nimgs_test=int(fixed_contract["nimgs_test"]),
+            nphotons=float(fixed_contract["nphotons"]),
+            set_phi=bool(fixed_contract["set_phi"]),
+            probe_source=str(fixed_contract["probe_source"]),
+            probe_scale_mode=str(fixed_contract["probe_scale_mode"]),
+            probe_smoothing_sigma=float(fixed_contract["probe_smoothing_sigma"]),
+            probe_mask_diameter=fixed_contract["probe_mask_diameter"],
+            torch_epochs=int(fixed_contract["torch_epochs"]),
+            torch_learning_rate=float(fixed_contract["torch_learning_rate"]),
+            torch_scheduler=str(fixed_contract["torch_scheduler"]),
+            torch_plateau_factor=float(fixed_contract["torch_plateau_factor"]),
+            torch_plateau_patience=int(fixed_contract["torch_plateau_patience"]),
+            torch_plateau_min_lr=float(fixed_contract["torch_plateau_min_lr"]),
+            torch_plateau_threshold=float(fixed_contract["torch_plateau_threshold"]),
+            torch_loss_mode=str(fixed_contract["torch_loss_mode"]),
+            torch_mae_pred_l2_match_target=bool(fixed_contract["torch_mae_pred_l2_match_target"]),
+            torch_output_mode=str(fixed_contract["torch_output_mode"]),
+            fno_modes=int(fixed_contract["fno_modes"]),
+            fno_width=int(fixed_contract["fno_width"]),
+            fno_blocks=int(fixed_contract["fno_blocks"]),
+            fno_cnn_blocks=int(fixed_contract["fno_cnn_blocks"]),
+            dataset_source=str(fixed_contract["dataset_source"]),
+        )
+
+    all_models = tuple(str(row["model_id"]) for row in execution_surface["rows"])
+    recovered_compare = run_grid_lines_compare(
+        N=int(fixed_contract["N"]),
+        gridsize=int(fixed_contract["gridsize"]),
+        output_dir=output_dir,
+        probe_npz=_resolve_repo_path(fixed_contract["probe_npz"]),
+        architectures=(),
+        models=all_models,
+        model_n={model_id: int(fixed_contract["N"]) for model_id in all_models},
+        seed=int(fixed_contract["seed"]),
+        nimgs_train=int(fixed_contract["nimgs_train"]),
+        nimgs_test=int(fixed_contract["nimgs_test"]),
+        nphotons=float(fixed_contract["nphotons"]),
+        set_phi=bool(fixed_contract["set_phi"]),
+        probe_source=str(fixed_contract["probe_source"]),
+        probe_scale_mode=str(fixed_contract["probe_scale_mode"]),
+        probe_smoothing_sigma=float(fixed_contract["probe_smoothing_sigma"]),
+        probe_mask_diameter=fixed_contract["probe_mask_diameter"],
+        torch_epochs=int(fixed_contract["torch_epochs"]),
+        torch_learning_rate=float(fixed_contract["torch_learning_rate"]),
+        torch_scheduler=str(fixed_contract["torch_scheduler"]),
+        torch_plateau_factor=float(fixed_contract["torch_plateau_factor"]),
+        torch_plateau_patience=int(fixed_contract["torch_plateau_patience"]),
+        torch_plateau_min_lr=float(fixed_contract["torch_plateau_min_lr"]),
+        torch_plateau_threshold=float(fixed_contract["torch_plateau_threshold"]),
+        torch_loss_mode=str(fixed_contract["torch_loss_mode"]),
+        torch_mae_pred_l2_match_target=bool(fixed_contract["torch_mae_pred_l2_match_target"]),
+        torch_output_mode=str(fixed_contract["torch_output_mode"]),
+        fno_modes=int(fixed_contract["fno_modes"]),
+        fno_width=int(fixed_contract["fno_width"]),
+        fno_blocks=int(fixed_contract["fno_blocks"]),
+        fno_cnn_blocks=int(fixed_contract["fno_cnn_blocks"]),
+        dataset_source=str(fixed_contract["dataset_source"]),
+        reuse_existing_recons=True,
+    )
+
+    row_payloads = dict(recovered_compare.get("row_payloads", {})) if isinstance(recovered_compare.get("row_payloads"), Mapping) else {}
+    for row in promoted_rows:
+        model_id = str(row["model_id"])
+        row_payloads[model_id] = _recover_promoted_row_payload(
+            source_root=Path(str(row["source_root"])),
+            output_dir=output_dir,
+            model_id=model_id,
+            fixed_contract=fixed_contract,
+        )
+
+    required_rows = list(UNO_EXTENSION_REQUIRED_ROWS)
+    bundle_paths = write_paper_benchmark_bundle(
+        output_dir=output_dir,
+        row_payloads=row_payloads,
+        required_rows=required_rows,
+        fixed_sample_ids=execution_surface["fixed_sample_ids"],
+        shared_visual_scales=execution_surface["shared_visual_scales"],
+        selected_fno_comparator=execution_surface["selected_fno_comparator"],
+        evidence_scope="uno_extension_benchmark_execution",
+        claim_boundary=UNO_EXTENSION_CLAIM_BOUNDARY,
+        require_row_provenance=True,
+    )
+    bundle_payload = json.loads(Path(bundle_paths["metrics_json"]).read_text(encoding="utf-8"))
+    missing_bundle_artifacts = _collect_missing_bundle_artifacts(
+        output_dir,
+        gt_recon=recovered_compare.get("gt_recon") or compare_result.get("gt_recon"),
+    )
+    benchmark_status = str(bundle_payload["benchmark_status"])
+    if missing_bundle_artifacts:
+        benchmark_status = "benchmark_incomplete"
+    bundle_payload = _update_bundle_status(
+        bundle_paths=bundle_paths,
+        benchmark_status=benchmark_status,
+        missing_bundle_artifacts=missing_bundle_artifacts,
+    )
+    manifest_payload = _build_paper_benchmark_manifest(
+        output_dir=output_dir,
+        compare_result=recovered_compare,
+        authority_surface=execution_surface,
+        required_rows=required_rows,
+        benchmark_status=str(bundle_payload["benchmark_status"]),
+        claim_boundary=UNO_EXTENSION_CLAIM_BOUNDARY,
+        missing_bundle_artifacts=missing_bundle_artifacts,
+    )
+    manifest_payload["base_complete_table_root"] = str(base_root)
+    manifest_payload["uno_extension_fresh_rows"] = list(UNO_EXTENSION_FRESH_ROWS)
+    manifest_path = output_dir / "paper_benchmark_manifest.json"
+    manifest_path.write_text(json.dumps(manifest_payload, indent=2), encoding="utf-8")
+    bundle_paths["paper_benchmark_manifest_json"] = str(manifest_path)
+
+    lineage_path = _write_base_row_lineage(
+        output_dir=output_dir,
+        base_root=base_root,
+        promoted_rows=promoted_rows,
+        fresh_rows=rerun_rows,
+    )
+    bundle_paths["base_row_lineage_json"] = str(lineage_path)
+    return {
+        "required_rows": required_rows,
+        "bundle_paths": bundle_paths,
+        "compare_result": recovered_compare,
+        "base_complete_table_root": str(base_root),
+        "fresh_uno_rows": list(UNO_EXTENSION_FRESH_ROWS),
+    }
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Run lines128 paper benchmark utilities")
-    parser.add_argument("--mode", choices=("preflight", "minimum_subset", "complete_table"), default="preflight")
+    parser.add_argument(
+        "--mode",
+        choices=("preflight", "minimum_subset", "complete_table", "extend_with_uno"),
+        default="preflight",
+    )
     parser.add_argument("--decision-artifact", type=Path, required=True)
     parser.add_argument("--execution-authority-note", type=Path)
     parser.add_argument("--execution-manifest", type=Path)
@@ -1600,10 +2000,18 @@ def main(argv=None) -> None:
                 output_dir=args.output_dir,
                 reuse_existing_recons=args.reuse_existing_recons,
             )
-        else:
+        elif args.mode == "complete_table":
             if args.execution_manifest is None:
                 raise ValueError("complete_table mode requires --execution-manifest")
             minimum_subset_result = run_lines128_complete_benchmark(
+                decision_artifact=args.decision_artifact,
+                execution_manifest=args.execution_manifest,
+                output_dir=args.output_dir,
+            )
+        else:
+            if args.execution_manifest is None:
+                raise ValueError("extend_with_uno mode requires --execution-manifest")
+            minimum_subset_result = run_lines128_uno_extension_benchmark(
                 decision_artifact=args.decision_artifact,
                 execution_manifest=args.execution_manifest,
                 output_dir=args.output_dir,

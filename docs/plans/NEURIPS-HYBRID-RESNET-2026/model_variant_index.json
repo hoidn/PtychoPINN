@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-03T08:10:00Z",
+  "last_updated_utc": "2026-05-04T10:50:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -449,6 +449,64 @@
         "phase_frc50": 67.84086901019204
       },
       "evidence_status": "paper_grade_with_recovered_invocation_caveat"
+    },
+    {
+      "variant_id": "cdi_lines128__neuralop_uno__pinn__uno_extension",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_neuralop_uno",
+      "paper_label": "U-NO + PINN",
+      "architecture_id": "neuralop_uno",
+      "model_family": "external_neuraloperator_uno",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-04-30-cdi-lines128-uno-table-extension",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z",
+      "metrics_json": "runs/pinn_neuralop_uno/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_neuralop_uno.png",
+        "visuals/amp_phase_error_pinn_neuralop_uno.png"
+      ],
+      "parameter_count": 2515718,
+      "metrics": {
+        "amp_mae": 0.09316378086805344,
+        "phase_mae": 0.06829105385593301,
+        "amp_ssim": 0.8279948152817742,
+        "phase_ssim": 0.9568587752007158,
+        "amp_psnr": 66.91841354415209,
+        "phase_psnr": 69.47026239459773,
+        "amp_frc50": 42.17362064465305,
+        "phase_frc50": 42.8937562121194
+      },
+      "evidence_status": "paper_grade_uno_extension"
+    },
+    {
+      "variant_id": "cdi_lines128__neuralop_uno__supervised__uno_extension",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "supervised_neuralop_uno",
+      "paper_label": "U-NO + supervised",
+      "architecture_id": "neuralop_uno",
+      "model_family": "external_neuraloperator_uno",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-04-30-cdi-lines128-uno-table-extension",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z",
+      "metrics_json": "runs/supervised_neuralop_uno/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_supervised_neuralop_uno.png",
+        "visuals/amp_phase_error_supervised_neuralop_uno.png"
+      ],
+      "parameter_count": 2515716,
+      "metrics": {
+        "amp_mae": 0.3206843137741089,
+        "phase_mae": 0.05625055939327221,
+        "amp_ssim": 0.2689397545100156,
+        "phase_ssim": 0.9104896763928609,
+        "amp_psnr": 55.98537058995714,
+        "phase_psnr": 71.35050261905893,
+        "amp_frc50": 23.738247277769712,
+        "phase_frc50": 23.63027288107553
+      },
+      "evidence_status": "paper_grade_uno_extension"
     },
     {
       "variant_id": "cdi_lines128__ffno__supervised__extension",
@@ -1226,7 +1284,8 @@
     "2026-02-26-hybrid-resnet-skip-mode-search-stage-c-execution",
     "2026-02-26-hybrid-resnet-skip-mode-search-stage-d-execution",
     "2026-02-26-hybrid-resnet-skip-mode-search-stage-e-execution",
-    "2026-04-29-brdt-four-row-preflight"
+    "2026-04-29-brdt-four-row-preflight",
+    "2026-04-30-cdi-lines128-uno-table-extension"
   ],
   "maintenance_rules": [
     "Every future completed backlog item that emits model metrics must add or update at least one model_variants entry.",

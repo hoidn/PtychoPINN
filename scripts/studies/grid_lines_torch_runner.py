@@ -42,7 +42,7 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Dict, Any, List, Optional, Tuple, Union
 
 import numpy as np
 
@@ -1027,9 +1027,13 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     training_config.plateau_min_lr = cfg.plateau_min_lr
     training_config.plateau_threshold = cfg.plateau_threshold
 
+    # neuralop_uno relies on upsample_bicubic2d, which lacks a deterministic CUDA
+    # backward implementation. Use Lightning's "warn" mode for that architecture so
+    # the locked U-NO contract trains on GPU; record the caveat in row provenance.
+    deterministic_mode: Union[bool, str] = "warn" if cfg.architecture == "neuralop_uno" else True
     execution_config = PyTorchExecutionConfig(
         learning_rate=cfg.learning_rate,
-        deterministic=True,
+        deterministic=deterministic_mode,
         gradient_clip_val=cfg.gradient_clip_val,
         enable_progress_bar=True,
         enable_checkpointing=cfg.enable_checkpointing,
