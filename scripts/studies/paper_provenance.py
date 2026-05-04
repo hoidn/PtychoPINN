@@ -310,7 +310,7 @@ def write_launcher_completion_evidence(
         return None
     if not (
         bool(parsed_args.get("reuse_existing_recons"))
-        or parsed_args.get("mode") == "complete_table"
+        or parsed_args.get("mode") in {"complete_table", "extend_with_uno"}
     ):
         return None
 

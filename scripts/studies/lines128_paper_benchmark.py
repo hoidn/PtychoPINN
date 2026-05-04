@@ -400,6 +400,61 @@ def _refresh_manifest_row_artifacts(output_dir: Path, rows: object) -> List[Dict
     return refreshed_rows
 
 
+def _finalize_uno_extension_launcher_completion(
+    output_dir: Path,
+    *,
+    fresh_models: Iterable[str],
+) -> Dict[str, Path]:
+    """Emit per-row launcher_completion.json for fresh U-NO rows in the extend_with_uno bundle.
+
+    The fresh U-NO rows are launched in-process (not via a subprocess wrapper),
+    so their row-completion markers appear in ``live_stderr.log`` /
+    ``live_stdout.log`` rather than the standard wrapper logs. This helper feeds
+    those live logs to ``write_launcher_completion_evidence`` so each fresh row
+    carries the same launcher proof contract as a wrapper-launched row.
+    """
+
+    output_dir = Path(output_dir)
+    wrapper_invocation_json = output_dir / "invocation.json"
+    if not wrapper_invocation_json.exists():
+        return {}
+
+    log_candidates = (
+        (output_dir / "live_stderr.log", output_dir / "live_stdout.log"),
+        (output_dir / "launcher_stderr.log", output_dir / "launcher_stdout.log"),
+    )
+    written: Dict[str, Path] = {}
+    for model_id in fresh_models:
+        for launcher_stderr_log, launcher_stdout_log in log_candidates:
+            if not launcher_stderr_log.exists() and not launcher_stdout_log.exists():
+                continue
+            launcher_completion_path = write_launcher_completion_evidence(
+                output_dir,
+                model_id=str(model_id),
+                wrapper_invocation_json=wrapper_invocation_json,
+                launcher_stderr_log=launcher_stderr_log,
+                launcher_stdout_log=launcher_stdout_log if launcher_stdout_log.exists() else None,
+            )
+            if launcher_completion_path is not None:
+                written[str(model_id)] = launcher_completion_path
+                break
+    return written
+
+
+def _collect_missing_fresh_row_launcher_completion_artifacts(
+    output_dir: Path,
+    *,
+    fresh_models: Iterable[str],
+) -> List[str]:
+    output_dir = Path(output_dir)
+    missing: List[str] = []
+    for model_id in fresh_models:
+        candidate = output_dir / "runs" / model_id / "launcher_completion.json"
+        if not candidate.exists():
+            missing.append(str(Path("runs") / model_id / "launcher_completion.json"))
+    return missing
+
+
 def _finalize_minimum_subset_bundle_status(
     *,
     output_dir: Path,
@@ -1886,6 +1941,28 @@ def run_lines128_uno_extension_benchmark(
             fixed_contract=fixed_contract,
         )
 
+    fresh_model_ids = [str(row["model_id"]) for row in rerun_rows]
+    _finalize_uno_extension_launcher_completion(
+        output_dir,
+        fresh_models=fresh_model_ids,
+    )
+    for model_id in fresh_model_ids:
+        payload = row_payloads.get(model_id)
+        if not isinstance(payload, Mapping):
+            continue
+        outputs_payload = (
+            dict(payload.get("outputs"))
+            if isinstance(payload.get("outputs"), Mapping)
+            else {}
+        )
+        launcher_completion_path = output_dir / "runs" / model_id / "launcher_completion.json"
+        if launcher_completion_path.exists():
+            outputs_payload["launcher_completion_json"] = relative_to_output_dir(
+                output_dir,
+                launcher_completion_path,
+            )
+            row_payloads[model_id] = {**payload, "outputs": outputs_payload}
+
     required_rows = list(UNO_EXTENSION_REQUIRED_ROWS)
     bundle_paths = write_paper_benchmark_bundle(
         output_dir=output_dir,
@@ -1902,6 +1979,12 @@ def run_lines128_uno_extension_benchmark(
     missing_bundle_artifacts = _collect_missing_bundle_artifacts(
         output_dir,
         gt_recon=recovered_compare.get("gt_recon") or compare_result.get("gt_recon"),
+    )
+    missing_bundle_artifacts.extend(
+        _collect_missing_fresh_row_launcher_completion_artifacts(
+            output_dir,
+            fresh_models=fresh_model_ids,
+        )
     )
     benchmark_status = str(bundle_payload["benchmark_status"])
     if missing_bundle_artifacts:
@@ -1922,6 +2005,10 @@ def run_lines128_uno_extension_benchmark(
     )
     manifest_payload["base_complete_table_root"] = str(base_root)
     manifest_payload["uno_extension_fresh_rows"] = list(UNO_EXTENSION_FRESH_ROWS)
+    manifest_payload["rows"] = _refresh_manifest_row_artifacts(
+        output_dir,
+        manifest_payload.get("rows"),
+    )
     manifest_path = output_dir / "paper_benchmark_manifest.json"
     manifest_path.write_text(json.dumps(manifest_payload, indent=2), encoding="utf-8")
     bundle_paths["paper_benchmark_manifest_json"] = str(manifest_path)

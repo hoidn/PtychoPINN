@@ -103,6 +103,9 @@ Both `pinn_neuralop_uno` and `supervised_neuralop_uno` row roots contain:
   `deterministic_carve_out` rationale that scopes the relaxation to
   `architecture=neuralop_uno`
 - `exit_code_proof.json`
+- `launcher_completion.json` referencing the `Saved artifacts to ...` and
+  `Torch runner complete. Artifacts in ...` row-completion markers from the
+  in-process launcher transcript (the bundle root's `live_launch.log`)
 - `model.pt` (Lightning checkpoint)
 - per-row `stdout.log` and `stderr.log`
 - recon at `recons/<row>/recon.npz`
@@ -119,6 +122,17 @@ field. Future fresh U-NO runs capture these fields automatically through the
 extended `capture_runtime_provenance`/`capture_neuralop_provenance` helpers
 in `scripts/studies/invocation_logging.py` and the extended
 `_build_randomness_contract` in `scripts/studies/grid_lines_torch_runner.py`.
+
+The fresh-row `launcher_completion.json` artifacts were retroactively emitted
+during a follow-up review pass (using the existing `live_launch.log`
+in-process launcher transcript) and the bundle's `metrics.json` /
+`paper_benchmark_manifest.json` were rewritten in-place to mirror the new
+`launcher_completion_json` pointers under each fresh row's `outputs` /
+`artifacts`. Future fresh U-NO runs emit the artifact automatically through
+`_finalize_uno_extension_launcher_completion` during collation in
+`scripts/studies/lines128_paper_benchmark.py`, and the extension bundle gate
+in `_collect_missing_fresh_row_launcher_completion_artifacts` downgrades the
+bundle to `benchmark_incomplete` when the proof is missing.
 
 The bundle's `paper_benchmark_manifest.json` records the runtime environment
 (`python 3.11.13`, `torch 2.9.1+cu128`, `CUDA 12.8`, `NVIDIA RTX 3090`),

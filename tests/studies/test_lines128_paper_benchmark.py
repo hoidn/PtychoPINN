@@ -2939,6 +2939,27 @@ def test_uno_extension_promotes_six_base_rows_and_runs_only_uno_rows(tmp_path, m
     _materialize_complete_six_row_base(base_root)
     base_metrics_before = (base_root / "metrics.json").read_bytes()
     base_manifest_before = (base_root / "paper_benchmark_manifest.json").read_bytes()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "invocation.json").write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "exit_code": 0,
+                "started_at_utc": "2026-05-04T10:00:00+00:00",
+                "finished_at_utc": "2026-05-04T10:42:00+00:00",
+                "pid": 4242,
+                "parsed_args": {"mode": "extend_with_uno", "reuse_existing_recons": False},
+                "extra": {
+                    "tmux": {"session_name": "lines128-uno-test"},
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def _write_launcher_log_lines(lines: list[str]) -> None:
+        log_path = output_dir / "live_stderr.log"
+        log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     def fake_run_grid_lines_compare(**kwargs):
         captured_calls.append(dict(kwargs))
@@ -2952,6 +2973,13 @@ def test_uno_extension_promotes_six_base_rows_and_runs_only_uno_rows(tmp_path, m
                     training_procedure="pinn" if model_id == "pinn_neuralop_uno" else "supervised",
                 )
                 row_payloads[model_id] = row_payload
+        if not kwargs.get("reuse_existing_recons"):
+            log_lines: list[str] = []
+            for model_id in kwargs.get("models", ()):
+                row_root = (output_dir / "runs" / model_id).as_posix()
+                log_lines.append(f"INFO Saved artifacts to {row_root}")
+                log_lines.append(f"INFO Torch runner complete. Artifacts in {row_root}")
+            _write_launcher_log_lines(log_lines)
         if kwargs.get("reuse_existing_recons"):
             for model_id in kwargs["models"]:
                 _write_text(output_dir / f"visuals/amp_phase_{model_id}.png")
@@ -3015,6 +3043,22 @@ def test_uno_extension_promotes_six_base_rows_and_runs_only_uno_rows(tmp_path, m
         assert (output_dir / "runs" / model_id / "metrics.json").exists()
         assert (output_dir / "runs" / model_id / "exit_code_proof.json").exists()
         assert (output_dir / "recons" / model_id / "recon.npz").exists()
+        launcher_completion_path = (
+            output_dir / "runs" / model_id / "launcher_completion.json"
+        )
+        assert launcher_completion_path.exists(), (
+            f"missing launcher_completion.json for fresh U-NO row {model_id}"
+        )
+        launcher_completion = json.loads(launcher_completion_path.read_text(encoding="utf-8"))
+        assert launcher_completion["model_id"] == model_id
+        assert launcher_completion["matched_log_lines"]
+
+    assert metrics_payload["benchmark_status"] == "paper_complete"
+    assert metrics_payload["missing_bundle_artifacts"] == []
+    manifest_rows = {row["model_id"]: row for row in manifest_payload.get("rows", [])}
+    for model_id in UNO_EXTENSION_FRESH_ROWS:
+        artifacts = manifest_rows[model_id].get("artifacts", {})
+        assert "launcher_completion_json" in artifacts
 
     lineage_path = output_dir / "base_row_lineage.json"
     assert lineage_path.exists()
@@ -3035,6 +3079,92 @@ def test_uno_extension_promotes_six_base_rows_and_runs_only_uno_rows(tmp_path, m
     assert result["base_complete_table_root"] == str(base_root)
     assert result["fresh_uno_rows"] == list(UNO_EXTENSION_FRESH_ROWS)
     assert "base_row_lineage_json" in result["bundle_paths"]
+
+
+def test_uno_extension_downgrades_bundle_when_fresh_row_launcher_proof_missing(
+    tmp_path, monkeypatch
+):
+    from scripts.studies.lines128_paper_benchmark import (
+        UNO_EXTENSION_CLAIM_BOUNDARY,
+        UNO_EXTENSION_FRESH_ROWS,
+        run_lines128_uno_extension_benchmark,
+    )
+
+    base_root = tmp_path / "complete_table_base"
+    output_dir = tmp_path / "complete_table_plus_uno"
+    _materialize_complete_six_row_base(base_root)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "invocation.json").write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "exit_code": 0,
+                "started_at_utc": "2026-05-04T10:00:00+00:00",
+                "finished_at_utc": "2026-05-04T10:42:00+00:00",
+                "pid": 4242,
+                "parsed_args": {"mode": "extend_with_uno", "reuse_existing_recons": False},
+                "extra": {"tmux": {"session_name": "lines128-uno-test"}},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    def fake_run_grid_lines_compare(**kwargs):
+        row_payloads = {}
+        for model_id in kwargs.get("models", ()):
+            if model_id in {"pinn_neuralop_uno", "supervised_neuralop_uno"}:
+                row_payload = _stage_uno_fresh_row(
+                    output_dir,
+                    model_id=model_id,
+                    model_label="U-NO + PINN" if model_id == "pinn_neuralop_uno" else "U-NO + supervised",
+                    training_procedure="pinn" if model_id == "pinn_neuralop_uno" else "supervised",
+                )
+                row_payloads[model_id] = row_payload
+        if kwargs.get("reuse_existing_recons"):
+            for model_id in kwargs["models"]:
+                _write_text(output_dir / f"visuals/amp_phase_{model_id}.png")
+                _write_text(output_dir / f"visuals/amp_phase_error_{model_id}.png")
+            _write_text(output_dir / "visuals/amp_phase_gt.png")
+            _write_text(output_dir / "visuals/compare_amp_phase.png")
+            _write_text(output_dir / "visuals/frc_curves.png")
+        return {
+            "train_npz": str(output_dir / "datasets" / "N128" / "gs1" / "train.npz"),
+            "test_npz": str(output_dir / "datasets" / "N128" / "gs1" / "test.npz"),
+            "gt_recon": str(output_dir / "recons" / "gt" / "recon.npz"),
+            "recon_paths": {
+                model_id: str(output_dir / f"recons/{model_id}/recon.npz")
+                for model_id in kwargs.get("models", ())
+            },
+            "row_payloads": row_payloads,
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.lines128_paper_benchmark.run_grid_lines_compare",
+        fake_run_grid_lines_compare,
+    )
+
+    decision_artifact = _write_decision_artifact(tmp_path / "decision.json")
+    execution_manifest = _write_uno_extension_execution_manifest(
+        tmp_path / "execution" / "uno_extension_execution.json",
+        base_root=base_root,
+    )
+
+    run_lines128_uno_extension_benchmark(
+        decision_artifact=decision_artifact,
+        execution_manifest=execution_manifest,
+        output_dir=output_dir,
+    )
+
+    metrics_payload = json.loads((output_dir / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics_payload["claim_boundary"] == UNO_EXTENSION_CLAIM_BOUNDARY
+    assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
+    expected_missing = {
+        str(Path("runs") / model_id / "launcher_completion.json")
+        for model_id in UNO_EXTENSION_FRESH_ROWS
+    }
+    assert expected_missing.issubset(set(metrics_payload["missing_bundle_artifacts"]))
+    for model_id in UNO_EXTENSION_FRESH_ROWS:
+        assert not (output_dir / "runs" / model_id / "launcher_completion.json").exists()
 
 
 def test_uno_extension_blocks_when_base_root_missing(tmp_path):
