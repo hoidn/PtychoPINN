@@ -28,6 +28,7 @@ import hashlib
 import importlib
 import json
 import os
+import random
 import sys
 import time
 from dataclasses import dataclass, field
@@ -359,6 +360,7 @@ class TrainingContract:
     learning_rate: float = 2e-4
     optimizer: str = "Adam"
     loss_weights: LossWeights = field(default_factory=LossWeights)
+    seed: int = 42
 
     def as_dict(self) -> Dict[str, Any]:
         return {
@@ -367,7 +369,23 @@ class TrainingContract:
             "learning_rate": float(self.learning_rate),
             "optimizer": self.optimizer,
             "loss_weights": self.loss_weights.as_dict(),
+            "seed": int(self.seed),
         }
+
+
+def _seed_everything(seed: int) -> None:
+    """Seed Python, NumPy, and Torch RNGs so model init + shuffling are deterministic.
+
+    Used before each neural-row build/train so the bundle is regenerable
+    under the design's "fixed seeds for local baseline and Hybrid ResNet
+    runs" requirement (`docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md`).
+    """
+    seed_int = int(seed)
+    random.seed(seed_int)
+    np.random.seed(seed_int)
+    torch.manual_seed(seed_int)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed_int)
 
 
 def _prepare_input(
@@ -398,6 +416,7 @@ def _train_neural_row(
 ) -> Tuple[Optional[BRDTTrainingModule], Dict[str, Any], float]:
     """Train one neural row. Returns (module, runtime_meta, train_seconds)."""
     output_dir.mkdir(parents=True, exist_ok=True)
+    _seed_everything(contract.seed)
     try:
         adapter = build_neural_adapter(
             architecture=row.model,
@@ -419,12 +438,15 @@ def _train_neural_row(
     train_split = BRDTSmokeSplit(
         authority.split_paths["train"], normalization=authority.normalization
     )
+    loader_generator = torch.Generator()
+    loader_generator.manual_seed(int(contract.seed))
     loader = DataLoader(
         train_split,
         batch_size=int(contract.batch_size),
         shuffle=True,
         num_workers=0,
         collate_fn=brdt_collate,
+        generator=loader_generator,
     )
     optim = torch.optim.Adam(module.parameters(), lr=float(contract.learning_rate))
     started = time.perf_counter()
@@ -1421,6 +1443,16 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--fixed-sample-count", type=int, default=4)
     parser.add_argument("--fixed-sample-seed", type=int, default=17)
     parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help=(
+            "Training seed: seeds NumPy/Torch (CPU+CUDA) before each neural "
+            "row's model init and the DataLoader shuffle generator so the "
+            "bundle is regenerable under a fixed contract."
+        ),
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Validate the manifest, write preflight_manifest.json + metric_schema.json, and exit.",
@@ -1448,6 +1480,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         epochs=int(args.epochs),
         batch_size=int(args.batch_size),
         learning_rate=float(args.learning_rate),
+        seed=int(args.seed),
     )
     try:
         result = run_preflight(

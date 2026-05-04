@@ -1106,14 +1106,14 @@
       ],
       "parameter_count": 18465,
       "metrics": {
-        "image_mae_phys": 0.0018213507157159752,
-        "image_rmse_phys": 0.004902431220949277,
-        "image_relative_l2_phys": 0.8643639248515685,
-        "meas_mae": 0.0028092187782178374,
-        "meas_rmse": 0.005849262556866032,
-        "meas_relative_l2": 0.6906319627502214,
-        "psnr_phys": 21.08238687027673,
-        "ssim_phys": 0.6127763644335888
+        "image_mae_phys": 0.0018265597535424142,
+        "image_rmse_phys": 0.004899415300497967,
+        "image_relative_l2_phys": 0.8638321779038102,
+        "meas_mae": 0.002803052610078652,
+        "meas_rmse": 0.005823045795498495,
+        "meas_relative_l2": 0.687536507009572,
+        "psnr_phys": 21.087731976010964,
+        "ssim_phys": 0.6129003485346396
       },
       "evidence_status": "decision_support"
     },
@@ -1136,14 +1136,14 @@
       ],
       "parameter_count": 44465,
       "metrics": {
-        "image_mae_phys": 0.0019491326175000508,
-        "image_rmse_phys": 0.005659417729581683,
-        "image_relative_l2_phys": 0.9978307294168545,
-        "meas_mae": 0.0036119582629218962,
-        "meas_rmse": 0.008426785872801547,
-        "meas_relative_l2": 0.9949643413044116,
-        "psnr_phys": 19.83518203844681,
-        "ssim_phys": 0.6539689174208715
+        "image_mae_phys": 0.0019466116710126385,
+        "image_rmse_phys": 0.005624152395149779,
+        "image_relative_l2_phys": 0.9916129812207131,
+        "meas_mae": 0.0035681709238085837,
+        "meas_rmse": 0.008307080447761283,
+        "meas_relative_l2": 0.9808305266835641,
+        "psnr_phys": 19.889475457442135,
+        "ssim_phys": 0.6778927173246171
       },
       "evidence_status": "decision_support"
     },
@@ -1166,14 +1166,14 @@
       ],
       "parameter_count": 142018,
       "metrics": {
-        "image_mae_phys": 0.0006406454786648277,
-        "image_rmse_phys": 0.0018248613510219206,
-        "image_relative_l2_phys": 0.32174736341814814,
-        "meas_mae": 0.001106935649118539,
-        "meas_rmse": 0.0017763182390573493,
-        "meas_relative_l2": 0.20973278938712733,
-        "psnr_phys": 29.66601959254192,
-        "ssim_phys": 0.9471645036997667
+        "image_mae_phys": 0.0006503057828356049,
+        "image_rmse_phys": 0.0018092739823767753,
+        "image_relative_l2_phys": 0.3189991027015771,
+        "meas_mae": 0.0010797600144537788,
+        "meas_rmse": 0.0016873939989534071,
+        "meas_relative_l2": 0.19923335943642898,
+        "psnr_phys": 29.740530298191878,
+        "ssim_phys": 0.9471455751799746
       },
       "evidence_status": "decision_support"
     },
@@ -1194,7 +1194,8 @@
       "row_status": "blocked",
       "blocker_reason": "odtbrain_unavailable",
       "blocker_message": "Classical Born backprop reference requires ODTbrain for the decision-support claim boundary; only the local-adjoint fallback is available.",
-      "evidence_status": "blocked"
+      "evidence_status": "blocked",
+      "metrics": {}
     }
   ],
   "completed_backlog_outputs_represented": [

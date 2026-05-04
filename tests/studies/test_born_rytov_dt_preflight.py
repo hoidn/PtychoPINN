@@ -658,3 +658,91 @@ def test_run_preflight_skips_resume_when_contract_changes(tmp_path):
     )
     second = preflight_mod.run_preflight(**altered)
     assert (second.get("resumed_rows") or []) == []
+
+
+# ----------------------------------------------------------------------
+# Training seed: contract capture, fingerprint propagation, reproducibility
+# ----------------------------------------------------------------------
+def test_training_contract_records_seed_field():
+    """Seed is captured in the contract dict so the manifest and fingerprints carry it."""
+    contract = preflight_mod.TrainingContract(
+        epochs=1, batch_size=1, learning_rate=2e-4, seed=123
+    )
+    payload = contract.as_dict()
+    assert payload["seed"] == 123
+
+
+def test_row_contract_fingerprint_changes_with_seed():
+    """Different seeds must produce different per-row fingerprints (no false resume)."""
+
+    def _fp(seed: int) -> str:
+        contract = preflight_mod.TrainingContract(
+            epochs=1, batch_size=1, learning_rate=2e-4, seed=seed
+        )
+        return preflight_mod.row_contract_fingerprint(
+            row_id="unet",
+            model="unet",
+            training="supervised + Born consistency",
+            input_mode="born_init_image",
+            dataset_id="brdt128_decision_support_preflight",
+            operator_pointer="op.json",
+            training_contract=contract.as_dict(),
+            fixed_sample_ids=[0],
+            in_channels=1,
+            classical_backend_name="local_adjoint",
+        )
+
+    assert _fp(0) != _fp(1)
+
+
+def test_dry_run_preflight_manifest_records_training_seed(tmp_path):
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    preflight_root = tmp_path / "preflight_seed_manifest"
+    _run_preflight(
+        "--manifest",
+        str(manifest_path),
+        "--output-root",
+        str(preflight_root),
+        "--dry-run",
+        "--seed",
+        "777",
+    )
+    manifest = json.loads((preflight_root / "preflight_manifest.json").read_text())
+    assert manifest["training_contract"]["seed"] == 777
+
+
+def test_run_preflight_is_reproducible_under_same_seed(tmp_path):
+    """Two runs with the same training seed must yield identical neural metrics."""
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    out_a = tmp_path / "seed_run_a"
+    out_b = tmp_path / "seed_run_b"
+    contract_kwargs = dict(
+        manifest_path=manifest_path,
+        contract=preflight_mod.TrainingContract(
+            epochs=1, batch_size=1, learning_rate=2e-4, seed=2026
+        ),
+        hybrid_label="hybrid_resnet",
+        fixed_sample_count=1,
+        fixed_sample_seed=0,
+        in_channels=1,
+        device_choice="cpu",
+        dry_run=False,
+        parent_argv=["--manifest", str(manifest_path)],
+    )
+    preflight_mod.run_preflight(output_root=out_a, **contract_kwargs)
+    preflight_mod.run_preflight(output_root=out_b, **contract_kwargs)
+
+    metrics_a = json.loads((out_a / "metrics.json").read_text())
+    metrics_b = json.loads((out_b / "metrics.json").read_text())
+    rows_a = {row["row_id"]: row for row in metrics_a["rows"]}
+    rows_b = {row["row_id"]: row for row in metrics_b["rows"]}
+    for neural_row in ("unet", "fno_vanilla", "hybrid_resnet"):
+        assert rows_a[neural_row]["row_status"] == "completed"
+        assert rows_b[neural_row]["row_status"] == "completed"
+        for bucket in ("image", "measurement", "supporting"):
+            for key, val_a in rows_a[neural_row][bucket].items():
+                val_b = rows_b[neural_row][bucket][key]
+                assert val_a == pytest.approx(val_b, rel=0, abs=0), (
+                    f"{neural_row}.{bucket}.{key} drifted between seeded reruns: "
+                    f"{val_a} vs {val_b}"
+                )
