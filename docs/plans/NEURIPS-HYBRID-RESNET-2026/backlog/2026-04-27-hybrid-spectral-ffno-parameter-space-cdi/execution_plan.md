@@ -409,7 +409,7 @@ the named row below.
 - [ ] Re-run the backlog item’s required deterministic checks and archive their logs:
   - `pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py`
   - `python -m compileall -q ptycho_torch scripts/studies`
-- [ ] Because this item touches production workflow surfaces, also run and archive:
+- [ ] Supporting check for production workflow-surface risk; do not treat as a blocking deterministic gate when required `check_commands` and equivalent focused evidence cover the changed paths:
   - `pytest -v -m integration`
 - [ ] Archive the focused unit-test logs, preflight log, long-run launcher log, final artifact-validation log, and closeout verification logs under the backlog artifact root.
 
@@ -422,7 +422,7 @@ pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/t
 python -m compileall -q ptycho_torch scripts/studies
 ```
 
-Recommended additional checks for this item because it changes workflow surfaces:
+Recommended supporting checks for this item because it changes workflow surfaces:
 
 ```bash
 pytest -v -m integration

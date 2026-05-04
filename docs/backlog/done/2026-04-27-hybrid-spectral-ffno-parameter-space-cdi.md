@@ -1,6 +1,6 @@
 ---
 priority: 21
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/hybrid_spectral_ffno_parameter_space_cdi_plan.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi/execution_plan.md
 check_commands:
   - pytest -q tests/torch/test_grid_lines_hybrid_resnet_integration.py tests/torch/test_grid_lines_torch_runner.py tests/test_grid_lines_compare_wrapper.py
   - python -m compileall -q ptycho_torch scripts/studies

@@ -1,6 +1,6 @@
 ---
 priority: 39
-plan_path: docs/backlog/active/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation/execution_plan.md
 check_commands:
   - pytest -q tests/torch/test_fno_generators.py -k "hybrid_resnet or resnet_decoder_block or skip_style"
   - pytest -q tests/torch/test_grid_lines_torch_runner.py -k "hybrid_skip or hybrid_resnet_blocks or resnet_width"

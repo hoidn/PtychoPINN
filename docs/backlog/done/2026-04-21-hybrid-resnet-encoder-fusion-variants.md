@@ -1,6 +1,6 @@
 ---
 priority: 38
-plan_path: docs/backlog/active/2026-04-21-hybrid-resnet-encoder-fusion-variants.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/execution_plan.md
 check_commands:
   - pytest -q tests/torch/test_fno_generators.py -k "hybrid_resnet_encoder or hybrid_encoder"
   - pytest -q tests/torch/test_grid_lines_torch_runner.py -k "hybrid_encoder"

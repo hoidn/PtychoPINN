@@ -1,6 +1,6 @@
 ---
 priority: 126
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-candidate-preflight/execution_plan.md
 check_commands:
   - |
     python - <<'PY'
