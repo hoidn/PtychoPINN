@@ -11,6 +11,7 @@ from scripts.studies.paper_results_refresh import (
     center_crop_bounds,
     detect_cns_history5_gaps,
     evaluate_cns_h5_lane,
+    load_cns_h5_candidate_rows,
     render_brdt_metrics_table,
     render_cdi_objective_comparison_table,
     render_cdi_pinn_metrics_table,
@@ -477,6 +478,7 @@ def _h5_row(profile_id: str, **overrides):
         "batch_size": 4,
         "training_loss": "mse",
         "split_counts": {"train": 512, "val": 64, "test": 64},
+        "max_windows_per_trajectory": 8,
         "metric_family": [
             "err_RMSE",
             "err_nRMSE",
@@ -623,3 +625,87 @@ def test_write_cns_matched_condition_assets_emits_required_payload(tmp_path):
     assert table_payload["fixed_contract"]["history_len"] == 5
     figure_payload = json.loads((tmp_path / "figure_selection.json").read_text())
     assert figure_payload["same_condition_visuals_available"] is False
+
+
+def test_evaluate_cns_h5_lane_flags_max_windows_per_trajectory_mismatch():
+    fixture = _h5_lane_fixture()
+    fixture["rows_by_id"]["author_ffno_cns_base"] = _h5_row(
+        "author_ffno_cns_base", max_windows_per_trajectory=4
+    )
+    eval_payload = evaluate_cns_h5_lane(fixture)
+    assert eval_payload["is_complete_and_consistent"] is False
+    issues_by_row = {
+        item["row_id"]: item["issues"] for item in eval_payload["inconsistent_rows"]
+    }
+    assert "max_windows_per_trajectory_mismatch" in issues_by_row["author_ffno_cns_base"]
+
+
+def test_evaluate_cns_h5_lane_flags_missing_max_windows_per_trajectory():
+    fixture = _h5_lane_fixture()
+    row = _h5_row("fno_base")
+    del row["max_windows_per_trajectory"]
+    fixture["rows_by_id"]["fno_base"] = row
+    eval_payload = evaluate_cns_h5_lane(fixture)
+    assert eval_payload["is_complete_and_consistent"] is False
+    issues_by_row = {
+        item["row_id"]: item["issues"] for item in eval_payload["inconsistent_rows"]
+    }
+    assert "max_windows_per_trajectory_missing" in issues_by_row["fno_base"]
+
+
+def test_select_cns_matched_condition_falls_back_when_max_windows_per_trajectory_disagrees():
+    h5 = _h5_lane_fixture()
+    h5["rows_by_id"]["unet_strong"] = _h5_row("unet_strong", max_windows_per_trajectory=16)
+    decision = select_cns_matched_condition(h2_lane=_h2_lane_fixture(), h5_lane=h5)
+    assert decision["selected_lane_id"] == "h2_2048_256_256_40ep"
+    rejected_inconsistent_ids = [
+        item["row_id"] for item in decision["rejected_candidate"]["inconsistent_rows"]
+    ]
+    assert "unet_strong" in rejected_inconsistent_ids
+
+
+def test_load_cns_h5_candidate_rows_rejects_missing_top_level_contract(tmp_path):
+    compare_path = tmp_path / "compare_no_contract.json"
+    compare_path.write_text(
+        json.dumps({"profile_results": []}),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="missing a top-level 'contract' block"):
+        load_cns_h5_candidate_rows(compare_json=compare_path)
+
+
+def test_load_cns_h5_candidate_rows_rejects_top_level_contract_disagreement(tmp_path):
+    contract = dict(CNS_H5_FIXED_CONTRACT)
+    contract["max_windows_per_trajectory"] = 4
+    compare_path = tmp_path / "compare_bad_contract.json"
+    compare_path.write_text(
+        json.dumps({"contract": contract, "profile_results": []}),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="max_windows_per_trajectory_mismatch"):
+        load_cns_h5_candidate_rows(compare_json=compare_path)
+
+
+def test_load_cns_h5_candidate_rows_rejects_top_level_contract_history_disagreement(tmp_path):
+    contract = dict(CNS_H5_FIXED_CONTRACT)
+    contract["history_len"] = 4
+    compare_path = tmp_path / "compare_history_mismatch.json"
+    compare_path.write_text(
+        json.dumps({"contract": contract, "profile_results": []}),
+        encoding="utf-8",
+    )
+    with pytest.raises(RuntimeError, match="history_len_mismatch"):
+        load_cns_h5_candidate_rows(compare_json=compare_path)
+
+
+def test_load_cns_h5_candidate_rows_returns_source_contract_when_consistent(tmp_path):
+    contract = dict(CNS_H5_FIXED_CONTRACT)
+    compare_path = tmp_path / "compare_ok.json"
+    compare_path.write_text(
+        json.dumps({"contract": contract, "profile_results": []}),
+        encoding="utf-8",
+    )
+    h5 = load_cns_h5_candidate_rows(compare_json=compare_path)
+    assert h5["lane_id"] == "h5_512_64_64_40ep"
+    assert h5["source_contract"]["history_len"] == 5
+    assert h5["source_contract"]["max_windows_per_trajectory"] == 8

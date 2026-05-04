@@ -381,6 +381,131 @@ def _normalize_cns_row(
     }
 
 
+def _normalize_cns_matched_condition_row(
+    row_payload: dict[str, Any],
+    *,
+    cns_inputs: dict[str, Any],
+) -> dict[str, Any]:
+    refresh_root = cns_inputs["matched_condition_refresh_root"]
+    return {
+        "pillar_id": "cns",
+        "artifact_kind": "benchmark_row",
+        "artifact_id": f"cns:{row_payload['row_id']}",
+        "row_id": row_payload["row_id"],
+        "row_role": row_payload.get("row_role", "headline"),
+        "row_status": row_payload.get("row_status", "capped_decision_support"),
+        "claim_boundary": "bounded_capped_decision_support_only",
+        "evidence_tier": row_payload.get("row_status", "capped_decision_support"),
+        "manuscript_label": row_payload.get("manuscript_label"),
+        "source_summary": cns_inputs["manuscript_headline_summary_path"],
+        "source_root": str(row_payload.get("source_run_root", "")),
+        "metric_schema": {
+            "family": [
+                "err_RMSE",
+                "err_nRMSE",
+                "relative_l2",
+                "fRMSE_low",
+                "fRMSE_mid",
+                "fRMSE_high",
+            ],
+            "table_json_path": cns_inputs["matched_condition_table_rows_path"],
+        },
+        "table_artifacts": [
+            cns_inputs["matched_condition_table_rows_path"],
+            f"{refresh_root}/cns_paper_table_rows.csv",
+            f"{refresh_root}/cns_paper_table_rows.tex",
+            cns_inputs["manuscript_table_tex_path"],
+        ],
+        "figure_artifacts": [
+            f"{refresh_root}/figure_selection.json",
+        ],
+        "source_array_roots": [
+            str(row_payload.get("source_run_root", "")),
+        ],
+        "provenance_gaps": [],
+        "draftability": "draftable_with_bounded_wording",
+        "blocked_claims": ["same_protocol_full_training_cns_competitiveness"],
+        "notes": {
+            "history_len": row_payload.get("history_len"),
+            "split_label": row_payload.get("split_label"),
+            "epochs": row_payload.get("epochs"),
+            "batch_size": row_payload.get("batch_size"),
+            "training_loss": row_payload.get("training_loss"),
+            "parameter_count": row_payload.get("parameter_count"),
+            "runtime_sec": row_payload.get("runtime_sec"),
+        },
+    }
+
+
+def _load_cns_matched_condition(
+    cns_inputs: dict[str, Any],
+    *,
+    repo_root: Path,
+    locked_headline_row_ids: list[str],
+) -> dict[str, Any]:
+    decision = _load_json(repo_root, cns_inputs["matched_condition_decision_path"])
+    table_rows = _load_json(repo_root, cns_inputs["matched_condition_table_rows_path"])
+
+    if str(decision.get("selected_lane_id", "")) != "h5_512_64_64_40ep":
+        raise ValueError(
+            "CNS matched-condition decision selected_lane_id does not match the manuscript headline lane: "
+            f"{decision.get('selected_lane_id')!r}"
+        )
+    if str(decision.get("claim_boundary", "")) != "bounded_capped_decision_support_only":
+        raise ValueError(
+            "CNS matched-condition decision changed the capped claim boundary: "
+            f"{decision.get('claim_boundary')!r}"
+        )
+    declared_role = str(cns_inputs["manuscript_headline_role"])
+    if "history_len_5" not in declared_role or "512_64_64" not in declared_role:
+        raise ValueError(
+            "CNS manuscript_headline_role does not describe the matched-condition h5 lane: "
+            f"{declared_role!r}"
+        )
+
+    decision_row_ids = [str(row_id) for row_id in decision.get("selected_row_ids", [])]
+    decision_rows = list(decision.get("selected_rows", []))
+    decision_rows_by_id = [str(row.get("row_id", "")) for row in decision_rows]
+    if decision_row_ids != decision_rows_by_id:
+        raise ValueError(
+            "CNS matched-condition decision selected_row_ids and selected_rows disagree: "
+            f"ids={decision_row_ids} rows={decision_rows_by_id}"
+        )
+    if sorted(decision_row_ids) != sorted(locked_headline_row_ids):
+        raise ValueError(
+            "CNS matched-condition decision row roster does not match the locked larger-cap headline roster: "
+            f"matched_condition={sorted(decision_row_ids)} larger_cap={sorted(locked_headline_row_ids)}"
+        )
+
+    table_payload_rows = [str(row.get("row_id", "")) for row in table_rows.get("rows", [])]
+    if table_payload_rows != decision_row_ids:
+        raise ValueError(
+            "CNS matched-condition table rows disagree with decision row order: "
+            f"table={table_payload_rows} decision={decision_row_ids}"
+        )
+    if str(table_rows.get("claim_boundary", "")) != "bounded_capped_decision_support_only":
+        raise ValueError(
+            "CNS matched-condition table_rows.json changed the capped claim boundary: "
+            f"{table_rows.get('claim_boundary')!r}"
+        )
+
+    fixed_contract = dict(table_rows.get("fixed_contract", {}))
+    decision_contract = dict(decision.get("selected_contract", {}))
+    if int(fixed_contract.get("history_len", -1)) != 5 or int(decision_contract.get("history_len", -1)) != 5:
+        raise ValueError(
+            "CNS matched-condition contract is not history_len=5: "
+            f"table_fixed={fixed_contract} decision={decision_contract}"
+        )
+
+    return {
+        "decision": decision,
+        "table_rows": table_rows,
+        "fixed_contract": fixed_contract,
+        "selected_rows": decision_rows,
+        "selected_row_ids": decision_row_ids,
+    }
+
+
 def _normalize_cns_adjacent_context(context_payload: dict[str, Any]) -> dict[str, Any]:
     normalized = deepcopy(context_payload)
     source_status = str(normalized.get("status", ""))
@@ -488,30 +613,57 @@ def load_cns_authority(cns_inputs: dict[str, Any], *, repo_root: Path) -> dict[s
             f"locked={locked_headline} table={table_headline} validation={validation_headline}"
         )
 
-    row_registry = [_normalize_cns_row(row, cns_inputs=cns_inputs) for row in locked_rows.get("rows", [])]
-    headline_rows = [row for row in row_registry if row["row_role"] == "headline"]
-    continuity_rows = [row for row in row_registry if row["row_role"] != "headline"]
+    larger_cap_row_registry = [
+        _normalize_cns_row(row, cns_inputs=cns_inputs) for row in locked_rows.get("rows", [])
+    ]
+    larger_cap_headline_rows = [
+        row for row in larger_cap_row_registry if row["row_role"] == "headline"
+    ]
+    continuity_rows = [row for row in larger_cap_row_registry if row["row_role"] != "headline"]
+
+    matched_condition = _load_cns_matched_condition(
+        cns_inputs,
+        repo_root=repo_root,
+        locked_headline_row_ids=locked_headline,
+    )
+    headline_rows = [
+        _normalize_cns_matched_condition_row(row, cns_inputs=cns_inputs)
+        for row in matched_condition["selected_rows"]
+    ]
+    headline_row_ids = matched_condition["selected_row_ids"]
 
     return {
         "pillar_id": "cns",
         "headline_status": "capped_decision_support",
         "bundle_status": str(bundle_validation["benchmark_status"]),
         "claim_boundary": "bounded_capped_decision_support_only",
-        "headline_row_ids": locked_headline,
+        "manuscript_headline_role": cns_inputs["manuscript_headline_role"],
+        "manuscript_headline_summary": cns_inputs["manuscript_headline_summary_path"],
+        "matched_condition_decision_path": cns_inputs["matched_condition_decision_path"],
+        "matched_condition_refresh_root": cns_inputs["matched_condition_refresh_root"],
+        "matched_condition_fixed_contract": matched_condition["fixed_contract"],
+        "headline_row_ids": headline_row_ids,
         "headline_rows": headline_rows,
         "continuity_rows": continuity_rows,
         "continuity_row_ids": list(locked_rows.get("continuity_row_ids", [])),
-        "source_summary": cns_inputs["bundle_summary_path"],
-        "source_root": cns_inputs["bundle_root"],
+        "source_summary": cns_inputs["manuscript_headline_summary_path"],
+        "source_root": cns_inputs["matched_condition_refresh_root"],
+        "larger_cap_context": {
+            "summary_path": cns_inputs["bundle_summary_path"],
+            "bundle_root": cns_inputs["bundle_root"],
+            "headline_row_ids": locked_headline,
+            "headline_rows": larger_cap_headline_rows,
+            "claim_boundary": "bounded_capped_decision_support_only",
+            "context_role": "larger_cap_capped_context_only",
+        },
         "table_artifacts": [
-            cns_inputs["table_rows_path"],
-            cns_inputs["bundle_root"] + "/cns_paper_table_rows.csv",
-            cns_inputs["bundle_root"] + "/cns_paper_table_rows.tex",
+            cns_inputs["matched_condition_table_rows_path"],
+            cns_inputs["matched_condition_refresh_root"] + "/cns_paper_table_rows.csv",
+            cns_inputs["matched_condition_refresh_root"] + "/cns_paper_table_rows.tex",
+            cns_inputs["manuscript_table_tex_path"],
         ],
         "figure_artifacts": [
-            cns_inputs["figure_manifest_path"],
-            cns_inputs["fixed_sample_manifest_path"],
-            cns_inputs["bundle_root"] + "/figures",
+            cns_inputs["matched_condition_refresh_root"] + "/figure_selection.json",
         ],
         "adjacent_context": [
             _normalize_cns_adjacent_context(context)
@@ -752,8 +904,9 @@ def render_audit_summary(manifest: dict[str, Any]) -> str:
 
 - CDI headline authority: `{cdi['headline_status']}` under `{cdi['claim_boundary']}` from `{cdi['source_root']}`.
 - CDI bundle status: `{cdi['bundle_status']}` with selected comparator `{cdi['selected_fno_comparator']}` and fixed seed `{cdi['seed_policy'].get('seed')}`.
-- CNS headline authority: `{cns['headline_status']}` under `{cns['claim_boundary']}` from `{cns['source_root']}`.
+- CNS headline authority: `{cns['headline_status']}` under `{cns['claim_boundary']}` from `{cns['source_root']}` (manuscript headline role `{cns['manuscript_headline_role']}`, manuscript summary `{cns['manuscript_headline_summary']}`).
 - CNS bundle status: `{cns['bundle_status']}` reflects table/figure assembly completeness only; it does not upgrade the pillar beyond `{cns['headline_status']}`.
+- CNS larger-cap capped context preserved for provenance: `{cns['larger_cap_context']['bundle_root']}` (summary `{cns['larger_cap_context']['summary_path']}`) under the same capped claim boundary; it is no longer the current manuscript headline.
 - Historical CNS fallback bundle preserved for provenance: `{cns_inputs['historical_bundle_root']}` under the same capped claim boundary; it is no longer the current discoverability target.
 - No outputs from this item target `/home/ollie/Documents/neurips/`; all emitted paths stay repo-local.
 

@@ -13,8 +13,9 @@
 
 - CDI headline authority: `paper_grade` under `complete_lines128_cdi_benchmark` from `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux`.
 - CDI bundle status: `paper_complete` with selected comparator `fno_vanilla` and fixed seed `3`.
-- CNS headline authority: `capped_decision_support` under `bounded_capped_decision_support_only` from `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap`.
+- CNS headline authority: `capped_decision_support` under `bounded_capped_decision_support_only` from `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh` (manuscript headline role `matched_condition_history_len_5_512_64_64_40ep`, manuscript summary `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md`).
 - CNS bundle status: `paper_complete` reflects table/figure assembly completeness only; it does not upgrade the pillar beyond `capped_decision_support`.
+- CNS larger-cap capped context preserved for provenance: `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap` (summary `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md`) under the same capped claim boundary; it is no longer the current manuscript headline.
 - Historical CNS fallback bundle preserved for provenance: `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle` under the same capped claim boundary; it is no longer the current discoverability target.
 - No outputs from this item target `/home/ollie/Documents/neurips/`; all emitted paths stay repo-local.
 

@@ -119,12 +119,99 @@ def test_load_cns_authority_preserves_capped_claim_boundary():
     assert cns["claim_boundary"] == "bounded_capped_decision_support_only"
     assert cns["bundle_status"] == "paper_complete"
     assert cns["headline_row_ids"] == [
+        "author_ffno_cns_base",
         "spectral_resnet_bottleneck_base",
         "fno_base",
         "unet_strong",
-        "author_ffno_cns_base",
     ]
     assert all(row["row_status"] == "capped_decision_support" for row in cns["headline_rows"])
+    assert cns["source_summary"] == (
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md"
+    )
+    assert cns["source_root"] == (
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh"
+    )
+    assert cns["manuscript_headline_role"] == "matched_condition_history_len_5_512_64_64_40ep"
+    assert sorted(cns["larger_cap_context"]["headline_row_ids"]) == [
+        "author_ffno_cns_base",
+        "fno_base",
+        "spectral_resnet_bottleneck_base",
+        "unet_strong",
+    ]
+    assert cns["larger_cap_context"]["bundle_root"] == (
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/"
+        "2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap"
+    )
+
+
+def test_load_cns_authority_rejects_matched_condition_lane_change():
+    module = _load_audit_module()
+    inputs = _default_inputs()
+    cns_inputs = dict(inputs["cns"])
+
+    decision = json.loads(
+        Path(cns_inputs["matched_condition_decision_path"]).read_text(encoding="utf-8")
+    )
+    decision["selected_lane_id"] = "h2_2048_256_256_40ep"
+    refresh_root = REPO_ROOT / cns_inputs["matched_condition_refresh_root"]
+    tampered_decision = refresh_root / "matched_condition_decision_tampered.json"
+    tampered_decision.write_text(json.dumps(decision, indent=2), encoding="utf-8")
+    cns_inputs["matched_condition_decision_path"] = str(
+        tampered_decision.relative_to(REPO_ROOT)
+    )
+
+    try:
+        with pytest.raises(ValueError, match="selected_lane_id"):
+            module.load_cns_authority(cns_inputs, repo_root=REPO_ROOT)
+    finally:
+        tampered_decision.unlink(missing_ok=True)
+
+
+def test_load_cns_authority_rejects_matched_condition_claim_boundary_drift():
+    module = _load_audit_module()
+    inputs = _default_inputs()
+    cns_inputs = dict(inputs["cns"])
+
+    decision = json.loads(
+        Path(cns_inputs["matched_condition_decision_path"]).read_text(encoding="utf-8")
+    )
+    decision["claim_boundary"] = "paper_grade"
+    refresh_root = REPO_ROOT / cns_inputs["matched_condition_refresh_root"]
+    tampered_decision = refresh_root / "matched_condition_decision_boundary_tampered.json"
+    tampered_decision.write_text(json.dumps(decision, indent=2), encoding="utf-8")
+    cns_inputs["matched_condition_decision_path"] = str(
+        tampered_decision.relative_to(REPO_ROOT)
+    )
+
+    try:
+        with pytest.raises(ValueError, match="capped claim boundary"):
+            module.load_cns_authority(cns_inputs, repo_root=REPO_ROOT)
+    finally:
+        tampered_decision.unlink(missing_ok=True)
+
+
+def test_load_cns_authority_rejects_matched_condition_row_roster_drift():
+    module = _load_audit_module()
+    inputs = _default_inputs()
+    cns_inputs = dict(inputs["cns"])
+
+    decision = json.loads(
+        Path(cns_inputs["matched_condition_decision_path"]).read_text(encoding="utf-8")
+    )
+    decision["selected_row_ids"] = decision["selected_row_ids"][:2]
+    decision["selected_rows"] = decision["selected_rows"][:2]
+    refresh_root = REPO_ROOT / cns_inputs["matched_condition_refresh_root"]
+    tampered_decision = refresh_root / "matched_condition_decision_roster_tampered.json"
+    tampered_decision.write_text(json.dumps(decision, indent=2), encoding="utf-8")
+    cns_inputs["matched_condition_decision_path"] = str(
+        tampered_decision.relative_to(REPO_ROOT)
+    )
+
+    try:
+        with pytest.raises(ValueError, match="row roster"):
+            module.load_cns_authority(cns_inputs, repo_root=REPO_ROOT)
+    finally:
+        tampered_decision.unlink(missing_ok=True)
 
 
 def test_load_cns_authority_detects_same_pillar_source_disagreement():

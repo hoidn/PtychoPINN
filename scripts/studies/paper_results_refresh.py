@@ -783,11 +783,67 @@ def load_cns_h2_authority_rows(
     }
 
 
+def _verify_source_contract_block(
+    source_label: str,
+    source_contract: Mapping[str, object],
+    expected_contract: Mapping[str, object],
+) -> None:
+    fields = (
+        "history_len",
+        "epochs",
+        "batch_size",
+        "training_loss",
+        "max_windows_per_trajectory",
+    )
+    mismatches: list[str] = []
+    for field in fields:
+        if field not in source_contract:
+            mismatches.append(f"{field}_missing")
+            continue
+        if str(source_contract[field]) != str(expected_contract[field]):
+            mismatches.append(
+                f"{field}_mismatch(source={source_contract[field]!r},"
+                f"expected={expected_contract[field]!r})"
+            )
+    expected_split = {k: int(v) for k, v in dict(expected_contract["split_counts"]).items()}  # type: ignore[arg-type]
+    actual_split_raw = source_contract.get("split_counts")
+    if not isinstance(actual_split_raw, Mapping):
+        mismatches.append("split_counts_missing")
+    else:
+        actual_split = {k: int(v) for k, v in dict(actual_split_raw).items()}
+        if actual_split != expected_split:
+            mismatches.append(
+                f"split_counts_mismatch(source={actual_split},expected={expected_split})"
+            )
+    expected_metrics = list(expected_contract["metric_family"])  # type: ignore[arg-type]
+    actual_metrics = list(source_contract.get("metric_family", []))
+    if actual_metrics != expected_metrics:
+        mismatches.append(
+            f"metric_family_mismatch(source={actual_metrics},expected={expected_metrics})"
+        )
+    if mismatches:
+        raise RuntimeError(
+            f"{source_label} top-level contract block disagrees with the matched-condition "
+            f"fixed contract: {mismatches}"
+        )
+
+
 def load_cns_h5_candidate_rows(
     *,
     compare_json: Path = CNS_H5_COMPARE_JSON,
 ) -> dict[str, object]:
     payload = _read_json(compare_json)
+    source_contract = payload.get("contract")
+    if not isinstance(source_contract, Mapping):
+        raise RuntimeError(
+            f"CNS h5 compare {compare_json} is missing a top-level 'contract' block; "
+            "matched-condition selection requires the source to declare its fixed contract"
+        )
+    _verify_source_contract_block(
+        source_label=f"CNS h5 compare {compare_json.name}",
+        source_contract=source_contract,
+        expected_contract=CNS_H5_FIXED_CONTRACT,
+    )
     rows_by_id: dict[str, dict[str, object]] = {}
     for raw in payload.get("profile_results", []):
         row = dict(raw)
@@ -795,11 +851,16 @@ def load_cns_h5_candidate_rows(
         if not row_id:
             continue
         rows_by_id[row_id] = row
+    try:
+        compare_json_label = str(compare_json.relative_to(REPO_ROOT))
+    except ValueError:
+        compare_json_label = str(compare_json)
     return {
         "lane_id": "h5_512_64_64_40ep",
         "contract": dict(CNS_H5_FIXED_CONTRACT),
         "summary_authority": CNS_H5_SUMMARY_AUTHORITY,
-        "source_compare_json": str(compare_json.relative_to(REPO_ROOT)),
+        "source_compare_json": compare_json_label,
+        "source_contract": dict(source_contract),
         "rows_by_id": rows_by_id,
     }
 
@@ -814,13 +875,17 @@ def _h5_row_consistent(row: Mapping[str, object], contract: Mapping[str, object]
         issues.append("batch_size_mismatch")
     if str(row.get("training_loss", "")) != str(contract["training_loss"]):
         issues.append("training_loss_mismatch")
+    if "max_windows_per_trajectory" not in row:
+        issues.append("max_windows_per_trajectory_missing")
+    elif int(row["max_windows_per_trajectory"]) != int(contract["max_windows_per_trajectory"]):
+        issues.append("max_windows_per_trajectory_mismatch")
     expected_split = dict(contract["split_counts"])  # type: ignore[arg-type]
     actual_split = dict(row.get("split_counts", {}))
     if {k: int(v) for k, v in actual_split.items()} != {k: int(v) for k, v in expected_split.items()}:
         issues.append("split_counts_mismatch")
-    expected_metrics = set(contract["metric_family"])  # type: ignore[arg-type]
-    actual_metrics = set(row.get("metric_family", []))
-    if not expected_metrics.issubset(actual_metrics):
+    expected_metrics = list(contract["metric_family"])  # type: ignore[arg-type]
+    actual_metrics = list(row.get("metric_family", []))
+    if actual_metrics != expected_metrics:
         issues.append("metric_family_mismatch")
     if str(row.get("status", "")) != "completed":
         issues.append("status_not_completed")

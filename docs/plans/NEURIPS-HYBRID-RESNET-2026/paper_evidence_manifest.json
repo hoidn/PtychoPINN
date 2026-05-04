@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-04T23:28:04.241604+00:00",
+  "generated_at_utc": "2026-05-04T23:40:31.801173+00:00",
   "status_vocabulary": {
     "paper_grade": "Evidence satisfies the current paper-facing provenance contract and may support headline claims.",
     "full_training": "Evidence proves a same-protocol full-training benchmark lane rather than a capped substitute.",
@@ -394,24 +394,54 @@
       "headline_status": "capped_decision_support",
       "bundle_status": "paper_complete",
       "claim_boundary": "bounded_capped_decision_support_only",
+      "manuscript_headline_role": "matched_condition_history_len_5_512_64_64_40ep",
+      "manuscript_headline_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+      "matched_condition_decision_path": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/matched_condition_decision.json",
+      "matched_condition_refresh_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh",
+      "matched_condition_fixed_contract": {
+        "history_len": 5,
+        "split_counts": {
+          "train": 512,
+          "val": 64,
+          "test": 64
+        },
+        "max_windows_per_trajectory": 8,
+        "epochs": 40,
+        "batch_size": 4,
+        "training_loss": "mse",
+        "metric_family": [
+          "err_RMSE",
+          "err_nRMSE",
+          "relative_l2",
+          "fRMSE_low",
+          "fRMSE_mid",
+          "fRMSE_high"
+        ],
+        "claim_boundary": "bounded_capped_decision_support_only",
+        "source_summary_paths": [
+          "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md",
+          "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md"
+        ]
+      },
       "headline_row_ids": [
+        "author_ffno_cns_base",
         "spectral_resnet_bottleneck_base",
         "fno_base",
-        "unet_strong",
-        "author_ffno_cns_base"
+        "unet_strong"
       ],
       "headline_rows": [
         {
           "pillar_id": "cns",
           "artifact_kind": "benchmark_row",
-          "artifact_id": "cns:spectral_resnet_bottleneck_base",
-          "row_id": "spectral_resnet_bottleneck_base",
+          "artifact_id": "cns:author_ffno_cns_base",
+          "row_id": "author_ffno_cns_base",
           "row_role": "headline",
           "row_status": "capped_decision_support",
           "claim_boundary": "bounded_capped_decision_support_only",
           "evidence_tier": "capped_decision_support",
-          "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
-          "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/cns-hybrid-spectral-finalists-2048cap-40ep-20260428T201926Z",
+          "manuscript_label": "FFNO",
+          "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+          "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/history5-pilot-40ep-20260502T074500Z",
           "metric_schema": {
             "family": [
               "err_RMSE",
@@ -421,36 +451,83 @@
               "fRMSE_mid",
               "fRMSE_high"
             ],
-            "table_json_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json"
+            "table_json_path": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json"
           },
           "table_artifacts": [
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.csv",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.tex"
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json",
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.csv",
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.tex",
+            "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics.tex"
           ],
           "figure_artifacts": [
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_manifest.json",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/fixed_sample_manifest.json",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figures"
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/figure_selection.json"
           ],
           "source_array_roots": [
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_sources",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/cns-hybrid-spectral-finalists-2048cap-40ep-20260428T201926Z"
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/history5-pilot-40ep-20260502T074500Z"
           ],
-          "provenance_gaps": [
-            "exit_code_artifact",
-            "repo_dirty_state",
-            "repo_git_sha",
-            "run_log"
-          ],
+          "provenance_gaps": [],
           "draftability": "draftable_with_bounded_wording",
           "blocked_claims": [
             "same_protocol_full_training_cns_competitiveness"
           ],
           "notes": {
-            "task_id": "2d_cfd_cns",
-            "parameter_count": 8391814,
-            "runtime_sec": 4311.188000917435
+            "history_len": 5,
+            "split_label": "512 / 64 / 64",
+            "epochs": 40,
+            "batch_size": 4,
+            "training_loss": "mse",
+            "parameter_count": 1074440,
+            "runtime_sec": 5103.250108957291
+          }
+        },
+        {
+          "pillar_id": "cns",
+          "artifact_kind": "benchmark_row",
+          "artifact_id": "cns:spectral_resnet_bottleneck_base",
+          "row_id": "spectral_resnet_bottleneck_base",
+          "row_role": "headline",
+          "row_status": "capped_decision_support",
+          "claim_boundary": "bounded_capped_decision_support_only",
+          "evidence_tier": "capped_decision_support",
+          "manuscript_label": "SRU-Net*",
+          "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+          "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare/history5-pilot-40ep-20260501T101147Z",
+          "metric_schema": {
+            "family": [
+              "err_RMSE",
+              "err_nRMSE",
+              "relative_l2",
+              "fRMSE_low",
+              "fRMSE_mid",
+              "fRMSE_high"
+            ],
+            "table_json_path": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json"
+          },
+          "table_artifacts": [
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json",
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.csv",
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.tex",
+            "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics.tex"
+          ],
+          "figure_artifacts": [
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/figure_selection.json"
+          ],
+          "source_array_roots": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare/history5-pilot-40ep-20260501T101147Z"
+          ],
+          "provenance_gaps": [],
+          "draftability": "draftable_with_bounded_wording",
+          "blocked_claims": [
+            "same_protocol_full_training_cns_competitiveness"
+          ],
+          "notes": {
+            "history_len": 5,
+            "split_label": "512 / 64 / 64",
+            "epochs": 40,
+            "batch_size": 4,
+            "training_loss": "mse",
+            "parameter_count": 8395270,
+            "runtime_sec": 1436.7038459777832
           }
         },
         {
@@ -462,8 +539,9 @@
           "row_status": "capped_decision_support",
           "claim_boundary": "bounded_capped_decision_support_only",
           "evidence_tier": "capped_decision_support",
-          "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
-          "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep",
+          "manuscript_label": "FNO",
+          "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+          "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z",
           "metric_schema": {
             "family": [
               "err_RMSE",
@@ -473,36 +551,33 @@
               "fRMSE_mid",
               "fRMSE_high"
             ],
-            "table_json_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json"
+            "table_json_path": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json"
           },
           "table_artifacts": [
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.csv",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.tex"
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json",
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.csv",
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.tex",
+            "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics.tex"
           ],
           "figure_artifacts": [
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_manifest.json",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/fixed_sample_manifest.json",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figures"
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/figure_selection.json"
           ],
           "source_array_roots": [
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_sources",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep"
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z"
           ],
-          "provenance_gaps": [
-            "exit_code_artifact",
-            "repo_dirty_state",
-            "repo_git_sha",
-            "run_log"
-          ],
+          "provenance_gaps": [],
           "draftability": "draftable_with_bounded_wording",
           "blocked_claims": [
             "same_protocol_full_training_cns_competitiveness"
           ],
           "notes": {
-            "task_id": "2d_cfd_cns",
-            "parameter_count": 357860,
-            "runtime_sec": 3135.4146196842194
+            "history_len": 5,
+            "split_label": "512 / 64 / 64",
+            "epochs": 40,
+            "batch_size": 4,
+            "training_loss": "mse",
+            "parameter_count": 358628,
+            "runtime_sec": 1129.7886884212494
           }
         },
         {
@@ -514,8 +589,9 @@
           "row_status": "capped_decision_support",
           "claim_boundary": "bounded_capped_decision_support_only",
           "evidence_tier": "capped_decision_support",
-          "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
-          "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep",
+          "manuscript_label": "U-Net",
+          "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+          "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z",
           "metric_schema": {
             "family": [
               "err_RMSE",
@@ -525,104 +601,270 @@
               "fRMSE_mid",
               "fRMSE_high"
             ],
-            "table_json_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json"
+            "table_json_path": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json"
           },
           "table_artifacts": [
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.csv",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.tex"
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json",
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.csv",
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.tex",
+            "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics.tex"
           ],
           "figure_artifacts": [
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_manifest.json",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/fixed_sample_manifest.json",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figures"
+            ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/figure_selection.json"
           ],
           "source_array_roots": [
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_sources",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep"
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z"
           ],
-          "provenance_gaps": [
-            "exit_code_artifact",
-            "repo_dirty_state",
-            "repo_git_sha",
-            "run_log"
-          ],
+          "provenance_gaps": [],
           "draftability": "draftable_with_bounded_wording",
           "blocked_claims": [
             "same_protocol_full_training_cns_competitiveness"
           ],
           "notes": {
-            "task_id": "2d_cfd_cns",
-            "parameter_count": 7764580,
-            "runtime_sec": 2898.552940607071
-          }
-        },
-        {
-          "pillar_id": "cns",
-          "artifact_kind": "benchmark_row",
-          "artifact_id": "cns:author_ffno_cns_base",
-          "row_id": "author_ffno_cns_base",
-          "row_role": "headline",
-          "row_status": "capped_decision_support",
-          "claim_boundary": "bounded_capped_decision_support_only",
-          "evidence_tier": "capped_decision_support",
-          "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
-          "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep",
-          "metric_schema": {
-            "family": [
-              "err_RMSE",
-              "err_nRMSE",
-              "relative_l2",
-              "fRMSE_low",
-              "fRMSE_mid",
-              "fRMSE_high"
-            ],
-            "table_json_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json"
-          },
-          "table_artifacts": [
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.csv",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.tex"
-          ],
-          "figure_artifacts": [
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_manifest.json",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/fixed_sample_manifest.json",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figures"
-          ],
-          "source_array_roots": [
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_sources",
-            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep"
-          ],
-          "provenance_gaps": [
-            "exit_code_artifact",
-            "repo_dirty_state",
-            "repo_git_sha",
-            "run_log"
-          ],
-          "draftability": "draftable_with_bounded_wording",
-          "blocked_claims": [
-            "same_protocol_full_training_cns_competitiveness"
-          ],
-          "notes": {
-            "task_id": "2d_cfd_cns",
-            "parameter_count": 1073672,
-            "runtime_sec": 18909.027126073837
+            "history_len": 5,
+            "split_label": "512 / 64 / 64",
+            "epochs": 40,
+            "batch_size": 4,
+            "training_loss": "mse",
+            "parameter_count": 7768036,
+            "runtime_sec": 1070.9980742931366
           }
         }
       ],
       "continuity_rows": [],
       "continuity_row_ids": [],
-      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
-      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+      "source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh",
+      "larger_cap_context": {
+        "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
+        "bundle_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap",
+        "headline_row_ids": [
+          "spectral_resnet_bottleneck_base",
+          "fno_base",
+          "unet_strong",
+          "author_ffno_cns_base"
+        ],
+        "headline_rows": [
+          {
+            "pillar_id": "cns",
+            "artifact_kind": "benchmark_row",
+            "artifact_id": "cns:spectral_resnet_bottleneck_base",
+            "row_id": "spectral_resnet_bottleneck_base",
+            "row_role": "headline",
+            "row_status": "capped_decision_support",
+            "claim_boundary": "bounded_capped_decision_support_only",
+            "evidence_tier": "capped_decision_support",
+            "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
+            "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/cns-hybrid-spectral-finalists-2048cap-40ep-20260428T201926Z",
+            "metric_schema": {
+              "family": [
+                "err_RMSE",
+                "err_nRMSE",
+                "relative_l2",
+                "fRMSE_low",
+                "fRMSE_mid",
+                "fRMSE_high"
+              ],
+              "table_json_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json"
+            },
+            "table_artifacts": [
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.csv",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.tex"
+            ],
+            "figure_artifacts": [
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_manifest.json",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/fixed_sample_manifest.json",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figures"
+            ],
+            "source_array_roots": [
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_sources",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/cns-hybrid-spectral-finalists-2048cap-40ep-20260428T201926Z"
+            ],
+            "provenance_gaps": [
+              "exit_code_artifact",
+              "repo_dirty_state",
+              "repo_git_sha",
+              "run_log"
+            ],
+            "draftability": "draftable_with_bounded_wording",
+            "blocked_claims": [
+              "same_protocol_full_training_cns_competitiveness"
+            ],
+            "notes": {
+              "task_id": "2d_cfd_cns",
+              "parameter_count": 8391814,
+              "runtime_sec": 4311.188000917435
+            }
+          },
+          {
+            "pillar_id": "cns",
+            "artifact_kind": "benchmark_row",
+            "artifact_id": "cns:fno_base",
+            "row_id": "fno_base",
+            "row_role": "headline",
+            "row_status": "capped_decision_support",
+            "claim_boundary": "bounded_capped_decision_support_only",
+            "evidence_tier": "capped_decision_support",
+            "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
+            "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep",
+            "metric_schema": {
+              "family": [
+                "err_RMSE",
+                "err_nRMSE",
+                "relative_l2",
+                "fRMSE_low",
+                "fRMSE_mid",
+                "fRMSE_high"
+              ],
+              "table_json_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json"
+            },
+            "table_artifacts": [
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.csv",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.tex"
+            ],
+            "figure_artifacts": [
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_manifest.json",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/fixed_sample_manifest.json",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figures"
+            ],
+            "source_array_roots": [
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_sources",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep"
+            ],
+            "provenance_gaps": [
+              "exit_code_artifact",
+              "repo_dirty_state",
+              "repo_git_sha",
+              "run_log"
+            ],
+            "draftability": "draftable_with_bounded_wording",
+            "blocked_claims": [
+              "same_protocol_full_training_cns_competitiveness"
+            ],
+            "notes": {
+              "task_id": "2d_cfd_cns",
+              "parameter_count": 357860,
+              "runtime_sec": 3135.4146196842194
+            }
+          },
+          {
+            "pillar_id": "cns",
+            "artifact_kind": "benchmark_row",
+            "artifact_id": "cns:unet_strong",
+            "row_id": "unet_strong",
+            "row_role": "headline",
+            "row_status": "capped_decision_support",
+            "claim_boundary": "bounded_capped_decision_support_only",
+            "evidence_tier": "capped_decision_support",
+            "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
+            "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep",
+            "metric_schema": {
+              "family": [
+                "err_RMSE",
+                "err_nRMSE",
+                "relative_l2",
+                "fRMSE_low",
+                "fRMSE_mid",
+                "fRMSE_high"
+              ],
+              "table_json_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json"
+            },
+            "table_artifacts": [
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.csv",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.tex"
+            ],
+            "figure_artifacts": [
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_manifest.json",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/fixed_sample_manifest.json",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figures"
+            ],
+            "source_array_roots": [
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_sources",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep"
+            ],
+            "provenance_gaps": [
+              "exit_code_artifact",
+              "repo_dirty_state",
+              "repo_git_sha",
+              "run_log"
+            ],
+            "draftability": "draftable_with_bounded_wording",
+            "blocked_claims": [
+              "same_protocol_full_training_cns_competitiveness"
+            ],
+            "notes": {
+              "task_id": "2d_cfd_cns",
+              "parameter_count": 7764580,
+              "runtime_sec": 2898.552940607071
+            }
+          },
+          {
+            "pillar_id": "cns",
+            "artifact_kind": "benchmark_row",
+            "artifact_id": "cns:author_ffno_cns_base",
+            "row_id": "author_ffno_cns_base",
+            "row_role": "headline",
+            "row_status": "capped_decision_support",
+            "claim_boundary": "bounded_capped_decision_support_only",
+            "evidence_tier": "capped_decision_support",
+            "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
+            "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep",
+            "metric_schema": {
+              "family": [
+                "err_RMSE",
+                "err_nRMSE",
+                "relative_l2",
+                "fRMSE_low",
+                "fRMSE_mid",
+                "fRMSE_high"
+              ],
+              "table_json_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json"
+            },
+            "table_artifacts": [
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.csv",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.tex"
+            ],
+            "figure_artifacts": [
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_manifest.json",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/fixed_sample_manifest.json",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figures"
+            ],
+            "source_array_roots": [
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_sources",
+              ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep"
+            ],
+            "provenance_gaps": [
+              "exit_code_artifact",
+              "repo_dirty_state",
+              "repo_git_sha",
+              "run_log"
+            ],
+            "draftability": "draftable_with_bounded_wording",
+            "blocked_claims": [
+              "same_protocol_full_training_cns_competitiveness"
+            ],
+            "notes": {
+              "task_id": "2d_cfd_cns",
+              "parameter_count": 1073672,
+              "runtime_sec": 18909.027126073837
+            }
+          }
+        ],
+        "claim_boundary": "bounded_capped_decision_support_only",
+        "context_role": "larger_cap_capped_context_only"
+      },
       "table_artifacts": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.csv",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.tex"
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.csv",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.tex",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics.tex"
       ],
       "figure_artifacts": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_manifest.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/fixed_sample_manifest.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figures"
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/figure_selection.json"
       ],
       "adjacent_context": [],
       "provenance_gaps": [
@@ -895,14 +1137,15 @@
     {
       "pillar_id": "cns",
       "artifact_kind": "benchmark_row",
-      "artifact_id": "cns:spectral_resnet_bottleneck_base",
-      "row_id": "spectral_resnet_bottleneck_base",
+      "artifact_id": "cns:author_ffno_cns_base",
+      "row_id": "author_ffno_cns_base",
       "row_role": "headline",
       "row_status": "capped_decision_support",
       "claim_boundary": "bounded_capped_decision_support_only",
       "evidence_tier": "capped_decision_support",
-      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
-      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/cns-hybrid-spectral-finalists-2048cap-40ep-20260428T201926Z",
+      "manuscript_label": "FFNO",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/history5-pilot-40ep-20260502T074500Z",
       "metric_schema": {
         "family": [
           "err_RMSE",
@@ -912,36 +1155,83 @@
           "fRMSE_mid",
           "fRMSE_high"
         ],
-        "table_json_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json"
+        "table_json_path": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json"
       },
       "table_artifacts": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.csv",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.tex"
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.csv",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.tex",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics.tex"
       ],
       "figure_artifacts": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_manifest.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/fixed_sample_manifest.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figures"
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/figure_selection.json"
       ],
       "source_array_roots": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_sources",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-scaling-2048cap/cns-hybrid-spectral-finalists-2048cap-40ep-20260428T201926Z"
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/history5-pilot-40ep-20260502T074500Z"
       ],
-      "provenance_gaps": [
-        "exit_code_artifact",
-        "repo_dirty_state",
-        "repo_git_sha",
-        "run_log"
-      ],
+      "provenance_gaps": [],
       "draftability": "draftable_with_bounded_wording",
       "blocked_claims": [
         "same_protocol_full_training_cns_competitiveness"
       ],
       "notes": {
-        "task_id": "2d_cfd_cns",
-        "parameter_count": 8391814,
-        "runtime_sec": 4311.188000917435
+        "history_len": 5,
+        "split_label": "512 / 64 / 64",
+        "epochs": 40,
+        "batch_size": 4,
+        "training_loss": "mse",
+        "parameter_count": 1074440,
+        "runtime_sec": 5103.250108957291
+      }
+    },
+    {
+      "pillar_id": "cns",
+      "artifact_kind": "benchmark_row",
+      "artifact_id": "cns:spectral_resnet_bottleneck_base",
+      "row_id": "spectral_resnet_bottleneck_base",
+      "row_role": "headline",
+      "row_status": "capped_decision_support",
+      "claim_boundary": "bounded_capped_decision_support_only",
+      "evidence_tier": "capped_decision_support",
+      "manuscript_label": "SRU-Net*",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare/history5-pilot-40ep-20260501T101147Z",
+      "metric_schema": {
+        "family": [
+          "err_RMSE",
+          "err_nRMSE",
+          "relative_l2",
+          "fRMSE_low",
+          "fRMSE_mid",
+          "fRMSE_high"
+        ],
+        "table_json_path": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json"
+      },
+      "table_artifacts": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.csv",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.tex",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics.tex"
+      ],
+      "figure_artifacts": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/figure_selection.json"
+      ],
+      "source_array_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare/history5-pilot-40ep-20260501T101147Z"
+      ],
+      "provenance_gaps": [],
+      "draftability": "draftable_with_bounded_wording",
+      "blocked_claims": [
+        "same_protocol_full_training_cns_competitiveness"
+      ],
+      "notes": {
+        "history_len": 5,
+        "split_label": "512 / 64 / 64",
+        "epochs": 40,
+        "batch_size": 4,
+        "training_loss": "mse",
+        "parameter_count": 8395270,
+        "runtime_sec": 1436.7038459777832
       }
     },
     {
@@ -953,8 +1243,9 @@
       "row_status": "capped_decision_support",
       "claim_boundary": "bounded_capped_decision_support_only",
       "evidence_tier": "capped_decision_support",
-      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
-      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep",
+      "manuscript_label": "FNO",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z",
       "metric_schema": {
         "family": [
           "err_RMSE",
@@ -964,36 +1255,33 @@
           "fRMSE_mid",
           "fRMSE_high"
         ],
-        "table_json_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json"
+        "table_json_path": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json"
       },
       "table_artifacts": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.csv",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.tex"
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.csv",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.tex",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics.tex"
       ],
       "figure_artifacts": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_manifest.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/fixed_sample_manifest.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figures"
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/figure_selection.json"
       ],
       "source_array_roots": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_sources",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/fno-2048cap-40ep"
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z"
       ],
-      "provenance_gaps": [
-        "exit_code_artifact",
-        "repo_dirty_state",
-        "repo_git_sha",
-        "run_log"
-      ],
+      "provenance_gaps": [],
       "draftability": "draftable_with_bounded_wording",
       "blocked_claims": [
         "same_protocol_full_training_cns_competitiveness"
       ],
       "notes": {
-        "task_id": "2d_cfd_cns",
-        "parameter_count": 357860,
-        "runtime_sec": 3135.4146196842194
+        "history_len": 5,
+        "split_label": "512 / 64 / 64",
+        "epochs": 40,
+        "batch_size": 4,
+        "training_loss": "mse",
+        "parameter_count": 358628,
+        "runtime_sec": 1129.7886884212494
       }
     },
     {
@@ -1005,8 +1293,9 @@
       "row_status": "capped_decision_support",
       "claim_boundary": "bounded_capped_decision_support_only",
       "evidence_tier": "capped_decision_support",
-      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
-      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep",
+      "manuscript_label": "U-Net",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z",
       "metric_schema": {
         "family": [
           "err_RMSE",
@@ -1016,88 +1305,33 @@
           "fRMSE_mid",
           "fRMSE_high"
         ],
-        "table_json_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json"
+        "table_json_path": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json"
       },
       "table_artifacts": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.csv",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.tex"
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.csv",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.tex",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics.tex"
       ],
       "figure_artifacts": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_manifest.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/fixed_sample_manifest.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figures"
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/figure_selection.json"
       ],
       "source_array_roots": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_sources",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/unet_strong-2048cap-40ep"
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z"
       ],
-      "provenance_gaps": [
-        "exit_code_artifact",
-        "repo_dirty_state",
-        "repo_git_sha",
-        "run_log"
-      ],
+      "provenance_gaps": [],
       "draftability": "draftable_with_bounded_wording",
       "blocked_claims": [
         "same_protocol_full_training_cns_competitiveness"
       ],
       "notes": {
-        "task_id": "2d_cfd_cns",
-        "parameter_count": 7764580,
-        "runtime_sec": 2898.552940607071
-      }
-    },
-    {
-      "pillar_id": "cns",
-      "artifact_kind": "benchmark_row",
-      "artifact_id": "cns:author_ffno_cns_base",
-      "row_id": "author_ffno_cns_base",
-      "row_role": "headline",
-      "row_status": "capped_decision_support",
-      "claim_boundary": "bounded_capped_decision_support_only",
-      "evidence_tier": "capped_decision_support",
-      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
-      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep",
-      "metric_schema": {
-        "family": [
-          "err_RMSE",
-          "err_nRMSE",
-          "relative_l2",
-          "fRMSE_low",
-          "fRMSE_mid",
-          "fRMSE_high"
-        ],
-        "table_json_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json"
-      },
-      "table_artifacts": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.csv",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/cns_paper_table_rows.tex"
-      ],
-      "figure_artifacts": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_manifest.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/fixed_sample_manifest.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figures"
-      ],
-      "source_array_roots": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/figure_sources",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/rerun_candidates/author_ffno_cns-2048cap-40ep"
-      ],
-      "provenance_gaps": [
-        "exit_code_artifact",
-        "repo_dirty_state",
-        "repo_git_sha",
-        "run_log"
-      ],
-      "draftability": "draftable_with_bounded_wording",
-      "blocked_claims": [
-        "same_protocol_full_training_cns_competitiveness"
-      ],
-      "notes": {
-        "task_id": "2d_cfd_cns",
-        "parameter_count": 1073672,
-        "runtime_sec": 18909.027126073837
+        "history_len": 5,
+        "split_label": "512 / 64 / 64",
+        "epochs": 40,
+        "batch_size": 4,
+        "training_loss": "mse",
+        "parameter_count": 7768036,
+        "runtime_sec": 1070.9980742931366
       }
     }
   ],
@@ -1113,8 +1347,8 @@
       "claim_boundary": "bounded_capped_decision_support_only",
       "pillar_id": "cns",
       "headline_status": "capped_decision_support",
-      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
-      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap"
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+      "source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh"
     },
     {
       "claim_boundary": "minimum_draftable_cdi_subset",
@@ -1211,7 +1445,7 @@
       "claim_id": "same_protocol_full_training_cns_competitiveness",
       "status": "blocked",
       "reason": "The current CNS paper authority is capped decision-support only.",
-      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md"
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md"
     },
     {
       "claim_id": "history_len3_locked_cns_headline_lane",
