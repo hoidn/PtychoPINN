@@ -1,0 +1,5 @@
+row_id,label,status,image_relative_l2_phys,meas_relative_l2,psnr_phys,ssim_phys
+classical_born_backprop,Classical Born backprop,blocked,,,,
+unet,U-Net,completed,0.8638321779038102,0.687536507009572,21.087731976010964,0.6129003485346396
+fno_vanilla,FNO vanilla,completed,0.9916129812207131,0.9808305266835641,19.889475457442135,0.6778927173246171
+hybrid_resnet,Hybrid ResNet,completed,0.3189991027015771,0.19923335943642898,29.740530298191878,0.9471455751799746

@@ -9,7 +9,11 @@
     "paper_evidence_manifest": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_manifest.json",
     "cdi_complete_lines128": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
     "cdi_supervised_extension": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md",
-    "cns_table_bundle": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md"
+    "cns_table_bundle": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
+    "cdi_extended_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended.tex",
+    "brdt_candidate_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.tex",
+    "brdt_candidate_recon_png": "docs/plans/NEURIPS-HYBRID-RESNET-2026/figures/brdt_decision_support_recon.png",
+    "cns_history5_gap_item": "docs/backlog/active/2026-05-04-cns-history5-comparator-gap-fill.md"
   },
   "dataset_contracts": {
     "cdi_lines128_seed3": {

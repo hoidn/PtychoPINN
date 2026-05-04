@@ -290,7 +290,7 @@ def _resolve_model_label(model: str, model_labels: Optional[Mapping[str, str]]) 
 def _build_main_table(
     metrics: Mapping[str, dict],
     model_ns: Optional[Mapping[str, int]],
-    model_labels: Optional[Mapping[str, str]],
+    model_labels: Optional[Mapping[str, str]] = None,
 ) -> str:
     grouped_models = _group_models_by_n(metrics, model_ns)
     best_by_n: Dict[Optional[int], Dict[str, Tuple[float, float]]] = {

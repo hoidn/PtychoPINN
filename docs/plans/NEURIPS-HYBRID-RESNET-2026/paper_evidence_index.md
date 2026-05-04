@@ -52,10 +52,15 @@ Current manuscript draft:
 
 | Evidence source | Manuscript target |
 |---|---|
-| Complete Lines128 CDI bundle | `tab:cdi_lines128_complete`, `fig:cdi_main_qualitative` |
-| Supervised FFNO extension | `tab:cdi_lines128_complete` |
+| Complete Lines128 CDI bundle plus U-NO extension | `tab:cdi_lines128_complete`, `fig:cdi_main_qualitative`; generated table assets: `tables/cdi_lines128_metrics_extended.tex`, `tables/cdi_lines128_metrics_extended.csv`, `tables/cdi_lines128_metrics_extended.json` |
+| Supervised FFNO extension | merged into `tables/cdi_lines128_metrics_extended.*` from the completed supervised-FFNO extension root |
 | CNS paper table/figure bundle (`2048` authority; `512` historical fallback) | `tab:cns_bundle`, `fig:cns_sample_predictions` |
+| BRDT bounded preflight | `tab:brdt_candidate_metrics`, `fig:brdt_candidate_recon`; generated paper-local assets: `tables/brdt_decision_support_metrics.tex`, `tables/brdt_decision_support_metrics.csv`, `tables/brdt_decision_support_metrics.json`, `figures/brdt_decision_support_recon.png` |
 | Hybrid skip/residual ablation | `tab:cdi_skip_residual_ablation` |
+
+The all-h5 CNS headline table is pending
+`2026-05-04-cns-history5-comparator-gap-fill`, because h5 rows currently exist
+for authored FFNO and spectral SRU-Net* but not yet for FNO or U-Net.
 
 ## CNS Ablation And Baseline Evidence
 

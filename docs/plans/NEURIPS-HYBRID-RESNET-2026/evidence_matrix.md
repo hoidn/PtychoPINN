@@ -1,7 +1,7 @@
 # NeurIPS Hybrid ResNet Evidence Matrix
 
 Status: draft  
-Last updated: 2026-05-02 (authored-FFNO history-length follow-up)
+Last updated: 2026-05-04 (paper result asset refresh)
 
 This is the human-facing master matrix for NeurIPS/SRU-Net evidence. It points
 to all relevant completed backlog outputs, keyed by dataset, model/config
@@ -33,10 +33,15 @@ Current manuscript draft:
 
 | Evidence source | Manuscript target |
 |---|---|
-| Complete Lines128 CDI bundle | `tab:cdi_lines128_complete`, `fig:cdi_main_qualitative` |
-| Supervised FFNO extension | `tab:cdi_lines128_complete` |
+| Complete Lines128 CDI bundle plus U-NO extension | `tab:cdi_lines128_complete`, `fig:cdi_main_qualitative`; generated table assets: `tables/cdi_lines128_metrics_extended.tex`, `tables/cdi_lines128_metrics_extended.csv`, `tables/cdi_lines128_metrics_extended.json` |
+| Supervised FFNO extension | merged into `tables/cdi_lines128_metrics_extended.*` from the completed supervised-FFNO extension root |
 | CNS paper table/figure bundle | `tab:cns_bundle`, `fig:cns_sample_predictions` |
+| BRDT bounded preflight | `tab:brdt_candidate_metrics`, `fig:brdt_candidate_recon`; generated paper-local assets: `tables/brdt_decision_support_metrics.tex`, `tables/brdt_decision_support_metrics.csv`, `tables/brdt_decision_support_metrics.json`, `figures/brdt_decision_support_recon.png` |
 | Hybrid skip/residual ablation | `tab:cdi_skip_residual_ablation` |
+
+The all-h5 CNS headline table is pending
+`2026-05-04-cns-history5-comparator-gap-fill`, because h5 rows currently exist
+for authored FFNO and spectral SRU-Net* but not yet for FNO or U-Net.
 
 ## CDI Lines128 Model Matrix
 
@@ -67,6 +72,8 @@ CDI artifact roots:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z`
 - U-NO table extension (claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension`):
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z`
+- Generated current manuscript table:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended.tex`
 
 ## CDI Lines128 Bridge Study
 
@@ -171,6 +178,26 @@ Bundle outputs include:
 - `shared_field_scales.json`
 - `fixed_sample_manifest.json`
 - `2048_same_cap_audit.json`
+
+CNS h5 promotion status:
+
+- h5 rows are available for `author_ffno_cns_base` and
+  `spectral_resnet_bottleneck_base`.
+- h5 rows are not yet available for `fno_base` and `unet_strong`; the gap is
+  tracked by `docs/backlog/active/2026-05-04-cns-history5-comparator-gap-fill.md`.
+- Until that item completes or emits row-level blockers, CNS headline tables
+  must not mix h5 and h2 rows.
+
+## BRDT Paper-Local Assets
+
+The BRDT candidate preflight remains a bounded candidate lane, not a primary
+CDI/CNS manuscript pillar. The following generated assets repackage the
+completed four-row preflight for potential manuscript or supplement use:
+
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.tex`
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.csv`
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.json`
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/figures/brdt_decision_support_recon.png`
 
 ## Completed Backlog Output Coverage
 
