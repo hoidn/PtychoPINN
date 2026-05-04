@@ -2321,8 +2321,8 @@
     },
     {
       "tranche_id": "phase-2-cns-history5-comparator-gap-fill",
-      "updated_at_utc": "2026-05-04T21:55:00Z",
-      "update_reason": "Closed the missing all-history_len=5, 40-epoch capped CNS comparator gap by running fno_base and unet_strong under the same fixed contract already used by the completed authored-FFNO and spectral history_len=5 authorities.",
+      "updated_at_utc": "2026-05-04T22:50:00Z",
+      "update_reason": "Closed the missing all-history_len=5, 40-epoch capped CNS comparator gap by running fno_base and unet_strong under the same fixed contract already used by the completed authored-FFNO and spectral history_len=5 authorities. Rebuilt the blocking inspect-mode contract proof under the target batch_size=4 at history5-inspect-20260504T224345Z; the earlier history5-inspect-20260504T214431Z attempt is retained for traceability but is superseded.",
       "decision": "Treat the new fno_base and unet_strong history_len=5 capped rows as adjacent_capped_context_only decision support; do not change the locked history_len=2, 2048/256/256 capped CNS paper authority.",
       "decision_scope": "capped_decision_support",
       "selected_contract": {
@@ -2381,15 +2381,17 @@
       "launch_dir": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/launch-history5-gap-fill-40ep-20260504T214614Z",
       "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md",
       "verification": [
-        "pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py tests/studies/test_pdebench_cfd_cns_data.py tests/studies/test_pdebench_cfd_cns_metrics.py -> 107 passed in 67.60s",
+        "pytest -q tests/studies/test_pdebench_image128_models.py tests/studies/test_pdebench_image128_runner.py tests/studies/test_pdebench_cfd_cns_data.py tests/studies/test_pdebench_cfd_cns_metrics.py -> 107 passed in 67.60s (rerun this pass: 107 passed in 66.73s)",
         "python -m compileall -q scripts/studies/pdebench_image128 scripts/studies/run_pdebench_image128_suite.py -> silent success",
         "pytest tests/studies/test_pdebench_image128_runner.py -k 'reference_run_manifest or cross_run_compare or history' -v -> 15 / 15 passed",
         "scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode pilot --history-len 5 --epochs 40 --profiles fno_base,unet_strong exited rc=0 with all required run-root artifacts present",
+        "scripts/studies/run_pdebench_image128_suite.py --task 2d_cfd_cns --mode inspect --history-len 5 --batch-size 4 --profiles fno_base,unet_strong rerun under target contract -> history5-inspect-20260504T224345Z records parsed_args.batch_size=4, history_len=5, sample_contract=concat u[t-5:t] -> u[t], split_counts={train:512,val:64,test:64}, window_counts={train:4096,val:512,test:512}, max_windows_per_trajectory=8",
         "compare_40ep_history5_against_history2 records delta_kind=history_len_only with reference_history_len=2, fresh_history_len=5, reference_input_channels=8, fresh_input_channels=20",
         "compare_40ep_against_existing records contract.history_len=5 with required reference rows author_ffno_cns_base and spectral_resnet_bottleneck_base"
       ],
       "affected_surfaces": [
         ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history2_history5_reference_runs.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-inspect-20260504T224345Z/",
         ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-inspect-20260504T214431Z/",
         ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z/",
         ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/launch-history5-gap-fill-40ep-20260504T214614Z/",

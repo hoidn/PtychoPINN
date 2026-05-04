@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-04T21:55:00Z",
+  "last_updated_utc": "2026-05-04T22:50:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -1433,7 +1433,8 @@
     "2026-02-26-hybrid-resnet-skip-mode-search-stage-e-execution",
     "2026-04-29-brdt-four-row-preflight",
     "2026-04-30-cdi-lines128-uno-table-extension",
-    "2026-05-04-pdebench-darcy-full-training-benchmark"
+    "2026-05-04-pdebench-darcy-full-training-benchmark",
+    "2026-05-04-cns-history5-comparator-gap-fill"
   ],
   "maintenance_rules": [
     "Every future completed backlog item that emits model metrics must add or update at least one model_variants entry.",
