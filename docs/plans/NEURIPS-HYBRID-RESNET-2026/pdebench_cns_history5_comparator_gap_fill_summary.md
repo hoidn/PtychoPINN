@@ -88,7 +88,14 @@ Frozen reference manifest:
 
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history2_history5_reference_runs.json`
 
-Inspect proof for the missing profiles under the target contract:
+Inspect proof for the missing profiles under the target contract
+(`batch_size=4` matched explicitly):
+
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-inspect-20260504T224345Z`
+
+Earlier inspect attempt is retained for traceability but did not capture
+the target `batch_size=4` (left at runner default `2`); it was superseded
+by the run above:
 
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-inspect-20260504T214431Z`
 
@@ -256,14 +263,18 @@ passed `15 / 15`.
 
 Required contract proofs:
 
-- `history5-inspect-20260504T214431Z` showed
+- `history5-inspect-20260504T224345Z` (target-contract inspect proof,
+  `batch_size = 4` recorded in `invocation.json`) showed
   `sample_contract = concat u[t-5:t] -> u[t]`,
   `field_order = [density, Vx, Vy, pressure]`,
   `data_file = 2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5`,
   `split_counts = {train: 512, val: 64, test: 64}`,
   `window_counts = {train: 4096, val: 512, test: 512}`,
   `max_windows_per_trajectory = 8`, and `history_len = 5` for both
-  `fno_base` and `unet_strong`.
+  `fno_base` and `unet_strong`. The earlier
+  `history5-inspect-20260504T214431Z` attempt is retained for traceability
+  but used the runner default `batch_size = 2` and is superseded by the
+  target-contract proof above.
 - the fresh `40`-epoch run root contains `invocation.json`,
   `dataset_manifest.json`, `split_manifest.json`,
   `normalization_stats_state.json`, `comparison_summary.json`,
