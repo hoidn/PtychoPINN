@@ -262,28 +262,31 @@
         "2026-04-21-pdebench-cns-markov-history1-compare",
         "2026-04-29-pdebench-cns-history-len3plus-compare",
         "2026-04-29-cns-spectral-history-len4plus-compare",
-        "2026-05-01-cns-author-ffno-history-length-study"
+        "2026-05-01-cns-author-ffno-history-length-study",
+        "2026-05-04-cns-history5-comparator-gap-fill"
       ],
       "summary_authorities": [
         "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_markov_history1_compare_summary.md",
         "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history_len3plus_compare_summary.md",
         "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_spectral_history_len4plus_compare_summary.md",
-        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_author_ffno_history_length_summary.md"
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_author_ffno_history_length_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md"
       ],
       "artifact_roots": [
         ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-markov-history1-compare",
         ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare",
         ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare"
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill"
       ],
       "rows": [
         "history_len_1: spectral_resnet_bottleneck_base, hybrid_resnet_cns, fno_base, unet_strong",
         "history_len_2: frozen paper-lane reference",
         "history_len_3: spectral_resnet_bottleneck_base, hybrid_resnet_cns, fno_base, unet_strong, author_ffno_cns_base (40ep)",
         "history_len_4: spectral_resnet_bottleneck_base (10ep, 40ep), author_ffno_cns_base (40ep)",
-        "history_len_5: spectral_resnet_bottleneck_base (10ep, 40ep), author_ffno_cns_base (40ep)"
+        "history_len_5: spectral_resnet_bottleneck_base (10ep, 40ep), author_ffno_cns_base (40ep), fno_base (40ep), unet_strong (40ep)"
       ],
-      "interpretation": "history_len=1 worsened the useful rows and did not change the ranking. history_len=3 was mixed at 10 epochs and helped the stronger 40-epoch rows. A later spectral-only follow-up showed history_len=4 improved the spectral row again at 40 epochs, and history_len=5 improved the same 40-epoch row slightly further on err_nRMSE, err_RMSE, and fRMSE_high while regressing fRMSE_mid and worsening aggregate behavior at 10 epochs. The authored-FFNO follow-up showed history_len=3 and history_len=4 each strictly improved every recorded metric over the previous longer-history step at 40 epochs; history_len=5 traded a small aggregate-error and fRMSE_low regression versus history_len=4 for further fRMSE_mid and fRMSE_high gains. These longer-context rows remain adjacent capped context only and do not change the locked history_len=2 paper contract."
+      "interpretation": "history_len=1 worsened the useful rows and did not change the ranking. history_len=3 was mixed at 10 epochs and helped the stronger 40-epoch rows. A later spectral-only follow-up showed history_len=4 improved the spectral row again at 40 epochs, and history_len=5 improved the same 40-epoch row slightly further on err_nRMSE, err_RMSE, and fRMSE_high while regressing fRMSE_mid and worsening aggregate behavior at 10 epochs. The authored-FFNO follow-up showed history_len=3 and history_len=4 each strictly improved every recorded metric over the previous longer-history step at 40 epochs; history_len=5 traded a small aggregate-error and fRMSE_low regression versus history_len=4 for further fRMSE_mid and fRMSE_high gains. The all-h5 capped comparator gap fill added fno_base and unet_strong rows at the same fixed capped contract: fno_base improved every metric versus its frozen history_len=2 capped anchor while unet_strong improved aggregate error and fRMSE_low but regressed fRMSE_mid and fRMSE_high. These longer-context rows remain adjacent capped context only and do not change the locked history_len=2 paper contract."
     },
     {
       "family_id": "cns_spectral_modes",

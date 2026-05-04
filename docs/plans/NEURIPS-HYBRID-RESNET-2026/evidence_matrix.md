@@ -40,9 +40,12 @@ Current manuscript draft:
 | BRDT bounded preflight | `tab:brdt_candidate_metrics`, `fig:brdt_candidate_recon`; generated paper-local assets: `tables/brdt_decision_support_metrics.tex`, `tables/brdt_decision_support_metrics.csv`, `tables/brdt_decision_support_metrics.json`, `figures/brdt_decision_support_recon.png` |
 | Hybrid skip/residual ablation | `tab:cdi_skip_residual_ablation` |
 
-The all-h5 CNS headline table is pending
-`2026-05-04-cns-history5-comparator-gap-fill`, because h5 rows currently exist
-for authored FFNO and spectral SRU-Net* but not yet for FNO or U-Net.
+An all-`history_len=5`, `40`-epoch capped CNS comparator surface now
+exists for `fno_base`, `unet_strong`, `author_ffno_cns_base`, and
+`spectral_resnet_bottleneck_base` via
+`2026-05-04-cns-history5-comparator-gap-fill`. The capped slice is
+`adjacent_capped_context_only` decision support and does not change the
+locked `history_len=2`, `2048 / 256 / 256` capped CNS paper authority.
 
 ## CDI Lines128 Model Matrix
 
@@ -169,8 +172,8 @@ Best observed capped CNS rows by model family, selected by lowest observed
 |---|---|---|---:|---:|---|
 | FFNO | `author_ffno_cns_base` | `2048 / 256 / 256`, `history_len=2`, `40` epochs | 0.026314 | 0.067210 | CNS 2048 authority bundle |
 | SRU-Net | `spectral_resnet_bottleneck_base` | `512 / 64 / 64`, `history_len=5`, `40` epochs | 0.033069 | 0.262218 | `pdebench_cns_spectral_history_len4plus_compare_summary.md` |
-| FNO | `fno_base` | `2048 / 256 / 256`, `history_len=2`, `40` epochs | 0.050722 | 0.495405 | CNS 2048 authority bundle |
-| U-Net | `unet_strong` | `2048 / 256 / 256`, `history_len=2`, `40` epochs | 0.597567 | 0.709608 | CNS 2048 authority bundle |
+| FNO | `fno_base` | `512 / 64 / 64`, `history_len=5`, `40` epochs | 0.038425 | 0.432856 | `pdebench_cns_history5_comparator_gap_fill_summary.md` |
+| U-Net | `unet_strong` | `512 / 64 / 64`, `history_len=5`, `40` epochs | 0.538623 | 1.742789 | `pdebench_cns_history5_comparator_gap_fill_summary.md` |
 
 Notes:
 
@@ -180,6 +183,12 @@ Notes:
   `spectral_resnet_bottleneck_shared_blocks10`, `1024 / 128 / 128`,
   `80` epochs, `relative_l2=0.037568`, `fRMSE_high=0.215245`; see
   `pdebench_cns_shared_blocks10_1024cap_longer_convergence_summary.md`.
+- The selection above is by aggregate error. The U-Net h5 capped row
+  improves aggregate error and `fRMSE_low` versus its `2048`-cap h2
+  anchor but regresses `fRMSE_mid` and `fRMSE_high`; the
+  `2048 / 256 / 256`, `history_len=2`, `40`-epoch U-Net row remains
+  the better high-band U-Net evidence. The FNO h5 capped row improves
+  every recorded metric versus its `2048`-cap h2 anchor.
 - The same-contract `2048 / 256 / 256`, `history_len=2`, 40-epoch bundle is
   the current capped CNS authority; see
   `pdebench_cns_paper_2048cap_extension_summary.md` (bundle root
@@ -208,14 +217,18 @@ Bundle outputs include:
 - `fixed_sample_manifest.json`
 - `2048_same_cap_audit.json`
 
-CNS h5 promotion status:
+CNS h5 capped comparator status:
 
-- h5 rows are available for `author_ffno_cns_base` and
-  `spectral_resnet_bottleneck_base`.
-- h5 rows are not yet available for `fno_base` and `unet_strong`; the gap is
-  tracked by `docs/backlog/active/2026-05-04-cns-history5-comparator-gap-fill.md`.
-- Until that item completes or emits row-level blockers, CNS headline tables
-  must not mix h5 and h2 rows.
+- h5 rows are now available for `author_ffno_cns_base`,
+  `spectral_resnet_bottleneck_base`, `fno_base`, and `unet_strong` on
+  the fixed capped contract (`512 / 64 / 64`, `40` epochs); see
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md`.
+- The h5 rows are `adjacent_capped_context_only` decision-support
+  evidence and explicitly do not change the locked `history_len=2`,
+  `2048 / 256 / 256` capped CNS paper authority.
+- CNS headline tables must continue to use the `history_len=2` capped
+  authority; the all-h5 capped comparator is not a manuscript headline
+  table.
 
 ## BRDT Paper-Local Assets
 
@@ -244,6 +257,7 @@ completed four-row preflight for potential manuscript or supplement use:
 | `2026-04-29-pdebench-cns-history-len3plus-compare` | CNS longer-history ablation | `pdebench_cns_history_len3plus_compare_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/` |
 | `2026-04-29-cns-spectral-history-len4plus-compare` | CNS spectral longer-history follow-up | `pdebench_cns_spectral_history_len4plus_compare_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare/` |
 | `2026-05-01-cns-author-ffno-history-length-study` | CNS authored-FFNO longer-history follow-up | `pdebench_author_ffno_history_length_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/` |
+| `2026-05-04-cns-history5-comparator-gap-fill` | CNS history-len-5 FNO/U-Net comparator gap fill | `pdebench_cns_history5_comparator_gap_fill_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/` |
 | `2026-04-27-cdi-ffno-generator-lines-best-config` | CDI FFNO prerequisite pair | `cdi_ffno_generator_lines_best_config_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet` |
 | `2026-04-28-pdebench-cns-hybrid-spectral-ffno-parameter-space` | CNS shell-bridge ablation | `pdebench_cns_hybrid_spectral_ffno_parameter_space_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-ffno-parameter-space/` |
 | `2026-04-29-cdi-lines128-paper-benchmark-harness` | CDI harness readiness | `lines128_paper_benchmark_harness_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-harness/validation/readiness_only_preflight/` |
@@ -284,7 +298,7 @@ completed four-row preflight for potential manuscript or supplement use:
 | CNS paper contract and bundle | contract, row lock, table/figure bundle | bounded capped CNS table only; no full-training SOTA claim |
 | CNS authored FFNO | author FFNO equal-footing row | strongest locked capped CNS row |
 | CNS GNOT | paper-default GNOT compare | not promoted because aggregate error was poor |
-| CNS history length | history1, history3+, spectral history4+, and authored-FFNO history3+ compares | history1 bad; history3 improved the stronger `40`-epoch rows; spectral history4 and history5 kept helping at `40` epochs; authored-FFNO history3 and history4 each strictly improved every recorded metric over the previous step at `40` epochs and history5 traded a small aggregate-error and `fRMSE_low` regression versus history4 for further `fRMSE_mid` and `fRMSE_high` gains. All longer-history rows remain adjacent capped context only and do not change the locked `history_len=2` paper lane |
+| CNS history length | history1, history3+, spectral history4+, authored-FFNO history3+, and the all-h5 FNO/U-Net comparator gap fill | history1 bad; history3 improved the stronger `40`-epoch rows; spectral history4 and history5 kept helping at `40` epochs; authored-FFNO history3 and history4 each strictly improved every recorded metric over the previous step at `40` epochs and history5 traded a small aggregate-error and `fRMSE_low` regression versus history4 for further `fRMSE_mid` and `fRMSE_high` gains; the h5 gap fill shows `fno_base` improves every metric versus its frozen h2 anchor while `unet_strong` improves aggregate error and `fRMSE_low` but regresses `fRMSE_mid` / `fRMSE_high`. All longer-history rows remain adjacent capped context only and do not change the locked `history_len=2` paper lane |
 | CNS spectral modes | modes32 and modes24 compares | no higher-mode default promotion |
 | CNS hybrid-spectral architecture | sharing/depth, 2048-cap, shared-blocks10 longer convergence | deeper variants remain decision-support |
 | CNS FFNO-family local convolution | local-conv follow-up | improves repo-local FFNO proxy but not stronger than authored FFNO |

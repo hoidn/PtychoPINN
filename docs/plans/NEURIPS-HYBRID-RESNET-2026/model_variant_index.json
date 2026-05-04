@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-04T19:15:00Z",
+  "last_updated_utc": "2026-05-04T21:55:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -15,7 +15,7 @@
     "cdi_objective_control_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_objective_comparison.tex",
     "brdt_candidate_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.tex",
     "brdt_candidate_recon_png": "docs/plans/NEURIPS-HYBRID-RESNET-2026/figures/brdt_decision_support_recon.png",
-    "cns_history5_gap_item": "docs/backlog/active/2026-05-04-cns-history5-comparator-gap-fill.md"
+    "cns_history5_gap_fill_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md"
   },
   "dataset_contracts": {
     "cdi_lines128_seed3": {
@@ -1045,6 +1045,56 @@
         "fRMSE_low": 1.130386233329773,
         "fRMSE_mid": 0.04206976667046547,
         "fRMSE_high": 0.10180677473545074
+      },
+      "evidence_status": "decision_support_adjacent_context"
+    },
+    {
+      "variant_id": "cns_history5_cap512_40ep__fno_base__supervised",
+      "dataset_contract_id": "cns_history5_cap512_40ep",
+      "row_id": "fno_base",
+      "paper_label": "FNO",
+      "architecture_id": "fno_base",
+      "model_family": "fourier_neural_operator",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-05-04-cns-history5-comparator-gap-fill",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z",
+      "metrics_json": "metrics_fno_base.json",
+      "parameter_count": 358628,
+      "runtime_sec": 1129.7886884212494,
+      "metrics": {
+        "relative_l2": 0.03842493146657944,
+        "err_nRMSE": 0.03842493146657944,
+        "err_RMSE": 0.9281977415084839,
+        "fRMSE_low": 2.1336586475372314,
+        "fRMSE_mid": 0.122382752597332,
+        "fRMSE_high": 0.43285590410232544
+      },
+      "evidence_status": "decision_support_adjacent_context"
+    },
+    {
+      "variant_id": "cns_history5_cap512_40ep__unet_strong__supervised",
+      "dataset_contract_id": "cns_history5_cap512_40ep",
+      "row_id": "unet_strong",
+      "paper_label": "U-Net",
+      "architecture_id": "unet_strong",
+      "model_family": "u_net",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-05-04-cns-history5-comparator-gap-fill",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z",
+      "metrics_json": "metrics_unet_strong.json",
+      "parameter_count": 7768036,
+      "runtime_sec": 1070.9980742931366,
+      "metrics": {
+        "relative_l2": 0.538623034954071,
+        "err_nRMSE": 0.538623034954071,
+        "err_RMSE": 13.0110502243042,
+        "fRMSE_low": 30.988290786743164,
+        "fRMSE_mid": 0.6448712348937988,
+        "fRMSE_high": 1.7427886724472046
       },
       "evidence_status": "decision_support_adjacent_context"
     },

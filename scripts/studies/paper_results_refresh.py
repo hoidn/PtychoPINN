@@ -61,6 +61,8 @@ REQUIRED_CNS_HISTORY5_ROWS = [
 KNOWN_CNS_HISTORY5_ROWS = {
     "author_ffno_cns_base": {"history_len": 5, "epochs": 40},
     "spectral_resnet_bottleneck_base": {"history_len": 5, "epochs": 40},
+    "fno_base": {"history_len": 5, "epochs": 40},
+    "unet_strong": {"history_len": 5, "epochs": 40},
 }
 
 BRDT_LABELS = {
