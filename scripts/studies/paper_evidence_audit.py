@@ -166,6 +166,12 @@ def build_default_input_manifest(repo_root: Path | str) -> dict[str, Any]:
         },
         "cns": {
             "pillar_id": "cns",
+            "manuscript_headline_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+            "manuscript_headline_role": "matched_condition_history_len_5_512_64_64_40ep",
+            "matched_condition_refresh_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh",
+            "matched_condition_decision_path": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/matched_condition_decision.json",
+            "matched_condition_table_rows_path": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/cns_paper_table_rows.json",
+            "manuscript_table_tex_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics.tex",
             "contract_decision_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md",
             "row_lock_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
             "locked_rows_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/cns_paper_locked_rows_2048cap.json",

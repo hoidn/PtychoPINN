@@ -9,7 +9,10 @@
     "paper_evidence_manifest": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_manifest.json",
     "cdi_complete_lines128": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
     "cdi_supervised_extension": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md",
-    "cns_table_bundle": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
+    "cns_table_bundle": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+    "cns_larger_cap_context": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
+    "cns_matched_condition_refresh_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+    "cns_matched_condition_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics.tex",
     "cdi_extended_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended.tex",
     "cdi_pinn_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_pinn_metrics.tex",
     "cdi_objective_control_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_objective_comparison.tex",
@@ -679,7 +682,7 @@
         "fRMSE_mid": 0.07592882961034775,
         "fRMSE_high": 0.12101411819458008
       },
-      "evidence_status": "capped_decision_support_headline"
+      "evidence_status": "capped_decision_support_larger_cap_context"
     },
     {
       "variant_id": "cns_history2_cap512__spectral_resnet_bottleneck_base__supervised__paper_bundle",
@@ -703,7 +706,7 @@
         "fRMSE_mid": 0.28004488348960876,
         "fRMSE_high": 0.43493345379829407
       },
-      "evidence_status": "capped_decision_support_headline"
+      "evidence_status": "capped_decision_support_larger_cap_context"
     },
     {
       "variant_id": "cns_history2_cap512__fno_base__supervised__paper_bundle",
@@ -727,7 +730,7 @@
         "fRMSE_mid": 0.23907285928726196,
         "fRMSE_high": 0.6717720627784729
       },
-      "evidence_status": "capped_decision_support_headline"
+      "evidence_status": "capped_decision_support_larger_cap_context"
     },
     {
       "variant_id": "cns_history2_cap512__unet_strong__supervised__paper_bundle",
@@ -751,7 +754,7 @@
         "fRMSE_mid": 0.5071899890899658,
         "fRMSE_high": 1.332625389099121
       },
-      "evidence_status": "capped_decision_support_headline"
+      "evidence_status": "capped_decision_support_larger_cap_context"
     },
     {
       "variant_id": "cns_history2_cap512__hybrid_resnet_cns__supervised__continuity",
@@ -799,7 +802,7 @@
         "fRMSE_mid": 0.2230527102947235,
         "fRMSE_high": 0.31176015734672546
       },
-      "evidence_status": "capped_decision_support_headline"
+      "evidence_status": "capped_decision_support_larger_cap_context"
     },
     {
       "variant_id": "cns_history2_cap2048__fno_base__supervised__paper_bundle_authority",
@@ -823,7 +826,7 @@
         "fRMSE_mid": 0.19165422022342682,
         "fRMSE_high": 0.4954054057598114
       },
-      "evidence_status": "capped_decision_support_headline"
+      "evidence_status": "capped_decision_support_larger_cap_context"
     },
     {
       "variant_id": "cns_history2_cap2048__unet_strong__supervised__paper_bundle_authority",
@@ -847,7 +850,7 @@
         "fRMSE_mid": 0.428785115480423,
         "fRMSE_high": 0.7096076607704163
       },
-      "evidence_status": "capped_decision_support_headline"
+      "evidence_status": "capped_decision_support_larger_cap_context"
     },
     {
       "variant_id": "cns_history2_cap2048__author_ffno_cns_base__supervised__paper_bundle_authority",
@@ -871,7 +874,7 @@
         "fRMSE_mid": 0.06968466192483902,
         "fRMSE_high": 0.06721008569002151
       },
-      "evidence_status": "capped_decision_support_headline"
+      "evidence_status": "capped_decision_support_larger_cap_context"
     },
     {
       "variant_id": "cns_history4_cap512__spectral_resnet_bottleneck_base__supervised__10ep_adjacent",
@@ -953,6 +956,8 @@
       "dataset_contract_id": "cns_history5_cap512_40ep",
       "row_id": "spectral_resnet_bottleneck_base",
       "paper_label": "SRU-Net*",
+      "manuscript_headline_role": "matched_condition_headline",
+      "manuscript_headline_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
       "architecture_id": "spectral_resnet_bottleneck_base",
       "model_family": "hybrid_local_spectral",
       "training_mode": "supervised",
@@ -971,7 +976,7 @@
         "fRMSE_mid": 0.17134958505630493,
         "fRMSE_high": 0.26221781969070435
       },
-      "evidence_status": "decision_support_adjacent_context"
+      "evidence_status": "matched_condition_headline"
     },
     {
       "variant_id": "cns_history3_cap512_40ep__author_ffno_cns_base__supervised",
@@ -1027,7 +1032,9 @@
       "variant_id": "cns_history5_cap512_40ep__author_ffno_cns_base__supervised",
       "dataset_contract_id": "cns_history5_cap512_40ep",
       "row_id": "author_ffno_cns_base",
-      "paper_label": "Author FFNO",
+      "paper_label": "FFNO",
+      "manuscript_headline_role": "matched_condition_headline",
+      "manuscript_headline_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
       "architecture_id": "author_ffno_cns_base",
       "model_family": "factorized_fourier_operator",
       "training_mode": "supervised",
@@ -1046,13 +1053,15 @@
         "fRMSE_mid": 0.04206976667046547,
         "fRMSE_high": 0.10180677473545074
       },
-      "evidence_status": "decision_support_adjacent_context"
+      "evidence_status": "matched_condition_headline"
     },
     {
       "variant_id": "cns_history5_cap512_40ep__fno_base__supervised",
       "dataset_contract_id": "cns_history5_cap512_40ep",
       "row_id": "fno_base",
       "paper_label": "FNO",
+      "manuscript_headline_role": "matched_condition_headline",
+      "manuscript_headline_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
       "architecture_id": "fno_base",
       "model_family": "fourier_neural_operator",
       "training_mode": "supervised",
@@ -1071,13 +1080,15 @@
         "fRMSE_mid": 0.122382752597332,
         "fRMSE_high": 0.43285590410232544
       },
-      "evidence_status": "decision_support_adjacent_context"
+      "evidence_status": "matched_condition_headline"
     },
     {
       "variant_id": "cns_history5_cap512_40ep__unet_strong__supervised",
       "dataset_contract_id": "cns_history5_cap512_40ep",
       "row_id": "unet_strong",
       "paper_label": "U-Net",
+      "manuscript_headline_role": "matched_condition_headline",
+      "manuscript_headline_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
       "architecture_id": "unet_strong",
       "model_family": "u_net",
       "training_mode": "supervised",
@@ -1096,7 +1107,7 @@
         "fRMSE_mid": 0.6448712348937988,
         "fRMSE_high": 1.7427886724472046
       },
-      "evidence_status": "decision_support_adjacent_context"
+      "evidence_status": "matched_condition_headline"
     },
     {
       "variant_id": "cns_history2_cap1024__spectral_resnet_bottleneck_shared_blocks10__supervised__80ep",

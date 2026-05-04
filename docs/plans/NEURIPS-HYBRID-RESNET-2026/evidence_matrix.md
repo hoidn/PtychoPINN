@@ -21,7 +21,8 @@ Machine-readable companions:
 | CDI FFNO supervised extension | `lines128_supervised_equivalent_rows_summary.md` | paper-complete extension to existing table |
 | CDI U-NO extension readiness | `lines128_uno_preflight_summary.md` | feasibility-only external UNO environment/API authority before generator integration |
 | CDI U-NO table extension | `lines128_uno_table_extension_summary.md` | append-only `paper_grade` eight-row extended bundle; claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension` |
-| PDEBench CNS table/figures | `pdebench_cns_paper_2048cap_extension_summary.md` | bounded capped decision-support only, current `2048 / 256 / 256` authority |
+| PDEBench CNS matched-condition table | `pdebench_cns_matched_condition_table_refresh_summary.md` | bounded capped decision-support only, matched `history_len=5`, `512 / 64 / 64`, `40` epochs headline |
+| PDEBench CNS larger-cap context | `pdebench_cns_paper_2048cap_extension_summary.md` | bounded capped decision-support only, preserved larger-cap `2048 / 256 / 256` context |
 | PDEBench CNS 512cap fallback provenance | `pdebench_cns_paper_table_figure_bundle_summary.md` | bounded capped decision-support only, preserved historical fallback |
 | PDEBench Darcy static-operator full-training benchmark | `pdebench_darcy_static_operator_summary.md` | `benchmark_performance` for `hybrid_resnet_base`, `fno_base`, `unet_strong` under the locked `8000/1000/1000` split, relative-L2 loss, `50` epochs |
 | Cross-pillar claim audit | `paper_evidence_package_audit_summary.md` | preserves CDI/CNS claim asymmetry |
@@ -36,16 +37,16 @@ Current manuscript draft:
 |---|---|
 | Complete Lines128 CDI bundle plus U-NO extension | `tab:cdi_lines128_pinn`, `tab:cdi_lines128_objective_controls`, `fig:cdi_main_qualitative`; generated table assets: `tables/cdi_lines128_pinn_metrics.tex`, `tables/cdi_lines128_objective_comparison.tex`, `tables/cdi_lines128_metrics_extended.csv`, `tables/cdi_lines128_metrics_extended.json` |
 | Supervised FFNO extension | merged into the CDI objective-control table and `tables/cdi_lines128_metrics_extended.*` from the completed supervised-FFNO extension root |
-| CNS paper table/figure bundle | `tab:cns_bundle`, `fig:cns_sample_predictions` |
+| CNS matched-condition refresh (`history_len=5`, `512 / 64 / 64`, `40` epochs) | `tab:cns_bundle` (input: `tables/pdebench_cns_matched_condition_metrics.tex`); `fig:cns_sample_predictions` retained as adjacent context only |
 | BRDT bounded preflight | `tab:brdt_candidate_metrics`, `fig:brdt_candidate_recon`; generated paper-local assets: `tables/brdt_decision_support_metrics.tex`, `tables/brdt_decision_support_metrics.csv`, `tables/brdt_decision_support_metrics.json`, `figures/brdt_decision_support_recon.png` |
 | Hybrid skip/residual ablation | `tab:cdi_skip_residual_ablation` |
 
-An all-`history_len=5`, `40`-epoch capped CNS comparator surface now
-exists for `fno_base`, `unet_strong`, `author_ffno_cns_base`, and
-`spectral_resnet_bottleneck_base` via
-`2026-05-04-cns-history5-comparator-gap-fill`. The capped slice is
-`adjacent_capped_context_only` decision support and does not change the
-locked `history_len=2`, `2048 / 256 / 256` capped CNS paper authority.
+The manuscript CNS headline table is now matched-condition under the
+`history_len=5`, `512 / 64 / 64`, `40`-epoch capped contract via
+`2026-05-04-cns-matched-condition-table-refresh`. The capped CNS claim
+boundary remains `bounded_capped_decision_support_only`; the
+larger-cap `history_len=2`, `2048 / 256 / 256` bundle is preserved as
+bounded larger-cap context only.
 
 ## CDI Lines128 Model Matrix
 
@@ -154,16 +155,27 @@ protocols; they are not same-contract reproduction targets for the rows above.
 
 ## PDEBench CNS Model Matrix
 
-Fixed current paper bundle contract: PDEBench 2D_CFD CNS `128x128`,
-`history_len=2`, `2048 / 256 / 256`, `40` epochs, `mse`, capped
-decision-support boundary.
+Fixed manuscript headline contract: PDEBench 2D_CFD CNS `128x128`,
+`history_len=5`, `512 / 64 / 64`, `40` epochs, `mse`, capped
+decision-support boundary. Source: matched-condition table refresh
+(`pdebench_cns_matched_condition_table_refresh_summary.md`).
 
 | Row | Architecture | Training | relative_l2 | fRMSE_high | Role | Source |
-|---|---|---:|---:|---:|---|---|
-| `author_ffno_cns_base` | authored FFNO | supervised | 0.026314 | 0.067210 | headline | CNS 2048 authority bundle |
-| `spectral_resnet_bottleneck_base` | spectral bottleneck | supervised | 0.042166 | 0.311760 | headline | CNS 2048 authority bundle |
-| `fno_base` | FNO | supervised | 0.050722 | 0.495405 | headline | CNS 2048 authority bundle |
-| `unet_strong` | U-Net | supervised | 0.597567 | 0.709608 | headline | CNS 2048 authority bundle |
+|---|---|---|---:|---:|---|---|
+| `author_ffno_cns_base` | authored FFNO | supervised | 0.019758 | 0.101807 | headline (matched h5) | CNS matched-condition refresh |
+| `spectral_resnet_bottleneck_base` | spectral bottleneck | supervised | 0.033069 | 0.262218 | headline (matched h5) | CNS matched-condition refresh |
+| `fno_base` | FNO | supervised | 0.038425 | 0.432856 | headline (matched h5) | CNS matched-condition refresh |
+| `unet_strong` | U-Net | supervised | 0.538623 | 1.742789 | headline (matched h5) | CNS matched-condition refresh |
+
+Larger-cap `history_len=2`, `2048 / 256 / 256` rows from the
+`2048cap` extension bundle remain available as bounded larger-cap
+context (`pdebench_cns_paper_2048cap_extension_summary.md`):
+`author_ffno_cns_base` `relative_l2=0.026314` /
+`fRMSE_high=0.067210`,
+`spectral_resnet_bottleneck_base` `0.042166` / `0.311760`,
+`fno_base` `0.050722` / `0.495405`,
+`unet_strong` `0.597567` / `0.709608`. These rows are not
+the manuscript headline ranking.
 
 Best observed capped CNS rows by model family, selected by lowest observed
 `relative_l2`/`err_nRMSE` across completed capped evidence:
@@ -217,18 +229,22 @@ Bundle outputs include:
 - `fixed_sample_manifest.json`
 - `2048_same_cap_audit.json`
 
-CNS h5 capped comparator status:
+CNS matched-condition headline status:
 
-- h5 rows are now available for `author_ffno_cns_base`,
-  `spectral_resnet_bottleneck_base`, `fno_base`, and `unet_strong` on
-  the fixed capped contract (`512 / 64 / 64`, `40` epochs); see
-  `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md`.
-- The h5 rows are `adjacent_capped_context_only` decision-support
-  evidence and explicitly do not change the locked `history_len=2`,
-  `2048 / 256 / 256` capped CNS paper authority.
-- CNS headline tables must continue to use the `history_len=2` capped
-  authority; the all-h5 capped comparator is not a manuscript headline
-  table.
+- The manuscript CNS headline ranking is now the matched-condition
+  `history_len=5`, `512 / 64 / 64`, `40`-epoch table; see
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md`.
+- The four headline rows reuse the completed `history_len=5` lane
+  evidence from
+  `2026-05-04-cns-history5-comparator-gap-fill`,
+  `2026-05-01-cns-author-ffno-history-length-study`, and
+  `2026-04-29-cns-spectral-history-len4plus-compare`.
+- Capped claim boundary unchanged
+  (`bounded_capped_decision_support_only`); no row is relabelled
+  `paper_grade` or `full_training`.
+- The larger-cap `history_len=2`, `2048 / 256 / 256` capped bundle is
+  preserved as bounded larger-cap context only and is no longer the
+  manuscript headline source.
 
 ## BRDT Paper-Local Assets
 
