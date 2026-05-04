@@ -1,6 +1,33 @@
 import json
 
 
+def test_capture_runtime_provenance_includes_python_version_and_torch_block():
+    from scripts.studies.invocation_logging import capture_runtime_provenance
+
+    payload = capture_runtime_provenance()
+    assert isinstance(payload.get("python_version"), str)
+    assert payload["python_version"]
+    torch_block = payload.get("torch")
+    assert isinstance(torch_block, dict)
+    for key in ("version", "cuda_version", "cuda_available", "device_name"):
+        assert key in torch_block, key
+
+
+def test_capture_neuralop_provenance_returns_required_keys():
+    from scripts.studies.invocation_logging import capture_neuralop_provenance
+
+    payload = capture_neuralop_provenance()
+    for key in ("neuraloperator_package_version", "neuralop_module_version", "uno_signature"):
+        assert key in payload, key
+
+
+def test_get_git_dirty_returns_bool_or_none():
+    from scripts.studies.invocation_logging import get_git_dirty
+
+    value = get_git_dirty()
+    assert value is None or isinstance(value, bool)
+
+
 def test_write_invocation_artifacts_writes_json_and_shell(tmp_path):
     from scripts.studies.invocation_logging import write_invocation_artifacts
 

@@ -91,14 +91,34 @@ The promoted six rows in this bundle reproduce the immutable base authority bit-
 
 Both `pinn_neuralop_uno` and `supervised_neuralop_uno` row roots contain:
 
-- `invocation.json` / `invocation.sh` (runner-local invocation)
+- `invocation.json` / `invocation.sh` (runner-local invocation, including
+  `extra.runtime_provenance` with `python_executable`, `python_version`, and a
+  `torch` block (`version`, `cuda_version`, `cuda_available`, `device_name`),
+  `extra.neuralop_provenance` with the `neuraloperator` package version,
+  `neuralop.__version__`, and the live `neuralop.models.UNO` signature, plus
+  `extra.git_commit` and `extra.git_dirty`)
 - `config.json`, `history.json`, `metrics.json`
-- `randomness_contract.json` capturing seed, deterministic mode, etc.
+- `randomness_contract.json` capturing the seed contract together with the
+  Lightning `deterministic_mode` (`"warn"` for U-NO) and the
+  `deterministic_carve_out` rationale that scopes the relaxation to
+  `architecture=neuralop_uno`
 - `exit_code_proof.json`
 - `model.pt` (Lightning checkpoint)
 - per-row `stdout.log` and `stderr.log`
 - recon at `recons/<row>/recon.npz`
 - visuals at `visuals/amp_phase_<row>.png` and `visuals/amp_phase_error_<row>.png`
+
+The U-NO row provenance fields above were retroactively populated by
+`scripts/studies/lines128_uno_provenance_backfill.py` after the launch
+completed, because the original runner did not capture the U-NO-specific
+package/UNO-signature provenance or the deterministic-mode carve-out. The
+backfill ran inside the same `ptycho311` environment that produced the rows;
+each backfilled artifact records `provenance_backfilled_at_utc` (or
+`backfilled_at_utc` for the randomness contract) plus a backfill rationale
+field. Future fresh U-NO runs capture these fields automatically through the
+extended `capture_runtime_provenance`/`capture_neuralop_provenance` helpers
+in `scripts/studies/invocation_logging.py` and the extended
+`_build_randomness_contract` in `scripts/studies/grid_lines_torch_runner.py`.
 
 The bundle's `paper_benchmark_manifest.json` records the runtime environment
 (`python 3.11.13`, `torch 2.9.1+cu128`, `CUDA 12.8`, `NVIDIA RTX 3090`),

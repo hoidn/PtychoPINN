@@ -524,11 +524,45 @@ class TestRunGridLinesTorchScaffold:
         contract_path = Path(result['run_dir']) / "randomness_contract.json"
         assert contract_path.exists()
         contract = json.loads(contract_path.read_text(encoding="utf-8"))
-        assert contract == {
-            "requested_seed": 11,
-            "effective_subsample_seed": 11,
-            "effective_lightning_seed": 11,
-        }
+        assert contract["requested_seed"] == 11
+        assert contract["effective_subsample_seed"] == 11
+        assert contract["effective_lightning_seed"] == 11
+        assert contract["deterministic_mode"] is True
+        assert contract["deterministic_carve_out"] is None
+
+    def test_runner_records_deterministic_warn_carve_out_for_neuralop_uno(self, synthetic_npz, tmp_path):
+        """The U-NO row's randomness contract must record the deterministic='warn' carve-out."""
+        train_path, test_path = synthetic_npz
+        output_dir = tmp_path / "output"
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=output_dir,
+            architecture="neuralop_uno",
+            training_procedure="pinn",
+            epochs=1,
+            seed=3,
+        )
+
+        with patch('scripts.studies.grid_lines_torch_runner.run_torch_training') as mock_train:
+            mock_train.return_value = {
+                'model': None,
+                'history': {},
+                'generator': 'neuralop_uno',
+                'scaffold': True,
+            }
+            with patch('scripts.studies.grid_lines_torch_runner.run_torch_inference') as mock_infer:
+                mock_infer.return_value = np.random.rand(64, 64).astype(np.complex64)
+                with patch('scripts.studies.grid_lines_torch_runner.compute_metrics') as mock_metrics:
+                    mock_metrics.return_value = {'mse': 0.1}
+                    result = run_grid_lines_torch(cfg)
+
+        contract_path = Path(result['run_dir']) / "randomness_contract.json"
+        contract = json.loads(contract_path.read_text(encoding="utf-8"))
+        assert contract["deterministic_mode"] == "warn"
+        assert contract["deterministic_carve_out"] is not None
+        assert "upsample_bicubic2d" in contract["deterministic_carve_out"]
 
     def test_runner_writes_config_and_json_stable_metrics(self, synthetic_npz, tmp_path):
         train_path, test_path = synthetic_npz

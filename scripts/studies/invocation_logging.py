@@ -7,14 +7,17 @@ scripts can emit reproducible command traces in a consistent format.
 from __future__ import annotations
 
 import importlib
+import importlib.metadata
+import inspect
 import json
 import os
+import platform
 import shlex
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Iterable, Tuple
+from typing import Any, Dict, Iterable, Optional, Tuple
 
 
 def _to_jsonable(value: Any) -> Any:
@@ -34,12 +37,40 @@ def build_command_line(script_path: str, argv: Iterable[str]) -> str:
     return shlex.join(tokens)
 
 
+def _capture_torch_provenance() -> Dict[str, Any]:
+    payload: Dict[str, Any] = {
+        "version": None,
+        "cuda_version": None,
+        "cuda_available": None,
+        "device_name": None,
+    }
+    try:
+        import torch
+    except Exception:
+        return payload
+    payload["version"] = str(getattr(torch, "__version__", None) or None)
+    payload["cuda_version"] = str(getattr(torch.version, "cuda", None) or None)
+    try:
+        cuda_available = bool(torch.cuda.is_available())
+    except Exception:
+        cuda_available = False
+    payload["cuda_available"] = cuda_available
+    if cuda_available:
+        try:
+            payload["device_name"] = torch.cuda.get_device_name(torch.cuda.current_device())
+        except Exception:
+            payload["device_name"] = None
+    return payload
+
+
 def capture_runtime_provenance() -> Dict[str, Any]:
     """Capture the effective Python/runtime import provenance for study scripts."""
     payload: Dict[str, Any] = {
         "python_executable": str(Path(sys.executable).resolve()),
+        "python_version": platform.python_version(),
         "cwd": str(Path.cwd()),
         "pythonpath": os.environ.get("PYTHONPATH", ""),
+        "torch": _capture_torch_provenance(),
     }
     try:
         ptycho_torch = importlib.import_module("ptycho_torch")
@@ -47,6 +78,36 @@ def capture_runtime_provenance() -> Dict[str, Any]:
         payload["ptycho_torch_file"] = None
     else:
         payload["ptycho_torch_file"] = str(Path(ptycho_torch.__file__).resolve())
+    return payload
+
+
+def capture_neuralop_provenance() -> Dict[str, Any]:
+    """Capture neuraloperator/neuralop/UNO API provenance for U-NO rows.
+
+    Required by the lines128 U-NO design (each U-NO row must record neuraloperator
+    package version, neuralop.__version__, and the UNO constructor signature).
+    """
+    payload: Dict[str, Any] = {
+        "neuraloperator_package_version": None,
+        "neuralop_module_version": None,
+        "uno_signature": None,
+    }
+    try:
+        payload["neuraloperator_package_version"] = importlib.metadata.version("neuraloperator")
+    except Exception:
+        pass
+    try:
+        neuralop = importlib.import_module("neuralop")
+        payload["neuralop_module_version"] = getattr(neuralop, "__version__", None)
+    except Exception:
+        return payload
+    try:
+        uno_module = importlib.import_module("neuralop.models")
+        uno_cls = getattr(uno_module, "UNO", None)
+        if uno_cls is not None:
+            payload["uno_signature"] = str(inspect.signature(uno_cls))
+    except Exception:
+        pass
     return payload
 
 
@@ -64,6 +125,24 @@ def get_git_commit(repo_root: Path | None = None) -> str | None:
         return None
     commit = result.stdout.strip()
     return commit or None
+
+
+def get_git_dirty(repo_root: Path | None = None) -> Optional[bool]:
+    """Return True if the working tree has uncommitted changes, False if clean.
+
+    Returns None when the dirty-state cannot be determined (no git, etc.).
+    """
+    repo_root = Path(repo_root or Path.cwd())
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repo_root), "status", "--porcelain"],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+    except Exception:
+        return None
+    return bool(result.stdout.strip())
 
 
 def _capture_tmux_launcher_metadata() -> Dict[str, str] | None:

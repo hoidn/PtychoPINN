@@ -42,7 +42,7 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Tuple, Union
+from typing import Dict, Any, List, Literal, Optional, Tuple, Union
 
 import numpy as np
 
@@ -359,8 +359,10 @@ def _write_runner_invocation_artifacts(
     extra: Optional[Dict[str, Any]] = None,
 ) -> Path:
     from scripts.studies.invocation_logging import (
+        capture_neuralop_provenance,
         capture_runtime_provenance,
         get_git_commit,
+        get_git_dirty,
         write_invocation_artifacts,
     )
 
@@ -368,8 +370,11 @@ def _write_runner_invocation_artifacts(
     invocation_extra: Dict[str, Any] = {
         "runtime_provenance": capture_runtime_provenance(),
         "git_commit": get_git_commit(REPO_ROOT),
+        "git_dirty": get_git_dirty(REPO_ROOT),
         "invocation_mode": "library",
     }
+    if cfg.architecture == "neuralop_uno":
+        invocation_extra["neuralop_provenance"] = capture_neuralop_provenance()
     if extra:
         invocation_extra.update(extra)
     json_path, _ = write_invocation_artifacts(
@@ -1030,7 +1035,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     # neuralop_uno relies on upsample_bicubic2d, which lacks a deterministic CUDA
     # backward implementation. Use Lightning's "warn" mode for that architecture so
     # the locked U-NO contract trains on GPU; record the caveat in row provenance.
-    deterministic_mode: Union[bool, str] = "warn" if cfg.architecture == "neuralop_uno" else True
+    deterministic_mode: Union[bool, Literal["warn"]] = _deterministic_mode_for(cfg.architecture)
     execution_config = PyTorchExecutionConfig(
         learning_rate=cfg.learning_rate,
         deterministic=deterministic_mode,
@@ -1381,13 +1386,34 @@ def save_run_artifacts(
     return run_dir
 
 
-def _build_randomness_contract(cfg: TorchRunnerConfig) -> Dict[str, int | None]:
-    """Describe the effective seed policy used by the Torch runner."""
-    return {
+def _deterministic_mode_for(architecture: str) -> Union[bool, Literal["warn"]]:
+    """Return the Lightning ``deterministic`` mode required for a given architecture.
+
+    ``neuralop_uno`` relies on ``upsample_bicubic2d``, which has no deterministic
+    CUDA backward implementation; Lightning is therefore configured with the
+    ``"warn"`` mode for that architecture only. All other architectures keep
+    strict ``True`` determinism.
+    """
+    return "warn" if architecture == "neuralop_uno" else True
+
+
+def _build_randomness_contract(cfg: TorchRunnerConfig) -> Dict[str, Any]:
+    """Describe the effective seed policy and determinism mode used by the runner."""
+    deterministic_mode = _deterministic_mode_for(cfg.architecture)
+    contract: Dict[str, Any] = {
         "requested_seed": int(cfg.seed),
         "effective_subsample_seed": int(cfg.seed),
         "effective_lightning_seed": int(cfg.seed),
+        "deterministic_mode": deterministic_mode,
+        "deterministic_carve_out": (
+            "neuralop_uno uses upsample_bicubic2d which lacks a deterministic "
+            "CUDA backward; Lightning runs with deterministic='warn' for this "
+            "architecture only."
+            if deterministic_mode == "warn"
+            else None
+        ),
     }
+    return contract
 
 
 def _history_series(history: object, *keys: str) -> List[float]:
