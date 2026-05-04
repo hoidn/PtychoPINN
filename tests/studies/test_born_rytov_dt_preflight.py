@@ -16,10 +16,11 @@ Covers:
 from __future__ import annotations
 
 import json
+import os
 import shlex
 import subprocess
 from pathlib import Path
-from typing import Dict
+from typing import Any, Dict
 
 import h5py  # type: ignore
 import numpy as np
@@ -452,3 +453,208 @@ def test_run_preflight_serializes_argv_and_invocation(tmp_path):
     invocation = json.loads((preflight_root / "invocation.json").read_text())
     assert invocation["script"] == "scripts/studies/born_rytov_dt/run_preflight.py"
     assert invocation["extra"]["backlog_item"] == "2026-04-29-brdt-four-row-preflight"
+
+
+# ----------------------------------------------------------------------
+# Writer lock (duplicate-writer protection)
+# ----------------------------------------------------------------------
+def test_writer_lock_acquires_and_releases(tmp_path):
+    output_root = tmp_path / "lock_basic"
+    output_root.mkdir(parents=True, exist_ok=True)
+    lock_path = output_root / preflight_mod.WRITER_LOCK_NAME
+    with preflight_mod.writer_lock(output_root):
+        held = json.loads(lock_path.read_text())
+        assert held["pid"] == os.getpid()
+        assert held["script"] == preflight_mod.SCRIPT_PATH
+    # Lock removed on exit.
+    assert not lock_path.exists()
+
+
+def test_writer_lock_reclaims_stale_pid(tmp_path):
+    output_root = tmp_path / "lock_stale"
+    output_root.mkdir(parents=True, exist_ok=True)
+    lock_path = output_root / preflight_mod.WRITER_LOCK_NAME
+    # Pick a PID extremely unlikely to be alive (32-bit max-1).
+    lock_path.write_text(
+        json.dumps({"pid": 2**31 - 2, "started_at": "old", "host": "x"})
+    )
+    with preflight_mod.writer_lock(output_root):
+        active = json.loads(lock_path.read_text())
+        assert active["pid"] == os.getpid()
+    assert not lock_path.exists()
+
+
+def test_writer_lock_refuses_active_writer(tmp_path):
+    """A live PID lock must block a duplicate writer."""
+    output_root = tmp_path / "lock_active"
+    output_root.mkdir(parents=True, exist_ok=True)
+    lock_path = output_root / preflight_mod.WRITER_LOCK_NAME
+    # The pytest parent process is alive; using its PID simulates an
+    # active concurrent writer different from the current test thread.
+    parent_pid = os.getppid()
+    lock_path.write_text(
+        json.dumps({"pid": parent_pid, "started_at": "now", "host": "x"})
+    )
+    with pytest.raises(ValueError, match="active BRDT preflight writer"):
+        with preflight_mod.writer_lock(output_root):
+            pass
+    # The original lock must be left intact (we did not steal it).
+    held = json.loads(lock_path.read_text())
+    assert held["pid"] == parent_pid
+
+
+def test_run_preflight_subprocess_refuses_active_writer(tmp_path):
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    preflight_root = tmp_path / "active_writer"
+    preflight_root.mkdir(parents=True, exist_ok=True)
+    lock_path = preflight_root / preflight_mod.WRITER_LOCK_NAME
+    # Plant a lock pointing at the (alive) pytest process.
+    lock_path.write_text(
+        json.dumps({"pid": os.getpid(), "started_at": "now", "host": "x"})
+    )
+    res = _run_preflight(
+        "--manifest",
+        str(manifest_path),
+        "--output-root",
+        str(preflight_root),
+        "--dry-run",
+        check=False,
+    )
+    assert res.returncode != 0
+    combined = res.stdout + res.stderr
+    assert "active BRDT preflight writer" in combined
+    # Plant lock survives (not reclaimed).
+    held = json.loads(lock_path.read_text())
+    assert held["pid"] == os.getpid()
+
+
+# ----------------------------------------------------------------------
+# Classical narrow-fix attempt
+# ----------------------------------------------------------------------
+def test_attempt_classical_backend_with_fix_records_attempts():
+    backend, attempts = preflight_mod.attempt_classical_backend_with_fix()
+    assert isinstance(attempts, list) and attempts
+    if backend.name == "odtbrain":
+        # ODTbrain installed → at least one succeeded attempt recorded.
+        assert any(a.get("outcome") == "succeeded" for a in attempts)
+    else:
+        # Without ODTbrain, both the initial import and the cache-invalidation
+        # retry must be recorded before declaring the row blocked.
+        assert backend.name == "local_adjoint"
+        assert backend.reason == "odtbrain_unavailable_after_narrow_fix"
+        steps = [a["step"] for a in attempts]
+        assert "import_odtbrain" in steps
+        assert any("invalidate_caches" in s for s in steps)
+
+
+def test_dry_run_manifest_records_narrow_fix_attempts(tmp_path):
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    preflight_root = tmp_path / "narrow_fix"
+    _run_preflight(
+        "--manifest",
+        str(manifest_path),
+        "--output-root",
+        str(preflight_root),
+        "--dry-run",
+    )
+    manifest = json.loads((preflight_root / "preflight_manifest.json").read_text())
+    notes = manifest.get("notes") or {}
+    attempts = notes.get("classical_narrow_fix_attempts")
+    assert attempts, "classical_narrow_fix_attempts must be recorded"
+    steps = [a["step"] for a in attempts]
+    assert "import_odtbrain" in steps
+    fps = notes.get("row_contract_fingerprints")
+    assert fps, "per-row contract fingerprints must be recorded"
+    for row_id in (
+        "classical_born_backprop",
+        "unet",
+        "fno_vanilla",
+        "hybrid_resnet",
+    ):
+        assert row_id in fps
+
+
+# ----------------------------------------------------------------------
+# Per-row invocation/runtime provenance + resume protocol
+# ----------------------------------------------------------------------
+def _live_preflight_kwargs(manifest_path: Path, preflight_root: Path) -> Dict[str, Any]:
+    contract = preflight_mod.TrainingContract(
+        epochs=1, batch_size=1, learning_rate=2e-4
+    )
+    return dict(
+        manifest_path=manifest_path,
+        output_root=preflight_root,
+        contract=contract,
+        hybrid_label="hybrid_resnet",
+        fixed_sample_count=1,
+        fixed_sample_seed=0,
+        in_channels=1,
+        device_choice="cpu",
+        dry_run=False,
+        parent_argv=["--manifest", str(manifest_path)],
+    )
+
+
+def test_run_preflight_writes_per_row_invocation_artifacts(tmp_path):
+    """Each row directory carries invocation.json + invocation.sh + runtime metadata."""
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    preflight_root = tmp_path / "live_inv"
+    preflight_mod.run_preflight(**_live_preflight_kwargs(manifest_path, preflight_root))
+    rows_dir = preflight_root / "rows"
+    expected_rows = (
+        "classical_born_backprop",
+        "unet",
+        "fno_vanilla",
+        "hybrid_resnet",
+    )
+    for row_id in expected_rows:
+        row_dir = rows_dir / row_id
+        invocation_json = row_dir / "invocation.json"
+        invocation_sh = row_dir / "invocation.sh"
+        assert invocation_json.exists(), f"missing per-row invocation for {row_id}"
+        assert invocation_sh.exists(), f"missing per-row invocation.sh for {row_id}"
+        payload = json.loads(invocation_json.read_text())
+        assert payload["script"] == preflight_mod.SCRIPT_PATH
+        assert payload["parsed_args"]["row_id"] == row_id
+        runtime_block = payload["extra"].get("runtime") or {}
+        assert "device" in runtime_block
+        assert "device_name" in runtime_block
+        assert "torch" in runtime_block
+        assert payload["extra"].get("contract_fingerprint")
+        assert payload["extra"].get("backlog_item") == preflight_mod.BACKLOG_ITEM
+    summary = json.loads(
+        (rows_dir / "classical_born_backprop" / preflight_mod.ROW_SUMMARY_NAME).read_text()
+    )
+    if summary.get("row_status") == "blocked":
+        assert "narrow_fix_attempts" in summary
+        assert summary["blocker_reason"] == "odtbrain_unavailable"
+
+
+def test_run_preflight_resumes_completed_rows_with_matching_fingerprint(tmp_path):
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    preflight_root = tmp_path / "live_resume"
+    kwargs = _live_preflight_kwargs(manifest_path, preflight_root)
+    first = preflight_mod.run_preflight(**kwargs)
+    assert first.get("resumed_rows") == []
+    second = preflight_mod.run_preflight(**kwargs)
+    expected_rows = {
+        "classical_born_backprop",
+        "unet",
+        "fno_vanilla",
+        "hybrid_resnet",
+    }
+    assert set(second.get("resumed_rows") or []) == expected_rows
+
+
+def test_run_preflight_skips_resume_when_contract_changes(tmp_path):
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    preflight_root = tmp_path / "live_resume_change"
+    kwargs = _live_preflight_kwargs(manifest_path, preflight_root)
+    preflight_mod.run_preflight(**kwargs)
+    # Mutate the training contract → fingerprints diverge → no resume.
+    altered = dict(kwargs)
+    altered["contract"] = preflight_mod.TrainingContract(
+        epochs=2, batch_size=1, learning_rate=2e-4
+    )
+    second = preflight_mod.run_preflight(**altered)
+    assert (second.get("resumed_rows") or []) == []

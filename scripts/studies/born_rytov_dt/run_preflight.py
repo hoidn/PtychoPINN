@@ -23,12 +23,17 @@ generator registry.
 from __future__ import annotations
 
 import argparse
+import contextlib
+import hashlib
+import importlib
 import json
+import os
 import sys
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Tuple
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple
 
 import numpy as np
 import torch
@@ -71,6 +76,177 @@ SCRIPT_PATH = "scripts/studies/born_rytov_dt/run_preflight.py"
 BACKLOG_ITEM = "2026-04-29-brdt-four-row-preflight"
 NEXT_BACKLOG_ITEM = "2026-04-29-brdt-preflight-summary-promotion-decision"
 PREFLIGHT_MANIFEST_NAME = "preflight_manifest.json"
+WRITER_LOCK_NAME = ".preflight.lock"
+ROW_SUMMARY_NAME = "row_summary.json"
+
+
+# ---------------------------------------------------------------------------
+# Writer lock (duplicate-writer protection)
+# ---------------------------------------------------------------------------
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(int(pid), 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except Exception:
+        return False
+    return True
+
+
+@contextlib.contextmanager
+def writer_lock(output_root: Path) -> Iterator[Path]:
+    """Refuse to launch a duplicate writer against the same output root.
+
+    A ``.preflight.lock`` file inside ``output_root`` records the active
+    writer's PID and start timestamp. If the file already exists and the
+    referenced PID is alive, this raises ``ValueError`` so the caller
+    cannot silently overwrite artifacts being produced by a concurrent
+    run. Stale locks (whose PID is gone) are reclaimed.
+    """
+    output_root = Path(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+    lock_path = output_root / WRITER_LOCK_NAME
+    if lock_path.exists():
+        try:
+            existing = json.loads(lock_path.read_text())
+        except Exception:
+            existing = None
+        if isinstance(existing, dict):
+            other_pid = existing.get("pid")
+            if isinstance(other_pid, int) and other_pid != os.getpid() and _pid_alive(other_pid):
+                raise ValueError(
+                    "active BRDT preflight writer detected at "
+                    f"{lock_path} (pid={other_pid}, started_at="
+                    f"{existing.get('started_at')!r}); refusing to launch "
+                    "a duplicate writer against the same --output-root."
+                )
+    lock_payload = {
+        "pid": int(os.getpid()),
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "host": (os.uname().nodename if hasattr(os, "uname") else "unknown"),
+        "script": SCRIPT_PATH,
+    }
+    lock_path.write_text(json.dumps(lock_payload, indent=2) + "\n")
+    try:
+        yield lock_path
+    finally:
+        try:
+            current = json.loads(lock_path.read_text())
+        except Exception:
+            current = None
+        if isinstance(current, dict) and current.get("pid") == os.getpid():
+            try:
+                lock_path.unlink()
+            except FileNotFoundError:
+                pass
+
+
+# ---------------------------------------------------------------------------
+# Contract fingerprint (resume / skip)
+# ---------------------------------------------------------------------------
+def _stable_fingerprint(payload: Mapping[str, Any]) -> str:
+    text = json.dumps(payload, sort_keys=True, default=str)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def row_contract_fingerprint(
+    *,
+    row_id: str,
+    model: str,
+    training: str,
+    input_mode: str,
+    dataset_id: str,
+    operator_pointer: str,
+    training_contract: Mapping[str, Any],
+    fixed_sample_ids: List[int],
+    in_channels: int,
+    classical_backend_name: str,
+) -> str:
+    """Stable hash for one row's effective execution contract."""
+    return _stable_fingerprint(
+        {
+            "row_id": row_id,
+            "model": model,
+            "training": training,
+            "input_mode": input_mode,
+            "dataset_id": dataset_id,
+            "operator_pointer": operator_pointer,
+            "training_contract": dict(training_contract),
+            "fixed_sample_ids": [int(i) for i in fixed_sample_ids],
+            "in_channels": int(in_channels),
+            "classical_backend_name": classical_backend_name,
+        }
+    )
+
+
+# ---------------------------------------------------------------------------
+# Classical backend with narrow fix attempt
+# ---------------------------------------------------------------------------
+def attempt_classical_backend_with_fix(
+    prefer_odtbrain: bool = True,
+) -> Tuple[ClassicalBackendInfo, List[Dict[str, str]]]:
+    """Detect the classical backend and document any narrow fix attempt.
+
+    Returns ``(backend, attempts)`` where ``attempts`` is a list of
+    structured records suitable for the row-level blocker payload. The
+    only narrow fix in scope is to invalidate import caches and retry
+    the import once; we never mutate the environment, install packages,
+    or rewrite ``sys.path``. The captured ImportError text is recorded
+    so the row-level blocker explicitly documents what was tried.
+    """
+    attempts: List[Dict[str, str]] = []
+    if prefer_odtbrain:
+        try:
+            importlib.import_module("odtbrain")
+            attempts.append({"step": "import_odtbrain", "outcome": "succeeded"})
+            return (
+                ClassicalBackendInfo(
+                    name="odtbrain",
+                    reason="odtbrain_import_succeeded",
+                    claim_boundary="external_oracle",
+                ),
+                attempts,
+            )
+        except Exception as exc:
+            attempts.append(
+                {
+                    "step": "import_odtbrain",
+                    "outcome": "failed",
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
+        try:
+            importlib.invalidate_caches()
+            importlib.import_module("odtbrain")
+            attempts.append(
+                {"step": "retry_after_invalidate_caches", "outcome": "succeeded"}
+            )
+            return (
+                ClassicalBackendInfo(
+                    name="odtbrain",
+                    reason="odtbrain_import_succeeded_after_cache_invalidation",
+                    claim_boundary="external_oracle",
+                ),
+                attempts,
+            )
+        except Exception as exc:
+            attempts.append(
+                {
+                    "step": "retry_after_invalidate_caches",
+                    "outcome": "failed",
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+            )
+    return (
+        ClassicalBackendInfo(
+            name="local_adjoint",
+            reason="odtbrain_unavailable_after_narrow_fix",
+            claim_boundary="feasibility_only",
+        ),
+        attempts,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -403,6 +579,203 @@ def _runtime_environment_block() -> Dict[str, Any]:
     }
 
 
+def _row_runtime_block(device: torch.device) -> Dict[str, Any]:
+    """Per-row runtime/hardware metadata for invocation artifacts."""
+    cuda_available = bool(torch.cuda.is_available())
+    return {
+        "device": str(device),
+        "device_name": _device_name(device),
+        "torch": torch.__version__,
+        "cuda_available": cuda_available,
+        "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES", ""),
+        "python": sys.version.split()[0],
+    }
+
+
+def _save_fixed_sample_arrays(
+    *,
+    source_arrays_dir: Path,
+    sample_arrays: Mapping[int, Mapping[str, np.ndarray]],
+    row_id: str,
+) -> Dict[int, Dict[str, str]]:
+    """Persist per-row fixed-sample arrays so resume can rebuild the bundle.
+
+    Returns ``{sample_id: {key: relative_path}}`` for the manifest.
+    """
+    paths: Dict[int, Dict[str, str]] = {}
+    source_arrays_dir.mkdir(parents=True, exist_ok=True)
+    for sid, arrays in sample_arrays.items():
+        target_path = source_arrays_dir / f"sample_{int(sid):04d}_q_target.npy"
+        sino_obs_path = source_arrays_dir / f"sample_{int(sid):04d}_sino_obs.npy"
+        pred_path = source_arrays_dir / f"sample_{int(sid):04d}_{row_id}_q_pred.npy"
+        sino_pred_path = (
+            source_arrays_dir / f"sample_{int(sid):04d}_{row_id}_sino_pred.npy"
+        )
+        np.save(target_path, arrays["q_target"])
+        np.save(sino_obs_path, arrays["sino_obs"])
+        np.save(pred_path, arrays["q_pred"])
+        np.save(sino_pred_path, arrays["sino_pred"])
+        paths[int(sid)] = {
+            "q_target": str(target_path),
+            "sino_obs": str(sino_obs_path),
+            "q_pred": str(pred_path),
+            "sino_pred": str(sino_pred_path),
+        }
+    return paths
+
+
+def _load_saved_row_arrays(
+    *,
+    source_arrays_dir: Path,
+    row_id: str,
+    fixed_sample_ids: List[int],
+) -> Optional[Dict[int, Dict[str, np.ndarray]]]:
+    """Load per-row fixed-sample arrays from disk, or ``None`` if any missing."""
+    sample_arrays: Dict[int, Dict[str, np.ndarray]] = {}
+    for sid in fixed_sample_ids:
+        target_path = source_arrays_dir / f"sample_{int(sid):04d}_q_target.npy"
+        sino_obs_path = source_arrays_dir / f"sample_{int(sid):04d}_sino_obs.npy"
+        pred_path = source_arrays_dir / f"sample_{int(sid):04d}_{row_id}_q_pred.npy"
+        sino_pred_path = (
+            source_arrays_dir / f"sample_{int(sid):04d}_{row_id}_sino_pred.npy"
+        )
+        if not all(
+            p.exists() for p in (target_path, sino_obs_path, pred_path, sino_pred_path)
+        ):
+            return None
+        sample_arrays[int(sid)] = {
+            "q_target": np.load(target_path),
+            "sino_obs": np.load(sino_obs_path),
+            "q_pred": np.load(pred_path),
+            "sino_pred": np.load(sino_pred_path),
+        }
+    return sample_arrays
+
+
+def _row_metrics_from_summary(
+    summary: Mapping[str, Any], *, default_paper_label: str, default_arch: str
+) -> metrics_mod.RowMetrics:
+    """Reconstruct a ``RowMetrics`` from a stored ``row_summary.json`` payload."""
+    return metrics_mod.RowMetrics(
+        row_id=str(summary.get("row_id")),
+        paper_label=str(summary.get("paper_label", default_paper_label)),
+        architecture=str(summary.get("architecture", default_arch)),
+        row_status=str(summary.get("row_status", "completed")),
+        image=dict(summary.get("image_metrics") or summary.get("image") or {}),
+        measurement=dict(
+            summary.get("measurement_metrics") or summary.get("measurement") or {}
+        ),
+        supporting=dict(summary.get("supporting") or {}),
+        runtime=dict(summary.get("runtime") or {}),
+        blocker_reason=summary.get("blocker_reason") or None,
+        blocker_message=summary.get("blocker_message") or None,
+    )
+
+
+def _maybe_resume_row(
+    *,
+    row: "RowConfig",
+    row_dir: Path,
+    source_arrays_dir: Path,
+    fixed_sample_ids: List[int],
+    expected_fingerprint: str,
+) -> Optional[Tuple[metrics_mod.RowMetrics, Dict[str, Any], Dict[int, Dict[str, np.ndarray]]]]:
+    """Return cached row outputs if a prior run with the same contract finished.
+
+    Returns ``(row_metrics, row_payload, sample_arrays)`` if resume is
+    valid, otherwise ``None``. Resume requires the row's
+    ``row_summary.json`` to carry the same contract fingerprint, and
+    every fixed-sample source array to exist on disk so the bundle can
+    be reassembled deterministically.
+    """
+    summary_path = row_dir / ROW_SUMMARY_NAME
+    if not summary_path.exists():
+        return None
+    try:
+        summary = json.loads(summary_path.read_text())
+    except Exception:
+        return None
+    if summary.get("contract_fingerprint") != expected_fingerprint:
+        return None
+    status = summary.get("row_status")
+    if status not in ("completed", "blocked"):
+        return None
+    sample_arrays: Dict[int, Dict[str, np.ndarray]] = {}
+    if status == "completed":
+        loaded = _load_saved_row_arrays(
+            source_arrays_dir=source_arrays_dir,
+            row_id=row.row_id,
+            fixed_sample_ids=fixed_sample_ids,
+        )
+        if loaded is None:
+            return None
+        sample_arrays = loaded
+    rm = _row_metrics_from_summary(
+        summary,
+        default_paper_label=row.visible_label,
+        default_arch=row.model,
+    )
+    return rm, dict(summary), sample_arrays
+
+
+def _write_row_invocation_artifacts(
+    *,
+    row_dir: Path,
+    row: "RowConfig",
+    contract: "TrainingContract",
+    fixed_sample_ids: List[int],
+    in_channels: int,
+    device: torch.device,
+    classical_backend: ClassicalBackendInfo,
+    contract_fingerprint: str,
+    parent_argv: List[str],
+    extra_attempts: Optional[List[Dict[str, str]]] = None,
+) -> None:
+    """Persist per-row invocation provenance into the row directory.
+
+    Writes ``invocation.json`` and ``invocation.sh`` under ``row_dir`` so
+    each row carries a stand-alone provenance record (parent argv,
+    parsed contract, runtime/hardware metadata, and any narrow-fix
+    attempts that were made for that row).
+    """
+    row_argv = list(parent_argv) + [
+        "--row-id",
+        row.row_id,
+    ]
+    parsed = {
+        "row_id": row.row_id,
+        "model": row.model,
+        "training": row.training,
+        "input_mode": row.input_mode,
+        "dataset_id": row.dataset_id,
+        "operator_version": row.operator_version,
+        "in_channels": int(in_channels),
+        "fixed_sample_ids": [int(i) for i in fixed_sample_ids],
+        "training_contract": contract.as_dict(),
+    }
+    extras: Dict[str, Any] = {
+        "backlog_item": BACKLOG_ITEM,
+        "row": row.to_dict(),
+        "runtime": _row_runtime_block(device),
+        "runtime_provenance": capture_runtime_provenance(),
+        "classical_backend": {
+            "name": classical_backend.name,
+            "reason": classical_backend.reason,
+            "claim_boundary": classical_backend.claim_boundary,
+        },
+        "contract_fingerprint": contract_fingerprint,
+    }
+    if extra_attempts:
+        extras["narrow_fix_attempts"] = list(extra_attempts)
+    write_invocation_artifacts(
+        output_dir=row_dir,
+        script_path=SCRIPT_PATH,
+        argv=row_argv,
+        parsed_args=parsed,
+        extra=extras,
+    )
+
+
 def _build_preflight_manifest(
     *,
     output_root: Path,
@@ -491,198 +864,190 @@ def run_preflight(
     in_channels: int,
     device_choice: str,
     dry_run: bool,
+    parent_argv: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     output_root = Path(output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     rows_dir = output_root / "rows"
     visuals_dir = output_root / "visuals"
     source_arrays_dir = output_root / "figures" / "source_arrays"
+    parent_argv = list(parent_argv) if parent_argv is not None else []
 
-    authority = load_dataset_authority(manifest_path)
-    assert_decision_support_manifest(authority.raw_manifest)
-    rows = resolve_row_roster(manifest_path=manifest_path, hybrid_label=hybrid_label)
-    fixed_sample_ids = choose_fixed_sample_ids(
-        manifest_path,
-        count=fixed_sample_count,
-        seed=fixed_sample_seed,
-    )
-
-    backend = detect_classical_backend()
-    device = _select_device(device_choice)
-
-    preflight_manifest = _build_preflight_manifest(
-        output_root=output_root,
-        authority=authority,
-        rows=rows,
-        fixed_sample_ids=fixed_sample_ids,
-        contract=contract,
-        fixed_sample_seed=fixed_sample_seed,
-        classical_backend=backend,
-        in_channels=in_channels,
-    )
-
-    manifest_path_out = output_root / PREFLIGHT_MANIFEST_NAME
-    _write_manifest(preflight_manifest, manifest_path_out)
-
-    if dry_run:
-        # Dry-run still emits a metric schema so downstream consumers see
-        # the bundle layout even before live execution.
-        metrics_mod.write_metric_schema(output_root / "metric_schema.json")
-        return {
-            "dry_run": True,
-            "preflight_manifest_path": str(manifest_path_out),
-        }
-
-    operator = _build_operator(device)
-    rows_dir.mkdir(parents=True, exist_ok=True)
-    visuals_dir.mkdir(parents=True, exist_ok=True)
-    source_arrays_dir.mkdir(parents=True, exist_ok=True)
-
-    row_metrics: List[metrics_mod.RowMetrics] = []
-    row_status_updates: Dict[str, Dict[str, Any]] = {}
-    fixed_q_pred_by_row: Dict[int, Dict[str, np.ndarray]] = {
-        sid: {} for sid in fixed_sample_ids
-    }
-    fixed_sino_pred_by_row: Dict[int, Dict[str, np.ndarray]] = {
-        sid: {} for sid in fixed_sample_ids
-    }
-    fixed_targets: Dict[int, Dict[str, np.ndarray]] = {}
-
-    for row in rows:
-        row_dir = rows_dir / row.row_id
-        row_dir.mkdir(parents=True, exist_ok=True)
-        row_payload: Dict[str, Any] = {"row_id": row.row_id}
-        if row.row_id == "classical_born_backprop":
-            # ODTbrain authoritative; if unavailable, mark row blocked.
-            if backend.name != "odtbrain":
-                blocker = make_blocked_row(
-                    row_id=row.row_id,
-                    model=row.model,
-                    training=row.training,
-                    dataset_id=row.dataset_id,
-                    operator_version=row.operator_version,
-                    blocker_reason="odtbrain_unavailable",
-                    blocker_message=(
-                        "Classical Born backprop reference requires ODTbrain "
-                        "for the decision-support claim boundary; only the "
-                        "local-adjoint fallback is available."
-                    ),
-                    paper_label=row.paper_label,
-                )
-                row_payload.update(blocker.to_dict())
-                row_status_updates[row.row_id] = row_payload
-                row_metrics.append(
-                    metrics_mod.RowMetrics(
-                        row_id=row.row_id,
-                        paper_label=row.visible_label,
-                        architecture=row.model,
-                        row_status="blocked",
-                        blocker_reason=blocker.blocker_reason or "",
-                        blocker_message=blocker.blocker_message or "",
-                        runtime=metrics_mod.collect_runtime_metadata(
-                            device=str(device),
-                            device_name=_device_name(device),
-                            epochs=0,
-                            batch_size=int(contract.batch_size),
-                            learning_rate=float(contract.learning_rate),
-                            parameter_count=0,
-                            wall_time_train_s=0.0,
-                            wall_time_eval_s=0.0,
-                            row_status="blocked",
-                        ),
-                    )
-                )
-                (row_dir / "row_summary.json").write_text(
-                    json.dumps(row_payload, indent=2, sort_keys=True) + "\n"
-                )
-                continue
-            # Classical row: no training; eval uses the backend init directly.
-            eval_started = time.perf_counter()
-            image_metrics, meas_metrics, sample_arrays = _evaluate_split(
-                module=None,
-                authority=authority,
-                operator=operator,
-                backend=backend,
-                device=device,
-                in_channels=in_channels,
-                classical_only=True,
-                fixed_sample_ids=fixed_sample_ids,
-                out_dir=row_dir,
-            )
-            eval_seconds = time.perf_counter() - eval_started
-            for sid, arrays in sample_arrays.items():
-                fixed_q_pred_by_row[sid][row.row_id] = arrays["q_pred"]
-                fixed_sino_pred_by_row[sid][row.row_id] = arrays["sino_pred"]
-                fixed_targets.setdefault(sid, {"q_target": arrays["q_target"], "sino_obs": arrays["sino_obs"]})
-            row_metrics.append(
-                metrics_mod.RowMetrics(
-                    row_id=row.row_id,
-                    paper_label=row.visible_label,
-                    architecture=row.model,
-                    row_status="completed",
-                    image={k: v for k, v in image_metrics.items() if k in metrics_mod.IMAGE_METRICS},
-                    measurement=meas_metrics,
-                    supporting={
-                        k: v for k, v in image_metrics.items()
-                        if k in metrics_mod.SUPPORTING_METRICS
-                    },
-                    runtime=metrics_mod.collect_runtime_metadata(
-                        device=str(device),
-                        device_name=_device_name(device),
-                        epochs=0,
-                        batch_size=int(contract.batch_size),
-                        learning_rate=float(contract.learning_rate),
-                        parameter_count=0,
-                        wall_time_train_s=0.0,
-                        wall_time_eval_s=eval_seconds,
-                        row_status="completed",
-                    ),
-                )
-            )
-            row_payload["row_status"] = "completed"
-            row_payload["execution_path"] = "classical_only"
-            row_payload["image_metrics"] = image_metrics
-            row_payload["measurement_metrics"] = meas_metrics
-            row_status_updates[row.row_id] = row_payload
-            (row_dir / "row_summary.json").write_text(
-                json.dumps(row_payload, indent=2, sort_keys=True) + "\n"
-            )
-            continue
-
-        # Neural rows.
-        module, runtime_meta, train_seconds = _train_neural_row(
-            row=row,
-            authority=authority,
-            operator=operator,
-            backend=backend,
-            device=device,
-            contract=contract,
-            in_channels=in_channels,
-            output_dir=row_dir,
+    with writer_lock(output_root):
+        authority = load_dataset_authority(manifest_path)
+        assert_decision_support_manifest(authority.raw_manifest)
+        rows = resolve_row_roster(manifest_path=manifest_path, hybrid_label=hybrid_label)
+        fixed_sample_ids = choose_fixed_sample_ids(
+            manifest_path,
+            count=fixed_sample_count,
+            seed=fixed_sample_seed,
         )
-        if module is None:
-            err = runtime_meta.get("adapter_build_error", {})
-            blocker = make_blocked_row(
+
+        backend, narrow_fix_attempts = attempt_classical_backend_with_fix()
+        device = _select_device(device_choice)
+
+        operator_pointer = (
+            authority.raw_manifest.get("operator", {}).get("validation_artifact")
+            or authority.raw_manifest.get("operator", {}).get("validation_report")
+            or "unspecified"
+        )
+        per_row_fingerprints: Dict[str, str] = {
+            row.row_id: row_contract_fingerprint(
                 row_id=row.row_id,
                 model=row.model,
                 training=row.training,
-                dataset_id=row.dataset_id,
-                operator_version=row.operator_version,
-                blocker_reason=str(err.get("reason", "adapter_build_error")),
-                blocker_message=str(err.get("message", "adapter_build_error")),
-                paper_label=row.paper_label,
+                input_mode=row.input_mode,
+                dataset_id=str(authority.dataset_id),
+                operator_pointer=str(operator_pointer),
+                training_contract=contract.as_dict(),
+                fixed_sample_ids=fixed_sample_ids,
+                in_channels=in_channels,
+                classical_backend_name=backend.name,
             )
-            row_payload.update(blocker.to_dict())
-            row_status_updates[row.row_id] = row_payload
-            row_metrics.append(
-                metrics_mod.RowMetrics(
-                    row_id=row.row_id,
-                    paper_label=row.visible_label,
-                    architecture=row.model,
-                    row_status="blocked",
-                    blocker_reason=blocker.blocker_reason or "",
-                    blocker_message=blocker.blocker_message or "",
-                    runtime=metrics_mod.collect_runtime_metadata(
+            for row in rows
+        }
+
+        preflight_manifest = _build_preflight_manifest(
+            output_root=output_root,
+            authority=authority,
+            rows=rows,
+            fixed_sample_ids=fixed_sample_ids,
+            contract=contract,
+            fixed_sample_seed=fixed_sample_seed,
+            classical_backend=backend,
+            in_channels=in_channels,
+            notes={
+                "classical_narrow_fix_attempts": narrow_fix_attempts,
+                "row_contract_fingerprints": per_row_fingerprints,
+            },
+        )
+
+        manifest_path_out = output_root / PREFLIGHT_MANIFEST_NAME
+        _write_manifest(preflight_manifest, manifest_path_out)
+
+        if dry_run:
+            # Dry-run still emits a metric schema so downstream consumers see
+            # the bundle layout even before live execution.
+            metrics_mod.write_metric_schema(output_root / "metric_schema.json")
+            return {
+                "dry_run": True,
+                "preflight_manifest_path": str(manifest_path_out),
+            }
+
+        operator = _build_operator(device)
+        rows_dir.mkdir(parents=True, exist_ok=True)
+        visuals_dir.mkdir(parents=True, exist_ok=True)
+        source_arrays_dir.mkdir(parents=True, exist_ok=True)
+
+        row_metrics: List[metrics_mod.RowMetrics] = []
+        row_status_updates: Dict[str, Dict[str, Any]] = {}
+        fixed_q_pred_by_row: Dict[int, Dict[str, np.ndarray]] = {
+            sid: {} for sid in fixed_sample_ids
+        }
+        fixed_sino_pred_by_row: Dict[int, Dict[str, np.ndarray]] = {
+            sid: {} for sid in fixed_sample_ids
+        }
+        fixed_targets: Dict[int, Dict[str, np.ndarray]] = {}
+        resumed_rows: List[str] = []
+
+        def _record_completed_arrays(
+            row_id: str, sample_arrays: Mapping[int, Mapping[str, np.ndarray]]
+        ) -> None:
+            for sid, arrays in sample_arrays.items():
+                fixed_q_pred_by_row[sid][row_id] = arrays["q_pred"]
+                fixed_sino_pred_by_row[sid][row_id] = arrays["sino_pred"]
+                fixed_targets.setdefault(
+                    sid,
+                    {
+                        "q_target": arrays["q_target"],
+                        "sino_obs": arrays["sino_obs"],
+                    },
+                )
+
+        for row in rows:
+            row_dir = rows_dir / row.row_id
+            row_dir.mkdir(parents=True, exist_ok=True)
+            row_payload: Dict[str, Any] = {"row_id": row.row_id}
+            row_fp = per_row_fingerprints[row.row_id]
+
+            # ---- Resume protocol: skip if a matching prior run exists ----
+            resumed = _maybe_resume_row(
+                row=row,
+                row_dir=row_dir,
+                source_arrays_dir=source_arrays_dir,
+                fixed_sample_ids=fixed_sample_ids,
+                expected_fingerprint=row_fp,
+            )
+            if resumed is not None:
+                cached_metrics, cached_payload, cached_arrays = resumed
+                row_metrics.append(cached_metrics)
+                if cached_metrics.row_status == "completed":
+                    _record_completed_arrays(row.row_id, cached_arrays)
+                row_status_updates[row.row_id] = cached_payload
+                resumed_rows.append(row.row_id)
+                # Refresh per-row invocation provenance to record this resume pass.
+                _write_row_invocation_artifacts(
+                    row_dir=row_dir,
+                    row=row,
+                    contract=contract,
+                    fixed_sample_ids=fixed_sample_ids,
+                    in_channels=in_channels,
+                    device=device,
+                    classical_backend=backend,
+                    contract_fingerprint=row_fp,
+                    parent_argv=parent_argv,
+                    extra_attempts=(
+                        narrow_fix_attempts
+                        if row.row_id == "classical_born_backprop"
+                        else None
+                    ),
+                )
+                continue
+
+            # ---- Per-row invocation provenance for this fresh execution ----
+            _write_row_invocation_artifacts(
+                row_dir=row_dir,
+                row=row,
+                contract=contract,
+                fixed_sample_ids=fixed_sample_ids,
+                in_channels=in_channels,
+                device=device,
+                classical_backend=backend,
+                contract_fingerprint=row_fp,
+                parent_argv=parent_argv,
+                extra_attempts=(
+                    narrow_fix_attempts
+                    if row.row_id == "classical_born_backprop"
+                    else None
+                ),
+            )
+
+            if row.row_id == "classical_born_backprop":
+                # ODTbrain authoritative; if unavailable AFTER the narrow
+                # fix attempt, mark the row blocked and serialize the
+                # narrow-fix attempts onto the row payload.
+                if backend.name != "odtbrain":
+                    blocker = make_blocked_row(
+                        row_id=row.row_id,
+                        model=row.model,
+                        training=row.training,
+                        dataset_id=row.dataset_id,
+                        operator_version=row.operator_version,
+                        blocker_reason="odtbrain_unavailable",
+                        blocker_message=(
+                            "Classical Born backprop reference requires ODTbrain "
+                            "for the decision-support claim boundary; only the "
+                            "local-adjoint fallback is available after a narrow "
+                            "fix attempt."
+                        ),
+                        paper_label=row.paper_label,
+                    )
+                    row_payload.update(blocker.to_dict())
+                    row_payload["narrow_fix_attempts"] = list(narrow_fix_attempts)
+                    row_payload["contract_fingerprint"] = row_fp
+                    row_payload["execution_path"] = "classical_blocked"
+                    row_status_updates[row.row_id] = row_payload
+                    blocked_runtime = metrics_mod.collect_runtime_metadata(
                         device=str(device),
                         device_name=_device_name(device),
                         epochs=0,
@@ -692,176 +1057,332 @@ def run_preflight(
                         wall_time_train_s=0.0,
                         wall_time_eval_s=0.0,
                         row_status="blocked",
-                    ),
+                        extras={"narrow_fix_attempts": list(narrow_fix_attempts)},
+                    )
+                    rm = metrics_mod.RowMetrics(
+                        row_id=row.row_id,
+                        paper_label=row.visible_label,
+                        architecture=row.model,
+                        row_status="blocked",
+                        blocker_reason=blocker.blocker_reason or "",
+                        blocker_message=blocker.blocker_message or "",
+                        runtime=blocked_runtime,
+                    )
+                    row_metrics.append(rm)
+                    row_payload["runtime"] = blocked_runtime
+                    row_payload["paper_label"] = row.visible_label
+                    row_payload["architecture"] = row.model
+                    (row_dir / ROW_SUMMARY_NAME).write_text(
+                        json.dumps(row_payload, indent=2, sort_keys=True) + "\n"
+                    )
+                    continue
+                # Classical row: no training; eval uses the backend init directly.
+                eval_started = time.perf_counter()
+                image_metrics, meas_metrics, sample_arrays = _evaluate_split(
+                    module=None,
+                    authority=authority,
+                    operator=operator,
+                    backend=backend,
+                    device=device,
+                    in_channels=in_channels,
+                    classical_only=True,
+                    fixed_sample_ids=fixed_sample_ids,
+                    out_dir=row_dir,
                 )
-            )
-            (row_dir / "row_summary.json").write_text(
-                json.dumps(row_payload, indent=2, sort_keys=True) + "\n"
-            )
-            continue
-        eval_started = time.perf_counter()
-        image_metrics, meas_metrics, sample_arrays = _evaluate_split(
-            module=module,
-            authority=authority,
-            operator=operator,
-            backend=backend,
-            device=device,
-            in_channels=in_channels,
-            classical_only=False,
-            fixed_sample_ids=fixed_sample_ids,
-            out_dir=row_dir,
-        )
-        eval_seconds = time.perf_counter() - eval_started
-        for sid, arrays in sample_arrays.items():
-            fixed_q_pred_by_row[sid][row.row_id] = arrays["q_pred"]
-            fixed_sino_pred_by_row[sid][row.row_id] = arrays["sino_pred"]
-            fixed_targets.setdefault(sid, {"q_target": arrays["q_target"], "sino_obs": arrays["sino_obs"]})
-        row_metrics.append(
-            metrics_mod.RowMetrics(
-                row_id=row.row_id,
-                paper_label=row.visible_label,
-                architecture=row.model,
-                row_status="completed",
-                image={k: v for k, v in image_metrics.items() if k in metrics_mod.IMAGE_METRICS},
-                measurement=meas_metrics,
-                supporting={
-                    k: v for k, v in image_metrics.items()
-                    if k in metrics_mod.SUPPORTING_METRICS
-                },
-                runtime=metrics_mod.collect_runtime_metadata(
+                eval_seconds = time.perf_counter() - eval_started
+                _record_completed_arrays(row.row_id, sample_arrays)
+                _save_fixed_sample_arrays(
+                    source_arrays_dir=source_arrays_dir,
+                    sample_arrays=sample_arrays,
+                    row_id=row.row_id,
+                )
+                runtime_block = metrics_mod.collect_runtime_metadata(
                     device=str(device),
                     device_name=_device_name(device),
-                    epochs=int(contract.epochs),
+                    epochs=0,
                     batch_size=int(contract.batch_size),
                     learning_rate=float(contract.learning_rate),
-                    parameter_count=int(runtime_meta.get("parameter_count", 0)),
-                    wall_time_train_s=float(train_seconds),
-                    wall_time_eval_s=float(eval_seconds),
+                    parameter_count=0,
+                    wall_time_train_s=0.0,
+                    wall_time_eval_s=eval_seconds,
                     row_status="completed",
-                    extras={
-                        "train_steps": runtime_meta.get("train_steps"),
-                        "final_loss_breakdown": runtime_meta.get("final_loss_breakdown"),
-                        "model_state_path": runtime_meta.get("model_state_path"),
-                    },
-                ),
+                )
+                row_metrics.append(
+                    metrics_mod.RowMetrics(
+                        row_id=row.row_id,
+                        paper_label=row.visible_label,
+                        architecture=row.model,
+                        row_status="completed",
+                        image={
+                            k: v
+                            for k, v in image_metrics.items()
+                            if k in metrics_mod.IMAGE_METRICS
+                        },
+                        measurement=meas_metrics,
+                        supporting={
+                            k: v
+                            for k, v in image_metrics.items()
+                            if k in metrics_mod.SUPPORTING_METRICS
+                        },
+                        runtime=runtime_block,
+                    )
+                )
+                row_payload["row_status"] = "completed"
+                row_payload["paper_label"] = row.visible_label
+                row_payload["architecture"] = row.model
+                row_payload["execution_path"] = "classical_only"
+                row_payload["image_metrics"] = image_metrics
+                row_payload["measurement_metrics"] = meas_metrics
+                row_payload["runtime"] = runtime_block
+                row_payload["contract_fingerprint"] = row_fp
+                row_payload["narrow_fix_attempts"] = list(narrow_fix_attempts)
+                row_status_updates[row.row_id] = row_payload
+                (row_dir / ROW_SUMMARY_NAME).write_text(
+                    json.dumps(row_payload, indent=2, sort_keys=True) + "\n"
+                )
+                continue
+
+            # Neural rows.
+            module, runtime_meta, train_seconds = _train_neural_row(
+                row=row,
+                authority=authority,
+                operator=operator,
+                backend=backend,
+                device=device,
+                contract=contract,
+                in_channels=in_channels,
+                output_dir=row_dir,
             )
-        )
-        row_payload["row_status"] = "completed"
-        row_payload["execution_path"] = "neural_train_eval"
-        row_payload["parameter_count"] = int(runtime_meta.get("parameter_count", 0))
-        row_payload["image_metrics"] = image_metrics
-        row_payload["measurement_metrics"] = meas_metrics
-        row_payload["wall_time_train_s"] = float(train_seconds)
-        row_payload["wall_time_eval_s"] = float(eval_seconds)
-        row_payload["model_state_path"] = runtime_meta.get("model_state_path")
-        row_status_updates[row.row_id] = row_payload
-        (row_dir / "row_summary.json").write_text(
-            json.dumps(row_payload, indent=2, sort_keys=True) + "\n"
-        )
-
-    # ---- Aggregate metrics outputs ----
-    metrics_mod.write_metric_schema(output_root / "metric_schema.json")
-    metrics_mod.write_metrics_json(output_root / "metrics.json", row_metrics)
-    metrics_mod.write_metrics_csv(output_root / "metrics.csv", row_metrics)
-
-    # ---- Visuals ----
-    visual_entries: List[visuals_mod.VisualBundleEntry] = []
-    figure_paths: List[str] = []
-    for sid in fixed_sample_ids:
-        per_row_q = fixed_q_pred_by_row.get(sid, {})
-        per_row_sino = fixed_sino_pred_by_row.get(sid, {})
-        targets = fixed_targets.get(sid)
-        if not per_row_q or targets is None:
-            continue
-        # Source arrays.
-        target_array_path = source_arrays_dir / f"sample_{sid:04d}_q_target.npy"
-        sino_obs_array_path = source_arrays_dir / f"sample_{sid:04d}_sino_obs.npy"
-        np.save(target_array_path, targets["q_target"])
-        np.save(sino_obs_array_path, targets["sino_obs"])
-        for row_id, q_pred in per_row_q.items():
-            pred_path = source_arrays_dir / f"sample_{sid:04d}_{row_id}_q_pred.npy"
-            sino_pred_path = source_arrays_dir / f"sample_{sid:04d}_{row_id}_sino_pred.npy"
-            np.save(pred_path, q_pred)
-            np.save(sino_pred_path, per_row_sino.get(row_id, np.zeros_like(targets["sino_obs"])))
-            visual_entries.append(
-                visuals_mod.VisualBundleEntry(
-                    sample_id=int(sid),
-                    row_id=row_id,
-                    pred_array=str(pred_path.relative_to(output_root)),
-                    target_array=str(target_array_path.relative_to(output_root)),
-                    sino_pred_array=str(sino_pred_path.relative_to(output_root)),
-                    sino_obs_array=str(sino_obs_array_path.relative_to(output_root)),
+            if module is None:
+                err = runtime_meta.get("adapter_build_error", {})
+                blocker = make_blocked_row(
+                    row_id=row.row_id,
+                    model=row.model,
+                    training=row.training,
+                    dataset_id=row.dataset_id,
+                    operator_version=row.operator_version,
+                    blocker_reason=str(err.get("reason", "adapter_build_error")),
+                    blocker_message=str(err.get("message", "adapter_build_error")),
+                    paper_label=row.paper_label,
+                )
+                row_payload.update(blocker.to_dict())
+                row_payload["contract_fingerprint"] = row_fp
+                row_payload["execution_path"] = "neural_blocked"
+                blocked_runtime = metrics_mod.collect_runtime_metadata(
+                    device=str(device),
+                    device_name=_device_name(device),
+                    epochs=0,
+                    batch_size=int(contract.batch_size),
+                    learning_rate=float(contract.learning_rate),
+                    parameter_count=0,
+                    wall_time_train_s=0.0,
+                    wall_time_eval_s=0.0,
+                    row_status="blocked",
+                )
+                row_metrics.append(
+                    metrics_mod.RowMetrics(
+                        row_id=row.row_id,
+                        paper_label=row.visible_label,
+                        architecture=row.model,
+                        row_status="blocked",
+                        blocker_reason=blocker.blocker_reason or "",
+                        blocker_message=blocker.blocker_message or "",
+                        runtime=blocked_runtime,
+                    )
+                )
+                row_payload["paper_label"] = row.visible_label
+                row_payload["architecture"] = row.model
+                row_payload["runtime"] = blocked_runtime
+                row_status_updates[row.row_id] = row_payload
+                (row_dir / ROW_SUMMARY_NAME).write_text(
+                    json.dumps(row_payload, indent=2, sort_keys=True) + "\n"
+                )
+                continue
+            eval_started = time.perf_counter()
+            image_metrics, meas_metrics, sample_arrays = _evaluate_split(
+                module=module,
+                authority=authority,
+                operator=operator,
+                backend=backend,
+                device=device,
+                in_channels=in_channels,
+                classical_only=False,
+                fixed_sample_ids=fixed_sample_ids,
+                out_dir=row_dir,
+            )
+            eval_seconds = time.perf_counter() - eval_started
+            _record_completed_arrays(row.row_id, sample_arrays)
+            _save_fixed_sample_arrays(
+                source_arrays_dir=source_arrays_dir,
+                sample_arrays=sample_arrays,
+                row_id=row.row_id,
+            )
+            runtime_block = metrics_mod.collect_runtime_metadata(
+                device=str(device),
+                device_name=_device_name(device),
+                epochs=int(contract.epochs),
+                batch_size=int(contract.batch_size),
+                learning_rate=float(contract.learning_rate),
+                parameter_count=int(runtime_meta.get("parameter_count", 0)),
+                wall_time_train_s=float(train_seconds),
+                wall_time_eval_s=float(eval_seconds),
+                row_status="completed",
+                extras={
+                    "train_steps": runtime_meta.get("train_steps"),
+                    "final_loss_breakdown": runtime_meta.get(
+                        "final_loss_breakdown"
+                    ),
+                    "model_state_path": runtime_meta.get("model_state_path"),
+                },
+            )
+            row_metrics.append(
+                metrics_mod.RowMetrics(
+                    row_id=row.row_id,
+                    paper_label=row.visible_label,
+                    architecture=row.model,
+                    row_status="completed",
+                    image={
+                        k: v
+                        for k, v in image_metrics.items()
+                        if k in metrics_mod.IMAGE_METRICS
+                    },
+                    measurement=meas_metrics,
+                    supporting={
+                        k: v
+                        for k, v in image_metrics.items()
+                        if k in metrics_mod.SUPPORTING_METRICS
+                    },
+                    runtime=runtime_block,
                 )
             )
-
-    if fixed_sample_ids:
-        first_id = fixed_sample_ids[0]
-        per_row_q = fixed_q_pred_by_row.get(first_id, {})
-        per_row_sino = fixed_sino_pred_by_row.get(first_id, {})
-        targets = fixed_targets.get(first_id)
-        if per_row_q and targets is not None:
-            compare_path = visuals_dir / "brdt_compare_q.png"
-            error_path = visuals_dir / "brdt_error_q.png"
-            sino_path = visuals_dir / "brdt_sinogram_residual.png"
-            visuals_mod.render_compare_q(
-                preds_by_row=per_row_q,
-                target=targets["q_target"],
-                out_path=compare_path,
-                sample_id=int(first_id),
+            row_payload["row_status"] = "completed"
+            row_payload["paper_label"] = row.visible_label
+            row_payload["architecture"] = row.model
+            row_payload["execution_path"] = "neural_train_eval"
+            row_payload["parameter_count"] = int(
+                runtime_meta.get("parameter_count", 0)
             )
-            visuals_mod.render_error_q(
-                preds_by_row=per_row_q,
-                target=targets["q_target"],
-                out_path=error_path,
-                sample_id=int(first_id),
+            row_payload["image_metrics"] = image_metrics
+            row_payload["measurement_metrics"] = meas_metrics
+            row_payload["wall_time_train_s"] = float(train_seconds)
+            row_payload["wall_time_eval_s"] = float(eval_seconds)
+            row_payload["model_state_path"] = runtime_meta.get("model_state_path")
+            row_payload["runtime"] = runtime_block
+            row_payload["contract_fingerprint"] = row_fp
+            row_status_updates[row.row_id] = row_payload
+            (row_dir / ROW_SUMMARY_NAME).write_text(
+                json.dumps(row_payload, indent=2, sort_keys=True) + "\n"
             )
-            visuals_mod.render_sinogram_residual(
-                sino_obs=targets["sino_obs"],
-                sino_preds_by_row=per_row_sino,
-                out_path=sino_path,
-                sample_id=int(first_id),
-            )
-            figure_paths = [
-                str(compare_path.relative_to(output_root)),
-                str(error_path.relative_to(output_root)),
-                str(sino_path.relative_to(output_root)),
-            ]
 
-    visuals_mod.write_visual_manifest(
-        output_root / "visual_manifest.json",
-        figures=figure_paths,
-        entries=visual_entries,
-    )
+        # ---- Aggregate metrics outputs ----
+        metrics_mod.write_metric_schema(output_root / "metric_schema.json")
+        metrics_mod.write_metrics_json(output_root / "metrics.json", row_metrics)
+        metrics_mod.write_metrics_csv(output_root / "metrics.csv", row_metrics)
 
-    # ---- Update preflight manifest with final row statuses ----
-    preflight_manifest["rows"] = [
-        {**r.to_dict(), **row_status_updates.get(r.row_id, {})}
-        for r in rows
-    ]
-    preflight_manifest["row_metrics"] = [r.to_dict() for r in row_metrics]
-    preflight_manifest["bundle_artifacts"] = {
-        "metrics_json": "metrics.json",
-        "metrics_csv": "metrics.csv",
-        "metric_schema": "metric_schema.json",
-        "visual_manifest": "visual_manifest.json",
-        "visuals_dir": "visuals/",
-        "source_arrays_dir": "figures/source_arrays/",
-        "rows_dir": "rows/",
-    }
-    preflight_manifest["dependency_status"] = {
-        "odtbrain": backend.name == "odtbrain",
-        "neuralop": _neuralop_available(),
-    }
-    _write_manifest(preflight_manifest, manifest_path_out)
+        # ---- Visuals ----
+        visual_entries: List[visuals_mod.VisualBundleEntry] = []
+        figure_paths: List[str] = []
+        for sid in fixed_sample_ids:
+            per_row_q = fixed_q_pred_by_row.get(sid, {})
+            per_row_sino = fixed_sino_pred_by_row.get(sid, {})
+            targets = fixed_targets.get(sid)
+            if not per_row_q or targets is None:
+                continue
+            target_array_path = source_arrays_dir / f"sample_{sid:04d}_q_target.npy"
+            sino_obs_array_path = source_arrays_dir / f"sample_{sid:04d}_sino_obs.npy"
+            np.save(target_array_path, targets["q_target"])
+            np.save(sino_obs_array_path, targets["sino_obs"])
+            for row_id, q_pred in per_row_q.items():
+                pred_path = source_arrays_dir / f"sample_{sid:04d}_{row_id}_q_pred.npy"
+                sino_pred_path = (
+                    source_arrays_dir / f"sample_{sid:04d}_{row_id}_sino_pred.npy"
+                )
+                np.save(pred_path, q_pred)
+                np.save(
+                    sino_pred_path,
+                    per_row_sino.get(row_id, np.zeros_like(targets["sino_obs"])),
+                )
+                visual_entries.append(
+                    visuals_mod.VisualBundleEntry(
+                        sample_id=int(sid),
+                        row_id=row_id,
+                        pred_array=str(pred_path.relative_to(output_root)),
+                        target_array=str(target_array_path.relative_to(output_root)),
+                        sino_pred_array=str(sino_pred_path.relative_to(output_root)),
+                        sino_obs_array=str(sino_obs_array_path.relative_to(output_root)),
+                    )
+                )
 
-    return {
-        "preflight_manifest_path": str(manifest_path_out),
-        "metrics_json_path": str(output_root / "metrics.json"),
-        "metrics_csv_path": str(output_root / "metrics.csv"),
-        "metric_schema_path": str(output_root / "metric_schema.json"),
-        "visual_manifest_path": str(output_root / "visual_manifest.json"),
-        "rows": [r.to_dict() for r in row_metrics],
-    }
+        if fixed_sample_ids:
+            first_id = fixed_sample_ids[0]
+            per_row_q = fixed_q_pred_by_row.get(first_id, {})
+            per_row_sino = fixed_sino_pred_by_row.get(first_id, {})
+            targets = fixed_targets.get(first_id)
+            if per_row_q and targets is not None:
+                compare_path = visuals_dir / "brdt_compare_q.png"
+                error_path = visuals_dir / "brdt_error_q.png"
+                sino_path = visuals_dir / "brdt_sinogram_residual.png"
+                visuals_mod.render_compare_q(
+                    preds_by_row=per_row_q,
+                    target=targets["q_target"],
+                    out_path=compare_path,
+                    sample_id=int(first_id),
+                )
+                visuals_mod.render_error_q(
+                    preds_by_row=per_row_q,
+                    target=targets["q_target"],
+                    out_path=error_path,
+                    sample_id=int(first_id),
+                )
+                visuals_mod.render_sinogram_residual(
+                    sino_obs=targets["sino_obs"],
+                    sino_preds_by_row=per_row_sino,
+                    out_path=sino_path,
+                    sample_id=int(first_id),
+                )
+                figure_paths = [
+                    str(compare_path.relative_to(output_root)),
+                    str(error_path.relative_to(output_root)),
+                    str(sino_path.relative_to(output_root)),
+                ]
+
+        visuals_mod.write_visual_manifest(
+            output_root / "visual_manifest.json",
+            figures=figure_paths,
+            entries=visual_entries,
+        )
+
+        # ---- Update preflight manifest with final row statuses ----
+        preflight_manifest["rows"] = [
+            {**r.to_dict(), **row_status_updates.get(r.row_id, {})}
+            for r in rows
+        ]
+        preflight_manifest["row_metrics"] = [r.to_dict() for r in row_metrics]
+        preflight_manifest["bundle_artifacts"] = {
+            "metrics_json": "metrics.json",
+            "metrics_csv": "metrics.csv",
+            "metric_schema": "metric_schema.json",
+            "visual_manifest": "visual_manifest.json",
+            "visuals_dir": "visuals/",
+            "source_arrays_dir": "figures/source_arrays/",
+            "rows_dir": "rows/",
+        }
+        preflight_manifest["dependency_status"] = {
+            "odtbrain": backend.name == "odtbrain",
+            "neuralop": _neuralop_available(),
+        }
+        preflight_manifest["resumed_rows"] = list(resumed_rows)
+        _write_manifest(preflight_manifest, manifest_path_out)
+
+        return {
+            "preflight_manifest_path": str(manifest_path_out),
+            "metrics_json_path": str(output_root / "metrics.json"),
+            "metrics_csv_path": str(output_root / "metrics.csv"),
+            "metric_schema_path": str(output_root / "metric_schema.json"),
+            "visual_manifest_path": str(output_root / "visual_manifest.json"),
+            "rows": [r.to_dict() for r in row_metrics],
+            "resumed_rows": list(resumed_rows),
+        }
 
 
 def _neuralop_available() -> bool:
@@ -912,10 +1433,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
     output_root = Path(args.output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
+    parent_argv = sys.argv[1:] if argv is None else list(argv)
     write_invocation_artifacts(
         output_dir=output_root,
         script_path=SCRIPT_PATH,
-        argv=sys.argv[1:] if argv is None else list(argv),
+        argv=parent_argv,
         parsed_args=vars(args),
         extra={
             "backlog_item": BACKLOG_ITEM,
@@ -938,6 +1460,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             in_channels=int(args.in_channels),
             device_choice=str(args.device),
             dry_run=bool(args.dry_run),
+            parent_argv=parent_argv,
         )
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
