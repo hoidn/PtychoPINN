@@ -422,6 +422,85 @@ def test_gap_draft_validator_accepts_valid_phase2_item(tmp_path):
     assert payload["backlog_item_path"] == "docs/backlog/active/2026-04-28-phase2-gap.md"
 
 
+def test_gap_draft_validator_accepts_block_scalar_check_commands(tmp_path):
+    workspace = _workspace(tmp_path)
+    gap_request = workspace / "state/gap_request.json"
+    gap_request.parent.mkdir(parents=True, exist_ok=True)
+    gap_request.write_text(
+        json.dumps(
+            {
+                "allowed_roadmap_phase_prefixes": ["phase-2-pdebench-"],
+                "disallowed_roadmap_phase_prefixes": ["phase-3-"],
+                "gap_item_target_dir": "docs/backlog/active",
+                "gap_plan_target_root": "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps",
+                "roadmap_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    plan_path = workspace / "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps/2026-04-28-block.md"
+    plan_path.parent.mkdir(parents=True, exist_ok=True)
+    plan_path.write_text("# Phase 2 Block Command Plan\n", encoding="utf-8")
+    item_path = workspace / "docs/backlog/active/2026-04-28-block-command-gap.md"
+    item_path.write_text(
+        "\n".join(
+            [
+                "---",
+                "priority: 5",
+                "plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps/2026-04-28-block.md",
+                "check_commands:",
+                "  - |",
+                "    python - <<'PY'",
+                "    print('valid block command')",
+                "    PY",
+                "related_roadmap_phases:",
+                "  - phase-2-pdebench-full-training-evidence",
+                "---",
+                "",
+                "# Backlog Item: Phase 2 Block Command Gap",
+                "",
+                "## Objective",
+                "- Close the missing Phase 2 evidence gap.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    draft_bundle = workspace / "state/draft_bundle.json"
+    draft_bundle.write_text(
+        json.dumps(
+            {
+                "draft_status": "DRAFTED",
+                "backlog_item_path": item_path.relative_to(workspace).as_posix(),
+                "seed_plan_path": plan_path.relative_to(workspace).as_posix(),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    output = workspace / "state/draft_validation.json"
+    _run_script(
+        workspace,
+        "workflows/library/scripts/validate_neurips_backlog_gap_draft.py",
+        "--gap-request-path",
+        str(gap_request),
+        "--draft-bundle-path",
+        str(draft_bundle),
+        "--gate-policy-path",
+        "docs/backlog/roadmap_gate.json",
+        "--output",
+        str(output),
+    )
+
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["draft_validation_status"] == "VALID"
+    assert payload["backlog_item_path"] == "docs/backlog/active/2026-04-28-block-command-gap.md"
+
+
 def test_gap_draft_validator_rejects_future_phase_item(tmp_path):
     workspace = _workspace(tmp_path)
     gap_request = workspace / "state/gap_request.json"
@@ -493,6 +572,9 @@ def test_gap_draft_validator_rejects_future_phase_item(tmp_path):
 
     assert result.returncode != 0
     assert "disallowed" in result.stderr.lower() or "allowed" in result.stderr.lower()
+    failure_payload = json.loads((workspace / "state/draft_validation.json").read_text(encoding="utf-8"))
+    assert failure_payload["draft_validation_status"] == "INVALID"
+    assert "disallowed" in failure_payload["reason"].lower() or "allowed" in failure_payload["reason"].lower()
 
 
 def test_move_item_allows_legal_transitions_and_rejects_illegal_ones(tmp_path):

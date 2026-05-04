@@ -38,7 +38,7 @@ outputs:
   draft_status:
     kind: scalar
     type: enum
-    allowed: ["VALID", "BLOCKED"]
+    allowed: ["VALID", "BLOCKED", "INVALID"]
     from:
       ref: root.steps.ValidateBacklogGapDraft.artifacts.draft_validation_status
 
@@ -96,7 +96,7 @@ steps:
         - name: draft_validation_status
           json_pointer: /draft_validation_status
           type: enum
-          allowed: ["VALID", "BLOCKED"]
+          allowed: ["VALID", "BLOCKED", "INVALID"]
         - name: backlog_item_path
           json_pointer: /backlog_item_path
           type: relpath

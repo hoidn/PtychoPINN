@@ -5,8 +5,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any
+
+import yaml
 
 
 REPO_ROOT = Path.cwd()
@@ -58,31 +61,28 @@ def _parse_frontmatter(path: Path) -> dict[str, Any]:
     if end == -1:
         raise SystemExit(f"Backlog item missing YAML frontmatter end fence: {path}")
 
-    payload: dict[str, Any] = {}
-    current_list_key: str | None = None
-    for raw_line in text[4:end].splitlines():
-        line = raw_line.rstrip()
-        if not line:
-            continue
-        if line.startswith("  - ") or line.startswith("- "):
-            if not current_list_key:
-                raise SystemExit(f"List item without owning key in frontmatter: {path}: {line}")
-            payload.setdefault(current_list_key, [])
-            assert isinstance(payload[current_list_key], list)
-            payload[current_list_key].append(line.split("- ", 1)[1].strip())
-            continue
-        if ":" not in line:
-            raise SystemExit(f"Malformed frontmatter line in {path}: {line}")
-        key, value = line.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-        if value == "":
-            payload[key] = []
-            current_list_key = key
-        else:
-            payload[key] = value
-            current_list_key = None
-    return payload
+    try:
+        parsed = yaml.safe_load(text[4:end]) or {}
+    except yaml.YAMLError as exc:
+        raise SystemExit(f"Malformed YAML frontmatter in {path}: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise SystemExit(f"YAML frontmatter must be a mapping: {path}")
+    return {str(key): value for key, value in parsed.items()}
+
+
+def _write_validation_failure(output_path: Path, reason: str) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        json.dumps(
+            {
+                "draft_validation_status": "INVALID",
+                "reason": reason,
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 def _validate_policy(policy: dict[str, Any]) -> tuple[list[str], list[str]]:
@@ -99,14 +99,7 @@ def _ensure_under(path: Path, root_rel: str, label: str) -> None:
         raise SystemExit(f"{label} must be under {root_rel}: {_repo_relpath(path)}") from exc
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--gap-request-path", required=True)
-    parser.add_argument("--draft-bundle-path", required=True)
-    parser.add_argument("--gate-policy-path", required=True)
-    parser.add_argument("--output", required=True)
-    args = parser.parse_args()
-
+def _run(args: argparse.Namespace) -> int:
     gap_request_path = _resolve_workspace_path(args.gap_request_path, must_exist=True)
     draft_bundle_path = _resolve_workspace_path(args.draft_bundle_path, must_exist=True)
     gate_policy_path = _resolve_workspace_path(args.gate_policy_path, must_exist=True)
@@ -178,6 +171,26 @@ def main() -> int:
         encoding="utf-8",
     )
     return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--gap-request-path", required=True)
+    parser.add_argument("--draft-bundle-path", required=True)
+    parser.add_argument("--gate-policy-path", required=True)
+    parser.add_argument("--output", required=True)
+    args = parser.parse_args()
+
+    try:
+        return _run(args)
+    except SystemExit as exc:
+        if isinstance(exc.code, int):
+            raise
+        reason = str(exc.code)
+        output_path = _resolve_workspace_path(args.output)
+        _write_validation_failure(output_path, reason)
+        print(reason, file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
