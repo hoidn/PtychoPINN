@@ -4,16 +4,17 @@ Read the injected project documents and gap request before acting. If `docs/inde
 
 Your task is narrow:
 
-- Draft exactly one backlog item under the target active backlog directory named in the gap request.
-- Draft exactly one seed plan under the plan target root named in the gap request.
+- Draft exactly one candidate backlog item at the candidate backlog item path.
+- Draft exactly one candidate seed plan at the candidate plan path.
 - Use only work already authorized by the roadmap gate and gap request.
 - Do not edit the roadmap, steering document, progress ledger, run state, existing backlog items, source code, tests, or artifacts.
+- Do not write directly to `docs/backlog/active`; the validator installs valid candidates.
 - Do not advance to CDI, Phase 3, Phase 4, or Phase 5 work.
 
 The backlog item frontmatter must include:
 
 - `priority`
-- `plan_path` pointing to the seed plan you wrote
+- `plan_path` pointing to the final seed plan target under the plan target root
 - non-empty `check_commands`
 - `related_roadmap_phases` containing an allowed Phase 2 PDEBench phase from the gap request
 
@@ -26,6 +27,8 @@ Write the JSON draft bundle to the output contract path:
 ```json
 {
   "draft_status": "DRAFTED",
+  "candidate_backlog_item_path": "state/.../candidate/backlog_item.md",
+  "candidate_plan_path": "state/.../candidate/seed_plan.md",
   "backlog_item_path": "docs/backlog/active/YYYY-MM-DD-pdebench-full-training-evidence-gate.md",
   "seed_plan_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps/YYYY-MM-DD-pdebench-full-training-evidence-gate.md",
   "summary": "short summary"

@@ -6,6 +6,9 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
+
+import yaml
 
 
 REPO_ROOT = Path.cwd()
@@ -24,31 +27,13 @@ def _parse_frontmatter(text: str, source_path: Path) -> dict:
     if end == -1:
         raise SystemExit(f"Backlog item missing YAML frontmatter end fence: {source_path}")
 
-    payload: dict[str, object] = {}
-    current_list_key: str | None = None
-    for raw_line in text[4:end].splitlines():
-        line = raw_line.rstrip()
-        if not line:
-            continue
-        if line.startswith("  - ") or line.startswith("- "):
-            key = current_list_key
-            if not key:
-                raise SystemExit(f"List item without owning key in frontmatter: {source_path}: {line}")
-            payload.setdefault(key, [])
-            assert isinstance(payload[key], list)
-            payload[key].append(_strip_wrapping_quotes(line.split("- ", 1)[1].strip()))
-            continue
-        if ":" not in line:
-            raise SystemExit(f"Malformed frontmatter line in {source_path}: {line}")
-        key, value = line.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-        if value == "":
-            payload[key] = []
-            current_list_key = key
-        else:
-            payload[key] = _strip_wrapping_quotes(value)
-            current_list_key = None
+    try:
+        parsed = yaml.safe_load(text[4:end]) or {}
+    except yaml.YAMLError as exc:
+        raise SystemExit(f"Malformed YAML frontmatter in {source_path}: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise SystemExit(f"YAML frontmatter must be a mapping: {source_path}")
+    payload: dict[str, object] = {str(key): value for key, value in parsed.items()}
     payload["_body"] = text[end + len("\n---\n") :]
     return payload
 
@@ -105,8 +90,8 @@ def _safe_relpath(path: Path, *, source_path: Path) -> str:
     return rel.as_posix()
 
 
-def _build_entry(source_path: Path) -> dict:
-    parsed = _parse_frontmatter(source_path.read_text(encoding="utf-8"), source_path)
+def _entry_from_parsed(source_path: Path, parsed: dict[str, Any]) -> dict:
+    parsed = dict(parsed)
 
     if "priority" not in parsed:
         raise SystemExit(f"Frontmatter missing required key priority: {source_path}")
@@ -157,6 +142,64 @@ def _build_entry(source_path: Path) -> dict:
     }
 
 
+def _build_entry(source_path: Path) -> dict:
+    parsed = _parse_frontmatter(source_path.read_text(encoding="utf-8"), source_path)
+    return _entry_from_parsed(source_path, parsed)
+
+
+def _invalid_entry(source_path: Path, reason: str, parsed: dict[str, Any] | None = None) -> dict:
+    phases: list[str] = []
+    priority: int | None = None
+    plan_path = ""
+    if parsed:
+        phases = _normalized_string_list(parsed.get("related_roadmap_phases"), field="related_roadmap_phases", source_path=source_path)
+        plan_path = str(parsed.get("plan_path") or "").strip()
+        try:
+            priority_value = parsed.get("priority")
+            if priority_value is not None:
+                priority = int(str(priority_value).strip())
+        except ValueError:
+            priority = None
+    return {
+        "item_id": source_path.stem,
+        "path": _safe_relpath(source_path, source_path=source_path),
+        "status": "invalid",
+        "priority": priority,
+        "plan_path": plan_path,
+        "related_roadmap_phases": phases,
+        "invalid_reasons": [reason],
+    }
+
+
+def _build_entry_or_invalid(source_path: Path) -> tuple[dict | None, dict | None]:
+    parsed: dict[str, Any] | None = None
+    try:
+        parsed = _parse_frontmatter(source_path.read_text(encoding="utf-8"), source_path)
+        return _entry_from_parsed(source_path, parsed), None
+    except SystemExit as exc:
+        reason = str(exc.code)
+        if parsed is None:
+            try:
+                parsed = _parse_frontmatter(source_path.read_text(encoding="utf-8"), source_path)
+            except SystemExit:
+                parsed = None
+        return None, _invalid_entry(source_path, reason, parsed)
+
+
+def _build_manifest_entries(items: list[Path]) -> tuple[list[dict], list[dict]]:
+    valid_entries: list[dict] = []
+    invalid_entries: list[dict] = []
+    for path in items:
+        entry, invalid = _build_entry_or_invalid(path)
+        if entry is not None:
+            valid_entries.append(entry)
+        elif invalid is not None:
+            invalid_entries.append(invalid)
+    valid_entries.sort(key=lambda row: (row["priority"], row["path"]))
+    invalid_entries.sort(key=lambda row: ((row.get("priority") is None, row.get("priority") or 999999), row["path"]))
+    return valid_entries, invalid_entries
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--backlog-root", required=True, help="Backlog directory root such as docs/backlog/active")
@@ -172,14 +215,16 @@ def main() -> int:
         raise SystemExit(f"Backlog root must live under repo root: {backlog_root}") from exc
 
     items = sorted(backlog_root.glob("*.md"))
-    entries = [_build_entry(path) for path in items]
-    entries.sort(key=lambda row: (row["priority"], row["path"]))
+    entries, invalid_entries = _build_manifest_entries(items)
 
     payload = {
-        "manifest_version": 1,
+        "manifest_version": 2,
         "backlog_root": backlog_rel.as_posix(),
         "active_count": len(entries),
+        "total_active_count": len(entries) + len(invalid_entries),
+        "invalid_count": len(invalid_entries),
         "items": entries,
+        "invalid_items": invalid_entries,
     }
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)

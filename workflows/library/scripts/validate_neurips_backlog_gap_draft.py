@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -99,6 +100,34 @@ def _ensure_under(path: Path, root_rel: str, label: str) -> None:
         raise SystemExit(f"{label} must be under {root_rel}: {_repo_relpath(path)}") from exc
 
 
+def _validate_backlog_item(
+    item_path: Path,
+    plan_path: Path,
+    *,
+    allowed: list[str],
+    disallowed: list[str],
+) -> None:
+    frontmatter = _parse_frontmatter(item_path)
+    check_commands = _string_list(frontmatter, "check_commands", required=True)
+    phases = _string_list(frontmatter, "related_roadmap_phases", required=True)
+    item_plan = str(frontmatter.get("plan_path") or "").strip()
+    if item_plan != _repo_relpath(plan_path):
+        raise SystemExit(f"plan_path must match seed_plan_path: {item_plan} != {_repo_relpath(plan_path)}")
+    if not any(any(phase.startswith(prefix) for prefix in allowed) for phase in phases):
+        raise SystemExit("Drafted backlog item has no allowed roadmap phase")
+    if any(any(phase.startswith(prefix) for prefix in disallowed) for phase in phases):
+        raise SystemExit("Drafted backlog item uses a disallowed roadmap phase")
+    if not check_commands:
+        raise SystemExit("Drafted backlog item must include check_commands")
+
+
+def _atomic_copy(source: Path, target: Path) -> None:
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temp = target.with_name(target.name + ".tmp")
+    shutil.copyfile(source, temp)
+    temp.replace(target)
+
+
 def _run(args: argparse.Namespace) -> int:
     gap_request_path = _resolve_workspace_path(args.gap_request_path, must_exist=True)
     draft_bundle_path = _resolve_workspace_path(args.draft_bundle_path, must_exist=True)
@@ -133,36 +162,42 @@ def _run(args: argparse.Namespace) -> int:
     if not item_rel or not plan_rel:
         raise SystemExit("DRAFTED bundle requires backlog_item_path and seed_plan_path")
 
-    item_path = _resolve_workspace_path(item_rel, must_exist=True)
-    plan_path = _resolve_workspace_path(plan_rel, must_exist=True)
-    _ensure_under(item_path, str(gap_request.get("gap_item_target_dir") or "docs/backlog/active"), "backlog_item_path")
-    _ensure_under(plan_path, str(gap_request.get("gap_plan_target_root") or ""), "seed_plan_path")
+    final_item_path = _resolve_workspace_path(item_rel)
+    final_plan_path = _resolve_workspace_path(plan_rel)
+    _ensure_under(final_item_path, str(gap_request.get("gap_item_target_dir") or "docs/backlog/active"), "backlog_item_path")
+    _ensure_under(final_plan_path, str(gap_request.get("gap_plan_target_root") or ""), "seed_plan_path")
 
     roadmap_path = str(gap_request.get("roadmap_path") or "").strip()
     draft_roadmap_path = str(draft.get("roadmap_path") or roadmap_path).strip()
     if roadmap_path and draft_roadmap_path != roadmap_path:
         raise SystemExit("Draft bundle attempted to change roadmap_path")
 
-    frontmatter = _parse_frontmatter(item_path)
-    check_commands = _string_list(frontmatter, "check_commands", required=True)
-    phases = _string_list(frontmatter, "related_roadmap_phases", required=True)
-    item_plan = str(frontmatter.get("plan_path") or "").strip()
-    if item_plan != _repo_relpath(plan_path):
-        raise SystemExit(f"plan_path must match seed_plan_path: {item_plan} != {_repo_relpath(plan_path)}")
-    if not any(any(phase.startswith(prefix) for prefix in allowed) for phase in phases):
-        raise SystemExit("Drafted backlog item has no allowed roadmap phase")
-    if any(any(phase.startswith(prefix) for prefix in disallowed) for phase in phases):
-        raise SystemExit("Drafted backlog item uses a disallowed roadmap phase")
-    if not check_commands:
-        raise SystemExit("Drafted backlog item must include check_commands")
+    candidate_item_rel = str(draft.get("candidate_backlog_item_path") or "").strip()
+    candidate_plan_rel = str(draft.get("candidate_plan_path") or "").strip()
+    if candidate_item_rel or candidate_plan_rel:
+        if not candidate_item_rel or not candidate_plan_rel:
+            raise SystemExit("Candidate draft mode requires candidate_backlog_item_path and candidate_plan_path")
+        candidate_item_path = _resolve_workspace_path(candidate_item_rel, must_exist=True)
+        candidate_plan_path = _resolve_workspace_path(candidate_plan_rel, must_exist=True)
+        _ensure_under(candidate_item_path, "state", "candidate_backlog_item_path")
+        _ensure_under(candidate_plan_path, "state", "candidate_plan_path")
+        _validate_backlog_item(candidate_item_path, final_plan_path, allowed=allowed, disallowed=disallowed)
+        _atomic_copy(candidate_plan_path, final_plan_path)
+        _atomic_copy(candidate_item_path, final_item_path)
+    else:
+        final_item_path = _resolve_workspace_path(item_rel, must_exist=True)
+        final_plan_path = _resolve_workspace_path(plan_rel, must_exist=True)
+        _ensure_under(final_item_path, str(gap_request.get("gap_item_target_dir") or "docs/backlog/active"), "backlog_item_path")
+        _ensure_under(final_plan_path, str(gap_request.get("gap_plan_target_root") or ""), "seed_plan_path")
+        _validate_backlog_item(final_item_path, final_plan_path, allowed=allowed, disallowed=disallowed)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         json.dumps(
             {
                 "draft_validation_status": "VALID",
-                "backlog_item_path": _repo_relpath(item_path),
-                "seed_plan_path": _repo_relpath(plan_path),
+                "backlog_item_path": _repo_relpath(final_item_path),
+                "seed_plan_path": _repo_relpath(final_plan_path),
                 "reason": "Drafted backlog gap item passed deterministic validation.",
             },
             indent=2,

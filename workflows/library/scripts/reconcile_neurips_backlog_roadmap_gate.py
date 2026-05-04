@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from build_neurips_backlog_manifest import _build_manifest_entries
+
 
 REPO_ROOT = Path.cwd()
 STATUSES = {"ELIGIBLE", "BACKLOG_GAP", "DONE", "BLOCKED"}
@@ -97,6 +99,28 @@ def _blocked_ids(run_state: dict[str, Any]) -> set[str]:
     return set()
 
 
+def _refresh_manifest_from_backlog_root(manifest: dict[str, Any]) -> dict[str, Any]:
+    backlog_root_value = str(manifest.get("backlog_root") or "").strip()
+    if not backlog_root_value:
+        return manifest
+
+    backlog_root = _resolve_workspace_path(backlog_root_value, must_exist=True)
+    if not backlog_root.is_dir():
+        raise SystemExit(f"Manifest backlog_root is not a directory: {backlog_root_value}")
+
+    entries, invalid_entries = _build_manifest_entries(sorted(backlog_root.glob("*.md")))
+    return {
+        **manifest,
+        "manifest_version": 2,
+        "active_count": len(entries),
+        "total_active_count": len(entries) + len(invalid_entries),
+        "invalid_count": len(invalid_entries),
+        "items": entries,
+        "invalid_items": invalid_entries,
+        "refreshed_from_backlog_root": backlog_root_value,
+    }
+
+
 def _item_phase_status(item: dict[str, Any], allowed: list[str], disallowed: list[str]) -> tuple[bool, str]:
     phases = item.get("related_roadmap_phases")
     if not isinstance(phases, list) or not phases:
@@ -181,20 +205,22 @@ def main() -> int:
     run_state_path = _resolve_workspace_path(args.run_state_path)
     output_path = _resolve_workspace_path(args.output)
 
-    manifest = _load_json(manifest_path)
+    manifest = _refresh_manifest_from_backlog_root(_load_json(manifest_path))
     policy = _validate_policy(_load_json(policy_path))
     progress = _load_json(progress_path)
     run_state = _load_json(run_state_path, missing_default={"completed_items": [], "blocked_items": {}})
 
     eligible, ineligible = _classify_items(manifest, policy, progress, run_state)
-    active_count = int(manifest.get("active_count") or len(manifest.get("items") or []))
-    all_items = manifest.get("items") if isinstance(manifest.get("items"), list) else []
+    valid_items = manifest.get("items") if isinstance(manifest.get("items"), list) else []
+    invalid_items = manifest.get("invalid_items") if isinstance(manifest.get("invalid_items"), list) else []
+    total_active_count = int(manifest.get("total_active_count") or len(valid_items) + len(invalid_items))
+    all_items = valid_items + invalid_items
     has_current_phase_item = _has_current_phase_item(
         all_items,
         policy["allowed_roadmap_phase_prefixes"],
         policy["disallowed_roadmap_phase_prefixes"],
     )
-    if active_count == 0:
+    if total_active_count == 0:
         gate_status = "DONE"
     elif eligible:
         gate_status = "ELIGIBLE"
@@ -214,6 +240,8 @@ def main() -> int:
         **manifest,
         "active_count": len(eligible),
         "items": eligible,
+        "invalid_count": len(invalid_items),
+        "invalid_items": invalid_items,
         "source_manifest_path": _repo_relpath(manifest_path),
         "roadmap_gate_status": gate_status,
     }
@@ -229,7 +257,9 @@ def main() -> int:
         "source_manifest_path": _repo_relpath(manifest_path),
         "eligible_count": len(eligible),
         "ineligible_count": len(ineligible),
+        "invalid_count": len(invalid_items),
         "ineligible_items": ineligible,
+        "invalid_items": invalid_items,
         "roadmap_path": progress.get("roadmap_path"),
     }
     gap_request_path.write_text(json.dumps(gap_request, indent=2) + "\n", encoding="utf-8")
@@ -240,8 +270,10 @@ def main() -> int:
         "gap_request_path": _repo_relpath(gap_request_path),
         "eligible_count": len(eligible),
         "ineligible_count": len(ineligible),
+        "invalid_count": len(invalid_items),
         "eligible_items": eligible,
         "ineligible_items": ineligible,
+        "invalid_items": invalid_items,
     }
     output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
     return 0
