@@ -1777,6 +1777,65 @@ class TestChannelGridsizeAlignment:
         with pytest.raises(ValueError, match="hybrid_encoder_branch_gate_init"):
             setup_torch_configs(cfg)
 
+    @pytest.mark.parametrize("select", ["both", "conv_only", "spectral_only"])
+    def test_runner_accepts_hybrid_encoder_branch_select(self, tmp_path, select):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_encoder_branch_select=select,
+        )
+        _, execution_config = setup_torch_configs(cfg)
+        assert execution_config.hybrid_encoder_branch_select == select
+
+    def test_runner_default_hybrid_encoder_branch_select_is_both(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+        )
+        _, execution_config = setup_torch_configs(cfg)
+        assert execution_config.hybrid_encoder_branch_select == "both"
+
+    def test_runner_rejects_invalid_hybrid_encoder_branch_select(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_encoder_branch_select="bogus",
+        )
+        with pytest.raises(ValueError, match="hybrid_encoder_branch_select"):
+            setup_torch_configs(cfg)
+
+    def test_runner_branch_select_stays_out_of_canonical_model_config(self, tmp_path):
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_encoder_branch_select="conv_only",
+        )
+        training_config, execution_config = setup_torch_configs(cfg)
+        assert execution_config.hybrid_encoder_branch_select == "conv_only"
+        assert not hasattr(training_config.model, "hybrid_encoder_branch_select")
+
+    def test_runner_branch_select_appears_in_argv(self, tmp_path):
+        from scripts.studies.grid_lines_torch_runner import _build_runner_cli_argv
+
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "out",
+            architecture="hybrid_resnet",
+            hybrid_encoder_branch_select="spectral_only",
+        )
+        argv = _build_runner_cli_argv(cfg)
+        assert "--hybrid-encoder-branch-select" in argv
+        assert "spectral_only" in argv
+
     def test_runner_torch_only_spectral_bottleneck_fields_stay_out_of_model_config(self, tmp_path):
         cfg = TorchRunnerConfig(
             train_npz=tmp_path / "train.npz",

@@ -258,6 +258,10 @@ def _build_generator_module_from_config(
                 "hybrid_encoder_branch_gate_init",
                 getattr(model_config, "hybrid_encoder_branch_gate_init", 0.1),
             ),
+            encoder_branch_select=generator_overrides.get(
+                "hybrid_encoder_branch_select",
+                getattr(model_config, "hybrid_encoder_branch_select", "both"),
+            ),
         )
 
     if architecture == "spectral_resnet_bottleneck_net":

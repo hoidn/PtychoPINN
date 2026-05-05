@@ -861,6 +861,106 @@ class TestHybridResnetGenerator:
             assert block.spectral_branch_gate is None
             assert block.local_branch_gate is None
 
+    @pytest.mark.parametrize("select", ["both", "conv_only", "spectral_only"])
+    def test_hybrid_resnet_encoder_branch_select_preserves_shape(self, select):
+        torch.manual_seed(17)
+        block = HybridResnetEncoderBlock(channels=16, modes=4, encoder_branch_select=select)
+        x = torch.randn(2, 16, 32, 32)
+        y = block(x)
+        assert y.shape == x.shape
+        assert block.encoder_branch_select == select
+
+    def test_hybrid_resnet_encoder_branch_select_default_is_both(self):
+        block = HybridResnetEncoderBlock(channels=16, modes=4)
+        assert block.encoder_branch_select == "both"
+
+    def test_hybrid_resnet_encoder_branch_select_conv_only_drops_spectral_params(self):
+        block = HybridResnetEncoderBlock(channels=16, modes=4, encoder_branch_select="conv_only")
+        # Spectral submodules are nn.Identity placeholders carrying no learnable params.
+        assert isinstance(block.spectral, torch.nn.Identity)
+        assert isinstance(block.spectral_in, torch.nn.Identity)
+        assert isinstance(block.spectral_out, torch.nn.Identity)
+        # Conv branch must remain a learnable Conv2d.
+        assert isinstance(block.local_conv, torch.nn.Conv2d)
+        spectral_params = sum(p.numel() for p in block.spectral.parameters()) + \
+                          sum(p.numel() for p in block.spectral_in.parameters()) + \
+                          sum(p.numel() for p in block.spectral_out.parameters())
+        assert spectral_params == 0
+
+    def test_hybrid_resnet_encoder_branch_select_spectral_only_drops_conv_params(self):
+        block = HybridResnetEncoderBlock(channels=16, modes=4, encoder_branch_select="spectral_only")
+        assert isinstance(block.local_conv, torch.nn.Identity)
+        assert isinstance(block.conv_in, torch.nn.Identity)
+        assert isinstance(block.conv_out, torch.nn.Identity)
+        # Spectral branch must remain a non-Identity learnable module.
+        assert not isinstance(block.spectral, torch.nn.Identity)
+        local_params = sum(p.numel() for p in block.local_conv.parameters()) + \
+                       sum(p.numel() for p in block.conv_in.parameters()) + \
+                       sum(p.numel() for p in block.conv_out.parameters())
+        assert local_params == 0
+
+    def test_hybrid_resnet_encoder_branch_select_invalid_raises(self):
+        with pytest.raises(ValueError, match="encoder_branch_select"):
+            HybridResnetEncoderBlock(channels=16, modes=4, encoder_branch_select="bogus")
+
+    def test_hybrid_resnet_encoder_branch_select_orthogonal_to_branch_gated(self):
+        """Combining branch_gated fusion with branch_select must instantiate gates only for active branches."""
+        block_conv = HybridResnetEncoderBlock(
+            channels=16,
+            modes=4,
+            encoder_fusion_mode="branch_gated",
+            encoder_branch_select="conv_only",
+        )
+        assert block_conv.spectral_branch_gate is None
+        assert block_conv.local_branch_gate is not None
+        block_spec = HybridResnetEncoderBlock(
+            channels=16,
+            modes=4,
+            encoder_fusion_mode="branch_gated",
+            encoder_branch_select="spectral_only",
+        )
+        assert block_spec.spectral_branch_gate is not None
+        assert block_spec.local_branch_gate is None
+
+    def test_hybrid_resnet_encoder_branch_select_conv_only_zero_means_residual_passthrough(self):
+        """Zeroing the active conv branch reduces the block to identity (deterministic ablation)."""
+        torch.manual_seed(31)
+        block = HybridResnetEncoderBlock(channels=16, modes=4, encoder_branch_select="conv_only")
+        block.eval()
+        with torch.no_grad():
+            for p in block.local_conv.parameters():
+                p.zero_()
+        x = torch.randn(2, 16, 32, 32)
+        y = block(x)
+        assert torch.allclose(y, x, atol=1e-6, rtol=1e-6)
+
+    @pytest.mark.parametrize("select", ["both", "conv_only", "spectral_only"])
+    def test_hybrid_resnet_module_propagates_branch_select_per_block(self, select):
+        model = HybridResnetGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            n_blocks=3,
+            modes=4,
+            C=4,
+            encoder_branch_select=select,
+        )
+        assert model.encoder_branch_select == select
+        for block in model.encoder_blocks:
+            assert block.encoder_branch_select == select
+
+    def test_hybrid_resnet_module_invalid_branch_select_raises(self):
+        with pytest.raises(ValueError, match="encoder_branch_select"):
+            HybridResnetGeneratorModule(
+                in_channels=1,
+                out_channels=2,
+                hidden_channels=16,
+                n_blocks=3,
+                modes=4,
+                C=4,
+                encoder_branch_select="bogus",
+            )
+
 
 class TestGeneratorRegistry:
     """Tests for generator registry with FNO/Hybrid generators."""

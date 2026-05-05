@@ -69,6 +69,12 @@ ENCODER_FUSION_MODES = (
     "branch_gated_layerscale",
 )
 
+ENCODER_BRANCH_SELECT_MODES = (
+    "both",
+    "conv_only",
+    "spectral_only",
+)
+
 
 class HybridResnetEncoderBlock(nn.Module):
     """Hybrid encoder block with optional branch-capacity decoupling and per-block encoder-fusion controls.
@@ -79,6 +85,13 @@ class HybridResnetEncoderBlock(nn.Module):
     - ``layerscale``: ``x + alpha * GELU(spectral(x) + conv(x))`` with per-block ``alpha``
     - ``branch_gated``: ``x + GELU(g_s * spectral(x) + g_l * conv(x))`` with per-block ``g_s``, ``g_l``
     - ``branch_gated_layerscale``: ``x + alpha * GELU(g_s * spectral(x) + g_l * conv(x))``
+
+    The orthogonal ``encoder_branch_select`` deterministically removes one branch from
+    the forward path and skips constructing its parameters:
+
+    - ``both``: both branches active (default)
+    - ``conv_only``: only the local 3x3 conv branch is constructed and used
+    - ``spectral_only``: only the spectral (FNO) branch is constructed and used
     """
 
     def __init__(
@@ -90,6 +103,7 @@ class HybridResnetEncoderBlock(nn.Module):
         encoder_fusion_mode: str = "baseline",
         encoder_layerscale_init: float = 0.1,
         encoder_branch_gate_init: float = 0.1,
+        encoder_branch_select: str = "both",
     ):
         super().__init__()
 
@@ -97,6 +111,11 @@ class HybridResnetEncoderBlock(nn.Module):
             raise ValueError(
                 "encoder_fusion_mode must be one of "
                 f"{list(ENCODER_FUSION_MODES)} (got {encoder_fusion_mode!r})."
+            )
+        if encoder_branch_select not in ENCODER_BRANCH_SELECT_MODES:
+            raise ValueError(
+                "encoder_branch_select must be one of "
+                f"{list(ENCODER_BRANCH_SELECT_MODES)} (got {encoder_branch_select!r})."
             )
         if not math.isfinite(float(encoder_layerscale_init)) or float(encoder_layerscale_init) <= 0.0:
             raise ValueError(
@@ -112,33 +131,47 @@ class HybridResnetEncoderBlock(nn.Module):
         self.encoder_fusion_mode = str(encoder_fusion_mode)
         self.encoder_layerscale_init = float(encoder_layerscale_init)
         self.encoder_branch_gate_init = float(encoder_branch_gate_init)
+        self.encoder_branch_select = str(encoder_branch_select)
 
         conv_hidden = channels if conv_hidden_channels is None else int(conv_hidden_channels)
         spectral_hidden = channels if spectral_hidden_channels is None else int(spectral_hidden_channels)
 
-        self.spectral_in = nn.Identity()
-        self.spectral_out = nn.Identity()
-        if spectral_hidden != channels:
-            self.spectral_in = nn.Conv2d(channels, spectral_hidden, kernel_size=1)
-            self.spectral_out = nn.Conv2d(spectral_hidden, channels, kernel_size=1)
+        spectral_active = self.encoder_branch_select in {"both", "spectral_only"}
+        conv_active = self.encoder_branch_select in {"both", "conv_only"}
 
-        if HAS_NEURALOPERATOR and SpectralConv is not None:
-            self.spectral = SpectralConv(spectral_hidden, spectral_hidden, n_modes=(modes, modes))
+        if spectral_active:
+            self.spectral_in = nn.Identity()
+            self.spectral_out = nn.Identity()
+            if spectral_hidden != channels:
+                self.spectral_in = nn.Conv2d(channels, spectral_hidden, kernel_size=1)
+                self.spectral_out = nn.Conv2d(spectral_hidden, channels, kernel_size=1)
+
+            if HAS_NEURALOPERATOR and SpectralConv is not None:
+                self.spectral: nn.Module = SpectralConv(spectral_hidden, spectral_hidden, n_modes=(modes, modes))
+            else:
+                self.spectral = _FallbackSpectralConv2d(spectral_hidden, spectral_hidden, modes)
         else:
-            self.spectral = _FallbackSpectralConv2d(spectral_hidden, spectral_hidden, modes)
+            self.spectral_in = nn.Identity()
+            self.spectral_out = nn.Identity()
+            self.spectral = nn.Identity()
 
-        self.conv_in = nn.Identity()
-        self.conv_out = nn.Identity()
-        if conv_hidden != channels:
-            self.conv_in = nn.Conv2d(channels, conv_hidden, kernel_size=1)
-            self.conv_out = nn.Conv2d(conv_hidden, channels, kernel_size=1)
-        self.local_conv = nn.Conv2d(
-            conv_hidden,
-            conv_hidden,
-            kernel_size=3,
-            padding=1,
-            padding_mode="reflect",
-        )
+        if conv_active:
+            self.conv_in = nn.Identity()
+            self.conv_out = nn.Identity()
+            if conv_hidden != channels:
+                self.conv_in = nn.Conv2d(channels, conv_hidden, kernel_size=1)
+                self.conv_out = nn.Conv2d(conv_hidden, channels, kernel_size=1)
+            self.local_conv: nn.Module = nn.Conv2d(
+                conv_hidden,
+                conv_hidden,
+                kernel_size=3,
+                padding=1,
+                padding_mode="reflect",
+            )
+        else:
+            self.conv_in = nn.Identity()
+            self.conv_out = nn.Identity()
+            self.local_conv = nn.Identity()
 
         self.act = nn.GELU()
 
@@ -150,20 +183,35 @@ class HybridResnetEncoderBlock(nn.Module):
         else:
             self.register_parameter("encoder_layerscale", None)
 
-        if uses_branch_gates:
+        if uses_branch_gates and spectral_active:
             self.spectral_branch_gate = nn.Parameter(torch.full((1,), float(self.encoder_branch_gate_init)))
-            self.local_branch_gate = nn.Parameter(torch.full((1,), float(self.encoder_branch_gate_init)))
         else:
             self.register_parameter("spectral_branch_gate", None)
+        if uses_branch_gates and conv_active:
+            self.local_branch_gate = nn.Parameter(torch.full((1,), float(self.encoder_branch_gate_init)))
+        else:
             self.register_parameter("local_branch_gate", None)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        spectral = self.spectral_out(self.spectral(self.spectral_in(x)))
-        conv = self.conv_out(self.local_conv(self.conv_in(x)))
-        if self.spectral_branch_gate is not None:
-            spectral = self.spectral_branch_gate * spectral
-            conv = self.local_branch_gate * conv
-        update = self.act(spectral + conv)
+        if self.encoder_branch_select == "both":
+            spectral = self.spectral_out(self.spectral(self.spectral_in(x)))
+            conv = self.conv_out(self.local_conv(self.conv_in(x)))
+            if self.spectral_branch_gate is not None:
+                spectral = self.spectral_branch_gate * spectral
+            if self.local_branch_gate is not None:
+                conv = self.local_branch_gate * conv
+            combined = spectral + conv
+        elif self.encoder_branch_select == "conv_only":
+            conv = self.conv_out(self.local_conv(self.conv_in(x)))
+            if self.local_branch_gate is not None:
+                conv = self.local_branch_gate * conv
+            combined = conv
+        else:  # spectral_only
+            spectral = self.spectral_out(self.spectral(self.spectral_in(x)))
+            if self.spectral_branch_gate is not None:
+                spectral = self.spectral_branch_gate * spectral
+            combined = spectral
+        update = self.act(combined)
         if self.encoder_layerscale is not None:
             update = self.encoder_layerscale * update
         return x + update
@@ -198,6 +246,7 @@ class HybridResnetGeneratorModule(nn.Module):
         encoder_fusion_mode: str = "baseline",
         encoder_layerscale_init: float = 0.1,
         encoder_branch_gate_init: float = 0.1,
+        encoder_branch_select: str = "both",
     ):
         super().__init__()
         if hybrid_downsample_steps not in (1, 2):
@@ -280,6 +329,11 @@ class HybridResnetGeneratorModule(nn.Module):
                 "encoder_fusion_mode must be one of "
                 f"{list(ENCODER_FUSION_MODES)} (got {encoder_fusion_mode!r})."
             )
+        if encoder_branch_select not in ENCODER_BRANCH_SELECT_MODES:
+            raise ValueError(
+                "encoder_branch_select must be one of "
+                f"{list(ENCODER_BRANCH_SELECT_MODES)} (got {encoder_branch_select!r})."
+            )
         if (
             not math.isfinite(float(encoder_layerscale_init))
             or float(encoder_layerscale_init) <= 0.0
@@ -305,6 +359,7 @@ class HybridResnetGeneratorModule(nn.Module):
         self.encoder_fusion_mode = str(encoder_fusion_mode)
         self.encoder_layerscale_init = float(encoder_layerscale_init)
         self.encoder_branch_gate_init = float(encoder_branch_gate_init)
+        self.encoder_branch_select = str(encoder_branch_select)
         self.hybrid_encoder_conv_hidden_scale = float(hybrid_encoder_conv_hidden_scale)
         self.hybrid_encoder_spectral_hidden_scale = float(hybrid_encoder_spectral_hidden_scale)
         self.bottleneck_layerscale_mode = str(bottleneck_layerscale_mode)
@@ -352,6 +407,7 @@ class HybridResnetGeneratorModule(nn.Module):
                     encoder_fusion_mode=self.encoder_fusion_mode,
                     encoder_layerscale_init=self.encoder_layerscale_init,
                     encoder_branch_gate_init=self.encoder_branch_gate_init,
+                    encoder_branch_select=self.encoder_branch_select,
                 )
             )
             if i < self.hybrid_downsample_steps:
@@ -615,6 +671,11 @@ class HybridResnetGenerator:
                 "hybrid_encoder_branch_gate_init",
                 getattr(model_config, "hybrid_encoder_branch_gate_init", 0.1),
             ),
+            encoder_branch_select=getattr(
+                execution_config,
+                "hybrid_encoder_branch_select",
+                getattr(model_config, "hybrid_encoder_branch_select", "both"),
+            ),
         )
 
         return PtychoPINN_Lightning(
@@ -649,6 +710,11 @@ class HybridResnetGenerator:
                     execution_config,
                     "hybrid_encoder_branch_gate_init",
                     0.1,
+                ),
+                "hybrid_encoder_branch_select": getattr(
+                    execution_config,
+                    "hybrid_encoder_branch_select",
+                    "both",
                 ),
             },
         )

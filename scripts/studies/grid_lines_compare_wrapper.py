@@ -63,6 +63,9 @@ TORCH_MODEL_IDS = {
     "pinn_stable_hybrid",
     "pinn_fno_vanilla",
     "pinn_hybrid_resnet",
+    "pinn_hybrid_resnet_encoder_conv_only",
+    "pinn_hybrid_resnet_encoder_spectral_only",
+    "supervised_hybrid_resnet",
     "pinn_spectral_resnet_bottleneck_net",
     "pinn_spectral_resnet_bottleneck_ds1",
     "pinn_spectral_resnet_bottleneck_linear_decoder",
@@ -81,6 +84,9 @@ PAPER_MODEL_LABELS = {
     "pinn_stable_hybrid": "Stable Hybrid + PINN",
     "pinn_fno_vanilla": "FNO Vanilla + PINN",
     "pinn_hybrid_resnet": "Hybrid ResNet + PINN",
+    "pinn_hybrid_resnet_encoder_conv_only": "Hybrid ResNet (conv-only encoder) + PINN",
+    "pinn_hybrid_resnet_encoder_spectral_only": "Hybrid ResNet (spectral-only encoder) + PINN",
+    "supervised_hybrid_resnet": "Hybrid ResNet + supervised",
     "pinn_spectral_resnet_bottleneck_net": "Spectral ResNet Bottleneck + PINN",
     "pinn_spectral_resnet_bottleneck_ds1": "Spectral ResNet Bottleneck DS1 + PINN",
     "pinn_spectral_resnet_bottleneck_linear_decoder": "Spectral ResNet Linear Decoder + PINN",
@@ -97,6 +103,7 @@ PAPER_TRAINING_PROCEDURE_OVERRIDES = {
     "baseline": "supervised",
     "supervised_ffno": "supervised",
     "supervised_neuralop_uno": "supervised",
+    "supervised_hybrid_resnet": "supervised",
 }
 
 DEFAULT_TORCH_ROW_SPECS: Dict[str, Dict[str, Any]] = {
@@ -134,6 +141,23 @@ DEFAULT_TORCH_ROW_SPECS: Dict[str, Dict[str, Any]] = {
         "model_id": "pinn_hybrid_resnet",
         "architecture": "hybrid_resnet",
         "training_procedure": "pinn",
+    },
+    "pinn_hybrid_resnet_encoder_conv_only": {
+        "model_id": "pinn_hybrid_resnet_encoder_conv_only",
+        "architecture": "hybrid_resnet",
+        "training_procedure": "pinn",
+        "overrides": {"hybrid_encoder_branch_select": "conv_only"},
+    },
+    "pinn_hybrid_resnet_encoder_spectral_only": {
+        "model_id": "pinn_hybrid_resnet_encoder_spectral_only",
+        "architecture": "hybrid_resnet",
+        "training_procedure": "pinn",
+        "overrides": {"hybrid_encoder_branch_select": "spectral_only"},
+    },
+    "supervised_hybrid_resnet": {
+        "model_id": "supervised_hybrid_resnet",
+        "architecture": "hybrid_resnet",
+        "training_procedure": "supervised",
     },
     "pinn_spectral_resnet_bottleneck_net": {
         "model_id": "pinn_spectral_resnet_bottleneck_net",

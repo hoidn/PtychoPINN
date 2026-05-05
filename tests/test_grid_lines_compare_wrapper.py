@@ -2728,3 +2728,63 @@ def test_validate_model_specs_accepts_neuralop_uno_rows():
         ("pinn_neuralop_uno", "supervised_neuralop_uno"),
         {"pinn_neuralop_uno": 128, "supervised_neuralop_uno": 128},
     )
+
+
+def test_default_torch_row_specs_register_srunet_branch_objective_ablation_rows():
+    from scripts.studies.grid_lines_compare_wrapper import (
+        DEFAULT_TORCH_ROW_SPECS,
+        PAPER_MODEL_LABELS,
+        PAPER_TRAINING_PROCEDURE_OVERRIDES,
+        TORCH_MODEL_IDS,
+        _torch_model_route,
+    )
+
+    conv_spec = DEFAULT_TORCH_ROW_SPECS["pinn_hybrid_resnet_encoder_conv_only"]
+    spec_spec = DEFAULT_TORCH_ROW_SPECS["pinn_hybrid_resnet_encoder_spectral_only"]
+    sup_spec = DEFAULT_TORCH_ROW_SPECS["supervised_hybrid_resnet"]
+
+    assert conv_spec["architecture"] == "hybrid_resnet"
+    assert conv_spec["training_procedure"] == "pinn"
+    assert conv_spec["overrides"]["hybrid_encoder_branch_select"] == "conv_only"
+    assert spec_spec["architecture"] == "hybrid_resnet"
+    assert spec_spec["training_procedure"] == "pinn"
+    assert spec_spec["overrides"]["hybrid_encoder_branch_select"] == "spectral_only"
+    assert sup_spec["architecture"] == "hybrid_resnet"
+    assert sup_spec["training_procedure"] == "supervised"
+
+    assert "pinn_hybrid_resnet_encoder_conv_only" in TORCH_MODEL_IDS
+    assert "pinn_hybrid_resnet_encoder_spectral_only" in TORCH_MODEL_IDS
+    assert "supervised_hybrid_resnet" in TORCH_MODEL_IDS
+
+    assert PAPER_MODEL_LABELS["pinn_hybrid_resnet_encoder_conv_only"] == \
+        "Hybrid ResNet (conv-only encoder) + PINN"
+    assert PAPER_MODEL_LABELS["pinn_hybrid_resnet_encoder_spectral_only"] == \
+        "Hybrid ResNet (spectral-only encoder) + PINN"
+    assert PAPER_MODEL_LABELS["supervised_hybrid_resnet"] == "Hybrid ResNet + supervised"
+
+    assert PAPER_TRAINING_PROCEDURE_OVERRIDES["supervised_hybrid_resnet"] == "supervised"
+
+    for model_id in (
+        "pinn_hybrid_resnet_encoder_conv_only",
+        "pinn_hybrid_resnet_encoder_spectral_only",
+        "supervised_hybrid_resnet",
+    ):
+        arch, _ = _torch_model_route(model_id)
+        assert arch == "hybrid_resnet"
+
+
+def test_validate_model_specs_accepts_srunet_branch_objective_ablation_rows():
+    from scripts.studies.grid_lines_compare_wrapper import validate_model_specs
+
+    validate_model_specs(
+        (
+            "pinn_hybrid_resnet_encoder_conv_only",
+            "pinn_hybrid_resnet_encoder_spectral_only",
+            "supervised_hybrid_resnet",
+        ),
+        {
+            "pinn_hybrid_resnet_encoder_conv_only": 128,
+            "pinn_hybrid_resnet_encoder_spectral_only": 128,
+            "supervised_hybrid_resnet": 128,
+        },
+    )

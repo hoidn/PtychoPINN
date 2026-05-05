@@ -635,6 +635,38 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   - does not replace the six-row `lines128` CDI headline bundle
   - shared-across-encoder-block scalar placement is a distinct future architecture axis
 
+### `grid-lines-n128-srunet-branch-objective-ablation`
+
+- Purpose: produce an append-only same-contract `lines128` CDI ablation that
+  isolates SRU-Net encoder-branch necessity (deterministically removing the
+  spectral or local 3x3 conv branch) and adds the missing supervised SRU-Net
+  objective-control row.
+- Status: completed on `2026-05-04`; output is `decision_support_append_only`
+  and does not displace the six-row CDI headline bundle or the U-NO append-only
+  extension.
+- Plan:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-branch-objective-ablation/execution_plan.md`
+- Summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_srunet_branch_objective_ablation_summary.md`
+- Artifact root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-branch-objective-ablation/runs/ablation_20260505T010316Z`
+- Bundle:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-branch-objective-ablation/bundle/`
+- Reused anchor:
+  - `pinn_hybrid_resnet` (promoted by lineage from the immutable six-row CDI authority)
+- Fresh rows:
+  - `pinn_hybrid_resnet_encoder_conv_only`
+  - `pinn_hybrid_resnet_encoder_spectral_only`
+  - `supervised_hybrid_resnet`
+- Boundary:
+  - append-only decision-support evidence
+  - branch-ablation rows test branch necessity, not a new default architecture
+  - the supervised SRU-Net row is an objective control and must not be promoted
+    as a CDI headline candidate (its amplitude scale collapses without the PINN
+    consistency loss)
+  - does not replace the six-row `lines128` CDI headline bundle or the U-NO
+    extension
+
 ### `grid-lines-n128-hybrid-resnet-skip-residual-ablation`
 
 - Purpose: run a bounded same-contract CDI ablation over Hybrid decoder

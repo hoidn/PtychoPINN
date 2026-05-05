@@ -305,6 +305,13 @@ class PyTorchExecutionConfig:
     ] = 'baseline'
     hybrid_encoder_layerscale_init: float = 0.1
     hybrid_encoder_branch_gate_init: float = 0.1
+    # Orthogonal deterministic encoder-branch ablation control. Values:
+    # 'both' (default), 'conv_only' (drop spectral branch), 'spectral_only' (drop conv branch).
+    hybrid_encoder_branch_select: Literal[
+        'both',
+        'conv_only',
+        'spectral_only',
+    ] = 'both'
     spectral_bottleneck_blocks: int = 6
     spectral_bottleneck_modes: int = 12
     spectral_bottleneck_share_weights: bool = True

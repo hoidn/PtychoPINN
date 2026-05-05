@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-04T22:50:00Z",
+  "last_updated_utc": "2026-05-05T01:55:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -1232,6 +1232,84 @@
       "changed_factor": "encoder_fusion_mode=branch_gated_layerscale; per-block branch gates + per-block LayerScale"
     },
     {
+      "variant_id": "cdi_lines128__hybrid_resnet_encoder_conv_only__pinn__srunet_branch_objective_ablation",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_hybrid_resnet_encoder_conv_only",
+      "paper_label": "Hybrid ResNet (conv-only encoder) + PINN",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-05-04-cdi-lines128-srunet-branch-objective-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_srunet_branch_objective_ablation_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-branch-objective-ablation/runs/ablation_20260505T010316Z",
+      "metrics_json": "runs/pinn_hybrid_resnet_encoder_conv_only/metrics.json",
+      "metrics": {
+        "amp_mae": 0.03227150812745094,
+        "phase_mae": 0.05714384682968379,
+        "amp_ssim": 0.9822675133985881,
+        "phase_ssim": 0.9946005834427047,
+        "amp_psnr": 75.95190071191536,
+        "phase_psnr": 71.11746824269898,
+        "amp_frc50": 134.92737857366745,
+        "phase_frc50": 134.96199073136606
+      },
+      "nearest_anchor_row": "pinn_hybrid_resnet",
+      "evidence_status": "decision_support_append_only",
+      "changed_factor": "encoder_branch_select=conv_only; deterministically removes the spectral encoder branch while preserving the local 3x3 conv path, identity residual, bottleneck, decoder, loss, and contract."
+    },
+    {
+      "variant_id": "cdi_lines128__hybrid_resnet_encoder_spectral_only__pinn__srunet_branch_objective_ablation",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_hybrid_resnet_encoder_spectral_only",
+      "paper_label": "Hybrid ResNet (spectral-only encoder) + PINN",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-05-04-cdi-lines128-srunet-branch-objective-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_srunet_branch_objective_ablation_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-branch-objective-ablation/runs/ablation_20260505T010316Z",
+      "metrics_json": "runs/pinn_hybrid_resnet_encoder_spectral_only/metrics.json",
+      "metrics": {
+        "amp_mae": 0.025203144550323486,
+        "phase_mae": 0.06146790087223053,
+        "amp_ssim": 0.9899319008605485,
+        "phase_ssim": 0.9957638829923842,
+        "amp_psnr": 78.13998472810148,
+        "phase_psnr": 70.55186366551928,
+        "amp_frc50": 137.69297586500715,
+        "phase_frc50": 135.71064099634393
+      },
+      "nearest_anchor_row": "pinn_hybrid_resnet",
+      "evidence_status": "decision_support_append_only",
+      "changed_factor": "encoder_branch_select=spectral_only; deterministically removes the local 3x3 conv encoder branch while preserving the spectral (FNO) path, identity residual, bottleneck, decoder, loss, and contract."
+    },
+    {
+      "variant_id": "cdi_lines128__hybrid_resnet__supervised__srunet_branch_objective_ablation",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "supervised_hybrid_resnet",
+      "paper_label": "Hybrid ResNet + supervised",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-05-04-cdi-lines128-srunet-branch-objective-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_srunet_branch_objective_ablation_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-branch-objective-ablation/runs/ablation_20260505T010316Z",
+      "metrics_json": "runs/supervised_hybrid_resnet/metrics.json",
+      "metrics": {
+        "amp_mae": 0.40098100900650024,
+        "phase_mae": 0.034011025726795197,
+        "amp_ssim": 0.27095830813864316,
+        "phase_ssim": 0.9686939879672553,
+        "amp_psnr": 53.62693750833921,
+        "phase_psnr": 74.10894099574375,
+        "amp_frc50": 24.43946395574495,
+        "phase_frc50": 52.36057437891061
+      },
+      "nearest_anchor_row": "pinn_hybrid_resnet",
+      "evidence_status": "decision_support_append_only",
+      "changed_factor": "training_mode=supervised; identical SRU-Net body and contract knobs as pinn_hybrid_resnet, only the training objective changed. Objective-control row, not a CDI headline candidate."
+    },
+    {
       "variant_id": "brdt__unet__supervised_plus_born_consistency__decision_support_preflight",
       "dataset_contract_id": "brdt_decision_support_2048cap",
       "row_id": "unet",
@@ -1445,7 +1523,8 @@
     "2026-04-29-brdt-four-row-preflight",
     "2026-04-30-cdi-lines128-uno-table-extension",
     "2026-05-04-pdebench-darcy-full-training-benchmark",
-    "2026-05-04-cns-history5-comparator-gap-fill"
+    "2026-05-04-cns-history5-comparator-gap-fill",
+    "2026-05-04-cdi-lines128-srunet-branch-objective-ablation"
   ],
   "maintenance_rules": [
     "Every future completed backlog item that emits model metrics must add or update at least one model_variants entry.",

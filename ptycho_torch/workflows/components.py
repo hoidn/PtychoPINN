@@ -888,6 +888,7 @@ def _train_with_lightning(
             'hybrid_encoder_fusion_mode',
             'hybrid_encoder_layerscale_init',
             'hybrid_encoder_branch_gate_init',
+            'hybrid_encoder_branch_select',
             'spectral_bottleneck_blocks',
             'spectral_bottleneck_modes',
             'spectral_bottleneck_share_weights',

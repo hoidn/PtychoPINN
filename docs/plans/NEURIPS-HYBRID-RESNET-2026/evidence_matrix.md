@@ -1,7 +1,7 @@
 # NeurIPS Hybrid ResNet Evidence Matrix
 
 Status: draft  
-Last updated: 2026-05-04 (paper result asset refresh)
+Last updated: 2026-05-05 (SRU-Net branch/objective ablation appended)
 
 This is the human-facing master matrix for NeurIPS/SRU-Net evidence. It points
 to all relevant completed backlog outputs, keyed by dataset, model/config
@@ -21,6 +21,7 @@ Machine-readable companions:
 | CDI FFNO supervised extension | `lines128_supervised_equivalent_rows_summary.md` | paper-complete extension to existing table |
 | CDI U-NO extension readiness | `lines128_uno_preflight_summary.md` | feasibility-only external UNO environment/API authority before generator integration |
 | CDI U-NO table extension | `lines128_uno_table_extension_summary.md` | append-only `paper_grade` eight-row extended bundle; claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension` |
+| CDI SRU-Net branch / objective ablation | `lines128_srunet_branch_objective_ablation_summary.md` | append-only `decision_support_append_only`; mechanistic encoder branch removal + supervised SRU-Net objective control |
 | PDEBench CNS matched-condition table | `pdebench_cns_matched_condition_table_refresh_summary.md` | bounded capped decision-support only, matched `history_len=5`, `512 / 64 / 64`, `40` epochs headline |
 | PDEBench CNS larger-cap context | `pdebench_cns_paper_2048cap_extension_summary.md` | bounded capped decision-support only, preserved larger-cap `2048 / 256 / 256` context |
 | PDEBench CNS 512cap fallback provenance | `pdebench_cns_paper_table_figure_bundle_summary.md` | bounded capped decision-support only, preserved historical fallback |
@@ -287,6 +288,7 @@ completed four-row preflight for potential manuscript or supplement use:
 | `2026-04-27-hybrid-spectral-ffno-parameter-space-cdi` | CDI Hybrid/spectral to FFNO bridge study | `cdi_hybrid_spectral_ffno_parameter_space_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi` |
 | `2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation` | CDI Hybrid skip/residual same-contract ablation | `lines128_hybrid_resnet_skip_residual_ablation_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation` |
 | `2026-04-21-hybrid-resnet-encoder-fusion-variants` | CDI Hybrid encoder-fusion same-contract ablation | `lines128_hybrid_resnet_encoder_fusion_variants_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/` |
+| `2026-05-04-cdi-lines128-srunet-branch-objective-ablation` | CDI SRU-Net branch / objective same-contract ablation (`decision_support_append_only`) | `lines128_srunet_branch_objective_ablation_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-branch-objective-ablation/runs/ablation_20260505T010316Z` |
 | `2026-04-30-cdi-lines128-uno-design-preflight` | CDI U-NO environment/API readiness | `lines128_uno_preflight_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-design-preflight/` |
 | `2026-04-29-paper-evidence-package-audit` | cross-pillar evidence audit | `paper_evidence_package_audit_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/` |
 | `2026-04-29-brdt-operator-validation` | BRDT candidate-lane operator validation (feasibility, not paper evidence) | `brdt_operator_validation_report.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-operator-validation/` |
@@ -309,6 +311,7 @@ completed four-row preflight for potential manuscript or supplement use:
 | CDI FFNO training mode | supervised FFNO extension | supervised FFNO improves phase MAE but loses badly on amplitude quality |
 | CDI Hybrid/spectral to FFNO bridge | hybrid-spectral/FFNO parameter-space | no fresh bridge row beat the existing anchors; DS1 is a phase-leaning trade only |
 | CDI Hybrid skip/residual controls | same-contract skip/residual ablation | skip-add helps phase-side metrics without displacing the anchor, fixed residual helps amplitude-side metrics, and the combined row shows no constructive interaction |
+| CDI Hybrid branch / objective controls | same-contract branch ablation + supervised objective control | spectral-only edges out conv-only on amplitude under the locked contract and roughly matches the both-branch baseline; conv-only is similar with a small phase-MAE/FRC trade. Supervised SRU-Net keeps the body and contract but shows an amplitude-scale collapse without the PINN physics-consistency loss, so the row is presented as objective-control evidence, not a CDI headline candidate. |
 | CDI U-NO extension readiness | U-NO design preflight | external `UNO` imports cleanly in `ptycho311`; later integration must preserve the frozen `uno_out_channels`, nested `uno_n_modes`, `uno_scalings`, and direct real/imag output contract |
 | CDI FFNO generator prerequisite pair | FFNO vs Hybrid pair | prerequisite evidence, superseded for table claims by complete bundle |
 | CNS paper contract and bundle | contract, row lock, table/figure bundle | bounded capped CNS table only; no full-training SOTA claim |

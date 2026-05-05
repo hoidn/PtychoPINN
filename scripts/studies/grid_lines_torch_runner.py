@@ -189,6 +189,9 @@ class TorchRunnerConfig:
     hybrid_encoder_fusion_mode: str = "baseline"
     hybrid_encoder_layerscale_init: float = 0.1
     hybrid_encoder_branch_gate_init: float = 0.1
+    # Orthogonal deterministic encoder-branch ablation control.
+    # 'both' (default), 'conv_only' (drop spectral branch), 'spectral_only' (drop conv branch).
+    hybrid_encoder_branch_select: str = "both"
     spectral_bottleneck_blocks: int = 6
     spectral_bottleneck_modes: int = 12
     spectral_bottleneck_share_weights: bool = True
@@ -308,6 +311,8 @@ def _build_runner_cli_argv(cfg: TorchRunnerConfig) -> List[str]:
             str(cfg.hybrid_encoder_layerscale_init),
             "--hybrid-encoder-branch-gate-init",
             str(cfg.hybrid_encoder_branch_gate_init),
+            "--hybrid-encoder-branch-select",
+            str(cfg.hybrid_encoder_branch_select),
             "--spectral-bottleneck-blocks", str(cfg.spectral_bottleneck_blocks),
             "--spectral-bottleneck-modes", str(cfg.spectral_bottleneck_modes),
             "--spectral-bottleneck-gate-init", str(cfg.spectral_bottleneck_gate_init),
@@ -946,6 +951,13 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
                 "hybrid_encoder_branch_gate_init must be finite and > 0 "
                 f"(got {cfg.hybrid_encoder_branch_gate_init})."
             )
+        valid_encoder_branch_select_modes = {"both", "conv_only", "spectral_only"}
+        if cfg.hybrid_encoder_branch_select not in valid_encoder_branch_select_modes:
+            raise ValueError(
+                "hybrid_encoder_branch_select must be one of "
+                f"{sorted(valid_encoder_branch_select_modes)} "
+                f"(got {cfg.hybrid_encoder_branch_select!r})."
+            )
     if cfg.architecture in {
         "spectral_resnet_bottleneck_net",
         "spectral_resnet_bottleneck_linear_decoder",
@@ -1057,6 +1069,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         hybrid_encoder_fusion_mode=cfg.hybrid_encoder_fusion_mode,
         hybrid_encoder_layerscale_init=cfg.hybrid_encoder_layerscale_init,
         hybrid_encoder_branch_gate_init=cfg.hybrid_encoder_branch_gate_init,
+        hybrid_encoder_branch_select=cfg.hybrid_encoder_branch_select,
         spectral_bottleneck_blocks=cfg.spectral_bottleneck_blocks,
         spectral_bottleneck_modes=cfg.spectral_bottleneck_modes,
         spectral_bottleneck_share_weights=cfg.spectral_bottleneck_share_weights,
@@ -1970,6 +1983,17 @@ def main(argv=None) -> None:
         help="Initial value for per-block encoder spectral/local branch gates (must be > 0).",
     )
     parser.add_argument(
+        "--hybrid-encoder-branch-select",
+        type=str,
+        default="both",
+        choices=["both", "conv_only", "spectral_only"],
+        help=(
+            "Deterministic SRU-Net encoder branch ablation: 'both' (default), "
+            "'conv_only' drops the spectral branch entirely, 'spectral_only' drops "
+            "the local conv branch entirely. Orthogonal to --hybrid-encoder-fusion-mode."
+        ),
+    )
+    parser.add_argument(
         "--hybrid-resnet-bottleneck-layerscale-value",
         type=float,
         default=None,
@@ -2130,6 +2154,7 @@ def main(argv=None) -> None:
         hybrid_encoder_fusion_mode=args.hybrid_encoder_fusion_mode,
         hybrid_encoder_layerscale_init=args.hybrid_encoder_layerscale_init,
         hybrid_encoder_branch_gate_init=args.hybrid_encoder_branch_gate_init,
+        hybrid_encoder_branch_select=args.hybrid_encoder_branch_select,
         spectral_bottleneck_blocks=args.spectral_bottleneck_blocks,
         spectral_bottleneck_modes=args.spectral_bottleneck_modes,
         spectral_bottleneck_share_weights=args.spectral_bottleneck_share_weights,
