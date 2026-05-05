@@ -20,7 +20,7 @@
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-ffno-row-extension/`
 - Read-only baseline (supervised image L1 + Born consistency, four rows):
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/`
-- Plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_ffno_row_extension_plan.md`
+- Plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-ffno-row-extension/execution_plan.md`
 - Governing design:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md`
 
@@ -43,16 +43,23 @@ to the U-Net, FNO vanilla, and Hybrid ResNet baselines?
   `142,018`), FFNO achieves nearly identical image-space and
   measurement-space metrics:
 
-  | Metric | FFNO | Hybrid ResNet | FNO vanilla | U-Net | Model-based Born |
-  |---|---|---|---|---|---|
-  | `image_mae_phys` | 0.000659 | 0.000650 | 0.001947 | 0.001827 | 0.001563 |
-  | `image_rmse_phys` | 0.001940 | 0.001809 | 0.005624 | 0.004899 | 0.002153 |
-  | `image_relative_l2_phys` | 0.3421 | 0.3190 | 0.9916 | 0.8638 | 0.3796 |
-  | `meas_relative_l2` | 0.1859 | 0.1992 | 0.9808 | 0.6875 | 0.1077 |
-  | `psnr_phys` | 29.13 | 29.74 | 19.89 | 21.09 | 28.23 |
-  | `ssim_phys` | 0.9420 | 0.9471 | 0.6779 | 0.6129 | 0.9201 |
-  | `parameter_count` | 36,674 | 142,018 | 44,465 | 18,465 | 0 |
-  | `wall_time_train_s` | 109.97 | 79.25 | 85.11 | 69.00 | 0.0 |
+  | Metric | FFNO | Hybrid ResNet | FNO vanilla | U-Net |
+  |---|---|---|---|---|
+  | `image_mae_phys` | 0.000659 | 0.000650 | 0.001947 | 0.001827 |
+  | `image_rmse_phys` | 0.001940 | 0.001809 | 0.005624 | 0.004899 |
+  | `image_relative_l2_phys` | 0.3421 | 0.3190 | 0.9916 | 0.8638 |
+  | `meas_relative_l2` | 0.1859 | 0.1992 | 0.9808 | 0.6875 |
+  | `psnr_phys` | 29.13 | 29.74 | 19.89 | 21.09 |
+  | `ssim_phys` | 0.9420 | 0.9471 | 0.6779 | 0.6129 |
+  | `parameter_count` | 36,674 | 142,018 | 44,465 | 18,465 |
+  | `wall_time_train_s` | 109.97 | 79.25 | 85.11 | 69.00 |
+
+  The classical Born backprop row remains `blocked` in the durable
+  baseline authority (`brdt_preflight_summary.md` Section 6, blocker
+  reason `odtbrain_unavailable`), so the FFNO read here intentionally
+  excludes any model-based / non-ML inversion comparison column. A
+  later approved baseline-authority update is required before any
+  classical row can be re-introduced into the combined view.
 
 - **FFNO substantially outperforms FNO vanilla.** Despite using fewer
   parameters than `fno_vanilla` (`36,674` vs `44,465`), FFNO improves
@@ -72,12 +79,12 @@ to the U-Net, FNO vanilla, and Hybrid ResNet baselines?
   decision-support evidence and does not authorize architecture
   promotion. Hybrid ResNet stays the BRDT candidate-lane reference.
 
-- **FFNO beats the model-based Born inverse on image-space relative L2
-  (0.342 vs 0.380) and on PSNR (29.13 vs 28.23) but loses to it on
-  measurement-space relative L2 (0.186 vs 0.108).** This is consistent
-  with the model-based Born inverse being a measurement-space optimal
-  (it directly minimizes physics residual through the locked operator),
-  while FFNO's training objective rewards image-space agreement.
+- **No FFNO-vs-classical claim is made.** Because the classical Born
+  backprop row is blocked in the durable baseline authority, FFNO is
+  not compared against any model-based / non-ML inversion in this
+  summary. Restoring that comparator is one of the preconditions for
+  any later BRDT promotion conversation
+  (see `brdt_preflight_summary.md` Section 9).
 
 ## 4. Contract Inheritance From The Baseline
 
@@ -232,8 +239,11 @@ Tests:
   shape, distinct architecture identity vs `fno_vanilla`, and row
   schema acceptance for `ffno`.
 - `tests/studies/test_born_rytov_dt_preflight.py` — baseline bundle
-  validator (rejects missing files / wrong backlog item), contract
-  inheritance asserts (rejects dataset/claim-boundary drift),
-  combined-bundle five-row assembly, the runner's dry-run manifest
-  write, the runner's refusal to start when the baseline root is
-  missing, and the live-path `combined_metrics.json` assembly.
+  validator (rejects missing files / wrong backlog item, classical-row
+  status drift, neural-row status drift, and row-roster drift relative
+  to `brdt_preflight_summary.md` Section 6), contract inheritance
+  asserts (rejects dataset/claim-boundary drift), combined-bundle
+  five-row assembly with classical row preserved as `blocked`, the
+  runner's dry-run manifest write, the runner's refusal to start when
+  the baseline root is missing, and the live-path
+  `combined_metrics.json` assembly.

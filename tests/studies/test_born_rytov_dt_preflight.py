@@ -1517,8 +1517,8 @@ def _make_synthetic_baseline_bundle(tmp_path: Path) -> Path:
                 "input_mode": "born_init_image",
                 "dataset_id": dc.DECISION_SUPPORT_DATASET_NAME,
                 "operator_version": "/tmp/operator_validation.json",
-                "row_status": "completed",
-                "paper_label": "Model-based Born inverse",
+                "row_status": "blocked",
+                "paper_label": "Classical Born backprop",
             },
             {
                 "row_id": "unet",
@@ -1552,10 +1552,34 @@ def _make_synthetic_baseline_bundle(tmp_path: Path) -> Path:
             },
         ],
     }
-    metrics = {
-        "schema_version": "brdt_preflight_metrics_v1",
-        "claim_boundary": "decision_support_preflight_only",
-        "rows": [
+    metric_rows = []
+    for row in manifest["rows"]:
+        if row["row_status"] == "blocked":
+            metric_rows.append(
+                {
+                    "row_id": row["row_id"],
+                    "paper_label": row["paper_label"],
+                    "architecture": row["model"],
+                    "row_status": "blocked",
+                    "blocker_reason": "odtbrain_unavailable",
+                    "image": {},
+                    "measurement": {},
+                    "supporting": {},
+                    "runtime": {
+                        "device": "cpu",
+                        "device_name": "cpu",
+                        "epochs": 0,
+                        "batch_size": 16,
+                        "learning_rate": 2e-4,
+                        "parameter_count": 0,
+                        "wall_time_train_s": 0.0,
+                        "wall_time_eval_s": 0.0,
+                        "row_status": "blocked",
+                    },
+                }
+            )
+            continue
+        metric_rows.append(
             {
                 "row_id": row["row_id"],
                 "paper_label": row["paper_label"],
@@ -1584,8 +1608,11 @@ def _make_synthetic_baseline_bundle(tmp_path: Path) -> Path:
                     "row_status": "completed",
                 },
             }
-            for row in manifest["rows"]
-        ],
+        )
+    metrics = {
+        "schema_version": "brdt_preflight_metrics_v1",
+        "claim_boundary": "decision_support_preflight_only",
+        "rows": metric_rows,
     }
     (baseline_root / "preflight_manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n"
@@ -1618,6 +1645,76 @@ def test_extension_bundle_validate_baseline_bundle_rejects_wrong_backlog_item(tm
     manifest_path.write_text(json.dumps(manifest))
     with pytest.raises(
         ext_bundle.BaselineContractMismatchError, match="backlog_item"
+    ):
+        ext_bundle.validate_baseline_bundle(baseline_root)
+
+
+def test_extension_bundle_validate_baseline_bundle_rejects_classical_row_status_drift(
+    tmp_path,
+):
+    """Regression: brdt_preflight_summary.md Section 6 requires the classical
+    Born backprop row to remain ``blocked`` in the baseline four-row preflight
+    until a separately approved baseline-authority update changes that. The
+    validator must refuse a baseline whose classical row has been silently
+    promoted to ``completed`` — that drift would otherwise leak into the
+    combined five-row view as a claim-bearing artifact.
+    """
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    metrics_path = baseline_root / "metrics.json"
+    payload = json.loads(metrics_path.read_text())
+    for row in payload["rows"]:
+        if row["row_id"] == "classical_born_backprop":
+            row["row_status"] = "completed"
+            row["paper_label"] = "Model-based Born inverse"
+            row["image"] = {
+                "image_mae_phys": 0.0015,
+                "image_rmse_phys": 0.002,
+                "image_relative_l2_phys": 0.38,
+            }
+    metrics_path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+    with pytest.raises(
+        ext_bundle.BaselineContractMismatchError, match="row-status drift"
+    ):
+        ext_bundle.validate_baseline_bundle(baseline_root)
+
+
+def test_extension_bundle_validate_baseline_bundle_rejects_neural_row_blocked_drift(
+    tmp_path,
+):
+    """Counterpart drift check: the three neural rows must remain
+    ``completed`` in the baseline; a silent demotion to ``blocked`` is
+    rejected just like classical-promotion drift.
+    """
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    metrics_path = baseline_root / "metrics.json"
+    payload = json.loads(metrics_path.read_text())
+    for row in payload["rows"]:
+        if row["row_id"] == "hybrid_resnet":
+            row["row_status"] = "blocked"
+    metrics_path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+    with pytest.raises(
+        ext_bundle.BaselineContractMismatchError, match="row-status drift"
+    ):
+        ext_bundle.validate_baseline_bundle(baseline_root)
+
+
+def test_extension_bundle_validate_baseline_bundle_rejects_row_roster_drift(
+    tmp_path,
+):
+    """A baseline whose row roster diverges from the durable authority is
+    rejected outright — the FFNO extension is bound to exactly those four
+    row ids in that order.
+    """
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    manifest_path = baseline_root / "preflight_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["rows"] = [r for r in manifest["rows"] if r["row_id"] != "fno_vanilla"]
+    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True))
+    with pytest.raises(
+        ext_bundle.BaselineContractMismatchError, match="row roster"
     ):
         ext_bundle.validate_baseline_bundle(baseline_root)
 
@@ -1761,11 +1858,19 @@ def test_extension_bundle_combined_metrics_preserves_baseline_and_appends_ffno(
         manifest_payload["baseline"]["backlog_item"]
         == ext_bundle.BASELINE_BACKLOG_ITEM
     )
-    # Baseline rows are preserved by lineage with their visible identity intact.
+    # Baseline rows are preserved by lineage with their visible identity intact
+    # and the durable row-roster authority is honored: classical row remains
+    # blocked (per brdt_preflight_summary.md Section 6) while the three
+    # neural rows remain completed.
     baseline_combined_rows = [r for r in combined["rows"] if r["source"] == "baseline_lineage"]
     paper_labels = {r["row_id"]: r["paper_label"] for r in baseline_combined_rows}
-    assert paper_labels["classical_born_backprop"] == "Model-based Born inverse"
+    statuses = {r["row_id"]: r["row_status"] for r in baseline_combined_rows}
+    assert paper_labels["classical_born_backprop"] == "Classical Born backprop"
     assert paper_labels["hybrid_resnet"] == "Hybrid ResNet"
+    assert statuses["classical_born_backprop"] == "blocked"
+    assert statuses["unet"] == "completed"
+    assert statuses["fno_vanilla"] == "completed"
+    assert statuses["hybrid_resnet"] == "completed"
     # Combined CSV header includes the source column.
     csv_text = paths["combined_metrics_csv"].read_text().splitlines()
     assert csv_text[0].startswith("source,row_id,paper_label,architecture")
