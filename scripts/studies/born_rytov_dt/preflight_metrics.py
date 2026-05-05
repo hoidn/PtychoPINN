@@ -166,7 +166,10 @@ def aggregate_image_metrics_per_sample(
     }
 
 
-def write_metric_schema(path: Path) -> None:
+def write_metric_schema(
+    path: Path,
+    claim_boundary: str = "decision_support_preflight_only",
+) -> None:
     schema = {
         "schema_version": METRIC_SCHEMA_VERSION,
         "blocking_metrics": {
@@ -175,16 +178,20 @@ def write_metric_schema(path: Path) -> None:
         },
         "supporting_metrics": list(SUPPORTING_METRICS),
         "runtime_fields": list(RUNTIME_FIELDS),
-        "claim_boundary": "decision_support_preflight_only",
+        "claim_boundary": str(claim_boundary),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(schema, indent=2, sort_keys=True) + "\n")
 
 
-def write_metrics_json(path: Path, rows: List[RowMetrics]) -> None:
+def write_metrics_json(
+    path: Path,
+    rows: List[RowMetrics],
+    claim_boundary: str = "decision_support_preflight_only",
+) -> None:
     payload = {
         "schema_version": METRIC_SCHEMA_VERSION,
-        "claim_boundary": "decision_support_preflight_only",
+        "claim_boundary": str(claim_boundary),
         "rows": [r.to_dict() for r in rows],
     }
     path.parent.mkdir(parents=True, exist_ok=True)

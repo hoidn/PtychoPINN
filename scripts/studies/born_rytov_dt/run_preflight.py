@@ -1317,18 +1317,37 @@ def run_preflight(
                 solver_config=solver_config,
             )
 
-        baseline_lineage = _resolve_baseline_lineage(
-            baseline_root=baseline_root,
-            objective_preset=objective_preset,
-            selected_row_ids=[r.row_id for r in rows],
-        )
+        is_ablation_run = objective_preset != "supervised_plus_born"
         manifest_backlog_item: Optional[str] = None
         manifest_next_backlog_item: Optional[str] = None
         manifest_claim_boundary: Optional[str] = None
+        baseline_lineage: Optional[Dict[str, Any]] = None
         if objective_preset == "relative_physics_only":
             manifest_backlog_item = PHYSICS_ONLY_BACKLOG_ITEM
             manifest_next_backlog_item = "n/a"
             manifest_claim_boundary = "decision_support_append_only"
+        resolved_claim_boundary = (
+            manifest_claim_boundary or "decision_support_preflight_only"
+        )
+        manifest_notes: Dict[str, Any] = {
+            "classical_narrow_fix_attempts": narrow_fix_attempts,
+            "classical_inverse_authorization": classical_inverse_auth,
+            "model_based_inverse": {
+                "execution_path": MODEL_BASED_INVERSE_EXECUTION_PATH,
+                "version": MODEL_BASED_INVERSE_VERSION,
+                "config": inverse_config.as_dict(),
+            },
+            "row_contract_fingerprints": per_row_fingerprints,
+        }
+        if is_ablation_run:
+            baseline_lineage = _resolve_baseline_lineage(
+                baseline_root=baseline_root,
+                objective_preset=objective_preset,
+                selected_row_ids=[r.row_id for r in rows],
+            )
+            manifest_notes["objective_preset"] = objective_preset
+            manifest_notes["selected_row_ids"] = [r.row_id for r in rows]
+            manifest_notes["baseline_lineage"] = baseline_lineage
         preflight_manifest = _build_preflight_manifest(
             output_root=output_root,
             authority=authority,
@@ -1341,19 +1360,7 @@ def run_preflight(
             backlog_item=manifest_backlog_item,
             next_backlog_item=manifest_next_backlog_item,
             claim_boundary=manifest_claim_boundary,
-            notes={
-                "classical_narrow_fix_attempts": narrow_fix_attempts,
-                "classical_inverse_authorization": classical_inverse_auth,
-                "model_based_inverse": {
-                    "execution_path": MODEL_BASED_INVERSE_EXECUTION_PATH,
-                    "version": MODEL_BASED_INVERSE_VERSION,
-                    "config": inverse_config.as_dict(),
-                },
-                "row_contract_fingerprints": per_row_fingerprints,
-                "objective_preset": objective_preset,
-                "selected_row_ids": [r.row_id for r in rows],
-                "baseline_lineage": baseline_lineage,
-            },
+            notes=manifest_notes,
         )
 
         manifest_path_out = output_root / PREFLIGHT_MANIFEST_NAME
@@ -1362,7 +1369,10 @@ def run_preflight(
         if dry_run:
             # Dry-run still emits a metric schema so downstream consumers see
             # the bundle layout even before live execution.
-            metrics_mod.write_metric_schema(output_root / "metric_schema.json")
+            metrics_mod.write_metric_schema(
+                output_root / "metric_schema.json",
+                claim_boundary=resolved_claim_boundary,
+            )
             return {
                 "dry_run": True,
                 "preflight_manifest_path": str(manifest_path_out),
@@ -1694,8 +1704,15 @@ def run_preflight(
             )
 
         # ---- Aggregate metrics outputs ----
-        metrics_mod.write_metric_schema(output_root / "metric_schema.json")
-        metrics_mod.write_metrics_json(output_root / "metrics.json", row_metrics)
+        metrics_mod.write_metric_schema(
+            output_root / "metric_schema.json",
+            claim_boundary=resolved_claim_boundary,
+        )
+        metrics_mod.write_metrics_json(
+            output_root / "metrics.json",
+            row_metrics,
+            claim_boundary=resolved_claim_boundary,
+        )
         metrics_mod.write_metrics_csv(output_root / "metrics.csv", row_metrics)
 
         # ---- Visuals ----
@@ -1792,42 +1809,42 @@ def run_preflight(
         }
         preflight_manifest["resumed_rows"] = list(resumed_rows)
 
-        # ---- Optional comparison-to-baseline emission ----
+        # ---- Comparison-to-baseline emission ----
+        # For ablation runs whose baseline bundle is on disk, the
+        # comparison artifacts are mandatory contract outputs and any
+        # emission failure must surface as a run failure rather than a
+        # quiet note.
         comparison_paths: Dict[str, str] = {}
         if (
-            baseline_lineage.get("baseline_present")
+            baseline_lineage is not None
+            and baseline_lineage.get("baseline_present")
             and baseline_lineage.get("baseline_metrics_json")
         ):
-            try:
-                json_path, csv_path = comparison_mod.emit_comparison_artifacts(
-                    baseline_metrics_path=Path(
-                        str(baseline_lineage["baseline_metrics_json"])
-                    ),
-                    ablation_metrics_path=output_root / "metrics.json",
-                    output_root=output_root,
-                    selected_row_ids=[r.row_id for r in rows],
-                    baseline_root=str(baseline_lineage.get("baseline_root") or ""),
-                    ablation_root=str(output_root),
-                    ablation_objective_preset=objective_preset,
-                )
-                comparison_paths = {
-                    "comparison_json": str(json_path.relative_to(output_root)),
-                    "comparison_csv": str(csv_path.relative_to(output_root)),
+            json_path, csv_path = comparison_mod.emit_comparison_artifacts(
+                baseline_metrics_path=Path(
+                    str(baseline_lineage["baseline_metrics_json"])
+                ),
+                ablation_metrics_path=output_root / "metrics.json",
+                output_root=output_root,
+                selected_row_ids=[r.row_id for r in rows],
+                baseline_root=str(baseline_lineage.get("baseline_root") or ""),
+                ablation_root=str(output_root),
+                ablation_objective_preset=objective_preset,
+            )
+            comparison_paths = {
+                "comparison_json": str(json_path.relative_to(output_root)),
+                "comparison_csv": str(csv_path.relative_to(output_root)),
+            }
+            preflight_manifest["bundle_artifacts"].update(
+                {
+                    "comparison_to_supervised_plus_born_json": comparison_paths[
+                        "comparison_json"
+                    ],
+                    "comparison_to_supervised_plus_born_csv": comparison_paths[
+                        "comparison_csv"
+                    ],
                 }
-                preflight_manifest["bundle_artifacts"].update(
-                    {
-                        "comparison_to_supervised_plus_born_json": comparison_paths[
-                            "comparison_json"
-                        ],
-                        "comparison_to_supervised_plus_born_csv": comparison_paths[
-                            "comparison_csv"
-                        ],
-                    }
-                )
-            except Exception as exc:  # noqa: BLE001 - comparison is best-effort
-                preflight_manifest.setdefault("notes", {})[
-                    "comparison_emission_error"
-                ] = f"{type(exc).__name__}: {exc}"
+            )
 
         _write_manifest(preflight_manifest, manifest_path_out)
 

@@ -942,13 +942,66 @@ def test_run_preflight_default_path_keeps_supervised_plus_born_contract(tmp_path
     manifest = json.loads((preflight_root / "preflight_manifest.json").read_text())
     weights = manifest["training_contract"]["loss_weights"]
     assert weights == run_config.LossWeights().as_dict()
+    # The default supervised-plus-Born path must not be silently turned
+    # into an ablation manifest by the new ablation surface; the runner
+    # must omit the ablation-only notes when the default preset is used.
     notes = manifest.get("notes") or {}
-    assert notes.get("objective_preset") == "supervised_plus_born"
-    # Baseline lineage block is always present and points at no baseline by
-    # default; the default path stays append-only-friendly.
-    lineage = notes.get("baseline_lineage") or {}
-    assert lineage.get("ablation_objective_preset") == "supervised_plus_born"
-    assert lineage.get("baseline_present") is False
+    assert "objective_preset" not in notes
+    assert "selected_row_ids" not in notes
+    assert "baseline_lineage" not in notes
+    # The default path must continue to advertise the baseline claim
+    # boundary, both in the manifest and in the dry-run metric schema.
+    assert manifest["claim_boundary"] == "decision_support_preflight_only"
+    schema = json.loads((preflight_root / "metric_schema.json").read_text())
+    assert schema["claim_boundary"] == "decision_support_preflight_only"
+
+
+def test_run_preflight_relative_physics_only_writes_consistent_claim_boundary(tmp_path):
+    """preflight_manifest, metric_schema, and metrics.json must all agree.
+
+    Regression for an implementation-review finding where the ablation
+    bundle's machine-consumed metric artifacts kept advertising the
+    baseline claim boundary while the manifest already used the
+    ablation boundary.
+    """
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    preflight_root = tmp_path / "physics_only_consistency"
+    preflight_mod.run_preflight(
+        **_physics_only_kwargs(manifest_path, preflight_root)
+    )
+    manifest = json.loads(
+        (preflight_root / preflight_mod.PREFLIGHT_MANIFEST_NAME).read_text()
+    )
+    schema = json.loads((preflight_root / "metric_schema.json").read_text())
+    metrics = json.loads((preflight_root / "metrics.json").read_text())
+    assert manifest["claim_boundary"] == "decision_support_append_only"
+    assert schema["claim_boundary"] == "decision_support_append_only"
+    assert metrics["claim_boundary"] == "decision_support_append_only"
+
+
+def test_run_preflight_ablation_comparison_fails_fast_on_corrupt_baseline(tmp_path):
+    """Required comparison artifacts must not be silently downgraded.
+
+    Regression for an implementation-review finding where comparison
+    emission was wrapped in a blanket try/except that masked failures
+    as ``notes.comparison_emission_error`` even when baseline lineage
+    was present.
+    """
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = tmp_path / "corrupt_baseline_bundle"
+    baseline_root.mkdir()
+    (baseline_root / preflight_mod.PREFLIGHT_MANIFEST_NAME).write_text(
+        json.dumps({"backlog_item": "baseline"})
+    )
+    # Write a metrics.json that exists (so baseline_present is True) but
+    # is not valid JSON, forcing comparison emission to raise.
+    (baseline_root / "metrics.json").write_text("not-json{")
+
+    ablation_root = tmp_path / "ablation_corrupt_bundle"
+    kwargs = dict(_physics_only_kwargs(manifest_path, ablation_root))
+    kwargs["baseline_root"] = baseline_root
+    with pytest.raises(json.JSONDecodeError):
+        preflight_mod.run_preflight(**kwargs)
 
 
 def test_run_preflight_relative_physics_only_writes_zero_supervised_weights(tmp_path):
