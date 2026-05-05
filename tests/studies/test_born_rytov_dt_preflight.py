@@ -1341,3 +1341,121 @@ def test_comparison_populates_fixed_sample_dynamic_range_for_baseline_without_ev
         "output_dynamic_range_fixed_physical_q_ptp_delta",
     ):
         assert expected in header_line, f"missing column: {expected}"
+
+
+# ----------------------------------------------------------------------
+# Invocation provenance: backlog identity + parser-valid row replay
+# ----------------------------------------------------------------------
+def test_row_replay_argv_replaces_existing_rows_selector():
+    """When the parent argv carries ``--rows ...``, the per-row replay must
+    narrow the selector to a single row rather than appending an unparsable
+    flag."""
+    parent = [
+        "--manifest", "m.json",
+        "--output-root", "out",
+        "--objective-preset", "relative_physics_only",
+        "--rows", "unet,fno_vanilla,hybrid_resnet",
+    ]
+    out = preflight_mod._row_replay_argv(parent, "fno_vanilla")
+    # Single-row form is present.
+    assert out.count("--rows") == 1
+    idx = out.index("--rows")
+    assert out[idx + 1] == "fno_vanilla"
+    # The original multi-row value is no longer in the argv.
+    assert "unet,fno_vanilla,hybrid_resnet" not in out
+    # The invalid `--row-id` flag from the prior implementation is absent.
+    assert "--row-id" not in out
+    # The replay argv must round-trip through the live parser.
+    parser = preflight_mod._build_parser()
+    parsed = parser.parse_args(out)
+    assert parsed.rows == "fno_vanilla"
+
+
+def test_row_replay_argv_handles_equals_form_and_missing_selector():
+    parser = preflight_mod._build_parser()
+    # `--rows=...` form is rewritten in place.
+    eq_form = ["--manifest", "m.json", "--output-root", "out", "--rows=unet,fno_vanilla"]
+    eq_out = preflight_mod._row_replay_argv(eq_form, "unet")
+    assert "--rows=unet" in eq_out
+    parser.parse_args(eq_out)
+    # Parents that did not carry `--rows` get the single-row selector appended.
+    no_sel = ["--manifest", "m.json", "--output-root", "out"]
+    appended = preflight_mod._row_replay_argv(no_sel, "hybrid_resnet")
+    assert appended[-2:] == ["--rows", "hybrid_resnet"]
+    parser.parse_args(appended)
+
+
+def test_run_preflight_ablation_invocation_artifacts_carry_physics_only_backlog_item(
+    tmp_path,
+):
+    """Top-level + per-row invocation provenance must record the physics-only
+    backlog item when ``--objective-preset relative_physics_only`` is used,
+    and per-row replay argv must only contain parser-valid flags."""
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    preflight_root = tmp_path / "physics_only_invocation"
+    _run_preflight(
+        "--manifest",
+        str(manifest_path),
+        "--output-root",
+        str(preflight_root),
+        "--dry-run",
+        "--objective-preset",
+        "relative_physics_only",
+        "--rows",
+        "unet,fno_vanilla,hybrid_resnet",
+    )
+    # Top-level invocation.json must record the actual backlog item that
+    # owns this artifact root, not the supervised+Born baseline item.
+    top = json.loads((preflight_root / "invocation.json").read_text())
+    assert (
+        top["extra"]["backlog_item"]
+        == preflight_mod.PHYSICS_ONLY_BACKLOG_ITEM
+    )
+
+    # Run the full live ablation to also exercise the per-row provenance.
+    # The parent argv mirrors what the CLI would pass so the per-row replay
+    # argv is parser-valid in the same way an end-to-end run produces.
+    live_root = tmp_path / "physics_only_invocation_live"
+    live_kwargs = dict(_physics_only_kwargs(manifest_path, live_root))
+    live_parent_argv = [
+        "--manifest", str(manifest_path),
+        "--output-root", str(live_root),
+        "--objective-preset", "relative_physics_only",
+        "--rows", "unet,fno_vanilla,hybrid_resnet",
+    ]
+    live_kwargs["parent_argv"] = live_parent_argv
+    preflight_mod.run_preflight(**live_kwargs)
+    parser = preflight_mod._build_parser()
+    for row_id in ("unet", "fno_vanilla", "hybrid_resnet"):
+        per_row = json.loads(
+            (live_root / "rows" / row_id / "invocation.json").read_text()
+        )
+        # Backlog identity matches the ablation root.
+        assert (
+            per_row["extra"]["backlog_item"]
+            == preflight_mod.PHYSICS_ONLY_BACKLOG_ITEM
+        )
+        # Replay argv: only parser-valid flags, scoped to this row.
+        argv = per_row["argv"]
+        assert "--row-id" not in argv
+        parsed = parser.parse_args(argv)
+        assert parsed.rows == row_id
+
+
+def test_run_preflight_default_invocation_artifacts_keep_baseline_backlog_item(
+    tmp_path,
+):
+    """Default (supervised+Born) runs must keep the original backlog item
+    in invocation provenance so prior bundles are not silently relabeled."""
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    preflight_root = tmp_path / "default_invocation"
+    _run_preflight(
+        "--manifest",
+        str(manifest_path),
+        "--output-root",
+        str(preflight_root),
+        "--dry-run",
+    )
+    top = json.loads((preflight_root / "invocation.json").read_text())
+    assert top["extra"]["backlog_item"] == preflight_mod.BACKLOG_ITEM
+    assert top["extra"]["backlog_item"] != preflight_mod.PHYSICS_ONLY_BACKLOG_ITEM

@@ -1044,6 +1044,36 @@ def _maybe_resume_row(
     return rm, dict(summary), sample_arrays
 
 
+def _row_replay_argv(parent_argv: List[str], row_id: str) -> List[str]:
+    """Build a parser-valid replay argv that scopes the run to ``row_id``.
+
+    The parent argv may already include a ``--rows`` selector (e.g. for
+    an ablation that excludes the classical row). Replace it with the
+    single-row form so the per-row replay command, when executed, only
+    re-runs that row. If the parent did not pass ``--rows``, append it.
+    """
+    out: List[str] = []
+    skip_next = False
+    saw_rows = False
+    for token in parent_argv:
+        if skip_next:
+            skip_next = False
+            continue
+        if token == "--rows":
+            saw_rows = True
+            skip_next = True
+            out.extend(["--rows", row_id])
+            continue
+        if token.startswith("--rows="):
+            saw_rows = True
+            out.append(f"--rows={row_id}")
+            continue
+        out.append(token)
+    if not saw_rows:
+        out.extend(["--rows", row_id])
+    return out
+
+
 def _write_row_invocation_artifacts(
     *,
     row_dir: Path,
@@ -1055,6 +1085,7 @@ def _write_row_invocation_artifacts(
     classical_backend: ClassicalBackendInfo,
     contract_fingerprint: str,
     parent_argv: List[str],
+    backlog_item: Optional[str] = None,
     extra_attempts: Optional[List[Dict[str, str]]] = None,
 ) -> None:
     """Persist per-row invocation provenance into the row directory.
@@ -1064,10 +1095,7 @@ def _write_row_invocation_artifacts(
     parsed contract, runtime/hardware metadata, and any narrow-fix
     attempts that were made for that row).
     """
-    row_argv = list(parent_argv) + [
-        "--row-id",
-        row.row_id,
-    ]
+    row_argv = _row_replay_argv(list(parent_argv), row.row_id)
     parsed = {
         "row_id": row.row_id,
         "model": row.model,
@@ -1080,7 +1108,7 @@ def _write_row_invocation_artifacts(
         "training_contract": contract.as_dict(),
     }
     extras: Dict[str, Any] = {
-        "backlog_item": BACKLOG_ITEM,
+        "backlog_item": backlog_item or BACKLOG_ITEM,
         "row": row.to_dict(),
         "runtime": _row_runtime_block(device),
         "runtime_provenance": capture_runtime_provenance(),
@@ -1450,6 +1478,7 @@ def run_preflight(
                     classical_backend=row_backend,
                     contract_fingerprint=row_fp,
                     parent_argv=parent_argv,
+                    backlog_item=manifest_backlog_item,
                     extra_attempts=(
                         narrow_fix_attempts
                         if row.row_id == "classical_born_backprop"
@@ -1469,6 +1498,7 @@ def run_preflight(
                 classical_backend=row_backend,
                 contract_fingerprint=row_fp,
                 parent_argv=parent_argv,
+                backlog_item=manifest_backlog_item,
                 extra_attempts=(
                     narrow_fix_attempts
                     if row.row_id == "classical_born_backprop"
@@ -1950,19 +1980,35 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _resolve_backlog_item_for_invocation(objective_preset: str) -> str:
+    """Resolve the backlog identity recorded in invocation provenance.
+
+    Keeps the default supervised-plus-Born path on the original
+    ``BACKLOG_ITEM`` while routing append-only objective ablations to
+    their own backlog identity, so emitted ``invocation.json`` files
+    truthfully name the backlog item that owns the artifact root.
+    """
+    if objective_preset == "relative_physics_only":
+        return PHYSICS_ONLY_BACKLOG_ITEM
+    return BACKLOG_ITEM
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     output_root = Path(args.output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     parent_argv = sys.argv[1:] if argv is None else list(argv)
+    invocation_backlog_item = _resolve_backlog_item_for_invocation(
+        str(args.objective_preset)
+    )
     write_invocation_artifacts(
         output_dir=output_root,
         script_path=SCRIPT_PATH,
         argv=parent_argv,
         parsed_args=vars(args),
         extra={
-            "backlog_item": BACKLOG_ITEM,
+            "backlog_item": invocation_backlog_item,
             "runtime_provenance": capture_runtime_provenance(),
         },
     )
