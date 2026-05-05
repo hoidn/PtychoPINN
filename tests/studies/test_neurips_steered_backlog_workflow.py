@@ -122,6 +122,7 @@ def test_neurips_drain_workflow_materializes_selected_item_inputs_and_rewrites_p
     ]
     assert "--active-path" in rewrite["command"]
     assert "--in-progress-path" in rewrite["command"]
+    assert "--recover-premature-done" not in rewrite["command"]
     assert rewrite["expected_outputs"][0]["name"] == "selected_item_in_progress_path"
     assert rewrite["expected_outputs"][0]["must_exist_target"] is True
 
@@ -130,6 +131,7 @@ def test_neurips_drain_workflow_materializes_selected_item_inputs_and_rewrites_p
         "python",
         "workflows/library/scripts/reconcile_neurips_selected_item.py",
     ]
+    assert "--recover-premature-done" in post_implementation_reconcile["command"]
     assert post_implementation_reconcile["expected_outputs"][0]["name"] == "selected_item_in_progress_path"
 
 

@@ -54,22 +54,42 @@ def main() -> int:
     )
     parser.add_argument("--plan-path", required=True, help="Repository-relative approved plan path")
     parser.add_argument("--output-path", required=True, help="Path to write the reconciled item path")
+    parser.add_argument(
+        "--recover-premature-done",
+        action="store_true",
+        help="Restore a selected item prematurely moved to docs/backlog/done back to in_progress",
+    )
     args = parser.parse_args()
 
     active_path = _require_safe_repo_path(args.active_path, label="active path")
     in_progress_path = _require_safe_repo_path(args.in_progress_path, label="in-progress path")
     plan_path = _require_safe_repo_path(args.plan_path, label="plan path")
+    done_path = _require_safe_repo_path(
+        f"docs/backlog/done/{in_progress_path.name}",
+        label="done path",
+    )
     _require_backlog_state(active_path, "active")
     _require_backlog_state(in_progress_path, "in_progress")
+    _require_backlog_state(done_path, "done")
     if active_path.name != in_progress_path.name:
         raise SystemExit(f"Selected item path names differ: {active_path} != {in_progress_path}")
 
     active_exists = active_path.is_file()
     in_progress_exists = in_progress_path.is_file()
+    done_exists = done_path.is_file()
     if active_exists and in_progress_exists:
         raise SystemExit(f"Selected item exists in both active and in_progress: {active_path.name}")
+    if done_exists and (active_exists or in_progress_exists):
+        raise SystemExit(
+            f"Selected item has ambiguous queue state across done and active/in_progress: {active_path.name}"
+        )
     if not active_exists and not in_progress_exists:
-        raise SystemExit(f"Selected item exists in neither active nor in_progress: {active_path.name}")
+        if args.recover_premature_done and done_exists:
+            in_progress_path.parent.mkdir(parents=True, exist_ok=True)
+            done_path.rename(in_progress_path)
+            in_progress_exists = True
+        else:
+            raise SystemExit(f"Selected item exists in neither active nor in_progress: {active_path.name}")
 
     if active_exists:
         in_progress_path.parent.mkdir(parents=True, exist_ok=True)

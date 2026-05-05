@@ -7,6 +7,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_ROOT = REPO_ROOT / "tests/fixtures/neurips_steered_backlog"
+RECONCILE_ITEM_NAME = "2026-05-04-example.md"
 
 
 def _workspace(tmp_path: Path) -> Path:
@@ -22,6 +23,18 @@ def _run_script(workspace: Path, relpath: str, *args: str, check: bool = True) -
         capture_output=True,
         text=True,
         check=check,
+    )
+
+
+def _write_reconcile_item(path: Path) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "---\n"
+        "id: 2026-05-04-example\n"
+        "plan_path: docs/plans/old-plan.md\n"
+        "---\n"
+        "# Example\n",
+        encoding="utf-8",
     )
 
 
@@ -404,6 +417,80 @@ def test_materialize_selected_active_item_fails_when_plan_target_is_missing(tmp_
     assert not output_path.exists()
 
 
+
+
+def test_reconcile_selected_item_recovers_premature_done_move_when_enabled(tmp_path):
+    workspace = _workspace(tmp_path)
+    done_path = workspace / "docs/backlog/done" / RECONCILE_ITEM_NAME
+    in_progress_path = workspace / "docs/backlog/in_progress" / RECONCILE_ITEM_NAME
+    _write_reconcile_item(done_path)
+
+    _run_script(
+        workspace,
+        "workflows/library/scripts/reconcile_neurips_selected_item.py",
+        "--active-path",
+        f"docs/backlog/active/{RECONCILE_ITEM_NAME}",
+        "--in-progress-path",
+        f"docs/backlog/in_progress/{RECONCILE_ITEM_NAME}",
+        "--plan-path",
+        "docs/plans/example-plan.md",
+        "--recover-premature-done",
+        "--output-path",
+        "state/reconciled.txt",
+    )
+
+    assert not done_path.exists()
+    assert in_progress_path.is_file()
+    assert "plan_path: docs/plans/example-plan.md" in in_progress_path.read_text(encoding="utf-8")
+    assert (workspace / "state/reconciled.txt").read_text(encoding="utf-8").strip() == (
+        f"docs/backlog/in_progress/{RECONCILE_ITEM_NAME}"
+    )
+
+
+def test_reconcile_selected_item_rejects_premature_done_move_by_default(tmp_path):
+    workspace = _workspace(tmp_path)
+    _write_reconcile_item(workspace / "docs/backlog/done" / RECONCILE_ITEM_NAME)
+
+    result = _run_script(
+        workspace,
+        "workflows/library/scripts/reconcile_neurips_selected_item.py",
+        "--active-path",
+        f"docs/backlog/active/{RECONCILE_ITEM_NAME}",
+        "--in-progress-path",
+        f"docs/backlog/in_progress/{RECONCILE_ITEM_NAME}",
+        "--plan-path",
+        "docs/plans/example-plan.md",
+        "--output-path",
+        "state/reconciled.txt",
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "neither active nor in_progress" in result.stderr
+
+
+def test_reconcile_selected_item_rejects_duplicate_done_and_in_progress_state(tmp_path):
+    workspace = _workspace(tmp_path)
+    _write_reconcile_item(workspace / "docs/backlog/done" / RECONCILE_ITEM_NAME)
+    _write_reconcile_item(workspace / "docs/backlog/in_progress" / RECONCILE_ITEM_NAME)
+
+    result = _run_script(
+        workspace,
+        "workflows/library/scripts/reconcile_neurips_selected_item.py",
+        "--active-path",
+        f"docs/backlog/active/{RECONCILE_ITEM_NAME}",
+        "--in-progress-path",
+        f"docs/backlog/in_progress/{RECONCILE_ITEM_NAME}",
+        "--plan-path",
+        "docs/plans/example-plan.md",
+        "--recover-premature-done",
+        "--output-path",
+        "state/reconciled.txt",
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "ambiguous queue state" in result.stderr
 
 
 def test_gap_draft_validator_accepts_valid_phase2_item(tmp_path):

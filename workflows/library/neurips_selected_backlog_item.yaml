@@ -510,6 +510,7 @@ steps:
       - ${steps.ResolvePlanGateOutputs.artifacts.selected_item_in_progress_path}
       - --plan-path
       - ${steps.ResolvePlanGateOutputs.artifacts.plan_path}
+      - --recover-premature-done
       - --output-path
       - ${inputs.state_root}/post_implementation_selected_item_path.txt
     expected_outputs:

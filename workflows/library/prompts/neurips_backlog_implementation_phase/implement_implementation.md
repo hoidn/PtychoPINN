@@ -5,6 +5,7 @@ Use executing-plans to implement the approved plan in the current checkout.
 Do not use `git worktree` or another checkout.
 If the repo is dirty, stay in the current checkout and leave unrelated files alone.
 Do not modify YAML, prompt files, or transient state files unless the plan explicitly requires it.
+Do not move backlog queue files between `docs/backlog/active/`, `docs/backlog/in_progress/`, `docs/backlog/done/`, or `docs/backlog/paused/`; the workflow owns queue transitions after review.
 Preserve layout and ownership decisions from the design and plan. If implementation needs to change a location or unit boundary, record the deviation and rationale in the execution report.
 
 Choose exactly one implementation state for this pass:
