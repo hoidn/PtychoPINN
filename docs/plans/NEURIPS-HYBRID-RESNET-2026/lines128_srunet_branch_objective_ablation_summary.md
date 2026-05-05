@@ -72,6 +72,10 @@
 - `scripts/studies/lines128_srunet_ablation_bundle.py`:
   - narrow append-only ablation bundle helper that promotes the baseline by
     lineage and collates fresh row metrics under a fixed claim boundary
+  - requires a row-local completion-proof artifact for every fresh row
+    (`exit_code_proof.json`, with `launcher_completion.json` accepted as a
+    legacy fallback) and surfaces both the proof payload and its filename in
+    the bundle's row provenance
 
 ## Tests Added
 
@@ -96,6 +100,8 @@
   - bundle helper collates fresh + promoted-by-lineage rows
   - records branch-select overrides per row
   - fails loudly when baseline or fresh row artifacts missing
+  - fails loudly when a fresh row has no completion-proof artifact
+  - accepts the legacy `launcher_completion.json` filename for backward compatibility
 
 ## Metric Deltas vs. `pinn_hybrid_resnet`
 
@@ -143,15 +149,34 @@ in this table use the format `[amplitude, phase]` where applicable.
 
 ## Verification
 
-> Filled in once the fresh launches finish.
+Verification logs are archived under
+`.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-branch-objective-ablation/verification/`.
 
-- focused execution-surface regression:
-  - `pytest -q tests/torch/test_fno_generators.py -k "branch_select or hybrid_resnet"`
-  - `pytest -q tests/torch/test_grid_lines_torch_runner.py -k "branch_select or hybrid_resnet or hybrid_encoder or supervised"`
-  - `pytest -q tests/test_grid_lines_compare_wrapper.py -k "srunet or default_torch_row_specs or validate_model_specs"`
-  - `pytest -q tests/studies/test_lines128_srunet_ablation_bundle.py`
-- compile gate:
-  - `python -m compileall -q ptycho_torch ptycho/config scripts/studies`
+- Required deterministic gates (final, timestamp `20260505T020849Z`):
+  - prerequisite presence — `prereq_20260505T020849Z.log` (PASS)
+  - `pytest -q tests/torch/test_fno_generators.py -k "hybrid_resnet or hybrid_encoder"` —
+    `test_fno_generators_20260505T020849Z.log` (60 passed)
+  - `pytest -q tests/torch/test_grid_lines_torch_runner.py -k "hybrid_resnet or hybrid_encoder or supervised"` —
+    `test_grid_lines_torch_runner_20260505T020849Z.log` (37 passed)
+  - `pytest -q tests/test_grid_lines_compare_wrapper.py` —
+    `test_grid_lines_compare_wrapper_20260505T020849Z.log` (67 passed)
+  - `python -m compileall -q scripts/studies ptycho_torch` —
+    `compileall_20260505T020849Z.log` (exit 0)
+- Bundle helper regression:
+  - `pytest -q tests/studies/test_lines128_srunet_ablation_bundle.py` —
+    `test_ablation_bundle_20260505T020849Z.log` (6 passed; covers baseline-by-lineage,
+    fresh-row collation, branch-select override recording, missing baseline,
+    missing fresh row, missing completion-proof, and legacy
+    `launcher_completion.json` acceptance)
+- Wrapper completion proof:
+  - run-root `<run_root>/invocation.json`: `status=completed`, `exit_code=0`,
+    `finished_at_utc=2026-05-05T01:50:15Z`
+  - per-fresh-row `runs/<row>/exit_code_proof.json`: `exit_code=0`,
+    `invocation_status=completed` for `pinn_hybrid_resnet_encoder_conv_only`,
+    `pinn_hybrid_resnet_encoder_spectral_only`, and `supervised_hybrid_resnet`
+  - bundle `ablation_metrics.json` records `completion_proof_present: true` and
+    `completion_proof_filename: "exit_code_proof.json"` for every row, including
+    the lineage-promoted baseline `pinn_hybrid_resnet`
 
 ## Residual Risks
 

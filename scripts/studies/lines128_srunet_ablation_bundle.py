@@ -52,11 +52,26 @@ def _row_metrics_from_runner(run_dir: Path) -> Dict[str, Any]:
     return _load_json(metrics_path)
 
 
-def _row_completion_proof(run_dir: Path) -> Optional[Dict[str, Any]]:
-    proof = run_dir / "launcher_completion.json"
-    if not proof.exists():
-        return None
-    return _load_json(proof)
+COMPLETION_PROOF_CANDIDATES = ("exit_code_proof.json", "launcher_completion.json")
+
+
+def _row_completion_proof(run_dir: Path) -> Dict[str, Any]:
+    """Load the row-local completion-proof artifact, failing loudly if absent.
+
+    The plan makes row-local completion-proof artifacts a mandatory bundle
+    contract output; ``exit_code_proof.json`` is the canonical filename emitted
+    by the compare wrapper, with ``launcher_completion.json`` accepted for
+    backward compatibility.
+    """
+    for name in COMPLETION_PROOF_CANDIDATES:
+        candidate = run_dir / name
+        if candidate.exists():
+            payload = _load_json(candidate)
+            return {"path": candidate, "payload": payload}
+    raise FileNotFoundError(
+        "Missing row-local completion-proof artifact in "
+        f"{run_dir}; expected one of {COMPLETION_PROOF_CANDIDATES}"
+    )
 
 
 def _baseline_row_payload(baseline_root: Path) -> Dict[str, Any]:
@@ -71,6 +86,14 @@ def _baseline_row_payload(baseline_root: Path) -> Dict[str, Any]:
     )
     metrics_payload = _row_metrics_from_runner(row_dir)
     invocation_path = row_dir / "invocation.json"
+    baseline_completion: Optional[Dict[str, Any]] = None
+    baseline_completion_filename: Optional[str] = None
+    for name in COMPLETION_PROOF_CANDIDATES:
+        candidate = row_dir / name
+        if candidate.exists():
+            baseline_completion = _load_json(candidate)
+            baseline_completion_filename = name
+            break
     return {
         "model_id": "pinn_hybrid_resnet",
         "model_label": ABLATION_LABELS["pinn_hybrid_resnet"],
@@ -81,8 +104,11 @@ def _baseline_row_payload(baseline_root: Path) -> Dict[str, Any]:
             "row_dir": str(row_dir.relative_to(REPO_ROOT)) if row_dir.is_absolute() and REPO_ROOT in row_dir.parents else str(row_dir),
             "metrics_path": str((row_dir / "metrics.json").relative_to(REPO_ROOT)) if (row_dir / "metrics.json").is_absolute() and REPO_ROOT in (row_dir / "metrics.json").parents else str(row_dir / "metrics.json"),
             "invocation_present": invocation_path.exists(),
+            "completion_proof_present": baseline_completion is not None,
+            "completion_proof_filename": baseline_completion_filename,
         },
         "metrics": metrics_payload,
+        "completion_proof": baseline_completion,
     }
 
 
@@ -106,6 +132,12 @@ def _fresh_row_payload(run_root: Path, model_id: str) -> Dict[str, Any]:
     else:
         raise ValueError(f"Unknown ablation row id {model_id!r}")
 
+    completion_path = completion["path"]
+    completion_path_relative = (
+        str(completion_path.relative_to(REPO_ROOT))
+        if REPO_ROOT in completion_path.parents
+        else str(completion_path)
+    )
     return {
         "model_id": model_id,
         "model_label": ABLATION_LABELS[model_id],
@@ -116,10 +148,12 @@ def _fresh_row_payload(run_root: Path, model_id: str) -> Dict[str, Any]:
             "evidence_source": "fresh_run",
             "row_dir": str(row_dir),
             "invocation_present": (row_dir / "invocation.json").exists(),
-            "launcher_completion_present": completion is not None,
+            "completion_proof_present": True,
+            "completion_proof_filename": completion_path.name,
+            "completion_proof_path": completion_path_relative,
         },
         "metrics": metrics_payload,
-        "launcher_completion": completion,
+        "completion_proof": completion["payload"],
     }
 
 
