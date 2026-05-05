@@ -436,8 +436,12 @@ def test_run_natural_patch_benchmark_downgrades_when_visuals_or_provenance_missi
     manifest_path = item_root / "runs" / "downgrade-test-run" / "paper_benchmark_manifest.json"
     manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest_payload["row_statuses"]["baseline"]["status"] == "completed"
-    # Bundle row_statuses must reflect that the launcher proof was not "supported_for_harness".
-    assert metrics_payload["row_statuses"]["baseline"]["status"] == "completed"
+    # Bundle row_statuses must use the harness-status form so the bundle writer
+    # can promote a fully provenanced row to paper_complete; the original
+    # execution status is preserved under "execution_status" for traceability.
+    assert metrics_payload["row_statuses"]["baseline"]["status"] == "supported_for_harness"
+    assert metrics_payload["row_statuses"]["baseline"]["execution_status"] == "completed"
+    # Even with the harness-status form, missing provenance must still downgrade.
     assert "paper_complete" != metrics_payload["benchmark_status"]
     assert result["row_statuses"]["baseline"]["status"] == "completed"
 
@@ -468,6 +472,166 @@ def test_run_natural_patch_benchmark_downgrades_blocked_or_failed_rows(tmp_path:
     # Both required rows must be recorded as missing because no row_payload was produced.
     for row in ("baseline", "pinn"):
         assert metrics_payload["missing_fields_by_row"][row], f"{row} must record missing fields"
+
+
+def test_run_natural_patch_benchmark_reaches_paper_complete_when_row_provenance_satisfied(tmp_path: Path):
+    dataset_root = _build_dataset_root(tmp_path)
+    item_root = tmp_path / "item"
+    seed = 3
+
+    def fake_execute_rows(*, run_root, **__):
+        run_root = Path(run_root)
+        # Pre-populate side artifacts the bundle validator dereferences from
+        # the row payload. These mirror the fixture pattern used by
+        # tests/studies/test_metrics_tables.py and prove the bundle writer
+        # can promote a fully provenanced natural-patch row to paper_complete.
+        invocation_payload = {
+            "argv": ["--seed", str(seed)],
+            "parsed_args": {"seed": seed},
+            "pid": 12345,
+            "status": "completed",
+            "exit_code": 0,
+            "finished_at_utc": "2026-04-29T00:00:00+00:00",
+        }
+        config_payload = {"seed": seed}
+        invocation_path = run_root / "runs" / "baseline" / "invocation.json"
+        invocation_path.parent.mkdir(parents=True, exist_ok=True)
+        invocation_path.write_text(json.dumps(invocation_payload), encoding="utf-8")
+        (run_root / "runs" / "baseline" / "invocation.sh").write_text(
+            "#!/usr/bin/env bash\n", encoding="utf-8"
+        )
+        (run_root / "runs" / "baseline" / "config.json").write_text(
+            json.dumps(config_payload), encoding="utf-8"
+        )
+        (run_root / "runs" / "baseline" / "metrics.json").write_text("{}", encoding="utf-8")
+        (run_root / "runs" / "baseline" / "history.json").write_text("{}", encoding="utf-8")
+        (run_root / "runs" / "baseline" / "stdout.log").write_text("row stdout\n", encoding="utf-8")
+        (run_root / "runs" / "baseline" / "stderr.log").write_text("", encoding="utf-8")
+        (run_root / "runs" / "baseline" / "exit_code_proof.json").write_text(
+            json.dumps(
+                {
+                    "model_id": "baseline",
+                    "exit_code": 0,
+                    "proof_source": "row_artifacts_present_after_successful_run",
+                    "invocation_json": "runs/baseline/invocation.json",
+                    "invocation_status": "completed",
+                    "stdout_log": "runs/baseline/stdout.log",
+                    "stderr_log": "runs/baseline/stderr.log",
+                }
+            ),
+            encoding="utf-8",
+        )
+        (run_root / "datasets").mkdir(parents=True, exist_ok=True)
+        (run_root / "datasets" / "train.npz").write_text("x", encoding="utf-8")
+        (run_root / "datasets" / "test.npz").write_text("x", encoding="utf-8")
+        (run_root / "dataset_identity_manifest.json").write_text(
+            json.dumps(
+                {
+                    "train_npz": {"size_bytes": 1, "sha256": "train-sha", "source": "natural_patches128_fixedprobe_v1"},
+                    "test_npz": {"size_bytes": 1, "sha256": "test-sha", "source": "natural_patches128_fixedprobe_v1"},
+                }
+            ),
+            encoding="utf-8",
+        )
+        (run_root / "split_manifest.json").write_text(
+            json.dumps({"seed": seed, "nimgs_train": 2, "nimgs_test": 2, "gridsize": 1, "set_phi": True}),
+            encoding="utf-8",
+        )
+        (run_root / "recons" / "baseline").mkdir(parents=True, exist_ok=True)
+        (run_root / "recons" / "baseline" / "recon.npz").write_text("x", encoding="utf-8")
+        (run_root / "visuals").mkdir(parents=True, exist_ok=True)
+        (run_root / "visuals" / "amp_phase_baseline.png").write_text("x", encoding="utf-8")
+        (run_root / "visuals" / "amp_phase_error_baseline.png").write_text("x", encoding="utf-8")
+
+        row_payload = {
+            "model_label": "CDI CNN + supervised",
+            "architecture_id": "cnn",
+            "training_procedure": "supervised",
+            "N": 8,
+            "parameter_count": 10,
+            "epoch_budget": 40,
+            "final_completed_epoch": 40,
+            "final_train_loss": 0.1,
+            "validation_loss": {"status": "emitted", "value": 0.2},
+            "runtime_summary": {"train_wall_time_sec": 1.0, "inference_time_sec": 0.5},
+            "hardware_summary": {"backend": "tensorflow", "accelerator": "cpu"},
+            "row_status": "paper_grade",
+            "caveats": [],
+            "invocation": {
+                "json": "runs/baseline/invocation.json",
+                "shell": "runs/baseline/invocation.sh",
+            },
+            "config": {"json": "runs/baseline/config.json"},
+            "git": {"commit": "abc123", "dirty_state_note": {"source": "test_fixture", "dirty": False}},
+            "environment": {
+                "python_executable": "/usr/bin/python",
+                "python_version": "3.11.0",
+                "torch_version": "n/a",
+                "cuda_version": "n/a",
+                "gpu": "n/a",
+                "host": "test-host",
+            },
+            "dataset": {
+                "train_npz": "datasets/train.npz",
+                "test_npz": "datasets/test.npz",
+                "dataset_source": "natural_patches128_fixedprobe_v1",
+                "manifest_json": "dataset_identity_manifest.json",
+            },
+            "splits": {
+                "nimgs_train": 2,
+                "nimgs_test": 2,
+                "gridsize": 1,
+                "set_phi": True,
+                "seed": seed,
+                "manifest_json": "split_manifest.json",
+            },
+            "randomness": {"requested_seed": seed},
+            "outputs": {
+                "metrics_json": "runs/baseline/metrics.json",
+                "history_json": "runs/baseline/history.json",
+                "recon_npz": "recons/baseline/recon.npz",
+                "stdout_log": "runs/baseline/stdout.log",
+                "stderr_log": "runs/baseline/stderr.log",
+                "exit_code_proof_json": "runs/baseline/exit_code_proof.json",
+            },
+            "visuals": {
+                "amp_phase_png": "visuals/amp_phase_baseline.png",
+                "amp_phase_error_png": "visuals/amp_phase_error_baseline.png",
+            },
+            "metrics": {
+                "mae": (0.1, 0.2),
+                "mse": (0.01, 0.02),
+                "psnr": (10.0, 11.0),
+                "ssim": (0.7, 0.8),
+                "ms_ssim": (0.6, 0.7),
+                "frc50": (5.0, 6.0),
+            },
+        }
+        return {"baseline": {"status": "completed", "row_payload": row_payload}}
+
+    result = run_natural_patch_benchmark(
+        dataset_root=dataset_root,
+        item_root=item_root,
+        mode="benchmark",
+        rows=("baseline",),
+        seed=seed,
+        run_id="paper-complete-run",
+        execute_rows_fn=fake_execute_rows,
+    )
+
+    metrics_path = item_root / "runs" / "paper-complete-run" / "metrics.json"
+    metrics_payload = json.loads(metrics_path.read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "paper_complete"
+    assert metrics_payload["missing_fields_by_row"]["baseline"] == []
+    # The bundle harness-status form must be supported_for_harness (HIGH-3 fix).
+    assert metrics_payload["row_statuses"]["baseline"]["status"] == "supported_for_harness"
+    assert metrics_payload["row_statuses"]["baseline"]["execution_status"] == "completed"
+    # The execution-status form is preserved in the result and the manifest.
+    assert result["row_statuses"]["baseline"]["status"] == "completed"
+    manifest_payload = json.loads(
+        (item_root / "runs" / "paper-complete-run" / "paper_benchmark_manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest_payload["row_statuses"]["baseline"]["status"] == "completed"
 
 
 def test_run_natural_patch_benchmark_uses_default_executor_in_benchmark_mode(tmp_path: Path, monkeypatch):

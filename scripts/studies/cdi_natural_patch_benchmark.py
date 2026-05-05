@@ -1523,6 +1523,29 @@ def _execute_rows(
     return results
 
 
+def _bundle_row_statuses_from_execution(
+    execution_row_statuses: Mapping[str, Mapping[str, object]],
+) -> dict[str, Mapping[str, object]]:
+    """Translate execution-time row statuses into the bundle harness-status form.
+
+    The bundle writer in metrics_tables.py treats any required row whose
+    forwarded status is not exactly "supported_for_harness" as incomplete. Row
+    execution returns "completed"/"blocked"/"not_protocol_compatible", so the
+    forwarded statuses must be remapped: "completed" rows are protocol-
+    compatible by construction in the natural-patch roster, so they map to
+    "supported_for_harness"; other execution statuses are preserved as-is so
+    they continue to downgrade the bundle.
+    """
+    bundle: dict[str, Mapping[str, object]] = {}
+    for row, payload in execution_row_statuses.items():
+        translated = dict(payload)
+        if translated.get("status") == "completed":
+            translated["status"] = "supported_for_harness"
+            translated["execution_status"] = "completed"
+        bundle[row] = translated
+    return bundle
+
+
 def run_natural_patch_benchmark(
     *,
     dataset_root: Path,
@@ -1585,6 +1608,8 @@ def run_natural_patch_benchmark(
         if isinstance(row_payload, Mapping):
             row_payloads[row] = dict(row_payload)
 
+    bundle_row_statuses = _bundle_row_statuses_from_execution(row_statuses)
+
     fixed_sample_manifest = _load_json(Path(contract_paths["fixed_sample_manifest_path"]))
     shared_visual_scales = _load_json(Path(contract_paths["shared_visual_scales_path"]))
     bundle_paths = write_paper_benchmark_bundle(
@@ -1595,7 +1620,7 @@ def run_natural_patch_benchmark(
         shared_visual_scales=shared_visual_scales,
         evidence_scope="single_seed_natural_patch_benchmark",
         claim_boundary="single_seed_natural_patch_expanded_object_cdi_only",
-        row_statuses=row_statuses,
+        row_statuses=bundle_row_statuses,
         require_row_provenance=True,
     )
     manifest_payload = _build_benchmark_manifest(

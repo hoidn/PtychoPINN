@@ -2,12 +2,40 @@
 
 ## Completed In This Pass
 
+- Fixed the row-status plumbing bug flagged as HIGH-3 in the implementation
+  review. `run_natural_patch_benchmark` in
+  `scripts/studies/cdi_natural_patch_benchmark.py` now translates execution
+  statuses into the bundle harness-status form via
+  `_bundle_row_statuses_from_execution`: `completed` rows map to
+  `supported_for_harness` (and the original execution status is preserved
+  under `execution_status`), while `blocked` / `not_protocol_compatible`
+  outcomes are passed through verbatim so they continue to downgrade the
+  bundle. The execution-time status remains intact in the result envelope and
+  in `paper_benchmark_manifest.json` for traceability. Without this fix the
+  bundle writer would permanently downgrade fully provenanced runs to
+  `benchmark_incomplete`, blocking any path to `paper_complete` even after
+  HIGH-1 / HIGH-2 follow-ups.
+- Updated
+  `tests/studies/test_cdi_natural_patch_benchmark.py::test_run_natural_patch_benchmark_downgrades_when_visuals_or_provenance_missing`
+  to codify the new status semantics: bundle row_statuses for completed
+  executions now report `supported_for_harness` (with `execution_status:
+  "completed"`), the manifest preserves the raw `completed` execution status,
+  and the bundle still downgrades when provenance is incomplete.
+- Added a new positive-path regression test
+  `test_run_natural_patch_benchmark_reaches_paper_complete_when_row_provenance_satisfied`
+  that wires a fully provenanced row payload (with on-disk dataset / split
+  manifests, exit-code proof, invocation/config/history/metrics/recon side
+  files, and fixed-sample visuals) through `run_natural_patch_benchmark` and
+  asserts `benchmark_status == "paper_complete"` with no missing fields. This
+  covers the reviewer's "After the blocking fixes above land, add one
+  positive-path test" follow-up and proves the HIGH-3 fix unblocks the
+  paper_complete path end-to-end.
 - Patched `run_natural_patch_benchmark` in
   `scripts/studies/cdi_natural_patch_benchmark.py` to call
   `write_paper_benchmark_bundle` with `require_row_provenance=True` and to
   forward executor `row_statuses`. The harness can no longer silently promote
-  recovered or incomplete bundles to `paper_complete` (HIGH-2 from the
-  implementation review).
+  recovered or incomplete bundles to `paper_complete` (prior pass HIGH-2 from
+  the original implementation review).
 - Added two regression tests in
   `tests/studies/test_cdi_natural_patch_benchmark.py` covering benchmark-mode
   completeness:
@@ -42,34 +70,52 @@
 - Task 1: prerequisite presence gate, dataset-contract preflight, dry-run
   inspection, and prepared-input contract handling are unchanged and still
   green.
-- Task 2: narrow harness fixes from the prior pass remain in place, and the
-  HIGH-2 contract bug in `run_natural_patch_benchmark` is now patched with
-  benchmark-mode regression coverage.
+- Task 2: prior-pass harness fixes remain in place; this pass adds the
+  HIGH-3 row-status translation in `run_natural_patch_benchmark` plus a
+  positive-path bundle regression test, removing the permanent downgrade
+  bug that previously prevented the bundle writer from ever promoting a
+  fully provenanced run to `paper_complete`.
 - Task 3: every row trained, ran inference, and emitted row-local metrics /
   configs / histories / recons under
   `runs/natural-patch-benchmark-20260505T213458Z`. The recovered bundle is
-  republished with honest `benchmark_incomplete` classification rather than
-  the prior unsupported `paper_complete` claim, since the tracked launcher
-  exited `1`, torch-row fixed-sample PNGs were never backfilled, and the
-  natural-patch harness does not yet emit the locked provenance scaffolding
-  expected by `require_row_provenance=True`.
+  republished with honest `benchmark_incomplete` classification, since the
+  tracked launcher exited `1`, torch-row fixed-sample PNGs were never
+  backfilled, and the natural-patch harness does not yet emit the locked
+  provenance scaffolding expected by `require_row_provenance=True`. A clean
+  launcher-proof rerun (HIGH-1) and live emission of the side-file
+  scaffolding (HIGH-2) remain follow-up work.
 - Task 4: the durable summary and discoverability surfaces are re-synced to
   the corrected status and explicitly route readers to the residual risks and
   follow-up work below.
 
 ## Follow-Up Work
 
-- Relaunch the natural-patch benchmark end-to-end on the locked dataset until
-  the tracked PID exits `0`, with the harness emitting torch-row fixed-sample
-  visuals directly under `visuals/` instead of relying on post-hoc recovery.
-- Extend `cdi_natural_patch_benchmark.py` to construct the full provenance
-  payloads required by `metrics_tables.py` under
+- HIGH-1 (clean live launcher rerun): relaunch the natural-patch benchmark
+  end-to-end on the locked dataset until the tracked PID exits `0`, with the
+  harness emitting torch-row fixed-sample visuals directly under `visuals/`
+  instead of relying on post-hoc recovery. This requires a multi-hour GPU
+  training run and is deferred to follow-up work; the existing recovered
+  bundle remains classified `benchmark_incomplete` until that rerun lands.
+- HIGH-2 (full provenance scaffolding in the harness): extend
+  `cdi_natural_patch_benchmark.py` (and where unavoidable, the underlying
+  `_write_tf_row_provenance` /
+  `grid_lines_torch_runner._write_torch_row_provenance` pathways) to emit
+  the locked side artifacts that `metrics_tables.py` validates under
   `require_row_provenance=True`:
-  `environment.host`, `environment.torch_version`, `environment.cuda_version`,
-  `environment.gpu`, `git.dirty_state_note`, dataset and splits
-  `manifest_json` records with size and sha256 entries, `randomness`, and
-  `outputs.exit_code_proof_json`. Once these are in place a clean rerun can
-  legitimately reach `paper_complete`.
+  - `dataset.manifest_json` pointing to a JSON record with `train_npz`,
+    `test_npz`, `size_bytes`, `sha256`, and `source` entries.
+  - `splits.manifest_json` matching `nimgs_train`, `nimgs_test`, `seed`,
+    `gridsize`, and `set_phi` against the row payload.
+  - `randomness.requested_seed` matching the splits seed and the
+    invocation/config seeds (currently emitted only as a partial
+    `seed_policy` payload by `_write_tf_row_provenance`).
+  - `outputs.exit_code_proof_json` with `model_id`, `exit_code=0`,
+    `proof_source`, matching `invocation_json` / `stdout_log` / `stderr_log`
+    references, and `invocation_status="completed"`.
+  The new positive-path regression test
+  (`...reaches_paper_complete_when_row_provenance_satisfied`) demonstrates
+  the bundle writer reaches `paper_complete` once these artifacts exist; the
+  harness itself still needs to produce them in a live run.
 - Investigate the `train_wall_time_sec` ≈ `0.000277` / `0.000257` and
   `inference_time_sec=null` artifacts on the TF rows of the recovered bundle
   (Medium-1). This corruption originated in the recovery path; a clean rerun
@@ -79,14 +125,20 @@
 
 ## Verification
 
-- Required input gate (review-pass log):
-  `verification/required_input_gate_review_20260505T233250Z.log`
-- Required pytest gate (review-pass log):
-  `verification/pytest_selected_review_20260505T233250Z.log`
-  (`24 passed`).
-- Compile gate (review-pass log):
-  `verification/compileall_selected_review_20260505T233250Z.log`.
-- Repo integration gate (review-pass log):
+- Required input gate (paper-ready-fix log):
+  `verification/required_input_gate_paperready_20260505T235659Z.log`
+- Required pytest gate (paper-ready-fix log):
+  `verification/pytest_selected_paperready_20260505T235659Z.log`
+  (`26 passed`, including the new positive-path test).
+- Compile gate (paper-ready-fix log):
+  `verification/compileall_selected_paperready_20260505T235659Z.log`.
+- Repo integration gate (paper-ready-fix log):
+  `verification/pytest_integration_paperready_20260505T235659Z.log`
+  (`5 passed, 4 skipped, 2202 deselected`).
+- Prior pass logs (review pass) retained alongside:
+  `verification/required_input_gate_review_20260505T233250Z.log`,
+  `verification/pytest_selected_review_20260505T233250Z.log` (`24 passed`),
+  `verification/compileall_selected_review_20260505T233250Z.log`,
   `verification/pytest_integration_review_20260505T233250Z.log`
   (`5 passed, 4 skipped, 2200 deselected`).
 - Re-collation evidence: rerunning `write_paper_benchmark_bundle` on the
