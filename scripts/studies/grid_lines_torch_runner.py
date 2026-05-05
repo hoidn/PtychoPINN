@@ -64,6 +64,7 @@ PAPER_MODEL_LABELS = {
     "spectral_resnet_bottleneck_net": "Spectral ResNet Bottleneck + PINN",
     "spectral_resnet_bottleneck_linear_decoder": "Spectral ResNet Linear Decoder + PINN",
     "hybrid_resnet_ffno_bottleneck": "Hybrid ResNet FFNO Bottleneck + PINN",
+    "hybrid_resnet_convnext_bottleneck": "Hybrid ResNet (ConvNeXt bottleneck) + PINN",
 }
 
 
@@ -819,7 +820,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     # Cast N and architecture to their Literal types
     N_literal = cast(Literal[64, 128, 256], cfg.N)
     arch_literal = cast(
-        Literal['cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck'],
+        Literal['cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck', 'hybrid_resnet_convnext_bottleneck'],
         cfg.architecture,
     )
     if cfg.architecture in {
@@ -827,6 +828,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         "spectral_resnet_bottleneck_net",
         "spectral_resnet_bottleneck_linear_decoder",
         "hybrid_resnet_ffno_bottleneck",
+        "hybrid_resnet_convnext_bottleneck",
     }:
         if cfg.fno_blocks < 3:
             raise ValueError(
@@ -1784,7 +1786,7 @@ def main(argv=None) -> None:
     parser.add_argument("--output-dir", type=Path, required=True,
                         help="Output directory for artifacts")
     parser.add_argument("--architecture", type=str, required=True,
-                        choices=['ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck'],
+                        choices=['ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck', 'hybrid_resnet_convnext_bottleneck'],
                         help="Generator architecture to use")
     parser.add_argument(
         "--training-procedure",

@@ -1310,6 +1310,36 @@
       "changed_factor": "training_mode=supervised; identical SRU-Net body and contract knobs as pinn_hybrid_resnet, only the training objective changed. Objective-control row, not a CDI headline candidate."
     },
     {
+      "variant_id": "cdi_lines128__hybrid_resnet_convnext_bottleneck__pinn__srunet_convnext_bottleneck_ablation",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_hybrid_resnet_convnext_bottleneck",
+      "paper_label": "Hybrid ResNet (ConvNeXt bottleneck) + PINN",
+      "architecture_id": "hybrid_resnet_convnext_bottleneck",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-05-04-cdi-lines128-srunet-convnext-bottleneck-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_srunet_convnext_bottleneck_ablation_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-convnext-bottleneck-ablation/runs/ablation_20260505T035147Z",
+      "metrics_json": "runs/pinn_hybrid_resnet_convnext_bottleneck/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_hybrid_resnet_convnext_bottleneck.png",
+        "visuals/amp_phase_error_pinn_hybrid_resnet_convnext_bottleneck.png"
+      ],
+      "metrics": {
+        "amp_mae": 0.028194930404424667,
+        "phase_mae": 0.07182564375983919,
+        "amp_ssim": 0.9863066208953335,
+        "phase_ssim": 0.9935802240689117,
+        "amp_psnr": 77.12256779583758,
+        "phase_psnr": 69.11012144248218,
+        "amp_frc50": 135.56951884636254,
+        "phase_frc50": 135.0134472473909
+      },
+      "nearest_anchor_row": "pinn_hybrid_resnet",
+      "evidence_status": "decision_support_append_only",
+      "changed_factor": "bottleneck_block_family swapped to ConvNeXt (depthwise 7x7 + InstanceNorm channels-first + 1x1 expand 4x + GELU + 1x1 project, residual with shared LayerScale gamma init 0.1). Encoder, downsample, decoder, skip policy, output projection, loss, schedule, probe, dataset, and visual scales identical to the pinn_hybrid_resnet anchor."
+    },
+    {
       "variant_id": "brdt__unet__supervised_plus_born_consistency__decision_support_preflight",
       "dataset_contract_id": "brdt_decision_support_2048cap",
       "row_id": "unet",

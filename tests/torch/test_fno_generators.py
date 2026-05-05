@@ -1147,3 +1147,158 @@ class TestStableHybridUNOGenerator:
         x = torch.randn(2, 4, 64, 64)
         out = model(x)
         assert out.shape == (2, 64, 64, 4, 2)
+
+
+class TestConvNextBottleneck:
+    """Tests for the ConvNeXt-style bottleneck added for the SRU-Net ConvNeXt
+    bottleneck ablation (architecture id ``hybrid_resnet_convnext_bottleneck``).
+    """
+
+    def test_convnext_block_preserves_shape(self):
+        from ptycho_torch.generators.resnet_components import ConvNextBottleneckBlock
+
+        block = ConvNextBottleneckBlock(channels=32)
+        x = torch.randn(2, 32, 16, 16)
+        y = block(x)
+        assert tuple(y.shape) == (2, 32, 16, 16)
+
+    def test_convnext_bottleneck_preserves_shape(self):
+        from ptycho_torch.generators.resnet_components import ConvNextBottleneck
+
+        bottleneck = ConvNextBottleneck(channels=32, n_blocks=4)
+        x = torch.randn(2, 32, 16, 16)
+        y = bottleneck(x)
+        assert tuple(y.shape) == (2, 32, 16, 16)
+
+    def test_convnext_block_layerscale_default_matches_srunet_convention(self):
+        """First ConvNeXt row uses the SRU-Net LayerScale convention 0.1."""
+        from ptycho_torch.generators.resnet_components import ConvNextBottleneckBlock
+
+        block = ConvNextBottleneckBlock(channels=16)
+        assert block.layerscale.requires_grad is True
+        assert math.isclose(float(block.layerscale.detach().item()), 0.1, abs_tol=1e-6)
+
+    def test_convnext_bottleneck_layerscale_default_matches_srunet_convention(self):
+        from ptycho_torch.generators.resnet_components import ConvNextBottleneck
+
+        bottleneck = ConvNextBottleneck(channels=16, n_blocks=3)
+        assert bottleneck.layerscale.requires_grad is True
+        assert math.isclose(float(bottleneck.layerscale.detach().item()), 0.1, abs_tol=1e-6)
+
+    def test_convnext_bottleneck_shares_layerscale_across_blocks(self):
+        from ptycho_torch.generators.resnet_components import ConvNextBottleneck
+
+        bottleneck = ConvNextBottleneck(channels=16, n_blocks=4)
+        ids = {id(block.layerscale) for block in bottleneck.blocks}
+        assert len(ids) == 1
+        assert id(bottleneck.layerscale) in ids
+
+    def test_convnext_bottleneck_fixed_layerscale_disables_grad(self):
+        from ptycho_torch.generators.resnet_components import ConvNextBottleneck
+
+        bottleneck = ConvNextBottleneck(
+            channels=8,
+            n_blocks=2,
+            layerscale_mode="fixed",
+            layerscale_value=0.05,
+        )
+        assert bottleneck.layerscale.requires_grad is False
+        assert math.isclose(float(bottleneck.layerscale.detach().item()), 0.05, abs_tol=1e-6)
+
+    def test_convnext_block_invalid_kernel_size_raises(self):
+        from ptycho_torch.generators.resnet_components import ConvNextBottleneckBlock
+
+        with pytest.raises(ValueError, match="kernel_size"):
+            ConvNextBottleneckBlock(channels=8, kernel_size=4)
+
+    def test_convnext_block_invalid_layerscale_raises(self):
+        from ptycho_torch.generators.resnet_components import ConvNextBottleneckBlock
+
+        with pytest.raises(ValueError, match="layerscale_init"):
+            ConvNextBottleneckBlock(channels=8, layerscale_init=0.0)
+
+    def test_convnext_bottleneck_invalid_n_blocks_raises(self):
+        from ptycho_torch.generators.resnet_components import ConvNextBottleneck
+
+        with pytest.raises(ValueError, match="n_blocks"):
+            ConvNextBottleneck(channels=8, n_blocks=0)
+
+    def test_convnext_block_has_expand_act_project_feedforward_path(self):
+        from ptycho_torch.generators.resnet_components import ConvNextBottleneckBlock
+
+        block = ConvNextBottleneckBlock(channels=16)
+        assert isinstance(block.depthwise, torch.nn.Conv2d)
+        assert block.depthwise.groups == 16
+        assert isinstance(block.expand, torch.nn.Conv2d)
+        assert isinstance(block.act, torch.nn.GELU)
+        assert isinstance(block.project, torch.nn.Conv2d)
+
+
+class TestHybridResnetConvNextBottleneckGenerator:
+    """End-to-end shape and contract tests for the new architecture."""
+
+    def test_hybrid_resnet_convnext_bottleneck_module_forward_preserves_shape(self):
+        from ptycho_torch.generators.hybrid_resnet import (
+            HybridResnetConvNextBottleneckGeneratorModule,
+        )
+
+        model = HybridResnetConvNextBottleneckGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=32,
+            n_blocks=4,
+            modes=12,
+            C=1,
+            hybrid_downsample_steps=2,
+            resnet_blocks=6,
+        )
+        x = torch.randn(2, 1, 128, 128)
+        y = model(x)
+        assert tuple(y.shape) == (2, 128, 128, 1, 2)
+
+    def test_hybrid_resnet_convnext_bottleneck_swaps_only_bottleneck(self):
+        """Architecture must keep the lifter/encoder/downsample/decoder/output
+        intact and only replace ``self.resnet`` with ConvNextBottleneck."""
+        from ptycho_torch.generators.hybrid_resnet import (
+            HybridResnetConvNextBottleneckGeneratorModule,
+            HybridResnetGeneratorModule,
+        )
+        from ptycho_torch.generators.resnet_components import (
+            ConvNextBottleneck,
+            ResnetBottleneck,
+        )
+
+        baseline = HybridResnetGeneratorModule(
+            in_channels=1, out_channels=2, hidden_channels=32, n_blocks=4, modes=12, C=1,
+            hybrid_downsample_steps=2, resnet_blocks=6,
+        )
+        convnext = HybridResnetConvNextBottleneckGeneratorModule(
+            in_channels=1, out_channels=2, hidden_channels=32, n_blocks=4, modes=12, C=1,
+            hybrid_downsample_steps=2, resnet_blocks=6,
+        )
+        # Bottleneck swapped
+        assert isinstance(baseline.resnet, ResnetBottleneck)
+        assert isinstance(convnext.resnet, ConvNextBottleneck)
+        # Shell preserved (same submodule classes)
+        for attr in ("lifter", "encoder_blocks", "downsample_layers", "adapter",
+                    "upsample_layers", "output_proj"):
+            assert type(getattr(baseline, attr)) is type(getattr(convnext, attr))
+        # Bottleneck width matches
+        assert baseline.bottleneck_channels == convnext.bottleneck_channels
+
+    def test_hybrid_resnet_convnext_bottleneck_layerscale_default_is_srunet_convention(self):
+        from ptycho_torch.generators.hybrid_resnet import (
+            HybridResnetConvNextBottleneckGeneratorModule,
+        )
+
+        model = HybridResnetConvNextBottleneckGeneratorModule(
+            in_channels=1, out_channels=2, hidden_channels=32, n_blocks=4, modes=12, C=1,
+            hybrid_downsample_steps=2, resnet_blocks=6,
+        )
+        assert math.isclose(float(model.resnet.layerscale.detach().item()), 0.1, abs_tol=1e-6)
+        assert model.resnet.layerscale.requires_grad is True
+
+    def test_registry_resolves_hybrid_resnet_convnext_bottleneck(self):
+        cfg = TrainingConfig(model=ModelConfig(architecture="hybrid_resnet_convnext_bottleneck"))
+        generator = resolve_generator(cfg)
+        assert generator.name == "hybrid_resnet_convnext_bottleneck"

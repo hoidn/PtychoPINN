@@ -667,6 +667,33 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   - does not replace the six-row `lines128` CDI headline bundle or the U-NO
     extension
 
+### `grid-lines-n128-srunet-convnext-bottleneck-ablation`
+
+- Purpose: produce an append-only same-contract `lines128` CDI ablation that
+  swaps only the SRU-Net constant-resolution ResNet bottleneck for a
+  ConvNeXt-style block stack while preserving every other shell decision.
+- Status: completed on `2026-05-04`; output is `decision_support_append_only`
+  and does not displace the six-row CDI headline bundle or the U-NO append-only
+  extension.
+- Plan:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-convnext-bottleneck-ablation/execution_plan.md`
+- Summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_srunet_convnext_bottleneck_ablation_summary.md`
+- Artifact root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-convnext-bottleneck-ablation/`
+- Reused anchor:
+  - `pinn_hybrid_resnet` (promoted by lineage from the immutable six-row CDI authority)
+- Fresh row:
+  - `pinn_hybrid_resnet_convnext_bottleneck` (architecture id `hybrid_resnet_convnext_bottleneck`)
+- Boundary:
+  - append-only decision-support evidence
+  - swaps only the bottleneck block family; encoder, downsample, decoder, skip,
+    output, loss, and contract all unchanged
+  - first ConvNeXt row uses the current SRU-Net LayerScale convention
+    (init `0.1`); canonical tiny-ConvNeXt LayerScale (`1e-6`) is deferred
+  - does not replace the six-row `lines128` CDI headline bundle or the U-NO
+    extension
+
 ### `grid-lines-n128-hybrid-resnet-skip-residual-ablation`
 
 - Purpose: run a bounded same-contract CDI ablation over Hybrid decoder

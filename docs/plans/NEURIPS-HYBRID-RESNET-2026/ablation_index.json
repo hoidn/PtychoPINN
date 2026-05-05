@@ -497,6 +497,29 @@
         "supervised_hybrid_resnet"
       ],
       "interpretation": "Tests SRU-Net (Hybrid ResNet) encoder branch necessity by deterministically removing the spectral branch (conv-only) or the local 3x3 conv branch (spectral-only) from the encoder, and adds the supervised SRU-Net objective-control row alongside the existing pinn_hybrid_resnet anchor. The baseline pinn_hybrid_resnet row is reused by lineage from the immutable six-row CDI bundle and is not rerun. This family is append-only decision-support evidence and does not replace the six-row complete CDI authority or the U-NO append-only extension."
+    },
+    {
+      "family_id": "cdi_lines128_srunet_convnext_bottleneck_ablation",
+      "task": "cdi",
+      "fixed_contract": "cdi_lines128_seed3",
+      "claim_boundary": "decision_support_append_only",
+      "changed_factors": [
+        "bottleneck block family (ResNet vs ConvNeXt-style)"
+      ],
+      "completed_items": [
+        "2026-05-04-cdi-lines128-srunet-convnext-bottleneck-ablation"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_srunet_convnext_bottleneck_ablation_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-convnext-bottleneck-ablation"
+      ],
+      "rows": [
+        "pinn_hybrid_resnet",
+        "pinn_hybrid_resnet_convnext_bottleneck"
+      ],
+      "interpretation": "Tests whether replacing the SRU-Net constant-resolution ResNet bottleneck with a ConvNeXt-style depthwise + LayerNorm + 1x1 expand/project stack changes amplitude/phase/FRC behavior on the locked Lines128 CDI contract while preserving every other shell decision. The baseline pinn_hybrid_resnet row is reused by lineage from the immutable six-row CDI bundle and is not rerun. The ConvNeXt row uses the current SRU-Net LayerScale convention (init 0.1) so block family is the only intended axis; canonical tiny-ConvNeXt LayerScale (1e-6) initialization is deferred. This family is append-only decision-support evidence and does not replace the six-row complete CDI authority or the U-NO append-only extension."
     }
   ],
   "maintenance_rules": [

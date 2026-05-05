@@ -98,7 +98,7 @@ class ModelConfig:
     n_filters_scale: int = 2
     model_type: Literal['pinn', 'supervised'] = 'pinn'
     architecture: Literal[
-        'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck'
+        'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck', 'hybrid_resnet_convnext_bottleneck'
     ] = 'cnn'
     fno_modes: int = 12
     fno_width: int = 32
@@ -579,6 +579,7 @@ def validate_model_config(config: ModelConfig) -> None:
         'spectral_resnet_bottleneck_net',
         'spectral_resnet_bottleneck_linear_decoder',
         'hybrid_resnet_ffno_bottleneck',
+        'hybrid_resnet_convnext_bottleneck',
     }
     if config.architecture not in valid_arches:
         raise ValueError(
@@ -590,6 +591,7 @@ def validate_model_config(config: ModelConfig) -> None:
         "spectral_resnet_bottleneck_net",
         "spectral_resnet_bottleneck_linear_decoder",
         "hybrid_resnet_ffno_bottleneck",
+        "hybrid_resnet_convnext_bottleneck",
     }:
         if config.fno_blocks < 3:
             raise ValueError(

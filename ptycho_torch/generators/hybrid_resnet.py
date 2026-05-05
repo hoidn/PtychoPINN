@@ -11,7 +11,11 @@ from ptycho_torch.generators.fno import (
     HAS_NEURALOPERATOR,
     _FallbackSpectralConv2d,
 )
-from ptycho_torch.generators.resnet_components import ResnetBottleneck, CycleGanUpsampler
+from ptycho_torch.generators.resnet_components import (
+    ConvNextBottleneck,
+    CycleGanUpsampler,
+    ResnetBottleneck,
+)
 
 try:
     from neuraloperator.layers.spectral_convolution import SpectralConv
@@ -717,4 +721,140 @@ class HybridResnetGenerator:
                     "both",
                 ),
             },
+        )
+
+
+class HybridResnetConvNextBottleneckGeneratorModule(HybridResnetGeneratorModule):
+    """Hybrid ResNet shell that swaps the local ResNet bottleneck for a ConvNeXt-style stack.
+
+    Architecture id: ``hybrid_resnet_convnext_bottleneck``.
+
+    The full SRU-Net shell (lifter, encoder branches, downsample, adapter, decoder,
+    skip-fusion, output projection) is inherited verbatim from
+    :class:`HybridResnetGeneratorModule`. Only ``self.resnet`` is replaced with
+    :class:`ConvNextBottleneck`, so the comparison versus ``hybrid_resnet`` isolates
+    bottleneck block family as the only differing axis.
+    """
+
+    def __init__(
+        self,
+        *,
+        convnext_bottleneck_layerscale_init: float = 0.1,
+        convnext_bottleneck_mlp_ratio: float = 4.0,
+        convnext_bottleneck_kernel_size: int = 7,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        # Reuse the bottleneck-layerscale plumbing already validated by the parent
+        # so learned/fixed modes are honored consistently across families.
+        self.resnet = ConvNextBottleneck(
+            int(self.bottleneck_channels),
+            n_blocks=int(kwargs.get("resnet_blocks", 6)),
+            layerscale_init=float(convnext_bottleneck_layerscale_init),
+            mlp_ratio=float(convnext_bottleneck_mlp_ratio),
+            kernel_size=int(convnext_bottleneck_kernel_size),
+            layerscale_mode=self.bottleneck_layerscale_mode,
+            layerscale_value=self.bottleneck_layerscale_value,
+        )
+
+
+class HybridResnetConvNextBottleneckGenerator:
+    """Generator registry wrapper for hybrid_resnet_convnext_bottleneck."""
+
+    name = "hybrid_resnet_convnext_bottleneck"
+
+    def __init__(self, config):
+        self.config = config
+
+    def build_model(self, pt_configs: Dict[str, Any]) -> "nn.Module":
+        from ptycho_torch.model import PtychoPINN_Lightning
+
+        data_config = pt_configs["data_config"]
+        model_config = pt_configs["model_config"]
+        training_config = pt_configs["training_config"]
+        inference_config = pt_configs["inference_config"]
+        execution_config = pt_configs.get("execution_config")
+
+        output_mode = getattr(model_config, "generator_output_mode", "real_imag")
+        generator_mode = "amp_phase" if output_mode == "amp_phase" else "real_imag"
+
+        bottleneck_layerscale_mode = getattr(
+            execution_config,
+            "hybrid_resnet_bottleneck_layerscale_mode",
+            getattr(model_config, "hybrid_resnet_bottleneck_layerscale_mode", "learned"),
+        )
+        bottleneck_layerscale_value = getattr(
+            execution_config,
+            "hybrid_resnet_bottleneck_layerscale_value",
+            getattr(model_config, "hybrid_resnet_bottleneck_layerscale_value", None),
+        )
+
+        core = HybridResnetConvNextBottleneckGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=getattr(model_config, "fno_width", 32),
+            n_blocks=getattr(model_config, "fno_blocks", 4),
+            modes=getattr(model_config, "fno_modes", 12),
+            C=getattr(data_config, "C", 4),
+            input_transform=getattr(model_config, "fno_input_transform", "none"),
+            output_mode=generator_mode,
+            max_hidden_channels=getattr(model_config, "max_hidden_channels", None),
+            resnet_width=getattr(model_config, "resnet_width", None),
+            resnet_blocks=getattr(model_config, "hybrid_resnet_blocks", 6),
+            skip_connections=getattr(model_config, "hybrid_skip_connections", False),
+            hybrid_downsample_steps=getattr(model_config, "hybrid_downsample_steps", 2),
+            hybrid_downsample_op=getattr(model_config, "hybrid_downsample_op", "stride_conv"),
+            hybrid_encoder_conv_hidden_scale=getattr(
+                model_config, "hybrid_encoder_conv_hidden_scale", 1.0
+            ),
+            hybrid_encoder_spectral_hidden_scale=getattr(
+                model_config, "hybrid_encoder_spectral_hidden_scale", 1.0
+            ),
+            hybrid_encoder_conv_hidden_channels=getattr(
+                model_config, "hybrid_encoder_conv_hidden_channels", None
+            ),
+            hybrid_encoder_spectral_hidden_channels=getattr(
+                model_config, "hybrid_encoder_spectral_hidden_channels", None
+            ),
+            hybrid_skip_style=getattr(model_config, "hybrid_skip_style", "add"),
+            bottleneck_layerscale_mode=bottleneck_layerscale_mode,
+            bottleneck_layerscale_value=bottleneck_layerscale_value,
+            encoder_fusion_mode=getattr(
+                execution_config,
+                "hybrid_encoder_fusion_mode",
+                getattr(model_config, "hybrid_encoder_fusion_mode", "baseline"),
+            ),
+            encoder_layerscale_init=getattr(
+                execution_config,
+                "hybrid_encoder_layerscale_init",
+                getattr(model_config, "hybrid_encoder_layerscale_init", 0.1),
+            ),
+            encoder_branch_gate_init=getattr(
+                execution_config,
+                "hybrid_encoder_branch_gate_init",
+                getattr(model_config, "hybrid_encoder_branch_gate_init", 0.1),
+            ),
+            encoder_branch_select=getattr(
+                execution_config,
+                "hybrid_encoder_branch_select",
+                getattr(model_config, "hybrid_encoder_branch_select", "both"),
+            ),
+            convnext_bottleneck_layerscale_init=getattr(
+                model_config, "convnext_bottleneck_layerscale_init", 0.1
+            ),
+            convnext_bottleneck_mlp_ratio=getattr(
+                model_config, "convnext_bottleneck_mlp_ratio", 4.0
+            ),
+            convnext_bottleneck_kernel_size=getattr(
+                model_config, "convnext_bottleneck_kernel_size", 7
+            ),
+        )
+
+        return PtychoPINN_Lightning(
+            model_config=model_config,
+            data_config=data_config,
+            training_config=training_config,
+            inference_config=inference_config,
+            generator_module=core,
+            generator_output=output_mode,
         )
