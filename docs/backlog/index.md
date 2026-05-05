@@ -55,6 +55,7 @@ Current source of truth:
 | [2026-05-04-cdi-natural-patch-fixedprobe-dataset.md](active/2026-05-04-cdi-natural-patch-fixedprobe-dataset.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution | Creates and locks `natural_patches128_fixedprobe_v1`, a fixed-probe natural-image-patch CDI dataset capped at 10000 object images. |
 | [2026-05-04-cdi-natural-patch-expanded-benchmark.md](active/2026-05-04-cdi-natural-patch-expanded-benchmark.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on natural-patch fixed-probe dataset, complete Lines128 CDI benchmark, and U-NO extension | Runs a standalone expanded-object CDI benchmark on the frozen natural-patch dataset without rewriting the Lines128 authority. |
 | [2026-05-04-cdi-lines128-multiseed-headline-robustness.md](active/2026-05-04-cdi-lines128-multiseed-headline-robustness.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution and U-NO table extension | Adds training-seed robustness for the headline CDI table by reusing completed seed roots and running only missing seeds under the fixed Lines128 contract. |
+| [2026-05-05-paper-efficiency-table.md](active/2026-05-05-paper-efficiency-table.md) | `active` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution, U-NO table extension, and matched-condition CNS table refresh | Compiles the repo-local paper efficiency table from existing parameter/runtime evidence, runs only missing lightweight inference probes if needed, and keeps heterogeneous runtime fields caveated by source contract. |
 | [2026-05-04-cdi-lines128-srunet-branch-objective-ablation.md](active/2026-05-04-cdi-lines128-srunet-branch-objective-ablation.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution, supervised FFNO extension, U-NO table extension, and completed encoder-fusion variants | Append-only SRU-Net mechanism ablation: runs conv-only and spectral-only encoder-branch rows plus the missing supervised SRU-Net objective-control row, without rerunning completed table rows. |
 | [2026-05-04-cdi-lines128-srunet-convnext-bottleneck-ablation.md](active/2026-05-04-cdi-lines128-srunet-convnext-bottleneck-ablation.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution and completed skip/residual ablation context | Append-only SRU-Net bottleneck-family ablation: adds only a ConvNeXt-style bottleneck row and compares it with the completed SRU-Net bottleneck row by lineage. |
 | [2026-04-27-hybrid-spectral-ffno-parameter-space-cdi.md](active/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on completed CDI FFNO generator baseline | Phase 3 CDI-only split of the former mixed CNS/CDI parameter-space item. The dependency is now satisfied, so selection is governed by roadmap value rather than prerequisite blocking. |
@@ -150,6 +151,13 @@ Current source of truth:
   physics-consistency training. It must not rerun or rewrite the completed base
   Lines128 or U-NO table bundles, and it does not become required Phase 3
   completion work.
+  The paper efficiency table item is a cross-pillar packaging pass that remains
+  inside the current repo-local evidence package rather than Phase 5
+  paper-facing artifact assembly. It may compile parameter counts and
+  provenance-backed training runtime from existing CDI/CNS artifacts, and may
+  run only lightweight missing inference probes. It must not rerun training or
+  present heterogeneous launch runtimes as a normalized throughput benchmark
+  without an explicit common measurement protocol.
 - The SRU-Net ConvNeXt bottleneck ablation is a separate append-only Phase 3
   CDI mechanism item. It should add only the ConvNeXt-style bottleneck variant,
   preserve the completed Lines128 contract, and compare against the existing
