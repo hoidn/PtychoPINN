@@ -124,9 +124,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Locating the natural-patch CDI dataset root, manifests, adapter contract, or verifying that a downstream consumer is using the locked dataset before launching expanded-object benchmark work.
 
 ### [NeurIPS CDI Natural-Patch Expanded Benchmark Summary](plans/NEURIPS-HYBRID-RESNET-2026/cdi_natural_patch_expanded_benchmark_summary.md)
-**Description:** Single-seed expanded-object CDI six-row benchmark on the frozen `natural_patches128_fixedprobe_v1` dataset, recovered into a `paper_complete` bundle after live launcher post-processing bugs were fixed. Separate expanded-object evidence only; does not replace the `lines128` table authority.
-**Keywords:** neurips, hybrid_resnet, cdi, natural-patches, expanded-object, single-seed, benchmark, recovered-invocation
-**Use this when:** Locating the natural-patch expanded-object run root, checking the recovered six-row metrics bundle, or determining how the natural-patch benchmark differs from the synthetic `lines128` authority.
+**Description:** Single-seed expanded-object CDI six-row benchmark on the frozen `natural_patches128_fixedprobe_v1` dataset. The recovered bundle is currently classified `benchmark_incomplete` (launcher exit `1`, missing torch fixed-sample visuals, harness lacks full provenance scaffolding). Separate expanded-object evidence only; does not replace the `lines128` table authority.
+**Keywords:** neurips, hybrid_resnet, cdi, natural-patches, expanded-object, single-seed, benchmark, benchmark-incomplete
+**Use this when:** Locating the natural-patch expanded-object run root, checking the recovered six-row advisory metrics bundle, or determining how the natural-patch benchmark differs from the synthetic `lines128` authority.
 
 ### [NeurIPS Hybrid ResNet Evidence Matrix](plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md)
 **Description:** Human-facing master matrix for NeurIPS/SRU-Net evidence, keyed by dataset, model/config surface, training mode, ablation family, completed backlog item, summary authority, and artifact root.

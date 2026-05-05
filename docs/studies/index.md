@@ -34,10 +34,12 @@
   - `tests/studies/test_cdi_natural_patch_dataset.py`
 - Item root (git-ignored):
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/`
-- Recovered authoritative bundle root:
+- Recovered bundle root (currently `benchmark_incomplete`):
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z`
-- Boundary: single-seed expanded-object CDI evidence only; recovered invocation
-  caveat applies; does not replace `lines128_paper_benchmark_summary.md`.
+- Boundary: single-seed expanded-object CDI evidence only; bundle classified
+  `benchmark_incomplete` (launcher exit `1`, missing torch fixed-sample
+  visuals, harness lacks full provenance scaffolding) so metrics in the summary
+  are advisory only; does not replace `lines128_paper_benchmark_summary.md`.
 
 ## PDE / Forward-Modeling Studies
 

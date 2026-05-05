@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+from dataclasses import fields
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -402,6 +403,343 @@ def _save_fixed_sample_visuals(
         "amp_phase_png": _relative(amp_path, run_root),
         "amp_phase_error_png": _relative(err_path, run_root),
     }
+
+
+def _normalize_patch_batch(array: np.ndarray, *, label: str) -> np.ndarray:
+    patches = np.asarray(array)
+    if patches.ndim == 2:
+        patches = patches[np.newaxis, ...]
+    if patches.ndim == 4 and patches.shape[-1] == 1:
+        patches = patches[..., 0]
+    if patches.ndim == 4 and patches.shape[1] == 1:
+        patches = patches[:, 0, ...]
+    if patches.ndim != 3:
+        raise ValueError(f"{label} must resolve to a patch batch with shape (B, H, W), got {patches.shape}")
+    return patches.astype(np.complex64, copy=False)
+
+
+def _save_patchwise_prediction_artifacts(
+    *,
+    run_root: Path,
+    model_id: str,
+    predictions: np.ndarray,
+    ground_truth: np.ndarray,
+    fixed_sample_ids: Sequence[int],
+    scales: Mapping[str, Any],
+) -> dict[str, str]:
+    predictions = _normalize_patch_batch(predictions, label=f"{model_id} predictions")
+    ground_truth = _normalize_patch_batch(ground_truth, label="ground_truth")
+    sample_ids = [int(sample_id) for sample_id in fixed_sample_ids]
+    if not sample_ids:
+        raise ValueError("fixed_sample_ids must not be empty")
+    if predictions.shape[0] != ground_truth.shape[0]:
+        raise ValueError(
+            f"prediction/test batch mismatch for {model_id}: {predictions.shape} vs {ground_truth.shape}"
+        )
+    if min(sample_ids) < 0 or max(sample_ids) >= predictions.shape[0]:
+        raise IndexError(f"fixed sample ids {sample_ids} outside prediction batch of {predictions.shape[0]}")
+
+    selected_pred = predictions[sample_ids]
+    selected_gt = ground_truth[sample_ids]
+    patchwise_dir = Path(run_root) / "patchwise" / model_id
+    visuals_dir = Path(run_root) / "visuals"
+    patchwise_dir.mkdir(parents=True, exist_ok=True)
+    visuals_dir.mkdir(parents=True, exist_ok=True)
+    npz_path = patchwise_dir / "fixed_samples.npz"
+    png_path = visuals_dir / f"patchwise_gt_pred_error_{model_id}.png"
+
+    pred_amp = np.abs(selected_pred).astype(np.float32)
+    pred_phase = np.angle(selected_pred).astype(np.float32)
+    gt_amp = np.abs(selected_gt).astype(np.float32)
+    gt_phase = np.angle(selected_gt).astype(np.float32)
+    amp_error = np.abs(pred_amp - gt_amp).astype(np.float32)
+    phase_error = np.abs(pred_phase - gt_phase).astype(np.float32)
+    np.savez(
+        npz_path,
+        sample_ids=np.asarray(sample_ids, dtype=np.int64),
+        YY_pred=selected_pred.astype(np.complex64),
+        YY_ground_truth=selected_gt.astype(np.complex64),
+        amp_pred=pred_amp,
+        phase_pred=pred_phase,
+        amp_gt=gt_amp,
+        phase_gt=gt_phase,
+        amp_error=amp_error,
+        phase_error=phase_error,
+    )
+
+    amp_scale = scales["amplitude"]
+    phase_scale = scales["phase"]
+    err_amp_scale = scales["error_amplitude"]
+    err_phase_scale = scales["error_phase"]
+    rows = (
+        ("GT amp", gt_amp, "viridis", amp_scale),
+        (f"{model_id} amp", pred_amp, "viridis", amp_scale),
+        ("amp err", amp_error, "magma", err_amp_scale),
+        ("GT phase", gt_phase, "twilight", phase_scale),
+        (f"{model_id} phase", pred_phase, "twilight", phase_scale),
+        ("phase err", phase_error, "magma", err_phase_scale),
+    )
+    fig, axes = plt.subplots(len(rows), len(sample_ids), figsize=(4 * len(sample_ids), 16))
+    if len(sample_ids) == 1:
+        axes = np.asarray(axes).reshape(len(rows), 1)
+    for row_index, (row_label, values, cmap, scale) in enumerate(rows):
+        for column, sample_id in enumerate(sample_ids):
+            axis = axes[row_index, column]
+            axis.imshow(values[column], cmap=cmap, vmin=scale["vmin"], vmax=scale["vmax"])
+            axis.set_title(f"{row_label} #{sample_id}")
+            axis.set_xticks([])
+            axis.set_yticks([])
+    fig.tight_layout()
+    fig.savefig(png_path, dpi=150)
+    plt.close(fig)
+    return {
+        "patchwise_npz": _relative(npz_path, run_root),
+        "gt_pred_error_png": _relative(png_path, run_root),
+    }
+
+
+def _torch_runner_config_from_saved_row(row_config_path: Path, *, test_npz: Path):
+    from scripts.studies import grid_lines_torch_runner as torch_runner
+
+    payload = _load_json(row_config_path)
+    cfg_payload = dict(payload.get("torch_runner_config", {}))
+    if not cfg_payload:
+        raise ValueError(f"missing torch_runner_config in {row_config_path}")
+    for field_name in ("train_npz", "test_npz", "output_dir", "artifact_root"):
+        if cfg_payload.get(field_name) is not None:
+            cfg_payload[field_name] = Path(cfg_payload[field_name])
+    cfg_payload["test_npz"] = Path(test_npz)
+    allowed_fields = {field.name for field in fields(torch_runner.TorchRunnerConfig)}
+    cfg_payload = {key: value for key, value in cfg_payload.items() if key in allowed_fields}
+    return torch_runner.TorchRunnerConfig(**cfg_payload)
+
+
+def _build_torch_model_from_saved_config(cfg: Any, *, n_groups: int = 1):
+    from ptycho_torch.config_factory import create_training_payload
+    from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
+    from ptycho_torch.generators.registry import resolve_generator
+    from scripts.studies import grid_lines_torch_runner as torch_runner
+
+    config, execution_config = torch_runner.setup_torch_configs(cfg)
+    config.n_groups = int(n_groups)
+    mode_map = {"pinn": "Unsupervised", "supervised": "Supervised"}
+    factory_overrides = {
+        "n_groups": config.n_groups,
+        "gridsize": config.model.gridsize,
+        "architecture": config.model.architecture,
+        "model_type": mode_map.get(config.model.model_type, "Unsupervised"),
+        "amp_activation": config.model.amp_activation,
+        "n_filters_scale": config.model.n_filters_scale,
+        "object_big": config.model.object_big,
+        "probe_big": config.model.probe_big,
+        "probe_mask": config.model.probe_mask,
+        "probe_mask_sigma": getattr(config.model, "probe_mask_sigma", 1.0),
+        "probe_mask_diameter": getattr(config.model, "probe_mask_diameter", None),
+        "pad_object": config.model.pad_object,
+        "nphotons": config.nphotons,
+        "neighbor_count": config.neighbor_count,
+        "max_epochs": config.nepochs,
+        "batch_size": getattr(config, "batch_size", 16),
+        "subsample_seed": getattr(config, "subsample_seed", None),
+        "torch_loss_mode": getattr(config, "torch_loss_mode", "poisson"),
+        "torch_mae_pred_l2_match_target": getattr(config, "torch_mae_pred_l2_match_target", False),
+        "log_grad_norm": getattr(config, "log_grad_norm", False),
+        "grad_norm_log_freq": getattr(config, "grad_norm_log_freq", 1),
+        "test_data_file": config.test_data_file,
+    }
+    if execution_config.learning_rate is not None:
+        factory_overrides["learning_rate"] = execution_config.learning_rate
+    if execution_config.gradient_clip_val is not None:
+        factory_overrides["gradient_clip_val"] = execution_config.gradient_clip_val
+    for opt_field in (
+        "scheduler",
+        "optimizer",
+        "weight_decay",
+        "momentum",
+        "adam_beta1",
+        "adam_beta2",
+        "plateau_factor",
+        "plateau_patience",
+        "plateau_min_lr",
+        "plateau_threshold",
+    ):
+        value = getattr(config, opt_field, None)
+        if value is not None:
+            factory_overrides[opt_field] = value
+    for field_name in ("fno_modes", "fno_width", "fno_blocks", "fno_cnn_blocks", "fno_input_transform"):
+        field_value = getattr(config.model, field_name, None)
+        if field_value is not None:
+            factory_overrides[field_name] = field_value
+    generator_output_mode = getattr(config.model, "generator_output_mode", None)
+    if generator_output_mode is not None:
+        factory_overrides["generator_output_mode"] = generator_output_mode
+    for field_name in (
+        "hybrid_skip_connections",
+        "hybrid_downsample_steps",
+        "hybrid_downsample_op",
+        "hybrid_encoder_conv_hidden_scale",
+        "hybrid_encoder_spectral_hidden_scale",
+        "hybrid_encoder_conv_hidden_channels",
+        "hybrid_encoder_spectral_hidden_channels",
+        "hybrid_resnet_blocks",
+        "hybrid_skip_style",
+        "hybrid_resnet_bottleneck_layerscale_mode",
+        "hybrid_resnet_bottleneck_layerscale_value",
+        "hybrid_encoder_fusion_mode",
+        "hybrid_encoder_layerscale_init",
+        "hybrid_encoder_branch_gate_init",
+        "hybrid_encoder_branch_select",
+        "spectral_bottleneck_blocks",
+        "spectral_bottleneck_modes",
+        "spectral_bottleneck_share_weights",
+        "spectral_bottleneck_gate_init",
+        "spectral_bottleneck_gate_mode",
+    ):
+        field_value = getattr(execution_config, field_name, None)
+        if field_value is not None:
+            factory_overrides[field_name] = field_value
+    payload = create_training_payload(
+        train_data_file=Path(config.train_data_file),
+        output_dir=Path(config.output_dir),
+        execution_config=execution_config,
+        overrides=factory_overrides,
+    )
+    pt_configs = {
+        "model_config": payload.pt_model_config,
+        "data_config": payload.pt_data_config,
+        "training_config": payload.pt_training_config,
+        "inference_config": PTInferenceConfig(),
+        "execution_config": execution_config,
+    }
+    return resolve_generator(config).build_model(pt_configs)
+
+
+def _run_saved_torch_row_inference(*, run_root: Path, model_id: str, test_npz: Path) -> np.ndarray:
+    import torch
+    from scripts.studies import grid_lines_torch_runner as torch_runner
+
+    cfg = _torch_runner_config_from_saved_row(
+        run_root / "runs" / model_id / "config.json",
+        test_npz=test_npz,
+    )
+    test_data, test_metadata = torch_runner.load_cached_dataset_with_metadata(test_npz)
+    model = _build_torch_model_from_saved_config(cfg, n_groups=1)
+    state_dict_path = run_root / "runs" / model_id / "model.pt"
+    state_dict = torch.load(state_dict_path, map_location="cpu")
+    model.load_state_dict(state_dict, strict=True)
+    predictions = torch_runner.run_torch_inference(model, test_data, cfg, metadata=test_metadata)
+    return torch_runner.to_complex_patches(predictions) if predictions.shape[-1] == 2 else predictions
+
+
+def _run_saved_baseline_inference(*, run_root: Path, test_npz: Path) -> np.ndarray:
+    import tensorflow as tf
+    from ptycho.workflows import grid_lines_workflow as glw
+
+    test_grouped = _load_grouped_split(test_npz)
+    model = tf.keras.models.load_model(run_root / "baseline" / "baseline.keras", compile=False)
+    return glw.run_baseline_inference(model, np.asarray(test_grouped["diffraction"], dtype=np.float32))
+
+
+def _run_saved_pinn_inference(*, run_root: Path, test_npz: Path) -> np.ndarray:
+    from ptycho import model_manager
+    from ptycho.workflows import grid_lines_workflow as glw
+
+    test_grouped = _load_grouped_split(test_npz)
+    config = _build_tf_training_config(
+        model_type="pinn",
+        train_npz=test_npz,
+        val_npz=test_npz,
+        run_root=run_root,
+    )
+    update_legacy_dict(params.cfg, config)
+    models = model_manager.ModelManager.load_multiple_models(
+        str(run_root / "pinn" / "wts.h5"),
+        ["diffraction_to_obj"],
+    )
+    container = _build_tf_container(test_grouped)
+    predictions = glw.run_pinn_inference(
+        models["diffraction_to_obj"],
+        container.X,
+        container.coords_nominal,
+    )
+    if predictions is None:
+        raise RuntimeError("saved PINN inference returned None")
+    return predictions
+
+
+def export_saved_patchwise_predictions(
+    *,
+    run_root: Path,
+    rows: Sequence[str] = NATURAL_PATCH_ROW_ROSTER,
+    fixed_sample_ids: Optional[Sequence[int]] = None,
+) -> dict[str, Any]:
+    run_root = Path(run_root)
+    manifest_path = run_root / "paper_benchmark_manifest.json"
+    manifest = _load_json(manifest_path)
+    item_root = Path(manifest["item_root"])
+    test_npz = item_root / "prepared_inputs" / "test_grouped.npz"
+    if not test_npz.exists():
+        raise FileNotFoundError(f"missing prepared test split: {test_npz}")
+    fixed_sample_manifest = _load_json(item_root / "contract" / "fixed_sample_manifest.json")
+    scales = _load_json(item_root / "contract" / "shared_visual_scales.json")
+    sample_ids = list(fixed_sample_ids or fixed_sample_manifest["fixed_sample_ids"])
+    test_grouped = _load_grouped_split(test_npz)
+    ground_truth = np.asarray(test_grouped["YY_ground_truth"], dtype=np.complex64)
+    exporters = {
+        "baseline": lambda: _run_saved_baseline_inference(run_root=run_root, test_npz=test_npz),
+        "pinn": lambda: _run_saved_pinn_inference(run_root=run_root, test_npz=test_npz),
+        "pinn_hybrid_resnet": lambda: _run_saved_torch_row_inference(
+            run_root=run_root, model_id="pinn_hybrid_resnet", test_npz=test_npz
+        ),
+        "pinn_fno_vanilla": lambda: _run_saved_torch_row_inference(
+            run_root=run_root, model_id="pinn_fno_vanilla", test_npz=test_npz
+        ),
+        "pinn_ffno": lambda: _run_saved_torch_row_inference(
+            run_root=run_root, model_id="pinn_ffno", test_npz=test_npz
+        ),
+        "pinn_neuralop_uno": lambda: _run_saved_torch_row_inference(
+            run_root=run_root, model_id="pinn_neuralop_uno", test_npz=test_npz
+        ),
+    }
+    outputs: dict[str, Any] = {}
+    for row in rows:
+        if row not in exporters:
+            raise ValueError(f"unsupported saved natural-patch row export: {row}")
+        predictions = exporters[row]()
+        artifacts = _save_patchwise_prediction_artifacts(
+            run_root=run_root,
+            model_id=row,
+            predictions=predictions,
+            ground_truth=ground_truth,
+            fixed_sample_ids=sample_ids,
+            scales=scales,
+        )
+        normalized = _normalize_patch_batch(predictions, label=f"{row} predictions")
+        selected = normalized[sample_ids]
+        outputs[row] = {
+            "artifacts": artifacts,
+            "prediction_shape": list(normalized.shape),
+            "selected_amp_mean": float(np.mean(np.abs(selected))),
+            "selected_phase_mean": float(np.mean(np.angle(selected))),
+        }
+    export_manifest_path = run_root / "patchwise" / "patchwise_export_manifest.json"
+    if export_manifest_path.exists():
+        previous_manifest = _load_json(export_manifest_path)
+        previous_rows = dict(previous_manifest.get("rows", {}))
+    else:
+        previous_rows = {}
+    previous_rows.update(outputs)
+    manifest_out = {
+        "generated_at_utc": datetime.now(timezone.utc).isoformat(),
+        "mode": "export_saved_patchwise_predictions_no_training",
+        "source_run_root": str(run_root),
+        "test_npz": str(test_npz),
+        "fixed_sample_ids": sample_ids,
+        "rows": previous_rows,
+    }
+    export_manifest_path = _write_json(export_manifest_path, manifest_out)
+    manifest_out["manifest_path"] = str(export_manifest_path)
+    return manifest_out
 
 
 def _validate_dataset_contract(dataset_root: Path) -> dict[str, Any]:
@@ -1257,6 +1595,8 @@ def run_natural_patch_benchmark(
         shared_visual_scales=shared_visual_scales,
         evidence_scope="single_seed_natural_patch_benchmark",
         claim_boundary="single_seed_natural_patch_expanded_object_cdi_only",
+        row_statuses=row_statuses,
+        require_row_provenance=True,
     )
     manifest_payload = _build_benchmark_manifest(
         dataset_root=dataset_root,
