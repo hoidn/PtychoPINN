@@ -11,6 +11,8 @@ import numpy as np
 
 from scripts.studies.cdi_natural_patch_benchmark import (
     NATURAL_PATCH_ROW_ROSTER,
+    _patchwise_metrics,
+    _save_fixed_sample_visuals,
     prepare_natural_patch_inputs,
     run_natural_patch_benchmark,
 )
@@ -163,6 +165,91 @@ def test_prepare_natural_patch_inputs_reuses_existing_prepared_inputs_when_valid
     assert second["grouped_paths"] == first["grouped_paths"]
     assert second["prepared_input_manifest"] == first["prepared_input_manifest"]
     assert second["grouped_input_identity_audit"] == first["grouped_input_identity_audit"]
+
+
+def test_prepare_natural_patch_inputs_accepts_pipeline_spec_probe_manifest(tmp_path: Path):
+    dataset_root = _build_dataset_root(tmp_path)
+    item_root = tmp_path / "item"
+    probe_manifest_path = dataset_root / "probe_manifest.json"
+    probe_manifest = json.loads(probe_manifest_path.read_text(encoding="utf-8"))
+    probe_manifest.pop("canonical_pipeline", None)
+    probe_manifest["pipeline_spec"] = "pad_extrapolate:128|smooth:0.5"
+    probe_manifest_path.write_text(json.dumps(probe_manifest, indent=2), encoding="utf-8")
+
+    prepared = prepare_natural_patch_inputs(dataset_root=dataset_root, item_root=item_root)
+
+    prepared_manifest = json.loads(Path(prepared["prepared_input_manifest"]).read_text(encoding="utf-8"))
+    assert prepared_manifest["probe_lineage"] == "pad_extrapolate:128|smooth:0.5"
+
+
+def test_prepare_natural_patch_inputs_repairs_stale_probe_lineage_on_reuse(tmp_path: Path, monkeypatch):
+    dataset_root = _build_dataset_root(tmp_path)
+    item_root = tmp_path / "item"
+
+    first = prepare_natural_patch_inputs(dataset_root=dataset_root, item_root=item_root)
+    prepared_manifest_path = Path(first["prepared_input_manifest"])
+    prepared_manifest = json.loads(prepared_manifest_path.read_text(encoding="utf-8"))
+    prepared_manifest["probe_lineage"] = None
+    prepared_manifest_path.write_text(json.dumps(prepared_manifest, indent=2), encoding="utf-8")
+
+    def fail_write_grouped_split(**kwargs):
+        raise AssertionError(f"unexpected grouped rewrite for {kwargs['split_name']}")
+
+    monkeypatch.setattr(
+        "scripts.studies.cdi_natural_patch_benchmark._write_grouped_split",
+        fail_write_grouped_split,
+    )
+
+    second = prepare_natural_patch_inputs(dataset_root=dataset_root, item_root=item_root)
+
+    repaired_manifest = json.loads(Path(second["prepared_input_manifest"]).read_text(encoding="utf-8"))
+    assert repaired_manifest["probe_lineage"] == "pad_extrapolate:128|smooth:0.5"
+
+
+def test_patchwise_metrics_skips_curve_like_metric_pairs(monkeypatch):
+    pred = np.ones((2, 8, 8), dtype=np.complex64)
+    gt = np.ones((2, 8, 8), dtype=np.complex64)
+
+    def fake_eval_reconstruction(*args, **kwargs):
+        return {
+            "mae": (0.1, 0.2),
+            "frc50": (5.0, 6.0),
+            "frc": (np.array([0.9, 0.8], dtype=np.float32), np.array([0.7, 0.6], dtype=np.float32)),
+        }
+
+    monkeypatch.setattr(
+        "scripts.studies.cdi_natural_patch_benchmark.evaluation.eval_reconstruction",
+        fake_eval_reconstruction,
+    )
+
+    metrics = _patchwise_metrics(pred, gt, label="baseline")
+
+    assert metrics["mae"] == (0.1, 0.2)
+    assert metrics["frc50"] == (5.0, 6.0)
+    assert "frc" not in metrics
+
+
+def test_save_fixed_sample_visuals_accepts_singleton_channel_first_patches(tmp_path: Path):
+    predictions = np.ones((2, 1, 8, 8), dtype=np.complex64)
+    ground_truth = np.ones((2, 1, 8, 8), dtype=np.complex64)
+    scales = {
+        "amplitude": {"vmin": 0.0, "vmax": 1.0},
+        "phase": {"vmin": -float(np.pi), "vmax": float(np.pi)},
+        "error_amplitude": {"vmin": 0.0, "vmax": 1.0},
+        "error_phase": {"vmin": 0.0, "vmax": 1.0},
+    }
+
+    visuals = _save_fixed_sample_visuals(
+        run_root=tmp_path,
+        model_id="pinn_ffno",
+        predictions=predictions,
+        ground_truth=ground_truth,
+        fixed_sample_ids=[0],
+        scales=scales,
+    )
+
+    assert (tmp_path / visuals["amp_phase_png"]).exists()
+    assert (tmp_path / visuals["amp_phase_error_png"]).exists()
 
 
 def test_run_natural_patch_benchmark_dry_run_writes_contract_and_locked_row_roster(tmp_path: Path):

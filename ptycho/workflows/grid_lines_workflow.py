@@ -986,6 +986,7 @@ def _build_tf_row_payload(
     model: object,
     history: object,
     metrics: Dict[str, object],
+    N: Optional[int],
     epoch_budget: int,
     train_wall_time_sec: float,
     inference_time_sec: float,
@@ -994,7 +995,7 @@ def _build_tf_row_payload(
         "model_label": model_label,
         "architecture_id": "cnn",
         "training_procedure": "supervised" if model_id == "baseline" else "pinn",
-        "N": None,
+        "N": int(N) if N is not None else None,
         "parameter_count": _count_model_parameters(model),
         "epoch_budget": int(epoch_budget),
         "final_completed_epoch": _history_final_epoch(history, fallback_epochs=epoch_budget),
@@ -1212,7 +1213,13 @@ def run_pinn_inference(model, X_test, coords_nominal):
 
     intensity_scale = p.get("intensity_scale")
     try:
-        reconstructed_obj, _, _ = model.predict([X_test * intensity_scale, coords_nominal])
+        prediction = model.predict([X_test * intensity_scale, coords_nominal])
+        if isinstance(prediction, (list, tuple)):
+            if not prediction:
+                raise ValueError("PINN inference returned no outputs")
+            reconstructed_obj = prediction[0]
+        else:
+            reconstructed_obj = prediction
         return reconstructed_obj
     except Exception as e:
         error_msg = str(e)
@@ -2026,6 +2033,7 @@ def run_grid_lines_workflow(
                     model=pinn_model,
                     history=pinn_history,
                     metrics=metrics_payload["pinn"],
+                    N=cfg.N,
                     epoch_budget=int(cfg.nepochs),
                     train_wall_time_sec=float(pinn_train_time_s),
                     inference_time_sec=float(pinn_inference_time_s),
@@ -2080,6 +2088,7 @@ def run_grid_lines_workflow(
                 model=base_model,
                 history=base_history,
                 metrics=metrics_payload["baseline"],
+                N=cfg.N,
                 epoch_budget=int(cfg.nepochs),
                 train_wall_time_sec=float(base_train_time_s),
                 inference_time_sec=float(base_inference_time_s),

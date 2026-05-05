@@ -13,6 +13,7 @@ from ptycho.workflows.grid_lines_workflow import (
     GridLinesConfig,
     scale_probe,
     apply_probe_mask,
+    run_pinn_inference,
     run_grid_lines_workflow,
     render_grid_lines_visuals,
     save_split_npz,
@@ -30,6 +31,29 @@ from ptycho.workflows.grid_lines_workflow import (
 from ptycho.workflows import grid_lines_workflow as grid_lines_workflow_module
 from ptycho.config.config import ModelConfig, TrainingConfig
 from ptycho import params as p
+
+
+def test_run_pinn_inference_uses_first_prediction_output(monkeypatch):
+    monkeypatch.setattr(grid_lines_workflow_module.p, "get", lambda key: 1.0 if key == "intensity_scale" else None)
+
+    expected = np.ones((2, 4, 4, 1), dtype=np.complex64)
+
+    class DummyModel:
+        def predict(self, inputs):
+            return (
+                expected,
+                np.zeros((2, 4, 4, 1), dtype=np.float32),
+                np.zeros((2, 4, 4, 1), dtype=np.float32),
+                np.zeros((2, 4, 4, 1), dtype=np.float32),
+            )
+
+    output = run_pinn_inference(
+        DummyModel(),
+        np.ones((2, 4, 4, 1), dtype=np.float32),
+        np.zeros((2, 2), dtype=np.float32),
+    )
+
+    assert output is expected
 
 
 class TestProbeHelpers:
@@ -405,11 +429,13 @@ def test_build_tf_row_payload_uses_emitted_validation_loss():
         model=None,
         history={"loss": [0.4, 0.2], "val_loss": [0.3, 0.05]},
         metrics={"mae": [0.1, 0.2]},
+        N=128,
         epoch_budget=2,
         train_wall_time_sec=1.0,
         inference_time_sec=0.5,
     )
 
+    assert payload["N"] == 128
     assert payload["validation_loss"] == {"status": "emitted", "value": 0.05}
 
 

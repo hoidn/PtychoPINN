@@ -79,6 +79,13 @@ def _load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _normalize_probe_manifest(probe_manifest: Mapping[str, Any]) -> dict[str, Any]:
+    normalized = dict(probe_manifest)
+    if not normalized.get("canonical_pipeline") and normalized.get("pipeline_spec"):
+        normalized["canonical_pipeline"] = normalized["pipeline_spec"]
+    return normalized
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -222,6 +229,23 @@ def _load_existing_prepared_inputs(
         if observed_count != int(expected_counts.get(split_name, observed_count)):
             return None
         grouped_paths[split_name] = str(grouped_path)
+    normalized_probe_lineage = manifests["probe_manifest"].get("canonical_pipeline")
+    normalized_grouped_paths = {
+        split_name: _relative(Path(path), item_root)
+        for split_name, path in grouped_paths.items()
+    }
+    prepared_manifest_changed = False
+    if prepared_manifest.get("probe_lineage") != normalized_probe_lineage:
+        prepared_manifest["probe_lineage"] = normalized_probe_lineage
+        prepared_manifest_changed = True
+    if prepared_manifest.get("split_counts") != expected_counts:
+        prepared_manifest["split_counts"] = expected_counts
+        prepared_manifest_changed = True
+    if prepared_manifest.get("grouped_paths") != normalized_grouped_paths:
+        prepared_manifest["grouped_paths"] = normalized_grouped_paths
+        prepared_manifest_changed = True
+    if prepared_manifest_changed:
+        _write_json(prepared_manifest_path, prepared_manifest)
     return {
         "dataset_root": str(dataset_root),
         "prepared_root": str(prepared_root),
@@ -274,6 +298,12 @@ def _patchwise_metrics(
     *,
     label: str,
 ) -> dict[str, tuple[float, float]]:
+    def _as_scalar(value: Any) -> Optional[float]:
+        array = np.asarray(value)
+        if array.size != 1:
+            return None
+        return float(array.reshape(()))
+
     pred = np.asarray(predictions)
     gt = np.asarray(ground_truth)
     if pred.ndim == 4 and pred.shape[-1] == 1:
@@ -296,7 +326,11 @@ def _patchwise_metrics(
         for metric_name, pair in metrics.items():
             if not isinstance(pair, (list, tuple)) or len(pair) < 2:
                 continue
-            per_metric.setdefault(metric_name, []).append((float(pair[0]), float(pair[1])))
+            first = _as_scalar(pair[0])
+            second = _as_scalar(pair[1])
+            if first is None or second is None:
+                continue
+            per_metric.setdefault(metric_name, []).append((first, second))
     return {
         metric_name: (
             float(np.mean([pair[0] for pair in pairs])),
@@ -337,8 +371,8 @@ def _save_fixed_sample_visuals(
     err_amp_scale = scales["error_amplitude"]
     err_phase_scale = scales["error_phase"]
     for column, sample_id in enumerate(sample_ids):
-        pred = predictions[sample_id]
-        gt = ground_truth[sample_id]
+        pred = np.squeeze(predictions[sample_id])
+        gt = np.squeeze(ground_truth[sample_id])
         pred_amp = np.abs(pred)
         pred_phase = np.angle(pred)
         gt_amp = np.abs(gt)
@@ -390,7 +424,7 @@ def _validate_dataset_contract(dataset_root: Path) -> dict[str, Any]:
         raise FileNotFoundError(f"missing locked natural-patch dataset artifacts: {missing}")
     dataset_manifest = _load_json(dataset_root / "dataset_manifest.json")
     split_manifest = _load_json(dataset_root / "split_manifest.json")
-    probe_manifest = _load_json(dataset_root / "probe_manifest.json")
+    probe_manifest = _normalize_probe_manifest(_load_json(dataset_root / "probe_manifest.json"))
     post_audit = _load_json(dataset_root / "verification" / "post_audit.json")
     if dataset_manifest.get("dataset_id") != NATURAL_PATCH_DATASET_ID:
         raise ValueError(
@@ -882,6 +916,7 @@ def _run_tf_pinn_row(
         model=model,
         history=results.get("history", {}),
         metrics=metrics,
+        N=128,
         epoch_budget=DEFAULT_EPOCHS,
         train_wall_time_sec=float(train_wall_time_sec),
         inference_time_sec=float(inference_time_s),
@@ -1001,6 +1036,7 @@ def _run_tf_baseline_row(
         model=model,
         history=history,
         metrics=metrics,
+        N=128,
         epoch_budget=DEFAULT_EPOCHS,
         train_wall_time_sec=float(train_wall_time_sec),
         inference_time_sec=float(inference_time_s),

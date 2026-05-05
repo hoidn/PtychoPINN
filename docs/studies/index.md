@@ -18,6 +18,27 @@
 - Boundary: dataset prerequisite only; not benchmark evidence; does not replace
   the `lines128` paper table authority.
 
+### `natural-patch-expanded-cdi-benchmark` (single-seed expanded-object benchmark)
+
+- Purpose: run the first standalone expanded-object CDI benchmark on the locked
+  `natural_patches128_fixedprobe_v1` dataset without mutating the dataset
+  contract or replacing the existing `lines128` paper-table authority.
+- Plan:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/execution_plan.md`
+- Summary authority:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_natural_patch_expanded_benchmark_summary.md`
+- Runner module: `scripts/studies/cdi_natural_patch_benchmark.py`
+- Entrypoint: `scripts/studies/run_cdi_natural_patch_benchmark.py`
+- Tests:
+  - `tests/studies/test_cdi_natural_patch_benchmark.py`
+  - `tests/studies/test_cdi_natural_patch_dataset.py`
+- Item root (git-ignored):
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/`
+- Recovered authoritative bundle root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z`
+- Boundary: single-seed expanded-object CDI evidence only; recovered invocation
+  caveat applies; does not replace `lines128_paper_benchmark_summary.md`.
+
 ## PDE / Forward-Modeling Studies
 
 ### `born-rytov-dt-candidate-preflight` (candidate; active backlog)

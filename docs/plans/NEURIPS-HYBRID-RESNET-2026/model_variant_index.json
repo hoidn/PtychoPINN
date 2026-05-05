@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-05T05:30:00Z",
+  "last_updated_utc": "2026-05-05T23:04:23Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -33,6 +33,29 @@
       "probe_source": "Run1084 custom probe",
       "probe_scale_mode": "pad_extrapolate",
       "torch_epochs": 40,
+      "metric_family": [
+        "amp_mae",
+        "phase_mae",
+        "amp_ssim",
+        "phase_ssim",
+        "amp_psnr",
+        "phase_psnr",
+        "amp_frc50",
+        "phase_frc50"
+      ]
+    },
+    "cdi_natural_patches128_fixedprobe_seed3": {
+      "task": "cdi",
+      "dataset_label": "natural-image-derived expanded-object CDI patches N=128",
+      "dataset_id": "natural_patches128_fixedprobe_v1",
+      "gridsize": 1,
+      "seed": 3,
+      "split": "8000 / 1000 / 1000 patches",
+      "object_count_cap": 10000,
+      "source_corpus": "scikit-image bundled natural images",
+      "probe_source": "Run1084 custom probe",
+      "probe_scale_mode": "pad_extrapolate",
+      "claim_boundary": "single_seed_natural_patch_expanded_object_cdi_only",
       "metric_family": [
         "amp_mae",
         "phase_mae",
@@ -687,6 +710,164 @@
       },
       "comparison_outcome": "no_gain_vs_hybrid_anchor",
       "evidence_status": "decision_support_no_promotion"
+    },
+    {
+      "variant_id": "cdi_natural_patches128_fixedprobe__cnn__supervised__single_seed_benchmark",
+      "dataset_contract_id": "cdi_natural_patches128_fixedprobe_seed3",
+      "row_id": "baseline",
+      "paper_label": "CDI CNN + supervised",
+      "architecture_id": "cnn",
+      "model_family": "local_cnn",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-05-04-cdi-natural-patch-expanded-benchmark",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_natural_patch_expanded_benchmark_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z",
+      "metrics_json": "runs/baseline/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_baseline.png",
+        "visuals/amp_phase_error_baseline.png"
+      ],
+      "parameter_count": 4612418,
+      "metrics": {
+        "amp_mae": 0.07157715256139636,
+        "phase_mae": 0.3954206193213837,
+        "amp_ssim": 0.48637913449298004,
+        "phase_ssim": 0.6455552925028273,
+        "amp_psnr": 70.09371502539575,
+        "phase_psnr": 54.70883594147631,
+        "amp_frc50": 0.7901571531878987,
+        "phase_frc50": 0.7817095544667713
+      },
+      "evidence_status": "paper_grade_with_recovered_invocation_caveat"
+    },
+    {
+      "variant_id": "cdi_natural_patches128_fixedprobe__cnn__pinn__single_seed_benchmark",
+      "dataset_contract_id": "cdi_natural_patches128_fixedprobe_seed3",
+      "row_id": "pinn",
+      "paper_label": "CDI CNN + PINN",
+      "architecture_id": "cnn",
+      "model_family": "local_cnn",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-05-04-cdi-natural-patch-expanded-benchmark",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_natural_patch_expanded_benchmark_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z",
+      "metrics_json": "runs/pinn/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn.png",
+        "visuals/amp_phase_error_pinn.png"
+      ],
+      "parameter_count": 4661212,
+      "metrics": {
+        "amp_mae": 0.2923401609361172,
+        "phase_mae": 1.4471588216383628,
+        "amp_ssim": 0.24400520231466982,
+        "phase_ssim": 0.23662135417442343,
+        "amp_psnr": 56.14152886820468,
+        "phase_psnr": 41.95014930039993,
+        "amp_frc50": 0.8564732280408797,
+        "phase_frc50": 0.8349427533436236
+      },
+      "evidence_status": "paper_grade_with_recovered_invocation_caveat"
+    },
+    {
+      "variant_id": "cdi_natural_patches128_fixedprobe__hybrid_resnet__pinn__single_seed_benchmark",
+      "dataset_contract_id": "cdi_natural_patches128_fixedprobe_seed3",
+      "row_id": "pinn_hybrid_resnet",
+      "paper_label": "Hybrid ResNet + PINN",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-05-04-cdi-natural-patch-expanded-benchmark",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_natural_patch_expanded_benchmark_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z",
+      "metrics_json": "runs/pinn_hybrid_resnet/metrics.json",
+      "parameter_count": 18006600,
+      "metrics": {
+        "amp_mae": 0.2609473782107234,
+        "phase_mae": 0.4373837490304989,
+        "amp_ssim": 0.027531871682244982,
+        "phase_ssim": 0.44248056737301017,
+        "amp_psnr": 57.52552992105088,
+        "phase_psnr": 53.709087569296415,
+        "amp_frc50": 0.8620934806365117,
+        "phase_frc50": 0.9394921784638249
+      },
+      "evidence_status": "paper_grade_with_recovered_invocation_caveat"
+    },
+    {
+      "variant_id": "cdi_natural_patches128_fixedprobe__fno_vanilla__pinn__single_seed_benchmark",
+      "dataset_contract_id": "cdi_natural_patches128_fixedprobe_seed3",
+      "row_id": "pinn_fno_vanilla",
+      "paper_label": "FNO Vanilla + PINN",
+      "architecture_id": "fno_vanilla",
+      "model_family": "spectral_operator",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-05-04-cdi-natural-patch-expanded-benchmark",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_natural_patch_expanded_benchmark_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z",
+      "metrics_json": "runs/pinn_fno_vanilla/metrics.json",
+      "parameter_count": 1272902,
+      "metrics": {
+        "amp_mae": 0.15705179037898778,
+        "phase_mae": 0.42374161598933985,
+        "amp_ssim": 0.042040347270357166,
+        "phase_ssim": 0.5306861667658602,
+        "amp_psnr": 62.788794643344055,
+        "phase_psnr": 54.08100020636691,
+        "amp_frc50": 0.829955257922965,
+        "phase_frc50": 0.9337673783891351
+      },
+      "evidence_status": "paper_grade_with_recovered_invocation_caveat"
+    },
+    {
+      "variant_id": "cdi_natural_patches128_fixedprobe__ffno__pinn__single_seed_benchmark",
+      "dataset_contract_id": "cdi_natural_patches128_fixedprobe_seed3",
+      "row_id": "pinn_ffno",
+      "paper_label": "FFNO + PINN",
+      "architecture_id": "ffno",
+      "model_family": "factorized_fourier_operator",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-05-04-cdi-natural-patch-expanded-benchmark",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_natural_patch_expanded_benchmark_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z",
+      "metrics_json": "runs/pinn_ffno/metrics.json",
+      "parameter_count": 323918,
+      "metrics": {
+        "amp_mae": 0.1567144876420498,
+        "phase_mae": 0.39614373175601136,
+        "amp_ssim": 0.05938788153984003,
+        "phase_ssim": 0.6041276061185179,
+        "amp_psnr": 61.88975960988717,
+        "phase_psnr": 54.570562912013585,
+        "amp_frc50": 0.8580602550687738,
+        "phase_frc50": 0.8339473851628878
+      },
+      "evidence_status": "paper_grade_with_recovered_invocation_caveat"
+    },
+    {
+      "variant_id": "cdi_natural_patches128_fixedprobe__neuralop_uno__pinn__single_seed_benchmark",
+      "dataset_contract_id": "cdi_natural_patches128_fixedprobe_seed3",
+      "row_id": "pinn_neuralop_uno",
+      "paper_label": "U-NO + PINN",
+      "architecture_id": "neuralop_uno",
+      "model_family": "external_neuraloperator_uno",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-05-04-cdi-natural-patch-expanded-benchmark",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_natural_patch_expanded_benchmark_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z",
+      "metrics_json": "runs/pinn_neuralop_uno/metrics.json",
+      "parameter_count": 2515718,
+      "metrics": {
+        "amp_mae": 0.1708261213004589,
+        "phase_mae": 0.3996540209508033,
+        "amp_ssim": 0.05171740059817951,
+        "phase_ssim": 0.598106696504559,
+        "amp_psnr": 61.30809034273481,
+        "phase_psnr": 54.448539850089276,
+        "amp_frc50": 0.8428799457417018,
+        "phase_frc50": 0.8792973136975811
+      },
+      "evidence_status": "paper_grade_with_recovered_invocation_caveat"
     },
     {
       "variant_id": "cns_history2_cap512__author_ffno_cns_base__supervised__paper_bundle",
@@ -1732,7 +1913,8 @@
     "2026-04-30-cdi-lines128-uno-table-extension",
     "2026-05-04-pdebench-darcy-full-training-benchmark",
     "2026-05-04-cns-history5-comparator-gap-fill",
-    "2026-05-04-cdi-lines128-srunet-branch-objective-ablation"
+    "2026-05-04-cdi-lines128-srunet-branch-objective-ablation",
+    "2026-05-04-cdi-natural-patch-expanded-benchmark"
   ],
   "maintenance_rules": [
     "Every future completed backlog item that emits model metrics must add or update at least one model_variants entry.",

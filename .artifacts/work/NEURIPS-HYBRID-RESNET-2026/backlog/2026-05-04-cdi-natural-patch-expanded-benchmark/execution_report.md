@@ -2,63 +2,80 @@
 
 ## Completed In This Pass
 
-- Implemented the natural-patch benchmark harness in [scripts/studies/cdi_natural_patch_benchmark.py](/home/ollie/Documents/PtychoPINN/scripts/studies/cdi_natural_patch_benchmark.py) and the CLI entrypoint in [scripts/studies/run_cdi_natural_patch_benchmark.py](/home/ollie/Documents/PtychoPINN/scripts/studies/run_cdi_natural_patch_benchmark.py).
-- Added focused coverage in [tests/studies/test_cdi_natural_patch_benchmark.py](/home/ollie/Documents/PtychoPINN/tests/studies/test_cdi_natural_patch_benchmark.py) for:
-  - immutable prepared-input derivation
-  - prepared-input reuse when existing grouped artifacts are valid
-  - dry-run contract emission
-  - explicit row-status recording
-  - default benchmark-mode dispatch through the live executor
-  - direct-script CLI invocation
-- Fixed two live-path issues discovered during verification:
-  - the CLI failed in direct script mode because the repo root was not added to `sys.path`
-  - benchmark mode defaulted to the stub executor instead of `_execute_rows`
-- Added validated prepared-input reuse so benchmark launches consume the dry-run artifacts instead of rewriting the item-local grouped NPZs on every invocation.
-- Refreshed the item root with a successful canonical dry-run after an interrupted diagnostic benchmark attempt left the grouped train file partially rewritten.
+- Repaired the natural-patch benchmark harness so the locked fixed-probe
+  dataset contract is consumable without mutating the dataset:
+  `probe_manifest.json["pipeline_spec"]` now normalizes to the expected probe
+  lineage string, and prepared-input reuse repairs stale
+  `prepared_input_manifest.json` lineage metadata in place.
+- Fixed live benchmark failures discovered during execution:
+  patchwise metric collation now skips curve-valued outputs such as `frc`,
+  TF PINN inference accepts prediction lists/tuples with extra tensors,
+  TF paper-row payloads propagate `N=128`, and fixed-sample visual saving now
+  accepts singleton channel-first patches.
+- Completed the six-row expanded-object CDI launch under
+  `runs/natural-patch-benchmark-20260505T213458Z` through row-local training,
+  reconstruction, and metric emission for `baseline`, `pinn`,
+  `pinn_hybrid_resnet`, `pinn_fno_vanilla`, `pinn_ffno`, and
+  `pinn_neuralop_uno`.
+- Recovered the final paper bundle from the completed row-local artifacts after
+  the tracked tmux launcher exited during post-processing. The recovered run
+  root now includes `metrics.json`, `metric_schema.json`,
+  `model_manifest.json`, `paper_benchmark_manifest.json`,
+  `metrics_table.csv`, `metrics_table.tex`, and `metrics_table_best.tex`.
+- Published the durable summary and discoverability updates for this
+  natural-patch expanded-object CDI lane without changing any `lines128`
+  authority surface.
 
 ## Completed Plan Tasks
 
-- Task 1 scope completed for the new harness surface: red/green tests now cover the frozen dataset intake, row roster, row-status handling, and CLI contract.
-- Task 2 implementation completed for prepared-input derivation and identity-audit emission under the item-local `prepared_inputs/` root.
-- Task 3 implementation completed for the dry-run contract path:
-  - canonical dry-run command succeeds
-  - contract artifacts are emitted under `contract/`
-  - benchmark mode reaches the live row executor
-  - repeated dry-runs reuse valid prepared inputs instead of rewriting them
+- Task 1: prerequisite presence gate, dataset-contract preflight, dry-run
+  inspection, and prepared-input contract handling are complete.
+- Task 2: narrow harness fixes and regression coverage for the execution gaps
+  exposed by dry-run and live execution are complete.
+- Task 3: the required six-row single-seed benchmark bundle is present at
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z`
+  with `benchmark_status="paper_complete"` after recovery.
+- Task 4: summary and discoverability surfaces are updated:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_natural_patch_expanded_benchmark_summary.md`,
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md`,
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md`,
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json`,
+  `docs/studies/index.md`, and `docs/index.md`.
 
 ## Remaining Required Plan Tasks
 
-- Run the full authoritative natural-patch benchmark under tmux with the locked six-row roster and capture the required bundle artifacts under `runs/<run_id>/`.
-- Write `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_natural_patch_expanded_benchmark_summary.md`.
-- Update the discoverability/index surfaces:
-  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md`
-  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json`
-  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md`
-  - `docs/studies/index.md`
-  - `docs/index.md`
-- Run the final broad verification required by the plan after the benchmark/docs pass, including `pytest -q -m integration`.
+- None for the approved single-pass publication scope.
+- Optional follow-up only if stricter launcher-proof replacement is later
+  required: rerun the benchmark end-to-end until the tracked tmux launcher exits
+  `0` and all torch-row fixed-sample PNGs are emitted directly by the harness.
 
 ## Verification
 
-- `pytest -q tests/studies/test_cdi_natural_patch_benchmark.py -k cli_entrypoint_runs_direct_script_mode`
-  - passed
-- `pytest -q tests/studies/test_cdi_natural_patch_benchmark.py -k default_executor_in_benchmark_mode`
-  - passed
-- `pytest -q tests/studies/test_cdi_natural_patch_benchmark.py -k reuses_existing_prepared_inputs_when_valid`
-  - passed
-- `pytest -q tests/studies/test_cdi_natural_patch_dataset.py tests/studies/test_cdi_natural_patch_benchmark.py`
-  - passed (`18 passed`)
-- `python -m compileall -q scripts/studies ptycho_torch`
-  - passed
-- Canonical dry-run command from the execution plan
-  - passed after the CLI bootstrap fix
-  - passed again after the prepared-input reuse fix; the second rerun completed via the reuse path instead of regenerating grouped inputs
-- Diagnostic benchmark smoke run:
-  - `--mode benchmark --rows baseline --seed 3` reached live GPU training and entered `Epoch 1/40`
-  - the run was then intentionally terminated after proving the repaired benchmark path reached real execution
+- Required input gate passed:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/verification/required_input_gate_20260505T230936Z.log`
+- Required benchmark tests passed:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/verification/pytest_selected_20260505T230936Z.log`
+- Compile gate passed:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/verification/compileall_selected_20260505T230936Z.log`
+- Integration verification passed:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/verification/pytest_integration_20260505T230936Z.log`
+  (`5 passed, 4 skipped, 2198 deselected`).
+- Recovery validation note written:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/verification/recovery_note_20260505T230936Z.md`
+- Recovered bundle validation:
+  `metrics.json` reports `benchmark_status="paper_complete"`,
+  `paper_benchmark_manifest.json` records all six row statuses as completed,
+  and `model_manifest.json` records `N=128` for every row.
 
 ## Residual Risks
 
-- The authoritative six-row benchmark bundle has not been produced in this pass, so row-level correctness for `pinn`, `pinn_hybrid_resnet`, `pinn_fno_vanilla`, `pinn_ffno`, and `pinn_neuralop_uno` is still unverified on the locked dataset.
-- The interrupted diagnostic smoke run did not produce a durable benchmark bundle and should not be treated as claim evidence.
-- Final documentation/index synchronization and the required `pytest -q -m integration` gate remain outstanding until the benchmark results pass is completed.
+- The tracked tmux launcher for
+  `natural-patch-benchmark-20260505T213458Z` exited `1`; the final bundle is a
+  recovered publication from completed row-local artifacts in that same run
+  root, not a clean launcher-proof completion.
+- Torch-row fixed-sample PNGs were not backfilled into `visuals/` during
+  recovery, although row-local recons, configs, histories, and metrics are
+  durable.
+- This remains single-seed evidence on
+  `natural_patches128_fixedprobe_v1`; it widens expanded-object CDI evidence but
+  does not replace or supersede the `lines128` authority.
