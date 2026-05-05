@@ -30,6 +30,7 @@ from ptycho_torch.dataloader import TensorDictDataLoader, Collate_Lightning
 from ptycho_torch.train_utils import (
     set_seed, get_training_strategy, find_learning_rate,
     is_effectively_global_rank_zero, LightningConfigSaveCallback,
+    resolve_n_devices,
 )
 
 
@@ -137,6 +138,7 @@ def main(ptycho_dir, config_path, output_dir):
     if i_replace:
         update_existing_config(inference_config, i_replace)
 
+    resolve_n_devices(training_config)
     set_seed(42, n_devices=training_config.n_devices)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
