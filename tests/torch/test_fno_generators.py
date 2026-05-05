@@ -1302,3 +1302,92 @@ class TestHybridResnetConvNextBottleneckGenerator:
         cfg = TrainingConfig(model=ModelConfig(architecture="hybrid_resnet_convnext_bottleneck"))
         generator = resolve_generator(cfg)
         assert generator.name == "hybrid_resnet_convnext_bottleneck"
+
+    def test_hybrid_resnet_convnext_bottleneck_generator_serializes_overrides(self):
+        """ConvNeXt-bottleneck generator must record execution-time bottleneck/encoder/
+        ConvNeXt overrides into ``model.hparams['generator_overrides']`` so the saved
+        provenance proves the row's explicit settings, not just the architecture id."""
+        from ptycho.config.config import PyTorchExecutionConfig
+        from ptycho_torch.config_params import (
+            DataConfig,
+            InferenceConfig as PTInferenceConfig,
+            ModelConfig as PTModelConfig,
+            TrainingConfig as PTTrainingConfig,
+        )
+        from ptycho_torch.generators.hybrid_resnet import (
+            HybridResnetConvNextBottleneckGenerator,
+        )
+        from ptycho_torch.model import PtychoPINN_Lightning
+
+        config = TrainingConfig(
+            model=ModelConfig(architecture="hybrid_resnet_convnext_bottleneck", N=64, gridsize=1)
+        )
+        gen = HybridResnetConvNextBottleneckGenerator(config)
+        execution_config = PyTorchExecutionConfig(
+            hybrid_resnet_bottleneck_layerscale_mode="fixed",
+            hybrid_resnet_bottleneck_layerscale_value=1.0,
+        )
+        pt_configs = {
+            "data_config": DataConfig(N=64, C=1),
+            "model_config": PTModelConfig(architecture="hybrid_resnet_convnext_bottleneck"),
+            "training_config": PTTrainingConfig(),
+            "inference_config": PTInferenceConfig(),
+            "execution_config": execution_config,
+        }
+
+        model = gen.build_model(pt_configs)
+
+        assert isinstance(model, PtychoPINN_Lightning)
+        overrides = model.hparams["generator_overrides"]
+        assert overrides["hybrid_resnet_bottleneck_layerscale_mode"] == "fixed"
+        assert overrides["hybrid_resnet_bottleneck_layerscale_value"] == 1.0
+        assert overrides["hybrid_encoder_fusion_mode"] == "baseline"
+        assert overrides["hybrid_encoder_layerscale_init"] == 0.1
+        assert overrides["hybrid_encoder_branch_gate_init"] == 0.1
+        assert overrides["hybrid_encoder_branch_select"] == "both"
+        assert overrides["convnext_bottleneck_layerscale_init"] == 0.1
+        assert overrides["convnext_bottleneck_mlp_ratio"] == 4.0
+        assert overrides["convnext_bottleneck_kernel_size"] == 7
+        # ConvNeXt-specific knobs must not leak into PTModelConfig hparams (same
+        # discipline already enforced for the baseline hybrid_resnet path).
+        assert "convnext_bottleneck_layerscale_init" not in model.hparams["model_config"]
+        assert "convnext_bottleneck_mlp_ratio" not in model.hparams["model_config"]
+        assert "convnext_bottleneck_kernel_size" not in model.hparams["model_config"]
+        # The fixed-residual flag must be honored end-to-end on the new path too.
+        assert model.model.generator.resnet.layerscale.requires_grad is False
+
+    def test_build_generator_module_from_config_rebuilds_hybrid_resnet_convnext_bottleneck(self):
+        """The checkpoint-rebuild path must accept the new architecture so
+        ``load_from_checkpoint`` can reconstruct the generator without ValueError."""
+        from ptycho_torch.config_params import (
+            DataConfig as PTDataConfig,
+            ModelConfig as PTModelConfig,
+        )
+        from ptycho_torch.generators.hybrid_resnet import (
+            HybridResnetConvNextBottleneckGeneratorModule,
+        )
+        from ptycho_torch.model import _build_generator_module_from_config
+
+        model_config = PTModelConfig(architecture="hybrid_resnet_convnext_bottleneck")
+        data_config = PTDataConfig(N=64, C=1)
+        overrides = {
+            "hybrid_resnet_bottleneck_layerscale_mode": "fixed",
+            "hybrid_resnet_bottleneck_layerscale_value": 1.0,
+            "hybrid_encoder_fusion_mode": "baseline",
+            "hybrid_encoder_layerscale_init": 0.1,
+            "hybrid_encoder_branch_gate_init": 0.1,
+            "hybrid_encoder_branch_select": "both",
+            "convnext_bottleneck_layerscale_init": 0.1,
+            "convnext_bottleneck_mlp_ratio": 4.0,
+            "convnext_bottleneck_kernel_size": 7,
+        }
+
+        module = _build_generator_module_from_config(
+            model_config,
+            data_config,
+            generator_output="real_imag",
+            generator_overrides=overrides,
+        )
+
+        assert isinstance(module, HybridResnetConvNextBottleneckGeneratorModule)
+        assert module.resnet.layerscale.requires_grad is False

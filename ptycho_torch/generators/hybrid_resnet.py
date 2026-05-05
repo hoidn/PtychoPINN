@@ -788,6 +788,41 @@ class HybridResnetConvNextBottleneckGenerator:
             "hybrid_resnet_bottleneck_layerscale_value",
             getattr(model_config, "hybrid_resnet_bottleneck_layerscale_value", None),
         )
+        encoder_fusion_mode = getattr(
+            execution_config,
+            "hybrid_encoder_fusion_mode",
+            getattr(model_config, "hybrid_encoder_fusion_mode", "baseline"),
+        )
+        encoder_layerscale_init = getattr(
+            execution_config,
+            "hybrid_encoder_layerscale_init",
+            getattr(model_config, "hybrid_encoder_layerscale_init", 0.1),
+        )
+        encoder_branch_gate_init = getattr(
+            execution_config,
+            "hybrid_encoder_branch_gate_init",
+            getattr(model_config, "hybrid_encoder_branch_gate_init", 0.1),
+        )
+        encoder_branch_select = getattr(
+            execution_config,
+            "hybrid_encoder_branch_select",
+            getattr(model_config, "hybrid_encoder_branch_select", "both"),
+        )
+        convnext_bottleneck_layerscale_init = getattr(
+            execution_config,
+            "convnext_bottleneck_layerscale_init",
+            getattr(model_config, "convnext_bottleneck_layerscale_init", 0.1),
+        )
+        convnext_bottleneck_mlp_ratio = getattr(
+            execution_config,
+            "convnext_bottleneck_mlp_ratio",
+            getattr(model_config, "convnext_bottleneck_mlp_ratio", 4.0),
+        )
+        convnext_bottleneck_kernel_size = getattr(
+            execution_config,
+            "convnext_bottleneck_kernel_size",
+            getattr(model_config, "convnext_bottleneck_kernel_size", 7),
+        )
 
         core = HybridResnetConvNextBottleneckGeneratorModule(
             in_channels=1,
@@ -819,35 +854,13 @@ class HybridResnetConvNextBottleneckGenerator:
             hybrid_skip_style=getattr(model_config, "hybrid_skip_style", "add"),
             bottleneck_layerscale_mode=bottleneck_layerscale_mode,
             bottleneck_layerscale_value=bottleneck_layerscale_value,
-            encoder_fusion_mode=getattr(
-                execution_config,
-                "hybrid_encoder_fusion_mode",
-                getattr(model_config, "hybrid_encoder_fusion_mode", "baseline"),
-            ),
-            encoder_layerscale_init=getattr(
-                execution_config,
-                "hybrid_encoder_layerscale_init",
-                getattr(model_config, "hybrid_encoder_layerscale_init", 0.1),
-            ),
-            encoder_branch_gate_init=getattr(
-                execution_config,
-                "hybrid_encoder_branch_gate_init",
-                getattr(model_config, "hybrid_encoder_branch_gate_init", 0.1),
-            ),
-            encoder_branch_select=getattr(
-                execution_config,
-                "hybrid_encoder_branch_select",
-                getattr(model_config, "hybrid_encoder_branch_select", "both"),
-            ),
-            convnext_bottleneck_layerscale_init=getattr(
-                model_config, "convnext_bottleneck_layerscale_init", 0.1
-            ),
-            convnext_bottleneck_mlp_ratio=getattr(
-                model_config, "convnext_bottleneck_mlp_ratio", 4.0
-            ),
-            convnext_bottleneck_kernel_size=getattr(
-                model_config, "convnext_bottleneck_kernel_size", 7
-            ),
+            encoder_fusion_mode=encoder_fusion_mode,
+            encoder_layerscale_init=encoder_layerscale_init,
+            encoder_branch_gate_init=encoder_branch_gate_init,
+            encoder_branch_select=encoder_branch_select,
+            convnext_bottleneck_layerscale_init=convnext_bottleneck_layerscale_init,
+            convnext_bottleneck_mlp_ratio=convnext_bottleneck_mlp_ratio,
+            convnext_bottleneck_kernel_size=convnext_bottleneck_kernel_size,
         )
 
         return PtychoPINN_Lightning(
@@ -857,4 +870,15 @@ class HybridResnetConvNextBottleneckGenerator:
             inference_config=inference_config,
             generator_module=core,
             generator_output=output_mode,
+            generator_overrides={
+                "hybrid_resnet_bottleneck_layerscale_mode": bottleneck_layerscale_mode,
+                "hybrid_resnet_bottleneck_layerscale_value": bottleneck_layerscale_value,
+                "hybrid_encoder_fusion_mode": encoder_fusion_mode,
+                "hybrid_encoder_layerscale_init": encoder_layerscale_init,
+                "hybrid_encoder_branch_gate_init": encoder_branch_gate_init,
+                "hybrid_encoder_branch_select": encoder_branch_select,
+                "convnext_bottleneck_layerscale_init": convnext_bottleneck_layerscale_init,
+                "convnext_bottleneck_mlp_ratio": convnext_bottleneck_mlp_ratio,
+                "convnext_bottleneck_kernel_size": convnext_bottleneck_kernel_size,
+            },
         )
