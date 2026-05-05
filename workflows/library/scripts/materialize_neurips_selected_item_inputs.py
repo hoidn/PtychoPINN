@@ -154,7 +154,17 @@ def main() -> int:
 
     previous_plan_path = str(manifest_entry.get("plan_path") or "").strip()
     previous_plan_text = ""
-    if previous_plan_path:
+    if selection_mode == "ACTIVE_SELECTION":
+        if not previous_plan_path:
+            raise SystemExit(f"Manifest entry missing plan_path for selected item {item_id}")
+        previous_plan_rel = Path(previous_plan_path)
+        if previous_plan_rel.is_absolute() or ".." in previous_plan_rel.parts:
+            raise SystemExit(f"Unsafe plan_path for selected item {item_id}: {previous_plan_path}")
+        previous_plan_target = REPO_ROOT / previous_plan_rel
+        if not previous_plan_target.is_file():
+            raise SystemExit(f"plan_path target does not exist for selected item {item_id}: {previous_plan_path}")
+        previous_plan_text = previous_plan_target.read_text(encoding="utf-8").strip()
+    elif previous_plan_path:
         previous_plan_target = REPO_ROOT / previous_plan_path
         if previous_plan_target.is_file():
             previous_plan_text = previous_plan_target.read_text(encoding="utf-8").strip()

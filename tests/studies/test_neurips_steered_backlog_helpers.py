@@ -49,23 +49,25 @@ def test_build_manifest_preserves_check_commands_and_optional_fields(tmp_path):
     assert blocked["prerequisites"] == ["phase-99-not-done"]
 
 
-def test_build_manifest_rejects_malformed_frontmatter(tmp_path):
+def test_build_manifest_records_malformed_frontmatter_as_invalid_item(tmp_path):
     workspace = _workspace(tmp_path)
     bad_item = workspace / "docs/backlog/active/2026-04-22-bad-item.md"
     bad_item.write_text("# no frontmatter\n", encoding="utf-8")
+    output_path = workspace / "state/manifest.json"
 
-    result = _run_script(
+    _run_script(
         workspace,
         "workflows/library/scripts/build_neurips_backlog_manifest.py",
         "--backlog-root",
         "docs/backlog/active",
         "--output",
-        str(workspace / "state/manifest.json"),
-        check=False,
+        str(output_path),
     )
 
-    assert result.returncode != 0
-    assert "frontmatter" in result.stderr.lower()
+    manifest = json.loads(output_path.read_text(encoding="utf-8"))
+    invalid = {item["item_id"]: item for item in manifest["invalid_items"]}
+    assert "2026-04-22-bad-item" in invalid
+    assert any("frontmatter" in reason.lower() for reason in invalid["2026-04-22-bad-item"]["invalid_reasons"])
 
 
 def test_roadmap_gate_filters_out_phase3_cdi_when_phase2_required(tmp_path):
@@ -295,6 +297,10 @@ def test_materialize_selected_item_inputs_writes_check_command_artifacts(tmp_pat
         "--output",
         str(manifest_path),
     )
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_payload["source_manifest_path"] = "state/raw_manifest.json"
+    manifest_payload["roadmap_gate_status"] = "ELIGIBLE"
+    manifest_path.write_text(json.dumps(manifest_payload, indent=2) + "\n", encoding="utf-8")
 
     selector_root = workspace / "state/selector"
     selector_root.mkdir(parents=True, exist_ok=True)
@@ -341,6 +347,63 @@ def test_materialize_selected_item_inputs_writes_check_command_artifacts(tmp_pat
     assert "authoritative_item_path: `docs/backlog/in_progress/2026-04-22-ready-item.md`" in context_text
     assert "selection_source_path: `docs/backlog/active/2026-04-22-ready-item.md`" in context_text
     assert "selected_item_path:" not in context_text
+
+
+def test_materialize_selected_active_item_fails_when_plan_target_is_missing(tmp_path):
+    workspace = _workspace(tmp_path)
+    manifest_path = workspace / "state/manifest.json"
+    _run_script(
+        workspace,
+        "workflows/library/scripts/build_neurips_backlog_manifest.py",
+        "--backlog-root",
+        "docs/backlog/active",
+        "--output",
+        str(manifest_path),
+    )
+    manifest_payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest_payload["source_manifest_path"] = "state/raw_manifest.json"
+    manifest_payload["roadmap_gate_status"] = "ELIGIBLE"
+    manifest_path.write_text(json.dumps(manifest_payload, indent=2) + "\n", encoding="utf-8")
+    (workspace / "docs/plans/legacy-ready-plan.md").unlink()
+
+    selector_root = workspace / "state/selector"
+    selector_root.mkdir(parents=True, exist_ok=True)
+    selection_path = selector_root / "selection.json"
+    selection_path.write_text(
+        json.dumps(
+            {
+                "selection_status": "SELECTED",
+                "selected_item_id": "2026-04-22-ready-item",
+                "selected_item_path": "docs/backlog/active/2026-04-22-ready-item.md",
+                "selection_rationale": "ready",
+                "roadmap_sync_hint": "NO_CHANGE",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    output_path = workspace / "state/materialized.json"
+
+    result = _run_script(
+        workspace,
+        "workflows/library/scripts/materialize_neurips_selected_item_inputs.py",
+        "--selection-path",
+        str(selection_path),
+        "--manifest-path",
+        str(manifest_path),
+        "--state-root",
+        "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain",
+        "--output",
+        str(output_path),
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "plan_path target does not exist" in result.stderr
+    assert not output_path.exists()
+
+
 
 
 def test_gap_draft_validator_accepts_valid_phase2_item(tmp_path):
