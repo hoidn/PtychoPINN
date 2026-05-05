@@ -44,8 +44,9 @@ FFNO_ROW_ID: str = "ffno"
 FFNO_PAPER_LABEL: str = "FFNO"
 
 # Baseline-bundle contract fields the FFNO extension MUST inherit unchanged.
-# Only fields the new FFNO row could plausibly drift from are checked here;
-# the operator pointer + dataset id + claim boundary lock down the rest.
+# Each set names fields whose baseline values bind the FFNO row's same-contract
+# inheritance. ``_BASELINE_REQUIRED_OPERATOR_GEOMETRY_KEYS`` covers the locked
+# operator geometry surface verbatim.
 _BASELINE_REQUIRED_DATASET_KEYS: Tuple[str, ...] = (
     "dataset_id",
     "split_counts",
@@ -64,6 +65,43 @@ _BASELINE_REQUIRED_TRAINING_KEYS: Tuple[str, ...] = (
 _BASELINE_REQUIRED_OPERATOR_KEYS: Tuple[str, ...] = (
     "geometry",
     "validation_artifact",
+)
+_BASELINE_REQUIRED_OPERATOR_GEOMETRY_KEYS: Tuple[str, ...] = (
+    "grid_size",
+    "detector_size",
+    "angle_count",
+    "wavelength_px",
+    "medium_ri",
+    "mode",
+    "normalize",
+)
+_BASELINE_REQUIRED_NORMALIZATION_KEYS: Tuple[str, ...] = (
+    "q_max_train",
+    "q_min_train",
+    "q_mean_train",
+    "q_std_train",
+)
+_BASELINE_REQUIRED_SPLIT_KEYS: Tuple[str, ...] = ("train", "val", "test")
+
+# Baseline-authority surfaces for ``input_contract.classical_backend``.
+# The baseline ``preflight_manifest.json`` records this field at the
+# manifest level (odtbrain availability for the classical row's oracle role),
+# while the per-row neural ``invocation.json`` records the actually-used
+# born_init backend ("local_adjoint"). These two surfaces diverge in the
+# delivered baseline bundle, and the plan binds the FFNO extension to the
+# baseline JSON files "as they exist". The FFNO extension therefore follows
+# the per-row neural-row authority for its own ``classical_backend`` payload
+# and records this divergence explicitly via
+# :func:`build_classical_backend_authority_handoff` rather than silently
+# rewriting either surface.
+CLASSICAL_BACKEND_HANDOFF_RATIONALE: str = (
+    "FFNO extension follows the baseline per-row neural-row classical_backend "
+    "authority (local_adjoint, used for born_init_image input construction) "
+    "rather than the baseline preflight_manifest.json's manifest-level field "
+    "(odtbrain external_oracle, recording odtbrain import availability for "
+    "the classical row only). The two baseline surfaces diverge; this divergence "
+    "predates the FFNO extension and is recorded here explicitly per the "
+    "implementation review."
 )
 
 class BaselineContractMismatchError(ValueError):
@@ -182,12 +220,28 @@ def assert_extension_inherits_baseline(
     extension_fixed_sample_ids: List[int],
     extension_operator_pointer: str,
     extension_claim_boundary: str,
+    extension_split_counts: Mapping[str, Any] | None = None,
+    extension_normalization: Mapping[str, Any] | None = None,
+    extension_fixed_sample_seed: int | None = None,
+    extension_operator_geometry: Mapping[str, Any] | None = None,
 ) -> None:
     """Refuse an FFNO extension that does not inherit the baseline contract.
 
-    Mismatches are reported as a single ``BaselineContractMismatchError``
+    Validates the full machine-consumed inheritance surface required by the
+    plan: dataset id, split counts, normalization stats, operator pointer,
+    operator geometry, input mode, in-channels, training contract, fixed
+    sample ids and seed, and the append-only claim boundary.
+
+    Mismatches are reported as a single :class:`BaselineContractMismatchError`
     naming every divergent field so the runner produces a row-level
     blocker instead of silently relaxing the locked contract.
+
+    ``input_contract.classical_backend`` is intentionally not enforced here:
+    the baseline's manifest-level surface (odtbrain external_oracle) and its
+    per-row neural surface (local_adjoint) diverge in the delivered baseline
+    bundle. The FFNO extension records that divergence as an explicit
+    authority handoff via :func:`build_classical_backend_authority_handoff`
+    rather than silently picking one surface.
     """
     mismatches: List[str] = []
     base_dataset = baseline_manifest.get("dataset", {}) or {}
@@ -231,6 +285,45 @@ def assert_extension_inherits_baseline(
         mismatches.append(
             f"fixed_sample_ids: baseline={base_ids!r}, extension={ext_ids!r}"
         )
+    if extension_fixed_sample_seed is not None:
+        base_seed = baseline_manifest.get("fixed_sample_seed")
+        if base_seed is not None and int(base_seed) != int(extension_fixed_sample_seed):
+            mismatches.append(
+                f"fixed_sample_seed: baseline={base_seed!r}, "
+                f"extension={extension_fixed_sample_seed!r}"
+            )
+    if extension_split_counts is not None:
+        base_splits = base_dataset.get("split_counts", {}) or {}
+        for key in _BASELINE_REQUIRED_SPLIT_KEYS:
+            base_val = base_splits.get(key)
+            ext_val = extension_split_counts.get(key)
+            if base_val is None or ext_val is None:
+                continue
+            if int(base_val) != int(ext_val):
+                mismatches.append(
+                    f"split_counts.{key}: baseline={base_val!r}, "
+                    f"extension={ext_val!r}"
+                )
+    if extension_normalization is not None:
+        base_norm = base_dataset.get("normalization", {}) or {}
+        for key in _BASELINE_REQUIRED_NORMALIZATION_KEYS:
+            if key not in base_norm or key not in extension_normalization:
+                continue
+            if float(base_norm[key]) != float(extension_normalization[key]):
+                mismatches.append(
+                    f"normalization.{key}: baseline={base_norm[key]!r}, "
+                    f"extension={extension_normalization[key]!r}"
+                )
+    if extension_operator_geometry is not None:
+        base_geom = base_operator.get("geometry", {}) or {}
+        for key in _BASELINE_REQUIRED_OPERATOR_GEOMETRY_KEYS:
+            if key not in base_geom or key not in extension_operator_geometry:
+                continue
+            if base_geom[key] != extension_operator_geometry[key]:
+                mismatches.append(
+                    f"operator.geometry.{key}: baseline={base_geom[key]!r}, "
+                    f"extension={extension_operator_geometry[key]!r}"
+                )
     if extension_claim_boundary != APPEND_ONLY_CLAIM_BOUNDARY:
         mismatches.append(
             f"claim_boundary: extension={extension_claim_boundary!r}; "
@@ -241,6 +334,47 @@ def assert_extension_inherits_baseline(
             "FFNO extension does not inherit the baseline contract: "
             + "; ".join(mismatches)
         )
+
+
+def build_classical_backend_authority_handoff(
+    *,
+    baseline_manifest: Mapping[str, Any],
+    extension_classical_backend: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """Record the explicit ``classical_backend`` authority handoff.
+
+    The baseline four-row preflight bundle has two divergent surfaces for
+    ``input_contract.classical_backend``: the manifest-level field records
+    odtbrain's import status as an *external oracle*, while per-row neural
+    invocations record the actually-used born_init backend (``local_adjoint``).
+    The plan binds the FFNO extension to the baseline JSON files as they
+    exist, so neither surface can be silently rewritten. The extension
+    follows the per-row neural authority and emits this handoff block in
+    its own ``input_contract.classical_backend_authority_handoff`` field
+    so reviewers can see the divergence explicitly.
+    """
+    base_manifest_field = (
+        (baseline_manifest.get("input_contract") or {}).get("classical_backend")
+    )
+    return {
+        "extension_classical_backend": dict(extension_classical_backend),
+        "baseline_manifest_classical_backend": (
+            dict(base_manifest_field) if isinstance(base_manifest_field, Mapping)
+            else base_manifest_field
+        ),
+        "baseline_neural_row_classical_backend": {
+            "name": "local_adjoint",
+            "claim_boundary": "feasibility_only",
+            "reason": "odtbrain_unavailable_after_narrow_fix",
+            "source": (
+                ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/"
+                "2026-04-29-brdt-four-row-preflight/rows/{unet,fno_vanilla,"
+                "hybrid_resnet}/invocation.json (extras.classical_backend)"
+            ),
+        },
+        "rationale": CLASSICAL_BACKEND_HANDOFF_RATIONALE,
+        "approved_by": "implementation_review_high_1_response",
+    }
 
 
 def _baseline_row_lineage(

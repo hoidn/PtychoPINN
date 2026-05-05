@@ -1737,6 +1737,156 @@ def test_extension_bundle_assert_extension_inherits_rejects_claim_boundary_drift
         )
 
 
+def test_extension_bundle_assert_extension_inherits_rejects_split_counts_drift(
+    tmp_path,
+):
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    baseline_manifest = ext_bundle.validate_baseline_bundle(baseline_root)
+    base_training = baseline_manifest["training_contract"]
+    base_pointer = baseline_manifest["operator"]["validation_artifact"]
+    with pytest.raises(
+        ext_bundle.BaselineContractMismatchError, match="split_counts.train"
+    ):
+        ext_bundle.assert_extension_inherits_baseline(
+            baseline_manifest=baseline_manifest,
+            extension_dataset_id=baseline_manifest["dataset"]["dataset_id"],
+            extension_input_mode="born_init_image",
+            extension_in_channels=1,
+            extension_training_contract=base_training,
+            extension_fixed_sample_ids=baseline_manifest["fixed_sample_ids"],
+            extension_operator_pointer=base_pointer,
+            extension_claim_boundary=ext_bundle.APPEND_ONLY_CLAIM_BOUNDARY,
+            extension_split_counts={"train": 4096, "val": 256, "test": 256},
+        )
+
+
+def test_extension_bundle_assert_extension_inherits_rejects_normalization_drift(
+    tmp_path,
+):
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    baseline_manifest = ext_bundle.validate_baseline_bundle(baseline_root)
+    base_training = baseline_manifest["training_contract"]
+    base_pointer = baseline_manifest["operator"]["validation_artifact"]
+    drifted_norm = dict(baseline_manifest["dataset"]["normalization"])
+    drifted_norm["q_max_train"] = float(drifted_norm["q_max_train"]) + 1.0
+    with pytest.raises(
+        ext_bundle.BaselineContractMismatchError,
+        match="normalization.q_max_train",
+    ):
+        ext_bundle.assert_extension_inherits_baseline(
+            baseline_manifest=baseline_manifest,
+            extension_dataset_id=baseline_manifest["dataset"]["dataset_id"],
+            extension_input_mode="born_init_image",
+            extension_in_channels=1,
+            extension_training_contract=base_training,
+            extension_fixed_sample_ids=baseline_manifest["fixed_sample_ids"],
+            extension_operator_pointer=base_pointer,
+            extension_claim_boundary=ext_bundle.APPEND_ONLY_CLAIM_BOUNDARY,
+            extension_normalization=drifted_norm,
+        )
+
+
+def test_extension_bundle_assert_extension_inherits_rejects_operator_geometry_drift(
+    tmp_path,
+):
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    baseline_manifest = ext_bundle.validate_baseline_bundle(baseline_root)
+    base_training = baseline_manifest["training_contract"]
+    base_pointer = baseline_manifest["operator"]["validation_artifact"]
+    drifted_geom = dict(baseline_manifest["operator"]["geometry"])
+    drifted_geom["angle_count"] = int(drifted_geom["angle_count"]) + 1
+    with pytest.raises(
+        ext_bundle.BaselineContractMismatchError,
+        match="operator.geometry.angle_count",
+    ):
+        ext_bundle.assert_extension_inherits_baseline(
+            baseline_manifest=baseline_manifest,
+            extension_dataset_id=baseline_manifest["dataset"]["dataset_id"],
+            extension_input_mode="born_init_image",
+            extension_in_channels=1,
+            extension_training_contract=base_training,
+            extension_fixed_sample_ids=baseline_manifest["fixed_sample_ids"],
+            extension_operator_pointer=base_pointer,
+            extension_claim_boundary=ext_bundle.APPEND_ONLY_CLAIM_BOUNDARY,
+            extension_operator_geometry=drifted_geom,
+        )
+
+
+def test_extension_bundle_assert_extension_inherits_rejects_fixed_sample_seed_drift(
+    tmp_path,
+):
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    baseline_manifest = ext_bundle.validate_baseline_bundle(baseline_root)
+    base_training = baseline_manifest["training_contract"]
+    base_pointer = baseline_manifest["operator"]["validation_artifact"]
+    base_seed = int(baseline_manifest["fixed_sample_seed"])
+    with pytest.raises(
+        ext_bundle.BaselineContractMismatchError,
+        match="fixed_sample_seed",
+    ):
+        ext_bundle.assert_extension_inherits_baseline(
+            baseline_manifest=baseline_manifest,
+            extension_dataset_id=baseline_manifest["dataset"]["dataset_id"],
+            extension_input_mode="born_init_image",
+            extension_in_channels=1,
+            extension_training_contract=base_training,
+            extension_fixed_sample_ids=baseline_manifest["fixed_sample_ids"],
+            extension_operator_pointer=base_pointer,
+            extension_claim_boundary=ext_bundle.APPEND_ONLY_CLAIM_BOUNDARY,
+            extension_fixed_sample_seed=base_seed + 1,
+        )
+
+
+def test_extension_bundle_classical_backend_authority_handoff_records_both_surfaces(
+    tmp_path,
+):
+    """Authority handoff names both baseline surfaces and the extension's choice.
+
+    The plan binds the FFNO extension to the baseline JSON files as they
+    exist; the baseline's manifest-level ``input_contract.classical_backend``
+    diverges from its per-row neural ``invocation.json`` value. The handoff
+    block records both surfaces explicitly so reviewers can see the
+    extension's choice is not silent.
+    """
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+
+    baseline_manifest = {
+        "input_contract": {
+            "classical_backend": {
+                "name": "odtbrain",
+                "claim_boundary": "external_oracle",
+                "reason": "odtbrain_import_succeeded",
+            }
+        }
+    }
+    extension_backend = {
+        "name": "local_adjoint",
+        "claim_boundary": "initialization_only",
+        "reason": "born_init_image_uses_locked_local_adjoint",
+    }
+    handoff = ext_bundle.build_classical_backend_authority_handoff(
+        baseline_manifest=baseline_manifest,
+        extension_classical_backend=extension_backend,
+    )
+    assert handoff["extension_classical_backend"] == extension_backend
+    assert (
+        handoff["baseline_manifest_classical_backend"]["name"] == "odtbrain"
+    )
+    assert (
+        handoff["baseline_neural_row_classical_backend"]["name"] == "local_adjoint"
+    )
+    assert "rationale" in handoff and "diverge" in handoff["rationale"]
+    assert handoff["approved_by"] == "implementation_review_high_1_response"
+
+
 def test_extension_bundle_combined_metrics_preserves_baseline_and_appends_ffno(
     tmp_path,
 ):
@@ -1896,15 +2046,19 @@ def test_run_ffno_extension_dry_run_writes_manifest_under_extension_root(tmp_pat
 
     manifest_path = _make_live_decision_support_dataset(tmp_path)
     baseline_root = _make_synthetic_baseline_bundle(tmp_path)
-    # Patch the synthetic baseline so its dataset_id, in_channels, and
-    # training contract match what the extension would inherit from
-    # this CPU-friendly test fixture (epochs=1, batch_size=1, lr=2e-4).
+    # Patch the synthetic baseline so its dataset_id, in_channels, training
+    # contract, split counts, and normalization match what the extension
+    # would inherit from this CPU-friendly test fixture (epochs=1,
+    # batch_size=1, lr=2e-4) so the tightened contract validator accepts it.
     base_manifest_path = baseline_root / "preflight_manifest.json"
     baseline = json.loads(base_manifest_path.read_text())
-    op_pointer = json.loads(Path(manifest_path).read_text())["operator"][
-        "validation_artifact"
-    ]
+    live_manifest = json.loads(Path(manifest_path).read_text())
+    op_pointer = live_manifest["operator"]["validation_artifact"]
     baseline["dataset"]["dataset_id"] = dc.DECISION_SUPPORT_DATASET_NAME
+    baseline["dataset"]["split_counts"] = dict(live_manifest["split"]["counts"])
+    baseline["dataset"]["normalization"] = dict(
+        live_manifest.get("normalization") or {}
+    )
     baseline["operator"]["validation_artifact"] = op_pointer
     baseline["training_contract"] = {
         "epochs": 1,
@@ -1940,6 +2094,16 @@ def test_run_ffno_extension_dry_run_writes_manifest_under_extension_root(tmp_pat
     assert [r["row_id"] for r in manifest["rows"]] == ["ffno"]
     schema = json.loads((extension_root / "metric_schema.json").read_text())
     assert schema["claim_boundary"] == ffno_mod.CLAIM_BOUNDARY
+    # The dry-run manifest must record the explicit classical_backend
+    # authority handoff so the divergence between the baseline's
+    # manifest-level surface (odtbrain external_oracle) and per-row neural
+    # surface (local_adjoint) is documented, not silent.
+    handoff = manifest["input_contract"]["classical_backend_authority_handoff"]
+    assert handoff["extension_classical_backend"]["name"] == "local_adjoint"
+    assert (
+        handoff["baseline_neural_row_classical_backend"]["name"] == "local_adjoint"
+    )
+    assert handoff["approved_by"] == "implementation_review_high_1_response"
 
 
 def test_run_ffno_extension_refuses_when_baseline_root_missing(tmp_path):
@@ -1974,10 +2138,13 @@ def test_run_ffno_extension_live_emits_combined_bundle(tmp_path):
     baseline_root = _make_synthetic_baseline_bundle(tmp_path)
     base_manifest_path = baseline_root / "preflight_manifest.json"
     baseline = json.loads(base_manifest_path.read_text())
-    op_pointer = json.loads(Path(manifest_path).read_text())["operator"][
-        "validation_artifact"
-    ]
+    live_manifest = json.loads(Path(manifest_path).read_text())
+    op_pointer = live_manifest["operator"]["validation_artifact"]
     baseline["dataset"]["dataset_id"] = dc.DECISION_SUPPORT_DATASET_NAME
+    baseline["dataset"]["split_counts"] = dict(live_manifest["split"]["counts"])
+    baseline["dataset"]["normalization"] = dict(
+        live_manifest.get("normalization") or {}
+    )
     baseline["operator"]["validation_artifact"] = op_pointer
     baseline["training_contract"] = {
         "epochs": 1,

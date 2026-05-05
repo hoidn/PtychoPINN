@@ -118,6 +118,7 @@ def _build_extension_manifest(
     contract_fingerprint: str,
     baseline_fingerprint: str,
     operator_pointer: str,
+    baseline_manifest: Mapping[str, Any],
 ) -> Dict[str, Any]:
     """Build the extension-root preflight_manifest for the FFNO-only view."""
     payload: Dict[str, Any] = {
@@ -171,6 +172,16 @@ def _build_extension_manifest(
                 "reason": classical_backend.reason,
                 "claim_boundary": classical_backend.claim_boundary,
             },
+            "classical_backend_authority_handoff": (
+                ext_bundle.build_classical_backend_authority_handoff(
+                    baseline_manifest=baseline_manifest,
+                    extension_classical_backend={
+                        "name": classical_backend.name,
+                        "reason": classical_backend.reason,
+                        "claim_boundary": classical_backend.claim_boundary,
+                    },
+                )
+            ),
         },
         "training_contract": contract.as_dict(),
         "metric_schema": {
@@ -251,6 +262,19 @@ def run_ffno_extension(
                 seed=int(fixed_sample_seed),
             )
 
+        extension_split_counts = authority.raw_manifest.get("split", {}).get(
+            "counts"
+        )
+        extension_normalization = authority.normalization.as_dict()
+        extension_operator_geometry = {
+            "grid_size": dc.LOCKED_GRID_SIZE,
+            "detector_size": dc.LOCKED_DETECTOR_SIZE,
+            "angle_count": dc.LOCKED_ANGLE_COUNT,
+            "wavelength_px": dc.LOCKED_WAVELENGTH_PX,
+            "medium_ri": dc.LOCKED_MEDIUM_RI,
+            "mode": dc.LOCKED_OPERATOR_MODE,
+            "normalize": dc.LOCKED_NORMALIZE,
+        }
         ext_bundle.assert_extension_inherits_baseline(
             baseline_manifest=baseline_manifest,
             extension_dataset_id=str(authority.dataset_id),
@@ -260,6 +284,10 @@ def run_ffno_extension(
             extension_fixed_sample_ids=fixed_sample_ids,
             extension_operator_pointer=str(operator_pointer),
             extension_claim_boundary=CLAIM_BOUNDARY,
+            extension_split_counts=extension_split_counts,
+            extension_normalization=extension_normalization,
+            extension_fixed_sample_seed=int(fixed_sample_seed),
+            extension_operator_geometry=extension_operator_geometry,
         )
 
         input_backend = preflight_mod._born_init_backend()
@@ -291,6 +319,7 @@ def run_ffno_extension(
             contract_fingerprint=contract_fingerprint,
             baseline_fingerprint=baseline_fingerprint,
             operator_pointer=str(operator_pointer),
+            baseline_manifest=baseline_manifest,
         )
         manifest_path_out = output_root / preflight_mod.PREFLIGHT_MANIFEST_NAME
         _write_manifest(extension_manifest_payload, manifest_path_out)
