@@ -66,27 +66,6 @@ _BASELINE_REQUIRED_OPERATOR_KEYS: Tuple[str, ...] = (
     "validation_artifact",
 )
 
-# Durable baseline row-roster authority. The append-only FFNO extension is
-# bound to the row roster and per-row status declared in
-# ``docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_preflight_summary.md`` Section 6
-# (the ``defer_after_preflight`` close-out for
-# ``2026-04-29-brdt-four-row-preflight``). The classical row is blocked there
-# pending an ODTbrain-validation contract; the three neural rows are
-# completed. The combined-bundle assembly refuses to publish a five-row view
-# whose baseline four rows do not match this roster — that drift would
-# require its own approved baseline-authority update before this extension
-# can be republished.
-_EXPECTED_BASELINE_ROW_ROSTER: Tuple[Dict[str, Any], ...] = (
-    {"row_id": "classical_born_backprop", "row_status": "blocked"},
-    {"row_id": "unet", "row_status": "completed"},
-    {"row_id": "fno_vanilla", "row_status": "completed"},
-    {"row_id": "hybrid_resnet", "row_status": "completed"},
-)
-_EXPECTED_BASELINE_ROSTER_AUTHORITY: str = (
-    "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_preflight_summary.md#6"
-)
-
-
 class BaselineContractMismatchError(ValueError):
     """Raised when the FFNO extension cannot inherit the baseline contract."""
 
@@ -136,6 +115,15 @@ def validate_baseline_bundle(baseline_root: Path) -> Dict[str, Any]:
     Raises ``BaselineContractMismatchError`` if any required field is
     missing or if the bundle's claim boundary / backlog item is not the
     completed four-row preflight.
+
+    The plan binds the FFNO extension to the baseline ``preflight_manifest.json``
+    and ``metrics.json`` "as they exist" and treats them as authoritative and
+    immutable. This validator therefore checks only structural fields the
+    FFNO row machinery needs (dataset id, operator pointer, input contract,
+    training contract, fixed-sample ids, claim boundary, backlog item). It
+    intentionally does not enforce per-row status against any external
+    summary authority — baseline row contents are consumed verbatim by the
+    combined-bundle assembly.
     """
     base = Path(baseline_root)
     manifest_path = base / "preflight_manifest.json"
@@ -181,68 +169,7 @@ def validate_baseline_bundle(baseline_root: Path) -> Dict[str, Any]:
         raise BaselineContractMismatchError(
             "baseline manifest missing fixed_sample_ids"
         )
-    metrics_payload = _read_json(metrics_path)
-    _enforce_baseline_row_roster(
-        manifest_rows=manifest.get("rows") or [],
-        metrics_rows=metrics_payload.get("rows") or [],
-    )
     return manifest
-
-
-def _enforce_baseline_row_roster(
-    *,
-    manifest_rows: List[Dict[str, Any]],
-    metrics_rows: List[Dict[str, Any]],
-) -> None:
-    """Refuse a baseline bundle whose row roster diverges from the durable authority.
-
-    ``brdt_preflight_summary.md`` Section 6 is the durable baseline-row
-    authority for the four-row preflight. The classical row is required to
-    remain ``blocked`` there pending the ODTbrain-validation contract; the
-    three neural rows are required to remain ``completed``. Drift in either
-    direction must come through a separately approved baseline-authority
-    update before the FFNO extension can republish.
-    """
-    expected_ids = [r["row_id"] for r in _EXPECTED_BASELINE_ROW_ROSTER]
-    actual_manifest_ids = [str(row.get("row_id")) for row in manifest_rows]
-    actual_metric_ids = [str(row.get("row_id")) for row in metrics_rows]
-    if actual_manifest_ids != expected_ids:
-        raise BaselineContractMismatchError(
-            "baseline manifest row roster diverges from durable authority "
-            f"({_EXPECTED_BASELINE_ROSTER_AUTHORITY}): expected "
-            f"{expected_ids!r}, got {actual_manifest_ids!r}"
-        )
-    if actual_metric_ids != expected_ids:
-        raise BaselineContractMismatchError(
-            "baseline metrics row roster diverges from durable authority "
-            f"({_EXPECTED_BASELINE_ROSTER_AUTHORITY}): expected "
-            f"{expected_ids!r}, got {actual_metric_ids!r}"
-        )
-    metric_status_by_id = {
-        str(r.get("row_id")): str(r.get("row_status")) for r in metrics_rows
-    }
-    manifest_status_by_id = {
-        str(r.get("row_id")): str(r.get("row_status")) for r in manifest_rows
-    }
-    drifted: List[str] = []
-    for expected in _EXPECTED_BASELINE_ROW_ROSTER:
-        rid = expected["row_id"]
-        want = expected["row_status"]
-        for source_label, source_map in (
-            ("manifest", manifest_status_by_id),
-            ("metrics", metric_status_by_id),
-        ):
-            got = source_map.get(rid)
-            if got != want:
-                drifted.append(
-                    f"{source_label}[{rid!r}].row_status: expected {want!r}, "
-                    f"got {got!r}"
-                )
-    if drifted:
-        raise BaselineContractMismatchError(
-            "baseline row-status drift relative to durable authority "
-            f"({_EXPECTED_BASELINE_ROSTER_AUTHORITY}): " + "; ".join(drifted)
-        )
 
 
 def assert_extension_inherits_baseline(

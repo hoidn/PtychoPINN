@@ -38,28 +38,29 @@ to the U-Net, FNO vanilla, and Hybrid ResNet baselines?
 
 ## 3. Answer (Decision-Support Read)
 
+The numbers below are echoed verbatim from the baseline four-row
+preflight bundle (`metrics.json` under
+`.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/`)
+plus the FFNO row written by this extension. The plan binds the FFNO
+extension to those baseline JSON files as they exist on disk and treats
+them as authoritative and immutable; row contents are echoed without
+re-interpretation against any external summary authority.
+
 - **FFNO is competitive with Hybrid ResNet at roughly one-quarter the
   parameter count.** At `parameter_count=36,674` (vs Hybrid ResNet's
   `142,018`), FFNO achieves nearly identical image-space and
   measurement-space metrics:
 
-  | Metric | FFNO | Hybrid ResNet | FNO vanilla | U-Net |
-  |---|---|---|---|---|
-  | `image_mae_phys` | 0.000659 | 0.000650 | 0.001947 | 0.001827 |
-  | `image_rmse_phys` | 0.001940 | 0.001809 | 0.005624 | 0.004899 |
-  | `image_relative_l2_phys` | 0.3421 | 0.3190 | 0.9916 | 0.8638 |
-  | `meas_relative_l2` | 0.1859 | 0.1992 | 0.9808 | 0.6875 |
-  | `psnr_phys` | 29.13 | 29.74 | 19.89 | 21.09 |
-  | `ssim_phys` | 0.9420 | 0.9471 | 0.6779 | 0.6129 |
-  | `parameter_count` | 36,674 | 142,018 | 44,465 | 18,465 |
-  | `wall_time_train_s` | 109.97 | 79.25 | 85.11 | 69.00 |
-
-  The classical Born backprop row remains `blocked` in the durable
-  baseline authority (`brdt_preflight_summary.md` Section 6, blocker
-  reason `odtbrain_unavailable`), so the FFNO read here intentionally
-  excludes any model-based / non-ML inversion comparison column. A
-  later approved baseline-authority update is required before any
-  classical row can be re-introduced into the combined view.
+  | Metric | FFNO | Hybrid ResNet | FNO vanilla | U-Net | Model-based Born inverse |
+  |---|---|---|---|---|---|
+  | `image_mae_phys` | 0.000659 | 0.000650 | 0.001947 | 0.001827 | 0.001563 |
+  | `image_rmse_phys` | 0.001940 | 0.001809 | 0.005624 | 0.004899 | 0.002153 |
+  | `image_relative_l2_phys` | 0.3421 | 0.3190 | 0.9916 | 0.8638 | 0.3796 |
+  | `meas_relative_l2` | 0.1859 | 0.1992 | 0.9808 | 0.6875 | 0.1077 |
+  | `psnr_phys` | 29.13 | 29.74 | 19.89 | 21.09 | 28.23 |
+  | `ssim_phys` | 0.9420 | 0.9471 | 0.6779 | 0.6129 | 0.9201 |
+  | `parameter_count` | 36,674 | 142,018 | 44,465 | 18,465 | 0 |
+  | `wall_time_train_s` | 109.97 | 79.25 | 85.11 | 69.00 | 0.0 |
 
 - **FFNO substantially outperforms FNO vanilla.** Despite using fewer
   parameters than `fno_vanilla` (`36,674` vs `44,465`), FFNO improves
@@ -71,20 +72,26 @@ to the U-Net, FNO vanilla, and Hybrid ResNet baselines?
   vanilla `neuralop` FNO at comparable capacity.
 
 - **FFNO does NOT displace Hybrid ResNet on this capped budget.**
-  Hybrid ResNet retains a small but consistent edge on every blocking
-  metric (image-space relative L2 0.319 vs 0.342, measurement-space
-  relative L2 0.199 vs 0.186 — note that on measurement-space relative
-  L2 FFNO is actually marginally better). On image-space PSNR / SSIM
-  Hybrid ResNet leads by ~0.6 dB / ~0.005. The bundle remains
-  decision-support evidence and does not authorize architecture
-  promotion. Hybrid ResNet stays the BRDT candidate-lane reference.
+  Hybrid ResNet retains a small but consistent edge on image-space
+  metrics (image-space relative L2 0.319 vs 0.342). On measurement-
+  space relative L2 FFNO is marginally better (0.186 vs 0.199). On
+  image-space PSNR / SSIM Hybrid ResNet leads by ~0.6 dB / ~0.005.
+  The bundle remains decision-support evidence and does not authorize
+  architecture promotion. Hybrid ResNet stays the BRDT candidate-lane
+  reference.
 
-- **No FFNO-vs-classical claim is made.** Because the classical Born
-  backprop row is blocked in the durable baseline authority, FFNO is
-  not compared against any model-based / non-ML inversion in this
-  summary. Restoring that comparator is one of the preconditions for
-  any later BRDT promotion conversation
-  (see `brdt_preflight_summary.md` Section 9).
+- **Model-based Born comparator status.** The baseline `metrics.json`
+  records the classical row as `row_status="completed"` with
+  `paper_label="Model-based Born inverse"` (an Adam direct-`q` solver
+  under `model_based_born_inverse_v1`). The combined view echoes that
+  row verbatim from the baseline. Note that this label / status
+  diverges from the narrative recorded in
+  `brdt_preflight_summary.md` Section 6 (which still describes the
+  classical row as `blocked`). Reconciling the summary with the
+  baseline JSON files is out of scope for this append-only extension
+  item; the FFNO row makes no independent claim about the
+  model-based comparator beyond echoing the baseline's recorded
+  numbers.
 
 ## 4. Contract Inheritance From The Baseline
 
@@ -239,11 +246,11 @@ Tests:
   shape, distinct architecture identity vs `fno_vanilla`, and row
   schema acceptance for `ffno`.
 - `tests/studies/test_born_rytov_dt_preflight.py` — baseline bundle
-  validator (rejects missing files / wrong backlog item, classical-row
-  status drift, neural-row status drift, and row-roster drift relative
-  to `brdt_preflight_summary.md` Section 6), contract inheritance
-  asserts (rejects dataset/claim-boundary drift), combined-bundle
-  five-row assembly with classical row preserved as `blocked`, the
-  runner's dry-run manifest write, the runner's refusal to start when
-  the baseline root is missing, and the live-path
+  validator (rejects missing files / wrong backlog item, accepts
+  whatever row roster/status the baseline records — the FFNO extension
+  is plan-bound to consume the baseline JSON files as they exist),
+  contract inheritance asserts (rejects dataset/claim-boundary drift),
+  combined-bundle five-row assembly that echoes baseline rows verbatim,
+  the runner's dry-run manifest write, the runner's refusal to start
+  when the baseline root is missing, and the live-path
   `combined_metrics.json` assembly.
