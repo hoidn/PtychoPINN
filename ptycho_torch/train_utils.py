@@ -88,6 +88,16 @@ def find_learning_rate(base_lr, n_devices, batch_size_per_gpu):
 
     return lr_scaled
 
+def resolve_n_devices(training_config):
+    """Resolve n_devices='auto' to actual GPU count, mutating in place."""
+    if training_config.n_devices == "auto":
+        count = torch.cuda.device_count() if torch.cuda.is_available() else 0
+        training_config.n_devices = max(count, 1)
+        print(f"[resolve_n_devices] auto -> {training_config.n_devices} GPU(s)")
+    elif not isinstance(training_config.n_devices, int):
+        raise ValueError(f"n_devices must be int or 'auto', got {training_config.n_devices!r}")
+
+
 def log_parameters_mlflow(data_config: DataConfig,
                           model_config: ModelConfig,
                           training_config: TrainingConfig,

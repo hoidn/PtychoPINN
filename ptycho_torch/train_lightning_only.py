@@ -36,7 +36,7 @@ from ptycho_torch.config_params import update_existing_config
 #Custom modules
 from ptycho_torch.model import PtychoPINN_Lightning
 from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config
-from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, is_effectively_global_rank_zero, PtychoDataModule, PtychoDataModuleLightning
+from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, is_effectively_global_rank_zero, PtychoDataModule, PtychoDataModuleLightning, resolve_n_devices
 
 # NEW: Import our custom Lightning utilities
 from ptycho_torch.lightning_utils import (
@@ -187,6 +187,8 @@ def main(ptycho_dir,
                     time.sleep(0.1)
                 else:
                     raise RuntimeError("Non-zero rank failed to get SHARED_RUN_NAME from rank 0")
+
+        resolve_n_devices(training_config)
 
         #Setting seed
         set_seed(42, n_devices = training_config.n_devices)
