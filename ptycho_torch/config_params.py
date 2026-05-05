@@ -84,6 +84,9 @@ class ModelConfig:
     phase_loss_coeff: float = 1.0
     probe_reference_coeff: float = 0.0           # Probe reference loss coefficient (0.0 = disabled)
 
+    # Amplitude variance regularization (push outputs toward uniform modulus)
+    amplitude_variance_loss: bool = False
+    amplitude_variance_coeff: float = 0.01
 
 
 @dataclass
