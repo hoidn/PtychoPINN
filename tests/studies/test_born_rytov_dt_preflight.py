@@ -574,6 +574,123 @@ def test_dry_run_manifest_records_narrow_fix_attempts(tmp_path):
         assert row_id in fps
 
 
+def test_classical_inverse_authorization_requires_passing_odtbrain_check(tmp_path):
+    validation_path = tmp_path / "operator_validation.json"
+    validation_path.write_text(
+        json.dumps(
+            {
+                "checks": [
+                    {
+                        "name": "odtbrain_inverse_consistency",
+                        "status": "fail",
+                        "metric": 0.01,
+                        "tolerance": 0.65,
+                    }
+                ]
+            }
+        )
+    )
+    manifest = {
+        "operator": {
+            "validation_artifact": str(validation_path),
+        }
+    }
+
+    auth = preflight_mod.classical_inverse_authorization(
+        manifest, manifest_path=tmp_path / "dataset_manifest.json"
+    )
+
+    assert auth["may_run_classical_row"] is False
+    assert auth["blocker_reason"] == "odtbrain_inverse_consistency_failed"
+
+
+def test_classical_fingerprint_changes_with_model_based_solver_config():
+    base = dict(
+        row_id="classical_born_backprop",
+        model="classical_born_backprop",
+        training=run_config.CLASSICAL_TRAINING_LABEL,
+        input_mode="born_init_image",
+        dataset_id=dc.DECISION_SUPPORT_DATASET_NAME,
+        operator_pointer="operator_validation.json",
+        training_contract=preflight_mod.TrainingContract().as_dict(),
+        fixed_sample_ids=[0],
+        in_channels=1,
+        classical_backend_name="local_adjoint",
+        execution_path="model_based_born_inverse",
+        solver_version=preflight_mod.MODEL_BASED_INVERSE_VERSION,
+    )
+    fp_a = preflight_mod.row_contract_fingerprint(
+        **base,
+        solver_config={"steps": 2, "learning_rate": 0.01},
+    )
+    fp_b = preflight_mod.row_contract_fingerprint(
+        **base,
+        solver_config={"steps": 3, "learning_rate": 0.01},
+    )
+
+    assert fp_a != fp_b
+
+
+def test_maybe_resume_rejects_stale_classical_execution_path(tmp_path):
+    row = run_config.default_row_roster(
+        dataset_id=dc.DECISION_SUPPORT_DATASET_NAME,
+        operator_version="op",
+    )[0]
+    row_dir = tmp_path / "rows" / row.row_id
+    row_dir.mkdir(parents=True)
+    (row_dir / preflight_mod.ROW_SUMMARY_NAME).write_text(
+        json.dumps(
+            {
+                "row_id": row.row_id,
+                "row_status": "blocked",
+                "execution_path": "classical_blocked",
+                "contract_fingerprint": "same-fingerprint",
+            }
+        )
+    )
+
+    resumed = preflight_mod._maybe_resume_row(
+        row=row,
+        row_dir=row_dir,
+        source_arrays_dir=tmp_path / "arrays",
+        fixed_sample_ids=[0],
+        expected_fingerprint="same-fingerprint",
+        expected_execution_path="model_based_born_inverse",
+    )
+
+    assert resumed is None
+
+
+def test_run_preflight_executes_model_based_classical_inverse(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setenv("BRDT_MODEL_BASED_INVERSE_STEPS", "2")
+    monkeypatch.setenv("BRDT_MODEL_BASED_INVERSE_LR", "0.01")
+    monkeypatch.setenv("BRDT_MODEL_BASED_INVERSE_TV", "0.0")
+    monkeypatch.setenv("BRDT_MODEL_BASED_INVERSE_L2", "0.0")
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    preflight_root = tmp_path / "model_based_classical"
+
+    preflight_mod.run_preflight(
+        **_live_preflight_kwargs(manifest_path, preflight_root)
+    )
+
+    summary = json.loads(
+        (
+            preflight_root
+            / "rows"
+            / "classical_born_backprop"
+            / preflight_mod.ROW_SUMMARY_NAME
+        ).read_text()
+    )
+    assert summary["row_status"] == "completed"
+    assert summary["execution_path"] == "model_based_born_inverse"
+    assert summary["paper_label"] == "Model-based Born inverse"
+    solver = summary["runtime"]["extras"]["solver"]
+    assert solver["solver"] == "adam_direct_q"
+    assert solver["config"]["steps"] == 2
+
+
 # ----------------------------------------------------------------------
 # Per-row invocation/runtime provenance + resume protocol
 # ----------------------------------------------------------------------
@@ -746,3 +863,250 @@ def test_run_preflight_is_reproducible_under_same_seed(tmp_path):
                     f"{neural_row}.{bucket}.{key} drifted between seeded reruns: "
                     f"{val_a} vs {val_b}"
                 )
+
+
+# ----------------------------------------------------------------------
+# Physics-only objective ablation: objective preset, row selection,
+# baseline lineage, output dynamic-range diagnostics.
+# ----------------------------------------------------------------------
+def test_resolve_objective_preset_relative_physics_only_weights():
+    weights, training_label = run_config.resolve_objective_preset(
+        "relative_physics_only"
+    )
+    assert weights.as_dict() == {
+        "image": 0.0,
+        "physics": 0.0,
+        "relative_physics": 1.0,
+        "tv": 0.0,
+        "positivity": 0.0,
+    }
+    assert training_label == run_config.RELATIVE_PHYSICS_ONLY_TRAINING_LABEL
+
+
+def test_resolve_objective_preset_supervised_plus_born_default_weights():
+    weights, training_label = run_config.resolve_objective_preset(
+        "supervised_plus_born"
+    )
+    assert weights.as_dict() == run_config.LossWeights().as_dict()
+    assert training_label == run_config.DEFAULT_TRAINING_LABEL
+
+
+def test_resolve_objective_preset_unknown_rejected():
+    with pytest.raises(ValueError, match="unknown objective preset"):
+        run_config.resolve_objective_preset("paper_grade")
+
+
+def test_resolve_row_roster_selected_rows_excludes_classical(tmp_path):
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    roster = preflight_mod.resolve_row_roster(
+        manifest_path=manifest_path,
+        hybrid_label="hybrid_resnet",
+        selected_row_ids=["unet", "fno_vanilla", "hybrid_resnet"],
+    )
+    assert [r.row_id for r in roster] == ["unet", "fno_vanilla", "hybrid_resnet"]
+    assert all(r.row_id != "classical_born_backprop" for r in roster)
+
+
+def test_resolve_row_roster_unknown_selected_row_rejected(tmp_path):
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    with pytest.raises(ValueError, match="unknown selected row_ids"):
+        preflight_mod.resolve_row_roster(
+            manifest_path=manifest_path,
+            hybrid_label="hybrid_resnet",
+            selected_row_ids=["unet", "no_such_row"],
+        )
+
+
+def test_resolve_row_roster_relative_physics_only_label(tmp_path):
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    roster = preflight_mod.resolve_row_roster(
+        manifest_path=manifest_path,
+        hybrid_label="hybrid_resnet",
+        neural_training_label=run_config.RELATIVE_PHYSICS_ONLY_TRAINING_LABEL,
+        selected_row_ids=["unet", "fno_vanilla", "hybrid_resnet"],
+    )
+    for row in roster:
+        assert row.training == run_config.RELATIVE_PHYSICS_ONLY_TRAINING_LABEL
+
+
+def test_run_preflight_default_path_keeps_supervised_plus_born_contract(tmp_path):
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    preflight_root = tmp_path / "default_preset"
+    _run_preflight(
+        "--manifest",
+        str(manifest_path),
+        "--output-root",
+        str(preflight_root),
+        "--dry-run",
+    )
+    manifest = json.loads((preflight_root / "preflight_manifest.json").read_text())
+    weights = manifest["training_contract"]["loss_weights"]
+    assert weights == run_config.LossWeights().as_dict()
+    notes = manifest.get("notes") or {}
+    assert notes.get("objective_preset") == "supervised_plus_born"
+    # Baseline lineage block is always present and points at no baseline by
+    # default; the default path stays append-only-friendly.
+    lineage = notes.get("baseline_lineage") or {}
+    assert lineage.get("ablation_objective_preset") == "supervised_plus_born"
+    assert lineage.get("baseline_present") is False
+
+
+def test_run_preflight_relative_physics_only_writes_zero_supervised_weights(tmp_path):
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    preflight_root = tmp_path / "physics_only_dry"
+    _run_preflight(
+        "--manifest",
+        str(manifest_path),
+        "--output-root",
+        str(preflight_root),
+        "--dry-run",
+        "--objective-preset",
+        "relative_physics_only",
+        "--rows",
+        "unet,fno_vanilla,hybrid_resnet",
+    )
+    manifest = json.loads((preflight_root / "preflight_manifest.json").read_text())
+    weights = manifest["training_contract"]["loss_weights"]
+    assert weights == {
+        "image": 0.0,
+        "physics": 0.0,
+        "relative_physics": 1.0,
+        "tv": 0.0,
+        "positivity": 0.0,
+    }
+    notes = manifest.get("notes") or {}
+    assert notes.get("objective_preset") == "relative_physics_only"
+    assert notes.get("selected_row_ids") == ["unet", "fno_vanilla", "hybrid_resnet"]
+    # Append-only ablation must not relabel itself as the supervised+Born
+    # baseline backlog item.
+    assert manifest["backlog_item"] == preflight_mod.PHYSICS_ONLY_BACKLOG_ITEM
+    assert manifest["claim_boundary"] == "decision_support_append_only"
+    # Selected rows must exclude the classical row in the manifest.
+    row_ids = [r["row_id"] for r in manifest["rows"]]
+    assert row_ids == ["unet", "fno_vanilla", "hybrid_resnet"]
+
+
+def test_run_preflight_baseline_root_lineage_recorded(tmp_path):
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    # Stand up a synthetic baseline root containing the two pointers used
+    # by the lineage block. The actual contents are irrelevant for the
+    # dry-run lineage check; only presence and path strings matter.
+    baseline_root = tmp_path / "synthetic_baseline"
+    baseline_root.mkdir()
+    (baseline_root / preflight_mod.PREFLIGHT_MANIFEST_NAME).write_text(
+        json.dumps({"backlog_item": "baseline"})
+    )
+    (baseline_root / "metrics.json").write_text(
+        json.dumps({"schema_version": "x", "rows": []})
+    )
+    preflight_root = tmp_path / "lineage_dry"
+    _run_preflight(
+        "--manifest",
+        str(manifest_path),
+        "--output-root",
+        str(preflight_root),
+        "--dry-run",
+        "--objective-preset",
+        "relative_physics_only",
+        "--rows",
+        "unet,fno_vanilla,hybrid_resnet",
+        "--baseline-root",
+        str(baseline_root),
+    )
+    manifest = json.loads((preflight_root / "preflight_manifest.json").read_text())
+    lineage = (manifest.get("notes") or {}).get("baseline_lineage") or {}
+    assert lineage["baseline_root"] == str(baseline_root.resolve())
+    assert lineage["baseline_present"] is True
+    assert lineage["baseline_preflight_manifest"].endswith(
+        preflight_mod.PREFLIGHT_MANIFEST_NAME
+    )
+    assert lineage["baseline_metrics_json"].endswith("metrics.json")
+
+
+def _physics_only_kwargs(manifest_path: Path, preflight_root: Path) -> Dict[str, Any]:
+    contract = preflight_mod.TrainingContract(
+        epochs=1, batch_size=1, learning_rate=2e-4
+    )
+    return dict(
+        manifest_path=manifest_path,
+        output_root=preflight_root,
+        contract=contract,
+        hybrid_label="hybrid_resnet",
+        fixed_sample_count=1,
+        fixed_sample_seed=0,
+        in_channels=1,
+        device_choice="cpu",
+        dry_run=False,
+        parent_argv=["--manifest", str(manifest_path)],
+        objective_preset="relative_physics_only",
+        selected_row_ids=["unet", "fno_vanilla", "hybrid_resnet"],
+    )
+
+
+def test_run_preflight_records_output_dynamic_range_diagnostics(tmp_path):
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    preflight_root = tmp_path / "physics_only_live"
+    preflight_mod.run_preflight(**_physics_only_kwargs(manifest_path, preflight_root))
+    rows_dir = preflight_root / "rows"
+    for row_id in ("unet", "fno_vanilla", "hybrid_resnet"):
+        summary = json.loads((rows_dir / row_id / preflight_mod.ROW_SUMMARY_NAME).read_text())
+        odr = summary.get("output_dynamic_range")
+        assert odr is not None, f"missing output_dynamic_range for {row_id}"
+        for key in (
+            "physical_q_min",
+            "physical_q_max",
+            "physical_q_mean",
+            "physical_q_std",
+            "physical_q_ptp",
+        ):
+            assert key in odr
+        # Same diagnostic must also surface in the runtime extras under the
+        # aggregated metrics, so external readers do not need to walk per-row
+        # summaries to detect collapse.
+        runtime = summary["runtime"]
+        assert runtime["extras"]["output_dynamic_range"] == odr
+
+
+def test_run_preflight_emits_comparison_when_baseline_root_supplied(tmp_path):
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    # First, generate a tiny supervised+Born baseline bundle.
+    baseline_root = tmp_path / "baseline_bundle"
+    baseline_kwargs = dict(
+        manifest_path=manifest_path,
+        output_root=baseline_root,
+        contract=preflight_mod.TrainingContract(
+            epochs=1, batch_size=1, learning_rate=2e-4
+        ),
+        hybrid_label="hybrid_resnet",
+        fixed_sample_count=1,
+        fixed_sample_seed=0,
+        in_channels=1,
+        device_choice="cpu",
+        dry_run=False,
+        parent_argv=["--manifest", str(manifest_path)],
+        objective_preset="supervised_plus_born",
+        selected_row_ids=["unet", "fno_vanilla", "hybrid_resnet"],
+    )
+    preflight_mod.run_preflight(**baseline_kwargs)
+
+    # Then run the physics-only ablation with the baseline-root pointer.
+    ablation_root = tmp_path / "ablation_bundle"
+    ablation_kwargs = dict(_physics_only_kwargs(manifest_path, ablation_root))
+    ablation_kwargs["baseline_root"] = baseline_root
+    preflight_mod.run_preflight(**ablation_kwargs)
+
+    comparison_json = ablation_root / "comparison_to_supervised_plus_born.json"
+    comparison_csv = ablation_root / "comparison_to_supervised_plus_born.csv"
+    assert comparison_json.exists()
+    assert comparison_csv.exists()
+    payload = json.loads(comparison_json.read_text())
+    assert payload["baseline"]["objective_preset"] == "supervised_plus_born"
+    assert payload["ablation"]["objective_preset"] == "relative_physics_only"
+    row_ids = {row["row_id"] for row in payload["rows"]}
+    assert row_ids == {"unet", "fno_vanilla", "hybrid_resnet"}
+    # The ablation manifest must not silently overwrite the baseline bundle.
+    assert (baseline_root / "metrics.json").exists()
+    baseline_manifest = json.loads(
+        (baseline_root / preflight_mod.PREFLIGHT_MANIFEST_NAME).read_text()
+    )
+    assert baseline_manifest["backlog_item"] == preflight_mod.BACKLOG_ITEM

@@ -41,13 +41,13 @@ import torch
 from torch.utils.data import DataLoader
 
 from ptycho_torch.physics import BornRytovForward2D
+from scripts.studies.born_rytov_dt import comparison as comparison_mod
 from scripts.studies.born_rytov_dt import dataset_contract as dc
 from scripts.studies.born_rytov_dt import preflight_metrics as metrics_mod
 from scripts.studies.born_rytov_dt import preflight_visuals as visuals_mod
 from scripts.studies.born_rytov_dt.classical import (
     ClassicalBackendInfo,
     derive_born_init_image,
-    detect_classical_backend,
 )
 from scripts.studies.born_rytov_dt.data import (
     BRDTSmokeSplit,
@@ -56,16 +56,23 @@ from scripts.studies.born_rytov_dt.data import (
     load_dataset_authority,
 )
 from scripts.studies.born_rytov_dt.lightning_module import BRDTTrainingModule
+from scripts.studies.born_rytov_dt.model_based_inverse import (
+    ModelBasedInverseConfig,
+    optimize_born_inverse_batch,
+)
 from scripts.studies.born_rytov_dt.models import (
     AdapterBuildError,
     build_neural_adapter,
 )
 from scripts.studies.born_rytov_dt.run_config import (
+    DEFAULT_TRAINING_LABEL,
     HYBRID_FAMILY_ROW_IDS,
     LossWeights,
+    OBJECTIVE_PRESETS,
     RowConfig,
     default_row_roster,
     make_blocked_row,
+    resolve_objective_preset,
 )
 from scripts.studies.invocation_logging import (
     capture_runtime_provenance,
@@ -76,9 +83,12 @@ from scripts.studies.invocation_logging import (
 SCRIPT_PATH = "scripts/studies/born_rytov_dt/run_preflight.py"
 BACKLOG_ITEM = "2026-04-29-brdt-four-row-preflight"
 NEXT_BACKLOG_ITEM = "2026-04-29-brdt-preflight-summary-promotion-decision"
+PHYSICS_ONLY_BACKLOG_ITEM = "2026-05-04-brdt-physics-only-objective-ablation"
 PREFLIGHT_MANIFEST_NAME = "preflight_manifest.json"
 WRITER_LOCK_NAME = ".preflight.lock"
 ROW_SUMMARY_NAME = "row_summary.json"
+MODEL_BASED_INVERSE_VERSION = "model_based_born_inverse_v1"
+MODEL_BASED_INVERSE_EXECUTION_PATH = "model_based_born_inverse"
 
 
 # ---------------------------------------------------------------------------
@@ -164,22 +174,30 @@ def row_contract_fingerprint(
     fixed_sample_ids: List[int],
     in_channels: int,
     classical_backend_name: str,
+    execution_path: Optional[str] = None,
+    solver_version: Optional[str] = None,
+    solver_config: Optional[Mapping[str, Any]] = None,
 ) -> str:
     """Stable hash for one row's effective execution contract."""
-    return _stable_fingerprint(
-        {
-            "row_id": row_id,
-            "model": model,
-            "training": training,
-            "input_mode": input_mode,
-            "dataset_id": dataset_id,
-            "operator_pointer": operator_pointer,
-            "training_contract": dict(training_contract),
-            "fixed_sample_ids": [int(i) for i in fixed_sample_ids],
-            "in_channels": int(in_channels),
-            "classical_backend_name": classical_backend_name,
-        }
-    )
+    payload: Dict[str, Any] = {
+        "row_id": row_id,
+        "model": model,
+        "training": training,
+        "input_mode": input_mode,
+        "dataset_id": dataset_id,
+        "operator_pointer": operator_pointer,
+        "training_contract": dict(training_contract),
+        "fixed_sample_ids": [int(i) for i in fixed_sample_ids],
+        "in_channels": int(in_channels),
+        "classical_backend_name": classical_backend_name,
+    }
+    if execution_path is not None:
+        payload["execution_path"] = execution_path
+    if solver_version is not None:
+        payload["solver_version"] = solver_version
+    if solver_config is not None:
+        payload["solver_config"] = dict(solver_config)
+    return _stable_fingerprint(payload)
 
 
 # ---------------------------------------------------------------------------
@@ -250,6 +268,102 @@ def attempt_classical_backend_with_fix(
     )
 
 
+def _resolve_manifest_pointer(manifest_path: Path, candidate: str) -> Path:
+    path = Path(candidate)
+    if path.is_absolute():
+        return path
+    return (manifest_path.parent / path).resolve()
+
+
+def classical_inverse_authorization(
+    manifest: Mapping[str, Any], *, manifest_path: Path
+) -> Dict[str, Any]:
+    """Authorize ODTbrain classical rows only after inverse validation passes."""
+    operator_block = manifest.get("operator") or {}
+    pointer = operator_block.get("validation_artifact") or operator_block.get(
+        "validation_report"
+    )
+    if not pointer:
+        return {
+            "may_run_classical_row": False,
+            "status": "missing_validation_pointer",
+            "blocker_reason": "odtbrain_inverse_consistency_unverified",
+            "blocker_message": (
+                "Classical ODTbrain backprop is not authorized because the "
+                "dataset manifest does not point to an operator-validation artifact."
+            ),
+        }
+    validation_path = _resolve_manifest_pointer(Path(manifest_path), str(pointer))
+    if not validation_path.exists():
+        return {
+            "may_run_classical_row": False,
+            "status": "missing_validation_artifact",
+            "validation_artifact": str(validation_path),
+            "blocker_reason": "odtbrain_inverse_consistency_unverified",
+            "blocker_message": (
+                "Classical ODTbrain backprop is not authorized because the "
+                f"operator-validation artifact is missing: {validation_path}"
+            ),
+        }
+    try:
+        payload = json.loads(validation_path.read_text())
+    except Exception as exc:  # noqa: BLE001 - provenance artifact may be corrupt
+        return {
+            "may_run_classical_row": False,
+            "status": "invalid_validation_artifact",
+            "validation_artifact": str(validation_path),
+            "blocker_reason": "odtbrain_inverse_consistency_unverified",
+            "blocker_message": (
+                "Classical ODTbrain backprop is not authorized because the "
+                f"operator-validation artifact could not be parsed: {exc}"
+            ),
+        }
+    checks = payload.get("checks") or []
+    odtbrain_check = next(
+        (
+            check
+            for check in checks
+            if isinstance(check, Mapping)
+            and check.get("name") == "odtbrain_inverse_consistency"
+        ),
+        None,
+    )
+    if not isinstance(odtbrain_check, Mapping):
+        return {
+            "may_run_classical_row": False,
+            "status": "missing_odtbrain_inverse_check",
+            "validation_artifact": str(validation_path),
+            "blocker_reason": "odtbrain_inverse_consistency_unverified",
+            "blocker_message": (
+                "Classical ODTbrain backprop is not authorized because the "
+                "operator-validation artifact has no odtbrain_inverse_consistency check."
+            ),
+        }
+    status = str(odtbrain_check.get("status", "unknown"))
+    if status == "pass":
+        return {
+            "may_run_classical_row": True,
+            "status": "pass",
+            "validation_artifact": str(validation_path),
+        }
+    return {
+        "may_run_classical_row": False,
+        "status": status,
+        "validation_artifact": str(validation_path),
+        "metric": odtbrain_check.get("metric"),
+        "tolerance": odtbrain_check.get("tolerance"),
+        "blocker_reason": (
+            "odtbrain_inverse_consistency_failed"
+            if status == "fail"
+            else f"odtbrain_inverse_consistency_{status}"
+        ),
+        "blocker_message": (
+            "Classical ODTbrain backprop is not authorized because the "
+            f"operator-validation check status is {status!r}."
+        ),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Manifest gates
 # ---------------------------------------------------------------------------
@@ -283,8 +397,15 @@ def resolve_row_roster(
     *,
     manifest_path: Path,
     hybrid_label: str,
+    neural_training_label: str = DEFAULT_TRAINING_LABEL,
+    selected_row_ids: Optional[List[str]] = None,
 ) -> List[RowConfig]:
-    """Return the locked four-row roster against a decision-support manifest."""
+    """Return the locked four-row roster against a decision-support manifest.
+
+    ``selected_row_ids`` optionally restricts the returned roster to a
+    subset (preserving order). Unknown row IDs raise ``ValueError`` so the
+    physics-only ablation cannot silently include or skip a row.
+    """
     manifest = json.loads(Path(manifest_path).read_text())
     assert_decision_support_manifest(manifest)
     operator_block = manifest.get("operator", {})
@@ -294,11 +415,21 @@ def resolve_row_roster(
         or "unspecified"
     )
     dataset_id = manifest["dataset_identity"]["name"]
-    return default_row_roster(
+    full_roster = default_row_roster(
         dataset_id=str(dataset_id),
         operator_version=str(operator_version),
         hybrid_label=hybrid_label,
+        neural_training_label=neural_training_label,
     )
+    if selected_row_ids is None:
+        return full_roster
+    available = {row.row_id: row for row in full_roster}
+    unknown = [rid for rid in selected_row_ids if rid not in available]
+    if unknown:
+        raise ValueError(
+            f"unknown selected row_ids {unknown!r}; available: {list(available)}"
+        )
+    return [available[rid] for rid in selected_row_ids]
 
 
 def choose_fixed_sample_ids(
@@ -346,6 +477,28 @@ def _device_name(device: torch.device) -> str:
     if device.type == "cuda" and torch.cuda.is_available():
         return torch.cuda.get_device_name(0)
     return device.type
+
+
+def _model_based_inverse_config(authority: DatasetAuthority) -> ModelBasedInverseConfig:
+    """Resolve the model-based inverse settings from env plus dataset bounds."""
+    return ModelBasedInverseConfig(
+        steps=int(os.environ.get("BRDT_MODEL_BASED_INVERSE_STEPS", "300")),
+        learning_rate=float(os.environ.get("BRDT_MODEL_BASED_INVERSE_LR", "0.002")),
+        tv_weight=float(os.environ.get("BRDT_MODEL_BASED_INVERSE_TV", "0.0001")),
+        l2_weight=float(os.environ.get("BRDT_MODEL_BASED_INVERSE_L2", "0.000001")),
+        clamp_min=float(authority.normalization.qmin),
+        clamp_max=float(authority.normalization.qmax),
+        init="zeros",
+    )
+
+
+def _born_init_backend() -> ClassicalBackendInfo:
+    """Stable local adjoint used only to build neural-row input images."""
+    return ClassicalBackendInfo(
+        name="local_adjoint",
+        reason="born_init_image_uses_locked_local_adjoint",
+        claim_boundary="initialization_only",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -508,12 +661,17 @@ def _evaluate_split(
     classical_only: bool,
     fixed_sample_ids: List[int],
     out_dir: Path,
-) -> Tuple[Dict[str, float], Dict[str, float], Dict[int, Dict[str, np.ndarray]]]:
+) -> Tuple[
+    Dict[str, float],
+    Dict[str, float],
+    Dict[int, Dict[str, np.ndarray]],
+    Dict[str, float],
+]:
     """Run an evaluation pass on the test split.
 
-    Returns (image_metrics, measurement_metrics, fixed_sample_arrays).
-    ``fixed_sample_arrays[sample_id]`` is a dict with keys ``q_pred``,
-    ``q_target``, ``sino_pred``, ``sino_obs``.
+    Returns ``(image_metrics, measurement_metrics, fixed_sample_arrays,
+    output_dynamic_range)``. ``fixed_sample_arrays[sample_id]`` is a dict
+    with keys ``q_pred``, ``q_target``, ``sino_pred``, ``sino_obs``.
     """
     test_split = BRDTSmokeSplit(
         authority.split_paths["test"], normalization=authority.normalization
@@ -585,7 +743,142 @@ def _evaluate_split(
     image_metrics = metrics_mod.image_space_metrics_phys(image_pred, image_target)
     meas_metrics = metrics_mod.measurement_space_metrics(meas_pred, meas_obs)
     image_metrics.update(metrics_mod.supporting_image_metrics(image_pred, image_target))
-    return image_metrics, meas_metrics, sample_arrays
+    return image_metrics, meas_metrics, sample_arrays, _output_dynamic_range_stats(image_pred)
+
+
+def _output_dynamic_range_stats(image_pred: np.ndarray) -> Dict[str, float]:
+    """Aggregate physical-q prediction stats for collapse detection.
+
+    Returns ``min``, ``max``, ``mean``, ``std`` over the full evaluation
+    prediction array. Empty inputs yield ``nan`` for each field.
+    """
+    if image_pred.size == 0:
+        nan = float("nan")
+        return {
+            "physical_q_min": nan,
+            "physical_q_max": nan,
+            "physical_q_mean": nan,
+            "physical_q_std": nan,
+            "physical_q_ptp": nan,
+        }
+    arr = image_pred.astype(np.float64)
+    return {
+        "physical_q_min": float(np.min(arr)),
+        "physical_q_max": float(np.max(arr)),
+        "physical_q_mean": float(np.mean(arr)),
+        "physical_q_std": float(np.std(arr)),
+        "physical_q_ptp": float(np.max(arr) - np.min(arr)),
+    }
+
+
+def _evaluate_model_based_inverse_split(
+    *,
+    authority: DatasetAuthority,
+    operator: BornRytovForward2D,
+    device: torch.device,
+    batch_size: int,
+    fixed_sample_ids: List[int],
+    config: ModelBasedInverseConfig,
+) -> Tuple[
+    Dict[str, float],
+    Dict[str, float],
+    Dict[int, Dict[str, np.ndarray]],
+    Dict[str, Any],
+]:
+    """Optimize physical ``q`` for every test batch using the locked operator."""
+    test_split = BRDTSmokeSplit(
+        authority.split_paths["test"], normalization=authority.normalization
+    )
+    loader = DataLoader(
+        test_split,
+        batch_size=int(batch_size),
+        shuffle=False,
+        num_workers=0,
+        collate_fn=brdt_collate,
+    )
+
+    image_pred_chunks: List[np.ndarray] = []
+    image_target_chunks: List[np.ndarray] = []
+    meas_pred_chunks: List[np.ndarray] = []
+    meas_obs_chunks: List[np.ndarray] = []
+    sample_arrays: Dict[int, Dict[str, np.ndarray]] = {}
+    sample_ids = set(int(i) for i in fixed_sample_ids)
+    batch_infos: List[Dict[str, Any]] = []
+
+    cursor = 0
+    for batch in loader:
+        sino_obs = batch["sinogram"].to(device)
+        q_phys_pred, info = optimize_born_inverse_batch(
+            sinogram_obs=sino_obs,
+            operator=operator,
+            config=config,
+        )
+        with torch.no_grad():
+            sino_pred = operator(q_phys_pred.to(device))
+        q_target_phys = batch["q_true_physical"].to(device)
+
+        pred_np = q_phys_pred.detach().cpu().numpy()
+        targ_np = q_target_phys.detach().cpu().numpy()
+        sino_pred_np = sino_pred.detach().cpu().numpy()
+        sino_obs_np = sino_obs.detach().cpu().numpy()
+
+        image_pred_chunks.append(pred_np)
+        image_target_chunks.append(targ_np)
+        meas_pred_chunks.append(sino_pred_np)
+        meas_obs_chunks.append(sino_obs_np)
+        batch_infos.append(info)
+        for offset in range(pred_np.shape[0]):
+            global_id = cursor + offset
+            if global_id in sample_ids:
+                sample_arrays[global_id] = {
+                    "q_pred": pred_np[offset, 0],
+                    "q_target": targ_np[offset, 0],
+                    "sino_pred": sino_pred_np[offset],
+                    "sino_obs": sino_obs_np[offset],
+                }
+        cursor += pred_np.shape[0]
+
+    image_pred = (
+        np.concatenate(image_pred_chunks, axis=0)
+        if image_pred_chunks
+        else np.zeros((0,))
+    )
+    image_target = (
+        np.concatenate(image_target_chunks, axis=0)
+        if image_target_chunks
+        else np.zeros((0,))
+    )
+    meas_pred = (
+        np.concatenate(meas_pred_chunks, axis=0)
+        if meas_pred_chunks
+        else np.zeros((0,))
+    )
+    meas_obs = (
+        np.concatenate(meas_obs_chunks, axis=0)
+        if meas_obs_chunks
+        else np.zeros((0,))
+    )
+
+    image_metrics = metrics_mod.image_space_metrics_phys(image_pred, image_target)
+    meas_metrics = metrics_mod.measurement_space_metrics(meas_pred, meas_obs)
+    image_metrics.update(metrics_mod.supporting_image_metrics(image_pred, image_target))
+    initial_values = [
+        float(info["initial_relative_physics_l2"]) for info in batch_infos
+    ]
+    final_values = [float(info["final_relative_physics_l2"]) for info in batch_infos]
+    solver_summary = {
+        "solver": "adam_direct_q",
+        "version": MODEL_BASED_INVERSE_VERSION,
+        "config": config.as_dict(),
+        "batch_count": len(batch_infos),
+        "mean_initial_relative_physics_l2": (
+            float(np.mean(initial_values)) if initial_values else float("nan")
+        ),
+        "mean_final_relative_physics_l2": (
+            float(np.mean(final_values)) if final_values else float("nan")
+        ),
+    }
+    return image_metrics, meas_metrics, sample_arrays, solver_summary
 
 
 # ---------------------------------------------------------------------------
@@ -678,16 +971,21 @@ def _row_metrics_from_summary(
     summary: Mapping[str, Any], *, default_paper_label: str, default_arch: str
 ) -> metrics_mod.RowMetrics:
     """Reconstruct a ``RowMetrics`` from a stored ``row_summary.json`` payload."""
+    image_metrics = dict(summary.get("image_metrics") or summary.get("image") or {})
+    supporting = dict(summary.get("supporting") or {})
+    for key in metrics_mod.SUPPORTING_METRICS:
+        if key in image_metrics and key not in supporting:
+            supporting[key] = image_metrics.pop(key)
     return metrics_mod.RowMetrics(
         row_id=str(summary.get("row_id")),
         paper_label=str(summary.get("paper_label", default_paper_label)),
         architecture=str(summary.get("architecture", default_arch)),
         row_status=str(summary.get("row_status", "completed")),
-        image=dict(summary.get("image_metrics") or summary.get("image") or {}),
+        image=image_metrics,
         measurement=dict(
             summary.get("measurement_metrics") or summary.get("measurement") or {}
         ),
-        supporting=dict(summary.get("supporting") or {}),
+        supporting=supporting,
         runtime=dict(summary.get("runtime") or {}),
         blocker_reason=summary.get("blocker_reason") or None,
         blocker_message=summary.get("blocker_message") or None,
@@ -701,6 +999,7 @@ def _maybe_resume_row(
     source_arrays_dir: Path,
     fixed_sample_ids: List[int],
     expected_fingerprint: str,
+    expected_execution_path: Optional[str] = None,
 ) -> Optional[Tuple[metrics_mod.RowMetrics, Dict[str, Any], Dict[int, Dict[str, np.ndarray]]]]:
     """Return cached row outputs if a prior run with the same contract finished.
 
@@ -718,6 +1017,11 @@ def _maybe_resume_row(
     except Exception:
         return None
     if summary.get("contract_fingerprint") != expected_fingerprint:
+        return None
+    if (
+        expected_execution_path is not None
+        and summary.get("execution_path") != expected_execution_path
+    ):
         return None
     status = summary.get("row_status")
     if status not in ("completed", "blocked"):
@@ -809,12 +1113,15 @@ def _build_preflight_manifest(
     classical_backend: ClassicalBackendInfo,
     in_channels: int,
     notes: Optional[Dict[str, Any]] = None,
+    backlog_item: Optional[str] = None,
+    next_backlog_item: Optional[str] = None,
+    claim_boundary: Optional[str] = None,
 ) -> Dict[str, Any]:
     payload: Dict[str, Any] = {
         "schema_version": "brdt_preflight_v1",
-        "backlog_item": BACKLOG_ITEM,
-        "next_backlog_item": NEXT_BACKLOG_ITEM,
-        "claim_boundary": "decision_support_preflight_only",
+        "backlog_item": backlog_item or BACKLOG_ITEM,
+        "next_backlog_item": next_backlog_item or NEXT_BACKLOG_ITEM,
+        "claim_boundary": claim_boundary or "decision_support_preflight_only",
         "output_root": str(output_root),
         "dataset": {
             "dataset_id": authority.dataset_id,
@@ -875,6 +1182,40 @@ def _write_manifest(payload: Mapping[str, Any], path: Path) -> None:
     path.write_text(json.dumps(dict(payload), indent=2, sort_keys=True) + "\n")
 
 
+def _resolve_baseline_lineage(
+    *,
+    baseline_root: Optional[Path],
+    objective_preset: str,
+    selected_row_ids: List[str],
+) -> Dict[str, Any]:
+    """Build the append-only lineage block linking this run to a prior bundle.
+
+    The returned payload always names the ablation's own objective preset
+    and selected rows. When ``baseline_root`` is supplied and the prior
+    bundle exists, the lineage records the baseline's manifest/metrics
+    paths and source root so reviewers can cross-check the comparison.
+    """
+    payload: Dict[str, Any] = {
+        "claim_boundary": "decision_support_append_only",
+        "ablation_objective_preset": objective_preset,
+        "selected_row_ids": list(selected_row_ids),
+        "baseline_root": None,
+        "baseline_preflight_manifest": None,
+        "baseline_metrics_json": None,
+        "baseline_present": False,
+    }
+    if baseline_root is None:
+        return payload
+    base = Path(baseline_root).resolve()
+    payload["baseline_root"] = str(base)
+    manifest_path = base / PREFLIGHT_MANIFEST_NAME
+    metrics_path = base / "metrics.json"
+    payload["baseline_preflight_manifest"] = str(manifest_path)
+    payload["baseline_metrics_json"] = str(metrics_path)
+    payload["baseline_present"] = manifest_path.exists() and metrics_path.exists()
+    return payload
+
+
 def run_preflight(
     *,
     manifest_path: Path,
@@ -887,7 +1228,25 @@ def run_preflight(
     device_choice: str,
     dry_run: bool,
     parent_argv: Optional[List[str]] = None,
+    objective_preset: str = "supervised_plus_born",
+    selected_row_ids: Optional[List[str]] = None,
+    baseline_root: Optional[Path] = None,
 ) -> Dict[str, Any]:
+    if objective_preset not in OBJECTIVE_PRESETS:
+        raise ValueError(
+            f"unknown objective preset {objective_preset!r}; allowed: {OBJECTIVE_PRESETS}"
+        )
+    resolved_weights, neural_training_label = resolve_objective_preset(objective_preset)
+    # Replace contract loss weights with the preset-resolved values so the
+    # manifest, fingerprints, and lightning module all observe one objective.
+    contract = TrainingContract(
+        epochs=contract.epochs,
+        batch_size=contract.batch_size,
+        learning_rate=contract.learning_rate,
+        optimizer=contract.optimizer,
+        loss_weights=resolved_weights,
+        seed=contract.seed,
+    )
     output_root = Path(output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     rows_dir = output_root / "rows"
@@ -898,7 +1257,12 @@ def run_preflight(
     with writer_lock(output_root):
         authority = load_dataset_authority(manifest_path)
         assert_decision_support_manifest(authority.raw_manifest)
-        rows = resolve_row_roster(manifest_path=manifest_path, hybrid_label=hybrid_label)
+        rows = resolve_row_roster(
+            manifest_path=manifest_path,
+            hybrid_label=hybrid_label,
+            neural_training_label=neural_training_label,
+            selected_row_ids=selected_row_ids,
+        )
         fixed_sample_ids = choose_fixed_sample_ids(
             manifest_path,
             count=fixed_sample_count,
@@ -906,6 +1270,12 @@ def run_preflight(
         )
 
         backend, narrow_fix_attempts = attempt_classical_backend_with_fix()
+        input_backend = _born_init_backend()
+        inverse_config = _model_based_inverse_config(authority)
+        classical_inverse_auth = classical_inverse_authorization(
+            authority.raw_manifest,
+            manifest_path=authority.manifest_path,
+        )
         device = _select_device(device_choice)
 
         operator_pointer = (
@@ -913,8 +1283,21 @@ def run_preflight(
             or authority.raw_manifest.get("operator", {}).get("validation_report")
             or "unspecified"
         )
-        per_row_fingerprints: Dict[str, str] = {
-            row.row_id: row_contract_fingerprint(
+        per_row_fingerprints: Dict[str, str] = {}
+        expected_execution_paths: Dict[str, str] = {}
+        for row in rows:
+            if row.row_id == "classical_born_backprop":
+                backend_name = MODEL_BASED_INVERSE_EXECUTION_PATH
+                execution_path = MODEL_BASED_INVERSE_EXECUTION_PATH
+                solver_version = MODEL_BASED_INVERSE_VERSION
+                solver_config = inverse_config.as_dict()
+            else:
+                backend_name = f"{backend.name}:{classical_inverse_auth.get('status')}"
+                execution_path = "neural_train_eval"
+                solver_version = None
+                solver_config = None
+            expected_execution_paths[row.row_id] = execution_path
+            per_row_fingerprints[row.row_id] = row_contract_fingerprint(
                 row_id=row.row_id,
                 model=row.model,
                 training=row.training,
@@ -924,11 +1307,28 @@ def run_preflight(
                 training_contract=contract.as_dict(),
                 fixed_sample_ids=fixed_sample_ids,
                 in_channels=in_channels,
-                classical_backend_name=backend.name,
+                classical_backend_name=backend_name,
+                execution_path=(
+                    execution_path
+                    if row.row_id == "classical_born_backprop"
+                    else None
+                ),
+                solver_version=solver_version,
+                solver_config=solver_config,
             )
-            for row in rows
-        }
 
+        baseline_lineage = _resolve_baseline_lineage(
+            baseline_root=baseline_root,
+            objective_preset=objective_preset,
+            selected_row_ids=[r.row_id for r in rows],
+        )
+        manifest_backlog_item: Optional[str] = None
+        manifest_next_backlog_item: Optional[str] = None
+        manifest_claim_boundary: Optional[str] = None
+        if objective_preset == "relative_physics_only":
+            manifest_backlog_item = PHYSICS_ONLY_BACKLOG_ITEM
+            manifest_next_backlog_item = "n/a"
+            manifest_claim_boundary = "decision_support_append_only"
         preflight_manifest = _build_preflight_manifest(
             output_root=output_root,
             authority=authority,
@@ -936,11 +1336,23 @@ def run_preflight(
             fixed_sample_ids=fixed_sample_ids,
             contract=contract,
             fixed_sample_seed=fixed_sample_seed,
-            classical_backend=backend,
+            classical_backend=input_backend,
             in_channels=in_channels,
+            backlog_item=manifest_backlog_item,
+            next_backlog_item=manifest_next_backlog_item,
+            claim_boundary=manifest_claim_boundary,
             notes={
                 "classical_narrow_fix_attempts": narrow_fix_attempts,
+                "classical_inverse_authorization": classical_inverse_auth,
+                "model_based_inverse": {
+                    "execution_path": MODEL_BASED_INVERSE_EXECUTION_PATH,
+                    "version": MODEL_BASED_INVERSE_VERSION,
+                    "config": inverse_config.as_dict(),
+                },
                 "row_contract_fingerprints": per_row_fingerprints,
+                "objective_preset": objective_preset,
+                "selected_row_ids": [r.row_id for r in rows],
+                "baseline_lineage": baseline_lineage,
             },
         )
 
@@ -991,6 +1403,15 @@ def run_preflight(
             row_dir.mkdir(parents=True, exist_ok=True)
             row_payload: Dict[str, Any] = {"row_id": row.row_id}
             row_fp = per_row_fingerprints[row.row_id]
+            row_backend = (
+                ClassicalBackendInfo(
+                    name=MODEL_BASED_INVERSE_EXECUTION_PATH,
+                    reason="direct_optimization_through_locked_forward_operator",
+                    claim_boundary="model_based_inverse",
+                )
+                if row.row_id == "classical_born_backprop"
+                else input_backend
+            )
 
             # ---- Resume protocol: skip if a matching prior run exists ----
             resumed = _maybe_resume_row(
@@ -999,6 +1420,7 @@ def run_preflight(
                 source_arrays_dir=source_arrays_dir,
                 fixed_sample_ids=fixed_sample_ids,
                 expected_fingerprint=row_fp,
+                expected_execution_path=expected_execution_paths[row.row_id],
             )
             if resumed is not None:
                 cached_metrics, cached_payload, cached_arrays = resumed
@@ -1015,7 +1437,7 @@ def run_preflight(
                     fixed_sample_ids=fixed_sample_ids,
                     in_channels=in_channels,
                     device=device,
-                    classical_backend=backend,
+                    classical_backend=row_backend,
                     contract_fingerprint=row_fp,
                     parent_argv=parent_argv,
                     extra_attempts=(
@@ -1034,7 +1456,7 @@ def run_preflight(
                 fixed_sample_ids=fixed_sample_ids,
                 in_channels=in_channels,
                 device=device,
-                classical_backend=backend,
+                classical_backend=row_backend,
                 contract_fingerprint=row_fp,
                 parent_argv=parent_argv,
                 extra_attempts=(
@@ -1045,71 +1467,21 @@ def run_preflight(
             )
 
             if row.row_id == "classical_born_backprop":
-                # ODTbrain authoritative; if unavailable AFTER the narrow
-                # fix attempt, mark the row blocked and serialize the
-                # narrow-fix attempts onto the row payload.
-                if backend.name != "odtbrain":
-                    blocker = make_blocked_row(
-                        row_id=row.row_id,
-                        model=row.model,
-                        training=row.training,
-                        dataset_id=row.dataset_id,
-                        operator_version=row.operator_version,
-                        blocker_reason="odtbrain_unavailable",
-                        blocker_message=(
-                            "Classical Born backprop reference requires ODTbrain "
-                            "for the decision-support claim boundary; only the "
-                            "local-adjoint fallback is available after a narrow "
-                            "fix attempt."
-                        ),
-                        paper_label=row.paper_label,
-                    )
-                    row_payload.update(blocker.to_dict())
-                    row_payload["narrow_fix_attempts"] = list(narrow_fix_attempts)
-                    row_payload["contract_fingerprint"] = row_fp
-                    row_payload["execution_path"] = "classical_blocked"
-                    row_status_updates[row.row_id] = row_payload
-                    blocked_runtime = metrics_mod.collect_runtime_metadata(
-                        device=str(device),
-                        device_name=_device_name(device),
-                        epochs=0,
-                        batch_size=int(contract.batch_size),
-                        learning_rate=float(contract.learning_rate),
-                        parameter_count=0,
-                        wall_time_train_s=0.0,
-                        wall_time_eval_s=0.0,
-                        row_status="blocked",
-                        extras={"narrow_fix_attempts": list(narrow_fix_attempts)},
-                    )
-                    rm = metrics_mod.RowMetrics(
-                        row_id=row.row_id,
-                        paper_label=row.visible_label,
-                        architecture=row.model,
-                        row_status="blocked",
-                        blocker_reason=blocker.blocker_reason or "",
-                        blocker_message=blocker.blocker_message or "",
-                        runtime=blocked_runtime,
-                    )
-                    row_metrics.append(rm)
-                    row_payload["runtime"] = blocked_runtime
-                    row_payload["paper_label"] = row.visible_label
-                    row_payload["architecture"] = row.model
-                    (row_dir / ROW_SUMMARY_NAME).write_text(
-                        json.dumps(row_payload, indent=2, sort_keys=True) + "\n"
-                    )
-                    continue
-                # Classical row: no training; eval uses the backend init directly.
+                # Classical row: no learned parameters. Optimize physical q
+                # directly through the locked local forward operator.
                 eval_started = time.perf_counter()
-                image_metrics, meas_metrics, sample_arrays = _evaluate_split(
-                    module=None,
+                (
+                    image_metrics,
+                    meas_metrics,
+                    sample_arrays,
+                    solver_summary,
+                ) = _evaluate_model_based_inverse_split(
                     authority=authority,
                     operator=operator,
-                    backend=backend,
                     device=device,
-                    in_channels=in_channels,
-                    classical_only=True,
+                    batch_size=int(contract.batch_size),
                     fixed_sample_ids=fixed_sample_ids,
-                    out_dir=row_dir,
+                    config=inverse_config,
                 )
                 eval_seconds = time.perf_counter() - eval_started
                 _record_completed_arrays(row.row_id, sample_arrays)
@@ -1128,6 +1500,18 @@ def run_preflight(
                     wall_time_train_s=0.0,
                     wall_time_eval_s=eval_seconds,
                     row_status="completed",
+                    extras={
+                        "solver": solver_summary,
+                        "odtbrain_diagnostic": {
+                            "backend_detection": {
+                                "name": backend.name,
+                                "reason": backend.reason,
+                                "claim_boundary": backend.claim_boundary,
+                            },
+                            "narrow_fix_attempts": list(narrow_fix_attempts),
+                            "inverse_authorization": dict(classical_inverse_auth),
+                        },
+                    },
                 )
                 row_metrics.append(
                     metrics_mod.RowMetrics(
@@ -1152,12 +1536,18 @@ def run_preflight(
                 row_payload["row_status"] = "completed"
                 row_payload["paper_label"] = row.visible_label
                 row_payload["architecture"] = row.model
-                row_payload["execution_path"] = "classical_only"
+                row_payload["execution_path"] = MODEL_BASED_INVERSE_EXECUTION_PATH
+                row_payload["solver_version"] = MODEL_BASED_INVERSE_VERSION
+                row_payload["solver_config"] = inverse_config.as_dict()
+                row_payload["solver_summary"] = solver_summary
                 row_payload["image_metrics"] = image_metrics
                 row_payload["measurement_metrics"] = meas_metrics
                 row_payload["runtime"] = runtime_block
                 row_payload["contract_fingerprint"] = row_fp
                 row_payload["narrow_fix_attempts"] = list(narrow_fix_attempts)
+                row_payload["classical_inverse_authorization"] = dict(
+                    classical_inverse_auth
+                )
                 row_status_updates[row.row_id] = row_payload
                 (row_dir / ROW_SUMMARY_NAME).write_text(
                     json.dumps(row_payload, indent=2, sort_keys=True) + "\n"
@@ -1169,7 +1559,7 @@ def run_preflight(
                 row=row,
                 authority=authority,
                 operator=operator,
-                backend=backend,
+                backend=input_backend,
                 device=device,
                 contract=contract,
                 in_channels=in_channels,
@@ -1221,11 +1611,16 @@ def run_preflight(
                 )
                 continue
             eval_started = time.perf_counter()
-            image_metrics, meas_metrics, sample_arrays = _evaluate_split(
+            (
+                image_metrics,
+                meas_metrics,
+                sample_arrays,
+                output_dynamic_range,
+            ) = _evaluate_split(
                 module=module,
                 authority=authority,
                 operator=operator,
-                backend=backend,
+                backend=input_backend,
                 device=device,
                 in_channels=in_channels,
                 classical_only=False,
@@ -1255,6 +1650,7 @@ def run_preflight(
                         "final_loss_breakdown"
                     ),
                     "model_state_path": runtime_meta.get("model_state_path"),
+                    "output_dynamic_range": output_dynamic_range,
                 },
             )
             row_metrics.append(
@@ -1291,6 +1687,7 @@ def run_preflight(
             row_payload["model_state_path"] = runtime_meta.get("model_state_path")
             row_payload["runtime"] = runtime_block
             row_payload["contract_fingerprint"] = row_fp
+            row_payload["output_dynamic_range"] = output_dynamic_range
             row_status_updates[row.row_id] = row_payload
             (row_dir / ROW_SUMMARY_NAME).write_text(
                 json.dumps(row_payload, indent=2, sort_keys=True) + "\n"
@@ -1394,9 +1791,47 @@ def run_preflight(
             "neuralop": _neuralop_available(),
         }
         preflight_manifest["resumed_rows"] = list(resumed_rows)
+
+        # ---- Optional comparison-to-baseline emission ----
+        comparison_paths: Dict[str, str] = {}
+        if (
+            baseline_lineage.get("baseline_present")
+            and baseline_lineage.get("baseline_metrics_json")
+        ):
+            try:
+                json_path, csv_path = comparison_mod.emit_comparison_artifacts(
+                    baseline_metrics_path=Path(
+                        str(baseline_lineage["baseline_metrics_json"])
+                    ),
+                    ablation_metrics_path=output_root / "metrics.json",
+                    output_root=output_root,
+                    selected_row_ids=[r.row_id for r in rows],
+                    baseline_root=str(baseline_lineage.get("baseline_root") or ""),
+                    ablation_root=str(output_root),
+                    ablation_objective_preset=objective_preset,
+                )
+                comparison_paths = {
+                    "comparison_json": str(json_path.relative_to(output_root)),
+                    "comparison_csv": str(csv_path.relative_to(output_root)),
+                }
+                preflight_manifest["bundle_artifacts"].update(
+                    {
+                        "comparison_to_supervised_plus_born_json": comparison_paths[
+                            "comparison_json"
+                        ],
+                        "comparison_to_supervised_plus_born_csv": comparison_paths[
+                            "comparison_csv"
+                        ],
+                    }
+                )
+            except Exception as exc:  # noqa: BLE001 - comparison is best-effort
+                preflight_manifest.setdefault("notes", {})[
+                    "comparison_emission_error"
+                ] = f"{type(exc).__name__}: {exc}"
+
         _write_manifest(preflight_manifest, manifest_path_out)
 
-        return {
+        result: Dict[str, Any] = {
             "preflight_manifest_path": str(manifest_path_out),
             "metrics_json_path": str(output_root / "metrics.json"),
             "metrics_csv_path": str(output_root / "metrics.csv"),
@@ -1405,6 +1840,11 @@ def run_preflight(
             "rows": [r.to_dict() for r in row_metrics],
             "resumed_rows": list(resumed_rows),
         }
+        if comparison_paths:
+            result["comparison_paths"] = {
+                k: str(output_root / v) for k, v in comparison_paths.items()
+            }
+        return result
 
 
 def _neuralop_available() -> bool:
@@ -1457,6 +1897,39 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Validate the manifest, write preflight_manifest.json + metric_schema.json, and exit.",
     )
+    parser.add_argument(
+        "--objective-preset",
+        default="supervised_plus_born",
+        choices=list(OBJECTIVE_PRESETS),
+        help=(
+            "Neural-row training objective preset. "
+            "'supervised_plus_born' (default) reproduces the four-row "
+            "preflight contract; 'relative_physics_only' resolves to "
+            "image=0, physics=0, relative_physics=1, tv=0, positivity=0 "
+            "for the bounded physics-only objective ablation."
+        ),
+    )
+    parser.add_argument(
+        "--rows",
+        default=None,
+        help=(
+            "Optional comma-separated row_ids to execute (default: full "
+            "four-row roster). Use to scope the run to neural rows only "
+            "for the physics-only ablation, e.g. "
+            "'unet,fno_vanilla,hybrid_resnet'."
+        ),
+    )
+    parser.add_argument(
+        "--baseline-root",
+        default=None,
+        type=Path,
+        help=(
+            "Optional path to a completed BRDT preflight bundle. When "
+            "provided, the run records baseline lineage in the manifest "
+            "and emits comparison_to_supervised_plus_born.{json,csv} "
+            "comparing per-row metrics against that baseline."
+        ),
+    )
     return parser
 
 
@@ -1482,6 +1955,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         learning_rate=float(args.learning_rate),
         seed=int(args.seed),
     )
+    selected_row_ids: Optional[List[str]] = None
+    if args.rows:
+        selected_row_ids = [s.strip() for s in str(args.rows).split(",") if s.strip()]
     try:
         result = run_preflight(
             manifest_path=Path(args.manifest),
@@ -1494,6 +1970,9 @@ def main(argv: Optional[List[str]] = None) -> int:
             device_choice=str(args.device),
             dry_run=bool(args.dry_run),
             parent_argv=parent_argv,
+            objective_preset=str(args.objective_preset),
+            selected_row_ids=selected_row_ids,
+            baseline_root=Path(args.baseline_root) if args.baseline_root else None,
         )
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

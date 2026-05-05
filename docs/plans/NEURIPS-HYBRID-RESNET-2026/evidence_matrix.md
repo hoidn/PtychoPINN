@@ -296,6 +296,7 @@ completed four-row preflight for potential manuscript or supplement use:
 | `2026-04-29-brdt-dataset-preflight` | BRDT candidate-lane smoke dataset (feasibility, not paper evidence) | `brdt_dataset_preflight.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-dataset-preflight/` |
 | `2026-04-29-brdt-task-adapters` | BRDT candidate-lane task-local adapters / loss / train-eval surfaces (adapter readiness only, not paper evidence) | `brdt_task_adapters.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-task-adapters/` |
 | `2026-04-29-brdt-four-row-preflight` | BRDT bounded four-row decision-support preflight (decision_support_preflight_only, not paper evidence) | `brdt_preflight_summary.md` (owned by `2026-04-29-brdt-preflight-summary-promotion-decision`) | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/` |
+| `2026-05-04-brdt-physics-only-objective-ablation` | BRDT append-only physics-only objective ablation for the three neural rows (decision_support_append_only, not paper evidence) | `brdt_physics_only_objective_ablation_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-physics-only-objective-ablation/` |
 | `2026-05-04-pdebench-darcy-full-training-benchmark` | PDEBench Darcy full-training benchmark | `pdebench_darcy_static_operator_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/full_benchmark_20260504T182832Z` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-design` | legacy CDI architecture-search design | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-stage-a-execution` | legacy CDI architecture-search execution | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
@@ -324,6 +325,7 @@ completed four-row preflight for potential manuscript or supplement use:
 | CNS FFNO-family local convolution | local-conv follow-up | improves repo-local FFNO proxy but not stronger than authored FFNO |
 | CNS shell bridge | hybrid-spectral/FFNO parameter-space | promotion gate closed |
 | Legacy CDI lines256 search | Stage A-E skip/mode search | historical architecture context only |
+| BRDT objective ablation | supervised+Born baseline + relative-physics-only neural ablation | append-only candidate-lane decision support: FNO collapse is largely objective-induced; U-Net collapse persists with compressed output dynamic range; Hybrid ResNet's image-space gap widens without the supervised image L1 signal |
 
 ## Maintenance
 

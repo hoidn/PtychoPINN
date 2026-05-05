@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-05T01:55:00Z",
+  "last_updated_utc": "2026-05-05T05:30:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -18,6 +18,7 @@
     "cdi_objective_control_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_objective_comparison.tex",
     "brdt_candidate_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.tex",
     "brdt_candidate_recon_png": "docs/plans/NEURIPS-HYBRID-RESNET-2026/figures/brdt_decision_support_recon.png",
+    "brdt_physics_only_objective_ablation_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_physics_only_objective_ablation_summary.md",
     "cns_history5_gap_fill_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md"
   },
   "dataset_contracts": {
@@ -190,8 +191,34 @@
       "dataset_id": "brdt128_decision_support_preflight",
       "operator_authority": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-operator-validation/operator_validation.json",
       "input_mode": "born_init_image",
+      "objective_preset": "supervised_plus_born",
+      "loss_weights": {
+        "image": 1.0,
+        "physics": 0.1,
+        "relative_physics": 0.1,
+        "tv": 1e-5,
+        "positivity": 1e-4
+      },
       "claim_boundary": "decision_support_preflight_only",
       "authority": "docs/plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md"
+    },
+    "brdt_decision_support_2048cap_relative_physics_only": {
+      "task": "candidate_brdt",
+      "dataset_label": "BRDT decision-support preflight (capped 2048/256/256, N=D=128, A=64) with relative-physics-only objective",
+      "dataset_id": "brdt128_decision_support_preflight",
+      "operator_authority": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-operator-validation/operator_validation.json",
+      "input_mode": "born_init_image",
+      "objective_preset": "relative_physics_only",
+      "loss_weights": {
+        "image": 0.0,
+        "physics": 0.0,
+        "relative_physics": 1.0,
+        "tv": 0.0,
+        "positivity": 0.0
+      },
+      "claim_boundary": "decision_support_append_only",
+      "baseline_contract_id": "brdt_decision_support_2048cap",
+      "authority": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_physics_only_objective_ablation_summary.md"
     },
     "darcy_static_operator_full_8000_1000_1000": {
       "task": "pdebench_darcy",
@@ -1428,6 +1455,111 @@
         "ssim_phys": 0.9471455751799746
       },
       "evidence_status": "decision_support"
+    },
+    {
+      "variant_id": "brdt__unet__relative_physics_only__decision_support_append_only",
+      "dataset_contract_id": "brdt_decision_support_2048cap_relative_physics_only",
+      "row_id": "unet",
+      "paper_label": "U-Net",
+      "architecture_id": "unet",
+      "model_family": "compact_unet",
+      "training_mode": "relative_physics_only",
+      "source_backlog_item": "2026-05-04-brdt-physics-only-objective-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_physics_only_objective_ablation_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-physics-only-objective-ablation/",
+      "metrics_json": "metrics.json",
+      "comparison_to_baseline": "comparison_to_supervised_plus_born.json",
+      "baseline_variant_id": "brdt__unet__supervised_plus_born_consistency__decision_support_preflight",
+      "parameter_count": 18465,
+      "metrics": {
+        "image_mae_phys": 0.0021909435102873114,
+        "image_rmse_phys": 0.004709698816863444,
+        "image_relative_l2_phys": 0.8303826348071872,
+        "meas_mae": 0.0024684820664888094,
+        "meas_rmse": 0.004756244802031179,
+        "meas_relative_l2": 0.5615775751238111,
+        "psnr_phys": 21.43075435697138,
+        "ssim_phys": 0.6403992453940968
+      },
+      "output_dynamic_range": {
+        "physical_q_min": -0.02665497176349163,
+        "physical_q_max": 0.02126241661608219,
+        "physical_q_mean": 0.0011540097217213746,
+        "physical_q_std": 0.002008246748267078,
+        "physical_q_ptp": 0.04791738837957382
+      },
+      "evidence_status": "decision_support_append_only",
+      "changed_factor": "neural-row training objective swapped to relative_physics_only (image=0, physics=0, relative_physics=1, tv=0, positivity=0); dataset, operator, input mode, split, fixed-sample IDs, epoch budget, batch size, learning rate, and training seed identical to the supervised+Born baseline."
+    },
+    {
+      "variant_id": "brdt__fno_vanilla__relative_physics_only__decision_support_append_only",
+      "dataset_contract_id": "brdt_decision_support_2048cap_relative_physics_only",
+      "row_id": "fno_vanilla",
+      "paper_label": "FNO vanilla",
+      "architecture_id": "fno_vanilla",
+      "model_family": "neuralop_fno",
+      "training_mode": "relative_physics_only",
+      "source_backlog_item": "2026-05-04-brdt-physics-only-objective-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_physics_only_objective_ablation_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-physics-only-objective-ablation/",
+      "metrics_json": "metrics.json",
+      "comparison_to_baseline": "comparison_to_supervised_plus_born.json",
+      "baseline_variant_id": "brdt__fno_vanilla__supervised_plus_born_consistency__decision_support_preflight",
+      "parameter_count": 44465,
+      "metrics": {
+        "image_mae_phys": 0.002025208269237122,
+        "image_rmse_phys": 0.0032090139622558576,
+        "image_relative_l2_phys": 0.5657919057519919,
+        "meas_mae": 0.0013764503022292705,
+        "meas_rmse": 0.0020373383480746052,
+        "meas_relative_l2": 0.24055185904852566,
+        "psnr_phys": 24.763184924690428,
+        "ssim_phys": 0.8005690840255185
+      },
+      "output_dynamic_range": {
+        "physical_q_min": -0.02568628452718258,
+        "physical_q_max": 0.0341789685189724,
+        "physical_q_mean": 0.0012551258711744895,
+        "physical_q_std": 0.004622722633132343,
+        "physical_q_ptp": 0.059865253046154976
+      },
+      "evidence_status": "decision_support_append_only",
+      "changed_factor": "neural-row training objective swapped to relative_physics_only (image=0, physics=0, relative_physics=1, tv=0, positivity=0); dataset, operator, input mode, split, fixed-sample IDs, epoch budget, batch size, learning rate, and training seed identical to the supervised+Born baseline."
+    },
+    {
+      "variant_id": "brdt__hybrid_resnet__relative_physics_only__decision_support_append_only",
+      "dataset_contract_id": "brdt_decision_support_2048cap_relative_physics_only",
+      "row_id": "hybrid_resnet",
+      "paper_label": "Hybrid ResNet",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_resnet",
+      "training_mode": "relative_physics_only",
+      "source_backlog_item": "2026-05-04-brdt-physics-only-objective-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_physics_only_objective_ablation_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-physics-only-objective-ablation/",
+      "metrics_json": "metrics.json",
+      "comparison_to_baseline": "comparison_to_supervised_plus_born.json",
+      "baseline_variant_id": "brdt__hybrid_resnet__supervised_plus_born_consistency__decision_support_preflight",
+      "parameter_count": 142018,
+      "metrics": {
+        "image_mae_phys": 0.0018265426368138272,
+        "image_rmse_phys": 0.0028301528075082272,
+        "image_relative_l2_phys": 0.49899363772283806,
+        "meas_mae": 0.000966010543898405,
+        "meas_rmse": 0.0013329300217299234,
+        "meas_relative_l2": 0.15738121996856616,
+        "psnr_phys": 25.854419361020156,
+        "ssim_phys": 0.857340320573609
+      },
+      "output_dynamic_range": {
+        "physical_q_min": -0.03855935484170914,
+        "physical_q_max": 0.04559715837240219,
+        "physical_q_mean": 0.001397757274160985,
+        "physical_q_std": 0.005241457483554591,
+        "physical_q_ptp": 0.08415651321411133
+      },
+      "evidence_status": "decision_support_append_only",
+      "changed_factor": "neural-row training objective swapped to relative_physics_only (image=0, physics=0, relative_physics=1, tv=0, positivity=0); dataset, operator, input mode, split, fixed-sample IDs, epoch budget, batch size, learning rate, and training seed identical to the supervised+Born baseline."
     },
     {
       "variant_id": "darcy_full__hybrid_resnet_base__supervised__full_training_benchmark",

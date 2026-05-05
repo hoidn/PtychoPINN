@@ -34,6 +34,9 @@ DEFAULT_TRAINING_LABEL: str = "supervised + Born consistency"
 CLASSICAL_TRAINING_LABEL: str = "none"
 """Training-procedure label for the classical reference row."""
 
+RELATIVE_PHYSICS_ONLY_TRAINING_LABEL: str = "relative_physics_only"
+"""Training-procedure label for the physics-only neural ablation rows."""
+
 ROW_STATUS_VALUES: Tuple[str, ...] = (
     "ready",
     "blocked",
@@ -169,12 +172,19 @@ def default_row_roster(
     dataset_id: str,
     operator_version: str,
     hybrid_label: str = "hybrid_resnet",
+    neural_training_label: str = DEFAULT_TRAINING_LABEL,
 ) -> List[RowConfig]:
     """Return the four-row roster for the bounded BRDT preflight.
 
     ``hybrid_label`` selects which label is surfaced for the Hybrid-family
     row. Use ``"sru_net"`` to present the row with the manuscript label;
     the internal architecture ID and adapter remain identical.
+
+    ``neural_training_label`` overrides the visible training-procedure label
+    for the three neural rows. Use ``DEFAULT_TRAINING_LABEL`` for the
+    completed supervised+Born baseline; use
+    ``RELATIVE_PHYSICS_ONLY_TRAINING_LABEL`` for the physics-only ablation.
+    The classical row's training label remains ``CLASSICAL_TRAINING_LABEL``.
     """
     if hybrid_label not in ("hybrid_resnet", "sru_net"):
         raise ValueError(
@@ -188,12 +198,12 @@ def default_row_roster(
             input_mode="born_init_image",
             dataset_id=dataset_id,
             operator_version=operator_version,
-            paper_label="Classical Born backprop",
+            paper_label="Model-based Born inverse",
         ),
         RowConfig(
             row_id="unet",
             model="unet",
-            training=DEFAULT_TRAINING_LABEL,
+            training=neural_training_label,
             input_mode="born_init_image",
             dataset_id=dataset_id,
             operator_version=operator_version,
@@ -202,7 +212,7 @@ def default_row_roster(
         RowConfig(
             row_id="fno_vanilla",
             model="fno_vanilla",
-            training=DEFAULT_TRAINING_LABEL,
+            training=neural_training_label,
             input_mode="born_init_image",
             dataset_id=dataset_id,
             operator_version=operator_version,
@@ -211,7 +221,7 @@ def default_row_roster(
         RowConfig(
             row_id=hybrid_label,
             model=HYBRID_FAMILY_MODEL,
-            training=DEFAULT_TRAINING_LABEL,
+            training=neural_training_label,
             input_mode="born_init_image",
             dataset_id=dataset_id,
             operator_version=operator_version,
@@ -270,6 +280,39 @@ class LossWeights:
             "tv": float(self.tv),
             "positivity": float(self.positivity),
         }
+
+
+# Objective presets. Each preset resolves to (loss_weights, training_label).
+# The default preset is the supervised+Born-consistency contract used by the
+# completed four-row preflight; ``relative_physics_only`` is the bounded
+# physics-only neural ablation contract.
+OBJECTIVE_PRESETS: Tuple[str, ...] = ("supervised_plus_born", "relative_physics_only")
+
+
+def resolve_objective_preset(name: str) -> Tuple[LossWeights, str]:
+    """Resolve an objective-preset label to (LossWeights, training_label).
+
+    The preset captures the entire neural-row training objective so the
+    preflight manifest, fingerprints, and per-row provenance never silently
+    drift between the completed supervised+Born baseline and the physics-only
+    ablation.
+    """
+    if name == "supervised_plus_born":
+        return LossWeights(), DEFAULT_TRAINING_LABEL
+    if name == "relative_physics_only":
+        return (
+            LossWeights(
+                image=0.0,
+                physics=0.0,
+                relative_physics=1.0,
+                tv=0.0,
+                positivity=0.0,
+            ),
+            RELATIVE_PHYSICS_ONLY_TRAINING_LABEL,
+        )
+    raise ValueError(
+        f"unknown objective preset {name!r}; allowed: {OBJECTIVE_PRESETS}"
+    )
 
 
 # Reasonable architecture defaults for sanity-only adapter construction.

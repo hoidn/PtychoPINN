@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-05T01:55:00Z",
+  "last_updated_utc": "2026-05-05T05:30:00Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -520,6 +520,40 @@
         "pinn_hybrid_resnet_convnext_bottleneck"
       ],
       "interpretation": "Tests whether replacing the SRU-Net constant-resolution ResNet bottleneck with a ConvNeXt-style depthwise + LayerNorm + 1x1 expand/project stack changes amplitude/phase/FRC behavior on the locked Lines128 CDI contract while preserving every other shell decision. The baseline pinn_hybrid_resnet row is reused by lineage from the immutable six-row CDI bundle and is not rerun. The ConvNeXt row uses the current SRU-Net LayerScale convention (init 0.1) so block family is the only intended axis; canonical tiny-ConvNeXt LayerScale (1e-6) initialization is deferred. This family is append-only decision-support evidence and does not replace the six-row complete CDI authority or the U-NO append-only extension."
+    },
+    {
+      "family_id": "brdt_decision_support_objective_ablation",
+      "task": "candidate_brdt",
+      "fixed_contract": "brdt_decision_support_2048cap",
+      "claim_boundary": "decision_support_append_only",
+      "changed_factors": [
+        "training_mode (loss-weight vector for the three neural rows)"
+      ],
+      "completed_items": [
+        "2026-04-29-brdt-four-row-preflight",
+        "2026-05-04-brdt-physics-only-objective-ablation"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_preflight_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_physics_only_objective_ablation_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-physics-only-objective-ablation/"
+      ],
+      "comparison_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-physics-only-objective-ablation/comparison_to_supervised_plus_born.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-physics-only-objective-ablation/comparison_to_supervised_plus_born.csv"
+      ],
+      "rows": [
+        "unet (supervised+Born baseline)",
+        "fno_vanilla (supervised+Born baseline)",
+        "hybrid_resnet (supervised+Born baseline)",
+        "unet (relative_physics_only ablation)",
+        "fno_vanilla (relative_physics_only ablation)",
+        "hybrid_resnet (relative_physics_only ablation)"
+      ],
+      "interpretation": "Same-contract objective study tying the completed BRDT supervised+Born preflight to the append-only physics-only ablation. Dataset, operator, input mode, split, fixed-sample IDs, epoch budget, batch size, learning rate, and training seed are identical across both bundles; only the neural-row loss weights change. The ablation answers the BRDT collapse question for the three neural rows: FNO vanilla collapse is largely objective-induced (image_relative_l2_phys 0.99 -> 0.57); U-Net collapse persists with only marginal image-space improvement and a still-compressed output dynamic range; Hybrid ResNet's image-space gap widens (0.32 -> 0.50) when the supervised image L1 signal is removed. The classical model-based Born inverse row is not rerun and is comparison context only. This family is candidate-lane decision support and does not promote BRDT into the required NeurIPS pillars."
     }
   ],
   "maintenance_rules": [
