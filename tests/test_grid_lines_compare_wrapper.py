@@ -2806,6 +2806,44 @@ def test_srunet_branch_objective_ablation_rows_lock_decision_support_status(mode
     assert spec["lock_row_status"] is True
 
 
+def test_default_torch_row_specs_register_hybrid_resnet_convnext_bottleneck_row():
+    """The ConvNeXt-bottleneck SRU-Net row spec, label, and arch route are stable."""
+    from scripts.studies.grid_lines_compare_wrapper import (
+        DEFAULT_TORCH_ROW_SPECS,
+        PAPER_MODEL_LABELS,
+        TORCH_MODEL_IDS,
+        _torch_model_route,
+    )
+
+    spec = DEFAULT_TORCH_ROW_SPECS["pinn_hybrid_resnet_convnext_bottleneck"]
+    assert spec["model_id"] == "pinn_hybrid_resnet_convnext_bottleneck"
+    assert spec["architecture"] == "hybrid_resnet_convnext_bottleneck"
+    assert spec["training_procedure"] == "pinn"
+    assert spec["row_status"] == "decision_support_append_only"
+    assert spec["lock_row_status"] is True
+
+    assert "pinn_hybrid_resnet_convnext_bottleneck" in TORCH_MODEL_IDS
+    assert (
+        PAPER_MODEL_LABELS["pinn_hybrid_resnet_convnext_bottleneck"]
+        == "Hybrid ResNet (ConvNeXt bottleneck) + PINN"
+    )
+
+    arch, training_procedure = _torch_model_route(
+        "pinn_hybrid_resnet_convnext_bottleneck"
+    )
+    assert arch == "hybrid_resnet_convnext_bottleneck"
+    assert training_procedure == "pinn"
+
+
+def test_validate_model_specs_accepts_hybrid_resnet_convnext_bottleneck_row():
+    from scripts.studies.grid_lines_compare_wrapper import validate_model_specs
+
+    validate_model_specs(
+        ("pinn_hybrid_resnet_convnext_bottleneck",),
+        {"pinn_hybrid_resnet_convnext_bottleneck": 128},
+    )
+
+
 @pytest.mark.parametrize(
     "model_id",
     [

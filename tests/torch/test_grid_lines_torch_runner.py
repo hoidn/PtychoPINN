@@ -311,6 +311,51 @@ class TestSetupTorchConfigs:
         assert training_cfg.plateau_min_lr == 1e-5
         assert training_cfg.plateau_threshold == 1e-3
 
+    def test_setup_configs_accepts_hybrid_resnet_convnext_bottleneck(self, tmp_path):
+        """ConvNeXt-bottleneck SRU-Net arch threads through setup_torch_configs."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="hybrid_resnet_convnext_bottleneck",
+        )
+        training_config, execution_config = setup_torch_configs(cfg)
+        assert training_config.model.architecture == "hybrid_resnet_convnext_bottleneck"
+        assert execution_config.deterministic is True
+
+    def test_setup_configs_hybrid_resnet_convnext_bottleneck_requires_fno_blocks_ge_3(self, tmp_path):
+        """ConvNeXt-bottleneck SRU-Net arch reuses the SRU-Net fno_blocks>=3 guard."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="hybrid_resnet_convnext_bottleneck",
+            fno_blocks=2,
+        )
+        with pytest.raises(ValueError, match="fno-blocks >= 3"):
+            setup_torch_configs(cfg)
+
+    def test_paper_row_payload_records_hybrid_resnet_convnext_bottleneck_arch_and_label(self, tmp_path):
+        """_build_paper_row_payload records architecture id and label for the ConvNeXt row."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="hybrid_resnet_convnext_bottleneck",
+            training_procedure="pinn",
+            epochs=1,
+        )
+        payload = _build_paper_row_payload(
+            cfg,
+            metrics={"mse": 0.0},
+            history={"train_loss": [0.0]},
+            model_params=1,
+            train_wall_time_sec=0.0,
+            inference_time_s=0.0,
+        )
+        assert payload["architecture_id"] == "hybrid_resnet_convnext_bottleneck"
+        assert payload["model_label"] == "Hybrid ResNet (ConvNeXt bottleneck) + PINN"
+
 
 class TestRunGridLinesTorchScaffold:
     """Smoke tests for the main runner function (scaffold mode)."""
