@@ -69,6 +69,13 @@
   - new model_ids registered in `TORCH_MODEL_IDS`, `PAPER_MODEL_LABELS`,
     `PAPER_TRAINING_PROCEDURE_OVERRIDES`, and `DEFAULT_TORCH_ROW_SPECS`
   - branch-ablation rows declare `overrides.hybrid_encoder_branch_select`
+  - all three new ablation rows lock `row_status: "decision_support_append_only"`
+    via `lock_row_status: True` so the run-level manifest cannot auto-promote
+    them to `paper_grade`
+  - new CLI flag `--manifest-claim-boundary` (default
+    `grid_lines_compare_bundle`) propagates an explicit claim boundary into
+    the run-level `model_manifest.json`; the ablation backlog item invokes the
+    wrapper with `--manifest-claim-boundary decision_support_append_only`
 - `scripts/studies/lines128_srunet_ablation_bundle.py`:
   - narrow append-only ablation bundle helper that promotes the baseline by
     lineage and collates fresh row metrics under a fixed claim boundary
@@ -96,6 +103,13 @@
 - `tests/test_grid_lines_compare_wrapper.py`:
   - default torch row specs register the three new ablation rows
   - `validate_model_specs` accepts the new rows
+  - the three new ablation rows lock `row_status` to
+    `decision_support_append_only` in `DEFAULT_TORCH_ROW_SPECS`
+    (one assertion per row)
+  - `_enrich_paper_row_payload` keeps the new ablation rows off `paper_grade`
+    even when every per-row artifact is present (one case per row)
+  - `parse_args` accepts `--manifest-claim-boundary` and defaults it to
+    `grid_lines_compare_bundle`
 - `tests/studies/test_lines128_srunet_ablation_bundle.py`:
   - bundle helper collates fresh + promoted-by-lineage rows
   - records branch-select overrides per row
@@ -177,6 +191,16 @@ Verification logs are archived under
   - bundle `ablation_metrics.json` records `completion_proof_present: true` and
     `completion_proof_filename: "exit_code_proof.json"` for every row, including
     the lineage-promoted baseline `pinn_hybrid_resnet`
+- Run-level manifest claim boundary (regenerated after the row-status lock /
+  CLI-flag fix):
+  - `runs/ablation_20260505T010316Z/model_manifest.json` was regenerated from
+    the existing fresh per-row artifacts by re-invoking
+    `_recover_torch_row_payload` + `_enrich_paper_row_payload` and
+    `write_model_manifest` with the now-locked `DEFAULT_TORCH_ROW_SPECS` and
+    `claim_boundary="decision_support_append_only"`.
+  - Result: `claim_boundary == "decision_support_append_only"` and every row
+    reports `row_status == "decision_support_append_only"`. No row is
+    auto-promoted to `paper_grade` for this backlog item.
 
 ## Residual Risks
 

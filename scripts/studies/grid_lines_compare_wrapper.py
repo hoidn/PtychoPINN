@@ -147,17 +147,23 @@ DEFAULT_TORCH_ROW_SPECS: Dict[str, Dict[str, Any]] = {
         "architecture": "hybrid_resnet",
         "training_procedure": "pinn",
         "overrides": {"hybrid_encoder_branch_select": "conv_only"},
+        "row_status": "decision_support_append_only",
+        "lock_row_status": True,
     },
     "pinn_hybrid_resnet_encoder_spectral_only": {
         "model_id": "pinn_hybrid_resnet_encoder_spectral_only",
         "architecture": "hybrid_resnet",
         "training_procedure": "pinn",
         "overrides": {"hybrid_encoder_branch_select": "spectral_only"},
+        "row_status": "decision_support_append_only",
+        "lock_row_status": True,
     },
     "supervised_hybrid_resnet": {
         "model_id": "supervised_hybrid_resnet",
         "architecture": "hybrid_resnet",
         "training_procedure": "supervised",
+        "row_status": "decision_support_append_only",
+        "lock_row_status": True,
     },
     "pinn_spectral_resnet_bottleneck_net": {
         "model_id": "pinn_spectral_resnet_bottleneck_net",
@@ -2191,6 +2197,16 @@ def parse_args(argv=None):
         help="Validate dataset/probe/row routing without launching backend training or inference.",
     )
     parser.add_argument(
+        "--manifest-claim-boundary",
+        type=str,
+        default="grid_lines_compare_bundle",
+        help=(
+            "Claim boundary recorded in the run-level model_manifest.json. "
+            "Use 'decision_support_append_only' for ablation/decision-support runs that must "
+            "not be promoted as paper-grade evidence."
+        ),
+    )
+    parser.add_argument(
         "--ptychovit-repo",
         type=Path,
         default=Path("/home/ollie/Documents/ptycho-vit"),
@@ -2393,6 +2409,7 @@ def main(argv=None) -> None:
                 train_data=args.train_data,
                 test_data=args.test_data,
                 preflight_only=args.preflight_only,
+                manifest_claim_boundary=args.manifest_claim_boundary,
             )
         update_invocation_artifacts(
             invocation_json,
