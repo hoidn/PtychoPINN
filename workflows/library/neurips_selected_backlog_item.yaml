@@ -118,6 +118,10 @@ steps:
           json_pointer: /plan_phase_state_root
           type: relpath
           under: state
+        - name: plan_gate_state_root
+          json_pointer: /plan_gate_state_root
+          type: relpath
+          under: state
         - name: implementation_phase_state_root
           json_pointer: /implementation_phase_state_root
           type: relpath
@@ -128,6 +132,10 @@ steps:
           under: docs/plans
         - name: plan_gate_recovery_bundle_path
           json_pointer: /plan_gate_recovery_bundle_path
+          type: relpath
+          under: state
+        - name: final_plan_gate_bundle_path
+          json_pointer: /final_plan_gate_bundle_path
           type: relpath
           under: state
         - name: roadmap_sync_report_target_path
@@ -288,31 +296,14 @@ steps:
       - --recovery-report-target-path
       - ${steps.MaterializeSelectedItemInputs.artifacts.plan_gate_recovery_report_target_path}
       - --output
-      - ${inputs.state_root}/plan-gate-recovery.json
-    output_bundle:
-      path: ${inputs.state_root}/plan-gate-recovery.json
-      fields:
-        - name: plan_gate_status
-          json_pointer: /plan_gate_status
-          type: enum
-          allowed: ["RECOVERED", "MISSING"]
-        - name: recovered_plan_path
-          json_pointer: /plan_path
-          type: relpath
-          under: docs/plans
-          must_exist_target: true
-          required: false
-        - name: recovered_plan_review_report_path
-          json_pointer: /plan_review_report_path
-          type: relpath
-          under: artifacts/review
-          must_exist_target: true
-          required: false
-        - name: recovered_plan_review_decision
-          json_pointer: /plan_review_decision
-          type: enum
-          allowed: ["APPROVE"]
-          required: false
+      - ${steps.MaterializeSelectedItemInputs.artifacts.final_plan_gate_bundle_path}
+      - --status-output
+      - ${inputs.state_root}/plan_gate_status.txt
+    expected_outputs:
+      - name: plan_gate_status
+        path: ${inputs.state_root}/plan_gate_status.txt
+        type: enum
+        allowed: ["APPROVED", "MISSING"]
 
   - name: RunFreshPlanPhase
     id: run_fresh_plan_phase
@@ -392,8 +383,8 @@ steps:
         under: docs/backlog
         must_exist_target: true
 
-  - name: ResolvePlanGateOutputs
-    id: resolve_plan_gate_outputs
+  - name: ValidatePlanGateBundle
+    id: validate_plan_gate_bundle
     command:
       - python
       - -c
@@ -402,7 +393,7 @@ steps:
         import pathlib
         import sys
 
-        recovery_bundle_path = pathlib.Path(sys.argv[1])
+        bundle_path = pathlib.Path(sys.argv[1])
         plan_phase_root = pathlib.Path(sys.argv[2])
         selected_item_path = sys.argv[3]
         reconciled_item_pointer = pathlib.Path(sys.argv[4])
@@ -410,19 +401,26 @@ steps:
         report_output = pathlib.Path(sys.argv[6])
         decision_output = pathlib.Path(sys.argv[7])
         item_output = pathlib.Path(sys.argv[8])
+        source_output = pathlib.Path(sys.argv[9])
 
-        recovery = json.loads(recovery_bundle_path.read_text(encoding="utf-8"))
-        plan_gate_status = recovery.get("plan_gate_status")
-        if plan_gate_status == "RECOVERED":
-            plan_path = str(recovery.get("plan_path") or "").strip()
-            report_path = str(recovery.get("plan_review_report_path") or "").strip()
-            decision = str(recovery.get("plan_review_decision") or "").strip()
-        elif plan_gate_status == "MISSING":
+        bundle = json.loads(bundle_path.read_text(encoding="utf-8"))
+        status = str(bundle.get("status") or "").strip()
+        if status == "APPROVED":
+            source = str(bundle.get("source") or "").strip()
+            plan_path = str(bundle.get("plan_path") or "").strip()
+            report_path = str(bundle.get("plan_review_report_path") or "").strip()
+            decision = str(bundle.get("plan_review_decision") or "").strip()
+            item_path = str(bundle.get("selected_item_path") or selected_item_path).strip()
+        elif status == "MISSING":
+            source = "FRESH"
             plan_path = (plan_phase_root / "final_plan_path.txt").read_text(encoding="utf-8").strip()
             report_path = (plan_phase_root / "final_plan_review_report_path.txt").read_text(encoding="utf-8").strip()
             decision = (plan_phase_root / "final_plan_review_decision.txt").read_text(encoding="utf-8").strip()
+            item_path = selected_item_path
+            if reconciled_item_pointer.is_file():
+                item_path = reconciled_item_pointer.read_text(encoding="utf-8").strip()
         else:
-            raise SystemExit(f"Unexpected plan_gate_status: {plan_gate_status}")
+            raise SystemExit(f"Unexpected plan gate bundle status: {status}")
 
         if decision != "APPROVE":
             raise SystemExit(f"Plan gate did not approve: {decision}")
@@ -430,22 +428,35 @@ steps:
             raise SystemExit(f"Resolved plan file does not exist: {plan_path}")
         if not pathlib.Path(report_path).is_file():
             raise SystemExit(f"Resolved plan report does not exist: {report_path}")
-
-        item_path = selected_item_path
-        if reconciled_item_pointer.is_file():
-            item_path = reconciled_item_pointer.read_text(encoding="utf-8").strip()
         if not pathlib.Path(item_path).is_file():
             raise SystemExit(f"Resolved selected item does not exist: {item_path}")
 
+        bundle_path.write_text(
+            json.dumps(
+                {
+                    "status": "APPROVED",
+                    "source": source,
+                    "selected_item_path": item_path,
+                    "plan_path": plan_path,
+                    "plan_review_report_path": report_path,
+                    "plan_review_decision": decision,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         for path, value in (
             (plan_output, plan_path),
             (report_output, report_path),
             (decision_output, decision),
             (item_output, item_path),
+            (source_output, source),
         ):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(value + "\n", encoding="utf-8")
-      - ${inputs.state_root}/plan-gate-recovery.json
+      - ${steps.MaterializeSelectedItemInputs.artifacts.final_plan_gate_bundle_path}
       - ${steps.MaterializeSelectedItemInputs.artifacts.plan_phase_state_root}
       - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_in_progress_path}
       - ${inputs.state_root}/reconciled_selected_item_path.txt
@@ -453,6 +464,7 @@ steps:
       - ${inputs.state_root}/selected_plan_review_report_path.txt
       - ${inputs.state_root}/selected_plan_review_decision.txt
       - ${inputs.state_root}/resolved_selected_item_path.txt
+      - ${inputs.state_root}/selected_plan_gate_source.txt
     expected_outputs:
       - name: plan_path
         path: ${inputs.state_root}/selected_plan_path.txt
@@ -473,6 +485,10 @@ steps:
         type: relpath
         under: docs/backlog/in_progress
         must_exist_target: true
+      - name: plan_gate_source
+        path: ${inputs.state_root}/selected_plan_gate_source.txt
+        type: enum
+        allowed: ["RECOVERED", "FRESH"]
 
   - name: RunImplementationPhase
     id: run_implementation_phase
@@ -483,7 +499,7 @@ steps:
       design_path:
         ref: inputs.design_path
       plan_path:
-        ref: root.steps.ResolvePlanGateOutputs.artifacts.plan_path
+        ref: root.steps.ValidatePlanGateBundle.artifacts.plan_path
       check_commands_path:
         ref: root.steps.MaterializeSelectedItemInputs.artifacts.check_commands_path
       execution_report_target_path:
@@ -507,9 +523,9 @@ steps:
       - --active-path
       - ${steps.MaterializeSelectedItemInputs.artifacts.selected_item_active_path}
       - --in-progress-path
-      - ${steps.ResolvePlanGateOutputs.artifacts.selected_item_in_progress_path}
+      - ${steps.ValidatePlanGateBundle.artifacts.selected_item_in_progress_path}
       - --plan-path
-      - ${steps.ResolvePlanGateOutputs.artifacts.plan_path}
+      - ${steps.ValidatePlanGateBundle.artifacts.plan_path}
       - --recover-premature-done
       - --output-path
       - ${inputs.state_root}/post_implementation_selected_item_path.txt
@@ -623,105 +639,7 @@ steps:
         )
       - ${steps.ReconcileSelectedItemQueueAfterImplementation.artifacts.selected_item_in_progress_path}
       - ${steps.MaterializeSelectedItemInputs.artifacts.implementation_phase_state_root}
-      - ${steps.ResolvePlanGateOutputs.artifacts.plan_path}
-      - ${steps.MaterializeSelectedItemInputs.artifacts.item_summary_target_path}
-      - ${steps.MaterializeSelectedItemInputs.artifacts.outcome_bundle_path}
-      - ${inputs.run_state_path}
-      - ${steps.ApplyRoadmapSyncDecision.artifacts.current_roadmap_path}
-    on:
-      success:
-        goto: FinalizeSelectedItemOutcome
-
-  - name: RecordImplementationReviewBlocked
-    id: record_implementation_review_blocked
-    when:
-      all_of:
-        - compare:
-            left:
-              ref: self.steps.RunImplementationPhase.artifacts.implementation_state
-            op: eq
-            right: COMPLETED
-        - compare:
-            left:
-              ref: self.steps.RunImplementationPhase.artifacts.implementation_review_decision
-            op: eq
-            right: REVISE
-    command:
-      - python
-      - -c
-      - |
-        import json
-        import pathlib
-        import subprocess
-        import sys
-
-        item_path = sys.argv[1]
-        impl_root = pathlib.Path(sys.argv[2])
-        plan_path = sys.argv[3]
-        summary_path = sys.argv[4]
-        outcome_path = sys.argv[5]
-        run_state_path = sys.argv[6]
-        current_roadmap_path = sys.argv[7]
-        item_id = pathlib.Path(item_path).stem
-
-        def read_optional_pointer(name: str):
-            path = impl_root / name
-            if not path.is_file():
-                return None
-            value = path.read_text(encoding="utf-8").strip()
-            return value or None
-
-        blocked_summary = {
-            "item_id": item_id,
-            "item_outcome": "BLOCKED",
-            "failed_stage": "implementation_phase",
-            "item_path": item_path,
-            "plan_path": plan_path,
-            "execution_report_path": read_optional_pointer("final_execution_report_path.txt"),
-            "checks_report_path": read_optional_pointer("final_checks_report_path.txt"),
-            "implementation_review_report_path": read_optional_pointer("final_implementation_review_report_path.txt"),
-            "roadmap_path": current_roadmap_path,
-            "reason": "Implementation review did not approve the completed execution.",
-        }
-        subprocess.run(
-            [
-                "python",
-                "workflows/library/scripts/update_neurips_backlog_run_state.py",
-                "--state-path",
-                run_state_path,
-                "block",
-                "--item-id",
-                item_id,
-                "--item-path",
-                item_path,
-                "--stage",
-                "implementation_phase",
-                "--reason",
-                "Implementation review did not approve the completed execution.",
-                "--plan-path",
-                plan_path,
-                "--roadmap-path",
-                current_roadmap_path,
-            ],
-            check=True,
-        )
-        summary_target = pathlib.Path(summary_path)
-        summary_target.parent.mkdir(parents=True, exist_ok=True)
-        summary_target.write_text(json.dumps(blocked_summary, indent=2) + "\n", encoding="utf-8")
-        pathlib.Path(outcome_path).write_text(
-            json.dumps(
-                {
-                    "drain_status": "BLOCKED",
-                    "item_summary_path": summary_target.as_posix(),
-                },
-                indent=2,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-      - ${steps.ReconcileSelectedItemQueueAfterImplementation.artifacts.selected_item_in_progress_path}
-      - ${steps.MaterializeSelectedItemInputs.artifacts.implementation_phase_state_root}
-      - ${steps.ResolvePlanGateOutputs.artifacts.plan_path}
+      - ${steps.ValidatePlanGateBundle.artifacts.plan_path}
       - ${steps.MaterializeSelectedItemInputs.artifacts.item_summary_target_path}
       - ${steps.MaterializeSelectedItemInputs.artifacts.outcome_bundle_path}
       - ${inputs.run_state_path}

@@ -71,7 +71,7 @@ providers:
     command: ["claude", "-p", "${PROMPT}", "--model", "${model}", "--effort", "${effort}", "--permission-mode", "bypassPermissions"]
     input_mode: "argv"
     defaults:
-      model: "claude-opus-4.7"
+      model: "opus"
       effort: "high"
 
 artifacts:
@@ -136,6 +136,26 @@ steps:
           "$(dirname "$progress_report_target_path")" \
           "$(dirname "${inputs.checks_report_target_path}")" \
           "$(dirname "${inputs.implementation_review_report_target_path}")"
+        python - <<'PY' "${inputs.state_root}/phase_started_at_ns.txt"
+        import pathlib
+        import sys
+        import time
+
+        path = pathlib.Path(sys.argv[1])
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(str(time.time_ns()) + "\n", encoding="utf-8")
+        PY
+        rm -f \
+          "${inputs.state_root}/implementation_state.json" \
+          "${inputs.state_root}/implementation_state.txt" \
+          "${inputs.state_root}/loop_review_decision.txt" \
+          "${inputs.state_root}/implementation_review_decision.txt" \
+          "${inputs.state_root}/final_implementation_state.txt" \
+          "${inputs.state_root}/final_execution_report_path.txt" \
+          "${inputs.state_root}/final_progress_report_path.txt" \
+          "${inputs.state_root}/final_checks_report_path.txt" \
+          "${inputs.state_root}/final_implementation_review_report_path.txt" \
+          "${inputs.state_root}/final_implementation_review_decision.txt"
         printf '%s\n' "${inputs.execution_report_target_path}" > "${inputs.state_root}/execution_report_target_path.txt"
         printf '%s\n' "$progress_report_target_path" > "${inputs.state_root}/progress_report_target_path.txt"
         printf '%s\n' "${inputs.checks_report_target_path}" > "${inputs.state_root}/checks_report_path.txt"
@@ -157,6 +177,9 @@ steps:
         path: ${inputs.state_root}/implementation_review_report_path.txt
         type: relpath
         under: artifacts/review
+      - name: phase_started_at_ns
+        path: ${inputs.state_root}/phase_started_at_ns.txt
+        type: integer
     publishes:
       - artifact: execution_report_target
         from: execution_report_target_path
@@ -221,6 +244,80 @@ steps:
         policy: latest_successful
         freshness: any
     prompt_consumes: ["design", "plan", "execution_report_target", "progress_report_target"]
+
+  - name: MaterializeImplementationState
+    id: materialize_implementation_state
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import sys
+
+        bundle_path = pathlib.Path(sys.argv[1])
+        execution_report_target = pathlib.Path(sys.argv[2])
+        progress_report_target = pathlib.Path(sys.argv[3])
+        phase_started_at_ns = int(pathlib.Path(sys.argv[4]).read_text(encoding="utf-8").strip())
+
+        allowed_blockers = {
+            "missing_resource",
+            "unavailable_hardware",
+            "roadmap_conflict",
+            "external_dependency_outside_authority",
+            "user_decision_required",
+            "unrecoverable_after_fix_attempt",
+        }
+
+        def is_fresh_report(path: pathlib.Path) -> bool:
+            return path.is_file() and path.stat().st_mtime_ns >= phase_started_at_ns
+
+        def parse_blocker_class(path: pathlib.Path) -> str:
+            lines = path.read_text(encoding="utf-8").splitlines()
+            for index, raw_line in enumerate(lines):
+                line = raw_line.strip()
+                lowered = line.lower()
+                if lowered.startswith("blocker class:"):
+                    value = line.split(":", 1)[1].strip().strip("`")
+                    if value in allowed_blockers:
+                        return value
+                    raise SystemExit(f"Invalid Blocker Class: {value}")
+                if lowered in {"blocker class", "blocker class:"}:
+                    for next_line in lines[index + 1 :]:
+                        value = next_line.strip().strip("-").strip().strip("`")
+                        if not value:
+                            continue
+                        if value in allowed_blockers:
+                            return value
+                        raise SystemExit(f"Invalid Blocker Class: {value}")
+            raise SystemExit("Blocked progress report is missing Blocker Class")
+
+        has_execution_report = is_fresh_report(execution_report_target)
+        has_progress_report = is_fresh_report(progress_report_target)
+        if has_execution_report and has_progress_report:
+            raise SystemExit("Current pass produced both execution and blocker reports")
+        if has_execution_report:
+            payload = {
+                "implementation_state": "COMPLETED",
+                "execution_report_path": execution_report_target.as_posix(),
+            }
+        elif has_progress_report:
+            payload = {
+                "implementation_state": "BLOCKED",
+                "progress_report_path": progress_report_target.as_posix(),
+                "blocker_class": parse_blocker_class(progress_report_target),
+            }
+        else:
+            raise SystemExit(
+                "Current implementation pass produced neither execution report nor blocker report"
+            )
+
+        bundle_path.parent.mkdir(parents=True, exist_ok=True)
+        bundle_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+      - ${inputs.state_root}/implementation_state.json
+      - ${inputs.execution_report_target_path}
+      - ${steps.InitializeImplementationPhasePaths.artifacts.progress_report_target_path}
+      - ${inputs.state_root}/phase_started_at_ns.txt
     output_bundle:
       path: ${inputs.state_root}/implementation_state.json
       fields:
@@ -267,7 +364,7 @@ steps:
             raise SystemExit(f"Invalid implementation_state: {state}")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(state + "\n", encoding="utf-8")
-      - ${steps.ExecuteImplementation.artifacts.implementation_state}
+      - ${steps.MaterializeImplementationState.artifacts.implementation_state}
       - ${inputs.state_root}/implementation_state.txt
     expected_outputs:
       - name: implementation_state
@@ -298,7 +395,7 @@ steps:
 
         pointer_path.parent.mkdir(parents=True, exist_ok=True)
         pointer_path.write_text(target_path.as_posix() + "\n", encoding="utf-8")
-      - ${steps.ExecuteImplementation.artifacts.execution_report_path}
+      - ${steps.MaterializeImplementationState.artifacts.execution_report_path}
       - ${inputs.state_root}/execution_report_path.txt
     expected_outputs:
       - name: execution_report_path
@@ -333,7 +430,7 @@ steps:
 
         pointer_path.parent.mkdir(parents=True, exist_ok=True)
         pointer_path.write_text(target_path.as_posix() + "\n", encoding="utf-8")
-      - ${steps.ExecuteImplementation.artifacts.progress_report_path}
+      - ${steps.MaterializeImplementationState.artifacts.progress_report_path}
       - ${inputs.state_root}/progress_report_path.txt
     expected_outputs:
       - name: progress_report_path

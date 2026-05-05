@@ -170,7 +170,9 @@ def main() -> int:
             previous_plan_text = previous_plan_target.read_text(encoding="utf-8").strip()
 
     item_root = state_root / "items" / item_id
+    plan_gate_root = item_root / "plan-gate"
     item_root.mkdir(parents=True, exist_ok=True)
+    plan_gate_root.mkdir(parents=True, exist_ok=True)
 
     check_commands_path = item_root / "check_commands.json"
     check_commands_path.write_text(json.dumps(check_commands, indent=2) + "\n", encoding="utf-8")
@@ -227,10 +229,12 @@ def main() -> int:
         "check_commands_pointer_path": _repo_relpath(check_commands_pointer),
         "roadmap_sync_state_root": _repo_relpath(item_root / "roadmap-sync"),
         "plan_phase_state_root": _repo_relpath(item_root / "plan-phase"),
+        "plan_gate_state_root": _repo_relpath(plan_gate_root),
         "implementation_phase_state_root": _repo_relpath(item_root / "implementation-phase"),
         "plan_target_path": f"docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/{item_id}/execution_plan.md",
         "candidate_plan_path": previous_plan_path,
-        "plan_gate_recovery_bundle_path": _repo_relpath(item_root / "plan-gate-recovery.json"),
+        "final_plan_gate_bundle_path": _repo_relpath(plan_gate_root / "final_plan_gate.json"),
+        "plan_gate_recovery_bundle_path": _repo_relpath(plan_gate_root / "final_plan_gate.json"),
         "roadmap_sync_report_target_path": f"artifacts/review/NEURIPS-HYBRID-RESNET-2026/backlog/{item_id}-roadmap-sync.json",
         "plan_review_report_target_path": f"artifacts/review/NEURIPS-HYBRID-RESNET-2026/backlog/{item_id}-plan-review.json",
         "plan_gate_recovery_report_target_path": f"artifacts/review/NEURIPS-HYBRID-RESNET-2026/backlog/{item_id}-plan-recovery.md",

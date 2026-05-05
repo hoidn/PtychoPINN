@@ -17,8 +17,16 @@ def _write_json(path: Path, payload: dict[str, str]) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
-def _missing(output_path: Path) -> int:
-    _write_json(output_path, {"plan_gate_status": "MISSING"})
+def _write_status(path: Path | None, status: str) -> None:
+    if path is None:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(status + "\n", encoding="utf-8")
+
+
+def _missing(output_path: Path, status_output_path: Path | None = None) -> int:
+    _write_json(output_path, {"status": "MISSING", "source": "NONE"})
+    _write_status(status_output_path, "MISSING")
     return 0
 
 
@@ -33,6 +41,13 @@ def _safe_relpath(value: str) -> Path | None:
     except ValueError:
         return None
     return path
+
+
+def _is_review_artifact_path(path: Path) -> bool:
+    return path.parts[:2] in {
+        ("artifacts", "review"),
+        (".artifacts", "review"),
+    }
 
 
 def _parse_frontmatter(path: Path) -> dict[str, object]:
@@ -96,43 +111,48 @@ def main() -> int:
     parser.add_argument("--selected-item-path", required=True)
     parser.add_argument("--recovery-report-target-path", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--status-output")
     args = parser.parse_args()
 
     output_path = Path(args.output)
+    status_output_path = Path(args.status_output) if args.status_output else None
     selection_mode = args.selection_mode.strip()
     if selection_mode not in ALLOWED_SELECTION_MODES:
         raise SystemExit(f"Unsupported selection mode: {selection_mode}")
     if selection_mode != "RECOVERED_IN_PROGRESS":
-        return _missing(output_path)
+        return _missing(output_path, status_output_path)
 
     selected_item_path = _safe_relpath(args.selected_item_path.strip())
     if selected_item_path is None or selected_item_path.parts[:3] != ("docs", "backlog", "in_progress"):
-        return _missing(output_path)
+        return _missing(output_path, status_output_path)
     item_target = REPO_ROOT / selected_item_path
     if not item_target.is_file():
-        return _missing(output_path)
+        return _missing(output_path, status_output_path)
 
     frontmatter = _parse_frontmatter(item_target)
     plan_path = _safe_relpath(str(frontmatter.get("plan_path") or "").strip())
     if plan_path is None or plan_path.parts[:2] != ("docs", "plans"):
-        return _missing(output_path)
+        return _missing(output_path, status_output_path)
     if not (REPO_ROOT / plan_path).is_file():
-        return _missing(output_path)
+        return _missing(output_path, status_output_path)
 
     report_path = _safe_relpath(args.recovery_report_target_path.strip())
-    if report_path is None or report_path.parts[:2] != ("artifacts", "review"):
+    if report_path is None or not _is_review_artifact_path(report_path):
         raise SystemExit(f"Unsafe recovery report path: {args.recovery_report_target_path}")
     _write_recovery_report(REPO_ROOT / report_path, item_path=selected_item_path, plan_path=plan_path)
 
     _write_json(
         output_path,
         {
-            "plan_gate_status": "RECOVERED",
+            "status": "APPROVED",
+            "source": "RECOVERED",
+            "selected_item_path": selected_item_path.as_posix(),
             "plan_path": plan_path.as_posix(),
             "plan_review_decision": "APPROVE",
             "plan_review_report_path": report_path.as_posix(),
         },
     )
+    _write_status(status_output_path, "APPROVED")
     return 0
 
 

@@ -19,6 +19,8 @@ Prioritize in this order:
 3. complete any current-scope work still required for approval
 4. record genuine follow-up work without implementing it
 
+If review found unfinished current-scope work, continue that work and update the execution report; do not convert unfinished work into a blocked progress report.
+
 Treat failing checks, import errors, path issues, environment propagation
 issues, and test-harness failures as presumed recoverable implementation work.
 Diagnose and fix them narrowly when they are within current authority. A failed
