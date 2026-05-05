@@ -74,15 +74,32 @@
     them to `paper_grade`
   - new CLI flag `--manifest-claim-boundary` (default
     `grid_lines_compare_bundle`) propagates an explicit claim boundary into
-    the run-level `model_manifest.json`; the ablation backlog item invokes the
-    wrapper with `--manifest-claim-boundary decision_support_append_only`
+    the run-level `model_manifest.json` so future ablation invocations can
+    record `decision_support_append_only` at launch time. The
+    `runs/ablation_20260505T010316Z/` launch predates this flag, so the
+    run-level manifest for that root was rebuilt post-run by
+    `scripts/studies/regenerate_lines128_srunet_ablation_run_manifest.py`,
+    with provenance recorded in
+    `runs/ablation_20260505T010316Z/model_manifest_regeneration_log.json`
 - `scripts/studies/lines128_srunet_ablation_bundle.py`:
   - narrow append-only ablation bundle helper that promotes the baseline by
     lineage and collates fresh row metrics under a fixed claim boundary
   - requires a row-local completion-proof artifact for every fresh row
     (`exit_code_proof.json`, with `launcher_completion.json` accepted as a
     legacy fallback) and surfaces both the proof payload and its filename in
-    the bundle's row provenance
+    the bundle's row provenance; the bundle manifest also records
+    `completion_proof_present` and `completion_proof_filename` per row
+- `scripts/studies/regenerate_lines128_srunet_ablation_run_manifest.py`:
+  - one-shot reproducible utility that rebuilds the run-level
+    `model_manifest.json` for the `runs/ablation_20260505T010316Z/` root
+    using the post-fix wrapper helpers (with
+    `row_spec=DEFAULT_TORCH_ROW_SPECS[model_id]` so the row-status lock
+    applies and `claim_boundary="decision_support_append_only"`), and
+    writes a sibling `model_manifest_regeneration_log.json` audit
+    artifact that captures the rebuild's command, input artifact paths,
+    original launcher invocation (including
+    `manifest_claim_boundary_in_argv: false`), git commit, and resulting
+    `claim_boundary` plus per-row `row_status`
 
 ## Tests Added
 
@@ -166,41 +183,50 @@ in this table use the format `[amplitude, phase]` where applicable.
 Verification logs are archived under
 `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-branch-objective-ablation/verification/`.
 
-- Required deterministic gates (final, timestamp `20260505T020849Z`):
-  - prerequisite presence — `prereq_20260505T020849Z.log` (PASS)
+- Required deterministic gates (final, timestamp `20260505T023543Z`):
+  - prerequisite presence — `prereq_20260505T023543Z.log` (PASS)
   - `pytest -q tests/torch/test_fno_generators.py -k "hybrid_resnet or hybrid_encoder"` —
-    `test_fno_generators_20260505T020849Z.log` (60 passed)
+    `test_fno_generators_20260505T023543Z.log` (60 passed)
   - `pytest -q tests/torch/test_grid_lines_torch_runner.py -k "hybrid_resnet or hybrid_encoder or supervised"` —
-    `test_grid_lines_torch_runner_20260505T020849Z.log` (37 passed)
+    `test_grid_lines_torch_runner_20260505T023543Z.log` (37 passed)
   - `pytest -q tests/test_grid_lines_compare_wrapper.py` —
-    `test_grid_lines_compare_wrapper_20260505T020849Z.log` (67 passed)
+    `test_grid_lines_compare_wrapper_20260505T023543Z.log` (75 passed)
   - `python -m compileall -q scripts/studies ptycho_torch` —
-    `compileall_20260505T020849Z.log` (exit 0)
+    `compileall_20260505T023543Z.log` (exit 0)
 - Bundle helper regression:
   - `pytest -q tests/studies/test_lines128_srunet_ablation_bundle.py` —
-    `test_ablation_bundle_20260505T020849Z.log` (6 passed; covers baseline-by-lineage,
-    fresh-row collation, branch-select override recording, missing baseline,
-    missing fresh row, missing completion-proof, and legacy
-    `launcher_completion.json` acceptance)
+    `test_ablation_bundle_20260505T023543Z.log` (6 passed; covers
+    baseline-by-lineage, fresh-row collation, branch-select override
+    recording, missing baseline, missing fresh row, missing completion-proof,
+    legacy `launcher_completion.json` acceptance, and manifest-side
+    `completion_proof_present` recording)
 - Wrapper completion proof:
   - run-root `<run_root>/invocation.json`: `status=completed`, `exit_code=0`,
     `finished_at_utc=2026-05-05T01:50:15Z`
   - per-fresh-row `runs/<row>/exit_code_proof.json`: `exit_code=0`,
     `invocation_status=completed` for `pinn_hybrid_resnet_encoder_conv_only`,
     `pinn_hybrid_resnet_encoder_spectral_only`, and `supervised_hybrid_resnet`
-  - bundle `ablation_metrics.json` records `completion_proof_present: true` and
-    `completion_proof_filename: "exit_code_proof.json"` for every row, including
-    the lineage-promoted baseline `pinn_hybrid_resnet`
-- Run-level manifest claim boundary (regenerated after the row-status lock /
-  CLI-flag fix):
-  - `runs/ablation_20260505T010316Z/model_manifest.json` was regenerated from
-    the existing fresh per-row artifacts by re-invoking
-    `_recover_torch_row_payload` + `_enrich_paper_row_payload` and
-    `write_model_manifest` with the now-locked `DEFAULT_TORCH_ROW_SPECS` and
-    `claim_boundary="decision_support_append_only"`.
-  - Result: `claim_boundary == "decision_support_append_only"` and every row
-    reports `row_status == "decision_support_append_only"`. No row is
-    auto-promoted to `paper_grade` for this backlog item.
+  - bundle `ablation_metrics.json` and `ablation_manifest.json` both record
+    `completion_proof_present: true` and
+    `completion_proof_filename: "exit_code_proof.json"` for every row,
+    including the lineage-promoted baseline `pinn_hybrid_resnet`
+- Run-level manifest provenance (post-run rebuild):
+  - The original launcher invocation for `runs/ablation_20260505T010316Z/`
+    predates the `--manifest-claim-boundary` / locked-row-status fix, so the
+    run-level `model_manifest.json` was rebuilt post-run by
+    `scripts/studies/regenerate_lines128_srunet_ablation_run_manifest.py`,
+    which calls `_recover_torch_row_payload` + `_enrich_paper_row_payload`
+    (with `row_spec=DEFAULT_TORCH_ROW_SPECS[model_id]`) +
+    `write_model_manifest` (with
+    `claim_boundary="decision_support_append_only"`).
+  - The rebuild's command, input artifact paths, original launcher
+    invocation (including `manifest_claim_boundary_in_argv: false`), git
+    commit, and resulting `claim_boundary` plus per-row `row_status` are
+    captured in
+    `runs/ablation_20260505T010316Z/model_manifest_regeneration_log.json`.
+  - Resulting manifest: `claim_boundary == "decision_support_append_only"`
+    and every row reports `row_status == "decision_support_append_only"`.
+    No row is auto-promoted to `paper_grade` for this backlog item.
 
 ## Residual Risks
 

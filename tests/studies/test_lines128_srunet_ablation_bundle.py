@@ -63,6 +63,10 @@ def test_build_ablation_bundle_promotes_baseline_and_collates_fresh_rows(tmp_pat
     for row in manifest["rows"][1:]:
         assert row["evidence_source"] == "fresh_run"
 
+    for row in manifest["rows"]:
+        assert row["completion_proof_present"] is True
+        assert row["completion_proof_filename"] == "exit_code_proof.json"
+
     metrics_payload = json.loads((bundle_dir / "ablation_metrics.json").read_text(encoding="utf-8"))
     assert metrics_payload["claim_boundary"] == CLAIM_BOUNDARY
     assert metrics_payload["metrics_by_model"]["pinn_hybrid_resnet"] == {"mae": 0.10}

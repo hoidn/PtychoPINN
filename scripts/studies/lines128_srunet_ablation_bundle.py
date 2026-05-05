@@ -190,6 +190,8 @@ def build_ablation_bundle(
                 "architecture_id": row["architecture_id"],
                 "evidence_source": row["row_provenance"]["evidence_source"],
                 "overrides": row.get("overrides", {}),
+                "completion_proof_present": row["row_provenance"]["completion_proof_present"],
+                "completion_proof_filename": row["row_provenance"].get("completion_proof_filename"),
             }
             for row in rows
         ],
