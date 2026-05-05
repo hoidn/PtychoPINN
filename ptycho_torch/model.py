@@ -931,6 +931,20 @@ class TotalVariationLoss(nn.Module):
         
         return tv_loss
 
+class AmplitudeVarianceLoss(nn.Module):
+    """
+    Penalizes spatial variance of |z| = sqrt(real^2 + imag^2).
+    Pushes toward uniform amplitude (outputs lie on a circle) without
+    prescribing the radius.
+    """
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, real, imag):
+        modulus = torch.sqrt(real ** 2 + imag ** 2 + 1e-8)
+        mean_mod = torch.mean(modulus, dim=(2, 3), keepdim=True)
+        return torch.sum((modulus - mean_mod) ** 2)
+
 class CombineComplexRectangular(nn.Module):
     '''
     Converts rectangular coordinates into torch complex
@@ -1396,6 +1410,9 @@ class PtychoPINN_Lightning(L.LightningModule):
             self.loss_name += '_ProbeRef'
             self.val_loss_name += '_ProbeRef'
 
+        if model_config.amplitude_variance_loss:
+            self.AmpVarLoss = AmplitudeVarianceLoss()
+
         self.loss_name += '_loss'
         self.val_loss_name += '_loss'
 
@@ -1478,6 +1495,12 @@ class PtychoPINN_Lightning(L.LightningModule):
             total_loss += self.probe_reference_coeff * probe_ref_loss
             self.log('probe_ref_loss', probe_ref_loss.detach(),
                      on_step=False, prog_bar=True, on_epoch=True, sync_dist=True)
+
+        if self.model_config.amplitude_variance_loss:
+            amp_var = self.AmpVarLoss(real, imag)
+            total_loss += amp_var * self.model_config.amplitude_variance_coeff
+            self.log('amp_variance_loss', amp_var.detach(),
+                     on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
 
         return total_loss
 
