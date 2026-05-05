@@ -199,6 +199,23 @@ def test_neurips_drain_workflow_gates_manifest_before_selection_and_drafts_gaps(
     assert set(route["match"]["cases"]) == {"SELECTED", "DONE", "BLOCKED", "BACKLOG_DRAFTED"}
 
 
+def test_neurips_top_level_drain_continues_after_selected_item_blocks():
+    workflow = _load_yaml("workflows/examples/neurips_steered_backlog_drain.yaml")
+
+    route = _step_by_name(workflow, "RouteItemSelection")
+    selected_case = route["match"]["cases"]["SELECTED"]
+    output_ref = selected_case["outputs"]["drain_status"]["from"]["ref"]
+    assert output_ref == "self.steps.NormalizeSelectedItemDrainStatus.artifacts.drain_status"
+
+    normalize = next(
+        step for step in selected_case["steps"] if step["name"] == "NormalizeSelectedItemDrainStatus"
+    )
+    command_text = "\n".join(str(part) for part in normalize["command"])
+    assert 'selected_item_status == "BLOCKED"' in command_text
+    assert 'drain_status = "CONTINUE"' in command_text
+    assert "run_state.blocked_items" in command_text
+
+
 def test_neurips_drain_workflow_treats_waiting_as_a_resumable_loop_outcome():
     workflow = _load_yaml("workflows/examples/neurips_steered_backlog_drain.yaml")
 

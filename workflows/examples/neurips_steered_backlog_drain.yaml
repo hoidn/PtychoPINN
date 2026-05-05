@@ -554,7 +554,7 @@ steps:
                     type: enum
                     allowed: ["CONTINUE", "DONE", "BLOCKED"]
                     from:
-                      ref: self.steps.RunSelectedItem.artifacts.drain_status
+                      ref: self.steps.NormalizeSelectedItemDrainStatus.artifacts.drain_status
                 steps:
                   - name: RunSelectedItem
                     id: run_selected_item
@@ -584,6 +584,36 @@ steps:
                         ref: inputs.implementation_review_provider
                       implementation_fix_provider:
                         ref: inputs.implementation_fix_provider
+                  - name: NormalizeSelectedItemDrainStatus
+                    id: normalize_selected_item_drain_status
+                    command:
+                      - python
+                      - -c
+                      - |
+                        import pathlib
+                        import sys
+
+                        selected_item_status = sys.argv[1].strip()
+                        output_path = pathlib.Path(sys.argv[2])
+                        if selected_item_status == "CONTINUE":
+                            drain_status = "CONTINUE"
+                        elif selected_item_status == "BLOCKED":
+                            # A blocked selected item has already been recorded
+                            # in run_state.blocked_items by selected_item.
+                            # Continue so the next selector pass can skip it.
+                            drain_status = "CONTINUE"
+                        else:
+                            raise SystemExit(
+                                f"Unexpected selected item drain status: {selected_item_status!r}"
+                            )
+                        output_path.write_text(drain_status + "\n", encoding="utf-8")
+                      - ${steps.RunSelectedItem.artifacts.drain_status}
+                      - ${inputs.drain_state_root}/iterations/${loop.index}/selected_item_drain_status.txt
+                    expected_outputs:
+                      - name: drain_status
+                        path: ${inputs.drain_state_root}/iterations/${loop.index}/selected_item_drain_status.txt
+                        type: enum
+                        allowed: ["CONTINUE", "DONE", "BLOCKED"]
 
               DONE:
                 id: done_path
