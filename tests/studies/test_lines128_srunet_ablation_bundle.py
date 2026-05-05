@@ -181,6 +181,38 @@ def test_build_ablation_bundle_fails_when_completion_proof_missing(tmp_path: Pat
         )
 
 
+def test_build_ablation_bundle_refuses_to_overwrite_existing_outputs(tmp_path: Path):
+    from scripts.studies.lines128_srunet_ablation_bundle import (
+        BUNDLE_OUTPUT_FILENAMES,
+        build_ablation_bundle,
+    )
+
+    baseline_root = tmp_path / "baseline_root"
+    _write_row_artifacts(baseline_root / "runs" / "pinn_hybrid_resnet", {"mae": 0.10})
+
+    run_root = tmp_path / "fresh_run"
+    for model_id in (
+        "pinn_hybrid_resnet_encoder_conv_only",
+        "pinn_hybrid_resnet_encoder_spectral_only",
+        "supervised_hybrid_resnet",
+    ):
+        _write_row_artifacts(run_root / "runs" / model_id, {"mae": 0.1})
+
+    bundle_dir = tmp_path / "bundle"
+    bundle_dir.mkdir(parents=True)
+    sentinel = {"sentinel": "prior_bundle_artifact"}
+    for name in BUNDLE_OUTPUT_FILENAMES:
+        (bundle_dir / name).write_text(json.dumps(sentinel), encoding="utf-8")
+
+    with pytest.raises(FileExistsError, match="append-only"):
+        build_ablation_bundle(
+            run_root=run_root, baseline_root=baseline_root, bundle_dir=bundle_dir
+        )
+
+    for name in BUNDLE_OUTPUT_FILENAMES:
+        assert json.loads((bundle_dir / name).read_text(encoding="utf-8")) == sentinel
+
+
 def test_build_ablation_bundle_accepts_legacy_launcher_completion(tmp_path: Path):
     from scripts.studies.lines128_srunet_ablation_bundle import build_ablation_bundle
 

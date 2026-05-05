@@ -157,12 +157,26 @@ def _fresh_row_payload(run_root: Path, model_id: str) -> Dict[str, Any]:
     }
 
 
+BUNDLE_OUTPUT_FILENAMES = ("ablation_manifest.json", "ablation_metrics.json")
+
+
 def build_ablation_bundle(
     *,
     run_root: Path,
     baseline_root: Path,
     bundle_dir: Path,
 ) -> Dict[str, Any]:
+    existing = [
+        bundle_dir / name
+        for name in BUNDLE_OUTPUT_FILENAMES
+        if (bundle_dir / name).exists()
+    ]
+    if existing:
+        raise FileExistsError(
+            "Refusing to overwrite append-only ablation bundle artifacts at "
+            f"{bundle_dir}: {[str(path) for path in existing]}. "
+            "Point --bundle-dir at a fresh leaf instead."
+        )
     bundle_dir.mkdir(parents=True, exist_ok=True)
 
     baseline_payload = _baseline_row_payload(baseline_root)
