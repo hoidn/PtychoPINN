@@ -85,7 +85,7 @@ from ptycho_torch.config_params import update_existing_config
 #Custom modules
 from ptycho_torch.model import PtychoPINN_Lightning
 from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config
-from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, log_parameters_mlflow, is_effectively_global_rank_zero, print_auto_logged_info
+from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, log_parameters_mlflow, is_effectively_global_rank_zero, print_auto_logged_info, resolve_n_devices
 from ptycho_torch.train_utils import ModelFineTuner, PtychoDataModule, LightningConfigSaveCallback, ModelFineTuner_Lightning
 
 # mlflow.set_tracking_uri("http://127.0.0.1:5000")
@@ -197,6 +197,8 @@ def main(ptycho_dir,
     #If train is called via train_full, these settings will already have been loaded
     else:
         data_config, model_config, training_config, inference_config, datagen_config = existing_config
+
+    resolve_n_devices(training_config)
 
     #Setting seed
     set_seed(42, n_devices = training_config.n_devices)
@@ -410,6 +412,7 @@ def main_lightning(
     if i_config_replace:
         update_existing_config(inference_config, i_config_replace)
     
+    resolve_n_devices(training_config)
     print(f"Config: {training_config.n_devices} GPUs, batch_size={training_config.batch_size}")
 
     # Setup configurations to save
