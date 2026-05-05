@@ -1,5 +1,23 @@
 # Studies Index
 
+## CDI Datasets / Resources
+
+### `natural_patches128_fixedprobe_v1` (dataset prerequisite; locked)
+
+- Purpose: provide a frozen expanded-object CDI dataset (natural-image-derived
+  N=128 object patches with the lines128 Run1084 fixed-probe lineage) so that
+  later expanded-object benchmark items can train and evaluate without
+  rebuilding the dataset contract. This is dataset-prerequisite work only and
+  does not produce manuscript-facing benchmark evidence.
+- Plan: `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-fixedprobe-dataset/execution_plan.md`
+- Summary authority: `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_natural_patch_fixedprobe_dataset_summary.md`
+- Builder module: `scripts/studies/cdi_natural_patch_dataset.py`
+- Entrypoint: `scripts/studies/run_cdi_natural_patch_dataset.py`
+- Test: `tests/studies/test_cdi_natural_patch_dataset.py`
+- Dataset root (git-ignored): `.artifacts/data/NEURIPS-HYBRID-RESNET-2026/natural_patches128_fixedprobe_v1/`
+- Boundary: dataset prerequisite only; not benchmark evidence; does not replace
+  the `lines128` paper table authority.
+
 ## PDE / Forward-Modeling Studies
 
 ### `born-rytov-dt-candidate-preflight` (candidate; active backlog)

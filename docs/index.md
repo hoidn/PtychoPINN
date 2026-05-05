@@ -118,6 +118,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, hybrid_resnet, paper, evidence-index, completed-backlog, outcomes, artifacts, claim-boundary
 **Use this when:** Locating completed backlog results, checking whether an artifact is paper-facing or decision-support only, finding table/figure bundle roots, or auditing which summary owns a claim.
 
+### [NeurIPS CDI Natural-Patch Fixed-Probe Dataset Summary](plans/NEURIPS-HYBRID-RESNET-2026/cdi_natural_patch_fixedprobe_dataset_summary.md)
+**Description:** Frozen `natural_patches128_fixedprobe_v1` expanded-object CDI dataset (8000/1000/1000 split, source-image-isolated, Run1084 fixed-probe lineage, single-shot CDI forward model). Dataset prerequisite only; not benchmark evidence.
+**Keywords:** neurips, hybrid_resnet, cdi, natural-patches, fixed-probe, dataset-prerequisite, expanded-object
+**Use this when:** Locating the natural-patch CDI dataset root, manifests, adapter contract, or verifying that a downstream consumer is using the locked dataset before launching expanded-object benchmark work.
+
 ### [NeurIPS Hybrid ResNet Evidence Matrix](plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md)
 **Description:** Human-facing master matrix for NeurIPS/SRU-Net evidence, keyed by dataset, model/config surface, training mode, ablation family, completed backlog item, summary authority, and artifact root.
 **Keywords:** neurips, hybrid_resnet, sru-net, evidence-matrix, model-variants, ablations, completed-backlog, cdi, cns

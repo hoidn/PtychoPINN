@@ -1,7 +1,7 @@
 # NeurIPS Hybrid ResNet Evidence Matrix
 
 Status: draft  
-Last updated: 2026-05-05 (SRU-Net branch/objective ablation appended)
+Last updated: 2026-05-05 (natural-patch fixed-probe CDI dataset prerequisite appended)
 
 This is the human-facing master matrix for NeurIPS/SRU-Net evidence. It points
 to all relevant completed backlog outputs, keyed by dataset, model/config
@@ -28,6 +28,7 @@ Machine-readable companions:
 | PDEBench CNS 512cap fallback provenance | `pdebench_cns_paper_table_figure_bundle_summary.md` | bounded capped decision-support only, preserved historical fallback |
 | PDEBench Darcy static-operator full-training benchmark | `pdebench_darcy_static_operator_summary.md` | `benchmark_performance` for `hybrid_resnet_base`, `fno_base`, `unet_strong` under the locked `8000/1000/1000` split, relative-L2 loss, `50` epochs |
 | Cross-pillar claim audit | `paper_evidence_package_audit_summary.md` | preserves CDI/CNS claim asymmetry |
+| CDI natural-patch fixed-probe dataset (`natural_patches128_fixedprobe_v1`) | `cdi_natural_patch_fixedprobe_dataset_summary.md` | dataset prerequisite only; not benchmark evidence; does not replace `lines128` table |
 | Completed backlog outcome map | `paper_evidence_index.md` | first-stop durable outcome index |
 
 ## Manuscript Incorporation Map
@@ -299,6 +300,7 @@ completed four-row preflight for potential manuscript or supplement use:
 | `2026-05-04-brdt-physics-only-objective-ablation` | BRDT append-only physics-only objective ablation for the three neural rows (decision_support_append_only, not paper evidence) | `brdt_physics_only_objective_ablation_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-physics-only-objective-ablation/` |
 | `2026-05-04-brdt-ffno-row-extension` | BRDT append-only architecture row extension adding a single factorized Fourier operator (FFNO) row to the four-row preflight (decision_support_append_only, not paper evidence) | `brdt_ffno_row_extension_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-ffno-row-extension/` |
 | `2026-05-04-pdebench-darcy-full-training-benchmark` | PDEBench Darcy full-training benchmark | `pdebench_darcy_static_operator_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/full_benchmark_20260504T182832Z` |
+| `2026-05-04-cdi-natural-patch-fixedprobe-dataset` | CDI natural-patch fixed-probe dataset prerequisite (`natural_patches128_fixedprobe_v1`; not benchmark evidence) | `cdi_natural_patch_fixedprobe_dataset_summary.md` | `.artifacts/data/NEURIPS-HYBRID-RESNET-2026/natural_patches128_fixedprobe_v1/` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-design` | legacy CDI architecture-search design | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-stage-a-execution` | legacy CDI architecture-search execution | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-stage-b-execution` | legacy CDI architecture-search execution | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
