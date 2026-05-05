@@ -1163,3 +1163,181 @@ def test_run_preflight_emits_comparison_when_baseline_root_supplied(tmp_path):
         (baseline_root / preflight_mod.PREFLIGHT_MANIFEST_NAME).read_text()
     )
     assert baseline_manifest["backlog_item"] == preflight_mod.BACKLOG_ITEM
+
+
+def test_comparison_populates_fixed_sample_dynamic_range_for_baseline_without_eval_field(
+    tmp_path,
+):
+    """Backfill the baseline collapse-detection signal from saved arrays.
+
+    Older baselines predate the eval-split ``output_dynamic_range`` field, so
+    the eval block is ``null`` on the baseline side. The comparison must still
+    surface a populated like-for-like ``fixed_sample`` block computed from each
+    bundle's ``figures/source_arrays/sample_*_<row_id>_q_pred.npy`` files,
+    plus the per-component ``final_loss_breakdown`` deltas, so callers can
+    diagnose collapse without needing to re-run the baseline.
+    """
+    from scripts.studies.born_rytov_dt import comparison as comp_mod
+
+    baseline_root = tmp_path / "baseline_root"
+    ablation_root = tmp_path / "ablation_root"
+    (baseline_root / "figures" / "source_arrays").mkdir(parents=True)
+    (ablation_root / "figures" / "source_arrays").mkdir(parents=True)
+
+    rng = np.random.default_rng(0)
+    # Baseline saved fixed-sample predictions: wide dynamic range.
+    for sid in (1, 2):
+        np.save(
+            baseline_root / "figures" / "source_arrays"
+            / f"sample_{sid:04d}_unet_q_pred.npy",
+            rng.normal(0.0, 0.05, size=(8, 8)).astype(np.float32),
+        )
+    # Ablation saved fixed-sample predictions: narrower (collapse-like).
+    for sid in (1, 2):
+        np.save(
+            ablation_root / "figures" / "source_arrays"
+            / f"sample_{sid:04d}_unet_q_pred.npy",
+            np.full((8, 8), 1e-4, dtype=np.float32),
+        )
+
+    baseline_metrics = {
+        "rows": [
+            {
+                "row_id": "unet",
+                "paper_label": "U-Net",
+                "architecture": "unet",
+                "image": {
+                    "image_mae_phys": 0.001,
+                    "image_rmse_phys": 0.003,
+                    "image_relative_l2_phys": 0.7,
+                },
+                "measurement": {
+                    "meas_mae": 0.002,
+                    "meas_rmse": 0.004,
+                    "meas_relative_l2": 0.5,
+                },
+                "supporting": {"psnr_phys": 25.0, "ssim_phys": 0.7},
+                "runtime": {
+                    "parameter_count": 18465,
+                    "wall_time_train_s": 60.0,
+                    "wall_time_eval_s": 0.5,
+                    "epochs": 1,
+                    "batch_size": 1,
+                    "learning_rate": 2e-4,
+                    "extras": {
+                        "final_loss_breakdown": {
+                            "image": 0.4,
+                            "physics": 0.003,
+                            "relative_physics": 0.7,
+                            "tv": 1e-4,
+                            "positivity": 1e-9,
+                            "total": 0.5,
+                        },
+                    },
+                },
+            }
+        ],
+    }
+    ablation_metrics = {
+        "rows": [
+            {
+                "row_id": "unet",
+                "paper_label": "U-Net",
+                "architecture": "unet",
+                "image": {
+                    "image_mae_phys": 0.002,
+                    "image_rmse_phys": 0.004,
+                    "image_relative_l2_phys": 0.85,
+                },
+                "measurement": {
+                    "meas_mae": 0.0025,
+                    "meas_rmse": 0.005,
+                    "meas_relative_l2": 0.6,
+                },
+                "supporting": {"psnr_phys": 21.0, "ssim_phys": 0.6},
+                "runtime": {
+                    "parameter_count": 18465,
+                    "wall_time_train_s": 70.0,
+                    "wall_time_eval_s": 0.6,
+                    "epochs": 1,
+                    "batch_size": 1,
+                    "learning_rate": 2e-4,
+                    "extras": {
+                        "final_loss_breakdown": {
+                            "image": 0.5,
+                            "physics": 0.003,
+                            "relative_physics": 0.6,
+                            "tv": 2e-4,
+                            "positivity": 1e-7,
+                            "total": 0.6,
+                        },
+                        "output_dynamic_range": {
+                            "physical_q_min": -0.001,
+                            "physical_q_max": 0.001,
+                            "physical_q_mean": 0.0,
+                            "physical_q_std": 0.0005,
+                            "physical_q_ptp": 0.002,
+                        },
+                    },
+                },
+            }
+        ],
+    }
+
+    payload = comp_mod.build_comparison(
+        baseline_metrics=baseline_metrics,
+        ablation_metrics=ablation_metrics,
+        selected_row_ids=["unet"],
+        baseline_root=str(baseline_root),
+        ablation_root=str(ablation_root),
+        baseline_root_path=baseline_root,
+        ablation_root_path=ablation_root,
+    )
+
+    row = payload["rows"][0]
+    odr = row["output_dynamic_range"]
+    # Eval-block: baseline is null because baseline metrics predate the field.
+    assert odr["baseline"] is None
+    assert odr["ablation"] is not None
+    # Fixed-sample block: BOTH sides populated, deltas computed.
+    fixed = odr["fixed_sample"]
+    assert fixed["baseline"] is not None
+    assert fixed["ablation"] is not None
+    for key in (
+        "physical_q_min",
+        "physical_q_max",
+        "physical_q_mean",
+        "physical_q_std",
+        "physical_q_ptp",
+    ):
+        assert key in fixed["baseline"]
+        assert key in fixed["ablation"]
+        assert fixed["delta"][key] == pytest.approx(
+            fixed["ablation"][key] - fixed["baseline"][key]
+        )
+    # The ablation collapsed (constant predictions), so its ptp is much
+    # smaller than the baseline — delta must be negative.
+    assert fixed["delta"]["physical_q_ptp"] < 0
+    assert fixed["baseline"]["n_samples"] == 2
+    assert fixed["ablation"]["n_samples"] == 2
+
+    # final_loss_breakdown now carries per-component deltas.
+    flb = row["final_loss_breakdown"]
+    assert flb["delta"]["total"] == pytest.approx(0.6 - 0.5)
+    assert flb["delta"]["relative_physics"] == pytest.approx(0.6 - 0.7)
+
+    # CSV must surface the loss-breakdown and dynamic-range columns that
+    # were previously dropped.
+    csv_path = tmp_path / "out.csv"
+    comp_mod.write_comparison_csv(payload, csv_path)
+    header_line = csv_path.read_text().splitlines()[0]
+    for expected in (
+        "final_loss_total_baseline",
+        "final_loss_total_ablation",
+        "final_loss_total_delta",
+        "output_dynamic_range_eval_physical_q_ptp_ablation",
+        "output_dynamic_range_fixed_physical_q_ptp_baseline",
+        "output_dynamic_range_fixed_physical_q_ptp_ablation",
+        "output_dynamic_range_fixed_physical_q_ptp_delta",
+    ):
+        assert expected in header_line, f"missing column: {expected}"

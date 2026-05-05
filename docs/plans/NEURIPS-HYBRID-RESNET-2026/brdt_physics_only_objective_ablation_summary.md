@@ -154,10 +154,22 @@ Notes on dynamic range:
   image-space gap reflects loss of the supervised image L1 signal, not a
   loss of representational capacity.
 
-The baseline bundle predates this ablation contract and therefore does
-not carry an `output_dynamic_range` field; the comparison file lists
-`baseline: null` for that block. This is intentional and append-only:
-the baseline bundle is read-only.
+The baseline bundle predates the eval-split `output_dynamic_range`
+field, so the comparison file lists `output_dynamic_range.baseline:
+null` for the eval-split block. To keep collapse detection populated on
+both sides without rerunning or rewriting the baseline, the comparison
+also carries a like-for-like
+`output_dynamic_range.fixed_sample.{baseline,ablation,delta}` block
+computed directly from each bundle's saved
+`figures/source_arrays/sample_*_<row>_q_pred.npy` arrays — the same
+four fixed samples in both bundles. The fixed-sample window confirms
+the same direction as the eval-split read: U-Net's `physical_q_ptp`
+shrinks against the baseline (collapse persists), FNO and Hybrid ResNet
+move towards the target std on a like-for-like basis. Schema bumps
+from `brdt_objective_ablation_comparison_v1` to
+`brdt_objective_ablation_comparison_v2` to reflect the added
+fixed-sample block and the per-component `final_loss_breakdown.delta`
+field.
 
 ## 6. Lineage And Append-Only Contract
 
