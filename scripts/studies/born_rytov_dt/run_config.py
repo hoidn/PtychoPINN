@@ -57,6 +57,7 @@ SUPPORTED_ARCHITECTURES: Tuple[str, ...] = (
     "unet",
     "fno_vanilla",
     "hybrid_resnet",
+    "ffno",
 )
 
 # Visible row identifiers the bounded preflight may surface. ``sru_net``
@@ -69,6 +70,7 @@ SUPPORTED_ROW_IDS: Tuple[str, ...] = (
     "fno_vanilla",
     "hybrid_resnet",
     "sru_net",
+    "ffno",
 )
 
 HYBRID_FAMILY_ROW_IDS: Tuple[str, ...] = ("hybrid_resnet", "sru_net")
@@ -327,6 +329,18 @@ DEFAULT_ARCH_KWARGS: Dict[str, Dict[str, Any]] = {
         "fno_blocks": 2,
         "resnet_blocks": 2,
         "downsample_steps": 1,
+    },
+    # Task-local BRDT FFNO defaults. The body is the factorized Fourier
+    # block stack from ``ptycho_torch.generators.ffno_bottleneck``; FFNO
+    # has its own internal architecture identity distinct from
+    # ``fno_vanilla`` and must NOT be aliased to it.
+    "ffno": {
+        "hidden_channels": 16,
+        "fno_modes": 8,
+        "fno_blocks": 4,
+        "share_spectral_weights": False,
+        "mlp_ratio": 2.0,
+        "cnn_blocks": 2,
     },
 }
 

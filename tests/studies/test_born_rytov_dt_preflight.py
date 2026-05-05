@@ -1442,6 +1442,524 @@ def test_run_preflight_ablation_invocation_artifacts_carry_physics_only_backlog_
         assert parsed.rows == row_id
 
 
+# ----------------------------------------------------------------------
+# BRDT FFNO row extension (2026-05-04-brdt-ffno-row-extension)
+# ----------------------------------------------------------------------
+def _make_synthetic_baseline_bundle(tmp_path: Path) -> Path:
+    """Stand up a baseline-shaped bundle for FFNO-extension validator tests.
+
+    Mirrors the fields the extension validator inspects without running a
+    real four-row preflight. The synthetic bundle is structurally valid
+    (passes ``validate_baseline_bundle``) but carries placeholder metrics
+    so combined-bundle helpers can be exercised cheaply.
+    """
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+
+    baseline_root = tmp_path / "synthetic_baseline"
+    (baseline_root / "figures" / "source_arrays").mkdir(parents=True)
+    manifest = {
+        "schema_version": "brdt_preflight_v1",
+        "backlog_item": ext_bundle.BASELINE_BACKLOG_ITEM,
+        "claim_boundary": "decision_support_preflight_only",
+        "next_backlog_item": "downstream",
+        "output_root": str(baseline_root),
+        "dataset": {
+            "dataset_id": dc.DECISION_SUPPORT_DATASET_NAME,
+            "tier": "decision_support",
+            "manifest_path": str(baseline_root / "dataset_manifest.json"),
+            "split_counts": {"train": 2048, "val": 256, "test": 256},
+            "normalization": {
+                "q_max_train": 0.028,
+                "q_mean_train": 0.001,
+                "q_min_train": -0.027,
+                "q_std_train": 0.005,
+            },
+            "claim_boundary": "decision_support",
+        },
+        "operator": {
+            "validation_artifact": "/tmp/operator_validation.json",
+            "validation_report": "docs/validation.md",
+            "geometry": {
+                "grid_size": 128,
+                "detector_size": 128,
+                "angle_count": 64,
+                "wavelength_px": 8.0,
+                "medium_ri": 1.333,
+                "mode": "born",
+                "normalize": "unitary_fft",
+            },
+        },
+        "input_contract": {
+            "input_mode": "born_init_image",
+            "in_channels": 1,
+        },
+        "training_contract": {
+            "epochs": 20,
+            "batch_size": 16,
+            "learning_rate": 2e-4,
+            "optimizer": "Adam",
+            "loss_weights": {
+                "image": 1.0,
+                "physics": 0.1,
+                "relative_physics": 0.1,
+                "tv": 1e-5,
+                "positivity": 1e-4,
+            },
+            "seed": 42,
+        },
+        "fixed_sample_seed": 17,
+        "fixed_sample_ids": [145, 83, 255, 126],
+        "rows": [
+            {
+                "row_id": "classical_born_backprop",
+                "model": "classical_born_backprop",
+                "training": "none",
+                "input_mode": "born_init_image",
+                "dataset_id": dc.DECISION_SUPPORT_DATASET_NAME,
+                "operator_version": "/tmp/operator_validation.json",
+                "row_status": "completed",
+                "paper_label": "Model-based Born inverse",
+            },
+            {
+                "row_id": "unet",
+                "model": "unet",
+                "training": "supervised + Born consistency",
+                "input_mode": "born_init_image",
+                "dataset_id": dc.DECISION_SUPPORT_DATASET_NAME,
+                "operator_version": "/tmp/operator_validation.json",
+                "row_status": "completed",
+                "paper_label": "U-Net",
+            },
+            {
+                "row_id": "fno_vanilla",
+                "model": "fno_vanilla",
+                "training": "supervised + Born consistency",
+                "input_mode": "born_init_image",
+                "dataset_id": dc.DECISION_SUPPORT_DATASET_NAME,
+                "operator_version": "/tmp/operator_validation.json",
+                "row_status": "completed",
+                "paper_label": "FNO vanilla",
+            },
+            {
+                "row_id": "hybrid_resnet",
+                "model": "hybrid_resnet",
+                "training": "supervised + Born consistency",
+                "input_mode": "born_init_image",
+                "dataset_id": dc.DECISION_SUPPORT_DATASET_NAME,
+                "operator_version": "/tmp/operator_validation.json",
+                "row_status": "completed",
+                "paper_label": "Hybrid ResNet",
+            },
+        ],
+    }
+    metrics = {
+        "schema_version": "brdt_preflight_metrics_v1",
+        "claim_boundary": "decision_support_preflight_only",
+        "rows": [
+            {
+                "row_id": row["row_id"],
+                "paper_label": row["paper_label"],
+                "architecture": row["model"],
+                "row_status": "completed",
+                "image": {
+                    "image_mae_phys": 0.001,
+                    "image_rmse_phys": 0.002,
+                    "image_relative_l2_phys": 0.5,
+                },
+                "measurement": {
+                    "meas_mae": 0.001,
+                    "meas_rmse": 0.002,
+                    "meas_relative_l2": 0.3,
+                },
+                "supporting": {"psnr_phys": 25.0, "ssim_phys": 0.7},
+                "runtime": {
+                    "device": "cpu",
+                    "device_name": "cpu",
+                    "epochs": 20,
+                    "batch_size": 16,
+                    "learning_rate": 2e-4,
+                    "parameter_count": 100,
+                    "wall_time_train_s": 1.0,
+                    "wall_time_eval_s": 0.1,
+                    "row_status": "completed",
+                },
+            }
+            for row in manifest["rows"]
+        ],
+    }
+    (baseline_root / "preflight_manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+    )
+    (baseline_root / "metrics.json").write_text(
+        json.dumps(metrics, indent=2, sort_keys=True) + "\n"
+    )
+    return baseline_root
+
+
+def test_extension_bundle_validate_baseline_bundle_rejects_missing_metrics(tmp_path):
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+
+    baseline_root = tmp_path / "incomplete_baseline"
+    baseline_root.mkdir()
+    (baseline_root / "preflight_manifest.json").write_text(
+        json.dumps({"backlog_item": ext_bundle.BASELINE_BACKLOG_ITEM})
+    )
+    with pytest.raises(ext_bundle.BaselineContractMismatchError, match="metrics.json"):
+        ext_bundle.validate_baseline_bundle(baseline_root)
+
+
+def test_extension_bundle_validate_baseline_bundle_rejects_wrong_backlog_item(tmp_path):
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    manifest_path = baseline_root / "preflight_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["backlog_item"] = "some-other-backlog"
+    manifest_path.write_text(json.dumps(manifest))
+    with pytest.raises(
+        ext_bundle.BaselineContractMismatchError, match="backlog_item"
+    ):
+        ext_bundle.validate_baseline_bundle(baseline_root)
+
+
+def test_extension_bundle_assert_extension_inherits_rejects_dataset_drift(tmp_path):
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    baseline_manifest = ext_bundle.validate_baseline_bundle(baseline_root)
+    base_training = baseline_manifest["training_contract"]
+    base_pointer = baseline_manifest["operator"]["validation_artifact"]
+    with pytest.raises(
+        ext_bundle.BaselineContractMismatchError, match="dataset_id"
+    ):
+        ext_bundle.assert_extension_inherits_baseline(
+            baseline_manifest=baseline_manifest,
+            extension_dataset_id="some-other-dataset",
+            extension_input_mode="born_init_image",
+            extension_in_channels=1,
+            extension_training_contract=base_training,
+            extension_fixed_sample_ids=baseline_manifest["fixed_sample_ids"],
+            extension_operator_pointer=base_pointer,
+            extension_claim_boundary=ext_bundle.APPEND_ONLY_CLAIM_BOUNDARY,
+        )
+
+
+def test_extension_bundle_assert_extension_inherits_rejects_claim_boundary_drift(
+    tmp_path,
+):
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    baseline_manifest = ext_bundle.validate_baseline_bundle(baseline_root)
+    base_training = baseline_manifest["training_contract"]
+    base_pointer = baseline_manifest["operator"]["validation_artifact"]
+    with pytest.raises(
+        ext_bundle.BaselineContractMismatchError, match="claim_boundary"
+    ):
+        ext_bundle.assert_extension_inherits_baseline(
+            baseline_manifest=baseline_manifest,
+            extension_dataset_id=baseline_manifest["dataset"]["dataset_id"],
+            extension_input_mode="born_init_image",
+            extension_in_channels=1,
+            extension_training_contract=base_training,
+            extension_fixed_sample_ids=baseline_manifest["fixed_sample_ids"],
+            extension_operator_pointer=base_pointer,
+            extension_claim_boundary="decision_support_preflight_only",
+        )
+
+
+def test_extension_bundle_combined_metrics_preserves_baseline_and_appends_ffno(
+    tmp_path,
+):
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    extension_root = tmp_path / "extension_root"
+    extension_root.mkdir()
+    # Synthetic extension manifest + metrics carrying only the FFNO row.
+    extension_manifest = {
+        "schema_version": "brdt_preflight_v1",
+        "backlog_item": ext_bundle.EXTENSION_BACKLOG_ITEM,
+        "claim_boundary": ext_bundle.APPEND_ONLY_CLAIM_BOUNDARY,
+        "rows": [
+            {
+                "row_id": "ffno",
+                "model": "ffno",
+                "training": "supervised + Born consistency",
+                "input_mode": "born_init_image",
+                "dataset_id": dc.DECISION_SUPPORT_DATASET_NAME,
+                "operator_version": "/tmp/operator_validation.json",
+                "row_status": "completed",
+                "paper_label": "FFNO",
+            }
+        ],
+    }
+    extension_metrics = {
+        "schema_version": "brdt_preflight_metrics_v1",
+        "claim_boundary": ext_bundle.APPEND_ONLY_CLAIM_BOUNDARY,
+        "rows": [
+            {
+                "row_id": "ffno",
+                "paper_label": "FFNO",
+                "architecture": "ffno",
+                "row_status": "completed",
+                "image": {
+                    "image_mae_phys": 0.0009,
+                    "image_rmse_phys": 0.0019,
+                    "image_relative_l2_phys": 0.45,
+                },
+                "measurement": {
+                    "meas_mae": 0.0009,
+                    "meas_rmse": 0.0018,
+                    "meas_relative_l2": 0.27,
+                },
+                "supporting": {"psnr_phys": 27.0, "ssim_phys": 0.72},
+                "runtime": {
+                    "device": "cpu",
+                    "device_name": "cpu",
+                    "epochs": 20,
+                    "batch_size": 16,
+                    "learning_rate": 2e-4,
+                    "parameter_count": 36674,
+                    "wall_time_train_s": 5.0,
+                    "wall_time_eval_s": 0.2,
+                    "row_status": "completed",
+                },
+            }
+        ],
+    }
+    (extension_root / "preflight_manifest.json").write_text(
+        json.dumps(extension_manifest, indent=2, sort_keys=True) + "\n"
+    )
+    (extension_root / "metrics.json").write_text(
+        json.dumps(extension_metrics, indent=2, sort_keys=True) + "\n"
+    )
+
+    paths = ext_bundle.emit_combined_bundle(
+        baseline_root=baseline_root,
+        extension_root=extension_root,
+    )
+    combined = json.loads(paths["combined_metrics_json"].read_text())
+    # Five rows: original four baseline rows + one FFNO row.
+    assert len(combined["rows"]) == 5
+    row_ids = [row["row_id"] for row in combined["rows"]]
+    assert row_ids == [
+        "classical_born_backprop",
+        "unet",
+        "fno_vanilla",
+        "hybrid_resnet",
+        "ffno",
+    ]
+    sources = [row["source"] for row in combined["rows"]]
+    assert sources[:4] == ["baseline_lineage"] * 4
+    assert sources[-1] == "extension"
+    # Combined manifest agrees on backlog identity + lineage pointers.
+    manifest_payload = json.loads(paths["combined_manifest_json"].read_text())
+    assert manifest_payload["backlog_item"] == ext_bundle.EXTENSION_BACKLOG_ITEM
+    assert manifest_payload["claim_boundary"] == ext_bundle.APPEND_ONLY_CLAIM_BOUNDARY
+    assert (
+        manifest_payload["baseline"]["backlog_item"]
+        == ext_bundle.BASELINE_BACKLOG_ITEM
+    )
+    # Baseline rows are preserved by lineage with their visible identity intact.
+    baseline_combined_rows = [r for r in combined["rows"] if r["source"] == "baseline_lineage"]
+    paper_labels = {r["row_id"]: r["paper_label"] for r in baseline_combined_rows}
+    assert paper_labels["classical_born_backprop"] == "Model-based Born inverse"
+    assert paper_labels["hybrid_resnet"] == "Hybrid ResNet"
+    # Combined CSV header includes the source column.
+    csv_text = paths["combined_metrics_csv"].read_text().splitlines()
+    assert csv_text[0].startswith("source,row_id,paper_label,architecture")
+
+
+def test_extension_bundle_emit_does_not_overwrite_baseline_artifacts(tmp_path):
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    baseline_manifest_before = (
+        baseline_root / "preflight_manifest.json"
+    ).read_bytes()
+    baseline_metrics_before = (baseline_root / "metrics.json").read_bytes()
+    extension_root = tmp_path / "extension_no_overwrite"
+    extension_root.mkdir()
+    (extension_root / "preflight_manifest.json").write_text(
+        json.dumps({"rows": []})
+    )
+    (extension_root / "metrics.json").write_text(
+        json.dumps(
+            {
+                "rows": [
+                    {
+                        "row_id": "ffno",
+                        "paper_label": "FFNO",
+                        "architecture": "ffno",
+                        "row_status": "completed",
+                        "image": {},
+                        "measurement": {},
+                        "supporting": {},
+                        "runtime": {},
+                    }
+                ]
+            }
+        )
+    )
+    ext_bundle.emit_combined_bundle(
+        baseline_root=baseline_root,
+        extension_root=extension_root,
+    )
+    assert (
+        baseline_root / "preflight_manifest.json"
+    ).read_bytes() == baseline_manifest_before
+    assert (baseline_root / "metrics.json").read_bytes() == baseline_metrics_before
+
+
+def test_run_ffno_extension_dry_run_writes_manifest_under_extension_root(tmp_path):
+    """Dry-run path emits the FFNO-only manifest with append-only claim boundary."""
+    from scripts.studies.born_rytov_dt import run_ffno_extension as ffno_mod
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    # Patch the synthetic baseline so its dataset_id, in_channels, and
+    # training contract match what the extension would inherit from
+    # this CPU-friendly test fixture (epochs=1, batch_size=1, lr=2e-4).
+    base_manifest_path = baseline_root / "preflight_manifest.json"
+    baseline = json.loads(base_manifest_path.read_text())
+    op_pointer = json.loads(Path(manifest_path).read_text())["operator"][
+        "validation_artifact"
+    ]
+    baseline["dataset"]["dataset_id"] = dc.DECISION_SUPPORT_DATASET_NAME
+    baseline["operator"]["validation_artifact"] = op_pointer
+    baseline["training_contract"] = {
+        "epochs": 1,
+        "batch_size": 1,
+        "learning_rate": 2e-4,
+        "optimizer": "Adam",
+        "loss_weights": run_config.LossWeights().as_dict(),
+        "seed": 42,
+    }
+    base_manifest_path.write_text(json.dumps(baseline, indent=2, sort_keys=True))
+
+    extension_root = tmp_path / "ffno_extension_dry"
+    contract = preflight_mod.TrainingContract(
+        epochs=1, batch_size=1, learning_rate=2e-4
+    )
+    result = ffno_mod.run_ffno_extension(
+        baseline_root=baseline_root,
+        manifest_path=manifest_path,
+        output_root=extension_root,
+        contract=contract,
+        in_channels=1,
+        device_choice="cpu",
+        dry_run=True,
+        parent_argv=["--dry-run"],
+    )
+    assert result.get("dry_run") is True
+    manifest = json.loads(
+        (extension_root / "preflight_manifest.json").read_text()
+    )
+    assert manifest["backlog_item"] == ffno_mod.BACKLOG_ITEM
+    assert manifest["claim_boundary"] == ffno_mod.CLAIM_BOUNDARY
+    # Only FFNO is listed under the extension's row roster.
+    assert [r["row_id"] for r in manifest["rows"]] == ["ffno"]
+    schema = json.loads((extension_root / "metric_schema.json").read_text())
+    assert schema["claim_boundary"] == ffno_mod.CLAIM_BOUNDARY
+
+
+def test_run_ffno_extension_refuses_when_baseline_root_missing(tmp_path):
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+    from scripts.studies.born_rytov_dt import run_ffno_extension as ffno_mod
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    bogus_baseline = tmp_path / "no_such_baseline"
+    bogus_baseline.mkdir()
+    extension_root = tmp_path / "ffno_extension_invalid"
+    contract = preflight_mod.TrainingContract(
+        epochs=1, batch_size=1, learning_rate=2e-4
+    )
+    with pytest.raises(ext_bundle.BaselineContractMismatchError):
+        ffno_mod.run_ffno_extension(
+            baseline_root=bogus_baseline,
+            manifest_path=manifest_path,
+            output_root=extension_root,
+            contract=contract,
+            in_channels=1,
+            device_choice="cpu",
+            dry_run=True,
+            parent_argv=["--dry-run"],
+        )
+
+
+def test_run_ffno_extension_live_emits_combined_bundle(tmp_path):
+    """Live FFNO row run emits FFNO-only metrics + read-only-lineage combined bundle."""
+    from scripts.studies.born_rytov_dt import run_ffno_extension as ffno_mod
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    base_manifest_path = baseline_root / "preflight_manifest.json"
+    baseline = json.loads(base_manifest_path.read_text())
+    op_pointer = json.loads(Path(manifest_path).read_text())["operator"][
+        "validation_artifact"
+    ]
+    baseline["dataset"]["dataset_id"] = dc.DECISION_SUPPORT_DATASET_NAME
+    baseline["operator"]["validation_artifact"] = op_pointer
+    baseline["training_contract"] = {
+        "epochs": 1,
+        "batch_size": 1,
+        "learning_rate": 2e-4,
+        "optimizer": "Adam",
+        "loss_weights": run_config.LossWeights().as_dict(),
+        "seed": 42,
+    }
+    base_manifest_path.write_text(json.dumps(baseline, indent=2, sort_keys=True))
+
+    extension_root = tmp_path / "ffno_extension_live"
+    contract = preflight_mod.TrainingContract(
+        epochs=1, batch_size=1, learning_rate=2e-4
+    )
+    result = ffno_mod.run_ffno_extension(
+        baseline_root=baseline_root,
+        manifest_path=manifest_path,
+        output_root=extension_root,
+        contract=contract,
+        in_channels=1,
+        device_choice="cpu",
+        dry_run=False,
+        parent_argv=["--manifest", str(manifest_path)],
+    )
+    # Extension-root artifacts present and append-only.
+    metrics = json.loads((extension_root / "metrics.json").read_text())
+    assert metrics["claim_boundary"] == ffno_mod.CLAIM_BOUNDARY
+    assert [r["row_id"] for r in metrics["rows"]] == ["ffno"]
+    assert metrics["rows"][0]["row_status"] == "completed"
+    # Combined view preserves baseline rows (read-only lineage) + FFNO.
+    combined = json.loads(
+        (extension_root / "combined_metrics.json").read_text()
+    )
+    row_ids = [row["row_id"] for row in combined["rows"]]
+    assert row_ids == [
+        "classical_born_backprop",
+        "unet",
+        "fno_vanilla",
+        "hybrid_resnet",
+        "ffno",
+    ]
+    # Baseline bundle is left untouched.
+    assert (baseline_root / "preflight_manifest.json").exists()
+    base_payload = json.loads(
+        (baseline_root / "preflight_manifest.json").read_text()
+    )
+    assert base_payload["backlog_item"] == "2026-04-29-brdt-four-row-preflight"
+    # Per-row provenance + state under rows/ffno/.
+    ffno_summary = json.loads(
+        (extension_root / "rows" / "ffno" / "row_summary.json").read_text()
+    )
+    assert ffno_summary["row_id"] == "ffno"
+    assert ffno_summary["row_status"] == "completed"
+    assert "model_state_path" in ffno_summary
+    # Returned paths surface the combined-bundle artifacts.
+    assert "combined_metrics_json_path" in result
+    assert "combined_manifest_json_path" in result
+
+
 def test_run_preflight_default_invocation_artifacts_keep_baseline_backlog_item(
     tmp_path,
 ):

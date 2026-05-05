@@ -19,6 +19,7 @@
     "brdt_candidate_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.tex",
     "brdt_candidate_recon_png": "docs/plans/NEURIPS-HYBRID-RESNET-2026/figures/brdt_decision_support_recon.png",
     "brdt_physics_only_objective_ablation_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_physics_only_objective_ablation_summary.md",
+    "brdt_ffno_row_extension_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_ffno_row_extension_summary.md",
     "cns_history5_gap_fill_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md"
   },
   "dataset_contracts": {
@@ -1560,6 +1561,51 @@
       },
       "evidence_status": "decision_support_append_only",
       "changed_factor": "neural-row training objective swapped to relative_physics_only (image=0, physics=0, relative_physics=1, tv=0, positivity=0); dataset, operator, input mode, split, fixed-sample IDs, epoch budget, batch size, learning rate, and training seed identical to the supervised+Born baseline."
+    },
+    {
+      "variant_id": "brdt__ffno__supervised_plus_born_consistency__decision_support_append_only",
+      "dataset_contract_id": "brdt_decision_support_2048cap",
+      "row_id": "ffno",
+      "paper_label": "FFNO",
+      "architecture_id": "ffno",
+      "model_family": "factorized_fourier_operator",
+      "training_mode": "supervised_plus_born_consistency",
+      "source_backlog_item": "2026-05-04-brdt-ffno-row-extension",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_ffno_row_extension_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-ffno-row-extension/",
+      "metrics_json": "metrics.json",
+      "combined_metrics_json": "combined_metrics.json",
+      "combined_manifest_json": "combined_manifest.json",
+      "baseline_variant_ids": [
+        "brdt__unet__supervised_plus_born_consistency__decision_support_preflight",
+        "brdt__fno_vanilla__supervised_plus_born_consistency__decision_support_preflight",
+        "brdt__hybrid_resnet__supervised_plus_born_consistency__decision_support_preflight"
+      ],
+      "visuals": [
+        "visuals/brdt_compare_q.png",
+        "visuals/brdt_error_q.png",
+        "visuals/brdt_sinogram_residual.png"
+      ],
+      "parameter_count": 36674,
+      "metrics": {
+        "image_mae_phys": 0.0006587402190102118,
+        "image_rmse_phys": 0.0019404512301100518,
+        "image_relative_l2_phys": 0.34212739876362924,
+        "meas_mae": 0.0011209583983478836,
+        "meas_rmse": 0.001574240507568191,
+        "meas_relative_l2": 0.18587314230005147,
+        "psnr_phys": 29.132562419113953,
+        "ssim_phys": 0.9419605893461966
+      },
+      "output_dynamic_range": {
+        "physical_q_min": -0.04111793264746666,
+        "physical_q_max": 0.03650643676519394,
+        "physical_q_mean": 0.0012694421768280895,
+        "physical_q_std": 0.0049839528215522835,
+        "physical_q_ptp": 0.0776243694126606
+      },
+      "evidence_status": "decision_support_append_only",
+      "changed_factor": "appends a factorized Fourier operator (FFNO) row to the completed BRDT four-row preflight under the same dataset, operator, born_init_image input contract, split, fixed-sample IDs, normalization, and supervised+Born training recipe. FFNO body is the task-local _BRDTFFNO wrapper (lifter -> SharedFactorizedFfnoBottleneck with hidden_channels=16, fno_modes=8, fno_blocks=4, share_spectral_weights=False, mlp_ratio=2.0, cnn_blocks=2 -> 1x1 head); FFNO is NOT the same architecture as fno_vanilla (which uses neuralop.models.FNO). Combined five-row view is published by lineage rather than by overwrite of the baseline bundle."
     },
     {
       "variant_id": "darcy_full__hybrid_resnet_base__supervised__full_training_benchmark",

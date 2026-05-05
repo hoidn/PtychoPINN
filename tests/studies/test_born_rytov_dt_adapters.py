@@ -16,6 +16,8 @@ Covers the bounded preflight surface added in
 from __future__ import annotations
 
 import json
+import sys
+import types
 from pathlib import Path
 
 import numpy as np
@@ -29,6 +31,7 @@ from scripts.studies.born_rytov_dt import (
     data,
     evaluate,
     lightning_module,
+    model_based_inverse,
     models,
     reporting,
     run_config,
@@ -252,6 +255,90 @@ def test_local_adjoint_init_shape_and_dtype():
     assert init[1].abs().sum().item() == 0.0
 
 
+def test_odtbrain_backprop_uses_vacuum_wavelength_and_object_function(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    fake_module = types.ModuleType("odtbrain")
+    calls = []
+
+    def fake_backpropagate_2d(*args, **kwargs):
+        calls.append({"args": args, "kwargs": kwargs})
+        return np.full(
+            (dc.LOCKED_DETECTOR_SIZE, dc.LOCKED_DETECTOR_SIZE),
+            0.25 + 0.0j,
+            dtype=np.complex64,
+        )
+
+    fake_module.backpropagate_2d = fake_backpropagate_2d
+    monkeypatch.setitem(sys.modules, "odtbrain", fake_module)
+
+    sinogram = np.zeros(
+        (dc.LOCKED_ANGLE_COUNT, dc.LOCKED_DETECTOR_SIZE, 2), dtype=np.float32
+    )
+    out = classical._odtbrain_backprop(sinogram, angles=dc.locked_angles())
+
+    assert calls, "expected ODTbrain backpropagate_2d to be invoked"
+    kwargs = calls[0]["kwargs"]
+    assert kwargs["res"] == pytest.approx(
+        dc.LOCKED_WAVELENGTH_PX * dc.LOCKED_MEDIUM_RI
+    )
+    assert kwargs["nm"] == pytest.approx(dc.LOCKED_MEDIUM_RI)
+    assert "save_memory" not in kwargs
+    assert out.shape == (dc.LOCKED_DETECTOR_SIZE, dc.LOCKED_DETECTOR_SIZE)
+    assert np.allclose(out, 0.25)
+
+
+def test_relative_physics_l2_is_zero_for_identical_sinograms():
+    pred = torch.ones(2, 3, 4, 2)
+    obs = pred.clone()
+
+    assert model_based_inverse.relative_physics_l2(pred, obs).item() == pytest.approx(0.0)
+
+
+def test_total_variation_l1_penalizes_spatial_jumps():
+    q = torch.zeros(1, 1, 8, 8)
+    q[:, :, 4:, :] = 1.0
+
+    assert model_based_inverse.total_variation_l1(q).item() > 0.0
+
+
+def test_model_based_inverse_reduces_physics_residual_on_tiny_clean_case():
+    angles = torch.linspace(0.0, 2.0 * torch.pi, 9, dtype=torch.float64)[:-1]
+    op = BornRytovForward2D(
+        grid_size=32,
+        detector_size=32,
+        angles=angles,
+        wavelength_px=8.0,
+        medium_ri=1.333,
+        mode="born",
+        normalize="unitary_fft",
+    )
+    q_true = torch.zeros(1, 1, 32, 32)
+    q_true[:, :, 12:20, 14:22] = 0.02
+    with torch.no_grad():
+        y = op(q_true)
+    q0 = torch.zeros_like(q_true)
+    initial = model_based_inverse.relative_physics_l2(op(q0), y).item()
+
+    q_hat, info = model_based_inverse.optimize_born_inverse_batch(
+        sinogram_obs=y,
+        operator=op,
+        config=model_based_inverse.ModelBasedInverseConfig(
+            steps=40,
+            learning_rate=0.2,
+            tv_weight=0.0,
+            l2_weight=0.0,
+            clamp_min=-0.05,
+            clamp_max=0.05,
+        ),
+        initial_q=q0,
+    )
+
+    final = model_based_inverse.relative_physics_l2(op(q_hat), y).item()
+    assert final < 0.25 * initial
+    assert info["final_relative_physics_l2"] < info["initial_relative_physics_l2"]
+
+
 # ----------------------------------------------------------------------
 # Adapter construction + forward shape
 # ----------------------------------------------------------------------
@@ -281,6 +368,74 @@ def test_adapter_rejects_wrong_input_shape():
     adapter = models.build_neural_adapter(architecture="unet", in_channels=1)
     with pytest.raises(ValueError):
         adapter(torch.zeros(2, 1, 64, 64))
+
+
+def test_ffno_adapter_forward_shape_and_distinct_architecture():
+    """FFNO must build under BRDT real-channel semantics with its own identity.
+
+    The new row's adapter has to produce ``(B, 1, 128, 128)`` real
+    output and report ``architecture='ffno'`` (NOT ``fno_vanilla``).
+    """
+    adapter = models.build_neural_adapter(
+        architecture="ffno",
+        in_channels=1,
+        out_channels=1,
+        grid_size=dc.LOCKED_GRID_SIZE,
+    )
+    x = torch.zeros(2, 1, dc.LOCKED_GRID_SIZE, dc.LOCKED_GRID_SIZE, dtype=torch.float32)
+    y = adapter(x)
+    assert y.shape == (2, 1, dc.LOCKED_GRID_SIZE, dc.LOCKED_GRID_SIZE)
+    info = adapter.info()
+    assert info.architecture == "ffno"
+    assert info.parameter_count > 0
+    # Architecture metadata must surface the FFNO-specific kwargs so
+    # provenance does not silently collapse to the FNO-vanilla schema.
+    for key in ("hidden_channels", "fno_modes", "fno_blocks"):
+        assert key in info.arch_kwargs
+
+
+def test_ffno_adapter_parameter_count_distinct_from_fno_vanilla():
+    """FFNO and FNO-vanilla must have separate parameter counts.
+
+    Skipped when ``neuralop`` is unavailable since the FNO-vanilla path
+    raises ``AdapterBuildError`` in that case; the FFNO path uses
+    ptycho_torch's local FFNO components and does not need ``neuralop``.
+    """
+    ffno_adapter = models.build_neural_adapter(
+        architecture="ffno",
+        in_channels=1,
+        grid_size=dc.LOCKED_GRID_SIZE,
+    )
+    try:
+        fno_adapter = models.build_neural_adapter(
+            architecture="fno_vanilla",
+            in_channels=1,
+            grid_size=dc.LOCKED_GRID_SIZE,
+        )
+    except models.AdapterBuildError:
+        pytest.skip("neuralop unavailable; cannot compare parameter counts")
+    assert ffno_adapter.info().architecture != fno_adapter.info().architecture
+    # The two adapters share neither architecture id nor parameter count.
+    assert ffno_adapter.info().parameter_count != fno_adapter.info().parameter_count
+
+
+def test_run_config_row_schema_accepts_ffno_distinct_from_fno_vanilla():
+    """``ffno`` is a supported internal architecture distinct from ``fno_vanilla``."""
+    assert "ffno" in run_config.SUPPORTED_ARCHITECTURES
+    assert "fno_vanilla" in run_config.SUPPORTED_ARCHITECTURES
+    # Row schema must accept ``ffno`` as a model id.
+    row = run_config.RowConfig(
+        row_id="ffno",
+        model="ffno",
+        training=run_config.DEFAULT_TRAINING_LABEL,
+        input_mode="born_init_image",
+        dataset_id=dc.DECISION_SUPPORT_DATASET_NAME,
+        operator_version="op",
+        paper_label="FFNO",
+    )
+    payload = row.to_dict()
+    assert payload["model"] == "ffno"
+    assert payload["paper_label"] == "FFNO"
 
 
 def test_fno_vanilla_blocker_when_neuralop_missing():
