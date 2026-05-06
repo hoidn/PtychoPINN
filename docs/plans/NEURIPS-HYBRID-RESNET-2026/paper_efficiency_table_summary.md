@@ -13,7 +13,7 @@ The table groups rows by benchmark and keeps runtime fields as provenance contex
 
 - Synthetic CDI: 8 rows
 - PDEBench CNS: 4 rows
-- BRDT: 2 rows
+- BRDT: 2 historical secondary-context rows
 
 ## Runtime And Throughput Policy
 
@@ -24,4 +24,7 @@ The table groups rows by benchmark and keeps runtime fields as provenance contex
 
 ## Superseded Context
 
-- BRDT: superseded by paper-approved BRDT 40-epoch rows (`docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.json`)
+- BRDT: the current 40-epoch FFNO row is a historical local-refiner proxy, not
+  a pure FFNO-paper-stack result. Regenerate the BRDT efficiency rows after
+  `2026-05-06-brdt-corrected-ffno-40ep-rerun` if the manuscript keeps a BRDT
+  FFNO comparison.

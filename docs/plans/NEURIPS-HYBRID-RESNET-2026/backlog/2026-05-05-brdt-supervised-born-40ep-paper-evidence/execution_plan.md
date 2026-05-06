@@ -1,6 +1,12 @@
 # BRDT Supervised+Born 40-Epoch Paper Evidence Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Do not create worktrees. Use `tmux` plus the `ptycho311` environment for multi-minute BRDT runs, track the exact launched PID, and treat a long run as complete only when that PID exits `0` and the expected artifacts are freshly written. Do not mark this item `BLOCKED` for ordinary test/import/path/environment failures; diagnose, apply a narrow fix, and rerun first. Reserve `BLOCKED` for missing hardware/resources, unavailable external dependencies that remain unrecoverable after a narrow fix attempt, roadmap conflict, or user decision required.
+>
+> **Superseded-for-pure-FFNO note (2026-05-06):** this plan consumed the
+> historical BRDT FFNO-local-refiner proxy lineage. It must not be reused for a
+> pure FFNO manuscript comparison. Use
+> `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/execution_plan.md`
+> after the corrected 20-epoch no-refiner prerequisite completes.
 
 **Goal:** Produce a fresh same-contract BRDT `40`-epoch Hybrid ResNet versus FFNO artifact with per-epoch training history, `ReduceLROnPlateau` provenance, a convergence audit against the frozen `20`-epoch rows, and a sample-`255` visual/gate package that either promotes BRDT into additive paper evidence or explicitly preserves it as decision-support only.
 

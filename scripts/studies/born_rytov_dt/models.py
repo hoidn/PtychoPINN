@@ -108,7 +108,6 @@ class _BRDTFFNO(nn.Module):
         fno_blocks: int = 4,
         share_spectral_weights: bool = False,
         mlp_ratio: float = 2.0,
-        cnn_blocks: int = 2,
     ):
         super().__init__()
         from ptycho_torch.generators.ffno_bottleneck import (
@@ -125,29 +124,6 @@ class _BRDTFFNO(nn.Module):
             mlp_ratio=float(mlp_ratio),
             norm="instance",
         )
-        if int(cnn_blocks) > 0:
-            refiners: list[nn.Module] = []
-            for _ in range(int(cnn_blocks)):
-                refiners.append(
-                    nn.Sequential(
-                        nn.Conv2d(
-                            int(hidden_channels),
-                            int(hidden_channels),
-                            kernel_size=3,
-                            padding=1,
-                        ),
-                        nn.GELU(),
-                        nn.Conv2d(
-                            int(hidden_channels),
-                            int(hidden_channels),
-                            kernel_size=3,
-                            padding=1,
-                        ),
-                    )
-                )
-            self.refiners = nn.ModuleList(refiners)
-        else:
-            self.refiners = nn.ModuleList()
         self.output_proj = nn.Conv2d(
             int(hidden_channels), int(out_channels), kernel_size=1
         )
@@ -155,8 +131,6 @@ class _BRDTFFNO(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.lifter(x)
         x = self.bottleneck(x)
-        for refiner in self.refiners:
-            x = x + refiner(x)
         return self.output_proj(x)
 
 
@@ -318,6 +292,11 @@ class BRDTModelAdapter(nn.Module):
                 fno_blocks=int(self.arch_kwargs.get("fno_blocks", 4)),
             )
         elif architecture == "ffno":
+            if "cnn_blocks" in self.arch_kwargs:
+                raise ValueError(
+                    "BRDT FFNO does not accept cnn_blocks; it uses the "
+                    "factorized FFNO stack plus a minimal 1x1 output adapter."
+                )
             try:
                 body = _BRDTFFNO(
                     in_channels=self.in_channels,
@@ -329,7 +308,6 @@ class BRDTModelAdapter(nn.Module):
                         self.arch_kwargs.get("share_spectral_weights", False)
                     ),
                     mlp_ratio=float(self.arch_kwargs.get("mlp_ratio", 2.0)),
-                    cnn_blocks=int(self.arch_kwargs.get("cnn_blocks", 2)),
                 )
             except ImportError as exc:
                 raise AdapterBuildError(

@@ -30,6 +30,14 @@ signals_for_selection:
 
 # Backlog Item: Add BRDT FFNO Row Extension
 
+> **Post-hoc status (2026-05-06):** completed historical artifact only. The
+> artifact-producing BRDT FFNO adapter included post-bottleneck local CNN
+> refiners. Current BRDT FFNO code rejects `cnn_blocks` and uses only
+> `SpatialLifter -> SharedFactorizedFfnoBottleneck -> 1x1`. This done item
+> remains discoverable as a legacy FFNO-local-refiner proxy result, but it does
+> not satisfy pure-BRDT-FFNO evidence. Reactivated replacement:
+> `docs/backlog/active/2026-05-06-brdt-corrected-ffno-row-rerun.md`.
+
 ## Objective
 
 - Add one append-only FFNO row to the completed BRDT decision-support preflight

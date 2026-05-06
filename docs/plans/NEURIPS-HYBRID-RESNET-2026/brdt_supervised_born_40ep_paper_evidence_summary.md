@@ -12,6 +12,13 @@
 > This bundle does **not** authorize manuscript paper-evidence claims, does
 > **not** replace the required CDI `lines128` or PDEBench CNS pillars, and does
 > **not** authorize `/home/ollie/Documents/neurips/` publication.
+> **Post-hoc architecture caveat (2026-05-06):** the `ffno` row in this
+> historical bundle was generated before the BRDT FFNO adapter was corrected
+> to remove post-bottleneck CNN refiners. Treat its metrics and visuals as a
+> legacy FFNO-local-refiner proxy result, not as a pure FFNO-paper-stack
+> result. Current code uses `SpatialLifter -> SharedFactorizedFfnoBottleneck
+> -> 1x1` output projection and rejects `cnn_blocks`; a pure-BRDT-FFNO
+> comparison requires a fresh rerun.
 
 ## 1. Identity And Locked Contract
 
@@ -59,8 +66,10 @@ the bundle to `decision_support_convergence_followup` rather than blessing
 fabricated values.
 
 Hybrid ResNet remains the strongest image-space BRDT row in the recorded
-metrics. FFNO remains competitive at much lower parameter count, but does not
-displace Hybrid ResNet on this capped contract.
+metrics. The historical FFNO-local-refiner proxy remains competitive at much
+lower parameter count, but does not displace Hybrid ResNet on this capped
+contract. Do not cite that row as a pure FFNO-paper-stack comparison without a
+fresh no-refiner rerun.
 
 ## 3. 20-Epoch To 40-Epoch Delta Read
 

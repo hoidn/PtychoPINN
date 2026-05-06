@@ -33,6 +33,11 @@ signals_for_selection:
 
 # Backlog Item: Compile Paper Efficiency Table
 
+> **Post-hoc BRDT caveat (2026-05-06):** any BRDT `ffno` efficiency fields in
+> the completed table come from the legacy FFNO-local-refiner proxy row, not the
+> corrected no-refiner BRDT FFNO adapter. Regenerate the BRDT portion after
+> `2026-05-06-brdt-corrected-ffno-40ep-rerun` if the manuscript keeps BRDT FFNO.
+
 ## Objective
 
 - Build a repo-local efficiency table for the NeurIPS evidence package by

@@ -1,6 +1,12 @@
 # BRDT FFNO Row Extension Execution Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. This item authorizes only one append-only BRDT FFNO row plus the minimal task-local adapter, execution, and reporting support needed to compare that row against the completed BRDT decision-support preflight. Do not rerun or overwrite the existing classical, U-Net, FNO vanilla, or Hybrid/SRU rows. Do not promote BRDT into manuscript evidence, do not create worktrees, and keep any long-running command under implementation ownership until the tracked PID exits successfully and the expected artifacts are freshly written; use `tmux` plus `ptycho311` when the FFNO row run is multi-minute.
+>
+> **Superseded-for-pure-FFNO note (2026-05-06):** this plan produced the
+> historical BRDT FFNO-local-refiner proxy row. It must not be reused as the
+> execution plan for pure BRDT FFNO. Use
+> `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-row-rerun/execution_plan.md`
+> for the corrected no-refiner rerun.
 
 **Goal:** Add a single append-only BRDT FFNO row under the same locked BRDT decision-support contract as the completed four-row preflight, then emit a read-only-lineage five-row comparison surface and durable summary/index updates without modifying the baseline bundle.
 

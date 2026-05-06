@@ -35,6 +35,13 @@ signals_for_selection:
 
 # Backlog Item: BRDT Supervised+Born 40-Epoch Paper Evidence Run
 
+> **Post-hoc status (2026-05-06):** completed historical artifact only for the
+> FFNO row. The `ffno` row was produced by the old BRDT FFNO-local-refiner proxy,
+> not by the corrected no-refiner FFNO-paper-stack adapter. The bundle also
+> failed provenance gates. It remains discoverable as historical context, but it
+> must not be consumed as pure-FFNO manuscript evidence. Reactivated replacement:
+> `docs/backlog/active/2026-05-06-brdt-corrected-ffno-40ep-rerun.md`.
+
 ## Objective
 
 - Rerun the BRDT Hybrid ResNet and FFNO rows for 40 epochs under the supervised

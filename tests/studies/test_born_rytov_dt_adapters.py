@@ -394,6 +394,32 @@ def test_ffno_adapter_forward_shape_and_distinct_architecture():
         assert key in info.arch_kwargs
 
 
+def test_ffno_adapter_has_no_post_bottleneck_cnn_refiners():
+    """BRDT FFNO stays close to the FFNO stack plus a minimal output adapter."""
+    adapter = models.build_neural_adapter(
+        architecture="ffno",
+        in_channels=1,
+        out_channels=1,
+        grid_size=dc.LOCKED_GRID_SIZE,
+    )
+    ffno_body = adapter.body
+
+    assert not hasattr(ffno_body, "refiners")
+    assert "cnn_blocks" not in adapter.info().arch_kwargs
+    assert not any(".refiners." in name for name, _ in adapter.named_modules())
+
+
+def test_ffno_adapter_rejects_post_bottleneck_cnn_refiner_override():
+    with pytest.raises(ValueError, match="cnn_blocks"):
+        models.build_neural_adapter(
+            architecture="ffno",
+            in_channels=1,
+            out_channels=1,
+            grid_size=dc.LOCKED_GRID_SIZE,
+            arch_kwargs={"cnn_blocks": 2},
+        )
+
+
 def test_ffno_adapter_parameter_count_distinct_from_fno_vanilla():
     """FFNO and FNO-vanilla must have separate parameter counts.
 

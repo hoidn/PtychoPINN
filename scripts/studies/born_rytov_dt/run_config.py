@@ -331,16 +331,16 @@ DEFAULT_ARCH_KWARGS: Dict[str, Dict[str, Any]] = {
         "downsample_steps": 1,
     },
     # Task-local BRDT FFNO defaults. The body is the factorized Fourier
-    # block stack from ``ptycho_torch.generators.ffno_bottleneck``; FFNO
-    # has its own internal architecture identity distinct from
-    # ``fno_vanilla`` and must NOT be aliased to it.
+    # block stack from ``ptycho_torch.generators.ffno_bottleneck`` with
+    # only a minimal BRDT output adapter; FFNO has its own internal
+    # architecture identity distinct from ``fno_vanilla`` and must NOT
+    # be aliased to it.
     "ffno": {
         "hidden_channels": 16,
         "fno_modes": 8,
         "fno_blocks": 4,
         "share_spectral_weights": False,
         "mlp_ratio": 2.0,
-        "cnn_blocks": 2,
     },
 }
 

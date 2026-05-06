@@ -5,6 +5,13 @@
 > paper-grade. BRDT remains a deferred candidate lane only; the required
 > NeurIPS 2026 pillars are still CDI `lines128` and PDEBench CNS, and the
 > `defer_after_preflight` decision in `brdt_preflight_summary.md` stands.
+> **Post-hoc architecture caveat (2026-05-06):** this historical row was
+> generated before the BRDT FFNO adapter was corrected to remove
+> post-bottleneck CNN refiners. Treat the recorded metrics as a legacy
+> FFNO-local-refiner proxy result, not as a pure FFNO-paper-stack result.
+> Current code uses `SpatialLifter -> SharedFactorizedFfnoBottleneck -> 1x1`
+> output projection and rejects `cnn_blocks`; a pure-BRDT-FFNO comparison
+> requires a fresh rerun.
 
 ## 1. Identity And Scope
 
@@ -46,9 +53,9 @@ extension to those baseline JSON files as they exist on disk and treats
 them as authoritative and immutable; row contents are echoed without
 re-interpretation against any external summary authority.
 
-- **FFNO is competitive with Hybrid ResNet at roughly one-quarter the
+- **The legacy FFNO-local-refiner proxy is competitive with Hybrid ResNet at roughly one-quarter the
   parameter count.** At `parameter_count=36,674` (vs Hybrid ResNet's
-  `142,018`), FFNO achieves nearly identical image-space and
+  `142,018`), the historical row achieves nearly identical image-space and
   measurement-space metrics:
 
   | Metric | FFNO | Hybrid ResNet | FNO vanilla | U-Net | Model-based Born inverse |
@@ -62,14 +69,14 @@ re-interpretation against any external summary authority.
   | `parameter_count` | 36,674 | 142,018 | 44,465 | 18,465 | 0 |
   | `wall_time_train_s` | 109.97 | 79.25 | 85.11 | 69.00 | 0.0 |
 
-- **FFNO substantially outperforms FNO vanilla.** Despite using fewer
+- **The legacy proxy substantially outperforms FNO vanilla.** Despite using fewer
   parameters than `fno_vanilla` (`36,674` vs `44,465`), FFNO improves
   every blocking metric by a large margin: image-space relative L2
   drops from 0.99 to 0.34 and measurement-space relative L2 drops from
   0.98 to 0.19. The factorized Fourier formulation with shared spectral
-  weights and a small local-convolution refiner is a materially
-  stronger spectral architecture for this BRDT contract than the
-  vanilla `neuralop` FNO at comparable capacity.
+  weights plus the then-present local-convolution refiner is materially
+  stronger than the vanilla `neuralop` FNO at comparable capacity, but
+  this does not establish the pure FFNO-paper-stack result.
 
 - **FFNO does NOT displace Hybrid ResNet on this capped budget.**
   Hybrid ResNet retains a small but consistent edge on image-space
@@ -121,7 +128,7 @@ this run.
 
 ## 5. FFNO Architecture (Task-Local, Not CDI Registry)
 
-The new row uses a task-local FFNO body wrapper that lives entirely
+The historical row used a task-local FFNO body wrapper that lived entirely
 under `scripts/studies/born_rytov_dt/`:
 
 - Input: `(B, 1, 128, 128)` `born_init_image` representation.
@@ -131,14 +138,16 @@ under `scripts/studies/born_rytov_dt/`:
   with `n_blocks=4`, `modes=8`, `share_spectral_weights=False`,
   `mlp_ratio=2.0`, `norm="instance"`.
 - Refinement: two residual local-conv blocks (`Conv2d 3x3 -> GELU ->
-  Conv2d 3x3`).
+  Conv2d 3x3`) in the historical artifact-producing code only. Current
+  BRDT FFNO code removes this refinement stage and rejects `cnn_blocks`.
 - Output head: `Conv2d hidden_channels -> 1` 1x1 projection in
   normalized-`q` space; the lightning module unnormalizes before the
   Born consistency loss touches the operator (the same
   `dataset_contract.reject_normalized_q_to_operator` guard used by every
   other BRDT neural row).
 - Output: `(B, 1, 128, 128)` real-channel `q_pred`.
-- Total trainable parameters: `36,674`.
+- Historical artifact trainable parameters: `36,674`; current no-refiner
+  BRDT FFNO adapter trainable parameters: `27,394`.
 
 The wrapper is **not** registered in
 `ptycho_torch.generators.registry`. BRDT's row contract is task-local
