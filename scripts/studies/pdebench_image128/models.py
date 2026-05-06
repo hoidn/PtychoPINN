@@ -593,7 +593,7 @@ def build_model_from_profile(
                 resnet_blocks=int(config.get("hybrid_resnet_blocks", 6)),
                 downsample_steps=downsample_steps,
                 downsample_op=str(config.get("downsample_op", "stride_conv")),
-                ffno_encoder_blocks=int(config.get("ffno_encoder_blocks", 2)),
+                ffno_encoder_blocks=int(config.get("ffno_encoder_blocks", 24)),
                 ffno_encoder_modes=int(config.get("ffno_encoder_modes", config.get("fno_modes", 12))),
                 ffno_encoder_share_weights=bool(config.get("ffno_encoder_share_weights", True)),
                 ffno_encoder_mlp_ratio=float(config.get("ffno_encoder_mlp_ratio", 2.0)),

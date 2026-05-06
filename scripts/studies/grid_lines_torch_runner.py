@@ -1069,6 +1069,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     # backward implementation. Use Lightning's "warn" mode for that architecture so
     # the locked U-NO contract trains on GPU; record the caveat in row provenance.
     deterministic_mode: Union[bool, Literal["warn"]] = _deterministic_mode_for(cfg.architecture)
+    encoder_recipe = _fixed_ffno_ptychoblock_encoder_recipe(cfg) or {}
     execution_config = PyTorchExecutionConfig(
         learning_rate=cfg.learning_rate,
         deterministic=deterministic_mode,
@@ -1091,6 +1092,12 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         hybrid_encoder_layerscale_init=cfg.hybrid_encoder_layerscale_init,
         hybrid_encoder_branch_gate_init=cfg.hybrid_encoder_branch_gate_init,
         hybrid_encoder_branch_select=cfg.hybrid_encoder_branch_select,
+        ffno_encoder_blocks=int(encoder_recipe.get("ffno_encoder_blocks", 24)),
+        ffno_encoder_modes=int(encoder_recipe.get("ffno_encoder_modes", cfg.fno_modes)),
+        ffno_encoder_share_weights=bool(encoder_recipe.get("ffno_encoder_share_weights", True)),
+        ffno_encoder_gate_init=float(encoder_recipe.get("ffno_encoder_gate_init", 0.1)),
+        ffno_encoder_norm=str(encoder_recipe.get("ffno_encoder_norm", "instance")),
+        ffno_encoder_mlp_ratio=float(encoder_recipe.get("ffno_encoder_mlp_ratio", 2.0)),
         spectral_bottleneck_blocks=cfg.spectral_bottleneck_blocks,
         spectral_bottleneck_modes=cfg.spectral_bottleneck_modes,
         spectral_bottleneck_share_weights=cfg.spectral_bottleneck_share_weights,

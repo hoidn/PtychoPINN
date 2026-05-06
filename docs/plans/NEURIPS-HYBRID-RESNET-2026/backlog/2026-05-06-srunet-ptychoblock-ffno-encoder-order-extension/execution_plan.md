@@ -11,14 +11,15 @@
 
 Add one reversed-order SRU-Net encoder row:
 
-`2x(PtychoBlock + downsample) -> 24-layer FFNO -> unchanged SRU-Net bottleneck/decoder`
+`2x(PtychoBlock + downsample) -> shared-weight 24-layer FactorizedFfnoBlock stack -> unchanged SRU-Net bottleneck/decoder`
 
 The completed comparison row is:
 
-`24-layer FFNO -> 2x(PtychoBlock + downsample) -> unchanged SRU-Net bottleneck/decoder`
+`shared-weight 24-layer FactorizedFfnoBlock stack -> 2x(PtychoBlock + downsample) -> unchanged SRU-Net bottleneck/decoder`
 
 The implementation must isolate encoder order. It must not rerun completed
-baselines, replace the bottleneck with FFNO, or collapse the FFNO stack into a
+baselines, replace the bottleneck with FFNO, include the end-to-end FFNO
+generator's local residual refiners, or collapse the FFNO stack into a
 lightweight two-block proxy.
 
 ## Required Inputs
@@ -29,6 +30,7 @@ lightweight two-block proxy.
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md`
 - Current model surfaces:
   - `ptycho_torch/generators/hybrid_resnet.py`
+  - `ptycho_torch/generators/ffno.py`
   - `ptycho_torch/generators/ffno_bottleneck.py`
   - `ptycho_torch/generators/registry.py`
   - `ptycho_torch/model.py`
@@ -46,16 +48,21 @@ lightweight two-block proxy.
      `hybrid_resnet_ptychoblock_ffno_encoder_cns`.
    - Reuse the regular SRU-Net lifter, two encoder stages, downsampling,
      skip taps, bottleneck, decoder, residual scaling, and output path.
-   - Insert the 24-layer FFNO-close stack after the second downsample and before the
-     existing SRU-Net bottleneck.
+   - Insert the shared-weight 24-layer local FFNO stack after the second
+     downsample and before the existing SRU-Net bottleneck.
 
 2. Keep the FFNO recipe fixed.
-   - Use `SharedFactorizedFfnoBottleneck` / `FactorizedFfnoBlock`.
+   - Use a reusable local helper such as `FactorizedFfnoStack`, shared with
+     `FfnoGeneratorModule` and built from `FactorizedFfnoBlock` /
+     `FactorizedSpectralConv2d`.
    - Default recipe:
      `ffno_encoder_blocks=24`, `ffno_encoder_modes=12`,
      `ffno_encoder_share_weights=true`, `ffno_encoder_gate_init=0.1`,
      `ffno_encoder_norm=instance`, `ffno_encoder_mlp_ratio=2.0`,
      `local_conv_kernel_size=None`.
+   - Exclude `_LocalResidualRefiner`; those refiners belong to the end-to-end
+     FFNO generator's output-side cleanup, not the isolated encoder-order
+     ablation.
    - If post-downsample resolution forces a mode-count adjustment, record the
      adjustment as a shape-compatibility decision, not tuning.
 
@@ -114,6 +121,11 @@ After the rows run, verify:
   metric definitions while claiming to test encoder order.
 - Reject any implementation that uses a two-block FFNO proxy for the intended
   full FFNO encoder row.
+- Reject any implementation that duplicates FFNO stack construction instead of
+  using the shared local `FactorizedFfnoStack` helper used by
+  `FfnoGeneratorModule`.
+- Reject any implementation that includes the end-to-end FFNO generator's local
+  residual refiners in the SRU-Net encoder-order row.
 - Reject any summary that treats the local FFNO-close stack as identical to
   `pinn_ffno` or `author_ffno_cns_base`.
 - Reject reruns of completed baseline rows unless there is a documented

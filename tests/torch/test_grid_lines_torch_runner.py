@@ -1899,6 +1899,9 @@ class TestChannelGridsizeAlignment:
         )
         assert training_config.model.architecture == "hybrid_resnet_ffno_ptychoblock_encoder"
         assert execution_config.hybrid_downsample_steps == 2
+        assert execution_config.ffno_encoder_blocks == 24
+        assert execution_config.ffno_encoder_modes == 12
+        assert execution_config.ffno_encoder_share_weights is True
         assert payload["ffno_encoder_blocks"] == 24
 
     def test_runner_torch_only_spectral_bottleneck_fields_stay_out_of_model_config(self, tmp_path):

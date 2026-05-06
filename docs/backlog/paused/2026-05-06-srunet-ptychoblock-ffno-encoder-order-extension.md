@@ -8,6 +8,7 @@ check_commands:
     required = [
         Path("docs/backlog/done/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap.md"),
         Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md"),
+        Path("ptycho_torch/generators/ffno.py"),
         Path("ptycho_torch/generators/ffno_bottleneck.py"),
         Path("ptycho_torch/generators/hybrid_resnet.py"),
         Path("scripts/studies/grid_lines_torch_runner.py"),
@@ -36,6 +37,20 @@ signals_for_selection:
   - This item is a bounded third-row extension of the same encoder-order study and should run before lower-priority WaveBench candidate items.
 ---
 
+# Paused Status
+
+Paused on 2026-05-06 because this item was drafted from stale assumptions:
+
+- the prerequisite FFNO-to-PtychoBlock item was marked done but needs
+  reexecution under its corrected intended contract;
+- the extension assumes the corrected FFNO-to-PtychoBlock row already exists;
+- running the reversed-order extension first would compound the bad lineage.
+
+Do not move this item back to active until
+`2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap` has completed
+again under the corrected contract and the extension's own architecture
+assumptions have been reviewed.
+
 # Backlog Item: Add SRU-Net PtychoBlock-To-FFNO Encoder-Order Row
 
 ## Objective
@@ -44,7 +59,7 @@ signals_for_selection:
   architecture row:
   - two ordinary SRU-Net `PtychoBlock` encoder stages with the existing
     downsampling schedule; then
-  - a full 24-layer FFNO-style factorized spectral stack at the post-downsample encoder
+  - a shared-weight 24-layer `FactorizedFfnoBlock` stack at the post-downsample encoder
     resolution; then
   - the unchanged SRU-Net bottleneck, decoder, skip structure, output mode, and
     training recipe.
@@ -65,10 +80,10 @@ signals_for_selection:
     scheduler, seed policy, visual sample policy, and metric schema as the
     completed FFNO-to-PtychoBlock item;
   - no hyperparameter tuning after seeing metrics.
-- Use the same FFNO-close component family as the completed
-  FFNO-to-PtychoBlock item unless the implementation plan justifies a narrower
-  compatibility adapter:
-  - `SharedFactorizedFfnoBottleneck` / `FactorizedFfnoBlock`;
+- Use the same reusable local FFNO stack helper as the end-to-end CDI
+  `FfnoGeneratorModule`, factored out as a shared module such as
+  `FactorizedFfnoStack` and built from `FactorizedFfnoBlock` /
+  `FactorizedSpectralConv2d`:
   - `ffno_encoder_blocks=24`;
   - `ffno_encoder_modes=12` unless the implementation records a shape-based
     reason for an adjusted post-downsample mode count;
@@ -77,6 +92,8 @@ signals_for_selection:
   - `ffno_encoder_norm=instance`;
   - `ffno_encoder_mlp_ratio=2.0`;
   - `local_conv_kernel_size=None`.
+- Exclude the end-to-end FFNO generator's local residual refiners from this
+  encoder-order row.
 - Place the FFNO stack after the two encoder stages and their downsampling
   layers, before the existing SRU-Net bottleneck. Do not replace the bottleneck
   with FFNO; that is the already completed FFNO-bottleneck bridge mechanism.
@@ -121,7 +138,7 @@ signals_for_selection:
 ## Required Interpretation
 
 - Frame this as an encoder-order ablation, not a new default SRU-Net family.
-- The causal question is whether a full 24-layer FFNO stack is more useful before the two
+- The causal question is whether the shared-weight 24-layer local FFNO stack is more useful before the two
   `PtychoBlock` downsampling stages or after them.
 - Do not describe the local FFNO-close encoder stack as identical to the
   end-to-end CDI `pinn_ffno` row or the authored CNS FFNO baseline. Record the
@@ -168,6 +185,11 @@ signals_for_selection:
   definitions.
 - Reject implementations that use a two-block FFNO proxy for the reversed-order
   row; two-block artifacts belong only in misconfigured diagnostic context.
+- Reject implementations that duplicate FFNO stack construction instead of
+  using the shared local `FactorizedFfnoStack` helper used by
+  `FfnoGeneratorModule`.
+- Reject implementations that include the end-to-end FFNO generator's local
+  residual refiners in the SRU-Net encoder-order row.
 - Reject summaries that imply the local FFNO-close stack is the same model as
   `author_ffno_cns_base` or the full CDI `pinn_ffno` generator.
 - Require manifest fields for:

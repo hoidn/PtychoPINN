@@ -312,6 +312,12 @@ class PyTorchExecutionConfig:
         'conv_only',
         'spectral_only',
     ] = 'both'
+    ffno_encoder_blocks: int = 24
+    ffno_encoder_modes: int = 12
+    ffno_encoder_share_weights: bool = True
+    ffno_encoder_gate_init: float = 0.1
+    ffno_encoder_norm: str = 'instance'
+    ffno_encoder_mlp_ratio: float = 2.0
     spectral_bottleneck_blocks: int = 6
     spectral_bottleneck_modes: int = 12
     spectral_bottleneck_share_weights: bool = True
@@ -562,6 +568,30 @@ class PyTorchExecutionConfig:
             raise ValueError(
                 "hybrid_encoder_branch_gate_init must be finite and > 0, "
                 f"got {self.hybrid_encoder_branch_gate_init}."
+            )
+        if self.ffno_encoder_blocks <= 0:
+            raise ValueError(
+                f"ffno_encoder_blocks must be positive, got {self.ffno_encoder_blocks}."
+            )
+        if self.ffno_encoder_modes <= 0:
+            raise ValueError(
+                f"ffno_encoder_modes must be positive, got {self.ffno_encoder_modes}."
+            )
+        if (
+            not math.isfinite(float(self.ffno_encoder_gate_init))
+            or float(self.ffno_encoder_gate_init) <= 0.0
+        ):
+            raise ValueError(
+                "ffno_encoder_gate_init must be finite and > 0, "
+                f"got {self.ffno_encoder_gate_init}."
+            )
+        if (
+            not math.isfinite(float(self.ffno_encoder_mlp_ratio))
+            or float(self.ffno_encoder_mlp_ratio) <= 0.0
+        ):
+            raise ValueError(
+                "ffno_encoder_mlp_ratio must be finite and > 0, "
+                f"got {self.ffno_encoder_mlp_ratio}."
             )
 
 
