@@ -49,10 +49,12 @@ Current source of truth:
 | [2026-04-29-cdi-lines128-minimum-paper-table.md](done/2026-04-29-cdi-lines128-minimum-paper-table.md) | `done` | `phase-3-cdi-anchor-regeneration` | Depends on completed Lines128 paper benchmark harness | Completed the minimum paper-grade CDI subset and visual bundle for `hybrid_resnet`, paired CDI `cnn` U-Net-class supervised and PINN rows, and selected FNO comparator, with labels aligned to but distinct from CNS `unet_strong`. |
 | [2026-04-29-cdi-lines128-paper-benchmark-execution.md](done/2026-04-29-cdi-lines128-paper-benchmark-execution.md) | `done` | `phase-3-cdi-anchor-regeneration` | Depends on completed CDI FFNO generator baseline, completed Lines128 harness, and the completed minimum CDI table | Completed the Lines128 CDI benchmark table by extending the minimum subset with required `spectral_resnet_bottleneck_net` and historical FFNO-local-refiner proxy rows. |
 | [2026-04-29-cdi-lines128-supervised-equivalent-rows.md](done/2026-04-29-cdi-lines128-supervised-equivalent-rows.md) | `done` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution | Completed the supervised FFNO-local-refiner proxy CDI control row as the same-contract training-procedure comparator for the historical proxy FFNO + PINN Lines128 row. |
-| [2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun.md](active/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution | Reruns the Lines128 `pinn_ffno` row with `fno_cnn_blocks=0` so pure CDI FFNO claims no longer rely on the historical local-refiner proxy. |
+| [2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun.md](in_progress/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun.md) | `in_progress` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution | Reruns the Lines128 `pinn_ffno` row with `fno_blocks=4` and `fno_cnn_blocks=0` so pure CDI FFNO claims no longer rely on the historical local-refiner proxy. |
 | [2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun.md](active/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on corrected no-refiner Lines128 FFNO PINN row | Reruns the supervised Lines128 FFNO control with `fno_cnn_blocks=0` so the objective-control comparison uses the same pure-FFNO architecture. |
-| [2026-05-06-cdi-lines128-no-refiner-ffno-table-refresh.md](active/2026-05-06-cdi-lines128-no-refiner-ffno-table-refresh.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on corrected PINN and supervised no-refiner FFNO reruns | Refreshes CDI paper-facing tables and indexes so canonical `FFNO + PINN` / `FFNO + supervised` rows point to corrected no-refiner artifacts while old rows remain proxy context. |
-| [2026-05-06-cdi-lines128-ffno-depth24-ablation.md](active/2026-05-06-cdi-lines128-ffno-depth24-ablation.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on corrected no-refiner Lines128 FFNO PINN row | Adds one same-contract no-refiner `pinn_ffno_depth24` row with `fno_blocks=24` and compares it by lineage against the corrected default four-block no-refiner `pinn_ffno` row. |
+| [2026-05-06-cdi-lines128-no-refiner-ffno-table-refresh.md](active/2026-05-06-cdi-lines128-no-refiner-ffno-table-refresh.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on corrected four-block PINN and supervised no-refiner FFNO reruns | Refreshes CDI paper-facing metrics, figures/images, and indexes from the cheap four-block no-refiner FFNO rows while old rows remain proxy context. |
+| [2026-05-06-cdi-lines128-ffno-depth24-ablation.md](active/2026-05-06-cdi-lines128-ffno-depth24-ablation.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on corrected four-block no-refiner table/figure refresh | Later full-results wave: adds one same-contract no-refiner `pinn_ffno_depth24` row with `fno_blocks=24` and compares it by lineage against the corrected default four-block no-refiner `pinn_ffno` row. |
+| [2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun.md](active/2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on depth-24 PINN row and corrected four-block supervised row | Later full-results wave: adds the supervised `fno_blocks=24`, `fno_cnn_blocks=0` companion row without rerunning the four-block supervised row. |
+| [2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh.md](active/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on both depth-24 rows and the four-block refresh | Final depth-24-aware CDI FFNO paper refresh; chooses whether depth-24 replaces the interim four-block rows or remains append-only ablation evidence. |
 | [2026-04-30-cdi-lines128-uno-design-preflight.md](done/2026-04-30-cdi-lines128-uno-design-preflight.md) | `done` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution and supervised FFNO extension | Completed the `ptycho311` / `neuraloperator==2.0.0` U-NO environment/API preflight and froze `neuralop_uno` constructor defaults. |
 | [2026-04-30-cdi-lines128-uno-generator-integration.md](done/2026-04-30-cdi-lines128-uno-generator-integration.md) | `done` | `phase-3-cdi-anchor-regeneration` | Depends on U-NO design preflight | Completed `neuralop_uno` generator integration and proved both PINN and supervised paths use the external NeuralOperator U-NO body. |
 | [2026-04-30-cdi-lines128-uno-table-extension.md](done/2026-04-30-cdi-lines128-uno-table-extension.md) | `done` | `phase-3-cdi-anchor-regeneration` | Depends on U-NO generator integration and complete Lines128 CDI benchmark execution | Completed the append-only U-NO table extension without rerunning existing rows. |
@@ -64,8 +66,8 @@ Current source of truth:
 | [2026-05-06-cns-uno-matched-condition-row-extension.md](active/2026-05-06-cns-uno-matched-condition-row-extension.md) | `active` | `phase-2-pdebench-128x128-image-suite` | Depends on completed U-NO generator integration and completed CNS matched-condition refresh | Adds one append-only NeuralOperator U-NO row under the existing CNS `history_len=5`, `512 / 64 / 64`, 40-epoch contract and publishes a derived plus-U-NO table without rerunning existing CNS rows. |
 | [2026-05-04-cdi-lines128-srunet-branch-objective-ablation.md](done/2026-05-04-cdi-lines128-srunet-branch-objective-ablation.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution, supervised FFNO extension, U-NO table extension, and completed encoder-fusion variants | Append-only SRU-Net mechanism ablation: runs conv-only and spectral-only encoder-branch rows plus the missing supervised SRU-Net objective-control row, without rerunning completed table rows. |
 | [2026-05-04-cdi-lines128-srunet-convnext-bottleneck-ablation.md](done/2026-05-04-cdi-lines128-srunet-convnext-bottleneck-ablation.md) | `done` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution and completed skip/residual ablation context | Append-only SRU-Net bottleneck-family ablation: adds only a ConvNeXt-style bottleneck row and compares it with the completed SRU-Net bottleneck row by lineage. |
-| [2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap.md](active/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap.md) | `active` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution, completed SRU-Net branch/objective ablation, and completed CNS matched-condition table refresh | Reexecute the cross-pillar SRU-Net encoder mechanism ablation under its corrected contract: one `shared-weight 24-layer FactorizedFfnoBlock stack -> 2x(PtychoBlock + downsample)` encoder variant while preserving the SRU-Net shell/skip/body settings. Existing two-block artifacts are diagnostic only and do not satisfy this active item. |
-| [2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension.md](paused/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension.md) | `paused` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Depends on corrected completion of SRU-Net FFNO-to-PtychoBlock encoder item | Paused because it was drafted from stale assumptions about a completed corrected FFNO-to-PtychoBlock row. Reconsider only after the prerequisite is reexecuted and the extension assumptions are reviewed. |
+| [2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap.md](paused/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap.md) | `paused` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Paused at operator request on 2026-05-06 | Corrected SRU-Net FFNO-to-PtychoBlock encoder mechanism ablation. Partial interrupted 20-epoch CDI artifacts are diagnostic only unless a later reactivation audits and promotes them. |
+| [2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension.md](paused/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension.md) | `paused` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Paused at operator request with the FFNO-to-PtychoBlock companion item | Reversed `2x(PtychoBlock + downsample) -> shared-weight 24-layer FactorizedFfnoBlock stack` row retained for later reactivation; not selectable by the current backlog drain. |
 | [2026-04-27-hybrid-spectral-ffno-parameter-space-cdi.md](done/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on completed CDI FFNO generator baseline | Phase 3 CDI-only split of the former mixed CNS/CDI parameter-space item. The dependency is now satisfied, so selection is governed by roadmap value rather than prerequisite blocking. |
 | [2026-04-21-hybrid-resnet-encoder-fusion-variants.md](done/2026-04-21-hybrid-resnet-encoder-fusion-variants.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution | Narrow Hybrid ResNet encoder-fusion ablation that tests learned encoder update scaling and spectral/local branch gates against the fixed N=128 grid-lines contract, without changing probe, loss, bottleneck, or decoder settings. |
 | [2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation.md](done/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution | Same-contract Lines128 Hybrid ResNet ablation isolating decoder skip connections and bottleneck residual scaling, with append-only cross-references to existing skip/mode, CNS skip-add, and encoder-fusion evidence surfaces. |
@@ -143,19 +145,19 @@ Current source of truth:
   supervised FFNO-local-refiner proxy row downstream of the complete
   PINN-trained CDI table. The CDI `cnn` U-Net-class supervised row belongs to
   the minimum CDI table next to the matching CDI `cnn` PINN row.
-- The CDI no-refiner FFNO reactivation chain is now higher priority than
-  WaveBench candidate work because it repairs manuscript-facing CDI comparator
-  semantics. The corrected PINN `pinn_ffno` row must land first, the corrected
-  supervised `supervised_ffno` row must compare against that no-refiner row, and
-  only then may the table refresh promote canonical `FFNO + PINN` or
-  `FFNO + supervised` labels. Existing `fno_cnn_blocks=2` rows remain
+- The CDI no-refiner FFNO reactivation chain is split into two priority waves.
+  The first wave repairs manuscript-facing CDI comparator semantics cheaply:
+  corrected four-block `pinn_ffno`, corrected four-block
+  `supervised_ffno`, then an interim table/figure/image refresh that promotes
+  those rows by lineage. Existing `fno_cnn_blocks=2` rows remain
   `FFNO-local proxy` context by lineage.
-- The CDI Lines128 FFNO depth-24 ablation is an active same-contract Phase 3
-  mechanism item after the no-refiner default rerun. It should run only one new
-  `pinn_ffno_depth24` row with `fno_blocks=24`, preserve `fno_modes=12`,
-  `fno_width=32`, `fno_cnn_blocks=0`, and compare against the corrected
-  four-block no-refiner `pinn_ffno` row by lineage. It must not relabel the
-  historical proxy row, rerun the completed CDI table, or mix in CNS
+- The later CDI Lines128 FFNO depth-24 wave runs only after the four-block
+  refresh lands. It adds `pinn_ffno_depth24` and
+  `supervised_ffno_depth24` with `fno_blocks=24`, `fno_modes=12`,
+  `fno_width=32`, and `fno_cnn_blocks=0`, then performs a final paper refresh
+  that explicitly decides whether depth-24 replaces the interim four-block
+  no-refiner rows or remains append-only ablation evidence. It must not relabel
+  the historical proxy row, rerun the completed CDI table, or mix in CNS
   authored-FFNO claims.
 - The U-NO Lines128 extension completed as an append-only Phase 3 CDI
   comparator lane. The multi-seed Lines128 robustness item is Phase 3
@@ -200,16 +202,17 @@ Current source of truth:
   SRU-Net bottleneck row by lineage. It must not be merged into the encoder
   branch/objective ablation because that would mix two mechanisms.
 - The SRU-Net FFNO-to-PtychoBlock encoder ablation is a bounded cross-pillar
-  mechanism item that has been returned to `active` for reexecution. Its
+  mechanism item that is paused at operator request. Its
   intended contract is a shared-weight 24-layer local
   `FactorizedFfnoBlock` stack before the two `PtychoBlock + downsample` stages,
   with the stack construction factored into a reusable helper also used by
   `FfnoGeneratorModule`; the end-to-end FFNO generator's local residual
   refiners are excluded from this encoder ablation. Existing two-block
-  artifacts are diagnostic only until a corrected rerun is produced.
-- The SRU-Net PtychoBlock-to-FFNO encoder-order extension depends on completion
-  of the corrected FFNO-to-PtychoBlock item and is currently paused. It should
-  not be selected while the prerequisite is back in active reexecution state.
+  artifacts and interrupted 20-epoch artifacts are diagnostic only until a
+  later reactivation audits or reruns the row.
+- The SRU-Net PtychoBlock-to-FFNO encoder-order extension is paused with the
+  companion FFNO-to-PtychoBlock item. If reactivated later, it should not reuse
+  superseded two-block FFNO-to-PtychoBlock artifacts as comparison authority.
 - The Hybrid ResNet encoder-fusion variants item is active Phase 3 CDI
   architecture-ablation work. It should test encoder update scaling and
   spectral/local branch gates against the fixed N=128 grid-lines contract, but

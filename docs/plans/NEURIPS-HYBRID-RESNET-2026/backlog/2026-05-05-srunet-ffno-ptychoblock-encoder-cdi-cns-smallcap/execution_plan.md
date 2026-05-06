@@ -10,6 +10,13 @@
 
 ---
 
+## Paused Status
+
+Paused on 2026-05-06 at operator request because the corrected 24-layer
+FFNO-encoder mechanism probe was too slow for the current backlog-drain pass.
+The plan is retained for later reactivation, but the active workflow should
+move on to other backlog items.
+
 ## Selected Objective
 
 - Add one fresh CDI row on the locked `lines128` contract:

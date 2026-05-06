@@ -6,12 +6,19 @@ Run one append-only CDI Lines128 FFNO row with `fno_blocks=24`, then compare it
 against the corrected no-refiner default `pinn_ffno` row with `fno_blocks=4`
 under the same fixed Lines128 contract.
 
+This is the later full-results wave. It must not block the four-block
+no-refiner table/figure refresh that updates near-term paper metrics and
+images.
+
 ## Non-Negotiable Contract
 
 - New row id: `pinn_ffno_depth24` unless an implementation-local naming
   constraint requires a clearer equivalent.
 - Baseline comparator: reuse corrected no-refiner `pinn_ffno` by lineage; do
   not compare against the historical local-refiner proxy row.
+- Prerequisite wave: the four-block no-refiner table/figure refresh must have
+  completed so the paper has an updated cheap baseline before this longer row
+  runs.
 - Only intended row difference:
   - default: `fno_blocks=4`;
   - new row: `fno_blocks=24`.
@@ -65,6 +72,9 @@ under the same fixed Lines128 contract.
      - `docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json`;
      - `docs/plans/NEURIPS-HYBRID-RESNET-2026/ablation_index.json`;
      - `docs/studies/index.md`.
+   - Do not update final paper tables directly here. Final depth-24 promotion is
+     owned by `2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh` after
+     the supervised depth-24 companion row is available.
 
 ## Verification
 

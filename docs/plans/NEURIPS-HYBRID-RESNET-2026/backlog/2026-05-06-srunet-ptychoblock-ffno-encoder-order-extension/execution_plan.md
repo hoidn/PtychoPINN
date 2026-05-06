@@ -1,11 +1,17 @@
 # SRU-Net PtychoBlock-To-FFNO Encoder-Order Extension Plan
 
 - Backlog item:
-  `docs/backlog/active/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension.md`
+  `docs/backlog/paused/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension.md`
 - Summary target:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_encoder_order_ffno_vs_ptychoblock_summary.md`
 - Artifact root:
-  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension/`
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension/`
+
+## Paused Status
+
+Paused on 2026-05-06 at operator request with the companion
+FFNO-to-PtychoBlock item. This plan is retained for later reactivation, but the
+current backlog drain should move on to other active items.
 
 ## Intent
 
@@ -13,7 +19,7 @@ Add one reversed-order SRU-Net encoder row:
 
 `2x(PtychoBlock + downsample) -> shared-weight 24-layer FactorizedFfnoBlock stack -> unchanged SRU-Net bottleneck/decoder`
 
-The completed comparison row is:
+The companion comparison row is:
 
 `shared-weight 24-layer FactorizedFfnoBlock stack -> 2x(PtychoBlock + downsample) -> unchanged SRU-Net bottleneck/decoder`
 
@@ -22,11 +28,15 @@ baselines, replace the bottleneck with FFNO, include the end-to-end FFNO
 generator's local residual refiners, or collapse the FFNO stack into a
 lightweight two-block proxy.
 
+The reversed-order row can run before the companion FFNO-to-PtychoBlock rerun
+has completed. In that case, publish the new row and mark any three-row
+encoder-order comparison fields that require the companion row as pending.
+
 ## Required Inputs
 
-- Completed FFNO-to-PtychoBlock item:
-  `docs/backlog/done/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap.md`
-- Completed FFNO-to-PtychoBlock summary:
+- Current FFNO-to-PtychoBlock companion plan:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/execution_plan.md`
+- FFNO-to-PtychoBlock companion summary:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md`
 - Current model surfaces:
   - `ptycho_torch/generators/hybrid_resnet.py`
@@ -79,17 +89,19 @@ lightweight two-block proxy.
      `ffno_encoder_mlp_ratio`.
 
 4. Run only the two new rows.
-   - CDI: fixed `cdi_lines128_seed3` contract, `N=128`, `40` epochs,
+   - CDI: fixed `cdi_lines128_seed3` contract, `N=128`, `20` epochs,
      batch `16`, Adam `2e-4`, MAE loss, fixed probe/sample policy.
-   - CNS: `2d_cfd_cns`, `history_len=5`, `512 / 64 / 64`, `40` epochs,
+   - CNS: `2d_cfd_cns`, `history_len=5`, `512 / 64 / 64`, `20` epochs,
      batch `4`, Adam `2e-4`, `max_windows_per_trajectory=8`, MSE loss.
 
 5. Publish an append-only comparison.
    - Reuse prior rows by lineage:
      regular SRU-Net, FFNO-to-PtychoBlock, spectral-only encoder, FFNO, and
-     matched CNS comparator rows.
+     matched CNS comparator rows where same-contract results are available.
    - Emit a three-row encoder-order table for CDI and CNS where same-contract
-     rows exist.
+     rows exist. If the corrected FFNO-to-PtychoBlock companion row is not yet
+     complete, publish the reversed-order row and record the companion
+     comparison cell as pending.
    - Update evidence/discoverability indexes without overwriting the existing
      Lines128 or CNS authorities.
 

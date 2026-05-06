@@ -139,9 +139,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** You need one place to scan all completed CDI/CNS rows, ablations, generated outputs, and which authority owns each result before editing manuscript tables or planning new rows.
 
 ### [NeurIPS CDI FFNO No-Refiner Contract Reactivation Plan](plans/NEURIPS-HYBRID-RESNET-2026/2026-05-06-cdi-ffno-no-refiner-contract-reactivation-plan.md)
-**Description:** Implementation plan and queue contract for reactivating CDI Lines128 FFNO rows under `fno_cnn_blocks=0`, preserving older `fno_cnn_blocks=2` rows only as FFNO-local-refiner proxy evidence, and refreshing paper-facing tables after corrected reruns land.
-**Keywords:** neurips, cdi, ffno, no-refiner, local-refiner-proxy, lines128, backlog-reactivation
-**Use this when:** Reviewing whether a CDI FFNO artifact is canonical pure FFNO or historical proxy context, or selecting the corrected FFNO rerun/table-refresh backlog items.
+**Description:** Implementation plan and queue contract for reactivating CDI Lines128 FFNO rows under `fno_cnn_blocks=0`, preserving older `fno_cnn_blocks=2` rows only as FFNO-local-refiner proxy evidence, splitting paper updates into an early four-block no-refiner refresh and a later depth-24 no-refiner refresh.
+**Keywords:** neurips, cdi, ffno, no-refiner, local-refiner-proxy, lines128, backlog-reactivation, depth24
+**Use this when:** Reviewing whether a CDI FFNO artifact is canonical pure FFNO or historical proxy context, or selecting the corrected FFNO rerun/table-refresh backlog items in the intended four-block-before-depth24 order.
 
 ### [NeurIPS Hybrid ResNet Model Variant Index](plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json)
 **Description:** Machine-readable index of model variants keyed by dataset contract, row id, architecture id, training mode, metrics, source backlog item, summary authority, and artifact paths.

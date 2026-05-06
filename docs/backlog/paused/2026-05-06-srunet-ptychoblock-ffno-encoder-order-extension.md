@@ -6,7 +6,7 @@ check_commands:
     python - <<'PY'
     from pathlib import Path
     required = [
-        Path("docs/backlog/done/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap.md"),
+        Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/execution_plan.md"),
         Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md"),
         Path("ptycho_torch/generators/ffno.py"),
         Path("ptycho_torch/generators/ffno_bottleneck.py"),
@@ -26,36 +26,37 @@ check_commands:
   - pytest -q tests/studies/test_pdebench_image128_models.py -k "hybrid_resnet or ffno"
   - pytest -q tests/test_grid_lines_compare_wrapper.py -k "ffno or hybrid_resnet"
   - python -m compileall -q ptycho_torch scripts/studies
-prerequisites:
-  - 2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap
+prerequisites: []
 related_roadmap_phases:
   - phase-2-pdebench-128x128-image-suite
   - phase-3-cdi-anchor-regeneration
 signals_for_selection:
-  - The completed FFNO-to-PtychoBlock encoder-order row tests global factorized spectral mixing before the two SRU-Net encoder stages.
+  - The FFNO-to-PtychoBlock companion row is being corrected under the same 20-epoch mechanism-probe contract; the reversed-order row can be launched independently while final three-row comparison waits for whatever companion rows are actually available.
   - A reversed PtychoBlock-to-FFNO row is needed to separate whether the effect comes from the FFNO operator itself or from placing FFNO before versus after the two downsampling encoder stages.
-  - This item is a bounded third-row extension of the same encoder-order study and should run before lower-priority WaveBench candidate items.
+  - This item is a bounded encoder-order row extension and should run before lower-priority WaveBench candidate items.
 ---
 
 # Paused Status
 
-Paused on 2026-05-06 because this item was drafted from stale assumptions:
+Paused on 2026-05-06 at operator request with the FFNO-to-PtychoBlock
+companion item. Do not select this reversed-order item again until it is
+explicitly reactivated.
 
-- the prerequisite FFNO-to-PtychoBlock item was marked done but needs
-  reexecution under its corrected intended contract;
-- the extension assumes the corrected FFNO-to-PtychoBlock row already exists;
-- running the reversed-order extension first would compound the bad lineage.
+If reactivated, this item remains eligible to run the reversed-order row
+independently. The final encoder-order comparison bundle may include the
+FFNO-to-PtychoBlock companion row only after that row has a corrected
+same-contract result. If the companion row is still unavailable, publish the new
+PtychoBlock-to-FFNO row and record the three-row comparison as pending rather
+than blocking the implementation.
 
-Do not move this item back to active until
-`2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap` has completed
-again under the corrected contract and the extension's own architecture
-assumptions have been reviewed.
+Do not use the superseded two-block FFNO-to-PtychoBlock artifacts as the
+comparison authority.
 
 # Backlog Item: Add SRU-Net PtychoBlock-To-FFNO Encoder-Order Row
 
 ## Objective
 
-- Extend the completed SRU-Net FFNO encoder-order study with one additional
+- Extend the SRU-Net FFNO encoder-order study with one additional
   architecture row:
   - two ordinary SRU-Net `PtychoBlock` encoder stages with the existing
     downsampling schedule; then
@@ -63,9 +64,9 @@ assumptions have been reviewed.
     resolution; then
   - the unchanged SRU-Net bottleneck, decoder, skip structure, output mode, and
     training recipe.
-- Compare this reversed-order row against the already completed
-  `FFNO -> 2x(PtychoBlock + downsample)` row and the regular SRU-Net lineage
-  rows on:
+- Compare this reversed-order row against the corrected
+  `FFNO -> 2x(PtychoBlock + downsample)` row when available and the regular
+  SRU-Net lineage rows on:
   - the fixed `lines128` CDI benchmark; and
   - the small-cap PDEBench `2d_cfd_cns` matched-condition benchmark.
 
@@ -78,7 +79,7 @@ assumptions have been reviewed.
   - same two downsampling stages, downsample operator, skip taps, skip fusion
     style, bottleneck family, decoder family, residual-scaling policy, loss,
     scheduler, seed policy, visual sample policy, and metric schema as the
-    completed FFNO-to-PtychoBlock item;
+    current FFNO-to-PtychoBlock companion contract;
   - no hyperparameter tuning after seeing metrics.
 - Use the same reusable local FFNO stack helper as the end-to-end CDI
   `FfnoGeneratorModule`, factored out as a shared module such as
@@ -102,15 +103,16 @@ assumptions have been reviewed.
     Lines128 CDI contract;
   - a matching small-cap CNS profile under the existing matched-condition CNS
     contract.
-- Reuse all prior rows by lineage:
+- Reuse prior rows by lineage where a same-contract result is available:
   - regular `pinn_hybrid_resnet`;
-  - `pinn_hybrid_resnet_ffno_ptychoblock_encoder`;
+  - corrected `pinn_hybrid_resnet_ffno_ptychoblock_encoder` when available;
   - `pinn_hybrid_resnet_encoder_spectral_only`;
   - `pinn_ffno`;
   - CNS `spectral_resnet_bottleneck_base` / SRU-Net*, `author_ffno_cns_base`,
     `fno_base`, and `unet_strong`.
 - Do not rerun completed baseline or FFNO-to-PtychoBlock rows just to assemble
-  the third-row comparison.
+  the third-row comparison. If the corrected FFNO-to-PtychoBlock row is not yet
+  complete, defer only that comparison cell/table, not the reversed-order row.
 
 ## Fixed Benchmark Contracts
 
@@ -119,7 +121,7 @@ assumptions have been reviewed.
 - Use the same fixed `cdi_lines128_seed3` contract as the completed
   FFNO-to-PtychoBlock item:
   - `N=128`, `gridsize=1`, `seed=3`;
-  - `40` epochs, batch `16`, Adam `2e-4`;
+  - `20` epochs, batch `16`, Adam `2e-4`;
   - `torch_loss_mode=mae`, `torch_output_mode=real_imag`;
   - Run1084 fixed-probe lineage, fixed sample ids, and metric schema unchanged.
 
@@ -129,7 +131,7 @@ assumptions have been reviewed.
   - task: PDEBench `2d_cfd_cns`;
   - `history_len=5`;
   - split caps `512 / 64 / 64`;
-  - `40` epochs, batch size `4`, Adam `2e-4`;
+  - `20` epochs, batch size `4`, Adam `2e-4`;
   - `max_windows_per_trajectory=8`;
   - training loss: `mse`;
   - metric family: `err_RMSE`, `err_nRMSE`, `relative_l2`,
@@ -167,12 +169,13 @@ assumptions have been reviewed.
 
 ## Completion Gate
 
-- The new row must differ from the completed FFNO-to-PtychoBlock row only by
-  encoder ordering and any documented shape adapter needed to place the FFNO
-  stack after downsampling.
+- The new row must differ from the corrected FFNO-to-PtychoBlock companion row
+  only by encoder ordering and any documented shape adapter needed to place the
+  FFNO stack after downsampling.
 - The summary must publish a three-row encoder-order table containing regular
   SRU-Net, FFNO-to-PtychoBlock, and PtychoBlock-to-FFNO for CDI and CNS where
-  each row is available under the fixed benchmark contract.
+  each row is available under the fixed benchmark contract. Missing companion
+  rows should be recorded as pending same-contract comparison inputs.
 - Any missing or incompatible row must be represented as a precise row-level
   blocker, not as a rerun of unrelated baselines.
 

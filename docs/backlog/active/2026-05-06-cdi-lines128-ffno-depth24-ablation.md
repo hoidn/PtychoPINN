@@ -1,5 +1,5 @@
 ---
-priority: 3
+priority: 7
 plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-ablation/execution_plan.md
 check_commands:
   - |
@@ -27,12 +27,14 @@ check_commands:
   - python -m compileall -q ptycho_torch scripts/studies
 prerequisites:
   - 2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun
+  - 2026-05-06-cdi-lines128-no-refiner-ffno-table-refresh
 related_roadmap_phases:
   - phase-3-cdi-anchor-regeneration
 signals_for_selection:
   - The corrected Lines128 CDI FFNO authority must use the no-refiner four-block `pinn_ffno` generator row.
   - Recent SRU-Net/FFNO encoder discussions exposed confusion between the CDI four-block FFNO default and deeper 24-layer FFNO profiles used elsewhere.
   - A direct Lines128 depth ablation is needed before treating "24-layer FFNO" as a better or worse CDI design choice.
+  - This belongs to the later full-results wave and should run only after the four-block no-refiner rows have refreshed near-term paper figures, images, and metrics.
 ---
 
 # Backlog Item: Run 24-Block CDI FFNO Lines128 Depth Ablation
@@ -42,6 +44,8 @@ signals_for_selection:
 - Add one CDI Lines128 FFNO depth-ablation row with `fno_blocks=24`.
 - Compare its metrics directly against the corrected no-refiner default
   `pinn_ffno` row with `fno_blocks=4`.
+- Keep this as the later full-results wave; do not delay the four-block
+  no-refiner table/figure refresh on this run.
 - Keep the comparison isolated to FFNO depth; do not change the dataset,
   probe, loss, width, modes, CNN-refiner count, scheduler, seed, or metric
   definitions.
@@ -69,9 +73,10 @@ signals_for_selection:
   - `torch_loss_mode=mae`, `torch_mae_pred_l2_match_target=off`,
     `torch_output_mode=real_imag`;
   - fixed sample ids and shared visual-scale policy unchanged.
-- Run only the new depth-24 row after the corrected default no-refiner row
-  lands. Reuse that corrected four-block row by lineage; do not compare
-  against the historical `fno_cnn_blocks=2` local-refiner proxy row.
+- Run only the new depth-24 row after the corrected default no-refiner row and
+  the four-block no-refiner table/figure refresh land. Reuse that corrected
+  four-block row by lineage; do not compare against the historical
+  `fno_cnn_blocks=2` local-refiner proxy row.
 - If the existing wrapper cannot express a second FFNO row with a distinct row
   id and row-local `fno_blocks` override, add a narrow append-only row
   extension rather than mutating the default `pinn_ffno` row.
@@ -89,9 +94,10 @@ signals_for_selection:
 - Keep the default `pinn_ffno` label reserved for the four-block authority.
   The 24-block row must have a distinct row id and display label such as
   `FFNO-24 + PINN`.
-- Do not promote the 24-block row into the main paper table automatically. The
-  summary should state whether it is better enough to justify a later table
-  replacement or should remain append-only depth-ablation evidence.
+- Do not promote the 24-block row into the main paper table automatically. Final
+  paper-facing promotion is owned by
+  `2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh` after both PINN and
+  supervised depth-24 rows are available.
 
 ## Outputs
 
