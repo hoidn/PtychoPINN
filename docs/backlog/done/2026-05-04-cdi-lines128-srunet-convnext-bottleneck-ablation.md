@@ -1,6 +1,6 @@
 ---
 priority: 38
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps/2026-05-04-cdi-lines128-srunet-convnext-bottleneck-ablation.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-convnext-bottleneck-ablation/execution_plan.md
 check_commands:
   - |
     python - <<'PY'

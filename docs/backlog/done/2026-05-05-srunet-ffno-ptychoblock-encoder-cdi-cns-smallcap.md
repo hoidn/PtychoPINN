@@ -47,7 +47,7 @@ signals_for_selection:
 
 - Implement and evaluate a narrow SRU-Net encoder variant that replaces the
   current SRU-Net encoder with:
-  - a small FFNO-style factorized spectral stack at the input/lifted
+  - a full 24-layer FFNO-style factorized spectral stack at the input/lifted
     resolution; then
   - two `PtychoBlock`-style encoder stages paired with the existing SRU-Net
     downsampling schedule.
@@ -75,7 +75,9 @@ signals_for_selection:
   `SharedFactorizedFfnoBottleneck` / `FactorizedFfnoBlock`, but wire them as
   the pre-downsample encoder stack rather than as a replacement for the SRU-Net
   bottleneck or as a post-downsample bottleneck substitute.
-- Keep the FFNO encoder stack small and explicit for the first row:
+- Keep the FFNO encoder stack fixed and explicit for the first row:
+  - `ffno_encoder_blocks` must be `24`, matching the depth of the authored CNS
+    FFNO baseline family rather than a lightweight two-block proxy;
   - default modes should match the current SRU-Net/FFNO Lines128 convention
     unless the fixed CNS shape requires a documented adjustment;
   - weight sharing, gate initialization, normalization, and MLP ratio must be
@@ -110,8 +112,8 @@ signals_for_selection:
 ## Required Interpretation
 
 - Frame this as an encoder mechanism ablation, not a new default SRU-Net family.
-- The causal question is whether replacing the current SRU-Net encoder with an
-  `FFNO -> 2x(PtychoBlock + downsample)` encoder improves the same downstream
+- The causal question is whether replacing the current SRU-Net encoder with a
+  `24-layer FFNO -> 2x(PtychoBlock + downsample)` encoder improves the same downstream
   SRU-Net body/decoder.
 - Do not conflate this with the completed FFNO bottleneck bridge. That row
   changed the body/bottleneck; this item changes only the encoder.
@@ -149,6 +151,9 @@ signals_for_selection:
 - Reject plans that tune FFNO encoder depth, modes, gates, or sharing after
   seeing the first metrics. Hyperparameter search requires a separate backlog
   item.
+- Reject implementations that use a two-block FFNO proxy for the headline row;
+  two-block artifacts may be archived only as misconfigured diagnostic context,
+  not as the intended FFNO-encoder result.
 - Reject CNS summaries that mix caps, history lengths, or epoch budgets inside
   one model-ranking table.
 - Reject CDI summaries that rerun completed baseline rows or overwrite the

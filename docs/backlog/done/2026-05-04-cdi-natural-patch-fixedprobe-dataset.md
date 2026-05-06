@@ -1,6 +1,6 @@
 ---
 priority: 35
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps/2026-05-04-cdi-natural-patch-fixedprobe-dataset.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-fixedprobe-dataset/execution_plan.md
 check_commands:
   - |
     python - <<'PY'

@@ -317,6 +317,7 @@ Active candidates:
 
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md`
 - `docs/backlog/active/2026-04-29-brdt-candidate-preflight.md`
+- `docs/backlog/active/2026-05-04-brdt-physics-only-objective-ablation.md`
 - `docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_benchmark_design.md`
 - `docs/backlog/active/2026-04-29-wavebench-inverse-source-preflight.md`
 
@@ -343,7 +344,11 @@ The WaveBench preflight should answer:
 - Should WaveBench become an additional roadmap evidence lane?
 
 No full BRDT or WaveBench benchmark should run until its preflight is complete
-and a later amendment promotes that lane.
+and a later amendment promotes that lane. Append-only candidate diagnostics may
+run after a completed preflight when they preserve the completed bundle and
+answer a narrow pre-promotion question, such as whether BRDT FNO/U-Net collapse
+is caused by the supervised sparse-target objective or persists under a
+physics-only objective.
 
 ## Current Decision
 

@@ -1,6 +1,6 @@
 ---
 priority: 36
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_ffno_row_extension_plan.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-ffno-row-extension/execution_plan.md
 check_commands:
   - |
     python - <<'PY'

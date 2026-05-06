@@ -1,6 +1,6 @@
 ---
 priority: 36
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps/2026-05-04-cdi-natural-patch-expanded-benchmark.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/execution_plan.md
 check_commands:
   - |
     python - <<'PY'
@@ -30,6 +30,15 @@ signals_for_selection:
 ---
 
 # Backlog Item: CDI Natural-Patch Expanded Benchmark
+
+## Queue Status
+
+- Paused on 2026-05-06 at operator request after implementation review
+  returned `REVISE`.
+- Do not select this item in backlog-drain runs unless it is explicitly moved
+  back to `docs/backlog/active/`.
+- Last known state: recovered artifacts were non-authoritative and the
+  benchmark launch did not complete cleanly.
 
 ## Objective
 

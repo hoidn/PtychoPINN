@@ -1,6 +1,6 @@
 ---
 priority: 36
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps/2026-05-04-cdi-lines128-multiseed-headline-robustness.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-multiseed-headline-robustness/execution_plan.md
 check_commands:
   - |
     python - <<'PY'

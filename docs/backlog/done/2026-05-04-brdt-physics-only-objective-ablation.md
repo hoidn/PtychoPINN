@@ -1,6 +1,6 @@
 ---
 priority: 34
-plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_physics_only_objective_ablation_plan.md
+plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-physics-only-objective-ablation/execution_plan.md
 check_commands:
   - |
     python - <<'PY'
