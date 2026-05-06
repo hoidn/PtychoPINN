@@ -2,12 +2,13 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-06T19:12:00Z",
+  "last_updated_utc": "2026-05-06T23:00:36Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
     "paper_evidence_manifest": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_manifest.json",
     "cdi_complete_lines128": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
+    "cdi_ffno_no_refiner_rerun": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_no_refiner_row_rerun_summary.md",
     "cdi_supervised_extension": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md",
     "cns_table_bundle": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
     "cns_larger_cap_context": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
@@ -555,6 +556,44 @@
         "phase_frc50": 67.84086901019204
       },
       "evidence_status": "historical_ffno_local_refiner_proxy"
+    },
+    {
+      "variant_id": "cdi_lines128__ffno__pinn__no_refiner_prerequisite_rerun",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_ffno",
+      "paper_label": "FFNO + PINN",
+      "architecture_id": "ffno",
+      "model_family": "factorized_fourier_operator",
+      "training_mode": "pinn",
+      "architecture_overrides": {
+        "fno_cnn_blocks": 0
+      },
+      "claim_boundary": "lines128_ffno_vs_hybrid_prerequisite_pair",
+      "lineage": {
+        "historical_proxy_variant_id": "cdi_lines128__ffno__pinn__complete_table",
+        "historical_proxy_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet"
+      },
+      "source_backlog_item": "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_no_refiner_row_rerun_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z",
+      "metrics_json": "runs/pinn_ffno/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_ffno.png",
+        "visuals/amp_phase_error_pinn_ffno.png"
+      ],
+      "parameter_count": 124968,
+      "metrics": {
+        "amp_mae": 0.08204326778650284,
+        "phase_mae": 0.13796461630791748,
+        "amp_ssim": 0.890305374043404,
+        "phase_ssim": 0.9596438877920995,
+        "amp_psnr": 67.88186642090065,
+        "phase_psnr": 63.290968031851094,
+        "amp_frc50": 61.465009870474624,
+        "phase_frc50": 58.72860655063348
+      },
+      "comparison_outcome": "corrected_pure_ffno_rerun_completed_table_refresh_pending",
+      "evidence_status": "decision_support_prerequisite_corrected_pure_ffno"
     },
     {
       "variant_id": "cdi_lines128__neuralop_uno__pinn__uno_extension",

@@ -1,7 +1,7 @@
 # NeurIPS Hybrid ResNet Evidence Matrix
 
 Status: draft  
-Last updated: 2026-05-06 (added the cross-pillar SRU-Net `FFNO -> 2x(PtychoBlock + downsample)` encoder probe on locked `lines128` CDI plus matched-condition capped CNS; natural-patch expanded-object benchmark remains `benchmark_incomplete` recovered/non-authoritative)
+Last updated: 2026-05-06 (added the corrected pure-FFNO `lines128` no-refiner rerun under the locked CDI contract; historical FFNO local-refiner rows remain preserved proxy evidence and table refresh is still deferred)
 
 This is the human-facing master matrix for NeurIPS/SRU-Net evidence. It points
 to all relevant completed backlog outputs, keyed by dataset, model/config
@@ -18,6 +18,7 @@ Machine-readable companions:
 | Scope | Current authority | Boundary |
 |---|---|---|
 | CDI `lines128` complete table | `lines128_paper_benchmark_summary.md` | `paper_grade`, six-row complete CDI bundle |
+| CDI `lines128` pure-FFNO corrected prerequisite row | `cdi_lines128_ffno_no_refiner_row_rerun_summary.md` | corrected row-level prerequisite evidence only; claim boundary `lines128_ffno_vs_hybrid_prerequisite_pair`; canonical table promotion deferred |
 | CDI FFNO supervised extension | `lines128_supervised_equivalent_rows_summary.md` | paper-complete extension to existing table |
 | CDI U-NO extension readiness | `lines128_uno_preflight_summary.md` | feasibility-only external UNO environment/API authority before generator integration |
 | CDI U-NO table extension | `lines128_uno_table_extension_summary.md` | append-only `paper_grade` eight-row extended bundle; claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension` |
@@ -68,7 +69,8 @@ Fixed contract: synthetic grid-lines `N=128`, `gridsize=1`, `seed=3`,
 | `pinn_hybrid_resnet` | `hybrid_resnet` | PINN | 0.026939 | 0.072063 | 0.988114 | 0.994740 | complete CDI table |
 | `pinn_fno_vanilla` | `fno_vanilla` | PINN | 0.124816 | 0.143540 | 0.740936 | 0.933464 | complete CDI table |
 | `pinn_spectral_resnet_bottleneck_net` | `spectral_resnet_bottleneck_net` | PINN | 0.024944 | 0.092881 | 0.989855 | 0.972219 | complete CDI table |
-| `pinn_ffno` | `ffno` | PINN | 0.062772 | 0.082839 | 0.934830 | 0.981592 | historical FFNO-local-refiner proxy (`fno_cnn_blocks=2`); pure-FFNO rerun active |
+| `pinn_ffno` | `ffno` | PINN | 0.082043 | 0.137965 | 0.890305 | 0.959644 | corrected pure-FFNO prerequisite rerun (`fno_cnn_blocks=0`); table refresh deferred |
+| `pinn_ffno` (historical proxy) | `ffno` | PINN | 0.062772 | 0.082839 | 0.934830 | 0.981592 | historical FFNO-local-refiner proxy (`fno_cnn_blocks=2`); preserved for lineage only |
 | `supervised_ffno` | `ffno` | supervised | 0.386413 | 0.046563 | 0.248427 | 0.937179 | historical supervised FFNO-local-refiner proxy; corrected supervised no-refiner rerun active |
 | `pinn_neuralop_uno` | `neuralop_uno` | PINN | 0.093164 | 0.068291 | 0.827995 | 0.956859 | U-NO table extension (append-only) |
 | `supervised_neuralop_uno` | `neuralop_uno` | supervised | 0.320684 | 0.056251 | 0.268940 | 0.910490 | U-NO table extension (append-only) |
@@ -81,6 +83,8 @@ CDI artifact roots:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z`
 - FFNO prerequisite pair:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet`
+- Corrected pure-FFNO prerequisite rerun:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z`
 - Supervised FFNO extension:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z`
 - U-NO table extension (claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension`):

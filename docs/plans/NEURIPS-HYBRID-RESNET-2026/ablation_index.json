@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-06T19:12:00Z",
+  "last_updated_utc": "2026-05-06T23:00:36Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -85,6 +85,27 @@
         "pinn_ffno"
       ],
       "interpretation": "Hybrid ResNet beat the historical FFNO-local-refiner proxy on amp/phase MAE, SSIM, and PSNR in the prerequisite pair. The row pair is represented separately because the complete six-row bundle supersedes it for paper-table claims and because pure FFNO claims now require the no-refiner rerun."
+    },
+    {
+      "family_id": "cdi_lines128_ffno_local_refiner_correction",
+      "task": "cdi",
+      "fixed_contract": "cdi_lines128_seed3",
+      "changed_factors": [
+        "fno_cnn_blocks: 2 -> 0 within the FFNO stack"
+      ],
+      "completed_items": [
+        "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_no_refiner_row_rerun_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z"
+      ],
+      "rows": [
+        "pinn_ffno"
+      ],
+      "interpretation": "The corrected pure-FFNO rerun preserves the locked CDI `lines128` contract while removing all local residual refiners. Relative to the historical proxy, parameter count drops from `323918` to `124968`, but the corrected row is weaker on the main amplitude and phase metrics. This is corrected prerequisite evidence only; canonical table promotion remains deferred to the separate no-refiner table-refresh item."
     },
     {
       "family_id": "cdi_lines128_hybrid_spectral_ffno_parameter_space",
