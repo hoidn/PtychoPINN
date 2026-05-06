@@ -263,29 +263,34 @@ differentiable forward-model reproduction are trustworthy enough to justify
 later paper-evidence promotion. Neither preflight may add rows to manuscript
 tables or result claims by itself.
 
-### BRDT Additive Amendment (2026-05-05)
+### BRDT 40-Epoch Promotion Attempt — Failed (2026-05-05/06)
 
-The original BRDT preflight did not satisfy the paper-evidence gate by itself.
-That changed only after the fresh same-contract 40-epoch additive rerun under:
+The fresh same-contract 40-epoch BRDT bundle at
+`.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/`
+attempted promotion to additive paper evidence. Promotion did **not** pass.
 
-- `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/`
+`paper_evidence_gate.json` records `claim_boundary=decision_support_convergence_followup`,
+`promotion_status=failed`, `failed_gate_checks=["git_provenance","host_provenance"]`.
 
-Approved additive BRDT evidence for repo-local manuscript support is limited to:
+Reason: an earlier `--rebuild-meta-only` invocation under prior code overwrote
+the original training-run `runtime_provenance.json` with the rebuild host's
+snapshot. The git SHA, git-dirty state, hostname, platform, and GPU count
+existed only in the original payload and cannot be honestly recovered from the
+preserved `invocation.json` (which captures launch timestamp, tracked PID, and
+the Python/PyTorch identity but not the git/host fields). The runtime
+provenance has been honestly reconstructed from `invocation.json` via
+`--reconstruct-runtime-provenance-from-invocation`; the gate's
+`git_provenance` and `host_provenance` checks fail on the reconstructed payload
+exactly as designed, demoting the bundle rather than blessing fabricated
+values.
 
-- rows `hybrid_resnet` and `ffno` rerun under the locked capped BRDT contract
-- the same-contract model-based Born inverse included by lineage for the
-  sample-`255` compare/error bundle
-- `metrics.{json,csv}`, `convergence_audit.{json,csv}`,
-  `paper_evidence_gate.json`
-- `visuals/sample_0255_compare_q.png`,
-  `visuals/sample_0255_error_q.png`,
-  `visuals/sample_0255_sinogram_residual.png`
-- `figures/source_arrays/sample_0255_*`
-
-This amendment promotes BRDT only to additive bounded evidence under claim
-boundary `paper_evidence_brdt_additive`. It does not replace CDI `lines128` or
-PDEBench CNS, does not authorize full-training BRDT competitiveness claims, and
-does not authorize `/home/ollie/Documents/neurips/` publication in this phase.
+The bundle remains usable as same-contract decision-support context (the
+metrics, history records, model state, and sample-`255` visual bundle are
+genuine training outputs). It does **not** authorize manuscript paper-evidence
+claims, does **not** add a row to any paper-grade table, and does **not**
+authorize `/home/ollie/Documents/neurips/` publication. An additive
+paper-evidence promotion would require retraining the bundle on a clean repo
+so the original runtime provenance is captured at training time.
 
 ## Shared Provenance Contract
 

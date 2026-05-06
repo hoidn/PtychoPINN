@@ -265,7 +265,7 @@
       "scheduler": "ReduceLROnPlateau(factor=0.5, patience=2, threshold=0.0, min_lr=1e-5)",
       "batch_size": 16,
       "seed": 42,
-      "claim_boundary": "paper_evidence_brdt_additive",
+      "claim_boundary": "decision_support_convergence_followup",
       "baseline_contract_id": "brdt_decision_support_2048cap",
       "authority": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md"
     },
@@ -1843,7 +1843,7 @@
         "psnr_phys": 30.643715903928236,
         "ssim_phys": 0.9556144877508974
       },
-      "evidence_status": "bounded_capped",
+      "evidence_status": "decision_support",
       "changed_factor": "same capped BRDT contract as the 20-epoch Hybrid ResNet row, but the training budget is extended from 20 to 40 epochs and the runner now records per-epoch history plus ReduceLROnPlateau provenance for the additive paper-evidence gate."
     },
     {
@@ -1876,7 +1876,7 @@
         "psnr_phys": 29.382922049349936,
         "ssim_phys": 0.9454527960998191
       },
-      "evidence_status": "bounded_capped",
+      "evidence_status": "decision_support",
       "changed_factor": "same capped BRDT contract as the 20-epoch FFNO row, but the training budget is extended from 20 to 40 epochs and the runner now records per-epoch history plus ReduceLROnPlateau provenance for the additive paper-evidence gate."
     },
     {

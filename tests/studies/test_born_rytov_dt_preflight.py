@@ -3730,3 +3730,200 @@ def test_evidence_surfaces_consistency_requires_package_design_when_promoted(tmp
     assert (
         paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is True
     )
+
+
+def test_reconstruct_runtime_provenance_from_invocation_restores_only_preserved_fields(
+    tmp_path,
+):
+    """Reviewer-blocked defect: an earlier ``--rebuild-meta-only`` invocation
+    overwrote the original training-run ``runtime_provenance.json`` with the
+    rebuild host's snapshot. The recovery path must reconstruct only the
+    fields preserved by the on-disk ``invocation.json`` (which captures
+    launch timestamp, tracked PID, and the python/torch identity at training
+    startup) and explicitly mark the unrecoverable fields with a
+    ``provenance_reconstruction`` block, so the gate can fail honestly rather
+    than blessing fabricated values."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    output_root = tmp_path / "reconstruct_root"
+    output_root.mkdir(parents=True)
+    invocation_payload = {
+        "script": "scripts/studies/born_rytov_dt/run_brdt_40ep_paper_evidence.py",
+        "argv": ["--ignored"],
+        "command": "python ignored",
+        "parsed_args": {},
+        "cwd": "/original/cwd",
+        "timestamp_utc": "2026-05-06T03:01:07.146943+00:00",
+        "pid": 99999,
+        "extra": {
+            "backlog_item": "2026-05-05-brdt-supervised-born-40ep-paper-evidence",
+            "claim_boundary": "decision_support_convergence_followup",
+            "runtime_provenance": {
+                "python_executable": "/original/python",
+                "python_version": "9.9.9",
+                "cwd": "/original/cwd",
+                "pythonpath": "/original/pythonpath",
+                "torch": {
+                    "version": "0.0.0+orig",
+                    "cuda_version": "0.0",
+                    "cuda_available": True,
+                    "device_name": "OriginalGPU",
+                },
+                "ptycho_torch_file": "/original/ptycho_torch/__init__.py",
+            },
+        },
+    }
+    (output_root / "invocation.json").write_text(json.dumps(invocation_payload))
+
+    runtime_path = paper_mod.reconstruct_runtime_provenance_from_invocation(
+        output_root=output_root
+    )
+    payload = json.loads(runtime_path.read_text())
+
+    # Recovered fields must match invocation.json exactly.
+    assert payload["tracked_pid"] == 99999
+    assert payload["pid"] == 99999
+    assert payload["launch_timestamp_utc"] == "2026-05-06T03:01:07.146943+00:00"
+    assert payload["python_executable"] == "/original/python"
+    assert payload["python_version"] == "9.9.9"
+    assert payload["torch"] == {
+        "version": "0.0.0+orig",
+        "cuda_version": "0.0",
+        "cuda_available": True,
+        "device_name": "OriginalGPU",
+    }
+
+    # Unrecoverable fields must be null. The reconstruction must NOT silently
+    # backfill them from the rebuild host (current process's git_sha,
+    # hostname, etc.).
+    assert payload["git_sha"] is None
+    assert payload["git_dirty"] is None
+    assert payload["hostname"] is None
+    assert payload["platform"] is None
+    assert payload["gpu_count"] is None
+
+    # The reconstruction marker block must explain the situation.
+    block = payload["provenance_reconstruction"]
+    assert block["source"] == "invocation.json"
+    assert "recovered_fields" in block and "unrecoverable_fields" in block
+    assert "tracked_pid" in block["recovered_fields"]
+    assert "git_sha" in block["unrecoverable_fields"]
+    assert "host_provenance" in block["rationale"].lower() or "git_provenance" in block[
+        "rationale"
+    ].lower() or "git/host" in block["rationale"].lower() or (
+        "decision_support_convergence_followup" in block["rationale"]
+    )
+
+
+def test_reconstruct_runtime_provenance_then_rebuild_meta_only_demotes_gate(tmp_path):
+    """End-to-end: reconstructing ``runtime_provenance.json`` from
+    ``invocation.json`` and then running ``--rebuild-meta-only`` must produce
+    a gate that fails ``git_provenance`` and ``host_provenance`` and demotes
+    the bundle's ``claim_boundary`` to
+    ``decision_support_convergence_followup``."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    ffno_extension_root = _make_synthetic_ffno_extension_bundle(
+        tmp_path, baseline_root
+    )
+    output_root = tmp_path / "reconstruct_then_rebuild"
+    contract = preflight_mod.TrainingContract(
+        epochs=1,
+        batch_size=1,
+        learning_rate=2e-4,
+        scheduler="reduce_on_plateau",
+        plateau_factor=0.5,
+        plateau_patience=2,
+        plateau_threshold=0.0,
+        plateau_min_lr=1e-5,
+    )
+
+    paper_mod.run_paper_evidence(
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+        manifest_path=manifest_path,
+        output_root=output_root,
+        contract=contract,
+        device_choice="cpu",
+        dry_run=False,
+        fixed_sample_ids=[0],
+        required_paper_sample=0,
+        parent_argv=[],
+    )
+
+    # Reconstruct from invocation.json (writes runtime_provenance.json with
+    # null git/host fields plus a provenance_reconstruction block).
+    paper_mod.reconstruct_runtime_provenance_from_invocation(
+        output_root=output_root
+    )
+
+    # The amend path must accept the reconstructed payload (its declared
+    # recovered_fields are all non-null) and only attach a meta_rebuild
+    # block; the unrecoverable git/host fields stay null.
+    paper_mod.rebuild_meta_only(
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+        manifest_path=manifest_path,
+        output_root=output_root,
+        contract=contract,
+        fixed_sample_ids=[0],
+        required_paper_sample=0,
+    )
+
+    runtime_payload = json.loads(
+        (output_root / "runtime_provenance.json").read_text()
+    )
+    assert runtime_payload["git_sha"] is None
+    assert runtime_payload["git_dirty"] is None
+    assert runtime_payload["hostname"] is None
+    assert "provenance_reconstruction" in runtime_payload
+    assert "meta_rebuild" in runtime_payload
+
+    gate_payload = json.loads(
+        (output_root / "paper_evidence_gate.json").read_text()
+    )
+    assert gate_payload["claim_boundary"] == "decision_support_convergence_followup"
+    assert gate_payload["promotion_status"] == "failed"
+    failed = set(gate_payload["failed_gate_checks"])
+    assert "git_provenance" in failed
+    assert "host_provenance" in failed
+    assert gate_payload["provenance_checks"]["python_provenance"] is True
+    assert gate_payload["provenance_checks"]["torch_provenance"] is True
+
+
+def test_reconstruct_runtime_provenance_refuses_when_invocation_missing(tmp_path):
+    """The reconstruction path must refuse to fabricate runtime provenance
+    when ``invocation.json`` itself is missing or malformed; the only
+    preserved authentic record of the original training-run launch identity
+    is invocation.json, and reconstructing without it would silently
+    fabricate values."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    output_root = tmp_path / "reconstruct_missing_invocation"
+    output_root.mkdir()
+
+    with pytest.raises(FileNotFoundError):
+        paper_mod.reconstruct_runtime_provenance_from_invocation(
+            output_root=output_root
+        )
+
+    (output_root / "invocation.json").write_text("{not-json")
+    with pytest.raises(RuntimeError):
+        paper_mod.reconstruct_runtime_provenance_from_invocation(
+            output_root=output_root
+        )
+
+    # Parseable but missing pid/timestamp_utc: refuse rather than backfilling.
+    (output_root / "invocation.json").write_text(json.dumps({"extra": {}}))
+    with pytest.raises(RuntimeError):
+        paper_mod.reconstruct_runtime_provenance_from_invocation(
+            output_root=output_root
+        )

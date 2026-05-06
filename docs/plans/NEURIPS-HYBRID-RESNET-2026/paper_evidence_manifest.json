@@ -1340,9 +1340,9 @@
       "artifact_id": "brdt:additive_40ep_bundle",
       "row_id": "brdt_additive_40ep_bundle",
       "row_role": "additive_context",
-      "row_status": "capped_decision_support",
-      "claim_boundary": "paper_evidence_brdt_additive",
-      "evidence_tier": "capped_decision_support",
+      "row_status": "decision_support",
+      "claim_boundary": "decision_support_convergence_followup",
+      "evidence_tier": "decision_support",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md",
       "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/",
       "metric_schema": {
@@ -1363,11 +1363,15 @@
       "source_array_roots": [
         ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/figures/source_arrays"
       ],
-      "provenance_gaps": [],
-      "draftability": "draftable_with_bounded_wording",
+      "provenance_gaps": [
+        "git_provenance_unrecoverable_after_prior_rebuild_overwrote_runtime_provenance",
+        "host_provenance_unrecoverable_after_prior_rebuild_overwrote_runtime_provenance"
+      ],
+      "draftability": "draftable_context_only",
       "blocked_claims": [
         "same_protocol_full_training_brdt_competitiveness",
-        "candidate_lane_replaces_required_cdi_cns_pillars"
+        "candidate_lane_replaces_required_cdi_cns_pillars",
+        "brdt_paper_evidence_additive_promotion"
       ],
       "notes": {
         "rows": [
@@ -1380,7 +1384,8 @@
         "epochs": 40,
         "batch_size": 16,
         "scheduler": "ReduceLROnPlateau(factor=0.5, patience=2, threshold=0.0, min_lr=1e-5)",
-        "promotion_status": "passed"
+        "promotion_status": "failed",
+        "promotion_failure_reason": "An earlier --rebuild-meta-only invocation under prior code overwrote the original training-run runtime_provenance.json with the rebuild host's snapshot. The git_sha/git_dirty/hostname/platform/gpu_count fields existed only in the original payload and cannot be honestly recovered from the preserved invocation.json. runtime_provenance.json was reconstructed from invocation.json via --reconstruct-runtime-provenance-from-invocation; the gate's git_provenance and host_provenance checks fail honestly on the reconstructed payload, demoting the bundle to decision_support_convergence_followup."
       }
     }
   ],
@@ -1414,9 +1419,9 @@
       "source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet"
     },
     {
-      "claim_boundary": "paper_evidence_brdt_additive",
+      "claim_boundary": "decision_support_convergence_followup",
       "pillar_id": "inverse_wave_candidate",
-      "headline_status": "capped_decision_support",
+      "headline_status": "decision_support",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md",
       "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/"
     }
@@ -1488,15 +1493,15 @@
     },
     {
       "section_id": "results_inverse_wave_candidate_lane",
-      "draftability": "draftable_with_bounded_wording",
-      "supporting_status": "mixed",
+      "draftability": "draftable_context_only",
+      "supporting_status": "decision_support",
       "allowed_claims": [
-        "The BRDT additive lane may be discussed as a bounded same-contract 40-epoch comparison between Hybrid ResNet and FFNO under claim boundary paper_evidence_brdt_additive.",
-        "The sample-255 BRDT compare/error bundle may use the promoted 40-epoch artifact root with the inherited model-based Born inverse comparator by lineage."
+        "The BRDT 40-epoch bundle remains coherent same-contract decision-support context under claim boundary decision_support_convergence_followup, comparing Hybrid ResNet and FFNO at 2048 / 256 / 256, batch 16, ReduceLROnPlateau."
       ],
       "blocked_claims": [
         "same_protocol_full_training_brdt_competitiveness",
-        "candidate_lane_replaces_required_cdi_cns_pillars"
+        "candidate_lane_replaces_required_cdi_cns_pillars",
+        "brdt_paper_evidence_additive_promotion"
       ]
     }
   ],
@@ -1528,13 +1533,19 @@
     {
       "claim_id": "same_protocol_full_training_brdt_competitiveness",
       "status": "blocked",
-      "reason": "The promoted BRDT authority remains a capped 2048 / 256 / 256, 40-epoch additive lane rather than a full-training benchmark claim.",
+      "reason": "The BRDT authority remains a capped 2048 / 256 / 256, 40-epoch decision-support lane rather than a full-training benchmark claim.",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md"
     },
     {
       "claim_id": "candidate_lane_replaces_required_cdi_cns_pillars",
       "status": "blocked",
-      "reason": "BRDT is additive bounded evidence only and does not replace the required CDI lines128 or PDEBench CNS manuscript pillars.",
+      "reason": "BRDT is decision-support context only and does not replace the required CDI lines128 or PDEBench CNS manuscript pillars.",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md"
+    },
+    {
+      "claim_id": "brdt_paper_evidence_additive_promotion",
+      "status": "blocked",
+      "reason": "An earlier rebuild overwrote the original training-run runtime_provenance.json with the rebuild host's snapshot. git_sha/git_dirty/hostname/platform/gpu_count cannot be honestly recovered from the preserved invocation.json. The reconstructed runtime provenance fails the gate's git_provenance and host_provenance checks; promotion to paper_evidence_brdt_additive must wait until the bundle is retrained on a clean repo with full provenance capture.",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md"
     }
   ]

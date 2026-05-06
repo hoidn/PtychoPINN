@@ -593,11 +593,10 @@
       "family_id": "brdt_supervised_born_40ep_additive_promotion",
       "task": "candidate_brdt",
       "fixed_contract": "brdt_paper_evidence_2048cap_40ep",
-      "claim_boundary": "paper_evidence_brdt_additive",
+      "claim_boundary": "decision_support_convergence_followup",
       "changed_factors": [
         "epoch budget (20 -> 40 for the rerun rows)",
-        "scheduler/history provenance for the additive gate",
-        "promotion surface from decision-support lineage to bounded additive paper evidence"
+        "scheduler/history provenance for the additive gate"
       ],
       "completed_items": [
         "2026-04-29-brdt-four-row-preflight",
@@ -626,7 +625,7 @@
         "ffno (20-epoch baseline)",
         "ffno (40-epoch additive rerun)"
       ],
-      "interpretation": "Same capped BRDT contract, but the additive rerun extends only Hybrid ResNet and FFNO from 20 to 40 epochs and adds scheduler/history provenance for a formal paper-evidence gate. Both rerun rows improve every tracked blocking metric versus their frozen 20-epoch authorities, Hybrid ResNet remains the stronger image-space row, and FFNO remains competitive at much lower parameter count. The gate passes only as additive bounded evidence under claim boundary paper_evidence_brdt_additive. Both rows are still materially improving at stop with no LR reductions, so this family must not be read as a full-convergence or full-training BRDT competitiveness result."
+      "interpretation": "Same capped BRDT contract, but the additive rerun extends only Hybrid ResNet and FFNO from 20 to 40 epochs and adds scheduler/history provenance for a formal paper-evidence gate. Both rerun rows improve every tracked blocking metric versus their frozen 20-epoch authorities, Hybrid ResNet remains the stronger image-space row, and FFNO remains competitive at much lower parameter count. The paper-evidence gate did not pass: an earlier --rebuild-meta-only invocation under prior code overwrote the original training-run runtime_provenance.json with the rebuild host's snapshot; runtime_provenance.json was honestly reconstructed from invocation.json (which preserves only tracked_pid/launch_timestamp/python/torch fields), so the gate's git_provenance and host_provenance checks fail and the bundle is demoted to decision_support_convergence_followup. Both rows are still materially improving at stop with no LR reductions, so this family must not be read as a full-convergence or full-training BRDT competitiveness result. An additive paper-evidence promotion would require retraining on a clean repo so full provenance is captured at training time."
     }
   ],
   "maintenance_rules": [

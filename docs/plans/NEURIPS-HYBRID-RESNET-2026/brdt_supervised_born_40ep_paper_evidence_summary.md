@@ -1,11 +1,17 @@
 # BRDT Supervised+Born 40-Epoch Paper Evidence Summary
 
 > **Owning backlog item:** `2026-05-05-brdt-supervised-born-40ep-paper-evidence`
-> **Final claim boundary:** `paper_evidence_brdt_additive`
-> **Promotion status:** `passed`
-> **Caveat:** additive bounded evidence only. This does **not** replace the
-> required CDI `lines128` or PDEBench CNS pillars, and it does not authorize
-> `/home/ollie/Documents/neurips/` publication in this phase.
+> **Final claim boundary:** `decision_support_convergence_followup`
+> **Promotion status:** `failed`
+> **Lane status:** `decision_support`
+> **Caveat:** decision-support context only. The bundle's training metrics,
+> history records, model state, and sample-`255` visual bundle are valid
+> same-contract decision-support evidence, but the paper-evidence gate failed
+> on `git_provenance` and `host_provenance` after honest reconstruction of the
+> overwritten `runtime_provenance.json` from `invocation.json` (see Section 7).
+> This bundle does **not** authorize manuscript paper-evidence claims, does
+> **not** replace the required CDI `lines128` or PDEBench CNS pillars, and does
+> **not** authorize `/home/ollie/Documents/neurips/` publication.
 
 ## 1. Identity And Locked Contract
 
@@ -40,14 +46,21 @@
 
 The fresh 40-epoch rerun improves both neural rows against their frozen
 20-epoch authorities under the same dataset, operator, split, input, and loss
-contract. The gate now passes because the bundle has complete provenance,
-sample-`255` compare/error/source-array assets, same-contract lineage to the
-frozen 20-epoch rows, and a checked-in evidence-package amendment that matches
-the run artifacts.
+contract. The training metrics, history records, model state, and sample-`255`
+visual bundle are valid same-contract decision-support evidence.
 
-Hybrid ResNet remains the strongest image-space BRDT row. FFNO remains
-competitive at much lower parameter count, but does not displace Hybrid ResNet
-on this capped contract.
+The paper-evidence gate did **not** pass. Section 7 documents why: an earlier
+`--rebuild-meta-only` invocation under prior code overwrote the original
+training-run `runtime_provenance.json` with the rebuild host's snapshot, and
+the git SHA, git-dirty state, hostname, platform, and GPU count cannot be
+honestly recovered from `invocation.json`. After honest reconstruction the
+gate's `git_provenance` and `host_provenance` checks fail by design, demoting
+the bundle to `decision_support_convergence_followup` rather than blessing
+fabricated values.
+
+Hybrid ResNet remains the strongest image-space BRDT row in the recorded
+metrics. FFNO remains competitive at much lower parameter count, but does not
+displace Hybrid ResNet on this capped contract.
 
 ## 3. 20-Epoch To 40-Epoch Delta Read
 
@@ -85,39 +98,83 @@ actually consumed by the fresh 40-epoch bundle.
 
 ## 5. Gate Result And Reasons
 
-- Final claim boundary: `paper_evidence_brdt_additive`
-- Promotion status: `passed`
-- Lane status: completed, additive-only
+- Final claim boundary: `decision_support_convergence_followup`
+- Promotion status: `failed`
+- Lane status: `decision_support`
+- Failed gate checks: `git_provenance`, `host_provenance`
 
-Promotion passed because all required gate conditions were satisfied:
+Promotion did **not** pass. Most gate conditions were satisfied:
 
 - both rerun rows completed successfully
 - both rows emitted `40` history records
 - scheduler fields matched the locked plan contract
-- runtime provenance, dataset identity, split manifest, run-log, and exit-code
-  proof were present
+- dataset identity, split manifest, run-log, and exit-code proof were present
 - sample-`255` compare/error/source-array assets were present with the
   same-contract classical comparator
-- checked-in evidence surfaces were updated to the same backlog item, artifact
-  root, and claim boundary
+- Python and PyTorch identity (`python_provenance`, `torch_provenance`) were
+  recovered from `invocation.json` and pass the gate
+- checked-in evidence surfaces (durable summary, `paper_evidence_index.md`,
+  `paper_evidence_manifest.json`, `docs/index.md`) reference this backlog
+  item, artifact root, and the demoted claim boundary
 
-This promotion remains deliberately narrow:
+But the gate honestly fails on:
 
-- BRDT is still bounded capped evidence, not a new primary manuscript pillar
-- the additive lane does not replace CDI `lines128` or PDEBench CNS
+- `git_provenance` — `git_sha`/`git_dirty` cannot be recovered from
+  `invocation.json` and were lost when an earlier rebuild overwrote the
+  original training-run `runtime_provenance.json` with the rebuild host's
+  snapshot
+- `host_provenance` — `hostname`/`gpu_count` were similarly lost
+
+The paper-evidence package design's BRDT amendment has been removed; an
+additive paper-evidence promotion of this bundle requires retraining on a
+clean repo so the original runtime provenance is captured at training time.
+
+This decision-support outcome remains deliberately narrow:
+
+- BRDT remains decision-support context only, not a manuscript pillar
+- the lane does not replace CDI `lines128` or PDEBench CNS
 - no full-training BRDT competitiveness claim is authorized
 
 ## 6. Residual Risks
 
 - The rows were still improving at stop and never reduced LR, so the correct
-  interpretation is additive bounded evidence rather than fully converged BRDT
-  performance.
+  interpretation is bounded decision-support evidence rather than fully
+  converged BRDT performance.
 - The classical comparator used for the sample-`255` figure is inherited by
   lineage from the baseline bundle rather than regenerated in this pass.
+- The original training-run `runtime_provenance.json` was overwritten by an
+  earlier rebuild path before the runner's preservation guard was added. The
+  reconstructed payload restores only what `invocation.json` preserved
+  (tracked PID, launch timestamp, Python/PyTorch identity); the git SHA,
+  git-dirty state, hostname, platform, and GPU count are recorded as `null`
+  with an explicit `provenance_reconstruction` block listing the recovered
+  vs unrecoverable fields and the rationale. This loss is the proximate
+  reason promotion fails. Going forward the runner preserves whatever is on
+  disk exactly during rebuild, so a future training pass on a clean repo
+  would record full provenance and could be promoted under the same gate.
 - This item is repo-local only; `/home/ollie/Documents/neurips/` remains out of
   scope.
 
 ## 7. Reproducibility And Meta Provenance
+
+> **Important:** the bundle's on-disk `runtime_provenance.json` was reconstructed
+> from `invocation.json` after an earlier `--rebuild-meta-only` invocation under
+> prior code overwrote the original training-run payload with the rebuild
+> host's snapshot. invocation.json was written by the original training process
+> at startup and is the only preserved authoritative record of the original
+> training-run launch identity. The reconstruction restores `tracked_pid`,
+> `pid`, `launch_timestamp_utc`, `python_executable`, `python_version`, and the
+> `torch.*` block exactly as the original training process recorded them; it
+> sets `git_sha`, `git_dirty`, `hostname`, `platform`, and `gpu_count` to
+> `null` because invocation.json never preserved them and they cannot be
+> honestly recovered. A `provenance_reconstruction` block at the top of
+> `runtime_provenance.json` records the source path, the reconstruction
+> timestamp, the recovered-vs-unrecoverable field lists, and the rationale.
+> The gate's `git_provenance` and `host_provenance` checks fail on the
+> reconstructed payload by design, demoting the bundle to
+> `decision_support_convergence_followup` rather than blessing fabricated
+> values. An additive paper-evidence promotion of this bundle requires
+> retraining on a clean repo so full provenance is captured at training time.
 
 The fresh artifact root is reproducible end-to-end from the approved runner
 in `scripts/studies/born_rytov_dt/run_brdt_40ep_paper_evidence.py`:
@@ -156,6 +213,19 @@ in `scripts/studies/born_rytov_dt/run_brdt_40ep_paper_evidence.py`:
   original field, the rebuild raises rather than fabricating provenance —
   bundles whose original training-run provenance has been lost must be
   retrained, not silently regenerated.
+- For bundles whose original `runtime_provenance.json` was lost to an earlier
+  rebuild-host overwrite, the runner provides an honest recovery path via
+  `--reconstruct-runtime-provenance-from-invocation`. This mode reads the
+  preserved `invocation.json` and rewrites `runtime_provenance.json` with
+  only the fields invocation.json captured (`tracked_pid`/`pid`,
+  `launch_timestamp_utc`, `python_executable`, `python_version`, `torch.*`),
+  leaves git/host fields explicitly `null`, and records a
+  `provenance_reconstruction` block. The amend path recognizes this block
+  and only requires the reconstruction's declared `recovered_fields` to be
+  non-null; the gate's `git_provenance` and `host_provenance` checks then
+  fail on the reconstructed payload, naturally demoting the bundle rather
+  than fabricating provenance. This is exactly the path applied to the
+  bundle described by this summary.
 - The gate's `same_contract_lineage` check actively re-validates the baseline
   and FFNO-extension bundles each time the gate is recomputed and verifies
   that this bundle's `preflight_manifest.json` `baseline_lineage` block points

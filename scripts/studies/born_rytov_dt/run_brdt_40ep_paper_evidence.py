@@ -379,6 +379,130 @@ REQUIRED_ORIGINAL_RUNTIME_PROVENANCE_FIELDS = (
     "tracked_pid",
 )
 
+# When the original training-run runtime_provenance.json was lost (because an
+# earlier ``--rebuild-meta-only`` invocation under prior code overwrote it
+# with the rebuild host's snapshot), invocation.json — written by the original
+# training process at startup — is the only preserved authoritative record of
+# the original training-run launch identity. The fields below are the subset
+# the original training process captured under invocation.json's
+# ``extra.runtime_provenance`` block plus the top-level ``pid``/
+# ``timestamp_utc``. Fields outside this set were never preserved by
+# invocation.json and cannot be honestly reconstructed: the gate's
+# git_provenance and host_provenance checks naturally fail on a reconstructed
+# payload, demoting the bundle rather than fabricating values.
+RECONSTRUCTABLE_RUNTIME_PROVENANCE_FIELDS = (
+    "tracked_pid",
+    "pid",
+    "launch_timestamp_utc",
+    "python_executable",
+    "python_version",
+    "torch",
+)
+UNRECOVERABLE_RUNTIME_PROVENANCE_FIELDS = (
+    "git_sha",
+    "git_dirty",
+    "hostname",
+    "platform",
+    "gpu_count",
+)
+
+
+def reconstruct_runtime_provenance_from_invocation(
+    *,
+    output_root: Path,
+) -> Path:
+    """Reconstruct ``runtime_provenance.json`` from the on-disk
+    ``invocation.json`` after an earlier rebuild-host overwrite.
+
+    invocation.json was written by the original training process at startup
+    and preserves the launch timestamp, the tracked PID, and the
+    Python/PyTorch identity captured under
+    ``extra.runtime_provenance``. It does not preserve git SHA, git-dirty
+    state, hostname, platform, or GPU count — those existed only in the
+    original training-run ``runtime_provenance.json`` and were lost when an
+    earlier ``--rebuild-meta-only`` invocation under prior code overwrote
+    the file with the rebuild host's snapshot.
+
+    This helper restores only the fields invocation.json preserved and sets
+    the unrecoverable fields to ``None`` with an explicit
+    ``provenance_reconstruction`` block listing the source, the recovered
+    fields, and the unrecoverable fields. The paper-evidence gate's
+    ``git_provenance`` and ``host_provenance`` checks naturally fail on a
+    reconstructed payload, so the bundle is honestly demoted rather than
+    promoted on top of fabricated values.
+    """
+    invocation_path = Path(output_root) / "invocation.json"
+    if not invocation_path.exists():
+        raise FileNotFoundError(
+            f"reconstruction requires existing {invocation_path}; cannot "
+            "rebuild runtime provenance without the original training-run "
+            "invocation record"
+        )
+    try:
+        invocation_payload = json.loads(invocation_path.read_text())
+    except Exception as exc:
+        raise RuntimeError(
+            f"reconstruction cannot parse {invocation_path}: {exc!r}"
+        ) from exc
+    if not isinstance(invocation_payload, dict):
+        raise RuntimeError(
+            f"reconstruction expected dict in {invocation_path}, got "
+            f"{type(invocation_payload).__name__}"
+        )
+    pid = invocation_payload.get("pid")
+    timestamp = invocation_payload.get("timestamp_utc")
+    if pid is None or not timestamp:
+        raise RuntimeError(
+            f"reconstruction requires non-null pid and timestamp_utc in "
+            f"{invocation_path}; got pid={pid!r}, timestamp_utc={timestamp!r}"
+        )
+    extra = invocation_payload.get("extra") or {}
+    if not isinstance(extra, Mapping):
+        extra = {}
+    extra_provenance = extra.get("runtime_provenance") or {}
+    if not isinstance(extra_provenance, Mapping):
+        extra_provenance = {}
+    payload: Dict[str, Any] = {
+        "tracked_pid": int(pid),
+        "pid": int(pid),
+        "launch_timestamp_utc": str(timestamp),
+        "python_executable": extra_provenance.get("python_executable"),
+        "python_version": extra_provenance.get("python_version"),
+        "torch": dict(extra_provenance.get("torch") or {}),
+        "cwd": extra_provenance.get("cwd") or invocation_payload.get("cwd"),
+        "pythonpath": extra_provenance.get("pythonpath"),
+        "ptycho_torch_file": extra_provenance.get("ptycho_torch_file"),
+        "git_sha": None,
+        "git_dirty": None,
+        "hostname": None,
+        "platform": None,
+        "gpu_count": None,
+        "provenance_reconstruction": {
+            "source": "invocation.json",
+            "source_path": str(invocation_path),
+            "reconstructed_utc": datetime.now(timezone.utc).isoformat(),
+            "recovered_fields": list(RECONSTRUCTABLE_RUNTIME_PROVENANCE_FIELDS),
+            "unrecoverable_fields": list(
+                UNRECOVERABLE_RUNTIME_PROVENANCE_FIELDS
+            ),
+            "rationale": (
+                "An earlier --rebuild-meta-only invocation under prior code "
+                "overwrote the original training-run runtime_provenance.json "
+                "with the rebuild host's snapshot. invocation.json is the "
+                "only preserved authoritative record of the original "
+                "training-run launch identity. Fields not preserved by "
+                "invocation.json are marked unrecoverable rather than "
+                "fabricated; the paper-evidence gate's git_provenance and "
+                "host_provenance checks fail on this payload, demoting the "
+                "bundle's claim_boundary to decision_support_convergence_"
+                "followup."
+            ),
+        },
+    }
+    runtime_provenance_path = Path(output_root) / "runtime_provenance.json"
+    _write_json(runtime_provenance_path, payload)
+    return runtime_provenance_path
+
 
 def _amend_existing_runtime_provenance_for_rebuild(
     *,
@@ -399,7 +523,18 @@ def _amend_existing_runtime_provenance_for_rebuild(
     the original 40-epoch training run. This helper preserves every recorded
     original field exactly and refuses to fabricate provenance when the
     original file is missing or malformed: a bundle whose original runtime
-    provenance has been lost must be retrained, not silently regenerated.
+    provenance has been lost must be retrained, reconstructed via
+    :func:`reconstruct_runtime_provenance_from_invocation`, or otherwise
+    rebuilt from authentic original evidence — never silently regenerated
+    from the rebuild host.
+
+    When the on-disk payload carries a ``provenance_reconstruction`` block
+    (written by :func:`reconstruct_runtime_provenance_from_invocation`),
+    this helper recognizes the explicitly unrecoverable fields and only
+    requires the reconstruction's declared ``recovered_fields`` to be
+    non-null. Fields the reconstruction marks unrecoverable may pass through
+    as ``None`` so the gate's ``git_provenance``/``host_provenance`` checks
+    fail honestly rather than silently passing on fabricated values.
     """
     runtime_provenance_path = output_root / "runtime_provenance.json"
     if not runtime_provenance_path.exists():
@@ -419,11 +554,24 @@ def _amend_existing_runtime_provenance_for_rebuild(
             f"meta-rebuild expected dict in {runtime_provenance_path}, got "
             f"{type(existing_payload).__name__}"
         )
-    missing = [
-        key
-        for key in REQUIRED_ORIGINAL_RUNTIME_PROVENANCE_FIELDS
-        if existing_payload.get(key) is None
-    ]
+    reconstruction_block = existing_payload.get("provenance_reconstruction")
+    if isinstance(reconstruction_block, Mapping):
+        recovered = list(reconstruction_block.get("recovered_fields") or [])
+        if not recovered:
+            raise RuntimeError(
+                f"meta-rebuild found provenance_reconstruction block in "
+                f"{runtime_provenance_path} with empty recovered_fields; "
+                "refusing to bless a payload that recovered nothing"
+            )
+        missing = [
+            key for key in recovered if existing_payload.get(key) is None
+        ]
+    else:
+        missing = [
+            key
+            for key in REQUIRED_ORIGINAL_RUNTIME_PROVENANCE_FIELDS
+            if existing_payload.get(key) is None
+        ]
     if missing:
         raise RuntimeError(
             f"meta-rebuild requires {sorted(missing)} in {runtime_provenance_path}; "
@@ -1887,6 +2035,22 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--reconstruct-runtime-provenance-from-invocation",
+        action="store_true",
+        help=(
+            "Reconstruct runtime_provenance.json from the on-disk invocation.json "
+            "(written by the original training process at startup) and then run "
+            "the meta-only rebuild. Use only when the original "
+            "runtime_provenance.json was overwritten by an earlier rebuild path "
+            "and must be honestly restored. Fields invocation.json did not "
+            "preserve (git_sha, git_dirty, hostname, platform, gpu_count) are "
+            "explicitly marked unrecoverable; the gate's git_provenance and "
+            "host_provenance checks fail on the reconstructed payload, demoting "
+            "the bundle to decision_support_convergence_followup rather than "
+            "promoting it on top of fabricated values."
+        ),
+    )
+    parser.add_argument(
         "--force-overwrite",
         action="store_true",
         help="Force training to proceed against a populated output root.",
@@ -1900,7 +2064,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
     parent_argv = sys.argv[1:] if argv is None else list(argv)
-    if args.rebuild_meta_only:
+    if args.reconstruct_runtime_provenance_from_invocation:
+        reconstruct_runtime_provenance_from_invocation(
+            output_root=args.output_root.resolve()
+        )
+    if args.rebuild_meta_only or args.reconstruct_runtime_provenance_from_invocation:
         result = rebuild_meta_only(
             baseline_root=args.baseline_root,
             ffno_extension_root=args.ffno_extension_root,
