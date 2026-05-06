@@ -2749,18 +2749,21 @@ def test_rebuild_meta_only_refuses_active_writer(tmp_path):
 
 def test_evidence_surfaces_consistency_check_requires_all_surfaces(tmp_path):
     """The evidence_surfaces_prepared gate check must require the durable
-    summary, the paper-evidence index, and the paper-evidence manifest to all
-    reference this backlog item, not just the summary file alone."""
+    summary, the paper-evidence index, the paper-evidence manifest, AND the
+    repo-wide ``docs/index.md`` discoverability surface to all reference this
+    backlog item, not just the summary file alone."""
     from scripts.studies.born_rytov_dt import (
         run_brdt_40ep_paper_evidence as paper_mod,
     )
 
     fake_repo = tmp_path / "fake_repo"
     (fake_repo / "docs" / "plans" / "NEURIPS-HYBRID-RESNET-2026").mkdir(parents=True)
+    (fake_repo / "docs").mkdir(exist_ok=True)
 
     summary_path = fake_repo / paper_mod.DURABLE_SUMMARY_PATH
     index_path = fake_repo / paper_mod.PAPER_EVIDENCE_INDEX_PATH
     manifest_path = fake_repo / paper_mod.PAPER_EVIDENCE_MANIFEST_PATH
+    docs_index_path = fake_repo / paper_mod.DOCS_INDEX_PATH
 
     # Only the durable summary references the backlog item: must fail.
     summary_path.write_text(
@@ -2770,15 +2773,22 @@ def test_evidence_surfaces_consistency_check_requires_all_surfaces(tmp_path):
         paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
     )
 
-    # Add the index but not the manifest: must still fail.
+    # Add the paper-evidence index but not the manifest: must still fail.
     index_path.write_text(f"{paper_mod.BACKLOG_ITEM}\n")
     assert (
         paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
     )
 
-    # All three surfaces present and reference the backlog item plus a known
-    # claim-boundary label: must pass.
+    # Add the manifest but not docs/index.md: must still fail because the
+    # repo-wide docs index discoverability surface is required by the plan.
     manifest_path.write_text(f'"{paper_mod.BACKLOG_ITEM}"\n')
+    assert (
+        paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
+    )
+
+    # All four surfaces present and reference the backlog item plus a known
+    # claim-boundary label in the durable summary: must pass.
+    docs_index_path.write_text(f"{paper_mod.BACKLOG_ITEM}\n")
     assert (
         paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is True
     )
@@ -2787,4 +2797,295 @@ def test_evidence_surfaces_consistency_check_requires_all_surfaces(tmp_path):
     summary_path.write_text(f"{paper_mod.BACKLOG_ITEM}\n")
     assert (
         paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
+    )
+
+
+def test_scheduler_matches_contract_rejects_plateau_drift():
+    """Reviewer-blocked defect: ``scheduler_matches_contract`` previously
+    accepted any bundle whose scheduler name matched, even when plateau
+    factor/patience/threshold/min_lr drifted. The strengthened helper must
+    fail every plan-bound scheduler/optimizer field check."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    contract = preflight_mod.TrainingContract(
+        epochs=40,
+        batch_size=16,
+        learning_rate=2e-4,
+        scheduler="reduce_on_plateau",
+        plateau_factor=0.5,
+        plateau_patience=2,
+        plateau_threshold=0.0,
+        plateau_min_lr=1e-5,
+    ).as_dict()
+
+    matching_summary = {
+        "scheduler": {
+            "name": "reduce_on_plateau",
+            "factor": 0.5,
+            "patience": 2,
+            "threshold": 0.0,
+            "min_lr": 1e-5,
+        },
+        "runtime": {"epochs": 40, "batch_size": 16, "learning_rate": 2e-4},
+    }
+    assert paper_mod._scheduler_matches_contract(
+        row_summary=matching_summary, contract_dict=contract
+    )
+
+    # Drifted plateau_factor: must fail despite name matching.
+    drift_summary = json.loads(json.dumps(matching_summary))
+    drift_summary["scheduler"]["factor"] = 0.25
+    assert not paper_mod._scheduler_matches_contract(
+        row_summary=drift_summary, contract_dict=contract
+    )
+
+    # Drifted plateau_patience: must fail.
+    drift_summary = json.loads(json.dumps(matching_summary))
+    drift_summary["scheduler"]["patience"] = 5
+    assert not paper_mod._scheduler_matches_contract(
+        row_summary=drift_summary, contract_dict=contract
+    )
+
+    # Drifted plateau_min_lr: must fail.
+    drift_summary = json.loads(json.dumps(matching_summary))
+    drift_summary["scheduler"]["min_lr"] = 1e-3
+    assert not paper_mod._scheduler_matches_contract(
+        row_summary=drift_summary, contract_dict=contract
+    )
+
+    # Drifted batch size in optimizer recipe: must fail.
+    drift_summary = json.loads(json.dumps(matching_summary))
+    drift_summary["runtime"]["batch_size"] = 32
+    assert not paper_mod._scheduler_matches_contract(
+        row_summary=drift_summary, contract_dict=contract
+    )
+
+
+def test_sample_visual_source_arrays_check_requires_each_required_file(tmp_path):
+    """Reviewer-blocked defect: ``sample_255_visual_bundle`` previously only
+    checked ``classical_present`` plus a non-empty figure list, so the
+    durable per-row source arrays could disappear without the gate
+    failing. The strengthened helper must require every per-sample,
+    per-row source-array file."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    output_root = tmp_path / "fake_bundle"
+    arrays_dir = output_root / "figures" / "source_arrays"
+    arrays_dir.mkdir(parents=True)
+    sid = 255
+    required_names = [
+        f"sample_{sid:04d}_q_target.npy",
+        f"sample_{sid:04d}_sino_obs.npy",
+        f"sample_{sid:04d}_classical_born_backprop_q_pred.npy",
+        f"sample_{sid:04d}_classical_born_backprop_sino_pred.npy",
+        f"sample_{sid:04d}_hybrid_resnet_q_pred.npy",
+        f"sample_{sid:04d}_hybrid_resnet_sino_pred.npy",
+        f"sample_{sid:04d}_ffno_q_pred.npy",
+        f"sample_{sid:04d}_ffno_sino_pred.npy",
+    ]
+    # Missing every file: must fail.
+    assert not paper_mod._check_sample_visual_source_arrays(
+        output_root=output_root, sample_id=sid
+    )
+    # Populate all but one file: must still fail.
+    for name in required_names[:-1]:
+        (arrays_dir / name).write_bytes(b"\x00")
+    assert not paper_mod._check_sample_visual_source_arrays(
+        output_root=output_root, sample_id=sid
+    )
+    # Populate the last file: must pass.
+    (arrays_dir / required_names[-1]).write_bytes(b"\x00")
+    assert paper_mod._check_sample_visual_source_arrays(
+        output_root=output_root, sample_id=sid
+    )
+
+
+def test_exit_code_proof_requires_completed_status_and_zero_exit_code(tmp_path):
+    """Reviewer-blocked defect: ``exit_code_proof`` previously only required
+    ``run_exit_status.json`` to exist and the tracked PID to match
+    ``runtime_provenance.json``. A bundle whose run actually failed (with
+    ``status != 'completed'`` or ``exit_code != 0``) would still pass.
+    The strengthened check must require both."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    output_root = tmp_path / "exit_code_proof_root"
+    output_root.mkdir()
+    (output_root / "rows" / "hybrid_resnet").mkdir(parents=True)
+    (output_root / "rows" / "ffno").mkdir(parents=True)
+    (output_root / "rows" / "hybrid_resnet" / "model_profile.json").write_text("{}")
+    (output_root / "rows" / "ffno" / "model_profile.json").write_text("{}")
+
+    # Minimal runtime/dataset/split provenance files so the surrounding
+    # checks do not collapse the test focus.
+    runtime_payload = {
+        "tracked_pid": 4242,
+        "git_sha": "abc",
+        "git_dirty": False,
+        "hostname": "test-host",
+        "gpu_count": 0,
+    }
+    (output_root / "runtime_provenance.json").write_text(json.dumps(runtime_payload))
+    (output_root / "dataset_identity_manifest.json").write_text("{}")
+    (output_root / "split_manifest.json").write_text("{}")
+    (output_root / "preflight_manifest.json").write_text(
+        json.dumps({"required_paper_sample": 0})
+    )
+    log_path = output_root / "logs" / "run.log"
+    log_path.parent.mkdir(parents=True)
+    log_path.write_text("ok")
+
+    visual_status = {
+        "classical_present": True,
+        "figures": ["a.png"],
+        "required_paper_sample": 0,
+    }
+    rows = {"hybrid_resnet": {}, "ffno": {}}
+    provenance_paths = {
+        "runtime_provenance_path": str(output_root / "runtime_provenance.json"),
+        "dataset_identity_manifest_path": str(
+            output_root / "dataset_identity_manifest.json"
+        ),
+        "split_manifest_path": str(output_root / "split_manifest.json"),
+    }
+
+    # Failed status: must fail exit_code_proof even with PID match.
+    (output_root / "run_exit_status.json").write_text(
+        json.dumps(
+            {"tracked_pid": 4242, "exit_code": 1, "status": "failed"}
+        )
+    )
+    checks = paper_mod._build_provenance_checks(
+        output_root=output_root,
+        provenance_paths=provenance_paths,
+        visual_status=visual_status,
+        rows=rows,
+        log_path=log_path,
+    )
+    assert checks["exit_code_proof"] is False
+
+    # Completed status but non-zero exit_code: must still fail.
+    (output_root / "run_exit_status.json").write_text(
+        json.dumps(
+            {"tracked_pid": 4242, "exit_code": 2, "status": "completed"}
+        )
+    )
+    checks = paper_mod._build_provenance_checks(
+        output_root=output_root,
+        provenance_paths=provenance_paths,
+        visual_status=visual_status,
+        rows=rows,
+        log_path=log_path,
+    )
+    assert checks["exit_code_proof"] is False
+
+    # Completed + exit_code 0 + matching PID: must pass.
+    (output_root / "run_exit_status.json").write_text(
+        json.dumps(
+            {"tracked_pid": 4242, "exit_code": 0, "status": "completed"}
+        )
+    )
+    checks = paper_mod._build_provenance_checks(
+        output_root=output_root,
+        provenance_paths=provenance_paths,
+        visual_status=visual_status,
+        rows=rows,
+        log_path=log_path,
+    )
+    assert checks["exit_code_proof"] is True
+
+
+def test_same_contract_lineage_check_detects_split_count_drift(tmp_path):
+    """Reviewer-blocked defect: ``same_contract_lineage`` previously only
+    re-checked lineage-root pointers and the dataset id. The strengthened
+    helper must reject a current bundle whose split counts, fixed-sample
+    roster, operator geometry, normalization, or training-contract fields
+    drift away from the frozen baseline lineage."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    ffno_extension_root = _make_synthetic_ffno_extension_bundle(
+        tmp_path, baseline_root
+    )
+
+    output_root = tmp_path / "current_bundle"
+    output_root.mkdir()
+    baseline_manifest = json.loads(
+        (baseline_root / "preflight_manifest.json").read_text()
+    )
+    current_manifest = {
+        "backlog_item": paper_mod.BACKLOG_ITEM,
+        "baseline_lineage": {
+            "baseline_root": str(baseline_root),
+            "ffno_extension_root": str(ffno_extension_root),
+        },
+        "dataset": dict(baseline_manifest["dataset"]),
+        "operator": dict(baseline_manifest["operator"]),
+        "fixed_sample_ids": list(baseline_manifest["fixed_sample_ids"]),
+        "training_contract": dict(baseline_manifest["training_contract"]),
+        "rows": [
+            {"row_id": "hybrid_resnet", "input_mode": "born_init_image"},
+            {"row_id": "ffno", "input_mode": "born_init_image"},
+        ],
+    }
+    manifest_path_top = output_root / "preflight_manifest.json"
+    manifest_path_top.write_text(json.dumps(current_manifest))
+    assert paper_mod._check_same_contract_lineage(
+        output_root=output_root,
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+    )
+
+    # Drift split counts: must fail.
+    drifted = json.loads(manifest_path_top.read_text())
+    drifted["dataset"] = dict(drifted["dataset"])
+    drifted["dataset"]["split_counts"] = {"train": 1024, "val": 128, "test": 128}
+    manifest_path_top.write_text(json.dumps(drifted))
+    assert not paper_mod._check_same_contract_lineage(
+        output_root=output_root,
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+    )
+
+    # Drift fixed_sample_ids: must fail.
+    drifted = json.loads(json.dumps(current_manifest))
+    drifted["fixed_sample_ids"] = [1, 2, 3, 4]
+    manifest_path_top.write_text(json.dumps(drifted))
+    assert not paper_mod._check_same_contract_lineage(
+        output_root=output_root,
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+    )
+
+    # Drift operator geometry: must fail.
+    drifted = json.loads(json.dumps(current_manifest))
+    drifted["operator"] = dict(drifted["operator"])
+    drifted["operator"]["geometry"] = dict(drifted["operator"]["geometry"])
+    drifted["operator"]["geometry"]["angle_count"] = 32
+    manifest_path_top.write_text(json.dumps(drifted))
+    assert not paper_mod._check_same_contract_lineage(
+        output_root=output_root,
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+    )
+
+    # Drift training-contract loss weights: must fail.
+    drifted = json.loads(json.dumps(current_manifest))
+    drifted["training_contract"] = dict(drifted["training_contract"])
+    drifted["training_contract"]["loss_weights"] = dict(
+        drifted["training_contract"]["loss_weights"]
+    )
+    drifted["training_contract"]["loss_weights"]["physics"] = 9.99
+    manifest_path_top.write_text(json.dumps(drifted))
+    assert not paper_mod._check_same_contract_lineage(
+        output_root=output_root,
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
     )

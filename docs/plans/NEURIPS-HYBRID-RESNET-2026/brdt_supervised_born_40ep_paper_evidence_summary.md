@@ -148,10 +148,35 @@ in `scripts/studies/born_rytov_dt/run_brdt_40ep_paper_evidence.py`:
 - The gate's `same_contract_lineage` check actively re-validates the baseline
   and FFNO-extension bundles each time the gate is recomputed and verifies
   that this bundle's `preflight_manifest.json` `baseline_lineage` block points
-  at the actual lineage roots and that the dataset id matches across all
-  three manifests, instead of being recorded as a hard-coded `True`.
+  at the actual lineage roots, that the dataset id matches across all three
+  manifests, and that the current bundle's split counts, fixed-sample roster,
+  operator geometry, dataset normalization, per-row input mode, and
+  training-contract fields (batch size, learning rate, optimizer, seed, and
+  loss-weight schedule) match the frozen baseline lineage. Drift on any of
+  these locked invariants now fails the gate.
 - The gate's `evidence_surfaces_prepared` check requires the durable summary
-  at this path, `paper_evidence_index.md`, and `paper_evidence_manifest.json`
-  to all reference this backlog item, and additionally requires the durable
-  summary text to record one of the known claim-boundary labels
-  (`paper_evidence_brdt_additive` or `decision_support_convergence_followup`).
+  at this path, `paper_evidence_index.md`, `paper_evidence_manifest.json`,
+  and the repo-wide `docs/index.md` to all reference this backlog item, and
+  additionally requires the durable summary text to record one of the known
+  claim-boundary labels (`paper_evidence_brdt_additive` or
+  `decision_support_convergence_followup`).
+- The gate's `scheduler_matches_contract` check now verifies the per-row
+  recorded scheduler block against every plan-bound field
+  (`reduce_on_plateau` plus `factor=0.5`, `patience=2`, `threshold=0.0`,
+  `min_lr=1e-5`) and the surrounding optimizer recipe (`epochs`,
+  `batch_size`, `learning_rate`). A bundle with drifted plateau settings or a
+  drifted optimizer recipe now fails the gate even when the scheduler name
+  matches.
+- The gate's `sample_255_visual_bundle` check requires every per-sample,
+  per-row source-array file (`q_target`, `sino_obs`, classical comparator,
+  Hybrid ResNet, and FFNO `q_pred`/`sino_pred`) to exist for the configured
+  `required_paper_sample`, instead of only checking that the classical
+  panel was present and the figure list was non-empty.
+- The gate's `exit_code_proof` check now requires `run_exit_status.json` to
+  agree with `runtime_provenance.json` on `tracked_pid` AND to record
+  `exit_code == 0` AND `status == "completed"`. The live training path now
+  defers writing `run_exit_status.json` until all materialization (training,
+  evaluation, metrics, visuals) has succeeded, and overwrites it with a
+  failed status if the subsequent gate or manifest re-seed steps raise. The
+  combined effect is that a partial run can no longer leave a stale
+  `"completed"`/`0` exit-status artifact behind.

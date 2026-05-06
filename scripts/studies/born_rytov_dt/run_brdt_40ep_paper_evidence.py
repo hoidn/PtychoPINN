@@ -358,6 +358,7 @@ def _write_bundle_visuals(
         "classical_present": bool(classical_present),
         "figures": figure_paths,
         "rows_present": sorted(preds_by_row.keys()),
+        "required_paper_sample": int(sample_id),
         "visual_manifest_path": str(output_root / "visual_manifest.json"),
     }
 
@@ -453,10 +454,20 @@ def _write_run_exit_status(
     return out_path
 
 
+DOCS_INDEX_PATH = "docs/index.md"
+
+
 def _check_evidence_surfaces_consistent(*, repo_root: Path = Path.cwd()) -> bool:
-    """Return True when the durable summary, paper-evidence index, and
-    paper-evidence manifest all reference this backlog item, and the durable
-    summary records one of the known claim-boundary labels.
+    """Return True when every required discoverability surface references this
+    backlog item and the durable summary records one of the known
+    claim-boundary labels.
+
+    Required surfaces (matching the plan's ``Task 6`` discoverability contract):
+
+    - durable summary at :data:`DURABLE_SUMMARY_PATH`
+    - paper-evidence index at :data:`PAPER_EVIDENCE_INDEX_PATH`
+    - paper-evidence manifest at :data:`PAPER_EVIDENCE_MANIFEST_PATH`
+    - repo-wide docs index at :data:`DOCS_INDEX_PATH`
 
     This is a content-level cross-check: the gate must not pass unless the
     discoverability surfaces actually track this backlog item, not just whether
@@ -466,7 +477,8 @@ def _check_evidence_surfaces_consistent(*, repo_root: Path = Path.cwd()) -> bool
     summary_path = repo_root / DURABLE_SUMMARY_PATH
     index_path = repo_root / PAPER_EVIDENCE_INDEX_PATH
     manifest_path = repo_root / PAPER_EVIDENCE_MANIFEST_PATH
-    for path in (summary_path, index_path, manifest_path):
+    docs_index_path = repo_root / DOCS_INDEX_PATH
+    for path in (summary_path, index_path, manifest_path, docs_index_path):
         if not path.exists():
             return False
         try:
@@ -484,6 +496,124 @@ def _check_evidence_surfaces_consistent(*, repo_root: Path = Path.cwd()) -> bool
     return True
 
 
+_SCHEDULER_KEY_MAP = (
+    ("plateau_factor", "factor"),
+    ("plateau_patience", "patience"),
+    ("plateau_threshold", "threshold"),
+    ("plateau_min_lr", "min_lr"),
+)
+
+
+def _values_close(a: Any, b: Any) -> bool:
+    try:
+        return abs(float(a) - float(b)) <= 1e-9
+    except (TypeError, ValueError):
+        return False
+
+
+def _scheduler_matches_contract(
+    *,
+    row_summary: Mapping[str, Any],
+    contract_dict: Mapping[str, Any],
+) -> bool:
+    """Return True only when the row's recorded scheduler/optimizer state
+    matches every plan-bound field of ``contract_dict``.
+
+    The reviewer flagged that the prior implementation only checked the
+    scheduler name. The conservative gate must also verify ``plateau_factor``,
+    ``plateau_patience``, ``plateau_threshold``, ``plateau_min_lr``, and the
+    surrounding optimizer recipe (``epochs``, ``batch_size``, ``learning_rate``)
+    because a bundle with drifted plateau settings would otherwise still pass.
+    """
+    contract_scheduler_name = contract_dict.get("scheduler")
+    sched = dict(row_summary.get("scheduler") or {})
+    if contract_scheduler_name is None:
+        return not sched
+    if str(sched.get("name") or "") != str(contract_scheduler_name):
+        return False
+    for contract_key, sched_key in _SCHEDULER_KEY_MAP:
+        contract_val = contract_dict.get(contract_key)
+        sched_val = sched.get(sched_key)
+        if contract_val is None or sched_val is None:
+            return False
+        if not _values_close(contract_val, sched_val):
+            return False
+    runtime = dict(row_summary.get("runtime") or {})
+    if int(runtime.get("epochs", -1)) != int(contract_dict.get("epochs", -2)):
+        return False
+    if int(runtime.get("batch_size", -1)) != int(contract_dict.get("batch_size", -2)):
+        return False
+    if not _values_close(
+        runtime.get("learning_rate"), contract_dict.get("learning_rate")
+    ):
+        return False
+    return True
+
+
+def _check_sample_visual_source_arrays(
+    *, output_root: Path, sample_id: int
+) -> bool:
+    """Return True only when every required source-array file for the
+    paper-facing comparison panel exists on disk.
+
+    The reviewer flagged that ``classical_present`` plus a non-empty figure
+    list does not actually prove the panel can be reproduced from source
+    arrays. The bundle's per-row ``q_pred``/``sino_pred`` and per-sample
+    ``q_target``/``sino_obs`` files are the durable source-of-truth, so this
+    check now requires each of them.
+    """
+    arrays_dir = Path(output_root) / "figures" / "source_arrays"
+    if not arrays_dir.exists():
+        return False
+    sid = int(sample_id)
+    required: List[Path] = [
+        arrays_dir / f"sample_{sid:04d}_q_target.npy",
+        arrays_dir / f"sample_{sid:04d}_sino_obs.npy",
+        arrays_dir / f"sample_{sid:04d}_classical_born_backprop_q_pred.npy",
+        arrays_dir / f"sample_{sid:04d}_classical_born_backprop_sino_pred.npy",
+    ]
+    for row_id in ("hybrid_resnet", "ffno"):
+        required.extend(
+            [
+                arrays_dir / f"sample_{sid:04d}_{row_id}_q_pred.npy",
+                arrays_dir / f"sample_{sid:04d}_{row_id}_sino_pred.npy",
+            ]
+        )
+    return all(path.exists() for path in required)
+
+
+_LINEAGE_TRAINING_FIELDS = (
+    "batch_size",
+    "learning_rate",
+    "optimizer",
+    "seed",
+)
+
+
+def _normalize_split_counts(payload: Any) -> Dict[str, int]:
+    if not isinstance(payload, Mapping):
+        return {}
+    return {str(k): int(v) for k, v in payload.items()}
+
+
+def _normalize_geometry(payload: Any) -> Dict[str, Any]:
+    if not isinstance(payload, Mapping):
+        return {}
+    return {str(k): payload[k] for k in payload}
+
+
+def _normalize_loss_weights(payload: Any) -> Dict[str, float]:
+    if not isinstance(payload, Mapping):
+        return {}
+    out: Dict[str, float] = {}
+    for k, v in payload.items():
+        try:
+            out[str(k)] = float(v)
+        except (TypeError, ValueError):
+            return {}
+    return out
+
+
 def _check_same_contract_lineage(
     *,
     output_root: Path,
@@ -491,8 +621,14 @@ def _check_same_contract_lineage(
     ffno_extension_root: Path,
 ) -> bool:
     """Re-verify that the baseline and FFNO-extension lineage roots still
-    satisfy the locked contract and that the current bundle's manifest points
-    at the actual lineage roots.
+    satisfy the locked contract and that the current bundle's frozen
+    invariants (split counts, fixed-sample roster, operator geometry,
+    normalization, input mode, training-contract fields) match the lineage.
+
+    The reviewer flagged that the previous implementation only re-checked
+    lineage-root pointers and ``dataset_id``; that left split-count drift,
+    fixed-sample drift, operator drift, normalization drift, input-mode
+    drift, and training-contract drift undetected by the gate.
 
     Returns ``False`` rather than raising so the gate records a failed check
     instead of crashing the rebuild path.
@@ -509,6 +645,12 @@ def _check_same_contract_lineage(
         return False
     try:
         current_manifest = json.loads(current_manifest_path.read_text())
+        baseline_manifest = json.loads(
+            (Path(baseline_root) / "preflight_manifest.json").read_text()
+        )
+        ffno_manifest = json.loads(
+            (Path(ffno_extension_root) / "preflight_manifest.json").read_text()
+        )
     except Exception:
         return False
     lineage = current_manifest.get("baseline_lineage") or {}
@@ -520,20 +662,70 @@ def _check_same_contract_lineage(
         return False
     if Path(declared_ffno).resolve() != Path(ffno_extension_root).resolve():
         return False
-    try:
-        baseline_manifest = json.loads(
-            (Path(baseline_root) / "preflight_manifest.json").read_text()
-        )
-        ffno_manifest = json.loads(
-            (Path(ffno_extension_root) / "preflight_manifest.json").read_text()
-        )
-    except Exception:
+    cur_dataset_block = current_manifest.get("dataset") or {}
+    base_dataset_block = baseline_manifest.get("dataset") or {}
+    ffno_dataset_block = ffno_manifest.get("dataset") or {}
+    cur_dataset_id = cur_dataset_block.get("dataset_id")
+    if (
+        not cur_dataset_id
+        or cur_dataset_id != base_dataset_block.get("dataset_id")
+        or cur_dataset_id != ffno_dataset_block.get("dataset_id")
+    ):
         return False
-    cur_dataset = (current_manifest.get("dataset") or {}).get("dataset_id")
-    base_dataset = (baseline_manifest.get("dataset") or {}).get("dataset_id")
-    ffno_dataset = (ffno_manifest.get("dataset") or {}).get("dataset_id")
-    if not cur_dataset or cur_dataset != base_dataset or cur_dataset != ffno_dataset:
+    cur_splits = _normalize_split_counts(cur_dataset_block.get("split_counts"))
+    base_splits = _normalize_split_counts(base_dataset_block.get("split_counts"))
+    if not cur_splits or cur_splits != base_splits:
         return False
+    cur_norm = cur_dataset_block.get("normalization") or {}
+    base_norm = base_dataset_block.get("normalization") or {}
+    if not isinstance(cur_norm, Mapping) or not isinstance(base_norm, Mapping):
+        return False
+    if set(cur_norm.keys()) != set(base_norm.keys()):
+        return False
+    for key in cur_norm.keys():
+        if not _values_close(cur_norm[key], base_norm[key]):
+            return False
+    cur_geom = _normalize_geometry(
+        (current_manifest.get("operator") or {}).get("geometry")
+    )
+    base_geom = _normalize_geometry(
+        (baseline_manifest.get("operator") or {}).get("geometry")
+    )
+    if not cur_geom or cur_geom != base_geom:
+        return False
+    cur_fixed = [int(i) for i in current_manifest.get("fixed_sample_ids") or []]
+    base_fixed = [int(i) for i in baseline_manifest.get("fixed_sample_ids") or []]
+    if not cur_fixed or cur_fixed != base_fixed:
+        return False
+    base_input_mode = (
+        baseline_manifest.get("input_contract") or {}
+    ).get("input_mode")
+    if base_input_mode is not None:
+        rows = current_manifest.get("rows") or []
+        if not rows:
+            return False
+        for row in rows:
+            if str(row.get("input_mode")) != str(base_input_mode):
+                return False
+    cur_training = current_manifest.get("training_contract") or {}
+    base_training = baseline_manifest.get("training_contract") or {}
+    for key in _LINEAGE_TRAINING_FIELDS:
+        cur_val = cur_training.get(key)
+        base_val = base_training.get(key)
+        if cur_val is None or base_val is None:
+            return False
+        if isinstance(cur_val, str) or isinstance(base_val, str):
+            if str(cur_val) != str(base_val):
+                return False
+        elif not _values_close(cur_val, base_val):
+            return False
+    cur_lw = _normalize_loss_weights(cur_training.get("loss_weights"))
+    base_lw = _normalize_loss_weights(base_training.get("loss_weights"))
+    if not cur_lw or set(cur_lw.keys()) != set(base_lw.keys()):
+        return False
+    for key in cur_lw.keys():
+        if not _values_close(cur_lw[key], base_lw[key]):
+            return False
     return True
 
 
@@ -576,16 +768,46 @@ def _build_provenance_checks(
     else:
         same_contract_lineage = False
     exit_status_path = output_root / "run_exit_status.json"
-    exit_code_proof = exit_status_path.exists()
-    if exit_code_proof:
+    exit_code_proof = False
+    if exit_status_path.exists():
         try:
             exit_payload = json.loads(exit_status_path.read_text())
         except Exception:
             exit_payload = {}
         runtime_tracked = _coerce_int(runtime_provenance_payload.get("tracked_pid"))
         exit_tracked = _coerce_int(exit_payload.get("tracked_pid"))
-        if runtime_tracked is not None and exit_tracked is not None:
-            exit_code_proof = exit_code_proof and runtime_tracked == exit_tracked
+        pids_agree = (
+            runtime_tracked is not None
+            and exit_tracked is not None
+            and runtime_tracked == exit_tracked
+        )
+        # exit_code_proof requires PID agreement, exit_code==0, and an explicit
+        # status=="completed" record so the gate cannot bless a partial run.
+        exit_code_proof = bool(
+            pids_agree
+            and _coerce_int(exit_payload.get("exit_code")) == 0
+            and str(exit_payload.get("status") or "") == "completed"
+        )
+    required_paper_sample = _coerce_int(visual_status.get("required_paper_sample"))
+    if required_paper_sample is None:
+        try:
+            manifest_payload = json.loads(
+                (Path(output_root) / "preflight_manifest.json").read_text()
+            )
+            required_paper_sample = _coerce_int(
+                manifest_payload.get("required_paper_sample")
+            )
+        except Exception:
+            required_paper_sample = None
+    sample_bundle_ok = bool(
+        visual_status.get("classical_present")
+    ) and bool(visual_status.get("figures"))
+    if required_paper_sample is not None:
+        sample_bundle_ok = sample_bundle_ok and _check_sample_visual_source_arrays(
+            output_root=Path(output_root), sample_id=int(required_paper_sample)
+        )
+    else:
+        sample_bundle_ok = False
     return {
         "runtime_provenance": runtime_provenance_path.exists(),
         "git_provenance": bool(git_provenance_present),
@@ -596,8 +818,7 @@ def _build_provenance_checks(
         "split_manifest": Path(provenance_paths["split_manifest_path"]).exists(),
         "model_profiles": bool(model_profiles_present),
         "run_log_present": bool(run_log_present),
-        "sample_255_visual_bundle": bool(visual_status.get("classical_present"))
-        and bool(visual_status.get("figures")),
+        "sample_255_visual_bundle": bool(sample_bundle_ok),
         "exit_code_proof": bool(exit_code_proof),
         "evidence_surfaces_prepared": _check_evidence_surfaces_consistent(),
         "same_contract_lineage": bool(same_contract_lineage),
@@ -998,47 +1219,67 @@ def _run_paper_evidence_inner(
         output_root / "convergence_audit.csv", audit_payload
     )
 
+    contract_dict = contract.as_dict()
     gate_rows = {
         row_id: {
             "row_status": data["row_summary"]["row_status"],
             "history_records": data["history_summary"]["history_records"],
-            "scheduler_matches_contract": (
-                data["row_summary"].get("scheduler", {}).get("name")
-                == contract.as_dict().get("scheduler")
+            "scheduler_matches_contract": _scheduler_matches_contract(
+                row_summary=data["row_summary"],
+                contract_dict=contract_dict,
             ),
         }
         for row_id, data in current_rows.items()
     }
     log_path = _resolve_log_path(output_root)
-    _write_run_exit_status(
-        output_root,
-        pid=os.getpid(),
-        exit_code=0,
-        status="completed",
-        log_path=log_path,
-    )
-    provenance_checks = _build_provenance_checks(
-        output_root=output_root,
-        provenance_paths=provenance_paths,
-        visual_status=visual_status,
-        rows=gate_rows,
-        log_path=log_path,
-        baseline_root=baseline_root,
-        ffno_extension_root=ffno_extension_root,
-    )
-    gate_payload = conv_mod.build_paper_evidence_gate(
-        backlog_item=BACKLOG_ITEM,
-        expected_epochs=EXPECTED_EPOCHS,
-        rows=gate_rows,
-        provenance_checks=provenance_checks,
-    )
+    # Write the run_exit_status record only after all training/eval/visuals
+    # have produced fresh artifacts. The live runner only blesses this run
+    # once it has reached the point of computing the gate; on any subsequent
+    # failure the failure path below overwrites the file with "failed".
     paper_evidence_gate_path = output_root / "paper_evidence_gate.json"
-    conv_mod.write_paper_evidence_gate(paper_evidence_gate_path, gate_payload)
-    _reseed_top_level_manifest_with_gate(
-        preflight_manifest_path,
-        gate_payload=gate_payload,
-        paper_evidence_gate_path=paper_evidence_gate_path,
-    )
+    try:
+        _write_run_exit_status(
+            output_root,
+            pid=os.getpid(),
+            exit_code=0,
+            status="completed",
+            log_path=log_path,
+        )
+        provenance_checks = _build_provenance_checks(
+            output_root=output_root,
+            provenance_paths=provenance_paths,
+            visual_status=visual_status,
+            rows=gate_rows,
+            log_path=log_path,
+            baseline_root=baseline_root,
+            ffno_extension_root=ffno_extension_root,
+        )
+        gate_payload = conv_mod.build_paper_evidence_gate(
+            backlog_item=BACKLOG_ITEM,
+            expected_epochs=EXPECTED_EPOCHS,
+            rows=gate_rows,
+            provenance_checks=provenance_checks,
+        )
+        conv_mod.write_paper_evidence_gate(paper_evidence_gate_path, gate_payload)
+        _reseed_top_level_manifest_with_gate(
+            preflight_manifest_path,
+            gate_payload=gate_payload,
+            paper_evidence_gate_path=paper_evidence_gate_path,
+        )
+    except BaseException:
+        # Replace the optimistic "completed" exit-status record with a failed
+        # one so a stale file can never falsely bless a partial run.
+        try:
+            _write_run_exit_status(
+                output_root,
+                pid=os.getpid(),
+                exit_code=1,
+                status="failed",
+                log_path=log_path,
+            )
+        except Exception:
+            pass
+        raise
 
     return {
         "preflight_manifest_path": str(preflight_manifest_path),
@@ -1294,13 +1535,14 @@ def _rebuild_meta_only_inner(
         output_root / "convergence_audit.csv", audit_payload
     )
 
+    rebuild_contract_dict = contract.as_dict()
     gate_rows = {
         row_id: {
             "row_status": data["row_summary"]["row_status"],
             "history_records": data["history_summary"]["history_records"],
-            "scheduler_matches_contract": (
-                data["row_summary"].get("scheduler", {}).get("name")
-                == contract.as_dict().get("scheduler")
+            "scheduler_matches_contract": _scheduler_matches_contract(
+                row_summary=data["row_summary"],
+                contract_dict=rebuild_contract_dict,
             ),
         }
         for row_id, data in current_rows.items()
