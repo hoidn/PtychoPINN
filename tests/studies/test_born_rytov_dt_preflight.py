@@ -2691,3 +2691,100 @@ def test_rebuild_meta_only_refreshes_manifest_provenance_and_gate(tmp_path):
     assert refreshed["promotion_status"] == gate["promotion_status"]
     # Synthetic single-epoch contract still fails the 40-epoch gate.
     assert gate["promotion_status"] == "failed"
+
+    # The rebuild must keep runtime_provenance.tracked_pid and
+    # run_exit_status.tracked_pid in agreement so the bundle still identifies
+    # one authoritative tracked run.
+    runtime_provenance = json.loads(
+        (output_root / "runtime_provenance.json").read_text()
+    )
+    exit_status = json.loads((output_root / "run_exit_status.json").read_text())
+    assert runtime_provenance["tracked_pid"] == exit_status["tracked_pid"]
+    # Rebuild metadata must be recorded separately from the original tracked run.
+    assert "meta_rebuild" in runtime_provenance
+    assert "rebuild_pid" in runtime_provenance["meta_rebuild"]
+    # exit_code_proof must be True because the tracked PIDs match.
+    assert gate["provenance_checks"]["exit_code_proof"] is True
+
+
+def test_rebuild_meta_only_refuses_active_writer(tmp_path):
+    """rebuild_meta_only must refuse to run when another writer holds the
+    output-root lock, the same protection the live training path applies."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    ffno_extension_root = _make_synthetic_ffno_extension_bundle(
+        tmp_path, baseline_root
+    )
+    output_root = tmp_path / "rebuild_meta_lock_root"
+    output_root.mkdir()
+    other_pid = 999_999_999
+    (output_root / paper_mod.WRITER_LOCK_NAME).write_text(
+        json.dumps(
+            {
+                "pid": other_pid,
+                "host": "test",
+                "acquired_utc": "1970-01-01T00:00:00+00:00",
+            }
+        )
+    )
+    original = paper_mod._pid_alive
+    paper_mod._pid_alive = lambda pid: pid == other_pid
+    try:
+        with pytest.raises(paper_mod.WriterConflictError):
+            paper_mod.rebuild_meta_only(
+                baseline_root=baseline_root,
+                ffno_extension_root=ffno_extension_root,
+                manifest_path=manifest_path,
+                output_root=output_root,
+                fixed_sample_ids=[0],
+                required_paper_sample=0,
+            )
+    finally:
+        paper_mod._pid_alive = original
+
+
+def test_evidence_surfaces_consistency_check_requires_all_surfaces(tmp_path):
+    """The evidence_surfaces_prepared gate check must require the durable
+    summary, the paper-evidence index, and the paper-evidence manifest to all
+    reference this backlog item, not just the summary file alone."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    fake_repo = tmp_path / "fake_repo"
+    (fake_repo / "docs" / "plans" / "NEURIPS-HYBRID-RESNET-2026").mkdir(parents=True)
+
+    summary_path = fake_repo / paper_mod.DURABLE_SUMMARY_PATH
+    index_path = fake_repo / paper_mod.PAPER_EVIDENCE_INDEX_PATH
+    manifest_path = fake_repo / paper_mod.PAPER_EVIDENCE_MANIFEST_PATH
+
+    # Only the durable summary references the backlog item: must fail.
+    summary_path.write_text(
+        f"{paper_mod.BACKLOG_ITEM} -> {paper_mod.PASSED_CLAIM_BOUNDARY}\n"
+    )
+    assert (
+        paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
+    )
+
+    # Add the index but not the manifest: must still fail.
+    index_path.write_text(f"{paper_mod.BACKLOG_ITEM}\n")
+    assert (
+        paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
+    )
+
+    # All three surfaces present and reference the backlog item plus a known
+    # claim-boundary label: must pass.
+    manifest_path.write_text(f'"{paper_mod.BACKLOG_ITEM}"\n')
+    assert (
+        paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is True
+    )
+
+    # Summary missing a known claim-boundary label: must fail.
+    summary_path.write_text(f"{paper_mod.BACKLOG_ITEM}\n")
+    assert (
+        paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
+    )

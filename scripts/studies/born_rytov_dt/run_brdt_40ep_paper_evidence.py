@@ -47,6 +47,16 @@ DURABLE_SUMMARY_PATH = (
     "docs/plans/NEURIPS-HYBRID-RESNET-2026/"
     "brdt_supervised_born_40ep_paper_evidence_summary.md"
 )
+PAPER_EVIDENCE_INDEX_PATH = (
+    "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md"
+)
+PAPER_EVIDENCE_MANIFEST_PATH = (
+    "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_manifest.json"
+)
+KNOWN_CLAIM_BOUNDARIES = (
+    PASSED_CLAIM_BOUNDARY,
+    PRE_GATE_CLAIM_BOUNDARY,
+)
 
 
 class WriterConflictError(RuntimeError):
@@ -75,6 +85,15 @@ def _read_json(path: Path) -> Dict[str, Any]:
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(dict(payload), indent=2, sort_keys=True) + "\n")
+
+
+def _coerce_int(value: Any) -> Optional[int]:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _pid_alive(pid: int) -> bool:
@@ -140,17 +159,36 @@ def _refuse_overwrite_when_completed(output_root: Path, *, allow_force: bool) ->
         )
 
 
-def _capture_extended_runtime_provenance(*, log_path: Optional[Path] = None) -> Dict[str, Any]:
+def _capture_extended_runtime_provenance(
+    *,
+    log_path: Optional[Path] = None,
+    tracked_pid_override: Optional[int] = None,
+    launch_timestamp_override: Optional[str] = None,
+    meta_rebuild: Optional[Mapping[str, Any]] = None,
+) -> Dict[str, Any]:
     """Augment the shared runtime provenance payload with the extra fields the
-    paper-evidence gate validates (git, host, GPU count, launch time, log link)."""
+    paper-evidence gate validates (git, host, GPU count, launch time, log link).
+
+    When ``tracked_pid_override`` is provided (e.g. during ``--rebuild-meta-only``)
+    the recorded ``tracked_pid``/``pid`` and ``launch_timestamp_utc`` reflect the
+    original training run rather than the rebuild process. Rebuild-process
+    provenance is recorded separately under ``meta_rebuild``.
+    """
     base = capture_runtime_provenance()
-    base["pid"] = int(os.getpid())
-    base["tracked_pid"] = int(os.getpid())
+    if tracked_pid_override is not None:
+        base["pid"] = int(tracked_pid_override)
+        base["tracked_pid"] = int(tracked_pid_override)
+    else:
+        base["pid"] = int(os.getpid())
+        base["tracked_pid"] = int(os.getpid())
     base["git_sha"] = get_git_commit()
     base["git_dirty"] = get_git_dirty()
     base["hostname"] = socket.gethostname()
     base["platform"] = platform.platform()
-    base["launch_timestamp_utc"] = datetime.now(timezone.utc).isoformat()
+    if launch_timestamp_override is not None:
+        base["launch_timestamp_utc"] = str(launch_timestamp_override)
+    else:
+        base["launch_timestamp_utc"] = datetime.now(timezone.utc).isoformat()
     gpu_count = 0
     try:
         import torch
@@ -162,6 +200,8 @@ def _capture_extended_runtime_provenance(*, log_path: Optional[Path] = None) -> 
     base["gpu_count"] = int(gpu_count)
     if log_path is not None:
         base["log_path"] = str(log_path)
+    if meta_rebuild is not None:
+        base["meta_rebuild"] = dict(meta_rebuild)
     return base
 
 
@@ -328,13 +368,21 @@ def _write_top_level_provenance(
     authority: DatasetAuthority,
     fixed_sample_ids: List[int],
     log_path: Optional[Path] = None,
+    tracked_pid_override: Optional[int] = None,
+    launch_timestamp_override: Optional[str] = None,
+    meta_rebuild: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, str]:
     runtime_provenance_path = output_root / "runtime_provenance.json"
     dataset_identity_path = output_root / "dataset_identity_manifest.json"
     split_manifest_path = output_root / "split_manifest.json"
     _write_json(
         runtime_provenance_path,
-        _capture_extended_runtime_provenance(log_path=log_path),
+        _capture_extended_runtime_provenance(
+            log_path=log_path,
+            tracked_pid_override=tracked_pid_override,
+            launch_timestamp_override=launch_timestamp_override,
+            meta_rebuild=meta_rebuild,
+        ),
     )
     dataset_identity_payload: Dict[str, Any] = {
         "dataset_id": authority.dataset_id,
@@ -405,16 +453,88 @@ def _write_run_exit_status(
     return out_path
 
 
-def _check_durable_summary(*, repo_root: Path = Path.cwd()) -> bool:
-    """Return True when the durable summary references this backlog item."""
-    summary_path = Path(repo_root) / DURABLE_SUMMARY_PATH
-    if not summary_path.exists():
-        return False
+def _check_evidence_surfaces_consistent(*, repo_root: Path = Path.cwd()) -> bool:
+    """Return True when the durable summary, paper-evidence index, and
+    paper-evidence manifest all reference this backlog item, and the durable
+    summary records one of the known claim-boundary labels.
+
+    This is a content-level cross-check: the gate must not pass unless the
+    discoverability surfaces actually track this backlog item, not just whether
+    the summary file exists.
+    """
+    repo_root = Path(repo_root)
+    summary_path = repo_root / DURABLE_SUMMARY_PATH
+    index_path = repo_root / PAPER_EVIDENCE_INDEX_PATH
+    manifest_path = repo_root / PAPER_EVIDENCE_MANIFEST_PATH
+    for path in (summary_path, index_path, manifest_path):
+        if not path.exists():
+            return False
+        try:
+            text = path.read_text()
+        except Exception:
+            return False
+        if BACKLOG_ITEM not in text:
+            return False
     try:
-        text = summary_path.read_text()
+        summary_text = summary_path.read_text()
     except Exception:
         return False
-    return BACKLOG_ITEM in text
+    if not any(label in summary_text for label in KNOWN_CLAIM_BOUNDARIES):
+        return False
+    return True
+
+
+def _check_same_contract_lineage(
+    *,
+    output_root: Path,
+    baseline_root: Path,
+    ffno_extension_root: Path,
+) -> bool:
+    """Re-verify that the baseline and FFNO-extension lineage roots still
+    satisfy the locked contract and that the current bundle's manifest points
+    at the actual lineage roots.
+
+    Returns ``False`` rather than raising so the gate records a failed check
+    instead of crashing the rebuild path.
+    """
+    try:
+        ext_bundle.validate_baseline_bundle(Path(baseline_root))
+        _validate_ffno_extension_bundle(
+            Path(ffno_extension_root), baseline_root=Path(baseline_root)
+        )
+    except Exception:
+        return False
+    current_manifest_path = Path(output_root) / "preflight_manifest.json"
+    if not current_manifest_path.exists():
+        return False
+    try:
+        current_manifest = json.loads(current_manifest_path.read_text())
+    except Exception:
+        return False
+    lineage = current_manifest.get("baseline_lineage") or {}
+    declared_baseline = lineage.get("baseline_root")
+    declared_ffno = lineage.get("ffno_extension_root")
+    if not declared_baseline or not declared_ffno:
+        return False
+    if Path(declared_baseline).resolve() != Path(baseline_root).resolve():
+        return False
+    if Path(declared_ffno).resolve() != Path(ffno_extension_root).resolve():
+        return False
+    try:
+        baseline_manifest = json.loads(
+            (Path(baseline_root) / "preflight_manifest.json").read_text()
+        )
+        ffno_manifest = json.loads(
+            (Path(ffno_extension_root) / "preflight_manifest.json").read_text()
+        )
+    except Exception:
+        return False
+    cur_dataset = (current_manifest.get("dataset") or {}).get("dataset_id")
+    base_dataset = (baseline_manifest.get("dataset") or {}).get("dataset_id")
+    ffno_dataset = (ffno_manifest.get("dataset") or {}).get("dataset_id")
+    if not cur_dataset or cur_dataset != base_dataset or cur_dataset != ffno_dataset:
+        return False
+    return True
 
 
 def _build_provenance_checks(
@@ -424,6 +544,8 @@ def _build_provenance_checks(
     visual_status: Mapping[str, Any],
     rows: Mapping[str, Mapping[str, Any]],
     log_path: Optional[Path],
+    baseline_root: Optional[Path] = None,
+    ffno_extension_root: Optional[Path] = None,
 ) -> Dict[str, bool]:
     runtime_provenance_payload: Dict[str, Any] = {}
     runtime_provenance_path = Path(provenance_paths["runtime_provenance_path"])
@@ -445,6 +567,25 @@ def _build_provenance_checks(
         for row_id in rows
     )
     run_log_present = log_path is not None and Path(log_path).exists()
+    if baseline_root is not None and ffno_extension_root is not None:
+        same_contract_lineage = _check_same_contract_lineage(
+            output_root=output_root,
+            baseline_root=Path(baseline_root),
+            ffno_extension_root=Path(ffno_extension_root),
+        )
+    else:
+        same_contract_lineage = False
+    exit_status_path = output_root / "run_exit_status.json"
+    exit_code_proof = exit_status_path.exists()
+    if exit_code_proof:
+        try:
+            exit_payload = json.loads(exit_status_path.read_text())
+        except Exception:
+            exit_payload = {}
+        runtime_tracked = _coerce_int(runtime_provenance_payload.get("tracked_pid"))
+        exit_tracked = _coerce_int(exit_payload.get("tracked_pid"))
+        if runtime_tracked is not None and exit_tracked is not None:
+            exit_code_proof = exit_code_proof and runtime_tracked == exit_tracked
     return {
         "runtime_provenance": runtime_provenance_path.exists(),
         "git_provenance": bool(git_provenance_present),
@@ -457,9 +598,9 @@ def _build_provenance_checks(
         "run_log_present": bool(run_log_present),
         "sample_255_visual_bundle": bool(visual_status.get("classical_present"))
         and bool(visual_status.get("figures")),
-        "exit_code_proof": (output_root / "run_exit_status.json").exists(),
-        "evidence_surfaces_prepared": _check_durable_summary(),
-        "same_contract_lineage": True,
+        "exit_code_proof": bool(exit_code_proof),
+        "evidence_surfaces_prepared": _check_evidence_surfaces_consistent(),
+        "same_contract_lineage": bool(same_contract_lineage),
     }
 
 
@@ -882,6 +1023,8 @@ def _run_paper_evidence_inner(
         visual_status=visual_status,
         rows=gate_rows,
         log_path=log_path,
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
     )
     gate_payload = conv_mod.build_paper_evidence_gate(
         backlog_item=BACKLOG_ITEM,
@@ -918,6 +1061,7 @@ def rebuild_meta_only(
     fixed_sample_ids: Optional[List[int]] = None,
     required_paper_sample: int = 255,
     parent_argv: Optional[List[str]] = None,
+    force_overwrite: bool = False,
 ) -> Dict[str, Any]:
     """Rebuild the top-level manifest, provenance, gate, and audit artifacts
     from existing per-row outputs without retraining.
@@ -926,6 +1070,14 @@ def rebuild_meta_only(
     model_state.pt files are preserved as-is. The visual bundle is also
     regenerated from existing per-row source arrays so the run-log linkage and
     same-contract lineage match the on-disk training results.
+
+    A writer lock is acquired against the output root so a meta rebuild cannot
+    race with an active training run. Per-row training outputs are preserved
+    exactly as they are; only the meta artifacts (manifest, provenance,
+    run-exit-status, audit, gate, visuals) are rewritten. The original
+    training-run tracked PID and launch timestamp are preserved in
+    runtime_provenance.json; the rebuild process records its own provenance in
+    a separate ``meta_rebuild`` block.
     """
     output_root = Path(output_root).resolve()
     if not output_root.exists():
@@ -934,6 +1086,33 @@ def rebuild_meta_only(
     ffno_extension_root = Path(ffno_extension_root).resolve()
     parent_argv = list(parent_argv) if parent_argv is not None else []
     contract = contract or _default_contract()
+    lock_path = _acquire_writer_lock(output_root, allow_force=force_overwrite)
+    try:
+        return _rebuild_meta_only_inner(
+            baseline_root=baseline_root,
+            ffno_extension_root=ffno_extension_root,
+            manifest_path=manifest_path,
+            output_root=output_root,
+            contract=contract,
+            fixed_sample_ids=fixed_sample_ids,
+            required_paper_sample=int(required_paper_sample),
+            parent_argv=parent_argv,
+        )
+    finally:
+        _release_writer_lock(lock_path)
+
+
+def _rebuild_meta_only_inner(
+    *,
+    baseline_root: Path,
+    ffno_extension_root: Path,
+    manifest_path: Path,
+    output_root: Path,
+    contract: preflight_mod.TrainingContract,
+    fixed_sample_ids: Optional[List[int]],
+    required_paper_sample: int,
+    parent_argv: List[str],
+) -> Dict[str, Any]:
 
     baseline_manifest = ext_bundle.validate_baseline_bundle(baseline_root)
     _validate_ffno_extension_bundle(ffno_extension_root, baseline_root=baseline_root)
@@ -966,13 +1145,6 @@ def rebuild_meta_only(
     _write_json(preflight_manifest_path, manifest_payload)
 
     log_path = _resolve_log_path(output_root)
-    provenance_paths = _write_top_level_provenance(
-        output_root=output_root,
-        authority=authority,
-        fixed_sample_ids=fixed_sample_ids,
-        log_path=log_path,
-    )
-
     existing_exit_payload: Dict[str, Any] = {}
     exit_status_path = output_root / "run_exit_status.json"
     if exit_status_path.exists():
@@ -980,13 +1152,52 @@ def rebuild_meta_only(
             existing_exit_payload = json.loads(exit_status_path.read_text())
         except Exception:
             existing_exit_payload = {}
+    existing_runtime_payload: Dict[str, Any] = {}
+    runtime_provenance_path = output_root / "runtime_provenance.json"
+    if runtime_provenance_path.exists():
+        try:
+            existing_runtime_payload = json.loads(runtime_provenance_path.read_text())
+        except Exception:
+            existing_runtime_payload = {}
     tracked_pid = int(
         existing_exit_payload.get("tracked_pid")
         or existing_exit_payload.get("pid")
+        or existing_runtime_payload.get("tracked_pid")
+        or existing_runtime_payload.get("pid")
         or os.getpid()
     )
     exit_code = int(existing_exit_payload.get("exit_code", 0))
     status = str(existing_exit_payload.get("status") or "completed")
+    launch_timestamp_override = existing_runtime_payload.get("launch_timestamp_utc")
+    rebuild_gpu_count = 0
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            rebuild_gpu_count = int(torch.cuda.device_count())
+    except Exception:
+        rebuild_gpu_count = 0
+    meta_rebuild_block = {
+        "rebuild_pid": int(os.getpid()),
+        "rebuild_timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        "rebuild_git_sha": get_git_commit(),
+        "rebuild_git_dirty": get_git_dirty(),
+        "rebuild_hostname": socket.gethostname(),
+        "rebuild_platform": platform.platform(),
+        "rebuild_gpu_count": int(rebuild_gpu_count),
+        "rebuild_argv": list(parent_argv),
+    }
+    provenance_paths = _write_top_level_provenance(
+        output_root=output_root,
+        authority=authority,
+        fixed_sample_ids=fixed_sample_ids,
+        log_path=log_path,
+        tracked_pid_override=tracked_pid,
+        launch_timestamp_override=(
+            str(launch_timestamp_override) if launch_timestamp_override else None
+        ),
+        meta_rebuild=meta_rebuild_block,
+    )
     _write_run_exit_status(
         output_root,
         pid=tracked_pid,
@@ -1100,6 +1311,8 @@ def rebuild_meta_only(
         visual_status=visual_status,
         rows=gate_rows,
         log_path=log_path,
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
     )
     gate_payload = conv_mod.build_paper_evidence_gate(
         backlog_item=BACKLOG_ITEM,
@@ -1167,6 +1380,7 @@ def main(argv: Optional[List[str]] = None) -> int:
             fixed_sample_ids=[int(i) for i in args.fixed_sample_ids],
             required_paper_sample=int(args.required_paper_sample),
             parent_argv=parent_argv,
+            force_overwrite=bool(args.force_overwrite),
         )
     else:
         result = run_paper_evidence(

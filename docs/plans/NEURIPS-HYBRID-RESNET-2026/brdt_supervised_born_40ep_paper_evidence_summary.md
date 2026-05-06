@@ -139,5 +139,19 @@ in `scripts/studies/born_rytov_dt/run_brdt_40ep_paper_evidence.py`:
   audit, gate, visuals) can be deterministically re-derived from existing
   per-row `history.{json,csv}`, `row_summary.json`, `model_profile.json`, and
   source arrays via the runner's `--rebuild-meta-only` mode without
-  retraining. Run-exit-status preserves the original tracked PID; runtime
-  provenance documents the rebuild step's git SHA, host, and GPU count.
+  retraining. The meta-rebuild path acquires the same per-output-root writer
+  lock as the live training path so it cannot race with an active training
+  run. The rebuilt `runtime_provenance.json` preserves the original training
+  run's `tracked_pid` and `launch_timestamp_utc` (so it agrees with
+  `run_exit_status.json`), and records the rebuild process's git SHA, host,
+  GPU count, and argv in a separate `meta_rebuild` block.
+- The gate's `same_contract_lineage` check actively re-validates the baseline
+  and FFNO-extension bundles each time the gate is recomputed and verifies
+  that this bundle's `preflight_manifest.json` `baseline_lineage` block points
+  at the actual lineage roots and that the dataset id matches across all
+  three manifests, instead of being recorded as a hard-coded `True`.
+- The gate's `evidence_surfaces_prepared` check requires the durable summary
+  at this path, `paper_evidence_index.md`, and `paper_evidence_manifest.json`
+  to all reference this backlog item, and additionally requires the durable
+  summary text to record one of the known claim-boundary labels
+  (`paper_evidence_brdt_additive` or `decision_support_convergence_followup`).
