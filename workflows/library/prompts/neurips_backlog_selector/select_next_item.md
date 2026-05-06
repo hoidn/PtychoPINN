@@ -9,6 +9,11 @@ Use the steering document as strategic intent, the roadmap as ordered execution 
 The manifest has already been filtered by deterministic roadmap-gate checks. Rank only the items in this manifest; do not select work outside it and do not decide broader phase legality here. If an item is still active in the manifest, progress-ledger or summary evidence about related completed work is context or queue drift, not automatic closure.
 
 Choose from active backlog items only. Do not reselect `in_progress` items automatically.
+Treat `run_state.current_item` as an exclusion only when it still points to an
+item that is actually in `docs/backlog/in_progress/`. If a gated manifest item
+is active but `run_state.current_item` still names the same id from an older
+failed, aborted, or manually requeued run, treat that as stale run-state drift,
+mention it in the rationale, and keep the active item selectable.
 
 Decision rules:
 - Return `DONE` only when the manifest shows no active items.

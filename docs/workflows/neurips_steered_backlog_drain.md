@@ -60,6 +60,11 @@ conda activate ptycho311
 export PYTHONPATH=/home/ollie/Documents/agent-orchestration
 python -m orchestrator run \
   workflows/examples/neurips_steered_backlog_drain.yaml \
+  --input steering_path=docs/steering.md \
+  --input design_path=docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md \
+  --input roadmap_path=docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md \
+  --input roadmap_gate_path=docs/backlog/roadmap_gate.json \
+  --input progress_ledger_path=state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json \
   --debug \
   --stream-output
 ```
