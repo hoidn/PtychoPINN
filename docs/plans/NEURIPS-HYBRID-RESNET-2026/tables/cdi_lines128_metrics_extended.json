@@ -1,7 +1,9 @@
 {
-  "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension",
+  "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_corrected_ffno_objective_control_pair",
   "source_metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z/metrics.json",
-  "supervised_ffno_source_metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z/runs/supervised_ffno/metrics.json",
+  "corrected_pinn_ffno_source_metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z/runs/pinn_ffno/metrics.json",
+  "supervised_ffno_source_metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z/runs/supervised_ffno/metrics.json",
+  "historical_supervised_ffno_proxy_source_metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z/runs/supervised_ffno/metrics.json",
   "rows": [
     {
       "row_id": "pinn",
@@ -27,14 +29,14 @@
     },
     {
       "row_id": "pinn_ffno",
-      "model": "FFNO-local proxy",
+      "model": "FFNO",
       "training": "PINN",
-      "amp_mae": 0.062772475,
-      "phase_mae": 0.08283866878648244,
-      "amp_mse": 0.0062240395,
-      "phase_mse": 0.010851472467390912,
-      "amp_ssim": 0.934830339980703,
-      "phase_ssim": 0.9815915191210483
+      "amp_mae": 0.08204326778650284,
+      "phase_mae": 0.13796461630791748,
+      "amp_mse": 0.010589946061372757,
+      "phase_mse": 0.03047779600080815,
+      "amp_ssim": 0.890305374043404,
+      "phase_ssim": 0.9596438877920995
     },
     {
       "row_id": "pinn_hybrid_resnet",
@@ -71,14 +73,14 @@
     },
     {
       "row_id": "supervised_ffno",
-      "model": "FFNO-local proxy",
+      "model": "FFNO",
       "training": "supervised",
-      "amp_mae": 0.38641318678855896,
-      "phase_mae": 0.046562865303675434,
-      "amp_mse": 0.26636576652526855,
-      "phase_mse": 0.003303759477770993,
-      "amp_ssim": 0.24842735671882815,
-      "phase_ssim": 0.9371787178129534
+      "amp_mae": 0.35151222348213196,
+      "phase_mae": 0.06611791105895387,
+      "amp_mse": 0.195674866437912,
+      "phase_mse": 0.006884107531901606,
+      "amp_ssim": 0.2650063795551529,
+      "phase_ssim": 0.9015290958935847
     },
     {
       "row_id": "supervised_neuralop_uno",

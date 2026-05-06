@@ -138,6 +138,16 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, hybrid_resnet, sru-net, evidence-matrix, model-variants, ablations, completed-backlog, cdi, cns
 **Use this when:** You need one place to scan all completed CDI/CNS rows, ablations, generated outputs, and which authority owns each result before editing manuscript tables or planning new rows.
 
+### [NeurIPS CDI Lines128 FFNO No-Refiner Row Rerun Summary](plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_no_refiner_row_rerun_summary.md)
+**Description:** Corrected pure-FFNO prerequisite rerun for CDI `lines128` `pinn_ffno`, launched under the locked paper contract with `fno_cnn_blocks=0`. Records the no-refiner audit, exact dataset-identity comparison versus the historical local-refiner proxy, and the conclusion that the corrected row is architecturally cleaner but weaker on headline metrics than the historical proxy.
+**Keywords:** neurips, cdi, lines128, ffno, no-refiner, pinn, objective-control, local-refiner-proxy
+**Use this when:** Checking the authoritative corrected `pinn_ffno` root, verifying that pure-FFNO CDI claims are using the no-refiner row, or tracing the parameter/metric deltas versus the historical local-refiner proxy.
+
+### [NeurIPS CDI Lines128 Supervised FFNO No-Refiner Rerun Summary](plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_supervised_ffno_no_refiner_rerun_summary.md)
+**Description:** Corrected pure-FFNO objective-control completion for CDI `lines128`, adding the fresh `supervised_ffno` rerun with `fno_cnn_blocks=0` and pairing it only with the corrected no-refiner `pinn_ffno` comparator. Records same-contract audit, no-refiner proof, objective-control deltas, and the preserved historical supervised/local-refiner proxy lineage.
+**Keywords:** neurips, cdi, lines128, ffno, no-refiner, supervised, objective-control, pure-ffno
+**Use this when:** Refreshing manuscript-side FFNO objective-control tables, locating the corrected supervised FFNO run root, or verifying that both compared FFNO rows share the same no-refiner architecture contract.
+
 ### [NeurIPS CDI FFNO No-Refiner Contract Reactivation Plan](plans/NEURIPS-HYBRID-RESNET-2026/2026-05-06-cdi-ffno-no-refiner-contract-reactivation-plan.md)
 **Description:** Implementation plan and queue contract for reactivating CDI Lines128 FFNO rows under `fno_cnn_blocks=0`, preserving older `fno_cnn_blocks=2` rows only as FFNO-local-refiner proxy evidence, splitting paper updates into an early four-block no-refiner refresh and a later depth-24 no-refiner refresh.
 **Keywords:** neurips, cdi, ffno, no-refiner, local-refiner-proxy, lines128, backlog-reactivation, depth24

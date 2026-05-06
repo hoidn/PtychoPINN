@@ -2,13 +2,14 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-06T23:00:36Z",
+  "last_updated_utc": "2026-05-06T23:52:20Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
     "paper_evidence_manifest": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_manifest.json",
     "cdi_complete_lines128": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
     "cdi_ffno_no_refiner_rerun": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_no_refiner_row_rerun_summary.md",
+    "cdi_supervised_ffno_no_refiner_rerun": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_supervised_ffno_no_refiner_rerun_summary.md",
     "cdi_supervised_extension": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md",
     "cns_table_bundle": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
     "cns_larger_cap_context": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
@@ -685,6 +686,48 @@
       },
       "comparison_outcome": "non_identical_same_contract_comparison",
       "evidence_status": "historical_ffno_local_refiner_proxy_extension"
+    },
+    {
+      "variant_id": "cdi_lines128__ffno__supervised__no_refiner_rerun",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "supervised_ffno",
+      "paper_label": "FFNO + supervised",
+      "architecture_id": "ffno",
+      "model_family": "factorized_fourier_operator",
+      "training_mode": "supervised",
+      "architecture_overrides": {
+        "fno_cnn_blocks": 0
+      },
+      "claim_boundary": "lines128_ffno_objective_control_corrected_pair",
+      "lineage": {
+        "historical_proxy_variant_id": "cdi_lines128__ffno__supervised__extension",
+        "historical_proxy_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z",
+        "corrected_pinn_comparator_variant_id": "cdi_lines128__ffno__pinn__no_refiner_prerequisite_rerun",
+        "corrected_pinn_comparator_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z"
+      },
+      "source_backlog_item": "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_supervised_ffno_no_refiner_rerun_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z",
+      "metrics_json": "runs/supervised_ffno/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_supervised_ffno.png",
+        "visuals/amp_phase_error_supervised_ffno.png",
+        "visuals/compare_amp_phase.png",
+        "visuals/frc_curves.png"
+      ],
+      "parameter_count": 124966,
+      "metrics": {
+        "amp_mae": 0.35151222348213196,
+        "phase_mae": 0.06611791105895387,
+        "amp_ssim": 0.2650063795551529,
+        "phase_ssim": 0.9015290958935847,
+        "amp_psnr": 55.215452876492975,
+        "phase_psnr": 69.75232715817042,
+        "amp_frc50": 24.07371971438467,
+        "phase_frc50": 24.3152746394524
+      },
+      "comparison_outcome": "corrected_no_refiner_objective_control_pair_completed_table_refresh_pending",
+      "evidence_status": "decision_support_corrected_pure_ffno_objective_control"
     },
     {
       "variant_id": "cdi_lines128__spectral_resnet_bottleneck_ds1__pinn__bridge_study",
@@ -2130,6 +2173,8 @@
     "2026-05-04-pdebench-darcy-full-training-benchmark",
     "2026-05-04-cns-history5-comparator-gap-fill",
     "2026-05-04-cdi-lines128-srunet-branch-objective-ablation",
+    "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun",
+    "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun",
     "2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap",
     "2026-05-04-cdi-natural-patch-expanded-benchmark",
     "2026-05-05-brdt-supervised-born-40ep-paper-evidence"
