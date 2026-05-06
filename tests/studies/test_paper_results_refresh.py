@@ -6,12 +6,17 @@ import pytest
 from scripts.studies.paper_results_refresh import (
     CNS_H2_FIXED_CONTRACT,
     CNS_H5_FIXED_CONTRACT,
+    BRDT_ERROR_CMAP,
+    BRDT_MEASUREMENT_CMAP,
+    BRDT_RECONSTRUCTION_CMAP,
     align_phase_to_reference,
     cdi_display_metrics,
     center_crop_bounds,
     detect_cns_history5_gaps,
     evaluate_cns_h5_lane,
+    brdt_context_panel_titles,
     load_cns_h5_candidate_rows,
+    load_brdt_sample255_panels,
     render_brdt_metrics_table,
     render_cdi_objective_comparison_table,
     render_cdi_pinn_metrics_table,
@@ -20,9 +25,11 @@ from scripts.studies.paper_results_refresh import (
     select_cns_matched_condition,
     shared_display_bounds,
     gt_anchored_phase_bounds,
+    main,
     srunet_matched_phase_bounds,
     write_cdi_phase_zoom_figure,
     write_cdi_phase_zoom_per_panel_figure,
+    write_brdt_context_figure,
     write_cns_matched_condition_assets,
 )
 
@@ -252,6 +259,92 @@ def test_render_brdt_metrics_table_bolds_best_values_by_direction():
     assert r"\textbf{29.00}" in tex
     assert r"\textbf{0.900}" in tex
     assert "Hybrid ResNet" not in tex
+
+
+def _write_brdt_sample255_source_arrays(root):
+    root.mkdir(parents=True)
+    yy, xx = np.mgrid[:128, :128].astype(np.float32)
+    target = (
+        0.2
+        + 0.5 * np.exp(-((xx - 38.0) ** 2 + (yy - 46.0) ** 2) / 280.0)
+        + 0.3 * np.exp(-((xx - 88.0) ** 2 + (yy - 82.0) ** 2) / 500.0)
+    ).astype(np.float32)
+    sino_y, sino_x = np.mgrid[:64, :128].astype(np.float32)
+    sino_obs = np.stack(
+        [
+            np.sin(sino_y / 9.0) + np.cos(sino_x / 13.0),
+            np.cos(sino_y / 11.0) - np.sin(sino_x / 17.0),
+        ],
+        axis=-1,
+    ).astype(np.float32)
+    np.save(root / "sample_0255_q_target.npy", target)
+    np.save(root / "sample_0255_sino_obs.npy", sino_obs)
+    np.save(root / "sample_0255_classical_born_backprop_q_pred.npy", target + 0.08)
+    np.save(root / "sample_0255_ffno_q_pred.npy", target + 0.04 * np.sin(xx / 8.0))
+    np.save(root / "sample_0255_hybrid_resnet_q_pred.npy", target + 0.03 * np.cos(yy / 10.0))
+    return root
+
+
+def test_load_brdt_sample255_panels_uses_40ep_rows_and_measurement_context(tmp_path):
+    source_arrays = _write_brdt_sample255_source_arrays(tmp_path / "source_arrays")
+
+    panels = load_brdt_sample255_panels(source_arrays=source_arrays)
+
+    assert panels.sample_id == 255
+    assert panels.measurement_magnitude.shape == (64, 128)
+    assert panels.target_q.shape == (128, 128)
+    assert [row.row_id for row in panels.reconstruction_rows] == [
+        "classical_born_backprop",
+        "ffno",
+        "hybrid_resnet",
+    ]
+    assert [row.label for row in panels.reconstruction_rows] == [
+        "Model-based Born inverse",
+        "FFNO",
+        "SRU-Net",
+    ]
+    assert panels.reconstruction_vmin == pytest.approx(float(panels.target_q.min()))
+    assert panels.reconstruction_vmax == pytest.approx(float(panels.target_q.max()))
+    assert panels.error_vmax > 0
+    assert not hasattr(panels, "born_input")
+
+
+def test_brdt_context_panel_titles_use_balanced_rows(tmp_path):
+    source_arrays = _write_brdt_sample255_source_arrays(tmp_path / "source_arrays")
+    panels = load_brdt_sample255_panels(source_arrays=source_arrays)
+
+    titles = brdt_context_panel_titles(panels)
+
+    assert titles["top"] == [
+        r"Target: $q$",
+        r"Model-based: $\hat{q}_{Born}$",
+        r"FFNO: $\hat{q}$",
+        r"SRU-Net: $\hat{q}$",
+    ]
+    assert titles["bottom"] == [
+        r"Input: $|s_{obs}(\theta,d)|$",
+        r"$|\hat{q}_{Born}-q|$",
+        r"$|\hat{q}_{FFNO}-q|$",
+        r"$|\hat{q}_{SRU-Net}-q|$",
+    ]
+    assert len(titles["top"]) == len(titles["bottom"])
+
+
+def test_brdt_context_figure_uses_distinct_domain_colormaps():
+    assert BRDT_MEASUREMENT_CMAP != BRDT_ERROR_CMAP
+    assert BRDT_MEASUREMENT_CMAP != BRDT_RECONSTRUCTION_CMAP
+    assert BRDT_ERROR_CMAP != BRDT_RECONSTRUCTION_CMAP
+
+
+def test_write_brdt_context_figure_writes_expected_file(tmp_path):
+    source_arrays = _write_brdt_sample255_source_arrays(tmp_path / "source_arrays")
+    output = tmp_path / "brdt_sample_0255_context_recon_error.png"
+
+    written = write_brdt_context_figure(output_path=output, source_arrays=source_arrays)
+
+    assert written == output
+    assert output.exists()
+    assert output.stat().st_size > 20_000
 
 
 def test_cdi_display_metrics_keeps_uno_rows_without_rmse():
@@ -625,6 +718,44 @@ def test_write_cns_matched_condition_assets_emits_required_payload(tmp_path):
     assert table_payload["fixed_contract"]["history_len"] == 5
     figure_payload = json.loads((tmp_path / "figure_selection.json").read_text())
     assert figure_payload["same_condition_visuals_available"] is False
+
+
+def test_main_write_model_config_table_calls_writer(monkeypatch, capsys, tmp_path):
+    calls = []
+
+    def fake_writer(repo_root, output_dir):
+        calls.append((repo_root, output_dir))
+        return {"json": str(tmp_path / "model_config_by_benchmark.json")}
+
+    monkeypatch.setattr(
+        "scripts.studies.paper_results_refresh.write_model_config_table",
+        fake_writer,
+    )
+
+    assert main(["--write-model-config-table"]) == 0
+
+    assert len(calls) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["model_config_table"]["json"].endswith("model_config_by_benchmark.json")
+
+
+def test_main_write_efficiency_table_calls_writer(monkeypatch, capsys, tmp_path):
+    calls = []
+
+    def fake_writer(repo_root, output_dir):
+        calls.append((repo_root, output_dir))
+        return {"json": str(tmp_path / "paper_efficiency_table.json")}
+
+    monkeypatch.setattr(
+        "scripts.studies.paper_results_refresh.write_paper_efficiency_table",
+        fake_writer,
+    )
+
+    assert main(["--write-efficiency-table"]) == 0
+
+    assert len(calls) == 1
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["paper_efficiency_table"]["json"].endswith("paper_efficiency_table.json")
 
 
 def test_evaluate_cns_h5_lane_flags_max_windows_per_trajectory_mismatch():

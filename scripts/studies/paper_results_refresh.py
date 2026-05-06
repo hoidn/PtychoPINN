@@ -6,13 +6,21 @@ import argparse
 import csv
 import json
 import shutil
+import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence
 
 import numpy as np
 
-
 REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from scripts.studies.paper_model_config_table import write_model_config_table
+from scripts.studies.paper_efficiency_table import write_paper_efficiency_table
+
+
 NEURIPS_DIR = REPO_ROOT / "docs" / "plans" / "NEURIPS-HYBRID-RESNET-2026"
 TABLES_DIR = NEURIPS_DIR / "tables"
 FIGURES_DIR = NEURIPS_DIR / "figures"
@@ -26,6 +34,18 @@ BRDT_ROOT = (
 )
 BRDT_METRICS_JSON = BRDT_ROOT / "metrics.json"
 BRDT_SOURCE_FIGURE = BRDT_ROOT / "visuals" / "brdt_compare_q.png"
+BRDT_40EP_ROOT = (
+    REPO_ROOT
+    / ".artifacts"
+    / "NEURIPS-HYBRID-RESNET-2026"
+    / "backlog"
+    / "2026-05-05-brdt-supervised-born-40ep-paper-evidence"
+)
+BRDT_40EP_SOURCE_ARRAYS = BRDT_40EP_ROOT / "figures" / "source_arrays"
+BRDT_CONTEXT_FIGURE = FIGURES_DIR / "brdt_sample_0255_context_recon_error.png"
+BRDT_MEASUREMENT_CMAP = "cividis"
+BRDT_RECONSTRUCTION_CMAP = "viridis"
+BRDT_ERROR_CMAP = "inferno"
 
 CDI_UNO_METRICS_JSON = (
     REPO_ROOT
@@ -170,6 +190,15 @@ BRDT_LABELS = {
     "fno_vanilla": "FNO",
     "hybrid_resnet": "SRU-Net",
 }
+BRDT_CONTEXT_ROWS = (
+    (
+        "classical_born_backprop",
+        "Model-based Born inverse",
+        "sample_0255_classical_born_backprop_q_pred.npy",
+    ),
+    ("ffno", "FFNO", "sample_0255_ffno_q_pred.npy"),
+    ("hybrid_resnet", "SRU-Net", "sample_0255_hybrid_resnet_q_pred.npy"),
+)
 
 CDI_ROW_ORDER = [
     "pinn",
@@ -192,6 +221,25 @@ CDI_LABELS = {
     "pinn_neuralop_uno": ("U-NO", "PINN"),
     "supervised_neuralop_uno": ("U-NO", "supervised"),
 }
+
+
+@dataclass(frozen=True)
+class BrdtReconPanel:
+    row_id: str
+    label: str
+    q_pred: np.ndarray
+    abs_error: np.ndarray
+
+
+@dataclass(frozen=True)
+class BrdtSamplePanels:
+    sample_id: int
+    measurement_magnitude: np.ndarray
+    target_q: np.ndarray
+    reconstruction_rows: tuple[BrdtReconPanel, ...]
+    reconstruction_vmin: float
+    reconstruction_vmax: float
+    error_vmax: float
 
 
 def _read_json(path: Path) -> dict:
@@ -467,6 +515,173 @@ def audit_cns_history5_availability() -> dict[str, object]:
         "available_rows": KNOWN_CNS_HISTORY5_ROWS,
         "missing_rows": gaps,
     }
+
+
+def _load_npy_array(path: Path) -> np.ndarray:
+    if not path.exists():
+        raise FileNotFoundError(path)
+    return np.asarray(np.load(path)).squeeze()
+
+
+def load_brdt_sample255_panels(
+    *,
+    source_arrays: Path = BRDT_40EP_SOURCE_ARRAYS,
+) -> BrdtSamplePanels:
+    source_arrays = Path(source_arrays)
+    target_q = _load_npy_array(source_arrays / "sample_0255_q_target.npy")
+    sino_obs = np.asarray(np.load(source_arrays / "sample_0255_sino_obs.npy"))
+    if sino_obs.ndim < 3:
+        raise ValueError(
+            "sample_0255_sino_obs.npy must include a complex channel, "
+            f"got {sino_obs.shape!r}"
+        )
+    measurement_magnitude = np.linalg.norm(sino_obs, axis=-1)
+
+    rows = []
+    for row_id, label, filename in BRDT_CONTEXT_ROWS:
+        q_pred = _load_npy_array(source_arrays / filename)
+        if q_pred.shape != target_q.shape:
+            raise ValueError(
+                f"{filename} shape {q_pred.shape!r} does not match target {target_q.shape!r}"
+            )
+        rows.append(
+            BrdtReconPanel(
+                row_id=row_id,
+                label=label,
+                q_pred=q_pred,
+                abs_error=np.abs(q_pred - target_q),
+            )
+        )
+
+    reconstruction_vmin = float(np.nanmin(target_q))
+    reconstruction_vmax = float(np.nanmax(target_q))
+    error_vmax = float(max(np.nanmax(row.abs_error) for row in rows))
+    if reconstruction_vmax <= reconstruction_vmin:
+        reconstruction_vmin, reconstruction_vmax = shared_display_bounds([target_q])
+    if error_vmax <= 0:
+        error_vmax = 1.0
+    return BrdtSamplePanels(
+        sample_id=255,
+        measurement_magnitude=measurement_magnitude,
+        target_q=target_q,
+        reconstruction_rows=tuple(rows),
+        reconstruction_vmin=reconstruction_vmin,
+        reconstruction_vmax=reconstruction_vmax,
+        error_vmax=error_vmax,
+    )
+
+
+def brdt_context_panel_titles(panels: BrdtSamplePanels) -> dict[str, list[str]]:
+    prediction_titles = {
+        "classical_born_backprop": r"Model-based: $\hat{q}_{Born}$",
+        "ffno": r"FFNO: $\hat{q}$",
+        "hybrid_resnet": r"SRU-Net: $\hat{q}$",
+    }
+    error_titles = {
+        "classical_born_backprop": r"$|\hat{q}_{Born}-q|$",
+        "ffno": r"$|\hat{q}_{FFNO}-q|$",
+        "hybrid_resnet": r"$|\hat{q}_{SRU-Net}-q|$",
+    }
+    return {
+        "top": [
+            r"Target: $q$",
+            *[prediction_titles[row.row_id] for row in panels.reconstruction_rows],
+        ],
+        "bottom": [
+            r"Input: $|s_{obs}(\theta,d)|$",
+            *[error_titles[row.row_id] for row in panels.reconstruction_rows],
+        ],
+    }
+
+
+def write_brdt_context_figure(
+    *,
+    output_path: Path = BRDT_CONTEXT_FIGURE,
+    source_arrays: Path = BRDT_40EP_SOURCE_ARRAYS,
+) -> Path:
+    panels = load_brdt_sample255_panels(source_arrays=source_arrays)
+
+    import matplotlib
+
+    matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    fig = plt.figure(figsize=(11.5, 5.2), constrained_layout=True)
+    grid = fig.add_gridspec(2, 4)
+
+    top_axes = [fig.add_subplot(grid[0, col]) for col in range(4)]
+    bottom_axes = [fig.add_subplot(grid[1, col]) for col in range(4)]
+    titles = brdt_context_panel_titles(panels)
+    top_panels = [(r"Target: $q$", panels.target_q)] + [
+        (row.label, row.q_pred) for row in panels.reconstruction_rows
+    ]
+    q_im = None
+    for axis, title, (_, image) in zip(top_axes, titles["top"], top_panels):
+        q_im = axis.imshow(
+            image,
+            cmap=BRDT_RECONSTRUCTION_CMAP,
+            vmin=panels.reconstruction_vmin,
+            vmax=panels.reconstruction_vmax,
+            interpolation="nearest",
+        )
+        axis.set_title(title, fontsize=8)
+        axis.set_axis_off()
+
+    context_im = bottom_axes[0].imshow(
+        panels.measurement_magnitude,
+        cmap=BRDT_MEASUREMENT_CMAP,
+        interpolation="nearest",
+        aspect="auto",
+    )
+    bottom_axes[0].set_title(titles["bottom"][0], fontsize=8)
+    bottom_axes[0].set_xlabel("detector sample $d$", fontsize=7)
+    bottom_axes[0].set_ylabel(r"angle index $\theta$", fontsize=7)
+    bottom_axes[0].tick_params(labelsize=6, length=2)
+
+    error_im = None
+    for axis, title, row in zip(bottom_axes[1:], titles["bottom"][1:], panels.reconstruction_rows):
+        error_im = axis.imshow(
+            row.abs_error,
+            cmap=BRDT_ERROR_CMAP,
+            vmin=0.0,
+            vmax=panels.error_vmax,
+            interpolation="nearest",
+        )
+        axis.set_title(title, fontsize=7)
+        axis.set_axis_off()
+
+    if q_im is not None:
+        q_cbar = fig.colorbar(
+            q_im,
+            ax=top_axes,
+            shrink=0.72,
+            fraction=0.025,
+            pad=0.01,
+        )
+        q_cbar.set_label("q", fontsize=7)
+    if error_im is not None:
+        error_cbar = fig.colorbar(
+            error_im,
+            ax=bottom_axes[1:],
+            shrink=0.72,
+            fraction=0.025,
+            pad=0.01,
+        )
+        error_cbar.set_label("absolute error", fontsize=7)
+    measurement_cbar = fig.colorbar(
+        context_im,
+        ax=bottom_axes[0],
+        shrink=0.72,
+        fraction=0.04,
+        pad=0.03,
+    )
+    measurement_cbar.set_label("sinogram magnitude", fontsize=7)
+    fig.savefig(output_path, dpi=220, bbox_inches="tight", pad_inches=0.02)
+    plt.close(fig)
+    return output_path
 
 
 def _brdt_value(row: Mapping[str, object], section: str, key: str) -> float:
@@ -1286,9 +1501,24 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Also emit paper-local CNS matched-condition table assets under tables/.",
     )
     parser.add_argument("--write-brdt-assets", action="store_true")
+    parser.add_argument(
+        "--write-brdt-context-figure",
+        action="store_true",
+        help="Write the BRDT sample-255 measurement/reconstruction/error figure.",
+    )
     parser.add_argument("--write-cdi-extended-assets", action="store_true")
     parser.add_argument("--write-cdi-phase-zoom-figure", action="store_true")
     parser.add_argument("--write-cdi-phase-zoom-per-panel-figure", action="store_true")
+    parser.add_argument(
+        "--write-model-config-table",
+        action="store_true",
+        help="Emit paper-local model configuration appendix table assets under tables/.",
+    )
+    parser.add_argument(
+        "--write-efficiency-table",
+        action="store_true",
+        help="Emit paper-local efficiency table assets under tables/.",
+    )
     args = parser.parse_args(argv)
 
     outputs: dict[str, object] = {}
@@ -1313,12 +1543,18 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
     if args.write_brdt_assets:
         outputs["brdt_assets"] = write_brdt_assets()
+    if args.write_brdt_context_figure:
+        outputs["brdt_context_figure"] = str(write_brdt_context_figure())
     if args.write_cdi_extended_assets:
         outputs["cdi_extended_assets"] = write_cdi_extended_assets()
     if args.write_cdi_phase_zoom_figure:
         outputs["cdi_phase_zoom_figure"] = write_cdi_phase_zoom_figure()
     if args.write_cdi_phase_zoom_per_panel_figure:
         outputs["cdi_phase_zoom_per_panel_figure"] = write_cdi_phase_zoom_per_panel_figure()
+    if args.write_model_config_table:
+        outputs["model_config_table"] = write_model_config_table(REPO_ROOT, TABLES_DIR)
+    if args.write_efficiency_table:
+        outputs["paper_efficiency_table"] = write_paper_efficiency_table(REPO_ROOT, TABLES_DIR)
     if outputs:
         print(json.dumps(outputs, indent=2))
     else:
