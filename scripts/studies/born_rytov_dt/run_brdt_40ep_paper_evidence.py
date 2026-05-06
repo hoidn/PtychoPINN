@@ -457,10 +457,48 @@ def _write_run_exit_status(
 DOCS_INDEX_PATH = "docs/index.md"
 
 
-def _check_evidence_surfaces_consistent(*, repo_root: Path = Path.cwd()) -> bool:
-    """Return True when every required discoverability surface references this
-    backlog item and the durable summary records one of the known
-    claim-boundary labels.
+CANONICAL_ARTIFACT_ROOT = (
+    f".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/{BACKLOG_ITEM}"
+)
+
+
+def _manifest_entry_for_backlog(
+    manifest_payload: Mapping[str, Any], backlog_item: str
+) -> Optional[Dict[str, Any]]:
+    """Walk ``paper_evidence_manifest.json`` looking for the structured entry
+    whose ``source_root`` (or equivalent pointer) belongs to ``backlog_item``.
+    Returns the first dict containing both ``claim_boundary`` and a
+    ``source_root`` referencing the backlog item.
+    """
+    matches: List[Dict[str, Any]] = []
+
+    def _walk(obj: Any) -> None:
+        if isinstance(obj, dict):
+            source_root = str(obj.get("source_root") or "")
+            if (
+                "claim_boundary" in obj
+                and backlog_item in source_root
+            ):
+                matches.append(dict(obj))
+            for value in obj.values():
+                _walk(value)
+        elif isinstance(obj, list):
+            for value in obj:
+                _walk(value)
+
+    _walk(manifest_payload)
+    return matches[0] if matches else None
+
+
+def _check_evidence_surfaces_consistent(
+    *,
+    repo_root: Path = Path.cwd(),
+    output_root: Optional[Path] = None,
+) -> bool:
+    """Return True only when every required discoverability surface references
+    this backlog item, the canonical artifact root, AND the same single
+    claim-boundary label that the structured paper-evidence manifest records
+    for this backlog item.
 
     Required surfaces (matching the plan's ``Task 6`` discoverability contract):
 
@@ -469,15 +507,53 @@ def _check_evidence_surfaces_consistent(*, repo_root: Path = Path.cwd()) -> bool
     - paper-evidence manifest at :data:`PAPER_EVIDENCE_MANIFEST_PATH`
     - repo-wide docs index at :data:`DOCS_INDEX_PATH`
 
-    This is a content-level cross-check: the gate must not pass unless the
-    discoverability surfaces actually track this backlog item, not just whether
-    the summary file exists.
+    The reviewer flagged that an earlier substring-only check could pass even
+    when one surface referenced a stale claim boundary or a wrong artifact
+    root. This stricter check uses the structured manifest entry (the only
+    machine-readable surface) as the authoritative ``claim_boundary`` and
+    ``source_root`` for the bundle, then enforces:
+
+    1. The manifest contains a structured entry for this backlog item with
+       both ``claim_boundary`` and ``source_root`` fields.
+    2. The manifest's ``source_root`` matches the canonical artifact root for
+       this backlog item (or the supplied ``output_root`` resolved to the
+       repo-relative form).
+    3. Every surface mentions :data:`BACKLOG_ITEM`, the canonical artifact
+       root, and the manifest's authoritative claim-boundary string.
     """
     repo_root = Path(repo_root)
     summary_path = repo_root / DURABLE_SUMMARY_PATH
     index_path = repo_root / PAPER_EVIDENCE_INDEX_PATH
     manifest_path = repo_root / PAPER_EVIDENCE_MANIFEST_PATH
     docs_index_path = repo_root / DOCS_INDEX_PATH
+
+    if output_root is not None:
+        try:
+            relative_root = (
+                Path(output_root).resolve().relative_to(repo_root.resolve())
+            )
+            artifact_root_token = str(relative_root).rstrip("/")
+        except Exception:
+            artifact_root_token = CANONICAL_ARTIFACT_ROOT
+    else:
+        artifact_root_token = CANONICAL_ARTIFACT_ROOT
+
+    if not manifest_path.exists():
+        return False
+    try:
+        manifest_payload = json.loads(manifest_path.read_text())
+    except Exception:
+        return False
+    manifest_entry = _manifest_entry_for_backlog(manifest_payload, BACKLOG_ITEM)
+    if manifest_entry is None:
+        return False
+    manifest_boundary = str(manifest_entry.get("claim_boundary") or "")
+    manifest_source_root = str(manifest_entry.get("source_root") or "").rstrip("/")
+    if manifest_boundary not in KNOWN_CLAIM_BOUNDARIES:
+        return False
+    if not manifest_source_root.startswith(artifact_root_token):
+        return False
+
     for path in (summary_path, index_path, manifest_path, docs_index_path):
         if not path.exists():
             return False
@@ -487,12 +563,10 @@ def _check_evidence_surfaces_consistent(*, repo_root: Path = Path.cwd()) -> bool
             return False
         if BACKLOG_ITEM not in text:
             return False
-    try:
-        summary_text = summary_path.read_text()
-    except Exception:
-        return False
-    if not any(label in summary_text for label in KNOWN_CLAIM_BOUNDARIES):
-        return False
+        if artifact_root_token not in text:
+            return False
+        if manifest_boundary not in text:
+            return False
     return True
 
 
@@ -820,7 +894,9 @@ def _build_provenance_checks(
         "run_log_present": bool(run_log_present),
         "sample_255_visual_bundle": bool(sample_bundle_ok),
         "exit_code_proof": bool(exit_code_proof),
-        "evidence_surfaces_prepared": _check_evidence_surfaces_consistent(),
+        "evidence_surfaces_prepared": _check_evidence_surfaces_consistent(
+            output_root=Path(output_root)
+        ),
         "same_contract_lineage": bool(same_contract_lineage),
     }
 
@@ -838,6 +914,40 @@ def _reseed_top_level_manifest_with_gate(
     payload["promotion_status"] = str(gate_payload.get("promotion_status"))
     payload["paper_evidence_gate_path"] = str(paper_evidence_gate_path)
     _write_json(manifest_path, payload)
+
+
+def _reseed_metrics_with_gate(
+    *, output_root: Path, gate_payload: Mapping[str, Any]
+) -> None:
+    """Reseed ``metrics.json``, ``combined_metrics.json``, and
+    ``metric_schema.json`` so their ``claim_boundary`` matches the bundle's
+    final gate verdict.
+
+    The reviewer flagged that the live training path stamps these files with
+    the pre-gate label (``decision_support_convergence_followup``) before the
+    gate runs, leaving the bundle internally inconsistent when promotion
+    succeeds: the gate and top-level manifest say
+    ``paper_evidence_brdt_additive`` while the metric tables still advertise
+    the pre-gate label. Reseed them post-gate so every machine-consumed
+    artifact in the bundle agrees on a single boundary.
+    """
+    final_boundary = str(gate_payload.get("claim_boundary") or "")
+    if not final_boundary:
+        return
+    for filename in ("metrics.json", "combined_metrics.json", "metric_schema.json"):
+        path = output_root / filename
+        if not path.exists():
+            continue
+        try:
+            payload = json.loads(path.read_text())
+        except Exception:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        if str(payload.get("claim_boundary") or "") == final_boundary:
+            continue
+        payload["claim_boundary"] = final_boundary
+        _write_json(path, payload)
 
 
 def _build_manifest(
@@ -1266,6 +1376,9 @@ def _run_paper_evidence_inner(
             gate_payload=gate_payload,
             paper_evidence_gate_path=paper_evidence_gate_path,
         )
+        _reseed_metrics_with_gate(
+            output_root=output_root, gate_payload=gate_payload
+        )
     except BaseException:
         # Replace the optimistic "completed" exit-status record with a failed
         # one so a stale file can never falsely bless a partial run.
@@ -1386,13 +1499,45 @@ def _rebuild_meta_only_inner(
     _write_json(preflight_manifest_path, manifest_payload)
 
     log_path = _resolve_log_path(output_root)
-    existing_exit_payload: Dict[str, Any] = {}
+    # The reviewer flagged that the prior code defaulted ``exit_code=0`` and
+    # ``status="completed"`` whenever ``run_exit_status.json`` was missing or
+    # unreadable, which let the rebuild fabricate completion evidence after
+    # the original training proof had been lost. Refuse to proceed unless the
+    # original record is present and parseable AND carries a tracked_pid plus
+    # a non-empty status. Genuine prior evidence is required for the rebuild
+    # to bless the bundle; if the record was lost or corrupted, the bundle
+    # must be rerun, not silently regenerated.
     exit_status_path = output_root / "run_exit_status.json"
-    if exit_status_path.exists():
-        try:
-            existing_exit_payload = json.loads(exit_status_path.read_text())
-        except Exception:
-            existing_exit_payload = {}
+    if not exit_status_path.exists():
+        raise FileNotFoundError(
+            "meta-rebuild requires existing run_exit_status.json at "
+            f"{exit_status_path}; refusing to fabricate completion evidence"
+        )
+    try:
+        existing_exit_payload = json.loads(exit_status_path.read_text())
+    except Exception as exc:
+        raise RuntimeError(
+            f"meta-rebuild cannot parse {exit_status_path}: {exc!r}; refusing "
+            "to fabricate completion evidence"
+        ) from exc
+    if not isinstance(existing_exit_payload, dict):
+        raise RuntimeError(
+            f"meta-rebuild expected dict in {exit_status_path}, got "
+            f"{type(existing_exit_payload).__name__}"
+        )
+    raw_tracked_pid = (
+        existing_exit_payload.get("tracked_pid")
+        if existing_exit_payload.get("tracked_pid") is not None
+        else existing_exit_payload.get("pid")
+    )
+    raw_exit_code = existing_exit_payload.get("exit_code")
+    raw_status = existing_exit_payload.get("status")
+    if raw_tracked_pid is None or raw_exit_code is None or not raw_status:
+        raise RuntimeError(
+            f"meta-rebuild requires tracked_pid, exit_code, and status in "
+            f"{exit_status_path}; got tracked_pid={raw_tracked_pid!r}, "
+            f"exit_code={raw_exit_code!r}, status={raw_status!r}"
+        )
     existing_runtime_payload: Dict[str, Any] = {}
     runtime_provenance_path = output_root / "runtime_provenance.json"
     if runtime_provenance_path.exists():
@@ -1400,15 +1545,9 @@ def _rebuild_meta_only_inner(
             existing_runtime_payload = json.loads(runtime_provenance_path.read_text())
         except Exception:
             existing_runtime_payload = {}
-    tracked_pid = int(
-        existing_exit_payload.get("tracked_pid")
-        or existing_exit_payload.get("pid")
-        or existing_runtime_payload.get("tracked_pid")
-        or existing_runtime_payload.get("pid")
-        or os.getpid()
-    )
-    exit_code = int(existing_exit_payload.get("exit_code", 0))
-    status = str(existing_exit_payload.get("status") or "completed")
+    tracked_pid = int(raw_tracked_pid)
+    exit_code = int(raw_exit_code)
+    status = str(raw_status)
     launch_timestamp_override = existing_runtime_payload.get("launch_timestamp_utc")
     rebuild_gpu_count = 0
     try:
@@ -1569,6 +1708,7 @@ def _rebuild_meta_only_inner(
         gate_payload=gate_payload,
         paper_evidence_gate_path=paper_evidence_gate_path,
     )
+    _reseed_metrics_with_gate(output_root=output_root, gate_payload=gate_payload)
     return {
         "rebuild_meta_only": True,
         "preflight_manifest_path": str(preflight_manifest_path),

@@ -2707,6 +2707,136 @@ def test_rebuild_meta_only_refreshes_manifest_provenance_and_gate(tmp_path):
     assert gate["provenance_checks"]["exit_code_proof"] is True
 
 
+def test_rebuild_meta_only_refuses_when_run_exit_status_missing(tmp_path):
+    """Reviewer-blocked defect: ``rebuild_meta_only`` previously defaulted
+    ``exit_code=0`` and ``status="completed"`` whenever ``run_exit_status.json``
+    was missing or unreadable, then rewrote the file with that fabricated
+    record. After the fix, the rebuild path must refuse to fabricate
+    completion evidence; if the original exit-status proof is gone, the
+    bundle has to be retrained, not silently regenerated."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    ffno_extension_root = _make_synthetic_ffno_extension_bundle(
+        tmp_path, baseline_root
+    )
+    output_root = tmp_path / "rebuild_no_exit_status_root"
+    contract = preflight_mod.TrainingContract(
+        epochs=1,
+        batch_size=1,
+        learning_rate=2e-4,
+        scheduler="reduce_on_plateau",
+        plateau_factor=0.5,
+        plateau_patience=2,
+        plateau_threshold=0.0,
+        plateau_min_lr=1e-5,
+    )
+
+    # Live-run once so per-row outputs exist on disk.
+    paper_mod.run_paper_evidence(
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+        manifest_path=manifest_path,
+        output_root=output_root,
+        contract=contract,
+        device_choice="cpu",
+        dry_run=False,
+        fixed_sample_ids=[0],
+        required_paper_sample=0,
+        parent_argv=[],
+    )
+
+    exit_status_path = output_root / "run_exit_status.json"
+    assert exit_status_path.exists()
+    exit_status_path.unlink()
+
+    # Missing record: refuse to rebuild rather than fabricate completion.
+    with pytest.raises(FileNotFoundError):
+        paper_mod.rebuild_meta_only(
+            baseline_root=baseline_root,
+            ffno_extension_root=ffno_extension_root,
+            manifest_path=manifest_path,
+            output_root=output_root,
+            contract=contract,
+            fixed_sample_ids=[0],
+            required_paper_sample=0,
+        )
+    assert not exit_status_path.exists()
+
+    # Unparseable record: refuse rather than coerce to defaults.
+    exit_status_path.write_text("{not-json")
+    with pytest.raises(RuntimeError):
+        paper_mod.rebuild_meta_only(
+            baseline_root=baseline_root,
+            ffno_extension_root=ffno_extension_root,
+            manifest_path=manifest_path,
+            output_root=output_root,
+            contract=contract,
+            fixed_sample_ids=[0],
+            required_paper_sample=0,
+        )
+
+    # Parseable but missing tracked_pid/exit_code/status: refuse.
+    exit_status_path.write_text(json.dumps({"unrelated": "value"}))
+    with pytest.raises(RuntimeError):
+        paper_mod.rebuild_meta_only(
+            baseline_root=baseline_root,
+            ffno_extension_root=ffno_extension_root,
+            manifest_path=manifest_path,
+            output_root=output_root,
+            contract=contract,
+            fixed_sample_ids=[0],
+            required_paper_sample=0,
+        )
+
+
+def test_reseed_metrics_with_gate_aligns_claim_boundary(tmp_path):
+    """Reviewer-blocked defect: the live runner stamped ``metrics.json`` /
+    ``combined_metrics.json`` / ``metric_schema.json`` with the pre-gate
+    boundary before the gate ran, so a promoted bundle ended up with the gate
+    advertising ``paper_evidence_brdt_additive`` while the metric tables
+    still advertised ``decision_support_convergence_followup``. The reseed
+    helper must rewrite all three files to match the gate's final boundary."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    output_root = tmp_path / "reseed_metrics_root"
+    output_root.mkdir()
+    pre_gate = paper_mod.PRE_GATE_CLAIM_BOUNDARY
+    promoted = paper_mod.PASSED_CLAIM_BOUNDARY
+
+    metrics_path = output_root / "metrics.json"
+    combined_path = output_root / "combined_metrics.json"
+    schema_path = output_root / "metric_schema.json"
+    metrics_path.write_text(json.dumps({"claim_boundary": pre_gate, "rows": []}))
+    combined_path.write_text(json.dumps({"claim_boundary": pre_gate, "rows": []}))
+    schema_path.write_text(json.dumps({"claim_boundary": pre_gate}))
+
+    paper_mod._reseed_metrics_with_gate(
+        output_root=output_root,
+        gate_payload={"claim_boundary": promoted},
+    )
+
+    assert json.loads(metrics_path.read_text())["claim_boundary"] == promoted
+    assert json.loads(combined_path.read_text())["claim_boundary"] == promoted
+    assert json.loads(schema_path.read_text())["claim_boundary"] == promoted
+
+    # Failed-gate case: a failed verdict must propagate the pre-gate label
+    # back through the metric tables so the bundle never carries a stale
+    # promoted label after a failed rerun.
+    paper_mod._reseed_metrics_with_gate(
+        output_root=output_root,
+        gate_payload={"claim_boundary": pre_gate},
+    )
+    assert json.loads(metrics_path.read_text())["claim_boundary"] == pre_gate
+    assert json.loads(combined_path.read_text())["claim_boundary"] == pre_gate
+    assert json.loads(schema_path.read_text())["claim_boundary"] == pre_gate
+
+
 def test_rebuild_meta_only_refuses_active_writer(tmp_path):
     """rebuild_meta_only must refuse to run when another writer holds the
     output-root lock, the same protection the live training path applies."""
@@ -2751,7 +2881,8 @@ def test_evidence_surfaces_consistency_check_requires_all_surfaces(tmp_path):
     """The evidence_surfaces_prepared gate check must require the durable
     summary, the paper-evidence index, the paper-evidence manifest, AND the
     repo-wide ``docs/index.md`` discoverability surface to all reference this
-    backlog item, not just the summary file alone."""
+    backlog item AND the canonical artifact root AND the manifest's
+    authoritative claim-boundary string."""
     from scripts.studies.born_rytov_dt import (
         run_brdt_40ep_paper_evidence as paper_mod,
     )
@@ -2765,36 +2896,125 @@ def test_evidence_surfaces_consistency_check_requires_all_surfaces(tmp_path):
     manifest_path = fake_repo / paper_mod.PAPER_EVIDENCE_MANIFEST_PATH
     docs_index_path = fake_repo / paper_mod.DOCS_INDEX_PATH
 
-    # Only the durable summary references the backlog item: must fail.
-    summary_path.write_text(
-        f"{paper_mod.BACKLOG_ITEM} -> {paper_mod.PASSED_CLAIM_BOUNDARY}\n"
+    canonical_root = paper_mod.CANONICAL_ARTIFACT_ROOT
+    boundary = paper_mod.PASSED_CLAIM_BOUNDARY
+    consistent_marker = (
+        f"{paper_mod.BACKLOG_ITEM} {canonical_root} {boundary}\n"
     )
+    consistent_manifest_payload = {
+        "row_registry": [
+            {
+                "claim_boundary": boundary,
+                "source_root": f"{canonical_root}/",
+            }
+        ]
+    }
+
+    # Only the durable summary references the backlog item: must fail.
+    summary_path.write_text(consistent_marker)
     assert (
         paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
     )
 
     # Add the paper-evidence index but not the manifest: must still fail.
-    index_path.write_text(f"{paper_mod.BACKLOG_ITEM}\n")
+    index_path.write_text(consistent_marker)
     assert (
         paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
     )
 
     # Add the manifest but not docs/index.md: must still fail because the
     # repo-wide docs index discoverability surface is required by the plan.
-    manifest_path.write_text(f'"{paper_mod.BACKLOG_ITEM}"\n')
+    manifest_path.write_text(json.dumps(consistent_manifest_payload))
     assert (
         paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
     )
 
-    # All four surfaces present and reference the backlog item plus a known
-    # claim-boundary label in the durable summary: must pass.
-    docs_index_path.write_text(f"{paper_mod.BACKLOG_ITEM}\n")
+    # All four surfaces present and consistent (backlog id, canonical artifact
+    # root, and matching claim boundary): must pass.
+    docs_index_path.write_text(consistent_marker)
     assert (
         paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is True
     )
 
-    # Summary missing a known claim-boundary label: must fail.
-    summary_path.write_text(f"{paper_mod.BACKLOG_ITEM}\n")
+    # Drift the durable summary's claim-boundary while the manifest still
+    # advertises the promoted boundary: must fail because the surfaces no
+    # longer agree on a single claim boundary.
+    summary_path.write_text(
+        f"{paper_mod.BACKLOG_ITEM} {canonical_root} "
+        f"{paper_mod.PRE_GATE_CLAIM_BOUNDARY}\n"
+    )
+    assert (
+        paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
+    )
+
+    # Drift the artifact root in one surface: must fail.
+    summary_path.write_text(consistent_marker)
+    docs_index_path.write_text(
+        f"{paper_mod.BACKLOG_ITEM} .artifacts/wrong/path {boundary}\n"
+    )
+    assert (
+        paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
+    )
+
+    # Manifest entry missing claim_boundary: must fail.
+    docs_index_path.write_text(consistent_marker)
+    manifest_path.write_text(
+        json.dumps(
+            {"row_registry": [{"source_root": f"{canonical_root}/"}]}
+        )
+    )
+    assert (
+        paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
+    )
+
+
+def test_evidence_surfaces_consistency_check_detects_manifest_boundary_drift(
+    tmp_path,
+):
+    """When the manifest's authoritative claim_boundary entry drifts from the
+    boundary advertised by the other discoverability surfaces, the check must
+    fail. This is the precise drift scenario flagged by the reviewer:
+    ``paper_evidence_manifest.json`` could reference one boundary while
+    ``paper_evidence_index.md``/``docs/index.md`` referenced another."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    fake_repo = tmp_path / "fake_repo"
+    (fake_repo / "docs" / "plans" / "NEURIPS-HYBRID-RESNET-2026").mkdir(parents=True)
+    (fake_repo / "docs").mkdir(exist_ok=True)
+
+    summary_path = fake_repo / paper_mod.DURABLE_SUMMARY_PATH
+    index_path = fake_repo / paper_mod.PAPER_EVIDENCE_INDEX_PATH
+    manifest_path = fake_repo / paper_mod.PAPER_EVIDENCE_MANIFEST_PATH
+    docs_index_path = fake_repo / paper_mod.DOCS_INDEX_PATH
+
+    canonical_root = paper_mod.CANONICAL_ARTIFACT_ROOT
+    promoted = paper_mod.PASSED_CLAIM_BOUNDARY
+    pre_gate = paper_mod.PRE_GATE_CLAIM_BOUNDARY
+
+    # Index, summary, and docs/index advertise the promoted boundary.
+    consistent_marker = (
+        f"{paper_mod.BACKLOG_ITEM} {canonical_root} {promoted}\n"
+    )
+    summary_path.write_text(consistent_marker)
+    index_path.write_text(consistent_marker)
+    docs_index_path.write_text(consistent_marker)
+
+    # The manifest's authoritative entry drifts to the pre-gate boundary.
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "row_registry": [
+                    {
+                        "claim_boundary": pre_gate,
+                        "source_root": f"{canonical_root}/",
+                    }
+                ]
+            }
+        )
+        + f"\n{pre_gate}\n"
+    )
     assert (
         paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
     )

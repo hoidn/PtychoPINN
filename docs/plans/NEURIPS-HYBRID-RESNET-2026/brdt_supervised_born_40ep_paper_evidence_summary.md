@@ -157,9 +157,25 @@ in `scripts/studies/born_rytov_dt/run_brdt_40ep_paper_evidence.py`:
 - The gate's `evidence_surfaces_prepared` check requires the durable summary
   at this path, `paper_evidence_index.md`, `paper_evidence_manifest.json`,
   and the repo-wide `docs/index.md` to all reference this backlog item, and
-  additionally requires the durable summary text to record one of the known
-  claim-boundary labels (`paper_evidence_brdt_additive` or
-  `decision_support_convergence_followup`).
+  additionally enforces cross-surface internal consistency: each surface must
+  contain the canonical artifact root path
+  (`.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence`)
+  and must contain the same authoritative claim-boundary string read from the
+  structured `paper_evidence_manifest.json` row registry entry for this
+  backlog item. Drift between surfaces (e.g. the manifest advertising one
+  boundary while the durable summary still advertises another) now fails the
+  gate.
+- `metrics.json`, `combined_metrics.json`, and `metric_schema.json` are
+  re-seeded with the gate's final `claim_boundary` after the gate runs, so
+  the bundle's machine-consumed metric tables can never advertise the
+  pre-gate label after a successful promotion. Both the live training path
+  and the `--rebuild-meta-only` path apply this reseed.
+- The `--rebuild-meta-only` path now refuses to fabricate completion
+  evidence: if `run_exit_status.json` is missing, unparseable, or lacks
+  `tracked_pid`/`exit_code`/`status`, the rebuild raises rather than
+  defaulting to `exit_code=0`/`status="completed"`. A bundle whose original
+  exit-status proof has been lost must be retrained, not silently
+  regenerated.
 - The gate's `scheduler_matches_contract` check now verifies the per-row
   recorded scheduler block against every plan-bound field
   (`reduce_on_plateau` plus `factor=0.5`, `patience=2`, `threshold=0.0`,
