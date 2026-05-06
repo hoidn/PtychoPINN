@@ -10,8 +10,11 @@ import sys
 import numpy as np
 
 from scripts.studies.cdi_natural_patch_benchmark import (
+    NATURAL_PATCH_DATASET_ID,
     NATURAL_PATCH_ROW_ROSTER,
+    _attach_natural_patch_row_provenance,
     _patchwise_metrics,
+    _promote_recovered_row_invocation,
     _save_patchwise_prediction_artifacts,
     _save_fixed_sample_visuals,
     prepare_natural_patch_inputs,
@@ -713,3 +716,256 @@ def test_cli_entrypoint_runs_direct_script_mode(tmp_path: Path):
         text=True,
     )
     assert completed.returncode == 0, completed.stderr
+
+
+def _seed_per_row_invocation(run_root: Path, model_id: str, seed: int) -> None:
+    run_dir = run_root / "runs" / model_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    invocation_payload = {
+        "argv": ["--seed", str(seed)],
+        "parsed_args": {"seed": seed},
+        "pid": 4242,
+        "status": "completed",
+        "exit_code": 0,
+        "finished_at_utc": "2026-04-29T00:00:00+00:00",
+    }
+    (run_dir / "invocation.json").write_text(json.dumps(invocation_payload), encoding="utf-8")
+    (run_dir / "invocation.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    (run_dir / "config.json").write_text(json.dumps({"seed": seed}), encoding="utf-8")
+    (run_dir / "stdout.log").write_text("row stdout\n", encoding="utf-8")
+    (run_dir / "stderr.log").write_text("", encoding="utf-8")
+    (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+    (run_dir / "history.json").write_text("{}", encoding="utf-8")
+
+
+def test_attach_natural_patch_row_provenance_writes_manifests_and_proof(tmp_path: Path):
+    run_root = tmp_path / "run"
+    run_root.mkdir(parents=True, exist_ok=True)
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    probe_npz = tmp_path / "probe.npz"
+    for path in (train_npz, test_npz, probe_npz):
+        path.write_bytes(b"x")
+
+    _seed_per_row_invocation(run_root, "baseline", seed=3)
+
+    row_payload: dict = {
+        "hardware_summary": {"backend": "tensorflow", "accelerator": "cpu"},
+        "outputs": {"metrics_json": "runs/baseline/metrics.json"},
+    }
+    _attach_natural_patch_row_provenance(
+        run_root=run_root,
+        model_id="baseline",
+        row_payload=row_payload,
+        train_npz=train_npz,
+        test_npz=test_npz,
+        probe_npz=probe_npz,
+        seed=3,
+        nimgs_train=2,
+        nimgs_test=1,
+        gridsize=1,
+        set_phi=False,
+        proof_source="test_attach_provenance",
+    )
+
+    dataset_manifest_path = run_root / "dataset_identity_manifest.json"
+    split_manifest_path = run_root / "split_manifest.json"
+    exit_proof_path = run_root / "runs" / "baseline" / "exit_code_proof.json"
+    assert dataset_manifest_path.exists()
+    assert split_manifest_path.exists()
+    assert exit_proof_path.exists()
+
+    dataset_manifest = json.loads(dataset_manifest_path.read_text(encoding="utf-8"))
+    assert dataset_manifest["dataset_source"] == NATURAL_PATCH_DATASET_ID
+    for key in ("train_npz", "test_npz"):
+        record = dataset_manifest[key]
+        assert isinstance(record.get("size_bytes"), int)
+        assert isinstance(record.get("sha256"), str) and record["sha256"]
+        assert record.get("source") == NATURAL_PATCH_DATASET_ID
+
+    split_manifest = json.loads(split_manifest_path.read_text(encoding="utf-8"))
+    assert split_manifest["seed"] == 3
+    assert split_manifest["nimgs_train"] == 2
+    assert split_manifest["nimgs_test"] == 1
+    assert split_manifest["gridsize"] == 1
+    assert split_manifest["set_phi"] is False
+
+    exit_proof = json.loads(exit_proof_path.read_text(encoding="utf-8"))
+    assert exit_proof["model_id"] == "baseline"
+    assert exit_proof["exit_code"] == 0
+    assert exit_proof["proof_source"] == "test_attach_provenance"
+    assert exit_proof["invocation_status"] == "completed"
+
+    assert row_payload["dataset"]["manifest_json"] == "dataset_identity_manifest.json"
+    assert row_payload["dataset"]["dataset_source"] == NATURAL_PATCH_DATASET_ID
+    assert row_payload["splits"]["manifest_json"] == "split_manifest.json"
+    assert row_payload["splits"]["nimgs_train"] == 2
+    assert row_payload["splits"]["set_phi"] is False
+    assert row_payload["randomness"]["requested_seed"] == 3
+    git_payload = row_payload["git"]
+    assert isinstance(git_payload.get("dirty_state_note"), dict)
+    assert git_payload["dirty_state_note"].get("source") == "natural_patch_harness_row_provenance"
+    env = row_payload["environment"]
+    for key in ("python_executable", "python_version", "host", "torch_version", "cuda_version", "gpu"):
+        assert key in env
+    assert row_payload["outputs"]["exit_code_proof_json"] == "runs/baseline/exit_code_proof.json"
+
+
+def test_promote_recovered_row_invocation_rewrites_failed_envelope_when_artifacts_present(tmp_path: Path):
+    run_root = tmp_path / "run"
+    run_dir = run_root / "runs" / "pinn_hybrid_resnet"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    invocation_path = run_dir / "invocation.json"
+    invocation_path.write_text(
+        json.dumps(
+            {
+                "argv": ["--seed", "3"],
+                "parsed_args": {"seed": 3},
+                "pid": 12345,
+                "status": "failed",
+                "exit_code": 1,
+                "finished_at_utc": "2026-04-29T00:00:00+00:00",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "config.json").write_text(json.dumps({"seed": 3}), encoding="utf-8")
+    (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+    (run_dir / "history.json").write_text("{}", encoding="utf-8")
+    (run_dir / "model.pt").write_text("x", encoding="utf-8")
+    recon_dir = run_root / "recons" / "pinn_hybrid_resnet"
+    recon_dir.mkdir(parents=True, exist_ok=True)
+    np.savez(recon_dir / "recon.npz", YY_pred=np.ones((1, 8, 8), dtype=np.complex64))
+
+    promoted = _promote_recovered_row_invocation(
+        run_root=run_root,
+        model_id="pinn_hybrid_resnet",
+    )
+
+    assert promoted is True
+    payload = json.loads(invocation_path.read_text(encoding="utf-8"))
+    assert payload["status"] == "completed"
+    assert payload["exit_code"] == 0
+    extra = payload["extra"]
+    assert extra["recovered_exit_code_from_recollate_promotion"] is True
+    assert extra["recovered_original_status"] == "failed"
+    assert extra["recovered_original_exit_code"] == 1
+
+
+def test_promote_recovered_row_invocation_refuses_when_recon_missing(tmp_path: Path):
+    run_root = tmp_path / "run"
+    run_dir = run_root / "runs" / "pinn_hybrid_resnet"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    invocation_path = run_dir / "invocation.json"
+    invocation_path.write_text(
+        json.dumps({"status": "failed", "exit_code": 1}),
+        encoding="utf-8",
+    )
+    (run_dir / "config.json").write_text("{}", encoding="utf-8")
+    (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+    (run_dir / "history.json").write_text("{}", encoding="utf-8")
+    (run_dir / "model.pt").write_text("x", encoding="utf-8")
+    # No recon artifact -> promotion must refuse so the bundle stays
+    # benchmark_incomplete with an honest provenance gap.
+
+    promoted = _promote_recovered_row_invocation(
+        run_root=run_root,
+        model_id="pinn_hybrid_resnet",
+    )
+
+    assert promoted is False
+    payload = json.loads(invocation_path.read_text(encoding="utf-8"))
+    assert payload["status"] == "failed"
+    assert payload["exit_code"] == 1
+
+
+def test_recollate_mode_promotes_existing_run_to_paper_complete(tmp_path: Path):
+    """End-to-end recollate: seed an existing run root then re-publish through the harness."""
+    dataset_root = _build_dataset_root(tmp_path)
+    item_root = tmp_path / "item"
+    seed = 3
+    run_id = "recollate-test-run"
+    rows = ("baseline", "pinn")
+
+    # First write minimum valid metrics.json shape under the run root by calling
+    # benchmark mode with a fake executor that emits paper_grade row payloads
+    # missing only the new provenance scaffolding (so the bundle starts as
+    # benchmark_incomplete, mirroring the on-disk state we are recollating).
+    def fake_execute_rows(**_):
+        metrics = {
+            "mae": (0.1, 0.2),
+            "mse": (0.01, 0.02),
+            "psnr": (10.0, 11.0),
+            "ssim": (0.7, 0.8),
+            "ms_ssim": (0.6, 0.7),
+            "frc50": (5.0, 6.0),
+        }
+        return {
+            row: {
+                "status": "completed",
+                "row_payload": {
+                    "model_label": f"CDI {row}",
+                    "architecture_id": "cnn",
+                    "training_procedure": "supervised" if row == "baseline" else "pinn",
+                    "N": 8,
+                    "parameter_count": 10,
+                    "epoch_budget": 40,
+                    "final_completed_epoch": 40,
+                    "final_train_loss": 0.1,
+                    "validation_loss": {"status": "emitted", "value": 0.2},
+                    "runtime_summary": {"train_wall_time_sec": 1.0, "inference_time_sec": 0.5},
+                    "hardware_summary": {"backend": "tensorflow", "accelerator": "cpu"},
+                    "row_status": "paper_grade",
+                    "caveats": [],
+                    "metrics": metrics,
+                },
+            }
+            for row in rows
+        }
+
+    run_natural_patch_benchmark(
+        dataset_root=dataset_root,
+        item_root=item_root,
+        mode="benchmark",
+        rows=rows,
+        seed=seed,
+        run_id=run_id,
+        execute_rows_fn=fake_execute_rows,
+    )
+    run_root = item_root / "runs" / run_id
+    # Seed per-row invocation/config/log artifacts that the recollate path
+    # validates via write_exit_code_proof, plus the row reconstructions and
+    # baseline visuals so the recollate path has everything it needs without
+    # retraining.
+    for row in rows:
+        _seed_per_row_invocation(run_root, row, seed=seed)
+        recon_dir = run_root / "recons" / row
+        recon_dir.mkdir(parents=True, exist_ok=True)
+        # Provide a complex recon array sized to match the test split (1 sample).
+        np.savez(
+            recon_dir / "recon.npz",
+            recon=np.ones((1, 8, 8), dtype=np.complex64),
+        )
+        visuals_dir = run_root / "visuals"
+        visuals_dir.mkdir(parents=True, exist_ok=True)
+        (visuals_dir / f"amp_phase_{row}.png").write_text("x", encoding="utf-8")
+        (visuals_dir / f"amp_phase_error_{row}.png").write_text("x", encoding="utf-8")
+
+    result = run_natural_patch_benchmark(
+        dataset_root=dataset_root,
+        item_root=item_root,
+        mode="recollate",
+        rows=rows,
+        seed=seed,
+        run_id=run_id,
+    )
+
+    assert result["mode"] == "recollate"
+    metrics_payload = json.loads((run_root / "metrics.json").read_text(encoding="utf-8"))
+    assert metrics_payload["benchmark_status"] == "paper_complete"
+    for row in rows:
+        assert metrics_payload["missing_fields_by_row"][row] == []
+        assert metrics_payload["row_statuses"][row]["status"] == "supported_for_harness"
+        assert metrics_payload["row_statuses"][row]["execution_status"] == "completed"
+    manifest_payload = json.loads((run_root / "paper_benchmark_manifest.json").read_text(encoding="utf-8"))
+    assert manifest_payload["recollate_source"] == run_id

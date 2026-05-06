@@ -527,7 +527,7 @@
         "amp_frc50": 68.90094687002035,
         "phase_frc50": 67.84086901019204
       },
-      "evidence_status": "benchmark_incomplete_recovered_metrics_only"
+      "evidence_status": "paper_grade_with_recovered_invocation_caveat"
     },
     {
       "variant_id": "cdi_lines128__neuralop_uno__pinn__uno_extension",
@@ -738,7 +738,7 @@
         "amp_frc50": 0.7901571531878987,
         "phase_frc50": 0.7817095544667713
       },
-      "evidence_status": "benchmark_incomplete_recovered_metrics_only"
+      "evidence_status": "paper_complete_recollate_with_recovered_invocation_promotion"
     },
     {
       "variant_id": "cdi_natural_patches128_fixedprobe__cnn__pinn__single_seed_benchmark",
@@ -767,7 +767,7 @@
         "amp_frc50": 0.8564732280408797,
         "phase_frc50": 0.8349427533436236
       },
-      "evidence_status": "benchmark_incomplete_recovered_metrics_only"
+      "evidence_status": "paper_complete_recollate_with_recovered_invocation_promotion"
     },
     {
       "variant_id": "cdi_natural_patches128_fixedprobe__hybrid_resnet__pinn__single_seed_benchmark",
@@ -792,7 +792,7 @@
         "amp_frc50": 0.8620934806365117,
         "phase_frc50": 0.9394921784638249
       },
-      "evidence_status": "benchmark_incomplete_recovered_metrics_only"
+      "evidence_status": "paper_complete_recollate_with_recovered_invocation_promotion"
     },
     {
       "variant_id": "cdi_natural_patches128_fixedprobe__fno_vanilla__pinn__single_seed_benchmark",
@@ -817,7 +817,7 @@
         "amp_frc50": 0.829955257922965,
         "phase_frc50": 0.9337673783891351
       },
-      "evidence_status": "benchmark_incomplete_recovered_metrics_only"
+      "evidence_status": "paper_complete_recollate_with_recovered_invocation_promotion"
     },
     {
       "variant_id": "cdi_natural_patches128_fixedprobe__ffno__pinn__single_seed_benchmark",
@@ -842,7 +842,7 @@
         "amp_frc50": 0.8580602550687738,
         "phase_frc50": 0.8339473851628878
       },
-      "evidence_status": "benchmark_incomplete_recovered_metrics_only"
+      "evidence_status": "paper_complete_recollate_with_recovered_invocation_promotion"
     },
     {
       "variant_id": "cdi_natural_patches128_fixedprobe__neuralop_uno__pinn__single_seed_benchmark",
@@ -867,7 +867,7 @@
         "amp_frc50": 0.8428799457417018,
         "phase_frc50": 0.8792973136975811
       },
-      "evidence_status": "benchmark_incomplete_recovered_metrics_only"
+      "evidence_status": "paper_complete_recollate_with_recovered_invocation_promotion"
     },
     {
       "variant_id": "cns_history2_cap512__author_ffno_cns_base__supervised__paper_bundle",

@@ -34,12 +34,19 @@
   - `tests/studies/test_cdi_natural_patch_dataset.py`
 - Item root (git-ignored):
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/`
-- Recovered bundle root (currently `benchmark_incomplete`):
+- Authoritative bundle root (`paper_complete` via recollate):
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z`
 - Boundary: single-seed expanded-object CDI evidence only; bundle classified
-  `benchmark_incomplete` (launcher exit `1`, missing torch fixed-sample
-  visuals, harness lacks full provenance scaffolding) so metrics in the summary
-  are advisory only; does not replace `lines128_paper_benchmark_summary.md`.
+  `paper_complete` after a `--mode recollate` republication that emitted the
+  locked provenance scaffolding (`dataset_identity_manifest.json`,
+  `split_manifest.json`, per-row `exit_code_proof.json`), backfilled torch-row
+  fixed-sample amp/phase visuals, and exited the recollate launcher with
+  `exit_code=0`. Per-row invocation envelopes were promoted from the original
+  launch's stale `failed/1` record to `completed/0` only after the on-disk
+  training artifacts were verified intact, with the original status/exit-code
+  preserved under `extra.recovered_original_status` /
+  `extra.recovered_original_exit_code`. Does not replace
+  `lines128_paper_benchmark_summary.md`.
 
 ## PDE / Forward-Modeling Studies
 

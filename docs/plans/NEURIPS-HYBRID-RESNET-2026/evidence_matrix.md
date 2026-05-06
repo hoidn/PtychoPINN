@@ -1,7 +1,7 @@
 # NeurIPS Hybrid ResNet Evidence Matrix
 
 Status: draft  
-Last updated: 2026-05-05 (natural-patch expanded-object benchmark appended; fixed-probe dataset prerequisite retained)
+Last updated: 2026-05-05 (natural-patch expanded-object benchmark recollated to `paper_complete`; fixed-probe dataset prerequisite retained)
 
 This is the human-facing master matrix for NeurIPS/SRU-Net evidence. It points
 to all relevant completed backlog outputs, keyed by dataset, model/config
@@ -29,7 +29,7 @@ Machine-readable companions:
 | PDEBench Darcy static-operator full-training benchmark | `pdebench_darcy_static_operator_summary.md` | `benchmark_performance` for `hybrid_resnet_base`, `fno_base`, `unet_strong` under the locked `8000/1000/1000` split, relative-L2 loss, `50` epochs |
 | Cross-pillar claim audit | `paper_evidence_package_audit_summary.md` | preserves CDI/CNS claim asymmetry |
 | CDI natural-patch fixed-probe dataset (`natural_patches128_fixedprobe_v1`) | `cdi_natural_patch_fixedprobe_dataset_summary.md` | dataset prerequisite only; not benchmark evidence; does not replace `lines128` table |
-| CDI natural-patch expanded-object benchmark (`natural_patches128_fixedprobe_v1`) | `cdi_natural_patch_expanded_benchmark_summary.md` | single-seed expanded-object CDI bundle currently `benchmark_incomplete` (launcher exit `1`, missing torch fixed-sample visuals, harness lacks full provenance scaffolding); does not replace `lines128` |
+| CDI natural-patch expanded-object benchmark (`natural_patches128_fixedprobe_v1`) | `cdi_natural_patch_expanded_benchmark_summary.md` | single-seed expanded-object CDI bundle now `paper_complete` via the recollate-with-recovered-invocation-promotion path (locked provenance scaffolding emitted, torch fixed-sample visuals backfilled, recollate launcher exited `0`); does not replace `lines128` |
 | Completed backlog outcome map | `paper_evidence_index.md` | first-stop durable outcome index |
 
 ## Manuscript Incorporation Map
@@ -338,7 +338,7 @@ completed four-row preflight for potential manuscript or supplement use:
 | `2026-05-04-brdt-ffno-row-extension` | BRDT append-only architecture row extension adding a single factorized Fourier operator (FFNO) row to the four-row preflight (decision_support_append_only, not paper evidence) | `brdt_ffno_row_extension_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-ffno-row-extension/` |
 | `2026-05-04-pdebench-darcy-full-training-benchmark` | PDEBench Darcy full-training benchmark | `pdebench_darcy_static_operator_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/full_benchmark_20260504T182832Z` |
 | `2026-05-04-cdi-natural-patch-fixedprobe-dataset` | CDI natural-patch fixed-probe dataset prerequisite (`natural_patches128_fixedprobe_v1`; not benchmark evidence) | `cdi_natural_patch_fixedprobe_dataset_summary.md` | `.artifacts/data/NEURIPS-HYBRID-RESNET-2026/natural_patches128_fixedprobe_v1/` |
-| `2026-05-04-cdi-natural-patch-expanded-benchmark` | CDI natural-patch expanded-object single-seed benchmark (`natural_patches128_fixedprobe_v1`; bundle `benchmark_incomplete` — launcher exit `1`, missing torch fixed-sample visuals, harness lacks full provenance scaffolding) | `cdi_natural_patch_expanded_benchmark_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z` |
+| `2026-05-04-cdi-natural-patch-expanded-benchmark` | CDI natural-patch expanded-object single-seed benchmark (`natural_patches128_fixedprobe_v1`; bundle `paper_complete` via recollate-with-recovered-invocation-promotion path — locked provenance scaffolding emitted, torch fixed-sample visuals backfilled, recollate launcher exited `0`) | `cdi_natural_patch_expanded_benchmark_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-design` | legacy CDI architecture-search design | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-stage-a-execution` | legacy CDI architecture-search execution | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-stage-b-execution` | legacy CDI architecture-search execution | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |

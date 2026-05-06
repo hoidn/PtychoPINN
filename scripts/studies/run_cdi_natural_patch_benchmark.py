@@ -23,7 +23,7 @@ def _parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Run the natural-patch expanded CDI benchmark.")
     parser.add_argument("--dataset-root", type=Path, required=True)
     parser.add_argument("--item-root", type=Path, required=True)
-    parser.add_argument("--mode", choices=["dry-run", "benchmark"], required=True)
+    parser.add_argument("--mode", choices=["dry-run", "benchmark", "recollate"], required=True)
     parser.add_argument("--run-id", type=str, default=None)
     parser.add_argument(
         "--rows",
