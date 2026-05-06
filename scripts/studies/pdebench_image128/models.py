@@ -9,7 +9,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from ptycho_torch.generators.fno import SpatialLifter
-from ptycho_torch.generators.hybrid_resnet import HybridResnetEncoderBlock, StrideConvDownsample
+from ptycho_torch.generators.hybrid_resnet import (
+    AvgPoolConvDownsample,
+    BlurPoolConvDownsample,
+    HybridResnetEncoderBlock,
+    StrideConvDownsample,
+)
 from ptycho_torch.generators.resnet_components import CycleGanUpsampler, ResnetBottleneck
 from ptycho_torch.generators.ffno_bottleneck import SharedFactorizedFfnoBottleneck
 from ptycho_torch.generators.spectral_resnet_bottleneck import SharedSpectralResnetBottleneck
@@ -106,6 +111,16 @@ def _make_hybrid_upsampler(kind: str, in_channels: int, out_channels: int) -> nn
     raise ValueError(f"unknown hybrid upsampler: {kind}")
 
 
+def _make_hybrid_downsample(kind: str, in_channels: int, out_channels: int) -> nn.Module:
+    if kind == "stride_conv":
+        return StrideConvDownsample(in_channels, out_channels)
+    if kind == "avgpool_conv":
+        return AvgPoolConvDownsample(in_channels, out_channels)
+    if kind == "blurpool_conv":
+        return BlurPoolConvDownsample(in_channels, out_channels)
+    raise ValueError(f"unknown hybrid downsample op: {kind}")
+
+
 class _SharedPdebenchHybridShell(nn.Module):
     """Shared supervised shell for PDEBench image-suite bottleneck variants."""
 
@@ -119,25 +134,34 @@ class _SharedPdebenchHybridShell(nn.Module):
         fno_blocks: int,
         resnet_blocks: int,
         downsample_steps: int,
+        downsample_op: str = "stride_conv",
         upsampler: str = "cyclegan_transpose",
         skip_connections: bool = False,
         hybrid_skip_style: str = "add",
         bottleneck_builder: Callable[[int], nn.Module],
+        pre_encoder_builder: Callable[[int], nn.Module] | None = None,
+        encoder_block_builder: Callable[[int], nn.Module] | None = None,
+        encoder_stage_count: int | None = None,
     ):
         super().__init__()
         if hybrid_skip_style not in {"add", "concat", "gated_add"}:
             raise ValueError(f"hybrid_skip_style must be one of add|concat|gated_add (got {hybrid_skip_style!r}).")
         self.lifter = SpatialLifter(in_channels, hidden_channels)
+        self.pre_encoder = nn.Identity() if pre_encoder_builder is None else pre_encoder_builder(hidden_channels)
         self.skip_connections = bool(skip_connections)
         self.hybrid_skip_style = str(hybrid_skip_style)
         channels = hidden_channels
         self.encoder_blocks = nn.ModuleList()
         self.downsample_layers = nn.ModuleList()
         self.stage_metadata: list[dict[str, int]] = [{"resolution_divisor": 1, "channels": channels}]
-        for index in range(fno_blocks):
-            self.encoder_blocks.append(HybridResnetEncoderBlock(channels, modes=fno_modes))
+        if encoder_stage_count is None:
+            encoder_stage_count = int(fno_blocks)
+        if encoder_block_builder is None:
+            encoder_block_builder = lambda block_channels: HybridResnetEncoderBlock(block_channels, modes=fno_modes)
+        for index in range(int(encoder_stage_count)):
+            self.encoder_blocks.append(encoder_block_builder(channels))
             if index < downsample_steps:
-                self.downsample_layers.append(StrideConvDownsample(channels, channels * 2))
+                self.downsample_layers.append(_make_hybrid_downsample(downsample_op, channels, channels * 2))
                 channels *= 2
                 self.stage_metadata.append(
                     {
@@ -226,6 +250,7 @@ class _SharedPdebenchHybridShell(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         x = self.lifter(x)
+        x = self.pre_encoder(x)
         encoder_taps: dict[str, torch.Tensor] = {}
         for index, block in enumerate(self.encoder_blocks):
             x = block(x)
@@ -258,6 +283,7 @@ class HybridResnetImageModel(_SharedPdebenchHybridShell):
         fno_blocks: int,
         resnet_blocks: int,
         downsample_steps: int,
+        downsample_op: str = "stride_conv",
         upsampler: str = "cyclegan_transpose",
         skip_connections: bool = False,
         hybrid_skip_style: str = "add",
@@ -270,9 +296,71 @@ class HybridResnetImageModel(_SharedPdebenchHybridShell):
             fno_blocks=fno_blocks,
             resnet_blocks=resnet_blocks,
             downsample_steps=downsample_steps,
+            downsample_op=downsample_op,
             upsampler=upsampler,
             skip_connections=skip_connections,
             hybrid_skip_style=hybrid_skip_style,
+            bottleneck_builder=lambda channels: ResnetBottleneck(channels, n_blocks=resnet_blocks),
+        )
+
+
+class HybridResnetFfnoPtychoBlockEncoderImageModel(_SharedPdebenchHybridShell):
+    """Supervised real-channel adapter with a fixed FFNO-first encoder plus two PtychoBlocks."""
+
+    def __init__(
+        self,
+        *,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: int,
+        fno_modes: int,
+        fno_blocks: int,
+        resnet_blocks: int,
+        downsample_steps: int,
+        downsample_op: str = "stride_conv",
+        ffno_encoder_blocks: int = 2,
+        ffno_encoder_modes: int = 12,
+        ffno_encoder_share_weights: bool = True,
+        ffno_encoder_mlp_ratio: float = 2.0,
+        ffno_encoder_gate_init: float = 0.1,
+        ffno_encoder_norm: str = "instance",
+        ptychoblock_stage_count: int = 2,
+        upsampler: str = "cyclegan_transpose",
+        skip_connections: bool = False,
+        hybrid_skip_style: str = "add",
+    ):
+        self.encoder_variant = "ffno_ptychoblock_encoder"
+        self.ffno_encoder_blocks = int(ffno_encoder_blocks)
+        self.ffno_encoder_modes = int(ffno_encoder_modes)
+        self.ffno_encoder_share_weights = bool(ffno_encoder_share_weights)
+        self.ffno_encoder_mlp_ratio = float(ffno_encoder_mlp_ratio)
+        self.ffno_encoder_gate_init = float(ffno_encoder_gate_init)
+        self.ffno_encoder_norm = str(ffno_encoder_norm)
+        self.ptychoblock_stage_count = int(ptychoblock_stage_count)
+        super().__init__(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            hidden_channels=hidden_channels,
+            fno_modes=fno_modes,
+            fno_blocks=fno_blocks,
+            resnet_blocks=resnet_blocks,
+            downsample_steps=downsample_steps,
+            downsample_op=downsample_op,
+            upsampler=upsampler,
+            skip_connections=skip_connections,
+            hybrid_skip_style=hybrid_skip_style,
+            pre_encoder_builder=lambda channels: SharedFactorizedFfnoBottleneck(
+                channels,
+                n_blocks=self.ffno_encoder_blocks,
+                modes=self.ffno_encoder_modes,
+                share_spectral_weights=self.ffno_encoder_share_weights,
+                mlp_ratio=self.ffno_encoder_mlp_ratio,
+                gate_init=self.ffno_encoder_gate_init,
+                norm=self.ffno_encoder_norm,
+                local_conv_kernel_size=None,
+            ),
+            encoder_block_builder=lambda channels: HybridResnetEncoderBlock(channels, modes=fno_modes),
+            encoder_stage_count=self.ptychoblock_stage_count,
             bottleneck_builder=lambda channels: ResnetBottleneck(channels, n_blocks=resnet_blocks),
         )
 
@@ -486,6 +574,32 @@ def build_model_from_profile(
                 fno_blocks=int(config.get("fno_blocks", 4)),
                 resnet_blocks=int(config.get("hybrid_resnet_blocks", 6)),
                 downsample_steps=downsample_steps,
+                downsample_op=str(config.get("downsample_op", "stride_conv")),
+                upsampler=str(config.get("hybrid_upsampler", "cyclegan_transpose")),
+                skip_connections=bool(config.get("hybrid_skip_connections", False)),
+                hybrid_skip_style=str(config.get("hybrid_skip_style", "add")),
+            ),
+            multiple=2 ** max(0, downsample_steps),
+        )
+    if profile.base_model == "hybrid_resnet_ffno_ptychoblock_encoder":
+        downsample_steps = int(config.get("hybrid_downsample_steps", 2))
+        return PadCropWrapper(
+            HybridResnetFfnoPtychoBlockEncoderImageModel(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                hidden_channels=int(config.get("hidden_channels", 32)),
+                fno_modes=int(config.get("fno_modes", 12)),
+                fno_blocks=int(config.get("fno_blocks", 4)),
+                resnet_blocks=int(config.get("hybrid_resnet_blocks", 6)),
+                downsample_steps=downsample_steps,
+                downsample_op=str(config.get("downsample_op", "stride_conv")),
+                ffno_encoder_blocks=int(config.get("ffno_encoder_blocks", 2)),
+                ffno_encoder_modes=int(config.get("ffno_encoder_modes", config.get("fno_modes", 12))),
+                ffno_encoder_share_weights=bool(config.get("ffno_encoder_share_weights", True)),
+                ffno_encoder_mlp_ratio=float(config.get("ffno_encoder_mlp_ratio", 2.0)),
+                ffno_encoder_gate_init=float(config.get("ffno_encoder_gate_init", 0.1)),
+                ffno_encoder_norm=str(config.get("ffno_encoder_norm", "instance")),
+                ptychoblock_stage_count=int(config.get("ptychoblock_stage_count", 2)),
                 upsampler=str(config.get("hybrid_upsampler", "cyclegan_transpose")),
                 skip_connections=bool(config.get("hybrid_skip_connections", False)),
                 hybrid_skip_style=str(config.get("hybrid_skip_style", "add")),

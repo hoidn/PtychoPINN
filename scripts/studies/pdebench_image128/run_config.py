@@ -16,10 +16,19 @@ class ModelProfile:
     fno_modes: int | None = None
     fno_blocks: int | None = None
     hybrid_downsample_steps: int | None = None
+    downsample_op: str | None = None
     hybrid_resnet_blocks: int | None = None
     hybrid_upsampler: str | None = None
     hybrid_skip_connections: bool | None = None
     hybrid_skip_style: str | None = None
+    encoder_variant: str | None = None
+    ptychoblock_stage_count: int | None = None
+    ffno_encoder_blocks: int | None = None
+    ffno_encoder_modes: int | None = None
+    ffno_encoder_share_weights: bool | None = None
+    ffno_encoder_gate_init: float | None = None
+    ffno_encoder_norm: str | None = None
+    ffno_encoder_mlp_ratio: float | None = None
     spectral_bottleneck_blocks: int | None = None
     spectral_bottleneck_modes: int | None = None
     spectral_bottleneck_share_weights: bool | None = None
@@ -122,6 +131,28 @@ _PROFILES: dict[str, ModelProfile] = {
         hybrid_skip_style="add",
         hybrid_upsampler="pixelshuffle",
         evidence_scope="benchmark_candidate",
+    ),
+    "hybrid_resnet_ffno_ptychoblock_encoder_cns": ModelProfile(
+        profile_id="hybrid_resnet_ffno_ptychoblock_encoder_cns",
+        base_model="hybrid_resnet_ffno_ptychoblock_encoder",
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        hybrid_downsample_steps=2,
+        downsample_op="stride_conv",
+        hybrid_resnet_blocks=6,
+        hybrid_skip_connections=True,
+        hybrid_skip_style="add",
+        hybrid_upsampler="pixelshuffle",
+        encoder_variant="ffno_ptychoblock_encoder",
+        ptychoblock_stage_count=2,
+        ffno_encoder_blocks=2,
+        ffno_encoder_modes=12,
+        ffno_encoder_share_weights=True,
+        ffno_encoder_gate_init=0.1,
+        ffno_encoder_norm="instance",
+        ffno_encoder_mlp_ratio=2.0,
+        evidence_scope="manual-only",
     ),
     "hybrid_resnet_cns_transpose": ModelProfile(
         profile_id="hybrid_resnet_cns_transpose",

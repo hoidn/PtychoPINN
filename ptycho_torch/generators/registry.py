@@ -24,6 +24,7 @@ from ptycho_torch.generators.fno_vanilla import FnoVanillaGenerator
 from ptycho_torch.generators.hybrid_resnet_ffno_bottleneck import HybridResnetFfnoBottleneckGenerator
 from ptycho_torch.generators.hybrid_resnet import (
     HybridResnetConvNextBottleneckGenerator,
+    HybridResnetFfnoPtychoBlockEncoderGenerator,
     HybridResnetGenerator,
 )
 from ptycho_torch.generators.neuralop_uno import NeuralopUnoGenerator
@@ -41,6 +42,7 @@ _REGISTRY = {
     'fno_vanilla': FnoVanillaGenerator,
     'neuralop_uno': NeuralopUnoGenerator,
     'hybrid_resnet': HybridResnetGenerator,
+    'hybrid_resnet_ffno_ptychoblock_encoder': HybridResnetFfnoPtychoBlockEncoderGenerator,
     'spectral_resnet_bottleneck_net': SpectralResnetBottleneckGenerator,
     'spectral_resnet_bottleneck_linear_decoder': SpectralResnetBottleneckLinearDecoderGenerator,
     'hybrid_resnet_ffno_bottleneck': HybridResnetFfnoBottleneckGenerator,

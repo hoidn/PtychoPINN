@@ -2844,6 +2844,43 @@ def test_validate_model_specs_accepts_hybrid_resnet_convnext_bottleneck_row():
     )
 
 
+def test_default_torch_row_specs_register_ffno_ptychoblock_encoder_row():
+    from scripts.studies.grid_lines_compare_wrapper import (
+        DEFAULT_TORCH_ROW_SPECS,
+        PAPER_MODEL_LABELS,
+        TORCH_MODEL_IDS,
+        _torch_model_route,
+    )
+
+    spec = DEFAULT_TORCH_ROW_SPECS["pinn_hybrid_resnet_ffno_ptychoblock_encoder"]
+    assert spec["model_id"] == "pinn_hybrid_resnet_ffno_ptychoblock_encoder"
+    assert spec["architecture"] == "hybrid_resnet_ffno_ptychoblock_encoder"
+    assert spec["training_procedure"] == "pinn"
+    assert spec["row_status"] == "decision_support_append_only"
+    assert spec["lock_row_status"] is True
+
+    assert "pinn_hybrid_resnet_ffno_ptychoblock_encoder" in TORCH_MODEL_IDS
+    assert (
+        PAPER_MODEL_LABELS["pinn_hybrid_resnet_ffno_ptychoblock_encoder"]
+        == "Hybrid ResNet (FFNO->PtychoBlock encoder) + PINN"
+    )
+
+    arch, training_procedure = _torch_model_route(
+        "pinn_hybrid_resnet_ffno_ptychoblock_encoder"
+    )
+    assert arch == "hybrid_resnet_ffno_ptychoblock_encoder"
+    assert training_procedure == "pinn"
+
+
+def test_validate_model_specs_accepts_ffno_ptychoblock_encoder_row():
+    from scripts.studies.grid_lines_compare_wrapper import validate_model_specs
+
+    validate_model_specs(
+        ("pinn_hybrid_resnet_ffno_ptychoblock_encoder",),
+        {"pinn_hybrid_resnet_ffno_ptychoblock_encoder": 128},
+    )
+
+
 @pytest.mark.parametrize(
     "model_id",
     [

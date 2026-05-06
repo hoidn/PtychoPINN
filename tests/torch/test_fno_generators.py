@@ -961,6 +961,36 @@ class TestHybridResnetGenerator:
                 encoder_branch_select="bogus",
             )
 
+    def test_hybrid_resnet_ffno_ptychoblock_encoder_module_records_fixed_recipe(self):
+        from ptycho_torch.generators.hybrid_resnet import (
+            HybridResnetFfnoPtychoBlockEncoderGeneratorModule,
+        )
+
+        torch.manual_seed(19)
+        model = HybridResnetFfnoPtychoBlockEncoderGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=16,
+            modes=4,
+            C=4,
+            resnet_blocks=6,
+            skip_connections=True,
+            hybrid_skip_style="add",
+        )
+        x = torch.randn(2, 4, 32, 32)
+        y = model(x)
+
+        assert y.shape == (2, 32, 32, 4, 2)
+        assert model.encoder_variant == "ffno_ptychoblock_encoder"
+        assert model.ffno_encoder_blocks == 2
+        assert model.ffno_encoder_modes == 4
+        assert model.ffno_encoder_share_weights is True
+        assert model.ffno_encoder_gate_init == pytest.approx(0.1)
+        assert model.ffno_encoder_norm == "instance"
+        assert model.ffno_encoder_mlp_ratio == pytest.approx(2.0)
+        assert model.ptychoblock_stage_count == 2
+        assert model.hybrid_downsample_steps == 2
+
 
 class TestGeneratorRegistry:
     """Tests for generator registry with FNO/Hybrid generators."""

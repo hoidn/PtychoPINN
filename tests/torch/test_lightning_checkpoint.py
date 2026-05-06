@@ -43,6 +43,7 @@ GENERATOR_CLASS_BY_ARCHITECTURE = {
     "fno_vanilla": "FnoVanillaGeneratorModule",
     "neuralop_uno": "NeuralopUnoGeneratorModule",
     "hybrid_resnet": "HybridResnetGeneratorModule",
+    "hybrid_resnet_ffno_ptychoblock_encoder": "HybridResnetFfnoPtychoBlockEncoderGeneratorModule",
     "spectral_resnet_bottleneck_net": "SpectralResnetBottleneckGeneratorModule",
 }
 
@@ -292,6 +293,7 @@ class TestLightningCheckpointSerialization:
             "fno_vanilla",
             "neuralop_uno",
             "hybrid_resnet",
+            "hybrid_resnet_ffno_ptychoblock_encoder",
             "spectral_resnet_bottleneck_net",
         ],
     )

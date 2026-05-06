@@ -2,335 +2,230 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement and evaluate one SRU-Net encoder mechanism variant, `FFNO -> 2x(PtychoBlock + downsample)`, on the fixed Lines128 CDI benchmark and a matched small-cap PDEBench CNS benchmark without rerunning completed baseline rows.
+**Goal:** Implement one encoder-only SRU-Net mechanism variant, `FFNO -> 2x(PtychoBlock + downsample)`, then evaluate exactly one fresh CDI row and one fresh capped CNS row without rerunning completed baselines.
 
-**Architecture:** Add a new explicit model/profile family, preferably `hybrid_resnet_ffno_ptychoblock_encoder`. The variant keeps the baseline SRU-Net shell after the encoder: same lifter/input transform, two downsample stages, bottleneck family/depth/width, decoder, skip wiring, residual-scaling policy, output mode, losses, scheduler, seeds, metrics, and visual policy. The only intended change is the encoder: a small FFNO-style factorized spectral stack at lifted/input resolution, followed by two shape-preserving `PtychoBlock` stages, each paired with the existing SRU-Net downsample layer.
+**Architecture:** Add one explicit architecture/profile family, preferably `hybrid_resnet_ffno_ptychoblock_encoder`, that keeps the existing SRU-Net shell after the encoder unchanged. The encoder should be a fixed small FFNO-first stack at lifted resolution followed by two shape-preserving `PtychoBlock` stages paired with the existing two downsample stages; all downstream bottleneck, decoder, skip wiring, losses, schedules, seeds, and metric contracts remain fixed. Implementation must append evidence and lineage to existing authorities rather than mutating the completed Lines128 or CNS headline bundles.
 
-**Tech Stack:** Python via PATH `python`, `ptycho311` for long-running runs, PyTorch/Lightning, `ptycho_torch/generators/hybrid_resnet.py`, `ptycho_torch/generators/fno.py`, `ptycho_torch/generators/ffno_bottleneck.py`, `ptycho_torch/model.py`, `scripts/studies/grid_lines_torch_runner.py`, `scripts/studies/grid_lines_compare_wrapper.py`, `scripts/studies/pdebench_image128/*`, Markdown/JSON study indexes.
+**Tech Stack:** PATH `python`, long runs in `ptycho311`, PyTorch/Lightning, `ptycho_torch/generators/*`, `ptycho_torch/model.py`, `ptycho/config/config.py`, `ptycho_torch/workflows/components.py`, `scripts/studies/grid_lines_*`, `scripts/studies/pdebench_image128/*`, Markdown/JSON evidence indexes.
 
 ---
 
 ## Selected Objective
 
-- Add and evaluate exactly one fresh CDI row:
-  - `pinn_hybrid_resnet_ffno_ptychoblock_encoder`
-- Add and evaluate exactly one fresh CNS small-cap row/profile:
-  - `hybrid_resnet_ffno_ptychoblock_encoder_cns` or an equivalent explicit profile id
-- Reuse completed comparison rows by lineage:
-  - Lines128 CDI: `pinn_hybrid_resnet`, `pinn_hybrid_resnet_encoder_spectral_only`, `pinn_ffno`, and `pinn_hybrid_resnet_ffno_bottleneck` where the row exists with compatible provenance.
-  - CNS: `spectral_resnet_bottleneck_base` or the best matched SRU-Net-family row, `author_ffno_cns_base`, `fno_base`, and `unet_strong` from the matched-condition CNS authority.
-- Interpret the result as an encoder mechanism ablation. Do not promote it as a new default architecture unless a separate roadmap/backlog item asks for that.
+- Add one fresh CDI row on the locked `lines128` contract:
+  `pinn_hybrid_resnet_ffno_ptychoblock_encoder` unless a clearer explicit name is justified and used consistently.
+- Add one fresh capped CNS row on the matched-condition headline lane:
+  `hybrid_resnet_ffno_ptychoblock_encoder_cns` unless a clearer explicit profile id is justified and used consistently.
+- Answer one causal question only: does replacing the current SRU-Net encoder with `FFNO -> 2x(PtychoBlock + downsample)` help or hurt the same downstream SRU-Net body on CDI and on capped CNS?
 
-## Scope Boundaries
+## Scope And Explicit Non-Goals
 
 ### In Scope
 
-- Add model code for the FFNO-first, two-PtychoBlock encoder variant.
-- Add CDI runner/compare-wrapper support for the new row id.
-- Add PDEBench model-profile/factory support for the matching CNS small-cap profile.
-- Launch only the new CDI and CNS rows.
-- Collate an append-only summary that cross-references the completed baselines and records the fresh row artifacts.
-- Update normal discoverability surfaces so the result can be found from the study index and NeurIPS evidence entry points.
+- Implement one encoder-profile family shared across CDI and PDEBench image128 entry points.
+- Keep the SRU-Net shell outside the encoder fixed:
+  same input/lifter policy, two downsample stages, bottleneck family, bottleneck width/depth, decoder family, skip structure, residual scaling, output mode, loss, scheduler, seed policy, visual sample policy, and metric schema.
+- Reuse completed baselines by lineage only:
+  - CDI: `pinn_hybrid_resnet`, `pinn_hybrid_resnet_encoder_spectral_only`, `pinn_ffno`, `pinn_hybrid_resnet_ffno_bottleneck`.
+  - CNS: `author_ffno_cns_base`, `spectral_resnet_bottleneck_base`, `fno_base`, `unet_strong` under the matched `h5_512_64_64_40ep` lane.
+- Emit a durable append-only summary plus discoverability/index updates.
 
-### Explicit Non-Goals
+### Non-Goals
 
-- Do not rerun completed CDI or CNS baselines just to assemble the comparison.
-- Do not tune FFNO encoder depth, modes, sharing, gates, normalization, or MLP ratio after seeing results.
-- Do not change the SRU-Net bottleneck, decoder, skip structure, residual scaling, losses, seeds, dataset splits, probe/data preprocessing, epoch budgets, metric schemas, or visual sample policy while claiming this is an encoder-only ablation.
-- Do not combine CDI and CNS metrics into a single ranking. Report them separately.
-- Do not replace the completed Lines128 benchmark table, CNS matched-condition table, or paper evidence package. This item appends mechanism evidence.
+- Do not rerun completed baselines just to assemble comparisons.
+- Do not tune FFNO encoder depth, modes, sharing, gates, normalization, or MLP ratio after seeing the first metrics.
+- Do not change decoder skip wiring, bottleneck family, residual scaling, losses, probe/data preprocessing, split policy, epoch budgets, or metric definitions while claiming this is an encoder-only ablation.
+- Do not average CDI and CNS into one ranking or promote this item into a new default SRU-Net family.
+- Do not rewrite the roadmap, reopen full-training CNS claims, or overwrite the completed Lines128 paper bundle.
 
-## Prerequisite Status
+## Steering, Roadmap, And Prerequisite Constraints
 
-- Required completed inputs:
-  - `docs/backlog/done/2026-04-29-cdi-lines128-paper-benchmark-execution.md`
-  - `docs/backlog/done/2026-05-04-cdi-lines128-srunet-branch-objective-ablation.md`
-  - `docs/backlog/done/2026-05-04-cns-matched-condition-table-refresh.md`
+- Steering keeps the current selection window within Roadmap Phase 2 plus Phase 3 CDI-preparation work. This item is allowed because it strengthens core comparison evidence without opening later phases.
+- Equal-footing and fairness constraints are binding. If the encoder variant cannot stay on the locked CDI or matched CNS contracts, record the incompatibility instead of silently relaxing the protocol.
+- Keep CDI and CNS conclusions separate. The CNS result remains `bounded_capped_decision_support_only` even if the row is strong.
+- Progress-ledger status relevant to this item:
+  - completed tranches include Phase 0 evidence inventory and Phase 1 PDE benchmark selection;
+  - no blocked tranches are recorded globally;
+  - this item depends on completed backlog authorities rather than unresolved roadmap blockers.
+- Prerequisite authorities that must remain the comparison anchors:
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md`
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_srunet_branch_objective_ablation_summary.md`
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md`
-- Required code inputs:
-  - `ptycho_torch/generators/fno.py`
-  - `ptycho_torch/generators/ffno_bottleneck.py`
-  - `ptycho_torch/generators/hybrid_resnet.py`
-  - `scripts/studies/grid_lines_torch_runner.py`
-  - `scripts/studies/run_pdebench_image128_suite.py`
-- The selected backlog item was previously invalid only because this execution plan was missing. This plan is the missing `plan_path` target.
+- Long-run ownership rule:
+  - use `tmux` for training/evaluation launches;
+  - activate `ptycho311`;
+  - track the launched PID/session until exit code `0`;
+  - do not start a duplicate writer against the same output root;
+  - treat a run as complete only when exit `0` and the required fresh row artifacts both exist.
+- Failure policy:
+  - diagnose/fix/rerun for normal import, shape, config, path, harness, or test failures;
+  - reserve `BLOCKED` for missing data/hardware, unavailable external dependency outside current authority, roadmap conflict, or an unrecoverable failure after a documented narrow fix attempt.
 
 ## Implementation Architecture
 
-### Model Design
-
-- Implement a focused encoder module that can be shared by the CDI generator and PDEBench image model factory.
-- Preferred factoring:
-  - Keep the existing `HybridResnetGeneratorModule` unchanged for baseline architecture ids.
-  - Add a new generator module/class for `hybrid_resnet_ffno_ptychoblock_encoder`, either in `ptycho_torch/generators/hybrid_resnet.py` or a narrow sibling module if imports stay simple.
-  - Reuse existing `FactorizedFfnoBlock` / `SharedFactorizedFfnoBottleneck` pieces where practical, but place them before downsampling rather than in the bottleneck.
-  - Reuse `PtychoBlock` semantics from `ptycho_torch/generators/fno.py` as the two shape-preserving encoder stages.
-  - Reuse the existing SRU-Net downsample builders and decoder/skip/bottleneck path.
-- Required encoder order:
-  - `SpatialLifter`
-  - FFNO encoder stack at lifted resolution
-  - `PtychoBlock` stage 1
-  - existing downsample layer 1
-  - `PtychoBlock` stage 2
-  - existing downsample layer 2
-  - unchanged adapter/bottleneck/decoder/output shell
-- Required manifest/config fields:
-  - `encoder_variant`
-  - `ptychoblock_stage_count`
-  - `downsample_steps`
-  - `downsample_op`
-  - `ffno_encoder_blocks`
-  - `ffno_encoder_modes`
-  - `ffno_encoder_share_weights`
-  - `ffno_encoder_gate_init`
-  - `ffno_encoder_norm`
-  - `ffno_encoder_mlp_ratio`
-
-### CDI Integration
-
-- Add the new architecture id to:
-  - `ptycho_torch/model.py`
-  - `scripts/studies/grid_lines_torch_runner.py`
-  - `scripts/studies/grid_lines_compare_wrapper.py`
-  - any model label/order helpers used by Lines128 summaries or visuals
-- Preserve the fixed Lines128 contract:
-  - `N=128`
-  - `seed=3`
-  - `40` epochs
-  - fixed sample ids `0` and `1`
-  - same probe/data preprocessing and metric schema as the completed Lines128 benchmark
-- Fresh CDI row output must include row-local invocation/config/history/metrics/reconstruction/visual/completion-proof artifacts.
-
-### CNS Integration
-
-- Add a manual-only PDEBench profile for the new architecture in `scripts/studies/pdebench_image128/run_config.py`.
-- Extend `scripts/studies/pdebench_image128/models.py` so the profile builds the same FFNO-first encoder variant under the CNS image-suite shell.
-- Preserve the matched CNS small-cap contract:
-  - task: official `2d_cfd_cns`
-  - selected lane: `h5_512_64_64_40ep`
-  - `history_len=5`
-  - train/val/test caps: `512 / 64 / 64`
-  - `40` epochs
-  - batch size `4`
-  - Adam at `2e-4`
-  - existing CNS MSE training recipe and metric family
-- Fresh CNS row output must include invocation/config/history/metrics/field-visual/completion-proof artifacts.
+- **Shared encoder core:** add a dedicated Hybrid ResNet variant that preserves the existing SRU-Net shell but swaps the encoder for a fixed `ffno_encoder_blocks=2`, `ffno_encoder_modes=12`, `ffno_encoder_share_weights=true`, `ffno_encoder_gate_init=0.1`, `ffno_encoder_norm="instance"`, `ffno_encoder_mlp_ratio=2.0` stack followed by exactly two `PtychoBlock` stages and the existing two downsample steps. Do not enable any extra FFNO local-conv branch for this item.
+- **CDI integration unit:** register the new architecture end-to-end for grid-lines compare-wrapper execution, checkpoint/config reconstruction, and row-manifest metadata so the fresh row behaves like other `pinn_*` architecture additions.
+- **CNS integration unit:** add one manual-only PDEBench image128 profile that builds the same encoder variant under the canonical CNS shell (`history_len=5`, `512 / 64 / 64`, `40` epochs, MSE, batch size `4`, Adam `2e-4`) and keeps it out of default profile bundles.
 
 ## File And Artifact Targets
 
-### Mandatory Code Surfaces
+### Mandatory Code Targets
 
 - Modify: `ptycho_torch/generators/hybrid_resnet.py`
+- Modify: `ptycho_torch/generators/registry.py`
 - Modify: `ptycho_torch/model.py`
-- Modify as needed only if imports/exports require it: `ptycho_torch/generators/__init__.py`
+- Modify if architecture enums/validation need extension: `ptycho/config/config.py`
+- Modify if override round-trip needs extension: `ptycho_torch/workflows/components.py`
 - Modify: `scripts/studies/grid_lines_torch_runner.py`
 - Modify: `scripts/studies/grid_lines_compare_wrapper.py`
-- Modify if needed for config/provenance round-trip: `ptycho/config/config.py`
-- Modify if needed for workflow generator override round-trip: `ptycho_torch/workflows/components.py`
-- Modify: `scripts/studies/pdebench_image128/run_config.py`
 - Modify: `scripts/studies/pdebench_image128/models.py`
-- Add or modify a narrow collation helper under `scripts/studies/` for this item if existing bundle helpers cannot append the fresh rows cleanly.
+- Modify: `scripts/studies/pdebench_image128/run_config.py`
 
-### Mandatory Tests
+### Mandatory Test Targets
 
-- Modify or add focused generator tests:
+- Modify or add focused generator/shape tests:
   - `tests/torch/test_fno_generators.py`
-  - `tests/torch/test_ffno_bottleneck.py`
-  - or a new focused `tests/torch/test_hybrid_resnet_ffno_ptychoblock_encoder.py`
+  - `tests/torch/test_generator_registry.py`
+  - `tests/torch/test_lightning_checkpoint.py`
 - Modify runner/wrapper tests:
   - `tests/torch/test_grid_lines_torch_runner.py`
   - `tests/test_grid_lines_compare_wrapper.py`
-- Modify PDEBench model-profile tests:
+- Modify PDEBench profile/model tests:
   - `tests/studies/test_pdebench_image128_models.py`
-- Test requirements:
-  - new CDI architecture id resolves and builds
-  - new PDEBench profile resolves and builds for CNS-shaped tensors
-  - FFNO encoder metadata appears in config/provenance
-  - checkpoint/config reconstruction preserves the FFNO encoder fields
-  - two PtychoBlock stages and two downsample stages are present
-  - skip topology remains the same as the matched SRU-Net shell
-  - baseline architecture ids still build unchanged
+- Prefer adding focused PDEBench runner coverage if profile selection/row collation changes:
+  - `tests/studies/test_pdebench_image128_runner.py`
 
-### Mandatory Artifact Outputs
+### Mandatory Contract Outputs
 
 - Item artifact root:
-  - `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/`
-- CDI fresh row root:
-  - row id `pinn_hybrid_resnet_ffno_ptychoblock_encoder`
-- CNS fresh row root:
-  - profile id `hybrid_resnet_ffno_ptychoblock_encoder_cns` or documented equivalent
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/`
+- Fresh CDI row root under the item run root with:
+  invocation/config/history/metrics/reconstruction/visuals and `exit_code_proof.json`
+- Fresh CNS row root under the item run root with:
+  invocation/config/history/metrics/field visuals and `exit_code_proof.json`
 - Durable summary:
-  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md`
-- Discoverability updates:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md`
+
+### Preferred Packaging And Discoverability Updates
+
+- Update:
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md`
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/ablation_index.json`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json`
   - `docs/studies/index.md`
-  - any existing model-variant or ablation index that already covers SRU-Net mechanism studies
+- Only update `docs/index.md` or `docs/findings.md` if implementation creates a new durable study entry point or exposes a reusable project-wide rule rather than an item-local result.
 
 ## Execution Checklist
 
-### Task 1: Freeze Contracts And Existing Baselines
+### Task 1: Freeze Authorities, Contracts, And Lineage Inputs
 
-- [ ] Run the backlog item `check_commands` before code changes and capture the output in the execution notes.
-- [ ] Confirm the fixed Lines128 contract from the completed Lines128 summary.
-- [ ] Confirm the current matched CNS authority is `h5_512_64_64_40ep` from `pdebench_cns_matched_condition_table_refresh_summary.md`.
-- [ ] Locate compatible existing baseline rows and record exact summary/artifact paths for lineage reuse.
-- [ ] Create the item artifact root without copying or mutating completed baseline artifacts.
+- [ ] Run the backlog-item prerequisite presence check exactly as written before changing code.
+- [ ] Confirm the CDI comparison contract from `lines128_paper_benchmark_summary.md`: `N=128`, `gridsize=1`, `seed=3`, `40` epochs, fixed sample ids `0` and `1`, `pad_extrapolate`, Run1084 probe lineage, MAE, `ReduceLROnPlateau`.
+- [ ] Confirm the CNS comparison contract from `pdebench_cns_matched_condition_table_refresh_summary.md`: `h5_512_64_64_40ep`, `history_len=5`, `512 / 64 / 64`, `40` epochs, batch size `4`, MSE, matched-condition capped boundary.
+- [ ] Record the exact lineage summary/artifact roots for the reused baseline rows in the item execution notes so later collation does not infer them ad hoc.
 
-Verification for Task 1:
+Verification:
 
-- Blocking:
-  - backlog item required input check
-- Supporting:
-  - short JSON/Markdown execution note listing selected baseline lineage paths
+- Blocking: run the backlog-item prerequisite command exactly as provided in `selected-item-context.md`.
+- Supporting: a short execution note under the item artifact root listing the reused CDI and CNS authority roots.
 
-### Task 2: Implement The Shared Encoder Variant
+### Task 2: Implement The Shared Encoder Variant And Metadata Contract
 
-- [ ] Add the FFNO-first encoder module with explicit constructor arguments for all required manifest fields.
-- [ ] Use a small, fixed default FFNO encoder recipe. Start with the existing Lines128/SRU-Net mode convention unless CNS shape forces a documented cap.
-- [ ] Build exactly two shape-preserving `PtychoBlock` stages and pair each with the existing SRU-Net downsample layer.
-- [ ] Preserve the downstream SRU-Net adapter/bottleneck/decoder/output shell.
-- [ ] Expose the variant through `ptycho_torch/model.py` for CDI checkpoint rebuilds.
-- [ ] Add generator tests proving shape, stage count, metadata, and baseline non-regression.
+- [ ] Add one explicit architecture id, preferably `hybrid_resnet_ffno_ptychoblock_encoder`.
+- [ ] Implement the FFNO-first encoder inside the Hybrid shell without changing baseline `hybrid_resnet` behavior.
+- [ ] Keep the encoder recipe fixed for this item:
+  `ffno_encoder_blocks=2`, `ffno_encoder_modes=12`, `ffno_encoder_share_weights=true`, `ffno_encoder_gate_init=0.1`, `ffno_encoder_norm="instance"`, `ffno_encoder_mlp_ratio=2.0`, `ptychoblock_stage_count=2`, `downsample_steps=2`, `downsample_op` inherited from the existing shell.
+- [ ] Ensure the required manifest/config fields are emitted and reconstructable:
+  `encoder_variant`, `ptychoblock_stage_count`, `downsample_steps`, `downsample_op`, `ffno_encoder_blocks`, `ffno_encoder_modes`, `ffno_encoder_share_weights`, `ffno_encoder_gate_init`, `ffno_encoder_norm`, `ffno_encoder_mlp_ratio`.
+- [ ] Extend registry, checkpoint rebuild, and config validation surfaces only as far as needed for the new architecture id and metadata round-trip.
 
-Verification for Task 2:
+Verification:
 
-- Blocking:
+- Blocking: `pytest -q tests/torch/test_fno_generators.py -k "PtychoBlock or hybrid_resnet or ffno"`
+- Blocking: `python -m compileall -q ptycho_torch`
+- Supporting: `pytest -q tests/torch/test_generator_registry.py`
+- Supporting: `pytest -q tests/torch/test_lightning_checkpoint.py -k "hybrid_resnet or ffno"`
+
+### Task 3: Wire The Fresh CDI Row
+
+- [ ] Register `pinn_hybrid_resnet_ffno_ptychoblock_encoder` in the grid-lines compare-wrapper row spec table with append-only row status and explicit architecture mapping.
+- [ ] Thread the new architecture through `grid_lines_torch_runner.py` argument validation, config serialization, invocation reconstruction, labels, and parameter-count reporting.
+- [ ] Preserve the fixed Lines128 contract and baseline provenance behavior; only the new row is fresh.
+- [ ] Make sure the row-local manifest and any run-level manifest include the encoder recipe fields and the correct append-only claim boundary.
+
+Verification:
+
+- Blocking: `pytest -q tests/torch/test_grid_lines_torch_runner.py -k "hybrid_resnet or ffno"`
+- Blocking: `pytest -q tests/test_grid_lines_compare_wrapper.py -k "hybrid_resnet or ffno"`
+- Supporting: `python -m compileall -q scripts/studies`
+
+### Task 4: Wire The Fresh CNS Profile
+
+- [ ] Add one manual-only profile id, preferably `hybrid_resnet_ffno_ptychoblock_encoder_cns`, to `scripts/studies/pdebench_image128/run_config.py`.
+- [ ] Build the profile under the canonical CNS shell in `scripts/studies/pdebench_image128/models.py`, preserving two downsample steps, skip-add, pixelshuffle upsampler, and the existing supervised real-channel adapter semantics.
+- [ ] Keep the new profile out of default `required_primary_profiles_for_task()` bundles so it only runs when explicitly requested by profile id.
+- [ ] Ensure `describe_model()` / profile manifests expose the fixed encoder recipe fields.
+
+Verification:
+
+- Blocking: `pytest -q tests/studies/test_pdebench_image128_models.py -k "hybrid_resnet or ffno"`
+- Blocking: `python -m compileall -q scripts/studies`
+- Supporting: add and run a focused selector in `tests/studies/test_pdebench_image128_runner.py` if the new profile changes manual-only collation or reference-row selection.
+
+### Task 5: Run Deterministic Code Gates Before Any Expensive Launch
+
+- [ ] Re-run all backlog-item deterministic checks after code changes; these remain required, not optional:
+  - prerequisite presence script
   - `pytest -q tests/torch/test_fno_generators.py -k "PtychoBlock or hybrid_resnet or ffno"`
-  - any new focused generator test selector
-- Supporting:
-  - `python -m compileall -q ptycho_torch`
-
-### Task 3: Wire The CDI Row
-
-- [ ] Add `hybrid_resnet_ffno_ptychoblock_encoder` to `grid_lines_torch_runner.py` architecture choices, config serialization, paper labels, visual ordering, invocation reconstruction, and validation.
-- [ ] Add compare-wrapper routing for `pinn_hybrid_resnet_ffno_ptychoblock_encoder`.
-- [ ] Ensure row provenance records all required encoder fields.
-- [ ] Ensure config/checkpoint reconstruction preserves the required encoder fields through `ptycho/config/config.py`, `ptycho_torch/workflows/components.py`, and `ptycho_torch/model.py` where those surfaces are involved.
-- [ ] Add runner/wrapper tests for row id routing and provenance.
-- [ ] Run a cheap smoke/dry run only if the existing runner supports it without weakening the fixed final run.
-
-Verification for Task 3:
-
-- Blocking:
   - `pytest -q tests/torch/test_grid_lines_torch_runner.py -k "hybrid_resnet or ffno"`
-  - `pytest -q tests/test_grid_lines_compare_wrapper.py -k "hybrid_resnet or ffno"`
-- Supporting:
-  - compile check for touched study scripts
-
-### Task 4: Wire The CNS Profile
-
-- [ ] Add `ModelProfile` fields for FFNO encoder settings if the existing dataclass cannot represent them.
-- [ ] Add manual-only profile `hybrid_resnet_ffno_ptychoblock_encoder_cns`.
-- [ ] Extend `build_model_from_profile` to build the new profile with CNS input/output channel counts.
-- [ ] Make `describe_model` or profile description include the required encoder fields.
-- [ ] Keep the profile out of default primary/readiness bundles unless the backlog item explicitly runs it by profile id.
-- [ ] Add tests that verify the profile builds and is not added to default bundles.
-
-Verification for Task 4:
-
-- Blocking:
   - `pytest -q tests/studies/test_pdebench_image128_models.py -k "hybrid_resnet or ffno"`
-- Supporting:
-  - `python -m compileall -q scripts/studies/pdebench_image128`
+  - `python -m compileall -q ptycho_torch scripts/studies`
+- [ ] Run the stronger narrow additions below because this item is expected to touch compare-wrapper routing and checkpoint/profile round-trip, and the backlog list does not cover those surfaces directly.
 
-### Task 5: Launch Fresh Rows
+Verification:
 
-- [ ] Launch the CDI row under `ptycho311` in `tmux` and keep the row under implementation ownership until the tracked command exits.
-- [ ] Verify the CDI row wrote fresh metrics, visuals, invocation/config/history, and completion proof.
-- [ ] Launch the CNS small-cap row under `ptycho311` in `tmux` and keep the row under implementation ownership until the tracked command exits.
-- [ ] Verify the CNS row wrote fresh metrics, field visuals, invocation/config/history, and completion proof.
-- [ ] If a run fails because of code, import, shape, test, or harness issues, fix narrowly and rerun. A partial first implementation is not a blocker.
-- [ ] Use `BLOCKED` only for a genuine unrecoverable boundary such as missing data/hardware, unavailable required dependency outside local authority, or a roadmap/user-decision conflict.
+- Blocking: every backlog-item `check_command` above must pass before launching CDI or CNS training.
+- Blocking: `pytest -q tests/test_grid_lines_compare_wrapper.py -k "hybrid_resnet or ffno"`
+- Supporting: `pytest -q tests/torch/test_generator_registry.py`
+- Supporting: `pytest -q tests/torch/test_lightning_checkpoint.py -k "hybrid_resnet or ffno"`
 
-Verification for Task 5:
+### Task 6: Launch The Fresh CDI Row
 
-- Blocking:
-  - row-local completion proof with exit code `0`
-  - required fresh metrics files
-  - required visual artifacts
-- Supporting:
-  - captured launch command and environment provenance
+- [ ] Use the existing grid-lines compare-wrapper path to launch only the new CDI row on the fixed `lines128` contract.
+- [ ] Run in `tmux` with `ptycho311`, keep the launch under implementation ownership, and do not overlap it with another GPU-heavy run on the single RTX 3090.
+- [ ] If the harness supports a cheap preflight or dry-run for the exact row wiring, it may run first as a supporting check only; the item still requires the full locked `40`-epoch row.
+- [ ] On completion, confirm fresh row-local `metrics.json`, reconstruction NPZ, fixed-sample visuals, invocation/config/history, and `exit_code_proof.json`.
 
-### Task 6: Collate Append-Only Evidence
+Verification:
 
-- [ ] Create an append-only comparison bundle under the item artifact root.
-- [ ] Include fresh CDI and CNS row payloads plus lineage references to the completed baseline rows.
-- [ ] Do not copy stale baseline metrics into a new authority without their source paths and provenance.
-- [ ] Report CDI metrics separately from CNS metrics.
-- [ ] Record whether the variant improves, matches, or worsens each benchmark relative to the selected lineage baselines.
-- [ ] Include the required encoder manifest fields in the bundle.
+- Blocking: tracked row launch exits `0`.
+- Blocking: fresh CDI row artifacts exist under the item root and are newer than the launch start.
+- Supporting: a row-local audit note capturing the exact reused baseline lineage roots referenced for comparison.
 
-Verification for Task 6:
+### Task 7: Launch The Fresh CNS Row
 
-- Blocking:
-  - bundle JSON/Markdown can be loaded/read
-  - every row has either fresh artifacts or explicit lineage source
-  - no mixed-cap CNS ranking table
-- Supporting:
-  - optional lightweight schema/assertion test for the bundle builder
+- [ ] Launch only the new manual CNS profile on `2d_cfd_cns` using the matched `h5_512_64_64_40ep` contract with `history_len=5`.
+- [ ] Keep the row on the existing CNS MSE recipe and matched metric family; do not mix caps, history lengths, or epoch budgets.
+- [ ] A shorter smoke/pilot launch is allowed only to prove implementation viability before the full run or when debugging a recoverable failure. It must be labeled readiness-only and cannot satisfy the item's CNS impact result.
+- [ ] On completion, confirm fresh row-local `metrics_<profile>.json`, model profile JSON, field-visual artifacts, invocation/config/history, and `exit_code_proof.json`.
 
-### Task 7: Update Discoverability
+Verification:
 
-- [ ] Write `docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md`.
-- [ ] Update `evidence_matrix.md` with bounded mechanism-evidence status.
-- [ ] Update `paper_evidence_index.md` without implying the result replaces locked headline tables.
-- [ ] Update `docs/studies/index.md`.
-- [ ] Update any existing model-variant or ablation index that covers SRU-Net mechanism rows.
+- Blocking: tracked `40`-epoch CNS row launch exits `0`, or a documented unrecoverable external blocker is recorded after a narrow fix attempt.
+- Blocking: fresh CNS row artifacts exist under the item root and the summary explicitly labels the result `bounded_capped_decision_support_only`.
+- Supporting: if a smoke/pilot run was needed, archive it separately and label it readiness-only.
 
-Verification for Task 7:
+### Task 8: Collate Append-Only Evidence And Update Discoverability
 
-- Blocking:
-  - links in the new summary point to existing artifacts/docs
-  - summary names the exact CDI and CNS contracts used
-- Supporting:
-  - `rg -n "ffno_ptychoblock|FFNO-To-PtychoBlock|pinn_hybrid_resnet_ffno_ptychoblock_encoder" docs/plans/NEURIPS-HYBRID-RESNET-2026 docs/studies`
+- [ ] Build an item-local comparison bundle that contains only the two fresh rows plus lineage references to the reused CDI and CNS baselines.
+- [ ] Write `srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md` with separate CDI and CNS sections, explicit claim boundary language, row lineage, encoder recipe fields, and domain-dependent interpretation if the variant helps one benchmark and hurts the other.
+- [ ] Update `evidence_matrix.md`, `paper_evidence_index.md`, `ablation_index.json`, `model_variant_index.json`, and `docs/studies/index.md` so the new rows and summary are discoverable.
+- [ ] Keep the paper-evidence update bounded: this item is mechanism evidence only and must not replace the current Lines128 or CNS headline authorities.
 
-### Task 8: Final Checks
+Verification:
 
-- [ ] Run the backlog item check commands again.
-- [ ] Run the focused tests added or modified by this implementation.
-- [ ] Run `python -m compileall -q ptycho_torch scripts/studies`.
-- [ ] Inspect `git diff` for accidental baseline reruns, table replacement, unrelated docs churn, or changed default profile bundles.
-- [ ] Record commands, results, artifact paths, and any residual limitations in the summary.
+- Blocking: summary exists and names the fresh row ids, reused lineage rows, fixed CDI contract, fixed CNS contract, and claim boundary.
+- Blocking: evidence/index updates exist for every new durable output or the summary explicitly states why a given index surface was intentionally unchanged.
+- Supporting: if implementation discovers a reusable repo-wide lesson, add the minimal `docs/findings.md` or `docs/index.md` update in the same pass.
 
-Minimum final verification command set:
-
-```bash
-python - <<'PY'
-from pathlib import Path
-required = [
-    Path("docs/backlog/done/2026-04-29-cdi-lines128-paper-benchmark-execution.md"),
-    Path("docs/backlog/done/2026-05-04-cdi-lines128-srunet-branch-objective-ablation.md"),
-    Path("docs/backlog/done/2026-05-04-cns-matched-condition-table-refresh.md"),
-    Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md"),
-    Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_srunet_branch_objective_ablation_summary.md"),
-    Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md"),
-    Path("ptycho_torch/generators/fno.py"),
-    Path("ptycho_torch/generators/ffno_bottleneck.py"),
-    Path("ptycho_torch/generators/hybrid_resnet.py"),
-    Path("scripts/studies/grid_lines_torch_runner.py"),
-    Path("scripts/studies/run_pdebench_image128_suite.py"),
-]
-missing = [str(path) for path in required if not path.exists()]
-if missing:
-    raise SystemExit(f"missing SRU-Net FFNO->PtychoBlock encoder inputs: {missing}")
-print("SRU-Net FFNO->PtychoBlock encoder inputs present")
-PY
-pytest -q tests/torch/test_fno_generators.py -k "PtychoBlock or hybrid_resnet or ffno"
-pytest -q tests/torch/test_grid_lines_torch_runner.py -k "hybrid_resnet or ffno"
-pytest -q tests/test_grid_lines_compare_wrapper.py -k "hybrid_resnet or ffno"
-pytest -q tests/studies/test_pdebench_image128_models.py -k "hybrid_resnet or ffno"
-python -m compileall -q ptycho_torch scripts/studies
-```
-
-## Completion Criteria
-
-- The missing `plan_path` exists and the backlog item is eligible for selection.
-- The new CDI row has fresh metrics and visual artifacts under the fixed Lines128 contract.
-- The new CNS row has fresh metrics and field visuals under the selected small-cap matched CNS contract.
-- Baseline comparisons are by explicit lineage, not rerun.
-- The durable summary and indexes make the result discoverable.
-- The final interpretation states whether the FFNO-first encoder helped or hurt CDI and CNS separately, with exact metric values and artifact paths.
