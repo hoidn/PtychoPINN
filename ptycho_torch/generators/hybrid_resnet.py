@@ -798,7 +798,7 @@ class HybridResnetFfnoPtychoBlockEncoderGeneratorModule(HybridResnetGeneratorMod
         super().__init__(
             **kwargs,
             encoder_variant="ffno_ptychoblock_encoder",
-            ffno_encoder_blocks=2,
+            ffno_encoder_blocks=24,
             ffno_encoder_modes=modes,
             ffno_encoder_share_weights=True,
             ffno_encoder_gate_init=0.1,
@@ -913,7 +913,7 @@ class HybridResnetFfnoPtychoBlockEncoderGenerator:
                 "ptychoblock_stage_count": 2,
                 "downsample_steps": getattr(model_config, "hybrid_downsample_steps", 2),
                 "downsample_op": getattr(model_config, "hybrid_downsample_op", "stride_conv"),
-                "ffno_encoder_blocks": 2,
+                "ffno_encoder_blocks": 24,
                 "ffno_encoder_modes": fno_modes,
                 "ffno_encoder_share_weights": True,
                 "ffno_encoder_gate_init": 0.1,

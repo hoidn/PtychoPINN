@@ -318,7 +318,7 @@ class HybridResnetFfnoPtychoBlockEncoderImageModel(_SharedPdebenchHybridShell):
         resnet_blocks: int,
         downsample_steps: int,
         downsample_op: str = "stride_conv",
-        ffno_encoder_blocks: int = 2,
+        ffno_encoder_blocks: int = 24,
         ffno_encoder_modes: int = 12,
         ffno_encoder_share_weights: bool = True,
         ffno_encoder_mlp_ratio: float = 2.0,

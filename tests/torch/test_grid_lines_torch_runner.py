@@ -1889,8 +1889,17 @@ class TestChannelGridsizeAlignment:
             architecture="hybrid_resnet_ffno_ptychoblock_encoder",
         )
         training_config, execution_config = setup_torch_configs(cfg)
+        payload = _build_paper_row_payload(
+            cfg,
+            metrics={"mae": [0.1, 0.2]},
+            history={"train_loss": [0.3]},
+            model_params=123,
+            train_wall_time_sec=1.0,
+            inference_time_s=0.5,
+        )
         assert training_config.model.architecture == "hybrid_resnet_ffno_ptychoblock_encoder"
         assert execution_config.hybrid_downsample_steps == 2
+        assert payload["ffno_encoder_blocks"] == 24
 
     def test_runner_torch_only_spectral_bottleneck_fields_stay_out_of_model_config(self, tmp_path):
         cfg = TorchRunnerConfig(

@@ -982,7 +982,7 @@ class TestHybridResnetGenerator:
 
         assert y.shape == (2, 32, 32, 4, 2)
         assert model.encoder_variant == "ffno_ptychoblock_encoder"
-        assert model.ffno_encoder_blocks == 2
+        assert model.ffno_encoder_blocks == 24
         assert model.ffno_encoder_modes == 4
         assert model.ffno_encoder_share_weights is True
         assert model.ffno_encoder_gate_init == pytest.approx(0.1)

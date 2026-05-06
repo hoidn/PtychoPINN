@@ -213,7 +213,7 @@ def test_hybrid_resnet_ffno_ptychoblock_encoder_cns_profile_is_manual_only_and_o
     assert isinstance(model, PadCropWrapper)
     assert profile.evidence_scope == "manual-only"
     assert "hybrid_resnet_ffno_ptychoblock_encoder_cns" not in required_primary_profiles_for_task("2d_cfd_cns")
-    assert description["profile_config"]["ffno_encoder_blocks"] == 2
+    assert description["profile_config"]["ffno_encoder_blocks"] == 24
     assert description["profile_config"]["ffno_encoder_modes"] == 12
     assert description["profile_config"]["ptychoblock_stage_count"] == 2
     y = model(torch.zeros(1, 8, 128, 128))

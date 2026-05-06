@@ -104,7 +104,7 @@ def _fixed_ffno_ptychoblock_encoder_recipe(cfg: "TorchRunnerConfig") -> Optional
         "ptychoblock_stage_count": 2,
         "downsample_steps": int(cfg.hybrid_downsample_steps),
         "downsample_op": str(cfg.hybrid_downsample_op),
-        "ffno_encoder_blocks": 2,
+        "ffno_encoder_blocks": 24,
         "ffno_encoder_modes": int(cfg.fno_modes),
         "ffno_encoder_share_weights": True,
         "ffno_encoder_gate_init": 0.1,
