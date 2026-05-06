@@ -18,158 +18,94 @@
 \maketitle
 
 \begin{abstract}
-Wave inverse problems require recovering local structure from measurements
-formed by global propagation physics. We introduce SRU-Net, a spectral-residual
-U-Net for physics-constrained wave reconstruction that combines Fourier-style
-global mixing with convolutional local spatial processing. On coherent diffractive imaging
-with synthetically-generated diffraction data, SRU-Net gives the strongest
-reconstruction results among matched convolutional neural network (CNN),
-Fourier neural operator (FNO), and factorized Fourier neural operator (FFNO)
-comparisons. We also evaluate the same architecture on PDEBench compressible
-Navier-Stokes as a secondary forward partial differential equation (PDE)
-benchmark. In that setting SRU-Net is competitive with neural-operator
-baselines and remains ahead of FNO and U-Net rows, while FFNO is the
-lowest-error model. These results support spectral-local residual networks for wave inverse
-reconstruction, with PDE prediction serving as a transfer test rather than the
-primary result.
+TODO
+%Wave inverse problems require recovering local structure from measurements
+%formed by global propagation physics. We introduce SRU-Net, a spectral-residual
+%U-Net for physics-constrained wave reconstruction that combines Fourier-style
+%global mixing with convolutional local spatial processing. On coherent diffractive imaging
+%with synthetically-generated diffraction data, SRU-Net gives the strongest
+%reconstruction results among matched convolutional neural network (CNN),
+%Fourier neural operator (FNO), and factorized Fourier neural operator (FFNO)
+%comparisons. We also evaluate the same architecture on PDEBench compressible
+%Navier-Stokes as a secondary forward partial differential equation (PDE)
+%benchmark. In that setting SRU-Net is competitive with neural-operator
+%baselines and remains ahead of FNO and U-Net rows, while FFNO is the
+%lowest-error model. These results support spectral-local residual networks for wave inverse
+%reconstruction, with PDE prediction serving as a transfer test rather than the
+%primary result.
 \end{abstract}
 
 \section{Introduction}
 
-Problems such as phase retrieval, inverse scattering, and forward PDE prediction combine long-range coupling with localized structure. In imaging, for example, each point in a measurement depends globally on the object through wave propagation, while the reconstruction must recover sharp local detail; in fluid dynamics, large-scale coherent dynamics coexist with shocks, vortices, and interfaces. Classical methods address this with high-resolution discretization or iterative reconstruction, which yields accurate but computationally expensive solutions.
+Problems such as phase retrieval, inverse scattering, and forward PDE prediction combine long-range coupling with localized structure. In lensless computed imaging, for example, each pixel in the measured image depends on the entirety of the target object, while at the same time it is essential to process local textural information (i.e. speckle). (cites)
 
-Neural network-based approaches provide fast approximate solutions but are typically insufficiently accurate to replace conventional numerical solvers in problems with prominent scale-mixing, such as coherent diffractive imaging (CDI). The accuracy gap traces to specific architectural mismatches: architectures that are efficient on natural images, such as CNNs, lack global receptive fields and are poorly suited to modeling long-range interactions. Fourier neural operator networks are capable of capturing long-range structure but, due to their spectral truncation, cannot represent sharp features (cites).
+Similarly, in fluid dynamics large-scale coherent dynamics coexist with localized features such as shocks and vortices. Consequently, classical numerical PDE solvers require fine discretization (for forward-solvers) or iterative convex optimization (for inverse-solvers). These techniques are highly computationally expensive. 
 
-Recent extensions of the FNO architecture attempt to mitigate the
-high-frequency and local-detail limitations of low-mode spectral convolution
-by coupling global Fourier layers with spatially local operators
+Standard computer vision architectures adapted to physics-prediction tasks provide fast approximate solutions (TODO say how much faster, motivate why this is important) but are typically too inaccurate to replace conventional numerical solvers in domains with prominent scale-mixing (cites). The accuracy gap traces to specific architectural mismatches: architectures that are efficient on natural images, such as CNNs, lack global receptive fields and are consequently poorly suited to modeling long-range interactions. 
+
+This is a direct contrast to Fourier neural operator (FNO) networks, which, while highly suited to modeling continuous structure in physical systems, rely on spectral truncation and thus cannot represent sharp features (cites). 
+
+(TODO maybe explain why we're not considering diffusion or transformer / attention models (basically they're too slow, too data hungry)). 
+(TODO transition to instruding FNO, explaing why it's a strong class of models).
+
+Recent extensions of the FNO architecture mitigate these limitations 
+by coupling global Fourier layers with spatially-local operators
 \cite{ufno,localno}. These convolutional, U-Net, or localized-kernel branches
 provide a complementary inductive bias for fine-scale structure while
 preserving the long-range mixing of Fourier layers. Such hybrids improve some
-PDE benchmarks, but they are not uniformly better than strong spectral-only neural
-operators architectures such as the factorized Fourier neural operator (cite). (cites)
+PDE benchmarks, but they are not uniformly better than strong spectral-only 
+architectures such as the factorized Fourier neural operator (cite). (cites) 
 
-Coherent diffractive imaging and phase retrieval are a challenge
+Coherent diffractive imaging and phase retrieval is a scientfically interesting (TODO why?) 
+task that reveals the failure modes of existing approaches because it requires ingestion \emph{and} synthesis of both high- and low-spatial frequency information. 
+Our experiments demonstrate that FNO-based architectures that are strong baselines (or SOTA-class) on difficult forward-prediction tasks such as compressible Navier-Stokes fail entirely to predict real-space images from diffraction measurements (cites or reference to relevant fig in this manuscript), though they still outperform convolutional networks. 
 
-For wave inverse reconstruction the requirement is more specific: the network must couple information globally across the measurement, perform the inverse map in latent space, and generate a sharp real-space image. This leads to the architectural question of which inductive bias is appropriate in each stage.
+(TODO maybe explain why we're not considering diffusion or transformer / attention models (basically they're too slow, too data hungry)). 
 
-We introduce SRU-Net, a spectral-local residual U-Net designed around this
-division of labor. Each encoder block combines a truncated Fourier mixing branch
-with a local convolutional branch inside a residual update. The Fourier branch
-lets the model aggregate information across the full measurement field, while
-the convolutional branch preserves grid-aligned local features. A residual
-bottleneck refines the mixed representation at reduced spatial resolution, and
-a convolutional decoder reconstructs the object in real space. Spectral
-operations are therefore used for nonlocal evidence aggregation, while
-convolutional paths are retained for texture preservation and image synthesis.
+Our contributions in this paper are twofold. First we introduce SRU-Net, a computationally-efficient spectral-convolutional architecture that yields better performance on coherent diffractive imaging than existing neural operator and hybrid architectures. Second, we propose a physics-consistency training objective that significantly improves prediction accuracy, regardless of model class. 
 
-We study SRU-Net first in physics-constrained CDI. A reconstruction network is
-placed inside the known wave forward model: its predicted object is passed
-through real-space consistency and diffraction operators, and the loss is
-applied in measurement space. This follows the training principle of
-physics-constrained CDI methods such as PtychoPINN \cite{hoidn2023physics}, but
-our focus is architectural. The forward model supplies the measurement
-constraint; SRU-Net specifies how diffraction evidence is represented before a
-real-space object is reconstructed.
+(TODO summarize the architecture, introduce the other benchmarks, enumerate the baselines, etc.)
+
+%Each encoder block combines a truncated Fourier mixing branch
+%with a local convolutional branch inside a residual update. The Fourier branch
+%lets the model aggregate information across the full measurement field, while
+%the convolutional branch preserves grid-aligned local features. A residual
+%bottleneck refines the mixed representation at reduced spatial resolution, and
+
+%For wave inverse reconstruction the requirement is more specific: the network must couple information globally across the measurement, perform the inverse map in latent space, and generate a sharp real-space image. This leads to the architectural question of which inductive bias is appropriate in each stage.
+
+%We study SRU-Net first in physics-constrained CDI. A reconstruction network is
+%placed inside the known wave forward model: its predicted object is passed
+%through real-space consistency and diffraction operators, and the loss is
+%applied in measurement space. This follows the training principle of
+%physics-constrained CDI methods such as PtychoPINN \cite{hoidn2023physics}, but
+%our focus is architectural. The forward model supplies the measurement
+%constraint; SRU-Net specifies how diffraction evidence is represented before a
+%real-space object is reconstructed.
 
 Our primary benchmark uses synthetically generated CDI diffraction data. We
 compare SRU-Net with matched CNN, FNO, FFNO, and U-NO baselines trained through
-the same measurement-space objective. The comparison tests whether a
-spectral-local reconstruction architecture improves over models that emphasize
-only local convolutional synthesis or predominantly spectral mixing. We also
-include ablations that vary where spectral components are placed, testing
-whether SRU-Net's behavior comes from the architecture rather than from adding
-spectral capacity alone.
+the same objective.  We include ablations that vary the network's topology, connectivity, and the placement of spectral and convolutional components. These experiments confirm the importance of routing residual connections outside layer activations, as discovered by (cite FFNO authors), and illustrate the distinct roles of the inverse-mapping and image synthesis components of the overall network. 
 
 We further test SRU-Net on a Born--Rytov diffraction tomography (BRDT)
-inverse-scattering task. BRDT asks the model to recover a spatial scattering
-potential from wave measurements, providing a second inverse-wave setting
+inverse-scattering task of recovering a spatial scattering
+potential from wave measurements. This evaluation provides a second wave-propagation inverse problem setting 
 beyond CDI. Under the same supervised object loss plus Born-consistency loss,
 SRU-Net gives lower image-space error than FFNO while retaining sharper object
-boundaries. This supports the central architectural hypothesis: spectral mixing
-helps interpret globally coupled wave measurements, but a convolutional
-real-space synthesis path remains important for recovering localized geometry.
+boundaries. Spectral mixing therefore helps interpret globally coupled wave measurements, but a real-space synthesis path remains important for recovering localized geometry. (TODO does this last sentence belong somehwere else?)
 
-Finally, we report PDEBench compressible Navier--Stokes results to place
-SRU-Net alongside standard neural-operator baselines on forward physical field
-prediction \cite{pdebench}.
+Third, we evaluate SRU-Net on PDEBench compressible Navier--Stokes. It outperforms standard PDEBench baselines but falls short of FFNO. FFNO's much larger depth ($24$ spectral layers vs. SRU-Net's $4$) represents a scaling dimension that we leave unexplored because it comes at the cost of reduced inference throughput. \cite{pdebench}
 
-The paper makes four contributions. First, it identifies a global-local
-architectural tension in wave inverse reconstruction: the model must integrate
-fine detector texture across the full input while reconstructing localized
-real-space structure. Second, it introduces SRU-Net, a spectral-local residual
-U-Net combining Fourier-mode mixing, convolutional feature preservation,
-residual refinement, and convolutional decoding. Third, it provides a
-physics-constrained CDI evaluation against matched CNN, FNO, FFNO, and U-NO
-baselines, together with ablations on spectral-component placement. Fourth, it
-studies whether the same spectral-local architecture transfers beyond CDI,
-using BRDT inverse scattering as a secondary inverse-wave test and PDEBench
-compressible Navier--Stokes as a forward-physics comparison.
+(TODO should there be an equal-network depth comparison? i.e. SRUNet vs. FFNO with 4 layers instead of 24)
 
----
 
-Wave inverse reconstruction aims to recover an object from measurements
-produced by known wave propagation. In coherent diffractive imaging (CDI), a
-detector records far-field diffraction intensities rather than the complex object itself. Related inverse-scattering problems similarly observe fields after propagation through or around an unknown object. In such settings, there is a tension between
-
-These measurements mix object information nonlocally, while the reconstruction is evaluated as a
-spatial object with amplitude, phase, boundaries, and fine structure. A
-central modeling problem is therefore to use global
-losing the real-space detail needed for reconstruction.
-
-Physics-constrained learning gives a direct training signal for this setting. A
-network predicts an object, the prediction is passed through known consistency
-and diffraction or scattering operators, and the loss is applied in measurement
-space. This strategy has been shown to train fast CDI reconstruction networks
-through the known wave physics \cite{hoidn2023physics}. However, the forward
-model only defines how a proposed reconstruction is checked against the
-measurements. It does not determine the architecture of the inverse map.
-
-This makes the choice of reconstruction network important. CNNs and U-Nets give
-strong local image priors and effective multiscale decoders, but long-range
-propagation coupling must be learned indirectly. Fourier neural operators and
-factorized Fourier neural operators provide explicit global spectral mixing and
-are strong models for physical field maps \cite{fno,ffno}. In wave inverse
-reconstruction, however, global mixing is only part of the problem: the network
-must also convert diffraction or scattering evidence into localized object
-geometry. Recent U-Net--operator hybrids and localized neural operators reflect
-the same need to combine spectral and local processing \cite{ufno,localno}.
-
-We introduce SRU-Net, a spectral-local residual U-Net for wave inverse
-reconstruction. Each encoder block combines a truncated Fourier mixing branch
-with a local convolutional branch inside a residual update. The resulting
-features are refined by a residual bottleneck and decoded by a convolutional
-upsampling path. The spectral branch gives the model a direct mechanism for
-nonlocal wave coupling, while the convolutional branch and decoder maintain a
-grid-aligned representation for real-space reconstruction.
-
-Our primary evaluation is physics-constrained CDI with synthetically generated
-diffraction data. We compare SRU-Net with matched CNN, FNO, FFNO, and U-NO
-baselines trained through the same measurement-space objective. The experiments
-test whether a spectral-local reconstruction architecture improves over purely
-local and predominantly spectral alternatives, and the ablations test whether
-the placement of spectral components matters.
-
-We further test SRU-Net on a Born--Rytov diffraction tomography (BRDT)
-inverse-scattering task. BRDT asks the model to recover a spatial scattering
-potential from wave measurements, providing a second inverse-wave setting
-beyond CDI. Under the same supervised object loss plus Born-consistency loss,
-SRU-Net gives lower image-space error than FFNO while retaining sharper object
-boundaries. We additionally report PDEBench compressible Navier--Stokes results
-to situate SRU-Net against standard neural-operator baselines on forward
-physical field prediction \cite{pdebench}.
-
-The paper makes four contributions. First, it formulates wave inverse
-reconstruction as an architectural problem involving nonlocal propagation
-coupling and local real-space recovery. Second, it introduces SRU-Net, a
-spectral-local residual U-Net combining Fourier-mode mixing, convolutional
-feature processing, residual refinement, and convolutional decoding. Third, it
-provides a physics-constrained CDI evaluation against matched CNN, FNO, FFNO,
-and U-NO baselines, together with ablations on spectral-component placement.
-Fourth, it studies whether the same spectral-local architecture transfers
-beyond CDI, using BRDT inverse scattering as a secondary inverse-wave test and
-PDEBench compressible Navier--Stokes as a forward-physics comparison.
-
+%Physics-constrained learning gives a direct training signal for this setting. A
+%network predicts an object, the prediction is passed through known consistency
+%and diffraction or scattering operators, and the loss is applied in measurement
+%space. This strategy has been shown to train fast CDI reconstruction networks
+%through the known wave physics \cite{hoidn2023physics}. However, the forward
+%model only defines how a proposed reconstruction is checked against the
+%measurements. It does not determine the architecture of the inverse map.
 
 % figure_metadata: task=CDI_lines128; paper_copy=figures/cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet.png; visible_columns=gt,pinn,pinn_fno_vanilla,pinn_ffno,pinn_neuralop_uno,pinn_hybrid_resnet; display_channel=phase; crop_fraction=0.5; phase_alignment=global_circular_offset_to_gt_before_wrapping; phase_colormap=twilight; phase_display_scale=gt_crop_min_to_gt_crop_p99_after_alignment; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z/recons
 \begin{figure}[t]
