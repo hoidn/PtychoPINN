@@ -168,6 +168,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, brdt, born, ffno, factorized-fourier-operator, candidate, decision-support, append-only, row-extension
 **Use this when:** Citing the BRDT FFNO row outcome, consuming the read-only-lineage combined-bundle artifacts under `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-ffno-row-extension/`, or checking why FFNO does not change the BRDT deferred-candidate-lane recommendation.
 
+### [NeurIPS BRDT Supervised+Born 40-Epoch Paper Evidence Summary](plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md)
+**Description:** Summary authority for backlog item `2026-05-05-brdt-supervised-born-40ep-paper-evidence`. Fresh same-contract BRDT additive paper-evidence rerun of exactly `hybrid_resnet` and `ffno` at `40` epochs with Adam @ `2e-4`, batch `16`, seed `42`, and `ReduceLROnPlateau(factor=0.5, patience=2, threshold=0.0, min_lr=1e-5)`. Publishes per-row `history.{json,csv}`, `convergence_audit.{json,csv}`, `paper_evidence_gate.json`, runtime/dataset/split provenance, and the sample-`255` compare/error/source-array bundle under `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/`. Promotion passes under claim boundary `paper_evidence_brdt_additive`, but only as bounded additive evidence; BRDT still does not replace CDI `lines128` or PDEBench CNS.
+**Keywords:** neurips, brdt, born, 40-epoch, additive-paper-evidence, convergence, sample-255, ffno, hybrid-resnet
+**Use this when:** Citing the promoted BRDT additive evidence root, checking the exact 20-epoch to 40-epoch deltas and convergence read, or auditing why the sample-`255` visual bundle is manuscript-usable only with bounded additive wording.
+
 ### [NeurIPS Inverse-Wave Benchmark Rationale](plans/NEURIPS-HYBRID-RESNET-2026/inverse_wave_benchmark_rationale.md)
 **Description:** Decision rationale comparing BRDT, WaveBench inverse source, OpenFWI, OpenSWI, Fourier ptychography, holography, and diffraction tomography as possible additional inverse-wave lanes. It records why BRDT and WaveBench are both active candidate preflights and why neither candidate can replace CDI `lines128` or PDEBench CNS.
 **Keywords:** neurips, inverse-wave, brdt, wavebench, openfwi, openswi, benchmark-rationale, candidate

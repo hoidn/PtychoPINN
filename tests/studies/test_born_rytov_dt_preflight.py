@@ -25,6 +25,7 @@ from typing import Any, Dict
 import h5py  # type: ignore
 import numpy as np
 import pytest
+import torch
 
 from scripts.studies.born_rytov_dt import dataset_contract as dc
 from scripts.studies.born_rytov_dt import generate_brdt_dataset as gen
@@ -2222,3 +2223,292 @@ def test_run_preflight_default_invocation_artifacts_keep_baseline_backlog_item(
     top = json.loads((preflight_root / "invocation.json").read_text())
     assert top["extra"]["backlog_item"] == preflight_mod.BACKLOG_ITEM
     assert top["extra"]["backlog_item"] != preflight_mod.PHYSICS_ONLY_BACKLOG_ITEM
+
+
+# ----------------------------------------------------------------------
+# BRDT 40-epoch paper-evidence follow-up (2026-05-05)
+# ----------------------------------------------------------------------
+def _make_synthetic_ffno_extension_bundle(tmp_path: Path, baseline_root: Path) -> Path:
+    from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
+
+    extension_root = tmp_path / "synthetic_ffno_extension"
+    extension_root.mkdir()
+    baseline_manifest = json.loads((baseline_root / "preflight_manifest.json").read_text())
+    baseline_metrics = json.loads((baseline_root / "metrics.json").read_text())
+    baseline_rows = {row["row_id"]: row for row in baseline_metrics["rows"]}
+
+    manifest = {
+        "schema_version": "brdt_preflight_v1",
+        "backlog_item": ext_bundle.EXTENSION_BACKLOG_ITEM,
+        "claim_boundary": ext_bundle.APPEND_ONLY_CLAIM_BOUNDARY,
+        "baseline_lineage": {
+            "baseline_root": str(baseline_root),
+            "baseline_backlog_item": ext_bundle.BASELINE_BACKLOG_ITEM,
+            "baseline_preflight_manifest": str(
+                baseline_root / "preflight_manifest.json"
+            ),
+            "baseline_metrics_json": str(baseline_root / "metrics.json"),
+        },
+        "dataset": dict(baseline_manifest["dataset"]),
+        "operator": dict(baseline_manifest["operator"]),
+        "input_contract": {
+            "input_mode": "born_init_image",
+            "in_channels": 1,
+            "classical_backend": {
+                "name": "local_adjoint",
+                "reason": "born_init_image_uses_locked_local_adjoint",
+                "claim_boundary": "initialization_only",
+            },
+        },
+        "training_contract": dict(baseline_manifest["training_contract"]),
+        "fixed_sample_seed": int(baseline_manifest["fixed_sample_seed"]),
+        "fixed_sample_ids": list(baseline_manifest["fixed_sample_ids"]),
+        "rows": [
+            {
+                "row_id": "ffno",
+                "model": "ffno",
+                "training": "supervised + Born consistency",
+                "input_mode": "born_init_image",
+                "dataset_id": dc.DECISION_SUPPORT_DATASET_NAME,
+                "operator_version": baseline_manifest["operator"][
+                    "validation_artifact"
+                ],
+                "row_status": "completed",
+                "paper_label": "FFNO",
+            }
+        ],
+    }
+    metrics = {
+        "schema_version": "brdt_preflight_metrics_v1",
+        "claim_boundary": ext_bundle.APPEND_ONLY_CLAIM_BOUNDARY,
+        "rows": [
+            {
+                "row_id": "ffno",
+                "paper_label": "FFNO",
+                "architecture": "ffno",
+                "row_status": "completed",
+                "image": {
+                    "image_mae_phys": 0.0008,
+                    "image_rmse_phys": 0.0018,
+                    "image_relative_l2_phys": 0.34,
+                },
+                "measurement": {
+                    "meas_mae": 0.0008,
+                    "meas_rmse": 0.0017,
+                    "meas_relative_l2": 0.19,
+                },
+                "supporting": {"psnr_phys": 29.1, "ssim_phys": 0.94},
+                "runtime": {
+                    "device": "cpu",
+                    "device_name": "cpu",
+                    "epochs": 20,
+                    "batch_size": 16,
+                    "learning_rate": 2e-4,
+                    "parameter_count": 36674,
+                    "wall_time_train_s": 5.0,
+                    "wall_time_eval_s": 0.2,
+                    "row_status": "completed",
+                },
+            }
+        ],
+    }
+    combined = {
+        "schema_version": "brdt_ffno_extension_combined_v1",
+        "claim_boundary": ext_bundle.APPEND_ONLY_CLAIM_BOUNDARY,
+        "rows": [
+            {**baseline_rows["classical_born_backprop"], "source": "baseline_lineage"},
+            {**baseline_rows["unet"], "source": "baseline_lineage"},
+            {**baseline_rows["fno_vanilla"], "source": "baseline_lineage"},
+            {**baseline_rows["hybrid_resnet"], "source": "baseline_lineage"},
+            {**metrics["rows"][0], "source": "extension"},
+        ],
+    }
+    (extension_root / "preflight_manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+    )
+    (extension_root / "metrics.json").write_text(
+        json.dumps(metrics, indent=2, sort_keys=True) + "\n"
+    )
+    (extension_root / "combined_metrics.json").write_text(
+        json.dumps(combined, indent=2, sort_keys=True) + "\n"
+    )
+    return extension_root
+
+
+def test_train_neural_row_writes_history_with_scheduler_fields(tmp_path):
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    authority = preflight_mod.load_dataset_authority(manifest_path)
+    row = preflight_mod.resolve_row_roster(
+        manifest_path=manifest_path,
+        hybrid_label="hybrid_resnet",
+        selected_row_ids=["hybrid_resnet"],
+    )[0]
+    operator = preflight_mod._build_operator(torch.device("cpu"))
+    backend = preflight_mod._born_init_backend()
+    contract = preflight_mod.TrainingContract(
+        epochs=2,
+        batch_size=1,
+        learning_rate=2e-4,
+        scheduler="reduce_on_plateau",
+        plateau_factor=0.5,
+        plateau_patience=2,
+        plateau_threshold=0.0,
+        plateau_min_lr=1e-5,
+    )
+
+    module, runtime_meta, _elapsed = preflight_mod._train_neural_row(
+        row=row,
+        authority=authority,
+        operator=operator,
+        backend=backend,
+        device=torch.device("cpu"),
+        contract=contract,
+        in_channels=1,
+        output_dir=tmp_path / "row_history",
+    )
+
+    assert module is not None
+    history_path = Path(runtime_meta["history_json_path"])
+    history_csv_path = Path(runtime_meta["history_csv_path"])
+    assert history_path.exists()
+    assert history_csv_path.exists()
+    history = json.loads(history_path.read_text())
+    assert history["scheduler"]["name"] == "reduce_on_plateau"
+    assert len(history["epochs"]) == 2
+    epoch0 = history["epochs"][0]
+    for key in (
+        "epoch",
+        "train_total_loss",
+        "train_loss_components",
+        "learning_rate",
+        "scheduler_metric",
+        "lr_reduced",
+    ):
+        assert key in epoch0
+    assert history_csv_path.read_text().splitlines()[0].startswith(
+        "epoch,train_total_loss"
+    )
+
+
+def test_paper_evidence_gate_requires_40_history_and_separate_promotion_status():
+    from scripts.studies.born_rytov_dt import convergence as conv_mod
+
+    gate = conv_mod.build_paper_evidence_gate(
+        backlog_item="2026-05-05-brdt-supervised-born-40ep-paper-evidence",
+        expected_epochs=40,
+        rows={
+            "hybrid_resnet": {
+                "row_status": "completed",
+                "history_records": 40,
+                "scheduler_matches_contract": True,
+            },
+            "ffno": {
+                "row_status": "completed",
+                "history_records": 39,
+                "scheduler_matches_contract": True,
+            },
+        },
+        provenance_checks={
+            "runtime_provenance": True,
+            "dataset_identity": True,
+            "split_manifest": True,
+            "sample_255_visual_bundle": True,
+            "exit_code_proof": True,
+            "evidence_surfaces_prepared": True,
+            "same_contract_lineage": True,
+        },
+    )
+
+    assert gate["claim_boundary"] == "decision_support_convergence_followup"
+    assert gate["promotion_status"] == "failed"
+    assert gate["row_status"] == "completed"
+    assert "ffno.history_records" in gate["failed_gate_checks"]
+
+
+def test_run_brdt_40ep_paper_evidence_dry_run_writes_locked_manifest(tmp_path):
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    ffno_extension_root = _make_synthetic_ffno_extension_bundle(
+        tmp_path, baseline_root
+    )
+
+    result = paper_mod.run_paper_evidence(
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+        manifest_path=manifest_path,
+        output_root=tmp_path / "paper_evidence_dry",
+        device_choice="cpu",
+        dry_run=True,
+        fixed_sample_ids=[145, 83, 255, 126],
+        required_paper_sample=255,
+        parent_argv=["--dry-run"],
+    )
+
+    assert result["dry_run"] is True
+    manifest = json.loads(
+        (tmp_path / "paper_evidence_dry" / "preflight_manifest.json").read_text()
+    )
+    assert manifest["backlog_item"] == paper_mod.BACKLOG_ITEM
+    assert manifest["training_contract"]["epochs"] == 40
+    assert manifest["training_contract"]["scheduler"] == "reduce_on_plateau"
+    assert manifest["required_paper_sample"] == 255
+    assert manifest["fixed_sample_ids"] == [145, 83, 255, 126]
+    assert [row["row_id"] for row in manifest["rows"]] == [
+        "hybrid_resnet",
+        "ffno",
+    ]
+    assert manifest["claim_boundary"] == "decision_support_convergence_followup"
+    assert manifest["promotion_status"] == "pending"
+
+
+def test_run_brdt_40ep_paper_evidence_live_writes_histories_audit_and_gate(tmp_path):
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    ffno_extension_root = _make_synthetic_ffno_extension_bundle(
+        tmp_path, baseline_root
+    )
+    output_root = tmp_path / "paper_evidence_live"
+    contract = preflight_mod.TrainingContract(
+        epochs=1,
+        batch_size=1,
+        learning_rate=2e-4,
+        scheduler="reduce_on_plateau",
+        plateau_factor=0.5,
+        plateau_patience=2,
+        plateau_threshold=0.0,
+        plateau_min_lr=1e-5,
+    )
+
+    result = paper_mod.run_paper_evidence(
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+        manifest_path=manifest_path,
+        output_root=output_root,
+        contract=contract,
+        device_choice="cpu",
+        dry_run=False,
+        fixed_sample_ids=[0],
+        required_paper_sample=0,
+        parent_argv=["--manifest", str(manifest_path)],
+    )
+
+    assert "convergence_audit_json_path" in result
+    assert "paper_evidence_gate_json_path" in result
+    for row_id in ("hybrid_resnet", "ffno"):
+        history_json = output_root / "rows" / row_id / "history.json"
+        history_csv = output_root / "rows" / row_id / "history.csv"
+        assert history_json.exists()
+        assert history_csv.exists()
+    gate = json.loads((output_root / "paper_evidence_gate.json").read_text())
+    assert gate["promotion_status"] == "failed"
+    assert gate["claim_boundary"] == "decision_support_convergence_followup"
+    audit = json.loads((output_root / "convergence_audit.json").read_text())
+    assert {row["row_id"] for row in audit["rows"]} == {"hybrid_resnet", "ffno"}

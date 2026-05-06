@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-04T23:40:31.801173+00:00",
+  "generated_at_utc": "2026-05-06T03:18:11Z",
   "status_vocabulary": {
     "paper_grade": "Evidence satisfies the current paper-facing provenance contract and may support headline claims.",
     "full_training": "Evidence proves a same-protocol full-training benchmark lane rather than a capped substitute.",
@@ -1333,6 +1333,55 @@
         "parameter_count": 7768036,
         "runtime_sec": 1070.9980742931366
       }
+    },
+    {
+      "pillar_id": "inverse_wave_candidate",
+      "artifact_kind": "candidate_lane_bundle",
+      "artifact_id": "brdt:additive_40ep_bundle",
+      "row_id": "brdt_additive_40ep_bundle",
+      "row_role": "additive_context",
+      "row_status": "capped_decision_support",
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "evidence_tier": "capped_decision_support",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md",
+      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/",
+      "metric_schema": {
+        "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/metric_schema.json"
+      },
+      "table_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/metrics.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/metrics.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/convergence_audit.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/convergence_audit.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/paper_evidence_gate.json"
+      ],
+      "figure_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/visuals/sample_0255_compare_q.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/visuals/sample_0255_error_q.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/visuals/sample_0255_sinogram_residual.png"
+      ],
+      "source_array_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/figures/source_arrays"
+      ],
+      "provenance_gaps": [],
+      "draftability": "draftable_with_bounded_wording",
+      "blocked_claims": [
+        "same_protocol_full_training_brdt_competitiveness",
+        "candidate_lane_replaces_required_cdi_cns_pillars"
+      ],
+      "notes": {
+        "rows": [
+          "classical_born_backprop (sample-255 lineage comparator)",
+          "hybrid_resnet",
+          "ffno"
+        ],
+        "dataset_id": "brdt128_decision_support_preflight",
+        "split_label": "2048 / 256 / 256",
+        "epochs": 40,
+        "batch_size": 16,
+        "scheduler": "ReduceLROnPlateau(factor=0.5, patience=2, threshold=0.0, min_lr=1e-5)",
+        "promotion_status": "passed"
+      }
     }
   ],
   "claim_boundary_registry": [
@@ -1363,6 +1412,13 @@
       "headline_status": "decision_support",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md",
       "source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet"
+    },
+    {
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "pillar_id": "inverse_wave_candidate",
+      "headline_status": "capped_decision_support",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md",
+      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/"
     }
   ],
   "provenance_gap_registry": [
@@ -1432,11 +1488,15 @@
     },
     {
       "section_id": "results_inverse_wave_candidate_lane",
-      "draftability": "placeholder_only",
-      "supporting_status": "blocked",
-      "allowed_claims": [],
+      "draftability": "draftable_with_bounded_wording",
+      "supporting_status": "mixed",
+      "allowed_claims": [
+        "The BRDT additive lane may be discussed as a bounded same-contract 40-epoch comparison between Hybrid ResNet and FFNO under claim boundary paper_evidence_brdt_additive.",
+        "The sample-255 BRDT compare/error bundle may use the promoted 40-epoch artifact root with the inherited model-based Born inverse comparator by lineage."
+      ],
       "blocked_claims": [
-        "candidate_lane_not_promoted_into_required_evidence_package"
+        "same_protocol_full_training_brdt_competitiveness",
+        "candidate_lane_replaces_required_cdi_cns_pillars"
       ]
     }
   ],
@@ -1464,6 +1524,18 @@
       "status": "blocked",
       "reason": "This item is repo-local only and must not populate /home/ollie/Documents/neurips/ yet.",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md"
+    },
+    {
+      "claim_id": "same_protocol_full_training_brdt_competitiveness",
+      "status": "blocked",
+      "reason": "The promoted BRDT authority remains a capped 2048 / 256 / 256, 40-epoch additive lane rather than a full-training benchmark claim.",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md"
+    },
+    {
+      "claim_id": "candidate_lane_replaces_required_cdi_cns_pillars",
+      "status": "blocked",
+      "reason": "BRDT is additive bounded evidence only and does not replace the required CDI lines128 or PDEBench CNS manuscript pillars.",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md"
     }
   ]
 }

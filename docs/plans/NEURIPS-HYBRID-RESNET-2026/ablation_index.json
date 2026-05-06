@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-05T05:30:00Z",
+  "last_updated_utc": "2026-05-06T03:18:11Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -588,6 +588,45 @@
         "ffno (extension)"
       ],
       "interpretation": "Append-only architecture row extension of the completed four-row BRDT preflight under the same dataset, operator, input mode, split, fixed-sample IDs, normalization, and supervised+Born training contract. The new factorized Fourier operator row (parameter_count=36674) lands between FNO vanilla and Hybrid ResNet on every blocking metric: image_relative_l2_phys=0.342 vs FNO 0.992 / Hybrid 0.319; PSNR=29.13 vs FNO 19.89 / Hybrid 29.74; SSIM=0.942 vs FNO 0.678 / Hybrid 0.947. FFNO is competitive with Hybrid ResNet at roughly one-quarter the parameter count, but it does not displace Hybrid ResNet on this capped budget. The baseline four-row bundle is preserved read-only; the combined view is published by lineage rather than by overwrite. This family is candidate-lane decision support and does not promote BRDT into the required NeurIPS pillars."
+    },
+    {
+      "family_id": "brdt_supervised_born_40ep_additive_promotion",
+      "task": "candidate_brdt",
+      "fixed_contract": "brdt_paper_evidence_2048cap_40ep",
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "changed_factors": [
+        "epoch budget (20 -> 40 for the rerun rows)",
+        "scheduler/history provenance for the additive gate",
+        "promotion surface from decision-support lineage to bounded additive paper evidence"
+      ],
+      "completed_items": [
+        "2026-04-29-brdt-four-row-preflight",
+        "2026-05-04-brdt-ffno-row-extension",
+        "2026-05-05-brdt-supervised-born-40ep-paper-evidence"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_preflight_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_ffno_row_extension_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-ffno-row-extension/",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/"
+      ],
+      "comparison_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/convergence_audit.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/convergence_audit.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/paper_evidence_gate.json"
+      ],
+      "rows": [
+        "classical_born_backprop (baseline lineage sample-255 comparator)",
+        "hybrid_resnet (20-epoch baseline)",
+        "hybrid_resnet (40-epoch additive rerun)",
+        "ffno (20-epoch baseline)",
+        "ffno (40-epoch additive rerun)"
+      ],
+      "interpretation": "Same capped BRDT contract, but the additive rerun extends only Hybrid ResNet and FFNO from 20 to 40 epochs and adds scheduler/history provenance for a formal paper-evidence gate. Both rerun rows improve every tracked blocking metric versus their frozen 20-epoch authorities, Hybrid ResNet remains the stronger image-space row, and FFNO remains competitive at much lower parameter count. The gate passes only as additive bounded evidence under claim boundary paper_evidence_brdt_additive. Both rows are still materially improving at stop with no LR reductions, so this family must not be read as a full-convergence or full-training BRDT competitiveness result."
     }
   ],
   "maintenance_rules": [

@@ -263,6 +263,30 @@ differentiable forward-model reproduction are trustworthy enough to justify
 later paper-evidence promotion. Neither preflight may add rows to manuscript
 tables or result claims by itself.
 
+### BRDT Additive Amendment (2026-05-05)
+
+The original BRDT preflight did not satisfy the paper-evidence gate by itself.
+That changed only after the fresh same-contract 40-epoch additive rerun under:
+
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/`
+
+Approved additive BRDT evidence for repo-local manuscript support is limited to:
+
+- rows `hybrid_resnet` and `ffno` rerun under the locked capped BRDT contract
+- the same-contract model-based Born inverse included by lineage for the
+  sample-`255` compare/error bundle
+- `metrics.{json,csv}`, `convergence_audit.{json,csv}`,
+  `paper_evidence_gate.json`
+- `visuals/sample_0255_compare_q.png`,
+  `visuals/sample_0255_error_q.png`,
+  `visuals/sample_0255_sinogram_residual.png`
+- `figures/source_arrays/sample_0255_*`
+
+This amendment promotes BRDT only to additive bounded evidence under claim
+boundary `paper_evidence_brdt_additive`. It does not replace CDI `lines128` or
+PDEBench CNS, does not authorize full-training BRDT competitiveness claims, and
+does not authorize `/home/ollie/Documents/neurips/` publication in this phase.
+
 ## Shared Provenance Contract
 
 Every paper-grade table row must have:

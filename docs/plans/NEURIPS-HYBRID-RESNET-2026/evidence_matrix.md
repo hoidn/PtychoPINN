@@ -27,6 +27,7 @@ Machine-readable companions:
 | PDEBench CNS larger-cap context | `pdebench_cns_paper_2048cap_extension_summary.md` | bounded capped decision-support only, preserved larger-cap `2048 / 256 / 256` context |
 | PDEBench CNS 512cap fallback provenance | `pdebench_cns_paper_table_figure_bundle_summary.md` | bounded capped decision-support only, preserved historical fallback |
 | PDEBench Darcy static-operator full-training benchmark | `pdebench_darcy_static_operator_summary.md` | `benchmark_performance` for `hybrid_resnet_base`, `fno_base`, `unet_strong` under the locked `8000/1000/1000` split, relative-L2 loss, `50` epochs |
+| BRDT additive 40-epoch paper evidence | `brdt_supervised_born_40ep_paper_evidence_summary.md` | additive bounded paper evidence only under `paper_evidence_brdt_additive`; same capped BRDT contract, sample-`255` visual bundle, does not replace CDI/CNS |
 | Cross-pillar claim audit | `paper_evidence_package_audit_summary.md` | preserves CDI/CNS claim asymmetry |
 | CDI natural-patch fixed-probe dataset (`natural_patches128_fixedprobe_v1`) | `cdi_natural_patch_fixedprobe_dataset_summary.md` | dataset prerequisite only; not benchmark evidence; does not replace `lines128` table |
 | CDI natural-patch expanded-object benchmark (`natural_patches128_fixedprobe_v1`) | `cdi_natural_patch_expanded_benchmark_summary.md` | single-seed expanded-object CDI bundle currently `benchmark_incomplete`; original tmux launcher exited `1`, recollated bundle preserves the original execution commit and surfaces every required row as `recovered_non_authoritative` (four torch rows still report `failed/1` invocations); not paper-grade until a clean from-scratch tmux launcher exits `0` end-to-end; does not replace `lines128` |
@@ -42,7 +43,7 @@ Current manuscript draft:
 | Complete Lines128 CDI bundle plus U-NO extension | `tab:cdi_lines128_pinn`, `tab:cdi_lines128_objective_controls`, `fig:cdi_main_qualitative`; generated table assets: `tables/cdi_lines128_pinn_metrics.tex`, `tables/cdi_lines128_objective_comparison.tex`, `tables/cdi_lines128_metrics_extended.csv`, `tables/cdi_lines128_metrics_extended.json` |
 | Supervised FFNO extension | merged into the CDI objective-control table and `tables/cdi_lines128_metrics_extended.*` from the completed supervised-FFNO extension root |
 | CNS matched-condition refresh (`history_len=5`, `512 / 64 / 64`, `40` epochs) | `tab:cns_bundle` (input: `tables/pdebench_cns_matched_condition_metrics.tex`); `fig:cns_sample_predictions` retained as adjacent context only |
-| BRDT bounded preflight | `tab:brdt_candidate_metrics`, `fig:brdt_candidate_recon`; generated paper-local assets: `tables/brdt_decision_support_metrics.tex`, `tables/brdt_decision_support_metrics.csv`, `tables/brdt_decision_support_metrics.json`, `figures/brdt_decision_support_recon.png` |
+| BRDT additive 40-epoch bundle | additive candidate discussion plus sample-`255` compare/error context; artifact inputs: `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/metrics.{json,csv}`, `convergence_audit.{json,csv}`, `paper_evidence_gate.json`, `visuals/sample_0255_compare_q.png`, `visuals/sample_0255_error_q.png`, `figures/source_arrays/sample_0255_*` |
 | Hybrid skip/residual ablation | `tab:cdi_skip_residual_ablation` |
 
 The manuscript CNS headline table is now matched-condition under the
@@ -293,16 +294,28 @@ CNS matched-condition headline status:
   preserved as bounded larger-cap context only and is no longer the
   manuscript headline source.
 
-## BRDT Paper-Local Assets
+## BRDT Additive Assets
 
-The BRDT candidate preflight remains a bounded candidate lane, not a primary
-CDI/CNS manuscript pillar. The following generated assets repackage the
-completed four-row preflight for potential manuscript or supplement use:
+BRDT is now promoted into the repo-local paper evidence package only as an
+additive bounded lane under claim boundary `paper_evidence_brdt_additive`.
+It remains non-pillar evidence and does not replace CDI `lines128` or PDEBench
+CNS.
 
-- `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.tex`
-- `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.csv`
-- `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.json`
-- `docs/plans/NEURIPS-HYBRID-RESNET-2026/figures/brdt_decision_support_recon.png`
+Current additive authority root:
+
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/`
+
+Current manuscript-supporting additive inputs:
+
+- `metrics.json`
+- `metrics.csv`
+- `convergence_audit.json`
+- `convergence_audit.csv`
+- `paper_evidence_gate.json`
+- `visuals/sample_0255_compare_q.png`
+- `visuals/sample_0255_error_q.png`
+- `visuals/sample_0255_sinogram_residual.png`
+- `figures/source_arrays/sample_0255_*`
 
 ## Completed Backlog Output Coverage
 
@@ -343,6 +356,7 @@ completed four-row preflight for potential manuscript or supplement use:
 | `2026-04-29-brdt-four-row-preflight` | BRDT bounded four-row decision-support preflight (decision_support_preflight_only, not paper evidence) | `brdt_preflight_summary.md` (owned by `2026-04-29-brdt-preflight-summary-promotion-decision`) | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/` |
 | `2026-05-04-brdt-physics-only-objective-ablation` | BRDT append-only physics-only objective ablation for the three neural rows (decision_support_append_only, not paper evidence) | `brdt_physics_only_objective_ablation_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-physics-only-objective-ablation/` |
 | `2026-05-04-brdt-ffno-row-extension` | BRDT append-only architecture row extension adding a single factorized Fourier operator (FFNO) row to the four-row preflight (decision_support_append_only, not paper evidence) | `brdt_ffno_row_extension_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-ffno-row-extension/` |
+| `2026-05-05-brdt-supervised-born-40ep-paper-evidence` | BRDT additive bounded paper-evidence promotion over the same capped contract; reruns only `hybrid_resnet` and `ffno` at `40` epochs, adds scheduler/history provenance, convergence audit, and sample-`255` visual/source-array authority | `brdt_supervised_born_40ep_paper_evidence_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/` |
 | `2026-05-04-pdebench-darcy-full-training-benchmark` | PDEBench Darcy full-training benchmark | `pdebench_darcy_static_operator_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/full_benchmark_20260504T182832Z` |
 | `2026-05-04-cdi-natural-patch-fixedprobe-dataset` | CDI natural-patch fixed-probe dataset prerequisite (`natural_patches128_fixedprobe_v1`; not benchmark evidence) | `cdi_natural_patch_fixedprobe_dataset_summary.md` | `.artifacts/data/NEURIPS-HYBRID-RESNET-2026/natural_patches128_fixedprobe_v1/` |
 | `2026-05-04-cdi-natural-patch-expanded-benchmark` | CDI natural-patch expanded-object single-seed benchmark (`natural_patches128_fixedprobe_v1`; bundle currently `benchmark_incomplete` recovered/non-authoritative — original tmux launcher exited `1`, recollated with original execution commit preserved, every required row `recovered_non_authoritative`, four torch rows still report `failed/1` invocations) | `cdi_natural_patch_expanded_benchmark_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z` |

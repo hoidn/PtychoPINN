@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import csv
 import hashlib
 import importlib
 import json
@@ -514,9 +515,14 @@ class TrainingContract:
     optimizer: str = "Adam"
     loss_weights: LossWeights = field(default_factory=LossWeights)
     seed: int = 42
+    scheduler: Optional[str] = None
+    plateau_factor: Optional[float] = None
+    plateau_patience: Optional[int] = None
+    plateau_threshold: Optional[float] = None
+    plateau_min_lr: Optional[float] = None
 
     def as_dict(self) -> Dict[str, Any]:
-        return {
+        payload: Dict[str, Any] = {
             "epochs": int(self.epochs),
             "batch_size": int(self.batch_size),
             "learning_rate": float(self.learning_rate),
@@ -524,6 +530,21 @@ class TrainingContract:
             "loss_weights": self.loss_weights.as_dict(),
             "seed": int(self.seed),
         }
+        if self.scheduler is not None:
+            payload["scheduler"] = str(self.scheduler)
+            payload["plateau_factor"] = float(
+                0.5 if self.plateau_factor is None else self.plateau_factor
+            )
+            payload["plateau_patience"] = int(
+                2 if self.plateau_patience is None else self.plateau_patience
+            )
+            payload["plateau_threshold"] = float(
+                0.0 if self.plateau_threshold is None else self.plateau_threshold
+            )
+            payload["plateau_min_lr"] = float(
+                1e-5 if self.plateau_min_lr is None else self.plateau_min_lr
+            )
+        return payload
 
 
 def _seed_everything(seed: int) -> None:
@@ -602,11 +623,42 @@ def _train_neural_row(
         generator=loader_generator,
     )
     optim = torch.optim.Adam(module.parameters(), lr=float(contract.learning_rate))
+    scheduler = None
+    scheduler_name = contract.scheduler
+    if scheduler_name is not None:
+        if scheduler_name != "reduce_on_plateau":
+            raise ValueError(
+                f"unsupported scheduler={scheduler_name!r}; only 'reduce_on_plateau' is supported"
+            )
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optim,
+            mode="min",
+            factor=float(
+                0.5 if contract.plateau_factor is None else contract.plateau_factor
+            ),
+            patience=int(
+                2
+                if contract.plateau_patience is None
+                else contract.plateau_patience
+            ),
+            threshold=float(
+                0.0
+                if contract.plateau_threshold is None
+                else contract.plateau_threshold
+            ),
+            min_lr=float(
+                1e-5 if contract.plateau_min_lr is None else contract.plateau_min_lr
+            ),
+        )
     started = time.perf_counter()
     last_breakdown: Dict[str, float] = {}
     train_steps = 0
+    history_rows: List[Dict[str, Any]] = []
     module.train()
-    for _epoch in range(int(contract.epochs)):
+    for epoch_idx in range(int(contract.epochs)):
+        epoch_total_sum = 0.0
+        epoch_batches = 0
+        component_sums: Dict[str, float] = {}
         for batch in loader:
             sino = batch["sinogram"].to(device)
             x = _prepare_input(
@@ -627,14 +679,108 @@ def _train_neural_row(
             optim.step()
             train_steps += 1
             last_breakdown = breakdown.to_dict()
+            total_value = float(total.detach().item())
+            epoch_total_sum += total_value
+            epoch_batches += 1
+            for key, value in last_breakdown.items():
+                component_sums[key] = component_sums.get(key, 0.0) + float(value)
+        avg_total = epoch_total_sum / max(1, epoch_batches)
+        avg_components = {
+            key: float(value / max(1, epoch_batches))
+            for key, value in component_sums.items()
+        }
+        lr_before = float(optim.param_groups[0]["lr"])
+        if scheduler is not None:
+            scheduler.step(avg_total)
+        lr_after = float(optim.param_groups[0]["lr"])
+        history_rows.append(
+            {
+                "epoch": int(epoch_idx + 1),
+                "train_total_loss": float(avg_total),
+                "train_loss_components": avg_components,
+                "learning_rate": float(lr_after),
+                "scheduler_metric": float(avg_total),
+                "lr_reduced": bool(lr_after < (lr_before - 1e-15)),
+            }
+        )
     elapsed = time.perf_counter() - started
 
     info = adapter.info()
+    history_json_path = output_dir / "history.json"
+    history_csv_path = output_dir / "history.csv"
+    history_payload: Dict[str, Any] = {
+        "schema_version": "brdt_training_history_v1",
+        "row_id": row.row_id,
+        "architecture": row.model,
+        "epochs": history_rows,
+    }
+    if scheduler_name is not None:
+        history_payload["scheduler"] = {
+            "name": scheduler_name,
+            "factor": float(
+                0.5 if contract.plateau_factor is None else contract.plateau_factor
+            ),
+            "patience": int(
+                2 if contract.plateau_patience is None else contract.plateau_patience
+            ),
+            "threshold": float(
+                0.0
+                if contract.plateau_threshold is None
+                else contract.plateau_threshold
+            ),
+            "min_lr": float(
+                1e-5 if contract.plateau_min_lr is None else contract.plateau_min_lr
+            ),
+        }
+    history_json_path.write_text(
+        json.dumps(history_payload, indent=2, sort_keys=True) + "\n"
+    )
+    with history_csv_path.open("w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(
+            fh,
+            fieldnames=[
+                "epoch",
+                "train_total_loss",
+                "train_image_loss",
+                "train_physics_loss",
+                "train_relative_physics_loss",
+                "train_tv_loss",
+                "train_positivity_loss",
+                "learning_rate",
+                "scheduler_metric",
+                "lr_reduced",
+            ],
+        )
+        writer.writeheader()
+        for record in history_rows:
+            comps = record.get("train_loss_components") or {}
+            writer.writerow(
+                {
+                    "epoch": record["epoch"],
+                    "train_total_loss": record["train_total_loss"],
+                    "train_image_loss": comps.get("image", ""),
+                    "train_physics_loss": comps.get("physics", ""),
+                    "train_relative_physics_loss": comps.get(
+                        "relative_physics", ""
+                    ),
+                    "train_tv_loss": comps.get("tv", ""),
+                    "train_positivity_loss": comps.get("positivity", ""),
+                    "learning_rate": record["learning_rate"],
+                    "scheduler_metric": record["scheduler_metric"],
+                    "lr_reduced": int(bool(record["lr_reduced"])),
+                }
+            )
     runtime_meta = {
         "parameter_count": int(info.parameter_count),
+        "arch_kwargs": dict(info.arch_kwargs),
         "train_steps": int(train_steps),
         "final_loss_breakdown": last_breakdown,
+        "history_json_path": str(history_json_path),
+        "history_csv_path": str(history_csv_path),
+        "history_length": int(len(history_rows)),
     }
+    if scheduler_name is not None:
+        runtime_meta["scheduler"] = dict(history_payload["scheduler"])
     # Save model state for reproducibility.
     state_path = output_dir / "model_state.pt"
     torch.save(
@@ -1690,6 +1836,10 @@ def run_preflight(
                         "final_loss_breakdown"
                     ),
                     "model_state_path": runtime_meta.get("model_state_path"),
+                    "history_json_path": runtime_meta.get("history_json_path"),
+                    "history_csv_path": runtime_meta.get("history_csv_path"),
+                    "history_length": runtime_meta.get("history_length"),
+                    "scheduler": runtime_meta.get("scheduler"),
                     "output_dynamic_range": output_dynamic_range,
                 },
             )
@@ -1725,6 +1875,10 @@ def run_preflight(
             row_payload["wall_time_train_s"] = float(train_seconds)
             row_payload["wall_time_eval_s"] = float(eval_seconds)
             row_payload["model_state_path"] = runtime_meta.get("model_state_path")
+            row_payload["history_json_path"] = runtime_meta.get("history_json_path")
+            row_payload["history_csv_path"] = runtime_meta.get("history_csv_path")
+            row_payload["history_length"] = runtime_meta.get("history_length")
+            row_payload["scheduler"] = runtime_meta.get("scheduler")
             row_payload["runtime"] = runtime_block
             row_payload["contract_fingerprint"] = row_fp
             row_payload["output_dynamic_range"] = output_dynamic_range
