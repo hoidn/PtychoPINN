@@ -360,6 +360,10 @@ def test_materialize_selected_item_inputs_writes_check_command_artifacts(tmp_pat
     assert "authoritative_item_path: `docs/backlog/in_progress/2026-04-22-ready-item.md`" in context_text
     assert "selection_source_path: `docs/backlog/active/2026-04-22-ready-item.md`" in context_text
     assert "selected_item_path:" not in context_text
+    assert payload["plan_gate_state_root"].endswith("/items/2026-04-22-ready-item/plan-gate")
+    assert payload["final_plan_gate_bundle_path"].endswith(
+        "/items/2026-04-22-ready-item/plan-gate/final_plan_gate.json"
+    )
 
 
 def test_materialize_selected_active_item_fails_when_plan_target_is_missing(tmp_path):
@@ -415,8 +419,6 @@ def test_materialize_selected_active_item_fails_when_plan_target_is_missing(tmp_
     assert result.returncode != 0
     assert "plan_path target does not exist" in result.stderr
     assert not output_path.exists()
-
-
 
 
 def test_reconcile_selected_item_recovers_premature_done_move_when_enabled(tmp_path):
@@ -491,6 +493,109 @@ def test_reconcile_selected_item_rejects_duplicate_done_and_in_progress_state(tm
 
     assert result.returncode != 0
     assert "ambiguous queue state" in result.stderr
+
+
+def test_recovered_plan_gate_bundle_is_item_scoped_and_ignores_stale_iteration_pointers(tmp_path):
+    workspace = _workspace(tmp_path)
+    item_id = "2026-04-29-recovered-item"
+    plan_path = workspace / f"docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/{item_id}/execution_plan.md"
+    plan_path.parent.mkdir(parents=True, exist_ok=True)
+    plan_path.write_text("# Recovered Item Plan\n", encoding="utf-8")
+
+    item_path = workspace / f"docs/backlog/in_progress/{item_id}.md"
+    item_path.parent.mkdir(parents=True, exist_ok=True)
+    item_path.write_text(
+        "\n".join(
+            [
+                "---",
+                "priority: 5",
+                f"plan_path: {plan_path.relative_to(workspace).as_posix()}",
+                "check_commands:",
+                "  - python -c \"print('recovered-check')\"",
+                "related_roadmap_phases:",
+                "  - phase-2-pdebench-full-training-evidence",
+                "---",
+                "",
+                "# Backlog Item: Recovered Item",
+                "",
+                "## Objective",
+                "- Resume recovered work.",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    stale_plan = workspace / "docs/plans/stale-item-a-plan.md"
+    stale_plan.write_text("# Stale Item A Plan\n", encoding="utf-8")
+    stale_item = workspace / "docs/backlog/in_progress/2026-04-28-stale-item-a.md"
+    stale_item.write_text("---\npriority: 1\ncheck_commands:\n  - true\n---\n", encoding="utf-8")
+    iteration_root = workspace / "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/0"
+    iteration_root.mkdir(parents=True, exist_ok=True)
+    (iteration_root / "selected_plan_path.txt").write_text(
+        stale_plan.relative_to(workspace).as_posix() + "\n",
+        encoding="utf-8",
+    )
+    (iteration_root / "resolved_selected_item_path.txt").write_text(
+        stale_item.relative_to(workspace).as_posix() + "\n",
+        encoding="utf-8",
+    )
+
+    selection_path = workspace / "state/selector/selection.json"
+    selection_path.parent.mkdir(parents=True, exist_ok=True)
+    selection_path.write_text(
+        json.dumps(
+            {
+                "selection_status": "SELECTED",
+                "selected_item_id": item_id,
+                "selected_item_path": item_path.relative_to(workspace).as_posix(),
+                "selection_mode": "RECOVERED_IN_PROGRESS",
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    manifest_path = workspace / "state/manifest.json"
+    manifest_path.write_text("{}\n", encoding="utf-8")
+    materialized_path = workspace / "state/materialized.json"
+
+    _run_script(
+        workspace,
+        "workflows/library/scripts/materialize_neurips_selected_item_inputs.py",
+        "--selection-path",
+        str(selection_path),
+        "--manifest-path",
+        str(manifest_path),
+        "--state-root",
+        iteration_root.relative_to(workspace).as_posix(),
+        "--output",
+        str(materialized_path),
+    )
+    materialized = json.loads(materialized_path.read_text(encoding="utf-8"))
+
+    _run_script(
+        workspace,
+        "workflows/library/scripts/recover_neurips_plan_gate_outputs.py",
+        "--selection-mode",
+        materialized["selection_mode"],
+        "--selected-item-path",
+        materialized["selected_item_in_progress_path"],
+        "--recovery-report-target-path",
+        materialized["plan_gate_recovery_report_target_path"],
+        "--output",
+        materialized["final_plan_gate_bundle_path"],
+    )
+
+    assert materialized["final_plan_gate_bundle_path"].endswith(f"/items/{item_id}/plan-gate/final_plan_gate.json")
+    bundle = json.loads((workspace / materialized["final_plan_gate_bundle_path"]).read_text(encoding="utf-8"))
+    assert bundle["status"] == "APPROVED"
+    assert bundle["source"] == "RECOVERED"
+    assert bundle["selected_item_path"] == item_path.relative_to(workspace).as_posix()
+    assert bundle["plan_path"] == plan_path.relative_to(workspace).as_posix()
+    assert bundle["plan_review_decision"] == "APPROVE"
+    assert bundle["plan_path"] != stale_plan.relative_to(workspace).as_posix()
+    assert bundle["selected_item_path"] != stale_item.relative_to(workspace).as_posix()
 
 
 def test_gap_draft_validator_accepts_valid_phase2_item(tmp_path):

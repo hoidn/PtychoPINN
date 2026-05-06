@@ -55,6 +55,7 @@ def _copy_runtime_files(workspace: Path) -> Path:
         "workflows/library/scripts/build_neurips_backlog_manifest.py",
         "workflows/library/scripts/materialize_neurips_selected_item_inputs.py",
         "workflows/library/scripts/move_neurips_backlog_item.py",
+        "workflows/library/scripts/recover_neurips_plan_gate_outputs.py",
         "workflows/library/scripts/reconcile_neurips_selected_item.py",
         "workflows/library/scripts/reconcile_neurips_backlog_roadmap_gate.py",
         "workflows/library/scripts/validate_neurips_backlog_gap_draft.py",
@@ -68,6 +69,16 @@ def _copy_runtime_files(workspace: Path) -> Path:
     for relpath in sorted(set(files)):
         _copy_repo_file_to_workspace(workspace, relpath)
     return workspace / "workflows/examples/neurips_steered_backlog_drain.yaml"
+
+
+def _fixture_workflow_inputs() -> dict:
+    return {
+        "steering_path": "docs/steering.md",
+        "design_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md",
+        "roadmap_path": "docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md",
+        "roadmap_gate_path": "docs/backlog/roadmap_gate.json",
+        "progress_ledger_path": "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+    }
 
 
 def _target_from_pointer(workspace: Path, pointer_relpath: str) -> Path:
@@ -250,78 +261,60 @@ def _write_execution_report(workspace: Path) -> None:
     raise AssertionError("No pending execution report pointer found")
 
 
-def _write_running_execution_state(workspace: Path) -> None:
+def _write_execution_report_without_control_bundle(workspace: Path) -> None:
     state_roots = sorted(workspace.glob("state/**/implementation-phase"))
     for state_root in state_roots:
-        bundle_path = state_root / "implementation_state.json"
-        if bundle_path.exists():
-            continue
-        progress_report = (
-            workspace
-            / "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-22-ready-item/progress_report.md"
+        target = _target_from_pointer(
+            workspace, (state_root / "execution_report_target_path.txt").relative_to(workspace).as_posix()
         )
-        progress_report.parent.mkdir(parents=True, exist_ok=True)
-        progress_report.write_text(
+        if target.exists():
+            continue
+        target.write_text(
             "\n".join(
                 [
-                    "# Progress Report",
+                    "# Execution Report",
                     "",
-                    "## Active Work",
-                    "- Long-running readiness or training task is still in progress.",
+                    "## Completed In This Pass",
+                    "- Implemented the selected backlog item fixture.",
                     "",
-                    "## Next Resume Condition",
-                    "- Resume when the external execution finishes and the final report can be written.",
+                    "## Completed Plan Tasks",
+                    "- Produced a fresh execution report.",
+                    "",
+                    "## Remaining Required Plan Tasks",
+                    "- None.",
+                    "",
+                    "## Verification",
+                    "- ready-check command is expected to pass.",
+                    "",
+                    "## Residual Risks",
+                    "- Fixture smoke only.",
                 ]
             )
             + "\n",
             encoding="utf-8",
         )
-        bundle_path.write_text(
-            json.dumps(
-                {
-                    "implementation_state": "RUNNING",
-                    "progress_report_path": progress_report.relative_to(workspace).as_posix(),
-                },
-                indent=2,
-            )
-            + "\n",
-            encoding="utf-8",
-        )
         return
-    raise AssertionError("No pending implementation-phase state root found for RUNNING bundle")
+    raise AssertionError("No pending execution report target found")
 
 
 def _write_blocked_execution_state(workspace: Path) -> None:
     state_roots = sorted(workspace.glob("state/**/implementation-phase"))
     for state_root in state_roots:
-        bundle_path = state_root / "implementation_state.json"
-        if bundle_path.exists():
-            continue
-        progress_report = (
-            workspace
-            / "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-22-ready-item/blocked_progress_report.md"
+        target = _target_from_pointer(
+            workspace, (state_root / "progress_report_target_path.txt").relative_to(workspace).as_posix()
         )
-        progress_report.parent.mkdir(parents=True, exist_ok=True)
-        progress_report.write_text(
+        if target.exists():
+            continue
+        target.write_text(
             "\n".join(
                 [
                     "# Blocked Progress Report",
                     "",
                     "## Blocker",
                     "- Required upstream artifact is unavailable.",
+                    "",
+                    "Blocker Class: missing_resource",
                 ]
-            )
-            + "\n",
-            encoding="utf-8",
-        )
-        bundle_path.write_text(
-            json.dumps(
-                {
-                    "implementation_state": "BLOCKED",
-                    "progress_report_path": progress_report.relative_to(workspace).as_posix(),
-                    "block_reason": "Required upstream artifact is unavailable.",
-                },
-                indent=2,
             )
             + "\n",
             encoding="utf-8",
@@ -501,7 +494,7 @@ def _run_with_mocked_providers(workspace: Path, workflow_path: Path) -> dict:
     loader = WorkflowLoader(workspace)
     workflow = loader.load(workflow_path)
     workflow_relpath = workflow_path.relative_to(workspace).as_posix()
-    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), {}, workspace)
+    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), _fixture_workflow_inputs(), workspace)
     state_manager = StateManager(workspace=workspace, run_id="test-run")
     state_manager.initialize(workflow_relpath, _bundle_context_dict(workflow), bound_inputs=bound_inputs)
     executor = WorkflowExecutor(workflow, workspace, state_manager)
@@ -625,7 +618,7 @@ def test_neurips_steered_backlog_runtime_recovers_queue_path_drift_after_plan_re
     loader = WorkflowLoader(workspace)
     workflow = loader.load(workflow_path)
     workflow_relpath = workflow_path.relative_to(workspace).as_posix()
-    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), {}, workspace)
+    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), _fixture_workflow_inputs(), workspace)
     state_manager = StateManager(workspace=workspace, run_id="test-run")
     state_manager.initialize(workflow_relpath, _bundle_context_dict(workflow), bound_inputs=bound_inputs)
     executor = WorkflowExecutor(workflow, workspace, state_manager)
@@ -644,7 +637,7 @@ def test_neurips_steered_backlog_runtime_recovers_queue_path_drift_after_plan_re
     )
 
 
-def test_neurips_steered_backlog_runtime_recovers_running_item_without_relaunch(tmp_path):
+def test_neurips_implementation_phase_materializes_state_from_execution_report(tmp_path):
     workspace = tmp_path / "workspace"
     workflow_path = _copy_runtime_files(workspace)
 
@@ -653,11 +646,7 @@ def test_neurips_steered_backlog_runtime_recovers_running_item_without_relaunch(
         ("ReviewOrUpdateRoadmap", _write_roadmap_sync_outputs),
         ("DraftPlan", _write_plan_draft),
         ("ReviewPlanTracked", _write_plan_review),
-        ("ExecuteImplementation", _write_running_execution_state),
-        ("ReviewOrUpdateRoadmap", _write_roadmap_sync_outputs),
-        ("DraftPlan", _write_plan_draft),
-        ("ReviewPlanTracked", _write_plan_review),
-        ("ExecuteImplementation", _write_execution_report),
+        ("ExecuteImplementation", _write_execution_report_without_control_bundle),
         ("ReviewImplementation", _write_implementation_review),
     ]
     call_index = {"value": 0}
@@ -688,7 +677,7 @@ def test_neurips_steered_backlog_runtime_recovers_running_item_without_relaunch(
     loader = WorkflowLoader(workspace)
     workflow = loader.load(workflow_path)
     workflow_relpath = workflow_path.relative_to(workspace).as_posix()
-    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), {}, workspace)
+    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), _fixture_workflow_inputs(), workspace)
     state_manager = StateManager(workspace=workspace, run_id="test-run")
     state_manager.initialize(workflow_relpath, _bundle_context_dict(workflow), bound_inputs=bound_inputs)
     executor = WorkflowExecutor(workflow, workspace, state_manager)
@@ -696,27 +685,15 @@ def test_neurips_steered_backlog_runtime_recovers_running_item_without_relaunch(
     with patch.object(ProviderExecutor, "prepare_invocation", _prepare_invocation), patch.object(
         ProviderExecutor, "execute", _execute
     ):
-        state = executor.execute()
+        executor.execute()
 
-    assert call_index["value"] == 10
-    summary = json.loads(
-        (workspace / "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog-drain-summary.json").read_text(
-            encoding="utf-8"
-        )
-    )
-    run_state = json.loads(
-        (workspace / "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/run_state.json").read_text(
-            encoding="utf-8"
-        )
-    )
-
-    assert summary["drain_status"] == "BLOCKED"
-    assert summary["completed_item_count"] == 1
-    assert run_state["blocked_items"] == {}
-    assert run_state["current_item"] is None
-    assert run_state["completed_items"] == ["2026-04-22-ready-item"]
+    assert call_index["value"] == 6
+    state_bundles = sorted(workspace.glob("state/**/implementation-phase/implementation_state.json"))
+    assert len(state_bundles) == 1
+    bundle = json.loads(state_bundles[0].read_text(encoding="utf-8"))
+    assert bundle["implementation_state"] == "COMPLETED"
+    assert bundle["execution_report_path"].endswith("2026-04-22-ready-item/execution_report.md")
     assert (workspace / "docs/backlog/done/2026-04-22-ready-item.md").is_file()
-    assert not (workspace / "docs/backlog/in_progress/2026-04-22-ready-item.md").exists()
 
 
 def test_neurips_steered_backlog_runtime_marks_semantic_block_only_on_explicit_block(tmp_path):
@@ -758,7 +735,7 @@ def test_neurips_steered_backlog_runtime_marks_semantic_block_only_on_explicit_b
     loader = WorkflowLoader(workspace)
     workflow = loader.load(workflow_path)
     workflow_relpath = workflow_path.relative_to(workspace).as_posix()
-    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), {}, workspace)
+    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), _fixture_workflow_inputs(), workspace)
     state_manager = StateManager(workspace=workspace, run_id="test-run")
     state_manager.initialize(workflow_relpath, _bundle_context_dict(workflow), bound_inputs=bound_inputs)
     executor = WorkflowExecutor(workflow, workspace, state_manager)
@@ -824,7 +801,7 @@ def test_neurips_steered_backlog_runtime_drafts_gap_item_and_continues_without_r
     loader = WorkflowLoader(workspace)
     workflow = loader.load(workflow_path)
     workflow_relpath = workflow_path.relative_to(workspace).as_posix()
-    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), {}, workspace)
+    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), _fixture_workflow_inputs(), workspace)
     state_manager = StateManager(workspace=workspace, run_id="test-run")
     state_manager.initialize(workflow_relpath, _bundle_context_dict(workflow), bound_inputs=bound_inputs)
     executor = WorkflowExecutor(workflow, workspace, state_manager)
@@ -871,7 +848,7 @@ def test_neurips_steered_backlog_runtime_ignores_stale_selector_state_when_gate_
     loader = WorkflowLoader(workspace)
     workflow = loader.load(workflow_path)
     workflow_relpath = workflow_path.relative_to(workspace).as_posix()
-    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), {}, workspace)
+    bound_inputs = bind_workflow_inputs(workflow_input_contracts(workflow), _fixture_workflow_inputs(), workspace)
     state_manager = StateManager(workspace=workspace, run_id="test-run")
     state_manager.initialize(workflow_relpath, _bundle_context_dict(workflow), bound_inputs=bound_inputs)
     executor = WorkflowExecutor(workflow, workspace, state_manager)

@@ -39,7 +39,7 @@ The plan should:
 - call out migrations, compatibility boundaries, and explicit non-goals
 - avoid vague shared-work tasks such as "implement the validator" or "update the helper"; when shared work is nontrivial, split it by the owned interface, data flow, validation, IO, command, or consumed output surface that makes the boundary meaningful
 - include discoverability or documentation update steps when the work changes behavioral specs, public or internal APIs, architectural conventions, development processes, data contracts, creates important docs, or changes other durable project knowledge; when qualifying docs are created or materially changed, include a task for updating the relevant documentation index such as `docs/index.md` when present; avoid documentation churn for purely local implementation details
-- when the design identifies source code, maintained data or contracts, or stable consumed outputs, plan the concrete file targets and applicable commands needed to make the work executable
+- when the design identifies source code, maintained data or contracts, or stable consumed outputs, plan the concrete file targets and applicable commands needed to make the work executable, labeling supplemental checks as blocking or supporting
 - avoid exhaustive case matrices unless they are part of the current-scope contract; otherwise name the behavior class and leave exact case enumeration to implementation judgment
 
 For the output contract's `plan_path`, read the path recorded in that file and write the plan document to that current-checkout-relative path. Leave the `plan_path` file containing only the path.

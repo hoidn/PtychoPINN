@@ -7,7 +7,7 @@ Review the implementation against the design, the approved plan, the plan's stat
 Do not treat generated reports, projections, summaries, preferred packaging, or other derived evidence artifacts as blocking by themselves unless they are explicitly mandatory, authoritative, machine-consumed, user-facing, or needed for required evidence, provenance, claim boundaries, or discoverability; equivalent discoverable artifacts may satisfy the same contract.
 
 Your job is to decide whether the delivered implementation is correct, maintainable, and honestly scoped.
-Unfinished work blocks approval when it was claimed complete, belongs to the approved current scope, is required for the delivered behavior to be correct, is an immediate prerequisite for the delivered behavior, or was deferred without clear authority and handoff criteria.
+Unfinished work blocks approval when it was claimed complete, belongs to the approved current implementation scope, is required for the delivered behavior to be correct, is an immediate prerequisite for the delivered behavior, or was deferred without clear authority and handoff criteria; supplemental verification blocks only when explicitly marked blocking or when no equivalent evidence supports the delivered claim.
 Weight implementation correctness, API behavior, and maintainability at least as heavily as scope-completion issues when assigning severity.
 
 When reviewing:
@@ -34,6 +34,6 @@ If there are no high-severity findings, do not emit a `## High` section.
 Include a section `## Follow-Up Work` for unfinished plan work that is real but not required for approving the delivered scope.
 Approve only if:
 - there is no `## High` section
-- no claimed or current-scope plan tasks remain unimplemented
+- no claimed or current-scope implementation tasks or explicitly blocking verification tasks remain unimplemented
 - no unfinished prerequisite makes the delivered behavior unsafe, misleading, or unusable
 - no material design requirement was silently dropped or deferred without authority
