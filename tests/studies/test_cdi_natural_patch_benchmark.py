@@ -980,3 +980,132 @@ def test_recollate_mode_publishes_recovered_non_authoritative_bundle(tmp_path: P
 
     manifest_payload = json.loads((run_root / "paper_benchmark_manifest.json").read_text(encoding="utf-8"))
     assert manifest_payload["recollate_source"] == run_id
+
+
+def test_recollate_failed_row_drops_stale_exit_code_proof(tmp_path: Path):
+    """Recollation must not surface false success provenance for failed rows.
+
+    For a row whose original invocation reported failed/non-zero, recollate
+    must (a) remove any stale on-disk ``exit_code_proof.json`` left over from
+    earlier (incorrect) runs, and (b) ensure ``metrics.json`` does not still
+    point ``outputs.exit_code_proof_json`` at that stale file.
+    """
+    dataset_root = _build_dataset_root(tmp_path)
+    item_root = tmp_path / "item"
+    seed = 3
+    run_id = "recollate-stale-proof-test-run"
+    rows = ("baseline", "pinn")
+    original_commit = "deadbeefcafe1234567890abcdef0123456789ab"
+
+    def fake_execute_rows(**_):
+        metrics = {
+            "mae": (0.1, 0.2),
+            "mse": (0.01, 0.02),
+            "psnr": (10.0, 11.0),
+            "ssim": (0.7, 0.8),
+            "ms_ssim": (0.6, 0.7),
+            "frc50": (5.0, 6.0),
+        }
+        return {
+            row: {
+                "status": "completed",
+                "row_payload": {
+                    "model_label": f"CDI {row}",
+                    "architecture_id": "cnn",
+                    "training_procedure": "supervised" if row == "baseline" else "pinn",
+                    "N": 8,
+                    "parameter_count": 10,
+                    "epoch_budget": 40,
+                    "final_completed_epoch": 40,
+                    "final_train_loss": 0.1,
+                    "validation_loss": {"status": "emitted", "value": 0.2},
+                    "runtime_summary": {"train_wall_time_sec": 1.0, "inference_time_sec": 0.5},
+                    "hardware_summary": {"backend": "tensorflow", "accelerator": "cpu"},
+                    "row_status": "paper_grade",
+                    "caveats": [],
+                    "metrics": metrics,
+                },
+            }
+            for row in rows
+        }
+
+    run_natural_patch_benchmark(
+        dataset_root=dataset_root,
+        item_root=item_root,
+        mode="benchmark",
+        rows=rows,
+        seed=seed,
+        run_id=run_id,
+        execute_rows_fn=fake_execute_rows,
+    )
+    run_root = item_root / "runs" / run_id
+
+    for row in rows:
+        run_dir = run_root / "runs" / row
+        run_dir.mkdir(parents=True, exist_ok=True)
+        invocation_payload = {
+            "argv": ["--seed", str(seed)],
+            "parsed_args": {"seed": seed},
+            "pid": 4242,
+            "status": "failed" if row == "pinn" else "completed",
+            "exit_code": 1 if row == "pinn" else 0,
+            "finished_at_utc": "2026-04-29T00:00:00+00:00",
+            "extra": {"git_commit": original_commit},
+        }
+        (run_dir / "invocation.json").write_text(json.dumps(invocation_payload), encoding="utf-8")
+        (run_dir / "invocation.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+        (run_dir / "config.json").write_text(json.dumps({"seed": seed}), encoding="utf-8")
+        (run_dir / "stdout.log").write_text("row stdout\n", encoding="utf-8")
+        (run_dir / "stderr.log").write_text("", encoding="utf-8")
+        (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+        (run_dir / "history.json").write_text("{}", encoding="utf-8")
+        # Seed a stale exit_code_proof.json claiming completed/0 for both rows
+        # (mirrors the bug that left the artifact behind for failed torch rows).
+        (run_dir / "exit_code_proof.json").write_text(
+            json.dumps(
+                {
+                    "model_id": row,
+                    "validated_at_utc": "2026-04-29T01:00:00+00:00",
+                    "proof_source": "stale_pre_revision_proof",
+                    "exit_code": 0,
+                    "invocation_status": "completed",
+                    "invocation_json": f"runs/{row}/invocation.json",
+                    "stdout_log": f"runs/{row}/stdout.log",
+                    "stderr_log": f"runs/{row}/stderr.log",
+                }
+            ),
+            encoding="utf-8",
+        )
+        recon_dir = run_root / "recons" / row
+        recon_dir.mkdir(parents=True, exist_ok=True)
+        np.savez(
+            recon_dir / "recon.npz",
+            recon=np.ones((1, 8, 8), dtype=np.complex64),
+        )
+        visuals_dir = run_root / "visuals"
+        visuals_dir.mkdir(parents=True, exist_ok=True)
+        (visuals_dir / f"amp_phase_{row}.png").write_text("x", encoding="utf-8")
+        (visuals_dir / f"amp_phase_error_{row}.png").write_text("x", encoding="utf-8")
+
+    run_natural_patch_benchmark(
+        dataset_root=dataset_root,
+        item_root=item_root,
+        mode="recollate",
+        rows=rows,
+        seed=seed,
+        run_id=run_id,
+    )
+
+    metrics_payload = json.loads((run_root / "metrics.json").read_text(encoding="utf-8"))
+    failed_outputs = metrics_payload["rows"]["pinn"].get("outputs", {})
+    assert "exit_code_proof_json" not in failed_outputs
+    assert not (run_root / "runs" / "pinn" / "exit_code_proof.json").exists()
+
+    completed_outputs = metrics_payload["rows"]["baseline"].get("outputs", {})
+    completed_proof_path = completed_outputs.get("exit_code_proof_json")
+    assert completed_proof_path == "runs/baseline/exit_code_proof.json"
+    completed_proof = json.loads(
+        (run_root / "runs" / "baseline" / "exit_code_proof.json").read_text(encoding="utf-8")
+    )
+    assert completed_proof["invocation_status"] == "completed"
+    assert completed_proof["exit_code"] == 0

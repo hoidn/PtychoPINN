@@ -34,18 +34,23 @@
   - `tests/studies/test_cdi_natural_patch_dataset.py`
 - Item root (git-ignored):
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/`
-- Authoritative bundle root (`paper_complete` via recollate):
+- Recovered (non-authoritative) bundle root:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z`
-- Boundary: single-seed expanded-object CDI evidence only; bundle classified
-  `paper_complete` after a `--mode recollate` republication that emitted the
-  locked provenance scaffolding (`dataset_identity_manifest.json`,
-  `split_manifest.json`, per-row `exit_code_proof.json`), backfilled torch-row
-  fixed-sample amp/phase visuals, and exited the recollate launcher with
-  `exit_code=0`. Per-row invocation envelopes were promoted from the original
-  launch's stale `failed/1` record to `completed/0` only after the on-disk
-  training artifacts were verified intact, with the original status/exit-code
-  preserved under `extra.recovered_original_status` /
-  `extra.recovered_original_exit_code`. Does not replace
+- Status: `benchmark_incomplete_recovered_non_authoritative`. The original
+  tmux `--mode benchmark` launcher exited non-zero, four torch rows
+  (`pinn_hybrid_resnet`, `pinn_fno_vanilla`, `pinn_ffno`, `pinn_neuralop_uno`)
+  still report `failed/1` invocations, and the latest `--mode recollate`
+  republication preserved those original envelopes plus the original-execution
+  commit per row. Recollate emits the locked provenance scaffolding
+  (`dataset_identity_manifest.json`, `split_manifest.json`) and backfills
+  torch-row fixed-sample amp/phase visuals, but it refuses to issue
+  `exit_code_proof.json` for any row whose invocation reported `failed` or a
+  non-zero exit code, so the four failed torch rows surface no proof file and
+  carry no `outputs.exit_code_proof_json` reference. Use the recovered bundle
+  for diagnostic context only; a clean `--mode benchmark` rerun whose tracked
+  PID exits `0` end-to-end is required before this benchmark can be cited as
+  paper-grade evidence. Boundary: single-seed expanded-object CDI evidence on
+  `natural_patches128_fixedprobe_v1`; does not replace
   `lines128_paper_benchmark_summary.md`.
 
 ## PDE / Forward-Modeling Studies

@@ -1145,6 +1145,11 @@ def _attach_natural_patch_row_provenance(
     )
     if exit_code_proof is not None:
         outputs_payload["exit_code_proof_json"] = relative_to_output_dir(run_root, exit_code_proof)
+    else:
+        outputs_payload.pop("exit_code_proof_json", None)
+        stale_proof = run_dir / "exit_code_proof.json"
+        if stale_proof.exists():
+            stale_proof.unlink()
     if "stdout_log" not in outputs_payload and stdout_log.exists():
         outputs_payload["stdout_log"] = relative_to_output_dir(run_root, stdout_log)
     if "stderr_log" not in outputs_payload and stderr_log.exists():
@@ -1863,6 +1868,7 @@ _PROVENANCE_FIELDS_TO_DROP = (
     "splits",
     "randomness",
     "visuals",
+    "outputs",
 )
 
 
