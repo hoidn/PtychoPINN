@@ -53,6 +53,9 @@ PAPER_EVIDENCE_INDEX_PATH = (
 PAPER_EVIDENCE_MANIFEST_PATH = (
     "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_manifest.json"
 )
+PAPER_EVIDENCE_PACKAGE_DESIGN_PATH = (
+    "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_package_design.md"
+)
 KNOWN_CLAIM_BOUNDARIES = (
     PASSED_CLAIM_BOUNDARY,
     PRE_GATE_CLAIM_BOUNDARY,
@@ -363,6 +366,125 @@ def _write_bundle_visuals(
     }
 
 
+REQUIRED_ORIGINAL_RUNTIME_PROVENANCE_FIELDS = (
+    "git_sha",
+    "git_dirty",
+    "hostname",
+    "platform",
+    "gpu_count",
+    "python_executable",
+    "python_version",
+    "torch",
+    "launch_timestamp_utc",
+    "tracked_pid",
+)
+
+
+def _amend_existing_runtime_provenance_for_rebuild(
+    *,
+    output_root: Path,
+    log_path: Optional[Path],
+    meta_rebuild: Mapping[str, Any],
+) -> Path:
+    """Preserve the original training-run ``runtime_provenance.json`` payload
+    and only attach a ``meta_rebuild`` block plus an optional refreshed
+    ``log_path``.
+
+    The reviewer flagged that the prior rebuild path called
+    :func:`_capture_extended_runtime_provenance` from the rebuild process,
+    which re-sampled ``git_sha``/``git_dirty``/``hostname``/``gpu_count``/
+    Python/PyTorch/CUDA/host fields from the rebuild host while keeping the
+    original ``launch_timestamp_utc`` and ``tracked_pid``. That left the
+    top-level provenance surface a hybrid that no longer faithfully described
+    the original 40-epoch training run. This helper preserves every recorded
+    original field exactly and refuses to fabricate provenance when the
+    original file is missing or malformed: a bundle whose original runtime
+    provenance has been lost must be retrained, not silently regenerated.
+    """
+    runtime_provenance_path = output_root / "runtime_provenance.json"
+    if not runtime_provenance_path.exists():
+        raise FileNotFoundError(
+            f"meta-rebuild requires existing {runtime_provenance_path}; refusing "
+            "to fabricate runtime provenance from the rebuild host"
+        )
+    try:
+        existing_payload = json.loads(runtime_provenance_path.read_text())
+    except Exception as exc:
+        raise RuntimeError(
+            f"meta-rebuild cannot parse {runtime_provenance_path}: {exc!r}; refusing "
+            "to fabricate runtime provenance"
+        ) from exc
+    if not isinstance(existing_payload, dict):
+        raise RuntimeError(
+            f"meta-rebuild expected dict in {runtime_provenance_path}, got "
+            f"{type(existing_payload).__name__}"
+        )
+    missing = [
+        key
+        for key in REQUIRED_ORIGINAL_RUNTIME_PROVENANCE_FIELDS
+        if existing_payload.get(key) is None
+    ]
+    if missing:
+        raise RuntimeError(
+            f"meta-rebuild requires {sorted(missing)} in {runtime_provenance_path}; "
+            "refusing to fabricate provenance for missing fields"
+        )
+    payload = dict(existing_payload)
+    if log_path is not None:
+        payload["log_path"] = str(log_path)
+    payload["meta_rebuild"] = dict(meta_rebuild)
+    _write_json(runtime_provenance_path, payload)
+    return runtime_provenance_path
+
+
+def _write_dataset_and_split_manifests(
+    *,
+    output_root: Path,
+    authority: DatasetAuthority,
+    fixed_sample_ids: List[int],
+) -> Dict[str, str]:
+    """Write the dataset identity manifest and split manifest. These payloads
+    are deterministically derivable from the dataset authority and locked split
+    contract, so they can be regenerated on rebuild without losing original
+    training-run information."""
+    dataset_identity_path = output_root / "dataset_identity_manifest.json"
+    split_manifest_path = output_root / "split_manifest.json"
+    dataset_identity_payload: Dict[str, Any] = {
+        "dataset_id": authority.dataset_id,
+        "manifest_path": str(authority.manifest_path),
+        "dataset_identity": authority.raw_manifest.get("dataset_identity"),
+    }
+    manifest_path_obj = Path(authority.manifest_path)
+    if manifest_path_obj.exists():
+        try:
+            stat = manifest_path_obj.stat()
+            dataset_identity_payload["manifest_size_bytes"] = int(stat.st_size)
+            dataset_identity_payload["manifest_mtime_utc"] = (
+                datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
+            )
+        except Exception:
+            pass
+    if not dataset_identity_payload.get("dataset_identity", {}) or not (
+        dataset_identity_payload["dataset_identity"] or {}
+    ).get("checksum"):
+        dataset_identity_payload["checksum_exception"] = (
+            "decision_support dataset manifest does not record a checksum; "
+            "size/mtime/source-rationale recorded as reviewed exception"
+        )
+    _write_json(dataset_identity_path, dataset_identity_payload)
+    _write_json(
+        split_manifest_path,
+        {
+            "split_counts": authority.raw_manifest.get("split", {}).get("counts"),
+            "fixed_sample_ids": [int(i) for i in fixed_sample_ids],
+        },
+    )
+    return {
+        "dataset_identity_manifest_path": str(dataset_identity_path),
+        "split_manifest_path": str(split_manifest_path),
+    }
+
+
 def _write_top_level_provenance(
     *,
     output_root: Path,
@@ -526,6 +648,7 @@ def _check_evidence_surfaces_consistent(
     index_path = repo_root / PAPER_EVIDENCE_INDEX_PATH
     manifest_path = repo_root / PAPER_EVIDENCE_MANIFEST_PATH
     docs_index_path = repo_root / DOCS_INDEX_PATH
+    package_design_path = repo_root / PAPER_EVIDENCE_PACKAGE_DESIGN_PATH
 
     if output_root is not None:
         try:
@@ -554,7 +677,19 @@ def _check_evidence_surfaces_consistent(
     if not manifest_source_root.startswith(artifact_root_token):
         return False
 
-    for path in (summary_path, index_path, manifest_path, docs_index_path):
+    # The paper-evidence package design must carry a checked-in evidence
+    # amendment consistent with the gate result whenever the manifest reports
+    # the promoted boundary. The plan ties promotion to the presence of that
+    # amendment ("the checked-in evidence amendment is prepared and consistent
+    # with the gate result"), so a passed manifest with no design-doc reference
+    # must fail the gate. When the manifest still records the pre-gate
+    # boundary, no amendment is required (the plan only authorizes amending
+    # the design doc on a passed gate).
+    required_paths = [summary_path, index_path, manifest_path, docs_index_path]
+    if manifest_boundary == PASSED_CLAIM_BOUNDARY:
+        required_paths.append(package_design_path)
+
+    for path in required_paths:
         if not path.exists():
             return False
         try:
@@ -828,6 +963,21 @@ def _build_provenance_checks(
     host_provenance_present = bool(runtime_provenance_payload.get("hostname")) and (
         runtime_provenance_payload.get("gpu_count") is not None
     )
+    # Plan Task 4 promotion prerequisites: "repo git SHA/dirty state, Python/
+    # PyTorch/CUDA/GPU/host provenance". The reviewer flagged that the prior
+    # gate accepted bundles whose runtime_provenance.json was missing
+    # Python/PyTorch/CUDA fields entirely, so add explicit checks for the
+    # interpreter and torch identity fields the plan calls out.
+    python_provenance_present = bool(
+        runtime_provenance_payload.get("python_executable")
+    ) and bool(runtime_provenance_payload.get("python_version"))
+    torch_payload = runtime_provenance_payload.get("torch") or {}
+    torch_provenance_present = (
+        isinstance(torch_payload, Mapping)
+        and bool(torch_payload.get("version"))
+        and torch_payload.get("cuda_available") is not None
+        and bool(torch_payload.get("cuda_version"))
+    )
     model_profiles_present = all(
         (output_root / "rows" / row_id / "model_profile.json").exists()
         for row_id in rows
@@ -886,6 +1036,8 @@ def _build_provenance_checks(
         "runtime_provenance": runtime_provenance_path.exists(),
         "git_provenance": bool(git_provenance_present),
         "host_provenance": bool(host_provenance_present),
+        "python_provenance": bool(python_provenance_present),
+        "torch_provenance": bool(torch_provenance_present),
         "dataset_identity": Path(
             provenance_paths["dataset_identity_manifest_path"]
         ).exists(),
@@ -1538,17 +1690,9 @@ def _rebuild_meta_only_inner(
             f"{exit_status_path}; got tracked_pid={raw_tracked_pid!r}, "
             f"exit_code={raw_exit_code!r}, status={raw_status!r}"
         )
-    existing_runtime_payload: Dict[str, Any] = {}
-    runtime_provenance_path = output_root / "runtime_provenance.json"
-    if runtime_provenance_path.exists():
-        try:
-            existing_runtime_payload = json.loads(runtime_provenance_path.read_text())
-        except Exception:
-            existing_runtime_payload = {}
     tracked_pid = int(raw_tracked_pid)
     exit_code = int(raw_exit_code)
     status = str(raw_status)
-    launch_timestamp_override = existing_runtime_payload.get("launch_timestamp_utc")
     rebuild_gpu_count = 0
     try:
         import torch
@@ -1567,17 +1711,20 @@ def _rebuild_meta_only_inner(
         "rebuild_gpu_count": int(rebuild_gpu_count),
         "rebuild_argv": list(parent_argv),
     }
-    provenance_paths = _write_top_level_provenance(
+    runtime_provenance_path = _amend_existing_runtime_provenance_for_rebuild(
+        output_root=output_root,
+        log_path=log_path,
+        meta_rebuild=meta_rebuild_block,
+    )
+    dataset_split_paths = _write_dataset_and_split_manifests(
         output_root=output_root,
         authority=authority,
         fixed_sample_ids=fixed_sample_ids,
-        log_path=log_path,
-        tracked_pid_override=tracked_pid,
-        launch_timestamp_override=(
-            str(launch_timestamp_override) if launch_timestamp_override else None
-        ),
-        meta_rebuild=meta_rebuild_block,
     )
+    provenance_paths = {
+        "runtime_provenance_path": str(runtime_provenance_path),
+        **dataset_split_paths,
+    }
     _write_run_exit_status(
         output_root,
         pid=tracked_pid,

@@ -130,21 +130,32 @@ in `scripts/studies/born_rytov_dt/run_brdt_40ep_paper_evidence.py`:
   completes, so the manifest cannot present a passing additive label without
   the gate honestly passing.
 - The gate's `provenance_checks` payload validates that runtime provenance
-  carries `git_sha`/`git_dirty`, host identity and GPU count, model profiles
-  and the run log are present, dataset identity and split manifest exist,
-  the sample-`255` visual bundle (including the same-contract classical
-  comparator) is materialized, and the durable summary at this path is
-  checked-in and references this backlog item.
+  carries `git_sha`/`git_dirty`, host identity and GPU count, the recorded
+  `python_executable`/`python_version` and `torch.version`/`cuda_version` /
+  `cuda_available` fields, model profiles and the run log are present,
+  dataset identity and split manifest exist, the sample-`255` visual bundle
+  (including the same-contract classical comparator) is materialized, and
+  the durable summary at this path is checked-in and references this
+  backlog item. The Python and PyTorch identity fields are validated as
+  separate `python_provenance` and `torch_provenance` checks so a bundle
+  whose `runtime_provenance.json` lost those fields now fails the gate.
 - Meta artifacts (manifest, runtime provenance, run-exit status, convergence
   audit, gate, visuals) can be deterministically re-derived from existing
   per-row `history.{json,csv}`, `row_summary.json`, `model_profile.json`, and
   source arrays via the runner's `--rebuild-meta-only` mode without
   retraining. The meta-rebuild path acquires the same per-output-root writer
   lock as the live training path so it cannot race with an active training
-  run. The rebuilt `runtime_provenance.json` preserves the original training
-  run's `tracked_pid` and `launch_timestamp_utc` (so it agrees with
-  `run_exit_status.json`), and records the rebuild process's git SHA, host,
-  GPU count, and argv in a separate `meta_rebuild` block.
+  run. The rebuild path no longer re-samples Python/PyTorch/CUDA/git/host
+  fields from the rebuild process: it preserves every recorded original
+  `runtime_provenance.json` field exactly (`tracked_pid`,
+  `launch_timestamp_utc`, `git_sha`, `git_dirty`, `hostname`, `platform`,
+  `gpu_count`, `python_executable`, `python_version`, `torch.*`, etc.) and
+  attaches a separate `meta_rebuild` block recording the rebuild process's
+  pid, timestamp, git SHA, host, GPU count, and argv. If
+  `runtime_provenance.json` is missing, unparseable, or lacks any required
+  original field, the rebuild raises rather than fabricating provenance —
+  bundles whose original training-run provenance has been lost must be
+  retrained, not silently regenerated.
 - The gate's `same_contract_lineage` check actively re-validates the baseline
   and FFNO-extension bundles each time the gate is recomputed and verifies
   that this bundle's `preflight_manifest.json` `baseline_lineage` block points
@@ -162,9 +173,15 @@ in `scripts/studies/born_rytov_dt/run_brdt_40ep_paper_evidence.py`:
   (`.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence`)
   and must contain the same authoritative claim-boundary string read from the
   structured `paper_evidence_manifest.json` row registry entry for this
-  backlog item. Drift between surfaces (e.g. the manifest advertising one
-  boundary while the durable summary still advertises another) now fails the
-  gate.
+  backlog item. When the manifest's authoritative entry advertises the
+  promoted boundary `paper_evidence_brdt_additive`, the check additionally
+  requires `paper_evidence_package_design.md` to reference this backlog
+  item, the canonical artifact root, and the promoted boundary; the plan
+  ties promotion to the presence of a checked-in evidence amendment
+  consistent with the gate result, so a passed manifest with no design-doc
+  amendment now fails the gate. Drift between surfaces (e.g. the manifest
+  advertising one boundary while the durable summary still advertises
+  another) also fails the gate.
 - `metrics.json`, `combined_metrics.json`, and `metric_schema.json` are
   re-seeded with the gate's final `claim_boundary` after the gate runs, so
   the bundle's machine-consumed metric tables can never advertise the

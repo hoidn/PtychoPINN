@@ -2895,6 +2895,7 @@ def test_evidence_surfaces_consistency_check_requires_all_surfaces(tmp_path):
     index_path = fake_repo / paper_mod.PAPER_EVIDENCE_INDEX_PATH
     manifest_path = fake_repo / paper_mod.PAPER_EVIDENCE_MANIFEST_PATH
     docs_index_path = fake_repo / paper_mod.DOCS_INDEX_PATH
+    package_design_path = fake_repo / paper_mod.PAPER_EVIDENCE_PACKAGE_DESIGN_PATH
 
     canonical_root = paper_mod.CANONICAL_ARTIFACT_ROOT
     boundary = paper_mod.PASSED_CLAIM_BOUNDARY
@@ -2929,9 +2930,17 @@ def test_evidence_surfaces_consistency_check_requires_all_surfaces(tmp_path):
         paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
     )
 
-    # All four surfaces present and consistent (backlog id, canonical artifact
-    # root, and matching claim boundary): must pass.
+    # Add docs/index.md but not the package design: must still fail because
+    # promoted manifests require a checked-in evidence amendment in
+    # ``paper_evidence_package_design.md``.
     docs_index_path.write_text(consistent_marker)
+    assert (
+        paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
+    )
+
+    # All five surfaces present and consistent (backlog id, canonical artifact
+    # root, and matching claim boundary): must pass.
+    package_design_path.write_text(consistent_marker)
     assert (
         paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is True
     )
@@ -3308,4 +3317,416 @@ def test_same_contract_lineage_check_detects_split_count_drift(tmp_path):
         output_root=output_root,
         baseline_root=baseline_root,
         ffno_extension_root=ffno_extension_root,
+    )
+
+
+def test_rebuild_meta_only_preserves_original_runtime_provenance_fields(tmp_path):
+    """Reviewer-blocked defect: ``--rebuild-meta-only`` previously re-sampled
+    ``git_sha``, ``git_dirty``, ``hostname``, Python/PyTorch/CUDA/GPU/host
+    fields from the rebuild host, while keeping only the original
+    ``launch_timestamp_utc`` and ``tracked_pid``. That left the top-level
+    provenance surface a hybrid that no longer faithfully described the
+    original training run. The rebuild path must preserve every recorded
+    original field exactly and only attach a separate ``meta_rebuild`` block."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    ffno_extension_root = _make_synthetic_ffno_extension_bundle(
+        tmp_path, baseline_root
+    )
+    output_root = tmp_path / "rebuild_preserve_root"
+    contract = preflight_mod.TrainingContract(
+        epochs=1,
+        batch_size=1,
+        learning_rate=2e-4,
+        scheduler="reduce_on_plateau",
+        plateau_factor=0.5,
+        plateau_patience=2,
+        plateau_threshold=0.0,
+        plateau_min_lr=1e-5,
+    )
+
+    paper_mod.run_paper_evidence(
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+        manifest_path=manifest_path,
+        output_root=output_root,
+        contract=contract,
+        device_choice="cpu",
+        dry_run=False,
+        fixed_sample_ids=[0],
+        required_paper_sample=0,
+        parent_argv=[],
+    )
+
+    runtime_path = output_root / "runtime_provenance.json"
+    sentinel_payload = {
+        "tracked_pid": 12345,
+        "pid": 12345,
+        "launch_timestamp_utc": "2024-01-01T00:00:00+00:00",
+        "git_sha": "ORIGINAL_SHA_DO_NOT_OVERWRITE",
+        "git_dirty": False,
+        "hostname": "ORIGINAL_HOST_DO_NOT_OVERWRITE",
+        "platform": "ORIGINAL_PLATFORM",
+        "gpu_count": 7,
+        "python_executable": "/original/python",
+        "python_version": "9.9.9",
+        "torch": {
+            "version": "0.0.0+original",
+            "cuda_available": True,
+            "cuda_version": "0.0",
+            "device_name": "OriginalGPU",
+        },
+        "log_path": str(output_root / "logs" / "original.log"),
+        "cwd": "/original/cwd",
+        "pythonpath": "original",
+        "ptycho_torch_file": "/original/ptycho_torch/__init__.py",
+    }
+    runtime_path.write_text(json.dumps(sentinel_payload))
+
+    exit_status_path = output_root / "run_exit_status.json"
+    exit_status_path.write_text(
+        json.dumps(
+            {
+                "tracked_pid": 12345,
+                "pid": 12345,
+                "exit_code": 0,
+                "status": "completed",
+                "log_path": str(output_root / "logs" / "original.log"),
+            }
+        )
+    )
+
+    paper_mod.rebuild_meta_only(
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+        manifest_path=manifest_path,
+        output_root=output_root,
+        contract=contract,
+        fixed_sample_ids=[0],
+        required_paper_sample=0,
+    )
+
+    refreshed = json.loads(runtime_path.read_text())
+    # Every original field must be preserved exactly; only ``meta_rebuild``
+    # and ``log_path`` may be attached/refreshed.
+    for key in (
+        "tracked_pid",
+        "pid",
+        "launch_timestamp_utc",
+        "git_sha",
+        "git_dirty",
+        "hostname",
+        "platform",
+        "gpu_count",
+        "python_executable",
+        "python_version",
+        "torch",
+        "cwd",
+        "pythonpath",
+        "ptycho_torch_file",
+    ):
+        assert refreshed[key] == sentinel_payload[key], (
+            f"rebuild overwrote original {key!r}: "
+            f"{refreshed.get(key)!r} != {sentinel_payload[key]!r}"
+        )
+    assert "meta_rebuild" in refreshed
+    rebuild_block = refreshed["meta_rebuild"]
+    # The rebuild block must record the rebuild process's identity, not the
+    # original run's identity, so a future audit can distinguish the two.
+    assert "rebuild_pid" in rebuild_block
+    assert "rebuild_timestamp_utc" in rebuild_block
+    assert "rebuild_git_sha" in rebuild_block
+    assert "rebuild_hostname" in rebuild_block
+
+
+def test_rebuild_meta_only_refuses_when_runtime_provenance_missing(tmp_path):
+    """The rebuild path must refuse to fabricate runtime provenance when the
+    original ``runtime_provenance.json`` has been lost. A bundle whose
+    original training-run provenance is gone must be retrained, not silently
+    regenerated from the rebuild host."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    ffno_extension_root = _make_synthetic_ffno_extension_bundle(
+        tmp_path, baseline_root
+    )
+    output_root = tmp_path / "rebuild_missing_runtime_root"
+    contract = preflight_mod.TrainingContract(
+        epochs=1,
+        batch_size=1,
+        learning_rate=2e-4,
+        scheduler="reduce_on_plateau",
+        plateau_factor=0.5,
+        plateau_patience=2,
+        plateau_threshold=0.0,
+        plateau_min_lr=1e-5,
+    )
+
+    paper_mod.run_paper_evidence(
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+        manifest_path=manifest_path,
+        output_root=output_root,
+        contract=contract,
+        device_choice="cpu",
+        dry_run=False,
+        fixed_sample_ids=[0],
+        required_paper_sample=0,
+        parent_argv=[],
+    )
+
+    runtime_path = output_root / "runtime_provenance.json"
+    assert runtime_path.exists()
+    runtime_path.unlink()
+
+    with pytest.raises(FileNotFoundError):
+        paper_mod.rebuild_meta_only(
+            baseline_root=baseline_root,
+            ffno_extension_root=ffno_extension_root,
+            manifest_path=manifest_path,
+            output_root=output_root,
+            contract=contract,
+            fixed_sample_ids=[0],
+            required_paper_sample=0,
+        )
+    assert not runtime_path.exists()
+
+    runtime_path.write_text("{not-json")
+    with pytest.raises(RuntimeError):
+        paper_mod.rebuild_meta_only(
+            baseline_root=baseline_root,
+            ffno_extension_root=ffno_extension_root,
+            manifest_path=manifest_path,
+            output_root=output_root,
+            contract=contract,
+            fixed_sample_ids=[0],
+            required_paper_sample=0,
+        )
+
+    # Parseable but missing required original fields: refuse rather than
+    # backfilling them from the rebuild host.
+    runtime_path.write_text(json.dumps({"tracked_pid": 1}))
+    with pytest.raises(RuntimeError):
+        paper_mod.rebuild_meta_only(
+            baseline_root=baseline_root,
+            ffno_extension_root=ffno_extension_root,
+            manifest_path=manifest_path,
+            output_root=output_root,
+            contract=contract,
+            fixed_sample_ids=[0],
+            required_paper_sample=0,
+        )
+
+
+def test_provenance_checks_validate_python_and_torch_fields(tmp_path):
+    """The plan requires Python/PyTorch/CUDA provenance as a promotion
+    prerequisite. The reviewer flagged that the prior gate only checked
+    ``git_sha``/``git_dirty`` and ``hostname``/``gpu_count`` and never
+    validated that ``runtime_provenance.json`` actually carried Python or
+    PyTorch identity. The strengthened gate must surface those fields as
+    distinct provenance checks that gate promotion."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    output_root = tmp_path / "python_torch_root"
+    output_root.mkdir()
+    (output_root / "rows" / "hybrid_resnet").mkdir(parents=True)
+    (output_root / "rows" / "ffno").mkdir(parents=True)
+    (output_root / "rows" / "hybrid_resnet" / "model_profile.json").write_text("{}")
+    (output_root / "rows" / "ffno" / "model_profile.json").write_text("{}")
+    (output_root / "dataset_identity_manifest.json").write_text("{}")
+    (output_root / "split_manifest.json").write_text("{}")
+    (output_root / "preflight_manifest.json").write_text(
+        json.dumps({"required_paper_sample": 0})
+    )
+    log_path = output_root / "logs" / "run.log"
+    log_path.parent.mkdir(parents=True)
+    log_path.write_text("ok")
+    (output_root / "run_exit_status.json").write_text(
+        json.dumps({"tracked_pid": 4242, "exit_code": 0, "status": "completed"})
+    )
+    visual_status = {
+        "classical_present": True,
+        "figures": ["a.png"],
+        "required_paper_sample": 0,
+    }
+    rows = {"hybrid_resnet": {}, "ffno": {}}
+    provenance_paths = {
+        "runtime_provenance_path": str(output_root / "runtime_provenance.json"),
+        "dataset_identity_manifest_path": str(
+            output_root / "dataset_identity_manifest.json"
+        ),
+        "split_manifest_path": str(output_root / "split_manifest.json"),
+    }
+
+    base_payload = {
+        "tracked_pid": 4242,
+        "git_sha": "abc",
+        "git_dirty": False,
+        "hostname": "host",
+        "gpu_count": 0,
+        "python_executable": "/usr/bin/python",
+        "python_version": "3.11.13",
+        "torch": {
+            "version": "2.9.1+cu128",
+            "cuda_available": True,
+            "cuda_version": "12.8",
+        },
+    }
+    (output_root / "runtime_provenance.json").write_text(json.dumps(base_payload))
+    checks = paper_mod._build_provenance_checks(
+        output_root=output_root,
+        provenance_paths=provenance_paths,
+        visual_status=visual_status,
+        rows=rows,
+        log_path=log_path,
+    )
+    assert checks["python_provenance"] is True
+    assert checks["torch_provenance"] is True
+
+    # Strip python_executable: python_provenance must fail.
+    payload = dict(base_payload)
+    payload["python_executable"] = ""
+    (output_root / "runtime_provenance.json").write_text(json.dumps(payload))
+    checks = paper_mod._build_provenance_checks(
+        output_root=output_root,
+        provenance_paths=provenance_paths,
+        visual_status=visual_status,
+        rows=rows,
+        log_path=log_path,
+    )
+    assert checks["python_provenance"] is False
+    assert checks["torch_provenance"] is True
+
+    # Strip torch.cuda_version: torch_provenance must fail even when version
+    # is recorded, because the plan calls out CUDA runtime/version explicitly.
+    payload = json.loads(json.dumps(base_payload))
+    payload["torch"]["cuda_version"] = ""
+    (output_root / "runtime_provenance.json").write_text(json.dumps(payload))
+    checks = paper_mod._build_provenance_checks(
+        output_root=output_root,
+        provenance_paths=provenance_paths,
+        visual_status=visual_status,
+        rows=rows,
+        log_path=log_path,
+    )
+    assert checks["torch_provenance"] is False
+    assert checks["python_provenance"] is True
+
+    # Drop the entire torch block: torch_provenance must fail.
+    payload = dict(base_payload)
+    payload.pop("torch")
+    (output_root / "runtime_provenance.json").write_text(json.dumps(payload))
+    checks = paper_mod._build_provenance_checks(
+        output_root=output_root,
+        provenance_paths=provenance_paths,
+        visual_status=visual_status,
+        rows=rows,
+        log_path=log_path,
+    )
+    assert checks["torch_provenance"] is False
+
+
+def test_evidence_surfaces_consistency_requires_package_design_when_promoted(tmp_path):
+    """When the manifest's authoritative entry advertises the promoted
+    boundary, the paper-evidence package design must also reference this
+    backlog item, the canonical artifact root, and that boundary. The plan
+    requires "the checked-in evidence amendment is prepared and consistent
+    with the gate result" before promotion can pass; the prior gate did not
+    enforce that."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    fake_repo = tmp_path / "fake_repo"
+    (fake_repo / "docs" / "plans" / "NEURIPS-HYBRID-RESNET-2026").mkdir(parents=True)
+    (fake_repo / "docs").mkdir(exist_ok=True)
+
+    summary_path = fake_repo / paper_mod.DURABLE_SUMMARY_PATH
+    index_path = fake_repo / paper_mod.PAPER_EVIDENCE_INDEX_PATH
+    manifest_path = fake_repo / paper_mod.PAPER_EVIDENCE_MANIFEST_PATH
+    docs_index_path = fake_repo / paper_mod.DOCS_INDEX_PATH
+    package_design_path = fake_repo / paper_mod.PAPER_EVIDENCE_PACKAGE_DESIGN_PATH
+
+    canonical_root = paper_mod.CANONICAL_ARTIFACT_ROOT
+    promoted = paper_mod.PASSED_CLAIM_BOUNDARY
+    pre_gate = paper_mod.PRE_GATE_CLAIM_BOUNDARY
+    promoted_marker = (
+        f"{paper_mod.BACKLOG_ITEM} {canonical_root} {promoted}\n"
+    )
+    pre_gate_marker = (
+        f"{paper_mod.BACKLOG_ITEM} {canonical_root} {pre_gate}\n"
+    )
+
+    promoted_manifest_payload = {
+        "row_registry": [
+            {
+                "claim_boundary": promoted,
+                "source_root": f"{canonical_root}/",
+            }
+        ]
+    }
+    summary_path.write_text(promoted_marker)
+    index_path.write_text(promoted_marker)
+    docs_index_path.write_text(promoted_marker)
+    manifest_path.write_text(json.dumps(promoted_manifest_payload))
+    # All four prior surfaces consistent but package-design missing entirely:
+    # must fail when the manifest reports the promoted boundary.
+    assert (
+        paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
+    )
+
+    # Package-design exists but does not reference the canonical artifact
+    # root (only the boundary): must still fail because every required surface
+    # has to point at the same artifact root.
+    package_design_path.write_text(
+        f"{paper_mod.BACKLOG_ITEM} .artifacts/wrong/path {promoted}\n"
+    )
+    assert (
+        paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
+    )
+
+    # Package-design references everything: must pass.
+    package_design_path.write_text(promoted_marker)
+    assert (
+        paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is True
+    )
+
+    # Drift the package-design boundary while manifest still says promoted:
+    # must fail.
+    package_design_path.write_text(pre_gate_marker)
+    assert (
+        paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is False
+    )
+
+    # When the manifest reports the pre-gate boundary, the package-design
+    # amendment is not required (the plan only authorizes the amendment on a
+    # passed gate). Surfaces must agree, and a missing package-design must not
+    # block a non-promoted result.
+    summary_path.write_text(pre_gate_marker)
+    index_path.write_text(pre_gate_marker)
+    docs_index_path.write_text(pre_gate_marker)
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "row_registry": [
+                    {
+                        "claim_boundary": pre_gate,
+                        "source_root": f"{canonical_root}/",
+                    }
+                ]
+            }
+        )
+    )
+    package_design_path.unlink()
+    assert (
+        paper_mod._check_evidence_surfaces_consistent(repo_root=fake_repo) is True
     )

@@ -2,127 +2,180 @@
 
 ## Completed In This Pass
 
-- Closed implementation-review High issue 1 (`exit_code_proof` is not a proof
-  of completion). `_build_provenance_checks()` now requires
-  `run_exit_status.json` and `runtime_provenance.json` to agree on
-  `tracked_pid` AND requires `exit_code == 0` AND `status == "completed"`. The
-  live training path in `_run_paper_evidence_inner` now defers writing
-  `run_exit_status.json` until after training, evaluation, metrics, and visual
-  materialization have all succeeded, and wraps the subsequent gate /
-  provenance-check / manifest-reseed work in a `try/except` that overwrites
-  the exit-status record with `exit_code=1`/`status="failed"` if any of those
-  steps raise. A partial run can no longer leave a stale
-  `"completed"`/`0` exit-status artifact behind.
-- Closed implementation-review High issue 2 (`scheduler_matches_contract`
-  reduced to a name check). Added `_scheduler_matches_contract` and routed
-  both the live and `--rebuild-meta-only` gate-row constructions through it.
-  The new helper checks scheduler name AND `plateau_factor`,
-  `plateau_patience`, `plateau_threshold`, `plateau_min_lr` against the
-  contract values, and additionally validates the surrounding optimizer
-  recipe (`runtime.epochs`, `runtime.batch_size`, `runtime.learning_rate`).
-  A bundle with drifted plateau settings or a drifted optimizer recipe now
-  fails the gate even when the scheduler name matches.
-- Closed implementation-review High issue 3 (gate provenance/consistency
-  checks materially weaker than the approved contract):
-  - `sample_255_visual_bundle` now also calls
-    `_check_sample_visual_source_arrays`, which requires every per-sample,
-    per-row source-array file to exist on disk for the configured
-    `required_paper_sample` (`q_target`, `sino_obs`, classical comparator
-    `q_pred`/`sino_pred`, Hybrid ResNet `q_pred`/`sino_pred`, FFNO
-    `q_pred`/`sino_pred`). The check threads the sample id through
-    `visual_status` and falls back to `preflight_manifest.required_paper_sample`.
-  - `same_contract_lineage` now additionally compares the current bundle's
-    `dataset.split_counts`, `dataset.normalization`, `operator.geometry`,
-    `fixed_sample_ids`, per-row `input_mode`, and the training-contract
-    fields `batch_size`, `learning_rate`, `optimizer`, `seed`, and
-    `loss_weights` against the frozen baseline lineage. Drift on any of
-    these locked invariants now fails the gate. The lineage check still
-    re-validates the baseline and FFNO-extension bundles on each call and
-    re-checks the current bundle's `baseline_lineage` pointers and shared
-    dataset id.
-  - `_check_evidence_surfaces_consistent` now also requires the repo-wide
-    `docs/index.md` to reference this backlog item, in addition to the
-    durable summary, paper-evidence index, and paper-evidence manifest.
-- Regenerated the on-disk meta artifacts at
+- Closed implementation-review High issue 1 (`--rebuild-meta-only` rewrote
+  the authoritative `runtime_provenance.json` from the rebuild process
+  instead of preserving the original 40-epoch training-run provenance).
+  The rebuild path no longer calls `_write_top_level_provenance` (which
+  re-sampled `git_sha`/`git_dirty`/`hostname`/`gpu_count`/Python/PyTorch
+  fields from the rebuild host). A new helper
+  `_amend_existing_runtime_provenance_for_rebuild` instead reads the
+  on-disk `runtime_provenance.json`, validates that every required
+  original field is present, attaches the rebuild's pid/timestamp/git/host
+  block under `meta_rebuild`, and writes the payload back. The dataset
+  identity and split manifests, which are deterministically derivable
+  from the dataset authority, are still regenerated via a new
+  `_write_dataset_and_split_manifests` helper. If
+  `runtime_provenance.json` is missing, unparseable, or lacks any of
+  `git_sha`, `git_dirty`, `hostname`, `platform`, `gpu_count`,
+  `python_executable`, `python_version`, `torch`, `launch_timestamp_utc`,
+  or `tracked_pid`, the rebuild raises rather than fabricating values
+  from the rebuild host. See
+  `scripts/studies/born_rytov_dt/run_brdt_40ep_paper_evidence.py`
+  (`_amend_existing_runtime_provenance_for_rebuild`,
+  `_write_dataset_and_split_manifests`, `_rebuild_meta_only_inner`).
+- Closed implementation-review High issue 2 (the promotion gate
+  underimplemented the plan's "repo git SHA/dirty, Python/PyTorch/CUDA/
+  GPU/host provenance" prerequisite and the
+  `paper_evidence_package_design.md` evidence-amendment requirement). The
+  gate's `provenance_checks` payload now exposes two new keys:
+  - `python_provenance` — true only when `runtime_provenance.json`
+    records both `python_executable` and `python_version`;
+  - `torch_provenance` — true only when the recorded `torch` block
+    carries `version`, a non-null `cuda_available`, and `cuda_version`.
+  The `evidence_surfaces_prepared` check now also requires
+  `paper_evidence_package_design.md` to reference this backlog item,
+  the canonical artifact root, and the manifest's authoritative
+  claim-boundary string whenever the manifest's authoritative entry
+  advertises the promoted boundary `paper_evidence_brdt_additive`. When
+  the manifest still records the pre-gate boundary, the package-design
+  amendment is not required (the plan only authorizes amending the
+  design doc on a passed gate). See
+  `scripts/studies/born_rytov_dt/run_brdt_40ep_paper_evidence.py`
+  (`_build_provenance_checks`, `_check_evidence_surfaces_consistent`,
+  `PAPER_EVIDENCE_PACKAGE_DESIGN_PATH`).
+- Regenerated the on-disk bundle at
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/`
-  via `--rebuild-meta-only` so the published bundle now carries the
-  strengthened provenance/consistency checks. Recomputed gate continues to
-  pass honestly: `paper_evidence_brdt_additive` / `passed`, all eleven
-  `provenance_checks` true, `failed_gate_checks=[]`. The rebuilt
-  `runtime_provenance.json` and `run_exit_status.json` agree on
-  `tracked_pid=2800210`, `exit_code=0`, `status="completed"`.
-- Updated the durable summary's Reproducibility & Meta Provenance section to
-  document the strengthened guarantees: stricter `exit_code_proof`, deferred
-  live-path exit-status write, full scheduler-and-optimizer contract check,
-  full source-array bundle check, full same-contract lineage invariants
-  (split counts / fixed samples / operator geometry / normalization / input
-  mode / training-contract fields), and the new `docs/index.md` requirement
-  in `evidence_surfaces_prepared`.
-- Added regression tests covering the strengthened checks:
-  - `test_evidence_surfaces_consistency_check_requires_all_surfaces` was
-    extended to require `docs/index.md` in addition to the existing three
-    surfaces.
-  - `test_scheduler_matches_contract_rejects_plateau_drift` proves that
-    drifting `plateau_factor`, `plateau_patience`, `plateau_min_lr`, or
-    `runtime.batch_size` fails the helper even when the scheduler name
-    matches.
-  - `test_sample_visual_source_arrays_check_requires_each_required_file`
-    proves the helper fails when any one of the eight required per-sample,
-    per-row source-array files is missing.
-  - `test_exit_code_proof_requires_completed_status_and_zero_exit_code`
-    proves that a `failed` status, a non-zero `exit_code`, and the
-    happy-path triple all produce the correct `provenance_checks`
-    `exit_code_proof` value.
-  - `test_same_contract_lineage_check_detects_split_count_drift` proves
-    drift on split counts, fixed-sample roster, operator geometry, or
-    training-contract loss weights fails the lineage check.
+  via `--rebuild-meta-only`. Recomputed gate continues to pass honestly:
+  `claim_boundary=paper_evidence_brdt_additive` /
+  `promotion_status=passed`, all thirteen `provenance_checks` true (now
+  including `python_provenance` and `torch_provenance`),
+  `failed_gate_checks=[]`. `runtime_provenance.json` retains the
+  original training-run `pid=tracked_pid=2800210`,
+  `launch_timestamp_utc=2026-05-06T03:54:32.039301+00:00`, the recorded
+  `python_executable`/`python_version`/`torch.*`/`hostname`/`platform`/
+  `gpu_count`/`git_sha`/`git_dirty` fields, and the rebuild's pid /
+  timestamp / git SHA / host / argv now appear under a separate
+  `meta_rebuild` block. `metrics.json`, `combined_metrics.json`,
+  `metric_schema.json`, and `preflight_manifest.json` continue to
+  advertise `claim_boundary=paper_evidence_brdt_additive`.
+- Updated the durable summary's Reproducibility & Meta Provenance section
+  (`docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md`)
+  to document the strengthened guarantees: the new `python_provenance`
+  and `torch_provenance` provenance checks; the new requirement that
+  `paper_evidence_package_design.md` reference this backlog item, root,
+  and boundary whenever the manifest records the promoted boundary; and
+  the rebuild path's preservation of every recorded original
+  `runtime_provenance.json` field with refusal to fabricate when the
+  original payload is missing or malformed.
+- Added regression tests covering each strengthened check:
+  - `test_rebuild_meta_only_preserves_original_runtime_provenance_fields`
+    seeds `runtime_provenance.json` with sentinel values for
+    `git_sha`/`git_dirty`/`hostname`/`platform`/`gpu_count`/
+    `python_executable`/`python_version`/`torch`/`tracked_pid`/
+    `launch_timestamp_utc` (all distinct from anything the rebuild
+    process would record), runs `rebuild_meta_only`, and asserts every
+    sentinel value is preserved exactly while a separate `meta_rebuild`
+    block records the rebuild process's distinct identity.
+  - `test_rebuild_meta_only_refuses_when_runtime_provenance_missing`
+    proves the rebuild path raises `FileNotFoundError` for a missing
+    payload, `RuntimeError` for an unparseable payload, and
+    `RuntimeError` for a parseable payload missing required original
+    fields.
+  - `test_provenance_checks_validate_python_and_torch_fields` proves the
+    gate's `python_provenance` check fails when `python_executable` is
+    absent, the `torch_provenance` check fails when `torch.cuda_version`
+    is missing, and the `torch_provenance` check fails when the entire
+    `torch` block is dropped.
+  - `test_evidence_surfaces_consistency_requires_package_design_when_promoted`
+    proves the surfaces check fails when the manifest records the
+    promoted boundary but `paper_evidence_package_design.md` is missing
+    or fails to reference the canonical artifact root, passes when all
+    five surfaces agree, and stays permissive when the manifest still
+    records the pre-gate boundary so a non-promoted bundle is not
+    blocked by the absence of an amendment.
+  - The pre-existing
+    `test_evidence_surfaces_consistency_check_requires_all_surfaces`
+    test was extended to populate the package-design surface alongside
+    the other four when asserting the all-surfaces-pass case, since
+    the manifest in that fixture records the promoted boundary.
 
 ## Completed Current-Scope Work
 
-- All three implementation-review High issues (`exit_code_proof`,
-  `scheduler_matches_contract`, gate provenance/consistency checks) are
-  addressed in code, on disk, and in regression tests.
-- All approved plan tasks (1–6) remain satisfied, with the strengthened gate
-  checks now matching Tasks 4 and 6 verbatim. Required deterministic checks
-  pass on the current branch:
+- Both implementation-review High issues
+  (`--rebuild-meta-only` overwriting authoritative runtime provenance
+  from the rebuild process; gate underimplementing the
+  Python/PyTorch/CUDA and `paper_evidence_package_design.md`
+  prerequisites) are addressed in code, on disk, and in regression
+  tests.
+- All approved plan tasks (1–6) remain satisfied. The strengthened
+  Task 4 promotion-gate prerequisites now match the plan's
+  "Python/PyTorch/CUDA/GPU/host provenance" requirement explicitly via
+  the new `python_provenance` and `torch_provenance` provenance checks,
+  and the strengthened Task 6 discoverability check now matches the
+  plan's "checked-in evidence amendment consistent with the gate
+  result" requirement when the manifest reports the promoted boundary.
+- Required deterministic checks pass on the current branch:
   - `python` input-existence command (exit 0)
-  - `pytest -q tests/studies/test_born_rytov_dt_adapters.py tests/studies/test_born_rytov_dt_preflight.py`
-    (115 passed in 321.23s; up from 111 due to the four new regression
-    tests added in this pass)
-  - `python -m compileall -q scripts/studies/born_rytov_dt ptycho_torch`
-    (clean)
+  - `pytest -q tests/studies/test_born_rytov_dt_adapters.py
+    tests/studies/test_born_rytov_dt_preflight.py` — all tests pass,
+    including the 4 new regression tests added in this pass.
+  - `python -m compileall -q scripts/studies/born_rytov_dt
+    ptycho_torch` (clean).
 
 ## Follow-Up Work
 
-- The implementation-review's only Follow-Up entry is preserved: regenerate
-  the sample-`255` classical/model-based comparator under this backlog
-  item's root rather than inheriting it by lineage from the frozen
-  `2026-04-29` baseline bundle, if the team wants the paper-facing visual
-  bundle to be single-authority rather than baseline-lineage-derived.
+- Implementation-review's only Follow-Up entry is preserved:
+  regenerate the sample-`255` classical/model-based comparator under this
+  backlog item's own artifact root rather than inheriting it by lineage from
+  the frozen `2026-04-29` baseline bundle, if the team wants the
+  paper-facing visual bundle to be single-authority rather than
+  baseline-lineage-derived.
 
 ## Residual Risks
 
 - Both rerun rows were still materially improving at stop and never reduced
   LR, so the result remains bounded additive evidence rather than a full
   convergence claim. (Carried over from prior pass.)
-- The on-disk regeneration was performed on the currently-dirty `fno-stable`
-  branch, so `runtime_provenance.json` records `git_dirty=true` for both
-  the original training run and the new rebuild block. After committing
-  this pass's runner/test/report changes, an additional
-  `--rebuild-meta-only` run on the clean tree would flip the rebuild's flag
-  to `false`; the recorded values are honest at write time either way.
-- The strengthened `evidence_surfaces_prepared` check is content-based
-  (substring match of the backlog item id and a known claim-boundary
-  label). A future change that renames the backlog-item identifier in only
-  some of the four discoverability surfaces (durable summary,
-  paper-evidence index, paper-evidence manifest, `docs/index.md`) would
-  correctly fail the gate; a change that updates them all consistently to a
-  different value would pass without flagging the rename. This is
-  intentional: the gate validates internal consistency of the surfaces
-  tracking this item, not the global correctness of those surfaces.
-- The strengthened `same_contract_lineage` check is invariant-based: it
-  compares structurally serialized fields between the current and baseline
-  manifests. New fields added in only one manifest revision will not be
-  flagged automatically; only fields enumerated in `_LINEAGE_TRAINING_FIELDS`
-  and the dataset/operator/fixed-sample/normalization/input-mode blocks are
-  cross-checked.
+- The on-disk `runtime_provenance.json` was last fully overwritten by an
+  earlier `--rebuild-meta-only` invocation that ran under the old (now
+  fixed) rebuild path. The current top-level fields therefore reflect that
+  prior rebuild's host snapshot rather than the original 2026-05-06
+  03:54:32 training run; only `pid`/`tracked_pid` and
+  `launch_timestamp_utc` are guaranteed to match the original training
+  process. Going forward the new code preserves whatever is on disk
+  exactly. A clean reset would require retraining the bundle, which is
+  out of scope for this review-driven correction pass; this trade-off is
+  accepted because the alternative (leaving the rebuild path able to
+  fabricate or rotate provenance silently) is the worse failure mode.
+- The on-disk regeneration was performed on the currently-dirty
+  `fno-stable` branch, so the `meta_rebuild` block records
+  `rebuild_git_dirty=true`. After committing this pass's runner / test /
+  report changes, an additional `--rebuild-meta-only` run on the clean
+  tree would flip the rebuild's flag to `false`; the recorded values are
+  honest at write time either way.
+- The strengthened `evidence_surfaces_prepared` check uses the structured
+  `paper_evidence_manifest.json` entry as the authoritative claim-boundary
+  source and only requires `paper_evidence_package_design.md` to reference
+  the boundary when the manifest records the promoted boundary. A future
+  change that updates the manifest's structured entry alongside all other
+  surfaces consistently to a different value would pass without flagging
+  the rename. This is intentional: the gate validates internal consistency
+  of the surfaces tracking this item, not the global correctness of the
+  boundary value. A change that updates only some surfaces will continue
+  to fail the check.
+- The `python_provenance` and `torch_provenance` checks read keys from
+  `runtime_provenance.json` exactly as written by
+  `_capture_extended_runtime_provenance`. A future refactor that renames
+  any of `python_executable`, `python_version`, `torch.version`,
+  `torch.cuda_version`, or `torch.cuda_available` would silently fail the
+  new gate keys. The current shared writer/reader contract is the only
+  guarantee against that drift; the regression tests assert the keys
+  the gate reads, but a code-level rename in the writer plus a parallel
+  rename in the gate would not be caught.
+- The `--rebuild-meta-only` path is now strict against both missing
+  `run_exit_status.json` and missing `runtime_provenance.json`. An
+  operator who has retained sufficient original training evidence in
+  alternate form but lost either JSON file will have to write it back
+  manually with honest values before invoking the rebuild. This is the
+  deliberate trade-off to prevent silent fabrication of completion or
+  runtime evidence after the original artifacts have been lost.
