@@ -111,13 +111,65 @@
     },
     {
       "details": {
-        "reason": "dependency_unavailable"
+        "angle_count": 16,
+        "comparison": "lowpass_reconstruction_correlation",
+        "correlation_threshold": 0.65,
+        "detector_size": 48,
+        "grid_size": 48,
+        "lowpass_cutoff_fraction": 0.18,
+        "max_abs_phase_offset_deg": 177.16118384040468,
+        "mean_phase_offset_deg": 3.3788351117127293,
+        "mean_rel_l2": 0.9973965051572502,
+        "mean_scale_magnitude": 0.1451544009592158,
+        "medium_ri": 1.333,
+        "note": "The pass criterion is low-frequency structure recovery after least-squares complex scale alignment, not exact absolute-scale agreement.",
+        "odtbrain_vacuum_wavelength_px": 10.664,
+        "odtbrain_version": "0.4.12",
+        "pass_count": 0,
+        "per_sample_correlation": [
+          0.013170509418999332,
+          0.09439706366667386,
+          0.12600311225539396,
+          0.06026691763676339,
+          0.0559391122589519,
+          0.10109285537474919,
+          0.11765622175832499,
+          0.023795385104614302,
+          0.05502047167705015,
+          0.08863393861387805,
+          0.11066995676789147,
+          0.024041860082362945,
+          0.016442359118757296,
+          0.10396608267927504,
+          0.12739606432263084,
+          0.06467977593861132
+        ],
+        "per_sample_rel_l2": [
+          0.9999363290773011,
+          0.9968172169002932,
+          0.9942091781619548,
+          0.9986649870183743,
+          0.9987516839267379,
+          0.9961111071782727,
+          0.9947785117928015,
+          0.9997124426311399,
+          0.998791446550696,
+          0.9970034377802064,
+          0.9953723836458004,
+          0.9997033313600827,
+          0.9998530646243013,
+          0.9961190910471709,
+          0.9940526860909111,
+          0.99846718472996
+        ],
+        "used_api": "backpropagate_2d",
+        "wavelength_px": 8.0
       },
-      "metric": null,
+      "metric": 0.013170509418999332,
       "name": "odtbrain_inverse_consistency",
-      "sample_count": 0,
-      "status": "skipped",
-      "tolerance": null
+      "sample_count": 16,
+      "status": "fail",
+      "tolerance": 0.65
     }
   ],
   "downstream_authorization": {
@@ -127,7 +179,7 @@
   },
   "environment": {
     "numpy": "1.26.4",
-    "odtbrain": null,
+    "odtbrain": "0.4.12",
     "platform": "Linux-6.17.0-20-generic-x86_64-with-glibc2.39",
     "python": "3.11.13",
     "scipy": "1.13.1",
@@ -137,7 +189,7 @@
   },
   "known_limits": [
     "direct_born_integral oracle agreement is loose (rel_l2 tolerance 0.6) because the FFT operator periodizes the implicit Green's function while the direct integral truncates it; tighter agreement requires zero-padded operators or a far-field detector convention, both deferred to follow-up validation.",
-    "ODTbrain inverse-side consistency is not exercised in this pass because `dependency_unavailable`; downstream BRDT items must rely on the operator contract and the in-tree validation results until the optional check can be run locally."
+    "ODTbrain inverse-side consistency failed under the locally available API and must be revalidated before any external inverse-side claim is made."
   ],
   "operator": {
     "angle_count": 64,
@@ -160,14 +212,14 @@
   },
   "operator_identity": {
     "class": "BornRytovForward2D",
-    "elapsed_seconds": 0.7539300869684666,
+    "elapsed_seconds": 0.933470955118537,
     "execution_command": "python -m scripts.studies.born_rytov_dt.validate_operator",
-    "finished_utc": "2026-05-03T05:05:10.610761+00:00",
+    "finished_utc": "2026-05-04T19:17:13.421086+00:00",
     "git_dirty": true,
-    "git_sha": "66fcd6f82546b0b92c65537c9aa9265367790e6e",
+    "git_sha": "0a94ead7b7304bb5e05ca1d320ff2b2cad1109e9",
     "module": "ptycho_torch.physics.born_rytov_dt",
     "seed": 0,
-    "started_utc": "2026-05-03T05:05:09.856821+00:00"
+    "started_utc": "2026-05-04T19:17:12.487603+00:00"
   },
   "schema_version": "1.0",
   "verdict": "pass_with_documented_limits"

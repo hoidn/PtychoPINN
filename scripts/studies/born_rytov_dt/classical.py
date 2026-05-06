@@ -141,9 +141,9 @@ def _odtbrain_backprop(
     import odtbrain  # type: ignore
 
     complex_sinogram = sinogram_np[..., 0] + 1j * sinogram_np[..., 1]
-    # ODTbrain ``res = 2*pi*nm/lambda_vac``. With ``lambda_vac = wavelength_px*nm``
-    # in pixel units this reduces to ``2*pi/wavelength_px = k_m`` (locked).
-    res = float(2.0 * math.pi / float(dc.LOCKED_WAVELENGTH_PX))
+    # ODTbrain ``res`` is the vacuum wavelength in pixels. The locked BRDT
+    # operator stores wavelength in the surrounding medium, so convert back.
+    res = float(dc.LOCKED_WAVELENGTH_PX * dc.LOCKED_MEDIUM_RI)
     nm = float(dc.LOCKED_MEDIUM_RI)
     rec = odtbrain.backpropagate_2d(
         uSin=complex_sinogram,
@@ -155,13 +155,11 @@ def _odtbrain_backprop(
         weight_angles=False,
         onlyreal=False,
         padding=True,
-        save_memory=True,
     )
-    # ``backpropagate_2d`` returns refractive-index increment; convert to
-    # physical scattering potential ``q``.
-    n_field = nm * (rec.real if np.iscomplexobj(rec) else rec) + nm
-    q = dc.refractive_index_to_q(np.asarray(n_field, dtype=np.float64), n_m=nm)
-    return q.astype(np.float32)
+    # ODTbrain returns the object function f(r), which is the same physical
+    # scattering potential q used by this BRDT contract.
+    q = rec.real if np.iscomplexobj(rec) else rec
+    return np.asarray(q, dtype=np.float32)
 
 
 def derive_born_init_image(

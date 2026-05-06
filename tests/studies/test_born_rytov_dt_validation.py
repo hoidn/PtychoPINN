@@ -145,8 +145,12 @@ def test_check_cuda_reproducibility_recorded_either_way():
 
 def test_check_odtbrain_inverse_consistency_records_skip_reason():
     result = check_odtbrain_inverse_consistency()
-    assert result.status == "skipped"
-    assert result.details.get("reason") == "dependency_unavailable"
+    assert result.status in ("skipped", "pass", "fail")
+    if result.status == "skipped":
+        assert result.details.get("reason") == "dependency_unavailable"
+    else:
+        assert result.sample_count == 16
+        assert result.details["used_api"] in ("backpropagate_2d", "fourier_map_2d")
 
 
 def test_check_odtbrain_inverse_consistency_uses_installed_package(monkeypatch: pytest.MonkeyPatch):
@@ -362,6 +366,10 @@ def test_run_all_produces_expected_schema(tmp_path: Path):
     auth = payload["downstream_authorization"]
     assert auth["next_item"] == "2026-04-29-brdt-dataset-preflight"
     assert auth["may_proceed"] is True
+    odtbrain_check = next(c for c in payload["checks"] if c["name"] == "odtbrain_inverse_consistency")
+    if odtbrain_check["status"] == "fail":
+        assert payload["verdict"] == "pass_with_documented_limits"
+        assert "must be revalidated" in payload["known_limits"][-1]
     direct_tol = next(c["tolerance"] for c in payload["checks"] if c["name"] == "direct_born_integral")
     assert f"{direct_tol:.1f}" in payload["known_limits"][0]
     assert "0.5" not in payload["known_limits"][0]

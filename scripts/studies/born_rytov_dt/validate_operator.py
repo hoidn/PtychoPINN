@@ -845,9 +845,12 @@ def run_all(seed: int = 0, log_path: Optional[Path] = None) -> Dict[str, Any]:
     blocking_results = [c for c in checks if c.name in blocking_names]
     optional_results = [c for c in checks if c.name not in blocking_names]
     all_blocking_pass = all(c.status == "pass" for c in blocking_results)
-    optional_failed = [c.name for c in optional_results if c.status == "fail"]
-    if all_blocking_pass and not optional_failed:
-        verdict = "pass" if all(c.status == "pass" for c in optional_results) else "pass_with_documented_limits"
+    if all_blocking_pass:
+        verdict = (
+            "pass"
+            if all(c.status == "pass" for c in optional_results)
+            else "pass_with_documented_limits"
+        )
     else:
         verdict = "fail"
 

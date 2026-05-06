@@ -40,3 +40,17 @@
 [2026-05-03T05:05:10.417454+00:00] running cpu_dtype_reproducibility
 [2026-05-03T05:05:10.419713+00:00] running cuda_reproducibility
 [2026-05-03T05:05:10.610529+00:00] running odtbrain_inverse_consistency
+[2026-05-03T05:08:39.800301+00:00] running numpy_consistency
+[2026-05-03T05:08:39.806382+00:00] running direct_born_integral
+[2026-05-03T05:08:40.328435+00:00] running analytic_phantom
+[2026-05-03T05:08:40.329768+00:00] running gradcheck
+[2026-05-03T05:08:40.380095+00:00] running cpu_dtype_reproducibility
+[2026-05-03T05:08:40.382752+00:00] running cuda_reproducibility
+[2026-05-03T05:08:40.594547+00:00] running odtbrain_inverse_consistency
+[2026-05-04T19:17:12.487625+00:00] running numpy_consistency
+[2026-05-04T19:17:12.493267+00:00] running direct_born_integral
+[2026-05-04T19:17:13.039668+00:00] running analytic_phantom
+[2026-05-04T19:17:13.040984+00:00] running gradcheck
+[2026-05-04T19:17:13.090833+00:00] running cpu_dtype_reproducibility
+[2026-05-04T19:17:13.093519+00:00] running cuda_reproducibility
+[2026-05-04T19:17:13.293124+00:00] running odtbrain_inverse_consistency

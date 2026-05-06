@@ -20,6 +20,16 @@ import numpy as np
 
 
 VISUAL_MANIFEST_VERSION: str = "brdt_preflight_visuals_v1"
+ROW_DISPLAY_LABELS = {
+    "classical_born_backprop": "Model-based Born inverse",
+    "unet": "U-Net",
+    "fno_vanilla": "FNO",
+    "hybrid_resnet": "Hybrid ResNet",
+}
+
+
+def _row_label(row_id: str) -> str:
+    return ROW_DISPLAY_LABELS.get(row_id, row_id.replace("_", " "))
 
 
 @dataclass
@@ -81,14 +91,14 @@ def render_compare_q(
     vmin = float(target_2d.min())
     vmax = float(target_2d.max())
     axes[0].imshow(target_2d, vmin=vmin, vmax=vmax, cmap="viridis")
-    axes[0].set_title(f"target_q (sample={sample_id})")
+    axes[0].set_title(f"Target q (sample {sample_id})")
     axes[0].axis("off")
     for ax, (row_id, pred) in zip(axes[1:], preds_by_row.items()):
         pred_2d = np.asarray(pred).squeeze()
         ax.imshow(pred_2d, vmin=vmin, vmax=vmax, cmap="viridis")
-        ax.set_title(row_id)
+        ax.set_title(_row_label(row_id))
         ax.axis("off")
-    fig.suptitle("BRDT preflight — physical q (decision_support_preflight_only)")
+    fig.suptitle("BRDT preflight: physical q")
     fig.tight_layout()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_path, dpi=120)
@@ -117,7 +127,7 @@ def render_error_q(
     vmax = max((float(d.max()) for d in diffs.values()), default=0.0)
     for ax, (row_id, d) in zip(axes, diffs.items()):
         ax.imshow(d, vmin=0.0, vmax=vmax, cmap="magma")
-        ax.set_title(f"|err| {row_id}")
+        ax.set_title(f"|error| {_row_label(row_id)}")
         ax.axis("off")
     fig.suptitle(
         f"BRDT preflight — |q_pred - q_target| (sample={sample_id})"
@@ -154,7 +164,7 @@ def render_sinogram_residual(
         residual = np.asarray(pred) - obs
         for r in range(2):
             axes[r, col].imshow(residual[..., r], cmap="seismic")
-            axes[r, col].set_title(f"{row_id} {'real' if r == 0 else 'imag'}")
+            axes[r, col].set_title(f"{_row_label(row_id)} {'real' if r == 0 else 'imag'}")
             axes[r, col].axis("off")
     fig.suptitle(
         f"BRDT preflight — sinogram residual y_pred - y_obs (sample={sample_id})"
