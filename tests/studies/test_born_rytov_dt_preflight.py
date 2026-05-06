@@ -2512,3 +2512,182 @@ def test_run_brdt_40ep_paper_evidence_live_writes_histories_audit_and_gate(tmp_p
     assert gate["claim_boundary"] == "decision_support_convergence_followup"
     audit = json.loads((output_root / "convergence_audit.json").read_text())
     assert {row["row_id"] for row in audit["rows"]} == {"hybrid_resnet", "ffno"}
+
+    # The runner must re-seed the top-level manifest with the gate's final
+    # claim boundary and promotion status so the bundle cannot present a
+    # passing additive label without the gate actually passing.
+    manifest = json.loads((output_root / "preflight_manifest.json").read_text())
+    assert manifest["claim_boundary"] == gate["claim_boundary"]
+    assert manifest["promotion_status"] == gate["promotion_status"]
+    assert manifest["paper_evidence_gate_path"] == str(
+        output_root / "paper_evidence_gate.json"
+    )
+
+    # Provenance contract: stronger gate-side checks must be present in the
+    # gate payload's provenance_checks dict.
+    pc = gate["provenance_checks"]
+    for required_key in (
+        "git_provenance",
+        "host_provenance",
+        "model_profiles",
+        "run_log_present",
+        "evidence_surfaces_prepared",
+    ):
+        assert required_key in pc
+
+    runtime_provenance = json.loads(
+        (output_root / "runtime_provenance.json").read_text()
+    )
+    for required_field in (
+        "git_sha",
+        "git_dirty",
+        "hostname",
+        "launch_timestamp_utc",
+        "gpu_count",
+        "tracked_pid",
+    ):
+        assert required_field in runtime_provenance
+    exit_status = json.loads((output_root / "run_exit_status.json").read_text())
+    assert "tracked_pid" in exit_status
+    assert "log_path" in exit_status  # may be None when no logs/ exists
+
+
+def test_run_brdt_40ep_paper_evidence_refuses_duplicate_writer(tmp_path):
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    ffno_extension_root = _make_synthetic_ffno_extension_bundle(
+        tmp_path, baseline_root
+    )
+    output_root = tmp_path / "writer_lock_root"
+    output_root.mkdir()
+    # Simulate a live writer holding the lock with a real PID.
+    (output_root / paper_mod.WRITER_LOCK_NAME).write_text(
+        json.dumps(
+            {"pid": int(os.getpid()), "host": "test", "acquired_utc": "1970-01-01T00:00:00+00:00"}
+        )
+    )
+    # Use a separate fake PID to verify the refusal path: monkey-patch _pid_alive.
+    other_pid = 999_999_999
+    (output_root / paper_mod.WRITER_LOCK_NAME).write_text(
+        json.dumps({"pid": other_pid, "host": "test", "acquired_utc": "1970-01-01T00:00:00+00:00"})
+    )
+    original = paper_mod._pid_alive
+    paper_mod._pid_alive = lambda pid: pid == other_pid
+    try:
+        with pytest.raises(paper_mod.WriterConflictError):
+            paper_mod.run_paper_evidence(
+                baseline_root=baseline_root,
+                ffno_extension_root=ffno_extension_root,
+                manifest_path=manifest_path,
+                output_root=output_root,
+                contract=preflight_mod.TrainingContract(
+                    epochs=1, batch_size=1, learning_rate=2e-4
+                ),
+                device_choice="cpu",
+                dry_run=False,
+                fixed_sample_ids=[0],
+                required_paper_sample=0,
+                parent_argv=[],
+            )
+    finally:
+        paper_mod._pid_alive = original
+
+
+def test_run_brdt_40ep_paper_evidence_refuses_completed_root(tmp_path):
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    ffno_extension_root = _make_synthetic_ffno_extension_bundle(
+        tmp_path, baseline_root
+    )
+    output_root = tmp_path / "completed_root"
+    output_root.mkdir()
+    # Simulate a previously completed bundle.
+    (output_root / "paper_evidence_gate.json").write_text("{}")
+    (output_root / "run_exit_status.json").write_text("{}")
+    with pytest.raises(paper_mod.WriterConflictError):
+        paper_mod.run_paper_evidence(
+            baseline_root=baseline_root,
+            ffno_extension_root=ffno_extension_root,
+            manifest_path=manifest_path,
+            output_root=output_root,
+            contract=preflight_mod.TrainingContract(
+                epochs=1, batch_size=1, learning_rate=2e-4
+            ),
+            device_choice="cpu",
+            dry_run=False,
+            fixed_sample_ids=[0],
+            required_paper_sample=0,
+            parent_argv=[],
+        )
+
+
+def test_rebuild_meta_only_refreshes_manifest_provenance_and_gate(tmp_path):
+    """rebuild_meta_only must rebuild the top-level manifest, provenance,
+    audit, and gate payloads from existing per-row outputs without retraining."""
+    from scripts.studies.born_rytov_dt import (
+        run_brdt_40ep_paper_evidence as paper_mod,
+    )
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    ffno_extension_root = _make_synthetic_ffno_extension_bundle(
+        tmp_path, baseline_root
+    )
+    output_root = tmp_path / "rebuild_meta_root"
+    contract = preflight_mod.TrainingContract(
+        epochs=1,
+        batch_size=1,
+        learning_rate=2e-4,
+        scheduler="reduce_on_plateau",
+        plateau_factor=0.5,
+        plateau_patience=2,
+        plateau_threshold=0.0,
+        plateau_min_lr=1e-5,
+    )
+
+    # First, do a real live run so the per-row outputs exist.
+    paper_mod.run_paper_evidence(
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+        manifest_path=manifest_path,
+        output_root=output_root,
+        contract=contract,
+        device_choice="cpu",
+        dry_run=False,
+        fixed_sample_ids=[0],
+        required_paper_sample=0,
+        parent_argv=[],
+    )
+
+    # Corrupt the top-level manifest to simulate a stale meta payload.
+    manifest_path_top = output_root / "preflight_manifest.json"
+    payload = json.loads(manifest_path_top.read_text())
+    payload["claim_boundary"] = "paper_evidence_brdt_additive"
+    payload["promotion_status"] = "passed"
+    manifest_path_top.write_text(json.dumps(payload, indent=2, sort_keys=True))
+
+    # Rebuild meta only: must recompute gate honestly and re-seed manifest.
+    result = paper_mod.rebuild_meta_only(
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+        manifest_path=manifest_path,
+        output_root=output_root,
+        contract=contract,
+        fixed_sample_ids=[0],
+        required_paper_sample=0,
+    )
+    assert result["rebuild_meta_only"] is True
+    gate = json.loads((output_root / "paper_evidence_gate.json").read_text())
+    refreshed = json.loads(manifest_path_top.read_text())
+    assert refreshed["claim_boundary"] == gate["claim_boundary"]
+    assert refreshed["promotion_status"] == gate["promotion_status"]
+    # Synthetic single-epoch contract still fails the 40-epoch gate.
+    assert gate["promotion_status"] == "failed"

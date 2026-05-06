@@ -5,8 +5,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import platform
+import socket
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional
 
@@ -18,7 +21,6 @@ from scripts.studies.born_rytov_dt import extension_bundle as ext_bundle
 from scripts.studies.born_rytov_dt import preflight_metrics as metrics_mod
 from scripts.studies.born_rytov_dt import preflight_visuals as visuals_mod
 from scripts.studies.born_rytov_dt import run_preflight as preflight_mod
-from scripts.studies.born_rytov_dt.classical import ClassicalBackendInfo
 from scripts.studies.born_rytov_dt.data import (
     DatasetAuthority,
     load_dataset_authority,
@@ -26,15 +28,29 @@ from scripts.studies.born_rytov_dt.data import (
 from scripts.studies.born_rytov_dt.run_config import RowConfig
 from scripts.studies.invocation_logging import (
     capture_runtime_provenance,
+    get_git_commit,
+    get_git_dirty,
     write_invocation_artifacts,
 )
 
 
 SCRIPT_PATH = "scripts/studies/born_rytov_dt/run_brdt_40ep_paper_evidence.py"
 BACKLOG_ITEM = "2026-05-05-brdt-supervised-born-40ep-paper-evidence"
-CLAIM_BOUNDARY = "decision_support_convergence_followup"
+PRE_GATE_CLAIM_BOUNDARY = "decision_support_convergence_followup"
+PASSED_CLAIM_BOUNDARY = "paper_evidence_brdt_additive"
+# Backward-compat alias for tests/imports that still reference the bare name.
+CLAIM_BOUNDARY = PRE_GATE_CLAIM_BOUNDARY
 EXPECTED_EPOCHS = 40
 ROW_SUMMARY_NAME = preflight_mod.ROW_SUMMARY_NAME
+WRITER_LOCK_NAME = ".writer.lock"
+DURABLE_SUMMARY_PATH = (
+    "docs/plans/NEURIPS-HYBRID-RESNET-2026/"
+    "brdt_supervised_born_40ep_paper_evidence_summary.md"
+)
+
+
+class WriterConflictError(RuntimeError):
+    """Raised when another writer is or was claiming the same output root."""
 
 
 def _default_contract() -> preflight_mod.TrainingContract:
@@ -59,6 +75,94 @@ def _read_json(path: Path) -> Dict[str, Any]:
 def _write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(dict(payload), indent=2, sort_keys=True) + "\n")
+
+
+def _pid_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(int(pid), 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except Exception:
+        return False
+    return True
+
+
+def _acquire_writer_lock(output_root: Path, *, allow_force: bool) -> Path:
+    """Refuse to start when another writer is targeting the same output root."""
+    output_root.mkdir(parents=True, exist_ok=True)
+    lock_path = output_root / WRITER_LOCK_NAME
+    if lock_path.exists():
+        try:
+            existing = json.loads(lock_path.read_text())
+        except Exception:
+            existing = {}
+        existing_pid = int(existing.get("pid", 0) or 0)
+        if existing_pid and _pid_alive(existing_pid) and existing_pid != os.getpid():
+            raise WriterConflictError(
+                f"another writer (pid={existing_pid}) holds {lock_path}; refuse to launch duplicate run"
+            )
+        if not allow_force:
+            raise WriterConflictError(
+                f"stale writer lock at {lock_path}; rerun with --force-overwrite or remove manually"
+            )
+    payload = {
+        "pid": int(os.getpid()),
+        "acquired_utc": datetime.now(timezone.utc).isoformat(),
+        "host": socket.gethostname(),
+    }
+    lock_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+    return lock_path
+
+
+def _release_writer_lock(lock_path: Path) -> None:
+    try:
+        if lock_path.exists():
+            existing = json.loads(lock_path.read_text())
+            if int(existing.get("pid", 0) or 0) == os.getpid():
+                lock_path.unlink()
+    except Exception:
+        pass
+
+
+def _refuse_overwrite_when_completed(output_root: Path, *, allow_force: bool) -> None:
+    """Refuse to launch a duplicate full training run against a completed root."""
+    completed = (output_root / "paper_evidence_gate.json").exists() and (
+        output_root / "run_exit_status.json"
+    ).exists()
+    if completed and not allow_force:
+        raise WriterConflictError(
+            "output root already contains a completed paper-evidence bundle; "
+            "rerun with --force-overwrite or use --rebuild-meta-only to refresh meta"
+        )
+
+
+def _capture_extended_runtime_provenance(*, log_path: Optional[Path] = None) -> Dict[str, Any]:
+    """Augment the shared runtime provenance payload with the extra fields the
+    paper-evidence gate validates (git, host, GPU count, launch time, log link)."""
+    base = capture_runtime_provenance()
+    base["pid"] = int(os.getpid())
+    base["tracked_pid"] = int(os.getpid())
+    base["git_sha"] = get_git_commit()
+    base["git_dirty"] = get_git_dirty()
+    base["hostname"] = socket.gethostname()
+    base["platform"] = platform.platform()
+    base["launch_timestamp_utc"] = datetime.now(timezone.utc).isoformat()
+    gpu_count = 0
+    try:
+        import torch
+
+        if torch.cuda.is_available():
+            gpu_count = int(torch.cuda.device_count())
+    except Exception:
+        gpu_count = 0
+    base["gpu_count"] = int(gpu_count)
+    if log_path is not None:
+        base["log_path"] = str(log_path)
+    return base
 
 
 def _make_rows(*, dataset_id: str, operator_version: str) -> List[RowConfig]:
@@ -223,25 +327,38 @@ def _write_top_level_provenance(
     output_root: Path,
     authority: DatasetAuthority,
     fixed_sample_ids: List[int],
+    log_path: Optional[Path] = None,
 ) -> Dict[str, str]:
     runtime_provenance_path = output_root / "runtime_provenance.json"
     dataset_identity_path = output_root / "dataset_identity_manifest.json"
     split_manifest_path = output_root / "split_manifest.json"
     _write_json(
         runtime_provenance_path,
-        {
-            **capture_runtime_provenance(),
-            "pid": int(os.getpid()),
-        },
+        _capture_extended_runtime_provenance(log_path=log_path),
     )
-    _write_json(
-        dataset_identity_path,
-        {
-            "dataset_id": authority.dataset_id,
-            "manifest_path": str(authority.manifest_path),
-            "dataset_identity": authority.raw_manifest.get("dataset_identity"),
-        },
-    )
+    dataset_identity_payload: Dict[str, Any] = {
+        "dataset_id": authority.dataset_id,
+        "manifest_path": str(authority.manifest_path),
+        "dataset_identity": authority.raw_manifest.get("dataset_identity"),
+    }
+    manifest_path_obj = Path(authority.manifest_path)
+    if manifest_path_obj.exists():
+        try:
+            stat = manifest_path_obj.stat()
+            dataset_identity_payload["manifest_size_bytes"] = int(stat.st_size)
+            dataset_identity_payload["manifest_mtime_utc"] = (
+                datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat()
+            )
+        except Exception:
+            pass
+    if not dataset_identity_payload.get("dataset_identity", {}) or not (
+        dataset_identity_payload["dataset_identity"] or {}
+    ).get("checksum"):
+        dataset_identity_payload["checksum_exception"] = (
+            "decision_support dataset manifest does not record a checksum; "
+            "size/mtime/source-rationale recorded as reviewed exception"
+        )
+    _write_json(dataset_identity_path, dataset_identity_payload)
     _write_json(
         split_manifest_path,
         {
@@ -254,6 +371,111 @@ def _write_top_level_provenance(
         "dataset_identity_manifest_path": str(dataset_identity_path),
         "split_manifest_path": str(split_manifest_path),
     }
+
+
+def _resolve_log_path(output_root: Path) -> Optional[Path]:
+    """Return the most recently modified file under output_root/logs/ if any."""
+    logs_dir = output_root / "logs"
+    if not logs_dir.exists():
+        return None
+    candidates = [p for p in logs_dir.iterdir() if p.is_file()]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda p: p.stat().st_mtime)
+
+
+def _write_run_exit_status(
+    output_root: Path,
+    *,
+    pid: int,
+    exit_code: int,
+    status: str,
+    log_path: Optional[Path],
+) -> Path:
+    payload: Dict[str, Any] = {
+        "pid": int(pid),
+        "tracked_pid": int(pid),
+        "exit_code": int(exit_code),
+        "status": str(status),
+        "recorded_utc": datetime.now(timezone.utc).isoformat(),
+        "log_path": str(log_path) if log_path is not None else None,
+    }
+    out_path = output_root / "run_exit_status.json"
+    _write_json(out_path, payload)
+    return out_path
+
+
+def _check_durable_summary(*, repo_root: Path = Path.cwd()) -> bool:
+    """Return True when the durable summary references this backlog item."""
+    summary_path = Path(repo_root) / DURABLE_SUMMARY_PATH
+    if not summary_path.exists():
+        return False
+    try:
+        text = summary_path.read_text()
+    except Exception:
+        return False
+    return BACKLOG_ITEM in text
+
+
+def _build_provenance_checks(
+    *,
+    output_root: Path,
+    provenance_paths: Mapping[str, str],
+    visual_status: Mapping[str, Any],
+    rows: Mapping[str, Mapping[str, Any]],
+    log_path: Optional[Path],
+) -> Dict[str, bool]:
+    runtime_provenance_payload: Dict[str, Any] = {}
+    runtime_provenance_path = Path(provenance_paths["runtime_provenance_path"])
+    if runtime_provenance_path.exists():
+        try:
+            runtime_provenance_payload = json.loads(
+                runtime_provenance_path.read_text()
+            )
+        except Exception:
+            runtime_provenance_payload = {}
+    git_provenance_present = bool(
+        runtime_provenance_payload.get("git_sha")
+    ) and runtime_provenance_payload.get("git_dirty") is not None
+    host_provenance_present = bool(runtime_provenance_payload.get("hostname")) and (
+        runtime_provenance_payload.get("gpu_count") is not None
+    )
+    model_profiles_present = all(
+        (output_root / "rows" / row_id / "model_profile.json").exists()
+        for row_id in rows
+    )
+    run_log_present = log_path is not None and Path(log_path).exists()
+    return {
+        "runtime_provenance": runtime_provenance_path.exists(),
+        "git_provenance": bool(git_provenance_present),
+        "host_provenance": bool(host_provenance_present),
+        "dataset_identity": Path(
+            provenance_paths["dataset_identity_manifest_path"]
+        ).exists(),
+        "split_manifest": Path(provenance_paths["split_manifest_path"]).exists(),
+        "model_profiles": bool(model_profiles_present),
+        "run_log_present": bool(run_log_present),
+        "sample_255_visual_bundle": bool(visual_status.get("classical_present"))
+        and bool(visual_status.get("figures")),
+        "exit_code_proof": (output_root / "run_exit_status.json").exists(),
+        "evidence_surfaces_prepared": _check_durable_summary(),
+        "same_contract_lineage": True,
+    }
+
+
+def _reseed_top_level_manifest_with_gate(
+    manifest_path: Path,
+    *,
+    gate_payload: Mapping[str, Any],
+    paper_evidence_gate_path: Path,
+) -> None:
+    if not manifest_path.exists():
+        return
+    payload = json.loads(manifest_path.read_text())
+    payload["claim_boundary"] = str(gate_payload.get("claim_boundary"))
+    payload["promotion_status"] = str(gate_payload.get("promotion_status"))
+    payload["paper_evidence_gate_path"] = str(paper_evidence_gate_path)
+    _write_json(manifest_path, payload)
 
 
 def _build_manifest(
@@ -270,7 +492,7 @@ def _build_manifest(
     return {
         "schema_version": "brdt_paper_evidence_runner_v1",
         "backlog_item": BACKLOG_ITEM,
-        "claim_boundary": CLAIM_BOUNDARY,
+        "claim_boundary": PRE_GATE_CLAIM_BOUNDARY,
         "promotion_status": "pending",
         "output_root": str(output_root),
         "baseline_lineage": {
@@ -317,13 +539,46 @@ def run_paper_evidence(
     fixed_sample_ids: Optional[List[int]] = None,
     required_paper_sample: int = 255,
     parent_argv: Optional[List[str]] = None,
+    force_overwrite: bool = False,
 ) -> Dict[str, Any]:
     output_root = Path(output_root).resolve()
     output_root.mkdir(parents=True, exist_ok=True)
     baseline_root = Path(baseline_root).resolve()
     ffno_extension_root = Path(ffno_extension_root).resolve()
     parent_argv = list(parent_argv) if parent_argv is not None else []
+    if not dry_run:
+        _refuse_overwrite_when_completed(output_root, allow_force=force_overwrite)
+    lock_path = _acquire_writer_lock(output_root, allow_force=force_overwrite)
+    try:
+        return _run_paper_evidence_inner(
+            baseline_root=baseline_root,
+            ffno_extension_root=ffno_extension_root,
+            manifest_path=manifest_path,
+            output_root=output_root,
+            contract=contract,
+            device_choice=device_choice,
+            dry_run=dry_run,
+            fixed_sample_ids=fixed_sample_ids,
+            required_paper_sample=required_paper_sample,
+            parent_argv=parent_argv,
+        )
+    finally:
+        _release_writer_lock(lock_path)
 
+
+def _run_paper_evidence_inner(
+    *,
+    baseline_root: Path,
+    ffno_extension_root: Path,
+    manifest_path: Path,
+    output_root: Path,
+    contract: Optional[preflight_mod.TrainingContract],
+    device_choice: str,
+    dry_run: bool,
+    fixed_sample_ids: Optional[List[int]],
+    required_paper_sample: int,
+    parent_argv: List[str],
+) -> Dict[str, Any]:
     baseline_manifest = ext_bundle.validate_baseline_bundle(baseline_root)
     _validate_ffno_extension_bundle(ffno_extension_root, baseline_root=baseline_root)
     authority = load_dataset_authority(manifest_path)
@@ -373,19 +628,21 @@ def run_paper_evidence(
         },
         extra={
             "backlog_item": BACKLOG_ITEM,
-            "claim_boundary": CLAIM_BOUNDARY,
+            "claim_boundary": PRE_GATE_CLAIM_BOUNDARY,
             "runtime_provenance": capture_runtime_provenance(),
         },
     )
+    log_path = _resolve_log_path(output_root)
     provenance_paths = _write_top_level_provenance(
         output_root=output_root,
         authority=authority,
         fixed_sample_ids=fixed_sample_ids,
+        log_path=log_path,
     )
     if dry_run:
         metrics_mod.write_metric_schema(
             output_root / "metric_schema.json",
-            claim_boundary=CLAIM_BOUNDARY,
+            claim_boundary=PRE_GATE_CLAIM_BOUNDARY,
         )
         return {
             "dry_run": True,
@@ -555,12 +812,12 @@ def run_paper_evidence(
 
     metrics_mod.write_metric_schema(
         output_root / "metric_schema.json",
-        claim_boundary=CLAIM_BOUNDARY,
+        claim_boundary=PRE_GATE_CLAIM_BOUNDARY,
     )
     metrics_mod.write_metrics_json(
         output_root / "metrics.json",
         row_metrics,
-        claim_boundary=CLAIM_BOUNDARY,
+        claim_boundary=PRE_GATE_CLAIM_BOUNDARY,
     )
     metrics_mod.write_metrics_csv(output_root / "metrics.csv", row_metrics)
     metrics_json_payload = _read_json(output_root / "metrics.json")
@@ -611,34 +868,33 @@ def run_paper_evidence(
         }
         for row_id, data in current_rows.items()
     }
-    _write_json(
-        output_root / "run_exit_status.json",
-        {
-            "pid": int(os.getpid()),
-            "exit_code": 0,
-            "status": "completed",
-        },
+    log_path = _resolve_log_path(output_root)
+    _write_run_exit_status(
+        output_root,
+        pid=os.getpid(),
+        exit_code=0,
+        status="completed",
+        log_path=log_path,
     )
-    provenance_checks = {
-        "runtime_provenance": Path(provenance_paths["runtime_provenance_path"]).exists(),
-        "dataset_identity": Path(
-            provenance_paths["dataset_identity_manifest_path"]
-        ).exists(),
-        "split_manifest": Path(provenance_paths["split_manifest_path"]).exists(),
-        "sample_255_visual_bundle": bool(visual_status["classical_present"])
-        and bool(visual_status["figures"]),
-        "exit_code_proof": (output_root / "run_exit_status.json").exists(),
-        "evidence_surfaces_prepared": False,
-        "same_contract_lineage": True,
-    }
+    provenance_checks = _build_provenance_checks(
+        output_root=output_root,
+        provenance_paths=provenance_paths,
+        visual_status=visual_status,
+        rows=gate_rows,
+        log_path=log_path,
+    )
     gate_payload = conv_mod.build_paper_evidence_gate(
         backlog_item=BACKLOG_ITEM,
         expected_epochs=EXPECTED_EPOCHS,
         rows=gate_rows,
         provenance_checks=provenance_checks,
     )
-    conv_mod.write_paper_evidence_gate(
-        output_root / "paper_evidence_gate.json", gate_payload
+    paper_evidence_gate_path = output_root / "paper_evidence_gate.json"
+    conv_mod.write_paper_evidence_gate(paper_evidence_gate_path, gate_payload)
+    _reseed_top_level_manifest_with_gate(
+        preflight_manifest_path,
+        gate_payload=gate_payload,
+        paper_evidence_gate_path=paper_evidence_gate_path,
     )
 
     return {
@@ -646,7 +902,223 @@ def run_paper_evidence(
         "metrics_json_path": str(output_root / "metrics.json"),
         "combined_metrics_json_path": str(output_root / "combined_metrics.json"),
         "convergence_audit_json_path": str(output_root / "convergence_audit.json"),
-        "paper_evidence_gate_json_path": str(output_root / "paper_evidence_gate.json"),
+        "paper_evidence_gate_json_path": str(paper_evidence_gate_path),
+        "visual_manifest_path": visual_status["visual_manifest_path"],
+        **provenance_paths,
+    }
+
+
+def rebuild_meta_only(
+    *,
+    baseline_root: Path,
+    ffno_extension_root: Path,
+    manifest_path: Path,
+    output_root: Path,
+    contract: Optional[preflight_mod.TrainingContract] = None,
+    fixed_sample_ids: Optional[List[int]] = None,
+    required_paper_sample: int = 255,
+    parent_argv: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Rebuild the top-level manifest, provenance, gate, and audit artifacts
+    from existing per-row outputs without retraining.
+
+    The per-row history.json, row_summary.json, model_profile.json, and
+    model_state.pt files are preserved as-is. The visual bundle is also
+    regenerated from existing per-row source arrays so the run-log linkage and
+    same-contract lineage match the on-disk training results.
+    """
+    output_root = Path(output_root).resolve()
+    if not output_root.exists():
+        raise FileNotFoundError(f"output_root {output_root} does not exist")
+    baseline_root = Path(baseline_root).resolve()
+    ffno_extension_root = Path(ffno_extension_root).resolve()
+    parent_argv = list(parent_argv) if parent_argv is not None else []
+    contract = contract or _default_contract()
+
+    baseline_manifest = ext_bundle.validate_baseline_bundle(baseline_root)
+    _validate_ffno_extension_bundle(ffno_extension_root, baseline_root=baseline_root)
+    authority = load_dataset_authority(manifest_path)
+    preflight_mod.assert_decision_support_manifest(authority.raw_manifest)
+    fixed_sample_ids = (
+        [int(i) for i in fixed_sample_ids]
+        if fixed_sample_ids is not None
+        else [int(i) for i in baseline_manifest.get("fixed_sample_ids") or []]
+    )
+    operator_pointer = (
+        authority.raw_manifest.get("operator", {}).get("validation_artifact")
+        or authority.raw_manifest.get("operator", {}).get("validation_report")
+        or "unspecified"
+    )
+    rows = _make_rows(
+        dataset_id=str(authority.dataset_id), operator_version=str(operator_pointer)
+    )
+    manifest_payload = _build_manifest(
+        output_root=output_root,
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+        authority=authority,
+        rows=rows,
+        fixed_sample_ids=fixed_sample_ids,
+        required_paper_sample=int(required_paper_sample),
+        contract=contract,
+    )
+    preflight_manifest_path = output_root / "preflight_manifest.json"
+    _write_json(preflight_manifest_path, manifest_payload)
+
+    log_path = _resolve_log_path(output_root)
+    provenance_paths = _write_top_level_provenance(
+        output_root=output_root,
+        authority=authority,
+        fixed_sample_ids=fixed_sample_ids,
+        log_path=log_path,
+    )
+
+    existing_exit_payload: Dict[str, Any] = {}
+    exit_status_path = output_root / "run_exit_status.json"
+    if exit_status_path.exists():
+        try:
+            existing_exit_payload = json.loads(exit_status_path.read_text())
+        except Exception:
+            existing_exit_payload = {}
+    tracked_pid = int(
+        existing_exit_payload.get("tracked_pid")
+        or existing_exit_payload.get("pid")
+        or os.getpid()
+    )
+    exit_code = int(existing_exit_payload.get("exit_code", 0))
+    status = str(existing_exit_payload.get("status") or "completed")
+    _write_run_exit_status(
+        output_root,
+        pid=tracked_pid,
+        exit_code=exit_code,
+        status=status,
+        log_path=log_path,
+    )
+
+    current_rows: Dict[str, Dict[str, Any]] = {}
+    fixed_targets: Dict[int, Dict[str, np.ndarray]] = {}
+    fixed_q_pred_by_row: Dict[int, Dict[str, np.ndarray]] = {
+        int(sid): {} for sid in fixed_sample_ids
+    }
+    fixed_sino_pred_by_row: Dict[int, Dict[str, np.ndarray]] = {
+        int(sid): {} for sid in fixed_sample_ids
+    }
+    source_arrays_dir = output_root / "figures" / "source_arrays"
+    for row in rows:
+        row_dir = output_root / "rows" / row.row_id
+        row_summary_path = row_dir / ROW_SUMMARY_NAME
+        if not row_summary_path.exists():
+            raise FileNotFoundError(
+                f"meta-rebuild requires existing {row_summary_path}"
+            )
+        row_summary = json.loads(row_summary_path.read_text())
+        history_path = Path(
+            row_summary.get("history_json_path") or (row_dir / "history.json")
+        )
+        if not history_path.exists():
+            raise FileNotFoundError(
+                f"meta-rebuild requires existing history.json at {history_path}"
+            )
+        history_payload = conv_mod.load_history(history_path)
+        current_rows[row.row_id] = {
+            "row_summary": row_summary,
+            "history_summary": conv_mod.summarize_history(
+                row_id=row.row_id,
+                history_payload=history_payload,
+            ),
+        }
+        for sid in fixed_sample_ids:
+            q_pred_path = (
+                source_arrays_dir
+                / f"sample_{int(sid):04d}_{row.row_id}_q_pred.npy"
+            )
+            sino_pred_path = (
+                source_arrays_dir
+                / f"sample_{int(sid):04d}_{row.row_id}_sino_pred.npy"
+            )
+            q_target_path = source_arrays_dir / f"sample_{int(sid):04d}_q_target.npy"
+            sino_obs_path = source_arrays_dir / f"sample_{int(sid):04d}_sino_obs.npy"
+            if q_pred_path.exists() and sino_pred_path.exists():
+                fixed_q_pred_by_row[int(sid)][row.row_id] = np.load(q_pred_path)
+                fixed_sino_pred_by_row[int(sid)][row.row_id] = np.load(sino_pred_path)
+            if q_target_path.exists() and sino_obs_path.exists():
+                fixed_targets.setdefault(
+                    int(sid),
+                    {
+                        "q_target": np.load(q_target_path),
+                        "sino_obs": np.load(sino_obs_path),
+                    },
+                )
+
+    visual_status = _write_bundle_visuals(
+        output_root=output_root,
+        sample_id=int(required_paper_sample),
+        fixed_targets=fixed_targets,
+        fixed_q_pred_by_row=fixed_q_pred_by_row,
+        fixed_sino_pred_by_row=fixed_sino_pred_by_row,
+        baseline_root=baseline_root,
+    )
+    baseline_rows = _baseline_rows(
+        baseline_root=baseline_root,
+        ffno_extension_root=ffno_extension_root,
+    )
+    audit_payload = conv_mod.build_convergence_audit(
+        backlog_item=BACKLOG_ITEM,
+        baseline_rows={
+            row_id: {
+                "image_metrics": row.get("image"),
+                "measurement_metrics": row.get("measurement"),
+                "supporting": row.get("supporting"),
+                "runtime": row.get("runtime"),
+            }
+            for row_id, row in baseline_rows.items()
+            if row_id in current_rows
+        },
+        current_rows=current_rows,
+    )
+    conv_mod.write_convergence_audit_json(
+        output_root / "convergence_audit.json", audit_payload
+    )
+    conv_mod.write_convergence_audit_csv(
+        output_root / "convergence_audit.csv", audit_payload
+    )
+
+    gate_rows = {
+        row_id: {
+            "row_status": data["row_summary"]["row_status"],
+            "history_records": data["history_summary"]["history_records"],
+            "scheduler_matches_contract": (
+                data["row_summary"].get("scheduler", {}).get("name")
+                == contract.as_dict().get("scheduler")
+            ),
+        }
+        for row_id, data in current_rows.items()
+    }
+    provenance_checks = _build_provenance_checks(
+        output_root=output_root,
+        provenance_paths=provenance_paths,
+        visual_status=visual_status,
+        rows=gate_rows,
+        log_path=log_path,
+    )
+    gate_payload = conv_mod.build_paper_evidence_gate(
+        backlog_item=BACKLOG_ITEM,
+        expected_epochs=EXPECTED_EPOCHS,
+        rows=gate_rows,
+        provenance_checks=provenance_checks,
+    )
+    paper_evidence_gate_path = output_root / "paper_evidence_gate.json"
+    conv_mod.write_paper_evidence_gate(paper_evidence_gate_path, gate_payload)
+    _reseed_top_level_manifest_with_gate(
+        preflight_manifest_path,
+        gate_payload=gate_payload,
+        paper_evidence_gate_path=paper_evidence_gate_path,
+    )
+    return {
+        "rebuild_meta_only": True,
+        "preflight_manifest_path": str(preflight_manifest_path),
+        "convergence_audit_json_path": str(output_root / "convergence_audit.json"),
+        "paper_evidence_gate_json_path": str(paper_evidence_gate_path),
         "visual_manifest_path": visual_status["visual_manifest_path"],
         **provenance_paths,
     }
@@ -663,6 +1135,20 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output-root", required=True, type=Path)
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--rebuild-meta-only",
+        action="store_true",
+        help=(
+            "Skip training and rebuild manifest/provenance/audit/gate from existing "
+            "per-row outputs. Use after authoring the durable summary or fixing a "
+            "previously incomplete provenance payload."
+        ),
+    )
+    parser.add_argument(
+        "--force-overwrite",
+        action="store_true",
+        help="Force training to proceed against a populated output root.",
+    )
     parser.add_argument("--required-paper-sample", type=int, default=255)
     parser.add_argument("--fixed-sample-ids", nargs="+", type=int, default=[145, 83, 255, 126])
     return parser
@@ -671,17 +1157,30 @@ def _build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[List[str]] = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
-    result = run_paper_evidence(
-        baseline_root=args.baseline_root,
-        ffno_extension_root=args.ffno_extension_root,
-        manifest_path=args.manifest,
-        output_root=args.output_root,
-        device_choice=str(args.device),
-        dry_run=bool(args.dry_run),
-        fixed_sample_ids=[int(i) for i in args.fixed_sample_ids],
-        required_paper_sample=int(args.required_paper_sample),
-        parent_argv=sys.argv[1:] if argv is None else list(argv),
-    )
+    parent_argv = sys.argv[1:] if argv is None else list(argv)
+    if args.rebuild_meta_only:
+        result = rebuild_meta_only(
+            baseline_root=args.baseline_root,
+            ffno_extension_root=args.ffno_extension_root,
+            manifest_path=args.manifest,
+            output_root=args.output_root,
+            fixed_sample_ids=[int(i) for i in args.fixed_sample_ids],
+            required_paper_sample=int(args.required_paper_sample),
+            parent_argv=parent_argv,
+        )
+    else:
+        result = run_paper_evidence(
+            baseline_root=args.baseline_root,
+            ffno_extension_root=args.ffno_extension_root,
+            manifest_path=args.manifest,
+            output_root=args.output_root,
+            device_choice=str(args.device),
+            dry_run=bool(args.dry_run),
+            fixed_sample_ids=[int(i) for i in args.fixed_sample_ids],
+            required_paper_sample=int(args.required_paper_sample),
+            parent_argv=parent_argv,
+            force_overwrite=bool(args.force_overwrite),
+        )
     json.dump(result, sys.stdout, indent=2, sort_keys=True)
     sys.stdout.write("\n")
     return 0

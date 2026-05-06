@@ -116,3 +116,28 @@ This promotion remains deliberately narrow:
   lineage from the baseline bundle rather than regenerated in this pass.
 - This item is repo-local only; `/home/ollie/Documents/neurips/` remains out of
   scope.
+
+## 7. Reproducibility And Meta Provenance
+
+The fresh artifact root is reproducible end-to-end from the approved runner
+in `scripts/studies/born_rytov_dt/run_brdt_40ep_paper_evidence.py`:
+
+- The full live training run is invoked with the locked CLI listed in the
+  execution plan and is guarded by a per-output-root writer lock that refuses
+  duplicate writers and refuses to silently overwrite a populated bundle.
+- The top-level `preflight_manifest.json` claim boundary and promotion status
+  are re-seeded from the recomputed `paper_evidence_gate.json` after training
+  completes, so the manifest cannot present a passing additive label without
+  the gate honestly passing.
+- The gate's `provenance_checks` payload validates that runtime provenance
+  carries `git_sha`/`git_dirty`, host identity and GPU count, model profiles
+  and the run log are present, dataset identity and split manifest exist,
+  the sample-`255` visual bundle (including the same-contract classical
+  comparator) is materialized, and the durable summary at this path is
+  checked-in and references this backlog item.
+- Meta artifacts (manifest, runtime provenance, run-exit status, convergence
+  audit, gate, visuals) can be deterministically re-derived from existing
+  per-row `history.{json,csv}`, `row_summary.json`, `model_profile.json`, and
+  source arrays via the runner's `--rebuild-meta-only` mode without
+  retraining. Run-exit-status preserves the original tracked PID; runtime
+  provenance documents the rebuild step's git SHA, host, and GPU count.
