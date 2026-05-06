@@ -28,16 +28,17 @@ signals_for_selection:
   paper-quality CDI execution.
 - Do not rerun the CDI `cnn` U-Net-class supervised row here; it belongs to the
   minimum CDI table alongside the matching CDI `cnn` U-Net-class + PINN row.
-- Run the FFNO + supervised row under the same locked Lines128 contract as the
-  complete FFNO + PINN row. This row is required; do not substitute supervised
+- Run the historical FFNO-local proxy + supervised row under the same locked
+  Lines128 contract as the complete historical FFNO-local proxy + PINN row.
+  This row is required; do not substitute supervised
   FNO for it.
 - If the supervised FFNO training path is not protocol-compatible with the
   locked Lines128 contract, record a precise `not_protocol_compatible` outcome
   with the missing interface or artifact contract rather than silently dropping
   the row or replacing it with a different architecture.
 - Label rows by both architecture and training procedure, for example
-  `FFNO + supervised` versus `FFNO + PINN`, so result tables do not conflate the
-  model body with the training objective.
+  `FFNO-local proxy + supervised` versus `FFNO-local proxy + PINN`, so result
+  tables do not conflate the model body with the training objective.
 - Emit table-ready JSON/CSV/TeX fragments, provenance manifests, source
   reconstruction arrays, fixed-sample amplitude/phase panels, error panels, and
   a concise summary under `docs/plans/NEURIPS-HYBRID-RESNET-2026/`.
@@ -57,3 +58,8 @@ signals_for_selection:
 - If FFNO has no supervised training path under the locked contract, record
   `not_protocol_compatible` and do not invent a broader supervised sweep as a
   substitute.
+- Post-hoc architecture caveat from 2026-05-06: both FFNO rows in this
+  completed extension used the old `fno_cnn_blocks=2` local-refiner proxy
+  profile. Correct same-architecture objective-control evidence now requires
+  `2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun` after the
+  corrected PINN FFNO row lands.

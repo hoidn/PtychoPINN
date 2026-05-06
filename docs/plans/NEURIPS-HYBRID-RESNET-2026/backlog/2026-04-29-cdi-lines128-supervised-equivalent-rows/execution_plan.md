@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Keep this file as the execution authority for the selected backlog item.
 
-**Goal:** Add the required same-contract `FFNO + supervised` control row for the locked `lines128` CDI benchmark, then publish an adjacent extension bundle and durable summary that make training-procedure differences explicit without rewriting the primary six-row CDI claim.
+**Goal:** Add the required same-contract historical `FFNO-local proxy + supervised` control row for the locked `lines128` CDI benchmark, then publish an adjacent extension bundle and durable summary that make training-procedure differences explicit without rewriting the primary six-row CDI claim.
 
-**Architecture:** Treat the `2026-04-30` `paper_complete` six-row `lines128` bundle as frozen prerequisite evidence, reuse its dataset/split/probe/sample/metric/visual contract unchanged, and create one new supervised-extension root for the `FFNO + supervised` work plus derived comparison artifacts. Keep `scripts/studies/grid_lines_torch_runner.py` as the row-local execution owner, keep shared dataset/provenance/collation in `scripts/studies/grid_lines_compare_wrapper.py` or a thin adjacent `lines128` harness mode, and record a precise `not_protocol_compatible` outcome instead of weakening the contract if supervised FFNO still cannot run after one narrow compatibility-fix cycle.
+**Architecture:** Treat the `2026-04-30` `paper_complete` six-row `lines128` bundle as frozen prerequisite evidence, reuse its dataset/split/probe/sample/metric/visual contract unchanged, and create one new supervised-extension root for the historical `FFNO-local proxy + supervised` work plus derived comparison artifacts. Keep `scripts/studies/grid_lines_torch_runner.py` as the row-local execution owner, keep shared dataset/provenance/collation in `scripts/studies/grid_lines_compare_wrapper.py` or a thin adjacent `lines128` harness mode, and record a precise `not_protocol_compatible` outcome instead of weakening the contract if supervised FFNO still cannot run after one narrow compatibility-fix cycle.
 
 **Tech Stack:** PATH `python`, tmux with `ptycho311` for long-running commands, PyTorch/Lightning, `scripts/studies/lines128_paper_benchmark.py`, `scripts/studies/grid_lines_compare_wrapper.py`, `scripts/studies/grid_lines_torch_runner.py`, optional narrow `ptycho_torch/workflows/components.py` supervised-path plumbing, pytest, `compileall`, Markdown/JSON/CSV/TeX/NPZ artifacts.
 
@@ -13,9 +13,9 @@
 ## Selected Backlog Objective
 
 - Implement backlog item `2026-04-29-cdi-lines128-supervised-equivalent-rows`.
-- Add one required `FFNO + supervised` row under the same frozen `lines128` contract already used by:
+- Add one required historical `FFNO-local proxy + supervised` row under the same frozen `lines128` contract already used by:
   - the authoritative minimum-subset `CDI CNN + supervised` row
-  - the authoritative complete-table `FFNO + PINN` row
+  - the authoritative complete-table historical `FFNO-local proxy + PINN` row
 - Emit table-ready machine-readable fragments, source reconstruction arrays, fixed-sample amplitude/phase and error panels, provenance manifests, and a durable summary under `docs/plans/NEURIPS-HYBRID-RESNET-2026/`.
 - Keep the resulting supervised-equivalent package separate from the current primary six-row CDI claim unless every row included in the extension is same-contract and provenance-complete.
 
@@ -25,11 +25,11 @@ In scope:
 
 - Reuse the locked `lines128` contract, fixed sample ids, and shared visual-scale policy from the already accepted `2026-04-30` complete-table bundle.
 - Reuse the accepted `CDI CNN + supervised` row from the minimum-subset root as existing same-contract supervised reference evidence. Do not retrain it here.
-- Reuse the accepted `FFNO + PINN` row from the complete-table root as the same-architecture training-procedure comparator for the new supervised row.
+- Reuse the accepted historical `FFNO-local proxy + PINN` row from the complete-table root as the same-architecture training-procedure comparator for the new supervised row.
 - Add only the code and artifact plumbing needed to:
   - execute FFNO in supervised mode on the locked grid-lines split, or
   - close honestly as `not_protocol_compatible`
-- Keep model labels explicit by architecture and training procedure, for example `FFNO + supervised` versus `FFNO + PINN`.
+- Keep model labels explicit by architecture and training procedure, for example `FFNO-local proxy + supervised` versus `FFNO-local proxy + PINN`.
 
 Explicit non-goals:
 
@@ -107,7 +107,7 @@ Findings and workflow rules that must stay enforced:
   - Add only the narrow runner/wrapper/harness plumbing needed to execute FFNO in supervised mode on the locked split with full row-level provenance and explicit training-procedure labeling.
   - If the current codebase cannot support supervised FFNO without contract drift, emit `not_protocol_compatible` explicitly rather than overstating support.
 - **Publication unit**
-  - Produce an adjacent extension bundle and durable summary that compare `FFNO + supervised` against `FFNO + PINN`, reuse the accepted `CDI CNN + supervised` evidence by reference, and keep the six-row primary CDI benchmark summary unchanged as the headline claim authority.
+  - Produce an adjacent extension bundle and durable summary that compare `FFNO-local proxy + supervised` against `FFNO-local proxy + PINN`, reuse the accepted `CDI CNN + supervised` evidence by reference, and keep the six-row primary CDI benchmark summary unchanged as the headline claim authority.
 
 ## Concrete File And Artifact Targets
 
@@ -157,7 +157,7 @@ Primary artifact targets:
   - the preserved prerequisite roots
   - the explicit extension claim boundary, for example `lines128_supervised_ffno_extension`
   - the reused comparator row `pinn_ffno`
-  - the new supervised row id and label; use one explicit row id consistently, preferably `supervised_ffno` with paper label `FFNO + supervised`
+  - the new supervised row id and label; use one explicit row id consistently, preferably `supervised_ffno` with paper label `FFNO-local proxy + supervised`
 - [ ] Audit the current code path for whether FFNO can run in supervised mode on the locked split without contract drift:
   - runner/config support for an explicit training procedure or model type
   - labeled-data compatibility under `DATA-SUP-001`
@@ -229,7 +229,7 @@ Verification before moving on:
   - same probe preprocessing and seed
   - same optimizer/scheduler/loss/output-mode budget
   - same sample ids and shared visual scales
-- [ ] Do not rerun the accepted `CDI CNN + supervised` or `FFNO + PINN` rows. Reuse them by reference or deterministic promotion into the extension bundle as needed.
+- [ ] Do not rerun the accepted `CDI CNN + supervised` or historical `FFNO-local proxy + PINN` rows. Reuse them by reference or deterministic promotion into the extension bundle as needed.
 - [ ] Accept the supervised FFNO row only when the tracked PID exits `0` and the row emits the required artifacts, including:
   - `invocation.json` and `invocation.sh`
   - `config.json`
@@ -251,8 +251,8 @@ Verification before moving on:
 
 - [ ] Build extension artifacts from the new supervised FFNO result plus preserved same-contract prerequisite rows.
 - [ ] At minimum, publish an explicit training-procedure comparison for the same architecture:
-  - `FFNO + supervised`
-  - `FFNO + PINN`
+  - `FFNO-local proxy + supervised`
+  - `FFNO-local proxy + PINN`
 - [ ] Reuse the accepted `CDI CNN + supervised` row by reference in the extension manifest and summary so the repo still exposes both supervised row families without retraining the CNN row.
 - [ ] Emit table-ready JSON/CSV/TeX fragments, machine-readable manifests, source reconstruction arrays, fixed-sample amplitude/phase panels, and error panels under the new extension root.
 - [ ] Keep the extension labeled as adjacent evidence unless every included supervised row is same-contract and provenance-complete.

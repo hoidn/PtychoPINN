@@ -1,0 +1,20 @@
+\begin{tabular}{lrrrr}
+\toprule
+Objective & Amp MAE & Phase MAE & Amp SSIM & Phase SSIM \\
+\midrule
+\multicolumn{5}{l}{\textit{CNN}} \\
+\midrule
+PINN & \textbf{0.1232} & 0.7863 & \textbf{0.7326} & 0.2638 \\
+Supervised & 0.4027 & \textbf{0.7862} & 0.2772 & \textbf{0.4964} \\
+\midrule
+\multicolumn{5}{l}{\textit{FFNO-local proxy}} \\
+\midrule
+PINN & \textbf{0.0628} & 0.0828 & \textbf{0.9348} & \textbf{0.9816} \\
+Supervised & 0.3864 & \textbf{0.0466} & 0.2484 & 0.9372 \\
+\midrule
+\multicolumn{5}{l}{\textit{U-NO}} \\
+\midrule
+PINN & \textbf{0.0932} & 0.0683 & \textbf{0.8280} & \textbf{0.9569} \\
+Supervised & 0.3207 & \textbf{0.0563} & 0.2689 & 0.9105 \\
+\bottomrule
+\end{tabular}

@@ -33,6 +33,17 @@
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/combined_metrics.json`
   - `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/rows/<row_id>/model_profile.json`
 
+> **BRDT FFNO caveat (2026-05-06):** the historical BRDT `ffno` profile at
+> `36,674` parameters used the old FFNO-local-refiner proxy. Do not emit it as a
+> pure FFNO configuration. The corrected no-refiner BRDT FFNO adapter should be
+> represented from the corrected rerun root, with `cnn_blocks` absent and an
+> expected parameter count of `27,394`.
+
+> **CDI FFNO caveat (2026-05-06):** historical CDI `pinn_ffno` and
+> `supervised_ffno` rows used `fno_cnn_blocks=2`. Emit them as
+> `FFNO-local proxy` until corrected no-refiner (`fno_cnn_blocks=0`) reruns and
+> the no-refiner table refresh replace their source roots.
+
 ## Parameter Count Convention
 
 Use `unique_trainable_params` as the manuscript-facing count:

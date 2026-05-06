@@ -39,7 +39,7 @@
     {
       "benchmark": "Synthetic CDI",
       "row_id": "pinn_ffno",
-      "model_label": "FFNO + PINN",
+      "model_label": "FFNO-local proxy + PINN",
       "parameter_count": 161958,
       "parameter_count_source_field": "unique_trainable_params",
       "training_runtime_seconds": 0.0,
@@ -107,7 +107,7 @@
     {
       "benchmark": "Synthetic CDI",
       "row_id": "supervised_ffno",
-      "model_label": "FFNO + supervised",
+      "model_label": "FFNO-local proxy + supervised",
       "parameter_count": 161958,
       "parameter_count_source_field": "unique_trainable_params",
       "training_runtime_seconds": 1013.85088,
@@ -209,7 +209,7 @@
     {
       "benchmark": "BRDT",
       "row_id": "hybrid_resnet",
-      "model_label": "Hybrid ResNet",
+      "model_label": "SRU-Net",
       "parameter_count": 142018,
       "parameter_count_source_field": "parameter_count",
       "training_runtime_seconds": 168.29382686782628,
@@ -221,12 +221,12 @@
       "inference_latency_ms": null,
       "throughput_source_field": "samples_per_second",
       "source_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/combined_metrics.json",
-      "claim_boundary": "paper_approved_secondary_brdt"
+      "claim_boundary": "historical_brdt_40ep_proxy_context"
     },
     {
       "benchmark": "BRDT",
       "row_id": "ffno",
-      "model_label": "FFNO",
+      "model_label": "FFNO-local proxy",
       "parameter_count": 36674,
       "parameter_count_source_field": "parameter_count",
       "training_runtime_seconds": 228.37199368793517,
@@ -238,7 +238,7 @@
       "inference_latency_ms": null,
       "throughput_source_field": "samples_per_second",
       "source_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/combined_metrics.json",
-      "claim_boundary": "paper_approved_secondary_brdt"
+      "claim_boundary": "historical_brdt_40ep_proxy_context"
     }
   ],
   "excluded_candidate_context": [
@@ -247,7 +247,7 @@
       "source_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.json",
       "claim_boundary": "decision_support_preflight_only",
       "included": false,
-      "reason": "superseded by paper-approved BRDT 40-epoch rows"
+      "reason": "superseded by historical BRDT 40-epoch context; pure FFNO requires corrected no-refiner rerun"
     }
   ],
   "notes": [

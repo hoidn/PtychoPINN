@@ -52,7 +52,7 @@ These parameters define the structure and physics of the neural network.
 | `fno_modes` | `int` | `12` | Number of spectral modes retained in FNO/Hybrid spectral convolutions (PyTorch only). |
 | `fno_width` | `int` | `32` | Hidden channel width for FNO/Hybrid blocks (PyTorch only). |
 | `fno_blocks` | `int` | `4` | Number of spectral blocks in the FNO/Hybrid encoder (PyTorch only). |
-| `fno_cnn_blocks` | `int` | `2` | Number of CNN refiner blocks for the Cascaded FNO generator (PyTorch only). |
+| `fno_cnn_blocks` | `int` | `2` | Number of local CNN refiner blocks for PyTorch FNO-family generators. For `architecture='fno'`, this is the Cascaded FNO refiner count. For `architecture='ffno'`, positive values create a local-refiner proxy after the factorized Fourier stack; paper-facing pure FFNO rows must set `fno_cnn_blocks=0`. |
 | `fno_input_transform` | `Literal['none','sqrt','log1p','instancenorm']` | `'none'` | Optional input dynamic-range transform for FNO/Hybrid lifter (PyTorch only). |
 | `resnet_width` | `Optional[int]` | `None` | Fixed bottleneck width for `hybrid_resnet`. Must be divisible by 4 when set (PyTorch only). |
 | `amp_activation` | `str` | `'sigmoid'` | The activation function for the amplitude output layer. Choices: 'sigmoid', 'swish', 'softplus', 'relu'. |

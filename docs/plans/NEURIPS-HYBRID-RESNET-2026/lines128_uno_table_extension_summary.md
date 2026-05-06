@@ -53,7 +53,8 @@ Promoted from the immutable base authority (no rerun, no overwrite):
 - `pinn_hybrid_resnet` -> `Hybrid ResNet + PINN`
 - `pinn_fno_vanilla` -> `FNO Vanilla + PINN`
 - `pinn_spectral_resnet_bottleneck_net` -> `Spectral ResNet Bottleneck + PINN`
-- `pinn_ffno` -> `FFNO + PINN`
+- `pinn_ffno` -> `FFNO-local proxy + PINN` (historical `fno_cnn_blocks=2`
+  row promoted by lineage; corrected no-refiner rerun pending)
 
 Freshly launched in this item:
 

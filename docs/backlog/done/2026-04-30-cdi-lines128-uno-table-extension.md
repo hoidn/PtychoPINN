@@ -65,3 +65,7 @@ signals_for_selection:
   proof, metrics, visuals, or environment provenance are missing.
 - Keep the claim boundary distinct:
   `complete_lines128_cdi_benchmark_plus_uno_extension`.
+- Post-hoc architecture caveat from 2026-05-06: this extension promoted the
+  completed `pinn_ffno` row by lineage, so its FFNO entry remains a historical
+  FFNO-local-refiner proxy until the no-refiner table refresh promotes corrected
+  FFNO rows. The U-NO rows themselves are not affected by this caveat.

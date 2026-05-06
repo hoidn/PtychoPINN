@@ -37,3 +37,8 @@ related_roadmap_phases:
 - Keep this separate from CNS-only FFNO and Hybrid-spectral ablations.
 - This item unlocks the Lines128 paper benchmark harness; it does not by itself
   produce the full four-row paper table.
+- Post-hoc architecture caveat from 2026-05-06: this completed row used
+  `fno_cnn_blocks=2`, which adds local CNN residual refinement after the FFNO
+  stack. Treat it as historical FFNO-local-refiner proxy evidence. Pure CDI
+  FFNO claims require the active no-refiner rerun
+  `2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun`.

@@ -74,7 +74,10 @@ The FFNO architecture (`architecture='ffno'`) keeps the constant-resolution CDI 
 
 **Key parameters:**
 - `fno_blocks`: Number of FFNO blocks (default: 4)
-- `fno_cnn_blocks`: Number of local residual refiners after the FFNO stack (default: 2)
+- `fno_cnn_blocks`: Number of local residual refiners after the FFNO stack
+  (default: 2). Set `0` for paper-facing pure FFNO comparisons. Positive
+  values define an FFNO-local-refiner proxy, not the canonical no-refiner FFNO
+  row.
 - `fno_modes`: Spectral modes per axis (default: min(12, N//4))
 
 ### Hybrid ResNet‑6

@@ -203,7 +203,7 @@ Expected: the complete six-row comparison is the primary CDI result.
 
 - [ ] **Step 5: Rewrite the surrounding prose**
 
-Replace "SRU-Net + PINN versus FFNO + PINN" framing with:
+Replace "SRU-Net + PINN versus historical FFNO-local proxy + PINN" framing with:
 
 ```latex
 The Lines128 benchmark shows a clear separation between purely local,
@@ -251,7 +251,7 @@ Add:
 
 ```latex
 The supervised FFNO control improves phase MAE but collapses amplitude quality
-relative to FFNO + PINN, indicating that the physics-informed objective is not
+relative to the historical FFNO-local proxy + PINN row, indicating that the physics-informed objective is not
 just a weaker substitute for direct labels in this low-sample CDI setting.
 ```
 

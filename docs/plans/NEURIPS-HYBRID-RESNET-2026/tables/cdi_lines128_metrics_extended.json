@@ -4,19 +4,6 @@
   "supervised_ffno_source_metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z/runs/supervised_ffno/metrics.json",
   "rows": [
     {
-      "row_id": "baseline",
-      "model": "CNN",
-      "training": "supervised",
-      "amp_mae": 0.4026719033718109,
-      "phase_mae": 0.7861943717040095,
-      "amp_mse": 0.2835979163646698,
-      "phase_mse": 1.1479366956432024,
-      "amp_rmse": 0.5325391219099962,
-      "phase_rmse": 1.071418076963051,
-      "amp_ssim": 0.277214069257086,
-      "phase_ssim": 0.4963532061083504
-    },
-    {
       "row_id": "pinn",
       "model": "CNN",
       "training": "PINN",
@@ -24,8 +11,6 @@
       "phase_mae": 0.7863222464274442,
       "amp_mse": 0.02367185615003109,
       "phase_mse": 1.1843227016219966,
-      "amp_rmse": 0.1538566090554159,
-      "phase_rmse": 1.0882659149408276,
       "amp_ssim": 0.7325678081610691,
       "phase_ssim": 0.2638148037194811
     },
@@ -37,36 +22,19 @@
       "phase_mae": 0.1435395349328455,
       "amp_mse": 0.024000922217965126,
       "phase_mse": 0.032295907670301084,
-      "amp_rmse": 0.15492231026538794,
-      "phase_rmse": 0.1797106220296983,
       "amp_ssim": 0.7409360685258843,
       "phase_ssim": 0.9334635911261081
     },
     {
       "row_id": "pinn_ffno",
-      "model": "FFNO",
+      "model": "FFNO-local proxy",
       "training": "PINN",
       "amp_mae": 0.062772475,
       "phase_mae": 0.08283866878648244,
       "amp_mse": 0.0062240395,
       "phase_mse": 0.010851472467390912,
-      "amp_rmse": 0.07889258203405439,
-      "phase_rmse": 0.1041704011098686,
       "amp_ssim": 0.934830339980703,
       "phase_ssim": 0.9815915191210483
-    },
-    {
-      "row_id": "supervised_ffno",
-      "model": "FFNO",
-      "training": "supervised",
-      "amp_mae": 0.38641318678855896,
-      "phase_mae": 0.046562865303675434,
-      "amp_mse": 0.26636576652526855,
-      "phase_mse": 0.003303759477770993,
-      "amp_rmse": 0.5161063519520648,
-      "phase_rmse": 0.057478339205051784,
-      "amp_ssim": 0.24842735671882815,
-      "phase_ssim": 0.9371787178129534
     },
     {
       "row_id": "pinn_hybrid_resnet",
@@ -76,23 +44,8 @@
       "phase_mae": 0.07206347709561367,
       "amp_mse": 0.00115118024405092,
       "phase_mse": 0.007788461505276771,
-      "amp_rmse": 0.033929047202226593,
-      "phase_rmse": 0.08825226062417195,
       "amp_ssim": 0.9881142973635324,
       "phase_ssim": 0.9947399866043689
-    },
-    {
-      "row_id": "pinn_spectral_resnet_bottleneck_net",
-      "model": "Spectral SRU-Net",
-      "training": "PINN",
-      "amp_mae": 0.02494361810386181,
-      "phase_mae": 0.09288138595108876,
-      "amp_mse": 0.0009865162428468466,
-      "phase_mse": 0.18517469328281494,
-      "amp_rmse": 0.03140885612127329,
-      "phase_rmse": 0.4303192922503184,
-      "amp_ssim": 0.9898549878226934,
-      "phase_ssim": 0.9722190667280742
     },
     {
       "row_id": "pinn_neuralop_uno",
@@ -102,10 +55,30 @@
       "phase_mae": 0.06829105385593301,
       "amp_mse": 0.013220230117440224,
       "phase_mse": 0.007346054084902409,
-      "amp_rmse": 0.11497925950987954,
-      "phase_rmse": 0.08570912486370637,
       "amp_ssim": 0.8279948152817742,
       "phase_ssim": 0.9568587752007158
+    },
+    {
+      "row_id": "baseline",
+      "model": "CNN",
+      "training": "supervised",
+      "amp_mae": 0.4026719033718109,
+      "phase_mae": 0.7861943717040095,
+      "amp_mse": 0.2835979163646698,
+      "phase_mse": 1.1479366956432024,
+      "amp_ssim": 0.277214069257086,
+      "phase_ssim": 0.4963532061083504
+    },
+    {
+      "row_id": "supervised_ffno",
+      "model": "FFNO-local proxy",
+      "training": "supervised",
+      "amp_mae": 0.38641318678855896,
+      "phase_mae": 0.046562865303675434,
+      "amp_mse": 0.26636576652526855,
+      "phase_mse": 0.003303759477770993,
+      "amp_ssim": 0.24842735671882815,
+      "phase_ssim": 0.9371787178129534
     },
     {
       "row_id": "supervised_neuralop_uno",
@@ -115,8 +88,6 @@
       "phase_mae": 0.05625055939327221,
       "amp_mse": 0.16388654708862305,
       "phase_mse": 0.004764640077438061,
-      "amp_rmse": 0.4048290343943021,
-      "phase_rmse": 0.06902637233288492,
       "amp_ssim": 0.2689397545100156,
       "phase_ssim": 0.9104896763928609
     }

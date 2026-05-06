@@ -26,7 +26,7 @@
 - `pinn_hybrid_resnet` -> `Hybrid ResNet + PINN`
 - `pinn_fno_vanilla` -> `FNO Vanilla + PINN`
 - `pinn_spectral_resnet_bottleneck_net` -> `Spectral ResNet Bottleneck + PINN`
-- `pinn_ffno` -> `FFNO + PINN`
+- `pinn_ffno` -> `FFNO-local proxy + PINN`
 
 ## Row Provenance
 
@@ -45,6 +45,9 @@
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet`
   - row-local completion proof in the final bundle is rebuilt from the prerequisite root’s durable wrapper log lineage, including `tmux.log` fallback
   - row-local invocation provenance remains backfilled-from-wrapper-contract evidence, consistent with the prerequisite repair summary
+  - post-hoc 2026-05-06 caveat: this row used `fno_cnn_blocks=2` and is
+    historical FFNO-local-refiner proxy evidence; pure FFNO table use requires
+    `2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun`
 
 ## Benchmark Status And Boundary
 

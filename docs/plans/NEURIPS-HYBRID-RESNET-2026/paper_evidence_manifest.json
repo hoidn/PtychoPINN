@@ -343,7 +343,7 @@
           "draftability": "draftable_now",
           "blocked_claims": [],
           "notes": {
-            "model_label": "FFNO + PINN",
+            "model_label": "FFNO-local proxy + PINN",
             "architecture_id": "ffno",
             "training_procedure": "pinn",
             "parameter_count": 323918,
@@ -1124,7 +1124,7 @@
       "draftability": "draftable_now",
       "blocked_claims": [],
       "notes": {
-        "model_label": "FFNO + PINN",
+        "model_label": "FFNO-local proxy + PINN",
         "architecture_id": "ffno",
         "training_procedure": "pinn",
         "parameter_count": 323918,

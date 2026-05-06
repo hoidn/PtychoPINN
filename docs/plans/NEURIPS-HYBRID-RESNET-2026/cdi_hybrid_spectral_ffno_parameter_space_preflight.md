@@ -44,7 +44,8 @@
 
 ### `pinn_ffno`
 
-- Display label: `FFNO + PINN`
+- Display label: `FFNO-local proxy + PINN` (`fno_cnn_blocks=2`; corrected
+  no-refiner rerun pending for pure-FFNO claims)
 - Architecture: `ffno`
 - Expression path: authoritative row copy from the fixed complete-table bundle
 - Run dir: `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux/runs/pinn_ffno`

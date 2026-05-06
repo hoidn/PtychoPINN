@@ -7,7 +7,8 @@
 
 This authority freezes the supervised-equivalent extension contract without reopening the
 authoritative six-row CDI paper bundle. The existing six-row `paper_complete` bundle remains the
-main CDI claim authority; this extension only adds the same-architecture `FFNO + supervised`
+main CDI claim authority; this extension only adds the same-architecture historical
+`FFNO-local proxy + supervised`
 control row and reuses preserved same-contract comparator evidence.
 
 Preserved prerequisite roots:
@@ -90,7 +91,7 @@ relaunch those accepted roots.
     },
     {
       "model_id": "pinn_ffno",
-      "model_label": "FFNO + PINN",
+      "model_label": "FFNO-local proxy + PINN",
       "architecture_id": "ffno",
       "training_procedure": "pinn",
       "decision": "promote_existing",
@@ -98,7 +99,7 @@ relaunch those accepted roots.
     },
     {
       "model_id": "supervised_ffno",
-      "model_label": "FFNO + supervised",
+      "model_label": "FFNO-local proxy + supervised",
       "architecture_id": "ffno",
       "training_procedure": "supervised",
       "decision": "rerun_required"

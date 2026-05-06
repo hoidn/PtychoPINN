@@ -96,7 +96,8 @@ Prerequisite status that matters here:
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_uno_table_extension_summary.md`
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended.json`
 - Authoritative seed=3 lineage to preserve:
-  - `baseline`, `pinn`, `pinn_hybrid_resnet`, `pinn_fno_vanilla`, `pinn_ffno` inherit their primary seed=3 paper lineage from the complete-table authority
+  - `baseline`, `pinn`, `pinn_hybrid_resnet`, `pinn_fno_vanilla` inherit their primary seed=3 paper lineage from the complete-table authority
+  - historical `pinn_ffno` inherits seed=3 lineage from the complete-table authority only as `FFNO-local proxy`; canonical no-refiner FFNO robustness must wait for corrected `fno_cnn_blocks=0` lineage
   - `pinn_neuralop_uno` inherits its seed=3 paper lineage from the U-NO extension authority
 - Existing single-seed paper-refresh payloads remain valid historical lineage and must not be silently reinterpreted as multiseed aggregates.
 
@@ -115,7 +116,7 @@ Authorized extra runtime budget:
   - `pinn`: `535` seconds from `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T035104Z/model_manifest.json` (`train_wall_time_sec=530.9505021998193`, rounded up)
   - `pinn_hybrid_resnet`: `1085` seconds from `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux/model_manifest.json` (`command_wall_time_sec=1081.543966`, rounded up)
   - `pinn_fno_vanilla`: `515` seconds from `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux/model_manifest.json` (`command_wall_time_sec=511.236727`, rounded up)
-  - `pinn_ffno`: `1400` seconds as the conservative cap for the only remaining headline row whose preserved prerequisite lineage does not retain standalone runtime; use the slowest prior fresh Torch headline-row runtime as the ceiling instead of inventing a lower number
+  - corrected no-refiner `pinn_ffno`: `1400` seconds as the conservative cap for the only remaining headline row whose preserved prerequisite lineage does not retain standalone runtime; use the slowest prior fresh Torch headline-row runtime as the ceiling instead of inventing a lower number
   - `pinn_neuralop_uno`: `1095` seconds from `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z/model_manifest.json` (`command_wall_time_sec=1094.941273`, rounded up)
 - Authorized primary fresh-launch budget for the full `12`-launch matrix: `10490` seconds (`2.92` GPU-hours) = `2 * (615 + 535 + 1085 + 515 + 1400 + 1095)`.
 - Authorized contingency budget: `7510` additional seconds (`2.09` GPU-hours), usable only for tmux start/stop overhead and one documented narrow-fix relaunch per blocked row.

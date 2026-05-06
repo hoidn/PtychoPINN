@@ -63,3 +63,8 @@ signals_for_selection:
   rows under the revised contract.
 - Keep multi-seed claims out of scope unless a separate checked-in extension
   pins seed list, aggregation rules, and runtime budget before launch.
+- Post-hoc architecture caveat from 2026-05-06: the completed `pinn_ffno` row
+  used `fno_cnn_blocks=2`, so it is historical FFNO-local-refiner proxy
+  evidence. The completed non-FFNO rows remain valid by lineage; manuscript
+  tables should use corrected no-refiner FFNO rows after
+  `2026-05-06-cdi-lines128-no-refiner-ffno-table-refresh`.

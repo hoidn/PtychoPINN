@@ -36,7 +36,7 @@
         "pinn_spectral_resnet_bottleneck_net",
         "pinn_ffno"
       ],
-      "interpretation": "The six-row complete Lines128 CDI table is the current CDI headline authority. Hybrid ResNet and spectral-bottleneck rows dominate the local CNN and FNO/FFNO rows on amplitude; Hybrid ResNet has the stronger phase/FRC balance among the hybrid-family rows."
+      "interpretation": "The six-row complete Lines128 CDI table is the current non-FFNO CDI headline authority. Its completed FFNO row used fno_cnn_blocks=2 and is now historical FFNO-local-refiner proxy context; pure FFNO claims require the active no-refiner rerun and table refresh. Hybrid ResNet and spectral-bottleneck rows dominate the local CNN and FNO/proxy-FFNO rows on amplitude; Hybrid ResNet has the stronger phase/FRC balance among the hybrid-family rows."
     },
     {
       "family_id": "cdi_lines128_ffno_training_mode_extension",
@@ -58,7 +58,11 @@
         "pinn_ffno",
         "supervised_ffno"
       ],
-      "interpretation": "The supervised FFNO row is a real FFNO-generator row and does not collapse to the PINN FFNO output. It improves phase MAE but is much worse on amplitude MAE/SSIM/FRC50 than FFNO + PINN."
+      "interpretation": "The supervised FFNO row does not collapse to the PINN FFNO output, but both rows used the historical fno_cnn_blocks=2 local-refiner proxy profile. The objective-control conclusion must be rerun under the no-refiner FFNO contract before it is used as canonical pure-FFNO paper evidence.",
+      "superseded_for_pure_ffno_by": [
+        "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun",
+        "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun"
+      ]
     },
     {
       "family_id": "cdi_lines128_ffno_generator_prerequisite_pair",
@@ -80,7 +84,7 @@
         "pinn_hybrid_resnet",
         "pinn_ffno"
       ],
-      "interpretation": "Hybrid ResNet beat FFNO on amp/phase MAE, SSIM, and PSNR in the prerequisite pair. The row pair is represented separately because the complete six-row bundle supersedes it for paper-table claims but reuses its FFNO evidence with provenance caveats."
+      "interpretation": "Hybrid ResNet beat the historical FFNO-local-refiner proxy on amp/phase MAE, SSIM, and PSNR in the prerequisite pair. The row pair is represented separately because the complete six-row bundle supersedes it for paper-table claims and because pure FFNO claims now require the no-refiner rerun."
     },
     {
       "family_id": "cdi_lines128_hybrid_spectral_ffno_parameter_space",
@@ -542,7 +546,8 @@
         "pinn_hybrid_resnet_ffno_ptychoblock_encoder",
         "hybrid_resnet_ffno_ptychoblock_encoder_cns"
       ],
-      "interpretation": "Cross-pillar encoder-mechanism probe for the SRU-Net shell. On locked Lines128 CDI, the FFNO-to-PtychoBlock encoder trades away amplitude fidelity versus the pinn_hybrid_resnet anchor while improving phase-side metrics, especially phase FRC50; it also underperforms the earlier spectral-only encoder ablation. On matched capped CNS, the same encoder is not competitive with the best existing spectral SRU-Net or authored-FFNO rows on aggregate error, although it improves fRMSE_high versus fno_base. The result is domain-dependent and high-frequency/phase-skewed rather than a general promotion candidate."
+      "status": "implementation_corrected_rerun_pending",
+      "interpretation": "Cross-pillar encoder-mechanism probe for the SRU-Net shell. The earlier emitted CDI/CNS evidence for this family used a mistakenly committed ffno_encoder_blocks=2 recipe and is now historical superseded context only. The approved contract requires a shared-weight 24-block FFNO encoder ahead of the two PtychoBlock stages, so fresh corrected CDI and matched capped CNS reruns are still required before any cross-pillar interpretation can be cited."
     },
     {
       "family_id": "brdt_decision_support_objective_ablation",
@@ -610,7 +615,7 @@
         "hybrid_resnet (baseline lineage)",
         "ffno (extension)"
       ],
-      "interpretation": "Append-only architecture row extension of the completed four-row BRDT preflight under the same dataset, operator, input mode, split, fixed-sample IDs, normalization, and supervised+Born training contract. The new factorized Fourier operator row (parameter_count=36674) lands between FNO vanilla and Hybrid ResNet on every blocking metric: image_relative_l2_phys=0.342 vs FNO 0.992 / Hybrid 0.319; PSNR=29.13 vs FNO 19.89 / Hybrid 29.74; SSIM=0.942 vs FNO 0.678 / Hybrid 0.947. FFNO is competitive with Hybrid ResNet at roughly one-quarter the parameter count, but it does not displace Hybrid ResNet on this capped budget. The baseline four-row bundle is preserved read-only; the combined view is published by lineage rather than by overwrite. This family is candidate-lane decision support and does not promote BRDT into the required NeurIPS pillars."
+      "interpretation": "Append-only architecture row extension of the completed four-row BRDT preflight under the same dataset, operator, input mode, split, fixed-sample IDs, normalization, and supervised+Born training contract. Post-hoc caveat: the artifact was generated before the BRDT FFNO adapter was corrected on 2026-05-06 to remove post-bottleneck CNN refiners. Treat the recorded row (parameter_count=36674) as a legacy FFNO-local-refiner proxy, not as a pure FFNO-paper-stack result. Current no-refiner BRDT FFNO rejects cnn_blocks and has parameter_count=27394, so a pure-BRDT-FFNO comparison requires a fresh rerun. The baseline four-row bundle is preserved read-only; the combined view is published by lineage rather than by overwrite. This family is candidate-lane context and does not promote BRDT into the required NeurIPS pillars."
     },
     {
       "family_id": "brdt_supervised_born_40ep_additive_promotion",
@@ -645,10 +650,11 @@
         "classical_born_backprop (baseline lineage sample-255 comparator)",
         "hybrid_resnet (20-epoch baseline)",
         "hybrid_resnet (40-epoch additive rerun)",
-        "ffno (20-epoch baseline)",
-        "ffno (40-epoch additive rerun)"
+        "ffno (20-epoch historical local-refiner proxy)",
+        "ffno (40-epoch historical local-refiner proxy)"
       ],
-      "interpretation": "Same capped BRDT contract, but the additive rerun extends only Hybrid ResNet and FFNO from 20 to 40 epochs and adds scheduler/history provenance for a formal paper-evidence gate. Both rerun rows improve every tracked blocking metric versus their frozen 20-epoch authorities, Hybrid ResNet remains the stronger image-space row, and FFNO remains competitive at much lower parameter count. The paper-evidence gate did not pass: an earlier --rebuild-meta-only invocation under prior code overwrote the original training-run runtime_provenance.json with the rebuild host's snapshot; runtime_provenance.json was honestly reconstructed from invocation.json (which preserves only tracked_pid/launch_timestamp/python/torch fields), so the gate's git_provenance and host_provenance checks fail and the bundle is demoted to decision_support_convergence_followup. Both rows are still materially improving at stop with no LR reductions, so this family must not be read as a full-convergence or full-training BRDT competitiveness result. An additive paper-evidence promotion would require retraining on a clean repo so full provenance is captured at training time."
+      "superseded_for_pure_ffno_by": "2026-05-06-brdt-corrected-ffno-40ep-rerun",
+      "interpretation": "Same capped BRDT contract, but the additive rerun extends only Hybrid ResNet and the historical FFNO-local-refiner proxy from 20 to 40 epochs and adds scheduler/history provenance for a formal paper-evidence gate. Post-hoc architecture caveat: the FFNO row was generated before the BRDT FFNO adapter was corrected on 2026-05-06 to remove post-bottleneck CNN refiners, so it must not be read as a pure FFNO-paper-stack result. The paper-evidence gate also did not pass: an earlier --rebuild-meta-only invocation under prior code overwrote the original training-run runtime_provenance.json with the rebuild host's snapshot; runtime_provenance.json was honestly reconstructed from invocation.json (which preserves only tracked_pid/launch_timestamp/python/torch fields), so the gate's git_provenance and host_provenance checks fail. The SRU-Net row remains secondary BRDT context, but the paired FFNO comparison, efficiency fields, and any pure-FFNO manuscript claim require the corrected active rerun. Both historical rows are still materially improving at stop with no LR reductions, so this family must not be read as a full-convergence or full-training BRDT competitiveness result."
     }
   ],
   "maintenance_rules": [

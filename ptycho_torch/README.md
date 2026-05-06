@@ -73,6 +73,7 @@ overrides = {
     "fno_modes": 12,
     "fno_width": 32,
     "fno_blocks": 4,
+    # For pure FFNO comparisons use 0; positive values add local CNN refiners.
     "fno_cnn_blocks": 2,
     "fno_input_transform": "none",
     "generator_output_mode": "real_imag",
@@ -114,7 +115,7 @@ cfg = TorchRunnerConfig(
     fno_modes=12,
     fno_width=32,
     fno_blocks=4,
-    fno_cnn_blocks=2,
+    fno_cnn_blocks=2,  # set 0 for no-refiner FFNO rows
     fno_input_transform="none",
     generator_output_mode="real_imag",
     torch_loss_mode="mae",

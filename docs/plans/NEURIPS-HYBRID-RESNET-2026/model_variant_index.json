@@ -529,10 +529,12 @@
       "variant_id": "cdi_lines128__ffno__pinn__complete_table",
       "dataset_contract_id": "cdi_lines128_seed3",
       "row_id": "pinn_ffno",
-      "paper_label": "FFNO + PINN",
+      "paper_label": "FFNO-local proxy + PINN",
       "architecture_id": "ffno",
       "model_family": "factorized_fourier_operator",
       "training_mode": "pinn",
+      "architecture_caveat": "Historical CDI row used fno_cnn_blocks=2 local CNN refiners after the FFNO stack; superseded for pure-FFNO claims by 2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun.",
+      "superseded_for_pure_ffno_by": "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun",
       "source_backlog_item": "2026-04-29-cdi-lines128-paper-benchmark-execution",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
       "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux",
@@ -552,7 +554,7 @@
         "amp_frc50": 68.90094687002035,
         "phase_frc50": 67.84086901019204
       },
-      "evidence_status": "paper_grade_with_recovered_invocation_caveat"
+      "evidence_status": "historical_ffno_local_refiner_proxy"
     },
     {
       "variant_id": "cdi_lines128__neuralop_uno__pinn__uno_extension",
@@ -616,10 +618,12 @@
       "variant_id": "cdi_lines128__ffno__supervised__extension",
       "dataset_contract_id": "cdi_lines128_seed3",
       "row_id": "supervised_ffno",
-      "paper_label": "FFNO + supervised",
+      "paper_label": "FFNO-local proxy + supervised",
       "architecture_id": "ffno",
       "model_family": "factorized_fourier_operator",
       "training_mode": "supervised",
+      "architecture_caveat": "Historical supervised CDI row used fno_cnn_blocks=2 local CNN refiners after the FFNO stack; superseded for pure-FFNO supervised claims by 2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun.",
+      "superseded_for_pure_ffno_by": "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun",
       "source_backlog_item": "2026-04-29-cdi-lines128-supervised-equivalent-rows",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md",
       "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z",
@@ -641,7 +645,7 @@
         "phase_frc50": 36.659701657247595
       },
       "comparison_outcome": "non_identical_same_contract_comparison",
-      "evidence_status": "paper_complete_extension"
+      "evidence_status": "historical_ffno_local_refiner_proxy_extension"
     },
     {
       "variant_id": "cdi_lines128__spectral_resnet_bottleneck_ds1__pinn__bridge_study",
@@ -848,10 +852,12 @@
       "variant_id": "cdi_natural_patches128_fixedprobe__ffno__pinn__single_seed_benchmark",
       "dataset_contract_id": "cdi_natural_patches128_fixedprobe_seed3",
       "row_id": "pinn_ffno",
-      "paper_label": "FFNO + PINN",
+      "paper_label": "FFNO-local proxy + PINN",
       "architecture_id": "ffno",
       "model_family": "factorized_fourier_operator",
       "training_mode": "pinn",
+      "architecture_caveat": "Recovered natural-patch FFNO row used the historical fno_cnn_blocks=2 local-refiner proxy profile and is already non-authoritative.",
+      "superseded_for_pure_ffno_by": "reactivate natural-patch benchmark with fno_cnn_blocks=0 if paper-facing natural-patch FFNO evidence is needed",
       "source_backlog_item": "2026-05-04-cdi-natural-patch-expanded-benchmark",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_natural_patch_expanded_benchmark_summary.md",
       "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z",
@@ -1360,6 +1366,8 @@
         "comparison_hybrid_resnet_ffno_ptychoblock_encoder_cns_sample0.png",
         "comparison_hybrid_resnet_ffno_ptychoblock_encoder_cns_sample0.npz"
       ],
+      "architecture_caveat": "Historical source_run_root used the superseded ffno_encoder_blocks=2 recipe. The approved contract requires ffno_encoder_blocks=24, and corrected reruns are still pending.",
+      "superseded_by_contract_correction": "ffno_encoder_blocks=24 rerun pending",
       "parameter_count": 3021382,
       "runtime_sec": 1317.8959696292877,
       "metrics": {
@@ -1370,8 +1378,8 @@
         "fRMSE_mid": 0.17430779337882996,
         "fRMSE_high": 0.36551719903945923
       },
-      "evidence_status": "decision_support_append_only",
-      "changed_factor": "same matched-condition capped CNS shell as the headline h5 rows, but the encoder is replaced with FFNO -> 2x(PtychoBlock + downsample). Aggregate metrics trail the spectral SRU-Net and FNO rows, while fRMSE_high improves versus fno_base."
+      "evidence_status": "historical_superseded_2block_context",
+      "changed_factor": "same matched-condition capped CNS shell as the headline h5 rows, but the historical source_run_root used the superseded FFNO -> 2x(PtychoBlock + downsample) recipe with ffno_encoder_blocks=2. The approved 24-block encoder rerun is still pending."
     },
     {
       "variant_id": "cns_history2_cap1024__spectral_resnet_bottleneck_shared_blocks10__supervised__80ep",
@@ -1619,6 +1627,8 @@
         "visuals/amp_phase_pinn_hybrid_resnet_ffno_ptychoblock_encoder.png",
         "visuals/amp_phase_error_pinn_hybrid_resnet_ffno_ptychoblock_encoder.png"
       ],
+      "architecture_caveat": "Historical artifact_root used the superseded ffno_encoder_blocks=2 recipe. The approved contract requires ffno_encoder_blocks=24, and corrected reruns are still pending.",
+      "superseded_by_contract_correction": "ffno_encoder_blocks=24 rerun pending",
       "metrics": {
         "amp_mae": 0.031728703528642654,
         "phase_mae": 0.06874002334700104,
@@ -1630,8 +1640,8 @@
         "phase_frc50": 135.0526558122957
       },
       "nearest_anchor_row": "pinn_hybrid_resnet",
-      "evidence_status": "decision_support_append_only",
-      "changed_factor": "encoder replaced with FFNO -> 2x(PtychoBlock + downsample) while the downstream SRU-Net shell, PINN objective, probe contract, schedule, and visual sample contract stay fixed. The row improves phase-side metrics versus the baseline but loses amplitude fidelity and trails the spectral-only encoder ablation."
+      "evidence_status": "historical_superseded_2block_context",
+      "changed_factor": "encoder replaced with FFNO -> 2x(PtychoBlock + downsample) while the downstream SRU-Net shell, PINN objective, probe contract, schedule, and visual sample contract stay fixed, but the historical artifact_root used the superseded ffno_encoder_blocks=2 recipe. The approved 24-block encoder rerun is still pending."
     },
     {
       "variant_id": "brdt__unet__supervised_plus_born_consistency__decision_support_preflight",
@@ -1832,7 +1842,7 @@
       "variant_id": "brdt__ffno__supervised_plus_born_consistency__decision_support_append_only",
       "dataset_contract_id": "brdt_decision_support_2048cap",
       "row_id": "ffno",
-      "paper_label": "FFNO",
+      "paper_label": "FFNO-local proxy",
       "architecture_id": "ffno",
       "model_family": "factorized_fourier_operator",
       "training_mode": "supervised_plus_born_consistency",
@@ -1871,13 +1881,15 @@
         "physical_q_ptp": 0.0776243694126606
       },
       "evidence_status": "decision_support_append_only",
-      "changed_factor": "appends a factorized Fourier operator (FFNO) row to the completed BRDT four-row preflight under the same dataset, operator, born_init_image input contract, split, fixed-sample IDs, normalization, and supervised+Born training recipe. FFNO body is the task-local _BRDTFFNO wrapper (lifter -> SharedFactorizedFfnoBottleneck with hidden_channels=16, fno_modes=8, fno_blocks=4, share_spectral_weights=False, mlp_ratio=2.0, cnn_blocks=2 -> 1x1 head); FFNO is NOT the same architecture as fno_vanilla (which uses neuralop.models.FNO). Combined five-row view is published by lineage rather than by overwrite of the baseline bundle."
+      "architecture_caveat": "Historical artifact was generated before the BRDT FFNO adapter was corrected on 2026-05-06 to remove post-bottleneck CNN refiners. Treat this as a legacy FFNO-local-refiner proxy, not as a pure FFNO-paper-stack result. Current no-refiner BRDT FFNO rejects cnn_blocks and has parameter_count=27394.",
+      "superseded_for_pure_ffno_by": "2026-05-06-brdt-corrected-ffno-row-rerun",
+      "changed_factor": "appends a factorized Fourier operator proxy row to the completed BRDT four-row preflight under the same dataset, operator, born_init_image input contract, split, fixed-sample IDs, normalization, and supervised+Born training recipe. Historical artifact-producing FFNO body is the task-local _BRDTFFNO wrapper (lifter -> SharedFactorizedFfnoBottleneck with hidden_channels=16, fno_modes=8, fno_blocks=4, share_spectral_weights=False, mlp_ratio=2.0, cnn_blocks=2 -> 1x1 head); FFNO is NOT the same architecture as fno_vanilla (which uses neuralop.models.FNO). Combined five-row view is published by lineage rather than by overwrite of the baseline bundle."
     },
     {
       "variant_id": "brdt__hybrid_resnet__supervised_plus_born_consistency__paper_evidence_additive_40ep",
       "dataset_contract_id": "brdt_paper_evidence_2048cap_40ep",
       "row_id": "hybrid_resnet",
-      "paper_label": "Hybrid ResNet",
+      "paper_label": "SRU-Net",
       "architecture_id": "hybrid_resnet",
       "model_family": "hybrid_resnet",
       "training_mode": "supervised_plus_born_consistency",
@@ -1910,7 +1922,7 @@
       "variant_id": "brdt__ffno__supervised_plus_born_consistency__paper_evidence_additive_40ep",
       "dataset_contract_id": "brdt_paper_evidence_2048cap_40ep",
       "row_id": "ffno",
-      "paper_label": "FFNO",
+      "paper_label": "FFNO-local proxy",
       "architecture_id": "ffno",
       "model_family": "factorized_fourier_operator",
       "training_mode": "supervised_plus_born_consistency",
@@ -1937,7 +1949,9 @@
         "ssim_phys": 0.9454527960998191
       },
       "evidence_status": "decision_support",
-      "changed_factor": "same capped BRDT contract as the 20-epoch FFNO row, but the training budget is extended from 20 to 40 epochs and the runner now records per-epoch history plus ReduceLROnPlateau provenance for the additive paper-evidence gate."
+      "architecture_caveat": "Historical artifact was generated before the BRDT FFNO adapter was corrected on 2026-05-06 to remove post-bottleneck CNN refiners. Treat this as a legacy FFNO-local-refiner proxy, not as a pure FFNO-paper-stack result. Current no-refiner BRDT FFNO rejects cnn_blocks and has parameter_count=27394.",
+      "superseded_for_pure_ffno_by": "2026-05-06-brdt-corrected-ffno-40ep-rerun",
+      "changed_factor": "same capped BRDT contract as the 20-epoch historical FFNO-local-refiner proxy row, but the training budget is extended from 20 to 40 epochs and the runner now records per-epoch history plus ReduceLROnPlateau provenance for the additive paper-evidence gate."
     },
     {
       "variant_id": "darcy_full__hybrid_resnet_base__supervised__full_training_benchmark",

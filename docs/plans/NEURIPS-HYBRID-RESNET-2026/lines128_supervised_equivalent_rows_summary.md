@@ -35,8 +35,8 @@
 ## Final Row Roster
 
 - bundle rows:
-  `pinn_ffno` -> `FFNO + PINN`
-  `supervised_ffno` -> `FFNO + supervised`
+  `pinn_ffno` -> `FFNO-local proxy + PINN`
+  `supervised_ffno` -> `FFNO-local proxy + supervised`
 - reference-only same-contract supervised row:
   `baseline` -> `CDI CNN + supervised`
   source:
@@ -99,6 +99,10 @@
 - the extension remains adjacent evidence and does not replace the preserved
   six-row primary CDI benchmark claim authority
 - the promoted `pinn_ffno` row is reused accepted evidence, not a fresh rerun
+- post-hoc 2026-05-06 caveat: both FFNO rows used `fno_cnn_blocks=2`.
+  Correct pure-FFNO objective-control evidence requires
+  `2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun` and
+  `2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun`.
   from this pass
 - older non-canonical checkpoint files remain in the authoritative root for
   auditability, but `checkpoints/last.ckpt` is now the intended reload path

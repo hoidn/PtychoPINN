@@ -130,7 +130,10 @@
 - row roster:
   `baseline`, `pinn`, `pinn_hybrid_resnet`, `pinn_fno_vanilla`, `pinn_ffno`, `pinn_neuralop_uno`
 - training recipe:
-  `seed=3`, `epochs=40`, `learning_rate=2e-4`, `scheduler=ReduceLROnPlateau`, `plateau_factor=0.5`, `plateau_patience=2`, `plateau_min_lr=1e-4`, `plateau_threshold=0.0`, `torch_loss_mode=mae`, `torch_output_mode=real_imag`, `fno_modes=12`, `fno_width=32`, `fno_blocks=4`, `fno_cnn_blocks=2`
+  `seed=3`, `epochs=40`, `learning_rate=2e-4`, `scheduler=ReduceLROnPlateau`, `plateau_factor=0.5`, `plateau_patience=2`, `plateau_min_lr=1e-4`, `plateau_threshold=0.0`, `torch_loss_mode=mae`, `torch_output_mode=real_imag`, `fno_modes=12`, `fno_width=32`, `fno_blocks=4`, `fno_cnn_blocks=0` for any row presented as pure FFNO
+- Historical natural-patch `pinn_ffno` artifacts with `fno_cnn_blocks=2` are
+  local-refiner proxy context only; if this item is reactivated for paper-facing
+  FFNO evidence, the FFNO row must be rerun or explicitly labeled as proxy.
 - split usage:
   - `train` for fitting
   - `val` for convergence and model-selection behavior where supported

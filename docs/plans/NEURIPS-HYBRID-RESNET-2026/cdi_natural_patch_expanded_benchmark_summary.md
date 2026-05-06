@@ -49,7 +49,8 @@ path to a paper-grade natural-patch authority on this dataset.
 - `pinn` -> `CDI CNN + PINN`
 - `pinn_hybrid_resnet` -> `Hybrid ResNet + PINN`
 - `pinn_fno_vanilla` -> `FNO Vanilla + PINN`
-- `pinn_ffno` -> `FFNO + PINN`
+- `pinn_ffno` -> `FFNO-local proxy + PINN` (historical `fno_cnn_blocks=2`;
+  recovered row is non-authoritative)
 - `pinn_neuralop_uno` -> `U-NO + PINN`
 
 ## Recovered Bundle Row State

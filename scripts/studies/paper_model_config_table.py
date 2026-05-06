@@ -41,8 +41,8 @@ CDI_DISPLAY_LABELS = {
     "baseline": ("CNN", "supervised"),
     "pinn": ("CNN", "PINN"),
     "pinn_fno_vanilla": ("FNO", "PINN"),
-    "pinn_ffno": ("FFNO", "PINN"),
-    "supervised_ffno": ("FFNO", "supervised"),
+    "pinn_ffno": ("FFNO-local proxy", "PINN"),
+    "supervised_ffno": ("FFNO-local proxy", "supervised"),
     "pinn_hybrid_resnet": ("SRU-Net", "PINN"),
     "pinn_neuralop_uno": ("U-NO", "PINN"),
     "supervised_neuralop_uno": ("U-NO", "supervised"),
@@ -225,6 +225,9 @@ def _cdi_skip_or_fusion(architecture: str, cfg: Mapping[str, Any]) -> str:
         gate = _as_str(cfg.get("spectral_bottleneck_gate_mode"))
         return f"spectral bottleneck gated_add; gate={gate}"
     if architecture == "ffno":
+        cnn_blocks = int(cfg.get("fno_cnn_blocks") or 0)
+        if cnn_blocks > 0:
+            return "factorized Fourier + local CNN refiners"
         return "factorized Fourier"
     if architecture == "fno_vanilla":
         return "spectral conv + pointwise mixing"
@@ -266,6 +269,14 @@ def _cdi_param_count(
                 if result.duplicate_groups
                 else "counted from model state"
             )
+            if str(manifest_row.get("architecture_id") or run_dir.name) == "ffno":
+                cfg = _load_runner_config(run_dir / "config.json")
+                cnn_blocks = int(cfg.get("fno_cnn_blocks") or 0)
+                if cnn_blocks > 0:
+                    notes = (
+                        f"historical fno_cnn_blocks={cnn_blocks} local-refiner proxy; "
+                        "corrected no-refiner rerun pending"
+                    )
             return (
                 result.unique_trainable_params,
                 raw_recorded,

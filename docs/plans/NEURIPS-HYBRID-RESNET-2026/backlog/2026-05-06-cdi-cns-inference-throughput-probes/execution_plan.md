@@ -13,11 +13,17 @@
 - CDI authority: `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended.json`
 - CNS authority: `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics.json`
 - Efficiency generator: `scripts/studies/paper_efficiency_table.py`
+- CDI FFNO caveat: historical `pinn_ffno` and `supervised_ffno` rows are
+  `FFNO-local proxy` rows with `fno_cnn_blocks=2`. Probe them only under that
+  label unless the corrected no-refiner table refresh has replaced their
+  source roots.
 
 ## Task 1: Recover Row Lineage
 
 - [ ] Enumerate CDI and CNS rows from `paper_efficiency_table.json` whose `inference_throughput_status` is `missing`.
 - [ ] Resolve each row to its checkpoint path, model config, dataset/split contract, and claim boundary from existing manifests.
+- [ ] For CDI FFNO rows, record whether the source is `fno_cnn_blocks=0`
+  no-refiner evidence or historical `fno_cnn_blocks=2` proxy evidence.
 - [ ] Write a row-lineage audit JSON that marks rows as `ready_for_probe`, `missing_checkpoint`, `missing_dataset`, or `not_comparable`.
 
 ## Task 2: Implement Timing Protocol
@@ -36,7 +42,12 @@
 
 - [ ] Extend `scripts/studies/paper_efficiency_table.py` to consume the item-local throughput artifact.
 - [ ] Regenerate `paper_efficiency_table.{json,csv,tex}` and `paper_efficiency_table_summary.md`.
-- [ ] Preserve BRDT rows and their `paper_approved_secondary_brdt` boundary unchanged.
+- [ ] Preserve BRDT rows only as `historical_brdt_40ep_proxy_context` unless
+  the corrected no-refiner BRDT FFNO rerun has regenerated the BRDT efficiency
+  rows. Do not carry forward `paper_approved_secondary_brdt` for the historical
+  FFNO-local-refiner proxy.
+- [ ] Preserve CDI FFNO rows only as `FFNO-local proxy` unless the corrected
+  no-refiner CDI table refresh has regenerated the CDI efficiency rows.
 
 ## Task 5: Update Discovery Docs
 

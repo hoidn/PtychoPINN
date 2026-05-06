@@ -48,7 +48,9 @@ signals_for_selection:
   - `pinn_hybrid_resnet` / SRU-Net;
   - paired CDI `cnn` U-Net-class supervised and PINN rows;
   - `pinn_fno_vanilla`;
-  - `pinn_ffno`;
+  - corrected no-refiner `pinn_ffno` after
+    `2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun`, or historical
+    `pinn_ffno` only under an explicit `FFNO-local proxy` label;
   - `pinn_neuralop_uno`.
 - Keep the dataset, split, probe preprocessing, epoch budget, scheduler, loss,
   output mode, metric schema, fixed visual sample IDs, and shared visual scales
@@ -60,6 +62,9 @@ signals_for_selection:
 - Do not claim broader object-distribution robustness from this item.
 - Preserve the existing single-seed row lineage in any manuscript or table
   refresh.
+- Do not aggregate the historical `fno_cnn_blocks=2` `pinn_ffno` row as
+  canonical pure-FFNO robustness evidence. Either wait for corrected no-refiner
+  FFNO seeds or label/exclude the proxy row explicitly.
 
 ## Outputs
 

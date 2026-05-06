@@ -163,10 +163,13 @@
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md`
 - Item root (git-ignored):
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/`
-- Fresh CDI run root:
+- Historical superseded `2`-block CDI run root:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/runs/cdi_ffno_ptychoblock_encoder_20260506T183959Z/`
-- Fresh CNS run root:
+- Historical superseded `2`-block CNS run root:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/runs/cns_ffno_ptychoblock_encoder_20260506T190421Z/`
+- Current state:
+  approved `24`-block reruns pending; do not treat the historical roots above
+  as the completed evidence for this backlog item
 - Machine-readable compare bundle:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/comparison_bundle.json`
 - Boundary: CDI outcome is `decision_support_append_only`; CNS outcome is
@@ -492,8 +495,8 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   `hybrid_resnet` pair on the study-indexed
   `grid-lines-n128-hybrid-resnet-legacy-best-e40-seed3` contract without
   changing the CDI dataset, probe, scheduler, or output contract.
-- Status: completed on `2026-04-29`; the stable root is ready as prerequisite
-  CDI evidence for later `lines128` paper packaging.
+- Status: completed on `2026-04-29`; the stable root remains historical
+  FFNO-local-refiner proxy context for later `lines128` paper packaging.
 - Preflight:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_preflight.md`
 - Summary: `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md`
@@ -512,13 +515,18 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Models:
   - `pinn_hybrid_resnet`
   - `pinn_ffno`
+- Architecture caveat:
+  - `pinn_ffno` used `fno_cnn_blocks=2`, so it includes local CNN residual
+    refinement after the factorized Fourier stack. It is not canonical
+    no-refiner FFNO evidence.
 - Final metrics:
   - `pinn_hybrid_resnet` amp/phase MAE `0.026939474 / 0.072063477`, amp/phase
     SSIM `0.988114297 / 0.994739987`
   - `pinn_ffno` amp/phase MAE `0.062772475 / 0.082838669`, amp/phase SSIM
     `0.934830340 / 0.981591519`
-- Boundary: this is the prerequisite FFNO-versus-Hybrid CDI row pair for later
-  `lines128` paper packaging, not the final four-row paper benchmark.
+- Boundary: this is the prerequisite FFNO-local-proxy-versus-Hybrid CDI row
+  pair for later `lines128` paper packaging, not the final no-refiner FFNO
+  benchmark authority.
 
 ### `grid-lines-n128-paper-benchmark-harness-readiness`
 
@@ -579,10 +587,10 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   - fresh spectral row:
     `pinn_spectral_resnet_bottleneck_net` reran in the superseded complete
     root and was promoted into the repaired authoritative root
-  - prerequisite FFNO row:
+  - prerequisite historical FFNO-local-refiner proxy row:
     `pinn_ffno` promoted from the fixed-contract FFNO-vs-Hybrid prerequisite
     root with repaired row-local completion proof rebuilt from durable
-    promoted-source wrapper logs
+    promoted-source wrapper logs; this row used `fno_cnn_blocks=2`
 - Bundle artifacts:
   - `metrics.json`
   - `metric_schema.json`
@@ -597,11 +605,13 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   - prerequisite pair evidence and the four-row minimum subset remain distinct,
     preserved evidence roots and should not be mistaken for the final six-row
     package
+  - the `pinn_ffno` row is historical FFNO-local-refiner proxy evidence until
+    the no-refiner rerun and table refresh land
 
 ### `grid-lines-n128-supervised-ffno-extension`
 
-- Purpose: publish the adjacent same-contract `FFNO + PINN` versus
-  `FFNO + supervised` comparison under the frozen `lines128` `N=128`,
+- Purpose: publish the adjacent same-contract historical `FFNO-local proxy + PINN`
+  versus `FFNO-local proxy + supervised` comparison under the frozen `lines128` `N=128`,
   `seed=3`, fixed-sample, shared-visual-scale contract without rewriting the
   primary six-row CDI benchmark claim.
 - Status: completed on `2026-04-30`; the extension root is
@@ -620,7 +630,7 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Comparison audit:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/execution/supervised_ffno_parity_audit.json`
 - Main result:
-  the corrected supervised FFNO rerun executed successfully under the locked
+  the corrected supervised FFNO-local-proxy rerun executed successfully under the locked
   contract and produced a truthful `paper_complete` adjacent extension root,
   but not exact parity with the preserved `pinn_ffno` comparator. The rebuilt
   comparison audit records
@@ -628,6 +638,8 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Boundary:
   - this is adjacent evidence for the Lines128 CDI lane
   - it does not replace the preserved six-row primary CDI benchmark root
+  - both FFNO rows used `fno_cnn_blocks=2`; pure no-refiner objective-control
+    evidence requires the active corrected reruns
 
 ### Lines128 CDI U-NO Table Extension
 - Purpose: append-only U-NO architecture extension over the locked Lines128
@@ -643,7 +655,7 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux`
 - Eight-row roster:
   - promoted: `baseline`, `pinn`, `pinn_hybrid_resnet`, `pinn_fno_vanilla`,
-    `pinn_spectral_resnet_bottleneck_net`, `pinn_ffno`
+    `pinn_spectral_resnet_bottleneck_net`, historical proxy `pinn_ffno`
   - fresh: `pinn_neuralop_uno`, `supervised_neuralop_uno`
 - Claim boundary:
   `complete_lines128_cdi_benchmark_plus_uno_extension`
@@ -651,6 +663,8 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   - append-only paper-supporting comparator evidence; ranking statements must
     cite the extended root and distinguish it from the original six-row
     authority.
+  - the promoted `pinn_ffno` remains an FFNO-local-refiner proxy row until the
+    no-refiner table refresh lands
 - the supervised CNN minimum-subset evidence remains a referenced sibling,
   not a rerun or silently merged extension row
 
@@ -670,7 +684,7 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Reused anchors:
   - `pinn_hybrid_resnet`
   - `pinn_spectral_resnet_bottleneck_net`
-  - `pinn_ffno`
+  - historical proxy `pinn_ffno`
 - Fresh bridge rows:
   - `pinn_spectral_resnet_bottleneck_ds1`
   - `pinn_spectral_resnet_bottleneck_linear_decoder`
