@@ -19,6 +19,9 @@ As a result:
 - the earlier CDI/CNS evidence for this backlog item is now historical
   `2`-block context only and is **not authoritative** for the approved plan
 - no fresh `24`-block CDI or CNS row completed in this pass
+- the corrected rerun target has been narrowed to `20` epochs for this
+  mechanism-probe item; these rows must not replace existing `40`-epoch
+  headline authorities
 - the backlog item remains open until both corrected long runs finish and the
   comparison bundle is rebuilt from the corrected outputs
 
@@ -35,6 +38,8 @@ As a result:
 - `ptychoblock_stage_count=2`
 - `downsample_steps=2`
 - `downsample_op=stride_conv`
+- corrected rerun epoch budget: `20` epochs for both CDI and CNS mechanism
+  rows
 
 ## Historical Superseded Evidence
 
@@ -98,15 +103,17 @@ Corrected CDI rerun sanity check:
 
 ## Remaining Required Work
 
-- run the fresh corrected CDI row to tracked exit `0` and validate the full
-  artifact set under the approved `24`-block recipe
-- run the fresh corrected CNS row to tracked exit `0` and validate the full
-  artifact set under the approved `24`-block recipe
+- run the fresh corrected `20`-epoch CDI row to tracked exit `0` and validate
+  the full artifact set under the approved `24`-block recipe
+- run the fresh corrected `20`-epoch CNS row to tracked exit `0` and validate
+  the full artifact set under the approved `24`-block recipe
 - rebuild the item-local comparison bundle and any downstream evidence/index
   surfaces from those corrected run roots
 
 ## Claim Boundary
 
-Until the corrected reruns complete, this backlog item has no current valid
-cross-pillar result claim. The historical `2`-block rows are superseded, and
-the approved `24`-block rows remain rerun-pending.
+Until the corrected `20`-epoch reruns complete, this backlog item has no current
+valid cross-pillar result claim. The historical `2`-block rows are superseded,
+and the approved `24`-block rows remain rerun-pending. Completed corrected rows
+should be interpreted as mechanism-probe evidence, not as replacements for the
+existing `40`-epoch CDI or CNS headline authorities.

@@ -39,6 +39,7 @@ signals_for_selection:
   - The completed Lines128 branch ablation showed that the SRU-Net spectral-only encoder is strong, but it did not test an FFNO-style encoder inside the otherwise unchanged SRU-Net shell.
   - The completed FFNO bottleneck bridge changed the SRU-Net body rather than the encoder, so it does not answer whether an FFNO-style encoder helps.
   - This item is a bounded cross-pillar mechanism probe: one new architecture variant, evaluated on CDI Lines128 and small-cap CNS without rerunning existing baseline rows.
+  - User scope update on 2026-05-06: for the FFNO-encoder versus standard SRU-Net mechanism comparison, the fresh corrected rows should run for `20` epochs rather than `40`. Compare against reused baseline lineage at the same epoch where epoch-level histories are available, and keep final claims bounded as mechanism evidence rather than headline table replacement.
   - User priority on 2026-05-05: run this before the remaining active WaveBench backlog items.
 ---
 
@@ -109,13 +110,15 @@ signals_for_selection:
 - Use the official `2d_cfd_cns` PDEBench dataset and the existing task-local
   CNS runner.
 - Use the completed matched-condition CNS headline lane
-  `h5_512_64_64_40ep`, with `history_len=5`.
+  `h5_512_64_64_40ep`, with `history_len=5`, as the split/history/loss
+  authority, but run the new FFNO-encoder mechanism row for `20` epochs.
 - Use the small capped split family `512 / 64 / 64` for train/val/test
-  trajectories, `40` epochs, batch size `4`, Adam at `2e-4`, and the existing
+  trajectories, `20` epochs, batch size `4`, Adam at `2e-4`, and the existing
   CNS MSE training recipe.
-- If the `40`-epoch small-cap run is resource-blocked, record a precise
-  row-level blocker. A shorter smoke run may prove implementation viability,
-  but it must not be interpreted as the CNS impact result.
+- Treat the `20`-epoch CNS row as the intended mechanism-probe result for this
+  item, not as a smoke-only run. Do not insert it into the `40`-epoch CNS
+  headline table; compare it against same-contract lineage curves where
+  available and label any comparison to `40`-epoch endpoints explicitly.
 
 ## Required Interpretation
 
@@ -162,8 +165,10 @@ signals_for_selection:
 - Reject implementations that use a two-block FFNO proxy for the headline row;
   two-block artifacts may be archived only as misconfigured diagnostic context,
   not as the intended FFNO-encoder result.
-- Reject CNS summaries that mix caps, history lengths, or epoch budgets inside
-  one model-ranking table.
+- Reject CNS summaries that mix caps or history lengths inside one model-ranking
+  table. If epoch budgets differ from headline rows, label the new `20`-epoch
+  row as a mechanism-probe row and compare to same-epoch lineage values where
+  available.
 - Reject CDI summaries that rerun completed baseline rows or overwrite the
   completed Lines128 benchmark bundle.
 - Require explicit manifest fields for the encoder recipe:

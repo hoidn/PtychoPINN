@@ -8,6 +8,8 @@ import json
 import re
 from pathlib import Path
 
+import yaml
+
 
 REPO_ROOT = Path.cwd()
 ALLOWED_SELECTION_MODES = {"ACTIVE_SELECTION", "RECOVERED_IN_PROGRESS"}
@@ -44,31 +46,13 @@ def _parse_frontmatter_and_body(path: Path) -> tuple[dict[str, object], str]:
     if end == -1:
         raise SystemExit(f"Missing frontmatter end fence: {path}")
 
-    payload: dict[str, object] = {}
-    current_list_key: str | None = None
-    for raw_line in text[4:end].splitlines():
-        line = raw_line.rstrip()
-        if not line:
-            continue
-        if line.startswith("  - ") or line.startswith("- "):
-            if not current_list_key:
-                raise SystemExit(f"List item without owning key in frontmatter: {path}: {line}")
-            payload.setdefault(current_list_key, [])
-            assert isinstance(payload[current_list_key], list)
-            payload[current_list_key].append(line.split("- ", 1)[1].strip())
-            continue
-        if ":" not in line:
-            raise SystemExit(f"Malformed frontmatter line in {path}: {line}")
-        key, value = line.split(":", 1)
-        key = key.strip()
-        value = value.strip()
-        if value == "":
-            payload[key] = []
-            current_list_key = key
-        else:
-            payload[key] = value
-            current_list_key = None
-    return payload, text[end + len("\n---\n") :].strip()
+    try:
+        parsed = yaml.safe_load(text[4:end]) or {}
+    except yaml.YAMLError as exc:
+        raise SystemExit(f"Malformed YAML frontmatter in {path}: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise SystemExit(f"YAML frontmatter must be a mapping: {path}")
+    return {str(key): value for key, value in parsed.items()}, text[end + len("\n---\n") :].strip()
 
 
 def main() -> int:

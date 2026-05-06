@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement exactly one encoder-only SRU-Net mechanism variant that swaps the baseline SRU-Net encoder for a fixed shared-weight 24-block FFNO stack plus two `PtychoBlock` encoder stages, then evaluate exactly one fresh `lines128` CDI row and one fresh capped PDEBench CNS row without rerunning completed baselines.
+**Goal:** Implement exactly one encoder-only SRU-Net mechanism variant that swaps the baseline SRU-Net encoder for a fixed shared-weight 24-block FFNO stack plus two `PtychoBlock` encoder stages, then evaluate exactly one fresh `lines128` CDI row and one fresh capped PDEBench CNS row for `20` epochs without rerunning completed baselines.
 
 **Architecture:** The work has four implementation units: a reusable FFNO stack/helper plus Hybrid ResNet encoder variant, CDI grid-lines registration for one new `pinn_*` row, PDEBench CNS manual-only registration for one new capped profile, and append-only evidence collation/index updates. The SRU-Net shell after the encoder must remain fixed, CDI and CNS conclusions must remain separate, and long-running launches stay under implementation ownership until the tracked run exits `0` and the required fresh artifacts exist.
 
@@ -40,7 +40,7 @@
 
 - Do not rerun completed baselines just to assemble the comparison.
 - Do not tune FFNO encoder depth, modes, sharing, gate init, normalization, MLP ratio, or local-conv policy after seeing the first metrics. Hyperparameter search is outside this item.
-- Do not change decoder skip wiring, bottleneck family, residual scaling, probe/data contract, training objective, split policy, epoch budgets, or metric definitions while claiming this is an encoder-only ablation.
+- Do not change decoder skip wiring, bottleneck family, residual scaling, probe/data contract, training objective, split policy, the approved `20`-epoch mechanism-probe budget, or metric definitions while claiming this is an encoder-only ablation.
 - Do not average CDI and CNS into one scalar ranking or promote this item into a new default SRU-Net family.
 - Do not reopen full-training CNS claims, rewrite the roadmap, overwrite the completed `lines128` paper bundle, or replace the matched-condition CNS headline table.
 - Do not create worktrees.
@@ -53,6 +53,10 @@
 - Preserve the current headline authorities:
   - CDI headline bundle stays the six-row complete `lines128` authority.
   - CNS headline table stays the matched `history_len=5`, `512 / 64 / 64`, `40`-epoch capped lane.
+- Scope update accepted on 2026-05-06: this item's corrected FFNO-encoder rows
+  are `20`-epoch mechanism-probe rows. They answer whether the encoder swap is
+  promising under the same data/split/loss shell; they do not replace the
+  existing `40`-epoch CDI or CNS headline authorities.
 - Long-run ownership rule:
   - use `tmux` for training/evaluation launches;
   - activate `ptycho311`, then invoke plain PATH `python`;
@@ -81,7 +85,7 @@
 - Fixed CDI contract to preserve:
   - dataset contract id `cdi_lines128_seed3`
   - `N=128`, `gridsize=1`, `seed=3`
-  - `40` epochs, `batch_size=16`, `lr=2e-4`
+  - `20` epochs, `batch_size=16`, `lr=2e-4`
   - `ReduceLROnPlateau(factor=0.5, patience=2, min_lr=1e-4, threshold=0.0)`
   - `torch_loss_mode=mae`, `torch_output_mode=real_imag`
   - fixed sample ids `0`, `1`
@@ -91,10 +95,10 @@
     Label `pinn_ffno` as `FFNO-local proxy` unless the corrected no-refiner
     row is explicitly substituted by lineage.
 - Fixed CNS contract to preserve:
-  - selected lane `h5_512_64_64_40ep`
+  - selected lane `h5_512_64_64_40ep` as the split/history/loss authority
   - `history_len=5`
   - split counts `512 / 64 / 64`
-  - `40` epochs, `batch_size=4`, Adam `2e-4`
+  - `20` epochs, `batch_size=4`, Adam `2e-4`
   - training loss `mse`
   - metric family `err_RMSE`, `err_nRMSE`, `relative_l2`, `fRMSE_low`, `fRMSE_mid`, `fRMSE_high`
   - comparator lineage rows to reuse by reference:
@@ -105,7 +109,7 @@
 - **Shared FFNO encoder stack:** expose one reusable FFNO stack helper built from `FactorizedFfnoBlock` / `FactorizedSpectralConv2d` so the end-to-end FFNO generator and the encoder-ablation variant do not maintain divergent block-stack logic.
 - **Hybrid encoder variant:** implement one explicit Hybrid ResNet family that keeps the SRU-Net shell fixed but swaps the encoder for the fixed FFNO-first recipe followed by exactly two `PtychoBlock` stages paired with the existing downsample steps.
 - **CDI integration surface:** register one append-only `pinn_*` row through the grid-lines runner and compare-wrapper path so config reconstruction, manifests, labels, and parameter reporting remain deterministic.
-- **CNS integration surface:** register one manual-only PDEBench image128 profile for the same encoder recipe under the locked `history_len=5`, `512 / 64 / 64`, `40`-epoch capped CNS shell and keep it out of default profile bundles.
+- **CNS integration surface:** register one manual-only PDEBench image128 profile for the same encoder recipe under the locked `history_len=5`, `512 / 64 / 64`, `20`-epoch mechanism-probe CNS shell and keep it out of default profile bundles.
 
 ## File And Artifact Targets
 
@@ -299,7 +303,7 @@ python -m compileall -q ptycho_torch scripts/studies
 
 - [ ] Register one manual-only profile id, preferably `hybrid_resnet_ffno_ptychoblock_encoder_cns`.
 - [ ] Build the profile under the canonical CNS shell:
-  `history_len=5`, `512 / 64 / 64`, `40` epochs, `batch_size=4`, Adam `2e-4`, MSE, same metric family.
+  `history_len=5`, `512 / 64 / 64`, `20` epochs, `batch_size=4`, Adam `2e-4`, MSE, same metric family.
 - [ ] Preserve the existing supervised real-channel adapter semantics, downsample schedule, skip structure, decoder family, and current CNS row-manifest/reporting behavior outside the encoder.
 - [ ] Keep the new profile out of default `required_primary_profiles_for_task()` bundles so it launches only when explicitly requested.
 - [ ] Ensure profile description/manifests surface the fixed encoder recipe fields and `encoder_variant`.
@@ -365,14 +369,14 @@ python -m compileall -q ptycho_torch scripts/studies
   plus the `scripts/studies/pdebench_image128/*` stack
 - Fresh CNS row artifacts under the item artifact root.
 
-- [ ] Launch only the new manual CNS profile on official `2d_cfd_cns` data under the matched `h5_512_64_64_40ep` contract with `history_len=5`.
-- [ ] Keep the row on the existing CNS MSE recipe and matched metric family. Do not mix caps, history lengths, or epoch budgets.
-- [ ] A shorter smoke/pilot launch is allowed only to prove implementation viability or recover from a normal failure. Label it readiness-only and keep it separate from the required 40-epoch item result.
+- [ ] Launch only the new manual CNS profile on official `2d_cfd_cns` data under the matched `h5_512_64_64_40ep` split/history/loss authority with `history_len=5`, but set the mechanism-probe epoch budget to `20`.
+- [ ] Keep the row on the existing CNS MSE recipe and matched metric family. Do not mix caps or history lengths. If comparing against `40`-epoch endpoint rows, label the epoch-budget difference explicitly and prefer same-epoch lineage comparisons where histories exist.
+- [ ] A shorter smoke/pilot launch is allowed only to prove implementation viability or recover from a normal failure. Label it readiness-only and keep it separate from the required `20`-epoch item result.
 - [ ] On completion, verify fresh row-local metrics, profile/config metadata, field-visual artifacts, invocation/history, and `exit_code_proof.json`.
 
 **Verification**
 
-- Blocking: tracked `40`-epoch CNS launch exits `0`, or a documented unrecoverable external blocker is recorded after a narrow fix attempt.
+- Blocking: tracked `20`-epoch CNS launch exits `0`, or a documented unrecoverable external blocker is recorded after a narrow fix attempt.
 - Blocking: fresh CNS row artifacts exist and the eventual summary labels the result `bounded_capped_decision_support_only`.
 - Supporting: if a smoke/pilot run was needed, archive it separately and label it readiness-only.
 
@@ -405,7 +409,7 @@ python -m compileall -q ptycho_torch scripts/studies
 
 - The codebase exposes one explicit `hybrid_resnet_ffno_ptychoblock_encoder` family with the fixed encoder recipe and manifest/config round-trip fields.
 - The grid-lines path can launch exactly one fresh append-only CDI row for that family under the locked `lines128` contract.
-- The PDEBench image128 path can launch exactly one fresh manual-only capped CNS row for that family under the matched `history_len=5`, `512 / 64 / 64`, `40`-epoch contract.
+- The PDEBench image128 path can launch exactly one fresh manual-only capped CNS row for that family under the matched `history_len=5`, `512 / 64 / 64`, `20`-epoch mechanism-probe contract.
 - All blocking deterministic checks in this plan pass before the expensive launches.
 - Both long runs either complete with exit `0` plus fresh required artifacts or conclude with a documented narrow-fix attempt and a legitimate blocker under the item’s blocker policy.
 - The durable summary and evidence indexes are updated without rewriting the authoritative CDI or CNS headline bundles.
