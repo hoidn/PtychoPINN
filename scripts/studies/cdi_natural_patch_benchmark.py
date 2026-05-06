@@ -1026,6 +1026,7 @@ def _attach_natural_patch_row_provenance(
     gridsize: int = 1,
     set_phi: bool = False,
     proof_source: str,
+    git_commit_override: Optional[str] = None,
 ) -> None:
     """Augment a natural-patch row payload with full paper-grade provenance scaffolding.
 
@@ -1106,13 +1107,22 @@ def _attach_natural_patch_row_provenance(
         hardware_summary=existing_hardware if isinstance(existing_hardware, Mapping) else None,
     )
     existing_git = row_payload.get("git")
-    git_commit = existing_git.get("commit") if isinstance(existing_git, Mapping) else None
+    if isinstance(git_commit_override, str) and git_commit_override:
+        git_commit: Optional[str] = git_commit_override
+        existing_git_for_merge: Mapping[str, Any] = (
+            {key: value for key, value in existing_git.items() if key != "commit"}
+            if isinstance(existing_git, Mapping)
+            else {}
+        )
+    else:
+        git_commit = existing_git.get("commit") if isinstance(existing_git, Mapping) else None
+        existing_git_for_merge = existing_git if isinstance(existing_git, Mapping) else {}
     if not (isinstance(git_commit, str) and git_commit):
         from scripts.studies.invocation_logging import get_git_commit
 
         git_commit = get_git_commit(REPO_ROOT)
     row_payload["git"] = merge_git_provenance(
-        existing_git if isinstance(existing_git, Mapping) else {},
+        existing_git_for_merge,
         repo_root=REPO_ROOT,
         commit=str(git_commit) if isinstance(git_commit, str) and git_commit else None,
         note_source="natural_patch_harness_row_provenance",
@@ -1796,60 +1806,38 @@ def _backfill_torch_row_visuals(
     )
 
 
-def _promote_recovered_row_invocation(*, run_root: Path, model_id: str) -> bool:
-    """Mark a row's invocation as completed when the underlying row artifacts prove training succeeded.
+def _read_row_invocation_metadata(
+    *, run_root: Path, model_id: str
+) -> tuple[Optional[str], Optional[int], Optional[str]]:
+    """Read the per-row invocation envelope and return its raw status/exit_code/git_commit.
 
-    The original natural-patch launch crashed in bundle collation after every row
-    finished training and inference. The recollate path needs the per-row
-    invocation envelope to read as `status="completed"` / `exit_code=0` so the
-    bundle's exit-code-proof validator can dereference it. We promote the envelope
-    only when the on-disk row artifacts (config.json, metrics.json, history.json,
-    a recon at recons/<row>/recon.npz, and a model checkpoint) all exist, and we
-    record the promotion explicitly under ``extra`` so the audit trail shows the
-    rewrite happened during recollation rather than in the original launch.
+    Returns ``(status, exit_code, git_commit)``. The recollate path reads these
+    values as-is from the original execution record so the bundle can carry an
+    honest ``row_invocation_status`` / ``row_invocation_exit_code`` and so the
+    row provenance can stamp the original execution commit instead of the
+    recollation commit.
     """
     invocation_path = run_root / "runs" / model_id / "invocation.json"
     if not invocation_path.exists():
-        return False
-    config_path = run_root / "runs" / model_id / "config.json"
-    metrics_path = run_root / "runs" / model_id / "metrics.json"
-    history_path = run_root / "runs" / model_id / "history.json"
-    recon_path = run_root / "recons" / model_id / "recon.npz"
-    model_candidates = (
-        run_root / "runs" / model_id / "model.pt",
-        run_root / "runs" / model_id / "wts.h5.zip",
-        run_root / "runs" / model_id / "baseline.keras",
-        run_root / "baseline" / "baseline.keras",
-        run_root / "pinn" / "wts.h5.zip",
-    )
-    if not config_path.exists() or not metrics_path.exists() or not history_path.exists():
-        return False
-    if not recon_path.exists():
-        return False
-    if not any(candidate.exists() for candidate in model_candidates):
-        return False
-    payload = json.loads(invocation_path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        return False
-    needs_promotion = (
-        payload.get("status") != "completed"
-        or not isinstance(payload.get("exit_code"), int)
-        or isinstance(payload.get("exit_code"), bool)
-        or payload.get("exit_code") != 0
-    )
-    if not needs_promotion:
-        return True
-    extra = dict(payload.get("extra")) if isinstance(payload.get("extra"), Mapping) else {}
-    extra["recovered_exit_code_from_recollate_promotion"] = True
-    extra["recovered_original_status"] = payload.get("status")
-    extra["recovered_original_exit_code"] = payload.get("exit_code")
-    payload["extra"] = extra
-    payload["status"] = "completed"
-    payload["exit_code"] = 0
-    if not isinstance(payload.get("finished_at_utc"), str) or not payload.get("finished_at_utc"):
-        payload["finished_at_utc"] = datetime.now(timezone.utc).isoformat()
-    invocation_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    return True
+        return None, None, None
+    try:
+        payload = json.loads(invocation_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None, None, None
+    if not isinstance(payload, Mapping):
+        return None, None, None
+    status_value = payload.get("status")
+    status = str(status_value) if isinstance(status_value, str) else None
+    raw_exit = payload.get("exit_code")
+    exit_code: Optional[int]
+    if isinstance(raw_exit, int) and not isinstance(raw_exit, bool):
+        exit_code = raw_exit
+    else:
+        exit_code = None
+    extra = payload.get("extra")
+    git_commit_value = extra.get("git_commit") if isinstance(extra, Mapping) else None
+    git_commit = str(git_commit_value) if isinstance(git_commit_value, str) and git_commit_value else None
+    return status, exit_code, git_commit
 
 
 def _backfill_row_logs(*, run_root: Path, model_id: str) -> None:
@@ -1870,7 +1858,6 @@ def _backfill_row_logs(*, run_root: Path, model_id: str) -> None:
 _PROVENANCE_FIELDS_TO_DROP = (
     "invocation",
     "config",
-    "git",
     "environment",
     "dataset",
     "splits",
@@ -1995,7 +1982,10 @@ def _recollate_natural_patch_run(
         backend = existing.get("hardware_summary", {}).get("backend") if isinstance(existing.get("hardware_summary"), Mapping) else None
         backend_by_row[row] = str(backend) if isinstance(backend, str) else "unknown"
         _backfill_row_logs(run_root=run_root, model_id=row)
-        _promote_recovered_row_invocation(run_root=run_root, model_id=row)
+        invocation_status, invocation_exit_code, original_git_commit = _read_row_invocation_metadata(
+            run_root=run_root, model_id=row
+        )
+        existing["row_status"] = "recovered_non_authoritative"
         if backend == "pytorch":
             visuals = _backfill_torch_row_visuals(
                 run_root=run_root,
@@ -2027,11 +2017,18 @@ def _recollate_natural_patch_run(
             gridsize=1,
             set_phi=False,
             proof_source=f"natural_patch_recollate_existing_row_artifacts_{backend_by_row[row]}",
+            git_commit_override=original_git_commit,
         )
         row_payloads[row] = existing
-        row_statuses[row] = {"status": "completed", "execution_source": "recollate"}
+        row_statuses[row] = {
+            "status": "recovered_non_authoritative",
+            "execution_source": "recollate",
+            "row_invocation_status": invocation_status,
+            "row_invocation_exit_code": invocation_exit_code,
+            "reason": "recollate_after_failed_authoritative_launcher",
+        }
 
-    bundle_row_statuses = _bundle_row_statuses_from_execution(row_statuses)
+    bundle_row_statuses = dict(row_statuses)
     bundle_paths = write_paper_benchmark_bundle(
         output_dir=run_root,
         row_payloads=row_payloads,

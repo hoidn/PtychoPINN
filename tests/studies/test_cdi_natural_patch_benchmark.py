@@ -14,7 +14,7 @@ from scripts.studies.cdi_natural_patch_benchmark import (
     NATURAL_PATCH_ROW_ROSTER,
     _attach_natural_patch_row_provenance,
     _patchwise_metrics,
-    _promote_recovered_row_invocation,
+    _read_row_invocation_metadata,
     _save_patchwise_prediction_artifacts,
     _save_fixed_sample_visuals,
     prepare_natural_patch_inputs,
@@ -811,7 +811,7 @@ def test_attach_natural_patch_row_provenance_writes_manifests_and_proof(tmp_path
     assert row_payload["outputs"]["exit_code_proof_json"] == "runs/baseline/exit_code_proof.json"
 
 
-def test_promote_recovered_row_invocation_rewrites_failed_envelope_when_artifacts_present(tmp_path: Path):
+def test_read_row_invocation_metadata_returns_original_failed_envelope(tmp_path: Path):
     run_root = tmp_path / "run"
     run_dir = run_root / "runs" / "pinn_hybrid_resnet"
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -825,72 +825,50 @@ def test_promote_recovered_row_invocation_rewrites_failed_envelope_when_artifact
                 "status": "failed",
                 "exit_code": 1,
                 "finished_at_utc": "2026-04-29T00:00:00+00:00",
+                "extra": {"git_commit": "abc1234"},
             }
         ),
         encoding="utf-8",
     )
-    (run_dir / "config.json").write_text(json.dumps({"seed": 3}), encoding="utf-8")
-    (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
-    (run_dir / "history.json").write_text("{}", encoding="utf-8")
-    (run_dir / "model.pt").write_text("x", encoding="utf-8")
-    recon_dir = run_root / "recons" / "pinn_hybrid_resnet"
-    recon_dir.mkdir(parents=True, exist_ok=True)
-    np.savez(recon_dir / "recon.npz", YY_pred=np.ones((1, 8, 8), dtype=np.complex64))
 
-    promoted = _promote_recovered_row_invocation(
-        run_root=run_root,
-        model_id="pinn_hybrid_resnet",
+    status, exit_code, git_commit = _read_row_invocation_metadata(
+        run_root=run_root, model_id="pinn_hybrid_resnet"
     )
 
-    assert promoted is True
-    payload = json.loads(invocation_path.read_text(encoding="utf-8"))
-    assert payload["status"] == "completed"
-    assert payload["exit_code"] == 0
-    extra = payload["extra"]
-    assert extra["recovered_exit_code_from_recollate_promotion"] is True
-    assert extra["recovered_original_status"] == "failed"
-    assert extra["recovered_original_exit_code"] == 1
-
-
-def test_promote_recovered_row_invocation_refuses_when_recon_missing(tmp_path: Path):
-    run_root = tmp_path / "run"
-    run_dir = run_root / "runs" / "pinn_hybrid_resnet"
-    run_dir.mkdir(parents=True, exist_ok=True)
-    invocation_path = run_dir / "invocation.json"
-    invocation_path.write_text(
-        json.dumps({"status": "failed", "exit_code": 1}),
-        encoding="utf-8",
-    )
-    (run_dir / "config.json").write_text("{}", encoding="utf-8")
-    (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
-    (run_dir / "history.json").write_text("{}", encoding="utf-8")
-    (run_dir / "model.pt").write_text("x", encoding="utf-8")
-    # No recon artifact -> promotion must refuse so the bundle stays
-    # benchmark_incomplete with an honest provenance gap.
-
-    promoted = _promote_recovered_row_invocation(
-        run_root=run_root,
-        model_id="pinn_hybrid_resnet",
-    )
-
-    assert promoted is False
+    assert status == "failed"
+    assert exit_code == 1
+    assert git_commit == "abc1234"
+    # The recollate path must not rewrite the original envelope; the bundle
+    # surfaces the failure rather than masking it.
     payload = json.loads(invocation_path.read_text(encoding="utf-8"))
     assert payload["status"] == "failed"
     assert payload["exit_code"] == 1
 
 
-def test_recollate_mode_promotes_existing_run_to_paper_complete(tmp_path: Path):
-    """End-to-end recollate: seed an existing run root then re-publish through the harness."""
+def test_read_row_invocation_metadata_returns_none_when_missing(tmp_path: Path):
+    run_root = tmp_path / "run"
+    status, exit_code, git_commit = _read_row_invocation_metadata(
+        run_root=run_root, model_id="pinn_hybrid_resnet"
+    )
+    assert status is None
+    assert exit_code is None
+    assert git_commit is None
+
+
+def test_recollate_mode_publishes_recovered_non_authoritative_bundle(tmp_path: Path):
+    """End-to-end recollate honestly downgrades a failed launch's bundle.
+
+    The recollate path must NOT rewrite failed/1 invocations to completed/0,
+    must preserve the original execution commit per row, and must publish the
+    bundle as benchmark_incomplete with a recovered_non_authoritative row state.
+    """
     dataset_root = _build_dataset_root(tmp_path)
     item_root = tmp_path / "item"
     seed = 3
     run_id = "recollate-test-run"
     rows = ("baseline", "pinn")
+    original_commit = "deadbeefcafe1234567890abcdef0123456789ab"
 
-    # First write minimum valid metrics.json shape under the run root by calling
-    # benchmark mode with a fake executor that emits paper_grade row payloads
-    # missing only the new provenance scaffolding (so the bundle starts as
-    # benchmark_incomplete, mirroring the on-disk state we are recollating).
     def fake_execute_rows(**_):
         metrics = {
             "mae": (0.1, 0.2),
@@ -933,15 +911,32 @@ def test_recollate_mode_promotes_existing_run_to_paper_complete(tmp_path: Path):
         execute_rows_fn=fake_execute_rows,
     )
     run_root = item_root / "runs" / run_id
-    # Seed per-row invocation/config/log artifacts that the recollate path
-    # validates via write_exit_code_proof, plus the row reconstructions and
-    # baseline visuals so the recollate path has everything it needs without
-    # retraining.
+
+    # Seed per-row invocation/config/log artifacts that mirror an authoritative
+    # launch where one row crashed (failed/1) and its envelope was never
+    # rewritten. The recollate path must preserve that envelope and downgrade
+    # the bundle accordingly.
     for row in rows:
-        _seed_per_row_invocation(run_root, row, seed=seed)
+        run_dir = run_root / "runs" / row
+        run_dir.mkdir(parents=True, exist_ok=True)
+        invocation_payload = {
+            "argv": ["--seed", str(seed)],
+            "parsed_args": {"seed": seed},
+            "pid": 4242,
+            "status": "failed" if row == "pinn" else "completed",
+            "exit_code": 1 if row == "pinn" else 0,
+            "finished_at_utc": "2026-04-29T00:00:00+00:00",
+            "extra": {"git_commit": original_commit},
+        }
+        (run_dir / "invocation.json").write_text(json.dumps(invocation_payload), encoding="utf-8")
+        (run_dir / "invocation.sh").write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+        (run_dir / "config.json").write_text(json.dumps({"seed": seed}), encoding="utf-8")
+        (run_dir / "stdout.log").write_text("row stdout\n", encoding="utf-8")
+        (run_dir / "stderr.log").write_text("", encoding="utf-8")
+        (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+        (run_dir / "history.json").write_text("{}", encoding="utf-8")
         recon_dir = run_root / "recons" / row
         recon_dir.mkdir(parents=True, exist_ok=True)
-        # Provide a complex recon array sized to match the test split (1 sample).
         np.savez(
             recon_dir / "recon.npz",
             recon=np.ones((1, 8, 8), dtype=np.complex64),
@@ -962,10 +957,26 @@ def test_recollate_mode_promotes_existing_run_to_paper_complete(tmp_path: Path):
 
     assert result["mode"] == "recollate"
     metrics_payload = json.loads((run_root / "metrics.json").read_text(encoding="utf-8"))
-    assert metrics_payload["benchmark_status"] == "paper_complete"
+    assert metrics_payload["benchmark_status"] == "benchmark_incomplete"
     for row in rows:
-        assert metrics_payload["missing_fields_by_row"][row] == []
-        assert metrics_payload["row_statuses"][row]["status"] == "supported_for_harness"
-        assert metrics_payload["row_statuses"][row]["execution_status"] == "completed"
+        row_status_entry = metrics_payload["row_statuses"][row]
+        assert row_status_entry["status"] == "recovered_non_authoritative"
+        assert row_status_entry["execution_source"] == "recollate"
+        # row_status="recovered_non_authoritative" must surface as a missing
+        # paper-grade field so the bundle is honestly downgraded.
+        assert "row_status" in metrics_payload["missing_fields_by_row"][row]
+        # Original execution commit must be preserved per-row, never the
+        # recollate-time HEAD commit.
+        assert metrics_payload["rows"][row]["git"]["commit"] == original_commit
+
+    # The recollate path must NOT rewrite the failed/1 invocation envelope.
+    failed_invocation = json.loads(
+        (run_root / "runs" / "pinn" / "invocation.json").read_text(encoding="utf-8")
+    )
+    assert failed_invocation["status"] == "failed"
+    assert failed_invocation["exit_code"] == 1
+    extra = failed_invocation.get("extra", {})
+    assert "recovered_exit_code_from_recollate_promotion" not in extra
+
     manifest_payload = json.loads((run_root / "paper_benchmark_manifest.json").read_text(encoding="utf-8"))
     assert manifest_payload["recollate_source"] == run_id

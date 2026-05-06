@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-05T23:04:23Z",
+  "last_updated_utc": "2026-05-06T00:50:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -220,8 +220,8 @@
         "image": 1.0,
         "physics": 0.1,
         "relative_physics": 0.1,
-        "tv": 1e-5,
-        "positivity": 1e-4
+        "tv": 1e-05,
+        "positivity": 0.0001
       },
       "claim_boundary": "decision_support_preflight_only",
       "authority": "docs/plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md"
@@ -738,7 +738,7 @@
         "amp_frc50": 0.7901571531878987,
         "phase_frc50": 0.7817095544667713
       },
-      "evidence_status": "paper_complete_recollate_with_recovered_invocation_promotion"
+      "evidence_status": "benchmark_incomplete_recovered_non_authoritative"
     },
     {
       "variant_id": "cdi_natural_patches128_fixedprobe__cnn__pinn__single_seed_benchmark",
@@ -767,7 +767,7 @@
         "amp_frc50": 0.8564732280408797,
         "phase_frc50": 0.8349427533436236
       },
-      "evidence_status": "paper_complete_recollate_with_recovered_invocation_promotion"
+      "evidence_status": "benchmark_incomplete_recovered_non_authoritative"
     },
     {
       "variant_id": "cdi_natural_patches128_fixedprobe__hybrid_resnet__pinn__single_seed_benchmark",
@@ -792,7 +792,7 @@
         "amp_frc50": 0.8620934806365117,
         "phase_frc50": 0.9394921784638249
       },
-      "evidence_status": "paper_complete_recollate_with_recovered_invocation_promotion"
+      "evidence_status": "benchmark_incomplete_recovered_non_authoritative"
     },
     {
       "variant_id": "cdi_natural_patches128_fixedprobe__fno_vanilla__pinn__single_seed_benchmark",
@@ -817,7 +817,7 @@
         "amp_frc50": 0.829955257922965,
         "phase_frc50": 0.9337673783891351
       },
-      "evidence_status": "paper_complete_recollate_with_recovered_invocation_promotion"
+      "evidence_status": "benchmark_incomplete_recovered_non_authoritative"
     },
     {
       "variant_id": "cdi_natural_patches128_fixedprobe__ffno__pinn__single_seed_benchmark",
@@ -842,7 +842,7 @@
         "amp_frc50": 0.8580602550687738,
         "phase_frc50": 0.8339473851628878
       },
-      "evidence_status": "paper_complete_recollate_with_recovered_invocation_promotion"
+      "evidence_status": "benchmark_incomplete_recovered_non_authoritative"
     },
     {
       "variant_id": "cdi_natural_patches128_fixedprobe__neuralop_uno__pinn__single_seed_benchmark",
@@ -867,7 +867,7 @@
         "amp_frc50": 0.8428799457417018,
         "phase_frc50": 0.8792973136975811
       },
-      "evidence_status": "paper_complete_recollate_with_recovered_invocation_promotion"
+      "evidence_status": "benchmark_incomplete_recovered_non_authoritative"
     },
     {
       "variant_id": "cns_history2_cap512__author_ffno_cns_base__supervised__paper_bundle",
@@ -1479,13 +1479,13 @@
       "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-branch-objective-ablation/runs/ablation_20260505T010316Z",
       "metrics_json": "runs/pinn_hybrid_resnet_encoder_spectral_only/metrics.json",
       "metrics": {
-        "amp_mae": 0.025203144550323486,
+        "amp_mae": 0.025203144550323485,
         "phase_mae": 0.06146790087223053,
         "amp_ssim": 0.9899319008605485,
         "phase_ssim": 0.9957638829923842,
         "amp_psnr": 78.13998472810148,
         "phase_psnr": 70.55186366551928,
-        "amp_frc50": 137.69297586500715,
+        "amp_frc50": 137.69297586500716,
         "phase_frc50": 135.71064099634393
       },
       "nearest_anchor_row": "pinn_hybrid_resnet",
@@ -1506,8 +1506,8 @@
       "metrics_json": "runs/supervised_hybrid_resnet/metrics.json",
       "metrics": {
         "amp_mae": 0.40098100900650024,
-        "phase_mae": 0.034011025726795197,
-        "amp_ssim": 0.27095830813864316,
+        "phase_mae": 0.034011025726795194,
+        "amp_ssim": 0.27095830813864313,
         "phase_ssim": 0.9686939879672553,
         "amp_psnr": 53.62693750833921,
         "phase_psnr": 74.10894099574375,

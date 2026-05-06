@@ -1,7 +1,7 @@
 # NeurIPS Hybrid ResNet Evidence Matrix
 
 Status: draft  
-Last updated: 2026-05-05 (natural-patch expanded-object benchmark recollated to `paper_complete`; fixed-probe dataset prerequisite retained)
+Last updated: 2026-05-05 (natural-patch expanded-object benchmark downgraded to `benchmark_incomplete` recovered/non-authoritative state after the original launcher exited `1`; fixed-probe dataset prerequisite retained)
 
 This is the human-facing master matrix for NeurIPS/SRU-Net evidence. It points
 to all relevant completed backlog outputs, keyed by dataset, model/config
@@ -29,7 +29,7 @@ Machine-readable companions:
 | PDEBench Darcy static-operator full-training benchmark | `pdebench_darcy_static_operator_summary.md` | `benchmark_performance` for `hybrid_resnet_base`, `fno_base`, `unet_strong` under the locked `8000/1000/1000` split, relative-L2 loss, `50` epochs |
 | Cross-pillar claim audit | `paper_evidence_package_audit_summary.md` | preserves CDI/CNS claim asymmetry |
 | CDI natural-patch fixed-probe dataset (`natural_patches128_fixedprobe_v1`) | `cdi_natural_patch_fixedprobe_dataset_summary.md` | dataset prerequisite only; not benchmark evidence; does not replace `lines128` table |
-| CDI natural-patch expanded-object benchmark (`natural_patches128_fixedprobe_v1`) | `cdi_natural_patch_expanded_benchmark_summary.md` | single-seed expanded-object CDI bundle now `paper_complete` via the recollate-with-recovered-invocation-promotion path (locked provenance scaffolding emitted, torch fixed-sample visuals backfilled, recollate launcher exited `0`); does not replace `lines128` |
+| CDI natural-patch expanded-object benchmark (`natural_patches128_fixedprobe_v1`) | `cdi_natural_patch_expanded_benchmark_summary.md` | single-seed expanded-object CDI bundle currently `benchmark_incomplete`; original tmux launcher exited `1`, recollated bundle preserves the original execution commit and surfaces every required row as `recovered_non_authoritative` (four torch rows still report `failed/1` invocations); not paper-grade until a clean from-scratch tmux launcher exits `0` end-to-end; does not replace `lines128` |
 | Completed backlog outcome map | `paper_evidence_index.md` | first-stop durable outcome index |
 
 ## Manuscript Incorporation Map
@@ -131,7 +131,7 @@ Current read:
 - the combined skip-add plus fixed-residual row does not beat the simpler single-factor rows
 - this family does not replace the paper-grade Hybrid baseline or the six-row CDI headline bundle
 
-## CDI Natural-Patch Expanded-Object Benchmark
+## CDI Natural-Patch Expanded-Object Benchmark (Recovered Non-Authoritative)
 
 Fixed contract: frozen `natural_patches128_fixedprobe_v1`, `N=128`, single-shot
 CDI forward model, `8000 / 1000 / 1000` train/validation/test split, fixed
@@ -141,14 +141,21 @@ locked six-row roster from
 expanded-object bundle only and does not replace the synthetic `lines128`
 headline authority.
 
+**Status: not paper-grade.** The original tmux launcher exited `1` during
+bundle collation. The numbers below are surfaced from the recovered
+(non-authoritative) bundle for diagnostic context only; they must not be cited
+as authoritative natural-patch evidence until a clean from-scratch tmux
+launcher exits `0` end-to-end. The four torch rows still report
+`row_invocation_status="failed"` / `row_invocation_exit_code=1` in the bundle.
+
 | Row | Architecture | Training | Amp MAE | Phase MAE | Amp SSIM | Phase SSIM | Source |
 |---|---|---:|---:|---:|---:|---:|---|
-| `baseline` | `cnn` | supervised | 0.071577 | 0.395421 | 0.486379 | 0.645555 | natural-patch expanded benchmark |
-| `pinn` | `cnn` | PINN | 0.292340 | 1.447159 | 0.244005 | 0.236621 | natural-patch expanded benchmark |
-| `pinn_hybrid_resnet` | `hybrid_resnet` | PINN | 0.260947 | 0.437384 | 0.027532 | 0.442481 | natural-patch expanded benchmark |
-| `pinn_fno_vanilla` | `fno_vanilla` | PINN | 0.157052 | 0.423742 | 0.042040 | 0.530686 | natural-patch expanded benchmark |
-| `pinn_ffno` | `ffno` | PINN | 0.156714 | 0.396144 | 0.059388 | 0.604128 | natural-patch expanded benchmark |
-| `pinn_neuralop_uno` | `neuralop_uno` | PINN | 0.170826 | 0.399654 | 0.051717 | 0.598107 | natural-patch expanded benchmark |
+| `baseline` | `cnn` | supervised | 0.071577 | 0.395421 | 0.486379 | 0.645555 | natural-patch expanded benchmark (recovered, non-authoritative) |
+| `pinn` | `cnn` | PINN | 0.292340 | 1.447159 | 0.244005 | 0.236621 | natural-patch expanded benchmark (recovered, non-authoritative) |
+| `pinn_hybrid_resnet` | `hybrid_resnet` | PINN | 0.260947 | 0.437384 | 0.027532 | 0.442481 | natural-patch expanded benchmark (recovered, non-authoritative) |
+| `pinn_fno_vanilla` | `fno_vanilla` | PINN | 0.157052 | 0.423742 | 0.042040 | 0.530686 | natural-patch expanded benchmark (recovered, non-authoritative) |
+| `pinn_ffno` | `ffno` | PINN | 0.156714 | 0.396144 | 0.059388 | 0.604128 | natural-patch expanded benchmark (recovered, non-authoritative) |
+| `pinn_neuralop_uno` | `neuralop_uno` | PINN | 0.170826 | 0.399654 | 0.051717 | 0.598107 | natural-patch expanded benchmark (recovered, non-authoritative) |
 
 Natural-patch artifact root:
 
@@ -338,7 +345,7 @@ completed four-row preflight for potential manuscript or supplement use:
 | `2026-05-04-brdt-ffno-row-extension` | BRDT append-only architecture row extension adding a single factorized Fourier operator (FFNO) row to the four-row preflight (decision_support_append_only, not paper evidence) | `brdt_ffno_row_extension_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-ffno-row-extension/` |
 | `2026-05-04-pdebench-darcy-full-training-benchmark` | PDEBench Darcy full-training benchmark | `pdebench_darcy_static_operator_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-darcy-static-operator-benchmark/full_benchmark_20260504T182832Z` |
 | `2026-05-04-cdi-natural-patch-fixedprobe-dataset` | CDI natural-patch fixed-probe dataset prerequisite (`natural_patches128_fixedprobe_v1`; not benchmark evidence) | `cdi_natural_patch_fixedprobe_dataset_summary.md` | `.artifacts/data/NEURIPS-HYBRID-RESNET-2026/natural_patches128_fixedprobe_v1/` |
-| `2026-05-04-cdi-natural-patch-expanded-benchmark` | CDI natural-patch expanded-object single-seed benchmark (`natural_patches128_fixedprobe_v1`; bundle `paper_complete` via recollate-with-recovered-invocation-promotion path — locked provenance scaffolding emitted, torch fixed-sample visuals backfilled, recollate launcher exited `0`) | `cdi_natural_patch_expanded_benchmark_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z` |
+| `2026-05-04-cdi-natural-patch-expanded-benchmark` | CDI natural-patch expanded-object single-seed benchmark (`natural_patches128_fixedprobe_v1`; bundle currently `benchmark_incomplete` recovered/non-authoritative — original tmux launcher exited `1`, recollated with original execution commit preserved, every required row `recovered_non_authoritative`, four torch rows still report `failed/1` invocations) | `cdi_natural_patch_expanded_benchmark_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-natural-patch-expanded-benchmark/runs/natural-patch-benchmark-20260505T213458Z` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-design` | legacy CDI architecture-search design | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-stage-a-execution` | legacy CDI architecture-search execution | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
 | `2026-02-26-hybrid-resnet-skip-mode-search-stage-b-execution` | legacy CDI architecture-search execution | `docs/studies/index.md#hybrid-resnet-mode-skip-sweep` | `outputs/hybrid_resnet_mode_skip_sweep_full_n128_20260221` |
