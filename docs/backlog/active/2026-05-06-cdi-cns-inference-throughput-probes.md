@@ -1,5 +1,5 @@
 ---
-priority: 34
+priority: 17
 plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-cns-inference-throughput-probes/execution_plan.md
 check_commands:
   - |
