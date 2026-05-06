@@ -1,0 +1,244 @@
+{
+  "generated_at_utc": "2026-05-06T19:31:29.283601+00:00",
+  "backlog_item": "2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap",
+  "summary_authority": "docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md",
+  "encoder_recipe": {
+    "architecture_id": "hybrid_resnet_ffno_ptychoblock_encoder",
+    "encoder_variant": "ffno_ptychoblock_encoder",
+    "ffno_encoder_blocks": 2,
+    "ffno_encoder_modes": 12,
+    "ffno_encoder_share_weights": true,
+    "ffno_encoder_gate_init": 0.1,
+    "ffno_encoder_norm": "instance",
+    "ffno_encoder_mlp_ratio": 2.0,
+    "ptychoblock_stage_count": 2,
+    "downsample_steps": 2,
+    "downsample_op": "stride_conv"
+  },
+  "cdi": {
+    "claim_boundary": "decision_support_append_only",
+    "fresh_row_id": "pinn_hybrid_resnet_ffno_ptychoblock_encoder",
+    "run_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/runs/cdi_ffno_ptychoblock_encoder_20260506T183959Z",
+    "metrics": {
+      "amp_mae": 0.031728703528642654,
+      "phase_mae": 0.06874002334700104,
+      "amp_ssim": 0.9858144231881263,
+      "phase_ssim": 0.9942853376632247,
+      "amp_psnr": 76.15373770035818,
+      "phase_psnr": 69.50884612643533,
+      "amp_frc50": 132.7229731121457,
+      "phase_frc50": 135.0526558122957
+    },
+    "references": {
+      "pinn_hybrid_resnet": {
+        "metrics": {
+          "amp_mae": 0.026939474046230316,
+          "phase_mae": 0.07206347709561367,
+          "amp_ssim": 0.9881142973635324,
+          "phase_ssim": 0.9947399866043689,
+          "amp_psnr": 77.51937067873057,
+          "phase_psnr": 69.21628683417748,
+          "amp_frc50": 135.46422193425383,
+          "phase_frc50": 106.80060877638415
+        },
+        "delta_fresh_minus_reference": {
+          "amp_mae": 0.004789229482412338,
+          "phase_mae": -0.003323453748612634,
+          "amp_ssim": -0.0022998741754061136,
+          "phase_ssim": -0.00045464894114422005,
+          "amp_psnr": -1.365632978372389,
+          "phase_psnr": 0.2925592922578488,
+          "amp_frc50": -2.7412488221081333,
+          "phase_frc50": 28.25204703591156
+        },
+        "metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux/runs/pinn_hybrid_resnet/metrics.json"
+      },
+      "pinn_hybrid_resnet_encoder_spectral_only": {
+        "metrics": {
+          "amp_mae": 0.02521016262471676,
+          "phase_mae": 0.06147968671164761,
+          "amp_ssim": 0.98992547056026,
+          "phase_ssim": 0.9958335542298946,
+          "amp_psnr": 78.14029251477433,
+          "phase_psnr": 70.55258621814542,
+          "amp_frc50": 137.69447638412498,
+          "phase_frc50": 135.70585734282085
+        },
+        "delta_fresh_minus_reference": {
+          "amp_mae": 0.006518540903925896,
+          "phase_mae": 0.007260336635353429,
+          "amp_ssim": -0.004111047372133747,
+          "phase_ssim": -0.0015482165666699244,
+          "amp_psnr": -1.9865548144161522,
+          "phase_psnr": -1.0437400917100916,
+          "amp_frc50": -4.971503271979287,
+          "phase_frc50": -0.6532015305251377
+        },
+        "metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-branch-objective-ablation/runs/ablation_20260505T010316Z/runs/pinn_hybrid_resnet_encoder_spectral_only/metrics.json"
+      },
+      "pinn_ffno": {
+        "metrics": {
+          "amp_mae": 0.062772475,
+          "phase_mae": 0.08283866878648244,
+          "amp_ssim": 0.934830339980703,
+          "phase_ssim": 0.9815915191210483,
+          "amp_psnr": 70.19008056259318,
+          "phase_psnr": 67.77591687814196,
+          "amp_frc50": 68.90094687002035,
+          "phase_frc50": 67.84086901019204
+        },
+        "delta_fresh_minus_reference": {
+          "amp_mae": -0.03104377147135734,
+          "phase_mae": -0.014098645439481403,
+          "amp_ssim": 0.050984083207423314,
+          "phase_ssim": 0.012693818542176438,
+          "amp_psnr": 5.963657137764997,
+          "phase_psnr": 1.7329292482933738,
+          "amp_frc50": 63.82202624212535,
+          "phase_frc50": 67.21178680210367
+        },
+        "metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux/runs/pinn_ffno/metrics.json"
+      },
+      "pinn_hybrid_resnet_ffno_bottleneck": {
+        "metrics": {
+          "amp_mae": 0.031176235526800156,
+          "phase_mae": 0.08759987610512324,
+          "amp_ssim": 0.9835814653910123,
+          "phase_ssim": 0.9909663579316513,
+          "amp_psnr": 76.26523122092651,
+          "phase_psnr": 67.36972331012001,
+          "amp_frc50": 133.9737743021349,
+          "phase_frc50": 95.64975930377418
+        },
+        "delta_fresh_minus_reference": {
+          "amp_mae": 0.0005524680018424988,
+          "phase_mae": -0.0188598527581222,
+          "amp_ssim": 0.002232957797113966,
+          "phase_ssim": 0.003318979731573357,
+          "amp_psnr": -0.11149352056833095,
+          "phase_psnr": 2.1391228163153215,
+          "amp_frc50": -1.250801189989204,
+          "phase_frc50": 39.402896508521536
+        },
+        "metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi/runs/pinn_hybrid_resnet_ffno_bottleneck/metrics.json"
+      }
+    }
+  },
+  "cns": {
+    "claim_boundary": "bounded_capped_decision_support_only",
+    "fresh_profile_id": "hybrid_resnet_ffno_ptychoblock_encoder_cns",
+    "run_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/runs/cns_ffno_ptychoblock_encoder_20260506T190421Z",
+    "parameter_count": 3021382,
+    "profile_config": {
+      "base_model": "hybrid_resnet_ffno_ptychoblock_encoder",
+      "downsample_op": "stride_conv",
+      "encoder_variant": "ffno_ptychoblock_encoder",
+      "evidence_scope": "manual-only",
+      "ffno_encoder_blocks": 2,
+      "ffno_encoder_gate_init": 0.1,
+      "ffno_encoder_mlp_ratio": 2.0,
+      "ffno_encoder_modes": 12,
+      "ffno_encoder_norm": "instance",
+      "ffno_encoder_share_weights": true,
+      "fno_blocks": 4,
+      "fno_modes": 12,
+      "hidden_channels": 32,
+      "hybrid_downsample_steps": 2,
+      "hybrid_resnet_blocks": 6,
+      "hybrid_skip_connections": true,
+      "hybrid_skip_style": "add",
+      "hybrid_upsampler": "pixelshuffle",
+      "profile_id": "hybrid_resnet_ffno_ptychoblock_encoder_cns",
+      "ptychoblock_stage_count": 2,
+      "strong_baseline": false
+    },
+    "metrics": {
+      "err_nRMSE": 0.04331012815237045,
+      "err_RMSE": 1.0462051630020142,
+      "relative_l2": 0.04331012815237045,
+      "fRMSE_low": 2.435088872909546,
+      "fRMSE_mid": 0.17430779337882996,
+      "fRMSE_high": 0.36551719903945923
+    },
+    "runtime_sec": 1317.8959696292877,
+    "peak_cuda_memory_bytes": 448698880,
+    "references": {
+      "author_ffno_cns_base": {
+        "metrics": {
+          "err_nRMSE": 0.019758449867367744,
+          "err_RMSE": 0.47728773951530457,
+          "relative_l2": 0.019758449867367744,
+          "fRMSE_low": 1.130386233329773,
+          "fRMSE_mid": 0.04206976667046547,
+          "fRMSE_high": 0.10180677473545074
+        },
+        "delta_fresh_minus_reference": {
+          "err_nRMSE": 0.02355167828500271,
+          "err_RMSE": 0.5689174234867096,
+          "relative_l2": 0.02355167828500271,
+          "fRMSE_low": 1.304702639579773,
+          "fRMSE_mid": 0.1322380267083645,
+          "fRMSE_high": 0.2637104243040085
+        },
+        "metrics_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/history5-pilot-40ep-20260502T074500Z/metrics_author_ffno_cns_base.json"
+      },
+      "spectral_resnet_bottleneck_base": {
+        "metrics": {
+          "err_nRMSE": 0.0330694355070591,
+          "err_RMSE": 0.7988296747207642,
+          "relative_l2": 0.0330694355070591,
+          "fRMSE_low": 1.8541778326034546,
+          "fRMSE_mid": 0.17134958505630493,
+          "fRMSE_high": 0.26221781969070435
+        },
+        "delta_fresh_minus_reference": {
+          "err_nRMSE": 0.010240692645311356,
+          "err_RMSE": 0.24737548828125,
+          "relative_l2": 0.010240692645311356,
+          "fRMSE_low": 0.5809110403060913,
+          "fRMSE_mid": 0.0029582083225250244,
+          "fRMSE_high": 0.10329937934875488
+        },
+        "metrics_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare/history5-pilot-40ep-20260501T101147Z/metrics_spectral_resnet_bottleneck_base.json"
+      },
+      "fno_base": {
+        "metrics": {
+          "err_nRMSE": 0.03842493146657944,
+          "err_RMSE": 0.9281977415084839,
+          "relative_l2": 0.03842493146657944,
+          "fRMSE_low": 2.1336586475372314,
+          "fRMSE_mid": 0.122382752597332,
+          "fRMSE_high": 0.43285590410232544
+        },
+        "delta_fresh_minus_reference": {
+          "err_nRMSE": 0.004885196685791016,
+          "err_RMSE": 0.11800742149353027,
+          "relative_l2": 0.004885196685791016,
+          "fRMSE_low": 0.30143022537231445,
+          "fRMSE_mid": 0.051925040781497955,
+          "fRMSE_high": -0.06733870506286621
+        },
+        "metrics_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z/metrics_fno_base.json"
+      },
+      "unet_strong": {
+        "metrics": {
+          "err_nRMSE": 0.538623034954071,
+          "err_RMSE": 13.0110502243042,
+          "relative_l2": 0.538623034954071,
+          "fRMSE_low": 30.988290786743164,
+          "fRMSE_mid": 0.6448712348937988,
+          "fRMSE_high": 1.7427886724472046
+        },
+        "delta_fresh_minus_reference": {
+          "err_nRMSE": -0.4953129068017006,
+          "err_RMSE": -11.964845061302185,
+          "relative_l2": -0.4953129068017006,
+          "fRMSE_low": -28.553201913833618,
+          "fRMSE_mid": -0.47056344151496887,
+          "fRMSE_high": -1.3772714734077454
+        },
+        "metrics_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z/metrics_unet_strong.json"
+      }
+    }
+  }
+}

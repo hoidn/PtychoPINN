@@ -128,6 +128,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, hybrid_resnet, cdi, natural-patches, expanded-object, single-seed, benchmark, benchmark-incomplete, recovered-non-authoritative, recollate
 **Use this when:** Locating the natural-patch expanded-object run root, checking the recovered (non-authoritative) six-row bundle, or determining how the natural-patch benchmark differs from the synthetic `lines128` authority.
 
+### [NeurIPS SRU-Net FFNO-To-PtychoBlock Encoder CDI/CNS Small-Cap Summary](plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md)
+**Description:** Cross-pillar mechanism summary for a single shared SRU-Net encoder recipe, `FFNO -> 2x(PtychoBlock + downsample)`, executed once on the locked `lines128` CDI contract and once on the matched-condition capped PDEBench CNS `history_len=5`, `512 / 64 / 64`, `40`-epoch lane. Records fresh run roots, validation proofs, encoder metadata, and the bounded read that phase/high-frequency gains do not translate into an overall promotion.
+**Keywords:** neurips, hybrid_resnet, sru-net, ffno, ptychoblock, encoder, cdi, cns, cross-pillar, mechanism
+**Use this when:** Locating both fresh run roots, the item-local comparison bundle, or the current interpretation of the FFNO-to-PtychoBlock encoder swap before planning further SRU-Net encoder work.
+
 ### [NeurIPS Hybrid ResNet Evidence Matrix](plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md)
 **Description:** Human-facing master matrix for NeurIPS/SRU-Net evidence, keyed by dataset, model/config surface, training mode, ablation family, completed backlog item, summary authority, and artifact root.
 **Keywords:** neurips, hybrid_resnet, sru-net, evidence-matrix, model-variants, ablations, completed-backlog, cdi, cns

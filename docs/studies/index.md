@@ -148,6 +148,32 @@
 - Boundary: smoke and capped pilot outputs are readiness/triage artifacts only and must not rank models, trigger performance pivots, or satisfy benchmark-performance gates.
 - Training recipe guardrail: PDE benchmark-performance rows use the inherited Hybrid ResNet recipe with `ReduceLROnPlateau` scheduler floor no higher than `1e-5` unless a later plan records a justified pre-run override.
 
+### `srunet-ffno-ptychoblock-encoder-cross-pillar-probe` (completed; bounded mechanism evidence)
+
+- Purpose: test a single shared SRU-Net encoder recipe,
+  `FFNO -> 2x(PtychoBlock + downsample)`, across both governed pillars without
+  changing the rest of the SRU-Net shell, then record whether the mechanism
+  transfers cleanly between locked `lines128` CDI and matched-condition capped
+  PDEBench CNS.
+- Governing design:
+  `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md`
+- Execution plan:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/execution_plan.md`
+- Summary authority:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md`
+- Item root (git-ignored):
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/`
+- Fresh CDI run root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/runs/cdi_ffno_ptychoblock_encoder_20260506T183959Z/`
+- Fresh CNS run root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/runs/cns_ffno_ptychoblock_encoder_20260506T190421Z/`
+- Machine-readable compare bundle:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/comparison_bundle.json`
+- Boundary: CDI outcome is `decision_support_append_only`; CNS outcome is
+  `bounded_capped_decision_support_only`. The probe is mechanism evidence only
+  and does not replace the six-row CDI authority or the matched-condition CNS
+  headline bundle.
+
 ### `pdebench-darcy-static-operator-benchmark` (implemented; full benchmark pending)
 
 - Purpose: Implement and run the Darcy Flow beta `1.0` static operator-map member of the PDEBench `128x128` image suite.

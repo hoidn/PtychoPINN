@@ -1,7 +1,7 @@
 # NeurIPS Hybrid ResNet Evidence Matrix
 
 Status: draft  
-Last updated: 2026-05-05 (natural-patch expanded-object benchmark downgraded to `benchmark_incomplete` recovered/non-authoritative state after the original launcher exited `1`; fixed-probe dataset prerequisite retained)
+Last updated: 2026-05-06 (added the cross-pillar SRU-Net `FFNO -> 2x(PtychoBlock + downsample)` encoder probe on locked `lines128` CDI plus matched-condition capped CNS; natural-patch expanded-object benchmark remains `benchmark_incomplete` recovered/non-authoritative)
 
 This is the human-facing master matrix for NeurIPS/SRU-Net evidence. It points
 to all relevant completed backlog outputs, keyed by dataset, model/config
@@ -26,6 +26,7 @@ Machine-readable companions:
 | PDEBench CNS matched-condition table | `pdebench_cns_matched_condition_table_refresh_summary.md` | bounded capped decision-support only, matched `history_len=5`, `512 / 64 / 64`, `40` epochs headline |
 | PDEBench CNS larger-cap context | `pdebench_cns_paper_2048cap_extension_summary.md` | bounded capped decision-support only, preserved larger-cap `2048 / 256 / 256` context |
 | PDEBench CNS 512cap fallback provenance | `pdebench_cns_paper_table_figure_bundle_summary.md` | bounded capped decision-support only, preserved historical fallback |
+| SRU-Net FFNO-to-PtychoBlock encoder cross-pillar probe | `srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md` | append-only CDI plus bounded capped CNS mechanism evidence only; no headline authority changes |
 | PDEBench Darcy static-operator full-training benchmark | `pdebench_darcy_static_operator_summary.md` | `benchmark_performance` for `hybrid_resnet_base`, `fno_base`, `unet_strong` under the locked `8000/1000/1000` split, relative-L2 loss, `50` epochs |
 | BRDT 40-epoch secondary bundle | `brdt_supervised_born_40ep_paper_evidence_summary.md` | user-approved secondary paper context under `paper_approved_secondary_brdt`; provenance caveats remain explicit and it does not replace CDI/CNS |
 | Cross-pillar efficiency table | `paper_efficiency_table_summary.md` | grouped parameter/runtime/throughput context for Synthetic CDI, PDEBench CNS, and approved secondary BRDT |
@@ -133,6 +134,33 @@ Current read:
 - fixed residual scale is the clearest amplitude-oriented decision-support variant; it improves amplitude MAE and SSIM but worsens phase MAE versus the Hybrid anchor
 - the combined skip-add plus fixed-residual row does not beat the simpler single-factor rows
 - this family does not replace the paper-grade Hybrid baseline or the six-row CDI headline bundle
+
+## CDI Lines128 SRU-Net FFNO-To-PtychoBlock Encoder Probe
+
+Fixed contract: same `lines128` CDI contract as the complete six-row bundle;
+decision-support append-only mechanism evidence only.
+
+| Row | Changed factor | Nearest anchor | Amp MAE | Phase MAE | Amp SSIM | Phase SSIM | Source |
+|---|---|---|---:|---:|---:|---:|---|
+| `pinn_hybrid_resnet_ffno_ptychoblock_encoder` | replace the current SRU-Net encoder with `FFNO -> 2x(PtychoBlock + downsample)` while preserving the rest of the shell | `pinn_hybrid_resnet` | 0.031729 | 0.068740 | 0.985814 | 0.994285 | cross-pillar encoder probe |
+
+Encoder-probe artifact root:
+
+- `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/`
+
+Current read:
+
+- versus `pinn_hybrid_resnet`, the encoder swap regresses amplitude fidelity
+  (`amp_mae +0.0048`, `amp_ssim -0.0023`, `amp_frc50 -2.74`) but improves the
+  phase-side read (`phase_mae -0.0033`, `phase_psnr +0.29`,
+  `phase_frc50 +28.25`)
+- versus `pinn_hybrid_resnet_encoder_spectral_only`, the new encoder is worse
+  on both amplitude and phase aggregate metrics and is slightly worse on phase
+  FRC50 (`-0.65`)
+- versus the earlier `pinn_hybrid_resnet_ffno_bottleneck` bridge row, the new
+  encoder is materially better on phase while leaving amplitude roughly similar
+- this row remains append-only mechanism evidence and does not replace the
+  paper-grade six-row CDI authority or the append-only U-NO extension
 
 ## CDI Natural-Patch Expanded-Object Benchmark (Recovered Non-Authoritative)
 
@@ -296,6 +324,29 @@ CNS matched-condition headline status:
   preserved as bounded larger-cap context only and is no longer the
   manuscript headline source.
 
+## PDEBench CNS SRU-Net FFNO-To-PtychoBlock Encoder Probe
+
+Fixed contract: matched-condition PDEBench `2d_cfd_cns` capped lane
+`history_len=5`, `512 / 64 / 64`, `40` epochs; bounded capped mechanism
+evidence only.
+
+| Row | Architecture | relative_l2 | fRMSE_low | fRMSE_mid | fRMSE_high | Source |
+|---|---|---:|---:|---:|---:|---|
+| `hybrid_resnet_ffno_ptychoblock_encoder_cns` | `hybrid_resnet_ffno_ptychoblock_encoder` | 0.043310 | 2.435089 | 0.174308 | 0.365517 | cross-pillar encoder probe |
+
+Current read:
+
+- the new encoder does not beat the matched-condition spectral SRU-Net headline
+  row: versus `spectral_resnet_bottleneck_base`, it is worse on aggregate
+  error (`relative_l2 +0.0102`) and worse on both mid/high-band error
+  (`fRMSE_mid +0.0030`, `fRMSE_high +0.1033`)
+- it also trails `fno_base` on aggregate and low/mid-band metrics, but it
+  does improve the high-band score (`fRMSE_high -0.0673`)
+- by aggregate error the row lands between `fno_base` and `unet_strong`; by
+  `fRMSE_high` it lands between the spectral SRU-Net row and FNO
+- this row remains bounded capped mechanism evidence only and does not reopen
+  full-training claims or alter the matched-condition headline authority
+
 ## BRDT Decision-Support Bundle
 
 The 40-epoch BRDT bundle remains repo-local **decision-support context only**
@@ -354,6 +405,7 @@ Current decision-support inputs (not manuscript paper evidence):
 | `2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation` | CDI Hybrid skip/residual same-contract ablation | `lines128_hybrid_resnet_skip_residual_ablation_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation` |
 | `2026-04-21-hybrid-resnet-encoder-fusion-variants` | CDI Hybrid encoder-fusion same-contract ablation | `lines128_hybrid_resnet_encoder_fusion_variants_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/` |
 | `2026-05-04-cdi-lines128-srunet-branch-objective-ablation` | CDI SRU-Net branch / objective same-contract ablation (`decision_support_append_only`) | `lines128_srunet_branch_objective_ablation_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-branch-objective-ablation/runs/ablation_20260505T010316Z` |
+| `2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap` | cross-pillar SRU-Net FFNO-to-PtychoBlock encoder probe | `srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/` |
 | `2026-04-30-cdi-lines128-uno-design-preflight` | CDI U-NO environment/API readiness | `lines128_uno_preflight_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-design-preflight/` |
 | `2026-04-29-paper-evidence-package-audit` | cross-pillar evidence audit | `paper_evidence_package_audit_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/` |
 | `2026-05-05-paper-efficiency-table` | cross-pillar efficiency packaging | `paper_efficiency_table_summary.md` | `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/paper_efficiency_table.{json,csv,tex}` |
@@ -383,6 +435,7 @@ Current decision-support inputs (not manuscript paper evidence):
 | CDI Hybrid/spectral to FFNO bridge | hybrid-spectral/FFNO parameter-space | no fresh bridge row beat the existing anchors; DS1 is a phase-leaning trade only |
 | CDI Hybrid skip/residual controls | same-contract skip/residual ablation | skip-add helps phase-side metrics without displacing the anchor, fixed residual helps amplitude-side metrics, and the combined row shows no constructive interaction |
 | CDI Hybrid branch / objective controls | same-contract branch ablation + supervised objective control | spectral-only edges out conv-only on amplitude under the locked contract and roughly matches the both-branch baseline; conv-only is similar with a small phase-MAE/FRC trade. Supervised SRU-Net keeps the body and contract but shows an amplitude-scale collapse without the PINN physics-consistency loss, so the row is presented as objective-control evidence, not a CDI headline candidate. |
+| CDI/CNS SRU-Net FFNO-to-PtychoBlock encoder probe | cross-pillar same-recipe encoder mechanism probe | the encoder swap is not a clean upgrade: on CDI it trades amplitude for better phase-side metrics, while on matched-condition CNS it lands between FNO and U-Net on aggregate error but improves `fRMSE_high` versus FNO. Keep as append-only / bounded capped mechanism evidence only. |
 | CDI U-NO extension readiness | U-NO design preflight | external `UNO` imports cleanly in `ptycho311`; later integration must preserve the frozen `uno_out_channels`, nested `uno_n_modes`, `uno_scalings`, and direct real/imag output contract |
 | CDI FFNO generator prerequisite pair | FFNO vs Hybrid pair | prerequisite evidence, superseded for table claims by complete bundle |
 | CNS paper contract and bundle | contract, row lock, table/figure bundle | bounded capped CNS table only; no full-training SOTA claim |
