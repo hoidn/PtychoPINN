@@ -2206,6 +2206,119 @@ def test_run_ffno_extension_live_emits_combined_bundle(tmp_path):
     assert "combined_manifest_json_path" in result
 
 
+def test_run_corrected_ffno_rerun_dry_run_writes_corrected_backlog_item(tmp_path):
+    """Corrected sibling rerun must emit truthful 2026-05-06 lineage metadata."""
+    from scripts.studies.born_rytov_dt import (
+        run_corrected_ffno_rerun as corrected_mod,
+    )
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    base_manifest_path = baseline_root / "preflight_manifest.json"
+    baseline = json.loads(base_manifest_path.read_text())
+    live_manifest = json.loads(Path(manifest_path).read_text())
+    op_pointer = live_manifest["operator"]["validation_artifact"]
+    baseline["dataset"]["dataset_id"] = dc.DECISION_SUPPORT_DATASET_NAME
+    baseline["dataset"]["split_counts"] = dict(live_manifest["split"]["counts"])
+    baseline["dataset"]["normalization"] = dict(
+        live_manifest.get("normalization") or {}
+    )
+    baseline["operator"]["validation_artifact"] = op_pointer
+    baseline["training_contract"] = {
+        "epochs": 1,
+        "batch_size": 1,
+        "learning_rate": 2e-4,
+        "optimizer": "Adam",
+        "loss_weights": run_config.LossWeights().as_dict(),
+        "seed": 42,
+    }
+    base_manifest_path.write_text(json.dumps(baseline, indent=2, sort_keys=True))
+
+    output_root = tmp_path / "corrected_ffno_dry_run"
+    contract = preflight_mod.TrainingContract(
+        epochs=1, batch_size=1, learning_rate=2e-4
+    )
+    result = corrected_mod.run_corrected_ffno_rerun(
+        baseline_root=baseline_root,
+        manifest_path=manifest_path,
+        output_root=output_root,
+        contract=contract,
+        in_channels=1,
+        device_choice="cpu",
+        dry_run=True,
+        parent_argv=["--dry-run"],
+    )
+
+    assert result.get("dry_run") is True
+    manifest = json.loads((output_root / "preflight_manifest.json").read_text())
+    assert manifest["backlog_item"] == corrected_mod.BACKLOG_ITEM
+    assert manifest["backlog_item"] == "2026-05-06-brdt-corrected-ffno-row-rerun"
+    assert manifest["claim_boundary"] == corrected_mod.CLAIM_BOUNDARY
+    top_invocation = json.loads((output_root / "invocation.json").read_text())
+    assert top_invocation["extra"]["backlog_item"] == corrected_mod.BACKLOG_ITEM
+    assert top_invocation["script"] == corrected_mod.SCRIPT_PATH
+
+
+def test_run_corrected_ffno_rerun_live_emits_corrected_combined_bundle(tmp_path):
+    """Corrected sibling rerun must publish the pure-FFNO backlog id and 27394-param row."""
+    from scripts.studies.born_rytov_dt import (
+        run_corrected_ffno_rerun as corrected_mod,
+    )
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    base_manifest_path = baseline_root / "preflight_manifest.json"
+    baseline = json.loads(base_manifest_path.read_text())
+    live_manifest = json.loads(Path(manifest_path).read_text())
+    op_pointer = live_manifest["operator"]["validation_artifact"]
+    baseline["dataset"]["dataset_id"] = dc.DECISION_SUPPORT_DATASET_NAME
+    baseline["dataset"]["split_counts"] = dict(live_manifest["split"]["counts"])
+    baseline["dataset"]["normalization"] = dict(
+        live_manifest.get("normalization") or {}
+    )
+    baseline["operator"]["validation_artifact"] = op_pointer
+    baseline["training_contract"] = {
+        "epochs": 1,
+        "batch_size": 1,
+        "learning_rate": 2e-4,
+        "optimizer": "Adam",
+        "loss_weights": run_config.LossWeights().as_dict(),
+        "seed": 42,
+    }
+    base_manifest_path.write_text(json.dumps(baseline, indent=2, sort_keys=True))
+
+    output_root = tmp_path / "corrected_ffno_live_run"
+    contract = preflight_mod.TrainingContract(
+        epochs=1, batch_size=1, learning_rate=2e-4
+    )
+    result = corrected_mod.run_corrected_ffno_rerun(
+        baseline_root=baseline_root,
+        manifest_path=manifest_path,
+        output_root=output_root,
+        contract=contract,
+        in_channels=1,
+        device_choice="cpu",
+        dry_run=False,
+        parent_argv=["--manifest", str(manifest_path)],
+    )
+
+    row_summary = json.loads(
+        (output_root / "rows" / "ffno" / "row_summary.json").read_text()
+    )
+    assert row_summary["parameter_count"] == 27394
+    model_profile = json.loads(
+        (output_root / "rows" / "ffno" / "model_profile.json").read_text()
+    )
+    assert model_profile["parameter_count"] == 27394
+    assert model_profile["architecture"] == "ffno"
+    combined_manifest = json.loads(
+        (output_root / "combined_manifest.json").read_text()
+    )
+    assert combined_manifest["backlog_item"] == corrected_mod.BACKLOG_ITEM
+    assert combined_manifest["extension"]["backlog_item"] == corrected_mod.BACKLOG_ITEM
+    assert result["combined_manifest_json_path"].endswith("combined_manifest.json")
+
+
 def test_run_preflight_default_invocation_artifacts_keep_baseline_backlog_item(
     tmp_path,
 ):

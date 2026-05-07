@@ -10,8 +10,9 @@
 > post-bottleneck CNN refiners. Treat the recorded metrics as a legacy
 > FFNO-local-refiner proxy result, not as a pure FFNO-paper-stack result.
 > Current code uses `SpatialLifter -> SharedFactorizedFfnoBottleneck -> 1x1`
-> output projection and rejects `cnn_blocks`; a pure-BRDT-FFNO comparison
-> requires a fresh rerun.
+> output projection and rejects `cnn_blocks`; the corrected pure-FFNO
+> authority is now
+> `docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_corrected_ffno_row_rerun_summary.md`.
 
 ## 1. Identity And Scope
 
@@ -54,7 +55,7 @@ them as authoritative and immutable; row contents are echoed without
 re-interpretation against any external summary authority.
 
 - **The legacy FFNO-local-refiner proxy is competitive with Hybrid ResNet at roughly one-quarter the
-  parameter count.** At `parameter_count=36,674` (vs Hybrid ResNet's
+  parameter count, but it is no longer the pure-FFNO authority.** At `parameter_count=36,674` (vs Hybrid ResNet's
   `142,018`), the historical row achieves nearly identical image-space and
   measurement-space metrics:
 
@@ -76,7 +77,9 @@ re-interpretation against any external summary authority.
   0.98 to 0.19. The factorized Fourier formulation with shared spectral
   weights plus the then-present local-convolution refiner is materially
   stronger than the vanilla `neuralop` FNO at comparable capacity, but
-  this does not establish the pure FFNO-paper-stack result.
+  this does not establish the pure FFNO-paper-stack result. The corrected
+  no-refiner rerun is weaker than this historical proxy and now owns the
+  pure-FFNO read.
 
 - **FFNO does NOT displace Hybrid ResNet on this capped budget.**
   Hybrid ResNet retains a small but consistent edge on image-space
