@@ -9,6 +9,10 @@
 ### Long-Run Sync Guardrail
 - For long-running commands, track and wait on the exact launched PID (`cmd ... & pid=$!; wait "$pid"`).
 - Do not use broad `pgrep -f` polling loops as the primary completion check.
+  Command-string polling can match the wrapper shell or watcher itself and
+  hang after the real child process exits.
+- If tailing logs while a command runs, tail in a separate process, wait on the
+  command PID, then stop the tail process and propagate the command exit code.
 - Do not launch a duplicate run if another process is already writing to the same `--output-root`.
 - Consider a run complete only when:
   1. the tracked PID exits with code `0`, and
