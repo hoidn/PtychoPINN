@@ -2,22 +2,22 @@
 
 ## Completed In This Pass
 
-- Repaired the High implementation-review finding by actually repopulating
+- Resolved the recurring High implementation-review finding by repopulating
   `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
-  to the full 16-command ledger that this report and the durable summary
-  already describe. The prior on-disk file still contained only the three
-  `json.tool` validations the workflow had auto-attached, despite the report
-  claiming a 16-command ledger existed; the implementation review (High
-  finding) flagged this divergence between the human-facing evidence and the
-  machine-consumed ledger. The rebuilt ledger now records each of the 16
-  archived verification commands with `command`, `exit_code: 0`, and
-  `log_path` pointing at the matching file under
+  to the full 16-command ledger. A previous pass had described this repair in
+  the report and durable summary, but the on-disk file regressed to only the
+  three workflow-auto-attached `json.tool` validations, leaving the
+  human-facing narrative inaccurate against the machine-consumed ledger. The
+  rebuilt ledger now records each of the 16 archived verification commands
+  with `command`, `exit_code: 0`, and `log_path` pointing at the matching file
+  under
   `artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/`.
-  Validated with `python -m json.tool`; all 16 referenced log files exist on
-  disk; ledger reports `command_count: 16`, `failed_count: 0`, `status: PASS`.
+  Validated with `python -m json.tool`; programmatically confirmed all 16
+  referenced log files exist on disk; ledger reports `command_count: 16`,
+  `failed_count: 0`, `status: PASS`.
 - Re-ran the six plan-mandated deterministic JSON validations against the
-  durable indexes and tables to confirm no regression occurred while the
-  ledger was being repaired:
+  durable indexes and tables to confirm no regression in the regenerated
+  paper assets while the ledger was being repaired:
   `paper_evidence_manifest.json`, `model_variant_index.json`,
   `ablation_index.json`, `tables/cdi_lines128_metrics_extended.json`,
   `tables/model_config_by_benchmark.json`,
@@ -93,6 +93,19 @@
 - Non-FFNO CDI rows remain reused strictly by lineage from the immutable
   six-row authority and the append-only U-NO extension. Any future rerun or
   promotion outside the FFNO pair would require a separate approved plan.
+- The workflow source file
+  `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/12/items/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/check_commands.json`
+  still lists only the three default `json.tool` validations. Multiple prior
+  fix commits (`ba64d0da`, `1fa49d85`, `b4acf2fb`) restored the on-disk
+  16-command ledger and were subsequently reverted by automated workflow
+  re-publication of the ledger from the 3-command state source. This pass
+  intentionally does not edit the state file (per the explicit instruction
+  not to modify transient state or workflow pointer files). The 16-command
+  ledger is the authoritative implementation-side record per the plan's
+  Pytest-and-archive contract; if the workflow reverts the on-disk ledger
+  again, the underlying archived logs in `verification/` remain the
+  authoritative evidence and a separate workflow-infrastructure follow-up is
+  needed to keep the published ledger durably consistent with the plan.
 
 ## Verification
 
