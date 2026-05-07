@@ -129,9 +129,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Locating the natural-patch expanded-object run root, checking the recovered (non-authoritative) six-row bundle, or determining how the natural-patch benchmark differs from the synthetic `lines128` authority.
 
 ### [NeurIPS SRU-Net FFNO-To-PtychoBlock Encoder CDI/CNS Small-Cap Summary](plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md)
-**Description:** Current status note for the cross-pillar SRU-Net encoder probe after the approved contract was corrected from a mistakenly committed `2`-block FFNO stack back to the plan-required `24`-block stack. The earlier CDI/CNS run roots remain available as historical superseded context only; fresh corrected reruns are still pending before any result claim can be reused.
-**Keywords:** neurips, hybrid_resnet, sru-net, ffno, ptychoblock, encoder, cdi, cns, cross-pillar, rerun-pending
-**Use this when:** Checking whether the FFNO-to-PtychoBlock encoder evidence is currently authoritative, locating the superseded historical roots, or confirming that corrected `24`-block reruns are still required.
+**Description:** Completed cross-pillar SRU-Net encoder probe under the corrected shared-weight `24`-block `FFNO -> 2x(PtychoBlock + downsample)` contract. Records the fresh `20`-epoch CDI and matched-condition capped CNS reruns, their comparison bundle, and the conclusion that the corrected encoder weakens the shell on both governed pillars; the earlier `2`-block roots remain superseded lineage only.
+**Keywords:** neurips, hybrid_resnet, sru-net, ffno, ptychoblock, encoder, cdi, cns, cross-pillar, completed
+**Use this when:** Checking the authoritative corrected probe roots, confirming the split CDI/CNS claim boundaries, or locating the superseded `2`-block lineage roots.
 
 ### [NeurIPS Hybrid ResNet Evidence Matrix](plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md)
 **Description:** Human-facing master matrix for NeurIPS/SRU-Net evidence, keyed by dataset, model/config surface, training mode, ablation family, completed backlog item, summary authority, and artifact root.

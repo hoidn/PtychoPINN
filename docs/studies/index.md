@@ -174,13 +174,17 @@
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md`
 - Item root (git-ignored):
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/`
+- Corrected authoritative CDI run root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/runs/cdi_ffno_ptychoblock_encoder_20260507T073814Z/`
+- Corrected authoritative CNS run root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/runs/cns_ffno_ptychoblock_encoder_20260507T082701Z/`
 - Historical superseded `2`-block CDI run root:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/runs/cdi_ffno_ptychoblock_encoder_20260506T183959Z/`
 - Historical superseded `2`-block CNS run root:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/runs/cns_ffno_ptychoblock_encoder_20260506T190421Z/`
 - Current state:
-  approved `24`-block reruns pending; do not treat the historical roots above
-  as the completed evidence for this backlog item
+  corrected `24`-block reruns completed; treat the two historical `2`-block
+  roots above as superseded lineage only
 - Machine-readable compare bundle:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/comparison_bundle.json`
 - Boundary: CDI outcome is `decision_support_append_only`; CNS outcome is

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-07T06:57:54.053401Z",
+  "last_updated_utc": "2026-05-07T08:58:35.139468Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -644,8 +644,8 @@
         "pinn_hybrid_resnet_ffno_ptychoblock_encoder",
         "hybrid_resnet_ffno_ptychoblock_encoder_cns"
       ],
-      "status": "implementation_corrected_rerun_pending",
-      "interpretation": "Cross-pillar encoder-mechanism probe for the SRU-Net shell. The earlier emitted CDI/CNS evidence for this family used a mistakenly committed ffno_encoder_blocks=2 recipe and is now historical superseded context only. The approved contract requires a shared-weight 24-block FFNO encoder ahead of the two PtychoBlock stages, so fresh corrected CDI and matched capped CNS reruns are still required before any cross-pillar interpretation can be cited."
+      "status": "completed",
+      "interpretation": "Cross-pillar encoder-mechanism probe completed under the corrected shared-weight 24-block FFNO -> 2x(PtychoBlock + downsample) recipe. On CDI, the corrected row regresses every tracked aggregate metric versus both the Hybrid anchor and the spectral-only encoder ablation, although it still beats the historical FFNO-local-proxy row and slightly improves phase MAE/PSNR versus the FFNO bottleneck bridge while losing amplitude and FRC heavily. On matched-condition capped CNS, the corrected 20-epoch row is worse than authored FFNO, spectral SRU-Net, and FNO on every tracked aggregate metric, beating only U-Net. Historical 2-block CDI/CNS roots remain superseded lineage only."
     },
     {
       "family_id": "brdt_decision_support_objective_ablation",
