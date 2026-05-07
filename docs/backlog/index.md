@@ -22,10 +22,10 @@ Current source of truth:
   selector does not invent a false serial order.
 - `docs/backlog/roadmap_gate.json` is applied before provider selection. The
   current gate admits active NeurIPS evidence work across Phase 2 PDEBench,
-  Phase 3 CDI, and `candidate-*` preflights. Relative selection should be
+  Phase 3 CDI, and `candidate-*` lanes. Relative selection should be
   expressed through backlog `priority` values and steering value rather than
   brittle one-off gate prefixes. Phase 2 PDEBench remains preferred by priority,
-  Phase 3 CDI may be selected as useful parallel work, and candidate preflights
+  Phase 3 CDI may be selected as useful parallel work, and candidate lanes
   may run concurrently without counting as completed Phase 2 or Phase 3
   evidence. If no active item satisfies the current window and the missing work
   is already authorized by the roadmap, the workflow may draft a new active
@@ -55,19 +55,21 @@ Current source of truth:
 | [2026-05-06-cdi-lines128-ffno-depth24-ablation.md](active/2026-05-06-cdi-lines128-ffno-depth24-ablation.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on corrected four-block no-refiner table/figure refresh | Later full-results wave: adds one same-contract no-refiner `pinn_ffno_depth24` row with `fno_blocks=24` and compares it by lineage against the corrected default four-block no-refiner `pinn_ffno` row. |
 | [2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun.md](active/2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on depth-24 PINN row and corrected four-block supervised row | Later full-results wave: adds the supervised `fno_blocks=24`, `fno_cnn_blocks=0` companion row without rerunning the four-block supervised row. |
 | [2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh.md](active/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on both depth-24 rows and the four-block refresh | Final depth-24-aware CDI FFNO paper refresh; chooses whether depth-24 replaces the interim four-block rows or remains append-only ablation evidence. |
+| [2026-05-07-cdi-lines128-probe-channel-conditioning-ablation.md](active/2026-05-07-cdi-lines128-probe-channel-conditioning-ablation.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution and corrected pure FFNO row | Append-only input-conditioning ablation that concatenates the fixed complex probe to SRU-Net and pure FFNO inputs, then compares only against completed unconditioned rows by lineage. |
+| [2026-05-07-cdi-lines128-coordinate-grid-conditioning-ablation.md](active/2026-05-07-cdi-lines128-coordinate-grid-conditioning-ablation.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution and corrected pure FFNO row | Append-only input-conditioning ablation that concatenates unit-grid coordinate channels to SRU-Net and pure FFNO inputs, isolated from probe-channel conditioning. |
 | [2026-04-30-cdi-lines128-uno-design-preflight.md](done/2026-04-30-cdi-lines128-uno-design-preflight.md) | `done` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution and supervised FFNO extension | Completed the `ptycho311` / `neuraloperator==2.0.0` U-NO environment/API preflight and froze `neuralop_uno` constructor defaults. |
 | [2026-04-30-cdi-lines128-uno-generator-integration.md](done/2026-04-30-cdi-lines128-uno-generator-integration.md) | `done` | `phase-3-cdi-anchor-regeneration` | Depends on U-NO design preflight | Completed `neuralop_uno` generator integration and proved both PINN and supervised paths use the external NeuralOperator U-NO body. |
 | [2026-04-30-cdi-lines128-uno-table-extension.md](done/2026-04-30-cdi-lines128-uno-table-extension.md) | `done` | `phase-3-cdi-anchor-regeneration` | Depends on U-NO generator integration and complete Lines128 CDI benchmark execution | Completed the append-only U-NO table extension without rerunning existing rows. |
 | [2026-05-04-cdi-natural-patch-fixedprobe-dataset.md](done/2026-05-04-cdi-natural-patch-fixedprobe-dataset.md) | `done` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution | Creates and locks `natural_patches128_fixedprobe_v1`, a fixed-probe natural-image-patch CDI dataset capped at 10000 object images. |
-| [2026-05-04-cdi-natural-patch-expanded-benchmark.md](paused/2026-05-04-cdi-natural-patch-expanded-benchmark.md) | `paused` | `phase-3-cdi-anchor-regeneration` | Depends on natural-patch fixed-probe dataset, complete Lines128 CDI benchmark, and U-NO extension | Runs a standalone expanded-object CDI benchmark on the frozen natural-patch dataset without rewriting the Lines128 authority. |
+| [2026-05-04-cdi-natural-patch-expanded-benchmark.md](paused/2026-05-04-cdi-natural-patch-expanded-benchmark.md) | `paused` | `phase-3-cdi-anchor-regeneration` | Depends on natural-patch fixed-probe dataset, complete Lines128 CDI benchmark, and U-NO extension | Re-paused at operator request; prior recovered artifacts remain non-authoritative unless explicitly audited and promoted after a future reactivation. |
 | [2026-05-04-cdi-lines128-multiseed-headline-robustness.md](in_progress/2026-05-04-cdi-lines128-multiseed-headline-robustness.md) | `in_progress` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution and U-NO table extension | Adds training-seed robustness for the headline CDI table by reusing completed seed roots and running only missing seeds under the fixed Lines128 contract. |
 | [2026-05-05-paper-efficiency-table.md](done/2026-05-05-paper-efficiency-table.md) | `done` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution, U-NO table extension, and matched-condition CNS table refresh | Compiles the repo-local paper efficiency table from existing parameter/runtime evidence, runs only missing lightweight inference probes if needed, and keeps heterogeneous runtime fields caveated by source contract. |
 | [2026-05-06-cdi-cns-inference-throughput-probes.md](active/2026-05-06-cdi-cns-inference-throughput-probes.md) | `active` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Depends on the paper efficiency table packaging item | Runs inference-only CDI Lines128 and PDEBench CNS throughput probes for rows whose throughput is currently missing, regenerates the efficiency table by lineage, and does not train or change row selection. |
 | [2026-05-06-cns-uno-matched-condition-row-extension.md](active/2026-05-06-cns-uno-matched-condition-row-extension.md) | `active` | `phase-2-pdebench-128x128-image-suite` | Depends on completed U-NO generator integration and completed CNS matched-condition refresh | Adds one append-only NeuralOperator U-NO row under the existing CNS `history_len=5`, `512 / 64 / 64`, 40-epoch contract and publishes a derived plus-U-NO table without rerunning existing CNS rows. |
 | [2026-05-04-cdi-lines128-srunet-branch-objective-ablation.md](done/2026-05-04-cdi-lines128-srunet-branch-objective-ablation.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution, supervised FFNO extension, U-NO table extension, and completed encoder-fusion variants | Append-only SRU-Net mechanism ablation: runs conv-only and spectral-only encoder-branch rows plus the missing supervised SRU-Net objective-control row, without rerunning completed table rows. |
 | [2026-05-04-cdi-lines128-srunet-convnext-bottleneck-ablation.md](done/2026-05-04-cdi-lines128-srunet-convnext-bottleneck-ablation.md) | `done` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution and completed skip/residual ablation context | Append-only SRU-Net bottleneck-family ablation: adds only a ConvNeXt-style bottleneck row and compares it with the completed SRU-Net bottleneck row by lineage. |
-| [2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap.md](paused/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap.md) | `paused` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Paused at operator request on 2026-05-06 | Corrected SRU-Net FFNO-to-PtychoBlock encoder mechanism ablation. Partial interrupted 20-epoch CDI artifacts are diagnostic only unless a later reactivation audits and promotes them. |
-| [2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension.md](paused/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension.md) | `paused` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Paused at operator request with the FFNO-to-PtychoBlock companion item | Reversed `2x(PtychoBlock + downsample) -> shared-weight 24-layer FactorizedFfnoBlock stack` row retained for later reactivation; not selectable by the current backlog drain. |
+| [2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap.md](active/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap.md) | `active` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Reactivated at operator request on 2026-05-06 | Corrected SRU-Net FFNO-to-PtychoBlock encoder mechanism ablation. Partial interrupted 20-epoch CDI artifacts remain diagnostic only unless this reactivated pass audits and promotes them. |
+| [2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension.md](active/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension.md) | `active` | `phase-2-pdebench-128x128-image-suite`, `phase-3-cdi-anchor-regeneration` | Reactivated at operator request with the FFNO-to-PtychoBlock companion item | Reversed `2x(PtychoBlock + downsample) -> shared-weight 24-layer FactorizedFfnoBlock stack` row; may run independently and leave the three-row comparison pending if the companion row is unavailable. |
 | [2026-04-27-hybrid-spectral-ffno-parameter-space-cdi.md](done/2026-04-27-hybrid-spectral-ffno-parameter-space-cdi.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on completed CDI FFNO generator baseline | Phase 3 CDI-only split of the former mixed CNS/CDI parameter-space item. The dependency is now satisfied, so selection is governed by roadmap value rather than prerequisite blocking. |
 | [2026-04-21-hybrid-resnet-encoder-fusion-variants.md](done/2026-04-21-hybrid-resnet-encoder-fusion-variants.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution | Narrow Hybrid ResNet encoder-fusion ablation that tests learned encoder update scaling and spectral/local branch gates against the fixed N=128 grid-lines contract, without changing probe, loss, bottleneck, or decoder settings. |
 | [2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation.md](done/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation.md) | `active` | `phase-3-cdi-anchor-regeneration` | Depends on complete Lines128 CDI benchmark execution | Same-contract Lines128 Hybrid ResNet ablation isolating decoder skip connections and bottleneck residual scaling, with append-only cross-references to existing skip/mode, CNS skip-add, and encoder-fusion evidence surfaces. |
@@ -87,11 +89,12 @@ Current source of truth:
 | [2026-04-29-brdt-preflight-summary-promotion-decision.md](done/2026-04-29-brdt-preflight-summary-promotion-decision.md) | `active` | `candidate-brdt-preflight` | Depends on BRDT four-row preflight | Writes the durable BRDT summary and recommends promotion, deferral, or rejection without adding paper claims. |
 | [2026-04-29-brdt-candidate-preflight.md](done/2026-04-29-brdt-candidate-preflight.md) | `active` | `candidate-brdt-preflight` | Depends on all split BRDT preflight items | Umbrella closeout for discoverability only; it prevents the broad BRDT design from being selected as a vague implementation scope. |
 | [2026-04-29-wavebench-inverse-source-preflight.md](done/2026-04-29-wavebench-inverse-source-preflight.md) | `active` | `candidate-wavebench-inverse-source-preflight` | No active backlog prerequisite | Reprioritized on 2026-04-30 as the next candidate lane to attempt before remaining optional U-NO table-extension work. It remains candidate work, not a replacement paper pillar. |
-| [2026-04-29-wavebench-native-baseline-reproduction.md](active/2026-04-29-wavebench-native-baseline-reproduction.md) | `active` | `wavebench-additional-inverse-wave-extension` | Depends on WaveBench inverse-source preflight | Reproduces/evaluates native WaveBench FNO and U-Net references only if the inverse-source preflight authorizes supervised follow-up. |
-| [2026-04-29-wavebench-forward-model-physics-validation.md](active/2026-04-29-wavebench-forward-model-physics-validation.md) | `active` | `wavebench-additional-inverse-wave-extension` | Depends on WaveBench inverse-source preflight | Validates the differentiable inverse-source forward map before any WaveBench row may be called physics-informed. |
-| [2026-04-29-wavebench-shared-encoder-supervised-benchmark.md](active/2026-04-29-wavebench-shared-encoder-supervised-benchmark.md) | `active` | `wavebench-additional-inverse-wave-extension` | Depends on WaveBench inverse-source preflight and native baseline status | Runs the first repo-local supervised shared-encoder WaveBench inverse-source comparison if the preflight and native baseline gates pass. |
-| [2026-04-29-wavebench-hybrid-physics-rows.md](active/2026-04-29-wavebench-hybrid-physics-rows.md) | `active` | `wavebench-additional-inverse-wave-extension` | Depends on shared-encoder supervised results and forward-model validation | Adds physics-informed or hybrid supervised-plus-physics inverse-source rows only if the forward-model gate passes. |
-| [2026-04-29-wavebench-paper-table-figure-bundle.md](active/2026-04-29-wavebench-paper-table-figure-bundle.md) | `active` | `wavebench-additional-inverse-wave-extension` | Depends on supervised WaveBench results and evidence-lane approval | Assembles WaveBench inverse-source tables and figures only after the lane is approved for paper evidence. |
+| [2026-05-06-wavebench-provisioning-decision.md](active/2026-05-06-wavebench-provisioning-decision.md) | `active` | `candidate-wavebench-inverse-source-extension` | Depends on WaveBench inverse-source preflight | Clears the completed preflight's `needs_dataset_or_checkpoint_decision` blocker by staging or verifying the selected `.beton` dataset path, normalizing the upstream path mismatch, provisioning the WaveBench-capable environment, and choosing checkpoint recovery versus native retraining. |
+| [2026-04-29-wavebench-native-baseline-reproduction.md](active/2026-04-29-wavebench-native-baseline-reproduction.md) | `active` | `candidate-wavebench-inverse-source-extension` | Depends on WaveBench provisioning decision | Reproduces/evaluates native WaveBench FNO and U-Net references after the selected dataset path and checkpoint/retraining decision are explicit. |
+| [2026-04-29-wavebench-shared-encoder-supervised-benchmark.md](active/2026-04-29-wavebench-shared-encoder-supervised-benchmark.md) | `active` | `candidate-wavebench-inverse-source-extension` | Depends on WaveBench provisioning decision and native baseline status | Runs the first repo-local supervised shared-encoder WaveBench inverse-source comparison with both `C=32` and `C=64`, unless `C=64` records a row-level blocker. |
+| [2026-04-29-wavebench-forward-model-physics-validation.md](active/2026-04-29-wavebench-forward-model-physics-validation.md) | `active` | `candidate-wavebench-inverse-source-extension` | Depends on WaveBench provisioning decision | Validates the differentiable inverse-source forward map before any WaveBench row may be called physics-informed. |
+| [2026-04-29-wavebench-hybrid-physics-rows.md](active/2026-04-29-wavebench-hybrid-physics-rows.md) | `active` | `candidate-wavebench-inverse-source-extension` | Depends on shared-encoder supervised results and forward-model validation | Adds physics-informed or hybrid supervised-plus-physics inverse-source rows only if the forward-model gate passes. |
+| [2026-04-29-wavebench-paper-table-figure-bundle.md](active/2026-04-29-wavebench-paper-table-figure-bundle.md) | `active` | `candidate-wavebench-inverse-source-extension` | Depends on native and supervised WaveBench results plus evidence-lane approval | Assembles WaveBench inverse-source tables and figures only after the lane is approved for paper evidence. |
 | [2026-04-29-paper-facing-evidence-index.md](paused/2026-04-29-paper-facing-evidence-index.md) | `paused` | `phase-5-paper-facing-evidence-bundle` | Depends on paper evidence package audit | Creates `/home/ollie/Documents/neurips/index.md` and the evidence checklist only after the roadmap reaches Phase 5. |
 | [2026-04-29-manuscript-draft-continuity.md](paused/2026-04-29-manuscript-draft-continuity.md) | `paused` | `phase-5-paper-facing-evidence-bundle` | Depends on paper-facing evidence index | Requires future manuscript-drafting tasks to start from `docs/plans/NEURIPS-HYBRID-RESNET-2026/hybrid_resnet_neurips_first_draft.tex` so they reuse the existing introduction, context, methods, benchmark framing, result framing, and associated reconstruction figure instead of reinventing them. |
 | [2026-03-13-lines256-experiment-history-summary-input.md](active/2026-03-13-lines256-experiment-history-summary-input.md) | `active` | n/a | Separate non-NeurIPS queue branch | Does not block or unlock the CNS benchmark queue. |
@@ -161,6 +164,11 @@ Current source of truth:
   no-refiner rows or remains append-only ablation evidence. It must not relabel
   the historical proxy row, rerun the completed CDI table, or mix in CNS
   authored-FFNO claims.
+- The probe-channel and coordinate-grid Lines128 items are optional
+  input-conditioning ablations in the Phase 3 CDI mechanism lane. They should
+  run only fresh SRU-Net and corrected pure-FFNO conditioned rows, keep probe
+  conditioning separate from grid conditioning, and preserve completed
+  unconditioned baselines by lineage.
 - The U-NO Lines128 extension completed as an append-only Phase 3 CDI
   comparator lane. The multi-seed Lines128 robustness item is Phase 3
   evidence-strengthening for the headline CDI table: it should reuse completed
@@ -204,17 +212,17 @@ Current source of truth:
   SRU-Net bottleneck row by lineage. It must not be merged into the encoder
   branch/objective ablation because that would mix two mechanisms.
 - The SRU-Net FFNO-to-PtychoBlock encoder ablation is a bounded cross-pillar
-  mechanism item that is paused at operator request. Its
+  mechanism item reactivated at operator request. Its
   intended contract is a shared-weight 24-layer local
   `FactorizedFfnoBlock` stack before the two `PtychoBlock + downsample` stages,
   with the stack construction factored into a reusable helper also used by
   `FfnoGeneratorModule`; the end-to-end FFNO generator's local residual
   refiners are excluded from this encoder ablation. Existing two-block
-  artifacts and interrupted 20-epoch artifacts are diagnostic only until a
-  later reactivation audits or reruns the row.
-- The SRU-Net PtychoBlock-to-FFNO encoder-order extension is paused with the
-  companion FFNO-to-PtychoBlock item. If reactivated later, it should not reuse
-  superseded two-block FFNO-to-PtychoBlock artifacts as comparison authority.
+  artifacts and interrupted 20-epoch artifacts are diagnostic only unless this
+  reactivated pass audits or reruns the row.
+- The SRU-Net PtychoBlock-to-FFNO encoder-order extension is active with the
+  companion FFNO-to-PtychoBlock item. It should not reuse superseded two-block
+  FFNO-to-PtychoBlock artifacts as comparison authority.
 - The Hybrid ResNet encoder-fusion variants item is active Phase 3 CDI
   architecture-ablation work. It should test encoder update scaling and
   spectral/local branch gates against the fixed N=128 grid-lines contract, but
@@ -229,9 +237,13 @@ Current source of truth:
   roadmap phase. The CNS half is complete; the CDI half is active with its CDI
   FFNO generator prerequisite satisfied.
 - BRDT and WaveBench inverse source are active concurrent `candidate-*`
-  preflights. Steering on 2026-04-30 raised WaveBench inverse source ahead of
+  lanes. Steering on 2026-04-30 raised WaveBench inverse source ahead of
   remaining optional U-NO table-extension work; this does not promote it into a
-  CDI/CNS replacement pillar or authorize paper claims. BRDT is split into operator,
+  CDI/CNS replacement pillar or authorize paper claims. WaveBench follow-up work
+  must first clear the completed preflight's dataset/checkpoint/environment
+  blocker through `2026-05-06-wavebench-provisioning-decision`; only then should
+  native baselines, shared-encoder supervised rows, forward-model validation,
+  physics rows, or paper bundles run. BRDT is split into operator,
   dataset, adapter, four-row, summary, and umbrella-closeout items so the
   workflow cannot satisfy the candidate lane with a vague single preflight. The
   BRDT physics-only objective ablation is a high-priority append-only candidate
@@ -256,10 +268,9 @@ Current source of truth:
   active as a narrow Phase 2 evidence-strengthening item.
 - For the independently runnable lanes, the selector should choose between them
   using steering and roadmap value, not a fabricated prerequisite chain.
-- The paper-facing evidence-index and manuscript-draft-continuity items are
-  intentionally paused because Phase 5 is outside the current deterministic
-  gate and writes outside the current evidence-generation workflow. Move them
-  only when the roadmap reaches the evidence-bundle and manuscript-drafting
-  phase.
+- The paper-facing evidence-index, manuscript-draft-continuity, and
+  natural-patch expanded benchmark items are paused at operator request. Move
+  them back to `docs/backlog/active/` only when the roadmap and operator intent
+  admit those lanes again.
 - If a future backlog item truly requires another backlog item to land first,
   add that item id to `prerequisites` and update this index in the same patch.
