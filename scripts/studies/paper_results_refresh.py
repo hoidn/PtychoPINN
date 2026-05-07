@@ -147,10 +147,11 @@ CNS_REQUIRED_HEADLINE_ROWS = [
 
 CNS_MANUSCRIPT_LABELS = {
     "author_ffno_cns_base": "FFNO",
-    "spectral_resnet_bottleneck_base": "SRU-Net*",
+    "spectral_resnet_bottleneck_base": "SRU-Net",
     "fno_base": "FNO",
     "unet_strong": "U-Net",
 }
+NEURALOP_UNO_CNS_ROW_ID = "neuralop_uno_cns_base"
 
 CNS_H2_BUNDLE_TABLE_JSON = (
     REPO_ROOT
@@ -1583,6 +1584,231 @@ def write_cns_matched_condition_paper_assets(
     }
 
 
+def load_cns_matched_condition_uno_row(
+    run_root: Path,
+    *,
+    expected_contract: Mapping[str, object] = CNS_H5_FIXED_CONTRACT,
+) -> dict[str, object]:
+    run_root = Path(run_root)
+    metrics = _read_json(run_root / f"metrics_{NEURALOP_UNO_CNS_ROW_ID}.json")
+    model_profile = _read_json(run_root / f"model_profile_{NEURALOP_UNO_CNS_ROW_ID}.json")
+    invocation = _read_json(run_root / "invocation.json")
+    split_manifest = _read_json(run_root / "split_manifest.json")
+
+    contract_issues: list[str] = []
+    if str(metrics.get("profile_id")) != NEURALOP_UNO_CNS_ROW_ID:
+        contract_issues.append("profile_id_mismatch")
+    if int(split_manifest.get("history_len", -1)) != int(expected_contract["history_len"]):
+        contract_issues.append("history_len_mismatch")
+    split_counts = dict(split_manifest.get("split_counts", {}))
+    if split_counts != dict(expected_contract["split_counts"]):  # type: ignore[arg-type]
+        contract_issues.append("split_counts_mismatch")
+    if int(split_manifest.get("max_windows_per_trajectory", -1)) != int(expected_contract["max_windows_per_trajectory"]):
+        contract_issues.append("max_windows_per_trajectory_mismatch")
+    parsed_args = dict(invocation.get("parsed_args", {}))
+    if int(parsed_args.get("epochs", -1)) != int(expected_contract["epochs"]):
+        contract_issues.append("epochs_mismatch")
+    if int(parsed_args.get("batch_size", -1)) != int(expected_contract["batch_size"]):
+        contract_issues.append("batch_size_mismatch")
+    if str(metrics.get("training_loss")) != str(expected_contract["training_loss"]):
+        contract_issues.append("training_loss_mismatch")
+    if contract_issues:
+        raise RuntimeError(f"CNS U-NO row at {run_root} does not match the locked h5 contract: {contract_issues}")
+
+    return {
+        "row_id": NEURALOP_UNO_CNS_ROW_ID,
+        "manuscript_label": "U-NO",
+        "row_role": "appended_comparator",
+        "row_status": "capped_decision_support",
+        "claim_scope": str(expected_contract["claim_boundary"]),
+        "history_len": int(expected_contract["history_len"]),
+        "split_counts": split_counts,
+        "split_label": (
+            f"{int(split_counts['train'])} / {int(split_counts['val'])} / {int(split_counts['test'])}"
+        ),
+        "epochs": int(expected_contract["epochs"]),
+        "batch_size": int(expected_contract["batch_size"]),
+        "training_loss": str(expected_contract["training_loss"]),
+        "err_nRMSE": metrics.get("err_nRMSE"),
+        "err_RMSE": metrics.get("err_RMSE"),
+        "relative_l2": metrics.get("relative_l2"),
+        "fRMSE_low": metrics.get("fRMSE_low"),
+        "fRMSE_mid": metrics.get("fRMSE_mid"),
+        "fRMSE_high": metrics.get("fRMSE_high"),
+        "parameter_count": model_profile.get("parameter_count", metrics.get("parameter_count")),
+        "runtime_sec": metrics.get("runtime_sec"),
+        "source_run_root": str(run_root),
+        "appended_row_role": "bounded_capped_comparator_context",
+        "external_source_provenance": model_profile.get("external_source_provenance"),
+        "source_artifacts": {
+            "metrics_json": str(run_root / f"metrics_{NEURALOP_UNO_CNS_ROW_ID}.json"),
+            "model_profile_json": str(run_root / f"model_profile_{NEURALOP_UNO_CNS_ROW_ID}.json"),
+            "invocation_json": str(run_root / "invocation.json"),
+            "split_manifest_json": str(run_root / "split_manifest.json"),
+        },
+    }
+
+
+def _build_cns_matched_condition_plus_uno_decision(
+    decision: Mapping[str, object],
+    *,
+    uno_row: Mapping[str, object],
+) -> dict[str, object]:
+    selected_rows = list(decision["selected_rows"])  # type: ignore[arg-type]
+    base_row_ids = [str(row["row_id"]) for row in selected_rows]
+    if NEURALOP_UNO_CNS_ROW_ID in base_row_ids:
+        raise RuntimeError("base CNS matched-condition decision already contains the U-NO row")
+    contract = dict(decision["selected_contract"])  # type: ignore[arg-type]
+    split_counts = dict(uno_row.get("split_counts", {}))
+    row_issues: list[str] = []
+    if str(uno_row.get("row_id")) != NEURALOP_UNO_CNS_ROW_ID:
+        row_issues.append("row_id_mismatch")
+    if int(uno_row.get("history_len", -1)) != int(contract["history_len"]):
+        row_issues.append("history_len_mismatch")
+    if split_counts != dict(contract["split_counts"]):  # type: ignore[arg-type]
+        row_issues.append("split_counts_mismatch")
+    if int(uno_row.get("epochs", -1)) != int(contract["epochs"]):
+        row_issues.append("epochs_mismatch")
+    if int(uno_row.get("batch_size", -1)) != int(contract["batch_size"]):
+        row_issues.append("batch_size_mismatch")
+    if str(uno_row.get("training_loss")) != str(contract["training_loss"]):
+        row_issues.append("training_loss_mismatch")
+    if row_issues:
+        raise RuntimeError(f"U-NO row does not match the selected matched-condition contract: {row_issues}")
+
+    rows = selected_rows + [dict(uno_row)]
+    return {
+        "schema_version": "pdebench_cns_matched_condition_plus_uno_decision_v1",
+        "base_selected_lane_id": str(decision["selected_lane_id"]),
+        "base_headline_row_ids": base_row_ids,
+        "fixed_contract": contract,
+        "rows": rows,
+        "appended_row_id": NEURALOP_UNO_CNS_ROW_ID,
+        "manuscript_table_recommendation": "adjacent_append_only_context",
+        "source_summary_paths": list(decision["source_summary_paths"]),  # type: ignore[arg-type]
+        "selection_reason": (
+            "Preserve the current four-row matched-condition headline table by lineage and "
+            "append one fresh bounded capped U-NO comparator row under the same fixed contract."
+        ),
+    }
+
+
+def _build_cns_matched_condition_plus_uno_payload(plus_uno: Mapping[str, object]) -> dict[str, object]:
+    return {
+        "schema_version": "pdebench_cns_matched_condition_plus_uno_table_v1",
+        "base_selected_lane_id": plus_uno["base_selected_lane_id"],
+        "base_headline_row_ids": list(plus_uno["base_headline_row_ids"]),  # type: ignore[arg-type]
+        "fixed_contract": dict(plus_uno["fixed_contract"]),  # type: ignore[arg-type]
+        "appended_row_id": plus_uno["appended_row_id"],
+        "manuscript_table_recommendation": plus_uno["manuscript_table_recommendation"],
+        "source_summary_paths": list(plus_uno["source_summary_paths"]),  # type: ignore[arg-type]
+        "rows": list(plus_uno["rows"]),  # type: ignore[arg-type]
+    }
+
+
+def _build_cns_matched_condition_plus_uno_lineage(plus_uno: Mapping[str, object]) -> dict[str, object]:
+    rows = []
+    for row in plus_uno["rows"]:  # type: ignore[arg-type]
+        rows.append(
+            {
+                "row_id": row["row_id"],
+                "manuscript_label": row["manuscript_label"],
+                "row_role": row["row_role"],
+                "source_run_root": row["source_run_root"],
+            }
+        )
+    return {
+        "schema_version": "pdebench_cns_matched_condition_plus_uno_lineage_v1",
+        "base_selected_lane_id": plus_uno["base_selected_lane_id"],
+        "base_headline_row_ids": list(plus_uno["base_headline_row_ids"]),  # type: ignore[arg-type]
+        "appended_row_id": plus_uno["appended_row_id"],
+        "manuscript_table_recommendation": plus_uno["manuscript_table_recommendation"],
+        "rows": rows,
+    }
+
+
+def _build_cns_matched_condition_plus_uno_row_manifest(plus_uno: Mapping[str, object]) -> dict[str, object]:
+    uno_row = list(plus_uno["rows"])[-1]  # type: ignore[arg-type]
+    return {
+        "schema_version": "pdebench_cns_matched_condition_plus_uno_row_manifest_v1",
+        "row_id": uno_row["row_id"],
+        "manuscript_label": uno_row["manuscript_label"],
+        "row_role": uno_row["row_role"],
+        "appended_row_role": uno_row.get("appended_row_role"),
+        "source_run_root": uno_row["source_run_root"],
+        "external_source_provenance": uno_row.get("external_source_provenance"),
+        "source_artifacts": uno_row.get("source_artifacts", {}),
+        "fixed_contract": dict(plus_uno["fixed_contract"]),  # type: ignore[arg-type]
+    }
+
+
+def write_cns_matched_condition_plus_uno_assets(
+    decision: Mapping[str, object],
+    *,
+    uno_row: Mapping[str, object],
+    output_root: Path,
+) -> dict[str, str]:
+    output_root = Path(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+
+    plus_uno = _build_cns_matched_condition_plus_uno_decision(decision, uno_row=uno_row)
+    decision_path = output_root / "plus_uno_decision.json"
+    table_json_path = output_root / "cns_paper_table_rows_plus_uno.json"
+    table_csv_path = output_root / "cns_paper_table_rows_plus_uno.csv"
+    table_tex_path = output_root / "cns_paper_table_rows_plus_uno.tex"
+    lineage_path = output_root / "plus_uno_lineage.json"
+    row_manifest_path = output_root / "plus_uno_row_manifest.json"
+
+    _write_json(decision_path, plus_uno)
+    payload = _build_cns_matched_condition_plus_uno_payload(plus_uno)
+    _write_json(table_json_path, payload)
+    with table_csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=_CNS_MATCHED_CSV_FIELDS,
+            lineterminator="\n",
+        )
+        writer.writeheader()
+        for row in payload["rows"]:
+            writer.writerow({field: row.get(field, "") for field in _CNS_MATCHED_CSV_FIELDS})
+    table_tex_path.write_text(render_cns_matched_condition_tex({"selected_rows": payload["rows"]}), encoding="utf-8")
+    _write_json(lineage_path, _build_cns_matched_condition_plus_uno_lineage(plus_uno))
+    _write_json(row_manifest_path, _build_cns_matched_condition_plus_uno_row_manifest(plus_uno))
+    return {
+        "plus_uno_decision_json": str(decision_path),
+        "plus_uno_table_rows_json": str(table_json_path),
+        "plus_uno_table_rows_csv": str(table_csv_path),
+        "plus_uno_table_rows_tex": str(table_tex_path),
+        "plus_uno_lineage_json": str(lineage_path),
+        "plus_uno_row_manifest_json": str(row_manifest_path),
+    }
+
+
+def write_cns_matched_condition_plus_uno_paper_assets(
+    decision: Mapping[str, object],
+    *,
+    uno_row: Mapping[str, object],
+    tables_dir: Path = TABLES_DIR,
+) -> dict[str, str]:
+    tables_dir = Path(tables_dir)
+    tables_dir.mkdir(parents=True, exist_ok=True)
+    payload = _build_cns_matched_condition_plus_uno_payload(
+        _build_cns_matched_condition_plus_uno_decision(decision, uno_row=uno_row)
+    )
+    base = "pdebench_cns_matched_condition_metrics_plus_uno"
+    tex_path = tables_dir / f"{base}.tex"
+    csv_path = tables_dir / f"{base}.csv"
+    json_path = tables_dir / f"{base}.json"
+    _write_json(json_path, payload)
+    with csv_path.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=_CNS_MATCHED_CSV_FIELDS, lineterminator="\n")
+        writer.writeheader()
+        for row in payload["rows"]:
+            writer.writerow({field: row.get(field, "") for field in _CNS_MATCHED_CSV_FIELDS})
+    tex_path.write_text(render_cns_matched_condition_tex({"selected_rows": payload["rows"]}), encoding="utf-8")
+    return {"tex": str(tex_path), "csv": str(csv_path), "json": str(json_path)}
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--audit-cns-history5", action="store_true")
@@ -1601,6 +1827,23 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--write-cns-matched-condition-paper-assets",
         action="store_true",
         help="Also emit paper-local CNS matched-condition table assets under tables/.",
+    )
+    parser.add_argument(
+        "--write-cns-matched-condition-plus-uno-assets",
+        type=Path,
+        default=None,
+        help="Write the derived plus-U-NO matched-condition bundle into the given item-local root.",
+    )
+    parser.add_argument(
+        "--write-cns-matched-condition-plus-uno-paper-assets",
+        action="store_true",
+        help="Also emit paper-local CNS matched-condition plus-U-NO table assets under tables/.",
+    )
+    parser.add_argument(
+        "--cns-plus-uno-run-root",
+        type=Path,
+        default=None,
+        help="Fresh single-row U-NO run root consumed when writing plus-U-NO bundle assets.",
     )
     parser.add_argument("--write-brdt-assets", action="store_true")
     parser.add_argument(
@@ -1631,6 +1874,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.audit_cns_matched_condition
         or args.write_cns_matched_condition_assets is not None
         or args.write_cns_matched_condition_paper_assets
+        or args.write_cns_matched_condition_plus_uno_assets is not None
+        or args.write_cns_matched_condition_plus_uno_paper_assets
     ):
         cns_matched_decision = select_cns_matched_condition()
         outputs["cns_matched_condition_decision"] = cns_matched_decision
@@ -1643,6 +1888,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         outputs["cns_matched_condition_paper_assets"] = (
             write_cns_matched_condition_paper_assets(cns_matched_decision)
         )
+    if (
+        args.write_cns_matched_condition_plus_uno_assets is not None
+        or args.write_cns_matched_condition_plus_uno_paper_assets
+    ):
+        if cns_matched_decision is None:
+            cns_matched_decision = select_cns_matched_condition()
+            outputs["cns_matched_condition_decision"] = cns_matched_decision
+        if args.cns_plus_uno_run_root is None:
+            raise ValueError("--cns-plus-uno-run-root is required for plus-U-NO bundle generation")
+        uno_row = load_cns_matched_condition_uno_row(args.cns_plus_uno_run_root)
+        if args.write_cns_matched_condition_plus_uno_assets is not None:
+            outputs["cns_matched_condition_plus_uno_assets"] = write_cns_matched_condition_plus_uno_assets(
+                cns_matched_decision,
+                uno_row=uno_row,
+                output_root=args.write_cns_matched_condition_plus_uno_assets,
+            )
+        if args.write_cns_matched_condition_plus_uno_paper_assets:
+            outputs["cns_matched_condition_plus_uno_paper_assets"] = (
+                write_cns_matched_condition_plus_uno_paper_assets(
+                    cns_matched_decision,
+                    uno_row=uno_row,
+                )
+            )
     if args.write_brdt_assets:
         outputs["brdt_assets"] = write_brdt_assets()
     if args.write_brdt_context_figure:

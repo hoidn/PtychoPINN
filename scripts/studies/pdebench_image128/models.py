@@ -23,6 +23,7 @@ from scripts.studies.pdebench_image128.author_ffno_adapter import (
     AuthorFfnoCnsModel,
 )
 from scripts.studies.pdebench_image128.gnot_adapter import GnotAdapterBuildError, GnotCnsModel
+from scripts.studies.pdebench_image128.uno_adapter import NeuralopUnoAdapterBuildError, NeuralopUnoCnsModel
 from scripts.studies.pdebench_image128.run_config import ModelProfile
 
 
@@ -712,6 +713,27 @@ def build_model_from_profile(
                 mode=str(config.get("author_ffno_mode", "full")),
             )
         except AuthorFfnoAdapterBuildError as exc:
+            raise ModelBuildBlocker(
+                profile.profile_id,
+                exc.reason,
+                str(exc),
+            ) from exc
+    if profile.base_model == "neuralop_uno_cns_net":
+        try:
+            return NeuralopUnoCnsModel(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                spatial_shape=spatial_shape,
+                task_metadata=task_metadata,
+                hidden_channels=int(config.get("hidden_channels", 32)),
+                lifting_channels=128,
+                projection_channels=128,
+                n_layers=int(config.get("fno_blocks", 4)),
+                modes=int(config.get("fno_modes", 12)),
+                positional_embedding="grid",
+                channel_mlp_skip="linear",
+            )
+        except NeuralopUnoAdapterBuildError as exc:
             raise ModelBuildBlocker(
                 profile.profile_id,
                 exc.reason,

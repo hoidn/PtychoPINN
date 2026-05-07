@@ -31,6 +31,7 @@ from scripts.studies.paper_results_refresh import (
     write_cdi_phase_zoom_per_panel_figure,
     write_brdt_context_figure,
     write_cns_matched_condition_assets,
+    write_cns_matched_condition_plus_uno_assets,
 )
 
 
@@ -833,6 +834,69 @@ def test_write_cns_matched_condition_assets_emits_required_payload(tmp_path):
     assert table_payload["fixed_contract"]["history_len"] == 5
     figure_payload = json.loads((tmp_path / "figure_selection.json").read_text())
     assert figure_payload["same_condition_visuals_available"] is False
+
+
+def test_write_cns_matched_condition_plus_uno_assets_emits_five_row_append_only_payload(tmp_path):
+    decision = select_cns_matched_condition(
+        h2_lane=_h2_lane_fixture(),
+        h5_lane=_h5_lane_fixture(),
+    )
+    uno_row = {
+        "row_id": "neuralop_uno_cns_base",
+        "manuscript_label": "U-NO",
+        "row_role": "appended_comparator",
+        "row_status": "capped_decision_support",
+        "claim_scope": "bounded_capped_decision_support_only",
+        "history_len": 5,
+        "split_counts": {"train": 512, "val": 64, "test": 64},
+        "split_label": "512 / 64 / 64",
+        "epochs": 40,
+        "batch_size": 4,
+        "training_loss": "mse",
+        "err_nRMSE": 0.0275,
+        "err_RMSE": 0.6641,
+        "relative_l2": 0.0275,
+        "fRMSE_low": 1.488,
+        "fRMSE_mid": 0.081,
+        "fRMSE_high": 0.119,
+        "parameter_count": 1260548,
+        "runtime_sec": 1765.0,
+        "source_run_root": "h5/uno",
+        "appended_row_role": "bounded_capped_comparator_context",
+    }
+
+    paths = write_cns_matched_condition_plus_uno_assets(
+        decision,
+        uno_row=uno_row,
+        output_root=tmp_path,
+    )
+
+    for key in [
+        "plus_uno_decision_json",
+        "plus_uno_table_rows_json",
+        "plus_uno_table_rows_csv",
+        "plus_uno_table_rows_tex",
+        "plus_uno_lineage_json",
+        "plus_uno_row_manifest_json",
+    ]:
+        assert paths[key]
+    payload = json.loads((tmp_path / "cns_paper_table_rows_plus_uno.json").read_text())
+    assert payload["base_headline_row_ids"] == [
+        "author_ffno_cns_base",
+        "spectral_resnet_bottleneck_base",
+        "fno_base",
+        "unet_strong",
+    ]
+    assert [row["row_id"] for row in payload["rows"]] == [
+        "author_ffno_cns_base",
+        "spectral_resnet_bottleneck_base",
+        "fno_base",
+        "unet_strong",
+        "neuralop_uno_cns_base",
+    ]
+    assert payload["rows"][-1]["row_role"] == "appended_comparator"
+    assert payload["rows"][-1]["manuscript_label"] == "U-NO"
+    assert payload["manuscript_table_recommendation"] == "adjacent_append_only_context"
 
 
 def test_main_write_model_config_table_calls_writer(monkeypatch, capsys, tmp_path):

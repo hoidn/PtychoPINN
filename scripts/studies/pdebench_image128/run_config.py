@@ -475,6 +475,14 @@ _PROFILES: dict[str, ModelProfile] = {
         scheduler_final_div_factor=1e4,
         evidence_scope="readiness-only",
     ),
+    "neuralop_uno_cns_base": ModelProfile(
+        profile_id="neuralop_uno_cns_base",
+        base_model="neuralop_uno_cns_net",
+        hidden_channels=32,
+        fno_modes=12,
+        fno_blocks=4,
+        evidence_scope="manual-only",
+    ),
     "fno_base": ModelProfile(
         profile_id="fno_base",
         base_model="fno",

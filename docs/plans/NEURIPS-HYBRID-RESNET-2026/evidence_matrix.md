@@ -1,7 +1,7 @@
 # NeurIPS Hybrid ResNet Evidence Matrix
 
 Status: draft  
-Last updated: 2026-05-06 (completed the no-refiner CDI FFNO paper refresh; current paper-local CDI FFNO rows now resolve to the corrected no-refiner reruns while historical local-refiner rows remain preserved proxy lineage)
+Last updated: 2026-05-06 (published the CNS U-NO matched-condition row extension; the four-row matched h5 CNS table remains the headline authority, and the five-row plus-U-NO derivative is adjacent append-only context only)
 
 This is the human-facing master matrix for NeurIPS/SRU-Net evidence. It points
 to all relevant completed backlog outputs, keyed by dataset, model/config
@@ -26,6 +26,7 @@ Machine-readable companions:
 | CDI SRU-Net branch / objective ablation | `lines128_srunet_branch_objective_ablation_summary.md` | append-only `decision_support_append_only`; mechanistic encoder branch removal + supervised SRU-Net objective control |
 | CDI SRU-Net ConvNeXt-bottleneck ablation | `lines128_srunet_convnext_bottleneck_ablation_summary.md` | append-only `decision_support_append_only`; bottleneck block family swap (ResNet → ConvNeXt-style) on the locked `lines128` CDI contract |
 | PDEBench CNS matched-condition table | `pdebench_cns_matched_condition_table_refresh_summary.md` | bounded capped decision-support only, matched `history_len=5`, `512 / 64 / 64`, `40` epochs headline |
+| PDEBench CNS matched-condition plus-U-NO derivative | `pdebench_cns_uno_row_extension_summary.md` | bounded capped decision-support only, same-contract `neuralop_uno_cns_base` append-only comparator plus `pdebench_cns_matched_condition_metrics_plus_uno.{json,csv,tex}`; headline four-row table unchanged |
 | PDEBench CNS larger-cap context | `pdebench_cns_paper_2048cap_extension_summary.md` | bounded capped decision-support only, preserved larger-cap `2048 / 256 / 256` context |
 | PDEBench CNS 512cap fallback provenance | `pdebench_cns_paper_table_figure_bundle_summary.md` | bounded capped decision-support only, preserved historical fallback |
 | SRU-Net FFNO-to-PtychoBlock encoder cross-pillar probe | `srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md` | corrected `24`-block contract rerun pending; historical `2`-block CDI/CNS evidence superseded and not current authority |
@@ -48,6 +49,7 @@ Current manuscript draft:
 | CDI no-refiner FFNO paper refresh | `tab:cdi_lines128_pinn`, `tab:cdi_lines128_objective_controls`, `fig:cdi_main_qualitative`; generated assets: `tables/cdi_lines128_pinn_metrics.tex`, `tables/cdi_lines128_objective_comparison.tex`, `tables/cdi_lines128_metrics_extended.{csv,json,tex}`, `figures/cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet.png`, `figures/cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet_per_panel_scaled.png`, `tables/model_config_by_benchmark.{json,csv,tex}`, `tables/paper_efficiency_table.{json,csv,tex}` |
 | Corrected FFNO source reruns | supply the active `FFNO + PINN` and `FFNO + supervised` rows consumed by the paper-local refresh while preserving the historical local-refiner rows as lineage-only context |
 | CNS matched-condition refresh (`history_len=5`, `512 / 64 / 64`, `40` epochs) | `tab:cns_bundle` (input: `tables/pdebench_cns_matched_condition_metrics.tex`); `fig:cns_sample_predictions` retained as adjacent context only |
+| CNS matched-condition plus-U-NO derivative (`history_len=5`, `512 / 64 / 64`, `40` epochs) | adjacent context only; generated assets: `tables/pdebench_cns_matched_condition_metrics_plus_uno.{json,csv,tex}`. Keep `tab:cns_bundle` unchanged and use the five-row derivative only when explicit same-contract U-NO context is useful. |
 | BRDT corrected pure-FFNO 20-epoch rerun (`pure_brdt_ffno_20ep_authority`) | corrected secondary BRDT FFNO authority — artifact inputs: `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-row-rerun/metrics.{json,csv}`, `combined_metrics.{json,csv}`, `combined_manifest.json`, `rows/ffno/row_summary.json`, `rows/ffno/model_profile.json`, `same_contract_audit.{json,md}`. The row is same-contract with the four-row preflight, rejects `cnn_blocks`, and records `parameter_count=27394`. |
 | BRDT 40-epoch secondary bundle (`historical_brdt_40ep_proxy_context`) | historical secondary transfer/efficiency context — artifact inputs: `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/metrics.{json,csv}`, `combined_metrics.{json,csv}`, `convergence_audit.{json,csv}`, `paper_evidence_gate.json`, `visuals/sample_0255_compare_q.png`, `visuals/sample_0255_error_q.png`, `figures/source_arrays/sample_0255_*`. The FFNO row is a local-refiner proxy; manuscript use must label it as such and use `2026-05-06-brdt-corrected-ffno-row-rerun` for pure-FFNO reads. The provenance gate caveat remains explicit; this context does not replace CDI `lines128` or PDEBench CNS. |
 | Paper efficiency table | grouped parameter/runtime/throughput context for Synthetic CDI, PDEBench CNS, and historical secondary BRDT; generated assets: `tables/paper_efficiency_table.{json,csv,tex}` and `paper_efficiency_table_summary.md` |
@@ -255,6 +257,7 @@ decision-support boundary. Source: matched-condition table refresh
 | `author_ffno_cns_base` | authored FFNO | supervised | 0.019758 | 0.101807 | headline (matched h5) | CNS matched-condition refresh |
 | `spectral_resnet_bottleneck_base` | spectral bottleneck | supervised | 0.033069 | 0.262218 | headline (matched h5) | CNS matched-condition refresh |
 | `fno_base` | FNO | supervised | 0.038425 | 0.432856 | headline (matched h5) | CNS matched-condition refresh |
+| `neuralop_uno_cns_base` | external NeuralOperator U-NO | supervised | 0.038466 | 0.260623 | adjacent append-only comparator | CNS U-NO row extension |
 | `unet_strong` | U-Net | supervised | 0.538623 | 1.742789 | headline (matched h5) | CNS matched-condition refresh |
 
 Larger-cap `history_len=2`, `2048 / 256 / 256` rows from the
@@ -267,6 +270,13 @@ context (`pdebench_cns_paper_2048cap_extension_summary.md`):
 `unet_strong` `0.597567` / `0.709608`. These rows are not
 the manuscript headline ranking.
 
+The derived plus-U-NO bundle keeps the four headline rows unchanged by lineage
+and appends `neuralop_uno_cns_base` as same-contract context only. U-NO is
+effectively tied with FNO on aggregate error, improves on `fRMSE_mid` and
+`fRMSE_high` versus FNO, and slightly edges the SRU-Net row on
+`fRMSE_high`, but it still trails the SRU-Net row on aggregate and low-band
+error. The manuscript recommendation therefore stays append-only.
+
 Best observed capped CNS rows by model family, selected by lowest observed
 `relative_l2`/`err_nRMSE` across completed capped evidence:
 
@@ -275,6 +285,7 @@ Best observed capped CNS rows by model family, selected by lowest observed
 | FFNO | `author_ffno_cns_base` | `2048 / 256 / 256`, `history_len=2`, `40` epochs | 0.026314 | 0.067210 | CNS 2048 authority bundle |
 | SRU-Net | `spectral_resnet_bottleneck_base` | `512 / 64 / 64`, `history_len=5`, `40` epochs | 0.033069 | 0.262218 | `pdebench_cns_spectral_history_len4plus_compare_summary.md` |
 | FNO | `fno_base` | `512 / 64 / 64`, `history_len=5`, `40` epochs | 0.038425 | 0.432856 | `pdebench_cns_history5_comparator_gap_fill_summary.md` |
+| U-NO | `neuralop_uno_cns_base` | `512 / 64 / 64`, `history_len=5`, `40` epochs | 0.038466 | 0.260623 | `pdebench_cns_uno_row_extension_summary.md` |
 | U-Net | `unet_strong` | `512 / 64 / 64`, `history_len=5`, `40` epochs | 0.538623 | 1.742789 | `pdebench_cns_history5_comparator_gap_fill_summary.md` |
 
 Notes:
@@ -285,23 +296,36 @@ Notes:
   `spectral_resnet_bottleneck_shared_blocks10`, `1024 / 128 / 128`,
   `80` epochs, `relative_l2=0.037568`, `fRMSE_high=0.215245`; see
   `pdebench_cns_shared_blocks10_1024cap_longer_convergence_summary.md`.
+- The same-contract `history_len=5`, `512 / 64 / 64`, `40`-epoch matched
+  bundle from `2026-05-04-cns-matched-condition-table-refresh` is the current
+  manuscript headline CNS authority.
+- The five-row plus-U-NO derivative from
+  `2026-05-06-cns-uno-matched-condition-row-extension` preserves that
+  headline bundle by lineage and appends one same-contract comparator only.
 - The selection above is by aggregate error. The U-Net h5 capped row
   improves aggregate error and `fRMSE_low` versus its `2048`-cap h2
   anchor but regresses `fRMSE_mid` and `fRMSE_high`; the
   `2048 / 256 / 256`, `history_len=2`, `40`-epoch U-Net row remains
   the better high-band U-Net evidence. The FNO h5 capped row improves
   every recorded metric versus its `2048`-cap h2 anchor.
-- The same-contract `2048 / 256 / 256`, `history_len=2`, 40-epoch bundle is
-  the current capped CNS authority; see
+- The larger-cap `2048 / 256 / 256`, `history_len=2`, 40-epoch bundle remains
+  bounded larger-cap context only; see
   `pdebench_cns_paper_2048cap_extension_summary.md` (bundle root
   `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/`).
-  The earlier `512 / 64 / 64` bundle is preserved as historical provenance
-  only. Neither bundle is relabelled `paper_grade` or `full_training`.
+  No capped CNS bundle is relabelled `paper_grade` or `full_training`.
 - `hybrid_resnet_cns` remains continuity/support context from the historical
   `512 / 64 / 64` fallback bundle because the promoted `2048` authority bundle
   intentionally carries only the four headline rows.
 
-CNS current authority bundle root:
+CNS current headline bundle root:
+
+- `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-matched-condition-table-refresh/`
+
+CNS plus-U-NO derivative root:
+
+- `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cns-uno-matched-condition-row-extension/`
+
+CNS larger-cap context bundle root:
 
 - `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap`
 
@@ -314,6 +338,9 @@ Bundle outputs include:
 - `cns_paper_table_rows.json`
 - `cns_paper_table_rows.csv`
 - `cns_paper_table_rows.tex`
+- `cns_paper_table_rows_plus_uno.json`
+- `cns_paper_table_rows_plus_uno.csv`
+- `cns_paper_table_rows_plus_uno.tex`
 - fixed-sample prediction/error figures
 - `shared_field_scales.json`
 - `fixed_sample_manifest.json`
@@ -410,6 +437,7 @@ Current decision-support inputs (not manuscript paper evidence):
 | `2026-04-29-cns-paper-benchmark-rows` | CNS row lock | `pdebench_cns_paper_row_lock_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/` |
 | `2026-04-29-cns-paper-table-figure-bundle` | CNS historical fallback bundle | `pdebench_cns_paper_table_figure_bundle_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/` |
 | `2026-04-29-cns-paper-2048cap-row-extension` | CNS current 2048cap authority bundle | `pdebench_cns_paper_2048cap_extension_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-2048cap-row-extension/bundle_2048cap/` |
+| `2026-05-06-cns-uno-matched-condition-row-extension` | same-contract CNS U-NO append-only comparator plus derived five-row table bundle | `pdebench_cns_uno_row_extension_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cns-uno-matched-condition-row-extension/` |
 | `2026-04-29-cdi-lines128-minimum-paper-table` | CDI minimum table | `lines128_minimum_paper_table_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-minimum-paper-table/runs/minimum_subset_20260430T084339Z` |
 | `2026-04-29-cdi-lines128-paper-benchmark-execution` | CDI complete six-row table with historical FFNO-local-refiner proxy row | `lines128_paper_benchmark_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux` |
 | `2026-04-29-cdi-lines128-supervised-equivalent-rows` | CDI supervised FFNO-local-refiner proxy extension | `lines128_supervised_equivalent_rows_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z` |

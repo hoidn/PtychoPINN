@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-06T23:59:59Z",
+  "last_updated_utc": "2026-05-07T03:15:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -15,7 +15,9 @@
     "cns_table_bundle": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
     "cns_larger_cap_context": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
     "cns_matched_condition_refresh_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
+    "cns_uno_row_extension_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_uno_row_extension_summary.md",
     "cns_matched_condition_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics.tex",
+    "cns_matched_condition_plus_uno_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics_plus_uno.tex",
     "cdi_extended_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended.tex",
     "cdi_pinn_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_pinn_metrics.tex",
     "cdi_objective_control_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_objective_comparison.tex",
@@ -170,7 +172,7 @@
       "max_windows_per_trajectory": 8,
       "epochs": 40,
       "training_loss": "mse",
-      "claim_boundary": "adjacent_capped_context_only",
+      "claim_boundary": "bounded_capped_decision_support_only",
       "metric_family": [
         "err_RMSE",
         "err_nRMSE",
@@ -1432,6 +1434,108 @@
         "fRMSE_high": 1.7427886724472046
       },
       "evidence_status": "matched_condition_headline"
+    },
+    {
+      "variant_id": "cns_history5_cap512_40ep__neuralop_uno_cns_base__supervised__append_only_context",
+      "dataset_contract_id": "cns_history5_cap512_40ep",
+      "row_id": "neuralop_uno_cns_base",
+      "paper_label": "U-NO",
+      "manuscript_headline_role": "adjacent_append_only_context",
+      "manuscript_headline_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_uno_row_extension_summary.md",
+      "architecture_id": "neuralop_uno_cns_net",
+      "model_family": "external_neuraloperator_uno",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-05-06-cns-uno-matched-condition-row-extension",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_uno_row_extension_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cns-uno-matched-condition-row-extension",
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cns-uno-matched-condition-row-extension/runs/cns_uno_h5_512cap_40ep_20260507T024412Z",
+      "metrics_json": "metrics_neuralop_uno_cns_base.json",
+      "visuals": [
+        "comparison_neuralop_uno_cns_base_sample0.png",
+        "comparison_neuralop_uno_cns_base_sample0.npz"
+      ],
+      "packaged_outputs": {
+        "item_local_table_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cns-uno-matched-condition-row-extension/cns_paper_table_rows_plus_uno.json",
+        "item_local_table_tex": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cns-uno-matched-condition-row-extension/cns_paper_table_rows_plus_uno.tex",
+        "paper_table_tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics_plus_uno.tex"
+      },
+      "parameter_count": 1260548,
+      "runtime_sec": 1246.1773493289948,
+      "metrics": {
+        "relative_l2": 0.03846576809883118,
+        "err_nRMSE": 0.03846576809883118,
+        "err_RMSE": 0.9291841983795166,
+        "fRMSE_low": 2.1897497177124023,
+        "fRMSE_mid": 0.07867281883955002,
+        "fRMSE_high": 0.26062262058258057
+      },
+      "external_source_provenance": {
+        "external_distribution": "neuraloperator",
+        "external_module": "neuralop.models.UNO",
+        "external_repo": "https://github.com/neuraloperator/neuraloperator",
+        "external_version": "2.0.0",
+        "local_contract_adaptation": {
+          "channel_mlp_skip": "linear",
+          "external_model_config": {
+            "hidden_channels": 32,
+            "in_channels": 20,
+            "lifting_channels": 128,
+            "n_layers": 4,
+            "out_channels": 4,
+            "projection_channels": 128,
+            "uno_n_modes": [
+              [
+                12,
+                12
+              ],
+              [
+                12,
+                12
+              ],
+              [
+                12,
+                12
+              ],
+              [
+                12,
+                12
+              ]
+            ],
+            "uno_out_channels": [
+              32,
+              64,
+              64,
+              32
+            ],
+            "uno_scalings": [
+              [
+                1.0,
+                1.0
+              ],
+              [
+                0.5,
+                0.5
+              ],
+              [
+                1.0,
+                1.0
+              ],
+              [
+                2.0,
+                2.0
+              ]
+            ]
+          },
+          "input_layout": "B,C,H,W",
+          "output_layout": "B,C,H,W",
+          "positional_embedding": "grid",
+          "task_id": "2d_cfd_cns"
+        },
+        "module_file": "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/neuralop/__init__.py",
+        "torch_version": "2.9.1+cu128"
+      },
+      "comparison_outcome": "same_contract_uno_append_only_context_does_not_replace_four_row_matched_headline",
+      "evidence_status": "bounded_capped_append_only_context"
     },
     {
       "variant_id": "cns_history5_cap512_40ep__hybrid_resnet_ffno_ptychoblock_encoder_cns__supervised",

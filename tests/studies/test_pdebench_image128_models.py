@@ -18,6 +18,7 @@ def test_image128_model_profiles_build_and_record_parameter_counts():
         "spectral_resnet_bottleneck_noshare",
         "ffno_bottleneck_base",
         "ffno_bottleneck_localconv_base",
+        "neuralop_uno_cns_base",
         "fno_base",
         "unet_strong",
         "unet_tiny_smoke",
@@ -502,6 +503,23 @@ def test_author_ffno_profile_is_manual_only_and_not_in_primary_sets():
     assert "author_ffno_cns_base" not in PRIMARY_DARCY_PROFILE_IDS
     assert "author_ffno_cns_base" not in PRIMARY_CFD_CNS_PROFILE_IDS
     assert "author_ffno_cns_base" not in READINESS_CFD_CNS_PROFILE_IDS
+
+
+def test_neuralop_uno_profile_is_manual_only_and_not_in_primary_sets():
+    from scripts.studies.pdebench_image128.run_config import (
+        PRIMARY_CFD_CNS_PROFILE_IDS,
+        PRIMARY_DARCY_PROFILE_IDS,
+        READINESS_CFD_CNS_PROFILE_IDS,
+        get_model_profile,
+    )
+
+    profile = get_model_profile("neuralop_uno_cns_base")
+
+    assert profile.base_model == "neuralop_uno_cns_net"
+    assert profile.evidence_scope == "manual-only"
+    assert "neuralop_uno_cns_base" not in PRIMARY_DARCY_PROFILE_IDS
+    assert "neuralop_uno_cns_base" not in PRIMARY_CFD_CNS_PROFILE_IDS
+    assert "neuralop_uno_cns_base" not in READINESS_CFD_CNS_PROFILE_IDS
 
 
 def test_cfd_cns_default_profile_sets_use_canonical_skip_hybrid():
@@ -1082,3 +1100,57 @@ def test_author_ffno_profile_description_records_external_source_provenance(monk
     assert description["external_source_provenance"]["external_repo"] == "https://github.com/alasdairtran/fourierflow"
     assert description["external_source_provenance"]["external_commit"] == "deadbeef"
     assert description["external_source_provenance"]["host_environment"]["conda_env"] == "ptycho311"
+
+
+def test_neuralop_uno_profile_description_records_external_source_provenance(monkeypatch):
+    from scripts.studies.pdebench_image128 import uno_adapter
+    from scripts.studies.pdebench_image128.models import build_model_from_profile, describe_model
+    from scripts.studies.pdebench_image128.run_config import get_model_profile
+
+    class FakeUno(torch.nn.Module):
+        def __init__(self, in_channels: int, out_channels: int, **kwargs):
+            super().__init__()
+            self.proj = torch.nn.Conv2d(in_channels, out_channels, kernel_size=1)
+
+        def forward(self, x):
+            return self.proj(x)
+
+    monkeypatch.setattr(
+        uno_adapter,
+        "load_neuralop_uno_dependencies",
+        lambda: (
+            FakeUno,
+            {
+                "external_distribution": "neuraloperator",
+                "external_module": "neuralop.models.UNO",
+                "external_version": "2.0.0",
+            },
+        ),
+    )
+
+    profile = get_model_profile("neuralop_uno_cns_base")
+    model = build_model_from_profile(
+        profile,
+        in_channels=20,
+        out_channels=4,
+        spatial_shape=(128, 128),
+        task_metadata={
+            "task_id": "2d_cfd_cns",
+            "dx": 1.0 / 128.0,
+            "dy": 1.0 / 128.0,
+            "dt": 0.05,
+            "time_steps": 21,
+            "history_len": 5,
+            "field_order": ["density", "Vx", "Vy", "pressure"],
+        },
+    )
+    description = describe_model(model, profile=profile)
+
+    assert description["profile_id"] == "neuralop_uno_cns_base"
+    provenance = description["external_source_provenance"]
+    assert provenance["external_distribution"] == "neuraloperator"
+    assert provenance["external_module"] == "neuralop.models.UNO"
+    assert provenance["external_version"] == "2.0.0"
+    assert provenance["local_contract_adaptation"]["task_id"] == "2d_cfd_cns"
+    assert provenance["local_contract_adaptation"]["input_layout"] == "B,C,H,W"
+    assert provenance["local_contract_adaptation"]["output_layout"] == "B,C,H,W"

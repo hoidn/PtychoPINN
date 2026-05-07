@@ -2713,7 +2713,8 @@ def test_cfd_cns_passes_task_metadata_into_model_builder(tmp_path, monkeypatch):
     from scripts.studies.pdebench_image128.normalization import compute_multifield_dynamic_stats
 
     data_file = _write_tiny_cfd_cns(
-        tmp_path / "data" / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+        tmp_path / "data" / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        t=7,
     )
     metadata = inspect_cfd_cns_hdf5(data_file, history_len=2)
     state_stats = compute_multifield_dynamic_stats(
@@ -2793,7 +2794,8 @@ def test_cfd_cns_gnot_profile_uses_paper_default_training_recipe(tmp_path, monke
     from scripts.studies.pdebench_image128.normalization import compute_multifield_dynamic_stats
 
     data_file = _write_tiny_cfd_cns(
-        tmp_path / "data" / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+        tmp_path / "data" / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        t=7,
     )
     metadata = inspect_cfd_cns_hdf5(data_file, history_len=2)
     state_stats = compute_multifield_dynamic_stats(
@@ -2871,7 +2873,8 @@ def test_cfd_cns_author_ffno_profile_uses_equal_footing_training_recipe(tmp_path
     from scripts.studies.pdebench_image128.normalization import compute_multifield_dynamic_stats
 
     data_file = _write_tiny_cfd_cns(
-        tmp_path / "data" / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+        tmp_path / "data" / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        t=7,
     )
     metadata = inspect_cfd_cns_hdf5(data_file, history_len=2)
     state_stats = compute_multifield_dynamic_stats(
@@ -2932,6 +2935,84 @@ def test_cfd_cns_author_ffno_profile_uses_equal_footing_training_recipe(tmp_path
 
     assert result["status"] == "completed"
     metrics = json.loads((tmp_path / "out" / "metrics_author_ffno_cns_base.json").read_text(encoding="utf-8"))
+    assert metrics["training_loss"] == "mse"
+    assert metrics["optimizer"] == "Adam"
+    assert metrics["scheduler"] == "ReduceLROnPlateau"
+    assert metrics["learning_rate"] == 2e-4
+    assert metrics["weight_decay"] == 0.0
+
+
+def test_cfd_cns_neuralop_uno_profile_uses_equal_footing_training_recipe(tmp_path, monkeypatch):
+    from scripts.studies.pdebench_image128 import cfd_cns
+    from scripts.studies.pdebench_image128.data import (
+        MultiFieldHistoryWindowDataset,
+        inspect_cfd_cns_hdf5,
+    )
+    from scripts.studies.pdebench_image128.normalization import compute_multifield_dynamic_stats
+
+    data_file = _write_tiny_cfd_cns(
+        tmp_path / "data" / "2d_cfd_cns" / "2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
+        t=7,
+    )
+    metadata = inspect_cfd_cns_hdf5(data_file, history_len=5)
+    state_stats = compute_multifield_dynamic_stats(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        axis_order=metadata["field_axis_order"],
+        train_trajectory_ids=[0, 1],
+    )
+    train_dataset = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        trajectory_ids=[0, 1],
+        axis_order=metadata["field_axis_order"],
+        history_len=5,
+        normalization=state_stats,
+        max_windows_per_trajectory=1,
+    )
+    eval_dataset = MultiFieldHistoryWindowDataset(
+        data_file=data_file,
+        field_order=metadata["field_order"],
+        trajectory_ids=[2],
+        axis_order=metadata["field_axis_order"],
+        history_len=5,
+        normalization=state_stats,
+        max_windows_per_trajectory=1,
+    )
+
+    class TinyRecorderModel(torch.nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.proj = torch.nn.Conv2d(20, 4, kernel_size=1)
+
+        def forward(self, x):
+            return self.proj(x)
+
+    monkeypatch.setattr(
+        cfd_cns,
+        "build_model_from_profile",
+        lambda *args, **kwargs: TinyRecorderModel(),
+    )
+
+    result = cfd_cns._run_profile(
+        profile_id="neuralop_uno_cns_base",
+        train_dataset=train_dataset,
+        eval_dataset=eval_dataset,
+        state_stats=state_stats,
+        spatial_shape=(8, 8),
+        output_root=tmp_path / "out",
+        run_id="runner-neuralop-uno-training-recipe-test",
+        metadata=metadata,
+        epochs=1,
+        batch_size=1,
+        learning_rate=2e-4,
+        device_name="cpu",
+        num_workers=0,
+        physics_config=cfd_cns.PhysicsRegularizationConfig(),
+    )
+
+    assert result["status"] == "completed"
+    metrics = json.loads((tmp_path / "out" / "metrics_neuralop_uno_cns_base.json").read_text(encoding="utf-8"))
     assert metrics["training_loss"] == "mse"
     assert metrics["optimizer"] == "Adam"
     assert metrics["scheduler"] == "ReduceLROnPlateau"

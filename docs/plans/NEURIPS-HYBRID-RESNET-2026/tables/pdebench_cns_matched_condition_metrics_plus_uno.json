@@ -1,0 +1,241 @@
+{
+  "schema_version": "pdebench_cns_matched_condition_plus_uno_table_v1",
+  "base_selected_lane_id": "h5_512_64_64_40ep",
+  "base_headline_row_ids": [
+    "author_ffno_cns_base",
+    "spectral_resnet_bottleneck_base",
+    "fno_base",
+    "unet_strong"
+  ],
+  "fixed_contract": {
+    "history_len": 5,
+    "split_counts": {
+      "train": 512,
+      "val": 64,
+      "test": 64
+    },
+    "max_windows_per_trajectory": 8,
+    "epochs": 40,
+    "batch_size": 4,
+    "training_loss": "mse",
+    "metric_family": [
+      "err_RMSE",
+      "err_nRMSE",
+      "relative_l2",
+      "fRMSE_low",
+      "fRMSE_mid",
+      "fRMSE_high"
+    ],
+    "claim_boundary": "bounded_capped_decision_support_only"
+  },
+  "appended_row_id": "neuralop_uno_cns_base",
+  "manuscript_table_recommendation": "adjacent_append_only_context",
+  "source_summary_paths": [
+    "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md",
+    "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md"
+  ],
+  "rows": [
+    {
+      "row_id": "author_ffno_cns_base",
+      "manuscript_label": "FFNO",
+      "row_role": "headline",
+      "row_status": "capped_decision_support",
+      "claim_scope": "bounded_capped_decision_support_only",
+      "history_len": 5,
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "split_label": "512 / 64 / 64",
+      "epochs": 40,
+      "batch_size": 4,
+      "training_loss": "mse",
+      "err_nRMSE": 0.019758449867367744,
+      "err_RMSE": 0.47728773951530457,
+      "relative_l2": 0.019758449867367744,
+      "fRMSE_low": 1.130386233329773,
+      "fRMSE_mid": 0.04206976667046547,
+      "fRMSE_high": 0.10180677473545074,
+      "parameter_count": 1074440,
+      "runtime_sec": 5103.250108957291,
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/history5-pilot-40ep-20260502T074500Z"
+    },
+    {
+      "row_id": "spectral_resnet_bottleneck_base",
+      "manuscript_label": "SRU-Net",
+      "row_role": "headline",
+      "row_status": "capped_decision_support",
+      "claim_scope": "bounded_capped_decision_support_only",
+      "history_len": 5,
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "split_label": "512 / 64 / 64",
+      "epochs": 40,
+      "batch_size": 4,
+      "training_loss": "mse",
+      "err_nRMSE": 0.0330694355070591,
+      "err_RMSE": 0.7988296747207642,
+      "relative_l2": 0.0330694355070591,
+      "fRMSE_low": 1.8541778326034546,
+      "fRMSE_mid": 0.17134958505630493,
+      "fRMSE_high": 0.26221781969070435,
+      "parameter_count": 8395270,
+      "runtime_sec": 1436.7038459777832,
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-history-len4plus-compare/history5-pilot-40ep-20260501T101147Z"
+    },
+    {
+      "row_id": "fno_base",
+      "manuscript_label": "FNO",
+      "row_role": "headline",
+      "row_status": "capped_decision_support",
+      "claim_scope": "bounded_capped_decision_support_only",
+      "history_len": 5,
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "split_label": "512 / 64 / 64",
+      "epochs": 40,
+      "batch_size": 4,
+      "training_loss": "mse",
+      "err_nRMSE": 0.03842493146657944,
+      "err_RMSE": 0.9281977415084839,
+      "relative_l2": 0.03842493146657944,
+      "fRMSE_low": 2.1336586475372314,
+      "fRMSE_mid": 0.122382752597332,
+      "fRMSE_high": 0.43285590410232544,
+      "parameter_count": 358628,
+      "runtime_sec": 1129.7886884212494,
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z"
+    },
+    {
+      "row_id": "unet_strong",
+      "manuscript_label": "U-Net",
+      "row_role": "headline",
+      "row_status": "capped_decision_support",
+      "claim_scope": "bounded_capped_decision_support_only",
+      "history_len": 5,
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "split_label": "512 / 64 / 64",
+      "epochs": 40,
+      "batch_size": 4,
+      "training_loss": "mse",
+      "err_nRMSE": 0.538623034954071,
+      "err_RMSE": 13.0110502243042,
+      "relative_l2": 0.538623034954071,
+      "fRMSE_low": 30.988290786743164,
+      "fRMSE_mid": 0.6448712348937988,
+      "fRMSE_high": 1.7427886724472046,
+      "parameter_count": 7768036,
+      "runtime_sec": 1070.9980742931366,
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z"
+    },
+    {
+      "row_id": "neuralop_uno_cns_base",
+      "manuscript_label": "U-NO",
+      "row_role": "appended_comparator",
+      "row_status": "capped_decision_support",
+      "claim_scope": "bounded_capped_decision_support_only",
+      "history_len": 5,
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "split_label": "512 / 64 / 64",
+      "epochs": 40,
+      "batch_size": 4,
+      "training_loss": "mse",
+      "err_nRMSE": 0.03846576809883118,
+      "err_RMSE": 0.9291841983795166,
+      "relative_l2": 0.03846576809883118,
+      "fRMSE_low": 2.1897497177124023,
+      "fRMSE_mid": 0.07867281883955002,
+      "fRMSE_high": 0.26062262058258057,
+      "parameter_count": 1260548,
+      "runtime_sec": 1246.1773493289948,
+      "source_run_root": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cns-uno-matched-condition-row-extension/runs/cns_uno_h5_512cap_40ep_20260507T024412Z",
+      "appended_row_role": "bounded_capped_comparator_context",
+      "external_source_provenance": {
+        "external_distribution": "neuraloperator",
+        "external_module": "neuralop.models.UNO",
+        "external_repo": "https://github.com/neuraloperator/neuraloperator",
+        "external_version": "2.0.0",
+        "local_contract_adaptation": {
+          "channel_mlp_skip": "linear",
+          "external_model_config": {
+            "hidden_channels": 32,
+            "in_channels": 20,
+            "lifting_channels": 128,
+            "n_layers": 4,
+            "out_channels": 4,
+            "projection_channels": 128,
+            "uno_n_modes": [
+              [
+                12,
+                12
+              ],
+              [
+                12,
+                12
+              ],
+              [
+                12,
+                12
+              ],
+              [
+                12,
+                12
+              ]
+            ],
+            "uno_out_channels": [
+              32,
+              64,
+              64,
+              32
+            ],
+            "uno_scalings": [
+              [
+                1.0,
+                1.0
+              ],
+              [
+                0.5,
+                0.5
+              ],
+              [
+                1.0,
+                1.0
+              ],
+              [
+                2.0,
+                2.0
+              ]
+            ]
+          },
+          "input_layout": "B,C,H,W",
+          "output_layout": "B,C,H,W",
+          "positional_embedding": "grid",
+          "task_id": "2d_cfd_cns"
+        },
+        "module_file": "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/neuralop/__init__.py",
+        "torch_version": "2.9.1+cu128"
+      },
+      "source_artifacts": {
+        "metrics_json": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cns-uno-matched-condition-row-extension/runs/cns_uno_h5_512cap_40ep_20260507T024412Z/metrics_neuralop_uno_cns_base.json",
+        "model_profile_json": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cns-uno-matched-condition-row-extension/runs/cns_uno_h5_512cap_40ep_20260507T024412Z/model_profile_neuralop_uno_cns_base.json",
+        "invocation_json": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cns-uno-matched-condition-row-extension/runs/cns_uno_h5_512cap_40ep_20260507T024412Z/invocation.json",
+        "split_manifest_json": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cns-uno-matched-condition-row-extension/runs/cns_uno_h5_512cap_40ep_20260507T024412Z/split_manifest.json"
+      }
+    }
+  ]
+}
