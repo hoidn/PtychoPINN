@@ -2,20 +2,26 @@
 
 ## Completed In This Pass
 
-- Repaired the High implementation-review finding by repopulating
+- Repaired the High implementation-review finding by actually repopulating
   `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
-  so it actually contains the full 16-command ledger that this report and the
-  durable summary already describe. The prior version of the file recorded only
-  the three `json.tool` validations the workflow had auto-attached, even though
-  the underlying verification logs for all 16 commands had already been
-  archived. Each result entry now carries the canonical command, `exit_code`,
-  and `log_path` pointing at its archived log under
+  to the full 16-command ledger that this report and the durable summary
+  already describe. The prior on-disk file still contained only the three
+  `json.tool` validations the workflow had auto-attached, despite the report
+  claiming a 16-command ledger existed; the implementation review (High
+  finding) flagged this divergence between the human-facing evidence and the
+  machine-consumed ledger. The rebuilt ledger now records each of the 16
+  archived verification commands with `command`, `exit_code: 0`, and
+  `log_path` pointing at the matching file under
   `artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/`.
-  All 16 entries are exit_code 0; all referenced verification log files exist
-  on disk; the ledger validates as JSON.
+  Validated with `python -m json.tool`; all 16 referenced log files exist on
+  disk; ledger reports `command_count: 16`, `failed_count: 0`, `status: PASS`.
 - Re-ran the six plan-mandated deterministic JSON validations against the
-  durable indexes and tables to confirm no regression occurred while the ledger
-  was being repaired. All six pass.
+  durable indexes and tables to confirm no regression occurred while the
+  ledger was being repaired:
+  `paper_evidence_manifest.json`, `model_variant_index.json`,
+  `ablation_index.json`, `tables/cdi_lines128_metrics_extended.json`,
+  `tables/model_config_by_benchmark.json`,
+  `tables/paper_efficiency_table.json`. All six pass.
 
 ## Completed In Prior Pass (kept for context)
 
