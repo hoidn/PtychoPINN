@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-06T23:52:20Z",
+  "last_updated_utc": "2026-05-06T23:59:59Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -36,7 +36,7 @@
         "pinn_spectral_resnet_bottleneck_net",
         "pinn_ffno"
       ],
-      "interpretation": "The six-row complete Lines128 CDI table is the current non-FFNO CDI headline authority. Its completed FFNO row used fno_cnn_blocks=2 and is now historical FFNO-local-refiner proxy context; pure FFNO claims require the active no-refiner rerun and table refresh. Hybrid ResNet and spectral-bottleneck rows dominate the local CNN and FNO/proxy-FFNO rows on amplitude; Hybrid ResNet has the stronger phase/FRC balance among the hybrid-family rows."
+      "interpretation": "The six-row complete Lines128 CDI table remains the immutable non-FFNO CDI headline authority. Its completed FFNO row used `fno_cnn_blocks=2` and is now preserved proxy lineage only; current paper-local CDI assets consume the corrected no-refiner FFNO refresh while reusing the unchanged non-FFNO rows by lineage. Hybrid ResNet and spectral-bottleneck rows still dominate the local CNN and FFNO-family rows on amplitude, and Hybrid ResNet keeps the stronger phase/FRC balance among the hybrid-family rows."
     },
     {
       "family_id": "cdi_lines128_ffno_training_mode_extension",
@@ -58,7 +58,7 @@
         "pinn_ffno",
         "supervised_ffno"
       ],
-      "interpretation": "The supervised FFNO row does not collapse to the PINN FFNO output, but both rows used the historical fno_cnn_blocks=2 local-refiner proxy profile. The objective-control conclusion must be rerun under the no-refiner FFNO contract before it is used as canonical pure-FFNO paper evidence.",
+      "interpretation": "The historical supervised FFNO extension shows that the supervised row does not collapse to the PINN FFNO output, but both rows used the historical `fno_cnn_blocks=2` local-refiner proxy profile. The extension is now preserved as lineage-only proxy context; current paper-local objective-control assets consume the corrected no-refiner FFNO pair.",
       "superseded_for_pure_ffno_by": [
         "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun",
         "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun"
@@ -105,7 +105,7 @@
       "rows": [
         "pinn_ffno"
       ],
-      "interpretation": "The corrected pure-FFNO rerun preserves the locked CDI `lines128` contract while removing all local residual refiners. Relative to the historical proxy, parameter count drops from `323918` to `124968`, but the corrected row is weaker on the main amplitude and phase metrics. This is corrected prerequisite evidence only; canonical table promotion remains deferred to the separate no-refiner table-refresh item."
+      "interpretation": "The corrected pure-FFNO rerun preserves the locked CDI `lines128` contract while removing all local residual refiners. Relative to the historical proxy, parameter count drops from `323918` to `124968`, but the corrected row is weaker on the main amplitude and phase metrics. This row now feeds the active paper-local CDI FFNO refresh while remaining separate from the immutable six-row base authority."
     },
     {
       "family_id": "cdi_lines128_ffno_no_refiner_objective_control",
@@ -131,7 +131,36 @@
         "pinn_ffno",
         "supervised_ffno"
       ],
-      "interpretation": "The corrected objective-control pair now compares `pinn_ffno` and `supervised_ffno` under the same no-refiner FFNO contract. Supervised still lowers phase MAE relative to corrected `pinn_ffno`, but it remains materially worse on amplitude quality and on phase SSIM/FRC. Historical `fno_cnn_blocks=2` FFNO rows are preserved as lineage/proxy context only, not as canonical pure-FFNO evidence."
+      "interpretation": "The corrected objective-control pair now compares `pinn_ffno` and `supervised_ffno` under the same no-refiner FFNO contract. Supervised still lowers phase MAE relative to corrected `pinn_ffno`, but it remains materially worse on amplitude quality and on phase SSIM/FRC. Current paper-local CDI objective-control assets consume this pair; historical `fno_cnn_blocks=2` FFNO rows remain preserved proxy context only."
+    },
+    {
+      "family_id": "cdi_lines128_ffno_paper_refresh_packaging",
+      "task": "cdi",
+      "fixed_contract": "cdi_lines128_seed3",
+      "changed_factors": [
+        "paper-local CDI FFNO lineage refresh from historical local-refiner proxy to corrected no-refiner rows",
+        "table-level claim-boundary update for mixed-lineage CDI packaging"
+      ],
+      "completed_items": [
+        "2026-05-06-cdi-lines128-no-refiner-ffno-table-refresh"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_no_refiner_ffno_table_refresh_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-no-refiner-ffno-table-refresh"
+      ],
+      "rows": [
+        "baseline",
+        "pinn",
+        "pinn_fno_vanilla",
+        "pinn_ffno",
+        "pinn_hybrid_resnet",
+        "pinn_neuralop_uno",
+        "supervised_ffno",
+        "supervised_neuralop_uno"
+      ],
+      "interpretation": "The current paper-local CDI tables, phase-zoom figures, model-config packaging, efficiency packaging, and discovery surfaces now consume the corrected no-refiner `pinn_ffno` and `supervised_ffno` rows while reusing the unchanged non-FFNO and U-NO rows by lineage. Historical `fno_cnn_blocks=2` FFNO rows remain preserved explicit proxy context only, and no depth-24 FFNO content was consumed by this refresh."
     },
     {
       "family_id": "cdi_lines128_hybrid_spectral_ffno_parameter_space",

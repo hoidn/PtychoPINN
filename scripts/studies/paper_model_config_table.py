@@ -12,7 +12,7 @@ from typing import Any, Mapping, Sequence
 NEURIPS_DIR = Path("docs") / "plans" / "NEURIPS-HYBRID-RESNET-2026"
 TABLES_DIR = NEURIPS_DIR / "tables"
 
-CDI_UNO_ROOT = (
+CDI_BASE_ROOT = (
     Path(".artifacts")
     / "work"
     / "NEURIPS-HYBRID-RESNET-2026"
@@ -21,14 +21,23 @@ CDI_UNO_ROOT = (
     / "runs"
     / "complete_table_plus_uno_20260504T100347Z"
 )
+CDI_FFNO_NO_REFINER_ROOT = (
+    Path(".artifacts")
+    / "work"
+    / "NEURIPS-HYBRID-RESNET-2026"
+    / "backlog"
+    / "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun"
+    / "runs"
+    / "ffno_no_refiner_20260506T223454Z"
+)
 CDI_SUPERVISED_FFNO_ROOT = (
     Path(".artifacts")
     / "work"
     / "NEURIPS-HYBRID-RESNET-2026"
     / "backlog"
-    / "2026-04-29-cdi-lines128-supervised-equivalent-rows"
+    / "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun"
     / "runs"
-    / "supervised_ffno_extension_20260430T180217Z"
+    / "supervised_ffno_no_refiner_20260506T232535Z"
 )
 BRDT_40EP_ROOT = (
     Path(".artifacts")
@@ -41,8 +50,8 @@ CDI_DISPLAY_LABELS = {
     "baseline": ("CNN", "supervised"),
     "pinn": ("CNN", "PINN"),
     "pinn_fno_vanilla": ("FNO", "PINN"),
-    "pinn_ffno": ("FFNO-local proxy", "PINN"),
-    "supervised_ffno": ("FFNO-local proxy", "supervised"),
+    "pinn_ffno": ("FFNO", "PINN"),
+    "supervised_ffno": ("FFNO", "supervised"),
     "pinn_hybrid_resnet": ("SRU-Net", "PINN"),
     "pinn_neuralop_uno": ("U-NO", "PINN"),
     "supervised_neuralop_uno": ("U-NO", "supervised"),
@@ -277,6 +286,8 @@ def _cdi_param_count(
                         f"historical fno_cnn_blocks={cnn_blocks} local-refiner proxy; "
                         "corrected no-refiner rerun pending"
                     )
+                else:
+                    notes = "corrected no-refiner active CDI paper row"
             return (
                 result.unique_trainable_params,
                 raw_recorded,
@@ -298,15 +309,22 @@ def _cdi_param_count(
 def load_cdi_config_rows(repo_root: Path) -> list[ModelConfigRow]:
     table_path = repo_root / TABLES_DIR / "cdi_lines128_metrics_extended.json"
     table_rows = _read_json(table_path).get("rows", [])
-    uno_root = repo_root / CDI_UNO_ROOT
+    base_root = repo_root / CDI_BASE_ROOT
+    corrected_ffno_root = repo_root / CDI_FFNO_NO_REFINER_ROOT
     supervised_ffno_root = repo_root / CDI_SUPERVISED_FFNO_ROOT
-    manifest_rows = _manifest_rows_by_id(uno_root / "model_manifest.json")
+    manifest_rows = _manifest_rows_by_id(base_root / "model_manifest.json")
+    manifest_rows.update(_manifest_rows_by_id(corrected_ffno_root / "model_manifest.json"))
     manifest_rows.update(_manifest_rows_by_id(supervised_ffno_root / "model_manifest.json"))
     rows: list[ModelConfigRow] = []
 
     for metric_row in table_rows:
         row_id = str(metric_row["row_id"])
-        row_root = supervised_ffno_root if row_id == "supervised_ffno" else uno_root
+        if row_id == "pinn_ffno":
+            row_root = corrected_ffno_root
+        elif row_id == "supervised_ffno":
+            row_root = supervised_ffno_root
+        else:
+            row_root = base_root
         run_dir = row_root / "runs" / row_id
         config_path = run_dir / "config.json"
         cfg = _load_runner_config(config_path)
@@ -325,7 +343,7 @@ def load_cdi_config_rows(repo_root: Path) -> list[ModelConfigRow]:
             count_source = _repo_rel(repo_root, row_root / "model_manifest.json")
         rows.append(
             ModelConfigRow(
-                benchmark="CDI Lines128",
+                benchmark="Synthetic CDI",
                 display_model=display_model,
                 row_id=row_id,
                 internal_architecture=architecture,

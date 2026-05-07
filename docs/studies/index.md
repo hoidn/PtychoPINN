@@ -605,13 +605,14 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   - prerequisite pair evidence and the four-row minimum subset remain distinct,
     preserved evidence roots and should not be mistaken for the final six-row
     package
-  - the `pinn_ffno` row is historical FFNO-local-refiner proxy evidence until
-    the no-refiner rerun and table refresh land
+  - the `pinn_ffno` row inside this immutable root remains historical
+    FFNO-local-refiner proxy evidence; current manuscript-facing FFNO assets are
+    supplied by the later no-refiner paper refresh summary
 
 ### `grid-lines-n128-supervised-ffno-extension`
 
-- Purpose: publish the adjacent same-contract historical `FFNO-local proxy + PINN`
-  versus `FFNO-local proxy + supervised` comparison under the frozen `lines128` `N=128`,
+- Purpose: publish the adjacent same-contract historical FFNO proxy comparison
+  between `pinn_ffno` and `supervised_ffno` under the frozen `lines128` `N=128`,
   `seed=3`, fixed-sample, shared-visual-scale contract without rewriting the
   primary six-row CDI benchmark claim.
 - Status: completed on `2026-04-30`; the extension root is
@@ -630,7 +631,7 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Comparison audit:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/execution/supervised_ffno_parity_audit.json`
 - Main result:
-  the corrected supervised FFNO-local-proxy rerun executed successfully under the locked
+  the historical supervised FFNO proxy rerun executed successfully under the locked
   contract and produced a truthful `paper_complete` adjacent extension root,
   but not exact parity with the preserved `pinn_ffno` comparator. The rebuilt
   comparison audit records
@@ -638,8 +639,47 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Boundary:
   - this is adjacent evidence for the Lines128 CDI lane
   - it does not replace the preserved six-row primary CDI benchmark root
-  - both FFNO rows used `fno_cnn_blocks=2`; pure no-refiner objective-control
-    evidence requires the active corrected reruns
+  - both FFNO rows used `fno_cnn_blocks=2`; current manuscript-facing
+    objective-control assets instead consume the corrected no-refiner pair
+    documented by the later paper refresh summary
+
+### `grid-lines-n128-no-refiner-ffno-paper-refresh`
+
+- Purpose: refresh the manuscript-facing CDI FFNO tables, phase-zoom figure
+  inputs, model-config table, efficiency table, and discovery surfaces so the
+  active `pinn_ffno` and `supervised_ffno` paper rows consume the corrected
+  four-block no-refiner reruns rather than the historical local-refiner proxy
+  lineage.
+- Status: completed on `2026-05-06`; this is the current paper-local CDI FFNO
+  packaging authority.
+- Summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_no_refiner_ffno_table_refresh_summary.md`
+- Artifact root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-no-refiner-ffno-table-refresh/`
+- Corrected active FFNO roots:
+  - `pinn_ffno`:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z`
+  - `supervised_ffno`:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z`
+- Reused lineage authorities:
+  - immutable six-row base authority:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux`
+  - append-only U-NO extension authority:
+    `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z`
+- Regenerated assets:
+  - `tables/cdi_lines128_metrics_extended.{json,csv,tex}`
+  - `tables/cdi_lines128_objective_comparison.tex`
+  - `tables/cdi_lines128_pinn_metrics.tex`
+  - `figures/cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet.png`
+  - `figures/cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet_per_panel_scaled.png`
+  - `tables/model_config_by_benchmark.{json,csv,tex}`
+  - `tables/paper_efficiency_table.{json,csv,tex}`
+- Boundary:
+  - current paper-local FFNO packaging only; it does not rewrite the immutable
+    six-row base authority or the append-only U-NO extension root
+  - historical `fno_cnn_blocks=2` FFNO rows remain preserved explicit proxy
+    lineage only
+  - no depth-24 FFNO row is consumed by this interim refresh
 
 ### Lines128 CDI U-NO Table Extension
 - Purpose: append-only U-NO architecture extension over the locked Lines128
@@ -663,8 +703,9 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   - append-only paper-supporting comparator evidence; ranking statements must
     cite the extended root and distinguish it from the original six-row
     authority.
-  - the promoted `pinn_ffno` remains an FFNO-local-refiner proxy row until the
-    no-refiner table refresh lands
+  - the promoted `pinn_ffno` inside the extension root remains preserved
+    FFNO-local-refiner proxy lineage; current manuscript-facing FFNO assets are
+    supplied by the later no-refiner paper refresh summary
 - the supervised CNN minimum-subset evidence remains a referenced sibling,
   not a rerun or silently merged extension row
 

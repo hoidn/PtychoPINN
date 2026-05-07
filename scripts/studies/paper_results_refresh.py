@@ -58,7 +58,36 @@ CDI_UNO_METRICS_JSON = (
     / "complete_table_plus_uno_20260504T100347Z"
     / "metrics.json"
 )
+CDI_CORRECTED_PINN_FFNO_ROOT = (
+    REPO_ROOT
+    / ".artifacts"
+    / "work"
+    / "NEURIPS-HYBRID-RESNET-2026"
+    / "backlog"
+    / "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun"
+    / "runs"
+    / "ffno_no_refiner_20260506T223454Z"
+)
+CDI_CORRECTED_PINN_FFNO_METRICS_JSON = (
+    CDI_CORRECTED_PINN_FFNO_ROOT / "runs" / "pinn_ffno" / "metrics.json"
+)
+CDI_CORRECTED_SUPERVISED_FFNO_ROOT = (
+    REPO_ROOT
+    / ".artifacts"
+    / "work"
+    / "NEURIPS-HYBRID-RESNET-2026"
+    / "backlog"
+    / "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun"
+    / "runs"
+    / "supervised_ffno_no_refiner_20260506T232535Z"
+)
 CDI_SUPERVISED_FFNO_METRICS_JSON = (
+    CDI_CORRECTED_SUPERVISED_FFNO_ROOT
+    / "runs"
+    / "supervised_ffno"
+    / "metrics.json"
+)
+CDI_HISTORICAL_SUPERVISED_FFNO_PROXY_METRICS_JSON = (
     REPO_ROOT
     / ".artifacts"
     / "work"
@@ -86,7 +115,7 @@ CDI_PHASE_ZOOM_ROWS = [
     ("gt", "Ground truth"),
     ("pinn", "CNN+PINN"),
     ("pinn_fno_vanilla", "FNO+PINN"),
-    ("pinn_ffno", "FFNO-local proxy+PINN"),
+    ("pinn_ffno", "FFNO+PINN"),
     ("pinn_neuralop_uno", "U-NO+PINN"),
     ("pinn_hybrid_resnet", "SRU-Net+PINN"),
 ]
@@ -215,8 +244,8 @@ CDI_LABELS = {
     "baseline": ("CNN", "supervised"),
     "pinn": ("CNN", "PINN"),
     "pinn_fno_vanilla": ("FNO", "PINN"),
-    "pinn_ffno": ("FFNO-local proxy", "PINN"),
-    "supervised_ffno": ("FFNO-local proxy", "supervised"),
+    "pinn_ffno": ("FFNO", "PINN"),
+    "supervised_ffno": ("FFNO", "supervised"),
     "pinn_hybrid_resnet": ("SRU-Net", "PINN"),
     "pinn_neuralop_uno": ("U-NO", "PINN"),
     "supervised_neuralop_uno": ("U-NO", "supervised"),
@@ -350,13 +379,42 @@ def gt_anchored_phase_bounds(
 srunet_matched_phase_bounds = gt_anchored_phase_bounds
 
 
+def _default_cdi_phase_zoom_recon_paths() -> dict[str, Path]:
+    recon_paths = {
+        row_id: CDI_RECONS_ROOT / row_id / "recon.npz"
+        for row_id, _ in CDI_PHASE_ZOOM_ROWS
+    }
+    recon_paths["pinn_ffno"] = CDI_CORRECTED_PINN_FFNO_ROOT / "recons" / "pinn_ffno" / "recon.npz"
+    return recon_paths
+
+
+def _resolve_cdi_phase_zoom_recon_paths(
+    *,
+    recons_root: Path | None,
+    recon_paths: Mapping[str, Path] | None,
+) -> dict[str, Path]:
+    if recon_paths is not None:
+        return {row_id: Path(path) for row_id, path in recon_paths.items()}
+    if recons_root is not None:
+        return {
+            row_id: recons_root / row_id / "recon.npz"
+            for row_id, _ in CDI_PHASE_ZOOM_ROWS
+        }
+    return _default_cdi_phase_zoom_recon_paths()
+
+
 def _cdi_phase_zoom_display_phases(
     *,
-    recons_root: Path = CDI_RECONS_ROOT,
+    recons_root: Path | None = None,
+    recon_paths: Mapping[str, Path] | None = None,
     crop_fraction: float = 0.5,
 ) -> tuple[dict[str, np.ndarray], tuple[int, int, int, int]]:
+    resolved_recon_paths = _resolve_cdi_phase_zoom_recon_paths(
+        recons_root=recons_root,
+        recon_paths=recon_paths,
+    )
     phases = {
-        row_id: _load_phase_array(recons_root / row_id / "recon.npz")
+        row_id: _load_phase_array(resolved_recon_paths[row_id])
         for row_id, _ in CDI_PHASE_ZOOM_ROWS
     }
     shapes = {phase.shape for phase in phases.values()}
@@ -414,12 +472,18 @@ def _save_cdi_phase_zoom_figure(
 
 def write_cdi_phase_zoom_figure(
     *,
-    recons_root: Path = CDI_RECONS_ROOT,
+    recons_root: Path | None = None,
+    recon_paths: Mapping[str, Path] | None = None,
     output_path: Path = CDI_PHASE_ZOOM_FIGURE,
     crop_fraction: float = 0.5,
 ) -> dict[str, object]:
+    resolved_recon_paths = _resolve_cdi_phase_zoom_recon_paths(
+        recons_root=recons_root,
+        recon_paths=recon_paths,
+    )
     display_phases, crop_bounds = _cdi_phase_zoom_display_phases(
         recons_root=recons_root,
+        recon_paths=resolved_recon_paths,
         crop_fraction=crop_fraction,
     )
     y0, y1, x0, x1 = crop_bounds
@@ -436,7 +500,11 @@ def write_cdi_phase_zoom_figure(
     )
     return {
         "figure": str(output_path),
-        "source_recons_root": str(recons_root),
+        "source_recons_root": str(recons_root) if recons_root is not None else None,
+        "source_recon_paths": {
+            row_id: str(path)
+            for row_id, path in resolved_recon_paths.items()
+        },
         "visible_rows": [row_id for row_id, _ in CDI_PHASE_ZOOM_ROWS],
         "display_channel": "phase",
         "crop_fraction": crop_fraction,
@@ -450,12 +518,18 @@ def write_cdi_phase_zoom_figure(
 
 def write_cdi_phase_zoom_per_panel_figure(
     *,
-    recons_root: Path = CDI_RECONS_ROOT,
+    recons_root: Path | None = None,
+    recon_paths: Mapping[str, Path] | None = None,
     output_path: Path = CDI_PHASE_ZOOM_PER_PANEL_FIGURE,
     crop_fraction: float = 0.5,
 ) -> dict[str, object]:
+    resolved_recon_paths = _resolve_cdi_phase_zoom_recon_paths(
+        recons_root=recons_root,
+        recon_paths=recon_paths,
+    )
     display_phases, crop_bounds = _cdi_phase_zoom_display_phases(
         recons_root=recons_root,
+        recon_paths=resolved_recon_paths,
         crop_fraction=crop_fraction,
     )
     y0, y1, x0, x1 = crop_bounds
@@ -471,7 +545,11 @@ def write_cdi_phase_zoom_per_panel_figure(
     )
     return {
         "figure": str(output_path),
-        "source_recons_root": str(recons_root),
+        "source_recons_root": str(recons_root) if recons_root is not None else None,
+        "source_recon_paths": {
+            row_id: str(path)
+            for row_id, path in resolved_recon_paths.items()
+        },
         "visible_rows": [row_id for row_id, _ in CDI_PHASE_ZOOM_ROWS],
         "display_channel": "phase",
         "crop_fraction": crop_fraction,
@@ -943,6 +1021,7 @@ def render_cdi_metrics_table(rows: Sequence[Mapping[str, object]]) -> str:
 def write_cdi_extended_assets() -> dict[str, str]:
     payload = _read_json(CDI_UNO_METRICS_JSON)
     source_rows = dict(payload["rows"])
+    source_rows["pinn_ffno"] = {"metrics": _read_json(CDI_CORRECTED_PINN_FFNO_METRICS_JSON)}
     source_rows["supervised_ffno"] = {"metrics": _read_json(CDI_SUPERVISED_FFNO_METRICS_JSON)}
     payload = {**payload, "rows": source_rows}
     rows = cdi_display_metrics(payload)
@@ -964,10 +1043,19 @@ def write_cdi_extended_assets() -> dict[str, str]:
     _write_json(
         json_path,
         {
-            "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension",
+            "claim_boundary": (
+                "complete_lines128_cdi_benchmark_plus_uno_extension_"
+                "with_corrected_ffno_objective_control_pair"
+            ),
             "source_metrics_json": str(CDI_UNO_METRICS_JSON.relative_to(REPO_ROOT)),
+            "corrected_pinn_ffno_source_metrics_json": str(
+                CDI_CORRECTED_PINN_FFNO_METRICS_JSON.relative_to(REPO_ROOT)
+            ),
             "supervised_ffno_source_metrics_json": str(
                 CDI_SUPERVISED_FFNO_METRICS_JSON.relative_to(REPO_ROOT)
+            ),
+            "historical_supervised_ffno_proxy_source_metrics_json": str(
+                CDI_HISTORICAL_SUPERVISED_FFNO_PROXY_METRICS_JSON.relative_to(REPO_ROOT)
             ),
             "rows": rows,
         },

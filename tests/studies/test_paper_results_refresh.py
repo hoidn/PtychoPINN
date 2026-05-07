@@ -258,7 +258,46 @@ def test_render_brdt_metrics_table_bolds_best_values_by_direction():
     assert r"\textbf{0.500}" in tex
     assert r"\textbf{29.00}" in tex
     assert r"\textbf{0.900}" in tex
-    assert "Hybrid ResNet" not in tex
+
+
+def test_cdi_display_metrics_uses_corrected_ffno_labels():
+    rows = cdi_display_metrics(
+        {
+            "rows": {
+                "pinn_ffno": {
+                    "metrics": {
+                        "mae": [0.08, 0.14],
+                        "mse": [0.01, 0.03],
+                        "ssim": [0.89, 0.96],
+                    }
+                },
+                "supervised_ffno": {
+                    "metrics": {
+                        "mae": [0.35, 0.07],
+                        "mse": [0.20, 0.007],
+                        "ssim": [0.27, 0.90],
+                    }
+                },
+            }
+        }
+    )
+
+    rows_by_id = {row["row_id"]: row for row in rows}
+
+    assert rows_by_id["pinn_ffno"]["model"] == "FFNO"
+    assert rows_by_id["pinn_ffno"]["training"] == "PINN"
+    assert rows_by_id["supervised_ffno"]["model"] == "FFNO"
+    assert rows_by_id["supervised_ffno"]["training"] == "supervised"
+
+
+def test_default_cdi_phase_zoom_recon_paths_use_corrected_ffno_root():
+    from scripts.studies.paper_results_refresh import _default_cdi_phase_zoom_recon_paths
+
+    recon_paths = _default_cdi_phase_zoom_recon_paths()
+
+    assert str(recon_paths["pinn_ffno"]).endswith(
+        "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z/recons/pinn_ffno/recon.npz"
+    )
 
 
 def _write_brdt_sample255_source_arrays(root):

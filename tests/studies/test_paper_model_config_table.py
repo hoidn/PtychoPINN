@@ -1,10 +1,12 @@
 import json
+from pathlib import Path
 
 import torch
 
 from scripts.studies.paper_model_config_table import (
     ModelConfigRow,
     count_unique_state_dict_params,
+    load_cdi_config_rows,
     render_model_config_tex,
     row_to_dict,
 )
@@ -157,3 +159,18 @@ def test_render_model_config_tex_uses_readable_labels_and_escapes_paths():
     assert "BRDT" in tex
     assert "pinn\\_hybrid\\_resnet" in tex
     assert "command_wall_time_sec" not in tex
+
+
+def test_load_cdi_config_rows_uses_corrected_no_refiner_ffno_roots():
+    rows = {row.row_id: row for row in load_cdi_config_rows(Path.cwd())}
+
+    assert rows["pinn_ffno"].display_model == "FFNO"
+    assert rows["pinn_ffno"].unique_trainable_params == 124966
+    assert rows["pinn_ffno"].config_source.endswith(
+        "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z/runs/pinn_ffno/config.json"
+    )
+    assert rows["supervised_ffno"].display_model == "FFNO"
+    assert rows["supervised_ffno"].unique_trainable_params == 124966
+    assert rows["supervised_ffno"].config_source.endswith(
+        "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z/runs/supervised_ffno/config.json"
+    )

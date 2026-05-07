@@ -1,7 +1,7 @@
 # NeurIPS Hybrid ResNet Evidence Matrix
 
 Status: draft  
-Last updated: 2026-05-06 (added the corrected pure-FFNO `lines128` supervised objective-control rerun under the locked CDI contract; historical FFNO local-refiner rows remain preserved proxy evidence and canonical table refresh is still deferred)
+Last updated: 2026-05-06 (completed the no-refiner CDI FFNO paper refresh; current paper-local CDI FFNO rows now resolve to the corrected no-refiner reruns while historical local-refiner rows remain preserved proxy lineage)
 
 This is the human-facing master matrix for NeurIPS/SRU-Net evidence. It points
 to all relevant completed backlog outputs, keyed by dataset, model/config
@@ -18,8 +18,9 @@ Machine-readable companions:
 | Scope | Current authority | Boundary |
 |---|---|---|
 | CDI `lines128` complete table | `lines128_paper_benchmark_summary.md` | `paper_grade`, six-row complete CDI bundle |
-| CDI `lines128` pure-FFNO corrected prerequisite row | `cdi_lines128_ffno_no_refiner_row_rerun_summary.md` | corrected row-level prerequisite evidence only; claim boundary `lines128_ffno_vs_hybrid_prerequisite_pair`; canonical table promotion deferred |
-| CDI `lines128` pure-FFNO corrected objective-control pair | `cdi_lines128_supervised_ffno_no_refiner_rerun_summary.md` | corrected two-row no-refiner FFNO objective-control evidence only; claim boundary `lines128_ffno_objective_control_corrected_pair`; canonical table promotion deferred |
+| CDI `lines128` active paper-local FFNO refresh | `cdi_lines128_no_refiner_ffno_table_refresh_summary.md` | current manuscript-facing CDI tables, figures, model-config, efficiency, and discovery assets; claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension_with_corrected_ffno_objective_control_pair` |
+| CDI `lines128` pure-FFNO corrected prerequisite row | `cdi_lines128_ffno_no_refiner_row_rerun_summary.md` | corrected source-row evidence for the active paper-local FFNO refresh; claim boundary `lines128_ffno_vs_hybrid_prerequisite_pair` |
+| CDI `lines128` pure-FFNO corrected objective-control pair | `cdi_lines128_supervised_ffno_no_refiner_rerun_summary.md` | corrected source-row evidence for the active paper-local FFNO objective table; claim boundary `lines128_ffno_objective_control_corrected_pair` |
 | CDI U-NO extension readiness | `lines128_uno_preflight_summary.md` | feasibility-only external UNO environment/API authority before generator integration |
 | CDI U-NO table extension | `lines128_uno_table_extension_summary.md` | append-only `paper_grade` eight-row extended bundle; claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension` |
 | CDI SRU-Net branch / objective ablation | `lines128_srunet_branch_objective_ablation_summary.md` | append-only `decision_support_append_only`; mechanistic encoder branch removal + supervised SRU-Net objective control |
@@ -43,8 +44,8 @@ Current manuscript draft:
 
 | Evidence source | Manuscript target |
 |---|---|
-| Complete Lines128 CDI bundle plus U-NO extension | `tab:cdi_lines128_pinn`, `tab:cdi_lines128_objective_controls`, `fig:cdi_main_qualitative`; generated table assets: `tables/cdi_lines128_pinn_metrics.tex`, `tables/cdi_lines128_objective_comparison.tex`, `tables/cdi_lines128_metrics_extended.csv`, `tables/cdi_lines128_metrics_extended.json` |
-| Corrected FFNO objective-control pair | refreshes the CDI objective-control table and the FFNO rows inside `tables/cdi_lines128_metrics_extended.*` from the corrected no-refiner pair while preserving the historical supervised/local-refiner extension as lineage-only context |
+| CDI no-refiner FFNO paper refresh | `tab:cdi_lines128_pinn`, `tab:cdi_lines128_objective_controls`, `fig:cdi_main_qualitative`; generated assets: `tables/cdi_lines128_pinn_metrics.tex`, `tables/cdi_lines128_objective_comparison.tex`, `tables/cdi_lines128_metrics_extended.{csv,json,tex}`, `figures/cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet.png`, `figures/cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet_per_panel_scaled.png`, `tables/model_config_by_benchmark.{json,csv,tex}`, `tables/paper_efficiency_table.{json,csv,tex}` |
+| Corrected FFNO source reruns | supply the active `FFNO + PINN` and `FFNO + supervised` rows consumed by the paper-local refresh while preserving the historical local-refiner rows as lineage-only context |
 | CNS matched-condition refresh (`history_len=5`, `512 / 64 / 64`, `40` epochs) | `tab:cns_bundle` (input: `tables/pdebench_cns_matched_condition_metrics.tex`); `fig:cns_sample_predictions` retained as adjacent context only |
 | BRDT 40-epoch secondary bundle (`historical_brdt_40ep_proxy_context`) | historical secondary transfer/efficiency context — artifact inputs: `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/metrics.{json,csv}`, `combined_metrics.{json,csv}`, `convergence_audit.{json,csv}`, `paper_evidence_gate.json`, `visuals/sample_0255_compare_q.png`, `visuals/sample_0255_error_q.png`, `figures/source_arrays/sample_0255_*`. The FFNO row is a local-refiner proxy; manuscript use must either label it as such or wait for `2026-05-06-brdt-corrected-ffno-40ep-rerun`. The provenance gate caveat remains explicit; this context does not replace CDI `lines128` or PDEBench CNS. |
 | Paper efficiency table | grouped parameter/runtime/throughput context for Synthetic CDI, PDEBench CNS, and historical secondary BRDT; generated assets: `tables/paper_efficiency_table.{json,csv,tex}` and `paper_efficiency_table_summary.md` |
@@ -69,7 +70,7 @@ Fixed contract: synthetic grid-lines `N=128`, `gridsize=1`, `seed=3`,
 | `pinn_hybrid_resnet` | `hybrid_resnet` | PINN | 0.026939 | 0.072063 | 0.988114 | 0.994740 | complete CDI table |
 | `pinn_fno_vanilla` | `fno_vanilla` | PINN | 0.124816 | 0.143540 | 0.740936 | 0.933464 | complete CDI table |
 | `pinn_spectral_resnet_bottleneck_net` | `spectral_resnet_bottleneck_net` | PINN | 0.024944 | 0.092881 | 0.989855 | 0.972219 | complete CDI table |
-| `pinn_ffno` | `ffno` | PINN | 0.082043 | 0.137965 | 0.890305 | 0.959644 | corrected pure-FFNO prerequisite rerun (`fno_cnn_blocks=0`); table refresh deferred |
+| `pinn_ffno` | `ffno` | PINN | 0.082043 | 0.137965 | 0.890305 | 0.959644 | corrected pure-FFNO active paper row (`fno_cnn_blocks=0`); current paper-local tables/figures consume this lineage |
 | `pinn_ffno` (historical proxy) | `ffno` | PINN | 0.062772 | 0.082839 | 0.934830 | 0.981592 | historical FFNO-local-refiner proxy (`fno_cnn_blocks=2`); preserved for lineage only |
 | `supervised_ffno` | `ffno` | supervised | 0.351512 | 0.066118 | 0.265006 | 0.901529 | corrected pure-FFNO objective-control rerun (`fno_cnn_blocks=0`); active comparator to corrected `pinn_ffno` |
 | `supervised_ffno` (historical proxy) | `ffno` | supervised | 0.386413 | 0.046563 | 0.248427 | 0.937179 | historical supervised FFNO-local-refiner proxy (`fno_cnn_blocks=2`); preserved for lineage only |
@@ -92,10 +93,12 @@ CDI artifact roots:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z`
 - U-NO table extension (claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension`):
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z`
-- Generated current manuscript tables:
+- Generated current manuscript tables and refresh authority:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_pinn_metrics.tex`
   and
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_objective_comparison.tex`
+  plus
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_no_refiner_ffno_table_refresh_summary.md`
 
 ## CDI Lines128 Bridge Study
 

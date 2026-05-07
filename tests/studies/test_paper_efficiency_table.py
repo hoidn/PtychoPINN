@@ -120,7 +120,10 @@ def test_collect_efficiency_rows_uses_unique_model_config_counts_for_cdi():
 
     assert cdi_rows["pinn_hybrid_resnet"].parameter_count == 9_003_299
     assert cdi_rows["pinn_hybrid_resnet"].parameter_count_source_field == "unique_trainable_params"
-    assert cdi_rows["pinn_ffno"].parameter_count == 161_958
+    assert cdi_rows["pinn_ffno"].parameter_count == 124_966
+    assert cdi_rows["pinn_ffno"].model_label == "FFNO + PINN"
+    assert cdi_rows["supervised_ffno"].parameter_count == 124_966
+    assert cdi_rows["supervised_ffno"].model_label == "FFNO + supervised"
 
 
 def test_render_efficiency_table_tex_groups_rows_and_escapes_fields():

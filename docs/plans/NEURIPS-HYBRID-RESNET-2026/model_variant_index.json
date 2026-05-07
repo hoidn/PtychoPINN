@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-06T23:52:20Z",
+  "last_updated_utc": "2026-05-06T23:59:59Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -10,6 +10,7 @@
     "cdi_complete_lines128": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
     "cdi_ffno_no_refiner_rerun": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_no_refiner_row_rerun_summary.md",
     "cdi_supervised_ffno_no_refiner_rerun": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_supervised_ffno_no_refiner_rerun_summary.md",
+    "cdi_no_refiner_ffno_table_refresh_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_no_refiner_ffno_table_refresh_summary.md",
     "cdi_supervised_extension": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md",
     "cns_table_bundle": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
     "cns_larger_cap_context": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md",
@@ -593,7 +594,7 @@
         "amp_frc50": 61.465009870474624,
         "phase_frc50": 58.72860655063348
       },
-      "comparison_outcome": "corrected_pure_ffno_rerun_completed_table_refresh_pending",
+      "comparison_outcome": "corrected_pure_ffno_rerun_promoted_into_active_cdi_paper_refresh",
       "evidence_status": "decision_support_prerequisite_corrected_pure_ffno"
     },
     {
@@ -726,7 +727,7 @@
         "amp_frc50": 24.07371971438467,
         "phase_frc50": 24.3152746394524
       },
-      "comparison_outcome": "corrected_no_refiner_objective_control_pair_completed_table_refresh_pending",
+      "comparison_outcome": "corrected_no_refiner_objective_control_pair_promoted_into_active_cdi_paper_refresh",
       "evidence_status": "decision_support_corrected_pure_ffno_objective_control"
     },
     {

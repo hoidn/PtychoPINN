@@ -32,14 +32,24 @@ CDI_UNO_ROOT = (
     / "complete_table_plus_uno_20260504T100347Z"
 )
 CDI_UNO_MODEL_MANIFEST = CDI_UNO_ROOT / "model_manifest.json"
+CDI_FFNO_NO_REFINER_MODEL_MANIFEST = (
+    Path(".artifacts")
+    / "work"
+    / "NEURIPS-HYBRID-RESNET-2026"
+    / "backlog"
+    / "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun"
+    / "runs"
+    / "ffno_no_refiner_20260506T223454Z"
+    / "model_manifest.json"
+)
 CDI_SUPERVISED_FFNO_MODEL_MANIFEST = (
     Path(".artifacts")
     / "work"
     / "NEURIPS-HYBRID-RESNET-2026"
     / "backlog"
-    / "2026-04-29-cdi-lines128-supervised-equivalent-rows"
+    / "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun"
     / "runs"
-    / "supervised_ffno_extension_20260430T180217Z"
+    / "supervised_ffno_no_refiner_20260506T232535Z"
     / "model_manifest.json"
 )
 CNS_REFRESH_TABLE_JSON = (
@@ -425,7 +435,11 @@ def _collect_cdi_rows(repo_root: Path) -> list[EfficiencyRow]:
         return []
 
     manifest_rows: dict[str, tuple[dict[str, object], Path]] = {}
-    for manifest in (CDI_UNO_MODEL_MANIFEST, CDI_SUPERVISED_FFNO_MODEL_MANIFEST):
+    for manifest in (
+        CDI_UNO_MODEL_MANIFEST,
+        CDI_FFNO_NO_REFINER_MODEL_MANIFEST,
+        CDI_SUPERVISED_FFNO_MODEL_MANIFEST,
+    ):
         manifest_rows.update(_load_manifest_rows(_repo_path(repo_root, manifest)))
 
     param_counts = _load_model_config_param_counts(repo_root)
