@@ -233,6 +233,65 @@ def test_wrapper_preflight_only_accepts_row_specs_with_same_base_architecture_ov
     assert result["row_plan"][0]["model_id"] == "pinn_spectral_resnet_bottleneck_ds1"
 
 
+def test_wrapper_preflight_only_routes_ffno_depth24_row_with_override(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    probe_path = tmp_path / "probe.npz"
+    probe_path.write_bytes(b"stub")
+    captured = {}
+
+    def fake_setup_torch_configs(cfg):
+        captured["architecture"] = cfg.architecture
+        captured["model_id_override"] = cfg.model_id_override
+        captured["model_label_override"] = cfg.model_label_override
+        captured["fno_blocks"] = cfg.fno_blocks
+        captured["fno_cnn_blocks"] = cfg.fno_cnn_blocks
+        return object(), object()
+
+    monkeypatch.setattr(
+        "scripts.studies.grid_lines_torch_runner.setup_torch_configs",
+        fake_setup_torch_configs,
+    )
+
+    result = run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        probe_npz=probe_path,
+        architectures=(),
+        models=("pinn_ffno_depth24",),
+        model_n={"pinn_ffno_depth24": 128},
+        preflight_only=True,
+        seed=3,
+        set_phi=True,
+        probe_scale_mode="pad_extrapolate",
+        torch_epochs=40,
+        torch_learning_rate=2e-4,
+        torch_scheduler="ReduceLROnPlateau",
+        torch_plateau_factor=0.5,
+        torch_plateau_patience=2,
+        torch_plateau_min_lr=1e-4,
+        torch_plateau_threshold=0.0,
+        torch_loss_mode="mae",
+        torch_output_mode="real_imag",
+        fno_blocks=4,
+        fno_cnn_blocks=0,
+        nimgs_train=2,
+        nimgs_test=2,
+        nphotons=1e9,
+    )
+
+    assert result["mode"] == "preflight_only"
+    assert result["selected_models"] == ["pinn_ffno_depth24"]
+    assert captured["architecture"] == "ffno"
+    assert captured["model_id_override"] == "pinn_ffno_depth24"
+    assert captured["model_label_override"] == "FFNO-24 + PINN"
+    assert captured["fno_blocks"] == 24
+    assert captured["fno_cnn_blocks"] == 0
+    assert result["row_plan"][0]["model_id"] == "pinn_ffno_depth24"
+    assert result["row_plan"][0]["overrides"]["fno_blocks"] == 24
+
+
 def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tmp_path):
     from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
 
@@ -2912,6 +2971,44 @@ def test_default_torch_row_specs_register_ffno_ptychoblock_encoder_row():
     )
     assert arch == "hybrid_resnet_ffno_ptychoblock_encoder"
     assert training_procedure == "pinn"
+
+
+def test_default_torch_row_specs_register_ffno_depth24_row():
+    from scripts.studies.grid_lines_compare_wrapper import (
+        DEFAULT_TORCH_ROW_SPECS,
+        PAPER_MODEL_LABELS,
+        TORCH_MODEL_IDS,
+        _torch_model_route,
+    )
+
+    default_ffno = DEFAULT_TORCH_ROW_SPECS["pinn_ffno"]
+    depth24_spec = DEFAULT_TORCH_ROW_SPECS["pinn_ffno_depth24"]
+
+    assert default_ffno["overrides"] == {}
+    assert depth24_spec["model_id"] == "pinn_ffno_depth24"
+    assert depth24_spec["architecture"] == "ffno"
+    assert depth24_spec["training_procedure"] == "pinn"
+    assert depth24_spec["model_label"] == "FFNO-24 + PINN"
+    assert depth24_spec["overrides"]["fno_blocks"] == 24
+    assert depth24_spec["overrides"]["fno_cnn_blocks"] == 0
+    assert depth24_spec["row_status"] == "decision_support_append_only"
+    assert depth24_spec["lock_row_status"] is True
+
+    assert "pinn_ffno_depth24" in TORCH_MODEL_IDS
+    assert PAPER_MODEL_LABELS["pinn_ffno_depth24"] == "FFNO-24 + PINN"
+
+    arch, training_procedure = _torch_model_route("pinn_ffno_depth24")
+    assert arch == "ffno"
+    assert training_procedure == "pinn"
+
+
+def test_validate_model_specs_accepts_ffno_depth24_row():
+    from scripts.studies.grid_lines_compare_wrapper import validate_model_specs
+
+    validate_model_specs(
+        ("pinn_ffno", "pinn_ffno_depth24"),
+        {"pinn_ffno": 128, "pinn_ffno_depth24": 128},
+    )
 
 
 def test_validate_model_specs_accepts_ffno_ptychoblock_encoder_row():

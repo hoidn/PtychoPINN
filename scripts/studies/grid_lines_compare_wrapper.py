@@ -58,6 +58,7 @@ TF_MODEL_IDS = {"pinn", "baseline"}
 TORCH_MODEL_IDS = {
     "supervised_ffno",
     "pinn_ffno",
+    "pinn_ffno_depth24",
     "pinn_fno",
     "pinn_hybrid",
     "pinn_stable_hybrid",
@@ -81,6 +82,7 @@ PAPER_MODEL_LABELS = {
     "pinn": "CDI CNN + PINN",
     "supervised_ffno": "FFNO + supervised",
     "pinn_ffno": "FFNO + PINN",
+    "pinn_ffno_depth24": "FFNO-24 + PINN",
     "pinn_fno": "FNO + PINN",
     "pinn_hybrid": "Hybrid + PINN",
     "pinn_stable_hybrid": "Stable Hybrid + PINN",
@@ -120,6 +122,16 @@ DEFAULT_TORCH_ROW_SPECS: Dict[str, Dict[str, Any]] = {
         "model_id": "pinn_ffno",
         "architecture": "ffno",
         "training_procedure": "pinn",
+        "overrides": {},
+    },
+    "pinn_ffno_depth24": {
+        "model_id": "pinn_ffno_depth24",
+        "architecture": "ffno",
+        "training_procedure": "pinn",
+        "model_label": "FFNO-24 + PINN",
+        "overrides": {"fno_blocks": 24, "fno_cnn_blocks": 0},
+        "row_status": "decision_support_append_only",
+        "lock_row_status": True,
     },
     "pinn_fno": {
         "model_id": "pinn_fno",

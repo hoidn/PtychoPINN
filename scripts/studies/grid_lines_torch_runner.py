@@ -1340,6 +1340,7 @@ def _collect_visual_order(output_dir: Path, architecture: str) -> Tuple[str, ...
         "pinn",
         "supervised_ffno",
         "pinn_ffno",
+        "pinn_ffno_depth24",
         "pinn_fno",
         "pinn_hybrid",
         "pinn_stable_hybrid",

@@ -153,6 +153,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, cdi, lines128, ffno, no-refiner, paper-refresh, tables, figures
 **Use this when:** Checking which CDI FFNO rows are currently manuscript-facing, locating the active paper-local FFNO table/figure/config assets, or confirming that depth-24 FFNO content was not consumed by the interim refresh.
 
+### [NeurIPS CDI Lines128 FFNO Depth-24 Ablation Summary](plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_ablation_summary.md)
+**Description:** Append-only pure-FFNO CDI depth ablation on the locked `lines128` contract, comparing the corrected four-block no-refiner `pinn_ffno` row against a fresh `pinn_ffno_depth24` rerun with `fno_blocks=24`, including exact-contract audit, side-by-side amplitude/phase metrics, and parameter/runtime deltas.
+**Keywords:** neurips, cdi, lines128, ffno, depth24, no-refiner, ablation, pure-ffno
+**Use this when:** Deciding whether the depth-24 pure-FFNO row materially improves the corrected four-block baseline, locating the fresh depth-24 root and comparison payloads, or checking the compute-cost tradeoff before any final paper-refresh promotion decision.
+
 ### [NeurIPS CDI FFNO No-Refiner Contract Reactivation Plan](plans/NEURIPS-HYBRID-RESNET-2026/2026-05-06-cdi-ffno-no-refiner-contract-reactivation-plan.md)
 **Description:** Implementation plan and queue contract for reactivating CDI Lines128 FFNO rows under `fno_cnn_blocks=0`, preserving older `fno_cnn_blocks=2` rows only as FFNO-local-refiner proxy evidence, splitting paper updates into an early four-block no-refiner refresh and a later depth-24 no-refiner refresh.
 **Keywords:** neurips, cdi, ffno, no-refiner, local-refiner-proxy, lines128, backlog-reactivation, depth24

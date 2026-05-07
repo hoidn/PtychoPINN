@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-07T04:40:13.374307Z",
+  "last_updated_utc": "2026-05-07T06:57:54.053401Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -27,7 +27,8 @@
     "brdt_corrected_ffno_row_rerun_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_corrected_ffno_row_rerun_summary.md",
     "brdt_ffno_row_extension_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_ffno_row_extension_summary.md",
     "brdt_40ep_paper_evidence_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md",
-    "cns_history5_gap_fill_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md"
+    "cns_history5_gap_fill_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md",
+    "cdi_ffno_depth24_ablation_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_ablation_summary.md"
   },
   "dataset_contracts": {
     "cdi_lines128_seed3": {
@@ -2419,6 +2420,52 @@
         "materially_improving_at_stop": true
       },
       "supersedes_proxy_variant_id": "brdt__ffno__supervised_plus_born_consistency__paper_evidence_additive_40ep"
+    },
+    {
+      "variant_id": "cdi_lines128__ffno_depth24__pinn__depth_ablation",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_ffno_depth24",
+      "paper_label": "FFNO-24 + PINN",
+      "architecture_id": "ffno",
+      "model_family": "factorized_fourier_operator",
+      "training_mode": "pinn",
+      "architecture_overrides": {
+        "fno_blocks": 24,
+        "fno_cnn_blocks": 0
+      },
+      "claim_boundary": "cdi_ffno_depth_ablation_only",
+      "lineage": {
+        "baseline_variant_id": "cdi_lines128__ffno__pinn__no_refiner_prerequisite_rerun",
+        "baseline_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z"
+      },
+      "source_backlog_item": "2026-05-06-cdi-lines128-ffno-depth24-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_ablation_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z",
+      "metrics_json": "runs/pinn_ffno_depth24/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_ffno_depth24.png",
+        "visuals/amp_phase_error_pinn_ffno_depth24.png"
+      ],
+      "parameter_count": 701628,
+      "runtime": {
+        "train_wall_time_sec": 4754.923254606314,
+        "inference_time_sec": 8.505218178965151
+      },
+      "metrics": {
+        "amp_mae": 0.05650629475712776,
+        "phase_mae": 0.12173994616811942,
+        "amp_ssim": 0.9444869348997548,
+        "phase_ssim": 0.9744604911622248,
+        "amp_psnr": 71.15487799205835,
+        "phase_psnr": 64.41674971361462,
+        "amp_ms_ssim": 0.9922068683674476,
+        "phase_ms_ssim": 0.811214926398279,
+        "amp_frc50": 68.61737079519264,
+        "phase_frc50": 65.62248150744918
+      },
+      "nearest_anchor_row": "pinn_ffno",
+      "comparison_outcome": "depth24_improves_scalar_cdi_metrics_vs_corrected_depth4_at_much_higher_compute_cost",
+      "evidence_status": "decision_support_append_only"
     }
   ],
   "completed_backlog_outputs_represented": [
@@ -2459,7 +2506,8 @@
     "2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap",
     "2026-05-04-cdi-natural-patch-expanded-benchmark",
     "2026-05-05-brdt-supervised-born-40ep-paper-evidence",
-    "2026-05-06-brdt-corrected-ffno-40ep-rerun"
+    "2026-05-06-brdt-corrected-ffno-40ep-rerun",
+    "2026-05-06-cdi-lines128-ffno-depth24-ablation"
   ],
   "maintenance_rules": [
     "Every future completed backlog item that emits model metrics must add or update at least one model_variants entry.",

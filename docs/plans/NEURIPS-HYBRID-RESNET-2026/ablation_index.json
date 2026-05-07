@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-07T04:40:13.374307Z",
+  "last_updated_utc": "2026-05-07T06:57:54.053401Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -132,6 +132,28 @@
         "supervised_ffno"
       ],
       "interpretation": "The corrected objective-control pair now compares `pinn_ffno` and `supervised_ffno` under the same no-refiner FFNO contract. Supervised still lowers phase MAE relative to corrected `pinn_ffno`, but it remains materially worse on amplitude quality and on phase SSIM/FRC. Current paper-local CDI objective-control assets consume this pair; historical `fno_cnn_blocks=2` FFNO rows remain preserved proxy context only."
+    },
+    {
+      "family_id": "cdi_lines128_ffno_depth_ablation",
+      "task": "cdi",
+      "fixed_contract": "cdi_lines128_seed3",
+      "changed_factors": [
+        "fno_blocks: 4 -> 24 within the corrected no-refiner FFNO stack"
+      ],
+      "completed_items": [
+        "2026-05-06-cdi-lines128-ffno-depth24-ablation"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_ablation_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z"
+      ],
+      "rows": [
+        "pinn_ffno",
+        "pinn_ffno_depth24"
+      ],
+      "interpretation": "The fresh depth-24 pure-FFNO rerun improves every tracked scalar amplitude/phase reconstruction metric versus the corrected four-block no-refiner `pinn_ffno` row on the locked `lines128` CDI contract, but it is far more expensive in parameters, training time, and inference time. This remains append-only depth evidence only; current paper-local CDI FFNO assets still point at the corrected four-block row until the later final-refresh item explicitly decides promotion."
     },
     {
       "family_id": "cdi_lines128_ffno_paper_refresh_packaging",

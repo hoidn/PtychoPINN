@@ -93,17 +93,27 @@
   does not replace PDEBench CNS, and cannot support manuscript result claims
   without a later roadmap/evidence-package amendment.
 
-### `wavebench-inverse-source-candidate-preflight` (candidate; active backlog)
+### `wavebench-inverse-source-candidate-preflight` (candidate; completed preflight, active follow-ups)
 
 - Purpose: Evaluate whether WaveBench inverse source reconstruction is
   practical as an additional 2D known-forward-model inverse-wave lane for the
   SRU-Net manuscript.
 - Design: `docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_benchmark_design.md`
-- Backlog item: `docs/backlog/active/2026-04-29-wavebench-inverse-source-preflight.md`
+- Completed preflight backlog item: `docs/backlog/done/2026-04-29-wavebench-inverse-source-preflight.md`
+- Summary authority:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight_summary.md`
+- Machine-readable preflight metadata:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-inverse-source-preflight/preflight_metadata.json`
+- Current active provisioning item:
+  `docs/backlog/active/2026-05-06-wavebench-provisioning-decision.md`
 - Roadmap phase: `candidate-wavebench-inverse-source-preflight`
 - Scope: dataset/checkpoint feasibility, native FNO/U-Net baseline inspection,
   exact tensor contract, local adapter feasibility, and forward-model
   reproduction checks for physics-informed variants.
+- Current state: preflight status is `needs_dataset_or_checkpoint_decision`.
+  Follow-up training items remain gated until the selected `.beton` dataset
+  staging, WaveBench environment, and native checkpoint-versus-retraining
+  decision are explicit.
 - Boundary: additive candidate work only. It is on equal footing with BRDT, does
   not replace CDI `lines128` or PDEBench CNS, and cannot support manuscript
   result claims without a later roadmap/evidence-package amendment.
@@ -681,6 +691,36 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   - historical `fno_cnn_blocks=2` FFNO rows remain preserved explicit proxy
     lineage only
   - no depth-24 FFNO row is consumed by this interim refresh
+
+### `grid-lines-n128-ffno-depth24-ablation`
+
+- Purpose: publish one append-only pure-FFNO depth ablation on the locked
+  `lines128` CDI contract by comparing the corrected four-block no-refiner
+  `pinn_ffno` row against a fresh `pinn_ffno_depth24` rerun whose only
+  intentional architecture change is `fno_blocks: 4 -> 24`.
+- Status: completed on `2026-05-06`; append-only decision-support evidence only.
+- Summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_ablation_summary.md`
+- Artifact root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z`
+- Reused corrected baseline authority:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z`
+- Derived comparison payloads:
+  - `comparison_depth24_vs_depth4.json`
+  - `comparison_depth24_vs_depth4.csv`
+  - `verification/contract_audit.json`
+- Current read:
+  - the fresh depth-24 pure-FFNO row improves every tracked scalar
+    amplitude/phase metric versus the corrected four-block no-refiner row on
+    this locked single-seed contract
+  - the gain is expensive: `124,968 -> 701,628` parameters,
+    `873.742 -> 4,754.923` train seconds, and `1.231 -> 8.505` inference
+    seconds
+- Boundary:
+  - append-only depth-ablation evidence only; it does not rewrite the current
+    paper-local FFNO rows
+  - manuscript-facing promotion remains deferred to
+    `2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh`
 
 ### Lines128 CDI U-NO Table Extension
 - Purpose: append-only U-NO architecture extension over the locked Lines128
