@@ -1,22 +1,23 @@
 \begin{tabular}{lllrrrrll}
 \toprule
-Benchmark & Model row & Training & Width & Modes & Enc. & Bott. & Down & Unique params \\
+Benchmark & Model & Training & Width & Modes & Enc. & Bott. & Down & Unique params \\
 \midrule
-Synthetic CDI & CNN (pinn) & PINN & not\_recorded & not\_recorded & not\_recorded & not\_applicable & not\_applicable & 4,661,212 \\
-Synthetic CDI & FNO (pinn\_fno\_vanilla) & PINN & 32 & 12 & 4 & not\_applicable & not\_applicable & 636,450 \\
-Synthetic CDI & FFNO (pinn\_ffno) & PINN & 32 & 12 & 4 & not\_applicable & not\_applicable & 124,966 \\
-Synthetic CDI & SRU-Net (pinn\_hybrid\_resnet) & PINN & 32 & 12 & 4 & 6 & 2 & 9,003,299 \\
-Synthetic CDI & U-NO (pinn\_neuralop\_uno) & PINN & 32 & 12 & 4 & not\_applicable & not\_applicable & 1,257,858 \\
-Synthetic CDI & CNN (baseline) & supervised & not\_recorded & not\_recorded & not\_recorded & not\_applicable & not\_applicable & 4,612,418 \\
-Synthetic CDI & FFNO (supervised\_ffno) & supervised & 32 & 12 & 4 & not\_applicable & not\_applicable & 124,966 \\
-Synthetic CDI & U-NO (supervised\_neuralop\_uno) & supervised & 32 & 12 & 4 & not\_applicable & not\_applicable & 1,257,858 \\
+Synthetic CDI & CNN & physics-consistency & -- & -- & -- & -- & -- & 4,661,212 \\
+Synthetic CDI & FNO & physics-consistency & 32 & 12 & 4 & -- & -- & 636,450 \\
+Synthetic CDI & FFNO (pinn\_ffno) & physics-consistency & 32 & 12 & 4 & -- & -- & 124,966 \\
+Synthetic CDI & SRU-Net & physics-consistency & 32 & 12 & 4 & 6 & 2 & 9,003,299 \\
+Synthetic CDI & U-NO & physics-consistency & 32 & 12 & 4 & -- & -- & 1,257,858 \\
+Synthetic CDI & CNN & supervised & -- & -- & -- & -- & -- & 4,612,418 \\
+Synthetic CDI & FFNO (supervised\_ffno) & supervised & 32 & 12 & 4 & -- & -- & 124,966 \\
+Synthetic CDI & U-NO & supervised & 32 & 12 & 4 & -- & -- & 1,257,858 \\
 \midrule
-PDEBench CNS & FFNO (author\_ffno\_cns\_base) & supervised mse & 64 & 16 & 24 & not\_applicable & not\_recorded & 1,074,440 \\
-PDEBench CNS & SRU-Net (spectral\_resnet\_bottleneck\_base) & supervised mse & 32 & 12 & 4 & 6 & 2 & 8,395,270 \\
-PDEBench CNS & FNO (fno\_base) & supervised mse & 32 & 12 & 4 & not\_applicable & not\_recorded & 358,628 \\
-PDEBench CNS & U-Net (unet\_strong) & supervised mse & 32 & not\_recorded & not\_recorded & not\_applicable & not\_recorded & 7,768,036 \\
+PDEBench CNS & FFNO & supervised & 64 & 16 & 24 & -- & -- & 1,074,440 \\
+PDEBench CNS & SRU-Net & supervised & 32 & 12 & 4 & 6 & 2 & 8,395,270 \\
+PDEBench CNS & FNO & supervised & 32 & 12 & 4 & -- & -- & 358,628 \\
+PDEBench CNS & U-NO & supervised & 32 & 12 & 4 & -- & -- & 1,260,548 \\
+PDEBench CNS & U-Net & supervised & 32 & -- & -- & -- & -- & 7,768,036 \\
 \midrule
-BRDT & SRU-Net (hybrid\_resnet) & supervised+Born & 16 & 8 & 2 & 2 & 1 & 142,018 \\
-BRDT & FFNO (ffno) & supervised+Born & 16 & 8 & 4 & not\_applicable & not\_recorded & 36,674 \\
+BRDT & SRU-Net & supervised + Born & 16 & 8 & 2 & 2 & 1 & 142,018 \\
+BRDT & FFNO & supervised + Born & 16 & 8 & 4 & -- & -- & 27,394 \\
 \bottomrule
 \end{tabular}

@@ -1,7 +1,7 @@
 {
   "schema_version": "pdebench_cns_matched_condition_table_v1",
   "selected_lane_id": "h5_512_64_64_40ep",
-  "claim_boundary": "bounded_capped_decision_support_only",
+  "claim_boundary": "fixed_split_40_epoch_context",
   "fixed_contract": {
     "history_len": 5,
     "split_counts": {
@@ -21,7 +21,7 @@
       "fRMSE_mid",
       "fRMSE_high"
     ],
-    "claim_boundary": "bounded_capped_decision_support_only",
+    "claim_boundary": "fixed_split_40_epoch_context",
     "source_summary_paths": [
       "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md",
       "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_2048cap_extension_summary.md"
@@ -31,6 +31,7 @@
     "author_ffno_cns_base",
     "spectral_resnet_bottleneck_base",
     "fno_base",
+    "neuralop_uno_cns_base",
     "unet_strong"
   ],
   "rows": [
@@ -38,8 +39,8 @@
       "row_id": "author_ffno_cns_base",
       "manuscript_label": "FFNO",
       "row_role": "headline",
-      "row_status": "capped_decision_support",
-      "claim_scope": "bounded_capped_decision_support_only",
+      "row_status": "fixed_split_40_epoch",
+      "claim_scope": "context",
       "history_len": 5,
       "split_counts": {
         "test": 64,
@@ -62,10 +63,10 @@
     },
     {
       "row_id": "spectral_resnet_bottleneck_base",
-      "manuscript_label": "SRU-Net*",
+      "manuscript_label": "SRU-Net",
       "row_role": "headline",
-      "row_status": "capped_decision_support",
-      "claim_scope": "bounded_capped_decision_support_only",
+      "row_status": "fixed_split_40_epoch",
+      "claim_scope": "context",
       "history_len": 5,
       "split_counts": {
         "test": 64,
@@ -90,8 +91,8 @@
       "row_id": "fno_base",
       "manuscript_label": "FNO",
       "row_role": "headline",
-      "row_status": "capped_decision_support",
-      "claim_scope": "bounded_capped_decision_support_only",
+      "row_status": "fixed_split_40_epoch",
+      "claim_scope": "context",
       "history_len": 5,
       "split_counts": {
         "test": 64,
@@ -113,11 +114,37 @@
       "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history5-comparator-gap-fill/history5-gap-fill-40ep-20260504T214614Z"
     },
     {
+      "row_id": "neuralop_uno_cns_base",
+      "manuscript_label": "U-NO",
+      "row_role": "comparator",
+      "row_status": "fixed_split_40_epoch",
+      "claim_scope": "context",
+      "history_len": 5,
+      "split_counts": {
+        "test": 64,
+        "train": 512,
+        "val": 64
+      },
+      "split_label": "512 / 64 / 64",
+      "epochs": 40,
+      "batch_size": 4,
+      "training_loss": "mse",
+      "err_nRMSE": 0.03846576809883118,
+      "err_RMSE": 0.9291841983795166,
+      "relative_l2": 0.03846576809883118,
+      "fRMSE_low": 2.1897497177124023,
+      "fRMSE_mid": 0.07867281883955002,
+      "fRMSE_high": 0.26062262058258057,
+      "parameter_count": 1260548,
+      "runtime_sec": 1246.1773493289948,
+      "source_run_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cns-uno-matched-condition-row-extension/runs/cns_uno_h5_512cap_40ep_20260507T024412Z"
+    },
+    {
       "row_id": "unet_strong",
       "manuscript_label": "U-Net",
       "row_role": "headline",
-      "row_status": "capped_decision_support",
-      "claim_scope": "bounded_capped_decision_support_only",
+      "row_status": "fixed_split_40_epoch",
+      "claim_scope": "context",
       "history_len": 5,
       "split_counts": {
         "test": 64,
