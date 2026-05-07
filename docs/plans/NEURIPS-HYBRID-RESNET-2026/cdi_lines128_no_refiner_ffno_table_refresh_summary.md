@@ -48,6 +48,11 @@ Reused non-FFNO lineage authorities:
   - the extended CDI metrics JSON now states the honest mixed-lineage table
     claim boundary and records both corrected FFNO source paths plus the
     preserved historical supervised proxy source path
+  - `render_cdi_objective_comparison_table()` now restricts the rendered
+    paper-facing objective-control table to the corrected FFNO pair only
+    (`CDI_OBJECTIVE_CONTROL_ACTIVE_MODELS = ("FFNO",)`); CNN, FNO, U-NO, and
+    SRU-Net rows are no longer emitted into `cdi_lines128_objective_comparison.tex`,
+    and the renderer raises `ValueError` if the active FFNO pair is missing.
 - Patched `scripts/studies/paper_model_config_table.py` so the active Synthetic
   CDI FFNO config rows consume the corrected no-refiner roots and surface the
   no-refiner factorized-Fourier contract in the table payload.

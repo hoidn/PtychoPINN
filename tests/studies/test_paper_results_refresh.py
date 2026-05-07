@@ -490,7 +490,7 @@ def test_render_cdi_pinn_metrics_table_bolds_best_values_across_pinn_models():
     assert r"\textbf{0.8000}" in tex
 
 
-def test_render_cdi_objective_comparison_table_keeps_only_paired_models():
+def test_render_cdi_objective_comparison_table_only_emits_active_ffno_pair():
     rows = [
         {
             "row_id": "pinn",
@@ -515,6 +515,50 @@ def test_render_cdi_objective_comparison_table_keeps_only_paired_models():
             "phase_ssim": 0.6,
         },
         {
+            "row_id": "pinn_ffno",
+            "model": "FFNO",
+            "training": "PINN",
+            "amp_mae": 0.08,
+            "phase_mae": 0.14,
+            "amp_mse": 0.011,
+            "phase_mse": 0.03,
+            "amp_ssim": 0.89,
+            "phase_ssim": 0.96,
+        },
+        {
+            "row_id": "supervised_ffno",
+            "model": "FFNO",
+            "training": "supervised",
+            "amp_mae": 0.35,
+            "phase_mae": 0.07,
+            "amp_mse": 0.20,
+            "phase_mse": 0.02,
+            "amp_ssim": 0.27,
+            "phase_ssim": 0.90,
+        },
+        {
+            "row_id": "pinn_neuralop_uno",
+            "model": "U-NO",
+            "training": "PINN",
+            "amp_mae": 0.09,
+            "phase_mae": 0.07,
+            "amp_mse": 0.013,
+            "phase_mse": 0.007,
+            "amp_ssim": 0.83,
+            "phase_ssim": 0.96,
+        },
+        {
+            "row_id": "supervised_neuralop_uno",
+            "model": "U-NO",
+            "training": "supervised",
+            "amp_mae": 0.32,
+            "phase_mae": 0.06,
+            "amp_mse": 0.18,
+            "phase_mse": 0.004,
+            "amp_ssim": 0.27,
+            "phase_ssim": 0.91,
+        },
+        {
             "row_id": "pinn_hybrid_resnet",
             "model": "SRU-Net",
             "training": "PINN",
@@ -529,12 +573,44 @@ def test_render_cdi_objective_comparison_table_keeps_only_paired_models():
 
     tex = render_cdi_objective_comparison_table(rows)
 
-    assert r"\multicolumn{5}{l}{\textit{CNN}}" in tex
+    assert r"\multicolumn{5}{l}{\textit{FFNO}}" in tex
+    assert r"\multicolumn{5}{l}{\textit{CNN}}" not in tex
+    assert r"\multicolumn{5}{l}{\textit{U-NO}}" not in tex
     assert "Amp MSE" not in tex
     assert "Phase MSE" not in tex
     assert "PINN" in tex
     assert "Supervised" in tex
     assert "SRU-Net" not in tex
+
+
+def test_render_cdi_objective_comparison_table_raises_when_active_ffno_pair_missing():
+    rows = [
+        {
+            "row_id": "pinn",
+            "model": "CNN",
+            "training": "PINN",
+            "amp_mae": 0.1,
+            "phase_mae": 0.2,
+            "amp_mse": 0.01,
+            "phase_mse": 0.04,
+            "amp_ssim": 0.9,
+            "phase_ssim": 0.8,
+        },
+        {
+            "row_id": "baseline",
+            "model": "CNN",
+            "training": "supervised",
+            "amp_mae": 0.3,
+            "phase_mae": 0.4,
+            "amp_mse": 0.09,
+            "phase_mse": 0.16,
+            "amp_ssim": 0.7,
+            "phase_ssim": 0.6,
+        },
+    ]
+
+    with pytest.raises(ValueError, match="FFNO"):
+        render_cdi_objective_comparison_table(rows)
 
 
 def _h2_lane_fixture():

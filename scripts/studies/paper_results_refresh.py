@@ -936,6 +936,7 @@ CDI_OBJECTIVE_CONTROL_COLUMNS = [
     ("amp_ssim", True),
     ("phase_ssim", True),
 ]
+CDI_OBJECTIVE_CONTROL_ACTIVE_MODELS = ("FFNO",)
 
 
 def _cdi_best_values(
@@ -983,7 +984,11 @@ def render_cdi_pinn_metrics_table(rows: Sequence[Mapping[str, object]]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def render_cdi_objective_comparison_table(rows: Sequence[Mapping[str, object]]) -> str:
+def render_cdi_objective_comparison_table(
+    rows: Sequence[Mapping[str, object]],
+    *,
+    active_models: Sequence[str] = CDI_OBJECTIVE_CONTROL_ACTIVE_MODELS,
+) -> str:
     rows_by_model: dict[str, dict[str, Mapping[str, object]]] = {}
     for row in rows:
         model = str(row["model"])
@@ -992,9 +997,18 @@ def render_cdi_objective_comparison_table(rows: Sequence[Mapping[str, object]]) 
 
     paired_models = [
         model
-        for model, model_rows in rows_by_model.items()
-        if "PINN" in model_rows and "supervised" in model_rows
+        for model in active_models
+        if model in rows_by_model
+        and "PINN" in rows_by_model[model]
+        and "supervised" in rows_by_model[model]
     ]
+    missing_models = [model for model in active_models if model not in paired_models]
+    if missing_models:
+        raise ValueError(
+            "CDI objective-control table missing required paired rows for "
+            f"{missing_models}; available paired models = "
+            f"{sorted(m for m, mr in rows_by_model.items() if 'PINN' in mr and 'supervised' in mr)}"
+        )
     lines = [
         r"\begin{tabular}{lrrrr}",
         r"\toprule",
