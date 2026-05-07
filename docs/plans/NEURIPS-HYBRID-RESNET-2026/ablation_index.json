@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-07T11:10:02Z",
+  "last_updated_utc": "2026-05-07T20:55:00Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -138,22 +138,28 @@
       "task": "cdi",
       "fixed_contract": "cdi_lines128_seed3",
       "changed_factors": [
-        "fno_blocks: 4 -> 24 within the corrected no-refiner FFNO stack"
+        "fno_blocks: 4 -> 24 within the corrected no-refiner FFNO stack",
+        "training_mode within the completed depth-24 FFNO family"
       ],
       "completed_items": [
-        "2026-05-06-cdi-lines128-ffno-depth24-ablation"
+        "2026-05-06-cdi-lines128-ffno-depth24-ablation",
+        "2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun"
       ],
       "summary_authorities": [
-        "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_ablation_summary.md"
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_ablation_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_supervised_ffno_depth24_no_refiner_summary.md"
       ],
       "artifact_roots": [
-        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z"
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun/runs/supervised_ffno_depth24_20260507T192840Z"
       ],
       "rows": [
         "pinn_ffno",
-        "pinn_ffno_depth24"
+        "pinn_ffno_depth24",
+        "supervised_ffno",
+        "supervised_ffno_depth24"
       ],
-      "interpretation": "The fresh depth-24 pure-FFNO rerun improves every tracked scalar amplitude/phase reconstruction metric versus the corrected four-block no-refiner `pinn_ffno` row on the locked `lines128` CDI contract, but it is far more expensive in parameters, training time, and inference time. This remains append-only depth evidence only; current paper-local CDI FFNO assets still point at the corrected four-block row until the later final-refresh item explicitly decides promotion."
+      "interpretation": "The completed depth-24 FFNO family now covers both training modes under the corrected no-refiner `lines128` CDI contract. On the PINN side, the fresh depth-24 rerun improves every tracked scalar amplitude/phase reconstruction metric versus the corrected four-block `pinn_ffno` row, but it is far more expensive in parameters, training time, and inference time. On the supervised side, the fresh depth-24 companion modestly improves phase-side metrics and amplitude MAE versus the corrected four-block `supervised_ffno` row, but amplitude SSIM/FRC and validation loss worsen while runtime still expands by more than 5x. The family remains append-only depth evidence only; current paper-local CDI FFNO assets still point at the corrected four-block rows until the later final-refresh item explicitly decides promotion."
     },
     {
       "family_id": "cdi_lines128_ffno_paper_refresh_packaging",

@@ -51,12 +51,14 @@ LEGACY_ARCH_TO_MODEL = {
 
 MODEL_TO_LEGACY_ARCH = {model_id: arch for arch, model_id in LEGACY_ARCH_TO_MODEL.items()}
 MODEL_TO_LEGACY_ARCH["supervised_ffno"] = "ffno"
+MODEL_TO_LEGACY_ARCH["supervised_ffno_depth24"] = "ffno"
 MODEL_TO_LEGACY_ARCH["supervised_neuralop_uno"] = "neuralop_uno"
 MODEL_TO_LEGACY_ARCH["pinn_neuralop_uno"] = "neuralop_uno"
 MODEL_DEFAULT_N = {"pinn_ptychovit": 256}
 TF_MODEL_IDS = {"pinn", "baseline"}
 TORCH_MODEL_IDS = {
     "supervised_ffno",
+    "supervised_ffno_depth24",
     "pinn_ffno",
     "pinn_ffno_depth24",
     "pinn_fno",
@@ -82,6 +84,7 @@ PAPER_MODEL_LABELS = {
     "baseline": "CDI CNN + supervised",
     "pinn": "CDI CNN + PINN",
     "supervised_ffno": "FFNO + supervised",
+    "supervised_ffno_depth24": "FFNO-24 + supervised",
     "pinn_ffno": "FFNO + PINN",
     "pinn_ffno_depth24": "FFNO-24 + PINN",
     "pinn_fno": "FNO + PINN",
@@ -110,6 +113,7 @@ PAPER_ARCHITECTURE_OVERRIDES = {
 PAPER_TRAINING_PROCEDURE_OVERRIDES = {
     "baseline": "supervised",
     "supervised_ffno": "supervised",
+    "supervised_ffno_depth24": "supervised",
     "supervised_neuralop_uno": "supervised",
     "supervised_hybrid_resnet": "supervised",
 }
@@ -119,6 +123,15 @@ DEFAULT_TORCH_ROW_SPECS: Dict[str, Dict[str, Any]] = {
         "model_id": "supervised_ffno",
         "architecture": "ffno",
         "training_procedure": "supervised",
+    },
+    "supervised_ffno_depth24": {
+        "model_id": "supervised_ffno_depth24",
+        "architecture": "ffno",
+        "training_procedure": "supervised",
+        "model_label": "FFNO-24 + supervised",
+        "overrides": {"fno_blocks": 24, "fno_cnn_blocks": 0},
+        "row_status": "decision_support_append_only",
+        "lock_row_status": True,
     },
     "pinn_ffno": {
         "model_id": "pinn_ffno",

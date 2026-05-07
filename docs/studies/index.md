@@ -756,6 +756,43 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   - manuscript-facing promotion remains deferred to
     `2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh`
 
+### `grid-lines-n128-supervised-ffno-depth24-companion`
+
+- Purpose: publish the supervised half of the append-only pure-FFNO depth
+  family on the locked `lines128` CDI contract by comparing the corrected
+  four-block no-refiner `supervised_ffno` row against a fresh
+  `supervised_ffno_depth24` rerun whose only intentional architecture change is
+  `fno_blocks: 4 -> 24`.
+- Status: completed on `2026-05-07`; append-only decision-support evidence
+  only.
+- Summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_supervised_ffno_depth24_no_refiner_summary.md`
+- Artifact root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun/runs/supervised_ffno_depth24_20260507T192840Z`
+- Reused corrected supervised baseline authority:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z`
+- Completed PINN depth-24 companion context:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z`
+- Derived comparison payloads:
+  - `verification/comparison_supervised_depth24_vs_depth4.json`
+  - `verification/comparison_supervised_depth24_vs_depth4.csv`
+  - `verification/contract_audit_supervised_depth24_vs_depth4.{json,md}`
+- Current read:
+  - the fresh supervised depth-24 row keeps the same no-refiner FFNO contract
+    and improves phase-side metrics plus amplitude MAE slightly versus the
+    corrected four-block supervised baseline
+  - the gains are narrow and come with materially higher compute cost:
+    `124,966 -> 136,355` parameters, `874.939 -> 4609.254` train seconds, and
+    `1.229 -> 6.373` inference seconds
+  - the row completes the supervised half of the depth-24 FFNO family but does
+    not by itself justify promotion over the corrected four-block supervised
+    row
+- Boundary:
+  - append-only supervised depth-companion evidence only; it does not rewrite
+    the current paper-local FFNO rows
+  - manuscript-facing promotion remains deferred to
+    `2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh`
+
 ### Lines128 CDI U-NO Table Extension
 - Purpose: append-only U-NO architecture extension over the locked Lines128
   CDI paper bundle. Two fresh rows (`pinn_neuralop_uno`, `supervised_neuralop_uno`)

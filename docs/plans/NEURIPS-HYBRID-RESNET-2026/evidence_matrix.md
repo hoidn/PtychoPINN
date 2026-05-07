@@ -1,7 +1,7 @@
 # NeurIPS Hybrid ResNet Evidence Matrix
 
 Status: draft  
-Last updated: 2026-05-07 (promoted the BRDT sinogram-input 40-epoch additive authority and refreshed the paper-local BRDT assets to the new root)
+Last updated: 2026-05-07 (added the CDI supervised FFNO depth-24 companion and refreshed the depth-family discovery surfaces)
 
 This is the human-facing master matrix for NeurIPS/SRU-Net evidence. It points
 to all relevant completed backlog outputs, keyed by dataset, model/config
@@ -22,6 +22,7 @@ Machine-readable companions:
 | CDI `lines128` pure-FFNO corrected prerequisite row | `cdi_lines128_ffno_no_refiner_row_rerun_summary.md` | corrected source-row evidence for the active paper-local FFNO refresh; claim boundary `lines128_ffno_vs_hybrid_prerequisite_pair` |
 | CDI `lines128` pure-FFNO corrected objective-control pair | `cdi_lines128_supervised_ffno_no_refiner_rerun_summary.md` | corrected source-row evidence for the active paper-local FFNO objective table; claim boundary `lines128_ffno_objective_control_corrected_pair` |
 | CDI `lines128` pure-FFNO depth ablation | `cdi_lines128_ffno_depth24_ablation_summary.md` | append-only depth-only FFNO evidence comparing corrected no-refiner `fno_blocks=4` against fresh `fno_blocks=24`; claim boundary `cdi_ffno_depth_ablation_only` |
+| CDI `lines128` supervised pure-FFNO depth companion | `cdi_lines128_supervised_ffno_depth24_no_refiner_summary.md` | append-only supervised depth-only FFNO evidence comparing corrected no-refiner `fno_blocks=4` against fresh `fno_blocks=24`; claim boundary `cdi_supervised_ffno_depth_companion_only` |
 | CDI U-NO extension readiness | `lines128_uno_preflight_summary.md` | feasibility-only external UNO environment/API authority before generator integration |
 | CDI U-NO table extension | `lines128_uno_table_extension_summary.md` | append-only `paper_grade` eight-row extended bundle; claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension` |
 | CDI SRU-Net branch / objective ablation | `lines128_srunet_branch_objective_ablation_summary.md` | append-only `decision_support_append_only`; mechanistic encoder branch removal + supervised SRU-Net objective control |
@@ -82,6 +83,7 @@ Fixed contract: synthetic grid-lines `N=128`, `gridsize=1`, `seed=3`,
 | `pinn_ffno_depth24` | `ffno` | PINN | 0.056506 | 0.121740 | 0.944487 | 0.974460 | append-only pure-FFNO depth-ablation row (`fno_blocks=24`, `fno_cnn_blocks=0`); not yet promoted into paper-local tables |
 | `pinn_ffno` (historical proxy) | `ffno` | PINN | 0.062772 | 0.082839 | 0.934830 | 0.981592 | historical FFNO-local-refiner proxy (`fno_cnn_blocks=2`); preserved for lineage only |
 | `supervised_ffno` | `ffno` | supervised | 0.351512 | 0.066118 | 0.265006 | 0.901529 | corrected pure-FFNO objective-control rerun (`fno_cnn_blocks=0`); active comparator to corrected `pinn_ffno` |
+| `supervised_ffno_depth24` | `ffno` | supervised | 0.348855 | 0.061699 | 0.258666 | 0.910437 | append-only supervised pure-FFNO depth companion (`fno_blocks=24`, `fno_cnn_blocks=0`); not yet promoted into paper-local tables |
 | `supervised_ffno` (historical proxy) | `ffno` | supervised | 0.386413 | 0.046563 | 0.248427 | 0.937179 | historical supervised FFNO-local-refiner proxy (`fno_cnn_blocks=2`); preserved for lineage only |
 | `pinn_neuralop_uno` | `neuralop_uno` | PINN | 0.093164 | 0.068291 | 0.827995 | 0.956859 | U-NO table extension (append-only) |
 | `supervised_neuralop_uno` | `neuralop_uno` | supervised | 0.320684 | 0.056251 | 0.268940 | 0.910490 | U-NO table extension (append-only) |
@@ -100,6 +102,8 @@ CDI artifact roots:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z`
 - Corrected supervised FFNO no-refiner rerun:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z`
+- Supervised pure-FFNO depth-24 companion:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun/runs/supervised_ffno_depth24_20260507T192840Z`
 - Supervised FFNO extension:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z`
 
@@ -135,6 +139,33 @@ Current read:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_objective_comparison.tex`
   plus
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_no_refiner_ffno_table_refresh_summary.md`
+
+## CDI Lines128 Supervised Pure-FFNO Depth Companion
+
+Fixed contract: same corrected no-refiner `lines128` CDI contract as the active
+`supervised_ffno` row; append-only `decision_support_append_only` depth
+companion only.
+
+| Row | Changed factor | Nearest anchor | amp_mae | phase_mae | amp_ssim | phase_ssim | Source |
+|---|---|---|---:|---:|---:|---:|---|
+| `supervised_ffno_depth24` | `fno_blocks: 4 -> 24` with `fno_cnn_blocks=0` held fixed | `supervised_ffno` | 0.348855 | 0.061699 | 0.258666 | 0.910437 | supervised CDI depth-24 companion |
+
+Depth-companion artifact root:
+
+- `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun/runs/supervised_ffno_depth24_20260507T192840Z`
+
+Current read:
+
+- versus the corrected four-block supervised no-refiner row, the depth-24
+  supervised row modestly improves phase-side metrics and nudges amplitude MAE
+  downward, but amplitude SSIM/FRC regress slightly
+- the compute cost is still much higher than the corrected depth-4 supervised
+  anchor despite the small metric movement:
+  `124,966 -> 136,355` parameters, `874.939 -> 4609.254` train seconds, and
+  `1.229 -> 6.373` inference seconds
+- this row completes the supervised half of the FFNO depth-24 family but does
+  not itself justify paper-local promotion over the corrected four-block
+  supervised row
 
 ## CDI Lines128 Bridge Study
 
