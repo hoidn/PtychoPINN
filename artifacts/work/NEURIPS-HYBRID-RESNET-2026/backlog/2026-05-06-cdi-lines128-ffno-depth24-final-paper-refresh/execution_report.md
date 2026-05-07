@@ -2,12 +2,29 @@
 
 ## Completed In This Pass
 
+- Repaired the High implementation-review finding by repopulating
+  `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
+  so it actually contains the full 16-command ledger that this report and the
+  durable summary already describe. The prior version of the file recorded only
+  the three `json.tool` validations the workflow had auto-attached, even though
+  the underlying verification logs for all 16 commands had already been
+  archived. Each result entry now carries the canonical command, `exit_code`,
+  and `log_path` pointing at its archived log under
+  `artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/`.
+  All 16 entries are exit_code 0; all referenced verification log files exist
+  on disk; the ledger validates as JSON.
+- Re-ran the six plan-mandated deterministic JSON validations against the
+  durable indexes and tables to confirm no regression occurred while the ledger
+  was being repaired. All six pass.
+
+## Completed In Prior Pass (kept for context)
+
 - Addressed the Medium implementation-review finding by adding per-row
   provenance to the active CDI FFNO rows emitted by
   `write_cdi_extended_assets()` in `scripts/studies/paper_results_refresh.py`.
   Each `pinn_ffno` and `supervised_ffno` row in
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended.json`
-  now carries `final_ffno_pair_key`, `final_ffno_depth_label`, `claim_boundary`,
+  carries `final_ffno_pair_key`, `final_ffno_depth_label`, `claim_boundary`,
   `source_root`, and `source_metrics_json`. The `supervised_ffno` row also
   carries `historical_proxy_lineage` pointing at the historical
   `fno_cnn_blocks=2` FFNO-local proxy metrics. CSV/TeX renderings continue to
@@ -17,27 +34,16 @@
   (`tests/studies/test_paper_results_refresh.py::test_write_cdi_extended_assets_records_per_row_active_ffno_provenance`)
   that pins the per-row provenance fields for both active FFNO rows and asserts
   non-FFNO rows (`pinn`) do not gain those fields.
-- Addressed the High implementation-review finding by repopulating
-  `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
-  with the full archived proof set: 16 commands now recorded with their
-  exit codes and verification log paths (preflight + postfix pytest selectors,
-  the new postfix batch for the main paper-refresh selectors, the collect-only
-  proof for the changed test module, both compileall smokes, the deterministic
-  refresh invocation log, and all six canonical JSON validations).
 - Re-ran the postfix verification suite after the code change and archived
-  fresh evidence under
-  `artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/`:
-  `pytest_postfix.log` (12 passed, 44 deselected, up from 11 passed because of
-  the new regression test), `pytest_model_config_postfix.log` (7 passed),
-  `pytest_efficiency_postfix.log` (10 passed), `pytest_collect.log` (73 tests
-  collected, up from 72 because of the new regression test), and
-  `compileall_postfix.log` (exit 0).
+  fresh evidence under the verification/ root: `pytest_postfix.log`
+  (12 passed, 44 deselected), `pytest_model_config_postfix.log` (7 passed),
+  `pytest_efficiency_postfix.log` (10 passed), `pytest_collect.log`
+  (73 tests collected), `compileall_postfix.log` (exit 0).
 - Re-ran the deterministic refresh command for the four-block no-refiner pair
   to write the per-row provenance into both the canonical
   `cdi_lines128_metrics_extended.json` and the versioned
   `cdi_lines128_metrics_extended_ffno_final_depth4pair.json`. Refreshed the
-  six canonical JSON pretty-print logs in
-  `verification/json_*.log` afterwards.
+  six canonical JSON pretty-print logs in `verification/json_*.log` afterwards.
 
 ## Completed Current-Scope Work
 
@@ -125,4 +131,8 @@
   `cdi_lines128_metrics_extended_ffno_final_depth4pair.json`.
 - All 16 archived commands above are recorded in
   `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
-  with their exit codes and log paths.
+  with their exit codes and log paths. The ledger now contains 16 result
+  entries (`command_count: 16`, `failed_count: 0`, `status: "PASS"`); each
+  entry includes `command`, `exit_code: 0`, and `log_path` pointing at the
+  matching file under `verification/`. This was the High finding from the
+  prior implementation review and is now resolved.
