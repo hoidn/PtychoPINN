@@ -707,9 +707,14 @@ def run_sinogram_input_40ep(
         raise ValueError("required_paper_sample must be in fixed_sample_ids")
     parent_argv = list(parent_argv) if parent_argv is not None else list(sys.argv[1:])
     if dry_run:
+        completed = (output_root / "paper_evidence_gate.json").exists() and (
+            output_root / "run_exit_status.json"
+        ).exists()
+        dry_run_root = output_root / "dry_run" if completed else output_root
+        dry_run_root.mkdir(parents=True, exist_ok=True)
         return _run_sinogram_input_40ep_inner(
             manifest_path=manifest_path,
-            output_root=output_root,
+            output_root=dry_run_root,
             epochs=epochs,
             batch_size=batch_size,
             learning_rate=learning_rate,

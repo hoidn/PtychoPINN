@@ -2943,6 +2943,63 @@ def test_run_sinogram_input_40ep_dry_run_writes_contract(tmp_path):
     assert all(row["input_mode"] == "sinogram" for row in payload["rows"])
 
 
+def test_run_sinogram_input_40ep_dry_run_does_not_clobber_completed_bundle(tmp_path):
+    from scripts.studies.born_rytov_dt import run_sinogram_input_40ep as sino_mod
+
+    manifest = _build_decision_support_manifest(tmp_path)
+    for rel_path in ("train.h5", "val.h5", "test.h5"):
+        (tmp_path / rel_path).touch()
+    manifest_path = tmp_path / "dataset_manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    output_root = tmp_path / "sinogram_input_completed"
+    output_root.mkdir(parents=True, exist_ok=True)
+    promoted_gate = {
+        "claim_boundary": "paper_evidence_brdt_additive",
+        "promotion_status": "passed",
+    }
+    promoted_preflight = {
+        "claim_boundary": "paper_evidence_brdt_additive",
+        "promotion_status": "passed",
+        "schema_version": "preexisting_marker_v1",
+    }
+    promoted_schema = {
+        "claim_boundary": "paper_evidence_brdt_additive",
+        "schema_version": "preexisting_marker_v1",
+    }
+    (output_root / "paper_evidence_gate.json").write_text(json.dumps(promoted_gate))
+    (output_root / "run_exit_status.json").write_text(json.dumps({"exit_code": 0}))
+    (output_root / "preflight_manifest.json").write_text(json.dumps(promoted_preflight))
+    (output_root / "metric_schema.json").write_text(json.dumps(promoted_schema))
+
+    result = sino_mod.run_sinogram_input_40ep(
+        manifest_path=manifest_path,
+        output_root=output_root,
+        epochs=1,
+        batch_size=2,
+        dry_run=True,
+        fixed_sample_ids=[255],
+        required_paper_sample=255,
+    )
+
+    assert result["dry_run"] is True
+    assert result["preflight_manifest_path"].endswith("/dry_run/preflight_manifest.json")
+    assert result["metric_schema_path"].endswith("/dry_run/metric_schema.json")
+
+    preserved_preflight = json.loads(
+        (output_root / "preflight_manifest.json").read_text()
+    )
+    assert preserved_preflight == promoted_preflight
+    preserved_schema = json.loads((output_root / "metric_schema.json").read_text())
+    assert preserved_schema == promoted_schema
+
+    redirected = json.loads(
+        (output_root / "dry_run" / "preflight_manifest.json").read_text()
+    )
+    assert redirected["input_contract"]["input_mode"] == "sinogram"
+    assert redirected["input_contract"]["in_channels"] == 2
+
+
 def test_run_sinogram_input_40ep_live_writes_gate_provenance_and_visual_contract(
     tmp_path: Path,
 ):
