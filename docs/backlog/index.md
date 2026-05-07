@@ -86,6 +86,7 @@ Current source of truth:
 | [2026-05-06-brdt-corrected-ffno-40ep-rerun.md](active/2026-05-06-brdt-corrected-ffno-40ep-rerun.md) | `active` | `candidate-brdt-preflight` | Depends on corrected 20-epoch BRDT FFNO rerun | Reactivates the 40-epoch BRDT evidence lane with the corrected no-refiner FFNO adapter, per-epoch history, `ReduceLROnPlateau`, sample-255 visual outputs, and regenerated manuscript/table inputs. SRU-Net should be rerun in the same bundle if the output is used as paired paper evidence. |
 | [2026-05-07-brdt-sinogram-input-adapter-contract.md](active/2026-05-07-brdt-sinogram-input-adapter-contract.md) | `active` | `candidate-brdt-sinogram-input` | No active backlog prerequisite | Adds the new BRDT learned-model input contract: measured complex sinogram in, target-grid `q` out. Historical `born_init_image` runners remain available only as old-contract lineage. |
 | [2026-05-07-brdt-sinogram-input-40ep-paper-evidence.md](active/2026-05-07-brdt-sinogram-input-40ep-paper-evidence.md) | `active` | `candidate-brdt-sinogram-input` | Depends on BRDT sinogram-input adapter contract | Runs the 40-epoch SRU-Net and FFNO sinogram-input rows with the model-based Born inverse as a non-learned reference, then refreshes BRDT manuscript assets from the new artifact root. |
+| [2026-05-07-brdt-srunet-sinogram-coordinate-conditioning-ablation.md](active/2026-05-07-brdt-srunet-sinogram-coordinate-conditioning-ablation.md) | `active` | `candidate-brdt-sinogram-input` | Depends on completed BRDT sinogram-input 40-epoch evidence | Append-only diagnostic that reruns only SRU-Net with deterministic object-grid coordinate channels concatenated after sinogram-to-grid resize, then compares against the completed unconditioned sinogram-input SRU-Net row by lineage. |
 | [2026-04-29-brdt-preflight-summary-promotion-decision.md](done/2026-04-29-brdt-preflight-summary-promotion-decision.md) | `active` | `candidate-brdt-preflight` | Depends on BRDT four-row preflight | Writes the durable BRDT summary and recommends promotion, deferral, or rejection without adding paper claims. |
 | [2026-04-29-brdt-candidate-preflight.md](done/2026-04-29-brdt-candidate-preflight.md) | `active` | `candidate-brdt-preflight` | Depends on all split BRDT preflight items | Umbrella closeout for discoverability only; it prevents the broad BRDT design from being selected as a vague implementation scope. |
 | [2026-04-29-wavebench-inverse-source-preflight.md](done/2026-04-29-wavebench-inverse-source-preflight.md) | `active` | `candidate-wavebench-inverse-source-preflight` | No active backlog prerequisite | Reprioritized on 2026-04-30 as the next candidate lane to attempt before remaining optional U-NO table-extension work. It remains candidate work, not a replacement paper pillar. |
@@ -257,7 +258,12 @@ Current source of truth:
   `2026-05-06-brdt-corrected-ffno-row-rerun` and
   `2026-05-06-brdt-corrected-ffno-40ep-rerun` are the only current path to BRDT
   pure-FFNO comparison claims and any refreshed secondary manuscript evidence.
-  These candidate items do not close CDI or CNS gates.
+  The BRDT SRU-Net sinogram coordinate-conditioning item is a separate
+  append-only diagnostic in the completed sinogram-input lane: it should rerun
+  only the coordinate-conditioned SRU-Net row, compare against completed
+  unconditioned rows by lineage, and keep the result labeled as representational
+  rather than physics-aware inverse evidence. These candidate items do not close
+  CDI or CNS gates.
   Do not add one-off gate prefixes for either candidate; use priority and
   steering.
 - The Markov history-1, modes-32, Hybrid-spectral architecture, FFNO local-conv,
