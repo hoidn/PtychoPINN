@@ -33,11 +33,13 @@ from scripts.studies.born_rytov_dt.data import (
     assert_input_mode_supported,
     brdt_collate,
     load_dataset_authority,
+    sinogram_to_channels_first,
 )
 from scripts.studies.born_rytov_dt.lightning_module import BRDTTrainingModule
 from scripts.studies.born_rytov_dt.models import (
     AdapterBuildError,
     build_neural_adapter,
+    build_sinogram_input_adapter,
 )
 from scripts.studies.born_rytov_dt.reporting import (
     SanitySummary,
@@ -50,6 +52,7 @@ from scripts.studies.born_rytov_dt.run_config import (
     LossWeights,
     default_row_roster,
     make_blocked_row,
+    sinogram_input_row_roster,
 )
 from scripts.studies.invocation_logging import write_invocation_artifacts
 
@@ -103,6 +106,7 @@ def run_evaluation(
     in_channels: int,
     hybrid_label: str,
     dry_run: bool,
+    input_mode: str = "born_init_image",
 ) -> Dict[str, Any]:
     if split not in SUPPORTED_SPLITS:
         raise ValueError(f"unknown split={split!r}; allowed: {SUPPORTED_SPLITS}")
@@ -115,11 +119,17 @@ def run_evaluation(
     backend = detect_classical_backend()
 
     effective_hybrid_label = _resolve_hybrid_label(architecture, hybrid_label)
-    rows = default_row_roster(
-        dataset_id=authority.dataset_id,
-        operator_version=authority.operator_version,
-        hybrid_label=effective_hybrid_label,
-    )
+    if input_mode == "sinogram":
+        rows = sinogram_input_row_roster(
+            dataset_id=authority.dataset_id,
+            operator_version=authority.operator_version,
+        )
+    else:
+        rows = default_row_roster(
+            dataset_id=authority.dataset_id,
+            operator_version=authority.operator_version,
+            hybrid_label=effective_hybrid_label,
+        )
     selected = next((r for r in rows if r.row_id == architecture), None)
     if selected is None:
         raise ValueError(
@@ -207,12 +217,19 @@ def run_evaluation(
         }
 
     try:
-        adapter = build_neural_adapter(
-            architecture=selected.model,
-            in_channels=in_channels,
-            out_channels=1,
-            grid_size=dc.LOCKED_GRID_SIZE,
-        ).to(device)
+        if selected.input_mode == "sinogram":
+            adapter = build_sinogram_input_adapter(
+                architecture=selected.model,
+                out_channels=1,
+                grid_size=dc.LOCKED_GRID_SIZE,
+            ).to(device)
+        else:
+            adapter = build_neural_adapter(
+                architecture=selected.model,
+                in_channels=in_channels,
+                out_channels=1,
+                grid_size=dc.LOCKED_GRID_SIZE,
+            ).to(device)
     except AdapterBuildError as exc:
         blocker = make_blocked_row(
             row_id=selected.row_id,
@@ -223,6 +240,7 @@ def run_evaluation(
             blocker_reason=exc.reason,
             blocker_message=str(exc),
             paper_label=selected.paper_label,
+            input_mode=selected.input_mode,
         )
         contract = build_adapter_contract(
             dataset_id=authority.dataset_id,
@@ -250,12 +268,19 @@ def run_evaluation(
     module.eval()
     batch = next(iter(loader))
     sinogram = batch["sinogram"].to(device)
-    # Born-init derivation uses operator autograd; run outside no_grad.
-    init = derive_born_init_image(sinogram, operator=operator, backend=backend).detach()
-    if in_channels == 2:
-        init = torch.cat([init, torch.zeros_like(init)], dim=1)
+    if selected.input_mode == "sinogram":
+        if in_channels != 2:
+            raise ValueError("sinogram input requires in_channels=2")
+        model_input = sinogram_to_channels_first(sinogram).detach()
+    else:
+        # Born-init derivation uses operator autograd; run outside no_grad.
+        model_input = derive_born_init_image(
+            sinogram, operator=operator, backend=backend
+        ).detach()
+        if in_channels == 2:
+            model_input = torch.cat([model_input, torch.zeros_like(model_input)], dim=1)
     with torch.no_grad():
-        q_pred = module(init.to(device))
+        q_pred = module(model_input.to(device))
         eval_image_mae = float(
             (q_pred - batch["q_true_norm"].to(device)).abs().mean().item()
         )
@@ -357,6 +382,7 @@ def _build_argparser() -> argparse.ArgumentParser:
             "fno_vanilla",
             "hybrid_resnet",
             "sru_net",
+            "ffno",
         ],
     )
     parser.add_argument("--manifest", required=True, type=Path)
@@ -365,6 +391,11 @@ def _build_argparser() -> argparse.ArgumentParser:
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
     parser.add_argument("--in-channels", type=int, default=1, choices=[1, 2])
+    parser.add_argument(
+        "--input-mode",
+        default="born_init_image",
+        choices=["born_init_image", "sinogram"],
+    )
     parser.add_argument(
         "--hybrid-label",
         default="hybrid_resnet",
@@ -400,6 +431,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         in_channels=int(args.in_channels),
         hybrid_label=str(args.hybrid_label),
         dry_run=bool(args.dry_run),
+        input_mode=str(args.input_mode),
     )
     json.dump(result, sys.stdout, indent=2, sort_keys=True)
     sys.stdout.write("\n")

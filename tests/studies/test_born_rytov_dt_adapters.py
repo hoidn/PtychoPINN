@@ -5,7 +5,7 @@ Covers the bounded preflight surface added in
 
 - dataset authority / loader / collator,
 - row schema (model/training/input_mode/dataset_id/operator_version/row_status),
-- rejection of direct-sinogram input for the first bounded contract,
+- separation between historical Born-image input and sinogram-input contracts,
 - Born-init-image derivation (local adjoint backend),
 - adapter construction + forward shape for U-Net, FNO vanilla, Hybrid family,
 - unnormalize-before-physics guard via the dataset_contract helper,
@@ -117,7 +117,7 @@ def test_row_config_rejects_sru_net_as_internal_model():
 
 
 def test_row_rejects_direct_sinogram_input():
-    with pytest.raises(ValueError, match="Direct sinogram"):
+    with pytest.raises(ValueError, match="direct-sinogram"):
         run_config.RowConfig(
             row_id="bad_sinogram_row",
             model="unet",
@@ -140,9 +140,38 @@ def test_row_rejects_pinn_only_label_for_supervised_plus_physics():
         )
 
 
-def test_assert_input_mode_supported_rejects_sinogram():
-    with pytest.raises(ValueError, match="rejects direct-sinogram"):
-        data.assert_input_mode_supported("sinogram")
+def test_row_accepts_sinogram_input_contract():
+    row = run_config.RowConfig(
+        row_id="ffno",
+        model="ffno",
+        training=run_config.DEFAULT_TRAINING_LABEL,
+        input_mode="sinogram",
+        dataset_id="brdt128_sparse_fullview_preflight",
+        operator_version="op",
+    )
+    assert row.input_mode == "sinogram"
+
+
+def test_assert_input_mode_supported_accepts_sinogram():
+    data.assert_input_mode_supported("sinogram")
+
+
+def test_assert_input_mode_supported_rejects_legacy_direct_sinogram():
+    with pytest.raises(ValueError, match="legacy direct-sinogram"):
+        data.assert_input_mode_supported("direct_sinogram")
+
+
+def test_sinogram_input_roster_uses_measured_sinogram():
+    rows = run_config.sinogram_input_row_roster(
+        dataset_id=dc.DECISION_SUPPORT_DATASET_NAME,
+        operator_version="op",
+    )
+    assert {row.row_id for row in rows} == {
+        "classical_born_backprop",
+        "ffno",
+        "sru_net",
+    }
+    assert all(row.input_mode == "sinogram" for row in rows)
 
 
 def test_make_blocked_row_records_reason():
@@ -207,6 +236,22 @@ def test_split_loader_shapes_and_collation(authority: data.DatasetAuthority):
     )
     assert batch["sample_seed"].shape == (2,)
     assert isinstance(batch["phantom_family"], list) and len(batch["phantom_family"]) == 2
+
+
+def test_sinogram_to_channels_first_from_dataset_layout():
+    sino = torch.zeros(
+        2,
+        dc.LOCKED_ANGLE_COUNT,
+        dc.LOCKED_DETECTOR_SIZE,
+        2,
+    )
+    converted = data.sinogram_to_channels_first(sino)
+    assert converted.shape == (
+        2,
+        2,
+        dc.LOCKED_ANGLE_COUNT,
+        dc.LOCKED_DETECTOR_SIZE,
+    )
 
 
 # ----------------------------------------------------------------------
@@ -420,6 +465,30 @@ def test_ffno_adapter_rejects_post_bottleneck_cnn_refiner_override():
         )
 
 
+@pytest.mark.parametrize("architecture", ["ffno", "hybrid_resnet"])
+def test_sinogram_input_adapter_forward_shape(architecture: str):
+    adapter = models.build_sinogram_input_adapter(architecture=architecture)
+    x = torch.zeros(
+        2,
+        2,
+        dc.LOCKED_ANGLE_COUNT,
+        dc.LOCKED_DETECTOR_SIZE,
+        dtype=torch.float32,
+    )
+    y = adapter(x)
+    assert y.shape == (2, 1, dc.LOCKED_GRID_SIZE, dc.LOCKED_GRID_SIZE)
+    info = adapter.info()
+    assert info.in_channels == 2
+    assert info.arch_kwargs["input_mode"] == "sinogram"
+    assert info.arch_kwargs["sinogram_to_grid"] == "bilinear_resize"
+
+
+def test_sinogram_input_adapter_rejects_image_shape():
+    adapter = models.build_sinogram_input_adapter(architecture="ffno")
+    with pytest.raises(ValueError, match="spatial shape"):
+        adapter(torch.zeros(2, 2, dc.LOCKED_GRID_SIZE, dc.LOCKED_GRID_SIZE))
+
+
 def test_ffno_adapter_parameter_count_distinct_from_fno_vanilla():
     """FFNO and FNO-vanilla must have separate parameter counts.
 
@@ -588,8 +657,11 @@ def test_evaluate_dry_run_emits_adapter_contract(tmp_path: Path):
         "fno_vanilla",
         "hybrid_resnet",
     }
-    assert payload["row_schema"]["supported_input_modes"] == ["born_init_image"]
-    assert "sinogram" in payload["row_schema"]["rejected_input_modes"]
+    assert payload["row_schema"]["supported_input_modes"] == [
+        "born_init_image",
+        "sinogram",
+    ]
+    assert "direct_sinogram" in payload["row_schema"]["rejected_input_modes"]
 
 
 def test_evaluate_classical_emits_feasibility_row(tmp_path: Path):

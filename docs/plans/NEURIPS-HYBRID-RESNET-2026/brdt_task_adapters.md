@@ -34,16 +34,24 @@ or evaluation surfaces; this item is the first place those exist.
 ## First Shared Input Contract
 
 The first bounded four-row contract uses `input_mode = born_init_image`
-for every row. Direct sinogram input is explicitly rejected at:
+for every row. This remains the historical preflight contract. Current
+sinogram-input manuscript work is governed by
+`2026-05-07-brdt-sinogram-input-adapter-contract` and
+`2026-05-07-brdt-sinogram-input-40ep-paper-evidence`, where learned models
+consume measured complex sinograms directly and the Born inverse is only a
+non-learned reference.
+
+In the historical preflight, direct sinogram input was explicitly rejected at:
 
 - `scripts/studies/born_rytov_dt/run_config.py` (`RowConfig.__post_init__`
   raises if `input_mode in REJECTED_INPUT_MODES`),
 - `scripts/studies/born_rytov_dt/data.py` (`assert_input_mode_supported`
-  raises for `sinogram` / `direct_sinogram`),
+  raised for `sinogram` / `direct_sinogram` under that contract),
 - the adapter-contract payload (`row_schema.rejected_input_modes`).
 
-Mixing direct-sinogram rows into the first bounded BRDT table is
-therefore a contract-level error rather than a soft convention.
+Mixing sinogram-input rows into the first bounded BRDT table remains a
+contract-level error rather than a soft convention. The new sinogram-input
+rows must be produced under a separate artifact root and manifest.
 
 The optional confidence/mask channel is exposed via the train/eval
 ``--in-channels`` argument (1 or 2). When ``--in-channels 2`` is

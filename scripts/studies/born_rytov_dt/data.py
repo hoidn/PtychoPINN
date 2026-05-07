@@ -241,13 +241,33 @@ def brdt_collate(samples: Sequence[Mapping[str, Any]]) -> Dict[str, Any]:
     return batch
 
 
+def sinogram_to_channels_first(sinogram: torch.Tensor) -> torch.Tensor:
+    """Return complex sinogram as ``(B, 2, angles, detectors)``.
+
+    Dataset batches store sinograms as ``(B, angles, detectors, 2)``. Neural
+    adapters use PyTorch's channels-first image convention.
+    """
+    sino = torch.as_tensor(sinogram)
+    if sino.dim() != 4:
+        raise ValueError(
+            f"sinogram must be 4-D; got shape {tuple(sino.shape)}"
+        )
+    if sino.shape[-1] == 2:
+        return sino.permute(0, 3, 1, 2).contiguous()
+    if sino.shape[1] == 2:
+        return sino.contiguous()
+    raise ValueError(
+        "sinogram must have a complex real/imag channel of length 2 in "
+        f"either last or channel dimension; got shape {tuple(sino.shape)}"
+    )
+
+
 def assert_input_mode_supported(input_mode: str) -> None:
-    """Hard-stop guard against mixing direct sinogram input into the bounded contract."""
+    """Validate a BRDT input-mode label."""
     if input_mode in REJECTED_INPUT_MODES:
         raise ValueError(
-            "BRDT first bounded contract rejects direct-sinogram input rows "
-            f"(input_mode={input_mode!r}). The first bounded four-row table "
-            "must use born_init_image for every row."
+            "BRDT rejects the legacy direct-sinogram alias "
+            f"(input_mode={input_mode!r}); use input_mode='sinogram'."
         )
     if input_mode not in SUPPORTED_INPUT_MODES:
         raise ValueError(

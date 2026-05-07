@@ -55,6 +55,7 @@ from scripts.studies.born_rytov_dt.data import (
     DatasetAuthority,
     brdt_collate,
     load_dataset_authority,
+    sinogram_to_channels_first,
 )
 from scripts.studies.born_rytov_dt.lightning_module import BRDTTrainingModule
 from scripts.studies.born_rytov_dt.model_based_inverse import (
@@ -64,6 +65,7 @@ from scripts.studies.born_rytov_dt.model_based_inverse import (
 from scripts.studies.born_rytov_dt.models import (
     AdapterBuildError,
     build_neural_adapter,
+    build_sinogram_input_adapter,
 )
 from scripts.studies.born_rytov_dt.run_config import (
     DEFAULT_TRAINING_LABEL,
@@ -568,7 +570,14 @@ def _prepare_input(
     operator: BornRytovForward2D,
     backend: ClassicalBackendInfo,
     in_channels: int,
+    input_mode: str = "born_init_image",
 ) -> torch.Tensor:
+    if input_mode == "sinogram":
+        if in_channels != 2:
+            raise ValueError("sinogram input requires in_channels=2")
+        return sinogram_to_channels_first(sinogram)
+    if input_mode != "born_init_image":
+        raise ValueError(f"unsupported input_mode={input_mode!r}")
     init = derive_born_init_image(sinogram, operator=operator, backend=backend)
     if in_channels == 1:
         return init
@@ -592,12 +601,19 @@ def _train_neural_row(
     output_dir.mkdir(parents=True, exist_ok=True)
     _seed_everything(contract.seed)
     try:
-        adapter = build_neural_adapter(
-            architecture=row.model,
-            in_channels=in_channels,
-            out_channels=1,
-            grid_size=dc.LOCKED_GRID_SIZE,
-        ).to(device)
+        if row.input_mode == "sinogram":
+            adapter = build_sinogram_input_adapter(
+                architecture=row.model,
+                out_channels=1,
+                grid_size=dc.LOCKED_GRID_SIZE,
+            ).to(device)
+        else:
+            adapter = build_neural_adapter(
+                architecture=row.model,
+                in_channels=in_channels,
+                out_channels=1,
+                grid_size=dc.LOCKED_GRID_SIZE,
+            ).to(device)
     except AdapterBuildError as exc:
         return None, {"adapter_build_error": exc.to_payload()}, 0.0
 
@@ -666,6 +682,7 @@ def _train_neural_row(
                 operator=operator,
                 backend=backend,
                 in_channels=in_channels,
+                input_mode=row.input_mode,
             )
             q_pred = module(x)
             total, breakdown = module.compute_loss(
@@ -807,6 +824,7 @@ def _evaluate_split(
     classical_only: bool,
     fixed_sample_ids: List[int],
     out_dir: Path,
+    input_mode: str = "born_init_image",
 ) -> Tuple[
     Dict[str, float],
     Dict[str, float],
@@ -848,6 +866,7 @@ def _evaluate_split(
             operator=operator,
             backend=backend,
             in_channels=in_channels,
+            input_mode="born_init_image" if classical_only else input_mode,
         ).detach()
         if classical_only or module is None:
             q_phys_pred = x[:, :1].detach()

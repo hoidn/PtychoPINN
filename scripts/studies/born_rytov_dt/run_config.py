@@ -2,14 +2,15 @@
 
 Defines the first bounded row roster for the four-row preflight
 (`classical_born_backprop`, `unet`, `fno_vanilla`, `hybrid_resnet`/
-`sru_net`), enforces the locked input-mode contract (`born_init_image`
-only), and records explicit row metadata fields (`model`, `training`,
+`sru_net`), preserves the historical `born_init_image` preflight contract,
+and records explicit row metadata fields (`model`, `training`,
 `input_mode`, `dataset_id`, `operator_version`, `row_status`) so the
 later bounded preflight can aggregate rows under a shared contract.
 
 Reviewer-binding constraints encoded here:
 
-- direct sinogram input is rejected for the first bounded contract;
+- direct sinogram input is a separate contract and must not be mixed with
+  historical `born_init_image` rows;
 - row labels separate model identity from training procedure;
 - supervised-plus-Born-consistency rows are NOT relabeled `PINN-only`.
 """
@@ -22,11 +23,11 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 # ----------------------------------------------------------------------
 # Row schema constants
 # ----------------------------------------------------------------------
-SUPPORTED_INPUT_MODES: Tuple[str, ...] = ("born_init_image",)
-"""First bounded contract supports only ``born_init_image``."""
+SUPPORTED_INPUT_MODES: Tuple[str, ...] = ("born_init_image", "sinogram")
+"""Supported BRDT input contracts."""
 
-REJECTED_INPUT_MODES: Tuple[str, ...] = ("sinogram", "direct_sinogram")
-"""Input modes the first bounded contract explicitly rejects."""
+REJECTED_INPUT_MODES: Tuple[str, ...] = ("direct_sinogram",)
+"""Legacy aliases that are still rejected."""
 
 DEFAULT_TRAINING_LABEL: str = "supervised + Born consistency"
 """Default training-procedure label for neural rows."""
@@ -102,8 +103,8 @@ class RowConfig:
         if self.input_mode not in SUPPORTED_INPUT_MODES:
             if self.input_mode in REJECTED_INPUT_MODES:
                 raise ValueError(
-                    f"BRDT first bounded contract rejects input_mode={self.input_mode!r}. "
-                    "Direct sinogram rows must not be mixed with born_init_image rows."
+                    f"BRDT rejects legacy direct-sinogram input_mode={self.input_mode!r}. "
+                    "Use input_mode='sinogram' for measured-sinogram model input."
                 )
             raise ValueError(
                 f"unsupported input_mode={self.input_mode!r}; "
@@ -233,6 +234,49 @@ def default_row_roster(
     return rows
 
 
+def sinogram_input_row_roster(
+    *,
+    dataset_id: str,
+    operator_version: str,
+    neural_training_label: str = DEFAULT_TRAINING_LABEL,
+) -> List[RowConfig]:
+    """Return the current BRDT manuscript roster for sinogram-input rows.
+
+    The learned rows consume the measured complex sinogram. The classical row
+    consumes the same measurement through the fixed Born inverse baseline and
+    remains a non-learned reference.
+    """
+    return [
+        RowConfig(
+            row_id="classical_born_backprop",
+            model="classical_born_backprop",
+            training=CLASSICAL_TRAINING_LABEL,
+            input_mode="sinogram",
+            dataset_id=dataset_id,
+            operator_version=operator_version,
+            paper_label="Model-based Born inverse",
+        ),
+        RowConfig(
+            row_id="ffno",
+            model="ffno",
+            training=neural_training_label,
+            input_mode="sinogram",
+            dataset_id=dataset_id,
+            operator_version=operator_version,
+            paper_label="FFNO",
+        ),
+        RowConfig(
+            row_id="sru_net",
+            model=HYBRID_FAMILY_MODEL,
+            training=neural_training_label,
+            input_mode="sinogram",
+            dataset_id=dataset_id,
+            operator_version=operator_version,
+            paper_label="SRU-Net",
+        ),
+    ]
+
+
 def make_blocked_row(
     row_id: str,
     *,
@@ -243,6 +287,7 @@ def make_blocked_row(
     blocker_reason: str,
     blocker_message: str,
     paper_label: Optional[str] = None,
+    input_mode: str = "born_init_image",
 ) -> RowConfig:
     """Construct a controlled row-level blocker for an optional dependency.
 
@@ -254,7 +299,7 @@ def make_blocked_row(
         row_id=row_id,
         model=model,
         training=training,
-        input_mode="born_init_image",
+        input_mode=input_mode,
         dataset_id=dataset_id,
         operator_version=operator_version,
         row_status="blocked",

@@ -104,7 +104,10 @@ checked in:
   `[145, 83, 255, 126]`.
 - Loss weights: `image=1.0`, `physics=0.1`, `relative_physics=0.1`,
   `tv=1e-5`, `positivity=1e-4`.
-- Input mode: `born_init_image` for every row (no direct-sinogram bypass).
+- Input mode: `born_init_image` for every row in this historical preflight
+  contract. Sinogram-input manuscript work is a separate 2026-05-07 contract:
+  learned models consume measured complex sinograms directly, and the Born
+  inverse is a non-learned reference rather than model input.
 - Per-row contract fingerprints (lifted from `preflight_manifest.json`):
   - `classical_born_backprop`: `dd2f447822fd6566db3c308f0b4ae009b63c79673fed628e72902dc1e5f15b6c`
   - `unet`: `bbc3f26d427bed00d741e2b7c6f14fc75a48b24f10f9d86ef7555203023c0a93`

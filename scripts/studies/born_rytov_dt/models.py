@@ -7,12 +7,16 @@ adapters are deliberately NOT registered in
 the CDI/PtychoPINN output and stitching contract; BRDT must remain
 task-local.
 
-All adapters share the contract:
+Historical image-input adapters share the contract:
 
 - input ``x``: ``(B, C_in, 128, 128)`` real-channel born_init_image
   representation (real, optional imag, optional confidence/mask),
 - output: ``(B, 1, 128, 128)`` real-channel ``q_pred`` (in normalized or
   physical q units, decided by the run config / lightning module).
+
+Sinogram-input wrappers consume ``(B, 2, 64, 128)`` measured real/imaginary
+sinograms and resize them to the object grid before the same task-local model
+body. They do not compute a fixed Born inverse.
 """
 
 from __future__ import annotations
@@ -362,6 +366,77 @@ class BRDTModelAdapter(nn.Module):
         )
 
 
+class BRDTSinogramInputAdapter(nn.Module):
+    """Adapter for measured-sinogram input.
+
+    The wrapper performs only tensor-layout and grid-shape adaptation:
+    ``(B, 2, angles, detectors)`` is resized to the object grid and then passed
+    to the selected BRDT neural body. It intentionally does not call the
+    classical Born inverse.
+    """
+
+    def __init__(
+        self,
+        *,
+        architecture: str,
+        out_channels: int = 1,
+        grid_size: int = dc.LOCKED_GRID_SIZE,
+        angle_count: int = dc.LOCKED_ANGLE_COUNT,
+        detector_size: int = dc.LOCKED_DETECTOR_SIZE,
+        arch_kwargs: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__()
+        self.architecture = architecture
+        self.in_channels = 2
+        self.out_channels = int(out_channels)
+        self.grid_size = int(grid_size)
+        self.angle_count = int(angle_count)
+        self.detector_size = int(detector_size)
+        self.body = BRDTModelAdapter(
+            architecture=architecture,
+            in_channels=2,
+            out_channels=out_channels,
+            grid_size=grid_size,
+            arch_kwargs=arch_kwargs,
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() != 4:
+            raise ValueError(f"x must be 4-D (B, 2, A, D); got {tuple(x.shape)}")
+        if x.shape[1] != 2:
+            raise ValueError(
+                f"x has {x.shape[1]} channels; sinogram input requires 2"
+            )
+        if x.shape[2] != self.angle_count or x.shape[3] != self.detector_size:
+            raise ValueError(
+                f"x spatial shape {tuple(x.shape[2:])} != "
+                f"({self.angle_count}, {self.detector_size})"
+            )
+        grid = F.interpolate(
+            x,
+            size=(self.grid_size, self.grid_size),
+            mode="bilinear",
+            align_corners=False,
+        )
+        return self.body(grid)
+
+    def info(self) -> AdapterInfo:
+        info = self.body.info()
+        return AdapterInfo(
+            architecture=info.architecture,
+            in_channels=2,
+            out_channels=self.out_channels,
+            grid_size=self.grid_size,
+            parameter_count=info.parameter_count,
+            arch_kwargs={
+                **dict(info.arch_kwargs),
+                "input_mode": "sinogram",
+                "sinogram_shape": [self.angle_count, self.detector_size, 2],
+                "sinogram_to_grid": "bilinear_resize",
+            },
+        )
+
+
 def build_neural_adapter(
     architecture: str,
     *,
@@ -374,6 +449,22 @@ def build_neural_adapter(
     return BRDTModelAdapter(
         architecture=architecture,
         in_channels=in_channels,
+        out_channels=out_channels,
+        grid_size=grid_size,
+        arch_kwargs=arch_kwargs,
+    )
+
+
+def build_sinogram_input_adapter(
+    architecture: str,
+    *,
+    out_channels: int = 1,
+    grid_size: int = dc.LOCKED_GRID_SIZE,
+    arch_kwargs: Optional[Dict[str, Any]] = None,
+) -> BRDTSinogramInputAdapter:
+    """Build a neural adapter for measured complex sinogram input."""
+    return BRDTSinogramInputAdapter(
+        architecture=architecture,
         out_channels=out_channels,
         grid_size=grid_size,
         arch_kwargs=arch_kwargs,

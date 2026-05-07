@@ -39,11 +39,13 @@ from scripts.studies.born_rytov_dt.data import (
     assert_input_mode_supported,
     brdt_collate,
     load_dataset_authority,
+    sinogram_to_channels_first,
 )
 from scripts.studies.born_rytov_dt.lightning_module import BRDTTrainingModule
 from scripts.studies.born_rytov_dt.models import (
     AdapterBuildError,
     build_neural_adapter,
+    build_sinogram_input_adapter,
 )
 from scripts.studies.born_rytov_dt.reporting import (
     SanitySummary,
@@ -89,8 +91,15 @@ def _prepare_input(
     operator: BornRytovForward2D,
     backend: ClassicalBackendInfo,
     in_channels: int,
+    input_mode: str,
 ) -> torch.Tensor:
     sinogram = batch["sinogram"].to(operator.angles.device)
+    if input_mode == "sinogram":
+        if in_channels != 2:
+            raise ValueError("sinogram input requires in_channels=2")
+        return sinogram_to_channels_first(sinogram)
+    if input_mode != "born_init_image":
+        raise ValueError(f"unsupported input_mode={input_mode!r}")
     init = derive_born_init_image(
         sinogram,
         operator=operator,
@@ -117,6 +126,7 @@ def run_training(
     fast_dev_run: bool,
     in_channels: int,
     hybrid_label: str,
+    input_mode: str = "born_init_image",
 ) -> Dict[str, Any]:
     """Run the bounded sanity training for a single row."""
     output_root = Path(output_root).resolve()
@@ -128,11 +138,19 @@ def run_training(
     backend = detect_classical_backend()
 
     effective_hybrid_label = _resolve_hybrid_label(architecture, hybrid_label)
-    rows: List[RowConfig] = default_row_roster(
-        dataset_id=authority.dataset_id,
-        operator_version=authority.operator_version,
-        hybrid_label=effective_hybrid_label,
-    )
+    if input_mode == "sinogram":
+        from scripts.studies.born_rytov_dt.run_config import sinogram_input_row_roster
+
+        rows = sinogram_input_row_roster(
+            dataset_id=authority.dataset_id,
+            operator_version=authority.operator_version,
+        )
+    else:
+        rows = default_row_roster(
+            dataset_id=authority.dataset_id,
+            operator_version=authority.operator_version,
+            hybrid_label=effective_hybrid_label,
+        )
     selected = next((r for r in rows if r.row_id == architecture), None)
     if selected is None:
         raise ValueError(
@@ -154,12 +172,19 @@ def run_training(
         return row_summary
 
     try:
-        adapter = build_neural_adapter(
-            architecture=selected.model,
-            in_channels=in_channels,
-            out_channels=1,
-            grid_size=dc.LOCKED_GRID_SIZE,
-        )
+        if selected.input_mode == "sinogram":
+            adapter = build_sinogram_input_adapter(
+                architecture=selected.model,
+                out_channels=1,
+                grid_size=dc.LOCKED_GRID_SIZE,
+            )
+        else:
+            adapter = build_neural_adapter(
+                architecture=selected.model,
+                in_channels=in_channels,
+                out_channels=1,
+                grid_size=dc.LOCKED_GRID_SIZE,
+            )
     except AdapterBuildError as exc:
         blocker_row = make_blocked_row(
             row_id=selected.row_id,
@@ -170,6 +195,7 @@ def run_training(
             blocker_reason=exc.reason,
             blocker_message=str(exc),
             paper_label=selected.paper_label,
+            input_mode=selected.input_mode,
         )
         return _emit_blocked_row(
             row=blocker_row,
@@ -207,7 +233,11 @@ def run_training(
     for _ in range(max(1, int(epochs))):
         for batch in loader:
             x = _prepare_input(
-                batch, operator=operator, backend=backend, in_channels=in_channels
+                batch,
+                operator=operator,
+                backend=backend,
+                in_channels=in_channels,
+                input_mode=selected.input_mode,
             )
             x = x.to(device)
             q_pred = module(x)
@@ -233,7 +263,11 @@ def run_training(
     # Born-init derivation uses the operator's autograd path, so it must
     # NOT run under no_grad. The model forward + operator residual can.
     x = _prepare_input(
-        eval_batch, operator=operator, backend=backend, in_channels=in_channels
+        eval_batch,
+        operator=operator,
+        backend=backend,
+        in_channels=in_channels,
+        input_mode=selected.input_mode,
     ).to(device).detach()
     with torch.no_grad():
         q_pred = module(x)
@@ -278,6 +312,7 @@ def run_training(
             "fast_dev_run": bool(fast_dev_run),
             "manifest_path": str(authority.manifest_path),
             "in_channels": int(in_channels),
+            "input_mode": selected.input_mode,
         },
     )
     contract_path = output_root / "adapter_contract.json"
@@ -420,6 +455,7 @@ def _build_argparser() -> argparse.ArgumentParser:
             "fno_vanilla",
             "hybrid_resnet",
             "sru_net",
+            "ffno",
         ],
         help="Row identifier from the bounded four-row roster.",
     )
@@ -449,7 +485,13 @@ def _build_argparser() -> argparse.ArgumentParser:
         type=int,
         default=1,
         choices=[1, 2],
-        help="Number of channels in the born_init_image input (1 = real magnitude only).",
+        help="Number of input channels. Use 2 for input_mode=sinogram.",
+    )
+    parser.add_argument(
+        "--input-mode",
+        default="born_init_image",
+        choices=["born_init_image", "sinogram"],
+        help="BRDT learned-model input contract.",
     )
     parser.add_argument(
         "--hybrid-label",
@@ -483,6 +525,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         fast_dev_run=bool(args.fast_dev_run),
         in_channels=int(args.in_channels),
         hybrid_label=str(args.hybrid_label),
+        input_mode=str(args.input_mode),
     )
     json.dump(result, sys.stdout, indent=2, sort_keys=True)
     sys.stdout.write("\n")

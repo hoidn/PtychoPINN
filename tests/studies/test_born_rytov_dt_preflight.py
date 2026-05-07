@@ -2844,6 +2844,39 @@ def test_run_corrected_ffno_40ep_rerun_live_emits_corrected_bundle_surfaces(
     assert result["combined_manifest_json_path"].endswith("combined_manifest.json")
 
 
+def test_run_sinogram_input_40ep_dry_run_writes_contract(tmp_path):
+    from scripts.studies.born_rytov_dt import run_sinogram_input_40ep as sino_mod
+
+    manifest = _build_decision_support_manifest(tmp_path)
+    for rel_path in ("train.h5", "val.h5", "test.h5"):
+        (tmp_path / rel_path).touch()
+    manifest_path = tmp_path / "dataset_manifest.json"
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    output_root = tmp_path / "sinogram_input_dry"
+    result = sino_mod.run_sinogram_input_40ep(
+        manifest_path=manifest_path,
+        output_root=output_root,
+        epochs=1,
+        batch_size=2,
+        dry_run=True,
+        fixed_sample_ids=[255],
+        required_paper_sample=255,
+    )
+
+    assert result["dry_run"] is True
+    payload = json.loads((output_root / "preflight_manifest.json").read_text())
+    assert payload["backlog_item"] == "2026-05-07-brdt-sinogram-input-40ep-paper-evidence"
+    assert payload["input_contract"]["input_mode"] == "sinogram"
+    assert payload["input_contract"]["in_channels"] == 2
+    assert {row["row_id"] for row in payload["rows"]} == {
+        "classical_born_backprop",
+        "ffno",
+        "sru_net",
+    }
+    assert all(row["input_mode"] == "sinogram" for row in payload["rows"])
+
+
 def test_run_brdt_40ep_paper_evidence_live_writes_histories_audit_and_gate(tmp_path):
     from scripts.studies.born_rytov_dt import (
         run_brdt_40ep_paper_evidence as paper_mod,
