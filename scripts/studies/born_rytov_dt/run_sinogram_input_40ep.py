@@ -32,6 +32,10 @@ SCRIPT_PATH = "scripts/studies/born_rytov_dt/run_sinogram_input_40ep.py"
 BACKLOG_ITEM = "2026-05-07-brdt-sinogram-input-40ep-paper-evidence"
 CLAIM_BOUNDARY = "paper_evidence_brdt_sinogram_input"
 EXPECTED_EPOCHS = 40
+EXPECTED_INPUT_CONTRACT = {
+    "input_mode": "sinogram",
+    "in_channels": 2,
+}
 DEFAULT_MANIFEST = Path(
     ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/"
     "2026-04-29-brdt-four-row-preflight/decision_support_dataset/"
@@ -627,11 +631,16 @@ def _run_sinogram_input_40ep_inner(
             gate_rows=gate_rows,
             sample_id=int(required_paper_sample),
         )
+        manifest_input_contract = json.loads(
+            preflight_manifest_path.read_text()
+        ).get("input_contract")
         gate_payload = conv_mod.build_paper_evidence_gate(
             backlog_item=BACKLOG_ITEM,
             expected_epochs=EXPECTED_EPOCHS,
             rows=gate_rows,
             provenance_checks=provenance_checks,
+            input_contract=manifest_input_contract,
+            expected_input_contract=EXPECTED_INPUT_CONTRACT,
         )
         conv_mod.write_paper_evidence_gate(paper_evidence_gate_path, gate_payload)
         paper_mod._reseed_top_level_manifest_with_gate(

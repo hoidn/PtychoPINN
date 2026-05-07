@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-07T12:52:45.533589+00:00",
+  "generated_at_utc": "2026-05-07T13:12:06.668820+00:00",
   "status_vocabulary": {
     "paper_grade": "Evidence satisfies the current paper-facing provenance contract and may support headline claims.",
     "full_training": "Evidence proves a same-protocol full-training benchmark lane rather than a capped substitute.",
@@ -76,9 +76,11 @@
       "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
       "authoritative_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
       "paper_evidence_gate_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/paper_evidence_gate.json",
+      "preflight_manifest_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/preflight_manifest.json",
       "combined_manifest_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_manifest.json",
       "visual_manifest_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visual_manifest.json",
       "metrics_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+      "metric_schema_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metric_schema.json",
       "run_exit_status_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/run_exit_status.json",
       "runtime_provenance_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/runtime_provenance.json",
       "expected_claim_boundary": "paper_evidence_brdt_additive",
@@ -923,7 +925,7 @@
           "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
           "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
           "metric_schema": {
-            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metric_schema.json",
             "schema_version": "brdt_preflight_metrics_v1"
           },
           "table_artifacts": [
@@ -969,7 +971,7 @@
           "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
           "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
           "metric_schema": {
-            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metric_schema.json",
             "schema_version": "brdt_preflight_metrics_v1"
           },
           "table_artifacts": [
@@ -1017,7 +1019,7 @@
           "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
           "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
           "metric_schema": {
-            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metric_schema.json",
             "schema_version": "brdt_preflight_metrics_v1"
           },
           "table_artifacts": [
@@ -1065,7 +1067,7 @@
           "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
           "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
           "metric_schema": {
-            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metric_schema.json",
             "schema_version": "brdt_preflight_metrics_v1"
           },
           "table_artifacts": [
@@ -1111,7 +1113,7 @@
           "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
           "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
           "metric_schema": {
-            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metric_schema.json",
             "schema_version": "brdt_preflight_metrics_v1"
           },
           "table_artifacts": [
@@ -1157,7 +1159,7 @@
           "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
           "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
           "metric_schema": {
-            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metric_schema.json",
             "schema_version": "brdt_preflight_metrics_v1"
           },
           "table_artifacts": [
@@ -1689,7 +1691,7 @@
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
       "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
       "metric_schema": {
-        "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+        "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metric_schema.json",
         "schema_version": "brdt_preflight_metrics_v1"
       },
       "table_artifacts": [
@@ -1735,7 +1737,7 @@
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
       "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
       "metric_schema": {
-        "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+        "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metric_schema.json",
         "schema_version": "brdt_preflight_metrics_v1"
       },
       "table_artifacts": [
@@ -1781,7 +1783,7 @@
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
       "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
       "metric_schema": {
-        "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+        "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metric_schema.json",
         "schema_version": "brdt_preflight_metrics_v1"
       },
       "table_artifacts": [

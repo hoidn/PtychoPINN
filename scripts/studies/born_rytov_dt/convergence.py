@@ -152,12 +152,38 @@ def write_convergence_audit_csv(path: Path, payload: Mapping[str, Any]) -> None:
             )
 
 
+def _check_input_contract(
+    *,
+    input_contract: Optional[Mapping[str, Any]],
+    expected_input_contract: Optional[Mapping[str, Any]],
+) -> list[str]:
+    """Return a list of failed input-contract gate keys.
+
+    When ``expected_input_contract`` is provided, the gate refuses to promote
+    a bundle whose ``input_contract`` block disagrees on any required field
+    (typically ``input_mode`` / ``in_channels``). This makes the gate enforce
+    the manifest contract instead of accepting arbitrary contract metadata.
+    """
+    if not expected_input_contract:
+        return []
+    failed: list[str] = []
+    if not isinstance(input_contract, Mapping):
+        return ["input_contract.missing"]
+    for key, expected_value in expected_input_contract.items():
+        actual = input_contract.get(key)
+        if actual != expected_value:
+            failed.append(f"input_contract.{key}")
+    return failed
+
+
 def build_paper_evidence_gate(
     *,
     backlog_item: str,
     expected_epochs: int,
     rows: Mapping[str, Mapping[str, Any]],
     provenance_checks: Mapping[str, bool],
+    input_contract: Optional[Mapping[str, Any]] = None,
+    expected_input_contract: Optional[Mapping[str, Any]] = None,
 ) -> Dict[str, Any]:
     failed_gate_checks = []
     any_blocked = False
@@ -174,6 +200,12 @@ def build_paper_evidence_gate(
     for key, ok in provenance_checks.items():
         if not bool(ok):
             failed_gate_checks.append(str(key))
+    failed_gate_checks.extend(
+        _check_input_contract(
+            input_contract=input_contract,
+            expected_input_contract=expected_input_contract,
+        )
+    )
     promotion_status = "passed"
     claim_boundary = "paper_evidence_brdt_additive"
     row_status = "completed"
@@ -184,7 +216,7 @@ def build_paper_evidence_gate(
     elif failed_gate_checks:
         promotion_status = "failed"
         claim_boundary = "decision_support_convergence_followup"
-    return {
+    payload: Dict[str, Any] = {
         "schema_version": PAPER_EVIDENCE_GATE_SCHEMA_VERSION,
         "backlog_item": backlog_item,
         "expected_epochs": int(expected_epochs),
@@ -195,6 +227,12 @@ def build_paper_evidence_gate(
         "rows": {str(k): dict(v) for k, v in rows.items()},
         "provenance_checks": {str(k): bool(v) for k, v in provenance_checks.items()},
     }
+    if expected_input_contract is not None:
+        payload["input_contract"] = (
+            dict(input_contract) if isinstance(input_contract, Mapping) else None
+        )
+        payload["expected_input_contract"] = dict(expected_input_contract)
+    return payload
 
 
 def write_paper_evidence_gate(path: Path, payload: Mapping[str, Any]) -> None:

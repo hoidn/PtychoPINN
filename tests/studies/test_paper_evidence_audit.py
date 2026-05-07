@@ -428,6 +428,51 @@ def test_audit_summary_records_brdt_additive_authority_and_lineage():
     assert sync["brdt_claim_boundary_present"] is True
 
 
+def test_brdt_manifest_metric_schema_path_resolves_to_metric_schema_json():
+    module = _load_audit_module()
+    manifest = module.build_manifest(_default_inputs(), repo_root=REPO_ROOT)
+
+    brdt_rows = [row for row in manifest["row_registry"] if row["pillar_id"] == "brdt"]
+    assert brdt_rows, "BRDT rows missing from manifest row_registry"
+    for row in brdt_rows:
+        schema = row.get("metric_schema") or {}
+        path = str(schema.get("path") or "")
+        assert path.endswith("/metric_schema.json"), (
+            f"BRDT row {row['row_id']!r} metric_schema.path must resolve to metric_schema.json, got {path!r}"
+        )
+
+
+def test_load_brdt_authority_rejects_preflight_manifest_disagreement():
+    module = _load_audit_module()
+    inputs = _default_inputs()
+    brdt_inputs = dict(inputs["brdt"])
+
+    preflight_path = REPO_ROOT / brdt_inputs["preflight_manifest_path"]
+    preflight = json.loads(preflight_path.read_text(encoding="utf-8"))
+
+    tampered_path = preflight_path.with_name("preflight_manifest_tampered.json")
+    try:
+        tampered = dict(preflight)
+        tampered["promotion_status"] = "pending"
+        tampered_path.write_text(json.dumps(tampered, indent=2), encoding="utf-8")
+        brdt_inputs["preflight_manifest_path"] = str(tampered_path.relative_to(REPO_ROOT))
+        with pytest.raises(ValueError, match="preflight_manifest.promotion_status"):
+            module.load_brdt_authority(brdt_inputs, repo_root=REPO_ROOT)
+    finally:
+        tampered_path.unlink(missing_ok=True)
+
+    tampered_path = preflight_path.with_name("preflight_manifest_claim_tampered.json")
+    try:
+        tampered = dict(preflight)
+        tampered["claim_boundary"] = "paper_evidence_brdt_sinogram_input"
+        tampered_path.write_text(json.dumps(tampered, indent=2), encoding="utf-8")
+        brdt_inputs["preflight_manifest_path"] = str(tampered_path.relative_to(REPO_ROOT))
+        with pytest.raises(ValueError, match="claim boundary"):
+            module.load_brdt_authority(brdt_inputs, repo_root=REPO_ROOT)
+    finally:
+        tampered_path.unlink(missing_ok=True)
+
+
 def test_summary_records_emitted_paths_and_verification_logs():
     module = _load_audit_module()
     manifest = module.build_manifest(_default_inputs(), repo_root=REPO_ROOT)

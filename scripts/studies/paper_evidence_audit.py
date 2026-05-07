@@ -198,9 +198,11 @@ def build_default_input_manifest(repo_root: Path | str) -> dict[str, Any]:
             ),
             "authoritative_root": brdt_root,
             "paper_evidence_gate_path": f"{brdt_root}/paper_evidence_gate.json",
+            "preflight_manifest_path": f"{brdt_root}/preflight_manifest.json",
             "combined_manifest_path": f"{brdt_root}/combined_manifest.json",
             "visual_manifest_path": f"{brdt_root}/visual_manifest.json",
             "metrics_path": f"{brdt_root}/metrics.json",
+            "metric_schema_path": f"{brdt_root}/metric_schema.json",
             "run_exit_status_path": f"{brdt_root}/run_exit_status.json",
             "runtime_provenance_path": f"{brdt_root}/runtime_provenance.json",
             "expected_claim_boundary": "paper_evidence_brdt_additive",
@@ -731,7 +733,7 @@ def _normalize_brdt_row(
         "source_summary": brdt_inputs["summary_path"],
         "source_root": authoritative_root,
         "metric_schema": {
-            "path": brdt_inputs["metrics_path"],
+            "path": brdt_inputs["metric_schema_path"],
             "schema_version": "brdt_preflight_metrics_v1",
         },
         "table_artifacts": [
@@ -778,9 +780,11 @@ def load_brdt_authority(brdt_inputs: dict[str, Any], *, repo_root: Path) -> dict
         authoritative_root=authoritative_root,
         path_values={
             "paper_evidence_gate_path": brdt_inputs["paper_evidence_gate_path"],
+            "preflight_manifest_path": brdt_inputs["preflight_manifest_path"],
             "combined_manifest_path": brdt_inputs["combined_manifest_path"],
             "visual_manifest_path": brdt_inputs["visual_manifest_path"],
             "metrics_path": brdt_inputs["metrics_path"],
+            "metric_schema_path": brdt_inputs["metric_schema_path"],
             "run_exit_status_path": brdt_inputs["run_exit_status_path"],
             "runtime_provenance_path": brdt_inputs["runtime_provenance_path"],
         },
@@ -788,9 +792,11 @@ def load_brdt_authority(brdt_inputs: dict[str, Any], *, repo_root: Path) -> dict
     )
 
     gate = _load_json(repo_root, brdt_inputs["paper_evidence_gate_path"])
+    preflight_manifest = _load_json(repo_root, brdt_inputs["preflight_manifest_path"])
     combined_manifest = _load_json(repo_root, brdt_inputs["combined_manifest_path"])
     visual_manifest = _load_json(repo_root, brdt_inputs["visual_manifest_path"])
     metrics_payload = _load_json(repo_root, brdt_inputs["metrics_path"])
+    metric_schema_payload = _load_json(repo_root, brdt_inputs["metric_schema_path"])
     run_exit_status = _load_json(repo_root, brdt_inputs["run_exit_status_path"])
 
     expected_claim = brdt_inputs["expected_claim_boundary"]
@@ -800,9 +806,11 @@ def load_brdt_authority(brdt_inputs: dict[str, Any], *, repo_root: Path) -> dict
 
     gate_claim_values = {
         str(gate.get("claim_boundary")),
+        str(preflight_manifest.get("claim_boundary")),
         str(combined_manifest.get("claim_boundary")),
         str(visual_manifest.get("claim_boundary")),
         str(metrics_payload.get("claim_boundary")),
+        str(metric_schema_payload.get("claim_boundary")),
     }
     if gate_claim_values != {expected_claim}:
         raise ValueError(
@@ -812,6 +820,11 @@ def load_brdt_authority(brdt_inputs: dict[str, Any], *, repo_root: Path) -> dict
     if str(gate.get("promotion_status")) != expected_status:
         raise ValueError(
             f"BRDT promotion_status is not {expected_status!r}: {gate.get('promotion_status')!r}"
+        )
+    if str(preflight_manifest.get("promotion_status")) != expected_status:
+        raise ValueError(
+            "BRDT preflight_manifest.promotion_status disagrees with gate: "
+            f"{preflight_manifest.get('promotion_status')!r} vs {expected_status!r}"
         )
     if list(gate.get("failed_gate_checks", [])):
         raise ValueError(

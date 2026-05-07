@@ -2711,6 +2711,72 @@ def test_paper_evidence_gate_requires_40_history_and_separate_promotion_status()
     assert "ffno.history_records" in gate["failed_gate_checks"]
 
 
+def _passing_gate_kwargs():
+    return {
+        "backlog_item": "2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+        "expected_epochs": 40,
+        "rows": {
+            "ffno": {
+                "row_status": "completed",
+                "history_records": 40,
+                "scheduler_matches_contract": True,
+            },
+            "sru_net": {
+                "row_status": "completed",
+                "history_records": 40,
+                "scheduler_matches_contract": True,
+            },
+        },
+        "provenance_checks": {
+            "runtime_provenance": True,
+            "dataset_identity": True,
+            "split_manifest": True,
+            "sample_255_visual_bundle": True,
+            "exit_code_proof": True,
+            "model_profiles": True,
+            "run_log_present": True,
+        },
+    }
+
+
+def test_paper_evidence_gate_enforces_sinogram_input_contract():
+    from scripts.studies.born_rytov_dt import convergence as conv_mod
+
+    expected_contract = {"input_mode": "sinogram", "in_channels": 2}
+
+    matching = conv_mod.build_paper_evidence_gate(
+        **_passing_gate_kwargs(),
+        input_contract={
+            "input_mode": "sinogram",
+            "in_channels": 2,
+            "model_input_source": "measured complex sinogram real/imag channels",
+        },
+        expected_input_contract=expected_contract,
+    )
+    assert matching["promotion_status"] == "passed"
+    assert matching["claim_boundary"] == "paper_evidence_brdt_additive"
+    assert matching["failed_gate_checks"] == []
+    assert matching["expected_input_contract"] == expected_contract
+
+    mismatched = conv_mod.build_paper_evidence_gate(
+        **_passing_gate_kwargs(),
+        input_contract={"input_mode": "born_image", "in_channels": 1},
+        expected_input_contract=expected_contract,
+    )
+    assert mismatched["promotion_status"] == "failed"
+    assert mismatched["claim_boundary"] == "decision_support_convergence_followup"
+    assert "input_contract.input_mode" in mismatched["failed_gate_checks"]
+    assert "input_contract.in_channels" in mismatched["failed_gate_checks"]
+
+    missing = conv_mod.build_paper_evidence_gate(
+        **_passing_gate_kwargs(),
+        input_contract=None,
+        expected_input_contract=expected_contract,
+    )
+    assert missing["promotion_status"] == "failed"
+    assert "input_contract.missing" in missing["failed_gate_checks"]
+
+
 def test_run_brdt_40ep_paper_evidence_dry_run_writes_locked_manifest(tmp_path):
     from scripts.studies.born_rytov_dt import (
         run_brdt_40ep_paper_evidence as paper_mod,
