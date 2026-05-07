@@ -73,7 +73,12 @@
             "amp_mse": 0.010589946061372757,
             "phase_mse": 0.03047779600080815,
             "amp_ssim": 0.890305374043404,
-            "phase_ssim": 0.9596438877920995
+            "phase_ssim": 0.9596438877920995,
+            "final_ffno_pair_key": "four_block_no_refiner",
+            "final_ffno_depth_label": "depth4_no_refiner",
+            "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_final_four_block_no_refiner_ffno_pair",
+            "source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z",
+            "source_metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z/runs/pinn_ffno/metrics.json"
         },
         {
             "row_id": "pinn_hybrid_resnet",
@@ -117,7 +122,16 @@
             "amp_mse": 0.195674866437912,
             "phase_mse": 0.006884107531901606,
             "amp_ssim": 0.2650063795551529,
-            "phase_ssim": 0.9015290958935847
+            "phase_ssim": 0.9015290958935847,
+            "final_ffno_pair_key": "four_block_no_refiner",
+            "final_ffno_depth_label": "depth4_no_refiner",
+            "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_final_four_block_no_refiner_ffno_pair",
+            "source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z",
+            "source_metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z/runs/supervised_ffno/metrics.json",
+            "historical_proxy_lineage": {
+                "metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z/runs/supervised_ffno/metrics.json",
+                "notes": "Historical fno_cnn_blocks=2 FFNO-local proxy lineage only."
+            }
         },
         {
             "row_id": "supervised_neuralop_uno",

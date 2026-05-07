@@ -371,6 +371,50 @@ def test_write_cdi_extended_assets_records_final_pair_provenance(tmp_path):
     )
 
 
+def test_write_cdi_extended_assets_records_per_row_active_ffno_provenance(tmp_path):
+    write_cdi_extended_assets(
+        output_dir=tmp_path,
+        final_ffno_pair=resolve_cdi_final_ffno_pair("depth24_no_refiner"),
+        final_output_stem="ffno_final_depth24pair",
+    )
+
+    payload = json.loads(
+        (tmp_path / "cdi_lines128_metrics_extended.json").read_text(encoding="utf-8")
+    )
+    rows_by_id = {row["row_id"]: row for row in payload["rows"]}
+
+    pinn_ffno = rows_by_id["pinn_ffno"]
+    assert pinn_ffno["final_ffno_pair_key"] == "depth24_no_refiner"
+    assert pinn_ffno["final_ffno_depth_label"] == "depth24_no_refiner"
+    assert pinn_ffno["claim_boundary"] == (
+        "complete_lines128_cdi_benchmark_plus_uno_extension_"
+        "with_final_depth24_no_refiner_ffno_pair"
+    )
+    assert pinn_ffno["source_root"].endswith(
+        "2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z"
+    )
+    assert pinn_ffno["source_metrics_json"].endswith(
+        "ffno_depth24_20260507T052301Z/runs/pinn_ffno_depth24/metrics.json"
+    )
+    assert "historical_proxy_lineage" not in pinn_ffno
+
+    supervised_ffno = rows_by_id["supervised_ffno"]
+    assert supervised_ffno["final_ffno_pair_key"] == "depth24_no_refiner"
+    assert supervised_ffno["claim_boundary"] == pinn_ffno["claim_boundary"]
+    assert supervised_ffno["source_root"].endswith(
+        "2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun/runs/"
+        "supervised_ffno_depth24_20260507T192840Z"
+    )
+    assert supervised_ffno["historical_proxy_lineage"]["metrics_json"].endswith(
+        "2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/"
+        "supervised_ffno_extension_20260430T180217Z/runs/supervised_ffno/metrics.json"
+    )
+
+    non_ffno_pinn = rows_by_id["pinn"]
+    assert "final_ffno_pair_key" not in non_ffno_pinn
+    assert "claim_boundary" not in non_ffno_pinn
+
+
 def _write_brdt_sample255_source_arrays(root):
     root.mkdir(parents=True)
     yy, xx = np.mgrid[:128, :128].astype(np.float32)

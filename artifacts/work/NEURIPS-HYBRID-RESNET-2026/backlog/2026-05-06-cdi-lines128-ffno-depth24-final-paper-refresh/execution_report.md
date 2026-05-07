@@ -2,42 +2,53 @@
 
 ## Completed In This Pass
 
-- Addressed the High implementation-review finding by populating the
-  machine-readable checks ledger
-  (`artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`)
-  with every archived verification command, exit code, and log path required by
-  the plan: the three preflight pytest selectors, the new postfix efficiency
-  selector, the collect-only proof for the changed test module, both compileall
-  smokes, the deterministic refresh invocation log, and all six canonical JSON
-  validations. The checks JSON now lists 14 commands (up from 3).
-- Addressed the Medium implementation-review finding in
-  `scripts/studies/paper_efficiency_table.py` (`_collect_cdi_rows`). The active
-  FFNO rows (`pinn_ffno`, `supervised_ffno`) now derive their `claim_boundary`
-  directly from the resolved `final_ffno_pair.claim_boundary`, instead of
-  silently inheriting the table-level boundary recorded in
-  `tables/cdi_lines128_metrics_extended.json`. Standalone calls such as
-  `write_paper_efficiency_table(..., cdi_final_ffno_pair_key="depth24_no_refiner")`
-  now emit the matching depth-24 claim boundary even when the canonical CDI
-  table on disk still reflects the four-block refresh. Non-FFNO CDI rows
-  continue to inherit their lineage claim boundary unchanged.
+- Addressed the Medium implementation-review finding by adding per-row
+  provenance to the active CDI FFNO rows emitted by
+  `write_cdi_extended_assets()` in `scripts/studies/paper_results_refresh.py`.
+  Each `pinn_ffno` and `supervised_ffno` row in
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended.json`
+  now carries `final_ffno_pair_key`, `final_ffno_depth_label`, `claim_boundary`,
+  `source_root`, and `source_metrics_json`. The `supervised_ffno` row also
+  carries `historical_proxy_lineage` pointing at the historical
+  `fno_cnn_blocks=2` FFNO-local proxy metrics. CSV/TeX renderings continue to
+  use the unchanged metric-only row shape, so downstream LaTeX consumers are
+  unaffected.
 - Added a focused regression test
-  (`tests/studies/test_paper_efficiency_table.py::test_collect_cdi_rows_uses_final_pair_claim_boundary_for_active_ffno_rows`)
-  that pins the corrected precedence: under
-  `cdi_final_ffno_pair_key="depth24_no_refiner"`, the active FFNO rows must
-  carry the depth-24 claim boundary while non-FFNO rows must not.
-- Re-ran postfix verification after the code change and recorded the fresh
-  evidence under the item's verification root: `pytest_efficiency_postfix.log`,
-  `compileall_postfix.log`, `pytest_collect.log`, plus refreshed `json_*.log`
-  proofs for the six canonical JSON outputs.
+  (`tests/studies/test_paper_results_refresh.py::test_write_cdi_extended_assets_records_per_row_active_ffno_provenance`)
+  that pins the per-row provenance fields for both active FFNO rows and asserts
+  non-FFNO rows (`pinn`) do not gain those fields.
+- Addressed the High implementation-review finding by repopulating
+  `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
+  with the full archived proof set: 16 commands now recorded with their
+  exit codes and verification log paths (preflight + postfix pytest selectors,
+  the new postfix batch for the main paper-refresh selectors, the collect-only
+  proof for the changed test module, both compileall smokes, the deterministic
+  refresh invocation log, and all six canonical JSON validations).
+- Re-ran the postfix verification suite after the code change and archived
+  fresh evidence under
+  `artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/`:
+  `pytest_postfix.log` (12 passed, 44 deselected, up from 11 passed because of
+  the new regression test), `pytest_model_config_postfix.log` (7 passed),
+  `pytest_efficiency_postfix.log` (10 passed), `pytest_collect.log` (73 tests
+  collected, up from 72 because of the new regression test), and
+  `compileall_postfix.log` (exit 0).
+- Re-ran the deterministic refresh command for the four-block no-refiner pair
+  to write the per-row provenance into both the canonical
+  `cdi_lines128_metrics_extended.json` and the versioned
+  `cdi_lines128_metrics_extended_ffno_final_depth4pair.json`. Refreshed the
+  six canonical JSON pretty-print logs in
+  `verification/json_*.log` afterwards.
 
 ## Completed Current-Scope Work
 
 - Task 1 — Audit prerequisites and freeze the promotion rule.
 - Task 2 — Parameterize the paper-refresh generators around an explicit final
-  FFNO pair, with the standalone-writer claim-boundary precedence now also
-  matching the resolved pair.
+  FFNO pair, including per-row active FFNO provenance in the regenerated
+  metrics JSON and a same-depth claim-boundary precedence for the standalone
+  efficiency writer.
 - Task 3 — Regenerate final CDI FFNO paper-local assets from the chosen
-  four-block no-refiner pair (canonical + versioned outputs).
+  four-block no-refiner pair (canonical + versioned outputs, including the
+  per-row provenance fields above).
 - Task 4 — Refresh durable evidence and study discovery surfaces so the
   promotion decision is consistent across the manifest, indexes, evidence
   matrix, and study catalog.
@@ -46,16 +57,16 @@
 
 ## Follow-Up Work
 
-- Implementation-review medium follow-up: extend the model-config and
-  efficiency writers to emit versioned copies before overwriting canonical
-  filenames, matching the plan's preferred packaging for those writer
-  surfaces. The one-shot refresh flow already produces matching versioned
-  outputs via `paper_results_refresh.py`; tracking the writer-level versioning
-  as a separate non-blocking item.
+- Implementation-review medium follow-up (writer-level versioning): extend the
+  model-config and efficiency writers to emit versioned copies before
+  overwriting canonical filenames, matching the plan's preferred packaging for
+  those writer surfaces. The one-shot refresh flow already produces matching
+  versioned outputs via `paper_results_refresh.py`; tracking the writer-level
+  versioning as a separate non-blocking item.
 - Pyright currently reports pre-existing argument-type findings in
-  `paper_efficiency_table.py` (lines 135, 144, 147) and an unused `repo_root`
-  finding (line 533). These are not introduced by this pass and are not in
-  scope for the current backlog item. Tracking as code-quality cleanup.
+  `paper_results_refresh.py` (lines 438, 626, 832, 833, 840, 850, 851, etc.)
+  and `paper_efficiency_table.py` that are unrelated to this pass. Tracking
+  as code-quality cleanup.
 
 ## Residual Risks
 
@@ -64,7 +75,7 @@
   readers must not treat the versioned depth-24 studies as manuscript-facing
   replacement authority without a new explicit refresh summary.
 - This pass updates only repo-local paper assets, the verification ledger, and
-  the standalone-writer claim-boundary precedence. It does not update
+  the row-level provenance in the regenerated metrics JSON. It does not update
   `/home/ollie/Documents/neurips/` or manuscript prose, per the approved
   plan's non-goals.
 - Non-FFNO CDI rows remain reused strictly by lineage from the immutable
@@ -74,19 +85,21 @@
 ## Verification
 
 - `pytest -q tests/studies/test_paper_results_refresh.py -k 'cdi or objective or phase_zoom'`
-  passed: `11 passed, 44 deselected`
+  preflight: `11 passed, 44 deselected`
   (`verification/pytest_preflight.log`).
+- `pytest -q tests/studies/test_paper_results_refresh.py -k 'cdi or objective or phase_zoom'`
+  postfix after the per-row provenance change and new regression test:
+  `12 passed, 44 deselected` (`verification/pytest_postfix.log`).
 - `pytest -q tests/studies/test_paper_model_config_table.py`
-  passed: `7 passed`
-  (`verification/pytest_model_config_preflight.log`).
+  preflight + postfix: `7 passed`
+  (`verification/pytest_model_config_preflight.log`,
+  `verification/pytest_model_config_postfix.log`).
 - `pytest -q tests/studies/test_paper_efficiency_table.py`
-  preflight: `9 passed`
-  (`verification/pytest_efficiency_preflight.log`).
-- `pytest -q tests/studies/test_paper_efficiency_table.py`
-  postfix after the precedence fix and new regression test: `10 passed`
-  (`verification/pytest_efficiency_postfix.log`).
+  preflight: `9 passed`; postfix: `10 passed`
+  (`verification/pytest_efficiency_preflight.log`,
+  `verification/pytest_efficiency_postfix.log`).
 - `pytest --collect-only tests/studies/test_paper_results_refresh.py tests/studies/test_paper_model_config_table.py tests/studies/test_paper_efficiency_table.py -q`
-  collected `72 tests`
+  collected `73 tests`
   (`verification/pytest_collect.log`).
 - `python -m compileall -q scripts/studies` exited `0`
   (`verification/compileall_preflight.log`,
@@ -102,10 +115,14 @@
   - `tables/model_config_by_benchmark.json`
   - `tables/paper_efficiency_table.json`
   Archived under `verification/json_*.log`.
-- The refreshed canonical CDI metrics JSON records
-  `final_ffno_pair.pair_key=four_block_no_refiner`,
-  `final_output_stem=ffno_final_depth4pair`, and claim boundary
-  `complete_lines128_cdi_benchmark_plus_uno_extension_with_final_four_block_no_refiner_ffno_pair`.
-- All 14 archived commands above are now individually recorded in
+- Post-fix audit of the active FFNO rows in
+  `tables/cdi_lines128_metrics_extended.json`: both `pinn_ffno` and
+  `supervised_ffno` carry `final_ffno_pair_key=four_block_no_refiner`,
+  `final_ffno_depth_label=depth4_no_refiner`, and the matching
+  `claim_boundary`; `supervised_ffno` carries `historical_proxy_lineage`
+  pointing at the historical `fno_cnn_blocks=2` FFNO-local proxy metrics; the
+  same row-level provenance is mirrored in the versioned
+  `cdi_lines128_metrics_extended_ffno_final_depth4pair.json`.
+- All 16 archived commands above are recorded in
   `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
   with their exit codes and log paths.

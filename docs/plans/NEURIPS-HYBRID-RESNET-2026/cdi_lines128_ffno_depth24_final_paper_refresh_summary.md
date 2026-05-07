@@ -96,12 +96,33 @@ Archived under:
 
 - Refresh command:
   `paper_results_refresh_ffno_final_depth4pair.log`
-- Focused pytest batches:
-  - `pytest_preflight.log`
-  - `pytest_model_config_preflight.log`
-  - `pytest_efficiency_preflight.log`
-- Compile smoke:
-  - `compileall_preflight.log`
+- Focused pytest batches (preflight + postfix after row-level provenance fix):
+  - `pytest_preflight.log` / `pytest_postfix.log`
+  - `pytest_model_config_preflight.log` / `pytest_model_config_postfix.log`
+  - `pytest_efficiency_preflight.log` / `pytest_efficiency_postfix.log`
+- Collect-only proof for the changed test module:
+  - `pytest_collect.log`
+- Compile smokes:
+  - `compileall_preflight.log` / `compileall_postfix.log`
+- Canonical JSON pretty-print proofs:
+  - `json_paper_evidence_manifest.log`,
+    `json_model_variant_index.log`,
+    `json_ablation_index.log`,
+    `json_cdi_lines128_metrics_extended.log`,
+    `json_model_config_by_benchmark.log`,
+    `json_paper_efficiency_table.log`
+- Machine-readable checks ledger:
+  `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
+  (16 commands)
+
+The regenerated `tables/cdi_lines128_metrics_extended.json` carries per-row
+provenance on the active FFNO rows: `pinn_ffno` and `supervised_ffno` each
+record `final_ffno_pair_key`, `final_ffno_depth_label`, `claim_boundary`,
+`source_root`, and `source_metrics_json`; `supervised_ffno` additionally
+records `historical_proxy_lineage` pointing at the historical
+`fno_cnn_blocks=2` FFNO-local proxy metrics. The same row-level provenance is
+mirrored in the versioned
+`tables/cdi_lines128_metrics_extended_ffno_final_depth4pair.json`.
 
 Deterministic source-comparison standard consumed from the depth studies:
 

@@ -1,98 +1,102 @@
 {
   "status": "PASS",
   "failed_count": 0,
-  "command_count": 14,
+  "command_count": 16,
   "checks_path": "state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/12/items/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/check_commands.json",
   "results": [
     {
       "index": 1,
       "command": "pytest -q tests/studies/test_paper_results_refresh.py -k 'cdi or objective or phase_zoom'",
       "exit_code": 0,
-      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/pytest_preflight.log",
-      "summary": "11 passed, 44 deselected"
+      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/pytest_preflight.log"
     },
     {
       "index": 2,
       "command": "pytest -q tests/studies/test_paper_model_config_table.py",
       "exit_code": 0,
-      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/pytest_model_config_preflight.log",
-      "summary": "7 passed"
+      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/pytest_model_config_preflight.log"
     },
     {
       "index": 3,
       "command": "pytest -q tests/studies/test_paper_efficiency_table.py",
       "exit_code": 0,
-      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/pytest_efficiency_preflight.log",
-      "summary": "9 passed"
+      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/pytest_efficiency_preflight.log"
     },
     {
       "index": 4,
-      "command": "pytest -q tests/studies/test_paper_efficiency_table.py",
+      "command": "pytest -q tests/studies/test_paper_results_refresh.py -k 'cdi or objective or phase_zoom'",
       "exit_code": 0,
-      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/pytest_efficiency_postfix.log",
-      "summary": "10 passed (postfix after claim_boundary precedence fix and new regression test)"
+      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/pytest_postfix.log"
     },
     {
       "index": 5,
-      "command": "pytest --collect-only tests/studies/test_paper_results_refresh.py tests/studies/test_paper_model_config_table.py tests/studies/test_paper_efficiency_table.py -q",
+      "command": "pytest -q tests/studies/test_paper_model_config_table.py",
       "exit_code": 0,
-      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/pytest_collect.log",
-      "summary": "72 tests collected"
+      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/pytest_model_config_postfix.log"
     },
     {
       "index": 6,
-      "command": "python -m compileall -q scripts/studies",
+      "command": "pytest -q tests/studies/test_paper_efficiency_table.py",
       "exit_code": 0,
-      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/compileall_preflight.log",
-      "summary": "compileall succeeded with no output"
+      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/pytest_efficiency_postfix.log"
     },
     {
       "index": 7,
-      "command": "python -m compileall -q scripts/studies",
+      "command": "pytest --collect-only tests/studies/test_paper_results_refresh.py tests/studies/test_paper_model_config_table.py tests/studies/test_paper_efficiency_table.py -q",
       "exit_code": 0,
-      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/compileall_postfix.log",
-      "summary": "compileall succeeded after paper_efficiency_table.py fix"
+      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/pytest_collect.log"
     },
     {
       "index": 8,
-      "command": "python scripts/studies/paper_results_refresh.py --cdi-final-ffno-pair four_block_no_refiner --cdi-final-output-stem ffno_final_depth4pair --write-cdi-extended-assets --write-cdi-phase-zoom-figure --write-cdi-phase-zoom-per-panel-figure --write-model-config-table --write-efficiency-table",
+      "command": "python -m compileall -q scripts/studies",
       "exit_code": 0,
-      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/paper_results_refresh_ffno_final_depth4pair.log",
-      "summary": "Refreshed canonical and versioned CDI FFNO paper assets for the four-block no-refiner pair"
+      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/compileall_preflight.log"
     },
     {
       "index": 9,
-      "command": "python -m json.tool docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_manifest.json",
+      "command": "python -m compileall -q scripts/studies",
+      "exit_code": 0,
+      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/compileall_postfix.log"
+    },
+    {
+      "index": 10,
+      "command": "python scripts/studies/paper_results_refresh.py --cdi-final-ffno-pair four_block_no_refiner --cdi-final-output-stem ffno_final_depth4pair --write-cdi-extended-assets --write-cdi-phase-zoom-figure --write-cdi-phase-zoom-per-panel-figure --write-model-config-table --write-efficiency-table",
+      "exit_code": 0,
+      "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/paper_results_refresh_ffno_final_depth4pair.log"
+    },
+    {
+      "index": 11,
+      "command": "python -m json.tool docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_manifest.json >/tmp/paper_evidence_manifest.json.valid",
       "exit_code": 0,
       "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/json_paper_evidence_manifest.log"
     },
     {
-      "index": 10,
-      "command": "python -m json.tool docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json",
+      "index": 12,
+      "command": "python -m json.tool docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json >/tmp/model_variant_index.json.valid",
       "exit_code": 0,
       "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/json_model_variant_index.log"
     },
     {
-      "index": 11,
-      "command": "python -m json.tool docs/plans/NEURIPS-HYBRID-RESNET-2026/ablation_index.json",
+      "index": 13,
+      "command": "python -m json.tool docs/plans/NEURIPS-HYBRID-RESNET-2026/ablation_index.json >/tmp/ablation_index.json.valid",
       "exit_code": 0,
       "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/json_ablation_index.log"
     },
     {
-      "index": 12,
-      "command": "python -m json.tool docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended.json",
+      "index": 14,
+      "command": "python -m json.tool docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended.json >/tmp/cdi_lines128_metrics_extended.json.valid",
       "exit_code": 0,
       "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/json_cdi_lines128_metrics_extended.log"
     },
     {
-      "index": 13,
-      "command": "python -m json.tool docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/model_config_by_benchmark.json",
+      "index": 15,
+      "command": "python -m json.tool docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/model_config_by_benchmark.json >/tmp/model_config_by_benchmark.json.valid",
       "exit_code": 0,
       "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/json_model_config_by_benchmark.log"
     },
     {
-      "index": 14,
-      "command": "python -m json.tool docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/paper_efficiency_table.json",
+      "index": 16,
+      "command": "python -m json.tool docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/paper_efficiency_table.json >/tmp/paper_efficiency_table.json.valid",
       "exit_code": 0,
       "log_path": "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/json_paper_efficiency_table.log"
     }
