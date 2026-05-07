@@ -64,10 +64,11 @@ BRDT_40EP_ROOT = (
     Path(".artifacts")
     / "NEURIPS-HYBRID-RESNET-2026"
     / "backlog"
-    / "2026-05-05-brdt-supervised-born-40ep-paper-evidence"
+    / "2026-05-06-brdt-corrected-ffno-40ep-rerun"
 )
 BRDT_40EP_METRICS_JSON = BRDT_40EP_ROOT / "combined_metrics.json"
 BRDT_40EP_SPLIT_MANIFEST = BRDT_40EP_ROOT / "split_manifest.json"
+BRDT_40EP_GATE_JSON = BRDT_40EP_ROOT / "paper_evidence_gate.json"
 
 RUNTIME_FIELDS = (
     "train_wall_time_sec",
@@ -511,19 +512,23 @@ def _collect_cns_rows(repo_root: Path) -> list[EfficiencyRow]:
 
 
 def _candidate_context(repo_root: Path) -> list[dict[str, object]]:
-    table_path = _repo_path(repo_root, BRDT_TABLE_JSON)
-    if not table_path.exists():
-        return []
-    payload = _read_json(table_path)
-    return [
-        {
-            "benchmark": "BRDT",
-            "source_path": _repo_rel(repo_root, table_path),
-            "claim_boundary": payload.get("claim_boundary", "decision_support"),
-            "included": False,
-            "reason": "superseded by paper-approved BRDT 40-epoch rows",
-        }
-    ]
+    return []
+
+
+def _brdt_claim_boundary(repo_root: Path) -> str:
+    gate_path = _repo_path(repo_root, BRDT_40EP_GATE_JSON)
+    if gate_path.exists():
+        payload = _read_json(gate_path)
+        boundary = str(payload.get("claim_boundary") or "")
+        if boundary:
+            return boundary
+    metrics_path = _repo_path(repo_root, BRDT_40EP_METRICS_JSON)
+    if metrics_path.exists():
+        payload = _read_json(metrics_path)
+        boundary = str(payload.get("claim_boundary") or "")
+        if boundary:
+            return boundary
+    return "decision_support_convergence_followup"
 
 
 def _brdt_test_count(repo_root: Path) -> int | None:
@@ -547,6 +552,7 @@ def _collect_brdt_rows(repo_root: Path) -> list[EfficiencyRow]:
         return []
 
     test_count = _brdt_test_count(repo_root)
+    claim_boundary = _brdt_claim_boundary(repo_root)
     rows: list[EfficiencyRow] = []
     for table_row in table_rows:
         if not isinstance(table_row, Mapping):
@@ -567,7 +573,7 @@ def _collect_brdt_rows(repo_root: Path) -> list[EfficiencyRow]:
                 model_label=str(table_row.get("paper_label") or row_id),
                 source_path=_repo_rel(repo_root, metrics_path),
                 payload=normalized_payload,
-                claim_boundary="paper_approved_secondary_brdt",
+                claim_boundary=claim_boundary,
             )
         )
     return rows

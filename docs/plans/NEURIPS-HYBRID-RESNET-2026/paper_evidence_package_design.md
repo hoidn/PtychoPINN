@@ -263,34 +263,39 @@ differentiable forward-model reproduction are trustworthy enough to justify
 later paper-evidence promotion. Neither preflight may add rows to manuscript
 tables or result claims by itself.
 
-### BRDT 40-Epoch Promotion Attempt — Failed (2026-05-05/06)
+### BRDT 40-Epoch Corrected Additive Secondary Bundle — Passed (2026-05-06)
 
-The fresh same-contract 40-epoch BRDT bundle at
+The corrected same-contract paired BRDT bundle at
+`.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/`
+is the current additive-secondary BRDT authority.
+
+`paper_evidence_gate.json` records
+`claim_boundary=paper_evidence_brdt_additive`, `promotion_status=passed`, and
+no failed gate checks.
+
+The promoted bundle preserves the locked BRDT dataset/operator/input/split/loss
+contract, reruns `hybrid_resnet` and the corrected no-refiner `ffno` row in one
+immutable root, records genuine training-run git/host/python/torch provenance,
+stores PID-backed exit-code proof, emits per-epoch histories and convergence
+audit for both rows, and materializes the sample-`255` visual/source-array
+bundle from the corrected paired rerun.
+
+This promotion is deliberately narrow. It authorizes additive secondary BRDT
+context only:
+
+- it may support bounded manuscript-side context under
+  `paper_evidence_brdt_additive`
+- it does **not** replace CDI `lines128` or PDEBench CNS
+- it does **not** authorize same-protocol full-training BRDT competitiveness
+  claims
+- it does **not** authorize `/home/ollie/Documents/neurips/` publication by
+  itself
+
+The historical
 `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/`
-attempted promotion to additive paper evidence. Promotion did **not** pass.
-
-`paper_evidence_gate.json` records `claim_boundary=decision_support_convergence_followup`,
-`promotion_status=failed`, `failed_gate_checks=["git_provenance","host_provenance"]`.
-
-Reason: an earlier `--rebuild-meta-only` invocation under prior code overwrote
-the original training-run `runtime_provenance.json` with the rebuild host's
-snapshot. The git SHA, git-dirty state, hostname, platform, and GPU count
-existed only in the original payload and cannot be honestly recovered from the
-preserved `invocation.json` (which captures launch timestamp, tracked PID, and
-the Python/PyTorch identity but not the git/host fields). The runtime
-provenance has been honestly reconstructed from `invocation.json` via
-`--reconstruct-runtime-provenance-from-invocation`; the gate's
-`git_provenance` and `host_provenance` checks fail on the reconstructed payload
-exactly as designed, demoting the bundle rather than blessing fabricated
-values.
-
-The bundle remains usable as same-contract decision-support context (the
-metrics, history records, model state, and sample-`255` visual bundle are
-genuine training outputs). It does **not** authorize manuscript paper-evidence
-claims, does **not** add a row to any paper-grade table, and does **not**
-authorize `/home/ollie/Documents/neurips/` publication. An additive
-paper-evidence promotion would require retraining the bundle on a clean repo
-so the original runtime provenance is captured at training time.
+bundle remains preserved for provenance, but its FFNO row is a legacy
+local-refiner proxy and its reconstructed runtime provenance keeps it out of the
+current paper-facing authority path.
 
 ## Shared Provenance Contract
 

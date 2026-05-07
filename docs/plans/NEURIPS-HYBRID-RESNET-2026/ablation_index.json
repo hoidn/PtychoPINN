@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-06T23:59:59Z",
+  "last_updated_utc": "2026-05-07T04:40:13.374307Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -768,7 +768,47 @@
         "ffno (40-epoch historical local-refiner proxy)"
       ],
       "superseded_for_pure_ffno_by": "2026-05-06-brdt-corrected-ffno-row-rerun",
-      "interpretation": "Same capped BRDT contract, but the additive rerun extends only Hybrid ResNet and the historical FFNO-local-refiner proxy from 20 to 40 epochs and adds scheduler/history provenance for a formal paper-evidence gate. Post-hoc architecture caveat: the FFNO row was generated before the BRDT FFNO adapter was corrected on 2026-05-06 to remove post-bottleneck CNN refiners, so it must not be read as a pure FFNO-paper-stack result. The paper-evidence gate also did not pass: an earlier --rebuild-meta-only invocation under prior code overwrote the original training-run runtime_provenance.json with the rebuild host's snapshot; runtime_provenance.json was honestly reconstructed from invocation.json (which preserves only tracked_pid/launch_timestamp/python/torch fields), so the gate's git_provenance and host_provenance checks fail. The SRU-Net row remains secondary BRDT context, but the paired FFNO comparison, efficiency fields, and any pure-FFNO manuscript claim require the corrected active rerun. Both historical rows are still materially improving at stop with no LR reductions, so this family must not be read as a full-convergence or full-training BRDT competitiveness result."
+      "interpretation": "Same capped BRDT contract, but the additive rerun extends only Hybrid ResNet and the historical FFNO-local-refiner proxy from 20 to 40 epochs and adds scheduler/history provenance for a formal paper-evidence gate. Post-hoc architecture caveat: the FFNO row was generated before the BRDT FFNO adapter was corrected on 2026-05-06 to remove post-bottleneck CNN refiners, so it must not be read as a pure FFNO-paper-stack result. The paper-evidence gate also did not pass: an earlier --rebuild-meta-only invocation under prior code overwrote the original training-run runtime_provenance.json with the rebuild host's snapshot; runtime_provenance.json was honestly reconstructed from invocation.json (which preserves only tracked_pid/launch_timestamp/python/torch fields), so the gate's git_provenance and host_provenance checks fail. The SRU-Net row remains secondary BRDT context, but the paired FFNO comparison, efficiency fields, and any pure-FFNO manuscript claim require the corrected active rerun. Both historical rows are still materially improving at stop with no LR reductions, so this family must not be read as a full-convergence or full-training BRDT competitiveness result.",
+      "superseded_by": "brdt_corrected_ffno_40ep_additive_secondary_bundle"
+    },
+    {
+      "family_id": "brdt_corrected_ffno_40ep_additive_secondary_bundle",
+      "task": "candidate_brdt",
+      "fixed_contract": "brdt_paper_evidence_2048cap_40ep",
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "changed_factors": [
+        "corrected pure-FFNO prerequisite replaces the historical FFNO-local-refiner proxy",
+        "epoch budget (20 -> 40 for the paired rerun rows)",
+        "runtime provenance, PID-backed exit proof, and checked-in additive-secondary evidence surfaces"
+      ],
+      "completed_items": [
+        "2026-04-29-brdt-four-row-preflight",
+        "2026-05-06-brdt-corrected-ffno-row-rerun",
+        "2026-05-06-brdt-corrected-ffno-40ep-rerun"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_preflight_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_corrected_ffno_row_rerun_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_corrected_ffno_40ep_rerun_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-row-rerun/",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/"
+      ],
+      "comparison_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/convergence_audit.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/convergence_audit.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/paper_evidence_gate.json"
+      ],
+      "rows": [
+        "classical_born_backprop (baseline lineage sample-255 comparator)",
+        "hybrid_resnet (20-epoch baseline)",
+        "hybrid_resnet (40-epoch corrected paired rerun)",
+        "ffno (20-epoch corrected no-refiner prerequisite)",
+        "ffno (40-epoch corrected no-refiner paired rerun)"
+      ],
+      "interpretation": "Current paired BRDT additive-secondary authority. The corrected bundle preserves the locked contract, replaces the historical FFNO-local-refiner proxy with the corrected no-refiner FFNO row, and passes the paper-facing gate under paper_evidence_brdt_additive. Both rows remain materially improving at stop, so the family supports bounded secondary manuscript context only and does not authorize full-training BRDT competitiveness or any replacement of the CDI/CNS pillars."
     }
   ],
   "maintenance_rules": [

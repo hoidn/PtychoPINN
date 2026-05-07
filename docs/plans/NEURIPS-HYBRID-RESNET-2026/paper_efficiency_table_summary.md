@@ -24,4 +24,4 @@ The table groups rows by benchmark and keeps runtime fields as provenance contex
 
 ## Superseded Context
 
-- BRDT: superseded by paper-approved BRDT 40-epoch rows (`docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.json`)
+- None.

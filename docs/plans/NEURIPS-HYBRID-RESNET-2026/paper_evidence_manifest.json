@@ -1,5 +1,5 @@
 {
-  "generated_at_utc": "2026-05-06T03:18:11Z",
+  "generated_at_utc": "2026-05-07T04:40:13.374307Z",
   "status_vocabulary": {
     "paper_grade": "Evidence satisfies the current paper-facing provenance contract and may support headline claims.",
     "full_training": "Evidence proves a same-protocol full-training benchmark lane rather than a capped substitute.",
@@ -1340,52 +1340,47 @@
       "artifact_id": "brdt:additive_40ep_bundle",
       "row_id": "brdt_additive_40ep_bundle",
       "row_role": "additive_context",
-      "row_status": "decision_support",
-      "claim_boundary": "decision_support_convergence_followup",
-      "evidence_tier": "decision_support",
-      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md",
-      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/",
+      "row_status": "paper_grade",
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "evidence_tier": "paper_grade",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_corrected_ffno_40ep_rerun_summary.md",
+      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/",
       "metric_schema": {
-        "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/metric_schema.json"
+        "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/metric_schema.json"
       },
       "table_artifacts": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/metrics.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/metrics.csv",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/convergence_audit.json",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/convergence_audit.csv",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/paper_evidence_gate.json"
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/metrics.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/metrics.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/convergence_audit.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/convergence_audit.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/paper_evidence_gate.json"
       ],
       "figure_artifacts": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/visuals/sample_0255_compare_q.png",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/visuals/sample_0255_error_q.png",
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/visuals/sample_0255_sinogram_residual.png"
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/visuals/sample_0255_compare_q.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/visuals/sample_0255_error_q.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/visuals/sample_0255_sinogram_residual.png"
       ],
       "source_array_roots": [
-        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/figures/source_arrays"
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/figures/source_arrays"
       ],
-      "provenance_gaps": [
-        "git_provenance_unrecoverable_after_prior_rebuild_overwrote_runtime_provenance",
-        "host_provenance_unrecoverable_after_prior_rebuild_overwrote_runtime_provenance"
-      ],
-      "draftability": "draftable_context_only",
+      "provenance_gaps": [],
+      "draftability": "draftable_with_bounded_wording",
       "blocked_claims": [
         "same_protocol_full_training_brdt_competitiveness",
-        "candidate_lane_replaces_required_cdi_cns_pillars",
-        "brdt_paper_evidence_additive_promotion"
+        "candidate_lane_replaces_required_cdi_cns_pillars"
       ],
       "notes": {
         "rows": [
           "classical_born_backprop (sample-255 lineage comparator)",
-          "hybrid_resnet",
-          "ffno"
+          "hybrid_resnet (40-epoch paired rerun)",
+          "ffno (40-epoch corrected no-refiner rerun)"
         ],
         "dataset_id": "brdt128_decision_support_preflight",
         "split_label": "2048 / 256 / 256",
         "epochs": 40,
         "batch_size": 16,
         "scheduler": "ReduceLROnPlateau(factor=0.5, patience=2, threshold=0.0, min_lr=1e-5)",
-        "promotion_status": "failed",
-        "promotion_failure_reason": "An earlier --rebuild-meta-only invocation under prior code overwrote the original training-run runtime_provenance.json with the rebuild host's snapshot. The git_sha/git_dirty/hostname/platform/gpu_count fields existed only in the original payload and cannot be honestly recovered from the preserved invocation.json. runtime_provenance.json was reconstructed from invocation.json via --reconstruct-runtime-provenance-from-invocation; the gate's git_provenance and host_provenance checks fail honestly on the reconstructed payload, demoting the bundle to decision_support_convergence_followup."
+        "promotion_status": "passed"
       }
     }
   ],
@@ -1424,6 +1419,13 @@
       "headline_status": "decision_support",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md",
       "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/"
+    },
+    {
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "pillar_id": "inverse_wave_candidate",
+      "headline_status": "paper_grade",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_corrected_ffno_40ep_rerun_summary.md",
+      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/"
     }
   ],
   "provenance_gap_registry": [
@@ -1493,15 +1495,14 @@
     },
     {
       "section_id": "results_inverse_wave_candidate_lane",
-      "draftability": "draftable_context_only",
-      "supporting_status": "decision_support",
+      "draftability": "draftable_with_bounded_wording",
+      "supporting_status": "paper_grade",
       "allowed_claims": [
-        "The BRDT 40-epoch bundle remains coherent same-contract decision-support context under claim boundary decision_support_convergence_followup, comparing Hybrid ResNet and FFNO at 2048 / 256 / 256, batch 16, ReduceLROnPlateau."
+        "The BRDT paired 40-epoch bundle satisfies the additive-secondary provenance contract under claim boundary paper_evidence_brdt_additive, comparing Hybrid ResNet and corrected pure FFNO at 2048 / 256 / 256, batch 16, ReduceLROnPlateau."
       ],
       "blocked_claims": [
         "same_protocol_full_training_brdt_competitiveness",
-        "candidate_lane_replaces_required_cdi_cns_pillars",
-        "brdt_paper_evidence_additive_promotion"
+        "candidate_lane_replaces_required_cdi_cns_pillars"
       ]
     }
   ],
@@ -1533,20 +1534,14 @@
     {
       "claim_id": "same_protocol_full_training_brdt_competitiveness",
       "status": "blocked",
-      "reason": "The BRDT authority remains a capped 2048 / 256 / 256, 40-epoch decision-support lane rather than a full-training benchmark claim.",
-      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md"
+      "reason": "The BRDT authority is additive secondary evidence under paper_evidence_brdt_additive rather than a same-protocol full-training benchmark claim.",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_corrected_ffno_40ep_rerun_summary.md"
     },
     {
       "claim_id": "candidate_lane_replaces_required_cdi_cns_pillars",
       "status": "blocked",
-      "reason": "BRDT is decision-support context only and does not replace the required CDI lines128 or PDEBench CNS manuscript pillars.",
-      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md"
-    },
-    {
-      "claim_id": "brdt_paper_evidence_additive_promotion",
-      "status": "blocked",
-      "reason": "An earlier rebuild overwrote the original training-run runtime_provenance.json with the rebuild host's snapshot. git_sha/git_dirty/hostname/platform/gpu_count cannot be honestly recovered from the preserved invocation.json. The reconstructed runtime provenance fails the gate's git_provenance and host_provenance checks; promotion to paper_evidence_brdt_additive must wait until the bundle is retrained on a clean repo with full provenance capture.",
-      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md"
+      "reason": "BRDT is additive secondary context only and does not replace the required CDI lines128 or PDEBench CNS manuscript pillars.",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_corrected_ffno_40ep_rerun_summary.md"
     }
   ]
 }

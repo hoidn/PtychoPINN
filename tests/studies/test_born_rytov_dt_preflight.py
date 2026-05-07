@@ -2467,6 +2467,160 @@ def _make_synthetic_ffno_extension_bundle(tmp_path: Path, baseline_root: Path) -
     return extension_root
 
 
+def _make_synthetic_corrected_ffno_row_bundle(
+    tmp_path: Path, baseline_root: Path
+) -> Path:
+    corrected_root = tmp_path / "synthetic_corrected_ffno_row"
+    corrected_root.mkdir()
+    baseline_manifest = json.loads(
+        (baseline_root / "preflight_manifest.json").read_text()
+    )
+    baseline_metrics = json.loads((baseline_root / "metrics.json").read_text())
+    baseline_rows = {row["row_id"]: row for row in baseline_metrics["rows"]}
+
+    manifest = {
+        "schema_version": "brdt_preflight_v1",
+        "backlog_item": "2026-05-06-brdt-corrected-ffno-row-rerun",
+        "claim_boundary": "decision_support_append_only",
+        "baseline_lineage": {
+            "baseline_root": str(baseline_root),
+            "baseline_backlog_item": "2026-04-29-brdt-four-row-preflight",
+            "baseline_preflight_manifest": str(
+                baseline_root / "preflight_manifest.json"
+            ),
+            "baseline_metrics_json": str(baseline_root / "metrics.json"),
+        },
+        "dataset": dict(baseline_manifest["dataset"]),
+        "operator": dict(baseline_manifest["operator"]),
+        "input_contract": {
+            "input_mode": "born_init_image",
+            "in_channels": 1,
+            "classical_backend": {
+                "name": "local_adjoint",
+                "reason": "born_init_image_uses_locked_local_adjoint",
+                "claim_boundary": "initialization_only",
+            },
+        },
+        "training_contract": {
+            "epochs": 20,
+            "batch_size": 16,
+            "learning_rate": 2e-4,
+            "optimizer": "Adam",
+            "loss_weights": run_config.LossWeights().as_dict(),
+            "seed": 42,
+        },
+        "fixed_sample_seed": int(baseline_manifest["fixed_sample_seed"]),
+        "fixed_sample_ids": list(baseline_manifest["fixed_sample_ids"]),
+        "rows": [
+            {
+                "row_id": "ffno",
+                "model": "ffno",
+                "training": "supervised + Born consistency",
+                "input_mode": "born_init_image",
+                "dataset_id": dc.DECISION_SUPPORT_DATASET_NAME,
+                "operator_version": baseline_manifest["operator"][
+                    "validation_artifact"
+                ],
+                "row_status": "completed",
+                "paper_label": "FFNO",
+            }
+        ],
+    }
+    metrics = {
+        "schema_version": "brdt_preflight_metrics_v1",
+        "claim_boundary": "decision_support_append_only",
+        "rows": [
+            {
+                "row_id": "ffno",
+                "paper_label": "FFNO",
+                "architecture": "ffno",
+                "row_status": "completed",
+                "image": {
+                    "image_mae_phys": 0.0009,
+                    "image_rmse_phys": 0.0028,
+                    "image_relative_l2_phys": 0.50,
+                },
+                "measurement": {
+                    "meas_mae": 0.0014,
+                    "meas_rmse": 0.0028,
+                    "meas_relative_l2": 0.34,
+                },
+                "supporting": {"psnr_phys": 25.8, "ssim_phys": 0.89},
+                "runtime": {
+                    "device": "cpu",
+                    "device_name": "cpu",
+                    "epochs": 20,
+                    "batch_size": 16,
+                    "learning_rate": 2e-4,
+                    "parameter_count": 27394,
+                    "wall_time_train_s": 5.0,
+                    "wall_time_eval_s": 0.2,
+                    "row_status": "completed",
+                },
+            }
+        ],
+    }
+    combined = {
+        "schema_version": "brdt_ffno_extension_combined_v1",
+        "claim_boundary": "decision_support_append_only",
+        "extension": {
+            "backlog_item": "2026-05-06-brdt-corrected-ffno-row-rerun",
+            "root": str(corrected_root),
+        },
+        "rows": [
+            {**baseline_rows["classical_born_backprop"], "source": "baseline_lineage"},
+            {**baseline_rows["unet"], "source": "baseline_lineage"},
+            {**baseline_rows["fno_vanilla"], "source": "baseline_lineage"},
+            {**baseline_rows["hybrid_resnet"], "source": "baseline_lineage"},
+            {**metrics["rows"][0], "source": "extension"},
+        ],
+    }
+    row_dir = corrected_root / "rows" / "ffno"
+    row_dir.mkdir(parents=True)
+    (corrected_root / "preflight_manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n"
+    )
+    (corrected_root / "metrics.json").write_text(
+        json.dumps(metrics, indent=2, sort_keys=True) + "\n"
+    )
+    (corrected_root / "combined_metrics.json").write_text(
+        json.dumps(combined, indent=2, sort_keys=True) + "\n"
+    )
+    (row_dir / "model_profile.json").write_text(
+        json.dumps(
+            {
+                "row_id": "ffno",
+                "architecture": "ffno",
+                "parameter_count": 27394,
+                "arch_kwargs": {
+                    "hidden_channels": 16,
+                    "fno_modes": 8,
+                    "fno_blocks": 4,
+                    "share_spectral_weights": False,
+                    "mlp_ratio": 2.0,
+                },
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    (row_dir / "row_summary.json").write_text(
+        json.dumps(
+            {
+                "row_id": "ffno",
+                "row_status": "completed",
+                "parameter_count": 27394,
+                "model_profile_path": str(row_dir / "model_profile.json"),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n"
+    )
+    return corrected_root
+
+
 def test_train_neural_row_writes_history_with_scheduler_fields(tmp_path):
     manifest_path = _make_live_decision_support_dataset(tmp_path)
     authority = preflight_mod.load_dataset_authority(manifest_path)
@@ -2595,6 +2749,99 @@ def test_run_brdt_40ep_paper_evidence_dry_run_writes_locked_manifest(tmp_path):
     ]
     assert manifest["claim_boundary"] == "decision_support_convergence_followup"
     assert manifest["promotion_status"] == "pending"
+
+
+def test_run_corrected_ffno_40ep_rerun_dry_run_writes_corrected_backlog_item(
+    tmp_path,
+):
+    from scripts.studies.born_rytov_dt import (
+        run_corrected_ffno_40ep_rerun as corrected40_mod,
+    )
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    corrected_ffno_root = _make_synthetic_corrected_ffno_row_bundle(
+        tmp_path, baseline_root
+    )
+
+    result = corrected40_mod.run_corrected_ffno_40ep_rerun(
+        baseline_root=baseline_root,
+        ffno_root=corrected_ffno_root,
+        manifest_path=manifest_path,
+        output_root=tmp_path / "corrected_40ep_dry",
+        device_choice="cpu",
+        dry_run=True,
+        parent_argv=["--dry-run"],
+    )
+
+    assert result["dry_run"] is True
+    manifest = json.loads(
+        (tmp_path / "corrected_40ep_dry" / "preflight_manifest.json").read_text()
+    )
+    assert manifest["backlog_item"] == corrected40_mod.BACKLOG_ITEM
+    assert manifest["backlog_item"] == "2026-05-06-brdt-corrected-ffno-40ep-rerun"
+    assert manifest["training_contract"]["epochs"] == 40
+    invocation = json.loads(
+        (tmp_path / "corrected_40ep_dry" / "invocation.json").read_text()
+    )
+    assert invocation["extra"]["backlog_item"] == corrected40_mod.BACKLOG_ITEM
+    assert invocation["script"] == corrected40_mod.SCRIPT_PATH
+    assert invocation["parsed_args"]["ffno_root"] == str(corrected_ffno_root)
+
+
+def test_run_corrected_ffno_40ep_rerun_live_emits_corrected_bundle_surfaces(
+    tmp_path,
+):
+    from scripts.studies.born_rytov_dt import (
+        run_corrected_ffno_40ep_rerun as corrected40_mod,
+    )
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    baseline_root = _make_synthetic_baseline_bundle(tmp_path)
+    corrected_ffno_root = _make_synthetic_corrected_ffno_row_bundle(
+        tmp_path, baseline_root
+    )
+    output_root = tmp_path / "corrected_40ep_live"
+    contract = preflight_mod.TrainingContract(
+        epochs=1,
+        batch_size=1,
+        learning_rate=2e-4,
+        scheduler="reduce_on_plateau",
+        plateau_factor=0.5,
+        plateau_patience=2,
+        plateau_threshold=0.0,
+        plateau_min_lr=1e-5,
+    )
+
+    result = corrected40_mod.run_corrected_ffno_40ep_rerun(
+        baseline_root=baseline_root,
+        ffno_root=corrected_ffno_root,
+        manifest_path=manifest_path,
+        output_root=output_root,
+        contract=contract,
+        device_choice="cpu",
+        dry_run=False,
+        fixed_sample_ids=[0],
+        required_paper_sample=0,
+        parent_argv=["--manifest", str(manifest_path)],
+    )
+
+    combined_manifest = json.loads(
+        (output_root / "combined_manifest.json").read_text()
+    )
+    visual_manifest = json.loads((output_root / "visual_manifest.json").read_text())
+    gate_payload = json.loads((output_root / "paper_evidence_gate.json").read_text())
+    ffno_profile = json.loads(
+        (output_root / "rows" / "ffno" / "model_profile.json").read_text()
+    )
+
+    assert ffno_profile["parameter_count"] == 27394
+    assert combined_manifest["backlog_item"] == corrected40_mod.BACKLOG_ITEM
+    assert combined_manifest["ffno_root"] == str(corrected_ffno_root)
+    assert combined_manifest["claim_boundary"] == gate_payload["claim_boundary"]
+    assert visual_manifest["backlog_item"] == corrected40_mod.BACKLOG_ITEM
+    assert visual_manifest["claim_boundary"] == gate_payload["claim_boundary"]
+    assert result["combined_manifest_json_path"].endswith("combined_manifest.json")
 
 
 def test_run_brdt_40ep_paper_evidence_live_writes_histories_audit_and_gate(tmp_path):

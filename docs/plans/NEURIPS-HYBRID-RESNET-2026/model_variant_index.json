@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-07T03:15:00Z",
+  "last_updated_utc": "2026-05-07T04:40:13.374307Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -2162,7 +2162,8 @@
         "ssim_phys": 0.9556144877508974
       },
       "evidence_status": "decision_support",
-      "changed_factor": "same capped BRDT contract as the 20-epoch Hybrid ResNet row, but the training budget is extended from 20 to 40 epochs and the runner now records per-epoch history plus ReduceLROnPlateau provenance for the additive paper-evidence gate."
+      "changed_factor": "same capped BRDT contract as the 20-epoch Hybrid ResNet row, but the training budget is extended from 20 to 40 epochs and the runner now records per-epoch history plus ReduceLROnPlateau provenance for the additive paper-evidence gate.",
+      "historical_proxy_context_superseded_by": "2026-05-06-brdt-corrected-ffno-40ep-rerun"
     },
     {
       "variant_id": "brdt__ffno__supervised_plus_born_consistency__paper_evidence_additive_40ep",
@@ -2197,7 +2198,8 @@
       "evidence_status": "decision_support",
       "architecture_caveat": "Historical artifact was generated before the BRDT FFNO adapter was corrected on 2026-05-06 to remove post-bottleneck CNN refiners. Treat this as a legacy FFNO-local-refiner proxy, not as a pure FFNO-paper-stack result. Current no-refiner BRDT FFNO rejects cnn_blocks and has parameter_count=27394.",
       "superseded_for_pure_ffno_by": "2026-05-06-brdt-corrected-ffno-row-rerun",
-      "changed_factor": "same capped BRDT contract as the 20-epoch historical FFNO-local-refiner proxy row, but the training budget is extended from 20 to 40 epochs and the runner now records per-epoch history plus ReduceLROnPlateau provenance for the additive paper-evidence gate."
+      "changed_factor": "same capped BRDT contract as the 20-epoch historical FFNO-local-refiner proxy row, but the training budget is extended from 20 to 40 epochs and the runner now records per-epoch history plus ReduceLROnPlateau provenance for the additive paper-evidence gate.",
+      "historical_proxy_context_superseded_by": "2026-05-06-brdt-corrected-ffno-40ep-rerun"
     },
     {
       "variant_id": "darcy_full__hybrid_resnet_base__supervised__full_training_benchmark",
@@ -2302,6 +2304,121 @@
         "ssim_phys": 0.920131778782482
       },
       "changed_factor": "Resolved stale summary/index inconsistency in favor of the concrete baseline metrics/source-array bundle consumed by the 40-epoch additive paper-evidence rerun; sample-255 classical provenance is accepted by lineage from the completed model-based Born inverse row."
+    },
+    {
+      "variant_id": "brdt__hybrid_resnet__supervised_plus_born_consistency__paper_evidence_additive_40ep__corrected_paired_rerun",
+      "dataset_contract_id": "brdt_paper_evidence_2048cap_40ep",
+      "row_id": "hybrid_resnet",
+      "paper_label": "SRU-Net",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_resnet",
+      "training_mode": "supervised_plus_born_consistency",
+      "source_backlog_item": "2026-05-06-brdt-corrected-ffno-40ep-rerun",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_corrected_ffno_40ep_rerun_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/",
+      "metrics_json": "metrics.json",
+      "combined_metrics_json": "combined_metrics.json",
+      "convergence_audit_json": "convergence_audit.json",
+      "paper_evidence_gate_json": "paper_evidence_gate.json",
+      "history_json": "rows/hybrid_resnet/history.json",
+      "model_profile_json": "rows/hybrid_resnet/model_profile.json",
+      "baseline_variant_id": "brdt__hybrid_resnet__supervised_plus_born_consistency__decision_support_preflight",
+      "visuals": [
+        "visuals/sample_0255_compare_q.png",
+        "visuals/sample_0255_error_q.png",
+        "visuals/sample_0255_sinogram_residual.png"
+      ],
+      "parameter_count": 142018,
+      "metrics": {
+        "image_mae_phys": 0.0005739388689538549,
+        "image_rmse_phys": 0.0016312093282028085,
+        "image_relative_l2_phys": 0.2876039323417278,
+        "meas_mae": 0.0010200936587339328,
+        "meas_rmse": 0.0014760605631481344,
+        "meas_relative_l2": 0.17428087625654173,
+        "psnr_phys": 30.640423132037053,
+        "ssim_phys": 0.9552215449358379
+      },
+      "runtime": {
+        "batch_size": 16,
+        "device": "cuda",
+        "device_name": "NVIDIA GeForce RTX 3090",
+        "epochs": 40,
+        "learning_rate": 0.0002,
+        "wall_time_train_s": 170.21592409629375,
+        "wall_time_eval_s": 0.6811182098463178
+      },
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "evidence_status": "paper_grade",
+      "changed_factor": "same capped BRDT contract as the 20-epoch Hybrid ResNet row, but rerun in the corrected paired 40-epoch bundle with scheduler/history provenance and promoted additive-secondary gate status.",
+      "interpretation": "Current additive-secondary BRDT Hybrid ResNet authority. This rerun remains the strongest image-space row in the paired corrected 40-epoch bundle.",
+      "20_epoch_comparison": {
+        "image_relative_l2_phys_delta": -0.03139517035984929,
+        "meas_relative_l2_delta": -0.02495248317988724,
+        "psnr_phys_delta": 0.8998928338451755,
+        "ssim_phys_delta": 0.008075969755863333,
+        "final_learning_rate": 0.0001,
+        "lr_reduction_count": 1,
+        "materially_improving_at_stop": true
+      }
+    },
+    {
+      "variant_id": "brdt__ffno__supervised_plus_born_consistency__paper_evidence_additive_40ep__corrected_no_refiner",
+      "dataset_contract_id": "brdt_paper_evidence_2048cap_40ep",
+      "row_id": "ffno",
+      "paper_label": "FFNO",
+      "architecture_id": "ffno",
+      "model_family": "factorized_fourier_operator",
+      "training_mode": "supervised_plus_born_consistency",
+      "source_backlog_item": "2026-05-06-brdt-corrected-ffno-40ep-rerun",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_corrected_ffno_40ep_rerun_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/",
+      "metrics_json": "metrics.json",
+      "combined_metrics_json": "combined_metrics.json",
+      "convergence_audit_json": "convergence_audit.json",
+      "paper_evidence_gate_json": "paper_evidence_gate.json",
+      "history_json": "rows/ffno/history.json",
+      "model_profile_json": "rows/ffno/model_profile.json",
+      "baseline_variant_id": "brdt__ffno__supervised_plus_born_consistency__decision_support_append_only__corrected_no_refiner",
+      "visuals": [
+        "visuals/sample_0255_compare_q.png",
+        "visuals/sample_0255_error_q.png",
+        "visuals/sample_0255_sinogram_residual.png"
+      ],
+      "parameter_count": 27394,
+      "metrics": {
+        "image_mae_phys": 0.0008384572213645669,
+        "image_rmse_phys": 0.002557178772577931,
+        "image_relative_l2_phys": 0.45086467933854674,
+        "meas_mae": 0.0013427147554599486,
+        "meas_rmse": 0.0024612724254530465,
+        "meas_relative_l2": 0.2906064464585064,
+        "psnr_phys": 26.735395245533745,
+        "ssim_phys": 0.9120293293362252
+      },
+      "runtime": {
+        "batch_size": 16,
+        "device": "cuda",
+        "device_name": "NVIDIA GeForce RTX 3090",
+        "epochs": 40,
+        "learning_rate": 0.0002,
+        "wall_time_train_s": 217.97601264482364,
+        "wall_time_eval_s": 0.6917124888859689
+      },
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "evidence_status": "paper_grade",
+      "changed_factor": "same capped BRDT contract as the corrected 20-epoch pure-FFNO row, but rerun to 40 epochs inside the corrected paired bundle with scheduler/history provenance and promoted additive-secondary gate status.",
+      "interpretation": "Current additive-secondary pure-FFNO BRDT authority at 40 epochs. The corrected no-refiner row improves materially over its 20-epoch prerequisite but remains weaker than Hybrid ResNet on this capped contract.",
+      "20_epoch_comparison": {
+        "image_relative_l2_phys_delta": -0.049752528632903414,
+        "meas_relative_l2_delta": -0.04892324305371554,
+        "psnr_phys_delta": 0.9091911934220462,
+        "ssim_phys_delta": 0.01708689680409492,
+        "final_learning_rate": 0.0002,
+        "lr_reduction_count": 0,
+        "materially_improving_at_stop": true
+      },
+      "supersedes_proxy_variant_id": "brdt__ffno__supervised_plus_born_consistency__paper_evidence_additive_40ep"
     }
   ],
   "completed_backlog_outputs_represented": [
@@ -2341,7 +2458,8 @@
     "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun",
     "2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap",
     "2026-05-04-cdi-natural-patch-expanded-benchmark",
-    "2026-05-05-brdt-supervised-born-40ep-paper-evidence"
+    "2026-05-05-brdt-supervised-born-40ep-paper-evidence",
+    "2026-05-06-brdt-corrected-ffno-40ep-rerun"
   ],
   "maintenance_rules": [
     "Every future completed backlog item that emits model metrics must add or update at least one model_variants entry.",

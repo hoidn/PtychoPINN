@@ -267,7 +267,7 @@
       "display_model": "SRU-Net",
       "row_id": "hybrid_resnet",
       "internal_architecture": "hybrid_resnet",
-      "training_objective": "supervised + Born",
+      "training_objective": "supervised+Born",
       "input_output_contract": "born_init_image -> q_pred",
       "width": "16",
       "fourier_modes": "8",
@@ -278,16 +278,16 @@
       "unique_trainable_params": 142018,
       "raw_recorded_parameter_count": 142018,
       "parameter_count_kind": "unique_effective_trainable_params",
-      "parameter_count_source": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/rows/hybrid_resnet/model_profile.json",
-      "config_source": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/rows/hybrid_resnet/model_profile.json",
-      "notes": "40-epoch BRDT paper row"
+      "parameter_count_source": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/rows/hybrid_resnet/model_profile.json",
+      "config_source": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/rows/hybrid_resnet/model_profile.json",
+      "notes": "40-epoch BRDT additive-secondary paired rerun"
     },
     {
       "benchmark": "BRDT",
       "display_model": "FFNO",
       "row_id": "ffno",
       "internal_architecture": "ffno",
-      "training_objective": "supervised + Born",
+      "training_objective": "supervised+Born",
       "input_output_contract": "born_init_image -> q_pred",
       "width": "16",
       "fourier_modes": "8",
@@ -300,7 +300,7 @@
       "parameter_count_kind": "unique_effective_trainable_params",
       "parameter_count_source": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/rows/ffno/model_profile.json",
       "config_source": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/rows/ffno/model_profile.json",
-      "notes": "40-epoch BRDT row"
+      "notes": "40-epoch BRDT additive-secondary paired rerun"
     }
   ]
 }

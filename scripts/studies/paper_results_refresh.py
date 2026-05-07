@@ -31,18 +31,19 @@ BRDT_ROOT = (
     / ".artifacts"
     / "NEURIPS-HYBRID-RESNET-2026"
     / "backlog"
-    / "2026-04-29-brdt-four-row-preflight"
+    / "2026-05-06-brdt-corrected-ffno-40ep-rerun"
 )
 BRDT_METRICS_JSON = BRDT_ROOT / "metrics.json"
-BRDT_SOURCE_FIGURE = BRDT_ROOT / "visuals" / "brdt_compare_q.png"
+BRDT_SOURCE_FIGURE = BRDT_ROOT / "visuals" / "sample_0255_compare_q.png"
 BRDT_40EP_ROOT = (
     REPO_ROOT
     / ".artifacts"
     / "NEURIPS-HYBRID-RESNET-2026"
     / "backlog"
-    / "2026-05-05-brdt-supervised-born-40ep-paper-evidence"
+    / "2026-05-06-brdt-corrected-ffno-40ep-rerun"
 )
 BRDT_40EP_SOURCE_ARRAYS = BRDT_40EP_ROOT / "figures" / "source_arrays"
+BRDT_40EP_GATE_JSON = BRDT_40EP_ROOT / "paper_evidence_gate.json"
 BRDT_CONTEXT_FIGURE = FIGURES_DIR / "brdt_sample_0255_context_recon_error.png"
 BRDT_MEASUREMENT_CMAP = "cividis"
 BRDT_RECONSTRUCTION_CMAP = "viridis"
@@ -872,9 +873,20 @@ def render_brdt_metrics_table(metrics_payload: Mapping[str, object]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _brdt_claim_boundary() -> str:
+    if BRDT_40EP_GATE_JSON.exists():
+        payload = _read_json(BRDT_40EP_GATE_JSON)
+        boundary = str(payload.get("claim_boundary") or "")
+        if boundary:
+            return boundary
+    payload = _read_json(BRDT_METRICS_JSON)
+    return str(payload.get("claim_boundary") or "decision_support_convergence_followup")
+
+
 def write_brdt_assets() -> dict[str, str]:
     payload = _read_json(BRDT_METRICS_JSON)
     rows = normalized_brdt_rows(payload)
+    claim_boundary = _brdt_claim_boundary()
 
     TABLES_DIR.mkdir(parents=True, exist_ok=True)
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
@@ -903,7 +915,7 @@ def write_brdt_assets() -> dict[str, str]:
     _write_json(
         json_path,
         {
-            "claim_boundary": "decision_support_preflight_only",
+            "claim_boundary": claim_boundary,
             "source_metrics_json": str(BRDT_METRICS_JSON.relative_to(REPO_ROOT)),
             "source_figure": str(BRDT_SOURCE_FIGURE.relative_to(REPO_ROOT)),
             "paper_figure": str(fig_path.relative_to(NEURIPS_DIR)),

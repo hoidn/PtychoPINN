@@ -43,7 +43,7 @@ BRDT_40EP_ROOT = (
     Path(".artifacts")
     / "NEURIPS-HYBRID-RESNET-2026"
     / "backlog"
-    / "2026-05-05-brdt-supervised-born-40ep-paper-evidence"
+    / "2026-05-06-brdt-corrected-ffno-40ep-rerun"
 )
 
 CDI_DISPLAY_LABELS = {
@@ -466,7 +466,7 @@ def load_brdt_config_rows(repo_root: Path) -> list[ModelConfigRow]:
                 parameter_count_kind="unique_effective_trainable_params",
                 parameter_count_source=_repo_rel(repo_root, profile_path) if profile_path.exists() else _repo_rel(repo_root, metrics_path),
                 config_source=_repo_rel(repo_root, profile_path) if profile_path.exists() else _repo_rel(repo_root, metrics_path),
-                notes="40-epoch BRDT decision-support follow-up",
+                notes="40-epoch BRDT additive-secondary paired rerun",
             )
         )
     return rows

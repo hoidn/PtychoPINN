@@ -1,40 +1,26 @@
 {
-  "claim_boundary": "decision_support_preflight_only",
-  "source_metrics_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/metrics.json",
-  "source_figure": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/visuals/brdt_compare_q.png",
+  "claim_boundary": "paper_evidence_brdt_additive",
+  "source_metrics_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/metrics.json",
+  "source_figure": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/visuals/sample_0255_compare_q.png",
   "paper_figure": "figures/brdt_decision_support_recon.png",
   "rows": [
     {
-      "row_id": "classical_born_backprop",
-      "label": "Classical Born backprop",
-      "status": "blocked"
-    },
-    {
-      "row_id": "unet",
-      "label": "U-Net",
-      "status": "completed",
-      "image_relative_l2_phys": 0.8638321779038102,
-      "meas_relative_l2": 0.687536507009572,
-      "psnr_phys": 21.087731976010964,
-      "ssim_phys": 0.6129003485346396
-    },
-    {
-      "row_id": "fno_vanilla",
-      "label": "FNO vanilla",
-      "status": "completed",
-      "image_relative_l2_phys": 0.9916129812207131,
-      "meas_relative_l2": 0.9808305266835641,
-      "psnr_phys": 19.889475457442135,
-      "ssim_phys": 0.6778927173246171
-    },
-    {
       "row_id": "hybrid_resnet",
-      "label": "Hybrid ResNet",
+      "label": "SRU-Net",
       "status": "completed",
-      "image_relative_l2_phys": 0.3189991027015771,
-      "meas_relative_l2": 0.19923335943642898,
-      "psnr_phys": 29.740530298191878,
-      "ssim_phys": 0.9471455751799746
+      "image_relative_l2_phys": 0.2876039323417278,
+      "meas_relative_l2": 0.17428087625654173,
+      "psnr_phys": 30.640423132037053,
+      "ssim_phys": 0.9552215449358379
+    },
+    {
+      "row_id": "ffno",
+      "label": "FFNO",
+      "status": "completed",
+      "image_relative_l2_phys": 0.45086467933854674,
+      "meas_relative_l2": 0.2906064464585064,
+      "psnr_phys": 26.735395245533745,
+      "ssim_phys": 0.9120293293362252
     }
   ]
 }
