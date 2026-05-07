@@ -3122,6 +3122,122 @@ def test_default_torch_row_specs_register_supervised_ffno_depth24_row():
     assert training_procedure == "supervised"
 
 
+def test_enrich_paper_row_payload_emits_row_local_naming_for_supervised_ffno_depth24(
+    monkeypatch, tmp_path
+):
+    """Row-local artifact naming and completion-finalization regression for
+    supervised_ffno_depth24: outputs/visuals payloads must be keyed on the new
+    row id, and exit_code_proof.json must be finalized under
+    runs/supervised_ffno_depth24/."""
+
+    from scripts.studies.grid_lines_compare_wrapper import (
+        DEFAULT_TORCH_ROW_SPECS,
+        _enrich_paper_row_payload,
+        _recover_torch_row_payload,
+    )
+
+    model_id = "supervised_ffno_depth24"
+    run_dir = tmp_path / "runs" / model_id
+    recons_dir = tmp_path / "recons" / model_id
+    visuals_dir = tmp_path / "visuals"
+    run_dir.mkdir(parents=True)
+    recons_dir.mkdir(parents=True)
+    visuals_dir.mkdir(parents=True)
+
+    train_npz = tmp_path / "train.npz"
+    test_npz = tmp_path / "test.npz"
+    probe_npz = tmp_path / "probe.npz"
+    for path in (train_npz, test_npz, probe_npz):
+        path.write_bytes(b"stub")
+
+    gt = (np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64)
+    np.savez(recons_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+    (visuals_dir / f"amp_phase_{model_id}.png").write_bytes(b"png")
+    (visuals_dir / f"amp_phase_error_{model_id}.png").write_bytes(b"png")
+
+    (run_dir / "history.json").write_text(
+        json.dumps({"train_loss": [0.5, 0.4], "val_loss": [0.6, 0.5]}),
+        encoding="utf-8",
+    )
+    (run_dir / "invocation.json").write_text(
+        json.dumps(
+            {
+                "status": "completed",
+                "pid": 12345,
+                "exit_code": 0,
+                "timestamp_utc": "2026-05-07T19:28:40.000000+00:00",
+                "finished_at_utc": "2026-05-07T20:50:00.000000+00:00",
+                "parsed_args": {
+                    "epochs": 40,
+                    "seed": 3,
+                    "output_dir": str(tmp_path),
+                    "train_npz": str(train_npz),
+                    "test_npz": str(test_npz),
+                    "fno_blocks": 24,
+                    "fno_cnn_blocks": 0,
+                },
+                "extra": {"git_commit": "abc123"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (run_dir / "invocation.sh").write_text(
+        "python grid_lines_torch_runner.py --fno-blocks 24\n", encoding="utf-8"
+    )
+    (run_dir / "metrics.json").write_text(
+        json.dumps(_full_pair_metrics(0.01, 0.02)), encoding="utf-8"
+    )
+    (run_dir / "stdout.log").write_text("ok\n", encoding="utf-8")
+    (run_dir / "stderr.log").write_text("", encoding="utf-8")
+    (run_dir / "model.pt").write_text("stub", encoding="utf-8")
+
+    monkeypatch.setattr(
+        "scripts.studies.grid_lines_compare_wrapper._count_torch_state_dict_parameters",
+        lambda path: 700_000,
+    )
+
+    recovered = _recover_torch_row_payload(
+        output_dir=tmp_path,
+        model_id=model_id,
+        n_value=128,
+        metrics=_full_pair_metrics(0.01, 0.02),
+    )
+    enriched = _enrich_paper_row_payload(
+        model_id=model_id,
+        payload=recovered,
+        output_dir=tmp_path,
+        train_npz=train_npz,
+        test_npz=test_npz,
+        seed=3,
+        nimgs_train=2,
+        nimgs_test=2,
+        gridsize=1,
+        set_phi=True,
+        probe_npz=probe_npz,
+        dataset_source="synthetic_lines",
+        probe_source="custom",
+        probe_scale_mode="pad_extrapolate",
+        row_spec=DEFAULT_TORCH_ROW_SPECS[model_id],
+    )
+
+    outputs = enriched["outputs"]
+    assert outputs["metrics_json"].endswith(f"runs/{model_id}/metrics.json")
+    assert outputs["history_json"].endswith(f"runs/{model_id}/history.json")
+    assert outputs["recon_npz"].endswith(f"recons/{model_id}/recon.npz")
+    assert outputs["stdout_log"].endswith(f"runs/{model_id}/stdout.log")
+    assert outputs["stderr_log"].endswith(f"runs/{model_id}/stderr.log")
+    assert outputs["exit_code_proof_json"].endswith(
+        f"runs/{model_id}/exit_code_proof.json"
+    )
+    assert (tmp_path / "runs" / model_id / "exit_code_proof.json").exists()
+
+    visuals = enriched["visuals"]
+    assert visuals["amp_phase_png"] == f"visuals/amp_phase_{model_id}.png"
+    assert visuals["amp_phase_error_png"] == f"visuals/amp_phase_error_{model_id}.png"
+
+    assert enriched["row_status"] == "decision_support_append_only"
+
+
 def test_validate_model_specs_accepts_ffno_depth24_row():
     from scripts.studies.grid_lines_compare_wrapper import validate_model_specs
 
