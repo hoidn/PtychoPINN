@@ -4,20 +4,29 @@
 
 - Re-restored the 16-command verification ledger at
   `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
-  to the working tree. The file had regressed (again) to the 3-command
-  workflow-default `json.tool` skeleton between the prior commit
-  (`74c7d10b fix(cdi-final-refresh): re-restore 16-command checks ledger`) and
-  the start of this pass, while HEAD itself still tracked the 16-command
-  state. The restored on-disk file now matches `74c7d10b`'s 16-command PASS
-  ledger exactly: `command_count: 16`, `failed_count: 0`, `status: "PASS"`,
-  every entry carrying `command`, `exit_code: 0`, and `log_path` under the
-  fixed `verification/` root.
+  to the on-disk working tree. The file had regressed (again) to the 3-command
+  workflow-default `json.tool` skeleton between the prior fix commit
+  (`291839dd docs(cdi-final-refresh): document recurring checks-ledger
+  republication and restore on-disk 16-cmd ledger`) and the start of this pass,
+  while HEAD itself still tracked the 16-command state. Restored from HEAD via
+  `git checkout HEAD -- <checks-file>`. The restored on-disk file matches
+  HEAD's 16-command PASS ledger exactly: `command_count: 16`,
+  `failed_count: 0`, `status: "PASS"`; every result entry carries `command`,
+  `exit_code: 0`, and `log_path` under the fixed `verification/` root.
 - Programmatically confirmed all 16 referenced log paths still exist on disk
   under
   `artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/`
   and that the restored JSON validates with `python -m json.tool`. After the
   restore, `git diff HEAD --` against the checks file is empty, confirming the
   on-disk content matches the durable committed 16-command ledger.
+
+This pass made no implementation, asset, or documentation edits beyond the
+on-disk republished-artifact restore described above. It targets exactly the
+High finding from the consumed implementation review:
+`artifacts/review/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-implementation-review.md`,
+which observed that the consumed `...final-paper-refresh-checks.json` mirrored
+the truncated 3-command result instead of the 16-command ledger described in
+the execution report and durable summary.
 
 ## Completed In Prior Pass (kept for context)
 
@@ -64,7 +73,9 @@
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_final_paper_refresh_summary.md`.
 - Plan §"Pytest and archive-evidence contract" — every archived command,
   exit code, and log path is recorded in the on-disk 16-command checks
-  ledger so review does not have to infer what ran.
+  ledger so review does not have to infer what ran. (After this pass the
+  on-disk artifact is once again synchronized with HEAD's durable 16-command
+  state.)
 
 ## Follow-Up Work
 
@@ -73,14 +84,15 @@
   the workflow source
   `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/12/items/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/check_commands.json`
   still enumerates only the three default `json.tool` validations. Multiple
-  prior fix commits (`ba64d0da`, `1fa49d85`, `b4acf2fb`, `74c7d10b`) restored
-  the published 16-command ledger and were each subsequently overwritten back
-  to a 3-command skeleton by the next workflow republication. Permanently
-  closing this loop requires extending the state-side `check_commands.json` to
-  enumerate the same 16 archived commands, or otherwise teaching the
-  republication step to merge with the implementation-side ledger; this is
-  outside the current item's implementation authority and should be tracked
-  as a workflow-tooling change.
+  prior fix commits (`ba64d0da`, `1fa49d85`, `b4acf2fb`, `74c7d10b`,
+  `291839dd`) restored the published 16-command ledger and were each
+  subsequently overwritten back to a 3-command skeleton by the next workflow
+  republication; this pass is the next iteration of that recurrence.
+  Permanently closing the loop requires extending the state-side
+  `check_commands.json` to enumerate the same 16 archived commands, or
+  otherwise teaching the republication step to merge with the
+  implementation-side ledger; this is outside the current item's
+  implementation authority and should be tracked as a workflow-tooling change.
 - Implementation-review medium follow-up (writer-level versioning): extend the
   model-config and efficiency writers to emit versioned copies before
   overwriting canonical filenames, matching the plan's preferred packaging for
