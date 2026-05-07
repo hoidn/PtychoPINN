@@ -450,12 +450,15 @@ def _collect_cdi_rows(
         if row_id == "pinn_ffno":
             source_row_id = final_ffno_pair.pinn_source_row_id
             pair_root = final_ffno_pair.pinn_root
+            row_claim_boundary = final_ffno_pair.claim_boundary
         elif row_id == "supervised_ffno":
             source_row_id = final_ffno_pair.supervised_source_row_id
             pair_root = final_ffno_pair.supervised_root
+            row_claim_boundary = final_ffno_pair.claim_boundary
         else:
             source_row_id = row_id
             pair_root = None
+            row_claim_boundary = None
         manifest_row, manifest_path = manifest_rows.get(source_row_id, ({}, table_path))
         payload = {**dict(table_row), **manifest_row}
         model_config_count = param_counts.get((benchmark_label, row_id))
@@ -484,7 +487,8 @@ def _collect_cdi_rows(
                 source_path=_repo_rel(repo_root, manifest_path),
                 payload=payload,
                 claim_boundary=str(
-                    payload.get("claim_boundary")
+                    row_claim_boundary
+                    or payload.get("claim_boundary")
                     or table_payload.get("claim_boundary")
                     or final_ffno_pair.claim_boundary
                 ),

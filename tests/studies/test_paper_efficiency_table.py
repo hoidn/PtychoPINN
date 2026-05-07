@@ -144,6 +144,20 @@ def test_collect_efficiency_rows_can_switch_to_depth24_pair():
     )
 
 
+def test_collect_cdi_rows_uses_final_pair_claim_boundary_for_active_ffno_rows():
+    rows = _collect_cdi_rows(Path.cwd(), cdi_final_ffno_pair_key="depth24_no_refiner")
+    cdi_rows = {row.row_id: row for row in rows}
+
+    depth24_boundary = (
+        "complete_lines128_cdi_benchmark_plus_uno_extension_"
+        "with_final_depth24_no_refiner_ffno_pair"
+    )
+    assert cdi_rows["pinn_ffno"].claim_boundary == depth24_boundary
+    assert cdi_rows["supervised_ffno"].claim_boundary == depth24_boundary
+    # Non-FFNO CDI rows continue to inherit their lineage claim boundary.
+    assert cdi_rows["pinn_hybrid_resnet"].claim_boundary != depth24_boundary
+
+
 def test_render_efficiency_table_tex_groups_rows_and_escapes_fields():
     tex = render_efficiency_table_tex(
         [
