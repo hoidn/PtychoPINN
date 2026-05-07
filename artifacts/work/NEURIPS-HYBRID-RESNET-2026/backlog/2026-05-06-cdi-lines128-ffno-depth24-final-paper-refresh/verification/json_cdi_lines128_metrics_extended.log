@@ -1,0 +1,134 @@
+{
+    "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_final_four_block_no_refiner_ffno_pair",
+    "benchmark": "CDI",
+    "source_metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z/metrics.json",
+    "pinn_ffno_source_metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z/runs/pinn_ffno/metrics.json",
+    "supervised_ffno_source_metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z/runs/supervised_ffno/metrics.json",
+    "historical_proxy_lineage": {
+        "supervised_ffno_metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z/runs/supervised_ffno/metrics.json",
+        "notes": "Historical fno_cnn_blocks=2 FFNO-local proxy lineage only."
+    },
+    "final_output_stem": "ffno_final_depth4pair",
+    "final_ffno_pair": {
+        "pair_key": "four_block_no_refiner",
+        "depth_label": "depth4_no_refiner",
+        "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_final_four_block_no_refiner_ffno_pair",
+        "source_row_ids": {
+            "pinn_ffno": "pinn_ffno",
+            "supervised_ffno": "supervised_ffno"
+        },
+        "source_roots": {
+            "pinn_ffno": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z",
+            "supervised_ffno": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z"
+        },
+        "source_metrics_json": {
+            "pinn_ffno": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z/runs/pinn_ffno/metrics.json",
+            "supervised_ffno": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z/runs/supervised_ffno/metrics.json"
+        },
+        "source_config_json": {
+            "pinn_ffno": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z/runs/pinn_ffno/config.json",
+            "supervised_ffno": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z/runs/supervised_ffno/config.json"
+        },
+        "source_model_manifest_json": {
+            "pinn_ffno": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z/model_manifest.json",
+            "supervised_ffno": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z/model_manifest.json"
+        }
+    },
+    "versioned_outputs": {
+        "tex": "/home/ollie/Documents/PtychoPINN/docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended_ffno_final_depth4pair.tex",
+        "pinn_tex": "/home/ollie/Documents/PtychoPINN/docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_pinn_metrics_ffno_final_depth4pair.tex",
+        "objective_tex": "/home/ollie/Documents/PtychoPINN/docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_objective_comparison_ffno_final_depth4pair.tex",
+        "csv": "/home/ollie/Documents/PtychoPINN/docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended_ffno_final_depth4pair.csv",
+        "json": "/home/ollie/Documents/PtychoPINN/docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_metrics_extended_ffno_final_depth4pair.json"
+    },
+    "rows": [
+        {
+            "row_id": "pinn",
+            "model": "CNN",
+            "training": "PINN",
+            "amp_mae": 0.12317091226577759,
+            "phase_mae": 0.7863222464274442,
+            "amp_mse": 0.02367185615003109,
+            "phase_mse": 1.1843227016219966,
+            "amp_ssim": 0.7325678081610691,
+            "phase_ssim": 0.2638148037194811
+        },
+        {
+            "row_id": "pinn_fno_vanilla",
+            "model": "FNO",
+            "training": "PINN",
+            "amp_mae": 0.12481639534235,
+            "phase_mae": 0.1435395349328455,
+            "amp_mse": 0.024000922217965126,
+            "phase_mse": 0.032295907670301084,
+            "amp_ssim": 0.7409360685258843,
+            "phase_ssim": 0.9334635911261081
+        },
+        {
+            "row_id": "pinn_ffno",
+            "model": "FFNO",
+            "training": "PINN",
+            "amp_mae": 0.08204326778650284,
+            "phase_mae": 0.13796461630791748,
+            "amp_mse": 0.010589946061372757,
+            "phase_mse": 0.03047779600080815,
+            "amp_ssim": 0.890305374043404,
+            "phase_ssim": 0.9596438877920995
+        },
+        {
+            "row_id": "pinn_hybrid_resnet",
+            "model": "SRU-Net",
+            "training": "PINN",
+            "amp_mae": 0.026939474046230316,
+            "phase_mae": 0.07206347709561367,
+            "amp_mse": 0.00115118024405092,
+            "phase_mse": 0.007788461505276771,
+            "amp_ssim": 0.9881142973635324,
+            "phase_ssim": 0.9947399866043689
+        },
+        {
+            "row_id": "pinn_neuralop_uno",
+            "model": "U-NO",
+            "training": "PINN",
+            "amp_mae": 0.09316378086805344,
+            "phase_mae": 0.06829105385593301,
+            "amp_mse": 0.013220230117440224,
+            "phase_mse": 0.007346054084902409,
+            "amp_ssim": 0.8279948152817742,
+            "phase_ssim": 0.9568587752007158
+        },
+        {
+            "row_id": "baseline",
+            "model": "CNN",
+            "training": "supervised",
+            "amp_mae": 0.4026719033718109,
+            "phase_mae": 0.7861943717040095,
+            "amp_mse": 0.2835979163646698,
+            "phase_mse": 1.1479366956432024,
+            "amp_ssim": 0.277214069257086,
+            "phase_ssim": 0.4963532061083504
+        },
+        {
+            "row_id": "supervised_ffno",
+            "model": "FFNO",
+            "training": "supervised",
+            "amp_mae": 0.35151222348213196,
+            "phase_mae": 0.06611791105895387,
+            "amp_mse": 0.195674866437912,
+            "phase_mse": 0.006884107531901606,
+            "amp_ssim": 0.2650063795551529,
+            "phase_ssim": 0.9015290958935847
+        },
+        {
+            "row_id": "supervised_neuralop_uno",
+            "model": "U-NO",
+            "training": "supervised",
+            "amp_mae": 0.3206843137741089,
+            "phase_mae": 0.05625055939327221,
+            "amp_mse": 0.16388654708862305,
+            "phase_mse": 0.004764640077438061,
+            "amp_ssim": 0.2689397545100156,
+            "phase_ssim": 0.9104896763928609
+        }
+    ]
+}

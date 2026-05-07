@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-07T20:55:00Z",
+  "last_updated_utc": "2026-05-07T22:03:38Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -159,7 +159,7 @@
         "supervised_ffno",
         "supervised_ffno_depth24"
       ],
-      "interpretation": "The completed depth-24 FFNO family now covers both training modes under the corrected no-refiner `lines128` CDI contract. On the PINN side, the fresh depth-24 rerun improves every tracked scalar amplitude/phase reconstruction metric versus the corrected four-block `pinn_ffno` row, but it is far more expensive in parameters, training time, and inference time. On the supervised side, the fresh depth-24 companion modestly improves phase-side metrics and amplitude MAE versus the corrected four-block `supervised_ffno` row, but amplitude SSIM/FRC and validation loss worsen while runtime still expands by more than 5x. The family remains append-only depth evidence only; current paper-local CDI FFNO assets still point at the corrected four-block rows until the later final-refresh item explicitly decides promotion."
+      "interpretation": "The completed depth-24 FFNO family now covers both training modes under the corrected no-refiner `lines128` CDI contract. On the PINN side, the fresh depth-24 rerun improves every tracked scalar amplitude/phase reconstruction metric versus the corrected four-block `pinn_ffno` row, but it is far more expensive in parameters, training time, and inference time. On the supervised side, the fresh depth-24 companion modestly improves phase-side metrics and amplitude MAE versus the corrected four-block `supervised_ffno` row, but amplitude SSIM/FRC and validation loss worsen while runtime still expands by more than 5x. The final paper refresh kept the corrected four-block same-depth pair canonical for repo-local CDI assets, so the depth-24 family remains append-only evidence after an explicit promotion decision rather than a deferred placeholder."
     },
     {
       "family_id": "cdi_lines128_ffno_paper_refresh_packaging",
@@ -167,16 +167,20 @@
       "fixed_contract": "cdi_lines128_seed3",
       "changed_factors": [
         "paper-local CDI FFNO lineage refresh from historical local-refiner proxy to corrected no-refiner rows",
-        "table-level claim-boundary update for mixed-lineage CDI packaging"
+        "final same-depth promotion decision across four-block versus depth-24 no-refiner FFNO pairs",
+        "versioned-output stem and provenance-safe canonical copy contract for CDI paper assets"
       ],
       "completed_items": [
-        "2026-05-06-cdi-lines128-no-refiner-ffno-table-refresh"
+        "2026-05-06-cdi-lines128-no-refiner-ffno-table-refresh",
+        "2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh"
       ],
       "summary_authorities": [
-        "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_no_refiner_ffno_table_refresh_summary.md"
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_no_refiner_ffno_table_refresh_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_final_paper_refresh_summary.md"
       ],
       "artifact_roots": [
-        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-no-refiner-ffno-table-refresh"
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-no-refiner-ffno-table-refresh",
+        "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh"
       ],
       "rows": [
         "baseline",
@@ -188,7 +192,7 @@
         "supervised_ffno",
         "supervised_neuralop_uno"
       ],
-      "interpretation": "The current paper-local CDI tables, phase-zoom figures, model-config packaging, efficiency packaging, and discovery surfaces now consume the corrected no-refiner `pinn_ffno` and `supervised_ffno` rows while reusing the unchanged non-FFNO and U-NO rows by lineage. Historical `fno_cnn_blocks=2` FFNO rows remain preserved explicit proxy context only, and no depth-24 FFNO content was consumed by this refresh."
+      "interpretation": "The current paper-local CDI tables, phase-zoom figures, model-config packaging, efficiency packaging, and discovery surfaces now consume the corrected four-block no-refiner `pinn_ffno` and `supervised_ffno` rows while reusing the unchanged non-FFNO and U-NO rows by lineage. The explicit final refresh evaluated the completed depth-24 FFNO family and retained the four-block same-depth pair as the canonical repo-local paper package because the supervised depth-24 companion did not justify pair-level promotion despite the stronger PINN depth-24 row. Historical `fno_cnn_blocks=2` FFNO rows remain preserved explicit proxy context only, and the depth-24 rows remain append-only evidence."
     },
     {
       "family_id": "cdi_lines128_hybrid_spectral_ffno_parameter_space",

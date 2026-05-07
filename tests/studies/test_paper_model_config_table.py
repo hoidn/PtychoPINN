@@ -177,6 +177,26 @@ def test_load_cdi_config_rows_uses_corrected_no_refiner_ffno_roots():
     )
 
 
+def test_load_cdi_config_rows_can_switch_to_depth24_pair():
+    rows = {
+        row.row_id: row
+        for row in load_cdi_config_rows(
+            Path.cwd(),
+            cdi_final_ffno_pair_key="depth24_no_refiner",
+        )
+    }
+
+    assert rows["pinn_ffno"].config_source.endswith(
+        "2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z/runs/pinn_ffno_depth24/config.json"
+    )
+    assert rows["pinn_ffno"].encoder_blocks == "24"
+    assert rows["pinn_ffno"].notes == "active CDI final paper row; depth24_no_refiner"
+    assert rows["supervised_ffno"].config_source.endswith(
+        "2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun/runs/supervised_ffno_depth24_20260507T192840Z/runs/supervised_ffno_depth24/config.json"
+    )
+    assert rows["supervised_ffno"].encoder_blocks == "24"
+
+
 def test_load_brdt_config_rows_uses_sinogram_input_bundle():
     rows = {row.row_id: row for row in load_brdt_config_rows(Path.cwd())}
 

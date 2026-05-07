@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -28,9 +29,12 @@ from scripts.studies.paper_results_refresh import (
     gt_anchored_phase_bounds,
     main,
     srunet_matched_phase_bounds,
+    resolve_cdi_final_ffno_pair,
+    versioned_output_path,
     write_cdi_phase_zoom_figure,
     write_cdi_phase_zoom_per_panel_figure,
     write_brdt_context_figure,
+    write_cdi_extended_assets,
     write_cns_matched_condition_assets,
     write_cns_matched_condition_plus_uno_assets,
     load_cns_matched_condition_uno_row,
@@ -300,6 +304,70 @@ def test_default_cdi_phase_zoom_recon_paths_use_corrected_ffno_root():
 
     assert str(recon_paths["pinn_ffno"]).endswith(
         "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z/recons/pinn_ffno/recon.npz"
+    )
+
+
+def test_resolve_cdi_final_ffno_pair_supports_four_block_and_depth24():
+    four_block = resolve_cdi_final_ffno_pair("four_block_no_refiner")
+    depth24 = resolve_cdi_final_ffno_pair("depth24_no_refiner")
+
+    assert four_block.pair_key == "four_block_no_refiner"
+    assert four_block.output_stem == "ffno_final_depth4pair"
+    assert four_block.pinn_source_row_id == "pinn_ffno"
+    assert four_block.supervised_source_row_id == "supervised_ffno"
+    assert four_block.depth_label == "depth4_no_refiner"
+    assert str(four_block.pinn_metrics_json).endswith(
+        "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z/runs/pinn_ffno/metrics.json"
+    )
+    assert str(four_block.supervised_metrics_json).endswith(
+        "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z/runs/supervised_ffno/metrics.json"
+    )
+
+    assert depth24.pair_key == "depth24_no_refiner"
+    assert depth24.output_stem == "ffno_final_depth24pair"
+    assert depth24.pinn_source_row_id == "pinn_ffno_depth24"
+    assert depth24.supervised_source_row_id == "supervised_ffno_depth24"
+    assert depth24.depth_label == "depth24_no_refiner"
+    assert str(depth24.pinn_metrics_json).endswith(
+        "2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z/runs/pinn_ffno_depth24/metrics.json"
+    )
+    assert str(depth24.supervised_metrics_json).endswith(
+        "2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun/runs/supervised_ffno_depth24_20260507T192840Z/runs/supervised_ffno_depth24/metrics.json"
+    )
+
+
+def test_versioned_output_path_inserts_deterministic_stem():
+    assert versioned_output_path(
+        Path("tables/cdi_lines128_metrics_extended.json"),
+        "ffno_final_depth4pair",
+    ).as_posix() == "tables/cdi_lines128_metrics_extended_ffno_final_depth4pair.json"
+    assert versioned_output_path(
+        Path("figures/cdi_lines128_phase_zoom.png"),
+        "ffno_final_depth24pair",
+    ).as_posix() == "figures/cdi_lines128_phase_zoom_ffno_final_depth24pair.png"
+
+
+def test_write_cdi_extended_assets_records_final_pair_provenance(tmp_path):
+    outputs = write_cdi_extended_assets(
+        output_dir=tmp_path,
+        final_ffno_pair=resolve_cdi_final_ffno_pair("depth24_no_refiner"),
+        final_output_stem="ffno_final_depth24pair",
+    )
+
+    payload = json.loads((tmp_path / "cdi_lines128_metrics_extended.json").read_text(encoding="utf-8"))
+
+    assert (tmp_path / "cdi_lines128_metrics_extended_ffno_final_depth24pair.json").exists()
+    assert (tmp_path / "cdi_lines128_objective_comparison_ffno_final_depth24pair.tex").exists()
+    assert payload["final_output_stem"] == "ffno_final_depth24pair"
+    assert payload["final_ffno_pair"]["pair_key"] == "depth24_no_refiner"
+    assert payload["final_ffno_pair"]["depth_label"] == "depth24_no_refiner"
+    assert payload["final_ffno_pair"]["source_row_ids"] == {
+        "pinn_ffno": "pinn_ffno_depth24",
+        "supervised_ffno": "supervised_ffno_depth24",
+    }
+    assert payload["rows"][2]["row_id"] == "pinn_ffno"
+    assert outputs["versioned_json"].endswith(
+        "cdi_lines128_metrics_extended_ffno_final_depth24pair.json"
     )
 
 
@@ -583,8 +651,8 @@ def test_render_cdi_objective_comparison_table_emits_all_paired_active_models():
     tex = render_cdi_objective_comparison_table(rows)
 
     assert r"\multicolumn{5}{l}{\textit{FFNO}}" in tex
-    assert r"\multicolumn{5}{l}{\textit{CNN}}" in tex
-    assert r"\multicolumn{5}{l}{\textit{U-NO}}" in tex
+    assert r"\multicolumn{5}{l}{\textit{CNN}}" not in tex
+    assert r"\multicolumn{5}{l}{\textit{U-NO}}" not in tex
     assert "Amp MSE" not in tex
     assert "Phase MSE" not in tex
     assert "Physics-consistency" in tex
@@ -619,7 +687,7 @@ def test_render_cdi_objective_comparison_table_raises_when_active_pair_missing()
         },
     ]
 
-    with pytest.raises(ValueError, match="FFNO|U-NO"):
+    with pytest.raises(ValueError, match="FFNO"):
         render_cdi_objective_comparison_table(rows)
 
 

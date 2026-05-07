@@ -18,10 +18,10 @@
 - This item is append-only supervised pure-FFNO depth-companion evidence only.
 - It does not replace the immutable six-row CDI authority
   (`docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md`)
-  or the current paper-local FFNO packaging authority
-  (`docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_no_refiner_ffno_table_refresh_summary.md`).
-- Final paper-facing promotion remains deferred to
-  `2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh`.
+  or the current paper-local FFNO packaging authority.
+- Current paper-local FFNO packaging authority:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_final_paper_refresh_summary.md`
+  which retained the corrected four-block same-depth pair as canonical.
 
 ## Fixed Contract
 
@@ -154,7 +154,6 @@ Verification logs are archived under
 - The wrapper run itself records the generic claim boundary
   `decision_support_append_only`; this summary intentionally narrows the
   interpretation to `cdi_supervised_ffno_depth_companion_only`.
-- The current paper-local FFNO packaging still points at the corrected
-  four-block no-refiner rows by design. Any manuscript-facing promotion of this
-  supervised depth-24 row must be handled explicitly by the later
-  final-refresh item.
+- The final paper-local FFNO refresh explicitly reviewed this row and retained
+  the corrected four-block no-refiner pair as canonical. This supervised
+  depth-24 row remains append-only evidence only.

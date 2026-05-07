@@ -18,6 +18,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from scripts.studies.cdi_final_ffno_pair import (
+    CDI_HISTORICAL_SUPERVISED_PROXY_METRICS_JSON,
+    FOUR_BLOCK_NO_REFINER_PAIR,
+    CdiFinalFfnoPair,
+    resolve_cdi_final_ffno_pair,
+)
 from scripts.studies.paper_model_config_table import write_model_config_table
 from scripts.studies.paper_efficiency_table import write_paper_efficiency_table
 
@@ -60,48 +66,7 @@ CDI_UNO_METRICS_JSON = (
     / "complete_table_plus_uno_20260504T100347Z"
     / "metrics.json"
 )
-CDI_CORRECTED_PINN_FFNO_ROOT = (
-    REPO_ROOT
-    / ".artifacts"
-    / "work"
-    / "NEURIPS-HYBRID-RESNET-2026"
-    / "backlog"
-    / "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun"
-    / "runs"
-    / "ffno_no_refiner_20260506T223454Z"
-)
-CDI_CORRECTED_PINN_FFNO_METRICS_JSON = (
-    CDI_CORRECTED_PINN_FFNO_ROOT / "runs" / "pinn_ffno" / "metrics.json"
-)
-CDI_CORRECTED_SUPERVISED_FFNO_ROOT = (
-    REPO_ROOT
-    / ".artifacts"
-    / "work"
-    / "NEURIPS-HYBRID-RESNET-2026"
-    / "backlog"
-    / "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun"
-    / "runs"
-    / "supervised_ffno_no_refiner_20260506T232535Z"
-)
-CDI_SUPERVISED_FFNO_METRICS_JSON = (
-    CDI_CORRECTED_SUPERVISED_FFNO_ROOT
-    / "runs"
-    / "supervised_ffno"
-    / "metrics.json"
-)
-CDI_SUPERSEDED_SUPERVISED_FFNO_METRICS_JSON = (
-    REPO_ROOT
-    / ".artifacts"
-    / "work"
-    / "NEURIPS-HYBRID-RESNET-2026"
-    / "backlog"
-    / "2026-04-29-cdi-lines128-supervised-equivalent-rows"
-    / "runs"
-    / "supervised_ffno_extension_20260430T180217Z"
-    / "runs"
-    / "supervised_ffno"
-    / "metrics.json"
-)
+CDI_SUPERSEDED_SUPERVISED_FFNO_METRICS_JSON = CDI_HISTORICAL_SUPERVISED_PROXY_METRICS_JSON
 CDI_RECONS_ROOT = (
     REPO_ROOT
     / ".artifacts"
@@ -286,6 +251,10 @@ def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+def versioned_output_path(path: Path, output_stem: str) -> Path:
+    return path.with_name(f"{path.stem}_{output_stem}{path.suffix}")
+
+
 def _latex_escape(value: object) -> str:
     return str(value).replace("_", r"\_")
 
@@ -418,12 +387,14 @@ def gt_anchored_phase_bounds(
 srunet_matched_phase_bounds = gt_anchored_phase_bounds
 
 
-def _default_cdi_phase_zoom_recon_paths() -> dict[str, Path]:
+def _default_cdi_phase_zoom_recon_paths(
+    final_ffno_pair: CdiFinalFfnoPair = FOUR_BLOCK_NO_REFINER_PAIR,
+) -> dict[str, Path]:
     recon_paths = {
         row_id: CDI_RECONS_ROOT / row_id / "recon.npz"
         for row_id, _ in CDI_PHASE_ZOOM_ROWS
     }
-    recon_paths["pinn_ffno"] = CDI_CORRECTED_PINN_FFNO_ROOT / "recons" / "pinn_ffno" / "recon.npz"
+    recon_paths["pinn_ffno"] = final_ffno_pair.pinn_recon_npz
     return recon_paths
 
 
@@ -431,6 +402,7 @@ def _resolve_cdi_phase_zoom_recon_paths(
     *,
     recons_root: Path | None,
     recon_paths: Mapping[str, Path] | None,
+    final_ffno_pair: CdiFinalFfnoPair = FOUR_BLOCK_NO_REFINER_PAIR,
 ) -> dict[str, Path]:
     if recon_paths is not None:
         return {row_id: Path(path) for row_id, path in recon_paths.items()}
@@ -439,18 +411,20 @@ def _resolve_cdi_phase_zoom_recon_paths(
             row_id: recons_root / row_id / "recon.npz"
             for row_id, _ in CDI_PHASE_ZOOM_ROWS
         }
-    return _default_cdi_phase_zoom_recon_paths()
+    return _default_cdi_phase_zoom_recon_paths(final_ffno_pair)
 
 
 def _cdi_phase_zoom_display_phases(
     *,
     recons_root: Path | None = None,
     recon_paths: Mapping[str, Path] | None = None,
+    final_ffno_pair: CdiFinalFfnoPair = FOUR_BLOCK_NO_REFINER_PAIR,
     crop_fraction: float = 0.5,
 ) -> tuple[dict[str, np.ndarray], tuple[int, int, int, int]]:
     resolved_recon_paths = _resolve_cdi_phase_zoom_recon_paths(
         recons_root=recons_root,
         recon_paths=recon_paths,
+        final_ffno_pair=final_ffno_pair,
     )
     phases = {
         row_id: _load_phase_array(resolved_recon_paths[row_id])
@@ -514,15 +488,19 @@ def write_cdi_phase_zoom_figure(
     recons_root: Path | None = None,
     recon_paths: Mapping[str, Path] | None = None,
     output_path: Path = CDI_PHASE_ZOOM_FIGURE,
+    final_ffno_pair: CdiFinalFfnoPair = FOUR_BLOCK_NO_REFINER_PAIR,
+    final_output_stem: str | None = None,
     crop_fraction: float = 0.5,
 ) -> dict[str, object]:
     resolved_recon_paths = _resolve_cdi_phase_zoom_recon_paths(
         recons_root=recons_root,
         recon_paths=recon_paths,
+        final_ffno_pair=final_ffno_pair,
     )
     display_phases, crop_bounds = _cdi_phase_zoom_display_phases(
         recons_root=recons_root,
         recon_paths=resolved_recon_paths,
+        final_ffno_pair=final_ffno_pair,
         crop_fraction=crop_fraction,
     )
     y0, y1, x0, x1 = crop_bounds
@@ -531,19 +509,31 @@ def write_cdi_phase_zoom_figure(
         row_id: (phase_vmin, phase_vmax)
         for row_id, _ in CDI_PHASE_ZOOM_ROWS
     }
+    versioned_path = (
+        versioned_output_path(output_path, final_output_stem)
+        if final_output_stem
+        else None
+    )
+    target_path = versioned_path or output_path
     _save_cdi_phase_zoom_figure(
         display_phases=display_phases,
         crop_bounds=crop_bounds,
-        output_path=output_path,
+        output_path=target_path,
         bounds_by_row=bounds_by_row,
     )
+    if versioned_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(versioned_path, output_path)
     return {
         "figure": str(output_path),
+        "versioned_figure": str(versioned_path) if versioned_path is not None else None,
         "source_recons_root": str(recons_root) if recons_root is not None else None,
         "source_recon_paths": {
             row_id: str(path)
             for row_id, path in resolved_recon_paths.items()
         },
+        "final_ffno_pair": final_ffno_pair.provenance_payload(),
+        "final_output_stem": final_output_stem,
         "visible_rows": [row_id for row_id, _ in CDI_PHASE_ZOOM_ROWS],
         "display_channel": "phase",
         "crop_fraction": crop_fraction,
@@ -560,15 +550,19 @@ def write_cdi_phase_zoom_per_panel_figure(
     recons_root: Path | None = None,
     recon_paths: Mapping[str, Path] | None = None,
     output_path: Path = CDI_PHASE_ZOOM_PER_PANEL_FIGURE,
+    final_ffno_pair: CdiFinalFfnoPair = FOUR_BLOCK_NO_REFINER_PAIR,
+    final_output_stem: str | None = None,
     crop_fraction: float = 0.5,
 ) -> dict[str, object]:
     resolved_recon_paths = _resolve_cdi_phase_zoom_recon_paths(
         recons_root=recons_root,
         recon_paths=recon_paths,
+        final_ffno_pair=final_ffno_pair,
     )
     display_phases, crop_bounds = _cdi_phase_zoom_display_phases(
         recons_root=recons_root,
         recon_paths=resolved_recon_paths,
+        final_ffno_pair=final_ffno_pair,
         crop_fraction=crop_fraction,
     )
     y0, y1, x0, x1 = crop_bounds
@@ -576,19 +570,31 @@ def write_cdi_phase_zoom_per_panel_figure(
         row_id: robust_display_bounds(display_phases[row_id][y0:y1, x0:x1])
         for row_id, _ in CDI_PHASE_ZOOM_ROWS
     }
+    versioned_path = (
+        versioned_output_path(output_path, final_output_stem)
+        if final_output_stem
+        else None
+    )
+    target_path = versioned_path or output_path
     _save_cdi_phase_zoom_figure(
         display_phases=display_phases,
         crop_bounds=crop_bounds,
-        output_path=output_path,
+        output_path=target_path,
         bounds_by_row=bounds_by_row,
     )
+    if versioned_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(versioned_path, output_path)
     return {
         "figure": str(output_path),
+        "versioned_figure": str(versioned_path) if versioned_path is not None else None,
         "source_recons_root": str(recons_root) if recons_root is not None else None,
         "source_recon_paths": {
             row_id: str(path)
             for row_id, path in resolved_recon_paths.items()
         },
+        "final_ffno_pair": final_ffno_pair.provenance_payload(),
+        "final_output_stem": final_output_stem,
         "visible_rows": [row_id for row_id, _ in CDI_PHASE_ZOOM_ROWS],
         "display_channel": "phase",
         "crop_fraction": crop_fraction,
@@ -988,7 +994,7 @@ CDI_OBJECTIVE_CONTROL_COLUMNS = [
     ("amp_ssim", True),
     ("phase_ssim", True),
 ]
-CDI_OBJECTIVE_CONTROL_ACTIVE_MODELS = ("CNN", "FFNO", "U-NO")
+CDI_OBJECTIVE_CONTROL_ACTIVE_MODELS = ("FFNO",)
 
 
 def _cdi_best_values(
@@ -1084,41 +1090,138 @@ def render_cdi_metrics_table(rows: Sequence[Mapping[str, object]]) -> str:
     return render_cdi_pinn_metrics_table(rows)
 
 
-def write_cdi_extended_assets() -> dict[str, str]:
+def _write_text_with_versioned_copy(
+    canonical_path: Path,
+    text: str,
+    *,
+    final_output_stem: str | None,
+) -> str | None:
+    versioned_path = (
+        versioned_output_path(canonical_path, final_output_stem)
+        if final_output_stem
+        else None
+    )
+    if versioned_path is not None:
+        versioned_path.parent.mkdir(parents=True, exist_ok=True)
+        versioned_path.write_text(text, encoding="utf-8")
+    canonical_path.parent.mkdir(parents=True, exist_ok=True)
+    canonical_path.write_text(text, encoding="utf-8")
+    return str(versioned_path) if versioned_path is not None else None
+
+
+def _write_rows_csv_with_versioned_copy(
+    canonical_path: Path,
+    rows: Sequence[Mapping[str, object]],
+    *,
+    final_output_stem: str | None,
+) -> str | None:
+    versioned_path = (
+        versioned_output_path(canonical_path, final_output_stem)
+        if final_output_stem
+        else None
+    )
+    targets = [path for path in (versioned_path, canonical_path) if path is not None]
+    for path in targets:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=list(rows[0]), lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(rows)
+    return str(versioned_path) if versioned_path is not None else None
+
+
+def _write_json_with_versioned_copy(
+    canonical_path: Path,
+    payload: Mapping[str, object],
+    *,
+    final_output_stem: str | None,
+) -> str | None:
+    versioned_path = (
+        versioned_output_path(canonical_path, final_output_stem)
+        if final_output_stem
+        else None
+    )
+    if versioned_path is not None:
+        _write_json(versioned_path, payload)
+    _write_json(canonical_path, payload)
+    return str(versioned_path) if versioned_path is not None else None
+
+
+def write_cdi_extended_assets(
+    *,
+    output_dir: Path = TABLES_DIR,
+    final_ffno_pair: CdiFinalFfnoPair = FOUR_BLOCK_NO_REFINER_PAIR,
+    final_output_stem: str | None = None,
+) -> dict[str, str]:
     payload = _read_json(CDI_UNO_METRICS_JSON)
     source_rows = dict(payload["rows"])
-    source_rows["pinn_ffno"] = {"metrics": _read_json(CDI_CORRECTED_PINN_FFNO_METRICS_JSON)}
-    source_rows["supervised_ffno"] = {"metrics": _read_json(CDI_SUPERVISED_FFNO_METRICS_JSON)}
+    source_rows["pinn_ffno"] = {"metrics": _read_json(final_ffno_pair.pinn_metrics_json)}
+    source_rows["supervised_ffno"] = {
+        "metrics": _read_json(final_ffno_pair.supervised_metrics_json)
+    }
     payload = {**payload, "rows": source_rows}
     rows = cdi_display_metrics(payload)
 
-    TABLES_DIR.mkdir(parents=True, exist_ok=True)
-    tex_path = TABLES_DIR / "cdi_lines128_metrics_extended.tex"
-    pinn_tex_path = TABLES_DIR / "cdi_lines128_pinn_metrics.tex"
-    objective_tex_path = TABLES_DIR / "cdi_lines128_objective_comparison.tex"
-    csv_path = TABLES_DIR / "cdi_lines128_metrics_extended.csv"
-    json_path = TABLES_DIR / "cdi_lines128_metrics_extended.json"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    tex_path = output_dir / "cdi_lines128_metrics_extended.tex"
+    pinn_tex_path = output_dir / "cdi_lines128_pinn_metrics.tex"
+    objective_tex_path = output_dir / "cdi_lines128_objective_comparison.tex"
+    csv_path = output_dir / "cdi_lines128_metrics_extended.csv"
+    json_path = output_dir / "cdi_lines128_metrics_extended.json"
 
-    tex_path.write_text(render_cdi_metrics_table(rows), encoding="utf-8")
-    pinn_tex_path.write_text(render_cdi_pinn_metrics_table(rows), encoding="utf-8")
-    objective_tex_path.write_text(render_cdi_objective_comparison_table(rows), encoding="utf-8")
-    with csv_path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=list(rows[0]), lineterminator="\n")
-        writer.writeheader()
-        writer.writerows(rows)
-    _write_json(
-        json_path,
-        {
-            "claim_boundary": (
-                "complete_lines128_cdi_benchmark_plus_uno_extension_"
-                "with_corrected_ffno_objective_control_pair"
+    versioned_tex = _write_text_with_versioned_copy(
+        tex_path,
+        render_cdi_metrics_table(rows),
+        final_output_stem=final_output_stem,
+    )
+    versioned_pinn_tex = _write_text_with_versioned_copy(
+        pinn_tex_path,
+        render_cdi_pinn_metrics_table(rows),
+        final_output_stem=final_output_stem,
+    )
+    versioned_objective_tex = _write_text_with_versioned_copy(
+        objective_tex_path,
+        render_cdi_objective_comparison_table(rows),
+        final_output_stem=final_output_stem,
+    )
+    versioned_csv = _write_rows_csv_with_versioned_copy(
+        csv_path,
+        rows,
+        final_output_stem=final_output_stem,
+    )
+    json_payload = {
+        "claim_boundary": final_ffno_pair.claim_boundary,
+        "benchmark": "CDI",
+        "source_metrics_json": str(CDI_UNO_METRICS_JSON.relative_to(REPO_ROOT)),
+        "pinn_ffno_source_metrics_json": str(
+            final_ffno_pair.pinn_metrics_json.relative_to(REPO_ROOT)
+        ),
+        "supervised_ffno_source_metrics_json": str(
+            final_ffno_pair.supervised_metrics_json.relative_to(REPO_ROOT)
+        ),
+        "historical_proxy_lineage": {
+            "supervised_ffno_metrics_json": str(
+                CDI_SUPERSEDED_SUPERVISED_FFNO_METRICS_JSON.relative_to(REPO_ROOT)
             ),
-            "benchmark": "CDI",
-            "source_metrics_json": str(CDI_UNO_METRICS_JSON.relative_to(REPO_ROOT)),
-            "pinn_ffno_source_metrics_json": "runs/pinn_ffno/metrics.json",
-            "supervised_ffno_source_metrics_json": "runs/supervised_ffno/metrics.json",
-            "rows": rows,
+            "notes": "Historical fno_cnn_blocks=2 FFNO-local proxy lineage only.",
         },
+        "final_output_stem": final_output_stem,
+        "final_ffno_pair": final_ffno_pair.provenance_payload(),
+        "versioned_outputs": {
+            "tex": versioned_tex,
+            "pinn_tex": versioned_pinn_tex,
+            "objective_tex": versioned_objective_tex,
+            "csv": versioned_csv,
+            "json": str(versioned_output_path(json_path, final_output_stem))
+            if final_output_stem
+            else None,
+        },
+        "rows": rows,
+    }
+    versioned_json = _write_json_with_versioned_copy(
+        json_path,
+        json_payload,
+        final_output_stem=final_output_stem,
     )
     return {
         "tex": str(tex_path),
@@ -1126,6 +1229,11 @@ def write_cdi_extended_assets() -> dict[str, str]:
         "objective_tex": str(objective_tex_path),
         "csv": str(csv_path),
         "json": str(json_path),
+        "versioned_tex": versioned_tex or "",
+        "versioned_pinn_tex": versioned_pinn_tex or "",
+        "versioned_objective_tex": versioned_objective_tex or "",
+        "versioned_csv": versioned_csv or "",
+        "versioned_json": versioned_json or "",
     }
 
 
@@ -1999,6 +2107,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--write-cdi-phase-zoom-figure", action="store_true")
     parser.add_argument("--write-cdi-phase-zoom-per-panel-figure", action="store_true")
     parser.add_argument(
+        "--cdi-final-ffno-pair",
+        choices=["four_block_no_refiner", "depth24_no_refiner"],
+        default=FOUR_BLOCK_NO_REFINER_PAIR.pair_key,
+        help="Select the same-depth no-refiner FFNO pair that drives active CDI paper assets.",
+    )
+    parser.add_argument(
+        "--cdi-final-output-stem",
+        default=None,
+        help=(
+            "Deterministic versioned-output stem for CDI final-refresh assets; "
+            "defaults to the selected pair's canonical stem."
+        ),
+    )
+    parser.add_argument(
         "--write-model-config-table",
         action="store_true",
         help="Emit paper-local model configuration appendix table assets under tables/.",
@@ -2012,6 +2134,8 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     outputs: dict[str, object] = {}
     cns_matched_decision: dict[str, object] | None = None
+    cdi_final_ffno_pair = resolve_cdi_final_ffno_pair(args.cdi_final_ffno_pair)
+    cdi_final_output_stem = args.cdi_final_output_stem or cdi_final_ffno_pair.output_stem
     if args.audit_cns_history5:
         outputs["cns_history5_audit"] = audit_cns_history5_availability()
     if (
@@ -2060,15 +2184,34 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.write_brdt_context_figure:
         outputs["brdt_context_figure"] = str(write_brdt_context_figure())
     if args.write_cdi_extended_assets:
-        outputs["cdi_extended_assets"] = write_cdi_extended_assets()
+        outputs["cdi_extended_assets"] = write_cdi_extended_assets(
+            final_ffno_pair=cdi_final_ffno_pair,
+            final_output_stem=cdi_final_output_stem,
+        )
     if args.write_cdi_phase_zoom_figure:
-        outputs["cdi_phase_zoom_figure"] = write_cdi_phase_zoom_figure()
+        outputs["cdi_phase_zoom_figure"] = write_cdi_phase_zoom_figure(
+            final_ffno_pair=cdi_final_ffno_pair,
+            final_output_stem=cdi_final_output_stem,
+        )
     if args.write_cdi_phase_zoom_per_panel_figure:
-        outputs["cdi_phase_zoom_per_panel_figure"] = write_cdi_phase_zoom_per_panel_figure()
+        outputs["cdi_phase_zoom_per_panel_figure"] = write_cdi_phase_zoom_per_panel_figure(
+            final_ffno_pair=cdi_final_ffno_pair,
+            final_output_stem=cdi_final_output_stem,
+        )
     if args.write_model_config_table:
-        outputs["model_config_table"] = write_model_config_table(REPO_ROOT, TABLES_DIR)
+        outputs["model_config_table"] = write_model_config_table(
+            REPO_ROOT,
+            TABLES_DIR,
+            cdi_final_ffno_pair_key=cdi_final_ffno_pair.pair_key,
+            versioned_output_stem=cdi_final_output_stem,
+        )
     if args.write_efficiency_table:
-        outputs["paper_efficiency_table"] = write_paper_efficiency_table(REPO_ROOT, TABLES_DIR)
+        outputs["paper_efficiency_table"] = write_paper_efficiency_table(
+            REPO_ROOT,
+            TABLES_DIR,
+            cdi_final_ffno_pair_key=cdi_final_ffno_pair.pair_key,
+            versioned_output_stem=cdi_final_output_stem,
+        )
     if outputs:
         print(json.dumps(outputs, indent=2))
     else:

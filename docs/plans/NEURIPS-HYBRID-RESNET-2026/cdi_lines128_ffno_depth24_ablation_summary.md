@@ -16,10 +16,10 @@
 - This item is append-only CDI FFNO depth-ablation evidence only.
 - It does not replace the immutable six-row CDI authority
   (`docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md`)
-  or the current paper-local FFNO packaging authority
-  (`docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_no_refiner_ffno_table_refresh_summary.md`).
-- Manuscript-facing promotion remains deferred to
-  `2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh`.
+  or the current paper-local FFNO packaging authority.
+- Current paper-local FFNO packaging authority:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_final_paper_refresh_summary.md`
+  which retained the corrected four-block same-depth pair as canonical.
 
 ## Fixed Contract
 
@@ -141,6 +141,6 @@ Verification logs are archived under
 
 - This is a single-seed, two-image-per-split CDI ablation. The result is useful
   for same-contract directionality, not for broad statistical claims.
-- The current paper-local FFNO packaging still points at the corrected
-  four-block no-refiner rows by design. Any manuscript-facing promotion of the
-  depth-24 row must be handled explicitly by the later final-refresh item.
+- The final paper-local FFNO refresh explicitly reviewed this row and retained
+  the corrected four-block no-refiner pair as canonical. This depth-24 row
+  remains append-only evidence only.

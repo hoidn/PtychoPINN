@@ -7,6 +7,14 @@
 - Artifact root:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-no-refiner-ffno-table-refresh/`
 
+## Current Status Note
+
+- This summary remains the predecessor interim packaging authority.
+- Current paper-local CDI FFNO packaging now routes through:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_final_paper_refresh_summary.md`
+  which kept the corrected four-block same-depth no-refiner pair canonical
+  after explicitly reviewing the completed depth-24 FFNO family.
+
 ## Objective
 
 Refresh the manuscript-facing `lines128` CDI tables, figure inputs, model-config

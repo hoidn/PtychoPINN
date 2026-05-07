@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from scripts.studies.paper_efficiency_table import (
+    _collect_cdi_rows,
     classify_inference_throughput,
     collect_efficiency_rows,
     group_rows_by_benchmark,
@@ -125,6 +128,20 @@ def test_collect_efficiency_rows_uses_unique_model_config_counts_for_cdi():
     assert cdi_rows["pinn_ffno"].model_label == "FFNO + PINN"
     assert cdi_rows["supervised_ffno"].parameter_count == 124_966
     assert cdi_rows["supervised_ffno"].model_label == "FFNO + supervised"
+
+
+def test_collect_efficiency_rows_can_switch_to_depth24_pair():
+    rows = _collect_cdi_rows(Path.cwd(), cdi_final_ffno_pair_key="depth24_no_refiner")
+    cdi_rows = {row.row_id: row for row in rows}
+
+    assert cdi_rows["pinn_ffno"].parameter_count == 701_628
+    assert cdi_rows["pinn_ffno"].source_path.endswith(
+        "2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z/model_manifest.json"
+    )
+    assert cdi_rows["supervised_ffno"].parameter_count == 136_355
+    assert cdi_rows["supervised_ffno"].source_path.endswith(
+        "2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun/runs/supervised_ffno_depth24_20260507T192840Z/model_manifest.json"
+    )
 
 
 def test_render_efficiency_table_tex_groups_rows_and_escapes_fields():

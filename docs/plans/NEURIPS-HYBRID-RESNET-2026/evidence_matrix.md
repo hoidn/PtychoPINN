@@ -18,7 +18,7 @@ Machine-readable companions:
 | Scope | Current authority | Boundary |
 |---|---|---|
 | CDI `lines128` complete table | `lines128_paper_benchmark_summary.md` | `paper_grade`, six-row complete CDI bundle |
-| CDI `lines128` active paper-local FFNO refresh | `cdi_lines128_no_refiner_ffno_table_refresh_summary.md` | current manuscript-facing CDI tables, figures, model-config, efficiency, and discovery assets; claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension_with_corrected_ffno_objective_control_pair` |
+| CDI `lines128` final paper-local FFNO refresh | `cdi_lines128_ffno_depth24_final_paper_refresh_summary.md` | current manuscript-facing CDI tables, figures, model-config, efficiency, and discovery assets; four-block same-depth no-refiner pair retained as canonical; claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension_with_final_four_block_no_refiner_ffno_pair` |
 | CDI `lines128` pure-FFNO corrected prerequisite row | `cdi_lines128_ffno_no_refiner_row_rerun_summary.md` | corrected source-row evidence for the active paper-local FFNO refresh; claim boundary `lines128_ffno_vs_hybrid_prerequisite_pair` |
 | CDI `lines128` pure-FFNO corrected objective-control pair | `cdi_lines128_supervised_ffno_no_refiner_rerun_summary.md` | corrected source-row evidence for the active paper-local FFNO objective table; claim boundary `lines128_ffno_objective_control_corrected_pair` |
 | CDI `lines128` pure-FFNO depth ablation | `cdi_lines128_ffno_depth24_ablation_summary.md` | append-only depth-only FFNO evidence comparing corrected no-refiner `fno_blocks=4` against fresh `fno_blocks=24`; claim boundary `cdi_ffno_depth_ablation_only` |
@@ -128,9 +128,9 @@ Current read:
 - the improvement costs substantially more compute and capacity:
   `124,968 -> 701,628` parameters, `873.742 -> 4,754.923` train seconds, and
   `1.231 -> 8.505` inference seconds
-- this row remains append-only depth evidence only; the active paper-local FFNO
-  tables and figures still point at the corrected four-block no-refiner row
-  until the later final-refresh item explicitly decides promotion
+- this row remains append-only depth evidence only; the explicit final refresh
+  retained the corrected four-block no-refiner row as the repo-local canonical
+  FFNO paper pair
 - U-NO table extension (claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension`):
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z`
 - Generated current manuscript tables and refresh authority:
@@ -138,7 +138,7 @@ Current read:
   and
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_objective_comparison.tex`
   plus
-  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_no_refiner_ffno_table_refresh_summary.md`
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_final_paper_refresh_summary.md`
 
 ## CDI Lines128 Supervised Pure-FFNO Depth Companion
 
@@ -165,7 +165,8 @@ Current read:
   `1.229 -> 6.373` inference seconds
 - this row completes the supervised half of the FFNO depth-24 family but does
   not itself justify paper-local promotion over the corrected four-block
-  supervised row
+  supervised row; the final FFNO paper refresh kept the four-block same-depth
+  pair canonical
 
 ## CDI Lines128 Bridge Study
 

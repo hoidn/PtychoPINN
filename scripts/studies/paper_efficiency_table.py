@@ -10,6 +10,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+from scripts.studies.cdi_final_ffno_pair import (
+    FOUR_BLOCK_NO_REFINER_PAIR,
+    resolve_cdi_final_ffno_pair,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 NEURIPS_DIR = Path("docs") / "plans" / "NEURIPS-HYBRID-RESNET-2026"
@@ -32,26 +36,6 @@ CDI_UNO_ROOT = (
     / "complete_table_plus_uno_20260504T100347Z"
 )
 CDI_UNO_MODEL_MANIFEST = CDI_UNO_ROOT / "model_manifest.json"
-CDI_FFNO_NO_REFINER_MODEL_MANIFEST = (
-    Path(".artifacts")
-    / "work"
-    / "NEURIPS-HYBRID-RESNET-2026"
-    / "backlog"
-    / "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun"
-    / "runs"
-    / "ffno_no_refiner_20260506T223454Z"
-    / "model_manifest.json"
-)
-CDI_SUPERVISED_FFNO_MODEL_MANIFEST = (
-    Path(".artifacts")
-    / "work"
-    / "NEURIPS-HYBRID-RESNET-2026"
-    / "backlog"
-    / "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun"
-    / "runs"
-    / "supervised_ffno_no_refiner_20260506T232535Z"
-    / "model_manifest.json"
-)
 CNS_REFRESH_TABLE_JSON = (
     Path(".artifacts")
     / "work"
@@ -406,7 +390,9 @@ def _load_manifest_rows(path: Path) -> dict[str, tuple[dict[str, object], Path]]
     return result
 
 
-def _load_model_config_param_counts(repo_root: Path) -> dict[tuple[str, str], tuple[int, Path]]:
+def _load_model_config_param_counts(
+    repo_root: Path,
+) -> dict[tuple[str, str], tuple[int, Path, str]]:
     path = _repo_path(repo_root, MODEL_CONFIG_JSON)
     if not path.exists():
         return {}
@@ -414,7 +400,7 @@ def _load_model_config_param_counts(repo_root: Path) -> dict[tuple[str, str], tu
     rows = payload.get("rows")
     if not isinstance(rows, list):
         return {}
-    counts: dict[tuple[str, str], tuple[int, Path]] = {}
+    counts: dict[tuple[str, str], tuple[int, Path, str]] = {}
     for row in rows:
         if not isinstance(row, Mapping):
             continue
@@ -422,11 +408,19 @@ def _load_model_config_param_counts(repo_root: Path) -> dict[tuple[str, str], tu
         row_id = str(row.get("row_id") or "")
         unique = _as_int(row.get("unique_trainable_params"))
         if benchmark and row_id and unique is not None:
-            counts[(benchmark, row_id)] = (unique, path)
+            counts[(benchmark, row_id)] = (
+                unique,
+                path,
+                str(row.get("config_source") or ""),
+            )
     return counts
 
 
-def _collect_cdi_rows(repo_root: Path) -> list[EfficiencyRow]:
+def _collect_cdi_rows(
+    repo_root: Path,
+    *,
+    cdi_final_ffno_pair_key: str = FOUR_BLOCK_NO_REFINER_PAIR.pair_key,
+) -> list[EfficiencyRow]:
     table_path = _repo_path(repo_root, CDI_TABLE_JSON)
     if not table_path.exists():
         return []
@@ -435,11 +429,12 @@ def _collect_cdi_rows(repo_root: Path) -> list[EfficiencyRow]:
     if not isinstance(table_rows, list):
         return []
 
+    final_ffno_pair = resolve_cdi_final_ffno_pair(cdi_final_ffno_pair_key)
     manifest_rows: dict[str, tuple[dict[str, object], Path]] = {}
     for manifest in (
         CDI_UNO_MODEL_MANIFEST,
-        CDI_FFNO_NO_REFINER_MODEL_MANIFEST,
-        CDI_SUPERVISED_FFNO_MODEL_MANIFEST,
+        final_ffno_pair.pinn_model_manifest_json,
+        final_ffno_pair.supervised_model_manifest_json,
     ):
         manifest_rows.update(_load_manifest_rows(_repo_path(repo_root, manifest)))
 
@@ -452,12 +447,32 @@ def _collect_cdi_rows(repo_root: Path) -> list[EfficiencyRow]:
         row_id = str(table_row.get("row_id") or "")
         if not row_id:
             continue
-        manifest_row, manifest_path = manifest_rows.get(row_id, ({}, table_path))
+        if row_id == "pinn_ffno":
+            source_row_id = final_ffno_pair.pinn_source_row_id
+            pair_root = final_ffno_pair.pinn_root
+        elif row_id == "supervised_ffno":
+            source_row_id = final_ffno_pair.supervised_source_row_id
+            pair_root = final_ffno_pair.supervised_root
+        else:
+            source_row_id = row_id
+            pair_root = None
+        manifest_row, manifest_path = manifest_rows.get(source_row_id, ({}, table_path))
         payload = {**dict(table_row), **manifest_row}
         model_config_count = param_counts.get((benchmark_label, row_id))
         if model_config_count is not None:
-            payload["unique_trainable_params"] = model_config_count[0]
-            manifest_path = model_config_count[1]
+            config_source = model_config_count[2]
+            pair_root_matches = False
+            if pair_root is None:
+                pair_root_matches = True
+            else:
+                pair_root_labels = {
+                    pair_root.as_posix(),
+                    _repo_rel(repo_root, pair_root),
+                }
+                pair_root_matches = any(label in config_source for label in pair_root_labels)
+            if pair_root_matches:
+                payload["unique_trainable_params"] = model_config_count[0]
+                manifest_path = model_config_count[1]
         model = str(table_row.get("model") or payload.get("model_label") or row_id)
         training = str(table_row.get("training") or payload.get("training_procedure") or "")
         model_label = f"{model} + {training}" if training else model
@@ -471,7 +486,7 @@ def _collect_cdi_rows(repo_root: Path) -> list[EfficiencyRow]:
                 claim_boundary=str(
                     payload.get("claim_boundary")
                     or table_payload.get("claim_boundary")
-                    or "complete_lines128_cdi_benchmark_plus_uno_extension"
+                    or final_ffno_pair.claim_boundary
                 ),
             )
         )
@@ -593,10 +608,17 @@ def _collect_brdt_rows(repo_root: Path) -> list[EfficiencyRow]:
     return rows
 
 
-def collect_efficiency_rows(repo_root: Path = REPO_ROOT) -> list[EfficiencyRow]:
+def collect_efficiency_rows(
+    repo_root: Path = REPO_ROOT,
+    *,
+    cdi_final_ffno_pair_key: str = FOUR_BLOCK_NO_REFINER_PAIR.pair_key,
+) -> list[EfficiencyRow]:
     repo_root = Path(repo_root)
     return [
-        *_collect_cdi_rows(repo_root),
+        *_collect_cdi_rows(
+            repo_root,
+            cdi_final_ffno_pair_key=cdi_final_ffno_pair_key,
+        ),
         *_collect_cns_rows(repo_root),
         *_collect_brdt_rows(repo_root),
     ]
@@ -688,6 +710,9 @@ def render_summary(
 def write_paper_efficiency_table(
     repo_root: Path = REPO_ROOT,
     output_dir: Path | None = None,
+    *,
+    cdi_final_ffno_pair_key: str = FOUR_BLOCK_NO_REFINER_PAIR.pair_key,
+    versioned_output_stem: str | None = None,
 ) -> dict[str, str]:
     repo_root = Path(repo_root)
     if output_dir is None:
@@ -697,7 +722,13 @@ def write_paper_efficiency_table(
         if not output_dir.is_absolute():
             output_dir = repo_root / output_dir
 
-    rows = [asdict(row) for row in collect_efficiency_rows(repo_root)]
+    rows = [
+        asdict(row)
+        for row in collect_efficiency_rows(
+            repo_root,
+            cdi_final_ffno_pair_key=cdi_final_ffno_pair_key,
+        )
+    ]
     excluded = _candidate_context(repo_root)
     generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     payload = {
@@ -719,6 +750,23 @@ def write_paper_efficiency_table(
     _write_json(json_path, payload)
     _write_csv(csv_path, rows)
     tex_path.write_text(render_efficiency_table_tex(rows), encoding="utf-8")
+    if versioned_output_stem:
+        versioned_json = json_path.with_name(
+            f"{json_path.stem}_{versioned_output_stem}{json_path.suffix}"
+        )
+        versioned_csv = csv_path.with_name(
+            f"{csv_path.stem}_{versioned_output_stem}{csv_path.suffix}"
+        )
+        versioned_tex = tex_path.with_name(
+            f"{tex_path.stem}_{versioned_output_stem}{tex_path.suffix}"
+        )
+        _write_json(versioned_json, payload)
+        _write_csv(versioned_csv, rows)
+        versioned_tex.write_text(render_efficiency_table_tex(rows), encoding="utf-8")
+    else:
+        versioned_json = None
+        versioned_csv = None
+        versioned_tex = None
     summary_path.write_text(
         render_summary(rows, excluded_candidate_context=excluded),
         encoding="utf-8",
@@ -728,6 +776,9 @@ def write_paper_efficiency_table(
         "json": _repo_rel(repo_root, json_path),
         "csv": _repo_rel(repo_root, csv_path),
         "tex": _repo_rel(repo_root, tex_path),
+        "versioned_json": _repo_rel(repo_root, versioned_json) if versioned_json else "",
+        "versioned_csv": _repo_rel(repo_root, versioned_csv) if versioned_csv else "",
+        "versioned_tex": _repo_rel(repo_root, versioned_tex) if versioned_tex else "",
         "summary": _repo_rel(repo_root, summary_path),
     }
 

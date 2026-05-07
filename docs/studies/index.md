@@ -688,6 +688,43 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
     objective-control assets instead consume the corrected no-refiner pair
     documented by the later paper refresh summary
 
+### `grid-lines-n128-ffno-depth24-final-paper-refresh`
+
+- Purpose: make the explicit final same-depth promotion decision for the
+  repo-local CDI FFNO paper package after the depth-24 PINN and supervised
+  no-refiner companions landed, then regenerate the final FFNO-consuming
+  tables, figures, model-config assets, efficiency assets, and discovery
+  surfaces without rerunning any non-FFNO `lines128` row.
+- Status: completed on `2026-05-07`; this is the current paper-local CDI FFNO
+  packaging authority.
+- Summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_final_paper_refresh_summary.md`
+- Artifact root:
+  `artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/`
+- Final decision:
+  - chosen same-depth pair: corrected four-block no-refiner `pinn_ffno` +
+    corrected four-block no-refiner `supervised_ffno`
+  - retained output stem: `ffno_final_depth4pair`
+  - depth-24 family remains append-only evidence only
+- Regenerated canonical assets:
+  - `tables/cdi_lines128_metrics_extended.{json,csv,tex}`
+  - `tables/cdi_lines128_objective_comparison.tex`
+  - `tables/cdi_lines128_pinn_metrics.tex`
+  - `figures/cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet.png`
+  - `figures/cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet_per_panel_scaled.png`
+  - `tables/model_config_by_benchmark.{json,csv,tex}`
+  - `tables/paper_efficiency_table.{json,csv,tex}`
+- Versioned provenance-safe copies:
+  - every regenerated FFNO asset family also emits a matching
+    `*_ffno_final_depth4pair.*` copy
+- Boundary:
+  - current paper-local CDI FFNO packaging only; the immutable six-row CDI
+    base authority and append-only U-NO extension remain unchanged headline
+    lineage surfaces
+  - historical `fno_cnn_blocks=2` rows remain explicit `FFNO-local proxy`
+    context only
+  - the completed depth-24 family remains discoverable but unpromoted
+
 ### `grid-lines-n128-no-refiner-ffno-paper-refresh`
 
 - Purpose: refresh the manuscript-facing CDI FFNO tables, phase-zoom figure
@@ -695,8 +732,7 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   active `pinn_ffno` and `supervised_ffno` paper rows consume the corrected
   four-block no-refiner reruns rather than the historical local-refiner proxy
   lineage.
-- Status: completed on `2026-05-06`; this is the current paper-local CDI FFNO
-  packaging authority.
+- Status: completed on `2026-05-06`; preserved predecessor packaging pass.
 - Summary:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_no_refiner_ffno_table_refresh_summary.md`
 - Artifact root:
@@ -720,11 +756,12 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
   - `tables/model_config_by_benchmark.{json,csv,tex}`
   - `tables/paper_efficiency_table.{json,csv,tex}`
 - Boundary:
-  - current paper-local FFNO packaging only; it does not rewrite the immutable
-    six-row base authority or the append-only U-NO extension root
+  - predecessor packaging pass only; superseded as the current paper-local CDI
+    FFNO packaging authority by
+    `grid-lines-n128-ffno-depth24-final-paper-refresh`
   - historical `fno_cnn_blocks=2` FFNO rows remain preserved explicit proxy
     lineage only
-  - no depth-24 FFNO row is consumed by this interim refresh
+  - no depth-24 FFNO row was consumed by this interim refresh
 
 ### `grid-lines-n128-ffno-depth24-ablation`
 
@@ -753,8 +790,8 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Boundary:
   - append-only depth-ablation evidence only; it does not rewrite the current
     paper-local FFNO rows
-  - manuscript-facing promotion remains deferred to
-    `2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh`
+  - the later final refresh reviewed this row explicitly and kept the
+    corrected four-block same-depth pair canonical
 
 ### `grid-lines-n128-supervised-ffno-depth24-companion`
 
@@ -790,8 +827,8 @@ bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_tes
 - Boundary:
   - append-only supervised depth-companion evidence only; it does not rewrite
     the current paper-local FFNO rows
-  - manuscript-facing promotion remains deferred to
-    `2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh`
+  - the later final refresh reviewed this row explicitly and kept the
+    corrected four-block same-depth pair canonical
 
 ### Lines128 CDI U-NO Table Extension
 - Purpose: append-only U-NO architecture extension over the locked Lines128

@@ -8,6 +8,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from scripts.studies.cdi_final_ffno_pair import (
+    FOUR_BLOCK_NO_REFINER_PAIR,
+    CdiFinalFfnoPair,
+    resolve_cdi_final_ffno_pair,
+)
 
 NEURIPS_DIR = Path("docs") / "plans" / "NEURIPS-HYBRID-RESNET-2026"
 TABLES_DIR = NEURIPS_DIR / "tables"
@@ -20,24 +25,6 @@ CDI_BASE_ROOT = (
     / "2026-04-30-cdi-lines128-uno-table-extension"
     / "runs"
     / "complete_table_plus_uno_20260504T100347Z"
-)
-CDI_FFNO_ROOT = (
-    Path(".artifacts")
-    / "work"
-    / "NEURIPS-HYBRID-RESNET-2026"
-    / "backlog"
-    / "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun"
-    / "runs"
-    / "ffno_no_refiner_20260506T223454Z"
-)
-CDI_SUPERVISED_FFNO_ROOT = (
-    Path(".artifacts")
-    / "work"
-    / "NEURIPS-HYBRID-RESNET-2026"
-    / "backlog"
-    / "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun"
-    / "runs"
-    / "supervised_ffno_no_refiner_20260506T232535Z"
 )
 BRDT_40EP_ROOT = (
     Path(".artifacts")
@@ -266,6 +253,8 @@ def _cdi_param_count(
     run_dir: Path,
     manifest_row: Mapping[str, Any],
     repo_root: Path,
+    *,
+    final_ffno_pair: CdiFinalFfnoPair,
 ) -> tuple[int, int | None, str, str, str]:
     model_path = run_dir / "model.pt"
     recorded = manifest_row.get("parameter_count")
@@ -285,7 +274,7 @@ def _cdi_param_count(
                 if cnn_blocks > 0:
                     notes = f"fno_cnn_blocks={cnn_blocks}; not manuscript-facing"
                 else:
-                    notes = "active CDI paper row"
+                    notes = f"active CDI final paper row; {final_ffno_pair.depth_label}"
             return (
                 result.unique_trainable_params,
                 raw_recorded,
@@ -304,29 +293,35 @@ def _cdi_param_count(
     return (0, None, "not_recorded", "not_recorded", "parameter count not recorded")
 
 
-def load_cdi_config_rows(repo_root: Path) -> list[ModelConfigRow]:
+def load_cdi_config_rows(
+    repo_root: Path,
+    *,
+    cdi_final_ffno_pair_key: str = FOUR_BLOCK_NO_REFINER_PAIR.pair_key,
+) -> list[ModelConfigRow]:
     table_path = repo_root / TABLES_DIR / "cdi_lines128_metrics_extended.json"
     table_rows = _read_json(table_path).get("rows", [])
     base_root = repo_root / CDI_BASE_ROOT
-    corrected_ffno_root = repo_root / CDI_FFNO_ROOT
-    supervised_ffno_root = repo_root / CDI_SUPERVISED_FFNO_ROOT
+    final_ffno_pair = resolve_cdi_final_ffno_pair(cdi_final_ffno_pair_key)
     manifest_rows = _manifest_rows_by_id(base_root / "model_manifest.json")
-    manifest_rows.update(_manifest_rows_by_id(corrected_ffno_root / "model_manifest.json"))
-    manifest_rows.update(_manifest_rows_by_id(supervised_ffno_root / "model_manifest.json"))
+    manifest_rows.update(_manifest_rows_by_id(final_ffno_pair.pinn_model_manifest_json))
+    manifest_rows.update(_manifest_rows_by_id(final_ffno_pair.supervised_model_manifest_json))
     rows: list[ModelConfigRow] = []
 
     for metric_row in table_rows:
         row_id = str(metric_row["row_id"])
         if row_id == "pinn_ffno":
-            row_root = corrected_ffno_root
+            row_root = final_ffno_pair.pinn_root
+            source_row_id = final_ffno_pair.pinn_source_row_id
         elif row_id == "supervised_ffno":
-            row_root = supervised_ffno_root
+            row_root = final_ffno_pair.supervised_root
+            source_row_id = final_ffno_pair.supervised_source_row_id
         else:
             row_root = base_root
-        run_dir = row_root / "runs" / row_id
+            source_row_id = row_id
+        run_dir = row_root / "runs" / source_row_id
         config_path = run_dir / "config.json"
         cfg = _load_runner_config(config_path)
-        manifest_row = manifest_rows.get(row_id, {})
+        manifest_row = manifest_rows.get(source_row_id, {})
         architecture = str(manifest_row.get("architecture_id") or cfg.get("architecture") or "not_recorded")
         display_model, training = CDI_DISPLAY_LABELS.get(
             row_id,
@@ -336,9 +331,15 @@ def load_cdi_config_rows(repo_root: Path) -> list[ModelConfigRow]:
             run_dir,
             manifest_row,
             repo_root,
+            final_ffno_pair=final_ffno_pair,
         )
         if count_source == "model_manifest.json":
-            count_source = _repo_rel(repo_root, row_root / "model_manifest.json")
+            if row_id == "pinn_ffno":
+                count_source = _repo_rel(repo_root, final_ffno_pair.pinn_model_manifest_json)
+            elif row_id == "supervised_ffno":
+                count_source = _repo_rel(repo_root, final_ffno_pair.supervised_model_manifest_json)
+            else:
+                count_source = _repo_rel(repo_root, row_root / "model_manifest.json")
         rows.append(
             ModelConfigRow(
                 benchmark="CDI",
@@ -554,8 +555,21 @@ def write_model_config_csv(rows: Sequence[ModelConfigRow], path: Path) -> None:
             writer.writerow(row_to_dict(row))
 
 
-def write_model_config_table(repo_root: Path, output_dir: Path) -> dict[str, str]:
-    rows = build_model_config_rows(repo_root)
+def write_model_config_table(
+    repo_root: Path,
+    output_dir: Path,
+    *,
+    cdi_final_ffno_pair_key: str = FOUR_BLOCK_NO_REFINER_PAIR.pair_key,
+    versioned_output_stem: str | None = None,
+) -> dict[str, str]:
+    rows = [
+        *load_cdi_config_rows(
+            repo_root,
+            cdi_final_ffno_pair_key=cdi_final_ffno_pair_key,
+        ),
+        *load_cns_config_rows(repo_root),
+        *load_brdt_config_rows(repo_root),
+    ]
     output_dir.mkdir(parents=True, exist_ok=True)
     json_path = output_dir / "model_config_by_benchmark.json"
     csv_path = output_dir / "model_config_by_benchmark.csv"
@@ -563,8 +577,28 @@ def write_model_config_table(repo_root: Path, output_dir: Path) -> dict[str, str
     write_model_config_json(rows, json_path)
     write_model_config_csv(rows, csv_path)
     tex_path.write_text(render_model_config_tex(rows), encoding="utf-8")
+    if versioned_output_stem:
+        versioned_json = json_path.with_name(
+            f"{json_path.stem}_{versioned_output_stem}{json_path.suffix}"
+        )
+        versioned_csv = csv_path.with_name(
+            f"{csv_path.stem}_{versioned_output_stem}{csv_path.suffix}"
+        )
+        versioned_tex = tex_path.with_name(
+            f"{tex_path.stem}_{versioned_output_stem}{tex_path.suffix}"
+        )
+        write_model_config_json(rows, versioned_json)
+        write_model_config_csv(rows, versioned_csv)
+        versioned_tex.write_text(render_model_config_tex(rows), encoding="utf-8")
+    else:
+        versioned_json = None
+        versioned_csv = None
+        versioned_tex = None
     return {
         "json": _repo_rel(repo_root, json_path),
         "csv": _repo_rel(repo_root, csv_path),
         "tex": _repo_rel(repo_root, tex_path),
+        "versioned_json": _repo_rel(repo_root, versioned_json) if versioned_json else "",
+        "versioned_csv": _repo_rel(repo_root, versioned_csv) if versioned_csv else "",
+        "versioned_tex": _repo_rel(repo_root, versioned_tex) if versioned_tex else "",
     }
