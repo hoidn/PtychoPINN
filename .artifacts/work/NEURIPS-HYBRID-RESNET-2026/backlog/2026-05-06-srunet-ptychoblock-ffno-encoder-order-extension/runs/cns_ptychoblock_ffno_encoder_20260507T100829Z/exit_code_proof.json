@@ -1,0 +1,11 @@
+{
+  "validated_at_utc": "2026-05-07T10:35:59.423660+00:00",
+  "proof_source": "tracked_pid_poll_and_root_artifact_validation",
+  "exit_code": 0,
+  "invocation_json": "invocation.json",
+  "invocation_status": "completed_by_tracked_pid_poll",
+  "tracked_pid": 3234001,
+  "child_pid": 3234005,
+  "finished_at_utc": "2026-05-07T10:29:19.856440+00:00",
+  "wait_result": "EXIT_CODE:0"
+}

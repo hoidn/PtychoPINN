@@ -222,6 +222,37 @@ def test_hybrid_resnet_ffno_ptychoblock_encoder_cns_profile_is_manual_only_and_o
     y = model(torch.zeros(1, 8, 128, 128))
     assert tuple(y.shape) == (1, 4, 128, 128)
 
+def test_hybrid_resnet_ptychoblock_ffno_encoder_cns_profile_is_manual_only_and_off_primary_bundle():
+    from scripts.studies.pdebench_image128.models import PadCropWrapper, build_model_from_profile, describe_model
+    from scripts.studies.pdebench_image128.run_config import (
+        get_model_profile,
+        required_primary_profiles_for_task,
+    )
+
+    profile = get_model_profile("hybrid_resnet_ptychoblock_ffno_encoder_cns")
+    model = build_model_from_profile(
+        profile,
+        in_channels=8,
+        out_channels=4,
+        spatial_shape=(128, 128),
+    )
+    description = describe_model(model, profile=profile)
+
+    assert isinstance(model, PadCropWrapper)
+    assert profile.evidence_scope == "manual-only"
+    assert "hybrid_resnet_ptychoblock_ffno_encoder_cns" not in required_primary_profiles_for_task("2d_cfd_cns")
+    assert model.module.encoder_variant == "ptychoblock_ffno_encoder"
+    assert model.module.encoder_order == "ptychoblock_then_ffno"
+    assert model.module.ffno_encoder_blocks == 24
+    assert model.module.ffno_encoder_modes == 12
+    assert description["profile_config"]["encoder_variant"] == "ptychoblock_ffno_encoder"
+    assert description["profile_config"]["encoder_order"] == "ptychoblock_then_ffno"
+    assert description["profile_config"]["ffno_encoder_blocks"] == 24
+    assert description["profile_config"]["ffno_encoder_modes"] == 12
+    assert description["profile_config"]["ptychoblock_stage_count"] == 2
+    y = model(torch.zeros(1, 8, 128, 128))
+    assert tuple(y.shape) == (1, 4, 128, 128)
+
 def test_spectral_resnet_bottleneck_profile_builds_under_canonical_cns_skip_add_shell():
     from scripts.studies.pdebench_image128.models import PadCropWrapper, build_model_from_profile
     from scripts.studies.pdebench_image128.run_config import get_model_profile

@@ -40,6 +40,12 @@ def test_resolve_generator_hybrid_resnet_ffno_ptychoblock_encoder():
     assert gen.name == 'hybrid_resnet_ffno_ptychoblock_encoder'
 
 
+def test_resolve_generator_hybrid_resnet_ptychoblock_ffno_encoder():
+    cfg = TrainingConfig(model=ModelConfig(architecture='hybrid_resnet_ptychoblock_ffno_encoder'))
+    gen = resolve_generator(cfg)
+    assert gen.name == 'hybrid_resnet_ptychoblock_ffno_encoder'
+
+
 def test_resolve_generator_ffno():
     cfg = TrainingConfig(model=ModelConfig(architecture='ffno'))
     gen = resolve_generator(cfg)

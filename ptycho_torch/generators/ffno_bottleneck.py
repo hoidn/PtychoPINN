@@ -125,6 +125,30 @@ class SharedFactorizedFfnoBottleneck(nn.Module):
         return x
 
 
+def build_no_refiner_ffno_stack(
+    channels: int,
+    *,
+    n_blocks: int,
+    modes: int,
+    share_spectral_weights: bool = True,
+    mlp_ratio: float = 2.0,
+    gate_init: float = 0.1,
+    norm: str = "instance",
+) -> SharedFactorizedFfnoBottleneck:
+    """Build the shared FFNO stack contract used by CDI and encoder-order studies."""
+
+    return SharedFactorizedFfnoBottleneck(
+        channels,
+        n_blocks=n_blocks,
+        modes=modes,
+        share_spectral_weights=share_spectral_weights,
+        mlp_ratio=mlp_ratio,
+        gate_init=gate_init,
+        norm=norm,
+        local_conv_kernel_size=None,
+    )
+
+
 class FfnoBottleneckGeneratorModule(nn.Module):
     """Minimal generator-style shell for FFNO-close bottleneck unit tests."""
 

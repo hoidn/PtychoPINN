@@ -192,6 +192,36 @@
   and does not replace the six-row CDI authority or the matched-condition CNS
   headline bundle.
 
+### `srunet-encoder-order-cross-pillar-comparison` (completed; bounded mechanism comparison)
+
+- Purpose: compare the completed corrected `FFNO -> 2x(PtychoBlock +
+  downsample)` encoder against the new reversed-order
+  `2x(PtychoBlock + downsample) -> FFNO` encoder under the same governed CDI and
+  capped CNS mechanism budgets, while keeping regular SRU-Net as the baseline
+  anchor on each pillar.
+- Governing design:
+  `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md`
+- Execution plan:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension/execution_plan.md`
+- Summary authority:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_encoder_order_ffno_vs_ptychoblock_summary.md`
+- Item root (git-ignored):
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension/`
+- Fresh CDI reversed-order root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension/runs/cdi_ptychoblock_ffno_encoder_20260507T094629Z/`
+- Fresh CNS reversed-order root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension/runs/cns_ptychoblock_ffno_encoder_20260507T100829Z/`
+- Machine-readable comparison bundle:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension/comparison_bundle.json`
+- Current read:
+  reversed `PtychoBlock -> FFNO` ordering is directionally better than the
+  corrected `FFNO -> PtychoBlock` companion on both pillars, but it still does
+  not beat the regular SRU-Net anchors overall
+- Boundary: CDI outcome is `decision_support_append_only`; CNS outcome is
+  `bounded_capped_decision_support_only`. This is comparison-layer mechanism
+  evidence only and does not replace the six-row CDI authority or the
+  matched-condition CNS headline bundle.
+
 ### `pdebench-darcy-static-operator-benchmark` (implemented; full benchmark pending)
 
 - Purpose: Implement and run the Darcy Flow beta `1.0` static operator-map member of the PDEBench `128x128` image suite.

@@ -1,7 +1,7 @@
 # NeurIPS Hybrid ResNet Evidence Matrix
 
 Status: draft  
-Last updated: 2026-05-07 (completed the corrected 24-block SRU-Net FFNO-to-PtychoBlock cross-pillar probe; the current paper-local FFNO rows remain the corrected four-block no-refiner authorities)
+Last updated: 2026-05-07 (completed the reversed-order SRU-Net encoder comparison against the corrected FFNO-to-PtychoBlock companion; the current paper-local FFNO rows remain the corrected four-block no-refiner authorities)
 
 This is the human-facing master matrix for NeurIPS/SRU-Net evidence. It points
 to all relevant completed backlog outputs, keyed by dataset, model/config
@@ -31,6 +31,7 @@ Machine-readable companions:
 | PDEBench CNS larger-cap context | `pdebench_cns_paper_2048cap_extension_summary.md` | bounded capped decision-support only, preserved larger-cap `2048 / 256 / 256` context |
 | PDEBench CNS 512cap fallback provenance | `pdebench_cns_paper_table_figure_bundle_summary.md` | bounded capped decision-support only, preserved historical fallback |
 | SRU-Net FFNO-to-PtychoBlock encoder cross-pillar probe | `srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md` | corrected `24`-block `20`-epoch CDI/CNS mechanism probes completed; historical `2`-block CDI/CNS roots remain superseded lineage only |
+| SRU-Net encoder-order comparison | `srunet_encoder_order_ffno_vs_ptychoblock_summary.md` | three-row CDI and capped CNS encoder-order comparison; reversed `PtychoBlock -> FFNO` order beats the corrected `FFNO -> PtychoBlock` companion on both pillars, but regular SRU-Net remains the better overall anchor |
 | PDEBench Darcy static-operator full-training benchmark | `pdebench_darcy_static_operator_summary.md` | `benchmark_performance` for `hybrid_resnet_base`, `fno_base`, `unet_strong` under the locked `8000/1000/1000` split, relative-L2 loss, `50` epochs |
 | BRDT corrected pure-FFNO 20-epoch rerun | `brdt_corrected_ffno_row_rerun_summary.md` | pure-BRDT-FFNO `20`-epoch authority under the locked `2048 / 256 / 256` supervised+Born contract; claim boundary `decision_support_append_only` |
 | BRDT 40-epoch secondary bundle | `brdt_supervised_born_40ep_paper_evidence_summary.md` | historical secondary context; SRU-Net remains usable context, but the FFNO row is a local-refiner proxy and pure-FFNO claims require the corrected no-refiner rerun |
@@ -208,6 +209,30 @@ Current read:
   is worse on every tracked metric
 - this row remains append-only mechanism evidence and does not replace the
   paper-grade six-row CDI authority or the append-only U-NO extension
+
+## CDI Lines128 SRU-Net Encoder-Order Comparison
+
+Fixed contract: same `lines128` CDI contract as the complete six-row bundle;
+all mechanism rows use the bounded `20`-epoch probe budget.
+
+| Row | Encoder order | Amp MAE | Phase MAE | Amp SSIM | Phase SSIM | Amp FRC50 | Phase FRC50 | Source |
+|---|---|---:|---:|---:|---:|---:|---:|---|
+| `pinn_hybrid_resnet` | regular SRU-Net anchor | 0.026939 | 0.072063 | 0.988114 | 0.994740 | 135.464 | 106.801 | six-row CDI authority |
+| `pinn_hybrid_resnet_ffno_ptychoblock_encoder` | `FFNO -> PtychoBlock` | 0.036440 | 0.080485 | 0.978317 | 0.990516 | 79.948 | 79.676 | corrected `24`-block companion rerun |
+| `pinn_hybrid_resnet_ptychoblock_ffno_encoder` | `PtychoBlock -> FFNO` | 0.037627 | 0.078883 | 0.978619 | 0.990768 | 133.998 | 104.968 | fresh reversed-order rerun |
+
+Current read:
+
+- the reversed-order row remains worse than regular SRU-Net on the main CDI
+  scalar metrics, including `amp_mae +0.0107` and `phase_mae +0.0068`
+- versus the corrected `FFNO -> PtychoBlock` companion, the reversed-order row
+  is mixed on amplitude image-space scalars but improves phase MAE, both SSIMs,
+  and both FRC50 scores, especially `amp_frc50 +54.05`
+- the strongest directional gain from moving FFNO post-downsample is frequency
+  recovery: the reversed-order row lands within `1.47` amp-FRC50 points and
+  `1.83` phase-FRC50 points of the regular SRU-Net anchor
+- this comparison remains append-only mechanism evidence only and does not
+  replace the six-row CDI authority
 
 ## CDI Natural-Patch Expanded-Object Benchmark (Recovered Non-Authoritative)
 
@@ -420,6 +445,30 @@ Current read:
 - this row remains bounded capped mechanism evidence only and does not reopen
   full-training claims or alter the matched-condition headline authority
 
+## PDEBench CNS SRU-Net Encoder-Order Comparison
+
+Fixed contract: matched-condition PDEBench `2d_cfd_cns` capped lane
+`history_len=5`, `512 / 64 / 64`; both mechanism rows remain bounded `20`-epoch
+probes against the existing `40`-epoch headline authority.
+
+| Row | Encoder order | relative_l2 | fRMSE_low | fRMSE_mid | fRMSE_high | Source |
+|---|---|---:|---:|---:|---:|---|
+| `spectral_resnet_bottleneck_base` | regular SRU-Net anchor | 0.033069 | 1.854178 | 0.171350 | 0.262218 | matched-condition headline authority |
+| `hybrid_resnet_ffno_ptychoblock_encoder_cns` | `FFNO -> PtychoBlock` | 0.049338 | 2.731857 | 0.201231 | 0.553375 | corrected `24`-block companion rerun |
+| `hybrid_resnet_ptychoblock_ffno_encoder_cns` | `PtychoBlock -> FFNO` | 0.037419 | 2.040936 | 0.215718 | 0.457957 | fresh reversed-order rerun |
+
+Current read:
+
+- the reversed-order row is still worse than the regular SRU-Net anchor on
+  every tracked CNS metric, so the order swap does not beat the headline shell
+- versus the corrected `FFNO -> PtychoBlock` companion, the reversed-order row
+  materially improves `relative_l2`, `fRMSE_low`, and `fRMSE_high`
+- the only tracked regression versus the companion is `fRMSE_mid +0.0145`
+- operationally, the reversed-order row is also lighter than the companion on
+  this capped lane: runtime and peak CUDA memory both drop substantially
+- this comparison remains bounded capped mechanism evidence only and does not
+  alter the matched-condition headline authority
+
 ## BRDT Decision-Support Bundle
 
 The 40-epoch BRDT bundle remains repo-local **decision-support context only**
@@ -481,6 +530,7 @@ Current decision-support inputs (not manuscript paper evidence):
 | `2026-04-21-hybrid-resnet-encoder-fusion-variants` | CDI Hybrid encoder-fusion same-contract ablation | `lines128_hybrid_resnet_encoder_fusion_variants_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-21-hybrid-resnet-encoder-fusion-variants/` |
 | `2026-05-04-cdi-lines128-srunet-branch-objective-ablation` | CDI SRU-Net branch / objective same-contract ablation (`decision_support_append_only`) | `lines128_srunet_branch_objective_ablation_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cdi-lines128-srunet-branch-objective-ablation/runs/ablation_20260505T010316Z` |
 | `2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap` | cross-pillar SRU-Net FFNO-to-PtychoBlock encoder probe | `srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/` (corrected `24`-block reruns completed; historical `2`-block roots superseded) |
+| `2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension` | cross-pillar SRU-Net encoder-order comparison (`FFNO -> PtychoBlock` vs `PtychoBlock -> FFNO`) | `srunet_encoder_order_ffno_vs_ptychoblock_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension/` |
 | `2026-04-30-cdi-lines128-uno-design-preflight` | CDI U-NO environment/API readiness | `lines128_uno_preflight_summary.md` | `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-design-preflight/` |
 | `2026-04-29-paper-evidence-package-audit` | cross-pillar evidence audit | `paper_evidence_package_audit_summary.md` | `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/` |
 | `2026-05-05-paper-efficiency-table` | cross-pillar efficiency packaging | `paper_efficiency_table_summary.md` | `docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/paper_efficiency_table.{json,csv,tex}` |

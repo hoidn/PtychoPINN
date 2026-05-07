@@ -16,7 +16,10 @@ from ptycho_torch.generators.hybrid_resnet import (
     StrideConvDownsample,
 )
 from ptycho_torch.generators.resnet_components import CycleGanUpsampler, ResnetBottleneck
-from ptycho_torch.generators.ffno_bottleneck import SharedFactorizedFfnoBottleneck
+from ptycho_torch.generators.ffno_bottleneck import (
+    SharedFactorizedFfnoBottleneck,
+    build_no_refiner_ffno_stack,
+)
 from ptycho_torch.generators.spectral_resnet_bottleneck import SharedSpectralResnetBottleneck
 from scripts.studies.pdebench_image128.author_ffno_adapter import (
     AuthorFfnoAdapterBuildError,
@@ -141,6 +144,7 @@ class _SharedPdebenchHybridShell(nn.Module):
         hybrid_skip_style: str = "add",
         bottleneck_builder: Callable[[int], nn.Module],
         pre_encoder_builder: Callable[[int], nn.Module] | None = None,
+        post_encoder_builder: Callable[[int], nn.Module] | None = None,
         encoder_block_builder: Callable[[int], nn.Module] | None = None,
         encoder_stage_count: int | None = None,
     ):
@@ -170,6 +174,7 @@ class _SharedPdebenchHybridShell(nn.Module):
                         "channels": channels,
                     }
                 )
+        self.post_encoder = nn.Identity() if post_encoder_builder is None else post_encoder_builder(channels)
         self.resnet = bottleneck_builder(channels)
         upsample_widths = [channels]
         for _ in range(downsample_steps):
@@ -259,6 +264,7 @@ class _SharedPdebenchHybridShell(nn.Module):
                 tap = self.encoder_tap_plan[index]
                 encoder_taps[str(tap["key"])] = x
                 x = self.downsample_layers[index](x)
+        x = self.post_encoder(x)
         x = self.resnet(x)
         for index, upsample in enumerate(self.upsample_layers):
             x = upsample(x)
@@ -331,6 +337,7 @@ class HybridResnetFfnoPtychoBlockEncoderImageModel(_SharedPdebenchHybridShell):
         hybrid_skip_style: str = "add",
     ):
         self.encoder_variant = "ffno_ptychoblock_encoder"
+        self.encoder_order = "ffno_then_ptychoblock"
         self.ffno_encoder_blocks = int(ffno_encoder_blocks)
         self.ffno_encoder_modes = int(ffno_encoder_modes)
         self.ffno_encoder_share_weights = bool(ffno_encoder_share_weights)
@@ -350,7 +357,7 @@ class HybridResnetFfnoPtychoBlockEncoderImageModel(_SharedPdebenchHybridShell):
             upsampler=upsampler,
             skip_connections=skip_connections,
             hybrid_skip_style=hybrid_skip_style,
-            pre_encoder_builder=lambda channels: SharedFactorizedFfnoBottleneck(
+            pre_encoder_builder=lambda channels: build_no_refiner_ffno_stack(
                 channels,
                 n_blocks=self.ffno_encoder_blocks,
                 modes=self.ffno_encoder_modes,
@@ -358,7 +365,67 @@ class HybridResnetFfnoPtychoBlockEncoderImageModel(_SharedPdebenchHybridShell):
                 mlp_ratio=self.ffno_encoder_mlp_ratio,
                 gate_init=self.ffno_encoder_gate_init,
                 norm=self.ffno_encoder_norm,
-                local_conv_kernel_size=None,
+            ),
+            encoder_block_builder=lambda channels: HybridResnetEncoderBlock(channels, modes=fno_modes),
+            encoder_stage_count=self.ptychoblock_stage_count,
+            bottleneck_builder=lambda channels: ResnetBottleneck(channels, n_blocks=resnet_blocks),
+        )
+
+
+class HybridResnetPtychoBlockFfnoEncoderImageModel(_SharedPdebenchHybridShell):
+    """Supervised real-channel adapter with two PtychoBlocks before the FFNO stack."""
+
+    def __init__(
+        self,
+        *,
+        in_channels: int,
+        out_channels: int,
+        hidden_channels: int,
+        fno_modes: int,
+        fno_blocks: int,
+        resnet_blocks: int,
+        downsample_steps: int,
+        downsample_op: str = "stride_conv",
+        ffno_encoder_blocks: int = 24,
+        ffno_encoder_modes: int = 12,
+        ffno_encoder_share_weights: bool = True,
+        ffno_encoder_mlp_ratio: float = 2.0,
+        ffno_encoder_gate_init: float = 0.1,
+        ffno_encoder_norm: str = "instance",
+        ptychoblock_stage_count: int = 2,
+        upsampler: str = "cyclegan_transpose",
+        skip_connections: bool = False,
+        hybrid_skip_style: str = "add",
+    ):
+        self.encoder_variant = "ptychoblock_ffno_encoder"
+        self.encoder_order = "ptychoblock_then_ffno"
+        self.ffno_encoder_blocks = int(ffno_encoder_blocks)
+        self.ffno_encoder_modes = int(ffno_encoder_modes)
+        self.ffno_encoder_share_weights = bool(ffno_encoder_share_weights)
+        self.ffno_encoder_mlp_ratio = float(ffno_encoder_mlp_ratio)
+        self.ffno_encoder_gate_init = float(ffno_encoder_gate_init)
+        self.ffno_encoder_norm = str(ffno_encoder_norm)
+        self.ptychoblock_stage_count = int(ptychoblock_stage_count)
+        super().__init__(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            hidden_channels=hidden_channels,
+            fno_modes=fno_modes,
+            fno_blocks=fno_blocks,
+            resnet_blocks=resnet_blocks,
+            downsample_steps=downsample_steps,
+            downsample_op=downsample_op,
+            upsampler=upsampler,
+            skip_connections=skip_connections,
+            hybrid_skip_style=hybrid_skip_style,
+            post_encoder_builder=lambda channels: build_no_refiner_ffno_stack(
+                channels,
+                n_blocks=self.ffno_encoder_blocks,
+                modes=self.ffno_encoder_modes,
+                share_spectral_weights=self.ffno_encoder_share_weights,
+                mlp_ratio=self.ffno_encoder_mlp_ratio,
+                gate_init=self.ffno_encoder_gate_init,
+                norm=self.ffno_encoder_norm,
             ),
             encoder_block_builder=lambda channels: HybridResnetEncoderBlock(channels, modes=fno_modes),
             encoder_stage_count=self.ptychoblock_stage_count,
@@ -586,6 +653,31 @@ def build_model_from_profile(
         downsample_steps = int(config.get("hybrid_downsample_steps", 2))
         return PadCropWrapper(
             HybridResnetFfnoPtychoBlockEncoderImageModel(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                hidden_channels=int(config.get("hidden_channels", 32)),
+                fno_modes=int(config.get("fno_modes", 12)),
+                fno_blocks=int(config.get("fno_blocks", 4)),
+                resnet_blocks=int(config.get("hybrid_resnet_blocks", 6)),
+                downsample_steps=downsample_steps,
+                downsample_op=str(config.get("downsample_op", "stride_conv")),
+                ffno_encoder_blocks=int(config.get("ffno_encoder_blocks", 24)),
+                ffno_encoder_modes=int(config.get("ffno_encoder_modes", config.get("fno_modes", 12))),
+                ffno_encoder_share_weights=bool(config.get("ffno_encoder_share_weights", True)),
+                ffno_encoder_mlp_ratio=float(config.get("ffno_encoder_mlp_ratio", 2.0)),
+                ffno_encoder_gate_init=float(config.get("ffno_encoder_gate_init", 0.1)),
+                ffno_encoder_norm=str(config.get("ffno_encoder_norm", "instance")),
+                ptychoblock_stage_count=int(config.get("ptychoblock_stage_count", 2)),
+                upsampler=str(config.get("hybrid_upsampler", "cyclegan_transpose")),
+                skip_connections=bool(config.get("hybrid_skip_connections", False)),
+                hybrid_skip_style=str(config.get("hybrid_skip_style", "add")),
+            ),
+            multiple=2 ** max(0, downsample_steps),
+        )
+    if profile.base_model == "hybrid_resnet_ptychoblock_ffno_encoder":
+        downsample_steps = int(config.get("hybrid_downsample_steps", 2))
+        return PadCropWrapper(
+            HybridResnetPtychoBlockFfnoEncoderImageModel(
                 in_channels=in_channels,
                 out_channels=out_channels,
                 hidden_channels=int(config.get("hidden_channels", 32)),

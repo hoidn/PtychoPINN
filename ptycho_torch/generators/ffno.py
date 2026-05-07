@@ -8,9 +8,8 @@ from typing import Any, Dict
 import torch
 import torch.nn as nn
 
-from ptycho_torch.generators.ffno_bottleneck import FactorizedFfnoBlock
+from ptycho_torch.generators.ffno_bottleneck import build_no_refiner_ffno_stack
 from ptycho_torch.generators.fno import SpatialLifter
-from ptycho_torch.generators.spectral_resnet_bottleneck import FactorizedSpectralConv2d
 
 
 class _LocalResidualRefiner(nn.Module):
@@ -57,20 +56,16 @@ class FfnoGeneratorModule(nn.Module):
             hidden_channels,
             input_transform=input_transform,
         )
-        self.blocks = nn.ModuleList(
-            [
-                FactorizedFfnoBlock(
-                    channels=hidden_channels,
-                    shared_spectral=FactorizedSpectralConv2d(
-                        channels=hidden_channels,
-                        modes=modes,
-                    ),
-                    mlp_ratio=2.0,
-                    norm="instance",
-                )
-                for _ in range(n_blocks)
-            ]
+        self.ffno_stack = build_no_refiner_ffno_stack(
+            hidden_channels,
+            n_blocks=n_blocks,
+            modes=modes,
+            share_spectral_weights=True,
+            mlp_ratio=2.0,
+            gate_init=0.1,
+            norm="instance",
         )
+        self.blocks = self.ffno_stack.blocks
         self.refiners = nn.ModuleList(
             [_LocalResidualRefiner(hidden_channels) for _ in range(int(cnn_blocks))]
         )
@@ -87,8 +82,7 @@ class FfnoGeneratorModule(nn.Module):
     def forward(self, x: torch.Tensor):
         batch, _, height, width = x.shape
         x = self.lifter(x)
-        for block in self.blocks:
-            x = block(x)
+        x = self.ffno_stack(x)
         for block in self.refiners:
             x = block(x)
         if self.output_mode == "amp_phase":

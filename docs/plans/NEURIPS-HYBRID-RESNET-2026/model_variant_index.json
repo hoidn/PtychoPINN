@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-07T08:58:35.139468Z",
+  "last_updated_utc": "2026-05-07T10:35:59.424532Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -28,7 +28,8 @@
     "brdt_ffno_row_extension_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_ffno_row_extension_summary.md",
     "brdt_40ep_paper_evidence_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md",
     "cns_history5_gap_fill_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md",
-    "cdi_ffno_depth24_ablation_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_ablation_summary.md"
+    "cdi_ffno_depth24_ablation_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_ablation_summary.md",
+    "srunet_encoder_order_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_encoder_order_ffno_vs_ptychoblock_summary.md"
   },
   "dataset_contracts": {
     "cdi_lines128_seed3": {
@@ -1571,6 +1572,37 @@
       "changed_factor": "Encoder replaced with a shared-weight 24-block FFNO -> 2x(PtychoBlock + downsample) stack while the matched-condition capped CNS shell stays fixed. This completed 20-epoch row is bounded capped mechanism evidence only and does not replace the 40-epoch headline lane."
     },
     {
+      "variant_id": "cns_history5_cap512_40ep__hybrid_resnet_ptychoblock_ffno_encoder_cns__supervised",
+      "dataset_contract_id": "cns_history5_cap512_40ep",
+      "row_id": "hybrid_resnet_ptychoblock_ffno_encoder_cns",
+      "paper_label": "SRU-Net (PtychoBlock -> FFNO encoder)",
+      "architecture_id": "hybrid_resnet_ptychoblock_ffno_encoder",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "supervised",
+      "source_backlog_item": "2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_encoder_order_ffno_vs_ptychoblock_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension",
+      "source_run_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension/runs/cns_ptychoblock_ffno_encoder_20260507T100829Z",
+      "metrics_json": "metrics_hybrid_resnet_ptychoblock_ffno_encoder_cns.json",
+      "visuals": [
+        "comparison_hybrid_resnet_ptychoblock_ffno_encoder_cns_sample0.png",
+        "comparison_hybrid_resnet_ptychoblock_ffno_encoder_cns_sample0.npz"
+      ],
+      "parameter_count": 4969734,
+      "runtime_sec": 1242.5249831676483,
+      "peak_cuda_memory_bytes": 838141440,
+      "metrics": {
+        "relative_l2": 0.03741884604096413,
+        "err_nRMSE": 0.03741884604096413,
+        "err_RMSE": 0.9038945436477661,
+        "fRMSE_low": 2.040935754776001,
+        "fRMSE_mid": 0.21571752429008484,
+        "fRMSE_high": 0.45795661211013794
+      },
+      "evidence_status": "bounded_capped_decision_support_only",
+      "changed_factor": "Encoder order reversed relative to the completed FFNO-first companion: 2x(PtychoBlock + downsample) now precedes the shared-weight 24-block FFNO stack while the matched-condition capped CNS shell stays fixed. This completed 20-epoch row is bounded capped mechanism evidence only and does not replace the 40-epoch headline lane."
+    },
+    {
       "variant_id": "cns_history2_cap1024__spectral_resnet_bottleneck_shared_blocks10__supervised__80ep",
       "dataset_contract_id": "cns_history2_cap1024_80ep",
       "row_id": "spectral_resnet_bottleneck_shared_blocks10",
@@ -1831,6 +1863,39 @@
       "nearest_anchor_row": "pinn_hybrid_resnet",
       "evidence_status": "decision_support_append_only",
       "changed_factor": "Encoder replaced with a shared-weight 24-block FFNO -> 2x(PtychoBlock + downsample) stack while the downstream SRU-Net shell, PINN objective, probe contract, and visual sample contract stay fixed. This completed 20-epoch row remains append-only mechanism evidence and does not replace the six-row CDI authority."
+    },
+    {
+      "variant_id": "cdi_lines128__hybrid_resnet_ptychoblock_ffno_encoder__pinn__cross_pillar_probe",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_hybrid_resnet_ptychoblock_ffno_encoder",
+      "paper_label": "Hybrid ResNet (PtychoBlock -> FFNO encoder) + PINN",
+      "architecture_id": "hybrid_resnet_ptychoblock_ffno_encoder",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "pinn",
+      "source_backlog_item": "2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_encoder_order_ffno_vs_ptychoblock_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-srunet-ptychoblock-ffno-encoder-order-extension/runs/cdi_ptychoblock_ffno_encoder_20260507T094629Z",
+      "metrics_json": "runs/pinn_hybrid_resnet_ptychoblock_ffno_encoder/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_hybrid_resnet_ptychoblock_ffno_encoder.png",
+        "visuals/amp_phase_error_pinn_hybrid_resnet_ptychoblock_ffno_encoder.png"
+      ],
+      "parameter_count": 4912998,
+      "train_wall_time_sec": 1182.4042073143646,
+      "inference_time_sec": 3.0546831493265927,
+      "metrics": {
+        "amp_mae": 0.03762747719883919,
+        "phase_mae": 0.0788832050302221,
+        "amp_ssim": 0.9786192369796115,
+        "phase_ssim": 0.9907682190581035,
+        "amp_psnr": 74.60569637157703,
+        "phase_psnr": 68.32325247714883,
+        "amp_frc50": 133.99815693655094,
+        "phase_frc50": 104.96761357583775
+      },
+      "nearest_anchor_row": "pinn_hybrid_resnet",
+      "evidence_status": "decision_support_append_only",
+      "changed_factor": "Encoder order reversed relative to the completed FFNO-first companion: 2x(PtychoBlock + downsample) now precedes the shared-weight 24-block FFNO stack while the downstream SRU-Net shell, PINN objective, probe contract, and visual sample contract stay fixed. This completed 20-epoch row remains append-only mechanism evidence and does not replace the six-row CDI authority."
     },
     {
       "variant_id": "brdt__unet__supervised_plus_born_consistency__decision_support_preflight",

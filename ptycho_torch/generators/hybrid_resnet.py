@@ -258,6 +258,7 @@ class HybridResnetGeneratorModule(nn.Module):
         ffno_encoder_gate_init: float = 0.1,
         ffno_encoder_norm: str = "instance",
         ffno_encoder_mlp_ratio: float = 2.0,
+        encoder_order: str = "ffno_then_ptychoblock",
         ptychoblock_stage_count: Optional[int] = None,
     ):
         super().__init__()
@@ -356,6 +357,12 @@ class HybridResnetGeneratorModule(nn.Module):
                     "ffno_encoder_mlp_ratio must be finite and > 0 "
                     f"(got {ffno_encoder_mlp_ratio})."
                 )
+        if encoder_order not in {"ffno_then_ptychoblock", "ptychoblock_then_ffno"}:
+            raise ValueError(
+                "encoder_order must be one of "
+                "['ffno_then_ptychoblock', 'ptychoblock_then_ffno'] "
+                f"(got {encoder_order!r})."
+            )
         encoder_block_count = int(n_blocks) if ptychoblock_stage_count is None else int(ptychoblock_stage_count)
         if encoder_block_count <= 0:
             raise ValueError(
@@ -413,6 +420,7 @@ class HybridResnetGeneratorModule(nn.Module):
         self.ffno_encoder_gate_init = float(ffno_encoder_gate_init)
         self.ffno_encoder_norm = str(ffno_encoder_norm)
         self.ffno_encoder_mlp_ratio = float(ffno_encoder_mlp_ratio)
+        self.encoder_order = str(encoder_order)
         self.ptychoblock_stage_count = int(encoder_block_count)
         self.bottleneck_layerscale_value = (
             None if bottleneck_layerscale_value is None else float(bottleneck_layerscale_value)
@@ -423,20 +431,6 @@ class HybridResnetGeneratorModule(nn.Module):
             hidden_channels,
             input_transform=input_transform,
         )
-        self.ffno_encoder = nn.Identity()
-        if self.ffno_encoder_blocks > 0:
-            from ptycho_torch.generators.ffno_bottleneck import SharedFactorizedFfnoBottleneck
-
-            self.ffno_encoder = SharedFactorizedFfnoBottleneck(
-                hidden_channels,
-                n_blocks=self.ffno_encoder_blocks,
-                modes=self.ffno_encoder_modes,
-                share_spectral_weights=self.ffno_encoder_share_weights,
-                mlp_ratio=self.ffno_encoder_mlp_ratio,
-                gate_init=self.ffno_encoder_gate_init,
-                norm=self.ffno_encoder_norm,
-                local_conv_kernel_size=None,
-            )
 
         # Encoder: derive stage topology from downsample schedule.
         self.encoder_blocks = nn.ModuleList()
@@ -487,6 +481,22 @@ class HybridResnetGeneratorModule(nn.Module):
                         "channels": ch,
                     }
                 )
+
+        ffno_encoder_channels = hidden_channels if self.encoder_order == "ffno_then_ptychoblock" else ch
+        self.ffno_encoder_channels = int(ffno_encoder_channels)
+        self.ffno_encoder = nn.Identity()
+        if self.ffno_encoder_blocks > 0:
+            from ptycho_torch.generators.ffno_bottleneck import build_no_refiner_ffno_stack
+
+            self.ffno_encoder = build_no_refiner_ffno_stack(
+                self.ffno_encoder_channels,
+                n_blocks=self.ffno_encoder_blocks,
+                modes=self.ffno_encoder_modes,
+                share_spectral_weights=self.ffno_encoder_share_weights,
+                mlp_ratio=self.ffno_encoder_mlp_ratio,
+                gate_init=self.ffno_encoder_gate_init,
+                norm=self.ffno_encoder_norm,
+            )
 
         if resnet_width is not None:
             if resnet_width <= 0:
@@ -621,7 +631,8 @@ class HybridResnetGeneratorModule(nn.Module):
     def forward(self, x: torch.Tensor):
         B, C, H, W = x.shape
         x = self.lifter(x)
-        x = self.ffno_encoder(x)
+        if self.ffno_encoder_blocks > 0 and self.encoder_order == "ffno_then_ptychoblock":
+            x = self.ffno_encoder(x)
 
         encoder_taps: dict[str, torch.Tensor] = {}
         for i, block in enumerate(self.encoder_blocks):
@@ -630,6 +641,9 @@ class HybridResnetGeneratorModule(nn.Module):
                 tap = self.encoder_tap_plan[i]
                 encoder_taps[str(tap["key"])] = x
                 x = self.downsample_layers[i](x)
+
+        if self.ffno_encoder_blocks > 0 and self.encoder_order == "ptychoblock_then_ffno":
+            x = self.ffno_encoder(x)
 
         x = self.adapter(x)
         x = self.resnet(x)
@@ -804,6 +818,7 @@ class HybridResnetFfnoPtychoBlockEncoderGeneratorModule(HybridResnetGeneratorMod
             ffno_encoder_gate_init=0.1,
             ffno_encoder_norm="instance",
             ffno_encoder_mlp_ratio=2.0,
+            encoder_order="ffno_then_ptychoblock",
             ptychoblock_stage_count=2,
         )
 
@@ -910,6 +925,172 @@ class HybridResnetFfnoPtychoBlockEncoderGenerator:
             generator_output=output_mode,
             generator_overrides={
                 "encoder_variant": "ffno_ptychoblock_encoder",
+                "encoder_order": "ffno_then_ptychoblock",
+                "ptychoblock_stage_count": 2,
+                "downsample_steps": getattr(model_config, "hybrid_downsample_steps", 2),
+                "downsample_op": getattr(model_config, "hybrid_downsample_op", "stride_conv"),
+                "ffno_encoder_blocks": 24,
+                "ffno_encoder_modes": fno_modes,
+                "ffno_encoder_share_weights": True,
+                "ffno_encoder_gate_init": 0.1,
+                "ffno_encoder_norm": "instance",
+                "ffno_encoder_mlp_ratio": 2.0,
+                "hybrid_resnet_bottleneck_layerscale_mode": getattr(
+                    execution_config,
+                    "hybrid_resnet_bottleneck_layerscale_mode",
+                    "learned",
+                ),
+                "hybrid_resnet_bottleneck_layerscale_value": getattr(
+                    execution_config,
+                    "hybrid_resnet_bottleneck_layerscale_value",
+                    None,
+                ),
+                "hybrid_encoder_fusion_mode": getattr(
+                    execution_config,
+                    "hybrid_encoder_fusion_mode",
+                    "baseline",
+                ),
+                "hybrid_encoder_layerscale_init": getattr(
+                    execution_config,
+                    "hybrid_encoder_layerscale_init",
+                    0.1,
+                ),
+                "hybrid_encoder_branch_gate_init": getattr(
+                    execution_config,
+                    "hybrid_encoder_branch_gate_init",
+                    0.1,
+                ),
+                "hybrid_encoder_branch_select": getattr(
+                    execution_config,
+                    "hybrid_encoder_branch_select",
+                    "both",
+                ),
+            },
+        )
+
+
+class HybridResnetPtychoBlockFfnoEncoderGeneratorModule(HybridResnetGeneratorModule):
+    """Hybrid ResNet shell with two PtychoBlocks before the fixed FFNO encoder stack."""
+
+    def __init__(self, **kwargs):
+        modes = int(kwargs.get("modes", 12))
+        super().__init__(
+            **kwargs,
+            encoder_variant="ptychoblock_ffno_encoder",
+            ffno_encoder_blocks=24,
+            ffno_encoder_modes=modes,
+            ffno_encoder_share_weights=True,
+            ffno_encoder_gate_init=0.1,
+            ffno_encoder_norm="instance",
+            ffno_encoder_mlp_ratio=2.0,
+            encoder_order="ptychoblock_then_ffno",
+            ptychoblock_stage_count=2,
+        )
+
+
+class HybridResnetPtychoBlockFfnoEncoderGenerator:
+    """Generator registry wrapper for hybrid_resnet_ptychoblock_ffno_encoder."""
+
+    name = "hybrid_resnet_ptychoblock_ffno_encoder"
+
+    def __init__(self, config):
+        self.config = config
+
+    def build_model(self, pt_configs: Dict[str, Any]) -> "nn.Module":
+        from ptycho_torch.model import PtychoPINN_Lightning
+
+        data_config = pt_configs["data_config"]
+        model_config = pt_configs["model_config"]
+        training_config = pt_configs["training_config"]
+        inference_config = pt_configs["inference_config"]
+        execution_config = pt_configs.get("execution_config")
+
+        C = getattr(data_config, "C", 4)
+        fno_width = getattr(model_config, "fno_width", 32)
+        fno_modes = getattr(model_config, "fno_modes", 12)
+        input_transform = getattr(model_config, "fno_input_transform", "none")
+        output_mode = getattr(model_config, "generator_output_mode", "real_imag")
+        generator_mode = "amp_phase" if output_mode == "amp_phase" else "real_imag"
+        max_hidden_channels = getattr(model_config, "max_hidden_channels", None)
+        resnet_width = getattr(model_config, "resnet_width", None)
+
+        core = HybridResnetPtychoBlockFfnoEncoderGeneratorModule(
+            in_channels=1,
+            out_channels=2,
+            hidden_channels=fno_width,
+            modes=fno_modes,
+            C=C,
+            input_transform=input_transform,
+            output_mode=generator_mode,
+            max_hidden_channels=max_hidden_channels,
+            resnet_width=resnet_width,
+            resnet_blocks=getattr(model_config, "hybrid_resnet_blocks", 6),
+            skip_connections=getattr(model_config, "hybrid_skip_connections", False),
+            hybrid_downsample_steps=getattr(model_config, "hybrid_downsample_steps", 2),
+            hybrid_downsample_op=getattr(model_config, "hybrid_downsample_op", "stride_conv"),
+            hybrid_encoder_conv_hidden_scale=getattr(
+                model_config,
+                "hybrid_encoder_conv_hidden_scale",
+                1.0,
+            ),
+            hybrid_encoder_spectral_hidden_scale=getattr(
+                model_config,
+                "hybrid_encoder_spectral_hidden_scale",
+                1.0,
+            ),
+            hybrid_encoder_conv_hidden_channels=getattr(
+                model_config,
+                "hybrid_encoder_conv_hidden_channels",
+                None,
+            ),
+            hybrid_encoder_spectral_hidden_channels=getattr(
+                model_config,
+                "hybrid_encoder_spectral_hidden_channels",
+                None,
+            ),
+            hybrid_skip_style=getattr(model_config, "hybrid_skip_style", "add"),
+            bottleneck_layerscale_mode=getattr(
+                execution_config,
+                "hybrid_resnet_bottleneck_layerscale_mode",
+                getattr(model_config, "hybrid_resnet_bottleneck_layerscale_mode", "learned"),
+            ),
+            bottleneck_layerscale_value=getattr(
+                execution_config,
+                "hybrid_resnet_bottleneck_layerscale_value",
+                getattr(model_config, "hybrid_resnet_bottleneck_layerscale_value", None),
+            ),
+            encoder_fusion_mode=getattr(
+                execution_config,
+                "hybrid_encoder_fusion_mode",
+                getattr(model_config, "hybrid_encoder_fusion_mode", "baseline"),
+            ),
+            encoder_layerscale_init=getattr(
+                execution_config,
+                "hybrid_encoder_layerscale_init",
+                getattr(model_config, "hybrid_encoder_layerscale_init", 0.1),
+            ),
+            encoder_branch_gate_init=getattr(
+                execution_config,
+                "hybrid_encoder_branch_gate_init",
+                getattr(model_config, "hybrid_encoder_branch_gate_init", 0.1),
+            ),
+            encoder_branch_select=getattr(
+                execution_config,
+                "hybrid_encoder_branch_select",
+                getattr(model_config, "hybrid_encoder_branch_select", "both"),
+            ),
+        )
+
+        return PtychoPINN_Lightning(
+            model_config=model_config,
+            data_config=data_config,
+            training_config=training_config,
+            inference_config=inference_config,
+            generator_module=core,
+            generator_output=output_mode,
+            generator_overrides={
+                "encoder_variant": "ptychoblock_ffno_encoder",
+                "encoder_order": "ptychoblock_then_ffno",
                 "ptychoblock_stage_count": 2,
                 "downsample_steps": getattr(model_config, "hybrid_downsample_steps", 2),
                 "downsample_op": getattr(model_config, "hybrid_downsample_op", "stride_conv"),

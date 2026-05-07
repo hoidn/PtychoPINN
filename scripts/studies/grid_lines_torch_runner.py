@@ -62,6 +62,7 @@ PAPER_MODEL_LABELS = {
     "neuralop_uno": "U-NO + PINN",
     "hybrid_resnet": "Hybrid ResNet + PINN",
     "hybrid_resnet_ffno_ptychoblock_encoder": "Hybrid ResNet (FFNO->PtychoBlock encoder) + PINN",
+    "hybrid_resnet_ptychoblock_ffno_encoder": "Hybrid ResNet (PtychoBlock->FFNO encoder) + PINN",
     "spectral_resnet_bottleneck_net": "Spectral ResNet Bottleneck + PINN",
     "spectral_resnet_bottleneck_linear_decoder": "Spectral ResNet Linear Decoder + PINN",
     "hybrid_resnet_ffno_bottleneck": "Hybrid ResNet FFNO Bottleneck + PINN",
@@ -96,11 +97,18 @@ def _paper_model_label(
     return label
 
 
-def _fixed_ffno_ptychoblock_encoder_recipe(cfg: "TorchRunnerConfig") -> Optional[Dict[str, object]]:
-    if cfg.architecture != "hybrid_resnet_ffno_ptychoblock_encoder":
+def _fixed_hybrid_encoder_recipe(cfg: "TorchRunnerConfig") -> Optional[Dict[str, object]]:
+    if cfg.architecture == "hybrid_resnet_ffno_ptychoblock_encoder":
+        encoder_variant = "ffno_ptychoblock_encoder"
+        encoder_order = "ffno_then_ptychoblock"
+    elif cfg.architecture == "hybrid_resnet_ptychoblock_ffno_encoder":
+        encoder_variant = "ptychoblock_ffno_encoder"
+        encoder_order = "ptychoblock_then_ffno"
+    else:
         return None
     return {
-        "encoder_variant": "ffno_ptychoblock_encoder",
+        "encoder_variant": encoder_variant,
+        "encoder_order": encoder_order,
         "ptychoblock_stage_count": 2,
         "downsample_steps": int(cfg.hybrid_downsample_steps),
         "downsample_op": str(cfg.hybrid_downsample_op),
@@ -838,12 +846,13 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     # Cast N and architecture to their Literal types
     N_literal = cast(Literal[64, 128, 256], cfg.N)
     arch_literal = cast(
-        Literal['cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'hybrid_resnet_ffno_ptychoblock_encoder', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck', 'hybrid_resnet_convnext_bottleneck'],
+        Literal['cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'hybrid_resnet_ffno_ptychoblock_encoder', 'hybrid_resnet_ptychoblock_ffno_encoder', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck', 'hybrid_resnet_convnext_bottleneck'],
         cfg.architecture,
     )
     if cfg.architecture in {
         "hybrid_resnet",
         "hybrid_resnet_ffno_ptychoblock_encoder",
+        "hybrid_resnet_ptychoblock_ffno_encoder",
         "spectral_resnet_bottleneck_net",
         "spectral_resnet_bottleneck_linear_decoder",
         "hybrid_resnet_ffno_bottleneck",
@@ -1069,7 +1078,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     # backward implementation. Use Lightning's "warn" mode for that architecture so
     # the locked U-NO contract trains on GPU; record the caveat in row provenance.
     deterministic_mode: Union[bool, Literal["warn"]] = _deterministic_mode_for(cfg.architecture)
-    encoder_recipe = _fixed_ffno_ptychoblock_encoder_recipe(cfg) or {}
+    encoder_recipe = _fixed_hybrid_encoder_recipe(cfg) or {}
     execution_config = PyTorchExecutionConfig(
         learning_rate=cfg.learning_rate,
         deterministic=deterministic_mode,
@@ -1412,7 +1421,7 @@ def save_run_artifacts(
         "test_npz": str(cfg.test_npz),
         "recon_npz": str(recon_path) if recon_path is not None else None,
     }
-    encoder_recipe = _fixed_ffno_ptychoblock_encoder_recipe(cfg)
+    encoder_recipe = _fixed_hybrid_encoder_recipe(cfg)
     if encoder_recipe is not None:
         config_payload["encoder_recipe"] = dict(encoder_recipe)
         config_payload.update(encoder_recipe)
@@ -1595,7 +1604,7 @@ def _build_paper_row_payload(
             ),
         },
     )
-    encoder_recipe = _fixed_ffno_ptychoblock_encoder_recipe(cfg)
+    encoder_recipe = _fixed_hybrid_encoder_recipe(cfg)
     if encoder_recipe is not None:
         payload.update(encoder_recipe)
     return payload
@@ -1820,7 +1829,7 @@ def main(argv=None) -> None:
     parser.add_argument("--output-dir", type=Path, required=True,
                         help="Output directory for artifacts")
     parser.add_argument("--architecture", type=str, required=True,
-                        choices=['ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'hybrid_resnet_ffno_ptychoblock_encoder', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck', 'hybrid_resnet_convnext_bottleneck'],
+                        choices=['ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'hybrid_resnet_ffno_ptychoblock_encoder', 'hybrid_resnet_ptychoblock_ffno_encoder', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck', 'hybrid_resnet_convnext_bottleneck'],
                         help="Generator architecture to use")
     parser.add_argument(
         "--training-procedure",
