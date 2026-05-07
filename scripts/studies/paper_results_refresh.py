@@ -87,7 +87,7 @@ CDI_SUPERVISED_FFNO_METRICS_JSON = (
     / "supervised_ffno"
     / "metrics.json"
 )
-CDI_HISTORICAL_SUPERVISED_FFNO_PROXY_METRICS_JSON = (
+CDI_SUPERSEDED_SUPERVISED_FFNO_METRICS_JSON = (
     REPO_ROOT
     / ".artifacts"
     / "work"
@@ -197,6 +197,8 @@ CNS_H5_SUMMARY_AUTHORITY = (
     "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md"
 )
 CNS_H5_FIXED_CONTRACT = {
+    "task_id": "2d_cfd_cns",
+    "field_order": ["density", "Vx", "Vy", "pressure"],
     "history_len": 5,
     "split_counts": {"train": 512, "val": 64, "test": 64},
     "max_windows_per_trajectory": 8,
@@ -1063,15 +1065,8 @@ def write_cdi_extended_assets() -> dict[str, str]:
                 "with_corrected_ffno_objective_control_pair"
             ),
             "source_metrics_json": str(CDI_UNO_METRICS_JSON.relative_to(REPO_ROOT)),
-            "corrected_pinn_ffno_source_metrics_json": str(
-                CDI_CORRECTED_PINN_FFNO_METRICS_JSON.relative_to(REPO_ROOT)
-            ),
-            "supervised_ffno_source_metrics_json": str(
-                CDI_SUPERVISED_FFNO_METRICS_JSON.relative_to(REPO_ROOT)
-            ),
-            "historical_supervised_ffno_proxy_source_metrics_json": str(
-                CDI_HISTORICAL_SUPERVISED_FFNO_PROXY_METRICS_JSON.relative_to(REPO_ROOT)
-            ),
+            "pinn_ffno_source_metrics_json": "runs/pinn_ffno/metrics.json",
+            "supervised_ffno_source_metrics_json": "runs/supervised_ffno/metrics.json",
             "rows": rows,
         },
     )
@@ -1594,6 +1589,23 @@ def load_cns_matched_condition_uno_row(
     model_profile = _read_json(run_root / f"model_profile_{NEURALOP_UNO_CNS_ROW_ID}.json")
     invocation = _read_json(run_root / "invocation.json")
     split_manifest = _read_json(run_root / "split_manifest.json")
+    dataset_manifest_path = run_root / "dataset_manifest.json"
+    normalization_stats_path = run_root / "normalization_stats_state.json"
+    if not dataset_manifest_path.exists():
+        raise RuntimeError(
+            f"CNS U-NO row at {run_root} is missing required dataset_manifest.json; "
+            "matched-condition lineage requires dataset identity provenance"
+        )
+    if not normalization_stats_path.exists():
+        raise RuntimeError(
+            f"CNS U-NO row at {run_root} is missing required normalization_stats_state.json; "
+            "matched-condition lineage requires normalization provenance"
+        )
+    dataset_manifest = _read_json(dataset_manifest_path)
+    normalization_stats = _read_json(normalization_stats_path)
+
+    expected_task_id = str(expected_contract["task_id"])
+    expected_field_order = list(expected_contract["field_order"])  # type: ignore[arg-type]
 
     contract_issues: list[str] = []
     if str(metrics.get("profile_id")) != NEURALOP_UNO_CNS_ROW_ID:
@@ -1612,6 +1624,16 @@ def load_cns_matched_condition_uno_row(
         contract_issues.append("batch_size_mismatch")
     if str(metrics.get("training_loss")) != str(expected_contract["training_loss"]):
         contract_issues.append("training_loss_mismatch")
+    if str(parsed_args.get("task_id", "")) != expected_task_id:
+        contract_issues.append("invocation_task_id_mismatch")
+    if str(dataset_manifest.get("task_id", "")) != expected_task_id:
+        contract_issues.append("dataset_manifest_task_id_mismatch")
+    if list(dataset_manifest.get("field_order", [])) != expected_field_order:
+        contract_issues.append("dataset_manifest_field_order_mismatch")
+    if list(normalization_stats.get("field_order", [])) != expected_field_order:
+        contract_issues.append("normalization_field_order_mismatch")
+    if int(normalization_stats.get("history_len", -1)) != int(expected_contract["history_len"]):
+        contract_issues.append("normalization_history_len_mismatch")
     if contract_issues:
         raise RuntimeError(f"CNS U-NO row at {run_root} does not match the locked h5 contract: {contract_issues}")
 
@@ -1621,6 +1643,8 @@ def load_cns_matched_condition_uno_row(
         "row_role": "appended_comparator",
         "row_status": "capped_decision_support",
         "claim_scope": str(expected_contract["claim_boundary"]),
+        "task_id": expected_task_id,
+        "field_order": list(expected_field_order),
         "history_len": int(expected_contract["history_len"]),
         "split_counts": split_counts,
         "split_label": (
@@ -1645,6 +1669,8 @@ def load_cns_matched_condition_uno_row(
             "model_profile_json": str(run_root / f"model_profile_{NEURALOP_UNO_CNS_ROW_ID}.json"),
             "invocation_json": str(run_root / "invocation.json"),
             "split_manifest_json": str(run_root / "split_manifest.json"),
+            "dataset_manifest_json": str(dataset_manifest_path),
+            "normalization_stats_state_json": str(normalization_stats_path),
         },
     }
 
@@ -1660,6 +1686,8 @@ def _build_cns_matched_condition_plus_uno_decision(
         raise RuntimeError("base CNS matched-condition decision already contains the U-NO row")
     contract = dict(decision["selected_contract"])  # type: ignore[arg-type]
     split_counts = dict(uno_row.get("split_counts", {}))
+    expected_task_id = str(CNS_H5_FIXED_CONTRACT["task_id"])
+    expected_field_order = list(CNS_H5_FIXED_CONTRACT["field_order"])  # type: ignore[arg-type]
     row_issues: list[str] = []
     if str(uno_row.get("row_id")) != NEURALOP_UNO_CNS_ROW_ID:
         row_issues.append("row_id_mismatch")
@@ -1673,6 +1701,10 @@ def _build_cns_matched_condition_plus_uno_decision(
         row_issues.append("batch_size_mismatch")
     if str(uno_row.get("training_loss")) != str(contract["training_loss"]):
         row_issues.append("training_loss_mismatch")
+    if str(uno_row.get("task_id", "")) != expected_task_id:
+        row_issues.append("task_id_mismatch")
+    if list(uno_row.get("field_order", [])) != expected_field_order:
+        row_issues.append("field_order_mismatch")
     if row_issues:
         raise RuntimeError(f"U-NO row does not match the selected matched-condition contract: {row_issues}")
 

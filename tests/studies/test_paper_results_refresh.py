@@ -32,6 +32,7 @@ from scripts.studies.paper_results_refresh import (
     write_brdt_context_figure,
     write_cns_matched_condition_assets,
     write_cns_matched_condition_plus_uno_assets,
+    load_cns_matched_condition_uno_row,
 )
 
 
@@ -847,6 +848,8 @@ def test_write_cns_matched_condition_plus_uno_assets_emits_five_row_append_only_
         "row_role": "appended_comparator",
         "row_status": "capped_decision_support",
         "claim_scope": "bounded_capped_decision_support_only",
+        "task_id": "2d_cfd_cns",
+        "field_order": ["density", "Vx", "Vy", "pressure"],
         "history_len": 5,
         "split_counts": {"train": 512, "val": 64, "test": 64},
         "split_label": "512 / 64 / 64",
@@ -897,6 +900,137 @@ def test_write_cns_matched_condition_plus_uno_assets_emits_five_row_append_only_
     assert payload["rows"][-1]["row_role"] == "appended_comparator"
     assert payload["rows"][-1]["manuscript_label"] == "U-NO"
     assert payload["manuscript_table_recommendation"] == "adjacent_append_only_context"
+
+
+def _write_valid_cns_uno_run_root(run_root):
+    run_root.mkdir(parents=True, exist_ok=True)
+    metrics = {
+        "profile_id": "neuralop_uno_cns_base",
+        "training_loss": "mse",
+        "err_RMSE": 0.66,
+        "err_nRMSE": 0.027,
+        "relative_l2": 0.027,
+        "fRMSE_low": 1.4,
+        "fRMSE_mid": 0.08,
+        "fRMSE_high": 0.11,
+        "runtime_sec": 1700.0,
+    }
+    model_profile = {
+        "parameter_count": 1260548,
+        "external_source_provenance": {"package": "neuralop", "version": "0.4.0"},
+    }
+    invocation = {
+        "parsed_args": {
+            "task_id": "2d_cfd_cns",
+            "epochs": 40,
+            "batch_size": 4,
+        }
+    }
+    split_manifest = {
+        "history_len": 5,
+        "split_counts": {"train": 512, "val": 64, "test": 64},
+        "max_windows_per_trajectory": 8,
+    }
+    dataset_manifest = {
+        "task_id": "2d_cfd_cns",
+        "field_order": ["density", "Vx", "Vy", "pressure"],
+    }
+    normalization_stats = {
+        "field_order": ["density", "Vx", "Vy", "pressure"],
+        "history_len": 5,
+    }
+    (run_root / "metrics_neuralop_uno_cns_base.json").write_text(
+        json.dumps(metrics), encoding="utf-8"
+    )
+    (run_root / "model_profile_neuralop_uno_cns_base.json").write_text(
+        json.dumps(model_profile), encoding="utf-8"
+    )
+    (run_root / "invocation.json").write_text(json.dumps(invocation), encoding="utf-8")
+    (run_root / "split_manifest.json").write_text(
+        json.dumps(split_manifest), encoding="utf-8"
+    )
+    (run_root / "dataset_manifest.json").write_text(
+        json.dumps(dataset_manifest), encoding="utf-8"
+    )
+    (run_root / "normalization_stats_state.json").write_text(
+        json.dumps(normalization_stats), encoding="utf-8"
+    )
+    return run_root
+
+
+def test_load_cns_matched_condition_uno_row_accepts_matched_contract(tmp_path):
+    run_root = _write_valid_cns_uno_run_root(tmp_path / "uno_run")
+
+    row = load_cns_matched_condition_uno_row(run_root)
+
+    assert row["task_id"] == "2d_cfd_cns"
+    assert row["field_order"] == ["density", "Vx", "Vy", "pressure"]
+    assert row["source_artifacts"]["dataset_manifest_json"].endswith(
+        "dataset_manifest.json"
+    )
+    assert row["source_artifacts"]["normalization_stats_state_json"].endswith(
+        "normalization_stats_state.json"
+    )
+
+
+def test_load_cns_matched_condition_uno_row_rejects_invocation_task_id_mismatch(tmp_path):
+    run_root = _write_valid_cns_uno_run_root(tmp_path / "uno_run")
+    invocation_path = run_root / "invocation.json"
+    invocation = json.loads(invocation_path.read_text())
+    invocation["parsed_args"]["task_id"] = "darcy"
+    invocation_path.write_text(json.dumps(invocation), encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="invocation_task_id_mismatch"):
+        load_cns_matched_condition_uno_row(run_root)
+
+
+def test_load_cns_matched_condition_uno_row_rejects_dataset_manifest_task_id_mismatch(tmp_path):
+    run_root = _write_valid_cns_uno_run_root(tmp_path / "uno_run")
+    dataset_manifest_path = run_root / "dataset_manifest.json"
+    manifest = json.loads(dataset_manifest_path.read_text())
+    manifest["task_id"] = "darcy"
+    dataset_manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="dataset_manifest_task_id_mismatch"):
+        load_cns_matched_condition_uno_row(run_root)
+
+
+def test_load_cns_matched_condition_uno_row_rejects_field_order_mismatch(tmp_path):
+    run_root = _write_valid_cns_uno_run_root(tmp_path / "uno_run")
+    dataset_manifest_path = run_root / "dataset_manifest.json"
+    manifest = json.loads(dataset_manifest_path.read_text())
+    manifest["field_order"] = ["Vx", "density", "Vy", "pressure"]
+    dataset_manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="dataset_manifest_field_order_mismatch"):
+        load_cns_matched_condition_uno_row(run_root)
+
+
+def test_load_cns_matched_condition_uno_row_rejects_normalization_field_order_mismatch(tmp_path):
+    run_root = _write_valid_cns_uno_run_root(tmp_path / "uno_run")
+    norm_path = run_root / "normalization_stats_state.json"
+    norm = json.loads(norm_path.read_text())
+    norm["field_order"] = ["density", "Vy", "Vx", "pressure"]
+    norm_path.write_text(json.dumps(norm), encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="normalization_field_order_mismatch"):
+        load_cns_matched_condition_uno_row(run_root)
+
+
+def test_load_cns_matched_condition_uno_row_rejects_missing_dataset_manifest(tmp_path):
+    run_root = _write_valid_cns_uno_run_root(tmp_path / "uno_run")
+    (run_root / "dataset_manifest.json").unlink()
+
+    with pytest.raises(RuntimeError, match="missing required dataset_manifest.json"):
+        load_cns_matched_condition_uno_row(run_root)
+
+
+def test_load_cns_matched_condition_uno_row_rejects_missing_normalization_state(tmp_path):
+    run_root = _write_valid_cns_uno_run_root(tmp_path / "uno_run")
+    (run_root / "normalization_stats_state.json").unlink()
+
+    with pytest.raises(RuntimeError, match="missing required normalization_stats_state.json"):
+        load_cns_matched_condition_uno_row(run_root)
 
 
 def test_main_write_model_config_table_calls_writer(monkeypatch, capsys, tmp_path):
