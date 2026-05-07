@@ -4,11 +4,11 @@
 
 - Re-restored the 16-command verification ledger at
   `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
-  to the on-disk working tree (6th iteration of this recurring restore). The
+  to the on-disk working tree (7th iteration of this recurring restore). The
   file had regressed once more to the 3-command workflow-default `json.tool`
-  skeleton between the prior fix commit (`ac01569b docs(cdi-final-refresh):
-  re-restore on-disk 16-cmd checks ledger and update report`) and the start of
-  this pass, while HEAD itself still durably tracked the 16-command state.
+  skeleton between the prior fix commit (`54a2c855 docs(cdi-final-refresh):
+  re-restore on-disk 16-cmd checks ledger (6th iter)`) and the start of this
+  pass, while HEAD itself still durably tracked the 16-command state.
   Restored from HEAD via
   `git checkout HEAD -- <checks-file>`. The restored on-disk file matches
   HEAD's 16-command PASS ledger exactly: `command_count: 16`,
@@ -17,10 +17,16 @@
 - Programmatically confirmed all 16 referenced log paths still exist on disk
   under
   `artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/`
-  and that the restored JSON validates with `python -m json.tool`. After the
-  restore, `git diff HEAD --` against the checks file is empty (confirmed via
-  `git diff HEAD -- ... | wc -l == 0`), confirming the on-disk content matches
-  the durable committed 16-command ledger.
+  (`missing_logs: []`) and that the restored JSON validates with
+  `python -m json.tool`. After the restore, `git diff HEAD --` against the
+  checks file is empty (`git diff HEAD -- ... | wc -l == 0`), confirming the
+  on-disk content matches the durable committed 16-command ledger.
+- Re-verified the workflow source
+  `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/12/items/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/check_commands.json`
+  still enumerates only the same 3 default `json.tool` validations
+  (`list_count: 3`); the recurrence root cause is unchanged and remains
+  outside this item's implementation authority per the approved plan's
+  non-modification of state/workflow pointer files.
 
 This pass made no implementation, asset, or documentation edits beyond the
 on-disk republished-artifact restore described above. It targets exactly the
@@ -89,11 +95,11 @@ follow-up captured below.
   item per the explicit non-modification of state/workflow pointer files):
   the workflow source
   `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/12/items/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/check_commands.json`
-  still enumerates only the three default `json.tool` validations. Six prior
+  still enumerates only the three default `json.tool` validations. Seven prior
   fix commits (`ba64d0da`, `1fa49d85`, `b4acf2fb`, `74c7d10b`, `291839dd`,
-  `ac01569b`) restored the published 16-command ledger and each was
-  subsequently overwritten back to a 3-command skeleton by the next workflow
-  republication; this pass is the next iteration of that recurrence.
+  `ac01569b`, `54a2c855`) restored the published 16-command ledger and each
+  was subsequently overwritten back to a 3-command skeleton by the next
+  workflow republication; this pass is the next iteration of that recurrence.
   Permanently closing the loop requires extending the state-side
   `check_commands.json` to enumerate the same 16 archived commands, or
   otherwise teaching the republication step to merge with the
