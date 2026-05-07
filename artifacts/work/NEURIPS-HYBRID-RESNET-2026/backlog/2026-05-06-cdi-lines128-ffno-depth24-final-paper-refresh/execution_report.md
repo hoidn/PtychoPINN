@@ -4,10 +4,10 @@
 
 - Re-restored the 16-command verification ledger at
   `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
-  to the on-disk working tree (7th iteration of this recurring restore). The
+  to the on-disk working tree (8th iteration of this recurring restore). The
   file had regressed once more to the 3-command workflow-default `json.tool`
-  skeleton between the prior fix commit (`54a2c855 docs(cdi-final-refresh):
-  re-restore on-disk 16-cmd checks ledger (6th iter)`) and the start of this
+  skeleton between the prior fix commit (`5697d6a1 docs(cdi-final-refresh):
+  re-restore on-disk 16-cmd checks ledger (7th iter)`) and the start of this
   pass, while HEAD itself still durably tracked the 16-command state.
   Restored from HEAD via
   `git checkout HEAD -- <checks-file>`. The restored on-disk file matches
@@ -26,7 +26,9 @@
   still enumerates only the same 3 default `json.tool` validations
   (`list_count: 3`); the recurrence root cause is unchanged and remains
   outside this item's implementation authority per the approved plan's
-  non-modification of state/workflow pointer files.
+  non-modification of state/workflow pointer files and the user's
+  task-instruction prohibition on modifying transient state files unless the
+  plan explicitly requires it.
 
 This pass made no implementation, asset, or documentation edits beyond the
 on-disk republished-artifact restore described above. It targets exactly the
@@ -34,11 +36,15 @@ High finding from the consumed implementation review:
 `artifacts/review/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-implementation-review.md`,
 which observed that the consumed `...final-paper-refresh-checks.json` mirrored
 the truncated 3-command result instead of the 16-command ledger described in
-the execution report and durable summary. The state-side
-`check_commands.json` source remains out of implementation authority for this
-backlog item and continues to enumerate only the three default `json.tool`
-validations; durable closure of the recurrence requires the workflow-tooling
-follow-up captured below.
+the execution report and durable summary. The review's recommended durable
+remediation ("update the authoritative republication source so it stops
+overwriting that artifact with the 3-command skeleton") targets the state-side
+`check_commands.json`, which is explicitly out of this backlog item's
+implementation authority per the approved plan and the current task's
+instruction to leave transient state files untouched. Durable closure of the
+recurrence therefore continues to require the workflow-tooling follow-up
+captured below; this pass restores the on-disk publication surface exactly as
+prior passes did.
 
 ## Completed In Prior Pass (kept for context)
 
@@ -95,12 +101,12 @@ follow-up captured below.
   item per the explicit non-modification of state/workflow pointer files):
   the workflow source
   `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/12/items/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/check_commands.json`
-  still enumerates only the three default `json.tool` validations. Seven prior
+  still enumerates only the three default `json.tool` validations. Eight prior
   fix commits (`ba64d0da`, `1fa49d85`, `b4acf2fb`, `74c7d10b`, `291839dd`,
-  `ac01569b`, `54a2c855`) restored the published 16-command ledger and each
-  was subsequently overwritten back to a 3-command skeleton by the next
-  workflow republication; this pass is the next iteration of that recurrence.
-  Permanently closing the loop requires extending the state-side
+  `ac01569b`, `54a2c855`, `5697d6a1`) restored the published 16-command
+  ledger and each was subsequently overwritten back to a 3-command skeleton
+  by the next workflow republication; this pass is the next iteration of that
+  recurrence. Permanently closing the loop requires extending the state-side
   `check_commands.json` to enumerate the same 16 archived commands, or
   otherwise teaching the republication step to merge with the
   implementation-side ledger; this is outside the current item's
