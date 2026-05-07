@@ -2,7 +2,7 @@
 \toprule
 Benchmark & Row & Model & Params & Runtime (s) & Runtime field & Inference \\
 \midrule
-\multicolumn{7}{l}{\textbf{Synthetic CDI}} \\
+\multicolumn{7}{l}{\textbf{CDI}} \\
  & pinn & CNN + PINN & 4.66M & -- & -- & missing \\
  & pinn\_fno\_vanilla & FNO + PINN & 636.5k & 511.2 & command\_wall\_time\_sec & missing \\
  & pinn\_ffno & FFNO + PINN & 125.0k & 873.7 & train\_wall\_time\_sec & missing \\
@@ -19,7 +19,7 @@ Benchmark & Row & Model & Params & Runtime (s) & Runtime field & Inference \\
  & unet\_strong & U-Net & 7.77M & 1071.0 & runtime\_sec & missing \\
 \addlinespace
 \multicolumn{7}{l}{\textbf{BRDT}} \\
- & hybrid\_resnet & Hybrid ResNet & 142.0k & 170.2 & wall\_time\_train\_s & 375.9 samples/s \\
- & ffno & FFNO & 27.4k & 218.0 & wall\_time\_train\_s & 370.1 samples/s \\
+ & ffno & FFNO & 27.5k & 209.9 & wall\_time\_train\_s & 387.3 samples/s \\
+ & sru\_net & SRU-Net & 142.2k & 164.3 & wall\_time\_train\_s & 404.7 samples/s \\
 \bottomrule
 \end{tabular}

@@ -606,14 +606,17 @@ where $s \in \mathbb{R}^{A \times D \times 2}$ is the complex sinogram over
 illumination angles and detector frequencies, represented by real and imaginary
 channels.
 
-The BRDT network input is a Born image $x_{\mathrm{BRDT}}$ obtained by
-backprojecting the measured complex sinogram onto the scattering-potential
-grid. The model predicts a single-channel scattering potential,
+The BRDT learned-model input is the measured complex sinogram itself,
+represented as real and imaginary channels and reordered to a two-channel
+detector-angle tensor $x_{\mathrm{BRDT}}$. The model predicts a single-channel
+scattering potential,
 \begin{equation}
   \hat{q}_{\theta} = G_{\theta}(x_{\mathrm{BRDT}}).
 \end{equation}
-All neural models use the same input representation and the same differentiable
-Born forward operator during training.
+All neural models use that same sinogram input representation and the same
+differentiable Born forward operator during training. The model-based Born
+inverse remains a separate non-learned reference and is not used as learned
+model input.
 
 The BRDT objective combines supervised reconstruction with measurement-space
 Born consistency, plus total variation (TV) \cite{tvregularization} and
@@ -729,9 +732,10 @@ works on a related wave inverse problem. We train SRU-Net and FFNO for 40
 epochs on the same
 2048/256/256 train/validation/test split, using Adam \cite{adam} with learning
 rate $2\times10^{-4}$, batch size 16, seed 42, and ReduceLROnPlateau scheduling.
-Both models use the same Born input image: a 2D backprojection of the measured
-complex sinogram onto the $q$ grid. The same image is the non-learned Born
-baseline in Fig.~\ref{fig:brdt_candidate_recon}. Both models use the
+Both learned models consume the measured complex sinogram directly, represented
+as real and imaginary channels on the fixed detector-angle grid. The
+model-based Born inverse remains a separate non-learned baseline in
+Fig.~\ref{fig:brdt_candidate_recon}. Both learned models use the
 supervised-plus-Born-consistency objective defined above.
 
 \subsection{PDEBench CNS}
@@ -871,21 +875,22 @@ Spectral-bottleneck SRU-Net, linear decoder & lighter decoder & 0.1347 & 0.1169 
 \subsection{BRDT inverse scattering}
 
 BRDT evaluates inverse scattering from simulated wave measurements. The target
-is the physical scattering potential $q$, and the neural input is a Born image
-computed by backprojecting the measured complex sinogram onto the $q$ grid. We
-train SRU-Net and FFNO on the same 2048/256/256 train/validation/test split for
-40 epochs using the supervised object loss plus Born-consistency objective
-defined in Section~\ref{sec:methods_brdt}. The model-based Born inverse is
-included as a non-learned reference.
+is the physical scattering potential $q$, and the learned-model input is the
+measured complex sinogram itself, passed to the network as two real-valued
+channels rather than as a Born-derived image. We train SRU-Net and FFNO on the
+same 2048/256/256 train/validation/test split for 40 epochs using the
+supervised object loss plus Born-consistency objective defined in
+Section~\ref{sec:methods_brdt}. The model-based Born inverse is included as a
+non-learned reference only.
 
-Table~\ref{tab:brdt_secondary_metrics} shows the BRDT comparison. SRU-Net
-reaches relative $L_2(q) = 0.288$ against $0.451$ for FFNO and $0.380$ for the
-model-based Born inverse. It also improves peak signal-to-noise ratio (PSNR)
-and SSIM relative to both
+Table~\ref{tab:brdt_secondary_metrics} shows the BRDT comparison under this
+sinogram-input contract. SRU-Net reaches relative $L_2(q) = 0.717$ against
+$1.000$ for FFNO and $3.469$ for the model-based Born inverse. It also
+improves peak signal-to-noise ratio (PSNR) and SSIM relative to both
 references. Both learned models evaluate the 256-sample test split in under
 0.7 seconds.
 
-% table_metadata: task=BRDT; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/metrics.csv; rows=sru_net,ffno; epochs=40; loss=supervised_plus_born
+% table_metadata: task=BRDT; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.csv; rows=sru_net,ffno; input_mode=sinogram; epochs=40; loss=supervised_plus_born
 \begin{table}[t]
 \centering
 \scriptsize
@@ -912,7 +917,7 @@ FFNO & supervised + Born & 0.4509 & 26.74 & 0.9120 &
 \end{tabular}
 \end{table}
 
-% figure_metadata: task=BRDT; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/figures/source_arrays/sample_0255_*; paper_copy=figures/brdt_sample_0255_context_recon_error.png; sample_id=255; visible_rows=measurement_magnitude,target,classical_born_backprop,ffno,sru_net
+% figure_metadata: task=BRDT; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays/sample_0255_*; paper_copy=figures/brdt_sample_0255_context_recon_error.png; sample_id=255; visible_rows=measurement_magnitude,target,classical_born_backprop,ffno,sru_net
 \begin{figure*}[t]
 \centering
 \includegraphics[width=\textwidth]{figures/brdt_sample_0255_context_recon_error.png}
@@ -1148,8 +1153,8 @@ is open work.
 What the design's advantage does seem to track is whether the task involves
 a measurement-to-object mapping. CDI maps globally coupled diffraction
 measurements in detector coordinates to objects in real-space coordinates;
-BRDT maps a Born input image derived from complex sinograms to real-space
-scattering potentials. In both, input and output occupy different domains
+BRDT maps measured complex sinograms directly to real-space scattering
+potentials. In both, input and output occupy different domains
 coupled by a global forward operator, and SRU-Net's structural asymmetry,
 spectral mixing in the encoder and convolutional synthesis in the decoder,
 performs best among the tested models. CNS does not have the same input/output

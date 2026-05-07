@@ -889,7 +889,42 @@
         "ffno (20-epoch corrected no-refiner prerequisite)",
         "ffno (40-epoch corrected no-refiner paired rerun)"
       ],
-      "interpretation": "Current paired BRDT additive-secondary authority. The corrected bundle preserves the locked contract, replaces the historical FFNO-local-refiner proxy with the corrected no-refiner FFNO row, and passes the paper-facing gate under paper_evidence_brdt_additive. Both rows remain materially improving at stop, so the family supports bounded secondary manuscript context only and does not authorize full-training BRDT competitiveness or any replacement of the CDI/CNS pillars."
+      "interpretation": "Historical paired BRDT additive-secondary authority for the older born_init_image contract. The corrected bundle preserves that locked contract, replaces the historical FFNO-local-refiner proxy with the corrected no-refiner FFNO row, and passes the paper-facing gate under paper_evidence_brdt_additive. It remains valid lineage, but current sinogram-input manuscript authority now routes through the 2026-05-07 paired rerun.",
+      "superseded_by": "brdt_sinogram_input_40ep_additive_secondary_bundle"
+    },
+    {
+      "family_id": "brdt_sinogram_input_40ep_additive_secondary_bundle",
+      "task": "candidate_brdt",
+      "fixed_contract": "brdt_sinogram_paper_evidence_2048cap_40ep",
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "changed_factors": [
+        "learned-model input contract changes from born_init_image to measured complex sinogram",
+        "active paired rerun row roster becomes sru_net plus corrected pure-FFNO",
+        "runtime provenance, PID-backed exit proof, and checked-in additive-secondary evidence surfaces for the sinogram-input lane"
+      ],
+      "completed_items": [
+        "2026-05-07-brdt-sinogram-input-adapter-contract",
+        "2026-05-07-brdt-sinogram-input-40ep-paper-evidence"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_adapter_contract.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-adapter-contract/",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/"
+      ],
+      "comparison_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/paper_evidence_gate.json"
+      ],
+      "rows": [
+        "classical_born_backprop (non-learned sample-255 reference)",
+        "sru_net (40-epoch sinogram-input paired rerun)",
+        "ffno (40-epoch sinogram-input corrected no-refiner rerun)"
+      ],
+      "interpretation": "Current paired BRDT additive-secondary authority for the learned sinogram-input contract. The bundle preserves the locked dataset/operator/split/loss contract, moves the learned rows to measured complex sinogram input, and passes the paper-facing gate under paper_evidence_brdt_additive. SRU-Net is the strongest learned row within this contract, but both learned rows are materially weaker than the preserved born-image-input lineage, so the family supports bounded secondary manuscript context only and does not authorize full-training BRDT competitiveness or any replacement of the CDI/CNS pillars."
     }
   ],
   "maintenance_rules": [

@@ -64,7 +64,7 @@ BRDT_40EP_ROOT = (
     Path(".artifacts")
     / "NEURIPS-HYBRID-RESNET-2026"
     / "backlog"
-    / "2026-05-06-brdt-corrected-ffno-40ep-rerun"
+    / "2026-05-07-brdt-sinogram-input-40ep-paper-evidence"
 )
 BRDT_40EP_METRICS_JSON = BRDT_40EP_ROOT / "combined_metrics.json"
 BRDT_40EP_SPLIT_MANIFEST = BRDT_40EP_ROOT / "split_manifest.json"
@@ -444,7 +444,7 @@ def _collect_cdi_rows(repo_root: Path) -> list[EfficiencyRow]:
         manifest_rows.update(_load_manifest_rows(_repo_path(repo_root, manifest)))
 
     param_counts = _load_model_config_param_counts(repo_root)
-    benchmark_label = str(table_payload.get("benchmark") or "Synthetic CDI")
+    benchmark_label = str(table_payload.get("benchmark") or "CDI")
     rows: list[EfficiencyRow] = []
     for table_row in table_rows:
         if not isinstance(table_row, Mapping):
@@ -533,10 +533,20 @@ def _brdt_claim_boundary(repo_root: Path) -> str:
 
 def _brdt_test_count(repo_root: Path) -> int | None:
     split_path = _repo_path(repo_root, BRDT_40EP_SPLIT_MANIFEST)
-    if not split_path.exists():
+    payload: Mapping[str, Any] | None = None
+    if split_path.exists():
+        payload = _read_json(split_path)
+    else:
+        preflight_path = _repo_path(repo_root, BRDT_40EP_ROOT / "preflight_manifest.json")
+        if preflight_path.exists():
+            payload = _read_json(preflight_path)
+    if payload is None:
         return None
-    payload = _read_json(split_path)
     split_counts = payload.get("split_counts")
+    if not isinstance(split_counts, Mapping):
+        dataset_block = payload.get("dataset")
+        if isinstance(dataset_block, Mapping):
+            split_counts = dataset_block.get("split_counts")
     if isinstance(split_counts, Mapping):
         return _as_int(split_counts.get("test"))
     return None
@@ -560,6 +570,8 @@ def _collect_brdt_rows(repo_root: Path) -> list[EfficiencyRow]:
         row_id = str(table_row.get("row_id") or "")
         if not row_id:
             continue
+        if row_id == "classical_born_backprop":
+            continue
         normalized_payload = dict(table_row)
         runtime = table_row.get("runtime")
         if isinstance(runtime, Mapping):
@@ -570,7 +582,9 @@ def _collect_brdt_rows(repo_root: Path) -> list[EfficiencyRow]:
             normalize_efficiency_row(
                 benchmark="BRDT",
                 row_id=row_id,
-                model_label=str(table_row.get("paper_label") or row_id),
+                model_label="SRU-Net"
+                if row_id == "sru_net"
+                else str(table_row.get("paper_label") or row_id),
                 source_path=_repo_rel(repo_root, metrics_path),
                 payload=normalized_payload,
                 claim_boundary=claim_boundary,
@@ -627,7 +641,7 @@ def render_summary(
     lines = [
         "# Paper Efficiency Table Summary",
         "",
-        "This summary records the repo-local efficiency table generated for the NeurIPS Hybrid ResNet evidence package.",
+        "This summary records the repo-local efficiency table generated for the NeurIPS SRU-Net evidence package.",
         "The table groups rows by benchmark and keeps runtime fields as provenance context unless an explicit throughput field exists.",
         "",
         "## Outputs",

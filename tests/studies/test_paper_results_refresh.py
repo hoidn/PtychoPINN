@@ -6,6 +6,7 @@ import pytest
 from scripts.studies.paper_results_refresh import (
     CNS_H2_FIXED_CONTRACT,
     CNS_H5_FIXED_CONTRACT,
+    BRDT_40EP_ROOT,
     BRDT_ERROR_CMAP,
     BRDT_MEASUREMENT_CMAP,
     BRDT_RECONSTRUCTION_CMAP,
@@ -213,7 +214,7 @@ def test_render_brdt_metrics_table_keeps_model_based_classical_row():
         "rows": [
             {"row_id": "classical_born_backprop", "row_status": "blocked"},
             {
-                "row_id": "hybrid_resnet",
+                "row_id": "sru_net",
                 "row_status": "completed",
                 "image": {"image_relative_l2_phys": 0.319},
                 "measurement": {"meas_relative_l2": 0.1992},
@@ -236,21 +237,21 @@ def test_render_brdt_metrics_table_keeps_model_based_classical_row():
 def test_render_brdt_metrics_table_bolds_best_values_by_direction():
     metrics = {
         "rows": [
-            {
-                "row_id": "unet",
-                "row_status": "completed",
-                "image": {"image_relative_l2_phys": 0.2},
-                "measurement": {"meas_relative_l2": 0.8},
-                "supporting": {"psnr_phys": 24.0, "ssim_phys": 0.7},
-            },
-            {
-                "row_id": "hybrid_resnet",
-                "paper_label": "Hybrid ResNet",
-                "row_status": "completed",
-                "image": {"image_relative_l2_phys": 0.3},
-                "measurement": {"meas_relative_l2": 0.5},
-                "supporting": {"psnr_phys": 29.0, "ssim_phys": 0.9},
-            },
+        {
+            "row_id": "unet",
+            "row_status": "completed",
+            "image": {"image_relative_l2_phys": 0.2},
+            "measurement": {"meas_relative_l2": 0.8},
+            "supporting": {"psnr_phys": 24.0, "ssim_phys": 0.7},
+        },
+        {
+            "row_id": "sru_net",
+            "paper_label": "SRU-Net",
+            "row_status": "completed",
+            "image": {"image_relative_l2_phys": 0.3},
+            "measurement": {"meas_relative_l2": 0.5},
+            "supporting": {"psnr_phys": 29.0, "ssim_phys": 0.9},
+        },
         ]
     }
 
@@ -322,7 +323,7 @@ def _write_brdt_sample255_source_arrays(root):
     np.save(root / "sample_0255_sino_obs.npy", sino_obs)
     np.save(root / "sample_0255_classical_born_backprop_q_pred.npy", target + 0.08)
     np.save(root / "sample_0255_ffno_q_pred.npy", target + 0.04 * np.sin(xx / 8.0))
-    np.save(root / "sample_0255_hybrid_resnet_q_pred.npy", target + 0.03 * np.cos(yy / 10.0))
+    np.save(root / "sample_0255_sru_net_q_pred.npy", target + 0.03 * np.cos(yy / 10.0))
     return root
 
 
@@ -337,7 +338,7 @@ def test_load_brdt_sample255_panels_uses_40ep_rows_and_measurement_context(tmp_p
     assert [row.row_id for row in panels.reconstruction_rows] == [
         "classical_born_backprop",
         "ffno",
-        "hybrid_resnet",
+        "sru_net",
     ]
     assert [row.label for row in panels.reconstruction_rows] == [
         "Model-based Born inverse",
@@ -369,6 +370,12 @@ def test_brdt_context_panel_titles_use_balanced_rows(tmp_path):
         r"$|\hat{q}_{SRU-Net}-q|$",
     ]
     assert len(titles["top"]) == len(titles["bottom"])
+
+
+def test_brdt_40ep_root_points_at_sinogram_input_bundle():
+    assert str(BRDT_40EP_ROOT).endswith(
+        "2026-05-07-brdt-sinogram-input-40ep-paper-evidence"
+    )
 
 
 def test_brdt_context_figure_uses_distinct_domain_colormaps():
@@ -492,7 +499,7 @@ def test_render_cdi_pinn_metrics_table_bolds_best_values_across_pinn_models():
     assert r"\textbf{0.8000}" in tex
 
 
-def test_render_cdi_objective_comparison_table_only_emits_active_ffno_pair():
+def test_render_cdi_objective_comparison_table_emits_all_paired_active_models():
     rows = [
         {
             "row_id": "pinn",
@@ -576,16 +583,17 @@ def test_render_cdi_objective_comparison_table_only_emits_active_ffno_pair():
     tex = render_cdi_objective_comparison_table(rows)
 
     assert r"\multicolumn{5}{l}{\textit{FFNO}}" in tex
-    assert r"\multicolumn{5}{l}{\textit{CNN}}" not in tex
-    assert r"\multicolumn{5}{l}{\textit{U-NO}}" not in tex
+    assert r"\multicolumn{5}{l}{\textit{CNN}}" in tex
+    assert r"\multicolumn{5}{l}{\textit{U-NO}}" in tex
     assert "Amp MSE" not in tex
     assert "Phase MSE" not in tex
-    assert "PINN" in tex
+    assert "Physics-consistency" in tex
+    assert "PINN" not in tex
     assert "Supervised" in tex
     assert "SRU-Net" not in tex
 
 
-def test_render_cdi_objective_comparison_table_raises_when_active_ffno_pair_missing():
+def test_render_cdi_objective_comparison_table_raises_when_active_pair_missing():
     rows = [
         {
             "row_id": "pinn",
@@ -611,7 +619,7 @@ def test_render_cdi_objective_comparison_table_raises_when_active_ffno_pair_miss
         },
     ]
 
-    with pytest.raises(ValueError, match="FFNO"):
+    with pytest.raises(ValueError, match="FFNO|U-NO"):
         render_cdi_objective_comparison_table(rows)
 
 

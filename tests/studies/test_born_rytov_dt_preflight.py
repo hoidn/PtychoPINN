@@ -2877,6 +2877,87 @@ def test_run_sinogram_input_40ep_dry_run_writes_contract(tmp_path):
     assert all(row["input_mode"] == "sinogram" for row in payload["rows"])
 
 
+def test_run_sinogram_input_40ep_live_writes_gate_provenance_and_visual_contract(
+    tmp_path: Path,
+):
+    from scripts.studies.born_rytov_dt import run_sinogram_input_40ep as sino_mod
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    output_root = tmp_path / "sinogram_input_live"
+
+    result = sino_mod.run_sinogram_input_40ep(
+        manifest_path=manifest_path,
+        output_root=output_root,
+        epochs=1,
+        batch_size=1,
+        device_choice="cpu",
+        fixed_sample_ids=[0],
+        required_paper_sample=0,
+    )
+
+    assert "combined_manifest_json_path" in result
+    assert "convergence_audit_json_path" in result
+    assert "paper_evidence_gate_json_path" in result
+    for row_id in ("ffno", "sru_net"):
+        history_json = output_root / "rows" / row_id / "history.json"
+        history_csv = output_root / "rows" / row_id / "history.csv"
+        assert history_json.exists()
+        assert history_csv.exists()
+
+    gate = json.loads((output_root / "paper_evidence_gate.json").read_text())
+    assert gate["promotion_status"] == "failed"
+    assert gate["claim_boundary"] == "decision_support_convergence_followup"
+    assert set(gate["rows"]) == {"ffno", "sru_net"}
+
+    audit = json.loads((output_root / "convergence_audit.json").read_text())
+    assert {row["row_id"] for row in audit["rows"]} == {"ffno", "sru_net"}
+
+    manifest = json.loads((output_root / "preflight_manifest.json").read_text())
+    assert manifest["claim_boundary"] == gate["claim_boundary"]
+    assert manifest["promotion_status"] == gate["promotion_status"]
+    assert manifest["paper_evidence_gate_path"] == str(
+        output_root / "paper_evidence_gate.json"
+    )
+
+    combined_manifest = json.loads(
+        (output_root / "combined_manifest.json").read_text()
+    )
+    assert combined_manifest["backlog_item"] == sino_mod.BACKLOG_ITEM
+    assert combined_manifest["claim_boundary"] == gate["claim_boundary"]
+    assert {row["row_id"] for row in combined_manifest["rows"]} == {
+        "classical_born_backprop",
+        "ffno",
+        "sru_net",
+    }
+
+    visual_manifest = json.loads((output_root / "visual_manifest.json").read_text())
+    assert visual_manifest["backlog_item"] == sino_mod.BACKLOG_ITEM
+    assert visual_manifest["claim_boundary"] == gate["claim_boundary"]
+    assert visual_manifest["classical_present"] is True
+    assert visual_manifest["rows_present"] == [
+        "classical_born_backprop",
+        "ffno",
+        "sru_net",
+    ]
+    assert all("sample_0000_" in figure for figure in visual_manifest["figures"])
+
+    runtime_provenance = json.loads(
+        (output_root / "runtime_provenance.json").read_text()
+    )
+    for required_field in (
+        "git_sha",
+        "git_dirty",
+        "hostname",
+        "launch_timestamp_utc",
+        "gpu_count",
+        "tracked_pid",
+    ):
+        assert required_field in runtime_provenance
+    exit_status = json.loads((output_root / "run_exit_status.json").read_text())
+    assert "tracked_pid" in exit_status
+    assert "log_path" in exit_status
+
+
 def test_run_sinogram_input_smoke_writes_summary_and_row_artifacts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):

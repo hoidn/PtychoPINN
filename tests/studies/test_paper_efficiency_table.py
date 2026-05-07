@@ -105,9 +105,10 @@ def test_collect_efficiency_rows_includes_paper_approved_brdt_rows():
     rows = collect_efficiency_rows()
     brdt_rows = [row for row in rows if row.benchmark == "BRDT"]
 
-    assert {row.row_id for row in brdt_rows} == {"hybrid_resnet", "ffno"}
+    assert {row.row_id for row in brdt_rows} == {"sru_net", "ffno"}
     assert all(row.inference_throughput_status == "measured" for row in brdt_rows)
-    assert all(row.claim_boundary == "paper_approved_secondary_brdt" for row in brdt_rows)
+    assert all(row.claim_boundary == "paper_evidence_brdt_additive" for row in brdt_rows)
+    assert {row.row_id: row.model_label for row in brdt_rows}["sru_net"] == "SRU-Net"
 
 
 def test_collect_efficiency_rows_uses_unique_model_config_counts_for_cdi():
@@ -115,7 +116,7 @@ def test_collect_efficiency_rows_uses_unique_model_config_counts_for_cdi():
     cdi_rows = {
         row.row_id: row
         for row in rows
-        if row.benchmark == "Synthetic CDI"
+        if row.benchmark == "CDI"
     }
 
     assert cdi_rows["pinn_hybrid_resnet"].parameter_count == 9_003_299

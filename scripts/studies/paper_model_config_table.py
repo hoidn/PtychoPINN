@@ -21,7 +21,7 @@ CDI_BASE_ROOT = (
     / "runs"
     / "complete_table_plus_uno_20260504T100347Z"
 )
-CDI_FFNO_NO_REFINER_ROOT = (
+CDI_FFNO_ROOT = (
     Path(".artifacts")
     / "work"
     / "NEURIPS-HYBRID-RESNET-2026"
@@ -43,7 +43,7 @@ BRDT_40EP_ROOT = (
     Path(".artifacts")
     / "NEURIPS-HYBRID-RESNET-2026"
     / "backlog"
-    / "2026-05-06-brdt-corrected-ffno-40ep-rerun"
+    / "2026-05-07-brdt-sinogram-input-40ep-paper-evidence"
 )
 
 CDI_DISPLAY_LABELS = {
@@ -66,6 +66,7 @@ CNS_DISPLAY_LABELS = {
 
 BRDT_DISPLAY_LABELS = {
     "hybrid_resnet": "SRU-Net",
+    "sru_net": "SRU-Net",
     "ffno": "FFNO",
 }
 
@@ -236,7 +237,7 @@ def _cdi_skip_or_fusion(architecture: str, cfg: Mapping[str, Any]) -> str:
     if architecture == "ffno":
         cnn_blocks = int(cfg.get("fno_cnn_blocks") or 0)
         if cnn_blocks > 0:
-            return "factorized Fourier + local CNN refiners"
+            return "factorized Fourier + CNN blocks"
         return "factorized Fourier"
     if architecture == "fno_vanilla":
         return "spectral conv + pointwise mixing"
@@ -282,12 +283,9 @@ def _cdi_param_count(
                 cfg = _load_runner_config(run_dir / "config.json")
                 cnn_blocks = int(cfg.get("fno_cnn_blocks") or 0)
                 if cnn_blocks > 0:
-                    notes = (
-                        f"historical fno_cnn_blocks={cnn_blocks} local-refiner proxy; "
-                        "corrected no-refiner rerun pending"
-                    )
+                    notes = f"fno_cnn_blocks={cnn_blocks}; not manuscript-facing"
                 else:
-                    notes = "corrected no-refiner active CDI paper row"
+                    notes = "active CDI paper row"
             return (
                 result.unique_trainable_params,
                 raw_recorded,
@@ -310,7 +308,7 @@ def load_cdi_config_rows(repo_root: Path) -> list[ModelConfigRow]:
     table_path = repo_root / TABLES_DIR / "cdi_lines128_metrics_extended.json"
     table_rows = _read_json(table_path).get("rows", [])
     base_root = repo_root / CDI_BASE_ROOT
-    corrected_ffno_root = repo_root / CDI_FFNO_NO_REFINER_ROOT
+    corrected_ffno_root = repo_root / CDI_FFNO_ROOT
     supervised_ffno_root = repo_root / CDI_SUPERVISED_FFNO_ROOT
     manifest_rows = _manifest_rows_by_id(base_root / "model_manifest.json")
     manifest_rows.update(_manifest_rows_by_id(corrected_ffno_root / "model_manifest.json"))
@@ -343,7 +341,7 @@ def load_cdi_config_rows(repo_root: Path) -> list[ModelConfigRow]:
             count_source = _repo_rel(repo_root, row_root / "model_manifest.json")
         rows.append(
             ModelConfigRow(
-                benchmark="Synthetic CDI",
+                benchmark="CDI",
                 display_model=display_model,
                 row_id=row_id,
                 internal_architecture=architecture,
@@ -454,7 +452,7 @@ def load_brdt_config_rows(repo_root: Path) -> list[ModelConfigRow]:
                 row_id=row_id,
                 internal_architecture=str(profile.get("architecture") or metric_row.get("architecture") or row_id),
                 training_objective="supervised+Born",
-                input_output_contract="born_init_image -> q_pred",
+                input_output_contract="measured complex sinogram -> q_pred",
                 width=_as_str(cfg.get("hidden_channels")),
                 fourier_modes=_as_str(cfg.get("fno_modes")),
                 encoder_blocks=_as_str(cfg.get("fno_blocks")),

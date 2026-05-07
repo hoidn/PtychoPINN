@@ -31,7 +31,7 @@ BRDT_ROOT = (
     / ".artifacts"
     / "NEURIPS-HYBRID-RESNET-2026"
     / "backlog"
-    / "2026-05-06-brdt-corrected-ffno-40ep-rerun"
+    / "2026-05-07-brdt-sinogram-input-40ep-paper-evidence"
 )
 BRDT_METRICS_JSON = BRDT_ROOT / "metrics.json"
 BRDT_SOURCE_FIGURE = BRDT_ROOT / "visuals" / "sample_0255_compare_q.png"
@@ -40,7 +40,7 @@ BRDT_40EP_ROOT = (
     / ".artifacts"
     / "NEURIPS-HYBRID-RESNET-2026"
     / "backlog"
-    / "2026-05-06-brdt-corrected-ffno-40ep-rerun"
+    / "2026-05-07-brdt-sinogram-input-40ep-paper-evidence"
 )
 BRDT_40EP_SOURCE_ARRAYS = BRDT_40EP_ROOT / "figures" / "source_arrays"
 BRDT_40EP_GATE_JSON = BRDT_40EP_ROOT / "paper_evidence_gate.json"
@@ -223,6 +223,7 @@ BRDT_LABELS = {
     "unet": "U-Net",
     "fno_vanilla": "FNO",
     "hybrid_resnet": "SRU-Net",
+    "sru_net": "SRU-Net",
 }
 BRDT_CONTEXT_ROWS = (
     (
@@ -231,7 +232,7 @@ BRDT_CONTEXT_ROWS = (
         "sample_0255_classical_born_backprop_q_pred.npy",
     ),
     ("ffno", "FFNO", "sample_0255_ffno_q_pred.npy"),
-    ("hybrid_resnet", "SRU-Net", "sample_0255_hybrid_resnet_q_pred.npy"),
+    ("sru_net", "SRU-Net", "sample_0255_sru_net_q_pred.npy"),
 )
 
 CDI_ROW_ORDER = [
@@ -692,11 +693,13 @@ def brdt_context_panel_titles(panels: BrdtSamplePanels) -> dict[str, list[str]]:
         "classical_born_backprop": r"Model-based: $\hat{q}_{Born}$",
         "ffno": r"FFNO: $\hat{q}$",
         "hybrid_resnet": r"SRU-Net: $\hat{q}$",
+        "sru_net": r"SRU-Net: $\hat{q}$",
     }
     error_titles = {
         "classical_born_backprop": r"$|\hat{q}_{Born}-q|$",
         "ffno": r"$|\hat{q}_{FFNO}-q|$",
         "hybrid_resnet": r"$|\hat{q}_{SRU-Net}-q|$",
+        "sru_net": r"$|\hat{q}_{SRU-Net}-q|$",
     }
     return {
         "top": [
@@ -985,7 +988,7 @@ CDI_OBJECTIVE_CONTROL_COLUMNS = [
     ("amp_ssim", True),
     ("phase_ssim", True),
 ]
-CDI_OBJECTIVE_CONTROL_ACTIVE_MODELS = ("FFNO",)
+CDI_OBJECTIVE_CONTROL_ACTIVE_MODELS = ("CNN", "FFNO", "U-NO")
 
 
 def _cdi_best_values(
@@ -1061,7 +1064,7 @@ def render_cdi_objective_comparison_table(
     lines = [
         r"\begin{tabular}{lrrrr}",
         r"\toprule",
-        r"Objective & Amp MAE & Phase MAE & Amp SSIM & Phase SSIM \\",
+        r"Training & Amp MAE $\downarrow$ & Phase MAE $\downarrow$ & Amp SSIM $\uparrow$ & Phase SSIM $\uparrow$ \\",
     ]
     for model in paired_models:
         model_rows = [rows_by_model[model]["PINN"], rows_by_model[model]["supervised"]]
@@ -1070,7 +1073,7 @@ def render_cdi_objective_comparison_table(
         lines.append(rf"\multicolumn{{5}}{{l}}{{\textit{{{_latex_escape(model)}}}}} \\")
         lines.append(r"\midrule")
         for row in model_rows:
-            label = "PINN" if row["training"] == "PINN" else "Supervised"
+            label = "Physics-consistency" if row["training"] == "PINN" else "Supervised"
             values = _formatted_cdi_values(row, best, columns=CDI_OBJECTIVE_CONTROL_COLUMNS)
             lines.append(f"{label} & {' & '.join(values)} \\\\")
     lines.extend([r"\bottomrule", r"\end{tabular}"])
@@ -1110,6 +1113,7 @@ def write_cdi_extended_assets() -> dict[str, str]:
                 "complete_lines128_cdi_benchmark_plus_uno_extension_"
                 "with_corrected_ffno_objective_control_pair"
             ),
+            "benchmark": "CDI",
             "source_metrics_json": str(CDI_UNO_METRICS_JSON.relative_to(REPO_ROOT)),
             "pinn_ffno_source_metrics_json": "runs/pinn_ffno/metrics.json",
             "supervised_ffno_source_metrics_json": "runs/supervised_ffno/metrics.json",

@@ -1,6 +1,6 @@
 # Paper Efficiency Table Summary
 
-This summary records the repo-local efficiency table generated for the NeurIPS Hybrid ResNet evidence package.
+This summary records the repo-local efficiency table generated for the NeurIPS SRU-Net evidence package.
 The table groups rows by benchmark and keeps runtime fields as provenance context unless an explicit throughput field exists.
 
 ## Outputs
@@ -11,7 +11,7 @@ The table groups rows by benchmark and keeps runtime fields as provenance contex
 
 ## Row Counts
 
-- Synthetic CDI: 8 rows
+- CDI: 8 rows
 - PDEBench CNS: 4 rows
 - BRDT: 2 rows
 

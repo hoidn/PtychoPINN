@@ -263,22 +263,23 @@ differentiable forward-model reproduction are trustworthy enough to justify
 later paper-evidence promotion. Neither preflight may add rows to manuscript
 tables or result claims by itself.
 
-### BRDT 40-Epoch Corrected Additive Secondary Bundle — Passed (2026-05-06)
+### BRDT 40-Epoch Sinogram-Input Additive Secondary Bundle — Passed (2026-05-07)
 
-The corrected same-contract paired BRDT bundle at
-`.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/`
+The same-contract paired BRDT sinogram-input bundle at
+`.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/`
 is the current additive-secondary BRDT authority.
 
 `paper_evidence_gate.json` records
 `claim_boundary=paper_evidence_brdt_additive`, `promotion_status=passed`, and
 no failed gate checks.
 
-The promoted bundle preserves the locked BRDT dataset/operator/input/split/loss
-contract, reruns `hybrid_resnet` and the corrected no-refiner `ffno` row in one
-immutable root, records genuine training-run git/host/python/torch provenance,
-stores PID-backed exit-code proof, emits per-epoch histories and convergence
-audit for both rows, and materializes the sample-`255` visual/source-array
-bundle from the corrected paired rerun.
+The promoted bundle preserves the locked BRDT dataset/operator/split/loss
+contract while changing the learned-model input to `input_mode="sinogram"`,
+reruns `sru_net` and the corrected no-refiner `ffno` row in one immutable
+root, records genuine training-run git/host/python/torch provenance, stores
+PID-backed exit-code proof, emits per-epoch histories and convergence audit
+for both rows, and materializes the sample-`255` visual/source-array bundle
+from the sinogram-input paired rerun.
 
 This promotion is deliberately narrow. It authorizes additive secondary BRDT
 context only:
@@ -292,6 +293,9 @@ context only:
   itself
 
 The historical
+`.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/`
+bundle remains preserved for provenance as the passed `born_init_image`
+authority, and the historical
 `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/`
 bundle remains preserved for provenance, but its FFNO row is a legacy
 local-refiner proxy and its reconstructed runtime provenance keeps it out of the

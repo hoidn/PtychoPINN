@@ -1,26 +1,35 @@
 {
   "claim_boundary": "paper_evidence_brdt_additive",
-  "source_metrics_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/metrics.json",
-  "source_figure": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/visuals/sample_0255_compare_q.png",
+  "source_metrics_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+  "source_figure": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_compare_q.png",
   "paper_figure": "figures/brdt_decision_support_recon.png",
   "rows": [
     {
-      "row_id": "hybrid_resnet",
-      "label": "SRU-Net",
+      "row_id": "classical_born_backprop",
+      "label": "Model-based Born inverse",
       "status": "completed",
-      "image_relative_l2_phys": 0.2876039323417278,
-      "meas_relative_l2": 0.17428087625654173,
-      "psnr_phys": 30.640423132037053,
-      "ssim_phys": 0.9552215449358379
+      "image_relative_l2_phys": 3.4686184561825275,
+      "meas_relative_l2": 7.69314914446772,
+      "psnr_phys": 9.013188915141455,
+      "ssim_phys": 0.6245610585415872
     },
     {
       "row_id": "ffno",
       "label": "FFNO",
       "status": "completed",
-      "image_relative_l2_phys": 0.45086467933854674,
-      "meas_relative_l2": 0.2906064464585064,
-      "psnr_phys": 26.735395245533745,
-      "ssim_phys": 0.9120293293362252
+      "image_relative_l2_phys": 0.9999678413130959,
+      "meas_relative_l2": 0.9999076451224553,
+      "psnr_phys": 19.816598858513114,
+      "ssim_phys": 0.05077483826580541
+    },
+    {
+      "row_id": "sru_net",
+      "label": "SRU-Net",
+      "status": "completed",
+      "image_relative_l2_phys": 0.7165268569981865,
+      "meas_relative_l2": 0.46655587527377046,
+      "psnr_phys": 22.711670060252654,
+      "ssim_phys": 0.7359318624719449
     }
   ]
 }

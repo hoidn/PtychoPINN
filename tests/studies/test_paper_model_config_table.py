@@ -6,6 +6,7 @@ import torch
 from scripts.studies.paper_model_config_table import (
     ModelConfigRow,
     count_unique_state_dict_params,
+    load_brdt_config_rows,
     load_cdi_config_rows,
     render_model_config_tex,
     row_to_dict,
@@ -173,4 +174,17 @@ def test_load_cdi_config_rows_uses_corrected_no_refiner_ffno_roots():
     assert rows["supervised_ffno"].unique_trainable_params == 124966
     assert rows["supervised_ffno"].config_source.endswith(
         "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z/runs/supervised_ffno/config.json"
+    )
+
+
+def test_load_brdt_config_rows_uses_sinogram_input_bundle():
+    rows = {row.row_id: row for row in load_brdt_config_rows(Path.cwd())}
+
+    assert set(rows) == {"sru_net", "ffno"}
+    assert rows["sru_net"].display_model == "SRU-Net"
+    assert rows["sru_net"].input_output_contract == (
+        "measured complex sinogram -> q_pred"
+    )
+    assert rows["sru_net"].config_source.endswith(
+        "2026-05-07-brdt-sinogram-input-40ep-paper-evidence/rows/sru_net/model_profile.json"
     )

@@ -1,9 +1,9 @@
 {
   "schema_version": "paper_efficiency_table.v1",
-  "generated_at_utc": "2026-05-07T04:40:51.838980Z",
+  "generated_at_utc": "2026-05-07T12:35:19.604055Z",
   "rows": [
     {
-      "benchmark": "Synthetic CDI",
+      "benchmark": "CDI",
       "row_id": "pinn",
       "model_label": "CNN + PINN",
       "parameter_count": 4661212,
@@ -20,7 +20,7 @@
       "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_corrected_ffno_objective_control_pair"
     },
     {
-      "benchmark": "Synthetic CDI",
+      "benchmark": "CDI",
       "row_id": "pinn_fno_vanilla",
       "model_label": "FNO + PINN",
       "parameter_count": 636450,
@@ -37,7 +37,7 @@
       "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_corrected_ffno_objective_control_pair"
     },
     {
-      "benchmark": "Synthetic CDI",
+      "benchmark": "CDI",
       "row_id": "pinn_ffno",
       "model_label": "FFNO + PINN",
       "parameter_count": 124966,
@@ -54,7 +54,7 @@
       "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_corrected_ffno_objective_control_pair"
     },
     {
-      "benchmark": "Synthetic CDI",
+      "benchmark": "CDI",
       "row_id": "pinn_hybrid_resnet",
       "model_label": "SRU-Net + PINN",
       "parameter_count": 9003299,
@@ -71,7 +71,7 @@
       "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_corrected_ffno_objective_control_pair"
     },
     {
-      "benchmark": "Synthetic CDI",
+      "benchmark": "CDI",
       "row_id": "pinn_neuralop_uno",
       "model_label": "U-NO + PINN",
       "parameter_count": 1257858,
@@ -88,7 +88,7 @@
       "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_corrected_ffno_objective_control_pair"
     },
     {
-      "benchmark": "Synthetic CDI",
+      "benchmark": "CDI",
       "row_id": "baseline",
       "model_label": "CNN + supervised",
       "parameter_count": 4612418,
@@ -105,7 +105,7 @@
       "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_corrected_ffno_objective_control_pair"
     },
     {
-      "benchmark": "Synthetic CDI",
+      "benchmark": "CDI",
       "row_id": "supervised_ffno",
       "model_label": "FFNO + supervised",
       "parameter_count": 124966,
@@ -122,7 +122,7 @@
       "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_corrected_ffno_objective_control_pair"
     },
     {
-      "benchmark": "Synthetic CDI",
+      "benchmark": "CDI",
       "row_id": "supervised_neuralop_uno",
       "model_label": "U-NO + supervised",
       "parameter_count": 1257858,
@@ -208,36 +208,36 @@
     },
     {
       "benchmark": "BRDT",
-      "row_id": "hybrid_resnet",
-      "model_label": "Hybrid ResNet",
-      "parameter_count": 142018,
+      "row_id": "ffno",
+      "model_label": "FFNO",
+      "parameter_count": 27538,
       "parameter_count_source_field": "parameter_count",
-      "training_runtime_seconds": 170.21592409629375,
+      "training_runtime_seconds": 209.9171904688701,
       "training_runtime_source_field": "wall_time_train_s",
       "training_runtime_status": "provenance_context",
       "hardware_label": "cuda",
       "inference_throughput_status": "measured",
-      "inference_samples_per_second": 375.8525264766623,
+      "inference_samples_per_second": 387.33304016812446,
       "inference_latency_ms": null,
       "throughput_source_field": "samples_per_second",
-      "source_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/combined_metrics.json",
+      "source_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.json",
       "claim_boundary": "paper_evidence_brdt_additive"
     },
     {
       "benchmark": "BRDT",
-      "row_id": "ffno",
-      "model_label": "FFNO",
-      "parameter_count": 27394,
+      "row_id": "sru_net",
+      "model_label": "SRU-Net",
+      "parameter_count": 142162,
       "parameter_count_source_field": "parameter_count",
-      "training_runtime_seconds": 217.97601264482364,
+      "training_runtime_seconds": 164.29025180032477,
       "training_runtime_source_field": "wall_time_train_s",
       "training_runtime_status": "provenance_context",
       "hardware_label": "cuda",
       "inference_throughput_status": "measured",
-      "inference_samples_per_second": 370.0959634432774,
+      "inference_samples_per_second": 404.69782004336173,
       "inference_latency_ms": null,
       "throughput_source_field": "samples_per_second",
-      "source_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/combined_metrics.json",
+      "source_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.json",
       "claim_boundary": "paper_evidence_brdt_additive"
     }
   ],

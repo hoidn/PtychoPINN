@@ -1,0 +1,20 @@
+{
+  "brdt_assets": {
+    "tex": "/home/ollie/Documents/PtychoPINN/docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.tex",
+    "csv": "/home/ollie/Documents/PtychoPINN/docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.csv",
+    "json": "/home/ollie/Documents/PtychoPINN/docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/brdt_decision_support_metrics.json",
+    "figure": "/home/ollie/Documents/PtychoPINN/docs/plans/NEURIPS-HYBRID-RESNET-2026/figures/brdt_decision_support_recon.png"
+  },
+  "brdt_context_figure": "/home/ollie/Documents/PtychoPINN/docs/plans/NEURIPS-HYBRID-RESNET-2026/figures/brdt_sample_0255_context_recon_error.png",
+  "model_config_table": {
+    "json": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/model_config_by_benchmark.json",
+    "csv": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/model_config_by_benchmark.csv",
+    "tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/model_config_by_benchmark.tex"
+  },
+  "paper_efficiency_table": {
+    "json": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/paper_efficiency_table.json",
+    "csv": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/paper_efficiency_table.csv",
+    "tex": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/paper_efficiency_table.tex",
+    "summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_efficiency_table_summary.md"
+  }
+}

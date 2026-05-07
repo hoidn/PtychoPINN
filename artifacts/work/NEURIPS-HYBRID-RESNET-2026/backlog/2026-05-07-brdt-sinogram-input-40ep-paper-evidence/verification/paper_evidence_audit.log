@@ -1,0 +1,6 @@
+{
+  "inputs_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/audit_inputs.json",
+  "manifest_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_manifest.json",
+  "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_package_audit_summary.md",
+  "validation_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-paper-evidence-package-audit/audit_validation.json"
+}

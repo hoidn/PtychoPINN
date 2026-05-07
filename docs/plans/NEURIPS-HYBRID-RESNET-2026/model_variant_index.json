@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-07T10:35:59.424532Z",
+  "last_updated_utc": "2026-05-07T12:45:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -27,6 +27,7 @@
     "brdt_corrected_ffno_row_rerun_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_corrected_ffno_row_rerun_summary.md",
     "brdt_ffno_row_extension_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_ffno_row_extension_summary.md",
     "brdt_40ep_paper_evidence_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md",
+    "brdt_sinogram_input_40ep_paper_evidence_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
     "cns_history5_gap_fill_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md",
     "cdi_ffno_depth24_ablation_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_ablation_summary.md",
     "srunet_encoder_order_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_encoder_order_ffno_vs_ptychoblock_summary.md"
@@ -276,6 +277,30 @@
       "claim_boundary": "decision_support_convergence_followup",
       "baseline_contract_id": "brdt_decision_support_2048cap",
       "authority": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md"
+    },
+    "brdt_sinogram_paper_evidence_2048cap_40ep": {
+      "task": "candidate_brdt",
+      "dataset_label": "BRDT sinogram-input additive paper-evidence rerun (capped 2048/256/256, N=D=128, A=64) with 40 epochs and plateau-scheduler provenance",
+      "dataset_id": "brdt128_decision_support_preflight",
+      "operator_authority": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-operator-validation/operator_validation.json",
+      "input_mode": "sinogram",
+      "objective_preset": "supervised_plus_born",
+      "loss_weights": {
+        "image": 1.0,
+        "physics": 0.1,
+        "relative_physics": 0.1,
+        "tv": 1e-05,
+        "positivity": 0.0001
+      },
+      "epochs": 40,
+      "optimizer": "adam",
+      "learning_rate": 0.0002,
+      "scheduler": "ReduceLROnPlateau(factor=0.5, patience=2, threshold=0.0, min_lr=1e-5)",
+      "batch_size": 16,
+      "seed": 42,
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "baseline_contract_id": "brdt_decision_support_2048cap",
+      "authority": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md"
     },
     "darcy_static_operator_full_8000_1000_1000": {
       "task": "pdebench_darcy",
@@ -2372,38 +2397,38 @@
       "changed_factor": "Resolved stale summary/index inconsistency in favor of the concrete baseline metrics/source-array bundle consumed by the 40-epoch additive paper-evidence rerun; sample-255 classical provenance is accepted by lineage from the completed model-based Born inverse row."
     },
     {
-      "variant_id": "brdt__hybrid_resnet__supervised_plus_born_consistency__paper_evidence_additive_40ep__corrected_paired_rerun",
-      "dataset_contract_id": "brdt_paper_evidence_2048cap_40ep",
-      "row_id": "hybrid_resnet",
+      "variant_id": "brdt__sru_net__supervised_plus_born_consistency__paper_evidence_additive_40ep__sinogram_input",
+      "dataset_contract_id": "brdt_sinogram_paper_evidence_2048cap_40ep",
+      "row_id": "sru_net",
       "paper_label": "SRU-Net",
       "architecture_id": "hybrid_resnet",
       "model_family": "hybrid_resnet",
       "training_mode": "supervised_plus_born_consistency",
-      "source_backlog_item": "2026-05-06-brdt-corrected-ffno-40ep-rerun",
-      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_corrected_ffno_40ep_rerun_summary.md",
-      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/",
+      "source_backlog_item": "2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/",
       "metrics_json": "metrics.json",
       "combined_metrics_json": "combined_metrics.json",
       "convergence_audit_json": "convergence_audit.json",
       "paper_evidence_gate_json": "paper_evidence_gate.json",
-      "history_json": "rows/hybrid_resnet/history.json",
-      "model_profile_json": "rows/hybrid_resnet/model_profile.json",
+      "history_json": "rows/sru_net/history.json",
+      "model_profile_json": "rows/sru_net/model_profile.json",
       "baseline_variant_id": "brdt__hybrid_resnet__supervised_plus_born_consistency__decision_support_preflight",
       "visuals": [
         "visuals/sample_0255_compare_q.png",
         "visuals/sample_0255_error_q.png",
         "visuals/sample_0255_sinogram_residual.png"
       ],
-      "parameter_count": 142018,
+      "parameter_count": 142162,
       "metrics": {
-        "image_mae_phys": 0.0005739388689538549,
-        "image_rmse_phys": 0.0016312093282028085,
-        "image_relative_l2_phys": 0.2876039323417278,
-        "meas_mae": 0.0010200936587339328,
-        "meas_rmse": 0.0014760605631481344,
-        "meas_relative_l2": 0.17428087625654173,
-        "psnr_phys": 30.640423132037053,
-        "ssim_phys": 0.9552215449358379
+        "image_mae_phys": 0.0014084257222247674,
+        "image_rmse_phys": 0.004063940584979624,
+        "image_relative_l2_phys": 0.7165268569981865,
+        "meas_mae": 0.0020281404820845844,
+        "meas_rmse": 0.003951464686136628,
+        "meas_relative_l2": 0.46655587527377046,
+        "psnr_phys": 22.711670060252654,
+        "ssim_phys": 0.7359318624719449
       },
       "runtime": {
         "batch_size": 16,
@@ -2411,34 +2436,34 @@
         "device_name": "NVIDIA GeForce RTX 3090",
         "epochs": 40,
         "learning_rate": 0.0002,
-        "wall_time_train_s": 170.21592409629375,
-        "wall_time_eval_s": 0.6811182098463178
+        "wall_time_train_s": 164.29025180032477,
+        "wall_time_eval_s": 0.6325951674953103
       },
       "claim_boundary": "paper_evidence_brdt_additive",
       "evidence_status": "paper_grade",
-      "changed_factor": "same capped BRDT contract as the 20-epoch Hybrid ResNet row, but rerun in the corrected paired 40-epoch bundle with scheduler/history provenance and promoted additive-secondary gate status.",
-      "interpretation": "Current additive-secondary BRDT Hybrid ResNet authority. This rerun remains the strongest image-space row in the paired corrected 40-epoch bundle.",
-      "20_epoch_comparison": {
-        "image_relative_l2_phys_delta": -0.03139517035984929,
-        "meas_relative_l2_delta": -0.02495248317988724,
-        "psnr_phys_delta": 0.8998928338451755,
-        "ssim_phys_delta": 0.008075969755863333,
-        "final_learning_rate": 0.0001,
-        "lr_reduction_count": 1,
+      "changed_factor": "same capped BRDT dataset/operator/split/loss contract as the historical additive lane, but the learned-model input changes from born_init_image to measured complex sinogram and the active paired rerun row id becomes sru_net.",
+      "interpretation": "Current additive-secondary BRDT SRU-Net authority for the learned sinogram-input contract. This rerun remains the strongest learned image-space row in the paired sinogram-input bundle, but it is materially weaker than the preserved born-image-input lineage.",
+      "historical_born_input_context_comparison": {
+        "image_relative_l2_phys_delta": 0.4289229246564587,
+        "meas_relative_l2_delta": 0.29227499901722875,
+        "psnr_phys_delta": -7.928753071784399,
+        "ssim_phys_delta": -0.21928968246389302,
+        "final_learning_rate": 0.0002,
+        "lr_reduction_count": 0,
         "materially_improving_at_stop": true
       }
     },
     {
-      "variant_id": "brdt__ffno__supervised_plus_born_consistency__paper_evidence_additive_40ep__corrected_no_refiner",
-      "dataset_contract_id": "brdt_paper_evidence_2048cap_40ep",
+      "variant_id": "brdt__ffno__supervised_plus_born_consistency__paper_evidence_additive_40ep__sinogram_input_no_refiner",
+      "dataset_contract_id": "brdt_sinogram_paper_evidence_2048cap_40ep",
       "row_id": "ffno",
       "paper_label": "FFNO",
       "architecture_id": "ffno",
       "model_family": "factorized_fourier_operator",
       "training_mode": "supervised_plus_born_consistency",
-      "source_backlog_item": "2026-05-06-brdt-corrected-ffno-40ep-rerun",
-      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_corrected_ffno_40ep_rerun_summary.md",
-      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/",
+      "source_backlog_item": "2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/",
       "metrics_json": "metrics.json",
       "combined_metrics_json": "combined_metrics.json",
       "convergence_audit_json": "convergence_audit.json",
@@ -2451,16 +2476,16 @@
         "visuals/sample_0255_error_q.png",
         "visuals/sample_0255_sinogram_residual.png"
       ],
-      "parameter_count": 27394,
+      "parameter_count": 27538,
       "metrics": {
-        "image_mae_phys": 0.0008384572213645669,
-        "image_rmse_phys": 0.002557178772577931,
-        "image_relative_l2_phys": 0.45086467933854674,
-        "meas_mae": 0.0013427147554599486,
-        "meas_rmse": 0.0024612724254530465,
-        "meas_relative_l2": 0.2906064464585064,
-        "psnr_phys": 26.735395245533745,
-        "ssim_phys": 0.9120293293362252
+        "image_mae_phys": 0.001950540925449078,
+        "image_rmse_phys": 0.005671538832489347,
+        "image_relative_l2_phys": 0.9999678413130959,
+        "meas_mae": 0.0036263233966997367,
+        "meas_rmse": 0.008468652863455947,
+        "meas_relative_l2": 0.9999076451224553,
+        "psnr_phys": 19.816598858513114,
+        "ssim_phys": 0.05077483826580541
       },
       "runtime": {
         "batch_size": 16,
@@ -2468,20 +2493,20 @@
         "device_name": "NVIDIA GeForce RTX 3090",
         "epochs": 40,
         "learning_rate": 0.0002,
-        "wall_time_train_s": 217.97601264482364,
-        "wall_time_eval_s": 0.6917124888859689
+        "wall_time_train_s": 209.9171904688701,
+        "wall_time_eval_s": 0.6609299322590232
       },
       "claim_boundary": "paper_evidence_brdt_additive",
       "evidence_status": "paper_grade",
-      "changed_factor": "same capped BRDT contract as the corrected 20-epoch pure-FFNO row, but rerun to 40 epochs inside the corrected paired bundle with scheduler/history provenance and promoted additive-secondary gate status.",
-      "interpretation": "Current additive-secondary pure-FFNO BRDT authority at 40 epochs. The corrected no-refiner row improves materially over its 20-epoch prerequisite but remains weaker than Hybrid ResNet on this capped contract.",
-      "20_epoch_comparison": {
-        "image_relative_l2_phys_delta": -0.049752528632903414,
-        "meas_relative_l2_delta": -0.04892324305371554,
-        "psnr_phys_delta": 0.9091911934220462,
-        "ssim_phys_delta": 0.01708689680409492,
-        "final_learning_rate": 0.0002,
-        "lr_reduction_count": 0,
+      "changed_factor": "same capped BRDT contract as the corrected pure-FFNO lane, but the learned-model input changes from born_init_image to measured complex sinogram and the active paired rerun is regenerated under the sinogram-input bundle with scheduler/history provenance.",
+      "interpretation": "Current additive-secondary pure-FFNO BRDT authority for the learned sinogram-input contract. The corrected no-refiner row remains weaker than SRU-Net and is materially worse than the preserved born-image-input FFNO lineage.",
+      "historical_born_input_context_comparison": {
+        "image_relative_l2_phys_delta": 0.5491031619745492,
+        "meas_relative_l2_delta": 0.7093011986639489,
+        "psnr_phys_delta": -6.918796387020631,
+        "ssim_phys_delta": -0.8612544910704197,
+        "final_learning_rate": 1e-05,
+        "lr_reduction_count": 5,
         "materially_improving_at_stop": true
       },
       "supersedes_proxy_variant_id": "brdt__ffno__supervised_plus_born_consistency__paper_evidence_additive_40ep"
@@ -2572,6 +2597,7 @@
     "2026-05-04-cdi-natural-patch-expanded-benchmark",
     "2026-05-05-brdt-supervised-born-40ep-paper-evidence",
     "2026-05-06-brdt-corrected-ffno-40ep-rerun",
+    "2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
     "2026-05-06-cdi-lines128-ffno-depth24-ablation"
   ],
   "maintenance_rules": [

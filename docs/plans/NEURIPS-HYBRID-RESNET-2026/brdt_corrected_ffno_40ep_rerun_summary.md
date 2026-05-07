@@ -7,6 +7,10 @@
 > bounded BRDT manuscript context, but it does **not** replace the required
 > CDI `lines128` or PDEBench CNS pillars and does **not** authorize
 > `/home/ollie/Documents/neurips/` publication on its own.
+> **Supersession note (2026-05-07):** this summary remains authoritative only
+> for the historical `born_init_image` BRDT contract. Current sinogram-input
+> additive-secondary claims now route through
+> `brdt_sinogram_input_40ep_paper_evidence_summary.md`.
 
 ## 1. Identity And Lineage
 
