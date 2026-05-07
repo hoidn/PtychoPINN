@@ -212,6 +212,34 @@ def load_and_predict(run_id,
     else:
         gt_object = recon_dataset.data_dict['objectGuess']
 
+    # Compute Fourier R-factor
+    r_factor_title = None
+    try:
+        from ptycho_torch.eval.frc import evaluate_fourier_metrics
+        canvas_np = result_im.numpy() if hasattr(result_im, 'numpy') else np.array(result_im)
+        probe_all_modes = recon_dataset.data_dict['probes'][file_index]
+        if hasattr(probe_all_modes, 'numpy'):
+            probe_all_modes = probe_all_modes.numpy()
+        positions = recon_dataset.mmap_ptycho['coords_global'][:, 0, 0, :].numpy()
+        diffraction = recon_dataset.mmap_ptycho['images'][:, 0, :, :].numpy()
+
+        fourier_results = evaluate_fourier_metrics(
+            canvas_np, probe_all_modes, positions, diffraction,
+            patch_size=data_config.N,
+            metrics=('rfactor',),
+            optimal_scaling=True,
+            verbose=verbose,
+        )
+
+        if 'rfactor' in fourier_results:
+            r_val = fourier_results['rfactor']['R_factor']
+            r_factor_title = f"R-factor: {r_val:.4f}"
+            print(f"Fourier R-factor: {r_val:.4f} "
+                  f"(scale={fourier_results['rfactor']['scale_factor']:.4f}, "
+                  f"n_positions={fourier_results['n_positions_used']})")
+    except Exception as e:
+        print(f"Warning: R-factor computation failed: {e}")
+
     h,w = 20,20
 
     result_amp = np.abs(result_im)
@@ -221,7 +249,8 @@ def load_and_predict(run_id,
 
     plot_amp_and_phase(result_amp[h:-h,w:-w], result_phase[h:-h,w:-w],
                     gt_amp[h:-h,w:-w], gt_phase[h:-h,w:-w],
-                    save_dir = save_dir, filename = plot_name)
+                    save_dir = save_dir, filename = plot_name,
+                    suptitle = r_factor_title)
 
     result_amp = np.real(result_im)
     result_phase = np.imag(result_im)
@@ -236,7 +265,8 @@ def load_and_predict(run_id,
                     obj_amp_name = 'Object Real',
                     obj_phase_name = 'Object Imag',
                     gt_amp_name = 'Ground Truth Real',
-                    gt_phase_name = 'Ground Truth Imag')
+                    gt_phase_name = 'Ground Truth Imag',
+                    suptitle = r_factor_title)
 
     plot_reim_histogram(result_im[h:-h, w:-w], gt_object.squeeze()[h:-h, w:-w],
                     save_dir=save_dir, filename=plot_name + '_hist')
@@ -253,15 +283,47 @@ def plot_amp_and_phase(obj_amp, obj_phase, gt_amp, gt_phase, save_dir = None, fi
                        obj_amp_name = 'Object Amp',
                        obj_phase_name = 'Object Phase',
                        gt_amp_name = 'Ground Truth Amp',
-                       gt_phase_name = 'Ground Truth Phase'):
+                       gt_phase_name = 'Ground Truth Phase',
+                       shared_axes = False,
+                       suptitle = None,
+                       robust_scaling = True,
+                       percentile_range = (1, 99)):
     fig, axs = plt.subplots(2, 2, figsize=(5, 4), layout='constrained')
 
-    for ax, data, title in zip(
+    if suptitle is not None:
+        fig.suptitle(suptitle)
+
+    data_list = [obj_amp, obj_phase, gt_amp, gt_phase]
+    plo, phi = percentile_range
+
+    if shared_axes:
+        amp_all = np.concatenate([np.asarray(obj_amp).ravel(),
+                                  np.asarray(gt_amp).ravel()])
+        phase_all = np.concatenate([np.asarray(obj_phase).ravel(),
+                                    np.asarray(gt_phase).ravel()])
+        if robust_scaling:
+            amp_vmin, amp_vmax = np.nanpercentile(amp_all, [plo, phi])
+            phase_vmin, phase_vmax = np.nanpercentile(phase_all, [plo, phi])
+        else:
+            amp_vmin, amp_vmax = np.nanmin(amp_all), np.nanmax(amp_all)
+            phase_vmin, phase_vmax = np.nanmin(phase_all), np.nanmax(phase_all)
+        vmin_list = [amp_vmin, phase_vmin, amp_vmin, phase_vmin]
+        vmax_list = [amp_vmax, phase_vmax, amp_vmax, phase_vmax]
+    elif robust_scaling:
+        vmin_list = [np.nanpercentile(d, plo) for d in data_list]
+        vmax_list = [np.nanpercentile(d, phi) for d in data_list]
+    else:
+        vmin_list = [None, None, None, None]
+        vmax_list = [None, None, None, None]
+
+    for ax, data, title, vmin, vmax in zip(
         [axs[0,0], axs[0,1], axs[1,0], axs[1,1]],
         [obj_amp, obj_phase, gt_amp, gt_phase],
         [obj_amp_name, obj_phase_name, gt_amp_name, gt_phase_name],
+        vmin_list,
+        vmax_list,
     ):
-        im = ax.imshow(data, cmap='gray')
+        im = ax.imshow(data, cmap='gray', vmin=vmin, vmax=vmax)
         plt.colorbar(im, ax=ax, shrink=0.75, aspect=20, pad=0.02)
         ax.set_title(title)
         ax.axis('off')
@@ -325,10 +387,10 @@ def plot_reim_histogram(result_complex, gt_complex, save_dir=None, filename=None
         im = np.imag(data).flatten()
         print(f"Real mean: {re.mean()}")
         print(f"Imag mean: {im.mean()}")
-        max_re = np.percentile(np.abs(re),98)
-        max_im = np.percentile(np.abs(im),98)
-        re /= np.sqrt(max_re **2 + max_im **2)
-        im /= np.sqrt(max_re **2 + max_im **2)
+        # max_re = np.percentile(np.abs(re),98)
+        # max_im = np.percentile(np.abs(im),98)
+        # re /= np.sqrt(max_re **2 + max_im **2)
+        # im /= np.sqrt(max_re **2 + max_im **2)
 
         hist, re_edges, im_edges = np.histogram2d(
             re, im, bins=bins,
@@ -386,7 +448,8 @@ def save_individual_reconstructions(obj_amp, obj_phase, output_dir):
 
     # Create amplitude figure
     fig_amp, ax_amp = plt.subplots(figsize=(6, 6))
-    im_amp = ax_amp.imshow(obj_amp, cmap='gray')
+    amp_vmin, amp_vmax = np.nanpercentile(obj_amp, [1, 99])
+    im_amp = ax_amp.imshow(obj_amp, cmap='gray', vmin=amp_vmin, vmax=amp_vmax)
     plt.colorbar(im_amp, ax=ax_amp)
     ax_amp.set_title('Reconstructed Amplitude')
     ax_amp.axis('off')
@@ -398,7 +461,8 @@ def save_individual_reconstructions(obj_amp, obj_phase, output_dir):
 
     # Create phase figure
     fig_phase, ax_phase = plt.subplots(figsize=(6, 6))
-    im_phase = ax_phase.imshow(obj_phase, cmap='gray')
+    phase_vmin, phase_vmax = np.nanpercentile(obj_phase, [1, 99])
+    im_phase = ax_phase.imshow(obj_phase, cmap='gray', vmin=phase_vmin, vmax=phase_vmax)
     plt.colorbar(im_phase, ax=ax_phase)
     ax_phase.set_title('Reconstructed Phase')
     ax_phase.axis('off')
@@ -663,6 +727,12 @@ Examples:
         type=int,
         default=None,
         help='Maximum number of batches to log for patch stats (default: no limit)'
+    )
+    parser.add_argument(
+        '--shared-axes',
+        action='store_true',
+        dest='shared_axes',
+        help='Use shared color axes between reconstruction and ground truth in comparison plots (default: independent axes)'
     )
 
     # Execution config flags (Phase C4.C5 - ADR-003)
