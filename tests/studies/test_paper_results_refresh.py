@@ -837,12 +837,101 @@ def test_write_cns_matched_condition_assets_emits_required_payload(tmp_path):
     assert figure_payload["same_condition_visuals_available"] is False
 
 
-def test_write_cns_matched_condition_plus_uno_assets_emits_five_row_append_only_payload(tmp_path):
-    decision = select_cns_matched_condition(
-        h2_lane=_h2_lane_fixture(),
-        h5_lane=_h5_lane_fixture(),
+_HEADLINE_SPLIT_MANIFEST = {
+    "history_len": 5,
+    "split_counts": {"train": 512, "val": 64, "test": 64},
+    "max_windows_per_trajectory": 8,
+    "seed": 20260420,
+    "source_file": {
+        "path": "/data/2d_cfd_cns/Train.hdf5",
+        "size_bytes": 55050245208,
+    },
+    "splits": {
+        "train": [10, 20, 30, 40],
+        "val": [50, 60],
+        "test": [70, 80],
+    },
+}
+
+
+def _write_headline_split_manifests(
+    tmp_path,
+    *,
+    overrides: dict | None = None,
+):
+    overrides = overrides or {}
+    headline_ids = [
+        "author_ffno_cns_base",
+        "spectral_resnet_bottleneck_base",
+        "fno_base",
+        "unet_strong",
+    ]
+    run_roots = {}
+    for row_id in headline_ids:
+        run_root = tmp_path / "headlines" / row_id
+        run_root.mkdir(parents=True, exist_ok=True)
+        manifest = json.loads(json.dumps(_HEADLINE_SPLIT_MANIFEST))
+        if row_id in overrides:
+            manifest.update(overrides[row_id])
+        (run_root / "split_manifest.json").write_text(
+            json.dumps(manifest), encoding="utf-8"
+        )
+        run_roots[row_id] = str(run_root)
+    return run_roots
+
+
+def _h5_lane_fixture_with_run_roots(tmp_path, *, headline_overrides=None):
+    run_roots = _write_headline_split_manifests(tmp_path, overrides=headline_overrides)
+    rows = {
+        "author_ffno_cns_base": _h5_row(
+            "author_ffno_cns_base",
+            err_nRMSE=0.0198,
+            fRMSE_high=0.1018,
+            run_root=run_roots["author_ffno_cns_base"],
+        ),
+        "spectral_resnet_bottleneck_base": _h5_row(
+            "spectral_resnet_bottleneck_base",
+            err_nRMSE=0.0331,
+            fRMSE_high=0.2622,
+            run_root=run_roots["spectral_resnet_bottleneck_base"],
+        ),
+        "fno_base": _h5_row(
+            "fno_base",
+            err_nRMSE=0.0384,
+            fRMSE_high=0.4329,
+            run_root=run_roots["fno_base"],
+        ),
+        "unet_strong": _h5_row(
+            "unet_strong",
+            err_nRMSE=0.5386,
+            fRMSE_high=1.7428,
+            run_root=run_roots["unet_strong"],
+        ),
+    }
+    return _h5_lane_fixture(rows=rows), run_roots
+
+
+def _make_uno_row_for_plus_uno_test(
+    *,
+    source_run_root: str = "h5/uno",
+    splits: dict | None = None,
+    seed: int = 20260420,
+    source_file_path: str = "/data/2d_cfd_cns/Train.hdf5",
+):
+    splits_payload = splits or _HEADLINE_SPLIT_MANIFEST["splits"]
+    canonical = json.dumps(
+        {
+            "splits": {k: [int(v) for v in vs] for k, vs in splits_payload.items()},
+            "seed": seed,
+            "source_file_path": source_file_path,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
     )
-    uno_row = {
+    import hashlib
+
+    splits_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return {
         "row_id": "neuralop_uno_cns_base",
         "manuscript_label": "U-NO",
         "row_role": "appended_comparator",
@@ -864,14 +953,28 @@ def test_write_cns_matched_condition_plus_uno_assets_emits_five_row_append_only_
         "fRMSE_high": 0.119,
         "parameter_count": 1260548,
         "runtime_sec": 1765.0,
-        "source_run_root": "h5/uno",
+        "source_run_root": source_run_root,
         "appended_row_role": "bounded_capped_comparator_context",
+        "dataset_identity": {
+            "splits_hash": splits_hash,
+            "seed": seed,
+            "source_file_path": source_file_path,
+        },
     }
+
+
+def test_write_cns_matched_condition_plus_uno_assets_emits_five_row_append_only_payload(tmp_path):
+    h5_lane, _ = _h5_lane_fixture_with_run_roots(tmp_path)
+    decision = select_cns_matched_condition(
+        h2_lane=_h2_lane_fixture(),
+        h5_lane=h5_lane,
+    )
+    uno_row = _make_uno_row_for_plus_uno_test()
 
     paths = write_cns_matched_condition_plus_uno_assets(
         decision,
         uno_row=uno_row,
-        output_root=tmp_path,
+        output_root=tmp_path / "out",
     )
 
     for key in [
@@ -883,7 +986,7 @@ def test_write_cns_matched_condition_plus_uno_assets_emits_five_row_append_only_
         "plus_uno_row_manifest_json",
     ]:
         assert paths[key]
-    payload = json.loads((tmp_path / "cns_paper_table_rows_plus_uno.json").read_text())
+    payload = json.loads((tmp_path / "out" / "cns_paper_table_rows_plus_uno.json").read_text())
     assert payload["base_headline_row_ids"] == [
         "author_ffno_cns_base",
         "spectral_resnet_bottleneck_base",
@@ -900,6 +1003,56 @@ def test_write_cns_matched_condition_plus_uno_assets_emits_five_row_append_only_
     assert payload["rows"][-1]["row_role"] == "appended_comparator"
     assert payload["rows"][-1]["manuscript_label"] == "U-NO"
     assert payload["manuscript_table_recommendation"] == "adjacent_append_only_context"
+    assert payload["dataset_identity"]["splits_hash"] == uno_row["dataset_identity"]["splits_hash"]
+    assert payload["dataset_identity"]["seed"] == 20260420
+    lineage = json.loads((tmp_path / "out" / "plus_uno_lineage.json").read_text())
+    assert lineage["dataset_identity"]["splits_hash"] == uno_row["dataset_identity"]["splits_hash"]
+    row_manifest = json.loads((tmp_path / "out" / "plus_uno_row_manifest.json").read_text())
+    assert row_manifest["dataset_identity"]["splits_hash"] == uno_row["dataset_identity"]["splits_hash"]
+
+
+def test_write_cns_matched_condition_plus_uno_assets_rejects_uno_dataset_identity_mismatch(tmp_path):
+    h5_lane, _ = _h5_lane_fixture_with_run_roots(tmp_path)
+    decision = select_cns_matched_condition(
+        h2_lane=_h2_lane_fixture(),
+        h5_lane=h5_lane,
+    )
+    diverging_splits = {
+        "train": [11, 22, 33, 44],
+        "val": [55, 66],
+        "test": [77, 88],
+    }
+    uno_row = _make_uno_row_for_plus_uno_test(splits=diverging_splits)
+
+    with pytest.raises(RuntimeError, match="U-NO row dataset identity does not match"):
+        write_cns_matched_condition_plus_uno_assets(
+            decision,
+            uno_row=uno_row,
+            output_root=tmp_path / "out",
+        )
+
+
+def test_write_cns_matched_condition_plus_uno_assets_rejects_disagreeing_headline_splits(tmp_path):
+    headline_overrides = {
+        "fno_base": {"splits": {"train": [99, 100], "val": [], "test": []}},
+    }
+    h5_lane, _ = _h5_lane_fixture_with_run_roots(
+        tmp_path, headline_overrides=headline_overrides
+    )
+    decision = select_cns_matched_condition(
+        h2_lane=_h2_lane_fixture(),
+        h5_lane=h5_lane,
+    )
+    uno_row = _make_uno_row_for_plus_uno_test()
+
+    with pytest.raises(
+        RuntimeError, match="headline matched-condition rows disagree on dataset identity"
+    ):
+        write_cns_matched_condition_plus_uno_assets(
+            decision,
+            uno_row=uno_row,
+            output_root=tmp_path / "out",
+        )
 
 
 def _write_valid_cns_uno_run_root(run_root):
@@ -930,6 +1083,16 @@ def _write_valid_cns_uno_run_root(run_root):
         "history_len": 5,
         "split_counts": {"train": 512, "val": 64, "test": 64},
         "max_windows_per_trajectory": 8,
+        "seed": 20260420,
+        "source_file": {
+            "path": "/data/2d_cfd_cns/Train.hdf5",
+            "size_bytes": 55050245208,
+        },
+        "splits": {
+            "train": [10, 20, 30, 40],
+            "val": [50, 60],
+            "test": [70, 80],
+        },
     }
     dataset_manifest = {
         "task_id": "2d_cfd_cns",
@@ -971,6 +1134,21 @@ def test_load_cns_matched_condition_uno_row_accepts_matched_contract(tmp_path):
     assert row["source_artifacts"]["normalization_stats_state_json"].endswith(
         "normalization_stats_state.json"
     )
+    identity = row["dataset_identity"]
+    assert identity["seed"] == 20260420
+    assert identity["source_file_path"] == "/data/2d_cfd_cns/Train.hdf5"
+    assert isinstance(identity["splits_hash"], str) and len(identity["splits_hash"]) == 64
+
+
+def test_load_cns_matched_condition_uno_row_rejects_missing_splits(tmp_path):
+    run_root = _write_valid_cns_uno_run_root(tmp_path / "uno_run")
+    split_path = run_root / "split_manifest.json"
+    manifest = json.loads(split_path.read_text())
+    manifest.pop("splits", None)
+    split_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    with pytest.raises(RuntimeError, match="missing the required 'splits' block"):
+        load_cns_matched_condition_uno_row(run_root)
 
 
 def test_load_cns_matched_condition_uno_row_rejects_invocation_task_id_mismatch(tmp_path):

@@ -35,6 +35,11 @@
     ],
     "claim_boundary": "bounded_capped_decision_support_only"
   },
+  "dataset_identity": {
+    "splits_hash": "7f124af99c5f5982451b73b78109097782aed4bf881f93f2ab12a091dc515a80",
+    "seed": 20260420,
+    "source_file_path": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
+  },
   "appended_row_id": "neuralop_uno_cns_base",
   "manuscript_table_recommendation": "adjacent_append_only_context",
   "source_summary_paths": [
@@ -243,6 +248,11 @@
         },
         "module_file": "/home/ollie/miniconda3/envs/ptycho311/lib/python3.11/site-packages/neuralop/__init__.py",
         "torch_version": "2.9.1+cu128"
+      },
+      "dataset_identity": {
+        "splits_hash": "7f124af99c5f5982451b73b78109097782aed4bf881f93f2ab12a091dc515a80",
+        "seed": 20260420,
+        "source_file_path": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5"
       },
       "source_artifacts": {
         "metrics_json": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cns-uno-matched-condition-row-extension/runs/cns_uno_h5_512cap_40ep_20260507T024412Z/metrics_neuralop_uno_cns_base.json",

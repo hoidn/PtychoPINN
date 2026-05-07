@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import shutil
 import sys
@@ -285,6 +286,39 @@ def _write_json(path: Path, payload: object) -> None:
 
 def _latex_escape(value: object) -> str:
     return str(value).replace("_", r"\_")
+
+
+def _compute_split_identity(split_manifest: Mapping[str, object]) -> dict[str, object]:
+    splits_obj = split_manifest.get("splits")
+    if not isinstance(splits_obj, Mapping):
+        raise RuntimeError(
+            "split_manifest is missing the required 'splits' block; "
+            "matched-condition lineage requires explicit per-split trajectory IDs"
+        )
+    splits = {
+        str(name): [int(value) for value in list(ids)]
+        for name, ids in splits_obj.items()
+    }
+    seed = split_manifest.get("seed")
+    source_file = split_manifest.get("source_file") or {}
+    if not isinstance(source_file, Mapping):
+        source_file = {}
+    source_file_path = source_file.get("path")
+    canonical = json.dumps(
+        {
+            "splits": splits,
+            "seed": seed,
+            "source_file_path": source_file_path,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    splits_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    return {
+        "splits_hash": splits_hash,
+        "seed": seed,
+        "source_file_path": source_file_path,
+    }
 
 
 def center_crop_bounds(shape: tuple[int, int], *, fraction: float = 0.5) -> tuple[int, int, int, int]:
@@ -1637,6 +1671,8 @@ def load_cns_matched_condition_uno_row(
     if contract_issues:
         raise RuntimeError(f"CNS U-NO row at {run_root} does not match the locked h5 contract: {contract_issues}")
 
+    dataset_identity = _compute_split_identity(split_manifest)
+
     return {
         "row_id": NEURALOP_UNO_CNS_ROW_ID,
         "manuscript_label": "U-NO",
@@ -1664,6 +1700,7 @@ def load_cns_matched_condition_uno_row(
         "source_run_root": str(run_root),
         "appended_row_role": "bounded_capped_comparator_context",
         "external_source_provenance": model_profile.get("external_source_provenance"),
+        "dataset_identity": dataset_identity,
         "source_artifacts": {
             "metrics_json": str(run_root / f"metrics_{NEURALOP_UNO_CNS_ROW_ID}.json"),
             "model_profile_json": str(run_root / f"model_profile_{NEURALOP_UNO_CNS_ROW_ID}.json"),
@@ -1673,6 +1710,47 @@ def load_cns_matched_condition_uno_row(
             "normalization_stats_state_json": str(normalization_stats_path),
         },
     }
+
+
+def _resolve_run_root(source_run_root: str) -> Path:
+    candidate = Path(source_run_root)
+    if not candidate.is_absolute():
+        candidate = REPO_ROOT / candidate
+    return candidate
+
+
+def _load_headline_dataset_identity(
+    selected_rows: Sequence[Mapping[str, object]],
+) -> dict[str, object]:
+    identities: list[tuple[str, dict[str, object]]] = []
+    for row in selected_rows:
+        run_root_str = str(row.get("source_run_root", ""))
+        if not run_root_str:
+            raise RuntimeError(
+                f"headline row {row.get('row_id')!r} is missing source_run_root; "
+                "cannot verify dataset identity for plus-U-NO bundle"
+            )
+        run_root = _resolve_run_root(run_root_str)
+        manifest_path = run_root / "split_manifest.json"
+        if not manifest_path.exists():
+            raise RuntimeError(
+                f"headline row {row.get('row_id')!r} at {run_root} is missing split_manifest.json; "
+                "matched-condition lineage requires explicit per-split trajectory IDs"
+            )
+        identities.append((str(row.get("row_id")), _compute_split_identity(_read_json(manifest_path))))
+    if not identities:
+        raise RuntimeError("no headline rows available to derive matched-condition dataset identity")
+    reference_id, reference = identities[0]
+    mismatched: list[str] = []
+    for row_id, identity in identities[1:]:
+        if identity["splits_hash"] != reference["splits_hash"]:
+            mismatched.append(row_id)
+    if mismatched:
+        raise RuntimeError(
+            "headline matched-condition rows disagree on dataset identity "
+            f"(reference={reference_id}, mismatched={mismatched}); cannot append a U-NO row by lineage"
+        )
+    return reference
 
 
 def _build_cns_matched_condition_plus_uno_decision(
@@ -1708,12 +1786,27 @@ def _build_cns_matched_condition_plus_uno_decision(
     if row_issues:
         raise RuntimeError(f"U-NO row does not match the selected matched-condition contract: {row_issues}")
 
+    headline_identity = _load_headline_dataset_identity(selected_rows)
+    uno_identity = uno_row.get("dataset_identity")
+    if not isinstance(uno_identity, Mapping):
+        raise RuntimeError(
+            "U-NO row is missing dataset_identity; matched-condition lineage requires "
+            "the U-NO row to expose its split identity"
+        )
+    if str(uno_identity.get("splits_hash")) != str(headline_identity["splits_hash"]):
+        raise RuntimeError(
+            "U-NO row dataset identity does not match the matched-condition headline rows: "
+            f"uno_splits_hash={uno_identity.get('splits_hash')!r}, "
+            f"headline_splits_hash={headline_identity['splits_hash']!r}"
+        )
+
     rows = selected_rows + [dict(uno_row)]
     return {
         "schema_version": "pdebench_cns_matched_condition_plus_uno_decision_v1",
         "base_selected_lane_id": str(decision["selected_lane_id"]),
         "base_headline_row_ids": base_row_ids,
         "fixed_contract": contract,
+        "dataset_identity": dict(headline_identity),
         "rows": rows,
         "appended_row_id": NEURALOP_UNO_CNS_ROW_ID,
         "manuscript_table_recommendation": "adjacent_append_only_context",
@@ -1731,6 +1824,7 @@ def _build_cns_matched_condition_plus_uno_payload(plus_uno: Mapping[str, object]
         "base_selected_lane_id": plus_uno["base_selected_lane_id"],
         "base_headline_row_ids": list(plus_uno["base_headline_row_ids"]),  # type: ignore[arg-type]
         "fixed_contract": dict(plus_uno["fixed_contract"]),  # type: ignore[arg-type]
+        "dataset_identity": dict(plus_uno["dataset_identity"]),  # type: ignore[arg-type]
         "appended_row_id": plus_uno["appended_row_id"],
         "manuscript_table_recommendation": plus_uno["manuscript_table_recommendation"],
         "source_summary_paths": list(plus_uno["source_summary_paths"]),  # type: ignore[arg-type]
@@ -1753,6 +1847,7 @@ def _build_cns_matched_condition_plus_uno_lineage(plus_uno: Mapping[str, object]
         "schema_version": "pdebench_cns_matched_condition_plus_uno_lineage_v1",
         "base_selected_lane_id": plus_uno["base_selected_lane_id"],
         "base_headline_row_ids": list(plus_uno["base_headline_row_ids"]),  # type: ignore[arg-type]
+        "dataset_identity": dict(plus_uno["dataset_identity"]),  # type: ignore[arg-type]
         "appended_row_id": plus_uno["appended_row_id"],
         "manuscript_table_recommendation": plus_uno["manuscript_table_recommendation"],
         "rows": rows,
@@ -1770,6 +1865,7 @@ def _build_cns_matched_condition_plus_uno_row_manifest(plus_uno: Mapping[str, ob
         "source_run_root": uno_row["source_run_root"],
         "external_source_provenance": uno_row.get("external_source_provenance"),
         "source_artifacts": uno_row.get("source_artifacts", {}),
+        "dataset_identity": dict(plus_uno["dataset_identity"]),  # type: ignore[arg-type]
         "fixed_contract": dict(plus_uno["fixed_contract"]),  # type: ignore[arg-type]
     }
 
