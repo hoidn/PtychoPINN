@@ -4,11 +4,12 @@
 
 - Re-restored the 16-command verification ledger at
   `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
-  to the on-disk working tree. The file had regressed (again) to the 3-command
-  workflow-default `json.tool` skeleton between the prior fix commit
-  (`291839dd docs(cdi-final-refresh): document recurring checks-ledger
-  republication and restore on-disk 16-cmd ledger`) and the start of this pass,
-  while HEAD itself still tracked the 16-command state. Restored from HEAD via
+  to the on-disk working tree (6th iteration of this recurring restore). The
+  file had regressed once more to the 3-command workflow-default `json.tool`
+  skeleton between the prior fix commit (`ac01569b docs(cdi-final-refresh):
+  re-restore on-disk 16-cmd checks ledger and update report`) and the start of
+  this pass, while HEAD itself still durably tracked the 16-command state.
+  Restored from HEAD via
   `git checkout HEAD -- <checks-file>`. The restored on-disk file matches
   HEAD's 16-command PASS ledger exactly: `command_count: 16`,
   `failed_count: 0`, `status: "PASS"`; every result entry carries `command`,
@@ -17,8 +18,9 @@
   under
   `artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/verification/`
   and that the restored JSON validates with `python -m json.tool`. After the
-  restore, `git diff HEAD --` against the checks file is empty, confirming the
-  on-disk content matches the durable committed 16-command ledger.
+  restore, `git diff HEAD --` against the checks file is empty (confirmed via
+  `git diff HEAD -- ... | wc -l == 0`), confirming the on-disk content matches
+  the durable committed 16-command ledger.
 
 This pass made no implementation, asset, or documentation edits beyond the
 on-disk republished-artifact restore described above. It targets exactly the
@@ -26,7 +28,11 @@ High finding from the consumed implementation review:
 `artifacts/review/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-implementation-review.md`,
 which observed that the consumed `...final-paper-refresh-checks.json` mirrored
 the truncated 3-command result instead of the 16-command ledger described in
-the execution report and durable summary.
+the execution report and durable summary. The state-side
+`check_commands.json` source remains out of implementation authority for this
+backlog item and continues to enumerate only the three default `json.tool`
+validations; durable closure of the recurrence requires the workflow-tooling
+follow-up captured below.
 
 ## Completed In Prior Pass (kept for context)
 
@@ -83,9 +89,9 @@ the execution report and durable summary.
   item per the explicit non-modification of state/workflow pointer files):
   the workflow source
   `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/12/items/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/check_commands.json`
-  still enumerates only the three default `json.tool` validations. Multiple
-  prior fix commits (`ba64d0da`, `1fa49d85`, `b4acf2fb`, `74c7d10b`,
-  `291839dd`) restored the published 16-command ledger and were each
+  still enumerates only the three default `json.tool` validations. Six prior
+  fix commits (`ba64d0da`, `1fa49d85`, `b4acf2fb`, `74c7d10b`, `291839dd`,
+  `ac01569b`) restored the published 16-command ledger and each was
   subsequently overwritten back to a 3-command skeleton by the next workflow
   republication; this pass is the next iteration of that recurrence.
   Permanently closing the loop requires extending the state-side
