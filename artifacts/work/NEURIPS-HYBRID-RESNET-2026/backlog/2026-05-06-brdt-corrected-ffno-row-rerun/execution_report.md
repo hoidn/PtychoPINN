@@ -2,6 +2,26 @@
 
 ## Completed In This Pass
 
+- extended the corrected wrapper `_rewrite_corrected_metadata` in
+  `scripts/studies/born_rytov_dt/run_corrected_ffno_rerun.py` so the corrected
+  root's `visual_manifest.json` carries `claim_boundary="decision_support_append_only"`
+  instead of the historical preflight default hardcoded in
+  `scripts/studies/born_rytov_dt/preflight_visuals.py`; the wrapper already
+  rewrites `preflight_manifest.json`, `combined_manifest.json`, and
+  `combined_metrics.json`, so the visual-manifest surface was the only stale
+  claim-bearing artifact left
+- expanded the live regression test
+  `test_run_corrected_ffno_rerun_live_emits_corrected_combined_bundle` so it
+  asserts that every top-level claim-bearing artifact (preflight manifest,
+  combined manifest, combined metrics, visual manifest) ships the corrected
+  append-only claim boundary, guarding against the regression flagged in review
+- corrected the on-disk
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-row-rerun/visual_manifest.json`
+  so its `claim_boundary` matches the approved
+  `decision_support_append_only` boundary
+
+## Completed In Prior Passes (Context)
+
 - added a corrected BRDT FFNO rerun wrapper at
   `scripts/studies/born_rytov_dt/run_corrected_ffno_rerun.py` so the new
   append-only root emits truthful `2026-05-06` backlog metadata while leaving
@@ -16,17 +36,23 @@
   surfaces to point pure-FFNO readers at the corrected root while preserving
   historical proxy lineage
 
-## Completed Plan Tasks
+## Completed Current-Scope Work
 
 - Task 1: baseline inputs, adapter contract, and runner truthfulness audit
-- Task 2: narrow corrected runner/tests fix
+- Task 2: narrow corrected runner/tests fix (now also covers the
+  `visual_manifest.json` claim-boundary surface and the regression test that
+  guards every mandatory top-level claim-bearing artifact)
 - Task 3: corrected same-contract FFNO rerun launch and completion
 - Task 4: same-contract fairness and no-refiner purity audit
 - Task 5: durable summary and discoverability refresh
 
-## Remaining Required Plan Tasks
+## Follow-Up Work
 
-- none
+- None within the approved scope of this backlog item. The implementation
+  review recommendation to add a focused regression test covering the
+  corrected wrapper's mandatory top-level claim/provenance metadata is
+  satisfied by the expanded
+  `test_run_corrected_ffno_rerun_live_emits_corrected_combined_bundle`.
 
 ## Verification
 
@@ -35,7 +61,7 @@
   `parameter_count=27394` and rejects `cnn_blocks`
 - test gate after final fix:
   `pytest -q tests/studies/test_born_rytov_dt_adapters.py tests/studies/test_born_rytov_dt_preflight.py`
-  -> `129 passed in 361.69s (0:06:01)`
+  -> `129 passed in 358.33s (0:05:58)`
 - compile gate:
   `python -m compileall -q scripts/studies/born_rytov_dt ptycho_torch`
 - long-run gate:

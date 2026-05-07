@@ -136,6 +136,13 @@ def _rewrite_corrected_metadata(output_root: Path, argv: List[str]) -> None:
 
         _rewrite_json(combined_metrics, _mutate_combined_metrics)
 
+    visual_manifest = output_root / "visual_manifest.json"
+    if visual_manifest.exists():
+        _rewrite_json(
+            visual_manifest,
+            lambda payload: payload.update({"claim_boundary": CLAIM_BOUNDARY}),
+        )
+
     _rewrite_top_level_artifacts(output_root, argv)
     _rewrite_row_invocation(output_root, argv)
     _ensure_model_profile(output_root)

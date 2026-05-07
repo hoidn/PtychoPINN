@@ -2318,6 +2318,25 @@ def test_run_corrected_ffno_rerun_live_emits_corrected_combined_bundle(tmp_path)
     assert combined_manifest["extension"]["backlog_item"] == corrected_mod.BACKLOG_ITEM
     assert result["combined_manifest_json_path"].endswith("combined_manifest.json")
 
+    # Every top-level artifact that carries a claim_boundary must publish the
+    # corrected append-only boundary; the historical preflight tooling
+    # hardcodes "decision_support_preflight_only" in visual_manifest.json,
+    # and the corrected wrapper has to override that surface too so the
+    # corrected root is internally consistent.
+    preflight_manifest = json.loads(
+        (output_root / "preflight_manifest.json").read_text()
+    )
+    combined_metrics = json.loads(
+        (output_root / "combined_metrics.json").read_text()
+    )
+    visual_manifest = json.loads(
+        (output_root / "visual_manifest.json").read_text()
+    )
+    assert preflight_manifest["claim_boundary"] == corrected_mod.CLAIM_BOUNDARY
+    assert combined_manifest["claim_boundary"] == corrected_mod.CLAIM_BOUNDARY
+    assert combined_metrics["claim_boundary"] == corrected_mod.CLAIM_BOUNDARY
+    assert visual_manifest["claim_boundary"] == corrected_mod.CLAIM_BOUNDARY
+
 
 def test_run_preflight_default_invocation_artifacts_keep_baseline_backlog_item(
     tmp_path,
