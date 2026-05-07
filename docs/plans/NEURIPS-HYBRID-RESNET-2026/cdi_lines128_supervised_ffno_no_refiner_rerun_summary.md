@@ -23,9 +23,19 @@ Preserved historical proxy root:
 
 ## Completed In This Pass
 
-- Reused the existing compare-wrapper/runner path without production code
-  edits because it already threaded `--fno-cnn-blocks 0` truthfully into the
-  `supervised_ffno` launch path.
+- Confirmed the existing compare-wrapper/runner path already threaded
+  `--fno-cnn-blocks 0` truthfully into the `supervised_ffno` launch path; the
+  only production gap was the shared completion helper described below.
+- Patched `scripts/studies/paper_provenance.py::write_launcher_completion_evidence`
+  so the wrapper finalization step now auto-emits row-local
+  `runs/<model_id>/launcher_completion.json` for fresh single-model training
+  rows (previously the helper silently returned `None` whenever
+  `parsed_args.reuse_existing_recons` was false and `parsed_args.mode` was
+  not `complete_table` or `extend_with_uno`). Existing freshness, marker, and
+  row-artifact safety checks were preserved.
+- Added focused regressions covering the fresh-row path:
+  - `tests/studies/test_paper_provenance.py::test_write_launcher_completion_evidence_emits_for_fresh_single_row_training`
+  - `tests/test_grid_lines_compare_wrapper.py::test_main_finalizes_launcher_completion_for_fresh_single_row_training`
 - Ran the required deterministic preflight before the expensive launch:
   - `python` FFNO instantiation proof with `cnn_blocks=0`
   - `pytest -q tests/torch/test_grid_lines_torch_runner.py -k "supervised_ffno or ffno"`
@@ -34,7 +44,13 @@ Preserved historical proxy root:
 - Launched exactly one tmux-owned compare-wrapper rerun for
   `supervised_ffno` under the frozen `lines128` contract with
   `--fno-cnn-blocks 0`, tracked the exact launched PID, and waited for shell
-  exit marker `__EXIT_CODE__=0`.
+  exit marker `__EXIT_CODE__=0`. (An earlier abandoned launch
+  `runs/supervised_ffno_no_refiner_20260506T232355Z` was cancelled before the
+  torch runner started; only `datasets/N128/gs1/train.npz` was written and no
+  `metrics.json`, `history.json`, `recon.npz`, model checkpoint, or lightning
+  logs were produced. See
+  `.artifacts/.../verification/launcher_completion_auto_emit_reverification.md`
+  for full disclosure.)
 - Wrote row-level audits:
   - contract diff:
     `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/verification/contract_diff.json`
@@ -42,9 +58,14 @@ Preserved historical proxy root:
     `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/verification/no_refiner_inspection.json`
   - corrected objective-control audit:
     `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/verification/objective_control_audit.json`
-- Repaired the missing row-local `launcher_completion.json` from the finished
-  wrapper stderr completion markers so the required completion proof is
-  present alongside the saved row artifacts.
+- Reverified the row-local `launcher_completion.json` by removing the prior
+  hand-written copy and rerunning
+  `grid_lines_compare_wrapper._finalize_root_launcher_completion_artifacts`
+  against the unchanged preserved 232535Z root; the patched helper auto-wrote
+  the row artifact with
+  `evidence_source = "wrapper_launcher_stderr_row_completion_markers"`. Full
+  reverification record:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/verification/launcher_completion_auto_emit_reverification.md`.
 
 ## Contract, Purity, And Fairness Audit
 
@@ -162,10 +183,6 @@ Interpretation:
 
 ## Residual Risks
 
-- The shared completion helper still does not emit `launcher_completion.json`
-  for ordinary fresh compare-wrapper runs; this item repaired the required
-  completion proof manually from the finished wrapper logs rather than changing
-  shared study code late in the cycle.
 - The corrected pair is active objective-control evidence only. The canonical
   CDI headline table and any broader manuscript wording that previously relied
   on the historical FFNO-local-refiner objective-control rows still require a

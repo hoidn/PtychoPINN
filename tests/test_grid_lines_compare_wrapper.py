@@ -2651,6 +2651,48 @@ def test_main_writes_root_launcher_logs(tmp_path, monkeypatch):
     assert (tmp_path / "launcher_stderr.log").read_text(encoding="utf-8") == "wrapper stderr sentinel\n"
 
 
+def test_main_finalizes_launcher_completion_for_fresh_single_row_training(tmp_path, monkeypatch):
+    from scripts.studies import grid_lines_compare_wrapper as wrapper
+
+    def fake_run_grid_lines_compare(**kwargs):
+        run_dir = tmp_path / "runs" / "supervised_ffno"
+        recon_dir = tmp_path / "recons" / "supervised_ffno"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        recon_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "metrics.json").write_text("{}", encoding="utf-8")
+        (run_dir / "history.json").write_text("{}", encoding="utf-8")
+        (recon_dir / "recon.npz").write_text("stub", encoding="utf-8")
+        print("Saved artifacts to runs/supervised_ffno", file=sys.stderr)
+        print("Torch runner complete. Artifacts in runs/supervised_ffno", file=sys.stderr)
+        return {"metrics": {}}
+
+    monkeypatch.setattr(wrapper, "run_grid_lines_compare", fake_run_grid_lines_compare)
+    monkeypatch.setattr(
+        "scripts.studies.invocation_logging.capture_runtime_provenance",
+        lambda: {"python_executable": "/usr/bin/python3", "pythonpath": "/tmp/session_repo"},
+    )
+    monkeypatch.setattr("scripts.studies.invocation_logging.get_git_commit", lambda repo_root=None: "abc123")
+
+    wrapper.main(
+        [
+            "--N",
+            "64",
+            "--gridsize",
+            "1",
+            "--output-dir",
+            str(tmp_path),
+            "--models",
+            "supervised_ffno",
+        ]
+    )
+
+    completion_path = tmp_path / "runs" / "supervised_ffno" / "launcher_completion.json"
+    assert completion_path.exists()
+    payload = json.loads(completion_path.read_text(encoding="utf-8"))
+    assert payload["evidence_source"] == "wrapper_launcher_stderr_row_completion_markers"
+    assert payload["launcher_stderr_log"] == "launcher_stderr.log"
+
+
 def test_main_finalizes_launcher_completion_after_invocation_completion(tmp_path, monkeypatch):
     from scripts.studies import grid_lines_compare_wrapper as wrapper
 

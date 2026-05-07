@@ -77,6 +77,47 @@ def test_write_launcher_completion_evidence_requires_row_completion_markers(tmp_
     assert not (tmp_path / "runs" / "pinn_hybrid_resnet" / "launcher_completion.json").exists()
 
 
+def test_write_launcher_completion_evidence_emits_for_fresh_single_row_training(tmp_path):
+    wrapper_invocation = tmp_path / "invocation.json"
+    _write_text(
+        wrapper_invocation,
+        json.dumps(
+            {
+                "status": "completed",
+                "exit_code": 0,
+                "timestamp_utc": "2026-04-29T23:59:59+00:00",
+                "finished_at_utc": "2026-04-30T00:00:00+00:00",
+                "parsed_args": {"reuse_existing_recons": False},
+            }
+        ),
+    )
+    launcher_stderr = tmp_path / "launcher_stderr.log"
+    _write_text(
+        launcher_stderr,
+        "\n".join(
+            [
+                "Saved artifacts to runs/supervised_ffno",
+                "Torch runner complete. Artifacts in runs/supervised_ffno",
+            ]
+        ),
+    )
+    _write_text(tmp_path / "runs" / "supervised_ffno" / "metrics.json", "{}")
+    _write_text(tmp_path / "runs" / "supervised_ffno" / "history.json", "{}")
+    _write_text(tmp_path / "recons" / "supervised_ffno" / "recon.npz")
+
+    evidence_path = write_launcher_completion_evidence(
+        tmp_path,
+        model_id="supervised_ffno",
+        wrapper_invocation_json=wrapper_invocation,
+        launcher_stderr_log=launcher_stderr,
+    )
+
+    assert evidence_path == tmp_path / "runs" / "supervised_ffno" / "launcher_completion.json"
+    payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    assert payload["evidence_source"] == "wrapper_launcher_stderr_row_completion_markers"
+    assert payload["launcher_stderr_log"] == "launcher_stderr.log"
+
+
 def test_write_launcher_completion_evidence_accepts_stdout_eval_markers_for_reused_row(tmp_path):
     wrapper_invocation = tmp_path / "invocation.json"
     _write_text(
