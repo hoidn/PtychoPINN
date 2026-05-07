@@ -4,10 +4,10 @@
 
 - Re-restored the 16-command verification ledger at
   `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
-  to the on-disk working tree (9th iteration of this recurring restore). The
+  to the on-disk working tree (10th iteration of this recurring restore). The
   file had regressed once more to the 3-command workflow-default `json.tool`
-  skeleton between the prior fix commit (`bf9f32fa docs(cdi-final-refresh):
-  re-restore on-disk 16-cmd checks ledger (8th iter)`) and the start of this
+  skeleton between the prior fix commit (`bcf5ccff docs(cdi-final-refresh):
+  re-restore on-disk 16-cmd checks ledger (9th iter)`) and the start of this
   pass, while HEAD itself still durably tracked the 16-command state.
   Restored from HEAD via
   `git checkout HEAD -- <checks-file>`. The restored on-disk file matches
@@ -101,12 +101,12 @@ prior passes did.
   item per the explicit non-modification of state/workflow pointer files):
   the workflow source
   `state/NEURIPS-HYBRID-RESNET-2026/backlog_drain/iterations/12/items/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh/check_commands.json`
-  still enumerates only the three default `json.tool` validations. Nine prior
+  still enumerates only the three default `json.tool` validations. Ten prior
   fix commits (`ba64d0da`, `1fa49d85`, `b4acf2fb`, `74c7d10b`, `291839dd`,
-  `ac01569b`, `54a2c855`, `5697d6a1`, `bf9f32fa`) restored the published
-  16-command ledger and each was subsequently overwritten back to a 3-command
-  skeleton by the next workflow republication; this pass is the next iteration
-  of that recurrence. Permanently closing the loop requires extending the
+  `ac01569b`, `54a2c855`, `5697d6a1`, `bf9f32fa`, `bcf5ccff`) restored the
+  published 16-command ledger and each was subsequently overwritten back to a
+  3-command skeleton by the next workflow republication; this pass is the
+  next iteration of that recurrence. Permanently closing the loop requires extending the
   state-side `check_commands.json` to enumerate the same 16 archived commands,
   or otherwise teaching the republication step to merge with the
   implementation-side ledger; this is outside the current item's
