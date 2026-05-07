@@ -1,0 +1,19 @@
+{
+  "architecture": "ffno",
+  "eval_image_mae_norm": 0.4066298007965088,
+  "eval_relative_physics": 0.8886597752571106,
+  "final_loss_breakdown": {
+    "image": 0.4091464877128601,
+    "physics": 0.0035772942937910557,
+    "positivity": 0.0,
+    "relative_physics": 0.8835512399673462,
+    "total": 0.49785932898521423,
+    "tv": 5.635983688989654e-05
+  },
+  "final_loss_total": 0.49785932898521423,
+  "note": "fast_dev_run sanity execution",
+  "parameter_count": 27538,
+  "row_id": "ffno",
+  "row_status": "feasibility_only",
+  "train_steps": 1
+}

@@ -1,0 +1,19 @@
+{
+  "architecture": "hybrid_resnet",
+  "eval_image_mae_norm": 0.4643511176109314,
+  "eval_relative_physics": 0.851955235004425,
+  "final_loss_breakdown": {
+    "image": 0.4991968870162964,
+    "physics": 0.0035782025661319494,
+    "positivity": 4.823251629204606e-07,
+    "relative_physics": 0.8567430377006531,
+    "total": 0.5852290391921997,
+    "tv": 0.003169466508552432
+  },
+  "final_loss_total": 0.5852290391921997,
+  "note": "fast_dev_run sanity execution",
+  "parameter_count": 142162,
+  "row_id": "sru_net",
+  "row_status": "feasibility_only",
+  "train_steps": 1
+}

@@ -193,6 +193,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, brdt, born, adapter, task-local, candidate, feasibility, sru-net, unnormalize, row-schema
 **Use this when:** Consuming the BRDT row schema or adapter contract from `2026-04-29-brdt-four-row-preflight`, citing the task-local training/eval entrypoints, or auditing how the supervised-plus-Born-consistency loss routes physical q through the locked operator.
 
+### [NeurIPS BRDT Sinogram-Input Adapter Contract Summary](plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_adapter_contract.md)
+**Description:** Readiness-only authority for the newer BRDT learned-model input contract in which `ffno` and `sru_net` consume the measured complex sinogram directly while the Born inverse remains a non-learned reference only. Preserves `born_init_image` as historical lineage, keeps `direct_sinogram` rejected, names the exact `(B, 2, 64, 128) -> (B, 1, 128, 128)` learned-model adapter contract, and points to the dedicated smoke outputs under `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-adapter-contract/`.
+**Keywords:** neurips, brdt, sinogram, adapter-contract, readiness, ffno, sru-net, candidate, feasibility
+**Use this when:** Preparing or auditing the BRDT sinogram-input successor run, checking how the new learned-model contract differs from the historical `born_init_image` lineage, or locating the dedicated sinogram-input smoke artifacts and proof fields.
+
 ### [NeurIPS BRDT Corrected FFNO Row Rerun Summary](plans/NEURIPS-HYBRID-RESNET-2026/brdt_corrected_ffno_row_rerun_summary.md)
 **Description:** Corrected pure-FFNO BRDT `20`-epoch rerun under the locked supervised+Born `2048 / 256 / 256` contract. Records the same-contract audit against the four-row preflight, the no-refiner architecture proof (`cnn_blocks` rejected; `parameter_count=27394`), the corrected append-only `2026-05-06` artifact root, and the metric/parameter deltas versus the historical FFNO-local-refiner proxy.
 **Keywords:** neurips, brdt, ffno, corrected, no-refiner, pure-ffno, candidate, decision-support

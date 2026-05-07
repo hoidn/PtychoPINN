@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-07T10:35:59.424532Z",
+  "last_updated_utc": "2026-05-07T11:10:02Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -677,6 +677,34 @@
       ],
       "status": "completed",
       "interpretation": "Cross-pillar encoder-order comparison completed. Reversing the order so PtychoBlock/downsample precedes the shared-weight 24-block FFNO stack is directionally better than the corrected FFNO-first companion on both governed pillars: on CDI it nearly restores the regular SRU-Net FRC behavior and materially improves both FRC50 scores versus the FFNO-first row; on matched-condition capped CNS it materially improves aggregate error plus the low/high frequency bands, with only fRMSE_mid slightly worse than the FFNO-first row. Regular SRU-Net still remains the better overall anchor on both pillars, so this family stays bounded mechanism evidence only."
+    },
+    {
+      "family_id": "brdt_sinogram_input_adapter_contract",
+      "task": "candidate_brdt",
+      "fixed_contract": "brdt_sinogram_input_readiness_contract",
+      "claim_boundary": "feasibility_only",
+      "changed_factors": [
+        "learned_model_input_contract (`born_init_image` historical lineage -> `sinogram` for `ffno` and `sru_net`)",
+        "dedicated smoke-proof surface for the sinogram-input lane"
+      ],
+      "completed_items": [
+        "2026-04-29-brdt-task-adapters",
+        "2026-05-07-brdt-sinogram-input-adapter-contract"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_task_adapters.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_adapter_contract.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-task-adapters/",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-adapter-contract/"
+      ],
+      "rows": [
+        "ffno (sinogram-input smoke)",
+        "sru_net (sinogram-input smoke)"
+      ],
+      "status": "completed",
+      "interpretation": "Readiness-only contract split for the BRDT learned-model lane. Historical BRDT summaries remain authoritative for the older `born_init_image` contract, while the new `2026-05-07` surface makes `sinogram` the explicit learned-model input for `ffno` and `sru_net`, keeps `direct_sinogram` rejected, and records dedicated smoke proof that the measured complex sinogram is used both as model input and as the Born-consistency target. No benchmark-performance row is added here; this family exists only to harden the downstream sinogram-input evidence run."
     },
     {
       "family_id": "brdt_decision_support_objective_ablation",

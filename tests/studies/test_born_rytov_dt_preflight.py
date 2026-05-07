@@ -2877,6 +2877,69 @@ def test_run_sinogram_input_40ep_dry_run_writes_contract(tmp_path):
     assert all(row["input_mode"] == "sinogram" for row in payload["rows"])
 
 
+def test_run_sinogram_input_smoke_writes_summary_and_row_artifacts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    from scripts.studies.born_rytov_dt import run_sinogram_input_smoke as smoke_mod
+
+    manifest_path = tmp_path / "dataset_manifest.json"
+    manifest_path.write_text("{}", encoding="utf-8")
+    output_root = tmp_path / "adapter_contract_root" / "smoke"
+
+    def fake_run_training(**kwargs):
+        row_output_root = Path(kwargs["output_root"])
+        row_output_root.mkdir(parents=True, exist_ok=True)
+        (row_output_root / "adapter_contract.json").write_text(
+            json.dumps(
+                {
+                    "rows": [
+                        {
+                            "row_id": kwargs["architecture"],
+                            "input_mode": kwargs["input_mode"],
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+        (row_output_root / "invocation.json").write_text("{}", encoding="utf-8")
+        (row_output_root / "invocation.sh").write_text("#!/bin/sh\n", encoding="utf-8")
+        return {
+            "row_status": "feasibility_only",
+            "adapter_contract_path": str(row_output_root / "adapter_contract.json"),
+            "invocation_path": str(row_output_root / "invocation.json"),
+            "invocation_sh_path": str(row_output_root / "invocation.sh"),
+        }
+
+    monkeypatch.setattr(smoke_mod.train_mod, "run_training", fake_run_training)
+
+    result = smoke_mod.run_sinogram_input_smoke(
+        manifest_path=manifest_path,
+        output_root=output_root,
+        device_choice="cpu",
+    )
+
+    summary_path = output_root.parent / "smoke_summary.json"
+    assert result["smoke_summary_path"] == str(summary_path)
+    payload = json.loads(summary_path.read_text())
+    assert payload["input_mode"] == "sinogram"
+    assert payload["dataset_manifest_path"] == str(manifest_path.resolve())
+    assert payload["learned_rows"] == ["ffno", "sru_net"]
+    assert payload["model_input_source"] == "measured complex sinogram"
+    assert payload["born_consistency_target_source"] == "measured complex sinogram"
+    assert payload["born_inverse_role"] == "non_learned_reference_only"
+    assert payload["row_statuses"] == {
+        "ffno": "feasibility_only",
+        "sru_net": "feasibility_only",
+    }
+    assert payload["row_artifacts"]["ffno"]["adapter_contract_path"].endswith(
+        "smoke/ffno/adapter_contract.json"
+    )
+    assert payload["row_artifacts"]["sru_net"]["invocation_sh_path"].endswith(
+        "smoke/sru_net/invocation.sh"
+    )
+
+
 def test_run_brdt_40ep_paper_evidence_live_writes_histories_audit_and_gate(tmp_path):
     from scripts.studies.born_rytov_dt import (
         run_brdt_40ep_paper_evidence as paper_mod,

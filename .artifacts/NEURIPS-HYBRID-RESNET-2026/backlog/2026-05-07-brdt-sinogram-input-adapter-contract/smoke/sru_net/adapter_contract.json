@@ -1,0 +1,119 @@
+{
+  "claim_boundary": "Adapter readiness only. NOT manuscript evidence. The four-row preflight item owns benchmark-grade rows; this payload exists so that later item can consume one shared row contract.",
+  "classical_backend": {
+    "claim_boundary": "external_oracle",
+    "name": "odtbrain",
+    "reason": "odtbrain_import_succeeded"
+  },
+  "dataset_id": "brdt128_decision_support_preflight",
+  "extra": {
+    "device": "cpu",
+    "fast_dev_run": true,
+    "in_channels": 2,
+    "input_mode": "sinogram",
+    "manifest_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/decision_support_dataset/dataset_manifest.json"
+  },
+  "loss_contract": {
+    "operator_input_routing_guard": "dataset_contract.reject_normalized_q_to_operator",
+    "output_space": "normalized_q",
+    "physics_loss_rule": "L_phys = || A(unnormalize(q_pred_norm)) - y || ; the operator always consumes physical q. Predictions in normalized space MUST be unnormalized via mean+std before being passed to A(...).",
+    "training_label": "supervised + Born consistency",
+    "unnormalize_helper": "BRDTTrainingModule.to_physical_q (mirrors dataset_contract.unnormalize_q)",
+    "weights": {
+      "image": 1.0,
+      "physics": 0.1,
+      "positivity": 0.0001,
+      "relative_physics": 0.1,
+      "tv": 1e-05
+    }
+  },
+  "operator_geometry": {
+    "angle_count": 64,
+    "detector_size": 128,
+    "grid_size": 128,
+    "medium_ri": 1.333,
+    "mode": "born",
+    "normalize": "unitary_fft",
+    "wavelength_px": 8.0
+  },
+  "operator_version": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-operator-validation/operator_validation.json",
+  "physics_loss_rule": "L_phys = || A(unnormalize(q_pred_norm)) - y || ; the operator always consumes physical q. Predictions in normalized space MUST be unnormalized via mean+std before being passed to A(...).",
+  "row_schema": {
+    "default_training_label": "supervised + Born consistency",
+    "rejected_input_modes": [
+      "direct_sinogram"
+    ],
+    "required_fields": [
+      "row_id",
+      "model",
+      "training",
+      "input_mode",
+      "dataset_id",
+      "operator_version",
+      "row_status"
+    ],
+    "supported_architectures": [
+      "classical_born_backprop",
+      "unet",
+      "fno_vanilla",
+      "hybrid_resnet",
+      "ffno"
+    ],
+    "supported_input_modes": [
+      "born_init_image",
+      "sinogram"
+    ]
+  },
+  "rows": [
+    {
+      "dataset_id": "brdt128_decision_support_preflight",
+      "input_mode": "sinogram",
+      "model": "classical_born_backprop",
+      "operator_version": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-operator-validation/operator_validation.json",
+      "paper_label": "Model-based Born inverse",
+      "row_id": "classical_born_backprop",
+      "row_status": "ready",
+      "training": "none"
+    },
+    {
+      "dataset_id": "brdt128_decision_support_preflight",
+      "input_mode": "sinogram",
+      "model": "ffno",
+      "operator_version": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-operator-validation/operator_validation.json",
+      "paper_label": "FFNO",
+      "row_id": "ffno",
+      "row_status": "ready",
+      "training": "supervised + Born consistency"
+    },
+    {
+      "dataset_id": "brdt128_decision_support_preflight",
+      "input_mode": "sinogram",
+      "model": "hybrid_resnet",
+      "operator_version": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-operator-validation/operator_validation.json",
+      "paper_label": "SRU-Net",
+      "row_id": "sru_net",
+      "row_status": "feasibility_only",
+      "sanity_summary": {
+        "architecture": "hybrid_resnet",
+        "eval_image_mae_norm": 0.4643511176109314,
+        "eval_relative_physics": 0.851955235004425,
+        "final_loss_breakdown": {
+          "image": 0.4991968870162964,
+          "physics": 0.0035782025661319494,
+          "positivity": 4.823251629204606e-07,
+          "relative_physics": 0.8567430377006531,
+          "total": 0.5852290391921997,
+          "tv": 0.003169466508552432
+        },
+        "final_loss_total": 0.5852290391921997,
+        "note": "fast_dev_run sanity execution",
+        "parameter_count": 142162,
+        "row_id": "sru_net",
+        "row_status": "feasibility_only",
+        "train_steps": 1
+      },
+      "training": "supervised + Born consistency"
+    }
+  ],
+  "schema_version": "brdt_adapter_contract_v1"
+}
