@@ -48,8 +48,8 @@ stronger at higher frequencies.
 
 \section{Introduction}
 
-Problems such as phase retrieval, inverse scattering, and forward partial
-differential equation (PDE) prediction
+Problems such as phase retrieval \cite{fienup}, inverse scattering
+\cite{devaney}, and forward partial differential equation (PDE) prediction
 combine long-range coupling with localized structure. In lensless computed
 imaging, each detector measurement depends on the target object and probe
 interaction through global wave propagation, while the reconstruction is a
@@ -64,23 +64,24 @@ projection algorithms. Standard computer vision architectures adapted to
 physics-prediction tasks provide fast approximate solutions, but their accuracy
 is limited in domains with prominent scale mixing. The accuracy gap reflects a
 specific architectural mismatch: architectures that are efficient on natural
-images, such as CNNs, process local spatial neighborhoods well but lack direct
-global receptive fields for long-range physical interactions.
+images, such as U-Net \cite{unet} and ResNet \cite{resnet}, process local
+spatial neighborhoods well but lack direct global receptive fields for
+long-range physical interactions.
 
 Fourier neural operator (FNO) networks address the opposite side of this
 tradeoff. They are effective models for continuous physical systems because
 spectral layers provide global mixing \cite{fno}. However, FNO-style models
 retain a finite set of Fourier modes, and this truncation can bias predictions
 toward lower-frequency structure and weaken sharp localized features. Recent
-extensions mitigate this limitation by coupling global Fourier layers with local
-or multiscale operators \cite{ufno,localno}. These convolutional, U-Net, or
-localized-kernel branches help preserve fine-scale structure while retaining
-long-range mixing. Such hybrids improve some PDE benchmarks, but they are not
-uniformly better than strong spectral-only architectures such as the factorized
-Fourier neural operator \cite{ffno}. We focus on convolutional and spectral
-models; attention-based operators such as Galerkin Transformer and related
-attention-operator hybrids are a separate model family outside the scope of
-this study.
+extensions mitigate this limitation by coupling global Fourier layers with
+U-Net-style \cite{unet} or localized-kernel branches \cite{ufno,localno}. These
+convolutional or localized-kernel paths help preserve fine-scale structure
+while retaining long-range mixing. Such hybrids improve some PDE benchmarks,
+but they are not uniformly better than strong spectral-only architectures such
+as the factorized Fourier neural operator \cite{ffno}. We focus on convolutional
+and spectral models; attention-based operators such as Galerkin Transformer
+\cite{galerkin} and the broader DeepONet family \cite{deeponet} are separate
+model families outside the scope of this study.
 
 Coherent diffractive imaging (CDI) is our primary test case because it stresses
 both sides of the global-local problem. Diffraction measurements are globally coupled by the wave forward
@@ -190,11 +191,15 @@ architecture spectral and local components should be placed.
 
 Coherent diffractive imaging and ptychography have a long algorithmic history
 grounded in iterative projection methods: the Gerchberg--Saxton algorithm,
-hybrid input--output (HIO), error reduction (ER), the difference-map algorithm,
-and ePIE. These methods are widely used in practice but can require many
-iterations to converge, and each reconstruction is solved independently.
-Learned reconstruction replaces per-instance iterative solving with a one-shot
-inverse map at inference time, motivating recent CDI work in machine learning.
+hybrid input--output (HIO), error reduction (ER), the difference-map algorithm
+\cite{fienup}, and ePIE \cite{epie}. These methods are widely used in practice
+but can require many iterations to converge, and each reconstruction is solved
+independently. Learned reconstruction replaces per-instance iterative solving
+with a one-shot inverse map at inference time, motivating recent CDI work in
+machine learning that ranges from supervised generative inversion
+\cite{cherukara2018,ptychonn}, through edge-streaming pipelines
+\cite{streamingptycho}, to unsupervised physics-aware variants that embed the
+forward model in the loss \cite{autophasenn,hoidn2023physics}.
 
 PtychoPINN introduced a measurement-consistency training objective for
 unsupervised scanning-CDI \cite{hoidn2023physics}: a learned network predicts
@@ -285,8 +290,8 @@ R_{\ell}(k)\,\mathcal{T}_{K}\left(\mathcal{F}(z_{\ell})\right)(k)
 where $L_{\ell}$ is a learned local convolutional map, $\mathcal{F}$ is the 2D
 Fourier transform, $\mathcal{T}_{K}$ retains a fixed set of Fourier modes,
 $R_{\ell}(k)$ is a learned complex spectral mixing tensor over retained modes,
-and $\sigma$ is the Gaussian error linear unit (GELU) nonlinearity used in the implemented SRU-Net. In
-residual form, this can be written as
+and $\sigma$ is the Gaussian error linear unit (GELU) nonlinearity \cite{gelu}
+used in the implemented SRU-Net. In residual form, this can be written as
 \begin{equation}
 z_{\ell+1}
 = z_{\ell} + \sigma\left(L_{\ell} z_{\ell} + S_{\ell} z_{\ell}\right),
@@ -483,16 +488,18 @@ residual addition. The retained-mode count $m$ is a configurable parameter; the
 default setting uses $m=12$ unless otherwise stated. The encoder
 downsamples after the first two blocks, giving $N\to N/2\to N/4$ and widths
 32, 64, and 128. \\
-Bottleneck & Six constant-resolution residual blocks at $N/4$. Each block uses
-a reflected-padding $3\times 3$ convolution, instance normalization, GELU, a
-second reflected-padding $3\times 3$ convolution, instance normalization, and a
-learned residual scale. The spectral-residual variant replaces this local
+Bottleneck & Six constant-resolution residual blocks at $N/4$ in the He et
+al.\ sense \cite{resnet}. Each block uses a reflected-padding $3\times 3$
+convolution, instance normalization \cite{instnorm}, GELU \cite{gelu}, a
+second reflected-padding $3\times 3$ convolution, instance normalization, and
+a learned residual scale. The spectral-residual variant replaces this local
 bottleneck with residual blocks that add a shared factorized spectral branch. \\
-Decoder and skips & The CDI path uses two decoder stages, each
-$\mathrm{ConvT}_{4,s2,p1}$ followed by instance normalization and GELU. The CNS
-model uses two pixel-shuffle upsampling stages and additive encoder-decoder
-skips from the $N/2$ and $N$ encoder resolutions, with each skip feature first
-adapted by a learned $1\times1$ convolution. \\
+Decoder and skips & The CDI path uses two decoder stages in the U-Net
+encoder-decoder family \cite{unet}, each $\mathrm{ConvT}_{4,s2,p1}$ followed
+by instance normalization and GELU. The CNS model uses two pixel-shuffle
+\cite{pixelshuffle} upsampling stages and additive encoder-decoder skips from
+the $N/2$ and $N$ encoder resolutions, with each skip feature first adapted by
+a learned $1\times1$ convolution. \\
 Output and loss & CDI predicts real/imaginary complex patches and trains through
 the coherent diffractive imaging consistency and diffraction operators. BRDT
 predicts a real scattering potential and trains with supervised object loss
@@ -589,9 +596,9 @@ inverse-scattering task. The target is the physical scattering potential
 \end{equation}
 where $n(x,z)$ is the refractive-index field, $n_m$ is the background medium
 index, and $k_m$ is the in-medium wavenumber. Under the first Born
-approximation, each incident plane wave produces a scattered field whose
-far-field samples are linear measurements of the Fourier transform of $q$ on
-the corresponding Ewald arc. We write this discrete forward map as
+approximation \cite{devaney}, each incident plane wave produces a scattered
+field whose far-field samples are linear measurements of the Fourier transform
+of $q$ on the corresponding Ewald arc. We write this discrete forward map as
 \begin{equation}
   s = \mathcal{B}(q),
 \end{equation}
@@ -609,7 +616,8 @@ All neural models use the same input representation and the same differentiable
 Born forward operator during training.
 
 The BRDT objective combines supervised reconstruction with measurement-space
-Born consistency, plus total variation (TV) and positivity regularization:
+Born consistency, plus total variation (TV) \cite{tvregularization} and
+positivity regularization:
 \begin{align}
   \mathcal{L}_{\mathrm{BRDT}}
   &=
@@ -719,8 +727,8 @@ a differentiable Born forward model with 64 illumination angles and 128
 detector samples. We use it to test whether the CDI reconstruction network also
 works on a related wave inverse problem. We train SRU-Net and FFNO for 40
 epochs on the same
-2048/256/256 train/validation/test split, using Adam with learning rate
-$2\times10^{-4}$, batch size 16, seed 42, and ReduceLROnPlateau scheduling.
+2048/256/256 train/validation/test split, using Adam \cite{adam} with learning
+rate $2\times10^{-4}$, batch size 16, seed 42, and ReduceLROnPlateau scheduling.
 Both models use the same Born input image: a 2D backprojection of the measured
 complex sinogram onto the $q$ grid. The same image is the non-learned Born
 baseline in Fig.~\ref{fig:brdt_candidate_recon}. Both models use the
@@ -763,8 +771,8 @@ object-space training to physics-consistency training cuts amplitude MAE
 fourfold ($0.35 \to 0.08$), and similar gains hold for every architecture
 trained both ways. Supervised training can improve some phase-error metrics
 while degrading amplitude reconstruction or phase structure, whereas
-physics-consistency training gives stronger amplitude recovery and phase SSIM
-across the table.
+physics-consistency training gives stronger amplitude recovery and phase
+structural similarity (SSIM) \cite{ssim} across the table.
 
 % table_metadata: task=CDI_lines128; table_type=pinn_vs_supervised_controls; authority=complete_lines128_cdi_benchmark_plus_uno_extension; source=docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_objective_comparison.tex; metrics=mae,ssim; paired_models=cnn,ffno,uno
 \begin{table}[t]
@@ -1348,6 +1356,48 @@ nanoscale Bragg coherent diffraction imaging.
 \newblock \emph{npj Computational Materials}, 8:124, 2022.
 \newblock \url{https://doi.org/10.1038/s41524-022-00803-w}.
 
+\bibitem{cherukara2018}
+Mathew J. Cherukara, Youssef S.~G. Nashed, and Ross J. Harder.
+\newblock Real-time coherent diffraction inversion using deep generative
+networks.
+\newblock \emph{Scientific Reports}, 8:16520, 2018.
+\newblock \url{https://doi.org/10.1038/s41598-018-34525-1}.
+
+\bibitem{streamingptycho}
+Anakha V. Babu, Tao Zhou, Saugat Kandel, Tekin Bicer, Zhengchun Liu, William
+Judge, Daniel J. Ching, Yi Jiang, Sinisa Veseli, Steven Henke, Ryan Chard,
+Yudong Yao, Ekaterina Sirazitdinova, Geetika Gupta, Martin V. Holt, Ian T.
+Foster, Antonino Miceli, and Mathew J. Cherukara.
+\newblock Deep learning at the edge enables real-time streaming ptychographic
+imaging.
+\newblock \emph{Nature Communications}, 14:7059, 2023.
+\newblock \url{https://doi.org/10.1038/s41467-023-41496-z}.
+
+\bibitem{fienup}
+James R. Fienup.
+\newblock Phase retrieval algorithms: a comparison.
+\newblock \emph{Applied Optics}, 21(15):2758--2769, 1982.
+\newblock \url{https://doi.org/10.1364/AO.21.002758}.
+
+\bibitem{epie}
+Andrew M. Maiden and John M. Rodenburg.
+\newblock An improved ptychographical phase retrieval algorithm for diffractive
+imaging.
+\newblock \emph{Ultramicroscopy}, 109(10):1256--1262, 2009.
+\newblock \url{https://doi.org/10.1016/j.ultramic.2009.05.012}.
+
+\bibitem{devaney}
+A.~J. Devaney.
+\newblock Inverse-scattering theory within the Rytov approximation.
+\newblock \emph{Optics Letters}, 6(8):374--376, 1981.
+\newblock \url{https://doi.org/10.1364/OL.6.000374}.
+
+\bibitem{tvregularization}
+Leonid I. Rudin, Stanley Osher, and Emad Fatemi.
+\newblock Nonlinear total variation based noise removal algorithms.
+\newblock \emph{Physica D: Nonlinear Phenomena}, 60(1--4):259--268, 1992.
+\newblock \url{https://doi.org/10.1016/0167-2789(92)90242-F}.
+
 \bibitem{fno}
 Zongyi Li, Nikola Kovachki, Kamyar Azizzadenesheli, Burigede Liu,
 Kaushik Bhattacharya, Andrew Stuart, and Anima Anandkumar.
@@ -1382,6 +1432,67 @@ Francesco Alesiani, Dirk Pflueger, and Mathias Niepert.
 \newblock PDEBench: An extensive benchmark for scientific machine learning.
 \newblock \emph{Advances in Neural Information Processing Systems}, 2022.
 \newblock \url{https://arxiv.org/abs/2210.07182}.
+
+\bibitem{deeponet}
+Lu Lu, Pengzhan Jin, Guofei Pang, Zhongqiang Zhang, and George Em Karniadakis.
+\newblock Learning nonlinear operators via DeepONet based on the universal
+approximation theorem of operators.
+\newblock \emph{Nature Machine Intelligence}, 3:218--229, 2021.
+\newblock \url{https://doi.org/10.1038/s42256-021-00302-5}.
+
+\bibitem{galerkin}
+Shuhao Cao.
+\newblock Choose a transformer: Fourier or Galerkin.
+\newblock \emph{Advances in Neural Information Processing Systems}, 2021.
+\newblock \url{https://arxiv.org/abs/2105.14995}.
+
+\bibitem{resnet}
+Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun.
+\newblock Deep residual learning for image recognition.
+\newblock \emph{IEEE Conference on Computer Vision and Pattern Recognition},
+770--778, 2016.
+\newblock \url{https://arxiv.org/abs/1512.03385}.
+
+\bibitem{unet}
+Olaf Ronneberger, Philipp Fischer, and Thomas Brox.
+\newblock U-Net: convolutional networks for biomedical image segmentation.
+\newblock \emph{Medical Image Computing and Computer-Assisted Intervention},
+234--241, 2015.
+\newblock \url{https://arxiv.org/abs/1505.04597}.
+
+\bibitem{gelu}
+Dan Hendrycks and Kevin Gimpel.
+\newblock Gaussian error linear units (GELUs).
+\newblock \emph{arXiv:1606.08415}, 2016.
+\newblock \url{https://arxiv.org/abs/1606.08415}.
+
+\bibitem{instnorm}
+Dmitry Ulyanov, Andrea Vedaldi, and Victor Lempitsky.
+\newblock Instance normalization: the missing ingredient for fast stylization.
+\newblock \emph{arXiv:1607.08022}, 2016.
+\newblock \url{https://arxiv.org/abs/1607.08022}.
+
+\bibitem{pixelshuffle}
+Wenzhe Shi, Jose Caballero, Ferenc Husz\'ar, Johannes Totz, Andrew P. Aitken,
+Rob Bishop, Daniel Rueckert, and Zehan Wang.
+\newblock Real-time single image and video super-resolution using an efficient
+sub-pixel convolutional neural network.
+\newblock \emph{IEEE Conference on Computer Vision and Pattern Recognition},
+1874--1883, 2016.
+\newblock \url{https://arxiv.org/abs/1609.05158}.
+
+\bibitem{adam}
+Diederik P. Kingma and Jimmy Ba.
+\newblock Adam: a method for stochastic optimization.
+\newblock \emph{International Conference on Learning Representations}, 2015.
+\newblock \url{https://arxiv.org/abs/1412.6980}.
+
+\bibitem{ssim}
+Zhou Wang, Alan C. Bovik, Hamid R. Sheikh, and Eero P. Simoncelli.
+\newblock Image quality assessment: from error visibility to structural
+similarity.
+\newblock \emph{IEEE Transactions on Image Processing}, 13(4):600--612, 2004.
+\newblock \url{https://doi.org/10.1109/TIP.2003.819861}.
 
 \end{thebibliography}
 
