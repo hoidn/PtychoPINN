@@ -85,17 +85,17 @@
       "row_status": "feasibility_only",
       "sanity_summary": {
         "architecture": "ffno",
-        "eval_image_mae_norm": 0.4066298007965088,
-        "eval_relative_physics": 0.8886597752571106,
+        "eval_image_mae_norm": 0.43687811493873596,
+        "eval_relative_physics": 0.8309299349784851,
         "final_loss_breakdown": {
-          "image": 0.4091464877128601,
-          "physics": 0.0035772942937910557,
+          "image": 0.439687043428421,
+          "physics": 0.0036280974745750427,
           "positivity": 0.0,
-          "relative_physics": 0.8835512399673462,
-          "total": 0.49785932898521423,
-          "tv": 5.635983688989654e-05
+          "relative_physics": 0.8276391625404358,
+          "total": 0.5228137969970703,
+          "tv": 5.127523036208004e-05
         },
-        "final_loss_total": 0.49785932898521423,
+        "final_loss_total": 0.5228137969970703,
         "note": "fast_dev_run sanity execution",
         "parameter_count": 27538,
         "row_id": "ffno",

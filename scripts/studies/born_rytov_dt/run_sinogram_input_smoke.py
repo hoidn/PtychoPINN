@@ -64,7 +64,7 @@ def _build_row_args(
 def run_sinogram_input_smoke(
     *,
     manifest_path: Path = DEFAULT_MANIFEST,
-    output_root: Path = DEFAULT_OUTPUT_ROOT / "smoke",
+    output_root: Path = DEFAULT_OUTPUT_ROOT,
     device_choice: str = "auto",
 ) -> Dict[str, object]:
     output_root = Path(output_root).resolve()
@@ -162,7 +162,7 @@ def run_sinogram_input_smoke(
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="brdt_sinogram_input_smoke")
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
-    parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT / "smoke")
+    parser.add_argument("--output-root", type=Path, default=DEFAULT_OUTPUT_ROOT)
     parser.add_argument("--device", default="auto", choices=["auto", "cpu", "cuda"])
     return parser
 

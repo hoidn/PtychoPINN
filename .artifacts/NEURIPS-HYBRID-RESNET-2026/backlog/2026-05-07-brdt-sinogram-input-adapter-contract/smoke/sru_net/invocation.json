@@ -38,8 +38,8 @@
     "input_mode": "sinogram"
   },
   "cwd": "/home/ollie/Documents/PtychoPINN",
-  "timestamp_utc": "2026-05-07T11:11:43.534267+00:00",
-  "pid": 3243809,
+  "timestamp_utc": "2026-05-07T11:21:46.858966+00:00",
+  "pid": 3245851,
   "extra": {
     "backlog_item": "2026-05-07-brdt-sinogram-input-adapter-contract",
     "execution_role": "smoke_row"

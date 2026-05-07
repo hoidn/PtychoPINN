@@ -489,6 +489,59 @@ def test_sinogram_input_adapter_rejects_image_shape():
         adapter(torch.zeros(2, 2, dc.LOCKED_GRID_SIZE, dc.LOCKED_GRID_SIZE))
 
 
+def test_sinogram_input_mode_does_not_route_through_derive_born_init_image(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    # If a future refactor silently routes input_mode="sinogram" through
+    # derive_born_init_image(...), this guard fires. The Born inverse must
+    # remain non-learned reference only.
+    angles = torch.from_numpy(dc.locked_angles())
+    op = BornRytovForward2D(
+        grid_size=dc.LOCKED_GRID_SIZE,
+        detector_size=dc.LOCKED_DETECTOR_SIZE,
+        angles=angles,
+        wavelength_px=dc.LOCKED_WAVELENGTH_PX,
+        medium_ri=dc.LOCKED_MEDIUM_RI,
+        mode="born",
+        normalize="unitary_fft",
+    )
+    sino = torch.zeros(
+        1,
+        dc.LOCKED_ANGLE_COUNT,
+        dc.LOCKED_DETECTOR_SIZE,
+        2,
+        dtype=torch.float32,
+    )
+
+    def _explode(*args, **kwargs):
+        raise AssertionError(
+            "derive_born_init_image must not be called for input_mode='sinogram'"
+        )
+
+    monkeypatch.setattr(train, "derive_born_init_image", _explode)
+    monkeypatch.setattr(evaluate, "derive_born_init_image", _explode)
+
+    backend = classical.ClassicalBackendInfo(
+        name="local_adjoint",
+        reason="forced",
+        claim_boundary="feasibility_only",
+    )
+
+    x = train._prepare_input(
+        {"sinogram": sino},
+        operator=op,
+        backend=backend,
+        in_channels=2,
+        input_mode="sinogram",
+    )
+    assert x.shape == (
+        1,
+        2,
+        dc.LOCKED_ANGLE_COUNT,
+        dc.LOCKED_DETECTOR_SIZE,
+    )
+
+
 def test_ffno_adapter_parameter_count_distinct_from_fno_vanilla():
     """FFNO and FNO-vanilla must have separate parameter counts.
 
