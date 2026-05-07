@@ -362,6 +362,72 @@ def test_manifest_and_summary_use_only_frozen_status_vocabulary():
     assert "excluded_adjacent_context" not in summary
 
 
+def test_brdt_authority_is_loaded_and_promoted_as_additive_secondary():
+    module = _load_audit_module()
+    inputs = _default_inputs()
+
+    brdt_inputs = inputs["brdt"]
+    assert brdt_inputs["authoritative_root"] == (
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/"
+        "2026-05-07-brdt-sinogram-input-40ep-paper-evidence"
+    )
+    assert brdt_inputs["expected_claim_boundary"] == "paper_evidence_brdt_additive"
+
+    brdt = module.load_brdt_authority(brdt_inputs, repo_root=REPO_ROOT)
+    assert brdt["headline_status"] == "paper_approved_secondary"
+    assert brdt["claim_boundary"] == "paper_evidence_brdt_additive"
+    assert brdt["bundle_status"] == "passed"
+    assert brdt["headline_row_ids"] == ["ffno", "sru_net"]
+    assert any(row["row_id"] == "classical_born_backprop" for row in brdt["reference_rows"])
+
+
+def test_build_manifest_includes_brdt_additive_secondary_authority():
+    module = _load_audit_module()
+    manifest = module.build_manifest(_default_inputs(), repo_root=REPO_ROOT)
+
+    additive = manifest["additive_secondary_authorities"]["brdt"]
+    assert additive["claim_boundary"] == "paper_evidence_brdt_additive"
+    assert additive["source_root"] == (
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/"
+        "2026-05-07-brdt-sinogram-input-40ep-paper-evidence"
+    )
+
+    boundaries = {entry["claim_boundary"] for entry in manifest["claim_boundary_registry"]}
+    assert "paper_evidence_brdt_additive" in boundaries
+
+    brdt_row_ids = {row["row_id"] for row in manifest["row_registry"] if row["pillar_id"] == "brdt"}
+    assert {"ffno", "sru_net", "classical_born_backprop"} <= brdt_row_ids
+
+    blocked_ids = {entry["claim_id"] for entry in manifest["blocked_claims"]}
+    assert "brdt_replaces_cdi_or_cns_pillar" in blocked_ids
+    assert "same_protocol_full_training_brdt_competitiveness" in blocked_ids
+
+    validation = module.validate_manifest(manifest)
+    assert validation["brdt_additive_authority_present"] is True
+    assert validation["brdt_headline_is_paper_approved_secondary"] is True
+    assert validation["brdt_does_not_replace_pillars"] is True
+    assert validation["all_statuses_within_frozen_vocabulary"] is True
+
+
+def test_audit_summary_records_brdt_additive_authority_and_lineage():
+    module = _load_audit_module()
+    manifest = module.build_manifest(_default_inputs(), repo_root=REPO_ROOT)
+    summary = module.render_audit_summary(manifest)
+
+    brdt = manifest["additive_secondary_authorities"]["brdt"]
+    assert "Additive Secondary BRDT Context" in summary
+    assert brdt["source_root"] in summary
+    assert brdt["claim_boundary"] in summary
+    assert brdt["headline_status"] in summary
+    for root in brdt["historical_lineage_roots"]:
+        assert root in summary
+
+    sync = module.validate_summary_sync(manifest, summary)
+    assert sync["brdt_root_present"] is True
+    assert sync["brdt_status_present"] is True
+    assert sync["brdt_claim_boundary_present"] is True
+
+
 def test_summary_records_emitted_paths_and_verification_logs():
     module = _load_audit_module()
     manifest = module.build_manifest(_default_inputs(), repo_root=REPO_ROOT)

@@ -1,10 +1,11 @@
 {
-  "generated_at_utc": "2026-05-07T12:35:40.712173+00:00",
+  "generated_at_utc": "2026-05-07T12:52:45.533589+00:00",
   "status_vocabulary": {
     "paper_grade": "Evidence satisfies the current paper-facing provenance contract and may support headline claims.",
     "full_training": "Evidence proves a same-protocol full-training benchmark lane rather than a capped substitute.",
     "capped_decision_support": "Evidence is coherent and manuscript-usable only with explicit bounded capped wording.",
     "decision_support": "Evidence is useful for local comparison or continuity context but is not a current headline authority.",
+    "paper_approved_secondary": "Evidence is approved additive secondary manuscript context with its own claim boundary; it does not replace the primary CDI/CNS pillars.",
     "blocked": "A required row or claim cannot be promoted under the present authority set.",
     "not_protocol_compatible": "A result exists but cannot be used as the same-contract production answer for this paper lane."
   },
@@ -69,6 +70,28 @@
       "historical_bundle_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md",
       "historical_locked_rows_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/cns_paper_locked_rows.json",
       "historical_bundle_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle"
+    },
+    "brdt": {
+      "lane_id": "brdt_sinogram_input_40ep",
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+      "authoritative_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+      "paper_evidence_gate_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/paper_evidence_gate.json",
+      "combined_manifest_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_manifest.json",
+      "visual_manifest_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visual_manifest.json",
+      "metrics_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+      "run_exit_status_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/run_exit_status.json",
+      "runtime_provenance_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/runtime_provenance.json",
+      "expected_claim_boundary": "paper_evidence_brdt_additive",
+      "expected_promotion_status": "passed",
+      "expected_learned_row_ids": [
+        "ffno",
+        "sru_net"
+      ],
+      "expected_epochs": 40,
+      "historical_lineage_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun"
+      ]
     },
     "index_surfaces": {
       "paper_evidence_index_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -875,6 +898,326 @@
       ]
     }
   },
+  "additive_secondary_authorities": {
+    "brdt": {
+      "pillar_id": "brdt",
+      "lane_id": "brdt_sinogram_input_40ep",
+      "headline_status": "paper_approved_secondary",
+      "bundle_status": "passed",
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "headline_role": "additive_secondary_brdt_sinogram_input_40ep",
+      "headline_row_ids": [
+        "ffno",
+        "sru_net"
+      ],
+      "headline_rows": [
+        {
+          "pillar_id": "brdt",
+          "artifact_kind": "benchmark_row",
+          "artifact_id": "brdt:ffno",
+          "row_id": "ffno",
+          "row_role": "additive_secondary",
+          "row_status": "paper_approved_secondary",
+          "claim_boundary": "paper_evidence_brdt_additive",
+          "evidence_tier": "paper_approved_secondary",
+          "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+          "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+          "metric_schema": {
+            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            "schema_version": "brdt_preflight_metrics_v1"
+          },
+          "table_artifacts": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.csv",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.csv",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.csv"
+          ],
+          "figure_artifacts": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_compare_q.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_error_q.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_sinogram_residual.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+          ],
+          "source_array_roots": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+          ],
+          "provenance_gaps": [],
+          "draftability": "draftable_as_additive_secondary_only",
+          "blocked_claims": [
+            "brdt_replaces_cdi_or_cns_pillar",
+            "same_protocol_full_training_brdt_competitiveness"
+          ],
+          "notes": {
+            "paper_label": "FFNO",
+            "architecture": "ffno",
+            "input_mode": "sinogram",
+            "parameter_count": 27538,
+            "history_length": 40
+          }
+        },
+        {
+          "pillar_id": "brdt",
+          "artifact_kind": "benchmark_row",
+          "artifact_id": "brdt:sru_net",
+          "row_id": "sru_net",
+          "row_role": "additive_secondary",
+          "row_status": "paper_approved_secondary",
+          "claim_boundary": "paper_evidence_brdt_additive",
+          "evidence_tier": "paper_approved_secondary",
+          "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+          "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+          "metric_schema": {
+            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            "schema_version": "brdt_preflight_metrics_v1"
+          },
+          "table_artifacts": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.csv",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.csv",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.csv"
+          ],
+          "figure_artifacts": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_compare_q.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_error_q.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_sinogram_residual.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+          ],
+          "source_array_roots": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+          ],
+          "provenance_gaps": [],
+          "draftability": "draftable_as_additive_secondary_only",
+          "blocked_claims": [
+            "brdt_replaces_cdi_or_cns_pillar",
+            "same_protocol_full_training_brdt_competitiveness"
+          ],
+          "notes": {
+            "paper_label": "SRU-Net",
+            "architecture": "hybrid_resnet",
+            "input_mode": "sinogram",
+            "parameter_count": 142162,
+            "history_length": 40
+          }
+        }
+      ],
+      "reference_rows": [
+        {
+          "pillar_id": "brdt",
+          "artifact_kind": "benchmark_row",
+          "artifact_id": "brdt:classical_born_backprop",
+          "row_id": "classical_born_backprop",
+          "row_role": "non_learned_reference",
+          "row_status": "decision_support",
+          "claim_boundary": "paper_evidence_brdt_additive",
+          "evidence_tier": "decision_support",
+          "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+          "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+          "metric_schema": {
+            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            "schema_version": "brdt_preflight_metrics_v1"
+          },
+          "table_artifacts": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.csv",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.csv",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.csv"
+          ],
+          "figure_artifacts": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_compare_q.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_error_q.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_sinogram_residual.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+          ],
+          "source_array_roots": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+          ],
+          "provenance_gaps": [],
+          "draftability": "draftable_as_additive_secondary_only",
+          "blocked_claims": [
+            "brdt_replaces_cdi_or_cns_pillar",
+            "same_protocol_full_training_brdt_competitiveness"
+          ],
+          "notes": {
+            "paper_label": "Model-based Born inverse",
+            "architecture": "classical_born_backprop",
+            "input_mode": "sinogram",
+            "parameter_count": 0,
+            "history_length": 0
+          }
+        }
+      ],
+      "rows": [
+        {
+          "pillar_id": "brdt",
+          "artifact_kind": "benchmark_row",
+          "artifact_id": "brdt:classical_born_backprop",
+          "row_id": "classical_born_backprop",
+          "row_role": "non_learned_reference",
+          "row_status": "decision_support",
+          "claim_boundary": "paper_evidence_brdt_additive",
+          "evidence_tier": "decision_support",
+          "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+          "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+          "metric_schema": {
+            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            "schema_version": "brdt_preflight_metrics_v1"
+          },
+          "table_artifacts": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.csv",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.csv",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.csv"
+          ],
+          "figure_artifacts": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_compare_q.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_error_q.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_sinogram_residual.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+          ],
+          "source_array_roots": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+          ],
+          "provenance_gaps": [],
+          "draftability": "draftable_as_additive_secondary_only",
+          "blocked_claims": [
+            "brdt_replaces_cdi_or_cns_pillar",
+            "same_protocol_full_training_brdt_competitiveness"
+          ],
+          "notes": {
+            "paper_label": "Model-based Born inverse",
+            "architecture": "classical_born_backprop",
+            "input_mode": "sinogram",
+            "parameter_count": 0,
+            "history_length": 0
+          }
+        },
+        {
+          "pillar_id": "brdt",
+          "artifact_kind": "benchmark_row",
+          "artifact_id": "brdt:ffno",
+          "row_id": "ffno",
+          "row_role": "additive_secondary",
+          "row_status": "paper_approved_secondary",
+          "claim_boundary": "paper_evidence_brdt_additive",
+          "evidence_tier": "paper_approved_secondary",
+          "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+          "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+          "metric_schema": {
+            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            "schema_version": "brdt_preflight_metrics_v1"
+          },
+          "table_artifacts": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.csv",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.csv",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.csv"
+          ],
+          "figure_artifacts": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_compare_q.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_error_q.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_sinogram_residual.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+          ],
+          "source_array_roots": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+          ],
+          "provenance_gaps": [],
+          "draftability": "draftable_as_additive_secondary_only",
+          "blocked_claims": [
+            "brdt_replaces_cdi_or_cns_pillar",
+            "same_protocol_full_training_brdt_competitiveness"
+          ],
+          "notes": {
+            "paper_label": "FFNO",
+            "architecture": "ffno",
+            "input_mode": "sinogram",
+            "parameter_count": 27538,
+            "history_length": 40
+          }
+        },
+        {
+          "pillar_id": "brdt",
+          "artifact_kind": "benchmark_row",
+          "artifact_id": "brdt:sru_net",
+          "row_id": "sru_net",
+          "row_role": "additive_secondary",
+          "row_status": "paper_approved_secondary",
+          "claim_boundary": "paper_evidence_brdt_additive",
+          "evidence_tier": "paper_approved_secondary",
+          "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+          "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+          "metric_schema": {
+            "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            "schema_version": "brdt_preflight_metrics_v1"
+          },
+          "table_artifacts": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.csv",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.csv",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.json",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.csv"
+          ],
+          "figure_artifacts": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_compare_q.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_error_q.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_sinogram_residual.png",
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+          ],
+          "source_array_roots": [
+            ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+          ],
+          "provenance_gaps": [],
+          "draftability": "draftable_as_additive_secondary_only",
+          "blocked_claims": [
+            "brdt_replaces_cdi_or_cns_pillar",
+            "same_protocol_full_training_brdt_competitiveness"
+          ],
+          "notes": {
+            "paper_label": "SRU-Net",
+            "architecture": "hybrid_resnet",
+            "input_mode": "sinogram",
+            "parameter_count": 142162,
+            "history_length": 40
+          }
+        }
+      ],
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+      "table_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.csv"
+      ],
+      "figure_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_compare_q.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_error_q.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_sinogram_residual.png"
+      ],
+      "historical_lineage_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun"
+      ],
+      "provenance_gaps": [],
+      "blocked_claims": [
+        "brdt_replaces_cdi_or_cns_pillar",
+        "same_protocol_full_training_brdt_competitiveness"
+      ]
+    }
+  },
   "row_registry": [
     {
       "pillar_id": "cdi",
@@ -1333,6 +1676,144 @@
         "parameter_count": 7768036,
         "runtime_sec": 1070.9980742931366
       }
+    },
+    {
+      "pillar_id": "brdt",
+      "artifact_kind": "benchmark_row",
+      "artifact_id": "brdt:classical_born_backprop",
+      "row_id": "classical_born_backprop",
+      "row_role": "non_learned_reference",
+      "row_status": "decision_support",
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "evidence_tier": "decision_support",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+      "metric_schema": {
+        "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+        "schema_version": "brdt_preflight_metrics_v1"
+      },
+      "table_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.csv"
+      ],
+      "figure_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_compare_q.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_error_q.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_sinogram_residual.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+      ],
+      "source_array_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+      ],
+      "provenance_gaps": [],
+      "draftability": "draftable_as_additive_secondary_only",
+      "blocked_claims": [
+        "brdt_replaces_cdi_or_cns_pillar",
+        "same_protocol_full_training_brdt_competitiveness"
+      ],
+      "notes": {
+        "paper_label": "Model-based Born inverse",
+        "architecture": "classical_born_backprop",
+        "input_mode": "sinogram",
+        "parameter_count": 0,
+        "history_length": 0
+      }
+    },
+    {
+      "pillar_id": "brdt",
+      "artifact_kind": "benchmark_row",
+      "artifact_id": "brdt:ffno",
+      "row_id": "ffno",
+      "row_role": "additive_secondary",
+      "row_status": "paper_approved_secondary",
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "evidence_tier": "paper_approved_secondary",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+      "metric_schema": {
+        "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+        "schema_version": "brdt_preflight_metrics_v1"
+      },
+      "table_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.csv"
+      ],
+      "figure_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_compare_q.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_error_q.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_sinogram_residual.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+      ],
+      "source_array_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+      ],
+      "provenance_gaps": [],
+      "draftability": "draftable_as_additive_secondary_only",
+      "blocked_claims": [
+        "brdt_replaces_cdi_or_cns_pillar",
+        "same_protocol_full_training_brdt_competitiveness"
+      ],
+      "notes": {
+        "paper_label": "FFNO",
+        "architecture": "ffno",
+        "input_mode": "sinogram",
+        "parameter_count": 27538,
+        "history_length": 40
+      }
+    },
+    {
+      "pillar_id": "brdt",
+      "artifact_kind": "benchmark_row",
+      "artifact_id": "brdt:sru_net",
+      "row_id": "sru_net",
+      "row_role": "additive_secondary",
+      "row_status": "paper_approved_secondary",
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "evidence_tier": "paper_approved_secondary",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+      "metric_schema": {
+        "path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+        "schema_version": "brdt_preflight_metrics_v1"
+      },
+      "table_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/combined_metrics.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/convergence_audit.csv"
+      ],
+      "figure_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_compare_q.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_error_q.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/visuals/sample_0255_sinogram_residual.png",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+      ],
+      "source_array_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays"
+      ],
+      "provenance_gaps": [],
+      "draftability": "draftable_as_additive_secondary_only",
+      "blocked_claims": [
+        "brdt_replaces_cdi_or_cns_pillar",
+        "same_protocol_full_training_brdt_competitiveness"
+      ],
+      "notes": {
+        "paper_label": "SRU-Net",
+        "architecture": "hybrid_resnet",
+        "input_mode": "sinogram",
+        "parameter_count": 142162,
+        "history_length": 40
+      }
     }
   ],
   "claim_boundary_registry": [
@@ -1363,6 +1844,13 @@
       "headline_status": "decision_support",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_ffno_generator_lines_best_config_summary.md",
       "source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet"
+    },
+    {
+      "claim_boundary": "paper_evidence_brdt_additive",
+      "pillar_id": "brdt",
+      "headline_status": "paper_approved_secondary",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+      "source_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence"
     }
   ],
   "provenance_gap_registry": [
@@ -1438,6 +1926,19 @@
       "blocked_claims": [
         "candidate_lane_not_promoted_into_required_evidence_package"
       ]
+    },
+    {
+      "section_id": "results_brdt_additive_secondary",
+      "draftability": "draftable_as_additive_secondary_only",
+      "supporting_status": "paper_approved_secondary",
+      "allowed_claims": [
+        "BRDT sinogram-input rows are additive secondary context bounded by paper_evidence_brdt_additive.",
+        "BRDT learned rows may anchor bounded efficiency/decision-support context without replacing CDI or CNS pillars."
+      ],
+      "blocked_claims": [
+        "brdt_replaces_cdi_or_cns_pillar",
+        "same_protocol_full_training_brdt_competitiveness"
+      ]
     }
   ],
   "blocked_claims": [
@@ -1464,6 +1965,18 @@
       "status": "blocked",
       "reason": "This item is repo-local only and must not populate /home/ollie/Documents/neurips/ yet.",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md"
+    },
+    {
+      "claim_id": "brdt_replaces_cdi_or_cns_pillar",
+      "status": "blocked",
+      "reason": "BRDT remains additive secondary context only; it does not replace the required CDI or CNS pillars.",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md"
+    },
+    {
+      "claim_id": "same_protocol_full_training_brdt_competitiveness",
+      "status": "blocked",
+      "reason": "The BRDT lane is bounded by paper_evidence_brdt_additive and does not authorize same-protocol full-training competitiveness claims.",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md"
     }
   ]
 }

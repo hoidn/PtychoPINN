@@ -30,6 +30,7 @@ STATUS_VOCABULARY = {
     "full_training": "Evidence proves a same-protocol full-training benchmark lane rather than a capped substitute.",
     "capped_decision_support": "Evidence is coherent and manuscript-usable only with explicit bounded capped wording.",
     "decision_support": "Evidence is useful for local comparison or continuity context but is not a current headline authority.",
+    "paper_approved_secondary": "Evidence is approved additive secondary manuscript context with its own claim boundary; it does not replace the primary CDI/CNS pillars.",
     "blocked": "A required row or claim cannot be promoted under the present authority set.",
     "not_protocol_compatible": "A result exists but cannot be used as the same-contract production answer for this paper lane.",
 }
@@ -118,6 +119,10 @@ def build_default_input_manifest(repo_root: Path | str) -> dict[str, Any]:
     cns_historical_bundle_root = (
         ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle"
     )
+    brdt_root = (
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/"
+        "2026-05-07-brdt-sinogram-input-40ep-paper-evidence"
+    )
     artifact_root = DEFAULT_AUDIT_ARTIFACT_ROOT
     manifest_path = DEFAULT_MANIFEST_PATH
     summary_path = DEFAULT_SUMMARY_PATH
@@ -184,6 +189,30 @@ def build_default_input_manifest(repo_root: Path | str) -> dict[str, Any]:
             "historical_bundle_summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_table_figure_bundle_summary.md",
             "historical_locked_rows_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/cns_paper_locked_rows.json",
             "historical_bundle_root": cns_historical_bundle_root,
+        },
+        "brdt": {
+            "lane_id": "brdt_sinogram_input_40ep",
+            "summary_path": (
+                "docs/plans/NEURIPS-HYBRID-RESNET-2026/"
+                "brdt_sinogram_input_40ep_paper_evidence_summary.md"
+            ),
+            "authoritative_root": brdt_root,
+            "paper_evidence_gate_path": f"{brdt_root}/paper_evidence_gate.json",
+            "combined_manifest_path": f"{brdt_root}/combined_manifest.json",
+            "visual_manifest_path": f"{brdt_root}/visual_manifest.json",
+            "metrics_path": f"{brdt_root}/metrics.json",
+            "run_exit_status_path": f"{brdt_root}/run_exit_status.json",
+            "runtime_provenance_path": f"{brdt_root}/runtime_provenance.json",
+            "expected_claim_boundary": "paper_evidence_brdt_additive",
+            "expected_promotion_status": "passed",
+            "expected_learned_row_ids": ["ffno", "sru_net"],
+            "expected_epochs": 40,
+            "historical_lineage_roots": [
+                ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/"
+                "2026-05-05-brdt-supervised-born-40ep-paper-evidence",
+                ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/"
+                "2026-05-06-brdt-corrected-ffno-40ep-rerun",
+            ],
         },
         "index_surfaces": {
             "paper_evidence_index_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -679,6 +708,195 @@ def load_cns_authority(cns_inputs: dict[str, Any], *, repo_root: Path) -> dict[s
     }
 
 
+def _normalize_brdt_row(
+    row_payload: dict[str, Any],
+    *,
+    brdt_inputs: dict[str, Any],
+    headline_row_ids: list[str],
+) -> dict[str, Any]:
+    row_id = str(row_payload["row_id"])
+    runtime = row_payload.get("runtime", {})
+    extras = runtime.get("extras", {}) if isinstance(runtime, dict) else {}
+    is_headline = row_id in headline_row_ids
+    authoritative_root = brdt_inputs["authoritative_root"]
+    return {
+        "pillar_id": "brdt",
+        "artifact_kind": "benchmark_row",
+        "artifact_id": f"brdt:{row_id}",
+        "row_id": row_id,
+        "row_role": "additive_secondary" if is_headline else "non_learned_reference",
+        "row_status": "paper_approved_secondary" if is_headline else "decision_support",
+        "claim_boundary": "paper_evidence_brdt_additive",
+        "evidence_tier": "paper_approved_secondary" if is_headline else "decision_support",
+        "source_summary": brdt_inputs["summary_path"],
+        "source_root": authoritative_root,
+        "metric_schema": {
+            "path": brdt_inputs["metrics_path"],
+            "schema_version": "brdt_preflight_metrics_v1",
+        },
+        "table_artifacts": [
+            brdt_inputs["metrics_path"],
+            f"{authoritative_root}/metrics.csv",
+            f"{authoritative_root}/combined_metrics.json",
+            f"{authoritative_root}/combined_metrics.csv",
+            f"{authoritative_root}/convergence_audit.json",
+            f"{authoritative_root}/convergence_audit.csv",
+        ],
+        "figure_artifacts": [
+            f"{authoritative_root}/visuals/sample_0255_compare_q.png",
+            f"{authoritative_root}/visuals/sample_0255_error_q.png",
+            f"{authoritative_root}/visuals/sample_0255_sinogram_residual.png",
+            f"{authoritative_root}/figures/source_arrays",
+        ],
+        "source_array_roots": [f"{authoritative_root}/figures/source_arrays"],
+        "provenance_gaps": [],
+        "draftability": "draftable_as_additive_secondary_only",
+        "blocked_claims": [
+            "brdt_replaces_cdi_or_cns_pillar",
+            "same_protocol_full_training_brdt_competitiveness",
+        ],
+        "notes": {
+            "paper_label": row_payload.get("paper_label"),
+            "architecture": row_payload.get("architecture"),
+            "input_mode": (extras or {}).get("input_mode"),
+            "parameter_count": runtime.get("parameter_count") if isinstance(runtime, dict) else None,
+            "history_length": (extras or {}).get("history_length"),
+        },
+    }
+
+
+def load_brdt_authority(brdt_inputs: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
+    summary_text = _read_text(repo_root, brdt_inputs["summary_path"])
+    authoritative_root = brdt_inputs["authoritative_root"]
+    if authoritative_root not in summary_text:
+        raise ValueError(
+            f"BRDT summary does not name authoritative root {authoritative_root}"
+        )
+
+    _assert_paths_match_authoritative_root(
+        repo_root=repo_root,
+        authoritative_root=authoritative_root,
+        path_values={
+            "paper_evidence_gate_path": brdt_inputs["paper_evidence_gate_path"],
+            "combined_manifest_path": brdt_inputs["combined_manifest_path"],
+            "visual_manifest_path": brdt_inputs["visual_manifest_path"],
+            "metrics_path": brdt_inputs["metrics_path"],
+            "run_exit_status_path": brdt_inputs["run_exit_status_path"],
+            "runtime_provenance_path": brdt_inputs["runtime_provenance_path"],
+        },
+        pillar_label="BRDT",
+    )
+
+    gate = _load_json(repo_root, brdt_inputs["paper_evidence_gate_path"])
+    combined_manifest = _load_json(repo_root, brdt_inputs["combined_manifest_path"])
+    visual_manifest = _load_json(repo_root, brdt_inputs["visual_manifest_path"])
+    metrics_payload = _load_json(repo_root, brdt_inputs["metrics_path"])
+    run_exit_status = _load_json(repo_root, brdt_inputs["run_exit_status_path"])
+
+    expected_claim = brdt_inputs["expected_claim_boundary"]
+    expected_status = brdt_inputs["expected_promotion_status"]
+    expected_learned = list(brdt_inputs["expected_learned_row_ids"])
+    expected_epochs = int(brdt_inputs["expected_epochs"])
+
+    gate_claim_values = {
+        str(gate.get("claim_boundary")),
+        str(combined_manifest.get("claim_boundary")),
+        str(visual_manifest.get("claim_boundary")),
+        str(metrics_payload.get("claim_boundary")),
+    }
+    if gate_claim_values != {expected_claim}:
+        raise ValueError(
+            "BRDT source disagreement on claim boundary: "
+            f"{sorted(gate_claim_values)}"
+        )
+    if str(gate.get("promotion_status")) != expected_status:
+        raise ValueError(
+            f"BRDT promotion_status is not {expected_status!r}: {gate.get('promotion_status')!r}"
+        )
+    if list(gate.get("failed_gate_checks", [])):
+        raise ValueError(
+            f"BRDT gate has failed checks: {gate.get('failed_gate_checks')!r}"
+        )
+    if int(run_exit_status.get("exit_code", -1)) != 0:
+        raise ValueError(
+            f"BRDT run_exit_status.exit_code is not 0: {run_exit_status.get('exit_code')!r}"
+        )
+
+    gate_rows = gate.get("rows", {}) or {}
+    for row_id in expected_learned:
+        row_entry = gate_rows.get(row_id)
+        if not isinstance(row_entry, dict):
+            raise ValueError(f"BRDT gate missing learned row {row_id!r}")
+        if str(row_entry.get("row_status")) != "completed":
+            raise ValueError(
+                f"BRDT learned row {row_id!r} not completed: {row_entry.get('row_status')!r}"
+            )
+        if int(row_entry.get("history_records", -1)) != expected_epochs:
+            raise ValueError(
+                f"BRDT learned row {row_id!r} did not write {expected_epochs} history records: "
+                f"{row_entry.get('history_records')!r}"
+            )
+        if not bool(row_entry.get("scheduler_matches_contract")):
+            raise ValueError(
+                f"BRDT learned row {row_id!r} scheduler does not match contract"
+            )
+
+    metrics_rows = metrics_payload.get("rows", []) or []
+    metric_row_ids = [str(row.get("row_id")) for row in metrics_rows]
+    combined_row_ids = [str(row.get("row_id")) for row in combined_manifest.get("rows", [])]
+    visual_row_ids = list(visual_manifest.get("rows_present", []))
+    if set(metric_row_ids) != set(combined_row_ids) or set(metric_row_ids) != set(visual_row_ids):
+        raise ValueError(
+            "BRDT source disagreement on row roster: "
+            f"metrics={sorted(metric_row_ids)} combined={sorted(combined_row_ids)} "
+            f"visuals={sorted(visual_row_ids)}"
+        )
+    for required_row in (*expected_learned, "classical_born_backprop"):
+        if required_row not in metric_row_ids:
+            raise ValueError(f"BRDT metrics missing required row {required_row!r}")
+
+    row_registry = [
+        _normalize_brdt_row(row, brdt_inputs=brdt_inputs, headline_row_ids=expected_learned)
+        for row in metrics_rows
+    ]
+    headline_rows = [row for row in row_registry if row["row_role"] == "additive_secondary"]
+    reference_rows = [row for row in row_registry if row["row_role"] != "additive_secondary"]
+
+    return {
+        "pillar_id": "brdt",
+        "lane_id": brdt_inputs["lane_id"],
+        "headline_status": "paper_approved_secondary",
+        "bundle_status": str(gate.get("promotion_status")),
+        "claim_boundary": expected_claim,
+        "headline_role": "additive_secondary_brdt_sinogram_input_40ep",
+        "headline_row_ids": [row["row_id"] for row in headline_rows],
+        "headline_rows": headline_rows,
+        "reference_rows": reference_rows,
+        "rows": row_registry,
+        "source_summary": brdt_inputs["summary_path"],
+        "source_root": authoritative_root,
+        "table_artifacts": [
+            brdt_inputs["metrics_path"],
+            f"{authoritative_root}/metrics.csv",
+            f"{authoritative_root}/combined_metrics.json",
+            f"{authoritative_root}/combined_metrics.csv",
+            f"{authoritative_root}/convergence_audit.json",
+            f"{authoritative_root}/convergence_audit.csv",
+        ],
+        "figure_artifacts": [
+            f"{authoritative_root}/visuals/sample_0255_compare_q.png",
+            f"{authoritative_root}/visuals/sample_0255_error_q.png",
+            f"{authoritative_root}/visuals/sample_0255_sinogram_residual.png",
+        ],
+        "historical_lineage_roots": list(brdt_inputs.get("historical_lineage_roots", [])),
+        "provenance_gaps": [],
+        "blocked_claims": [
+            "brdt_replaces_cdi_or_cns_pillar",
+            "same_protocol_full_training_brdt_competitiveness",
+        ],
+    }
+
+
 def _build_claim_boundary_registry(manifest: dict[str, Any]) -> list[dict[str, Any]]:
     cdi = manifest["pillar_summaries"]["cdi"]
     cns = manifest["pillar_summaries"]["cns"]
@@ -706,6 +924,18 @@ def _build_claim_boundary_registry(manifest: dict[str, Any]) -> list[dict[str, A
                 "headline_status": context["row_status"],
                 "source_summary": context["summary_path"],
                 "source_root": context["source_root"],
+            }
+        )
+    additive = manifest.get("additive_secondary_authorities", {})
+    brdt = additive.get("brdt") if isinstance(additive, dict) else None
+    if brdt:
+        registry.append(
+            {
+                "claim_boundary": brdt["claim_boundary"],
+                "pillar_id": "brdt",
+                "headline_status": brdt["headline_status"],
+                "source_summary": brdt["source_summary"],
+                "source_root": brdt["source_root"],
             }
         )
     return registry
@@ -769,11 +999,24 @@ def _build_draftability_matrix(manifest: dict[str, Any]) -> list[dict[str, Any]]
             "allowed_claims": [],
             "blocked_claims": ["candidate_lane_not_promoted_into_required_evidence_package"],
         },
+        {
+            "section_id": "results_brdt_additive_secondary",
+            "draftability": "draftable_as_additive_secondary_only",
+            "supporting_status": "paper_approved_secondary",
+            "allowed_claims": [
+                "BRDT sinogram-input rows are additive secondary context bounded by paper_evidence_brdt_additive.",
+                "BRDT learned rows may anchor bounded efficiency/decision-support context without replacing CDI or CNS pillars.",
+            ],
+            "blocked_claims": [
+                "brdt_replaces_cdi_or_cns_pillar",
+                "same_protocol_full_training_brdt_competitiveness",
+            ],
+        },
     ]
 
 
 def _build_blocked_claims(manifest: dict[str, Any]) -> list[dict[str, Any]]:
-    return [
+    entries = [
         {
             "claim_id": "same_protocol_full_training_cns_competitiveness",
             "status": "blocked",
@@ -799,6 +1042,26 @@ def _build_blocked_claims(manifest: dict[str, Any]) -> list[dict[str, Any]]:
             "source_summary": manifest["pillar_summaries"]["cdi"]["source_summary"],
         },
     ]
+    additive = manifest.get("additive_secondary_authorities", {})
+    brdt = additive.get("brdt") if isinstance(additive, dict) else None
+    if brdt:
+        entries.extend(
+            [
+                {
+                    "claim_id": "brdt_replaces_cdi_or_cns_pillar",
+                    "status": "blocked",
+                    "reason": "BRDT remains additive secondary context only; it does not replace the required CDI or CNS pillars.",
+                    "source_summary": brdt["source_summary"],
+                },
+                {
+                    "claim_id": "same_protocol_full_training_brdt_competitiveness",
+                    "status": "blocked",
+                    "reason": "The BRDT lane is bounded by paper_evidence_brdt_additive and does not authorize same-protocol full-training competitiveness claims.",
+                    "source_summary": brdt["source_summary"],
+                },
+            ]
+        )
+    return entries
 
 
 def build_manifest(inputs: dict[str, Any], *, repo_root: Path | str) -> dict[str, Any]:
@@ -809,7 +1072,10 @@ def build_manifest(inputs: dict[str, Any], *, repo_root: Path | str) -> dict[str
 
     cdi = load_cdi_authority(inputs["cdi"], repo_root=repo_root)
     cns = load_cns_authority(inputs["cns"], repo_root=repo_root)
-    row_registry = cdi["headline_rows"] + cns["headline_rows"] + cns["continuity_rows"]
+    brdt = load_brdt_authority(inputs["brdt"], repo_root=repo_root)
+    row_registry = (
+        cdi["headline_rows"] + cns["headline_rows"] + cns["continuity_rows"] + brdt["rows"]
+    )
 
     manifest = {
         "generated_at_utc": _now_utc(),
@@ -818,9 +1084,11 @@ def build_manifest(inputs: dict[str, Any], *, repo_root: Path | str) -> dict[str
         "authoritative_inputs": {
             "cdi": deepcopy(inputs["cdi"]),
             "cns": deepcopy(inputs["cns"]),
+            "brdt": deepcopy(inputs["brdt"]),
             "index_surfaces": deepcopy(inputs["index_surfaces"]),
         },
         "pillar_summaries": {"cdi": cdi, "cns": cns},
+        "additive_secondary_authorities": {"brdt": brdt},
         "row_registry": row_registry,
         "claim_boundary_registry": [],
         "provenance_gap_registry": [],
@@ -844,6 +1112,8 @@ def validate_manifest(manifest: dict[str, Any]) -> dict[str, bool]:
         outputs["summary_path"],
         *outputs["verification_logs"].values(),
     ]
+    additive = manifest.get("additive_secondary_authorities", {}) or {}
+    brdt = additive.get("brdt") if isinstance(additive, dict) else None
     status_values = {
         manifest["pillar_summaries"]["cdi"]["headline_status"],
         manifest["pillar_summaries"]["cns"]["headline_status"],
@@ -851,6 +1121,9 @@ def validate_manifest(manifest: dict[str, Any]) -> dict[str, bool]:
         *(context["status"] for context in manifest["pillar_summaries"]["cns"]["adjacent_context"]),
         *(entry["status"] for entry in manifest["blocked_claims"]),
     }
+    if brdt:
+        status_values.add(brdt["headline_status"])
+        status_values.update(row["row_status"] for row in brdt["rows"])
     return {
         "cdi_headline_is_paper_grade": manifest["pillar_summaries"]["cdi"]["headline_status"] == "paper_grade",
         "cns_headline_is_capped_decision_support": (
@@ -863,6 +1136,14 @@ def validate_manifest(manifest: dict[str, Any]) -> dict[str, bool]:
             context["row_status"] != "paper_grade"
             for context in manifest["pillar_summaries"]["cdi"]["adjacent_context"]
         ),
+        "brdt_additive_authority_present": bool(brdt),
+        "brdt_headline_is_paper_approved_secondary": (
+            bool(brdt) and brdt["headline_status"] == "paper_approved_secondary"
+        ),
+        "brdt_does_not_replace_pillars": all(
+            pillar["headline_status"] != "paper_approved_secondary"
+            for pillar in manifest["pillar_summaries"].values()
+        ),
         "all_statuses_within_frozen_vocabulary": status_values <= set(manifest["status_vocabulary"]),
         "no_output_targets_under_neurips": not any(path.startswith(str(NEURIPS_MANUSCRIPT_ROOT)) for path in output_values),
     }
@@ -872,6 +1153,7 @@ def render_audit_summary(manifest: dict[str, Any]) -> str:
     cdi = manifest["pillar_summaries"]["cdi"]
     cns = manifest["pillar_summaries"]["cns"]
     cns_inputs = manifest["authoritative_inputs"]["cns"]
+    brdt = manifest.get("additive_secondary_authorities", {}).get("brdt")
     outputs = manifest["output_targets"]
     adjacent_cdi_lines = "\n".join(
         f"- `{context['artifact_id']}`: `{context['row_status']}` under `{context['claim_boundary']}` from `{context['source_root']}`."
@@ -908,6 +1190,8 @@ def render_audit_summary(manifest: dict[str, Any]) -> str:
 - CNS bundle status: `{cns['bundle_status']}` reflects table/figure assembly completeness only; it does not upgrade the pillar beyond `{cns['headline_status']}`.
 - CNS larger-cap capped context preserved for provenance: `{cns['larger_cap_context']['bundle_root']}` (summary `{cns['larger_cap_context']['summary_path']}`) under the same capped claim boundary; it is no longer the current manuscript headline.
 - Historical CNS fallback bundle preserved for provenance: `{cns_inputs['historical_bundle_root']}` under the same capped claim boundary; it is no longer the current discoverability target.
+- BRDT additive secondary authority: `{brdt['headline_status']}` under `{brdt['claim_boundary']}` from `{brdt['source_root']}` (summary `{brdt['source_summary']}`, lane `{brdt['lane_id']}`). Headline learned rows: `{', '.join(brdt['headline_row_ids'])}`.
+- BRDT historical lineage preserved for provenance only: {', '.join(f"`{root}`" for root in brdt['historical_lineage_roots'])}. These remain valid only for the older `born_init_image` contract and must not source `paper_evidence_brdt_additive` claims.
 - No outputs from this item target `/home/ollie/Documents/neurips/`; all emitted paths stay repo-local.
 
 ## Emitted Outputs
@@ -923,6 +1207,7 @@ Verification logs:
 - The CDI pillar is draftable now as the current paper-grade anchor because the complete six-row Lines128 bundle is the headline authority.
 - The CNS pillar is draftable only with bounded capped wording because every current headline row remains `{cns['headline_status']}`.
 - Cross-pillar manuscript language is draftable only if it keeps the asymmetry explicit: paper-grade CDI anchor plus bounded capped CNS support.
+- BRDT context is draftable as additive secondary evidence only, bounded by `{brdt['claim_boundary']}`; it does not replace CDI `lines128` or PDEBench CNS.
 - full-training CNS competitiveness claims remain blocked.
 
 {draftability_lines}
@@ -941,13 +1226,21 @@ Verification logs:
 
 - `hybrid_resnet_cns`: continuity/support only under the same capped contract.
 {cns_adjacent_lines}
+
+### Additive Secondary BRDT Context
+
+- Authority: `{brdt['lane_id']}` under `{brdt['claim_boundary']}` from `{brdt['source_root']}` (summary `{brdt['source_summary']}`).
+- Headline learned rows: {', '.join(f"`{row_id}`" for row_id in brdt['headline_row_ids'])}; non-learned reference rows: {', '.join(f"`{row['row_id']}`" for row in brdt['reference_rows']) or 'none'}.
+- Historical `born_init_image` lineage preserved for provenance only: {', '.join(f"`{root}`" for root in brdt['historical_lineage_roots'])}.
+- BRDT remains additive secondary evidence and does not promote past `paper_approved_secondary`.
 """
 
 
 def validate_summary_sync(manifest: dict[str, Any], summary_text: str) -> dict[str, bool]:
     cdi = manifest["pillar_summaries"]["cdi"]
     cns = manifest["pillar_summaries"]["cns"]
-    return {
+    brdt = manifest.get("additive_secondary_authorities", {}).get("brdt")
+    checks = {
         "cdi_root_present": cdi["source_root"] in summary_text,
         "cns_root_present": cns["source_root"] in summary_text,
         "cdi_status_present": cdi["headline_status"] in summary_text,
@@ -956,6 +1249,15 @@ def validate_summary_sync(manifest: dict[str, Any], summary_text: str) -> dict[s
             cdi["claim_boundary"] in summary_text and cns["claim_boundary"] in summary_text
         ),
     }
+    if brdt:
+        checks.update(
+            {
+                "brdt_root_present": brdt["source_root"] in summary_text,
+                "brdt_status_present": brdt["headline_status"] in summary_text,
+                "brdt_claim_boundary_present": brdt["claim_boundary"] in summary_text,
+            }
+        )
+    return checks
 
 
 def _write_summary(path: Path, summary_text: str) -> None:
