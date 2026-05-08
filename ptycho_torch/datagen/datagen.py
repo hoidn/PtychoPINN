@@ -199,6 +199,7 @@ def simulate_synthetic_objects(img_shape, data_config, nimages, obj_method, obj_
     
     hist = kwargs.get('histogram', None)
     stats = kwargs.get('stats', None)
+    patch_N = data_config.N
 
     #Select procedural generation method
     if obj_method == 'dead_leaves':
@@ -208,26 +209,26 @@ def simulate_synthetic_objects(img_shape, data_config, nimages, obj_method, obj_
     elif obj_method == 'polyhedra':
         obj_func = create_complex_polyhedra
     elif obj_method == 'white_noise':
-        obj_func = partial(create_white_noise_object, obj_arg = obj_arg)
+        obj_func = partial(create_white_noise_object, obj_arg = obj_arg, N=patch_N)
     elif obj_method == 'simplex_noise':
         obj_func = create_simplex_noise_object
     elif obj_method == 'blurred_white_noise':
         obj_arg['blur'] = True
-        obj_func = partial(create_white_noise_object, obj_arg = obj_arg)
+        obj_func = partial(create_white_noise_object, obj_arg = obj_arg, N=patch_N)
     elif obj_method == 'dead_leaves_reim':
-        obj_func = partial(create_dead_leaves_v3, obj_arg=obj_arg, histogram = hist)
+        obj_func = partial(create_dead_leaves_v3, obj_arg=obj_arg, histogram = hist, N=patch_N)
     elif obj_method == 'dead_leaves_reim_hist':
-        obj_func = partial(create_dead_leaves_v3, obj_arg=obj_arg, histogram = hist)
+        obj_func = partial(create_dead_leaves_v3, obj_arg=obj_arg, histogram = hist, N=patch_N)
     elif obj_method == 'dead_leaves_constrained':
-        obj_func = partial(create_dead_leaves_v3, obj_arg=obj_arg, histogram = hist)
+        obj_func = partial(create_dead_leaves_v3, obj_arg=obj_arg, histogram = hist, N=patch_N)
     elif obj_method == 'dead_leaves_reim_uniform':
-        obj_func = partial(create_dead_leaves_v3, obj_arg=obj_arg, histogram = hist)
+        obj_func = partial(create_dead_leaves_v3, obj_arg=obj_arg, histogram = hist, N=patch_N)
     elif obj_method == 'perlin_reim':
-        obj_func = partial(create_perlin_reim, obj_arg=obj_arg, stats = stats)
+        obj_func = partial(create_perlin_reim, obj_arg=obj_arg, stats = stats, N=patch_N)
     elif obj_method == 'dead_leaves_reim_gmm':
-        obj_func = partial(create_dead_leaves_reim_gmm, obj_arg=obj_arg)
+        obj_func = partial(create_dead_leaves_reim_gmm, obj_arg=obj_arg, N=patch_N)
     elif obj_method == 'white_noise_clustered':
-        obj_func = partial(create_white_noise_clustered_reim, obj_arg=obj_arg)
+        obj_func = partial(create_white_noise_clustered_reim, obj_arg=obj_arg, N=patch_N)
 
     #Create list
     obj_list = []
@@ -339,7 +340,7 @@ def generate_simulated_data(objectGuess, probeGuess, nimages,
     # Generate simulated data
     print("Beginning simulation...")
     raw_data = from_simulation(xcoords, ycoords, probeGuess, objectGuess,
-                               data_config, probe_arg, scan_index, batch_size = 3000)
+                               data_config, probe_arg, scan_index, batch_size = 1000)
 
     return raw_data
 

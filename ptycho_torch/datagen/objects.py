@@ -18,8 +18,23 @@ from scipy.ndimage import gaussian_filter # For blurring the 2D noise
 from perlin_noise import PerlinNoise
 from scipy.spatial.transform import Rotation # For 3D rotations
 import random
-import cv2
 from sklearn.mixture import GaussianMixture
+
+_REF_N = 64
+
+def _pixel_scale(N):
+    return N / _REF_N
+
+
+def _import_cv2():
+    try:
+        import cv2
+        return cv2
+    except ImportError:
+        raise ImportError(
+            "opencv-python is required for synthetic data generation. "
+            "Install it with: pip install ptychopinn[datagen]"
+        ) from None
 
 
 # Function to handle safe normalization per image in a batch
@@ -89,23 +104,24 @@ def _normalize_np(array, epsilon=1e-7):
     
 ## Noise functions
 
-def create_white_noise_object(img_shape, obj_arg):
+def create_white_noise_object(img_shape, obj_arg, N=_REF_N):
     """
     Generates a complex object from white noise with material parameters.
-    
+
     Args:
         img_shape (tuple): Shape (H, W) for the output object
-        
+
     Returns:
         np.ndarray: Complex-valued white noise object
     """
     blur = obj_arg['blur']
     # Generate white noise base map [0, 1]
     base_noise = np.random.uniform(0, 1, size=img_shape).astype(np.float32)
-    
+
     # Apply small amount of blur for smoother transitions
     if blur:
-        blur_sigma = np.random.uniform(2.0, 3.0)
+        s = _pixel_scale(N)
+        blur_sigma = np.random.uniform(2.0, 3.0) * s
         base_noise = gaussian_filter(base_noise, sigma=blur_sigma)
     
     # Renormalize after blur
@@ -125,7 +141,7 @@ def create_white_noise_object(img_shape, obj_arg):
     return obj
 
 
-def create_white_noise_clustered_reim(img_shape, obj_arg):
+def create_white_noise_clustered_reim(img_shape, obj_arg, N=_REF_N):
     """
     Generate a complex object by quantizing blurred white noise to GMM clusters.
 
@@ -160,6 +176,7 @@ def create_white_noise_clustered_reim(img_shape, obj_arg):
     -------
     np.ndarray : complex64 object of shape img_shape
     """
+    cv2 = _import_cv2()
     rng = np.random.default_rng()
 
     # --- Get or fit GMM parameters ---
@@ -173,8 +190,11 @@ def create_white_noise_clustered_reim(img_shape, obj_arg):
 
     means = gmm_params['means']
 
+    # --- Scale pixel-based params to maintain relative feature size ---
+    s = _pixel_scale(N)
+
     # --- Generate blurred noise fields ---
-    blur_sigma = obj_arg.get('blur', 2.0)
+    blur_sigma = obj_arg.get('blur', 2.0) * s
     re_noise = np.random.uniform(-1.2, 1.2, size=img_shape).astype(np.float32)
     im_noise = np.random.uniform(-1.2, 1.2, size=img_shape).astype(np.float32)
 
@@ -197,11 +217,11 @@ def create_white_noise_clustered_reim(img_shape, obj_arg):
         cluster_weights=gmm_params['weights'],
         amp_std_scale=obj_arg.get('amp_std_scale', 1.0),
         phase_std_scale=obj_arg.get('phase_std_scale', 1.3), #2.0 TP2
-        texture_scale=obj_arg.get('texture_scale', 2.5),
+        texture_scale=obj_arg.get('texture_scale', 2.5) * s,
     )
 
     # --- Optional light final blur for smoother transitions ---
-    final_blur = obj_arg.get('final_blur', 0.1)
+    final_blur = obj_arg.get('final_blur', 0.1) * s
     if final_blur > 0:
         real_q = cv2.GaussianBlur(real_q, (0, 0), final_blur)
         imag_q = cv2.GaussianBlur(imag_q, (0, 0), final_blur)
@@ -512,7 +532,16 @@ def generate_base_map_shapes_perlin_layers(
     base = np.random.uniform(background_level_range[0], background_level_range[1], size=shape).astype(float)
     max_dim = max(shape)
     scaling_factor = shape[0]/256 #Initial number of objects scaled to 256 pixels
-    # yy, xx = np.indices(shape) # Only needed if gaussian_2d were used
+
+    # Scale pixel-based blur/radius params to maintain relative feature size
+    max_layer_blur_sigma *= scaling_factor
+    max_final_global_blur_sigma *= scaling_factor
+    blur_perlin_noise_sigma_range = (blur_perlin_noise_sigma_range[0] * scaling_factor,
+                                     blur_perlin_noise_sigma_range[1] * scaling_factor)
+    gauss_blob_radius_range = (gauss_blob_radius_range[0] * scaling_factor,
+                               gauss_blob_radius_range[1] * scaling_factor)
+    gauss_blob_blur_sigma_range = (gauss_blob_blur_sigma_range[0] * scaling_factor,
+                                   gauss_blob_blur_sigma_range[1] * scaling_factor)
 
     current_shape_types = list(shape_types)
     if shuffle_layer_order:
@@ -610,8 +639,7 @@ def generate_base_map_shapes_perlin_layers(
                 # --- NEW: Handle 'gauss_blob' by drawing disks ---
                 elif shape_type == 'gauss_blob':
                     center_r, center_c = np.random.randint(0, shape[0]), np.random.randint(0, shape[1])
-                    radius = np.random.randint(gauss_blob_radius_range[0], gauss_blob_radius_range[1] + 1)
-                    radisu *= scaling_factor
+                    radius = np.random.randint(int(gauss_blob_radius_range[0]), int(gauss_blob_radius_range[1]) + 1)
                     rr, cc = disk((center_r, center_c), radius, shape=shape)
                     if rr.size > 0:
                          instance_mask[rr, cc] = True
@@ -1158,6 +1186,7 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
                        thickness,
                        min_phase, max_phase,
                        min_amp, max_amp):
+    cv2 = _import_cv2()
     # --- Initialize Canvases ---
     # These will store the material properties (beta, delta) of the TOPMOST leaf at each pixel
     beta_map = np.zeros((res, res), dtype=np.float32)
@@ -1309,7 +1338,6 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
 
 ## BEta features
 import numpy as np
-import cv2
 from typing import Tuple, Optional, Union, List
 
 def create_density_centered_histogram(
@@ -1514,9 +1542,10 @@ def create_density_histogram_reim(
 
 def fit_gmm_from_objects(
     objects: Union[np.ndarray, List[np.ndarray]],
-    n_clusters: Union[int, str] = 10, #used to be auto
+    n_clusters: Union[int, str] = 'auto',
     max_clusters: int = 8,
     subsample: int = 80000,
+    origin_mask_radius: float = 0.4,
 ) -> dict:
     """
     Fit a Gaussian Mixture Model to the (Re, Im) point cloud of complex objects.
@@ -1552,7 +1581,7 @@ def fit_gmm_from_objects(
 
     points = np.column_stack([all_re, all_im]).astype(np.float64)
 
-    origin_mask = np.sqrt(all_re**2 + all_im **2) < 0.4
+    origin_mask = np.sqrt(all_re**2 + all_im**2) < origin_mask_radius
     points = points[~origin_mask,:]
 
 
@@ -1606,7 +1635,10 @@ def fit_gmm_from_objects(
 def _perturb_gmm_config(
     gmm_params: dict,
     rng: np.random.Generator,
+    perturbation_mode: str = 'physical',
     rotation_range: Tuple[float, float] = (0.0, 2 * np.pi),
+    phase_jitter_std: float = 0.1,
+    amplitude_scale_std: float = 0.03,
     center_jitter_std: float = 0.05,
     weight_dirichlet_conc: float = 5.0,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -1618,8 +1650,16 @@ def _perturb_gmm_config(
     gmm_params : dict
         Output of fit_gmm_from_objects().
     rng : np.random.Generator
+    perturbation_mode : str
+        'physical' (default): small phase jitter around origin + amplitude
+        scaling, preserving the physical Re-Im structure.
+        'rotation': legacy mode with full rotation around centroid.
     rotation_range : tuple (lo, hi)
-        Global rotation angle sampled uniformly from this range.
+        Global rotation angle range (only used when perturbation_mode='rotation').
+    phase_jitter_std : float
+        Std dev of global phase offset in radians (perturbation_mode='physical').
+    amplitude_scale_std : float
+        Std dev of log-normal amplitude scaling (perturbation_mode='physical').
     center_jitter_std : float
         Per-center Gaussian jitter standard deviation.
     weight_dirichlet_conc : float
@@ -1637,24 +1677,38 @@ def _perturb_gmm_config(
     weights = gmm_params['weights'].copy()
     K = len(weights)
 
-    # --- Global rotation around centroid ---
-    alpha = rng.uniform(rotation_range[0], rotation_range[1])
-    c, s = np.cos(alpha), np.sin(alpha)
-    R = np.array([[c, -s], [s, c]])
+    if perturbation_mode == 'physical':
+        # --- Global phase shift (small rotation around origin) ---
+        delta_phase = rng.normal(0.0, phase_jitter_std)
+        c, s = np.cos(delta_phase), np.sin(delta_phase)
+        R = np.array([[c, -s], [s, c]])
+        means = (R @ means.T).T
+        for k in range(K):
+            covs[k] = R @ covs[k] @ R.T
 
-    centroid = np.average(means, axis=0, weights=weights)
-    means_centered = means - centroid
-    means = (R @ means_centered.T).T + centroid
+        # --- Amplitude scaling (radial from origin) ---
+        scale = np.exp(rng.normal(0.0, amplitude_scale_std))
+        means = means * scale
+        covs = covs * (scale ** 2)
 
-    # Rotate covariance matrices: Sigma' = R Sigma R^T
-    for k in range(K):
-        covs[k] = R @ covs[k] @ R.T
+    elif perturbation_mode == 'rotation':
+        # Legacy: full rotation around weighted centroid
+        alpha = rng.uniform(rotation_range[0], rotation_range[1])
+        c, s = np.cos(alpha), np.sin(alpha)
+        R = np.array([[c, -s], [s, c]])
+        centroid = np.average(means, axis=0, weights=weights)
+        means_centered = means - centroid
+        means = (R @ means_centered.T).T + centroid
+        for k in range(K):
+            covs[k] = R @ covs[k] @ R.T
+    else:
+        raise ValueError(f"Unknown perturbation_mode: {perturbation_mode!r}")
 
     # --- Per-center jitter ---
     means += rng.normal(0.0, center_jitter_std, size=means.shape)
 
     # --- Weight resampling via Dirichlet ---
-    alpha_dir = weight_dirichlet_conc * weights + 1e-6  # avoid zeros
+    alpha_dir = weight_dirichlet_conc * weights + 1e-6
     weights = rng.dirichlet(alpha_dir)
 
     # Recompute vacuum as the cluster closest to (1, 0) after perturbation
@@ -1872,6 +1926,7 @@ def _draw_random_leaf(
     max_extent : float
         Maximum extent of the shape from center (for coverage tracking).
     """
+    cv2 = _import_cv2()
     def sample_dim():
         return dim_min_px * np.power(1.0 + rng.uniform() * coef, 1.0 / beta)
 
@@ -1983,6 +2038,7 @@ def generate_dead_leaves_reim(
     """
     rng = np.random.default_rng(seed)
 
+    cv2 = _import_cv2()
     # Initialize canvas to vacuum
     real_map = np.full((height, width), vacuum_re, dtype=np.float32)
     imag_map = np.full((height, width), vacuum_im, dtype=np.float32)
@@ -2092,6 +2148,7 @@ def generate_dead_leaves_reim_histogram(
     imag_map : np.ndarray (height, width)
     num_leaves : int
     """
+    cv2 = _import_cv2()
     if material_hist is None:
         raise ValueError("material_hist is required for histogram-based generation")
 
@@ -2167,6 +2224,7 @@ def generate_dead_leaves_reim_gmm(
     max_iterations: int = 100000,
     coverage_threshold: float = 0.99,
     blur_sigma: float = 0.5,
+    clip_range: Tuple[float, float] = (-1.2, 1.2),
     seed: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray, int]:
     """
@@ -2207,6 +2265,7 @@ def generate_dead_leaves_reim_gmm(
     imag_map : np.ndarray (height, width)
     num_leaves : int
     """
+    cv2 = _import_cv2()
     rng = np.random.default_rng(seed)
 
     # Initialize canvas to vacuum
@@ -2249,13 +2308,13 @@ def generate_dead_leaves_reim_gmm(
             if cov_frac >= coverage_threshold:
                 break
 
-    # Post-processing: blur and clip to decoder output range [-1.2, 1.2]
+    # Post-processing: blur and clip
     if blur_sigma > 0:
         real_map = cv2.GaussianBlur(real_map, (0, 0), blur_sigma)
         imag_map = cv2.GaussianBlur(imag_map, (0, 0), blur_sigma)
 
-    real_map = np.clip(real_map, -1.2, 1.2)
-    imag_map = np.clip(imag_map, -1.2, 1.2)
+    real_map = np.clip(real_map, clip_range[0], clip_range[1])
+    imag_map = np.clip(imag_map, clip_range[0], clip_range[1])
 
     return real_map, imag_map, num_leaves
 
@@ -2386,7 +2445,8 @@ def generate_perlin_object_reim(
 def create_perlin_reim(
     img_shape: Tuple[int, int],
     obj_arg: dict,
-    stats: dict
+    stats: dict,
+    N: int = _REF_N,
 ) -> np.ndarray:
     """
     Wrapper for Perlin Re-Im object generation, matching the create_dead_leaves
@@ -2438,8 +2498,10 @@ def create_perlin_reim(
     im_std = stats.get('im_std', np.random.uniform(0.03, 0.1))
     correlation = stats.get('correlation', np.random.uniform(-0.93, 0.84))
 
-    # Perlin spatial parameters
-    scale_range = obj_arg.get('scale_range', (20.0, 100.0))
+    # Perlin spatial parameters — scale with N to keep relative feature size
+    s = _pixel_scale(N)
+    raw_scale_range = obj_arg.get('scale_range', (20.0, 100.0))
+    scale_range = (raw_scale_range[0] * s, raw_scale_range[1] * s)
     octaves_range = obj_arg.get('octaves_range', (4, 8))
     persistence_range = obj_arg.get('persistence_range', (0.4, 0.6))
     lacunarity_range = obj_arg.get('lacunarity_range', (1.8, 2.2))
@@ -2514,6 +2576,7 @@ def generate_dead_leaves_constrained_phase(
     phase_map : np.ndarray (height, width)
     num_leaves : int
     """
+    cv2 = _import_cv2()
     rng = np.random.default_rng(seed)
 
     if phase_center is None:
@@ -2575,6 +2638,7 @@ def create_dead_leaves_v3(
     img_shape: Tuple[int, int],
     obj_arg: dict,
     histogram: Optional[np.ndarray] = None,
+    N: int = _REF_N,
 ) -> np.ndarray:
     """
     Top-level dispatcher for Re-Im space dead leaves generation.
@@ -2612,9 +2676,11 @@ def create_dead_leaves_v3(
     """
     mode = obj_arg.get('mode', 'gaussian')
     height, width = img_shape[0], img_shape[1]
-    min_r = obj_arg.get('r_min', 1)
-    max_r = obj_arg.get('r_max', 20)
+    s = _pixel_scale(N)
+    min_r = obj_arg.get('r_min', 5) * s
+    max_r = obj_arg.get('r_max', 20) * s
     power = obj_arg.get('power_exponent', 2)
+    scaled_blur = obj_arg.get('blur_sigma', 0.5) * s
 
     if mode == 'gaussian':
         # Randomize bivariate Gaussian params within experimental ranges
@@ -2635,6 +2701,7 @@ def create_dead_leaves_v3(
             re_std=re_std, im_std=im_std,
             correlation=corr,
             vacuum_re=vac_re, vacuum_im=vac_im,
+            blur_sigma=scaled_blur,
         )
         obj = (real_map + 1j * imag_map).astype(np.complex64)
 
@@ -2653,6 +2720,7 @@ def create_dead_leaves_v3(
             material_hist=histogram,
             re_range=re_range, im_range=im_range,
             vacuum_re=vacuum_reim[0], vacuum_im=vacuum_reim[1],
+            blur_sigma=scaled_blur,
         )
         obj = (real_map + 1j * imag_map).astype(np.complex64)
 
@@ -2668,6 +2736,7 @@ def create_dead_leaves_v3(
             dimension_power_law_exponent=power,
             amplitude_min=amp_min, amplitude_max=amp_max,
             phase_center=phase_center, phase_width=phase_width,
+            blur_sigma=scaled_blur,
         )
         obj = (amp_map * np.exp(1j * phase_map)).astype(np.complex64)
 
@@ -2699,6 +2768,7 @@ def create_dead_leaves_v3(
 def create_dead_leaves_reim_gmm(
     img_shape: Tuple[int, int],
     obj_arg: dict,
+    N: int = _REF_N,
 ) -> np.ndarray:
     """
     Top-level dispatcher for GMM-based dead leaves generation in Re-Im space.
@@ -2718,15 +2788,19 @@ def create_dead_leaves_reim_gmm(
 
         Optional:
         - 'n_clusters': int or 'auto' (default 'auto')
-        - 'rotation_range': tuple (default (0, 2*pi))
+        - 'perturbation_mode': 'physical' or 'rotation' (default 'physical')
+        - 'phase_jitter_std': float (default 0.1) — phase perturbation in rad
+        - 'amplitude_scale_std': float (default 0.03) — log-normal scale std
+        - 'rotation_range': tuple (default (0, 2*pi)) — only for mode='rotation'
         - 'center_jitter_std': float (default 0.05)
         - 'weight_dirichlet_conc': float (default 5.0)
-        - 'r_min': float (default 2)
-        - 'r_max': float (default 30)
+        - 'r_min': float (default 1)
+        - 'r_max': float (default 20)
         - 'power_exponent': float (default 2)
         - 'max_iterations': int (default 100000)
         - 'coverage_threshold': float (default 0.99)
         - 'blur_sigma': float (default 0.5)
+        - 'clip_range': tuple (default (-1.2, 1.2))
 
     Returns
     -------
@@ -2745,24 +2819,32 @@ def create_dead_leaves_reim_gmm(
         gmm_params = fit_gmm_from_objects(ref_objects, n_clusters=n_clusters)
 
     # --- Perturb GMM for per-object variety ---
+    perturbation_mode = obj_arg.get('perturbation_mode', 'physical')
     rotation_range = obj_arg.get('rotation_range', (0.0, 2 * np.pi))
+    phase_jitter_std = obj_arg.get('phase_jitter_std', 0.1)
+    amplitude_scale_std = obj_arg.get('amplitude_scale_std', 0.03)
     center_jitter_std = obj_arg.get('center_jitter_std', 0.05)
     weight_dirichlet_conc = obj_arg.get('weight_dirichlet_conc', 5.0)
 
     means, covs, weights, vacuum_reim = _perturb_gmm_config(
         gmm_params, rng,
+        perturbation_mode=perturbation_mode,
         rotation_range=rotation_range,
+        phase_jitter_std=phase_jitter_std,
+        amplitude_scale_std=amplitude_scale_std,
         center_jitter_std=center_jitter_std,
         weight_dirichlet_conc=weight_dirichlet_conc,
     )
 
-    # --- Generate dead leaves ---
-    min_r = obj_arg.get('r_min', 1)
-    max_r = obj_arg.get('r_max', 20)
+    # --- Generate dead leaves (scale pixel params with N) ---
+    s = _pixel_scale(N)
+    min_r = obj_arg.get('r_min', 5) * s
+    max_r = obj_arg.get('r_max', 20) * s
     power = obj_arg.get('power_exponent', 2)
     max_iter = obj_arg.get('max_iterations', 100000)
     cov_thresh = obj_arg.get('coverage_threshold', 0.99)
-    blur = obj_arg.get('blur_sigma', 0.5)
+    blur = obj_arg.get('blur_sigma', 0.5) * s
+    clip_range = obj_arg.get('clip_range', (-1.2, 1.2))
 
     real_map, imag_map, n_leaves = generate_dead_leaves_reim_gmm(
         height=height, width=width,
@@ -2773,6 +2855,7 @@ def create_dead_leaves_reim_gmm(
         max_iterations=max_iter,
         coverage_threshold=cov_thresh,
         blur_sigma=blur,
+        clip_range=clip_range,
     )
 
     obj = (real_map + 1j * imag_map).astype(np.complex64)
@@ -2852,7 +2935,8 @@ def generate_dead_leaves_uniform(
     - Phase is sampled uniformly: φ = U(φ_min, φ_max)
     - Uses alpha blending with anti-aliased coverage masks for smooth edges
     """
-    
+    cv2 = _import_cv2()
+
     # Validate inputs
     if dim_min_px >= dim_max_px:
         raise ValueError('dim_min_px must be less than dim_max_px')
@@ -3085,6 +3169,7 @@ def generate_dead_leaves_uniform_reim(
     - Shape geometry and power-law dimension sampling are identical to
       generate_dead_leaves_uniform.
     """
+    cv2 = _import_cv2()
 
     # Validate inputs
     if dim_min_px >= dim_max_px:
@@ -3241,7 +3326,6 @@ def generate_dead_leaves_uniform_reim(
 
 ## New experimental stuff (02/10/2026)
 
-import cv2
 from scipy.spatial import Voronoi
 from typing import Tuple, Optional, List
 
@@ -3296,8 +3380,9 @@ def generate_hierarchical_constrained_object(
     seed: Optional[int] = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     
+    cv2 = _import_cv2()
     rng = np.random.default_rng(seed)
-    
+
     # --- 1. Sampling Helpers ---
     beta = 1.0 - dimension_power_law_exponent
     coef = np.power(dim_max_px / dim_min_px, beta) - 1.0
