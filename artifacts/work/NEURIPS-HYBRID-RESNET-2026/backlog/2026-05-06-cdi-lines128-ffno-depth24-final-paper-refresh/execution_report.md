@@ -4,7 +4,7 @@
 
 - Restored the on-disk 16-command checks ledger at
   `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
-  from HEAD (33rd iteration of this recurring restore). The file had again
+  from HEAD (34th iteration of this recurring restore). The file had again
   regressed to the 3-command workflow-default skeleton — exactly the
   republication regression flagged by the consumed implementation review's
   High finding. The restored file matches HEAD exactly
