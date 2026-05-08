@@ -1,0 +1,65 @@
+{
+  "data_config": {
+    "N": 128,
+    "normalize": "Batch",
+    "n_subsample": 1,
+    "C": 4,
+    "neighbor_function": "4_quadrant",
+    "probe_normalize": true,
+    "probe_scale": 1.0,
+    "probe_ramp_removal": false,
+    "x_bounds": [0.05, 0.95],
+    "y_bounds": [0.05, 0.95],
+    "min_neighbor_distance": 0.5,
+    "max_neighbor_distance": 8,
+    "K_quadrant": 60,
+    "scan_pattern": "Rectangular"
+  },
+  "model_config": {
+    "mode": "Unsupervised",
+    "intensity_scale_trainable": true,
+    "num_datasets": 4,
+    "object_big": true,
+    "probe_big": true,
+    "batch_norm": false,
+    "loss_function": "Poisson",
+    "amp_activation": "silu",
+    "amp_loss": null,
+    "amp_loss_coeff": 4.0,
+    "phase_loss": null,
+    "phase_loss_coeff": 1.0,
+    "amplitude_variance_loss": true,
+    "amplitude_variance_coeff": 1e4,
+    "decoder_last_c_outer_fraction": 0.125,
+    "decoder_last_amp_channels": 4,
+    "cbam_encoder": true,
+    "eca_decoder": false,
+    "use_shared_decoder": true
+  },
+  "training_config": {
+    "num_workers": 4,
+    "orchestrator": "Mlflow",
+    "learning_rate": 0.0001,
+    "n_devices": 2, 
+    "batch_size": 32,
+    "accum_steps": 4,
+    "scheduler": "Cosine",
+    "epochs_fine_tune": 0,
+    "fine_tune_gamma": 0.5,
+    "epochs": 40,
+    "gradient_clip_val": 1.0,
+    "experiment_name": "AMSC experiments"
+  },
+  "inference_config": {
+    "window": 20,
+    "batch_size": 400
+  },
+  "datagen_config": {
+    "object_class": "dead_leaves_reim_gmm",
+    "objects_per_probe": 4,
+    "gmm_n_clusters": "auto",
+    "perturbation_mode": "physical",
+    "phase_jitter_std": 0.1,
+    "amplitude_scale_std": 0.03
+  }
+}

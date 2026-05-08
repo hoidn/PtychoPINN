@@ -336,11 +336,11 @@ def get_fixed_quadrant_neighbors_c4(
         # # #Check failure conditiont
         # # #Check if center is the only value in at least 2 quadrants
         num_quads_with_only_center = sum(1 for quad in quad_order if len(quadrant_candidates[quad]) == 1)
-        if num_quads_with_only_center >= 2:
-            print(f"quadrant candidates TL: {quadrant_candidates['TL']}")
-            print(f"quadrant candidates TR: {quadrant_candidates['TR']}")
-            print(f"quadrant candidates BL: {quadrant_candidates['BL']}")
-            print(f"quadrant candidates BR: {quadrant_candidates['BR']}")
+        # if num_quads_with_only_center >= 2:
+            # print(f"quadrant candidates TL: {quadrant_candidates['TL']}")
+            # print(f"quadrant candidates TR: {quadrant_candidates['TR']}")
+            # print(f"quadrant candidates BL: {quadrant_candidates['BL']}")
+            # print(f"quadrant candidates BR: {quadrant_candidates['BR']}")
             # Allow two duplicate center points since this rarely happens
             #continue
         if not all(quadrant_candidates.values()):
