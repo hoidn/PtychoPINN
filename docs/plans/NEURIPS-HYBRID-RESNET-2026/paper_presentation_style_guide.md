@@ -84,10 +84,12 @@ For CDI qualitative figures:
 
 - Generate the main CDI qualitative figure from reconstruction arrays, not by
   cropping an existing PNG.
-- Use a phase-only main-panel version with a fixed center crop covering 50% of
-  each image dimension.
-- For supplemental full-field amplitude/phase grids, use separate row groups for
-  amplitude and phase.
+- Use amplitude and phase rows with a fixed center crop covering 50% of each
+  image dimension.
+- Use a shared target-anchored amplitude scale across all method columns.
+- Use the global circular phase alignment rule before displaying phase panels.
+- Keep the contrast-normalized phase-only version as a diagnostic alternate,
+  not as the main qualitative figure.
 - Use the same test samples across all models.
 - Use shared color limits for reconstructions within a row.
 - Use shared error color limits within an error-map row.
@@ -153,15 +155,16 @@ methods text.
 ### Teaser / Main Qualitative Figure
 
 ```latex
-% figure_metadata: task=CDI_lines128; display_channel=phase; crop_fraction=0.5; phase_alignment=global_circular_offset_to_gt_before_wrapping; phase_colormap=twilight; phase_display_scale=gt_crop_min_to_gt_crop_p99_after_alignment
+% figure_metadata: task=CDI_lines128; display_channels=amplitude,phase; crop_fraction=0.5; amplitude_display_scale=gt_crop_min_to_gt_crop_p99; phase_alignment=global_circular_offset_to_gt_before_wrapping; phase_colormap=twilight; phase_display_scale=gt_crop_min_to_gt_crop_p99_after_alignment
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{figures/cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet.png}
-\caption{\textbf{Phase reconstruction comparison on synthetically-generated diffraction data.}
-The cropped comparison shows ground truth, CNN+PINN, FNO+PINN, FFNO+PINN,
-U-NO+PINN, and SRU-Net+PINN under the same $N=128$ diffraction data protocol.
-Each prediction is aligned to the ground-truth phase by a single global
-circular offset before display.}
+\includegraphics[width=\linewidth]{figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet.png}
+\caption{\textbf{Amplitude and phase reconstruction comparison on
+synthetically-generated diffraction data.} The cropped comparison shows ground
+truth, CNN+PINN, FNO+PINN, FFNO+PINN, U-NO+PINN, and SRU-Net+PINN under the
+same $N=128$ diffraction data protocol. Amplitude panels share a
+target-anchored display scale, and each predicted phase is aligned to the
+ground-truth phase by a single global circular offset before display.}
 \label{fig:cdi_main_qualitative}
 \end{figure}
 ```
@@ -170,7 +173,8 @@ Suggested grid:
 
 | Row | Columns |
 | --- | --- |
-| Phase crop | Ground truth, CNN + PINN, FNO + PINN, FFNO-local proxy + PINN until the no-refiner rerun lands, U-NO + PINN, SRU-Net + PINN |
+| Amplitude crop | Ground truth, CNN + PINN, FNO + PINN, FFNO + PINN, U-NO + PINN, SRU-Net + PINN |
+| Phase crop | Ground truth, CNN + PINN, FNO + PINN, FFNO + PINN, U-NO + PINN, SRU-Net + PINN |
 
 Alternate contrast-normalized version:
 

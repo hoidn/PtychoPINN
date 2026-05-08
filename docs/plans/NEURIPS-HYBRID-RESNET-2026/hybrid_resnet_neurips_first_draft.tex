@@ -731,7 +731,7 @@ detector samples. We use it to test whether the CDI reconstruction network also
 works on a related wave inverse problem. We train SRU-Net and FFNO for 40
 epochs on the same
 2048/256/256 train/validation/test split, using Adam \cite{adam} with learning
-rate $2\times10^{-4}$, batch size 16, seed 42, and ReduceLROnPlateau scheduling.
+rate $2\times10^{-4}$, batch size 16, and ReduceLROnPlateau scheduling.
 Both learned models consume the measured complex sinogram directly, represented
 as real and imaginary channels on the fixed detector-angle grid. The
 model-based Born inverse remains a separate non-learned baseline in
@@ -817,15 +817,16 @@ protocol and CDI physics-consistency objective.}
 \resizebox{\textwidth}{!}{\input{tables/cdi_lines128_pinn_metrics.tex}}
 \end{table}
 
-% figure_metadata: task=CDI_lines128; paper_copy=figures/cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet.png; visible_columns=gt,pinn,pinn_fno_vanilla,pinn_ffno,pinn_neuralop_uno,pinn_hybrid_resnet; display_channel=phase; crop_fraction=0.5; phase_alignment=global_circular_offset_to_gt_before_wrapping; phase_colormap=twilight; phase_display_scale=gt_crop_min_to_gt_crop_p99_after_alignment; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z/recons
+% figure_metadata: task=CDI_lines128; paper_copy=figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet.png; visible_columns=gt,pinn,pinn_fno_vanilla,pinn_ffno,pinn_neuralop_uno,pinn_hybrid_resnet; display_channels=amplitude,phase; crop_fraction=0.5; amplitude_display_scale=gt_crop_min_to_gt_crop_p99; phase_alignment=global_circular_offset_to_gt_before_wrapping; phase_colormap=twilight; phase_display_scale=gt_crop_min_to_gt_crop_p99_after_alignment; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z/recons
 \begin{figure}[t]
 \centering
-\includegraphics[width=\linewidth]{figures/cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet.png}
-\caption{\textbf{Phase reconstruction comparison on synthetically generated CDI
-data.} The cropped comparison shows the target, CNN+PINN, FNO+PINN,
-FFNO+PINN, U-NO+PINN, and SRU-Net+PINN under the same $N=128$
-diffraction protocol. Each prediction is aligned to the target phase by a
-single global circular offset before display.}
+\includegraphics[width=\linewidth]{figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet.png}
+\caption{\textbf{Amplitude and phase reconstruction comparison on synthetically
+generated CDI data.} The cropped comparison shows the target, CNN+PINN,
+FNO+PINN, FFNO+PINN, U-NO+PINN, and SRU-Net+PINN under the same $N=128$
+diffraction protocol. Amplitude panels share a target-anchored display scale,
+and each predicted phase is aligned to the target by a single global circular
+offset before display.}
 \label{fig:cdi_main_qualitative}
 \end{figure}
 
@@ -1303,21 +1304,21 @@ Benchmark & Instances and derived samples & Training and objective & Evaluation 
 CDI &
 2 train objects and 2 held-out test objects; 8978 train and 1458 held-out
 object-patch/scan samples; metrics computed on held-out object reconstructions &
-single seed 3; 40 epochs; batch 16; Adam; learning rate $2\times10^{-4}$;
+40 epochs; batch 16; Adam; learning rate $2\times10^{-4}$;
 ReduceLROnPlateau; $10^9$ photons; CDI measurement-space detector-amplitude MAE;
 supervised object-space controls &
 global phase alignment before phase metrics and display \\
 BRDT &
 2048 train, 256 validation, and 256 test scattering-potential fields; field-level
 samples with no patch or window expansion &
-single seed 42; 40 epochs; batch 16; Adam; learning rate $2\times10^{-4}$;
+40 epochs; batch 16; Adam; learning rate $2\times10^{-4}$;
 ReduceLROnPlateau; supervised object loss plus Born-consistency terms &
 target-domain metrics in physical $q$ units; representative figure uses a fixed
 held-out example \\
 PDEBench CNS &
 512 train, 64 validation, and 64 test trajectories; 4096 train, 512 validation,
 and 512 test windows from the trajectory split &
-split seed 20260420; one run per row; 40 epochs; batch 4; Adam; learning rate
+one run per row; 40 epochs; batch 4; Adam; learning rate
 $2\times10^{-4}$; ReduceLROnPlateau; supervised one-step normalized-field MSE &
 denormalized metric evaluation; Fourier-band errors reported in Table~\ref{tab:cns_bundle} \\
 \bottomrule

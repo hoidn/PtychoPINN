@@ -26,11 +26,14 @@ from scripts.studies.paper_results_refresh import (
     robust_display_bounds,
     select_cns_matched_condition,
     shared_display_bounds,
+    gt_anchored_amplitude_bounds,
     gt_anchored_phase_bounds,
+    _load_amp_array,
     main,
     srunet_matched_phase_bounds,
     resolve_cdi_final_ffno_pair,
     versioned_output_path,
+    write_cdi_amp_phase_zoom_figure,
     write_cdi_phase_zoom_figure,
     write_cdi_phase_zoom_per_panel_figure,
     write_brdt_context_figure,
@@ -69,6 +72,18 @@ def test_align_phase_to_reference_removes_global_offset():
     aligned = align_phase_to_reference(shifted, reference)
 
     np.testing.assert_allclose(aligned, reference, atol=1e-6)
+
+
+def test_load_amp_array_requires_2d_amp(tmp_path):
+    path = tmp_path / "recon.npz"
+    np.savez(
+        path,
+        amp=np.zeros((2, 2, 1), dtype=np.float32),
+        phase=np.zeros((2, 2), dtype=np.float32),
+    )
+
+    with pytest.raises(ValueError, match="amp image must be 2D"):
+        _load_amp_array(path)
 
 
 def test_write_cdi_phase_zoom_figure_uses_phase_only_panel_order(tmp_path):
@@ -170,6 +185,20 @@ def test_gt_anchored_phase_bounds_ignores_extra_row_outliers():
     assert vmax == pytest.approx(np.quantile([-0.5, 0.1, 0.2, 1.4], 0.99))
 
 
+def test_gt_anchored_amplitude_bounds_ignores_extra_row_outliers():
+    display_amplitudes = {
+        "gt": np.array([[0.0, 0.1], [0.2, 1.4]], dtype=np.float32),
+        "pinn": np.array([[0.0, 30.0], [40.0, 50.0]], dtype=np.float32),
+        "pinn_hybrid_resnet": np.array([[0.0, 0.2], [0.3, 0.8]], dtype=np.float32),
+    }
+
+    vmin, vmax = gt_anchored_amplitude_bounds(display_amplitudes, [0, 2, 0, 2])
+
+    assert vmin == pytest.approx(0.0)
+    assert vmax == pytest.approx(np.quantile([0.0, 0.1, 0.2, 1.4], 0.99))
+    assert vmax < 50.0
+
+
 def test_srunet_matched_phase_bounds_aliases_gt_anchored_rule():
     display_phases = {
         "gt": np.array([[-0.5, 0.1], [0.2, 1.4]], dtype=np.float32),
@@ -211,6 +240,47 @@ def test_write_cdi_phase_zoom_per_panel_figure_records_independent_bounds(tmp_pa
     }
     assert meta["phase_display_bounds_by_row"]["pinn"] != meta["phase_display_bounds_by_row"]["gt"]
     assert "not comparable across panels" in meta["caption_note"]
+
+
+def test_write_cdi_amp_phase_zoom_figure_records_amp_and_phase_metadata(tmp_path):
+    recons = tmp_path / "recons"
+    row_phases = {
+        "gt": np.linspace(-0.4, 0.8, 64, dtype=np.float32).reshape(8, 8),
+        "pinn": np.linspace(-0.5, 0.9, 64, dtype=np.float32).reshape(8, 8),
+        "pinn_fno_vanilla": np.linspace(-0.3, 0.6, 64, dtype=np.float32).reshape(8, 8),
+        "pinn_ffno": np.linspace(-0.2, 0.7, 64, dtype=np.float32).reshape(8, 8),
+        "pinn_neuralop_uno": np.linspace(-0.25, 0.65, 64, dtype=np.float32).reshape(8, 8),
+        "pinn_hybrid_resnet": np.linspace(-0.35, 0.75, 64, dtype=np.float32).reshape(8, 8),
+    }
+    for index, (row_id, phase) in enumerate(row_phases.items()):
+        row_dir = recons / row_id
+        row_dir.mkdir(parents=True)
+        amp = np.linspace(0.0, 1.0 + 0.1 * index, 64, dtype=np.float32).reshape(8, 8)
+        if row_id == "pinn":
+            amp = amp.copy()
+            amp[-1, -1] = 100.0
+        np.savez(row_dir / "recon.npz", amp=amp, phase=phase)
+    output = tmp_path / "amp_phase_zoom.png"
+
+    meta = write_cdi_amp_phase_zoom_figure(recons_root=recons, output_path=output)
+
+    assert output.exists()
+    assert meta["visible_rows"] == [
+        "gt",
+        "pinn",
+        "pinn_fno_vanilla",
+        "pinn_ffno",
+        "pinn_neuralop_uno",
+        "pinn_hybrid_resnet",
+    ]
+    assert meta["display_channels"] == ["amp", "phase"]
+    assert meta["crop_fraction"] == 0.5
+    assert meta["amplitude_colormap"] == "gray"
+    assert meta["amplitude_display_scale"] == "gt_crop_min_to_gt_crop_p99"
+    assert meta["phase_colormap"] == "twilight"
+    assert meta["phase_display_scale"] == "gt_crop_min_to_gt_crop_p99_after_alignment"
+    assert meta["amplitude_display_bounds"][1] < 100.0
+    assert meta["phase_display_bounds"] != [-np.pi, np.pi]
 
 
 def test_render_brdt_metrics_table_keeps_model_based_classical_row():
@@ -345,6 +415,10 @@ def test_versioned_output_path_inserts_deterministic_stem():
         Path("figures/cdi_lines128_phase_zoom.png"),
         "ffno_final_depth24pair",
     ).as_posix() == "figures/cdi_lines128_phase_zoom_ffno_final_depth24pair.png"
+    assert versioned_output_path(
+        Path("figures/cdi_lines128_amp_phase_zoom.png"),
+        "ffno_final_depth24pair",
+    ).as_posix() == "figures/cdi_lines128_amp_phase_zoom_ffno_final_depth24pair.png"
 
 
 def test_write_cdi_extended_assets_records_final_pair_provenance(tmp_path):
@@ -1334,8 +1408,8 @@ def test_load_cns_matched_condition_uno_row_rejects_missing_normalization_state(
 def test_main_write_model_config_table_calls_writer(monkeypatch, capsys, tmp_path):
     calls = []
 
-    def fake_writer(repo_root, output_dir):
-        calls.append((repo_root, output_dir))
+    def fake_writer(repo_root, output_dir, **kwargs):
+        calls.append((repo_root, output_dir, kwargs))
         return {"json": str(tmp_path / "model_config_by_benchmark.json")}
 
     monkeypatch.setattr(
@@ -1346,6 +1420,8 @@ def test_main_write_model_config_table_calls_writer(monkeypatch, capsys, tmp_pat
     assert main(["--write-model-config-table"]) == 0
 
     assert len(calls) == 1
+    assert calls[0][2]["cdi_final_ffno_pair_key"] == "four_block_no_refiner"
+    assert calls[0][2]["versioned_output_stem"] == "ffno_final_depth4pair"
     payload = json.loads(capsys.readouterr().out)
     assert payload["model_config_table"]["json"].endswith("model_config_by_benchmark.json")
 
@@ -1353,8 +1429,8 @@ def test_main_write_model_config_table_calls_writer(monkeypatch, capsys, tmp_pat
 def test_main_write_efficiency_table_calls_writer(monkeypatch, capsys, tmp_path):
     calls = []
 
-    def fake_writer(repo_root, output_dir):
-        calls.append((repo_root, output_dir))
+    def fake_writer(repo_root, output_dir, **kwargs):
+        calls.append((repo_root, output_dir, kwargs))
         return {"json": str(tmp_path / "paper_efficiency_table.json")}
 
     monkeypatch.setattr(
@@ -1365,8 +1441,31 @@ def test_main_write_efficiency_table_calls_writer(monkeypatch, capsys, tmp_path)
     assert main(["--write-efficiency-table"]) == 0
 
     assert len(calls) == 1
+    assert calls[0][2]["cdi_final_ffno_pair_key"] == "four_block_no_refiner"
+    assert calls[0][2]["versioned_output_stem"] == "ffno_final_depth4pair"
     payload = json.loads(capsys.readouterr().out)
     assert payload["paper_efficiency_table"]["json"].endswith("paper_efficiency_table.json")
+
+
+def test_main_write_cdi_amp_phase_zoom_figure_calls_writer(monkeypatch, capsys, tmp_path):
+    calls = []
+
+    def fake_writer(**kwargs):
+        calls.append(kwargs)
+        return {"figure": str(tmp_path / "amp_phase.png")}
+
+    monkeypatch.setattr(
+        "scripts.studies.paper_results_refresh.write_cdi_amp_phase_zoom_figure",
+        fake_writer,
+    )
+
+    assert main(["--write-cdi-amp-phase-zoom-figure"]) == 0
+
+    assert len(calls) == 1
+    assert calls[0]["final_ffno_pair"].pair_key == "four_block_no_refiner"
+    assert calls[0]["final_output_stem"] == "ffno_final_depth4pair"
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["cdi_amp_phase_zoom_figure"]["figure"].endswith("amp_phase.png")
 
 
 def test_evaluate_cns_h5_lane_flags_max_windows_per_trajectory_mismatch():

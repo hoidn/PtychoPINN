@@ -87,6 +87,9 @@ CDI_PHASE_ZOOM_ROWS = [
     ("pinn_hybrid_resnet", "SRU-Net+PINN"),
 ]
 CDI_PHASE_ZOOM_FIGURE = FIGURES_DIR / "cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet.png"
+CDI_AMP_PHASE_ZOOM_FIGURE = (
+    FIGURES_DIR / "cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet.png"
+)
 CDI_PHASE_ZOOM_PER_PANEL_FIGURE = (
     FIGURES_DIR / "cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet_per_panel_scaled.png"
 )
@@ -328,6 +331,18 @@ def _load_phase_array(path: Path) -> np.ndarray:
     return phase
 
 
+def _load_amp_array(path: Path) -> np.ndarray:
+    if not path.exists():
+        raise FileNotFoundError(path)
+    with np.load(path) as payload:
+        if "amp" not in payload:
+            raise KeyError(f"{path} does not contain an 'amp' array")
+        amp = np.asarray(payload["amp"], dtype=np.float32)
+    if amp.ndim != 2:
+        raise ValueError(f"{path} amp image must be 2D, got shape={amp.shape!r}")
+    return amp
+
+
 def shared_display_bounds(arrays: Sequence[np.ndarray]) -> tuple[float, float]:
     finite_values = [
         np.asarray(array, dtype=np.float64)[np.isfinite(array)]
@@ -377,6 +392,31 @@ def gt_anchored_phase_bounds(
     finite_reference = reference_crop[np.isfinite(reference_crop)]
     if finite_reference.size == 0:
         return shared_display_bounds(list(display_phases.values()))
+    vmin = float(np.nanmin(finite_reference))
+    vmax = float(np.nanquantile(finite_reference, upper_quantile))
+    if vmax <= vmin:
+        return shared_display_bounds([reference_crop])
+    return vmin, vmax
+
+
+def gt_anchored_amplitude_bounds(
+    display_amplitudes: Mapping[str, np.ndarray],
+    crop_bounds: Sequence[int],
+    *,
+    reference_row: str = "gt",
+    upper_quantile: float = 0.99,
+) -> tuple[float, float]:
+    """Use GT amplitude crop bounds so model outliers do not rescale Fig. 1."""
+    y0, y1, x0, x1 = [int(value) for value in crop_bounds]
+    if reference_row not in display_amplitudes:
+        return shared_display_bounds(list(display_amplitudes.values()))
+    reference_crop = np.asarray(
+        display_amplitudes[reference_row][y0:y1, x0:x1],
+        dtype=np.float64,
+    )
+    finite_reference = reference_crop[np.isfinite(reference_crop)]
+    if finite_reference.size == 0:
+        return shared_display_bounds(list(display_amplitudes.values()))
     vmin = float(np.nanmin(finite_reference))
     vmax = float(np.nanquantile(finite_reference, upper_quantile))
     if vmax <= vmin:
@@ -445,6 +485,48 @@ def _cdi_phase_zoom_display_phases(
     return display_phases, (y0, y1, x0, x1)
 
 
+def _cdi_amp_phase_zoom_display_arrays(
+    *,
+    recons_root: Path | None = None,
+    recon_paths: Mapping[str, Path] | None = None,
+    final_ffno_pair: CdiFinalFfnoPair = FOUR_BLOCK_NO_REFINER_PAIR,
+    crop_fraction: float = 0.5,
+) -> tuple[
+    dict[str, np.ndarray],
+    dict[str, np.ndarray],
+    tuple[int, int, int, int],
+]:
+    resolved_recon_paths = _resolve_cdi_phase_zoom_recon_paths(
+        recons_root=recons_root,
+        recon_paths=recon_paths,
+        final_ffno_pair=final_ffno_pair,
+    )
+    amplitudes = {
+        row_id: _load_amp_array(resolved_recon_paths[row_id])
+        for row_id, _ in CDI_PHASE_ZOOM_ROWS
+    }
+    phases = {
+        row_id: _load_phase_array(resolved_recon_paths[row_id])
+        for row_id, _ in CDI_PHASE_ZOOM_ROWS
+    }
+    shapes = {array.shape for array in [*amplitudes.values(), *phases.values()]}
+    if len(shapes) != 1:
+        raise ValueError(
+            "amplitude and phase arrays must share one shape, "
+            f"got {sorted(shapes)!r}"
+        )
+
+    shape = next(iter(shapes))
+    y0, y1, x0, x1 = center_crop_bounds(shape, fraction=crop_fraction)
+    reference = phases["gt"]
+    display_phases = {"gt": wrap_phase(reference)}
+    for row_id in phases:
+        if row_id == "gt":
+            continue
+        display_phases[row_id] = align_phase_to_reference(phases[row_id], reference)
+    return amplitudes, display_phases, (y0, y1, x0, x1)
+
+
 def _save_cdi_phase_zoom_figure(
     *,
     display_phases: Mapping[str, np.ndarray],
@@ -479,6 +561,62 @@ def _save_cdi_phase_zoom_figure(
         )
         axis.set_title(title, fontsize=8)
         axis.set_axis_off()
+    fig.savefig(output_path, dpi=300, bbox_inches="tight", pad_inches=0.02)
+    plt.close(fig)
+
+
+def _save_cdi_amp_phase_zoom_figure(
+    *,
+    display_amplitudes: Mapping[str, np.ndarray],
+    display_phases: Mapping[str, np.ndarray],
+    crop_bounds: Sequence[int],
+    output_path: Path,
+    amplitude_bounds: tuple[float, float],
+    phase_bounds: tuple[float, float],
+    amplitude_cmap: str = "gray",
+) -> None:
+    y0, y1, x0, x1 = [int(value) for value in crop_bounds]
+
+    import matplotlib
+
+    matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    panel_count = len(CDI_PHASE_ZOOM_ROWS)
+    fig, axes = plt.subplots(
+        2,
+        panel_count,
+        figsize=(1.75 * panel_count, 4.0),
+        constrained_layout=True,
+    )
+    axes = np.asarray(axes)
+    amp_vmin, amp_vmax = amplitude_bounds
+    phase_vmin, phase_vmax = phase_bounds
+    for col, (row_id, title) in enumerate(CDI_PHASE_ZOOM_ROWS):
+        amp_axis = axes[0, col]
+        phase_axis = axes[1, col]
+        amp_axis.imshow(
+            display_amplitudes[row_id][y0:y1, x0:x1],
+            cmap=amplitude_cmap,
+            vmin=amp_vmin,
+            vmax=amp_vmax,
+            interpolation="nearest",
+        )
+        phase_axis.imshow(
+            display_phases[row_id][y0:y1, x0:x1],
+            cmap="twilight",
+            vmin=phase_vmin,
+            vmax=phase_vmax,
+            interpolation="nearest",
+        )
+        amp_axis.set_title(title, fontsize=8)
+        for axis in (amp_axis, phase_axis):
+            axis.set_xticks([])
+            axis.set_yticks([])
+        if col == 0:
+            amp_axis.set_ylabel("Amplitude", fontsize=8)
+            phase_axis.set_ylabel("Phase", fontsize=8)
     fig.savefig(output_path, dpi=300, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
 
@@ -538,6 +676,73 @@ def write_cdi_phase_zoom_figure(
         "display_channel": "phase",
         "crop_fraction": crop_fraction,
         "crop_bounds": [y0, y1, x0, x1],
+        "phase_alignment": "global_circular_offset_to_gt_before_wrapping",
+        "phase_colormap": "twilight",
+        "phase_display_scale": "gt_crop_min_to_gt_crop_p99_after_alignment",
+        "phase_display_bounds": [phase_vmin, phase_vmax],
+    }
+
+
+def write_cdi_amp_phase_zoom_figure(
+    *,
+    recons_root: Path | None = None,
+    recon_paths: Mapping[str, Path] | None = None,
+    output_path: Path = CDI_AMP_PHASE_ZOOM_FIGURE,
+    final_ffno_pair: CdiFinalFfnoPair = FOUR_BLOCK_NO_REFINER_PAIR,
+    final_output_stem: str | None = None,
+    crop_fraction: float = 0.5,
+) -> dict[str, object]:
+    resolved_recon_paths = _resolve_cdi_phase_zoom_recon_paths(
+        recons_root=recons_root,
+        recon_paths=recon_paths,
+        final_ffno_pair=final_ffno_pair,
+    )
+    display_amplitudes, display_phases, crop_bounds = _cdi_amp_phase_zoom_display_arrays(
+        recons_root=recons_root,
+        recon_paths=resolved_recon_paths,
+        final_ffno_pair=final_ffno_pair,
+        crop_fraction=crop_fraction,
+    )
+    y0, y1, x0, x1 = crop_bounds
+    amplitude_vmin, amplitude_vmax = gt_anchored_amplitude_bounds(
+        display_amplitudes,
+        crop_bounds,
+    )
+    phase_vmin, phase_vmax = gt_anchored_phase_bounds(display_phases, crop_bounds)
+    versioned_path = (
+        versioned_output_path(output_path, final_output_stem)
+        if final_output_stem
+        else None
+    )
+    target_path = versioned_path or output_path
+    _save_cdi_amp_phase_zoom_figure(
+        display_amplitudes=display_amplitudes,
+        display_phases=display_phases,
+        crop_bounds=crop_bounds,
+        output_path=target_path,
+        amplitude_bounds=(amplitude_vmin, amplitude_vmax),
+        phase_bounds=(phase_vmin, phase_vmax),
+    )
+    if versioned_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(versioned_path, output_path)
+    return {
+        "figure": str(output_path),
+        "versioned_figure": str(versioned_path) if versioned_path is not None else None,
+        "source_recons_root": str(recons_root) if recons_root is not None else None,
+        "source_recon_paths": {
+            row_id: str(path)
+            for row_id, path in resolved_recon_paths.items()
+        },
+        "final_ffno_pair": final_ffno_pair.provenance_payload(),
+        "final_output_stem": final_output_stem,
+        "visible_rows": [row_id for row_id, _ in CDI_PHASE_ZOOM_ROWS],
+        "display_channels": ["amp", "phase"],
+        "crop_fraction": crop_fraction,
+        "crop_bounds": [y0, y1, x0, x1],
+        "amplitude_colormap": "gray",
+        "amplitude_display_scale": "gt_crop_min_to_gt_crop_p99",
+        "amplitude_display_bounds": [amplitude_vmin, amplitude_vmax],
         "phase_alignment": "global_circular_offset_to_gt_before_wrapping",
         "phase_colormap": "twilight",
         "phase_display_scale": "gt_crop_min_to_gt_crop_p99_after_alignment",
@@ -2113,6 +2318,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="Write the BRDT sample-255 measurement/reconstruction/error figure.",
     )
     parser.add_argument("--write-cdi-extended-assets", action="store_true")
+    parser.add_argument("--write-cdi-amp-phase-zoom-figure", action="store_true")
     parser.add_argument("--write-cdi-phase-zoom-figure", action="store_true")
     parser.add_argument("--write-cdi-phase-zoom-per-panel-figure", action="store_true")
     parser.add_argument(
@@ -2194,6 +2400,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         outputs["brdt_context_figure"] = str(write_brdt_context_figure())
     if args.write_cdi_extended_assets:
         outputs["cdi_extended_assets"] = write_cdi_extended_assets(
+            final_ffno_pair=cdi_final_ffno_pair,
+            final_output_stem=cdi_final_output_stem,
+        )
+    if args.write_cdi_amp_phase_zoom_figure:
+        outputs["cdi_amp_phase_zoom_figure"] = write_cdi_amp_phase_zoom_figure(
             final_ffno_pair=cdi_final_ffno_pair,
             final_output_stem=cdi_final_output_stem,
         )
