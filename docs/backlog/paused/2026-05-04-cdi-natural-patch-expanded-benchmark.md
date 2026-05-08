@@ -33,12 +33,12 @@ signals_for_selection:
 
 ## Queue Status
 
-- Paused on 2026-05-06 at operator request after implementation review
-  returned `REVISE`.
+- Re-paused on 2026-05-06 at operator request.
 - Do not select this item in backlog-drain runs unless it is explicitly moved
   back to `docs/backlog/active/`.
-- Last known state: recovered artifacts were non-authoritative and the
-  benchmark launch did not complete cleanly.
+- Prior recovered artifacts remain non-authoritative diagnostic context only;
+  a future selectable implementation must either produce a clean fresh bundle
+  or explicitly audit and promote any reused artifacts.
 
 ## Objective
 

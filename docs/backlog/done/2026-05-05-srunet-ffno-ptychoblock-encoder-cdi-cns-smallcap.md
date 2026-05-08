@@ -43,16 +43,13 @@ signals_for_selection:
   - User priority on 2026-05-05: run this before the remaining active WaveBench backlog items.
 ---
 
-# Paused Status
+# Reactivated Status
 
-Paused on 2026-05-06 at operator request because the corrected 24-layer
-FFNO-encoder mechanism probe was taking too long for the current backlog drain.
-Do not select this item again until it is explicitly reactivated.
-
-Partial in-flight artifacts from the interrupted 20-epoch CDI attempt may be
-kept as diagnostic context only. They do not satisfy this item's completion
-gate unless a later reactivation audits them against the fixed row contract and
-records an explicit promotion decision.
+Reactivated on 2026-05-06 at operator request. The prior interruption remains
+diagnostic context only: partial in-flight artifacts from the interrupted
+20-epoch CDI attempt do not satisfy this item's completion gate unless this
+reactivated pass audits them against the fixed row contract and records an
+explicit promotion decision.
 
 # Backlog Item: SRU-Net FFNO-To-PtychoBlock Encoder Ablation
 

@@ -2,179 +2,227 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement exactly one encoder-only SRU-Net mechanism variant that swaps the baseline SRU-Net encoder for a fixed shared-weight 24-block FFNO stack plus two `PtychoBlock` encoder stages, then evaluate exactly one fresh `lines128` CDI row and one fresh capped PDEBench CNS row for `20` epochs without rerunning completed baselines.
+**Goal:** Validate and publish the corrected `24`-block SRU-Net FFNO-to-PtychoBlock encoder mechanism probe by producing one fresh `lines128` CDI row and one fresh capped PDEBench CNS row, then rebuilding the item-local evidence bundle and index surfaces from those corrected outputs only.
 
-**Architecture:** The work has four implementation units: a reusable FFNO stack/helper plus Hybrid ResNet encoder variant, CDI grid-lines registration for one new `pinn_*` row, PDEBench CNS manual-only registration for one new capped profile, and append-only evidence collation/index updates. The SRU-Net shell after the encoder must remain fixed, CDI and CNS conclusions must remain separate, and long-running launches stay under implementation ownership until the tracked run exits `0` and the required fresh artifacts exist.
+**Architecture:** Treat the generator/profile wiring as already present but not yet fully discharged as evidence. The execution work is an audit-plus-rerun pipeline: confirm the approved fixed encoder recipe is encoded consistently across generator, CDI runner, and CNS profile surfaces; run the required deterministic gates; launch fresh `20`-epoch CDI and CNS reruns under tracked ownership; and then rewrite the summary/index surfaces so the corrected `24`-block roots are current authority while the historical `2`-block roots remain superseded lineage only. CDI and CNS stay separate, and neither corrected row may replace the existing `40`-epoch headline authorities.
 
-**Tech Stack:** PATH `python`, long runs in `ptycho311`, PyTorch/Lightning, `ptycho_torch/generators/*`, `ptycho_torch/model.py`, `ptycho/config/config.py`, `ptycho_torch/workflows/components.py`, `scripts/studies/grid_lines_*`, `scripts/studies/pdebench_image128/*`, Markdown/JSON evidence indexes, `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/...`.
+**Tech Stack:** PATH `python`, long runs in `ptycho311`, tmux-backed launch ownership, PyTorch/Lightning, `ptycho_torch/generators/*`, `ptycho_torch/model.py`, `scripts/studies/grid_lines_*`, `scripts/studies/pdebench_image128/*`, Markdown/JSON evidence indexes, `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/...`.
 
 ---
 
-## Paused Status
-
-Paused on 2026-05-06 at operator request because the corrected 24-layer
-FFNO-encoder mechanism probe was too slow for the current backlog-drain pass.
-The plan is retained for later reactivation, but the active workflow should
-move on to other backlog items.
-
 ## Selected Objective
 
-- Add one fresh CDI row on the locked `lines128` contract:
-  `pinn_hybrid_resnet_ffno_ptychoblock_encoder` unless a clearer explicit name is justified and used consistently everywhere.
-- Add one fresh capped CNS row on the matched-condition headline lane:
-  `hybrid_resnet_ffno_ptychoblock_encoder_cns` unless a clearer explicit profile id is justified and used consistently everywhere.
-- Answer one causal question only: does replacing the SRU-Net encoder with
-  `shared-weight 24x FactorizedFfnoBlock stack -> 2x(PtychoBlock + downsample)`
-  help or hurt the same downstream SRU-Net body on CDI and on capped CNS?
+- Publish one corrected CDI mechanism row on the locked `lines128` contract:
+  `pinn_hybrid_resnet_ffno_ptychoblock_encoder`.
+- Publish one corrected capped CNS mechanism row on the matched-condition capped
+  lane:
+  `hybrid_resnet_ffno_ptychoblock_encoder_cns`.
+- Answer one causal question only: does replacing the current SRU-Net encoder
+  with `24x shared-weight FFNO -> 2x(PtychoBlock + downsample)` help or hurt
+  the same downstream SRU-Net shell on CDI and on capped CNS?
 
 ## Scope And Explicit Non-Goals
 
 ### In Scope
 
-- Implement one explicit encoder-profile family shared across the CDI and PDEBench image128 entry points.
-- Keep the SRU-Net shell outside the encoder fixed:
-  same lifter/input policy, same two-step downsampling schedule, same bottleneck family and width/depth, same decoder family, same skip wiring, same residual scaling, same output mode, same loss family per benchmark, same scheduler policy, same seed policy, same visual sample policy, and same metric schema.
+- Audit the already-landed architecture/profile registration and repair it only
+  if a remaining recipe mismatch or run-blocking defect is found.
 - Reuse completed baseline rows by lineage only:
-  - CDI anchor bundle authority:
+  - CDI headline authority:
     `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md`
   - CDI SRU-Net mechanism authority:
     `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_srunet_branch_objective_ablation_summary.md`
   - CNS matched-condition authority:
     `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md`
-- Emit one durable append-only summary and the required discoverability/index updates.
+- Produce two fresh corrected `20`-epoch reruns, one on CDI and one on CNS,
+  under the fixed encoder recipe and the locked per-benchmark shells.
+- Rebuild the item-local comparison bundle, durable summary, and evidence/index
+  surfaces from the corrected run roots.
 
 ### Explicit Non-Goals
 
-- Do not rerun completed baselines just to assemble the comparison.
-- Do not tune FFNO encoder depth, modes, sharing, gate init, normalization, MLP ratio, or local-conv policy after seeing the first metrics. Hyperparameter search is outside this item.
-- Do not change decoder skip wiring, bottleneck family, residual scaling, probe/data contract, training objective, split policy, the approved `20`-epoch mechanism-probe budget, or metric definitions while claiming this is an encoder-only ablation.
-- Do not average CDI and CNS into one scalar ranking or promote this item into a new default SRU-Net family.
-- Do not reopen full-training CNS claims, rewrite the roadmap, overwrite the completed `lines128` paper bundle, or replace the matched-condition CNS headline table.
+- Do not redesign the architecture family. This item is not a new brainstorming
+  pass and not a new default SRU-Net proposal.
+- Do not tune `ffno_encoder_blocks`, modes, sharing, gate init, norm, MLP ratio,
+  or any other encoder hyperparameter after seeing the first metrics.
+- Do not change decoder skip wiring, bottleneck family, residual scaling,
+  dataset/probe contract, training objective, split policy, metric schema, or
+  visual sample policy while claiming this is an encoder-only ablation.
+- Do not rerun completed baseline rows just to assemble comparisons.
+- Do not average CDI and CNS into one scalar ranking.
+- Do not replace the six-row CDI authority or the matched-condition CNS
+  headline table.
+- Do not reopen full-training CNS claims, later roadmap phases, or unrelated
+  backlog items.
 - Do not create worktrees.
 
 ## Binding Steering, Roadmap, And Policy Constraints
 
-- This item is valid only because steering allows work inside the current Roadmap Phase 2 plus Phase 3 CDI-preparation window when it strengthens core comparison evidence. Do not expand the work into later roadmap phases or unrelated backlog items.
-- Equal-footing and fairness constraints are binding. If the new row cannot stay on the locked CDI contract or the matched CNS contract, record the incompatibility instead of silently relaxing the protocol.
-- Keep CDI and CNS conclusions separate. The CNS row remains `bounded_capped_decision_support_only` even if it performs well.
+- Steering allows this item only because it strengthens the current Phase 2
+  plus Phase 3 evidence window. Do not expand beyond that window.
+- Equal-footing and fairness constraints are binding. If the new row cannot stay
+  on the locked CDI or CNS contract, record the incompatibility instead of
+  silently relaxing the protocol.
+- Keep CDI and CNS conclusions separate. The CNS row remains
+  `bounded_capped_decision_support_only` even if it performs well.
 - Preserve the current headline authorities:
-  - CDI headline bundle stays the six-row complete `lines128` authority.
-  - CNS headline table stays the matched `history_len=5`, `512 / 64 / 64`, `40`-epoch capped lane.
-- Scope update accepted on 2026-05-06: this item's corrected FFNO-encoder rows
-  are `20`-epoch mechanism-probe rows. They answer whether the encoder swap is
-  promising under the same data/split/loss shell; they do not replace the
+  - CDI headline bundle remains the six-row `lines128` authority.
+  - CNS headline bundle remains the matched `history_len=5`, `512 / 64 / 64`,
+    `40`-epoch capped lane.
+- The corrected mechanism rows are `20`-epoch probes. They do not replace the
   existing `40`-epoch CDI or CNS headline authorities.
-- Long-run ownership rule:
-  - use `tmux` for training/evaluation launches;
-  - activate `ptycho311`, then invoke plain PATH `python`;
-  - track the exact launched PID/session until exit;
-  - do not start a duplicate run writing to the same output root;
-  - treat a run as complete only when the tracked launch exits `0` and the required fresh row artifacts exist and are freshly written.
-- Failure policy:
-  - diagnose, fix, and rerun normal import, path, config, shape, environment, or harness failures;
-  - do not mark the item `BLOCKED` for ordinary verification/test issues;
-  - reserve `BLOCKED` for missing data/hardware, unavailable external dependency outside current authority, roadmap conflict, required user decision, or an unrecoverable failure that remains after a documented narrow fix attempt.
-- Project-policy constraints that remain in force:
-  - PATH `python` only (`PYTHON-ENV-001`);
-  - preserve current grid-lines Torch contracts from `docs/findings.md`, especially the current probe-mask semantics and the `object_big=False` / `probe_big=False` parity expectations on the grid-lines path;
-  - if a touched path still relies on legacy globals, preserve `update_legacy_dict(params.cfg, config)` ordering before touching legacy modules.
+- Long-running commands remain under implementation ownership until completion:
+  use tmux, activate `ptycho311`, track the exact launched PID/session, do not
+  duplicate a writer to the same output root, and consider a run complete only
+  when the tracked launch exits `0` and the required fresh artifacts exist.
+- Failure handling:
+  - diagnose, fix, and rerun ordinary import, path, config, shape, environment,
+    or harness failures;
+  - do not mark the item `BLOCKED` for normal verification failures;
+  - reserve `BLOCKED` for missing data/hardware, unavailable external
+    dependency outside current authority, roadmap conflict, required user
+    decision, or a failure that remains unrecoverable after a documented narrow
+    fix attempt.
+- PyTorch and legacy-config guardrails remain active:
+  - PATH `python` only;
+  - preserve `docs/findings.md` contracts such as probe-mask semantics and
+    grid-lines parity expectations;
+  - if a touched path still depends on legacy globals, keep
+    `update_legacy_dict(params.cfg, config)` ordering intact before touching
+    legacy modules.
 
-## Prerequisite Status
+## Prerequisite Status And Current Starting State
 
 - Progress-ledger status relevant to this item:
-  - completed tranches include `phase-0-evidence-inventory` and `phase-1-pde-benchmark-selection`;
-  - no global blocked tranches are recorded in the consumed ledger;
-  - this item depends on already-completed backlog authorities, not unresolved roadmap blockers.
-- Backlog authorities that must already exist before implementation proceeds:
+  - completed tranches include `phase-0-evidence-inventory` and
+    `phase-1-pde-benchmark-selection`;
+  - no global blocked tranches are recorded in the consumed ledger.
+- Required completed backlog authorities already exist:
   - `docs/backlog/done/2026-04-29-cdi-lines128-paper-benchmark-execution.md`
   - `docs/backlog/done/2026-05-04-cdi-lines128-srunet-branch-objective-ablation.md`
   - `docs/backlog/done/2026-05-04-cns-matched-condition-table-refresh.md`
-- Fixed CDI contract to preserve:
-  - dataset contract id `cdi_lines128_seed3`
-  - `N=128`, `gridsize=1`, `seed=3`
-  - `20` epochs, `batch_size=16`, `lr=2e-4`
-  - `ReduceLROnPlateau(factor=0.5, patience=2, min_lr=1e-4, threshold=0.0)`
-  - `torch_loss_mode=mae`, `torch_output_mode=real_imag`
-  - fixed sample ids `0`, `1`
-  - baseline/comparator lineage rows to reuse by reference:
-    `pinn_hybrid_resnet`, `pinn_hybrid_resnet_encoder_spectral_only`,
-    historical proxy `pinn_ffno`, `pinn_hybrid_resnet_ffno_bottleneck`.
-    Label `pinn_ffno` as `FFNO-local proxy` unless the corrected no-refiner
-    row is explicitly substituted by lineage.
-- Fixed CNS contract to preserve:
-  - selected lane `h5_512_64_64_40ep` as the split/history/loss authority
-  - `history_len=5`
-  - split counts `512 / 64 / 64`
-  - `20` epochs, `batch_size=4`, Adam `2e-4`
-  - training loss `mse`
-  - metric family `err_RMSE`, `err_nRMSE`, `relative_l2`, `fRMSE_low`, `fRMSE_mid`, `fRMSE_high`
-  - comparator lineage rows to reuse by reference:
-    `author_ffno_cns_base`, `spectral_resnet_bottleneck_base`, `fno_base`, `unet_strong`
+- Current repo state matters:
+  - the codebase already exposes
+    `hybrid_resnet_ffno_ptychoblock_encoder`,
+    `pinn_hybrid_resnet_ffno_ptychoblock_encoder`, and
+    `hybrid_resnet_ffno_ptychoblock_encoder_cns`;
+  - the durable summary currently says
+    `implementation_corrected_rerun_pending`;
+  - the historical CDI/CNS roots under this item still reflect the superseded
+    `ffno_encoder_blocks=2` recipe and must not remain current authority.
+
+### Fixed CDI Contract To Preserve
+
+- dataset contract id: `cdi_lines128_seed3`
+- `N=128`, `gridsize=1`, `seed=3`
+- `20` epochs, `batch_size=16`, `lr=2e-4`
+- `ReduceLROnPlateau(factor=0.5, patience=2, min_lr=1e-4, threshold=0.0)`
+- `torch_loss_mode=mae`, `torch_output_mode=real_imag`
+- fixed sample ids `0`, `1`
+- reuse these comparison rows by lineage only:
+  `pinn_hybrid_resnet`, `pinn_hybrid_resnet_encoder_spectral_only`,
+  `pinn_ffno` as `FFNO-local proxy` unless a corrected no-refiner row is
+  explicitly substituted by lineage, and
+  `pinn_hybrid_resnet_ffno_bottleneck`
+
+### Fixed CNS Contract To Preserve
+
+- authority lane: `h5_512_64_64_40ep` for split/history/loss lineage
+- `history_len=5`
+- split counts `512 / 64 / 64`
+- `20` epochs, `batch_size=4`, Adam `2e-4`
+- training loss `mse`
+- metric family:
+  `err_RMSE`, `err_nRMSE`, `relative_l2`,
+  `fRMSE_low`, `fRMSE_mid`, `fRMSE_high`
+- reuse these comparison rows by lineage only:
+  `spectral_resnet_bottleneck_base`, `author_ffno_cns_base`,
+  `fno_base`, `unet_strong`
+
+### Approved Fixed Encoder Recipe
+
+- architecture id: `hybrid_resnet_ffno_ptychoblock_encoder`
+- `encoder_variant=ffno_ptychoblock_encoder`
+- `ffno_encoder_blocks=24`
+- `ffno_encoder_modes=12`
+- `ffno_encoder_share_weights=true`
+- `ffno_encoder_gate_init=0.1`
+- `ffno_encoder_norm=instance`
+- `ffno_encoder_mlp_ratio=2.0`
+- `ptychoblock_stage_count=2`
+- `downsample_steps=2`
+- `downsample_op=stride_conv`
 
 ## Implementation Architecture
 
-- **Shared FFNO encoder stack:** expose one reusable FFNO stack helper built from `FactorizedFfnoBlock` / `FactorizedSpectralConv2d` so the end-to-end FFNO generator and the encoder-ablation variant do not maintain divergent block-stack logic.
-- **Hybrid encoder variant:** implement one explicit Hybrid ResNet family that keeps the SRU-Net shell fixed but swaps the encoder for the fixed FFNO-first recipe followed by exactly two `PtychoBlock` stages paired with the existing downsample steps.
-- **CDI integration surface:** register one append-only `pinn_*` row through the grid-lines runner and compare-wrapper path so config reconstruction, manifests, labels, and parameter reporting remain deterministic.
-- **CNS integration surface:** register one manual-only PDEBench image128 profile for the same encoder recipe under the locked `history_len=5`, `512 / 64 / 64`, `20`-epoch mechanism-probe CNS shell and keep it out of default profile bundles.
+- **Contract audit unit:** verify the fixed recipe and manifest fields across
+  generator, registry, CDI runner, and CNS profile surfaces before any rerun.
+- **CDI rerun unit:** produce one fresh corrected `lines128` row under tracked
+  ownership and validate its full artifact set.
+- **CNS rerun unit:** produce one fresh corrected capped CNS row under tracked
+  ownership and validate its full artifact set without promoting it to the
+  headline `40`-epoch table.
+- **Evidence-repair unit:** rebuild the item-local comparison bundle and update
+  summary/index surfaces so only corrected `24`-block roots are current
+  authority.
 
 ## File And Artifact Targets
-
-### Mandatory Code Targets
-
-- Modify: `ptycho_torch/generators/hybrid_resnet.py`
-- Modify: `ptycho_torch/generators/ffno.py`
-- Modify only if helper extraction or compatibility requires it:
-  `ptycho_torch/generators/ffno_bottleneck.py`
-- Modify if architecture/config round-trip requires it:
-  `ptycho_torch/model.py`
-- Modify if architecture enums/validation require it:
-  `ptycho/config/config.py`
-- Modify if override round-trip requires it:
-  `ptycho_torch/workflows/components.py`
-- Modify: `scripts/studies/grid_lines_torch_runner.py`
-- Modify: `scripts/studies/grid_lines_compare_wrapper.py`
-- Modify: `scripts/studies/pdebench_image128/models.py`
-- Modify: `scripts/studies/pdebench_image128/run_config.py`
-
-### Mandatory Test Targets
-
-- Modify or add focused generator/shape/metadata coverage:
-  - `tests/torch/test_fno_generators.py`
-  - `tests/torch/test_generator_registry.py`
-  - `tests/torch/test_lightning_checkpoint.py`
-- Modify or add grid-lines runner/wrapper coverage:
-  - `tests/torch/test_grid_lines_torch_runner.py`
-  - `tests/test_grid_lines_compare_wrapper.py`
-- Modify or add PDEBench model/profile coverage:
-  - `tests/studies/test_pdebench_image128_models.py`
-  - `tests/studies/test_pdebench_image128_runner.py` if manual-only profile routing or row collation changes
 
 ### Mandatory Contract Outputs
 
 - Item artifact root:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/`
-- Fresh CDI run root under the item artifact root, containing:
-  row-local invocation/config/history/metrics/reconstruction/visuals plus `exit_code_proof.json`
-- Fresh CNS run root under the item artifact root, containing:
-  row-local invocation/config/history/metrics/field-visual artifacts plus `exit_code_proof.json`
-- Durable summary:
+- Fresh CDI run root under the item artifact root, with row-local invocation,
+  config, history, metrics, visuals, and `exit_code_proof.json`
+- Fresh CNS run root under the item artifact root, with row-local invocation,
+  config, history, metrics, field visuals, and `exit_code_proof.json`
+- Rebuilt machine-readable compare bundle:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/comparison_bundle.json`
+- Updated durable summary:
   `docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md`
+
+### Conditional Code Targets
+
+Modify these only if the audit finds a remaining fixed-recipe mismatch, a
+manifest gap, or a rerun-blocking defect:
+
+- `ptycho_torch/generators/hybrid_resnet.py`
+- `ptycho_torch/model.py`
+- `ptycho_torch/generators/registry.py`
+- `scripts/studies/grid_lines_torch_runner.py`
+- `scripts/studies/grid_lines_compare_wrapper.py`
+- `scripts/studies/pdebench_image128/models.py`
+- `scripts/studies/pdebench_image128/run_config.py`
+
+### Conditional Test Targets
+
+Touch or extend these only if the audit or a rerun fix changes the owned code
+surface:
+
+- `tests/torch/test_fno_generators.py`
+- `tests/torch/test_generator_registry.py`
+- `tests/torch/test_lightning_checkpoint.py`
+- `tests/torch/test_grid_lines_torch_runner.py`
+- `tests/test_grid_lines_compare_wrapper.py`
+- `tests/studies/test_pdebench_image128_models.py`
+- `tests/studies/test_pdebench_image128_runner.py`
 
 ### Preferred Packaging And Discoverability Updates
 
-- Update:
-  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md`
-  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md`
-  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/ablation_index.json`
-  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json`
-  - `docs/studies/index.md`
-- Update `docs/index.md` only if implementation creates a reusable new study entry point that should be discoverable from the hub.
-- Update `docs/findings.md` only if implementation surfaces a durable, reusable project-wide rule rather than an item-local result.
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md`
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md`
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/ablation_index.json`
+- `docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json`
+- `docs/studies/index.md`
+- Update `docs/index.md` only if implementation creates or materially changes a
+  reusable study entry point that the hub should advertise.
+- Update `docs/findings.md` only if the rerun uncovers a durable,
+  project-wide rule rather than an item-local result.
 
 ## Required Deterministic Checks
 
-These are required gates for this item. They remain mandatory unless a later approved plan revision explicitly replaces them with a stronger equivalent.
+These are required gates for this item. They remain mandatory unless a later
+approved plan revision replaces them with a stronger equivalent.
 
 ### Prerequisite Presence Gate
 
@@ -211,212 +259,184 @@ pytest -q tests/studies/test_pdebench_image128_models.py -k "hybrid_resnet or ff
 python -m compileall -q ptycho_torch scripts/studies
 ```
 
+### Stronger Conditional Checks
+
+Use these when the audit or a rerun fix changes the corresponding surface:
+
+```bash
+pytest -q tests/test_grid_lines_compare_wrapper.py -k "hybrid_resnet or ffno"
+pytest -q tests/torch/test_generator_registry.py
+pytest -q tests/torch/test_lightning_checkpoint.py -k "hybrid_resnet or ffno"
+pytest -v -m integration
+```
+
+- `pytest -v -m integration` is blocking if any production workflow code is
+  edited during this item. If the implementation stays docs-and-reruns only,
+  it is supporting evidence rather than a required gate.
+
 ## Execution Checklist
 
-### Task 1: Freeze Authorities And Baseline Lineage
+### Task 1: Reconfirm Authority, Audit The Fixed Recipe, And Prepare Clean Reruns
 
 **Files / Artifacts**
 
-- Read-only authority anchors:
+- Read-only authority docs:
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md`
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_srunet_branch_objective_ablation_summary.md`
   - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md`
-- Create item-local execution notes under the item artifact root if useful for lineage bookkeeping.
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md`
+- Audit-first code surfaces:
+  - `ptycho_torch/generators/hybrid_resnet.py`
+  - `ptycho_torch/model.py`
+  - `ptycho_torch/generators/registry.py`
+  - `scripts/studies/grid_lines_torch_runner.py`
+  - `scripts/studies/grid_lines_compare_wrapper.py`
+  - `scripts/studies/pdebench_image128/models.py`
+  - `scripts/studies/pdebench_image128/run_config.py`
+- Item artifact root for fresh corrected reruns:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/`
 
-- [ ] Run the prerequisite presence gate exactly as written before editing code.
-- [ ] Record the exact CDI comparison contract, CNS comparison contract, and the reused lineage row ids in item-local notes so later collation does not infer them ad hoc.
-- [ ] Confirm that this item remains append-only mechanism evidence and does not replace the authoritative CDI or CNS headline bundles.
-
-**Verification**
-
-- Blocking: prerequisite presence gate passes.
-- Supporting: item-local lineage note captures the reused row ids and authority docs before fresh launches begin.
-
-### Task 2: Implement The Shared FFNO Encoder Variant
-
-**Files**
-
-- Modify: `ptycho_torch/generators/ffno.py`
-- Modify: `ptycho_torch/generators/hybrid_resnet.py`
-- Modify if needed for helper reuse only:
-  `ptycho_torch/generators/ffno_bottleneck.py`
-- Modify if configuration/checkpoint round-trip requires it:
-  `ptycho_torch/model.py`, `ptycho/config/config.py`, `ptycho_torch/workflows/components.py`
-- Test:
-  `tests/torch/test_fno_generators.py`
-  `tests/torch/test_generator_registry.py`
-  `tests/torch/test_lightning_checkpoint.py`
-
-- [ ] Add one explicit architecture id, preferably `hybrid_resnet_ffno_ptychoblock_encoder`.
-- [ ] Factor the reusable FFNO block stack so both the end-to-end FFNO generator and the encoder-ablation variant share the same local FFNO-stack implementation.
-- [ ] Implement the encoder recipe exactly once and keep it fixed for this item:
-  - `encoder_variant = "ffno_ptychoblock_encoder"`
-  - `ffno_encoder_blocks = 24`
-  - `ffno_encoder_modes = 12` unless a fixed-shape CNS constraint forces a documented change
-  - `ffno_encoder_share_weights = true`
-  - `ffno_encoder_gate_init = 0.1`
-  - `ffno_encoder_norm = "instance"`
-  - `ffno_encoder_mlp_ratio = 2.0`
-  - no FFNO local residual refiners in this encoder ablation
-  - `ptychoblock_stage_count = 2`
-  - `downsample_steps = 2`
-  - `downsample_op` inherited from the existing SRU-Net shell
-- [ ] Preserve baseline `hybrid_resnet` behavior exactly.
-- [ ] Ensure the required manifest/config fields round-trip cleanly:
+- [ ] Run the prerequisite presence gate exactly as written before editing or launching anything.
+- [ ] Audit the current recipe across generator, registry, grid-lines runner, compare-wrapper row spec, PDEBench model/profile surfaces, and current summary state.
+- [ ] Confirm the required manifest fields are preserved:
   `encoder_variant`, `ptychoblock_stage_count`, `downsample_steps`,
   `downsample_op`, `ffno_encoder_blocks`, `ffno_encoder_modes`,
   `ffno_encoder_share_weights`, `ffno_encoder_gate_init`,
   `ffno_encoder_norm`, `ffno_encoder_mlp_ratio`.
-
-**Verification**
-
-- Blocking: `pytest -q tests/torch/test_fno_generators.py -k "PtychoBlock or hybrid_resnet or ffno"`
-- Blocking: `python -m compileall -q ptycho_torch`
-- Supporting: `pytest -q tests/torch/test_generator_registry.py`
-- Supporting: `pytest -q tests/torch/test_lightning_checkpoint.py -k "hybrid_resnet or ffno"`
-
-### Task 3: Wire The CDI Grid-Lines Row
-
-**Files**
-
-- Modify: `scripts/studies/grid_lines_torch_runner.py`
-- Modify: `scripts/studies/grid_lines_compare_wrapper.py`
-- Modify if config bridge requires it:
-  `ptycho_torch/model.py`, `ptycho_torch/workflows/components.py`, `ptycho/config/config.py`
-- Test:
-  `tests/torch/test_grid_lines_torch_runner.py`
-  `tests/test_grid_lines_compare_wrapper.py`
-
-- [ ] Register the new row id, label, architecture mapping, and append-only claim/status behavior for the CDI compare-wrapper path.
-- [ ] Thread the fixed encoder recipe into runner config reconstruction, manifest output, and row-local metadata.
-- [ ] Preserve the existing locked `lines128` contract, including seed/sample policy, probe lineage, loss mode, scheduler, and current grid-lines Torch parity defaults.
-- [ ] Make sure parameter counts, row manifests, and run-level manifests expose the fixed encoder recipe fields and do not auto-promote this row to headline paper evidence.
-
-**Verification**
-
-- Blocking: `pytest -q tests/torch/test_grid_lines_torch_runner.py -k "hybrid_resnet or ffno"`
-- Blocking: `pytest -q tests/test_grid_lines_compare_wrapper.py -k "hybrid_resnet or ffno"`
-- Supporting: `python -m compileall -q scripts/studies`
-
-### Task 4: Wire The Manual-Only CNS Profile
-
-**Files**
-
-- Modify: `scripts/studies/pdebench_image128/models.py`
-- Modify: `scripts/studies/pdebench_image128/run_config.py`
-- Test:
-  `tests/studies/test_pdebench_image128_models.py`
-  `tests/studies/test_pdebench_image128_runner.py` if manual-only profile routing or bundle selection changes
-
-- [ ] Register one manual-only profile id, preferably `hybrid_resnet_ffno_ptychoblock_encoder_cns`.
-- [ ] Build the profile under the canonical CNS shell:
-  `history_len=5`, `512 / 64 / 64`, `20` epochs, `batch_size=4`, Adam `2e-4`, MSE, same metric family.
-- [ ] Preserve the existing supervised real-channel adapter semantics, downsample schedule, skip structure, decoder family, and current CNS row-manifest/reporting behavior outside the encoder.
-- [ ] Keep the new profile out of default `required_primary_profiles_for_task()` bundles so it launches only when explicitly requested.
-- [ ] Ensure profile description/manifests surface the fixed encoder recipe fields and `encoder_variant`.
-
-**Verification**
-
-- Blocking: `pytest -q tests/studies/test_pdebench_image128_models.py -k "hybrid_resnet or ffno"`
-- Blocking: `python -m compileall -q scripts/studies`
-- Supporting: `pytest -q tests/studies/test_pdebench_image128_runner.py -k "hybrid_resnet or ffno"`
-
-### Task 5: Re-Run Deterministic Code Gates Before Expensive Launches
-
-**Files / Artifacts**
-
-- Verification logs under the item artifact root.
-
-- [ ] Re-run the prerequisite presence gate.
-- [ ] Re-run every required deterministic check from this plan after code changes.
-- [ ] Add stronger narrow checks for touched routing/round-trip surfaces because the required backlog gates do not fully cover them.
-- [ ] Do not start CDI or CNS training until all blocking code gates are passing.
+- [ ] If the audit finds a remaining mismatch or run-blocking defect, make the narrowest possible fix and rerun the affected deterministic checks before any expensive launch.
+- [ ] Reserve fresh timestamped run roots for CDI and CNS under the item artifact root and keep the historical `2`-block roots read-only as superseded context.
 
 **Verification**
 
 - Blocking:
-  - prerequisite presence gate
+  - prerequisite presence gate passes;
   - `pytest -q tests/torch/test_fno_generators.py -k "PtychoBlock or hybrid_resnet or ffno"`
   - `pytest -q tests/torch/test_grid_lines_torch_runner.py -k "hybrid_resnet or ffno"`
   - `pytest -q tests/studies/test_pdebench_image128_models.py -k "hybrid_resnet or ffno"`
   - `python -m compileall -q ptycho_torch scripts/studies`
-  - `pytest -q tests/test_grid_lines_compare_wrapper.py -k "hybrid_resnet or ffno"`
 - Supporting:
+  - `pytest -q tests/test_grid_lines_compare_wrapper.py -k "hybrid_resnet or ffno"`
   - `pytest -q tests/torch/test_generator_registry.py`
   - `pytest -q tests/torch/test_lightning_checkpoint.py -k "hybrid_resnet or ffno"`
-  - `pytest -q tests/studies/test_pdebench_image128_runner.py -k "hybrid_resnet or ffno"`
-  - `pytest -v -m integration` if the active environment supports the repo-wide integration marker; if it does not, record the reason and keep the narrower workflow evidence.
+  - `pytest -v -m integration` if no production code changed
 
-### Task 6: Launch The Fresh CDI Row
-
-**Files / Artifacts**
-
-- Launch path:
-  `scripts/studies/grid_lines_compare_wrapper.py`
-- Fresh row artifacts under the item artifact root.
-
-- [ ] Use the existing grid-lines compare-wrapper path to launch only the new CDI row on the locked `lines128` contract.
-- [ ] Run in `tmux`, activate `ptycho311`, and keep the launch under implementation ownership until exit `0` or a documented recoverable failure handling path completes.
-- [ ] If a cheap dry-run or manifest preflight exists for the exact row wiring, it may run first as a supporting check only. It does not satisfy the CDI evidence requirement.
-- [ ] On completion, verify fresh row-local invocation/config/history/metrics, reconstructions, fixed-sample visuals, and `exit_code_proof.json`.
-- [ ] Reuse baseline rows only by lineage; do not rerun them.
-
-**Verification**
-
-- Blocking: tracked CDI launch exits `0`.
-- Blocking: the fresh CDI row artifacts exist under the item root and are newer than the launch start.
-- Supporting: item-local audit note records which authoritative CDI baseline rows were compared by lineage.
-
-### Task 7: Launch The Fresh CNS Row
+### Task 2: Run The Corrected `lines128` CDI Mechanism Row
 
 **Files / Artifacts**
 
-- Launch path:
-  `scripts/studies/run_pdebench_image128_suite.py`
-  plus the `scripts/studies/pdebench_image128/*` stack
-- Fresh CNS row artifacts under the item artifact root.
+- Launch surfaces:
+  - `scripts/studies/grid_lines_torch_runner.py`
+  - `scripts/studies/grid_lines_compare_wrapper.py`
+- Fresh run root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/runs/cdi_ffno_ptychoblock_encoder_<timestampZ>/`
 
-- [ ] Launch only the new manual CNS profile on official `2d_cfd_cns` data under the matched `h5_512_64_64_40ep` split/history/loss authority with `history_len=5`, but set the mechanism-probe epoch budget to `20`.
-- [ ] Keep the row on the existing CNS MSE recipe and matched metric family. Do not mix caps or history lengths. If comparing against `40`-epoch endpoint rows, label the epoch-budget difference explicitly and prefer same-epoch lineage comparisons where histories exist.
-- [ ] A shorter smoke/pilot launch is allowed only to prove implementation viability or recover from a normal failure. Label it readiness-only and keep it separate from the required `20`-epoch item result.
-- [ ] On completion, verify fresh row-local metrics, profile/config metadata, field-visual artifacts, invocation/history, and `exit_code_proof.json`.
-
-**Verification**
-
-- Blocking: tracked `20`-epoch CNS launch exits `0`, or a documented unrecoverable external blocker is recorded after a narrow fix attempt.
-- Blocking: fresh CNS row artifacts exist and the eventual summary labels the result `bounded_capped_decision_support_only`.
-- Supporting: if a smoke/pilot run was needed, archive it separately and label it readiness-only.
-
-### Task 8: Collate Append-Only Evidence And Update Discoverability
-
-**Files**
-
-- Create or update:
-  `docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md`
-- Update:
-  `docs/plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md`
-  `docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md`
-  `docs/plans/NEURIPS-HYBRID-RESNET-2026/ablation_index.json`
-  `docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json`
-  `docs/studies/index.md`
-
-- [ ] Build an item-local comparison bundle containing only the two fresh rows plus lineage references to the reused CDI and CNS baselines.
-- [ ] Write the durable summary with separate CDI and CNS sections, explicit claim-boundary language, the fixed encoder recipe fields, row lineage, and domain-dependent interpretation if the variant helps one benchmark and hurts the other.
-- [ ] Update the evidence/index surfaces required by the roadmap evidence-index policy.
-- [ ] Keep paper-facing updates bounded: this item is mechanism evidence only and must not replace the current CDI or CNS headline authorities.
-- [ ] If implementation surfaced a reusable repo-wide rule or a new durable study entry point, update `docs/findings.md` and/or `docs/index.md` in the same pass. Otherwise leave them unchanged and say so in the execution report.
+- [ ] Launch only the new corrected row `pinn_hybrid_resnet_ffno_ptychoblock_encoder` on the locked `cdi_lines128_seed3` contract.
+- [ ] Keep the inherited CDI shell fixed:
+  `20` epochs, `batch_size=16`, Adam `2e-4`, MAE loss,
+  `ReduceLROnPlateau(factor=0.5, patience=2, min_lr=1e-4, threshold=0.0)`,
+  fixed sample ids `0` and `1`, and the standard `real_imag` output mode.
+- [ ] Launch via tmux in `ptycho311`, track the exact started PID/session, and wait for terminal completion rather than polling broad process matches.
+- [ ] If the run fails for an ordinary harness or code reason, diagnose, fix narrowly, rerun the affected tests, and relaunch under a fresh output root.
+- [ ] Mark the row complete only after the tracked launch exits `0` and the fresh run root contains invocation/config/history/metrics/visuals plus `exit_code_proof.json`.
+- [ ] Preserve the historical `2`-block CDI root as superseded debugging lineage only; do not merge it into the corrected evidence root.
 
 **Verification**
 
-- Blocking: the durable summary exists and names the fresh row ids, reused lineage rows, fixed CDI contract, fixed CNS contract, and claim boundary.
-- Blocking: every new durable output is reflected in the appropriate evidence/index surface, or the summary explicitly states why a given surface was intentionally unchanged.
-- Supporting: a final pass confirms the summary does not overclaim beyond append-only mechanism evidence or capped CNS decision-support evidence.
+- Blocking:
+  - tracked CDI launch exits `0`;
+  - fresh CDI artifact root exists and is freshly written;
+  - emitted metadata records the approved fixed encoder recipe;
+  - emitted metrics/visuals correspond to the corrected `24`-block row only.
+- Supporting:
+  - compare the corrected row against reused CDI lineage rows in item-local notes or during bundle rebuild;
+  - rerun `pytest -v -m integration` as a blocking gate before relaunch if a production workflow fix was required.
 
-## Completion Criteria
+### Task 3: Run The Corrected Capped CNS Mechanism Row
 
-- The codebase exposes one explicit `hybrid_resnet_ffno_ptychoblock_encoder` family with the fixed encoder recipe and manifest/config round-trip fields.
-- The grid-lines path can launch exactly one fresh append-only CDI row for that family under the locked `lines128` contract.
-- The PDEBench image128 path can launch exactly one fresh manual-only capped CNS row for that family under the matched `history_len=5`, `512 / 64 / 64`, `20`-epoch mechanism-probe contract.
-- All blocking deterministic checks in this plan pass before the expensive launches.
-- Both long runs either complete with exit `0` plus fresh required artifacts or conclude with a documented narrow-fix attempt and a legitimate blocker under the item’s blocker policy.
-- The durable summary and evidence indexes are updated without rewriting the authoritative CDI or CNS headline bundles.
+**Files / Artifacts**
+
+- Launch surfaces:
+  - `scripts/studies/run_pdebench_image128_suite.py`
+  - `scripts/studies/pdebench_image128/models.py`
+  - `scripts/studies/pdebench_image128/run_config.py`
+- Fresh run root:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/runs/cns_ffno_ptychoblock_encoder_<timestampZ>/`
+
+- [ ] Launch only the manual-only profile `hybrid_resnet_ffno_ptychoblock_encoder_cns`.
+- [ ] Keep the inherited CNS shell fixed:
+  `history_len=5`, split `512 / 64 / 64`, `20` epochs, `batch_size=4`,
+  Adam `2e-4`, MSE loss, same metric family, same `pixelshuffle` upsampler,
+  same skip-add SRU-Net shell outside the encoder.
+- [ ] Keep the run explicitly labeled as a `20`-epoch mechanism probe on the
+  matched-condition capped lane. Do not inject it into the `40`-epoch headline
+  table.
+- [ ] Launch via tmux in `ptycho311`, track the exact started PID/session, and wait for terminal completion.
+- [ ] If the run fails for an ordinary harness or code reason, diagnose, fix narrowly, rerun the affected tests, and relaunch under a fresh output root.
+- [ ] Mark the row complete only after the tracked launch exits `0` and the fresh run root contains invocation/config/history/metrics/field visuals plus `exit_code_proof.json`.
+- [ ] When interpreting the row, compare it to same-contract lineage where available and label any comparison to `40`-epoch endpoints explicitly.
+
+**Verification**
+
+- Blocking:
+  - tracked CNS launch exits `0`;
+  - fresh CNS artifact root exists and is freshly written;
+  - emitted metadata records the approved fixed encoder recipe and the capped
+    `history_len=5`, `512 / 64 / 64`, `20`-epoch contract;
+  - summary inputs keep the CNS row in bounded mechanism-evidence scope only.
+- Supporting:
+  - if runner/bundle code changed, rerun the affected stronger checks, including
+    `tests/studies/test_pdebench_image128_runner.py` selectors that cover the
+    touched surface;
+  - keep a short note mapping the corrected row to the reused CNS lineage rows
+    and explicitly separating `20`-epoch probe evidence from `40`-epoch
+    headline context.
+
+### Task 4: Rebuild The Comparison Bundle And Repair Evidence Surfaces
+
+**Files / Artifacts**
+
+- Rebuilt compare bundle:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-srunet-ffno-ptychoblock-encoder-cdi-cns-smallcap/comparison_bundle.json`
+- Required durable docs/indexes:
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/srunet_ffno_ptychoblock_encoder_cdi_cns_smallcap_summary.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/ablation_index.json`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json`
+  - `docs/studies/index.md`
+
+- [ ] Rebuild the item-local `comparison_bundle.json` from the corrected CDI and CNS run roots only.
+- [ ] Rewrite the durable summary from `implementation_corrected_rerun_pending` to the actual completion outcome, with the exact corrected run roots, verification evidence, and claim boundary.
+- [ ] Update `evidence_matrix.md` and `paper_evidence_index.md` so the corrected `24`-block roots are current authority and the historical `2`-block roots remain explicitly superseded context only.
+- [ ] Update `model_variant_index.json` and `ablation_index.json` so the corrected row entries point at the fresh corrected roots while preserving historical lineage notes.
+- [ ] Update `docs/studies/index.md` so the cross-pillar probe entry no longer describes the corrected reruns as pending once both corrected roots exist.
+- [ ] Update `docs/index.md` only if a reusable new study surface was added, and update `docs/findings.md` only if the rerun exposed a durable new project rule.
+
+**Verification**
+
+- Blocking:
+  - summary and index surfaces all point to the corrected run roots or state an
+    explicit blocked outcome grounded in those reruns;
+  - no current-authority evidence surface still treats the historical `2`-block
+    roots as the approved result;
+  - CDI is labeled append-only mechanism evidence and CNS is labeled bounded
+    capped mechanism evidence.
+- Supporting:
+  - search/grep validation that the historical roots remain labeled
+    `superseded`, `historical`, or equivalent rather than current authority;
+  - if only docs/JSON surfaces changed in this task, no additional compile step
+    is required.
+
+## Completion Gate
+
+This backlog item is complete only when all of the following are true:
+
+- the fixed `24`-block encoder recipe is confirmed across the owned code paths;
+- the required deterministic checks pass on the final code state;
+- the corrected CDI rerun exits `0` and emits the full required artifact set;
+- the corrected CNS rerun exits `0` and emits the full required artifact set;
+- the rebuilt compare bundle, durable summary, and evidence/index surfaces all
+  promote the corrected roots and demote the historical `2`-block roots to
+  superseded lineage only;
+- the final summary keeps CDI and CNS claim boundaries separate and does not
+  promote either corrected `20`-epoch mechanism row into a headline authority.

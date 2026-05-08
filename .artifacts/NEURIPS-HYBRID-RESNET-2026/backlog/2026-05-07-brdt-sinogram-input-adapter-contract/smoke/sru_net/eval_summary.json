@@ -1,16 +1,16 @@
 {
   "architecture": "hybrid_resnet",
-  "eval_image_mae_norm": 0.48936665058135986,
-  "eval_relative_physics": 0.8954346776008606,
+  "eval_image_mae_norm": 0.5049442052841187,
+  "eval_relative_physics": 0.7867355942726135,
   "final_loss_breakdown": {
-    "image": 0.5457825064659119,
-    "physics": 0.003633360378444195,
-    "positivity": 1.1692427506204695e-06,
-    "relative_physics": 0.9037266373634338,
-    "total": 0.6365185976028442,
-    "tv": 0.003875523107126355
+    "image": 0.5327221155166626,
+    "physics": 0.0037188951391726732,
+    "positivity": 7.451551482517971e-07,
+    "relative_physics": 0.7859271168708801,
+    "total": 0.6116867065429688,
+    "tv": 0.002548162592574954
   },
-  "final_loss_total": 0.6365185976028442,
+  "final_loss_total": 0.6116867065429688,
   "note": "fast_dev_run sanity execution",
   "parameter_count": 142162,
   "row_id": "sru_net",

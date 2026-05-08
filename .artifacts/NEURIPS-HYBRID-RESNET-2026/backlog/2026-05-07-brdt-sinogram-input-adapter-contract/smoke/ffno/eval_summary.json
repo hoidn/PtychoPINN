@@ -1,16 +1,16 @@
 {
   "architecture": "ffno",
-  "eval_image_mae_norm": 0.43687811493873596,
-  "eval_relative_physics": 0.8309299349784851,
+  "eval_image_mae_norm": 0.477170467376709,
+  "eval_relative_physics": 0.7906044721603394,
   "final_loss_breakdown": {
-    "image": 0.439687043428421,
-    "physics": 0.0036280974745750427,
+    "image": 0.479798823595047,
+    "physics": 0.003744141897186637,
     "positivity": 0.0,
-    "relative_physics": 0.8276391625404358,
-    "total": 0.5228137969970703,
-    "tv": 5.127523036208004e-05
+    "relative_physics": 0.7895881533622742,
+    "total": 0.5591320395469666,
+    "tv": 0.0002610223018564284
   },
-  "final_loss_total": 0.5228137969970703,
+  "final_loss_total": 0.5591320395469666,
   "note": "fast_dev_run sanity execution",
   "parameter_count": 27538,
   "row_id": "ffno",

@@ -36,14 +36,13 @@ signals_for_selection:
   - This item is a bounded encoder-order row extension and should run before lower-priority WaveBench candidate items.
 ---
 
-# Paused Status
+# Reactivated Status
 
-Paused on 2026-05-06 at operator request with the FFNO-to-PtychoBlock
-companion item. Do not select this reversed-order item again until it is
-explicitly reactivated.
+Reactivated on 2026-05-06 at operator request with the FFNO-to-PtychoBlock
+companion item.
 
-If reactivated, this item remains eligible to run the reversed-order row
-independently. The final encoder-order comparison bundle may include the
+This item remains eligible to run the reversed-order row independently. The
+final encoder-order comparison bundle may include the
 FFNO-to-PtychoBlock companion row only after that row has a corrected
 same-contract result. If the companion row is still unavailable, publish the new
 PtychoBlock-to-FFNO row and record the three-row comparison as pending rather
