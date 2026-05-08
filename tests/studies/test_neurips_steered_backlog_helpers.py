@@ -983,3 +983,53 @@ def test_run_neurips_backlog_checks_reports_failures_without_process_failure(tmp
     assert report["status"] == "FAIL"
     assert report["failed_count"] == 1
     assert report["results"][1]["exit_code"] == 3
+
+
+def test_run_neurips_backlog_checks_preserves_existing_matching_log_paths(tmp_path):
+    workspace = _workspace(tmp_path)
+    checks_path = workspace / "state/checks.json"
+    checks_path.parent.mkdir(parents=True, exist_ok=True)
+    commands = ['python -c "print(\'ok\')"']
+    checks_path.write_text(json.dumps(commands, indent=2) + "\n", encoding="utf-8")
+
+    log_path = workspace / "artifacts/work/checks/ok.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    log_path.write_text("archived ok\n", encoding="utf-8")
+    report_path = workspace / "artifacts/checks/report.json"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(
+        json.dumps(
+            {
+                "status": "PASS",
+                "failed_count": 0,
+                "command_count": 1,
+                "checks_path": checks_path.as_posix(),
+                "results": [
+                    {
+                        "index": 1,
+                        "command": commands[0],
+                        "exit_code": 0,
+                        "log_path": log_path.relative_to(workspace).as_posix(),
+                    }
+                ],
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = _run_script(
+        workspace,
+        "workflows/library/scripts/run_neurips_backlog_checks.py",
+        "--checks-path",
+        str(checks_path),
+        "--report-path",
+        str(report_path),
+    )
+    assert result.returncode == 0
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["status"] == "PASS"
+    assert report["results"][0]["command"] == commands[0]
+    assert report["results"][0]["log_path"] == log_path.relative_to(workspace).as_posix()
