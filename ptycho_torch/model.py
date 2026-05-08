@@ -133,7 +133,7 @@ def _build_generator_module_from_config(
     if architecture != "neuralop_uno":
         generator_mode = _generator_output_mode_for_core(generator_output)
     common_kwargs = {
-        "in_channels": 1,
+        "in_channels": getattr(model_config, "learned_input_channels", 1),
         "out_channels": 2,
         "hidden_channels": getattr(model_config, "fno_width", 32),
         "modes": getattr(model_config, "fno_modes", 12),
@@ -1781,6 +1781,7 @@ class PtychoPINN_Lightning(L.LightningModule):
         """
         # Grab required data fields from TensorDict
         x = batch[0]['images']
+        observed_images = batch[0].get('observed_images', x)
         positions = batch[0]['coords_relative']
         probe = batch[1]
         rms_scale = batch[0]['rms_scaling_constant']  # RMS scaling
@@ -1808,11 +1809,11 @@ class PtychoPINN_Lightning(L.LightningModule):
                                             )
         
         #Normalization factor for loss output (just to keep it scaled down)
-        intensity_norm_factor = torch.mean(x).detach() + 1e-8
+        intensity_norm_factor = torch.mean(observed_images).detach() + 1e-8
 
         if self.model_config.mode == 'Unsupervised':
             pred_physics = pred * physics_scale
-            obs_physics = x * physics_scale
+            obs_physics = observed_images * physics_scale
             if self.torch_loss_mode == 'mae' and self.torch_mae_pred_l2_match_target:
                 pred_physics, alpha = self._match_prediction_l2_to_target(pred_physics, obs_physics)
                 alpha_flat = alpha.detach().reshape(alpha.shape[0], -1)

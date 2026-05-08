@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-07T22:03:38Z",
+  "last_updated_utc": "2026-05-08T21:58:35Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -10,6 +10,7 @@
     "cdi_complete_lines128": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md",
     "cdi_ffno_no_refiner_rerun": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_no_refiner_row_rerun_summary.md",
     "cdi_supervised_ffno_no_refiner_rerun": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_supervised_ffno_no_refiner_rerun_summary.md",
+    "cdi_probe_channel_conditioning_ablation": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_probe_channel_conditioning_ablation_summary.md",
     "cdi_no_refiner_ffno_table_refresh_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_no_refiner_ffno_table_refresh_summary.md",
     "cdi_supervised_extension": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md",
     "cns_table_bundle": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
@@ -628,6 +629,119 @@
       },
       "comparison_outcome": "corrected_pure_ffno_rerun_promoted_into_active_cdi_paper_refresh",
       "evidence_status": "decision_support_prerequisite_corrected_pure_ffno"
+    },
+    {
+      "variant_id": "cdi_lines128__hybrid_resnet_probe_channels__pinn__input_conditioning_ablation",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_hybrid_resnet_probe_channels",
+      "paper_label": "Hybrid ResNet + PINN (probe-conditioned input)",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "pinn",
+      "architecture_overrides": {
+        "learned_input_channels": 3
+      },
+      "input_conditioning": {
+        "mode": "probe_real_imag",
+        "base_input_channels": 1,
+        "learned_input_channels": 3,
+        "probe_channel_count": 2,
+        "probe_channels": [
+          "probe_real",
+          "probe_imag"
+        ],
+        "probe_source": "custom",
+        "probe_scale_mode": "pad_extrapolate",
+        "probe_smoothing_sigma": 0.5,
+        "probe_npz": "datasets/Run1084_recon3_postPC_shrunk_3.npz"
+      },
+      "claim_boundary": "cdi_lines128_probe_channel_conditioning_ablation_only",
+      "lineage": {
+        "baseline_variant_id": "cdi_lines128__hybrid_resnet__pinn__complete_table",
+        "baseline_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux"
+      },
+      "source_backlog_item": "2026-05-07-cdi-lines128-probe-channel-conditioning-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_probe_channel_conditioning_ablation_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-probe-channel-conditioning-ablation",
+      "metrics_json": "runs/pinn_hybrid_resnet_probe_channels/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_hybrid_resnet_probe_channels.png",
+        "visuals/amp_phase_error_pinn_hybrid_resnet_probe_channels.png"
+      ],
+      "metrics": {
+        "amp_mae": 0.028848139569163322,
+        "phase_mae": 0.13166925764722484,
+        "amp_mse": 0.0013355828123167157,
+        "phase_mse": 0.34435991622994816,
+        "amp_psnr": 76.87409546169647,
+        "phase_psnr": 52.76067767966856,
+        "amp_ssim": 0.9872962534515816,
+        "phase_ssim": 0.9617029290306421,
+        "amp_ms_ssim": 0.9976211698386017,
+        "phase_ms_ssim": 0.8475905878866286,
+        "amp_frc50": 132.82538340644766,
+        "phase_frc50": 0.9295801657057563
+      },
+      "nearest_anchor_row": "pinn_hybrid_resnet",
+      "comparison_outcome": "probe_conditioning_regresses_phase_side_metrics_vs_hybrid_anchor",
+      "evidence_status": "decision_support_append_only"
+    },
+    {
+      "variant_id": "cdi_lines128__ffno_probe_channels__pinn__input_conditioning_ablation",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_ffno_probe_channels",
+      "paper_label": "FFNO + PINN (probe-conditioned input)",
+      "architecture_id": "ffno",
+      "model_family": "factorized_fourier_operator",
+      "training_mode": "pinn",
+      "architecture_overrides": {
+        "fno_cnn_blocks": 0,
+        "learned_input_channels": 3
+      },
+      "input_conditioning": {
+        "mode": "probe_real_imag",
+        "base_input_channels": 1,
+        "learned_input_channels": 3,
+        "probe_channel_count": 2,
+        "probe_channels": [
+          "probe_real",
+          "probe_imag"
+        ],
+        "probe_source": "custom",
+        "probe_scale_mode": "pad_extrapolate",
+        "probe_smoothing_sigma": 0.5,
+        "probe_npz": "datasets/Run1084_recon3_postPC_shrunk_3.npz"
+      },
+      "claim_boundary": "cdi_lines128_probe_channel_conditioning_ablation_only",
+      "lineage": {
+        "baseline_variant_id": "cdi_lines128__ffno__pinn__no_refiner_prerequisite_rerun",
+        "baseline_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z"
+      },
+      "source_backlog_item": "2026-05-07-cdi-lines128-probe-channel-conditioning-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_probe_channel_conditioning_ablation_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-probe-channel-conditioning-ablation",
+      "metrics_json": "runs/pinn_ffno_probe_channels/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_ffno_probe_channels.png",
+        "visuals/amp_phase_error_pinn_ffno_probe_channels.png"
+      ],
+      "metrics": {
+        "amp_mae": 0.07334043085575104,
+        "phase_mae": 3.1541610975959777,
+        "amp_mse": 0.008599603548645973,
+        "phase_mse": 10.11190169220392,
+        "amp_psnr": 68.78601898611194,
+        "phase_psnr": 38.0824752208677,
+        "amp_ssim": 0.9074949861719058,
+        "phase_ssim": 0.012315237372115722,
+        "amp_ms_ssim": 0.9879655493711514,
+        "phase_ms_ssim": 0.00012417847982897155,
+        "amp_frc50": 57.67539552037226,
+        "phase_frc50": 48.61131812291816
+      },
+      "nearest_anchor_row": "pinn_ffno",
+      "comparison_outcome": "probe_conditioning_improves_some_amplitude_metrics_but_collapses_phase_quality_vs_corrected_pure_ffno_anchor",
+      "evidence_status": "decision_support_append_only"
     },
     {
       "variant_id": "cdi_lines128__neuralop_uno__pinn__uno_extension",
@@ -2649,7 +2763,8 @@
     "2026-05-06-brdt-corrected-ffno-40ep-rerun",
     "2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
     "2026-05-06-cdi-lines128-ffno-depth24-ablation",
-    "2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun"
+    "2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun",
+    "2026-05-07-cdi-lines128-probe-channel-conditioning-ablation"
   ],
   "maintenance_rules": [
     "Every future completed backlog item that emits model metrics must add or update at least one model_variants entry.",

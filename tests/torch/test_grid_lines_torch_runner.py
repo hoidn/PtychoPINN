@@ -14,6 +14,7 @@ from ptycho.metadata import MetadataManager
 
 from scripts.studies.grid_lines_torch_runner import (
     TorchRunnerConfig,
+    _apply_input_conditioning,
     _build_paper_row_payload,
     compute_metrics,
     load_cached_dataset,
@@ -211,6 +212,61 @@ class TestCoordsRelativeSelection:
         assert np.allclose(selected, coords_nominal)
 
 
+class TestInputConditioning:
+    def test_apply_probe_real_imag_conditioning_appends_probe_channels(self, tmp_path):
+        diffraction = np.full((2, 4, 4, 1), 7.0, dtype=np.float32)
+        probe = (np.ones((4, 4), dtype=np.float32) + 2j * np.ones((4, 4), dtype=np.float32)).astype(
+            np.complex64
+        )
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="ffno",
+            input_conditioning_mode="probe_real_imag",
+        )
+        metadata = {
+            "additional_parameters": {
+                "probe_source": "custom",
+                "probe_scale_mode": "pad_extrapolate",
+                "probe_smoothing_sigma": 0.5,
+                "probe_transform_pipeline": "pad_extrapolate:4|smooth:0.5",
+                "probe_npz": str(tmp_path / "probe.npz"),
+            }
+        }
+
+        conditioned, contract = _apply_input_conditioning(
+            diffraction,
+            probe,
+            cfg,
+            metadata=metadata,
+        )
+
+        assert conditioned.shape == (2, 4, 4, 3)
+        assert np.allclose(conditioned[..., 0], 7.0)
+        assert np.allclose(conditioned[..., 1], 1.0)
+        assert np.allclose(conditioned[..., 2], 2.0)
+        assert contract["enabled"] is True
+        assert contract["learned_input_channels"] == 3
+        assert contract["probe_channel_count"] == 2
+        assert contract["probe_lineage"]["probe_transform_pipeline"] == "pad_extrapolate:4|smooth:0.5"
+
+    def test_apply_probe_real_imag_conditioning_rejects_multi_channel_diffraction(self, tmp_path):
+        diffraction = np.ones((2, 4, 4, 2), dtype=np.float32)
+        probe = np.ones((4, 4), dtype=np.complex64)
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="ffno",
+            input_conditioning_mode="probe_real_imag",
+            gridsize=2,
+        )
+
+        with pytest.raises(ValueError, match="single-channel"):
+            _apply_input_conditioning(diffraction, probe, cfg)
+
+
 class TestSetupTorchConfigs:
     """Tests for setup_torch_configs function."""
 
@@ -260,6 +316,20 @@ class TestSetupTorchConfigs:
         training_config, _ = setup_torch_configs(cfg)
 
         assert training_config.subsample_seed == 7
+
+    def test_setup_configs_threads_probe_conditioning_input_channels(self, tmp_path):
+        """Probe-conditioned rows must advertise a 3-channel learned input."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="hybrid_resnet",
+            input_conditioning_mode="probe_real_imag",
+        )
+
+        training_config, _ = setup_torch_configs(cfg)
+
+        assert training_config.model.learned_input_channels == 3
 
     def test_fno_input_transform_passed(self, tmp_path):
         """FNO input transform should be forwarded to ModelConfig."""
@@ -2065,6 +2135,19 @@ class TestChannelGridsizeAlignment:
         assert payload.pt_model_config.C_forward == 1
         assert payload.pt_model_config.C_model == 1
 
+    def test_create_training_payload_preserves_learned_input_channels(self, synthetic_ptycho_npz, tmp_path):
+        """Test that config_factory preserves learned_input_channels across both config layers."""
+        from ptycho_torch.config_factory import create_training_payload
+
+        train_npz, _ = synthetic_ptycho_npz
+        payload = create_training_payload(
+            train_data_file=train_npz,
+            output_dir=tmp_path,
+            overrides={"n_groups": 4, "gridsize": 1, "learned_input_channels": 3},
+        )
+        assert payload.pt_model_config.learned_input_channels == 3
+        assert payload.tf_training_config.model.learned_input_channels == 3
+
     def test_create_training_payload_keeps_hybrid_residual_fixed_knobs_out_of_pt_model_config(
         self, synthetic_ptycho_npz, tmp_path
     ):
@@ -2148,6 +2231,38 @@ class TestArchitecturePropagation:
             )
         assert captured["overrides"]["hybrid_downsample_steps"] == 1
         assert captured["overrides"]["hybrid_downsample_op"] == "avgpool_conv"
+
+    def test_workflow_forwards_learned_input_channels_to_factory(self, monkeypatch, tmp_path):
+        from pathlib import Path
+        from ptycho_torch.workflows import components
+        from ptycho.config.config import TrainingConfig, ModelConfig
+
+        cfg = TrainingConfig(
+            model=ModelConfig(
+                N=64,
+                gridsize=1,
+                architecture="hybrid_resnet",
+                learned_input_channels=3,
+            ),
+            train_data_file=Path("/tmp/dummy_train.npz"),
+            output_dir=tmp_path,
+            backend="pytorch",
+            n_groups=4,
+        )
+        captured = {}
+
+        def spy_create_payload(*args, **kwargs):
+            captured["overrides"] = kwargs["overrides"]
+            raise RuntimeError("stop")
+
+        monkeypatch.setattr("ptycho_torch.config_factory.create_training_payload", spy_create_payload)
+        with pytest.raises(RuntimeError, match="stop"):
+            components._train_with_lightning(
+                train_container=object(),
+                test_container=None,
+                config=cfg,
+            )
+        assert captured["overrides"]["learned_input_channels"] == 3
 
     def test_workflow_forwards_hybrid_encoder_conv_hidden_scale_and_hybrid_encoder_spectral_hidden_scale_and_hybrid_resnet_blocks_and_factory(
         self, monkeypatch, tmp_path
@@ -2532,6 +2647,45 @@ class TestTorchTrainingPath:
         assert "label_phase" in captured["test_container"]
         np.testing.assert_allclose(captured["train_container"]["label_amp"], train_data["Y_I"])
         np.testing.assert_allclose(captured["train_container"]["label_phase"], train_data["Y_phi"])
+
+    def test_probe_conditioning_keeps_observed_diffraction_separate(self, synthetic_npz, tmp_path, monkeypatch):
+        """Probe conditioning should not replace the single-channel diffraction loss target."""
+        from unittest.mock import MagicMock
+
+        train_path, test_path = synthetic_npz
+
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=tmp_path,
+            architecture="hybrid_resnet",
+            input_conditioning_mode="probe_real_imag",
+        )
+
+        train_data = load_cached_dataset(train_path)
+        test_data = load_cached_dataset(test_path)
+        train_data["probeGuess"] = np.ones((cfg.N, cfg.N), dtype=np.complex64)
+        test_data["probeGuess"] = np.ones((cfg.N, cfg.N), dtype=np.complex64)
+        captured = {}
+
+        def fake_train(train_container, test_container, config, execution_config=None, overrides=None):
+            captured["train_container"] = train_container
+            captured["test_container"] = test_container
+            return {
+                "history": {"train_loss": []},
+                "models": {"diffraction_to_obj": MagicMock()},
+            }
+
+        monkeypatch.setattr("ptycho_torch.workflows.components._train_with_lightning", fake_train)
+
+        run_torch_training(cfg, train_data, test_data)
+
+        assert captured["train_container"]["X"].shape[-1] == 3
+        assert captured["test_container"]["X"].shape[-1] == 3
+        assert captured["train_container"]["observed_images"].shape[-1] == 1
+        assert captured["test_container"]["observed_images"].shape[-1] == 1
+        np.testing.assert_allclose(captured["train_container"]["observed_images"], train_data["diffraction"])
+        np.testing.assert_allclose(captured["test_container"]["observed_images"], test_data["diffraction"])
 
 
 def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):

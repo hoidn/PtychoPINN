@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-07T22:03:38Z",
+  "last_updated_utc": "2026-05-08T21:58:35Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -160,6 +160,38 @@
         "supervised_ffno_depth24"
       ],
       "interpretation": "The completed depth-24 FFNO family now covers both training modes under the corrected no-refiner `lines128` CDI contract. On the PINN side, the fresh depth-24 rerun improves every tracked scalar amplitude/phase reconstruction metric versus the corrected four-block `pinn_ffno` row, but it is far more expensive in parameters, training time, and inference time. On the supervised side, the fresh depth-24 companion modestly improves phase-side metrics and amplitude MAE versus the corrected four-block `supervised_ffno` row, but amplitude SSIM/FRC and validation loss worsen while runtime still expands by more than 5x. The final paper refresh kept the corrected four-block same-depth pair canonical for repo-local CDI assets, so the depth-24 family remains append-only evidence after an explicit promotion decision rather than a deferred placeholder."
+    },
+    {
+      "family_id": "cdi_lines128_probe_channel_conditioning_ablation",
+      "task": "cdi",
+      "fixed_contract": "cdi_lines128_seed3",
+      "claim_boundary": "cdi_lines128_probe_channel_conditioning_ablation_only",
+      "changed_factors": [
+        "learned-model input adds fixed probe real/imag channels (`input_conditioning_mode: diffraction_only -> probe_real_imag`)",
+        "`learned_input_channels: 1 -> 3` for the new append-only rows only",
+        "the FFNO conditioned row keeps the corrected pure-FFNO no-refiner anchor (`fno_cnn_blocks=0`) while changing only learned input composition"
+      ],
+      "completed_items": [
+        "2026-05-07-cdi-lines128-probe-channel-conditioning-ablation"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_probe_channel_conditioning_ablation_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-probe-channel-conditioning-ablation/"
+      ],
+      "comparison_artifacts": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-probe-channel-conditioning-ablation/verification/contract_note.json",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-probe-channel-conditioning-ablation/verification/preflight_payload.json",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-probe-channel-conditioning-ablation/metrics_by_model.json"
+      ],
+      "rows": [
+        "pinn_hybrid_resnet",
+        "pinn_hybrid_resnet_probe_channels",
+        "pinn_ffno",
+        "pinn_ffno_probe_channels"
+      ],
+      "interpretation": "The fixed-probe-channel conditioning family keeps the authoritative CDI `lines128` dataset/probe/optimizer/epoch contract frozen and changes only the learned-model input composition for two append-only rows. The conditioned Hybrid row regresses relative to the authoritative Hybrid anchor, especially on phase-side metrics. The conditioned pure-FFNO row improves some amplitude metrics versus the corrected pure-FFNO anchor but collapses phase quality badly enough that it is not promotable. This family is append-only input-conditioning evidence only and does not replace the six-row CDI authority or the current paper-local FFNO refresh."
     },
     {
       "family_id": "cdi_lines128_ffno_paper_refresh_packaging",

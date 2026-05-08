@@ -417,6 +417,7 @@ def _build_lightning_dataloaders(
             self.model_config = model_config
             # Extract all tensors at init
             self.images = _get_tensor(container, 'X')
+            self.observed_images = _get_tensor(container, 'observed_images')
             # Try 'coords_relative' first, fallback to 'coords_nominal' for container compatibility
             self.coords_relative = _get_tensor(container, 'coords_relative')
             if self.coords_relative is None:
@@ -469,6 +470,11 @@ def _build_lightning_dataloaders(
             """
             # Extract indexed data
             images_indexed = self.images[idx]
+            observed_images_indexed = (
+                self.observed_images[idx]
+                if self.observed_images is not None
+                else images_indexed
+            )
 
             # CRITICAL: Convert from TensorFlow channel-last to PyTorch channel-first format
             # TensorFlow RawData.generate_grouped_data returns X_full with shape (nsamples, H, W, C)
@@ -480,6 +486,10 @@ def _build_lightning_dataloaders(
             elif images_indexed.ndim == 3:
                 # Single sample case: (H, W, C) → (C, H, W)
                 images_indexed = images_indexed.permute(2, 0, 1)
+            if observed_images_indexed.ndim == 4:
+                observed_images_indexed = observed_images_indexed.permute(0, 3, 1, 2)
+            elif observed_images_indexed.ndim == 3:
+                observed_images_indexed = observed_images_indexed.permute(2, 0, 1)
 
             # Build tensor dict with required keys for compute_loss
             coords_rel = self.coords_relative[idx] if self.coords_relative is not None else torch.zeros(1, 2)
@@ -530,6 +540,7 @@ def _build_lightning_dataloaders(
 
             tensor_dict = {
                 'images': images_indexed,
+                'observed_images': observed_images_indexed,
                 'coords_relative': coords_rel,
                 'rms_scaling_constant': rms_scale,
                 'physics_scaling_constant': phys_scale,
@@ -865,7 +876,14 @@ def _train_with_lightning(
         val = getattr(config, opt_field, None)
         if val is not None:
             factory_overrides[opt_field] = val
-    for field_name in ('fno_modes', 'fno_width', 'fno_blocks', 'fno_cnn_blocks', 'fno_input_transform'):
+    for field_name in (
+        'fno_modes',
+        'fno_width',
+        'fno_blocks',
+        'fno_cnn_blocks',
+        'fno_input_transform',
+        'learned_input_channels',
+    ):
         field_val = getattr(config.model, field_name, None)
         if field_val is not None:
             factory_overrides[field_name] = field_val

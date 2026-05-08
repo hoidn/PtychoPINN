@@ -175,6 +175,7 @@ def to_model_config(
         'fno_width': model.fno_width,
         'fno_blocks': model.fno_blocks,
         'fno_cnn_blocks': model.fno_cnn_blocks,
+        'learned_input_channels': getattr(model, 'learned_input_channels', 1),
         'max_hidden_channels': getattr(model, 'max_hidden_channels', None),
         'resnet_width': getattr(model, 'resnet_width', None),
         'fno_input_transform': model.fno_input_transform,

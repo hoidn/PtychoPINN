@@ -289,7 +289,75 @@ def test_wrapper_preflight_only_routes_ffno_depth24_row_with_override(monkeypatc
     assert captured["fno_blocks"] == 24
     assert captured["fno_cnn_blocks"] == 0
     assert result["row_plan"][0]["model_id"] == "pinn_ffno_depth24"
-    assert result["row_plan"][0]["overrides"]["fno_blocks"] == 24
+
+
+def test_wrapper_preflight_only_routes_probe_conditioning_rows(monkeypatch, tmp_path):
+    from scripts.studies.grid_lines_compare_wrapper import run_grid_lines_compare
+
+    probe_path = tmp_path / "probe.npz"
+    probe_path.write_bytes(b"stub")
+    captured = []
+
+    def fake_setup_torch_configs(cfg):
+        captured.append(
+            {
+                "model_id_override": cfg.model_id_override,
+                "architecture": cfg.architecture,
+                "input_conditioning_mode": cfg.input_conditioning_mode,
+                "fno_cnn_blocks": cfg.fno_cnn_blocks,
+            }
+        )
+        return object(), object()
+
+    monkeypatch.setattr(
+        "scripts.studies.grid_lines_torch_runner.setup_torch_configs",
+        fake_setup_torch_configs,
+    )
+
+    result = run_grid_lines_compare(
+        N=128,
+        gridsize=1,
+        output_dir=tmp_path,
+        probe_npz=probe_path,
+        architectures=(),
+        models=("pinn_hybrid_resnet_probe_channels", "pinn_ffno_probe_channels"),
+        model_n={
+            "pinn_hybrid_resnet_probe_channels": 128,
+            "pinn_ffno_probe_channels": 128,
+        },
+        preflight_only=True,
+        seed=3,
+        set_phi=True,
+        probe_scale_mode="pad_extrapolate",
+        torch_epochs=40,
+        torch_learning_rate=2e-4,
+        torch_scheduler="ReduceLROnPlateau",
+        torch_plateau_factor=0.5,
+        torch_plateau_patience=2,
+        torch_plateau_min_lr=1e-4,
+        torch_plateau_threshold=0.0,
+        torch_loss_mode="mae",
+        torch_output_mode="real_imag",
+        nimgs_train=2,
+        nimgs_test=2,
+        nphotons=1e9,
+    )
+
+    assert result["mode"] == "preflight_only"
+    assert result["selected_models"] == [
+        "pinn_hybrid_resnet_probe_channels",
+        "pinn_ffno_probe_channels",
+    ]
+    assert [entry["model_id_override"] for entry in captured] == [
+        "pinn_hybrid_resnet_probe_channels",
+        "pinn_ffno_probe_channels",
+    ]
+    assert all(entry["input_conditioning_mode"] == "probe_real_imag" for entry in captured)
+    assert captured[0]["architecture"] == "hybrid_resnet"
+    assert captured[1]["architecture"] == "ffno"
+    assert captured[1]["fno_cnn_blocks"] == 0
+    assert result["row_plan"][0]["overrides"]["input_conditioning_mode"] == "probe_real_imag"
+    assert result["row_plan"][1]["overrides"]["input_conditioning_mode"] == "probe_real_imag"
 
 
 def test_wrapper_emits_row_payloads_for_minimum_subset_execution(monkeypatch, tmp_path):

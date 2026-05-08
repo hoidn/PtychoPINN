@@ -1,7 +1,7 @@
 # NeurIPS Hybrid ResNet Evidence Matrix
 
 Status: draft  
-Last updated: 2026-05-07 (added the CDI supervised FFNO depth-24 companion and refreshed the depth-family discovery surfaces)
+Last updated: 2026-05-08 (added the CDI probe-channel conditioning ablation and refreshed the CDI discovery surfaces)
 
 This is the human-facing master matrix for NeurIPS/SRU-Net evidence. It points
 to all relevant completed backlog outputs, keyed by dataset, model/config
@@ -20,6 +20,7 @@ Machine-readable companions:
 | CDI `lines128` complete table | `lines128_paper_benchmark_summary.md` | `paper_grade`, six-row complete CDI bundle |
 | CDI `lines128` final paper-local FFNO refresh | `cdi_lines128_ffno_depth24_final_paper_refresh_summary.md` | current manuscript-facing CDI tables, figures, model-config, efficiency, and discovery assets; four-block same-depth no-refiner pair retained as canonical; claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension_with_final_four_block_no_refiner_ffno_pair` |
 | CDI `lines128` pure-FFNO corrected prerequisite row | `cdi_lines128_ffno_no_refiner_row_rerun_summary.md` | corrected source-row evidence for the active paper-local FFNO refresh; claim boundary `lines128_ffno_vs_hybrid_prerequisite_pair` |
+| CDI `lines128` probe-channel conditioning ablation | `cdi_lines128_probe_channel_conditioning_ablation_summary.md` | append-only input-conditioning evidence only; claim boundary `cdi_lines128_probe_channel_conditioning_ablation_only` |
 | CDI `lines128` pure-FFNO corrected objective-control pair | `cdi_lines128_supervised_ffno_no_refiner_rerun_summary.md` | corrected source-row evidence for the active paper-local FFNO objective table; claim boundary `lines128_ffno_objective_control_corrected_pair` |
 | CDI `lines128` pure-FFNO depth ablation | `cdi_lines128_ffno_depth24_ablation_summary.md` | append-only depth-only FFNO evidence comparing corrected no-refiner `fno_blocks=4` against fresh `fno_blocks=24`; claim boundary `cdi_ffno_depth_ablation_only` |
 | CDI `lines128` supervised pure-FFNO depth companion | `cdi_lines128_supervised_ffno_depth24_no_refiner_summary.md` | append-only supervised depth-only FFNO evidence comparing corrected no-refiner `fno_blocks=4` against fresh `fno_blocks=24`; claim boundary `cdi_supervised_ffno_depth_companion_only` |
@@ -77,9 +78,11 @@ Fixed contract: synthetic grid-lines `N=128`, `gridsize=1`, `seed=3`,
 | `baseline` | `cnn` | supervised | 0.402672 | 0.786194 | 0.277214 | 0.496353 | complete CDI table |
 | `pinn` | `cnn` | PINN | 0.123171 | 0.786322 | 0.732568 | 0.263815 | complete CDI table |
 | `pinn_hybrid_resnet` | `hybrid_resnet` | PINN | 0.026939 | 0.072063 | 0.988114 | 0.994740 | complete CDI table |
+| `pinn_hybrid_resnet_probe_channels` | `hybrid_resnet` | PINN | 0.028848 | 0.131669 | 0.987296 | 0.961703 | append-only probe-conditioned input ablation (`input_conditioning_mode=probe_real_imag`, `learned_input_channels=3`) |
 | `pinn_fno_vanilla` | `fno_vanilla` | PINN | 0.124816 | 0.143540 | 0.740936 | 0.933464 | complete CDI table |
 | `pinn_spectral_resnet_bottleneck_net` | `spectral_resnet_bottleneck_net` | PINN | 0.024944 | 0.092881 | 0.989855 | 0.972219 | complete CDI table |
 | `pinn_ffno` | `ffno` | PINN | 0.082043 | 0.137965 | 0.890305 | 0.959644 | corrected pure-FFNO active paper row (`fno_cnn_blocks=0`); current paper-local tables/figures consume this lineage |
+| `pinn_ffno_probe_channels` | `ffno` | PINN | 0.073340 | 3.154161 | 0.907495 | 0.012315 | append-only probe-conditioned pure-FFNO ablation (`input_conditioning_mode=probe_real_imag`, `learned_input_channels=3`, `fno_cnn_blocks=0`) |
 | `pinn_ffno_depth24` | `ffno` | PINN | 0.056506 | 0.121740 | 0.944487 | 0.974460 | append-only pure-FFNO depth-ablation row (`fno_blocks=24`, `fno_cnn_blocks=0`); not yet promoted into paper-local tables |
 | `pinn_ffno` (historical proxy) | `ffno` | PINN | 0.062772 | 0.082839 | 0.934830 | 0.981592 | historical FFNO-local-refiner proxy (`fno_cnn_blocks=2`); preserved for lineage only |
 | `supervised_ffno` | `ffno` | supervised | 0.351512 | 0.066118 | 0.265006 | 0.901529 | corrected pure-FFNO objective-control rerun (`fno_cnn_blocks=0`); active comparator to corrected `pinn_ffno` |
@@ -98,6 +101,8 @@ CDI artifact roots:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-27-cdi-ffno-generator-lines-best-config/lines128_ffno_vs_hybrid_resnet`
 - Corrected pure-FFNO prerequisite rerun:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z`
+- Probe-channel conditioning ablation:
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-probe-channel-conditioning-ablation/`
 - Pure-FFNO depth-24 ablation:
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z`
 - Corrected supervised FFNO no-refiner rerun:
@@ -131,6 +136,8 @@ Current read:
 - this row remains append-only depth evidence only; the explicit final refresh
   retained the corrected four-block no-refiner row as the repo-local canonical
   FFNO paper pair
+- the probe-channel conditioning follow-up is recorded separately because it
+  changes learned input composition rather than spectral depth
 - U-NO table extension (claim boundary `complete_lines128_cdi_benchmark_plus_uno_extension`):
   `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z`
 - Generated current manuscript tables and refresh authority:
@@ -167,6 +174,35 @@ Current read:
   not itself justify paper-local promotion over the corrected four-block
   supervised row; the final FFNO paper refresh kept the four-block same-depth
   pair canonical
+
+## CDI Lines128 Probe-Channel Conditioning Ablation
+
+Fixed contract: same authoritative `lines128` CDI contract as the complete
+six-row bundle and corrected pure-FFNO rerun; append-only
+input-conditioning evidence only.
+
+| Row | Changed factor | Nearest anchor | Amp MAE | Phase MAE | Amp SSIM | Phase SSIM | Source |
+|---|---|---|---:|---:|---:|---:|---|
+| `pinn_hybrid_resnet_probe_channels` | append fixed probe real/imag channels to the learned input (`learned_input_channels: 1 -> 3`) | `pinn_hybrid_resnet` | 0.028848 | 0.131669 | 0.987296 | 0.961703 | CDI probe-conditioning ablation |
+| `pinn_ffno_probe_channels` | append fixed probe real/imag channels to the learned input (`learned_input_channels: 1 -> 3`) while keeping `fno_cnn_blocks=0` | `pinn_ffno` | 0.073340 | 3.154161 | 0.907495 | 0.012315 | CDI probe-conditioning ablation |
+
+Probe-conditioning artifact root:
+
+- `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-probe-channel-conditioning-ablation/`
+
+Current read:
+
+- the conditioned Hybrid row does not improve over the authoritative Hybrid
+  baseline and materially regresses the phase-side metrics, including
+  `phase_mae +0.059606`, `phase_ssim -0.033037`, and
+  `phase_frc50 -105.871029`
+- the conditioned pure-FFNO row improves some amplitude-side metrics versus the
+  corrected pure-FFNO anchor, but phase quality collapses badly enough that the
+  row is not promotable:
+  `phase_mae +3.016196`, `phase_ssim -0.947329`,
+  `phase_frc50 -10.117289`
+- this family is append-only input-conditioning evidence only and does not
+  replace the six-row CDI authority or the current paper-local FFNO refresh
 
 ## CDI Lines128 Bridge Study
 

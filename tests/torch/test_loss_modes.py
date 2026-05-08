@@ -148,3 +148,32 @@ def test_supervised_compute_loss_accepts_experiment_ids():
     loss = module.compute_loss(batch)
 
     assert torch.isfinite(loss)
+
+
+@pytest.mark.torch
+def test_unsupervised_compute_loss_uses_observed_images_when_present():
+    module = _build_stub_module('mae')
+
+    def fake_forward_single_channel(self, x, positions, probe, input_scale_factor, output_scale_factor, experiment_ids=None):
+        pred = torch.ones((x.shape[0], 1, x.shape[-2], x.shape[-1]), dtype=x.dtype, device=x.device)
+        amp = torch.abs(pred)
+        phase = torch.zeros_like(pred)
+        return pred, amp, phase
+
+    module.forward = fake_forward_single_channel.__get__(module, _LoggingCaptureModule)
+    batch = (
+        {
+            'images': torch.zeros((2, 3, 64, 64), dtype=torch.float32),
+            'observed_images': torch.ones((2, 1, 64, 64), dtype=torch.float32),
+            'coords_relative': torch.zeros((2, 1, 1, 1), dtype=torch.float32),
+            'rms_scaling_constant': torch.ones((2, 1, 1, 1), dtype=torch.float32),
+            'physics_scaling_constant': torch.ones((2, 1, 1, 1), dtype=torch.float32),
+            'experiment_id': torch.zeros(2, dtype=torch.long),
+        },
+        torch.ones((2, 1, 64, 64), dtype=torch.complex64),
+        torch.ones(2, dtype=torch.float32),
+    )
+
+    loss = module.compute_loss(batch)
+
+    assert torch.isclose(loss, torch.tensor(0.0), atol=1e-6, rtol=0.0)

@@ -188,6 +188,7 @@ class TorchRunnerConfig:
     N: int = 64
     gridsize: int = 1
     probe_source: Optional[str] = None
+    input_conditioning_mode: str = "diffraction_only"
     torch_loss_mode: str = "mae"
     torch_mae_pred_l2_match_target: bool = False
     probe_mask: bool = False
@@ -257,6 +258,90 @@ def _artifact_root_for_cfg(cfg: TorchRunnerConfig) -> Path:
     return Path(cfg.artifact_root) if cfg.artifact_root is not None else Path(cfg.output_dir)
 
 
+def _probe_lineage_from_metadata(metadata: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    additional = (metadata or {}).get("additional_parameters", {})
+    if not isinstance(additional, dict):
+        return {}
+    keys = (
+        "probe_source",
+        "probe_scale_mode",
+        "probe_smoothing_sigma",
+        "probe_transform_pipeline",
+        "probe_transform_steps",
+        "probe_mask_diameter",
+        "probe_npz",
+    )
+    return {key: additional[key] for key in keys if key in additional}
+
+
+def _resolved_learned_input_channels(cfg: TorchRunnerConfig) -> int:
+    if cfg.input_conditioning_mode == "diffraction_only":
+        return 1
+    if cfg.input_conditioning_mode == "probe_real_imag":
+        return 3
+    raise ValueError(
+        f"Unsupported input_conditioning_mode={cfg.input_conditioning_mode!r}; "
+        "expected 'diffraction_only' or 'probe_real_imag'."
+    )
+
+
+def _apply_input_conditioning(
+    diffraction: np.ndarray,
+    probe: Optional[np.ndarray],
+    cfg: TorchRunnerConfig,
+    *,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> Tuple[np.ndarray, Dict[str, Any]]:
+    conditioned = np.asarray(diffraction, dtype=np.float32)
+    if conditioned.ndim == 3:
+        conditioned = conditioned[..., np.newaxis]
+    if conditioned.ndim != 4:
+        raise ValueError(
+            f"Expected diffraction with shape (B,H,W,C) after normalization, got {conditioned.shape}."
+        )
+
+    contract: Dict[str, Any] = {
+        "mode": str(cfg.input_conditioning_mode),
+        "enabled": cfg.input_conditioning_mode != "diffraction_only",
+        "base_input_channels": int(conditioned.shape[-1]),
+        "learned_input_channels": int(conditioned.shape[-1]),
+        "probe_channel_count": 0,
+        "probe_lineage": _probe_lineage_from_metadata(metadata),
+    }
+    if cfg.input_conditioning_mode == "diffraction_only":
+        return conditioned, contract
+
+    if conditioned.shape[-1] != 1:
+        raise ValueError(
+            "probe_real_imag conditioning currently supports only single-channel diffraction inputs; "
+            f"got {conditioned.shape[-1]} channels."
+        )
+    if probe is None:
+        raise ValueError("probe_real_imag conditioning requires probeGuess in the dataset.")
+
+    probe_np = np.squeeze(np.asarray(probe))
+    if probe_np.ndim != 2:
+        raise ValueError(f"probe_real_imag conditioning requires a 2D probe, got shape {probe_np.shape}.")
+    if tuple(int(v) for v in probe_np.shape) != tuple(int(v) for v in conditioned.shape[1:3]):
+        raise ValueError(
+            "probe_real_imag conditioning requires probe spatial shape to match diffraction patches; "
+            f"got probe {probe_np.shape} vs diffraction {conditioned.shape[1:3]}."
+        )
+
+    probe_real = np.broadcast_to(np.real(probe_np).astype(np.float32), conditioned.shape[:3])[..., np.newaxis]
+    probe_imag = np.broadcast_to(np.imag(probe_np).astype(np.float32), conditioned.shape[:3])[..., np.newaxis]
+    conditioned = np.concatenate([conditioned, probe_real, probe_imag], axis=-1)
+    contract.update(
+        {
+            "enabled": True,
+            "learned_input_channels": int(conditioned.shape[-1]),
+            "probe_channel_count": 2,
+            "probe_channels": ["probe_real", "probe_imag"],
+        }
+    )
+    return conditioned.astype(np.float32), contract
+
+
 def _run_dir_for_cfg(cfg: TorchRunnerConfig, model_id: Optional[str] = None) -> Path:
     resolved_model_id = model_id or _runner_model_id(
         cfg.architecture,
@@ -303,6 +388,7 @@ def _build_runner_cli_argv(cfg: TorchRunnerConfig) -> List[str]:
     ]
     if cfg.probe_source:
         argv.extend(["--probe-source", str(cfg.probe_source)])
+    argv.extend(["--input-conditioning-mode", str(cfg.input_conditioning_mode)])
     if cfg.model_id_override:
         argv.extend(["--model-id-override", str(cfg.model_id_override)])
     if cfg.model_label_override:
@@ -434,6 +520,7 @@ def _validate_position_reassembly_config(cfg: TorchRunnerConfig) -> None:
         raise ValueError(
             f"position_crop_border must be >= 0 when set (got {cfg.position_crop_border})."
         )
+    _resolved_learned_input_channels(cfg)
 
 
 def _resolve_position_crop_border(
@@ -1036,6 +1123,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
             fno_width=cfg.fno_width,
             fno_blocks=cfg.fno_blocks,
             fno_cnn_blocks=cfg.fno_cnn_blocks,
+            learned_input_channels=_resolved_learned_input_channels(cfg),
             fno_input_transform=cfg.fno_input_transform,
             max_hidden_channels=cfg.max_hidden_channels,
             resnet_width=cfg.resnet_width,
@@ -1152,18 +1240,22 @@ def run_torch_training(
     # Set up configs
     training_config, execution_config = setup_torch_configs(cfg)
 
-    X = np.asarray(train_data["diffraction"])
-    if X.ndim == 3:
-        X = X[..., np.newaxis]
+    probe = train_data.get("probeGuess")
+    if probe is None and cfg.input_conditioning_mode == "diffraction_only":
+        probe = np.ones((cfg.N, cfg.N), dtype=np.complex64)
+    X, input_conditioning_contract = _apply_input_conditioning(
+        train_data["diffraction"],
+        probe,
+        cfg,
+        metadata=train_metadata,
+    )
     n_samples = X.shape[0]
     channels = X.shape[-1]
     coords = _select_coords_relative(train_data, train_metadata, n_samples, channels)
-    probe = train_data.get("probeGuess")
-    if probe is None:
-        probe = np.ones((cfg.N, cfg.N), dtype=np.complex64)
 
     train_container = {
         "X": X,
+        "observed_images": train_data["diffraction"],
         "coords_nominal": _reshape_coords(train_data.get("coords_nominal"), n_samples, channels),
         "coords_relative": coords,
         "probe": probe,
@@ -1181,15 +1273,19 @@ def run_torch_training(
 
     test_container = None
     if test_data:
-        X_te = np.asarray(test_data["diffraction"])
-        if X_te.ndim == 3:
-            X_te = X_te[..., np.newaxis]
+        test_probe = test_data.get("probeGuess", probe)
+        X_te, _ = _apply_input_conditioning(
+            test_data["diffraction"],
+            test_probe,
+            cfg,
+            metadata=test_metadata,
+        )
         n_te = X_te.shape[0]
         channels_te = X_te.shape[-1]
         coords_te = _select_coords_relative(test_data, test_metadata, n_te, channels_te)
-        test_probe = test_data.get("probeGuess", probe)
         test_container = {
             "X": X_te,
+            "observed_images": test_data["diffraction"],
             "coords_nominal": _reshape_coords(test_data.get("coords_nominal"), n_te, channels_te),
             "coords_relative": coords_te,
             "probe": test_probe,
@@ -1212,6 +1308,7 @@ def run_torch_training(
         execution_config=execution_config,
     )
     results["generator"] = cfg.architecture
+    results["input_conditioning_contract"] = input_conditioning_contract
     return results
 
 
@@ -1261,18 +1358,21 @@ def run_torch_inference(
 
         return torch.device("cpu")
 
-    X_np = np.asarray(test_data['diffraction'])
-    if X_np.ndim == 3:
-        X_np = X_np[..., np.newaxis]
+    probe_np = test_data.get('probeGuess')
+    if probe_np is None and cfg.input_conditioning_mode == "diffraction_only":
+        probe_np = np.ones((cfg.N, cfg.N), dtype=np.complex64)
+    X_np, _ = _apply_input_conditioning(
+        test_data['diffraction'],
+        probe_np,
+        cfg,
+        metadata=metadata,
+    )
     if X_np.ndim == 4 and X_np.shape[1] <= 8 and X_np.shape[-1] > 8:
         X_np = np.transpose(X_np, (0, 2, 3, 1))
 
     n_samples = X_np.shape[0]
     channels = X_np.shape[-1]
     coords_np = _coords_relative_for_inference(test_data, metadata, n_samples, channels)
-    probe_np = test_data.get('probeGuess')
-    if probe_np is None:
-        probe_np = np.ones((cfg.N, cfg.N), dtype=np.complex64)
 
     X_test = torch.from_numpy(X_np).float().permute(0, 3, 1, 2)
     coords_test = torch.from_numpy(coords_np).float()
@@ -1382,6 +1482,7 @@ def save_run_artifacts(
     randomness_contract: Dict[str, int | None],
     *,
     recon_path: Optional[Path] = None,
+    input_conditioning_contract: Optional[Dict[str, Any]] = None,
 ) -> Path:
     """Save run artifacts to output directory.
 
@@ -1420,6 +1521,7 @@ def save_run_artifacts(
         "train_npz": str(cfg.train_npz),
         "test_npz": str(cfg.test_npz),
         "recon_npz": str(recon_path) if recon_path is not None else None,
+        "input_conditioning": dict(input_conditioning_contract or {}),
     }
     encoder_recipe = _fixed_hybrid_encoder_recipe(cfg)
     if encoder_recipe is not None:
@@ -1524,6 +1626,7 @@ def _build_paper_row_payload(
     run_dir: Optional[Path] = None,
     recon_path: Optional[Path] = None,
     invocation_json: Optional[Path] = None,
+    input_conditioning_contract: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, object]:
     train_loss_series = _history_series(history, "train_loss", "loss")
     final_completed_epoch = int(len(train_loss_series) or cfg.epochs)
@@ -1550,6 +1653,7 @@ def _build_paper_row_payload(
         "row_status": "paper_grade",
         "caveats": [],
         "metrics": dict(metrics),
+        "input_conditioning": dict(input_conditioning_contract or {}),
     }
     if run_dir is not None:
         run_dir = Path(run_dir)
@@ -1652,6 +1756,19 @@ def run_grid_lines_torch(
 
         logger.info(f"Loading test data from {cfg.test_npz}")
         test_data, test_metadata = load_cached_dataset_with_metadata(cfg.test_npz)
+        resolved_probe = train_data.get("probeGuess")
+        if resolved_probe is None and cfg.input_conditioning_mode == "diffraction_only":
+            resolved_probe = np.ones((cfg.N, cfg.N), dtype=np.complex64)
+        _, input_conditioning_contract = _apply_input_conditioning(
+            train_data["diffraction"],
+            resolved_probe,
+            cfg,
+            metadata=train_metadata,
+        )
+        update_invocation_artifacts(
+            invocation_json,
+            extra={"input_conditioning": input_conditioning_contract},
+        )
         if cfg.probe_source:
             meta_probe_source = None
             if test_metadata:
@@ -1668,6 +1785,9 @@ def run_grid_lines_torch(
         train_start = time.perf_counter()
         results = run_torch_training(cfg, train_data, test_data, train_metadata=train_metadata, test_metadata=test_metadata)
         train_wall_time_sec = time.perf_counter() - train_start
+        input_conditioning_contract = dict(
+            results.get("input_conditioning_contract", input_conditioning_contract)
+        )
 
         # Step 3: Run inference
         logger.info("Running inference...")
@@ -1753,6 +1873,7 @@ def run_grid_lines_torch(
             metrics,
             randomness_contract,
             recon_path=Path(recon_path),
+            input_conditioning_contract=input_conditioning_contract,
         )
 
         logger.info(f"Torch runner complete. Artifacts in {run_dir}")
@@ -1780,6 +1901,7 @@ def run_grid_lines_torch(
             run_dir=Path(run_dir),
             recon_path=Path(recon_path),
             invocation_json=invocation_json,
+            input_conditioning_contract=input_conditioning_contract,
         )
 
         # Step 6: Render post-run visuals (best-effort)
@@ -1837,6 +1959,13 @@ def main(argv=None) -> None:
         default="pinn",
         choices=["pinn", "supervised"],
         help="Training procedure contract for this Torch row.",
+    )
+    parser.add_argument(
+        "--input-conditioning-mode",
+        type=str,
+        default="diffraction_only",
+        choices=["diffraction_only", "probe_real_imag"],
+        help="Optional learned-input conditioning mode for append-only ablation rows.",
     )
     parser.add_argument(
         "--model-id-override",
@@ -2180,6 +2309,7 @@ def main(argv=None) -> None:
         N=args.N,
         gridsize=args.gridsize,
         probe_source=args.probe_source,
+        input_conditioning_mode=args.input_conditioning_mode,
         torch_loss_mode=args.torch_loss_mode,
         torch_mae_pred_l2_match_target=args.torch_mae_pred_l2_match_target,
         probe_mask=args.probe_mask,

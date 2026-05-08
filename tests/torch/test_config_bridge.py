@@ -186,6 +186,7 @@ class TestConfigBridgeParity:
         pytest.param('n_filters_scale', 2, 2, id='n_filters_scale-direct'),
         pytest.param('object_big', False, False, id='object_big-direct'),
         pytest.param('probe_big', False, False, id='probe_big-direct'),
+        pytest.param('learned_input_channels', 3, 3, id='learned_input_channels-direct'),
     ])
     def test_model_config_direct_fields(self, params_cfg_snapshot, field_name, pytorch_value, expected_tf_value):
         """

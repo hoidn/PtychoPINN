@@ -688,6 +688,7 @@ class HybridResnetGenerator:
         fno_width = getattr(model_config, "fno_width", 32)
         fno_blocks = getattr(model_config, "fno_blocks", 4)
         fno_modes = getattr(model_config, "fno_modes", 12)
+        learned_input_channels = getattr(model_config, "learned_input_channels", 1)
         input_transform = getattr(model_config, "fno_input_transform", "none")
         output_mode = getattr(model_config, "generator_output_mode", "real_imag")
         generator_mode = "amp_phase" if output_mode == "amp_phase" else "real_imag"
@@ -695,7 +696,7 @@ class HybridResnetGenerator:
 
         resnet_width = getattr(model_config, "resnet_width", None)
         core = HybridResnetGeneratorModule(
-            in_channels=1,
+            in_channels=learned_input_channels,
             out_channels=2,
             hidden_channels=fno_width,
             n_blocks=fno_blocks,
@@ -843,6 +844,7 @@ class HybridResnetFfnoPtychoBlockEncoderGenerator:
         C = getattr(data_config, "C", 4)
         fno_width = getattr(model_config, "fno_width", 32)
         fno_modes = getattr(model_config, "fno_modes", 12)
+        learned_input_channels = getattr(model_config, "learned_input_channels", 1)
         input_transform = getattr(model_config, "fno_input_transform", "none")
         output_mode = getattr(model_config, "generator_output_mode", "real_imag")
         generator_mode = "amp_phase" if output_mode == "amp_phase" else "real_imag"
@@ -850,7 +852,7 @@ class HybridResnetFfnoPtychoBlockEncoderGenerator:
         resnet_width = getattr(model_config, "resnet_width", None)
 
         core = HybridResnetFfnoPtychoBlockEncoderGeneratorModule(
-            in_channels=1,
+            in_channels=learned_input_channels,
             out_channels=2,
             hidden_channels=fno_width,
             modes=fno_modes,
@@ -1008,6 +1010,7 @@ class HybridResnetPtychoBlockFfnoEncoderGenerator:
         C = getattr(data_config, "C", 4)
         fno_width = getattr(model_config, "fno_width", 32)
         fno_modes = getattr(model_config, "fno_modes", 12)
+        learned_input_channels = getattr(model_config, "learned_input_channels", 1)
         input_transform = getattr(model_config, "fno_input_transform", "none")
         output_mode = getattr(model_config, "generator_output_mode", "real_imag")
         generator_mode = "amp_phase" if output_mode == "amp_phase" else "real_imag"
@@ -1015,7 +1018,7 @@ class HybridResnetPtychoBlockFfnoEncoderGenerator:
         resnet_width = getattr(model_config, "resnet_width", None)
 
         core = HybridResnetPtychoBlockFfnoEncoderGeneratorModule(
-            in_channels=1,
+            in_channels=learned_input_channels,
             out_channels=2,
             hidden_channels=fno_width,
             modes=fno_modes,
@@ -1233,9 +1236,10 @@ class HybridResnetConvNextBottleneckGenerator:
             "convnext_bottleneck_kernel_size",
             getattr(model_config, "convnext_bottleneck_kernel_size", 7),
         )
+        learned_input_channels = getattr(model_config, "learned_input_channels", 1)
 
         core = HybridResnetConvNextBottleneckGeneratorModule(
-            in_channels=1,
+            in_channels=learned_input_channels,
             out_channels=2,
             hidden_channels=getattr(model_config, "fno_width", 32),
             n_blocks=getattr(model_config, "fno_blocks", 4),
