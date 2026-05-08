@@ -12,6 +12,7 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from scripts.studies.cdi_final_ffno_pair import (
     FOUR_BLOCK_NO_REFINER_PAIR,
+    CdiFinalFfnoPair,
     resolve_cdi_final_ffno_pair,
 )
 
@@ -300,6 +301,22 @@ def _row_to_dict(row: EfficiencyRow | Mapping[str, object]) -> dict[str, object]
     if isinstance(row, EfficiencyRow):
         return asdict(row)
     return dict(row)
+
+
+def _annotate_active_cdi_ffno_rows(
+    row_dicts: Sequence[dict[str, object]],
+    final_ffno_pair: CdiFinalFfnoPair,
+) -> list[dict[str, object]]:
+    provenance = final_ffno_pair.active_row_provenance()
+    annotated: list[dict[str, object]] = []
+    for row_dict in row_dicts:
+        annotated_row = dict(row_dict)
+        if str(annotated_row.get("benchmark")) == "CDI":
+            extra = provenance.get(str(annotated_row.get("row_id")))
+            if extra is not None:
+                annotated_row.update(extra)
+        annotated.append(annotated_row)
+    return annotated
 
 
 def group_rows_by_benchmark(
@@ -726,13 +743,17 @@ def write_paper_efficiency_table(
         if not output_dir.is_absolute():
             output_dir = repo_root / output_dir
 
-    rows = [
-        asdict(row)
-        for row in collect_efficiency_rows(
-            repo_root,
-            cdi_final_ffno_pair_key=cdi_final_ffno_pair_key,
-        )
-    ]
+    final_ffno_pair = resolve_cdi_final_ffno_pair(cdi_final_ffno_pair_key)
+    rows = _annotate_active_cdi_ffno_rows(
+        [
+            asdict(row)
+            for row in collect_efficiency_rows(
+                repo_root,
+                cdi_final_ffno_pair_key=cdi_final_ffno_pair_key,
+            )
+        ],
+        final_ffno_pair,
+    )
     excluded = _candidate_context(repo_root)
     generated_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     payload = {

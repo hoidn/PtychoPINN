@@ -75,6 +75,41 @@ class CdiFinalFfnoPair:
             "supervised_ffno": self.supervised_source_row_id,
         }
 
+    def active_row_provenance(self) -> dict[str, dict[str, object]]:
+        """Per-row provenance for the active manuscript-facing FFNO rows.
+
+        The same payload is injected into every canonical CDI JSON surface so
+        downstream consumers (metrics, model-config, efficiency) can audit the
+        chosen pair, root, and lineage without re-deriving them.
+        """
+
+        return {
+            "pinn_ffno": {
+                "final_ffno_pair_key": self.pair_key,
+                "final_ffno_depth_label": self.depth_label,
+                "claim_boundary": self.claim_boundary,
+                "source_root": str(self.pinn_root.relative_to(REPO_ROOT)),
+                "source_metrics_json": str(
+                    self.pinn_metrics_json.relative_to(REPO_ROOT)
+                ),
+            },
+            "supervised_ffno": {
+                "final_ffno_pair_key": self.pair_key,
+                "final_ffno_depth_label": self.depth_label,
+                "claim_boundary": self.claim_boundary,
+                "source_root": str(self.supervised_root.relative_to(REPO_ROOT)),
+                "source_metrics_json": str(
+                    self.supervised_metrics_json.relative_to(REPO_ROOT)
+                ),
+                "historical_proxy_lineage": {
+                    "metrics_json": str(
+                        CDI_HISTORICAL_SUPERVISED_PROXY_METRICS_JSON.relative_to(REPO_ROOT)
+                    ),
+                    "notes": "Historical fno_cnn_blocks=2 FFNO-local proxy lineage only.",
+                },
+            },
+        }
+
     def provenance_payload(self) -> dict[str, object]:
         return {
             "pair_key": self.pair_key,

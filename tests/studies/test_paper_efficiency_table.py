@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from scripts.studies.paper_efficiency_table import (
@@ -102,6 +103,48 @@ def test_group_rows_by_benchmark_preserves_claim_boundaries():
     assert grouped["PDEBench CNS"][0]["claim_boundary"] == (
         "bounded_capped_decision_support_only"
     )
+
+
+def test_write_paper_efficiency_table_records_per_row_active_ffno_provenance(tmp_path):
+    from scripts.studies.paper_efficiency_table import write_paper_efficiency_table
+
+    write_paper_efficiency_table(
+        repo_root=Path.cwd(),
+        output_dir=tmp_path,
+        cdi_final_ffno_pair_key="depth24_no_refiner",
+    )
+    payload = json.loads(
+        (tmp_path / "paper_efficiency_table.json").read_text(encoding="utf-8")
+    )
+    rows_by_id = {
+        (row["benchmark"], row["row_id"]): row for row in payload["rows"]
+    }
+
+    pinn_ffno = rows_by_id[("CDI", "pinn_ffno")]
+    assert pinn_ffno["final_ffno_pair_key"] == "depth24_no_refiner"
+    assert pinn_ffno["final_ffno_depth_label"] == "depth24_no_refiner"
+    assert pinn_ffno["claim_boundary"] == (
+        "complete_lines128_cdi_benchmark_plus_uno_extension_"
+        "with_final_depth24_no_refiner_ffno_pair"
+    )
+    assert pinn_ffno["source_root"].endswith(
+        "2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z"
+    )
+    assert pinn_ffno["source_metrics_json"].endswith(
+        "ffno_depth24_20260507T052301Z/runs/pinn_ffno_depth24/metrics.json"
+    )
+    assert "historical_proxy_lineage" not in pinn_ffno
+
+    supervised_ffno = rows_by_id[("CDI", "supervised_ffno")]
+    assert supervised_ffno["final_ffno_pair_key"] == "depth24_no_refiner"
+    assert supervised_ffno["claim_boundary"] == pinn_ffno["claim_boundary"]
+    assert supervised_ffno["historical_proxy_lineage"]["metrics_json"].endswith(
+        "supervised_ffno_extension_20260430T180217Z/runs/supervised_ffno/metrics.json"
+    )
+
+    pinn_resnet = rows_by_id[("CDI", "pinn_hybrid_resnet")]
+    assert "final_ffno_pair_key" not in pinn_resnet
+    assert "source_root" not in pinn_resnet
 
 
 def test_collect_efficiency_rows_includes_paper_approved_brdt_rows():

@@ -532,15 +532,37 @@ def render_model_config_tex(rows: Sequence[ModelConfigRow]) -> str:
     return "\n".join(lines)
 
 
-def write_model_config_json(rows: Sequence[ModelConfigRow], path: Path) -> None:
+def _annotate_active_cdi_ffno_rows(
+    row_dicts: Sequence[dict[str, object]],
+    final_ffno_pair: CdiFinalFfnoPair,
+) -> list[dict[str, object]]:
+    provenance = final_ffno_pair.active_row_provenance()
+    annotated: list[dict[str, object]] = []
+    for row_dict in row_dicts:
+        annotated_row = dict(row_dict)
+        if str(annotated_row.get("benchmark")) == "CDI":
+            extra = provenance.get(str(annotated_row.get("row_id")))
+            if extra is not None:
+                annotated_row.update(extra)
+        annotated.append(annotated_row)
+    return annotated
+
+
+def write_model_config_json(
+    rows: Sequence[ModelConfigRow],
+    path: Path,
+    *,
+    final_ffno_pair: CdiFinalFfnoPair = FOUR_BLOCK_NO_REFINER_PAIR,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    row_dicts = [row_to_dict(row) for row in rows]
     payload = {
         "schema_version": "model_config_by_benchmark_v1",
         "parameter_count_convention": (
             "unique trainable parameters in the effective prediction model; "
             "duplicate wrapper aliases are not counted twice"
         ),
-        "rows": [row_to_dict(row) for row in rows],
+        "rows": _annotate_active_cdi_ffno_rows(row_dicts, final_ffno_pair),
     }
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
@@ -562,6 +584,7 @@ def write_model_config_table(
     cdi_final_ffno_pair_key: str = FOUR_BLOCK_NO_REFINER_PAIR.pair_key,
     versioned_output_stem: str | None = None,
 ) -> dict[str, str]:
+    final_ffno_pair = resolve_cdi_final_ffno_pair(cdi_final_ffno_pair_key)
     rows = [
         *load_cdi_config_rows(
             repo_root,
@@ -574,7 +597,7 @@ def write_model_config_table(
     json_path = output_dir / "model_config_by_benchmark.json"
     csv_path = output_dir / "model_config_by_benchmark.csv"
     tex_path = output_dir / "model_config_by_benchmark.tex"
-    write_model_config_json(rows, json_path)
+    write_model_config_json(rows, json_path, final_ffno_pair=final_ffno_pair)
     write_model_config_csv(rows, csv_path)
     tex_path.write_text(render_model_config_tex(rows), encoding="utf-8")
     if versioned_output_stem:
@@ -587,7 +610,7 @@ def write_model_config_table(
         versioned_tex = tex_path.with_name(
             f"{tex_path.stem}_{versioned_output_stem}{tex_path.suffix}"
         )
-        write_model_config_json(rows, versioned_json)
+        write_model_config_json(rows, versioned_json, final_ffno_pair=final_ffno_pair)
         write_model_config_csv(rows, versioned_csv)
         versioned_tex.write_text(render_model_config_tex(rows), encoding="utf-8")
     else:

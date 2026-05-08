@@ -1,6 +1,6 @@
 {
   "schema_version": "paper_efficiency_table.v1",
-  "generated_at_utc": "2026-05-07T22:30:09.377240Z",
+  "generated_at_utc": "2026-05-08T01:37:33.532139Z",
   "rows": [
     {
       "benchmark": "CDI",
@@ -51,7 +51,11 @@
       "inference_latency_ms": null,
       "throughput_source_field": null,
       "source_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/model_config_by_benchmark.json",
-      "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_final_four_block_no_refiner_ffno_pair"
+      "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_final_four_block_no_refiner_ffno_pair",
+      "final_ffno_pair_key": "four_block_no_refiner",
+      "final_ffno_depth_label": "depth4_no_refiner",
+      "source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z",
+      "source_metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z/runs/pinn_ffno/metrics.json"
     },
     {
       "benchmark": "CDI",
@@ -119,7 +123,15 @@
       "inference_latency_ms": null,
       "throughput_source_field": null,
       "source_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/model_config_by_benchmark.json",
-      "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_final_four_block_no_refiner_ffno_pair"
+      "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_final_four_block_no_refiner_ffno_pair",
+      "final_ffno_pair_key": "four_block_no_refiner",
+      "final_ffno_depth_label": "depth4_no_refiner",
+      "source_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z",
+      "source_metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z/runs/supervised_ffno/metrics.json",
+      "historical_proxy_lineage": {
+        "metrics_json": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-supervised-equivalent-rows/runs/supervised_ffno_extension_20260430T180217Z/runs/supervised_ffno/metrics.json",
+        "notes": "Historical fno_cnn_blocks=2 FFNO-local proxy lineage only."
+      }
     },
     {
       "benchmark": "CDI",

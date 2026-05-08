@@ -10,6 +10,7 @@ from scripts.studies.paper_model_config_table import (
     load_cdi_config_rows,
     render_model_config_tex,
     row_to_dict,
+    write_model_config_table,
 )
 
 
@@ -195,6 +196,55 @@ def test_load_cdi_config_rows_can_switch_to_depth24_pair():
         "2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun/runs/supervised_ffno_depth24_20260507T192840Z/runs/supervised_ffno_depth24/config.json"
     )
     assert rows["supervised_ffno"].encoder_blocks == "24"
+
+
+def test_write_model_config_table_records_per_row_active_ffno_provenance(tmp_path):
+    write_model_config_table(
+        Path.cwd(),
+        tmp_path,
+        cdi_final_ffno_pair_key="depth24_no_refiner",
+        versioned_output_stem="ffno_final_depth24pair",
+    )
+    payload = json.loads(
+        (tmp_path / "model_config_by_benchmark.json").read_text(encoding="utf-8")
+    )
+    rows_by_id = {(row["benchmark"], row["row_id"]): row for row in payload["rows"]}
+
+    pinn_ffno = rows_by_id[("CDI", "pinn_ffno")]
+    assert pinn_ffno["final_ffno_pair_key"] == "depth24_no_refiner"
+    assert pinn_ffno["final_ffno_depth_label"] == "depth24_no_refiner"
+    assert pinn_ffno["claim_boundary"] == (
+        "complete_lines128_cdi_benchmark_plus_uno_extension_"
+        "with_final_depth24_no_refiner_ffno_pair"
+    )
+    assert pinn_ffno["source_root"].endswith(
+        "2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z"
+    )
+    assert pinn_ffno["source_metrics_json"].endswith(
+        "ffno_depth24_20260507T052301Z/runs/pinn_ffno_depth24/metrics.json"
+    )
+    assert "historical_proxy_lineage" not in pinn_ffno
+
+    supervised_ffno = rows_by_id[("CDI", "supervised_ffno")]
+    assert supervised_ffno["final_ffno_pair_key"] == "depth24_no_refiner"
+    assert supervised_ffno["historical_proxy_lineage"]["metrics_json"].endswith(
+        "supervised_ffno_extension_20260430T180217Z/runs/supervised_ffno/metrics.json"
+    )
+
+    versioned_payload = json.loads(
+        (
+            tmp_path / "model_config_by_benchmark_ffno_final_depth24pair.json"
+        ).read_text(encoding="utf-8")
+    )
+    versioned_pinn_ffno = next(
+        row for row in versioned_payload["rows"]
+        if row["benchmark"] == "CDI" and row["row_id"] == "pinn_ffno"
+    )
+    assert versioned_pinn_ffno["final_ffno_pair_key"] == "depth24_no_refiner"
+
+    pinn_resnet = rows_by_id[("CDI", "pinn_hybrid_resnet")]
+    assert "final_ffno_pair_key" not in pinn_resnet
+    assert "source_root" not in pinn_resnet
 
 
 def test_load_brdt_config_rows_uses_sinogram_input_bundle():

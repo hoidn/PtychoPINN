@@ -1162,32 +1162,7 @@ def write_cdi_extended_assets(
     payload = {**payload, "rows": source_rows}
     rows = cdi_display_metrics(payload)
 
-    active_ffno_provenance: dict[str, dict[str, object]] = {
-        "pinn_ffno": {
-            "final_ffno_pair_key": final_ffno_pair.pair_key,
-            "final_ffno_depth_label": final_ffno_pair.depth_label,
-            "claim_boundary": final_ffno_pair.claim_boundary,
-            "source_root": str(final_ffno_pair.pinn_root.relative_to(REPO_ROOT)),
-            "source_metrics_json": str(
-                final_ffno_pair.pinn_metrics_json.relative_to(REPO_ROOT)
-            ),
-        },
-        "supervised_ffno": {
-            "final_ffno_pair_key": final_ffno_pair.pair_key,
-            "final_ffno_depth_label": final_ffno_pair.depth_label,
-            "claim_boundary": final_ffno_pair.claim_boundary,
-            "source_root": str(final_ffno_pair.supervised_root.relative_to(REPO_ROOT)),
-            "source_metrics_json": str(
-                final_ffno_pair.supervised_metrics_json.relative_to(REPO_ROOT)
-            ),
-            "historical_proxy_lineage": {
-                "metrics_json": str(
-                    CDI_SUPERSEDED_SUPERVISED_FFNO_METRICS_JSON.relative_to(REPO_ROOT)
-                ),
-                "notes": "Historical fno_cnn_blocks=2 FFNO-local proxy lineage only.",
-            },
-        },
-    }
+    active_ffno_provenance = final_ffno_pair.active_row_provenance()
     rows_with_provenance: list[dict[str, object]] = []
     for row in rows:
         annotated = dict(row)
