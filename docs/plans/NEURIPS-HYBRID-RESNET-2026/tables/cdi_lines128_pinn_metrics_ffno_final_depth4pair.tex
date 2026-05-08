@@ -1,11 +1,11 @@
-\begin{tabular}{lrrrrrr}
+\begin{tabular}{@{}lrrrrrr@{}}
 \toprule
-Model & Amp MAE $\downarrow$ & Phase MAE $\downarrow$ & Amp MSE $\downarrow$ & Phase MSE $\downarrow$ & Amp SSIM $\uparrow$ & Phase SSIM $\uparrow$ \\
+Model & Amp MSE & Phase MSE & Amp SSIM & Phase SSIM & Params & Patches/s \\
 \midrule
-CNN & 0.1232 & 0.7863 & 0.0237 & 1.1843 & 0.7326 & 0.2638 \\
-FNO & 0.1248 & 0.1435 & 0.0240 & 0.0323 & 0.7409 & 0.9335 \\
-FFNO & 0.0820 & 0.1380 & 0.0106 & 0.0305 & 0.8903 & 0.9596 \\
-SRU-Net & \textbf{0.0269} & 0.0721 & \textbf{0.0012} & 0.0078 & \textbf{0.9881} & \textbf{0.9947} \\
-U-NO & 0.0932 & \textbf{0.0683} & 0.0132 & \textbf{0.0073} & 0.8280 & 0.9569 \\
+CNN & 0.0237 & 1.1843 & 0.7326 & 0.2638 & 4.66M & 524.5 \\
+FNO & 0.0240 & 0.0323 & 0.7409 & 0.9335 & 636.5k & \textbf{1904.5} \\
+FFNO & 0.0106 & 0.0305 & 0.8903 & 0.9596 & 125.0k & 171.4 \\
+SRU-Net & \textbf{0.0012} & 0.0078 & \textbf{0.9881} & \textbf{0.9947} & 9.00M & 1075.8 \\
+U-NO & 0.0132 & \textbf{0.0073} & 0.8280 & 0.9569 & 1.26M & -- \\
 \bottomrule
 \end{tabular}

@@ -26,7 +26,11 @@ from scripts.studies.cdi_final_ffno_pair import (
     resolve_cdi_final_ffno_pair,
 )
 from scripts.studies.paper_model_config_table import write_model_config_table
-from scripts.studies.paper_efficiency_table import write_paper_efficiency_table
+from scripts.studies.paper_efficiency_table import (
+    collect_efficiency_rows,
+    format_parameter_count,
+    write_paper_efficiency_table,
+)
 
 
 NEURIPS_DIR = REPO_ROOT / "docs" / "plans" / "NEURIPS-HYBRID-RESNET-2026"
@@ -1374,6 +1378,12 @@ CDI_METRIC_COLUMNS = [
     ("amp_ssim", True),
     ("phase_ssim", True),
 ]
+CDI_PINN_TABLE_METRIC_COLUMNS = [
+    ("amp_mse", False),
+    ("phase_mse", False),
+    ("amp_ssim", True),
+    ("phase_ssim", True),
+]
 CDI_OBJECTIVE_CONTROL_COLUMNS = [
     ("amp_mae", False),
     ("phase_mae", False),
@@ -1412,20 +1422,79 @@ def _formatted_cdi_values(
     return [_format_cdi_metric(row, key, best) for key, _ in columns]
 
 
+def _cdi_best_throughput(rows: Sequence[Mapping[str, object]]) -> float | None:
+    values: list[float] = []
+    for row in rows:
+        value = row.get("inference_samples_per_second")
+        if value in (None, ""):
+            continue
+        try:
+            values.append(float(value))
+        except (TypeError, ValueError):
+            continue
+    return max(values) if values else None
+
+
+def _format_cdi_throughput(value: object, *, best: float | None = None) -> str:
+    if value in (None, ""):
+        return "--"
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return "--"
+    formatted = f"{parsed:.1f}"
+    if best is not None and abs(parsed - best) <= 5e-2:
+        return rf"\textbf{{{formatted}}}"
+    return formatted
+
+
 def render_cdi_pinn_metrics_table(rows: Sequence[Mapping[str, object]]) -> str:
     pinn_rows = [row for row in rows if row.get("training") == "PINN"]
-    best = _cdi_best_values(pinn_rows)
+    best = _cdi_best_values(pinn_rows, columns=CDI_PINN_TABLE_METRIC_COLUMNS)
+    best_throughput = _cdi_best_throughput(pinn_rows)
     lines = [
-        r"\begin{tabular}{lrrrrrr}",
+        r"\begin{tabular}{@{}lrrrrrr@{}}",
         r"\toprule",
-        r"Model & Amp MAE $\downarrow$ & Phase MAE $\downarrow$ & Amp MSE $\downarrow$ & Phase MSE $\downarrow$ & Amp SSIM $\uparrow$ & Phase SSIM $\uparrow$ \\",
+        r"Model & Amp MSE & Phase MSE & Amp SSIM & Phase SSIM & Params & Patches/s \\",
         r"\midrule",
     ]
     for row in pinn_rows:
-        values = _formatted_cdi_values(row, best)
+        values = _formatted_cdi_values(
+            row,
+            best,
+            columns=CDI_PINN_TABLE_METRIC_COLUMNS,
+        )
+        values.extend(
+            [
+                format_parameter_count(row.get("parameter_count")),
+                _format_cdi_throughput(
+                    row.get("inference_samples_per_second"),
+                    best=best_throughput,
+                ),
+            ]
+        )
         lines.append(f"{_latex_escape(row['model'])} & {' & '.join(values)} \\\\")
     lines.extend([r"\bottomrule", r"\end{tabular}"])
     return "\n".join(lines) + "\n"
+
+
+def cdi_efficiency_rows_by_id(
+    *,
+    final_ffno_pair: CdiFinalFfnoPair,
+) -> dict[str, dict[str, object]]:
+    rows = collect_efficiency_rows(
+        REPO_ROOT,
+        cdi_final_ffno_pair_key=final_ffno_pair.pair_key,
+    )
+    return {
+        row.row_id: {
+            "parameter_count": row.parameter_count,
+            "inference_throughput_status": row.inference_throughput_status,
+            "inference_samples_per_second": row.inference_samples_per_second,
+        }
+        for row in rows
+        if row.benchmark == "CDI"
+    }
 
 
 def render_cdi_objective_comparison_table(
@@ -1547,6 +1616,14 @@ def write_cdi_extended_assets(
     }
     payload = {**payload, "rows": source_rows}
     rows = cdi_display_metrics(payload)
+    efficiency_by_id = cdi_efficiency_rows_by_id(final_ffno_pair=final_ffno_pair)
+    rows = [
+        {
+            **row,
+            **efficiency_by_id.get(str(row.get("row_id")), {}),
+        }
+        for row in rows
+    ]
 
     active_ffno_provenance = final_ffno_pair.active_row_provenance()
     rows_with_provenance: list[dict[str, object]] = []

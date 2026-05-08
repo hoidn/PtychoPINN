@@ -51,7 +51,10 @@
       "amp_mse": 0.02367185615003109,
       "phase_mse": 1.1843227016219966,
       "amp_ssim": 0.7325678081610691,
-      "phase_ssim": 0.2638148037194811
+      "phase_ssim": 0.2638148037194811,
+      "parameter_count": 4661212,
+      "inference_throughput_status": "measured",
+      "inference_samples_per_second": 524.5064148370284
     },
     {
       "row_id": "pinn_fno_vanilla",
@@ -62,7 +65,10 @@
       "amp_mse": 0.024000922217965126,
       "phase_mse": 0.032295907670301084,
       "amp_ssim": 0.7409360685258843,
-      "phase_ssim": 0.9334635911261081
+      "phase_ssim": 0.9334635911261081,
+      "parameter_count": 636450,
+      "inference_throughput_status": "measured",
+      "inference_samples_per_second": 1904.4745131596637
     },
     {
       "row_id": "pinn_ffno",
@@ -74,6 +80,9 @@
       "phase_mse": 0.03047779600080815,
       "amp_ssim": 0.890305374043404,
       "phase_ssim": 0.9596438877920995,
+      "parameter_count": 124968,
+      "inference_throughput_status": "measured",
+      "inference_samples_per_second": 171.4241738802047,
       "final_ffno_pair_key": "four_block_no_refiner",
       "final_ffno_depth_label": "depth4_no_refiner",
       "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_final_four_block_no_refiner_ffno_pair",
@@ -89,7 +98,10 @@
       "amp_mse": 0.00115118024405092,
       "phase_mse": 0.007788461505276771,
       "amp_ssim": 0.9881142973635324,
-      "phase_ssim": 0.9947399866043689
+      "phase_ssim": 0.9947399866043689,
+      "parameter_count": 9003299,
+      "inference_throughput_status": "measured",
+      "inference_samples_per_second": 1075.8460913300028
     },
     {
       "row_id": "pinn_neuralop_uno",
@@ -100,7 +112,10 @@
       "amp_mse": 0.013220230117440224,
       "phase_mse": 0.007346054084902409,
       "amp_ssim": 0.8279948152817742,
-      "phase_ssim": 0.9568587752007158
+      "phase_ssim": 0.9568587752007158,
+      "parameter_count": 1257858,
+      "inference_throughput_status": "missing",
+      "inference_samples_per_second": null
     },
     {
       "row_id": "baseline",
@@ -111,7 +126,10 @@
       "amp_mse": 0.2835979163646698,
       "phase_mse": 1.1479366956432024,
       "amp_ssim": 0.277214069257086,
-      "phase_ssim": 0.4963532061083504
+      "phase_ssim": 0.4963532061083504,
+      "parameter_count": 4612418,
+      "inference_throughput_status": "measured",
+      "inference_samples_per_second": 393.43105533025476
     },
     {
       "row_id": "supervised_ffno",
@@ -123,6 +141,9 @@
       "phase_mse": 0.006884107531901606,
       "amp_ssim": 0.2650063795551529,
       "phase_ssim": 0.9015290958935847,
+      "parameter_count": 124966,
+      "inference_throughput_status": "measured",
+      "inference_samples_per_second": 228.77613808526297,
       "final_ffno_pair_key": "four_block_no_refiner",
       "final_ffno_depth_label": "depth4_no_refiner",
       "claim_boundary": "complete_lines128_cdi_benchmark_plus_uno_extension_with_final_four_block_no_refiner_ffno_pair",
@@ -142,7 +163,10 @@
       "amp_mse": 0.16388654708862305,
       "phase_mse": 0.004764640077438061,
       "amp_ssim": 0.2689397545100156,
-      "phase_ssim": 0.9104896763928609
+      "phase_ssim": 0.9104896763928609,
+      "parameter_count": 1257858,
+      "inference_throughput_status": "missing",
+      "inference_samples_per_second": null
     }
   ]
 }

@@ -4,6 +4,7 @@
 \usepackage{amsmath,amssymb}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage{placeins}
 \usepackage{tikz}
 \usepackage{hyperref}
 \usetikzlibrary{arrows.meta,positioning}
@@ -343,7 +344,7 @@ updated by $\mathrm{ConvT}_{4,s2,p1}\cdot\mathrm{InstNorm}\cdot\mathrm{GELU}$.
 The optional skip-add path first applies a $1\times1$ convolution to the matching
 encoder feature before fusion.
 
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
 \resizebox{\linewidth}{!}{%
 \begin{tikzpicture}[
@@ -464,6 +465,7 @@ skip-add configurations: the same-scale encoder feature $e_s$ passes through a
 $1\times1$ convolution before addition to the decoder state.}
 \label{fig:srunet_architecture}
 \end{figure}
+\FloatBarrier
 
 % table_metadata: cap_size=not_applicable; table_type=architecture_summary
 \begin{table}[h]
@@ -799,28 +801,29 @@ model pair. Lower MAE is better; higher SSIM is better.}
 After fixing the CDI physics-consistency objective for all models in the table,
 architecture still drives a multiplicative gap.
 Table~\ref{tab:cdi_lines128_pinn} compares local, spectral, and spectral-local
-models under the same $N=128$ line-pattern protocol. SRU-Net cuts amplitude MAE
-to $0.027$, a $2.1\times$ improvement over FFNO ($0.057$),
-$4.6\times$ over the CNN baseline ($0.123$), and the lowest amplitude MAE,
-mean squared error (MSE), and SSIM in the table. U-NO gives the lowest phase
-MAE and MSE, while
-SRU-Net gives the strongest phase SSIM; FFNO improves over
-the CNN and FNO models but does not close the amplitude gap to SRU-Net.
+models under the same $N=128$ line-pattern protocol. The table reports MSE,
+SSIM, parameter count, and model-forward throughput. SRU-Net gives the lowest
+amplitude MSE and the strongest amplitude and phase SSIM. U-NO gives the
+lowest phase MSE, while FFNO improves over the CNN and FNO models but does not
+close the amplitude gap to SRU-Net.
 
-% table_metadata: task=CDI_lines128; table_type=pinn_model_comparison; authority=complete_lines128_cdi_benchmark_plus_uno_extension; source=docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_pinn_metrics.tex; metrics=mae,mse,ssim; includes_uno=true
+% table_metadata: task=CDI_lines128; table_type=pinn_model_comparison; authority=complete_lines128_cdi_benchmark_plus_uno_extension; source=docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_pinn_metrics.tex; metrics=mse,ssim,params,throughput; includes_uno=true
 \begin{table}[t]
 \centering
 \scriptsize
 \setlength{\tabcolsep}{2pt}
 \caption{\textbf{CDI architecture comparison under
 physics-consistency training.} All models use the same $N=128$ line-pattern
-protocol and CDI physics-consistency objective.}
+protocol and CDI physics-consistency objective. Throughput is measured as CDI
+patches per second for synchronized model-forward timing artifacts; ``--''
+means no synchronized timing artifact was available. Lower MSE is better;
+higher SSIM and throughput are better.}
 \label{tab:cdi_lines128_pinn}
-\resizebox{\textwidth}{!}{\input{tables/cdi_lines128_pinn_metrics.tex}}
+\input{tables/cdi_lines128_pinn_metrics.tex}
 \end{table}
 
 % figure_metadata: task=CDI_lines128; paper_copy=figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet.png; visible_columns=gt,pinn,pinn_fno_vanilla,pinn_ffno,pinn_neuralop_uno,pinn_hybrid_resnet; final_ffno_pair=depth24_no_refiner; display_channels=amplitude,phase; crop_fraction=0.5; amplitude_colormap=viridis; amplitude_display_scale=gt_crop_min_to_gt_crop_p99; phase_alignment=global_circular_offset_to_gt_before_wrapping; phase_colormap=twilight; phase_display_scale=gt_crop_min_to_gt_crop_p99_after_alignment; row_colorbars=amplitude,phase; base_source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z/recons; ffno_source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z/recons/pinn_ffno_depth24/recon.npz
-\begin{figure}[t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=\linewidth]{figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet.png}
 \caption{\textbf{Amplitude and phase reconstruction comparison on synthetically
@@ -831,6 +834,7 @@ and each predicted phase is aligned to the target by a single global circular
 offset before display. One colorbar is shared across each row.}
 \label{fig:cdi_main_qualitative}
 \end{figure}
+\FloatBarrier
 
 \subsection{CDI architecture ablations}
 \label{sec:cdi-arch-ablations}
@@ -921,9 +925,9 @@ FFNO & supervised + Born & 0.4509 & 26.74 & 0.9120 &
 \end{table}
 
 % figure_metadata: task=BRDT; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays/sample_0255_*; paper_copy=figures/brdt_sample_0255_context_recon_error.png; sample_id=255; visible_rows=measurement_magnitude,target,classical_born_backprop,ffno,sru_net
-\begin{figure*}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{figures/brdt_sample_0255_context_recon_error.png}
+\includegraphics[width=\linewidth]{figures/brdt_sample_0255_context_recon_error.png}
 \caption{\textbf{BRDT representative example.} The bottom-left panel shows the
 measured sinogram magnitude $|s_{\mathrm{obs}}(\theta,d)|$. The top-row Born
 input panel is the 2D image-space field computed from that sinogram; it is both
@@ -931,7 +935,8 @@ the neural-network input and the non-learned Born baseline. The remaining
 top-row panels show the target $q$ and neural estimates $\hat{q}$. Bottom-row
 error maps use a shared target-domain error scale.}
 \label{fig:brdt_candidate_recon}
-\end{figure*}
+\end{figure}
+\FloatBarrier
 
 \subsection{PDEBench CNS}
 
@@ -1226,9 +1231,9 @@ constructive interaction in this small same-protocol ablation.
 \section{CDI Phase Contrast-Normalized View}
 
 % figure_metadata: task=CDI_lines128; paper_copy=figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet_phase_per_panel_scaled.png; visible_columns=target,pinn,pinn_fno_vanilla,pinn_ffno,pinn_neuralop_uno,pinn_hybrid_resnet; final_ffno_pair=depth24_no_refiner; display_channels=amplitude,phase; crop_fraction=0.5; amplitude_display_scale=gt_crop_min_to_gt_crop_p99; phase_alignment=global_circular_offset_to_gt_before_wrapping; phase_display_scale=per_panel_p01_to_p99_after_alignment; row_colorbars=amplitude_shared,phase_per_panel
-\begin{figure*}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet_phase_per_panel_scaled.png}
+\includegraphics[width=\linewidth]{figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet_phase_per_panel_scaled.png}
 \caption{\textbf{CDI reconstruction comparison with independent phase
 contrast.} This supplemental version of Fig.~\ref{fig:cdi_main_qualitative}
 keeps the amplitude row on the shared target-anchored scale used in the main
@@ -1236,14 +1241,15 @@ figure, but scales each phase panel independently using the 1st--99th
 percentile range after global phase alignment. The phase colors reveal
 within-panel structure and should not be compared numerically across columns.}
 \label{fig:cdi_main_qualitative_phase_per_panel_scaled}
-\end{figure*}
+\end{figure}
+\FloatBarrier
 
 \section{BRDT FNO Loss Comparison}
 
 % figure_metadata: task=BRDT; source_supervised=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/figures/source_arrays/sample_0255_fno_vanilla_*; source_physics_only=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-physics-only-objective-ablation/figures/source_arrays/sample_0255_fno_vanilla_*; paper_copy=figures/brdt_fno_objective_ablation.png; role=appendix_objective_control
-\begin{figure*}[t]
+\begin{figure}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{figures/brdt_fno_objective_ablation.png}
+\includegraphics[width=\linewidth]{figures/brdt_fno_objective_ablation.png}
 \caption{\textbf{BRDT FNO loss comparison.} Vanilla FNO did not converge
 under the supervised object loss plus Born-consistency objective used for the
 main BRDT comparison, producing a nearly constant reconstruction. Under a
@@ -1252,13 +1258,14 @@ same architecture recovers visible object structure. We show this separately
 from Fig.~\ref{fig:brdt_candidate_recon}, which compares the BRDT models used
 in Table~\ref{tab:brdt_secondary_metrics}.}
 \label{fig:brdt_fno_objective_ablation}
-\end{figure*}
+\end{figure}
+\FloatBarrier
 
 \section{Additional CNS Visualization}
 
 % figure_metadata: task=PDEBench_CNS; train_trajectories=512; val_trajectories=64; test_trajectories=64; fixed_sample=0; visible_rows=target,author_ffno_cns_base,spectral_resnet_bottleneck_base,fno_base,unet_strong; omitted_row=hybrid_resnet_cns; fields=density,pressure; panels=prediction_and_abs_error; visible_label=SRU-Net for repo row spectral_resnet_bottleneck_base; figure_role=adjacent_context_only; figure_lane=h2_512_64_64_2step; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/figures/sample000
 % restore_if_needed: omitted CNS figure column maps visible label SRU-Net to repo row hybrid_resnet_cns. Source panels: density__hybrid_resnet_cns__prediction.png, density__hybrid_resnet_cns__abs_error.png, Vx__hybrid_resnet_cns__prediction.png, Vx__hybrid_resnet_cns__abs_error.png, Vy__hybrid_resnet_cns__prediction.png, Vy__hybrid_resnet_cns__abs_error.png, pressure__hybrid_resnet_cns__prediction.png, pressure__hybrid_resnet_cns__abs_error.png.
-\begin{figure}[h]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=\linewidth]{figures/pdebench_cns_sample000_predictions.png}
 \caption{\textbf{PDEBench CNS fixed-sample predictions and errors.} The shared
@@ -1268,6 +1275,7 @@ five input states, so this figure should not be read as the visual
 counterpart of the table.}
 \label{fig:cns_sample_predictions}
 \end{figure}
+\FloatBarrier
 
 \section{Additional CNS Comparisons}
 

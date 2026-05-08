@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 import numpy as np
@@ -43,6 +44,24 @@ from scripts.studies.paper_results_refresh import (
     write_cns_matched_condition_plus_uno_assets,
     load_cns_matched_condition_uno_row,
 )
+
+
+def test_manuscript_figures_use_text_adjacent_float_policy():
+    manuscript = Path(
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/hybrid_resnet_neurips_first_draft.tex"
+    ).read_text(encoding="utf-8")
+    active_lines = [
+        line for line in manuscript.splitlines()
+        if not line.lstrip().startswith("%")
+    ]
+    active_tex = "\n".join(active_lines)
+
+    assert r"\usepackage{placeins}" in active_tex
+    assert r"\begin{figure*}" not in active_tex
+    figure_specs = re.findall(r"\\begin\{figure\}\[([^\]]+)\]", active_tex)
+    assert figure_specs
+    assert all("h" in spec and "t" in spec and "b" in spec and "p" in spec for spec in figure_specs)
+    assert active_tex.count(r"\FloatBarrier") >= 4
 
 
 def test_detect_cns_history5_gaps_reports_missing_main_comparators():
@@ -668,6 +687,8 @@ def test_render_cdi_pinn_metrics_table_keeps_only_pinn_rows():
             "phase_mse": 0.04,
             "amp_ssim": 0.9,
             "phase_ssim": 0.8,
+            "parameter_count": 1234,
+            "inference_samples_per_second": 456.7,
         },
         {
             "row_id": "baseline",
@@ -685,9 +706,13 @@ def test_render_cdi_pinn_metrics_table_keeps_only_pinn_rows():
     tex = render_cdi_pinn_metrics_table(rows)
 
     assert "CNN" in tex
-    assert r"Amp MAE $\downarrow$" in tex
-    assert r"Phase SSIM $\uparrow$" in tex
-    assert "0.1000" in tex
+    assert "Amp MAE" not in tex
+    assert "Phase MAE" not in tex
+    assert "Amp MSE" in tex
+    assert "Patches/s" in tex
+    assert "1.2k" in tex
+    assert r"\textbf{456.7}" in tex
+    assert "0.0100" in tex
     assert "0.3000" not in tex
     assert "Training" not in tex
 
@@ -704,6 +729,8 @@ def test_render_cdi_pinn_metrics_table_bolds_best_values_across_pinn_models():
             "phase_mse": 0.16,
             "amp_ssim": 0.7,
             "phase_ssim": 0.6,
+            "parameter_count": 1000,
+            "inference_samples_per_second": 10.0,
         },
         {
             "row_id": "pinn_b",
@@ -715,15 +742,19 @@ def test_render_cdi_pinn_metrics_table_bolds_best_values_across_pinn_models():
             "phase_mse": 0.04,
             "amp_ssim": 0.9,
             "phase_ssim": 0.8,
+            "parameter_count": 2000,
+            "inference_samples_per_second": 20.0,
         },
     ]
 
     tex = render_cdi_pinn_metrics_table(rows)
 
-    assert r"\textbf{0.1000}" in tex
-    assert r"\textbf{0.2000}" in tex
+    assert r"\textbf{0.0100}" in tex
+    assert r"\textbf{0.0400}" in tex
     assert r"\textbf{0.9000}" in tex
     assert r"\textbf{0.8000}" in tex
+    assert r"\textbf{1.0k}" not in tex
+    assert r"\textbf{20.0}" in tex
 
 
 def test_render_cdi_objective_comparison_table_emits_all_paired_active_models():
