@@ -309,8 +309,8 @@ class NeuralFieldDecoder(nn.Module):
 
         output = torch.cat(outputs, dim=1)  # (B, Q, 2)
 
-        x_real = 0.2 + torch.tanh(output[..., 0])
-        x_imag = 1.2 * torch.tanh(output[..., 1])
+        x_real = torch.tanh(output[..., 0])
+        x_imag = torch.tanh(output[..., 1])
 
         x_real = x_real.reshape(B, C, N, N)
         x_imag = x_imag.reshape(B, C, N, N)
@@ -358,15 +358,22 @@ class ConvNeXtBlock(nn.Module):
 
 class PixelShuffleUpsampleStage(nn.Module):
     """2x spatial upsampling via PixelShuffle followed by ConvNeXt refinement."""
-    def __init__(self, ch_in: int, ch_out: int):
+    def __init__(self, ch_in: int, ch_out: int, skip_channels: int = 0):
         super().__init__()
         self.upsample_conv = nn.Conv2d(ch_in, 4 * ch_out, kernel_size=1)
         self.pixel_shuffle = nn.PixelShuffle(upscale_factor=2)
         self.refine = ConvNeXtBlock(ch_out)
+        if skip_channels > 0:
+            self.skip_proj = nn.Conv2d(skip_channels, ch_out, kernel_size=1)
+        else:
+            self.skip_proj = None
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor,
+                skip: Optional[torch.Tensor] = None) -> torch.Tensor:
         x = self.upsample_conv(x)
         x = self.pixel_shuffle(x)
+        if skip is not None and self.skip_proj is not None:
+            x = x + self.skip_proj(skip)
         x = self.refine(x)
         return x
 
@@ -376,9 +383,11 @@ class CNNCanvasDecoder(nn.Module):
 
     Extracts per-patch crops from the feature volume using grid_sample,
     then upsamples through ConvNeXt blocks with PixelShuffle to reconstruct
-    complex-valued object patches.
+    complex-valued object patches. Optionally injects per-patch encoder skip
+    features at resolution-matched decoder stages.
     """
-    def __init__(self, model_config: ModelConfig, data_config: DataConfig):
+    def __init__(self, model_config: ModelConfig, data_config: DataConfig,
+                 encoder_skip_info: Optional[list] = None):
         super().__init__()
         self.N = data_config.N
         self.canvas_size = model_config.latent_canvas_size
@@ -409,10 +418,22 @@ class CNNCanvasDecoder(nn.Module):
             channels.append(ch_out)
             ch = ch_out
 
+        skip_channels_per_stage = [0] * n_stages
+        self._skip_indices = [None] * n_stages
+        if encoder_skip_info is not None:
+            for s in range(n_stages):
+                target_res = self.crop_size * (2 ** (s + 1))
+                for k in range(len(encoder_skip_info) - 1, -1, -1):
+                    if encoder_skip_info[k][0] == target_res:
+                        skip_channels_per_stage[s] = encoder_skip_info[k][1]
+                        self._skip_indices[s] = k
+                        break
+
         self.stages = nn.ModuleList()
         for s in range(n_stages):
             self.stages.append(
-                PixelShuffleUpsampleStage(channels[s], channels[s + 1])
+                PixelShuffleUpsampleStage(channels[s], channels[s + 1],
+                                          skip_channels=skip_channels_per_stage[s])
             )
 
         last_ch = channels[-1]
@@ -446,15 +467,18 @@ class CNNCanvasDecoder(nn.Module):
         sample_grid = sample_grid / (M_lat / 2.0)
         return sample_grid.reshape(B * C, S, S, 2)
 
-    def _decode_crops(self, crops: torch.Tensor) -> torch.Tensor:
+    def _decode_crops(self, crops: torch.Tensor,
+                      stage_skips: Optional[list] = None) -> torch.Tensor:
         x = self.stem(crops)
-        for stage in self.stages:
-            x = stage(x)
+        for i, stage in enumerate(self.stages):
+            skip = stage_skips[i] if stage_skips is not None else None
+            x = stage(x, skip=skip)
         return x
 
     def forward(self, feature_volume: torch.Tensor,
                 coords: torch.Tensor,
-                scale: torch.Tensor) -> torch.Tensor:
+                scale: torch.Tensor,
+                encoder_skips: Optional[list] = None) -> torch.Tensor:
         B = feature_volume.shape[0]
         C = coords.shape[1]
         N = self.N
@@ -471,7 +495,13 @@ class CNNCanvasDecoder(nn.Module):
             mode='bilinear', align_corners=False, padding_mode='zeros'
         )
 
-        x = self._decode_crops(crops)
+        stage_skips = [None] * len(self.stages)
+        if encoder_skips is not None:
+            for s, skip_idx in enumerate(self._skip_indices):
+                if skip_idx is not None:
+                    stage_skips[s] = encoder_skips[skip_idx]
+
+        x = self._decode_crops(crops, stage_skips)
 
         x_real = 0.2 + torch.tanh(self.head_real(x))
         x_imag = 1.2 * torch.tanh(self.head_imag(x))
@@ -552,12 +582,32 @@ class FNOBlock(nn.Module):
         return out
 
 
+class BottleneckFNOBlock(nn.Module):
+    """FNO block with channel bottleneck for use at higher channel counts.
+
+    Projects channels down to fno_width, applies spectral + local convolution,
+    projects back up, with a residual connection. Keeps spectral weight size
+    independent of the surrounding channel count.
+    """
+    def __init__(self, channels: int, fno_width: int, modes: int):
+        super().__init__()
+        self.proj_down = nn.Conv2d(channels, fno_width, kernel_size=1)
+        self.fno = FNOBlock(fno_width, fno_width, modes)
+        self.proj_up = nn.Conv2d(fno_width, channels, kernel_size=1)
+        nn.init.zeros_(self.proj_up.weight)
+        nn.init.zeros_(self.proj_up.bias)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x + self.proj_up(self.fno(self.proj_down(x)))
+
+
 class FNOCNNEncoder(nn.Module):
     """Hybrid FNO+CNN encoder for ptychographic diffraction patterns.
 
-    FNO blocks at full spatial resolution provide global context (Friedel pairs,
-    radial ring structure, speckle correlations). CNN blocks then compress
-    spatially to the 8x8 bottleneck required by the latent canvas.
+    Supports two modes controlled by fno_interleave:
+    - Stacked (default): All FNO blocks at full resolution, then CNN compression.
+    - Interleaved: First FNO at full resolution, then alternating CNN+pool and
+      BottleneckFNO at decreasing resolutions. Modes halved at each level.
     """
     def __init__(self, model_config: ModelConfig, data_config: DataConfig):
         super().__init__()
@@ -575,11 +625,6 @@ class FNOCNNEncoder(nn.Module):
             )
 
         self.lifting = nn.Conv2d(1, fno_width, kernel_size=1)
-
-        self.fno_blocks = nn.ModuleList([
-            FNOBlock(fno_width, fno_width, fno_modes)
-            for _ in range(n_fno_blocks)
-        ])
 
         if N < 16 or (N & (N - 1)) != 0:
             raise ValueError(f"N must be a power of 2 >= 16, got N={N}")
@@ -602,25 +647,89 @@ class FNOCNNEncoder(nn.Module):
 
         self.final_pool = nn.MaxPool2d(kernel_size=2)
 
-        self.blocks = nn.ModuleList(
-            list(self.fno_blocks) + list(self.cnn_blocks)
+        self._interleave = (
+            getattr(model_config, 'fno_interleave', False)
+            and n_fno_blocks > 1
         )
 
-        self.filters = [1] + [fno_width] * n_fno_blocks + cnn_filter_list[1:]
+        if self._interleave:
+            self.fno_blocks = nn.ModuleList([
+                FNOBlock(fno_width, fno_width, fno_modes)
+            ])
+
+            n_interleaved = n_fno_blocks - 1
+            self.interleaved_fno_blocks = nn.ModuleList()
+            current_res = N
+            for i in range(n_interleaved):
+                if i < n_cnn_blocks:
+                    current_res = current_res // 2
+                    ch = cnn_filter_list[i + 1]
+                else:
+                    ch = cnn_filter_list[-1]
+                reduced_modes = max(4, fno_modes >> (i + 1))
+                reduced_modes = min(reduced_modes, current_res // 2)
+                self.interleaved_fno_blocks.append(
+                    BottleneckFNOBlock(ch, fno_width, reduced_modes)
+                )
+
+            all_blocks = [self.fno_blocks[0]]
+            filters_list = [1, fno_width]
+            for i in range(n_cnn_blocks):
+                all_blocks.append(self.cnn_blocks[i])
+                filters_list.append(cnn_filter_list[i + 1])
+                if i < n_interleaved:
+                    all_blocks.append(self.interleaved_fno_blocks[i])
+                    filters_list.append(cnn_filter_list[i + 1])
+            for i in range(n_cnn_blocks, n_interleaved):
+                all_blocks.append(self.interleaved_fno_blocks[i])
+                filters_list.append(filters_list[-1])
+
+            self.blocks = nn.ModuleList(all_blocks)
+            self.filters = filters_list
+        else:
+            self.fno_blocks = nn.ModuleList([
+                FNOBlock(fno_width, fno_width, fno_modes)
+                for _ in range(n_fno_blocks)
+            ])
+            self.interleaved_fno_blocks = nn.ModuleList()
+
+            self.blocks = nn.ModuleList(
+                list(self.fno_blocks) + list(self.cnn_blocks)
+            )
+            self.filters = [1] + [fno_width] * n_fno_blocks + cnn_filter_list[1:]
 
     def forward(self, x: torch.Tensor):
         skips = []
 
         x = self.lifting(x)
 
-        for fno_block in self.fno_blocks:
-            x = fno_block(x)
+        if self._interleave:
+            x = self.fno_blocks[0](x)
             skips.append(x)
 
-        for cnn_block in self.cnn_blocks:
-            x = cnn_block.forward_conv(x)
-            skips.append(x)
-            x = cnn_block.forward_pool(x)
+            interleaved_idx = 0
+            for cnn_block in self.cnn_blocks:
+                x = cnn_block.forward_conv(x)
+                skips.append(x)
+                x = cnn_block.forward_pool(x)
+                if interleaved_idx < len(self.interleaved_fno_blocks):
+                    x = self.interleaved_fno_blocks[interleaved_idx](x)
+                    skips.append(x)
+                    interleaved_idx += 1
+
+            while interleaved_idx < len(self.interleaved_fno_blocks):
+                x = self.interleaved_fno_blocks[interleaved_idx](x)
+                skips.append(x)
+                interleaved_idx += 1
+        else:
+            for fno_block in self.fno_blocks:
+                x = fno_block(x)
+                skips.append(x)
+
+            for cnn_block in self.cnn_blocks:
+                x = cnn_block.forward_conv(x)
+                skips.append(x)
+                x = cnn_block.forward_pool(x)
 
         x = self.final_pool(x)
 
@@ -660,7 +769,17 @@ class AutoencoderCCNF(nn.Module):
         self.feature_volume = MultiResolutionFeatureVolume(model_config)
 
         if getattr(model_config, 'ccnf_decoder_type', 'neural_field') == 'cnn':
-            self.decoder = CNNCanvasDecoder(model_config, data_config)
+            N = data_config.N
+            with torch.no_grad():
+                dummy = torch.zeros(1, 1, N, N)
+                _, dummy_skips = self.encoder(dummy)
+                encoder_skip_info = [
+                    (s.shape[2], s.shape[1]) for s in dummy_skips
+                ]
+            self.decoder = CNNCanvasDecoder(
+                model_config, data_config,
+                encoder_skip_info=encoder_skip_info
+            )
         else:
             self.decoder = NeuralFieldDecoder(model_config, data_config)
 
@@ -684,7 +803,7 @@ class AutoencoderCCNF(nn.Module):
 
         # 1. Weight-shared encoding: process each patch independently
         x_flat = x.reshape(B * C, 1, N, N)
-        z_flat, _skips = self.encoder(x_flat)  # (B*C, D, 8, 8)
+        z_flat, encoder_skips = self.encoder(x_flat)  # (B*C, D, 8, 8)
         z_flat = self.bottleneck_cbam(z_flat)
         D = z_flat.shape[1]
         z = z_flat.reshape(B, C, D, z_flat.shape[2], z_flat.shape[3])  # (B, C, D, 8, 8)
@@ -695,8 +814,13 @@ class AutoencoderCCNF(nn.Module):
         # 3. Multi-resolution feature extraction
         feat_vol = self.feature_volume(canvas)  # (B, F, M_lat, M_lat)
 
-        # 4. Neural field decoding
-        complex_out, x_real, x_imag = self.decoder(feat_vol, coords, scale)
+        # 4. Decoding
+        if isinstance(self.decoder, CNNCanvasDecoder):
+            complex_out, x_real, x_imag = self.decoder(
+                feat_vol, coords, scale, encoder_skips=encoder_skips
+            )
+        else:
+            complex_out, x_real, x_imag = self.decoder(feat_vol, coords, scale)
 
         return complex_out, x_real, x_imag
 

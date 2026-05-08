@@ -23,7 +23,7 @@ from ptycho_torch.config_params import (
     DataConfig, ModelConfig, TrainingConfig, InferenceConfig,
     update_existing_config,
 )
-from ptycho_torch.utils import load_config_from_json, validate_and_process_config
+from ptycho_torch.utils import load_config_from_json, validate_and_process_config, auto_set_num_datasets
 from ptycho_torch.model import PtychoPINN_Lightning
 from ptycho_torch.beta_modules.dataloader_index import PtychoDatasetIndexed
 from ptycho_torch.dataloader import TensorDictDataLoader, Collate_Lightning
@@ -138,6 +138,8 @@ def main(ptycho_dir, config_path, output_dir):
     if i_replace:
         update_existing_config(inference_config, i_replace)
 
+    auto_set_num_datasets(model_config, ptycho_dir)
+
     resolve_n_devices(training_config)
     set_seed(42, n_devices=training_config.n_devices)
 
@@ -152,6 +154,7 @@ def main(ptycho_dir, config_path, output_dir):
 
     print(f"Architecture: {getattr(model_config, 'architecture', 'unet')}")
     print(f"Encoder type: {getattr(model_config, 'encoder_type', 'cnn')}")
+    print(f"Decoder type: {getattr(model_config, 'ccnf_decoder_type', 'neural_field')}")
     print(f"C={data_config.C}, N={data_config.N}, devices={training_config.n_devices}")
 
     data_module = IndexedDataModule(

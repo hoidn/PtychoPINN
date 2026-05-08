@@ -57,8 +57,15 @@ Input: (B, C, N, N) diffraction patterns + (B, C, 1, 2) coords_relative + (B, C,
       Three parallel convolutions (1x1, 3x3, 3x3 dilated)
       Output: (B, 3*F, M_lat, M_lat)
               |
-  [5] Neural Field Decoder
-      For each output pixel: Fourier(coords) + grid_sample(features) -> MLP -> (x_real, x_imag)
+  [5] Decoder (selected by ccnf_decoder_type)
+
+      Neural Field Decoder (ccnf_decoder_type='neural_field', default):
+        For each output pixel: Fourier(coords) + grid_sample(features) -> MLP -> (x_real, x_imag)
+
+      CNN Canvas Decoder (ccnf_decoder_type='cnn'):
+        Per-patch crop via grid_sample -> ConvNeXt blocks + PixelShuffle upsample -> dual heads
+        8x8 crop -> 16x16 -> 32x32 -> 64x64 (for N=64)
+
       Output: (B, C, N, N) complex64
               |
   [ForwardModel] (unchanged)
@@ -363,6 +370,79 @@ For all C patches simultaneously:
 
 ---
 
+### `CNNCanvasDecoder`
+
+**Purpose**: Alternative CNN-based decoder that replaces the neural field MLP with convolutional upsampling. Selected via `ccnf_decoder_type='cnn'` in `ModelConfig`.
+
+**Rationale**: The neural field decoder evaluates an MLP independently at every output pixel, producing each value from a sampled feature vector and Fourier-encoded coordinates. While this provides exact phase consistency and eliminates convolutional smoothing bias in principle, it lacks the structured spatial priors that CNNs provide. Convolutional kernels naturally encode local spatial correlations -- edges, textures, smooth gradients -- through weight sharing across spatial positions. For ptychographic objects where amplitude and phase vary smoothly with occasional sharp boundaries, this inductive bias produces higher-quality reconstructions in practice. The CNN decoder addresses this by using ConvNeXt blocks (depthwise 7x7 convolutions with inverted bottleneck) for large receptive fields and PixelShuffle for artifact-free upsampling.
+
+**Position-dependent decoding**: The neural field handles position-conditioning naturally by querying at different coordinates per patch. The CNN decoder achieves the same effect through per-patch crop extraction: for each of the $C$ patches, an $S \times S$ region (default $S = 8$) is sampled from the shared feature volume at positions centered on that patch's canvas coordinates via `F.grid_sample`. Different patches receive different crops because their centers differ on the canvas, so the CNN sees position-specific features without explicit coordinate injection.
+
+**Phase consistency**: Unlike the neural field, the CNN decoder does not guarantee exact phase consistency between overlapping patches at float32 precision. Two patches that share a physical region will receive slightly different crops (sampled from different but overlapping positions on the feature volume), and the convolutional decoding path may produce small differences. However, the physics forward model's reassembly step still enforces overlap consistency downstream via the loss function, and the shared feature volume provides a strong implicit consistency prior.
+
+**Architecture**:
+
+The decoder consists of three stages: crop extraction, ConvNeXt upsampling, and output heads.
+
+**1. Crop extraction**: For each patch $c$, an $S \times S$ sampling grid is constructed spanning $[-N/2, +N/2]$ real pixels centered at the patch's canvas position. The grid is scaled to canvas coordinates and normalized for `F.grid_sample`:
+
+$$r_\text{sample} = \frac{r_\text{local} \times \text{scale} + \text{center}_c}{M_\text{lat} / 2}$$
+
+This produces `(B*C, F, S, S)` crops from the `(B, F, M_lat, M_lat)` feature volume.
+
+**2. ConvNeXt upsampling**: Each crop passes through a stem (1x1 conv + LayerNorm + GELU) followed by $\log_2(N/S)$ `PixelShuffleUpsampleStage` modules. Each stage:
+- Expands channels via 1x1 conv: $C_\text{in} \to 4 \cdot C_\text{out}$
+- Rearranges via `nn.PixelShuffle(2)`: doubles spatial resolution, reduces channels to $C_\text{out}$
+- Refines with a ConvNeXt block: depthwise 7x7 conv $\to$ LayerNorm $\to$ 1x1 conv (4x expand) $\to$ GELU $\to$ 1x1 conv (contract) $\to$ layer scale ($\gamma$ init $10^{-6}$) + residual
+
+PixelShuffle avoids the checkerboard artifacts of transposed convolutions: each output pixel comes from exactly one input value (no overlapping contributions). The preceding 1x1 conv learns how to distribute features across the $r^2 = 4$ sub-pixel positions before the spatial rearrangement.
+
+**3. Output heads**: Separate `Conv2d(3x3)` layers for real and imaginary, with the same activations as the neural field decoder:
+- `x_real = 0.2 + tanh(head_real(x))` -- range $[-0.8, 1.2]$
+- `x_imag = 1.2 * tanh(head_imag(x))` -- range $[-1.2, 1.2]$
+
+**Tensor flow** (default config: N=64, M_lat=16, feature_volume_channels=64, cnn_decoder_base_ch=128, crop_size=8):
+
+```
+feature_volume: (B, 192, 16, 16) + coords: (B, C, 1, 2) + scale: (B, 1, 2)
+
+Per-patch crop extraction:
+  feature_volume expanded:  (B*C, 192, 16, 16)
+  sample_grid:              (B*C, 8, 8, 2)
+  F.grid_sample -> crops:   (B*C, 192, 8, 8)
+
+Stem:
+  Conv1x1(192 -> 128):      (B*C, 128, 8, 8)
+  LayerNorm2d + GELU:        (B*C, 128, 8, 8)
+
+Stage 0 (128 -> 128):
+  Conv1x1(128 -> 512):      (B*C, 512, 8, 8)
+  PixelShuffle(2):           (B*C, 128, 16, 16)
+  ConvNeXtBlock(128):        (B*C, 128, 16, 16)
+
+Stage 1 (128 -> 64):
+  Conv1x1(128 -> 256):      (B*C, 256, 16, 16)
+  PixelShuffle(2):           (B*C, 64, 32, 32)
+  ConvNeXtBlock(64):         (B*C, 64, 32, 32)
+
+Stage 2 (64 -> 32):
+  Conv1x1(64 -> 128):       (B*C, 128, 32, 32)
+  PixelShuffle(2):           (B*C, 32, 64, 64)
+  ConvNeXtBlock(32):         (B*C, 32, 64, 64)
+
+Output heads:
+  head_real Conv2d(32->1):   (B*C, 1, 64, 64)  -> 0.2 + tanh(·)
+  head_imag Conv2d(32->1):   (B*C, 1, 64, 64)  -> 1.2 * tanh(·)
+  reshape + combine:         (B, C, 64, 64) complex64
+```
+
+For N=128: 4 stages (8 -> 16 -> 32 -> 64 -> 128), channels 128 -> 128 -> 64 -> 32 -> 16.
+For N=256: 5 stages (8 -> 16 -> 32 -> 64 -> 128 -> 256), channels 128 -> 128 -> 64 -> 32 -> 16 -> 16.
+
+**Config parameters**: `ccnf_decoder_type` (selects this decoder when `'cnn'`), `cnn_decoder_base_ch` (default 128), `cnn_decoder_crop_size` (default 8).
+
+---
+
 ### `AutoencoderCCNF`
 
 **Purpose**: Composes all modules into a single autoencoder that replaces the standard `Autoencoder` class.
@@ -377,7 +457,7 @@ For all C patches simultaneously:
 
 4. **Feature volume**: Extracts multi-scale features from the fused canvas.
 
-5. **Neural field decoder**: Evaluates the coordinate-conditioned MLP at each output pixel using the dynamic scale for feature volume sampling.
+5. **Decoder**: Selected by `ccnf_decoder_type`. When `'neural_field'` (default), evaluates the coordinate-conditioned MLP at each output pixel. When `'cnn'`, extracts per-patch crops from the feature volume and upsamples through ConvNeXt blocks with PixelShuffle. Both decoders share the same forward signature and produce identical output shapes.
 
 **Encoder configuration**: The encoder is instantiated with a deep-copied `ModelConfig` where `C_model=1` and `object_big=False`, so its first layer expects single-channel input. The `encoder_type` field selects between `Encoder` (pure CNN) and `FNOCNNEncoder` (FNO+CNN hybrid). This allows weight sharing across all C patches regardless of how many overlapping positions are grouped together.
 
@@ -427,8 +507,12 @@ All new parameters are added to `ModelConfig` in `config_params.py`:
 | `fourier_bands_coord` | int | 10 | No | Fourier frequency bands for the neural field's coordinate encoding. |
 | `neural_field_hidden` | List[int] | [512, 256, 128] | No | Hidden layer dimensions for the neural field MLP. |
 | `feature_volume_channels` | int | 64 | No | Output channels per level in the multi-resolution feature volume (total = 3x this). |
+| `nf_chunk_size` | int | 4096 | No | Chunk size for batched coordinate queries in the neural field decoder. |
+| `ccnf_decoder_type` | `'neural_field'` / `'cnn'` | `'neural_field'` | Yes | Selects between MLP neural field decoder and CNN canvas decoder. |
+| `cnn_decoder_base_ch` | int | 128 | No | Base channel count for CNN decoder stem. Halved at each subsequent stage (min 16). |
+| `cnn_decoder_crop_size` | int | 8 | No | Spatial size of per-patch crops extracted from the feature volume. Must be $\leq M_\text{lat}$ and $N / S$ must be a power of 2. |
 
-**Example config JSON** (FNO+CNN encoder):
+**Example config JSON** (FNO+CNN encoder, neural field decoder):
 ```json
 {
     "architecture": "ccnf",
@@ -443,7 +527,19 @@ All new parameters are added to `ModelConfig` in `config_params.py`:
 }
 ```
 
-Setting `architecture` to `"unet"` (or omitting it) uses the standard UNet autoencoder with no changes to existing behavior. Setting `encoder_type` to `"cnn"` (or omitting it) uses the standard CNN encoder within the CCNF architecture.
+**Example config JSON** (CNN decoder):
+```json
+{
+    "architecture": "ccnf",
+    "ccnf_decoder_type": "cnn",
+    "cnn_decoder_base_ch": 128,
+    "cnn_decoder_crop_size": 8,
+    "latent_canvas_size": 16,
+    "feature_volume_channels": 64
+}
+```
+
+Setting `architecture` to `"unet"` (or omitting it) uses the standard UNet autoencoder with no changes to existing behavior. Setting `encoder_type` to `"cnn"` (or omitting it) uses the standard CNN encoder within the CCNF architecture. Setting `ccnf_decoder_type` to `"neural_field"` (or omitting it) uses the neural field MLP decoder.
 
 ---
 
@@ -511,13 +607,19 @@ Existing regularizers (real/imaginary mean deviation, total variation) apply unc
 
 ## Computational Profile
 
-### With CNN encoder (`encoder_type='cnn'`, ~1.8M total):
+### With CNN encoder + neural field decoder (`encoder_type='cnn'`, `ccnf_decoder_type='neural_field'`, ~1.8M total):
 - Weight-shared encoder: ~1.1M (ConvPoolBlocks with `n_filters_scale=2`, single-channel input)
 - Geometry-tagged attention fusion: ~270K (projections + tag encoder)
 - Multi-resolution feature volume: ~150K (three small convolutions)
 - Neural field MLP: ~500K (three hidden layers + output layer)
 
-### With FNO+CNN encoder (`encoder_type='fno_cnn'`, ~2.8M total):
+### With CNN encoder + CNN decoder (`encoder_type='cnn'`, `ccnf_decoder_type='cnn'`, ~2.0M total):
+- Weight-shared encoder: ~1.1M
+- Geometry-tagged attention fusion: ~270K
+- Multi-resolution feature volume: ~150K
+- CNN canvas decoder: ~318K (stem + 3 PixelShuffle/ConvNeXt stages + output heads)
+
+### With FNO+CNN encoder + neural field decoder (`encoder_type='fno_cnn'`, ~2.8M total):
 - FNO lifting + 2 FNO blocks (`fno_width=32`, `fno_modes=16`): ~1.05M
   - Spectral weights dominate: `32 x 32 x 16 x 16 x 2 = 524K` per block
 - CNN compression blocks: ~1.1M (ConvPoolBlocks for 64->32->16, MaxPool to 8)
@@ -532,9 +634,9 @@ Parameter count scales quadratically with `fno_width`:
 
 For comparison, the standard UNet autoencoder has ~3.5M parameters (dual convolutional decoders).
 
-**Forward pass cost**: The FNO blocks add FFT/iFFT operations at full resolution (O($N^2 \log N$) per block), which is cheaper than self-attention (O($N^4$)) and comparable to a single conv layer at the same resolution. The MLP decoder evaluates $B \times C \times N^2$ points per batch (262K for B=16, C=4, N=64) -- comparable to a single convolutional decoder pass.
+**Forward pass cost**: The FNO blocks add FFT/iFFT operations at full resolution (O($N^2 \log N$) per block), which is cheaper than self-attention (O($N^4$)) and comparable to a single conv layer at the same resolution. The neural field MLP decoder evaluates $B \times C \times N^2$ points per batch (262K for B=16, C=4, N=64) -- comparable to a single convolutional decoder pass. The CNN canvas decoder processes $B \times C$ crops through the ConvNeXt stack, which benefits from GPU parallelism over convolutions but requires expanding the feature volume to `(B*C, F, M_lat, M_lat)` for per-patch crop extraction.
 
-**Memory**: The FNO blocks operate at full resolution, so the rfft2 intermediate `(B*C, W, N, N//2+1)` complex tensor is the main addition. For B=16, C=4, `fno_width=32`, N=64: ~69MB per block. The multi-resolution feature volume `(B, 192, M_lat, M_lat)` remains small ($M_\text{lat} = 16$).
+**Memory**: The FNO blocks operate at full resolution, so the rfft2 intermediate `(B*C, W, N, N//2+1)` complex tensor is the main addition. For B=16, C=4, `fno_width=32`, N=64: ~69MB per block. The multi-resolution feature volume `(B, 192, M_lat, M_lat)` remains small ($M_\text{lat} = 16$). The CNN decoder's peak activation memory is dominated by the final stage: for B=16, C=8, the last ConvNeXt block holds `(128, 32, 64, 64)` activations (~67MB in float32).
 
 ---
 
