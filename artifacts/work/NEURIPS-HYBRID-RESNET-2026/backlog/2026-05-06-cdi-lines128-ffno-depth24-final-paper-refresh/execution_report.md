@@ -4,7 +4,7 @@
 
 - Restored the on-disk 16-command checks ledger at
   `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
-  from HEAD (32nd iteration of this recurring restore). The file had again
+  from HEAD (33rd iteration of this recurring restore). The file had again
   regressed to the 3-command workflow-default skeleton — exactly the
   republication regression flagged by the consumed implementation review's
   High finding. The restored file matches HEAD exactly
@@ -12,16 +12,16 @@
   `missing_logs: []`, empty `git diff HEAD`). All 16 archived verification
   logs under `verification/` already exist on disk and continue to satisfy
   the plan's "Pytest and archive-evidence contract".
-- Reran the plan's six required deterministic `python -m json.tool`
-  validations against the published surfaces
-  (`paper_evidence_manifest.json`, `model_variant_index.json`,
-  `ablation_index.json`, `tables/cdi_lines128_metrics_extended.json`,
-  `tables/model_config_by_benchmark.json`,
-  `tables/paper_efficiency_table.json`). All six exited `0`. No
-  implementation code changed in this pass, so the targeted pytest
-  postfix logs and `paper_results_refresh_ffno_final_depth4pair.log`
-  archived on disk on May 7 remain authoritative for this final
-  state.
+- No implementation code changed in this pass, so the targeted pytest
+  preflight/postfix logs, the `paper_results_refresh_ffno_final_depth4pair.log`
+  refresh log, and the six `json_*.log` validation logs archived previously
+  under `verification/` remain authoritative for this final state. The six
+  required deterministic `python -m json.tool` validations against the
+  published surfaces (`paper_evidence_manifest.json`,
+  `model_variant_index.json`, `ablation_index.json`,
+  `tables/cdi_lines128_metrics_extended.json`,
+  `tables/model_config_by_benchmark.json`, `tables/paper_efficiency_table.json`)
+  remain pinned in the restored ledger as `exit_code: 0`.
 
 ## Earlier Pass: Per-Row Provenance Closure
 
@@ -90,9 +90,10 @@ targets exactly the High and Medium findings from the consumed implementation
 review:
 `artifacts/review/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-implementation-review.md`.
 The High recurrence (workflow republication of the checks ledger) is again
-patched on the implementation side per the prior 29 iterations; durable
-closure still requires a workflow-tooling change outside this item's
-implementation authority and is captured below.
+patched on the implementation side; durable closure still requires a
+workflow-tooling change outside this item's implementation authority (the
+state-side `check_commands.json` enumerates only the 3-command default) and
+is captured below as follow-up work.
 
 ## Completed Current-Scope Work
 
