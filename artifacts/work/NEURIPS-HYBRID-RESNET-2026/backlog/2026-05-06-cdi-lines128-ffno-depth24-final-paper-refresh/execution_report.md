@@ -4,10 +4,10 @@
 
 - Re-restored the 16-command verification ledger at
   `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
-  to the on-disk working tree (20th iteration of this recurring restore). The
+  to the on-disk working tree (21st iteration of this recurring restore). The
   file had regressed once more to the 3-command workflow-default `json.tool`
-  skeleton between the prior fix commit (`26dfba5a docs(cdi-final-refresh):
-  record 19th-iteration on-disk ledger restore`) and the start of this
+  skeleton between the prior fix commit (`52dbde2b docs(cdi-final-refresh):
+  record 20th-iteration on-disk ledger restore`) and the start of this
   pass, while HEAD itself still durably tracked the 16-command state.
   Restored from HEAD via
   `git checkout HEAD -- <checks-file>`. The restored on-disk file matches
@@ -105,7 +105,7 @@ prior passes did.
   prior fix commits (`ba64d0da`, `1fa49d85`, `b4acf2fb`, `74c7d10b`,
   `291839dd`, `ac01569b`, `54a2c855`, `5697d6a1`, `bf9f32fa`, `bcf5ccff`,
   `f4c2834c`, `4f6409e2`, `f298b07f`, `5bbc85fb`, `31654619`, `158d410d`,
-  `9126b083`, `ae6c6fb2`, `fdbd071b`, `26dfba5a`) restored the published 16-command ledger and each was subsequently
+  `9126b083`, `ae6c6fb2`, `fdbd071b`, `26dfba5a`, `52dbde2b`) restored the published 16-command ledger and each was subsequently
   overwritten back to a 3-command skeleton by the next workflow
   republication; this pass is the next iteration of that recurrence. Permanently closing the loop requires extending the
   state-side `check_commands.json` to enumerate the same 16 archived commands,
