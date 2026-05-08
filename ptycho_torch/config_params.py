@@ -77,7 +77,9 @@ class ModelConfig:
     C_forward: int = field(default_factory=lambda: DataConfig().C, metadata={'frozen': True})  # Number of channels
 
     #Architecture selection
+    use_reference_model: bool = field(default=False, metadata={'frozen': True})
     architecture: Literal['unet', 'ccnf'] = field(default='unet', metadata={'frozen': True})
+    object_representation: Literal['rectangular', 'polar'] = field(default='rectangular', metadata={'frozen': True})
     fourier_bands_film: int = 32
     fourier_bands_coord: int = 10
     neural_field_hidden: List[int] = field(default_factory=lambda: [512, 256, 128])
@@ -95,6 +97,7 @@ class ModelConfig:
     fno_modes: int = field(default=16, metadata={'frozen': True})
     fno_width: int = field(default=32, metadata={'frozen': True})
     fno_blocks: int = field(default=2, metadata={'frozen': True})
+    fno_interleave: bool = field(default=False, metadata={'frozen': True})
 
     #Attention Fusion
     latent_canvas_size: int = 32
@@ -108,6 +111,16 @@ class ModelConfig:
     amp_loss_coeff: float = 1.0
     phase_loss_coeff: float = 1.0
     probe_reference_coeff: float = 0.0           # Probe reference loss coefficient (0.0 = disabled)
+
+    # Circle regularization (push outputs toward scaled unit circle)
+    amplitude_variance_loss: bool = False
+    amplitude_variance_coeff: float = 0.01
+    modulus_target_loss: bool = False
+    modulus_target_coeff: float = 0.01
+    modulus_target_value: float = 1.0
+    modulus_target_dead_zone: float = 0.1
+    channel_balance_loss: bool = False
+    channel_balance_coeff: float = 0.005
 
 
 
@@ -201,6 +214,15 @@ class DatagenConfig:
     beamstop_diameter: int = 4 # For simulating beamstop in forward model
     reim_mode: Literal['gaussian', 'histogram', 'constrained_phase', 'uniform'] = 'histogram'
     histogram_threshold: float = 0.05
+    gmm_n_clusters: Union[int, str] = 'auto'
+    perturbation_mode: Literal['physical', 'rotation'] = 'physical'
+    phase_jitter_std: float = 0.1
+    amplitude_scale_std: float = 0.03
+    center_jitter_std: float = 0.05
+    weight_dirichlet_conc: float = 5.0
+    gmm_clip_range: Tuple[float, float] = (-1.2, 1.2)
+    origin_mask_radius: float = 0.4
+    histogram_source_dir: Optional[str] = None
 
 
 

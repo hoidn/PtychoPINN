@@ -388,10 +388,9 @@ class Decoder_last(nn.Module):
         x1 = self.conv1(x1_in)
         if self.batch_norm and self.bn1:
             x1 = self.bn1(x1)
-        x1 = self.padding(x1)
-
         if not self.combined:
             x1 = self.activation(x1)
+        x1 = self.padding(x1)
 
         # Path 2: Detail/Upsample features
         x2_in = x[:, -self.c_outer:, :, :]
@@ -401,7 +400,7 @@ class Decoder_last(nn.Module):
             x2 = self.bn2(x2)
 
         if not self.combined:
-            x2 = F.celu(x2, alpha = 1.0)
+            x2 = F.silu(x2)
 
         # Center-crop x2 to match x1 spatial dims when they differ
         if x2.shape[2:] != x1.shape[2:]:
@@ -422,21 +421,25 @@ class Decoder_last_Amp(Decoder_last):
     def __init__(self, model_config: ModelConfig, data_config: DataConfig,
                  in_channels, out_channels,
                  activation = torch.sigmoid, name = ''):
-        activation = lambda x: 0.2 + torch.tanh(x)
+        polar = getattr(model_config, 'object_representation', 'rectangular') == 'polar'
+        if not polar:
+            activation = lambda x: torch.tanh(x)
         super(Decoder_last_Amp, self).__init__(model_config, data_config, in_channels, out_channels,
                                                activation=activation, name=name, batch_norm=False,
-                                               combined=True)
+                                               combined=not polar)
 
 class Decoder_last_Phase(Decoder_last):
     '''Final decoder stage for Phase/Imaginary. batch_norm from config.'''
     def __init__(self, model_config: ModelConfig, data_config: DataConfig,
                  in_channels, out_channels,
                  activation = torch.sigmoid, name = ''):
-        activation = lambda x: 1.2 * torch.tanh(x)
+        polar = getattr(model_config, 'object_representation', 'rectangular') == 'polar'
+        if not polar:
+            activation = lambda x: torch.tanh(x)
         super(Decoder_last_Phase, self).__init__(model_config, data_config, in_channels, out_channels,
                                                  activation=activation, name=name,
                                                  batch_norm=model_config.batch_norm,
-                                                 combined=True)
+                                                 combined=not polar)
 
 class Decoder_phase(Decoder_base):
     def __init__(self, model_config: ModelConfig, data_config: DataConfig):
@@ -503,18 +506,19 @@ class FeatureRefinementBlock(nn.Module):
 
 class Decoder_shared(Decoder_base):
     """
-    Shared decoder for real and imaginary components. Inherits all upsampling,
-    skip connection, and merge block logic from Decoder_base. Adds per-level
-    refinement blocks so modality-specific features develop progressively at
-    every spatial scale, not just before the output head.
+    Shared decoder trunk with per-level refinement blocks.
 
-    Output shape: [B, 2*C_out, N, N]  (first C_out = real, last C_out = imaginary)
+    Rectangular mode: single head outputs [B, 2*C_out, N, N], split externally.
+    Polar mode: two separate heads return (amp, phase) tuple.
     """
     def __init__(self, model_config: ModelConfig, data_config: DataConfig):
         super().__init__(model_config, data_config, batch_norm=model_config.batch_norm)
 
         C_out = model_config.decoder_last_amp_channels if model_config.object_big else 1
+        C_phase = model_config.C_model if model_config.object_big else 1
         n_levels = len(self.blocks)
+        polar = getattr(model_config, 'object_representation', 'rectangular') == 'polar'
+        self._split_heads = polar
 
         self.refinement_blocks = nn.ModuleList()
         for i in range(n_levels):
@@ -527,13 +531,23 @@ class Decoder_shared(Decoder_base):
         base_ch = self.filters[-1]
         self.eca = ECALayer(channel=base_ch)
 
-        activation = lambda x: 1.2 * torch.tanh(x)
-        self.head = Decoder_last(model_config, data_config,
-                                 in_channels=base_ch,
-                                 out_channels=C_out * 2,
-                                 activation=activation,
-                                 batch_norm=model_config.batch_norm,
-                                 combined=True)
+        if polar:
+            self.add_module('amp_activation', Amplitude_activation(model_config))
+            self.head_real = Decoder_last_Amp(model_config, data_config,
+                                              base_ch, C_out,
+                                              activation=self.amp_activation)
+            self.add_module('phase_activation', Tanh_custom_act())
+            self.head_imag = Decoder_last_Phase(model_config, data_config,
+                                                base_ch, C_phase,
+                                                activation=self.phase_activation)
+        else:
+            activation = lambda x: 1.2 * torch.tanh(x)
+            self.head = Decoder_last(model_config, data_config,
+                                     in_channels=base_ch,
+                                     out_channels=C_out * 2,
+                                     activation=activation,
+                                     batch_norm=model_config.batch_norm,
+                                     combined=True)
 
     def forward(self, x, skips=None):
         for i, (up_block, merge_block) in enumerate(zip(self.blocks, self.merge_blocks)):
@@ -551,6 +565,9 @@ class Decoder_shared(Decoder_base):
             x = self.refinement_blocks[i](x)
 
         x = self.eca(x)
+
+        if self._split_heads:
+            return self.head_real(x), self.head_imag(x)
         return self.head(x)
 
 
@@ -585,10 +602,13 @@ class Autoencoder(nn.Module):
         x = self.bottleneck_cbam(x)
 
         if getattr(self, '_shared', False):
-            combined = self.decoder(x, skips)
-            C = combined.shape[1] // 2
-            x_real = combined[:, :C, :, :]
-            x_imag = combined[:, C:, :, :]
+            result = self.decoder(x, skips)
+            if isinstance(result, tuple):
+                x_real, x_imag = result
+            else:
+                C = result.shape[1] // 2
+                x_real = result[:, :C, :, :]
+                x_imag = result[:, C:, :, :]
         else:
             x_real = self.decoder_amp(x, skips)
             x_imag = self.decoder_phase(x, skips)
@@ -644,10 +664,13 @@ class PoissonIntensityLayer(nn.Module):
     '''
     Applies poisson intensity scaling using torch.distributions.
     Calculates the negative log likelihood of observing the raw data given the predicted intensities.
+
+    When pred_is_amplitude=True, squares the input to convert amplitude → intensity
+    before constructing the Poisson rate parameter.
     '''
-    def __init__(self, intensities):
+    def __init__(self, pred, pred_is_amplitude=False):
         super(PoissonIntensityLayer, self).__init__()
-        Lambda = intensities
+        Lambda = pred ** 2 if pred_is_amplitude else pred
         self.poisson_dist = dist.Independent(dist.Poisson(Lambda), 3)
 
     def forward(self, x):
@@ -863,6 +886,93 @@ class RectangularScaledDiffraction(nn.Module):
 
         return torch.stack([s_1, s_2], dim=-1)
 
+class ProbeIllumination(nn.Module):
+    '''
+    Probe illumination via Hadamard product of complex object and probe.
+
+    Adds probe mode dimension (P) to the object for multi-mode support.
+
+    Inputs:
+        x - torch.Tensor (B,C,H,W) complex object patches
+        probe - torch.Tensor (B,C,P,H,W) complex probe modes
+
+    Returns:
+        illuminated - torch.Tensor (B,C,P,H,W) exit waves
+        masked_probe - torch.Tensor probe with mask applied
+    '''
+    def __init__(self, model_config: ModelConfig, data_config: DataConfig):
+        super().__init__()
+        self.N = data_config.N
+        self.mask = model_config.probe_mask
+
+    def forward(self, x, probe):
+        x_reshaped = x.unsqueeze(dim=2)  # (B,C,H,W) -> (B,C,1,H,W)
+
+        if self.mask is None:
+            probe_mask = torch.ones((self.N, self.N), device=x.device)
+        else:
+            probe_mask = self.mask.to(x.device)
+
+        illuminated = x_reshaped * probe * probe_mask.view(1, 1, 1, self.N, self.N)
+        return illuminated, probe * probe_mask
+
+
+class PolarForwardModel(nn.Module):
+    '''
+    Forward model for polar (amplitude/phase) object representation.
+    Computes predicted diffraction amplitude via:
+        reassemble → extract → probe illumination → FFT → sqrt(intensity) → affine scaling
+
+    Returns predicted amplitude (not intensity).
+    '''
+    def __init__(self, model_config: ModelConfig, data_config: DataConfig):
+        super().__init__()
+        self.model_config = model_config
+        self.data_config = data_config
+        self.object_big = model_config.object_big
+
+        self.probe_illumination = ProbeIllumination(model_config, data_config)
+        self.scaler = IntensityScalerModule(model_config)
+
+        self.alpha = nn.Parameter(torch.ones(model_config.num_datasets))
+        self.beta = nn.Parameter(torch.ones(model_config.num_datasets))
+
+    def forward(self, x, positions, probe, output_scale_factor, experiment_ids=None):
+        if self.object_big:
+            reassembled_obj, _, _ = hh.reassemble_patches_position_real(
+                x, positions,
+                data_config=self.data_config,
+                model_config=self.model_config)
+
+            extracted_patch_objs = hh.extract_channels_from_region(
+                reassembled_obj[:, None, :, :], positions,
+                data_config=self.data_config,
+                model_config=self.model_config)
+        else:
+            extracted_patch_objs = x
+
+        illuminated_objs, _ = self.probe_illumination(extracted_patch_objs, probe)
+
+        pred_unscaled, _ = hh.pad_and_diffract(illuminated_objs, pad=False)
+
+        pred_scaled = self.scaler.inv_scale(pred_unscaled, output_scale_factor)
+
+        if self.model_config.intensity_scale_trainable:
+            alphas = self.alpha[experiment_ids]
+            betas = self.beta[experiment_ids]
+
+            if pred_scaled.ndim == 3:
+                alphas = alphas.view(-1, 1, 1)
+                betas = betas.view(-1, 1, 1)
+            elif pred_scaled.ndim == 4:
+                alphas = alphas.view(-1, 1, 1, 1)
+                betas = betas.view(-1, 1, 1, 1)
+
+            pred_scaled = alphas * pred_scaled + betas
+
+        return pred_scaled
+
+
 #Loss functions
         
 # class PoissonLoss(nn.Module):
@@ -882,10 +992,12 @@ class RectangularScaledDiffraction(nn.Module):
 #         return loss_likelihood
     
 class PoissonLoss(nn.Module):
-    def __init__(self):
+    def __init__(self, pred_is_amplitude=False):
         super(PoissonLoss, self).__init__()
+        self.pred_is_amplitude = pred_is_amplitude
+
     def forward(self, pred, raw):
-        self.poisson = PoissonIntensityLayer(pred)
+        self.poisson = PoissonIntensityLayer(pred, pred_is_amplitude=self.pred_is_amplitude)
         loss_likelihood = self.poisson(raw)
         return loss_likelihood
     
@@ -931,6 +1043,53 @@ class TotalVariationLoss(nn.Module):
         tv_loss =  vert_diff_loss + horz_diff_loss
         
         return tv_loss
+
+class AmplitudeVarianceLoss(nn.Module):
+    """
+    Penalizes spatial variance of |z| = sqrt(real^2 + imag^2).
+    Pushes toward uniform amplitude (outputs lie on a circle) without
+    prescribing the radius.
+    """
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, real, imag):
+        modulus = torch.sqrt(real ** 2 + imag ** 2 + 1e-8)
+        mean_mod = torch.mean(modulus, dim=(2, 3), keepdim=True)
+        return torch.sum((modulus - mean_mod) ** 2)
+
+class ModulusTargetLoss(nn.Module):
+    """
+    Penalizes deviation of |z| from a target value with an optional dead zone.
+    When dead_zone > 0, no penalty is applied within [target - delta, target + delta].
+    """
+    def __init__(self, target_modulus=1.0, dead_zone=0.1):
+        super().__init__()
+        self.target = target_modulus
+        self.dead_zone = dead_zone
+
+    def forward(self, real, imag):
+        modulus = torch.sqrt(real ** 2 + imag ** 2 + 1e-8)
+        deviation = torch.abs(modulus - self.target)
+        if self.dead_zone > 0:
+            deviation = torch.clamp(deviation - self.dead_zone, min=0.0)
+        return torch.mean(deviation ** 2)
+
+class ChannelEnergyBalanceLoss(nn.Module):
+    """
+    Penalizes imbalance between real and imaginary channel energies.
+    For a unit-circle object with uniformly distributed phase,
+    E_real / E_imag ~ 1.
+    """
+    def __init__(self, target_ratio=1.0):
+        super().__init__()
+        self.target_ratio = target_ratio
+
+    def forward(self, real, imag):
+        E_real = torch.mean(real ** 2, dim=(1, 2, 3))
+        E_imag = torch.mean(imag ** 2, dim=(1, 2, 3)) + 1e-8
+        ratio = E_real / E_imag
+        return torch.mean((ratio - self.target_ratio) ** 2)
 
 class CombineComplexRectangular(nn.Module):
     '''
@@ -1056,13 +1215,14 @@ class IntensityScalerModule:
 class PtychoPINN(nn.Module):
     '''
     Full PtychoPINN module with all sub-modules.
-    Uses UNet architecture with skip connections and rectangular coordinate representation.
+    Supports rectangular (real/imag) and polar (amp/phase) object representations.
     '''
     def __init__(self, model_config: ModelConfig, data_config: DataConfig, training_config: TrainingConfig):
         super(PtychoPINN, self).__init__()
         self.model_config = model_config
         self.data_config = data_config
         self.training_config = training_config
+        self._polar = getattr(model_config, 'object_representation', 'rectangular') == 'polar'
 
         self.n_filters_scale = self.model_config.n_filters_scale
 
@@ -1071,9 +1231,13 @@ class PtychoPINN(nn.Module):
 
         shared = getattr(model_config, 'use_shared_decoder', False)
         self.autoencoder = Autoencoder(model_config, data_config, shared_decoder=shared)
-        self.combine_complex = CombineComplexRectangular()
 
-        self.forward_model = ForwardModel(model_config, data_config)
+        if self._polar:
+            self.combine_complex = CombineComplex()
+            self.forward_model = PolarForwardModel(model_config, data_config)
+        else:
+            self.combine_complex = CombineComplexRectangular()
+            self.forward_model = ForwardModel(model_config, data_config)
 
     def forward(self, x, positions, probe, input_scale_factor, output_scale_factor,
                 experiment_ids=None, fine_tune=False):
@@ -1081,10 +1245,15 @@ class PtychoPINN(nn.Module):
         x_real, x_imag = self.autoencoder(x)
         x_combined = self.combine_complex(x_real, x_imag)
 
-        x_out = self.forward_model.forward(x_combined, x,
-                                           positions, probe/self.probe_scale, output_scale_factor,
-                                           experiment_ids=experiment_ids,
-                                           fine_tune=fine_tune)
+        if self._polar:
+            x_out = self.forward_model.forward(x_combined, positions,
+                                               probe/self.probe_scale, output_scale_factor,
+                                               experiment_ids=experiment_ids)
+        else:
+            x_out = self.forward_model.forward(x_combined, x,
+                                               positions, probe/self.probe_scale, output_scale_factor,
+                                               experiment_ids=experiment_ids,
+                                               fine_tune=fine_tune)
 
         return x_out, x_real, x_imag
 
@@ -1261,7 +1430,8 @@ class Ptycho_Supervised(nn.Module):
 
         shared = getattr(model_config, 'use_shared_decoder', False)
         self.autoencoder = Autoencoder(model_config, data_config, shared_decoder=shared)
-        self.combine_complex = CombineComplex()
+        polar = getattr(model_config, 'object_representation', 'rectangular') == 'polar'
+        self.combine_complex = CombineComplex() if polar else CombineComplexRectangular()
         self.scaler = IntensityScalerModule(model_config)
 
     def forward(self, x, positions, probe, input_scale_factor, output_scaling_factor):
@@ -1365,9 +1535,11 @@ class PtychoPINN_Lightning(L.LightningModule):
                 )
                 self.model_config.loss_function = desired_loss
 
+        self._polar = getattr(model_config, 'object_representation', 'rectangular') == 'polar'
+
         #Choose loss function and logging
         if model_config.mode == 'Unsupervised' and model_config.loss_function == 'Poisson':
-            self.Loss = PoissonLoss()
+            self.Loss = PoissonLoss(pred_is_amplitude=self._polar)
             self.loss_name = 'poisson_train'
             self.val_loss_name = 'poisson_val'
         elif model_config.mode == 'Unsupervised' and model_config.loss_function == 'MAE':
@@ -1400,6 +1572,16 @@ class PtychoPINN_Lightning(L.LightningModule):
             self.ProbeRefLoss = ProbeReferenceLoss()
             self.loss_name += '_ProbeRef'
             self.val_loss_name += '_ProbeRef'
+
+        if model_config.amplitude_variance_loss:
+            self.AmpVarLoss = AmplitudeVarianceLoss()
+        if model_config.modulus_target_loss:
+            self.ModTargetLoss = ModulusTargetLoss(
+                target_modulus=model_config.modulus_target_value,
+                dead_zone=model_config.modulus_target_dead_zone
+            )
+        if model_config.channel_balance_loss:
+            self.ChanBalanceLoss = ChannelEnergyBalanceLoss()
 
         self.loss_name += '_loss'
         self.val_loss_name += '_loss'
@@ -1446,11 +1628,14 @@ class PtychoPINN_Lightning(L.LightningModule):
 
         total_loss = 0.0
 
-        modified_output_scale = torch.sqrt(1/(probe_scaling**2 * physics_scale + 1e-9))
+        if self._polar:
+            output_scale = rms_scale
+        else:
+            output_scale = torch.sqrt(1/(probe_scaling**2 * physics_scale + 1e-9))
 
         pred, real, imag = self(x, positions, probe,
                                 input_scale_factor=rms_scale,
-                                output_scale_factor=modified_output_scale,
+                                output_scale_factor=output_scale,
                                 experiment_ids=experiment_ids,
                                 fine_tune=self._fine_tuning_mode)
 
@@ -1483,6 +1668,25 @@ class PtychoPINN_Lightning(L.LightningModule):
             total_loss += self.probe_reference_coeff * probe_ref_loss
             self.log('probe_ref_loss', probe_ref_loss.detach(),
                      on_step=False, prog_bar=True, on_epoch=True, sync_dist=True)
+
+        if not self._polar:
+            if self.model_config.amplitude_variance_loss:
+                amp_var = self.AmpVarLoss(real, imag)
+                total_loss += amp_var * self.model_config.amplitude_variance_coeff
+                self.log('amp_variance_loss', amp_var.detach(),
+                         on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+
+            if self.model_config.modulus_target_loss:
+                mod_target = self.ModTargetLoss(real, imag)
+                total_loss += mod_target * self.model_config.modulus_target_coeff
+                self.log('modulus_target_loss', mod_target.detach(),
+                         on_step=False, on_epoch=True, sync_dist=True)
+
+            if self.model_config.channel_balance_loss:
+                chan_bal = self.ChanBalanceLoss(real, imag)
+                total_loss += chan_bal * self.model_config.channel_balance_coeff
+                self.log('channel_balance_loss', chan_bal.detach(),
+                         on_step=False, on_epoch=True, sync_dist=True)
 
         return total_loss
 
