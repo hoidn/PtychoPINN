@@ -1069,8 +1069,9 @@ def reconstruct_image_barycentric(model: nn.Module,
     print(f"global coords shape: {global_coords.shape}")
     max_offset_x = torch.ceil(torch.max(torch.abs(adjusted_coords[..., 0]))).int().item()
     max_offset_y = torch.ceil(torch.max(torch.abs(adjusted_coords[..., 1]))).int().item()
-    canvas_size = (inference_config.middle_trim + 2 * max_offset_y,
-                   inference_config.middle_trim + 2 * max_offset_x)
+    N = data_config.N
+    canvas_size = (N + 2 * max_offset_y,
+                   N + 2 * max_offset_x)
 
     if verbose:
         print(f"Canvas size: {canvas_size}, Max offsets: {max_offset_x, max_offset_y}")
@@ -1139,19 +1140,6 @@ def reconstruct_image_barycentric(model: nn.Module,
             a_tilde = texture_raw[:,:,:,:,0]
             b_tilde = texture_raw[:,:,:,:,1]
 
-            # Center crop
-            N = data_config.N
-            middle = inference_config.middle_trim
-            center_start = N // 2 - middle // 2
-            center_end = N // 2 + middle // 2
-
-            I_raw = I_raw[:,:,center_start:center_end, center_start:center_end]
-            a_tilde = a_tilde[:, :, center_start:center_end, center_start:center_end]
-            b_tilde = b_tilde[:, :, center_start:center_end, center_start:center_end]
-
-            # Also crop the probe to match (B, C, P, H, W)
-            probe = probe[:, :, :, center_start:center_end, center_start:center_end]
-
             # --- VarPro Accumulation (incoherent multi-mode) ---
             assembly_start = time.time()
             # Unsqueeze texture for broadcasting with probe modes: (B,C,H,W) -> (B,C,1,H,W)
@@ -1182,13 +1170,13 @@ def reconstruct_image_barycentric(model: nn.Module,
 
             # Change texture_raw to complex
             O_tilde = torch.complex(a_tilde, b_tilde)
-            O_tilde = O_tilde.view(B*C,middle,middle)
+            O_tilde = O_tilde.view(B*C, N, N)
 
             # Canvas assembly
             accumulator.accumulate_batch(canvas, canvas_weights, O_tilde,
                                         canvas_positions, probe_mag_sq,
-                                        patch_size = inference_config.middle_trim,
-                                        uniform_weighting = uniform_weighting)
+                                        patch_size=N,
+                                        uniform_weighting=uniform_weighting)
 
             assembly_time = time.time() - assembly_start
             total_assembly_time += assembly_time
