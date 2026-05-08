@@ -63,6 +63,9 @@ def test_neurips_drain_workflow_uses_local_backlog_implementation_phase():
     workflow = _load_yaml("workflows/examples/neurips_steered_backlog_drain.yaml")
     selected_item_workflow = _load_yaml("workflows/library/neurips_selected_backlog_item.yaml")
 
+    assert workflow["inputs"]["implementation_execute_provider"]["default"] == "claude_opus"
+    assert workflow["inputs"]["implementation_review_provider"]["default"] == "codex"
+    assert workflow["inputs"]["implementation_fix_provider"]["default"] == "codex"
     assert workflow["imports"] == {
         "selector": "../library/neurips_backlog_selector.yaml",
         "selected_item": "../library/neurips_selected_backlog_item.yaml",

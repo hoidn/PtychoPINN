@@ -51,7 +51,7 @@ inputs:
     kind: scalar
     type: enum
     allowed: ["codex", "claude_opus"]
-    default: "codex"
+    default: "claude_opus"
   implementation_review_provider:
     kind: scalar
     type: enum
@@ -61,7 +61,7 @@ inputs:
     kind: scalar
     type: enum
     allowed: ["codex", "claude_opus"]
-    default: "claude_opus"
+    default: "codex"
 
 outputs:
   drain_status:
