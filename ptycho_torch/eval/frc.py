@@ -1,6 +1,5 @@
 import numpy as np
 from skimage.registration import phase_cross_correlation
-import cv2
 from scipy.ndimage import fourier_shift
 from scipy.signal.windows import tukey
 import warnings
@@ -318,3 +317,415 @@ def frc_preprocess_images(img1_orig, img2_orig,
             
     if verbose: print("FRC pre-processing complete.")
     return final_subimg1, final_subimg2
+
+
+# ---------------------------------------------------------------------------
+# Fourier-space metrics: R-factor, PRTF
+# ---------------------------------------------------------------------------
+
+import torch
+
+def _to_torch_complex(arr, device=None):
+    """Convert numpy array to torch complex tensor on the specified device."""
+    if isinstance(arr, torch.Tensor):
+        t = arr
+    else:
+        t = torch.from_numpy(np.ascontiguousarray(arr))
+    if not t.is_complex():
+        t = t.to(torch.complex64)
+    elif t.dtype == torch.complex128:
+        t = t.to(torch.complex64)
+    if device is not None:
+        t = t.to(device)
+    return t
+
+
+def _to_torch_float(arr, device=None):
+    """Convert numpy array to torch float tensor on the specified device."""
+    if isinstance(arr, torch.Tensor):
+        t = arr.float()
+    else:
+        t = torch.from_numpy(np.ascontiguousarray(arr)).float()
+    if device is not None:
+        t = t.to(device)
+    return t
+
+
+def extract_object_patches_from_canvas(canvas, scan_positions, patch_size,
+                                        device=None):
+    """
+    Extract object patches from a reconstructed canvas at each scan position.
+
+    Vectorized via PyTorch: computes all integer offsets, builds a validity
+    mask, and extracts patches using advanced indexing in a single pass.
+
+    The canvas coordinate system follows the reconstruction convention:
+    position (y, x) maps to canvas pixel (y - min_y, x - min_x).
+
+    Args:
+        canvas: (H, W) complex reconstructed object.
+        scan_positions: (N, 2) array of (row, col) scan positions.
+        patch_size (int): Side length of square patches to extract.
+        device: torch device for computation. If None, uses 'cpu'.
+
+    Returns:
+        patches (torch.Tensor): (N_valid, patch_size, patch_size) complex.
+        valid_mask (torch.Tensor): (N,) bool — True for in-bounds positions.
+    """
+    if device is None:
+        device = torch.device('cpu')
+
+    canvas_t = _to_torch_complex(canvas, device=device)
+    pos_t = _to_torch_float(scan_positions, device=device)
+    H, W = canvas_t.shape
+
+    origin = pos_t.min(dim=0).values
+    offsets = torch.round(pos_t - origin).long()
+    oy, ox = offsets[:, 0], offsets[:, 1]
+
+    valid_mask = (
+        (oy >= 0) & (ox >= 0) &
+        (oy + patch_size <= H) & (ox + patch_size <= W)
+    )
+
+    valid_idx = torch.where(valid_mask)[0]
+    n_valid = valid_idx.shape[0]
+
+    if n_valid == 0:
+        empty = torch.empty((0, patch_size, patch_size),
+                            dtype=canvas_t.dtype, device=device)
+        return empty, valid_mask
+
+    oy_valid = oy[valid_idx]
+    ox_valid = ox[valid_idx]
+
+    patch_rows = torch.arange(patch_size, device=device)
+    patch_cols = torch.arange(patch_size, device=device)
+
+    rows = oy_valid[:, None, None] + patch_rows[None, :, None]
+    cols = ox_valid[:, None, None] + patch_cols[None, None, :]
+
+    patches = canvas_t[rows.expand(-1, patch_size, patch_size),
+                       cols.expand(-1, patch_size, patch_size)]
+
+    return patches, valid_mask
+
+
+def simulate_exit_wave_diffraction(object_patches, probe, batch_size=2000,
+                                    device=None):
+    """
+    Simulate far-field diffraction from object patches illuminated by a probe.
+
+    Supports multi-mode probes via incoherent summation:
+        I = sum_p |FFT{O_j * P_p}|^2
+
+    Args:
+        object_patches: (N, H, W) complex object patches.
+        probe: (H, W) or (P, H, W) complex illumination probe.
+            If 3D, P is the number of incoherent probe modes.
+        batch_size (int): GPU batch size to limit VRAM. Default 2000.
+        device: torch device. If None, uses CUDA when available.
+
+    Returns:
+        dict with torch.Tensor values (on *device*):
+            'amplitudes':  (N, H, W) float — sqrt of incoherently summed intensity.
+    """
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    patches_t = _to_torch_complex(object_patches, device=device)
+    probe_t = _to_torch_complex(probe, device=device)
+
+    if probe_t.ndim == 2:
+        probe_t = probe_t.unsqueeze(0)  # (1, H, W)
+
+    n_modes = probe_t.shape[0]
+    N, H, W = patches_t.shape
+
+    amplitudes = torch.empty((N, H, W), dtype=torch.float32, device=device)
+
+    for start in range(0, N, batch_size):
+        end = min(start + batch_size, N)
+        batch = patches_t[start:end]  # (B, H, W)
+
+        intensity = torch.zeros(batch.shape[0], H, W, dtype=torch.float32, device=device)
+        for p in range(n_modes):
+            ew = batch * probe_t[p].unsqueeze(0)
+            pc = torch.fft.fftshift(torch.fft.fft2(ew), dim=(-2, -1))
+            intensity += torch.abs(pc) ** 2
+
+        amplitudes[start:end] = torch.sqrt(intensity)
+
+    return {'amplitudes': amplitudes}
+
+
+def compute_amplitude_rfactor(predicted_amplitudes, measured_data,
+                               data_is_amplitude=False,
+                               optimal_scaling=False, verbose=False):
+    """
+    Compute the amplitude R-factor (R_ptycho).
+
+    R_F = sum_j sum_q | A_meas_j(q) - alpha * A_pred_j(q) |
+          / sum_j sum_q A_meas_j(q)
+
+    Args:
+        predicted_amplitudes (np.ndarray): (N, H, W) predicted amplitudes.
+        measured_data (np.ndarray): (N, H, W) measured diffraction data.
+        data_is_amplitude (bool): If True, measured_data is already amplitudes.
+        optimal_scaling (bool): If True, find alpha that minimizes R.
+        verbose (bool): Print diagnostics.
+
+    Returns:
+        dict with:
+            'R_factor' (float): Global amplitude R-factor.
+            'R_per_position' (np.ndarray): (N,) per-position R-factors.
+            'scale_factor' (float): Optimal scaling alpha (1.0 if not used).
+    """
+    A_pred = np.asarray(predicted_amplitudes)
+    if data_is_amplitude:
+        A_meas = np.asarray(measured_data).copy()
+    else:
+        A_meas = np.sqrt(np.maximum(np.asarray(measured_data), 0.0))
+
+    finite_mask = np.isfinite(A_pred) & np.isfinite(A_meas)
+    n_bad = int(np.count_nonzero(~finite_mask))
+    if n_bad > 0:
+        if verbose:
+            print(f"  R-factor: masking {n_bad} non-finite pixels ({100*n_bad/finite_mask.size:.2f}%)")
+        A_pred = np.where(finite_mask, A_pred, 0.0)
+        A_meas = np.where(finite_mask, A_meas, 0.0)
+
+    if optimal_scaling:
+        denom = np.sum(A_pred ** 2)
+        alpha = float(np.sum(A_pred * A_meas) / denom) if denom > 0 else 1.0
+    else:
+        alpha = 1.0
+
+    if verbose:
+        print(f"  R-factor scale alpha = {alpha:.6f}")
+
+    residual = np.abs(A_meas - alpha * A_pred)
+    R_global = float(np.sum(residual) / np.sum(A_meas))
+
+    denom_per = np.sum(A_meas, axis=(1, 2))
+    num_per = np.sum(residual, axis=(1, 2))
+    R_per = np.where(denom_per > 0, num_per / denom_per, np.nan)
+
+    if verbose:
+        print(f"  R_factor = {R_global:.6f}, mean per-position = {np.nanmean(R_per):.6f}")
+
+    return {
+        'R_factor': R_global,
+        'R_per_position': R_per,
+        'scale_factor': float(alpha),
+    }
+
+
+def compute_prtf(predicted_amplitudes, measured_data,
+                  data_is_amplitude=False,
+                  optimal_scaling=False,
+                  n_bins=None, verbose=False):
+    """
+    Compute the Phase Retrieval Transfer Function (PRTF).
+
+    PRTF(q) = < alpha * |psi_calc(q)| >_j  /  < A_meas(q) >_j
+
+    Args:
+        predicted_amplitudes (np.ndarray): (N, H, W) predicted amplitudes.
+        measured_data (np.ndarray): (N, H, W) measured diffraction data.
+        data_is_amplitude (bool): If True, measured_data is already amplitudes.
+        optimal_scaling (bool): Scale predicted to match measured globally.
+        n_bins (int or None): Number of radial bins. Default: H // 2.
+        verbose (bool): Print diagnostics.
+
+    Returns:
+        dict with:
+            'PRTF_curve' (np.ndarray): (n_bins,) PRTF values.
+            'spatial_freq' (np.ndarray): (n_bins,) normalized frequencies.
+            'resolution_half' (float or None): Frequency where PRTF crosses 0.5.
+            'resolution_1e' (float or None): Frequency where PRTF crosses 1/e.
+    """
+    from ptycho_torch.eval.eval_metrics import spinavej
+
+    A_pred = np.asarray(predicted_amplitudes)
+    if data_is_amplitude:
+        A_meas = np.asarray(measured_data).copy()
+    else:
+        A_meas = np.sqrt(np.maximum(np.asarray(measured_data), 0.0))
+
+    finite_mask = np.isfinite(A_pred) & np.isfinite(A_meas)
+    n_bad = int(np.count_nonzero(~finite_mask))
+    if n_bad > 0:
+        if verbose:
+            print(f"  PRTF: masking {n_bad} non-finite pixels ({100*n_bad/finite_mask.size:.2f}%)")
+        A_pred = np.where(finite_mask, A_pred, 0.0)
+        A_meas = np.where(finite_mask, A_meas, 0.0)
+
+    if optimal_scaling:
+        denom = np.sum(A_pred ** 2)
+        alpha = float(np.sum(A_pred * A_meas) / denom) if denom > 0 else 1.0
+    else:
+        alpha = 1.0
+
+    if verbose:
+        print(f"  PRTF scale alpha = {alpha:.6f}")
+
+    avg_pred = np.mean(alpha * A_pred, axis=0)
+    avg_meas = np.mean(A_meas, axis=0)
+
+    num_radial = np.real(spinavej(avg_pred))
+    den_radial = np.real(spinavej(avg_meas))
+
+    eps = np.finfo(float).eps
+    PRTF_curve = num_radial / (den_radial + eps)
+
+    H = A_pred.shape[1]
+    spatial_freq = np.arange(len(PRTF_curve)) / (H / 2.0)
+
+    def _find_crossing(curve, freq, threshold):
+        below = np.where(curve < threshold)[0]
+        if len(below) == 0:
+            return None
+        idx = below[0]
+        if idx == 0:
+            return float(freq[0])
+        f0, f1 = freq[idx - 1], freq[idx]
+        c0, c1 = curve[idx - 1], curve[idx]
+        if abs(c0 - c1) < eps:
+            return float(f0)
+        frac = (threshold - c0) / (c1 - c0)
+        return float(f0 + frac * (f1 - f0))
+
+    resolution_half = _find_crossing(PRTF_curve, spatial_freq, 0.5)
+    resolution_1e = _find_crossing(PRTF_curve, spatial_freq, 1.0 / np.e)
+
+    if verbose:
+        print(f"  PRTF resolution (0.5 crossing): {resolution_half}")
+        print(f"  PRTF resolution (1/e crossing): {resolution_1e}")
+
+    return {
+        'PRTF_curve': PRTF_curve,
+        'spatial_freq': spatial_freq,
+        'resolution_half': resolution_half,
+        'resolution_1e': resolution_1e,
+    }
+
+
+def evaluate_fourier_metrics(canvas, probe, scan_positions,
+                              measured_diffraction, patch_size,
+                              data_is_amplitude=False,
+                              metrics=('rfactor', 'prtf'),
+                              optimal_scaling=True,
+                              max_positions=None,
+                              device=None,
+                              verbose=False):
+    """
+    Evaluate Fourier-space metrics for a ptychographic reconstruction.
+
+    Extracts object patches from the canvas, simulates diffraction via the
+    forward model, and computes the requested metrics against measured data.
+
+    Args:
+        canvas: (H, W) complex reconstructed object.
+        probe: (H_probe, W_probe) or (P, H_probe, W_probe) complex probe.
+            If 3D, P probe modes are summed incoherently.
+        scan_positions: (N, 2) scan positions (row, col).
+        measured_diffraction: (N, H_probe, W_probe) measured diffraction data.
+        patch_size (int): Patch side length (must match probe dimensions).
+        data_is_amplitude (bool): Whether measured data is amplitude (True)
+            or intensity (False, default).
+        metrics (tuple of str): Which metrics to compute ('rfactor', 'prtf').
+        optimal_scaling (bool): Auto-scale predicted to match measured.
+        max_positions (int or None): Subsample to at most this many positions.
+        device: torch device for GPU acceleration. If None, auto-selects.
+        verbose (bool): Print progress.
+
+    Returns:
+        dict with keys matching requested metrics, each containing
+        the corresponding metric function's return dict.
+        Also includes 'n_positions_used' and 'valid_fraction'.
+    """
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    if verbose:
+        print(f"Evaluating Fourier metrics: {metrics} (device={device})")
+
+    patches, valid_mask = extract_object_patches_from_canvas(
+        canvas, scan_positions, patch_size, device=device
+    )
+    n_valid = patches.shape[0]
+    n_total = valid_mask.shape[0]
+    valid_fraction = n_valid / n_total if n_total > 0 else 0.0
+
+    if verbose:
+        print(f"  Valid patches: {n_valid}/{n_total} ({valid_fraction:.1%})")
+
+    if n_valid == 0:
+        warnings.warn("No valid patches extracted from canvas.")
+        return {'n_positions_used': 0, 'valid_fraction': 0.0}
+
+    valid_mask_np = valid_mask.cpu().numpy() if isinstance(valid_mask, torch.Tensor) else valid_mask
+    meas_valid = np.asarray(measured_diffraction)[valid_mask_np]
+
+    # Drop patches containing NaN/Inf
+    finite_mask = torch.isfinite(patches.real) & torch.isfinite(patches.imag)
+    clean_mask = finite_mask.view(n_valid, -1).all(dim=1)
+    n_dirty = int((~clean_mask).sum().item())
+    if n_dirty > 0:
+        clean_idx = torch.where(clean_mask)[0]
+        patches = patches[clean_idx]
+        clean_idx_np = clean_idx.cpu().numpy()
+        meas_valid = meas_valid[clean_idx_np]
+        n_valid = patches.shape[0]
+        if verbose:
+            print(f"  Dropped {n_dirty} patches with non-finite pixels, "
+                  f"{n_valid} clean patches remain")
+
+    if n_valid == 0:
+        warnings.warn("All patches dropped (non-finite); cannot compute Fourier metrics.")
+        return {'n_positions_used': 0, 'valid_fraction': float(valid_fraction)}
+
+    if max_positions is not None and n_valid > max_positions:
+        rng = np.random.default_rng(42)
+        idx = rng.choice(n_valid, size=max_positions, replace=False)
+        idx.sort()
+        idx_t = torch.from_numpy(idx).to(device)
+        patches = patches[idx_t]
+        meas_valid = meas_valid[idx]
+        n_valid = max_positions
+        if verbose:
+            print(f"  Subsampled to {n_valid} positions")
+
+    if verbose:
+        print("  Simulating exit wave diffraction...")
+    sim = simulate_exit_wave_diffraction(patches, probe, device=device)
+
+    amp_np = sim['amplitudes'].cpu().numpy()
+
+    results = {
+        'n_positions_used': n_valid,
+        'valid_fraction': float(valid_fraction),
+    }
+
+    if 'rfactor' in metrics:
+        if verbose:
+            print("  Computing amplitude R-factor...")
+        results['rfactor'] = compute_amplitude_rfactor(
+            amp_np, meas_valid,
+            data_is_amplitude=data_is_amplitude,
+            optimal_scaling=optimal_scaling,
+            verbose=verbose,
+        )
+
+    if 'prtf' in metrics:
+        if verbose:
+            print("  Computing PRTF...")
+        results['prtf'] = compute_prtf(
+            amp_np, meas_valid,
+            data_is_amplitude=data_is_amplitude,
+            optimal_scaling=optimal_scaling,
+            verbose=verbose,
+        )
+
+    return results
