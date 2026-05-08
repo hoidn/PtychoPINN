@@ -84,7 +84,8 @@ from ptycho_torch.config_params import update_existing_config
 
 #Custom modules
 from ptycho_torch.model import PtychoPINN_Lightning
-from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config
+from ptycho_torch.beta_modules.old_model import PtychoPINN_Lightning as PtychoPINN_Lightning_Reference
+from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config, auto_set_num_datasets
 from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, log_parameters_mlflow, is_effectively_global_rank_zero, print_auto_logged_info, resolve_n_devices
 from ptycho_torch.train_utils import ModelFineTuner, PtychoDataModule, LightningConfigSaveCallback, ModelFineTuner_Lightning
 
@@ -198,6 +199,8 @@ def main(ptycho_dir,
     else:
         data_config, model_config, training_config, inference_config, datagen_config = existing_config
 
+    auto_set_num_datasets(model_config, ptycho_dir)
+
     resolve_n_devices(training_config)
 
     #Setting seed
@@ -217,8 +220,9 @@ def main(ptycho_dir,
     )
 
     #Create model
-    print('Creating model...')
-    model = PtychoPINN_Lightning(model_config, data_config, training_config, inference_config)
+    ModelClass = PtychoPINN_Lightning_Reference if model_config.use_reference_model else PtychoPINN_Lightning
+    print(f'Creating model... ({"reference" if model_config.use_reference_model else "standard"})')
+    model = ModelClass(model_config, data_config, training_config, inference_config)
     model.training = True
 
     #Update LR (Phase C4.C3: Use execution_config if available, else training_config)
@@ -436,9 +440,10 @@ def main_lightning(
         val_seed=42
     )
     
-    # Create YOUR actual model
-    print("\nCreating YOUR PtychoPINN_Lightning model...")
-    model = PtychoPINN_Lightning(
+    # Create model
+    ModelClass = PtychoPINN_Lightning_Reference if model_config.use_reference_model else PtychoPINN_Lightning
+    print(f'\nCreating PtychoPINN_Lightning model... ({"reference" if model_config.use_reference_model else "standard"})')
+    model = ModelClass(
         model_config=model_config,
         data_config=data_config,
         training_config=training_config,

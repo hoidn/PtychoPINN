@@ -220,3 +220,15 @@ def remove_all_files(directory_path):
             
     print(f"Removed {count} files from '{directory_path}'")
     return count
+
+
+def auto_set_num_datasets(model_config, ptycho_dir: str) -> None:
+    """Set model_config.num_datasets from the number of NPZ files in ptycho_dir."""
+    from pathlib import Path
+    n_files = len(list(Path(ptycho_dir).glob('*.npz')))
+    n_files = max(n_files, 1)
+    if model_config.num_datasets != 1 and model_config.num_datasets != n_files:
+        print(f"Warning: config num_datasets={model_config.num_datasets} but found "
+              f"{n_files} NPZ files in {ptycho_dir}. Overriding to {n_files}.")
+    model_config.num_datasets = n_files
+    print(f"num_datasets set to {n_files} (from {ptycho_dir})")

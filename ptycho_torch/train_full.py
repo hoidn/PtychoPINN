@@ -43,6 +43,7 @@ from ptycho_torch.datagen.datagen import assemble_precomputed_images, simulate_s
 from ptycho_torch.datagen.objects import create_density_histogram_reim, compute_reim_statistics
 from ptycho_torch.datagen.objects import fit_gmm_from_objects
 from ptycho_torch.train import main
+from ptycho_torch.beta_modules.train_ccnf import main as train_ccnf
 
 # mlflow.set_tracking_uri("http://127.0.0.1:5000")
 # mlflow.set_experiment("PtychoPINN")
@@ -85,7 +86,8 @@ def load_all_configs(ptycho_dir, config_path):
            dgen_config_replace
 
 def prepare_data(ptycho_dir, mode, config_path,
-                 synthetic_path = "synthetic_training"):
+                 synthetic_path = "synthetic_training",
+                 histogram_source_dir = None):
     """
     Processes data from list of files in config.
     Only rank 0 does data preparation, other ranks just load configs.
@@ -119,11 +121,17 @@ def prepare_data(ptycho_dir, mode, config_path,
             obj_arg = {}
             probe_arg = {}
 
-            # Assemble object/probe lists
+            # Assemble probe list (always from ptycho_dir)
             exp_probe_list = assemble_precomputed_images(dir_list = ptycho_dir, mode = 'probe',
                                                          single_dir = True, probe_ramp_removal = False)
-            exp_obj_list = assemble_precomputed_images(dir_list = ptycho_dir, mode = 'object',
+
+            # Resolve histogram source: CLI arg > datagen_config field > ptycho_dir
+            hist_dir = histogram_source_dir or datagen_config.histogram_source_dir or ptycho_dir
+            exp_obj_list = assemble_precomputed_images(dir_list = hist_dir, mode = 'object',
                                                          single_dir = True, probe_ramp_removal = False)
+            if hist_dir != ptycho_dir:
+                print(f"Using histogram reference objects from: {hist_dir}")
+            datagen_config.histogram_source_dir = hist_dir
             probe_list = [item for item in exp_probe_list for _ in range(datagen_config.objects_per_probe)]
             probe_name_idx = [idx for idx in list(range(len(exp_probe_list))) for _ in range(datagen_config.objects_per_probe)]
             probe_arg['probe_name_idx'] = probe_name_idx
@@ -135,10 +143,22 @@ def prepare_data(ptycho_dir, mode, config_path,
                 #Sampling from objects
                 material_histogram, _, _ = create_density_histogram_reim(exp_obj_list, origin_threshold = datagen_config.histogram_threshold)
                 material_stats = compute_reim_statistics(exp_obj_list)
-                obj_arg['gmm_params'] = fit_gmm_from_objects(exp_obj_list)
+                obj_arg['gmm_params'] = fit_gmm_from_objects(
+                    exp_obj_list,
+                    n_clusters=datagen_config.gmm_n_clusters,
+                    origin_mask_radius=datagen_config.origin_mask_radius,
+                )
 
-                image_size = datagen_config.image_size
+                canvas_scale = data_config.N / 64
+                image_size = (int(datagen_config.image_size[0] * canvas_scale),
+                              int(datagen_config.image_size[1] * canvas_scale))
                 obj_arg['mode'] = datagen_config.reim_mode
+                obj_arg['perturbation_mode'] = datagen_config.perturbation_mode
+                obj_arg['phase_jitter_std'] = datagen_config.phase_jitter_std
+                obj_arg['amplitude_scale_std'] = datagen_config.amplitude_scale_std
+                obj_arg['center_jitter_std'] = datagen_config.center_jitter_std
+                obj_arg['weight_dirichlet_conc'] = datagen_config.weight_dirichlet_conc
+                obj_arg['clip_range'] = datagen_config.gmm_clip_range
                 synthetic_obj_list = simulate_synthetic_objects(image_size, data_config, len(probe_list),
                                                                 datagen_config.object_class, obj_arg,
                                                                 histogram = material_histogram,
@@ -175,6 +195,8 @@ if __name__ == '__main__':
     parser.add_argument('--config', type = str, default=None, help = 'Path to JSON configuration file (mandatory)')
     parser.add_argument('--mode', type = str, default=None, help = 'exp (experimental) or synth (synthetic)')
     parser.add_argument('--synth_dir', type = str, default = 'synthetic_training')
+    parser.add_argument('--histogram_source_dir', type=str, default=None,
+                        help='Directory with .npz files for histogram reference object. Defaults to ptycho_dir.')
 
     #Parse
     args = parser.parse_args()
@@ -184,6 +206,7 @@ if __name__ == '__main__':
     config_path = args.config
     mode = args.mode
     synth_dir = args.synth_dir
+    histogram_source_dir = args.histogram_source_dir
 
     print(f"Configuration file: {config_path}")
     print(f"Current working directory: {os.getcwd()}")
@@ -193,8 +216,10 @@ if __name__ == '__main__':
     try:
         #Prepare data
         configs, training_path = prepare_data(ptycho_dir, mode, config_path,
-                                              synthetic_path = synth_dir)
+                                              synthetic_path = synth_dir,
+                                              histogram_source_dir = histogram_source_dir)
         main(training_path, config_path, existing_config=None)
+        # train_ccnf(training_path, config_path, output_dir='lightning_outputs')
 
     except Exception as e:
         print(f"Training failed: {str(e)}")
