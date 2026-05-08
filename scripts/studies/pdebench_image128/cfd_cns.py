@@ -484,6 +484,20 @@ def _run_profile(
             state_stats=state_stats,
             field_order=list(train_dataset.field_order),
         )
+        model_state_path = output_root / f"model_state_{profile_id}.pt"
+        torch.save(raw_model.state_dict(), model_state_path)
+        model_state_manifest_path = output_root / f"model_state_{profile_id}.json"
+        _write_json(
+            model_state_manifest_path,
+            {
+                "schema_version": "pdebench_cns_model_state_manifest_v1",
+                "profile_id": profile_id,
+                "state_dict_format": "torch_state_dict",
+                "state_path": str(model_state_path),
+                "model_profile_path": str(output_root / f"model_profile_{profile_id}.json"),
+                "normalization_stats_path": str(output_root / "normalization_stats_state.json"),
+            },
+        )
         payload = {
             **metrics,
             "run_id": run_id,
@@ -512,6 +526,10 @@ def _run_profile(
             "runtime_sec": time.time() - started,
             "peak_cuda_memory_bytes": peak_memory,
             "model_profile": model_profile,
+            "model_state": {
+                "state_path": str(model_state_path),
+                "manifest_path": str(model_state_manifest_path),
+            },
             **runtime.training_runtime_payload(),
             **comparison_artifacts,
         }

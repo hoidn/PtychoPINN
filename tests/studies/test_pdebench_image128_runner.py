@@ -2522,6 +2522,8 @@ def test_cfd_cns_readiness_runner_writes_history_window_artifacts(tmp_path):
         "split_manifest.json",
         "normalization_stats_state.json",
         "model_profile_unet_tiny_smoke.json",
+        "model_state_unet_tiny_smoke.json",
+        "model_state_unet_tiny_smoke.pt",
         "metrics_unet_tiny_smoke.json",
         "comparison_unet_tiny_smoke_sample0.png",
         "comparison_unet_tiny_smoke_sample0.npz",
@@ -2537,6 +2539,9 @@ def test_cfd_cns_readiness_runner_writes_history_window_artifacts(tmp_path):
     assert manifest["history_len"] == 2
     assert manifest["field_order"] == ["density", "Vx", "Vy", "pressure"]
     metrics = json.loads((output_root / "metrics_unet_tiny_smoke.json").read_text(encoding="utf-8"))
+    model_state_manifest = json.loads((output_root / "model_state_unet_tiny_smoke.json").read_text(encoding="utf-8"))
+    assert model_state_manifest["profile_id"] == "unet_tiny_smoke"
+    assert model_state_manifest["state_dict_format"] == "torch_state_dict"
     assert metrics["training_loss"] == "mse"
     assert metrics["horizon"] == "one_step"
     assert metrics["physics_regularization_enabled"] is False

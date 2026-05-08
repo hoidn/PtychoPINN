@@ -40,6 +40,7 @@ Current source of truth:
 | [2026-05-01-cns-author-ffno-history-length-study.md](done/2026-05-01-cns-author-ffno-history-length-study.md) | `active` | `phase-2-pdebench-128x128-image-suite` | Depends on completed authored-FFNO equal-footing row and completed SRU-Net longer-history context | Tests whether the authored FFNO CNS row benefits from additional temporal context, while keeping longer-history FFNO rows out of the locked same-history CNS headline table unless a later roadmap-level paper-contract decision reopens that lane. |
 | [2026-05-04-cns-history5-comparator-gap-fill.md](done/2026-05-04-cns-history5-comparator-gap-fill.md) | `done` | `phase-2-pdebench-128x128-image-suite` | Depends on completed authored-FFNO and spectral h5 studies | Runs missing h5 FNO and U-Net comparator rows so h5 CNS result tables can be assembled without mixing history lengths. |
 | [2026-05-04-cns-matched-condition-table-refresh.md](done/2026-05-04-cns-matched-condition-table-refresh.md) | `done` | `phase-2-pdebench-128x128-image-suite` | Depends on h5 comparator gap fill and completed 2048-cap h2 authority | Refreshes the manuscript CNS headline table so it uses one matched condition; best-observed mixed rows remain context only. |
+| [2026-05-08-cns-rollout-checkpoint-refresh.md](active/2026-05-08-cns-rollout-checkpoint-refresh.md) | `active` | `phase-2-pdebench-128x128-image-suite` | Depends on the matched-condition table refresh and the completed h5 FFNO/SRU-Net/FNO authorities | Reruns the current h5 FFNO, SRU-Net, and FNO CNS rows with checkpoint persistence so rollout GIFs use actually trained checkpoints rather than smoke checkpoints or one-step NPZ files. |
 | [2026-04-28-pdebench-cns-hybrid-spectral-ffno-parameter-space.md](done/2026-04-28-pdebench-cns-hybrid-spectral-ffno-parameter-space.md) | `done` | `phase-2-pdebench-128x128-image-suite` | Depends on completed Hybrid-spectral architecture and CNS FFNO-conv follow-ups | Completed Phase 2 CNS-only parameter-space study under the capped decision-support contract. |
 | [2026-04-29-cns-paper-contract-decision.md](done/2026-04-29-cns-paper-contract-decision.md) | `done` | `phase-2-pdebench-128x128-image-suite` | No active backlog prerequisite | Completed the bounded capped CNS paper-evidence contract decision. |
 | [2026-04-29-cns-paper-benchmark-rows.md](done/2026-04-29-cns-paper-benchmark-rows.md) | `done` | `phase-2-pdebench-128x128-image-suite` | Depends on completed CNS paper contract decision | Locked the bounded CNS row bundle for downstream table/figure assembly. |
@@ -126,6 +127,11 @@ Current source of truth:
   all-row h5 if the full roster is complete under one condition, otherwise the
   locked h2 `2048 / 256 / 256` authority. It should preserve best-observed
   mixed rows as context only, not as the headline model-ranking table.
+- The CNS rollout checkpoint refresh is a visualization-enabling successor to
+  the matched-condition table, not a metric-selection item. It should rerun
+  only the h5 FFNO, SRU-Net, and FNO rows with checkpoint persistence, compare
+  rerun metrics against the current authority, and generate rollout GIFs only
+  from those real trained checkpoints.
 - The CNS paper-contract decision is the gate that prevents capped
   decision-support rows and full-training benchmark rows from being mixed into
   one claim. It also sets the authored-FFNO inclusion cutoff and claim impact.
