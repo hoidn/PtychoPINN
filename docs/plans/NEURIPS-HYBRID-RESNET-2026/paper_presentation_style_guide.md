@@ -86,8 +86,11 @@ For CDI qualitative figures:
   cropping an existing PNG.
 - Use amplitude and phase rows with a fixed center crop covering 50% of each
   image dimension.
-- Use a shared target-anchored amplitude scale across all method columns.
+- Use viridis with a shared target-anchored amplitude scale across all method
+  columns.
 - Use the global circular phase alignment rule before displaying phase panels.
+- Use one shared colorbar for the amplitude row and one shared colorbar for the
+  phase row.
 - Keep the contrast-normalized phase-only version as a diagnostic alternate,
   not as the main qualitative figure.
 - Use the same test samples across all models.
@@ -155,7 +158,7 @@ methods text.
 ### Teaser / Main Qualitative Figure
 
 ```latex
-% figure_metadata: task=CDI_lines128; display_channels=amplitude,phase; crop_fraction=0.5; amplitude_display_scale=gt_crop_min_to_gt_crop_p99; phase_alignment=global_circular_offset_to_gt_before_wrapping; phase_colormap=twilight; phase_display_scale=gt_crop_min_to_gt_crop_p99_after_alignment
+% figure_metadata: task=CDI_lines128; final_ffno_pair=depth24_no_refiner; display_channels=amplitude,phase; crop_fraction=0.5; amplitude_colormap=viridis; amplitude_display_scale=gt_crop_min_to_gt_crop_p99; phase_alignment=global_circular_offset_to_gt_before_wrapping; phase_colormap=twilight; phase_display_scale=gt_crop_min_to_gt_crop_p99_after_alignment; row_colorbars=amplitude,phase
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet.png}
@@ -164,7 +167,8 @@ synthetically-generated diffraction data.} The cropped comparison shows ground
 truth, CNN+PINN, FNO+PINN, FFNO+PINN, U-NO+PINN, and SRU-Net+PINN under the
 same $N=128$ diffraction data protocol. Amplitude panels share a
 target-anchored display scale, and each predicted phase is aligned to the
-ground-truth phase by a single global circular offset before display.}
+ground-truth phase by a single global circular offset before display. One
+colorbar is shared across each row.}
 \label{fig:cdi_main_qualitative}
 \end{figure}
 ```

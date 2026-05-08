@@ -20,6 +20,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from scripts.studies.cdi_final_ffno_pair import (
     CDI_HISTORICAL_SUPERVISED_PROXY_METRICS_JSON,
+    DEPTH24_NO_REFINER_PAIR,
     FOUR_BLOCK_NO_REFINER_PAIR,
     CdiFinalFfnoPair,
     resolve_cdi_final_ffno_pair,
@@ -79,7 +80,7 @@ CDI_RECONS_ROOT = (
     / "recons"
 )
 CDI_PHASE_ZOOM_ROWS = [
-    ("gt", "Ground truth"),
+    ("gt", "Target"),
     ("pinn", "CNN+PINN"),
     ("pinn_fno_vanilla", "FNO+PINN"),
     ("pinn_ffno", "FFNO+PINN"),
@@ -92,6 +93,10 @@ CDI_AMP_PHASE_ZOOM_FIGURE = (
 )
 CDI_PHASE_ZOOM_PER_PANEL_FIGURE = (
     FIGURES_DIR / "cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet_per_panel_scaled.png"
+)
+CDI_AMP_PHASE_ZOOM_PER_PANEL_PHASE_FIGURE = (
+    FIGURES_DIR
+    / "cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet_phase_per_panel_scaled.png"
 )
 
 REQUIRED_CNS_HISTORY5_ROWS = [
@@ -573,7 +578,7 @@ def _save_cdi_amp_phase_zoom_figure(
     output_path: Path,
     amplitude_bounds: tuple[float, float],
     phase_bounds: tuple[float, float],
-    amplitude_cmap: str = "gray",
+    amplitude_cmap: str = "viridis",
 ) -> None:
     y0, y1, x0, x1 = [int(value) for value in crop_bounds]
 
@@ -593,17 +598,19 @@ def _save_cdi_amp_phase_zoom_figure(
     axes = np.asarray(axes)
     amp_vmin, amp_vmax = amplitude_bounds
     phase_vmin, phase_vmax = phase_bounds
+    amp_image = None
+    phase_image = None
     for col, (row_id, title) in enumerate(CDI_PHASE_ZOOM_ROWS):
         amp_axis = axes[0, col]
         phase_axis = axes[1, col]
-        amp_axis.imshow(
+        amp_image = amp_axis.imshow(
             display_amplitudes[row_id][y0:y1, x0:x1],
             cmap=amplitude_cmap,
             vmin=amp_vmin,
             vmax=amp_vmax,
             interpolation="nearest",
         )
-        phase_axis.imshow(
+        phase_image = phase_axis.imshow(
             display_phases[row_id][y0:y1, x0:x1],
             cmap="twilight",
             vmin=phase_vmin,
@@ -617,6 +624,101 @@ def _save_cdi_amp_phase_zoom_figure(
         if col == 0:
             amp_axis.set_ylabel("Amplitude", fontsize=8)
             phase_axis.set_ylabel("Phase", fontsize=8)
+    if amp_image is not None:
+        amp_cbar = fig.colorbar(
+            amp_image,
+            ax=axes[0, :].tolist(),
+            shrink=0.8,
+            fraction=0.025,
+            pad=0.01,
+        )
+        amp_cbar.set_label("amplitude", fontsize=7)
+        amp_cbar.ax.tick_params(labelsize=6, length=2)
+    if phase_image is not None:
+        phase_cbar = fig.colorbar(
+            phase_image,
+            ax=axes[1, :].tolist(),
+            shrink=0.8,
+            fraction=0.025,
+            pad=0.01,
+        )
+        phase_cbar.set_label("phase", fontsize=7)
+        phase_cbar.ax.tick_params(labelsize=6, length=2)
+    fig.savefig(output_path, dpi=300, bbox_inches="tight", pad_inches=0.02)
+    plt.close(fig)
+
+
+def _save_cdi_amp_phase_zoom_per_panel_phase_figure(
+    *,
+    display_amplitudes: Mapping[str, np.ndarray],
+    display_phases: Mapping[str, np.ndarray],
+    crop_bounds: Sequence[int],
+    output_path: Path,
+    amplitude_bounds: tuple[float, float],
+    phase_bounds_by_row: Mapping[str, tuple[float, float]],
+    amplitude_cmap: str = "viridis",
+) -> None:
+    y0, y1, x0, x1 = [int(value) for value in crop_bounds]
+
+    import matplotlib
+
+    matplotlib.use("Agg", force=True)
+    import matplotlib.pyplot as plt
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    panel_count = len(CDI_PHASE_ZOOM_ROWS)
+    fig, axes = plt.subplots(
+        2,
+        panel_count,
+        figsize=(1.95 * panel_count, 4.25),
+        constrained_layout=True,
+    )
+    axes = np.asarray(axes)
+    amp_vmin, amp_vmax = amplitude_bounds
+    amp_image = None
+    for col, (row_id, title) in enumerate(CDI_PHASE_ZOOM_ROWS):
+        amp_axis = axes[0, col]
+        phase_axis = axes[1, col]
+        phase_vmin, phase_vmax = phase_bounds_by_row[row_id]
+        amp_image = amp_axis.imshow(
+            display_amplitudes[row_id][y0:y1, x0:x1],
+            cmap=amplitude_cmap,
+            vmin=amp_vmin,
+            vmax=amp_vmax,
+            interpolation="nearest",
+        )
+        phase_image = phase_axis.imshow(
+            display_phases[row_id][y0:y1, x0:x1],
+            cmap="twilight",
+            vmin=phase_vmin,
+            vmax=phase_vmax,
+            interpolation="nearest",
+        )
+        amp_axis.set_title(title, fontsize=8)
+        for axis in (amp_axis, phase_axis):
+            axis.set_xticks([])
+            axis.set_yticks([])
+        if col == 0:
+            amp_axis.set_ylabel("Amplitude", fontsize=8)
+            phase_axis.set_ylabel("Phase", fontsize=8)
+        phase_cbar = fig.colorbar(
+            phase_image,
+            ax=phase_axis,
+            shrink=0.78,
+            fraction=0.045,
+            pad=0.015,
+        )
+        phase_cbar.ax.tick_params(labelsize=5, length=2)
+    if amp_image is not None:
+        amp_cbar = fig.colorbar(
+            amp_image,
+            ax=axes[0, :].tolist(),
+            shrink=0.78,
+            fraction=0.025,
+            pad=0.01,
+        )
+        amp_cbar.set_label("amplitude", fontsize=7)
+        amp_cbar.ax.tick_params(labelsize=6, length=2)
     fig.savefig(output_path, dpi=300, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
 
@@ -740,9 +842,10 @@ def write_cdi_amp_phase_zoom_figure(
         "display_channels": ["amp", "phase"],
         "crop_fraction": crop_fraction,
         "crop_bounds": [y0, y1, x0, x1],
-        "amplitude_colormap": "gray",
+        "amplitude_colormap": "viridis",
         "amplitude_display_scale": "gt_crop_min_to_gt_crop_p99",
         "amplitude_display_bounds": [amplitude_vmin, amplitude_vmax],
+        "row_colorbars": ["amp", "phase"],
         "phase_alignment": "global_circular_offset_to_gt_before_wrapping",
         "phase_colormap": "twilight",
         "phase_display_scale": "gt_crop_min_to_gt_crop_p99_after_alignment",
@@ -815,6 +918,84 @@ def write_cdi_phase_zoom_per_panel_figure(
             "Each panel is contrast-normalized independently; colors are not "
             "comparable across panels."
         )
+    }
+
+
+def write_cdi_amp_phase_zoom_per_panel_phase_figure(
+    *,
+    recons_root: Path | None = None,
+    recon_paths: Mapping[str, Path] | None = None,
+    output_path: Path = CDI_AMP_PHASE_ZOOM_PER_PANEL_PHASE_FIGURE,
+    final_ffno_pair: CdiFinalFfnoPair = FOUR_BLOCK_NO_REFINER_PAIR,
+    final_output_stem: str | None = None,
+    crop_fraction: float = 0.5,
+) -> dict[str, object]:
+    resolved_recon_paths = _resolve_cdi_phase_zoom_recon_paths(
+        recons_root=recons_root,
+        recon_paths=recon_paths,
+        final_ffno_pair=final_ffno_pair,
+    )
+    display_amplitudes, display_phases, crop_bounds = _cdi_amp_phase_zoom_display_arrays(
+        recons_root=recons_root,
+        recon_paths=resolved_recon_paths,
+        final_ffno_pair=final_ffno_pair,
+        crop_fraction=crop_fraction,
+    )
+    y0, y1, x0, x1 = crop_bounds
+    amplitude_vmin, amplitude_vmax = gt_anchored_amplitude_bounds(
+        display_amplitudes,
+        crop_bounds,
+    )
+    phase_bounds_by_row = {
+        row_id: robust_display_bounds(display_phases[row_id][y0:y1, x0:x1])
+        for row_id, _ in CDI_PHASE_ZOOM_ROWS
+    }
+    versioned_path = (
+        versioned_output_path(output_path, final_output_stem)
+        if final_output_stem
+        else None
+    )
+    target_path = versioned_path or output_path
+    _save_cdi_amp_phase_zoom_per_panel_phase_figure(
+        display_amplitudes=display_amplitudes,
+        display_phases=display_phases,
+        crop_bounds=crop_bounds,
+        output_path=target_path,
+        amplitude_bounds=(amplitude_vmin, amplitude_vmax),
+        phase_bounds_by_row=phase_bounds_by_row,
+    )
+    if versioned_path is not None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(versioned_path, output_path)
+    return {
+        "figure": str(output_path),
+        "versioned_figure": str(versioned_path) if versioned_path is not None else None,
+        "source_recons_root": str(recons_root) if recons_root is not None else None,
+        "source_recon_paths": {
+            row_id: str(path)
+            for row_id, path in resolved_recon_paths.items()
+        },
+        "final_ffno_pair": final_ffno_pair.provenance_payload(),
+        "final_output_stem": final_output_stem,
+        "visible_rows": [row_id for row_id, _ in CDI_PHASE_ZOOM_ROWS],
+        "display_channels": ["amp", "phase"],
+        "crop_fraction": crop_fraction,
+        "crop_bounds": [y0, y1, x0, x1],
+        "amplitude_colormap": "viridis",
+        "amplitude_display_scale": "gt_crop_min_to_gt_crop_p99",
+        "amplitude_display_bounds": [amplitude_vmin, amplitude_vmax],
+        "phase_alignment": "global_circular_offset_to_gt_before_wrapping",
+        "phase_colormap": "twilight",
+        "phase_display_scale": "per_panel_p01_to_p99_after_alignment",
+        "phase_display_bounds_by_row": {
+            row_id: [bounds[0], bounds[1]]
+            for row_id, bounds in phase_bounds_by_row.items()
+        },
+        "row_colorbars": ["amp_shared", "phase_per_panel"],
+        "caption_note": (
+            "Each phase panel is contrast-normalized independently; phase "
+            "colors are not comparable across panels."
+        ),
     }
 
 
@@ -1199,7 +1380,7 @@ CDI_OBJECTIVE_CONTROL_COLUMNS = [
     ("amp_ssim", True),
     ("phase_ssim", True),
 ]
-CDI_OBJECTIVE_CONTROL_ACTIVE_MODELS = ("FFNO",)
+CDI_OBJECTIVE_CONTROL_ACTIVE_MODELS = ("CNN", "FFNO", "U-NO")
 
 
 def _cdi_best_values(
@@ -2319,12 +2500,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--write-cdi-extended-assets", action="store_true")
     parser.add_argument("--write-cdi-amp-phase-zoom-figure", action="store_true")
+    parser.add_argument(
+        "--write-cdi-amp-phase-zoom-per-panel-phase-figure",
+        action="store_true",
+        help=(
+            "Write the supplemental amp/phase CDI figure with shared amplitude "
+            "scale and independent phase scales per panel."
+        ),
+    )
     parser.add_argument("--write-cdi-phase-zoom-figure", action="store_true")
     parser.add_argument("--write-cdi-phase-zoom-per-panel-figure", action="store_true")
     parser.add_argument(
         "--cdi-final-ffno-pair",
         choices=["four_block_no_refiner", "depth24_no_refiner"],
-        default=FOUR_BLOCK_NO_REFINER_PAIR.pair_key,
+        default=DEPTH24_NO_REFINER_PAIR.pair_key,
         help="Select the same-depth no-refiner FFNO pair that drives active CDI paper assets.",
     )
     parser.add_argument(
@@ -2407,6 +2596,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         outputs["cdi_amp_phase_zoom_figure"] = write_cdi_amp_phase_zoom_figure(
             final_ffno_pair=cdi_final_ffno_pair,
             final_output_stem=cdi_final_output_stem,
+        )
+    if args.write_cdi_amp_phase_zoom_per_panel_phase_figure:
+        outputs["cdi_amp_phase_zoom_per_panel_phase_figure"] = (
+            write_cdi_amp_phase_zoom_per_panel_phase_figure(
+                final_ffno_pair=cdi_final_ffno_pair,
+                final_output_stem=cdi_final_output_stem,
+            )
         )
     if args.write_cdi_phase_zoom_figure:
         outputs["cdi_phase_zoom_figure"] = write_cdi_phase_zoom_figure(

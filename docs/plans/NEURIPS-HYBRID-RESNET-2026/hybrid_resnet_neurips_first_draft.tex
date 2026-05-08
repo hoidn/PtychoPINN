@@ -27,14 +27,14 @@ CDI requires getting two choices right at once: training through the known diffr
 placing spectral mixing in the encoder rather than the bottleneck of an otherwise local
 architecture. Switching from object-space supervision to a PtychoPINN-style measurement-consistency
 loss reduces factorized Fourier neural operator (FFNO) amplitude mean absolute error (MAE)
-more than fourfold ($0.35 \to 0.08$), with consistent gains
+more than sixfold ($0.349 \to 0.057$), with consistent gains
 across every architecture we train both ways. Holding that loss fixed, we introduce \textbf{SRU-Net}
 (spectral-residual U-Net),
 which interleaves truncated Fourier mixing with local convolution in each encoder block, processes
 the result through a six-block residual bottleneck, and decodes with transposed convolutions.
-SRU-Net cuts CDI amplitude MAE $3.0\times$ over FFNO and $4.6\times$ over a
+SRU-Net cuts CDI amplitude MAE $2.1\times$ over FFNO and $4.6\times$ over a
 convolutional neural network (CNN) baseline
-($0.027$ vs.\ $0.082$ vs.\ $0.123$) and reaches amplitude structural similarity
+($0.027$ vs.\ $0.057$ vs.\ $0.123$) and reaches amplitude structural similarity
 index (SSIM)~$0.99$. Ablations indicate the gain
 depends on where spectral mixing is placed, not on spectral capacity alone: replacing the residual
 bottleneck with FFNO-style spectral blocks or weakening the decoder regresses both error metrics.
@@ -119,7 +119,7 @@ reconstruction, spectral mixing belongs in the encoder, paired with a local
 residual bottleneck and a convolutional decoder; we instantiate this as
 SRU-Net. \emph{Second}, on CDI under a shared PtychoPINN-style
 physics-consistency objective, SRU-Net cuts amplitude MAE to $0.027$, a
-$3.0\times$ improvement over FFNO ($0.082$) and $4.6\times$ over a
+$2.1\times$ improvement over FFNO ($0.057$) and $4.6\times$ over a
 CNN baseline ($0.123$), and reaches amplitude SSIM $0.99$. The same objective
 reduces amplitude error for every architecture trained both ways, isolating
 the architectural gap from the loss. \emph{Third}, ablations isolate the
@@ -712,6 +712,8 @@ Table~\ref{tab:model_config_by_benchmark} lists the configuration of
 each model; parameter counts are unique trainable parameters in the prediction
 model. Appendix Table~\ref{tab:benchmark_scope_repro} summarizes benchmark
 scope, derived sample counts, training recipes, and evaluation alignment.
+Appendix Table~\ref{tab:paper_efficiency_table} reports parameter counts,
+runtime provenance, and available inference throughput.
 
 The CDI benchmark contains two independent training object instances and two
 independent held-out object instances, with 1458 held-out object-patch/scan
@@ -772,8 +774,8 @@ neural network'' (``PINN'') and
 physics-consistency objective; the label does not indicate a new PDE-residual
 PINN formulation.} The objective is necessary: switching FFNO from supervised
 object-space training to physics-consistency training cuts amplitude MAE
-fourfold ($0.35 \to 0.08$), and similar gains hold for every architecture
-trained both ways. Supervised training can improve some phase-error metrics
+more than sixfold ($0.349 \to 0.057$), while CNN and U-NO improve by about
+threefold under the same switch. Supervised training can improve some phase-error metrics
 while degrading amplitude reconstruction or phase structure, whereas
 physics-consistency training gives stronger amplitude recovery and phase
 structural similarity (SSIM) \cite{ssim} across the table.
@@ -798,7 +800,7 @@ After fixing the CDI physics-consistency objective for all models in the table,
 architecture still drives a multiplicative gap.
 Table~\ref{tab:cdi_lines128_pinn} compares local, spectral, and spectral-local
 models under the same $N=128$ line-pattern protocol. SRU-Net cuts amplitude MAE
-to $0.027$, a $3.0\times$ improvement over FFNO ($0.082$),
+to $0.027$, a $2.1\times$ improvement over FFNO ($0.057$),
 $4.6\times$ over the CNN baseline ($0.123$), and the lowest amplitude MAE,
 mean squared error (MSE), and SSIM in the table. U-NO gives the lowest phase
 MAE and MSE, while
@@ -817,7 +819,7 @@ protocol and CDI physics-consistency objective.}
 \resizebox{\textwidth}{!}{\input{tables/cdi_lines128_pinn_metrics.tex}}
 \end{table}
 
-% figure_metadata: task=CDI_lines128; paper_copy=figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet.png; visible_columns=gt,pinn,pinn_fno_vanilla,pinn_ffno,pinn_neuralop_uno,pinn_hybrid_resnet; display_channels=amplitude,phase; crop_fraction=0.5; amplitude_display_scale=gt_crop_min_to_gt_crop_p99; phase_alignment=global_circular_offset_to_gt_before_wrapping; phase_colormap=twilight; phase_display_scale=gt_crop_min_to_gt_crop_p99_after_alignment; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z/recons
+% figure_metadata: task=CDI_lines128; paper_copy=figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet.png; visible_columns=gt,pinn,pinn_fno_vanilla,pinn_ffno,pinn_neuralop_uno,pinn_hybrid_resnet; final_ffno_pair=depth24_no_refiner; display_channels=amplitude,phase; crop_fraction=0.5; amplitude_colormap=viridis; amplitude_display_scale=gt_crop_min_to_gt_crop_p99; phase_alignment=global_circular_offset_to_gt_before_wrapping; phase_colormap=twilight; phase_display_scale=gt_crop_min_to_gt_crop_p99_after_alignment; row_colorbars=amplitude,phase; base_source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z/recons; ffno_source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z/recons/pinn_ffno_depth24/recon.npz
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet.png}
@@ -826,7 +828,7 @@ generated CDI data.} The cropped comparison shows the target, CNN+PINN,
 FNO+PINN, FFNO+PINN, U-NO+PINN, and SRU-Net+PINN under the same $N=128$
 diffraction protocol. Amplitude panels share a target-anchored display scale,
 and each predicted phase is aligned to the target by a single global circular
-offset before display.}
+offset before display. One colorbar is shared across each row.}
 \label{fig:cdi_main_qualitative}
 \end{figure}
 
@@ -1221,6 +1223,21 @@ constructive interaction in this small same-protocol ablation.
 \clearpage
 \appendix
 
+\section{CDI Phase Contrast-Normalized View}
+
+% figure_metadata: task=CDI_lines128; paper_copy=figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet_phase_per_panel_scaled.png; visible_columns=target,pinn,pinn_fno_vanilla,pinn_ffno,pinn_neuralop_uno,pinn_hybrid_resnet; final_ffno_pair=depth24_no_refiner; display_channels=amplitude,phase; crop_fraction=0.5; amplitude_display_scale=gt_crop_min_to_gt_crop_p99; phase_alignment=global_circular_offset_to_gt_before_wrapping; phase_display_scale=per_panel_p01_to_p99_after_alignment; row_colorbars=amplitude_shared,phase_per_panel
+\begin{figure*}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet_phase_per_panel_scaled.png}
+\caption{\textbf{CDI reconstruction comparison with independent phase
+contrast.} This supplemental version of Fig.~\ref{fig:cdi_main_qualitative}
+keeps the amplitude row on the shared target-anchored scale used in the main
+figure, but scales each phase panel independently using the 1st--99th
+percentile range after global phase alignment. The phase colors reveal
+within-panel structure and should not be compared numerically across columns.}
+\label{fig:cdi_main_qualitative_phase_per_panel_scaled}
+\end{figure*}
+
 \section{BRDT FNO Loss Comparison}
 
 % figure_metadata: task=BRDT; source_supervised=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/figures/source_arrays/sample_0255_fno_vanilla_*; source_physics_only=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-physics-only-objective-ablation/figures/source_arrays/sample_0255_fno_vanilla_*; paper_copy=figures/brdt_fno_objective_ablation.png; role=appendix_objective_control
@@ -1336,6 +1353,21 @@ unique trainable parameters in the prediction model. Duplicate wrapper names are
 counted once.}
 \label{tab:model_config_by_benchmark}
 \resizebox{\textwidth}{!}{\input{tables/model_config_by_benchmark.tex}}
+\end{table*}
+
+\section{Runtime and Inference Throughput}
+
+\begin{table*}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{\textbf{Runtime and inference throughput by benchmark.} CDI
+inference is model-forward patch throughput computed from synchronized
+inference timing over 1458 held-out patches. BRDT throughput is measured over
+the 256-sample test split. Runtime fields preserve the source artifact field
+names and are included as provenance rather than as cross-benchmark rankings.}
+\label{tab:paper_efficiency_table}
+\resizebox{\textwidth}{!}{\input{tables/paper_efficiency_table.tex}}
 \end{table*}
 
 \begin{thebibliography}{9}

@@ -167,14 +167,14 @@ def test_load_cdi_config_rows_uses_corrected_no_refiner_ffno_roots():
     rows = {row.row_id: row for row in load_cdi_config_rows(Path.cwd())}
 
     assert rows["pinn_ffno"].display_model == "FFNO"
-    assert rows["pinn_ffno"].unique_trainable_params == 124966
+    assert rows["pinn_ffno"].unique_trainable_params == 701626
     assert rows["pinn_ffno"].config_source.endswith(
-        "2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z/runs/pinn_ffno/config.json"
+        "2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z/runs/pinn_ffno_depth24/config.json"
     )
     assert rows["supervised_ffno"].display_model == "FFNO"
-    assert rows["supervised_ffno"].unique_trainable_params == 124966
+    assert rows["supervised_ffno"].unique_trainable_params == 1418147
     assert rows["supervised_ffno"].config_source.endswith(
-        "2026-05-06-cdi-lines128-supervised-ffno-no-refiner-rerun/runs/supervised_ffno_no_refiner_20260506T232535Z/runs/supervised_ffno/config.json"
+        "2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun/runs/supervised_ffno_depth24_20260507T192840Z/runs/supervised_ffno_depth24/config.json"
     )
 
 
@@ -208,6 +208,7 @@ def test_write_model_config_table_records_per_row_active_ffno_provenance(tmp_pat
     payload = json.loads(
         (tmp_path / "model_config_by_benchmark.json").read_text(encoding="utf-8")
     )
+    assert b"\r\n" not in (tmp_path / "model_config_by_benchmark.csv").read_bytes()
     rows_by_id = {(row["benchmark"], row["row_id"]): row for row in payload["rows"]}
 
     pinn_ffno = rows_by_id[("CDI", "pinn_ffno")]

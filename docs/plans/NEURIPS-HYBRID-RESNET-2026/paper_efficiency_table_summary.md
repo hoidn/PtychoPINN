@@ -1,7 +1,7 @@
 # Paper Efficiency Table Summary
 
 This summary records the repo-local efficiency table generated for the NeurIPS SRU-Net evidence package.
-The table groups rows by benchmark and keeps runtime fields as provenance context unless an explicit throughput field exists.
+The table groups rows by benchmark and reports inference throughput when explicit throughput fields or synchronized inference timings are available.
 
 ## Outputs
 
@@ -19,7 +19,8 @@ The table groups rows by benchmark and keeps runtime fields as provenance contex
 
 - Parameter counts use `unique_trainable_params` from the model-configuration table when available; otherwise they fall back to existing row artifacts.
 - Training/runtime fields keep their original source field names.
-- Missing inference throughput is labeled `missing`; training runtime is not converted into throughput.
+- Inference throughput is reported from explicit throughput fields or from synchronized inference timing divided by the recorded test patch count.
+- Missing inference timing remains labeled `missing`; training runtime is not converted into throughput.
 - Rows from different benchmarks are not ranked against each other.
 
 ## Superseded Context

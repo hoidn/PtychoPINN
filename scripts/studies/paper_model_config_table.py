@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from scripts.studies.cdi_final_ffno_pair import (
-    FOUR_BLOCK_NO_REFINER_PAIR,
+    DEPTH24_NO_REFINER_PAIR,
     CdiFinalFfnoPair,
     resolve_cdi_final_ffno_pair,
 )
@@ -296,7 +296,7 @@ def _cdi_param_count(
 def load_cdi_config_rows(
     repo_root: Path,
     *,
-    cdi_final_ffno_pair_key: str = FOUR_BLOCK_NO_REFINER_PAIR.pair_key,
+    cdi_final_ffno_pair_key: str = DEPTH24_NO_REFINER_PAIR.pair_key,
 ) -> list[ModelConfigRow]:
     table_path = repo_root / TABLES_DIR / "cdi_lines128_metrics_extended.json"
     table_rows = _read_json(table_path).get("rows", [])
@@ -552,7 +552,7 @@ def write_model_config_json(
     rows: Sequence[ModelConfigRow],
     path: Path,
     *,
-    final_ffno_pair: CdiFinalFfnoPair = FOUR_BLOCK_NO_REFINER_PAIR,
+    final_ffno_pair: CdiFinalFfnoPair = DEPTH24_NO_REFINER_PAIR,
 ) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     row_dicts = [row_to_dict(row) for row in rows]
@@ -571,7 +571,7 @@ def write_model_config_csv(rows: Sequence[ModelConfigRow], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = list(row_to_dict(rows[0]).keys()) if rows else list(ModelConfigRow.__dataclass_fields__)
     with path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow(row_to_dict(row))
@@ -581,7 +581,7 @@ def write_model_config_table(
     repo_root: Path,
     output_dir: Path,
     *,
-    cdi_final_ffno_pair_key: str = FOUR_BLOCK_NO_REFINER_PAIR.pair_key,
+    cdi_final_ffno_pair_key: str = DEPTH24_NO_REFINER_PAIR.pair_key,
     versioned_output_stem: str | None = None,
 ) -> dict[str, str]:
     final_ffno_pair = resolve_cdi_final_ffno_pair(cdi_final_ffno_pair_key)

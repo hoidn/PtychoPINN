@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import csv
 import json
+import sys
 from collections import OrderedDict
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from scripts.studies.cdi_final_ffno_pair import (
-    FOUR_BLOCK_NO_REFINER_PAIR,
+    DEPTH24_NO_REFINER_PAIR,
     CdiFinalFfnoPair,
     resolve_cdi_final_ffno_pair,
 )
@@ -37,6 +41,16 @@ CDI_UNO_ROOT = (
     / "complete_table_plus_uno_20260504T100347Z"
 )
 CDI_UNO_MODEL_MANIFEST = CDI_UNO_ROOT / "model_manifest.json"
+CDI_MINIMUM_ROOT = (
+    Path(".artifacts")
+    / "work"
+    / "NEURIPS-HYBRID-RESNET-2026"
+    / "backlog"
+    / "2026-04-29-cdi-lines128-minimum-paper-table"
+    / "runs"
+    / "minimum_subset_20260430T035104Z"
+)
+CDI_MINIMUM_MODEL_MANIFEST = CDI_MINIMUM_ROOT / "model_manifest.json"
 CNS_REFRESH_TABLE_JSON = (
     Path(".artifacts")
     / "work"
@@ -69,6 +83,16 @@ THROUGHPUT_FIELDS = (
     "samples_per_second",
     "throughput_samples_per_second",
     "inference_samples_per_second",
+)
+INFERENCE_TIME_FIELDS = (
+    "inference_time_sec",
+    "inference_time_s",
+    "wall_time_infer_s",
+)
+INFERENCE_SAMPLE_COUNT_FIELDS = (
+    "inference_sample_count",
+    "model_forward_sample_count",
+    "test_patch_count",
 )
 LATENCY_FIELDS = (
     "latency_ms",
@@ -203,6 +227,32 @@ def classify_inference_throughput(
                 source_field=throughput_field,
                 source_path=source_path,
             )
+
+    inference_time_field, inference_time_value = first_present(
+        payload,
+        INFERENCE_TIME_FIELDS,
+    )
+    sample_count_field, sample_count_value = first_present(
+        payload,
+        INFERENCE_SAMPLE_COUNT_FIELDS,
+    )
+    inference_time_sec = _as_float(inference_time_value)
+    sample_count = _as_float(sample_count_value)
+    if (
+        inference_time_field is not None
+        and sample_count_field is not None
+        and inference_time_sec is not None
+        and sample_count is not None
+        and inference_time_sec > 0
+        and sample_count > 0
+    ):
+        return ThroughputEvidence(
+            status="measured",
+            samples_per_second=sample_count / inference_time_sec,
+            latency_ms=None,
+            source_field=f"{sample_count_field}/{inference_time_field}",
+            source_path=source_path,
+        )
 
     latency_field, latency_value = first_present(payload, LATENCY_FIELDS)
     if latency_field is not None:
@@ -433,10 +483,45 @@ def _load_model_config_param_counts(
     return counts
 
 
+def _merge_runtime_summaries(
+    primary: Mapping[str, object],
+    supplemental: Mapping[str, object] | None,
+) -> dict[str, object]:
+    runtime: dict[str, object] = {}
+    if supplemental is not None and isinstance(supplemental.get("runtime_summary"), Mapping):
+        runtime.update(supplemental["runtime_summary"])  # type: ignore[index]
+    if isinstance(primary.get("runtime_summary"), Mapping):
+        runtime.update(primary["runtime_summary"])  # type: ignore[index]
+    return runtime
+
+
+def _test_patch_count_from_split(repo_root: Path, run_root: Path) -> int | None:
+    split_path = _repo_path(repo_root, run_root / "split_manifest.json")
+    if not split_path.exists():
+        return None
+    payload = _read_json(split_path)
+    test_npz = payload.get("test_npz")
+    if not test_npz:
+        return None
+    test_path = _repo_path(repo_root, Path(str(test_npz)))
+    if not test_path.exists():
+        return None
+    try:
+        import numpy as np
+
+        with np.load(test_path, allow_pickle=False) as test_data:
+            for key in ("diffraction", "Y_I", "Y_phi"):
+                if key in test_data:
+                    return int(test_data[key].shape[0])
+    except Exception:
+        return None
+    return None
+
+
 def _collect_cdi_rows(
     repo_root: Path,
     *,
-    cdi_final_ffno_pair_key: str = FOUR_BLOCK_NO_REFINER_PAIR.pair_key,
+    cdi_final_ffno_pair_key: str = DEPTH24_NO_REFINER_PAIR.pair_key,
 ) -> list[EfficiencyRow]:
     table_path = _repo_path(repo_root, CDI_TABLE_JSON)
     if not table_path.exists():
@@ -454,6 +539,9 @@ def _collect_cdi_rows(
         final_ffno_pair.supervised_model_manifest_json,
     ):
         manifest_rows.update(_load_manifest_rows(_repo_path(repo_root, manifest)))
+    inference_manifest_rows = _load_manifest_rows(
+        _repo_path(repo_root, CDI_MINIMUM_MODEL_MANIFEST)
+    )
 
     param_counts = _load_model_config_param_counts(repo_root)
     benchmark_label = str(table_payload.get("benchmark") or "CDI")
@@ -478,6 +566,21 @@ def _collect_cdi_rows(
             row_claim_boundary = None
         manifest_row, manifest_path = manifest_rows.get(source_row_id, ({}, table_path))
         payload = {**dict(table_row), **manifest_row}
+        inference_row, _inference_manifest_path = inference_manifest_rows.get(
+            row_id,
+            ({}, table_path),
+        )
+        if inference_row:
+            runtime_summary = _merge_runtime_summaries(payload, inference_row)
+            if runtime_summary:
+                payload["runtime_summary"] = runtime_summary
+            patch_count = _test_patch_count_from_split(repo_root, CDI_MINIMUM_ROOT)
+            if patch_count is not None:
+                payload["test_patch_count"] = patch_count
+        if row_id in {"pinn_ffno", "supervised_ffno"} and pair_root is not None:
+            patch_count = _test_patch_count_from_split(repo_root, pair_root)
+            if patch_count is not None:
+                payload["test_patch_count"] = patch_count
         model_config_count = param_counts.get((benchmark_label, row_id))
         if model_config_count is not None:
             config_source = model_config_count[2]
@@ -534,7 +637,10 @@ def _collect_cns_rows(repo_root: Path) -> list[EfficiencyRow]:
             normalize_efficiency_row(
                 benchmark="PDEBench CNS",
                 row_id=row_id,
-                model_label=str(row.get("manuscript_label") or row_id),
+                model_label=str(row.get("manuscript_label") or row_id).replace(
+                    "SRU-Net*",
+                    "SRU-Net",
+                ),
                 source_path=_repo_rel(repo_root, table_path),
                 payload=row,
                 claim_boundary=str(
@@ -632,7 +738,7 @@ def _collect_brdt_rows(repo_root: Path) -> list[EfficiencyRow]:
 def collect_efficiency_rows(
     repo_root: Path = REPO_ROOT,
     *,
-    cdi_final_ffno_pair_key: str = FOUR_BLOCK_NO_REFINER_PAIR.pair_key,
+    cdi_final_ffno_pair_key: str = DEPTH24_NO_REFINER_PAIR.pair_key,
 ) -> list[EfficiencyRow]:
     repo_root = Path(repo_root)
     return [
@@ -670,7 +776,7 @@ def _write_csv(path: Path, rows: Sequence[dict[str, object]]) -> None:
         "claim_boundary",
     ]
     with path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.DictWriter(handle, fieldnames=fieldnames)
+        writer = csv.DictWriter(handle, fieldnames=fieldnames, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow({field: row.get(field) for field in fieldnames})
@@ -685,7 +791,7 @@ def render_summary(
         "# Paper Efficiency Table Summary",
         "",
         "This summary records the repo-local efficiency table generated for the NeurIPS SRU-Net evidence package.",
-        "The table groups rows by benchmark and keeps runtime fields as provenance context unless an explicit throughput field exists.",
+        "The table groups rows by benchmark and reports inference throughput when explicit throughput fields or synchronized inference timings are available.",
         "",
         "## Outputs",
         "",
@@ -706,7 +812,8 @@ def render_summary(
             "",
             "- Parameter counts use `unique_trainable_params` from the model-configuration table when available; otherwise they fall back to existing row artifacts.",
             "- Training/runtime fields keep their original source field names.",
-            "- Missing inference throughput is labeled `missing`; training runtime is not converted into throughput.",
+            "- Inference throughput is reported from explicit throughput fields or from synchronized inference timing divided by the recorded test patch count.",
+            "- Missing inference timing remains labeled `missing`; training runtime is not converted into throughput.",
             "- Rows from different benchmarks are not ranked against each other.",
             "",
             "## Superseded Context",
@@ -732,7 +839,7 @@ def write_paper_efficiency_table(
     repo_root: Path = REPO_ROOT,
     output_dir: Path | None = None,
     *,
-    cdi_final_ffno_pair_key: str = FOUR_BLOCK_NO_REFINER_PAIR.pair_key,
+    cdi_final_ffno_pair_key: str = DEPTH24_NO_REFINER_PAIR.pair_key,
     versioned_output_stem: str | None = None,
 ) -> dict[str, str]:
     repo_root = Path(repo_root)
@@ -763,7 +870,7 @@ def write_paper_efficiency_table(
         "excluded_candidate_context": excluded,
         "notes": [
             "Training runtime is provenance context unless a common measurement protocol is recorded.",
-            "Inference throughput is reported only from explicit throughput or latency fields.",
+            "Inference throughput is reported from explicit throughput fields or synchronized inference timing divided by the recorded test patch count.",
         ],
     }
 

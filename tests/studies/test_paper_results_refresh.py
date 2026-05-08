@@ -34,6 +34,7 @@ from scripts.studies.paper_results_refresh import (
     resolve_cdi_final_ffno_pair,
     versioned_output_path,
     write_cdi_amp_phase_zoom_figure,
+    write_cdi_amp_phase_zoom_per_panel_phase_figure,
     write_cdi_phase_zoom_figure,
     write_cdi_phase_zoom_per_panel_figure,
     write_brdt_context_figure,
@@ -275,12 +276,52 @@ def test_write_cdi_amp_phase_zoom_figure_records_amp_and_phase_metadata(tmp_path
     ]
     assert meta["display_channels"] == ["amp", "phase"]
     assert meta["crop_fraction"] == 0.5
-    assert meta["amplitude_colormap"] == "gray"
+    assert meta["amplitude_colormap"] == "viridis"
     assert meta["amplitude_display_scale"] == "gt_crop_min_to_gt_crop_p99"
+    assert meta["row_colorbars"] == ["amp", "phase"]
     assert meta["phase_colormap"] == "twilight"
     assert meta["phase_display_scale"] == "gt_crop_min_to_gt_crop_p99_after_alignment"
     assert meta["amplitude_display_bounds"][1] < 100.0
     assert meta["phase_display_bounds"] != [-np.pi, np.pi]
+
+
+def test_write_cdi_amp_phase_zoom_per_panel_phase_figure_records_independent_phase_bounds(tmp_path):
+    recons = tmp_path / "recons"
+    row_phases = {
+        "gt": np.linspace(-0.4, 0.8, 64, dtype=np.float32).reshape(8, 8),
+        "pinn": np.linspace(-1.5, 1.5, 64, dtype=np.float32).reshape(8, 8),
+        "pinn_fno_vanilla": np.linspace(-0.3, 0.6, 64, dtype=np.float32).reshape(8, 8),
+        "pinn_ffno": np.linspace(-2.0, 2.0, 64, dtype=np.float32).reshape(8, 8),
+        "pinn_neuralop_uno": np.linspace(-0.25, 0.65, 64, dtype=np.float32).reshape(8, 8),
+        "pinn_hybrid_resnet": np.linspace(-0.35, 0.75, 64, dtype=np.float32).reshape(8, 8),
+    }
+    for index, (row_id, phase) in enumerate(row_phases.items()):
+        row_dir = recons / row_id
+        row_dir.mkdir(parents=True)
+        amp = np.linspace(0.0, 1.0 + 0.1 * index, 64, dtype=np.float32).reshape(8, 8)
+        np.savez(row_dir / "recon.npz", amp=amp, phase=phase)
+    output = tmp_path / "amp_phase_zoom_per_panel_phase.png"
+
+    meta = write_cdi_amp_phase_zoom_per_panel_phase_figure(
+        recons_root=recons,
+        output_path=output,
+    )
+
+    assert output.exists()
+    assert meta["display_channels"] == ["amp", "phase"]
+    assert meta["amplitude_display_scale"] == "gt_crop_min_to_gt_crop_p99"
+    assert meta["phase_display_scale"] == "per_panel_p01_to_p99_after_alignment"
+    assert set(meta["phase_display_bounds_by_row"]) == {
+        "gt",
+        "pinn",
+        "pinn_fno_vanilla",
+        "pinn_ffno",
+        "pinn_neuralop_uno",
+        "pinn_hybrid_resnet",
+    }
+    assert meta["phase_display_bounds_by_row"]["pinn"] != meta["phase_display_bounds_by_row"]["gt"]
+    assert meta["row_colorbars"] == ["amp_shared", "phase_per_panel"]
+    assert "phase colors are not comparable across panels" in meta["caption_note"]
 
 
 def test_render_brdt_metrics_table_keeps_model_based_classical_row():
@@ -768,9 +809,9 @@ def test_render_cdi_objective_comparison_table_emits_all_paired_active_models():
 
     tex = render_cdi_objective_comparison_table(rows)
 
+    assert r"\multicolumn{5}{l}{\textit{CNN}}" in tex
     assert r"\multicolumn{5}{l}{\textit{FFNO}}" in tex
-    assert r"\multicolumn{5}{l}{\textit{CNN}}" not in tex
-    assert r"\multicolumn{5}{l}{\textit{U-NO}}" not in tex
+    assert r"\multicolumn{5}{l}{\textit{U-NO}}" in tex
     assert "Amp MSE" not in tex
     assert "Phase MSE" not in tex
     assert "Physics-consistency" in tex
@@ -1420,8 +1461,8 @@ def test_main_write_model_config_table_calls_writer(monkeypatch, capsys, tmp_pat
     assert main(["--write-model-config-table"]) == 0
 
     assert len(calls) == 1
-    assert calls[0][2]["cdi_final_ffno_pair_key"] == "four_block_no_refiner"
-    assert calls[0][2]["versioned_output_stem"] == "ffno_final_depth4pair"
+    assert calls[0][2]["cdi_final_ffno_pair_key"] == "depth24_no_refiner"
+    assert calls[0][2]["versioned_output_stem"] == "ffno_final_depth24pair"
     payload = json.loads(capsys.readouterr().out)
     assert payload["model_config_table"]["json"].endswith("model_config_by_benchmark.json")
 
@@ -1441,8 +1482,8 @@ def test_main_write_efficiency_table_calls_writer(monkeypatch, capsys, tmp_path)
     assert main(["--write-efficiency-table"]) == 0
 
     assert len(calls) == 1
-    assert calls[0][2]["cdi_final_ffno_pair_key"] == "four_block_no_refiner"
-    assert calls[0][2]["versioned_output_stem"] == "ffno_final_depth4pair"
+    assert calls[0][2]["cdi_final_ffno_pair_key"] == "depth24_no_refiner"
+    assert calls[0][2]["versioned_output_stem"] == "ffno_final_depth24pair"
     payload = json.loads(capsys.readouterr().out)
     assert payload["paper_efficiency_table"]["json"].endswith("paper_efficiency_table.json")
 
@@ -1462,8 +1503,8 @@ def test_main_write_cdi_amp_phase_zoom_figure_calls_writer(monkeypatch, capsys, 
     assert main(["--write-cdi-amp-phase-zoom-figure"]) == 0
 
     assert len(calls) == 1
-    assert calls[0]["final_ffno_pair"].pair_key == "four_block_no_refiner"
-    assert calls[0]["final_output_stem"] == "ffno_final_depth4pair"
+    assert calls[0]["final_ffno_pair"].pair_key == "depth24_no_refiner"
+    assert calls[0]["final_output_stem"] == "ffno_final_depth24pair"
     payload = json.loads(capsys.readouterr().out)
     assert payload["cdi_amp_phase_zoom_figure"]["figure"].endswith("amp_phase.png")
 
