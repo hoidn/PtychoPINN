@@ -267,9 +267,9 @@ start:
    `ffcv`, `jax`, `jwave`, and `ml_collections` before any loader or
    forward-model smoke.
 4. Only after those inputs exist:
-   run the shared-encoder supervised benchmark with `C=32` and `C=64`, then
-   the native-baseline reproduction item, then the forward-model validation
-   item.
+   run the native-baseline reproduction item, then the shared-encoder
+   supervised benchmark with `C=32` and `C=64`, then the forward-model
+   validation item.
 5. Do not start any WaveBench paper-bundle assembly item until the supervised,
    native-baseline, and physics-validation follow-ups produce claim-bearing
    evidence.

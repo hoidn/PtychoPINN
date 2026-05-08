@@ -6,5 +6,5 @@
   "gap_policy": "draft_backlog_item",
   "gap_item_target_dir": "docs/backlog/active",
   "gap_plan_target_root": "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps",
-  "required_scope_summary": "Active NeurIPS evidence work, prioritized by backlog priority: Phase 2 PDEBench remains preferred, with Phase 3 CDI and candidate preflights allowed as concurrent work"
+  "required_scope_summary": "Active NeurIPS evidence work, prioritized by backlog priority: Phase 2 PDEBench remains preferred, with Phase 3 CDI and candidate lanes allowed as concurrent work"
 }

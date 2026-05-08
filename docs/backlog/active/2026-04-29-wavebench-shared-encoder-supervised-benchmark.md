@@ -7,19 +7,21 @@ check_commands:
     from pathlib import Path
     required = [
         Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight_summary.md"),
+        Path(".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-inverse-source-preflight/preflight_metadata.json"),
     ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
         raise SystemExit(f"missing WaveBench preflight summary: {missing}")
-    print("wavebench preflight summary present")
+    print("wavebench shared-encoder inputs present")
     PY
 prerequisites:
   - 2026-04-29-wavebench-inverse-source-preflight
+  - 2026-05-06-wavebench-provisioning-decision
   - 2026-04-29-wavebench-native-baseline-reproduction
 related_roadmap_phases:
-  - wavebench-additional-inverse-wave-extension
+  - candidate-wavebench-inverse-source-extension
 signals_for_selection:
-  - Select only after preflight confirms supervised shared-encoder readiness and native WaveBench baseline status is known.
+  - Select only after provisioning clears dataset/environment blockers and native WaveBench baseline status is known.
   - This item is the first actual repo-local SRU-Net/hybrid-spectral WaveBench architecture comparison.
   - Steering on 2026-04-30 moved this WaveBench follow-up ahead of remaining optional U-NO table-extension work, subject to the preflight and native-baseline outcomes.
 ---
@@ -42,8 +44,9 @@ signals_for_selection:
   - hybrid-spectral / `spectral_resnet_bottleneck_net` or selected spectral row
   - FNO
   - FFNO
-- Start with `C=32`; run `C=64` only if preflight or early smoke indicates the
-  smaller latent is inadequate.
+- Run both `C=32` and `C=64` in the first supervised comparison. `C=32` may run
+  first as the minimum serious row, but the item should emit `C=64` as the
+  immediate sensitivity row unless it records a row-level blocker.
 - Train supervised rows with the same dataset split, encoder architecture,
   loss, optimizer policy, and metric schema.
 - Report encoder parameters, body parameters, total parameters, runtime, and

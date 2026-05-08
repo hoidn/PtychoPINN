@@ -1,5 +1,5 @@
 ---
-priority: 34
+priority: 35
 plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-hybrid-physics-rows/execution_plan.md
 check_commands:
   - |
@@ -7,17 +7,18 @@ check_commands:
     from pathlib import Path
     required = [
         Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight_summary.md"),
+        Path(".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-inverse-source-preflight/preflight_metadata.json"),
     ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
         raise SystemExit(f"missing WaveBench preflight summary: {missing}")
-    print("wavebench preflight summary present")
+    print("wavebench hybrid-physics inputs present")
     PY
 prerequisites:
   - 2026-04-29-wavebench-shared-encoder-supervised-benchmark
   - 2026-04-29-wavebench-forward-model-physics-validation
 related_roadmap_phases:
-  - wavebench-additional-inverse-wave-extension
+  - candidate-wavebench-inverse-source-extension
 signals_for_selection:
   - Select only if the supervised WaveBench rows exist and the forward-model validation gate passed.
   - This item tests whether wave-equation consistency improves selected learned inverse models.

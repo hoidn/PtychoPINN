@@ -8,4 +8,4 @@ This file exists so active backlog manifest validation has a stable, safe
 Before implementation, the backlog workflow must draft and approve a fresh plan
 for `2026-04-29-wavebench-paper-table-figure-bundle` using completed WaveBench
 results and a checked-in evidence-lane approval. If that approval does not
-exist, the item should be blocked or narrowed rather than run.
+exist, the item should remain gated or be narrowed rather than run.

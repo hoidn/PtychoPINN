@@ -1,5 +1,5 @@
 ---
-priority: 32
+priority: 34
 plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-forward-model-physics-validation/execution_plan.md
 check_commands:
   - |
@@ -7,18 +7,20 @@ check_commands:
     from pathlib import Path
     required = [
         Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight_summary.md"),
+        Path(".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-inverse-source-preflight/preflight_metadata.json"),
     ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
         raise SystemExit(f"missing WaveBench preflight summary: {missing}")
-    print("wavebench preflight summary present")
+    print("wavebench physics-validation inputs present")
     PY
 prerequisites:
   - 2026-04-29-wavebench-inverse-source-preflight
+  - 2026-05-06-wavebench-provisioning-decision
 related_roadmap_phases:
-  - wavebench-additional-inverse-wave-extension
+  - candidate-wavebench-inverse-source-extension
 signals_for_selection:
-  - Select only if preflight classifies physics readiness as `exact_physics_loop_ready` or identifies a narrow solver-alignment task likely to reach that status.
+  - Select only after provisioning supplies a WaveBench-capable environment and the preflight or provisioning decision identifies a narrow solver-alignment path likely to reach exact reproduction.
   - This item is required before any WaveBench row can be called physics-informed.
   - Steering on 2026-04-30 moved this WaveBench follow-up ahead of remaining optional U-NO table-extension work, subject to the preflight outcome.
 ---

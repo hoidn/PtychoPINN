@@ -1,5 +1,5 @@
 ---
-priority: 35
+priority: 36
 plan_path: docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-paper-table-figure-bundle/execution_plan.md
 check_commands:
   - |
@@ -7,16 +7,18 @@ check_commands:
     from pathlib import Path
     required = [
         Path("docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_preflight_summary.md"),
+        Path(".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-inverse-source-preflight/preflight_metadata.json"),
     ]
     missing = [str(p) for p in required if not p.exists()]
     if missing:
         raise SystemExit(f"missing WaveBench preflight summary: {missing}")
-    print("wavebench preflight summary present")
+    print("wavebench paper-bundle inputs present")
     PY
 prerequisites:
+  - 2026-04-29-wavebench-native-baseline-reproduction
   - 2026-04-29-wavebench-shared-encoder-supervised-benchmark
 related_roadmap_phases:
-  - wavebench-additional-inverse-wave-extension
+  - candidate-wavebench-inverse-source-extension
 signals_for_selection:
   - Select only after WaveBench has been approved as an additional manuscript evidence lane and at least the supervised shared-encoder results exist.
   - Steering on 2026-04-30 moved WaveBench ahead of remaining optional U-NO table-extension work, but this bundle remains gated on evidence-lane approval.
