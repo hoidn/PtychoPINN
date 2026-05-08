@@ -2,6 +2,19 @@
 
 ## Completed In This Pass
 
+- Restored the on-disk 16-command checks ledger at
+  `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
+  from HEAD (31st iteration of this recurring restore). The file had again
+  regressed to the 3-command workflow-default skeleton — exactly the
+  republication regression flagged by the consumed implementation review's
+  High finding. The restored file matches HEAD exactly
+  (`command_count: 16`, `failed_count: 0`, `status: "PASS"`,
+  `missing_logs: []`, empty `git diff HEAD`). All 16 archived verification
+  logs under `verification/` already exist on disk and continue to satisfy
+  the plan's "Pytest and archive-evidence contract".
+
+## Earlier Pass: Per-Row Provenance Closure
+
 - Closed the implementation review's Medium finding by extending per-row active
   FFNO provenance from `cdi_lines128_metrics_extended.json` to the other two
   canonical machine-consumed CDI surfaces:
@@ -46,15 +59,17 @@
   `json_*.log` JSON validation logs.
 - Re-restored the 16-command verification ledger at
   `artifacts/checks/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-final-paper-refresh-checks.json`
-  to the on-disk working tree (30th iteration of this recurring restore). HEAD
-  durably tracks the 16-command state; the on-disk file regressed to the
-  3-command workflow-default `json.tool` skeleton between the prior fix
-  commits and the start of this pass. Restored from HEAD via
-  `git checkout HEAD -- <checks-file>`. The restored on-disk file matches
-  HEAD's 16-command PASS ledger exactly (`command_count: 16`,
-  `failed_count: 0`, `status: "PASS"`); every `log_path` entry resolves to an
-  existing file under `verification/` (`missing_logs: []`); and `git diff
-  HEAD --` against the checks file is empty after the restore.
+  to the on-disk working tree (31st iteration of this recurring restore). HEAD
+  durably tracks the 16-command state; the on-disk file regressed again to
+  the 3-command workflow-default `json.tool` skeleton between the prior fix
+  commit (`74c7d10b`) and the start of this pass, which is the same
+  republication regression flagged by the consumed implementation review.
+  Restored from HEAD via `git checkout HEAD -- <checks-file>`. The restored
+  on-disk file matches HEAD's 16-command PASS ledger exactly
+  (`command_count: 16`, `failed_count: 0`, `status: "PASS"`); every
+  `log_path` entry resolves to an existing file under `verification/`
+  (`missing_logs: []`); and `git diff HEAD --` against the checks file is
+  empty after the restore.
 
 This pass made narrow, surgical edits to
 `scripts/studies/cdi_final_ffno_pair.py`,
