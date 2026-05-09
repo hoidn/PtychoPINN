@@ -602,10 +602,14 @@ def _train_neural_row(
     _seed_everything(contract.seed)
     try:
         if row.input_mode == "sinogram":
+            coordinate_channels = None
+            if isinstance(row.extra, Mapping):
+                coordinate_channels = row.extra.get("coordinate_channels")
             adapter = build_sinogram_input_adapter(
                 architecture=row.model,
                 out_channels=1,
                 grid_size=dc.LOCKED_GRID_SIZE,
+                coordinate_channels=coordinate_channels,
             ).to(device)
         else:
             adapter = build_neural_adapter(

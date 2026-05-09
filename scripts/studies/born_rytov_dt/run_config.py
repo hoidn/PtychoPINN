@@ -72,6 +72,7 @@ SUPPORTED_ROW_IDS: Tuple[str, ...] = (
     "hybrid_resnet",
     "sru_net",
     "ffno",
+    "sru_net_coordgrid",
 )
 
 HYBRID_FAMILY_ROW_IDS: Tuple[str, ...] = ("hybrid_resnet", "sru_net")
@@ -275,6 +276,29 @@ def sinogram_input_row_roster(
             paper_label="SRU-Net",
         ),
     ]
+
+
+def sinogram_coordgrid_row(
+    *,
+    dataset_id: str,
+    operator_version: str,
+    neural_training_label: str = DEFAULT_TRAINING_LABEL,
+) -> RowConfig:
+    """Return the append-only SRU-Net coordgrid diagnostic row config."""
+    return RowConfig(
+        row_id="sru_net_coordgrid",
+        model=HYBRID_FAMILY_MODEL,
+        training=neural_training_label,
+        input_mode="sinogram",
+        dataset_id=dataset_id,
+        operator_version=operator_version,
+        paper_label="SRU-Net + coordgrid",
+        extra={
+            "coordinate_channels": "object_xy",
+            "sinogram_to_grid": "bilinear_resize",
+            "in_channels": 4,
+        },
+    )
 
 
 def make_blocked_row(

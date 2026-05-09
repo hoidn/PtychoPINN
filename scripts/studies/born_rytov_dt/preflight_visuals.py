@@ -25,6 +25,9 @@ ROW_DISPLAY_LABELS = {
     "unet": "U-Net",
     "fno_vanilla": "FNO",
     "hybrid_resnet": "Hybrid ResNet",
+    "sru_net": "SRU-Net",
+    "sru_net_coordgrid": "SRU-Net + coordgrid",
+    "ffno": "FFNO",
 }
 
 

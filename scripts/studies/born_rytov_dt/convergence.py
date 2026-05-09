@@ -70,7 +70,23 @@ def build_convergence_audit(
             "convergence": history_summary,
             "status": current_summary.get("row_status"),
             "metric_deltas": {},
+            "final_loss_total": current_summary.get("final_loss_total"),
+            "best_train_total_loss": current_summary.get("best_train_total_loss"),
+            "eval_samples_per_second": (
+                (current_summary.get("runtime") or {}).get("eval_samples_per_second")
+                if isinstance(current_summary.get("runtime"), Mapping)
+                else None
+            ),
         }
+        if row_payload["eval_samples_per_second"] is None:
+            runtime_extras = (
+                dict((current_summary.get("runtime") or {}).get("extras") or {})
+                if isinstance(current_summary.get("runtime"), Mapping)
+                else {}
+            )
+            row_payload["eval_samples_per_second"] = runtime_extras.get(
+                "eval_samples_per_second"
+            )
         for bucket in _METRIC_BUCKETS:
             current_bucket = dict(current_summary.get(bucket) or {})
             baseline_bucket = dict(baseline.get(bucket) or {})
@@ -86,6 +102,16 @@ def build_convergence_audit(
             row_payload["metric_deltas"][bucket] = deltas
         current_runtime = dict(current_summary.get("runtime") or {})
         baseline_runtime = dict(baseline.get("runtime") or {})
+        current_eval_sps = current_runtime.get("eval_samples_per_second")
+        baseline_eval_sps = baseline_runtime.get("eval_samples_per_second")
+        if current_eval_sps is None:
+            current_eval_sps = dict(current_runtime.get("extras") or {}).get(
+                "eval_samples_per_second"
+            )
+        if baseline_eval_sps is None:
+            baseline_eval_sps = dict(baseline_runtime.get("extras") or {}).get(
+                "eval_samples_per_second"
+            )
         row_payload["runtime_deltas"] = {
             "parameter_count": (
                 float(current_runtime.get("parameter_count"))
@@ -99,6 +125,12 @@ def build_convergence_audit(
                 - float(baseline_runtime.get("wall_time_train_s"))
                 if isinstance(current_runtime.get("wall_time_train_s"), (int, float))
                 and isinstance(baseline_runtime.get("wall_time_train_s"), (int, float))
+                else None
+            ),
+            "eval_samples_per_second": (
+                float(current_eval_sps) - float(baseline_eval_sps)
+                if isinstance(current_eval_sps, (int, float))
+                and isinstance(baseline_eval_sps, (int, float))
                 else None
             ),
         }
@@ -130,6 +162,9 @@ def write_convergence_audit_csv(path: Path, payload: Mapping[str, Any]) -> None:
                 "last5_loss_delta",
                 "last10_loss_delta",
                 "materially_improving_at_stop",
+                "final_loss_total",
+                "best_train_total_loss",
+                "eval_samples_per_second",
             ],
         )
         writer.writeheader()
@@ -148,6 +183,9 @@ def write_convergence_audit_csv(path: Path, payload: Mapping[str, Any]) -> None:
                     "materially_improving_at_stop": conv.get(
                         "materially_improving_at_stop"
                     ),
+                    "final_loss_total": row.get("final_loss_total"),
+                    "best_train_total_loss": row.get("best_train_total_loss"),
+                    "eval_samples_per_second": row.get("eval_samples_per_second"),
                 }
             )
 

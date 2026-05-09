@@ -483,6 +483,58 @@ def test_sinogram_input_adapter_forward_shape(architecture: str):
     assert info.arch_kwargs["sinogram_to_grid"] == "bilinear_resize"
 
 
+def test_sinogram_input_adapter_coordgrid_appends_deterministic_object_xy(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    adapter = models.build_sinogram_input_adapter(
+        architecture="hybrid_resnet",
+        coordinate_channels="object_xy",
+    )
+    captured: dict[str, torch.Tensor] = {}
+
+    def _capture_forward(x: torch.Tensor) -> torch.Tensor:
+        captured["x"] = x.detach().clone()
+        return torch.zeros(
+            x.shape[0],
+            1,
+            dc.LOCKED_GRID_SIZE,
+            dc.LOCKED_GRID_SIZE,
+            dtype=x.dtype,
+            device=x.device,
+        )
+
+    monkeypatch.setattr(adapter.body, "forward", _capture_forward)
+
+    x = torch.zeros(
+        2,
+        2,
+        dc.LOCKED_ANGLE_COUNT,
+        dc.LOCKED_DETECTOR_SIZE,
+        dtype=torch.float32,
+    )
+    y = adapter(x)
+
+    assert y.shape == (2, 1, dc.LOCKED_GRID_SIZE, dc.LOCKED_GRID_SIZE)
+    forwarded = captured["x"]
+    assert forwarded.shape == (2, 4, dc.LOCKED_GRID_SIZE, dc.LOCKED_GRID_SIZE)
+    x_plane = forwarded[:, 2]
+    y_plane = forwarded[:, 3]
+    expected_axis = torch.linspace(-1.0, 1.0, dc.LOCKED_GRID_SIZE)
+    assert torch.allclose(x_plane[0], x_plane[1])
+    assert torch.allclose(y_plane[0], y_plane[1])
+    assert torch.allclose(x_plane[0, 0], expected_axis, atol=1e-6)
+    assert torch.allclose(y_plane[0, :, 0], expected_axis, atol=1e-6)
+    assert torch.isclose(x_plane.min(), torch.tensor(-1.0), atol=1e-6)
+    assert torch.isclose(x_plane.max(), torch.tensor(1.0), atol=1e-6)
+    assert torch.isclose(y_plane.min(), torch.tensor(-1.0), atol=1e-6)
+    assert torch.isclose(y_plane.max(), torch.tensor(1.0), atol=1e-6)
+
+    info = adapter.info()
+    assert info.in_channels == 4
+    assert info.arch_kwargs["coordinate_channels"] == "object_xy"
+    assert info.arch_kwargs["sinogram_to_grid"] == "bilinear_resize"
+
+
 def test_sinogram_input_adapter_rejects_image_shape():
     adapter = models.build_sinogram_input_adapter(architecture="ffno")
     with pytest.raises(ValueError, match="spatial shape"):

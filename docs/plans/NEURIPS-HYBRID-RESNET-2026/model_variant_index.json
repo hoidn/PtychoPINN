@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-08T21:58:35Z",
+  "last_updated_utc": "2026-05-09T01:41:13Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -29,6 +29,7 @@
     "brdt_ffno_row_extension_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_ffno_row_extension_summary.md",
     "brdt_40ep_paper_evidence_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_supervised_born_40ep_paper_evidence_summary.md",
     "brdt_sinogram_input_40ep_paper_evidence_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_sinogram_input_40ep_paper_evidence_summary.md",
+    "brdt_srunet_sinogram_coordinate_conditioning_ablation_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_srunet_sinogram_coordinate_conditioning_ablation_summary.md",
     "cns_history5_gap_fill_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_history5_comparator_gap_fill_summary.md",
     "cdi_ffno_depth24_ablation_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_depth24_ablation_summary.md",
     "cdi_supervised_ffno_depth24_no_refiner_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_supervised_ffno_depth24_no_refiner_summary.md",
@@ -2567,6 +2568,77 @@
         "final_learning_rate": 0.0002,
         "lr_reduction_count": 0,
         "materially_improving_at_stop": true
+      }
+    },
+    {
+      "variant_id": "brdt__sru_net_coordgrid__supervised_plus_born_consistency__decision_support_append_only_coordgrid_diagnostic",
+      "dataset_contract_id": "brdt_sinogram_paper_evidence_2048cap_40ep",
+      "row_id": "sru_net_coordgrid",
+      "paper_label": "SRU-Net + coordgrid",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_resnet",
+      "training_mode": "supervised_plus_born_consistency",
+      "source_backlog_item": "2026-05-07-brdt-srunet-sinogram-coordinate-conditioning-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_srunet_sinogram_coordinate_conditioning_ablation_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-srunet-sinogram-coordinate-conditioning-ablation/",
+      "metrics_json": "metrics.json",
+      "combined_metrics_json": "combined_metrics.json",
+      "convergence_audit_json": "convergence_audit.json",
+      "history_json": "rows/sru_net_coordgrid/history.json",
+      "model_profile_json": "rows/sru_net_coordgrid/model_profile.json",
+      "row_summary_json": "rows/sru_net_coordgrid/row_summary.json",
+      "adapter_contract_json": "rows/sru_net_coordgrid/adapter_contract.json",
+      "comparison_summary_md": "comparison_summary.md",
+      "baseline_variant_id": "brdt__sru_net__supervised_plus_born_consistency__paper_evidence_additive_40ep__sinogram_input",
+      "visuals": [
+        "visuals/sample_0255_compare_q.png",
+        "visuals/sample_0255_error_q.png",
+        "visuals/sample_0255_sinogram_residual.png"
+      ],
+      "parameter_count": 142450,
+      "metrics": {
+        "image_mae_phys": 0.0019509217848217419,
+        "image_rmse_phys": 0.00567136876340236,
+        "image_relative_l2_phys": 0.9999378558677322,
+        "meas_mae": 0.003625783560883364,
+        "meas_rmse": 0.008467533511115639,
+        "meas_relative_l2": 0.9997754813674038,
+        "psnr_phys": 19.816859321063482,
+        "ssim_phys": 0.026205697384189968
+      },
+      "runtime": {
+        "batch_size": 16,
+        "device": "cuda",
+        "device_name": "NVIDIA GeForce RTX 3090",
+        "epochs": 40,
+        "learning_rate": 0.0002,
+        "wall_time_train_s": 165.44703557202592,
+        "wall_time_eval_s": 0.6756948227994144,
+        "eval_samples_per_second": 378.8692637001242
+      },
+      "convergence": {
+        "final_loss_total": 0.45339918648824096,
+        "best_train_total_loss": 0.45339433546178043,
+        "materially_improving_at_stop": false,
+        "final_learning_rate": 1e-05,
+        "lr_reduction_count": 5
+      },
+      "claim_boundary": "decision_support_append_only_coordgrid_diagnostic",
+      "evidence_status": "decision_support_append_only",
+      "changed_factor": "same capped BRDT sinogram-input dataset/operator/split/loss contract as the current additive-secondary SRU-Net authority, but append deterministic normalized object-grid x/y channels after bilinear resize so the learned input changes from 2 to 4 channels only for the fresh row.",
+      "interpretation": "Append-only BRDT coordgrid diagnostic. The added object-grid coordinate channels materially worsen every required same-contract image and measurement metric versus the unconditioned sinogram-input SRU-Net authority, so this row is negative diagnostic evidence only and is not promotable.",
+      "baseline_comparison": {
+        "parameter_count_delta": 288,
+        "eval_samples_per_second_delta": -25.82855634323755,
+        "wall_time_train_s_delta": 1.156783771701157,
+        "image_relative_l2_phys_delta": 0.2834109988695457,
+        "image_rmse_phys_delta": 0.001607428178422736,
+        "image_mae_phys_delta": 0.0005424960625969744,
+        "meas_relative_l2_delta": 0.5332196060936334,
+        "meas_rmse_delta": 0.004516068824979011,
+        "meas_mae_delta": 0.0015976430787987797,
+        "psnr_phys_delta": -2.8948107391891718,
+        "ssim_phys_delta": -0.7097261650877549
       }
     },
     {

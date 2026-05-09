@@ -384,17 +384,31 @@ class BRDTSinogramInputAdapter(nn.Module):
         angle_count: int = dc.LOCKED_ANGLE_COUNT,
         detector_size: int = dc.LOCKED_DETECTOR_SIZE,
         arch_kwargs: Optional[Dict[str, Any]] = None,
+        coordinate_channels: Optional[str] = None,
     ):
         super().__init__()
+        if coordinate_channels not in (None, "object_xy"):
+            raise ValueError(
+                "coordinate_channels must be None or 'object_xy'; "
+                f"got {coordinate_channels!r}"
+            )
         self.architecture = architecture
-        self.in_channels = 2
+        self.coordinate_channels = coordinate_channels
+        self.in_channels = 4 if coordinate_channels == "object_xy" else 2
         self.out_channels = int(out_channels)
         self.grid_size = int(grid_size)
         self.angle_count = int(angle_count)
         self.detector_size = int(detector_size)
+        if coordinate_channels == "object_xy":
+            axis = torch.linspace(-1.0, 1.0, self.grid_size, dtype=torch.float32)
+            yy, xx = torch.meshgrid(axis, axis, indexing="ij")
+            coord_grid = torch.stack([xx, yy], dim=0).unsqueeze(0)
+        else:
+            coord_grid = None
+        self.register_buffer("_coord_grid", coord_grid, persistent=False)
         self.body = BRDTModelAdapter(
             architecture=architecture,
-            in_channels=2,
+            in_channels=self.in_channels,
             out_channels=out_channels,
             grid_size=grid_size,
             arch_kwargs=arch_kwargs,
@@ -418,22 +432,31 @@ class BRDTSinogramInputAdapter(nn.Module):
             mode="bilinear",
             align_corners=False,
         )
+        if self.coordinate_channels == "object_xy":
+            if self._coord_grid is None:  # pragma: no cover - construction guard
+                raise RuntimeError("missing coord grid for object_xy adapter")
+            coord_grid = self._coord_grid.to(device=grid.device, dtype=grid.dtype)
+            coord_grid = coord_grid.expand(grid.shape[0], -1, -1, -1)
+            grid = torch.cat([grid, coord_grid], dim=1)
         return self.body(grid)
 
     def info(self) -> AdapterInfo:
         info = self.body.info()
+        arch_kwargs = {
+            **dict(info.arch_kwargs),
+            "input_mode": "sinogram",
+            "sinogram_shape": [self.angle_count, self.detector_size, 2],
+            "sinogram_to_grid": "bilinear_resize",
+        }
+        if self.coordinate_channels is not None:
+            arch_kwargs["coordinate_channels"] = self.coordinate_channels
         return AdapterInfo(
             architecture=info.architecture,
-            in_channels=2,
+            in_channels=self.in_channels,
             out_channels=self.out_channels,
             grid_size=self.grid_size,
             parameter_count=info.parameter_count,
-            arch_kwargs={
-                **dict(info.arch_kwargs),
-                "input_mode": "sinogram",
-                "sinogram_shape": [self.angle_count, self.detector_size, 2],
-                "sinogram_to_grid": "bilinear_resize",
-            },
+            arch_kwargs=arch_kwargs,
         )
 
 
@@ -461,6 +484,7 @@ def build_sinogram_input_adapter(
     out_channels: int = 1,
     grid_size: int = dc.LOCKED_GRID_SIZE,
     arch_kwargs: Optional[Dict[str, Any]] = None,
+    coordinate_channels: Optional[str] = None,
 ) -> BRDTSinogramInputAdapter:
     """Build a neural adapter for measured complex sinogram input."""
     return BRDTSinogramInputAdapter(
@@ -468,4 +492,5 @@ def build_sinogram_input_adapter(
         out_channels=out_channels,
         grid_size=grid_size,
         arch_kwargs=arch_kwargs,
+        coordinate_channels=coordinate_channels,
     )

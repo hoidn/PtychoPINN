@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-08T21:58:35Z",
+  "last_updated_utc": "2026-05-09T01:41:13Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -967,6 +967,38 @@
         "ffno (40-epoch sinogram-input corrected no-refiner rerun)"
       ],
       "interpretation": "Current paired BRDT additive-secondary authority for the learned sinogram-input contract. The bundle preserves the locked dataset/operator/split/loss contract, moves the learned rows to measured complex sinogram input, and passes the paper-facing gate under paper_evidence_brdt_additive. SRU-Net is the strongest learned row within this contract, but both learned rows are materially weaker than the preserved born-image-input lineage, so the family supports bounded secondary manuscript context only and does not authorize full-training BRDT competitiveness or any replacement of the CDI/CNS pillars."
+    },
+    {
+      "family_id": "brdt_srunet_sinogram_coordinate_conditioning_diagnostic",
+      "task": "candidate_brdt",
+      "fixed_contract": "brdt_sinogram_paper_evidence_2048cap_40ep",
+      "claim_boundary": "decision_support_append_only_coordgrid_diagnostic",
+      "changed_factors": [
+        "append deterministic normalized object-grid x/y channels after bilinear resize on the learned sinogram-input SRU-Net path",
+        "learned input channels change from 2 to 4 for the fresh row only",
+        "baseline sinogram-input SRU-Net, FFNO, and model-based Born inverse are reused by lineage from the immutable 2026-05-07 authority rather than retrained"
+      ],
+      "completed_items": [
+        "2026-05-07-brdt-srunet-sinogram-coordinate-conditioning-ablation"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/brdt_srunet_sinogram_coordinate_conditioning_ablation_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-srunet-sinogram-coordinate-conditioning-ablation/"
+      ],
+      "comparison_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-srunet-sinogram-coordinate-conditioning-ablation/combined_metrics.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-srunet-sinogram-coordinate-conditioning-ablation/comparison_summary.md",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-srunet-sinogram-coordinate-conditioning-ablation/convergence_audit.json"
+      ],
+      "rows": [
+        "classical_born_backprop (baseline lineage context only)",
+        "ffno (baseline lineage context only)",
+        "sru_net (unconditioned sinogram-input authority)",
+        "sru_net_coordgrid (append-only coordgrid diagnostic row)"
+      ],
+      "interpretation": "Append-only BRDT representational diagnostic over the learned sinogram-input contract. The added object-grid coordinate channels do not help SRU-Net on this fixed contract: the fresh row is materially worse than the unconditioned sinogram-input authority on every required image and measurement metric, reduces throughput, reaches `materially_improving_at_stop=false`, and is therefore not promotable."
     }
   ],
   "maintenance_rules": [

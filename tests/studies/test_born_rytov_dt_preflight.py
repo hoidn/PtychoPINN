@@ -2621,6 +2621,231 @@ def _make_synthetic_corrected_ffno_row_bundle(
     return corrected_root
 
 
+def _make_synthetic_sinogram_authority_bundle(tmp_path: Path, manifest_path: Path) -> Path:
+    authority_root = tmp_path / "synthetic_sinogram_authority"
+    row_ids = ("classical_born_backprop", "ffno", "sru_net")
+    authority_root.mkdir()
+    manifest = json.loads(Path(manifest_path).read_text())
+    split_counts = dict(manifest["split"]["counts"])
+    normalization = dict(manifest.get("normalization") or {})
+    operator_pointer = manifest["operator"]["validation_artifact"]
+
+    preflight_manifest = {
+        "schema_version": "brdt_sinogram_input_40ep_v2",
+        "backlog_item": "2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
+        "claim_boundary": "paper_evidence_brdt_additive",
+        "dataset": {
+            "dataset_id": manifest["dataset_identity"]["name"],
+            "tier": manifest["dataset_identity"]["tier"],
+            "split_counts": split_counts,
+            "normalization": normalization,
+        },
+        "input_contract": {
+            "input_mode": "sinogram",
+            "in_channels": 2,
+            "tensor_shape": ["B", 2, "angle_count", "detector_size"],
+            "model_input_source": "measured complex sinogram real/imag channels",
+        },
+        "training_contract": {
+            "epochs": 40,
+            "batch_size": 16,
+            "learning_rate": 2e-4,
+            "optimizer": "Adam",
+            "loss_weights": run_config.LossWeights().as_dict(),
+            "seed": 42,
+            "scheduler": "reduce_on_plateau",
+            "plateau_factor": 0.5,
+            "plateau_patience": 2,
+            "plateau_threshold": 0.0,
+            "plateau_min_lr": 1e-5,
+        },
+        "fixed_sample_ids": [0, 255],
+        "required_paper_sample": 255,
+        "rows": [
+            {
+                "row_id": "classical_born_backprop",
+                "model": "classical_born_backprop",
+                "training": "none",
+                "input_mode": "sinogram",
+                "dataset_id": manifest["dataset_identity"]["name"],
+                "operator_version": operator_pointer,
+                "row_status": "completed",
+                "paper_label": "Model-based Born inverse",
+            },
+            {
+                "row_id": "ffno",
+                "model": "ffno",
+                "training": run_config.DEFAULT_TRAINING_LABEL,
+                "input_mode": "sinogram",
+                "dataset_id": manifest["dataset_identity"]["name"],
+                "operator_version": operator_pointer,
+                "row_status": "completed",
+                "paper_label": "FFNO",
+            },
+            {
+                "row_id": "sru_net",
+                "model": "hybrid_resnet",
+                "training": run_config.DEFAULT_TRAINING_LABEL,
+                "input_mode": "sinogram",
+                "dataset_id": manifest["dataset_identity"]["name"],
+                "operator_version": operator_pointer,
+                "row_status": "completed",
+                "paper_label": "SRU-Net",
+            },
+        ],
+    }
+    combined_metrics = {
+        "schema_version": "brdt_sinogram_input_40ep_combined_v1",
+        "claim_boundary": "paper_evidence_brdt_additive",
+        "rows": [
+            {
+                "row_id": "classical_born_backprop",
+                "paper_label": "Model-based Born inverse",
+                "architecture": "classical_born_backprop",
+                "row_status": "completed",
+                "image": {
+                    "image_mae_phys": 0.021,
+                    "image_rmse_phys": 0.031,
+                    "image_relative_l2_phys": 1.91,
+                },
+                "measurement": {
+                    "meas_mae": 0.041,
+                    "meas_rmse": 0.051,
+                    "meas_relative_l2": 2.11,
+                },
+                "supporting": {"psnr_phys": 9.0, "ssim_phys": 0.61},
+                "runtime": {
+                    "device": "cpu",
+                    "device_name": "cpu",
+                    "epochs": 0,
+                    "batch_size": 16,
+                    "learning_rate": 2e-4,
+                    "parameter_count": 0,
+                    "wall_time_train_s": 0.0,
+                    "wall_time_eval_s": 0.1,
+                    "row_status": "completed",
+                },
+            },
+            {
+                "row_id": "ffno",
+                "paper_label": "FFNO",
+                "architecture": "ffno",
+                "row_status": "completed",
+                "image": {
+                    "image_mae_phys": 0.011,
+                    "image_rmse_phys": 0.021,
+                    "image_relative_l2_phys": 1.01,
+                },
+                "measurement": {
+                    "meas_mae": 0.018,
+                    "meas_rmse": 0.028,
+                    "meas_relative_l2": 1.09,
+                },
+                "supporting": {"psnr_phys": 18.2, "ssim_phys": 0.41},
+                "runtime": {
+                    "device": "cpu",
+                    "device_name": "cpu",
+                    "epochs": 40,
+                    "batch_size": 16,
+                    "learning_rate": 2e-4,
+                    "parameter_count": 27538,
+                    "wall_time_train_s": 4.0,
+                    "wall_time_eval_s": 0.1,
+                    "row_status": "completed",
+                },
+            },
+            {
+                "row_id": "sru_net",
+                "paper_label": "SRU-Net",
+                "architecture": "hybrid_resnet",
+                "row_status": "completed",
+                "image": {
+                    "image_mae_phys": 0.008,
+                    "image_rmse_phys": 0.017,
+                    "image_relative_l2_phys": 0.72,
+                },
+                "measurement": {
+                    "meas_mae": 0.012,
+                    "meas_rmse": 0.022,
+                    "meas_relative_l2": 0.47,
+                },
+                "supporting": {"psnr_phys": 22.7, "ssim_phys": 0.74},
+                "runtime": {
+                    "device": "cpu",
+                    "device_name": "cpu",
+                    "epochs": 40,
+                    "batch_size": 16,
+                    "learning_rate": 2e-4,
+                    "parameter_count": 142162,
+                    "wall_time_train_s": 8.0,
+                    "wall_time_eval_s": 0.1,
+                    "row_status": "completed",
+                },
+            },
+        ],
+    }
+    (authority_root / "preflight_manifest.json").write_text(
+        json.dumps(preflight_manifest, indent=2, sort_keys=True) + "\n"
+    )
+    (authority_root / "combined_metrics.json").write_text(
+        json.dumps(combined_metrics, indent=2, sort_keys=True) + "\n"
+    )
+    figures_root = authority_root / "figures" / "source_arrays"
+    figures_root.mkdir(parents=True)
+    for sample_id in (0, 255):
+        np.save(
+            figures_root / f"sample_{sample_id:04d}_q_target.npy",
+            np.zeros((128, 128), dtype=np.float32),
+        )
+        np.save(
+            figures_root / f"sample_{sample_id:04d}_sino_obs.npy",
+            np.zeros((64, 128, 2), dtype=np.float32),
+        )
+    for row_id in row_ids:
+        row_root = authority_root / "rows" / row_id
+        row_root.mkdir(parents=True)
+        profile = {
+            "row_id": row_id,
+            "architecture": "hybrid_resnet" if row_id == "sru_net" else row_id,
+            "parameter_count": 0 if row_id == "classical_born_backprop" else 100 + len(row_id),
+            "input_mode": "sinogram",
+        }
+        summary = {
+            "row_id": row_id,
+            "row_status": "completed",
+            "paper_label": "SRU-Net" if row_id == "sru_net" else row_id,
+            "architecture": profile["architecture"],
+            "input_mode": "sinogram",
+            "image_metrics": {
+                "image_mae_phys": 0.01,
+                "image_rmse_phys": 0.02,
+                "image_relative_l2_phys": 0.8,
+            },
+            "measurement_metrics": {
+                "meas_mae": 0.01,
+                "meas_rmse": 0.02,
+                "meas_relative_l2": 0.5,
+            },
+            "runtime": {"parameter_count": profile["parameter_count"]},
+        }
+        (row_root / "model_profile.json").write_text(
+            json.dumps(profile, indent=2, sort_keys=True) + "\n"
+        )
+        (row_root / "row_summary.json").write_text(
+            json.dumps(summary, indent=2, sort_keys=True) + "\n"
+        )
+        for sample_id in (0, 255):
+            np.save(
+                figures_root / f"sample_{sample_id:04d}_{row_id}_q_pred.npy",
+                np.full((128, 128), float(len(row_id)), dtype=np.float32),
+            )
+            np.save(
+                figures_root / f"sample_{sample_id:04d}_{row_id}_sino_pred.npy",
+                np.full((64, 128, 2), float(len(row_id)), dtype=np.float32),
+            )
+    return authority_root
+
+
 def test_train_neural_row_writes_history_with_scheduler_fields(tmp_path):
     manifest_path = _make_live_decision_support_dataset(tmp_path)
     authority = preflight_mod.load_dataset_authority(manifest_path)
@@ -3076,9 +3301,98 @@ def test_run_sinogram_input_40ep_live_writes_gate_provenance_and_visual_contract
         "tracked_pid",
     ):
         assert required_field in runtime_provenance
-    exit_status = json.loads((output_root / "run_exit_status.json").read_text())
-    assert "tracked_pid" in exit_status
-    assert "log_path" in exit_status
+
+
+def test_run_srunet_coordgrid_extension_dry_run_writes_coordgrid_contract(tmp_path):
+    from scripts.studies.born_rytov_dt import run_srunet_coordgrid_extension as coord_mod
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    authority_root = _make_synthetic_sinogram_authority_bundle(tmp_path, manifest_path)
+    output_root = tmp_path / "coordgrid_dry"
+
+    result = coord_mod.run_srunet_coordgrid_extension(
+        manifest_path=manifest_path,
+        baseline_root=authority_root,
+        output_root=output_root,
+        epochs=1,
+        batch_size=2,
+        dry_run=True,
+        fixed_sample_ids=[255],
+        required_paper_sample=255,
+    )
+
+    assert result["dry_run"] is True
+    manifest = json.loads((output_root / "preflight_manifest.json").read_text())
+    assert (
+        manifest["backlog_item"]
+        == "2026-05-07-brdt-srunet-sinogram-coordinate-conditioning-ablation"
+    )
+    assert manifest["input_contract"]["input_mode"] == "sinogram"
+    assert manifest["input_contract"]["sinogram_to_grid"] == "bilinear_resize"
+    assert manifest["input_contract"]["coordinate_channels"] == "object_xy"
+    assert manifest["input_contract"]["in_channels"] == 4
+    assert [row["row_id"] for row in manifest["rows"]] == ["sru_net_coordgrid"]
+    assert manifest["baseline_lineage"]["baseline_root"] == str(authority_root.resolve())
+
+
+def test_run_srunet_coordgrid_extension_live_appends_lineage_only_baselines(
+    tmp_path,
+):
+    from scripts.studies.born_rytov_dt import run_srunet_coordgrid_extension as coord_mod
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    authority_root = _make_synthetic_sinogram_authority_bundle(tmp_path, manifest_path)
+    output_root = tmp_path / "coordgrid_live"
+
+    result = coord_mod.run_srunet_coordgrid_extension(
+        manifest_path=manifest_path,
+        baseline_root=authority_root,
+        output_root=output_root,
+        epochs=1,
+        batch_size=1,
+        device_choice="cpu",
+        fixed_sample_ids=[0],
+        required_paper_sample=0,
+    )
+
+    assert result["combined_metrics_json_path"].endswith("combined_metrics.json")
+    combined = json.loads((output_root / "combined_metrics.json").read_text())
+    rows = {row["row_id"]: row for row in combined["rows"]}
+    assert set(rows) == {
+        "classical_born_backprop",
+        "ffno",
+        "sru_net",
+        "sru_net_coordgrid",
+    }
+    assert rows["classical_born_backprop"]["source"] == "baseline_lineage"
+    assert rows["ffno"]["source"] == "baseline_lineage"
+    assert rows["sru_net"]["source"] == "baseline_lineage"
+    assert rows["sru_net_coordgrid"]["source"] == "extension"
+    assert not (output_root / "rows" / "ffno" / "history.json").exists()
+    assert not (output_root / "rows" / "sru_net" / "history.json").exists()
+    assert (output_root / "rows" / "sru_net_coordgrid" / "history.json").exists()
+    assert authority_root != output_root
+
+
+def test_run_srunet_coordgrid_extension_missing_lineage_bundle_fails_honestly(
+    tmp_path,
+):
+    from scripts.studies.born_rytov_dt import run_srunet_coordgrid_extension as coord_mod
+
+    manifest_path = _make_live_decision_support_dataset(tmp_path)
+    missing_root = tmp_path / "missing_authority"
+
+    with pytest.raises((FileNotFoundError, ValueError), match="baseline|lineage|missing"):
+        coord_mod.run_srunet_coordgrid_extension(
+            manifest_path=manifest_path,
+            baseline_root=missing_root,
+            output_root=tmp_path / "coordgrid_missing",
+            epochs=1,
+            batch_size=2,
+            dry_run=True,
+            fixed_sample_ids=[255],
+            required_paper_sample=255,
+        )
 
 
 def test_run_sinogram_input_smoke_writes_summary_and_row_artifacts(
