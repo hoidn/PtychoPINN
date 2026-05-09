@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-09T01:41:13Z",
+  "last_updated_utc": "2026-05-09T08:30:00Z",
   "purpose": "Master index of ablation families and completed backlog outputs. This file complements model_variant_index.json by grouping results by changed factor, fixed contract, output roots, and interpretation.",
   "ablation_families": [
     {
@@ -192,6 +192,43 @@
         "pinn_ffno_probe_channels"
       ],
       "interpretation": "The fixed-probe-channel conditioning family keeps the authoritative CDI `lines128` dataset/probe/optimizer/epoch contract frozen and changes only the learned-model input composition for two append-only rows. The conditioned Hybrid row regresses relative to the authoritative Hybrid anchor, especially on phase-side metrics. The conditioned pure-FFNO row improves some amplitude metrics versus the corrected pure-FFNO anchor but collapses phase quality badly enough that it is not promotable. This family is append-only input-conditioning evidence only and does not replace the six-row CDI authority or the current paper-local FFNO refresh."
+    },
+    {
+      "family_id": "cdi_lines128_coordinate_grid_conditioning_ablation",
+      "task": "cdi",
+      "fixed_contract": "cdi_lines128_seed3",
+      "claim_boundary": "cdi_lines128_coordinate_grid_conditioning_ablation_only",
+      "changed_factors": [
+        "learned-model input adds deterministic unit-interval `[y, x]` coordinate channels (`input_conditioning_mode: diffraction_only -> coordinate_grid`)",
+        "`learned_input_channels: 1 -> 3` for the new append-only rows only",
+        "the FFNO conditioned row keeps the corrected pure-FFNO no-refiner anchor (`fno_cnn_blocks=0`) while changing only learned input composition"
+      ],
+      "completed_items": [
+        "2026-05-07-cdi-lines128-coordinate-grid-conditioning-ablation"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_coordinate_grid_conditioning_ablation_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-coordinate-grid-conditioning-ablation/"
+      ],
+      "comparison_artifacts": [
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-coordinate-grid-conditioning-ablation/verification/contract_note.json",
+        ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-coordinate-grid-conditioning-ablation/verification/preflight_payload.json"
+      ],
+      "rows": [
+        {
+          "row_id": "pinn_hybrid_resnet_grid_channels",
+          "nearest_anchor_row": "pinn_hybrid_resnet",
+          "evidence_status": "decision_support_append_only"
+        },
+        {
+          "row_id": "pinn_ffno_grid_channels",
+          "nearest_anchor_row": "pinn_ffno",
+          "evidence_status": "decision_support_append_only"
+        }
+      ],
+      "interpretation": "The coordinate-grid conditioning family keeps the authoritative CDI `lines128` dataset/probe/optimizer/epoch contract frozen and changes only the learned-model input composition for two append-only rows by appending deterministic unit-interval `[y, x]` channels with `ij` meshgrid indexing. Both conditioned rows show the same qualitative pattern: a small amplitude gain together with a severe phase collapse versus their same-contract anchors. Coordinate-grid conditioning did not help Hybrid ResNet/SRU-Net, did not help FFNO, and the effect is not strong enough to justify a later table-refresh item. This family is append-only input-conditioning evidence only and does not replace the six-row CDI authority or the current paper-local FFNO refresh."
     },
     {
       "family_id": "cdi_lines128_ffno_paper_refresh_packaging",

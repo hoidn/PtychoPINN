@@ -84,6 +84,39 @@
   the six-row CDI authority, the corrected pure-FFNO prerequisite authority,
   or the paper-local CDI FFNO refresh.
 
+### `2026-05-07-cdi-lines128-coordinate-grid-conditioning-ablation` (completed; append-only CDI conditioning evidence)
+
+- Purpose: test whether appending deterministic unit-interval `[y, x]`
+  coordinate channels (with `ij` meshgrid indexing) to the learned-model input
+  improves the locked `lines128` CDI Hybrid ResNet/SRU-Net and corrected
+  pure-FFNO rows without changing the dataset/probe/optimizer/epoch contract.
+- Governing design:
+  `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md`
+- Execution plan:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-coordinate-grid-conditioning-ablation/execution_plan.md`
+- Summary authority:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_coordinate_grid_conditioning_ablation_summary.md`
+- Item root (git-ignored):
+  `.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-coordinate-grid-conditioning-ablation/`
+- Fresh row ids:
+  - `pinn_hybrid_resnet_grid_channels`
+  - `pinn_ffno_grid_channels`
+- Comparison anchors:
+  - `pinn_hybrid_resnet` from
+    `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_summary.md`
+  - corrected pure `pinn_ffno` from
+    `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_no_refiner_row_rerun_summary.md`
+- Current read:
+  coordinate-grid conditioning did not yield a promotable improvement on the
+  locked CDI contract; both conditioned rows showed a small amplitude gain
+  together with a severe phase collapse versus their same-contract anchors,
+  matching the qualitative pattern seen in the prior probe-channel
+  conditioning ablation.
+- Boundary: append-only input-conditioning evidence only; claim boundary
+  `cdi_lines128_coordinate_grid_conditioning_ablation_only`; it does not
+  replace the six-row CDI authority, the corrected pure-FFNO prerequisite
+  authority, or the paper-local CDI FFNO refresh.
+
 ## PDE / Forward-Modeling Studies
 
 ### `born-rytov-dt-candidate-preflight` (candidate; active backlog)

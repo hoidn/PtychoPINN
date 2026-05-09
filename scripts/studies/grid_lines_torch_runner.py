@@ -277,11 +277,11 @@ def _probe_lineage_from_metadata(metadata: Optional[Dict[str, Any]]) -> Dict[str
 def _resolved_learned_input_channels(cfg: TorchRunnerConfig) -> int:
     if cfg.input_conditioning_mode == "diffraction_only":
         return 1
-    if cfg.input_conditioning_mode == "probe_real_imag":
+    if cfg.input_conditioning_mode in {"probe_real_imag", "coordinate_grid"}:
         return 3
     raise ValueError(
         f"Unsupported input_conditioning_mode={cfg.input_conditioning_mode!r}; "
-        "expected 'diffraction_only' or 'probe_real_imag'."
+        "expected 'diffraction_only', 'probe_real_imag', or 'coordinate_grid'."
     )
 
 
@@ -310,6 +310,27 @@ def _apply_input_conditioning(
     }
     if cfg.input_conditioning_mode == "diffraction_only":
         return conditioned, contract
+
+    if cfg.input_conditioning_mode == "coordinate_grid":
+        height, width = int(conditioned.shape[1]), int(conditioned.shape[2])
+        y = np.linspace(0.0, 1.0, height, dtype=np.float32)
+        x = np.linspace(0.0, 1.0, width, dtype=np.float32)
+        yy, xx = np.meshgrid(y, x, indexing="ij")
+        coord_y = np.broadcast_to(yy, conditioned.shape[:3])[..., np.newaxis]
+        coord_x = np.broadcast_to(xx, conditioned.shape[:3])[..., np.newaxis]
+        conditioned = np.concatenate([conditioned, coord_y, coord_x], axis=-1)
+        contract.update(
+            {
+                "enabled": True,
+                "learned_input_channels": int(conditioned.shape[-1]),
+                "coordinate_channel_count": 2,
+                "coordinate_channels": ["y", "x"],
+                "coordinate_value_range": [0.0, 1.0],
+                "coordinate_meshgrid_indexing": "ij",
+                "coordinate_spatial_shape": [height, width],
+            }
+        )
+        return conditioned.astype(np.float32), contract
 
     if conditioned.shape[-1] != 1:
         raise ValueError(
@@ -1756,15 +1777,21 @@ def run_grid_lines_torch(
 
         logger.info(f"Loading test data from {cfg.test_npz}")
         test_data, test_metadata = load_cached_dataset_with_metadata(cfg.test_npz)
-        resolved_probe = train_data.get("probeGuess")
-        if resolved_probe is None and cfg.input_conditioning_mode == "diffraction_only":
-            resolved_probe = np.ones((cfg.N, cfg.N), dtype=np.complex64)
-        _, input_conditioning_contract = _apply_input_conditioning(
-            train_data["diffraction"],
-            resolved_probe,
-            cfg,
-            metadata=train_metadata,
-        )
+        input_conditioning_contract: Dict[str, Any] = {
+            "mode": str(cfg.input_conditioning_mode),
+            "enabled": cfg.input_conditioning_mode != "diffraction_only",
+        }
+        diffraction = train_data.get("diffraction")
+        if diffraction is not None:
+            resolved_probe = train_data.get("probeGuess")
+            if resolved_probe is None and cfg.input_conditioning_mode == "diffraction_only":
+                resolved_probe = np.ones((cfg.N, cfg.N), dtype=np.complex64)
+            _, input_conditioning_contract = _apply_input_conditioning(
+                diffraction,
+                resolved_probe,
+                cfg,
+                metadata=train_metadata,
+            )
         update_invocation_artifacts(
             invocation_json,
             extra={"input_conditioning": input_conditioning_contract},
@@ -1964,7 +1991,7 @@ def main(argv=None) -> None:
         "--input-conditioning-mode",
         type=str,
         default="diffraction_only",
-        choices=["diffraction_only", "probe_real_imag"],
+        choices=["diffraction_only", "probe_real_imag", "coordinate_grid"],
         help="Optional learned-input conditioning mode for append-only ablation rows.",
     )
     parser.add_argument(

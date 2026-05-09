@@ -2,7 +2,7 @@
   "schema_version": 1,
   "scope": "NEURIPS-HYBRID-RESNET-2026",
   "status": "draft",
-  "last_updated_utc": "2026-05-09T07:00:00Z",
+  "last_updated_utc": "2026-05-09T08:30:00Z",
   "purpose": "Master index of model variants keyed by dataset, data contract, model configuration, and training mode. This is a discoverability layer over completed backlog outputs; summary authority documents remain the detailed source of truth.",
   "primary_authorities": {
     "paper_evidence_index": "docs/plans/NEURIPS-HYBRID-RESNET-2026/paper_evidence_index.md",
@@ -11,6 +11,7 @@
     "cdi_ffno_no_refiner_rerun": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_ffno_no_refiner_row_rerun_summary.md",
     "cdi_supervised_ffno_no_refiner_rerun": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_supervised_ffno_no_refiner_rerun_summary.md",
     "cdi_probe_channel_conditioning_ablation": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_probe_channel_conditioning_ablation_summary.md",
+    "cdi_coordinate_grid_conditioning_ablation": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_coordinate_grid_conditioning_ablation_summary.md",
     "cdi_no_refiner_ffno_table_refresh_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_no_refiner_ffno_table_refresh_summary.md",
     "cdi_supervised_extension": "docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_supervised_equivalent_rows_summary.md",
     "cns_table_bundle": "docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md",
@@ -801,6 +802,129 @@
       },
       "nearest_anchor_row": "pinn_ffno",
       "comparison_outcome": "probe_conditioning_improves_some_amplitude_metrics_but_collapses_phase_quality_vs_corrected_pure_ffno_anchor",
+      "evidence_status": "decision_support_append_only"
+    },
+    {
+      "variant_id": "cdi_lines128__hybrid_resnet_grid_channels__pinn__input_conditioning_ablation",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_hybrid_resnet_grid_channels",
+      "paper_label": "Hybrid ResNet + PINN (coordinate-grid-conditioned input)",
+      "architecture_id": "hybrid_resnet",
+      "model_family": "hybrid_local_spectral",
+      "training_mode": "pinn",
+      "architecture_overrides": {
+        "learned_input_channels": 3
+      },
+      "input_conditioning": {
+        "mode": "coordinate_grid",
+        "base_input_channels": 1,
+        "learned_input_channels": 3,
+        "coordinate_channel_count": 2,
+        "coordinate_channels": [
+          "y",
+          "x"
+        ],
+        "coordinate_value_range": [
+          0.0,
+          1.0
+        ],
+        "coordinate_meshgrid_indexing": "ij",
+        "coordinate_spatial_shape": [
+          128,
+          128
+        ]
+      },
+      "claim_boundary": "cdi_lines128_coordinate_grid_conditioning_ablation_only",
+      "lineage": {
+        "baseline_variant_id": "cdi_lines128__hybrid_resnet__pinn__complete_table",
+        "baseline_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cdi-lines128-paper-benchmark-execution/runs/complete_table_20260430T150757Z_repair_tmux"
+      },
+      "source_backlog_item": "2026-05-07-cdi-lines128-coordinate-grid-conditioning-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_coordinate_grid_conditioning_ablation_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-coordinate-grid-conditioning-ablation",
+      "metrics_json": "runs/pinn_hybrid_resnet_grid_channels/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_hybrid_resnet_grid_channels.png",
+        "visuals/amp_phase_error_pinn_hybrid_resnet_grid_channels.png"
+      ],
+      "metrics": {
+        "amp_mae": 0.0251320693641901,
+        "phase_mae": 3.014876190174209,
+        "amp_mse": 0.0009994541760534048,
+        "phase_mse": 9.58210010880688,
+        "amp_psnr": 78.1331748090364,
+        "phase_psnr": 38.31619657015327,
+        "amp_ssim": 0.9899989024950908,
+        "phase_ssim": 0.1862887952808429,
+        "amp_ms_ssim": 0.9982573851508822,
+        "phase_ms_ssim": 0.0009378243734714271,
+        "amp_frc50": 138.40831643184248,
+        "phase_frc50": 49.61542462976649
+      },
+      "nearest_anchor_row": "pinn_hybrid_resnet",
+      "comparison_outcome": "coordinate_grid_conditioning_marginally_improves_amplitude_but_collapses_phase_quality_vs_hybrid_anchor",
+      "evidence_status": "decision_support_append_only"
+    },
+    {
+      "variant_id": "cdi_lines128__ffno_grid_channels__pinn__input_conditioning_ablation",
+      "dataset_contract_id": "cdi_lines128_seed3",
+      "row_id": "pinn_ffno_grid_channels",
+      "paper_label": "FFNO + PINN (coordinate-grid-conditioned input)",
+      "architecture_id": "ffno",
+      "model_family": "factorized_fourier_operator",
+      "training_mode": "pinn",
+      "architecture_overrides": {
+        "fno_cnn_blocks": 0,
+        "learned_input_channels": 3
+      },
+      "input_conditioning": {
+        "mode": "coordinate_grid",
+        "base_input_channels": 1,
+        "learned_input_channels": 3,
+        "coordinate_channel_count": 2,
+        "coordinate_channels": [
+          "y",
+          "x"
+        ],
+        "coordinate_value_range": [
+          0.0,
+          1.0
+        ],
+        "coordinate_meshgrid_indexing": "ij",
+        "coordinate_spatial_shape": [
+          128,
+          128
+        ]
+      },
+      "claim_boundary": "cdi_lines128_coordinate_grid_conditioning_ablation_only",
+      "lineage": {
+        "baseline_variant_id": "cdi_lines128__ffno__pinn__no_refiner_prerequisite_rerun",
+        "baseline_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-no-refiner-row-rerun/runs/ffno_no_refiner_20260506T223454Z"
+      },
+      "source_backlog_item": "2026-05-07-cdi-lines128-coordinate-grid-conditioning-ablation",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_lines128_coordinate_grid_conditioning_ablation_summary.md",
+      "artifact_root": ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-cdi-lines128-coordinate-grid-conditioning-ablation",
+      "metrics_json": "runs/pinn_ffno_grid_channels/metrics.json",
+      "visuals": [
+        "visuals/amp_phase_pinn_ffno_grid_channels.png",
+        "visuals/amp_phase_error_pinn_ffno_grid_channels.png"
+      ],
+      "metrics": {
+        "amp_mae": 0.06978929042816162,
+        "phase_mae": 1.6827424936589617,
+        "amp_mse": 0.007630164735019207,
+        "phase_mse": 5.449988593537821,
+        "amp_psnr": 69.30546450438062,
+        "phase_psnr": 40.76684767980246,
+        "amp_ssim": 0.9143004827025021,
+        "phase_ssim": 0.3843363519768116,
+        "amp_ms_ssim": 0.9883156747981222,
+        "phase_ms_ssim": 0.0011301782348200069,
+        "amp_frc50": 60.64714856658848,
+        "phase_frc50": 27.273829242532425
+      },
+      "nearest_anchor_row": "pinn_ffno",
+      "comparison_outcome": "coordinate_grid_conditioning_improves_some_amplitude_metrics_but_collapses_phase_quality_vs_corrected_pure_ffno_anchor",
       "evidence_status": "decision_support_append_only"
     },
     {
