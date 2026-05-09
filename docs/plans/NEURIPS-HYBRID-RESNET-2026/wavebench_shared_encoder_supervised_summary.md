@@ -84,8 +84,8 @@ follow-on item would have to authorize the change.
 | `hybrid_resnet` | 64 | 75,488 | 7,804,322 | 7,879,810 | 1014.6 | 0.032853 | 0.145195 | 0.999981 | 1.750e-05 |
 | `spectral_resnet_bottleneck_net` | 32 | 73,408 | 8,188,323 | 8,261,731 | 1255.0 | 0.032873 | 0.145197 | 0.999993 | 7.290e-06 |
 | `spectral_resnet_bottleneck_net` | 64 | 75,488 | 8,197,539 | 8,273,027 | 1284.0 | 0.032878 | 0.145195 | 0.999982 | 2.580e-05 |
-| `fno` | 32 | 73,408 | 11,713 | 85,121 | 446.3 | 0.032828 | 0.145201 | 1.000026 | 1.587e-06 |
-| `fno` | 64 | 75,488 | 12,737 | 88,225 | 465.5 | 0.032822 | 0.145195 | 0.999980 | 1.694e-06 |
+| `fno` | 32 | 73,408 | 597,313 | 670,721 | 560.2 | 0.032825 | 0.145200 | 1.000020 | 2.940e-06 |
+| `fno` | 64 | 75,488 | 598,337 | 673,825 | 579.7 | 0.032820 | 0.145195 | 0.999983 | 6.063e-06 |
 | `ffno` | 32 | 73,408 | 97,122 | 170,530 | 1157.8 | 0.032827 | 0.145199 | 1.000012 | 9.565e-06 |
 | `ffno` | 64 | 75,488 | 106,338 | 181,826 | 1185.0 | 0.032868 | 0.145195 | 0.999982 | 1.137e-05 |
 
@@ -114,6 +114,27 @@ comparison wrappers, not native WaveBench architectures. Their fairness value
 depends on the shared encoder, split, loss, optimizer, scheduler, seed, and
 reporting schema being held fixed across every row — every one of these is
 locked in `row_contract.json` and the runner.
+
+Body-label semantics actually used in this bundle:
+
+- `cnn`: U-Net with `width=32`, three down/up stages (`LocalUnetBody`).
+- `hybrid_resnet`: shared-encoder `HybridShellBody` with a 6-block
+  `ResnetBottleneck`.
+- `spectral_resnet_bottleneck_net`: shared-encoder `HybridShellBody` with a
+  6-block `SharedSpectralResnetBottleneck` (`modes=12`).
+- `fno`: 4-block standard FNO 2D body
+  (`_FallbackSpectralConv2d(modes=12)` spectral path + 1×1 bypass + GELU per
+  block, `hidden_width=32`). The block uses real `torch.fft.rfft2` /
+  `torch.fft.irfft2` spectral convolution, matching the design's
+  `fno_modes=12, fno_width=32, fno_blocks=4` recipe.
+- `ffno`: shared-encoder FFNO stack via
+  `build_no_refiner_ffno_stack(modes=12, n_blocks=4,
+  share_spectral_weights=True)` with two downstream local 3×3 residual
+  refiners before the 1×1 output projection. The "no-refiner" name applies
+  to the FFNO stack itself (no built-in local refiner inside the spectral
+  trunk); the trailing local refiners here are part of the shared-encoder
+  WaveBench wrapper, not the upstream FFNO contract used elsewhere in the
+  initiative.
 
 ## Native WaveBench Reference Context
 

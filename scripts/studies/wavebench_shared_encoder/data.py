@@ -151,14 +151,18 @@ def build_dataloaders(
     )
 
     batch_sizes = {"train": train_batch_size, "val": eval_batch_size, "test": eval_batch_size}
+    loader_kwargs = {
+        split: {
+            "batch_size": batch_sizes[split],
+            "num_workers": num_workers,
+            "order": OrderOption.RANDOM if split == "train" else OrderOption.SEQUENTIAL,
+            "indices": split_indices[split],
+            "pipelines": {"input": [NDArrayDecoder(), ToTensor()], "target": [NDArrayDecoder(), ToTensor()]},
+        }
+        for split in ("train", "val", "test")
+    }
+    loader_kwargs["train"]["seed"] = int(contract["split"]["seed"])
     return {
-        split: Loader(
-            str(dataset_path),
-            batch_size=batch_sizes[split],
-            num_workers=num_workers,
-            order=OrderOption.RANDOM if split == "train" else OrderOption.SEQUENTIAL,
-            indices=split_indices[split],
-            pipelines={"input": [NDArrayDecoder(), ToTensor()], "target": [NDArrayDecoder(), ToTensor()]},
-        )
+        split: Loader(str(dataset_path), **loader_kwargs[split])
         for split in ("train", "val", "test")
     }

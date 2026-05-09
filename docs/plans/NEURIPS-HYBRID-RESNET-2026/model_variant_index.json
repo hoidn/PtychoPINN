@@ -3170,6 +3170,13 @@
       "model_family": "fourier_neural_operator",
       "training_mode": "shared_encoder_supervised",
       "latent_channels": 32,
+      "body_recipe": {
+        "kind": "fno_2d",
+        "spectral_conv": "_FallbackSpectralConv2d(modes=12) using torch.fft.rfft2/irfft2",
+        "hidden_width": 32,
+        "n_blocks": 4,
+        "block_form": "GELU(SpectralConv(x) + Conv1x1(x))"
+      },
       "source_backlog_item": "2026-04-29-wavebench-shared-encoder-supervised-benchmark",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_shared_encoder_supervised_summary.md",
       "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/",
@@ -3179,23 +3186,23 @@
       "table_ready_metrics_json": "table_ready_metrics.json",
       "row_contract_json": "row_contract.json",
       "encoder_parameters": 73408,
-      "body_parameters": 11713,
-      "parameter_count": 85121,
+      "body_parameters": 597313,
+      "parameter_count": 670721,
       "metrics": {
-        "MAE": 0.03282822296023369,
-        "RMSE": 0.1452011615037918,
-        "RelL2": 1.0000258684158325,
-        "SSIM": 1.5871725120259805e-06
+        "MAE": 0.03282463178038597,
+        "RMSE": 0.14520040154457092,
+        "RelL2": 1.000020146369934,
+        "SSIM": 2.9397235892321018e-06
       },
       "runtime": {
         "device": "cuda",
         "device_name": "NVIDIA GeForce RTX 3090",
         "batch_size": 32,
         "epochs": 50,
-        "wall_time_train_s": 446.25388979911804,
-        "peak_memory_bytes": 1643375616,
-        "train_loss_final_l1": 0.03348075944492825,
-        "val_loss_final_l1": 0.033393497445753643
+        "wall_time_train_s": 560.2447335720062,
+        "peak_memory_bytes": 1737167872,
+        "train_loss_final_l1": 0.033473532978325976,
+        "val_loss_final_l1": 0.03338991158774921
       },
       "claim_boundary": "candidate_lane_repo_local_shared_encoder_comparison_only",
       "evidence_status": "candidate_lane_shared_encoder_only",
@@ -3210,6 +3217,13 @@
       "model_family": "fourier_neural_operator",
       "training_mode": "shared_encoder_supervised",
       "latent_channels": 64,
+      "body_recipe": {
+        "kind": "fno_2d",
+        "spectral_conv": "_FallbackSpectralConv2d(modes=12) using torch.fft.rfft2/irfft2",
+        "hidden_width": 32,
+        "n_blocks": 4,
+        "block_form": "GELU(SpectralConv(x) + Conv1x1(x))"
+      },
       "source_backlog_item": "2026-04-29-wavebench-shared-encoder-supervised-benchmark",
       "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_shared_encoder_supervised_summary.md",
       "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/",
@@ -3219,23 +3233,23 @@
       "table_ready_metrics_json": "table_ready_metrics.json",
       "row_contract_json": "row_contract.json",
       "encoder_parameters": 75488,
-      "body_parameters": 12737,
-      "parameter_count": 88225,
+      "body_parameters": 598337,
+      "parameter_count": 673825,
       "metrics": {
-        "MAE": 0.032821837812662125,
-        "RMSE": 0.14519476890563965,
-        "RelL2": 0.9999799728393555,
-        "SSIM": 1.6937634834617047e-06
+        "MAE": 0.03282007947564125,
+        "RMSE": 0.14519517123699188,
+        "RelL2": 0.9999829530715942,
+        "SSIM": 6.0629262600748785e-06
       },
       "runtime": {
         "device": "cuda",
         "device_name": "NVIDIA GeForce RTX 3090",
         "batch_size": 32,
         "epochs": 50,
-        "wall_time_train_s": 465.53677320480347,
-        "peak_memory_bytes": 1777630208,
-        "train_loss_final_l1": 0.03348077192001071,
-        "val_loss_final_l1": 0.03338711070162909
+        "wall_time_train_s": 579.7151374816895,
+        "peak_memory_bytes": 1871422464,
+        "train_loss_final_l1": 0.033480920235616454,
+        "val_loss_final_l1": 0.033385396535907476
       },
       "claim_boundary": "candidate_lane_repo_local_shared_encoder_comparison_only",
       "evidence_status": "candidate_lane_shared_encoder_only",

@@ -6,7 +6,7 @@ import torch
 import torch.nn as nn
 
 from ptycho_torch.generators.ffno_bottleneck import build_no_refiner_ffno_stack
-from ptycho_torch.generators.fno import SpatialLifter
+from ptycho_torch.generators.fno import SpatialLifter, _FallbackSpectralConv2d
 from ptycho_torch.generators.hybrid_resnet import (
     AvgPoolConvDownsample,
     BlurPoolConvDownsample,
@@ -94,9 +94,9 @@ class Conv1x1(nn.Module):
 
 
 class FourierLayer2d(nn.Module):
-    def __init__(self, channels: int, modes: int):
+    def __init__(self, channels: int, modes: int = 12):
         super().__init__()
-        self.spectral = nn.Conv2d(channels, channels, kernel_size=1)
+        self.spectral = _FallbackSpectralConv2d(channels, channels, modes)
         self.local = nn.Conv2d(channels, channels, kernel_size=1)
         self.act = nn.GELU()
 

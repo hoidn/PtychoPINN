@@ -2,6 +2,74 @@
 
 ## Completed In This Pass
 
+- Implementation-review H1 fix: replaced the placeholder
+  `FourierLayer2d` (which was two 1×1 `Conv2d` layers and silently ignored
+  the `modes` argument) with a real FNO 2D block that uses
+  `_FallbackSpectralConv2d` from `ptycho_torch/generators/fno.py`. The new
+  block performs `torch.fft.rfft2` / `torch.fft.irfft2` spectral convolution
+  with `modes=12`, paired with a 1×1 bypass and GELU. The `fno` body now
+  honors the locked design recipe (`fno_modes=12, fno_width=32,
+  fno_blocks=4`) and the row-roster label.
+- M1 follow-up: added `test_fno_body_uses_real_spectral_convolution`
+  in `tests/studies/test_wavebench_shared_encoder_models.py` that asserts
+  the `fno` body contains `_FallbackSpectralConv2d` modules with complex
+  spectral weights at `modes=12` and that `body_parameters >= 100_000`,
+  preventing regression to the pointwise-only placeholder.
+- M2 follow-up: the FFCV train-split `Loader` is now constructed with
+  `seed=int(contract["split"]["seed"])` (42) so `OrderOption.RANDOM`
+  sampling is byte-reproducible across reruns and follow-on items, not
+  just deterministic via `torch.manual_seed`.
+- Re-ran the locked-recipe `fno` row end-to-end on the locked
+  `9000 / 500 / 500` split for both `C=32` and `C=64` under a tracked
+  background wrapper PID. Both passes exited `0` and the
+  `fno_rerun_complete.flag` artifact was written. New per-row metrics:
+  - `fno c32`: encoder=73,408 / body=597,313 / total=670,721 params,
+    runtime 560.2s, peak memory 1,737,167,872 B,
+    train_loss 0.033474, val_loss 0.033390,
+    test MAE 0.032825, RMSE 0.145200, RelL2 1.000020, SSIM 2.940e-06.
+  - `fno c64`: encoder=75,488 / body=598,337 / total=673,825 params,
+    runtime 579.7s, peak memory 1,871,422,464 B,
+    train_loss 0.033481, val_loss 0.033385,
+    test MAE 0.032820, RMSE 0.145195, RelL2 0.999983, SSIM 6.063e-06.
+- Refreshed the bundle: `comparison_summary.{json,csv}`,
+  `table_ready_metrics.json`, `shared_encoder_execution_manifest.json`,
+  `rows/fno/c{32,64}/{metrics,model_profile}.json`, and the per-row
+  `figures/c{32,64}/fno/` PNGs / source arrays / figure manifests now
+  reflect the corrected FNO body. The other rows (`cnn`,
+  `hybrid_resnet`, `spectral_resnet_bottleneck_net`, `ffno`) were
+  intentionally left untouched; their artifacts and metrics are
+  unchanged.
+- Refreshed the durable summary
+  (`docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_shared_encoder_supervised_summary.md`):
+  the metrics table for the `fno` rows, and a new "body-label semantics
+  actually used in this bundle" subsection that documents (a) the real
+  FNO body recipe, (b) the FFNO body's two trailing local residual
+  refiners (review L1) so the `ffno` label cannot be confused with the
+  upstream FFNO no-refiner contract reactivated elsewhere in the
+  initiative.
+- Refreshed `model_variant_index.json`: both fno entries now record the
+  corrected `body_recipe`, `body_parameters`, `parameter_count`,
+  `metrics`, and `runtime`. The interpretation paragraph is unchanged
+  because the recipe-driven collapse persists with a real FNO body
+  (review L2 resolved without rewriting the negative-result framing).
+- Appended a new selector-facing entry to
+  `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json`
+  recording the implementation-review fix, the new test count
+  (12 passed), the rerun verification commands, the corrected FNO body
+  parameter counts, and the FFCV reproducibility change.
+- Verified all gates after the fix:
+  - implementation-gate pytest: `pytest -q
+    tests/studies/test_wavebench_shared_encoder_{data,models,runner,contract}.py`
+    -> 12 passed (was 11 before the structural FNO test was added).
+  - final-bundle gate:
+    `python scripts/studies/validate_wavebench_shared_encoder_contract.py
+    --require-benchmark-completion` -> `wavebench shared-encoder
+    contract validated`.
+
+## Earlier Pass — Original Bundle Build
+
+
+
 - Tightened the row-status vocabulary so `completed` is reserved for
   benchmark-mode rows on the locked split, while smoke runs now record
   `status="smoke_pass"`. `run_row()` derives status from mode via

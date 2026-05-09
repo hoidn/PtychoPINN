@@ -2487,6 +2487,58 @@
         "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
         "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/execution_report.md"
       ]
+    },
+    {
+      "tranche_id": "2026-04-29-wavebench-shared-encoder-supervised-benchmark",
+      "updated_at_utc": "2026-05-09T07:11:00Z",
+      "update_reason": "Implementation-review H1 fix: the prior fno row used a 1x1-only FourierLayer2d with no FFT, violating the locked row-roster semantics. Replaced with a real FNO body (4 _FallbackSpectralConv2d blocks at modes=12, hidden_width=32, with 1x1 bypass and GELU) and re-ran fno_c32 and fno_c64 under the locked recipe.",
+      "decision": "shared_encoder_supervised_benchmark_completed",
+      "decision_scope": "candidate_lane_repo_local_shared_encoder_comparison_only",
+      "evidence_scope": "candidate_lane_only_not_paper_evidence",
+      "performance_assessment_complete": true,
+      "performance_assessment_notes": "Corrected fno row converged to the same trivial-prediction baseline as the other rows under the locked recipe (test RelL2 ~ 1.0, SSIM ~ 0). The original recipe-versus-encoder framing in the durable summary is preserved with refreshed metrics; the body now faithfully implements FFT-based spectral convolution, so the collapse is not attributable to a broken architecture.",
+      "row_status_summary": {
+        "fno_c32": "completed (refreshed)",
+        "fno_c64": "completed (refreshed)"
+      },
+      "fno_body_recipe": {
+        "kind": "fno_2d",
+        "spectral_conv": "_FallbackSpectralConv2d(modes=12) using torch.fft.rfft2/irfft2",
+        "hidden_width": 32,
+        "n_blocks": 4,
+        "block_form": "GELU(SpectralConv(x) + Conv1x1(x))",
+        "body_parameters_c32": 597313,
+        "body_parameters_c64": 598337
+      },
+      "verification": [
+        "pytest -q tests/studies/test_wavebench_shared_encoder_data.py tests/studies/test_wavebench_shared_encoder_models.py tests/studies/test_wavebench_shared_encoder_runner.py tests/studies/test_wavebench_shared_encoder_contract.py -> 12 passed",
+        "python scripts/studies/run_wavebench_shared_encoder_benchmark.py --mode benchmark --row fno --latent-channels 32 --epochs 50 (rc=0)",
+        "python scripts/studies/run_wavebench_shared_encoder_benchmark.py --mode benchmark --row fno --latent-channels 64 --epochs 50 (rc=0)",
+        "python scripts/studies/validate_wavebench_shared_encoder_contract.py --require-benchmark-completion -> wavebench shared-encoder contract validated"
+      ],
+      "follow_on_reproducibility_change": "FFCV train-split Loader now seeds OrderOption.RANDOM with seed=42 from the locked contract (M2 from review), so future reruns are byte-reproducible across the locked split.",
+      "claim_boundary": {
+        "row_status": "candidate_lane_shared_encoder_only",
+        "allowed_use": "repo-local shared-encoder body-family comparison context for the WaveBench candidate-lane only; the locked recipe converged every row to the trivial-prediction baseline, so no body-level ranking claim is permitted",
+        "not_allowed": "paper-table promotion; cross-architecture ranking on this dataset; mixing into native WaveBench reference rows; claiming any body is competitive on WaveBench inverse source under this recipe"
+      },
+      "affected_surfaces": [
+        "scripts/studies/wavebench_shared_encoder/models.py",
+        "scripts/studies/wavebench_shared_encoder/data.py",
+        "tests/studies/test_wavebench_shared_encoder_models.py",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/rows/fno/",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/figures/c32/fno/",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/figures/c64/fno/",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/figures/source_arrays/fno/",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/comparison_summary.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/comparison_summary.csv",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/table_ready_metrics.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/shared_encoder_execution_manifest.json",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_shared_encoder_supervised_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+        "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/execution_report.md"
+      ]
     }
   ]
 }
