@@ -22,10 +22,36 @@ def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+VALID_STATUSES = {
+    "completed",
+    "smoke_pass",
+    "blocked",
+    "not_protocol_compatible",
+}
+COMPLETION_LIKE_STATUSES = {"completed", "blocked", "not_protocol_compatible"}
+LOCKED_ROWS = (
+    "cnn",
+    "hybrid_resnet",
+    "spectral_resnet_bottleneck_net",
+    "fno",
+    "ffno",
+)
+LOCKED_LATENT_CHANNELS = (32, 64)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Validate WaveBench shared-encoder artifacts.")
     parser.add_argument("--repo-root", default=".")
     parser.add_argument("--output-root", default=OUTPUT_ROOT_RELATIVE)
+    parser.add_argument(
+        "--require-benchmark-completion",
+        action="store_true",
+        help=(
+            "Require every row in the locked roster to have a benchmark-mode entry for"
+            " each latent width that is either status=completed (with mode=benchmark)"
+            " or carries an explicit row-level blocker."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -69,22 +95,54 @@ def main() -> None:
         for channel_key, record in channel_map.items():
             status = record["status"]
             require(
-                status in {"completed", "blocked", "not_protocol_compatible"},
+                status in VALID_STATUSES,
                 f"invalid row status for {row}/{channel_key}: {status}",
             )
             artifact_path = output_root / record["artifact_path"]
-            if status == "completed":
+            if status in {"completed", "smoke_pass"}:
                 metrics = load_json(artifact_path)
                 require(metrics["row"] == row, f"metrics row mismatch for {artifact_path}")
                 require(
                     metrics["latent_channels"] == int(channel_key.removeprefix("c")),
                     f"metrics latent width mismatch for {artifact_path}",
                 )
+                require(
+                    metrics.get("mode") in {"smoke", "benchmark"},
+                    f"metrics payload missing valid mode for {artifact_path}",
+                )
+                if status == "completed":
+                    require(
+                        metrics["mode"] == "benchmark",
+                        f"status=completed requires mode=benchmark for {artifact_path}",
+                    )
+                if status == "smoke_pass":
+                    require(
+                        metrics["mode"] == "smoke",
+                        f"status=smoke_pass requires mode=smoke for {artifact_path}",
+                    )
                 for metric_name in ("MAE", "RMSE", "RelL2", "SSIM"):
                     require(
                         metric_name in metrics["metrics"],
                         f"metrics payload missing {metric_name} for {artifact_path}",
                     )
+
+    if args.require_benchmark_completion:
+        rows = manifest.get("rows", {})
+        for row in LOCKED_ROWS:
+            for latent in LOCKED_LATENT_CHANNELS:
+                channel_key = f"c{latent}"
+                record = rows.get(row, {}).get(channel_key)
+                require(
+                    record is not None,
+                    f"missing manifest entry for {row}/{channel_key} under benchmark-completion gate",
+                )
+                require(
+                    record["status"] in COMPLETION_LIKE_STATUSES,
+                    (
+                        f"benchmark-completion gate requires {row}/{channel_key} to be one of "
+                        f"{sorted(COMPLETION_LIKE_STATUSES)}, found status={record['status']}"
+                    ),
+                )
 
     print("wavebench shared-encoder contract validated")
 

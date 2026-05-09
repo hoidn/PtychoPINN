@@ -102,6 +102,7 @@ def test_shared_encoder_validator_accepts_consistent_bundle(tmp_path: Path):
     metrics = {
         "row": "cnn",
         "latent_channels": 32,
+        "mode": "benchmark",
         "status": "completed",
         "metrics": {"MAE": 0.1, "RMSE": 0.2, "RelL2": 0.3, "SSIM": 0.4},
     }

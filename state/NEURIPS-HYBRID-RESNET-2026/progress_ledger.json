@@ -2331,13 +2331,31 @@
         "dataset_file": "/home/ollie/Documents/pdebench-data/2d_cfd_cns/2D_CFD_Rand_M1.0_Eta0.01_Zeta0.01_periodic_128_Train.hdf5",
         "history_len": 5,
         "epochs": 40,
-        "split_counts": {"train": 512, "val": 64, "test": 64},
+        "split_counts": {
+          "train": 512,
+          "val": 64,
+          "test": 64
+        },
         "max_windows_per_trajectory": 8,
-        "emitted_window_counts": {"train": 4096, "val": 512, "test": 512},
+        "emitted_window_counts": {
+          "train": 4096,
+          "val": 512,
+          "test": 512
+        },
         "training_loss": "mse",
         "batch_size": 4,
-        "metric_family": ["err_RMSE", "err_nRMSE", "relative_l2", "fRMSE_low", "fRMSE_mid", "fRMSE_high"],
-        "fresh_rows": ["fno_base", "unet_strong"],
+        "metric_family": [
+          "err_RMSE",
+          "err_nRMSE",
+          "relative_l2",
+          "fRMSE_low",
+          "fRMSE_mid",
+          "fRMSE_high"
+        ],
+        "fresh_rows": [
+          "fno_base",
+          "unet_strong"
+        ],
         "frozen_h2_reference_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-2d-cfd-cns/readiness-cap-20260421T185926Z-40ep-mse",
         "completed_h5_authority_roots": [
           ".artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-author-ffno-history-length-compare/history5-pilot-40ep-20260502T074500Z",
@@ -2407,6 +2425,67 @@
         "docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json",
         "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
         ".artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-cns-history5-comparator-gap-fill/execution_report.md"
+      ]
+    },
+    {
+      "tranche_id": "2026-04-29-wavebench-shared-encoder-supervised-benchmark",
+      "updated_at_utc": "2026-05-09T07:00:00Z",
+      "update_reason": "Closes the WaveBench discoverability gap: the candidate-lane shared-encoder supervised benchmark item has executed all five locked-roster rows on the locked 9000/500/500 split for both C=32 and C=64 under the locked L1 + Adam 2e-4 + plateau recipe.",
+      "decision": "shared_encoder_supervised_benchmark_completed",
+      "decision_scope": "candidate_lane_repo_local_shared_encoder_comparison_only",
+      "evidence_scope": "candidate_lane_only_not_paper_evidence",
+      "performance_assessment_complete": true,
+      "performance_assessment_notes": "All 10 configurations converged to a near-zero trivial-prediction baseline under the locked recipe (test RelL2 ~ 1.0, SSIM ~ 0, train/val L1 ~ 0.0335 / 0.0334). The bundle preserves every row at status=completed under the explicit benchmark-mode gate, with the fairness contract intact. Under the locked recipe the body family is not separable. Lifting the recipe lock is out of scope for this item and would require a follow-on candidate-lane item.",
+      "row_status_summary": {
+        "cnn_c32": "completed",
+        "cnn_c64": "completed",
+        "hybrid_resnet_c32": "completed",
+        "hybrid_resnet_c64": "completed",
+        "spectral_resnet_bottleneck_net_c32": "completed",
+        "spectral_resnet_bottleneck_net_c64": "completed",
+        "fno_c32": "completed",
+        "fno_c64": "completed",
+        "ffno_c32": "completed",
+        "ffno_c64": "completed"
+      },
+      "shared_encoder_artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/",
+      "row_contract_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/row_contract.json",
+      "manifest_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/shared_encoder_execution_manifest.json",
+      "table_ready_metrics_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/table_ready_metrics.json",
+      "comparison_summary_csv": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/comparison_summary.csv",
+      "run_roots_path": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/run_roots.json",
+      "summary_path": "docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_shared_encoder_supervised_summary.md",
+      "verification": [
+        "python scripts/studies/validate_wavebench_preflight_contract.py",
+        "python scripts/studies/validate_wavebench_provisioning_decision.py",
+        "python scripts/studies/validate_wavebench_native_baseline_contract.py",
+        "pytest -q tests/studies/test_wavebench_preflight_contract.py tests/studies/test_wavebench_provisioning_decision_contract.py tests/studies/test_wavebench_native_baseline_contract.py -> 8 passed",
+        "pytest -q tests/studies/test_wavebench_shared_encoder_data.py tests/studies/test_wavebench_shared_encoder_models.py tests/studies/test_wavebench_shared_encoder_runner.py tests/studies/test_wavebench_shared_encoder_contract.py -> 11 passed",
+        "python scripts/studies/run_wavebench_shared_encoder_benchmark.py --mode benchmark --row all --latent-channels 32 --epochs 50 --train-batch-size 32 --eval-batch-size 64 --num-workers 2 (rc=0)",
+        "python scripts/studies/run_wavebench_shared_encoder_benchmark.py --mode benchmark --row all --latent-channels 64 --epochs 50 --train-batch-size 32 --eval-batch-size 64 --num-workers 2 (rc=0)",
+        "python scripts/studies/validate_wavebench_shared_encoder_contract.py --require-benchmark-completion -> wavebench shared-encoder contract validated"
+      ],
+      "claim_boundary": {
+        "row_status": "candidate_lane_shared_encoder_only",
+        "allowed_use": "repo-local shared-encoder body-family comparison context for the WaveBench candidate-lane only; the locked recipe converged every row to the trivial-prediction baseline, so no body-level ranking claim is permitted",
+        "not_allowed": "paper-table promotion; cross-architecture ranking on this dataset; mixing into native WaveBench reference rows; claiming any body is competitive on WaveBench inverse source under this recipe"
+      },
+      "affected_surfaces": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_shared_encoder_supervised_summary.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json",
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/ablation_index.json",
+        "docs/index.md",
+        "scripts/studies/wavebench_shared_encoder/",
+        "scripts/studies/run_wavebench_shared_encoder_benchmark.py",
+        "scripts/studies/validate_wavebench_shared_encoder_contract.py",
+        "tests/studies/test_wavebench_shared_encoder_data.py",
+        "tests/studies/test_wavebench_shared_encoder_models.py",
+        "tests/studies/test_wavebench_shared_encoder_runner.py",
+        "tests/studies/test_wavebench_shared_encoder_contract.py",
+        "state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json",
+        "artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/execution_report.md"
       ]
     }
   ]

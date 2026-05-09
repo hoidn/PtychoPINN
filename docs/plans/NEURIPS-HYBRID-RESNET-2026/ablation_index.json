@@ -999,6 +999,71 @@
         "sru_net_coordgrid (append-only coordgrid diagnostic row)"
       ],
       "interpretation": "Append-only BRDT representational diagnostic over the learned sinogram-input contract. The added object-grid coordinate channels do not help SRU-Net on this fixed contract: the fresh row is materially worse than the unconditioned sinogram-input authority on every required image and measurement metric, reduces throughput, reaches `materially_improving_at_stop=false`, and is therefore not promotable."
+    },
+    {
+      "family_id": "wavebench_shared_encoder_body_architecture_comparison",
+      "task": "candidate_wavebench",
+      "fixed_contract": "wavebench_is_gaussian_lens_shared_encoder_9000_500_500",
+      "changed_factors": [
+        "reconstruction_body_architecture"
+      ],
+      "completed_items": [
+        "2026-04-29-wavebench-shared-encoder-supervised-benchmark"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_shared_encoder_supervised_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/"
+      ],
+      "comparison_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/row_contract.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/table_ready_metrics.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/comparison_summary.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/comparison_summary.csv"
+      ],
+      "rows": [
+        "cnn",
+        "hybrid_resnet",
+        "spectral_resnet_bottleneck_net",
+        "fno",
+        "ffno"
+      ],
+      "interpretation": "Repo-local shared-encoder architecture comparison on locked WaveBench inverse-source split. One fixed shared anisotropic measurement encoder and one locked supervised recipe (L1, Adam 2e-4, ReduceLROnPlateau 0.5/2/1e-5, seed 42, batch 32, 50 epochs). Each row is a different reconstruction body fed by the same latent. Evidence remains additive candidate-lane only and does not promote WaveBench into manuscript evidence."
+    },
+    {
+      "family_id": "wavebench_shared_encoder_latent_width_sensitivity",
+      "task": "candidate_wavebench",
+      "fixed_contract": "wavebench_is_gaussian_lens_shared_encoder_9000_500_500",
+      "changed_factors": [
+        "shared_encoder_latent_channels"
+      ],
+      "completed_items": [
+        "2026-04-29-wavebench-shared-encoder-supervised-benchmark"
+      ],
+      "summary_authorities": [
+        "docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_shared_encoder_supervised_summary.md"
+      ],
+      "artifact_roots": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/"
+      ],
+      "comparison_artifacts": [
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/table_ready_metrics.json",
+        ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/comparison_summary.csv"
+      ],
+      "rows": [
+        "cnn (C=32)",
+        "cnn (C=64)",
+        "hybrid_resnet (C=32)",
+        "hybrid_resnet (C=64)",
+        "spectral_resnet_bottleneck_net (C=32)",
+        "spectral_resnet_bottleneck_net (C=64)",
+        "fno (C=32)",
+        "fno (C=64)",
+        "ffno (C=32)",
+        "ffno (C=64)"
+      ],
+      "interpretation": "Latent-width sensitivity pair on the locked shared-encoder WaveBench contract. C=32 is the minimum serious row set; C=64 is the immediate sensitivity comparison. Encoder architecture, split, loss, optimizer, scheduler, seed, epoch budget, and reporting schema are held fixed across both widths. Row-level blockers, when present, are recorded in the manifest with explicit reasons rather than silently dropped."
     }
   ],
   "maintenance_rules": [

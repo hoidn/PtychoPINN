@@ -230,6 +230,14 @@ def _update_bundle(
     write_comparison_csv(output_root / "comparison_summary.csv", rows)
 
 
+def status_for_mode(mode: str) -> str:
+    if mode == "benchmark":
+        return "completed"
+    if mode == "smoke":
+        return "smoke_pass"
+    raise ValueError(f"unsupported run mode for status mapping: {mode}")
+
+
 def run_row(
     *,
     row: str,
@@ -241,6 +249,7 @@ def run_row(
     epochs: int,
     device: torch.device,
     learning_rate: float,
+    figure_sample_indices: tuple[int, ...] | None = None,
 ) -> dict[str, Any]:
     torch.manual_seed(int(contract["training_recipe"]["seed"]))
     model = build_shared_encoder_row(row=row, latent_channels=latent_channels).to(device)
@@ -268,12 +277,14 @@ def run_row(
     )
     profile["train_loss"] = train_loss
     profile["val_loss"] = val_loss
+    profile["epochs"] = epochs
 
+    status = status_for_mode(mode)
     metrics_payload = {
         "row": row,
         "latent_channels": latent_channels,
         "mode": mode,
-        "status": "completed",
+        "status": status,
         "metrics": metrics,
     }
     write_json(row_dir / "metrics.json", metrics_payload)
@@ -285,7 +296,20 @@ def run_row(
         latent_channels=latent_channels,
         metrics_payload=metrics_payload,
     )
-    return {"status": "completed", "metrics_path": str(row_dir / "metrics.json")}
+
+    if mode == "benchmark":
+        from scripts.studies.wavebench_shared_encoder.reporting import write_row_figures
+
+        sample_indices = figure_sample_indices or (0, 1, 2, 3)
+        write_row_figures(
+            output_root=output_root,
+            row=row,
+            latent_channels=latent_channels,
+            predictions=predictions,
+            targets=targets,
+            sample_indices=sample_indices,
+        )
+    return {"status": status, "metrics_path": str(row_dir / "metrics.json")}
 
 
 def main() -> None:

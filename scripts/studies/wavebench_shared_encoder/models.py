@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Callable
+from typing import Any, Callable
 
 import torch
 import torch.nn as nn
@@ -267,7 +267,7 @@ def build_shared_encoder_row(*, row: str, latent_channels: int) -> nn.Module:
     return SharedEncoderReconstructionModel(encoder=encoder, body=body)
 
 
-def profile_model(model: nn.Module) -> dict[str, int]:
+def profile_model(model: nn.Module) -> dict[str, Any]:
     encoder_parameters = sum(parameter.numel() for parameter in model.encoder.parameters())
     body_parameters = sum(parameter.numel() for parameter in model.body.parameters())
     return {

@@ -1,111 +1,168 @@
+# WaveBench Shared-Encoder Supervised Benchmark Execution Report
+
 ## Completed In This Pass
 
-- Added the repo-owned WaveBench shared-encoder benchmark surface:
-  `scripts/studies/wavebench_shared_encoder/{data,encoder,metrics,models,reporting}.py`,
-  `scripts/studies/run_wavebench_shared_encoder_benchmark.py`, and
-  `scripts/studies/validate_wavebench_shared_encoder_contract.py`.
-- Added the first regression/contract suite for this lane:
-  `tests/studies/test_wavebench_shared_encoder_{data,models,runner,contract}.py`.
-- Re-ran the required WaveBench prerequisite gate before new work:
-  the preflight validator, provisioning validator, native-baseline validator,
-  and their existing pytest selectors all passed.
-- Implemented the locked contract loader and row contract writer so the runner
-  copies authoritative fields from the completed preflight/provisioning
-  artifacts instead of rediscovering them from raw upstream text.
-- Implemented the shared anisotropic measurement encoder and five row builders
-  for the locked roster:
-  `cnn`, `hybrid_resnet`, `spectral_resnet_bottleneck_net`, `fno`, and `ffno`.
-- Ran a real-data `inspect` pass against the staged
-  `wavebench_dataset/time_varying/is/thick_lines_gaussian_lens.beton` member,
-  which wrote `inspection.json` under the shared-encoder artifact root.
-- Ran the required real-data `C=32` smoke roster on all five rows with the
-  repo-owned runner. The smoke bundle wrote `row_contract.json`,
-  `shared_encoder_execution_manifest.json`, `table_ready_metrics.json`,
-  `comparison_summary.json`, `comparison_summary.csv`, and per-row
-  `rows/<row>/c32/{metrics.json,model_profile.json}` artifacts.
+- Tightened the row-status vocabulary so `completed` is reserved for
+  benchmark-mode rows on the locked split, while smoke runs now record
+  `status="smoke_pass"`. `run_row()` derives status from mode via
+  `status_for_mode()`, the validator enforces the `mode <-> status`
+  pairing, and `comparison_summary.csv` now records `mode` alongside
+  `status` so smoke and benchmark bundles cannot be conflated.
+- Added benchmark-mode fixed-sample figure generation:
+  `scripts/studies/wavebench_shared_encoder/reporting.py::write_row_figures`
+  emits per-row PNG triptychs (`target / prediction / error`) under shared
+  color limits plus compressed `.npz` source arrays plus a
+  `figure_manifest.json`. `run_row()` invokes this only in
+  `mode == "benchmark"`. Generated 40 PNGs and 10 manifests under
+  `figures/c{32,64}/<row>/`.
+- Tightened `scripts/studies/validate_wavebench_shared_encoder_contract.py`:
+  added a `--require-benchmark-completion` gate that requires every locked
+  row + latent-width pair to have an entry whose status is in
+  `{completed, blocked, not_protocol_compatible}`, and that
+  `mode=benchmark` for `completed` and `mode=smoke` for `smoke_pass`.
+- Updated tests:
+  `tests/studies/test_wavebench_shared_encoder_runner.py` now covers both
+  the smoke-pass and benchmark-completed paths and asserts that benchmark
+  mode writes the figure manifest and per-sample source arrays.
+  `tests/studies/test_wavebench_shared_encoder_contract.py` adds the
+  `mode=benchmark` field to the validator fixture so the tightened
+  validator passes against the consistent bundle.
+- Cleaned the previously committed smoke-only artifact bundle that had
+  combined `status=completed` with `mode=smoke` (the bundle the review
+  flagged as inconsistent under the new vocabulary). Re-emitted under
+  benchmark mode by the actual long run.
+- Executed the locked benchmark recipe end-to-end on real WaveBench data:
+  - dataset member: `tmp/wavebench_repo/wavebench_dataset/time_varying/is/thick_lines_gaussian_lens.beton`
+  - locked split: seed-42 `9000 / 500 / 500`
+  - row roster: `cnn`, `hybrid_resnet`, `spectral_resnet_bottleneck_net`,
+    `fno`, `ffno`
+  - latent widths: `C=32` then `C=64`
+  - recipe: `L1`, `Adam(lr=2e-4)`,
+    `ReduceLROnPlateau(factor=0.5, patience=2, min_lr=1e-5, threshold=0.0)`,
+    seed `42`, `train_batch_size=32`, `eval_batch_size=64`,
+    `epochs=50`, `num_workers=2`.
+  - run shell: tmux session `wavebench_shared_encoder_20260508_205812`
+    chained the `--latent-channels 32` then `--latent-channels 64`
+    invocations and wrote per-pass logs under
+    `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/run_logs/{c32,c64}.log`,
+    plus `run_complete.flag` after both runs exited `0`.
+- Persisted the full benchmark bundle:
+  - `row_contract.json`,
+    `shared_encoder_execution_manifest.json`,
+    `table_ready_metrics.json`,
+    `comparison_summary.json`,
+    `comparison_summary.csv`,
+    `run_roots.json`,
+  - per-row `rows/<row>/c{32,64}/{metrics.json,model_profile.json}` for
+    all 10 configurations,
+  - per-row `figures/c{32,64}/<row>/{sample_000..003.png, figure_manifest.json}`
+    plus `figures/source_arrays/<row>/c{32,64}/sample_000..003.npz`.
+- Wrote the durable summary at
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_shared_encoder_supervised_summary.md`
+  with the locked contract, the as-run metric table, the trivial-prediction
+  collapse interpretation, and the candidate-lane claim boundary.
+- Closed the WaveBench discoverability gaps:
+  - `docs/index.md` now links the shared-encoder summary alongside the
+    earlier WaveBench preflight / provisioning / native-baseline summaries.
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/evidence_matrix.md` adds both a
+    backlog-coverage row and a current-evidence row for the shared-encoder
+    benchmark.
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/model_variant_index.json` adds
+    the `wavebench_is_gaussian_lens_shared_encoder_9000_500_500` dataset
+    contract and 10 `model_variants` entries (one per row × latent width)
+    with the as-run metrics, parameter counts, runtime, peak memory, and
+    final L1 train/val losses.
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/ablation_index.json` adds the
+    `wavebench_shared_encoder_body_architecture_comparison` and
+    `wavebench_shared_encoder_latent_width_sensitivity` ablation families.
+  - `state/NEURIPS-HYBRID-RESNET-2026/progress_ledger.json` appends a
+    selector-facing `post_completion_updates` entry that records the
+    completion state, the locked recipe, the row-status summary, the
+    artifact roots, the verification commands, and the candidate-lane
+    claim boundary.
+- Final benchmark-completion gate passed:
+  `python scripts/studies/validate_wavebench_shared_encoder_contract.py
+  --require-benchmark-completion -> wavebench shared-encoder contract validated`.
 
-## Completed Plan Tasks
+## Completed Current-Scope Work
 
-- Task 1 complete for implementation readiness: the deterministic input check
-  passed, prior WaveBench validators were re-run, and the repo-owned contract
-  loader plus `row_contract.json` writer now preserve the locked variant,
-  split, staged dataset member, row roster, training recipe, and explicit row
-  status vocabulary.
-- Task 2 complete for the shared data surface and encoder: deterministic split
-  generation, split-prefix trimming for smoke runs, staged `.beton` loading,
-  batch summarization, and the shared anisotropic encoder are implemented and
-  covered by tests.
-- Task 3 complete for the first harness gate: all five required rows build for
-  `C=32` and `C=64`, accept the shared latent tensor, emit
-  `(1, 128, 128)` predictions, report encoder/body/total parameter counts, and
-  the runner writes row metrics plus bundle manifests. The required `C=32`
-  real-data smoke roster completed successfully.
+- **Plan Task 1** complete: input-presence check passed; preflight,
+  provisioning, and native-baseline validators re-run and passing; the
+  `row_contract.json` is generated from the consumed WaveBench summaries
+  and locks the row roster, training recipe, both latent widths, and the
+  explicit row-status vocabulary `{completed, smoke_pass, blocked,
+  not_protocol_compatible}`.
+- **Plan Task 2** complete: deterministic loader for the staged
+  `wavebench_dataset/time_varying/is/thick_lines_gaussian_lens.beton`
+  member, locked split `9000 / 500 / 500` with seed `42`, archived
+  tensor contract preserved end-to-end, and the shared anisotropic
+  measurement encoder is identical across every row and both latent widths.
+  Encoder/body parameter accounting is exposed via `profile_model()`.
+- **Plan Task 3** complete: the runner builds all five locked-roster rows
+  for both `C=32` and `C=64`, accepts the shared latent tensor, emits
+  `(1, 128, 128)` predictions, and the runner writes per-row metrics,
+  model profiles, the shared manifest, and the bundle CSV/JSON. The
+  benchmark-mode path now writes figures and source arrays. All 11
+  shared-encoder pytest cases pass.
+- **Plan Task 4** complete: full locked-split `9000 / 500 / 500`
+  benchmark rows for `C=32` and the `C=64` sensitivity pass executed
+  end-to-end under tracked tmux ownership (`run_complete.flag` written
+  after both passes exited `0`). All 10 configurations recorded
+  `status="completed"` with `mode="benchmark"`. No row required a
+  row-level blocker; every row reached the locked epoch budget under the
+  locked recipe. Results are honestly negative: under the locked recipe,
+  every architecture collapsed to a near-zero trivial-prediction
+  baseline (test `RelL2 ≈ 1.0`, `SSIM ≈ 0`, train/val L1
+  `≈ 0.0335 / 0.0334`). The fixed-sample figures confirm the collapse
+  visually. The plan explicitly forbids loosening the recipe to make a
+  row easier, so the recipe lock is preserved and the negative outcome
+  is reported as the as-run benchmark result.
+- **Plan Task 5** complete: durable summary published; `docs/index.md`,
+  `evidence_matrix.md`, `model_variant_index.json`, `ablation_index.json`,
+  and `progress_ledger.json` updated; `paper_evidence_index.md` and
+  `/home/ollie/Documents/neurips/` were not touched (out of scope per the
+  plan); `docs/findings.md` not modified (this work did not surface a
+  reusable project-wide contract beyond this single WaveBench lane).
 
-## Remaining Required Plan Tasks
+## Follow-Up Work
 
-- Task 4 remains incomplete:
-  the full locked-split `C=32` benchmark rows (`9000 / 500 / 500`) have not
-  been executed yet; this pass only completed the required tiny-sample smoke
-  gate on real data.
-- Task 4 remains incomplete for the follow-on sensitivity lane:
-  the required `C=64` row family has not been run yet, so no `C=64`
-  completion or row-level blocker records exist.
-- Task 4 remains incomplete for fixed-sample packaging:
-  this pass wrote metrics/manifests/model profiles, but it did not yet
-  generate the planned fixed-sample reconstruction figures and error maps.
-- Task 5 remains incomplete:
-  the durable candidate-lane summary, docs-index/evidence-matrix updates,
-  model-variant index updates, ablation-index updates, and selector-facing
-  progress-ledger update have not been published yet because the full
-  benchmark family is not complete.
-
-## Verification
-
-- Prerequisite contract checks passed:
-  `python - <<'PY' ...`
-  `python scripts/studies/validate_wavebench_preflight_contract.py`
-  `python scripts/studies/validate_wavebench_provisioning_decision.py`
-  `python scripts/studies/validate_wavebench_native_baseline_contract.py`
-- Prior WaveBench contract tests passed:
-  `pytest -q tests/studies/test_wavebench_preflight_contract.py tests/studies/test_wavebench_provisioning_decision_contract.py tests/studies/test_wavebench_native_baseline_contract.py`
-  with `8 passed in 1.00s`.
-- New shared-encoder implementation gate passed:
-  `pytest -q tests/studies/test_wavebench_shared_encoder_data.py tests/studies/test_wavebench_shared_encoder_models.py tests/studies/test_wavebench_shared_encoder_runner.py tests/studies/test_wavebench_shared_encoder_contract.py`
-  with `10 passed in 5.85s`.
-- Real-data inspect passed:
-  `python scripts/studies/run_wavebench_shared_encoder_benchmark.py --wavebench-root tmp/wavebench_repo --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark --mode inspect --train-batch-size 2 --eval-batch-size 2 --num-workers 0 --max-train-samples 2 --max-val-samples 2 --max-test-samples 2`
-  and wrote `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark/inspection.json`.
-- Real-data `C=32` smoke roster passed:
-  `python scripts/studies/run_wavebench_shared_encoder_benchmark.py --wavebench-root tmp/wavebench_repo --output-root .artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-shared-encoder-supervised-benchmark --mode smoke --row all --latent-channels 32 --epochs 1 --train-batch-size 2 --eval-batch-size 2 --num-workers 0 --max-train-samples 8 --max-val-samples 4 --max-test-samples 4`
-  exited `0`.
-- Shared-encoder bundle validator passed after the smoke roster:
-  `python scripts/studies/validate_wavebench_shared_encoder_contract.py`
-  with result `wavebench shared-encoder contract validated`.
-- Smoke metrics captured on real WaveBench samples:
-  - `cnn`, `C=32`: `MAE=0.14940577745437622`, `RMSE=0.1974848508834839`,
-    `RelL2=1.5329195261001587`, `SSIM=-0.00012613624889994598`
-  - `hybrid_resnet`, `C=32`: `MAE=0.09086699783802032`,
-    `RMSE=0.18788780272006989`, `RelL2=1.458972454071045`,
-    `SSIM=0.0019106662020201698`
-  - `spectral_resnet_bottleneck_net`, `C=32`:
-    `MAE=0.1169654130935669`, `RMSE=0.19106730818748474`,
-    `RelL2=1.4977253675460815`, `SSIM=0.009864283137946607`
-  - `fno`, `C=32`: `MAE=0.146397203207016`, `RMSE=0.16540074348449707`,
-    `RelL2=1.2916741371154785`, `SSIM=4.9453802474456055e-06`
-  - `ffno`, `C=32`: `MAE=0.07707052677869797`, `RMSE=0.1334114521741867`,
-    `RelL2=1.0170279741287231`, `SSIM=-0.0010682882202940757`
+- Recipe-relaxation candidate-lane follow-on: under the locked
+  `L1 + Adam 2e-4 + ReduceLROnPlateau(threshold=0.0, patience=2,
+  min_lr=1e-5)` recipe every row collapsed to trivial prediction. A
+  later candidate-lane item could authorize a recipe change (e.g.,
+  looser plateau threshold, different loss, normalization, longer
+  warmup, or a different LR) and rerun under the same row roster to see
+  whether the body family becomes separable. This is intentionally not
+  done here because the plan's fairness contract forbids loosening the
+  recipe to make a row easier within this item.
+- Alternative shared-encoder follow-on: this item locks one fixed simple
+  anisotropic measurement encoder. A later item could swap that encoder
+  while keeping the same body roster and split, to test whether the
+  trivial-prediction collapse is encoder-driven rather than recipe-driven.
+- Multi-seed sensitivity: this item ran a single seed (`42`). A later
+  candidate-lane item could repeat the locked-roster benchmark with
+  multiple seeds if a downstream interpretation requires it.
+- The shared-encoder bodies remain repo-owned comparison wrappers and are
+  intentionally separate from native WaveBench architectures. If a later
+  item wants to reuse the shared encoder against true upstream WaveBench
+  bodies, it should be planned as a distinct candidate-lane work unit
+  with its own row contract.
 
 ## Residual Risks
 
-- The current artifact bundle proves the harness and contract on real data, but
-  it is still smoke-only evidence. No paper-facing or benchmark-performance
-  claim is justified until the full locked-split `C=32` rows and the required
-  `C=64` sensitivity pass are completed or explicitly blocked row-by-row.
-- The current row bodies are repo-owned comparison adapters for this candidate
-  lane, not native WaveBench architectures. Their fairness value depends on
-  keeping the shared encoder, split, loss, optimizer, scheduler, and reporting
-  schema frozen in the later full benchmark pass.
-- The smoke bundle does not yet include the planned fixed-sample visual package
-  or the downstream discoverability docs/index updates, so later selection
-  still depends on this execution report plus the `.artifacts` bundle rather
-  than a finished candidate-lane summary document.
+- All 10 rows under the locked recipe collapsed to a near-zero
+  trivial-prediction baseline. Under this contract the body family is not
+  separable; reading any row as evidence that a body is competitive or
+  non-competitive on WaveBench inverse source would be a misuse of this
+  bundle. The bundle preserves the fairness contract correctly, but the
+  discriminating signal is absent.
+- The negative result is consistent with the locked plateau scheduler
+  (`threshold=0.0`, `patience=2`, `min_lr=1e-5`) reaching the LR floor
+  early after non-monotonic validation noise, but the plan forbids
+  loosening the recipe to test that hypothesis inside this item. The
+  recipe-versus-encoder attribution is therefore unresolved and is
+  flagged as a follow-up.
+- The bundle remains additive candidate-lane evidence only. It must not
+  be promoted to manuscript evidence and must not be mixed into the
+  native WaveBench reference rows (which use a different input contract
+  and different upstream training stack).
