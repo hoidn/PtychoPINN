@@ -1,0 +1,121 @@
+{
+  "selected_variant": "time_varying/is/thick_lines_gaussian_lens",
+  "fno": {
+    "status": "retrain_required",
+    "reason": "Exact public Google Drive checkpoint identifiers were recovered, but the representative official depth-4 checkpoint does not load on the current upstream WaveBench checkout because the saved Fourier weights are 4-D while the current FNO implementation expects 5-D complex-weight tensors.",
+    "checkpoints": [
+      {
+        "variant": "fno-depth-4",
+        "folder_id": "13-3wkivFhPfgiWL4L2XaCl1u6aFM-e0a",
+        "file_id": "1Id2-BrE9md3ypqHysTITYVGMfQQ3qsbJ",
+        "filename": "model.ckpt"
+      },
+      {
+        "variant": "fno-depth-8",
+        "folder_id": "1pOYPx93k_fukIh9hZzNUPWXJ6sSZb8B4",
+        "file_id": "1awl1usPolKY_PgNWs3CQowI18pzNK2n3",
+        "filename": "model.ckpt"
+      }
+    ],
+    "representative_checkpoint_probe": {
+      "variant": "fno-depth-4",
+      "file_id": "1Id2-BrE9md3ypqHysTITYVGMfQQ3qsbJ",
+      "google_drive_size_label": "192M",
+      "local_checkpoint_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-wavebench-provisioning-decision/checkpoint_probe/fno_fno-depth-4.ckpt",
+      "local_size_bytes": 201765954,
+      "checkpoint_hyper_parameters": {
+        "model_config": {
+          "model_name": "fno",
+          "modes1": 16,
+          "modes2": 16,
+          "hidden_width": 64,
+          "num_in_channels": 1,
+          "num_out_channels": 1,
+          "num_hidden_layers": 4
+        },
+        "max_num_steps": 14050,
+        "eta_min": 1e-05,
+        "weight_decay": 0.01,
+        "learning_rate": 0.001,
+        "loss_fun_type": "relative_l2"
+      },
+      "load_ok": false,
+      "load_error": "RuntimeError: Error(s) in loading state_dict for LitModel:\n\tsize mismatch for model.hidden_layers.0.global_conv.weights1: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2]).\n\tsize mismatch for model.hidden_layers.0.global_conv.weights2: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2]).\n\tsize mismatch for model.hidden_layers.1.global_conv.weights1: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2]).\n\tsize mismatch for model.hidden_layers.1.global_conv.weights2: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2]).\n\tsize mismatch for model.hidden_layers.2.global_conv.weights1: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2]).\n\tsize mismatch for model.hidden_layers.2.global_conv.weights2: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2]).\n\tsize mismatch for model.hidden_layers.3.global_conv.weights1: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2]).\n\tsize mismatch for model.hidden_layers.3.global_conv.weights2: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2])."
+    },
+    "retrain_route": {
+      "entrypoint": "tmp/wavebench_repo/src/train_time_varying/is/train_fno_is.py",
+      "task_name": "is_gaussian_lens",
+      "recommended_args": [
+        "--medium_type",
+        "gaussian_lens",
+        "--num_layers",
+        "4"
+      ],
+      "note": "A clean native FNO reproduction should be treated as required until the upstream checkpoint/code compatibility issue is resolved or a loadable exact-revision surface is recovered."
+    }
+  },
+  "unet": {
+    "status": "checkpoint_reusable",
+    "reason": "Exact public Google Drive checkpoint identifiers were recovered, and the representative official ch-32 checkpoint loads successfully with LitModel.load_from_checkpoint(...) on the current upstream WaveBench checkout.",
+    "checkpoints": [
+      {
+        "variant": "unet-ch-32",
+        "folder_id": "1ZhJnl-r0ki5PqPVQFrJ3tUlX7yomFVDq",
+        "file_id": "17FXa31RSMA-7vwRB_492Ex8AY-2YgSdl",
+        "filename": "model.ckpt"
+      },
+      {
+        "variant": "unet-ch-64",
+        "folder_id": "1raLMLrBPRzbDW2OkD06Kz3PvURipg83S",
+        "file_id": "1HtrvoR5GqDWiLZWmt3KNK65PCv2Lj5uF",
+        "filename": "model.ckpt"
+      }
+    ],
+    "representative_checkpoint_probe": {
+      "variant": "unet-ch-32",
+      "file_id": "17FXa31RSMA-7vwRB_492Ex8AY-2YgSdl",
+      "google_drive_size_label": "89M",
+      "local_checkpoint_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-wavebench-provisioning-decision/checkpoint_probe/unet_unet-ch-32.ckpt",
+      "local_size_bytes": 93273875,
+      "checkpoint_hyper_parameters": {
+        "model_config": {
+          "model_name": "unet",
+          "n_input_channels": 1,
+          "n_output_channels": 1,
+          "channel_reduction_factor": 2
+        },
+        "max_num_steps": 14050,
+        "eta_min": 1e-05,
+        "weight_decay": 0.01,
+        "learning_rate": 0.001,
+        "loss_fun_type": "relative_l2"
+      },
+      "load_ok": true,
+      "model_class": "UNet",
+      "model_config": {
+        "model_name": "unet",
+        "n_input_channels": 1,
+        "n_output_channels": 1,
+        "channel_reduction_factor": 2
+      },
+      "training_hparams": {
+        "max_num_steps": 14050,
+        "eta_min": 1e-05,
+        "weight_decay": 0.01,
+        "learning_rate": 0.001,
+        "loss_fun_type": "relative_l2"
+      }
+    },
+    "retrain_route": {
+      "entrypoint": "tmp/wavebench_repo/src/train_time_varying/is/train_unet_is.py",
+      "task_name": "is_gaussian_lens",
+      "recommended_args": [
+        "--medium_type",
+        "gaussian_lens",
+        "--channel_reduction_factor",
+        "2"
+      ],
+      "note": "Retraining remains available if later work requires an exact fresh baseline under local provenance, but checkpoint reuse is currently viable for the representative native U-Net family."
+    }
+  }
+}

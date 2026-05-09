@@ -1,0 +1,31 @@
+{
+  "selected_variant": "time_varying/is/thick_lines_gaussian_lens",
+  "selected_member": "wavebench_dataset/time_varying/is/thick_lines_gaussian_lens.beton",
+  "stable_target_repo_relative": "wavebench_dataset/time_varying/is/",
+  "stable_target_description": "<wavebench repo>/wavebench_dataset/time_varying/is/",
+  "actual_path": "/home/ollie/Documents/PtychoPINN/tmp/wavebench_repo/wavebench_dataset/time_varying/is/thick_lines_gaussian_lens.beton",
+  "actual_repo_relative_path": "tmp/wavebench_repo/wavebench_dataset/time_varying/is/thick_lines_gaussian_lens.beton",
+  "transfer_mode": "downloaded_remote_zip_member",
+  "file_size_bytes": 1376211712,
+  "mtime_epoch_s": 1778292954,
+  "sha256": "ca1b2b707a25e7549303f31d1fc2c32a442d14fded63f61dd6b20908235ac37f",
+  "upstream_source": {
+    "provider": "Zenodo",
+    "record_url": "https://zenodo.org/records/8015145",
+    "archive_url": "https://zenodo.org/records/8015145/files/wavebench_dataset.zip",
+    "archive_size_bytes": 75625669111,
+    "selected_member_range": {
+      "start": 71774189826,
+      "end": 72419739444
+    }
+  },
+  "observed_wavebench_checkout": {
+    "path": "/home/ollie/Documents/PtychoPINN/tmp/wavebench_repo",
+    "repo_revision": "2bea258d9f05ec7182741293be11be1e545576ae"
+  },
+  "path_normalization": {
+    "readme_documented_dataset_dir": "wavebench_datasets",
+    "code_expected_dataset_dir": "wavebench_dataset",
+    "decision": "Later WaveBench commands must target the singular code path wavebench_dataset/time_varying/is/ even though the upstream README still documents wavebench_datasets/."
+  }
+}

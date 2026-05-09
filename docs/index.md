@@ -238,6 +238,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, wavebench, inverse-source, preflight, thick-lines, gaussian-lens, checkpoint, physics-gate
 **Use this when:** Deciding whether WaveBench is ready for a supervised follow-up, checking the exact tensor and split contract for the selected inverse-source variant, or understanding why the current outcome is a dataset/checkpoint decision rather than a benchmark launch.
 
+### [NeurIPS WaveBench Provisioning Decision Summary](plans/NEURIPS-HYBRID-RESNET-2026/wavebench_provisioning_decision_summary.md)
+**Description:** Durable provisioning decision for the optional WaveBench inverse-source lane after the preflight, recording the locally staged `thick_lines_gaussian_lens` `.beton`, the singular-path normalization (`wavebench_dataset/` over README `wavebench_datasets/`), the recommended-but-not-locally-provisioned WaveBench environment contract, the recovered public checkpoint IDs, the native U-Net reuse proof, the native FNO checkpoint/code mismatch, and the downstream route matrix for later WaveBench backlog items.
+**Keywords:** neurips, wavebench, inverse-source, provisioning, checkpoint, fno, unet, environment, route-matrix
+**Use this when:** Deciding whether later WaveBench items are unblocked, checking the exact staged dataset path and checksum, consuming the native baseline reuse-versus-retrain split, or understanding why physics validation is still gated even though supervised follow-up planning can proceed.
+
 ### [NeurIPS Hybrid ResNet PDEBench CNS Paper Contract Decision](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md)
 **Description:** Durable decision that fixes the authoritative CNS paper lane to the bounded capped `history_len=2` contract, records the exact normalization and training-recipe bindings, names the exact headline row roster and authored-FFNO cutoff/status, rejects immediate full-training on compute/deadline grounds, and keeps `history_len=3` as adjacent capped context only.
 **Keywords:** neurips, hybrid_resnet, pdebench, cns, paper-contract, capped, history_len, ffno, claim-boundary

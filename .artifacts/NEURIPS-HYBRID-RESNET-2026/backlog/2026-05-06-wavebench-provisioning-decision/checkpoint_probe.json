@@ -1,0 +1,64 @@
+{
+  "baseline_load_smokes": {
+    "fno": {
+      "variant": "fno-depth-4",
+      "file_id": "1Id2-BrE9md3ypqHysTITYVGMfQQ3qsbJ",
+      "google_drive_size_label": "192M",
+      "local_checkpoint_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-wavebench-provisioning-decision/checkpoint_probe/fno_fno-depth-4.ckpt",
+      "local_size_bytes": 201765954,
+      "checkpoint_hyper_parameters": {
+        "model_config": {
+          "model_name": "fno",
+          "modes1": 16,
+          "modes2": 16,
+          "hidden_width": 64,
+          "num_in_channels": 1,
+          "num_out_channels": 1,
+          "num_hidden_layers": 4
+        },
+        "max_num_steps": 14050,
+        "eta_min": 1e-05,
+        "weight_decay": 0.01,
+        "learning_rate": 0.001,
+        "loss_fun_type": "relative_l2"
+      },
+      "load_ok": false,
+      "load_error": "RuntimeError: Error(s) in loading state_dict for LitModel:\n\tsize mismatch for model.hidden_layers.0.global_conv.weights1: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2]).\n\tsize mismatch for model.hidden_layers.0.global_conv.weights2: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2]).\n\tsize mismatch for model.hidden_layers.1.global_conv.weights1: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2]).\n\tsize mismatch for model.hidden_layers.1.global_conv.weights2: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2]).\n\tsize mismatch for model.hidden_layers.2.global_conv.weights1: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2]).\n\tsize mismatch for model.hidden_layers.2.global_conv.weights2: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2]).\n\tsize mismatch for model.hidden_layers.3.global_conv.weights1: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2]).\n\tsize mismatch for model.hidden_layers.3.global_conv.weights2: copying a param with shape torch.Size([64, 64, 16, 16]) from checkpoint, the shape in current model is torch.Size([64, 64, 16, 16, 2])."
+    },
+    "unet": {
+      "variant": "unet-ch-32",
+      "file_id": "17FXa31RSMA-7vwRB_492Ex8AY-2YgSdl",
+      "google_drive_size_label": "89M",
+      "local_checkpoint_path": "/home/ollie/Documents/PtychoPINN/.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-wavebench-provisioning-decision/checkpoint_probe/unet_unet-ch-32.ckpt",
+      "local_size_bytes": 93273875,
+      "checkpoint_hyper_parameters": {
+        "model_config": {
+          "model_name": "unet",
+          "n_input_channels": 1,
+          "n_output_channels": 1,
+          "channel_reduction_factor": 2
+        },
+        "max_num_steps": 14050,
+        "eta_min": 1e-05,
+        "weight_decay": 0.01,
+        "learning_rate": 0.001,
+        "loss_fun_type": "relative_l2"
+      },
+      "load_ok": true,
+      "model_class": "UNet",
+      "model_config": {
+        "model_name": "unet",
+        "n_input_channels": 1,
+        "n_output_channels": 1,
+        "channel_reduction_factor": 2
+      },
+      "training_hparams": {
+        "max_num_steps": 14050,
+        "eta_min": 1e-05,
+        "weight_decay": 0.01,
+        "learning_rate": 0.001,
+        "loss_fun_type": "relative_l2"
+      }
+    }
+  }
+}

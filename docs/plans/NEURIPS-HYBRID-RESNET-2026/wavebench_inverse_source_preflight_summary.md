@@ -15,6 +15,11 @@ separated supervised readiness from physics-readiness, and closed with a
 follow-up decision instead of launching training. No roadmap amendment,
 paper-row promotion, or benchmark execution was performed.
 
+Forward link:
+
+- The follow-up provisioning decision for this same selected lane now lives at
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_provisioning_decision_summary.md`.
+
 ## Upstream Contract
 
 - Repository URL: `https://github.com/wavebench/wavebench.git`

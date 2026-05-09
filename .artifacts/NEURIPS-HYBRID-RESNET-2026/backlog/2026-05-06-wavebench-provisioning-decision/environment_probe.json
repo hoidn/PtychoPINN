@@ -1,0 +1,125 @@
+{
+  "active_path_python": {
+    "python_executable": "/home/ollie/miniconda3/envs/ptycho311/bin/python",
+    "python_version": "3.11.13",
+    "imports": {
+      "ffcv": {
+        "ok": false,
+        "error_type": "ModuleNotFoundError",
+        "error": "No module named 'ffcv'"
+      },
+      "jax": {
+        "ok": false,
+        "error_type": "ModuleNotFoundError",
+        "error": "No module named 'jax'"
+      },
+      "jwave": {
+        "ok": false,
+        "error_type": "ModuleNotFoundError",
+        "error": "No module named 'jwave'"
+      },
+      "ml_collections": {
+        "ok": false,
+        "error_type": "ModuleNotFoundError",
+        "error": "No module named 'ml_collections'"
+      }
+    }
+  },
+  "probed_local_envs": [
+    {
+      "name": "ptycho311",
+      "python_executable": "/home/ollie/miniconda3/envs/ptycho311/bin/python",
+      "imports": {
+        "ffcv": {
+          "ok": false,
+          "error": "ModuleNotFoundError: No module named 'ffcv'"
+        },
+        "jax": {
+          "ok": false,
+          "error": "ModuleNotFoundError: No module named 'jax'"
+        },
+        "jwave": {
+          "ok": false,
+          "error": "ModuleNotFoundError: No module named 'jwave'"
+        },
+        "ml_collections": {
+          "ok": false,
+          "error": "ModuleNotFoundError: No module named 'ml_collections'"
+        }
+      }
+    },
+    {
+      "name": "ptycho311_2",
+      "python_executable": "/home/ollie/miniconda3/envs/ptycho311_2/bin/python",
+      "imports": {
+        "ffcv": {
+          "ok": false,
+          "error": "ModuleNotFoundError: No module named 'ffcv'"
+        },
+        "jax": {
+          "ok": false,
+          "error": "ModuleNotFoundError: No module named 'jax'"
+        },
+        "jwave": {
+          "ok": false,
+          "error": "ModuleNotFoundError: No module named 'jwave'"
+        },
+        "ml_collections": {
+          "ok": false,
+          "error": "ModuleNotFoundError: No module named 'ml_collections'"
+        }
+      }
+    },
+    {
+      "name": "ptycho2",
+      "python_executable": "/home/ollie/miniconda3/envs/ptycho2/bin/python",
+      "imports": {
+        "ffcv": {
+          "ok": false,
+          "error": "ModuleNotFoundError: No module named 'ffcv'"
+        },
+        "jax": {
+          "ok": false,
+          "error": "ModuleNotFoundError: No module named 'jax'"
+        },
+        "jwave": {
+          "ok": false,
+          "error": "ModuleNotFoundError: No module named 'jwave'"
+        },
+        "ml_collections": {
+          "ok": false,
+          "error": "ModuleNotFoundError: No module named 'ml_collections'"
+        }
+      }
+    }
+  ],
+  "recommended_environment": {
+    "name": "wavebench",
+    "status": "upstream_recipe_identified_not_locally_provisioned",
+    "source": "tmp/wavebench_repo/README.md",
+    "python_version": "3.9",
+    "provisioning_recipe": [
+      "conda create -y -n wavebench python=3.9 cupy pkg-config libjpeg-turbo opencv pytorch torchvision cudatoolkit=11.3 -c pytorch -c conda-forge",
+      "conda activate wavebench",
+      "pip install ffcv matplotlib jupyterlab pytorch-lightning einops ml-collections wandb",
+      "git clone https://github.com/wavebench/wavebench.git",
+      "cd wavebench && pip install -e ."
+    ],
+    "imports_expected_after_provisioning": [
+      "ffcv",
+      "jax",
+      "jwave",
+      "ml_collections"
+    ],
+    "notes": [
+      "The upstream README gives an installation recipe but does not include jax or jwave in the pip line even though the forward-model generation path requires them.",
+      "No existing local conda environment imported all four required surfaces during this pass.",
+      "Later physics validation should extend the upstream recipe with explicit jax and jwave installation before rerunning the import probe."
+    ]
+  },
+  "environment_readiness": {
+    "supervised_loader_ready_locally": false,
+    "physics_ready_locally": false,
+    "blocking_reason": "No local environment imported ffcv, jax, jwave, and ml_collections together during this pass."
+  }
+}
