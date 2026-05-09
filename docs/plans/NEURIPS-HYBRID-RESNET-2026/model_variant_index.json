@@ -324,6 +324,25 @@
         "err_nRMSE",
         "relative_l2"
       ]
+    },
+    "wavebench_is_gaussian_lens_native_9000_500_500": {
+      "task": "candidate_wavebench",
+      "dataset_label": "WaveBench inverse source thick_lines_gaussian_lens native split",
+      "dataset_id": "wavebench_time_varying_is_thick_lines_gaussian_lens",
+      "dataset_member": "wavebench_dataset/time_varying/is/thick_lines_gaussian_lens.beton",
+      "stable_dataset_target": "wavebench_dataset/time_varying/is/",
+      "split": "9000 / 500 / 500 sample-level deterministic split, seed 42",
+      "input_contract": "native WaveBench loader image tensor y with shape (1, 128, 128) float32",
+      "target_contract": "native WaveBench source tensor q0 with shape (1, 128, 128) float32",
+      "training_loss": "relative_l2",
+      "optimizer": "adamw",
+      "learning_rate": 0.001,
+      "scheduler": "CosineAnnealingLR(eta_min=1e-5, T_max=14050)",
+      "epochs": 50,
+      "batch_size": 32,
+      "device": "cuda",
+      "claim_boundary": "candidate_lane_external_reference_only",
+      "authority": "docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_native_baseline_summary.md"
     }
   },
   "model_variants": [
@@ -2792,6 +2811,75 @@
       "nearest_anchor_row": "supervised_ffno",
       "comparison_outcome": "depth24_shifts_supervised_pure_ffno_toward_better_phase_metrics_with_small_amplitude_tradeoffs_and_much_higher_runtime_cost",
       "evidence_status": "decision_support_append_only"
+    },
+    {
+      "variant_id": "wavebench_is__unet__native_checkpoint_eval__gaussian_lens",
+      "dataset_contract_id": "wavebench_is_gaussian_lens_native_9000_500_500",
+      "row_id": "wavebench_unet_ch32_native",
+      "paper_label": "WaveBench U-Net",
+      "architecture_id": "unet",
+      "model_family": "u_net",
+      "training_mode": "native_supervised_reference",
+      "source_backlog_item": "2026-04-29-wavebench-native-baseline-reproduction",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_native_baseline_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-native-baseline-reproduction/",
+      "metrics_json": "native_unet_eval.json",
+      "manifest_json": "native_baseline_execution_manifest.json",
+      "table_ready_metrics_json": "table_ready_metrics.json",
+      "checkpoint_source": "checkpoint_reusable",
+      "checkpoint_file_id": "17FXa31RSMA-7vwRB_492Ex8AY-2YgSdl",
+      "parameter_count": 7762465,
+      "metrics": {
+        "MAE": 0.01440997221507132,
+        "RMSE": 0.06833207067102194,
+        "RelL2": 0.44603234976530076,
+        "SSIM": 0.8819505550504577
+      },
+      "runtime": {
+        "device": "cuda",
+        "device_name": "NVIDIA GeForce RTX 3090",
+        "batch_size": 25,
+        "wall_time_eval_s": 1.1180224418640137
+      },
+      "claim_boundary": "candidate_lane_external_reference_only",
+      "evidence_status": "candidate_lane_reference_only",
+      "interpretation": "Reusable native WaveBench U-Net checkpoint reference on the locked thick_lines_gaussian_lens split. Stronger than the reproduced native FNO row on all four packaged metrics, but still external-reference context only."
+    },
+    {
+      "variant_id": "wavebench_is__fno__native_train_and_eval__gaussian_lens",
+      "dataset_contract_id": "wavebench_is_gaussian_lens_native_9000_500_500",
+      "row_id": "wavebench_fno_depth4_native",
+      "paper_label": "WaveBench FNO",
+      "architecture_id": "fno",
+      "model_family": "fourier_neural_operator",
+      "training_mode": "native_supervised_reference",
+      "source_backlog_item": "2026-04-29-wavebench-native-baseline-reproduction",
+      "source_summary": "docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_native_baseline_summary.md",
+      "artifact_root": ".artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-wavebench-native-baseline-reproduction/",
+      "metrics_json": "native_fno_result.json",
+      "manifest_json": "native_baseline_execution_manifest.json",
+      "table_ready_metrics_json": "table_ready_metrics.json",
+      "baseline_variant_id": "wavebench_is__unet__native_checkpoint_eval__gaussian_lens",
+      "checkpoint_source": "official_retraining_route",
+      "best_checkpoint_path": "tmp/wavebench_repo/saved_models/is_gaussian_lens/yk51w0ou/checkpoints/epoch=8-step=2529.ckpt",
+      "parameter_count": 16811073,
+      "metrics": {
+        "MAE": 0.027049200143665075,
+        "RMSE": 0.08206634037196636,
+        "RelL2": 0.5503136277198791,
+        "SSIM": 0.7268695075416097
+      },
+      "runtime": {
+        "device": "cuda",
+        "device_name": "NVIDIA GeForce RTX 3090",
+        "batch_size": 32,
+        "epochs": 50,
+        "learning_rate": 0.001,
+        "wall_time_train_s": 1228.9854147434235
+      },
+      "claim_boundary": "candidate_lane_external_reference_only",
+      "evidence_status": "candidate_lane_reference_only",
+      "interpretation": "Official native WaveBench FNO depth-4 retraining reference on the locked thick_lines_gaussian_lens split. Completes the durable FNO route after the public checkpoint/code mismatch, but remains weaker than the native U-Net reference on all four packaged metrics."
     }
   ],
   "completed_backlog_outputs_represented": [
@@ -2836,7 +2924,8 @@
     "2026-05-07-brdt-sinogram-input-40ep-paper-evidence",
     "2026-05-06-cdi-lines128-ffno-depth24-ablation",
     "2026-05-06-cdi-lines128-supervised-ffno-depth24-no-refiner-rerun",
-    "2026-05-07-cdi-lines128-probe-channel-conditioning-ablation"
+    "2026-05-07-cdi-lines128-probe-channel-conditioning-ablation",
+    "2026-04-29-wavebench-native-baseline-reproduction"
   ],
   "maintenance_rules": [
     "Every future completed backlog item that emits model metrics must add or update at least one model_variants entry.",

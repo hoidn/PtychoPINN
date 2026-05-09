@@ -243,6 +243,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** neurips, wavebench, inverse-source, provisioning, checkpoint, fno, unet, environment, route-matrix
 **Use this when:** Deciding whether later WaveBench items are unblocked, checking the exact staged dataset path and checksum, consuming the native baseline reuse-versus-retrain split, or understanding why physics validation is still gated even though supervised follow-up planning can proceed.
 
+### [NeurIPS WaveBench Native Baseline Summary](plans/NEURIPS-HYBRID-RESNET-2026/wavebench_native_baseline_summary.md)
+**Description:** Durable native WaveBench reference rows for the optional inverse-source lane on `time_varying/is/thick_lines_gaussian_lens`, recording the full test-split U-Net checkpoint evaluation, the official `fno-depth-4` retraining/eval route, the repo-owned wrapper/validator artifacts, and the explicit boundary that these rows are candidate-lane external references rather than shared-encoder or manuscript evidence.
+**Keywords:** neurips, wavebench, inverse-source, native baseline, unet, fno, checkpoint, retrain, candidate
+**Use this when:** Checking the table-ready native metrics, consuming the reusable wrapper/validator surface, or locating the exact native output/root provenance before any shared-encoder WaveBench follow-up.
+
 ### [NeurIPS Hybrid ResNet PDEBench CNS Paper Contract Decision](plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md)
 **Description:** Durable decision that fixes the authoritative CNS paper lane to the bounded capped `history_len=2` contract, records the exact normalization and training-recipe bindings, names the exact headline row roster and authored-FFNO cutoff/status, rejects immediate full-training on compute/deadline grounds, and keeps `history_len=3` as adjacent capped context only.
 **Keywords:** neurips, hybrid_resnet, pdebench, cns, paper-contract, capped, history_len, ffno, claim-boundary
