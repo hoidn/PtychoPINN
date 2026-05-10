@@ -98,7 +98,7 @@ class TrainingConfig:
     # Device/Loss
     nll: bool = True # Use Negative Log Likelihood loss component
     device: str = 'cuda' # Device to train on ('cuda', 'cpu')
-    strategy: Optional[str] = 'ddp' # Strategy for distributed training (e.g., 'ddp', None)
+    strategy: Literal['ddp', 'ddp_notebook', 'auto'] = 'ddp'
     n_devices: Union[int, str] = 1 #Number of devices. Set to "auto" for automatic GPU detection.
 
     # Framework

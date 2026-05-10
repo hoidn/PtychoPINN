@@ -290,7 +290,7 @@ def main(ptycho_dir,
         callbacks = callbacks,
         # accumulate_grad_batches=training_config.accum_steps,  # Lightning handles this
         # gradient_clip_val=training_config.gradient_clip_val,   # Lightning handles this
-        strategy=get_training_strategy(training_config.n_devices),
+        strategy=get_training_strategy(training_config.n_devices, training_config.strategy),
         check_val_every_n_epoch=1,  # Validate every epoch
         enable_checkpointing=True,  # Enable checkpointing for early stopping
         enable_progress_bar=execution_config.enable_progress_bar,  # Controlled by execution config
@@ -481,12 +481,7 @@ def main_lightning(
         max_epochs=training_config.epochs,
         devices=training_config.n_devices,
         accelerator='gpu',
-        strategy=DDPStrategy(
-            find_unused_parameters=False,
-            static_graph=True,
-            gradient_as_bucket_view=True,
-            process_group_backend='nccl'
-        ) if training_config.n_devices > 1 else 'auto',
+        strategy=get_training_strategy(training_config.n_devices, training_config.strategy),
         callbacks=callback_list,
         enable_checkpointing=True,
         enable_progress_bar=True,
