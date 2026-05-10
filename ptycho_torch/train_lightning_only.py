@@ -311,7 +311,7 @@ def main(ptycho_dir,
             devices = training_config.n_devices,
             accelerator = 'gpu',
             callbacks = callbacks,
-            strategy=get_training_strategy(training_config.n_devices),
+            strategy=get_training_strategy(training_config.n_devices, training_config.strategy),
             check_val_every_n_epoch=1,  # Validate every epoch
             enable_checkpointing=True,  # Enable checkpointing for early stopping
             enable_progress_bar=True,  # Controlled by execution config
