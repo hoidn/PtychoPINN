@@ -48,6 +48,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** baselines, hybrid_resnet, recommended-params, scheduler, learning-rate, studies
 **Use this when:** You need the current recommended starting parameters for a real study or wrapper and do not want to infer "best practice" from defaults, prompts, or tests.
 
+### [SRU-Net Model Usage](models/srunet.md)
+**Description:** Stable model-facing guide for resolving the paper label `SRU-Net` to the repo's internal `hybrid_resnet`, CDI row ids, PDEBench CNS profiles, and BRDT `sru_net` row labels, including launch examples and variant-row caveats.
+**Keywords:** sru-net, hybrid_resnet, model-usage, cdi, pdebench, brdt, row-id, architecture-id
+**Use this when:** You need to run SRU-Net, map manuscript labels to implementation ids, or check which SRU-Net variants are paper-facing versus decision-support.
+
 ### [NeurIPS Hybrid ResNet Submission Design](plans/2026-04-20-neurips-hybrid-resnet-submission-design.md)
 **Description:** Approved design brief for a NeurIPS 2026 Hybrid ResNet submission campaign, defining the CDI pillar, the amended native `128x128` PDEBench image-suite pillar, fresh `128x128` CDI anchor regeneration strategy, `256x256` higher-mode scaling hypothesis, and the planned `/home/ollie/Documents/neurips/index.md` evidence-map policy. That local manuscript index is intentionally not required to exist until the roadmap evidence-bundle phase creates it.
 **Keywords:** neurips, hybrid_resnet, roadmap, submission, cdi, pde, evidence
