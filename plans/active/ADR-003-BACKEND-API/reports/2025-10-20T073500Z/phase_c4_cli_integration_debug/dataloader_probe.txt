@@ -1,3 +1,0 @@
-Batch length: 2
-item 0: type=Tensor, shape=torch.Size([4, 64, 64])
-item 1: type=Tensor, shape=torch.Size([4, 2])

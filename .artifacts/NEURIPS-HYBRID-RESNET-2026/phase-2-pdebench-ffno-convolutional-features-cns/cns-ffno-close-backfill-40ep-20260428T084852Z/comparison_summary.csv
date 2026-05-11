@@ -1,2 +1,0 @@
-profile_id,status,err_RMSE,err_nRMSE,relative_l2,fRMSE_low,fRMSE_mid,fRMSE_high,parameter_count,blocker_reason
-ffno_bottleneck_base,completed,1.842104434967041,0.07622417062520981,0.07622417062520981,4.347551345825195,0.2654404044151306,0.3934273421764374,6809701,

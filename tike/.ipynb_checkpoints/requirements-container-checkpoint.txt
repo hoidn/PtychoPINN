@@ -1,5 +1,0 @@
-h5py
-hdf5plugin
-scikit-image
-scipy
-toml

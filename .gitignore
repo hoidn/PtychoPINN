@@ -69,6 +69,28 @@ test_*/**/comparison_metrics.csv
 test_*/**/baseline_frc_curves.csv
 test_*/**/pinn_frc_curves.csv
 
+# Legacy ad hoc run/output directories accidentally committed before artifact
+# policy was tightened. Keep these root-only so source trees like tests/ remain
+# trackable.
+/final_test*/
+/test_*/
+/quick_synthetic_test/
+/study_with_10k_test_set_2/
+/synthetic_study_t3_512_1024/
+/three_way_validation_study/
+/verification*/
+/validation_manual/
+/simulation_test_output/
+/sim_outputs/
+/probe_generalization_study_corrected/
+/traditional_128groups/
+/tike_*/
+/tike_outputs/
+/ptychi_*/
+/selective_registration_results/
+/regression_test_512/
+/results/
+
 # Notebooks
 notebooks/untracked_notebooks*
 untracked*

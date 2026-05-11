@@ -1,2 +1,0 @@
-fly64_random_1000_vis.png
-fly64_sequential_1000_vis.png
