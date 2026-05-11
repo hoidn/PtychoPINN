@@ -1,1 +1,0 @@
-Update all relevant plans and associated implementation documents to reflect the updated strategy in docs/strategy/mainstrategy.md. Ensure plan steps, milestones, and execution guidance align with the new pivot (LayerScale + stochastic crash testing + memory caps + --set-phi requirement).
