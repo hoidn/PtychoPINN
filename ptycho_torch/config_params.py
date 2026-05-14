@@ -78,7 +78,7 @@ class ModelConfig:
 
     #Architecture selection
     use_reference_model: bool = field(default=False, metadata={'frozen': True})
-    architecture: Literal['unet', 'ccnf'] = field(default='unet', metadata={'frozen': True})
+    architecture: Literal['unet', 'ccnf', 'patterson'] = field(default='unet', metadata={'frozen': True})
     object_representation: Literal['rectangular', 'polar'] = field(default='rectangular', metadata={'frozen': True})
     fourier_bands_film: int = 32
     fourier_bands_coord: int = 10
@@ -87,10 +87,11 @@ class ModelConfig:
     feature_volume_channels: int = 64
     nf_chunk_size: int = 4096
 
-    #CNN decoder for CCNF
+    #CNN decoder for CCNF / Patterson
     ccnf_decoder_type: Literal['neural_field', 'cnn'] = field(default='neural_field', metadata={'frozen': True})
     cnn_decoder_base_ch: int = 128
     cnn_decoder_crop_size: int = 8
+    cnn_decoder_n_refine: int = 1
 
     #FNO-CNN Hybrid Encoder
     encoder_type: Literal['cnn', 'fno_cnn'] = field(default='cnn', metadata={'frozen': True})
@@ -136,7 +137,7 @@ class TrainingConfig:
     # Device/Loss
     nll: bool = True # Use Negative Log Likelihood loss component
     device: str = 'cuda' # Device to train on ('cuda', 'cpu')
-    strategy: Optional[str] = 'ddp' # Strategy for distributed training (e.g., 'ddp', None)
+    strategy: Literal['ddp', 'ddp_notebook', 'auto'] = 'ddp'
     n_devices: Union[int, str] = 1 #Number of devices. Set to "auto" for automatic GPU detection.
 
     # Framework

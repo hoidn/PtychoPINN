@@ -1,0 +1,60 @@
+{
+  "data_config": {
+    "N": 64,
+    "C": 4,
+    "normalize": "Batch",
+    "n_subsample": 1,
+    "neighbor_function": "4_quadrant",
+    "probe_normalize": false,
+    "probe_scale": 1.0,
+    "probe_ramp_removal": false,
+    "x_bounds": [0.05, 0.95],
+    "y_bounds": [0.05, 0.95],
+    "min_neighbor_distance": 0.5,
+    "max_neighbor_distance": 8,
+    "K_quadrant": 60,
+    "scan_pattern": "Rectangular"
+  },
+  "model_config": {
+    "mode": "Unsupervised",
+    "architecture": "patterson",
+    "object_big": true,
+    "probe_big": true,
+    "batch_norm": false,
+    "loss_function": "Poisson",
+    "intensity_scale_trainable": true,
+    "num_datasets": 4,
+    "n_filters_scale": 2,
+    "cbam_encoder": true,
+    "cbam_bottleneck": true,
+
+    "cnn_decoder_base_ch": 256,
+    "cnn_decoder_n_refine": 2,
+
+    "amp_activation": "silu",
+    "amp_loss": null,
+    "amp_loss_coeff": 4.0,
+    "phase_loss": null,
+    "phase_loss_coeff": 1.0,
+    "amplitude_variance_loss": true,
+    "amplitude_variance_coeff": 4e3,
+    "decoder_last_amp_channels": 4
+  },
+  "training_config": {
+    "num_workers": 4,
+    "orchestrator": "Lightning",
+    "learning_rate": 0.0001,
+    "n_devices": 2,
+    "batch_size": 32,
+    "accum_steps": 4,
+    "scheduler": "Cosine",
+    "epochs_fine_tune": 0,
+    "epochs": 60,
+    "gradient_clip_val": 1.0,
+    "experiment_name": "Patterson 64x64 benchmark"
+  },
+  "inference_config": {
+    "window": 20,
+    "batch_size": 400
+  }
+}
