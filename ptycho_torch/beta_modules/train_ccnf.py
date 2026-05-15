@@ -37,9 +37,12 @@ from ptycho_torch.train_utils import (
 class IndexedDataModule(L.LightningDataModule):
     """Lightning DataModule wrapping PtychoDatasetIndexed for DDP training.
 
-    DDP synchronization is handled with an explicit dist.barrier() inside
-    setup() rather than relying on Lightning's prepare_data/setup split,
-    which does not guarantee a barrier between the two in subprocess mode.
+    DDP synchronization uses Lightning's prepare_data/setup protocol:
+    - prepare_data() runs on rank 0 only and creates the memory map
+    - Lightning provides a barrier between prepare_data and setup
+    - setup() runs on all ranks and loads the existing memory map
+
+    This is safe for both local DDP (Lightning-managed) and torchrun launches.
     """
 
     def __init__(self, ptycho_dir, model_config, data_config, training_config,
@@ -61,13 +64,26 @@ class IndexedDataModule(L.LightningDataModule):
         self._is_setup_done = False
 
     def prepare_data(self):
-        pass
+        """Rank 0 only: create memory map on shared filesystem."""
+        self.training_config.orchestrator = "Lightning"
+        PtychoDatasetIndexed(
+            ptycho_dir=self.ptycho_dir,
+            model_config=self.model_config,
+            data_config=self.data_config,
+            training_config=self.training_config,
+            data_dir=self.data_dir,
+            remake_map=True,
+            min_overlap_frac=self.min_overlap_frac,
+            temperature=self.temperature,
+            K_candidates=self.K_candidates,
+            aspect_range=self.aspect_range,
+        )
 
     def setup(self, stage=None):
         if self._is_setup_done:
             return
         if stage == "fit" or stage is None:
-            self.training_config.orchestrator = "Mlflow"
+            self.training_config.orchestrator = "Lightning"
 
             full_dataset = PtychoDatasetIndexed(
                 ptycho_dir=self.ptycho_dir,
@@ -75,7 +91,7 @@ class IndexedDataModule(L.LightningDataModule):
                 data_config=self.data_config,
                 training_config=self.training_config,
                 data_dir=self.data_dir,
-                remake_map=True,
+                remake_map=False,
                 min_overlap_frac=self.min_overlap_frac,
                 temperature=self.temperature,
                 K_candidates=self.K_candidates,
@@ -210,7 +226,7 @@ def main(ptycho_dir, config_path, output_dir):
         default_root_dir=run_dir,
         devices=training_config.n_devices,
         accelerator="gpu" if training_config.n_devices > 0 and torch.cuda.is_available() else "cpu",
-        strategy=get_training_strategy(training_config.n_devices),
+        strategy=get_training_strategy(training_config.n_devices, training_config.strategy),
         callbacks=[checkpoint_callback, early_stop_callback, config_save_callback],
         enable_checkpointing=True,
         enable_progress_bar=True,
