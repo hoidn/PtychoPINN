@@ -1,58 +1,16 @@
 [build-system]
-requires = ["setuptools>=64", "setuptools_scm[toml]>=8"]
+requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ptychopinn"
-description = "PtychoPINN is an unsupervised physics-informed neural network reconstruction method for scanning CDI"
-readme = "README.md"
-requires-python = ">=3.10,<3.12"
-license = {file = "LICENSE"}
-dependencies = [
-    "Pillow",
-    "dill",
-    "imageio",
-    "ipywidgets",
-    "jupyter",
-    "lightning",
-    "matplotlib",
-    "mlflow",
-    "neuraloperator",
-    "numba",
-    "numpy",
-    "pandas",
-    "pandas-datareader",
-    "pathos",
-    "scikit-image",
-    "scikit-learn",
-    "scipy",
-    "tensordict",
-    "tensorflow[and-cuda]",
-    "tensorflow-datasets",
-    "tensorflow-hub",
-    "tensorflow-metadata",
-    "tensorflow-probability[tf]",
-    "torch",
-    "torchmetrics",
-    "tqdm",
-    "ujson",
-]
-dynamic = ["version"]
-
-[project.optional-dependencies]
-datagen = ["opencv-python", "perlin_noise"]
-
-[project.scripts]
-ptycho_train = "scripts.training.train:main"
-ptycho_inference = "scripts.inference.inference:main"
-
-[tool.setuptools.package-data]
-datasets = ["*.npz"]
+name = "ptychopinn-torch"
+version = "0.1.0"
+description = "PtychoPINN (PyTorch) - Physics-informed neural network for ptychographic reconstruction"
+requires-python = ">=3.10"
 
 [tool.setuptools.packages.find]
 where = ["."]
-
-[tool.setuptools_scm]
+include = ["ptycho_torch*"]
 
 [tool.ruff]
 target-version = "py310"
@@ -60,7 +18,6 @@ target-version = "py310"
 [tool.pytest.ini_options]
 minversion = "6.0"
 testpaths = ["tests"]
-# Add markers for optional dependencies
 markers = [
     "torch: marks tests as requiring PyTorch (deselect with '-m \"not torch\"')",
     "optional: marks tests as requiring optional dependencies",
@@ -70,20 +27,17 @@ markers = [
     "mini: marks tests as minimal/fast unit tests",
     "integration: marks end-to-end integration smoke tests (project-level alias)",
     "tf_integration: marks TensorFlow end-to-end workflow integration smoke test",
-    "grid_lines_hybrid_resnet_integration: marks grid-lines hybrid_resnet integration gate"
+    "grid_lines_hybrid_resnet_integration: marks grid-lines hybrid_resnet integration gate",
 ]
-# Configure test collection to handle import errors gracefully
 addopts = [
     "--strict-markers",
     "--strict-config",
     "--ignore-glob=**/test_*_backup.py",
-    "--ignore-glob=**/*.ipynb",  # Ignore Jupyter notebooks
-    "-ra"  # show extra test summary info for all except passed
+    "--ignore-glob=**/*.ipynb",
+    "-ra",
 ]
-# Configure warnings
 filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::PendingDeprecationWarning",
-    # Don't show warnings for PyTorch import failures
-    "ignore:PyTorch not available.*:UserWarning"
+    "ignore:PyTorch not available.*:UserWarning",
 ]
