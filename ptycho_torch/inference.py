@@ -279,6 +279,188 @@ def load_and_predict(run_id,
     return result
 
 
+def load_and_predict_lightning(run_path,
+                               ptycho_files_dir,
+                               config_override_path=None,
+                               file_index=0,
+                               save_dir="inference/output",
+                               plot_name="Test",
+                               verbose=False,
+                               real_im=False,
+                               device='auto'):
+    '''
+    Lightning checkpoint equivalent of load_and_predict.
+
+    Args:
+        run_path: Path to Lightning run directory (e.g. lightning_outputs/run_20260501_153224)
+        ptycho_files_dir: Directory containing NPZ scan files
+        config_override_path: Optional JSON config file for overrides
+        file_index: Experiment index for multi-file directories
+        save_dir: Directory for saving plots
+        plot_name: Base filename for plots
+        verbose: Print config details
+        real_im: Unused, kept for API parity
+        device: Device string ('cpu', 'cuda', 'auto')
+    '''
+    import torch
+    from ptycho_torch.reassembly import reconstruct_image_barycentric
+    from ptycho_torch.dataloader import PtychoDataset
+    from ptycho_torch.config_params import update_existing_config
+    from ptycho_torch.model import PtychoPINN_Lightning
+    from ptycho_torch.api.api_helper import load_configs_from_local_dir
+
+    if device == 'auto':
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+    run_path = Path(run_path)
+    ckpt_path = run_path / "checkpoints" / "best-checkpoint.ckpt"
+    if not ckpt_path.exists():
+        ckpt_path = run_path / "checkpoints" / "last.ckpt"
+    if not ckpt_path.exists():
+        raise FileNotFoundError(
+            f"No checkpoint found in {run_path / 'checkpoints'}. "
+            "Expected best-checkpoint.ckpt or last.ckpt"
+        )
+
+    configs_dir = run_path / "configs"
+    if configs_dir.exists():
+        data_config, model_config, training_config, inference_config, _ = \
+            load_configs_from_local_dir(str(run_path))
+    else:
+        data_config, model_config, training_config, inference_config = \
+            None, None, None, None
+
+    i_config_replace = {}
+    i_config_replace['experiment_number'] = file_index
+    i_config_replace['middle_trim'] = 50
+    update_existing_config(inference_config, i_config_replace)
+
+    d_config_replace = {}
+    d_config_replace['probe_normalize'] = False
+    d_config_replace['x_bounds'] = [0.03, 0.97]
+    d_config_replace['y_bounds'] = [0.03, 0.97]
+    update_existing_config(data_config, d_config_replace)
+
+    if config_override_path:
+        override_data, override_model, override_training, override_inference, _ = \
+            load_all_configs(config_override_path)
+        if data_config is None:
+            data_config = override_data
+            model_config = override_model
+            training_config = override_training
+            inference_config = override_inference
+        else:
+            from dataclasses import asdict
+            update_existing_config(data_config, asdict(override_data))
+            update_existing_config(model_config, asdict(override_model))
+            update_existing_config(training_config, asdict(override_training))
+            update_existing_config(inference_config, asdict(override_inference))
+
+    model_load_start = time.time()
+    loaded_model = PtychoPINN_Lightning.load_from_checkpoint(
+        str(ckpt_path),
+        map_location=device,
+        model_config=model_config,
+        data_config=data_config,
+        training_config=training_config,
+        inference_config=inference_config,
+    )
+    loaded_model.to(device)
+    loaded_model.training = True
+    model_load_time = time.time() - model_load_start
+
+    data_load_start = time.time()
+    ptycho_dataset = PtychoDataset(ptycho_files_dir, model_config, data_config,
+                                   remake_map=True)
+    data_load_time = time.time() - data_load_start
+
+    if verbose:
+        print(f"Data config: {data_config}")
+        print(f"Model config: {model_config}")
+        print(f"Inference config: {inference_config}")
+    result, recon_dataset, assembly_stats, modified_result = reconstruct_image_barycentric(
+        loaded_model, ptycho_dataset,
+        training_config, data_config, model_config, inference_config,
+        gpu_ids=None, use_mixed_precision=True, verbose=True,
+        return_diagnostics=True)
+
+    result_im = result.to('cpu')
+
+    print(f"shape {result_im.shape}")
+    if len(result_im.shape) == 3:
+        result_im = result_im[0].squeeze()
+
+    if isinstance(recon_dataset.data_dict['objectGuess'], list):
+        gt_object = recon_dataset.data_dict['objectGuess'][file_index]
+    else:
+        gt_object = recon_dataset.data_dict['objectGuess']
+
+    r_factor_title = None
+    try:
+        from ptycho_torch.eval.frc import evaluate_fourier_metrics
+        canvas_np = result_im.numpy() if hasattr(result_im, 'numpy') else np.array(result_im)
+        probe_all_modes = recon_dataset.data_dict['probes'][file_index]
+        if hasattr(probe_all_modes, 'numpy'):
+            probe_all_modes = probe_all_modes.numpy()
+        positions = recon_dataset.mmap_ptycho['coords_global'][:, 0, 0, :].numpy()
+        diffraction = recon_dataset.mmap_ptycho['images'][:, 0, :, :].numpy()
+
+        fourier_results = evaluate_fourier_metrics(
+            canvas_np, probe_all_modes, positions, diffraction,
+            patch_size=data_config.N,
+            metrics=('rfactor',),
+            optimal_scaling=True,
+            verbose=verbose,
+        )
+
+        if 'rfactor' in fourier_results:
+            r_val = fourier_results['rfactor']['R_factor']
+            r_factor_title = f"R-factor: {r_val:.4f}"
+            print(f"Fourier R-factor: {r_val:.4f} "
+                  f"(scale={fourier_results['rfactor']['scale_factor']:.4f}, "
+                  f"n_positions={fourier_results['n_positions_used']})")
+    except Exception as e:
+        print(f"Warning: R-factor computation failed: {e}")
+
+    h, w = 20, 20
+
+    result_amp = np.abs(result_im)
+    result_phase = np.angle(result_im)
+    gt_amp = np.abs(gt_object).squeeze()
+    gt_phase = np.angle(gt_object).squeeze()
+
+    plot_amp_and_phase(result_amp[h:-h, w:-w], result_phase[h:-h, w:-w],
+                       gt_amp[h:-h, w:-w], gt_phase[h:-h, w:-w],
+                       save_dir=save_dir, filename=plot_name,
+                       suptitle=r_factor_title)
+
+    result_amp = np.real(result_im)
+    result_phase = np.imag(result_im)
+    gt_amp = np.real(gt_object).squeeze()
+    gt_phase = np.imag(gt_object).squeeze()
+
+    plot_name += '_reim'
+
+    plot_amp_and_phase(result_amp[h:-h, w:-w], result_phase[h:-h, w:-w],
+                       gt_amp[h:-h, w:-w], gt_phase[h:-h, w:-w],
+                       save_dir=save_dir, filename=plot_name,
+                       obj_amp_name='Object Real',
+                       obj_phase_name='Object Imag',
+                       gt_amp_name='Ground Truth Real',
+                       gt_phase_name='Ground Truth Imag',
+                       suptitle=r_factor_title)
+
+    plot_reim_histogram(result_im[h:-h, w:-w], gt_object.squeeze()[h:-h, w:-w],
+                        save_dir=save_dir, filename=plot_name + '_hist')
+
+    print(f"Model load time: {model_load_time} \n "
+          f"Data load time: {data_load_time}\n"
+          f"Total inference time: {assembly_stats[0]}\n"
+          f"Total assembly time: {assembly_stats[1]}")
+
+    return result
+
+
 def plot_amp_and_phase(obj_amp, obj_phase, gt_amp, gt_phase, save_dir = None, filename = None,
                        obj_amp_name = 'Object Amp',
                        obj_phase_name = 'Object Phase',
@@ -957,30 +1139,39 @@ if __name__ == '__main__':
         # New CLI path (Phase E2.C2)
         sys.exit(cli_main())
     else:
-        # Legacy MLflow-based inference path
-        parser = argparse.ArgumentParser(description="Arguments for inference script (MLflow mode)")
-        parser.add_argument('--run_id', type = str, help = "Unique run id associated with training run")
-        parser.add_argument('--infer_dir', type = str, help = "Inference directory")
-        parser.add_argument('--file_index', type = int, default = 0, help = "File index if more than one file in infer_dir")
-        parser.add_argument('--config', type = str, default = None, help = "Config to override loaded values")
-        parser.add_argument('--save_name', type = str, default = 'save', help = "Filename for saving the inference results")
-        parser.add_argument('--real_im', action = 'store_true', help = "Real or imaginary")
+        # MLflow / Lightning inference path
+        parser = argparse.ArgumentParser(description="Arguments for inference script")
+        group = parser.add_mutually_exclusive_group(required=True)
+        group.add_argument('--run_id', type=str, help="MLflow run id")
+        group.add_argument('--run_path', type=str, help="Lightning run directory path")
+        parser.add_argument('--infer_dir', type=str, required=True, help="Inference directory")
+        parser.add_argument('--file_index', type=int, default=0, help="File index if more than one file in infer_dir")
+        parser.add_argument('--config', type=str, default=None, help="Config to override loaded values")
+        parser.add_argument('--save_name', type=str, default='save', help="Filename for saving the inference results")
+        parser.add_argument('--real_im', action='store_true', help="Real or imaginary")
+        parser.add_argument('--device', type=str, default='auto', choices=['cpu', 'cuda', 'auto'],
+                            help="Device for inference (default: auto)")
 
         args = parser.parse_args()
 
-        run_id = args.run_id
-        infer_dir = args.infer_dir
-        file_index = args.file_index
-        config_override = args.config
-        save_name = args.save_name
-        real_im = args.real_im
-
         try:
-            load_and_predict(run_id, infer_dir, 'mlruns',
-                             config_override_path=config_override,
-                             file_index = file_index,
-                             plot_name= save_name,
-                             real_im = real_im)
+            if args.run_path:
+                load_and_predict_lightning(
+                    args.run_path, args.infer_dir,
+                    config_override_path=args.config,
+                    file_index=args.file_index,
+                    plot_name=args.save_name,
+                    real_im=args.real_im,
+                    device=args.device,
+                )
+            else:
+                load_and_predict(
+                    args.run_id, args.infer_dir, 'mlruns',
+                    config_override_path=args.config,
+                    file_index=args.file_index,
+                    plot_name=args.save_name,
+                    real_im=args.real_im,
+                )
         except Exception as e:
             print(f"Inference failed because of: {str(e)}")
             sys.exit(1)
