@@ -142,7 +142,7 @@ def _get_diffraction_stack(npz_file):
                 )
                 diff_array = np.transpose(diff_array, [2, 0, 1])
 
-        return diff_array
+        return diff_array.astype(np.float32)
 
 
 # --- Tensordict patcher function ---
