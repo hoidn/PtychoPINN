@@ -78,7 +78,7 @@ class ModelConfig:
 
     #Architecture selection
     use_reference_model: bool = field(default=False, metadata={'frozen': True})
-    architecture: Literal['unet', 'ccnf', 'patterson'] = field(default='unet', metadata={'frozen': True})
+    architecture: Literal['unet', 'ccnf', 'patterson', 'overlap_baseline'] = field(default='unet', metadata={'frozen': True})
     object_representation: Literal['rectangular', 'polar'] = field(default='rectangular', metadata={'frozen': True})
     fourier_bands_film: int = 32
     fourier_bands_coord: int = 10
@@ -102,8 +102,14 @@ class ModelConfig:
 
     #Attention Fusion
     latent_canvas_size: int = 32
+    canvas_scale_mode: Literal['dynamic', 'fixed'] = 'dynamic'
     fusion_heads: int = 4
     fusion_tag_bands: int = 3
+
+    #Overlap Baseline
+    overlap_fourier_bands: int = 4
+    overlap_gate_groups: int = 16
+    overlap_encoding: Literal['fourier', 'hybrid'] = 'fourier'
 
     #Loss
     loss_function: Literal['MAE', 'Poisson'] = 'Poisson' # Loss function to use ('MAE', 'MSE', etc.)
