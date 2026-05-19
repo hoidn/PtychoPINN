@@ -1,0 +1,60 @@
+{
+  "data_config": {
+    "N": 64,
+    "C": 8,
+    "normalize": "Batch",
+    "n_subsample": 1,
+    "neighbor_function": "Nearest",
+    "probe_normalize": true,
+    "probe_scale": 1.0,
+    "probe_ramp_removal": false,
+    "x_bounds": [0.05, 0.95],
+    "y_bounds": [0.05, 0.95],
+    "scan_pattern": "Isotropic"
+  },
+  "model_config": {
+    "mode": "Unsupervised",
+    "architecture": "overlap_baseline",
+    "encoder_type": "fno_cnn",
+    "fno_interleave": true,
+    "fno_modes": 16,
+    "fno_width": 32,
+    "fno_blocks": 2,
+    "cnn_decoder_base_ch": 128,
+    "object_big": true,
+    "probe_big": true,
+    "batch_norm": false,
+    "loss_function": "Poisson",
+    "intensity_scale_trainable": true,
+    "num_datasets": 4,
+    "n_filters_scale": 2,
+    "cbam_encoder": true,
+    "cbam_bottleneck": false,
+    "amp_loss": null,
+    "amp_loss_coeff": 4.0,
+    "phase_loss": null,
+    "phase_loss_coeff": 1.0
+  },
+  "training_config": {
+    "num_workers": 4,
+    "orchestrator": "Lightning",
+    "dataloader_mode": "indexed",
+    "learning_rate": 0.0005,
+    "n_devices": 2,
+    "batch_size": 16,
+    "accum_steps": 2,
+    "scheduler": "Cosine",
+    "epochs_fine_tune": 0,
+    "epochs": 30,
+    "gradient_clip_val": 1.0,
+    "experiment_name": "Overlap baseline experiment"
+  },
+  "inference_config": {
+    "window": 20
+  },
+  "datagen_config": {
+    "object_class": "dead_leaves_reim_gmm",
+    "objects_per_probe": 4,
+    "diff_per_object": 7000
+  }
+}

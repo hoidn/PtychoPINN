@@ -1,15 +1,17 @@
-"""Overlap Baseline: Pairwise-Offset Gated Mixing + Standard Decoders.
+"""Overlap Baseline: Pairwise-Offset Gated Mixing + PixelShuffle Decoder.
 
-Minimal baseline for latent-space overlap fusion. Weight-shared encoder
-processes each patch independently, a Fourier-encoded pairwise offset
-gate mixes features across overlapping patches, and standard convolutional
-decoders reconstruct each patch.
+Minimal baseline for latent-space overlap fusion. Weight-shared FNO+CNN
+encoder (interleaved, same as PC-CCNF) processes each patch independently,
+a Fourier-encoded pairwise offset gate mixes features across overlapping
+patches at the bottleneck, and a PixelShuffle+ConvNeXt decoder with
+encoder skip injection reconstructs each patch.
 
 Compared to the full PC-CCNF (latent_model.py), this model has:
+- Same FNO+CNN encoder (shared architecture for fair comparison)
 - No spatial canvas or canvas scaling
-- No cross-attention fusion
-- No neural field decoder
-- Only a small pairwise MLP for overlap-aware mixing
+- No cross-attention fusion — only a small pairwise MLP for overlap mixing
+- No multi-resolution feature volume
+- Per-patch PixelShuffle decoder (no canvas crop step)
 """
 
 import copy
@@ -21,11 +23,15 @@ import torch.nn.functional as F
 
 from ptycho_torch.config_params import ModelConfig, DataConfig, TrainingConfig
 from ptycho_torch.model import (
-    Encoder, Decoder_amp, Decoder_phase,
     ForwardModel, IntensityScalerModule, CombineComplexRectangular,
 )
 from ptycho_torch.model_attention import CBAM
-from ptycho_torch.beta_modules.latent_model import FourierPositionalEncoding
+from ptycho_torch.beta_modules.latent_model import (
+    FourierPositionalEncoding,
+    FNOCNNEncoder,
+    LayerNorm2d,
+    PixelShuffleUpsampleStage,
+)
 
 import math
 
@@ -148,48 +154,142 @@ class PairwiseOffsetGate(nn.Module):
         return z_mixed.reshape(B, C, D, H, W)
 
 
+class PerPatchPixelShuffleDecoder(nn.Module):
+    """Per-patch PixelShuffle+ConvNeXt decoder with encoder skip injection.
+
+    Adapted from CNNCanvasDecoder (latent_model.py) with the canvas crop
+    step removed. Takes per-patch bottleneck features directly and upsamples
+    to full resolution via PixelShuffle stages with ConvNeXt refinement.
+    """
+    def __init__(self, model_config: ModelConfig, data_config: DataConfig,
+                 bottleneck_channels: int, H_enc: int,
+                 encoder_skip_info: Optional[list] = None):
+        super().__init__()
+        self.N = data_config.N
+        self.H_enc = H_enc
+
+        F_in = bottleneck_channels
+        base_ch = getattr(model_config, 'cnn_decoder_base_ch', 128)
+        n_stages = int(math.log2(self.N / H_enc))
+
+        assert self.N == H_enc * (2 ** n_stages), (
+            f"N={self.N} must be H_enc * 2^k for integer k"
+        )
+
+        self.stem = nn.Sequential(
+            nn.Conv2d(F_in, base_ch, kernel_size=1),
+            LayerNorm2d(base_ch),
+            nn.GELU(),
+        )
+
+        channels = [base_ch]
+        ch = base_ch
+        for s in range(n_stages):
+            ch_out = max(16, ch // 2) if s > 0 else ch
+            channels.append(ch_out)
+            ch = ch_out
+
+        skip_channels_per_stage = [0] * n_stages
+        self._skip_indices = [None] * n_stages
+        if encoder_skip_info is not None:
+            for s in range(n_stages):
+                target_res = H_enc * (2 ** (s + 1))
+                for k in range(len(encoder_skip_info) - 1, -1, -1):
+                    if encoder_skip_info[k][0] == target_res:
+                        skip_channels_per_stage[s] = encoder_skip_info[k][1]
+                        self._skip_indices[s] = k
+                        break
+
+        self.stages = nn.ModuleList()
+        for s in range(n_stages):
+            self.stages.append(
+                PixelShuffleUpsampleStage(channels[s], channels[s + 1],
+                                          skip_channels=skip_channels_per_stage[s])
+            )
+
+        last_ch = channels[-1]
+        self.head_real = nn.Conv2d(last_ch, 1, kernel_size=3, padding=1)
+        self.head_imag = nn.Conv2d(last_ch, 1, kernel_size=3, padding=1)
+
+        nn.init.zeros_(self.head_real.bias)
+        nn.init.zeros_(self.head_imag.bias)
+
+    def forward(self, z: torch.Tensor,
+                encoder_skips: Optional[list] = None) -> tuple:
+        """
+        Args:
+            z: (B*C, D, H_enc, W_enc) per-patch bottleneck features
+            encoder_skips: list of (B*C, ch_k, res_k, res_k) encoder skips
+        Returns:
+            x_real: (B*C, 1, N, N) real component
+            x_imag: (B*C, 1, N, N) imaginary component
+        """
+        stage_skips = [None] * len(self.stages)
+        if encoder_skips is not None:
+            for s, skip_idx in enumerate(self._skip_indices):
+                if skip_idx is not None:
+                    stage_skips[s] = encoder_skips[skip_idx]
+
+        x = self.stem(z)
+        for i, stage in enumerate(self.stages):
+            x = stage(x, skip=stage_skips[i])
+
+        x_real = 0.2 + torch.tanh(self.head_real(x))
+        x_imag = 1.2 * torch.tanh(self.head_imag(x))
+
+        return x_real, x_imag
+
+
 class AutoencoderOverlapBaseline(nn.Module):
-    """Weight-shared encoder + pairwise offset gate + standard decoders.
+    """Weight-shared FNO+CNN encoder + pairwise offset gate + PixelShuffle decoder.
 
     The encoder processes each patch independently (weight-shared).
     The pairwise offset gate mixes features across overlapping patches
-    in the bottleneck. Standard convolutional decoders reconstruct each
-    patch from the mixed features.
+    in the bottleneck. A PixelShuffle+ConvNeXt decoder reconstructs each
+    patch from the mixed features with encoder skip injection.
     """
     def __init__(self, model_config: ModelConfig, data_config: DataConfig):
         super().__init__()
         self.model_config = model_config
         self.data_config = data_config
 
-        # Single-channel weight-shared encoder
+        # Weight-shared FNO+CNN encoder (interleaved)
         encoder_config = copy.deepcopy(model_config)
         object.__setattr__(encoder_config, 'C_model', 1)
         object.__setattr__(encoder_config, 'object_big', False)
-        self.encoder = Encoder(encoder_config, data_config)
+        object.__setattr__(encoder_config, 'fno_interleave', True)
+        self.encoder = FNOCNNEncoder(encoder_config, data_config)
 
-        # Single-channel decoders (weight-shared across patches)
-        decoder_config = copy.deepcopy(model_config)
-        object.__setattr__(decoder_config, 'C_model', 1)
-        object.__setattr__(decoder_config, 'object_big', False)
-        object.__setattr__(decoder_config, 'decoder_last_amp_channels', 1)
-        self.decoder_amp = Decoder_amp(decoder_config, data_config)
-        self.decoder_phase = Decoder_phase(decoder_config, data_config)
+        # Probe encoder output shapes for decoder construction
+        N = data_config.N
+        with torch.no_grad():
+            dummy = torch.zeros(1, 1, N, N)
+            dummy_out, dummy_skips = self.encoder(dummy)
+        H_enc = dummy_out.shape[2]
+        encoder_skip_info = [(s.shape[2], s.shape[1]) for s in dummy_skips]
 
         # Optional CBAM at bottleneck
+        bottleneck_channels = self.encoder.filters[-1]
         if model_config.cbam_bottleneck:
-            bottleneck_channels = self.encoder.filters[-1]
             self.bottleneck_cbam = CBAM(gate_channels=bottleneck_channels)
         else:
             self.bottleneck_cbam = nn.Identity()
 
         # Pairwise offset gate for overlap mixing
-        bottleneck_channels = self.encoder.filters[-1]
         num_bands = getattr(model_config, 'overlap_fourier_bands', 4)
         num_groups = getattr(model_config, 'overlap_gate_groups', 16)
         encoding = getattr(model_config, 'overlap_encoding', 'fourier')
         self.overlap_gate = PairwiseOffsetGate(
             bottleneck_channels, num_bands=num_bands, num_groups=num_groups,
             encoding=encoding
+        )
+
+        # PixelShuffle decoder with encoder skip injection
+        self.decoder = PerPatchPixelShuffleDecoder(
+            model_config, data_config,
+            bottleneck_channels=bottleneck_channels,
+            H_enc=H_enc,
+            encoder_skip_info=encoder_skip_info,
         )
 
     def forward(self, x: torch.Tensor, coords: torch.Tensor,
@@ -206,9 +306,9 @@ class AutoencoderOverlapBaseline(nn.Module):
         """
         B, C, N, _ = x.shape
 
-        # 1. Weight-shared encoding
+        # 1. Weight-shared FNO+CNN encoding
         x_flat = x.reshape(B * C, 1, N, N)
-        z_flat, skips = self.encoder(x_flat)  # (B*C, D, H, W)
+        z_flat, encoder_skips = self.encoder(x_flat)  # (B*C, D, H, W)
         z_flat = self.bottleneck_cbam(z_flat)
         D, H, W = z_flat.shape[1], z_flat.shape[2], z_flat.shape[3]
         z = z_flat.reshape(B, C, D, H, W)
@@ -216,14 +316,9 @@ class AutoencoderOverlapBaseline(nn.Module):
         # 2. Pairwise offset gate mixing
         z_mixed = self.overlap_gate(z, coords, N)
 
-        # 3. Reshape skips for weight-shared decoding
-        # Skips came from (B*C) batch — they're already the right shape
-        # but we need to decode each mixed patch independently
+        # 3. Per-patch PixelShuffle decoding
         z_dec = z_mixed.reshape(B * C, D, H, W)
-
-        # Re-derive skips from the original encoding (they're not mixed)
-        x_real = self.decoder_amp(z_dec, skips)    # (B*C, 1, N, N)
-        x_imag = self.decoder_phase(z_dec, skips)  # (B*C, 1, N, N)
+        x_real, x_imag = self.decoder(z_dec, encoder_skips=encoder_skips)
 
         x_real = x_real.reshape(B, C, N, N)
         x_imag = x_imag.reshape(B, C, N, N)
