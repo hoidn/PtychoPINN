@@ -1516,6 +1516,12 @@ class PtychoPINN_Lightning(L.LightningModule):
             elif arch == 'patterson':
                 from ptycho_torch.beta_modules.patterson_model import PtychoPINN_Patterson
                 self.model = PtychoPINN_Patterson(model_config, data_config, training_config)
+            elif arch == 'overlap_baseline':
+                from ptycho_torch.beta_modules.overlap_baseline import PtychoPINN_OverlapBaseline
+                self.model = PtychoPINN_OverlapBaseline(model_config, data_config, training_config)
+            elif arch == 'loss_overlap_baseline':
+                from ptycho_torch.beta_modules.loss_overlap_baseline import PtychoPINN_LossOverlapBaseline
+                self.model = PtychoPINN_LossOverlapBaseline(model_config, data_config, training_config)
             else:
                 self.model = PtychoPINN(model_config, data_config, training_config)
         elif model_config.mode == 'Supervised':

@@ -78,7 +78,7 @@ class ModelConfig:
 
     #Architecture selection
     use_reference_model: bool = field(default=False, metadata={'frozen': True})
-    architecture: Literal['unet', 'ccnf', 'patterson', 'overlap_baseline'] = field(default='unet', metadata={'frozen': True})
+    architecture: Literal['unet', 'ccnf', 'patterson', 'overlap_baseline', 'loss_overlap_baseline'] = field(default='unet', metadata={'frozen': True})
     object_representation: Literal['rectangular', 'polar'] = field(default='rectangular', metadata={'frozen': True})
     fourier_bands_film: int = 32
     fourier_bands_coord: int = 10
