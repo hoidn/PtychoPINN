@@ -1137,17 +1137,19 @@ class Collate(nn.Module):
         -------
         x: TensorDict
         '''
-        tensor_dict, probe, scaling = x
-        outputs = [tensor_dict, probe.clone(), scaling]  # Clone probe to avoid memory sharing issues
-        
+        tensor_dict, probe, scaling, *rest = x
+        outputs = [tensor_dict, probe.clone(), scaling] + [
+            r.clone() if isinstance(r, torch.Tensor) else r for r in rest
+        ]
+
         # Pin memory if using CUDA
         if self.device and self.device.type == 'cuda':
             outputs = [item.pin_memory() for item in outputs]
-            
+
         # Move to device if specified
         if self.device:
             outputs = [item.to(self.device) for item in outputs]
-            
+
         return tuple(outputs)
 
 # Modified collate function for PyTorch lightning
@@ -1166,21 +1168,22 @@ class Collate_Lightning(nn.Module):
         """
         Prep batch. Lightning calls the device transfer
         """
-        tensor_dict, probe, scaling = x
-        outputs = [tensor_dict, probe.clone(), scaling.clone()]
+        tensor_dict, probe, scaling, *rest = x
+        outputs = [tensor_dict, probe.clone(), scaling.clone()] + [
+            r.clone() if isinstance(r, torch.Tensor) else r for r in rest
+        ]
 
         if self.pin_memory_if_cuda and torch.cuda.is_available():
             try:
                 if hasattr(outputs[0], 'pin_memory'):
-                    outputs[0] = outputs[0].pin_memory() #Try calling tensordict native method
+                    outputs[0] = outputs[0].pin_memory()
                 else:
                     for key in enumerate(outputs[0].keys()):
                         if isinstance(outputs[0][key], torch.Tensor):
                             outputs[0][key] = outputs[0][key].pin_memory()
-                outputs[1] = outputs[1].pin_memory()
-                outputs[2] = outputs[2].pin_memory()
+                for i in range(1, len(outputs)):
+                    outputs[i] = outputs[i].pin_memory()
             except Exception as e:
                 print(f"Warning: Collate failed to pin memory: {e}")
-
 
         return tuple(outputs)

@@ -555,6 +555,9 @@ class PtychoDatasetIndexed(Dataset):
             (self.n_files, max_modes, N, N), dtype=torch.complex64
         )
         self.data_dict["probe_scaling"] = torch.zeros(self.n_files, dtype=torch.float32)
+        self.data_dict["probe_intensity"] = torch.zeros(
+            (self.n_files, N, N), dtype=torch.float32
+        )
         self.data_dict["objectGuess"] = []
         self.data_dict["scaling_constant"] = torch.empty(self.n_files, dtype=torch.float32)
 
@@ -664,6 +667,13 @@ class PtychoDatasetIndexed(Dataset):
             self.data_dict["probes"][i, :n_modes] = torch.from_numpy(
                 probe_data
             ).to(torch.complex64)
+
+            probe_t = self.data_dict["probes"][i]  # (max_modes, N, N)
+            intensity = torch.sum(torch.abs(probe_t) ** 2, dim=0)  # (N, N)
+            imax = intensity.max()
+            if imax > 0:
+                intensity = intensity / imax
+            self.data_dict["probe_intensity"][i] = intensity
 
             # Object
             objectGuess = np.load(npz_file)["objectGuess"]
@@ -837,10 +847,10 @@ class PtychoDatasetIndexed(Dataset):
         return self.length
 
     def __getitem__(self, idx):
-        """Gather patterns at runtime and return the standard 3-tuple.
+        """Gather patterns at runtime and return the standard 4-tuple.
 
         Returns:
-            (TensorDict, probes_indexed, probe_scaling)
+            (TensorDict, probes_indexed, probe_scaling, probe_intensity)
         """
         group_indices = self.nn_indices[idx]  # (C,) or (B, C)
         images = self.mmap_patterns["patterns"][group_indices]  # (C, H, W) or (B, C, H, W)
@@ -881,6 +891,7 @@ class PtychoDatasetIndexed(Dataset):
         if isinstance(idx, int):
             probes_indexed = self.data_dict["probes"][get_idx]
             probe_scaling = self.data_dict["probe_scaling"][get_idx]
+            probe_intensity = self.data_dict["probe_intensity"][get_idx].unsqueeze(0)  # (1, N, N)
         else:
             probes_indexed = (
                 self.data_dict["probes"][get_idx]
@@ -888,8 +899,9 @@ class PtychoDatasetIndexed(Dataset):
                 .expand(-1, channels, -1, -1, -1)
             )
             probe_scaling = self.data_dict["probe_scaling"][get_idx].view(-1, 1, 1, 1)
+            probe_intensity = self.data_dict["probe_intensity"][get_idx].unsqueeze(1)  # (B, 1, N, N)
 
-        return td, probes_indexed, probe_scaling
+        return td, probes_indexed, probe_scaling, probe_intensity
 
     # ------------------------------------------------------------------
     # Alternate constructors
@@ -922,6 +934,13 @@ class PtychoDatasetIndexed(Dataset):
 
         loaded_state = np.load(instance.state_path, allow_pickle=True)
         instance.data_dict = loaded_state["data_dict"].item()
+
+        if "probe_intensity" not in instance.data_dict:
+            probes = instance.data_dict["probes"]  # (n_files, modes, N, N)
+            intensity = torch.sum(torch.abs(probes) ** 2, dim=1)  # (n_files, N, N)
+            imax = intensity.amax(dim=(-2, -1), keepdim=True).clamp(min=1e-12)
+            instance.data_dict["probe_intensity"] = intensity / imax
+
         instance._rebuild_groups_from_state()
 
         print(
@@ -1018,6 +1037,14 @@ class PtychoDatasetIndexed(Dataset):
             torch.from_numpy(probe_data).to(torch.complex64).unsqueeze(0)
         )
         dataset.data_dict["probe_scaling"] = torch.tensor([probe_sf], dtype=torch.float32)
+
+        probe_t = dataset.data_dict["probes"][0]  # (modes, N, N)
+        intensity = torch.sum(torch.abs(probe_t) ** 2, dim=0)  # (N, N)
+        imax = intensity.max()
+        if imax > 0:
+            intensity = intensity / imax
+        dataset.data_dict["probe_intensity"] = intensity.unsqueeze(0)  # (1, N, N)
+
         dataset.data_dict["objectGuess"] = []
 
         # Normalization
@@ -1114,6 +1141,10 @@ class PtychoDatasetIndexed(Dataset):
                 experiment_idx : experiment_idx + 1
             ],
         }
+        if "probe_intensity" in self.data_dict:
+            subset.data_dict["probe_intensity"] = self.data_dict["probe_intensity"][
+                experiment_idx : experiment_idx + 1
+            ]
         if len(self.data_dict.get("objectGuess", [])) > experiment_idx:
             subset.data_dict["objectGuess"] = [
                 self.data_dict["objectGuess"][experiment_idx]
