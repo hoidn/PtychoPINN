@@ -208,11 +208,19 @@ class PerPatchPixelShuffleDecoder(nn.Module):
             )
 
         last_ch = channels[-1]
-        self.head_real = nn.Conv2d(last_ch, 1, kernel_size=3, padding=1)
-        self.head_imag = nn.Conv2d(last_ch, 1, kernel_size=3, padding=1)
+        self.head_real = nn.Sequential(
+            nn.Conv2d(last_ch, last_ch, kernel_size=3, padding=1),
+            nn.GELU(),
+            nn.Conv2d(last_ch, 1, kernel_size=3, padding=1),
+        )
+        self.head_imag = nn.Sequential(
+            nn.Conv2d(last_ch, last_ch, kernel_size=3, padding=1),
+            nn.GELU(),
+            nn.Conv2d(last_ch, 1, kernel_size=3, padding=1),
+        )
 
-        nn.init.zeros_(self.head_real.bias)
-        nn.init.zeros_(self.head_imag.bias)
+        nn.init.zeros_(self.head_real[-1].bias)
+        nn.init.zeros_(self.head_imag[-1].bias)
 
     def forward(self, z: torch.Tensor,
                 encoder_skips: Optional[list] = None) -> tuple:

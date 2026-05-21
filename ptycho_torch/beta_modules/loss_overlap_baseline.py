@@ -57,11 +57,19 @@ class MultiChannelPixelShuffleDecoder(PerPatchPixelShuffleDecoder):
         super().__init__(model_config, data_config, bottleneck_channels, H_enc,
                          encoder_skip_info=encoder_skip_info)
         C = data_config.C
-        last_ch = self.head_real.in_channels
-        self.head_real = nn.Conv2d(last_ch, C, kernel_size=3, padding=1)
-        self.head_imag = nn.Conv2d(last_ch, C, kernel_size=3, padding=1)
-        nn.init.zeros_(self.head_real.bias)
-        nn.init.zeros_(self.head_imag.bias)
+        last_ch = self.head_real[0].in_channels
+        self.head_real = nn.Sequential(
+            nn.Conv2d(last_ch, last_ch, kernel_size=3, padding=1),
+            nn.GELU(),
+            nn.Conv2d(last_ch, C, kernel_size=3, padding=1),
+        )
+        self.head_imag = nn.Sequential(
+            nn.Conv2d(last_ch, last_ch, kernel_size=3, padding=1),
+            nn.GELU(),
+            nn.Conv2d(last_ch, C, kernel_size=3, padding=1),
+        )
+        nn.init.zeros_(self.head_real[-1].bias)
+        nn.init.zeros_(self.head_imag[-1].bias)
 
 
 class AutoencoderLossOverlapBaseline(nn.Module):

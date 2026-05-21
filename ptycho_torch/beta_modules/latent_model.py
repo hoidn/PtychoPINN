@@ -246,8 +246,15 @@ class NeuralFieldDecoder(nn.Module):
             layers.append(nn.Linear(prev_dim, h))
             layers.append(nn.SiLU(inplace=True))
             prev_dim = h
-        layers.append(nn.Linear(prev_dim, 2))  # real, imaginary
         self.mlp = nn.Sequential(*layers)
+
+        head_hidden = prev_dim // 2
+        self.head_real = nn.Sequential(
+            nn.Linear(prev_dim, head_hidden), nn.SiLU(), nn.Linear(head_hidden, 1)
+        )
+        self.head_imag = nn.Sequential(
+            nn.Linear(prev_dim, head_hidden), nn.SiLU(), nn.Linear(head_hidden, 1)
+        )
 
         self.canvas_size = model_config.latent_canvas_size
         self.chunk_size = getattr(model_config, 'nf_chunk_size', 4096)
@@ -305,7 +312,10 @@ class NeuralFieldDecoder(nn.Module):
 
             coord_features = self.coord_encoder(rc_chunk)
             mlp_input = torch.cat([coord_features, sampled], dim=-1)
-            outputs.append(self.mlp(mlp_input))
+            shared = self.mlp(mlp_input)
+            out_real = self.head_real(shared)
+            out_imag = self.head_imag(shared)
+            outputs.append(torch.cat([out_real, out_imag], dim=-1))
 
         output = torch.cat(outputs, dim=1)  # (B, Q, 2)
 
@@ -437,11 +447,19 @@ class CNNCanvasDecoder(nn.Module):
             )
 
         last_ch = channels[-1]
-        self.head_real = nn.Conv2d(last_ch, 1, kernel_size=3, padding=1)
-        self.head_imag = nn.Conv2d(last_ch, 1, kernel_size=3, padding=1)
+        self.head_real = nn.Sequential(
+            nn.Conv2d(last_ch, last_ch, kernel_size=3, padding=1),
+            nn.GELU(),
+            nn.Conv2d(last_ch, 1, kernel_size=3, padding=1),
+        )
+        self.head_imag = nn.Sequential(
+            nn.Conv2d(last_ch, last_ch, kernel_size=3, padding=1),
+            nn.GELU(),
+            nn.Conv2d(last_ch, 1, kernel_size=3, padding=1),
+        )
 
-        nn.init.zeros_(self.head_real.bias)
-        nn.init.zeros_(self.head_imag.bias)
+        nn.init.zeros_(self.head_real[-1].bias)
+        nn.init.zeros_(self.head_imag[-1].bias)
 
     def _build_sample_grid(self, feature_volume: torch.Tensor,
                            coords: torch.Tensor,
