@@ -1522,6 +1522,9 @@ class PtychoPINN_Lightning(L.LightningModule):
             elif arch == 'loss_overlap_baseline':
                 from ptycho_torch.beta_modules.loss_overlap_baseline import PtychoPINN_LossOverlapBaseline
                 self.model = PtychoPINN_LossOverlapBaseline(model_config, data_config, training_config)
+            elif arch == 'input_conditioned_overlap':
+                from ptycho_torch.beta_modules.input_conditioned_overlap_model import PtychoPINN_ConditionedOverlap
+                self.model = PtychoPINN_ConditionedOverlap(model_config, data_config, training_config)
             else:
                 self.model = PtychoPINN(model_config, data_config, training_config)
         elif model_config.mode == 'Supervised':
@@ -1776,9 +1779,7 @@ class PtychoPINN_Lightning(L.LightningModule):
 
     def freeze_encoder(self):
         """Freezes encoder parameters for fine-tuning."""
-        encoder = self.model.autoencoder.encoder
-        for param in encoder.parameters():
-            param.requires_grad = False
+        self.model.freeze_encoder()
         self._fine_tuning_mode = True
         print("Encoder layers frozen for fine-tuning. Only decoder layers will be updated.")
 
