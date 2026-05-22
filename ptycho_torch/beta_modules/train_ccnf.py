@@ -161,7 +161,14 @@ def main(ptycho_dir, config_path, output_dir):
     resolve_n_devices(training_config)
     set_seed(42, n_devices=training_config.n_devices)
 
-    # DDP-safe run name generation
+    # DDP-safe run name generation.
+    # os.environ is per-process, so it only works when Lightning spawns
+    # subprocesses (they inherit the parent env). With torchrun/elastic,
+    # all ranks are independent peers — use a file on the shared filesystem.
+    import time
+    os.makedirs(output_dir, exist_ok=True)
+    run_name_file = os.path.join(output_dir, ".run_name")
+
     run_name = None
     if is_effectively_global_rank_zero():
         run_tag = training_config.run_tag
@@ -170,17 +177,23 @@ def main(ptycho_dir, config_path, output_dir):
             run_name = f"{run_tag}_run_{timestamp}"
         else:
             run_name = f"run_{timestamp}"
+        with open(run_name_file, 'w') as f:
+            f.write(run_name)
         os.environ["SHARED_RUN_NAME"] = run_name
     else:
-        import time
-        max_wait = 10
+        max_wait = 30
         for _ in range(max_wait * 10):
             if "SHARED_RUN_NAME" in os.environ:
                 run_name = os.environ["SHARED_RUN_NAME"]
                 break
+            if os.path.exists(run_name_file):
+                with open(run_name_file, 'r') as f:
+                    run_name = f.read().strip()
+                if run_name:
+                    break
             time.sleep(0.1)
         else:
-            raise RuntimeError("Non-zero rank failed to get SHARED_RUN_NAME from rank 0")
+            raise RuntimeError("Non-zero rank failed to get run name from rank 0")
 
     tb_logger, csv_logger = create_experiment_loggers(
         experiment_name=training_config.experiment_name,
