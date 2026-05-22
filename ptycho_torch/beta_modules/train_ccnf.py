@@ -29,6 +29,7 @@ from ptycho_torch.train_utils import (
     is_effectively_global_rank_zero, LightningConfigSaveCallback,
     resolve_n_devices,
 )
+from ptycho_torch.lightning_utils import MetadataLogger
 
 
 class IndexedDataModule(L.LightningDataModule):
@@ -157,8 +158,10 @@ def main(ptycho_dir, config_path, output_dir):
     set_seed(42, n_devices=training_config.n_devices)
 
     experiment_name = getattr(training_config, 'experiment_name', 'default')
+    run_tag = getattr(training_config, 'run_tag', '')
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir = os.path.join(output_dir, experiment_name, f"run_{timestamp}")
+    run_name = f"{run_tag}_run_{timestamp}" if run_tag else f"run_{timestamp}"
+    run_dir = os.path.join(output_dir, experiment_name, run_name)
     os.makedirs(run_dir, exist_ok=True)
 
     # Mmap path must be deterministic across DDP ranks.
@@ -218,13 +221,20 @@ def main(ptycho_dir, config_path, output_dir):
         base_output_dir=run_dir,
     )
 
+    metadata_logger = MetadataLogger(
+        stage="training",
+        notes=training_config.notes,
+        model_name=training_config.model_name,
+        dataset_dir=ptycho_dir,
+    )
+
     trainer = L.Trainer(
         max_epochs=training_config.epochs,
         default_root_dir=run_dir,
         devices=training_config.n_devices,
         accelerator="gpu" if training_config.n_devices > 0 and torch.cuda.is_available() else "cpu",
         strategy=get_training_strategy(training_config.n_devices, training_config.strategy),
-        callbacks=[checkpoint_callback, early_stop_callback, config_save_callback],
+        callbacks=[checkpoint_callback, early_stop_callback, config_save_callback, metadata_logger],
         enable_checkpointing=True,
         enable_progress_bar=True,
         logger=False,
