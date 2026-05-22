@@ -29,8 +29,10 @@ from ptycho_torch.beta_modules.dataloader_index import PtychoDatasetIndexed
 from ptycho_torch.dataloader import TensorDictDataLoader, Collate_Lightning
 from ptycho_torch.train_utils import (
     set_seed, get_training_strategy, find_learning_rate,
-    is_effectively_global_rank_zero, LightningConfigSaveCallback,
-    resolve_n_devices,
+    is_effectively_global_rank_zero, resolve_n_devices,
+)
+from ptycho_torch.lightning_utils import (
+    ConfigLogger, MetadataLogger, create_experiment_loggers, print_run_summary,
 )
 
 
@@ -159,12 +161,35 @@ def main(ptycho_dir, config_path, output_dir):
     resolve_n_devices(training_config)
     set_seed(42, n_devices=training_config.n_devices)
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir = os.path.join(output_dir, f"ccnf_{timestamp}")
-    os.makedirs(run_dir, exist_ok=True)
+    # DDP-safe run name generation
+    run_name = None
+    if is_effectively_global_rank_zero():
+        run_tag = training_config.run_tag
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        if run_tag:
+            run_name = f"{run_tag}_run_{timestamp}"
+        else:
+            run_name = f"run_{timestamp}"
+        os.environ["SHARED_RUN_NAME"] = run_name
+    else:
+        import time
+        max_wait = 10
+        for _ in range(max_wait * 10):
+            if "SHARED_RUN_NAME" in os.environ:
+                run_name = os.environ["SHARED_RUN_NAME"]
+                break
+            time.sleep(0.1)
+        else:
+            raise RuntimeError("Non-zero rank failed to get SHARED_RUN_NAME from rank 0")
 
-    # Mmap path must be deterministic across DDP ranks. In subprocess DDP
-    # each rank re-runs main() independently, so datetime.now() can differ.
+    tb_logger, csv_logger = create_experiment_loggers(
+        experiment_name=training_config.experiment_name,
+        run_name=run_name,
+        output_dir=output_dir,
+    )
+    run_dir = tb_logger.log_dir
+
+    # Mmap path must be deterministic across DDP ranks.
     # Use output_dir (from CLI args, identical across ranks) for the mmap.
     mmap_dir = os.path.join(output_dir, "memmap_indexed")
 
@@ -210,15 +235,18 @@ def main(ptycho_dir, config_path, output_dir):
         verbose=True,
     )
 
-    config_dict = {
-        "data_config": data_config,
-        "model_config": model_config,
-        "training_config": training_config,
-        "inference_config": inference_config,
-    }
-    config_save_callback = LightningConfigSaveCallback(
-        config_map=config_dict,
-        base_output_dir=run_dir,
+    config_logger = ConfigLogger(
+        data_config=data_config,
+        model_config=model_config,
+        training_config=training_config,
+        inference_config=inference_config,
+    )
+
+    metadata_logger = MetadataLogger(
+        stage="training",
+        notes=training_config.notes,
+        model_name=training_config.model_name,
+        dataset_dir=ptycho_dir,
     )
 
     trainer = L.Trainer(
@@ -227,10 +255,10 @@ def main(ptycho_dir, config_path, output_dir):
         devices=training_config.n_devices,
         accelerator="gpu" if training_config.n_devices > 0 and torch.cuda.is_available() else "cpu",
         strategy=get_training_strategy(training_config.n_devices, training_config.strategy),
-        callbacks=[checkpoint_callback, early_stop_callback, config_save_callback],
+        callbacks=[checkpoint_callback, early_stop_callback, config_logger, metadata_logger],
         enable_checkpointing=True,
         enable_progress_bar=True,
-        logger=False,
+        logger=[tb_logger, csv_logger],
     )
 
     print(f"Starting training for {training_config.epochs} epochs...")
@@ -240,6 +268,7 @@ def main(ptycho_dir, config_path, output_dir):
         dist.barrier()
 
     if is_effectively_global_rank_zero():
+        print_run_summary(Path(run_dir))
         print(f"Training complete. Outputs at: {run_dir}")
 
     return model, trainer, run_dir

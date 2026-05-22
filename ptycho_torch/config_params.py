@@ -164,8 +164,9 @@ class TrainingConfig:
     warmup_epochs: int = 5
     min_lr_ratio: float = 0.1
 
-    #MLFlow config
+    #Experiment tracking
     experiment_name: str = "Synthetic_Runs"
+    run_tag: str = ""
     notes: str = ""
     model_name: str = "PtychoPINNv2"
 

@@ -36,12 +36,12 @@ class ConfigLogger(Callback):
     for each config type, plus a combined full_config.json.
     """
     
-    def __init__(self, 
+    def __init__(self,
                  data_config: DataConfig,
                  model_config: ModelConfig,
                  training_config: TrainingConfig,
                  inference_config: InferenceConfig,
-                 datagen_config: DatagenConfig):
+                 datagen_config: Optional[DatagenConfig] = None):
         super().__init__()
         self.data_config = data_config
         self.model_config = model_config
@@ -58,14 +58,14 @@ class ConfigLogger(Callback):
         config_dir = log_dir / "configs"
         config_dir.mkdir(parents=True, exist_ok=True)
         
-        # Convert configs to JSON-serializable dicts
         configs = {
             'data_config': config_to_json_serializable_dict(self.data_config),
             'model_config': config_to_json_serializable_dict(self.model_config),
             'training_config': config_to_json_serializable_dict(self.training_config),
             'inference_config': config_to_json_serializable_dict(self.inference_config),
-            'datagen_config': config_to_json_serializable_dict(self.datagen_config),
         }
+        if self.datagen_config is not None:
+            configs['datagen_config'] = config_to_json_serializable_dict(self.datagen_config)
         
         # Save individual config files
         for config_name, config_dict in configs.items():
@@ -86,17 +86,19 @@ class MetadataLogger(Callback):
     Logs run metadata (timestamp, stage, notes, etc.) to metadata.json.
     Updates throughout training to track stage transitions.
     """
-    
-    def __init__(self, 
+
+    def __init__(self,
                  stage: str = "training",
                  notes: str = "",
                  model_name: str = "PtychoPINNv2",
-                 encoder_frozen: bool = False):
+                 encoder_frozen: bool = False,
+                 dataset_dir: str = ""):
         super().__init__()
         self.stage = stage
         self.notes = notes
         self.model_name = model_name
         self.encoder_frozen = encoder_frozen
+        self.dataset_dir = dataset_dir
         self.start_time = None
         self.end_time = None
         
@@ -109,11 +111,12 @@ class MetadataLogger(Callback):
         metadata_path = log_dir / "metadata.json"
         
         metadata = {
-            'run_id': log_dir.name,  # Use directory name as run_id
+            'run_id': log_dir.name,
             'stage': self.stage,
             'model_name': self.model_name,
             'encoder_frozen': self.encoder_frozen,
             'notes': self.notes,
+            'dataset_dir': str(Path(self.dataset_dir).resolve()) if self.dataset_dir else "",
             'start_time': self.start_time,
             'end_time': None,
             'status': 'running',
@@ -155,28 +158,31 @@ class MetadataLogger(Callback):
         print(f"Updated metadata file at {metadata_path}")
 
 
-def create_experiment_loggers(experiment_name: str, 
+def create_experiment_loggers(experiment_name: str,
                                run_name: Optional[str] = None,
-                               output_dir: str = "training_outputs") -> Tuple[TensorBoardLogger, CSVLogger]:
+                               output_dir: str = "training_outputs",
+                               run_tag: str = "") -> Tuple[TensorBoardLogger, CSVLogger]:
     """
     Create TensorBoard and CSV loggers with consistent directory structure.
-    
+
     Args:
         experiment_name: Name of experiment (e.g., "Synthetic_Runs")
-        run_name: Optional custom run name. If None, uses timestamp.
+        run_name: Optional custom run name. If None, auto-generated from timestamp.
         output_dir: Root output directory for all experiments
-        
+        run_tag: Optional prefix for auto-generated run names (e.g., "fno_encoder")
+
     Returns:
         Tuple of (TensorBoardLogger, CSVLogger)
     """
     if run_name is None:
-        # Check if we are in a DDP environment and get a shared timestamp
-        # If not, generate one. 
-        # A simple trick: use an environment variable set by Rank 0
         if "SHARED_RUN_NAME" in os.environ:
             run_name = os.environ["SHARED_RUN_NAME"]
         else:
-            run_name = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            if run_tag:
+                run_name = f"{run_tag}_run_{timestamp}"
+            else:
+                run_name = f"run_{timestamp}"
             os.environ["SHARED_RUN_NAME"] = run_name
     
     # Create loggers pointing to same version directory
@@ -306,8 +312,8 @@ def get_latest_run(experiment_name: str, output_dir: str = "training_outputs") -
     if not experiment_dir.exists():
         return None
     
-    # Get all run directories (named run_YYYYMMDD_HHMMSS)
-    run_dirs = [d for d in experiment_dir.iterdir() if d.is_dir() and d.name.startswith('run_')]
+    run_dirs = [d for d in experiment_dir.iterdir()
+                if d.is_dir() and (d / "metadata.json").exists()]
     
     if not run_dirs:
         return None
