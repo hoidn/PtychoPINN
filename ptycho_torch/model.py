@@ -1605,8 +1605,13 @@ class PtychoPINN_Lightning(L.LightningModule):
                            fine_tune=fine_tune)
         return x_out
 
-    def forward_predict(self, x, positions, probe, input_scale_factor):
-        x_combined = self.model.forward_predict(x, positions, probe, input_scale_factor)
+    def forward_predict(self, x, positions, probe, input_scale_factor,
+                        probe_intensity=None):
+        kwargs = {}
+        if probe_intensity is not None:
+            kwargs['probe_intensity'] = probe_intensity
+        x_combined = self.model.forward_predict(x, positions, probe, input_scale_factor,
+                                                **kwargs)
         return x_combined
 
     def _reshape_scale_tensor(self, scale_value, reference_tensor):

@@ -949,8 +949,9 @@ class PtychoDataParallelWrapper(nn.Module):
         self.model = model
     
     def forward(self, inputs):
-        x, positions, probe, in_scale = inputs
-        return self.model.forward_predict(x, positions, probe, in_scale)
+        x, positions, probe, in_scale, probe_intensity = inputs
+        return self.model.forward_predict(x, positions, probe, in_scale,
+                                          probe_intensity=probe_intensity)
 
 
 def setup_multi_gpu_model(model: nn.Module, 
@@ -1118,6 +1119,7 @@ def reconstruct_image_barycentric(model: nn.Module,
             probe = batch[1].to(primary_device, non_blocking=True)  # (B, C, P, H, W)
             in_scale = batch_data['rms_scaling_constant'].to(primary_device, non_blocking=True)
             batch_global_coords = batch_data['coords_global'].to(primary_device, non_blocking=True)
+            probe_intensity = batch[3].to(primary_device, non_blocking=True) if len(batch) > 3 else None
 
             # Save uncropped probe from first batch for probe-based swap detection
             if saved_probe_single is None:
@@ -1127,10 +1129,11 @@ def reconstruct_image_barycentric(model: nn.Module,
             inference_start = time.time()
 
             if isinstance(model, nn.DataParallel):
-                inputs = (I_raw, positions, probe, in_scale)
+                inputs = (I_raw, positions, probe, in_scale, probe_intensity)
                 texture_raw = model(inputs)
             else:
-                texture_raw = model.forward_predict(I_raw, positions, probe, in_scale)
+                texture_raw = model.forward_predict(I_raw, positions, probe, in_scale,
+                                                    probe_intensity=probe_intensity)
 
             torch.cuda.synchronize()
             inference_time = time.time() - inference_start

@@ -42,8 +42,8 @@ class SpatialEncoder(nn.Module):
         self.N = N
         grid_1d = torch.arange(N, dtype=torch.float32) - (N - 1) / 2.0
         grid_y, grid_x = torch.meshgrid(grid_1d, grid_1d, indexing='ij')
-        self.register_buffer('grid_x', grid_x)
-        self.register_buffer('grid_y', grid_y)
+        self.register_buffer('grid_x', grid_x.clone())
+        self.register_buffer('grid_y', grid_y.clone())
 
     def forward(self, coords_relative: torch.Tensor) -> torch.Tensor:
         """
