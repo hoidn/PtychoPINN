@@ -3,16 +3,19 @@
 Extends the loss-only overlap baseline with auxiliary input channels that
 provide geometric and illumination context to the encoder:
 
-1. Spatial encoding (2 channels per patch = 2C): Per-pixel sinusoidal
-   offset from the group centroid — sin(2*pi*x/N), sin(2*pi*y/N).
-   Encodes each pixel's position relative to the scan center so the
-   network can learn geometry-aware overlap weighting.
+1. Spatial encoding (2 channels per patch = 2C):
+   - 'sinusoidal': sin(2*pi*offset/N) for x and y.  Range [-1, 1].
+   - 'linear':     offset/N for x and y.  Range ~[-0.5, 0.5].
+   Controlled by ModelConfig.coord_encoding.
 
-2. Probe intensity (1 shared channel): Normalized sum |P_p|^2 over
-   incoherent modes. Provides the illumination map so the network
-   can learn to weight pixels by measurement importance.
+2. Probe conditioning (1 or 2 channels):
+   - 'intensity' (1 ch): Normalized |P|^2.  Range [0, 1].
+   - 'cartesian' (2 ch): Re(P)/|P|_max and Im(P)/|P|_max.  Range [-1, 1].
+   - 'polar'     (2 ch): |P|/|P|_max [0, 1] and angle(P)/pi [-1, 1].
+   Controlled by ModelConfig.probe_encoding.
 
-Total encoder input: (B, 3C+1, N, N).
+Total encoder input: (B, 3C + n_probe_ch, N, N)
+  where n_probe_ch = 1 (intensity) or 2 (cartesian/polar).
 Decoder output unchanged: (B, C, N, N) complex object patches.
 """
 
@@ -31,15 +34,18 @@ from ptycho_torch.beta_modules.loss_overlap_baseline import MultiChannelPixelShu
 
 
 class SpatialEncoder(nn.Module):
-    """Per-pixel sinusoidal offset maps from patch-level relative coordinates.
+    """Per-pixel offset maps from patch-level relative coordinates.
 
     For each of the C patches, computes the offset of every pixel from the
-    group centroid (arithmetic mean of scan positions), then encodes as
-    sin(2*pi*offset/N). Produces 2 channels per patch (x and y).
+    group centroid (arithmetic mean of scan positions), then encodes as:
+      - 'sinusoidal': sin(2*pi*offset/N).  Range [-1, 1].
+      - 'linear':     offset/N.            Range ~[-0.5, 0.5] for typical offsets.
+    Produces 2 channels per patch (x and y).
     """
-    def __init__(self, N: int):
+    def __init__(self, N: int, coord_encoding: str = 'sinusoidal'):
         super().__init__()
         self.N = N
+        self.coord_encoding = coord_encoding
         grid_1d = torch.arange(N, dtype=torch.float32) - (N - 1) / 2.0
         grid_y, grid_x = torch.meshgrid(grid_1d, grid_1d, indexing='ij')
         self.register_buffer('grid_x', grid_x.clone())
@@ -50,7 +56,7 @@ class SpatialEncoder(nn.Module):
         Args:
             coords_relative: (B, C, 1, 2) offsets from group centroid.
         Returns:
-            (B, 2C, N, N) sinusoidal spatial encoding.
+            (B, 2C, N, N) spatial encoding.
         """
         dx = coords_relative[:, :, 0, 0]  # (B, C)
         dy = coords_relative[:, :, 0, 1]  # (B, C)
@@ -58,32 +64,38 @@ class SpatialEncoder(nn.Module):
         x_offset = dx[:, :, None, None] + self.grid_x  # (B, C, N, N)
         y_offset = dy[:, :, None, None] + self.grid_y  # (B, C, N, N)
 
-        u = 2.0 * math.pi * x_offset / self.N
-        v = 2.0 * math.pi * y_offset / self.N
-
-        return torch.cat([torch.sin(u), torch.sin(v)], dim=1)  # (B, 2C, N, N)
+        if self.coord_encoding == 'sinusoidal':
+            u = 2.0 * math.pi * x_offset / self.N
+            v = 2.0 * math.pi * y_offset / self.N
+            return torch.cat([torch.sin(u), torch.sin(v)], dim=1)
+        else:
+            u = x_offset / self.N
+            v = y_offset / self.N
+            return torch.cat([u, v], dim=1)  # (B, 2C, N, N)
 
 
 class FNOCNNEncoderConditioned(FNOCNNEncoder):
     """FNOCNNEncoder with lifting layer sized for conditioned input.
 
-    Lifting: Conv2d(3C+1, fno_width, 1) to accept C diffraction channels,
-    2C spatial encoding channels, and 1 probe intensity channel.
+    Lifting: Conv2d(n_input, fno_width, 1) where n_input = C + 2C + n_probe_ch.
+    n_probe_ch is 1 for intensity encoding, 2 for cartesian/polar.
     """
     def __init__(self, model_config: ModelConfig, data_config: DataConfig):
         super().__init__(model_config, data_config)
         C = data_config.C
-        n_input = 3 * C + 1
+        n_probe_ch = 2 if model_config.probe_encoding in ('cartesian', 'polar') else 1
+        n_input = 3 * C + n_probe_ch
         fno_width = model_config.fno_width
         self.lifting = nn.Conv2d(n_input, fno_width, kernel_size=1)
         self.filters[0] = n_input
 
 
 class AutoencoderConditionedOverlap(nn.Module):
-    """Multi-channel encoder with spatial + probe intensity conditioning.
+    """Multi-channel encoder with spatial + probe conditioning.
 
-    Input is augmented from (B, C, N, N) to (B, 3C+1, N, N) before the
-    encoder. The decoder reconstructs C complex object patches as before.
+    Input is augmented from (B, C, N, N) to (B, 3C + n_probe_ch, N, N)
+    before the encoder. n_probe_ch is 1 (intensity) or 2 (cartesian/polar).
+    The decoder reconstructs C complex object patches as before.
     """
     def __init__(self, model_config: ModelConfig, data_config: DataConfig):
         super().__init__()
@@ -92,9 +104,10 @@ class AutoencoderConditionedOverlap(nn.Module):
 
         N = data_config.N
         C = data_config.C
-        n_input = 3 * C + 1
+        n_probe_ch = 2 if model_config.probe_encoding in ('cartesian', 'polar') else 1
+        n_input = 3 * C + n_probe_ch
 
-        self.spatial_encoder = SpatialEncoder(N)
+        self.spatial_encoder = SpatialEncoder(N, coord_encoding=model_config.coord_encoding)
 
         encoder_config = copy.deepcopy(model_config)
         object.__setattr__(encoder_config, 'fno_interleave', True)
@@ -120,19 +133,19 @@ class AutoencoderConditionedOverlap(nn.Module):
         )
 
     def forward(self, x: torch.Tensor, coords: torch.Tensor,
-                probe_intensity: torch.Tensor) -> tuple:
+                probe_encoding: torch.Tensor) -> tuple:
         """
         Args:
             x: (B, C, N, N) diffraction patterns (already intensity-scaled).
             coords: (B, C, 1, 2) relative coordinates from group centroid.
-            probe_intensity: (B, 1, N, N) normalized probe intensity map.
+            probe_encoding: (B, n_probe_ch, N, N) probe conditioning channels.
         Returns:
             complex_out: (B, C, N, N) complex64 object patches.
             x_real: (B, C, N, N) real component.
             x_imag: (B, C, N, N) imaginary component.
         """
         spatial = self.spatial_encoder(coords)  # (B, 2C, N, N)
-        encoder_input = torch.cat([x, spatial, probe_intensity], dim=1)  # (B, 3C+1, N, N)
+        encoder_input = torch.cat([x, spatial, probe_encoding], dim=1)
 
         z, encoder_skips = self.encoder(encoder_input)
         z = self.bottleneck_cbam(z)
@@ -152,31 +165,48 @@ class PtychoPINN_ConditionedOverlap(nn.Module):
 
         self.scaler = IntensityScalerModule(model_config)
         self.probe_scale = data_config.probe_scale
+        self.probe_encoding = model_config.probe_encoding
 
         self.autoencoder = AutoencoderConditionedOverlap(model_config, data_config)
         self.forward_model = ForwardModel(model_config, data_config)
 
-    def _compute_probe_intensity(self, probe: torch.Tensor) -> torch.Tensor:
-        """Fallback: compute normalized probe intensity from raw probe tensor.
+    def _compute_probe_encoding(self, probe: torch.Tensor) -> torch.Tensor:
+        """Compute probe conditioning channels from raw probe tensor.
 
         Args:
-            probe: (B, C, P, N, N) complex64.
+            probe: (B, C, P, N, N) complex64. P = incoherent modes.
         Returns:
-            (B, 1, N, N) float32, normalized to [0, 1].
+            (B, n_probe_ch, N, N) float32.
+            n_probe_ch is 1 for 'intensity', 2 for 'cartesian'/'polar'.
         """
-        intensity = torch.sum(torch.abs(probe) ** 2, dim=2)  # (B, C, N, N)
-        intensity = intensity[:, 0:1, :, :]  # (B, 1, N, N)
-        imax = intensity.amax(dim=(-2, -1), keepdim=True).clamp(min=1e-12)
-        return intensity / imax
+        if self.probe_encoding == 'intensity':
+            intensity = torch.sum(torch.abs(probe) ** 2, dim=2)  # (B, C, N, N)
+            intensity = intensity[:, 0:1, :, :]  # (B, 1, N, N)
+            imax = intensity.amax(dim=(-2, -1), keepdim=True).clamp(min=1e-12)
+            return intensity / imax
+
+        P_dom = probe[:, 0, 0]  # (B, N, N) complex — dominant mode
+        P_max = torch.abs(P_dom).amax(dim=(-2, -1), keepdim=True).clamp(min=1e-12)
+
+        if self.probe_encoding == 'cartesian':
+            re = P_dom.real / P_max  # (B, N, N), range [-1, 1]
+            im = P_dom.imag / P_max  # (B, N, N), range [-1, 1]
+            return torch.stack([re, im], dim=1)  # (B, 2, N, N)
+        else:  # polar
+            amp = torch.abs(P_dom) / P_max  # (B, N, N), range [0, 1]
+            phase = torch.angle(P_dom) / math.pi  # (B, N, N), range [-1, 1]
+            return torch.stack([amp, phase], dim=1)  # (B, 2, N, N)
 
     def forward(self, x, positions, probe, input_scale_factor, output_scale_factor,
                 experiment_ids=None, fine_tune=False, probe_intensity=None):
         x = self.scaler.scale(x, input_scale_factor)
 
-        if probe_intensity is None:
-            probe_intensity = self._compute_probe_intensity(probe)
+        if self.probe_encoding != 'intensity' or probe_intensity is None:
+            probe_encoding = self._compute_probe_encoding(probe)
+        else:
+            probe_encoding = probe_intensity
 
-        x_combined, x_real, x_imag = self.autoencoder(x, positions, probe_intensity)
+        x_combined, x_real, x_imag = self.autoencoder(x, positions, probe_encoding)
 
         x_out = self.forward_model.forward(
             x_combined, x,
@@ -190,9 +220,11 @@ class PtychoPINN_ConditionedOverlap(nn.Module):
     def forward_predict(self, x, positions, probe, input_scale_factor,
                         probe_intensity=None):
         x = self.scaler.scale(x, input_scale_factor)
-        if probe_intensity is None:
-            probe_intensity = self._compute_probe_intensity(probe)
-        x_combined, _, _ = self.autoencoder(x, positions, probe_intensity)
+        if self.probe_encoding != 'intensity' or probe_intensity is None:
+            probe_encoding = self._compute_probe_encoding(probe)
+        else:
+            probe_encoding = probe_intensity
+        x_combined, _, _ = self.autoencoder(x, positions, probe_encoding)
         return x_combined
 
     def get_encoder_bottom_params(self):

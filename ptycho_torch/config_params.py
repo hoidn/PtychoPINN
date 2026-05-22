@@ -111,6 +111,14 @@ class ModelConfig:
     overlap_gate_groups: int = 16
     overlap_encoding: Literal['fourier', 'hybrid'] = 'fourier'
 
+    # Input-conditioned overlap encoding
+    probe_encoding: Literal['intensity', 'cartesian', 'polar'] = field(
+        default='intensity', metadata={'frozen': True}
+    )
+    coord_encoding: Literal['sinusoidal', 'linear'] = field(
+        default='sinusoidal', metadata={'frozen': True}
+    )
+
     #Loss
     loss_function: Literal['MAE', 'Poisson'] = 'Poisson' # Loss function to use ('MAE', 'MSE', etc.)
     amp_loss: Literal['Total_Variation', "Mean_Deviation", None] = None
