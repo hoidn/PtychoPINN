@@ -174,11 +174,16 @@ class PtychoPINN_ConditionedOverlap(nn.Module):
         """Compute probe conditioning channels from raw probe tensor.
 
         Args:
-            probe: (B, C, P, N, N) complex64. P = incoherent modes.
+            probe: (B, C, P, N, N) complex64, or (B, C, P, N, N, 2) real view
+                   when DataParallel converts complex tensors.
         Returns:
             (B, n_probe_ch, N, N) float32.
             n_probe_ch is 1 for 'intensity', 2 for 'cartesian'/'polar'.
         """
+        # DataParallel may convert complex to real view (..., 2)
+        if not probe.is_complex() and probe.shape[-1] == 2:
+            probe = torch.view_as_complex(probe.contiguous())
+
         if self.probe_encoding == 'intensity':
             intensity = torch.sum(torch.abs(probe) ** 2, dim=2)  # (B, C, N, N)
             intensity = intensity[:, 0:1, :, :]  # (B, 1, N, N)
@@ -195,6 +200,7 @@ class PtychoPINN_ConditionedOverlap(nn.Module):
         else:  # polar
             amp = torch.abs(P_dom) / P_max  # (B, N, N), range [0, 1]
             phase = torch.angle(P_dom) / math.pi  # (B, N, N), range [-1, 1]
+            print(amp.dtype, phase.dtype)
             return torch.stack([amp, phase], dim=1)  # (B, 2, N, N)
 
     def forward(self, x, positions, probe, input_scale_factor, output_scale_factor,
@@ -203,6 +209,7 @@ class PtychoPINN_ConditionedOverlap(nn.Module):
 
         if self.probe_encoding != 'intensity' or probe_intensity is None:
             probe_encoding = self._compute_probe_encoding(probe)
+            
         else:
             probe_encoding = probe_intensity
 
@@ -222,6 +229,7 @@ class PtychoPINN_ConditionedOverlap(nn.Module):
         x = self.scaler.scale(x, input_scale_factor)
         if self.probe_encoding != 'intensity' or probe_intensity is None:
             probe_encoding = self._compute_probe_encoding(probe)
+            print(f"Probe encoding shape: {probe_encoding.shape}")
         else:
             probe_encoding = probe_intensity
         x_combined, _, _ = self.autoencoder(x, positions, probe_encoding)
