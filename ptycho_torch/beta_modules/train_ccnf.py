@@ -130,7 +130,7 @@ class IndexedDataModule(L.LightningDataModule):
         )
 
 
-def main(ptycho_dir, config_path, output_dir):
+def main(ptycho_dir, config_path, output_dir, resume_ckpt=None):
     """Train PC-CCNF model with indexed dataloader."""
     print("Loading configs...")
     config_data = load_config_from_json(config_path)
@@ -157,12 +157,17 @@ def main(ptycho_dir, config_path, output_dir):
     resolve_n_devices(training_config)
     set_seed(42, n_devices=training_config.n_devices)
 
-    experiment_name = getattr(training_config, 'experiment_name', 'default')
-    run_tag = getattr(training_config, 'run_tag', '')
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_name = f"{run_tag}_run_{timestamp}" if run_tag else f"run_{timestamp}"
-    run_dir = os.path.join(output_dir, experiment_name, run_name)
-    os.makedirs(run_dir, exist_ok=True)
+    if resume_ckpt:
+        run_dir = os.path.dirname(os.path.dirname(os.path.abspath(resume_ckpt)))
+        print(f"Resuming from: {resume_ckpt}")
+        print(f"Reusing run directory: {run_dir}")
+    else:
+        experiment_name = getattr(training_config, 'experiment_name', 'default')
+        run_tag = getattr(training_config, 'run_tag', '')
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        run_name = f"{run_tag}_run_{timestamp}" if run_tag else f"run_{timestamp}"
+        run_dir = os.path.join(output_dir, experiment_name, run_name)
+        os.makedirs(run_dir, exist_ok=True)
 
     # Mmap path must be deterministic across DDP ranks.
     # Use output_dir (from CLI args, identical across ranks) for the mmap.
@@ -184,13 +189,20 @@ def main(ptycho_dir, config_path, output_dir):
     model = PtychoPINN_Lightning(model_config, data_config, training_config, inference_config)
     model.training = True
 
-    updated_lr = find_learning_rate(
-        training_config.learning_rate,
-        training_config.n_devices,
-        training_config.batch_size,
-    )
-    model.lr = updated_lr
-    print(f"Learning rate: {updated_lr:.6f}")
+    if resume_ckpt:
+        ckpt = torch.load(resume_ckpt, map_location="cpu", weights_only=False)
+        last_lr = ckpt["optimizer_states"][0]["param_groups"][0]["lr"]
+        model.lr = last_lr
+        print(f"Learning rate (from checkpoint): {last_lr:.6f}")
+        del ckpt
+    else:
+        updated_lr = find_learning_rate(
+            training_config.learning_rate,
+            training_config.n_devices,
+            training_config.batch_size,
+        )
+        model.lr = updated_lr
+        print(f"Learning rate: {updated_lr:.6f}")
 
     val_loss_label = model.val_loss_name
 
@@ -241,7 +253,7 @@ def main(ptycho_dir, config_path, output_dir):
     )
 
     print(f"Starting training for {training_config.epochs} epochs...")
-    trainer.fit(model, datamodule=data_module)
+    trainer.fit(model, datamodule=data_module, ckpt_path=resume_ckpt)
 
     if dist.is_initialized():
         dist.barrier()
@@ -262,9 +274,11 @@ def cli_main():
                         help="JSON config file path")
     parser.add_argument("--output_dir", type=str, required=True,
                         help="Output directory for checkpoints and logs")
+    parser.add_argument("--resume", type=str, default=None,
+                        help="Path to checkpoint file (e.g. last.ckpt) to resume training")
     args = parser.parse_args()
 
-    main(args.ptycho_dir, args.config, args.output_dir)
+    main(args.ptycho_dir, args.config, args.output_dir, resume_ckpt=args.resume)
 
 
 if __name__ == "__main__":
