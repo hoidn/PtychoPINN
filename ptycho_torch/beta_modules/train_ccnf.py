@@ -30,6 +30,7 @@ from ptycho_torch.train_utils import (
     is_effectively_global_rank_zero, LightningConfigSaveCallback,
     resolve_n_devices,
 )
+from ptycho_torch.lightning_utils import MetadataLogger
 
 
 class IndexedDataModule(L.LightningDataModule):
@@ -254,13 +255,21 @@ def main(ptycho_dir, config_path, output_dir, resume_ckpt=None):
         base_output_dir=run_dir,
     )
 
+    metadata_logger = MetadataLogger(
+        run_dir=run_dir,
+        stage="training",
+        notes=training_config.notes,
+        model_name=training_config.model_name,
+        dataset_dir=ptycho_dir,
+    )
+
     trainer = L.Trainer(
         max_epochs=training_config.epochs,
         default_root_dir=run_dir,
         devices=training_config.n_devices,
         accelerator="gpu" if training_config.n_devices > 0 and torch.cuda.is_available() else "cpu",
         strategy=get_training_strategy(training_config.n_devices, training_config.strategy),
-        callbacks=[checkpoint_callback, early_stop_callback, config_save_callback],
+        callbacks=[checkpoint_callback, early_stop_callback, config_save_callback, metadata_logger],
         enable_checkpointing=True,
         enable_progress_bar=True,
         logger=False,

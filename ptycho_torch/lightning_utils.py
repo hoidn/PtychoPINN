@@ -88,12 +88,14 @@ class MetadataLogger(Callback):
     """
 
     def __init__(self,
+                 run_dir: str,
                  stage: str = "training",
                  notes: str = "",
                  model_name: str = "PtychoPINNv2",
                  encoder_frozen: bool = False,
                  dataset_dir: str = ""):
         super().__init__()
+        self.run_dir = run_dir
         self.stage = stage
         self.notes = notes
         self.model_name = model_name
@@ -106,12 +108,12 @@ class MetadataLogger(Callback):
     def on_train_start(self, trainer, pl_module):
         """Initialize metadata file at training start"""
         self.start_time = datetime.now().isoformat()
-        
-        log_dir = Path(trainer.log_dir)
-        metadata_path = log_dir / "metadata.json"
-        
+
+        run_dir = Path(self.run_dir)
+        metadata_path = run_dir / "metadata.json"
+
         metadata = {
-            'run_id': log_dir.name,
+            'run_id': run_dir.name,
             'stage': self.stage,
             'model_name': self.model_name,
             'encoder_frozen': self.encoder_frozen,
@@ -132,9 +134,9 @@ class MetadataLogger(Callback):
     def on_train_end(self, trainer, pl_module):
         """Update metadata with final stats"""
         self.end_time = datetime.now().isoformat()
-        
-        log_dir = Path(trainer.log_dir)
-        metadata_path = log_dir / "metadata.json"
+
+        run_dir = Path(self.run_dir)
+        metadata_path = run_dir / "metadata.json"
         
         # Load existing metadata
         with open(metadata_path, 'r') as f:

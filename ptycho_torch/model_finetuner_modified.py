@@ -86,6 +86,7 @@ class ModelFineTuner:
         )
         
         metadata_logger = MetadataLogger(
+            run_dir=tb_logger.log_dir,
             stage="fine_tuning",
             notes=f"Fine-tuning with LR={fine_tuning_lr}, encoder_frozen=True",
             model_name=self.training_config.model_name,
@@ -125,7 +126,7 @@ class ModelFineTuner:
             accelerator = 'gpu',
             callbacks = callbacks,
             accumulate_grad_batches=1,
-            strategy=get_training_strategy(self.training_config.n_devices),
+            strategy=get_training_strategy(self.training_config.n_devices, self.training_config.strategy),
             check_val_every_n_epoch=1,  # Validate every epoch during fine-tuning
             enable_checkpointing=True,
             logger=[tb_logger, csv_logger],  # NEW: Use Lightning loggers
