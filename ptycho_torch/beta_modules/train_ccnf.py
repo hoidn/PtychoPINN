@@ -9,6 +9,7 @@ Usage:
 
 import argparse
 import os
+import time
 from datetime import datetime
 import torch
 import torch.distributed as dist
@@ -164,8 +165,29 @@ def main(ptycho_dir, config_path, output_dir, resume_ckpt=None):
     else:
         experiment_name = getattr(training_config, 'experiment_name', 'default')
         run_tag = getattr(training_config, 'run_tag', '')
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        run_name = f"{run_tag}_run_{timestamp}" if run_tag else f"run_{timestamp}"
+
+        # DDP-safe: rank 0 generates the timestamp and broadcasts via shared file.
+        # With torchrun, ranks are independent processes — env vars don't propagate.
+        os.makedirs(output_dir, exist_ok=True)
+        run_name_file = os.path.join(output_dir, ".run_name")
+
+        if is_effectively_global_rank_zero():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            run_name = f"{run_tag}_run_{timestamp}" if run_tag else f"run_{timestamp}"
+            with open(run_name_file, 'w') as f:
+                f.write(run_name)
+        else:
+            run_name = None
+            for _ in range(300):
+                if os.path.exists(run_name_file):
+                    with open(run_name_file, 'r') as f:
+                        run_name = f.read().strip()
+                    if run_name:
+                        break
+                time.sleep(0.1)
+            if not run_name:
+                raise RuntimeError("Non-zero rank timed out waiting for run name from rank 0")
+
         run_dir = os.path.join(output_dir, experiment_name, run_name)
         os.makedirs(run_dir, exist_ok=True)
 
@@ -259,6 +281,9 @@ def main(ptycho_dir, config_path, output_dir, resume_ckpt=None):
         dist.barrier()
 
     if is_effectively_global_rank_zero():
+        run_name_file = os.path.join(output_dir, ".run_name")
+        if os.path.exists(run_name_file):
+            os.remove(run_name_file)
         print(f"Training complete. Outputs at: {run_dir}")
 
     return model, trainer, run_dir
