@@ -26,6 +26,17 @@ from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
 import ptycho_torch.helper as hh
 
 # --- Helper functions for the dataloader ---
+def _read_npy_shape(fp):
+    version = np.lib.format.read_magic(fp)
+    if version == (1, 0):
+        shape, _, _ = np.lib.format.read_array_header_1_0(fp)
+    elif version == (2, 0):
+        shape, _, _ = np.lib.format.read_array_header_2_0(fp)
+    else:
+        raise ValueError(f"Unsupported NPY format version: {version}")
+    return shape
+
+
 def npz_headers(npz):
     """
     Takes a path to an .npz file, which is a Zip archive of .npy files.
@@ -47,10 +58,7 @@ def npz_headers(npz):
         # First pass: try canonical 'diffraction' key (DATA-001 spec)
         for name in archive.namelist():
             if name.startswith('diffraction') and name.endswith('.npy'):
-                npy = archive.open(name)
-                version = np.lib.format.read_magic(npy)
-                shape, _, _ = np.lib.format._read_array_header(npy, version)
-                diffraction_shape = shape
+                diffraction_shape = _read_npy_shape(archive.open(name))
                 npy_header_found = True
                 break
 
@@ -58,10 +66,7 @@ def npz_headers(npz):
         if not npy_header_found:
             for name in archive.namelist():
                 if name.startswith('diff3d') and name.endswith('.npy'):
-                    npy = archive.open(name)
-                    version = np.lib.format.read_magic(npy)
-                    shape, _, _ = np.lib.format._read_array_header(npy, version)
-                    diffraction_shape = shape
+                    diffraction_shape = _read_npy_shape(archive.open(name))
                     npy_header_found = True
                     break
 

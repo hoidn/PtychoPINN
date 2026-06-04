@@ -125,7 +125,7 @@ class ModelFineTuner:
             accelerator = 'gpu',
             callbacks = callbacks,
             accumulate_grad_batches=1,
-            strategy=get_training_strategy(self.training_config.n_devices, self.training_config.strategy),
+            strategy=get_training_strategy(self.training_config.strategy, self.training_config.n_devices),
             check_val_every_n_epoch=1,  # Validate every epoch during fine-tuning
             enable_checkpointing=True,
             logger=[tb_logger, csv_logger],  # NEW: Use Lightning loggers

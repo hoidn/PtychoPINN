@@ -37,6 +37,16 @@ class Tanh_custom_act(nn.Module):
     def forward(self, x):
         return math.pi * torch.tanh(x)
 
+class ScaledTanh(nn.Module):
+    '''Picklable replacement for activations of the form `offset + scale * tanh(x)`.'''
+    def __init__(self, scale: float = 1.0, offset: float = 0.0):
+        super().__init__()
+        self.scale = scale
+        self.offset = offset
+
+    def forward(self, x):
+        return self.offset + self.scale * torch.tanh(x)
+
 class Amplitude_activation(nn.Module):
     '''
     Custom amplitude activation module:
@@ -422,7 +432,7 @@ class Decoder_last_Amp(Decoder_last):
     def __init__(self, model_config: ModelConfig, data_config: DataConfig,
                  in_channels, out_channels,
                  activation = torch.sigmoid, name = ''):
-        activation = lambda x: 0.2 + torch.tanh(x)
+        activation = ScaledTanh(scale=1.0, offset=0.2)
         super(Decoder_last_Amp, self).__init__(model_config, data_config, in_channels, out_channels,
                                                activation=activation, name=name, batch_norm=False,
                                                combined=True)
@@ -432,7 +442,7 @@ class Decoder_last_Phase(Decoder_last):
     def __init__(self, model_config: ModelConfig, data_config: DataConfig,
                  in_channels, out_channels,
                  activation = torch.sigmoid, name = ''):
-        activation = lambda x: 1.2 * torch.tanh(x)
+        activation = ScaledTanh(scale=1.2)
         super(Decoder_last_Phase, self).__init__(model_config, data_config, in_channels, out_channels,
                                                  activation=activation, name=name,
                                                  batch_norm=model_config.batch_norm,
@@ -527,7 +537,7 @@ class Decoder_shared(Decoder_base):
         base_ch = self.filters[-1]
         self.eca = ECALayer(channel=base_ch)
 
-        activation = lambda x: 1.2 * torch.tanh(x)
+        activation = ScaledTanh(scale=1.2)
         self.head = Decoder_last(model_config, data_config,
                                  in_channels=base_ch,
                                  out_channels=C_out * 2,

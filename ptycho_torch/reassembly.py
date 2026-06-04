@@ -1136,8 +1136,8 @@ def reconstruct_image_barycentric(model: nn.Module,
             total_inference_time += inference_time
 
             # Getting the real and imaginary parts
-            a_tilde = texture_raw[:,:,:,:,0]
-            b_tilde = texture_raw[:,:,:,:,1]
+            a_tilde = texture_raw.real
+            b_tilde = texture_raw.imag
 
             # Center crop
             N = data_config.N
@@ -1326,9 +1326,9 @@ def detect_swap_probe_reference(model: nn.Module,
             texture_raw = model.forward_predict(I_ref_normed, dummy_positions,
                                                 dummy_probe, in_scale)
 
-        # Last dimension is [real, imag]
-        ref_real = texture_raw[:, :, :, :, 0]
-        ref_imag = texture_raw[:, :, :, :, 1]
+        # texture_raw is a complex tensor (B, C, H, W)
+        ref_real = texture_raw.real
+        ref_imag = texture_raw.imag
 
         real_energy = (ref_real ** 2).mean().item()
         imag_energy = (ref_imag ** 2).mean().item()
