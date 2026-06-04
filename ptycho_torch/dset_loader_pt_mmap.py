@@ -37,7 +37,12 @@ def npz_headers(npz):
 
                 npy = archive.open(name)
                 version = np.lib.format.read_magic(npy)
-                shape, _, _ = np.lib.format._read_array_header(npy, version)
+                if version == (1, 0):
+                    shape, _, _ = np.lib.format.read_array_header_1_0(npy)
+                elif version == (2, 0):
+                    shape, _, _ = np.lib.format.read_array_header_2_0(npy)
+                else:
+                    raise ValueError(f"Unsupported NPY format version: {version}")
                 yield shape
                 break
 

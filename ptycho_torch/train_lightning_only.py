@@ -93,10 +93,13 @@ def _infer_probe_size(npz_file):
                 if name.startswith('probeGuess') and name.endswith('.npy'):
                     # Open the .npy file inside the archive
                     npy = archive.open(name)
-                    # Read array header without loading data
                     version = np.lib.format.read_magic(npy)
-                    shape, _, _ = np.lib.format._read_array_header(npy, version)
-                    # Return first dimension (probe is typically N x N)
+                    if version == (1, 0):
+                        shape, _, _ = np.lib.format.read_array_header_1_0(npy)
+                    elif version == (2, 0):
+                        shape, _, _ = np.lib.format.read_array_header_2_0(npy)
+                    else:
+                        raise ValueError(f"Unsupported NPY format version: {version}")
                     return shape[0]
 
             # probeGuess key not found - return None for fallback to default
@@ -320,7 +323,7 @@ def main(ptycho_dir,
             devices = training_config.n_devices,
             accelerator = 'gpu',
             callbacks = callbacks,
-            strategy=get_training_strategy(training_config.n_devices, training_config.strategy),
+            strategy=get_training_strategy(training_config.strategy, training_config.n_devices),
             check_val_every_n_epoch=1,  # Validate every epoch
             enable_checkpointing=True,  # Enable checkpointing for early stopping
             enable_progress_bar=True,  # Controlled by execution config
