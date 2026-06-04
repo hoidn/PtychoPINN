@@ -146,7 +146,7 @@ def setup_lightning_trainer(ptycho_model: PtychoModel,
         devices = training_config.n_devices,
         accelerator = 'gpu',
         callbacks = [checkpoint_callback, early_stop_callback],
-        strategy = get_training_strategy(training_config.n_devices, training_config.strategy),
+        strategy = get_training_strategy(training_config.strategy, training_config.n_devices),
         check_val_every_n_epoch=1,
         enable_checkpointing=True,
         enable_progress_bar=True
