@@ -366,7 +366,7 @@ class PtychoPINN_OverlapBaseline(nn.Module):
 
         return x_out, x_real, x_imag
 
-    def forward_predict(self, x, positions, probe, input_scale_factor):
+    def forward_predict(self, x, positions, probe, input_scale_factor, **kwargs):
         x = self.scaler.scale(x, input_scale_factor)
         x_combined, _, _ = self.autoencoder(x, positions, probe)
         return x_combined

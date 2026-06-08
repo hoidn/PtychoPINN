@@ -205,7 +205,7 @@ class PtychoPINN_Patterson(nn.Module):
 
         return x_out, x_real, x_imag
 
-    def forward_predict(self, x, positions, probe, input_scale_factor):
+    def forward_predict(self, x, positions, probe, input_scale_factor, **kwargs):
         features = self.featurizer(x, probe)
         features = self.scaler.scale(features, input_scale_factor)
         x_combined, _, _ = self.autoencoder(features)
