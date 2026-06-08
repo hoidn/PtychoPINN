@@ -1141,8 +1141,8 @@ def reconstruct_image_barycentric(model: nn.Module,
             total_inference_time += inference_time
 
             # Getting the real and imaginary parts
-            a_tilde = texture_raw.real
-            b_tilde = texture_raw.imag
+            a_tilde = texture_raw[:,:,:,:,0]
+            b_tilde = texture_raw[:,:,:,:,1]
 
             # --- VarPro Accumulation (incoherent multi-mode) ---
             assembly_start = time.time()
