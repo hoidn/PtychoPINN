@@ -1026,7 +1026,8 @@ def reconstruct_image_barycentric(model: nn.Module,
              modified_scaled_canvas)
     """
 
-    gpu_ids = list(range(torch.cuda.device_count()))
+    if gpu_ids is None:
+        gpu_ids = list(range(torch.cuda.device_count()))
 
     # Setup model (single or multi-GPU)
     if gpu_ids is None or len(gpu_ids) <= 1:
