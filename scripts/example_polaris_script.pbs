@@ -1,0 +1,123 @@
+#!/bin/bash -l
+#PBS -l select=1:system=polaris
+#PBS -l place=scatter
+#PBS -l walltime=02:00:00
+#PBS -l filesystems=home:eagle
+#PBS -q debug
+#PBS -A APSDataAnalysis
+#PBS -N ptychopinn_train_infer
+#PBS -j oe
+#PBS -o /eagle/APSDataAnalysis/avong/ptychopinn/outputs/2id_ccnf_job.log
+
+# ---- Paths ----
+WORKDIR=/eagle/APSDataAnalysis/avong/ptychopinn
+CONTAINER=${WORKDIR}/containers/ptychopinn.sif
+DATA_DIR=${WORKDIR}/data/2id_2025_S35_multiprobe_128_synthetic
+CONFIG=${WORKDIR}/configs/ccnf_128.json
+OUTPUT_DIR=${WORKDIR}/outputs
+
+# ---- Inference Paths ----
+INFER_DATA_DIR=${WORKDIR}/data/inference_dataset
+INFER_OUTPUT_DIR=${OUTPUT_DIR}/inference
+INFER_BATCH_SIZE=2000
+
+# ---- Environment ----
+export http_proxy=http://proxy.alcf.anl.gov:3128
+export https_proxy=http://proxy.alcf.anl.gov:3128
+
+ml use /soft/modulefiles
+ml spack-pe-base
+ml apptainer
+
+NGPUS_PER_NODE=4
+
+echo "============================================"
+echo "Job ID:     ${PBS_JOBID}"
+echo "GPUs:       ${NGPUS_PER_NODE}"
+echo "Container:  ${CONTAINER}"
+echo "Data:       ${DATA_DIR}"
+echo "Config:     ${CONFIG}"
+echo "Output:     ${OUTPUT_DIR}"
+echo "Infer data: ${INFER_DATA_DIR}"
+echo "Infer out:  ${INFER_OUTPUT_DIR}"
+echo "Infer batch:${INFER_BATCH_SIZE}"
+echo "============================================"
+
+# ==== Training ====
+apptainer exec --nv \
+    -B /var/run/palsd/ \
+    -B ${WORKDIR}/PtychoPINN:/workspace/PtychoPINN \
+    -B ${DATA_DIR}:/workspace/data \
+    -B ${OUTPUT_DIR}:/workspace/outputs \
+    -B ${WORKDIR}/configs:/workspace/configs \
+    ${CONTAINER} \
+    bash -c "
+        cd /workspace/PtychoPINN && \
+        pip install -e . --no-deps -q 2>/dev/null && \
+        export CUBLAS_WORKSPACE_CONFIG=:4096:8 && \
+        torchrun --standalone --nproc_per_node=${NGPUS_PER_NODE} \
+            -m ptycho_torch.beta_modules.train_ccnf \
+            --ptycho_dir /workspace/data \
+            --config /workspace/configs/ccnf_128.json \
+            --output_dir /workspace/outputs
+    "
+TRAIN_EXIT=$?
+
+echo "Training finished at $(date) with exit code ${TRAIN_EXIT}"
+
+if [ ${TRAIN_EXIT} -ne 0 ]; then
+    echo "Training failed, skipping inference."
+    exit ${TRAIN_EXIT}
+fi
+
+# ==== Inference ====
+# Find the most recently modified best checkpoint under OUTPUT_DIR
+CKPT_PATH=$(find ${OUTPUT_DIR} -name "best-checkpoint.ckpt" -printf '%T@ %p\n' \
+    | sort -n | tail -1 | cut -d' ' -f2-)
+
+if [ -z "${CKPT_PATH}" ]; then
+    echo "No best-checkpoint.ckpt found under ${OUTPUT_DIR}, trying last.ckpt"
+    CKPT_PATH=$(find ${OUTPUT_DIR} -name "last.ckpt" -printf '%T@ %p\n' \
+        | sort -n | tail -1 | cut -d' ' -f2-)
+fi
+
+if [ -z "${CKPT_PATH}" ]; then
+    echo "ERROR: No checkpoint found under ${OUTPUT_DIR}. Skipping inference."
+    exit 1
+fi
+
+# Convert host path to container path (OUTPUT_DIR -> /workspace/outputs)
+CKPT_CONTAINER_PATH=${CKPT_PATH/${OUTPUT_DIR}/\/workspace\/outputs}
+
+echo "============================================"
+echo "Starting inference"
+echo "Checkpoint: ${CKPT_PATH}"
+echo "Container checkpoint: ${CKPT_CONTAINER_PATH}"
+echo "Inference data: ${INFER_DATA_DIR}"
+echo "Inference output: ${INFER_OUTPUT_DIR}"
+echo "Batch size: ${INFER_BATCH_SIZE}"
+echo "============================================"
+
+mkdir -p ${INFER_OUTPUT_DIR}
+
+apptainer exec --nv \
+    -B /var/run/palsd/ \
+    -B ${WORKDIR}/PtychoPINN:/workspace/PtychoPINN \
+    -B ${OUTPUT_DIR}:/workspace/outputs \
+    -B ${INFER_DATA_DIR}:/workspace/infer_data \
+    -B ${INFER_OUTPUT_DIR}:/workspace/infer_output \
+    ${CONTAINER} \
+    bash -c "
+        cd /workspace/PtychoPINN && \
+        pip install -e . --no-deps -q 2>/dev/null && \
+        python -m ptycho_torch.beta_modules.inference_indexed \
+            --ckpt_path ${CKPT_CONTAINER_PATH} \
+            --ptycho_dir /workspace/infer_data \
+            --output_dir /workspace/infer_output \
+            --batch_size ${INFER_BATCH_SIZE} \
+            --device cuda
+    "
+INFER_EXIT=$?
+
+echo "Inference finished at $(date) with exit code ${INFER_EXIT}"
+exit ${INFER_EXIT}
