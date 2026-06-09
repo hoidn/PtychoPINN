@@ -170,6 +170,11 @@ def main(ptycho_dir,
         else:
             data_config, model_config, training_config, inference_config, datagen_config = existing_config
 
+        # Force Lightning orchestrator — this script uses PtychoDataModuleLightning,
+        # which relies on Lightning's prepare_data/setup lifecycle instead of
+        # manual dist.barrier() synchronization used by the Mlflow path.
+        training_config.orchestrator = 'Lightning'
+
         #Setting global run name
         if run_name is None:
             import time
