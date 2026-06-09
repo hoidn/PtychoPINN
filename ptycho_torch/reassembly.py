@@ -1146,20 +1146,21 @@ def reconstruct_image_barycentric(model: nn.Module,
 
             # --- VarPro Accumulation (incoherent multi-mode) ---
             assembly_start = time.time()
-            # Unsqueeze texture for broadcasting with probe modes: (B,C,H,W) -> (B,C,1,H,W)
-            a_5d = a_tilde.unsqueeze(2)
-            b_5d = b_tilde.unsqueeze(2)
-
-            # Per-mode exit waves and FFTs: (B,C,P,H,W)
-            Psi_a = torch.fft.fftshift(torch.fft.fft2(probe * a_5d), dim=(-2,-1))
-            Psi_b = torch.fft.fftshift(torch.fft.fft2(1j * probe * b_5d), dim=(-2,-1))
-
-            # Mode-summed basis images for VarPro: (B,C,P,H,W) -> (B,C,H,W)
-            X1 = torch.sum(torch.abs(Psi_a)**2, dim=2)
-            X2 = torch.sum(torch.abs(Psi_b)**2, dim=2)
-            X3 = torch.sum(2 * torch.real(Psi_a * torch.conj(Psi_b)), dim=2)
-
-            scaler.accumulate_batch_from_basis(I_raw, X1, X2, X3)
+            B, C, H, W = a_tilde.shape
+            P = probe.shape[2]
+            varpro_chunk = max(1, 800 // (C * P))
+            for vi in range(0, B, varpro_chunk):
+                vj = min(vi + varpro_chunk, B)
+                a_chunk = a_tilde[vi:vj].unsqueeze(2)
+                b_chunk = b_tilde[vi:vj].unsqueeze(2)
+                p_chunk = probe[vi:vj]
+                Psi_a_c = torch.fft.fftshift(torch.fft.fft2(p_chunk * a_chunk), dim=(-2,-1))
+                Psi_b_c = torch.fft.fftshift(torch.fft.fft2(1j * p_chunk * b_chunk), dim=(-2,-1))
+                X1_c = torch.sum(torch.abs(Psi_a_c)**2, dim=2)
+                X2_c = torch.sum(torch.abs(Psi_b_c)**2, dim=2)
+                X3_c = torch.sum(2 * torch.real(Psi_a_c * torch.conj(Psi_b_c)), dim=2)
+                scaler.accumulate_batch_from_basis(I_raw[vi:vj], X1_c, X2_c, X3_c)
+                del a_chunk, b_chunk, p_chunk, Psi_a_c, Psi_b_c, X1_c, X2_c, X3_c
 
             # --- Weighted Stitching ---
             B,C,H,W= a_tilde.shape
