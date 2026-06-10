@@ -6,7 +6,7 @@ from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint, Callback
 from ptycho_torch.api.base_api import PtychoModel, ConfigManager, Orchestration
 from typing import Optional, Dict, Any, Tuple, Union, Protocol
 from ptycho_torch.config_params import TrainingConfig
-from ptycho_torch.train_utils import get_training_strategy, LightningConfigSaveCallback
+from ptycho_torch.train_utils import get_training_strategy, LightningConfigSaveCallback, EncoderFreezeCallback
 from lightning.pytorch.strategies import DDPStrategy
 
 def setup_lightning_trainer(ptycho_model: PtychoModel,
@@ -64,8 +64,17 @@ def setup_lightning_trainer(ptycho_model: PtychoModel,
                          config_sync_callback]
         include_logger = False
 
+    # Single-pass fine-tuning: extend total epochs and add EncoderFreezeCallback
+    total_epochs = training_config.epochs
+    if training_config.epochs_fine_tune > 0:
+        total_epochs += training_config.epochs_fine_tune
+        callback_list.append(EncoderFreezeCallback(
+            freeze_at_epoch=training_config.epochs,
+            lr_gamma=training_config.fine_tune_gamma,
+        ))
+
     trainer = L.Trainer(
-        max_epochs=training_config.epochs,
+        max_epochs=total_epochs,
         devices=training_config.n_devices,
         accelerator='gpu',
         strategy= get_training_strategy(training_config.strategy, training_config.n_devices),

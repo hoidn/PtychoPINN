@@ -305,54 +305,48 @@ def main(ptycho_dir,
         mlflow.pytorch.autolog(checkpoint_monitor = val_loss_label)
 
     #Train the model
-    # if trainer.is_global_zero:
-    if is_effectively_global_rank_zero():
-        if not disable_mlflow:
-            mlflow.set_experiment(training_config.experiment_name)
+    # MLflow setup (rank 0 only) — trainer.fit() must be called by ALL ranks
+    # for DDP compatibility (torchrun launches separate processes per rank).
+    # For ddp_spawn, only the main process exists here and Lightning spawns workers internally.
+    run_ids = {}
+    mlflow_run = None
 
-            with mlflow.start_run() as run:
-                run_ids = {}
-                # Log configuration parameters
-                log_parameters_mlflow(data_config, model_config, training_config, inference_config, datagen_config)
-                #Set tags (relatively new)
-                mlflow.set_tag("stage", "training")
-                mlflow.set_tag("encoder_frozen", "False")
-                mlflow.set_tag("model_name", training_config.model_name)
-                if training_config.notes:
-                    mlflow.set_tag("notes", training_config.notes)
-                mlflow.set_tag("stage", "training")
+    if not disable_mlflow and is_effectively_global_rank_zero():
+        mlflow.set_experiment(training_config.experiment_name)
+        mlflow_run = mlflow.start_run()
+        mlflow_run.__enter__()
+        log_parameters_mlflow(data_config, model_config, training_config, inference_config, datagen_config)
+        mlflow.set_tag("stage", "training")
+        mlflow.set_tag("encoder_frozen", "False")
+        mlflow.set_tag("model_name", training_config.model_name)
+        if training_config.notes:
+            mlflow.set_tag("notes", training_config.notes)
 
-                #Train base model
-                print(f'[Rank {trainer.global_rank}] Beginning model training/final data prep...')
-                trainer.fit(model, datamodule = data_module)
+    print(f'[Rank {trainer.global_rank}] Beginning model training/final data prep...')
+    trainer.fit(model, datamodule = data_module)
+    print(f'[Rank {trainer.global_rank}] Done training.')
 
-                print(f'[Rank {trainer.global_rank}] Done training. Printing training params...')
-                print_auto_logged_info(mlflow.get_run(run_id = run.info.run_id))
-                run_ids['training'] = run.info.run_id
-        else:
-            # MLflow disabled: train without tracking
-            run_ids = {}
-            print(f'[Rank {trainer.global_rank}] Beginning model training/final data prep... (MLflow disabled)')
-            trainer.fit(model, datamodule = data_module)
-            print(f'[Rank {trainer.global_rank}] Done training.')
-            run_ids['training'] = None  # No run_id when MLflow disabled
+    if mlflow_run is not None and is_effectively_global_rank_zero():
+        print_auto_logged_info(mlflow.get_run(run_id = mlflow_run.info.run_id))
+        run_ids['training'] = mlflow_run.info.run_id
+        mlflow_run.__exit__(None, None, None)
+    elif is_effectively_global_rank_zero():
+        run_ids['training'] = None
 
     #Fine-tune if applicable (encoder frozen default)
     if training_config.epochs_fine_tune > 0:
+        # Clean up process group before creating a new Trainer for fine-tuning.
+        # Under ddp_spawn, this prevents port conflicts when the fine-tuning
+        # Trainer tries to spawn a second round of workers.
+        if dist.is_initialized():
+            dist.destroy_process_group()
+
         #Fine-tuning
         fine_tuner = ModelFineTuner(model, data_module, training_config)
         fine_tuning_run_id = fine_tuner.fine_tune(experiment_name = training_config.experiment_name)
-        
+
         if is_effectively_global_rank_zero():
             run_ids['fine-tune'] = fine_tuning_run_id
-    
-    # if is_effectively_global_rank_zero():
-    #     print(f"Training run_id: {run_ids['training']}")
-    #     print(f"Fine_tune run_id: {run_ids['fine-tune']}")
-        
-    #     return run_ids
-    # else:
-    #     return None
 
     # CRITICAL: Final synchronization before returning
     if dist.is_initialized():

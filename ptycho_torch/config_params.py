@@ -88,6 +88,11 @@ class ModelConfig:
     amplitude_variance_loss: bool = False
     amplitude_variance_coeff: float = 0.01
 
+    def __post_init__(self):
+        import torch
+        if self.probe_mask is not None and isinstance(self.probe_mask, torch.Tensor):
+            self.probe_mask = self.probe_mask.detach().cpu()
+
 
 @dataclass
 class TrainingConfig:
