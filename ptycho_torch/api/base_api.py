@@ -1259,7 +1259,9 @@ class Trainer:
         Returns:
             output_dir - Output directory for all training artifacts, configs included
         """
-        from ptycho_torch.train_utils import find_learning_rate
+        from ptycho_torch.train_utils import find_learning_rate, resolve_n_devices
+
+        resolve_n_devices(self.training_config)
 
         updated_lr = find_learning_rate(
             self.training_config.learning_rate,

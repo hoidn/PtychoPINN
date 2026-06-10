@@ -83,6 +83,64 @@ except ImportError as e:
 logger = logging.getLogger(__name__)
 
 
+try:
+    from lightning.pytorch import Callback as _LCallback
+except ImportError:
+    _LCallback = object
+
+
+class _LossHistoryCallback(_LCallback):
+    """Collect train/val loss per epoch for the history dict.
+
+    Defined at module level so it can be pickled across spawn boundaries.
+    Under ddp_spawn with >1 device, callback mutations in child processes
+    are NOT visible to the parent — callers must use ``read_history()``
+    after ``trainer.fit()`` to get a spawn-safe result.
+    """
+
+    def __init__(self):
+        self.train_loss = []
+        self.val_loss = []
+
+    def _find_loss_metric(self, metrics, prefix):
+        for key in metrics:
+            if prefix in key and 'loss' in key:
+                return float(metrics[key])
+        return None
+
+    def on_train_epoch_end(self, trainer, pl_module):
+        metrics = trainer.callback_metrics
+        loss_val = self._find_loss_metric(metrics, 'train')
+        if loss_val is not None:
+            self.train_loss.append(loss_val)
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        metrics = trainer.callback_metrics
+        loss_val = self._find_loss_metric(metrics, 'val')
+        if loss_val is not None:
+            self.val_loss.append(loss_val)
+
+    def read_history(self, trainer, has_validation=True):
+        """Return loss history, falling back to trainer metrics under spawn.
+
+        Under ddp_spawn the parent's callback lists stay empty because
+        training ran in a child process.  Fall back to the final metrics
+        that Lightning *does* propagate back to the parent trainer.
+        """
+        train = list(self.train_loss)
+        val = list(self.val_loss) if has_validation else None
+
+        if not train:
+            final_train = self._find_loss_metric(trainer.callback_metrics, 'train')
+            if final_train is not None:
+                train = [final_train]
+            final_val = self._find_loss_metric(trainer.callback_metrics, 'val')
+            if has_validation and final_val is not None:
+                val = [final_val]
+
+        return {"train_loss": train, "val_loss": val}
+
+
 def _resolve_nphotons(data, config):
     metadata = getattr(data, "metadata", None)
     if metadata is not None:
@@ -943,38 +1001,6 @@ def _train_with_lightning(
         execution_config = PyTorchExecutionConfig()
         logger.info(f"PyTorchExecutionConfig auto-instantiated for Lightning training (accelerator resolved to '{execution_config.accelerator}')")
 
-    # Custom callback to track loss history across epochs
-    class _LossHistoryCallback(L.Callback):
-        """Callback to collect train/val loss per epoch for history dict.
-
-        The model logs metrics with dynamic names like 'poisson_train_Amp_loss'
-        based on model configuration. This callback searches for any metric
-        containing 'train' and 'loss' (or 'val' and 'loss') to capture the loss.
-        """
-
-        def __init__(self):
-            self.train_loss = []
-            self.val_loss = []
-
-        def _find_loss_metric(self, metrics, prefix):
-            """Find loss metric by prefix ('train' or 'val')."""
-            for key in metrics:
-                if prefix in key and 'loss' in key:
-                    return float(metrics[key])
-            return None
-
-        def on_train_epoch_end(self, trainer, pl_module):
-            metrics = trainer.callback_metrics
-            loss_val = self._find_loss_metric(metrics, 'train')
-            if loss_val is not None:
-                self.train_loss.append(loss_val)
-
-        def on_validation_epoch_end(self, trainer, pl_module):
-            metrics = trainer.callback_metrics
-            loss_val = self._find_loss_metric(metrics, 'val')
-            if loss_val is not None:
-                self.val_loss.append(loss_val)
-
     loss_history_cb = _LossHistoryCallback()
 
     # EB1.D: Configure checkpoint/early-stop callbacks (ADR-003 Phase EB1)
@@ -1143,12 +1169,8 @@ def _train_with_lightning(
             logger.error(f"Lightning training failed: {e}")
             raise RuntimeError(f"Lightning training failed. See logs for details.") from e
 
-    # Extract loss history from the custom callback
-    # The _LossHistoryCallback collects losses per epoch during training
-    history = {
-        "train_loss": loss_history_cb.train_loss,
-        "val_loss": loss_history_cb.val_loss if test_container is not None or isinstance(data_product, PrebuiltPtychoDataModule) else None
-    }
+    has_validation = test_container is not None or isinstance(data_product, PrebuiltPtychoDataModule)
+    history = loss_history_cb.read_history(trainer, has_validation=has_validation)
 
     logger.info("Lightning training complete")
 
