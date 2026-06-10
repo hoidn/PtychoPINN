@@ -137,6 +137,10 @@ class ModelConfig:
     channel_balance_loss: bool = False
     channel_balance_coeff: float = 0.005
 
+    def __post_init__(self):
+        import torch
+        if self.probe_mask is not None and isinstance(self.probe_mask, torch.Tensor):
+            self.probe_mask = self.probe_mask.detach().cpu()
 
 
 @dataclass

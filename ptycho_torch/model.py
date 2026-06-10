@@ -653,22 +653,6 @@ class CombineComplex(nn.Module):
         
         return out
     
-class LambdaLayer(nn.Module):
-    '''
-    Generic layer module for helper functions.
-
-    Mostly used for patch reconstruction
-
-    Note from 11/15/2024: Pytorch lightning really doesn't like LambdaLayers. 
-    Will treat them as if they were identity operations.
-    Replaced all LambdaLayers in the forward model with their respective helper functions
-    '''
-    def __init__(self, func):
-        super(LambdaLayer, self).__init__()
-        self.func = func
-    
-    def forward(self, *args, **kwargs):
-        return self.func(*args, **kwargs)
 
 class PoissonIntensityLayer(nn.Module):
     '''
@@ -708,12 +692,6 @@ class ForwardModel(nn.Module):
         self.gridsize = self.data_config.grid_size
         self.offset = self.model_config.offset
         self.object_big = self.model_config.object_big
-
-        self.reassemble_patches = LambdaLayer(hh.reassemble_patches_position_real_probe)
-        self.pad_patches = LambdaLayer(hh.pad_patches)
-        self.trim_reconstruction = LambdaLayer(hh.trim_reconstruction)
-        self.extract_patches = LambdaLayer(hh.extract_channels_from_region)
-        self.pad_and_diffract = LambdaLayer(hh.pad_and_diffract)
 
         self.scaler = IntensityScalerModule(model_config)
         self.rect_scaler = RectangularScaledDiffraction(model_config)
@@ -913,7 +891,10 @@ class ProbeIllumination(nn.Module):
     def __init__(self, model_config: ModelConfig, data_config: DataConfig):
         super().__init__()
         self.N = data_config.N
-        self.mask = model_config.probe_mask
+        if model_config.probe_mask is not None:
+            self.register_buffer('mask', model_config.probe_mask.detach().cpu())
+        else:
+            self.mask = None
 
     def forward(self, x, probe):
         x_reshaped = x.unsqueeze(dim=2)  # (B,C,H,W) -> (B,C,1,H,W)
@@ -1007,9 +988,8 @@ class PoissonLoss(nn.Module):
         self.pred_is_amplitude = pred_is_amplitude
 
     def forward(self, pred, raw):
-        self.poisson = PoissonIntensityLayer(pred, pred_is_amplitude=self.pred_is_amplitude)
-        loss_likelihood = self.poisson(raw)
-        return loss_likelihood
+        poisson = PoissonIntensityLayer(pred, pred_is_amplitude=self.pred_is_amplitude)
+        return poisson(raw)
     
 class MAELoss(nn.Module):
     def __init__(self):

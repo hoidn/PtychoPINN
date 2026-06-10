@@ -175,34 +175,15 @@ def main(ptycho_dir,
         # manual dist.barrier() synchronization used by the Mlflow path.
         training_config.orchestrator = 'Lightning'
 
-        #Setting global run name
+        # Generate run_name before trainer creation. Under ddp_spawn, Lightning
+        # spawns children inside .fit(), so anything computed here happens in the
+        # parent process only — no inter-process coordination needed.
+        # Under ddp (torchrun), the caller is responsible for passing the same
+        # run_name to all processes (torchrun runs the same command on each rank).
         if run_name is None:
-            import time
             from datetime import datetime
-            os.makedirs(output_dir or "training_outputs", exist_ok=True)
-            run_name_file = os.path.join(output_dir or "training_outputs", ".run_name")
-
-            if is_effectively_global_rank_zero():
-                run_name = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                with open(run_name_file, 'w') as f:
-                    f.write(run_name)
-                os.environ["SHARED_RUN_NAME"] = run_name
-                print(f"[Rank 0] Generated run name: {run_name}")
-            else:
-                max_wait = 30
-                for _ in range(max_wait * 10):
-                    if "SHARED_RUN_NAME" in os.environ:
-                        run_name = os.environ["SHARED_RUN_NAME"]
-                        break
-                    if os.path.exists(run_name_file):
-                        with open(run_name_file, 'r') as f:
-                            run_name = f.read().strip()
-                        if run_name:
-                            break
-                    time.sleep(0.1)
-                else:
-                    raise RuntimeError("Non-zero rank failed to get run name from rank 0")
-                print(f"[Rank {os.environ.get('RANK', '?')}] Using run name: {run_name}")
+            run_name = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            print(f"Generated run name: {run_name}")
 
         resolve_n_devices(training_config)
 
@@ -309,8 +290,17 @@ def main(ptycho_dir,
             progress_bar,
         ]
 
-        # All training now runs single-stage
+        # Single-pass fine-tuning: if epochs_fine_tune > 0, add EncoderFreezeCallback
+        # and extend total epochs. The callback freezes the encoder and scales LR
+        # at the transition epoch, avoiding a second Trainer (spawn-compatible).
         total_training_epochs = training_config.epochs
+        if training_config.epochs_fine_tune > 0:
+            from ptycho_torch.train_utils import EncoderFreezeCallback
+            total_training_epochs += training_config.epochs_fine_tune
+            callbacks.append(EncoderFreezeCallback(
+                freeze_at_epoch=training_config.epochs,
+                lr_gamma=training_config.fine_tune_gamma,
+            ))
 
         # # Resolve accelerator (prefer execution_config, fallback to training_config logic)
         # if execution_config.accelerator == 'auto':
@@ -341,36 +331,26 @@ def main(ptycho_dir,
         #     print(f'[Rank {trainer.global_rank}] Beginning model training/final data prep...')
         
         trainer.fit(model, datamodule = data_module)
-        
+
+        # Initialize before rank-gated block so it's always defined
+        # (prevents NameError on non-rank-0 processes under torchrun DDP)
+        training_run_dir = None
+
         if is_effectively_global_rank_zero():
             print(f'[Rank {trainer.global_rank}] Done training.')
-            
+
             # NEW: Print run summary (replaces print_auto_logged_info)
             run_dir = Path(trainer.log_dir)
             print_run_summary(run_dir)
-            
+
             # Store run directory for return
             training_run_dir = run_dir
 
-        #Fine-tune if applicable (encoder frozen default)
-        if training_config.epochs_fine_tune > 0:
-            print("Starting fine-tuning phase...")
-            
-            #Fine-tuning
-            fine_tuner = ModelFineTuner(model, data_module, training_config)
-            fine_tune_run_dir = fine_tuner.fine_tune(
-                experiment_name=training_config.experiment_name,
-                output_dir=output_dir,
-            )
-            
-            if is_effectively_global_rank_zero() and fine_tune_run_dir:
-                print_run_summary(fine_tune_run_dir)
-
-        # CRITICAL: Final synchronization before returning
-        if dist.is_initialized():
-            print(f'[Rank {trainer.global_rank}] Waiting at final barrier before return...')
-            dist.barrier()
-            print(f'[Rank {trainer.global_rank}] ✓ Passed final barrier, about to return')
+        # Fine-tuning is handled by EncoderFreezeCallback when epochs_fine_tune > 0.
+        # The callback was added to the trainer's callback list above (if applicable),
+        # so fine-tuning happens within the single trainer.fit() call — no second
+        # trainer or process group teardown needed. This is compatible with both
+        # ddp and ddp_spawn strategies.
 
         if is_effectively_global_rank_zero():
             print(f"\n{'='*60}")
@@ -380,43 +360,16 @@ def main(ptycho_dir,
             print(f"Best checkpoint: {find_best_checkpoint(training_run_dir)}")
             print(f"TensorBoard: tensorboard --logdir {training_run_dir / 'logs'}")
             print(f"{'='*60}\n")
-            
-            return training_run_dir
-        else:
-            print(f'[Rank {trainer.global_rank}] Non-zero rank returning None')
-            return None
+
+        return training_run_dir
+
     except KeyboardInterrupt:
-        print("\n[!] Ctrl+C detected. Shutting down DDP gracefully...")
-        # This is the secret sauce: 
-        # It tells the torch distributed backend to release the ports and GPUs
-        if dist.is_initialized():
-            dist.destroy_process_group()
-        
-        # Force exit the process to prevent the "hang"
+        print("\n[!] Ctrl+C detected. Shutting down...")
         sys.exit(0)
 
     except Exception as e:
         print(f"Training failed: {e}")
-        if dist.is_initialized():
-            dist.destroy_process_group()
-        sys.exit(1)
-
-
-    #  # 2. Final synchronization
-    # if torch.distributed.is_initialized():
-    #     # Use a try/except to prevent core dumps on cleanup
-    #     try:
-    #         torch.distributed.barrier()
-    #         # Destroys the process group cleanly
-    #         torch.distributed.destroy_process_group()
-    #     except Exception as e:
-    #         print(f"Cleanup error on Rank {trainer.global_rank}: {e}")
-
-    # # 3. ONLY NOW return or exit
-    # if is_effectively_global_rank_zero():
-    #     return training_run_dir
-    
-    # return None
+        raise
     
 
     #Define main function

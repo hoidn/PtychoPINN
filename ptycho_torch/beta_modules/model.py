@@ -607,23 +607,6 @@ class CombineComplexRectangular(nn.Module):
 
         return out
     
-class LambdaLayer(nn.Module):
-    '''
-    Generic layer module for helper functions.
-
-    Mostly used for patch reconstruction
-
-    Note from 11/15/2024: Pytorch lightning really doesn't like LambdaLayers. 
-    Will treat them as if they were identity operations.
-    Replaced all LambdaLayers in the forward model with their respective helper functions
-    '''
-    def __init__(self, func):
-        super(LambdaLayer, self).__init__()
-        self.func = func
-    
-    def forward(self, *args, **kwargs):
-        return self.func(*args, **kwargs)
-    
 class ForwardModel(nn.Module):
     '''
     Forward model receiving complex object prediction, and applies physics-informed real space overlap
@@ -649,21 +632,8 @@ class ForwardModel(nn.Module):
         self.offset = self.model_config.offset
         self.object_big = self.model_config.object_big
 
-        #Patch operations
-        #Lambdalayer here doesn't work for lightning module
-        self.reassemble_patches = LambdaLayer(hh.reassemble_patches_position_real_probe)
-
-        self.pad_patches = LambdaLayer(hh.pad_patches)
-
-        self.trim_reconstruction = LambdaLayer(hh.trim_reconstruction)
-
-        self.extract_patches = LambdaLayer(hh.extract_channels_from_region)
-
         #Probe Illumination - Pass configs
         self.probe_illumination = ProbeIllumination(model_config, data_config)
-
-        #Pad/diffract
-        self.pad_and_diffract = LambdaLayer(hh.pad_and_diffract)
 
         #Scaling
         self.scaler = IntensityScalerModule(model_config)

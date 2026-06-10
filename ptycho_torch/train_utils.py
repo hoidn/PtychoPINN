@@ -60,6 +60,14 @@ def set_seed(seed=42, n_devices=1):
 
     os.environ["PYTHONHASHSEED"] = str(seed)  # Python hash seed
 
+def is_spawn_strategy(strategy) -> bool:
+    """Check whether the given strategy uses ddp_spawn (mp.spawn-based parallelism)."""
+    if isinstance(strategy, str):
+        return 'spawn' in strategy
+    if isinstance(strategy, DDPStrategy):
+        return getattr(strategy, '_start_method', None) == 'spawn'
+    return False
+
 def get_training_strategy(strategy, n_devices):
     """
     Returns the Lightning training strategy.
@@ -67,13 +75,22 @@ def get_training_strategy(strategy, n_devices):
     If `strategy == 'auto'`, dynamically selects based on number of GPUs:
       - 1 GPU  -> 'auto'
       - 2+ GPUs -> DDPStrategy with sensible defaults
+    If `strategy == 'ddp_spawn'`, returns a DDPStrategy with start_method='spawn'
+    for spawn-based parallelism (required for long-running host applications).
     Otherwise, returns `strategy` unchanged so Lightning can interpret it
-    (e.g. 'ddp', 'ddp_notebook', 'ddp_spawn', or a Strategy instance).
+    (e.g. 'ddp', 'ddp_notebook', or a Strategy instance).
 
     Args:
         strategy: Requested strategy. Pass 'auto' to auto-select.
         n_devices: Number of GPUs being trained on (used only when strategy=='auto').
     """
+    if strategy == 'ddp_spawn':
+        return DDPStrategy(
+            find_unused_parameters=False,
+            start_method='spawn',
+            process_group_backend='nccl',
+        )
+
     if strategy != 'auto':
         return strategy
 
@@ -139,7 +156,30 @@ def is_effectively_global_rank_zero():
     
     return True
 
-# Other classes
+
+class EncoderFreezeCallback(Callback):
+    """Single-pass fine-tuning: freezes the encoder and scales LR at a specified epoch.
+
+    This replaces the two-Trainer fine-tuning pattern, making fine-tuning
+    compatible with both ddp and ddp_spawn strategies.
+    """
+    def __init__(self, freeze_at_epoch: int, lr_gamma: float):
+        super().__init__()
+        self.freeze_at_epoch = freeze_at_epoch
+        self.lr_gamma = lr_gamma
+        self._frozen = False
+
+    def on_train_epoch_start(self, trainer, pl_module):
+        if trainer.current_epoch >= self.freeze_at_epoch and not self._frozen:
+            pl_module.freeze_encoder()
+            for optimizer in trainer.optimizers:
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] *= self.lr_gamma
+            self._frozen = True
+            if is_effectively_global_rank_zero():
+                print(f"[EncoderFreezeCallback] Epoch {trainer.current_epoch}: "
+                      f"encoder frozen, LR scaled by {self.lr_gamma}")
+
 
 class LightningConfigSaveCallback(Callback):
     def __init__(self, config_map: dict, base_output_dir: str):
@@ -435,29 +475,32 @@ class PtychoDataModule(L.LightningDataModule):
 
         self._is_setup_done = True
 
+    def _resolve_worker_kwargs(self):
+        """Returns num_workers and persistent_workers, guarded for ddp_spawn."""
+        nw = self.training_config.num_workers
+        if is_spawn_strategy(self.training_config.strategy):
+            return dict(num_workers=0, persistent_workers=False)
+        return dict(num_workers=nw, persistent_workers=nw > 0, prefetch_factor=4)
+
     def train_dataloader(self):
             return TensorDictDataLoader(
                 self.train_dataset,
                 batch_size=self.training_config.batch_size,
                 shuffle=True,
-                num_workers=self.training_config.num_workers,
-                collate_fn=Collate_Lightning(pin_memory_if_cuda=True), # Lightning handles device placement
-                pin_memory=True, # Lightning DDP often benefits from this
-                persistent_workers=True,
-                prefetch_factor = 4,
+                collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
+                pin_memory=True,
+                **self._resolve_worker_kwargs(),
             )
     def val_dataloader(self):
         return TensorDictDataLoader(
             self.val_dataset,
             batch_size=self.training_config.batch_size,
-            shuffle=False,  # No need to shuffle validation data
-            num_workers=self.training_config.num_workers,
+            shuffle=False,
             collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
             pin_memory=True,
-            persistent_workers=True,
-            prefetch_factor = 4,
+            **self._resolve_worker_kwargs(),
         )
-    
+
 class PrebuiltPtychoDataModule(L.LightningDataModule):
     def __init__(self, map_path,
                  model_config, data_config, training_config):
@@ -508,28 +551,31 @@ class PrebuiltPtychoDataModule(L.LightningDataModule):
                 print(f"[DataModule setup] Rank {current_rank}: Dataset ready, "
                       f"train={train_size}, val={val_size}")
 
+    def _resolve_worker_kwargs(self):
+        """Returns num_workers and persistent_workers, guarded for ddp_spawn."""
+        nw = self.training_config.num_workers
+        if is_spawn_strategy(self.training_config.strategy):
+            return dict(num_workers=0, persistent_workers=False)
+        return dict(num_workers=nw, persistent_workers=nw > 0, prefetch_factor=4)
+
     def train_dataloader(self):
         return TensorDictDataLoader(
             self.train_dataset,
-            batch_size=self.config.batch_size,
+            batch_size=self.training_config.batch_size,
             shuffle=True,
-            num_workers=self.config.num_workers,
             collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
             pin_memory=True,
-            persistent_workers=True,
-            prefetch_factor=4,
+            **self._resolve_worker_kwargs(),
         )
 
     def val_dataloader(self):
         return TensorDictDataLoader(
             self.val_dataset,
-            batch_size=self.config.batch_size,
+            batch_size=self.training_config.batch_size,
             shuffle=False,
-            num_workers=self.config.num_workers,
             collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
             pin_memory=True,
-            persistent_workers=True,
-            prefetch_factor=4,
+            **self._resolve_worker_kwargs(),
         )
 
 
@@ -789,16 +835,21 @@ class PtychoDataModuleLightning(L.LightningDataModule):
                 )
         self._is_setup_done = True
 
+    def _resolve_worker_kwargs(self):
+        """Returns num_workers and persistent_workers, guarded for ddp_spawn."""
+        nw = self.training_config.num_workers
+        if is_spawn_strategy(self.training_config.strategy):
+            return dict(num_workers=0, persistent_workers=False)
+        return dict(num_workers=nw, persistent_workers=nw > 0, prefetch_factor=4)
+
     def train_dataloader(self):
         return TensorDictDataLoader(
             self.train_dataset,
             batch_size=self.training_config.batch_size,
             shuffle=True,
-            num_workers=self.training_config.num_workers,
             collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
             pin_memory=True,
-            persistent_workers=True,
-            prefetch_factor=4,
+            **self._resolve_worker_kwargs(),
         )
 
     def val_dataloader(self):
@@ -806,12 +857,10 @@ class PtychoDataModuleLightning(L.LightningDataModule):
             self.val_dataset,
             batch_size=self.training_config.batch_size,
             shuffle=False,
-            num_workers=self.training_config.num_workers,
             collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
             pin_memory=True,
-            persistent_workers=True,
-            prefetch_factor=4,
-            drop_last=False
+            drop_last=False,
+            **self._resolve_worker_kwargs(),
         )
 
 
