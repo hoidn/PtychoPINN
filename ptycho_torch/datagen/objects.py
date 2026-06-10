@@ -2274,8 +2274,18 @@ def generate_dead_leaves_reim_gmm(
     cumulative_coverage = np.zeros((height, width), dtype=np.float32)
 
     K = len(weights)
-    # Normalize weights to ensure valid probability vector
-    w = weights / (weights.sum() + 1e-12)
+
+    # Exclude the vacuum cluster from leaf sampling — the canvas is already
+    # initialized to vacuum, so sampling vacuum leaves just overwrites
+    # material with background, biasing the output toward a single mode.
+    vacuum_idx = np.argmin(
+        np.linalg.norm(means - vacuum_reim[np.newaxis, :], axis=1)
+    )
+    material_mask = np.ones(K, dtype=bool)
+    material_mask[vacuum_idx] = False
+    material_indices = np.where(material_mask)[0]
+    material_weights = weights[material_mask]
+    material_weights = material_weights / (material_weights.sum() + 1e-12)
 
     # Power-law parameters
     beta = 1.0 - dimension_power_law_exponent
@@ -2289,8 +2299,9 @@ def generate_dead_leaves_reim_gmm(
             rng, shapes, height, width, dim_min_px, dim_max_px, beta, coef
         )
 
-        # Sample cluster, then draw (re, im) from that cluster's Gaussian
-        k = rng.choice(K, p=w)
+        # Sample from material clusters only (vacuum is the canvas background)
+        ki = rng.choice(len(material_indices), p=material_weights)
+        k = material_indices[ki]
         leaf_re, leaf_im = rng.multivariate_normal(means[k], covariances[k])
 
         # Alpha blend on both channels

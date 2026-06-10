@@ -247,6 +247,7 @@ def save_results(result_complex, dataset_subset, output_dir, inference_config,
             gt_amp[w:-w, w:-w], gt_phase[w:-w, w:-w],
             save_dir=str(output_dir),
             filename=f'reconstruction_exp{experiment_number}',
+            robust_scaling=False
         )
 
         plot_amp_and_phase(
@@ -260,6 +261,7 @@ def save_results(result_complex, dataset_subset, output_dir, inference_config,
             obj_phase_name='Object Imag',
             gt_amp_name='Ground Truth Real',
             gt_phase_name='Ground Truth Imag',
+            robust_scaling=False
         )
 
         plot_reim_histogram(

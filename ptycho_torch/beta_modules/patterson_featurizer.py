@@ -42,6 +42,10 @@ class PattersonFeaturizer(nn.Module):
             f"Patterson featurizer requires C > 1 for leave-one-out, got C={C}"
         )
 
+        # DataParallel scatters complex tensors as real-viewed (..., 2)
+        if not probe.is_complex():
+            probe = torch.view_as_complex(probe.contiguous())
+
         # 1. Patterson functions: A_k = IFFT(I_k)
         A = torch.fft.ifft2(intensities)  # (B, C, N, N) complex64
 

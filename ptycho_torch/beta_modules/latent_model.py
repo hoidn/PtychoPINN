@@ -62,24 +62,32 @@ class FourierPositionalEncoding(nn.Module):
 
 
 def compute_canvas_scale(coords: torch.Tensor, N: int, M_lat: int,
-                         margin: int = 2) -> torch.Tensor:
-    """Compute per-batch, per-axis scale factors for dynamic canvas mapping.
-
-    Maps the coordinate bounding box plus patch extent to fill the latent
-    canvas, with independent scaling for x and y axes.
+                         margin: int = 2,
+                         mode: str = 'dynamic',
+                         H_enc: int = 8) -> torch.Tensor:
+    """Compute per-batch, per-axis scale factors for canvas mapping.
 
     Args:
         coords: (B, C, 1, 2) relative coordinates in pixel units
         N: diffraction pattern size (e.g., 64)
         M_lat: canvas size in canvas pixels (e.g., 16)
         margin: canvas margin in pixels per side (default 2 total)
+        mode: 'dynamic' scales bounding box to fill canvas (original);
+              'fixed' uses constant H_enc/N so each patch always occupies
+              H_enc canvas pixels regardless of bounding box
+        H_enc: encoder spatial output size, used when mode='fixed'
     Returns:
         scale: (B, 1, 2) canvas pixels per real pixel, per axis
     """
-    coords_2d = coords.squeeze(2)  # (B, C, 2)
-    bbox = coords_2d.max(dim=1).values - coords_2d.min(dim=1).values  # (B, 2)
-    total_extent = (bbox + N).clamp(min=float(N))  # (B, 2) in pixels
-    scale = (M_lat - margin) / total_extent  # (B, 2)
+    if mode == 'fixed':
+        B = coords.shape[0]
+        scale = torch.full((B, 2), H_enc / N,
+                           device=coords.device, dtype=coords.dtype)
+    else:
+        coords_2d = coords.squeeze(2)  # (B, C, 2)
+        bbox = coords_2d.max(dim=1).values - coords_2d.min(dim=1).values  # (B, 2)
+        total_extent = (bbox + N).clamp(min=float(N))  # (B, 2) in pixels
+        scale = (M_lat - margin) / total_extent  # (B, 2)
     return scale.unsqueeze(1)  # (B, 1, 2)
 
 
@@ -777,29 +785,37 @@ class AutoencoderCCNF(nn.Module):
         else:
             self.encoder = Encoder(encoder_config, data_config)
 
+        N = data_config.N
+        with torch.no_grad():
+            dummy = torch.zeros(1, 1, N, N)
+            dummy_out, dummy_skips = self.encoder(dummy)
+        self.H_enc = dummy_out.shape[2]
+        self.canvas_scale_mode = getattr(model_config, 'canvas_scale_mode', 'dynamic')
+
+        M_lat = model_config.latent_canvas_size
+        self.latent_canvas_size = M_lat
+        latent_config = copy.deepcopy(model_config)
+        object.__setattr__(latent_config, 'cnn_decoder_crop_size', self.H_enc)
+
         if model_config.cbam_bottleneck:
             bottleneck_channels = self.encoder.filters[-1]
             self.bottleneck_cbam = CBAM(gate_channels=bottleneck_channels)
         else:
             self.bottleneck_cbam = nn.Identity()
 
-        self.fusion = GeometryTaggedAttentionFusion(model_config, data_config)
-        self.feature_volume = MultiResolutionFeatureVolume(model_config)
+        self.fusion = GeometryTaggedAttentionFusion(latent_config, data_config)
+        self.feature_volume = MultiResolutionFeatureVolume(latent_config)
 
         if getattr(model_config, 'ccnf_decoder_type', 'neural_field') == 'cnn':
-            N = data_config.N
-            with torch.no_grad():
-                dummy = torch.zeros(1, 1, N, N)
-                _, dummy_skips = self.encoder(dummy)
-                encoder_skip_info = [
-                    (s.shape[2], s.shape[1]) for s in dummy_skips
-                ]
+            encoder_skip_info = [
+                (s.shape[2], s.shape[1]) for s in dummy_skips
+            ]
             self.decoder = CNNCanvasDecoder(
-                model_config, data_config,
+                latent_config, data_config,
                 encoder_skip_info=encoder_skip_info
             )
         else:
-            self.decoder = NeuralFieldDecoder(model_config, data_config)
+            self.decoder = NeuralFieldDecoder(latent_config, data_config)
 
     def forward(self, x: torch.Tensor, coords: torch.Tensor,
                 probe: Optional[torch.Tensor] = None) -> tuple:
@@ -816,8 +832,10 @@ class AutoencoderCCNF(nn.Module):
         B, C, N, _ = x.shape
 
         # Compute per-batch, per-axis canvas scale
-        M_lat = self.model_config.latent_canvas_size
-        scale = compute_canvas_scale(coords, N, M_lat)
+        M_lat = self.latent_canvas_size
+        scale = compute_canvas_scale(coords, N, M_lat,
+                                     mode=self.canvas_scale_mode,
+                                     H_enc=self.H_enc)
 
         # 1. Weight-shared encoding: process each patch independently
         x_flat = x.reshape(B * C, 1, N, N)

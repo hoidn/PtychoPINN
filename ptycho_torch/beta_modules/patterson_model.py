@@ -189,10 +189,15 @@ class PtychoPINN_Patterson(nn.Module):
         self.combine_complex = CombineComplexRectangular()
         self.forward_model = ForwardModel(model_config, data_config)
 
+    def _normalize_probe(self, probe):
+        total_intensity = (probe.abs() ** 2).sum()
+        return probe / total_intensity.sqrt()
+
     def forward(self, x, positions, probe, input_scale_factor, output_scale_factor,
                 experiment_ids=None, fine_tune=False):
-        features = self.featurizer(x, probe)
-        features = self.scaler.scale(features, input_scale_factor)
+        scaled_x = self.scaler.scale(x, input_scale_factor)
+        probe_normed = self._normalize_probe(probe)
+        features = self.featurizer(scaled_x, probe_normed)
 
         x_combined, x_real, x_imag = self.autoencoder(features)
 
@@ -206,8 +211,9 @@ class PtychoPINN_Patterson(nn.Module):
         return x_out, x_real, x_imag
 
     def forward_predict(self, x, positions, probe, input_scale_factor, **kwargs):
-        features = self.featurizer(x, probe)
-        features = self.scaler.scale(features, input_scale_factor)
+        scaled_x = self.scaler.scale(x, input_scale_factor)
+        probe_normed = self._normalize_probe(probe)
+        features = self.featurizer(scaled_x, probe_normed)
         x_combined, _, _ = self.autoencoder(features)
         return x_combined
 
