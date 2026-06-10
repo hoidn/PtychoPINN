@@ -6,7 +6,7 @@ from lightning.pytorch.callbacks import EarlyStopping, ModelCheckpoint, Callback
 from ptycho_torch.api.base_api import PtychoModel, ConfigManager, Orchestration
 from typing import Optional, Dict, Any, Tuple, Union, Protocol
 from ptycho_torch.config_params import TrainingConfig
-from ptycho_torch.train_utils import get_training_strategy, LightningConfigSaveCallback, EncoderFreezeCallback
+from ptycho_torch.train_utils import get_training_strategy, LightningConfigSaveCallback, EncoderFreezeCallback, resolve_n_devices
 from lightning.pytorch.strategies import DDPStrategy
 
 def setup_lightning_trainer(ptycho_model: PtychoModel,
@@ -46,6 +46,7 @@ def setup_lightning_trainer(ptycho_model: PtychoModel,
 
     #Setting up saving callback
     training_config = config_manager.training_config
+    resolve_n_devices(training_config)
 
     # Callbacks
     config_sync_callback = LightningConfigSaveCallback(
