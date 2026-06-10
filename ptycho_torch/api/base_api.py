@@ -1146,24 +1146,35 @@ class Trainer:
     
     def train(self, orchestration: str, experiment_name: str):
         """
-        Generic train script that delegates to specific strategy
+        Generic train script that delegates to specific strategy.
+
+        For consecutive training runs from a long-running host application,
+        create a new Trainer instance per run — L.Trainer cannot be reused
+        across .fit() calls under ddp_spawn.
 
         Outputs:
             result - Arbitrary dictionary containing useful metadata
         """
+        import gc
+
         if isinstance(orchestration, str):
             strategy = Orchestration(orchestration)
 
-        if strategy == Orchestration.MLFLOW:
-            result = self._train_with_mlflow(experiment_name)
-        elif strategy == Orchestration.PYTORCH:
-            pass
-        elif strategy == Orchestration.LIGHTNING:
-            result = self._train_with_lightning(self._output_dir)
-        else:
-            raise ValueError(f"Unknown load strategy: {strategy}")
-        
-        return result
+        try:
+            if strategy == Orchestration.MLFLOW:
+                result = self._train_with_mlflow(experiment_name)
+            elif strategy == Orchestration.PYTORCH:
+                pass
+            elif strategy == Orchestration.LIGHTNING:
+                result = self._train_with_lightning(self._output_dir)
+            else:
+                raise ValueError(f"Unknown load strategy: {strategy}")
+
+            return result
+        finally:
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            gc.collect()
 
     def _train_with_mlflow(self, experiment_name: Optional[str] = None):
         """
@@ -1241,14 +1252,14 @@ class Trainer:
         """
         Lightning trainer has been prepped in previous step before this is called.
 
-        This includes setting up a global directory path for which both the regular and fine-tune training runs
-        will be saved. That is passed to this function so the fine tuner knows where to write.
+        Fine-tuning (when epochs_fine_tune > 0) is handled by EncoderFreezeCallback,
+        which is wired into the trainer during setup. This keeps everything in a
+        single trainer.fit() call, compatible with both ddp and ddp_spawn.
 
         Returns:
             output_dir - Output directory for all training artifacts, configs included
         """
-        
-        from ptycho_torch.train_utils import find_learning_rate, ModelFineTuner_Lightning
+        from ptycho_torch.train_utils import find_learning_rate
 
         updated_lr = find_learning_rate(
             self.training_config.learning_rate,
@@ -1261,22 +1272,10 @@ class Trainer:
         self.ptycho_model.model.lr = updated_lr
         self.ptycho_model.model.training = True
 
-        #Regular train
         self._trainer.fit(
                     self.ptycho_model.model,
                     datamodule = self.dataloader.data_module
                 )
-        
-        if self.training_config.epochs_fine_tune > 0:
-            print("Beginning fine tuning...")
-            # Note: In DDP, all ranks reach this point after trainer.fit finishes.
-            fine_tuner = ModelFineTuner_Lightning(
-                model=self.ptycho_model.model, 
-                train_module=self.dataloader.data_module, 
-                training_config=self.training_config,
-                run_dir=output_dir
-            )
-            fine_tuner.fine_tune()
 
         return output_dir
 

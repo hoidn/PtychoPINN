@@ -632,22 +632,6 @@ class CombineComplex(nn.Module):
         
         return out
     
-class LambdaLayer(nn.Module):
-    '''
-    Generic layer module for helper functions.
-
-    Mostly used for patch reconstruction
-
-    Note from 11/15/2024: Pytorch lightning really doesn't like LambdaLayers. 
-    Will treat them as if they were identity operations.
-    Replaced all LambdaLayers in the forward model with their respective helper functions
-    '''
-    def __init__(self, func):
-        super(LambdaLayer, self).__init__()
-        self.func = func
-    
-    def forward(self, *args, **kwargs):
-        return self.func(*args, **kwargs)
 
 class PoissonIntensityLayer(nn.Module):
     '''
@@ -684,12 +668,6 @@ class ForwardModel(nn.Module):
         self.gridsize = self.data_config.grid_size
         self.offset = self.model_config.offset
         self.object_big = self.model_config.object_big
-
-        self.reassemble_patches = LambdaLayer(hh.reassemble_patches_position_real_probe)
-        self.pad_patches = LambdaLayer(hh.pad_patches)
-        self.trim_reconstruction = LambdaLayer(hh.trim_reconstruction)
-        self.extract_patches = LambdaLayer(hh.extract_channels_from_region)
-        self.pad_and_diffract = LambdaLayer(hh.pad_and_diffract)
 
         self.scaler = IntensityScalerModule(model_config)
         self.rect_scaler = RectangularScaledDiffraction(model_config)
@@ -872,6 +850,96 @@ class RectangularScaledDiffraction(nn.Module):
 
         return torch.stack([s_1, s_2], dim=-1)
 
+class ProbeIllumination(nn.Module):
+    '''
+    Probe illumination via Hadamard product of complex object and probe.
+
+    Adds probe mode dimension (P) to the object for multi-mode support.
+
+    Inputs:
+        x - torch.Tensor (B,C,H,W) complex object patches
+        probe - torch.Tensor (B,C,P,H,W) complex probe modes
+
+    Returns:
+        illuminated - torch.Tensor (B,C,P,H,W) exit waves
+        masked_probe - torch.Tensor probe with mask applied
+    '''
+    def __init__(self, model_config: ModelConfig, data_config: DataConfig):
+        super().__init__()
+        self.N = data_config.N
+        if model_config.probe_mask is not None:
+            self.register_buffer('mask', model_config.probe_mask.detach().cpu())
+        else:
+            self.mask = None
+
+    def forward(self, x, probe):
+        x_reshaped = x.unsqueeze(dim=2)  # (B,C,H,W) -> (B,C,1,H,W)
+
+        if self.mask is None:
+            probe_mask = torch.ones((self.N, self.N), device=x.device)
+        else:
+            probe_mask = self.mask.to(x.device)
+
+        illuminated = x_reshaped * probe * probe_mask.view(1, 1, 1, self.N, self.N)
+        return illuminated, probe * probe_mask
+
+
+class PolarForwardModel(nn.Module):
+    '''
+    Forward model for polar (amplitude/phase) object representation.
+    Computes predicted diffraction amplitude via:
+        reassemble → extract → probe illumination → FFT → sqrt(intensity) → affine scaling
+
+    Returns predicted amplitude (not intensity).
+    '''
+    def __init__(self, model_config: ModelConfig, data_config: DataConfig):
+        super().__init__()
+        self.model_config = model_config
+        self.data_config = data_config
+        self.object_big = model_config.object_big
+
+        self.probe_illumination = ProbeIllumination(model_config, data_config)
+        self.scaler = IntensityScalerModule(model_config)
+
+        self.alpha = nn.Parameter(torch.ones(model_config.num_datasets))
+        self.beta = nn.Parameter(torch.ones(model_config.num_datasets))
+
+    def forward(self, x, positions, probe, output_scale_factor, experiment_ids=None):
+        if self.object_big:
+            reassembled_obj, _, _ = hh.reassemble_patches_position_real(
+                x, positions,
+                data_config=self.data_config,
+                model_config=self.model_config)
+
+            extracted_patch_objs = hh.extract_channels_from_region(
+                reassembled_obj[:, None, :, :], positions,
+                data_config=self.data_config,
+                model_config=self.model_config)
+        else:
+            extracted_patch_objs = x
+
+        illuminated_objs, _ = self.probe_illumination(extracted_patch_objs, probe)
+
+        pred_unscaled, _ = hh.pad_and_diffract(illuminated_objs, pad=False)
+
+        pred_scaled = self.scaler.inv_scale(pred_unscaled, output_scale_factor)
+
+        if self.model_config.intensity_scale_trainable:
+            alphas = self.alpha[experiment_ids]
+            betas = self.beta[experiment_ids]
+
+            if pred_scaled.ndim == 3:
+                alphas = alphas.view(-1, 1, 1)
+                betas = betas.view(-1, 1, 1)
+            elif pred_scaled.ndim == 4:
+                alphas = alphas.view(-1, 1, 1, 1)
+                betas = betas.view(-1, 1, 1, 1)
+
+            pred_scaled = alphas * pred_scaled + betas
+
+        return pred_scaled
+
+
 #Loss functions
         
 # class PoissonLoss(nn.Module):
@@ -894,9 +962,8 @@ class PoissonLoss(nn.Module):
     def __init__(self):
         super(PoissonLoss, self).__init__()
     def forward(self, pred, raw):
-        self.poisson = PoissonIntensityLayer(pred)
-        loss_likelihood = self.poisson(raw)
-        return loss_likelihood
+        poisson = PoissonIntensityLayer(pred)
+        return poisson(raw)
     
 class MAELoss(nn.Module):
     def __init__(self):

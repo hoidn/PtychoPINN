@@ -170,14 +170,11 @@ def create_experiment_loggers(experiment_name: str,
         Tuple of (TensorBoardLogger, CSVLogger)
     """
     if run_name is None:
-        # Check if we are in a DDP environment and get a shared timestamp
-        # If not, generate one. 
-        # A simple trick: use an environment variable set by Rank 0
-        if "SHARED_RUN_NAME" in os.environ:
-            run_name = os.environ["SHARED_RUN_NAME"]
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        if run_tag:
+            run_name = f"{run_tag}_run_{timestamp}"
         else:
-            run_name = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            os.environ["SHARED_RUN_NAME"] = run_name
+            run_name = f"run_{timestamp}"
     
     # Create loggers pointing to same version directory
     tb_logger = TensorBoardLogger(
