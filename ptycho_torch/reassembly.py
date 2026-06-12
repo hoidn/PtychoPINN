@@ -295,11 +295,6 @@ def reconstruct_image(model: nn.Module,
 
     return reassembled_image/(reassembled_ones), ptycho_subset
 
-def profile_memory():
-    """Print current GPU memory usage."""
-    print(f"Allocated: {torch.cuda.memory_allocated()/1e9:.2f}GB")
-    print(f"Cached: {torch.cuda.memory_reserved()/1e9:.2f}GB")
-
 # --- VarPro Scaler ---
 
 class VarProScaler:
@@ -1022,8 +1017,8 @@ def reconstruct_image_barycentric(model: nn.Module,
             (scaled_canvas, dataset_subset, [inference_time, assembly_time])
         If return_diagnostics is True:
             (scaled_canvas, dataset_subset,
-             [inference_time, assembly_time, Psi_a, Psi_b, s1, s2],
-             modified_scaled_canvas)
+             [inference_time, assembly_time, s1, s2],
+             unscaled_texture_canvas)
     """
 
     if gpu_ids is None:
@@ -1255,11 +1250,7 @@ def reconstruct_image_barycentric(model: nn.Module,
     gc.collect()
 
     if return_diagnostics:
-        modified_s1 = torch.sqrt((s1**2 + s2**2)/2 * 0.52)
-        modified_s2 = torch.sqrt((s1**2 + s2**2)/2 * 0.48)
-        modified_scaled_canvas = (modified_s1 * texture_canvas.real) + 1j * (modified_s2 * texture_canvas.imag)
-        modified_scaled_canvas = texture_canvas.real + 1j * texture_canvas.imag
-        return scaled_canvas, ptycho_subset, [total_inference_time, total_assembly_time, Psi_a, Psi_b, s1, s2], modified_scaled_canvas
+        return scaled_canvas, ptycho_subset, [total_inference_time, total_assembly_time, s1, s2], texture_canvas
 
     return scaled_canvas, ptycho_subset, [total_inference_time, total_assembly_time]
 
