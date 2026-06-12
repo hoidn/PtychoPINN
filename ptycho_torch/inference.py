@@ -332,14 +332,8 @@ def load_and_predict_lightning(run_path,
 
     i_config_replace = {}
     i_config_replace['experiment_number'] = file_index
-    i_config_replace['middle_trim'] = 50
+    # i_config_replace['middle_trim'] = 50
     update_existing_config(inference_config, i_config_replace)
-
-    d_config_replace = {}
-    d_config_replace['probe_normalize'] = False
-    d_config_replace['x_bounds'] = [0.03, 0.97]
-    d_config_replace['y_bounds'] = [0.03, 0.97]
-    update_existing_config(data_config, d_config_replace)
 
     if config_override_path:
         override_data, override_model, override_training, override_inference, _ = \
@@ -355,6 +349,13 @@ def load_and_predict_lightning(run_path,
             update_existing_config(model_config, asdict(override_model))
             update_existing_config(training_config, asdict(override_training))
             update_existing_config(inference_config, asdict(override_inference))
+
+    # Inference-critical overrides — must come AFTER config override loading
+    d_config_replace = {}
+    d_config_replace['probe_normalize'] = False
+    d_config_replace['x_bounds'] = [0.03, 0.97]
+    d_config_replace['y_bounds'] = [0.03, 0.97]
+    update_existing_config(data_config, d_config_replace)
 
     model_load_start = time.time()
     loaded_model = PtychoPINN_Lightning.load_from_checkpoint(
