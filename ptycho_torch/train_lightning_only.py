@@ -35,7 +35,7 @@ from ptycho_torch.config_params import update_existing_config
 
 #Custom modules
 from ptycho_torch.model import PtychoPINN_Lightning
-from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config
+from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config, auto_set_num_datasets
 from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, is_effectively_global_rank_zero, PtychoDataModule, PtychoDataModuleLightning, resolve_n_devices
 
 # NEW: Import our custom Lightning utilities
@@ -170,20 +170,40 @@ def main(ptycho_dir,
         else:
             data_config, model_config, training_config, inference_config, datagen_config = existing_config
 
+        auto_set_num_datasets(model_config, ptycho_dir)
+
         # Force Lightning orchestrator — this script uses PtychoDataModuleLightning,
         # which relies on Lightning's prepare_data/setup lifecycle instead of
         # manual dist.barrier() synchronization used by the Mlflow path.
         training_config.orchestrator = 'Lightning'
 
-        # Generate run_name before trainer creation. Under ddp_spawn, Lightning
-        # spawns children inside .fit(), so anything computed here happens in the
-        # parent process only — no inter-process coordination needed.
-        # Under ddp (torchrun), the caller is responsible for passing the same
-        # run_name to all processes (torchrun runs the same command on each rank).
+        # Generate run_name before trainer creation.  All DDP ranks must
+        # agree on the same name so that loggers, checkpoint dirs and
+        # callbacks are consistent — otherwise Lightning's internal DDP
+        # coordination (e.g. ModelCheckpoint score broadcasts) can
+        # desync.  Under ddp_spawn the parent generates the name once;
+        # under DDP subprocess launcher each rank re-runs this code, so
+        # we coordinate via a temp file in output_dir.
+        output_dir = output_dir or training_config.output_dir
         if run_name is None:
             from datetime import datetime
-            run_name = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            print(f"Generated run name: {run_name}")
+            import time
+            run_name_file = Path(output_dir) / '.current_run_name'
+            if is_effectively_global_rank_zero():
+                run_name = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                run_name_file.parent.mkdir(parents=True, exist_ok=True)
+                run_name_file.write_text(run_name)
+                print(f"Generated run name: {run_name}")
+            else:
+                for _ in range(120):
+                    if run_name_file.exists():
+                        run_name = run_name_file.read_text().strip()
+                        if run_name:
+                            break
+                    time.sleep(0.5)
+                else:
+                    run_name = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                print(f"[Rank {os.environ.get('RANK', '?')}] Using run name: {run_name}")
 
         resolve_n_devices(training_config)
 
@@ -218,7 +238,6 @@ def main(ptycho_dir,
         val_loss_label = model.val_loss_name
 
         # NEW: Create experiment loggers (replaces MLflow)
-        output_dir = output_dir or training_config.output_dir
         tb_logger, csv_logger = create_experiment_loggers(
             experiment_name=training_config.experiment_name,
             run_name=run_name,
@@ -338,6 +357,10 @@ def main(ptycho_dir,
 
         if is_effectively_global_rank_zero():
             print(f'[Rank {trainer.global_rank}] Done training.')
+
+            # Clean up coordination file
+            run_name_file = Path(output_dir) / '.current_run_name'
+            run_name_file.unlink(missing_ok=True)
 
             # NEW: Print run summary (replaces print_auto_logged_info)
             run_dir = Path(trainer.log_dir)

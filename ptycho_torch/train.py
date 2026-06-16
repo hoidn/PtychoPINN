@@ -411,6 +411,8 @@ def main_lightning(
     if i_config_replace:
         update_existing_config(inference_config, i_config_replace)
     
+    auto_set_num_datasets(model_config, ptycho_dir)
+
     resolve_n_devices(training_config)
     print(f"Config: {training_config.n_devices} GPUs, batch_size={training_config.batch_size}")
 

@@ -139,7 +139,7 @@ def load_and_predict(run_id,
     # Import MLflow dependencies (only needed for legacy path)
     try:
         import mlflow
-        from ptycho_torch.utils import load_all_configs_from_mlflow
+        from ptycho_torch.utils import load_all_configs_from_mlflow, auto_set_num_datasets
         from ptycho_torch.reassembly import reconstruct_image_barycentric
         from ptycho_torch.dataloader import PtychoDataset
         from ptycho_torch.config_params import update_existing_config
@@ -173,6 +173,8 @@ def load_and_predict(run_id,
     d_config_replace['x_bounds'] = [0.03, 0.97]
     d_config_replace['y_bounds'] = [0.03, 0.97]
     update_existing_config(data_config, d_config_replace)
+
+    auto_set_num_datasets(model_config, ptycho_files_dir)
 
     #Loading model
     model_load_start = time.time()
@@ -306,6 +308,7 @@ def load_and_predict_lightning(run_path,
     from ptycho_torch.reassembly import reconstruct_image_barycentric
     from ptycho_torch.dataloader import PtychoDataset
     from ptycho_torch.config_params import update_existing_config
+    from ptycho_torch.utils import auto_set_num_datasets
     from ptycho_torch.model import PtychoPINN_Lightning
     from ptycho_torch.api.api_helper import load_configs_from_local_dir
 
@@ -336,19 +339,21 @@ def load_and_predict_lightning(run_path,
     update_existing_config(inference_config, i_config_replace)
 
     if config_override_path:
-        override_data, override_model, override_training, override_inference, _ = \
-            load_all_configs(config_override_path)
         if data_config is None:
+            override_data, override_model, override_training, override_inference, _ = \
+                load_all_configs(config_override_path)
             data_config = override_data
             model_config = override_model
             training_config = override_training
             inference_config = override_inference
         else:
-            from dataclasses import asdict
-            update_existing_config(data_config, asdict(override_data))
-            update_existing_config(model_config, asdict(override_model))
-            update_existing_config(training_config, asdict(override_training))
-            update_existing_config(inference_config, asdict(override_inference))
+            from ptycho_torch.utils import load_config_from_json, validate_and_process_config
+            config_data = load_config_from_json(config_override_path)
+            d_replace, m_replace, t_replace, i_replace, _ = validate_and_process_config(config_data)
+            update_existing_config(data_config, d_replace)
+            update_existing_config(model_config, m_replace)
+            update_existing_config(training_config, t_replace)
+            update_existing_config(inference_config, i_replace)
 
     # Inference-critical overrides — must come AFTER config override loading
     d_config_replace = {}
@@ -356,6 +361,8 @@ def load_and_predict_lightning(run_path,
     d_config_replace['x_bounds'] = [0.03, 0.97]
     d_config_replace['y_bounds'] = [0.03, 0.97]
     update_existing_config(data_config, d_config_replace)
+
+    auto_set_num_datasets(model_config, ptycho_files_dir)
 
     model_load_start = time.time()
     loaded_model = PtychoPINN_Lightning.load_from_checkpoint(
