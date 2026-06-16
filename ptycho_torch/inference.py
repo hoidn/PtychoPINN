@@ -139,7 +139,7 @@ def load_and_predict(run_id,
     # Import MLflow dependencies (only needed for legacy path)
     try:
         import mlflow
-        from ptycho_torch.utils import load_all_configs_from_mlflow, auto_set_num_datasets
+        from ptycho_torch.utils import load_all_configs_from_mlflow
         from ptycho_torch.reassembly import reconstruct_image_barycentric
         from ptycho_torch.dataloader import PtychoDataset
         from ptycho_torch.config_params import update_existing_config
@@ -173,8 +173,6 @@ def load_and_predict(run_id,
     d_config_replace['x_bounds'] = [0.03, 0.97]
     d_config_replace['y_bounds'] = [0.03, 0.97]
     update_existing_config(data_config, d_config_replace)
-
-    auto_set_num_datasets(model_config, ptycho_files_dir)
 
     #Loading model
     model_load_start = time.time()
@@ -308,7 +306,6 @@ def load_and_predict_lightning(run_path,
     from ptycho_torch.reassembly import reconstruct_image_barycentric
     from ptycho_torch.dataloader import PtychoDataset
     from ptycho_torch.config_params import update_existing_config
-    from ptycho_torch.utils import auto_set_num_datasets
     from ptycho_torch.model import PtychoPINN_Lightning
     from ptycho_torch.api.api_helper import load_configs_from_local_dir
 
@@ -361,8 +358,6 @@ def load_and_predict_lightning(run_path,
     d_config_replace['x_bounds'] = [0.03, 0.97]
     d_config_replace['y_bounds'] = [0.03, 0.97]
     update_existing_config(data_config, d_config_replace)
-
-    auto_set_num_datasets(model_config, ptycho_files_dir)
 
     model_load_start = time.time()
     loaded_model = PtychoPINN_Lightning.load_from_checkpoint(
