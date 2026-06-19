@@ -389,27 +389,30 @@ def main_lightning(
     from ptycho_torch.config_params import update_existing_config
     from datetime import datetime
     
-    if config_path:
-        config_data = load_config_from_json(config_path)
-        d_config_replace, m_config_replace, t_config_replace, i_config_replace, _ = validate_and_process_config(config_data)
+    if existing_config:
+        data_config, model_config, training_config, inference_config, datagen_config = existing_config
     else:
-        d_config_replace = m_config_replace = t_config_replace = i_config_replace = None
-    
-    data_config = DataConfig()
-    if d_config_replace:
-        update_existing_config(data_config, d_config_replace)
-    
-    model_config = ModelConfig()
-    if m_config_replace:
-        update_existing_config(model_config, m_config_replace)
-    
-    training_config = TrainingConfig()
-    if t_config_replace:
-        update_existing_config(training_config, t_config_replace)
-    
-    inference_config = InferenceConfig()
-    if i_config_replace:
-        update_existing_config(inference_config, i_config_replace)
+        if config_path:
+            config_data = load_config_from_json(config_path)
+            d_config_replace, m_config_replace, t_config_replace, i_config_replace, _ = validate_and_process_config(config_data)
+        else:
+            d_config_replace = m_config_replace = t_config_replace = i_config_replace = None
+
+        data_config = DataConfig()
+        if d_config_replace:
+            update_existing_config(data_config, d_config_replace)
+
+        model_config = ModelConfig()
+        if m_config_replace:
+            update_existing_config(model_config, m_config_replace)
+
+        training_config = TrainingConfig()
+        if t_config_replace:
+            update_existing_config(training_config, t_config_replace)
+
+        inference_config = InferenceConfig()
+        if i_config_replace:
+            update_existing_config(inference_config, i_config_replace)
     
     auto_set_num_datasets(model_config, ptycho_dir)
 
