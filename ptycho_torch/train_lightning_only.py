@@ -181,9 +181,32 @@ def main(ptycho_dir,
         # Under ddp (torchrun), the caller is responsible for passing the same
         # run_name to all processes (torchrun runs the same command on each rank).
         if run_name is None:
+            import time
             from datetime import datetime
-            run_name = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-            print(f"Generated run name: {run_name}")
+            os.makedirs(output_dir or "training_outputs", exist_ok=True)
+            run_name_file = os.path.join(output_dir or "training_outputs", ".run_name")
+
+            if is_effectively_global_rank_zero():
+                run_name = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                with open(run_name_file, 'w') as f:
+                    f.write(run_name)
+                os.environ["SHARED_RUN_NAME"] = run_name
+                print(f"[Rank 0] Generated run name: {run_name}")
+            else:
+                max_wait = 30
+                for _ in range(max_wait * 10):
+                    if "SHARED_RUN_NAME" in os.environ:
+                        run_name = os.environ["SHARED_RUN_NAME"]
+                        break
+                    if os.path.exists(run_name_file):
+                        with open(run_name_file, 'r') as f:
+                            run_name = f.read().strip()
+                        if run_name:
+                            break
+                    time.sleep(0.1)
+                else:
+                    raise RuntimeError("Non-zero rank failed to get run name from rank 0")
+                print(f"[Rank {os.environ.get('RANK', '?')}] Using run name: {run_name}")
 
         resolve_n_devices(training_config)
 
