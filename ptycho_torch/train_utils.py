@@ -98,8 +98,6 @@ def get_training_strategy(strategy, n_devices):
         return 'auto'
 
     return DDPStrategy(find_unused_parameters=False,
-                       static_graph=True,
-                       gradient_as_bucket_view=True,
                        process_group_backend='nccl')
     
 def find_learning_rate(base_lr, n_devices, batch_size_per_gpu):
@@ -847,6 +845,7 @@ class PtychoDataModuleLightning(L.LightningDataModule):
             self.train_dataset,
             batch_size=self.training_config.batch_size,
             shuffle=True,
+            drop_last=True,
             collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
             pin_memory=True,
             **self._resolve_worker_kwargs(),
@@ -859,7 +858,7 @@ class PtychoDataModuleLightning(L.LightningDataModule):
             shuffle=False,
             collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
             pin_memory=True,
-            drop_last=False,
+            drop_last=True,
             **self._resolve_worker_kwargs(),
         )
 

@@ -1571,13 +1571,13 @@ class PtychoPINN_Lightning(L.LightningModule):
             )
             total_loss += self.probe_reference_coeff * probe_ref_loss
             self.log('probe_ref_loss', probe_ref_loss.detach(),
-                     on_step=False, prog_bar=True, on_epoch=True, sync_dist=True)
+                     on_step=False, prog_bar=True, on_epoch=True)
 
         if self.model_config.amplitude_variance_loss:
             amp_var = self.AmpVarLoss(real, imag)
             total_loss += amp_var * self.model_config.amplitude_variance_coeff
             self.log('amp_variance_loss', amp_var.detach(),
-                     on_step=True, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+                     on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
         return total_loss
 
@@ -1599,7 +1599,7 @@ class PtychoPINN_Lightning(L.LightningModule):
             opt.step()
             opt.zero_grad()
 
-        self.log(self.loss_name, loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        self.log(self.loss_name, loss, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -1669,7 +1669,7 @@ class PtychoPINN_Lightning(L.LightningModule):
             print(f"Starting Epoch {self.current_epoch + 1}/{self.trainer.max_epochs}")
             print(f"{'='*60}")
         current_lr = self.optimizers().param_groups[0]['lr']
-        self.log('learning_rate', current_lr, on_epoch=True, sync_dist=True)
+        self.log('learning_rate', current_lr, on_epoch=True)
 
     def on_train_epoch_end(self):
         """Manually step LR scheduler since we use manual optimization."""
@@ -1681,7 +1681,7 @@ class PtychoPINN_Lightning(L.LightningModule):
             else:
                 sch.step()
             current_lr = self.optimizers().param_groups[0]['lr']
-            self.log('learning_rate', current_lr, on_epoch=True, sync_dist=True)
+            self.log('learning_rate', current_lr, on_epoch=True)
             if self.global_rank == 0:
                 print(f"Epoch {self.current_epoch} complete. New LR: {current_lr:.2e}")
 
