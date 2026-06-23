@@ -86,6 +86,7 @@ class ModelFineTuner:
         )
         
         metadata_logger = MetadataLogger(
+            run_dir=tb_logger.log_dir,
             stage="fine_tuning",
             notes=f"Fine-tuning with LR={fine_tuning_lr}, encoder_frozen=True",
             model_name=self.training_config.model_name,

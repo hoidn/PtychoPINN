@@ -262,6 +262,7 @@ def main(ptycho_dir,
         )
         
         metadata_logger = MetadataLogger(
+            run_dir=tb_logger.log_dir,
             stage="training",
             notes=training_config.notes,
             model_name=training_config.model_name,
