@@ -805,6 +805,7 @@ class PtychoDataModuleLightning(L.LightningDataModule):
                 ptycho_dir=self.ptycho_dir,
                 model_config=self.model_config,
                 data_config=self.data_config,
+                training_config=self.training_config,
                 remake_map=True
             )
             print("[Rank 0] Memory map created.")
@@ -822,6 +823,7 @@ class PtychoDataModuleLightning(L.LightningDataModule):
                     ptycho_dir=self.ptycho_dir,
                     model_config=self.model_config,
                     data_config=self.data_config,
+                    training_config=self.training_config,
                     remake_map=False
                 )
                 dataset_size = len(full_dataset)
