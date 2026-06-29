@@ -176,13 +176,11 @@ def validate_and_process_config(config_data):
     
     
     # Handle special cases and validation
-    # Set C_forward and C_model based on data_config.C if not explicitly set
+    # C_forward and C_model are derived from data_config.C — always sync.
     if 'C' in data_config_replace:
         C_value = data_config_replace['C']
-        if 'C_forward' not in model_config_replace:
-            model_config_replace['C_forward'] = C_value
-        if 'C_model' not in model_config_replace:
-            model_config_replace['C_model'] = C_value
+        model_config_replace['C_forward'] = C_value
+        model_config_replace['C_model'] = C_value
 
     # Determine object_big based on C value
     C_value = data_config_replace.get('C', 1)  # Default to 1 if not specified
