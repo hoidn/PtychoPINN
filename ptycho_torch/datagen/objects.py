@@ -189,6 +189,25 @@ def create_white_noise_clustered_reim(img_shape, obj_arg, N=_REF_N):
         gmm_params = fit_gmm_from_objects(ref_objects, n_clusters=n_clusters)
 
     means = gmm_params['means']
+    covariances = gmm_params['covariances']
+    weights = gmm_params['weights']
+
+    # --- Exclude clusters near the origin (vacuum / unilluminated) ---
+    origin_mask_radius = obj_arg.get('origin_mask_radius', 0.4)
+    cluster_radii = np.sqrt(means[:, 0]**2 + means[:, 1]**2)
+    material_mask = cluster_radii >= origin_mask_radius
+    if material_mask.sum() == 0:
+        best = np.argmax(cluster_radii)
+        material_mask[best] = True
+        print(f"WARNING [create_white_noise_clustered_reim]: all {len(cluster_radii)} "
+              f"cluster centres fall within origin_mask_radius={origin_mask_radius:.3f}. "
+              f"Keeping only the furthest cluster (k={best}, r={cluster_radii[best]:.3f}). "
+              f"Consider lowering origin_mask_radius or re-fitting with a larger mask "
+              f"in fit_gmm_from_objects so clusters don't land near the origin.")
+    means = means[material_mask]
+    covariances = covariances[material_mask]
+    weights = weights[material_mask]
+    weights = weights / (weights.sum() + 1e-12)
 
     # --- Scale pixel-based params to maintain relative feature size ---
     s = _pixel_scale(N)
@@ -213,8 +232,8 @@ def create_white_noise_clustered_reim(img_shape, obj_arg, N=_REF_N):
         re_noise, im_noise,
         cluster_re=means[:, 0], cluster_im=means[:, 1],
         mode=q_mode, temperature=temperature,
-        cluster_covariances=gmm_params['covariances'],
-        cluster_weights=gmm_params['weights'],
+        cluster_covariances=covariances,
+        cluster_weights=weights,
         amp_std_scale=obj_arg.get('amp_std_scale', 1.0),
         phase_std_scale=obj_arg.get('phase_std_scale', 1.3), #2.0 TP2
         texture_scale=obj_arg.get('texture_scale', 2.5) * s,
@@ -1468,8 +1487,8 @@ def create_density_histogram_reim(
     smoothing_sigma: float = 4.0,
     re_range: Tuple[float, float] = (-1.4, 1.4),
     im_range: Tuple[float, float] = (-1.4, 1.4),
-    origin_threshold: float = 0.05,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, Tuple[float, float]]:
+    origin_mask_radius: float = 0.4,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Build a 2D histogram PDF in (Real, Imag) space from complex objects.
 
@@ -1485,9 +1504,9 @@ def create_density_histogram_reim(
         Gaussian smoothing sigma for peak finding.
     re_range, im_range : tuple
         Histogram axis ranges.
-    origin_threshold : float
-        Bins with |Re| < threshold AND |Im| < threshold are zeroed out
-        to exclude unscanned regions (default: 0.05).
+    origin_mask_radius : float
+        Bins with |z| < this radius are zeroed out to exclude
+        unscanned / vacuum-like pixels near the origin.
 
     Returns
     -------
@@ -1497,8 +1516,6 @@ def create_density_histogram_reim(
         Bin edges for real axis.
     im_edges : np.ndarray
         Bin edges for imaginary axis.
-    vacuum_reim : tuple (float, float)
-        (re, im) coordinates of the vacuum mode (histogram peak).
     """
     if isinstance(objects, list):
         all_re = np.concatenate([np.real(obj).flatten() for obj in objects])
@@ -1513,11 +1530,11 @@ def create_density_histogram_reim(
     )
 
     # Mask out near-origin bins (unscanned/unilluminated regions)
-    if origin_threshold > 0:
+    if origin_mask_radius > 0:
         re_centers = (re_edges[:-1] + re_edges[1:]) / 2
         im_centers = (im_edges[:-1] + im_edges[1:]) / 2
         re_grid, im_grid = np.meshgrid(re_centers, im_centers, indexing='ij')
-        origin_mask = np.sqrt(re_grid**2 + im_grid**2) < origin_threshold
+        origin_mask = np.sqrt(re_grid**2 + im_grid**2) < origin_mask_radius
         hist_raw[origin_mask] = 0.0
 
     # Smooth for peak finding
@@ -1561,6 +1578,9 @@ def fit_gmm_from_objects(
         Upper bound for BIC sweep when n_clusters='auto'.
     subsample : int
         Maximum number of points to fit (random subsample for speed).
+    origin_mask_radius : float
+        Points with |z| < this radius are excluded before fitting,
+        removing unilluminated / vacuum-like pixels near the origin.
 
     Returns
     -------
@@ -1641,6 +1661,7 @@ def _perturb_gmm_config(
     amplitude_scale_std: float = 0.03,
     center_jitter_std: float = 0.05,
     weight_dirichlet_conc: float = 5.0,
+    center_jitter_polar: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Perturb fitted GMM parameters for per-object variety.
@@ -1664,6 +1685,9 @@ def _perturb_gmm_config(
         Per-center Gaussian jitter standard deviation.
     weight_dirichlet_conc : float
         Dirichlet concentration parameter (higher = closer to fitted weights).
+    center_jitter_polar : bool
+        If True (default), jitter centers in polar (amplitude, phase) space.
+        If False, use isotropic Cartesian jitter (legacy behavior).
 
     Returns
     -------
@@ -1705,7 +1729,21 @@ def _perturb_gmm_config(
         raise ValueError(f"Unknown perturbation_mode: {perturbation_mode!r}")
 
     # --- Per-center jitter ---
-    means += rng.normal(0.0, center_jitter_std, size=means.shape)
+    if center_jitter_polar:
+        for k in range(K):
+            A_k = np.sqrt(means[k, 0]**2 + means[k, 1]**2)
+            if A_k < 1e-8:
+                means[k] += rng.normal(0.0, center_jitter_std, size=2)
+            else:
+                phi_k = np.arctan2(means[k, 1], means[k, 0])
+                delta_A = rng.normal(0.0, center_jitter_std)
+                delta_phi = rng.normal(0.0, center_jitter_std / A_k)
+                A_new = A_k + delta_A
+                phi_new = phi_k + delta_phi
+                means[k, 0] = A_new * np.cos(phi_new)
+                means[k, 1] = A_new * np.sin(phi_new)
+    else:
+        means += rng.normal(0.0, center_jitter_std, size=means.shape)
 
     # --- Weight resampling via Dirichlet ---
     alpha_dir = weight_dirichlet_conc * weights + 1e-6
@@ -1716,6 +1754,35 @@ def _perturb_gmm_config(
     vacuum_reim = means[np.argmin(dists)].copy()
 
     return means, covs, weights, vacuum_reim
+
+
+def _decompose_covariance_to_polar(
+    center_re: float,
+    center_im: float,
+    covariance: np.ndarray,
+    amp_std_scale: float = 1.0,
+    phase_std_scale: float = 1.0,
+    eps: float = 1e-8,
+) -> Tuple[float, float, float, float, bool]:
+    """
+    Decompose a 2x2 Cartesian covariance into polar (amplitude, phase) stds.
+
+    Returns
+    -------
+    sigma_A, sigma_phi, A_k, phi_k, is_degenerate
+    """
+    A_k = np.sqrt(center_re**2 + center_im**2)
+    if A_k < eps:
+        return 0.0, 0.0, A_k, 0.0, True
+
+    phi_k = np.arctan2(center_im, center_re)
+    r_hat = np.array([np.cos(phi_k), np.sin(phi_k)])
+    t_hat = np.array([-np.sin(phi_k), np.cos(phi_k)])
+
+    sigma_A = np.sqrt(r_hat @ covariance @ r_hat) * amp_std_scale
+    sigma_phi = np.sqrt(t_hat @ covariance @ t_hat) / A_k * phase_std_scale
+
+    return sigma_A, sigma_phi, A_k, phi_k, False
 
 
 def quantize_reim_to_clusters(
@@ -1827,29 +1894,23 @@ def quantize_reim_to_clusters(
         nearest = np.argmax(scores, axis=2)  # (H, W)
         nearest_flat = nearest.ravel()
 
-        eps = 1e-8
         for k in range(K):
-            A_k = np.sqrt(cluster_re[k] ** 2 + cluster_im[k] ** 2)
+            sigma_A, sigma_phi, A_k, phi_k, is_degenerate = \
+                _decompose_covariance_to_polar(
+                    cluster_re[k], cluster_im[k], cluster_covariances[k],
+                    amp_std_scale=amp_std_scale, phase_std_scale=phase_std_scale,
+                )
             mask_k = (nearest_flat == k)
             n_pixels = mask_k.sum()
             if n_pixels == 0:
                 continue
 
-            if A_k < eps:
+            if is_degenerate:
                 # Degenerate at origin — isotropic from covariance trace
                 iso_var = 0.5 * np.trace(cluster_covariances[k])
                 noise_re = rng.normal(0, np.sqrt(iso_var), size=n_pixels)
                 noise_im = rng.normal(0, np.sqrt(iso_var), size=n_pixels)
             else:
-                phi_k = np.arctan2(cluster_im[k], cluster_re[k])
-                r_hat = np.array([np.cos(phi_k), np.sin(phi_k)])
-                t_hat = np.array([-np.sin(phi_k), np.cos(phi_k)])
-
-                Sigma_k = cluster_covariances[k]
-                # Amplitude std in amplitude units
-                sigma_A = np.sqrt(r_hat @ Sigma_k @ r_hat) * amp_std_scale
-                # Phase std in radians (tangential Cartesian variance / A_k)
-                sigma_phi = np.sqrt(t_hat @ Sigma_k @ t_hat) / A_k * phase_std_scale
 
                 if texture_scale > 0:
                     # Spatially coherent perturbation: blur in polar space
@@ -1898,9 +1959,10 @@ def _draw_random_leaf(
     dim_max_px: float,
     beta: float,
     coef: float,
+    antialias: bool = True,
 ) -> Tuple[np.ndarray, float]:
     """
-    Draw a single random leaf shape and return its anti-aliased coverage mask.
+    Draw a single random leaf shape and return its coverage mask.
 
     Shared helper extracted from generate_dead_leaves_correlated() to avoid
     code duplication across dead leaves variants.
@@ -1918,11 +1980,15 @@ def _draw_random_leaf(
         Pre-computed power-law parameters:
         beta = 1.0 - dimension_power_law_exponent
         coef = (dim_max_px / dim_min_px)^beta - 1.0
+    antialias : bool
+        If True (default), use anti-aliased edges (fractional coverage).
+        If False, use hard edges (binary coverage) to avoid inter-cluster
+        interpolation artifacts in Re-Im space.
 
     Returns
     -------
     coverage : np.ndarray (height, width), float32 in [0, 1]
-        Anti-aliased coverage mask.
+        Coverage mask (anti-aliased or binary).
     max_extent : float
         Maximum extent of the shape from center (for coverage tracking).
     """
@@ -1949,10 +2015,11 @@ def _draw_random_leaf(
     center_y = rng.uniform(-max_extent, height + max_extent)
 
     temp_mask = np.zeros((height, width), dtype=np.uint8)
+    line_type = cv2.LINE_AA if antialias else cv2.LINE_8
 
     if shape == 'circle':
         cv2.circle(temp_mask, (int(center_x), int(center_y)),
-                   int(radius_px), 255, -1, cv2.LINE_AA)
+                   int(radius_px), 255, -1, line_type)
     else:
         if shape == 'oriented_square':
             pts = np.array([[-side / 2, -side / 2], [side / 2, -side / 2],
@@ -1972,9 +2039,12 @@ def _draw_random_leaf(
             pts = (R @ pts.T).T
 
         pts_abs = (np.array([center_x, center_y]) + pts).astype(np.int32)
-        cv2.fillPoly(temp_mask, [pts_abs], 255, cv2.LINE_AA)
+        cv2.fillPoly(temp_mask, [pts_abs], 255, line_type)
 
-    coverage = temp_mask.astype(np.float32) / 255.0
+    if antialias:
+        coverage = temp_mask.astype(np.float32) / 255.0
+    else:
+        coverage = (temp_mask > 127).astype(np.float32)
     return coverage, max_extent
 
 
@@ -2110,6 +2180,7 @@ def generate_dead_leaves_reim_histogram(
     coverage_threshold: float = 0.99,
     blur_sigma: float = 0.5,
     seed: Optional[int] = None,
+    antialias: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, int]:
     """
     Histogram-based dead leaves in Re-Im space.
@@ -2141,6 +2212,10 @@ def generate_dead_leaves_reim_histogram(
         Post-processing Gaussian blur sigma.
     seed : int or None
         Random seed.
+    antialias : bool
+        If True (default), leaf edges are anti-aliased (fractional coverage).
+        If False, leaf edges are hard (binary coverage), preventing
+        inter-cluster interpolation in Re-Im space.
 
     Returns
     -------
@@ -2174,7 +2249,8 @@ def generate_dead_leaves_reim_histogram(
     for iteration in range(max_iterations):
         # Draw leaf shape
         coverage, _ = _draw_random_leaf(
-            rng, shapes, height, width, dim_min_px, dim_max_px, beta, coef
+            rng, shapes, height, width, dim_min_px, dim_max_px, beta, coef,
+            antialias=antialias,
         )
 
         # Sample (re, im) from histogram
@@ -2226,13 +2302,19 @@ def generate_dead_leaves_reim_gmm(
     blur_sigma: float = 0.5,
     clip_range: Tuple[float, float] = (-1.2, 1.2),
     seed: Optional[int] = None,
+    antialias: bool = True,
+    amp_std_scale: float = 1.0,
+    phase_std_scale: float = 1.0,
+    polar_sampling: bool = True,
 ) -> Tuple[np.ndarray, np.ndarray, int]:
     """
     GMM-based dead leaves in Re-Im space.
 
     Each leaf samples a cluster index k ~ Categorical(weights), then draws
-    (leaf_re, leaf_im) from the k-th component's bivariate Gaussian.
-    This produces discrete material clusters in the Re-Im plane.
+    (leaf_re, leaf_im) from the k-th component.  When polar_sampling=True
+    (default), sampling is done in polar (amplitude, phase) space so that
+    cluster variance follows arcs of constant amplitude / constant phase,
+    matching experimental distributions.
 
     Parameters
     ----------
@@ -2258,6 +2340,17 @@ def generate_dead_leaves_reim_gmm(
         Post-processing Gaussian blur sigma.
     seed : int or None
         Random seed.
+    antialias : bool
+        If True (default), leaf edges are anti-aliased (fractional coverage).
+        If False, leaf edges are hard (binary coverage), preventing
+        inter-cluster interpolation in Re-Im space.
+    amp_std_scale : float
+        Scale factor for amplitude (radial) standard deviation.
+    phase_std_scale : float
+        Scale factor for phase (tangential) standard deviation.
+    polar_sampling : bool
+        If True (default), sample in polar space producing arc-shaped
+        distributions.  If False, use Cartesian multivariate normal.
 
     Returns
     -------
@@ -2287,6 +2380,18 @@ def generate_dead_leaves_reim_gmm(
     material_weights = weights[material_mask]
     material_weights = material_weights / (material_weights.sum() + 1e-12)
 
+    # Pre-compute polar parameters for material clusters
+    if polar_sampling:
+        _polar_cache = {}
+        for k in material_indices:
+            sigma_A, sigma_phi, A_k, phi_k, is_deg = \
+                _decompose_covariance_to_polar(
+                    means[k, 0], means[k, 1], covariances[k],
+                    amp_std_scale=amp_std_scale, phase_std_scale=phase_std_scale,
+                )
+            iso_var = 0.5 * np.trace(covariances[k]) if is_deg else 0.0
+            _polar_cache[k] = (sigma_A, sigma_phi, A_k, phi_k, is_deg, iso_var)
+
     # Power-law parameters
     beta = 1.0 - dimension_power_law_exponent
     coef = np.power(dim_max_px / dim_min_px, beta) - 1.0
@@ -2296,13 +2401,28 @@ def generate_dead_leaves_reim_gmm(
     for iteration in range(max_iterations):
         # Draw leaf shape
         coverage, _ = _draw_random_leaf(
-            rng, shapes, height, width, dim_min_px, dim_max_px, beta, coef
+            rng, shapes, height, width, dim_min_px, dim_max_px, beta, coef,
+            antialias=antialias,
         )
 
         # Sample from material clusters only (vacuum is the canvas background)
         ki = rng.choice(len(material_indices), p=material_weights)
         k = material_indices[ki]
-        leaf_re, leaf_im = rng.multivariate_normal(means[k], covariances[k])
+
+        if polar_sampling:
+            sigma_A, sigma_phi, A_k, phi_k, is_deg, iso_var = _polar_cache[k]
+            if is_deg:
+                leaf_re = means[k, 0] + rng.normal(0, np.sqrt(iso_var))
+                leaf_im = means[k, 1] + rng.normal(0, np.sqrt(iso_var))
+            else:
+                delta_A = rng.normal(0, sigma_A)
+                delta_phi = rng.normal(0, sigma_phi)
+                A_new = A_k + delta_A
+                phi_new = phi_k + delta_phi
+                leaf_re = A_new * np.cos(phi_new)
+                leaf_im = A_new * np.sin(phi_new)
+        else:
+            leaf_re, leaf_im = rng.multivariate_normal(means[k], covariances[k])
 
         # Alpha blend on both channels
         real_map = real_map * (1.0 - coverage) + leaf_re * coverage
@@ -2723,6 +2843,7 @@ def create_dead_leaves_v3(
         re_range = obj_arg.get('re_range', (-1.2, 1.2))
         im_range = obj_arg.get('im_range', (-1.2, 1.2))
         vacuum_reim = obj_arg.get('vacuum_reim', (0.8, 0.0))
+        antialias = obj_arg.get('antialias', True)
 
         real_map, imag_map, n_leaves = generate_dead_leaves_reim_histogram(
             height=height, width=width,
@@ -2732,6 +2853,7 @@ def create_dead_leaves_v3(
             re_range=re_range, im_range=im_range,
             vacuum_re=vacuum_reim[0], vacuum_im=vacuum_reim[1],
             blur_sigma=scaled_blur,
+            antialias=antialias,
         )
         obj = (real_map + 1j * imag_map).astype(np.complex64)
 
@@ -2812,6 +2934,12 @@ def create_dead_leaves_reim_gmm(
         - 'coverage_threshold': float (default 0.99)
         - 'blur_sigma': float (default 0.5)
         - 'clip_range': tuple (default (-1.2, 1.2))
+        - 'polar_sampling': bool (default True) — sample in polar
+          (amplitude, phase) space for arc-shaped cluster variance
+        - 'amp_std_scale': float (default 1.0) — scale amplitude std
+        - 'phase_std_scale': float (default 1.0) — scale phase std
+        - 'center_jitter_polar': bool (default True) — polar-aware
+          center jitter in _perturb_gmm_config
 
     Returns
     -------
@@ -2836,6 +2964,7 @@ def create_dead_leaves_reim_gmm(
     amplitude_scale_std = obj_arg.get('amplitude_scale_std', 0.03)
     center_jitter_std = obj_arg.get('center_jitter_std', 0.05)
     weight_dirichlet_conc = obj_arg.get('weight_dirichlet_conc', 5.0)
+    center_jitter_polar = obj_arg.get('center_jitter_polar', True)
 
     means, covs, weights, vacuum_reim = _perturb_gmm_config(
         gmm_params, rng,
@@ -2845,7 +2974,25 @@ def create_dead_leaves_reim_gmm(
         amplitude_scale_std=amplitude_scale_std,
         center_jitter_std=center_jitter_std,
         weight_dirichlet_conc=weight_dirichlet_conc,
+        center_jitter_polar=center_jitter_polar,
     )
+
+    # --- Exclude clusters near the origin (vacuum / unilluminated) ---
+    origin_mask_radius = obj_arg.get('origin_mask_radius', 0.4)
+    cluster_radii = np.sqrt(means[:, 0]**2 + means[:, 1]**2)
+    material_mask = cluster_radii >= origin_mask_radius
+    if material_mask.sum() == 0:
+        best = np.argmax(cluster_radii)
+        material_mask[best] = True
+        print(f"WARNING [create_dead_leaves_reim_gmm]: all {len(cluster_radii)} "
+              f"cluster centres fall within origin_mask_radius={origin_mask_radius:.3f}. "
+              f"Keeping only the furthest cluster (k={best}, r={cluster_radii[best]:.3f}). "
+              f"Consider lowering origin_mask_radius or re-fitting with a larger mask "
+              f"in fit_gmm_from_objects so clusters don't land near the origin.")
+    means = means[material_mask]
+    covs = covs[material_mask]
+    weights = weights[material_mask]
+    weights = weights / (weights.sum() + 1e-12)
 
     # --- Generate dead leaves (scale pixel params with N) ---
     s = _pixel_scale(N)
@@ -2857,6 +3004,11 @@ def create_dead_leaves_reim_gmm(
     blur = obj_arg.get('blur_sigma', 0.5) * s
     clip_range = obj_arg.get('clip_range', (-1.2, 1.2))
 
+    antialias = obj_arg.get('antialias', True)
+    polar_sampling = obj_arg.get('polar_sampling', True)
+    amp_std_scale = obj_arg.get('amp_std_scale', 1.0)
+    phase_std_scale = obj_arg.get('phase_std_scale', 1.0)
+
     real_map, imag_map, n_leaves = generate_dead_leaves_reim_gmm(
         height=height, width=width,
         means=means, covariances=covs, weights=weights,
@@ -2867,6 +3019,10 @@ def create_dead_leaves_reim_gmm(
         coverage_threshold=cov_thresh,
         blur_sigma=blur,
         clip_range=clip_range,
+        antialias=antialias,
+        amp_std_scale=amp_std_scale,
+        phase_std_scale=phase_std_scale,
+        polar_sampling=polar_sampling,
     )
 
     obj = (real_map + 1j * imag_map).astype(np.complex64)
