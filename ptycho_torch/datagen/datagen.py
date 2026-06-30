@@ -653,21 +653,18 @@ def from_simulation(xcoords, ycoords,
         batch_ycoords = ycoords_cpu[batch_start:batch_end].to(device)
 
         # Get image patches for this batch
-        print("  Getting image patches...")
         batch_obj_patches = get_image_patches(objectGuess_torch,
                                             batch_xcoords, batch_ycoords,
                                             data_config)
 
         # Multiply probe and object, get scaled diffraction pattern
-        print("  Diffracting...")
         batch_diff_patches, _, scaled_probe = hh.illuminate_and_diffract(
-            batch_obj_patches.squeeze(), 
+            batch_obj_patches.squeeze(),
             probeGuess_torch,
             nphotons = np.random.randint(5e5, 1e6)
         )
-        
+
         # Apply Poisson scaling to simulate real data
-        print("  Poisson scaling...")
         batch_diff_patches = hh.poisson_scale(batch_diff_patches)
 
         # Apply detector beamstop
@@ -711,7 +708,10 @@ def get_image_patches(objectGuess,
                       xcoords, ycoords,
                       data_config):
     """
-    Get and return image patches from single canvas
+    Extract N×N patches from a canvas at sub-pixel coordinates.
+
+    Uses integer cropping followed by sub-pixel translation on the small crop,
+    avoiding full-canvas tensor replication.
 
     Input
     -----
@@ -720,54 +720,38 @@ def get_image_patches(objectGuess,
     ycoords: torch.Tensor (n_images)
 
     Output:
-        (n_images, H, W)
-
-    
+        (n_images, N, N)
     """
-
-    # --- Parameters ---
-    N = data_config.N                 # Patch size (e.g., 64)
-    M_y, M_x = objectGuess.shape      # Full canvas size (e.g., 512, 512)
-    n_images = len(xcoords)           # Number of patches
+    N = data_config.N
+    M_y, M_x = objectGuess.shape
+    n_images = len(xcoords)
 
     if N > M_y or N > M_x:
         raise ValueError(f"Patch size N ({N}) cannot be larger than object dimensions ({M_y}, {M_x})")
 
-    # --- Calculate Required Translation Offset ---
-    # Center of the large canvas (pixel coordinates)
-    center_x = (M_x - 1) / 2.0
-    center_y = (M_y - 1) / 2.0
+    margin = 1
+    crop_size = N + 2 * margin
+    half = crop_size // 2
 
-    # Desired shift for each patch: (center_x - patch_center_x, center_y - patch_center_y)
-    # This is the offset needed to move the image content at (x,y) to the center (cx,cy)
-    offset_x = center_x - xcoords
-    offset_y = center_y - ycoords
+    cx = torch.round(xcoords).long()
+    cy = torch.round(ycoords).long()
 
-    # Reshape offset for the Translation function: (n_images, 1, 2)
-    offsets = torch.stack([offset_x, offset_y], dim=-1).reshape(n_images, 1, 2)
+    x0 = (cx - half).clamp(0, M_x - crop_size)
+    y0 = (cy - half).clamp(0, M_y - crop_size)
 
-    # --- Apply Translation ---
-    # The Translation function needs a batch dimension for the object. Repeat it.
-    object_batch = objectGuess.unsqueeze(0).repeat(n_images, 1, 1) # Shape (n_images, M_y, M_x)
+    row_idx = y0[:, None, None] + torch.arange(crop_size, device=objectGuess.device)[None, :, None]
+    col_idx = x0[:, None, None] + torch.arange(crop_size, device=objectGuess.device)[None, None, :]
+    crops = objectGuess[row_idx, col_idx]
 
-    # Apply the translation using the revised function (assumed available)
-    # No jitter applied here (jitter_amt=0)
-    translated_full_patches = hh.Translation(object_batch, offsets, jitter_amt=0)
-    # Output shape: (n_images, M_y, M_x)
+    crop_center = (crop_size - 1) / 2.0
+    adj_frac_x = crop_center + x0.float() - xcoords
+    adj_frac_y = crop_center + y0.float() - ycoords
+    offsets = torch.stack([adj_frac_x, adj_frac_y], dim=-1).reshape(n_images, 1, 2)
 
-    # --- Extract Center N x N Patch ---
-    # Calculate start/end indices for the central crop
-    start_y = (M_y - N) // 2
-    end_y = start_y + N # Slice goes up to, but not including, end_y
-    start_x = (M_x - N) // 2
-    end_x = start_x + N # Slice goes up to, but not including, end_x
+    translated = hh.Translation(crops, offsets, jitter_amt=0)
+    patches = translated.squeeze(1)[:, margin:margin + N, margin:margin + N]
 
-    # Perform the crop
-    trimmed_patches = translated_full_patches.squeeze()[:, start_y:end_y, start_x:end_x]
-
-    # Output shape: (n_images, N, N)
-
-    return trimmed_patches
+    return patches
 
 # Miscellanous functions (not suitable for helper)
 
