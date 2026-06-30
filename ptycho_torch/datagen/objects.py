@@ -1894,6 +1894,21 @@ def quantize_reim_to_clusters(
         nearest = np.argmax(scores, axis=2)  # (H, W)
         nearest_flat = nearest.ravel()
 
+        # Pre-compute shared smooth fields when using spatially coherent texture
+        _shared_smooth_A = None
+        _shared_smooth_phi = None
+        if texture_scale > 0:
+            raw_A = rng.standard_normal((H, W)).astype(np.float32)
+            raw_phi = rng.standard_normal((H, W)).astype(np.float32)
+            _shared_smooth_A = gaussian_filter(raw_A, sigma=texture_scale)
+            _shared_smooth_phi = gaussian_filter(raw_phi, sigma=texture_scale)
+            std_A = _shared_smooth_A.std()
+            std_phi = _shared_smooth_phi.std()
+            if std_A > 0:
+                _shared_smooth_A /= std_A
+            if std_phi > 0:
+                _shared_smooth_phi /= std_phi
+
         for k in range(K):
             sigma_A, sigma_phi, A_k, phi_k, is_degenerate = \
                 _decompose_covariance_to_polar(
@@ -1906,34 +1921,18 @@ def quantize_reim_to_clusters(
                 continue
 
             if is_degenerate:
-                # Degenerate at origin — isotropic from covariance trace
                 iso_var = 0.5 * np.trace(cluster_covariances[k])
                 noise_re = rng.normal(0, np.sqrt(iso_var), size=n_pixels)
                 noise_im = rng.normal(0, np.sqrt(iso_var), size=n_pixels)
             else:
 
                 if texture_scale > 0:
-                    # Spatially coherent perturbation: blur in polar space
-                    # before the nonlinear polar→Cartesian transform.
-                    raw_A = rng.standard_normal((H, W)).astype(np.float32)
-                    raw_phi = rng.standard_normal((H, W)).astype(np.float32)
-                    smooth_A = gaussian_filter(raw_A, sigma=texture_scale)
-                    smooth_phi = gaussian_filter(raw_phi, sigma=texture_scale)
-                    # Normalize to unit variance, then scale
-                    std_A = smooth_A.std()
-                    std_phi = smooth_phi.std()
-                    if std_A > 0:
-                        smooth_A *= sigma_A / std_A
-                    if std_phi > 0:
-                        smooth_phi *= sigma_phi / std_phi
-                    delta_A = smooth_A.ravel()[mask_k]
-                    delta_phi = smooth_phi.ravel()[mask_k]
+                    delta_A = _shared_smooth_A.ravel()[mask_k] * sigma_A
+                    delta_phi = _shared_smooth_phi.ravel()[mask_k] * sigma_phi
                 else:
-                    # Per-pixel IID sampling (original behavior)
                     delta_A = rng.normal(0, sigma_A, size=n_pixels)
                     delta_phi = rng.normal(0, sigma_phi, size=n_pixels)
 
-                # Exact polar → Cartesian transform
                 A_new = A_k + delta_A
                 phi_new = phi_k + delta_phi
                 noise_re = A_new * np.cos(phi_new) - cluster_re[k]
@@ -1960,9 +1959,9 @@ def _draw_random_leaf(
     beta: float,
     coef: float,
     antialias: bool = True,
-) -> Tuple[np.ndarray, float]:
+) -> Tuple[Optional[np.ndarray], float, Tuple[int, int, int, int]]:
     """
-    Draw a single random leaf shape and return its coverage mask.
+    Draw a single random leaf shape and return its bbox-local coverage mask.
 
     Shared helper extracted from generate_dead_leaves_correlated() to avoid
     code duplication across dead leaves variants.
@@ -1987,10 +1986,12 @@ def _draw_random_leaf(
 
     Returns
     -------
-    coverage : np.ndarray (height, width), float32 in [0, 1]
-        Coverage mask (anti-aliased or binary).
+    coverage : np.ndarray (bbox_h, bbox_w) or None
+        Bbox-local coverage mask (float32 in [0, 1]), or None if fully off-canvas.
     max_extent : float
-        Maximum extent of the shape from center (for coverage tracking).
+        Maximum extent of the shape from center.
+    bbox : tuple (y0, y1, x0, x1)
+        Bounding box slice indices into the full canvas.
     """
     cv2 = _import_cv2()
     def sample_dim():
@@ -2014,12 +2015,22 @@ def _draw_random_leaf(
     center_x = rng.uniform(-max_extent, width + max_extent)
     center_y = rng.uniform(-max_extent, height + max_extent)
 
-    temp_mask = np.zeros((height, width), dtype=np.uint8)
+    x0 = max(int(center_x - max_extent) - 1, 0)
+    x1 = min(int(center_x + max_extent) + 2, width)
+    y0 = max(int(center_y - max_extent) - 1, 0)
+    y1 = min(int(center_y + max_extent) + 2, height)
+    bbox = (y0, y1, x0, x1)
+
+    if x0 >= x1 or y0 >= y1:
+        return None, max_extent, bbox
+
+    bh, bw = y1 - y0, x1 - x0
+    temp_mask = np.zeros((bh, bw), dtype=np.uint8)
     line_type = cv2.LINE_AA if antialias else cv2.LINE_8
+    lx, ly = int(center_x) - x0, int(center_y) - y0
 
     if shape == 'circle':
-        cv2.circle(temp_mask, (int(center_x), int(center_y)),
-                   int(radius_px), 255, -1, line_type)
+        cv2.circle(temp_mask, (lx, ly), int(radius_px), 255, -1, line_type)
     else:
         if shape == 'oriented_square':
             pts = np.array([[-side / 2, -side / 2], [side / 2, -side / 2],
@@ -2038,14 +2049,14 @@ def _draw_random_leaf(
             R = np.array([[c, -s], [s, c]])
             pts = (R @ pts.T).T
 
-        pts_abs = (np.array([center_x, center_y]) + pts).astype(np.int32)
+        pts_abs = (np.array([lx, ly], dtype=np.float64) + pts).astype(np.int32)
         cv2.fillPoly(temp_mask, [pts_abs], 255, line_type)
 
     if antialias:
         coverage = temp_mask.astype(np.float32) / 255.0
     else:
         coverage = (temp_mask > 127).astype(np.float32)
-    return coverage, max_extent
+    return coverage, max_extent, bbox
 
 
 # --- Method 1: Bivariate Gaussian Dead Leaves in Re-Im Space ---
@@ -2127,22 +2138,21 @@ def generate_dead_leaves_reim(
 
     num_leaves = 0
     for iteration in range(max_iterations):
-        # Draw leaf shape
-        coverage, _ = _draw_random_leaf(
+        coverage, _, (y0, y1, x0, x1) = _draw_random_leaf(
             rng, shapes, height, width, dim_min_px, dim_max_px, beta, coef
         )
+        if coverage is None:
+            continue
 
-        # Sample (re, im) from bivariate Gaussian
         leaf_re, leaf_im = rng.multivariate_normal(
             [re_mean, im_mean], cov_matrix
         )
 
-        # Alpha blend on both channels
-        real_map = real_map * (1.0 - coverage) + leaf_re * coverage
-        imag_map = imag_map * (1.0 - coverage) + leaf_im * coverage
-
-        # Coverage tracking
-        cumulative_coverage = np.maximum(cumulative_coverage, coverage)
+        inv = 1.0 - coverage
+        real_map[y0:y1, x0:x1] = real_map[y0:y1, x0:x1] * inv + leaf_re * coverage
+        imag_map[y0:y1, x0:x1] = imag_map[y0:y1, x0:x1] * inv + leaf_im * coverage
+        np.maximum(cumulative_coverage[y0:y1, x0:x1], coverage,
+                   out=cumulative_coverage[y0:y1, x0:x1])
         num_leaves += 1
 
         if num_leaves % 500 == 0:
@@ -2247,24 +2257,23 @@ def generate_dead_leaves_reim_histogram(
 
     num_leaves = 0
     for iteration in range(max_iterations):
-        # Draw leaf shape
-        coverage, _ = _draw_random_leaf(
+        coverage, _, (y0, y1, x0, x1) = _draw_random_leaf(
             rng, shapes, height, width, dim_min_px, dim_max_px, beta, coef,
             antialias=antialias,
         )
+        if coverage is None:
+            continue
 
-        # Sample (re, im) from histogram
         idx = rng.choice(hist_indices, p=hist_flat)
         re_idx, im_idx = np.unravel_index(idx, material_hist.shape)
         leaf_re = re_bins[re_idx]
         leaf_im = im_bins[im_idx]
 
-        # Alpha blend
-        real_map = real_map * (1.0 - coverage) + leaf_re * coverage
-        imag_map = imag_map * (1.0 - coverage) + leaf_im * coverage
-
-        # Coverage tracking
-        cumulative_coverage = np.maximum(cumulative_coverage, coverage)
+        inv = 1.0 - coverage
+        real_map[y0:y1, x0:x1] = real_map[y0:y1, x0:x1] * inv + leaf_re * coverage
+        imag_map[y0:y1, x0:x1] = imag_map[y0:y1, x0:x1] * inv + leaf_im * coverage
+        np.maximum(cumulative_coverage[y0:y1, x0:x1], coverage,
+                   out=cumulative_coverage[y0:y1, x0:x1])
         num_leaves += 1
 
         if num_leaves % 500 == 0:
@@ -2399,13 +2408,13 @@ def generate_dead_leaves_reim_gmm(
 
     num_leaves = 0
     for iteration in range(max_iterations):
-        # Draw leaf shape
-        coverage, _ = _draw_random_leaf(
+        coverage, _, (y0, y1, x0, x1) = _draw_random_leaf(
             rng, shapes, height, width, dim_min_px, dim_max_px, beta, coef,
             antialias=antialias,
         )
+        if coverage is None:
+            continue
 
-        # Sample from material clusters only (vacuum is the canvas background)
         ki = rng.choice(len(material_indices), p=material_weights)
         k = material_indices[ki]
 
@@ -2424,12 +2433,11 @@ def generate_dead_leaves_reim_gmm(
         else:
             leaf_re, leaf_im = rng.multivariate_normal(means[k], covariances[k])
 
-        # Alpha blend on both channels
-        real_map = real_map * (1.0 - coverage) + leaf_re * coverage
-        imag_map = imag_map * (1.0 - coverage) + leaf_im * coverage
-
-        # Coverage tracking
-        cumulative_coverage = np.maximum(cumulative_coverage, coverage)
+        inv = 1.0 - coverage
+        real_map[y0:y1, x0:x1] = real_map[y0:y1, x0:x1] * inv + leaf_re * coverage
+        imag_map[y0:y1, x0:x1] = imag_map[y0:y1, x0:x1] * inv + leaf_im * coverage
+        np.maximum(cumulative_coverage[y0:y1, x0:x1], coverage,
+                   out=cumulative_coverage[y0:y1, x0:x1])
         num_leaves += 1
 
         if num_leaves % 500 == 0:
@@ -2728,24 +2736,21 @@ def generate_dead_leaves_constrained_phase(
 
     num_leaves = 0
     for iteration in range(max_iterations):
-        # Draw leaf shape
-        coverage, _ = _draw_random_leaf(
+        coverage, _, (y0, y1, x0, x1) = _draw_random_leaf(
             rng, shapes, height, width, dim_min_px, dim_max_px, beta, coef
         )
+        if coverage is None:
+            continue
 
-        # Sample amplitude (uniform in intensity space)
         amp_sq = rng.uniform(amplitude_min ** 2, amplitude_max ** 2)
         leaf_amp = np.sqrt(amp_sq)
-
-        # Sample phase from constrained range
         leaf_phase = rng.uniform(phase_min, phase_max)
 
-        # Alpha blend
-        amplitude_map = amplitude_map * (1.0 - coverage) + leaf_amp * coverage
-        phase_map = phase_map * (1.0 - coverage) + leaf_phase * coverage
-
-        # Coverage tracking
-        cumulative_coverage = np.maximum(cumulative_coverage, coverage)
+        inv = 1.0 - coverage
+        amplitude_map[y0:y1, x0:x1] = amplitude_map[y0:y1, x0:x1] * inv + leaf_amp * coverage
+        phase_map[y0:y1, x0:x1] = phase_map[y0:y1, x0:x1] * inv + leaf_phase * coverage
+        np.maximum(cumulative_coverage[y0:y1, x0:x1], coverage,
+                   out=cumulative_coverage[y0:y1, x0:x1])
         num_leaves += 1
 
         if num_leaves % 500 == 0:

@@ -99,7 +99,8 @@ def simulate_multiple_experiments(obj_list,
                                   img_shape,
                                   data_config,
                                   probe_arg,
-                                  save_dir):
+                                  save_dir,
+                                  scan_step_sizes=None):
     """
     Generates multiple simulated ptychography experiments using randomized probes
 
@@ -111,7 +112,9 @@ def simulate_multiple_experiments(obj_list,
         img_shape (int, int): Tuple of object image dimensions
         data_config (DataConfig): DataConfig object, only used for N
         probe_arg (Dict): Additional probe arguments to create a range of usable probes
-        save_dir (Path): Path to save all generated experiments 
+        save_dir (Path): Path to save all generated experiments
+        scan_step_sizes: Optional dict or tuple for anisotropic grid generation.
+            See generate_simulated_data() for details.
     """
 
     if len(probe_list) > len(obj_list):
@@ -132,7 +135,8 @@ def simulate_multiple_experiments(obj_list,
 
         raw_data = generate_simulated_data(obj_i, probe_i,
                                            images_per_experiment,
-                                           data_config, probe_arg)
+                                           data_config, probe_arg,
+                                           scan_step_sizes=scan_step_sizes)
         
         save_name = "synthetic_" + str(i)
         save_path = save_dir + '/' + save_name
@@ -274,8 +278,106 @@ def simulate_synthetic_probes(data_config, nimages, probe_method, probe_arg):
     return probe_list    
 
 
+def extract_scan_steps(ref_xcoords, ref_ycoords, jump_threshold=50.0):
+    """
+    Extract characteristic scan step sizes from reference experimental coordinates.
+
+    Detects raster scan structure by identifying row-return jumps (large negative
+    x displacements), then computes median within-row x steps and median
+    between-row y steps.
+
+    Args:
+        ref_xcoords (np.ndarray): 1D reference x coordinates (pixel units).
+        ref_ycoords (np.ndarray): 1D reference y coordinates (pixel units).
+        jump_threshold (float): Minimum magnitude of negative x-diff to count as
+            a row return. Default 50.0 works for typical 2-ID raster scans.
+
+    Returns:
+        dict with keys: x_step, y_step, step_ratio, x_jitter_frac, y_jitter_frac
+    """
+    xdiff = np.diff(ref_xcoords)
+
+    row_return_indices = np.where(xdiff < -jump_threshold)[0]
+
+    if len(row_return_indices) < 1:
+        raise ValueError(
+            f"Detected fewer than 2 scan rows (jump_threshold={jump_threshold}). "
+            "Adjust jump_threshold or provide explicit step sizes."
+        )
+
+    row_boundaries = np.concatenate([[0], row_return_indices + 1, [len(ref_xcoords)]])
+    rows = [np.arange(row_boundaries[i], row_boundaries[i + 1])
+            for i in range(len(row_boundaries) - 1)]
+
+    within_row_xsteps = []
+    for row_idx in rows:
+        row_xdiff = np.diff(ref_xcoords[row_idx])
+        valid = row_xdiff[(row_xdiff > 0.1) & (row_xdiff < jump_threshold)]
+        within_row_xsteps.extend(valid)
+
+    within_row_xsteps = np.array(within_row_xsteps)
+    if len(within_row_xsteps) == 0:
+        raise ValueError("No valid within-row x steps found.")
+
+    row_median_y = np.array([np.median(ref_ycoords[idx]) for idx in rows])
+    between_row_ysteps = np.abs(np.diff(row_median_y))
+    between_row_ysteps = between_row_ysteps[between_row_ysteps > 0.1]
+
+    if len(between_row_ysteps) == 0:
+        raise ValueError("No valid between-row y steps found.")
+
+    x_step = float(np.median(within_row_xsteps))
+    y_step = float(np.median(between_row_ysteps))
+
+    return {
+        'x_step': x_step,
+        'y_step': y_step,
+        'step_ratio': x_step / y_step,
+        'x_jitter_frac': float(np.std(within_row_xsteps) / x_step),
+        'y_jitter_frac': float(np.std(between_row_ysteps) / y_step),
+    }
+
+
+def compute_canvas_size(nimages, scan_step_sizes, N):
+    """
+    Compute synthetic object canvas dimensions from scan step sizes.
+
+    Sizes the canvas so that ``generate_simulated_data`` produces actual step
+    sizes equal to the reference targets.  The grid is shaped to keep the
+    canvas roughly square: ``(nx-1)*x_step ≈ (ny-1)*y_step``.
+
+    Args:
+        nimages (int): Number of scan positions to generate.
+        scan_step_sizes: dict with 'x_step', 'y_step' or tuple (x_step, y_step).
+        N (int): Patch / diffraction-pattern size (determines buffer = N//2).
+
+    Returns:
+        tuple: (height, width) canvas dimensions in pixels.
+    """
+    if isinstance(scan_step_sizes, (tuple, list)):
+        x_step, y_step = scan_step_sizes
+    else:
+        x_step = scan_step_sizes['x_step']
+        y_step = scan_step_sizes['y_step']
+
+    buffer = N // 2
+
+    ny = max(int(np.ceil(np.sqrt(nimages * x_step / y_step))), 2)
+    nx = max(int(np.ceil(nimages / ny)), 2)
+    while nx * ny < nimages:
+        ny += 1
+        nx = max(int(np.ceil(nimages / ny)), 2)
+
+    width  = int(np.ceil((nx - 1) * x_step)) + 2 * buffer
+    height = int(np.ceil((ny - 1) * y_step)) + 2 * buffer
+
+    return (height, width)
+
+
 def generate_simulated_data(objectGuess, probeGuess, nimages,
-                            data_config, probe_arg, random_seed=None):
+                            data_config, probe_arg,
+                            scan_step_sizes=None,
+                            random_seed=None):
     """
     Generate simulated ptychography data using random scan positions.
 
@@ -283,15 +385,16 @@ def generate_simulated_data(objectGuess, probeGuess, nimages,
         objectGuess (np.ndarray): Complex-valued 2D array representing the object.
         probeGuess (np.ndarray): Complex-valued 2D array representing the probe.
         nimages (int): Number of scan positions to generate.
-        buffer (float): Border size to avoid when generating coordinates.
-        random_seed (int, optional): Seed for random number generation. If None, uses system time.
+        data_config: DataConfig object (uses N for patch size).
+        probe_arg: Probe arguments dict.
+        scan_step_sizes: Optional dict with 'x_step', 'y_step' (and optionally
+            'x_jitter_frac', 'y_jitter_frac') or tuple (x_step, y_step).
+            When provided, generates an anisotropic grid matching the step-size
+            ratio. When None, uses the original isotropic square grid.
+        random_seed (int, optional): Seed for random number generation.
 
     Returns:
-        RawData: A RawData instance containing the simulated ptychography data.
-
-    Raises:
-        ValueError: If input parameters are invalid.
-        RuntimeError: If an error occurs during simulation.
+        dict: Simulated ptychography data with diff3d, label, coords, etc.
     """
     # Input validation
     if objectGuess.ndim != 2 or probeGuess.ndim < 2:
@@ -300,7 +403,7 @@ def generate_simulated_data(objectGuess, probeGuess, nimages,
         raise ValueError("objectGuess and probeGuess must be complex-valued")
     if nimages <= 0:
         raise ValueError("nimages must be positive and buffer must be non-negative")
-    
+
     N = data_config.N
 
     # Get object dimensions
@@ -314,21 +417,59 @@ def generate_simulated_data(objectGuess, probeGuess, nimages,
         np.random.seed(random_seed)
 
     # Calculate grid parameters
-    grid_size = int(np.ceil(np.sqrt(nimages)))
-    x_step = (width - 2*buffer) / (grid_size - 1) if grid_size > 1 else 0
-    y_step = (height - 2*buffer) / (grid_size - 1) if grid_size > 1 else 0
-    
-    # Generate grid coordinates with jitter
-    jitter_amount = min(x_step, y_step) * 0.3  # 20% jitter
-    
-    x_grid = np.linspace(buffer, width - buffer, grid_size)
-    y_grid = np.linspace(buffer, height - buffer, grid_size)
-    xx, yy = np.meshgrid(x_grid, y_grid)
-    
-    # Add jitter and flatten
-    xcoords = (xx.flatten() + np.random.uniform(-jitter_amount, jitter_amount, grid_size**2))[:nimages].astype(np.float32)
+    if scan_step_sizes is not None:
+        if isinstance(scan_step_sizes, (tuple, list)):
+            target_x_step, target_y_step = scan_step_sizes
+            x_jitter_frac = 0.05
+            y_jitter_frac = 0.05
+        elif isinstance(scan_step_sizes, dict):
+            target_x_step = scan_step_sizes['x_step']
+            target_y_step = scan_step_sizes['y_step']
+            x_jitter_frac = scan_step_sizes.get('x_jitter_frac', 0.05)
+            y_jitter_frac = scan_step_sizes.get('y_jitter_frac', 0.05)
+        else:
+            raise ValueError("scan_step_sizes must be a tuple (x_step, y_step) or dict")
+
+        usable_x = width - 2 * buffer
+        usable_y = height - 2 * buffer
+        step_ratio = target_x_step / target_y_step
+
+        nx_grid = max(round(usable_x / target_x_step) + 1, 2)
+        ny_grid = max(round(usable_y / target_y_step) + 1, 2)
+        while nx_grid * ny_grid < nimages:
+            ny_grid += 1
+
+        x_step = usable_x / (nx_grid - 1)
+        y_step = usable_y / (ny_grid - 1)
+        x_jitter = x_step * x_jitter_frac
+        y_jitter = y_step * y_jitter_frac
+
+        x_grid = np.linspace(buffer, width - buffer, nx_grid)
+        y_grid = np.linspace(buffer, height - buffer, ny_grid)
+        xx, yy = np.meshgrid(x_grid, y_grid)
+
+        total_grid = nx_grid * ny_grid
+        xcoords = (xx.flatten() + np.random.uniform(-x_jitter, x_jitter, total_grid))[:nimages].astype(np.float32)
+        ycoords = (yy.flatten() + np.random.uniform(-y_jitter, y_jitter, total_grid))[:nimages].astype(np.float32)
+
+        print(f"Anisotropic grid: nx={nx_grid}, ny={ny_grid}, "
+              f"x_step={x_step:.2f}, y_step={y_step:.2f}, "
+              f"ratio={x_step/y_step:.3f} (target={step_ratio:.3f})")
+    else:
+        grid_size = int(np.ceil(np.sqrt(nimages)))
+        x_step = (width - 2*buffer) / (grid_size - 1) if grid_size > 1 else 0
+        y_step = (height - 2*buffer) / (grid_size - 1) if grid_size > 1 else 0
+        jitter_amount = min(x_step, y_step) * 0.3
+
+        x_grid = np.linspace(buffer, width - buffer, grid_size)
+        y_grid = np.linspace(buffer, height - buffer, grid_size)
+        xx, yy = np.meshgrid(x_grid, y_grid)
+
+        total_grid = grid_size ** 2
+        xcoords = (xx.flatten() + np.random.uniform(-jitter_amount, jitter_amount, total_grid))[:nimages].astype(np.float32)
+        ycoords = (yy.flatten() + np.random.uniform(-jitter_amount, jitter_amount, total_grid))[:nimages].astype(np.float32)
+
     xcoords = np.round(xcoords, 2)
-    ycoords = (yy.flatten() + np.random.uniform(-jitter_amount, jitter_amount, grid_size**2))[:nimages].astype(np.float32)
     ycoords = np.round(ycoords, 2)
     #Convert object to proper data format
     objectGuess = objectGuess.astype(np.complex64)

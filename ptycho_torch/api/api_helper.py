@@ -481,10 +481,19 @@ def generate_simulated_data(instance: Datagen,
     image_size = instance.datagen_config.image_size
     diff_per_object = instance.datagen_config.diff_per_object
 
+    scan_step_sizes = None
+    if instance.datagen_config.ref_scan_coords_path is not None:
+        from ptycho_torch.datagen.datagen import extract_scan_steps, compute_canvas_size
+        ref_data = np.load(instance.datagen_config.ref_scan_coords_path)
+        scan_step_sizes = extract_scan_steps(ref_data['xcoords'], ref_data['ycoords'])
+        image_size = compute_canvas_size(diff_per_object, scan_step_sizes,
+                                          instance.data_config.N)
+
     simulate_multiple_experiments(instance.object_list, instance.probe_list,
                                   diff_per_object,
                                   image_size, instance.data_config, instance.probe_arg,
-                                  synthetic_path)
+                                  synthetic_path,
+                                  scan_step_sizes=scan_step_sizes)
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
 

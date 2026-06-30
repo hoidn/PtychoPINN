@@ -1368,10 +1368,19 @@ class Datagen:
         image_size = self.datagen_config.image_size
         diff_per_object = self.datagen_config.diff_per_object
 
+        scan_step_sizes = None
+        if self.datagen_config.ref_scan_coords_path is not None:
+            from ptycho_torch.datagen.datagen import extract_scan_steps, compute_canvas_size
+            ref_data = np.load(self.datagen_config.ref_scan_coords_path)
+            scan_step_sizes = extract_scan_steps(ref_data['xcoords'], ref_data['ycoords'])
+            image_size = compute_canvas_size(diff_per_object, scan_step_sizes,
+                                              self.data_config.N)
+
         simulate_multiple_experiments(self.object_list, self.probe_list,
                                       diff_per_object,
                                       image_size, self.data_config, self.probe_arg,
-                                      synthetic_path)
+                                      synthetic_path,
+                                      scan_step_sizes=scan_step_sizes)
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         

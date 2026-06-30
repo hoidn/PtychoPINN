@@ -243,6 +243,7 @@ class DatagenConfig:
     gmm_clip_range: Tuple[float, float] = (-1.2, 1.2)
     origin_mask_radius: float = 0.4
     histogram_source_dir: Optional[str] = None
+    ref_scan_coords_path: Optional[str] = None
 
 
 

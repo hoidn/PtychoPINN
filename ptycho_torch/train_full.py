@@ -141,7 +141,7 @@ def prepare_data(ptycho_dir, mode, config_path,
                 print(f"Creating objects for class: {datagen_config.object_class}")
 
                 #Sampling from objects
-                material_histogram, _, _ = create_density_histogram_reim(exp_obj_list, origin_threshold = datagen_config.histogram_threshold)
+                material_histogram, _, _ = create_density_histogram_reim(exp_obj_list, origin_mask_radius=datagen_config.histogram_threshold)
                 material_stats = compute_reim_statistics(exp_obj_list)
                 obj_arg['gmm_params'] = fit_gmm_from_objects(
                     exp_obj_list,
@@ -175,10 +175,22 @@ def prepare_data(ptycho_dir, mode, config_path,
             # Simulate and fill directory
             print("Simulating experiments...")
             probe_arg['beamstop_diameter'] = datagen_config.beamstop_diameter
+
+            scan_step_sizes = None
+            if datagen_config.ref_scan_coords_path is not None:
+                from ptycho_torch.datagen.datagen import extract_scan_steps, compute_canvas_size
+                ref_data = np.load(datagen_config.ref_scan_coords_path)
+                scan_step_sizes = extract_scan_steps(ref_data['xcoords'], ref_data['ycoords'])
+                image_size = compute_canvas_size(datagen_config.diff_per_object,
+                                                 scan_step_sizes, data_config.N)
+                print(f"Using reference scan steps: x={scan_step_sizes['x_step']:.3f}, "
+                      f"y={scan_step_sizes['y_step']:.3f}, canvas={image_size}")
+
             simulate_multiple_experiments(synthetic_obj_list, probe_list,
                                         datagen_config.diff_per_object,
                                         image_size, data_config, probe_arg,
-                                        synthetic_path)
+                                        synthetic_path,
+                                        scan_step_sizes=scan_step_sizes)
             
             print("Done with data generation")
             torch.cuda.empty_cache()
