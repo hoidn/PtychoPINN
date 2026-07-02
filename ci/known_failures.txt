@@ -1,4 +1,5 @@
-# pytest node IDs excluded from the CI gate (one per line).
+# pytest node IDs excluded from the CI gate (one per line; whole-line # comments
+# only — no inline comments, they would corrupt the --deselect argument).
 # Ratchet: entries may be removed, never added without a reviewed justification comment.
 #
 # Baseline frozen from run 28567152991 (ubuntu-latest, CPU, commit cc18506e).
