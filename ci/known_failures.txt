@@ -1,0 +1,2 @@
+# pytest node IDs excluded from the CI gate (one per line).
+# Ratchet: entries may be removed, never added without a reviewed justification comment.

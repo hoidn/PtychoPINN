@@ -1,0 +1,23 @@
+# CPU-only CI environment. Mirrors pyproject dependencies with GPU flavors
+# swapped out. Torch must be installed from the CPU index BEFORE this file
+# (see .github/workflows/tests.yml) or pip will pull the CUDA build.
+torch
+tensorflow-cpu
+tensorflow-probability
+tensordict
+lightning
+torchmetrics
+mlflow
+numpy
+scipy
+scikit-image
+scikit-learn
+matplotlib
+pandas
+Pillow
+dill
+imageio
+numba
+tqdm
+ujson
+pytest
