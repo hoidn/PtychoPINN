@@ -1,0 +1,27 @@
+# CPU-only CI environment. Mirrors pyproject dependencies with GPU flavors
+# swapped out. Torch must be installed from the CPU index BEFORE this file
+# (see .github/workflows/tests.yml) or pip will pull the CUDA build.
+torch
+tensorflow-cpu
+tensorflow-probability
+tensordict
+lightning
+torchmetrics
+mlflow
+numpy
+scipy
+scikit-image
+scikit-learn
+matplotlib
+pandas
+Pillow
+dill
+imageio
+numba
+tqdm
+ujson
+# tests/conftest.py implements pytest_ignore_collect with the pre-pytest-8
+# (path=...) hookimpl signature; pytest 8 removed it. Pin to match.
+pytest<8
+# tensorflow-probability with TF>=2.16 imports Keras 2 via the tf-keras shim
+tf-keras
