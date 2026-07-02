@@ -1,6 +1,3 @@
-### `docs/COMMANDS_REFERENCE.md` 
-
-```markdown
 # PtychoPINN Commands Reference
 
 **Purpose:** A quick reference for essential PtychoPINN command-line workflows. This guide provides the "what"; for the "why," please consult the linked detailed guides.
@@ -211,44 +208,7 @@ python scripts/reconstruction/ptychi_reconstruct_tike.py
 
 ## Model Evaluation
 
-```bash
-# Basic model evaluation (single model against ground truth)
-ptycho_evaluate --model-dir trained_model/ --test-data test.npz --output-dir eval_results
-
-# Evaluation with sampling control (NEW)
-ptycho_evaluate --model-dir trained_model/ --test-data test.npz --n-test-subsample 2000 --n-test-groups 500 --output-dir eval_results
-
-# Custom visualization settings
-ptycho_evaluate --model-dir model/ --test-data test.npz --output-dir eval_vis \
-    --phase-align-method plane --save-individual-images --phase-colormap viridis
-
-# Skip registration for debugging
-ptycho_evaluate --model-dir model/ --test-data test.npz --output-dir eval_debug --skip-registration
-
-# Quiet mode for automation
-ptycho_evaluate --model-dir model/ --test-data test.npz --output-dir eval_auto --quiet
-```
-
-### 📊 Key Features
-
-- **Comprehensive Metrics**: Computes MAE, MSE, PSNR, SSIM, MS-SSIM, and FRC against ground truth
-- **Automatic Registration**: Aligns reconstructions with ground truth for fair comparison
-- **Visual Outputs**: Generates amplitude/phase plots, error maps, and comparison figures
-- **CSV Export**: Saves all metrics to `results.csv` for downstream analysis
-- **Independent Sampling**: Control test data subsampling with `--n-test-subsample` and `--n-test-groups`
-
-### 📋 When to Use Model Evaluation vs Comparison
-
-- **Use `ptycho_evaluate`** when:
-  - Evaluating a single trained model against ground truth
-  - Computing detailed metrics for model analysis
-  - Creating publication-ready visualizations
-  - Debugging model performance issues
-
-- **Use `compare_models.py`** when:
-  - Comparing multiple models head-to-head
-  - Benchmarking PtychoPINN vs Baseline vs Tike
-  - Running systematic model comparisons
+Model evaluation is currently performed via the comparison/study scripts (see `scripts/studies/README.md`); there is no `ptycho_evaluate` console command.
 
 ---
 
@@ -365,5 +325,4 @@ tail -f output_dir/logs/debug.log
 nvidia-smi
 ```
 
-For detailed explanations, see the <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref> and <doc-ref type="guide">docs/TOOL_SELECTION_GUIDE.md</doc-ref>.
-```
+For detailed explanations, see the <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>.

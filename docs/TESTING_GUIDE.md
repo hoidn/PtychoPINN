@@ -35,7 +35,7 @@ Fast, focused tests that validate individual components and functions in isolati
 - **Examples:**
   - `test_cli_args.py` - Tests command-line argument parsing
   - `test_misc.py` - Tests utility functions
-  - `test_model_manager.py` - Tests model management functionality
+  - `test_model_manager_persistence.py` - Tests model management functionality
   - `test_tf_helper.py` - Tests TensorFlow helper functions
 - **Execution time:** Typically < 1 second per test
 - **Dependencies:** Minimal, often using mocks or small test fixtures
@@ -76,7 +76,7 @@ This test ensures that:
 
 To run a specific test file:
 ```bash
-python -m unittest tests.test_model_manager
+python -m unittest tests.test_model_manager_persistence
 ```
 
 To run a specific test class:
@@ -208,7 +208,7 @@ Before starting any significant feature development, establish a baseline of the
    **Failing:** [number]
    
    ## Pre-existing Failures
-   - `test_image_registration.py::test_apply_shift_and_crop_basic` - Known issue #XXX
+   - `test_<module>.py::test_<case>` - Known issue #NNN (example placeholder)
    - [other pre-existing failures]
    
    ## Critical Tests to Monitor
@@ -320,14 +320,14 @@ class TestSubsamplingParameter(unittest.TestCase):
 
 ## Continuous Integration
 
-Tests are automatically run on pull requests. Ensure all tests pass before merging changes.
+`main` is gated: PRs merge only when the required `pytest-cpu` check is green. See [docs/ci.md](ci.md) for the authoritative gate scope, how to reproduce the CI run locally, and the exclusion-baseline ratchet policy. A green local run does not guarantee green CI.
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Import errors:** Ensure you're running tests from the project root
-2. **Missing dependencies:** Install test requirements with `pip install -e .[test]` (if available)
+2. **Missing dependencies:** Install the project in editable mode (`pip install -e .`) and ensure pytest is installed.
 3. **Data file not found:** Some tests require the example dataset in `ptycho/datasets/`
 4. **Slow tests:** Use `-v` flag for verbose output to identify slow tests
 
@@ -342,5 +342,6 @@ If you encounter issues with tests:
 ## Related Documentation
 
 - [README.md](../README.md) - Project overview and quick start
-- [scripts/README.md](../scripts/README.md) - Information about training and inference scripts
+- [scripts/training/README.md](../scripts/training/README.md) - Information about training scripts
+- [scripts/inference/README.md](../scripts/inference/README.md) - Information about inference scripts
 - [tests/README_PERSISTENCE_TESTS.md](../tests/README_PERSISTENCE_TESTS.md) - Specific documentation about persistence tests

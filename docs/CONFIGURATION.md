@@ -1,5 +1,7 @@
 # PtychoPINN Configuration Guide
 
+> **Scope:** This guide documents the configuration system of the legacy TensorFlow implementation (`ptycho/config/config.py`). The active PyTorch implementation (`ptycho_torch/`) uses separate dataclasses in `ptycho_torch/config_params.py` — see the project CLAUDE.md for its fields and gotchas.
+
 This document is the canonical reference for all configuration parameters used in the PtychoPINN project. It details the modern dataclass-based configuration system and provides a comprehensive reference for all available parameters.
 
 ## The Configuration System
@@ -60,7 +62,7 @@ These parameters control the training loop, data handling, and loss functions.
 | `realspace_mae_weight` | `float` | `0.0` | Weight for the MAE loss in the object domain. |
 | `realspace_weight` | `float` | `0.0` | General weight for all real-space losses. |
 | `nphotons` | `float` | `1e9` | The target average number of photons per diffraction pattern, used for the Poisson noise model. |
-| `n_groups` | `int` | `512` | Number of groups to use from the dataset. Each group contains 1 image for gridsize=1, or gridsize² images for gridsize>1. **Replaces deprecated `n_images` parameter.** |
+| `n_groups` | `Optional[int]` | `None` | Number of groups to use from the dataset. Each group contains 1 image for gridsize=1, or gridsize² images for gridsize>1. **Replaces deprecated `n_images` parameter.** |
 | `n_images` | `int` | `None` | **[DEPRECATED]** Legacy parameter name for `n_groups`. Still supported for backward compatibility but will show deprecation warnings. New code should use `n_groups`. |
 | `n_subsample` | `Optional[int]` | `None` | Number of images to subsample from the dataset before grouping (independent control). When provided, controls data selection separately from grouping. |
 | `subsample_seed` | `Optional[int]` | `None` | Random seed for reproducible subsampling. Ensures consistent data selection across runs. |
