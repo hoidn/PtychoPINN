@@ -191,17 +191,17 @@ This index provides a comprehensive overview of all available documentation with
 
 ### By Task
 - **Starting a new feature**: [Developer Guide](DEVELOPER_GUIDE.md) → [Initiative Workflow](INITIATIVE_WORKFLOW_GUIDE.md)
-- **Running experiments**: [Workflow Guide](WORKFLOW_GUIDE.md) → [Commands Reference](COMMANDS_REFERENCE.md)
+- **Running experiments**: [Commands Reference](COMMANDS_REFERENCE.md)
 - **Debugging issues**: [Troubleshooting](TROUBLESHOOTING.md) → [Quick Reference Params](QUICK_REFERENCE_PARAMS.md)
-- **Understanding data**: [Data Contracts](data_contracts.md) → [Data Normalization](DATA_NORMALIZATION_GUIDE.md)
+- **Understanding data**: [Data Contracts](data_contracts.md)
 - **Fixing shape mismatches**: [Quick Reference Params](QUICK_REFERENCE_PARAMS.md) → [Troubleshooting](TROUBLESHOOTING.md)
 - **Training models**: [Training README](../scripts/training/README.md) → [Configuration Guide](CONFIGURATION.md)
-- **Evaluating models**: [Evaluation README](../scripts/evaluation/README.md) → [Model Comparison](../scripts/studies/README.md)
+- **Evaluating models**: [Model Comparison](../scripts/studies/README.md)
 
 ### By User Type
-- **New Users**: [README](../README.md) → [Workflow Guide](WORKFLOW_GUIDE.md) → [Training](../scripts/training/README.md)
+- **New Users**: [README](../README.md) → [Training](../scripts/training/README.md)
 - **Developers**: [Developer Guide](DEVELOPER_GUIDE.md) → [Testing Guide](TESTING_GUIDE.md) → [Architecture](architecture.md)
-- **Researchers**: [Generalization Studies](studies/GENERALIZATION_STUDY_GUIDE.md) → [Model Comparison](../scripts/studies/README.md)
+- **Researchers**: [Model Comparison](../scripts/studies/README.md)
 - **AI Agents**: [CLAUDE.md](../CLAUDE.md) → [Initiative Workflow](INITIATIVE_WORKFLOW_GUIDE.md) → [Developer Guide](DEVELOPER_GUIDE.md)
 
 ## Documentation Standards
@@ -212,7 +212,6 @@ When adding new documentation:
 3. Add "Use this when..." guidance
 4. Use the `<doc-ref>` XML tagging system for cross-references
 5. Ensure bidirectional linking
-6. Add to [PROJECT_STATUS.md](PROJECT_STATUS.md) if it's an initiative document
 
 ## 🔗 External Resources
 

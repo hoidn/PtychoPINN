@@ -245,8 +245,6 @@ Use these docs directly instead of reinventing diagnostics:
   - `docs/TROUBLESHOOTING.md`
 - Params/config quick checks:
   - `docs/QUICK_REFERENCE_PARAMS.md`
-- Known historical issues and policy IDs:
-  - `docs/findings.md`
 
-If you discover a recurring issue, add it to `docs/findings.md` with evidence.
+If you discover a recurring issue, add it to `docs/TROUBLESHOOTING.md` with evidence.
 
