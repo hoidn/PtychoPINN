@@ -654,8 +654,22 @@ class FNOCNNEncoder(nn.Module):
 
         if N < 16 or (N & (N - 1)) != 0:
             raise ValueError(f"N must be a power of 2 >= 16, got N={N}")
-        n_cnn_pools = int(math.log2(N / 8))
-        n_cnn_blocks = n_cnn_pools - 1
+
+        # Resolve target bottleneck size H_enc (<=0 => auto-scale as N//8)
+        H_enc = getattr(model_config, 'encoder_latent_size', 8)
+        if H_enc <= 0:
+            H_enc = N // 8
+        if (H_enc & (H_enc - 1)) != 0 or N % H_enc != 0:
+            raise ValueError(
+                f"encoder_latent_size={H_enc} must be a power of 2 dividing N={N}"
+            )
+        n_pools_total = int(math.log2(N / H_enc))
+        n_cnn_blocks = n_pools_total - 1          # last reduction is final_pool
+        if n_cnn_blocks < 1:
+            raise ValueError(
+                f"encoder_latent_size={H_enc} too large for N={N}: need "
+                f"H_enc <= N//4 so channels can ramp to n_filters_scale*128"
+            )
         cnn_filter_list = [fno_width] + [
             nfs * (128 >> i) for i in range(n_cnn_blocks - 1, -1, -1)
         ]
@@ -724,6 +738,21 @@ class FNOCNNEncoder(nn.Module):
             )
             self.filters = [1] + [fno_width] * n_fno_blocks + cnn_filter_list[1:]
 
+        # Residual bottleneck FNO blocks at H_enc resolution: extra depth with
+        # no further downsampling. Modes scale with the bottleneck grid.
+        self.bottleneck_fno_blocks = nn.ModuleList()
+        n_bottleneck = getattr(model_config, 'fno_bottleneck_blocks', 0)
+        if n_bottleneck > 0:
+            bottleneck_ch = cnn_filter_list[-1]          # n_filters_scale * 128
+            bottleneck_modes = min(fno_modes, H_enc // 2)
+            for _ in range(n_bottleneck):
+                self.bottleneck_fno_blocks.append(
+                    BottleneckFNOBlock(bottleneck_ch, fno_width, bottleneck_modes)
+                )
+            # expose to get_encoder_*_params / fine-tuning splitters
+            self.blocks = nn.ModuleList(list(self.blocks) + list(self.bottleneck_fno_blocks))
+            self.filters = self.filters + [bottleneck_ch] * n_bottleneck
+
     def forward(self, x: torch.Tensor):
         skips = []
 
@@ -758,6 +787,9 @@ class FNOCNNEncoder(nn.Module):
                 x = cnn_block.forward_pool(x)
 
         x = self.final_pool(x)
+
+        for fno_block in self.bottleneck_fno_blocks:
+            x = fno_block(x)
 
         return x, skips
 

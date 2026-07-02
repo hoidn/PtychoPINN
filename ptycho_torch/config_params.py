@@ -100,6 +100,15 @@ class ModelConfig:
     fno_blocks: int = field(default=2, metadata={'frozen': True})
     fno_interleave: bool = field(default=False, metadata={'frozen': True})
 
+    # FNO-CNN latent bottleneck scaling
+    # Target spatial size H_enc of the encoder bottleneck. Default 8 reproduces
+    # the original fixed 8x8 latent for all N. Set <=0 to auto-scale as N//8
+    # (-> 8/16/32 for N=64/128/256), holding downsampling depth fixed at 3.
+    encoder_latent_size: int = field(default=8, metadata={'frozen': True})
+    # Residual bottleneck FNO blocks applied at H_enc (adds depth, no pooling).
+    # 0 = disabled (original behavior). A few (2-3) is the intended range.
+    fno_bottleneck_blocks: int = field(default=0, metadata={'frozen': True})
+
     #Attention Fusion
     latent_canvas_size: int = 32
     canvas_scale_mode: Literal['dynamic', 'fixed'] = 'dynamic'
