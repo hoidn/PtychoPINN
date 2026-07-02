@@ -1,0 +1,27 @@
+name: tests
+on:
+  pull_request:
+  push:
+    branches: [main]
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  pytest-cpu:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-ci.txt
+      - name: Install CPU torch first (pin to CPU wheel index)
+        run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - name: Install remaining dependencies
+        run: |
+          pip install -r requirements-ci.txt
+          pip install -e . --no-deps
+      - name: Run gated test suite
+        run: bash ci/run_ci_tests.sh
