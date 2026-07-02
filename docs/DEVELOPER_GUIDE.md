@@ -11,16 +11,15 @@ Use this document for:
 - code review expectations
 
 For command recipes, see `docs/COMMANDS_REFERENCE.md`.
-For full troubleshooting playbooks, see `docs/debugging/TROUBLESHOOTING.md`.
+For full troubleshooting playbooks, see `docs/TROUBLESHOOTING.md`.
 
 ## Quick Start Checklist
 
 Before editing code:
 1. Read `docs/index.md`.
-2. Read `docs/findings.md`.
-3. Identify whether your change touches TensorFlow, PyTorch, or both.
-4. Confirm required contracts in `specs/data_contracts.md` and relevant specs.
-5. Choose a focused pytest selector and keep logs as evidence.
+2. Identify whether your change touches TensorFlow, PyTorch, or both.
+3. Confirm required contracts in `docs/data_contracts.md` and relevant specs.
+4. Choose a focused pytest selector and keep logs as evidence.
 
 ---
 
@@ -98,8 +97,7 @@ If edits are required, add focused regression tests and document the rationale.
 NPZ/HDF5 structures are external contracts, not implementation details.
 
 Authoritative sources:
-- `specs/data_contracts.md`
-- `specs/ptychodus_api_spec.md`
+- `docs/data_contracts.md`
 
 Do not "fix" malformed inputs deep in the pipeline unless the contract explicitly allows adaptation.
 
@@ -162,10 +160,6 @@ Use these primary entrypoints:
 
 Backend selection is explicit via config/CLI (`tensorflow` or `pytorch`) and routed through backend selectors/workflow components.
 
-For grid-lines study workflows:
-- orchestrator: `scripts/studies/grid_lines_compare_wrapper.py`
-- torch runner: `scripts/studies/grid_lines_torch_runner.py`
-
 Prefer modern flags and paths; keep legacy flags only for compatibility.
 
 ---
@@ -179,7 +173,6 @@ Project standard:
 
 Primary references:
 - `docs/TESTING_GUIDE.md`
-- `docs/development/TEST_SUITE_INDEX.md`
 
 Baseline expectations for production-path changes:
 1. targeted unit/regression tests
@@ -249,15 +242,9 @@ Migration guidance:
 Use these docs directly instead of reinventing diagnostics:
 
 - Common failures:
-  - `docs/debugging/TROUBLESHOOTING.md`
+  - `docs/TROUBLESHOOTING.md`
 - Params/config quick checks:
-  - `docs/debugging/QUICK_REFERENCE_PARAMS.md`
-- Known historical issues and policy IDs:
-  - `docs/findings.md`
-- Data generation behavior:
-  - `docs/DATA_GENERATION_GUIDE.md`
-- PyTorch workflow behavior:
-  - `docs/workflows/pytorch.md`
+  - `docs/QUICK_REFERENCE_PARAMS.md`
 
-If you discover a recurring issue, add it to `docs/findings.md` with evidence.
+If you discover a recurring issue, add it to `docs/TROUBLESHOOTING.md` with evidence.
 

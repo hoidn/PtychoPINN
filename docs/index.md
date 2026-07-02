@@ -14,17 +14,7 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** params.cfg, initialization, gridsize, shape-mismatch, troubleshooting  
 **Use this when:** Getting shape mismatch errors, debugging configuration issues, or need to understand params.cfg initialization pattern.
 
-### [Workflow Guide](WORKFLOW_GUIDE.md)
-**Description:** Comprehensive guide covering complete PtychoPINN workflows from training through evaluation and model comparison, including common patterns and troubleshooting.  
-**Keywords:** workflow, training, evaluation, model-comparison, troubleshooting  
-**Use this when:** Starting a new project, planning experiments, or need to understand the complete train→evaluate→compare workflow.
-
 ## Project Management
-
-### [PROJECT_STATUS](PROJECT_STATUS.md)
-**Description:** Current development status tracker and active initiatives overview.  
-**Keywords:** project-status, tracking, initiatives  
-**Use this when:** Need to see current project status and active development work.
 
 ### [CLAUDE Instructions](../CLAUDE.md)
 **Description:** AI agent guidance defining critical data management rules, configuration requirements, and development conventions.  
@@ -60,6 +50,11 @@ This index provides a comprehensive overview of all available documentation with
 **Keywords:** debugging, shape-mismatch, configuration, oversampling, quick-fixes  
 **Use this when:** Encountering shape mismatch errors (especially gridsize-related), debugging configuration issues, or need quick diagnostic commands.
 
+### [CI Test Gate](ci.md)
+**Description:** Authoritative CI policy for main: PR-only merges gated by the required `pytest-cpu` check, exclusion-baseline ratchet policy, and the red-PR playbook.
+**Keywords:** ci, testing-gate, github-actions, ruleset, ratchet
+**Use this when:** Your PR is red, you need to run the CI suite locally, or you are editing the exclusion baseline.
+
 ### Configuration & Data
 
 #### [Configuration Guide](CONFIGURATION.md)
@@ -71,33 +66,6 @@ This index provides a comprehensive overview of all available documentation with
 **Description:** Official format specifications for NPZ datasets including required keys, data types, shapes, and normalization requirements.  
 **Keywords:** NPZ-format, data-contracts, normalization, diffraction, amplitude  
 **Use this when:** Creating or validating datasets, troubleshooting data format errors, or understanding amplitude vs intensity requirements.
-
-#### [Data Normalization Guide](DATA_NORMALIZATION_GUIDE.md)
-**Description:** Explains the three distinct types of normalization (physics, statistical, display) and their proper application throughout the data pipeline to avoid common scaling errors.  
-**Keywords:** normalization, intensity_scale, physics, statistical, pipeline  
-**Use this when:** Debugging normalization issues, implementing new data loading features, or resolving scaling-related bugs.
-
-#### [GridSize & n_groups Guide](GRIDSIZE_N_GROUPS_GUIDE.md) CRITICAL
-**Description:** Explains the unified n_groups parameter behavior across different gridsize values, eliminating confusion between individual images vs groups.  
-**Keywords:** n_groups, gridsize, sampling, groups, patterns  
-**Use this when:** Understanding group formation with different gridsize values or troubleshooting unexpected dataset sizes.
-
-### Specialized Topics
-
-#### [Sampling User Guide](SAMPLING_USER_GUIDE.md)
-**Description:** Comprehensive guide to flexible sampling control using n_subsample and n_groups parameters for memory management and training efficiency.  
-**Keywords:** sampling, n_subsample, n_groups, memory, reproducibility  
-**Use this when:** Controlling memory usage during training or implementing diverse sampling strategies.
-
-#### [Pty-Chi Migration Guide](PTYCHI_MIGRATION_GUIDE.md)
-**Description:** Complete migration guide for replacing Tike with pty-chi in three-way comparisons.
-**Keywords:** pty-chi, tike-replacement, performance-optimization, reconstruction  
-**Use this when:** Want to speed up iterative ptychographic reconstructions or migrate from Tike to pty-chi.
-
-#### [Memory Optimization Guide](memory.md)
-**Description:** Technical context document for Phase 5 of the Independent Sampling Control initiative detailing current implementation state and documentation gaps.  
-**Keywords:** sampling-control, phase5-context, memory-management, parameter-interpretation  
-**Use this when:** Working on Phase 5 of the sampling control initiative or need context on current implementation state.
 
 ## Workflows & Scripts
 
@@ -112,11 +80,6 @@ This index provides a comprehensive overview of all available documentation with
 **Description:** Guide for running inference with trained PtychoPINN models on test data, generating reconstruction visualizations and probe analysis.  
 **Keywords:** inference, reconstruction, visualization, model-loading, testing  
 **Use this when:** Have a trained model and want to generate reconstructions from new test data.
-
-#### [Evaluation](../scripts/evaluation/README.md) 
-**Description:** Complete single-model evaluation framework with automatic model detection, comprehensive metrics (MAE, PSNR, SSIM, FRC), alignment, and rich visualizations.  
-**Keywords:** evaluation, metrics, alignment, visualization, model-detection  
-**Use this when:** Need comprehensive quantitative analysis of a single trained model against ground truth.
 
 #### [Simulation](../scripts/simulation/README.md)
 **Description:** Two-stage modular simulation architecture for generating ptychographic datasets: Stage 1 creates object/probe inputs, Stage 2 simulates diffraction patterns.  
@@ -146,20 +109,6 @@ This index provides a comprehensive overview of all available documentation with
 **Description:** Quick reference guide for essential PtychoPINN workflows including data preparation golden paths, training, inference, evaluation, and troubleshooting commands.  
 **Keywords:** quick-reference, command-line, workflows, best-practices  
 **Use this when:** Need rapid lookup of common command patterns and want to follow established golden paths.
-
-## Studies & Analysis
-
-### Study Guides
-
-#### [Generalization Study Guide](studies/GENERALIZATION_STUDY_GUIDE.md)
-**Description:** Complete guide for running multi-model generalization studies comparing PtychoPINN and baseline performance across different training set sizes.  
-**Keywords:** generalization-study, model-comparison, training-sizes, automated-workflow  
-**Use this when:** Systematically comparing model performance across different amounts of training data.
-
-#### [Quick Reference for Studies](../scripts/studies/QUICK_REFERENCE.md)
-**Description:** Quick command reference for study scripts and workflows.  
-**Keywords:** study-scripts, quick-reference, commands  
-**Use this when:** Need quick access to study-related commands and patterns.
 
 ## Datasets & Experiments
 
@@ -242,17 +191,17 @@ This index provides a comprehensive overview of all available documentation with
 
 ### By Task
 - **Starting a new feature**: [Developer Guide](DEVELOPER_GUIDE.md) → [Initiative Workflow](INITIATIVE_WORKFLOW_GUIDE.md)
-- **Running experiments**: [Workflow Guide](WORKFLOW_GUIDE.md) → [Commands Reference](COMMANDS_REFERENCE.md)
+- **Running experiments**: [Commands Reference](COMMANDS_REFERENCE.md)
 - **Debugging issues**: [Troubleshooting](TROUBLESHOOTING.md) → [Quick Reference Params](QUICK_REFERENCE_PARAMS.md)
-- **Understanding data**: [Data Contracts](data_contracts.md) → [Data Normalization](DATA_NORMALIZATION_GUIDE.md)
+- **Understanding data**: [Data Contracts](data_contracts.md)
 - **Fixing shape mismatches**: [Quick Reference Params](QUICK_REFERENCE_PARAMS.md) → [Troubleshooting](TROUBLESHOOTING.md)
 - **Training models**: [Training README](../scripts/training/README.md) → [Configuration Guide](CONFIGURATION.md)
-- **Evaluating models**: [Evaluation README](../scripts/evaluation/README.md) → [Model Comparison](../scripts/studies/README.md)
+- **Evaluating models**: [Model Comparison](../scripts/studies/README.md)
 
 ### By User Type
-- **New Users**: [README](../README.md) → [Workflow Guide](WORKFLOW_GUIDE.md) → [Training](../scripts/training/README.md)
+- **New Users**: [README](../README.md) → [Training](../scripts/training/README.md)
 - **Developers**: [Developer Guide](DEVELOPER_GUIDE.md) → [Testing Guide](TESTING_GUIDE.md) → [Architecture](architecture.md)
-- **Researchers**: [Generalization Studies](studies/GENERALIZATION_STUDY_GUIDE.md) → [Model Comparison](../scripts/studies/README.md)
+- **Researchers**: [Model Comparison](../scripts/studies/README.md)
 - **AI Agents**: [CLAUDE.md](../CLAUDE.md) → [Initiative Workflow](INITIATIVE_WORKFLOW_GUIDE.md) → [Developer Guide](DEVELOPER_GUIDE.md)
 
 ## Documentation Standards
@@ -263,7 +212,6 @@ When adding new documentation:
 3. Add "Use this when..." guidance
 4. Use the `<doc-ref>` XML tagging system for cross-references
 5. Ensure bidirectional linking
-6. Add to [PROJECT_STATUS.md](PROJECT_STATUS.md) if it's an initiative document
 
 ## 🔗 External Resources
 
