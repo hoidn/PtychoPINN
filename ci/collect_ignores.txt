@@ -1,1 +1,7 @@
 # test files excluded at collection time (module-level import errors).
+# imports adaptive_gradient_clip_ — absent from ptycho_torch.train_utils on main
+tests/torch/test_agc.py
+# imports compute_grad_norm — absent from ptycho_torch.train_utils on main
+tests/torch/test_grad_norm_utils.py
+# imports normalize_probe_like_tf — absent from ptycho_torch.helper on main
+tests/torch/test_probe_normalization_parity.py
