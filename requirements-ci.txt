@@ -20,4 +20,6 @@ imageio
 numba
 tqdm
 ujson
-pytest
+# tests/conftest.py implements pytest_ignore_collect with the pre-pytest-8
+# (path=...) hookimpl signature; pytest 8 removed it. Pin to match.
+pytest<8
