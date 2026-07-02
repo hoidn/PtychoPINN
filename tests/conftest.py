@@ -78,10 +78,13 @@ def pytest_ignore_collect(path, config):
     if "/tests/torch/" in p:
         try:
             import torch  # noqa: F401
-            return False
+            return None
         except Exception:
             return True
-    return False
+    # Return None (not False): pytest_ignore_collect is a firstresult hook, so
+    # returning False short-circuits pytest's built-in handler and silently
+    # disables --ignore/--ignore-glob for the entire suite.
+    return None
 
 def pytest_runtest_setup(item):
     """
