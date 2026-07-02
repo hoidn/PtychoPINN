@@ -52,13 +52,6 @@ PtychoPINN supports both TensorFlow and PyTorch backends:
   - Unified scripts: use `--torch-accelerator` and `--torch-logger`
   - PyTorch-native CLIs: use `--accelerator` and `--logger`
 
-#### Also Supported
-- Grid-lines multi-model runs:
-  - `scripts/studies/grid_lines_compare_wrapper.py`
-- Grid-lines Torch runner:
-  - `scripts/studies/grid_lines_torch_runner.py`
-  - Architectures: `fno`, `hybrid`, `stable_hybrid`, `fno_vanilla`, `hybrid_resnet`
-
 #### Older Flags and Modes
 - `--n_images` in training is older; use `--n_groups`.
 - PyTorch `--device` and `--disable_mlflow` are older; use `--accelerator` and `--logger none`.

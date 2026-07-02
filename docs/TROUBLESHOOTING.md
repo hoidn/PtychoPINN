@@ -49,7 +49,7 @@ params.cfg['gridsize'] = 2  # or whatever gridsize you're testing
 #### In Workflow Scripts (like run_complete_generalization_study.sh)
 ```bash
 # Verify the config file has the correct gridsize:
-grep gridsize configs/gridsize2_minimal.yaml
+grep gridsize <your_config>.yaml
 # Should show: gridsize: 2
 ```
 
@@ -185,7 +185,7 @@ python -c "from ptycho import params; print(params.cfg)"
 ### Verify Config File
 ```bash
 # Check gridsize in config
-python -c "import yaml; print(yaml.safe_load(open('configs/gridsize2_minimal.yaml')))"
+python -c "import yaml; print(yaml.safe_load(open('configs/comparison_config.yaml')))"
 ```
 
 ### Test Data Generation
