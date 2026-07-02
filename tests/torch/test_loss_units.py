@@ -28,3 +28,7 @@ def test_mae_loss_squares_predictions():
 
     expected = torch.nn.functional.l1_loss(pred_amp ** 2, obs_intensity, reduction="none")
     assert torch.allclose(loss, expected)
+
+
+def test_ci_gate_tripwire_delete_me():
+    assert False, "deliberate red-path verification of the CI gate"
