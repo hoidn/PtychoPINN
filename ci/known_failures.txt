@@ -1,2 +1,59 @@
 # pytest node IDs excluded from the CI gate (one per line).
 # Ratchet: entries may be removed, never added without a reviewed justification comment.
+#
+# Baseline frozen from run 28567152991 (ubuntu-latest, CPU, commit cc18506e).
+# needs CUDA
+tests/torch/test_cli_inference_torch.py::TestInferenceCLI::test_accelerator_flag_roundtrip
+# pre-existing failure on main (behavioral; fails identically in local GPU env)
+tests/torch/test_cli_train_torch.py::TestExecutionConfigCLI::test_bundle_persistence
+tests/torch/test_cli_train_torch.py::TestPatchStatsCLI::test_patch_stats_dump
+tests/torch/test_grad_norm_logging_flag.py::test_training_config_has_grad_norm_flags
+tests/torch/test_padded_size_no_jitter.py::test_get_padded_size_ignores_max_position_jitter
+tests/torch/test_parity_reassembly.py::test_reassembly_parity_simple_case
+tests/torch/test_reassemble_patches_position_real_c1.py::test_reassemble_patches_position_real_c1_uses_centermask_norm
+tests/torch/test_reassembly_crop_parity.py::test_reassembly_crop_matches_tf
+tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_early_stopping_callback_configured
+tests/torch/test_workflows_components.py::TestLightningCheckpointCallbacks::test_model_checkpoint_callback_configured
+tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_monitor_uses_val_loss_name
+tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_trainer_receives_logger
+# pre-existing on main: InferenceConfig lacks log_patch_stats/patch_stats_limit fields
+tests/torch/test_patch_stats_cli.py::TestPatchStatsCLI::test_factory_creates_inference_config_with_patch_stats
+tests/torch/test_patch_stats_cli.py::TestPatchStatsCLI::test_factory_inference_config_defaults
+tests/torch/test_workflows_components.py::TestLightningExecutionConfig::test_trainer_receives_accumulation
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_controls_determinism
+tests/torch/test_workflows_components.py::TestTrainWithLightningGreen::test_execution_config_overrides_trainer
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_instantiates_module
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_returns_models_dict
+tests/torch/test_workflows_components.py::TestTrainWithLightningRed::test_train_with_lightning_runs_trainer_fit
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_training_respects_gridsize
+# pre-existing on main: config dataclass lacks field the test passes
+tests/torch/test_loss_modes.py::test_mae_loss_mode_logs_mae_metrics_only
+tests/torch/test_loss_modes.py::test_poisson_loss_mode_logs_poisson_metrics
+tests/torch/test_model_training.py::test_configure_optimizers_supports_plateau
+tests/torch/test_physics_scale_loss.py::test_poisson_loss_uses_physics_scale
+# pre-existing on main: generator-adapter API absent from model.py
+tests/torch/test_generator_adapter.py::test_ptychopinn_predict_complex_real_imag
+tests/torch/test_generator_adapter.py::test_ptychopinn_with_custom_generator
+tests/torch/test_generator_adapter.py::test_real_imag_to_complex_channel_first
+tests/torch/test_generator_adapter.py::test_real_imag_to_complex_channel_first_invalid_shape
+tests/torch/test_generator_adapter.py::test_real_imag_to_complex_channel_first_with_imag
+# pre-existing on main: helper.derive_intensity_scale_from_amplitudes absent
+tests/torch/test_parity_intensity_scale.py::test_intensity_scale_parity
+tests/torch/test_physics_scale.py::test_derive_intensity_scale_from_amplitudes
+tests/torch/test_physics_scale_container.py::test_container_gets_physics_scale_value
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-False]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-False-True]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[False-True-False]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[True-False-False]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_flip_transpose_contract[True-True-True]
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_reassemble_cdi_image_torch_return_contract
+tests/torch/test_workflows_components.py::TestReassembleCdiImageTorchGreen::test_run_cdi_example_torch_do_stitching_delegates_to_reassemble
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_coords_relative_layout
+tests/torch/test_workflows_components.py::TestWorkflowsComponentsTraining::test_lightning_poisson_count_contract
+# pre-existing on main: helper.normalize_probe_like_tf absent
+tests/torch/test_parity_probe_normalization.py::test_probe_normalization_parity
+# pre-existing on main: model._build_optimizer absent
+tests/torch/test_model_training.py::TestOptimizerSelection::test_configures_adam
+tests/torch/test_model_training.py::TestOptimizerSelection::test_configures_adamw
+tests/torch/test_model_training.py::TestOptimizerSelection::test_configures_sgd
+tests/torch/test_model_training.py::TestOptimizerSelection::test_invalid_optimizer_raises
