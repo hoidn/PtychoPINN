@@ -1725,6 +1725,9 @@ class PtychoPINN_Lightning(L.LightningModule):
         generator_module: Optional[nn.Module] = None,
         generator_output: str = "amp_phase",
         generator_overrides: Optional[Dict[str, Any]] = None,
+        parity_scale_mode: str = "off",
+        parity_fixed_delta: float = 0.0,
+        parity_init_scheme: str = "default",
     ):
         super().__init__()
 
@@ -1758,7 +1761,27 @@ class PtychoPINN_Lightning(L.LightningModule):
             'inference_config': asdict(inference_config),
             'generator_output': generator_output,
             'generator_overrides': dict(generator_overrides or {}),
+            'parity_scale_mode': parity_scale_mode,
+            'parity_fixed_delta': float(parity_fixed_delta),
+            'parity_init_scheme': parity_init_scheme,
         })
+
+        # TF-parity global intensity-scale offset (default "off"; see
+        # docs/plans/2026-07-08-cnn-n128-tf-parity.md Task 1 and
+        # ptycho/model.py:291-298 for the TF tie direction this mirrors).
+        # Validated eagerly so a garbage mode fails fast at construction
+        # rather than at first forward().
+        if parity_scale_mode not in ("off", "tied", "input", "output", "fixed"):
+            raise ValueError(
+                f"Invalid parity_scale_mode={parity_scale_mode!r}. "
+                "Expected one of 'off', 'tied', 'input', 'output', 'fixed'."
+            )
+        if parity_init_scheme not in ("default", "tf_glorot"):
+            raise ValueError(
+                f"Invalid parity_init_scheme={parity_init_scheme!r}. "
+                "Expected 'default' or 'tf_glorot'."
+            )
+        self.parity_scale_mode = parity_scale_mode
 
         self.n_filters_scale = model_config.n_filters_scale
         self.predict = False
@@ -1809,6 +1832,25 @@ class PtychoPINN_Lightning(L.LightningModule):
                 generator=generator_module,
                 generator_output=generator_output,
             )
+
+        # Trainable/fixed log-scale delta -- ONLY materialized when the parity
+        # mechanism is active, so "off" construction and old checkpoints keep
+        # a state_dict with no extra key (strict load_state_dict stays clean).
+        if self.parity_scale_mode != "off":
+            trainable_delta = self.parity_scale_mode in ("tied", "input", "output")
+            self.log_scale_delta = nn.Parameter(
+                torch.tensor(float(parity_fixed_delta)), requires_grad=trainable_delta,
+            )
+
+        # TF-parity weight-init preset: redraw self.model's Conv2d/ConvTranspose2d
+        # weights with Keras's glorot_uniform equivalent and zero their biases,
+        # matching the TF reference's initializer (evidence base, Task 0).
+        if parity_init_scheme == "tf_glorot":
+            for module in self.model.modules():
+                if isinstance(module, (nn.Conv2d, nn.ConvTranspose2d)):
+                    nn.init.xavier_uniform_(module.weight)
+                    if module.bias is not None:
+                        nn.init.zeros_(module.bias)
 
         # Enforce single-stage training (legacy stage_* knobs are ignored)
         self.total_epochs = training_config.epochs
@@ -1880,15 +1922,38 @@ class PtychoPINN_Lightning(L.LightningModule):
         self.loss_name += '_loss'
         self.val_loss_name += '_loss'
     
+    def _parity_scale_factors(self):
+        """TF tie direction (ptycho/model.py:291-298, read-only): input is
+        DIVIDED by exp(w), output is MULTIPLIED by exp(w). Returns (f_in, f_out);
+        ``None`` means "leave this side's scale factor unchanged". Only called
+        when parity_scale_mode != 'off' (log_scale_delta exists in that case).
+        """
+        d = self.log_scale_delta
+        if self.parity_scale_mode == "input":
+            return torch.exp(-d), None
+        if self.parity_scale_mode == "output":
+            return None, torch.exp(d)
+        return torch.exp(-d), torch.exp(d)  # tied and fixed
+
     def forward(self, x, positions, probe, input_scale_factor, output_scale_factor, experiment_ids):
+        if self.parity_scale_mode != "off":
+            f_in, f_out = self._parity_scale_factors()
+            if f_in is not None:
+                input_scale_factor = input_scale_factor * f_in
+            if f_out is not None:
+                output_scale_factor = output_scale_factor * f_out
         x_out = self.model(x, positions, probe, input_scale_factor, output_scale_factor, experiment_ids)
         return x_out
-    
+
     def forward_predict(self, x, positions, probe, input_scale_factor):
         #Turns padding off if we need to
+        if self.parity_scale_mode != "off":
+            f_in, _f_out = self._parity_scale_factors()
+            if f_in is not None:
+                input_scale_factor = input_scale_factor * f_in
         x_combined = self.model.forward_predict(x, positions, probe, input_scale_factor)
         return x_combined
-    
+
     def _reshape_scale_tensor(self, scale_value, reference_tensor):
         """
         Convert scalar or 1D scaling factors into broadcastable tensors on the correct device/dtype.
@@ -2172,3 +2237,10 @@ class PtychoPINN_Lightning(L.LightningModule):
         # Log current learning rate for monitoring
         current_lr = self.optimizers().param_groups[0]['lr']
         self.log('learning_rate', current_lr, on_epoch=True)
+
+    def on_train_epoch_end(self):
+        """Log the TF-parity log-scale delta once per epoch (no-op when the
+        mechanism is off) so its trajectory is recoverable from Lightning CSV
+        logs -- see docs/plans/2026-07-08-cnn-n128-tf-parity.md Task 1."""
+        if self.parity_scale_mode != "off":
+            self.log("parity_log_scale_delta", self.log_scale_delta.detach(), on_epoch=True, logger=True)

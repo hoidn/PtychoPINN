@@ -942,3 +942,116 @@ def test_write_invocation_record_env_seed_used_when_no_explicit_seed(tmp_path, m
 
     record = json.loads((tmp_path / "invocation.json").read_text())
     assert record["runs"]["gs1_frozen"]["seed"] == 7
+
+
+# ---------------------------------------------------------------------------
+# (l) Task 1 -- --parity-scale-mode/--parity-fixed-delta/--parity-init-scheme
+# CLI flags, mirroring the --physics-forward-mode override pattern. Unlike
+# --physics-forward-mode these do NOT touch resolve_arm_with_overrides/
+# build_configs -- they are threaded straight to PtychoPINN_Lightning's
+# constructor kwargs (see run_training/run_arm), so there is no arm_cfg/
+# ModelConfig assertion here, only argument parsing + invocation.json record.
+# ---------------------------------------------------------------------------
+
+def test_cli_parity_scale_mode_defaults_to_off():
+    parser = runner.build_arg_parser()
+    args = parser.parse_args([
+        "--arm", "gs1_trainable",
+        "--train-npz", "dummy_train.npz",
+        "--test-npz", "dummy_test.npz",
+        "--output-root", "dummy_out",
+    ])
+
+    assert args.parity_scale_mode == "off"
+    assert args.parity_fixed_delta == 0.0
+    assert args.parity_init_scheme == "default"
+
+
+@pytest.mark.parametrize("mode", ["off", "tied", "input", "output", "fixed"])
+def test_cli_parity_scale_mode_accepts_valid_choices(mode):
+    parser = runner.build_arg_parser()
+    args = parser.parse_args([
+        "--arm", "gs1_trainable",
+        "--train-npz", "dummy_train.npz",
+        "--test-npz", "dummy_test.npz",
+        "--output-root", "dummy_out",
+        "--parity-scale-mode", mode,
+    ])
+
+    assert args.parity_scale_mode == mode
+
+
+def test_cli_parity_scale_mode_rejects_invalid_choice():
+    parser = runner.build_arg_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args([
+            "--arm", "gs1_trainable",
+            "--train-npz", "dummy_train.npz",
+            "--test-npz", "dummy_test.npz",
+            "--output-root", "dummy_out",
+            "--parity-scale-mode", "garbage",
+        ])
+
+
+@pytest.mark.parametrize("scheme", ["default", "tf_glorot"])
+def test_cli_parity_init_scheme_accepts_valid_choices(scheme):
+    parser = runner.build_arg_parser()
+    args = parser.parse_args([
+        "--arm", "gs1_trainable",
+        "--train-npz", "dummy_train.npz",
+        "--test-npz", "dummy_test.npz",
+        "--output-root", "dummy_out",
+        "--parity-init-scheme", scheme,
+    ])
+
+    assert args.parity_init_scheme == scheme
+
+
+def test_cli_parity_init_scheme_rejects_invalid_choice():
+    parser = runner.build_arg_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args([
+            "--arm", "gs1_trainable",
+            "--train-npz", "dummy_train.npz",
+            "--test-npz", "dummy_test.npz",
+            "--output-root", "dummy_out",
+            "--parity-init-scheme", "garbage",
+        ])
+
+
+def test_cli_parity_fixed_delta_parses_float():
+    parser = runner.build_arg_parser()
+    args = parser.parse_args([
+        "--arm", "gs1_trainable",
+        "--train-npz", "dummy_train.npz",
+        "--test-npz", "dummy_test.npz",
+        "--output-root", "dummy_out",
+        "--parity-fixed-delta", "0.735",
+    ])
+
+    assert args.parity_fixed_delta == pytest.approx(0.735)
+
+
+def test_write_invocation_record_records_parity_defaults(tmp_path):
+    runner._write_invocation_record(
+        tmp_path, "gs1_frozen", Path("train.npz"), Path("test.npz"), smoke=False,
+    )
+
+    record = json.loads((tmp_path / "invocation.json").read_text())["runs"]["gs1_frozen"]
+    assert record["parity_scale_mode"] == "off"
+    assert record["parity_fixed_delta"] == 0.0
+    assert record["parity_init_scheme"] == "default"
+
+
+def test_write_invocation_record_records_explicit_parity_values(tmp_path):
+    runner._write_invocation_record(
+        tmp_path, "gs1_frozen", Path("train.npz"), Path("test.npz"), smoke=False,
+        parity_scale_mode="tied", parity_fixed_delta=0.42, parity_init_scheme="tf_glorot",
+    )
+
+    record = json.loads((tmp_path / "invocation.json").read_text())["runs"]["gs1_frozen"]
+    assert record["parity_scale_mode"] == "tied"
+    assert record["parity_fixed_delta"] == 0.42
+    assert record["parity_init_scheme"] == "tf_glorot"
