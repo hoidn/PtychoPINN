@@ -244,3 +244,20 @@ Any failure before Step 3.6: delete `main-next`/`fno-stable-next`, nothing publi
 - **Scoped policy exception (recorded):** `tests/fixtures/config_bridge/baseline_params.json` added under `tests/fixtures/**` — replaces an untracked machine-local baseline; provenance byte-verified to the original blob at `512205bd`.
 - **Known Minors deferred (roll-up):** `a7b80e65` (concurrent session) reintroduces a hardcoded `/home/ollie/...` REPO path in `make_dose_ladder_datasets.py` (same class round 3 fixed in flux_sweep_eval; harmless to the CI gate today, ships to main via the squash — follow-up product fix recommended); closure gate lacks a dedicated extra-file fixture test; apply_graft handles only 100644/100755 modes.
 - **REMAINING (user-gated):** Task 0 freeze (pause concurrent sessions; fetch; re-derive `$FREEZE_SHA`; archive refs) → rebuild both tips at `$FREEZE_SHA` (minutes, deterministic, all gates) → re-run tree-object CI → Step 3.6 force-push main (USER) → Step 4.5 force-push fno-stable (USER) → Task 5 docs/policy.
+
+### 2026-07-08 — CUTOVER EXECUTED (final SHAs)
+
+- **FREEZE_SHA = `979bd517`** (local == internal at freeze; archive refs pushed to internal first: branch `fno-stable-archive-20260707`, tag `main-pre-rebase-20260707`).
+- **Overlay tree `6b40a017`** (deterministic ×2 at FREEZE_SHA `--graft-from 32082e91`; five gates green; parallel session's final commits family-clean). **Tree-object CI: 540 passed / 0 failed / 0 errors** (`.artifacts/rebase-fno-stable-2026-07/ci-main-next-FREEZE-f66e8d43.log`).
+- **New main tip = `f66e8d43`** ("resync: overlay from fno-stable 979bd517; exclude resnet family (complete sweep)", parent `32082e91`). Diffstat vs old main: 1270 files, +197723/−79703.
+- **New fno-stable tip = `06cd27e6`** ("restore resnet-family surface (fno-stable-only)", parent `f66e8d43`; tree byte-identical to FREEZE_SHA — Step 4.2 invariant diff = 0 lines).
+- **Pushes:** internal main FORCED `36a66d9e → f66e8d43` ✅; internal fno-stable FORCED `979bd517 → 06cd27e6` ✅; **origin main = ordinary fast-forward** (`32082e91 → f66e8d43`; the family tip `36a66d9e` was never on the public remote) — **REJECTED by the repository ruleset** (direct-push restriction), pending user admin action, then re-push the identical command. `origin/fno-stable` left untouched (user decision; stale at 2026-05-05).
+- **Local branches re-pointed:** `main → f66e8d43`, `fno-stable → 06cd27e6` (tree-identical switch; working tree untouched).
+
+### Go-forward branch policy (Step 5.2)
+
+1. **No more squash resyncs.** `fno-stable = main + restore commit(s)`; non-family commits authored on fno-stable are cherry-picked to main and MUST pass the transform's gates (grep + dangling-import at minimum: `python scripts/main_overlay/build_main_overlay.py <sha>` on the candidate, or targeted `git grep -iE "hybrid_resnet|srunet|spectral_resnet|resnet_components|hybres"` on the touched paths).
+2. **Family commits stay fno-stable-only.** The resnet family's implementation surface never lands on main; new family-referencing files must be added to the exclusion inventory (`scripts/main_overlay/main_overlay_exclude.txt` / patches) in the same change.
+3. **Citation stability:** every pre-rebase SHA remains resolvable via `fno-stable-archive-20260707` (internal). Findings/ledger references need no rewrites.
+4. **The transform tooling lives on BOTH branches** (`scripts/main_overlay/`, carried into main by the squash) with 5 always-on gates + 20 fixture tests; future resyncs (if ever needed) re-run it at the new source SHA — the era-drift patch-anchor gate makes stale patches loud.
+5. **Commit-message hygiene** (no "claude", no Co-Authored-By) applies to all commits on both branches; two legacy messages containing the token exist ONLY on the internal archive lineage (`7b863d2c`, and pre-amend `f130d7d7` which was amended to `2dab213d` before cutover — the archive preserves the amended lineage's superseded sibling only if fetched historically; neither reaches main or the new fno-stable lineage).
