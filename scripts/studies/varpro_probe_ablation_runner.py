@@ -173,12 +173,16 @@ def resolve_arm_with_overrides(
     cnn_output_mode: Optional[str] = None,
     N: Optional[int] = None,
     physics_forward_mode: Optional[str] = None,
+    cbam_encoder: Optional[str] = None,
+    scheduler: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Resolve an arm's config dict, applying optional CLI overrides.
 
     Returns a copy of ``ARM_TABLE[arm]`` with ``architecture``/``cnn_output_mode``/
-    ``N``/``physics_forward_mode`` replaced when the corresponding argument is
-    not ``None``; the base entry in ``ARM_TABLE`` is left untouched.
+    ``N``/``physics_forward_mode``/``cbam_encoder``/``scheduler`` replaced when
+    the corresponding argument is not ``None``; the base entry in
+    ``ARM_TABLE`` is left untouched. ``cbam_encoder`` takes the raw CLI string
+    (``"on"``/``"off"``) and is converted to the ``ModelConfig`` bool here.
     """
     arm_cfg = dict(resolve_arm(arm))
     if architecture is not None:
@@ -189,6 +193,10 @@ def resolve_arm_with_overrides(
         arm_cfg["N"] = N
     if physics_forward_mode is not None:
         arm_cfg["physics_forward_mode"] = physics_forward_mode
+    if cbam_encoder is not None:
+        arm_cfg["cbam_encoder"] = cbam_encoder == "on"
+    if scheduler is not None:
+        arm_cfg["scheduler"] = scheduler
     return arm_cfg
 
 
@@ -470,13 +478,14 @@ def build_configs(arm_cfg: Dict[str, Any], batch_size: int = 16, epochs: int = 5
     # object_big derived from gridsize (matches both canonical config paths:
     # train.py:823 'object_big': args.gridsize > 1; utils.py:187-189 C_value > 1)
     # -- gs1 arms must NOT inherit ModelConfig's dataclass default (True).
-    # architecture/cnn_output_mode/physics_forward_mode are only passed when the
-    # arm specifies them, so Phase-1 arms (which omit all three) get a
-    # byte-identical ModelConfig to before -- these knobs are training-time and
-    # must reach ModelConfig directly (unlike patch_weighting/varpro_scaling,
-    # which are inference-time and already routed via VARIANT_TABLE).
+    # architecture/cnn_output_mode/physics_forward_mode/cbam_encoder are only
+    # passed when the arm specifies them, so Phase-1 arms (which omit all
+    # four) get a byte-identical ModelConfig to before -- these knobs are
+    # training-time and must reach ModelConfig directly (unlike
+    # patch_weighting/varpro_scaling, which are inference-time and already
+    # routed via VARIANT_TABLE).
     extra = {}
-    for key in ("architecture", "cnn_output_mode", "physics_forward_mode"):
+    for key in ("architecture", "cnn_output_mode", "physics_forward_mode", "cbam_encoder"):
         if key in arm_cfg:
             extra[key] = arm_cfg[key]
     model_config = ModelConfig(
@@ -502,8 +511,15 @@ def build_configs(arm_cfg: Dict[str, Any], batch_size: int = 16, epochs: int = 5
     # architecture branches this arm's config does not exercise. 'auto'
     # restores the harness's original single-process behavior; multi-GPU runs
     # still escalate to DDPStrategy via resolve_n_devices/get_training_strategy.
+    # scheduler is only passed when the arm specifies it (Task 3 TF-parity
+    # LR-schedule knob), so arms that omit it get a byte-identical
+    # TrainingConfig to before ('Default', TrainingConfig's own field default).
+    training_extra = {}
+    if "scheduler" in arm_cfg:
+        training_extra["scheduler"] = arm_cfg["scheduler"]
     training_config = TrainingConfig(
         batch_size=batch_size, epochs=epochs, torch_loss_mode='poisson', strategy='auto',
+        **training_extra,
     )
     inference_config = InferenceConfig()
     datagen_config = DatagenConfig()
@@ -803,6 +819,7 @@ def _write_invocation_record(
     seed: Optional[int] = None,
     parity_scale_mode: str = "off", parity_fixed_delta: float = 0.0,
     parity_init_scheme: str = "default",
+    cbam_encoder: Optional[str] = None, scheduler: Optional[str] = None,
 ) -> None:
     from ptycho_torch.train_lightning_only import _resolve_seed
 
@@ -819,6 +836,8 @@ def _write_invocation_record(
         "parity_scale_mode": parity_scale_mode,
         "parity_fixed_delta": parity_fixed_delta,
         "parity_init_scheme": parity_init_scheme,
+        "cbam_encoder": cbam_encoder,
+        "scheduler": scheduler,
     }
     existing = json.loads(path.read_text()) if path.exists() else {"runs": {}}
     existing.setdefault("runs", {})[arm] = record
@@ -850,6 +869,18 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--physics-forward-mode", default=None, choices=["amplitude", "rectangular_scaled"],
         help="Override the resolved arm's physics_forward_mode",
+    )
+    # Task 3 (docs/plans/2026-07-08-cnn-n128-tf-parity.md) model-body parity
+    # knobs: same override pattern as --physics-forward-mode above (default
+    # None = no override, threaded through resolve_arm_with_overrides into
+    # build_configs' ModelConfig/TrainingConfig construction).
+    parser.add_argument(
+        "--cbam-encoder", default=None, choices=["on", "off"],
+        help="Override the resolved arm's ModelConfig.cbam_encoder",
+    )
+    parser.add_argument(
+        "--scheduler", default=None, choices=["Default", "ReduceLROnPlateau"],
+        help="Override the resolved arm's TrainingConfig.scheduler",
     )
     parser.add_argument(
         "--seed", type=int, default=None,
@@ -887,6 +918,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     arm_cfg = resolve_arm_with_overrides(
         args.arm, architecture=args.architecture, cnn_output_mode=args.cnn_output_mode,
         N=args.N, physics_forward_mode=args.physics_forward_mode,
+        cbam_encoder=args.cbam_encoder, scheduler=args.scheduler,
     )
     validate_n_matches_train_npz(arm_cfg["N"], args.train_npz)
     summary = run_arm(
@@ -901,6 +933,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         args.output_root, args.arm, args.train_npz, args.test_npz, args.smoke, seed=args.seed,
         parity_scale_mode=args.parity_scale_mode, parity_fixed_delta=args.parity_fixed_delta,
         parity_init_scheme=args.parity_init_scheme,
+        cbam_encoder=args.cbam_encoder, scheduler=args.scheduler,
     )
     _merge_json_dict(args.output_root / "summary.json", args.arm, summary)
     return 0
