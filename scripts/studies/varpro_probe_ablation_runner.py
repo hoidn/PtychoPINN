@@ -525,12 +525,16 @@ def stage_train_dir(train_npz: Path, scratch_dir: Path) -> Path:
 def run_training(
     arm_cfg: Dict[str, Any], train_npz: Path, output_dir: Path,
     epochs: int, batch_size: int, run_name: str = "train",
+    parity_scale_mode: str = "off", parity_fixed_delta: float = 0.0,
+    parity_init_scheme: str = "default",
 ) -> Tuple[Path, tuple]:
     """Invoke ``train_lightning_only.py::main()`` directly (in-process, not a
     CLI subprocess) with configs built from ``arm_cfg``. Per the Task 1.4b
     decision record, this is the entry point main's real training runs used
     (train.py's cli_main path has an unresolved scaling-semantics gap).
-    train_lightning_only.py itself is not modified.
+    train_lightning_only.py itself is not modified except for the
+    ``parity_*`` passthrough kwargs (Task 1, TF-parity intensity-scale
+    mechanism), whose defaults preserve current behavior exactly.
     """
     from ptycho_torch.train_lightning_only import main as train_main
 
@@ -541,6 +545,9 @@ def run_training(
         existing_config=configs,
         output_dir=str(output_dir / "training_outputs"),
         run_name=run_name,
+        parity_scale_mode=parity_scale_mode,
+        parity_fixed_delta=parity_fixed_delta,
+        parity_init_scheme=parity_init_scheme,
     )
     if run_dir is None:
         raise RuntimeError(
@@ -671,6 +678,8 @@ def run_arm(
     arm: str, train_npz: Path, test_npz: Path, output_root: Path,
     smoke: bool = False, epochs: Optional[int] = None, batch_size: int = 16,
     device: str = "cpu", arm_cfg: Optional[Dict[str, Any]] = None,
+    parity_scale_mode: str = "off", parity_fixed_delta: float = 0.0,
+    parity_init_scheme: str = "default",
 ) -> Dict[str, Any]:
     from ptycho_torch.lightning_utils import find_best_checkpoint, load_checkpoint_with_configs
     from ptycho_torch.model import PtychoPINN_Lightning
@@ -683,6 +692,8 @@ def run_arm(
     resolved_epochs = 1 if smoke else (epochs or 50)
     run_dir, _configs = run_training(
         arm_cfg, train_npz, arm_dir, epochs=resolved_epochs, batch_size=batch_size,
+        parity_scale_mode=parity_scale_mode, parity_fixed_delta=parity_fixed_delta,
+        parity_init_scheme=parity_init_scheme,
     )
 
     ckpt_path = find_best_checkpoint(run_dir)
@@ -691,6 +702,9 @@ def run_arm(
     # Load configs from the checkpoint itself (single source of truth for
     # what the model was actually trained with) rather than reusing the
     # in-memory configs object, which train_lightning_only.main() mutates.
+    # PtychoPINN_Lightning unconditionally (parity_* kwargs, when non-default,
+    # restore from the checkpoint's hparams -- Task 1's save_hyperparameters
+    # extension -- so no class-selection branch is needed here).
     model, loaded_configs = load_checkpoint_with_configs(str(ckpt_path), PtychoPINN_Lightning, device="cpu")
     model.eval()
     data_config, model_config, training_config, _inference_config, _datagen_config = loaded_configs
@@ -787,6 +801,8 @@ def _merge_json_dict(path: Path, key: str, value: Any) -> None:
 def _write_invocation_record(
     output_root: Path, arm: str, train_npz: Path, test_npz: Path, smoke: bool,
     seed: Optional[int] = None,
+    parity_scale_mode: str = "off", parity_fixed_delta: float = 0.0,
+    parity_init_scheme: str = "default",
 ) -> None:
     from ptycho_torch.train_lightning_only import _resolve_seed
 
@@ -800,6 +816,9 @@ def _write_invocation_record(
         "test_npz": str(test_npz),
         "datasets_provenance": str(Path(train_npz).resolve().parent / "provenance.json"),
         "smoke": smoke,
+        "parity_scale_mode": parity_scale_mode,
+        "parity_fixed_delta": parity_fixed_delta,
+        "parity_init_scheme": parity_init_scheme,
     }
     existing = json.loads(path.read_text()) if path.exists() else {"runs": {}}
     existing.setdefault("runs", {})[arm] = record
@@ -837,6 +856,22 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="Training seed. Sets PTYCHO_TORCH_SEED before training; "
              "defaults to 42 when omitted (see train_lightning_only._resolve_seed)",
     )
+    # TF-parity global intensity-scale mechanism (Task 1, docs/plans/
+    # 2026-07-08-cnn-n128-tf-parity.md). Threaded straight to
+    # PtychoPINN_Lightning's constructor kwargs -- defaults preserve current
+    # behavior exactly (no ModelConfig/build_configs involvement).
+    parser.add_argument(
+        "--parity-scale-mode", default="off", choices=["off", "tied", "input", "output", "fixed"],
+        help="TF-parity global intensity-scale mode passed to PtychoPINN_Lightning",
+    )
+    parser.add_argument(
+        "--parity-fixed-delta", type=float, default=0.0,
+        help="Initial/frozen log-scale delta value for the parity mechanism",
+    )
+    parser.add_argument(
+        "--parity-init-scheme", default="default", choices=["default", "tf_glorot"],
+        help="Weight-init preset passed to PtychoPINN_Lightning's parity mechanism",
+    )
     return parser
 
 
@@ -858,10 +893,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         args.arm, args.train_npz, args.test_npz, args.output_root,
         smoke=args.smoke, epochs=args.epochs, batch_size=args.batch_size, device=args.device,
         arm_cfg=arm_cfg,
+        parity_scale_mode=args.parity_scale_mode, parity_fixed_delta=args.parity_fixed_delta,
+        parity_init_scheme=args.parity_init_scheme,
     )
 
     _write_invocation_record(
         args.output_root, args.arm, args.train_npz, args.test_npz, args.smoke, seed=args.seed,
+        parity_scale_mode=args.parity_scale_mode, parity_fixed_delta=args.parity_fixed_delta,
+        parity_init_scheme=args.parity_init_scheme,
     )
     _merge_json_dict(args.output_root / "summary.json", args.arm, summary)
     return 0

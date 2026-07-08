@@ -145,7 +145,10 @@ def main(ptycho_dir,
          existing_config = None,
          output_dir = None,
          execution_config = None,
-         run_name = None):
+         run_name = None,
+         parity_scale_mode = "off",
+         parity_fixed_delta = 0.0,
+         parity_init_scheme = "default"):
     '''
     Main training script. Uses PyTorch Lightning loggers instead of MLflow.
 
@@ -159,6 +162,12 @@ def main(ptycho_dir,
     execution_config: Optional PyTorchExecutionConfig for runtime knobs (Phase C4.C3 - ADR-003).
                      If None, uses default execution config with CPU accelerator.
     run_name: Optional custom name for this run. If None, uses timestamp.
+    parity_scale_mode: TF-parity global intensity-scale mode passed through to
+                     PtychoPINN_Lightning (see docs/plans/2026-07-08-cnn-n128-tf-parity.md
+                     Task 1). Default "off" preserves current behavior exactly.
+    parity_fixed_delta: Initial/frozen log-scale delta value for the parity mechanism.
+    parity_init_scheme: Weight-init preset passed through to PtychoPINN_Lightning's
+                     parity mechanism ("default" or "tf_glorot").
 
     Outputs
     --------
@@ -248,7 +257,12 @@ def main(ptycho_dir,
 
         #Create model
         print('Creating model...')
-        model = PtychoPINN_Lightning(model_config, data_config, training_config, inference_config)
+        model = PtychoPINN_Lightning(
+            model_config, data_config, training_config, inference_config,
+            parity_scale_mode=parity_scale_mode,
+            parity_fixed_delta=parity_fixed_delta,
+            parity_init_scheme=parity_init_scheme,
+        )
         model.training = True
 
         #Update LR (Phase C4.C3: Use execution_config if available, else training_config)
