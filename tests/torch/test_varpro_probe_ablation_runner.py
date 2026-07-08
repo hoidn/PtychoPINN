@@ -1055,3 +1055,173 @@ def test_write_invocation_record_records_explicit_parity_values(tmp_path):
     assert record["parity_scale_mode"] == "tied"
     assert record["parity_fixed_delta"] == 0.42
     assert record["parity_init_scheme"] == "tf_glorot"
+
+
+# ---------------------------------------------------------------------------
+# (m) Task 3 -- --cbam-encoder/--scheduler CLI overrides, mirroring the
+# --physics-forward-mode override pattern exactly: threaded through
+# resolve_arm_with_overrides into build_configs' ModelConfig (cbam_encoder)/
+# TrainingConfig (scheduler) construction, plus invocation.json recording.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("cli_value,expected_bool", [("on", True), ("off", False)])
+def test_cli_cbam_encoder_override_reaches_model_config(cli_value, expected_bool):
+    parser = runner.build_arg_parser()
+    args = parser.parse_args([
+        "--arm", "gs1_trainable",
+        "--train-npz", "dummy_train.npz",
+        "--test-npz", "dummy_test.npz",
+        "--output-root", "dummy_out",
+        "--cbam-encoder", cli_value,
+    ])
+
+    arm_cfg = runner.resolve_arm_with_overrides(
+        args.arm, architecture=args.architecture, cnn_output_mode=args.cnn_output_mode,
+        N=args.N, physics_forward_mode=args.physics_forward_mode,
+        cbam_encoder=args.cbam_encoder, scheduler=args.scheduler,
+    )
+    _, model_config, _, _, _ = runner.build_configs(arm_cfg, batch_size=2, epochs=1)
+
+    assert arm_cfg["cbam_encoder"] is expected_bool
+    assert model_config.cbam_encoder is expected_bool
+
+
+def test_cli_scheduler_override_reaches_training_config():
+    parser = runner.build_arg_parser()
+    args = parser.parse_args([
+        "--arm", "gs1_trainable",
+        "--train-npz", "dummy_train.npz",
+        "--test-npz", "dummy_test.npz",
+        "--output-root", "dummy_out",
+        "--scheduler", "ReduceLROnPlateau",
+    ])
+
+    arm_cfg = runner.resolve_arm_with_overrides(
+        args.arm, architecture=args.architecture, cnn_output_mode=args.cnn_output_mode,
+        N=args.N, physics_forward_mode=args.physics_forward_mode,
+        cbam_encoder=args.cbam_encoder, scheduler=args.scheduler,
+    )
+    _, _, training_config, _, _ = runner.build_configs(arm_cfg, batch_size=2, epochs=1)
+
+    assert arm_cfg["scheduler"] == "ReduceLROnPlateau"
+    assert training_config.scheduler == "ReduceLROnPlateau"
+
+
+def test_cli_cbam_encoder_and_scheduler_default_to_none_and_leave_arm_cfg_unchanged():
+    parser = runner.build_arg_parser()
+    args = parser.parse_args([
+        "--arm", "gs1_trainable",
+        "--train-npz", "dummy_train.npz",
+        "--test-npz", "dummy_test.npz",
+        "--output-root", "dummy_out",
+    ])
+
+    arm_cfg = runner.resolve_arm_with_overrides(
+        args.arm, architecture=args.architecture, cnn_output_mode=args.cnn_output_mode,
+        N=args.N, physics_forward_mode=args.physics_forward_mode,
+        cbam_encoder=args.cbam_encoder, scheduler=args.scheduler,
+    )
+
+    assert args.cbam_encoder is None
+    assert args.scheduler is None
+    assert arm_cfg == runner.resolve_arm("gs1_trainable")
+
+
+def test_cbam_scheduler_absent_defaults_leave_gs1_trainable_configs_byte_identical():
+    """Regression pin (Task 3): build_configs' new cbam_encoder/scheduler
+    passthrough must not alter gs1_trainable's ModelConfig/TrainingConfig
+    when neither CLI override is set -- byte-identical to before this task."""
+    from ptycho_torch.config_params import ModelConfig, TrainingConfig
+
+    arm_cfg = runner.resolve_arm("gs1_trainable")
+
+    _, model_config, training_config, _, _ = runner.build_configs(arm_cfg, batch_size=8, epochs=25)
+
+    expected_model_config = ModelConfig(
+        training_patch_weighting=arm_cfg["training_patch_weighting"],
+        rect_s1s2_trainable=arm_cfg["rect_s1s2_trainable"],
+        C_model=1, C_forward=1, object_big=False,
+        physics_forward_mode=arm_cfg["physics_forward_mode"],
+        cnn_output_mode=arm_cfg["cnn_output_mode"],
+    )
+    expected_training_config = TrainingConfig(
+        batch_size=8, epochs=25, torch_loss_mode='poisson', strategy='auto',
+    )
+
+    assert model_config == expected_model_config
+    assert training_config == expected_training_config
+
+
+@pytest.mark.parametrize("mode", ["on", "off"])
+def test_cli_cbam_encoder_accepts_valid_choices(mode):
+    parser = runner.build_arg_parser()
+    args = parser.parse_args([
+        "--arm", "gs1_trainable",
+        "--train-npz", "dummy_train.npz",
+        "--test-npz", "dummy_test.npz",
+        "--output-root", "dummy_out",
+        "--cbam-encoder", mode,
+    ])
+
+    assert args.cbam_encoder == mode
+
+
+def test_cli_cbam_encoder_rejects_invalid_choice():
+    parser = runner.build_arg_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args([
+            "--arm", "gs1_trainable",
+            "--train-npz", "dummy_train.npz",
+            "--test-npz", "dummy_test.npz",
+            "--output-root", "dummy_out",
+            "--cbam-encoder", "garbage",
+        ])
+
+
+@pytest.mark.parametrize("scheduler", ["Default", "ReduceLROnPlateau"])
+def test_cli_scheduler_accepts_valid_choices(scheduler):
+    parser = runner.build_arg_parser()
+    args = parser.parse_args([
+        "--arm", "gs1_trainable",
+        "--train-npz", "dummy_train.npz",
+        "--test-npz", "dummy_test.npz",
+        "--output-root", "dummy_out",
+        "--scheduler", scheduler,
+    ])
+
+    assert args.scheduler == scheduler
+
+
+def test_cli_scheduler_rejects_invalid_choice():
+    parser = runner.build_arg_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args([
+            "--arm", "gs1_trainable",
+            "--train-npz", "dummy_train.npz",
+            "--test-npz", "dummy_test.npz",
+            "--output-root", "dummy_out",
+            "--scheduler", "garbage",
+        ])
+
+
+def test_write_invocation_record_records_cbam_encoder_and_scheduler_defaults(tmp_path):
+    runner._write_invocation_record(
+        tmp_path, "gs1_frozen", Path("train.npz"), Path("test.npz"), smoke=False,
+    )
+
+    record = json.loads((tmp_path / "invocation.json").read_text())["runs"]["gs1_frozen"]
+    assert record["cbam_encoder"] is None
+    assert record["scheduler"] is None
+
+
+def test_write_invocation_record_records_explicit_cbam_encoder_and_scheduler(tmp_path):
+    runner._write_invocation_record(
+        tmp_path, "gs1_frozen", Path("train.npz"), Path("test.npz"), smoke=False,
+        cbam_encoder="off", scheduler="ReduceLROnPlateau",
+    )
+
+    record = json.loads((tmp_path / "invocation.json").read_text())["runs"]["gs1_frozen"]
+    assert record["cbam_encoder"] == "off"
+    assert record["scheduler"] == "ReduceLROnPlateau"
