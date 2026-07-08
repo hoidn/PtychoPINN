@@ -1,0 +1,186 @@
+"""Comparison collation for OpenFWI FlatVel-A smoke runs."""
+
+from __future__ import annotations
+
+import csv
+import json
+import math
+from pathlib import Path
+from typing import Any
+
+
+CSV_COLUMNS = [
+    "profile_id",
+    "status",
+    "test_MAE",
+    "test_RMSE",
+    "test_SSIM",
+    "val_MAE",
+    "val_RMSE",
+    "val_SSIM",
+    "runtime_sec",
+    "parameter_count",
+    "blocker_reason",
+]
+
+SUMMARY_SCHEMA_VERSION = "openfwi_flatvel_a_comparison_summary_v2"
+
+
+def _read_json(path: Path) -> dict[str, Any]:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _finite(value: Any) -> float | None:
+    if value is None:
+        return None
+    result = float(value)
+    return result if math.isfinite(result) else None
+
+
+def _profile_record(run_root: Path, profile_id: str, *, run_id: str | None) -> dict[str, Any]:
+    profile_root = run_root / "runs" / profile_id
+    metrics_path = profile_root / "metrics.json"
+    blocker_path = profile_root / "blocker.json"
+    if metrics_path.exists():
+        payload = _read_json(metrics_path)
+        payload_run_id = str(payload.get("run_id")) if payload.get("run_id") is not None else None
+        if run_id is not None and payload_run_id != str(run_id):
+            raise ValueError(f"{profile_id} metrics run_id {payload_run_id!r} does not match {run_id!r}")
+        eval_payload = payload.get("eval", {})
+        val_payload = eval_payload.get("val", {})
+        test_payload = eval_payload.get("test", payload)
+        description = payload.get("model_description", {})
+        return {
+            "profile_id": profile_id,
+            "status": "metrics",
+            "run_id": payload_run_id,
+            "split_manifest": payload.get("split_manifest"),
+            "normalization_stats": payload.get("normalization_stats"),
+            "metric_units": payload.get("metric_units") or test_payload.get("metric_units"),
+            "test_MAE": test_payload.get("MAE", payload.get("MAE")),
+            "test_RMSE": test_payload.get("RMSE", payload.get("RMSE")),
+            "test_SSIM": test_payload.get("SSIM", payload.get("SSIM")),
+            "val_MAE": val_payload.get("MAE"),
+            "val_RMSE": val_payload.get("RMSE"),
+            "val_SSIM": val_payload.get("SSIM"),
+            "runtime_sec": payload.get("runtime_sec"),
+            "parameter_count": description.get("parameter_count"),
+            "blocker_reason": "",
+        }
+    if blocker_path.exists():
+        payload = _read_json(blocker_path)
+        payload_run_id = str(payload.get("run_id")) if payload.get("run_id") is not None else None
+        if run_id is not None and payload_run_id != str(run_id):
+            raise ValueError(f"{profile_id} blocker run_id {payload_run_id!r} does not match {run_id!r}")
+        return {
+            "profile_id": profile_id,
+            "status": "blocker",
+            "run_id": payload_run_id,
+            "blocker_reason": payload.get("reason"),
+            "blocker_message": payload.get("message"),
+        }
+    return {"profile_id": profile_id, "status": "missing", "blocker_reason": "missing_metrics_or_blocker"}
+
+
+def _validate_comparability(records: list[dict[str, Any]]) -> None:
+    metrics = [record for record in records if record["status"] == "metrics"]
+    if not metrics:
+        return
+    reference = metrics[0]
+    for record in metrics[1:]:
+        for key in ["run_id", "split_manifest", "normalization_stats", "metric_units"]:
+            if record.get(key) != reference.get(key):
+                raise ValueError(f"incomparable profile artifacts for {key}: {reference.get(key)!r} != {record.get(key)!r}")
+
+
+def _write_outputs(run_root: Path, summary: dict[str, Any], rows: list[dict[str, Any]]) -> None:
+    (run_root / "comparison_summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    with (run_root / "comparison_summary.csv").open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=CSV_COLUMNS)
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({column: row.get(column, "") for column in CSV_COLUMNS})
+
+
+def collate_comparison(run_root: Path, *, profiles: list[str], run_id: str | None) -> dict[str, Any]:
+    """Collate local smoke metrics/blockers and write CSV/JSON summaries."""
+    run_root = Path(run_root)
+    data_blocker_path = run_root / "data_access_blocker.json"
+    ignored_stale_data_access_blocker = None
+    if data_blocker_path.exists():
+        blocker = _read_json(data_blocker_path)
+        blocker_run_id = str(blocker.get("run_id")) if blocker.get("run_id") is not None else None
+        if run_id is None or blocker_run_id == str(run_id):
+            rows = [
+                {"profile_id": profile, "status": "blocked", "blocker_reason": blocker.get("reason")}
+                for profile in profiles
+            ]
+            summary = {
+                "schema_version": SUMMARY_SCHEMA_VERSION,
+                "run_id": run_id,
+                "evidence_scope": "smoke_feasibility_only",
+                "metric_interpretation": "sanity_only_not_benchmark_performance",
+                "performance_assessment_complete": False,
+                "data_access_complete": False,
+                "shape_validation_complete": False,
+                "hybrid_profile_complete": False,
+                "local_baseline_complete": False,
+                "official_inversionnet_status": "not_attempted",
+                "recommended_decision_input": "block_data_access",
+                "data_access_blocker": blocker,
+                "profiles": {row["profile_id"]: row for row in rows},
+            }
+            _write_outputs(run_root, summary, rows)
+            return summary
+        ignored_stale_data_access_blocker = blocker
+
+    rows = [_profile_record(run_root, profile_id, run_id=run_id) for profile_id in profiles]
+    _validate_comparability(rows)
+    profiles_by_id = {row["profile_id"]: row for row in rows}
+    hybrid = profiles_by_id.get("hybrid_resnet_smoke", {})
+    baseline_rows = [
+        row
+        for row in rows
+        if row["profile_id"] != "hybrid_resnet_smoke" and row["status"] == "metrics"
+    ]
+    hybrid_metric_present = _finite(hybrid.get("test_MAE")) is not None
+    baseline_metric_present = any(_finite(row.get("test_MAE")) is not None for row in baseline_rows)
+    official_path = run_root / "official_inversionnet_compatibility.json"
+    official_blocker_path = run_root / "official_inversionnet_blocker.json"
+    if official_path.exists():
+        official_status = _read_json(official_path).get("status", "complete")
+    elif official_blocker_path.exists():
+        official_status = "blocked"
+    else:
+        official_status = "not_attempted"
+
+    hybrid_complete = hybrid.get("status") == "metrics"
+    baseline_complete = bool(baseline_rows)
+    metrics_complete = hybrid_metric_present and baseline_metric_present
+    if not baseline_complete:
+        decision = "block_baseline_incomplete"
+    elif not hybrid_complete or not metrics_complete:
+        decision = "block_metrics_incomplete"
+    else:
+        decision = "smoke_contract_complete"
+    summary = {
+        "schema_version": SUMMARY_SCHEMA_VERSION,
+        "run_id": run_id,
+        "evidence_scope": "smoke_feasibility_only",
+        "metric_interpretation": "sanity_only_not_benchmark_performance",
+        "performance_assessment_complete": False,
+        "data_access_complete": True,
+        "shape_validation_complete": (run_root / "shard_shapes.json").exists(),
+        "hybrid_profile_complete": hybrid_complete,
+        "local_baseline_complete": baseline_complete,
+        "official_inversionnet_status": official_status,
+        "recommended_decision_input": decision,
+        "profiles": profiles_by_id,
+    }
+    if ignored_stale_data_access_blocker is not None:
+        summary["ignored_stale_data_access_blocker"] = ignored_stale_data_access_blocker
+    _write_outputs(run_root, summary, rows)
+    return summary

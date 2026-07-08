@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""Thin wrapper for repeatable lines_256 hybrid-resnet architecture experiments."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+from typing import Sequence
+
+from ptycho.workflows.grid_lines_workflow import (
+    _resolve_probe_for_visuals as resolve_probe_for_visuals,
+    render_grid_lines_visuals,
+)
+from scripts.studies.invocation_logging import (
+    capture_runtime_provenance,
+    write_invocation_artifacts,
+)
+
+LINES_256_TRAIN_NPZ = Path(
+    "outputs/lines_256_arch_improvement/"
+    "datasets/N256/gs1/train.npz"
+)
+LINES_256_TEST_NPZ = Path(
+    "outputs/lines_256_arch_improvement/"
+    "datasets/N256/gs1/test.npz"
+)
+
+FIXED_SEED = 3
+FIXED_EPOCHS = 20
+FIXED_N = 256
+FIXED_GRIDSIZE = 1
+FIXED_ARCHITECTURE = "hybrid_resnet"
+FIXED_SCHEDULER = "ReduceLROnPlateau"
+FIXED_PLATEAU_MIN_LR = 2e-4
+FIXED_TORCH_MAE_PRED_L2_MATCH_TARGET = True
+
+PRESETS = {
+    "stagea_best_n256": {
+        "fno_modes": 24,
+        "fno_width": 64,
+    },
+    "lines_256_high_modes_only": {
+        "fno_modes": 24,
+    },
+    "lines_256_mode48_width48": {
+        "fno_modes": 48,
+        "fno_width": 48,
+    },
+    "stagec_avgpool_n256": {
+        "hybrid_downsample_op": "avgpool_conv",
+    },
+}
+
+
+def _relative_output_path(output_dir: Path, path: Path | None) -> str | None:
+    if path is None:
+        return None
+    return str(path.relative_to(output_dir).as_posix())
+
+
+def write_visual_publication_status(
+    output_dir: Path,
+    payload: dict[str, str | None],
+) -> None:
+    (output_dir / "visual_publication_status.json").write_text(
+        json.dumps(payload, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def ensure_probe_inclusive_comparison_png(output_dir: Path) -> dict[str, str | None]:
+    """Best-effort publish an explicit probe-inclusive comparison PNG."""
+    visuals_dir = output_dir / "visuals"
+    plain_compare_path = visuals_dir / "compare_amp_phase.png"
+    probe = resolve_probe_for_visuals(output_dir)
+    compare_path = plain_compare_path
+    publication_status = "missing_nonfatal"
+    warning: str | None = "Optional comparison PNGs were unavailable after a successful run."
+    if probe is not None:
+        outputs = render_grid_lines_visuals(
+            output_dir,
+            order=("gt", "pinn_hybrid_resnet"),
+        )
+        rendered_compare_path = Path(outputs.get("compare", ""))
+        if rendered_compare_path.exists():
+            compare_path = rendered_compare_path
+            publication_status = "published"
+            warning = None
+
+    if not compare_path.exists():
+        return {
+            "status": publication_status,
+            "published_compare_path": None,
+            "source_compare_path": None,
+            "warning": warning,
+        }
+
+    explicit_path = compare_path.with_name("compare_amp_phase_probe.png")
+    shutil.copy2(compare_path, explicit_path)
+    if publication_status != "published":
+        publication_status = "fallback_plain_compare"
+        warning = (
+            "Probe-inclusive compare was unavailable; published a plain compare fallback instead."
+        )
+    return {
+        "status": publication_status,
+        "published_compare_path": _relative_output_path(output_dir, explicit_path),
+        "source_compare_path": _relative_output_path(output_dir, compare_path),
+        "warning": warning,
+    }
+
+
+def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run a lines_256 hybrid-resnet experiment with fixed dataset, seed, "
+            "resolution, and epoch budget."
+        )
+    )
+    parser.add_argument(
+        "--preset",
+        choices=sorted(PRESETS),
+        default=None,
+        help="Optional named lines_256 experiment preset.",
+    )
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--batch-size", type=int, default=16)
+    parser.add_argument("--learning-rate", type=float, default=1e-3)
+    parser.add_argument("--infer-batch-size", type=int, default=128)
+    parser.add_argument("--grad-clip", type=float, default=0.0)
+    parser.add_argument(
+        "--gradient-clip-algorithm",
+        choices=["norm", "value", "agc"],
+        default="norm",
+    )
+    parser.add_argument("--fno-modes", type=int, default=12)
+    parser.add_argument("--fno-width", type=int, default=32)
+    parser.add_argument("--fno-blocks", type=int, default=4)
+    parser.add_argument(
+        "--hybrid-skip-connections",
+        dest="hybrid_skip_connections",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
+        "--no-hybrid-skip-connections",
+        dest="hybrid_skip_connections",
+        action="store_false",
+    )
+    parser.add_argument("--hybrid-downsample-steps", type=int, default=2)
+    parser.add_argument(
+        "--hybrid-downsample-op",
+        choices=["stride_conv", "avgpool_conv", "blurpool_conv"],
+        default="stride_conv",
+    )
+    parser.add_argument("--hybrid-resnet-blocks", type=int, default=6)
+    parser.add_argument(
+        "--hybrid-skip-style",
+        choices=["add", "concat", "gated_add"],
+        default="add",
+    )
+    preset_args, _ = parser.parse_known_args(argv)
+    if preset_args.preset:
+        parser.set_defaults(**PRESETS[preset_args.preset])
+    return parser.parse_args(argv)
+
+
+def build_runner_cmd(args: argparse.Namespace) -> list[str]:
+    cmd = [
+        "python",
+        "scripts/studies/grid_lines_torch_runner.py",
+        "--train-npz",
+        str(LINES_256_TRAIN_NPZ),
+        "--test-npz",
+        str(LINES_256_TEST_NPZ),
+        "--output-dir",
+        str(args.output_dir),
+        "--architecture",
+        FIXED_ARCHITECTURE,
+        "--seed",
+        str(FIXED_SEED),
+        "--epochs",
+        str(FIXED_EPOCHS),
+        "--N",
+        str(FIXED_N),
+        "--gridsize",
+        str(FIXED_GRIDSIZE),
+        "--scheduler",
+        FIXED_SCHEDULER,
+        "--plateau-min-lr",
+        str(FIXED_PLATEAU_MIN_LR),
+        "--batch-size",
+        str(args.batch_size),
+        "--learning-rate",
+        str(args.learning_rate),
+        "--infer-batch-size",
+        str(args.infer_batch_size),
+        "--grad-clip",
+        str(args.grad_clip),
+        "--gradient-clip-algorithm",
+        args.gradient_clip_algorithm,
+        "--fno-modes",
+        str(args.fno_modes),
+        "--fno-width",
+        str(args.fno_width),
+        "--fno-blocks",
+        str(args.fno_blocks),
+        "--hybrid-downsample-steps",
+        str(args.hybrid_downsample_steps),
+        "--hybrid-downsample-op",
+        args.hybrid_downsample_op,
+        "--hybrid-resnet-blocks",
+        str(args.hybrid_resnet_blocks),
+        "--hybrid-skip-style",
+        args.hybrid_skip_style,
+        "--no-probe-mask",
+        "--torch-mae-pred-l2-match-target",
+    ]
+    if args.hybrid_skip_connections:
+        cmd.append("--hybrid-skip-connections")
+    else:
+        cmd.append("--no-hybrid-skip-connections")
+    return cmd
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    args = parse_args(argv)
+    raw_argv = list(argv) if argv is not None else sys.argv[1:]
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    write_invocation_artifacts(
+        output_dir=args.output_dir,
+        script_path="scripts/studies/run_lines_256_arch_experiment.py",
+        argv=raw_argv,
+        parsed_args=vars(args),
+        extra={
+            "fixed_train_npz": str(LINES_256_TRAIN_NPZ),
+            "fixed_test_npz": str(LINES_256_TEST_NPZ),
+            "fixed_seed": FIXED_SEED,
+            "fixed_epochs": FIXED_EPOCHS,
+            "fixed_N": FIXED_N,
+            "fixed_gridsize": FIXED_GRIDSIZE,
+            "fixed_architecture": FIXED_ARCHITECTURE,
+            "fixed_scheduler": FIXED_SCHEDULER,
+            "fixed_plateau_min_lr": FIXED_PLATEAU_MIN_LR,
+            "fixed_torch_mae_pred_l2_match_target": FIXED_TORCH_MAE_PRED_L2_MATCH_TARGET,
+            "runtime_provenance": capture_runtime_provenance(),
+        },
+    )
+
+    cmd = build_runner_cmd(args)
+    completed = subprocess.run(cmd, check=False, capture_output=True, text=True)
+
+    (args.output_dir / "driver_stdout.log").write_text(completed.stdout)
+    (args.output_dir / "driver_stderr.log").write_text(completed.stderr)
+
+    if completed.returncode != 0:
+        raise RuntimeError(
+            "lines_256 arch experiment failed "
+            f"(exit={completed.returncode}); see "
+            f"{args.output_dir / 'driver_stdout.log'} and "
+            f"{args.output_dir / 'driver_stderr.log'}"
+        )
+    publication_status = ensure_probe_inclusive_comparison_png(args.output_dir)
+    write_visual_publication_status(args.output_dir, publication_status)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

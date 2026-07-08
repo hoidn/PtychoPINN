@@ -31,12 +31,12 @@ def test_get_git_dirty_returns_bool_or_none():
 def test_write_invocation_artifacts_writes_json_and_shell(tmp_path):
     from scripts.studies.invocation_logging import write_invocation_artifacts
 
-    out = tmp_path / "runs" / "pinn_fno"
+    out = tmp_path / "runs" / "pinn_hybrid_resnet"
     path_json, path_sh = write_invocation_artifacts(
         output_dir=out,
         script_path="scripts/studies/grid_lines_torch_runner.py",
-        argv=["--output-dir", "outputs/x", "--architecture", "fno"],
-        parsed_args={"output_dir": "outputs/x", "architecture": "fno"},
+        argv=["--output-dir", "outputs/x", "--architecture", "hybrid_resnet"],
+        parsed_args={"output_dir": "outputs/x", "architecture": "hybrid_resnet"},
     )
 
     assert path_json.exists()
@@ -48,13 +48,13 @@ def test_write_invocation_artifacts_writes_json_and_shell(tmp_path):
     assert payload["cwd"]
     assert payload["timestamp_utc"]
     assert payload["command"].startswith("python scripts/studies/grid_lines_torch_runner.py")
-    assert "fno" in path_sh.read_text()
+    assert "hybrid_resnet" in path_sh.read_text()
 
 
 def test_write_invocation_artifacts_preserves_runtime_provenance(tmp_path):
     from scripts.studies.invocation_logging import write_invocation_artifacts
 
-    out = tmp_path / "runs" / "pinn_fno"
+    out = tmp_path / "runs" / "pinn_hybrid_resnet"
     runtime_provenance = {
         "python_executable": "/usr/bin/python3",
         "cwd": "/tmp/session_repo",
@@ -86,11 +86,11 @@ def test_write_invocation_artifacts_serializes_paths(tmp_path):
         output_dir=out,
         script_path="scripts/studies/grid_lines_compare_wrapper.py",
         argv=["--output-dir", str(tmp_path / "outputs")],
-        parsed_args={"output_dir": Path("outputs/demo"), "architectures": ("cnn", "fno")},
+        parsed_args={"output_dir": Path("outputs/demo"), "architectures": ("cnn", "hybrid_resnet")},
     )
     payload = json.loads(json_path.read_text())
     assert payload["parsed_args"]["output_dir"] == "outputs/demo"
-    assert payload["parsed_args"]["architectures"] == ["cnn", "fno"]
+    assert payload["parsed_args"]["architectures"] == ["cnn", "hybrid_resnet"]
 
 
 def test_write_invocation_artifacts_captures_tmux_launcher_env(tmp_path, monkeypatch):

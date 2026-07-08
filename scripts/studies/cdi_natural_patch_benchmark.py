@@ -39,6 +39,7 @@ NATURAL_PATCH_DATASET_ID = "natural_patches128_fixedprobe_v1"
 NATURAL_PATCH_ROW_ROSTER = (
     "baseline",
     "pinn",
+    "pinn_hybrid_resnet",
     "pinn_fno_vanilla",
     "pinn_ffno",
     "pinn_neuralop_uno",
@@ -595,7 +596,10 @@ def _build_torch_model_from_saved_config(cfg: Any, *, n_groups: int = 1):
         "hybrid_encoder_spectral_hidden_scale",
         "hybrid_encoder_conv_hidden_channels",
         "hybrid_encoder_spectral_hidden_channels",
+        "hybrid_resnet_blocks",
         "hybrid_skip_style",
+        "hybrid_resnet_bottleneck_layerscale_mode",
+        "hybrid_resnet_bottleneck_layerscale_value",
         "hybrid_encoder_fusion_mode",
         "hybrid_encoder_layerscale_init",
         "hybrid_encoder_branch_gate_init",
@@ -699,6 +703,9 @@ def export_saved_patchwise_predictions(
     exporters = {
         "baseline": lambda: _run_saved_baseline_inference(run_root=run_root, test_npz=test_npz),
         "pinn": lambda: _run_saved_pinn_inference(run_root=run_root, test_npz=test_npz),
+        "pinn_hybrid_resnet": lambda: _run_saved_torch_row_inference(
+            run_root=run_root, model_id="pinn_hybrid_resnet", test_npz=test_npz
+        ),
         "pinn_fno_vanilla": lambda: _run_saved_torch_row_inference(
             run_root=run_root, model_id="pinn_fno_vanilla", test_npz=test_npz
         ),
@@ -1657,6 +1664,21 @@ def _execute_rows(
             continue
         if row == "pinn":
             results[row] = _run_tf_pinn_row(
+                train_npz=train_npz,
+                val_npz=val_npz,
+                test_npz=test_npz,
+                probe_npz=probe_npz,
+                run_root=run_root,
+                seed=seed,
+                fixed_sample_ids=fixed_sample_ids,
+                scales=scales,
+            )
+            continue
+        if row == "pinn_hybrid_resnet":
+            results[row] = _run_torch_row(
+                model_id=row,
+                architecture="hybrid_resnet",
+                training_procedure="pinn",
                 train_npz=train_npz,
                 val_npz=val_npz,
                 test_npz=test_npz,

@@ -6,8 +6,8 @@ that produced ``.artifacts/varpro_ablation/ext_matrix_aligned/variants_summary.m
 into the repo, since ``/tmp`` scratch is volatile. Reconstructed from
 ``.superpowers/sdd/ext/followups-task8-step1-report.md`` (the corrected
 re-baseline methodology) and ``.superpowers/sdd/ext/task-plateau-oracle-report.md``
-(border-crop/norm_Y_I derivation) per ``docs/findings.md`` row
-REASSEMBLY-BRIDGE-001.
+(border-crop/norm_Y_I derivation) per ``docs/findings.md`` rows
+REASSEMBLY-BRIDGE-001 and HYBRES-ALIGN-001.
 
 For each arm (a ``grid_lines_torch_runner.py``-produced run under
 ``<root>/<arm>/runs/<run_subdir>/``) and each of the four
@@ -301,8 +301,8 @@ def load_model_weights(model: Any, model_pt: Path) -> Any:
 
 
 def resolve_run_subdir(root: Path, arm: str, run_subdir: Optional[str]) -> str:
-    """Auto-detect the arm's ``runs/<run_subdir>/`` name (e.g. ``pinn_cnn`` for
-    the cnn arm) from the single run directory, unless explicitly overridden."""
+    """Auto-detect the arm's ``runs/<run_subdir>/`` name (``pinn_hybrid_resnet``
+    for hybres arms, ``pinn_cnn`` for the cnn arm) unless explicitly overridden."""
     if run_subdir is not None:
         return run_subdir
     runs_dir = root / arm / "runs"

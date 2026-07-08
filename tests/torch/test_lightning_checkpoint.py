@@ -42,6 +42,10 @@ GENERATOR_CLASS_BY_ARCHITECTURE = {
     "stable_hybrid": "StableHybridUNOGenerator",
     "fno_vanilla": "FnoVanillaGeneratorModule",
     "neuralop_uno": "NeuralopUnoGeneratorModule",
+    "hybrid_resnet": "HybridResnetGeneratorModule",
+    "hybrid_resnet_ffno_ptychoblock_encoder": "HybridResnetFfnoPtychoBlockEncoderGeneratorModule",
+    "hybrid_resnet_ptychoblock_ffno_encoder": "HybridResnetPtychoBlockFfnoEncoderGeneratorModule",
+    "spectral_resnet_bottleneck_net": "SpectralResnetBottleneckGeneratorModule",
 }
 
 
@@ -289,6 +293,10 @@ class TestLightningCheckpointSerialization:
             "stable_hybrid",
             "fno_vanilla",
             "neuralop_uno",
+            "hybrid_resnet",
+            "hybrid_resnet_ffno_ptychoblock_encoder",
+            "hybrid_resnet_ptychoblock_ffno_encoder",
+            "spectral_resnet_bottleneck_net",
         ],
     )
     def test_generator_architecture_checkpoint_rebuilds_without_manual_injection(

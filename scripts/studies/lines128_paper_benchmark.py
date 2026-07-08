@@ -98,7 +98,9 @@ REQUIRED_MINIMUM_SUBSET_WRAPPER_ARTIFACTS = (
 COMPLETE_TABLE_REQUIRED_ROWS = (
     "baseline",
     "pinn",
+    "pinn_hybrid_resnet",
     "pinn_fno_vanilla",
+    "pinn_spectral_resnet_bottleneck_net",
     "pinn_ffno",
 )
 UNO_EXTENSION_REQUIRED_ROWS = COMPLETE_TABLE_REQUIRED_ROWS + UNO_EXTENSION_FRESH_ROWS
@@ -839,7 +841,7 @@ def _normalize_execution_surface(
             }
         )
     required_rows = [row["model_id"] for row in normalized_rows if row["required_for_minimum_subset"]]
-    if required_rows != ["baseline", "pinn", "pinn_fno_vanilla"]:
+    if required_rows != ["baseline", "pinn", "pinn_hybrid_resnet", "pinn_fno_vanilla"]:
         raise ValueError(
             f"{source_name} must lock the required four-row roster in order; got {required_rows}"
         )
@@ -860,7 +862,7 @@ def _normalize_execution_surface(
     if not isinstance(shared_visual_scales, Mapping):
         raise ValueError(f"{source_name} must provide shared_visual_scales")
     later_rows = payload.get("later_complete_table_rows")
-    if later_rows != ["pinn_ffno"]:
+    if later_rows != ["pinn_spectral_resnet_bottleneck_net", "pinn_ffno"]:
         raise ValueError(
             f"{source_name} must record spectral and FFNO as the later complete-table rows"
         )

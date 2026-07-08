@@ -83,6 +83,7 @@ def test_arm_names_lists_all_arms():
         "gs2_neither", "gs2_probe_frozen", "gs2_probe_trainable",
         "gs2_neither_n128", "gs2_probe_trainable_n128",
         "repr_ampphase", "repr_realimag",
+        "hybres_gs1_neither", "hybres_gs1_both",
     }
 
 
@@ -148,6 +149,18 @@ def test_arm_names_lists_all_arms():
             "N": 64, "gridsize": 1, "training_patch_weighting": "probe",
             "rect_s1s2_trainable": False, "nphotons": 1e9,
             "architecture": "cnn", "cnn_output_mode": "real_imag",
+            "variants": ["probe_varpro"],
+        }),
+        ("hybres_gs1_neither", {
+            "N": 64, "gridsize": 1, "training_patch_weighting": "central_mask",
+            "rect_s1s2_trainable": True, "nphotons": 1e9,
+            "architecture": "hybrid_resnet", "physics_forward_mode": "amplitude",
+            "variants": ["uniform_novarpro"],
+        }),
+        ("hybres_gs1_both", {
+            "N": 64, "gridsize": 1, "training_patch_weighting": "probe",
+            "rect_s1s2_trainable": True, "nphotons": 1e9,
+            "architecture": "hybrid_resnet", "physics_forward_mode": "rectangular_scaled",
             "variants": ["probe_varpro"],
         }),
     ],
@@ -394,6 +407,34 @@ def test_repr_realimag_routes_cnn_real_imag():
     assert model_config.cnn_output_mode == "real_imag"
 
 
+def test_hybres_gs1_both_routes_hybrid_resnet_rectangular_scaled():
+    arm_cfg = runner.resolve_arm("hybres_gs1_both")
+
+    _, model_config, _, _, _ = runner.build_configs(arm_cfg, batch_size=2, epochs=1)
+
+    assert model_config.architecture == "hybrid_resnet"
+    assert model_config.physics_forward_mode == "rectangular_scaled"
+    assert model_config.training_patch_weighting == "probe"
+    assert model_config.rect_s1s2_trainable is True
+    assert model_config.object_big is False
+    assert runner.resolve_variants("hybres_gs1_both") == {
+        "probe_varpro": {"patch_weighting": "probe", "varpro_scaling": True},
+    }
+
+
+def test_hybres_gs1_neither_routes_hybrid_resnet_amplitude():
+    arm_cfg = runner.resolve_arm("hybres_gs1_neither")
+
+    _, model_config, _, _, _ = runner.build_configs(arm_cfg, batch_size=2, epochs=1)
+
+    assert model_config.architecture == "hybrid_resnet"
+    assert model_config.physics_forward_mode == "amplitude"
+    assert model_config.training_patch_weighting == "central_mask"
+    assert runner.resolve_variants("hybres_gs1_neither") == {
+        "uniform_novarpro": {"patch_weighting": "uniform", "varpro_scaling": False},
+    }
+
+
 def test_phase1_arm_model_config_matches_dataclass_defaults_for_new_knobs():
     """architecture stays at its ModelConfig default for a Phase-1 base arm
     (unaffected by Task B1). physics_forward_mode and cnn_output_mode are the
@@ -423,7 +464,7 @@ def test_cli_architecture_and_cnn_output_mode_overrides_reach_model_config():
         "--train-npz", "dummy_train.npz",
         "--test-npz", "dummy_test.npz",
         "--output-root", "dummy_out",
-        "--architecture", "fno",
+        "--architecture", "hybrid_resnet",
         "--cnn-output-mode", "real_imag",
     ])
 
@@ -432,7 +473,7 @@ def test_cli_architecture_and_cnn_output_mode_overrides_reach_model_config():
     )
     _, model_config, _, _, _ = runner.build_configs(arm_cfg, batch_size=2, epochs=1)
 
-    assert model_config.architecture == "fno"
+    assert model_config.architecture == "hybrid_resnet"
     assert model_config.cnn_output_mode == "real_imag"
 
 

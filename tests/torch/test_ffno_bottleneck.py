@@ -84,3 +84,27 @@ def test_factorized_ffno_block_localconv_preserves_shape_and_exposes_explicit_br
     assert isinstance(block.local_conv, torch.nn.Conv2d)
     assert block.local_conv.kernel_size == (3, 3)
     assert block.local_conv.padding == (1, 1)
+
+
+def test_hybrid_resnet_ffno_bottleneck_generator_module_forward_preserves_shape():
+    from ptycho_torch.generators.hybrid_resnet_ffno_bottleneck import (
+        HybridResnetFfnoBottleneckGeneratorModule,
+    )
+
+    model = HybridResnetFfnoBottleneckGeneratorModule(
+        in_channels=1,
+        out_channels=2,
+        hidden_channels=32,
+        n_blocks=4,
+        modes=12,
+        C=1,
+        hybrid_downsample_steps=2,
+        resnet_blocks=6,
+        ffno_bottleneck_blocks=6,
+        ffno_bottleneck_modes=12,
+    )
+    x = torch.randn(2, 1, 128, 128)
+
+    y = model(x)
+
+    assert tuple(y.shape) == (2, 128, 128, 1, 2)

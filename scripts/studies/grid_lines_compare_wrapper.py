@@ -45,6 +45,8 @@ LEGACY_ARCH_TO_MODEL = {
     "hybrid": "pinn_hybrid",
     "stable_hybrid": "pinn_stable_hybrid",
     "fno_vanilla": "pinn_fno_vanilla",
+    "hybrid_resnet": "pinn_hybrid_resnet",
+    "spectral_resnet_bottleneck_net": "pinn_spectral_resnet_bottleneck_net",
 }
 
 MODEL_TO_LEGACY_ARCH = {model_id: arch for arch, model_id in LEGACY_ARCH_TO_MODEL.items()}
@@ -65,6 +67,19 @@ TORCH_MODEL_IDS = {
     "pinn_hybrid",
     "pinn_stable_hybrid",
     "pinn_fno_vanilla",
+    "pinn_hybrid_resnet",
+    "pinn_hybrid_resnet_grid_channels",
+    "pinn_hybrid_resnet_probe_channels",
+    "pinn_hybrid_resnet_ffno_ptychoblock_encoder",
+    "pinn_hybrid_resnet_ptychoblock_ffno_encoder",
+    "pinn_hybrid_resnet_encoder_conv_only",
+    "pinn_hybrid_resnet_encoder_spectral_only",
+    "supervised_hybrid_resnet",
+    "pinn_hybrid_resnet_convnext_bottleneck",
+    "pinn_spectral_resnet_bottleneck_net",
+    "pinn_spectral_resnet_bottleneck_ds1",
+    "pinn_spectral_resnet_bottleneck_linear_decoder",
+    "pinn_hybrid_resnet_ffno_bottleneck",
     "pinn_neuralop_uno",
     "supervised_neuralop_uno",
 }
@@ -82,6 +97,19 @@ PAPER_MODEL_LABELS = {
     "pinn_hybrid": "Hybrid + PINN",
     "pinn_stable_hybrid": "Stable Hybrid + PINN",
     "pinn_fno_vanilla": "FNO Vanilla + PINN",
+    "pinn_hybrid_resnet": "Hybrid ResNet + PINN",
+    "pinn_hybrid_resnet_grid_channels": "Hybrid ResNet + PINN (coordinate-grid-conditioned input)",
+    "pinn_hybrid_resnet_probe_channels": "Hybrid ResNet + PINN (probe-conditioned input)",
+    "pinn_hybrid_resnet_ffno_ptychoblock_encoder": "Hybrid ResNet (FFNO->PtychoBlock encoder) + PINN",
+    "pinn_hybrid_resnet_ptychoblock_ffno_encoder": "Hybrid ResNet (PtychoBlock->FFNO encoder) + PINN",
+    "pinn_hybrid_resnet_encoder_conv_only": "Hybrid ResNet (conv-only encoder) + PINN",
+    "pinn_hybrid_resnet_encoder_spectral_only": "Hybrid ResNet (spectral-only encoder) + PINN",
+    "supervised_hybrid_resnet": "Hybrid ResNet + supervised",
+    "pinn_hybrid_resnet_convnext_bottleneck": "Hybrid ResNet (ConvNeXt bottleneck) + PINN",
+    "pinn_spectral_resnet_bottleneck_net": "Spectral ResNet Bottleneck + PINN",
+    "pinn_spectral_resnet_bottleneck_ds1": "Spectral ResNet Bottleneck DS1 + PINN",
+    "pinn_spectral_resnet_bottleneck_linear_decoder": "Spectral ResNet Linear Decoder + PINN",
+    "pinn_hybrid_resnet_ffno_bottleneck": "Hybrid ResNet FFNO Bottleneck + PINN",
     "pinn_neuralop_uno": "U-NO + PINN",
     "supervised_neuralop_uno": "U-NO + supervised",
     "pinn_ptychovit": "PtychoViT + PINN",
@@ -95,6 +123,7 @@ PAPER_TRAINING_PROCEDURE_OVERRIDES = {
     "supervised_ffno": "supervised",
     "supervised_ffno_depth24": "supervised",
     "supervised_neuralop_uno": "supervised",
+    "supervised_hybrid_resnet": "supervised",
 }
 
 DEFAULT_TORCH_ROW_SPECS: Dict[str, Dict[str, Any]] = {
@@ -163,6 +192,94 @@ DEFAULT_TORCH_ROW_SPECS: Dict[str, Dict[str, Any]] = {
     "pinn_fno_vanilla": {
         "model_id": "pinn_fno_vanilla",
         "architecture": "fno_vanilla",
+        "training_procedure": "pinn",
+    },
+    "pinn_hybrid_resnet": {
+        "model_id": "pinn_hybrid_resnet",
+        "architecture": "hybrid_resnet",
+        "training_procedure": "pinn",
+    },
+    "pinn_hybrid_resnet_grid_channels": {
+        "model_id": "pinn_hybrid_resnet_grid_channels",
+        "architecture": "hybrid_resnet",
+        "training_procedure": "pinn",
+        "model_label": "Hybrid ResNet + PINN (coordinate-grid-conditioned input)",
+        "overrides": {"input_conditioning_mode": "coordinate_grid"},
+        "row_status": "decision_support_append_only",
+        "lock_row_status": True,
+    },
+    "pinn_hybrid_resnet_probe_channels": {
+        "model_id": "pinn_hybrid_resnet_probe_channels",
+        "architecture": "hybrid_resnet",
+        "training_procedure": "pinn",
+        "model_label": "Hybrid ResNet + PINN (probe-conditioned input)",
+        "overrides": {"input_conditioning_mode": "probe_real_imag"},
+        "row_status": "decision_support_append_only",
+        "lock_row_status": True,
+    },
+    "pinn_hybrid_resnet_ffno_ptychoblock_encoder": {
+        "model_id": "pinn_hybrid_resnet_ffno_ptychoblock_encoder",
+        "architecture": "hybrid_resnet_ffno_ptychoblock_encoder",
+        "training_procedure": "pinn",
+        "row_status": "decision_support_append_only",
+        "lock_row_status": True,
+    },
+    "pinn_hybrid_resnet_ptychoblock_ffno_encoder": {
+        "model_id": "pinn_hybrid_resnet_ptychoblock_ffno_encoder",
+        "architecture": "hybrid_resnet_ptychoblock_ffno_encoder",
+        "training_procedure": "pinn",
+        "row_status": "decision_support_append_only",
+        "lock_row_status": True,
+    },
+    "pinn_hybrid_resnet_encoder_conv_only": {
+        "model_id": "pinn_hybrid_resnet_encoder_conv_only",
+        "architecture": "hybrid_resnet",
+        "training_procedure": "pinn",
+        "overrides": {"hybrid_encoder_branch_select": "conv_only"},
+        "row_status": "decision_support_append_only",
+        "lock_row_status": True,
+    },
+    "pinn_hybrid_resnet_encoder_spectral_only": {
+        "model_id": "pinn_hybrid_resnet_encoder_spectral_only",
+        "architecture": "hybrid_resnet",
+        "training_procedure": "pinn",
+        "overrides": {"hybrid_encoder_branch_select": "spectral_only"},
+        "row_status": "decision_support_append_only",
+        "lock_row_status": True,
+    },
+    "supervised_hybrid_resnet": {
+        "model_id": "supervised_hybrid_resnet",
+        "architecture": "hybrid_resnet",
+        "training_procedure": "supervised",
+        "row_status": "decision_support_append_only",
+        "lock_row_status": True,
+    },
+    "pinn_hybrid_resnet_convnext_bottleneck": {
+        "model_id": "pinn_hybrid_resnet_convnext_bottleneck",
+        "architecture": "hybrid_resnet_convnext_bottleneck",
+        "training_procedure": "pinn",
+        "row_status": "decision_support_append_only",
+        "lock_row_status": True,
+    },
+    "pinn_spectral_resnet_bottleneck_net": {
+        "model_id": "pinn_spectral_resnet_bottleneck_net",
+        "architecture": "spectral_resnet_bottleneck_net",
+        "training_procedure": "pinn",
+    },
+    "pinn_spectral_resnet_bottleneck_ds1": {
+        "model_id": "pinn_spectral_resnet_bottleneck_ds1",
+        "architecture": "spectral_resnet_bottleneck_net",
+        "training_procedure": "pinn",
+        "overrides": {"hybrid_downsample_steps": 1},
+    },
+    "pinn_spectral_resnet_bottleneck_linear_decoder": {
+        "model_id": "pinn_spectral_resnet_bottleneck_linear_decoder",
+        "architecture": "spectral_resnet_bottleneck_linear_decoder",
+        "training_procedure": "pinn",
+    },
+    "pinn_hybrid_resnet_ffno_bottleneck": {
+        "model_id": "pinn_hybrid_resnet_ffno_bottleneck",
+        "architecture": "hybrid_resnet_ffno_bottleneck",
         "training_procedure": "pinn",
     },
     "pinn_neuralop_uno": {
@@ -2002,6 +2119,8 @@ def run_grid_lines_compare(
             "hybrid",
             "stable_hybrid",
             "fno_vanilla",
+            "hybrid_resnet",
+            "spectral_resnet_bottleneck_net",
         ):
             torch_cfg = TorchRunnerConfig(
                 train_npz=train_npz,
@@ -2090,6 +2209,10 @@ def run_grid_lines_compare(
         order.append("pinn_stable_hybrid")
     if "fno_vanilla" in selected_architectures:
         order.append("pinn_fno_vanilla")
+    if "hybrid_resnet" in selected_architectures:
+        order.append("pinn_hybrid_resnet")
+    if "spectral_resnet_bottleneck_net" in selected_architectures:
+        order.append("pinn_spectral_resnet_bottleneck_net")
 
     model_ns_for_metrics = {model_id: int(N) for model_id in merged.keys()}
     _finalize_compare_outputs(
@@ -2126,7 +2249,7 @@ def parse_args(argv=None):
     parser.add_argument(
         "--architectures",
         type=str,
-        default="cnn,fno,hybrid,stable_hybrid,fno_vanilla",
+        default="cnn,fno,hybrid,stable_hybrid,fno_vanilla,hybrid_resnet",
     )
     parser.add_argument(
         "--models",
@@ -2261,7 +2384,7 @@ def parse_args(argv=None):
     parser.add_argument("--torch-max-hidden-channels", type=int, default=None,
                         help="Cap on hidden channels in Hybrid encoder (default: no cap)")
     parser.add_argument("--torch-resnet-width", type=int, default=None,
-                        help="Fixed bottleneck width for the bottleneck (must be divisible by 4)")
+                        help="Fixed bottleneck width for hybrid_resnet (must be divisible by 4)")
     parser.add_argument("--torch-optimizer", type=str, default="adam",
                         choices=["adam", "adamw", "sgd"], help="Optimizer algorithm")
     parser.add_argument("--torch-weight-decay", type=float, default=0.0, help="Weight decay")

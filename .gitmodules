@@ -17,3 +17,6 @@
 [submodule "prompts"]
 	path = prompts
 	url = git@github.com:hoidn/prompts.git
+[submodule "scripts/orchestration"]
+	path = scripts/orchestration
+	url = git@github.com:hoidn/orchestration.git
