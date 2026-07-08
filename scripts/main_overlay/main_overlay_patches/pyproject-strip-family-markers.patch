@@ -1,0 +1,13 @@
+diff --git a/pyproject.toml b/pyproject.toml
+index 77c3241..a2756a3 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -67,8 +67,6 @@ markers = [
+     "mini: marks tests as minimal/fast unit tests",
+     "integration: marks end-to-end integration smoke tests (project-level alias)",
+     "tf_integration: marks TensorFlow end-to-end workflow integration smoke test",
+-    "grid_lines_hybrid_resnet_integration: marks grid-lines hybrid_resnet integration gate",
+-    "grid_lines_hybrid_resnet_aligned_ablation: marks aligned-config hybrid_resnet ablation gate (GPU, ~10 min)"
+ ]
+ # Configure test collection to handle import errors gracefully
+ addopts = [

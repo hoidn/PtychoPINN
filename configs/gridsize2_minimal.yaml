@@ -1,0 +1,6 @@
+# Minimal configuration for gridsize=2 studies
+# Only specify parameters that differ from defaults
+
+model:
+  gridsize: 2
+

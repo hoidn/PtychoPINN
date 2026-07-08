@@ -65,6 +65,8 @@ from ptycho_torch.config_params import (
 # Per supervisor decision at 2025-10-19T234458Z (factory_design.md §2.2)
 from ptycho.config.config import PyTorchExecutionConfig
 
+from ptycho import params
+
 
 @dataclass
 class TrainingPayload:
@@ -197,6 +199,7 @@ def create_training_payload(
         - Override precedence: .../override_matrix.md §6
         - Integration: .../factory_design.md §3 (CLI/workflow call sites)
     """
+    params.unseal()
     from ptycho_torch.config_bridge import to_model_config, to_training_config
     from ptycho_torch.config_params import update_existing_config
 
@@ -211,6 +214,9 @@ def create_training_payload(
     if 'neighbor_count' in overrides and 'K' not in overrides:
         overrides['K'] = overrides['neighbor_count']
         overrides_applied['K'] = overrides['neighbor_count']
+    if 'model_type' in overrides and 'mode' not in overrides:
+        overrides['mode'] = overrides['model_type']
+        overrides_applied['mode'] = overrides['model_type']
 
     # Step 1: Validate required arguments
     if not train_data_file.exists():
@@ -281,6 +287,8 @@ def create_training_payload(
 
     # InferenceConfig: track patch-stats flags for instrumentation
     pt_inference_config = PTInferenceConfig(
+        patch_weighting=overrides.get('patch_weighting', 'probe'),
+        varpro_scaling=overrides.get('varpro_scaling', True),
         log_patch_stats=overrides.get('log_patch_stats', False),
         patch_stats_limit=overrides.get('patch_stats_limit'),
     )
@@ -321,6 +329,7 @@ def create_training_payload(
 
     # Step 5: Populate params.cfg (CONFIG-001 compliance checkpoint)
     populate_legacy_params(tf_training_config)
+    params.seal()
 
     # Step 6: Construct execution config (Phase C2.B1+C2.B2)
     # If execution_config not provided, instantiate default PyTorchExecutionConfig
@@ -415,6 +424,7 @@ def create_inference_payload(
         - Design: .../factory_design.md §3.3
         - Checkpoint loading: specs/ptychodus_api_spec.md §4.6
     """
+    params.unseal()
     from ptycho_torch.config_bridge import to_model_config, to_inference_config
 
     # Defensive copy of overrides
@@ -474,6 +484,10 @@ def create_inference_payload(
         n_filters_scale=overrides.get('n_filters_scale', 2),  # PyTorch default
         object_big=overrides.get('object_big', True),
         probe_big=overrides.get('probe_big', False),
+        probe_mask=overrides.get('probe_mask', False),
+        probe_mask_tensor=overrides.get('probe_mask_tensor'),
+        probe_mask_sigma=overrides.get('probe_mask_sigma', 1.0),
+        probe_mask_diameter=overrides.get('probe_mask_diameter'),
         C_forward=C,  # Match data config channel count
         C_model=C,    # Match data config channel count
         pad_object=overrides.get('pad_object', True),  # Spec default
@@ -483,6 +497,8 @@ def create_inference_payload(
     # InferenceConfig: Extract inference-specific fields from overrides
     pt_inference_config = PTInferenceConfig(
         batch_size=overrides.get('batch_size', 16),  # PyTorch default
+        patch_weighting=overrides.get('patch_weighting', 'probe'),
+        varpro_scaling=overrides.get('varpro_scaling', True),
         log_patch_stats=overrides.get('log_patch_stats', False),
         patch_stats_limit=overrides.get('patch_stats_limit'),
     )
@@ -512,6 +528,7 @@ def create_inference_payload(
 
     # Step 5: Populate params.cfg (CONFIG-001 compliance checkpoint)
     populate_legacy_params(tf_inference_config)
+    params.seal()
 
     # Step 6: Construct execution config (Phase C2.B1+C2.B2)
     # If execution_config not provided, instantiate default PyTorchExecutionConfig

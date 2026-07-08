@@ -17,7 +17,7 @@
 | ID  | Task Description                                   | State | How/Why & API Guidance |
 | :-- | :------------------------------------------------- | :---- | :------------------------------------------------- |
 | **Section 0: Preparation & Context Priming** |
-| 0.A | **Review Key Documents & APIs**                    | `[D]` | **Why:** To understand the architectural issues and correct patterns before coding. <br> **Docs:** `docs/DEVELOPER_GUIDE.md` Section 3.4 (Tensor formats), `docs/data_contracts.md` (NPZ format specs). <br> **APIs:** `ptycho.raw_data.group_coords()`, `ptycho.raw_data.get_image_patches()`, `ptycho.diffsim.illuminate_and_diffract()`, `ptycho.tf_helper._channel_to_flat()`, `ptycho.tf_helper._flat_to_channel()`. |
+| 0.A | **Review Key Documents & APIs**                    | `[D]` | **Why:** To understand the architectural issues and correct patterns before coding. <br> **Docs:** `docs/DEVELOPER_GUIDE.md` Section 3.4 (Tensor formats), `specs/data_contracts.md` (NPZ format specs). <br> **APIs:** `ptycho.raw_data.group_coords()`, `ptycho.raw_data.get_image_patches()`, `ptycho.diffsim.illuminate_and_diffract()`, `ptycho.tf_helper._channel_to_flat()`, `ptycho.tf_helper._flat_to_channel()`. |
 | 0.B | **Analyze Current Implementation**                  | `[D]` | **Why:** To understand the legacy code structure and identify all parts that need refactoring. <br> **How:** Open `scripts/simulation/simulate_and_save.py` and trace all calls to `RawData.from_simulation`. Document the current workflow and identify which parts map to the new modular functions. <br> **File:** `scripts/simulation/simulate_and_save.py` |
 | 0.C | **Set Up Debug Environment**                        | `[D]` | **Why:** To enable comprehensive logging for debugging tensor shape issues. <br> **How:** Import logging module, set up debug-level logging with format that includes function names and line numbers. Create a `--debug` command-line flag if not present. <br> **Verify:** Running with `--debug` shows detailed log messages. |
 | **Section 1: Input Loading & Validation** |
@@ -52,7 +52,7 @@
 1. All tasks in the table above are marked `[D]` (Done).
 2. The phase success test passes: `python scripts/simulation/simulate_and_save.py --input-file datasets/fly/fly001_transposed.npz --output-file test_sim.npz --gridsize 2` completes without errors and produces a valid NPZ file.
 3. No regressions are introduced - the script still works correctly for gridsize=1.
-4. The output NPZ file conforms to the data contract specifications in `docs/data_contracts.md`.
+4. The output NPZ file conforms to the data contract specifications in `specs/data_contracts.md`.
 
 ## 📝 Notes
 

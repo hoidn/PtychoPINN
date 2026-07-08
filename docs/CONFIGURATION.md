@@ -1,7 +1,5 @@
 # PtychoPINN Configuration Guide
 
-> **Scope:** This guide documents the configuration system of the legacy TensorFlow implementation (`ptycho/config/config.py`). The active PyTorch implementation (`ptycho_torch/`) uses separate dataclasses in `ptycho_torch/config_params.py` — see the project CLAUDE.md for its fields and gotchas.
-
 This document is the canonical reference for all configuration parameters used in the PtychoPINN project. It details the modern dataclass-based configuration system and provides a comprehensive reference for all available parameters.
 
 ## The Configuration System
@@ -19,6 +17,17 @@ For backward compatibility, a legacy global dictionary `ptycho.params.cfg` still
 
 This is a one-way data flow: **dataclass → legacy dict**. New code should always accept a configuration dataclass as an argument and should not rely on the global `params` object.
 
+### Backends and Config Bridging
+
+PtychoPINN uses the same canonical configuration dataclasses for both TensorFlow and PyTorch backends. When operating with the PyTorch stack, configs from `ptycho_torch/config_params.py` are translated to the TensorFlow dataclasses via the bridge adapter and then flowed into the legacy `params.cfg`:
+
+```
+PyTorch config_params → ptycho_torch/config_bridge.py → TF dataclasses → update_legacy_dict(params.cfg, config)
+```
+
+- See the normative mapping: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>
+- Critical rule (CONFIG‑001): always call `update_legacy_dict(params.cfg, config)` before data loading or legacy module usage.
+
 ## Usage
 
 You can configure a run in two ways, with the following order of precedence:
@@ -33,23 +42,50 @@ You can configure a run in two ways, with the following order of precedence:
 
 These parameters define the structure and physics of the neural network.
 
+**Illustrative subset — full field list: `ModelConfig` in `ptycho/config/config.py`.** The `architecture` field's full 14-value `Literal` is enumerated authoritatively in `docs/specs/spec-ptycho-config-bridge.md` §3.
+
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `N` | `Literal[64, 128, 256]` | `64` | The dimension of the input diffraction patterns (e.g., 64×64 pixels). This is a critical parameter that defines the network's input shape. |
 | `gridsize` | `int` | `1` | For PINN models, the number of neighboring patches to process together (e.g., 2 for a 2×2 grid). For supervised models, this defines the input channel depth. |
 | `n_filters_scale` | `int` | `2` | A multiplier for the number of filters in the U-Net's convolutional layers. |
 | `model_type` | `Literal['pinn', 'supervised']` | `'pinn'` | The type of model to use. 'pinn' is the main physics-informed model. |
+| `architecture` | `ModelConfig.architecture` literal | `'cnn'` | The generator architecture for PINN models. The authoritative literal set lives in `ModelConfig` in `ptycho/config/config.py` and is mirrored in `docs/specs/spec-ptycho-config-bridge.md` §3. Common PyTorch options include `ffno`, `fno`, `hybrid`, `stable_hybrid`, `fno_vanilla`, `neuralop_uno`, `hybrid_resnet`, and the spectral/hybrid bottleneck variants. See `docs/architecture_torch.md` §4.1. |
+| `fno_modes` | `int` | `12` | Number of spectral modes retained in FNO/Hybrid spectral convolutions (PyTorch only). |
+| `fno_width` | `int` | `32` | Hidden channel width for FNO/Hybrid blocks (PyTorch only). |
+| `fno_blocks` | `int` | `4` | Number of spectral blocks in the FNO/Hybrid encoder (PyTorch only). |
+| `fno_cnn_blocks` | `int` | `2` | Number of local CNN refiner blocks for PyTorch FNO-family generators. For `architecture='fno'`, this is the Cascaded FNO refiner count. For `architecture='ffno'`, positive values create a local-refiner proxy after the factorized Fourier stack; paper-facing pure FFNO rows must set `fno_cnn_blocks=0`. |
+| `fno_input_transform` | `Literal['none','sqrt','log1p','instancenorm']` | `'none'` | Optional input dynamic-range transform for FNO/Hybrid lifter (PyTorch only). |
+| `resnet_width` | `Optional[int]` | `None` | Fixed bottleneck width for `hybrid_resnet`. Must be divisible by 4 when set (PyTorch only). |
 | `amp_activation` | `str` | `'sigmoid'` | The activation function for the amplitude output layer. Choices: 'sigmoid', 'swish', 'softplus', 'relu'. |
-| `object_big` | `bool` | `True` | If True, the model reconstructs a large area by stitching patches. If False, it reconstructs a single N×N patch. |
-| `probe_big` | `bool` | `True` | If True, the probe representation can vary across the solution region. |
+| `object_big` | `bool` | `True` | If True, the model reconstructs a large area by stitching patches. If False, it reconstructs a single N×N patch. Some workflows (e.g., grid-lines Torch runner) set `object_big = cfg.gridsize > 1` (`False` at gridsize=1 for TF parity, `True` at gridsize>1 to enable object-big reassembly); treat this as a workflow-level config decision, not an implicit default. |
+| `probe_big` | `bool` | `True` | If True, the probe representation can vary across the solution region. Some workflows (e.g., grid-lines Torch runner) explicitly set `probe_big=False` for TF parity; treat this as a workflow-level config decision. |
 | `probe_mask` | `bool` | `False` | If True, applies a circular mask to the probe to enforce a finite support. |
 | `pad_object` | `bool` | `True` | Controls padding behavior in the model. |
 | `probe_scale` | `float` | `4.0` | A normalization factor for the probe's amplitude. |
 | `gaussian_smoothing_sigma` | `float` | `0.0` | Standard deviation for the Gaussian filter applied to the probe. 0.0 means no smoothing. |
 
+### PyTorch Execution Parameters (PyTorchExecutionConfig)
+
+**Illustrative subset — full field list: `PyTorchExecutionConfig` in `ptycho/config/config.py`.**
+
+These parameters are Torch-only execution/model knobs used by the PyTorch runner/workflow path. They are not bridged into canonical `ModelConfig` fields.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `hybrid_skip_connections` | `bool` | `False` | Enables hybrid_resnet encoder-decoder skip fusion. |
+| `hybrid_downsample_steps` | `int` | `2` | Downsample schedule depth for hybrid_resnet (`1` => `N->N/2`, `2` => `N->N/4`). |
+| `hybrid_downsample_op` | `Literal['stride_conv','avgpool_conv','blurpool_conv']` | `'stride_conv'` | Downsample operator family for each encoder step. |
+| `hybrid_encoder_conv_hidden_scale` | `float` | `1.0` | Scale factor for hybrid_resnet encoder local-conv branch width. Per-block resolution: `max(1, round(stage_channels * scale))`. |
+| `hybrid_encoder_spectral_hidden_scale` | `float` | `1.0` | Scale factor for hybrid_resnet encoder spectral branch width. Per-block resolution: `max(1, round(stage_channels * scale))`. |
+| `hybrid_resnet_blocks` | `int` | `6` | Hybrid ResNet bottleneck depth. Must be positive. |
+| `hybrid_skip_style` | `Literal['add','concat','gated_add']` | `'add'` | Skip-fusion style for hybrid_resnet when skip connections are enabled. |
+
 ### Training Parameters (TrainingConfig)
 
 These parameters control the training loop, data handling, and loss functions.
+
+**Illustrative subset — full field list: `TrainingConfig` in `ptycho/config/config.py`.**
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -62,18 +98,27 @@ These parameters control the training loop, data handling, and loss functions.
 | `realspace_mae_weight` | `float` | `0.0` | Weight for the MAE loss in the object domain. |
 | `realspace_weight` | `float` | `0.0` | General weight for all real-space losses. |
 | `nphotons` | `float` | `1e9` | The target average number of photons per diffraction pattern, used for the Poisson noise model. |
-| `n_groups` | `Optional[int]` | `None` | Number of groups to use from the dataset. Each group contains 1 image for gridsize=1, or gridsize² images for gridsize>1. **Replaces deprecated `n_images` parameter.** |
-| `n_images` | `int` | `None` | **[DEPRECATED]** Legacy parameter name for `n_groups`. Still supported for backward compatibility but will show deprecation warnings. New code should use `n_groups`. |
+| `n_groups` | `Optional[int]` | `None` (`512` after `TrainingConfig.__post_init__` when unset) | Number of groups to use from the dataset. Each group contains 1 image for gridsize=1, or gridsize² images for gridsize>1. **Replaces deprecated `n_images` parameter.** |
+| `n_images` | `Optional[int]` | `None` | **[DEPRECATED]** Legacy parameter name for `n_groups`. Still supported for backward compatibility but will show deprecation warnings. New code should use `n_groups`. |
 | `n_subsample` | `Optional[int]` | `None` | Number of images to subsample from the dataset before grouping (independent control). When provided, controls data selection separately from grouping. |
 | `subsample_seed` | `Optional[int]` | `None` | Random seed for reproducible subsampling. Ensures consistent data selection across runs. |
 | `positions_provided` | `bool` | `True` | If True, use the provided scan positions. |
 | `probe_trainable` | `bool` | `False` | If True, allows the model to learn and update the probe function during training. |
 | `intensity_scale_trainable` | `bool` | `True` | If True, allows the model to learn the global intensity scaling factor. |
 | `output_dir` | `Path` | `"training_outputs"` | The directory where training outputs (model, logs, images) will be saved. |
+| `scheduler` | `str` | `'Default'` | Learning rate scheduler type: `'Default'`, `'Exponential'`, `'WarmupCosine'`, `'ReduceLROnPlateau'`. |
+| `lr_warmup_epochs` | `int` | `0` | Warmup epochs for the WarmupCosine scheduler. |
+| `lr_min_ratio` | `float` | `0.1` | Minimum LR ratio for WarmupCosine (eta_min = base_lr × ratio). |
+| `plateau_factor` | `float` | `0.5` | ReduceLROnPlateau factor (multiplier applied when plateau detected). |
+| `plateau_patience` | `int` | `2` | ReduceLROnPlateau patience (epochs without improvement before reducing LR). |
+| `plateau_min_lr` | `float` | `5e-5` | ReduceLROnPlateau minimum learning rate. |
+| `plateau_threshold` | `float` | `0.0` | ReduceLROnPlateau threshold for measuring improvement. |
 
 ### Inference Parameters (InferenceConfig)
 
 These parameters control inference and evaluation workflows.
+
+**Illustrative subset — full field list: `InferenceConfig` in `ptycho/config/config.py`.**
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|

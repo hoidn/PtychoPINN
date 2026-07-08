@@ -21,30 +21,21 @@ from ptycho_torch.patch_generator import group_coords, get_relative_coords, get_
 
 #Parameters
 from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
+from ptycho_torch.npz_utils import read_npy_shape
 
 #Helper methods
 import ptycho_torch.helper as hh
 
 # --- Helper functions for the dataloader ---
-def _read_npy_shape(fp):
-    version = np.lib.format.read_magic(fp)
-    if version == (1, 0):
-        shape, _, _ = np.lib.format.read_array_header_1_0(fp)
-    elif version == (2, 0):
-        shape, _, _ = np.lib.format.read_array_header_2_0(fp)
-    else:
-        raise ValueError(f"Unsupported NPY format version: {version}")
-    return shape
-
-
 def npz_headers(npz):
     """
     Takes a path to an .npz file, which is a Zip archive of .npy files.
     We can use this to determine shape of the scan tensor in the npz file without loading it
     This will be useful in the __len__ method for the dataset
 
-    Prefers canonical 'diffraction' key per DATA-001 spec (specs/data_contracts.md),
-    with graceful fallback to legacy 'diff3d' key for backward compatibility.
+    Checks the 'diffraction' key first (accepted alias here; canonically the H5
+    /raw_data dataset name, specs/data_contracts.md), falling back to 'diff3d',
+    the standalone-NPZ canonical key (docs/specs/spec-ptycho-core.md).
 
     Taken from: https://stackoverflow.com/questions/68224572/how-to-determine-the-shape-size-of-npz-file
     Modified to quickly grab dimension we care about
@@ -55,26 +46,30 @@ def npz_headers(npz):
         xcoords = None
         ycoords = None
 
-        # First pass: try canonical 'diffraction' key (DATA-001 spec)
+        # First pass: try 'diffraction' key (alias accepted here; canonical H5 /raw_data name)
         for name in archive.namelist():
             if name.startswith('diffraction') and name.endswith('.npy'):
-                diffraction_shape = _read_npy_shape(archive.open(name))
+                npy = archive.open(name)
+                shape = read_npy_shape(npy)
+                diffraction_shape = shape
                 npy_header_found = True
                 break
 
-        # Fallback: try legacy 'diff3d' key for backward compatibility
+        # Fallback: try 'diff3d' key (standalone-NPZ canonical key, docs/specs/spec-ptycho-core.md)
         if not npy_header_found:
             for name in archive.namelist():
                 if name.startswith('diff3d') and name.endswith('.npy'):
-                    diffraction_shape = _read_npy_shape(archive.open(name))
+                    npy = archive.open(name)
+                    shape = read_npy_shape(npy)
+                    diffraction_shape = shape
                     npy_header_found = True
                     break
 
         if not npy_header_found:
              raise ValueError(
                  f"Could not find diffraction data in {npz}. "
-                 f"Expected canonical 'diffraction' key or legacy 'diff3d' key. "
-                 f"See specs/data_contracts.md for required NPZ format."
+                 f"Expected standalone-NPZ 'diff3d' key or compatibility alias 'diffraction'. "
+                 f"See docs/specs/spec-ptycho-core.md for required NPZ format."
              )
 
         # Auto-detect and fix legacy (H, W, N) format
@@ -93,25 +88,18 @@ def npz_headers(npz):
             else:
                 raise ValueError(f"Could not find 'xcoords' or 'ycoords' in {npz}")
 
-        # Truncate coordinates to match diffraction stack length.
-        # Some datasets have more coordinate entries than diffraction patterns;
-        # indices beyond diff3d.shape[0] would cause out-of-bounds errors.
-        n_diff = diffraction_shape[0]
-        if len(xcoords) > n_diff:
-            xcoords = xcoords[:n_diff]
-            ycoords = ycoords[:n_diff]
-
         return diffraction_shape, xcoords, ycoords
 
 
 def _get_diffraction_stack(npz_file):
     """
-    Helper to load diffraction stack from NPZ with canonical key preference
-    and automatic legacy format handling.
+    Helper to load diffraction stack from NPZ, accepting either key name,
+    with automatic legacy format handling.
 
-    Prefers canonical 'diffraction' key per DATA-001 spec, with fallback to
-    legacy 'diff3d' key for backward compatibility. Automatically detects and
-    transposes legacy (H, W, N) format to DATA-001 compliant (N, H, W) format.
+    Checks 'diffraction' first (accepted alias here; canonically the H5 /raw_data
+    dataset name, specs/data_contracts.md), falling back to 'diff3d', the
+    standalone-NPZ canonical key (docs/specs/spec-ptycho-core.md). Automatically
+    detects and transposes legacy (H, W, N) format to the compliant (N, H, W) format.
 
     Args:
         npz_file: Path to NPZ file
@@ -120,20 +108,20 @@ def _get_diffraction_stack(npz_file):
         numpy.ndarray: Diffraction patterns (amplitude, float32) in shape (N, H, W)
 
     Raises:
-        ValueError: If neither canonical nor legacy key exists
+        ValueError: If neither key exists
     """
     with np.load(npz_file) as data:
-        # Try canonical key first (DATA-001 spec)
+        # Try 'diffraction' first (alias accepted here; canonical H5 /raw_data name)
         if 'diffraction' in data:
             diff_array = data['diffraction']
-        # Fallback to legacy key
+        # Fallback to 'diff3d' (standalone-NPZ canonical key)
         elif 'diff3d' in data:
             diff_array = data['diff3d']
         else:
             raise ValueError(
                 f"Could not find diffraction data in {npz_file}. "
-                f"Expected canonical 'diffraction' key or legacy 'diff3d' key. "
-                f"See specs/data_contracts.md for required NPZ format."
+                f"Expected standalone-NPZ 'diff3d' key or compatibility alias 'diffraction'. "
+                f"See docs/specs/spec-ptycho-core.md for required NPZ format."
             )
 
         # Auto-detect and fix legacy (H, W, N) format
@@ -580,15 +568,8 @@ class PtychoDataset(Dataset):
         global_from, global_to = 0, 0
 
         #Initialize probes and objects in datadict
-        #Pre-scan probe files to determine max number of incoherent modes
-        max_modes = 1
-        for npz_file in image_paths:
-            p = np.load(npz_file)['probeGuess']
-            if p.ndim == 3:
-                max_modes = max(max_modes, p.shape[0])
-        if max_modes > 1:
-            print(f"Detected multi-mode probes: max {max_modes} modes")
-        self.data_dict['probes'] = torch.zeros(size=(self.n_files, max_modes, N, N), dtype=torch.complex64)
+        #Currently works for a single probe mode, but can technically support more.
+        self.data_dict['probes'] = torch.zeros(size=(self.n_files,1, N, N), dtype=torch.complex64)
         self.data_dict['probe_scaling'] = torch.zeros(size=(self.n_files,), dtype = torch.float32)
         self.data_dict['objectGuess'] = []
         #Legacy scaling constant needed for older model artifacts
@@ -619,14 +600,9 @@ class PtychoDataset(Dataset):
             #Writing to non-diffraction memory maps in one go:
             non_diff_timer_start = time.time()
 
-            #Load coordinates, truncated to match diffraction stack length
-            npz_data = np.load(npz_file)
-            xcoords_full = npz_data['xcoords']
-            ycoords_full = npz_data['ycoords']
-            n_diff = len(npz_data[next(k for k in ('diffraction', 'diff3d') if k in npz_data)])
-            if len(xcoords_full) > n_diff:
-                xcoords_full = xcoords_full[:n_diff]
-                ycoords_full = ycoords_full[:n_diff]
+            #Load coordinates
+            xcoords_full = np.load(npz_file)['xcoords']
+            ycoords_full = np.load(npz_file)['ycoords']
 
             #Apply coordinate filter to remove edge points based on self.calculate_length
             xcoords = xcoords_full[self.valid_indices_per_file[i]]
@@ -643,19 +619,7 @@ class PtychoDataset(Dataset):
                                                     self.valid_indices_per_file[i],
                                                     self.data_config, C=self.data_config.C) # Use stored config
                 nn_indices = nn_indices.astype(np.int64)
-
-                # group_coords may return fewer groups than valid_indices if some
-                # points cannot form complete quadrant groups. Adjust end to match.
-                actual_groups = len(nn_indices)
-                if actual_groups != (end - start):
-                    deficit = (end - start) - actual_groups
-                    print(f"  group_coords returned {actual_groups} groups "
-                          f"(expected {end - start}). Adjusting memory map range.")
-                    end = start + actual_groups
-                    for j in range(i + 1, len(self.cum_length)):
-                        self.cum_length[j] -= deficit
-                    self.length = self.cum_length[-1]
-
+                
                 #Get relative and center of mass coordinates for each coordinate group
                 coords_com, coords_relative = get_relative_coords(coords_nn)
                 mmap_ptycho["coords_center"][start:end] = torch.from_numpy(coords_com)
@@ -705,32 +669,23 @@ class PtychoDataset(Dataset):
 
             #Mapping probes
             probe_data = np.load(npz_file)['probeGuess']
-            if self.data_config.probe_ramp_removal:
-                if probe_data.ndim == 3:
-                    probe_data = np.stack([hh.standardize_probe(probe_data[p]) for p in range(probe_data.shape[0])])
-                else:
-                    probe_data = hh.standardize_probe(probe_data)
-
             #Optional: normalize probe for forward model to be photon agnostic. We almost always normalize.
             if len(probe_data.shape) == 2:
                 if self.data_config.probe_normalize:
-                    print(f"Normalizing probe b/c {self.data_config.probe_normalize}")
-                    probe_data, scaling_factor = hh.normalize_probe(probe_data)
+                    probe_data, scaling_factor = hh.normalize_probe_like_tf(
+                        probe_data,
+                        probe_scale=self.data_config.probe_scale,
+                        probe_mask=getattr(self.model_config, "probe_mask", False),
+                        probe_mask_tensor=getattr(self.model_config, "probe_mask_tensor", None),
+                        probe_mask_sigma=getattr(self.model_config, "probe_mask_sigma", 1.0),
+                        probe_mask_diameter=getattr(self.model_config, "probe_mask_diameter", None),
+                    )
                     self.data_dict['probe_scaling'][i] = float(scaling_factor)
                 else:
                     #Save a scaling constant, it's just 1 though
-                    print(f"No probe normalization.")
                     self.data_dict['probe_scaling'][i] = float(1)
                 probe_data = np.expand_dims(probe_data, axis = 0) # Add number of modes dimension
-            elif len(probe_data.shape) == 3:
-                if self.data_config.probe_normalize:
-                    print(f"Normalizing multi-mode probe ({probe_data.shape[0]} modes)")
-                    probe_data, scaling_factor = hh.normalize_probe(probe_data)
-                    self.data_dict['probe_scaling'][i] = float(scaling_factor)
-                else:
-                    print(f"No probe normalization (multi-mode, {probe_data.shape[0]} modes).")
-                    self.data_dict['probe_scaling'][i] = float(1)
-
+                
             n_modes = probe_data.shape[0]
             self.data_dict['probes'][i,:n_modes] = torch.from_numpy(probe_data).to(torch.complex64)
 
@@ -746,8 +701,16 @@ class PtychoDataset(Dataset):
             diff_timer_start = time.time()
             curr_nn_index_length = len(nn_indices)
 
-            #Load diffraction images (canonical 'diffraction' key with 'diff3d' fallback)
-            diff_stack = torch.from_numpy(_get_diffraction_stack(npz_file)).round().to(torch.float32) #Round for non-photon detectors
+            #Load diffraction images (standalone 'diff3d' key with 'diffraction' compatibility alias)
+            # NOTE: no .round() here. docs/specs/spec-ptycho-core.md and
+            # docs/DATA_NORMALIZATION_GUIDE.md mandate this array is
+            # normalized amplitude (typically max < 1.0), with nphotons carried only as a
+            # separate config-time physics-scaling parameter -- never baked into the data.
+            # Rounding a normalized-amplitude array to the nearest integer zeros it out
+            # entirely (confirmed empirically: a real fly64_p1e9 fixture, all values < 0.03,
+            # rounds to all-zero, which then makes get_rms_scaling_factor divide by zero
+            # and return inf). Found while running Task 1.5's Step 0 smoke gate.
+            diff_stack = torch.from_numpy(_get_diffraction_stack(npz_file)).to(torch.float32)
 
             #Inserting dummy channel dimension if channel number = 1
             if not self.model_config.object_big: # Use stored config
@@ -804,197 +767,6 @@ class PtychoDataset(Dataset):
         return 
 
 
-    @classmethod
-    def from_np(cls,
-                diff_patterns: np.ndarray,
-                probe: np.ndarray,
-                positions: np.ndarray,
-                model_config: 'ModelConfig',
-                data_config: 'DataConfig',
-                scaling_constant: float = None) -> 'PtychoDataset':
-        """
-        Create a PtychoDataset directly from in-memory numpy arrays, bypassing NPZ file I/O.
-        Intended for inference workflows where data arrives as numpy arrays.
-
-        Parameters
-        ----------
-        diff_patterns : np.ndarray, shape (N, H, W), float.
-        probe : np.ndarray, shape (H, W) for single mode or (P, H, W) for multi-mode.
-        positions : np.ndarray, shape (N, 2), [ypix, xpix] per row.
-        model_config : ModelConfig
-        data_config : DataConfig
-        scaling_constant : float, optional override for RMS normalization constant.
-
-        Returns
-        -------
-        PtychoDataset ready-to-use with in-memory TensorDict.
-        """
-        import warnings
-
-        if diff_patterns.ndim != 3:
-            raise ValueError(f"diff_patterns must be 3D (N, H, W), got shape {diff_patterns.shape}")
-        if probe.ndim not in (2, 3):
-            raise ValueError(f"probe must be 2D (H, W) or 3D (P, H, W), got shape {probe.shape}")
-        if positions.ndim != 2 or positions.shape[1] != 2:
-            raise ValueError(f"positions must be (N, 2), got shape {positions.shape}")
-
-        N_total, H, W = diff_patterns.shape
-        if positions.shape[0] != N_total:
-            raise ValueError(f"positions length {positions.shape[0]} != diff_patterns length {N_total}")
-        if probe.ndim == 2 and probe.shape != (H, W):
-            raise ValueError(f"probe shape {probe.shape} != pattern shape ({H}, {W})")
-        if probe.ndim == 3 and probe.shape[1:] != (H, W):
-            raise ValueError(f"probe spatial shape {probe.shape[1:]} != pattern shape ({H}, {W})")
-        if data_config.N != H or data_config.N != W:
-            warnings.warn(f"data_config.N={data_config.N} does not match pattern size ({H}, {W})")
-
-        # Create instance, set attributes
-        dataset = cls.__new__(cls)
-        dataset.model_config = model_config
-        dataset.data_config = data_config
-        dataset.is_ddp_active = False
-        dataset.current_rank = 0
-        dataset.ptycho_dir = None
-        dataset.file_list = [None]
-        dataset.n_files = 1
-        dataset.data_dict = {}
-        dataset.im_shape = (H, W)
-
-        # Extract coordinates and apply bounds filtering
-        xcoords_full = positions[:, 1].astype(np.float32)
-        ycoords_full = positions[:, 0].astype(np.float32)
-
-        xmin, xmax = xcoords_full.min(), xcoords_full.max()
-        ymin, ymax = ycoords_full.min(), ycoords_full.max()
-        x_range = (xmax - xmin) if xmax > xmin else 1.0
-        y_range = (ymax - ymin) if ymax > ymin else 1.0
-
-        x_lower = xmin + data_config.x_bounds[0] * x_range
-        x_upper = xmin + data_config.x_bounds[1] * x_range
-        y_lower = ymin + data_config.y_bounds[0] * y_range
-        y_upper = ymin + data_config.y_bounds[1] * y_range
-
-        if xmax <= xmin:
-            x_upper = x_lower
-        if ymax <= ymin:
-            y_upper = y_lower
-
-        mask = ((xcoords_full >= x_lower) & (xcoords_full <= x_upper) &
-                (ycoords_full >= y_lower) & (ycoords_full <= y_upper))
-        valid_indices = np.where(mask)[0]
-
-        if len(valid_indices) == 0:
-            raise ValueError("No positions remain after bounds filtering. Check x_bounds/y_bounds.")
-
-        xcoords = xcoords_full[valid_indices]
-        ycoords = ycoords_full[valid_indices]
-
-        dataset.data_dict['com'] = torch.from_numpy(
-            np.array([xcoords.mean(), ycoords.mean()]))
-
-        # Coordinate grouping
-        if model_config.object_big:
-            n_channels = data_config.C
-
-            if data_config.neighbor_function == 'Nearest':
-                neighbor_function = get_neighbor_indices
-            elif data_config.neighbor_function == 'Min_dist':
-                neighbor_function = get_neighbors_indices_within_bounds
-            else:
-                neighbor_function = '4_quadrant'
-
-            nn_indices, coords_nn = group_coords(
-                xcoords_full, ycoords_full,
-                xcoords, ycoords,
-                neighbor_function,
-                valid_indices,
-                data_config, C=data_config.C)
-            nn_indices = nn_indices.astype(np.int64)
-
-            coords_com, coords_relative = get_relative_coords(coords_nn)
-
-            regular_global_coords = torch.from_numpy(
-                np.stack([xcoords_full, ycoords_full], axis=1)).to(torch.float32)
-            coords_global = regular_global_coords[nn_indices].unsqueeze(2)
-
-            N_groups = len(nn_indices)
-        else:
-            n_channels = 1
-            nn_indices = valid_indices
-            N_groups = len(valid_indices)
-
-            coords_global = torch.from_numpy(
-                np.stack([xcoords, ycoords], axis=1)[:, None, None, :]).to(torch.float32)
-            coords_com = np.zeros((N_groups, 1, 1, 2), dtype=np.float32)
-            coords_relative = np.zeros((N_groups, n_channels, 1, 2), dtype=np.float32)
-
-        dataset.length = N_groups
-        dataset.cum_length = [0, N_groups]
-        dataset.valid_indices_per_file = [valid_indices]
-
-        # Process probe
-        probe_data = probe.copy()
-        if data_config.probe_ramp_removal:
-            if probe_data.ndim == 3:
-                probe_data = np.stack([hh.standardize_probe(probe_data[p]) for p in range(probe_data.shape[0])])
-            else:
-                probe_data = hh.standardize_probe(probe_data)
-
-        if data_config.probe_normalize:
-            probe_data, probe_sf = hh.normalize_probe(probe_data)
-            probe_sf = float(probe_sf)
-        else:
-            probe_sf = 1.0
-
-        if probe_data.ndim == 2:
-            probe_data = np.expand_dims(probe_data, axis=0)
-
-        dataset.data_dict['probes'] = torch.from_numpy(probe_data).to(torch.complex64).unsqueeze(0)
-        dataset.data_dict['probe_scaling'] = torch.tensor([probe_sf], dtype=torch.float32)
-        dataset.data_dict['objectGuess'] = []
-
-        # Compute normalization
-        diff_tensor = torch.from_numpy(diff_patterns).to(torch.float32)
-
-        if scaling_constant is not None:
-            norm_rms_factor = torch.tensor(scaling_constant, dtype=torch.float32).view(1, 1, 1, 1)
-        else:
-            norm_rms_factor = hh.get_rms_scaling_factor(diff_tensor, data_config)
-
-        norm_physics_factor = hh.get_physics_scaling_factor(diff_tensor, data_config)
-        dataset.data_dict['scaling_constant'] = norm_rms_factor.view(1)
-
-        # Build in-memory TensorDict
-        if model_config.object_big:
-            images = diff_tensor[nn_indices]
-        else:
-            images = diff_tensor[nn_indices][:, None]
-
-        if model_config.object_big:
-            nn_indices_tensor = torch.from_numpy(nn_indices)
-        else:
-            nn_indices_tensor = torch.arange(N_groups, dtype=torch.int64)[:, None]
-
-        td = TensorDict({
-            "images": images,
-            "coords_global": coords_global,
-            "coords_center": torch.from_numpy(coords_com).to(torch.float32),
-            "coords_relative": torch.from_numpy(coords_relative).to(torch.float32),
-            "coords_start_center": torch.zeros(N_groups, 1, 1, 2, dtype=torch.float32),
-            "coords_start_relative": torch.zeros(N_groups, n_channels, 1, 2, dtype=torch.float32),
-            "nn_indices": nn_indices_tensor,
-            "experiment_id": torch.zeros(N_groups, dtype=torch.int32),
-            "rms_scaling_constant": norm_rms_factor.expand(N_groups, 1, 1, 1).clone(),
-            "physics_scaling_constant": norm_physics_factor.expand(N_groups, 1, 1, 1).clone(),
-        }, batch_size=N_groups)
-
-        dataset.mmap_ptycho = td
-
-        print(f"[PtychoDataset.from_np] Created in-memory dataset with {N_groups} groups, "
-              f"{n_channels} channels, image shape {(H, W)}")
-
-        return dataset
-
     def __len__(self):
         return self.length
 
@@ -1009,8 +781,9 @@ class PtychoDataset(Dataset):
         -------
         self.mmap_ptych[idx] - Batched TensorDict containing all relevant information for training. See
             function memory_map_data for further details. Length is batch size
-        probes_indexed - (N,C,H,W) tensor, where N is batch size. C is number of channels, where the probe is duplicated
-            H and W are height and width of diffraction pattern. The dimensionality should be exactly the same as the output of the autoencoder.
+        probes_indexed - (B,C,P,N,N) tensor, where B is batch size, C is number of channels (probe duplicated
+            across channels via unsqueeze+expand), P is the number of probe modes, and N,N are the height and
+            width of the diffraction pattern. The dimensionality should be exactly the same as the output of the autoencoder.
         scaling_constant - (N) tensor, scaling constants required for each diffraction image
         
         """

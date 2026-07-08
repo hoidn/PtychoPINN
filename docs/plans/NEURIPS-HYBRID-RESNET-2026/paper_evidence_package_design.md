@@ -1,0 +1,493 @@
+# NeurIPS Hybrid ResNet Paper Evidence Package Design
+
+## Context And Authority
+
+- Status: draft design
+- Date: 2026-04-29
+- Initiative: `NEURIPS-HYBRID-RESNET-2026`
+- Consumed brief: define what evidence is needed before drafting a credible
+  Hybrid ResNet paper, starting from a CDI `lines128` benchmark and a PDEBench
+  CNS benchmark, with numeric metrics, visual comparisons, and explicit
+  paper-grade provenance.
+- Governing docs:
+  - `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-design.md`
+  - `docs/plans/2026-04-20-neurips-hybrid-resnet-submission-roadmap.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/evidence_inventory.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_anchor_regeneration_plan.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_128x128_image_suite_plan.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_2d_cfd_cns_summary.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/inverse_wave_benchmark_rationale.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md`
+  - `docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_benchmark_design.md`
+  - `docs/studies/index.md`
+  - `docs/model_baselines.md`
+
+## Problem And Scope
+
+The project needs a small, paper-grade evidence package before result claims can
+be drafted. Current evidence is strong enough to shape the paper, but not yet
+strong enough to support final claims:
+
+- CDI `lines128` has a strong historical Hybrid ResNet row, but it is
+  decision-support only because complete paper-grade provenance was not
+  recovered.
+- PDEBench CNS has many useful capped comparisons, but most are explicitly
+  decision-support rather than full-training benchmark evidence.
+- The paper needs both numeric tables and visual comparisons under fixed,
+  externally auditable contracts.
+
+In scope:
+
+- define the required CDI and CNS result tables
+- define required figures and source artifacts
+- define paper-grade provenance gates
+- define claim boundaries for capped, decision-support, and paper-grade rows
+- define a backlog decomposition that can be executed by the active drain
+  workflow or by manual backlog items
+
+Out of scope:
+
+- manuscript prose
+- creating `/home/ollie/Documents/neurips/` paper-facing artifacts immediately
+- selecting final winning models before the locked tables exist
+- broad architecture sweeps beyond rows needed for a credible paper table
+- treating historical incomplete artifacts as paper-grade evidence
+
+## Decision Summary
+
+Use a two-pillar evidence package:
+
+1. CDI `lines128` reconstruction benchmark.
+2. PDEBench `2d_cfd_cns` forward-prediction benchmark.
+
+The CDI pillar is the paper anchor. The CNS pillar is the generalization /
+physics-modeling evidence. Each pillar must produce:
+
+- one locked numeric table
+- one locked visual comparison bundle
+- one machine-readable manifest
+- one durable summary with claim boundaries
+
+Drafting may begin before every result is complete, but result claims must stay
+as placeholders until the corresponding table and figure bundle are locked.
+
+Candidate inverse-wave preflights may run concurrently with this two-pillar
+work when their backlog priority makes them selectable. They are not a third
+required pillar by default. The BRDT and WaveBench inverse-source preflights are
+on equal footing as active candidate work. A candidate lane can become
+manuscript evidence only after a checked-in roadmap/evidence amendment promotes
+it and names the exact rows, artifacts, and claim boundary.
+
+The package should prefer the best available Hybrid-family row for each pillar
+when writing claim language, but row selection must not narrow the benchmark
+tables themselves:
+
+- CDI: the complete `lines128` benchmark table must include the rows required by
+  `lines128_paper_benchmark_design.md`; the paper may separately identify the
+  best Hybrid-family row after that table is locked.
+- CNS: the best bounded Hybrid/Hybrid-spectral row under the selected CNS
+  contract, with explicit labeling if it is capped decision-support evidence.
+
+## Evidence Pillar A: CDI `lines128`
+
+The detailed benchmark design is
+`docs/plans/NEURIPS-HYBRID-RESNET-2026/lines128_paper_benchmark_design.md`.
+This package design treats that document as the CDI table authority.
+
+Complete CDI benchmark table rows:
+
+- `hybrid_resnet`
+- `spectral_resnet_bottleneck_net`
+- FNO comparator, selected before launch as either `fno` or `fno_vanilla`
+- FFNO row, after FFNO satisfies the CDI/grid-lines generator contract
+- paired local convolutional rows using the CDI `cnn` U-Net-class architecture:
+  - CDI `cnn` U-Net-class + supervised
+  - CDI `cnn` U-Net-class + PINN
+- optional classical CDI row, preferably HIO/ER/PyNX, if it can be made
+  protocol-compatible without changing the task contract
+
+Minimum draftable CDI claim rows:
+
+- `hybrid_resnet`
+- CDI `cnn` U-Net-class + supervised
+- CDI `cnn` U-Net-class + PINN
+- selected FNO comparator
+
+This minimum subset can unblock manuscript table shells and bounded preliminary
+claim drafting, but it is not the complete `lines128` benchmark. Do not mark the
+CDI benchmark table complete until `spectral_resnet_bottleneck_net` and FFNO
+are present, blocked with explicit row-level reasons, or removed by a checked-in
+amendment to the detailed `lines128` design.
+
+Required CDI metrics:
+
+- amplitude MAE, MSE, PSNR, SSIM, MS-SSIM, FRC50
+- phase MAE, MSE, PSNR, SSIM, MS-SSIM, FRC50
+- final train loss
+- validation loss when the training contract emits a real validation series
+- parameter count
+- runtime and hardware
+- row status: `paper_grade`, `decision_support`, `blocked`, or
+  `not_protocol_compatible`
+
+Required CDI visuals:
+
+- shared test sample IDs across every model row
+- ground-truth amplitude and phase
+- reconstructed amplitude and phase for every row
+- amplitude and phase absolute-error panels for every row
+- shared color scales per quantity
+- FRC curves
+- source arrays sufficient to regenerate figures
+
+CDI paper-grade gate:
+
+- every row in the headline table must be regenerated or recovered with complete
+  invocation/config/git/environment/dataset/split/metric/visual provenance
+- historical rows can appear only as sanity context unless they satisfy that bar
+- row status is assigned by the current evidence audit; exploratory,
+  decision-support, or historical origin labels are advisory rather than
+  disqualifying
+- no FFNO row may count unless it uses the same CDI dataset, split, stitching,
+  metric, and generator-output contract as the Hybrid row
+
+## Evidence Pillar B: PDEBench CNS
+
+Selected contract as of `2026-04-29`:
+
+- authoritative decision:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_contract_decision.md`
+- durable row-lock summary:
+  `docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_paper_row_lock_summary.md`
+- machine-readable locked-row manifest:
+  `.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-benchmark-rows/cns_paper_locked_rows.json`
+- Selected contract: `bounded_capped_decision_support`
+- Selected history lane: `history_len=2`, `40` epochs, `512 / 64 / 64` trajectories, `max_windows_per_trajectory=8`, emitted windows `4096 / 512 / 512`
+- Selected normalization contract: train-only per-field normalization fit on the `512` training trajectories, reused across all history slots and target channels, with evaluation reported in denormalized target space.
+- Selected training recipe contract: keep the CNS task-local `mse` override relative to the design's generic `mae` baseline; use `Adam` with learning rate `2e-4`; use `ReduceLROnPlateau` with factor `0.5`, patience `2`, threshold `0.0`, and `min_lr=1e-5`; keep batch size `4`; keep the metric family `err_RMSE`, `err_nRMSE`, `relative_l2`, `fRMSE_low`, `fRMSE_mid`, `fRMSE_high`.
+- locked headline rows:
+  `spectral_resnet_bottleneck_base`, `fno_base`, `unet_strong`,
+  `author_ffno_cns_base`
+- audited continuity row:
+  `hybrid_resnet_cns`
+- adjacent-only context:
+  `history_len=3` capped pilots, GNOT, and repo-local FFNO proxy rows
+
+The package no longer leaves the CNS contract open-ended. Future readers should
+not recover normalization or training recipe rules from older summaries; the
+decision document above is now the authority surface for both.
+
+The row-lock pass also freezes the accepted run roots for downstream
+table/figure assembly. That lock is intentionally narrower than the package's
+paper-grade provenance target: the accepted capped roots expose invocation,
+dataset/split, normalization, profile, metrics, and source-array assets, but
+they do not emit standalone repo-git, run-log, or exit-code artifacts. Treat
+the locked manifest as bounded `capped_decision_support` authority only, not as
+proof that the CNS pillar has reached `paper_grade` provenance completeness.
+
+Required CNS table rows for the current locked bounded capped contract:
+
+- `spectral_resnet_bottleneck_base`
+- `fno_base`
+- `unet_strong`
+- `author_ffno_cns_base`
+
+Additional CNS row-handling rules:
+
+- `hybrid_resnet_cns` remains an audited continuity/support row only. It may be
+  cited as same-contract context, but it must not silently replace or expand the
+  locked headline roster.
+- `history_len=1` and `history_len=3` rows, GNOT rows, and repo-local FFNO
+  proxy rows remain adjacent-only context unless a checked-in CNS contract
+  decision explicitly promotes them into a later table contract.
+
+Required CNS metrics:
+
+- `err_nRMSE`
+- `err_RMSE`
+- `relative_l2`
+- `fRMSE_low`
+- `fRMSE_mid`
+- `fRMSE_high`
+- per-channel versions when available
+- parameter count
+- runtime and hardware
+- training split/cap/full-training status
+- row status: `full_training`, `capped_decision_support`, `blocked`, or
+  `not_protocol_compatible`
+
+Required CNS visuals:
+
+- one fixed set of test sample IDs across rows
+- prediction and ground truth panels for the four CNS fields:
+  `density`, `Vx`, `Vy`, `pressure`
+- error panels for the same fields
+- shared color scales per field and per error quantity
+- source arrays sufficient to regenerate figures
+
+CNS claim gate:
+
+- If rows remain capped, the paper may use CNS as bounded evidence only. Claims
+  must say the result is capped decision-support and cannot imply full benchmark
+  competitiveness.
+- If CNS is used for benchmark-performance claims, the table must contain
+  same-contract full-training rows for the selected model family and required
+  baselines, or the summary must explicitly justify a narrower claim.
+- Current capped studies may select which rows deserve full-training budget, but
+  they do not by themselves satisfy the full-training benchmark gate.
+
+## Candidate Additive Lanes
+
+Born/Rytov diffraction tomography is an active concurrent candidate preflight
+under `candidate-brdt-preflight`. It is governed by
+`docs/plans/NEURIPS-HYBRID-RESNET-2026/born_rytov_dt_candidate_lane_design.md`.
+
+WaveBench inverse source is an active concurrent candidate preflight under
+`candidate-wavebench-inverse-source-preflight`. It is governed by
+`docs/plans/NEURIPS-HYBRID-RESNET-2026/wavebench_inverse_source_benchmark_design.md`.
+
+These lanes are additive:
+
+- it does not replace CDI `lines128` or PDEBench CNS;
+- they do not satisfy either pillar's evidence gate;
+- they should run only when backlog priority and steering select them;
+- they must stay limited to their preflight scopes until a later amendment
+  promotes one or both.
+
+The BRDT preflight should answer whether the differentiable Born operator,
+normalization contract, synthetic dataset, and task adapters are trustworthy
+enough to justify later paper-evidence promotion. The WaveBench preflight should
+answer whether the dataset, native baselines, adapter contract, and
+differentiable forward-model reproduction are trustworthy enough to justify
+later paper-evidence promotion. Neither preflight may add rows to manuscript
+tables or result claims by itself.
+
+### BRDT 40-Epoch Sinogram-Input Additive Secondary Bundle — Passed (2026-05-07)
+
+The same-contract paired BRDT sinogram-input bundle at
+`.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/`
+is the current additive-secondary BRDT authority.
+
+`paper_evidence_gate.json` records
+`claim_boundary=paper_evidence_brdt_additive`, `promotion_status=passed`, and
+no failed gate checks.
+
+The promoted bundle preserves the locked BRDT dataset/operator/split/loss
+contract while changing the learned-model input to `input_mode="sinogram"`,
+reruns `sru_net` and the corrected no-refiner `ffno` row in one immutable
+root, records genuine training-run git/host/python/torch provenance, stores
+PID-backed exit-code proof, emits per-epoch histories and convergence audit
+for both rows, and materializes the sample-`255` visual/source-array bundle
+from the sinogram-input paired rerun.
+
+This promotion is deliberately narrow. It authorizes additive secondary BRDT
+context only:
+
+- it may support bounded manuscript-side context under
+  `paper_evidence_brdt_additive`
+- it does **not** replace CDI `lines128` or PDEBench CNS
+- it does **not** authorize same-protocol full-training BRDT competitiveness
+  claims
+- it does **not** authorize `/home/ollie/Documents/neurips/` publication by
+  itself
+
+The historical
+`.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-brdt-corrected-ffno-40ep-rerun/`
+bundle remains preserved for provenance as the passed `born_init_image`
+authority, and the historical
+`.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-05-brdt-supervised-born-40ep-paper-evidence/`
+bundle remains preserved for provenance, but its FFNO row is a legacy
+local-refiner proxy and its reconstructed runtime provenance keeps it out of the
+current paper-facing authority path.
+
+## Shared Provenance Contract
+
+Every paper-grade table row must have:
+
+- unique run root
+- `invocation.sh` or equivalent exact command
+- structured invocation/config JSON
+- git SHA plus dirty-state note
+- Python, PyTorch, CUDA, GPU, and host provenance
+- dataset identity manifest with source URL or dataset ID, size, checksum; if a
+  checksum is genuinely unavailable, include a reviewed exception with
+  size/mtime/source manifest and rationale
+- split manifest
+- model profile and parameter count
+- metric schema and units
+- source prediction/reconstruction arrays
+- generated figure paths
+- run logs and exit-code proof for long runs
+
+The merged package must have:
+
+- `paper_evidence_manifest.json`
+- per-pillar table JSON/CSV/TeX
+- per-pillar metric schema JSON
+- figure manifests with source-array paths
+- durable summaries under `docs/plans/NEURIPS-HYBRID-RESNET-2026/`
+- later, paper-facing links under `/home/ollie/Documents/neurips/index.md`
+  during the roadmap evidence-bundle phase
+
+## Drafting Gate
+
+The paper can be drafted in phases.
+
+Safe to draft now:
+
+- introduction
+- method and architecture description
+- related work
+- experiment-protocol shells
+- table and figure placeholders
+- limitations phrased around current evidence gaps
+
+Do not draft as final claims yet:
+
+- CDI superiority claims until the `lines128` table is paper-grade
+- FFNO CDI conclusions until the FFNO generator row lands
+- CNS benchmark-performance claims while rows are capped
+- multi-seed robustness claims without pre-declared seed aggregation
+- runtime/efficiency claims without parameter count and hardware-normalized
+  runtime fields
+
+Minimum result-claim gate:
+
+- CDI table has at least Hybrid-family, paired CDI `cnn` U-Net-class
+  supervised and PINN rows, and FNO rows under one paper-grade contract, while
+  clearly labeling the result as the minimum draftable CDI subset rather than
+  the complete `lines128` benchmark
+- CNS table has at least Hybrid-family, FNO, and U-Net/CNN-style rows under one
+  explicitly labeled contract
+- each pillar has at least one visual comparison bundle
+- every claimed row has complete provenance
+- the evidence inventory states which rows are paper-grade and which are
+  decision-support only
+
+## Backlog Decomposition
+
+This design should be converted into small backlog items rather than one broad
+"write paper evidence" item.
+
+Recommended backlog items:
+
+1. CDI `lines128` paper-grade anchor
+   - regenerate or produce the `hybrid_resnet` row under the locked CDI contract
+   - output complete provenance, metrics, and visuals
+
+2. CDI `lines128` baseline table
+   - run the CDI `cnn` U-Net-class architecture under both supervised and PINN
+     training procedures, plus FNO, under the same CDI contract
+   - explicitly label this as the CDI-side U-Net/CNN-style local baseline
+     family aligned to CNS `unet_strong`, while recording that it is not the
+     same implementation
+   - emit table-ready metrics and visuals
+
+3. CDI spectral row
+   - run `spectral_resnet_bottleneck_net` under the locked `lines128` contract
+   - keep it separate from "best Hybrid-family" claim selection until the table
+     is locked
+
+4. CDI FFNO generator row
+   - align with or refine
+     `docs/backlog/active/2026-04-27-cdi-ffno-generator-lines-best-config.md`
+   - prove FFNO satisfies the same generator/output/stitching contract
+
+5. CDI classical baseline
+   - attempt HIO/ER/PyNX or record protocol incompatibility explicitly
+
+6. CDI table and figure bundle
+   - merge all locked CDI rows into paper-ready JSON/CSV/TeX and figures
+
+7. CNS table contract decision
+   - decide whether the paper will spend compute on full-training CNS rows or
+     publish bounded capped evidence only
+   - set the authored-FFNO cutoff and claim impact before row locking
+
+8. CNS required rows
+   - run or lock Hybrid-family, FNO, and U-Net/CNN-style rows under the selected
+     CNS contract
+   - include authored FFNO if available by the cutoff, otherwise record a
+     row-level blocker and limit claims accordingly
+
+9. CNS table and figure bundle
+   - merge all locked CNS rows into paper-ready JSON/CSV/TeX and figures
+
+10. Paper evidence index
+   - create `/home/ollie/Documents/neurips/index.md` during the evidence-bundle
+     phase and link all source artifacts, summaries, tables, figures, and
+     claim boundaries
+
+## Invariants And Failure Modes
+
+Invariants:
+
+- no table may mix rows with incompatible dataset/split/metric contracts unless
+  that incompatibility is a visible table column and claim boundary
+- no row may be promoted from decision-support to paper-grade by prose alone
+- FFNO must adapt to the selected CDI/CNS contracts, not force silent contract
+  drift
+- visual figures must be regenerable from saved arrays
+- every claimed metric must have units and a producing script or manifest
+
+Expected failure modes:
+
+- FFNO cannot satisfy the CDI generator contract
+- CNS full-training compute is too expensive before deadline
+- a baseline row fails under the fixed contract
+- historical CDI configuration cannot be reconstructed confidently enough
+- merged figure scripts accidentally compare different sample IDs or scales
+- runtime/parameter fields are missing for some rows
+
+Responses:
+
+- block row-specific claims rather than weakening the contract
+- keep partial rows as decision-support if provenance is incomplete
+- use capped CNS results only for bounded claims if full-training rows do not
+  land
+- create explicit protocol-incompatibility notes for classical baselines rather
+  than forcing misleading comparisons
+
+## Verification Strategy
+
+Design-level checks:
+
+- this design is linked from `docs/index.md`
+- the existing `lines128_paper_benchmark_design.md` remains the detailed CDI
+  authority
+- future backlog items reference this package design or the detailed pillar
+  design
+
+Execution-level checks for each pillar:
+
+- parse/check every invocation and manifest JSON
+- validate table schemas
+- verify all declared source arrays and figure paths exist
+- verify rows share the declared contract
+- run targeted tests for changed runners, wrappers, and collators
+- run final artifact validation before marking a table `paper_complete`
+
+Acceptance criteria for paper-result drafting:
+
+- CDI and CNS durable summaries exist
+- table JSON/CSV/TeX exists for both pillars, even if CNS is explicitly bounded
+- visual comparison bundles exist for both pillars
+- provenance manifests exist for all claimed rows
+- `/home/ollie/Documents/neurips/index.md` links final paper-facing artifacts
+  when the roadmap reaches evidence-bundle assembly
+
+## Handoff
+
+This design is the package-level source for paper-evidence backlog drafting.
+The next step is to create or reconcile backlog items against the decomposition
+above, reusing the existing CDI FFNO and `lines128` paper benchmark designs
+where possible instead of creating duplicate scopes.
+
+Open decisions:
+
+- whether CDI uses the reconstructed legacy-best `40`-epoch contract or the
+  current anchor-regeneration contract as the final paper contract
+- whether the FNO CDI row should be `fno` or `fno_vanilla`
+- whether CNS receives full-training budget or remains a bounded capped table
+- whether classical CDI can be made protocol-compatible in time

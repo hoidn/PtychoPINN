@@ -1,0 +1,13 @@
+diff --git a/README.md b/README.md
+index 041690a..59d251e 100644
+--- a/README.md
++++ b/README.md
+@@ -66,7 +66,7 @@ Both backends share the same data pipeline and configuration system, ensuring co
+   - `scripts/studies/grid_lines_compare_wrapper.py`
+ - Grid-lines Torch runner:
+   - `scripts/studies/grid_lines_torch_runner.py`
+-  - Architectures: `fno`, `hybrid`, `stable_hybrid`, `fno_vanilla`, `hybrid_resnet`
++  - Architectures: `fno`, `hybrid`, `stable_hybrid`, `fno_vanilla`
+ 
+ #### Older Flags and Modes
+ - `--n_images` in training is older; use `--n_groups`.

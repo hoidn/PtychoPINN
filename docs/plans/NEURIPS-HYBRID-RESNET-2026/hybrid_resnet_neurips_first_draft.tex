@@ -1,0 +1,1545 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{placeins}
+\usepackage{tikz}
+\usepackage{hyperref}
+\usetikzlibrary{arrows.meta,positioning}
+
+\newcommand{\ConvTT}{\mathrm{Conv}_{3\times 3}}
+\newcommand{\ConvOO}{\mathrm{Conv}_{1\times 1}}
+
+\title{Spectral-Local Residual Networks for Wave Inverse Reconstruction}
+\author{}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+
+\begin{abstract}
+Wave inverse problems like coherent diffractive imaging (CDI) require networks to combine global
+measurement-domain coupling with sharp real-space synthesis. Pure-convolutional
+and pure-spectral models each resolve this tension only partially. We show that closing this gap on simulated
+CDI requires getting two choices right at once: training through the known diffraction model, and
+placing spectral mixing in the encoder rather than the bottleneck of an otherwise local
+architecture. Switching from object-space supervision to a PtychoPINN-style measurement-consistency
+loss reduces factorized Fourier neural operator (FFNO) amplitude mean absolute error (MAE)
+more than sixfold ($0.349 \to 0.057$), with consistent gains
+across every architecture we train both ways. Holding that loss fixed, we introduce \textbf{SRU-Net}
+(spectral-residual U-Net),
+which interleaves truncated Fourier mixing with local convolution in each encoder block, processes
+the result through a six-block residual bottleneck, and decodes with transposed convolutions.
+SRU-Net cuts CDI amplitude MAE $2.1\times$ over FFNO and $4.6\times$ over a
+convolutional neural network (CNN) baseline
+($0.027$ vs.\ $0.057$ vs.\ $0.123$) and reaches amplitude structural similarity
+index (SSIM)~$0.99$. Ablations indicate the gain
+depends on where spectral mixing is placed, not on spectral capacity alone: replacing the residual
+bottleneck with FFNO-style spectral blocks or weakening the decoder regresses both error metrics.
+The same design transfers to Born--Rytov diffraction tomography (BRDT), where SRU-Net reaches relative
+$L_2$ of $0.288$ against $0.451$ for FFNO and $0.380$ for a model-based Born inverse. On forward
+compressible Navier--Stokes prediction, FFNO remains strongest; SRU-Net is
+second by aggregate error, while U-shaped neural operator (U-NO) is close to
+Fourier neural operator (FNO) in aggregate error and
+stronger at higher frequencies.
+\end{abstract}
+
+\section{Introduction}
+
+Problems such as phase retrieval \cite{fienup}, inverse scattering
+\cite{devaney}, and forward partial differential equation (PDE) prediction
+combine long-range coupling with localized structure. In lensless computed
+imaging, each detector measurement depends on the target object and probe
+interaction through global wave propagation, while the reconstruction is a
+real-space object with localized amplitude and phase structure. In fluid
+dynamics, large-scale coherent dynamics coexist with localized features such as
+shocks and vortices. Across these settings, learned models must propagate
+information globally without erasing localized spatial structure.
+
+Classical forward solvers often require fine discretization, while inverse wave
+reconstruction commonly relies on iterative physics-based reconstruction or
+projection algorithms. Standard computer vision architectures adapted to
+physics-prediction tasks provide fast approximate solutions, but their accuracy
+is limited in domains with prominent scale mixing. The accuracy gap reflects a
+specific architectural mismatch: architectures that are efficient on natural
+images, such as U-Net \cite{unet} and ResNet \cite{resnet}, process local
+spatial neighborhoods well but lack direct global receptive fields for
+long-range physical interactions.
+
+Fourier neural operator (FNO) networks address the opposite side of this
+tradeoff. They are effective models for continuous physical systems because
+spectral layers provide global mixing \cite{fno}. However, FNO-style models
+retain a finite set of Fourier modes, and this truncation can bias predictions
+toward lower-frequency structure and weaken sharp localized features. Recent
+extensions mitigate this limitation by coupling global Fourier layers with
+U-Net-style \cite{unet} or localized-kernel branches \cite{ufno,localno}. These
+convolutional or localized-kernel paths help preserve fine-scale structure
+while retaining long-range mixing. Such hybrids improve some PDE benchmarks,
+but they are not uniformly better than strong spectral-only architectures such
+as the factorized Fourier neural operator \cite{ffno}. We focus on convolutional
+and spectral models; attention-based operators such as Galerkin Transformer
+\cite{galerkin} and the broader DeepONet family \cite{deeponet} are separate
+model families outside the scope of this study.
+
+Coherent diffractive imaging (CDI) is our primary test case because it stresses
+both sides of the global-local problem. Diffraction measurements are globally coupled by the wave forward
+model, while the desired output is a localized complex object. The inverse map
+must therefore interpret measurement-domain structure across the full detector
+field and synthesize a sharp real-space reconstruction. Our experiments show
+that FNO-based architectures used in forward physical prediction can struggle to
+synthesize accurate real-space images from diffraction measurements, although
+they still improve over purely convolutional models in several comparisons.
+
+For CDI, the training objective is as important as the architecture. We do not
+propose a new CDI loss; instead, we use the established PtychoPINN-style
+physics-consistency objective, in which a predicted object is passed through
+known real-space consistency and diffraction operators and the loss is applied
+in measurement space \cite{hoidn2023physics}. This objective is not a minor
+implementation detail in our experiments. Models trained with supervised loss
+show meaningfully worse aggregate reconstruction quality than the corresponding
+physics-consistency-trained models across the tested architectures, with the
+clearest gaps in amplitude reconstruction. We therefore use the same
+physics-consistency objective for the CDI architecture comparison and ask
+which network works best once the standard CDI physics constraint is imposed.
+
+We introduce SRU-Net, a spectral-convolutional architecture for wave inverse
+reconstruction. Each encoder block combines a truncated Fourier mixing branch
+with a local convolutional branch inside a residual update. The Fourier branch
+lets the model aggregate information across the full measurement field, while
+the convolutional branch preserves grid-aligned local features. A residual
+bottleneck processes the mixed representation at reduced spatial resolution, and
+a convolutional decoder synthesizes the real-space output. The architecture is
+designed to separate the inverse-mapping role of global spectral mixing from the
+image-synthesis role of local convolutional decoding.
+
+Our contributions are threefold. \emph{First}, we argue that for wave inverse
+reconstruction, spectral mixing belongs in the encoder, paired with a local
+residual bottleneck and a convolutional decoder; we instantiate this as
+SRU-Net. \emph{Second}, on CDI under a shared PtychoPINN-style
+physics-consistency objective, SRU-Net cuts amplitude MAE to $0.027$, a
+$2.1\times$ improvement over FFNO ($0.057$) and $4.6\times$ over a
+CNN baseline ($0.123$), and reaches amplitude SSIM $0.99$. The same objective
+reduces amplitude error for every architecture trained both ways, isolating
+the architectural gap from the loss. \emph{Third}, ablations isolate the
+placement: the convolutional decoder is load-bearing (replacing it with a
+linear decoder drives amplitude error to $5\times$ the SRU-Net value), and
+the local residual bottleneck cannot be replaced by spectral blocks without
+regressing both amplitude and phase metrics.
+
+
+% Fallback full-field amplitude/phase version retained for quick restoration.
+% \begin{figure}[t]
+% \centering
+% \includegraphics[width=\linewidth]{figures/cdi_synthetic_line_pattern_srunet_fno_ffno.png}
+% \caption{\textbf{CDI reconstruction comparison on synthetically-generated diffraction data.} The
+% comparison shows target, FNO+PINN, FFNO+PINN, and SRU-Net+PINN under the
+% same $N=128$ diffraction data protocol. ``+PINN'' indicates training through
+% the CDI physics-consistency loss defined in the introduction.}
+% \label{fig:cdi_main_qualitative_full_field_fallback}
+% \end{figure}
+%
+% Alternate contrast-normalized phase-only version. Use only if the caption
+% states that each panel is scaled independently and colors are not comparable
+% across panels.
+% \begin{figure}[t]
+% \centering
+% \includegraphics[width=\linewidth]{figures/cdi_lines128_phase_zoom_cnn_fno_ffno_uno_srunet_per_panel_scaled.png}
+% \caption{\textbf{Contrast-normalized phase reconstruction comparison.} Each
+% panel uses an independent 1st--99th percentile phase scale after global phase
+% alignment, so colors reveal within-panel structure but are not directly
+% comparable across models.}
+% \label{fig:cdi_main_qualitative_per_panel_scaled}
+% \end{figure}
+
+\section{Related Work}
+
+% Citation TODO before submission:
+% - Classical phase retrieval: Fienup (1982) HIO; Marchesini (2007) review;
+%   Maiden and Rodenburg (2009) ePIE; Elser (2003) difference map.
+% - Variational inverse problems: Engl, Hanke, Neubauer (1996) or Vogel (2002).
+% - Unrolled optimization: Zhang and Ghanem (2018) ISTA-Net; Sun et al. (2016)
+%   ADMM-Net; or Monga, Li, Eldar (2021) algorithm-unrolling review.
+
+\subsection{Operator learning and spectral-local architectures}
+
+Neural operators learn mappings between function spaces and are widely used
+for scientific machine learning on PDEs. Fourier neural operators (FNOs)
+parameterize solution operators through truncated spectral convolutions,
+providing global receptive fields at low cost \cite{fno}. Factorized Fourier
+neural operators (FFNOs) extend this construction with separable Fourier
+transforms, layer-shared kernel integral operators, and residual temporal
+updates, enabling deeper and more parameter-efficient stacks \cite{ffno}.
+PDEBench supplies a controlled benchmark for evaluating these models on
+forward physical prediction, including the compressible Navier--Stokes setting
+we use here \cite{pdebench}.
+
+Pure spectral models couple distant regions of a field directly, which is
+attractive for wave propagation and fluid dynamics. The price is Fourier-mode
+truncation, which biases predictions toward lower-frequency structure and can
+attenuate sharp localized features. Several extensions address this by
+combining global Fourier layers with local or multiscale operators: U-FNO
+interleaves spectral and U-Net branches for multiphase flow \cite{ufno}, and
+neural operators with localized integral and differential kernels pair spectral
+coupling with locally supported kernels \cite{localno}. These hybrids improve
+specific PDE benchmarks but do not uniformly outperform strong spectral-only
+baselines such as FFNO, and the literature has not converged on where in an
+architecture spectral and local components should be placed.
+
+\subsection{Wave inverse reconstruction}
+
+Coherent diffractive imaging and ptychography have a long algorithmic history
+grounded in iterative projection methods: the Gerchberg--Saxton algorithm,
+hybrid input--output (HIO), error reduction (ER), the difference-map algorithm
+\cite{fienup}, and ePIE \cite{epie}. These methods are widely used in practice
+but can require many iterations to converge, and each reconstruction is solved
+independently. Learned reconstruction replaces per-instance iterative solving
+with a one-shot inverse map at inference time, motivating recent CDI work in
+machine learning that ranges from supervised generative inversion
+\cite{cherukara2018,ptychonn}, through edge-streaming pipelines
+\cite{streamingptycho}, to unsupervised physics-aware variants that embed the
+forward model in the loss \cite{autophasenn,hoidn2023physics}.
+
+PtychoPINN introduced a measurement-consistency training objective for
+unsupervised scanning-CDI \cite{hoidn2023physics}: a learned network predicts
+complex object patches; the prediction is passed through known real-space
+consistency, probe interaction, and far-field diffraction; and the loss
+compares the resulting simulated detector amplitudes to the measurements.
+Training is therefore against the measured diffraction statistics rather than
+against paired target objects. We adopt this formulation unchanged for the CDI
+portion of our study.
+
+The reason measurement-space objectives are natural for CDI is structural and
+predates deep learning. In the variational picture of inverse problems, the
+standard objective combines a measurement-space data-fidelity term with an
+image-space regularizer: the data term is invariant to changes in the
+prediction that the forward operator does not produce in the measurement,
+while the regularizer carries prior information about the reconstruction. A
+supervised object-space loss collapses these two roles into a single
+image-space penalty, which can penalize nuisance variation unless the
+supervised target or loss handles those equivalences explicitly. Unrolled
+iterative methods such as ISTA-Net and ADMM-Net build this separation into the
+architecture by interleaving measurement-domain and image-domain updates; we
+use the same intuition implicitly through measurement-space training rather
+than through architectural unrolling.
+
+\subsection{Forward versus inverse problems in scientific ML}
+
+Operator-learning benchmarks are dominated by forward physical prediction:
+given current state and parameters, predict the next state on the same grid.
+Wave inverse reconstruction differs in that the input occupies measurement
+space and the output occupies image space, coupled by a global forward
+operator. Architectures optimal for forward prediction need not be optimal for
+inverse mapping, and the converse holds as well. Our PDEBench Navier--Stokes
+results are reported in this spirit: as context that constrains where
+SRU-Net's design helps, not as a competing claim on forward prediction.
+
+\section{Methods}
+
+\subsection{Task-agnostic network formulation}
+
+Let $x$ denote the task input and $y$ the target field or reconstruction. We
+write the learned network as
+\begin{equation}
+  \hat{y} = G_{\theta}(x).
+\end{equation}
+For CDI, $x$ is a stack of diffraction measurements and $\hat{y}$ is a complex
+object-patch representation, meaning local crops of the reconstructed complex
+object represented by real and imaginary channels. For Born--Rytov diffraction
+tomography (BRDT), $x$ is a Born image formed by backprojecting the measured
+complex sinogram, and $\hat{y}$ is the recovered scattering potential. For
+PDEBench compressible
+Navier--Stokes (CNS), $x$ is a temporal history of physical fields and
+$\hat{y}$ is the predicted next state. The tasks use
+different input representations and objective functions, but share the same
+architectural principle:
+$G_{\theta}$ combines global spectral mixing with local convolutional feature
+recovery.
+
+We decompose the network as
+\begin{equation}
+  G_{\theta} = D_{\theta} \circ B_{\theta} \circ E_{\theta},
+\end{equation}
+where $E_{\theta}$ is the spectral-local encoder, $B_{\theta}$ is a ResNet
+bottleneck at reduced spatial resolution, and $D_{\theta}$ is a convolutional
+upsampling decoder.
+
+We use subscripts to distinguish architectural positions rather than tensor
+dimensions. The index $\ell$ denotes the encoder block that maps
+$z_{\ell}$ to $z_{\ell+1}$; $j$ indexes the six residual bottleneck blocks;
+$s$ indexes resolution levels used for encoder-decoder skip connections; and
+$k$ indexes Fourier modes. The retained Fourier-mode set is $K$, with
+$m=|K|$ in the architecture diagram. Superscripts such as $B_j^{\times 6}$
+denote repeated blocks rather than exponentiation. Task subscripts such as
+${\rm CDI}$ and ${\rm CNS}$ label task-specific outputs.
+
+\subsection{Spectral-local encoding}
+
+For a feature tensor $z_{\ell}$, a spectral-local encoder block has the form
+\begin{equation}
+z_{\ell+1}
+= \sigma\left(
+L_{\ell} z_{\ell}
++ \mathcal{F}^{-1}
+\left[
+R_{\ell}(k)\,\mathcal{T}_{K}\left(\mathcal{F}(z_{\ell})\right)(k)
+\right]
+\right),
+\end{equation}
+where $L_{\ell}$ is a learned local convolutional map, $\mathcal{F}$ is the 2D
+Fourier transform, $\mathcal{T}_{K}$ retains a fixed set of Fourier modes,
+$R_{\ell}(k)$ is a learned complex spectral mixing tensor over retained modes,
+and $\sigma$ is the Gaussian error linear unit (GELU) nonlinearity \cite{gelu}
+used in the implemented SRU-Net. In residual form, this can be written as
+\begin{equation}
+z_{\ell+1}
+= z_{\ell} + \sigma\left(L_{\ell} z_{\ell} + S_{\ell} z_{\ell}\right),
+\end{equation}
+with $S_{\ell}$ denoting the truncated spectral operator. The local path
+preserves high-frequency and edge-like information that may be weakened by
+spectral truncation, while the spectral path provides global coupling.
+
+\subsection{Spectral-convolutional residual architecture}
+
+The architecture separates three roles. Spectral mixing in the encoder couples
+information across the full measurement field, where global aggregation is most
+useful for the inverse map. The bottleneck processes the resulting
+representation with local residual blocks at reduced spatial resolution. The
+convolutional decoder then synthesizes the real-space output. This separation
+reflects the hypothesis that global mixing is most useful during
+measurement-to-object mapping, while local convolutional processing is most
+useful for object-space refinement and output synthesis.
+
+The implemented SRU-Net consists of an initial convolution, four spectral-local
+encoder blocks, two downsampling stages, a
+six-block residual bottleneck at $N/4$ spatial resolution, and a convolutional
+upsampling decoder. Figure~\ref{fig:srunet_architecture} summarizes the data flow, and
+Table~\ref{tab:architecture_summary} lists the architectural choices that
+determine the shape of the model.
+
+In the architecture diagram, $\phi_0$ is the initial channel projection, $E_0$
+through $E_3$ are encoder blocks, $B_j$ denotes a residual bottleneck block, and
+$U_1,U_2$ are decoder stages. The spatial resolution is denoted by $N$,
+$C_{\rm in}$ is the task-specific input channel count, $m$ is the number of
+retained Fourier modes, and $e_s,d_s$ are encoder and decoder features at scale
+$s$. In the CDI configuration, each decoder stage applies a transposed
+convolution with kernel size $4$, stride $2$, and padding $1$, followed by
+instance normalization and GELU. When skip-add ablations are enabled, a learned
+$1\times1$ convolution maps encoder features into the decoder channel space
+before additive fusion.
+Within encoder block $E_\ell$, $z_\ell$ is the input feature tensor,
+$S_\ell=\mathcal F^{-1}R_\ell\mathcal T_K\mathcal F$ is the truncated spectral
+operator, $L_\ell$ is the local convolutional path, and $\sigma$ is GELU. Here
+$\mathcal F$ is the Fourier transform, $\mathcal T_K$ keeps the retained modes,
+and $R_\ell$ mixes those modes. Within bottleneck block
+$B_j$, $u_j$ is the bottleneck feature tensor,
+$R_j=\ConvTT\cdot\mathrm{InstNorm}\cdot\mathrm{GELU}
+\cdot\ConvTT\cdot\mathrm{InstNorm}$ is applied before the
+residual addition, and $\alpha_j$ is its learned residual scale; the centered
+dot lists operations in left-to-right order. Here $\ConvTT$ denotes a
+3-by-3 convolution. Within CDI decoder stage $D_s$, the coarser decoder state is
+updated by $\mathrm{ConvT}_{4,s2,p1}\cdot\mathrm{InstNorm}\cdot\mathrm{GELU}$.
+The optional skip-add path first applies a $1\times1$ convolution to the matching
+encoder feature before fusion.
+
+\begin{figure}[!htbp]
+\centering
+\resizebox{\linewidth}{!}{%
+\begin{tikzpicture}[
+  >=Latex,
+  tensor/.style={draw, rounded corners=2pt, align=center, minimum height=8mm, text width=19mm, inner sep=3pt, font=\small},
+  block/.style={draw, rounded corners=2pt, align=center, minimum height=11mm, text width=24mm, inner sep=3pt, font=\small},
+  wideblock/.style={draw, rounded corners=2pt, align=center, minimum height=12mm, text width=30mm, inner sep=3pt, font=\small},
+  op/.style={draw, circle, minimum size=7mm, inner sep=0pt, font=\small},
+  formula/.style={draw, rounded corners=2pt, align=center, minimum height=12mm, text width=46mm, inner sep=4pt, font=\small},
+  flow/.style={-Latex, line width=0.8pt},
+  skip/.style={-Latex, dashed, line width=0.8pt},
+  bypass/.style={-Latex, line width=0.65pt}
+]
+% Row 1: top-level pipeline
+\node[tensor, fill=gray!8] (input) at (0,0) {$x$\\{\scriptsize CDI/CNS}};
+\node[block, fill=gray!12] (lift) at (2.66,0)
+  {$\phi_0$\\{\scriptsize $C_{\rm in}\!\to\!32$}};
+\node[wideblock, fill=cyan!12] (encoder) at (5.87,0)
+  {$E_\theta$ encoder\\{\scriptsize $E_0,\ldots,E_3$}\\{\scriptsize $N\!\to\!N/2\!\to\!N/4$}};
+\node[wideblock, fill=orange!14] (bottleneck) at (9.38,0)
+  {$B_\theta$ bottleneck\\{\scriptsize $B_j^{\times 6}$ at $N/4$}};
+\node[block, fill=purple!10] (decoder) at (12.59,0)
+  {$D_\theta$\\{\scriptsize $U_1,U_2$}};
+\node[tensor, fill=blue!8] (cdiout) at (15.25,0.55)
+  {$\hat y_{\rm CDI}$\\{\scriptsize $\Re,\Im$}};
+\node[tensor, fill=green!8] (cnsout) at (15.25,-0.55)
+  {$\hat y_{\rm CNS}$};
+
+\draw[flow] (input) -- (lift);
+\draw[flow] (lift) -- (encoder);
+\draw[flow] (encoder) -- (bottleneck);
+\draw[flow] (bottleneck) -- (decoder);
+\draw[flow] (decoder.east) -- (cdiout.west);
+\draw[flow] (decoder.east) -- (cnsout.west);
+
+% Flatter skip arc
+\draw[skip] (encoder.north) to[out=45,in=135,looseness=0.55]
+  node[above=1pt, font=\small] {optional skip-add: $d_s \leftarrow d_s + \ConvOO(e_s)$}
+  (decoder.north);
+
+% Row 2: Encoder block detail (zoom of E_theta)
+\node[font=\small\bfseries, anchor=west] at (0,-2.85) {$E_\ell$};
+\node[tensor, fill=white] (rx) at (1.6,-2.85) {$z_\ell$};
+\coordinate (rxbranch) at (2.95,-2.85);
+\node[block, fill=cyan!8] (spec) at (4.85,-2.25)
+  {$S_\ell$\\{\scriptsize $\mathcal F^{-1}R_\ell\mathcal T_K\mathcal F$}};
+\node[block, fill=cyan!8] (conv) at (4.85,-3.45)
+  {$L_\ell$\\{\scriptsize $\ConvTT$}};
+\node[op] (sum1) at (7.05,-2.85) {$+$};
+\node[block, fill=white, text width=13mm] (gelu) at (8.55,-2.85)
+  {$\sigma$\\{\scriptsize GELU}};
+\node[op] (sum2) at (10.05,-2.85) {$+$};
+\node[tensor, fill=white] (ry) at (11.9,-2.85) {$z_{\ell+1}$};
+
+\draw[flow] (rx.east) -- (rxbranch);
+\draw[flow] (rxbranch) |- (spec.west);
+\draw[flow] (rxbranch) |- (conv.west);
+\draw[flow] (spec.east) -| (sum1.north);
+\draw[flow] (conv.east) -| (sum1.south);
+\draw[flow] (sum1.east) -- (gelu.west);
+\draw[flow] (gelu.east) -- (sum2.west);
+\draw[flow] (sum2.east) -- (ry.west);
+\draw[bypass, rounded corners=4pt]
+  (rx.north) -- ++(0,1.05) -| (sum2.north);
+
+% Row 3: Bottleneck block detail (zoom of B_theta)
+\node[font=\small\bfseries, anchor=west] at (0,-5.4) {$B_j$};
+\node[tensor, fill=white] (bx) at (1.6,-5.4) {$u_j$};
+\node[wideblock, fill=orange!8, text width=42mm] (rescore) at (5.27,-5.4)
+  {$R_j$\\{\scriptsize $\ConvTT\cdot$InstNorm$\cdot$GELU}\\{\scriptsize $\cdot\ConvTT\cdot$InstNorm}};
+\node[block, fill=orange!8, text width=14mm] (scale) at (8.68,-5.4) {$\alpha_j$};
+\node[op] (bsum) at (10.24,-5.4) {$+$};
+\node[tensor, fill=white] (by) at (12.04,-5.4) {$u_{j+1}$};
+
+\draw[flow] (bx) -- (rescore);
+\draw[flow] (rescore) -- (scale);
+\draw[flow] (scale) -- (bsum);
+\draw[flow] (bsum) -- (by);
+\draw[bypass, rounded corners=4pt]
+  (bx.north) -- ++(0,0.55) -| (bsum.north);
+
+% Row 4: Decoder stage detail (zoom of D_theta)
+\node[font=\small\bfseries, anchor=west] at (0,-7.65) {$D_s$};
+\node[tensor, fill=white] (din) at (1.65,-6.95) {$d_{s+1}$\\{\scriptsize lower-res state}};
+\node[tensor, fill=white] (eskip) at (1.65,-8.35) {$e_s$\\{\scriptsize optional skip}};
+\node[block, fill=purple!8, text width=31mm] (upsample) at (4.6,-6.95)
+  {$\mathrm{ConvT}_{4,s2,p1}$\\{\scriptsize InstNorm + GELU}};
+\node[block, fill=purple!8] (project) at (4.6,-8.35)
+  {$\ConvOO$\\{\scriptsize skip-add only}};
+\node[op] (dsum) at (7.05,-7.65) {$+$};
+\node[tensor, fill=white] (dout) at (9.15,-7.65) {$d_s$};
+
+\draw[flow] (din.east) -- (upsample.west);
+\draw[skip] (eskip.east) -- (project.west);
+\draw[flow] (upsample.east) -| (dsum.north);
+\draw[skip] (project.east) -| (dsum.south);
+\draw[flow] (dsum.east) -- (dout.west);
+\end{tikzpicture}%
+}
+\caption{\textbf{SRU-Net combines spectral global mixing with local spatial
+processing.} Top: $x$ is the task input, $\phi_0$ projects $C_{\rm in}$ input
+channels to width 32, $E_\theta$ is the encoder over resolutions
+$N\!\to\!N/2\!\to\!N/4$, $B_\theta$ is the
+six-block bottleneck, $D_\theta$ is the decoder, and
+$\hat y_{\rm CDI},\hat y_{\rm CNS}$ are task-specific outputs. Middle:
+encoder block $E_\ell$ maps $z_\ell$ to $z_{\ell+1}$ using spectral path
+$S_\ell=\mathcal F^{-1}R_\ell\mathcal T_K\mathcal F$, local convolution path
+$L_\ell$, GELU nonlinearity $\sigma$, and a residual bypass. The bottleneck
+detail shows that
+bottleneck block $B_j$ maps $u_j$ to $u_{j+1}$ by applying $R_j$, then scaling
+it by $\alpha_j$ before adding it to the bypassed input. The $R_j$ box uses
+centered dots to list left-to-right sequential application; $\ConvTT$ denotes a
+3-by-3 convolution and InstNorm denotes instance normalization. The decoder
+detail shows the CDI decoder operation
+$\mathrm{ConvT}_{4,s2,p1}\cdot\mathrm{InstNorm}\cdot\mathrm{GELU}$ applied to
+the lower-resolution decoder state $d_{s+1}$. The dashed path is used only for
+skip-add configurations: the same-scale encoder feature $e_s$ passes through a
+$1\times1$ convolution before addition to the decoder state.}
+\label{fig:srunet_architecture}
+\end{figure}
+\FloatBarrier
+
+% table_metadata: cap_size=not_applicable; table_type=architecture_summary
+\begin{table}[h]
+\centering
+\small
+\caption{\textbf{SRU-Net architecture summary.} The same architecture is used
+for CDI reconstruction and CNS field prediction, with task-specific input
+representations, output variables, and objective functions.}
+\label{tab:architecture_summary}
+\begin{tabular}{p{0.22\linewidth}p{0.68\linewidth}}
+\toprule
+Component & Implementation details \\
+\midrule
+Input representation & CDI uses grouped object-patch channels and
+returns complex real/imaginary patches. CNS uses real-valued field histories as
+input and predicts the next density, velocity, and pressure fields. In both
+settings, the first convolution maps the input to width 32. \\
+Encoder & Four spectral-local blocks. Each block adds a learned Fourier-mode
+mixing branch and a reflected-padding $3\times 3$ convolution branch inside an
+outer residual update; the branch sum is passed through GELU before the outer
+residual addition. The retained-mode count $m$ is a configurable parameter; the
+default setting uses $m=12$ unless otherwise stated. The encoder
+downsamples after the first two blocks, giving $N\to N/2\to N/4$ and widths
+32, 64, and 128. \\
+Bottleneck & Six constant-resolution residual blocks at $N/4$ in the He et
+al.\ sense \cite{resnet}. Each block uses a reflected-padding $3\times 3$
+convolution, instance normalization \cite{instnorm}, GELU \cite{gelu}, a
+second reflected-padding $3\times 3$ convolution, instance normalization, and
+a learned residual scale. The spectral-residual variant replaces this local
+bottleneck with residual blocks that add a shared factorized spectral branch. \\
+Decoder and skips & The CDI path uses two decoder stages in the U-Net
+encoder-decoder family \cite{unet}, each $\mathrm{ConvT}_{4,s2,p1}$ followed
+by instance normalization and GELU. The CNS model uses two pixel-shuffle
+\cite{pixelshuffle} upsampling stages and additive encoder-decoder skips from
+the $N/2$ and $N$ encoder resolutions, with each skip feature first adapted by
+a learned $1\times1$ convolution. \\
+Output and loss & CDI predicts real/imaginary complex patches and trains through
+the coherent diffractive imaging consistency and diffraction operators. BRDT
+predicts a real scattering potential and trains with supervised object loss
+plus Born consistency. CNS predicts real field channels and trains against the
+next physical state. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+When skip connections are enabled, encoder features $e_s$ are fused into decoder
+states $d_s$. For additive fusion,
+\begin{equation}
+  d_s = U_s(d_{s+1}) + \ConvOO(e_s),
+\end{equation}
+where $U_s$ is the decoder-stage upsampling operator and the $1\times1$
+convolution maps the same-scale encoder feature $e_s$ into the decoder channel
+space.
+For concatenative fusion,
+\begin{equation}
+  d_s = \ConvOO\left([U_s(d_{s+1}), e_s]\right).
+\end{equation}
+The CDI network outputs complex object patches in real/imaginary format. In
+BRDT, the same reconstruction architecture outputs a single real scattering
+potential. In the PDEBench experiments, the architecture is evaluated on
+real-valued physical field histories and next-state targets rather than
+diffraction measurements.
+
+\subsection{CDI physics-consistency objective}
+
+For CDI, SRU-Net predicts local complex object patches,
+\begin{equation}
+  \hat{o} = G_{\theta}(x).
+\end{equation}
+The prediction is not trained only by comparing $\hat{o}$ to a paired object
+target. Instead, it is passed through a real-space consistency operator $F_c$,
+which stitches overlapping local patches into a common object canvas and
+re-extracts position-consistent patches. The consistent object patches are then
+passed through a known diffraction map $F_d$:
+\begin{equation}
+  \hat{x}
+  = F_d\left(F_c(\hat{o}; r); P\right),
+\end{equation}
+where $r$ denotes scan positions and $P$ is the probe. The CDI objective is
+defined in measurement space:
+\begin{equation}
+  \mathcal{L}_{\mathrm{CDI}}
+  = \mathcal{D}_{\mathrm{amp}}\left(x, F_d(F_c(G_{\theta}(x); r); P)\right).
+\end{equation}
+The reported CDI runs use detector-amplitude mean absolute error. The stored
+detector tensors are diffraction amplitudes, so after applying detector scaling
+the loss is
+\begin{equation}
+  \mathcal{D}_{\mathrm{amp}}(x,\hat{x})
+  =
+  \frac{1}{\bar{x}+\epsilon}
+  \frac{1}{|\Omega|}
+  \sum_{i\in\Omega} \left|\hat{x}_i - x_i\right|,
+\end{equation}
+where $x_i$ and $\hat{x}_i$ are measured and predicted detector amplitudes,
+$\bar{x}$ is the mean measured detector amplitude in the batch, $\Omega$ indexes
+detector pixels and scan positions, and $\epsilon$ prevents numerical
+singularities. This is the physics-consistency objective used in the CDI
+architecture comparison and in the supervised-loss comparisons.
+
+\subsection{CDI supervised objective}
+
+To isolate the role of the training loss, we also train models with a
+supervised object-space loss when the same architecture was also trained with the
+CDI forward model. These runs use the same input data, architecture, optimizer,
+number of epochs, and evaluation metrics as their physics-consistency-trained
+counterparts, but the loss is applied directly to the predicted object
+representation rather than after the CDI forward model. The main architecture
+comparison uses the shared physics-consistency objective.
+
+The supervised objective has the form
+\begin{equation}
+  \mathcal{L}_{\mathrm{sup}}
+  =
+  \mathcal{D}_{\mathrm{obj}}\left(G_{\theta}(x), y\right),
+\end{equation}
+where $y$ is the object target and
+$\mathcal{D}_{\mathrm{obj}}$ is the object-space reconstruction loss used by
+the corresponding supervised run. Metrics are computed after the same
+evaluation alignment and post-processing used for physics-consistency-trained
+models.
+
+\subsection{Born--Rytov diffraction tomography}
+\label{sec:methods_brdt}
+
+We also evaluate SRU-Net on a Born--Rytov diffraction tomography (BRDT)
+inverse-scattering task. The target is the physical scattering potential
+\begin{equation}
+  q(x,z) = k_m^2\left[\left(\frac{n(x,z)}{n_m}\right)^2 - 1\right],
+\end{equation}
+where $n(x,z)$ is the refractive-index field, $n_m$ is the background medium
+index, and $k_m$ is the in-medium wavenumber. Under the first Born
+approximation \cite{devaney}, each incident plane wave produces a scattered
+field whose far-field samples are linear measurements of the Fourier transform
+of $q$ on the corresponding Ewald arc. We write this discrete forward map as
+\begin{equation}
+  s = \mathcal{B}(q),
+\end{equation}
+where $s \in \mathbb{R}^{A \times D \times 2}$ is the complex sinogram over
+illumination angles and detector frequencies, represented by real and imaginary
+channels.
+
+The BRDT learned-model input is the measured complex sinogram itself,
+represented as real and imaginary channels and reordered to a two-channel
+detector-angle tensor $x_{\mathrm{BRDT}}$. The model predicts a single-channel
+scattering potential,
+\begin{equation}
+  \hat{q}_{\theta} = G_{\theta}(x_{\mathrm{BRDT}}).
+\end{equation}
+All neural models use that same sinogram input representation and the same
+differentiable Born forward operator during training. The model-based Born
+inverse remains a separate non-learned reference and is not used as learned
+model input.
+
+The BRDT objective combines supervised reconstruction with measurement-space
+Born consistency, plus total variation (TV) \cite{tvregularization} and
+positivity regularization:
+\begin{align}
+  \mathcal{L}_{\mathrm{BRDT}}
+  &=
+  \lambda_{\mathrm{img}}
+  \left\|\hat{q}_{\theta}^{\,\mathrm{norm}} - q^{\mathrm{norm}}\right\|_1
+  +
+  \lambda_{\mathrm{abs}}
+  \left\|\mathcal{B}(\hat{q}_{\theta}) - s\right\|_1 \nonumber \\
+  &\quad+
+  \lambda_{\mathrm{rel}}
+  \frac{
+    \left\|\mathcal{B}(\hat{q}_{\theta}) - s\right\|_2
+  }{
+    \left\|s\right\|_2 + \epsilon
+  }
+  +
+  \lambda_{\mathrm{tv}}\,\mathrm{TV}(\hat{q}_{\theta})
+  +
+  \lambda_{\mathrm{pos}}
+  \left\|\min(\hat{q}_{\theta},0)\right\|_2^2 .
+\end{align}
+The image loss is computed in the normalized target space used by the model.
+Before applying the Born operator, predictions are converted back to physical
+$q$ units using training-set normalization statistics. This prevents the
+measurement-consistency term from being evaluated on normalized, dimensionless
+outputs. We use $\lambda_{\mathrm{img}}=1$,
+$\lambda_{\mathrm{abs}}=0.1$, $\lambda_{\mathrm{rel}}=0.1$,
+$\lambda_{\mathrm{tv}}=10^{-5}$, and
+$\lambda_{\mathrm{pos}}=10^{-4}$.
+
+\subsection{PDEBench CNS supervised prediction}
+
+For the CNS benchmark, the same architecture is evaluated as a supervised
+forward predictor. Let
+\begin{equation}
+  u_t = [\rho_t, v_{x,t}, v_{y,t}, p_t]
+\end{equation}
+be the density, velocity, and pressure state. Given a history length $h$, the
+input is
+\begin{equation}
+  x_t = [u_{t-h}, \ldots, u_{t-1}],
+\end{equation}
+and the model predicts
+\begin{equation}
+  \hat{u}_t = G_{\theta}(x_t).
+\end{equation}
+The training objective is mean-squared error on normalized physical fields:
+\begin{equation}
+  \mathcal{L}_{\mathrm{CNS}}
+  = \left\|\hat{u}_t - u_t\right\|_2^2.
+\end{equation}
+Evaluation is performed after denormalization and reports root mean squared
+error (RMSE), normalized RMSE (nRMSE), relative $L_2$, and Fourier-band RMSE
+over low, mid, and high radial-frequency bands. The
+high-frequency metric is included because shocks and localized vortical features
+are precisely where global spectral models may lose detail.
+
+\section{Experiments}
+
+The main benchmark is CDI. We first compare supervised
+object-space training with physics-consistency training, then compare
+architectures under the same physics-consistency objective. Born--Rytov
+diffraction tomography is an inverse-wave transfer test. PDEBench CNS is a
+forward-prediction setting used to contextualize the architecture against
+operator-learning baselines. The paper's main claim is therefore physics-consistent
+CDI reconstruction, not a PDEBench record.
+
+\subsection{CDI benchmark}
+
+The CDI reconstruction task uses 128-by-128 synthetically generated diffraction
+data. Each sample is generated from sharp line-like objects, a known probe, and
+simulated far-field diffraction measurements. The network predicts complex
+object patches, the CDI consistency and diffraction operators map the prediction
+back to detector space, and reconstruction quality is measured against held-out
+object amplitude and phase.
+
+The CDI experiments have two parts. First, we compare direct supervised
+object-space training with physics-consistency training where both trainings were
+run. This tests whether the forward-model objective is necessary under
+the CDI protocol. Second, we compare CNN, FNO, FFNO,
+U-NO, and SRU-Net under the shared CDI physics-consistency objective. This tests which network works best once the loss is fixed.
+
+The CDI comparison uses $N=128$ object grids, two training objects, two
+held-out test objects, $10^9$ photons per exposure, 40 training epochs,
+learning rate $2\times 10^{-4}$, ReduceLROnPlateau scheduling,
+and complex-valued real/imaginary network output. Phase metrics are computed
+after the same global alignment procedure for all models. Appendix
+Table~\ref{tab:model_config_by_benchmark} lists the configuration of
+each model; parameter counts are unique trainable parameters in the prediction
+model. Appendix Table~\ref{tab:benchmark_scope_repro} summarizes benchmark
+scope, derived sample counts, training recipes, and evaluation alignment.
+Appendix Table~\ref{tab:paper_efficiency_table} reports parameter counts,
+runtime provenance, and available inference throughput.
+
+The CDI benchmark contains two independent training object instances and two
+independent held-out object instances, with 1458 held-out object-patch/scan
+samples used to reconstruct the held-out object images. Because the held-out
+samples share the same object instances, probe, scan protocol, and simulation
+settings, we frame this benchmark as a controlled comparison of losses and
+architectures within a fixed synthetic distribution; broader object-class
+generalization and real experimental robustness would require additional
+object families and real data, which are out of scope here.
+
+\subsection{BRDT inverse scattering}
+
+The BRDT experiment uses
+$128\times128$ scattering-potential fields and simulated complex sinograms from
+a differentiable Born forward model with 64 illumination angles and 128
+detector samples. We use it to test whether the CDI reconstruction network also
+works on a related wave inverse problem. We train SRU-Net and FFNO for 40
+epochs on the same
+2048/256/256 train/validation/test split, using Adam \cite{adam} with learning
+rate $2\times10^{-4}$, batch size 16, and ReduceLROnPlateau scheduling.
+Both learned models consume the measured complex sinogram directly, represented
+as real and imaginary channels on the fixed detector-angle grid. The
+model-based Born inverse remains a separate non-learned baseline in
+Fig.~\ref{fig:brdt_candidate_recon}. Both learned models use the
+supervised-plus-Born-consistency objective defined above.
+
+\subsection{PDEBench CNS}
+
+The CNS benchmark is PDEBench 2D compressible Navier-Stokes at native
+$128\times128$ resolution. It stresses the same architectural tradeoff in a
+different physical setting: coherent global flow and wave structure must be
+predicted while preserving localized shocks, vortices, and high-gradient field
+features.
+
+The CNS data are the official 128-by-128 periodic compressible-flow
+training trajectories at Mach number $M=1.0$, shear viscosity
+$\eta=0.01$, and bulk viscosity $\zeta=0.01$. The spatial grid has
+$\Delta x=\Delta y=1/128=0.0078125$, the temporal spacing is
+$\Delta t=0.05$, and the spatial boundary condition is periodic, meaning that
+values wrap around at the domain edges as on a torus. Each trajectory contains
+the fields density, $v_x$, $v_y$, and pressure on a $128\times128$ grid.
+Splits are trajectory-level, normalization is computed from the train split
+only, and metrics are evaluated on denormalized predictions.
+
+\section{Results}
+
+The CDI results answer two questions: whether physics-consistency
+is needed in the loss, and which architecture performs best under that shared
+objective. BRDT provides inverse-scattering transfer evidence; CNS provides
+cross-domain context for forward prediction.
+
+\subsection{CDI supervised and physics-consistency training}
+
+Table~\ref{tab:cdi_lines128_objective_controls} tests whether the
+physics-consistency objective is needed.\footnote{We write ``physics-informed
+neural network'' (``PINN'') and
+``+PINN'' for training through the PtychoPINN-style CDI measurement-space
+physics-consistency objective; the label does not indicate a new PDE-residual
+PINN formulation.} The objective is necessary: switching FFNO from supervised
+object-space training to physics-consistency training cuts amplitude MAE
+more than sixfold ($0.349 \to 0.057$), while CNN and U-NO improve by about
+threefold under the same switch. Supervised training can improve some phase-error metrics
+while degrading amplitude reconstruction or phase structure, whereas
+physics-consistency training gives stronger amplitude recovery and phase
+structural similarity (SSIM) \cite{ssim} across the table.
+
+% table_metadata: task=CDI_lines128; table_type=pinn_vs_supervised_controls; authority=complete_lines128_cdi_benchmark_plus_uno_extension; source=docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_objective_comparison.tex; metrics=mae,ssim; paired_models=cnn,ffno,uno
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2pt}
+\caption{\textbf{CDI supervised and physics-consistency training.}
+Each pair compares physics-consistency and supervised training for the same
+architecture when both trainings were run. This comparison tests the training
+loss, not the architecture alone. Bold marks the better value within each
+model pair. Lower MAE is better; higher SSIM is better.}
+\label{tab:cdi_lines128_objective_controls}
+\input{tables/cdi_lines128_objective_comparison.tex}
+\end{table}
+
+\subsection{CDI architecture comparison}
+
+After fixing the CDI physics-consistency objective for all models in the table,
+architecture still drives a multiplicative gap.
+Table~\ref{tab:cdi_lines128_pinn} compares local, spectral, and spectral-local
+models under the same $N=128$ line-pattern protocol. The table reports MSE,
+SSIM, parameter count, and model-forward throughput. SRU-Net gives the lowest
+amplitude MSE and the strongest amplitude and phase SSIM. U-NO gives the
+lowest phase MSE, while FFNO improves over the CNN and FNO models but does not
+close the amplitude gap to SRU-Net.
+
+% table_metadata: task=CDI_lines128; table_type=pinn_model_comparison; authority=complete_lines128_cdi_benchmark_plus_uno_extension; source=docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/cdi_lines128_pinn_metrics.tex; metrics=mse,ssim,params,throughput; includes_uno=true
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2pt}
+\caption{\textbf{CDI architecture comparison under
+physics-consistency training.} All models use the same $N=128$ line-pattern
+protocol and CDI physics-consistency objective. Throughput is measured as CDI
+patches per second for synchronized model-forward timing artifacts; ``--''
+means no synchronized timing artifact was available. Lower MSE is better;
+higher SSIM and throughput are better.}
+\label{tab:cdi_lines128_pinn}
+\input{tables/cdi_lines128_pinn_metrics.tex}
+\end{table}
+
+% figure_metadata: task=CDI_lines128; paper_copy=figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet.png; visible_columns=gt,pinn,pinn_fno_vanilla,pinn_ffno,pinn_neuralop_uno,pinn_hybrid_resnet; final_ffno_pair=depth24_no_refiner; display_channels=amplitude,phase; crop_fraction=0.5; amplitude_colormap=viridis; amplitude_display_scale=gt_crop_min_to_gt_crop_p99; phase_alignment=global_circular_offset_to_gt_before_wrapping; phase_colormap=twilight; phase_display_scale=gt_crop_min_to_gt_crop_p99_after_alignment; row_colorbars=amplitude,phase; base_source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-uno-table-extension/runs/complete_table_plus_uno_20260504T100347Z/recons; ffno_source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-06-cdi-lines128-ffno-depth24-ablation/runs/ffno_depth24_20260507T052301Z/recons/pinn_ffno_depth24/recon.npz
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet.png}
+\caption{\textbf{Amplitude and phase reconstruction comparison on synthetically
+generated CDI data.} The cropped comparison shows the target, CNN+PINN,
+FNO+PINN, FFNO+PINN, U-NO+PINN, and SRU-Net+PINN under the same $N=128$
+diffraction protocol. Amplitude panels share a target-anchored display scale,
+and each predicted phase is aligned to the target by a single global circular
+offset before display. One colorbar is shared across each row.}
+\label{fig:cdi_main_qualitative}
+\end{figure}
+\FloatBarrier
+
+\subsection{CDI architecture ablations}
+\label{sec:cdi-arch-ablations}
+
+Table~\ref{tab:cdi_arch_ablations} isolates which architectural choices drive
+SRU-Net's CDI behavior. The ablations show three things. First, the convolutional
+decoder is non-negotiable: replacing it with a linear decoder drives amplitude
+MAE from $0.027$ to $0.135$, a $5\times$ regression, and phase MAE from
+$0.072$ to $0.117$. Second, replacing the residual bottleneck with FFNO-style
+spectral blocks worsens both metrics, so additional spectral capacity placed
+inside the bottleneck is harmful, not helpful. Third, between the reference
+SRU-Net and the spectral-bottleneck variants, amplitude and phase trade off
+along a Pareto front: the spectral bottleneck improves amplitude MAE
+($0.025$ vs.\ $0.027$) but worsens phase MAE ($0.093$ vs.\ $0.072$), and
+shrinking to one downsampling stage flips this: phase improves
+($0.064$) but amplitude regresses ($0.036$). The reference configuration is
+the only entry that is good on both metrics simultaneously. A separate CDI
+skip-add ablation produced a smaller and more mixed effect: additive skips
+improved phase MAE, while no-skip SRU-Net remained better balanced
+across amplitude and phase metrics.
+
+% table_metadata: task=CDI_lines128; table_type=spectral_component_ablations; authority=architecture_ablation; source=docs/plans/NEURIPS-HYBRID-RESNET-2026/cdi_hybrid_spectral_ffno_parameter_space_summary.md; metrics=amp_mae,phase_mae
+\begin{table}[t]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\caption{\textbf{CDI spectral-component ablations.} Entries test whether SRU-Net's
+performance is explained by spectral capacity alone or by the placement of
+spectral mixing inside an architecture with local convolutional paths, residual
+bottleneck processing, and convolutional upsampling. Lower MAE is better.}
+\label{tab:cdi_arch_ablations}
+\begin{tabular}{lccc}
+\toprule
+Model & Changed component & Amp MAE & Phase MAE \\
+\midrule
+SRU-Net & none & 0.0269 & 0.0721 \\
+SRU-Net with FFNO-style bottleneck & replace ResNet bottleneck & 0.0312 & 0.0876 \\
+Spectral-bottleneck SRU-Net & spectral bottleneck & 0.0249 & 0.0929 \\
+Spectral-bottleneck SRU-Net, one downsampling stage & shallower encoder & 0.0355 & 0.0644 \\
+Spectral-bottleneck SRU-Net, linear decoder & lighter decoder & 0.1347 & 0.1169 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{BRDT inverse scattering}
+
+BRDT evaluates inverse scattering from simulated wave measurements. The target
+is the physical scattering potential $q$, and the learned-model input is the
+measured complex sinogram itself, passed to the network as two real-valued
+channels rather than as a Born-derived image. We train SRU-Net and FFNO on the
+same 2048/256/256 train/validation/test split for 40 epochs using the
+supervised object loss plus Born-consistency objective defined in
+Section~\ref{sec:methods_brdt}. The model-based Born inverse is included as a
+non-learned reference only.
+
+Table~\ref{tab:brdt_secondary_metrics} shows the BRDT comparison under this
+sinogram-input contract. SRU-Net reaches relative $L_2(q) = 0.717$ against
+$1.000$ for FFNO and $3.469$ for the model-based Born inverse. It also
+improves peak signal-to-noise ratio (PSNR) and SSIM relative to both
+references. Both learned models evaluate the 256-sample test split in under
+0.7 seconds.
+
+% table_metadata: task=BRDT; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/metrics.csv; rows=sru_net,ffno; input_mode=sinogram; epochs=40; loss=supervised_plus_born
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{\textbf{BRDT inverse-scattering comparison.} SRU-Net and FFNO are
+trained for 40 epochs with the same supervised object loss plus Born-consistency
+loss. The model-based Born inverse is included as a non-learned reference.
+Throughput is measured over the 256-sample test split on the same graphics
+processing unit (GPU). Lower
+error is better; higher PSNR, SSIM, and throughput are better.}
+\label{tab:brdt_secondary_metrics}
+\begin{tabular}{llrrrrr}
+\toprule
+Model & Procedure & Rel. $L_2(q)$ & PSNR & SSIM & Params &
+Samples/s \\
+\midrule
+Model-based Born inverse & iterative inverse & 0.3796 & 28.23 & 0.9201 &
+-- & 29.6 \\
+SRU-Net & supervised + Born & \textbf{0.2876} & \textbf{30.64} & \textbf{0.9552} &
+142k & \textbf{375.9} \\
+FFNO & supervised + Born & 0.4509 & 26.74 & 0.9120 &
+27.4k & 370.1 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% figure_metadata: task=BRDT; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-07-brdt-sinogram-input-40ep-paper-evidence/figures/source_arrays/sample_0255_*; paper_copy=figures/brdt_sample_0255_context_recon_error.png; sample_id=255; visible_rows=measurement_magnitude,target,classical_born_backprop,ffno,sru_net
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{figures/brdt_sample_0255_context_recon_error.png}
+\caption{\textbf{BRDT representative example.} The bottom-left panel shows the
+measured sinogram magnitude $|s_{\mathrm{obs}}(\theta,d)|$. The top-row Born
+input panel is the 2D image-space field computed from that sinogram; it is both
+the neural-network input and the non-learned Born baseline. The remaining
+top-row panels show the target $q$ and neural estimates $\hat{q}$. Bottom-row
+error maps use a shared target-domain error scale.}
+\label{fig:brdt_candidate_recon}
+\end{figure}
+\FloatBarrier
+
+\subsection{PDEBench CNS}
+
+Table~\ref{tab:cns_bundle} reports the CNS comparison. All models use
+five input states, 512/64/64 train/validation/test trajectories, 40 training
+epochs, MSE loss, and the same optimizer and normalization settings. FFNO gives
+the lowest aggregate and Fourier-band errors. SRU-Net is second by aggregate
+error. U-NO is nearly tied with FNO on aggregate error, but has lower mid- and
+high-frequency errors than FNO. U-Net is the weakest model in this comparison.
+The CNS SRU-Net-family models use additive encoder-decoder skips, unlike CDI
+SRU-Net in Table~\ref{tab:cdi_lines128_pinn}; using the same CNS training,
+validation, and test trajectories with the same training setup, adding skips
+reduced 10-epoch nRMSE from $0.224$ to $0.105$ and high-band RMSE from $1.24$
+to $0.70$.
+
+% table_metadata: task=PDEBench_CNS; table_type=matched_condition_headline; selection_metric=err_nRMSE; history_len=5; data_split=train/val/test_trajectories=512/64/64; max_windows_per_trajectory=8; training_epochs=40; batch_size=4; training_loss=mse; source=docs/plans/NEURIPS-HYBRID-RESNET-2026/tables/pdebench_cns_matched_condition_metrics.tex; selection_authority=docs/plans/NEURIPS-HYBRID-RESNET-2026/pdebench_cns_matched_condition_table_refresh_summary.md
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{\textbf{PDEBench CNS results.} All models use five input states,
+512/64/64 train/validation/test split, and 40 training
+epochs. Low-, mid-, and high-band RMSE are Fourier-band errors. Lower values
+are better.}
+\label{tab:cns_bundle}
+\input{tables/pdebench_cns_matched_condition_metrics.tex}
+\end{table}
+
+% supplement_candidate: detailed CNS architecture, temporal-context, spectral-depth, Fourier-mode, and convergence tables preserved below for restoration or supplement migration. They are hidden from the main draft to keep the paper near the style-guide table budget.
+\iffalse
+
+\subsection{CNS architecture ablations}
+
+The CNS secondary benchmark evaluates one architectural axis at a time while
+keeping the data split, loss, and evaluation metrics unchanged. The first axis
+is encoder-decoder fusion in the legacy hybrid shell: adding an additive skip
+pathway lowers both aggregate and high-frequency error under the same training
+budget.
+
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=10; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-hybrid-skip-study/cns-skipadd-vs-base-10ep
+\begin{table}[h]
+\centering
+\caption{Legacy hybrid shell ablation: additive encoder-decoder skip fusion.}
+\begin{tabular}{lrr}
+\toprule
+Model & nRMSE & High-band RMSE \\
+\midrule
+Legacy hybrid shell baseline & 0.224425 & 1.243174 \\
+Legacy hybrid shell with skip-add fusion & 0.104555 & 0.697058 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The second axis is decoder upsampling. Holding the skip-fused architecture unchanged,
+pixelshuffle gives the best aggregate error while avoiding the worst
+high-frequency penalty of bilinear upsampling:
+
+% table_metadata: benchmark=PDEBench_CNS; cap_size=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=10; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-hybrid-upsampler-artifact-study/cns-upsampler-cns-shell-10ep-20260421T221400Z
+\begin{table}[h]
+\centering
+\caption{CNS spectral-convolutional upsampler comparison.}
+\begin{tabular}{lrrr}
+\toprule
+Model & nRMSE & Relative $L_2$ & High-band RMSE \\
+\midrule
+Transpose upsampling & 0.130467 & 0.130467 & 0.763443 \\
+Bilinear-convolution upsampling & 0.099081 & 0.099081 & 1.136333 \\
+Pixelshuffle upsampling & 0.096320 & 0.096320 & 0.863959 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Together, the skip-fusion and decoder ablations define the legacy hybrid
+continuity row that is kept in metadata but not shown as a separate SRU-Net row
+in the main CNS table.
+
+\subsection{CNS temporal context}
+
+Increasing CNS temporal context from two previous states to three previous
+states improved the lower-error rows under the longer training budget:
+
+% table_metadata: benchmark=PDEBench_CNS; split=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2_for_two-frame_columns,3_for_three-frame_columns; max_windows_per_trajectory=8; epochs=40; sources=history2 reference plus .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-history-len3plus-compare/history3-pilot-40ep-20260429T073705Z; visible_label=SRU-Net for repo row spectral_resnet_bottleneck_base; omitted_visible_row=hybrid_resnet_cns
+\begin{table}[h]
+\centering
+\caption{CNS temporal-context comparison under the longer training budget.}
+\begin{tabular}{lrrrr}
+\toprule
+Model & Two-frame nRMSE & Three-frame nRMSE & Two-frame high-band RMSE & Three-frame high-band RMSE \\
+\midrule
+SRU-Net & 0.061562 & 0.045521 & 0.434933 & 0.346744 \\
+% restore_if_needed: SRU-Net continuity row maps to repo row hybrid_resnet_cns; omitted CNS continuity row. Row values: SRU-Net & 0.064418 & 0.053843 & 0.368307 & 0.320036 \\
+FNO & 0.074099 & 0.056725 & 0.671772 & 0.610477 \\
+U-Net & 0.675798 & 0.677167 & 1.332625 & 1.173009 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The result is consistent with the benchmark motivation: the task rewards models
+that can use a longer coherent history, but the benefit is not uniform across
+architectures or training budgets.
+
+\subsection{CNS spectral depth and Fourier modes}
+
+On the larger trajectory split, the shared spectral base model had lower
+aggregate error, while the deeper shared-blocks10 row retained a small
+mid/high-frequency edge at the same training budget:
+
+% table_metadata: benchmark=PDEBench_CNS; split=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40; visible_label=SRU-Net for repo row spectral_resnet_bottleneck_base; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z
+\begin{table}[h]
+\centering
+\caption{CNS spectral-depth comparison using 1024 training, 128 validation, and
+128 test trajectories.}
+\begin{tabular}{lrrrrrr}
+\toprule
+Model & nRMSE & RMSE & Low-band RMSE & Mid-band RMSE & High-band RMSE & Runtime (s) \\
+\midrule
+SRU-Net & 0.043501 & 1.03746 & 2.4177 & 0.2224 & 0.2983 & 2162.70 \\
+10-block shared-weight SRU-Net & 0.044573 & 1.06304 & 2.4827 & 0.2168 & 0.2940 & 2703.72 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A longer run showed that the earlier shared-blocks10 result had understated the
+deeper profile:
+
+% table_metadata: benchmark=PDEBench_CNS; split=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40_and_80; visible_label=SRU-Net for repo row spectral_resnet_bottleneck_base; sources=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-hybrid-spectral-architecture-ablation/cns-hybrid-spectral-finalists-1024cap-40ep-20260428T054559Z and .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-shared-blocks10-1024cap-longer-convergence/cns-shared-blocks10-1024cap-80ep-20260429T025641Z
+\begin{table}[h]
+\centering
+\caption{10-block shared-weight SRU-Net under longer training on the larger
+trajectory split.}
+\begin{tabular}{lrrrrrr}
+\toprule
+Training epochs & nRMSE & RMSE & Low-band RMSE & Mid-band RMSE & High-band RMSE & Runtime (s) \\
+\midrule
+40 & 0.044573 & 1.06304 & 2.48274 & 0.216790 & 0.293987 & 2703.72 \\
+80 & 0.037568 & 0.895959 & 2.10180 & 0.170457 & 0.215245 & 5364.49 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The Fourier-mode studies show that simply increasing spectral modes is not a
+clean default answer. Under the longer training budget, the 12-mode base model
+retained better aggregate error, while 32/32 improved mid/high-frequency error:
+
+% table_metadata: benchmark=PDEBench_CNS; split=train_trajectories=512,val_trajectories=64,test_trajectories=64; window_counts=train=4096,val=512,test=512; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=40; visible_label=SRU-Net for repo row spectral_resnet_bottleneck_base; sources=spectral_resnet_bottleneck_base reference plus .artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes32-compare/cns-spectral-modes32-40ep-20260428T014353Z
+\begin{table}[h]
+\centering
+\caption{CNS Fourier-mode comparison under the longer training budget.}
+\begin{tabular}{lrrrrrr}
+\toprule
+Model & nRMSE & RMSE & Mid-band RMSE & High-band RMSE & Params & Runtime (s) \\
+\midrule
+SRU-Net, 12 modes & 0.061562 & 1.48776 & 0.2800 & 0.4349 & 8,186,726 & 1861.63 \\
+SRU-Net, 32 modes & 0.064551 & 1.55999 & 0.2425 & 0.3472 & 42,388,614 & 1382.12 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+In the 24-mode comparison with still longer training, the shared 12-mode base
+model was ahead on every reported metric, but both models were still improving
+according to the convergence audit:
+
+% table_metadata: benchmark=PDEBench_CNS; split=train_trajectories=1024,val_trajectories=128,test_trajectories=128; window_counts=train=8192,val=1024,test=1024; full_split=train=8000,val=1000,test=1000; history_len=2; max_windows_per_trajectory=8; epochs=80; visible_label=SRU-Net for repo row spectral_resnet_bottleneck_base; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/phase-2-pdebench-cns-spectral-modes24-convergence-compare/cns-spectral-modes24-vs-base-1024cap-80ep
+\begin{table}[h]
+\centering
+\caption{CNS 12-mode versus 24-mode spectral comparison under still longer
+training.}
+\begin{tabular}{lrrrrrr}
+\toprule
+Model & nRMSE & RMSE & Low-band RMSE & Mid-band RMSE & High-band RMSE & Params \\
+\midrule
+SRU-Net, 12 modes & 0.038269 & 0.912674 & 2.11528 & 0.220081 & 0.282737 & 8,391,814 \\
+SRU-Net, 24 modes & 0.039533 & 0.942819 & 2.17721 & 0.241145 & 0.306903 & 25,152,646 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Together these results support the architecture thesis: more spectral capacity
+can help selected high-frequency quantities, but useful performance depends on
+local paths, decoder behavior, convergence, and parameter cost.
+
+\fi
+
+\section{Discussion}
+
+The most surprising result in this paper is not the architecture comparison
+but the loss comparison. On every CDI architecture we have trained both ways,
+switching from object-space supervision to PtychoPINN-style
+measurement-consistency training cuts amplitude mean absolute error (MAE) by
+roughly a factor of three to four. Object-space supervision is not
+automatically symmetry- or alignment-aware: it can penalize the network for
+failing to predict aspects of the target that the measurements do not
+constrain. The PtychoPINN-style measurement-space loss, by contrast, compares
+predictions through the same forward operator that generated the observations
+and is insensitive to equivalences that leave the simulated measurement
+unchanged. This is a methodological point about CDI rather than a property of
+any architecture: a supervised CDI baseline has to handle the forward
+operator's nuisance directions explicitly before it is directly comparable to
+measurement-consistent training.
+
+That observation is what makes the architecture comparison interpretable.
+With the loss fixed, a $3\times$ amplitude-MAE gap between SRU-Net and FFNO
+reflects something architectural rather than something the loss function
+happened to wash out. The ablations narrow what that something can be, mostly
+by exclusion. Capacity does not explain the gap: the CNN at $4.66\mathrm{M}$
+parameters is the second-largest model in the comparison and the worst
+amplitude reconstructor, and U-NO at intermediate capacity does not approach
+SRU-Net either. Spectral capacity per se does not explain the gap: replacing
+the local residual bottleneck with FFNO-style spectral blocks regresses both
+amplitude and phase. The decoder does not explain the gap on its own, but it
+is load-bearing; replacing the convolutional decoder with a linear projection
+drives amplitude error to five times the SRU-Net value. What survives these
+constraints is a narrow region of the design space, namely spectral coupling
+localized to the encoder paired with substantive convolutional synthesis in
+the decoder, without a clean mechanistic story for why this combination
+works. The obvious explanation, that the Fourier basis is impoverished at
+the bottleneck's reduced resolution, does not survive the one-downsampling-stage
+variant: keeping the bottleneck shallower does not recover the reference
+configuration's joint amplitude--phase behavior. Identifying the mechanism
+is open work.
+
+What the design's advantage does seem to track is whether the task involves
+a measurement-to-object mapping. CDI maps globally coupled diffraction
+measurements in detector coordinates to objects in real-space coordinates;
+BRDT maps measured complex sinograms directly to real-space scattering
+potentials. In both, input and output occupy different domains
+coupled by a global forward operator, and SRU-Net's structural asymmetry,
+spectral mixing in the encoder and convolutional synthesis in the decoder,
+performs best among the tested models. CNS does not have the same input/output
+asymmetry: input and output share the same grid and the same field
+representation, and SRU-Net's structural asymmetry does not outperform FFNO.
+FFNO's uniform spectral coupling, designed for forward continuous physical
+prediction, is the better fit there. The skip-connection results point in the
+same direction. In CDI, additive encoder-decoder skips produce a mixed
+amplitude--phase tradeoff and are not necessary for the best balanced result.
+In CNS, where the task is same-grid next-state prediction, the same kind of skip
+connection is much more important: it carries same-resolution field structure
+around the compressed bottleneck while the network predicts the next density,
+velocity, and pressure fields. This contrast bounds the design's reach: the
+pattern motivates testing other inverse problems with the same
+measurement-to-object structure, including MRI reconstruction, seismic
+full-waveform inversion, and holographic microscopy.
+
+The clearest limitations of this paper are bounded by what would resolve them.
+The CDI experiments use a synthetic line-object distribution, so the framing
+of the loss finding is conditional on this object family; the right next test
+compares symmetry-aware and naive supervised baselines against the
+measurement-space objective across multiple object families. The loss claim
+rests on the architectures we have run both ways, and broadening the
+both-ways comparison further would test whether the framing extends beyond
+the current set. The architecture mechanism is open, as noted, and the most
+informative experiments are bottleneck variants that hold capacity fixed
+while varying spectral placement, and decoder variants that interpolate
+between the linear and full convolutional cases. These experiments would
+sharpen the interpretation rather than replace the reported comparisons.
+
+\iffalse
+\section{Additional Experiments}
+
+\subsection{Hybrid skip/residual ablation}
+
+% table_metadata: task=CDI_lines128; ablation=hybrid_skip_residual; authority=architecture_ablation; source=.artifacts/work/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-30-cdi-lines128-hybrid-resnet-skip-residual-ablation
+\begin{table}[t]
+\centering
+\small
+\caption{\textbf{Hybrid skip/residual ablation on CDI.} Rows vary
+skip-fusion and residual-scale choices under the same $N=128$ protocol. MAE
+denotes mean absolute error, and FRC50 denotes the Fourier-ring-correlation
+0.5-crossing metric; lower MAE and higher FRC50 are better.}
+\label{tab:cdi_skip_residual_ablation}
+\begin{tabular}{lrrrr}
+\toprule
+Variant & Amplitude MAE $\downarrow$ & Phase MAE $\downarrow$ &
+Amplitude FRC50 $\uparrow$ & Phase FRC50 $\uparrow$ \\
+\midrule
+SRU-Net (reference) & 0.0269 & 0.0721 & 135.46 & 106.80 \\
+skip-add & 0.0264 & \textbf{0.0610} & 135.39 & \textbf{135.96} \\
+fixed residual scale & \textbf{0.0246} & 0.0773 & \textbf{135.92} & 106.68 \\
+skip-add + fixed residual & 0.0289 & 0.0633 & 135.41 & 106.88 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Skip-add is the clearest phase-oriented variant, while fixed residual scaling is
+the clearest amplitude-oriented variant. Combining the two did not produce a
+constructive interaction in this small same-protocol ablation.
+\fi
+
+\clearpage
+\appendix
+
+\section{CDI Phase Contrast-Normalized View}
+
+% figure_metadata: task=CDI_lines128; paper_copy=figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet_phase_per_panel_scaled.png; visible_columns=target,pinn,pinn_fno_vanilla,pinn_ffno,pinn_neuralop_uno,pinn_hybrid_resnet; final_ffno_pair=depth24_no_refiner; display_channels=amplitude,phase; crop_fraction=0.5; amplitude_display_scale=gt_crop_min_to_gt_crop_p99; phase_alignment=global_circular_offset_to_gt_before_wrapping; phase_display_scale=per_panel_p01_to_p99_after_alignment; row_colorbars=amplitude_shared,phase_per_panel
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{figures/cdi_lines128_amp_phase_zoom_cnn_fno_ffno_uno_srunet_phase_per_panel_scaled.png}
+\caption{\textbf{CDI reconstruction comparison with independent phase
+contrast.} This supplemental version of Fig.~\ref{fig:cdi_main_qualitative}
+keeps the amplitude row on the shared target-anchored scale used in the main
+figure, but scales each phase panel independently using the 1st--99th
+percentile range after global phase alignment. The phase colors reveal
+within-panel structure and should not be compared numerically across columns.}
+\label{fig:cdi_main_qualitative_phase_per_panel_scaled}
+\end{figure}
+\FloatBarrier
+
+\section{BRDT FNO Loss Comparison}
+
+% figure_metadata: task=BRDT; source_supervised=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-brdt-four-row-preflight/figures/source_arrays/sample_0255_fno_vanilla_*; source_physics_only=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-05-04-brdt-physics-only-objective-ablation/figures/source_arrays/sample_0255_fno_vanilla_*; paper_copy=figures/brdt_fno_objective_ablation.png; role=appendix_objective_control
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{figures/brdt_fno_objective_ablation.png}
+\caption{\textbf{BRDT FNO loss comparison.} Vanilla FNO did not converge
+under the supervised object loss plus Born-consistency objective used for the
+main BRDT comparison, producing a nearly constant reconstruction. Under a
+physics-only objective on the same BRDT split and representative example, the
+same architecture recovers visible object structure. We show this separately
+from Fig.~\ref{fig:brdt_candidate_recon}, which compares the BRDT models used
+in Table~\ref{tab:brdt_secondary_metrics}.}
+\label{fig:brdt_fno_objective_ablation}
+\end{figure}
+\FloatBarrier
+
+\section{Additional CNS Visualization}
+
+% figure_metadata: task=PDEBench_CNS; train_trajectories=512; val_trajectories=64; test_trajectories=64; fixed_sample=0; visible_rows=target,author_ffno_cns_base,spectral_resnet_bottleneck_base,fno_base,unet_strong; omitted_row=hybrid_resnet_cns; fields=density,pressure; panels=prediction_and_abs_error; visible_label=SRU-Net for repo row spectral_resnet_bottleneck_base; figure_role=adjacent_context_only; figure_lane=h2_512_64_64_2step; source=.artifacts/NEURIPS-HYBRID-RESNET-2026/backlog/2026-04-29-cns-paper-table-figure-bundle/figures/sample000
+% restore_if_needed: omitted CNS figure column maps visible label SRU-Net to repo row hybrid_resnet_cns. Source panels: density__hybrid_resnet_cns__prediction.png, density__hybrid_resnet_cns__abs_error.png, Vx__hybrid_resnet_cns__prediction.png, Vx__hybrid_resnet_cns__abs_error.png, Vy__hybrid_resnet_cns__prediction.png, Vy__hybrid_resnet_cns__abs_error.png, pressure__hybrid_resnet_cns__prediction.png, pressure__hybrid_resnet_cns__abs_error.png.
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\linewidth]{figures/pdebench_cns_sample000_predictions.png}
+\caption{\textbf{PDEBench CNS fixed-sample predictions and errors.} The shared
+test sample comes from an earlier 2-input-time-step 512/64/64 CNS comparison
+and shows per-model error structure. Table~\ref{tab:cns_bundle} uses
+five input states, so this figure should not be read as the visual
+counterpart of the table.}
+\label{fig:cns_sample_predictions}
+\end{figure}
+\FloatBarrier
+
+\section{Additional CNS Comparisons}
+
+Table~\ref{tab:cns_ablation} reports additional SRU-Net comparisons on CNS.
+These results are not used as the main CNS comparison table. They show how input
+history, retained Fourier modes, and bottleneck depth affect aggregate and
+Fourier-band errors under fixed epoch counts. Spectral capacity alone does
+not determine performance; input history, local paths, decoder behavior,
+convergence, and parameter cost also matter.
+
+% table_metadata: task=PDEBench_CNS; ablation=SRU-Net_components; source=multiple existing bounded CNS studies; detailed source rows preserved in supplement_candidate block below
+\begin{table}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{\textbf{Additional SRU-Net comparisons on PDEBench CNS.}
+The first column names the architecture or input-history change; the second column records the
+train/validation/test split and input history. All models use 40
+training epochs. Low-,
+mid-, and high-band RMSE are Fourier-band errors. Lower values are better.}
+\label{tab:cns_ablation}
+\begin{tabular}{p{1.18in}p{1.45in}rrrr}
+\toprule
+Tested change & Split and input & nRMSE $\downarrow$ &
+Low RMSE $\downarrow$ & Mid RMSE $\downarrow$ & High RMSE $\downarrow$ \\
+\midrule
+SRU-Net, 2 input steps & 512/64/64 split; 2 input steps & 0.062 & 3.476 & 0.280 & 0.435 \\
+% restore_if_needed: SRU-Net continuity row maps to repo row hybrid_resnet_cns; omitted CNS continuity row. Row values: SRU-Net, two-frame & 512/64/64, 40ep & 0.064 & 0.368 \\
+SRU-Net, 3 input steps & 512/64/64 split; 3 input steps & 0.046 & 2.560 & 0.216 & 0.347 \\
+SRU-Net, 32 Fourier modes & 512/64/64 split; 2 input steps & 0.065 & 3.676 & 0.242 & 0.347 \\
+Deeper shared-weight spectral bottleneck & 1024/128/128 split; 2 input steps & 0.045 & 2.483 & 0.217 & 0.294 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Benchmark Scope and Reproducibility}
+
+\begin{table*}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{\textbf{Benchmark scope and reproducibility details.} Independent
+instances refer to object instances for CDI, scattering-potential fields for
+BRDT, and trajectories for CNS. Patch and window counts are derived samples and
+should not be interpreted as independent object or trajectory draws.}
+\label{tab:benchmark_scope_repro}
+\begin{tabular}{p{0.12\linewidth}p{0.29\linewidth}p{0.34\linewidth}p{0.18\linewidth}}
+\toprule
+Benchmark & Instances and derived samples & Training and objective & Evaluation alignment \\
+\midrule
+CDI &
+2 train objects and 2 held-out test objects; 8978 train and 1458 held-out
+object-patch/scan samples; metrics computed on held-out object reconstructions &
+40 epochs; batch 16; Adam; learning rate $2\times10^{-4}$;
+ReduceLROnPlateau; $10^9$ photons; CDI measurement-space detector-amplitude MAE;
+supervised object-space controls &
+global phase alignment before phase metrics and display \\
+BRDT &
+2048 train, 256 validation, and 256 test scattering-potential fields; field-level
+samples with no patch or window expansion &
+40 epochs; batch 16; Adam; learning rate $2\times10^{-4}$;
+ReduceLROnPlateau; supervised object loss plus Born-consistency terms &
+target-domain metrics in physical $q$ units; representative figure uses a fixed
+held-out example \\
+PDEBench CNS &
+512 train, 64 validation, and 64 test trajectories; 4096 train, 512 validation,
+and 512 test windows from the trajectory split &
+one run per row; 40 epochs; batch 4; Adam; learning rate
+$2\times10^{-4}$; ReduceLROnPlateau; supervised one-step normalized-field MSE &
+denormalized metric evaluation; Fourier-band errors reported in Table~\ref{tab:cns_bundle} \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\section{Model Configurations}
+
+\begin{table*}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{\textbf{Model configurations by benchmark.} Parameter counts are
+unique trainable parameters in the prediction model. Duplicate wrapper names are
+counted once.}
+\label{tab:model_config_by_benchmark}
+\resizebox{\textwidth}{!}{\input{tables/model_config_by_benchmark.tex}}
+\end{table*}
+
+\section{Runtime and Inference Throughput}
+
+\begin{table*}[t]
+\centering
+\scriptsize
+\setlength{\tabcolsep}{3pt}
+\caption{\textbf{Runtime and inference throughput by benchmark.} CDI
+inference is model-forward patch throughput computed from synchronized
+inference timing over 1458 held-out patches. BRDT throughput is measured over
+the 256-sample test split. Runtime fields preserve the source artifact field
+names and are included as provenance rather than as cross-benchmark rankings.}
+\label{tab:paper_efficiency_table}
+\resizebox{\textwidth}{!}{\input{tables/paper_efficiency_table.tex}}
+\end{table*}
+
+\begin{thebibliography}{9}
+
+\bibitem{hoidn2023physics}
+Oliver Hoidn, Aashwin Ananda Mishra, and Apurva Mehta.
+\newblock Physics constrained unsupervised deep learning for rapid, high
+resolution scanning coherent diffraction reconstruction.
+\newblock \emph{Scientific Reports}, 13:22789, 2023.
+\newblock \url{https://www.nature.com/articles/s41598-023-48351-7}.
+
+\bibitem{ptychonn}
+Mathew J. Cherukara, Tao Zhou, Youssef Nashed, Pablo Enfedaque, Alex Hexemer,
+Ross J. Harder, and Martin V. Holt.
+\newblock AI-enabled high-resolution scanning coherent diffraction imaging.
+\newblock \emph{Applied Physics Letters}, 117(4):044103, 2020.
+\newblock \url{https://doi.org/10.1063/5.0013065}.
+
+\bibitem{autophasenn}
+Yudong Yao, Henry Chan, Subramanian Sankaranarayanan, Prasanna Balaprakash,
+Ross J. Harder, and Mathew J. Cherukara.
+\newblock AutoPhaseNN: unsupervised physics-aware deep learning of 3D
+nanoscale Bragg coherent diffraction imaging.
+\newblock \emph{npj Computational Materials}, 8:124, 2022.
+\newblock \url{https://doi.org/10.1038/s41524-022-00803-w}.
+
+\bibitem{cherukara2018}
+Mathew J. Cherukara, Youssef S.~G. Nashed, and Ross J. Harder.
+\newblock Real-time coherent diffraction inversion using deep generative
+networks.
+\newblock \emph{Scientific Reports}, 8:16520, 2018.
+\newblock \url{https://doi.org/10.1038/s41598-018-34525-1}.
+
+\bibitem{streamingptycho}
+Anakha V. Babu, Tao Zhou, Saugat Kandel, Tekin Bicer, Zhengchun Liu, William
+Judge, Daniel J. Ching, Yi Jiang, Sinisa Veseli, Steven Henke, Ryan Chard,
+Yudong Yao, Ekaterina Sirazitdinova, Geetika Gupta, Martin V. Holt, Ian T.
+Foster, Antonino Miceli, and Mathew J. Cherukara.
+\newblock Deep learning at the edge enables real-time streaming ptychographic
+imaging.
+\newblock \emph{Nature Communications}, 14:7059, 2023.
+\newblock \url{https://doi.org/10.1038/s41467-023-41496-z}.
+
+\bibitem{fienup}
+James R. Fienup.
+\newblock Phase retrieval algorithms: a comparison.
+\newblock \emph{Applied Optics}, 21(15):2758--2769, 1982.
+\newblock \url{https://doi.org/10.1364/AO.21.002758}.
+
+\bibitem{epie}
+Andrew M. Maiden and John M. Rodenburg.
+\newblock An improved ptychographical phase retrieval algorithm for diffractive
+imaging.
+\newblock \emph{Ultramicroscopy}, 109(10):1256--1262, 2009.
+\newblock \url{https://doi.org/10.1016/j.ultramic.2009.05.012}.
+
+\bibitem{devaney}
+A.~J. Devaney.
+\newblock Inverse-scattering theory within the Rytov approximation.
+\newblock \emph{Optics Letters}, 6(8):374--376, 1981.
+\newblock \url{https://doi.org/10.1364/OL.6.000374}.
+
+\bibitem{tvregularization}
+Leonid I. Rudin, Stanley Osher, and Emad Fatemi.
+\newblock Nonlinear total variation based noise removal algorithms.
+\newblock \emph{Physica D: Nonlinear Phenomena}, 60(1--4):259--268, 1992.
+\newblock \url{https://doi.org/10.1016/0167-2789(92)90242-F}.
+
+\bibitem{fno}
+Zongyi Li, Nikola Kovachki, Kamyar Azizzadenesheli, Burigede Liu,
+Kaushik Bhattacharya, Andrew Stuart, and Anima Anandkumar.
+\newblock Fourier neural operator for parametric partial differential equations.
+\newblock \emph{International Conference on Learning Representations}, 2021.
+\newblock \url{https://arxiv.org/abs/2010.08895}.
+
+\bibitem{localno}
+Miguel Liu-Schiaffini, Julius Berner, Boris Bonev, Thorsten Kurth,
+Kamyar Azizzadenesheli, and Anima Anandkumar.
+\newblock Neural operators with localized integral and differential kernels.
+\newblock \emph{International Conference on Machine Learning}, 2024.
+\newblock \url{https://arxiv.org/abs/2402.16845}.
+
+\bibitem{ufno}
+Gege Wen, Zongyi Li, Kamyar Azizzadenesheli, Anima Anandkumar, and
+Sally M. Benson.
+\newblock U-FNO: an enhanced Fourier neural operator-based deep-learning
+model for multiphase flow.
+\newblock \emph{Advances in Water Resources}, 163:104180, 2022.
+\newblock \url{https://doi.org/10.1016/j.advwatres.2022.104180}.
+
+\bibitem{ffno}
+Alasdair Tran, Alexander Mathews, Lexing Xie, and Cheng Soon Ong.
+\newblock Factorized Fourier neural operators.
+\newblock \emph{International Conference on Learning Representations}, 2023.
+\newblock \url{https://arxiv.org/abs/2111.13802}.
+
+\bibitem{pdebench}
+Makoto Takamoto, Timothy Praditia, Raphael Leiteritz, Daniel MacKinlay,
+Francesco Alesiani, Dirk Pflueger, and Mathias Niepert.
+\newblock PDEBench: An extensive benchmark for scientific machine learning.
+\newblock \emph{Advances in Neural Information Processing Systems}, 2022.
+\newblock \url{https://arxiv.org/abs/2210.07182}.
+
+\bibitem{deeponet}
+Lu Lu, Pengzhan Jin, Guofei Pang, Zhongqiang Zhang, and George Em Karniadakis.
+\newblock Learning nonlinear operators via DeepONet based on the universal
+approximation theorem of operators.
+\newblock \emph{Nature Machine Intelligence}, 3:218--229, 2021.
+\newblock \url{https://doi.org/10.1038/s42256-021-00302-5}.
+
+\bibitem{galerkin}
+Shuhao Cao.
+\newblock Choose a transformer: Fourier or Galerkin.
+\newblock \emph{Advances in Neural Information Processing Systems}, 2021.
+\newblock \url{https://arxiv.org/abs/2105.14995}.
+
+\bibitem{resnet}
+Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun.
+\newblock Deep residual learning for image recognition.
+\newblock \emph{IEEE Conference on Computer Vision and Pattern Recognition},
+770--778, 2016.
+\newblock \url{https://arxiv.org/abs/1512.03385}.
+
+\bibitem{unet}
+Olaf Ronneberger, Philipp Fischer, and Thomas Brox.
+\newblock U-Net: convolutional networks for biomedical image segmentation.
+\newblock \emph{Medical Image Computing and Computer-Assisted Intervention},
+234--241, 2015.
+\newblock \url{https://arxiv.org/abs/1505.04597}.
+
+\bibitem{gelu}
+Dan Hendrycks and Kevin Gimpel.
+\newblock Gaussian error linear units (GELUs).
+\newblock \emph{arXiv:1606.08415}, 2016.
+\newblock \url{https://arxiv.org/abs/1606.08415}.
+
+\bibitem{instnorm}
+Dmitry Ulyanov, Andrea Vedaldi, and Victor Lempitsky.
+\newblock Instance normalization: the missing ingredient for fast stylization.
+\newblock \emph{arXiv:1607.08022}, 2016.
+\newblock \url{https://arxiv.org/abs/1607.08022}.
+
+\bibitem{pixelshuffle}
+Wenzhe Shi, Jose Caballero, Ferenc Husz\'ar, Johannes Totz, Andrew P. Aitken,
+Rob Bishop, Daniel Rueckert, and Zehan Wang.
+\newblock Real-time single image and video super-resolution using an efficient
+sub-pixel convolutional neural network.
+\newblock \emph{IEEE Conference on Computer Vision and Pattern Recognition},
+1874--1883, 2016.
+\newblock \url{https://arxiv.org/abs/1609.05158}.
+
+\bibitem{adam}
+Diederik P. Kingma and Jimmy Ba.
+\newblock Adam: a method for stochastic optimization.
+\newblock \emph{International Conference on Learning Representations}, 2015.
+\newblock \url{https://arxiv.org/abs/1412.6980}.
+
+\bibitem{ssim}
+Zhou Wang, Alan C. Bovik, Hamid R. Sheikh, and Eero P. Simoncelli.
+\newblock Image quality assessment: from error visibility to structural
+similarity.
+\newblock \emph{IEEE Transactions on Image Processing}, 13(4):600--612, 2004.
+\newblock \url{https://doi.org/10.1109/TIP.2003.819861}.
+
+\end{thebibliography}
+
+\end{document}

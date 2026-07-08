@@ -9,6 +9,9 @@ Test strategy: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md
 """
 
 import pytest
+
+pytest.importorskip("studies.fly64_dose_overlap.design", reason="branch-local studies/ package not present (gitignored; see TESTING_GUIDE CI section)")
+
 from studies.fly64_dose_overlap.design import get_study_design, StudyDesign
 
 
@@ -28,9 +31,8 @@ def test_study_design_constants():
     - MS-SSIM sigma=1.0, phase emphasis enabled
 
     References:
-    - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md:24-30
-    - docs/GRIDSIZE_N_GROUPS_GUIDE.md:142-151 (spacing rule)
-    - docs/SAMPLING_USER_GUIDE.md:116-119 (K ≥ C constraint)
+    - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/implementation.md
+    - docs/GRIDSIZE_N_GROUPS_GUIDE.md (spacing rule and K >= C grouping constraint)
     """
     design = get_study_design()
 

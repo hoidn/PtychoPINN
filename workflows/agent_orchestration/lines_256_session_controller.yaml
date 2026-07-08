@@ -1,0 +1,34 @@
+version: "2.7"
+
+steps:
+  - name: ValidateControllerInputs
+    type: command
+    command:
+      - python
+      - -c
+      - |
+        from pathlib import Path
+
+        required = [
+            Path("docs/studies/lines_256_dataset.md"),
+            Path("docs/studies/lines_256_controller_loop.md"),
+            Path("workflows/agent_orchestration/lines_256_redesign_candidate_impl_review.yaml"),
+            Path("scripts/studies/lines_256_session_controller.py"),
+            Path("scripts/studies/run_lines_256_arch_experiment.py"),
+            Path("prompts/workflows/lines_256_arch_improvement/redesign_candidate_design.md"),
+            Path("prompts/workflows/lines_256_arch_improvement/redesign_candidate_plan.md"),
+            Path("prompts/workflows/lines_256_arch_improvement/redesign_candidate_implement.md"),
+            Path("prompts/workflows/lines_256_arch_improvement/redesign_candidate_review.md"),
+        ]
+        missing = [str(path) for path in required if not path.exists()]
+        if missing:
+            raise SystemExit("Missing required controller inputs: " + ", ".join(missing))
+
+  - name: RunController
+    type: command
+    command:
+      - python
+      - scripts/studies/lines_256_session_controller.py
+      - start
+      - --repo-root
+      - .

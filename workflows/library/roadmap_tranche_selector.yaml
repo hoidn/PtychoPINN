@@ -1,0 +1,151 @@
+version: "2.7"
+name: "roadmap-tranche-selector"
+
+context:
+  workflow_model: "gpt-5.4"
+  workflow_effort: "high"
+
+inputs:
+  state_root:
+    type: relpath
+    under: state
+  design_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  roadmap_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  progress_ledger_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+
+outputs:
+  selection_status:
+    kind: scalar
+    type: enum
+    allowed: ["SELECTED", "DONE", "BLOCKED"]
+    from:
+      ref: root.steps.FinalizeSelectionOutputs.artifacts.selection_status
+  selection_bundle_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizeSelectionOutputs.artifacts.selection_bundle_path
+
+providers:
+  codex:
+    command: ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check", "--model", "${model}", "--config", "reasoning_effort=${effort}"]
+    input_mode: "stdin"
+    defaults:
+      model: "${context.workflow_model}"
+      effort: "${context.workflow_effort}"
+
+artifacts:
+  design:
+    pointer: ${inputs.state_root}/design_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  roadmap:
+    pointer: ${inputs.state_root}/roadmap_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  progress_ledger:
+    pointer: ${inputs.state_root}/progress_ledger_path.txt
+    type: relpath
+    under: state
+    must_exist_target: true
+
+steps:
+  - name: PublishSelectorInputs
+    id: publish_selector_inputs
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p "${inputs.state_root}"
+        printf '%s\n' "${inputs.design_path}" > "${inputs.state_root}/design_path.txt"
+        printf '%s\n' "${inputs.roadmap_path}" > "${inputs.state_root}/roadmap_path.txt"
+        printf '%s\n' "${inputs.progress_ledger_path}" > "${inputs.state_root}/progress_ledger_path.txt"
+    expected_outputs:
+      - name: design_path
+        path: ${inputs.state_root}/design_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: roadmap_path
+        path: ${inputs.state_root}/roadmap_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: progress_ledger_path
+        path: ${inputs.state_root}/progress_ledger_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+    publishes:
+      - artifact: design
+        from: design_path
+      - artifact: roadmap
+        from: roadmap_path
+      - artifact: progress_ledger
+        from: progress_ledger_path
+
+  - name: SelectNextTranche
+    id: select_next_tranche
+    provider: codex
+    asset_file: prompts/roadmap_tranche_selector/select_next_tranche.md
+    timeout_sec: 1800
+    consumes:
+      - artifact: design
+        policy: latest_successful
+        freshness: any
+      - artifact: roadmap
+        policy: latest_successful
+        freshness: any
+      - artifact: progress_ledger
+        policy: latest_successful
+        freshness: any
+    prompt_consumes: ["design", "roadmap", "progress_ledger"]
+    output_bundle:
+      path: ${inputs.state_root}/selection.json
+      fields:
+        - name: selection_status
+          json_pointer: /selection_status
+          type: enum
+          allowed: ["SELECTED", "DONE", "BLOCKED"]
+
+  - name: FinalizeSelectionOutputs
+    id: finalize_selection_outputs
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import sys
+
+        state_root = pathlib.Path(sys.argv[1])
+        selection_path = state_root / "selection.json"
+        selection = json.loads(selection_path.read_text(encoding="utf-8"))
+        status = selection.get("selection_status")
+        if status not in {"SELECTED", "DONE", "BLOCKED"}:
+            raise SystemExit(f"Invalid selection_status: {status}")
+        (state_root / "selection_status.txt").write_text(status + "\n", encoding="utf-8")
+        (state_root / "selection_bundle_path.txt").write_text(selection_path.as_posix() + "\n", encoding="utf-8")
+      - ${inputs.state_root}
+    expected_outputs:
+      - name: selection_status
+        path: ${inputs.state_root}/selection_status.txt
+        type: enum
+        allowed: ["SELECTED", "DONE", "BLOCKED"]
+      - name: selection_bundle_path
+        path: ${inputs.state_root}/selection_bundle_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true

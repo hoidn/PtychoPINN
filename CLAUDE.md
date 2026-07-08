@@ -1,144 +1,80 @@
-# CLAUDE.md - PtychoPINN Project Guide
+# CLAUDE.md
 
-## Project Overview
-**PtychoPINN** (Ptychographic Physics-Informed Neural Network) is a deep learning framework for coherent diffraction imaging reconstruction. It combines UNet-based encoder-decoder architectures with physics-informed forward models to reconstruct complex-valued objects from ptychographic diffraction measurements. Training is orchestrated with PyTorch Lightning.
 
-## Environment & Scope
+---
 
-- Conda environment: `PtychoPINN_torch`, located at `/local/miniconda3/envs/PtychoPINN_torch`
-- **Only `ptycho_torch/` may be modified.** Other directories (e.g. `ptycho/`) contain other implementations we cannot and will not touch.
+## 0. Rules / suggestions 
+- use the tmux skill when launching long-running commands. When using tmux, activate the ptycho311 conda env or point pythonpath to its executable
 
-## Directory Layout
+### Long-Run Sync Guardrail
+- For long-running commands, track and wait on the exact launched PID (`cmd ... & pid=$!; wait "$pid"`).
+- Do not use broad `pgrep -f` polling loops as the primary completion check.
+  Command-string polling can match the wrapper shell or watcher itself and
+  hang after the real child process exits.
+- If tailing logs while a command runs, tail in a separate process, wait on the
+  command PID, then stop the tail process and propagate the command exit code.
+- Do not launch a duplicate run if another process is already writing to the same `--output-root`.
+- Consider a run complete only when:
+  1. the tracked PID exits with code `0`, and
+  2. required output artifacts for that step exist and are freshly written.
 
-```
-ptycho_torch/
-├── api/              # High-level training/inference interfaces + usage examples
-├── beta_modules/     # Experimental variants: rectangular-coordinate net, UNet, weighted reassembly
-├── cli/              # Shared CLI helpers
-├── configs/          # JSON configuration files for experiments
-├── datagen/          # Synthetic data generation (objects, probes, diffraction)
-├── eval/             # Evaluation metrics (PSNR, FRC/FSC)
-├── generators/       # Generator networks (cnn.py)
-└── notebooks/        # Analysis and manuscript figures
-```
+## 1. ⚙️ Identity & Workflow Guardrails
 
-Key top-level modules (read the source for API details — signatures drift faster than docs):
+- **Plans & artifacts:** Keep evidence lean. Store plans under `docs/plans/` (default single-file plan: `docs/plans/YYYY-MM-DD-<initiative>.md`). If an initiative needs a folder, use `docs/plans/<initiative>/summary.md` for loop summaries. Store bulky artifacts outside the repo (or under a git‑ignored `.artifacts/` folder) and link to them from the plan/ledger.
+- **Authority stack:** If instructions conflict, prefer SPECs (specs/ for external interop contracts; docs/specs/ for internal spec-ptycho-* shards), then project documentation, then prompt files. Internal model memories must defer to the repository.
 
-- `model.py` — `PtychoPINN_Lightning` (main Lightning module), `Autoencoder`, `ForwardModel`, loss functions (Poisson, MAE, TV, MeanDeviation)
-- `model_attention.py` — CBAM/ECA attention blocks
-- `dataloader.py` — `PtychoDataset` (TensorDict memory-mapped, DDP-aware), `Collate_Lightning`
-- `patch_generator.py` — coordinate grouping (`group_coords`, quadrant/KDTree neighbor search)
-- `train_lightning_only.py` — `main()` training entry point (Lightning-only, no MLFlow)
-- `train_utils.py` — `PtychoDataModuleLightning`
-- `model_finetuner_modified.py` — `ModelFineTuner`, `StagedFineTuner_Lightning`
-- `inference.py`, `reassembly.py` — `reconstruct_image_barycentric()` and patch-assembly machinery
-- `beta_modules/reassembly.py` — `reconstruct_image_barycentric_weighted()`, `VarProScaler` (probe-weighted assembly + solved scaling constants)
-- `config_params.py` — `DataConfig`, `ModelConfig`, `TrainingConfig`, `InferenceConfig` dataclasses
-- `helper.py` — `reassemble_patches_position_real()`, sub-pixel `Translation()`
-- `datagen/datagen.py` — `simulate_multiple_experiments()`, `simulate_synthetic_objects()`, `simulate_synthetic_probes()`
-- `eval/eval_metrics.py`, `eval/frc.py` — PSNR, FSC (van Heel & Schatz 2005)
+---
 
-## Configuration Gotchas
+## 2. ⚖️ Fundamental Directives
 
-- `DataConfig.scan_pattern` must match the experiment's scan pattern — mismatch is a common failure mode
-- `DataConfig.C`: 1 = CDI, 4 = ptychography; `ModelConfig.object_big` (overlap constraint) should be True when C > 1
-- `DataConfig.x_bounds` / `y_bounds` filter edge scan positions
+1. **Documentation is authoritative.** Start from `docs/index.md`. Never rely on unstated assumptions if a spec or guide disagrees with cached knowledge.
+2. **Consult the knowledge base first.** Read `docs/findings.md` before debugging or implementing fixes. Follow any applicable Finding IDs verbatim (e.g., POLICY-001 for PyTorch requirements).
+3. **Honor specifications and data contracts.** `specs/data_contracts.md` and `specs/ptychodus_api_spec.md` define external behavior; implementation must not diverge without an approved plan.
+5. **Preserve artifact hygiene.** Keep minimal, human-readable summaries in `docs/plans/` (single-file plan by default, or `docs/plans/<initiative>/summary.md` when a folder is used). Store bulky artifacts outside the repo (or under a git-ignored `.artifacts/`) and link to them. Temporary scratch data stays under `tmp/` and is deleted before committing.
+6. **Treat core physics/model code as stable.** Do not modify `ptycho/model.py`, `ptycho/diffsim.py`, or `ptycho/tf_helper.py` unless the active plan explicitly authorizes it.
+7. **Respect the PyTorch policy.** PyTorch (torch ≥ 2.2) is mandatory (POLICY-001). PyTorch workflows must still run `update_legacy_dict(params.cfg, config)` before touching legacy modules; see `docs/workflows/pytorch.md`.
+8. **Testing proof is mandatory.** Any task involving tests must provide passing `pytest` evidence and archived logs as described in `docs/TESTING_GUIDE.md`.
+11. **Interpreter policy.** Obey PYTHON-ENV-001 in `docs/DEVELOPER_GUIDE.md` (invoke Python via PATH `python`; avoid repository-specific interpreter wrappers).
+12. Do not create worktrees, especially not when executing plans or implementing features
+13. **Worktree submodule policy.** In existing worktrees (especially `git bisect` runs), initialize submodules before tests (`git submodule update --init --recursive`) and verify required submodule files exist (e.g., `ptycho/FRC/*`), otherwise test results are invalid.
 
-## Common Patterns
+---
 
-### Training a Model
-```python
-from ptycho_torch.train_lightning_only import main
+## 3. 📚 Required Reference Map
 
-run_dir = main(
-    ptycho_dir='data/synthetic/',
-    config_path='configs/my_config.json',
-    output_dir='training_outputs/'
-)
-```
+- **Documentation hub:** `docs/index.md` – complete map of guides, specs, and workflows.
+- **Workflow runbooks:** `docs/workflows/agent_orchestration_backlog_loop.md` and `docs/backlog/index.md` – backlog execution, queue state, and plan routing.
+- **Developer guide:** `docs/DEVELOPER_GUIDE.md` – architecture, anti-patterns, and TDD methodology.
+- **Data generation:** `docs/DATA_GENERATION_GUIDE.md` – grid vs nongrid simulation pipelines, parameter mappings.
+- **Testing references:** `docs/TESTING_GUIDE.md` and `docs/development/TEST_SUITE_INDEX.md` – authoritative test commands and selectors.
+- **PyTorch workflows:** `docs/workflows/pytorch.md` – configuration and execution rules for the PyTorch backend.
+- **Knowledge base:** `docs/findings.md` – mandatory pre-read for known issues, conventions, and policies.
 
-### Inference on New Data
-```python
-from ptycho_torch.lightning_utils import load_checkpoint_with_configs
-from ptycho_torch.reassembly import reconstruct_image_barycentric
+Use the index to locate any additional document cited by the active plan.
 
-model, configs = load_checkpoint_with_configs(
-    'training_outputs/.../best-checkpoint.ckpt',
-    PtychoPINN_Lightning
-)
-canvas, dataset, stats = reconstruct_image_barycentric(
-    model, ptycho_dataset,
-    training_config, data_config, model_config, inference_config
-)
-```
+---
 
-### Generating Synthetic Data
-```python
-from ptycho_torch.datagen.datagen import (
-    simulate_multiple_experiments, simulate_synthetic_objects, simulate_synthetic_probes
-)
+## 4. 🛠 Where to Find Troubleshooting & Commands
 
-obj_list = simulate_synthetic_objects(
-    img_shape=(250, 250), data_config=data_config,
-    nimages=10, obj_method='dead_leaves', obj_arg={}
-)
-probe_list = simulate_synthetic_probes(
-    data_config, nimages=10, probe_method='zernike', probe_arg={}
-)
-simulate_multiple_experiments(
-    obj_list, probe_list, images_per_experiment=5000,
-    img_shape=(250, 250), data_config=data_config,
-    probe_arg={}, save_dir='data/synthetic/'
-)
-```
+- **Params.cfg / shape mismatch issues:** Follow `docs/debugging/QUICK_REFERENCE_PARAMS.md` and `docs/debugging/TROUBLESHOOTING.md`. Do **not** rely on stale snippets in this constitution.
+- **Command library (git, training, inference, tests):** Use `docs/COMMANDS_REFERENCE.md` for all CLI recipes. The prompts enforce running tests via `pytest` selectors; align with that doc and archive logs per their instructions.
+- **Git setup & hygiene:** See `prompts/git_setup_agent.md` and `prompts/git_hygiene.md` for automation-safe Git workflows.
+- **Known bugs:** See `docs/bugs/` directory for documented bugs and workarounds (e.g., `XLA_INFERENCE_BUG.md` for PINN inference issues).
 
-## Coding Conventions
+- Remove “evidence‑only” git exceptions. Always perform normal pull/rebase hygiene. Do not commit bulky artifacts; store them externally or under `.artifacts/` and link from the plan/ledger.
 
-1. **Config Objects**: Pass `DataConfig`, `ModelConfig`, etc. as arguments (never hardcode values)
-2. **Complex Tensors**: Use `torch.complex64`, handle via `torch.real()` / `torch.imag()` for operations not supporting complex
-3. **DDP Synchronization**: Always use `dist.barrier()` for cross-rank coordination
-4. **Memory Management**: Call `torch.cuda.empty_cache()` and `gc.collect()` after large batches
-5. **Logging**: Use `print()` with rank guards: `if is_effectively_global_rank_zero():`
-6. **Device Placement**: Lightning handles `.to(device)`, but dataloaders need explicit pin_memory
+If a command or troubleshooting step is missing from those references, update the canonical document first; CLAUDE.md should only point to authoritative sources, not duplicate their content.
 
-## Repo conventions 
-- don't mention claude or claude code in commit messages 
+---
 
-## Key Architecture Decisions
+## 5. 🧾 Plan-Update Protocol
 
-- **Rectangular Coordinates**: Specialized `4_quadrant` neighbor function for anisotropic scans (±12 μm in x, ±2 μm in y)
-- **Multi-Stage Training**: Gradual transition from RMS → Physics normalization prevents loss landscape jumps
-- **Lightning-Only Mode**: Removed MLFlow dependency for simpler deployment and debugging
-- **Memory-Mapped Datasets**: TensorDict enables multi-TB datasets without RAM limits
-- **Probe-Weighted Assembly**: Uses |Probe|² for physically accurate overlap weighting
-- **Incoherent Multi-Mode Probes**: The beta modules (`model_unet.py`, `reassembly.py`) support multiple incoherent probe modes via the tensor layout `[B, C, P, H, W]` where P is the probe mode dimension. The dataloader auto-detects 2D (single-mode) vs 3D (multi-mode) probes from NPZ files. The forward model uses incoherent summation: $I = \sum_p |\mathcal{F}\{O \cdot P_p\}|^2$. For inference assembly, stitching weights use total probe intensity $W(\mathbf{r}) = \sum_p |P_p(\mathbf{r})|^2$. The VarPro scaler computes mode-summed basis images before solving for scaling constants. All changes are backward-compatible — when P=1, behavior is identical to the single-mode case.
 
-## Common Issues
+### Required Steps
+1. Re-read `docs/index.md`, then open every referenced document that applies to the pending change (plan file, specs, workflow guides, etc.) so `documents_read` matches reality.
+4. Then make the updates
 
-**"Memory map contains zeros on Rank 1"**
-- Check `os.sync()` is called after Rank 0 creates map
-- Verify `dist.barrier()` between `prepare_data()` and `setup()`
-
-**"Phase reconstruction has constant offset"**
-- Enable `phase_subtraction=True` in DataConfig
-- Verify `batch_norm=True` in phase decoder
-
-**"Model gradients are NaN"**
-- Check `gradient_clip_val` is set (recommend 1.0-5.0)
-- Reduce learning rate or increase `finetune_stage1_epochs`
-
-**"Reconstruction has stitching artifacts"**
-- Increase `middle_trim` (32 → 48 for N=64)
-- Check probe normalization is disabled during inference
-- Verify `x_bounds`/`y_bounds` filter edge positions
-
-## Plugins
-
-- **Context7**: `/pytorch/pytorch` and `/lightning-ai/pytorch-lightning` for library docs
-- **GitHub**: available for issues/PRs/commits
-
-## Thinking Scaffolding
-
-**Ensure physics and scientific rigor**
-- Ground suggestions in physics with mathematical rigor
-- Format scientific explanatory outputs with LaTeX-compatible equations
+### Simulation Checklist
+- **Before editing:** ensure `documents_read` mirrors every file you opened after consulting `docs/index.md`.
+- **After editing:** confirm the XML, plan diff, and ledger entry all cite the same focus ID and plan path.
+- **If blocked:** set `<status>blocked</status>` and describe the blocker under `<impacts>`; the next loop repeats the XML with updated context.

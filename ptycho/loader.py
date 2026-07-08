@@ -129,6 +129,8 @@ class PtychoDataContainer:
     and provides comprehensive debug representations showing tensor statistics.
 
     See: docs/findings.md PINN-CHUNKED-001 for the OOM blocker this addresses.
+
+    Contract: docs/architecture_torch.md §Component Contracts.
     """
     @debug
     def __init__(self, X, Y_I, Y_phi, norm_Y_I, YY_full, coords_nominal, coords_true, nn_indices, global_offsets, local_offsets, probeGuess):

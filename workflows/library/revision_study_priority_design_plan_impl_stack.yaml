@@ -1,0 +1,232 @@
+version: "2.7"
+name: "revision-study-priority-design-plan-impl-stack"
+
+imports:
+  item_stack: backlog_item_design_plan_impl_stack.yaml
+
+inputs:
+  revision_manifest_path:
+    type: relpath
+    must_exist_target: true
+  adapter_state_root:
+    type: relpath
+    under: state
+
+steps:
+  - name: ReadRevisionStudyManifest
+    id: read_revision_study_manifest
+    command:
+      - python
+      - -c
+      - |
+        import json
+        import pathlib
+        import sys
+
+        path = pathlib.Path(sys.argv[1])
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(payload, list):
+            raise SystemExit("Revision study manifest must be a JSON array")
+        print(json.dumps(payload))
+      - ${inputs.revision_manifest_path}
+    output_capture: json
+
+  - name: ProcessRevisionStudies
+    id: process_revision_studies
+    for_each:
+      items_from: steps.ReadRevisionStudyManifest.json
+      as: revision_study
+      steps:
+        - name: PrepareRevisionStudyItemInputs
+          id: prepare_revision_study_item_inputs
+          command:
+            - python
+            - -c
+            - |
+              import json
+              import pathlib
+              import re
+              import sys
+
+              item = json.loads(sys.argv[1])
+              if not isinstance(item, dict):
+                  raise SystemExit("Revision study item must be a JSON object")
+
+              study_id = item.get("study_id") or item.get("item_id")
+              title = item.get("title") or study_id
+              revision_design_path = item.get("revision_design_path")
+              revision_context_path = item.get("revision_context_path", "reviewer_revision_checklist.md")
+              notes = item.get("notes", "")
+
+              if not isinstance(study_id, str) or not study_id:
+                  raise SystemExit("Revision study item missing non-empty study_id")
+              if not re.fullmatch(r"[A-Za-z0-9_.-]+", study_id):
+                  raise SystemExit(f"Revision study_id is not path-safe: {study_id!r}")
+              if not isinstance(revision_design_path, str) or not revision_design_path:
+                  raise SystemExit("Revision study item missing non-empty revision_design_path")
+              if not isinstance(revision_context_path, str) or not revision_context_path:
+                  raise SystemExit("revision_context_path must be a non-empty string when provided")
+              if notes is not None and not isinstance(notes, str):
+                  raise SystemExit("notes must be a string when provided")
+              adapter_state_root = sys.argv[2].rstrip("/")
+              if not adapter_state_root:
+                  raise SystemExit("adapter_state_root must be non-empty")
+
+              seed_path = pathlib.Path(revision_design_path)
+              if not seed_path.exists():
+                  raise SystemExit(f"Missing revision design seed: {revision_design_path}")
+              seed_text = seed_path.read_text(encoding="utf-8")
+
+              context_path = pathlib.Path(revision_context_path)
+              if context_path.exists():
+                  context_status = "present"
+                  context_text = context_path.read_text(encoding="utf-8")
+              else:
+                  context_status = "missing"
+                  context_text = "No revision context file was found at the declared path.\n"
+
+              working_seed_path = pathlib.Path(f"docs/plans/revision-studies/{study_id}-design-seed.md")
+              working_seed_path.parent.mkdir(parents=True, exist_ok=True)
+              working_seed_text = "\n".join(
+                  [
+                      f"# Revision Study Design Seed: {title}",
+                      "",
+                      "This generated working seed adapts the manifest's revision-study design input for the generic design-plan-implementation stack.",
+                      "",
+                      "## Adapter Instructions",
+                      "",
+                      "- Treat this working seed as the design-phase input and output. Design draft and revision passes may rewrite this file in place.",
+                      "- Use the source revision design path as starting context and provenance, not as the post-review design source of truth.",
+                      "- Preserve the reviewer and manuscript claim boundaries from the source design and revision context unless the approved design explicitly narrows or pivots them.",
+                      "- Keep paper/manuscript/changelog/checklist edits gated by the design and implementation plan.",
+                      "- Use the current checkout. Do not create a git worktree. Do not commit unless the user explicitly asks for a commit.",
+                      "- Prefer narrow study scripts, manifests, and verification artifacts over broad reusable API changes unless the approved design explicitly requires promotion.",
+                      "",
+                      "## Source Metadata",
+                      "",
+                      f"- Study id: `{study_id}`",
+                      f"- Title: `{title}`",
+                      f"- Revision design seed: `{revision_design_path}`",
+                      f"- Revision context: `{revision_context_path}` ({context_status})",
+                      "",
+                      "## Additional Notes",
+                      "",
+                      notes or "None.",
+                      "",
+                      "## Source Revision Design Seed",
+                      "",
+                      "```markdown",
+                      seed_text.rstrip(),
+                      "```",
+                      "",
+                      "## Revision Context",
+                      "",
+                      "```markdown",
+                      context_text.rstrip(),
+                      "```",
+                      "",
+                  ]
+              )
+              working_seed_path.write_text(working_seed_text, encoding="utf-8")
+
+              payload = {
+                  "item_state_root": f"{adapter_state_root}/{study_id}",
+                  "design_phase_state_root": f"{adapter_state_root}/{study_id}/design-phase",
+                  "plan_phase_state_root": f"{adapter_state_root}/{study_id}/plan-phase",
+                  "implementation_phase_state_root": f"{adapter_state_root}/{study_id}/implementation-phase",
+                  "brief_path": working_seed_path.as_posix(),
+                  "design_target_path": working_seed_path.as_posix(),
+                  "design_review_report_target_path": f"artifacts/review/revision-studies/{study_id}-design-review.json",
+                  "plan_target_path": f"docs/plans/revision-studies/{study_id}-execution-plan.md",
+                  "plan_review_report_target_path": f"artifacts/review/revision-studies/{study_id}-plan-review.json",
+                  "execution_report_target_path": f"artifacts/work/revision-studies/{study_id}-execution-report.md",
+                  "implementation_review_report_target_path": f"artifacts/review/revision-studies/{study_id}-implementation-review.md",
+                  "item_summary_target_path": f"artifacts/work/revision-studies/{study_id}-summary.json",
+              }
+
+              output_path = pathlib.Path(adapter_state_root) / "current-item-inputs.json"
+              output_path.parent.mkdir(parents=True, exist_ok=True)
+              output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            - ${revision_study}
+            - ${inputs.adapter_state_root}
+          output_bundle:
+            path: ${inputs.adapter_state_root}/current-item-inputs.json
+            fields:
+              - name: item_state_root
+                json_pointer: /item_state_root
+                type: relpath
+                under: state
+              - name: design_phase_state_root
+                json_pointer: /design_phase_state_root
+                type: relpath
+                under: state
+              - name: plan_phase_state_root
+                json_pointer: /plan_phase_state_root
+                type: relpath
+                under: state
+              - name: implementation_phase_state_root
+                json_pointer: /implementation_phase_state_root
+                type: relpath
+                under: state
+              - name: brief_path
+                json_pointer: /brief_path
+                type: relpath
+                under: docs
+                must_exist_target: true
+              - name: design_target_path
+                json_pointer: /design_target_path
+                type: relpath
+                under: docs/plans
+              - name: design_review_report_target_path
+                json_pointer: /design_review_report_target_path
+                type: relpath
+                under: artifacts/review
+              - name: plan_target_path
+                json_pointer: /plan_target_path
+                type: relpath
+                under: docs/plans
+              - name: plan_review_report_target_path
+                json_pointer: /plan_review_report_target_path
+                type: relpath
+                under: artifacts/review
+              - name: execution_report_target_path
+                json_pointer: /execution_report_target_path
+                type: relpath
+                under: artifacts/work
+              - name: implementation_review_report_target_path
+                json_pointer: /implementation_review_report_target_path
+                type: relpath
+                under: artifacts/review
+              - name: item_summary_target_path
+                json_pointer: /item_summary_target_path
+                type: relpath
+                under: artifacts/work
+
+        - name: RunRevisionStudyAsBacklogItem
+          id: run_revision_study_as_backlog_item
+          call: item_stack
+          with:
+            item_state_root:
+              ref: self.steps.PrepareRevisionStudyItemInputs.artifacts.item_state_root
+            design_phase_state_root:
+              ref: self.steps.PrepareRevisionStudyItemInputs.artifacts.design_phase_state_root
+            plan_phase_state_root:
+              ref: self.steps.PrepareRevisionStudyItemInputs.artifacts.plan_phase_state_root
+            implementation_phase_state_root:
+              ref: self.steps.PrepareRevisionStudyItemInputs.artifacts.implementation_phase_state_root
+            brief_path:
+              ref: self.steps.PrepareRevisionStudyItemInputs.artifacts.brief_path
+            design_target_path:
+              ref: self.steps.PrepareRevisionStudyItemInputs.artifacts.design_target_path
+            design_review_report_target_path:
+              ref: self.steps.PrepareRevisionStudyItemInputs.artifacts.design_review_report_target_path
+            plan_target_path:
+              ref: self.steps.PrepareRevisionStudyItemInputs.artifacts.plan_target_path
+            plan_review_report_target_path:
+              ref: self.steps.PrepareRevisionStudyItemInputs.artifacts.plan_review_report_target_path
+            execution_report_target_path:
+              ref: self.steps.PrepareRevisionStudyItemInputs.artifacts.execution_report_target_path
+            implementation_review_report_target_path:
+              ref: self.steps.PrepareRevisionStudyItemInputs.artifacts.implementation_review_report_target_path
+            item_summary_target_path:
+              ref: self.steps.PrepareRevisionStudyItemInputs.artifacts.item_summary_target_path

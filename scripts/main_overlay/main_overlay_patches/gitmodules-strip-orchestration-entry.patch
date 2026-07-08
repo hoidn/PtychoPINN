@@ -1,0 +1,11 @@
+diff --git a/.gitmodules b/.gitmodules
+index 165ea65e..fdd1de11 100644
+--- a/.gitmodules
++++ b/.gitmodules
+@@ -17,6 +17,3 @@
+ [submodule "prompts"]
+ 	path = prompts
+ 	url = git@github.com:hoidn/prompts.git
+-[submodule "scripts/orchestration"]
+-	path = scripts/orchestration
+-	url = git@github.com:hoidn/orchestration.git

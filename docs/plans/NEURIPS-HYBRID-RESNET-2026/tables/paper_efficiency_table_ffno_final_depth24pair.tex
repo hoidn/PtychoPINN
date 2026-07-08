@@ -1,0 +1,25 @@
+\begin{tabular}{lllrrrr}
+\toprule
+Benchmark & Row & Model & Params & Runtime (s) & Runtime field & Inference \\
+\midrule
+\multicolumn{7}{l}{\textbf{CDI}} \\
+ & pinn & CNN + PINN & 4.66M & 531.0 & train\_wall\_time\_sec & 524.5 samples/s \\
+ & pinn\_fno\_vanilla & FNO + PINN & 636.5k & 497.2 & train\_wall\_time\_sec & 1904.5 samples/s \\
+ & pinn\_ffno & FFNO + PINN & 701.6k & 4754.9 & train\_wall\_time\_sec & 171.4 samples/s \\
+ & pinn\_hybrid\_resnet & SRU-Net + PINN & 9.00M & 1066.8 & train\_wall\_time\_sec & 1075.8 samples/s \\
+ & pinn\_neuralop\_uno & U-NO + PINN & 1.26M & 1094.9 & command\_wall\_time\_sec & missing \\
+ & baseline & CNN + supervised & 4.61M & 611.9 & train\_wall\_time\_sec & 393.4 samples/s \\
+ & supervised\_ffno & FFNO + supervised & 1.42M & 4609.3 & train\_wall\_time\_sec & 228.8 samples/s \\
+ & supervised\_neuralop\_uno & U-NO + supervised & 1.26M & 1093.5 & command\_wall\_time\_sec & missing \\
+\addlinespace
+\multicolumn{7}{l}{\textbf{PDEBench CNS}} \\
+ & author\_ffno\_cns\_base & FFNO & 1.07M & 5103.3 & runtime\_sec & missing \\
+ & spectral\_resnet\_bottleneck\_base & SRU-Net & 8.40M & 1436.7 & runtime\_sec & missing \\
+ & fno\_base & FNO & 358.6k & 1129.8 & runtime\_sec & missing \\
+ & unet\_strong & U-Net & 7.77M & 1071.0 & runtime\_sec & missing \\
+\addlinespace
+\multicolumn{7}{l}{\textbf{BRDT}} \\
+ & ffno & FFNO & 27.5k & 209.9 & wall\_time\_train\_s & 387.3 samples/s \\
+ & sru\_net & SRU-Net & 142.2k & 164.3 & wall\_time\_train\_s & 404.7 samples/s \\
+\bottomrule
+\end{tabular}

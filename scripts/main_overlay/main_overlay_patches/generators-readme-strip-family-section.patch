@@ -1,0 +1,54 @@
+diff --git a/ptycho_torch/generators/README.md b/ptycho_torch/generators/README.md
+index 643da3e..e5613aa 100644
+--- a/ptycho_torch/generators/README.md
++++ b/ptycho_torch/generators/README.md
+@@ -10,8 +10,6 @@ The generator registry enables architecture selection via the `config.model.arch
+ |--------------|-------------|--------|
+ | `cnn` (default) | U-Net based CNN generator | ✅ Integrated |
+ | `fno` | Cascaded FNO + CNN refiner (Arch A) | ✅ Integrated |
+-| `hybrid_resnet` | FNO encoder + CycleGAN ResNet‑6 decoder | ✅ Integrated |
+-| `spectral_resnet_bottleneck_net` | Hybrid ResNet shell with spectral ResNet bottleneck | ✅ Integrated |
+ 
+ All registered generator architectures in this package train through `PtychoPINN_Lightning` with the same physics loss and stitching behavior. Study-specific supervised adapters that reuse generator components live outside this registry and define their own `model(x) -> y` channel contract.
+ 
+@@ -82,40 +80,6 @@ The FFNO architecture (`architecture='ffno'`) keeps the constant-resolution CDI
+   row.
+ - `fno_modes`: Spectral modes per axis (default: min(12, N//4))
+ 
+-### Hybrid ResNet‑6
+-The Hybrid ResNet architecture (`architecture='hybrid_resnet'`) replaces the Hybrid U‑NO bottleneck/decoder with the CycleGAN backend:
+-1. FNO encoder with two downsampling steps (N → N/4)
+-2. ResNet‑6 bottleneck at constant N/4 resolution
+-3. CycleGAN upsamplers (ConvTranspose2d kernel=3, stride=2, padding=1, output_padding=1)
+-
+-Scope boundary: the registered `architecture='hybrid_resnet'` builder is the CDI/PtychoPINN path. Its `C` value comes from `data_config.C`, represents ptychographic object-patch grouping, and is coupled to the real/imag complex output adapter used by `PtychoPINN_Lightning`. Supervised non-ptychography studies should not reuse that `C` contract. They should reuse the full Hybrid ResNet body behind an ordinary `model(x) -> y` adapter with task-derived `in_channels` and `out_channels`, as in the PDEBench SWE and OpenFWI study adapters.
+-
+-**Optional parameters:**
+-- `resnet_width`: Fixed bottleneck width for `hybrid_resnet` (must be divisible by 4).
+-- `hybrid_skip_connections`: Enables encoder-decoder fusion taps derived from stage metadata.
+-- `hybrid_skip_style`: Skip fusion style (`add`, `concat`, `gated_add`).
+-- `hybrid_downsample_steps`: Downsample schedule depth (`1` or `2`).
+-- `hybrid_downsample_op`: Downsample operator family (`stride_conv`, `avgpool_conv`, `blurpool_conv`).
+-- `hybrid_encoder_conv_hidden_scale`: Local-conv branch scale factor (`>0`), resolved per block as `max(1, round(stage_channels * scale))`.
+-- `hybrid_encoder_spectral_hidden_scale`: Spectral branch scale factor (`>0`), resolved per block as `max(1, round(stage_channels * scale))`.
+-- `hybrid_resnet_blocks`: ResNet bottleneck depth.
+-
+-Downsample operator behavior:
+-- `stride_conv`: learned stride-2 convolution.
+-- `avgpool_conv`: average pooling followed by 1x1 projection.
+-- `blurpool_conv`: low-pass blurpool downsample followed by 1x1 projection.
+-
+-Skip-style behavior (when `hybrid_skip_connections=True`):
+-- `add`: project skip path to decoder width, then additive fusion.
+-- `concat`: concatenate decoder and skip channels, then 1x1 projection.
+-- `gated_add`: additive fusion with learnable scalar gate `g`, initialized to `0.0` for identity-safe startup.
+-
+-Capacity/depth constraints:
+-- `hybrid_encoder_conv_hidden_scale` and `hybrid_encoder_spectral_hidden_scale` must be finite and `>0`.
+-- `hybrid_resnet_blocks` must be positive.
+-
+-All knobs above are Torch-only model/runtime controls for the PyTorch stack.
+-
+ ## Integration Contract
+ 
+ All FNO/Hybrid generators integrate with `PtychoPINN_Lightning` via:

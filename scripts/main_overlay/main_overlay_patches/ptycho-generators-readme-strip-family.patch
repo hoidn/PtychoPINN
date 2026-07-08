@@ -1,0 +1,13 @@
+diff --git a/ptycho/generators/README.md b/ptycho/generators/README.md
+index cc4e821..1d45ae9 100644
+--- a/ptycho/generators/README.md
++++ b/ptycho/generators/README.md
+@@ -9,7 +9,7 @@ The generator registry enables architecture selection via the `config.model.arch
+ - `cnn` (default): U-Net based CNN generator from `ptycho/model.py`
+ 
+ This README covers the TensorFlow generator registry. Other architecture
+-strings (e.g., `fno`, `hybrid`, `hybrid_resnet`) are handled by the
++strings (e.g., `fno`, `hybrid`) are handled by the
+ PyTorch stack under `ptycho_torch/` and are not registered here—attempting
+ to resolve them in the TensorFlow registry will raise a ValueError.
+ 

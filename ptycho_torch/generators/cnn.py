@@ -42,4 +42,9 @@ class CnnGenerator:
             PtychoPINN_Lightning model instance
         """
         from ptycho_torch.model import PtychoPINN_Lightning
-        return PtychoPINN_Lightning(**pt_configs)
+        return PtychoPINN_Lightning(
+            model_config=pt_configs["model_config"],
+            data_config=pt_configs["data_config"],
+            training_config=pt_configs["training_config"],
+            inference_config=pt_configs["inference_config"],
+        )

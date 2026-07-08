@@ -1,5 +1,7 @@
 # FLY64 Generalization Study: Complete Analysis & Findings
 
+> Historical report (2025-07-21). Command snippets below preserve the options used at study time; new runs should use `n_groups`/`--n_groups` per `docs/GRIDSIZE_N_GROUPS_GUIDE.md`.
+
 **Date:** July 21, 2025  
 **Study Duration:** 45 minutes 38 seconds  
 **Study Directory:** `fly64_generalization_study_gs1/`
@@ -38,7 +40,7 @@ PINN:     --n_images 4096 --train_data_file datasets/fly64/fly64_shuffled.npz
 ```
 
 **Log Evidence:**
-- ✅ **Different n_images used**: 512, 1024, 2048, 4096
+- ✅ **Different training-size values used**: 512, 1024, 2048, 4096
 - ✅ **Sequential slicing confirmed**: "Using sequential slicing for gridsize=1: selecting first N images"
 - ✅ **Shuffled dataset used**: All models trained on `datasets/fly64/fly64_shuffled.npz`
 - ✅ **Parameter interpretation correct**: "--n-images=X refers to individual images (gridsize=1)"

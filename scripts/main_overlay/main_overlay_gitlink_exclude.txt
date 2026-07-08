@@ -1,0 +1,13 @@
+# main_overlay_gitlink_exclude.txt
+#
+# Gitlink (submodule) paths that must NOT be preserved by the deterministic
+# main-overlay transform (scripts/main_overlay/build_main_overlay.py). Every
+# other gitlink present in the source tree-ish is re-inserted into the
+# output tree (git archive/tar materialization drops all submodules; this is
+# the allowlist-by-exclusion for the gitlink-preservation stage).
+#
+# Grammar: one repo-relative path per line, no trailing slash.
+#
+# scripts/orchestration: deprecated private tooling; main never had it.
+
+scripts/orchestration

@@ -1,0 +1,137 @@
+# Hybrid ResNet Skip Connections + Mode Search - Stage E Execution Plan
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Goal:** Execute Stage E (skip-connection style structural search) and produce required artifacts under the canonical promotion policy.
+
+**Tech Stack:** PyTorch/Lightning (`ptycho_torch`), existing grid-lines + NERSC study scripts, runbook-style orchestration, JSON/CSV/Markdown artifacts.
+
+**Companion Design:** `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md`.
+
+## Scope
+
+This split document owns Task 14 only (Stage-E implementation/search and artifacts).
+
+## Stage Plan Links
+
+- Upstream Plan: `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-stage-d-execution.md`
+- Downstream Plan: none (terminal stage in this sequence)
+
+## Shared Contracts
+
+- Use canonical stage semantics and promotion policy from `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-design.md`.
+- Follow the Test Evidence Contract in `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search-implementation-core.md` for every `pytest` selector in this document.
+- Hub document: `docs/plans/2026-02-21-hybrid-resnet-skip-mode-search.md`.
+- Stage-E transition-anchor source (single upstream artifact): producer is Stage-D4 `N=128` `promotion/champion_anchor_summary.csv` (single-row robust champion selected from Stage-D4 `promotion/summary_seed_robust.csv`), consumer field is `--promotion-source-summary`.
+- Stage-E transition-anchor fail-closed rule: if the Stage-D4 champion anchor source is missing, has zero rows, or has more than one row, stop Stage-E execution and report the missing/ambiguous source; do not substitute `promotion/summary_seed_robust.csv`, `promotion/stage_anchor_summary.csv`, or `promotion/default_baselines.csv`.
+- Stage-E closure evidence gate: `stageE/n128/invocation.json` MUST record `--promotion-source-summary` with basename `champion_anchor_summary.csv`, and the referenced source summary MUST contain exactly one row with provenance `stage_id='D'` and `substage_id='D4'`.
+- Stage-E evidence fail-closed recovery rule: if the closure evidence gate fails, mark the current Stage-E evidence bundle invalid and rerun the dependent chain (`n128` base run, `n128/seed_rerank` aggregation, and `n256` promotion/evaluation) before claiming completion.
+- Stage-E contract verifier gate: the closure verifier command used for this task (currently `tmp/task14_verify_stagee_contract.py`) MUST fail when canonical source filename/provenance checks fail; profile/baseline/apples/heavy-pruning checks alone are insufficient.
+- Stage-E completion ledger gate: before accepting any Stage-E promotion artifacts, the active attempt ledger MUST contain terminal `exit_code=0` rows for every step `s14` through `s23`; partial ledgers (`s14` polling-only or missing `s15-s23`) are invalid evidence.
+- Stage-E downstream freshness gate: `stageE/n256/summary.csv`, `stageE/promotion/default_baselines.csv`, `stageE/promotion/default_baselines.md`, `stageE/promotion/apples_to_apples_baseline.csv`, and `stageE/promotion/apples_to_apples_baseline.md` MUST be regenerated from the active `stageE/n128/promotion/summary_seed_robust.csv` and MUST NOT be older than that robust summary.
+- Stage-E dependency freshness fail-closed rule: if completion-ledger, downstream-freshness, or verifier dependencies fail (including stale/missing `s22` verifier evidence), invalidate the current Stage-E promotion evidence and rerun dependent scopes `s14` through `s23` before claiming completion.
+- Between consecutive Stage-E run invocations, delete repo-root `memoized_data/` before launching the next run command (`rm -rf memoized_data/`).
+- Global epoch floor: all Stage-E runs MUST use at least `10` training epochs per run (`--epochs-n128 >= 10`, `--epochs-n256 >= 10`) unless an approved exception is recorded.
+- Non-canonical rule: outputs generated below the epoch floor MUST NOT be used as promotion sources.
+- Per-profile baseline discoverability rule: Stage-E artifacts MUST include `promotion/default_baselines.csv` and `promotion/default_baselines.md` with exactly one true-default baseline row per active `(N, dataset_profile)` combination.
+- Stage-E default-baseline provenance rule: when Stage-E candidate governance enforces `skip=on` and therefore blocks true-default (`skip=off`) candidate execution, `promotion/default_baselines.*` MUST source true-default rows from canonical Stage-D `promotion/default_baselines.csv`, preserve original `baseline_run_id` values verbatim, and include provenance text in `seed_policy` (no synthetic run IDs).
+- Stage-E default-baseline provenance fail-closed rule: if Stage-D `promotion/default_baselines.csv` is missing or does not provide exactly one true-default row per active `(N, dataset_profile)`, stop Stage-E governance reporting and report the blocker; do not fabricate baseline rows or synthetic `baseline_run_id` aliases.
+- N=256 dual-profile rule: canonical `N=256` evaluation/promotion runs MUST include both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256`.
+- Canonical Stage-E `N=128` progression source MUST be `<stage_d4_n128_root>/promotion/champion_anchor_summary.csv`, selected from Stage-D4 `promotion/summary_seed_robust.csv` and passed via `--promotion-source-summary`.
+- Default-control runs stay in the baseline-comparison lane and MUST NOT be used as Stage-E transition anchors.
+- Baseline-lane separation rule: `promotion/default_baselines.csv|.md` remains baseline/default evidence only and MUST NOT be used as Stage-E transition-anchor source.
+
+---
+
+### Task 14: Stage E Search (Axis 5: Skip-Connection Design)
+
+**Files:**
+- Modify: `ptycho_torch/generators/hybrid_resnet.py`
+- Modify: `ptycho/config/config.py` (PyTorchExecutionConfig only; no canonical `ModelConfig` edits)
+- Modify: `ptycho_torch/config_params.py`
+- Modify: `ptycho_torch/workflows/components.py`
+- Modify: `scripts/studies/grid_lines_torch_runner.py`
+- Modify: `tests/torch/test_fno_generators.py`
+- Modify: `tests/torch/test_grid_lines_torch_runner.py`
+- Modify: `docs/CONFIGURATION.md`
+- Modify: `docs/workflows/pytorch.md`
+- Modify: `ptycho_torch/generators/README.md`
+- Regenerate output: `docs/development/TEST_SUITE_INDEX.md` via `scripts/tools/generate_test_index.py`
+
+**Step 1: Add `hybrid_skip_style` enum**
+
+Scope guard for this stage:
+- keep new Stage-E knob plumbing Torch-only in execution/model paths.
+- in `ptycho/config/config.py`, touch `PyTorchExecutionConfig` only.
+- do not add new config-bridge/spec mappings for newly introduced Stage-E knobs in this initiative.
+- add explicit forwarding in `ptycho_torch/workflows/components.py` for `hybrid_skip_style`.
+
+Add model field:
+```python
+hybrid_skip_style: Literal["add", "concat", "gated_add"] = "add"
+```
+
+Implementation guidance:
+- `add`: current behavior
+- `concat`: concat then `1x1` projection
+- `gated_add`: `y = decoder + g * skip_proj` with learnable gate `g` initialized to `0.0` (identity-safe start)
+
+**Step 2: Add RED/GREEN tests**
+
+Cover:
+- shape contract unchanged for each style
+- invalid style rejected
+- propagation through runner Torch execution/model paths with explicit no-bridge assertions
+- branch-distinctness: `add`, `concat`, and `gated_add` each execute distinct fusion logic and produce non-identical outputs for a fixed seed/input.
+- workflow forwarding: `_train_with_lightning` must pass `hybrid_skip_style` into factory overrides.
+
+Run:
+```bash
+pytest tests/torch/test_fno_generators.py -k "skip_style" -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "skip_style or torch_only" -v
+pytest tests/torch/test_grid_lines_torch_runner.py -k "workflow and skip_style and factory" -v
+```
+
+**Step 3: Execute Stage E**
+
+Run skip styles on Stage-D champion config (`--promotion-source-summary <stage_d4_n128_root>/promotion/champion_anchor_summary.csv`), budget:
+- N=128: all 3 styles
+- N=256: top 2 feasible Pareto-ranked styles only
+- N=256 promotion evidence must be aggregated across both `cameraman256_halfsplit_v1` and `custom_npz_pair_n256` profile results.
+- Epoch floor: all Stage-E runs MUST use `--epochs-n128 >= 10` and `--epochs-n256 >= 10`.
+- Before selecting top-2 for `N=256`, apply the boundary seed-rerank policy on the Stage-E `N=128` source summary (`top-K + next 2`, seeds `11` and `17`) and promote from the resulting robustness summary.
+- Between consecutive Stage E invocations (including seed-rerank reruns and promotion runs), run `rm -rf memoized_data/`.
+- After each Stage E invocation, perform heavy-pruning verification and log any retained heavy paths with explicit justification.
+- Closure evidence gate: include `n128/invocation.json` proof that `--promotion-source-summary` points to `champion_anchor_summary.csv` and that the resolved row provenance is exactly `stage_id='D'`, `substage_id='D4'` (single-row).
+- Recovery gate: if closure evidence is non-canonical, invalidate current Stage-E evidence and rerun the dependent Stage-E chain before accepting promotion artifacts.
+- Completion/freshness gate: reject the Stage-E bundle when `s14-s23` completion rows are missing or when downstream promotion artifacts predate the active robust summary.
+- Fail-closed rerun gate: when completion/freshness/verifier dependencies fail, rerun `s14-s23` (including `s22`) and archive a fresh verifier log before accepting promotion evidence.
+- Persist Stage E apples-to-apples baseline artifacts:
+  - `outputs/<stage_e_root>/promotion/apples_to_apples_baseline.csv`
+  - `outputs/<stage_e_root>/promotion/apples_to_apples_baseline.md`
+  - `outputs/<stage_e_root>/promotion/default_baselines.csv`
+  - `outputs/<stage_e_root>/promotion/default_baselines.md`
+  - Gate: only comparisons recorded as `apples_to_apples=true` are valid evidence for style promotion conclusions.
+  - Gate: `default_baselines.*` must contain exactly one true-default baseline row per active `(N, dataset_profile)` combination.
+  - Provenance gate: if Stage-E cannot run true-default candidates because of `skip=on` enforcement, `default_baselines.*` MUST reuse canonical Stage-D true-default rows (same `baseline_run_id`, no fabricated aliases) and document the cross-stage source in `seed_policy`.
+
+Constraint:
+- Stage E must reuse the topology-driven fusion-point mechanism introduced in Task 12 Step 0; do not introduce new hard-coded skip tap indices.
+
+**Step 4: Documentation sync for Stage-E knob**
+
+- `docs/CONFIGURATION.md`: add `hybrid_skip_style` row with allowed enum values and default.
+- `docs/workflows/pytorch.md` and `ptycho_torch/generators/README.md`: document behavior/constraints of `add|concat|gated_add` with explicit Torch-only scope.
+- no `docs/specs/spec-ptycho-config-bridge.md` changes for Stage-E knobs in this initiative.
+- regenerate `docs/development/TEST_SUITE_INDEX.md` via:
+  - `python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md`
+
+**Step 5: Commit**
+
+```bash
+python scripts/tools/generate_test_index.py > docs/development/TEST_SUITE_INDEX.md
+git add ptycho_torch/generators/hybrid_resnet.py ptycho/config/config.py ptycho_torch/config_params.py ptycho_torch/workflows/components.py scripts/studies/grid_lines_torch_runner.py tests/torch/test_fno_generators.py tests/torch/test_grid_lines_torch_runner.py docs/CONFIGURATION.md docs/workflows/pytorch.md ptycho_torch/generators/README.md docs/development/TEST_SUITE_INDEX.md
+git commit -m "feat+docs(torch): add hybrid_resnet skip-style variants with torch-only scope"
+```
+
+---

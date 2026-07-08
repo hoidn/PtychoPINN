@@ -1,0 +1,439 @@
+version: "2.7"
+name: "neurips-backlog-seeded-plan-phase"
+
+context:
+  workflow_model: "gpt-5.4"
+  workflow_effort: "high"
+
+inputs:
+  state_root:
+    type: relpath
+    under: state
+  steering_path:
+    type: relpath
+    under: docs
+    must_exist_target: true
+  design_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  roadmap_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  selected_item_context_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+  progress_ledger_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+  plan_target_path:
+    type: relpath
+    under: docs/plans
+  plan_review_report_target_path:
+    type: relpath
+    under: artifacts/review
+
+outputs:
+  plan_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizePlanPhaseOutputs.artifacts.plan_path
+  plan_review_report_path:
+    type: relpath
+    under: artifacts/review
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizePlanPhaseOutputs.artifacts.plan_review_report_path
+  plan_review_decision:
+    kind: scalar
+    type: enum
+    allowed: ["APPROVE", "REVISE"]
+    from:
+      ref: root.steps.FinalizePlanPhaseOutputs.artifacts.plan_review_decision
+
+providers:
+  codex:
+    command: ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check", "--model", "${model}", "--config", "reasoning_effort=${effort}"]
+    input_mode: "stdin"
+    defaults:
+      model: "${context.workflow_model}"
+      effort: "${context.workflow_effort}"
+
+artifacts:
+  steering:
+    pointer: ${inputs.state_root}/steering_path.txt
+    type: relpath
+    under: docs
+    must_exist_target: true
+  design:
+    pointer: ${inputs.state_root}/design_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  roadmap:
+    pointer: ${inputs.state_root}/roadmap_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  selected_item_context:
+    pointer: ${inputs.state_root}/selected_item_context_path.txt
+    type: relpath
+    under: state
+    must_exist_target: true
+  progress_ledger:
+    pointer: ${inputs.state_root}/progress_ledger_path.txt
+    type: relpath
+    under: state
+    must_exist_target: true
+  plan:
+    pointer: ${inputs.state_root}/plan_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  plan_review_report:
+    pointer: ${inputs.state_root}/plan_review_report_path.txt
+    type: relpath
+    under: artifacts/review
+    must_exist_target: true
+  plan_review_decision:
+    kind: scalar
+    type: enum
+    allowed: ["APPROVE", "REVISE"]
+  open_findings:
+    pointer: ${inputs.state_root}/open_findings_path.txt
+    type: relpath
+    under: state
+    must_exist_target: true
+  review_decision:
+    kind: scalar
+    type: enum
+    allowed: ["APPROVE", "REVISE"]
+
+steps:
+  - name: InitializePlanPhasePaths
+    id: initialize_plan_phase_paths
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p "${inputs.state_root}" "$(dirname "${inputs.plan_target_path}")" "$(dirname "${inputs.plan_review_report_target_path}")"
+        printf '%s\n' "${inputs.plan_target_path}" > "${inputs.state_root}/plan_path.txt"
+        printf '%s\n' "${inputs.plan_review_report_target_path}" > "${inputs.state_root}/plan_review_report_path.txt"
+        printf '%s\n' "${inputs.state_root}/open_findings.json" > "${inputs.state_root}/open_findings_path.txt"
+        cat > "${inputs.state_root}/open_findings.json" <<'JSON'
+        {
+          "findings": []
+        }
+        JSON
+    expected_outputs:
+      - name: plan_path
+        path: ${inputs.state_root}/plan_path.txt
+        type: relpath
+        under: docs/plans
+      - name: plan_review_report_path
+        path: ${inputs.state_root}/plan_review_report_path.txt
+        type: relpath
+        under: artifacts/review
+      - name: open_findings_path
+        path: ${inputs.state_root}/open_findings_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+    publishes:
+      - artifact: open_findings
+        from: open_findings_path
+
+  - name: PublishPlanContextInputs
+    id: publish_plan_context_inputs
+    command:
+      - bash
+      - -lc
+      - |
+        if [ ! -f "${inputs.steering_path}" ]; then
+          echo "Missing steering file: ${inputs.steering_path}" >&2
+          exit 1
+        fi
+        if [ ! -f "${inputs.design_path}" ]; then
+          echo "Missing design file: ${inputs.design_path}" >&2
+          exit 1
+        fi
+        if [ ! -f "${inputs.roadmap_path}" ]; then
+          echo "Missing roadmap file: ${inputs.roadmap_path}" >&2
+          exit 1
+        fi
+        if [ ! -f "${inputs.selected_item_context_path}" ]; then
+          echo "Missing selected item context file: ${inputs.selected_item_context_path}" >&2
+          exit 1
+        fi
+        if [ ! -f "${inputs.progress_ledger_path}" ]; then
+          echo "Missing progress ledger file: ${inputs.progress_ledger_path}" >&2
+          exit 1
+        fi
+        printf '%s\n' "${inputs.steering_path}" > "${inputs.state_root}/steering_path.txt"
+        printf '%s\n' "${inputs.design_path}" > "${inputs.state_root}/design_path.txt"
+        printf '%s\n' "${inputs.roadmap_path}" > "${inputs.state_root}/roadmap_path.txt"
+        printf '%s\n' "${inputs.selected_item_context_path}" > "${inputs.state_root}/selected_item_context_path.txt"
+        printf '%s\n' "${inputs.progress_ledger_path}" > "${inputs.state_root}/progress_ledger_path.txt"
+    expected_outputs:
+      - name: steering_path
+        path: ${inputs.state_root}/steering_path.txt
+        type: relpath
+        under: docs
+        must_exist_target: true
+      - name: design_path
+        path: ${inputs.state_root}/design_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: roadmap_path
+        path: ${inputs.state_root}/roadmap_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: selected_item_context_path
+        path: ${inputs.state_root}/selected_item_context_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+      - name: progress_ledger_path
+        path: ${inputs.state_root}/progress_ledger_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+    publishes:
+      - artifact: steering
+        from: steering_path
+      - artifact: design
+        from: design_path
+      - artifact: roadmap
+        from: roadmap_path
+      - artifact: selected_item_context
+        from: selected_item_context_path
+      - artifact: progress_ledger
+        from: progress_ledger_path
+
+  - name: DraftPlan
+    id: draft_plan
+    provider: codex
+    asset_file: prompts/neurips_backlog_seeded_plan_phase/draft_plan.md
+    timeout_sec: 3600
+    consumes:
+      - artifact: steering
+        policy: latest_successful
+        freshness: any
+      - artifact: design
+        policy: latest_successful
+        freshness: any
+      - artifact: roadmap
+        policy: latest_successful
+        freshness: any
+      - artifact: selected_item_context
+        policy: latest_successful
+        freshness: any
+      - artifact: progress_ledger
+        policy: latest_successful
+        freshness: any
+    prompt_consumes: ["steering", "design", "roadmap", "selected_item_context", "progress_ledger"]
+    expected_outputs:
+      - name: plan_path
+        path: ${inputs.state_root}/plan_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+    publishes:
+      - artifact: plan
+        from: plan_path
+
+  - name: PlanReviewLoop
+    id: plan_review_loop
+    repeat_until:
+      id: plan_review_iteration
+      max_iterations: 12
+      outputs:
+        review_decision:
+          kind: scalar
+          type: enum
+          allowed: ["APPROVE", "REVISE"]
+          from:
+            ref: self.steps.RoutePlanDecision.artifacts.review_decision
+      condition:
+        compare:
+          left:
+            ref: self.outputs.review_decision
+          op: eq
+          right: APPROVE
+      steps:
+        - name: ReviewPlanTracked
+          id: review_plan_tracked
+          provider: codex
+          asset_file: prompts/neurips_backlog_seeded_plan_phase/review_plan.md
+          timeout_sec: 1800
+          consumes:
+            - artifact: steering
+              policy: latest_successful
+              freshness: any
+            - artifact: design
+              policy: latest_successful
+              freshness: any
+            - artifact: roadmap
+              policy: latest_successful
+              freshness: any
+            - artifact: selected_item_context
+              policy: latest_successful
+              freshness: any
+            - artifact: progress_ledger
+              policy: latest_successful
+              freshness: any
+            - artifact: plan
+              policy: latest_successful
+              freshness: any
+            - artifact: open_findings
+              policy: latest_successful
+              freshness: any
+          prompt_consumes: ["steering", "design", "roadmap", "selected_item_context", "progress_ledger", "plan", "open_findings"]
+          expected_outputs:
+            - name: plan_review_report_path
+              path: ${inputs.state_root}/plan_review_report_path.txt
+              type: relpath
+              under: artifacts/review
+              must_exist_target: true
+            - name: plan_review_decision
+              path: ${inputs.state_root}/plan_review_decision.txt
+              type: enum
+              allowed: ["APPROVE", "REVISE"]
+            - name: unresolved_high_count
+              path: ${inputs.state_root}/unresolved_high_count.txt
+              type: integer
+            - name: unresolved_medium_count
+              path: ${inputs.state_root}/unresolved_medium_count.txt
+              type: integer
+          publishes:
+            - artifact: plan_review_report
+              from: plan_review_report_path
+            - artifact: plan_review_decision
+              from: plan_review_decision
+
+        - name: RoutePlanDecision
+          id: route_plan_decision
+          match:
+            ref: self.steps.ReviewPlanTracked.artifacts.plan_review_decision
+            cases:
+              APPROVE:
+                id: approve_plan_path
+                outputs:
+                  review_decision:
+                    kind: scalar
+                    type: enum
+                    allowed: ["APPROVE", "REVISE"]
+                    from:
+                      ref: self.steps.WriteApprovedPlanDecision.artifacts.review_decision
+                steps:
+                  - name: WriteApprovedPlanDecision
+                    id: write_approved_plan_decision
+                    set_scalar:
+                      artifact: review_decision
+                      value: APPROVE
+              REVISE:
+                id: revise_plan_path
+                outputs:
+                  review_decision:
+                    kind: scalar
+                    type: enum
+                    allowed: ["APPROVE", "REVISE"]
+                    from:
+                      ref: self.steps.WriteRevisedPlanDecision.artifacts.review_decision
+                steps:
+                  - name: RevisePlanTracked
+                    id: revise_plan_tracked
+                    provider: codex
+                    asset_file: prompts/neurips_backlog_seeded_plan_phase/revise_plan.md
+                    timeout_sec: 3600
+                    consumes:
+                      - artifact: steering
+                        policy: latest_successful
+                        freshness: any
+                      - artifact: design
+                        policy: latest_successful
+                        freshness: any
+                      - artifact: roadmap
+                        policy: latest_successful
+                        freshness: any
+                      - artifact: selected_item_context
+                        policy: latest_successful
+                        freshness: any
+                      - artifact: progress_ledger
+                        policy: latest_successful
+                        freshness: any
+                      - artifact: plan
+                        policy: latest_successful
+                        freshness: any
+                      - artifact: plan_review_report
+                        policy: latest_successful
+                        freshness: since_last_consume
+                    prompt_consumes: ["steering", "design", "roadmap", "selected_item_context", "progress_ledger", "plan", "plan_review_report"]
+                    expected_outputs:
+                      - name: plan_path
+                        path: ${inputs.state_root}/plan_path.txt
+                        type: relpath
+                        under: docs/plans
+                        must_exist_target: true
+                    publishes:
+                      - artifact: plan
+                        from: plan_path
+                  - name: WriteRevisedPlanDecision
+                    id: write_revised_plan_decision
+                    set_scalar:
+                      artifact: review_decision
+                      value: REVISE
+
+  - name: FinalizePlanPhaseOutputs
+    id: finalize_plan_phase_outputs
+    command:
+      - python
+      - -c
+      - |
+        import pathlib
+        import sys
+
+        state_root = pathlib.Path(sys.argv[1])
+
+        plan_path = (state_root / "plan_path.txt").read_text(encoding="utf-8").strip()
+        if not plan_path:
+            raise SystemExit("plan_path.txt is empty")
+        if not pathlib.Path(plan_path).is_file():
+            raise SystemExit(f"Plan file does not exist: {plan_path}")
+
+        report_path = (state_root / "plan_review_report_path.txt").read_text(encoding="utf-8").strip()
+        if not report_path:
+            raise SystemExit("plan_review_report_path.txt is empty")
+        if not pathlib.Path(report_path).is_file():
+            raise SystemExit(f"Plan review report does not exist: {report_path}")
+
+        decision = (state_root / "plan_review_decision.txt").read_text(encoding="utf-8").strip()
+        if decision not in {"APPROVE", "REVISE"}:
+            raise SystemExit(f"Unexpected plan review decision: {decision}")
+
+        (state_root / "final_plan_path.txt").write_text(plan_path + "\n", encoding="utf-8")
+        (state_root / "final_plan_review_report_path.txt").write_text(report_path + "\n", encoding="utf-8")
+        (state_root / "final_plan_review_decision.txt").write_text(decision + "\n", encoding="utf-8")
+      - ${inputs.state_root}
+    expected_outputs:
+      - name: plan_path
+        path: ${inputs.state_root}/final_plan_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: plan_review_report_path
+        path: ${inputs.state_root}/final_plan_review_report_path.txt
+        type: relpath
+        under: artifacts/review
+        must_exist_target: true
+      - name: plan_review_decision
+        path: ${inputs.state_root}/final_plan_review_decision.txt
+        type: enum
+        allowed: ["APPROVE", "REVISE"]

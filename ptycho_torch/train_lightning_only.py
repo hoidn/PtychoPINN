@@ -61,6 +61,28 @@ os.environ["TORCH_DISTRIBUTED_DEBUG"] = "INFO" # Optional: gives more info on ha
 
 #----- Helper Functions -------
 
+def _resolve_seed() -> int:
+    """
+    Resolve the training seed from the PTYCHO_TORCH_SEED environment variable.
+
+    Returns:
+        int: The seed value from PTYCHO_TORCH_SEED if set and non-empty,
+            otherwise 42.
+
+    Raises:
+        ValueError: If PTYCHO_TORCH_SEED is set to a non-integer value.
+    """
+    raw = os.environ.get("PTYCHO_TORCH_SEED", "")
+    if not raw:
+        return 42
+    try:
+        return int(raw)
+    except ValueError as e:
+        raise ValueError(
+            f"Invalid PTYCHO_TORCH_SEED={raw!r}: must be an integer"
+        ) from e
+
+
 def _infer_probe_size(npz_file):
     """
     Infer probe size (N) from NPZ metadata without loading full arrays.
@@ -204,7 +226,7 @@ def main(ptycho_dir,
         resolve_n_devices(training_config)
 
         #Setting seed
-        set_seed(42, n_devices = training_config.n_devices)
+        set_seed(_resolve_seed(), n_devices = training_config.n_devices)
 
         # Data module in place of pytorch native dataloaders. Data module is a lightning class
         # Create DataModule

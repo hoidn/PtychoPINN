@@ -1,0 +1,68 @@
+# Phase F — Torch Mandatory Transition
+
+## Context
+- Initiative: INTEGRATE-PYTORCH-001 (PyTorch backend integration)
+- Phase Goal: Retire torch-optional execution pathways and require PyTorch availability across config, adapters, workflows, and persistence so Ptychodus can rely on a single backend implementation path.
+- Dependencies: CLAUDE.md directive (torch-optional parity) must be revised; verify CI/build environments include PyTorch extras; coordinate with TEST-PYTORCH-001 initiative for downstream coverage changes.
+- Artifact Storage: Capture Phase F artifacts under `docs/plans/INTEGRATE-PYTORCH-001/reports/<ISO8601>/` (F1 assets: `2025-10-17T184624Z/`; F2 use `2025-10-17T192500Z/`).
+
+---
+
+### Phase F1 — Directive Alignment & Governance Sign-off
+Goal: Confirm stakeholder consensus to deprecate torch-optional behavior and update authoritative guidance (CLAUDE.md, docs/findings.md) before touching code.
+Prereqs: Review existing directives, gather conflict evidence, engage initiative owners.
+Exit Criteria: Documented approval plus updated guidance removing torch-optional requirement.
+
+| ID | Task Description | State | How/Why & Guidance |
+| --- | --- | --- | --- |
+| F1.1 | Catalogue conflicting directives | [x] | ✅ 2025-10-17 — Conflict inventory captured in `reports/2025-10-17T184624Z/directive_conflict.md` (covers CLAUDE.md §2, plan footprints, and skip whitelist history). |
+| F1.2 | Secure governance decision | [x] | ✅ 2025-10-17 — Approval + risk assessment recorded in `reports/2025-10-17T184624Z/governance_decision.md`; stakeholders aligned on torch-required transition. |
+| F1.3 | Update authoritative docs | [x] | ✅ 2025-10-17 — Redline + rollout plan documented in `reports/2025-10-17T184624Z/guidance_updates.md`; apply edits during Phase F3 doc sync. |
+
+---
+
+### Phase F2 — Impact Inventory & Migration Blueprint
+Goal: Produce a comprehensive inventory of torch-optional code paths and tests, then map the step-by-step migration approach.
+Prereqs: F1 exit (policy green-light).
+Exit Criteria: Inventory and migration blueprint checked into reports and referenced from plan.
+
+| ID | Task Description | State | How/Why & Guidance |
+| --- | --- | --- | --- |
+| F2.1 | Enumerate guarded imports & flags | [x] | ✅ 2025-10-17 — Inventory captured in `reports/2025-10-17T192500Z/torch_optional_inventory.md` (47 instances across 15 files with file:line anchors + F3.2 checklist). |
+| F2.2 | Audit test skip logic | [x] | ✅ 2025-10-17 — Skip behavior documented in `reports/2025-10-17T192500Z/test_skip_audit.md` (whitelist matrix, behavioral transitions, F3.3 validation checklist). |
+| F2.3 | Draft migration sequence | [x] | ✅ 2025-10-17 — Migration plan finalized in `reports/2025-10-17T192500Z/migration_plan.md` (F3–F4 phased sequencing, gating checks, rollback strategies). |
+
+---
+
+### Phase F3 — Implementation & Test Realignment
+Goal: Execute the migration by removing torch-optional fallbacks, enforcing imports, and updating tests to assume PyTorch is installed.
+Prereqs: F2 blueprint complete; CI ready for PyTorch-on-by-default.
+Exit Criteria: Codebase free of torch-optional guards, tests updated, CI green under mandatory PyTorch.
+
+| ID | Task Description | State | How/Why & Guidance |
+| --- | --- | --- | --- |
+| F3.1 | Update dependency management | [x] | ✅ 2025-10-17 — Added `torch>=2.2` to `setup.py` install_requires (line 42, alphabetized). PyTorch 2.8.0+cu128 verified available; pytest collection confirmed 70 tests in `tests/torch/`. Artifacts: `reports/2025-10-17T193400Z/{dependency_update.md,pytest_collect.log}`. |
+| F3.2 | Remove guarded imports & flags | [x] | ✅ 2025-10-17 — Removed `TORCH_AVAILABLE` guards from 7 modules (`config_params.py`, `config_bridge.py`, `data_container_bridge.py`, `memmap_bridge.py`, `model_manager.py`, `workflows/components.py`, `__init__.py`). Retired 7 guard instances and 10 NumPy fallback branches. All torch imports now unconditional with actionable RuntimeError on failure. Artifacts: `reports/2025-10-17T193753Z/{guard_removal_summary.md,pytest_guard_removal.log}`. Targeted tests: 46+5+4 = 55 passed. Full suite: 203 passed, 13 skipped, 1 xfailed (no new failures). |
+| F3.3 | Rewrite pytest skip logic | [x] | ✅ 2025-10-17 — Removed `TORCH_OPTIONAL_MODULES` whitelist from `tests/conftest.py`, deleted `torch_available` fixture, and removed torch guards from `test_tf_helper.py`, `test_data_pipeline.py`, and `test_pytorch_tf_wrapper.py`. Torch-present validation: 66 passed, 3 skipped, 1 xfailed in 15.58s. Artifacts: `reports/2025-10-17T195624Z/{skip_rewrite_summary.md,pytest_torch.log,pytest_no_torch.log}`. |
+| F3.4 | Regression verification | [x] | ✅ 2025-10-17 — Torch suite: 66 passed, 3 skipped, 1 xfailed (15.65s). Full regression: 207 passed, 13 skipped, 1 xfailed (no new failures vs F3.2 baseline). Backend selection tests all passed (including pytorch_unavailable_error). tf_helper skips expected (module not implemented). Artifacts: `reports/2025-10-17T201922Z/{pytest_torch_green.log,pytest_full_green.log,regression_summary.md}`. Zero regressions; ready for Phase F4. |
+
+---
+
+### Phase F4 — Documentation, Spec Sync, and Initiative Handoff
+Goal: Communicate the policy shift and ensure related initiatives adapt to the torch-required baseline.
+Prereqs: F3 complete with tests green.
+Exit Criteria: Documentation, specs, and downstream plans updated; open risks logged.
+
+| ID | Task Description | State | How/Why & Guidance |
+| --- | --- | --- | --- |
+| F4.1 | Update developer-facing docs | [x] | ✅ 2025-10-17 — Completed F4.1.A+B+C: updated CLAUDE.md directive (line 57-59), docs/workflows/pytorch.md prerequisites (lines 17-22), and README.md installation (lines 28-30). All torch-optional language replaced with torch-required policy. Artifacts: `reports/2025-10-17T203640Z/doc_updates.md`. |
+| F4.2 | Sync specs & findings | [x] | ✅ 2025-10-17 — Completed F4.2.A+B+C: updated `specs/ptychodus_api_spec.md` (Section 1 PyTorch requirement, Section 2.3 config bridge adapters, Section 4.2 fail-fast imports); added POLICY-001 row to `docs/findings.md` (line 8); updated CLAUDE.md directive cross-reference (line 58). Artifacts: `reports/2025-10-17T205413Z/spec_sync.md`. |
+| F4.3 | Coordinate initiative handoffs | [x] | ✅ 2025-10-17 — Created handoff packet at `reports/2025-10-17T210328Z/handoff_notes.md` (7 sections, 450+ lines) covering (1) owner matrix with TEST-PYTORCH-001, CI/CD, Ptychodus integration, release management priorities; (2) CI torch installation guidance with provisioning/validation/fallback strategies; (3) 5 authoritative pytest selectors with expected outcomes; (4) ledger synchronization steps for phase_f_torch_mandatory.md, docs/fix_plan.md, phase_f4_doc_sync.md; (5) residual risks (4 logged) + follow-up TODOs; (6) handoff verification checklist; (7) artifact references. Supplemental `verification_commands.md` provides expanded pytest rationale, failure modes, debugging protocols, CI integration examples. F4.3.A+B+C tasks marked complete in `phase_f4_doc_sync.md:46-48`. Next: docs/fix_plan.md Attempt #76 log, then v2.0.0 release coordination. |
+
+---
+
+### Exit Checklist
+- [ ] Governance approval documented and CLAUDE.md updated to reflect torch-required policy.
+- [ ] Comprehensive inventory and migration blueprint committed to reports.
+- [ ] Codebase updated with PyTorch-required dependencies and simplified imports; regression suite green.
+- [ ] Documentation/specs/handoff notes published and referenced from docs/fix_plan.md.

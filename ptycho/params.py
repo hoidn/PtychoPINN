@@ -54,6 +54,9 @@ Warnings:
 """
 import numpy as np
 import tensorflow as tf
+import logging
+import inspect
+logger = logging.getLogger(__name__)
 # TODO naming convention for different types of parameters
 # TODO what default value and initialization for the probe scale?
 DEFAULT_CFG = {
@@ -74,6 +77,21 @@ DEFAULT_CFG = {
     'use_xla_translate': True  # Enable XLA-compatible translation by default for better performance
     }
 cfg = DEFAULT_CFG.copy()
+
+_sealed = False
+# Keys legitimately (re)written after config-time as computed blackboard artifacts.
+_SEAL_WHITELIST = {'intensity_scale', 'probe', 'timestamp'}
+
+def seal():
+    """Seal params.cfg: post-seal writes of non-whitelisted keys are logged as warnings.
+    Warn-mode only (never raises) so out-of-order writes surface without breaking runs."""
+    global _sealed
+    _sealed = True
+
+def unseal():
+    """Lift the seal. Call at the top of each entrypoint so re-runs in one process reset cleanly."""
+    global _sealed
+    _sealed = False
 
 def ensure_defaults():
     """Ensure legacy params.cfg contains baseline defaults."""
@@ -121,7 +139,12 @@ def validate():
     return True
 
 def set(key, value):
-    print("DEBUG: Setting", key, "to", value, "in params")
+    logger.debug("Setting %s to %s in params", key, value)
+    if _sealed and key not in _SEAL_WHITELIST:
+        frame = inspect.currentframe()
+        caller = frame.f_back if frame else None
+        where = f"{caller.f_code.co_filename}:{caller.f_lineno}" if caller else "<unknown>"
+        logger.warning("post-seal params.cfg write: %s (from %s)", key, where)
     cfg[key] = value
     assert validate()
 

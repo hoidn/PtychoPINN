@@ -11,36 +11,33 @@ license = {file = "LICENSE"}
 dependencies = [
     "Pillow",
     "dill",
-    "imageio",
+    "imageio", 
     "ipywidgets",
     "jupyter",
-    "lightning",
     "matplotlib",
-    "mlflow",
     "neuraloperator",
     "numba",
     "numpy",
+    "opencv-python",
     "pandas",
     "pandas-datareader",
     "pathos",
     "scikit-image",
     "scikit-learn",
     "scipy",
-    "tensordict",
-    "tensorflow[and-cuda]",
+    "tensorflow>=2.13.0",
     "tensorflow-datasets",
     "tensorflow-hub",
     "tensorflow-metadata",
-    "tensorflow-probability[tf]",
+    "tensorflow-probability",
+    "tensordict",
     "torch",
-    "torchmetrics",
     "tqdm",
     "ujson",
 ]
 dynamic = ["version"]
 
-[project.optional-dependencies]
-datagen = ["opencv-python", "perlin_noise"]
+ 
 
 [project.scripts]
 ptycho_train = "scripts.training.train:main"
@@ -65,13 +62,11 @@ markers = [
     "torch: marks tests as requiring PyTorch (deselect with '-m \"not torch\"')",
     "optional: marks tests as requiring optional dependencies",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "oom: marks tests that intentionally exhaust memory (never run in CI)",
     "mvp: marks tests covering MVP (minimum viable product) field requirements",
     "study: marks tests for study infrastructure (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001)",
     "mini: marks tests as minimal/fast unit tests",
     "integration: marks end-to-end integration smoke tests (project-level alias)",
     "tf_integration: marks TensorFlow end-to-end workflow integration smoke test",
-    "grid_lines_hybrid_resnet_integration: marks grid-lines hybrid_resnet integration gate"
 ]
 # Configure test collection to handle import errors gracefully
 addopts = [

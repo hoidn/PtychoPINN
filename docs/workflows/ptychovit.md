@@ -1,0 +1,329 @@
+# PtychoViT Workflow
+
+**Status:** implementation contract for `pinn_ptychovit` backend integration in grid-lines studies.
+
+This document defines the source-pinned interop and checkpoint contracts used by PtychoPINN when dispatching the `pinn_ptychovit` model arm via subprocess execution.
+
+## Scope
+
+- Add `pinn_ptychovit` as a selectable model arm in studies.
+- Keep data adaptation isolated in a dedicated interop layer (`NPZ -> paired HDF5`).
+- Compare explicitly selected models only.
+- Evaluate cross-model metrics in object space on one canonical GT object grid.
+
+## Interop Contract Source
+
+Contract fields:
+
+```yaml
+source_repo: /home/ollie/Documents/ptycho-vit
+source_commit: 2316b378006ef330e18af343d10dc8a7b821b0a8
+source_paths:
+  - data.py
+  - scripts/make_normalization_dict.py
+  - tests/test_utils.py
+validated_on: 2026-02-10
+```
+
+Source-derived HDF5 pairing and required datasets:
+
+- Data pair naming:
+  - `{object_name}_dp.hdf5`
+  - `{object_name}_para.hdf5`
+- Required in `*_dp.hdf5`:
+  - dataset `dp` (scan-major diffraction tensor; rank-3 `[Nscan, H, W]`)
+- Required in `*_para.hdf5`:
+  - dataset `object`
+  - dataset `probe`
+  - dataset `probe_position_x_m`
+  - dataset `probe_position_y_m`
+- Required attrs in `object` and `probe` datasets for PtychoPINN compatibility validation:
+  - `pixel_height_m`
+  - `pixel_width_m`
+
+Adapter mapping from grid-lines NPZ to paired HDF5:
+
+- `npz["diffraction"]` amplitude is converted to intensity for `dp` via `dp = diffraction**2`.
+- `npz["YY_full"]` maps to `object` (primary, scan-consistent object geometry).
+  Fallback to `npz["YY_ground_truth"]` only when `YY_full` is absent.
+- `npz["probeGuess"]` maps to `probe`.
+- Absolute scan positions from `npz["coords_offsets"]` (or `coords_start_offsets`) map to
+  `probe_position_y_m`/`probe_position_x_m` after conversion into the centered coordinate frame
+  expected by upstream `PtychographyDataset`.
+
+## Checkpoint Contract Source
+
+Contract fields:
+
+```yaml
+source_repo: /home/ollie/Documents/ptycho-vit
+source_commit: 2316b378006ef330e18af343d10dc8a7b821b0a8
+source_paths:
+  - main.py
+  - training.py
+  - inference.py
+  - config.yaml
+validated_on: 2026-02-10
+```
+
+Source-derived checkpoint files and semantics:
+
+- `best_model.pth`:
+  - used by inference load path (`inference.py`) for prediction.
+  - default initialization for inference-only/fine-tune bootstrap.
+- `checkpoint_model.pth`:
+  - rolling model-weight checkpoint during training (`training.py`).
+  - used by resume path in `main.py`.
+- `checkpoint.state`:
+  - optimizer/scheduler state and epoch/loss trackers (`training.py`).
+  - consumed with `checkpoint_model.pth` on resume.
+- `config.yaml`:
+  - persisted into the run directory for reproducibility (`training.py`).
+
+Resume and restore policy:
+
+- Resume interrupted run:
+  - require `checkpoint_model.pth` and `checkpoint.state`
+  - set `training.resume_from_checkpoint: true`
+- Fine-tune via bridge:
+  - currently resume-only (same upstream contract as interrupted-run resume)
+  - bridge requires `--resume-from-checkpoint=true` and rejects scratch-style finetune calls
+- Inference-only:
+  - load `best_model.pth` unless an explicit override is provided
+
+## Backend Contract
+
+- Model ID: `pinn_ptychovit`
+- Supported resolution in v1: `N=256` only
+- Adapter-owned artifacts:
+  - paired HDF5 files
+  - adapter manifest/provenance summary
+- Runner handoff artifact:
+  - `recons/pinn_ptychovit/recon.npz`
+
+## Fine-Tuning
+
+Current policy:
+
+- use the upstream resume contract (`checkpoint_model.pth` + `checkpoint.state`)
+- bridge-enforced guardrail: `--mode finetune` requires `--resume-from-checkpoint=true`
+- keep learning-rate partitioning as an upstream concern (no local override policy yet)
+
+## Inference
+
+Inputs:
+
+- model run directory containing `best_model.pth` and `config.yaml`
+- paired test HDF5 files (`*_dp.hdf5`, `*_para.hdf5`)
+
+Outputs:
+
+- subprocess logs (`runs/pinn_ptychovit/stdout.log`, `runs/pinn_ptychovit/stderr.log`)
+- reconstruction artifact (`recons/pinn_ptychovit/recon.npz`)
+- per-model metrics entry in `metrics_by_model.json`
+
+## Fresh Initial Baseline (Checkpoint-Restored, Lines Synthetic)
+
+Use this runbook when you need trustworthy initial metrics and recon PNGs from a **fresh** execution path (no stale artifact reuse).
+
+Prerequisites:
+
+- A checkpoint to restore from (`best_model.pth`).
+- Clean output directory (or pass `--force-clean` in the helper script).
+- Local ptycho-vit checkout path.
+
+Recommended command (helper script):
+
+```bash
+python scripts/studies/run_fresh_ptychovit_initial_metrics.py \
+  --checkpoint <absolute-path-to-best_model.pth> \
+  --output-dir tmp/ptychovit_initial_fresh \
+  --ptychovit-repo /home/ollie/Documents/ptycho-vit \
+  --N 128 --gridsize 1 --nimgs-train 8 --nimgs-test 8 --set-phi
+```
+
+Equivalent direct wrapper command:
+
+```bash
+python scripts/studies/grid_lines_compare_wrapper.py \
+  --N 128 --gridsize 1 \
+  --output-dir tmp/ptychovit_initial_fresh \
+  --architectures hybrid \
+  --models pinn_ptychovit \
+  --model-n pinn_ptychovit=256 \
+  --ptychovit-repo /home/ollie/Documents/ptycho-vit \
+  --nimgs-train 8 --nimgs-test 8 --set-phi
+```
+
+Reuse policy:
+
+- `--reuse-existing-recons` is optional and **disabled by default**.
+- Do not pass `--reuse-existing-recons` when generating initial baseline metrics.
+
+Verification command:
+
+```bash
+python scripts/studies/verify_fresh_ptychovit_initial_metrics.py \
+  --output-dir tmp/ptychovit_initial_fresh
+```
+
+Expected artifacts:
+
+- `tmp/ptychovit_initial_fresh/metrics_by_model.json`
+- `tmp/ptychovit_initial_fresh/recons/pinn_ptychovit/recon.npz`
+- `tmp/ptychovit_initial_fresh/recons/gt/recon.npz`
+- `tmp/ptychovit_initial_fresh/visuals/amp_phase_pinn_ptychovit.png`
+- `tmp/ptychovit_initial_fresh/visuals/compare_amp_phase.png`
+- `tmp/ptychovit_initial_fresh/runs/pinn_ptychovit/manifest.json`
+
+## Stationary-Point Diagnostic (Input Optimization, Diagnostic Only)
+
+Use this stationary-point diagnostic when reconstruction quality is poor but the
+interop contract appears valid. The workflow performs constrained input optimization
+on one bridge-compatible diffraction input and reports objective/gradient trajectories.
+This is diagnostic only: it does not change bridge inference behavior or model weights.
+
+Command:
+
+```bash
+python scripts/studies/ptychovit_input_optimization_diagnostic.py \
+  --checkpoint tmp/ptychovit_initial_fresh_post_contract_fix/runs/pinn_ptychovit/best_model.pth \
+  --ptychovit-repo /home/ollie/Documents/ptycho-vit \
+  --test-dp tmp/ptychovit_initial_fresh_post_contract_fix/runs/pinn_ptychovit/bridge_work/data/test_dp.hdf5 \
+  --test-para tmp/ptychovit_initial_fresh_post_contract_fix/runs/pinn_ptychovit/bridge_work/data/test_para.hdf5 \
+  --output-dir tmp/ptychovit_stationary_diag \
+  --steps 200 --lr 1e-2 --stationary-threshold 1e-5 --input-max 100.0 \
+  --w-amp-var 1.0 --w-phase-var 1.0 --w-tv 0.1 --w-forward-consistency 1.0
+```
+
+Expected output:
+
+- `tmp/ptychovit_stationary_diag/diagnostic_report.json`
+- Required keys: `objective_history`, `grad_norm_history`, `stationary_step`,
+  `input_stats`, `normalization_context`, `config`
+
+Interpretation guide for normalization and scale assumptions:
+
+- Early clamp saturation (`input_stats.max` pinned at `input_max`) with low terminal
+  gradient often indicates the tested intensity window is too tight for the model's
+  expected normalization/scale regime.
+- Very large or non-finite gradient norms usually indicate violated preprocessing
+  assumptions (e.g., missing/wrong normalization dictionary or incompatible scale).
+- Flat objective with near-constant predicted amplitude/phase statistics despite
+  non-saturated inputs suggests representational collapse unrelated to stitching logic.
+- Compare runs across multiple `input_max` / weight settings to identify a stable
+  window where gradients remain finite and objective changes are non-trivial.
+
+## NERSC Scan807 + Cameraman Orchestration
+
+For the mixed NERSC study (PtychoViT restored inference + Hybrid ResNet cross-dataset comparison),
+use:
+
+- Runbook: `scripts/studies/runbooks/run_nersc_scan807_cameraman_study.py`
+- Companion runbook (`N=256` no-downsample): `scripts/studies/runbooks/run_nersc_scan807_cameraman_study_n256.py`
+- Orchestrator: `scripts/studies/nersc_orchestration.py`
+- Pair adapter: `scripts/studies/nersc_pair_adapter.py`
+- Canonical command catalog: `docs/studies/index.md`
+
+### Known Local Dataset Paths (Snapshot: 2026-03-03)
+
+Use these local paths when running the NERSC scan807+cameraman orchestration on this machine:
+
+- `scan807`:
+  - `dp`: `/home/ollie/Downloads/nersc/testdata/scan807_dp.hdf5`
+  - `para`: `/home/ollie/Downloads/nersc/testdata/scan807_para.hdf5`
+- `cameraman256`:
+  - `dp`: `/home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5`
+  - `para`: `/home/ollie/Downloads/nersc/data/cameraman256_para.hdf5`
+- `pinn_ptychovit` checkpoint:
+  - `/home/ollie/Documents/PtychoPINN/datasets/run145/best_model.pth`
+
+Quick preflight:
+
+```bash
+test -f /home/ollie/Downloads/nersc/testdata/scan807_dp.hdf5
+test -f /home/ollie/Downloads/nersc/testdata/scan807_para.hdf5
+test -f /home/ollie/Downloads/nersc/data/cameraman256_dp.hdf5
+test -f /home/ollie/Downloads/nersc/data/cameraman256_para.hdf5
+test -f /home/ollie/Documents/PtychoPINN/datasets/run145/best_model.pth
+```
+
+Checkpoint policy (mandatory for this orchestration):
+
+- Always pass `--ptychovit-checkpoint datasets/run145/best_model.pth`.
+- Treat `datasets/run145/best_model.pth` as the single canonical checkpoint for the
+  NERSC scan807+cameraman orchestration workflow.
+- Do not substitute temporary checkpoints such as `tmp/ptychovit_initial_*` in this
+  workflow, or results are not considered comparable/reproducible.
+
+The PtychoViT stage in this workflow runs inference-only with explicit checkpoint restore
+(`--mode inference --checkpoint ...`) for both `scan807` and `cameraman256` paired HDF5 inputs.
+
+For this orchestration's `256 -> 128` external-raw prep path, downsampling is controlled by
+`--downsample-policy`:
+- `bin-crop` (default): diffraction block binning, center-crop for `objectGuess`/`probeGuess`,
+  coordinates unchanged in the same pixel frame.
+- `crop-bin`: diffraction center-crop, block-bin for `objectGuess`/`probeGuess`, coordinates scaled
+  by `1/factor`.
+
+Probe multimode collapse for paired-HDF5 conversion is controlled by `--probe-mode-policy`:
+- `incoherent_aggregate` (default): collapses probe modes into one effective complex probe using
+  incoherent amplitude aggregation.
+- `first_mode`: compatibility fallback that keeps the previous "mode-0 only" behavior.
+- Caveat: both options feed a single complex probe to downstream external-raw consumers, which is an
+  approximation to true multimode incoherent forward modeling.
+
+For hybrid external inference in this orchestration, `--position-reassembly-backend` is restricted to
+`shift_sum` only.
+
+The `N=256` companion runbook fixes `target_n=256` and therefore uses the explicit no-downsample path
+in `prepare_nersc_hybrid_dataset.py` (arrays/coords are preserved at native resolution).
+Use the same command for smoke/full and change only `--epochs` (5 for smoke, 40 for full).
+
+## Evaluation Policy
+
+- Native backends may use different diffraction patch sizes.
+- Cross-model metrics run after harmonizing each reconstructed object to the canonical GT object grid.
+- Harmonization target is GT object space, not diffraction patch size `N`.
+- No physical-unit harmonization in v1 (pixel-space canonicalization only).
+
+## Runtime Assumptions
+
+- `probe_position_x_m/probe_position_y_m must be non-constant` for lines interop runs.
+- Position vectors in HDF5 must be in the centered frame expected by upstream loader
+  (`data.py` adds origin internally).
+- `object` geometry in `*_para.hdf5` must be scan-consistent with `dp` and probe positions.
+- The bridge must generate a runtime normalization dictionary and set both
+  `data.normalization_dict_path` and `data.test_normalization` to that file.
+- If stdout contains `Normalization file not found`, treat the run as invalid and
+  regenerate bridge outputs.
+
+## Reconstruction Assembly Contract
+
+- Bridge inference must reconstruct object-space output using scan-position-aware stitching
+  (equivalent to upstream `place_patches_fourier_shift` + occupancy normalization).
+- scan-wise mean aggregation (simple patch averaging via `mean` across scan predictions) is not contract-compliant for
+  PtychoViT object reconstruction and can produce flat/low-information reconstructions.
+
+## Troubleshooting
+
+- Missing dataset keys in HDF5 pair:
+  - check required key set in this document and regenerate adapter outputs.
+- Probe-position length mismatch:
+  - ensure `len(probe_position_x_m) == len(probe_position_y_m) == dp.shape[0]`.
+- Probe positions degenerate (constant zeros):
+  - inspect `runs/pinn_ptychovit/bridge_work/data/test_para.hdf5`; regenerate NPZ/HDF5 interop
+    if `probe_position_x_m` or `probe_position_y_m` is constant.
+- Frame mismatch or out-of-bounds patch extraction:
+  - if positions are unique but reconstruction remains poor, verify centered-frame semantics
+    and object-size consistency (`YY_full` should drive `object` when available).
+- Normalization fallback warning:
+  - if stdout includes `Normalization file not found`, runtime config did not point to a valid
+    normalization dictionary; regenerate via bridge entrypoint.
+- Flat reconstruction despite valid contract files:
+  - check bridge assembly logic; if it averages predicted patches instead of using scan-position
+    stitching, results can remain poor even with correct normalization/probe inputs.
+- Resume failure:
+  - confirm both `checkpoint_model.pth` and `checkpoint.state` are present in the run directory.
+- Inference load failure:
+  - confirm `best_model.pth` exists and matches the expected model config.

@@ -1,0 +1,528 @@
+version: "2.7"
+name: "lines-256-redesign-candidate-impl-review"
+
+context:
+  workflow_model: "gpt-5.4"
+  workflow_effort: "high"
+
+inputs:
+  state_root:
+    type: relpath
+    under: state
+    default: state/lines256-redesign
+  queue_item_path:
+    type: relpath
+    under: docs/workflow_queue
+    default: docs/workflow_queue/templates/workflow_idea.md
+  proposal_context_path:
+    type: relpath
+    under: state
+    default: state/lines256-redesign/proposal_context.json
+  candidate_metadata_output_path:
+    type: relpath
+    under: state
+    default: state/lines256-redesign/candidate_metadata.json
+  proposal_result_output_path:
+    type: relpath
+    under: state
+    default: state/lines256-redesign/proposal_result.json
+  candidate_paths_output_path:
+    type: relpath
+    under: state
+    default: state/lines256-redesign/candidate_paths.json
+  design_doc_output_path:
+    type: relpath
+    under: docs/plans
+    default: docs/plans/2026-04-01-lines256-redesign-design.md
+  plan_doc_output_path:
+    type: relpath
+    under: docs/plans
+    default: docs/plans/2026-04-01-lines256-redesign-plan.md
+  execution_session_log_output_path:
+    type: relpath
+    under: artifacts/work
+    default: artifacts/work/lines256-redesign-execution.md
+  check_log_output_path:
+    type: relpath
+    under: artifacts/checks
+    default: artifacts/checks/lines256-redesign-checks.log
+  review_log_output_path:
+    type: relpath
+    under: artifacts/review
+    default: artifacts/review/lines256-redesign-review.md
+
+outputs:
+  candidate_metadata_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizeCandidatePackage.artifacts.candidate_metadata_path
+  proposal_result_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizeCandidatePackage.artifacts.proposal_result_path
+  design_doc_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizeCandidatePackage.artifacts.design_doc_path
+  plan_doc_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizeCandidatePackage.artifacts.plan_doc_path
+  execution_session_log_path:
+    type: relpath
+    under: artifacts/work
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizeCandidatePackage.artifacts.execution_session_log_path
+  check_log_path:
+    type: relpath
+    under: artifacts/checks
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizeCandidatePackage.artifacts.check_log_path
+  review_log_path:
+    type: relpath
+    under: artifacts/review
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizeCandidatePackage.artifacts.review_log_path
+  review_decision:
+    kind: scalar
+    type: enum
+    allowed: ["APPROVE", "REVISE", "BLOCK"]
+    from:
+      ref: root.steps.FinalizeCandidatePackage.artifacts.review_decision
+
+providers:
+  codex:
+    command:
+      [
+        "codex",
+        "exec",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--skip-git-repo-check",
+        "--model",
+        "${model}",
+        "--config",
+        "reasoning_effort=${reasoning_effort}",
+      ]
+    input_mode: stdin
+    defaults:
+      model: "${context.workflow_model}"
+      reasoning_effort: "${context.workflow_effort}"
+
+steps:
+  - name: InitializeRedesignPaths
+    id: initialize_redesign_paths
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p \
+          "${inputs.state_root}" \
+          "$(dirname "${inputs.design_doc_output_path}")" \
+          "$(dirname "${inputs.plan_doc_output_path}")" \
+          "$(dirname "${inputs.execution_session_log_output_path}")" \
+          "$(dirname "${inputs.check_log_output_path}")" \
+          "$(dirname "${inputs.review_log_output_path}")" \
+          "$(dirname "${inputs.candidate_metadata_output_path}")" \
+          "$(dirname "${inputs.proposal_result_output_path}")" \
+          "$(dirname "${inputs.candidate_paths_output_path}")"
+        printf '%s\n' "${inputs.state_root}/redesign_brief.md" > "${inputs.state_root}/redesign_brief_path.txt"
+        printf '%s\n' "${inputs.design_doc_output_path}" > "${inputs.state_root}/design_doc_path.txt"
+        printf '%s\n' "${inputs.plan_doc_output_path}" > "${inputs.state_root}/plan_doc_path.txt"
+        printf '%s\n' "${inputs.execution_session_log_output_path}" > "${inputs.state_root}/execution_session_log_path.txt"
+        printf '%s\n' "${inputs.check_log_output_path}" > "${inputs.state_root}/check_log_path.txt"
+        printf '%s\n' "${inputs.review_log_output_path}" > "${inputs.state_root}/review_log_path.txt"
+        printf '%s\n' "${inputs.candidate_metadata_output_path}" > "${inputs.state_root}/candidate_metadata_path.txt"
+        printf '%s\n' "${inputs.proposal_result_output_path}" > "${inputs.state_root}/proposal_result_path.txt"
+        printf '%s\n' "${inputs.candidate_paths_output_path}" > "${inputs.state_root}/candidate_paths_path.txt"
+        printf '%s\n' "${inputs.state_root}/review_decision.txt" > "${inputs.state_root}/review_decision_path.txt"
+    expected_outputs:
+      - name: redesign_brief_path
+        path: ${inputs.state_root}/redesign_brief_path.txt
+        type: relpath
+        under: state
+      - name: design_doc_path
+        path: ${inputs.state_root}/design_doc_path.txt
+        type: relpath
+        under: docs/plans
+      - name: plan_doc_path
+        path: ${inputs.state_root}/plan_doc_path.txt
+        type: relpath
+        under: docs/plans
+      - name: execution_session_log_path
+        path: ${inputs.state_root}/execution_session_log_path.txt
+        type: relpath
+        under: artifacts/work
+      - name: check_log_path
+        path: ${inputs.state_root}/check_log_path.txt
+        type: relpath
+        under: artifacts/checks
+      - name: review_log_path
+        path: ${inputs.state_root}/review_log_path.txt
+        type: relpath
+        under: artifacts/review
+      - name: candidate_metadata_path
+        path: ${inputs.state_root}/candidate_metadata_path.txt
+        type: relpath
+        under: state
+      - name: proposal_result_path
+        path: ${inputs.state_root}/proposal_result_path.txt
+        type: relpath
+        under: state
+      - name: candidate_paths_path
+        path: ${inputs.state_root}/candidate_paths_path.txt
+        type: relpath
+        under: state
+      - name: review_decision_path
+        path: ${inputs.state_root}/review_decision_path.txt
+        type: relpath
+        under: state
+
+  - name: PrepareRedesignBrief
+    id: prepare_redesign_brief
+    command:
+      - python
+      - -c
+      - |
+        import json
+        from pathlib import Path
+
+        state_root = Path("${inputs.state_root}")
+        queue_item_path = Path("${inputs.queue_item_path}")
+        proposal_context_path = Path("${inputs.proposal_context_path}")
+        brief_path = Path((state_root / "redesign_brief_path.txt").read_text(encoding="utf-8").strip())
+        review_decision_path = Path((state_root / "review_decision_path.txt").read_text(encoding="utf-8").strip())
+
+        queue_text = (
+            queue_item_path.read_text(encoding="utf-8")
+            if queue_item_path.exists()
+            else f"Missing queue item: {queue_item_path}\n"
+        )
+        proposal_context_text = (
+            proposal_context_path.read_text(encoding="utf-8")
+            if proposal_context_path.exists()
+            else json.dumps(
+                {
+                    "warning": "proposal_context_path was missing when the redesign workflow started",
+                    "proposal_context_path": str(proposal_context_path),
+                },
+                indent=2,
+            )
+            + "\n"
+        )
+
+        lines = [
+            "# Lines 256 Redesign Brief",
+            "",
+            "Use this file as the authoritative redesign-candidate contract.",
+            "",
+            "## Queue Idea",
+            f"- path: {queue_item_path.as_posix()}",
+            "",
+            queue_text.rstrip(),
+            "",
+            "## Proposal Context",
+            f"- path: {proposal_context_path.as_posix()}",
+            "",
+            "```json",
+            proposal_context_text.rstrip(),
+            "```",
+            "",
+            "## Authoritative Output Paths",
+            f"- design_doc_path: ${inputs.design_doc_output_path}",
+            f"- plan_doc_path: ${inputs.plan_doc_output_path}",
+            f"- execution_session_log_path: ${inputs.execution_session_log_output_path}",
+            f"- check_log_path: ${inputs.check_log_output_path}",
+            f"- review_log_path: ${inputs.review_log_output_path}",
+            f"- review_decision_path: {review_decision_path.as_posix()}",
+            f"- candidate_metadata_output_path: ${inputs.candidate_metadata_output_path}",
+            f"- proposal_result_output_path: ${inputs.proposal_result_output_path}",
+            f"- candidate_paths_output_path: ${inputs.candidate_paths_output_path}",
+            "",
+            "## Candidate Package Requirements",
+            "- Produce exactly one coherent redesign candidate.",
+            "- Keep smoke/scored evaluation controller-owned; do not run the controller loop here.",
+            "- Write candidate_metadata.json when the candidate is ready or explicitly blocked.",
+            "- If the candidate is a source candidate, write candidate_paths.json listing repo-relative changed paths.",
+            "- Do not move workflow queue items or mutate accepted-state/session ledgers.",
+            "",
+        ]
+        brief_path.parent.mkdir(parents=True, exist_ok=True)
+        brief_path.write_text("\n".join(lines), encoding="utf-8")
+      - ""
+    expected_outputs:
+      - name: redesign_brief_path
+        path: ${inputs.state_root}/redesign_brief_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+
+  - name: DraftRedesignDesign
+    id: draft_redesign_design
+    provider: codex
+    input_file: prompts/workflows/lines_256_arch_improvement/redesign_candidate_design.md
+    timeout_sec: 3600
+    depends_on:
+      required:
+        - ${inputs.state_root}/redesign_brief.md
+      inject: true
+    expected_outputs:
+      - name: design_doc_path
+        path: ${inputs.state_root}/design_doc_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+
+  - name: DraftRedesignPlan
+    id: draft_redesign_plan
+    provider: codex
+    input_file: prompts/workflows/lines_256_arch_improvement/redesign_candidate_plan.md
+    timeout_sec: 3600
+    depends_on:
+      required:
+        - ${inputs.state_root}/redesign_brief.md
+        - ${inputs.design_doc_output_path}
+      inject: true
+    expected_outputs:
+      - name: plan_doc_path
+        path: ${inputs.state_root}/plan_doc_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+
+  - name: ImplementRedesignCandidate
+    id: implement_redesign_candidate
+    provider: codex
+    input_file: prompts/workflows/lines_256_arch_improvement/redesign_candidate_implement.md
+    timeout_sec: 43200
+    depends_on:
+      required:
+        - ${inputs.state_root}/redesign_brief.md
+        - ${inputs.design_doc_output_path}
+        - ${inputs.plan_doc_output_path}
+      inject: true
+    expected_outputs:
+      - name: execution_session_log_path
+        path: ${inputs.state_root}/execution_session_log_path.txt
+        type: relpath
+        under: artifacts/work
+        must_exist_target: true
+      - name: candidate_metadata_path
+        path: ${inputs.state_root}/candidate_metadata_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+      - name: candidate_paths_path
+        path: ${inputs.state_root}/candidate_paths_path.txt
+        type: relpath
+        under: state
+        required: false
+
+  - name: RunTargetedChecks
+    id: run_targeted_checks
+    command:
+      - python
+      - -c
+      - |
+        import json
+        from pathlib import Path
+
+        state_root = Path("${inputs.state_root}")
+        metadata_path = Path((state_root / "candidate_metadata_path.txt").read_text(encoding="utf-8").strip())
+        log_path = Path((state_root / "check_log_path.txt").read_text(encoding="utf-8").strip())
+        candidate_paths_path = Path((state_root / "candidate_paths_path.txt").read_text(encoding="utf-8").strip())
+
+        failures = []
+        lines = []
+
+        if not metadata_path.exists():
+            failures.append(f"missing candidate metadata: {metadata_path}")
+        else:
+            metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+            status = str(metadata.get("status", "")).strip().upper()
+            lines.append(f"status={status}\n")
+            if status not in {"READY", "BLOCKED"}:
+                failures.append(f"unsupported metadata status: {status}")
+
+            candidate_kind = str(metadata.get("candidate_kind", "")).strip()
+            lines.append(f"candidate_kind={candidate_kind}\n")
+            if candidate_kind == "source":
+                relpath = str(metadata.get("candidate_paths_file", "")).strip()
+                if not relpath:
+                    failures.append("source candidate missing candidate_paths_file")
+                else:
+                    resolved_paths = Path(relpath)
+                    if not resolved_paths.exists():
+                        failures.append(f"missing candidate_paths_file target: {resolved_paths}")
+            elif candidate_kind == "run_config":
+                lines.append("run_config candidate: no candidate_paths_file required\n")
+
+        if candidate_paths_path.exists():
+            lines.append(f"candidate_paths_pointer={candidate_paths_path.read_text(encoding='utf-8').strip()}\n")
+
+        if failures:
+            lines.append("failures:\n")
+            for item in failures:
+                lines.append(f"- {item}\n")
+        else:
+            lines.append("failures: none\n")
+
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        log_path.write_text("".join(lines), encoding="utf-8")
+        if failures:
+            raise SystemExit("; ".join(failures))
+      - ""
+    expected_outputs:
+      - name: check_log_path
+        path: ${inputs.state_root}/check_log_path.txt
+        type: relpath
+        under: artifacts/checks
+        must_exist_target: true
+
+  - name: ReviewRedesignCandidate
+    id: review_redesign_candidate
+    provider: codex
+    input_file: prompts/workflows/lines_256_arch_improvement/redesign_candidate_review.md
+    timeout_sec: 3600
+    depends_on:
+      required:
+        - ${inputs.state_root}/redesign_brief.md
+        - ${inputs.design_doc_output_path}
+        - ${inputs.plan_doc_output_path}
+        - ${inputs.execution_session_log_output_path}
+        - ${inputs.check_log_output_path}
+        - ${inputs.candidate_metadata_output_path}
+      inject: true
+    expected_outputs:
+      - name: review_log_path
+        path: ${inputs.state_root}/review_log_path.txt
+        type: relpath
+        under: artifacts/review
+        must_exist_target: true
+      - name: review_decision
+        path: ${inputs.state_root}/review_decision.txt
+        type: enum
+        allowed: ["APPROVE", "REVISE", "BLOCK"]
+
+  - name: FinalizeCandidatePackage
+    id: finalize_candidate_package
+    command:
+      - python
+      - -c
+      - |
+        import json
+        from pathlib import Path
+
+        state_root = Path("${inputs.state_root}")
+        review_decision_path = Path((state_root / "review_decision_path.txt").read_text(encoding="utf-8").strip())
+        candidate_metadata_path = Path((state_root / "candidate_metadata_path.txt").read_text(encoding="utf-8").strip())
+        proposal_result_path = Path((state_root / "proposal_result_path.txt").read_text(encoding="utf-8").strip())
+
+        review_decision = review_decision_path.read_text(encoding="utf-8").strip().upper()
+        if review_decision not in {"APPROVE", "REVISE", "BLOCK"}:
+            raise SystemExit(f"Unsupported review decision: {review_decision}")
+
+        if review_decision == "BLOCK":
+            candidate_metadata_path.parent.mkdir(parents=True, exist_ok=True)
+            candidate_metadata_path.write_text(
+                json.dumps(
+                    {
+                        "status": "BLOCKED",
+                        "blocker_reason": "Redesign review blocked the candidate; see review log.",
+                    },
+                    indent=2,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            proposal_payload = {
+                "status": "BLOCKED",
+                "candidate_factory": "redesign",
+                "review_decision": review_decision,
+                "metadata_validated": True,
+                "retryable": False,
+            }
+        elif review_decision == "APPROVE":
+            if not candidate_metadata_path.exists():
+                raise SystemExit(f"Approved redesign candidate is missing metadata: {candidate_metadata_path}")
+            metadata = json.loads(candidate_metadata_path.read_text(encoding="utf-8"))
+            if str(metadata.get("status", "")).strip().upper() != "READY":
+                raise SystemExit(
+                    "Approved redesign candidate must leave candidate_metadata.json with status READY"
+                )
+            proposal_payload = {
+                "status": "READY",
+                "candidate_factory": "redesign",
+                "review_decision": review_decision,
+                "metadata_validated": True,
+                "retryable": False,
+            }
+        else:
+            raise SystemExit("Redesign candidate requires revision before it can be proposed.")
+
+        proposal_result_path.parent.mkdir(parents=True, exist_ok=True)
+        proposal_result_path.write_text(json.dumps(proposal_payload, indent=2) + "\n", encoding="utf-8")
+
+        pointer_map = {
+            "candidate_metadata_path": "${inputs.candidate_metadata_output_path}",
+            "proposal_result_path": "${inputs.proposal_result_output_path}",
+            "design_doc_path": "${inputs.design_doc_output_path}",
+            "plan_doc_path": "${inputs.plan_doc_output_path}",
+            "execution_session_log_path": "${inputs.execution_session_log_output_path}",
+            "check_log_path": "${inputs.check_log_output_path}",
+            "review_log_path": "${inputs.review_log_output_path}",
+        }
+        for name, target in pointer_map.items():
+            pointer_path = state_root / f"final_{name}.txt"
+            pointer_path.write_text(target + "\n", encoding="utf-8")
+      - ""
+    expected_outputs:
+      - name: candidate_metadata_path
+        path: ${inputs.state_root}/final_candidate_metadata_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+      - name: proposal_result_path
+        path: ${inputs.state_root}/final_proposal_result_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+      - name: design_doc_path
+        path: ${inputs.state_root}/final_design_doc_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: plan_doc_path
+        path: ${inputs.state_root}/final_plan_doc_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: execution_session_log_path
+        path: ${inputs.state_root}/final_execution_session_log_path.txt
+        type: relpath
+        under: artifacts/work
+        must_exist_target: true
+      - name: check_log_path
+        path: ${inputs.state_root}/final_check_log_path.txt
+        type: relpath
+        under: artifacts/checks
+        must_exist_target: true
+      - name: review_log_path
+        path: ${inputs.state_root}/final_review_log_path.txt
+        type: relpath
+        under: artifacts/review
+        must_exist_target: true
+      - name: review_decision
+        path: ${inputs.state_root}/review_decision.txt
+        type: enum
+        allowed: ["APPROVE", "REVISE", "BLOCK"]

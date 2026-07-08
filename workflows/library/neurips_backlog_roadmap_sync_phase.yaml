@@ -1,0 +1,254 @@
+version: "2.7"
+name: "neurips-backlog-roadmap-sync-phase"
+
+context:
+  workflow_model: "gpt-5.4"
+  workflow_effort: "high"
+
+inputs:
+  state_root:
+    type: relpath
+    under: state
+  steering_path:
+    type: relpath
+    under: docs
+    must_exist_target: true
+  design_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  roadmap_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  selected_item_context_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+  progress_ledger_path:
+    type: relpath
+    under: state
+    must_exist_target: true
+  roadmap_sync_report_target_path:
+    type: relpath
+    under: artifacts/review
+
+outputs:
+  roadmap_path:
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizeRoadmapSyncOutputs.artifacts.roadmap_path
+  roadmap_sync_report_path:
+    type: relpath
+    under: artifacts/review
+    must_exist_target: true
+    from:
+      ref: root.steps.FinalizeRoadmapSyncOutputs.artifacts.roadmap_sync_report_path
+  roadmap_sync_status:
+    kind: scalar
+    type: enum
+    allowed: ["NO_CHANGE", "UPDATED", "BLOCKED"]
+    from:
+      ref: root.steps.FinalizeRoadmapSyncOutputs.artifacts.roadmap_sync_status
+
+providers:
+  codex:
+    command: ["codex", "exec", "--dangerously-bypass-approvals-and-sandbox", "--skip-git-repo-check", "--model", "${model}", "--config", "reasoning_effort=${effort}"]
+    input_mode: "stdin"
+    defaults:
+      model: "${context.workflow_model}"
+      effort: "${context.workflow_effort}"
+
+artifacts:
+  steering:
+    pointer: ${inputs.state_root}/steering_path.txt
+    type: relpath
+    under: docs
+    must_exist_target: true
+  design:
+    pointer: ${inputs.state_root}/design_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  roadmap:
+    pointer: ${inputs.state_root}/roadmap_path.txt
+    type: relpath
+    under: docs/plans
+    must_exist_target: true
+  selected_item_context:
+    pointer: ${inputs.state_root}/selected_item_context_path.txt
+    type: relpath
+    under: state
+    must_exist_target: true
+  progress_ledger:
+    pointer: ${inputs.state_root}/progress_ledger_path.txt
+    type: relpath
+    under: state
+    must_exist_target: true
+  roadmap_sync_report:
+    pointer: ${inputs.state_root}/roadmap_sync_report_path.txt
+    type: relpath
+    under: artifacts/review
+    must_exist_target: true
+  roadmap_sync_status:
+    kind: scalar
+    type: enum
+    allowed: ["NO_CHANGE", "UPDATED", "BLOCKED"]
+
+steps:
+  - name: InitializeRoadmapSyncPaths
+    id: initialize_roadmap_sync_paths
+    command:
+      - bash
+      - -lc
+      - |
+        mkdir -p "${inputs.state_root}" "$(dirname "${inputs.roadmap_sync_report_target_path}")"
+        printf '%s\n' "${inputs.roadmap_sync_report_target_path}" > "${inputs.state_root}/roadmap_sync_report_path.txt"
+    expected_outputs:
+      - name: roadmap_sync_report_path
+        path: ${inputs.state_root}/roadmap_sync_report_path.txt
+        type: relpath
+        under: artifacts/review
+
+  - name: PublishRoadmapSyncInputs
+    id: publish_roadmap_sync_inputs
+    command:
+      - bash
+      - -lc
+      - |
+        for path in \
+          "${inputs.steering_path}" \
+          "${inputs.design_path}" \
+          "${inputs.roadmap_path}" \
+          "${inputs.selected_item_context_path}" \
+          "${inputs.progress_ledger_path}"
+        do
+          if [ ! -f "$path" ]; then
+            echo "Missing required file: $path" >&2
+            exit 1
+          fi
+        done
+        printf '%s\n' "${inputs.steering_path}" > "${inputs.state_root}/steering_path.txt"
+        printf '%s\n' "${inputs.design_path}" > "${inputs.state_root}/design_path.txt"
+        printf '%s\n' "${inputs.roadmap_path}" > "${inputs.state_root}/roadmap_path.txt"
+        printf '%s\n' "${inputs.selected_item_context_path}" > "${inputs.state_root}/selected_item_context_path.txt"
+        printf '%s\n' "${inputs.progress_ledger_path}" > "${inputs.state_root}/progress_ledger_path.txt"
+    expected_outputs:
+      - name: steering_path
+        path: ${inputs.state_root}/steering_path.txt
+        type: relpath
+        under: docs
+        must_exist_target: true
+      - name: design_path
+        path: ${inputs.state_root}/design_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: roadmap_path
+        path: ${inputs.state_root}/roadmap_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: selected_item_context_path
+        path: ${inputs.state_root}/selected_item_context_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+      - name: progress_ledger_path
+        path: ${inputs.state_root}/progress_ledger_path.txt
+        type: relpath
+        under: state
+        must_exist_target: true
+    publishes:
+      - artifact: steering
+        from: steering_path
+      - artifact: design
+        from: design_path
+      - artifact: roadmap
+        from: roadmap_path
+      - artifact: selected_item_context
+        from: selected_item_context_path
+      - artifact: progress_ledger
+        from: progress_ledger_path
+
+  - name: ReviewOrUpdateRoadmap
+    id: review_or_update_roadmap
+    provider: codex
+    asset_file: prompts/neurips_backlog_roadmap_sync/review_or_update.md
+    timeout_sec: 1800
+    consumes:
+      - artifact: steering
+        policy: latest_successful
+        freshness: any
+      - artifact: design
+        policy: latest_successful
+        freshness: any
+      - artifact: roadmap
+        policy: latest_successful
+        freshness: any
+      - artifact: selected_item_context
+        policy: latest_successful
+        freshness: any
+      - artifact: progress_ledger
+        policy: latest_successful
+        freshness: any
+    prompt_consumes: ["steering", "design", "roadmap", "selected_item_context", "progress_ledger"]
+    expected_outputs:
+      - name: roadmap_sync_report_path
+        path: ${inputs.state_root}/roadmap_sync_report_path.txt
+        type: relpath
+        under: artifacts/review
+        must_exist_target: true
+      - name: roadmap_sync_status
+        path: ${inputs.state_root}/roadmap_sync_status.txt
+        type: enum
+        allowed: ["NO_CHANGE", "UPDATED", "BLOCKED"]
+    publishes:
+      - artifact: roadmap_sync_report
+        from: roadmap_sync_report_path
+      - artifact: roadmap_sync_status
+        from: roadmap_sync_status
+
+  - name: FinalizeRoadmapSyncOutputs
+    id: finalize_roadmap_sync_outputs
+    command:
+      - python
+      - -c
+      - |
+        import pathlib
+        import sys
+
+        state_root = pathlib.Path(sys.argv[1])
+        roadmap_path = sys.argv[2]
+
+        status = (state_root / "roadmap_sync_status.txt").read_text(encoding="utf-8").strip()
+        if status not in {"NO_CHANGE", "UPDATED", "BLOCKED"}:
+            raise SystemExit(f"Unexpected roadmap sync status: {status}")
+        if not pathlib.Path(roadmap_path).is_file():
+            raise SystemExit(f"Authoritative roadmap path does not exist: {roadmap_path}")
+        report_path = (state_root / "roadmap_sync_report_path.txt").read_text(encoding="utf-8").strip()
+        if not report_path or not pathlib.Path(report_path).is_file():
+            raise SystemExit(f"Roadmap sync report does not exist: {report_path}")
+
+        (state_root / "final_roadmap_path.txt").write_text(roadmap_path + "\n", encoding="utf-8")
+        (state_root / "final_roadmap_sync_report_path.txt").write_text(report_path + "\n", encoding="utf-8")
+        (state_root / "final_roadmap_sync_status.txt").write_text(status + "\n", encoding="utf-8")
+      - ${inputs.state_root}
+      - ${inputs.roadmap_path}
+    expected_outputs:
+      - name: roadmap_path
+        path: ${inputs.state_root}/final_roadmap_path.txt
+        type: relpath
+        under: docs/plans
+        must_exist_target: true
+      - name: roadmap_sync_report_path
+        path: ${inputs.state_root}/final_roadmap_sync_report_path.txt
+        type: relpath
+        under: artifacts/review
+        must_exist_target: true
+      - name: roadmap_sync_status
+        path: ${inputs.state_root}/final_roadmap_sync_status.txt
+        type: enum
+        allowed: ["NO_CHANGE", "UPDATED", "BLOCKED"]

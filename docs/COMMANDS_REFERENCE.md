@@ -6,7 +6,7 @@
 - [Data Preparation Golden Paths](#data-preparation-golden-paths)
 - [Training](#training) 
 - [Inference](#inference)
-- [Model Evaluation](#model-evaluation)
+- [Single-Model Inference](#single-model-inference)
 - [Model Comparison](#model-comparison)
 - [Studies](#studies)
 - [Best Practices & Key Guidelines](#best-practices--key-guidelines)
@@ -26,13 +26,13 @@ Choose the path that matches your starting point and goal.
 
 ```bash
 # 1. Canonicalize raw data (REQUIRED FIRST STEP for experimental data)
-#    Why: Converts uint16 intensity to float32 amplitude and renames keys.
+#    Why: Converts uint16 diffraction/intensity arrays to float32 and renames keys.
 python scripts/tools/transpose_rename_convert_tool.py raw_data.npz converted_data.npz
 
 # 2. Shuffle the dataset (OPTIONAL - useful for creating canonical benchmark datasets)
 #    Note: No longer required for gridsize=1 training as of the unified sampling update.
 #    Still useful for creating reproducible, pre-randomized datasets for benchmarking.
-python scripts/tools/shuffle_dataset_tool.py converted_data.npz shuffled_data.npz --seed 42
+python scripts/tools/shuffle_dataset_tool.py --input-file converted_data.npz --output-file shuffled_data.npz --seed 42
 
 # 3. Split into train/test sets (optional, but good practice)
 #    Why: Creates dedicated, non-overlapping sets for training and validation.
@@ -40,7 +40,7 @@ python scripts/tools/split_dataset_tool.py shuffled_data.npz output_dir/ --split
 
 # 4. Always visualize your final dataset to verify its integrity
 #    Why: A quick visual check can catch many common data format errors.
-python scripts/tools/visualize_dataset.py output_dir/train.npz train_set_visualization.png
+python scripts/tools/visualize_dataset.py output_dir/shuffled_data_train.npz train_set_visualization.png
 ```
 
 ### Golden Path 2: Creating a *New* Synthetic Dataset from a Reconstruction
@@ -63,7 +63,7 @@ bash scripts/prepare.sh --input-file synthetic.npz --output-dir studies/photons_
 bash scripts/prepare.sh --help
 ```
 
-**New Parameters (as of latest update):**
+**Parameters:**
 - `--input-file PATH`: Specify input NPZ file (default: tike_outputs/fly001/fly001_reconstructed.npz)
 - `--output-dir DIR`: Organize all outputs in a single directory (default: uses traditional structure)
 - `--sim-images N`: Number of images to simulate (default: 35000)
@@ -77,8 +77,8 @@ DIR/
 │   ├── 02_transposed/
 │   └── ...
 └── dataset/         # Final train/test splits
-    ├── train.npz
-    └── test.npz
+    ├── <input_stem>_train.npz
+    └── <input_stem>_test.npz
 ```
 
 **What `prepare.sh` does internally:**
@@ -95,63 +95,94 @@ DIR/
 # Basic training
 ptycho_train --train_data_file dataset.npz --n_groups 2000 --nepochs 50 --output_dir my_run
 
-# Legacy compatibility (deprecated but still works)
-ptycho_train --train_data_file dataset.npz --n_images 2000 --nepochs 50 --output_dir my_run
-
 # With configuration file (recommended)
 ptycho_train --config configs/my_config.yaml
 
-# Independent sampling control (NEW)
+# Independent sampling control
 ptycho_train --train_data_file dataset.npz --n_subsample 5000 --n_groups 1000 --nepochs 50 --output_dir my_run
 
-# Reproducible sampling (NEW)
+# Reproducible sampling
 ptycho_train --train_data_file dataset.npz --n_subsample 3000 --n_groups 500 --subsample_seed 42 --output_dir my_run
+
+# K choose C oversampling with explicit opt-in
+ptycho_train --train_data_file dataset.npz \
+    --n_subsample 500 --n_groups 2000 \
+    --gridsize 2 --neighbor_count 7 \
+    --enable_oversampling --neighbor_pool_size 7 \
+    --output_dir oversampled_run
 ```
 
-### 📊 NEW: Independent Sampling Control
+### 📊 Independent Sampling Control
 
 The project now supports **independent control** of data subsampling and neighbor grouping:
 
-- **`--n-subsample`**: Controls how many images to randomly select from the dataset
-- **`--n-groups`**: Controls how many groups to use for training/inference (regardless of gridsize)
-- **`--subsample-seed`**: Ensures reproducible random selection
+- **`--n_subsample`**: Controls how many images to randomly select from the dataset
+- **`--n_groups`**: Controls how many groups to use for training/inference (regardless of gridsize)
+- **`--subsample_seed`**: Ensures reproducible random selection
 
-**Note**: `--n-images` is deprecated but still supported for backward compatibility.
+**Note**: `--n_images` is deprecated but still supported for backward compatibility.
 
 **Example Use Cases:**
 ```bash
 # Dense grouping: Use most subsampled data
-ptycho_train --n-subsample 1200 --n-groups 1000 --gridsize 2 ...
+ptycho_train --n_subsample 1200 --n_groups 1000 --gridsize 2 ...
 
 # Sparse grouping: Large subsample, fewer groups
-ptycho_train --n-subsample 10000 --n-groups 500 --gridsize 2 ...
+ptycho_train --n_subsample 10000 --n_groups 500 --gridsize 2 ...
 
 # Memory-constrained: Limit data loading
-ptycho_train --n-subsample 5000 --n-groups 2000 --gridsize 1 ...
+ptycho_train --n_subsample 5000 --n_groups 2000 --gridsize 1 ...
 ```
 
-### ⚠️ CRITICAL: Understanding `gridsize` and `--n-groups`
+### ⚠️ CRITICAL: Understanding `gridsize` and `--n_groups`
 
-The `--n-groups` parameter **always** refers to the number of groups to use, regardless of the `gridsize` parameter. This provides consistent behavior and eliminates confusion.
+The `--n_groups` parameter **always** refers to the number of groups to use, regardless of the `gridsize` parameter. This provides consistent behavior and eliminates confusion.
 
-| GridSize | `--n-groups` Refers To... | Total Patterns Used | Subsampling Method |
+| GridSize | `--n_groups` Refers To... | Total Patterns Used | Subsampling Method |
 |----------|---------------------------|---------------------|--------------------|
 | 1        | **Groups (each with 1 image)**    | `n_groups` × 1      | **Unified Random Sampling.** Each group contains 1 image. |
 | > 1      | **Groups (neighbor groups)**       | `n_groups` × `gridsize`² | **Unified Random Sampling.** Each group contains gridsize² images. |
 
-**Key Insight**: With `--n-groups`, the parameter always means "number of groups" regardless of gridsize. For gridsize=1, each group contains 1 image. For gridsize>1, each group contains multiple neighboring images.
+**Key Insight**: With `--n_groups`, the parameter always means "number of groups" regardless of gridsize. For gridsize=1, each group contains 1 image. For gridsize>1, each group contains multiple neighboring images.
 
 **Log Message Examples to Watch For:**
 ```
 # GridSize=1 (Unified group interpretation)
-INFO - Parameter interpretation: --n-groups=1000 refers to 1000 groups of 1 image each (gridsize=1)
+INFO - Parameter interpretation: --n_groups=1000 refers to 1000 groups of 1 image each (gridsize=1)
 
 # GridSize=2 (Unified group interpretation)
-INFO - Parameter interpretation: --n-groups=250 refers to 250 groups of 4 images each (gridsize=2, total patterns=1000)
+INFO - Parameter interpretation: --n_groups=250 refers to 250 groups of 4 images each (gridsize=2, total patterns=1000)
 INFO - Using grouping-aware subsampling strategy for gridsize=2
 ```
 
-**Backward Compatibility**: The deprecated `--n-images` parameter still works but will show a deprecation warning.
+**Backward Compatibility**: The deprecated `--n_images` parameter still works but will show a deprecation warning.
+
+### 🔄 K Choose C Oversampling
+
+**Use case:** When you want to create more training groups than available seed points by sampling multiple combinations from each seed's neighbors.
+
+**Prerequisites (OVERSAMPLING-001):**
+- `gridsize > 1` (so C = gridsize² > 1)
+- `--enable_oversampling` flag (explicit opt-in)
+- `--neighbor_pool_size >= C` (pool size must be at least gridsize²)
+
+**Example:**
+```bash
+# Create 2000 groups from only 500 seed points
+ptycho_train --train_data_file dataset.npz \
+    --n_subsample 500 \
+    --n_groups 2000 \
+    --gridsize 2 \
+    --neighbor_count 7 \
+    --enable_oversampling \
+    --neighbor_pool_size 7 \
+    --output_dir oversampled_run
+```
+
+**Important Notes:**
+- **Overfitting risk:** Oversampling reuses local neighborhoods; monitor using spatial validation splits
+- **Debug logs:** Look for `[OVERSAMPLING DEBUG]` messages showing which branch was taken
+- **Error handling:** Clear error messages guide you if prerequisites aren't met; see OVERSAMPLING-001 in `docs/findings.md`.
 
 ---
 
@@ -164,11 +195,11 @@ ptycho_inference --model_path trained_model/ --test_data test.npz --output_dir i
 # With specific number of test groups
 ptycho_inference --model_path trained_model/ --test_data test.npz --n_groups 500 --output_dir inference_out
 
-# Independent sampling control (NEW)
+# Independent sampling control
 ptycho_inference --model_path trained_model/ --test_data test.npz --n_subsample 2000 --n_groups 500 --output_dir inference_out
 
-# GridSize=2 inference (must match the gridsize used for training)
-ptycho_inference --model_path gs2_model/ --test_data test.npz --n_groups 125 --gridsize 2 --output_dir gs2_inference
+# Inference for a model trained with GridSize=2
+ptycho_inference --model_path gs2_model/ --test_data test.npz --n_groups 125 --output_dir gs2_inference
 ```
 
 ---
@@ -194,21 +225,61 @@ python scripts/reconstruction/run_tike_reconstruction.py \
 
 ```bash
 # Basic pty-chi reconstruction (DM algorithm, 200 epochs)
-python scripts/reconstruction/ptychi_reconstruct_tike.py
+python scripts/reconstruction/ptychi_reconstruct_tike.py \
+    --input-npz input_data.npz \
+    --output-dir ptychi_output/
 
 # High-quality reconstruction with extended convergence
-# Note: Parameters are currently hardcoded in script main() function
-# Modify tike_dataset, algorithm, num_epochs, n_images as needed
+python scripts/reconstruction/ptychi_reconstruct_tike.py \
+    --input-npz input_data.npz \
+    --output-dir ptychi_lsqml_output/ \
+    --algorithm LSQML \
+    --num-epochs 500 \
+    --n-images 2000
 
-# Available algorithms: 'DM', 'LSQML', 'PIE'
-# Default: DM with 200 epochs on 2000 images
+# Available algorithms include 'DM', 'LSQML', and 'PIE'.
 ```
 
 ---
 
-## Model Evaluation
+## Single-Model Inference
 
-Model evaluation is currently performed via the comparison/study scripts (see `scripts/studies/README.md`); there is no `ptycho_evaluate` console command.
+```bash
+# Basic single-model inference
+ptycho_inference --model_path trained_model/ --test_data test.npz --output_dir infer_results
+
+# Inference with sampling control
+ptycho_inference --model_path trained_model/ --test_data test.npz \
+    --n_subsample 2000 --n_groups 500 --output_dir infer_results
+
+# Include comparison plot when ground truth is available
+ptycho_inference --model_path model/ --test_data test.npz \
+    --output_dir infer_with_plot --comparison_plot
+
+# Select backend explicitly
+ptycho_inference --model_path model/ --test_data test.npz \
+    --output_dir infer_torch --backend pytorch
+```
+
+### 📊 Key Features
+
+- **Reconstruction Outputs**: Generates amplitude/phase reconstructions and debug artifacts
+- **Optional GT Plotting**: `--comparison_plot` renders ground-truth comparisons when available
+- **Backend Selection**: Supports TensorFlow and PyTorch backends from the same entrypoint
+- **Independent Sampling**: Control test data subsampling with `--n_subsample` and `--n_groups`
+
+### 📋 When to Use Inference vs Comparison
+
+- **Use `ptycho_inference`** when:
+  - Running a single trained model to produce reconstructions
+  - Doing backend-specific smoke checks
+  - Creating per-model visuals quickly
+
+- **Use `compare_models.py`** when:
+  - Computing quantitative cross-model metrics (MAE/SSIM/MS-SSIM/FRC)
+  - Comparing multiple models head-to-head
+  - Benchmarking PtychoPINN vs Baseline vs Tike
+  - Running systematic model comparisons
 
 ---
 
@@ -293,8 +364,235 @@ python scripts/compare_models.py \
     --output-dir spatial_bias_study
 
 # Plot results from a completed study
-python scripts/studies/aggregate_and_plot_results.py study_results --output plots/
+python scripts/studies/aggregate_and_plot_results.py study_results --output plots/generalization_plot.png
 ```
+
+### Grid-Lines (TF + Torch) Comparison Harness
+
+`grid_lines_compare_wrapper.py` defaults to:
+- `--architectures cnn,fno,hybrid,stable_hybrid,fno_vanilla,hybrid_resnet`
+
+`baseline` is opt-in and runs only when explicitly selected (for example
+`--architectures cnn,baseline,fno` or `--models baseline,...`).
+
+Dataset source capability matrix:
+- `synthetic_lines` (default): TF + Torch + PtychoViT
+  - `external_raw_npz` (phase 1): Torch model IDs only (`pinn_fno`, `pinn_hybrid`, `pinn_stable_hybrid`, `pinn_fno_vanilla`, `pinn_hybrid_resnet`)
+  - Position reassembly controls:
+    - `--torch-position-reassembly-backend {auto,shift_sum,batched}` (default: `auto`)
+    - `--torch-position-reassembly-batch-size <int>` (default: `64`)
+  - `auto` selects `shift_sum` by default and retries with `batched` on TensorFlow OOM
+  - `batched` is explicit opt-in:
+    - `--torch-position-reassembly-backend batched`
+    - `--torch-position-reassembly-batch-size 32`
+
+```bash
+# Run the grid-lines harness (TF cnn+baseline + Torch FNO/Hybrid)
+python scripts/studies/grid_lines_compare_wrapper.py \
+    --N 64 \
+    --gridsize 1 \
+    --output-dir outputs/grid_lines_gs1_n64 \
+    --architectures cnn,baseline,fno,hybrid \
+    --set-phi
+
+# Use cubic interpolation instead of the default pad+phase-extrapolate probe scaling
+python scripts/studies/grid_lines_compare_wrapper.py \
+    --N 64 \
+    --gridsize 1 \
+    --output-dir outputs/grid_lines_gs1_n64_interp \
+    --architectures cnn,baseline \
+    --probe-scale-mode interpolate
+
+# Apply a centered disk probe mask during dataset generation
+python scripts/studies/grid_lines_compare_wrapper.py \
+    --N 64 \
+    --gridsize 1 \
+    --output-dir outputs/grid_lines_gs1_n64_mask64 \
+    --architectures cnn,baseline \
+    --probe-mask-diameter 64
+
+# External raw NPZ mode (Torch-only phase 1)
+python scripts/studies/grid_lines_compare_wrapper.py \
+    --N 64 \
+    --gridsize 1 \
+    --output-dir outputs/grid_lines_external_raw_fly64_smoke \
+    --dataset-source external_raw_npz \
+    --train-data datasets/fly64/fly001_64_train_converted.npz \
+    --test-data datasets/fly64/fly001_64_train_converted.npz \
+    --models pinn_hybrid_resnet \
+    --nepochs 3 --batch-size 16 --seed 3
+
+# External raw NPZ mode with explicit batched position reassembly (opt-in override)
+python scripts/studies/grid_lines_compare_wrapper.py \
+    --N 128 \
+    --gridsize 1 \
+    --output-dir outputs/grid_lines_external_raw_fly001_n128 \
+    --dataset-source external_raw_npz \
+    --train-data datasets/fly001_128/fly001_128_top_half_converted.npz \
+    --test-data datasets/fly001_128/fly001_128_bottom_half_converted.npz \
+    --models pinn_hybrid_resnet \
+    --torch-position-reassembly-backend batched \
+    --torch-position-reassembly-batch-size 32 \
+    --nepochs 20 --batch-size 8 --seed 3
+
+# Reproducible fly001 N=128 disjoint external study prep
+python scripts/studies/prepare_fly001_128_external_split.py \
+    --input-npz ~/Documents/128_res/fly001_128_train.npz \
+    --output-dir datasets/fly001_128
+
+# Outputs:
+#   datasets/fly001_128/fly001_128_train_converted.npz
+#   datasets/fly001_128/fly001_128_top_half_converted.npz
+#   datasets/fly001_128/fly001_128_full_test_converted.npz
+#   datasets/fly001_128/manifest.json
+
+# Reproducible fly001 N=128 external runbook (top-half train, full-object test; no downsampling)
+bash scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_test_e40.sh
+```
+
+Invocation artifacts emitted by `grid_lines_compare_wrapper.py`:
+- `OUTPUT_DIR/invocation.json`
+- `OUTPUT_DIR/invocation.sh`
+
+Standard result artifacts emitted by `grid_lines_compare_wrapper.py`:
+- `OUTPUT_DIR/metrics.json` (merged per-model metrics payload)
+- `OUTPUT_DIR/visuals/compare_amp_phase.png` (plus per-model amp/phase visuals)
+- `OUTPUT_DIR/metrics_table.tex` (LaTeX comparison table with hierarchical `N` + `Model` rows and metric `A/P` subcolumns)
+- `OUTPUT_DIR/metrics_table_best.tex` (per-`N` best-model summary by metric)
+
+### Grid-Lines Torch Runner (Self-Contained Workflow)
+
+This is a self-contained two-step workflow: generate grid-lines train/test NPZ
+splits first, then run the Torch runner on those generated files. No preexisting
+cached dataset is required.
+
+```bash
+# 1) Generate train/test NPZ files (matches integration test setup)
+python - <<'PY'
+from pathlib import Path
+from ptycho.workflows.grid_lines_workflow import (
+    GridLinesConfig,
+    apply_probe_mask,
+    configure_legacy_params,
+    load_probe_guess,
+    save_split_npz,
+    scale_probe,
+    simulate_grid_data,
+)
+
+out = Path(".artifacts/integration/grid_lines_hybrid_resnet")
+cfg = GridLinesConfig(
+    N=128,
+    gridsize=1,
+    output_dir=out,
+    probe_npz=Path("datasets/Run1084_recon3_postPC_shrunk_3.npz"),
+    nimgs_train=2,
+    nimgs_test=1,
+    nphotons=1e9,
+    probe_source="custom",
+    probe_smoothing_sigma=0.5,
+    probe_scale_mode="pad_preserve",
+    set_phi=True,
+)
+
+probe = load_probe_guess(cfg.probe_npz)
+probe = scale_probe(probe, cfg.N, cfg.probe_smoothing_sigma, cfg.probe_scale_mode)
+probe = apply_probe_mask(probe, cfg.probe_mask_diameter)
+
+sim = simulate_grid_data(cfg, probe)
+config = configure_legacy_params(cfg, probe)
+sim["train"]["probeGuess"] = probe
+sim["test"]["probeGuess"] = probe
+save_split_npz(cfg, "train", sim["train"], config)
+save_split_npz(cfg, "test", sim["test"], config)
+print("Prepared datasets under", out / "datasets/N128/gs1")
+PY
+
+# 2) Run Torch grid-lines Hybrid ResNet (matches integration test command)
+python scripts/studies/grid_lines_torch_runner.py \
+    --output-dir .artifacts/integration/grid_lines_hybrid_resnet \
+    --architecture hybrid_resnet \
+    --train-npz .artifacts/integration/grid_lines_hybrid_resnet/datasets/N128/gs1/train.npz \
+    --test-npz .artifacts/integration/grid_lines_hybrid_resnet/datasets/N128/gs1/test.npz \
+    --N 128 \
+    --gridsize 1 \
+    --epochs 5 \
+    --batch-size 16 \
+    --infer-batch-size 16 \
+    --learning-rate 2e-4 \
+    --scheduler ReduceLROnPlateau \
+    --plateau-factor 0.5 \
+    --plateau-patience 2 \
+    --plateau-min-lr 1e-4 \
+    --plateau-threshold 0.0 \
+    --seed 3 \
+    --optimizer adam \
+    --weight-decay 0.0 \
+    --beta1 0.9 \
+    --beta2 0.999 \
+    --torch-loss-mode mae \
+    --output-mode real_imag \
+    --probe-source custom \
+    --fno-modes 12 \
+    --fno-width 32 \
+    --fno-blocks 4 \
+    --fno-cnn-blocks 2 \
+    --torch-logger mlflow
+```
+
+Invocation artifacts emitted by `grid_lines_torch_runner.py`:
+- `OUTPUT_DIR/runs/pinn_<architecture>/invocation.json`
+- `OUTPUT_DIR/runs/pinn_<architecture>/invocation.sh`
+
+### Hybrid ResNet Schematic Generator (TikZ + DOT)
+
+Generate architecture schematics for `hybrid_resnet` directly from module execution with
+shape capture. This writes source artifacts that are easy to diff and regenerate.
+
+```bash
+python scripts/studies/render_hybrid_resnet_schematics.py \
+    --output-dir .artifacts/hybrid_resnet_schematics/latest \
+    --N 128 \
+    --gridsize 2 \
+    --fno-width 32 \
+    --fno-blocks 4 \
+    --fno-modes 12
+```
+
+Expected artifacts:
+- `.artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_manifest.json`
+- `.artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_high_level.tex`
+- `.artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_module_flow.dot`
+
+Optional rendering (if tools are installed):
+
+```bash
+pdflatex -interaction=nonstopmode \
+    -output-directory .artifacts/hybrid_resnet_schematics/latest \
+    .artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_high_level.tex
+
+dot -Tsvg .artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_module_flow.dot \
+    -o .artifacts/hybrid_resnet_schematics/latest/hybrid_resnet_module_flow.svg
+```
+
+### Grid-Lines TensorFlow Workflow CLI
+
+```bash
+python scripts/studies/grid_lines_workflow.py \
+    --N 64 \
+    --gridsize 1 \
+    --output-dir outputs/grid_lines_workflow_n64 \
+    --nimgs-train 2 \
+    --nimgs-test 1 \
+    --nepochs 20 \
+    --batch-size 16 \
+    --probe-source custom \
+    --probe-scale-mode pad_preserve
+```
+
+Invocation artifacts emitted by `grid_lines_workflow.py`:
+- `OUTPUT_DIR/invocation.json`
+- `OUTPUT_DIR/invocation.sh`
 
 ---
 
@@ -325,4 +623,4 @@ tail -f output_dir/logs/debug.log
 nvidia-smi
 ```
 
-For detailed explanations, see the <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref>.
+For detailed explanations, see the <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref> and <doc-ref type="guide">docs/WORKFLOW_GUIDE.md</doc-ref>.

@@ -1,0 +1,857 @@
+# PyTorch Workflow Guide
+
+This guide explains how to run the PyTorch version of PtychoPINN using the modern
+`ptycho_torch/workflows/components.py` orchestration layer, which mirrors the
+TensorFlow workflows while providing Lightning-based training execution.
+
+## 1. Overview
+
+- **Architecture parity**: `ptycho_torch/model.py` mirrors the TensorFlow U-Net +
+  physics stack described in <doc-ref type="guide">docs/architecture.md</doc-ref>.
+- **Configuration**: Uses the same TensorFlow dataclass configs (`TrainingConfig`, `ModelConfig`)
+  bridged from PyTorch config singletons via `ptycho_torch.config_bridge`. See the
+  normative mapping: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>.
+- **Execution engine**: Training uses PyTorch Lightning (`PtychoPINN_Lightning`) with
+  deterministic settings and checkpoint management.
+- **Data contract**: Identical standalone-NPZ requirements as documented in
+  <doc-ref type="contract">docs/specs/spec-ptycho-core.md</doc-ref>.
+- **Workflow orchestration**: Provided by `ptycho_torch.workflows.components.run_cdi_example_torch`,
+  which integrates data loading, training, and optional stitching in a single call.
+
+## 2. Prerequisites
+
+- **PyTorch >= 2.2 (REQUIRED)**: Installed automatically via `setup.py` when running `pip install -e .`.
+  If you need a specific CUDA version, install PyTorch manually first following
+  [PyTorch installation instructions](https://pytorch.org/get-started/locally/) before installing this package.
+- **Lightning and dependencies**: Automatically installed as package dependencies (`lightning`, `tensordict`).
+- **Input NPZ files**: Must conform to the standalone-NPZ data contract (see <doc-ref type="contract">docs/specs/spec-ptycho-core.md</doc-ref>).
+
+## 3. Configuration Setup
+
+PyTorch workflows use the **same configuration system** as TensorFlow. Create a `TrainingConfig`
+dataclass instance with your training parameters:
+
+```python
+from pathlib import Path
+from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
+from ptycho import params
+
+# 1. Define model architecture
+model_config = ModelConfig(
+    N=64,                    # Diffraction pattern size
+    gridsize=2,              # Group size (e.g., 2x2 = 4 patterns)
+    model_type='pinn',       # 'pinn' or 'supervised'
+    amp_activation='silu',
+    n_filters_scale=1,
+)
+
+# 2. Define training parameters
+config = TrainingConfig(
+    model=model_config,
+    train_data_file=Path('datasets/my_train.npz'),
+    test_data_file=Path('datasets/my_test.npz'),  # Optional
+    n_groups=512,            # Number of grouped samples to use
+    batch_size=4,
+    nepochs=10,
+    nphotons=1e6,
+    neighbor_count=4,
+    output_dir=Path('outputs/my_experiment'),
+    debug=False,             # Set True for progress bars and verbose logging
+)
+
+# 3. Bridge to legacy params.cfg (MANDATORY before data loading)
+update_legacy_dict(params.cfg, config)
+```
+
+**Key configuration fields for PyTorch workflows:**
+- Recommended project baselines live in [docs/model_baselines.md](../model_baselines.md). This guide defines available knobs and execution behavior; it is not the authority for which concrete parameter combination should be treated as the current best-practice starting point.
+- `config.model.architecture`: Generator architecture for PINN models (`'cnn'`, `'ffno'`, `'fno'`, `'hybrid'`, `'stable_hybrid'`, `'fno_vanilla'`, `'neuralop_uno'`, `'hybrid_resnet'`, `'spectral_resnet_bottleneck_net'`). Default: `'cnn'`. All architectures train via Lightning with the full physics pipeline. The `'stable_hybrid'` variant uses InstanceNorm-stabilized residual blocks (Norm-Last, zero-init gamma/beta) for improved training stability in deep FNO stacks; see `docs/strategy/mainstrategy.md §1.A`. The `'ffno'` baseline runs a constant-resolution factorized Fourier-flow stack with the same CDI real/imag output contract, `'fno_vanilla'` runs a constant‑resolution FNO stack, `'neuralop_uno'` wraps external `neuraloperator==2.0.0` U-NO for the locked Lines128 CDI path only (`N=128`, `gridsize=1`, `C=1`, `real_imag`), `'hybrid_resnet'` uses an FNO encoder with a CycleGAN ResNet‑6 decoder, and `'spectral_resnet_bottleneck_net'` keeps the Hybrid ResNet shell while swapping in a spectral ResNet bottleneck. See `ptycho_torch/generators/README.md` for adding new architectures.
+- `config.model.resnet_width`: Optional fixed bottleneck width for `hybrid_resnet`. When set, must be divisible by 4 so the CycleGAN upsamplers produce integer channel sizes.
+- `config.model.fno_input_transform`: Optional input dynamic-range transform for FNO/Hybrid (`'none'`, `'sqrt'`, `'log1p'`, `'instancenorm'`). Default: `'none'`.
+- Torch-only execution knobs for `hybrid_resnet` (set through the Torch runner / `PyTorchExecutionConfig`): `hybrid_downsample_steps`, `hybrid_downsample_op`, `hybrid_encoder_conv_hidden_scale`, `hybrid_encoder_spectral_hidden_scale`, `hybrid_resnet_blocks`, `hybrid_skip_style`, and `hybrid_skip_connections`.
+- Torch-only guardrail: these knobs intentionally stay out of canonical `ModelConfig`/config-bridge mappings in this initiative.
+
+**Architecture Selection via Generator Registry:**
+Starting 2026-01-27, the `config.model.architecture` field routes through the generator registry (`ptycho_torch/generators/registry.py`). This means:
+- FFNO, FNO, Hybrid, Stable Hybrid, FNO Vanilla, NeuralOperator U-NO, Hybrid ResNet, and Spectral ResNet Bottleneck architectures now train through `PtychoPINN_Lightning` with the same physics loss as CNN
+- The registry resolves the architecture, builds the appropriate generator model, and wraps it in `PtychoPINN_Lightning`
+- FNO/Hybrid/Stable Hybrid generators use `generator_output="real_imag"` format, which is converted to complex channel-first via `_real_imag_to_complex_channel_first()` in `ptycho_torch/model.py`
+- The Torch runner CLI (`grid_lines_torch_runner.py`) accepts `--architecture ffno`, `stable_hybrid`, `fno_vanilla`, `spectral_resnet_bottleneck_net`, `neuralop_uno`, and `hybrid_resnet`; the compare wrapper (`grid_lines_compare_wrapper.py`) routes the established non-U-NO architectures through the Torch runner with metrics keys such as `pinn_ffno`, `pinn_stable_hybrid`, `pinn_fno_vanilla`, and `pinn_hybrid_resnet`
+- The Torch runner CLI accepts `--probe-source {custom,ideal_disk}` to validate dataset metadata (warns on mismatch)
+- The grid-lines Torch runner sets `object_big = cfg.gridsize > 1` in `ModelConfig` — `False` at gridsize=1 (matching the TF grid-lines workflow defaults, parity guard) and `True` at gridsize>1, where object-big reassembly is intentionally enabled (see `docs/findings.md` GRIDLINES-OBJECT-BIG-001 / TORCH-GS2-CENTRAL-MASK-MERGE-001)
+- The compare wrapper accepts `--probe-scale-mode {pad_preserve,pad_extrapolate,interpolate}` to control probe scaling when generating grid-lines datasets (default: `pad_preserve`)
+- The compare wrapper accepts `--probe-mask-diameter` to apply a centered disk mask to the probe during grid-lines dataset generation
+- The compare wrapper accepts `--dataset-source {synthetic_lines,external_raw_npz}`:
+  - `synthetic_lines`: existing TF/Torch/PtychoViT study behavior.
+  - `external_raw_npz` (phase 1): Torch model IDs only, with `--train-data` and `--test-data` required.
+- In `external_raw_npz` mode, the Torch runner uses position-based reassembly (`coords_offsets`) instead of grid-lines stitching metadata.
+  - Reassembly in this mode forwards full prediction patches to `tf_helper.reassemble_position`; runner-side pre-crop is not used.
+  - `position_crop_border` controls the effective stitch window only:
+    - default border resolves to `min(patch_h, patch_w) // 4` (clamped to keep patches non-empty),
+    - `M_effective = min(M_requested, patch_h - 2*crop_border_resolved, patch_w - 2*crop_border_resolved)`.
+  - Explicit override is available via runner config/CLI:
+    - `position_crop_border=None` (default auto behavior),
+    - `--position-crop-border 0` (disable border reduction and preserve full-window behavior),
+    - `--position-crop-border <positive-int>` (force explicit border-based `M` reduction).
+  - Channel-first predictions (`B, C, H, W`) are normalized to channel-last before position reassembly.
+  - Metrics evaluation normalizes 2D complex reconstructions to `(H, W, 1)` before calling evaluation helpers.
+  - Position reassembly strategy knobs:
+    - `--torch-position-reassembly-backend {auto,shift_sum,batched}` (default `auto`)
+    - `--torch-position-reassembly-batch-size <int>` (default `64`, used by `batched`)
+  - `auto` policy currently selects `shift_sum` for parity/correctness.
+  - If `auto`/`shift_sum` raises TensorFlow `ResourceExhaustedError`, the runner retries once with batched reassembly and logs a warning.
+  - `batched` remains explicit opt-in via `--torch-position-reassembly-backend batched` (with `--torch-position-reassembly-batch-size`) when you need to force it.
+
+- `config.debug`: Controls progress bars and logging verbosity (default: `False`)
+- `config.output_dir`: Directory for checkpoints and artifacts (required for persistence)
+- `config.subsample_seed`: RNG seed for reproducible sampling (default: deterministic behavior enabled)
+- `config.sequential_sampling`: Use deterministic sequential grouping instead of random (default: `False`)
+- `config.torch_loss_mode`: Selects the active loss head (`'poisson'` for physics-weighted Poisson NLL or `'mae'` for amplitude-only MAE). Exposed via the CLI flag `--torch-loss-mode {poisson,mae}`.
+- `--count-scale-mode {auto,off}` (grid-lines Torch runner; default `off`): controls whether the dict-container training path attaches an absolute photon-count physics scale (`physics_scaling_constant=S`, S≈328.7 convention, per split) before the Poisson NLL. `off` (default) preserves pre-fix behavior (`physics_scale=1.0`). `auto` is opt-in only — it is **not outcome-preserving**: it changes training trajectories (POISSON-SCALE-001), so `auto` and `off` runs must never be compared against each other as if equivalent.
+- `config.model.probe_mask`: Torch probe masking toggle (default: `False`). When enabled and no explicit tensor is provided, Torch applies a centered soft disk mask with diameter `N/2` and Gaussian-smoothed edge (`sigma=1 px`).
+- `config.model.probe_mask_tensor`: Optional explicit `(N, N)` mask tensor override (enables masking even if `probe_mask=False`).
+- `config.model.probe_mask_sigma` / `config.model.probe_mask_diameter`: Probe-mask shape controls (defaults: `1.0` smooth edge, `None` => `N/2`).
+- CLI exposure: `--probe-mask/--no-probe-mask`, `--probe-mask-sigma`, `--probe-mask-diameter` in both `python -m ptycho_torch.train` and `python -m ptycho_torch.inference`.
+- Grid-lines Torch runner CLI exposure for structural search:
+  - `--hybrid-downsample-steps {1,2}`
+  - `--hybrid-downsample-op {stride_conv,avgpool_conv,blurpool_conv}`
+  - `--hybrid-encoder-conv-hidden-scale <float>`
+  - `--hybrid-encoder-spectral-hidden-scale <float>`
+  - `--hybrid-resnet-blocks <int>`
+  - `--hybrid-skip-style {add,concat,gated_add}`
+  - `--hybrid-skip-connections/--no-hybrid-skip-connections`
+
+Stage-C/E structural search runbook examples (Torch-only scope):
+- Use `scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py` to sweep structural axes.
+- C1 (downsample schedule) example:
+  ```bash
+  python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+    --stage-id C --substage-id C1 \
+    --promotion-source-summary <stage_b_anchor.csv> \
+    --downsample-schedule-values 1,2 \
+    --downsample-op-values stride_conv \
+    --output-root outputs/hybrid_stage_c1_n128
+  ```
+- C2 (downsample operator) example:
+  ```bash
+  python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+    --stage-id C --substage-id C2 \
+    --promotion-source-summary <stage_c1_anchor.csv> \
+    --downsample-op-values stride_conv,avgpool_conv,blurpool_conv \
+    --output-root outputs/hybrid_stage_c2_n128
+  ```
+- E (skip style) example:
+  ```bash
+  python scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py \
+    --stage-id E --substage-id none \
+    --promotion-source-summary <stage_d_anchor.csv> \
+    --skip-style-values add,concat,gated_add \
+    --output-root outputs/hybrid_stage_e_n128
+  ```
+- Guardrail: these structural knobs stay Torch-only in this initiative; do not add canonical `ModelConfig`/config-bridge fields for them.
+
+### Config Mappings (subset)
+
+Small subset of the TF ↔ PyTorch configuration mapping. See the full spec for all fields and rules: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>
+
+| PyTorch (config_params) | TensorFlow (dataclass) | Transform / Notes |
+|---|---|---|
+| `DataConfig.grid_size: (h,w)` | `ModelConfig.gridsize: int` | Require square; use `h` (error if `h!=w`). |
+| `ModelConfig.mode: 'Unsupervised'|'Supervised'` | `ModelConfig.model_type: 'pinn'|'supervised'` | Map: Unsupervised→pinn, Supervised→supervised. |
+| `TrainingConfig.epochs: int` | `TrainingConfig.nepochs: int` | Rename field. |
+| `DataConfig.K: int` | `TrainingConfig.neighbor_count: int` | Semantic rename (K=neighbors). |
+| `DataConfig.N: int` | `ModelConfig.N: {64,128,256}` | Validate against allowed set. |
+| `ModelConfig.amp_activation: 'silu'|'SiLU'|...` | `ModelConfig.amp_activation` | Map silu/SiLU→swish; others must be supported by TF enum. |
+
+### Physics/Output-Mode Compatibility: Current Defaults vs Main-Compatible Rectangular CNN
+
+`main` and current `fno-stable` are not numerically equivalent for the CNN generator
+(see `docs/plans/2026-06-29-main-fno-stable-physics-reconciliation-backlog.md` for the
+full difference inventory). Reconciliation (backlog items B1/B2/B3/B5) ported `main`'s
+CNN output representation and forward physics onto `fno-stable` as **opt-in** config
+knobs so FNO/hybrid defaults stay byte-unchanged. Three independent layers are involved
+(adapter, training-forward physics, loss) plus a fourth, separate inference-only
+reassembly/scaling layer — they must be reasoned about separately.
+
+**Layer 1-3: CNN output representation, training-forward physics, loss (`ModelConfig`)**
+
+| Knob | Current default (`fno-stable` / FNO-hybrid-compatible) | Main-compatible rectangular CNN | Notes |
+|---|---|---|---|
+| `cnn_output_mode` | `'amp_phase'` — amplitude head (`Amplitude_activation`) + phase head (`pi*tanh`), no representability ceiling | `'real_imag'` (opt-in, **Unsupervised-only** — Supervised always resolves to `'amp_phase'` regardless of this knob) — CNN emits `(real, imag)` tuple combined via `torch.complex`; heads use main's hardwired `ScaledTanh` box: real in `(-0.8, 1.2)`, imag in `(-1.2, 1.2)` | Prerequisite for `physics_forward_mode='rectangular_scaled'` (FT-linearity of real/imag is what makes predicted intensity quadratic in `s1`/`s2`). Hard representability constraint: a unit-amplitude object at `|phase| -> pi` maps to `real ~ -1`, below the `-0.8` floor — unreconstructable in `real_imag` mode. `amp_phase` has no such ceiling. |
+| `use_shared_decoder` | `False` — separate `Decoder_amp` + `Decoder_phase` (unchanged fno-stable architecture) | `True` — single `Decoder_shared` (ported from main) emitting `2*C_out` raw channels split into two branches; per-branch activation gating is applied after the split, so it stays in lockstep with `cnn_output_mode` | Architecture-only; independent of the physics/loss knobs below. |
+| `training_patch_weighting` | `'central_mask'` — binary center-mask reassembly (`reassemble_patches_position_real`), unchanged | `'probe'` — `sum_p \|probe_p\|^2`-weighted reassembly inside `ForwardModel.forward(...)`, before loss | `'uniform'` is a third option: binary center mask via the merged probe helper (`reassemble_patches_position_real_probe(..., use_probe_weights=False)`) — same support behavior as `'central_mask'` through a different code path, useful for isolating the probe-weighting effect itself. This is a **training-forward** knob, distinct from `InferenceConfig.patch_weighting` below. |
+| `physics_forward_mode` | `'amplitude'` — unchanged `ProbeIllumination -> pad_and_diffract -> IntensityScalerModule.inv_scale` amplitude chain; loss-time `physics_scale` multiply | `'rectangular_scaled'` — routes object patches through `RectangularScaledDiffraction` (main's analytic real/imag intensity model, ported verbatim), which folds probe/physics scaling into the forward pass via `compute_loss`'s `modified_output_scale = sqrt(1/(scale^2 * physics_scale + 1e-9))` instead of a loss-time multiply | Requires `real_imag`-derived object patches; raises `ValueError` at construction otherwise. `RectangularScaledDiffraction` returns an **intensity**, not an amplitude — the loss classes below are selected automatically to match. |
+| `rect_s1s2_trainable` | n/a (only consulted when `physics_forward_mode='rectangular_scaled'`) | `True` (default) — `RectangularScaledDiffraction.s1`/`.s2` are trainable `nn.Parameter`s (main hardcodes trainable; this knob makes it configurable) | Per-dataset scalars indexed by `experiment_ids`, shape `(num_datasets,)`. See `docs/findings.md#RECTANGULAR-SCALED-001` for what `s1`/`s2` physically represent — it is a dynamic amplitude/photon-scale factorization, **not** a decoder-box workaround. |
+| Loss selection (`loss_function` / `torch_loss_mode`) | Amplitude-domain `PoissonLoss` / `MAELoss`, unchanged | Auto-selected when `physics_forward_mode='rectangular_scaled'`: `RectangularPoissonLoss` (intensity-domain Poisson rate = `pred` directly, no re-square) / `RectangularMAELoss` (**replicates main's re-square quirk verbatim**: `mae(pred**2, raw)` even though `pred` is already an intensity — deliberate parity choice, not a bug; see `docs/findings.md#RECTANGULAR-SCALED-001`) | Selection happens inside `PtychoPINN_Lightning.__init__`; no separate user-facing flag. |
+
+**Combined recipe — main-parity CNN stack:** `cnn_output_mode='real_imag'` +
+`physics_forward_mode='rectangular_scaled'` (+ optionally `use_shared_decoder=True` and
+`training_patch_weighting='probe'` for full C>1 overlap parity). All four knobs default
+to the current `fno-stable`/FNO-hybrid-compatible values above, so omitting them leaves
+existing CNN, FNO, and hybrid behavior byte-unchanged.
+
+**Layer 4: inference-only reassembly/scaling (`InferenceConfig`) — NOT training-forward controls**
+
+| Knob | Default | Effect | Scope |
+|---|---|---|---|
+| `InferenceConfig.patch_weighting` | `'probe'` (`'uniform'` also available) | Weights inference-time patch stitching by `\|probe\|^2` vs. uniform | Consumed only inside `ptycho_torch.reassembly.reconstruct_image_barycentric` |
+| `InferenceConfig.varpro_scaling` | `True` | Solves and applies `s1`/`s2` scale constants to the assembled canvas post-hoc | Consumed only inside `ptycho_torch.reassembly.reconstruct_image_barycentric` |
+
+These two knobs run **after** the model has produced its predictions — they change the
+final assembled reconstruction but never touch the autograd/loss path, gradients, or
+per-batch forward numerics. This holds even though `main` also had an inference-stage
+stitching/scaling path alongside its training-forward probe-weighted reassembly and
+`RectangularScaledDiffraction` — the two are separate layers on both branches.
+
+Both knobs are wired through the in-process library call
+(`ptycho_torch.reassembly.reconstruct_image_barycentric`, the pattern shown in this
+repo's `CLAUDE.md` "Inference on New Data" example) — call this function directly to
+exercise them. The `python -m ptycho_torch.inference` CLI subprocess path
+(`_run_inference_and_reconstruct` in `ptycho_torch/inference.py`) does not expose or
+consume `patch_weighting`/`varpro_scaling` at all: it unconditionally calls the
+uniform `helper.reassemble_patches_position_real` regardless of
+any `InferenceConfig` values in scope — confirmed empirically (4 CLI-subprocess smoke
+variants with different knob settings were bit-identical). Prefer the in-process
+`reconstruct_image_barycentric` path for any workflow that needs these knobs to take
+effect.
+
+See `docs/findings.md#RECTANGULAR-SCALED-001` for the physical semantics of `s1`/`s2`,
+the decoder-box representability constraint, and known C=1-vs-main residual differences
+(object_big padding).
+
+## 4. Loading Data
+
+Use the same `RawData` loading utilities as TensorFlow:
+
+```python
+from ptycho.raw_data import RawData
+
+# Load training data (uses params.cfg populated above)
+train_data = RawData.from_file(str(config.train_data_file))
+
+# Optional: load test data for validation during training
+test_data = RawData.from_file(str(config.test_data_file)) if config.test_data_file else None
+```
+
+Data must conform to <doc-ref type="contract">docs/specs/spec-ptycho-core.md</doc-ref>:
+- `diff3d`: Amplitude (sqrt of intensity), not raw intensity
+- `xcoords`, `ycoords`: Scan position coordinates
+- `probeGuess`: Complex probe (H×W)
+- `objectGuess`: Complex object (M×M, larger than probe)
+- When `load_data(..., subsample_seed=X)` is used, the actual sample indices are stored on the `RawData` object (`raw.sample_indices`) and persisted alongside the run as `tmp/subsample_seed{X}_indices.txt`. PyTorch container creation asserts that these recorded indices match the indices used on the Torch side, preventing silent divergence across backends.
+
+## 5. Running Complete Training Workflow
+
+Execute the end-to-end workflow using `run_cdi_example_torch`:
+
+```python
+from ptycho_torch.workflows.components import run_cdi_example_torch
+
+# Run training + optional stitching + save
+amplitude, phase, results = run_cdi_example_torch(
+    train_data=train_data,
+    test_data=test_data,       # Optional validation data
+    config=config,
+    do_stitching=True,         # Enable inference + image reconstruction (Phase D2.C)
+)
+
+# Results contain:
+# - amplitude: Reconstructed amplitude array (if do_stitching=True)
+# - phase: Reconstructed phase array (if do_stitching=True)
+# - results: Dict with training history, containers, and model handles
+```
+
+**What happens during execution:**
+
+1. **Data normalization**: Converts `RawData` → `PtychoDataContainerTorch` with grouped patches
+2. **Probe initialization**: Sets up initial probe from data (integrated with Lightning module as of Phase D2.B)
+3. **Lightning training**:
+   - Instantiates `PtychoPINN_Lightning` module with PyTorch config objects
+   - Builds train/val dataloaders with deterministic seeding
+   - Configures `lightning.pytorch.Trainer` with:
+     - `max_epochs` from `config.nepochs`
+     - `deterministic=True` for reproducibility
+     - `default_root_dir` from `config.output_dir`
+     - `enable_progress_bar` controlled by `config.debug`
+   - Executes `trainer.fit()` and captures loss history
+4. **Model persistence**: Saves checkpoint bundle to `config.output_dir/wts.h5.zip` (if output_dir specified)
+5. **Optional stitching** (if `do_stitching=True`): Runs inference via Lightning `predict()`, applies flip/transpose transforms, and reassembles full image using TensorFlow reassembly helper for parity (Phase D2.C complete as of 2025-10-19)
+
+## 6. Checkpoint Management and Reproducibility
+
+**Deterministic Behavior:**
+- PyTorch workflows enforce `deterministic=True` in Lightning Trainer
+- RNG seeding controlled via `config.subsample_seed` (passed to `lightning.pytorch.seed_everything`)
+- Sequential sampling available via `config.sequential_sampling=True`
+
+**Checkpoint Storage:**
+- Checkpoints saved to `{config.output_dir}/checkpoints/last.ckpt` during training
+- Final model bundle persisted as `{config.output_dir}/wts.h5.zip` (Phase D4.C persistence contract)
+- Hyperparameters embedded in checkpoint via `model.save_hyperparameters()` for state-free reload
+
+**Loading Trained Models:**
+```python
+from ptycho_torch.workflows.components import load_inference_bundle_torch
+
+# Load model + config from checkpoint directory
+models_dict, loaded_config = load_inference_bundle_torch(config.output_dir)
+
+# Extract Lightning module for inference
+lightning_module = models_dict['lightning_module']
+```
+
+**Intensity Scale Persistence (Phase B2):**
+
+During training, the PyTorch workflow captures the `intensity_scale` parameter and persists it in the model bundle:
+
+1. **Learned scale (trainable case)**: If `model.scaler.log_scale` is a trainable parameter, the learned value is extracted after `trainer.fit()` completes: `intensity_scale = exp(log_scale)`
+
+2. **Fallback scale (non-trainable case)**: When `intensity_scale_trainable=False` or the parameter is missing, the scale is computed using the spec formula from `docs/specs/spec-ptycho-core.md`:
+   ```
+   intensity_scale ≈ sqrt(nphotons) / (N / 2)
+   ```
+
+3. **Bundle persistence**: The captured scale is stored in `params.dill` inside the `wts.h5.zip` bundle via `save_torch_bundle(intensity_scale=...)`
+
+4. **Inference loading**: When loading a bundle via `load_inference_bundle_torch`, the stored `intensity_scale` is extracted from `params.dill` and logged:
+   ```
+   INFO: Loaded intensity_scale from bundle: 2.500000
+   ```
+
+This ensures that inference uses the same normalization scale as training, maintaining parity with TensorFlow workflows.
+
+## 7. Inference and Reconstruction
+
+For standalone inference without retraining:
+
+```python
+from ptycho_torch.workflows.components import _reassemble_cdi_image_torch
+
+# Load test data and trained model
+test_data = RawData.from_file('datasets/my_test.npz')
+models_dict, infer_config = load_inference_bundle_torch(Path('outputs/trained_model'))
+
+# Run inference + stitching
+recon_amp, recon_phase, results = _reassemble_cdi_image_torch(
+    test_data=test_data,
+    config=infer_config,
+    flip_x=False,
+    flip_y=False,
+    transpose=False,
+    M=infer_config.model.N * 8  # Reassembly grid size parameter
+)
+```
+
+### Train→Inference Device Handoff (DEVICE-HANDOFF-001)
+
+When chaining Lightning training and custom inference in the same process:
+
+- Do not assume the post-fit module still resides on the accelerator used for training.
+- Before running any inference batches, explicitly resolve the target device (`cuda`/`mps`/`cpu`) and call `model.to(device)`.
+- Do not use `next(model.parameters()).device` as the sole source of truth for runtime placement.
+
+This guard prevents silent CPU fallback and large inference-time slowdowns.
+
+**Implementation Status (Phase D2.C, complete as of 2025-10-19):**
+- `_reassemble_cdi_image_torch` now performs Lightning inference and reconstructs full images
+- Supports `flip_x`, `flip_y`, and `transpose` coordinate transforms for data alignment
+- Uses TensorFlow `tf_helper.reassemble_position` for MVP parity (native PyTorch reassembly planned)
+- Includes dtype safeguards (float32 enforcement per docs/specs/spec-ptycho-core.md)
+- Channel-order conversion: detects channel-first layout, permutes to channel-last, reduces to single channel
+- Artifacts/evidence: `docs/plans/INTEGRATE-PYTORCH-001/reports/2025-10-19T092448Z/phase_d2_completion/`
+
+### Hybrid Checkpoint Reuse (Cross-Dataset)
+
+For NERSC orchestration runs that train one `hybrid_resnet` model and then reuse
+the same checkpoint across multiple test NPZ datasets, use:
+
+- Helper: `scripts/studies/hybrid_checkpoint_inference.py`
+- Entry function: `run_cross_dataset_hybrid_inference(...)`
+
+This helper loads `model.pt` once, runs inference for each provided dataset, and
+writes per-dataset recon artifacts under:
+
+- `<output_dir>/<dataset_name>/recons/pinn_hybrid_resnet/recon.npz`
+
+When this PyTorch stage is part of the mixed NERSC study runbook
+(`scripts/studies/runbooks/run_nersc_scan807_cameraman_study.py`), the paired
+PtychoViT arm is pinned to one canonical checkpoint:
+
+- `datasets/run145/best_model.pth`
+
+Do not substitute temporary `tmp/ptychovit_initial_*` checkpoints in that
+workflow; doing so breaks comparability across NERSC study runs.
+
+## 8. Experiment Tracking and Logging
+
+**Current Status (Phase D2 complete as of 2025-10-19):**
+- **MLflow**: Not yet integrated in workflow orchestration (TensorFlow baseline also lacks it; future enhancement)
+- **Logging**: Standard Python logging controlled by `config.debug`:
+  - `debug=False`: INFO-level messages, progress bars suppressed
+  - `debug=True`: INFO-level messages, progress bars enabled
+- **Checkpoints**: Lightning automatic checkpoint management to `{output_dir}/checkpoints/`
+  - Hyperparameters now embedded via `save_hyperparameters()` for state-free reload (Phase D1c)
+  - Checkpoint loading restores dataclass configs automatically (no kwargs required)
+
+**Legacy API Note:**
+The deprecated `ptycho_torch/api/` modules (e.g., `example_train.py`) include MLflow autologging,
+but are not part of the modern workflow stack. See <doc-ref type="plan">docs/plans/ADR-003-BACKEND-API/implementation.md</doc-ref>
+for migration guidance away from the legacy API.
+
+## 9. Differences from TensorFlow Workflows
+
+| Aspect | TensorFlow (`ptycho/workflows/components.py`) | PyTorch (`ptycho_torch/workflows/components.py`) |
+|--------|----------------------------------------------|--------------------------------------------------|
+| Training engine | `ptycho.train_pinn.train()` | `lightning.pytorch.Trainer.fit()` |
+| Configuration | Direct `TrainingConfig` dataclass | Bridged via `ptycho_torch.config_bridge` (see spec) |
+| Determinism | Manual seed management | `deterministic=True` + `seed_everything()` |
+| Progress output | Enabled by default | Controlled by `config.debug` |
+| Checkpoints | Keras `.h5` format | Lightning `.ckpt` + bundled `.h5.zip` |
+| MLflow | Not implemented (TODO comment) | Not implemented (future enhancement) |
+
+## 10. Common Workflows
+
+### Training-Only (No Inference)
+
+```python
+# Fastest workflow for model development
+amp, phase, results = run_cdi_example_torch(
+    train_data, test_data, config, do_stitching=False
+)
+# Returns: (None, None, {'history': {...}, 'models': {...}})
+```
+
+### Training + Validation Metrics
+
+```python
+# Include test_data for validation loss tracking
+config.test_data_file = Path('datasets/validation.npz')
+test_data = RawData.from_file(str(config.test_data_file))
+
+results = run_cdi_example_torch(train_data, test_data, config, do_stitching=False)
+print(results['history'])  # {'train_loss': [...], 'val_loss': [...]}
+```
+
+### Full Training + Reconstruction Pipeline
+
+```python
+# Complete workflow with image stitching (Phase D2.C required)
+amp, phase, results = run_cdi_example_torch(
+    train_data, test_data, config, do_stitching=True
+)
+# Visualize reconstruction
+import matplotlib.pyplot as plt
+plt.figure(figsize=(12, 5))
+plt.subplot(121); plt.imshow(amp); plt.title('Amplitude')
+plt.subplot(122); plt.imshow(phase); plt.title('Phase')
+plt.show()
+```
+
+### Synthetic Grid-Lines (Hybrid ResNet)
+
+This command reproduces the synthetic grid‑lines Hybrid ResNet run stored at:
+`outputs/grid_lines_n128_compare_padex_lr2e4_plateau_e10_seed3_hybrid_resnet_4e1e262c_mlflow_abinitio_20260204/`.
+It generates the dataset, trains the TensorFlow baseline + PINN, and then runs
+the PyTorch `hybrid_resnet` arm into the same output directory.
+
+Expected wrapper artifacts include:
+- `metrics.json`
+- `visuals/compare_amp_phase.png`
+- `metrics_table.tex` (hierarchical table grouped by `N`, with per-metric `A/P` columns)
+- `metrics_table_best.tex` (best-model summary per `N` and metric)
+
+```bash
+python scripts/studies/grid_lines_compare_wrapper.py \
+  --N 128 \
+  --gridsize 1 \
+  --output-dir outputs/grid_lines_n128_compare_padex_lr2e4_plateau_e10_seed3_hybrid_resnet_4e1e262c_mlflow_abinitio_20260204 \
+  --architectures hybrid_resnet \
+  --set-phi \
+  --nimgs-train 2 \
+  --nimgs-test 2 \
+  --nphotons 1e9 \
+  --nepochs 10 \
+  --batch-size 16 \
+  --probe-npz datasets/Run1084_recon3_postPC_shrunk_3.npz \
+  --probe-source custom \
+  --probe-scale-mode pad_extrapolate \
+  --probe-smoothing-sigma 0.5 \
+  --seed 3 \
+  --torch-epochs 10 \
+  --torch-learning-rate 2e-4 \
+  --torch-scheduler ReduceLROnPlateau \
+  --torch-plateau-factor 0.5 \
+  --torch-plateau-patience 2 \
+  --torch-plateau-min-lr 1e-4 \
+  --torch-plateau-threshold 0.0 \
+  --torch-loss-mode mae \
+  --torch-output-mode real_imag \
+  --fno-modes 12 \
+  --fno-width 32 \
+  --fno-blocks 4 \
+  --fno-cnn-blocks 2
+```
+
+## 11. Regression Test & Runtime Expectations
+
+The PyTorch integration workflow is validated by a comprehensive pytest regression test that exercises the complete train→save→load→infer cycle.
+
+### Test Selector
+
+```bash
+CUDA_VISIBLE_DEVICES="0" pytest tests/torch/test_integration_workflow_torch.py::test_run_pytorch_train_save_load_infer -vv
+```
+
+**Environment Requirement:** Pin the regression to a specific CUDA device (e.g., `CUDA_VISIBLE_DEVICES="0"`) so every automated run exercises the GPU backend. The pytest fixture `cuda_gpu_env` enforces this contract by masking other devices.
+
+### Runtime Performance
+
+**Current Performance (Phase B3 Minimal Fixture):**
+- **Smoke Test Runtime:** 3.82s on legacy CPU runs (fixture validation suite, 7 tests). GPU timing TBD after first CUDA run; update runtime_profile.md accordingly.
+- **Integration Test Runtime:** 14.53s on CPU legacy evidence. Future GPU baselines must be recorded once CUDA runs are executed.
+- **Test Dataset:** `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz` (64 scan positions, 25 KB)
+- **CI Budget:** ≤90s on a single CUDA device (initial value mirrored from CPU budget; adjust after capturing GPU telemetry)
+- **Warning Threshold:** 45s (temporary value; recompute after GPU runtime capture)
+
+**Historical Baselines:**
+- Phase D1 Runtime: 35.9s ± 0.5s (canonical dataset, 1087 positions)
+- Phase B1 Runtime: 21.91s (canonical dataset, n_groups=64 override)
+- Phase B3 Improvement: 33.7% faster vs Phase B1 baseline
+
+**Environment:** Legacy evidence captured on Python 3.11.13, PyTorch 2.8.0+cu128, Lightning 2.5.5, Ryzen 9 5950X (32 CPUs), 128GB RAM. **New requirement:** future regression evidence must cite the CUDA GPU model/driver (e.g., NVIDIA A100 40GB, CUDA 12.4) in addition to host specs.
+
+**Performance Profile:** See `docs/plans/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md` for full telemetry.
+
+### Determinism Guarantees
+
+- Lightning `deterministic=True` + `seed_everything()` enforce reproducible runs
+- Checkpoint persistence with embedded hyperparameters (Phase D1c, INTEGRATE-PYTORCH-001 Attempts #32-34)
+- State-free model reload (no manual config kwargs required)
+
+### Test Coverage
+
+The regression validates:
+1. **Training Phase:** Lightning orchestration with grouped data, 2 epochs, checkpoint save
+2. **Persistence Phase:** Checkpoint bundle stored at `{output_dir}/checkpoints/last.ckpt`
+3. **Load Phase:** Model restored from checkpoint without manual config injection
+4. **Inference Phase:** Lightning prediction + image reassembly + PNG export
+5. **Artifact Validation:** Reconstruction images (amplitude/phase) exist with >1KB size
+
+### Data Contract Compliance
+
+- **POLICY-001:** PyTorch >=2.2 is mandatory (see `docs/findings.md#POLICY-001`)
+- **FORMAT-001:** NPZ auto-transpose guard handles legacy (H,W,N) format (see `docs/findings.md#FORMAT-001`)
+- **Test Dataset:** Minimal fixture at `tests/fixtures/pytorch_integration/minimal_dataset_v1.npz` (64 scan positions, stratified sampling, canonical (N,H,W) format, float32/complex64 dtypes per DATA-001)
+- **Fixture Generation:** Reproducible via `python scripts/tools/make_pytorch_integration_fixture.py --source <canonical_dataset> --output <fixture_path> --subset-size 64` (SHA256 checksum: 6c2fbea0dcadd950385a54383e6f5f731282156d19ca4634a5a19ba3d1a5899c)
+
+### CI Integration Notes
+
+- **Recommended Timeout:** 90s (6.2× current runtime, conservative buffer for CI infrastructure variance)
+- **Retry Policy:** 1 retry on timeout (accounts for CI jitter)
+- **Markers:** Consider `@pytest.mark.integration` + `@pytest.mark.slow` for selective execution
+- **GPU Enforcement:** Set `CUDA_VISIBLE_DEVICES="0"` (or an explicit GPU selection) in CI to guarantee CUDA execution. If a CPU fallback run is required, label it clearly in the report and rerun on GPU as soon as resources are available.
+
+**Reference:** See `docs/plans/TEST-PYTORCH-001/implementation.md` for phased test development history and `docs/plans/TEST-PYTORCH-001/reports/2025-10-19T233500Z/phase_b_fixture/summary.md` for Phase B3 fixture integration details.
+
+## 12. CLI Execution Configuration Flags
+
+The PyTorch backend CLI exposes execution-level configuration knobs that control training and inference behavior through command-line flags. These flags complement the model/data configuration and provide fine-grained control over runtime execution.
+
+### Training Execution Flags
+
+The following execution config flags are available in `ptycho_torch/train.py`:
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--accelerator` | str | `'auto'` | Hardware accelerator: `'auto'` (default; resolves to `'cuda'` if available, else `'cpu'`), `'cuda'` (force single-GPU run), `'cpu'` (force CPU), `'tpu'`, `'mps'`. The execution-config dataclass defaults to `'auto'` (`ptycho.config.config.PyTorchExecutionConfig`). |
+| `--deterministic` / `--no-deterministic` | bool | `True` | Enable deterministic training (reproducibility) |
+| `--num-workers` | int | `0` | Number of DataLoader worker processes (0 = main thread) |
+| `--learning-rate` | float | `1e-3` | Optimizer learning rate |
+| `--scheduler` | str | `'Default'` | Learning rate scheduler type accepted by `ptycho_torch.train`: `'Default'` (no scheduler), `'Exponential'` (exponential decay), `'MultiStage'` (step-wise decay), `'Adaptive'` (plateau-based reduction). |
+| `--scheduler` (`grid_lines_torch_runner.py` only) | str | `'Default'` | `grid_lines_torch_runner.py` exposes its own `--scheduler` flag with a different choice set, additionally accepting `'WarmupCosine'` (linear warmup + cosine annealing) and `'ReduceLROnPlateau'` (uses `plateau_*` config fields; defaults factor=0.5, patience=2, min_lr=1e-4, threshold=0.0). These two values are not accepted by `ptycho_torch/train.py`. |
+| `--accumulate-grad-batches` | int | `1` | Gradient accumulation steps. Simulates larger effective batch sizes (effective batch = batch_size × accumulate_grad_batches). Values >1 reduce GPU memory usage but may affect training dynamics. |
+| `--quiet` | flag | `False` | Suppress progress bars and reduce console logging |
+| `--enable-checkpointing` / `--disable-checkpointing` | bool | `True` | Enable automatic model checkpointing (default: enabled). Use `--disable-checkpointing` to turn off checkpoint saving. |
+| `--checkpoint-save-top-k` | int | `1` | Number of best checkpoints to keep (1 = save only best, -1 = save all, 0 = disable) |
+| `--checkpoint-monitor` | str | `'val_loss'` | Metric to monitor for checkpoint selection (default: `'val_loss'`). The literal `'val_loss'` is dynamically aliased to `model.val_loss_name` (e.g., `'poisson_val_loss'` for PINN models) during Lightning configuration. Falls back to `model.train_loss_name` when validation data is unavailable. |
+| `--checkpoint-mode` | str | `'min'` | Checkpoint metric optimization mode ('min' for loss metrics, 'max' for accuracy metrics) |
+| `--early-stop-patience` | int | `100` | Early stopping patience in epochs. Training stops if monitored metric doesn't improve for this many consecutive epochs. |
+| `--logger` | str | `'csv'` | Experiment tracking backend. Options: `'csv'` (CSVLogger, zero dependencies, CI-friendly, stores metrics in `{output_dir}/lightning_logs/version_N/metrics.csv`), `'tensorboard'` (TensorBoardLogger, enables rich visualization via `tensorboard --logdir {output_dir}/lightning_logs/`), `'mlflow'` (MLFlowLogger, requires mlflow package and server URI configuration), `'none'` (disable logging, discards all metrics from `self.log()` calls). Use `'none'` with `--quiet` to suppress all output. |
+
+**Monitor Metric Aliasing:**
+The checkpoint monitor metric (`--checkpoint-monitor`) uses dynamic aliasing to handle backend-specific metric naming conventions. When you specify `--checkpoint-monitor val_loss` (the default), the training workflow automatically resolves this to the model's actual validation loss metric name (e.g., `poisson_val_loss` for PINN models). This aliasing ensures compatibility across different loss formulations without requiring users to know internal metric names. When validation data is unavailable, the system automatically falls back to the corresponding training metric (`model.train_loss_name`).
+
+**Gradient Accumulation Considerations:**
+Gradient accumulation (`--accumulate-grad-batches`) simulates larger effective batch sizes by accumulating gradients over multiple forward/backward passes before updating model weights. The effective batch size equals `batch_size × accumulate_grad_batches`. While this technique improves memory efficiency (allowing larger effective batches on memory-constrained hardware), values >1 may affect training dynamics, convergence rates, and Poisson loss stability. For PINN models with physics-informed losses, start with the default (`1`) and increase conservatively only when memory constraints require it. Monitor training curves when changing accumulation settings, as the optimizer sees fewer but larger gradient updates per epoch.
+
+**IMPORTANT - Manual Optimization Limitation (EXEC-ACCUM-001):**
+The PyTorch backend uses manual optimization (`PtychoPINN_Lightning.automatic_optimization=False`) for custom physics loss integration. Lightning's manual optimization mode is **incompatible** with gradient accumulation (`--accumulate-grad-batches > 1`). Attempting to use accumulation with manual optimization will raise a clear `RuntimeError` before training starts. If you need gradient accumulation for memory management, you must stay with the default (`1`) or restructure to automatic optimization. See `docs/findings.md#EXEC-ACCUM-001` for technical details.
+
+**Supervised Mode Data Requirements (DATA-SUP-001):**
+Supervised training (`--model_type supervised`) requires labeled datasets with ground-truth amplitude and phase reconstructions stored as `label_amp` and `label_phase` keys in the NPZ file. Experimental datasets (e.g., `fly001`) and most synthetic datasets lack these labels and will raise a `RuntimeError` during dataloader validation. To use supervised mode, either: (1) generate labeled synthetic data using `ptycho_torch/notebooks/create_supervised_datasets.ipynb`, or (2) switch to unsupervised PINN mode (`--model_type pinn`) for physics-informed self-supervised training. See `docs/findings.md#DATA-SUP-001` for details.
+
+**Logger Backend Details:**
+The default CSV logger captures all metrics logged via `self.log()` calls in the Lightning module (train/validation losses, learning rates) without requiring additional dependencies. Metrics are saved as CSV files under `{output_dir}/lightning_logs/version_N/metrics.csv` for easy parsing and analysis. The TensorBoard backend enables interactive visualization (line plots, histograms) but requires the `tensorboard` package (auto-installed via TensorFlow dependency). The MLflow backend integrates with MLflow tracking servers for experiment management but requires manual server setup and the `mlflow` package. Use `--logger none` to completely disable metric capture (e.g., for quick smoke tests or when metrics are not needed).
+
+**DeprecationWarning for --disable_mlflow:**
+The legacy `--disable_mlflow` flag now emits a DeprecationWarning directing users to the modern alternatives:
+- To disable experiment tracking: use `--logger none`
+- To suppress progress bars: use `--quiet`
+This flag currently maps to `--logger none` internally for backward compatibility but will be removed in a future release. Update your scripts to use the explicit `--logger` flag instead.
+
+**Intermediate Reconstruction Logging (MLflow only):**
+When using the MLflow logger, you can log intermediate reconstruction images during training. This is controlled by `--torch-recon-log-every-n-epochs N` which logs patch-level amplitude, phase, and diffraction images every N epochs. By default, 4 evenly spaced patch indices are sampled from the validation set; override with `--torch-recon-log-num-patches` or `--torch-recon-log-fixed-indices`. Add `--torch-recon-log-stitch` to also log full-resolution stitched reconstructions (opt-in due to performance cost). Artifacts are organized under `epoch_NNNN/patch_NN/*.png` and `epoch_NNNN/stitched/*.png` in the MLflow run. When supervised labels exist, ground-truth and error maps are logged alongside predictions. All logging is guarded by `trainer.is_global_zero` to avoid duplicate artifacts in DDP.
+
+**Deprecated Flags:**
+- `--device`: Superseded by `--accelerator`. Using `--device` will emit a deprecation warning and map to `--accelerator` automatically. Remove from scripts; this flag will be dropped in a future release.
+- `--disable_mlflow`: **DEPRECATED.** Use `--logger none` (disable tracking) + `--quiet` (suppress progress) instead. Emits DeprecationWarning; will be removed in future release.
+
+**Example CLI command with execution flags:**
+```bash
+CUDA_VISIBLE_DEVICES="0" python -m ptycho_torch.train \
+  --train_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
+  --test_data_file tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
+  --output_dir /tmp/cli_smoke \
+  --n_groups 64 \
+  --gridsize 2 \
+  --batch_size 4 \
+  --max_epochs 1 \
+  --accelerator cuda \
+  --deterministic \
+  --num-workers 0 \
+  --learning-rate 1e-3 \
+  --quiet
+```
+
+**Helper-Based Configuration Flow (Phase D.B3, 2025-10-20):**
+The training CLI delegates to shared helper functions in `ptycho_torch/cli/shared.py`:
+- `resolve_accelerator()`: Handles `--device` → `--accelerator` backward compatibility with deprecation warnings
+- `build_execution_config_from_args()`: Constructs `PyTorchExecutionConfig` with validation
+- `validate_paths()`: Checks file existence and creates output directories
+
+These helpers enforce CONFIG-001 compliance by calling factory functions that populate `params.cfg` via `update_legacy_dict()` before data loading or model construction. See `ptycho_torch/config_factory.py` for factory implementation details.
+
+**PyTorch Execution Configuration:** For the complete catalog of execution configuration fields (22 total, including programmatic-only parameters like scheduler and logger backend), see <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> §4.9 "PyTorch Execution Configuration Contract". The spec documents validation rules, priority levels, and CONFIG-001 isolation guarantees.
+
+**Evidence:** Phase C4.D validation confirmed gridsize=2 training with execution config flags completes successfully. See `docs/plans/ADR-003-BACKEND-API/reports/2025-10-20T111500Z/phase_c4d_at_parallel/manual_cli_smoke_gs2.log` for full smoke test output.
+
+### Inference Execution Flags
+
+The following execution config flags are available in `ptycho_torch/inference.py`:
+
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--accelerator` | str | `'auto'` | Hardware accelerator type (`'auto'`, `'cuda'`, `'cpu'`, `'tpu'`, `'mps'`). Override explicitly when running on CPU-only infrastructure. |
+| `--num-workers` | int | `0` | Number of DataLoader worker processes |
+| `--inference-batch-size` | int | `None` | Batch size for inference (default: None = reuse training batch_size from checkpoint) |
+| `--quiet` | flag | `False` | Suppress progress bars and reduce console logging |
+
+**Deprecated Flags:**
+- `--device`: Superseded by `--accelerator`. Using `--device` will emit a deprecation warning and map to `--accelerator` automatically. This flag will be removed in Phase E (post-ADR acceptance).
+
+**Helper-Based Configuration Flow (Phase D.C, 2025-10-20):**
+The inference CLI delegates to the same shared helper functions as training (`ptycho_torch/cli/shared.py`):
+- `resolve_accelerator()`: Auto-detects hardware or applies user choice, handles `--device` backward compatibility with deprecation warnings
+- `build_execution_config_from_args()`: Constructs `PyTorchExecutionConfig` with inference-mode validation
+- `validate_paths()`: Checks file existence and creates output directories
+
+Inference orchestration is extracted to `ptycho_torch.inference._run_inference_and_reconstruct()`, which loads the checkpoint bundle, prepares data, runs Lightning prediction, and saves amplitude/phase reconstructions as PNG artifacts. This delegation ensures CONFIG-001 compliance (factory functions populate `params.cfg` via `update_legacy_dict()` before data loading) and maintains parity with training CLI architecture.
+
+**Example CLI Command:**
+```bash
+# Run inference with minimal dataset fixture on a single CUDA device
+CUDA_VISIBLE_DEVICES="0" python -m ptycho_torch.inference \
+  --model_path outputs/trained_model \
+  --test_data tests/fixtures/pytorch_integration/minimal_dataset_v1.npz \
+  --output_dir outputs/inference_results \
+  --n_groups 64 \
+  --accelerator cuda \
+  --quiet
+```
+
+**Expected Output Artifacts:**
+- `<output_dir>/reconstructed_amplitude.png`: Reconstructed amplitude image
+- `<output_dir>/reconstructed_phase.png`: Reconstructed phase image
+
+**Evidence:** Phase D.C C3 implementation validated thin wrapper behavior with 9/9 passing tests. See `tests/torch/test_cli_inference_torch.py` for delegation contract tests.
+
+### CONFIG-001 Compliance
+
+**CRITICAL:** PyTorch workflows require the same CONFIG-001 initialization as TensorFlow. When using CLI scripts, this happens automatically during factory instantiation via the shared helper functions in `ptycho_torch/cli/shared.py`. The helper-based flow ensures `update_legacy_dict(params.cfg, config)` is called before data loading or model construction.
+
+When using **programmatic entry points** (not CLI), you **MUST** manually call `update_legacy_dict(params.cfg, config)` before any data loading or model construction to ensure legacy modules observe synchronized parameters.
+
+**Reference:** For complete configuration bridge details, see `specs/ptychodus_api_spec.md` §4.8 and `ptycho_torch/config_factory.py` implementation. For CLI helper implementation, see `ptycho_torch/cli/shared.py`.
+
+## 13. Backend Selection in Ptychodus Integration
+
+When PtychoPINN is integrated into Ptychodus, the backend (TensorFlow or PyTorch) can be selected via configuration. This section explains how backend selection works and what guarantees are provided.
+
+### Configuration API
+
+Backend selection is controlled through the `backend` field in configuration dataclasses:
+
+```python
+from ptycho.config.config import TrainingConfig, InferenceConfig
+
+# Select PyTorch backend for training
+config = TrainingConfig(
+    model=model_config,
+    train_data_file=Path('data.npz'),
+    backend='pytorch',  # or 'tensorflow' (default)
+    # ... other parameters
+)
+
+# Select PyTorch backend for inference
+infer_config = InferenceConfig(
+    model=model_config,
+    model_path=Path('trained_model/'),
+    test_data_file=Path('test.npz'),
+    backend='pytorch',  # or 'tensorflow' (default)
+    # ... other parameters
+)
+```
+
+**Default Behavior:** Both `TrainingConfig.backend` and `InferenceConfig.backend` default to `'tensorflow'` to maintain backward compatibility with existing Ptychodus integrations.
+
+### Dispatcher Routing
+
+Per the specification in `specs/ptychodus_api_spec.md` §4.8, the dispatcher guarantees:
+
+1. **TensorFlow Path** (`backend='tensorflow'`): Delegates to `ptycho.workflows.components` entry points without attempting PyTorch imports
+2. **PyTorch Path** (`backend='pytorch'`): Delegates to `ptycho_torch.workflows.components` entry points and returns the same `(amplitude, phase, results_dict)` structure
+3. **CONFIG-001 Enforcement**: The dispatcher calls `update_legacy_dict(ptycho.params.cfg, config)` before backend inspection to ensure legacy subsystems observe synchronized parameters
+4. **Result Metadata**: The returned `results_dict` includes `results['backend']` for downstream logging
+
+### Error Handling
+
+**PyTorch Unavailability:** If `backend='pytorch'` is selected but PyTorch cannot be imported, the system raises an actionable `RuntimeError`:
+
+```
+RuntimeError: PyTorch backend selected but torch module unavailable.
+Install PyTorch: pip install torch>=2.2
+See docs/workflows/pytorch.md for installation guidance.
+```
+
+Silent fallbacks to TensorFlow are prohibited per `docs/findings.md#POLICY-001`. This fail-fast behavior ensures users are immediately aware of missing dependencies.
+
+**Invalid Backend:** If `config.backend` contains an unsupported value (not `'tensorflow'` or `'pytorch'`), the dispatcher raises `ValueError` with guidance.
+
+### Checkpoint Compatibility
+
+- **Backend-Specific Formats**: TensorFlow checkpoints use `.h5.zip` format, PyTorch checkpoints use Lightning `.ckpt` format
+- **Cross-Backend Loading**: Loading a TensorFlow checkpoint with `backend='pytorch'` (or vice versa) raises a descriptive error
+- **Persistence Contract**: See `specs/ptychodus_api_spec.md` §4.8 for full persistence guarantees
+
+### Test Selectors
+
+Backend selection behavior is validated by:
+
+```bash
+# Backend routing and error handling tests
+pytest tests/torch/test_backend_selection.py::test_backend_field_defaults -vv
+pytest tests/torch/test_backend_selection.py::test_pytorch_backend_routes_correctly -vv
+pytest tests/torch/test_backend_selection.py::test_tensorflow_backend_routes_correctly -vv
+pytest tests/torch/test_backend_selection.py::test_invalid_backend_raises_value_error -vv
+
+# Cross-backend checkpoint loading tests
+pytest tests/torch/test_model_manager.py::test_load_tensorflow_checkpoint_with_pytorch_backend -vv
+```
+
+**Full Selector:** `pytest tests/torch/test_backend_selection.py -vv`
+
+### Integration Example (Ptychodus)
+
+When `PtychoPINNTrainableReconstructor` is invoked from Ptychodus, the backend is selected based on user settings:
+
+```python
+# In ptychodus.model.ptychopinn.reconstructor.py
+
+from ptycho.config.config import InferenceConfig, update_legacy_dict
+import ptycho.params
+
+# User selects backend via Ptychodus UI
+selected_backend = 'pytorch'  # or 'tensorflow'
+
+# Create configuration with backend selection
+config = InferenceConfig(
+    model=model_config,
+    model_path=checkpoint_path,
+    test_data_file=data_path,
+    backend=selected_backend,
+    # ... other parameters
+)
+
+# Bridge to legacy system (REQUIRED before backend-specific code)
+update_legacy_dict(ptycho.params.cfg, config)
+
+# Dispatcher routes to appropriate backend
+# (handled internally by ptycho.workflows.backend_selector or equivalent)
+```
+
+**Reference Implementation:** See `ptycho.workflows.backend_selector` for dispatcher logic (if available in your codebase).
+
+## 14. Troubleshooting
+
+### PyTorch Import Errors
+
+**Symptom:** `RuntimeError: PyTorch backend requires torch>=2.2 and lightning.`
+
+**Solution:** Install PyTorch extras:
+```bash
+pip install -e .[torch]
+```
+See <doc-ref type="findings">docs/findings.md#policy-001</doc-ref> for PyTorch requirement policy.
+
+### Shape Mismatch Errors
+
+**Symptom:** Tensor dimension errors during training
+
+**Solution:** Ensure `update_legacy_dict(params.cfg, config)` was called before data loading.
+See <doc-ref type="troubleshooting">docs/debugging/TROUBLESHOOTING.md#shape-mismatch-errors</doc-ref>.
+
+### Checkpoint Loading Failures
+
+**Symptom:** `TypeError: missing 4 required positional arguments` when loading checkpoint
+
+**Cause:** Phase D2.B2 implementation embeds hyperparameters in checkpoint; older checkpoints may lack them.
+
+**Solution:** Retrain with current codebase or use legacy load path (under development in Phase D4).
+
+## 15. Keeping Parity with TensorFlow
+
+When introducing new features to PyTorch workflows:
+
+1. **Update both guides**: Modify this document AND `docs/WORKFLOW_GUIDE.md` to note behavioral differences
+2. **Module docstrings**: Reference conceptual docs using `<doc-ref type="guide">...</doc-ref>` tags
+3. **Configuration parity**: Ensure `ptycho_torch.config_bridge` adapters maintain field compatibility
+4. **Test coverage**: Add parity tests in `tests/torch/test_config_bridge.py` or `tests/torch/test_workflows_components.py`
+
+Following these steps ensures developers can move between TensorFlow and PyTorch
+implementations without losing architectural context or workflow clarity.
+
+---
+
+**Related Documentation:**
+- <doc-ref type="guide">docs/DEVELOPER_GUIDE.md</doc-ref> — Core architectural principles
+- <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> — API contracts and reconstructor lifecycle
+- <doc-ref type="contract">docs/specs/spec-ptycho-core.md</doc-ref> — NPZ data format requirements
+- <doc-ref type="plan">docs/plans/INTEGRATE-PYTORCH-001/phase_d2_completion.md</doc-ref> — Current implementation status
+- **Loss/metric parity**: Training logs two amplitude metrics:
+  - `amp_inv_mae_epoch`: amplitude MAE in the measurement domain (legacy visibility metric)
+  - `amp_mae_tf_scale_epoch`: new metric computed in the same normalized domain used by TensorFlow (`pred_scaled` vs `target_scaled`). This ensures the Poisson-vs-MAE loss curves can be compared directly to TF’s amplitude MAE.
+- **Physics weighting**: `torch_loss_mode='poisson'` keeps physics weighting pinned at 1.0 for all epochs (single-stage Poisson training). `torch_loss_mode='mae'` rotates the model into MAE-only training with `physics_weight=0`.
+
+### Patch Parity Evidence
+
+Implementation work that touches training/inference pipelines should include a visual parity check. Use the helper script added in this change:
+
+```bash
+python scripts/tools/patch_parity_helper.py \
+    --tf-npz tmp/tf_epoch50_patches.npz \
+    --torch-npz tmp/torch_epoch50_patches.npz \
+    --epoch 50 \
+    --num-patches 6
+```
+
+The script aligns shared sample ids (using the persisted `sample_indices`) and writes grids to `tmp/patch_parity/{tensorflow, pytorch}_epoch50.png`. These grids provide quick qualitative evidence when numeric losses differ.

@@ -341,8 +341,7 @@ def get_fixed_quadrant_neighbors_c4(
             print(f"quadrant candidates TR: {quadrant_candidates['TR']}")
             print(f"quadrant candidates BL: {quadrant_candidates['BL']}")
             print(f"quadrant candidates BR: {quadrant_candidates['BR']}")
-            # Allow two duplicate center points since this rarely happens
-            #continue
+            continue
         if not all(quadrant_candidates.values()):
             continue
 
@@ -384,9 +383,12 @@ def sample_rows(indices, n, m):
         result[i] = np.array([np.random.choice(indices[i], size=n, replace=False) for _ in range(m)])
     return result
 
-def get_relative_coords(coords_nn, local_offset_sign=1):
+def get_relative_coords(coords_nn, local_offset_sign=-1):
     """
     Calculate the relative coordinates and offsets from the nearest neighbor coordinates.
+
+    ``local_offset_sign`` defaults to -1, matching TF's master constant
+    (``ptycho/raw_data.py:123``). See docs/findings.md TORCH-REASSEMBLY-SIGN-001.
 
     Args:
         coords_nn (np.ndarray): Array of nearest neighbor coordinates with shape (M, C, 1, 2).

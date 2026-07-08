@@ -1,0 +1,25 @@
+version: "2.7"
+name: "revision-study-priority-design-plan-impl-stack-v2-call"
+
+imports:
+  revision_priority_stack: ../library/revision_study_priority_design_plan_impl_stack.yaml
+
+inputs:
+  revision_manifest_path:
+    type: relpath
+    must_exist_target: true
+    default: state/revision-study-priority-stack/manifests/non_ml_single_shot_cdi_benchmark.json
+  adapter_state_root:
+    type: relpath
+    under: state
+    default: state/revision-study-priority-stack
+
+steps:
+  - name: RunRevisionStudyPriorityStack
+    id: run_revision_study_priority_stack
+    call: revision_priority_stack
+    with:
+      revision_manifest_path:
+        ref: inputs.revision_manifest_path
+      adapter_state_root:
+        ref: inputs.adapter_state_root
