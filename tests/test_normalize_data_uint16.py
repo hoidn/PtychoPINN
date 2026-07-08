@@ -47,3 +47,26 @@ class TestNormalizeDataUint16Overflow:
         result_float64 = normalize_data(dset_float64, N)
 
         np.testing.assert_allclose(result_uint16, result_float64, rtol=1e-10)
+
+    def test_float32_input_returns_float32(self):
+        """A float32 diffraction array must normalize to float32 output;
+        under numpy>=2 (NEP 50) a float64 scalar would otherwise promote
+        the product to float64."""
+        N = 8
+        diffraction = np.full((2, 8, 8), 300, dtype=np.float32)
+        dset = {'diffraction': diffraction}
+
+        result = normalize_data(dset, N)
+
+        assert result.dtype == np.float32
+
+    def test_uint16_input_returns_float32(self):
+        """A uint16 diffraction array must also normalize to float32
+        output, not float64."""
+        N = 8
+        diffraction = np.full((2, 8, 8), 300, dtype=np.uint16)
+        dset = {'diffraction': diffraction}
+
+        result = normalize_data(dset, N)
+
+        assert result.dtype == np.float32

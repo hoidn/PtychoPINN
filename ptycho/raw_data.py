@@ -983,7 +983,10 @@ def normalize_data(dset: dict, N: int) -> np.ndarray:
     # Images are amplitude, not intensity
     X_full = dset['diffraction']
     # NORMALIZE-DATA-UINT16-001: cast to float64 before squaring to avoid uint16 overflow
-    X_full_norm = np.sqrt(
+    X_full_norm = np.float32(np.sqrt(
             ((N / 2)**2) / np.mean(tf.reduce_sum(np.square(dset['diffraction'].astype(np.float64)), axis=[1, 2]))
-            )
-    return X_full_norm * X_full
+            ))
+    # Force float32 output: under numpy>=2 (NEP 50) a float64 scalar would
+    # promote the product to float64, violating the float32 contract
+    # (specs/data_contracts.md; enforced by ptycho_torch/data_container_bridge.py).
+    return X_full_norm * X_full.astype(np.float32, copy=False)
