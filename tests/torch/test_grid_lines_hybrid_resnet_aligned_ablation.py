@@ -98,7 +98,7 @@ except ImportError:
 
 SCRATCH_ROOT = Path(".artifacts/integration/grid_lines_hybres_aligned_ablation")
 
-pytestmark = pytest.mark.grid_lines_hybrid_resnet_aligned_ablation
+pytestmark = [pytest.mark.grid_lines_hybrid_resnet_aligned_ablation, pytest.mark.slow]
 
 # Flags copied verbatim from
 # tests/torch/test_grid_lines_hybrid_resnet_integration.py::test_grid_lines_hybrid_resnet_metrics

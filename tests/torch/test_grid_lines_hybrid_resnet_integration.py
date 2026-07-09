@@ -21,7 +21,7 @@ SCRATCH_ROOT = Path(".artifacts/integration/grid_lines_hybrid_resnet")
 DATASET_STATS_PATH = Path("tests/fixtures/grid_lines_hybrid_resnet_dataset_stats.json")
 METRICS_BASELINE_PATH = Path("tests/fixtures/grid_lines_hybrid_resnet_metrics.json")
 
-pytestmark = pytest.mark.grid_lines_hybrid_resnet_integration
+pytestmark = [pytest.mark.grid_lines_hybrid_resnet_integration, pytest.mark.slow]
 
 
 @pytest.fixture(scope="session")
