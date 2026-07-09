@@ -65,7 +65,7 @@ update_legacy_dict(params.cfg, config)
 
 **Key configuration fields for PyTorch workflows:**
 - Recommended project baselines live in [docs/model_baselines.md](../model_baselines.md). This guide defines available knobs and execution behavior; it is not the authority for which concrete parameter combination should be treated as the current best-practice starting point.
-- `config.model.architecture`: Generator architecture for PINN models (`'cnn'`, `'ffno'`, `'fno'`, `'hybrid'`, `'stable_hybrid'`, `'fno_vanilla'`, `'neuralop_uno'`, `'hybrid_resnet'`, `'spectral_resnet_bottleneck_net'`). Default: `'cnn'`. **Reliability caveat:** the default `'cnn'` under the count-Poisson recipe at `N=128` collapses to a converged flat-amplitude output with near-certainty unless its default-on CBAM encoder attention is disabled (TF-parity preset: `cbam_encoder=False` + glorot init + ReduceLROnPlateau); `'hybrid_resnet'` is unaffected — see `TORCH-N128-FLAT-AMP-001` (PARITY RESOLUTION) in `docs/findings.md`. All architectures train via Lightning with the full physics pipeline. The `'stable_hybrid'` variant uses InstanceNorm-stabilized residual blocks (Norm-Last, zero-init gamma/beta) for improved training stability in deep FNO stacks; see `docs/strategy/mainstrategy.md §1.A`. The `'ffno'` baseline runs a constant-resolution factorized Fourier-flow stack with the same CDI real/imag output contract, `'fno_vanilla'` runs a constant‑resolution FNO stack, `'neuralop_uno'` wraps external `neuraloperator==2.0.0` U-NO for the locked Lines128 CDI path only (`N=128`, `gridsize=1`, `C=1`, `real_imag`), `'hybrid_resnet'` uses an FNO encoder with a CycleGAN ResNet‑6 decoder, and `'spectral_resnet_bottleneck_net'` keeps the Hybrid ResNet shell while swapping in a spectral ResNet bottleneck. See `ptycho_torch/generators/README.md` for adding new architectures.
+- `config.model.architecture`: Generator architecture for PINN models (`'cnn'`, `'ffno'`, `'fno'`, `'hybrid'`, `'stable_hybrid'`, `'fno_vanilla'`, `'neuralop_uno'`, `'hybrid_resnet'`, `'spectral_resnet_bottleneck_net'`). Default: `'cnn'`. **Reliability caveat:** the default `'cnn'` under the count-Poisson recipe at `N=128` collapses to a converged flat-amplitude output with near-certainty unless its default-on CBAM encoder attention is disabled (TF-parity preset: `cbam_encoder=False` + glorot init + ReduceLROnPlateau); `'hybrid_resnet'` is unaffected — see `TORCH-N128-FLAT-AMP-001` (PARITY RESOLUTION) in `docs/findings.md` and the "TF-Parity Preset for the Torch CNN" section below for the exact knobs. All architectures train via Lightning with the full physics pipeline. The `'stable_hybrid'` variant uses InstanceNorm-stabilized residual blocks (Norm-Last, zero-init gamma/beta) for improved training stability in deep FNO stacks; see `docs/strategy/mainstrategy.md §1.A`. The `'ffno'` baseline runs a constant-resolution factorized Fourier-flow stack with the same CDI real/imag output contract, `'fno_vanilla'` runs a constant‑resolution FNO stack, `'neuralop_uno'` wraps external `neuraloperator==2.0.0` U-NO for the locked Lines128 CDI path only (`N=128`, `gridsize=1`, `C=1`, `real_imag`), `'hybrid_resnet'` uses an FNO encoder with a CycleGAN ResNet‑6 decoder, and `'spectral_resnet_bottleneck_net'` keeps the Hybrid ResNet shell while swapping in a spectral ResNet bottleneck. See `ptycho_torch/generators/README.md` for adding new architectures.
 - `config.model.resnet_width`: Optional fixed bottleneck width for `hybrid_resnet`. When set, must be divisible by 4 so the CycleGAN upsamplers produce integer channel sizes.
 - `config.model.fno_input_transform`: Optional input dynamic-range transform for FNO/Hybrid (`'none'`, `'sqrt'`, `'log1p'`, `'instancenorm'`). Default: `'none'`.
 - Torch-only execution knobs for `hybrid_resnet` (set through the Torch runner / `PyTorchExecutionConfig`): `hybrid_downsample_steps`, `hybrid_downsample_op`, `hybrid_encoder_conv_hidden_scale`, `hybrid_encoder_spectral_hidden_scale`, `hybrid_resnet_blocks`, `hybrid_skip_style`, and `hybrid_skip_connections`.
@@ -189,6 +189,50 @@ reassembly/scaling layer — they must be reasoned about separately.
 `training_patch_weighting='probe'` for full C>1 overlap parity). All four knobs default
 to the current `fno-stable`/FNO-hybrid-compatible values above, so omitting them leaves
 existing CNN, FNO, and hybrid behavior byte-unchanged.
+
+### TF-Parity Preset for the Torch CNN (N=128 count-Poisson reliability)
+
+The torch `cnn` under the count-Poisson recipe at `N=128` collapses to a converged
+flat-amplitude output with near-certainty at base dose (0/15 escapes), while the
+TensorFlow reference — the same skip-less depth-4 design — escapes ~40% of the time
+and fails gracefully otherwise. The gap is closed by **three configuration knobs on
+the existing `cnn` architecture** — there is no separate "tf-parity" registry entry;
+you configure the standard model:
+
+| Knob | Where it lives | Parity value (default) | What it does |
+|---|---|---|---|
+| `cbam_encoder` | `ModelConfig` (`ptycho_torch/config_params.py:134`), consumed by the encoder in `ptycho_torch/model.py` | `False` (**default `True`**) | Disables the torch port's CBAM encoder attention, which is ABSENT from the TF reference. This is the causal knob: CBAM's multiplicative gating amplifies the encoder's ReLU dead-unit cascade at 4-stage depth. Alone it lifts base-dose escapes 0/15 → 3/5 (Fisher p≈0.009). |
+| `parity_init_scheme` | `PtychoPINN_Lightning` constructor kwarg (`ptycho_torch/model.py`; valid values `"default"`/`"tf_glorot"`), forwarded by `ptycho_torch/train_lightning_only.py` | `"tf_glorot"` (default `"default"` = kaiming) | Applies TF/Keras-style glorot weight init to match the reference. Lottery-level alone (1/5) but composes with cbam-off. |
+| `scheduler` | `TrainingConfig.scheduler` | `"ReduceLROnPlateau"` (default: constant LR) | Matches the TF reference's LR schedule. Lottery-level alone (1/5) but composes. |
+
+**CLI access** (the varpro ablation runner overrides the resolved arm):
+
+```bash
+python scripts/studies/varpro_probe_ablation_runner.py ... \
+  --cbam-encoder off --parity-init-scheme tf_glorot --scheduler ReduceLROnPlateau
+```
+
+(`--cbam-encoder` takes `on|off`; `--scheduler` takes `Default|ReduceLROnPlateau`;
+`--parity-init-scheme` takes `default|tf_glorot`.)
+
+**Evidence** (n=10 preset seeds vs n=10 TF-reference draws on identical data/dose,
+`lines_N128` @ 108 counts/px = 1.77e6 photons/img): torch preset 6/10 strict escapes
+vs TF 4/10 (Fisher p=0.656, statistically indistinguishable), torch escaped-quality
+median 0.863 vs TF 0.629 — parity or better. The TF-side comparator is the committed
+`scripts/studies/tf_reference_cnn_runner.py`. Full run tables:
+`docs/plans/2026-07-08-cnn-n128-tf-parity.md`.
+
+**Caveats:**
+- `cbam_encoder=True` remains the `ModelConfig` default — the stock `cnn` is still the
+  collapse-prone variant until that default is revisited (gated decision, parity plan
+  Task 6).
+- A torch-specific residual remains: ~2/10 preset runs still hit the flat-collapse
+  mode (TF: 0 flat in 18 runs — its failures are structured intermediates). For
+  maximum reliability in this regime prefer `hybrid_resnet` where available.
+- Do NOT set `intensity_scale_trainable=True` alongside the parity kwargs — the dead
+  `IntensityScalerModule` machinery silently overwrites the input-side parity scale
+  (see `docs/findings.md` TORCH-INTENSITY-SCALE-DEAD-001).
+- Root-cause record: `docs/findings.md` TORCH-N128-FLAT-AMP-001 (PARITY RESOLUTION).
 
 **Layer 4: inference-only reassembly/scaling (`InferenceConfig`) — NOT training-forward controls**
 
