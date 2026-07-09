@@ -2,12 +2,15 @@
 from typing import Tuple, Optional, Union, Callable, Any
 
 #Additional helper functions ported from original tensorflow lib
+import os
 import math
 import torch
 from torch import nn
 import torch.nn.functional as F
 import numpy as np
 import gc
+
+from ptycho.image.cropping import center_crop_spatial
 
 #Configurations
 from ptycho_torch.config_params import ModelConfig, DataConfig # Removed TrainingConfig as it's not used here
@@ -36,6 +39,7 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
                                       data_config: DataConfig, model_config: ModelConfig, # Added configs
                                       agg: bool = True,
                                       padded_size: Optional[int] = None,
+                                      crop_size: Optional[int] = None,
                                       **kwargs: Any) -> torch.Tensor:
     '''
     Given image patches (shaped such that the channel dimension indexes
@@ -63,26 +67,60 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
 
     B, _, N, _ = inputs.shape
 
-    #Setting the channels for forward model to a specific C_forward. Model may use this differently
+    from ptycho import debug_parity
+    debug_parity.log_array_stats("torch.reassemble.inputs", inputs)
+    debug_parity.log_offsets_stats("torch.reassemble.offsets", offsets_xy)
 
+    if os.getenv("PTYCHO_TORCH_STITCH_DEBUG") == "1":
+        from ptycho_torch.debug import summarize_offsets
+        print(summarize_offsets("offsets_input", offsets_xy))
+
+    #Setting the channels for forward model to a specific C_forward. Model may use this differently
     C = model_config.C_forward
 
-    if padded_size is None:
-        padded_size = get_padded_size(data_config, model_config)
+    if crop_size is not None:
+        if crop_size <= 0 or crop_size > N:
+            raise ValueError(f"crop_size must be in (0, {N}], got {crop_size}")
+        start = N // 2 - crop_size // 2
+        end = start + crop_size
+        inputs = inputs[..., start:end, start:end]
+        N_eff = crop_size
+
+        offsets_flat = offsets_xy.flatten(start_dim=0, end_dim=1)
+        offsets_flat = offsets_flat - offsets_flat.mean(dim=0, keepdim=True)
+        if padded_size is None:
+            max_shift = float(offsets_flat.abs().max().item())
+            dynamic_pad = int(math.ceil(max_shift))
+            if dynamic_pad % 2 != 0:
+                dynamic_pad += 1
+            padded_size = N_eff + 2 * dynamic_pad
+    else:
+        N_eff = N
+        offsets_flat = offsets_xy.flatten(start_dim=0, end_dim=1)
+        if padded_size is None:
+            padded_size = get_padded_size(data_config, model_config)
+
     M = padded_size # Use M for clarity
 
-    # --- 1. Prepare Flat Inputs and Offsets ---
+    # Negate offsets to match TF _reassemble_patches_position_real
+    # (``Translation([imgs, -offsets_flat])``) -- the convention that generated the
+    # dataset coordinates. Applied once here so both the image and both
+    # normalization-mask Translation calls below stay co-registered, on both the
+    # crop and non-crop branches. See docs/findings.md TORCH-REASSEMBLY-SIGN-001.
+    offsets_flat = -offsets_flat
+
+    # --- 1. Prepare Flat Inputs ---
     # Flatten batch and channel dimensions for efficient translation
-    # Input images: (B, C, N, N) -> (B*C, N, N)
+    # Input images: (B, C, N_eff, N_eff) -> (B*C, N_eff, N_eff)
     imgs_flat = inputs.flatten(start_dim=0, end_dim=1)
-    # Offsets: (B, C, 1, 2) -> (B*C, 1, 2)
-    offsets_flat = offsets_xy.flatten(start_dim=0, end_dim=1)
 
     # --- 2. Pad Images ---
     # Pad flat images to the target size M
-    # (B*C, N, N) -> (B*C, M, M)
+    # (B*C, N_eff, N_eff) -> (B*C, M, M)
     # Support odd total padding by splitting remainder across sides
-    total_pad = M - N
+    total_pad = M - N_eff
+    if total_pad < 0:
+        raise ValueError(f"padded_size ({M}) must be >= crop size ({N_eff})")
     left_pad = total_pad // 2
     right_pad = total_pad - left_pad
     top_pad = total_pad // 2
@@ -96,11 +134,28 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
 
     # --- 4. Handle Aggregation vs. No Aggregation ---
     if agg:
+        if crop_size is not None:
+            with torch.no_grad():
+                ones_flat = torch.ones((B * C, N_eff, N_eff), device=inputs.device, dtype=torch.float32)
+                ones_padded = F.pad(ones_flat, (left_pad, right_pad, top_pad, bottom_pad), "constant", 0.)
+
+            norm_flat_bigN_translated = Translation(ones_padded, offsets_flat, 0.).squeeze(1)
+
+            imgs_summed = imgs_flat_bigN_translated.reshape(B, C, M, M).sum(dim=1)
+            non_zeros_float = norm_flat_bigN_translated.reshape(B, C, M, M).sum(dim=1)
+            norm_factor = non_zeros_float + 1e-9
+            imgs_merged = imgs_summed / norm_factor
+            boolean_mask = non_zeros_float > 1e-6
+
+            debug_parity.log_array_stats("torch.reassemble.output", imgs_merged)
+
+            return imgs_merged, boolean_mask, M # Shape: (B, M, M)
+
         # --- 4a. Prepare and Translate *Prototype* Normalization Mask ---
         # Create ONE small (N, N) mask for the central region
         with torch.no_grad(): # Mask creation doesn't need gradients
-            prototype_mask_N = torch.zeros(N, N, device=inputs.device, dtype=torch.float32)
-            center_slice = slice(N // 4, N // 4 + N // 2)
+            prototype_mask_N = torch.zeros(N_eff, N_eff, device=inputs.device, dtype=torch.float32)
+            center_slice = slice(N_eff // 4, N_eff // 4 + N_eff // 2)
             prototype_mask_N[center_slice, center_slice] = 1.0
 
             # Pad the SINGLE prototype mask to (M, M)
@@ -116,8 +171,20 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
 
         # --- 4b. Calculate Summed Images and Normalization Factor ---
 
-        # (B*C, M, M) -> (B, C, M, M) -> sum(dim=1) -> (B, M, M) complex
-        imgs_summed = imgs_flat_bigN_translated.reshape(B, C, M, M).sum(dim=1)
+        # Mask each translated patch by the SAME translated central prototype mask
+        # before summation, so the numerator and the count denominator share support
+        # (the co-registered central-N/2 windows). Without this co-masking the
+        # numerator sums FULL (unmasked) patches while the denominator counts only the
+        # central windows, so outside every patch's central window the count is ~0 and
+        # the ~73% peripheral canvas is divided by the +0.001 epsilon and amplified
+        # ~1000x -- which made a flat object the gs2 (object_big) training-loss
+        # minimizer. Mirrors reassemble_patches_position_real_probe's numerator/
+        # denominator co-masking and TF's self-consistent overlap normalization
+        # (ptycho/tf_helper.py reassemble_position:1335-1361, mk_norm:1092-1101).
+        # See docs/findings.md TORCH-GS2-CENTRAL-MASK-MERGE-001.
+        # (B*C, M, M) complex * (B*C, M, M) float -> (B, C, M, M) -> sum -> (B, M, M)
+        imgs_weighted = imgs_flat_bigN_translated * norm_flat_bigN_translated
+        imgs_summed = imgs_weighted.reshape(B, C, M, M).sum(dim=1)
         #gc.collect()
 
         # Reshape translated masks and sum along the channel dimension to get counts
@@ -125,15 +192,17 @@ def reassemble_patches_position_real(inputs: torch.Tensor, offsets_xy: torch.Ten
         non_zeros_float = norm_flat_bigN_translated.reshape(B, C, M, M).sum(dim=1)
         #gc.collect()
         # --- 4c. Normalize ---
-        # Create a boolean mask where at least one patch contributed centrally
-        boolean_mask = non_zeros_float.real > 1e-6 # Use tolerance for float comparison
+        # Boolean mask marks the co-registered central support.
+        boolean_mask = non_zeros_float.real > 1e-6  # Use tolerance for float comparison
 
-        # Prepare normalization factor, avoiding division by zero
-        # Clamp ensures values are at least 1.0 where division occurs
-        norm_factor = torch.clamp(non_zeros_float.real, min=1.0)
+        # Mirror TF behavior: add epsilon to the normalization factor (mk_norm)
+        norm_factor = non_zeros_float.real + 0.001
 
-        # Apply normalization: zero out regions outside mask, then divide by count
+        # Apply the boolean mask so the peripheral canvas (zero numerator, ~zero count)
+        # stays exactly zero instead of dividing residuals by the epsilon.
         imgs_merged = (imgs_summed * boolean_mask) / norm_factor
+
+        debug_parity.log_array_stats("torch.reassemble.output", imgs_merged)
 
         return imgs_merged, boolean_mask, M # Shape: (B, M, M)
 
@@ -162,7 +231,9 @@ def reassemble_patches_position_real_probe(inputs: torch.Tensor,
     ------
     inputs: [B, C, N, N] (Complex object patches)
     offsets_xy: [B, C, 1, 2]
-    probe: [B, C, P, N, N]
+    probe: modes layout [B, C, P, N, N], or plain [N, N] / batch-broadcast
+        [B, N, N] (the grid_lines dict-container layout). Only consumed when
+        use_probe_weights is True.
     use_probe_weights: If True, weights by |Probe|^2. If False, uses binary central mask.
     '''
 
@@ -178,13 +249,37 @@ def reassemble_patches_position_real_probe(inputs: torch.Tensor,
     # --- 1. Prepare Flat Inputs and Offsets ---
     imgs_flat = inputs.flatten(start_dim=0, end_dim=1)
     offsets_flat = offsets_xy.flatten(start_dim=0, end_dim=1)
+    # Negate offsets to match TF _reassemble_patches_position_real (translate by
+    # -offset). See docs/findings.md TORCH-REASSEMBLY-SIGN-001.
+    offsets_flat = -offsets_flat
 
     # --- 2. Prepare Weights (Probe or Binary) ---
     if use_probe_weights:
         if probe is None:
             raise ValueError("Probe must be provided if use_probe_weights is True")
-        # Weight = sum_p |P_p|^2 (sum over probe modes, then flatten B*C)
-        weights_flat = torch.sum(torch.abs(probe)**2, dim=2).flatten(0, 1)
+        # Weight = |P|^2 flattened to the (B*C, N, N) patch batch that imgs_flat
+        # uses (B-major, C-minor). Two probe layouts are accepted, dispatched by
+        # rank with no silent fallback:
+        #   * modes layout (B, C, P, N, N) -- the native mmap dataloader path:
+        #     incoherent mode sum sum_p |P_p|^2 then flatten B*C (byte-identical
+        #     to the historical derivation);
+        #   * plain (N, N) or batch-broadcast (B, N, N) -- the grid_lines
+        #     dict-container path: |P|^2 broadcast to every (b, c) patch (the
+        #     probe is shared across the C channels of a batch element).
+        if probe.ndim == 5:
+            weights_flat = torch.sum(torch.abs(probe)**2, dim=2).flatten(0, 1)
+        elif probe.ndim == 2:
+            probe_intensity = torch.abs(probe)**2
+            weights_flat = probe_intensity.expand(B * C_in, N, N)
+        elif probe.ndim == 3:
+            probe_intensity = torch.abs(probe)**2
+            weights_flat = probe_intensity.unsqueeze(1).expand(B, C_in, N, N).flatten(0, 1)
+        else:
+            raise ValueError(
+                f"Unsupported probe shape {tuple(probe.shape)} for probe-weighted "
+                "reassembly. Accepted layouts: modes (B, C, P, N, N) or plain "
+                "(N, N) / batch-broadcast (B, N, N)."
+            )
     else:
         # Original binary prototype logic
         with torch.no_grad():
@@ -287,8 +382,10 @@ def extract_channels_from_region(inputs: torch.Tensor,
     flat_stacked_inputs = torch.flatten(stacked_inputs, start_dim = 0, end_dim = 1)
 
     #Obtain translation of patches
-    #Note, offsets must be inverted in sign compared to Translation in: reassemble_patches_position_real
-    translated_patches = Translation(flat_stacked_inputs, -offsets_flat, 0.0) # Assuming Translation doesn't need config
+    #Note, offsets must be inverted in sign compared to Translation in: reassemble_patches_position_real.
+    #reassemble now translates by -offset (TORCH-REASSEMBLY-SIGN-001), so extract translates by +offset
+    #to remain its exact inverse.
+    translated_patches = Translation(flat_stacked_inputs, offsets_flat, 0.0) # Assuming Translation doesn't need config
     cropped_patches = trim_reconstruction(translated_patches, data_config, model_config) # Pass configs
     cropped_patches = torch.reshape(cropped_patches,
                                     (-1, n_channels, data_config.N, data_config.N)) # Use config N
@@ -395,7 +492,7 @@ def pad_obj(input: torch.Tensor, h: int, w: int) -> torch.Tensor:
 
 def get_padded_size(data_config: DataConfig, model_config: ModelConfig) -> int: # Added configs
     bigN = get_bigN(data_config, model_config) # Pass configs
-    buffer = model_config.max_position_jitter # Use config
+    buffer = 0
 
     return bigN + buffer
 
@@ -584,11 +681,8 @@ def illuminate_and_diffract(
     nphotons: float = 1e5
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     '''
-    Performs multi-modal incoherent illumination (assuming probe modes are pre-scaled),
-    diffraction, and intensity scaling. Used for simulating synthetic data.
-
-    For multi-mode probes, computes incoherent summation:
-        I = Sum_p |FFT{O * P_p}|^2
+    Performs multi-modal coherent illumination (assuming probe modes are pre-scaled),
+    diffraction, and intensity scaling. Used for simulating synthetic data
 
     Inputs
     --------
@@ -605,7 +699,7 @@ def illuminate_and_diffract(
     --------
     output_intensity: torch.Tensor (N, H, W) - Scaled, fftshifted intensity.
     original_input: torch.Tensor (N, H, W) - The original input object tensor.
-    scaled_probe: torch.Tensor (1, P, H, W) - Probe scaled by sqrt(intensity_scale_factor).
+    intensity_scale_factor: torch.Tensor (scalar) - Applied scaling factor.
     '''
     # --- Input Validation ---
     if not (input_obj.ndim == 3 and input_obj.is_complex()):
@@ -635,12 +729,14 @@ def illuminate_and_diffract(
     # Perform FFT using 'ortho' norm for Parseval convenience
     fft_waves_per_mode = torch.fft.fft2(exit_waves_per_mode.to(torch.complex64), norm='ortho') # (N, P, H, W)
 
-    # Incoherent summation: intensity per mode, then sum over modes
-    # I = Sum_p |FFT{O * P_p}|^2
-    diffraction_intensity = torch.sum(torch.abs(fft_waves_per_mode)**2, dim=1) # (N, P, H, W) -> (N, H, W)
+    # Perform coherent sum across modes (Sum_k FFT{O * [α_k P_k]})
+    coherent_fft_sum = torch.sum(fft_waves_per_mode, dim=1) # (N,P,H,W) -> (N, H, W)
+
+    # Calculate the final coherent intensity |Sum_k(FFT{O * [α_k P_k]})|^2
+    diffraction_intensity_coherent = torch.abs(coherent_fft_sum)**2 # (N, H, W) (Real float)
 
     # Total intensity per image in the batch (using Parseval via 'ortho' norm)
-    current_total_intensity = torch.sum(diffraction_intensity, dim=(-2, -1)) # Shape: (N,)
+    current_total_intensity = torch.sum(diffraction_intensity_coherent, dim=(-2, -1)) # Shape: (N,)
 
     # Calculate average intensity across the batch
     mean_intensity_per_image = torch.mean(current_total_intensity)
@@ -655,8 +751,9 @@ def illuminate_and_diffract(
         # Calculate scaling factor for INTENSITY to reach target average count
         intensity_scale_factor = nphotons / mean_intensity_per_image
 
-    # Apply scaling to the incoherent intensity
-    scaled_intensity = diffraction_intensity * intensity_scale_factor.to(diffraction_intensity.dtype)
+    # Apply scaling to the coherent intensity
+    # Ensure scale factor has compatible dtype and dimensions for broadcasting
+    scaled_intensity = diffraction_intensity_coherent * intensity_scale_factor.to(diffraction_intensity_coherent.dtype)
 
     # Applying the square root of this scaling to the probe
     scaled_probe = probe_b * torch.sqrt(intensity_scale_factor)
@@ -671,10 +768,37 @@ def illuminate_and_diffract(
 
 #Photon scaling functions
 
+def derive_intensity_scale_from_amplitudes(x_norm: torch.Tensor, nphotons: float) -> torch.Tensor:
+    """
+    Derive dataset-level physics scale from normalized amplitudes.
+
+    intensity_scale = sqrt(nphotons / mean(avg_channel(sum(x_norm**2))))
+    """
+    if not isinstance(x_norm, torch.Tensor):
+        x_norm = torch.as_tensor(x_norm)
+    if x_norm.ndim < 2:
+        raise ValueError("x_norm must have at least 2 dims")
+    if not isinstance(nphotons, (int, float)) or nphotons <= 0:
+        raise ValueError("nphotons must be positive")
+
+    x_sq = x_norm ** 2
+    if x_sq.ndim == 3:
+        per_sample = torch.sum(x_sq, dim=(1, 2))
+    else:
+        non_batch_dims = list(range(1, x_sq.ndim))
+        channel_dim = min(non_batch_dims, key=lambda d: x_sq.shape[d])
+        x_reordered = x_sq.movedim(channel_dim, -1)
+        spatial_dims = tuple(range(1, x_reordered.ndim - 1))
+        per_channel = torch.sum(x_reordered, dim=spatial_dims)
+        per_sample = torch.mean(per_channel, dim=-1)
+    mean_intensity = torch.mean(per_sample)
+    if mean_intensity.item() <= 0:
+        raise ValueError("mean intensity must be positive")
+    return torch.sqrt(torch.tensor(float(nphotons), dtype=mean_intensity.dtype) / mean_intensity)
+
 def normalize_probe(X):
     """
-    Normalizes probe array so that total intensity sums to 1.
-    Works on 2D (H, W) single-mode and 3D (P, H, W) multi-mode probes.
+    Normalizes numpy array. Currently only works on 1D
     """
     N = X.shape[0]
 
@@ -687,39 +811,87 @@ def normalize_probe(X):
     return X, scaling_factor
 
 
-
-def standardize_probe(probe):
+def normalize_probe_like_tf(
+    probe_guess: np.ndarray,
+    probe_scale: float,
+    probe_mask: Optional[Union[bool, torch.Tensor, np.ndarray]] = False,
+    probe_mask_tensor: Optional[Union[torch.Tensor, np.ndarray]] = None,
+    probe_mask_sigma: float = 1.0,
+    probe_mask_diameter: Optional[float] = None,
+) -> Tuple[np.ndarray, float]:
     """
-    Fits a plane (c0 + c1x + c2y + c3xy) to the probe phase
-    and removes it. Implements phase ramp removal.
+    Normalize probe using Torch probe-mask semantics + mean-abs scaling.
+
+    Default behavior applies a centered smooth disk mask (diameter N/2, sigma=1 px).
     """
-    from scipy.optimize import minimize
+    from ptycho_torch.probe_mask import resolve_probe_mask_np
 
-    ny, nx = probe.shape
-    y, x = np.meshgrid(np.arange(ny) - ny//2, np.arange(nx) - nx//2, indexing='ij')
+    if probe_scale <= 0:
+        raise ValueError(f"probe_scale must be positive, got {probe_scale}")
 
-    amp = np.abs(probe)
-    phase = np.angle(probe)
+    probe_np = np.asarray(probe_guess, dtype=np.complex64)
+    if probe_np.ndim == 2:
+        probe_2d = probe_np
+        probe_for_norm = probe_np[..., None]
+        expand_back = False
+    elif probe_np.ndim == 3 and probe_np.shape[-1] == 1:
+        probe_2d = probe_np[..., 0]
+        probe_for_norm = probe_np
+        expand_back = True
+    elif probe_np.ndim == 3 and probe_np.shape[-2] == probe_np.shape[-1]:
+        # Incoherent multi-mode stack (P, N, N): one joint norm computed from
+        # the mask-tamped stack; every mode is divided by the same scalar so
+        # relative mode powers are preserved. Reduces to the 2D result at P=1.
+        mask = resolve_probe_mask_np(
+            probe_np.shape[-1],
+            probe_mask=probe_mask,
+            probe_mask_tensor=probe_mask_tensor,
+            probe_mask_sigma=probe_mask_sigma,
+            probe_mask_diameter=probe_mask_diameter,
+        )
+        tamped = mask[None, ...] * probe_np
+        norm = float(probe_scale * np.mean(np.abs(tamped)))
+        if norm <= 0:
+            raise ValueError("probe normalization norm must be positive")
+        return (probe_np / norm).astype(np.complex64), 1.0 / norm
+    else:
+        raise ValueError(
+            "probe_guess must have shape (N, N), (N, N, 1), or multi-mode (P, N, N)"
+        )
 
-    # Objective function: minimize difference between probe and
-    # a purely amplitude probe + the estimated phase ramp
-    def objective(c):
-        # c = [c0, c1, c2, c3]
-        estimated_phase = c[0] + c[1]*x + c[2]*y + c[3]*x*y
-        # We minimize the distance in complex space weighted by amplitude
-        error = probe - amp * np.exp(1j * estimated_phase)
-        return np.sum(np.abs(error)**2)
+    mask = resolve_probe_mask_np(
+        probe_2d.shape[0],
+        probe_mask=probe_mask,
+        probe_mask_tensor=probe_mask_tensor,
+        probe_mask_sigma=probe_mask_sigma,
+        probe_mask_diameter=probe_mask_diameter,
+    )
+    tamped = mask[..., None] * probe_for_norm
+    norm = float(probe_scale * np.mean(np.abs(tamped)))
+    if norm <= 0:
+        raise ValueError("probe normalization norm must be positive")
 
-    # Initial guess
-    res = minimize(objective, x0=np.zeros(4))
-    c = res.x
+    normalized = (probe_2d / norm).astype(np.complex64)
+    if expand_back:
+        normalized = normalized[..., None]
 
-    # Remove the fitted phase
-    corrected_phase = phase - (c[0] + c[1]*x + c[2]*y + c[3]*x*y)
+    return normalized, 1.0 / norm
 
-    print(f"Phase correction constants: {c[0], c[1], c[2], c[3]}")
 
-    return amp * np.exp(1j * corrected_phase)
+
+def _get_max_scaling_factor(X: torch.Tensor, normalize: str) -> torch.Tensor:
+    """Scale by the largest spatial sum in a batch or independently per group."""
+    per_image_sums = X.sum(dim=(-2, -1))
+    if normalize == 'Group' and X.ndim == 4:
+        max_sums = per_image_sums.max(dim=1).values
+    else:
+        max_sums = per_image_sums.max()
+    if torch.any(~torch.isfinite(max_sums) | (max_sums <= 0)):
+        raise ValueError(
+            "Max scaling requires selected maximum spatial sums to be "
+            "finite and strictly positive."
+        )
+    return max_sums.reciprocal().view(-1, 1, 1, 1)
 
 
 def get_rms_scaling_factor(X: torch.Tensor,
@@ -766,8 +938,7 @@ def get_rms_scaling_factor(X: torch.Tensor,
             
     elif data_config.data_scaling == 'Max':
         #Alternative max scaling
-        scaling_factor = 1 / torch.max(X.sum(dim=(1,2)))   
-        scaling_factor = scaling_factor.view(-1,1,1,1)
+        scaling_factor = _get_max_scaling_factor(X, data_config.normalize)
 
     return scaling_factor
 
@@ -807,8 +978,7 @@ def get_physics_scaling_factor(X: torch.Tensor,
             
     elif data_config.data_scaling == 'Max':
         #Alternative max scaling
-        scaling_factor = 1 / torch.max(X.sum(dim=(1,2)))   
-        scaling_factor = scaling_factor.view(-1,1,1,1)
+        scaling_factor = _get_max_scaling_factor(X, data_config.normalize)
 
     return scaling_factor
 
@@ -831,7 +1001,4 @@ def poisson_scale(input: torch.Tensor):
 #Other operations
 
 def center_crop(larger_img, target_size):
-    h, w = larger_img.shape[:2]
-    start_h = (h - target_size) // 2
-    start_w = (w - target_size) // 2
-    return larger_img[start_h:start_h+target_size, start_w:start_w+target_size]
+    return center_crop_spatial(larger_img, target_size, target_size)

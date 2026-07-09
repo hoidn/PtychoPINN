@@ -214,7 +214,9 @@ class PtychoDataContainerTorch:
         self.probe = torch.from_numpy(probe_np).to(torch.complex64)
 
         # Coordinates and offsets
-        coords_relative = -grouped_data['coords_relative']
+        # Verbatim pass-through (matches TF ptycho/loader.py per
+        # ptychodus_api_spec.md:172; see docs/findings.md TORCH-REASSEMBLY-SIGN-001).
+        coords_relative = grouped_data['coords_relative']
         self.coords_nominal = torch.from_numpy(
             coords_relative
         ).to(torch.float32)

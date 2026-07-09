@@ -3,7 +3,10 @@ import numpy as np
 from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
 
 
-def test_rawdata_container_flips_coords_relative_sign():
+def test_rawdata_container_passes_through_coords_relative_verbatim():
+    """coords_relative must pass through unchanged (no bridge-layer negation),
+    matching TF ``ptycho/loader.py`` per ptychodus_api_spec.md:172.
+    See docs/findings.md TORCH-REASSEMBLY-SIGN-001 (four-surface reconciliation)."""
     N = 4
     coords_relative = np.array([[[[1.0], [2.0]]]], dtype=np.float32)  # (1, 1, 2, 1)
     grouped_data = {
@@ -17,7 +20,7 @@ def test_rawdata_container_flips_coords_relative_sign():
 
     container = PtychoDataContainerTorch(grouped_data, probe)
 
-    assert np.allclose(container.coords_nominal.cpu().numpy(), -coords_relative)
+    assert np.allclose(container.coords_nominal.cpu().numpy(), coords_relative)
 
 
 def test_rawdata_container_exposes_coords_relative():

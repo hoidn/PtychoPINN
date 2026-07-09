@@ -1,5 +1,5 @@
 #Type helpers
-from typing import Tuple, Optional, Union, Callable, Any, List
+from typing import Tuple, Optional, Union, Callable, Any, List, Dict
 from ptycho_torch.dataloader import PtychoDataset, TensorDictDataLoader
 import torch.nn as nn
 
@@ -14,6 +14,7 @@ from ptycho_torch.dataloader import Collate
 #Other useful libraries
 import time
 import gc
+import warnings
 
 #Configurations
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig
@@ -214,13 +215,13 @@ def reconstruct_image(model: nn.Module,
     #Get center of mass and max difference
     global_coords = ptycho_subset.mmap_ptycho['coords_global'].squeeze()
 
-    #Dynamic center of mass that's channel agnostic
-    if 'com' in ptycho_subset.data_dict:
-        center_of_mass = torch.mean(global_coords,
-                                    dim = tuple(range(global_coords.dim()-1)))
-    else:
-        center_of_mass = ptycho_subset.data_dict['com']
-  
+    #Dynamic center of mass that's channel agnostic. A stored data_dict['com']
+    #is never read: its only production writer (dataloader.py::memory_map_data)
+    #unconditionally overwrites data_dict['com'] per file, so on a multi-file
+    #dataset it holds a stale last-file centroid rather than this subset's own.
+    center_of_mass = torch.mean(global_coords,
+                                dim = tuple(range(global_coords.dim()-1)))
+
     adjusted_offsets_float = global_coords - center_of_mass
     max_abs_offset = torch.ceil(torch.max(torch.abs(adjusted_offsets_float))).int()
 
@@ -878,6 +879,20 @@ class VectorizedWeightedAccumulator:
         )
 
         if not valid_mask.all():
+            # A genuinely out-of-bounds patch (coordinate beyond the canvas
+            # margin `reconstruct_image_barycentric` sized for) must not be
+            # silently dropped -- warn loudly so callers notice a coverage
+            # gap instead of discovering it downstream as an unexplained
+            # metric regression (B4 report Sec 4: 2/59 patches were dropped
+            # silently before this fix).
+            n_dropped = int((~valid_mask).sum().item())
+            warnings.warn(
+                f"VectorizedWeightedAccumulator.accumulate_batch: dropping "
+                f"{n_dropped}/{N} out-of-bounds patch(es) (canvas_shape="
+                f"{self.canvas_shape}, patch_size={patch_size}) -- caller's "
+                f"canvas was not sized to cover these coordinates.",
+                stacklevel=2,
+            )
             valid_idx = torch.where(valid_mask)[0]
             if len(valid_idx) == 0: return
             patches = patches[valid_idx]
@@ -983,6 +998,129 @@ def setup_multi_gpu_model(model: nn.Module,
     return parallel_model, gpu_ids, primary_device
 
 
+def compute_varpro_basis(probe: torch.Tensor,
+                          a_tilde: torch.Tensor,
+                          b_tilde: torch.Tensor,
+                          scale: Optional[torch.Tensor] = None
+                          ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Per-mode VarPro exit-wave FFTs (Psi_a, Psi_b) and mode-summed basis
+    images (X1, X2, X3) consumed by ``VarProScaler``.
+
+    Uses ``norm='ortho'`` (energy-preserving / Parseval-exact), matching the
+    convention used everywhere else this pattern appears -- this file's own
+    ``detect_swap_probe_reference`` and ``ptycho_torch/model.py``'s
+    ``Psi_a``/``Psi_b`` FFTs.
+
+    Args:
+        probe: (B,C,P,H,W) complex probe modes.
+        a_tilde, b_tilde: (B,C,H,W) real/imag decoder textures.
+        scale: optional output scale folded into the exit waves EXACTLY like
+            the training forward (``RectangularScaledDiffraction.forward``,
+            model.py:1395/1403: ``exit_wave = scale * probe * texture``), so
+            the basis is in the same count units the training loss compared
+            against (VARPRO-SOLVE-UNITS-001). A (B,1,1,1) tensor is broadcast
+            over probe modes via ``unsqueeze(2)`` (model.py:1393 convention);
+            ``None`` keeps the historical unscaled basis byte-for-byte. A
+            dataset with ``physics_scaling_constant == 1.0`` (``normalize=
+            'None'``, dataloader.py:736) yields ``output_scale`` ~= 1, i.e.
+            no count-unit correction.
+
+    Returns:
+        (Psi_a, Psi_b, X1, X2, X3): Psi_a/Psi_b are (B,C,P,H,W) complex
+        per-mode exit-wave FFTs; X1, X2, X3 are (B,C,H,W) real, mode-summed
+        VarPro basis images.
+    """
+    # Unsqueeze texture for broadcasting with probe modes: (B,C,H,W) -> (B,C,1,H,W)
+    a_5d = a_tilde.unsqueeze(2)
+    b_5d = b_tilde.unsqueeze(2)
+
+    # Per-mode exit waves: (B,C,P,H,W)
+    exit_a = probe * a_5d
+    exit_b = 1j * probe * b_5d
+    if scale is not None:
+        if torch.is_tensor(scale) and scale.dim() == 4:
+            scale = scale.unsqueeze(2)  # (B,1,1,1) -> (B,1,1,1,1) over modes
+        exit_a = scale * exit_a
+        exit_b = scale * exit_b
+
+    Psi_a = torch.fft.fftshift(torch.fft.fft2(exit_a, norm='ortho'), dim=(-2, -1))
+    Psi_b = torch.fft.fftshift(torch.fft.fft2(exit_b, norm='ortho'), dim=(-2, -1))
+
+    # Mode-summed basis images for VarPro: (B,C,P,H,W) -> (B,C,H,W)
+    X1 = torch.sum(torch.abs(Psi_a)**2, dim=2)
+    X2 = torch.sum(torch.abs(Psi_b)**2, dim=2)
+    X3 = torch.sum(2 * torch.real(Psi_a * torch.conj(Psi_b)), dim=2)
+
+    return Psi_a, Psi_b, X1, X2, X3
+
+
+def apply_varpro_canvas_scaling(
+    texture_canvas: torch.Tensor,
+    scaler: VarProScaler,
+    *,
+    enabled: bool = True,
+    verbose: bool = True,
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Apply VarPro real/imag scaling to a stitched canvas, or return identity."""
+    if not enabled:
+        one = torch.tensor(1.0, device=texture_canvas.device, dtype=torch.float32)
+        return texture_canvas, one, one
+
+    s1, s2 = scaler.solve_lbfgs(verbose=verbose)
+    scaled_canvas = torch.complex(s1 * texture_canvas.real, s2 * texture_canvas.imag)
+    return scaled_canvas, s1, s2
+
+
+def padded_canvas_size(middle_trim: int, max_offset_y: int, max_offset_x: int) -> Tuple[int, int]:
+    """Compact-canvas (H, W) sized with one extra ``middle_trim`` of margin
+    per dimension beyond the tight ``middle_trim + 2*max_offset`` bound.
+
+    The tight bound drops the extreme-offset patch: with ``canvas_size ==
+    middle_trim + 2*max_offset`` exactly, a patch centered at the true max
+    offset fails ``VectorizedWeightedAccumulator``'s bounds check
+    (``xmin_wh + patch_size + 1 < canvas_shape[1]``) by exactly one pixel --
+    2/59 patches were silently dropped on the B4 report's data (Sec 4). The
+    extra margin is symmetric around the canvas center used by
+    ``reconstruct_image_barycentric``'s placement math, so per-patch relative
+    offsets are unchanged; it only enlarges the zero-padded border.
+    """
+    return (
+        middle_trim + 2 * max_offset_y + middle_trim,
+        middle_trim + 2 * max_offset_x + middle_trim,
+    )
+
+
+def build_canvas_anchor(center_of_mass: torch.Tensor, canvas_size: Tuple[int, int]) -> Dict[str, Any]:
+    """Describe the compact canvas's placement (Task B4a anchor disclosure).
+
+    The canvas is anchored at the scan center of mass, not the object
+    center -- consumers that separately load a truth object and crop it
+    around ITS OWN center (rather than this anchor) incur a several-pixel
+    frame offset that is devastating on fine texture (B4 report Sec 1c/4:
+    0.33 corr / 0.28 amp MAE damage on otherwise-perfect input).
+
+    Args:
+        center_of_mass: (2,) tensor, column 0 = x, column 1 = y (dataloader.py
+            convention).
+        canvas_size: (H, W) of the canvas ``center_of_mass`` is anchored in.
+
+    Returns:
+        ``{"scan_com": Tensor(2,) on CPU, "canvas_shape": (H, W),
+        "canvas_origin_offset": (dx, dy)}``, where ``canvas_origin_offset``
+        is the (x, y) pixel offset from the canvas's own center to the scan
+        center of mass.
+    """
+    com_cpu = center_of_mass.detach().cpu()
+    has_xy = com_cpu.numel() >= 2
+    dx = canvas_size[1] // 2 - float(com_cpu[0].item()) if has_xy else None
+    dy = canvas_size[0] // 2 - float(com_cpu[1].item()) if has_xy else None
+    return {
+        "scan_com": com_cpu,
+        "canvas_shape": canvas_size,
+        "canvas_origin_offset": (dx, dy),
+    }
+
+
 def reconstruct_image_barycentric(model: nn.Module,
                      ptycho_dset: PtychoDataset,
                      training_config: TrainingConfig,
@@ -1018,14 +1156,24 @@ def reconstruct_image_barycentric(model: nn.Module,
 
     Returns:
         If return_diagnostics is False:
-            (scaled_canvas, dataset_subset, [inference_time, assembly_time])
+            (scaled_canvas, dataset_subset,
+             [inference_time, assembly_time, canvas_anchor])
         If return_diagnostics is True:
             (scaled_canvas, dataset_subset,
-             [inference_time, assembly_time, Psi_a, Psi_b, s1, s2],
+             [inference_time, assembly_time, Psi_a, Psi_b, s1, s2, canvas_anchor],
              modified_scaled_canvas)
-    """
 
-    gpu_ids = list(range(torch.cuda.device_count()))
+        ``canvas_anchor`` (Task B4a, always the LAST stats-list element --
+        index into it positionally from the front, not via negative
+        indices, since this list may grow again) is a dict describing the
+        compact canvas's placement: ``{"scan_com": Tensor(2,),
+        "canvas_shape": (H, W), "canvas_origin_offset": (dx, dy)}``, where
+        ``canvas_origin_offset`` is the (x, y) pixel offset from the
+        canvas's own center to the scan center of mass -- consumers cropping
+        a separately-loaded truth object must anchor at ``scan_com``, not
+        the object's own center, to avoid the frame-offset error documented
+        in the B4 report (Sec 1c/4).
+    """
 
     # Setup model (single or multi-GPU)
     if gpu_ids is None or len(gpu_ids) <= 1:
@@ -1056,21 +1204,26 @@ def reconstruct_image_barycentric(model: nn.Module,
     # Pre-compute constants
     global_coords = ptycho_subset.mmap_ptycho['coords_global'].squeeze()
 
-    if 'com' in ptycho_subset.data_dict:
-        center_of_mass = torch.mean(global_coords,
-                                  dim=tuple(range(global_coords.dim()-1)))
-    else:
-        center_of_mass = ptycho_subset.data_dict['com']
+    # A stored data_dict['com'] is never read: its only production writer
+    # (dataloader.py::memory_map_data) unconditionally overwrites
+    # data_dict['com'] per file, so on a multi-file dataset it holds a stale
+    # last-file centroid rather than this subset's own.
+    center_of_mass = torch.mean(global_coords,
+                              dim=tuple(range(global_coords.dim()-1)))
 
     center_of_mass = center_of_mass.to(primary_device)
 
-    # Determine canvas size (asymmetric for rectangular scans)
+    # Determine canvas size (asymmetric for rectangular scans). See
+    # padded_canvas_size's docstring for why one extra middle_trim of margin
+    # is added per dimension (report Sec 4 recommendation: prevents the
+    # accumulator's bounds check from silently dropping the extreme-offset
+    # patch). The extra margin is symmetric around the existing (unchanged)
+    # canvas center, so per-patch relative offsets are untouched.
     adjusted_coords = global_coords - center_of_mass.cpu()
     print(f"global coords shape: {global_coords.shape}")
     max_offset_x = torch.ceil(torch.max(torch.abs(adjusted_coords[..., 0]))).int().item()
     max_offset_y = torch.ceil(torch.max(torch.abs(adjusted_coords[..., 1]))).int().item()
-    canvas_size = (inference_config.middle_trim + 2 * max_offset_y,
-                   inference_config.middle_trim + 2 * max_offset_x)
+    canvas_size = padded_canvas_size(inference_config.middle_trim, max_offset_y, max_offset_x)
 
     if verbose:
         print(f"Canvas size: {canvas_size}, Max offsets: {max_offset_x, max_offset_y}")
@@ -1100,10 +1253,27 @@ def reconstruct_image_barycentric(model: nn.Module,
 
     #Allow for uniform object weighting
     patch_weighting = getattr(inference_config, 'patch_weighting', 'probe')
+    if patch_weighting not in {'uniform', 'probe'}:
+        raise ValueError("patch_weighting must be 'uniform' or 'probe'")
     uniform_weighting = (patch_weighting == 'uniform')
+    varpro_scaling = getattr(inference_config, 'varpro_scaling', True)
+
+    # VARPRO-SOLVE-UNITS-001 amplitude-mode guard: the output_scale fold below
+    # is the rectangular_scaled training convention only (model.py:2282-2283).
+    # amplitude-mode models (physics_forward_mode default 'amplitude',
+    # config_params.py:158) trained against the historical unscaled basis, so
+    # only fold output_scale when the model was actually trained rectangular_scaled.
+    physics_forward_mode = getattr(model_config, 'physics_forward_mode', 'amplitude') \
+        if model_config is not None else 'amplitude'
+    rectangular_scaled_mode = (physics_forward_mode == 'rectangular_scaled')
 
     # Save a reference probe for probe-based swap detection
     saved_probe_single = None
+
+    # Guard the verbose "Scalars solved" print below against an unbound local
+    # if infer_loader ever yields zero batches (output_scale is otherwise only
+    # assigned inside the loop body).
+    output_scale = None
 
     #Actual loop
     with torch.no_grad():
@@ -1139,7 +1309,30 @@ def reconstruct_image_barycentric(model: nn.Module,
             a_tilde = texture_raw.real
             b_tilde = texture_raw.imag
 
-            # Center crop
+            # --- VarPro Accumulation (incoherent multi-mode) ---
+            # VARPRO-SOLVE-UNITS-001: accumulate in the training count-unit
+            # convention, on the FULL detector frame BEFORE any center-crop:
+            # I_raw vs sum_p |F{output_scale * probe * texture}|^2, where
+            # output_scale = sqrt(1/(probe_scaling^2 * physics_scale + 1e-9))
+            # is exactly compute_loss's rectangular_scaled folding
+            # (model.py:2283 -> model.py:1395). Pre-fix the solve compared
+            # cropped raw counts against an UNSCALED, crop-band-mismatched
+            # basis, absorbing output_scale x crop distortion into s1/s2
+            # (5.49/22.49 measured on an already-correct reconstruction).
+            assembly_start = time.time()
+            if rectangular_scaled_mode:
+                physics_scale = batch_data['physics_scaling_constant'].to(primary_device, non_blocking=True)
+                probe_scaling = batch[2].to(primary_device, non_blocking=True)
+                output_scale = torch.sqrt(1.0 / (probe_scaling ** 2 * physics_scale + 1e-9))
+                Psi_a, Psi_b, X1, X2, X3 = compute_varpro_basis(probe, a_tilde, b_tilde,
+                                                                scale=output_scale)
+            else:  # amplitude: preserve the historical unscaled basis (self-consistent)
+                output_scale = None
+                Psi_a, Psi_b, X1, X2, X3 = compute_varpro_basis(probe, a_tilde, b_tilde)
+
+            scaler.accumulate_batch_from_basis(I_raw, X1, X2, X3)
+
+            # Center crop (stitching only -- VarPro above uses the full frame)
             N = data_config.N
             middle = inference_config.middle_trim
             center_start = N // 2 - middle // 2
@@ -1151,23 +1344,6 @@ def reconstruct_image_barycentric(model: nn.Module,
 
             # Also crop the probe to match (B, C, P, H, W)
             probe = probe[:, :, :, center_start:center_end, center_start:center_end]
-
-            # --- VarPro Accumulation (incoherent multi-mode) ---
-            assembly_start = time.time()
-            # Unsqueeze texture for broadcasting with probe modes: (B,C,H,W) -> (B,C,1,H,W)
-            a_5d = a_tilde.unsqueeze(2)
-            b_5d = b_tilde.unsqueeze(2)
-
-            # Per-mode exit waves and FFTs: (B,C,P,H,W)
-            Psi_a = torch.fft.fftshift(torch.fft.fft2(probe * a_5d), dim=(-2,-1))
-            Psi_b = torch.fft.fftshift(torch.fft.fft2(1j * probe * b_5d), dim=(-2,-1))
-
-            # Mode-summed basis images for VarPro: (B,C,P,H,W) -> (B,C,H,W)
-            X1 = torch.sum(torch.abs(Psi_a)**2, dim=2)
-            X2 = torch.sum(torch.abs(Psi_b)**2, dim=2)
-            X3 = torch.sum(2 * torch.real(Psi_a * torch.conj(Psi_b)), dim=2)
-
-            scaler.accumulate_batch_from_basis(I_raw, X1, X2, X3)
 
             # --- Weighted Stitching ---
             B,C,H,W= a_tilde.shape
@@ -1235,15 +1411,18 @@ def reconstruct_image_barycentric(model: nn.Module,
 
     # 4. Solve for constants (using corrected statistics if swapped)
     scaler_solve_time_start = time.time()
-    s1, s2 = scaler.solve_lbfgs()
+    scaled_canvas, s1, s2 = apply_varpro_canvas_scaling(
+        texture_canvas,
+        scaler,
+        enabled=varpro_scaling,
+        verbose=verbose,
+    )
     scaler_solve_time_end = time.time() - scaler_solve_time_start
 
-    print(f"Scalars solved: S1 = {s1}, S2 = {s2}")
+    if verbose:
+        print(f"Scalars solved: S1 = {s1}, S2 = {s2} (effective output_scale = {output_scale})")
     if channels_swapped:
         print("(Solved after channel-swap correction)")
-
-    # 5. Apply scaling
-    scaled_canvas = (s1* texture_canvas.real) + 1j * (s2 * texture_canvas.imag)
 
     if verbose:
         avg_inference_time = total_inference_time / len(infer_loader)
@@ -1261,14 +1440,23 @@ def reconstruct_image_barycentric(model: nn.Module,
     torch.cuda.empty_cache()
     gc.collect()
 
-    if return_diagnostics:
-        modified_s1 = torch.sqrt((s1**2 + s2**2)/2 * 0.52)
-        modified_s2 = torch.sqrt((s1**2 + s2**2)/2 * 0.48)
-        modified_scaled_canvas = (modified_s1 * texture_canvas.real) + 1j * (modified_s2 * texture_canvas.imag)
-        modified_scaled_canvas = texture_canvas.real + 1j * texture_canvas.imag
-        return scaled_canvas, ptycho_subset, [total_inference_time, total_assembly_time, Psi_a, Psi_b, s1, s2], modified_scaled_canvas
+    # Anchor disclosure (Task B4a, build_canvas_anchor's docstring). Recorded
+    # here as an extra stats-list element (backward-compatible: existing
+    # positional/front-indexed consumers of the stats list are unaffected;
+    # do not read via negative indices).
+    canvas_anchor = build_canvas_anchor(center_of_mass, canvas_size)
 
-    return scaled_canvas, ptycho_subset, [total_inference_time, total_assembly_time]
+    if return_diagnostics:
+        modified_scaled_canvas = texture_canvas.real + 1j * texture_canvas.imag
+        # Psi_a/Psi_b are full-frame, output_scale-folded post VARPRO-SOLVE-UNITS-001
+        # (were cropped/unscaled); only s1/s2 (indices 4/5) are contract-stable.
+        return (
+            scaled_canvas, ptycho_subset,
+            [total_inference_time, total_assembly_time, Psi_a, Psi_b, s1, s2, canvas_anchor],
+            modified_scaled_canvas,
+        )
+
+    return scaled_canvas, ptycho_subset, [total_inference_time, total_assembly_time, canvas_anchor]
 
 
 reconstruct_image_barycentric_weighted = reconstruct_image_barycentric

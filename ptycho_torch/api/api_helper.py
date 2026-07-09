@@ -6,7 +6,6 @@ from ptycho_torch.config_params import TrainingConfig, DatagenConfig, DataConfig
 from ptycho_torch.train_utils import get_training_strategy
 import mlflow
 import torch
-import json
 import os
 
 def config_from_json(json_path):
@@ -140,13 +139,23 @@ def setup_lightning_trainer(ptycho_model: PtychoModel,
         strict = True
     )
 
+    #Calculate total epochs
+    if training_config.stage_2_epochs > 0 or training_config.stage_3_epochs > 0:
+        total_epochs = (
+            training_config.stage_1_epochs +
+            training_config.stage_2_epochs + 
+            training_config.stage_3_epochs
+        )
+    else:
+        total_epochs = training_config.epochs
+    
     #Instantiate lightning trainer
     trainer = L.Trainer(
-        max_epochs = training_config.epochs,
+        max_epochs = total_epochs,
         devices = training_config.n_devices,
         accelerator = 'gpu',
         callbacks = [checkpoint_callback, early_stop_callback],
-        strategy = get_training_strategy(training_config.strategy, training_config.n_devices),
+        strategy = get_training_strategy(training_config.n_devices),
         check_val_every_n_epoch=1,
         enable_checkpointing=True,
         enable_progress_bar=True

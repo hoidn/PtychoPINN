@@ -20,10 +20,13 @@ def test_reassembly_offset_sign_matches_tf():
     offsets[0, 0, 0, 0] = 2.0  # x
     offsets[0, 0, 0, 1] = 1.0  # y
 
-    # TF reference: direct translation with TF's XLA warp (dx, dy order)
+    # TF reference: _reassemble_patches_position_real negates offsets before
+    # translating (ptycho/tf_helper.py:909); mirror that here so this compares
+    # against the actual TF reassembly convention, not the bare +offset primitive.
+    # See docs/findings.md TORCH-REASSEMBLY-SIGN-001.
     tf_out = translate_xla(
         tf.convert_to_tensor(patch_tf),
-        tf.convert_to_tensor(offsets.reshape(1, 2)),
+        tf.convert_to_tensor((-offsets).reshape(1, 2)),
         interpolation="bilinear",
         use_jit=False,
     ).numpy()
