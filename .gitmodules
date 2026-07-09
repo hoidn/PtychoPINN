@@ -13,3 +13,7 @@
 [submodule ".claude"]
 	path = .claude
 	url = git@github.com:hoidn/claude.git
+	ignore = dirty
+[submodule "prompts"]
+	path = prompts
+	url = git@github.com:hoidn/prompts.git
