@@ -1,0 +1,52 @@
+diff --git a/tests/torch/test_generator_registry.py b/tests/torch/test_generator_registry.py
+index acdc1cc..d282364 100644
+--- a/tests/torch/test_generator_registry.py
++++ b/tests/torch/test_generator_registry.py
+@@ -20,32 +20,6 @@ def test_resolve_generator_fno_vanilla():
+     cfg = TrainingConfig(model=ModelConfig(architecture='fno_vanilla'))
+     gen = resolve_generator(cfg)
+     assert gen.name == 'fno_vanilla'
+-
+-
+-def test_resolve_generator_hybrid_resnet():
+-    cfg = TrainingConfig(model=ModelConfig(architecture='hybrid_resnet'))
+-    gen = resolve_generator(cfg)
+-    assert gen.name == 'hybrid_resnet'
+-
+-
+-def test_resolve_generator_hybrid_resnet_ffno_bottleneck():
+-    cfg = TrainingConfig(model=ModelConfig(architecture='hybrid_resnet_ffno_bottleneck'))
+-    gen = resolve_generator(cfg)
+-    assert gen.name == 'hybrid_resnet_ffno_bottleneck'
+-
+-
+-def test_resolve_generator_hybrid_resnet_ffno_ptychoblock_encoder():
+-    cfg = TrainingConfig(model=ModelConfig(architecture='hybrid_resnet_ffno_ptychoblock_encoder'))
+-    gen = resolve_generator(cfg)
+-    assert gen.name == 'hybrid_resnet_ffno_ptychoblock_encoder'
+-
+-
+-def test_resolve_generator_hybrid_resnet_ptychoblock_ffno_encoder():
+-    cfg = TrainingConfig(model=ModelConfig(architecture='hybrid_resnet_ptychoblock_ffno_encoder'))
+-    gen = resolve_generator(cfg)
+-    assert gen.name == 'hybrid_resnet_ptychoblock_ffno_encoder'
+-
+-
+ def test_resolve_generator_ffno():
+     cfg = TrainingConfig(model=ModelConfig(architecture='ffno'))
+     gen = resolve_generator(cfg)
+@@ -56,14 +30,6 @@ def test_resolve_generator_neuralop_uno():
+     cfg = TrainingConfig(model=ModelConfig(architecture='neuralop_uno'))
+     gen = resolve_generator(cfg)
+     assert gen.name == 'neuralop_uno'
+-
+-
+-def test_resolve_generator_spectral_resnet_bottleneck_linear_decoder():
+-    cfg = TrainingConfig(model=ModelConfig(architecture='spectral_resnet_bottleneck_linear_decoder'))
+-    gen = resolve_generator(cfg)
+-    assert gen.name == 'spectral_resnet_bottleneck_linear_decoder'
+-
+-
+ def test_ffno_generator_builds_lightning_model():
+     from ptycho_torch.config_params import (
+         DataConfig,

@@ -55,6 +55,128 @@ Master orchestration script that automates the complete generalization study wor
 ### `run_generalization_study.sh` (Legacy)
 Legacy script for manual generalization studies. Use `run_complete_generalization_study.sh` for new studies.
 
+### `grid_lines_workflow.py`
+End-to-end grid-based ptychography workflow reproducing the deprecated `ptycho_lines.ipynb` pipeline.
+
+**Purpose:** Orchestrates the complete pipeline: probe extraction → grid simulation → dataset persistence → PINN + baseline training → inference → stitching → SSIM metrics → comparison visualization.
+
+**Usage:**
+```bash
+# Basic run (N=64, gridsize=1)
+python scripts/studies/grid_lines_workflow.py --N 64 --gridsize 1 --output-dir ./my_run
+
+# Full options
+python scripts/studies/grid_lines_workflow.py \
+    --N 64 --gridsize 1 \
+    --nepochs 20 \
+    --nimgs-train 2 --nimgs-test 2 \
+    --output-dir ./grid_study
+```
+
+**Key Options:**
+- `--N`: Probe/patch size (default: 64)
+- `--gridsize`: Grid dimension for grouping (default: 1)
+- `--nepochs`: Training epochs (default: 50)
+- `--nimgs-train`: Number of training object images (default: 2)
+- `--nimgs-test`: Number of test object images (default: 2)
+- `--output-dir`: Output directory for all artifacts
+- `--probe-mask-diameter`: Optional centered disk diameter (pixels) to mask the probe
+- `--probe-source {custom,ideal_disk}`: Selects the probe source used in simulation
+- `--probe-scale-mode {pad_preserve,pad_extrapolate,interpolate}`: Probe scaling strategy when N changes (default: `pad_preserve`)
+
+**Memoization:**
+- Grid studies default to dataset-only memoization keys (`PTYCHO_MEMOIZE_KEY_MODE=dataset`).
+- Disable memoization for sweeps with `PTYCHO_DISABLE_MEMOIZE=1`.
+
+**Output Structure:**
+```
+output_dir/
+├── datasets/N{N}/gs{gridsize}/   # Persisted train/test NPZ files
+├── models/                        # Saved PINN and baseline models
+├── recons/                        # Recon artifacts by model label
+│   ├── gt/recon.npz
+│   ├── pinn/recon.npz
+│   ├── baseline/recon.npz
+│   ├── pinn_fno/recon.npz
+│   └── pinn_hybrid/recon.npz
+├── visuals/compare_amp_phase.png  # Dynamic grid (GT + available models)
+├── visuals/amp_phase_<label>.png  # Per-model amp/phase
+└── metrics.json                   # SSIM, MAE, PSNR, FRC metrics
+```
+
+### `grid_lines_compare_wrapper.py`
+Orchestrates TensorFlow grid-lines workflow and Torch FNO/Hybrid runners, then merges metrics.
+
+PtychoViT backend workflow reference: `docs/workflows/ptychovit.md`.
+Fresh checkpoint-restored initial baseline helper scripts:
+- `scripts/studies/run_fresh_ptychovit_initial_metrics.py`
+- `scripts/studies/verify_fresh_ptychovit_initial_metrics.py`
+
+**Key Torch Options:**
+- Default architectures are `cnn,fno,hybrid,stable_hybrid,fno_vanilla`.
+- `baseline` is opt-in: include it explicitly via `--architectures ...baseline` (or `--models baseline,...`).
+- Dataset source modes:
+  - `synthetic_lines` (default): TF + Torch + PtychoViT routes are available.
+  - `external_raw_npz` (phase 1): Torch model IDs only (`pinn_fno`, `pinn_hybrid`, `pinn_stable_hybrid`, `pinn_fno_vanilla`).
+- `--seed`: Random seed for Torch runs (random if omitted).
+- `--torch-output-mode {real_imag,amp_phase_logits,amp_phase}`: Control how FNO/Hybrid outputs are interpreted.
+  - `real_imag` (default): Treat output channels as real/imag.
+  - `amp_phase_logits`: Interpret channels as amp/phase logits and apply sigmoid/tanh.
+  - `amp_phase`: Use dual-head amp/phase outputs from the generator.
+- `--probe-source {custom,ideal_disk}`: Selects the probe source when generating grid-lines datasets.
+- `--probe-scale-mode {pad_preserve,pad_extrapolate,interpolate}`: Probe scaling strategy when N changes (default: `pad_preserve`).
+- `--probe-mask-diameter`: Optional centered disk diameter (pixels) to mask the probe during dataset generation.
+- `--dataset-source {synthetic_lines,external_raw_npz}`: Select dataset preparation path.
+- `--train-data` / `--test-data`: Required when `--dataset-source external_raw_npz`.
+
+**External raw NPZ mode example (Torch-only):**
+```bash
+python scripts/studies/grid_lines_compare_wrapper.py \
+  --N 64 --gridsize 1 \
+  --output-dir outputs/grid_lines_external_raw_fly64_smoke \
+  --dataset-source external_raw_npz \
+  --train-data datasets/fly64/fly001_64_train_converted.npz \
+  --test-data datasets/fly64/fly001_64_train_converted.npz \
+  --models pinn_fno \
+  --nepochs 3 --batch-size 16 --seed 3
+```
+
+### `grid_lines_torch_runner.py`
+Runs Torch-only training/inference for a single FNO/Hybrid architecture using cached NPZs.
+
+**Usage:**
+```bash
+python scripts/studies/grid_lines_torch_runner.py \
+  --train-npz outputs/.../train.npz \
+  --test-npz outputs/.../test.npz \
+  --output-dir outputs/my_torch_run \
+  --architecture hybrid \
+  --epochs 20 \
+  --output-mode amp_phase_logits
+```
+
+**Key Options:**
+- `--seed`: Random seed (random if omitted).
+- `--output-mode {real_imag,amp_phase_logits,amp_phase}`: Output interpretation mode.
+- `--grad-clip`: Gradient clip max norm (<=0 disables clipping).
+- `--probe-source {custom,ideal_disk}`: Optional expected probe source (warns if metadata differs).
+
+### `runbooks/run_nersc_scan807_cameraman_study.py` and `runbooks/run_nersc_scan807_cameraman_study_n256.py`
+NERSC orchestration runbooks for paired-HDF5 scan807+cameraman studies that combine:
+- checkpoint-restored `pinn_ptychovit` inference,
+- cameraman half-train/full-test Torch training,
+- cross-dataset hybrid checkpoint-reuse inference,
+- per-dataset metrics/visual aggregation.
+
+`N=128` runbook (`run_nersc_scan807_cameraman_study.py`):
+- default `--target-n 128`, `--epochs 40`
+- downsample policy configurable by `--downsample-policy`
+
+`N=256` companion runbook (`run_nersc_scan807_cameraman_study_n256.py`):
+- fixed `target_n=256` with no cross-N conversion
+- expose `--epochs` only (use smoke/full parity: same command, `--epochs 5` vs `--epochs 40`)
+- external hybrid reassembly remains pinned to `shift_sum`
+
 ### `aggregate_and_plot_results.py`
 Analysis script that processes results from multiple training runs and generates visualization plots.
 
@@ -64,6 +186,24 @@ Analysis script that processes results from multiple training runs and generates
 ```bash
 python scripts/studies/aggregate_and_plot_results.py <study_output_dir> [--output-plot results.png]
 ```
+
+### `fno_hyperparam_study.py`
+Hyperparameter sweep for FNO/Hybrid configurations using the cached grid-lines dataset.
+
+**Purpose:** Iterates over a fixed grid of FNO/Hybrid settings (input transform, modes, width) and reports phase quality vs. parameter count/inference time.
+
+**Usage:**
+```bash
+# Light sweep (quick validation)
+python scripts/studies/fno_hyperparam_study.py --output-dir outputs/fno_hyperparam_study --epochs 1 --light
+
+# Full sweep
+python scripts/studies/fno_hyperparam_study.py --output-dir outputs/fno_hyperparam_study --epochs 20
+```
+
+**Outputs:**
+- `outputs/fno_hyperparam_study/study_results.csv`
+- `outputs/fno_hyperparam_study/pareto_plot.png`
 
 ## Workflow Modes
 
@@ -237,7 +377,7 @@ The study tracks comprehensive metrics across training set sizes with statistica
 ### For Experimental Datasets:
 1. **Preprocessing Required**: Use `transpose_rename_convert_tool.py` for raw experimental data
 2. **Shuffling Critical**: For gridsize=1 studies, shuffle datasets with `shuffle_dataset_tool.py`
-3. **Format Compliance**: Must follow [Data Contracts](../../docs/data_contracts.md) specification
+3. **Format Compliance**: Must follow [Data Contracts](../../specs/data_contracts.md) specification
 4. **Sufficient Size**: Ensure dataset has enough images for largest training size requested
 
 ### Recommended Experimental Datasets:
@@ -273,5 +413,5 @@ The study tracks comprehensive metrics across training set sizes with statistica
 ## Requirements
 
 - All scripts in this directory require the main PtychoPINN environment to be activated
-- Input datasets must conform to the [Data Contracts](../../docs/data_contracts.md) specification
+- Input datasets must conform to the [Data Contracts](../../specs/data_contracts.md) specification
 - Sufficient disk space for multiple model checkpoints and intermediate results

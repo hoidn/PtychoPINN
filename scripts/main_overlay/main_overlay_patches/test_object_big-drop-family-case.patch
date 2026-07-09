@@ -1,0 +1,47 @@
+diff --git a/tests/torch/test_object_big_generator_contract.py b/tests/torch/test_object_big_generator_contract.py
+index c7c006d..ef3d85c 100644
+--- a/tests/torch/test_object_big_generator_contract.py
++++ b/tests/torch/test_object_big_generator_contract.py
+@@ -405,42 +405,3 @@ def test_oracle_generator_realimag_reproduces_reference_diffraction():
+         "shifted oracle loss was not strictly larger than the aligned oracle loss "
+         f"({loss_shifted:.3e} vs {loss_true:.3e})"
+     )
+-
+-
+-def test_hybrid_resnet_c4_real_imag_shape_and_grad_contract():
+-    """hybrid_resnet already satisfies the C=4 real_imag generator contract.
+-
+-    Pins docs/plans/2026-07-06-generator-gridsize2-support.md Task 4 Step 1: built
+-    via ``_build_generator_module_from_config`` (the checkpoint-rebuild path) with
+-    C=4, forward ``(2, 4, 64, 64)`` -> ``(2, 64, 64, 4, 2)``, and backprop through
+-    the loss produces finite gradients on both the first (lifter) and last
+-    (output_proj) layers. This test PASSES UNCHANGED against current code: the
+-    module already threads C through ``in_channels * C`` (lifter construction) and
+-    ``out_channels * C`` (output projection), so Task 4 Step 2 (channel-arithmetic
+-    fixes) is not needed.
+-    """
+-    from ptycho_torch.model import _build_generator_module_from_config
+-
+-    data_cfg = DataConfig(N=64, C=4, grid_size=(2, 2))
+-    model_cfg = ModelConfig(architecture="hybrid_resnet")
+-    module = _build_generator_module_from_config(
+-        model_cfg, data_cfg, generator_output="real_imag"
+-    )
+-
+-    x = torch.randn(2, 4, 64, 64)
+-    out = module(x)
+-    assert out.shape == (2, 64, 64, 4, 2), (
+-        f"hybrid_resnet C=4 real_imag output shape {tuple(out.shape)} != (2, 64, 64, 4, 2)"
+-    )
+-
+-    loss = out.pow(2).mean()
+-    loss.backward()
+-
+-    first_grad = module.lifter.conv1.weight.grad
+-    last_grad = module.output_proj.weight.grad
+-    assert first_grad is not None and torch.isfinite(first_grad).all(), (
+-        "hybrid_resnet lifter.conv1 received no finite gradient"
+-    )
+-    assert last_grad is not None and torch.isfinite(last_grad).all(), (
+-        "hybrid_resnet output_proj received no finite gradient"
+-    )

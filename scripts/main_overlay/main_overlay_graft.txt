@@ -1,0 +1,29 @@
+# main_overlay_graft.txt
+#
+# Paths grafted from the ``--graft-from`` tree-ish (main's own lineage) into
+# the output tree, by the deterministic main-overlay transform
+# (scripts/main_overlay/build_main_overlay.py). The squash tree is otherwise
+# pure T(fno-stable); main's CI gate infrastructure (the pytest-cpu required
+# check's own workflow + its config) exists only on main's lineage and must
+# be grafted in, or the new tip deletes its own CI gate.
+#
+# Grammar: one repo-relative path per line. Each path is read as a blob from
+# the graft source and written into the output tree (overwriting any
+# same-named file already present from the fno-stable side); missing from the
+# graft source -> fail loudly (drift detection). No-op when ``--graft-from``
+# is omitted. Grafting is binary-safe (git cat-file's raw bytes, no text
+# decoding) so npz/other binary blobs are not corrupted.
+
+ci/collect_ignores.txt
+ci/known_failures.txt
+ci/main-ruleset.json
+ci/run_ci_tests.sh
+.github/workflows/tests.yml
+requirements-ci.txt
+docs/ci.md
+
+# Test fixture dataset: tracked on main (35MB), untracked/absent on
+# fno-stable. Needed by tests/torch/test_integration_workflow_torch.py's
+# session-scoped data_file fixture (test_bundle_loader_returns_modules,
+# test_run_pytorch_train_save_load_infer).
+datasets/Run1084_recon3_postPC_shrunk_3.npz

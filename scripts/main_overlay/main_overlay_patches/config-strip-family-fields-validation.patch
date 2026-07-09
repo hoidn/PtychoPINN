@@ -1,0 +1,123 @@
+diff --git a/ptycho/config/config.py b/ptycho/config/config.py
+index 02a3cbb..279409f 100644
+--- a/ptycho/config/config.py
++++ b/ptycho/config/config.py
+@@ -98,7 +98,7 @@ class ModelConfig:
+     n_filters_scale: int = 2
+     model_type: Literal['pinn', 'supervised'] = 'pinn'
+     architecture: Literal[
+-        'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno', 'hybrid_resnet', 'hybrid_resnet_ffno_ptychoblock_encoder', 'hybrid_resnet_ptychoblock_ffno_encoder', 'spectral_resnet_bottleneck_net', 'spectral_resnet_bottleneck_linear_decoder', 'hybrid_resnet_ffno_bottleneck', 'hybrid_resnet_convnext_bottleneck'
++        'cnn', 'ffno', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'neuralop_uno'
+     ] = 'cnn'
+     fno_modes: int = 12
+     fno_width: int = 32
+@@ -284,7 +284,7 @@ class PyTorchExecutionConfig:
+     recon_log_stitch: bool = False  # Log stitched full-resolution reconstructions (opt-in)
+     recon_log_max_stitch_samples: Optional[int] = None  # Cap stitched samples (None = no limit)
+ 
+-    # Torch-only hybrid_resnet structural-search knobs (not bridged to canonical ModelConfig)
++    # Torch-only encoder/bottleneck structural-search knobs (not bridged to canonical ModelConfig)
+     hybrid_skip_connections: bool = False
+     hybrid_downsample_steps: int = 2
+     hybrid_downsample_op: Literal['stride_conv', 'avgpool_conv', 'blurpool_conv'] = 'stride_conv'
+@@ -293,10 +293,7 @@ class PyTorchExecutionConfig:
+     # Legacy absolute-width aliases retained for backwards compatibility.
+     hybrid_encoder_conv_hidden_channels: Optional[int] = None
+     hybrid_encoder_spectral_hidden_channels: Optional[int] = None
+-    hybrid_resnet_blocks: int = 6
+     hybrid_skip_style: Literal['add', 'concat', 'gated_add'] = 'add'
+-    hybrid_resnet_bottleneck_layerscale_mode: Literal['learned', 'fixed'] = 'learned'
+-    hybrid_resnet_bottleneck_layerscale_value: Optional[float] = None
+     # Encoder-fusion controls (per-block scalars; Torch-only study plumbing).
+     hybrid_encoder_fusion_mode: Literal[
+         'baseline',
+@@ -484,10 +481,6 @@ class PyTorchExecutionConfig:
+                 f"got {self.hybrid_encoder_spectral_hidden_channels}."
+             )
+ 
+-        if self.hybrid_resnet_blocks <= 0:
+-            raise ValueError(
+-                f"hybrid_resnet_blocks must be positive, got {self.hybrid_resnet_blocks}."
+-            )
+         if self.spectral_bottleneck_blocks <= 0:
+             raise ValueError(
+                 f"spectral_bottleneck_blocks must be positive, got {self.spectral_bottleneck_blocks}."
+@@ -514,34 +507,6 @@ class PyTorchExecutionConfig:
+                 f"Invalid hybrid_skip_style '{self.hybrid_skip_style}'. "
+                 f"Expected one of {sorted(valid_skip_styles)}."
+             )
+-        valid_layerscale_modes = {'learned', 'fixed'}
+-        if self.hybrid_resnet_bottleneck_layerscale_mode not in valid_layerscale_modes:
+-            raise ValueError(
+-                "Invalid hybrid_resnet_bottleneck_layerscale_mode "
+-                f"'{self.hybrid_resnet_bottleneck_layerscale_mode}'. "
+-                f"Expected one of {sorted(valid_layerscale_modes)}."
+-            )
+-        if self.hybrid_resnet_bottleneck_layerscale_mode == 'learned':
+-            if self.hybrid_resnet_bottleneck_layerscale_value is not None:
+-                raise ValueError(
+-                    "hybrid_resnet_bottleneck_layerscale_value must be omitted when "
+-                    "hybrid_resnet_bottleneck_layerscale_mode='learned'."
+-                )
+-        else:
+-            if self.hybrid_resnet_bottleneck_layerscale_value is None:
+-                raise ValueError(
+-                    "hybrid_resnet_bottleneck_layerscale_value must be provided when "
+-                    "hybrid_resnet_bottleneck_layerscale_mode='fixed'."
+-                )
+-            if (
+-                not math.isfinite(float(self.hybrid_resnet_bottleneck_layerscale_value))
+-                or float(self.hybrid_resnet_bottleneck_layerscale_value) <= 0.0
+-            ):
+-                raise ValueError(
+-                    "hybrid_resnet_bottleneck_layerscale_value must be finite and > 0 "
+-                    f"(got {self.hybrid_resnet_bottleneck_layerscale_value})."
+-                )
+-
+         valid_encoder_fusion_modes = {
+             'baseline',
+             'layerscale',
+@@ -606,43 +571,12 @@ def validate_model_config(config: ModelConfig) -> None:
+         'stable_hybrid',
+         'fno_vanilla',
+         'neuralop_uno',
+-        'hybrid_resnet',
+-        'hybrid_resnet_ffno_ptychoblock_encoder',
+-        'hybrid_resnet_ptychoblock_ffno_encoder',
+-        'spectral_resnet_bottleneck_net',
+-        'spectral_resnet_bottleneck_linear_decoder',
+-        'hybrid_resnet_ffno_bottleneck',
+-        'hybrid_resnet_convnext_bottleneck',
+     }
+     if config.architecture not in valid_arches:
+         raise ValueError(
+             f"Invalid architecture '{config.architecture}'. "
+             f"Expected one of {sorted(valid_arches)}."
+         )
+-    if config.architecture in {
+-        "hybrid_resnet",
+-        "hybrid_resnet_ffno_ptychoblock_encoder",
+-        "hybrid_resnet_ptychoblock_ffno_encoder",
+-        "spectral_resnet_bottleneck_net",
+-        "spectral_resnet_bottleneck_linear_decoder",
+-        "hybrid_resnet_ffno_bottleneck",
+-        "hybrid_resnet_convnext_bottleneck",
+-    }:
+-        if config.fno_blocks < 3:
+-            raise ValueError(
+-                f"{config.architecture} requires fno_blocks >= 3 to downsample to N/4 "
+-                f"(got fno_blocks={config.fno_blocks})."
+-            )
+-        if config.resnet_width is not None:
+-            if config.resnet_width <= 0:
+-                raise ValueError(
+-                    f"resnet_width must be positive when set, got {config.resnet_width}."
+-                )
+-            if config.resnet_width % 4 != 0:
+-                raise ValueError(
+-                    "resnet_width must be divisible by 4 so the CycleGAN upsamplers "
+-                    f"produce integer channel sizes (got {config.resnet_width})."
+-                )
+     if config.gridsize <= 0:
+         raise ValueError(f"gridsize must be positive, got {config.gridsize}")
+     if config.n_filters_scale <= 0:
