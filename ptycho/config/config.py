@@ -65,7 +65,8 @@ State Dependencies:
 
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Dict, Any, List, Optional, Literal
+from typing import Dict, Any, List, Optional, Literal, Union
+import math
 import yaml
 import warnings
 
@@ -97,12 +98,13 @@ class ModelConfig:
     n_filters_scale: int = 2
     model_type: Literal['pinn', 'supervised'] = 'pinn'
     architecture: Literal[
-        'cnn', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet'
+        'cnn', 'ffno', 'fno', 'fno_vanilla', 'neuralop_uno'
     ] = 'cnn'
     fno_modes: int = 12
     fno_width: int = 32
     fno_blocks: int = 4
     fno_cnn_blocks: int = 2
+    learned_input_channels: int = 1
     max_hidden_channels: Optional[int] = None
     resnet_width: Optional[int] = None
     fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
@@ -111,6 +113,8 @@ class ModelConfig:
     object_big: bool = True
     probe_big: bool = True  # Changed default
     probe_mask: bool = False  # Changed default
+    probe_mask_sigma: float = 1.0
+    probe_mask_diameter: Optional[float] = None
     pad_object: bool = True
     probe_scale: float = 4.
     gaussian_smoothing_sigma: float = 0.0
@@ -142,6 +146,7 @@ class TrainingConfig:
     sequential_sampling: bool = False  # Use sequential sampling instead of random
     backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
     torch_loss_mode: Literal['poisson', 'mae'] = 'poisson'  # Backend-specific loss mode selector
+    torch_mae_pred_l2_match_target: bool = False  # Optional Torch MAE prediction scaling mode
     gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
     gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm: norm, value, or agc
     optimizer: Literal['adam', 'adamw', 'sgd'] = 'adam'  # Optimizer algorithm
@@ -154,7 +159,7 @@ class TrainingConfig:
     lr_min_ratio: float = 0.1  # Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)
     plateau_factor: float = 0.5
     plateau_patience: int = 2
-    plateau_min_lr: float = 1e-4
+    plateau_min_lr: float = 5e-5
     plateau_threshold: float = 0.0
 
     def __post_init__(self):
@@ -246,7 +251,7 @@ class PyTorchExecutionConfig:
     # Lightning Trainer knobs
     accelerator: str = 'auto'  # Options: 'cpu', 'gpu', 'tpu', 'mps', 'auto' (default 'auto' → 'cuda' if available, else 'cpu')
     strategy: str = 'auto'  # Options: 'auto', 'ddp', 'fsdp', 'deepspeed'
-    deterministic: bool = True  # Enforce reproducibility (seed_everything + deterministic mode)
+    deterministic: Union[bool, Literal["warn"]] = True  # Enforce reproducibility (seed_everything + deterministic mode); "warn" allows non-deterministic ops with a warning
     gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
     gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm
     accum_steps: int = 1  # Gradient accumulation steps (simulate larger batch size)
@@ -278,6 +283,19 @@ class PyTorchExecutionConfig:
     recon_log_fixed_indices: Optional[List[int]] = None  # Explicit patch indices (None = auto-select)
     recon_log_stitch: bool = False  # Log stitched full-resolution reconstructions (opt-in)
     recon_log_max_stitch_samples: Optional[int] = None  # Cap stitched samples (None = no limit)
+
+    # Torch-only encoder/bottleneck structural-search knobs (not bridged to canonical ModelConfig)
+    ffno_encoder_blocks: int = 24
+    ffno_encoder_modes: int = 12
+    ffno_encoder_share_weights: bool = True
+    ffno_encoder_gate_init: float = 0.1
+    ffno_encoder_norm: str = 'instance'
+    ffno_encoder_mlp_ratio: float = 2.0
+    spectral_bottleneck_blocks: int = 6
+    spectral_bottleneck_modes: int = 12
+    spectral_bottleneck_share_weights: bool = True
+    spectral_bottleneck_gate_init: float = 0.1
+    spectral_bottleneck_gate_mode: Literal['shared', 'per_block'] = 'shared'
 
     # Inference-specific knobs
     inference_batch_size: Optional[int] = None  # Override batch_size for inference (None = use training batch_size)
@@ -389,31 +407,66 @@ class PyTorchExecutionConfig:
                 f"Expected one of {sorted(valid_checkpoint_modes)}."
             )
 
+        if self.spectral_bottleneck_blocks <= 0:
+            raise ValueError(
+                f"spectral_bottleneck_blocks must be positive, got {self.spectral_bottleneck_blocks}."
+            )
+        if self.spectral_bottleneck_modes <= 0:
+            raise ValueError(
+                f"spectral_bottleneck_modes must be positive, got {self.spectral_bottleneck_modes}."
+            )
+        if not math.isfinite(float(self.spectral_bottleneck_gate_init)):
+            raise ValueError(
+                "spectral_bottleneck_gate_init must be finite, "
+                f"got {self.spectral_bottleneck_gate_init}."
+            )
+        valid_gate_modes = {'shared', 'per_block'}
+        if self.spectral_bottleneck_gate_mode not in valid_gate_modes:
+            raise ValueError(
+                f"Invalid spectral_bottleneck_gate_mode '{self.spectral_bottleneck_gate_mode}'. "
+                f"Expected one of {sorted(valid_gate_modes)}."
+            )
+
+        if self.ffno_encoder_blocks <= 0:
+            raise ValueError(
+                f"ffno_encoder_blocks must be positive, got {self.ffno_encoder_blocks}."
+            )
+        if self.ffno_encoder_modes <= 0:
+            raise ValueError(
+                f"ffno_encoder_modes must be positive, got {self.ffno_encoder_modes}."
+            )
+        if (
+            not math.isfinite(float(self.ffno_encoder_gate_init))
+            or float(self.ffno_encoder_gate_init) <= 0.0
+        ):
+            raise ValueError(
+                "ffno_encoder_gate_init must be finite and > 0, "
+                f"got {self.ffno_encoder_gate_init}."
+            )
+        if (
+            not math.isfinite(float(self.ffno_encoder_mlp_ratio))
+            or float(self.ffno_encoder_mlp_ratio) <= 0.0
+        ):
+            raise ValueError(
+                "ffno_encoder_mlp_ratio must be finite and > 0, "
+                f"got {self.ffno_encoder_mlp_ratio}."
+            )
+
 
 def validate_model_config(config: ModelConfig) -> None:
     """Validate model configuration."""
-    valid_arches = {'cnn', 'fno', 'hybrid', 'stable_hybrid', 'fno_vanilla', 'hybrid_resnet'}
+    valid_arches = {
+        'cnn',
+        'ffno',
+        'fno',
+        'fno_vanilla',
+        'neuralop_uno',
+    }
     if config.architecture not in valid_arches:
         raise ValueError(
             f"Invalid architecture '{config.architecture}'. "
             f"Expected one of {sorted(valid_arches)}."
         )
-    if config.architecture == "hybrid_resnet":
-        if config.fno_blocks < 3:
-            raise ValueError(
-                "hybrid_resnet requires fno_blocks >= 3 to downsample to N/4 "
-                f"(got fno_blocks={config.fno_blocks})."
-            )
-        if config.resnet_width is not None:
-            if config.resnet_width <= 0:
-                raise ValueError(
-                    f"resnet_width must be positive when set, got {config.resnet_width}."
-                )
-            if config.resnet_width % 4 != 0:
-                raise ValueError(
-                    "resnet_width must be divisible by 4 so the CycleGAN upsamplers "
-                    f"produce integer channel sizes (got {config.resnet_width})."
-                )
     if config.gridsize <= 0:
         raise ValueError(f"gridsize must be positive, got {config.gridsize}")
     if config.n_filters_scale <= 0:
