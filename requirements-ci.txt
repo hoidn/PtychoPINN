@@ -25,3 +25,5 @@ ujson
 pytest<8
 # tensorflow-probability with TF>=2.16 imports Keras 2 via the tf-keras shim
 tf-keras
+# neuralop_uno generator tests (tests/torch/test_neuralop_uno_generator.py); adapter requires exactly 2.0.0
+neuraloperator==2.0.0
