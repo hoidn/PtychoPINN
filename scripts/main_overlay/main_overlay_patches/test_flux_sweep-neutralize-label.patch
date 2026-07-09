@@ -1,0 +1,44 @@
+diff --git a/tests/torch/test_flux_sweep_eval_cli.py b/tests/torch/test_flux_sweep_eval_cli.py
+index cdf4b86..820e5fe 100644
+--- a/tests/torch/test_flux_sweep_eval_cli.py
++++ b/tests/torch/test_flux_sweep_eval_cli.py
+@@ -33,17 +33,17 @@ def test_default_skip_anchor_is_false():
+ 
+ def test_parses_out_label_and_skip_anchor_overrides():
+     args = fse.build_parser().parse_args(
+-        ["--out", "/tmp/x", "--label", "hybres", "--skip-anchor"]
++        ["--out", "/tmp/x", "--label", "cnn", "--skip-anchor"]
+     )
+     assert args.out == Path("/tmp/x")
+-    assert args.label == "hybres"
++    assert args.label == "cnn"
+     assert args.skip_anchor is True
+ 
+ 
+ def test_scratch_for_derives_label_specific_directory():
+-    scratch = fse.scratch_for("hybres")
+-    assert "hybres" in str(scratch)
+-    assert scratch == fse.SC / "hybres"
++    scratch = fse.scratch_for("cnn")
++    assert "cnn" in str(scratch)
++    assert scratch == fse.SC / "cnn"
+ 
+ 
+ # ---------------------------------------------------------------------------
+@@ -89,14 +89,14 @@ def test_measurement_domain_error_double_prediction_gives_relative_error_one():
+ 
+ def test_scale_json_round_trips_full_precision_values(tmp_path):
+     payload = fse.build_scale_payload(
+-        "hybres",
++        "cnn",
+         [
+             dict(mean=1, s1=0.029403123456789, s2=-0.010982222222222, cA=0.031398765432109,
+                  on=0.023456789012345, off=8.368712345678901,
+                  meas_err_on=0.041234567890123, meas_err_off=0.198765432109876),
+         ],
+     )
+-    out_path = tmp_path / "hybres_scale.json"
++    out_path = tmp_path / "cnn_scale.json"
+ 
+     fse.write_scale_json(out_path, payload)
+     loaded = json.loads(out_path.read_text())

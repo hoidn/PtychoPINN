@@ -185,8 +185,11 @@ def configure_reconstruction(data_dict, algorithm='DM', num_epochs=20):
     
     # Reconstruction parameters
     options.reconstructor_options.num_epochs = num_epochs
-    options.reconstructor_options.chunk_length = min(100, data_dict['n_images'])
-    
+
+    # Set chunk_length only for algorithms that support it (DM, PIE)
+    if algorithm in ['DM', 'PIE']:
+        options.reconstructor_options.chunk_length = min(100, data_dict['n_images'])
+
     # Device selection
     if torch.cuda.is_available():
         options.reconstructor_options.default_device = api.Devices.GPU
@@ -293,43 +296,84 @@ def save_results(task, output_dir="ptychi_reconstruction"):
     
     return npz_path
 
-def main():
-    """Main entry point."""
-    
-    # Configuration
-    tike_dataset = "tike_outputs/fly001_reconstructed_final_downsampled/fly001_reconstructed_final_downsampled_data.npz"
-    output_dir = "ptychi_tike_reconstruction_converged"
-    algorithm = 'DM'  # Can be 'DM', 'LSQML', 'PIE'
-    num_epochs = 200  # Increased for proper convergence
-    n_images = 2000  # Use more images for better reconstruction
-    
+def main(argv=None):
+    """Main entry point with CLI argument parsing."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="Reconstruct TIKE dataset using pty-chi library"
+    )
+    parser.add_argument(
+        "--input-npz",
+        type=Path,
+        default=Path("tike_outputs/fly001_reconstructed_final_downsampled/fly001_reconstructed_final_downsampled_data.npz"),
+        help="Path to TIKE NPZ file (default: tike_outputs/fly001_reconstructed_final_downsampled/fly001_reconstructed_final_downsampled_data.npz)"
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("ptychi_tike_reconstruction_converged"),
+        help="Directory to save reconstruction results (default: ptychi_tike_reconstruction_converged)"
+    )
+    parser.add_argument(
+        "--algorithm",
+        type=str,
+        default="DM",
+        choices=["DM", "LSQML", "PIE"],
+        help="Reconstruction algorithm to use (default: DM)"
+    )
+    parser.add_argument(
+        "--num-epochs",
+        type=int,
+        default=200,
+        help="Number of reconstruction epochs (default: 200)"
+    )
+    parser.add_argument(
+        "--n-images",
+        type=int,
+        default=2000,
+        help="Number of images to use (default: 2000, use None for all)"
+    )
+
+    args = parser.parse_args(argv)
+
+    # Extract arguments
+    tike_dataset = args.input_npz
+    output_dir = args.output_dir
+    algorithm = args.algorithm
+    num_epochs = args.num_epochs
+    n_images = args.n_images
+
     print("=== PTY-CHI Reconstruction of TIKE Dataset ===")
     print(f"Dataset: {tike_dataset}")
     print(f"Algorithm: {algorithm}")
     print(f"Epochs: {num_epochs}")
     print(f"Images: {n_images if n_images else 'all'}")
-    
+
+    # Ensure output directory exists
+    output_dir.mkdir(parents=True, exist_ok=True)
+
     try:
         # Load and convert data
         data_dict = load_and_convert_tike_data(tike_dataset, n_images=n_images)
-        
+
         # Configure reconstruction
         options = configure_reconstruction(data_dict, algorithm=algorithm, num_epochs=num_epochs)
-        
+
         # Run reconstruction
         task = run_reconstruction(options)
-        
+
         # Save results
         output_path = save_results(task, output_dir=output_dir)
-        
+
         print(f"\n✓ Reconstruction complete! Results saved to {output_dir}/")
-        
+
     except Exception as e:
         print(f"\n✗ Error during reconstruction: {e}")
         import traceback
         traceback.print_exc()
         return 1
-    
+
     return 0
 
 if __name__ == "__main__":

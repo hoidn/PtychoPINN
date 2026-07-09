@@ -1,0 +1,13 @@
+diff --git a/tests/torch/test_inline_dataset_amplitude_scaling_regression.py b/tests/torch/test_inline_dataset_amplitude_scaling_regression.py
+index ed399ba..3ccc0a8 100644
+--- a/tests/torch/test_inline_dataset_amplitude_scaling_regression.py
++++ b/tests/torch/test_inline_dataset_amplitude_scaling_regression.py
+@@ -8,7 +8,7 @@ reshape ``probe`` to ``(C, P, H, W)`` and route ``scaling`` through
+ ``_select_scale`` + a ``view(-1, 1, 1)[:1]`` collapse UNCONDITIONALLY -- i.e.
+ even for the amplitude default forward mode, which never needed either
+ reshape (the commit's own message claimed "amplitude default unchanged";
+-the bisect disproved this: trained hybrid_resnet amp MAE degraded
++the bisect disproved this: trained model amp MAE degraded
+ 0.0846 -> 0.233 exactly at this commit).
+ 
+ This test drives the real inline-dataset -> DataLoader-collate path (as

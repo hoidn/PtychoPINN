@@ -1,0 +1,34 @@
+diff --git a/scripts/studies/varpro_probe_ablation_runner.py b/scripts/studies/varpro_probe_ablation_runner.py
+index 48e6267..7428d5a 100644
+--- a/scripts/studies/varpro_probe_ablation_runner.py
++++ b/scripts/studies/varpro_probe_ablation_runner.py
+@@ -87,9 +87,7 @@ ARM_TABLE: Dict[str, Dict[str, Any]] = {
+     # "replication" arm would silently train a different physics forward and
+     # head parametrization than main. The two pins are coupled on fno-stable:
+     # the model fail-fasts on rectangular_scaled unless the resolved head
+-    # output is real_imag (ptycho_torch/model.py:1863-1870). The hybres
+-    # extension arms below already pin their keys explicitly and are
+-    # unaffected.
++    # output is real_imag (ptycho_torch/model.py:1863-1870).
+     "gs1_frozen": {
+         "N": 64, "gridsize": 1, "training_patch_weighting": "probe",
+         "rect_s1s2_trainable": False, "nphotons": 1e9,
+@@ -151,18 +149,6 @@ ARM_TABLE: Dict[str, Dict[str, Any]] = {
+         "architecture": "cnn", "cnn_output_mode": "real_imag",
+         "variants": ["probe_varpro"],
+     },
+-    "hybres_gs1_neither": {
+-        "N": 64, "gridsize": 1, "training_patch_weighting": "central_mask",
+-        "rect_s1s2_trainable": True, "nphotons": 1e9,
+-        "architecture": "hybrid_resnet", "physics_forward_mode": "amplitude",
+-        "variants": ["uniform_novarpro"],
+-    },
+-    "hybres_gs1_both": {
+-        "N": 64, "gridsize": 1, "training_patch_weighting": "probe",
+-        "rect_s1s2_trainable": True, "nphotons": 1e9,
+-        "architecture": "hybrid_resnet", "physics_forward_mode": "rectangular_scaled",
+-        "variants": ["probe_varpro"],
+-    },
+ }
+ 
+ 

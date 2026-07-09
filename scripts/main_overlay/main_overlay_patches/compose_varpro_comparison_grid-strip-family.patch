@@ -1,0 +1,103 @@
+diff --git a/scripts/studies/compose_varpro_comparison_grid.py b/scripts/studies/compose_varpro_comparison_grid.py
+index 0f85dbee..6e51f399 100644
+--- a/scripts/studies/compose_varpro_comparison_grid.py
++++ b/scripts/studies/compose_varpro_comparison_grid.py
+@@ -8,10 +8,10 @@ figures plus one merged metrics table:
+ 
+   - Axis A (representation): amp/phase decoder head `repr_ampphase` vs
+     `repr_realimag`, `probe_varpro` variant, plus a real-imag scatter column.
+-  - Axis B (dynamic scaling across flux): the two flux-sweep SCALE tables
+-    (`cnn_ri`, `hybres`) parsed from their eval logs.
+-  - Axis C (hybrid_resnet neither vs both): `hybres_gs1_neither`/
+-    `hybres_gs1_both` merged with the Phase-1 CNN `gs1_frozen` dyad.
++  - Axis B (dynamic scaling across flux): the `cnn_ri` flux-sweep SCALE
++    table parsed from its eval log.
++  - Axis C (gs1 neither vs both): the Phase-1 CNN `gs1_frozen` /
++    `gs1_trainable` dyads.
+ 
+ All amplitude panels are gauge-quotiented via `diagnose_placement.gauge`
+ before display/NCC: on this pipeline varpro-ON output is in count-amplitude
+@@ -165,8 +165,8 @@ def compose_axis_a_figure(
+ def compose_axis_c_figure(
+     rows_spec: Sequence[Tuple[str, Path]], truth_path: Path, out_path: Path,
+ ) -> Dict[str, Dict]:
+-    """Axis C: `hybres_gs1_neither`/`hybres_gs1_both` merged with the Phase-1
+-    CNN gs1 dyad(s). Columns: amplitude | phase (no scatter column).
++    """Axis C: the Phase-1 CNN `gs1_frozen`/`gs1_trainable` dyads.
++    Columns: amplitude | phase (no scatter column).
+     `rows_spec` is `[(row_label, variant_dir), ...]` in display order.
+     """
+     truth = load_truth(truth_path)
+@@ -201,11 +201,6 @@ _FALLBACK_SCALE = {
+         (100, 10.0, 0.0277, 0.0476, 0.0550, 59.79, 0.264, 9.372),
+         (10000, 100.0, 0.277, 0.477, 0.551, 59.84, 2.638, 9.372),
+     ],
+-    "hybres": [
+-        (1, 1.0, 0.0029, 0.0025, 0.0039, 40.47, 0.0038, 1.426),
+-        (100, 10.0, 0.0282, 0.0262, 0.0385, 42.84, 0.0391, 1.441),
+-        (10000, 100.0, 0.282, 0.262, 0.385, 42.83, 0.390, 1.441),
+-    ],
+ }
+ 
+ 
+@@ -228,7 +223,7 @@ def parse_scale_table(eval_txt_path: Path, generator: str) -> List[Dict[str, flo
+     """Parse the `== SCALE (varpro solve) ==` rows of a flux-sweep eval log.
+ 
+     Falls back to the numbers transcribed in `task-E3-report.md` (keyed by
+-    `generator` in {"cnn_ri", "hybres"}) if fewer than 3 rows are recovered.
++    `generator`, currently only `"cnn_ri"`) if fewer than 3 rows are recovered.
+     """
+     rows: List[Dict[str, float]] = []
+     for line in _extract_section(eval_txt_path.read_text(), "== SCALE"):
+@@ -263,9 +258,9 @@ def parse_fidelity_table(eval_txt_path: Path) -> List[Dict[str, float]]:
+ 
+ 
+ def compose_axis_b_figure(
+-    cnn_ri_eval_txt: Path, hybres_eval_txt: Path, out_path: Path,
++    cnn_ri_eval_txt: Path, out_path: Path,
+ ) -> Tuple[Dict[str, List[Dict[str, float]]], Dict[str, List[Dict[str, float]]]]:
+-    """Axis B: dynamic scaling across flux for both generators.
++    """Axis B: dynamic scaling across flux for the `cnn_ri` generator.
+ 
+     Panels: log-log c_A vs mean-count (with a sqrt(mean-count) reference
+     line), c_phi (deg) vs mean-count, and |O|_on vs |O|_off vs mean-count.
+@@ -273,16 +268,14 @@ def compose_axis_b_figure(
+     """
+     scale_tables = {
+         "cnn_ri": parse_scale_table(cnn_ri_eval_txt, "cnn_ri"),
+-        "hybres": parse_scale_table(hybres_eval_txt, "hybres"),
+     }
+     fidelity_tables = {
+         "cnn_ri": parse_fidelity_table(cnn_ri_eval_txt),
+-        "hybres": parse_fidelity_table(hybres_eval_txt),
+     }
+ 
+     out_path.parent.mkdir(parents=True, exist_ok=True)
+     fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+-    colors = {"cnn_ri": "tab:blue", "hybres": "tab:orange"}
++    colors = {"cnn_ri": "tab:blue"}
+ 
+     mean_ct_grid = np.array([r["mean_ct"] for r in scale_tables["cnn_ri"]])
+     mid = len(mean_ct_grid) // 2
+@@ -428,20 +421,17 @@ def main(argv: Sequence[str] | None = None) -> None:
+     )
+ 
+     axis_c_rows_spec = [
+-        ("hybres_gs1_neither", args.ext_matrix_root / "hybres_gs1_neither" / "uniform_novarpro"),
+-        ("hybres_gs1_both", args.ext_matrix_root / "hybres_gs1_both" / "probe_varpro"),
+         ("gs1_frozen_neither", args.matrix_lines_root / "gs1_frozen" / "uniform_novarpro"),
+         ("gs1_frozen_both", args.matrix_lines_root / "gs1_frozen" / "probe_varpro"),
+         ("gs1_trainable_neither", args.matrix_lines_root / "gs1_trainable" / "uniform_novarpro"),
+         ("gs1_trainable_both", args.matrix_lines_root / "gs1_trainable" / "probe_varpro"),
+     ]
+     axis_c_rows = compose_axis_c_figure(
+-        axis_c_rows_spec, args.truth, args.out_dir / "axis_c_hybres_dyads.png",
++        axis_c_rows_spec, args.truth, args.out_dir / "axis_c_gs1_dyads.png",
+     )
+ 
+     scale_tables, fidelity_tables = compose_axis_b_figure(
+         args.fluxsweep_root / "cnn_ri_eval.txt",
+-        args.fluxsweep_root / "hybres_eval.txt",
+         args.out_dir / "axis_b_flux_scaling.png",
+     )
+ 

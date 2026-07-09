@@ -1,0 +1,10 @@
+{
+  "gate_version": 1,
+  "current_gate_id": "phase-2-pdebench-full-training-evidence",
+  "allowed_roadmap_phase_prefixes": ["phase-2-pdebench-"],
+  "disallowed_roadmap_phase_prefixes": ["phase-3-", "phase-4-", "phase-5-"],
+  "gap_policy": "draft_backlog_item",
+  "gap_item_target_dir": "docs/backlog/active",
+  "gap_plan_target_root": "docs/plans/NEURIPS-HYBRID-RESNET-2026/backlog-gaps",
+  "required_scope_summary": "Remaining Phase 2 PDEBench full-training evidence gate"
+}

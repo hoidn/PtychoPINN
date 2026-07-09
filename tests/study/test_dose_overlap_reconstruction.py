@@ -11,6 +11,9 @@ Test strategy: plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md
 """
 
 import pytest
+
+pytest.importorskip("studies.fly64_dose_overlap.reconstruction", reason="branch-local studies/ package not present (gitignored; see TESTING_GUIDE CI section)")
+
 import numpy as np
 from pathlib import Path
 from unittest.mock import patch, MagicMock

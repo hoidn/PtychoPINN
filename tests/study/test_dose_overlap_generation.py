@@ -13,6 +13,9 @@ References:
 """
 
 import pytest
+
+pytest.importorskip("studies.fly64_dose_overlap.generation", reason="branch-local studies/ package not present (gitignored; see TESTING_GUIDE CI section)")
+
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 import numpy as np

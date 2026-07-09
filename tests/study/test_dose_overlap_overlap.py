@@ -23,6 +23,8 @@ import tempfile
 import numpy as np
 import pytest
 
+pytest.importorskip("studies.fly64_dose_overlap.overlap", reason="branch-local studies/ package not present (gitignored; see TESTING_GUIDE CI section)")
+
 from studies.fly64_dose_overlap.overlap import (
     disc_overlap_area,
     disc_overlap_fraction,

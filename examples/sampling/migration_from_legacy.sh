@@ -1,0 +1,91 @@
+#!/bin/bash
+# Migration from Legacy Syntax Example
+# Shows how to convert old commands to new independent control syntax
+
+echo "=================================================="
+echo "Migration from Legacy to Independent Control"
+echo "=================================================="
+
+echo ""
+echo "SCENARIO 1: Simple gridsize=1 training"
+echo "----------------------------------------"
+echo "OLD (legacy) command:"
+echo "  ptycho_train --train_data_file data.npz --n_images 1000 --output_dir old_run"
+echo ""
+echo "NEW (equivalent) command:"
+echo "  ptycho_train --train_data_file data.npz --n_images 1000 --output_dir new_run"
+echo ""
+echo "NEW (with explicit control):"
+echo "  ptycho_train --train_data_file data.npz --n_subsample 1000 --n_images 1000 --output_dir new_run"
+echo ""
+
+echo "SCENARIO 2: Gridsize>1 training"
+echo "----------------------------------------"
+echo "OLD command (n_images means groups):"
+echo "  ptycho_train --train_data_file data.npz --n_images 100 --gridsize 2 --output_dir old_run"
+echo "  # This loads ~400 images to create 100 groups"
+echo ""
+echo "NEW (equivalent - backward compatible):"
+echo "  ptycho_train --train_data_file data.npz --n_images 100 --gridsize 2 --output_dir new_run"
+echo ""
+echo "NEW (with explicit control - recommended):"
+echo "  ptycho_train --train_data_file data.npz --n_subsample 400 --n_images 100 --gridsize 2 --output_dir new_run"
+echo "  # Now it's clear: load 400 images, create 100 groups"
+echo ""
+
+echo "SCENARIO 3: Memory-limited training"
+echo "----------------------------------------"
+echo "OLD approach (confusing):"
+echo "  # Want to load 2000 images but only use 500 for training with gridsize=2"
+echo "  # No clear way to express this!"
+echo ""
+echo "NEW approach (clear):"
+echo "  ptycho_train --train_data_file data.npz --n_subsample 2000 --n_images 125 --gridsize 2 --output_dir new_run"
+echo "  # Clear: load 2000 images, create 125 groups (using 500 images)"
+echo ""
+
+echo "SCENARIO 4: Inference"
+echo "----------------------------------------"
+echo "OLD inference command:"
+echo "  ptycho_inference --model_path model/ --test_data data.npz --n_test_images 1000"
+echo ""
+echo "NEW inference (backward compatible):"
+echo "  ptycho_inference --model_path model/ --test_data data.npz --n_images 1000"
+echo ""
+echo "NEW inference (with sampling control):"
+echo "  ptycho_inference --model_path model/ --test_data data.npz --n_subsample 5000 --n_images 1000"
+echo "  # Load 5000 images from dataset, process 1000 of them"
+echo ""
+
+echo "SCENARIO 5: Comparison scripts"
+echo "----------------------------------------"
+echo "OLD comparison:"
+echo "  python scripts/compare_models.py --pinn_dir pinn/ --baseline_dir base/ --test_data data.npz"
+echo ""
+echo "NEW comparison with sampling:"
+echo "  python scripts/compare_models.py --pinn_dir pinn/ --baseline_dir base/ --test_data data.npz \\"
+echo "    --n-subsample 2000 --subsample-seed 42"
+echo ""
+
+echo "=================================================="
+echo "Migration Guidelines:"
+echo "1. Old commands still work (backward compatible)"
+echo "2. Add --n_subsample for explicit memory control"
+echo "3. Use --subsample_seed for reproducible sampling"
+echo "4. --n_images now consistently means 'how many to use'"
+echo "5. Check logs for parameter interpretation messages"
+echo "=================================================="
+
+# Practical migration example
+echo ""
+echo "RUNNING PRACTICAL EXAMPLE:"
+echo "Comparing old vs new syntax with same result..."
+echo ""
+
+# These two commands should produce identical results:
+echo "Legacy mode (if dataset exists):"
+# ptycho_train --train_data_file datasets/fly/fly001_transposed.npz --n_images 100 --output_dir migration_legacy --nepochs 1
+
+echo ""
+echo "New explicit mode (if dataset exists):"
+# ptycho_train --train_data_file datasets/fly/fly001_transposed.npz --n_subsample 100 --n_images 100 --output_dir migration_new --nepochs 1

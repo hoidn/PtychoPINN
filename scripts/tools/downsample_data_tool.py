@@ -20,13 +20,11 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from ptycho.metadata import MetadataManager
+from ptycho.image.cropping import center_crop_spatial
 
 def crop_center(img: np.ndarray, new_h: int, new_w: int) -> np.ndarray:
     """Crops the center of a 2D array."""
-    h, w = img.shape
-    start_y = (h - new_h) // 2
-    start_x = (w - new_w) // 2
-    return img[start_y : start_y + new_h, start_x : start_x + new_w]
+    return center_crop_spatial(img, new_h, new_w)
 
 def bin_complex_array(arr: np.ndarray, bin_factor: int) -> np.ndarray:
     """Bins a complex array by averaging 2x2 blocks on its real and imaginary parts."""

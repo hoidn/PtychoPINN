@@ -1,0 +1,158 @@
+# main_overlay_exclude.txt
+#
+# Path list for the deterministic main-overlay transform
+# (scripts/main_overlay/build_main_overlay.py). Every path here is DELETED
+# from the materialized tree before patches and gates run. Companion content
+# edits (family entries stripped from KEPT files) live as unified diffs in
+# main_overlay_patches/.
+#
+# Grammar (repo-relative, POSIX):
+#   dir/        recursively delete a directory (must exist)
+#   a/b.py      exact file or directory (must exist -> drift detection)
+#   a/b*.py     glob (zero matches tolerated)
+#
+# See docs/plans/2026-07-07-rebase-fno-stable-onto-main.md (Task 2) for the
+# EXCLUDE / PATCH / ALLOW classification and rationale.
+
+# --- Generator family core + schematics -----------------------------------
+ptycho_torch/generators/hybrid_resnet.py
+ptycho_torch/generators/hybrid_resnet_ffno_bottleneck.py
+ptycho_torch/generators/spectral_resnet_bottleneck.py
+ptycho_torch/generators/spectral_resnet_bottleneck_linear_decoder.py
+ptycho_torch/generators/resnet_components.py
+ptycho_torch/generators/schematic_manifest.py
+ptycho_torch/generators/schematic_render.py
+
+# --- Benchmark suites (import the family core directly; Decision 4) --------
+scripts/studies/wavebench_shared_encoder/
+scripts/studies/pdebench_swe/
+scripts/studies/pdebench_image128/
+scripts/studies/openfwi_flatvel_a/
+scripts/studies/born_rytov_dt/
+
+# --- Family-only study scripts ---------------------------------------------
+scripts/studies/aligned_hybres_ablation_driver.sh
+scripts/studies/cdi_hybrid_spectral_ffno_parameter_space.py
+scripts/studies/hybrid_checkpoint_inference.py
+scripts/studies/lines128_hybrid_resnet_encoder_fusion_variants.py
+scripts/studies/lines128_hybrid_resnet_skip_residual_ablation.py
+scripts/studies/lines128_srunet_ablation_bundle.py
+scripts/studies/lines128_srunet_convnext_bottleneck_ablation.py
+scripts/studies/prepare_nersc_hybrid_dataset.py
+scripts/studies/regenerate_lines128_srunet_ablation_run_manifest.py
+scripts/studies/render_hybrid_resnet_schematics.py
+scripts/studies/validate_wavebench_shared_encoder_contract.py
+
+# --- Family study runbooks -------------------------------------------------
+scripts/studies/runbooks/run_hybrid_resnet_mode_skip_sweep.py
+scripts/studies/runbooks/grid_lines_external_fly001_n128_top_train_full_test_e40.sh
+scripts/studies/runbooks/run_nersc_scan807_cameraman_study.py
+scripts/studies/runbooks/run_nersc_scan807_cameraman_study_n256.py
+
+# NOTE: three multi-model reporting harnesses (lines128_paper_benchmark,
+# cdi_natural_patch_benchmark, compose_varpro_comparison_grid) do NOT import the
+# family core; family appears only in arm/label/string tables. They are KEPT and
+# their family entries are stripped by patches (main_overlay_patches/
+# *-strip-family*.patch), per Decision 3. Keeping cdi_natural_patch_benchmark
+# also un-breaks the kept wrapper run_cdi_natural_patch_benchmark.py.
+# nersc_orchestration.py is EXCLUDED (below) -- unlike the other three it DOES
+# import excluded modules (hybrid_checkpoint_inference, prepare_nersc_hybrid_
+# dataset), so it is inseparable and cannot be a kept, stripped surface.
+
+# --- Family-inference orchestration (imports excluded modules; inseparable) --
+scripts/studies/nersc_orchestration.py
+
+# --- Wrappers / runbooks that exist SOLELY to run an excluded family suite ---
+# (Decision 4 completion: the wrapped suite dirs above are excluded wholesale,
+#  so these importers are dangling and are excluded too.)
+scripts/studies/run_wavebench_shared_encoder_benchmark.py
+scripts/studies/run_openfwi_flatvel_a_smoke.py
+scripts/studies/run_pdebench_image128_suite.py
+scripts/studies/run_pdebench_swe_longer.py
+scripts/studies/run_pdebench_swe_smoke.py
+scripts/studies/runbooks/run_cdi_hybrid_spectral_ffno_parameter_space.py
+
+# --- Inseparable family-inference harness -----------------------------------
+# position_reassembly_checkpoint_replay's sole inference path is
+# run_cross_dataset_hybrid_inference from the excluded
+# hybrid_checkpoint_inference module; the file cannot function without it.
+scripts/studies/position_reassembly_checkpoint_replay.py
+tests/studies/test_position_reassembly_checkpoint_replay.py
+
+# --- lines_256 architecture-improvement suite (family-dedicated study; NEW) -
+scripts/studies/run_lines_256_arch_experiment.py
+scripts/studies/lines_256_session_controller.py
+prompts/library/arch_improvement_lines_256.md
+prompts/workflows/lines_256_arch_improvement/
+workflows/agent_orchestration/lines_256_arch_improvement_session_loop.yaml
+workflows/agent_orchestration/lines_256_arch_improvement_session_loop_v2_call.yaml
+workflows/library/lines_256_arch_improvement_iteration.yaml
+
+# --- Family tests (torch) --------------------------------------------------
+tests/torch/test_spectral_resnet_bottleneck.py
+tests/torch/test_hybrid_resnet_schematics.py
+tests/torch/test_grid_lines_hybrid_resnet_aligned_ablation.py
+tests/torch/test_grid_lines_hybrid_resnet_integration.py
+tests/torch/test_hybres_extension_preconditions.py
+tests/torch/test_hybrid_checkpoint_cross_dataset_inference.py
+tests/torch/test_grid_lines_torch_runner.py
+tests/torch/test_compose_varpro_comparison_grid.py
+
+# --- Family tests (studies) ------------------------------------------------
+tests/studies/test_born_rytov_dt_adapters.py
+tests/studies/test_born_rytov_dt_preflight.py
+tests/studies/test_cdi_hybrid_spectral_ffno_parameter_space.py
+tests/studies/test_cdi_natural_patch_benchmark.py
+tests/studies/test_hybrid_resnet_mode_skip_sweep.py
+tests/studies/test_lines128_hybrid_resnet_encoder_fusion_variants.py
+tests/studies/test_lines128_hybrid_resnet_skip_residual_ablation.py
+tests/studies/test_lines128_paper_benchmark.py
+tests/studies/test_lines128_srunet_ablation_bundle.py
+tests/studies/test_lines128_srunet_convnext_bottleneck_ablation.py
+tests/studies/test_lines_256_session_controller.py
+tests/studies/test_nersc_metrics_visuals.py
+tests/studies/test_nersc_ptychovit_orchestration.py
+tests/studies/test_openfwi_flatvel_a_models.py
+tests/studies/test_openfwi_flatvel_a_reporting.py
+tests/studies/test_openfwi_flatvel_a_run_config.py
+tests/studies/test_openfwi_flatvel_a_smoke_cli.py
+tests/studies/test_pdebench_image128_models.py
+tests/studies/test_pdebench_image128_runner.py
+tests/studies/test_pdebench_swe_longer_cli.py
+tests/studies/test_pdebench_swe_models.py
+tests/studies/test_pdebench_swe_reporting.py
+tests/studies/test_pdebench_swe_run_config.py
+tests/studies/test_pdebench_swe_smoke_cli.py
+tests/studies/test_run_lines_256_arch_experiment.py
+tests/studies/test_wavebench_shared_encoder_contract.py
+tests/studies/test_wavebench_shared_encoder_data.py
+tests/studies/test_wavebench_shared_encoder_models.py
+
+# --- Sibling tests of excluded suites (import excluded suite modules) -------
+# Completes Decision 4: every tests/studies file that imports a module inside an
+# excluded benchmark suite (born_rytov_dt, openfwi_flatvel_a, pdebench_image128,
+# pdebench_swe) or an excluded family study script must go too.
+tests/studies/test_born_rytov_dt_dataset.py
+tests/studies/test_born_rytov_dt_validation.py
+tests/studies/test_openfwi_flatvel_a_data.py
+tests/studies/test_openfwi_flatvel_a_manifest.py
+tests/studies/test_openfwi_flatvel_a_metrics.py
+tests/studies/test_pdebench_cfd_cns_data.py
+tests/studies/test_pdebench_cfd_cns_metrics.py
+tests/studies/test_pdebench_darcy_data.py
+tests/studies/test_pdebench_darcy_metrics.py
+tests/studies/test_pdebench_image128_distributed.py
+tests/studies/test_pdebench_image128_preflight.py
+tests/studies/test_pdebench_image128_rollout_video.py
+tests/studies/test_pdebench_image128_visualization.py
+tests/studies/test_pdebench_physics_losses.py
+tests/studies/test_pdebench_swe_manifest.py
+tests/studies/test_pdebench_swe_metrics.py
+tests/studies/test_pdebench_swe_splits_data.py
+tests/studies/test_prepare_nersc_hybrid_dataset.py
+# Tests that import an excluded run_* wrapper (or assert its file exists):
+tests/studies/test_wavebench_shared_encoder_runner.py
+tests/studies/test_studies_index_entries.py
+
+# --- Family test (top-level) -----------------------------------------------
+tests/test_grid_lines_compare_wrapper.py

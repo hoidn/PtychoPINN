@@ -9,6 +9,8 @@ data plus the newly generated Y array.
 
 This is essential for supervised learning workflows that require pre-computed
 ground truth patches.
+
+Metadata is preserved and extended with transformation records.
 """
 
 import argparse
@@ -16,6 +18,7 @@ import sys
 from pathlib import Path
 import numpy as np
 from ptycho.raw_data import RawData
+from ptycho.metadata import MetadataManager
 
 def generate_patches(
     input_path: Path,
@@ -40,17 +43,16 @@ def generate_patches(
     """
     if not input_path.exists():
         raise FileNotFoundError(f"Input file not found: {input_path}")
-    
+
     print(f"--- Generating Patches: {input_path} ---")
     print(f"  - Output file: {output_path}")
     print(f"  - Patch size (N): {patch_size}")
     print(f"  - K neighbors: {k_neighbors}")
     print(f"  - Samples: {nsamples}")
-    
-    # Load the input NPZ file
-    with np.load(input_path) as data:
-        data_dict = {key: data[key] for key in data.files}
-    
+
+    # Load the input NPZ file with metadata awareness
+    data_dict, metadata = MetadataManager.load_with_metadata(str(input_path))
+
     print(f"  - Loaded {len(data_dict)} arrays from input file")
     
     # Validate required keys - support both 'diffraction' and 'diff3d'
@@ -139,26 +141,40 @@ def generate_patches(
     # Create output dictionary with all original data plus Y patches
     output_dict = data_dict.copy()
     output_dict['Y'] = Y_patches
-    
+
     # Save additional metadata from grouped_data if available
     for key in ['coords_start_offsets', 'coords_start_relative']:
         if key in grouped_data:
             output_dict[key] = grouped_data[key]
             print(f"  - Added {key} with shape: {grouped_data[key].shape}")
-    
-    # Save the output file
+
+    # Add transformation record to metadata
+    metadata = MetadataManager.add_transformation_record(
+        metadata=metadata,
+        tool_name="generate_patches",
+        operation="generate_patches",
+        parameters={
+            "patch_size": patch_size,
+            "k_neighbors": k_neighbors,
+            "nsamples": nsamples
+        }
+    )
+
+    # Save the output file with metadata
     print(f"Saving prepared dataset with Y patches to: {output_path}")
-    np.savez_compressed(output_path, **output_dict)
+    MetadataManager.save_with_metadata(str(output_path), output_dict, metadata)
     
     # Verify the output
-    with np.load(output_path) as verify_data:
-        verify_keys = verify_data.files
-        print(f"  - Verified output contains {len(verify_keys)} arrays")
-        if 'Y' in verify_keys:
-            print(f"  - Y array shape: {verify_data['Y'].shape}")
-        else:
-            raise ValueError("Y array missing from output file")
-    
+    verify_data, verify_metadata = MetadataManager.load_with_metadata(str(output_path))
+    print(f"  - Verified output contains {len(verify_data)} arrays")
+    if 'Y' in verify_data:
+        print(f"  - Y array shape: {verify_data['Y'].shape}")
+    else:
+        raise ValueError("Y array missing from output file")
+
+    if verify_metadata:
+        print(f"  - Metadata preserved with {len(verify_metadata.get('data_transformations', []))} transformation(s)")
+
     print("--- Patch Generation Complete ---")
 
 def main():

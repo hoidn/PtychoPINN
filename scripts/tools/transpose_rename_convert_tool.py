@@ -6,19 +6,21 @@ This tool processes an NPZ file to create a standardized version.
 
 Its primary purpose is to ensure that the output file conforms to the
 specifications laid out in the project's official Data Contracts document.
-See `docs/data_contracts.md` for details on required shapes and keys.
+See `specs/data_contracts.md` for details on required shapes and keys.
 
 Key Operations:
 1. Renames 'diff3d' to 'diffraction'.
 2. Squeezes the last dimension of the 'Y' array to ensure it is 3D.
 3. Converts uint16 arrays to float32.
 4. Optionally flips X and/or Y coordinates.
+5. Preserves and extends metadata through transformations.
 """
 
 import sys
 from pathlib import Path
 import numpy as np
 import argparse
+from ptycho.metadata import MetadataManager
 
 def transpose_rename_convert(
     in_file: str | Path,
@@ -40,32 +42,35 @@ def transpose_rename_convert(
 
     Raises:
         FileNotFoundError: If the input file does not exist.
-        
+
     Operations performed:
         - Renames 'diff3d' key to 'diffraction'
         - Squeezes 4D 'Y' arrays to 3D by removing singleton last dimension
         - Converts uint16 arrays to float32 for numerical stability
         - Optionally flips coordinate signs for coordinate system alignment
+        - Preserves and extends metadata with transformation record
     """
     in_path = Path(in_file)
     if not in_path.exists():
         raise FileNotFoundError(f"Input file not found: {in_path}")
 
     print(f"Loading data from: {in_path}")
-    npz = np.load(in_path, allow_pickle=False)
+
+    # Load with metadata awareness
+    data_dict, metadata = MetadataManager.load_with_metadata(str(in_path))
     save_dict: dict[str, np.ndarray] = {}
 
-    print(f"Processing {len(npz.files)} arrays...")
-    
-    for key in npz.files:
-        arr = npz[key].copy()  # Work on a copy
+    print(f"Processing {len(data_dict)} arrays...")
+
+    for key, arr in data_dict.items():
+        arr = arr.copy()  # Work on a copy
         new_key = key
 
         # 1. Rename 'diff3d' to 'diffraction'
         if key == "diff3d":
             print(f"  - Renaming 'diff3d' to 'diffraction'")
             new_key = "diffraction"
-        
+
         # 2. Process 'Y' array (ground truth patches)
         elif key == "Y":
             if arr.ndim == 4 and arr.shape[-1] == 1:
@@ -87,7 +92,16 @@ def transpose_rename_convert(
 
         save_dict[new_key] = arr
 
-    np.savez_compressed(out_file, **save_dict)
+    # Add transformation record to metadata
+    metadata = MetadataManager.add_transformation_record(
+        metadata=metadata,
+        tool_name="transpose_rename_convert",
+        operation="canonicalize",
+        parameters={"flipx": flipx, "flipy": flipy}
+    )
+
+    # Save with metadata
+    MetadataManager.save_with_metadata(str(out_file), save_dict, metadata)
     print(f"✔ Saved consistently formatted data to: {out_file}")
 
 def main():

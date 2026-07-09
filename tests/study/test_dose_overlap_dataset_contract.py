@@ -17,6 +17,8 @@ References:
 import numpy as np
 import pytest
 
+pytest.importorskip("studies.fly64_dose_overlap.validation", reason="branch-local studies/ package not present (gitignored; see TESTING_GUIDE CI section)")
+
 from studies.fly64_dose_overlap.validation import validate_dataset_contract
 from studies.fly64_dose_overlap.design import get_study_design
 

@@ -1,0 +1,36 @@
+diff --git a/scripts/studies/README.md b/scripts/studies/README.md
+index 14ce37b..46d03b1 100644
+--- a/scripts/studies/README.md
++++ b/scripts/studies/README.md
+@@ -113,11 +113,11 @@ Fresh checkpoint-restored initial baseline helper scripts:
+ - `scripts/studies/verify_fresh_ptychovit_initial_metrics.py`
+ 
+ **Key Torch Options:**
+-- Default architectures are `cnn,fno,hybrid,stable_hybrid,fno_vanilla,hybrid_resnet`.
++- Default architectures are `cnn,fno,hybrid,stable_hybrid,fno_vanilla`.
+ - `baseline` is opt-in: include it explicitly via `--architectures ...baseline` (or `--models baseline,...`).
+ - Dataset source modes:
+   - `synthetic_lines` (default): TF + Torch + PtychoViT routes are available.
+-  - `external_raw_npz` (phase 1): Torch model IDs only (`pinn_fno`, `pinn_hybrid`, `pinn_stable_hybrid`, `pinn_fno_vanilla`, `pinn_hybrid_resnet`).
++  - `external_raw_npz` (phase 1): Torch model IDs only (`pinn_fno`, `pinn_hybrid`, `pinn_stable_hybrid`, `pinn_fno_vanilla`).
+ - `--seed`: Random seed for Torch runs (random if omitted).
+ - `--torch-output-mode {real_imag,amp_phase_logits,amp_phase}`: Control how FNO/Hybrid outputs are interpreted.
+   - `real_imag` (default): Treat output channels as real/imag.
+@@ -137,7 +137,7 @@ python scripts/studies/grid_lines_compare_wrapper.py \
+   --dataset-source external_raw_npz \
+   --train-data datasets/fly64/fly001_64_train_converted.npz \
+   --test-data datasets/fly64/fly001_64_train_converted.npz \
+-  --models pinn_hybrid_resnet \
++  --models pinn_fno \
+   --nepochs 3 --batch-size 16 --seed 3
+ ```
+ 
+@@ -164,7 +164,7 @@ python scripts/studies/grid_lines_torch_runner.py \
+ ### `runbooks/run_nersc_scan807_cameraman_study.py` and `runbooks/run_nersc_scan807_cameraman_study_n256.py`
+ NERSC orchestration runbooks for paired-HDF5 scan807+cameraman studies that combine:
+ - checkpoint-restored `pinn_ptychovit` inference,
+-- cameraman half-train/full-test `pinn_hybrid_resnet` training,
++- cameraman half-train/full-test Torch training,
+ - cross-dataset hybrid checkpoint-reuse inference,
+ - per-dataset metrics/visual aggregation.
+ 
