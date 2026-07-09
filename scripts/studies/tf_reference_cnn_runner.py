@@ -61,6 +61,32 @@ def parse_args():
     return ap.parse_args()
 
 
+def save_trained_model(output_dir: Path):
+    """Save the trained TF model (`ptycho.model_manager.save`) into `output_dir`.
+
+    The TF path has no seed knob, so every run is an unrepeatable draw; the
+    saved archive is the only way to recover trained weights (including the
+    trained `log_scale` variable, embedded by `ModelManager.save` via
+    `_get_log_scale()` -- see `ptycho/model_manager.py:418`) for forensics.
+
+    Never raises: a save failure is reported via the return value so scoring
+    -- the primary deliverable -- is not blocked.
+
+    Returns:
+        (model_saved, model_artifact, model_save_error) where model_artifact
+        is the filename of the saved zip archive on success, else None; and
+        model_save_error is the stringified exception on failure, else None.
+    """
+    try:
+        from ptycho import model_manager
+        model_manager.save(str(output_dir))
+        model_artifact = params.get("h5_path") + ".zip"
+        return True, model_artifact, None
+    except Exception as exc:  # scoring must proceed even if the save fails
+        logger.warning(f"Model save FAILED (scoring continues): {exc}")
+        return False, None, str(exc)
+
+
 def main():
     cli = parse_args()
     output_dir = Path(cli.output_dir)
@@ -130,6 +156,10 @@ def main():
         logger.warning(f"log_scale extraction failed: {exc}")
     logger.info(f"log_scale init={log_scale_init:.4f} final={log_scale_final}")
 
+    model_saved, model_artifact, model_save_error = save_trained_model(output_dir)
+    if model_saved:
+        logger.info(f"Model saved: {output_dir / model_artifact}")
+
     reconstructed_obj = np.asarray(results["reconstructed_obj"])
     test_container = results["test_container"]
     global_offsets = np.asarray(test_container.global_offsets)
@@ -151,7 +181,12 @@ def main():
         "log_scale_final": log_scale_final,
         "train_wall_s": train_wall_s,
         "nepochs": config.nepochs,
+        "model_saved": model_saved,
     })
+    if model_saved:
+        metrics["model_artifact"] = model_artifact
+    else:
+        metrics["model_save_error"] = model_save_error
     (output_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
     logger.info(f"Metrics: {json.dumps(metrics, indent=2)}")
     np.savez(output_dir / "canvas.npz", canvas=canvas.astype(np.complex64), coverage_mask=coverage_mask)
