@@ -92,3 +92,27 @@ def test_parse_args_requires_train_data_file(monkeypatch):
 
     with pytest.raises(SystemExit):
         runner.parse_args()
+
+
+def test_save_trained_model_records_artifact_on_success(monkeypatch, tmp_path):
+    monkeypatch.setattr("ptycho.model_manager.save", lambda out_prefix: None)
+    expected_artifact = runner.params.get("h5_path") + ".zip"
+
+    model_saved, model_artifact, model_save_error = runner.save_trained_model(tmp_path)
+
+    assert model_saved is True
+    assert model_artifact == expected_artifact
+    assert model_save_error is None
+
+
+def test_save_trained_model_reports_failure_without_raising(monkeypatch, tmp_path):
+    def _boom(out_prefix):
+        raise RuntimeError("disk full")
+
+    monkeypatch.setattr("ptycho.model_manager.save", _boom)
+
+    model_saved, model_artifact, model_save_error = runner.save_trained_model(tmp_path)
+
+    assert model_saved is False
+    assert model_artifact is None
+    assert model_save_error == "disk full"
