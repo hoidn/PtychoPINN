@@ -3,28 +3,100 @@
 Test strategy: plans/active/GRID-LINES-WORKFLOW-001/test_strategy.md
 """
 
+import json
 import numpy as np
 import pytest
 from pathlib import Path
+from types import SimpleNamespace
 
 from ptycho.workflows.grid_lines_workflow import (
     GridLinesConfig,
     scale_probe,
     apply_probe_mask,
+    run_pinn_inference,
     run_grid_lines_workflow,
+    render_grid_lines_visuals,
     save_split_npz,
     dataset_out_dir,
     stitch_predictions,
     save_recon_artifact,
     save_comparison_png_dynamic,
     _should_share_colorbar,
+    _display_bounds,
+    _resolve_display_border_pixels,
+    _resolve_probe_for_visuals,
+    parse_probe_transform_pipeline,
+    normalize_probe_transform_pipeline,
 )
+from ptycho.workflows import grid_lines_workflow as grid_lines_workflow_module
 from ptycho.config.config import ModelConfig, TrainingConfig
 from ptycho import params as p
 
 
+def test_run_pinn_inference_uses_first_prediction_output(monkeypatch):
+    monkeypatch.setattr(grid_lines_workflow_module.p, "get", lambda key: 1.0 if key == "intensity_scale" else None)
+
+    expected = np.ones((2, 4, 4, 1), dtype=np.complex64)
+
+    class DummyModel:
+        def predict(self, inputs):
+            return (
+                expected,
+                np.zeros((2, 4, 4, 1), dtype=np.float32),
+                np.zeros((2, 4, 4, 1), dtype=np.float32),
+                np.zeros((2, 4, 4, 1), dtype=np.float32),
+            )
+
+    output = run_pinn_inference(
+        DummyModel(),
+        np.ones((2, 4, 4, 1), dtype=np.float32),
+        np.zeros((2, 2), dtype=np.float32),
+    )
+
+    assert output is expected
+
+
 class TestProbeHelpers:
     """Tests for probe extraction and scaling helpers (Task 2)."""
+
+    def test_parse_probe_transform_pipeline_supports_shorthand_sequence(self):
+        steps = parse_probe_transform_pipeline("smooth:0.5|pad:128|interp:256")
+
+        assert steps == [
+            {"op": "smooth_complex", "sigma": 0.5},
+            {"op": "pad_complex", "target_N": 128},
+            {
+                "op": "interpolate_complex",
+                "target_N": 256,
+                "order": 3,
+                "representation": "real_imag",
+            },
+        ]
+
+    def test_normalize_probe_transform_pipeline_maps_legacy_pad_preserve(self):
+        normalized, steps = normalize_probe_transform_pipeline(
+            target_N=256,
+            probe_shape=(64, 64),
+            probe_scale_mode="pad_preserve",
+            probe_smoothing_sigma=0.5,
+            probe_transform_pipeline=None,
+        )
+
+        assert normalized == "smooth:0.5|pad:256"
+        assert steps == [
+            {"op": "smooth_complex", "sigma": 0.5},
+            {"op": "pad_complex", "target_N": 256},
+        ]
+
+    def test_normalize_probe_transform_pipeline_rejects_final_size_mismatch(self):
+        with pytest.raises(ValueError, match="final probe size"):
+            normalize_probe_transform_pipeline(
+                target_N=256,
+                probe_shape=(64, 64),
+                probe_scale_mode="pipeline",
+                probe_smoothing_sigma=0.0,
+                probe_transform_pipeline="smooth:0.5|pad:128|interp:192",
+            )
 
     def test_scale_probe_resizes_and_smooths(self):
         """scale_probe should resize 4x4 to 8x8 and preserve complex dtype."""
@@ -92,6 +164,71 @@ class TestProbeHelpers:
                 smoothing_sigma=0.0,
                 scale_mode="pad_extrapolate",
             )
+
+    def test_scale_probe_pad_preserve_preserves_centered_quadratic_phase(self):
+        """pad_preserve should keep the original phase inside the padded region."""
+        size = 8
+        center = (size - 1) / 2.0
+        radius_scale = (size - 1) / 2.0
+        yy, xx = np.indices((size, size))
+        r2_norm = ((yy - center) / radius_scale) ** 2 + ((xx - center) / radius_scale) ** 2
+        coeff_true = 1.25
+        bias_true = 0.2
+        phase = coeff_true * r2_norm + bias_true
+        probe = np.exp(1j * phase).astype(np.complex64)
+
+        scaled = scale_probe(
+            probe,
+            target_N=16,
+            smoothing_sigma=0.0,
+            scale_mode="pad_preserve",
+        )
+
+        start = 4
+        end = start + size
+        np.testing.assert_allclose(scaled[start:end, start:end], probe, atol=1e-6)
+        assert np.allclose(np.abs(scaled[:start, :]), 0.0, atol=1e-6)
+        assert np.allclose(np.abs(scaled[end:, :]), 0.0, atol=1e-6)
+        assert np.allclose(np.abs(scaled[:, :start]), 0.0, atol=1e-6)
+        assert np.allclose(np.abs(scaled[:, end:]), 0.0, atol=1e-6)
+
+    def test_scale_probe_pad_preserve_pads_complex_probe_without_rescaling_phase(self):
+        """pad_preserve should center-pad the complex probe and preserve phase."""
+        amplitude = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+        phase = np.zeros_like(amplitude)
+        probe = (amplitude * np.exp(1j * phase)).astype(np.complex64)
+
+        scaled = scale_probe(
+            probe,
+            target_N=4,
+            smoothing_sigma=0.0,
+            scale_mode="pad_preserve",
+        )
+
+        expected = np.pad(probe, pad_width=1, mode="constant")
+        np.testing.assert_allclose(scaled, expected, atol=1e-6)
+
+    def test_scale_probe_two_stage_pad_then_interpolate_differs_from_direct_interpolate(self):
+        probe = np.zeros((4, 4), dtype=np.complex64)
+        probe[1:3, 1:3] = 1.0 + 1.0j
+
+        staged = scale_probe(
+            probe,
+            target_N=16,
+            smoothing_sigma=0.0,
+            scale_mode="pipeline",
+            probe_transform_pipeline="pad:8|interp:16",
+        )
+        direct = scale_probe(
+            probe,
+            target_N=16,
+            smoothing_sigma=0.0,
+            scale_mode="interpolate",
+        )
+
+        assert staged.shape == (16, 16)
+        assert direct.shape == (16, 16)
+        assert not np.allclose(staged, direct)
 
     def test_apply_probe_mask_centered_disk(self):
         """apply_probe_mask should zero outside centered disk."""
@@ -231,6 +368,298 @@ class TestProbeHelpers:
         assert np.abs(probe[0, 0]) < 1e-3
 
 
+def _stub_grid_lines_simulation(monkeypatch, tmp_path: Path):
+    class DummyModel:
+        def save(self, *args, **kwargs):
+            return None
+
+    def fake_sim(cfg, probe_np):
+        _ = (cfg, probe_np)
+        return {
+            "train": {
+                "container": object(),
+                "X": np.zeros((1, 1, 1, 1), dtype=np.float32),
+                "Y_I": np.zeros((1, 1, 1, 1), dtype=np.float32),
+                "Y_phi": np.zeros((1, 1, 1, 1), dtype=np.float32),
+            },
+            "test": {
+                "X": np.zeros((1, 1, 1, 1), dtype=np.float32),
+                "coords_nominal": np.zeros((1, 2), dtype=np.float32),
+                "norm_Y_I": 1.0,
+                "YY_ground_truth": np.ones((1, 1, 1, 1), dtype=np.complex64),
+            },
+        }
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.simulate_grid_data", fake_sim)
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.configure_legacy_params",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.save_split_npz",
+        lambda *args, **kwargs: tmp_path / "split.npz",
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.save_pinn_model",
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.stitch_predictions",
+        lambda *args, **kwargs: np.zeros((1, 1, 1, 1), dtype=np.float32),
+    )
+    monkeypatch.setattr(
+        "ptycho.evaluation.eval_reconstruction",
+        lambda *args, **kwargs: {"mse": 0.0},
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.save_recon_artifact",
+        lambda out, label, recon: out / "recons" / label / "recon.npz",
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.save_comparison_png_dynamic",
+        lambda *args, **kwargs: tmp_path / "compare.png",
+    )
+    return DummyModel
+
+
+def test_build_tf_row_payload_uses_emitted_validation_loss():
+    payload = grid_lines_workflow_module._build_tf_row_payload(
+        model_id="baseline",
+        model_label="CDI CNN + supervised",
+        model=None,
+        history={"loss": [0.4, 0.2], "val_loss": [0.3, 0.05]},
+        metrics={"mae": [0.1, 0.2]},
+        N=128,
+        epoch_budget=2,
+        train_wall_time_sec=1.0,
+        inference_time_sec=0.5,
+    )
+
+    assert payload["N"] == 128
+    assert payload["validation_loss"] == {"status": "emitted", "value": 0.05}
+
+
+def test_run_grid_lines_workflow_tf_models_pinn_only(monkeypatch, tmp_path: Path):
+    DummyModel = _stub_grid_lines_simulation(monkeypatch, tmp_path)
+
+    calls = {"pinn_train": 0, "baseline_train": 0, "pinn_infer": 0, "baseline_infer": 0}
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_pinn_model",
+        lambda *args, **kwargs: (calls.__setitem__("pinn_train", calls["pinn_train"] + 1) or (DummyModel(), {})),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_baseline_model",
+        lambda *args, **kwargs: (calls.__setitem__("baseline_train", calls["baseline_train"] + 1) or (DummyModel(), {})),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_pinn_inference",
+        lambda *args, **kwargs: (calls.__setitem__("pinn_infer", calls["pinn_infer"] + 1) or np.zeros((1, 1, 1, 1), dtype=np.complex64)),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_baseline_inference",
+        lambda *args, **kwargs: (calls.__setitem__("baseline_infer", calls["baseline_infer"] + 1) or np.zeros((1, 1, 1, 1), dtype=np.complex64)),
+    )
+
+    probe_path = tmp_path / "probe.npz"
+    np.savez(probe_path, probeGuess=(np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64))
+    cfg = GridLinesConfig(N=8, gridsize=1, output_dir=tmp_path, probe_npz=probe_path)
+
+    result = run_grid_lines_workflow(cfg, tf_models=("pinn",))
+    assert "pinn" in result["metrics"]
+    assert "baseline" not in result["metrics"]
+    assert calls["pinn_train"] == 1
+    assert calls["baseline_train"] == 0
+    assert calls["pinn_infer"] == 1
+    assert calls["baseline_infer"] == 0
+
+
+def test_run_grid_lines_workflow_tf_models_baseline_only(monkeypatch, tmp_path: Path):
+    DummyModel = _stub_grid_lines_simulation(monkeypatch, tmp_path)
+
+    calls = {"pinn_train": 0, "baseline_train": 0, "pinn_infer": 0, "baseline_infer": 0}
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_pinn_model",
+        lambda *args, **kwargs: (calls.__setitem__("pinn_train", calls["pinn_train"] + 1) or (DummyModel(), {})),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_baseline_model",
+        lambda *args, **kwargs: (calls.__setitem__("baseline_train", calls["baseline_train"] + 1) or (DummyModel(), {})),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_pinn_inference",
+        lambda *args, **kwargs: (calls.__setitem__("pinn_infer", calls["pinn_infer"] + 1) or np.zeros((1, 1, 1, 1), dtype=np.complex64)),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_baseline_inference",
+        lambda *args, **kwargs: (calls.__setitem__("baseline_infer", calls["baseline_infer"] + 1) or np.zeros((1, 1, 1, 1), dtype=np.complex64)),
+    )
+
+    probe_path = tmp_path / "probe.npz"
+    np.savez(probe_path, probeGuess=(np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64))
+    cfg = GridLinesConfig(N=8, gridsize=1, output_dir=tmp_path, probe_npz=probe_path)
+
+    result = run_grid_lines_workflow(cfg, tf_models=("baseline",))
+    assert "pinn" not in result["metrics"]
+    assert "baseline" in result["metrics"]
+    assert calls["pinn_train"] == 0
+    assert calls["baseline_train"] == 1
+    assert calls["pinn_infer"] == 0
+    assert calls["baseline_infer"] == 1
+
+
+def test_run_grid_lines_workflow_does_not_pass_single_image_frc(monkeypatch, tmp_path: Path):
+    DummyModel = _stub_grid_lines_simulation(monkeypatch, tmp_path)
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_pinn_model",
+        lambda *args, **kwargs: (DummyModel(), {}),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_baseline_model",
+        lambda *args, **kwargs: (DummyModel(), {}),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_pinn_inference",
+        lambda *args, **kwargs: np.zeros((1, 1, 1, 1), dtype=np.complex64),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_baseline_inference",
+        lambda *args, **kwargs: np.zeros((1, 1, 1, 1), dtype=np.complex64),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.render_grid_lines_visuals",
+        lambda output_dir, order: {},
+    )
+
+    captured = {"pinn_has_single_image_frc_kwarg": None}
+
+    def fake_eval(*args, **kwargs):
+        label = kwargs.get("label")
+        if label == "pinn":
+            captured["pinn_has_single_image_frc_kwarg"] = "single_image_frc" in kwargs
+        return {"mse": 0.0}
+
+    monkeypatch.setattr("ptycho.evaluation.eval_reconstruction", fake_eval)
+
+    probe_path = tmp_path / "probe.npz"
+    np.savez(probe_path, probeGuess=(np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64))
+    cfg = GridLinesConfig(N=8, gridsize=1, output_dir=tmp_path, probe_npz=probe_path)
+
+    _ = run_grid_lines_workflow(cfg, tf_models=("pinn",))
+    assert captured["pinn_has_single_image_frc_kwarg"] is False
+
+
+def test_run_grid_lines_workflow_default_runs_both_models(monkeypatch, tmp_path: Path):
+    DummyModel = _stub_grid_lines_simulation(monkeypatch, tmp_path)
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_pinn_model",
+        lambda *args, **kwargs: (DummyModel(), {}),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_baseline_model",
+        lambda *args, **kwargs: (DummyModel(), {}),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_pinn_inference",
+        lambda *args, **kwargs: np.zeros((1, 1, 1, 1), dtype=np.complex64),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_baseline_inference",
+        lambda *args, **kwargs: np.zeros((1, 1, 1, 1), dtype=np.complex64),
+    )
+
+    probe_path = tmp_path / "probe.npz"
+    np.savez(probe_path, probeGuess=(np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64))
+    cfg = GridLinesConfig(N=8, gridsize=1, output_dir=tmp_path, probe_npz=probe_path)
+
+    result = run_grid_lines_workflow(cfg)
+    assert "pinn" in result["metrics"]
+    assert "baseline" in result["metrics"]
+
+
+def test_run_grid_lines_workflow_emits_paper_row_payloads(monkeypatch, tmp_path: Path):
+    DummyModel = _stub_grid_lines_simulation(monkeypatch, tmp_path)
+
+    class CountedModel(DummyModel):
+        def __init__(self, params: int):
+            self._params = params
+
+        def count_params(self):
+            return self._params
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_pinn_model",
+        lambda *args, **kwargs: (CountedModel(101), {"loss": [0.4, 0.3]}),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.train_baseline_model",
+        lambda *args, **kwargs: (CountedModel(202), {"loss": [0.6, 0.5]}),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_pinn_inference",
+        lambda *args, **kwargs: np.zeros((1, 1, 1, 1), dtype=np.complex64),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.run_baseline_inference",
+        lambda *args, **kwargs: np.zeros((1, 1, 1, 1), dtype=np.complex64),
+    )
+
+    probe_path = tmp_path / "probe.npz"
+    np.savez(probe_path, probeGuess=(np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64))
+    cfg = GridLinesConfig(N=8, gridsize=1, output_dir=tmp_path, probe_npz=probe_path, nepochs=2)
+
+    result = run_grid_lines_workflow(cfg)
+
+    assert result["row_payloads"]["baseline"]["training_procedure"] == "supervised"
+    assert result["row_payloads"]["baseline"]["architecture_id"] == "cnn"
+    assert result["row_payloads"]["baseline"]["parameter_count"] == 202
+    assert result["row_payloads"]["baseline"]["final_train_loss"] == 0.5
+    assert (tmp_path / "runs" / "baseline" / "invocation.json").exists()
+    assert (tmp_path / "runs" / "baseline" / "config.json").exists()
+    assert (tmp_path / "runs" / "baseline" / "history.json").exists()
+    assert (tmp_path / "runs" / "baseline" / "metrics.json").exists()
+    assert result["row_payloads"]["pinn"]["training_procedure"] == "pinn"
+    assert result["row_payloads"]["pinn"]["parameter_count"] == 101
+    assert result["row_payloads"]["pinn"]["row_status"] == "paper_grade"
+    assert (tmp_path / "runs" / "pinn" / "invocation.json").exists()
+    assert (tmp_path / "runs" / "pinn" / "config.json").exists()
+    assert (tmp_path / "runs" / "pinn" / "history.json").exists()
+    assert (tmp_path / "runs" / "pinn" / "metrics.json").exists()
+
+
+def test_render_grid_lines_visuals_emits_error_panels_and_frc_curves(tmp_path: Path):
+    gt_dir = tmp_path / "recons" / "gt"
+    pred_dir = tmp_path / "recons" / "baseline"
+    gt_dir.mkdir(parents=True, exist_ok=True)
+    pred_dir.mkdir(parents=True, exist_ok=True)
+
+    gt = (np.ones((16, 16)) + 1j * np.ones((16, 16))).astype(np.complex64)
+    pred = (0.5 * np.ones((16, 16)) + 1j * 0.25 * np.ones((16, 16))).astype(np.complex64)
+    np.savez(gt_dir / "recon.npz", YY_pred=gt, amp=np.abs(gt), phase=np.angle(gt))
+    np.savez(pred_dir / "recon.npz", YY_pred=pred, amp=np.abs(pred), phase=np.angle(pred))
+    (tmp_path / "metrics.json").write_text(
+        json.dumps(
+            {
+                "baseline": {
+                    "frc": [
+                        [1.0, 0.8, 0.6, 0.4],
+                        [1.0, 0.7, 0.5, 0.3],
+                    ]
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    outputs = render_grid_lines_visuals(tmp_path, order=("gt", "baseline"))
+
+    assert Path(outputs["amp_phase_error_baseline"]).exists()
+    assert Path(outputs["frc_curves"]).exists()
+
+
 class TestDatasetPersistence:
     """Tests for simulation and dataset persistence helpers (Task 3)."""
 
@@ -289,6 +718,70 @@ class TestDatasetPersistence:
         save_split_npz(cfg, "train", data, config)
 
         assert captured["metadata"]["additional_parameters"]["probe_source"] == "ideal_disk"
+        assert captured["metadata"]["additional_parameters"]["probe_scale_mode"] == "pad_preserve"
+        assert captured["metadata"]["additional_parameters"]["probe_smoothing_sigma"] == 0.5
+        assert captured["metadata"]["additional_parameters"]["probe_transform_pipeline"] == "smooth:0.5|pad:8"
+        assert captured["metadata"]["additional_parameters"]["probe_transform_steps"] == [
+            {"op": "smooth_complex", "sigma": 0.5},
+            {"op": "pad_complex", "target_N": 8},
+        ]
+        assert captured["metadata"]["additional_parameters"]["probe_npz"] == str(tmp_path / "probe.npz")
+
+    def test_metadata_includes_explicit_probe_transform_pipeline(self, monkeypatch, tmp_path: Path):
+        captured = {}
+
+        def fake_save_with_metadata(path, payload, metadata):
+            captured["metadata"] = metadata
+
+        monkeypatch.setattr(
+            "ptycho.metadata.MetadataManager.save_with_metadata",
+            fake_save_with_metadata,
+        )
+
+        cfg = GridLinesConfig(
+            N=256,
+            gridsize=1,
+            output_dir=tmp_path,
+            probe_npz=tmp_path / "probe.npz",
+            probe_scale_mode="pipeline",
+            probe_smoothing_sigma=0.0,
+            probe_transform_pipeline="smooth:0.5|pad:128|interp:256",
+        )
+
+        config = TrainingConfig(
+            model=ModelConfig(N=256, gridsize=1, object_big=False),
+            nphotons=1e9,
+            nepochs=1,
+            batch_size=1,
+            nll_weight=0.0,
+            mae_weight=1.0,
+            realspace_weight=0.0,
+        )
+
+        data = {
+            "X": np.zeros((1, 1, 1, 1)),
+            "Y_I": np.zeros((1, 1, 1, 1)),
+            "Y_phi": np.zeros((1, 1, 1, 1)),
+            "coords_nominal": np.zeros((1, 2)),
+            "coords_true": np.zeros((1, 2)),
+            "YY_full": np.zeros((1, 1, 1, 1), dtype=np.complex64),
+        }
+
+        save_split_npz(cfg, "train", data, config)
+
+        assert captured["metadata"]["additional_parameters"]["probe_transform_pipeline"] == (
+            "smooth:0.5|pad:128|interp:256"
+        )
+        assert captured["metadata"]["additional_parameters"]["probe_transform_steps"] == [
+            {"op": "smooth_complex", "sigma": 0.5},
+            {"op": "pad_complex", "target_N": 128},
+            {
+                "op": "interpolate_complex",
+                "target_N": 256,
+                "order": 3,
+                "representation": "real_imag",
+            },
+        ]
 
     def test_metadata_includes_coords_type(self, monkeypatch, tmp_path: Path):
         captured = {}
@@ -331,6 +824,55 @@ class TestDatasetPersistence:
         save_split_npz(cfg, "train", data, config)
 
         assert captured["metadata"]["additional_parameters"]["coords_type"] == "relative"
+
+    @pytest.mark.parametrize(
+        ("set_phi", "expected"),
+        [
+            pytest.param(True, True, id="set-phi-enabled"),
+            pytest.param(False, False, id="set-phi-default"),
+        ],
+    )
+    def test_metadata_includes_set_phi(self, monkeypatch, tmp_path: Path, set_phi: bool, expected: bool):
+        captured = {}
+
+        def fake_save_with_metadata(path, payload, metadata):
+            captured["metadata"] = metadata
+
+        monkeypatch.setattr(
+            "ptycho.metadata.MetadataManager.save_with_metadata",
+            fake_save_with_metadata,
+        )
+
+        cfg = GridLinesConfig(
+            N=8,
+            gridsize=1,
+            output_dir=tmp_path,
+            probe_npz=tmp_path / "probe.npz",
+            set_phi=set_phi,
+        )
+
+        config = TrainingConfig(
+            model=ModelConfig(N=8, gridsize=1, object_big=False),
+            nphotons=1e9,
+            nepochs=1,
+            batch_size=1,
+            nll_weight=0.0,
+            mae_weight=1.0,
+            realspace_weight=0.0,
+        )
+
+        data = {
+            "X": np.zeros((1, 1, 1, 1)),
+            "Y_I": np.zeros((1, 1, 1, 1)),
+            "Y_phi": np.zeros((1, 1, 1, 1)),
+            "coords_nominal": np.zeros((1, 2)),
+            "coords_true": np.zeros((1, 2)),
+            "YY_full": np.zeros((1, 1, 1, 1), dtype=np.complex64),
+        }
+
+        save_split_npz(cfg, "train", data, config)
+
+        assert captured["metadata"]["additional_parameters"]["set_phi"] is expected
 
     def test_metadata_includes_probe_mask_diameter(self, monkeypatch, tmp_path: Path):
         """Metadata should include probe_mask_diameter when set."""
@@ -482,6 +1024,43 @@ class TestReconArtifacts:
         )
         assert out.exists()
 
+    def test_save_comparison_png_dynamic_shows_numeric_x_ticks(self, tmp_path: Path, monkeypatch):
+        """Comparison heatmaps should expose numeric x-axis ticks for pixel-scale readability."""
+        import matplotlib.pyplot as plt
+
+        captured = {}
+
+        def fake_savefig(path, dpi=150):
+            _ = dpi
+            fig = plt.gcf()
+            main_axis = fig.axes[0]
+            captured["axison"] = bool(main_axis.axison)
+            captured["xlabels"] = [
+                label.get_text()
+                for label in main_axis.get_xticklabels()
+                if label.get_text().strip()
+            ]
+            Path(path).write_bytes(b"png")
+
+        monkeypatch.setattr(plt, "savefig", fake_savefig)
+
+        gt_amp = np.ones((16, 16), dtype=np.float32)
+        gt_phase = np.zeros((16, 16), dtype=np.float32)
+        recons = {"pinn": {"amp": np.ones((16, 16), dtype=np.float32), "phase": np.zeros((16, 16), dtype=np.float32)}}
+
+        out = save_comparison_png_dynamic(
+            tmp_path,
+            gt_amp,
+            gt_phase,
+            recons,
+            order=("pinn",),
+        )
+
+        assert out.exists()
+        assert captured["axison"] is True
+        assert captured["xlabels"]
+        assert all(label.isdigit() for label in captured["xlabels"])
+
 
 class TestColorbarSharing:
     """Tests for colorbar sharing decisions."""
@@ -505,6 +1084,19 @@ class TestColorbarSharing:
         arr1 = np.array([[0.0, 1.0]])
         assert _should_share_colorbar([arr1]) is True
 
+    def test_display_bounds_ignores_outer_band(self):
+        arr = np.ones((8, 8), dtype=np.float32)
+        arr[:2, :] = 10.0
+        arr[-2:, :] = 10.0
+        arr[:, :2] = 10.0
+        arr[:, -2:] = 10.0
+        bounds = _display_bounds(arr, border_pixels=2)
+        assert bounds == (1.0, 1.0)
+
+    def test_resolve_display_border_from_output_dir_token(self, tmp_path: Path):
+        out_dir = tmp_path / "grid_lines_external_fly001_n128_top_train_full_test_e5"
+        assert _resolve_display_border_pixels(out_dir) == 8
+
     def test_save_comparison_png_skips_missing(self, tmp_path: Path):
         """save_comparison_png_dynamic should skip missing labels."""
         gt_amp = np.ones((4, 4))
@@ -519,6 +1111,80 @@ class TestColorbarSharing:
         )
         assert out.exists()
 
+    def test_save_comparison_png_applies_border_to_gt_bounds(self, tmp_path: Path, monkeypatch):
+        gt_amp = np.ones((8, 8), dtype=np.float32)
+        gt_phase = np.zeros((8, 8), dtype=np.float32)
+        recons = {"pinn": {"amp": np.ones((8, 8), dtype=np.float32), "phase": np.zeros((8, 8), dtype=np.float32)}}
+        seen = []
+
+        def _fake_display_bounds(_arr, border_pixels=0):
+            seen.append(border_pixels)
+            return (0.0, 1.0)
+
+        monkeypatch.setattr("ptycho.workflows.grid_lines_workflow._display_bounds", _fake_display_bounds)
+
+        out = save_comparison_png_dynamic(
+            tmp_path / "grid_lines_external_fly001_n128_top_train_full_test_e5",
+            gt_amp,
+            gt_phase,
+            recons,
+            order=("pinn",),
+        )
+
+        assert out.exists()
+        assert seen == [8, 8, 8, 8]
+
+    def test_save_comparison_png_includes_probe_column(self, tmp_path: Path):
+        gt_amp = np.ones((8, 8), dtype=np.float32)
+        gt_phase = np.zeros((8, 8), dtype=np.float32)
+        recons = {"pinn": {"amp": np.ones((8, 8), dtype=np.float32), "phase": np.zeros((8, 8), dtype=np.float32)}}
+        probe = {
+            "amp": np.ones((4, 4), dtype=np.float32),
+            "phase": np.zeros((4, 4), dtype=np.float32),
+        }
+        out = save_comparison_png_dynamic(
+            tmp_path,
+            gt_amp,
+            gt_phase,
+            recons,
+            order=("pinn",),
+            probe=probe,
+        )
+        assert out.exists()
+
+    def test_resolve_probe_for_visuals_reads_probe_guess(self, tmp_path: Path):
+        dataset_dir = tmp_path / "datasets" / "N128" / "gs1"
+        dataset_dir.mkdir(parents=True)
+        probe = (np.ones((8, 8), dtype=np.float32) + 1j * np.zeros((8, 8), dtype=np.float32)).astype(np.complex64)
+        np.savez(dataset_dir / "train.npz", probeGuess=probe)
+        resolved = _resolve_probe_for_visuals(tmp_path)
+        assert resolved is not None
+        assert resolved["amp"].shape == (8, 8)
+        assert resolved["phase"].shape == (8, 8)
+
+    def test_resolve_probe_for_visuals_uses_run_params_dataset_paths(self, tmp_path: Path):
+        source_dataset_dir = tmp_path / "source" / "datasets" / "N128" / "gs1"
+        source_dataset_dir.mkdir(parents=True)
+        probe = (np.ones((8, 8), dtype=np.float32) + 1j * np.zeros((8, 8), dtype=np.float32)).astype(np.complex64)
+        np.savez(source_dataset_dir / "train.npz", probeGuess=probe)
+        np.savez(source_dataset_dir / "test.npz", probeGuess=probe)
+
+        rerun_output_dir = tmp_path / "rerun"
+        rerun_output_dir.mkdir(parents=True)
+        (rerun_output_dir / "run_params.json").write_text(
+            json.dumps(
+                {
+                    "train_npz": str(source_dataset_dir / "train.npz"),
+                    "test_npz": str(source_dataset_dir / "test.npz"),
+                }
+            )
+        )
+
+        resolved = _resolve_probe_for_visuals(rerun_output_dir)
+        assert resolved is not None
+        assert resolved["amp"].shape == (8, 8)
+        assert resolved["phase"].shape == (8, 8)
+
 
 class TestGridLinesCLI:
     def test_grid_lines_cli_probe_mask_diameter(self, tmp_path: Path):
@@ -532,3 +1198,286 @@ class TestGridLinesCLI:
         ])
         cfg = cli.build_config(args)
         assert cfg.probe_mask_diameter == 64
+
+    def test_main_writes_cli_invocation_artifacts(self, tmp_path: Path, monkeypatch):
+        import json
+        from scripts.studies import grid_lines_workflow as cli
+
+        called = {"run": False}
+
+        def fake_run_grid_lines_workflow(cfg):
+            called["run"] = True
+            return {"metrics": {}}
+
+        monkeypatch.setattr(cli, "run_grid_lines_workflow", fake_run_grid_lines_workflow)
+
+        cli.main(
+            [
+                "--N",
+                "64",
+                "--gridsize",
+                "1",
+                "--output-dir",
+                str(tmp_path),
+            ]
+        )
+
+        assert called["run"] is True
+        inv_json = tmp_path / "invocation.json"
+        inv_sh = tmp_path / "invocation.sh"
+        assert inv_json.exists()
+        assert inv_sh.exists()
+        payload = json.loads(inv_json.read_text())
+        assert "grid_lines_workflow.py" in payload["command"]
+        assert "--output-dir" in payload["argv"]
+
+
+def test_build_grid_lines_datasets_writes_train_test_npz(monkeypatch, tmp_path: Path):
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets
+
+    def fake_sim(cfg, probe_np):
+        _ = probe_np
+        gt = (np.ones((392, 392)) + 1j * np.ones((392, 392))).astype(np.complex64)
+        return {"train": {}, "test": {"YY_ground_truth": gt}}
+
+    def fake_cfg(cfg, probe_np):
+        _ = (cfg, probe_np)
+        return object()
+
+    def fake_save(cfg, split, data, config, **kwargs):
+        _ = (data, config, kwargs)
+        out = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        out.mkdir(parents=True, exist_ok=True)
+        path = out / f"{split}.npz"
+        np.savez(path, ok=np.array([1], dtype=np.int8))
+        return path
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.simulate_grid_data", fake_sim)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.configure_legacy_params", fake_cfg)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.save_split_npz", fake_save)
+
+    cfg = GridLinesConfig(N=128, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe.npz")
+    np.savez(
+        cfg.probe_npz,
+        probeGuess=(np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64),
+    )
+    result = build_grid_lines_datasets(cfg)
+    assert Path(result["train_npz"]).exists()
+    assert Path(result["test_npz"]).exists()
+    assert Path(result["gt_recon"]).exists()
+
+
+def test_build_grid_lines_datasets_uses_shared_canonical_gt(monkeypatch, tmp_path: Path):
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets
+
+    def fake_sim(cfg, probe_np):
+        _ = (cfg, probe_np)
+        gt = (np.ones((392, 392)) + 1j * np.ones((392, 392))).astype(np.complex64)
+        return {"train": {}, "test": {"YY_ground_truth": gt}}
+
+    def fake_cfg(cfg, probe_np):
+        _ = (cfg, probe_np)
+        return object()
+
+    def fake_save(cfg, split, data, config, **kwargs):
+        _ = (data, config, kwargs)
+        out = cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+        out.mkdir(parents=True, exist_ok=True)
+        path = out / f"{split}.npz"
+        np.savez(path, ok=np.array([1], dtype=np.int8))
+        return path
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.simulate_grid_data", fake_sim)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.configure_legacy_params", fake_cfg)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.save_split_npz", fake_save)
+
+    cfg128 = GridLinesConfig(N=128, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe128.npz")
+    cfg256 = GridLinesConfig(N=256, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe256.npz")
+    np.savez(
+        cfg128.probe_npz,
+        probeGuess=(np.ones((128, 128)) + 1j * np.ones((128, 128))).astype(np.complex64),
+    )
+    np.savez(
+        cfg256.probe_npz,
+        probeGuess=(np.ones((256, 256)) + 1j * np.ones((256, 256))).astype(np.complex64),
+    )
+    out128 = build_grid_lines_datasets(cfg128, dataset_tag="N128", canonical_gt_label="gt")
+    out256 = build_grid_lines_datasets(cfg256, dataset_tag="N256", canonical_gt_label="gt")
+    assert out128["gt_recon"] == out256["gt_recon"]
+    assert out128["gt_recon"].endswith("recons/gt/recon.npz")
+
+
+def test_build_grid_lines_datasets_by_n_builds_each_required_n(monkeypatch, tmp_path: Path):
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets_by_n
+
+    called = []
+
+    def fake_build(cfg, dataset_tag=None, canonical_gt_label="gt"):
+        called.append((cfg.N, dataset_tag, canonical_gt_label))
+        return {
+            "train_npz": "train.npz",
+            "test_npz": "test.npz",
+            "gt_recon": f"recons/gt_{dataset_tag}/recon.npz",
+            "tag": dataset_tag,
+        }
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets", fake_build)
+    base_cfg = GridLinesConfig(N=128, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe.npz")
+    out = build_grid_lines_datasets_by_n(base_cfg, required_ns=[256, 128, 256])
+    assert sorted(out.keys()) == [128, 256]
+    assert called == [(128, "N128", "gt"), (256, "N256", "gt")]
+
+
+def test_build_grid_lines_datasets_by_n_resets_backend_state(monkeypatch, tmp_path: Path):
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets_by_n
+
+    reset_calls = []
+
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow._reset_backend_state",
+        lambda: reset_calls.append("reset"),
+    )
+    monkeypatch.setattr(
+        "ptycho.workflows.grid_lines_workflow.build_grid_lines_datasets",
+        lambda cfg, dataset_tag=None, canonical_gt_label="gt": {
+            "train_npz": "train.npz",
+            "test_npz": "test.npz",
+            "gt_recon": "recons/gt/recon.npz",
+            "tag": dataset_tag,
+        },
+    )
+
+    base_cfg = GridLinesConfig(N=128, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe.npz")
+    build_grid_lines_datasets_by_n(base_cfg, required_ns=[256, 128, 256])
+    assert reset_calls == ["reset", "reset"]
+
+
+def test_build_grid_lines_datasets_persists_nonconstant_scan_positions(monkeypatch, tmp_path: Path):
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, build_grid_lines_datasets
+
+    coords_offsets = np.zeros((3, 1, 2, 1), dtype=np.float32)
+    coords_offsets[:, 0, 0, 0] = np.array([0.0, 0.25, 0.5], dtype=np.float32)
+    coords_offsets[:, 0, 1, 0] = np.array([0.0, -0.25, -0.5], dtype=np.float32)
+
+    def fake_sim(cfg, probe_np):
+        _ = (cfg, probe_np)
+        gt = (np.ones((16, 16)) + 1j * np.ones((16, 16))).astype(np.complex64)
+        split = {
+            "X": np.ones((3, 8, 8, 1), dtype=np.float32),
+            "Y_I": np.ones((3, 8, 8, 1), dtype=np.float32),
+            "Y_phi": np.zeros((3, 8, 8, 1), dtype=np.float32),
+            "coords_nominal": np.zeros((3, 1, 2, 1), dtype=np.float32),
+            "coords_true": np.zeros((3, 1, 2, 1), dtype=np.float32),
+            "coords_offsets": coords_offsets,
+            "YY_full": np.ones((16, 16), dtype=np.complex64),
+        }
+        return {
+            "train": dict(split),
+            "test": {
+                **split,
+                "YY_ground_truth": gt,
+                "norm_Y_I": np.array([1.0], dtype=np.float32),
+            },
+        }
+
+    def fake_cfg(cfg, probe_np):
+        _ = (cfg, probe_np)
+        return TrainingConfig(
+            model=ModelConfig(N=8, gridsize=1, object_big=False),
+            nphotons=1e9,
+            nepochs=1,
+            batch_size=1,
+            nll_weight=0.0,
+            mae_weight=1.0,
+            realspace_weight=0.0,
+        )
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.simulate_grid_data", fake_sim)
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.configure_legacy_params", fake_cfg)
+
+    probe_path = tmp_path / "probe.npz"
+    np.savez(
+        probe_path,
+        probeGuess=(np.ones((8, 8)) + 1j * np.ones((8, 8))).astype(np.complex64),
+    )
+    cfg = GridLinesConfig(N=8, gridsize=1, output_dir=tmp_path, probe_npz=probe_path)
+    out = build_grid_lines_datasets(cfg)
+
+    with np.load(out["train_npz"], allow_pickle=True) as train_data:
+        assert "coords_offsets" in train_data.files
+        pos = np.asarray(train_data["coords_offsets"])
+        assert np.unique(pos).size > 1
+
+
+def test_simulate_grid_data_derives_global_scan_positions_when_container_offsets_degenerate(
+    monkeypatch,
+    tmp_path: Path,
+):
+    from ptycho.workflows.grid_lines_workflow import GridLinesConfig, simulate_grid_data
+
+    train_x = np.ones((3, 8, 8, 1), dtype=np.float32)
+    test_x = np.ones((2, 8, 8, 1), dtype=np.float32)
+    zeros_train = np.zeros((3, 1, 2, 1), dtype=np.float32)
+    zeros_test = np.zeros((2, 1, 2, 1), dtype=np.float32)
+    gt = (np.ones((16, 16)) + 1j * np.ones((16, 16))).astype(np.complex64)
+
+    dataset = SimpleNamespace(
+        train_data=SimpleNamespace(
+            coords_nominal=zeros_train,
+            coords_true=zeros_train,
+            global_offsets=None,
+            YY_full=np.ones((16, 16), dtype=np.complex64),
+        ),
+        test_data=SimpleNamespace(
+            coords_nominal=zeros_test,
+            coords_true=zeros_test,
+            global_offsets=None,
+            YY_full=np.ones((16, 16), dtype=np.complex64),
+        ),
+    )
+
+    def fake_generate_data():
+        return (
+            train_x,
+            np.ones_like(train_x),
+            np.zeros_like(train_x),
+            test_x,
+            np.ones_like(test_x),
+            np.zeros_like(test_x),
+            gt,
+            dataset,
+            np.ones((16, 16), dtype=np.complex64),
+            np.array([1.0], dtype=np.float32),
+        )
+
+    def fake_extract_coords(size, repeats=1, coord_type="offsets", outer_offset=None, **kwargs):
+        _ = (size, repeats, coord_type, outer_offset, kwargs)
+        if outer_offset == 8:
+            ix = np.array([0.0, 1.0, 2.0], dtype=np.float32)[:, None, None, None]
+            iy = np.array([10.0, 11.0, 12.0], dtype=np.float32)[:, None, None, None]
+            return ix, iy
+        ix = np.array([5.0, 6.0], dtype=np.float32)[:, None, None, None]
+        iy = np.array([15.0, 16.0], dtype=np.float32)[:, None, None, None]
+        return ix, iy
+
+    monkeypatch.setattr("ptycho.workflows.grid_lines_workflow.configure_legacy_params", lambda *args, **kwargs: None)
+    monkeypatch.setattr("ptycho.data_preprocessing.generate_data", fake_generate_data)
+    monkeypatch.setattr("ptycho.diffsim.extract_coords", fake_extract_coords)
+    p.set("intensity_scale", 1.0)
+
+    cfg = GridLinesConfig(
+        N=8,
+        gridsize=1,
+        output_dir=tmp_path,
+        probe_npz=tmp_path / "probe.npz",
+        nimgs_train=3,
+        nimgs_test=2,
+    )
+    out = simulate_grid_data(cfg, probe_np=np.ones((8, 8), dtype=np.complex64))
+
+    train_offsets = np.asarray(out["train"]["coords_offsets"])
+    test_offsets = np.asarray(out["test"]["coords_offsets"])
+    assert train_offsets.shape == (3, 1, 2, 1)
+    assert test_offsets.shape == (2, 1, 2, 1)
+    assert np.unique(train_offsets).size > 1
+    assert np.unique(test_offsets).size > 1

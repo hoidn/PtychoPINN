@@ -8,16 +8,87 @@ Data contracts: see specs/data_contracts.md
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import contextlib
+from dataclasses import asdict, dataclass, replace
+from datetime import datetime, timezone
+import io
 from pathlib import Path
-from typing import Dict, Any, Tuple, Optional
+import random
+import sys
+from typing import Any, Dict, Iterable, Optional, Tuple
+import gc
 import json
+import re
+import time
 import numpy as np
 from skimage.restoration import unwrap_phase
 
 from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
 from ptycho import params as p
 from scripts.tools.prepare_data_tool import interpolate_array, smooth_complex_array
+
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _json_default(value):
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, np.bool_):
+        return bool(value)
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.floating):
+        return float(value)
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
+class _TeeTextStream(io.TextIOBase):
+    def __init__(self, *streams: io.TextIOBase) -> None:
+        self._streams = streams
+
+    def write(self, s: str) -> int:
+        for stream in self._streams:
+            stream.write(s)
+            stream.flush()
+        return len(s)
+
+    def flush(self) -> None:
+        for stream in self._streams:
+            stream.flush()
+
+
+def _write_log_text(path: Path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding="utf-8")
+
+
+@contextlib.contextmanager
+def _capture_tf_row_logs(output_dir: Path, model_id: str):
+    run_dir = output_dir / "runs" / model_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    tee_stdout = _TeeTextStream(sys.stdout, stdout_buffer)
+    tee_stderr = _TeeTextStream(sys.stderr, stderr_buffer)
+    try:
+        with contextlib.redirect_stdout(tee_stdout), contextlib.redirect_stderr(tee_stderr):
+            print(f"[row:{model_id}] Starting row-local execution")
+            try:
+                yield
+            except Exception as exc:
+                print(
+                    f"[row:{model_id}] Row execution failed: {exc.__class__.__name__}: {exc}",
+                    file=sys.stderr,
+                )
+                raise
+            else:
+                print(f"[row:{model_id}] Completed row-local execution")
+    finally:
+        _write_log_text(run_dir / "stdout.log", stdout_buffer.getvalue())
+        _write_log_text(run_dir / "stderr.log", stderr_buffer.getvalue())
 
 
 @dataclass
@@ -46,8 +117,10 @@ class GridLinesConfig:
     probe_smoothing_sigma: float = 0.5
     probe_mask_diameter: Optional[int] = None
     probe_source: str = "custom"
-    probe_scale_mode: str = "pad_extrapolate"
+    probe_scale_mode: str = "pad_preserve"
+    probe_transform_pipeline: Optional[str] = None
     set_phi: bool = False
+    seed: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------
@@ -76,35 +149,42 @@ def scale_probe(
     target_N: int,
     smoothing_sigma: float,
     scale_mode: str = "pad_extrapolate",
+    probe_transform_pipeline: str | None = None,
 ) -> np.ndarray:
     """Resize probe to target_N and optionally smooth.
 
     Modes:
         - interpolate: cubic spline interpolation on real/imag parts.
-        - pad_extrapolate: edge amplitude padding + quadratic phase extrapolation.
+        - pad_preserve: smooth at source resolution, then center-pad the complex probe.
+        - pad_extrapolate: edge-pad amplitude + quadratic phase extrapolation.
     """
-    return scale_probe_with_mode(
-        probe,
-        target_N,
-        smoothing_sigma,
-        scale_mode=scale_mode,
+    normalized_pipeline, steps = normalize_probe_transform_pipeline(
+        target_N=target_N,
+        probe_shape=probe.shape,
+        probe_scale_mode=scale_mode,
+        probe_smoothing_sigma=smoothing_sigma,
+        probe_transform_pipeline=probe_transform_pipeline,
     )
+    _ = normalized_pipeline
+    return apply_probe_transform_pipeline(probe, steps)
 
 
-def _fit_quadratic_phase(phase: np.ndarray) -> tuple[float, float]:
-    """Fit phase ~= a * r^2 + b to an unwrapped phase map."""
-    h, w = phase.shape
-    cy = (h - 1) / 2.0
-    cx = (w - 1) / 2.0
-    yy, xx = np.indices((h, w))
-    r2 = (yy - cy) ** 2 + (xx - cx) ** 2
-    A = np.stack([r2.ravel(), np.ones(r2.size)], axis=1)
-    coeffs, _, _, _ = np.linalg.lstsq(A, phase.ravel(), rcond=None)
-    return float(coeffs[0]), float(coeffs[1])
+def _pad_complex_probe(probe: np.ndarray, target_N: int) -> np.ndarray:
+    """Center-pad a complex probe to target_N with zeros."""
+    h, w = probe.shape
+    if h != w:
+        raise ValueError("probe must be square")
+    if target_N < h:
+        raise ValueError("pad_extrapolate requires target_N >= probe size")
+    pad_total = target_N - h
+    pad_before = pad_total // 2
+    pad_after = pad_total - pad_before
+    pad_width = ((pad_before, pad_after), (pad_before, pad_after))
+    return np.pad(probe, pad_width=pad_width, mode="constant")
 
 
 def _pad_amplitude(amplitude: np.ndarray, target_N: int) -> np.ndarray:
-    """Pad amplitude to target_N using nearest-neighbor (edge) padding."""
+    """Pad amplitude to target_N using edge padding."""
     h, w = amplitude.shape
     if h != w:
         raise ValueError("probe must be square")
@@ -117,32 +197,212 @@ def _pad_amplitude(amplitude: np.ndarray, target_N: int) -> np.ndarray:
     return np.pad(amplitude, pad_width=pad_width, mode="edge")
 
 
-def scale_probe_with_mode(
-    probe: np.ndarray,
-    target_N: int,
-    smoothing_sigma: float,
-    scale_mode: str = "pad_extrapolate",
-) -> np.ndarray:
-    """Resize probe to target_N and optionally smooth using specified mode.
+def _fit_quadratic_phase(phase: np.ndarray) -> tuple[float, float]:
+    """Fit phase ~= a * r^2 + b to an unwrapped phase map."""
+    h, w = phase.shape
+    cy = (h - 1) / 2.0
+    cx = (w - 1) / 2.0
+    yy, xx = np.indices((h, w))
+    r2 = (yy - cy) ** 2 + (xx - cx) ** 2
+    design = np.stack([r2.ravel(), np.ones(r2.size)], axis=1)
+    coeffs, _, _, _ = np.linalg.lstsq(design, phase.ravel(), rcond=None)
+    return float(coeffs[0]), float(coeffs[1])
 
-    Modes:
-        - interpolate: cubic spline interpolation on real/imag parts.
-        - pad_extrapolate: edge-pad amplitude + quadratic phase extrapolation.
-    """
-    if probe.shape[0] != probe.shape[1]:
+
+def _coerce_pipeline_value(raw_value: str) -> object:
+    raw_value = raw_value.strip()
+    if not raw_value:
+        return raw_value
+    try:
+        integer = int(raw_value)
+    except ValueError:
+        integer = None
+    if integer is not None and str(integer) == raw_value:
+        return integer
+    try:
+        return float(raw_value)
+    except ValueError:
+        return raw_value
+
+
+def _serialize_numeric(value: object) -> str:
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
+
+
+def parse_probe_transform_pipeline(spec: str) -> list[dict[str, object]]:
+    """Parse a shorthand or explicit probe transform pipeline string."""
+    if not spec or not spec.strip():
+        raise ValueError("probe transform pipeline must be non-empty")
+
+    steps: list[dict[str, object]] = []
+    for raw_segment in spec.split("|"):
+        segment = raw_segment.strip()
+        if not segment:
+            raise ValueError("probe transform pipeline contains an empty step")
+        if ":" in segment:
+            raw_op, raw_params = segment.split(":", 1)
+        else:
+            raw_op, raw_params = segment, ""
+        op_name = raw_op.strip()
+        params = raw_params.strip()
+
+        if op_name == "smooth":
+            if not params:
+                raise ValueError("smooth requires a sigma value")
+            steps.append({"op": "smooth_complex", "sigma": float(params)})
+            continue
+
+        if op_name == "pad":
+            if not params:
+                raise ValueError("pad requires a target_N value")
+            steps.append({"op": "pad_complex", "target_N": int(params)})
+            continue
+
+        if op_name == "interp":
+            if not params:
+                raise ValueError("interp requires a target_N value")
+            parts = [part.strip() for part in params.split(",") if part.strip()]
+            step: dict[str, object] = {
+                "op": "interpolate_complex",
+                "order": 3,
+                "representation": "real_imag",
+            }
+            first = parts.pop(0)
+            if "=" in first:
+                key, value = first.split("=", 1)
+                step[key.strip()] = _coerce_pipeline_value(value)
+            else:
+                step["target_N"] = int(first)
+            for part in parts:
+                key, value = part.split("=", 1)
+                step[key.strip()] = _coerce_pipeline_value(value)
+            if "target_N" not in step:
+                raise ValueError("interp requires target_N")
+            steps.append(step)
+            continue
+
+        if op_name == "pad_extrapolate":
+            if not params:
+                raise ValueError("pad_extrapolate requires a target_N value")
+            steps.append({"op": "pad_extrapolate_complex", "target_N": int(params)})
+            continue
+
+        step: dict[str, object] = {"op": op_name}
+        if params:
+            for part in [item.strip() for item in params.split(",") if item.strip()]:
+                if "=" not in part:
+                    raise ValueError(f"Unsupported parameter syntax '{part}' in probe transform pipeline")
+                key, value = part.split("=", 1)
+                step[key.strip()] = _coerce_pipeline_value(value)
+
+        if step["op"] not in {
+            "smooth_complex",
+            "pad_complex",
+            "interpolate_complex",
+            "pad_extrapolate_complex",
+        }:
+            raise ValueError(f"Unknown probe transform op '{step['op']}'")
+        steps.append(step)
+    return steps
+
+
+def _serialize_probe_transform_pipeline(steps: list[dict[str, object]]) -> str:
+    serialized_steps: list[str] = []
+    for step in steps:
+        op = step["op"]
+        if op == "smooth_complex":
+            serialized_steps.append(f"smooth:{_serialize_numeric(step['sigma'])}")
+            continue
+        if op == "pad_complex":
+            serialized_steps.append(f"pad:{int(step['target_N'])}")
+            continue
+        if op == "pad_extrapolate_complex":
+            serialized_steps.append(f"pad_extrapolate:{int(step['target_N'])}")
+            continue
+        if op == "interpolate_complex":
+            fragment = f"interp:{int(step['target_N'])}"
+            extras: list[str] = []
+            if step.get("order", 3) != 3:
+                extras.append(f"order={_serialize_numeric(step['order'])}")
+            if step.get("representation", "real_imag") != "real_imag":
+                extras.append(f"representation={step['representation']}")
+            if extras:
+                fragment = f"{fragment},{','.join(extras)}"
+            serialized_steps.append(fragment)
+            continue
+        raise ValueError(f"Unsupported probe transform op '{op}'")
+    return "|".join(serialized_steps)
+
+
+def _resolve_probe_size_after_step(current_size: int, step: dict[str, object]) -> int:
+    op = step["op"]
+    if op == "smooth_complex":
+        return current_size
+    if op in {"pad_complex", "interpolate_complex", "pad_extrapolate_complex"}:
+        target_N = int(step["target_N"])
+        if op == "pad_extrapolate_complex" and target_N < current_size:
+            raise ValueError("pad_extrapolate requires target_N >= probe size")
+        if op == "pad_complex" and target_N < current_size:
+            raise ValueError("pad_complex requires target_N >= current probe size")
+        return target_N
+    raise ValueError(f"Unsupported probe transform op '{op}'")
+
+
+def normalize_probe_transform_pipeline(
+    *,
+    target_N: int,
+    probe_shape: tuple[int, int],
+    probe_scale_mode: str | None,
+    probe_smoothing_sigma: float | None,
+    probe_transform_pipeline: str | None,
+) -> tuple[str, list[dict[str, object]]]:
+    """Resolve probe preprocessing into a canonical pipeline string + steps."""
+    if len(probe_shape) != 2 or probe_shape[0] != probe_shape[1]:
         raise ValueError("probe must be square")
 
-    if scale_mode == "interpolate":
-        if probe.shape[0] != target_N:
-            zoom_factor = target_N / probe.shape[0]
-            probe = interpolate_array(probe, zoom_factor)
-        if smoothing_sigma and smoothing_sigma > 0:
-            probe = smooth_complex_array(probe, smoothing_sigma)
-        return probe.astype(np.complex64)
+    if probe_transform_pipeline:
+        steps = parse_probe_transform_pipeline(probe_transform_pipeline)
+    else:
+        sigma = float(probe_smoothing_sigma or 0.0)
+        mode = probe_scale_mode or "pad_extrapolate"
+        steps = []
+        if mode == "interpolate":
+            steps.append(
+                {
+                    "op": "interpolate_complex",
+                    "target_N": target_N,
+                    "order": 3,
+                    "representation": "real_imag",
+                }
+            )
+            if sigma > 0:
+                steps.append({"op": "smooth_complex", "sigma": sigma})
+        elif mode == "pad_preserve":
+            if sigma > 0:
+                steps.append({"op": "smooth_complex", "sigma": sigma})
+            steps.append({"op": "pad_complex", "target_N": target_N})
+        elif mode == "pad_extrapolate":
+            steps.append({"op": "pad_extrapolate_complex", "target_N": target_N})
+            if sigma > 0:
+                steps.append({"op": "smooth_complex", "sigma": sigma})
+        elif mode == "pipeline":
+            raise ValueError("probe_transform_pipeline must be provided when probe_scale_mode='pipeline'")
+        else:
+            raise ValueError(f"Unknown scale_mode '{mode}'")
 
-    if scale_mode != "pad_extrapolate":
-        raise ValueError(f"Unknown scale_mode '{scale_mode}'")
+    current_size = probe_shape[0]
+    for step in steps:
+        current_size = _resolve_probe_size_after_step(current_size, step)
+    if current_size != target_N:
+        raise ValueError(
+            f"probe transform pipeline final probe size {current_size} does not match target_N {target_N}"
+        )
+    return _serialize_probe_transform_pipeline(steps), steps
 
+
+def _pad_extrapolate_complex_probe(probe: np.ndarray, target_N: int) -> np.ndarray:
     amplitude = np.abs(probe)
     phase = unwrap_phase(np.angle(probe))
     amplitude_padded = _pad_amplitude(amplitude, target_N)
@@ -153,13 +413,60 @@ def scale_probe_with_mode(
     cx = (target_N - 1) / 2.0
     r2 = (yy - cy) ** 2 + (xx - cx) ** 2
     phase_extrap = a * r2 + b
-
     phase_wrapped = (phase_extrap + np.pi) % (2 * np.pi) - np.pi
-    probe_scaled = amplitude_padded * np.exp(1j * phase_wrapped)
+    return (amplitude_padded * np.exp(1j * phase_wrapped)).astype(np.complex64)
 
-    if smoothing_sigma and smoothing_sigma > 0:
-        probe_scaled = smooth_complex_array(probe_scaled, smoothing_sigma)
-    return probe_scaled.astype(np.complex64)
+
+def apply_probe_transform_pipeline(
+    probe: np.ndarray,
+    steps: list[dict[str, object]],
+) -> np.ndarray:
+    """Apply a normalized probe transform pipeline."""
+    transformed = np.asarray(probe, dtype=np.complex64)
+    if transformed.ndim != 2 or transformed.shape[0] != transformed.shape[1]:
+        raise ValueError("probe must be square")
+
+    for step in steps:
+        op = step["op"]
+        if op == "smooth_complex":
+            transformed = smooth_complex_array(transformed, float(step["sigma"]))
+            continue
+        if op == "pad_complex":
+            transformed = _pad_complex_probe(transformed, int(step["target_N"])).astype(np.complex64)
+            continue
+        if op == "interpolate_complex":
+            if transformed.shape[0] != int(step["target_N"]):
+                zoom_factor = int(step["target_N"]) / transformed.shape[0]
+                transformed = interpolate_array(transformed, zoom_factor).astype(np.complex64)
+            continue
+        if op == "pad_extrapolate_complex":
+            transformed = _pad_extrapolate_complex_probe(transformed, int(step["target_N"]))
+            continue
+        raise ValueError(f"Unsupported probe transform op '{op}'")
+    return transformed.astype(np.complex64)
+
+
+def scale_probe_with_mode(
+    probe: np.ndarray,
+    target_N: int,
+    smoothing_sigma: float,
+    scale_mode: str = "pad_extrapolate",
+    probe_transform_pipeline: str | None = None,
+) -> np.ndarray:
+    """Resize probe to target_N and optionally smooth using specified mode.
+
+    Modes:
+        - interpolate: cubic spline interpolation on real/imag parts.
+        - pad_preserve: smooth at source resolution, then center-pad the complex probe.
+        - pad_extrapolate: edge-pad amplitude + quadratic phase extrapolation.
+    """
+    return scale_probe(
+        probe,
+        target_N,
+        smoothing_sigma,
+        scale_mode=scale_mode,
+        probe_transform_pipeline=probe_transform_pipeline,
+    )
 
 
 def make_disk_mask(N: int, diameter: int) -> np.ndarray:
@@ -228,6 +535,64 @@ def simulate_grid_data(cfg: GridLinesConfig, probe_np: np.ndarray) -> Dict[str, 
         YY_gt, dataset, YY_full, norm_Y_I
     ) = data_preprocessing.generate_data()
 
+    def _build_scan_positions(
+        container: Any,
+        *,
+        n_repeats: int,
+        outer_offset: int,
+        n_samples: int,
+        channels: int,
+    ) -> np.ndarray | None:
+        coords_offsets = getattr(container, "global_offsets", None)
+        if coords_offsets is not None:
+            coords_offsets = np.asarray(coords_offsets)
+            if coords_offsets.ndim == 4 and coords_offsets.shape[0] == n_samples:
+                if np.unique(coords_offsets).size > 1:
+                    return coords_offsets
+
+        # Simulated gridsize=1 data frequently carries degenerate relative coordinates.
+        # Reconstruct global scan positions for interop from the simulation geometry.
+        from ptycho import diffsim
+
+        ix, iy = diffsim.extract_coords(
+            size=cfg.size,
+            repeats=n_repeats,
+            coord_type="global",
+            outer_offset=outer_offset,
+        )
+        ix = np.asarray(ix)
+        iy = np.asarray(iy)
+        if ix.ndim != 4 or iy.ndim != 4:
+            return None
+
+        coords_global = np.zeros((ix.shape[0], 1, 2, ix.shape[3]), dtype=np.float32)
+        coords_global[:, 0, 0, :] = iy[:, 0, 0, :]
+        coords_global[:, 0, 1, :] = ix[:, 0, 0, :]
+
+        if coords_global.shape[0] < n_samples:
+            return None
+        coords_global = coords_global[:n_samples]
+
+        if coords_global.shape[3] < channels:
+            return None
+        coords_global = coords_global[..., :channels]
+        return coords_global
+
+    train_offsets = _build_scan_positions(
+        dataset.train_data,
+        n_repeats=cfg.nimgs_train,
+        outer_offset=cfg.outer_offset_train,
+        n_samples=int(np.asarray(X_tr).shape[0]),
+        channels=int(np.asarray(X_tr).shape[-1]),
+    )
+    test_offsets = _build_scan_positions(
+        dataset.test_data,
+        n_repeats=cfg.nimgs_test,
+        outer_offset=cfg.outer_offset_test,
+        n_samples=int(np.asarray(X_te).shape[0]),
+        channels=int(np.asarray(X_te).shape[-1]),
+    )
+
     return {
         "train": {
             "X": X_tr,
@@ -235,6 +600,7 @@ def simulate_grid_data(cfg: GridLinesConfig, probe_np: np.ndarray) -> Dict[str, 
             "Y_phi": Yphi_tr,
             "coords_nominal": dataset.train_data.coords_nominal,
             "coords_true": dataset.train_data.coords_true,
+            "coords_offsets": train_offsets,
             "YY_full": dataset.train_data.YY_full,
             "container": dataset.train_data,
         },
@@ -244,6 +610,7 @@ def simulate_grid_data(cfg: GridLinesConfig, probe_np: np.ndarray) -> Dict[str, 
             "Y_phi": Yphi_te,
             "coords_nominal": dataset.test_data.coords_nominal,
             "coords_true": dataset.test_data.coords_true,
+            "coords_offsets": test_offsets,
             "YY_full": dataset.test_data.YY_full,
             "YY_ground_truth": YY_gt,
             "norm_Y_I": norm_Y_I,
@@ -262,7 +629,10 @@ def save_split_npz(
     cfg: GridLinesConfig,
     split: str,
     data: Dict[str, Any],
-    config: TrainingConfig
+    config: TrainingConfig,
+    *,
+    probe_transform_pipeline: str | None = None,
+    probe_transform_steps: list[dict[str, object]] | None = None,
 ) -> Path:
     """Save train or test split as NPZ with metadata."""
     from ptycho.metadata import MetadataManager
@@ -279,6 +649,8 @@ def save_split_npz(
         "coords_true": data["coords_true"],
         "YY_full": data["YY_full"],
     }
+    if data.get("coords_offsets") is not None:
+        payload["coords_offsets"] = data["coords_offsets"]
     if data.get("probeGuess") is not None:
         payload["probeGuess"] = data["probeGuess"]
     if split == "test":
@@ -286,6 +658,23 @@ def save_split_npz(
             payload["YY_ground_truth"] = data["YY_ground_truth"]
         if data.get("norm_Y_I") is not None:
             payload["norm_Y_I"] = np.array(data["norm_Y_I"])
+
+    if probe_transform_pipeline is None or probe_transform_steps is None:
+        if cfg.probe_transform_pipeline:
+            normalized_steps = parse_probe_transform_pipeline(cfg.probe_transform_pipeline)
+            normalized_pipeline = _serialize_probe_transform_pipeline(normalized_steps)
+        else:
+            probe_guess = np.asarray(data.get("probeGuess")) if data.get("probeGuess") is not None else None
+            normalized_pipeline, normalized_steps = normalize_probe_transform_pipeline(
+                target_N=cfg.N,
+                probe_shape=probe_guess.shape if probe_guess is not None else (cfg.N, cfg.N),
+                probe_scale_mode=cfg.probe_scale_mode,
+                probe_smoothing_sigma=cfg.probe_smoothing_sigma,
+                probe_transform_pipeline=cfg.probe_transform_pipeline,
+            )
+    else:
+        normalized_pipeline = probe_transform_pipeline
+        normalized_steps = probe_transform_steps
 
     metadata = MetadataManager.create_metadata(
         config,
@@ -298,10 +687,112 @@ def save_split_npz(
         nimgs_test=cfg.nimgs_test,
         probe_mask_diameter=cfg.probe_mask_diameter,
         probe_source=cfg.probe_source,
+        probe_scale_mode=cfg.probe_scale_mode,
+        probe_smoothing_sigma=cfg.probe_smoothing_sigma,
+        probe_transform_pipeline=normalized_pipeline,
+        probe_transform_steps=normalized_steps,
+        probe_npz=str(cfg.probe_npz),
+        set_phi=cfg.set_phi,
         coords_type="relative",
     )
     MetadataManager.save_with_metadata(str(path), payload, metadata)
     return path
+
+
+def build_grid_lines_datasets(
+    cfg: GridLinesConfig,
+    dataset_tag: str | None = None,
+    canonical_gt_label: str = "gt",
+) -> Dict[str, str]:
+    """Build train/test NPZ datasets and persist a canonical GT recon artifact."""
+    if cfg.probe_source == "ideal_disk":
+        probe_guess = load_ideal_disk_probe(cfg.N)
+    else:
+        probe_guess = load_probe_guess(cfg.probe_npz)
+    normalized_pipeline, normalized_steps = normalize_probe_transform_pipeline(
+        target_N=cfg.N,
+        probe_shape=probe_guess.shape,
+        probe_scale_mode=cfg.probe_scale_mode,
+        probe_smoothing_sigma=cfg.probe_smoothing_sigma,
+        probe_transform_pipeline=cfg.probe_transform_pipeline,
+    )
+    probe_scaled = apply_probe_transform_pipeline(probe_guess, normalized_steps)
+    probe_scaled = apply_probe_mask(probe_scaled, cfg.probe_mask_diameter)
+
+    sim = simulate_grid_data(cfg, probe_scaled)
+    config = configure_legacy_params(cfg, probe_scaled)
+
+    sim["train"]["probeGuess"] = probe_scaled
+    sim["test"]["probeGuess"] = probe_scaled
+    train_npz = save_split_npz(
+        cfg,
+        "train",
+        sim["train"],
+        config,
+        probe_transform_pipeline=normalized_pipeline,
+        probe_transform_steps=normalized_steps,
+    )
+    test_npz = save_split_npz(
+        cfg,
+        "test",
+        sim["test"],
+        config,
+        probe_transform_pipeline=normalized_pipeline,
+        probe_transform_steps=normalized_steps,
+    )
+
+    tag = dataset_tag or f"N{cfg.N}"
+    gt_path = cfg.output_dir / "recons" / canonical_gt_label / "recon.npz"
+    gt_complex = np.squeeze(sim["test"]["YY_ground_truth"])
+    if gt_path.exists():
+        with np.load(gt_path) as existing:
+            existing_gt = np.squeeze(existing["YY_pred"])
+        if existing_gt.shape != gt_complex.shape or not np.allclose(
+            existing_gt,
+            gt_complex,
+            rtol=1e-6,
+            atol=1e-6,
+        ):
+            raise ValueError(
+                "Canonical GT mismatch across N builds; enforce shared synthetic object identity/seed"
+            )
+    else:
+        gt_path = save_recon_artifact(cfg.output_dir, canonical_gt_label, gt_complex)
+
+    return {
+        "train_npz": str(train_npz),
+        "test_npz": str(test_npz),
+        "gt_recon": str(gt_path),
+        "tag": tag,
+    }
+
+
+def build_grid_lines_datasets_by_n(
+    base_cfg: GridLinesConfig,
+    required_ns: Iterable[int],
+) -> Dict[int, Dict[str, str]]:
+    """Build dataset bundles for each unique required N value."""
+    bundles: Dict[int, Dict[str, str]] = {}
+    for n_value in sorted(set(required_ns)):
+        _reset_backend_state()
+        cfg_n = replace(base_cfg, N=n_value)
+        bundles[n_value] = build_grid_lines_datasets(
+            cfg_n,
+            dataset_tag=f"N{n_value}",
+            canonical_gt_label="gt",
+        )
+    return bundles
+
+
+def _reset_backend_state() -> None:
+    """Best-effort backend cleanup between heavy multi-N dataset builds."""
+    try:
+        import tensorflow as tf
+
+        tf.keras.backend.clear_session()
+    except Exception:
+        pass
+    gc.collect()
 
 
 # ---------------------------------------------------------------------------
@@ -422,6 +913,292 @@ def train_baseline_model(X_train, Y_I_train, Y_phi_train):
     return model, history
 
 
+def _history_loss_series(history: object) -> list[float]:
+    if isinstance(history, dict):
+        loss = history.get("loss", [])
+        if isinstance(loss, list):
+            return [float(value) for value in loss]
+    raw_history = getattr(history, "history", None)
+    if isinstance(raw_history, dict):
+        loss = raw_history.get("loss", [])
+        if isinstance(loss, list):
+            return [float(value) for value in loss]
+    return []
+
+
+def _history_final_epoch(history: object, *, fallback_epochs: int) -> int:
+    loss_series = _history_loss_series(history)
+    if loss_series:
+        return int(len(loss_series))
+    epoch_series = getattr(history, "epoch", None)
+    if isinstance(epoch_series, list) and epoch_series:
+        return int(max(epoch_series) + 1)
+    return int(fallback_epochs)
+
+
+def _history_final_loss(history: object) -> float | None:
+    loss_series = _history_loss_series(history)
+    if loss_series:
+        return float(loss_series[-1])
+    return None
+
+
+def _history_validation_loss(history: object) -> Dict[str, object]:
+    if isinstance(history, dict):
+        val_loss = history.get("val_loss", [])
+        if isinstance(val_loss, list) and val_loss:
+            return {"status": "emitted", "value": float(val_loss[-1])}
+    raw_history = getattr(history, "history", None)
+    if isinstance(raw_history, dict):
+        val_loss = raw_history.get("val_loss", [])
+        if isinstance(val_loss, list) and val_loss:
+            return {"status": "emitted", "value": float(val_loss[-1])}
+    return {"status": "no_validation_series", "value": None}
+
+
+def _count_model_parameters(model: object) -> int | None:
+    count_params = getattr(model, "count_params", None)
+    if callable(count_params):
+        try:
+            return int(count_params())
+        except Exception:
+            return None
+    return None
+
+
+def _tf_hardware_summary() -> Dict[str, object]:
+    import tensorflow as tf
+
+    gpus = tf.config.list_physical_devices("GPU")
+    accelerator = "cpu"
+    if gpus:
+        accelerator = getattr(gpus[0], "name", None) or "gpu"
+    return {
+        "backend": "tensorflow",
+        "accelerator": accelerator,
+    }
+
+
+def _build_tf_row_payload(
+    *,
+    model_id: str,
+    model_label: str,
+    model: object,
+    history: object,
+    metrics: Dict[str, object],
+    N: Optional[int],
+    epoch_budget: int,
+    train_wall_time_sec: float,
+    inference_time_sec: float,
+) -> Dict[str, object]:
+    return {
+        "model_label": model_label,
+        "architecture_id": "cnn",
+        "training_procedure": "supervised" if model_id == "baseline" else "pinn",
+        "N": int(N) if N is not None else None,
+        "parameter_count": _count_model_parameters(model),
+        "epoch_budget": int(epoch_budget),
+        "final_completed_epoch": _history_final_epoch(history, fallback_epochs=epoch_budget),
+        "final_train_loss": _history_final_loss(history),
+        "validation_loss": _history_validation_loss(history),
+        "runtime_summary": {
+            "train_wall_time_sec": float(train_wall_time_sec),
+            "inference_time_sec": float(inference_time_sec),
+        },
+        "hardware_summary": _tf_hardware_summary(),
+        "row_status": "paper_grade",
+        "caveats": [],
+        "metrics": dict(metrics),
+    }
+
+
+def _serialize_history_payload(history: object) -> Dict[str, object]:
+    if isinstance(history, dict):
+        return dict(history)
+    payload: Dict[str, object] = {}
+    history_dict = getattr(history, "history", None)
+    if isinstance(history_dict, dict):
+        payload.update(history_dict)
+    epoch_series = getattr(history, "epoch", None)
+    if isinstance(epoch_series, list):
+        payload["epoch"] = list(epoch_series)
+    return payload
+
+
+def _build_tf_row_invocation_argv(
+    *,
+    cfg: GridLinesConfig,
+    model_id: str,
+    train_npz: Path,
+    test_npz: Path,
+) -> list[str]:
+    argv = [
+        "--model-id",
+        model_id,
+        "--N",
+        str(cfg.N),
+        "--gridsize",
+        str(cfg.gridsize),
+        "--output-dir",
+        str(cfg.output_dir),
+        "--probe-npz",
+        str(cfg.probe_npz),
+        "--train-npz",
+        str(train_npz),
+        "--test-npz",
+        str(test_npz),
+        "--nimgs-train",
+        str(cfg.nimgs_train),
+        "--nimgs-test",
+        str(cfg.nimgs_test),
+        "--nphotons",
+        str(cfg.nphotons),
+        "--nepochs",
+        str(cfg.nepochs),
+        "--batch-size",
+        str(cfg.batch_size),
+        "--probe-source",
+        str(cfg.probe_source),
+        "--probe-scale-mode",
+        str(cfg.probe_scale_mode),
+        "--probe-smoothing-sigma",
+        str(cfg.probe_smoothing_sigma),
+    ]
+    if cfg.seed is not None:
+        argv.extend(["--seed", str(cfg.seed)])
+    return argv
+
+
+def _apply_execution_seed(seed: int | None) -> None:
+    if seed is None:
+        return
+    random.seed(int(seed))
+    np.random.seed(int(seed))
+    try:
+        import tensorflow as tf
+    except Exception:
+        return
+    tf.keras.utils.set_random_seed(int(seed))
+
+
+def _write_tf_row_provenance(
+    *,
+    cfg: GridLinesConfig,
+    model_id: str,
+    row_payload: Dict[str, object],
+    history: object,
+    train_npz: Path,
+    test_npz: Path,
+    model_artifact: Path,
+    recon_path: Path,
+) -> None:
+    from scripts.studies.invocation_logging import (
+        capture_runtime_provenance,
+        get_git_commit,
+        update_invocation_artifacts,
+        write_invocation_artifacts,
+    )
+
+    run_dir = cfg.output_dir / "runs" / model_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    invocation_extra = {
+        "runtime_provenance": capture_runtime_provenance(),
+        "git_commit": get_git_commit(REPO_ROOT),
+        "invocation_mode": "library",
+        "row_model_id": model_id,
+        "shared_root_output_dir": str(cfg.output_dir),
+    }
+    invocation_json, invocation_sh = write_invocation_artifacts(
+        output_dir=run_dir,
+        script_path="ptycho/workflows/grid_lines_workflow.py",
+        argv=_build_tf_row_invocation_argv(
+            cfg=cfg,
+            model_id=model_id,
+            train_npz=train_npz,
+            test_npz=test_npz,
+        ),
+        parsed_args={
+            "grid_lines_config": asdict(cfg),
+            "row_model_id": model_id,
+            "train_npz": str(train_npz),
+            "test_npz": str(test_npz),
+        },
+        extra=invocation_extra,
+    )
+    update_invocation_artifacts(
+        invocation_json,
+        status="completed",
+        exit_code=0,
+        finished_at_utc=datetime.now(timezone.utc).isoformat(),
+        run_dir=str(run_dir),
+    )
+    config_payload = {
+        "grid_lines_config": asdict(cfg),
+        "row_model_id": model_id,
+        "model_label": row_payload.get("model_label"),
+        "training_procedure": row_payload.get("training_procedure"),
+        "train_npz": str(train_npz),
+        "test_npz": str(test_npz),
+        "model_artifact": str(model_artifact),
+        "recon_npz": str(recon_path),
+    }
+    (run_dir / "config.json").write_text(
+        json.dumps(config_payload, indent=2, default=_json_default),
+        encoding="utf-8",
+    )
+    (run_dir / "history.json").write_text(
+        json.dumps(_serialize_history_payload(history), indent=2, default=_json_default),
+        encoding="utf-8",
+    )
+    (run_dir / "metrics.json").write_text(
+        json.dumps(row_payload.get("metrics", {}), indent=2, default=_json_default),
+        encoding="utf-8",
+    )
+
+    row_payload["invocation"] = {
+        "json": str(invocation_json.relative_to(cfg.output_dir)),
+        "shell": str(invocation_sh.relative_to(cfg.output_dir)),
+    }
+    row_payload["config"] = {
+        "json": str((run_dir / "config.json").relative_to(cfg.output_dir)),
+    }
+    row_payload["git"] = {
+        "commit": invocation_extra["git_commit"],
+    }
+    row_payload["environment"] = dict(invocation_extra["runtime_provenance"])
+    row_payload["dataset"] = {
+        "train_npz": str(train_npz),
+        "test_npz": str(test_npz),
+        "probe_npz": str(cfg.probe_npz),
+        "probe_source": str(cfg.probe_source),
+        "probe_scale_mode": str(cfg.probe_scale_mode),
+    }
+    row_payload["splits"] = {
+        "nimgs_train": int(cfg.nimgs_train),
+        "nimgs_test": int(cfg.nimgs_test),
+        "gridsize": int(cfg.gridsize),
+        "set_phi": bool(cfg.set_phi),
+        "seed": int(cfg.seed) if cfg.seed is not None else None,
+    }
+    randomness_payload: Dict[str, object] = {"seed_policy": "shared_wrapper_seed_contract"}
+    if cfg.seed is not None:
+        randomness_payload["seed"] = int(cfg.seed)
+        randomness_payload["requested_seed"] = int(cfg.seed)
+    row_payload["randomness"] = randomness_payload
+    row_payload["outputs"] = {
+        "metrics_json": str((run_dir / "metrics.json").relative_to(cfg.output_dir)),
+        "history_json": str((run_dir / "history.json").relative_to(cfg.output_dir)),
+        "recon_npz": str(recon_path.relative_to(cfg.output_dir)),
+        "stdout_log": str((run_dir / "stdout.log").relative_to(cfg.output_dir)),
+        "stderr_log": str((run_dir / "stderr.log").relative_to(cfg.output_dir)),
+        "model_artifact": str(model_artifact.relative_to(cfg.output_dir)),
+    }
+    row_payload["visuals"] = {
+        "amp_phase_png": f"visuals/amp_phase_{model_id}.png",
+        "amp_phase_error_png": f"visuals/amp_phase_error_{model_id}.png",
+    }
+
+
 def run_pinn_inference(model, X_test, coords_nominal):
     """Run PINN inference on test data.
 
@@ -436,7 +1213,13 @@ def run_pinn_inference(model, X_test, coords_nominal):
 
     intensity_scale = p.get("intensity_scale")
     try:
-        reconstructed_obj, _, _ = model.predict([X_test * intensity_scale, coords_nominal])
+        prediction = model.predict([X_test * intensity_scale, coords_nominal])
+        if isinstance(prediction, (list, tuple)):
+            if not prediction:
+                raise ValueError("PINN inference returned no outputs")
+            reconstructed_obj = prediction[0]
+        else:
+            reconstructed_obj = prediction
         return reconstructed_obj
     except Exception as e:
         error_msg = str(e)
@@ -515,9 +1298,48 @@ _LABEL_TITLES = {
     "pinn": "PINN",
     "baseline": "Baseline",
     "pinn_fno": "FNO",
-    "pinn_hybrid": "Hybrid",
     "gt": "GT",
 }
+
+
+def _infer_patch_size_from_output_dir(output_dir: Path) -> Optional[int]:
+    """Infer N from path tokens like 'n64'/'n128' in study output directories."""
+    path_text = str(output_dir).lower()
+    matches = re.findall(r"(?:^|[_\-/])n(\d{2,4})(?:[_\-/]|$)", path_text)
+    if not matches:
+        return None
+    try:
+        return int(matches[-1])
+    except ValueError:
+        return None
+
+
+def _resolve_display_border_pixels(output_dir: Path, override: Optional[int] = None) -> int:
+    """Resolve border size used for color-limit estimation."""
+    if override is not None:
+        return max(0, int(override))
+    inferred_n = _infer_patch_size_from_output_dir(output_dir)
+    if inferred_n is None:
+        try:
+            inferred_n = int(p.get("N"))
+        except Exception:
+            inferred_n = 0
+    # Keep the auto-crop conservative; N//2 can over-tighten color limits.
+    # Use a small fraction of N, capped to avoid aggressive clipping on large N.
+    border = max(0, int(inferred_n) // 16)
+    return min(border, 32)
+
+
+def _inner_crop_for_display_bounds(array: np.ndarray, border_pixels: int) -> np.ndarray:
+    """Crop outer border when computing display bounds; fallback to full array if too small."""
+    arr = np.asarray(array)
+    if arr.ndim != 2 or border_pixels <= 0:
+        return arr
+    h, w = arr.shape
+    border = min(int(border_pixels), (h - 1) // 2, (w - 1) // 2)
+    if border <= 0:
+        return arr
+    return arr[border:h - border, border:w - border]
 
 
 def _safe_min_max(array: np.ndarray) -> Tuple[float, float] | None:
@@ -530,6 +1352,134 @@ def _safe_min_max(array: np.ndarray) -> Tuple[float, float] | None:
     if np.isnan(vmin) or np.isnan(vmax):
         return None
     return float(vmin), float(vmax)
+
+
+def _display_bounds(array: np.ndarray, border_pixels: int = 0) -> Tuple[float, float] | None:
+    """Compute min/max for plotting, optionally excluding an outer artifact band."""
+    cropped = _inner_crop_for_display_bounds(array, border_pixels=border_pixels)
+    bounds = _safe_min_max(cropped)
+    if bounds is None and border_pixels > 0:
+        return _safe_min_max(array)
+    return bounds
+
+
+def _resolve_probe_for_visuals(output_dir: Path) -> Optional[Dict[str, np.ndarray]]:
+    """Load probe amplitude/phase from a dataset NPZ for compare visualizations."""
+    def _candidate_paths_from_run_params(run_params_path: Path) -> list[Path]:
+        try:
+            payload = json.loads(run_params_path.read_text())
+        except Exception:
+            return []
+
+        resolved: list[Path] = []
+        for key in ("train_npz", "test_npz"):
+            raw_value = payload.get(key)
+            if not isinstance(raw_value, str) or not raw_value.strip():
+                continue
+            raw_path = Path(raw_value)
+            candidate = raw_path if raw_path.is_absolute() else (output_dir / raw_path)
+            if candidate.exists():
+                resolved.append(candidate)
+            elif raw_path.exists():
+                resolved.append(raw_path)
+        return resolved
+
+    candidates: list[Path] = []
+    dataset_root = output_dir / "datasets"
+    if dataset_root.exists():
+        candidates.extend(sorted(dataset_root.glob("N*/gs*/train.npz")))
+        candidates.extend(sorted(dataset_root.glob("N*/gs*/test.npz")))
+
+    for params_name in ("run_params.json", "runparams.json"):
+        params_path = output_dir / params_name
+        if params_path.exists():
+            candidates.extend(_candidate_paths_from_run_params(params_path))
+
+    if not candidates:
+        return None
+
+    seen = set()
+    for npz_path in candidates:
+        npz_key = str(npz_path)
+        if npz_key in seen:
+            continue
+        seen.add(npz_key)
+        try:
+            with np.load(npz_path) as data:
+                probe = None
+                for key in ("probeGuess", "probe", "probe_guess"):
+                    if key in data:
+                        probe = np.asarray(data[key])
+                        break
+                if probe is None:
+                    continue
+        except Exception:
+            continue
+
+        probe = np.squeeze(probe)
+        if probe.ndim > 2:
+            probe = probe[0]
+        if probe.ndim != 2:
+            continue
+        probe = np.asarray(probe, dtype=np.complex64)
+        return {
+            "amp": np.abs(probe),
+            "phase": np.angle(probe),
+        }
+    return None
+
+
+def _imshow_scaled_probe(
+    ax,
+    image: np.ndarray,
+    *,
+    cmap: str,
+    object_side: float,
+    vmin: Optional[float] = None,
+    vmax: Optional[float] = None,
+):
+    """Render probe image centered and scaled to object-side units."""
+    probe_h, probe_w = image.shape
+    x0 = (object_side - probe_w) / 2.0
+    y0 = (object_side - probe_h) / 2.0
+    x1 = x0 + probe_w
+    y1 = y0 + probe_h
+
+    kwargs: Dict[str, float] = {}
+    if vmin is not None:
+        kwargs["vmin"] = vmin
+    if vmax is not None:
+        kwargs["vmax"] = vmax
+
+    mappable = ax.imshow(
+        image,
+        cmap=cmap,
+        extent=(x0, x1, y0, y1),
+        origin="upper",
+        **kwargs,
+    )
+    ax.set_xlim(0.0, object_side)
+    ax.set_ylim(object_side, 0.0)
+    ax.set_aspect("equal")
+    return mappable
+
+
+def _pixel_ticks_for_width(width_pixels: int, max_ticks: int = 6) -> np.ndarray:
+    width = max(1, int(width_pixels))
+    if width == 1:
+        return np.array([0], dtype=int)
+    count = max(2, min(max_ticks, width))
+    ticks = np.linspace(0, width - 1, num=count)
+    return np.unique(np.round(ticks).astype(int))
+
+
+def _apply_x_pixel_axis(ax, width_pixels: int) -> None:
+    """Show numeric x-axis tick labels to indicate pixel dimensions."""
+    ticks = _pixel_ticks_for_width(width_pixels)
+    ax.set_xticks(ticks)
+    ax.set_xticklabels([str(int(tick)) for tick in ticks])
+    ax.set_yticks([])
+    ax.tick_params(axis="x", labelsize=8)
 
 
 def _should_share_colorbar(
@@ -583,40 +1533,108 @@ def save_comparison_png_dynamic(
     gt_phase: np.ndarray,
     recons: Dict[str, Dict[str, np.ndarray]],
     order: Tuple[str, ...],
+    border_pixels: Optional[int] = None,
+    probe: Optional[Dict[str, np.ndarray]] = None,
+    amp_bounds: Tuple[float, float] | None = None,
+    phase_bounds: Tuple[float, float] | None = None,
 ) -> Path:
     """Save comparison plot with GT plus available model reconstructions."""
     import matplotlib.pyplot as plt
 
     labels = [label for label in order if label in recons]
-    ncols = 1 + len(labels)
+    include_probe = (
+        probe is not None
+        and isinstance(probe, dict)
+        and "amp" in probe
+        and "phase" in probe
+    )
+    ncols = 1 + len(labels) + (1 if include_probe else 0)
     fig, axes = plt.subplots(2, ncols, figsize=(5 * ncols, 8), squeeze=False)
+    resolved_border = _resolve_display_border_pixels(output_dir, override=border_pixels)
 
     amp_arrays = [gt_amp]
     phase_arrays = [gt_phase]
+    amp_gt_bounds = amp_bounds or _display_bounds(gt_amp, border_pixels=resolved_border)
+    phase_gt_bounds = phase_bounds or _display_bounds(gt_phase, border_pixels=resolved_border)
 
-    amp_mappables = [axes[0, 0].imshow(gt_amp, cmap="viridis")]
+    amp_gt_kwargs = {}
+    if amp_gt_bounds is not None:
+        amp_gt_kwargs = {"vmin": amp_gt_bounds[0], "vmax": amp_gt_bounds[1]}
+    amp_mappables = [axes[0, 0].imshow(gt_amp, cmap="viridis", **amp_gt_kwargs)]
     axes[0, 0].set_title("GT Amplitude")
-    axes[0, 0].axis("off")
+    _apply_x_pixel_axis(axes[0, 0], gt_amp.shape[1])
 
-    phase_mappables = [axes[1, 0].imshow(gt_phase, cmap="twilight")]
+    phase_gt_kwargs = {}
+    if phase_gt_bounds is not None:
+        phase_gt_kwargs = {"vmin": phase_gt_bounds[0], "vmax": phase_gt_bounds[1]}
+    phase_mappables = [axes[1, 0].imshow(gt_phase, cmap="twilight", **phase_gt_kwargs)]
     axes[1, 0].set_title("GT Phase")
-    axes[1, 0].axis("off")
+    _apply_x_pixel_axis(axes[1, 0], gt_phase.shape[1])
 
     for idx, label in enumerate(labels, start=1):
         amp = recons[label]["amp"]
         phase = recons[label]["phase"]
         title = _LABEL_TITLES.get(label, label)
+        amp_label_bounds = amp_bounds or _display_bounds(amp, border_pixels=resolved_border)
+        phase_label_bounds = phase_bounds or _display_bounds(phase, border_pixels=resolved_border)
+        amp_kwargs = {}
+        if amp_label_bounds is not None:
+            amp_kwargs = {"vmin": amp_label_bounds[0], "vmax": amp_label_bounds[1]}
+        phase_kwargs = {}
+        if phase_label_bounds is not None:
+            phase_kwargs = {"vmin": phase_label_bounds[0], "vmax": phase_label_bounds[1]}
 
         amp_arrays.append(amp)
         phase_arrays.append(phase)
 
-        amp_mappables.append(axes[0, idx].imshow(amp, cmap="viridis"))
+        amp_mappables.append(
+            axes[0, idx].imshow(amp, cmap="viridis", **amp_kwargs)
+        )
         axes[0, idx].set_title(f"{title} Amplitude")
-        axes[0, idx].axis("off")
+        _apply_x_pixel_axis(axes[0, idx], amp.shape[1])
 
-        phase_mappables.append(axes[1, idx].imshow(phase, cmap="twilight"))
+        phase_mappables.append(
+            axes[1, idx].imshow(phase, cmap="twilight", **phase_kwargs)
+        )
         axes[1, idx].set_title(f"{title} Phase")
-        axes[1, idx].axis("off")
+        _apply_x_pixel_axis(axes[1, idx], phase.shape[1])
+
+    if include_probe:
+        probe_idx = ncols - 1
+        probe_amp = np.asarray(probe["amp"])
+        probe_phase = np.asarray(probe["phase"])
+        object_side = float(max(gt_amp.shape))
+
+        probe_amp_bounds = _display_bounds(probe_amp, border_pixels=0)
+        probe_phase_bounds = _display_bounds(probe_phase, border_pixels=0)
+
+        amp_mappables.append(
+            _imshow_scaled_probe(
+                axes[0, probe_idx],
+                probe_amp,
+                cmap="viridis",
+                object_side=object_side,
+                vmin=(probe_amp_bounds[0] if probe_amp_bounds is not None else None),
+                vmax=(probe_amp_bounds[1] if probe_amp_bounds is not None else None),
+            )
+        )
+        axes[0, probe_idx].set_title(f"Probe Amplitude ({probe_amp.shape[0]}x{probe_amp.shape[1]})")
+        _apply_x_pixel_axis(axes[0, probe_idx], int(round(object_side)))
+        amp_arrays.append(probe_amp)
+
+        phase_mappables.append(
+            _imshow_scaled_probe(
+                axes[1, probe_idx],
+                probe_phase,
+                cmap="twilight",
+                object_side=object_side,
+                vmin=(probe_phase_bounds[0] if probe_phase_bounds is not None else None),
+                vmax=(probe_phase_bounds[1] if probe_phase_bounds is not None else None),
+            )
+        )
+        axes[1, probe_idx].set_title(f"Probe Phase ({probe_phase.shape[0]}x{probe_phase.shape[1]})")
+        _apply_x_pixel_axis(axes[1, probe_idx], int(round(object_side)))
+        phase_arrays.append(probe_phase)
 
     _add_row_colorbars(fig, axes[0], amp_mappables, amp_arrays)
     _add_row_colorbars(fig, axes[1], phase_mappables, phase_arrays)
@@ -635,18 +1653,29 @@ def save_amp_phase_png(
     label: str,
     amp: np.ndarray,
     phase: np.ndarray,
+    border_pixels: int = 0,
+    amp_bounds: Tuple[float, float] | None = None,
+    phase_bounds: Tuple[float, float] | None = None,
 ) -> Path:
     """Save per-model amplitude/phase visualization."""
     import matplotlib.pyplot as plt
 
     fig, axes = plt.subplots(2, 1, figsize=(6, 8), squeeze=False)
     title = _LABEL_TITLES.get(label, label)
+    amp_bounds = amp_bounds or _display_bounds(amp, border_pixels=border_pixels)
+    phase_bounds = phase_bounds or _display_bounds(phase, border_pixels=border_pixels)
+    amp_kwargs = {}
+    if amp_bounds is not None:
+        amp_kwargs = {"vmin": amp_bounds[0], "vmax": amp_bounds[1]}
+    phase_kwargs = {}
+    if phase_bounds is not None:
+        phase_kwargs = {"vmin": phase_bounds[0], "vmax": phase_bounds[1]}
 
-    amp_mappable = axes[0, 0].imshow(amp, cmap="viridis")
+    amp_mappable = axes[0, 0].imshow(amp, cmap="viridis", **amp_kwargs)
     axes[0, 0].set_title(f"{title} Amplitude")
     axes[0, 0].axis("off")
 
-    phase_mappable = axes[1, 0].imshow(phase, cmap="twilight")
+    phase_mappable = axes[1, 0].imshow(phase, cmap="twilight", **phase_kwargs)
     axes[1, 0].set_title(f"{title} Phase")
     axes[1, 0].axis("off")
 
@@ -660,10 +1689,117 @@ def save_amp_phase_png(
     return out_path
 
 
+def _shared_display_bounds(
+    arrays: Iterable[np.ndarray],
+    *,
+    border_pixels: int,
+) -> Tuple[float, float] | None:
+    bounds = [
+        _display_bounds(np.asarray(array), border_pixels=border_pixels)
+        for array in arrays
+    ]
+    finite_bounds = [item for item in bounds if item is not None]
+    if not finite_bounds:
+        return None
+    return (
+        min(item[0] for item in finite_bounds),
+        max(item[1] for item in finite_bounds),
+    )
+
+
+def save_amp_phase_error_png(
+    visuals_dir: Path,
+    label: str,
+    amp: np.ndarray,
+    phase: np.ndarray,
+    gt_amp: np.ndarray,
+    gt_phase: np.ndarray,
+    *,
+    amp_bounds: Tuple[float, float] | None,
+    phase_bounds: Tuple[float, float] | None,
+    amp_error_bounds: Tuple[float, float] | None,
+    phase_error_bounds: Tuple[float, float] | None,
+) -> Path:
+    import matplotlib.pyplot as plt
+
+    title = _LABEL_TITLES.get(label, label)
+    amp_abs_error = np.abs(np.asarray(amp) - np.asarray(gt_amp))
+    phase_abs_error = np.abs(np.asarray(phase) - np.asarray(gt_phase))
+
+    fig, axes = plt.subplots(2, 2, figsize=(10, 8), squeeze=False)
+    amp_kwargs = {}
+    if amp_bounds is not None:
+        amp_kwargs = {"vmin": amp_bounds[0], "vmax": amp_bounds[1]}
+    phase_kwargs = {}
+    if phase_bounds is not None:
+        phase_kwargs = {"vmin": phase_bounds[0], "vmax": phase_bounds[1]}
+    amp_error_kwargs = {}
+    if amp_error_bounds is not None:
+        amp_error_kwargs = {"vmin": amp_error_bounds[0], "vmax": amp_error_bounds[1]}
+    phase_error_kwargs = {}
+    if phase_error_bounds is not None:
+        phase_error_kwargs = {"vmin": phase_error_bounds[0], "vmax": phase_error_bounds[1]}
+
+    amp_mappable = axes[0, 0].imshow(amp, cmap="viridis", **amp_kwargs)
+    axes[0, 0].set_title(f"{title} Amplitude")
+    axes[0, 0].axis("off")
+    amp_err_mappable = axes[0, 1].imshow(amp_abs_error, cmap="magma", **amp_error_kwargs)
+    axes[0, 1].set_title(f"{title} |Amp Error|")
+    axes[0, 1].axis("off")
+    phase_mappable = axes[1, 0].imshow(phase, cmap="twilight", **phase_kwargs)
+    axes[1, 0].set_title(f"{title} Phase")
+    axes[1, 0].axis("off")
+    phase_err_mappable = axes[1, 1].imshow(phase_abs_error, cmap="magma", **phase_error_kwargs)
+    axes[1, 1].set_title(f"{title} |Phase Error|")
+    axes[1, 1].axis("off")
+
+    fig.colorbar(amp_mappable, ax=axes[0, 0], shrink=0.8)
+    fig.colorbar(amp_err_mappable, ax=axes[0, 1], shrink=0.8)
+    fig.colorbar(phase_mappable, ax=axes[1, 0], shrink=0.8)
+    fig.colorbar(phase_err_mappable, ax=axes[1, 1], shrink=0.8)
+
+    out_path = visuals_dir / f"amp_phase_error_{label}.png"
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
+def save_frc_curves_png(
+    visuals_dir: Path,
+    frc_by_label: Dict[str, Tuple[np.ndarray, np.ndarray]],
+) -> Path:
+    import matplotlib.pyplot as plt
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5), squeeze=False)
+    amp_ax = axes[0, 0]
+    phase_ax = axes[0, 1]
+    for label, (amp_curve, phase_curve) in frc_by_label.items():
+        title = _LABEL_TITLES.get(label, label)
+        amp_x = np.linspace(0.0, 1.0, num=len(amp_curve))
+        phase_x = np.linspace(0.0, 1.0, num=len(phase_curve))
+        amp_ax.plot(amp_x, amp_curve, label=title)
+        phase_ax.plot(phase_x, phase_curve, label=title)
+    for ax, ax_title in ((amp_ax, "Amplitude FRC"), (phase_ax, "Phase FRC")):
+        ax.axhline(0.5, color="black", linestyle="--", linewidth=1.0)
+        ax.axhline(1.0 / 7.0, color="gray", linestyle=":", linewidth=1.0)
+        ax.set_title(ax_title)
+        ax.set_xlabel("Normalized Spatial Frequency")
+        ax.set_ylabel("Correlation")
+        ax.set_ylim(0.0, 1.05)
+        ax.legend()
+    out_path = visuals_dir / "frc_curves.png"
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150)
+    plt.close(fig)
+    return out_path
+
+
 def render_grid_lines_visuals(output_dir: Path, order: Tuple[str, ...]) -> Dict[str, str]:
     """Render composite and per-model visuals from recon artifacts."""
     visuals_dir = output_dir / "visuals"
     visuals_dir.mkdir(parents=True, exist_ok=True)
+    resolved_border = _resolve_display_border_pixels(output_dir)
 
     recons: Dict[str, Dict[str, np.ndarray]] = {}
     per_model_paths: Dict[str, str] = {}
@@ -677,9 +1813,20 @@ def render_grid_lines_visuals(output_dir: Path, order: Tuple[str, ...]) -> Dict[
             amp = data["amp"]
             phase = data["phase"]
         recons[label] = {"amp": amp, "phase": phase}
-        per_model_paths[label] = str(save_amp_phase_png(visuals_dir, label, amp, phase))
+        label_border = 0 if label == "gt" else resolved_border
+        per_model_paths[label] = str(
+            save_amp_phase_png(visuals_dir, label, amp, phase, border_pixels=label_border)
+        )
 
     outputs: Dict[str, str] = {}
+    amp_bounds = _shared_display_bounds(
+        [data["amp"] for data in recons.values()],
+        border_pixels=resolved_border,
+    )
+    phase_bounds = _shared_display_bounds(
+        [data["phase"] for data in recons.values()],
+        border_pixels=resolved_border,
+    )
     for label, path in per_model_paths.items():
         outputs[f"amp_phase_{label}"] = path
 
@@ -687,27 +1834,96 @@ def render_grid_lines_visuals(output_dir: Path, order: Tuple[str, ...]) -> Dict[
     if gt is None:
         return outputs
 
+    for label, data in recons.items():
+        label_border = 0 if label == "gt" else resolved_border
+        per_model_paths[label] = str(
+            save_amp_phase_png(
+                visuals_dir,
+                label,
+                data["amp"],
+                data["phase"],
+                border_pixels=label_border,
+                amp_bounds=amp_bounds,
+                phase_bounds=phase_bounds,
+            )
+        )
+        outputs[f"amp_phase_{label}"] = per_model_paths[label]
+
+    error_labels = [label for label in order if label in recons and label != "gt"]
+    amp_error_bounds = _shared_display_bounds(
+        [np.abs(recons[label]["amp"] - gt["amp"]) for label in error_labels],
+        border_pixels=resolved_border,
+    )
+    phase_error_bounds = _shared_display_bounds(
+        [np.abs(recons[label]["phase"] - gt["phase"]) for label in error_labels],
+        border_pixels=resolved_border,
+    )
+    for label in error_labels:
+        outputs[f"amp_phase_error_{label}"] = str(
+            save_amp_phase_error_png(
+                visuals_dir,
+                label,
+                recons[label]["amp"],
+                recons[label]["phase"],
+                gt["amp"],
+                gt["phase"],
+                amp_bounds=amp_bounds,
+                phase_bounds=phase_bounds,
+                amp_error_bounds=amp_error_bounds,
+                phase_error_bounds=phase_error_bounds,
+            )
+        )
+
     compare = save_comparison_png_dynamic(
         output_dir,
         gt["amp"],
         gt["phase"],
         {label: data for label, data in recons.items() if label != "gt"},
         order=tuple(label for label in order if label != "gt"),
+        border_pixels=resolved_border,
+        probe=_resolve_probe_for_visuals(output_dir),
+        amp_bounds=amp_bounds,
+        phase_bounds=phase_bounds,
     )
     outputs["compare"] = str(compare)
+
+    metrics_path = output_dir / "metrics.json"
+    if metrics_path.exists():
+        with metrics_path.open("r", encoding="utf-8") as handle:
+            metrics_payload = json.load(handle)
+        frc_by_label: Dict[str, Tuple[np.ndarray, np.ndarray]] = {}
+        if isinstance(metrics_payload, dict):
+            for label in error_labels:
+                payload = metrics_payload.get(label)
+                if not isinstance(payload, dict):
+                    continue
+                frc_payload = payload.get("frc")
+                if (
+                    isinstance(frc_payload, (list, tuple))
+                    and len(frc_payload) == 2
+                ):
+                    amp_curve = np.asarray(frc_payload[0], dtype=np.float64)
+                    phase_curve = np.asarray(frc_payload[1], dtype=np.float64)
+                    if amp_curve.ndim == 1 and phase_curve.ndim == 1:
+                        frc_by_label[label] = (amp_curve, phase_curve)
+        if frc_by_label:
+            outputs["frc_curves"] = str(save_frc_curves_png(visuals_dir, frc_by_label))
     return outputs
 
 
-def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
+def run_grid_lines_workflow(
+    cfg: GridLinesConfig,
+    tf_models: Tuple[str, ...] = ("pinn", "baseline"),
+) -> Dict[str, Any]:
     """Orchestrate probe prep → sim → train → infer → stitch → metrics.
 
     Steps:
     1. Load and scale probe to target N
     2. Configure legacy params and simulate grid data
     3. Save train/test datasets as NPZ
-    4. Train PINN and baseline models
-    5. Run inference on test data
-    6. Stitch predictions and compute metrics
+    4. Train selected TF models
+    5. Run selected inference paths on test data
+    6. Stitch selected predictions and compute metrics
     7. Save comparison PNG and metrics JSON
 
     Returns:
@@ -715,7 +1931,23 @@ def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
     """
     from ptycho.evaluation import eval_reconstruction
 
+    selected_models = tuple(tf_models)
+    if not selected_models:
+        raise ValueError("tf_models must include at least one of {'pinn', 'baseline'}")
+    unsupported_models = sorted(set(selected_models) - {"pinn", "baseline"})
+    if unsupported_models:
+        raise ValueError(f"Unsupported tf_models entries: {unsupported_models}")
+    # Preserve user order while removing accidental duplicates.
+    deduped = []
+    seen_models = set()
+    for model_id in selected_models:
+        if model_id not in seen_models:
+            deduped.append(model_id)
+            seen_models.add(model_id)
+    selected_models = tuple(deduped)
+
     print(f"[grid_lines_workflow] Starting N={cfg.N}, gridsize={cfg.gridsize}")
+    _apply_execution_seed(cfg.seed)
 
     # Step 1: Probe preparation
     print("[1/7] Loading and scaling probe...")
@@ -723,12 +1955,14 @@ def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
         probe_guess = load_ideal_disk_probe(cfg.N)
     else:
         probe_guess = load_probe_guess(cfg.probe_npz)
-    probe_scaled = scale_probe(
-        probe_guess,
-        cfg.N,
-        cfg.probe_smoothing_sigma,
-        scale_mode=cfg.probe_scale_mode,
+    normalized_pipeline, normalized_steps = normalize_probe_transform_pipeline(
+        target_N=cfg.N,
+        probe_shape=probe_guess.shape,
+        probe_scale_mode=cfg.probe_scale_mode,
+        probe_smoothing_sigma=cfg.probe_smoothing_sigma,
+        probe_transform_pipeline=cfg.probe_transform_pipeline,
     )
+    probe_scaled = apply_probe_transform_pipeline(probe_guess, normalized_steps)
     probe_scaled = apply_probe_mask(probe_scaled, cfg.probe_mask_diameter)
 
     # Step 2: Simulation
@@ -740,91 +1974,160 @@ def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
     print("[3/7] Saving datasets...")
     sim["train"]["probeGuess"] = probe_scaled
     sim["test"]["probeGuess"] = probe_scaled
-    train_npz = save_split_npz(cfg, "train", sim["train"], config)
-    test_npz = save_split_npz(cfg, "test", sim["test"], config)
-
-    # Step 4: Training
-    print("[4/7] Training PINN model...")
-    pinn_model, _ = train_pinn_model(sim["train"]["container"])
-    save_pinn_model(cfg)
-
-    print("[4/7] Training Baseline model...")
-    base_model, _ = train_baseline_model(
-        sim["train"]["X"], sim["train"]["Y_I"], sim["train"]["Y_phi"]
+    train_npz = save_split_npz(
+        cfg,
+        "train",
+        sim["train"],
+        config,
+        probe_transform_pipeline=normalized_pipeline,
+        probe_transform_steps=normalized_steps,
     )
-    base_dir = cfg.output_dir / "baseline"
-    base_dir.mkdir(parents=True, exist_ok=True)
-    base_model.save(base_dir / "baseline.keras")
-
-    # Step 5: Inference
-    print("[5/7] Running inference...")
-    pinn_pred = run_pinn_inference(
-        pinn_model, sim["test"]["X"], sim["test"]["coords_nominal"]
+    test_npz = save_split_npz(
+        cfg,
+        "test",
+        sim["test"],
+        config,
+        probe_transform_pipeline=normalized_pipeline,
+        probe_transform_steps=normalized_steps,
     )
-    if pinn_pred is None:
-        print("[5/7] WARNING: PINN inference failed (XLA issue). Skipping PINN evaluation.")
 
-    base_pred = run_baseline_inference(base_model, sim["test"]["X"])
-
-    # Step 6: Stitch and evaluate
-    print("[6/7] Stitching and computing metrics...")
+    # Step 4-6: Execute row-local train -> infer -> evaluate segments.
+    print(f"[4/7] Executing selected TF rows with row-local provenance: {selected_models}...")
     norm_Y_I = sim["test"]["norm_Y_I"]
     YY_gt = sim["test"]["YY_ground_truth"]
+    metrics_payload: Dict[str, Any] = {}
+    recons: Dict[str, Dict[str, np.ndarray]] = {}
+    row_payloads: Dict[str, Dict[str, object]] = {}
+    if "pinn" in selected_models:
+        with _capture_tf_row_logs(cfg.output_dir, "pinn"):
+            _apply_execution_seed(cfg.seed)
+            print("[4/7][row:pinn] Training PINN model...")
+            pinn_train_start = time.perf_counter()
+            pinn_model, pinn_history = train_pinn_model(sim["train"]["container"])
+            pinn_train_time_s = time.perf_counter() - pinn_train_start
+            save_pinn_model(cfg)
 
-    # PINN stitching (may be None if inference failed)
-    if pinn_pred is not None:
-        pinn_amp = stitch_predictions(pinn_pred, norm_Y_I, part="amp")
-        pinn_phase = stitch_predictions(pinn_pred, norm_Y_I, part="phase")
-        pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
-        pinn_metrics = eval_reconstruction(pinn_stitched, YY_gt, label="pinn")
-    else:
-        pinn_amp = pinn_phase = pinn_stitched = None
-        pinn_metrics = {"error": "PINN inference failed (XLA issue)"}
+            print("[5/7][row:pinn] Running PINN inference...")
+            pinn_infer_start = time.perf_counter()
+            pinn_pred = run_pinn_inference(
+                pinn_model, sim["test"]["X"], sim["test"]["coords_nominal"]
+            )
+            pinn_inference_time_s = time.perf_counter() - pinn_infer_start
+            if pinn_pred is None:
+                print("[5/7][row:pinn] WARNING: PINN inference failed (XLA issue). Skipping PINN evaluation.")
+                metrics_payload["pinn"] = {"error": "PINN inference failed (XLA issue)"}
+            else:
+                print("[6/7][row:pinn] Stitching and computing metrics...")
+                pinn_amp = stitch_predictions(pinn_pred, norm_Y_I, part="amp")
+                pinn_phase = stitch_predictions(pinn_pred, norm_Y_I, part="phase")
+                pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
+                metrics_payload["pinn"] = eval_reconstruction(
+                    pinn_stitched,
+                    YY_gt,
+                    label="pinn",
+                )
+                row_payloads["pinn"] = _build_tf_row_payload(
+                    model_id="pinn",
+                    model_label="CDI CNN + PINN",
+                    model=pinn_model,
+                    history=pinn_history,
+                    metrics=metrics_payload["pinn"],
+                    N=cfg.N,
+                    epoch_budget=int(cfg.nepochs),
+                    train_wall_time_sec=float(pinn_train_time_s),
+                    inference_time_sec=float(pinn_inference_time_s),
+                )
+                recons["pinn"] = {
+                    "amp": pinn_amp[0, :, :, 0],
+                    "phase": pinn_phase[0, :, :, 0],
+                }
+                pinn_recon_path = save_recon_artifact(cfg.output_dir, "pinn", pinn_stitched)
+                if train_npz is not None and test_npz is not None:
+                    _write_tf_row_provenance(
+                        cfg=cfg,
+                        model_id="pinn",
+                        row_payload=row_payloads["pinn"],
+                        history=pinn_history,
+                        train_npz=Path(train_npz),
+                        test_npz=Path(test_npz),
+                        model_artifact=cfg.output_dir / "pinn" / "wts.h5.zip",
+                        recon_path=pinn_recon_path,
+                    )
 
-    # Baseline stitching
-    base_amp = stitch_predictions(base_pred, norm_Y_I, part="amp")
-    base_phase = stitch_predictions(base_pred, norm_Y_I, part="phase")
-    base_stitched = base_amp * np.exp(1j * base_phase)
-    base_metrics = eval_reconstruction(base_stitched, YY_gt, label="baseline")
+    if "baseline" in selected_models:
+        with _capture_tf_row_logs(cfg.output_dir, "baseline"):
+            _apply_execution_seed(cfg.seed)
+            print("[4/7][row:baseline] Training baseline model...")
+            base_train_start = time.perf_counter()
+            base_model, base_history = train_baseline_model(
+                sim["train"]["X"], sim["train"]["Y_I"], sim["train"]["Y_phi"]
+            )
+            base_train_time_s = time.perf_counter() - base_train_start
+            base_dir = cfg.output_dir / "baseline"
+            base_dir.mkdir(parents=True, exist_ok=True)
+            base_model.save(base_dir / "baseline.keras")
+
+            print("[5/7][row:baseline] Running baseline inference...")
+            base_infer_start = time.perf_counter()
+            base_pred = run_baseline_inference(base_model, sim["test"]["X"])
+            base_inference_time_s = time.perf_counter() - base_infer_start
+
+            print("[6/7][row:baseline] Stitching and computing metrics...")
+            base_amp = stitch_predictions(base_pred, norm_Y_I, part="amp")
+            base_phase = stitch_predictions(base_pred, norm_Y_I, part="phase")
+            base_stitched = base_amp * np.exp(1j * base_phase)
+            metrics_payload["baseline"] = eval_reconstruction(
+                base_stitched,
+                YY_gt,
+                label="baseline",
+            )
+            row_payloads["baseline"] = _build_tf_row_payload(
+                model_id="baseline",
+                model_label="CDI CNN + supervised",
+                model=base_model,
+                history=base_history,
+                metrics=metrics_payload["baseline"],
+                N=cfg.N,
+                epoch_budget=int(cfg.nepochs),
+                train_wall_time_sec=float(base_train_time_s),
+                inference_time_sec=float(base_inference_time_s),
+            )
+            recons["baseline"] = {
+                "amp": base_amp[0, :, :, 0],
+                "phase": base_phase[0, :, :, 0],
+            }
+            baseline_recon_path = save_recon_artifact(cfg.output_dir, "baseline", base_stitched)
+            if train_npz is not None and test_npz is not None:
+                _write_tf_row_provenance(
+                    cfg=cfg,
+                    model_id="baseline",
+                    row_payload=row_payloads["baseline"],
+                    history=base_history,
+                    train_npz=Path(train_npz),
+                    test_npz=Path(test_npz),
+                    model_artifact=cfg.output_dir / "baseline" / "baseline.keras",
+                    recon_path=baseline_recon_path,
+                )
 
     # Step 7: Save outputs
-    print("[7/7] Saving outputs...")
+    print("[7/7] Saving merged outputs...")
 
-    # Metrics JSON
-    metrics_payload = {
-        "pinn": pinn_metrics,
-        "baseline": base_metrics,
-    }
     metrics_path = cfg.output_dir / "metrics.json"
     metrics_path.write_text(json.dumps(metrics_payload, indent=2, default=str))
 
-    # Comparison PNG - squeeze any singleton dims from GT
+    # Comparison PNG - squeeze any singleton dims from GT.
     gt_squeezed = np.squeeze(YY_gt)
     gt_amp_2d = np.abs(gt_squeezed)
     gt_phase_2d = np.angle(gt_squeezed)
-    base_amp_2d = base_amp[0, :, :, 0]
-    base_phase_2d = base_phase[0, :, :, 0]
 
     save_recon_artifact(cfg.output_dir, "gt", gt_squeezed)
-    save_recon_artifact(cfg.output_dir, "baseline", base_stitched)
-    if pinn_pred is not None:
-        save_recon_artifact(cfg.output_dir, "pinn", pinn_stitched)
-
-    recons = {
-        "baseline": {"amp": base_amp_2d, "phase": base_phase_2d},
-    }
-    if pinn_amp is not None:
-        recons["pinn"] = {
-            "amp": pinn_amp[0, :, :, 0],
-            "phase": pinn_phase[0, :, :, 0],
-        }
 
     png_path = save_comparison_png_dynamic(
         cfg.output_dir,
         gt_amp_2d,
         gt_phase_2d,
         recons,
-        order=("pinn", "baseline"),
+        order=tuple(model_id for model_id in selected_models if model_id in {"pinn", "baseline"}),
     )
 
     print(f"[grid_lines_workflow] Complete. Outputs in {cfg.output_dir}")
@@ -835,4 +2138,5 @@ def run_grid_lines_workflow(cfg: GridLinesConfig) -> Dict[str, Any]:
         "metrics_json": str(metrics_path),
         "comparison_png": str(png_path),
         "metrics": metrics_payload,
+        "row_payloads": row_payloads,
     }

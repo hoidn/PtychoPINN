@@ -3,7 +3,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import powerbox as pbox
-from scipy import interpolate, ndimage
+from scipy import ndimage
+from scipy.interpolate import RegularGridInterpolator
 
 #--- Parameters for GRF---#
 
@@ -19,17 +20,21 @@ def powerspec(k,indexlaw):
 
 # Filter the field with a gaussian window
 def smooth_field(field,sigmagauss,gridsize=boxsize):
+    ny, nx = field.shape
+    y = np.linspace(0.0, float(ny - 1), num=ny)
+    x = np.linspace(0.0, float(nx - 1), num=nx)
 
-    x, y = np.linspace(0,field.shape[0],num=field.shape[0]), np.linspace(0,field.shape[1],num=field.shape[1])
+    # `interp2d` was removed in SciPy 1.14; use regular-grid interpolation.
+    interp = RegularGridInterpolator((y, x), field, method="linear", bounds_error=False, fill_value=None)
 
-    # Interpolation
-    f = interpolate.interp2d(x,y,field,kind="linear")
-
-    qx = np.linspace(x[0],x[-1], num = gridsize)
-    qy = np.linspace(y[0],y[-1], num = gridsize)
+    qy = np.linspace(0.0, float(ny - 1), num=gridsize)
+    qx = np.linspace(0.0, float(nx - 1), num=gridsize)
+    qyy, qxx = np.meshgrid(qy, qx, indexing="ij")
+    points = np.stack([qyy, qxx], axis=-1)
+    resized = interp(points)
 
     # Filtering
-    smooth = ndimage.filters.gaussian_filter(f(qx,qy),sigmagauss)
+    smooth = ndimage.gaussian_filter(resized, sigmagauss)
     return smooth
 
 # Remove regions below sea level
@@ -70,4 +75,3 @@ def mk_grf(N):
     res = np.zeros((N, N, 1))
     res[:, :, :] = generate_map(indexlaw, sigma, threshold, boxsize)[..., None]
     return res
-

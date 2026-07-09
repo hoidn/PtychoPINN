@@ -195,30 +195,12 @@ class ModelManager:
             # Load weights into the blank model
             # Check for new Keras 3 format first
             keras_model_path = os.path.join(model_dir, "model.keras")
-            h5_model_path = os.path.join(model_dir, "model.h5")
-            
+
             if os.path.exists(keras_model_path):
                 # Load from Keras 3 format (compile=False to avoid loss function serialization issues)
                 loaded_model = tf.keras.models.load_model(keras_model_path, custom_objects=custom_objects, compile=False)
                 # Copy weights to the blank model
                 model.set_weights(loaded_model.get_weights())
-            elif os.path.exists(h5_model_path) and False:  # Temporarily disable H5 loading since our H5 files are metadata only
-                # Check if H5 file is valid (not just metadata)
-                try:
-                    import h5py
-                    with h5py.File(h5_model_path, 'r') as f:
-                        # Check if the file contains actual weight data
-                        if len(f.keys()) > 1 or (len(f.keys()) == 1 and 'intensity_scale' not in f.attrs):
-                            # Load from H5 format - just load the weights
-                            model.load_weights(h5_model_path)
-                        else:
-                            # H5 file only contains metadata, skip to SavedModel loading
-                            print(f"H5 file {h5_model_path} appears to only contain metadata, skipping...")
-                            raise ValueError("H5 file is metadata only")
-                except Exception as e:
-                    print(f"Failed to load from H5 file: {e}")
-                    # Continue to next loading method
-                    pass
             elif os.path.exists(os.path.join(model_dir, "saved_model.pb")):
                 # Load from SavedModel format
                 # The saved model contains the full model, so we need to load it and extract weights

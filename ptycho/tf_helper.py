@@ -116,6 +116,7 @@ Canonical Usage Pipeline:
 """
 
 import os
+import warnings
 import numpy as np
 import tensorflow as tf
 from typing import Tuple, Optional, Union, Callable, Any, List
@@ -869,6 +870,16 @@ class Translation(tf.keras.layers.Layer):
 def flatten_offsets(channels: tf.Tensor) -> tf.Tensor:
     return _channel_to_flat(channels)[:, 0, :, 0]
 
+
+def _center_reassembly_offsets(offsets_flat: tf.Tensor) -> tf.Tensor:
+    """Center flattened position offsets to match shift-and-sum semantics."""
+    if offsets_flat.dtype in [tf.complex64, tf.complex128]:
+        offsets_flat = tf.math.real(offsets_flat)
+    offsets_f32 = tf.cast(offsets_flat, tf.float32)
+    center = tf.reduce_mean(offsets_f32, axis=0, keepdims=True)
+    return offsets_f32 - center
+
+
 #@debug
 def pad_reconstruction(channels: tf.Tensor) -> tf.Tensor:
     padded_size = get_padded_size()
@@ -890,6 +901,9 @@ def _reassemble_patches_position_real(imgs: tf.Tensor, offsets_xy: tf.Tensor, ag
     if padded_size is None:
         padded_size = get_padded_size()
     offsets_flat = flatten_offsets(offsets_xy)
+    # Keep parity with shift_and_sum(): external/global offsets must be recentered
+    # before translation or batched reassembly can diverge catastrophically.
+    offsets_flat = _center_reassembly_offsets(offsets_flat)
     imgs_flat = _channel_to_flat(imgs)
     imgs_flat_bigN = pad_patches(imgs_flat, padded_size)
     imgs_flat_bigN_translated = Translation(jitter_stddev=0.0, use_xla=should_use_xla())([imgs_flat_bigN, -offsets_flat])
@@ -931,6 +945,8 @@ def _reassemble_position_batched(imgs: tf.Tensor, offsets_xy: tf.Tensor, padded_
         automatically falls back to the original non-batched approach for efficiency.
     """
     offsets_flat = flatten_offsets(offsets_xy)
+    # Match shift_and_sum() behavior for global-frame coords_offsets.
+    offsets_flat = _center_reassembly_offsets(offsets_flat)
     imgs_flat = _channel_to_flat(imgs)
 
     # Get the number of patches
@@ -1171,7 +1187,12 @@ def shift_and_sum_old(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int
 # NEW batched implementation                                                  #
 # --------------------------------------------------------------------------- #
 @tf.function(reduce_retracing=True)
-def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10) -> tf.Tensor:
+def shift_and_sum(
+    obj_tensor: np.ndarray,
+    global_offsets: np.ndarray,
+    M: int = 10,
+    chunk_size: int = 32,
+) -> tf.Tensor:
     """
     New batched implementation of shift-and-sum for efficient patch reassembly.
     
@@ -1182,6 +1203,7 @@ def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 1
         obj_tensor: Complex object patches with shape (num_patches, N, N, 1)
         global_offsets: Position offsets with shape (num_patches, 1, 1, 2)
         M: Size of central region to crop from each patch
+        chunk_size: Number of translated patches processed per streaming chunk.
     
     Returns:
         Assembled result tensor after batched shift-and-sum
@@ -1227,7 +1249,9 @@ def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 1
     # Streaming fallback: chunk to avoid OOM on gigantic datasets    #
     # -------------------------------------------------------------- #
     def _streaming():
-        chunk_sz = tf.constant(1024, tf.int32)
+        # Keep chunk size conservative to reduce peak translate_xla allocations
+        # during dense external-dataset position reassembly (e.g., N=128, 4k+ patches).
+        chunk_sz = tf.constant(max(1, int(chunk_size)), tf.int32)
         result   = tf.zeros([padded_size, padded_size, 1], dtype=obj_tensor.dtype)
 
         # Use tf.while_loop instead of Python for loop
@@ -1255,13 +1279,12 @@ def shift_and_sum(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 1
 #@debug
 def reassemble_whole_object(patches: tf.Tensor, offsets: tf.Tensor, size: int = 226, norm: bool = False, batch_size: Optional[int] = None) -> tf.Tensor:
     """
-    patches: tensor of shape (B, N, N, gridsize**2) containing reconstruction patches
+    DEPRECATED: use `reassemble_position(...)` for position-aware reconstruction.
 
-    reassembles the NxN patches into a single size x size x 1 mage, given the
-        provided offsets
+    `reassemble_whole_object` is kept for compatibility with legacy call sites,
+    but does not match the preferred position-reassembly contract for external
+    offset workflows.
 
-    This function inverts the offsets, so it's not necessary to multiply by -1
-    
     Args:
         patches: Input patches tensor `(B, N, N, C)` in channel format
         offsets: Position offsets `(B, 1, 2, C)` in channel format (axis order [x, y])
@@ -1270,6 +1293,13 @@ def reassemble_whole_object(patches: tf.Tensor, offsets: tf.Tensor, size: int = 
         batch_size: Number of patches to process per batch to manage GPU memory usage.
                    Smaller values reduce memory at the cost of speed.
     """
+    warnings.warn(
+        "reassemble_whole_object() is deprecated. Use reassemble_position() "
+        "for position-aware reconstruction.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+
     # Use batched reassembly by default, fallback to original if batch_size not specified
     if batch_size is not None:
         reassemble_fn = mk_reassemble_position_batched_real(offsets, batch_size=batch_size, padded_size=size)
@@ -1302,7 +1332,12 @@ def reassemble_position_old(obj_tensor: np.ndarray, global_offsets: np.ndarray, 
     return shift_and_sum_old(obj_tensor, global_offsets, M = M) /\
         (1e-9 + shift_and_sum_old(ones, global_offsets, M = M))
 
-def reassemble_position(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: int = 10) -> tf.Tensor:
+def reassemble_position(
+    obj_tensor: np.ndarray,
+    global_offsets: np.ndarray,
+    M: int = 10,
+    chunk_size: int = 32,
+) -> tf.Tensor:
     """
     Reassemble patches using position-based shift-and-sum with normalization.
     
@@ -1316,13 +1351,14 @@ def reassemble_position(obj_tensor: np.ndarray, global_offsets: np.ndarray, M: i
         obj_tensor: Complex object patches with shape (num_patches, N, N, 1)
         global_offsets: Position offsets with shape (num_patches, 1, 1, 2)  
         M: Size of central region to crop from each patch
+        chunk_size: Number of translated patches processed per streaming chunk.
     
     Returns:
         Assembled and normalized result tensor
     """
     ones = tf.ones_like(obj_tensor)
-    return shift_and_sum(obj_tensor, global_offsets, M = M) /\
-        (1e-9 + shift_and_sum(ones, global_offsets, M = M))
+    return shift_and_sum(obj_tensor, global_offsets, M=M, chunk_size=chunk_size) /\
+        (1e-9 + shift_and_sum(ones, global_offsets, M=M, chunk_size=chunk_size))
 
 #@debug
 def mk_reassemble_position_real(input_positions: tf.Tensor, **outer_kwargs: Any) -> Callable[[tf.Tensor], tf.Tensor]:

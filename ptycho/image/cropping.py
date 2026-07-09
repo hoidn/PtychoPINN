@@ -49,18 +49,62 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-# --- HELPER FUNCTION ---
-def _center_crop(img: np.ndarray, target_h: int, target_w: int) -> np.ndarray:
-    """Center-crops a 2D array to a target size."""
-    h, w = img.shape
-    if h == target_h and w == target_w:
-        return img
-    
+def center_crop_spatial(array: np.ndarray, target_h: int, target_w: int) -> np.ndarray:
+    """Center-crop along the last two (spatial) dimensions of an array."""
+    arr = np.asarray(array)
+    if arr.ndim < 2:
+        raise ValueError(f"Expected rank >= 2 array, got {arr.shape}")
+
+    target_h = int(target_h)
+    target_w = int(target_w)
+    if target_h <= 0 or target_w <= 0:
+        raise ValueError(f"Crop targets must be positive, got ({target_h}, {target_w})")
+
+    h, w = int(arr.shape[-2]), int(arr.shape[-1])
+    if target_h > h or target_w > w:
+        raise ValueError(
+            f"Crop target ({target_h}, {target_w}) exceeds source spatial shape ({h}, {w})"
+        )
+    if target_h == h and target_w == w:
+        return arr
+
     start_h = (h - target_h) // 2
     start_w = (w - target_w) // 2
-    
-    logger.info(f"Center-cropping from ({h}, {w}) to ({target_h}, {target_w})")
-    return img[start_h : start_h + target_h, start_w : start_w + target_w]
+    slices = [slice(None)] * arr.ndim
+    slices[-2] = slice(start_h, start_h + target_h)
+    slices[-1] = slice(start_w, start_w + target_w)
+    logger.info(
+        "Center-cropping spatial dims from (%s, %s) to (%s, %s)",
+        h,
+        w,
+        target_h,
+        target_w,
+    )
+    return arr[tuple(slices)]
+
+
+def center_crop_spatial_by_border(array: np.ndarray, border: int) -> np.ndarray:
+    """Center-crop spatial dimensions by removing ``border`` pixels on each side."""
+    arr = np.asarray(array)
+    if arr.ndim < 2:
+        raise ValueError(f"Expected rank >= 2 array, got {arr.shape}")
+
+    crop = int(border)
+    if crop <= 0:
+        return arr
+
+    h, w = int(arr.shape[-2]), int(arr.shape[-1])
+    crop_max = max(0, (min(h, w) - 1) // 2)
+    crop = min(crop, crop_max)
+    if crop <= 0:
+        return arr
+    return center_crop_spatial(arr, h - 2 * crop, w - 2 * crop)
+
+
+# Backward-compatible alias for older internal callsites/tests.
+def _center_crop(img: np.ndarray, target_h: int, target_w: int) -> np.ndarray:
+    """Center-crops a 2D array to a target size."""
+    return center_crop_spatial(img, target_h, target_w)
 
 
 # --- NEW AUTHORITATIVE FUNCTION ---
