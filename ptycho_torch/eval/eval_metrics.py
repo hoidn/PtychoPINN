@@ -16,6 +16,7 @@ criteria," Journal of Structural Biology 151, 250-262 (2005)
 import numpy as np
 import numpy.fft as fft
 import matplotlib.pyplot as plt
+import cv2
 
 def FSC(i1,i2,disp=0,SNRt=0.1):
     '''
@@ -152,8 +153,7 @@ def PSNR(target, pred, normalize=True, mask_low_amp_phase = True):
     amp_target = np.abs(gt_scaled).astype(np.float32)
     amp_pred = np.abs(pred_scaled).astype(np.float32)
 
-    mse = np.mean((amp_target.astype(np.float64) - amp_pred.astype(np.float64)) ** 2)
-    psnr_amp = float('inf') if mse == 0 else 10.0 * np.log10(1.0 / mse)
+    psnr_amp = cv2.PSNR(amp_target, amp_pred, 1.0)
 
     # Phase psnr
     phase_target = np.angle(gt_scaled).astype(np.float32)

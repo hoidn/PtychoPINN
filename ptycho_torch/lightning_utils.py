@@ -21,11 +21,65 @@ from ptycho_torch.config_params import (
     InferenceConfig, DatagenConfig
 )
 from ptycho_torch.utils import config_to_json_serializable_dict
+from ptycho_torch.scaling_contract import (
+    CI_SCALE_CONTRACT,
+    ci_scaling_active,
+    resolve_scale_contract,
+)
 
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 logger = logging.getLogger("lightning.pytorch")
+
+
+def _serialize_ci_statistics(statistics):
+    if not statistics:
+        return None
+    return {
+        name: torch.as_tensor(value).detach().cpu().reshape(-1).tolist()
+        for name, value in statistics.items()
+    }
+
+
+class CIStatisticsCallback(Callback):
+    """Register finalized training-split CI statistics before training starts."""
+
+    def __init__(self, metadata_sink=None):
+        super().__init__()
+        self.metadata_sink = metadata_sink
+
+    def on_fit_start(self, trainer, pl_module):
+        statistics = getattr(trainer.datamodule, "ci_statistics", None)
+        if statistics is None:
+            model_config = getattr(pl_module, "model_config", None)
+            data_config = getattr(pl_module, "data_config", None)
+            if model_config is None or not ci_scaling_active(model_config):
+                return
+            profile = resolve_scale_contract(
+                getattr(data_config, "scale_contract_version", None),
+                getattr(data_config, "measurement_domain", None),
+            )
+            if profile.version != CI_SCALE_CONTRACT:
+                return
+            raise RuntimeError(
+                "CI statistics were not finalized by the training data module."
+            )
+
+        pl_module.register_ci_statistics(statistics)
+        if not trainer.is_global_zero:
+            return
+        serialized_statistics = _serialize_ci_statistics(statistics)
+        logger_instance = getattr(trainer, "logger", None)
+        if logger_instance is not None and hasattr(
+            logger_instance,
+            "log_hyperparams",
+        ):
+            logger_instance.log_hyperparams({
+                "ci_statistics": serialized_statistics,
+            })
+        if self.metadata_sink is not None:
+            self.metadata_sink(serialized_statistics)
 
 
 class ConfigLogger(Callback):
@@ -66,6 +120,13 @@ class ConfigLogger(Callback):
             'inference_config': config_to_json_serializable_dict(self.inference_config),
             'datagen_config': config_to_json_serializable_dict(self.datagen_config),
         }
+        ci_statistics = _serialize_ci_statistics(
+            pl_module.get_ci_statistics()
+            if hasattr(pl_module, "get_ci_statistics")
+            else None
+        )
+        if ci_statistics is not None:
+            configs["ci_statistics"] = ci_statistics
         
         # Save individual config files
         for config_name, config_dict in configs.items():
@@ -122,6 +183,13 @@ class MetadataLogger(Callback):
             'best_val_loss': None,
             'final_epoch': None,
         }
+        ci_statistics = _serialize_ci_statistics(
+            pl_module.get_ci_statistics()
+            if hasattr(pl_module, "get_ci_statistics")
+            else None
+        )
+        if ci_statistics is not None:
+            metadata["ci_statistics"] = ci_statistics
         
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f, indent=2)

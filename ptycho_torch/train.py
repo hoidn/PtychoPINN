@@ -85,13 +85,29 @@ from ptycho_torch.config_params import update_existing_config
 #Custom modules
 from ptycho_torch.model import PtychoPINN_Lightning
 from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config
-from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, log_parameters_mlflow, is_effectively_global_rank_zero, print_auto_logged_info, resolve_n_devices
+from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, log_parameters_mlflow, is_effectively_global_rank_zero, print_auto_logged_info
 from ptycho_torch.train_utils import ModelFineTuner, PtychoDataModule, LightningConfigSaveCallback, ModelFineTuner_Lightning
+from ptycho_torch.lightning_utils import CIStatisticsCallback
 
 # mlflow.set_tracking_uri("http://127.0.0.1:5000")
 # mlflow.set_experiment("PtychoPINN")
 
 #----- Helper Functions -------
+
+def _persist_finalized_ci_statistics_to_mlflow(statistics):
+    """Persist finalized training-split CI statistics to the active MLflow run."""
+    if mlflow.active_run() is not None:
+        mlflow.log_dict(statistics, "ci_statistics.json")
+
+
+def _build_ci_statistics_callback(disable_mlflow):
+    metadata_sink = (
+        None
+        if disable_mlflow
+        else _persist_finalized_ci_statistics_to_mlflow
+    )
+    return CIStatisticsCallback(metadata_sink=metadata_sink)
+
 
 def _infer_probe_size(npz_file):
     """
@@ -198,8 +214,6 @@ def main(ptycho_dir,
     else:
         data_config, model_config, training_config, inference_config, datagen_config = existing_config
 
-    resolve_n_devices(training_config)
-
     #Setting seed
     set_seed(42, n_devices = training_config.n_devices)
 
@@ -255,6 +269,7 @@ def main(ptycho_dir,
         strict=True
     )
     callbacks = [
+        _build_ci_statistics_callback(disable_mlflow),
         checkpoint_callback,
         early_stop_callback
     ]
@@ -290,7 +305,7 @@ def main(ptycho_dir,
         callbacks = callbacks,
         # accumulate_grad_batches=training_config.accum_steps,  # Lightning handles this
         # gradient_clip_val=training_config.gradient_clip_val,   # Lightning handles this
-        strategy=get_training_strategy(training_config.strategy, training_config.n_devices),
+        strategy=get_training_strategy(training_config.n_devices),
         check_val_every_n_epoch=1,  # Validate every epoch
         enable_checkpointing=True,  # Enable checkpointing for early stopping
         enable_progress_bar=execution_config.enable_progress_bar,  # Controlled by execution config
@@ -305,48 +320,54 @@ def main(ptycho_dir,
         mlflow.pytorch.autolog(checkpoint_monitor = val_loss_label)
 
     #Train the model
-    # MLflow setup (rank 0 only) — trainer.fit() must be called by ALL ranks
-    # for DDP compatibility (torchrun launches separate processes per rank).
-    # For ddp_spawn, only the main process exists here and Lightning spawns workers internally.
-    run_ids = {}
-    mlflow_run = None
+    # if trainer.is_global_zero:
+    if is_effectively_global_rank_zero():
+        if not disable_mlflow:
+            mlflow.set_experiment(training_config.experiment_name)
 
-    if not disable_mlflow and is_effectively_global_rank_zero():
-        mlflow.set_experiment(training_config.experiment_name)
-        mlflow_run = mlflow.start_run()
-        mlflow_run.__enter__()
-        log_parameters_mlflow(data_config, model_config, training_config, inference_config, datagen_config)
-        mlflow.set_tag("stage", "training")
-        mlflow.set_tag("encoder_frozen", "False")
-        mlflow.set_tag("model_name", training_config.model_name)
-        if training_config.notes:
-            mlflow.set_tag("notes", training_config.notes)
+            with mlflow.start_run() as run:
+                run_ids = {}
+                # Log configuration parameters
+                log_parameters_mlflow(data_config, model_config, training_config, inference_config, datagen_config)
+                #Set tags (relatively new)
+                mlflow.set_tag("stage", "training")
+                mlflow.set_tag("encoder_frozen", "False")
+                mlflow.set_tag("model_name", training_config.model_name)
+                if training_config.notes:
+                    mlflow.set_tag("notes", training_config.notes)
+                mlflow.set_tag("stage", "training")
 
-    print(f'[Rank {trainer.global_rank}] Beginning model training/final data prep...')
-    trainer.fit(model, datamodule = data_module)
-    print(f'[Rank {trainer.global_rank}] Done training.')
+                #Train base model
+                print(f'[Rank {trainer.global_rank}] Beginning model training/final data prep...')
+                trainer.fit(model, datamodule = data_module)
 
-    if mlflow_run is not None and is_effectively_global_rank_zero():
-        print_auto_logged_info(mlflow.get_run(run_id = mlflow_run.info.run_id))
-        run_ids['training'] = mlflow_run.info.run_id
-        mlflow_run.__exit__(None, None, None)
-    elif is_effectively_global_rank_zero():
-        run_ids['training'] = None
+                print(f'[Rank {trainer.global_rank}] Done training. Printing training params...')
+                print_auto_logged_info(mlflow.get_run(run_id = run.info.run_id))
+                run_ids['training'] = run.info.run_id
+        else:
+            # MLflow disabled: train without tracking
+            run_ids = {}
+            print(f'[Rank {trainer.global_rank}] Beginning model training/final data prep... (MLflow disabled)')
+            trainer.fit(model, datamodule = data_module)
+            print(f'[Rank {trainer.global_rank}] Done training.')
+            run_ids['training'] = None  # No run_id when MLflow disabled
 
     #Fine-tune if applicable (encoder frozen default)
     if training_config.epochs_fine_tune > 0:
-        # Clean up process group before creating a new Trainer for fine-tuning.
-        # Under ddp_spawn, this prevents port conflicts when the fine-tuning
-        # Trainer tries to spawn a second round of workers.
-        if dist.is_initialized():
-            dist.destroy_process_group()
-
         #Fine-tuning
         fine_tuner = ModelFineTuner(model, data_module, training_config)
         fine_tuning_run_id = fine_tuner.fine_tune(experiment_name = training_config.experiment_name)
-
+        
         if is_effectively_global_rank_zero():
             run_ids['fine-tune'] = fine_tuning_run_id
+    
+    # if is_effectively_global_rank_zero():
+    #     print(f"Training run_id: {run_ids['training']}")
+    #     print(f"Fine_tune run_id: {run_ids['fine-tune']}")
+        
+    #     return run_ids
+    # else:
+    #     return None
 
     # CRITICAL: Final synchronization before returning
     if dist.is_initialized():
@@ -406,7 +427,6 @@ def main_lightning(
     if i_config_replace:
         update_existing_config(inference_config, i_config_replace)
     
-    resolve_n_devices(training_config)
     print(f"Config: {training_config.n_devices} GPUs, batch_size={training_config.batch_size}")
 
     # Setup configurations to save
@@ -475,7 +495,12 @@ def main_lightning(
         max_epochs=training_config.epochs,
         devices=training_config.n_devices,
         accelerator='gpu',
-        strategy=get_training_strategy(training_config.strategy, training_config.n_devices),
+        strategy=DDPStrategy(
+            find_unused_parameters=False,
+            static_graph=True,
+            gradient_as_bucket_view=True,
+            process_group_backend='nccl'
+        ) if training_config.n_devices > 1 else 'auto',
         callbacks=callback_list,
         enable_checkpointing=True,
         enable_progress_bar=True,
@@ -565,6 +590,33 @@ Examples:
             "'poisson' matches the physics-weighted Poisson NLL used in TensorFlow, "
             "while 'mae' disables the physics loss and trains purely on amplitude MAE."
         )
+    )
+    parser.add_argument(
+        '--probe-mask',
+        dest='probe_mask',
+        action='store_true',
+        default=False,
+        help='Enable Torch probe masking (default: disabled).'
+    )
+    parser.add_argument(
+        '--no-probe-mask',
+        dest='probe_mask',
+        action='store_false',
+        help='Disable Torch probe masking.'
+    )
+    parser.add_argument(
+        '--probe-mask-sigma',
+        type=float,
+        default=1.0,
+        dest='probe_mask_sigma',
+        help='Gaussian sigma (pixels) for probe-mask edge smoothing (default: 1.0 smooth edge).'
+    )
+    parser.add_argument(
+        '--probe-mask-diameter',
+        type=float,
+        default=None,
+        dest='probe_mask_diameter',
+        help='Probe-mask disk diameter in pixels (default: N/2).'
     )
 
     # Execution config flags (Phase C4.C1 - ADR-003)
@@ -810,6 +862,9 @@ Examples:
             'gridsize': args.gridsize,
             'max_epochs': args.max_epochs,
             'torch_loss_mode': args.torch_loss_mode,
+            'probe_mask': args.probe_mask,
+            'probe_mask_sigma': args.probe_mask_sigma,
+            'probe_mask_diameter': args.probe_mask_diameter,
             'log_patch_stats': args.log_patch_stats,
             'patch_stats_limit': args.patch_stats_limit,
             'object_big': args.gridsize > 1,

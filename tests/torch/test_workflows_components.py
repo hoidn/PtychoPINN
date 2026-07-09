@@ -303,6 +303,74 @@ class TestWorkflowsComponentsTraining:
 
         assert captured["overrides"].get("fno_input_transform") == "log1p"
 
+    def test_train_with_lightning_builds_supervised_model_config(
+        self,
+        tmp_path,
+        monkeypatch,
+        params_cfg_snapshot,
+    ):
+        """Supervised workflow requests must reach Lightning as Supervised + MAE."""
+        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho_torch.workflows import components as torch_components
+
+        dataset_path = tmp_path / "train_supervised.npz"
+        diffraction = np.ones((2, 64, 64), dtype=np.float32)
+        probe = np.ones((64, 64), dtype=np.complex64)
+        coords = np.zeros(2, dtype=np.float32)
+        np.savez(
+            dataset_path,
+            diffraction=diffraction,
+            probeGuess=probe,
+            xcoords=coords,
+            ycoords=coords,
+        )
+
+        model_config = ModelConfig(
+            N=64,
+            gridsize=1,
+            model_type='supervised',
+            architecture='ffno',
+        )
+        training_config = TrainingConfig(
+            model=model_config,
+            train_data_file=dataset_path,
+            test_data_file=dataset_path,
+            output_dir=tmp_path / "out",
+            n_groups=2,
+            neighbor_count=1,
+            nphotons=1e9,
+            nepochs=1,
+        )
+
+        train_container = {
+            "X": np.ones((1, 64, 64, 1), dtype=np.float32),
+            "coords_relative": np.zeros((1, 1, 2, 1), dtype=np.float32),
+            "label_amp": np.ones((1, 64, 64, 1), dtype=np.float32),
+            "label_phase": np.zeros((1, 64, 64, 1), dtype=np.float32),
+        }
+
+        captured = {}
+
+        class FakeGenerator:
+            def build_model(self, pt_configs):
+                captured["model_config"] = pt_configs["model_config"]
+                raise RuntimeError("stop after build_model")
+
+        monkeypatch.setattr(
+            "ptycho_torch.generators.registry.resolve_generator",
+            lambda config: FakeGenerator(),
+        )
+
+        with pytest.raises(RuntimeError, match="stop after build_model"):
+            torch_components._train_with_lightning(
+                train_container=train_container,
+                test_container=None,
+                config=training_config,
+            )
+
+        assert captured["model_config"].mode == "Supervised"
+        assert captured["model_config"].loss_function == "MAE"
+
     def test_train_cdi_model_torch_invokes_lightning(
         self,
         monkeypatch,

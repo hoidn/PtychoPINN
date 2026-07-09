@@ -83,64 +83,6 @@ except ImportError as e:
 logger = logging.getLogger(__name__)
 
 
-try:
-    from lightning.pytorch import Callback as _LCallback
-except ImportError:
-    _LCallback = object
-
-
-class _LossHistoryCallback(_LCallback):
-    """Collect train/val loss per epoch for the history dict.
-
-    Defined at module level so it can be pickled across spawn boundaries.
-    Under ddp_spawn with >1 device, callback mutations in child processes
-    are NOT visible to the parent — callers must use ``read_history()``
-    after ``trainer.fit()`` to get a spawn-safe result.
-    """
-
-    def __init__(self):
-        self.train_loss = []
-        self.val_loss = []
-
-    def _find_loss_metric(self, metrics, prefix):
-        for key in metrics:
-            if prefix in key and 'loss' in key:
-                return float(metrics[key])
-        return None
-
-    def on_train_epoch_end(self, trainer, pl_module):
-        metrics = trainer.callback_metrics
-        loss_val = self._find_loss_metric(metrics, 'train')
-        if loss_val is not None:
-            self.train_loss.append(loss_val)
-
-    def on_validation_epoch_end(self, trainer, pl_module):
-        metrics = trainer.callback_metrics
-        loss_val = self._find_loss_metric(metrics, 'val')
-        if loss_val is not None:
-            self.val_loss.append(loss_val)
-
-    def read_history(self, trainer, has_validation=True):
-        """Return loss history, falling back to trainer metrics under spawn.
-
-        Under ddp_spawn the parent's callback lists stay empty because
-        training ran in a child process.  Fall back to the final metrics
-        that Lightning *does* propagate back to the parent trainer.
-        """
-        train = list(self.train_loss)
-        val = list(self.val_loss) if has_validation else None
-
-        if not train:
-            final_train = self._find_loss_metric(trainer.callback_metrics, 'train')
-            if final_train is not None:
-                train = [final_train]
-            final_val = self._find_loss_metric(trainer.callback_metrics, 'val')
-            if has_validation and final_val is not None:
-                val = [final_val]
-
-        return {"train_loss": train, "val_loss": val}
-
-
 def _resolve_nphotons(data, config):
     metadata = getattr(data, "metadata", None)
     if metadata is not None:
@@ -160,6 +102,48 @@ def _attach_physics_scale(container, config, nphotons_source: Optional[str] = No
     container.nphotons_source = source
     container.nphotons_resolved = nphotons
     return scale, source
+
+
+def derive_dict_physics_scale(
+    container: Dict[str, Any], nphotons: float, mode: str
+) -> Optional[Any]:
+    """Attach an absolute photon-count physics scale to a plain dict container.
+
+    Sibling to ``_attach_physics_scale`` for the grid-lines dict-container path
+    (``run_torch_training``), which builds a plain dict and therefore never
+    reaches ``_ensure_container`` -> ``_attach_physics_scale``. ``auto``
+    reproduces the native convention (``S =
+    derive_intensity_scale_from_amplitudes(amplitudes, nphotons)``) applied to
+    ``container['observed_images']`` — the loss-side raw diffraction, which
+    stays unconditioned in every ``--input-conditioning-mode`` — rather than
+    ``X``, which may carry appended non-physical conditioning channels that
+    would corrupt S. The loss lifts ``pred`` and ``observed_images``
+    (model.py compute_loss), so S must calibrate exactly that array.
+    ``off`` leaves ``physics_scaling_constant`` absent so the existing
+    ``_get_tensor``/``_select_scale`` wiring defaults it to 1.0 (today's
+    behavior, unchanged).
+
+    Args:
+        container: Plain dict container with an 'observed_images' key
+            (normalized raw diffraction amplitudes).
+        nphotons: Photon count to derive the scale against.
+        mode: 'auto' or 'off'.
+
+    Returns:
+        The derived scale tensor (float32, shape (1, 1, 1) before assignment)
+        in 'auto' mode, else None.
+    """
+    if mode == "auto":
+        from ptycho_torch import helper as hh
+
+        scale = hh.derive_intensity_scale_from_amplitudes(
+            container["observed_images"], nphotons
+        )
+        container["physics_scaling_constant"] = scale.view(1, 1, 1).float()
+        return scale
+    if mode == "off":
+        return None
+    raise ValueError(f"Unknown count_scale_mode {mode!r}; expected 'auto' or 'off'")
 
 
 def run_cdi_example_torch(
@@ -202,22 +186,18 @@ def run_cdi_example_torch(
         - reconstructed phase (or None if stitching disabled)
         - results dictionary (training history, containers, metrics)
 
-    Raises:
-        NotImplementedError: Phase D2.B/C not yet implemented (scaffold only)
+    Implementation:
+        1. Train the model via train_cdi_model_torch (Lightning trainer
+           orchestration), forwarding execution_config when provided.
+        2. Initialize reconstruction outputs (recon_amp, recon_phase) to None.
+        3. If do_stitching and test_data is provided, stitch reconstructed patches
+           via _reassemble_cdi_image_torch and merge the results into train_results.
+        4. If config.output_dir is set and train_results contains models, persist
+           them via save_torch_bundle (wts.h5.zip, TensorFlow-convention archive path).
+        5. Return (recon_amp, recon_phase, train_results), matching the TensorFlow
+           baseline signature (specs/ptychodus_api_spec.md §4.5).
 
-    Phase D2.A Scaffold Status:
-        - Entry signature: ✅ COMPLETE (matches TensorFlow)
-        - update_legacy_dict call: ✅ COMPLETE (CONFIG-001 compliance)
-        - Placeholder logic: ✅ COMPLETE (raises NotImplementedError)
-        - Torch-optional: ✅ COMPLETE (importable without torch)
-
-    Phase D2.B/C TODO:
-        - Implement train_cdi_model_torch delegation (Lightning trainer orchestration)
-        - Implement reassemble_cdi_image_torch (optional stitching path)
-        - Add MLflow disable flag handling
-        - Validate deterministic seeds from config
-
-    Example (Post D2.B/C):
+    Example:
         >>> from ptycho_torch.workflows.components import run_cdi_example_torch
         >>> from ptycho.config.config import TrainingConfig, ModelConfig
         >>> from ptycho.raw_data import RawData
@@ -230,6 +210,8 @@ def run_cdi_example_torch(
         >>> amp, phase, results = run_cdi_example_torch(
         ...     train_data, None, config, do_stitching=False
         ... )
+
+    Contract: docs/architecture_torch.md §Component Contracts.
     """
     # CRITICAL: Update params.cfg before delegating (CONFIG-001 compliance)
     # This ensures legacy modules invoked downstream observe correct configuration state
@@ -475,6 +457,7 @@ def _build_lightning_dataloaders(
             self.model_config = model_config
             # Extract all tensors at init
             self.images = _get_tensor(container, 'X')
+            self.observed_images = _get_tensor(container, 'observed_images')
             # Try 'coords_relative' first, fallback to 'coords_nominal' for container compatibility
             self.coords_relative = _get_tensor(container, 'coords_relative')
             if self.coords_relative is None:
@@ -494,10 +477,17 @@ def _build_lightning_dataloaders(
             self.physics_scaling_constant = _get_tensor(container, 'physics_scaling_constant')
             self.probe = _get_tensor(container, 'probe')
             self.scaling_constant = _get_tensor(container, 'scaling_constant')
+            self.label_amp = _get_tensor(container, 'label_amp')
+            self.label_phase = _get_tensor(container, 'label_phase')
 
             # Validate required tensors
             if self.images is None:
                 raise ValueError("Container must contain 'X' (images) tensor")
+            if getattr(self.model_config, 'model_type', 'pinn') == 'supervised':
+                if self.label_amp is None or self.label_phase is None:
+                    raise ValueError(
+                        "Supervised training requires label_amp and label_phase on the container."
+                    )
 
             self.length = self.images.size(0)
 
@@ -520,6 +510,11 @@ def _build_lightning_dataloaders(
             """
             # Extract indexed data
             images_indexed = self.images[idx]
+            observed_images_indexed = (
+                self.observed_images[idx]
+                if self.observed_images is not None
+                else images_indexed
+            )
 
             # CRITICAL: Convert from TensorFlow channel-last to PyTorch channel-first format
             # TensorFlow RawData.generate_grouped_data returns X_full with shape (nsamples, H, W, C)
@@ -531,6 +526,10 @@ def _build_lightning_dataloaders(
             elif images_indexed.ndim == 3:
                 # Single sample case: (H, W, C) → (C, H, W)
                 images_indexed = images_indexed.permute(2, 0, 1)
+            if observed_images_indexed.ndim == 4:
+                observed_images_indexed = observed_images_indexed.permute(0, 3, 1, 2)
+            elif observed_images_indexed.ndim == 3:
+                observed_images_indexed = observed_images_indexed.permute(2, 0, 1)
 
             # Build tensor dict with required keys for compute_loss
             coords_rel = self.coords_relative[idx] if self.coords_relative is not None else torch.zeros(1, 2)
@@ -545,6 +544,17 @@ def _build_lightning_dataloaders(
             elif coords_rel is not None and coords_rel.ndim == 3:
                 # Single sample case: (1, 2, C) → (C, 1, 2)
                 coords_rel = coords_rel.permute(2, 0, 1).contiguous()
+
+            label_amp = self.label_amp[idx] if self.label_amp is not None else None
+            label_phase = self.label_phase[idx] if self.label_phase is not None else None
+            if label_amp is not None and label_amp.ndim == 4:
+                label_amp = label_amp.permute(0, 3, 1, 2).contiguous()
+            elif label_amp is not None and label_amp.ndim == 3:
+                label_amp = label_amp.permute(2, 0, 1).contiguous()
+            if label_phase is not None and label_phase.ndim == 4:
+                label_phase = label_phase.permute(0, 3, 1, 2).contiguous()
+            elif label_phase is not None and label_phase.ndim == 3:
+                label_phase = label_phase.permute(2, 0, 1).contiguous()
 
             def _select_scale(scale):
                 if scale is None:
@@ -570,25 +580,69 @@ def _build_lightning_dataloaders(
 
             tensor_dict = {
                 'images': images_indexed,
+                'observed_images': observed_images_indexed,
                 'coords_relative': coords_rel,
                 'rms_scaling_constant': rms_scale,
                 'physics_scaling_constant': phys_scale,
                 'experiment_id': torch.tensor(0, dtype=torch.long),  # Scalar - collation gives (batch_size,)
             }
+            if label_amp is not None:
+                tensor_dict['label_amp'] = label_amp
+            if label_phase is not None:
+                tensor_dict['label_phase'] = label_phase
 
-            # Broadcast probe for batch (single probe applies to all samples)
+            # Broadcast probe for batch (single probe applies to all samples).
+            #
+            # Task R1-fix (bisect-report.md #4): the (C, P, H, W) reshape below is
+            # required ONLY for physics_forward_mode='rectangular_scaled' --
+            # RectangularScaledDiffraction.forward's scale.unsqueeze(2) collides
+            # the raw shared probe's collated batch axis with H when batch_size > 1
+            # (Task 2.8 crash). Applying it unconditionally also to the amplitude
+            # default silently changed ProbeIllumination's broadcast during
+            # training and degraded trained-model amp MAE 0.0846 -> 0.233
+            # (82da7796). The amplitude default must keep the pre-82da7796 raw
+            # convention: probe = self.probe, collated by DataLoader to
+            # (B, H, W)/(B, P, H, W).
+            rectangular_mode = getattr(
+                self.model_config, 'physics_forward_mode', 'amplitude'
+            ) == 'rectangular_scaled'
+
             if self.probe is not None:
-                probe = self.probe
+                probe_raw = self.probe
             else:
                 # Fallback: create dummy probe matching image size
                 N = self.images.size(-1)
-                probe = torch.ones(N, N, dtype=torch.complex64)
+                probe_raw = torch.ones(N, N, dtype=torch.complex64)
 
-            # Broadcast scaling constant
-            if self.scaling_constant is not None:
-                scaling = self.scaling_constant
+            if rectangular_mode:
+                channels = images_indexed.shape[0]
+                if probe_raw.ndim == 2:
+                    # Shared single-mode probe (H, W) -> (C, 1, H, W)
+                    probe = probe_raw.unsqueeze(0).unsqueeze(0).expand(channels, 1, -1, -1)
+                elif probe_raw.ndim == 3:
+                    # Shared multi-mode probe (P, H, W) -> (C, P, H, W)
+                    probe = probe_raw.unsqueeze(0).expand(channels, -1, -1, -1)
+                else:
+                    # Already sample-shaped (e.g. pre-batched (C, P, H, W)); leave as-is.
+                    probe = probe_raw
             else:
-                scaling = torch.ones(1, dtype=torch.float32)
+                probe = probe_raw
+
+            # Broadcast scaling constant. Same conditioning as probe above: the
+            # per-sample select + reshape to (1, 1, 1) is required only for
+            # rectangular_scaled (compute_loss's ``scale ** 2 * physics_scale``
+            # needs a (B, 1, 1, 1)-broadcastable scale). The amplitude default
+            # never reads batch[2] (compute_loss only consumes `scale` inside its
+            # rectangular_mode branch), so it keeps the pre-82da7796 raw,
+            # un-indexed passthrough.
+            if rectangular_mode:
+                scaling = _select_scale(self.scaling_constant)
+                scaling = scaling.view(1, 1, 1) if scaling.numel() == 1 else scaling.view(-1, 1, 1)[:1]
+            else:
+                if self.scaling_constant is not None:
+                    scaling = self.scaling_constant
+                else:
+                    scaling = torch.ones(1, dtype=torch.float32)
 
             return tensor_dict, probe, scaling
     
@@ -816,6 +870,13 @@ def _train_with_lightning(
         test_container: Optional normalized test data container
         config: TrainingConfig with training hyperparameters
         execution_config: Optional PyTorchExecutionConfig with runtime knobs (Phase C3.A2)
+        overrides: Optional dict of torch-only ``create_training_payload`` overrides
+            (highest precedence, applied last). This is the forwarding channel for
+            ModelConfig knobs that exist only on the torch-side
+            ptycho_torch.config_params.ModelConfig (e.g. training_patch_weighting,
+            physics_forward_mode, cnn_output_mode, rect_s1s2_trainable) and therefore
+            cannot be threaded through the read-only TF-side TrainingConfig/ModelConfig
+            (ptycho/config/config.py). See Task 2.7 (B7) follow-up.
 
     Returns:
         Dict[str, Any]: Training results including:
@@ -876,6 +937,9 @@ def _train_with_lightning(
         'n_filters_scale': config.model.n_filters_scale,
         'object_big': config.model.object_big,
         'probe_big': config.model.probe_big,
+        'probe_mask': config.model.probe_mask,
+        'probe_mask_sigma': getattr(config.model, 'probe_mask_sigma', 1.0),
+        'probe_mask_diameter': getattr(config.model, 'probe_mask_diameter', None),
         'pad_object': config.model.pad_object,
         'nphotons': config.nphotons,
         'neighbor_count': config.neighbor_count,
@@ -883,6 +947,7 @@ def _train_with_lightning(
         'batch_size': getattr(config, 'batch_size', 16),
         'subsample_seed': getattr(config, 'subsample_seed', None),
         'torch_loss_mode': getattr(config, 'torch_loss_mode', 'poisson'),
+        'torch_mae_pred_l2_match_target': getattr(config, 'torch_mae_pred_l2_match_target', False),
         'log_grad_norm': getattr(config, 'log_grad_norm', False),
         'grad_norm_log_freq': getattr(config, 'grad_norm_log_freq', 1),
     }
@@ -897,13 +962,39 @@ def _train_with_lightning(
         val = getattr(config, opt_field, None)
         if val is not None:
             factory_overrides[opt_field] = val
-    for field_name in ('fno_modes', 'fno_width', 'fno_blocks', 'fno_cnn_blocks', 'fno_input_transform'):
+    for field_name in (
+        'fno_modes',
+        'fno_width',
+        'fno_blocks',
+        'fno_cnn_blocks',
+        'fno_input_transform',
+        'learned_input_channels',
+    ):
         field_val = getattr(config.model, field_name, None)
         if field_val is not None:
             factory_overrides[field_name] = field_val
     generator_output_mode = getattr(config.model, 'generator_output_mode', None)
     if generator_output_mode is not None:
         factory_overrides['generator_output_mode'] = generator_output_mode
+    if execution_config is not None:
+        for field_name in (
+            'spectral_bottleneck_blocks',
+            'spectral_bottleneck_modes',
+            'spectral_bottleneck_share_weights',
+            'spectral_bottleneck_gate_init',
+            'spectral_bottleneck_gate_mode',
+        ):
+            field_val = getattr(execution_config, field_name, None)
+            if field_val is not None:
+                factory_overrides[field_name] = field_val
+
+    # Caller-supplied torch-only overrides take highest precedence. This is how
+    # ModelConfig knobs that live exclusively on the torch-side config_params.ModelConfig
+    # (training_patch_weighting, physics_forward_mode, cnn_output_mode,
+    # rect_s1s2_trainable) reach create_training_payload despite ptycho/config/config.py
+    # (TF-side TrainingConfig/ModelConfig/PyTorchExecutionConfig) being read-only.
+    if overrides:
+        factory_overrides.update(overrides)
 
     # Create payload with factory-derived PyTorch configs
     payload = create_training_payload(
@@ -948,6 +1039,7 @@ def _train_with_lightning(
         "data_config": pt_data_config,
         "training_config": pt_training_config,
         "inference_config": pt_inference_config,
+        "execution_config": execution_config,
     }
 
     generator = resolve_generator(config)
@@ -1000,6 +1092,38 @@ def _train_with_lightning(
         from ptycho.config.config import PyTorchExecutionConfig
         execution_config = PyTorchExecutionConfig()
         logger.info(f"PyTorchExecutionConfig auto-instantiated for Lightning training (accelerator resolved to '{execution_config.accelerator}')")
+
+    # Custom callback to track loss history across epochs
+    class _LossHistoryCallback(L.Callback):
+        """Callback to collect train/val loss per epoch for history dict.
+
+        The model logs metrics with dynamic names like 'poisson_train_Amp_loss'
+        based on model configuration. This callback searches for any metric
+        containing 'train' and 'loss' (or 'val' and 'loss') to capture the loss.
+        """
+
+        def __init__(self):
+            self.train_loss = []
+            self.val_loss = []
+
+        def _find_loss_metric(self, metrics, prefix):
+            """Find loss metric by prefix ('train' or 'val')."""
+            for key in metrics:
+                if prefix in key and 'loss' in key:
+                    return float(metrics[key])
+            return None
+
+        def on_train_epoch_end(self, trainer, pl_module):
+            metrics = trainer.callback_metrics
+            loss_val = self._find_loss_metric(metrics, 'train')
+            if loss_val is not None:
+                self.train_loss.append(loss_val)
+
+        def on_validation_epoch_end(self, trainer, pl_module):
+            metrics = trainer.callback_metrics
+            loss_val = self._find_loss_metric(metrics, 'val')
+            if loss_val is not None:
+                self.val_loss.append(loss_val)
 
     loss_history_cb = _LossHistoryCallback()
 
@@ -1169,8 +1293,12 @@ def _train_with_lightning(
             logger.error(f"Lightning training failed: {e}")
             raise RuntimeError(f"Lightning training failed. See logs for details.") from e
 
-    has_validation = test_container is not None or isinstance(data_product, PrebuiltPtychoDataModule)
-    history = loss_history_cb.read_history(trainer, has_validation=has_validation)
+    # Extract loss history from the custom callback
+    # The _LossHistoryCallback collects losses per epoch during training
+    history = {
+        "train_loss": loss_history_cb.train_loss,
+        "val_loss": loss_history_cb.val_loss if test_container is not None or isinstance(data_product, PrebuiltPtychoDataModule) else None
+    }
 
     logger.info("Lightning training complete")
 

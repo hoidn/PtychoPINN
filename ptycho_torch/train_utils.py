@@ -15,7 +15,6 @@ from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, 
 #ML libraries
 import numpy as np
 import torch
-import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import Subset
@@ -68,7 +67,7 @@ def is_spawn_strategy(strategy) -> bool:
         return getattr(strategy, '_start_method', None) == 'spawn'
     return False
 
-def get_training_strategy(strategy, n_devices):
+def get_training_strategy(strategy='auto', n_devices=None):
     """
     Returns the Lightning training strategy.
 
@@ -84,6 +83,11 @@ def get_training_strategy(strategy, n_devices):
         strategy: Requested strategy. Pass 'auto' to auto-select.
         n_devices: Number of GPUs being trained on (used only when strategy=='auto').
     """
+    # Backward compatibility: older call sites pass only n_devices.
+    if n_devices is None:
+        n_devices = strategy
+        strategy = 'auto'
+
     if strategy == 'ddp_spawn':
         return DDPStrategy(
             find_unused_parameters=False,
@@ -109,6 +113,28 @@ def find_learning_rate(base_lr, n_devices, batch_size_per_gpu):
     lr_scaled = base_lr * math.sqrt(ebs / batch_size_per_gpu)
 
     return lr_scaled
+
+
+def adaptive_gradient_clip_(parameters, clip_factor: float = 0.01, eps: float = 1e-3):
+    """Adaptive Gradient Clipping (AGC), operating in-place on parameter grads."""
+    for p in parameters:
+        if p.grad is None:
+            continue
+        p_norm = p.data.norm(2).clamp(min=eps)
+        g_norm = p.grad.data.norm(2)
+        max_norm = p_norm * clip_factor
+        if g_norm > max_norm:
+            p.grad.data.mul_(max_norm / g_norm)
+
+
+def compute_grad_norm(parameters, norm_type=2.0):
+    total = 0.0
+    for param in parameters:
+        if param.grad is None:
+            continue
+        param_norm = param.grad.data.norm(norm_type)
+        total += param_norm.item() ** norm_type
+    return total ** (1.0 / norm_type) if total > 0.0 else 0.0
 
 def resolve_n_devices(training_config):
     """Resolve n_devices='auto' to actual GPU count, mutating in place."""
@@ -425,7 +451,9 @@ class PtychoDataModule(L.LightningDataModule):
                     model_config=self.model_config,
                     data_config=self.data_config,
                     training_config=self.training_config,
-                    remake_map=True
+                    remake_map=True,
+                    data_dir=self.memory_map_dir,
+                    defer_ci_statistics=True,
                 )
                 print("[Rank 0] Memory map created.")
     
@@ -455,7 +483,8 @@ class PtychoDataModule(L.LightningDataModule):
                     data_config=self.data_config,
                     training_config=self.training_config,
                     remake_map=remake_flag_for_this_setup, # Always False here, map should exist
-                    data_dir = self.memory_map_dir
+                    data_dir = self.memory_map_dir,
+                    defer_ci_statistics=True,
                 )
 
                 # Create train/validation split
@@ -470,6 +499,10 @@ class PtychoDataModule(L.LightningDataModule):
                 self.train_dataset, self.val_dataset = torch.utils.data.random_split(
                     full_dataset, [train_size, val_size], generator=generator
                 )
+                if full_dataset.ci_contract_active:
+                    self.ci_statistics = full_dataset.set_ci_statistics_from_indices(
+                        self.train_dataset.indices
+                    )
 
         self._is_setup_done = True
 
@@ -545,6 +578,10 @@ class PrebuiltPtychoDataModule(L.LightningDataModule):
                 self.train_dataset, self.val_dataset = torch.utils.data.random_split(
                     self.dataset, [train_size, val_size], generator=generator
                 )
+                if self.dataset.ci_contract_active:
+                    self.ci_statistics = self.dataset.set_ci_statistics_from_indices(
+                        self.train_dataset.indices
+                    )
                 
                 print(f"[DataModule setup] Rank {current_rank}: Dataset ready, "
                       f"train={train_size}, val={val_size}")
@@ -606,6 +643,10 @@ class InMemoryPtychoDataModule(L.LightningDataModule):
             self.train_dataset, self.val_dataset = torch.utils.data.random_split(
                 self.dataset, [train_size, val_size], generator=generator
             )
+            if self.dataset.ci_contract_active:
+                self.ci_statistics = self.dataset.set_ci_statistics_from_indices(
+                    self.train_dataset.indices
+                )
             print(f"[InMemoryPtychoDataModule] Split: train={train_size}, val={val_size}")
 
     def train_dataloader(self):
@@ -804,7 +845,8 @@ class PtychoDataModuleLightning(L.LightningDataModule):
                 model_config=self.model_config,
                 data_config=self.data_config,
                 training_config=self.training_config,
-                remake_map=True
+                remake_map=True,
+                defer_ci_statistics=True,
             )
             print("[Rank 0] Memory map created.")
 
@@ -822,7 +864,8 @@ class PtychoDataModuleLightning(L.LightningDataModule):
                     model_config=self.model_config,
                     data_config=self.data_config,
                     training_config=self.training_config,
-                    remake_map=False
+                    remake_map=False,
+                    defer_ci_statistics=True,
                 )
                 dataset_size = len(full_dataset)
                 val_size = int(self.val_split * dataset_size)
@@ -831,6 +874,10 @@ class PtychoDataModuleLightning(L.LightningDataModule):
                 self.train_dataset, self.val_dataset = torch.utils.data.random_split(
                     full_dataset, [train_size, val_size], generator=generator
                 )
+                if full_dataset.ci_contract_active:
+                    self.ci_statistics = full_dataset.set_ci_statistics_from_indices(
+                        self.train_dataset.indices
+                    )
         self._is_setup_done = True
 
     def _resolve_worker_kwargs(self):
@@ -852,13 +899,21 @@ class PtychoDataModuleLightning(L.LightningDataModule):
         )
 
     def val_dataloader(self):
+        # drop_last must be False here (unlike train_dataloader, where dropping
+        # the last partial batch stabilizes batch-norm statistics): the val
+        # split can be smaller than one batch (val_size = int(val_split *
+        # dataset_size), and val_split/dataset_size are caller-controlled), so
+        # dropping its last partial batch can silently produce ZERO val
+        # batches, which starves EarlyStopping's monitored metric and crashes
+        # training with "metric ... which is not available" instead of a
+        # clear error. The val set smaller than one batch must still validate.
         return TensorDictDataLoader(
             self.val_dataset,
             batch_size=self.training_config.batch_size,
             shuffle=False,
             collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
             pin_memory=True,
-            drop_last=True,
+            drop_last=False,
             **self._resolve_worker_kwargs(),
         )
 

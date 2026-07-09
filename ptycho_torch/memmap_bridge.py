@@ -107,8 +107,9 @@ class MemmapDatasetBridge:
         self.xcoords = self._get_array('xcoords', np.float64)
         self.ycoords = self._get_array('ycoords', np.float64)
 
-        # DATA-001 compliance: Accept both canonical 'diffraction' and legacy 'diff3d' keys
-        # Spec: specs/data_contracts.md:207 - canonical key is 'diffraction'
+        # DATA-001 compliance: accept both 'diffraction' and 'diff3d' keys
+        # Spec: specs/data_contracts.md §12 - 'diffraction' is the H5 /raw_data dataset
+        # name; docs/specs/spec-ptycho-core.md - 'diff3d' is the standalone-NPZ canonical key
         # Pattern: scripts/run_tike_reconstruction.py:165-169, generate_patches_tool.py:66-68
         # Historical context: Phase E training blocked by KeyError (STUDY-SYNTH-FLY64-DOSE-OVERLAP-001)
         if 'diffraction' in self._npz_data:
