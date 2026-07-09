@@ -14,6 +14,7 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 | **CONFIG-001** | Shape mismatch - gridsize not synced | Call `update_legacy_dict(params.cfg, config)` before data loading | [Quick Reference](debugging/QUICK_REFERENCE_PARAMS.md) |
 | **CONFIG-001 Exception** | CONFIG-001 doesn't fix model architecture | Module-level singletons are created at import time; use factory functions | [Quick Reference](debugging/QUICK_REFERENCE_PARAMS.md#️-critical-exception-module-level-singletons-module-singleton-001) |
 | **ANTIPATTERN-001** | Hidden crashes from import-time side effects | Push work into functions with explicit arguments | [Developer Guide](DEVELOPER_GUIDE.md#21-anti-pattern-side-effects-on-import) |
+| **TORCH-N128-FLAT-AMP-001** | Torch `cnn` at N=128 under the count-Poisson recipe trains to a CONVERGED flat-amplitude output — raw `amp_mae` looks normal (~0.46), only pearson-based metrics expose it | Root cause is the port's default-on CBAM encoder attention: run the cnn with the TF-parity preset (`--cbam-encoder off --parity-init-scheme tf_glorot --scheduler ReduceLROnPlateau`) or use `hybrid_resnet` | [Finding: TORCH-N128-FLAT-AMP-001](findings.md) |
 
 ---
 
