@@ -1,13 +1,9 @@
 # Physics constrained machine learning for rapid, high resolution diffractive imaging
 
-This repository contains the codebase for the methods presented in the paper "[Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction](https://www.nature.com/articles/s41598-023-48351-7)". 
+This repository contains the codebase for the methods presented in the paper "[Physics Constrained Unsupervised Deep Learning for Rapid, High Resolution Scanning Coherent Diffraction Reconstruction](https://www.nature.com/articles/s41598-023-48351-7)".
 
 ## Overview
 PtychoPINN is an unsupervised, physics-informed neural network method for scanning CDI reconstruction. It combines the diffraction forward model with real-space overlap constraints.
-
-## For Developers
-
-Start with the **[Unified Developer Guide](./docs/DEVELOPER_GUIDE.md)** for architecture, data flow, and development conventions.
 
 ## Features
 - **Unsupervised / self-supervised learning**: Does not require large labeled datasets.
@@ -19,24 +15,26 @@ Start with the **[Unified Developer Guide](./docs/DEVELOPER_GUIDE.md)** for arch
 PtychoPINN supports both TensorFlow and PyTorch backends:
 
 - **Default Backend**: TensorFlow remains the default for backward compatibility.
-- **PyTorch Backend**: PyTorch implementation is available via Lightning orchestration (`ptycho_torch/workflows/components.py`) with training, checkpointing, inference, and stitching.
-- **Backend Selection**: Configure backend choice through `TrainingConfig.backend` or `InferenceConfig.backend` fields (`'tensorflow'` or `'pytorch'`). See [PyTorch Workflow Guide](./docs/workflows/pytorch.md) §12 for configuration details.
-- **Runtime Evidence**: PyTorch integration has a ~36s CPU baseline in `tests/torch/test_integration_workflow_torch.py`. More timing details are in `docs/plans/TEST-PYTORCH-001/reports/2025-10-19T193425Z/phase_d_hardening/runtime_profile.md`.
+- **PyTorch Backend**: Lightning-based implementation under `ptycho_torch/` with training, checkpointing, inference, and stitching. Model architectures (CNN, FNO, FFNO, hybrid variants, and more) are selected through a generator registry.
+- **Backend Selection**: Configure through `TrainingConfig.backend` / `InferenceConfig.backend` (`'tensorflow'` or `'pytorch'`), or use the PyTorch-native CLIs directly (`python -m ptycho_torch.train`, `python -m ptycho_torch.inference`). See the [PyTorch Workflow Guide](./docs/workflows/pytorch.md) for configuration details.
 
 Both backends share the same data pipeline and configuration system, ensuring consistent behavior across workflows.
 
 ![Architecture diagram](diagram/lett.png)
-<!---
-*Fig. 1: Caption for the figure.*
- -->
 
+## Documentation
+
+- **[Documentation hub](./docs/index.md)** — complete map of guides, specs, and workflows.
+- **[Developer Guide](./docs/DEVELOPER_GUIDE.md)** — architecture, data flow, and development conventions.
+- **[Commands Reference](./docs/COMMANDS_REFERENCE.md)** — CLI recipes for training, inference, evaluation, and tests.
 
 ## Installation
-`conda create -n ptycho python=3.10`
 
-`conda activate ptycho`
-
-`pip install .`
+```bash
+conda create -n ptycho python=3.11
+conda activate ptycho
+pip install .
+```
 
 **Note:** This will automatically install PyTorch >= 2.2 as a required dependency. For GPU acceleration with specific CUDA versions, you may want to install PyTorch manually first following the [official PyTorch installation guide](https://pytorch.org/get-started/locally/), then run `pip install .`
 
@@ -44,11 +42,20 @@ Both backends share the same data pipeline and configuration system, ensuring co
 ### Training
 `ptycho_train --train_data_file <train_path.npz> --test_data_file <test_path.npz> --output_dir <my_run>`
 
-### Evaluation
-`ptycho_evaluate --model-dir <my_run> --test-data <test_path.npz> --output-dir <eval_results>`
-
-### Inference 
+### Inference
 `ptycho_inference --model_path <my_run> --test_data <test_path.npz> --output_dir <inference_out>`
+
+### Evaluation & model comparison
+Compare a trained PINN against the supervised baseline with
+`python scripts/compare_models.py` or the end-to-end wrapper
+`./scripts/run_comparison.sh train.npz test.npz output_dir`.
+See the [Commands Reference](./docs/COMMANDS_REFERENCE.md) for full recipes.
+
+### Data
+Input datasets are NPZ files following the format defined in
+[docs/specs/spec-ptycho-core.md](./docs/specs/spec-ptycho-core.md). If you don't have
+data in that format, you can simulate it — see the
+[Data Generation Guide](./docs/DATA_GENERATION_GUIDE.md).
 
 ### Workflow Status
 
@@ -66,18 +73,19 @@ Both backends share the same data pipeline and configuration system, ensuring co
   - `scripts/studies/grid_lines_compare_wrapper.py`
 - Grid-lines Torch runner:
   - `scripts/studies/grid_lines_torch_runner.py`
-  - Architectures: `fno`, `hybrid`, `stable_hybrid`, `fno_vanilla`, `hybrid_resnet`
+  - Architectures come from the torch generator registry, including `cnn`, `fno`, `ffno`, `fno_vanilla`, `hybrid`, `stable_hybrid`, and `neuralop_uno`.
 
 #### Older Flags and Modes
 - `--n_images` in training is older; use `--n_groups`.
 - PyTorch `--device` and `--disable_mlflow` are older; use `--accelerator` and `--logger none`.
 - MLflow-only inference mode in `ptycho_torch/inference.py` (`--run_id`, `--infer_dir`) is still available, but not the default path.
 
-See examples and READMEs under scripts/.
+See examples and READMEs under `scripts/`.
 
-For an example of interactive (Jupyter) usage, see notebooks/nongrid_simulations.ipynb. If you don't have inputs in the right .npz format you can simulate data.
-
-non_grid_CDI_example.ipynb shows interactive usage using a dataset that is provided with the repo.
+### Notebooks
+For interactive (Jupyter) usage, see `notebooks/nongrid_simulations.ipynb` (simulating
+data) and `notebooks/non_grid_CDI_example.ipynb` (reconstruction on a dataset provided
+with the repo).
 
 ### Model Evaluation & Generalization Studies
 
@@ -90,27 +98,25 @@ Run generalization studies:
     --output-dir robust_study
 ```
 
-See `scripts/studies/QUICK_REFERENCE.md` for detailed usage and options.
+See `scripts/studies/README.md` for detailed usage and options.
 
+## Citation
 
-<!-- 
-* subpixel convolution (Depth-to-space)
-* make the model robust to arbitrary scaling/incorrect normalization of the diffracted intensity
-* other ideas: fft based loss, gradient loss, vq-vae https://www.tensorflow.org/tutorials/generative/style_transfer#define_content_and_style_representations
-* probe-based vs reconstruction-based support?
+If you use this code in your research, please cite:
 
-* Fully Convolutional Networks for Semantic Segmentation, explore and discuss. Make a slide explaining the idea.
-* Try MC Dropout https://arxiv.org/pdf/1511.02680.pdf
-* read deep ensembles https://arxiv.org/pdf/1612.01474.pdf
+```bibtex
+@article{Hoidn2023,
+  author  = {Hoidn, Oliver and Mishra, Aashwin Ananda and Mehta, Apurva},
+  title   = {Physics constrained unsupervised deep learning for rapid, high resolution scanning coherent diffraction reconstruction},
+  journal = {Scientific Reports},
+  volume  = {13},
+  pages   = {22789},
+  year    = {2023},
+  doi     = {10.1038/s41598-023-48351-7}
+}
+```
 
-* hard constraint on diffraction norm using projection, consider tf.keras.constraints.MinMaxNorm
-* stochastic probe
-* probe symmetry consequences
-* add an object normalization layer that uses the L2 norm
-* how do super resolution models handle high resolutions?
-* shift invariance
-* grid permutation
-* fourier ring correlation
+## License
 
-* characterize robustness impact of Poisson likelihood vs. MAE
- -->
+This project is licensed under the GNU General Public License v3.0 — see the
+[LICENSE](./LICENSE) file for details.
