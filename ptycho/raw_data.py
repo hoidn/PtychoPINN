@@ -125,6 +125,10 @@ key_coords_offsets = 'coords_start_offsets'
 key_coords_relative = 'coords_start_relative'
 
 class RawData:
+    """Core data container for raw ptychographic scan data (NPZ-backed).
+
+    Contract: docs/architecture_torch.md §Component Contracts.
+    """
     #@debug
     def __init__(self, xcoords, ycoords, xcoords_start, ycoords_start, diff3d, probeGuess,
              scan_index, objectGuess = None, Y = None, norm_Y_I = None, metadata = None):
@@ -485,9 +489,12 @@ class RawData:
         else:
             # Use random sampling (default)
             seed_indices = None
-            strategy = "K choose C oversampling" if needs_oversampling else "efficient"
-            print('DEBUG:', f'nsamples: {nsamples}, gridsize: {gridsize} (using {strategy} random sample-then-group strategy)')
-            logging.info(f"Using {strategy} random sampling strategy for gridsize={gridsize}")
+            if needs_oversampling:
+                print('DEBUG:', f'nsamples: {nsamples}, gridsize: {gridsize} (using K choose C oversampling strategy)')
+                logging.info(f"Using K choose C oversampling strategy for gridsize={gridsize}")
+            else:
+                print('DEBUG:', f'nsamples: {nsamples}, gridsize: {gridsize} (using standard random sample-then-group strategy)')
+                logging.info(f"Using standard random sampling strategy for gridsize={gridsize}")
         
         # Automatically route to appropriate implementation
         if needs_oversampling:
@@ -502,8 +509,8 @@ class RawData:
                 seed_indices=seed_indices
             )
         else:
-            # Use the existing efficient method for standard cases
-            logging.info(f"[OVERSAMPLING DEBUG] Taking efficient branch: standard sample-then-group")
+            # Use the standard method for non-oversampling cases
+            logging.info(f"[OVERSAMPLING DEBUG] Taking standard branch: sample-then-group")
             selected_groups = self._generate_groups_efficiently(
                 nsamples=nsamples, 
                 K=K, 
@@ -513,7 +520,7 @@ class RawData:
             )
         
         logging.info(f"[OVERSAMPLING DEBUG] Generated {len(selected_groups)} groups in total")
-        logging.info(f"Generated {len(selected_groups)} groups efficiently")
+        logging.info(f"Generated {len(selected_groups)} groups")
         
         # Generate the final dataset from the selected groups
         return self._generate_dataset_from_groups(selected_groups, N, K, gridsize)
@@ -627,7 +634,7 @@ class RawData:
             
             n_points = len(self.xcoords)
             logging.info(f"[OVERSAMPLING DEBUG] _generate_groups_efficiently called with: nsamples={nsamples}, K={K}, C={C}")
-            logging.info(f"Generating {nsamples} groups efficiently from {n_points} points (K={K}, C={C})")
+            logging.info(f"Generating {nsamples} groups from {n_points} points (K={K}, C={C})")
             
             # Validate inputs
             if n_points < C:
@@ -715,7 +722,7 @@ class RawData:
             return groups
             
         except Exception as e:
-            logging.error(f"Failed to generate groups efficiently: {e}")
+            logging.error(f"Failed to generate groups: {e}")
             raise
 
     def _generate_groups_with_oversampling(self, nsamples, K, C, seed=None, seed_indices=None):
@@ -975,7 +982,11 @@ def normalize_data(dset: dict, N: int) -> np.ndarray:
     """
     # Images are amplitude, not intensity
     X_full = dset['diffraction']
-    X_full_norm = np.sqrt(
-            ((N / 2)**2) / np.mean(tf.reduce_sum(dset['diffraction']**2, axis=[1, 2]))
-            )
-    return X_full_norm * X_full
+    # NORMALIZE-DATA-UINT16-001: cast to float64 before squaring to avoid uint16 overflow
+    X_full_norm = np.float32(np.sqrt(
+            ((N / 2)**2) / np.mean(tf.reduce_sum(np.square(dset['diffraction'].astype(np.float64)), axis=[1, 2]))
+            ))
+    # Force float32 output: under numpy>=2 (NEP 50) a float64 scalar would
+    # promote the product to float64, violating the float32 contract
+    # (specs/data_contracts.md; enforced by ptycho_torch/data_container_bridge.py).
+    return X_full_norm * X_full.astype(np.float32, copy=False)

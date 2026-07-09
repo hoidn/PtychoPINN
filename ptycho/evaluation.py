@@ -82,7 +82,6 @@ import matplotlib
 import tensorflow as tf
 from skimage.metrics import structural_similarity
 from pathlib import Path
-
 from ptycho import params
 from ptycho import misc
 
@@ -338,6 +337,7 @@ def mse(target, pred, normalize = True):
     print('mean scale adjustment:', scale)
     return np.mean((target - scale * pred)**2)
 
+
 def psnr(target, pred, normalize = True, shift = False):
     """
     for phase inputs, assume that global shift has already been taken care off
@@ -433,11 +433,45 @@ def fit_and_remove_plane(phase_img, reference_phase=None):
     
     return phase_aligned
 
-def frc50(target, pred, frc_sigma = 0, debug_save_images=False, debug_dir=None, label=""):
+
+def _first_below_threshold_interpolated(curve, threshold):
+    """Return first threshold crossing with sub-bin linear interpolation."""
+    vals = np.asarray(curve, dtype=np.float64)
+    if vals.size == 0:
+        return np.nan
+    finite = np.isfinite(vals)
+    if not finite.any():
+        return np.nan
+
+    below = np.where(finite & (vals < float(threshold)))[0]
+    if below.size == 0:
+        return float(len(vals))
+
+    i = int(below[0])
+    if i == 0:
+        return 0.0
+
+    j = i - 1
+    y0 = float(vals[j])
+    y1 = float(vals[i])
+    if (not np.isfinite(y0)) or (not np.isfinite(y1)):
+        return float(i)
+
+    denom = y1 - y0
+    if np.isclose(denom, 0.0):
+        return float(i)
+
+    x = float(j) + (float(threshold) - y0) / denom
+    if not np.isfinite(x):
+        return float(i)
+    return float(np.clip(x, float(j), float(i)))
+
+
+def frc_cutoffs(target, pred, frc_sigma = 0, debug_save_images=False, debug_dir=None, label=""):
     if np.isnan(pred).all():
         raise ValueError
     if np.max(target) == np.min(target) == 0:
-        return None, np.nan
+        return None, np.nan, np.nan
     
     # Ensure images are square for FRC calculation
     target = np.array(target)
@@ -465,16 +499,23 @@ def frc50(target, pred, frc_sigma = 0, debug_save_images=False, debug_dir=None, 
     if frc_sigma > 0:
         shellcorr = gf(shellcorr, frc_sigma)
     
-    # Find where FRC drops below 0.5
-    below_half = np.where(shellcorr < .5)[0]
-    if len(below_half) > 0:
-        frc50_value = below_half[0]
-    else:
-        # If FRC never drops below 0.5, use the length (indicates excellent reconstruction)
-        frc50_value = len(shellcorr)
+    frc50_value = _first_below_threshold_interpolated(shellcorr, 0.5)
+    frc1over7_value = _first_below_threshold_interpolated(shellcorr, 1.0 / 7.0)
     
-    return shellcorr, frc50_value
+    return shellcorr, frc50_value, frc1over7_value
 
+
+def frc50(target, pred, frc_sigma = 0, debug_save_images=False, debug_dir=None, label=""):
+    """Backward-compatible helper that returns only FRC@0.5 cutoff."""
+    shellcorr, frc50_value, _ = frc_cutoffs(
+        target,
+        pred,
+        frc_sigma=frc_sigma,
+        debug_save_images=debug_save_images,
+        debug_dir=debug_dir,
+        label=label,
+    )
+    return shellcorr, frc50_value
 
 
 def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
@@ -502,6 +543,7 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
             - 'ssim': (amplitude_ssim, phase_ssim) - Structural Similarity Index
             - 'ms_ssim': (amplitude_ms_ssim, phase_ms_ssim) - Multi-Scale SSIM
             - 'frc50': (amplitude_frc50, phase_frc50) - FRC at 0.5 threshold
+            - 'frc1over7': (amplitude_frc1over7, phase_frc1over7) - FRC at 1/7 threshold
             - 'frc': (amplitude_frc_curve, phase_frc_curve) - Full FRC curves
     """
     # Handle shape consistency: convert 4D reconstruction to 3D before assertions
@@ -565,10 +607,14 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
     print(f"DEBUG eval_reconstruction [{label}]: phi_target stats: mean={np.mean(phi_target):.6f}, std={np.std(phi_target):.6f}, shape={phi_target.shape}")
     print(f"DEBUG eval_reconstruction [{label}]: phi_pred stats: mean={np.mean(phi_pred):.6f}, std={np.std(phi_pred):.6f}, shape={phi_pred.shape}")
     
-    frc_amp, frc50_amp = frc50(amp_target_np, amp_pred_normalized, frc_sigma=frc_sigma, 
-                               debug_save_images=debug_save_images, 
-                               debug_dir=debug_dir,
-                               label=f"{label}_amp" if label else "amp")
+    frc_amp, frc50_amp, frc1over7_amp = frc_cutoffs(
+        amp_target_np,
+        amp_pred_normalized,
+        frc_sigma=frc_sigma,
+        debug_save_images=debug_save_images,
+        debug_dir=debug_dir,
+        label=f"{label}_amp" if label else "amp",
+    )
 
     mae_phi = mae(phi_target, phi_pred, normalize=False) # PINN
     mse_phi = mse(phi_target, phi_pred, normalize=False) # PINN
@@ -602,18 +648,24 @@ def eval_reconstruction(stitched_obj, ground_truth_obj, lowpass_n = 1,
         _save_debug_image(amp_pred_normalized, f"{label}_amp_pred_for_ms-ssim" if label else "amp_pred_for_ms-ssim", debug_dir, vmin=amp_vmin, vmax=amp_vmax)
         _save_debug_image(amp_target_np, f"{label}_amp_target_for_ms-ssim" if label else "amp_target_for_ms-ssim", debug_dir, vmin=amp_vmin, vmax=amp_vmax)
     
-    frc_phi, frc50_phi = frc50(phi_target, phi_pred, frc_sigma=frc_sigma,
-                               debug_save_images=debug_save_images,
-                               debug_dir=debug_dir, 
-                               label=f"{label}_phi" if label else "phi")
+    frc_phi, frc50_phi, frc1over7_phi = frc_cutoffs(
+        phi_target,
+        phi_pred,
+        frc_sigma=frc_sigma,
+        debug_save_images=debug_save_images,
+        debug_dir=debug_dir,
+        label=f"{label}_phi" if label else "phi",
+    )
 
-    return {'mae': (mae_amp, mae_phi),
+    out = {'mae': (mae_amp, mae_phi),
         'mse': (mse_amp, mse_phi),
         'psnr': (psnr_amp, psnr_phi),
         'ssim': (ssim_amp, ssim_phi),
         'ms_ssim': (ms_ssim_amp, ms_ssim_phi),
         'frc50': (frc50_amp, frc50_phi),
+        'frc1over7': (frc1over7_amp, frc1over7_phi),
         'frc': (frc_amp, frc_phi)}
+    return out
 
 
 import pandas as pd
@@ -630,9 +682,9 @@ def save_metrics(stitched_obj, YY_ground_truth,  label = ''):
     d = {**params.cfg, **metrics}
     with open(out_prefix + '/params.dill', 'wb') as f:
         dill.dump(d, f)
-    df = pd.DataFrame({k: d[k] for k in ['mae', 'mse', 'psnr', 'frc50']})
+    df = pd.DataFrame({k: d[k] for k in ['mae', 'mse', 'psnr', 'frc50', 'frc1over7']})
     df.to_csv(out_prefix + '/metrics.csv')
-    return {k: metrics[k] for k in ['mae', 'mse', 'psnr', 'frc50', 'frc']}
+    return {k: metrics[k] for k in ['mae', 'mse', 'psnr', 'frc50', 'frc1over7', 'frc']}
 
 
 # Unit Tests for Phase 1 Enhancements

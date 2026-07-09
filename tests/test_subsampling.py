@@ -232,6 +232,52 @@ class TestSubsampling(unittest.TestCase):
         self.assertIsNone(config_default.n_subsample)
         self.assertIsNone(config_default.subsample_seed)
 
+    def test_load_data_keeps_canonical_diffraction_when_n_scans_less_than_n(self):
+        """Canonical (N,H,W) diffraction must not transpose even when N_scans < H."""
+        n_scans = 4
+        n = 128
+        tmp = tempfile.NamedTemporaryFile(suffix=".npz", delete=False)
+        try:
+            diffraction = np.random.rand(n_scans, n, n).astype(np.float32)
+            np.savez(
+                tmp.name,
+                xcoords=np.arange(n_scans, dtype=np.float64),
+                ycoords=np.arange(n_scans, dtype=np.float64),
+                xcoords_start=np.arange(n_scans, dtype=np.float64),
+                ycoords_start=np.arange(n_scans, dtype=np.float64),
+                diffraction=diffraction,
+                probeGuess=np.ones((n, n), dtype=np.complex64),
+                objectGuess=np.ones((n, n), dtype=np.complex64),
+            )
+            loaded = load_data(tmp.name)
+            self.assertEqual(loaded.diff3d.shape, (n_scans, n, n))
+        finally:
+            import os
+            os.unlink(tmp.name)
+
+    def test_load_data_transposes_legacy_hwn_diffraction_when_last_axis_matches_coords(self):
+        """Legacy (H,W,N) diffraction should transpose to (N,H,W)."""
+        n_scans = 4
+        n = 128
+        tmp = tempfile.NamedTemporaryFile(suffix=".npz", delete=False)
+        try:
+            diffraction_legacy = np.random.rand(n, n, n_scans).astype(np.float32)
+            np.savez(
+                tmp.name,
+                xcoords=np.arange(n_scans, dtype=np.float64),
+                ycoords=np.arange(n_scans, dtype=np.float64),
+                xcoords_start=np.arange(n_scans, dtype=np.float64),
+                ycoords_start=np.arange(n_scans, dtype=np.float64),
+                diffraction=diffraction_legacy,
+                probeGuess=np.ones((n, n), dtype=np.complex64),
+                objectGuess=np.ones((n, n), dtype=np.complex64),
+            )
+            loaded = load_data(tmp.name)
+            self.assertEqual(loaded.diff3d.shape, (n_scans, n, n))
+        finally:
+            import os
+            os.unlink(tmp.name)
+
 
 if __name__ == '__main__':
     unittest.main()

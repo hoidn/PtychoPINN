@@ -250,8 +250,12 @@ class TrimReconstructionLayer(layers.Layer):
 class PadAndDiffractLayer(layers.Layer):
     """Apply padding and diffraction operation.
 
-    Input: images (B, N, N, C)
-    Output: (padded, amplitude) both with shape (B, h, w, C)
+    Input: flat single-channel patches (B·C, N, N, 1) — the channel dim C has
+        already been folded into the batch axis upstream by
+        extract_patches_position's _channel_to_flat call (ptycho/tf_helper.py:653),
+        matching the trailing-1-channel assertion in the wrapped pad_and_diffract
+        (ptycho/tf_helper.py:353,358).
+    Output: (padded, amplitude) both with shape (B·C, h, w, 1)
     """
     
     def __init__(self, h: int, w: int, pad: bool = False, **kwargs):
