@@ -4,7 +4,7 @@
 
 **Goal:** identify WHY the cnn generator flat-collapses under the rectangular_scaled count-Poisson recipe at N=128, given that the same architecture at the same N trains fine under every other Poisson plumbing tested — including origin/main's reference.
 
-**Status:** DRAFT (2026-07-08). Supersedes the causal *framing* (not the data) of the Task 9b mechanism note in `TORCH-N128-FLAT-AMP-001`.
+**Status:** COMPLETE and SUPERSEDED (2026-07-08). The discriminating phase finished with "torch-port training-dynamics defect, prime suspect learnable intensity_scale" — that suspect was subsequently REFUTED and the root cause isolated (CBAM encoder attention) by the follow-on campaign: see `docs/plans/2026-07-08-cnn-n128-tf-parity.md` and the PARITY RESOLUTION in `docs/findings.md#TORCH-N128-FLAT-AMP-001`. This plan's data and eliminations all stand; only its final suspect attribution is superseded. *(Original status line: DRAFT; supersedes the causal framing, not the data, of the Task 9b mechanism note.)*
 
 ## Why this plan exists (user challenge, 2026-07-08)
 
@@ -101,3 +101,5 @@ Amplitude forward at matched base dose (same lines_N128 counts, same cnn/N/proto
 TF reference (skip-less, same data, same 1.77e6 ph/img dose, 25ep, ~1 min/run): **3/3 structured escapes** — pearson 0.610 / 0.683 / 0.237, canvas_std 0.140/0.136/0.077; patch-check PNGs confirm aligned scoring (not flat, not shifted). Torch 0/15 vs TF 3/3 at matched data/dose: Fisher p≈0.001.
 
 **FINAL:** H-E demoted with H-A/H-B/H-C — the reference design does not carry the failure; the collapse is a **torch-port training-dynamics defect**, dose-modulated (p≈0.026), path-independent (E2), geometry-independent (E3), scale-constants-clean (audit). Prime suspect: TF's LEARNABLE `intensity_scale` vs torch's fixed constants + never-moving rect s1/s2 (caveat flagged by the E4 executor: this plumbing difference is not yet isolated from init/optimizer differences). 9b anatomy stands for the torch losing basin. Follow-up candidate (not commissioned): make the torch scale learnable / replicate TF's normalization in a controlled A/B — touches model/config surfaces, needs its own scoped plan. Plan status: discriminating phase COMPLETE.
+
+**RESOLUTION (same day, follow-on campaign):** the A/B was commissioned and run (`docs/plans/2026-07-08-cnn-n128-tf-parity.md`) — the scale suspect was REFUTED from both sides (torch learnable/fixed-ln2 scale arms don't rescue, δ provably unmoved; TF's own log_scale is inert in 10/10 reference runs; TF with the scale frozen doesn't collapse). The root cause is the torch port's default-on **CBAM encoder attention** (cbam-off alone: 0/15 → 3/5, p≈0.009; full TF-parity preset: 6/10 vs the TF reference's own 4/10, p=0.656 — and TF's 3/3 above proved a small-sample fluke of a ~40%-escape lottery). Authoritative record: `docs/findings.md#TORCH-N128-FLAT-AMP-001` (PARITY RESOLUTION).
