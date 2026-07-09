@@ -73,30 +73,17 @@ Fundamental rules to avoid introducing fragile, difficult-to-debug code.
 
 ### 2.1. Anti-Pattern: Side Effects on Import
 
-**The Lesson:** A module must **never** perform complex, state-dependent operations
-(like loading or generating data) at the top level. This leads to unpredictable
-behavior and untraceable bugs. (Finding: ANTIPATTERN-001.)
+A module must **never** perform complex, state-dependent operations (loading or
+generating data, building models) at the top level. Design functions to receive all
+data they need as explicit arguments. (Finding: ANTIPATTERN-001.)
 
-**The Discovery:** A `KeyError` was traced back to
-`from ptycho.generate_data import YY_ground_truth`. The import re-executed an entire
-data-loading pipeline in a different context, which crashed.
-
-**DON'T:** Trigger complex logic at module level.
 ```python
-# Incorrect
-from ptycho.generate_data import YY_ground_truth  # Hidden side effect!
+# Incorrect: importing this module re-runs a data pipeline
+from ptycho.generate_data import YY_ground_truth
 
-def save_recons(model_type, stitched_obj):
-    if YY_ground_truth is not None:  # Fragile, hidden dependency
-        ...
-```
-
-**DO:** Design functions to receive all data they need as explicit arguments.
-```python
-# Correct
+# Correct: the dependency is an explicit argument
 def save_recons(model_type, stitched_obj, ground_truth_obj=None):
-    if ground_truth_obj is not None:  # Dependency is clear and safe
-        ...
+    ...
 ```
 
 ### 2.2. Anti-Pattern: Implicit Dependencies via Global State
@@ -133,6 +120,14 @@ functions:
 
 - `ptycho.model.create_compiled_model(...)` — compiled model ready for training
 - `ptycho.model.create_model_with_gridsize(...)` — uncompiled model
+
+Related initialization-order rules from the same incident class:
+
+- Never use training config loaders for inference — they have different parameter
+  priorities.
+- Never import model-constructing modules at top level in scripts.
+- Never load a saved model before applying its configuration to `params.cfg`
+  (`ptycho/model_manager.py` enforces this order).
 
 ### 2.4. Interpreter & Subprocess Policy (PYTHON-ENV-001)
 
@@ -186,6 +181,22 @@ train→infer boundary, explicitly resolve the target inference device and call
 `model.to(device)` before the forward loop. Relying on implicit parameter-device
 inheritance can silently force CPU inference.
 
+### 2.7. Principle: Separation of Data Shaping and Model Responsibilities
+
+A model's core architecture should be fixed and define a clear data contract; it is
+the responsibility of the data pipeline or calling script to shape data to match that
+contract.
+
+```python
+# Correct: the calling script shapes the data.
+if n_channels > 1:
+    X_train_in = _channel_to_flat(X_train_in)
+
+# Anti-pattern: the model adapts its I/O structure to the input shape.
+c = X_train.shape[-1]           # BUG
+decoded1 = Conv2D(c, ...)(x1)   # BUG
+```
+
 ---
 
 ## 3. The Data Pipeline: Contracts and Bookkeeping
@@ -199,55 +210,26 @@ datasets **MUST** adhere to
 source of truth for standalone-NPZ array shapes, key names, and dtypes. Ptychodus HDF5
 product files are governed by `specs/data_contracts.md`.
 
-### 3.1. Lesson: Implicit `dtype` is a Time Bomb
+### 3.1. Rule: Explicit `dtype` for Non-Default Array Types
 
-**The Symptom:** The supervised model received real-valued `Y` patches (`float64`)
-when it expected complex data, so it silently trained on amplitude only.
+Always pass an explicit `dtype` when initializing NumPy arrays that will hold
+non-default types (`np.zeros(..., dtype=np.complex64)`). Assigning complex data into a
+default `float64` array silently discards the imaginary part — this once caused the
+supervised model to train on amplitude only.
 
-**The Root Cause:** In `ptycho/raw_data.py`, a canvas array for assembling complex
-patches was initialized with `np.zeros(...)` and no explicit `dtype`. NumPy defaults
-to `float64`, so the imaginary part of every patch was silently discarded on
-assignment.
+### 3.2. Rule: The Data File Format is a Strict API
 
-```python
-# The Bug: np.zeros() defaults to float64, creating a real-valued canvas.
-canvas = np.zeros((B, N, N, c))
-# THE ERROR: assigning a complex patch into a float canvas silently drops
-# the imaginary part.
-canvas[i // c, :, :, i % c] = np.array(translated_patch)[0, :N, :N, 0]
-```
+An inconsistent file format is a bug in the script that **generates** it, never a
+problem to be solved by the script that **loads** it. Every per-image array in an NPZ
+file must carry its batch dimension in the same position; fix the generator
+(`scripts/tools/transpose_rename_convert_tool.py` and friends), not the loader.
 
-**The Rule:** Always be explicit about dtype when initializing NumPy arrays that hold
-non-default types. The fix was one line: `np.zeros(..., dtype=np.complex64)`.
+### 3.3. Rule: Prioritize Prepared Data; Fail on Ambiguity
 
-### 3.2. Lesson: The Data File Format is a Strict API
-
-**The Symptom:** The `diffraction` and `Y` arrays in the same `.npz` file had their
-batch dimensions in different positions (`(H, W, N)` vs. `(N, H, W, C)`), requiring
-fragile, hard-coded fixes in the data loader.
-
-**The Root Cause:** The dataset-preparation script (now
-`scripts/tools/transpose_rename_convert_tool.py`) handled `diffraction` but not `Y`,
-producing an internally inconsistent file.
-
-**The Rule:** An inconsistent file format is a bug in the script that **generates** it,
-not a problem to be solved by the script that **loads** it. Fix the generator so every
-per-image array carries its batch dimension in the same position.
-
-### 3.3. Lesson: Prioritize Prepared Data; Fail on Ambiguity
-
-**The Symptom:** The supervised model ignored the correctly prepared, downsampled `Y`
-patches and regenerated incorrect, high-resolution patches on the fly.
-
-**The Root Cause:** The loader checked for `objectGuess` *before* checking for the
-prepared `Y` array. Since `objectGuess` is kept for evaluation, the wrong path always
-won.
-
-**The Rule:** A data loader must not be "helpfully" ambiguous.
-1. **Prioritize the final product:** check for the most processed, prepared version of
-   the data first (the `Y` array).
-2. **Fail loudly:** never silently fall back to regenerating data; raise instead,
-   forcing the developer to use a correctly prepared dataset.
+A data loader must not be "helpfully" ambiguous: check for the most processed,
+prepared version of the data first (the `Y` array), and raise rather than silently
+falling back to regenerating data. (`objectGuess` being present for evaluation does
+not mean patches should be re-derived from it.)
 
 ### 3.4. Core Tensor Formats for gridsize > 1
 
@@ -282,23 +264,10 @@ must never be confused. Mixing them is a recurring source of subtle bugs.
 3. **Display/comparison scaling** — visual adjustments in plotting and metric code
    only (`ptycho/image/`, comparison scripts). Never affects training or physics.
 
-Anti-patterns to avoid:
-
-```python
-# WRONG - applying intensity_scale in the data pipeline causes double-scaling
-X_scaled = X * norm_Y_I
-return RawData(..., X_scaled, ...)
-
-# WRONG - nphotons does not directly scale data values
-if nphotons == 1e3:
-    X = X * 0.001
-
-# WRONG - mixing physics and statistical normalization
-X = normalize_data(X * intensity_scale)
-```
-
 **The Rule:** document which normalization you're using, keep them separate, and apply
-physics scaling only at the model's physics boundary.
+physics scaling only at the model's physics boundary. Never apply `intensity_scale` in
+the data pipeline (double-scaling), and never compose the systems
+(`normalize_data(X * intensity_scale)` confuses two of them).
 
 ---
 
@@ -347,24 +316,35 @@ offsets_xy = tf.gather(offsets_yx, [1, 0], axis=1)
 translated_patches = hh.translate(images, -offsets_xy)
 ```
 
-The legacy iterative implementation omitted this swap — producing visually correct but
-transposed translations on symmetric data. All new and refactored code must perform
-the explicit swap.
+All new and refactored code must perform the explicit swap. (Omitting it produces
+transposed translations that look correct on symmetric data.)
 
 ---
 
 ## 5. Authoritative Methods for Evaluation
 
-To keep model comparisons fair, the project uses single, authoritative functions for
-common evaluation tasks.
+To keep model comparisons fair, the project uses single, authoritative functions per
+backend for common evaluation tasks.
 
 ### 5.1. Patch Reassembly
 
-**The Correct Function:** `ptycho.tf_helper.reassemble_position`
+Reassembly places a small central region of each predicted patch onto a large canvas
+at its real-valued scan coordinates, normalizing overlapping regions. Each backend has
+one authoritative implementation:
 
-Places a small central region of each patch onto a large canvas at its real-valued
-scan coordinates (`global_offsets`), correctly normalizing overlapping regions. Both
-the PINN and baseline models must use it when reassembling non-grid predictions.
+- **TensorFlow:** `ptycho.tf_helper.reassemble_position` — used by
+  `ptycho/workflows/components.py`, `scripts/compare_models.py`, and
+  `scripts/run_baseline.py`.
+- **PyTorch:** `ptycho_torch/helper.py` (`reassemble_patches_position_real`, plus the
+  probe-weighted variant `reassemble_patches_position_real_probe`), with batch
+  pipelines in `ptycho_torch/reassembly.py`; the workflow entry point is
+  `run_cdi_example_torch(..., do_stitching=True)`. The barycentric implementations in
+  `ptycho_torch/reassembly_beta.py` are experimental.
+
+**The Rule:** within any model comparison, every reconstruction must be stitched with
+the same reassembly method — never compare outputs stitched by different
+implementations. `ptycho.image.stitching.stitch_patches` is the grid-based legacy path
+and must not be used for coordinate-based (non-grid) outputs.
 
 ### 5.2. Evaluation Alignment
 
@@ -391,49 +371,20 @@ def align_for_evaluation(
 ## 6. Centralized Logging
 
 **The Golden Rule:** All logs for a run live in a `logs/` subdirectory of that run's
-output directory. `ptycho/log_config.py` is the single source of truth for logging
-configuration; `ptycho/cli_args.py` provides the standard CLI flags.
+output directory — never in the project root.
 
-**The Correct Pattern** for user-facing scripts:
+`ptycho/log_config.py` (`setup_logging`) is the standard mechanism: it tees all log
+messages plus captured stdout to `<output_dir>/logs/debug.log`, with console verbosity
+controlled independently. `ptycho/cli_args.py` (`add_logging_arguments`,
+`get_logging_config`) provides the standard `--quiet` / `--verbose` /
+`--console-level` flags, which the unified CLIs already register.
 
-```python
-from ptycho.log_config import setup_logging
-from ptycho.cli_args import add_logging_arguments, get_logging_config
-from pathlib import Path
-
-def parse_arguments():
-    parser = argparse.ArgumentParser(description="My Script")
-    add_logging_arguments(parser)
-    return parser.parse_args()
-
-def main():
-    args = parse_arguments()
-    config = setup_configuration(args, args.config)
-    logging_config = get_logging_config(args) if hasattr(args, 'quiet') else {}
-    setup_logging(Path(config.output_dir), **logging_config)
-    ...
-```
-
-**What you get:**
-
-- `logs/debug.log` under the run's output directory containing **everything**: all log
-  messages at DEBUG and above, plus all captured `print()` output from any module
-  (tee-style stdout capture).
-- Console verbosity controlled independently via the standard flags `--quiet`
-  (file-only), `--verbose` (DEBUG to console), and `--console-level LEVEL`. These
-  affect only the console; the file always receives the complete record.
-
-### 6.1. Anti-Pattern: Local Logging Configuration
-
-**DON'T** add `logging.basicConfig()` or manual `FileHandler`s to scripts — that
-scatters log files (historically, `train_debug.log` etc. accumulated in the project
-root) and bypasses stdout capture.
-
-**DO** call the centralized setup:
+**Anti-Pattern:** do not add `logging.basicConfig()` or manual `FileHandler`s to
+scripts — that scatters log files and bypasses stdout capture. Wire new scripts
+through:
 
 ```python
-from ptycho.log_config import setup_logging
-setup_logging(output_dir)
+setup_logging(output_dir, **get_logging_config(args))
 ```
 
 ---
@@ -442,7 +393,9 @@ setup_logging(output_dir)
 
 **Authority:** `docs/TESTING_GUIDE.md` owns test commands and evidence requirements;
 `docs/development/TEST_SUITE_INDEX.md` catalogs selectors. This section covers only
-the structural conventions.
+the structural conventions. The project encourages test-driven development: write the
+failing test that reproduces the bug or specifies the feature before the
+implementation.
 
 ### 7.1. Test Directory Structure
 
@@ -550,66 +503,3 @@ Before merging any PR that touches data loading or configuration:
 - [ ] Do docstrings cross-reference the component contracts
       (`docs/architecture_torch.md` §6) where one exists?
 
----
-
-## 10. Architectural Learnings & Historical Context
-
-Key lessons preserved to explain the reasoning behind current design patterns.
-
-### 10.1. The GridSize Inference Issue (Resolved)
-
-Models trained with `gridsize > 1` used to fail at inference. The root cause was a
-combination of initialization-order bugs and implicit dependence on global
-`ptycho.params.cfg` state:
-
-- Lambda layers were constructed at import with a default `gridsize=1`, before the
-  saved model's configuration could be loaded.
-- `_flat_to_channel` in `ptycho/tf_helper.py` relied on global configuration that
-  wasn't preserved through model serialization.
-
-**Resolution:** parameters are loaded and applied **before** TensorFlow model loading
-in `ptycho/model_manager.py`; model-constructing imports are deferred; the
-import-time singleton was replaced with lazy construction plus explicit factories
-(§2.3; Finding MODULE-SINGLETON-001).
-
-**Anti-patterns identified, still binding:**
-- Never use training config loaders for inference — they have different parameter
-  priorities.
-- Never import model-constructing modules at top level.
-- Never load models before setting configuration.
-- Never assume single-channel tensor shapes — preserve and validate channel
-  dimensions.
-
-### 10.2. Methodology: Test-Driven Development
-
-The project strongly encourages TDD (Red → Green → Refactor) for new features and bug
-fixes: write a failing test that captures the desired behavior or reproduces the bug,
-make it pass with minimal code, then refactor under a green test.
-
-**Case study — the baseline `gridsize > 1` bug:** `scripts/run_baseline.py` crashed
-with a shape-invariance `ValueError` during reassembly because the pipeline fed
-multi-channel data (`(B, N, N, 4)`) to the baseline model, which then produced
-multi-channel output that single-channel `reassemble_position` could not handle. The
-fix took two TDD cycles: first a unit test in `tests/test_baselines.py` proving
-`build_model` incorrectly derived its output channel count from input shape (fixed by
-hardcoding the single-channel contract in `ptycho/baselines.py`), then a test proving
-the calling script failed to flatten multi-channel data (fixed with
-`ptycho.tf_helper._channel_to_flat` in `scripts/run_baseline.py`). Only after both
-cycles was an end-to-end integration test added.
-
-**The principle it established — separation of data shaping and model
-responsibilities:**
-
-> A model's core architecture should be fixed and define a clear data contract. It is
-> the responsibility of the data pipeline or calling script to shape the data to match
-> this contract.
-
-```python
-# Correct: the calling script shapes the data.
-if n_channels > 1:
-    X_train_in = _channel_to_flat(X_train_in)
-
-# Anti-pattern: the model adapts its I/O structure to the input shape.
-c = X_train.shape[-1]           # BUG
-decoded1 = Conv2D(c, ...)(x1)   # BUG
-```
