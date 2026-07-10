@@ -351,3 +351,13 @@ def test_all_count_builders_use_fresh_ci_poisson_generation(builder_path: Path):
     assert "generate_ci_count_dataset" in called
     assert "to_counts" not in called
     assert "simulate" not in called
+
+
+@pytest.mark.parametrize("builder_path", BUILDER_PATHS, ids=lambda path: path.stem)
+def test_count_builders_derive_repo_root_from_their_own_location(
+    builder_path: Path,
+):
+    source = builder_path.read_text()
+
+    assert "/home/ollie/Documents/PtychoPINN" not in source
+    assert "Path(__file__).resolve().parents[2]" in source
