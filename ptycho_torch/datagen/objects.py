@@ -999,13 +999,15 @@ def generate_3d_polyhedra_and_project(
     #     device_str=device_to_use
     # )
 
-def create_dead_leaves(img_shape, obj_arg):
+def create_dead_leaves(img_shape, obj_arg, *, rng=None):
     """
     Wrapper for dead leaves function. Only takes square shapes.
 
     Args:
         img_shape (int, int): Image dimensions in (h,w)
         obj_arg (Dict): Passable dictionary with object generation arguments
+        rng (numpy.random.Generator, optional): Explicit random source. Passing
+            a generator makes every stochastic dead-leaves draw reproducible.
     """
 
 
@@ -1037,13 +1039,14 @@ def create_dead_leaves(img_shape, obj_arg):
                         delta_beta_mean = DELTA_BETA_RATIO_MEAN, delta_beta_std = DELTA_BETA_RATIO_STD,
                         thickness = EFFECTIVE_THICKNESS,
                         min_phase = MIN_PHASE, max_phase = MAX_PHASE,
-                        min_amp = MIN_AMP, max_amp = MAX_AMP)
+                        min_amp = MIN_AMP, max_amp = MAX_AMP,
+                        rng=rng)
     
     obj = amp_2d * np.exp(1j * phase_2d)
 
     return obj
 
-def get_skewed_random_value(alpha, scale, min_clip=1e-6, max_clip=None):
+def get_skewed_random_value(alpha, scale, min_clip=1e-6, max_clip=None, *, rng=None):
     """
     Generates a random value from a distribution skewed to small values.
     Example using Pareto: P(x) ~ x^-(alpha+1) for x >= scale
@@ -1055,7 +1058,8 @@ def get_skewed_random_value(alpha, scale, min_clip=1e-6, max_clip=None):
     # power > 1 skews towards 0
     # power < 1 skews towards scale
     power = alpha # Reuse alpha, larger alpha means more skew to 0
-    val = (np.random.uniform(0, 1) ** power) * scale
+    random_source = np.random if rng is None else rng
+    val = (random_source.uniform(0, 1) ** power) * scale
     val = max(val, min_clip)
     if max_clip is not None:
         val = min(val, max_clip)
@@ -1067,7 +1071,11 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
                        beta_pareto_alpha, beta_scale, delta_beta_mean, delta_beta_std,
                        thickness,
                        min_phase, max_phase,
-                       min_amp, max_amp):
+                       min_amp, max_amp,
+                       rng=None):
+    if rng is not None and not isinstance(rng, np.random.Generator):
+        raise TypeError("rng must be a numpy.random.Generator")
+    random_source = np.random if rng is None else rng
     # --- Initialize Canvases ---
     # These will store the material properties (beta, delta) of the TOPMOST leaf at each pixel
     beta_map = np.zeros((res, res), dtype=np.float32)
@@ -1099,18 +1107,23 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
     for i in range(max_iters):
         # 1. Select Shape Type
         available_shapes = ['circle', 'oriented_square', 'rectangle', 'triangle', 'quadrilater']
-        shape = random.choice(available_shapes)
+        shape = random.choice(available_shapes) if rng is None else rng.choice(available_shapes)
 
         # 2. Select Size (Radius)
-        r_p = np.random.uniform(0, 1)
+        r_p = random_source.uniform(0, 1)
         r_i = np.argmin(np.abs(r_dist - r_p))
         radius_pixels = max(int(r_list_abs[r_i]), 1)
 
         # 3. Select Material Properties (beta, delta)
         # Skewed towards small values
-        current_beta = get_skewed_random_value(alpha=beta_pareto_alpha, scale=beta_scale, min_clip=1e-7)
+        current_beta = get_skewed_random_value(
+            alpha=beta_pareto_alpha,
+            scale=beta_scale,
+            min_clip=1e-7,
+            rng=rng,
+        )
         
-        ratio = np.random.normal(loc=delta_beta_mean, scale=delta_beta_std)
+        ratio = random_source.normal(loc=delta_beta_mean, scale=delta_beta_std)
         ratio = max(1.0, ratio) # Ensure delta is at least beta
         current_delta = current_beta * ratio
         
@@ -1118,7 +1131,10 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
         # This can be capped if necessary, e.g., current_delta = min(current_delta, MAX_DELTA_VALUE)
 
         # 4. Select Position
-        center_x, center_y = np.random.randint(0, res, size=2)
+        if rng is None:
+            center_x, center_y = np.random.randint(0, res, size=2)
+        else:
+            center_x, center_y = rng.integers(0, res, size=2)
 
         # 5. Create a Mask for the Current Shape
         # We need a temporary 2D boolean mask for the current shape
@@ -1135,22 +1151,22 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
                 corners_rel = np.array(((-side / 2, -side / 2), (+side / 2, -side / 2),
                                         (+side / 2, +side / 2), (-side / 2, +side / 2)))
 
-                theta = np.random.uniform(0, 2 * np.pi)
+                theta = random_source.uniform(0, 2 * np.pi)
                 c, s = np.cos(theta), np.sin(theta)
                 R_mat = np.array(((c, -s), (s, c)))
                 corners_rel = (R_mat @ corners_rel.T).T
             elif shape == 'rectangle':
-                a = np.random.uniform(0, 0.5 * np.pi)
+                a = random_source.uniform(0, 0.5 * np.pi)
                 rx, ry = radius_pixels * np.cos(a), radius_pixels * np.sin(a) # radii of rectangle
                 corners_rel = np.array(((+rx, +ry), (+rx, -ry), (-rx, -ry), (-rx, +ry)))
                 
-                theta = np.random.uniform(0, 2 * np.pi)
+                theta = random_source.uniform(0, 2 * np.pi)
                 c, s = np.cos(theta), np.sin(theta)
                 R_mat = np.array(((c, -s), (s, c)))
                 corners_rel = (R_mat @ corners_rel.T).T
             else: # triangle or quadrilateral
                 num_verts = 3 if shape == 'triangle' else 4
-                angles = sorted(np.random.uniform(0, 2 * np.pi, num_verts))
+                angles = sorted(random_source.uniform(0, 2 * np.pi, num_verts))
                 corners_rel = []
                 for ang in angles:
                     corners_rel.append((radius_pixels * np.cos(ang), radius_pixels * np.sin(ang)))

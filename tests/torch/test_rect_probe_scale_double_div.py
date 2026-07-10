@@ -126,6 +126,56 @@ def test_rectangular_scaled_intensity_matches_count_reference():
     torch.testing.assert_close(intensity_pred, intensity_ref, rtol=1e-4, atol=1e-6)
 
 
+def test_ci_inverse_q_compensation_has_no_hidden_probe_or_output_scale():
+    torch.manual_seed(9)
+    N = 16
+    data_cfg = DataConfig(N=N, C=1, grid_size=(1, 1), probe_scale=6.25)
+    model_cfg = ModelConfig(
+        object_big=False,
+        C_model=1,
+        C_forward=1,
+        physics_forward_mode="rectangular_scaled",
+    )
+    train_cfg = TrainingConfig()
+
+    real = 0.25 + 0.5 * torch.rand(1, 1, N, N)
+    imag = -0.2 + 0.4 * torch.rand(1, 1, N, N)
+    model = PtychoPINN(
+        model_cfg,
+        data_cfg,
+        train_cfg,
+        generator=_FixedRealImagGenerator(real, imag),
+        generator_output="real_imag",
+    )
+    model.eval()
+
+    physical_probe = torch.complex(
+        0.1 + torch.rand(1, 1, 2, N, N),
+        -0.25 + 0.5 * torch.rand(1, 1, 2, N, N),
+    )
+    q = torch.tensor(0.16)
+    training_probe = q * physical_probe
+    object_field = torch.complex(real, imag)
+    exit_waves = physical_probe * object_field.unsqueeze(2)
+    detector_fields = torch.fft.fftshift(
+        torch.fft.fft2(exit_waves, norm="ortho"),
+        dim=(-2, -1),
+    )
+    expected = detector_fields.abs().square().sum(dim=2)
+
+    with torch.no_grad():
+        prediction, _, _ = model(
+            torch.rand(1, 1, N, N),
+            None,
+            training_probe,
+            input_scale_factor=torch.ones(1, 1, 1, 1),
+            output_scale_factor=q.reciprocal().view(1, 1, 1, 1),
+            experiment_ids=torch.zeros(1, dtype=torch.long),
+        )
+
+    torch.testing.assert_close(prediction, expected, rtol=1e-5, atol=1e-6)
+
+
 def test_amplitude_forward_probe_division_byte_identical():
     torch.manual_seed(1)
     N = 32

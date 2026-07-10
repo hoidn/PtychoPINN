@@ -53,9 +53,11 @@ Artifacts:
 """
 
 # Standard library imports (no torch dependency)
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
+import io
 import logging
 from pathlib import Path
+import zipfile
 from typing import Union, Optional, Tuple, Dict, Any
 
 # Core imports (always available)
@@ -66,9 +68,13 @@ from ptycho.metadata import MetadataManager
 from ptycho.raw_data import RawData
 from ptycho_torch.scaling_contract import (
     CI_SCALE_CONTRACT,
+    LEGACY_SCALE_CONTRACT,
+    NORMALIZED_AMPLITUDE,
     CIExperimentStatistics,
     adapt_normalized_amplitude_to_ci,
     derive_ci_experiment_statistics,
+    ci_scaling_active,
+    resolve_scale_contract,
     validate_scale_contract,
 )
 
@@ -89,6 +95,131 @@ except ImportError as e:
 
 # Set up logging
 logger = logging.getLogger(__name__)
+
+_BUNDLE_SCALING_METADATA = "torch_scaling_metadata.pt"
+
+
+def _persist_bundle_scaling_metadata(archive_path: Path, model) -> None:
+    """Append the torch config and frozen CI statistics needed for strict reload."""
+    statistics = model.get_ci_statistics()
+    profile = resolve_scale_contract(
+        model.data_config.scale_contract_version,
+        model.data_config.measurement_domain,
+    )
+    ci_bundle = ci_scaling_active(model.model_config) and profile.version == CI_SCALE_CONTRACT
+    if ci_bundle and statistics is None:
+        raise ValueError(
+            "Cannot persist a CI bundle without frozen training ci_statistics."
+        )
+    serialized_statistics = None
+    if statistics is not None:
+        serialized_statistics = {
+            name: value.detach().cpu().reshape(-1).tolist()
+            for name, value in statistics.items()
+        }
+    import torch
+
+    payload = {
+        "schema_version": "ci-entrypoints-v1",
+        "data_config": asdict(model.data_config),
+        "model_config": asdict(model.model_config),
+        "training_config": asdict(model.training_config),
+        "inference_config": asdict(model.inference_config),
+        "ci_statistics": serialized_statistics,
+    }
+    buffer = io.BytesIO()
+    torch.save(payload, buffer)
+    with zipfile.ZipFile(archive_path, "a", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(_BUNDLE_SCALING_METADATA, buffer.getvalue())
+
+
+def _read_bundle_scaling_metadata(archive_path: Path):
+    import torch
+
+    if not archive_path.is_file():
+        return None
+    with zipfile.ZipFile(archive_path, "r") as archive:
+        if _BUNDLE_SCALING_METADATA not in archive.namelist():
+            return None
+        return torch.load(
+            io.BytesIO(archive.read(_BUNDLE_SCALING_METADATA)),
+            map_location="cpu",
+            weights_only=False,
+        )
+
+
+def _strictly_reconstruct_bundle_model(archive_path: Path, metadata):
+    import torch
+    from ptycho_torch.config_params import (
+        DataConfig,
+        InferenceConfig as TorchInferenceConfig,
+        ModelConfig,
+        TrainingConfig as TorchTrainingConfig,
+    )
+    from ptycho_torch.model import PtychoPINN_Lightning
+
+    data_config = DataConfig(**metadata["data_config"])
+    model_config = ModelConfig(**metadata["model_config"])
+    training_config = TorchTrainingConfig(**metadata["training_config"])
+    inference_config = TorchInferenceConfig(**metadata["inference_config"])
+    model = PtychoPINN_Lightning(
+        model_config,
+        data_config,
+        training_config,
+        inference_config,
+    )
+    with zipfile.ZipFile(archive_path, "r") as archive:
+        state_dict = torch.load(
+            io.BytesIO(archive.read("diffraction_to_obj/model.pth")),
+            map_location="cpu",
+            weights_only=False,
+        )
+    try:
+        model.load_state_dict(state_dict, strict=True)
+    except RuntimeError as exc:
+        raise RuntimeError(
+            "Bundle architecture-era incompatibility: strict physics/model weight "
+            "loading failed. Do not use strict=False; regenerate this bundle with "
+            f"the current architecture. Original error: {exc}"
+        ) from exc
+
+    profile = resolve_scale_contract(
+        data_config.scale_contract_version,
+        data_config.measurement_domain,
+    )
+    ci_bundle = ci_scaling_active(model_config) and profile.version == CI_SCALE_CONTRACT
+    statistics = metadata.get("ci_statistics")
+    if ci_bundle and statistics is None:
+        raise ValueError(
+            "CI bundle is missing frozen training ci_statistics; regenerate the bundle."
+        )
+    if statistics is not None:
+        model.register_ci_statistics(statistics)
+    return model
+
+
+def _strictly_verify_metadata_free_bundle(archive_path: Path, models_dict) -> None:
+    """Ensure the legacy loader did not discard incompatible model weights."""
+    import torch
+
+    with zipfile.ZipFile(archive_path, "r") as archive:
+        for model_name, model in models_dict.items():
+            state_path = f"{model_name}/model.pth"
+            state_dict = torch.load(
+                io.BytesIO(archive.read(state_path)),
+                map_location="cpu",
+                weights_only=False,
+            )
+            if not isinstance(state_dict, dict) or "_sentinel" in state_dict:
+                continue
+            try:
+                model.load_state_dict(state_dict, strict=True)
+            except RuntimeError as exc:
+                raise RuntimeError(
+                    "Metadata-free bundle architecture-era incompatibility: strict "
+                    "physics/model weight verification failed. Regenerate this bundle "
+                    f"with the current architecture. Original error: {exc}"
+                ) from exc
 
 
 def _canonicalize_ci_probe_modes(probe, N: int):
@@ -401,6 +532,19 @@ def run_cdi_example_torch(
             config=config,
             intensity_scale=intensity_scale
         )
+        bundle_path = archive_path.with_suffix(".h5.zip")
+        persisted_model = train_results['models']['diffraction_to_obj']
+        if bundle_path.is_file() and all(
+            hasattr(persisted_model, name)
+            for name in (
+                "data_config",
+                "model_config",
+                "training_config",
+                "inference_config",
+                "get_ci_statistics",
+            )
+        ):
+            _persist_bundle_scaling_metadata(bundle_path, persisted_model)
         logger.info(f"Models saved successfully to {archive_path}.zip")
     else:
         logger.debug("Skipping model persistence (no output_dir or no models in train_results)")
@@ -1925,7 +2069,13 @@ def train_cdi_model_torch(
     return results
 
 
-def load_inference_bundle_torch(bundle_dir: Union[str, Path], model_name: str = 'diffraction_to_obj') -> Tuple[Any, dict]:
+def load_inference_bundle_torch(
+    bundle_dir: Union[str, Path],
+    model_name: str = 'diffraction_to_obj',
+    *,
+    scale_contract_version: Optional[str] = None,
+    measurement_domain: Optional[str] = None,
+) -> Tuple[Any, dict]:
     """
     Load a trained PyTorch model bundle for inference from a directory.
 
@@ -1970,6 +2120,7 @@ def load_inference_bundle_torch(bundle_dir: Union[str, Path], model_name: str = 
     # TensorFlow baseline: load_inference_bundle expects model_dir containing wts.h5.zip
     # PyTorch mirrors this: bundle_dir/wts.h5.zip → pass bundle_dir/wts.h5 to load_torch_bundle
     archive_path = Path(bundle_dir_str) / "wts.h5"
+    zip_path = archive_path.with_suffix(".h5.zip")
 
     logger.info(f"Loading PyTorch inference bundle from {archive_path}.zip via load_torch_bundle")
 
@@ -1977,6 +2128,50 @@ def load_inference_bundle_torch(bundle_dir: Union[str, Path], model_name: str = 
     # Phase C4.D signature change: load_torch_bundle now returns (models_dict, params_dict)
     # instead of (single_model, params_dict) to satisfy spec §4.6 dual-model requirement
     models_dict, params_dict = load_torch_bundle(str(archive_path), model_name=model_name)
+
+    from ptycho_torch.config_factory import resolve_profile_overrides
+    explicit_profile = resolve_profile_overrides({
+        "scale_contract_version": scale_contract_version,
+        "measurement_domain": measurement_domain,
+    })
+    metadata = _read_bundle_scaling_metadata(zip_path)
+    if metadata is None:
+        known_legacy = (
+            params_dict.get("_version") == "2.0-pytorch"
+            and "scale_contract_version" not in params_dict
+            and "measurement_domain" not in params_dict
+        )
+        if known_legacy and explicit_profile != (
+            LEGACY_SCALE_CONTRACT,
+            NORMALIZED_AMPLITUDE,
+        ):
+            raise ValueError(
+                "This metadata-free bundle is provenance-known legacy. Supply both "
+                "scale_contract_version='legacy_v1' and "
+                "measurement_domain='normalized_amplitude'."
+            )
+        if zip_path.is_file():
+            _strictly_verify_metadata_free_bundle(zip_path, models_dict)
+    else:
+        persisted_profile = resolve_scale_contract(
+            metadata["data_config"].get("scale_contract_version"),
+            metadata["data_config"].get("measurement_domain"),
+        )
+        if explicit_profile is not None and explicit_profile != (
+            persisted_profile.version,
+            persisted_profile.measurement_domain,
+        ):
+            raise ValueError(
+                "Explicit bundle profile overrides contradict persisted metadata."
+            )
+        models_dict["diffraction_to_obj"] = _strictly_reconstruct_bundle_model(
+            zip_path,
+            metadata,
+        )
+        params_dict["scale_contract_version"] = persisted_profile.version
+        params_dict["measurement_domain"] = persisted_profile.measurement_domain
+        params_dict["ci_statistics"] = metadata.get("ci_statistics")
+        params.cfg.update(params_dict)
 
     logger.info(f"Inference bundle loaded successfully. Models: {list(models_dict.keys())}, Params keys: {list(params_dict.keys())[:5]}...")
 

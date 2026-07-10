@@ -6,10 +6,10 @@ s1/s2 and the reconstructed |O| level. Reuses the harness's own inference path
 (run_inference_variant -> reconstruct_image_barycentric), so the solve sees exactly
 what the ablation sees. Fresh per-flux scratch per amendment #13c.
 
-Prediction (amendment #14): with the object/probe fixed and only the measured
-counts scaled, s1,s2 (amplitude-form) should track sqrt(mean-count); c_A grows with
-flux. Whether varpro-ON |O| stays ~1 or scales tells us whether the pipeline's
-un-normalized-probe convention carries the flux (paper Sec 2.2) or leaves it to s1/s2.
+Prediction: each dataset stores the physical probe calibrated to its count dose,
+so the recovered object scale should be dose-invariant. A sqrt(mean-count) drift
+is retained only as the explicit legacy negative control where the probe is held
+unchanged while counts vary.
 
 FIDELITY: the RAW amp/phase MAE below come from the harness's phase-aligned
 barycentric canvas (validated, kept as-is). The gauge-quotiented |amp| NCC used
@@ -26,8 +26,8 @@ flux-sweep fidelity number is trusted.
 """
 import argparse
 import dataclasses
-import glob
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -40,23 +40,21 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO)); sys.path.insert(0, str(REPO / "scripts/studies"))
 
 from varpro_probe_ablation_runner import (
-    build_configs, build_test_dataset, run_inference_variant, compute_metrics, ARM_TABLE,
+    build_test_dataset, run_inference_variant, compute_metrics,
 )
 from diagnose_placement import gauge, ncc, trim, MIDDLE
 from ptycho_torch.dataloader import Collate_Lightning
 from ptycho_torch.model import PtychoPINN_Lightning
 from ptycho_torch.lightning_utils import load_checkpoint_with_configs
 
-SC = Path("/tmp/claude-1000/-home-ollie-Documents-PtychoPINN/"
-          "9ff76e13-9c97-4cfe-a574-8d5fff1cd235/scratchpad/fluxsweep_eval")
+SC = Path(os.environ.get("PTYCHO_FLUX_SWEEP_SCRATCH", "/tmp/ptychopinn-flux-sweep-eval"))
 DS = REPO / ".artifacts/varpro_ablation/datasets"
-OUT = REPO / ".artifacts/varpro_ablation/matrix_fluxsweep"
+OUT = REPO / ".artifacts/varpro_ablation/matrix_fluxsweep_ci_v2"
 MEANS = [1, 100, 10000]
 
 # Hard validation anchor (amendment #14 requirement): the lines gs1_frozen
 # checkpoint + its held-out test set is recon_quality_gate.py's own reference
 # case, documented (amendment #13c) as canvas |amp| NCC 0.972.
-ANCHOR_CKPT_GLOB = ".artifacts/varpro_ablation/matrix_lines/gs1_frozen/**/best-checkpoint.ckpt"
 ANCHOR_NPZ = REPO / ".artifacts/varpro_ablation/datasets/lines_N64_test.npz"
 ANCHOR_TARGET = 0.97
 ANCHOR_TOL = 0.03
@@ -66,6 +64,115 @@ def support_median_abs(canvas: np.ndarray) -> float:
     m = np.abs(canvas)
     nz = m[m > 1e-9]
     return float(np.median(nz)) if nz.size else 0.0
+
+
+def ci_forward_fields(fields):
+    """Select the named CI measurement, physical probe, and input scale."""
+    required = ("measured_intensity", "probe_physical", "rms_input_scale")
+    missing = [name for name in required if name not in fields]
+    if missing:
+        raise KeyError(f"CI evaluator missing named physical field(s): {', '.join(missing)}")
+    return tuple(fields[name] for name in required)
+
+
+def checkpoint_generation_reference() -> str:
+    return (
+        "python scripts/studies/make_flux_sweep.py && python "
+        "scripts/studies/varpro_probe_ablation_runner.py --arm gs1_frozen "
+        "--train-npz .artifacts/varpro_ablation/datasets/fluxsweep_N64_train.npz "
+        "--test-npz .artifacts/varpro_ablation/datasets/fluxsweep_N64_mean100_test.npz "
+        "--output-root .artifacts/varpro_ablation/matrix_fluxsweep_ci_v2 "
+        "--epochs 60 --batch-size 16 --device cuda"
+    )
+
+
+def anchor_checkpoint_generation_reference() -> str:
+    return (
+        "python scripts/studies/make_lines_datasets.py && python "
+        "scripts/studies/varpro_probe_ablation_runner.py --arm gs1_frozen "
+        "--train-npz .artifacts/varpro_ablation/datasets/lines_N64_train.npz "
+        "--test-npz .artifacts/varpro_ablation/datasets/lines_N64_test.npz "
+        "--output-root .artifacts/varpro_ablation/matrix_lines_ci_v2 "
+        "--epochs 60 --batch-size 16 --device cuda"
+    )
+
+
+def _checkpoint_from_args(explicit: Optional[Path], root: Path) -> Path:
+    if explicit is not None:
+        if not explicit.is_file():
+            raise FileNotFoundError(f"checkpoint not found: {explicit}")
+        return explicit
+    matches = sorted(root.glob("gs1_frozen/**/best-checkpoint.ckpt"))
+    if not matches:
+        generation_reference = (
+            anchor_checkpoint_generation_reference()
+            if root.name == "matrix_lines_ci_v2"
+            else checkpoint_generation_reference()
+        )
+        raise FileNotFoundError(
+            f"no current CI checkpoint under {root}/gs1_frozen. Generate it with:\n"
+            f"  {generation_reference}"
+        )
+    return matches[0]
+
+
+def _apply_checkpoint_ci_statistics(model, dataset) -> None:
+    statistics = model.get_ci_statistics()
+    if statistics is None:
+        raise ValueError("CI evaluator requires persisted frozen training ci_statistics")
+    dataset.data_dict["ci_statistics"] = {
+        name: value.detach().cpu().clone()
+        for name, value in statistics.items()
+    }
+
+
+def run_checkpoint_smoke(checkpoint: Path, data_path: Path, label: str) -> None:
+    model, _configs = load_checkpoint_with_configs(
+        str(checkpoint),
+        PtychoPINN_Lightning,
+        device="cpu",
+    )
+    statistics = model.get_ci_statistics()
+    if statistics is None:
+        raise ValueError("CI checkpoint smoke requires frozen training ci_statistics")
+    with np.load(data_path, allow_pickle=False) as payload:
+        key = "diff3d" if "diff3d" in payload else "diffraction"
+        measured = torch.as_tensor(payload[key], dtype=torch.float32)
+        if measured.ndim == 3:
+            measured = measured.unsqueeze(1)
+        probe = torch.as_tensor(payload["probeGuess"], dtype=torch.complex64)
+    if probe.ndim == 2:
+        probe = probe.unsqueeze(0).unsqueeze(0).unsqueeze(0)
+    rms_input_scale = statistics["rms_input_scale"].reshape(-1)[0].expand(
+        measured.shape[0]
+    ).reshape(-1, 1, 1, 1)
+    ci_forward_fields({
+        "measured_intensity": measured,
+        "probe_physical": probe,
+        "rms_input_scale": rms_input_scale,
+    })
+    print(f"CI_FIELD_SMOKE_OK {label}")
+
+
+def ci_output_scale(fields: Dict[str, Any]) -> torch.Tensor:
+    """Match CI loss routing from physical probe gauge to detector counts."""
+    if "probe_normalization" not in fields:
+        raise KeyError("CI evaluator missing named physical field: probe_normalization")
+    normalization = fields["probe_normalization"]
+    return normalization.reshape(normalization.shape[0], 1, 1, 1).reciprocal()
+
+
+def expected_object_scale_ratio(
+    intensity_ratio: float,
+    *,
+    probe_amplitude_ratio: float,
+) -> float:
+    """Object amplitude ratio implied by dose and physical-probe amplitude."""
+    if not np.isfinite(intensity_ratio) or intensity_ratio <= 0:
+        raise ValueError("intensity_ratio must be positive and finite")
+    if not np.isfinite(probe_amplitude_ratio) or probe_amplitude_ratio <= 0:
+        raise ValueError("probe_amplitude_ratio must be positive and finite")
+    return float(np.sqrt(intensity_ratio) / probe_amplitude_ratio)
 
 
 def direct_placement_canvas(model, ds, npz_path: Path):
@@ -83,9 +190,13 @@ def direct_placement_canvas(model, ds, npz_path: Path):
     it on the same ``ds``."""
     n = len(ds)
     b = Collate_Lightning(False)(ds[list(range(n))]); td = b[0]
+    measured_intensity, probe_physical, rms_input_scale = ci_forward_fields(td)
     with torch.no_grad():
         patches_raw = model.forward_predict(
-            td["images"], td["coords_relative"], b[1], td["rms_scaling_constant"]
+            measured_intensity,
+            td["coords_relative"],
+            probe_physical,
+            rms_input_scale,
         )
     patches = trim(patches_raw).numpy().reshape(-1, MIDDLE, MIDDLE)
     gc2 = td["coords_global"].squeeze(2).numpy().reshape(-1, 2)  # col0=x, col1=y
@@ -102,7 +213,7 @@ def direct_placement_canvas(model, ds, npz_path: Path):
         wt[y0:y0 + MIDDLE, x0:x0 + MIDDLE] += 1.0
     mask = wt > 0
     canvas[mask] /= wt[mask]
-    return canvas, mask, obj, td, b[1], patches_raw
+    return canvas, mask, obj, td, probe_physical, patches_raw
 
 
 def gauged_fidelity(canvas: np.ndarray, mask: np.ndarray, obj: np.ndarray, s1: float, s2: float):
@@ -158,15 +269,15 @@ def predicted_diffraction_amplitude(
     probe: torch.Tensor, output_scale_factor: torch.Tensor, experiment_ids: torch.Tensor,
     s1: float, s2: float,
 ) -> np.ndarray:
-    """Forward-simulate diffraction amplitude from the reconstruction: fold
+    """Forward-simulate the checkpoint's detector observable from the reconstruction: fold
     the varpro real/imag scale into ``patches`` (``O_scaled = s1*real +
     j*s2*imag``, the same convention as ``gauged_fidelity``), then reuse
     ptycho_torch's own forward physics -- ``ForwardModel.forward`` (probe
     illumination + FFT via ``pad_and_diffract`` + the inverse output scale),
     the exact path ``PtychoPINN_Lightning.compute_loss`` uses to produce the
-    prediction its Poisson/MAE loss compares against ``observed_images`` --
-    to get predicted diffraction amplitude at each scan position, comparable
-    to the dataset's measured amplitude (``td["images"]``). Read-only reuse:
+    prediction its Poisson loss compares against ``measured_intensity`` --
+    to get predicted count intensity at each scan position, comparable
+    to the dataset's named physical measurement. Read-only reuse:
     a fresh ``ForwardModel`` is constructed from the checkpoint's own configs
     (mirrors ``scripts/studies/dump_forward_parity_fixtures.py``'s
     ``_run_forward``); no physics code is modified. On the default
@@ -246,10 +357,33 @@ def build_parser() -> argparse.ArgumentParser:
         help="full-precision machine-readable scale-scalar dump path (I4); "
              "defaults to '<out>/<label>_scale.json'",
     )
+    parser.add_argument(
+        "--checkpoint",
+        type=Path,
+        default=None,
+        help="explicit current-compatible primary checkpoint",
+    )
+    parser.add_argument(
+        "--anchor-checkpoint",
+        type=Path,
+        default=None,
+        help="explicit current-compatible anchor checkpoint",
+    )
+    parser.add_argument(
+        "--checkpoint-smoke",
+        action="store_true",
+        help="load configured checkpoints and validate named CI fields, then exit",
+    )
+    parser.add_argument(
+        "--smoke-data",
+        type=Path,
+        default=None,
+        help="NPZ used by --checkpoint-smoke",
+    )
     return parser
 
 
-def run_anchor_check() -> float:
+def run_anchor_check(checkpoint: Optional[Path] = None) -> float:
     """HARD VALIDATION ANCHOR: direct_placement_canvas + gauged_fidelity at
     s1=s2=1 (no-varpro) on the lines gs1_frozen checkpoint must reproduce
     recon_quality_gate.py's canvas |amp| NCC (~0.97) within ANCHOR_TOL. This
@@ -257,13 +391,18 @@ def run_anchor_check() -> float:
     placement, not the barycentric-canvas center-crop that amendment #14
     flagged as a framing artifact (~0.25-0.31). Raises if the anchor fails --
     no flux-sweep fidelity number is reported in that case."""
-    ckpts = glob.glob(str(REPO / ANCHOR_CKPT_GLOB), recursive=True)
-    assert ckpts, f"no anchor checkpoint under {ANCHOR_CKPT_GLOB}"
-    dc, mc, tc, _ic, _gc = build_configs(ARM_TABLE["gs1_frozen"], 16, 25)
+    checkpoint = checkpoint or _checkpoint_from_args(
+        None,
+        REPO / ".artifacts/varpro_ablation/matrix_lines_ci_v2",
+    )
+    model, cfgs = load_checkpoint_with_configs(
+        str(checkpoint), PtychoPINN_Lightning, device="cpu"
+    )
+    dc, mc, tc, _ic, _gc = cfgs
     scr = SC / "anchor"
     shutil.rmtree(scr, ignore_errors=True)
     ds = build_test_dataset(ANCHOR_NPZ, mc, dc, tc, scr)
-    model, _cfgs = load_checkpoint_with_configs(ckpts[0], PtychoPINN_Lightning, device="cpu")
+    _apply_checkpoint_ci_statistics(model, ds)
     model = model.cpu().eval()
     canvas, mask, obj, _td, _probe, _patches_raw = direct_placement_canvas(model, ds, ANCHOR_NPZ)
     amp_ncc, _phase_mae = gauged_fidelity(canvas, mask, obj, 1.0, 1.0)
@@ -283,15 +422,23 @@ def main() -> int:
     args = build_parser().parse_args()
     out = args.out
     scratch_root = scratch_for(args.label)
+    checkpoint = _checkpoint_from_args(args.checkpoint, out)
+
+    if args.checkpoint_smoke:
+        if args.smoke_data is None:
+            raise ValueError("--checkpoint-smoke requires --smoke-data")
+        if not args.skip_anchor:
+            anchor_checkpoint = args.anchor_checkpoint or checkpoint
+            run_checkpoint_smoke(anchor_checkpoint, args.smoke_data, "anchor")
+        run_checkpoint_smoke(checkpoint, args.smoke_data, "primary")
+        return 0
 
     anchor_ncc = None
     if not args.skip_anchor:
-        anchor_ncc = run_anchor_check()
+        anchor_ncc = run_anchor_check(args.anchor_checkpoint)
         print()
 
-    ckpts = glob.glob(str(out / "gs1_frozen/**/best-checkpoint.ckpt"), recursive=True)
-    assert ckpts, f"no checkpoint under {out}/gs1_frozen"
-    ckpt = ckpts[0]
+    ckpt = checkpoint
     print("label:", args.label)
     print("checkpoint:", ckpt)
     model, cfgs = load_checkpoint_with_configs(ckpt, PtychoPINN_Lightning, device="cpu")
@@ -305,9 +452,9 @@ def main() -> int:
           f"mean={np.abs(obj).mean():.4f}\n")
 
     truth = np.asarray(obj)
-    # --- SCALE TABLE (s1/s2 absorb the flux) ---
-    print("== SCALE (varpro solve) ==")
-    hdr = (f"{'mean_ct':>8} {'sqrt(ct)':>9} {'s1':>9} {'s2':>9} {'c_A=|s|':>9} "
+    # --- SCALE TABLE (the calibrated physical probe carries the dose) ---
+    print("== SCALE (varpro solve; calibrated physical probe) ==")
+    hdr = (f"{'mean_ct':>8} {'s1':>9} {'s2':>9} {'c_A=|s|':>9} "
            f"{'cphi_deg':>9} {'|O|_on':>9} {'|O|_off':>9}")
     print(hdr); print("-" * len(hdr))
     rows = []
@@ -316,12 +463,13 @@ def main() -> int:
         scr = scratch_root / f"m{mean}"
         shutil.rmtree(scr, ignore_errors=True)
         ds = build_test_dataset(npz, mc, dc, tc, scr)
+        _apply_checkpoint_ci_statistics(model, ds)
         recon_on, _pre, s1, s2 = run_inference_variant(model, ds, tc, dc, mc, "uniform", True)
         recon_off, _pre2, _s1o, _s2o = run_inference_variant(model, ds, tc, dc, mc, "uniform", False)
         cA = float(np.hypot(s1, s2))
         cphi = float(np.degrees(np.arctan2(s2, s1)))
         on, off = support_median_abs(recon_on), support_median_abs(recon_off)
-        print(f"{mean:>8} {mean**0.5:>9.3f} {s1:>9.4f} {s2:>9.4f} {cA:>9.4f} "
+        print(f"{mean:>8} {s1:>9.4f} {s2:>9.4f} {cA:>9.4f} "
               f"{cphi:>9.3f} {on:>9.4f} {off:>9.4f}")
         # raw (phase-aligned, NOT amp-gauged) MAE vs truth, per the harness convention
         m_on = compute_metrics(recon_on, truth)
@@ -344,25 +492,27 @@ def main() -> int:
         # s1/s2 folded in for ON, identity for OFF, matching gauged_fidelity's
         # real-space convention) and compare against the dataset's own
         # measured diffraction amplitude.
-        measured_amp = td["images"].detach().cpu().numpy()
+        measured_intensity = td["measured_intensity"].detach().cpu().numpy()
+        output_scale = ci_output_scale(td)
         meas_err_on = measurement_domain_error(
             predicted_diffraction_amplitude(
                 mc, dc, patches_raw, td["coords_relative"], probe,
-                td["rms_scaling_constant"], td["experiment_id"], s1, s2,
+                output_scale, td["experiment_id"], s1, s2,
             ),
-            measured_amp,
+            measured_intensity,
         )
         meas_err_off = measurement_domain_error(
             predicted_diffraction_amplitude(
                 mc, dc, patches_raw, td["coords_relative"], probe,
-                td["rms_scaling_constant"], td["experiment_id"], 1.0, 1.0,
+                output_scale, td["experiment_id"], 1.0, 1.0,
             ),
-            measured_amp,
+            measured_intensity,
         )
 
         rows.append(dict(mean=mean, s1=s1, s2=s2, cA=cA, on=on, off=off,
                          m_on=m_on, m_off=m_off, fid_on=fid_on, fid_off=fid_off,
                          meas_err_on=meas_err_on, meas_err_off=meas_err_off,
+                         probe_amplitude=float(torch.linalg.vector_norm(probe[0, 0]).item()),
                          n_cov=int(mask.sum())))
 
     # --- RAW MAE TABLE (phase-aligned barycentric canvas; validated, unchanged) ---
@@ -380,7 +530,7 @@ def main() -> int:
 
     # --- MEASUREMENT-DOMAIN (FOURIER) ERROR TABLE (I1, plan L52/L89) ---
     print("\n== MEASUREMENT-DOMAIN (FOURIER) ERROR (relative L2, forward-simulated "
-          "vs measured diffraction amplitude) ==")
+          "vs measured count intensity) ==")
     h_fourier = f"{'mean_ct':>8} | {'meas_err ON':>11} {'OFF':>8}"
     print(h_fourier); print("-" * len(h_fourier))
     for r in rows:
@@ -399,13 +549,28 @@ def main() -> int:
         print(f"{r['mean']:>8} | {r['fid_on'][0]:>17.4f} {r['fid_off'][0]:>8.4f} | "
               f"{r['fid_on'][1]:>19.4f} {r['fid_off'][1]:>8.4f} | {r['n_cov']:>6}")
 
-    # --- SCALING CHECK ---
+    # --- CALIBRATED SCALING CHECK + EXPLICIT LEGACY NEGATIVE CONTROL ---
     ref = next(r for r in rows if r['mean'] == 100)
-    print("\nscaling vs mean=100 (predict s ~ sqrt(count) => ratio ~ sqrt(count/100)):")
+    print("\nobject scaling vs mean=100:")
+    print("  calibrated expectation: dose-invariant object scale (ratio 1.0)")
+    print("  negative control: unchanged probe would produce sqrt-dose drift")
     for r in rows:
-        exp = (r['mean'] / 100.0) ** 0.5
-        print(f"  mean={r['mean']:>7}: c_A ratio={r['cA']/ref['cA']:>8.3f}  expected sqrt={exp:>8.3f}  "
-              f"|O|_on ratio={r['on']/ref['on']:>7.3f}  |O|_off ratio={r['off']/ref['off']:>7.3f}")
+        intensity_ratio = r['mean'] / ref['mean']
+        probe_ratio = r['probe_amplitude'] / ref['probe_amplitude']
+        calibrated_expected = expected_object_scale_ratio(
+            intensity_ratio,
+            probe_amplitude_ratio=probe_ratio,
+        )
+        legacy_expected = expected_object_scale_ratio(
+            intensity_ratio,
+            probe_amplitude_ratio=1.0,
+        )
+        print(
+            f"  mean={r['mean']:>7}: c_A ratio={r['cA']/ref['cA']:>8.3f}  "
+            f"|O|_on ratio={r['on']/ref['on']:>7.3f}  "
+            f"calibrated expected={calibrated_expected:>7.3f}  "
+            f"legacy unchanged-probe sqrt={legacy_expected:>7.3f}"
+        )
 
     # --- I4: full-precision machine-readable dump of the solved scalars ---
     scale_json_path = args.scale_json_out or (out / f"{args.label}_scale.json")

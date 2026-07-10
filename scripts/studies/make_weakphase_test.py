@@ -31,29 +31,32 @@ def compress_phase(obj: np.ndarray, pmax: float) -> np.ndarray:
 def main() -> int:
     N = 64
     spec = M.SPECS[64]
-    probe = M.load_probe(spec["probe_src"])
+    probe = M.load_probe(spec["probe_src"], N=N)
     rng = np.random.default_rng(1000 + N)
-    np.random.seed(int(rng.integers(0, 2**31 - 1)))
-    obj = create_dead_leaves((spec["obj_res"], spec["obj_res"]), M.DEAD_LEAVES_ARG).astype(np.complex64)
+    obj = create_dead_leaves(
+        (spec["obj_res"], spec["obj_res"]),
+        M.DEAD_LEAVES_ARG,
+        rng=rng,
+    ).astype(np.complex64)
     obj = compress_phase(obj, PHASE_MAX)
     print(f"weak-phase object: amp std {np.abs(obj).std():.3f}, phase std {np.angle(obj).std():.3f}, "
           f"phase range [{np.angle(obj).min():.2f},{np.angle(obj).max():.2f}]")
     for split in ("train", "test"):
         cfg = spec[split]
         xc, yc = M.scan_positions(spec["obj_res"], N, cfg["n"], cfg["seed"], cfg["jitter"])
-        rd = M.simulate(obj, probe, xc, yc, N)
-        counts = M.to_counts(np.asarray(rd.diff3d))
+        generated = M.generate_ci_count_dataset(
+            obj,
+            probe,
+            xc,
+            yc,
+            N=N,
+            target_mean_count=M.TARGET_MEAN_COUNT,
+            poisson_seed=60_000 + cfg["seed"],
+        )
+        counts = generated.payload["diff3d"]
         dev = M.cross_pattern_deviation(counts)
-        out = {
-            "xcoords": rd.xcoords, "ycoords": rd.ycoords,
-            "xcoords_start": rd.xcoords_start, "ycoords_start": rd.ycoords_start,
-            "diff3d": counts, "probeGuess": probe, "objectGuess": obj,
-            "scan_index": np.asarray(rd.scan_index),
-        }
-        if getattr(rd, "Y", None) is not None:
-            out["ground_truth_patches"] = np.asarray(rd.Y)
         path = M.DS_DIR / f"deadleaves_weak_N{N}_{split}.npz"
-        np.savez(path, **out)
+        np.savez(path, **generated.payload)
         print(f"  {split}: dev {dev:.3f}, counts mean {counts.mean():.1f}, -> {path.name}")
     return 0
 
