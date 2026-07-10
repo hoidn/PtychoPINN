@@ -1164,7 +1164,11 @@ def run_torch_training(
         Uses torchapi-devel Lightning workflow via _train_with_lightning.
     """
     import torch
-    from ptycho_torch.workflows.components import _train_with_lightning, derive_dict_physics_scale
+    from ptycho_torch.workflows.components import (
+        NormalizedAmplitudeCIDictAdapter,
+        _train_with_lightning,
+        derive_dict_physics_scale,
+    )
 
     # Set seed for reproducibility
     torch.manual_seed(cfg.seed)
@@ -1178,9 +1182,9 @@ def run_torch_training(
         ModelConfig as PTModelConfig,
         TrainingConfig as PTTrainingConfig,
     )
-    from ptycho_torch.scaling_contract import validate_scale_contract
+    from ptycho_torch.scaling_contract import CI_SCALE_CONTRACT, validate_scale_contract
 
-    validate_scale_contract(
+    resolved_scale_contract = validate_scale_contract(
         PTDataConfig(
             N=cfg.N,
             grid_size=(cfg.gridsize, cfg.gridsize),
@@ -1193,27 +1197,67 @@ def run_torch_training(
         ),
         PTTrainingConfig(torch_loss_mode=cfg.torch_loss_mode),
     )
+    ci_dict_active = (
+        resolved_scale_contract is not None
+        and resolved_scale_contract.version == CI_SCALE_CONTRACT
+    )
 
     probe = train_data.get("probeGuess")
     if probe is None and cfg.input_conditioning_mode == "diffraction_only":
         probe = np.ones((cfg.N, cfg.N), dtype=np.complex64)
+
+    train_nphotons, train_nphotons_source = _resolve_split_nphotons(
+        train_metadata,
+        "train",
+    )
+    physics_scale_train = None
+    ci_count_amplitude_scale_train = None
+    training_ci_statistics = None
+    train_container = {
+        "observed_images": train_data["diffraction"],
+        "probe": probe,
+    }
+    if ci_dict_active:
+        from ptycho_torch import helper as hh
+
+        ci_count_amplitude_scale_train = hh.derive_intensity_scale_from_amplitudes(
+            train_data["diffraction"],
+            train_nphotons,
+        )
+        training_ci_statistics = NormalizedAmplitudeCIDictAdapter(
+            count_amplitude_scale=ci_count_amplitude_scale_train,
+            N=cfg.N,
+            probe_scale=training_config.model.probe_scale,
+            probe_mask=cfg.probe_mask,
+            probe_mask_sigma=cfg.probe_mask_sigma,
+            probe_mask_diameter=cfg.probe_mask_diameter,
+        ).adapt(train_container)
+        train_source = train_container["measured_intensity"].detach().cpu().numpy()
+        train_probe_for_input = train_container["probe_physical"].detach().cpu().numpy()
+    else:
+        train_source = train_data["diffraction"]
+        train_probe_for_input = probe
+
     X, input_conditioning_contract = _apply_input_conditioning(
-        train_data["diffraction"],
-        probe,
+        train_source,
+        train_probe_for_input,
         cfg,
         metadata=train_metadata,
     )
     n_samples = X.shape[0]
     channels = X.shape[-1]
     coords = _select_coords_relative(train_data, train_metadata, n_samples, channels)
-
-    train_container = {
-        "X": X,
-        "observed_images": train_data["diffraction"],
-        "coords_nominal": _reshape_coords(train_data.get("coords_nominal"), n_samples, channels),
-        "coords_relative": coords,
-        "probe": probe,
-    }
+    train_container.update(
+        {
+            "X": X,
+            "coords_nominal": _reshape_coords(
+                train_data.get("coords_nominal"),
+                n_samples,
+                channels,
+            ),
+            "coords_relative": coords,
+        }
+    )
     if cfg.training_procedure == "supervised":
         label_amp = train_data.get("Y_I")
         label_phase = train_data.get("Y_phi")
@@ -1225,33 +1269,70 @@ def run_torch_training(
         train_container["label_amp"] = np.asarray(label_amp, dtype=np.float32)
         train_container["label_phase"] = np.asarray(label_phase, dtype=np.float32)
 
-    train_nphotons, train_nphotons_source = _resolve_split_nphotons(train_metadata, "train")
-    physics_scale_train = derive_dict_physics_scale(
-        train_container, train_nphotons, cfg.count_scale_mode
-    )
+    if not ci_dict_active:
+        physics_scale_train = derive_dict_physics_scale(
+            train_container,
+            train_nphotons,
+            cfg.count_scale_mode,
+        )
 
     test_container = None
     physics_scale_test = None
+    ci_count_amplitude_scale_test = None
     test_nphotons = None
     test_nphotons_source = None
     if test_data:
-        test_probe = test_data.get("probeGuess", probe)
+        test_probe = test_data.get("probeGuess")
+        if test_probe is None:
+            test_probe = probe
+        test_nphotons, test_nphotons_source = _resolve_split_nphotons(
+            test_metadata,
+            "test",
+        )
+        test_container = {
+            "observed_images": test_data["diffraction"],
+            "probe": test_probe,
+        }
+        if ci_dict_active:
+            ci_count_amplitude_scale_test = hh.derive_intensity_scale_from_amplitudes(
+                test_data["diffraction"],
+                test_nphotons,
+            )
+            NormalizedAmplitudeCIDictAdapter(
+                count_amplitude_scale=ci_count_amplitude_scale_test,
+                N=cfg.N,
+                statistics=training_ci_statistics,
+                probe_scale=training_config.model.probe_scale,
+                probe_mask=cfg.probe_mask,
+                probe_mask_sigma=cfg.probe_mask_sigma,
+                probe_mask_diameter=cfg.probe_mask_diameter,
+            ).adapt(test_container)
+            test_source = test_container["measured_intensity"].detach().cpu().numpy()
+            test_probe_for_input = test_container["probe_physical"].detach().cpu().numpy()
+        else:
+            test_source = test_data["diffraction"]
+            test_probe_for_input = test_probe
+
         X_te, _ = _apply_input_conditioning(
-            test_data["diffraction"],
-            test_probe,
+            test_source,
+            test_probe_for_input,
             cfg,
             metadata=test_metadata,
         )
         n_te = X_te.shape[0]
         channels_te = X_te.shape[-1]
         coords_te = _select_coords_relative(test_data, test_metadata, n_te, channels_te)
-        test_container = {
-            "X": X_te,
-            "observed_images": test_data["diffraction"],
-            "coords_nominal": _reshape_coords(test_data.get("coords_nominal"), n_te, channels_te),
-            "coords_relative": coords_te,
-            "probe": test_probe,
-        }
+        test_container.update(
+            {
+                "X": X_te,
+                "coords_nominal": _reshape_coords(
+                    test_data.get("coords_nominal"),
+                    n_te,
+                    channels_te,
+                ),
+                "coords_relative": coords_te,
+            }
+        )
         if cfg.training_procedure == "supervised":
             label_amp = test_data.get("Y_I")
             label_phase = test_data.get("Y_phi")
@@ -1263,10 +1344,12 @@ def run_torch_training(
             test_container["label_amp"] = np.asarray(label_amp, dtype=np.float32)
             test_container["label_phase"] = np.asarray(label_phase, dtype=np.float32)
 
-        test_nphotons, test_nphotons_source = _resolve_split_nphotons(test_metadata, "test")
-        physics_scale_test = derive_dict_physics_scale(
-            test_container, test_nphotons, cfg.count_scale_mode
-        )
+        if not ci_dict_active:
+            physics_scale_test = derive_dict_physics_scale(
+                test_container,
+                test_nphotons,
+                cfg.count_scale_mode,
+            )
 
     results = _train_with_lightning(
         train_container,
@@ -1291,6 +1374,17 @@ def run_torch_training(
     results["input_conditioning_contract"] = input_conditioning_contract
     results["count_scale_provenance"] = {
         "count_scale_mode": cfg.count_scale_mode,
+        "ci_dict_adapter_active": ci_dict_active,
+        "ci_count_amplitude_scale_train": (
+            float(ci_count_amplitude_scale_train.item())
+            if ci_count_amplitude_scale_train is not None
+            else None
+        ),
+        "ci_count_amplitude_scale_test": (
+            float(ci_count_amplitude_scale_test.item())
+            if ci_count_amplitude_scale_test is not None
+            else None
+        ),
         "physics_scale_train": (
             float(physics_scale_train.item()) if physics_scale_train is not None else None
         ),
@@ -1529,6 +1623,12 @@ def save_run_artifacts(
     )
     config_payload["physics_scale_train"] = count_scale_provenance.get("physics_scale_train")
     config_payload["physics_scale_test"] = count_scale_provenance.get("physics_scale_test")
+    config_payload["ci_count_amplitude_scale_train"] = count_scale_provenance.get(
+        "ci_count_amplitude_scale_train"
+    )
+    config_payload["ci_count_amplitude_scale_test"] = count_scale_provenance.get(
+        "ci_count_amplitude_scale_test"
+    )
     config_payload["nphotons"] = count_scale_provenance.get("nphotons")
     encoder_recipe = _fixed_hybrid_encoder_recipe(cfg)
     if encoder_recipe is not None:

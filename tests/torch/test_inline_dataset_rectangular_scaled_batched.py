@@ -35,7 +35,11 @@ from ptycho.config.config import (
     update_legacy_dict,
 )
 from ptycho import params
-from ptycho_torch.config_params import ModelConfig as PTModelConfig
+from ptycho_torch.config_params import (
+    DataConfig as PTDataConfig,
+    ModelConfig as PTModelConfig,
+    TrainingConfig as PTTrainingConfig,
+)
 from ptycho_torch.model import RectangularScaledDiffraction
 from ptycho_torch.workflows import components as torch_components
 
@@ -46,13 +50,20 @@ def _rectangular_scaled_payload() -> SimpleNamespace:
     ``model_config.physics_forward_mode == 'rectangular_scaled'`` (bisect-report.md
     #4: applying it unconditionally also degraded the amplitude default). The TF
     ``ModelConfig`` used elsewhere in this file has no ``physics_forward_mode``
-    field, so a payload carrying the PyTorch ``ModelConfig`` (the same
-    ``payload.pt_model_config`` production's ``train_cdi_model_torch`` supplies)
-    must be passed to ``_build_lightning_dataloaders`` to exercise the
-    rectangular_scaled contract this test covers.
+    field, so the payload carries the PyTorch model config. This fixture stores
+    normalized amplitudes and exercises the historical MAE routing, so it also
+    declares the complete legacy profile instead of inheriting the CI defaults.
     """
     return SimpleNamespace(
-        pt_model_config=PTModelConfig(physics_forward_mode='rectangular_scaled')
+        pt_data_config=PTDataConfig(
+            scale_contract_version="legacy_v1",
+            measurement_domain="normalized_amplitude",
+        ),
+        pt_model_config=PTModelConfig(
+            physics_forward_mode="rectangular_scaled",
+            loss_function="MAE",
+        ),
+        pt_training_config=PTTrainingConfig(torch_loss_mode="mae"),
     )
 
 

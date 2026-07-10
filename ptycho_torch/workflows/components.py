@@ -53,6 +53,7 @@ Artifacts:
 """
 
 # Standard library imports (no torch dependency)
+from dataclasses import dataclass
 import logging
 from pathlib import Path
 from typing import Union, Optional, Tuple, Dict, Any
@@ -63,7 +64,13 @@ from ptycho.config.config import TrainingConfig, InferenceConfig, PyTorchExecuti
 from ptycho.config import config as ptycho_config  # For update_legacy_dict
 from ptycho.metadata import MetadataManager
 from ptycho.raw_data import RawData
-from ptycho_torch.scaling_contract import validate_scale_contract
+from ptycho_torch.scaling_contract import (
+    CI_SCALE_CONTRACT,
+    CIExperimentStatistics,
+    adapt_normalized_amplitude_to_ci,
+    derive_ci_experiment_statistics,
+    validate_scale_contract,
+)
 
 # PyTorch imports (now mandatory per Phase F3.1/F3.2)
 try:
@@ -145,6 +152,89 @@ def derive_dict_physics_scale(
     if mode == "off":
         return None
     raise ValueError(f"Unknown count_scale_mode {mode!r}; expected 'auto' or 'off'")
+
+
+@dataclass(frozen=True)
+class NormalizedAmplitudeCIDictAdapter:
+    """Adapt one grid-lines amplitude dict into the named CI batch contract."""
+
+    count_amplitude_scale: Any
+    N: int
+    statistics: Optional[CIExperimentStatistics] = None
+    probe_scale: float = 4.0
+    probe_mask: bool = False
+    probe_mask_sigma: float = 1.0
+    probe_mask_diameter: Optional[float] = None
+
+    def adapt(self, container: Dict[str, Any]) -> CIExperimentStatistics:
+        import torch
+
+        from ptycho_torch import helper as hh
+
+        if "observed_images" not in container:
+            raise ValueError("CI dict adapter requires 'observed_images' amplitude data.")
+        if container.get("probe") is None:
+            raise ValueError("CI dict adapter requires a calibrated 'probe'.")
+
+        amplitude = torch.as_tensor(container["observed_images"])
+        if not torch.is_floating_point(amplitude):
+            amplitude = amplitude.to(torch.float32)
+        probe = torch.as_tensor(container["probe"], device=amplitude.device)
+
+        measured_intensity, probe_physical = adapt_normalized_amplitude_to_ci(
+            amplitude,
+            probe,
+            self.count_amplitude_scale,
+        )
+        if measured_intensity.ndim != 4:
+            raise ValueError(
+                "CI grid-lines amplitude must have shape (B, H, W, C)."
+            )
+
+        measured_channel_first = measured_intensity.permute(0, 3, 1, 2)
+        statistics = self.statistics or derive_ci_experiment_statistics(
+            measured_channel_first,
+            self.N,
+        )
+
+        probe_training_np, probe_normalization = hh.normalize_probe_like_tf(
+            probe_physical.detach().cpu().numpy(),
+            probe_scale=self.probe_scale,
+            probe_mask=self.probe_mask,
+            probe_mask_sigma=self.probe_mask_sigma,
+            probe_mask_diameter=self.probe_mask_diameter,
+        )
+        probe_training = torch.as_tensor(
+            probe_training_np,
+            device=probe_physical.device,
+        ).to(probe_physical.dtype)
+        probe_normalization_tensor = measured_intensity.new_tensor(
+            probe_normalization
+        )
+
+        original_x = container.get("X")
+        if original_x is not None and tuple(torch.as_tensor(original_x).shape) == tuple(
+            measured_intensity.shape
+        ):
+            container["X"] = measured_intensity
+        container["measured_intensity"] = measured_intensity
+        container["observed_images"] = measured_intensity
+        container["probe_physical"] = probe_physical
+        container["probe_training"] = probe_training
+        container["probe_normalization"] = probe_normalization_tensor
+        container["scaling_constant"] = probe_normalization_tensor.view(1, 1, 1)
+        container["rms_input_scale"] = statistics.rms_input_scale
+        container["mean_measured_intensity"] = statistics.mean_measured_intensity
+        container["count_amplitude_scale"] = torch.as_tensor(
+            self.count_amplitude_scale,
+            dtype=measured_intensity.dtype,
+            device=measured_intensity.device,
+        )
+
+        # CI uses named physical quantities; legacy generic scales are not sources.
+        container.pop("rms_scaling_constant", None)
+        container.pop("physics_scaling_constant", None)
+        return statistics
 
 
 def run_cdi_example_torch(
@@ -458,7 +548,15 @@ def _build_lightning_dataloaders(
             torch_loss_mode=getattr(config, "torch_loss_mode", "poisson"),
         )
 
-    validate_scale_contract(data_config, validation_model_config, training_config)
+    resolved_scale_contract = validate_scale_contract(
+        data_config,
+        validation_model_config,
+        training_config,
+    )
+    ci_dict_active = (
+        resolved_scale_contract is not None
+        and resolved_scale_contract.version == CI_SCALE_CONTRACT
+    )
 
     model_config = None
     if payload and hasattr(payload, "pt_model_config"):
@@ -495,12 +593,14 @@ def _build_lightning_dataloaders(
         Mimics the structure from ptycho_torch/dataloader.py PtychoDataset.__getitem__
         to maintain compatibility with PtychoPINN_Lightning.compute_loss.
         """
-        def __init__(self, container, model_config=None):
+        def __init__(self, container, model_config=None, ci_active=False):
             self.container = container
             self.model_config = model_config
+            self.ci_active = ci_active
             # Extract all tensors at init
             self.images = _get_tensor(container, 'X')
             self.observed_images = _get_tensor(container, 'observed_images')
+            self.measured_intensity = _get_tensor(container, 'measured_intensity')
             # Try 'coords_relative' first, fallback to 'coords_nominal' for container compatibility
             self.coords_relative = _get_tensor(container, 'coords_relative')
             if self.coords_relative is None:
@@ -518,7 +618,18 @@ def _build_lightning_dataloaders(
                     self.coords_relative = _get_tensor(container, 'coords_nominal')
             self.rms_scaling_constant = _get_tensor(container, 'rms_scaling_constant')
             self.physics_scaling_constant = _get_tensor(container, 'physics_scaling_constant')
+            self.rms_input_scale = _get_tensor(container, 'rms_input_scale')
+            self.mean_measured_intensity = _get_tensor(
+                container,
+                'mean_measured_intensity',
+            )
             self.probe = _get_tensor(container, 'probe')
+            self.probe_training = _get_tensor(container, 'probe_training')
+            self.probe_physical = _get_tensor(container, 'probe_physical')
+            self.probe_normalization = _get_tensor(
+                container,
+                'probe_normalization',
+            )
             self.scaling_constant = _get_tensor(container, 'scaling_constant')
             self.label_amp = _get_tensor(container, 'label_amp')
             self.label_phase = _get_tensor(container, 'label_phase')
@@ -526,6 +637,23 @@ def _build_lightning_dataloaders(
             # Validate required tensors
             if self.images is None:
                 raise ValueError("Container must contain 'X' (images) tensor")
+            if self.ci_active:
+                required_ci_fields = {
+                    "measured_intensity": self.measured_intensity,
+                    "rms_input_scale": self.rms_input_scale,
+                    "mean_measured_intensity": self.mean_measured_intensity,
+                    "probe_training": self.probe_training,
+                    "probe_physical": self.probe_physical,
+                    "probe_normalization": self.probe_normalization,
+                }
+                missing = [
+                    name for name, value in required_ci_fields.items() if value is None
+                ]
+                if missing:
+                    raise ValueError(
+                        "CI dict container is missing named fields: "
+                        + ", ".join(missing)
+                    )
             if getattr(self.model_config, 'model_type', 'pinn') == 'supervised':
                 if self.label_amp is None or self.label_phase is None:
                     raise ValueError(
@@ -558,6 +686,11 @@ def _build_lightning_dataloaders(
                 if self.observed_images is not None
                 else images_indexed
             )
+            measured_intensity_indexed = (
+                self.measured_intensity[idx]
+                if self.measured_intensity is not None
+                else observed_images_indexed
+            )
 
             # CRITICAL: Convert from TensorFlow channel-last to PyTorch channel-first format
             # TensorFlow RawData.generate_grouped_data returns X_full with shape (nsamples, H, W, C)
@@ -573,6 +706,10 @@ def _build_lightning_dataloaders(
                 observed_images_indexed = observed_images_indexed.permute(0, 3, 1, 2)
             elif observed_images_indexed.ndim == 3:
                 observed_images_indexed = observed_images_indexed.permute(2, 0, 1)
+            if measured_intensity_indexed.ndim == 4:
+                measured_intensity_indexed = measured_intensity_indexed.permute(0, 3, 1, 2)
+            elif measured_intensity_indexed.ndim == 3:
+                measured_intensity_indexed = measured_intensity_indexed.permute(2, 0, 1)
 
             # Build tensor dict with required keys for compute_loss
             coords_rel = self.coords_relative[idx] if self.coords_relative is not None else torch.zeros(1, 2)
@@ -621,14 +758,29 @@ def _build_lightning_dataloaders(
             if phys_scale is not None:
                 phys_scale = phys_scale.view(1, 1, 1) if phys_scale.numel() == 1 else phys_scale.view(-1, 1, 1)[:1]
 
-            tensor_dict = {
-                'images': images_indexed,
-                'observed_images': observed_images_indexed,
-                'coords_relative': coords_rel,
-                'rms_scaling_constant': rms_scale,
-                'physics_scaling_constant': phys_scale,
-                'experiment_id': torch.tensor(0, dtype=torch.long),  # Scalar - collation gives (batch_size,)
-            }
+            if self.ci_active:
+                rms_input_scale = _select_scale(self.rms_input_scale).view(1, 1, 1)
+                mean_measured_intensity = _select_scale(
+                    self.mean_measured_intensity
+                ).view(1, 1, 1)
+                tensor_dict = {
+                    'images': images_indexed,
+                    'measured_intensity': measured_intensity_indexed,
+                    'observed_images': measured_intensity_indexed,
+                    'coords_relative': coords_rel,
+                    'rms_input_scale': rms_input_scale,
+                    'mean_measured_intensity': mean_measured_intensity,
+                    'experiment_id': torch.tensor(0, dtype=torch.long),
+                }
+            else:
+                tensor_dict = {
+                    'images': images_indexed,
+                    'observed_images': observed_images_indexed,
+                    'coords_relative': coords_rel,
+                    'rms_scaling_constant': rms_scale,
+                    'physics_scaling_constant': phys_scale,
+                    'experiment_id': torch.tensor(0, dtype=torch.long),
+                }
             if label_amp is not None:
                 tensor_dict['label_amp'] = label_amp
             if label_phase is not None:
@@ -650,14 +802,43 @@ def _build_lightning_dataloaders(
                 self.model_config, 'physics_forward_mode', 'amplitude'
             ) == 'rectangular_scaled'
 
-            if self.probe is not None:
+            if self.ci_active:
+                probe_training_raw = self.probe_training
+                probe_physical_raw = self.probe_physical
+            elif self.probe is not None:
                 probe_raw = self.probe
             else:
                 # Fallback: create dummy probe matching image size
                 N = self.images.size(-1)
                 probe_raw = torch.ones(N, N, dtype=torch.complex64)
 
-            if rectangular_mode:
+            if self.ci_active:
+                channels = measured_intensity_indexed.shape[0]
+
+                def _expand_ci_probe(probe_raw):
+                    if probe_raw.ndim == 2:
+                        return probe_raw.unsqueeze(0).unsqueeze(0).expand(
+                            channels, 1, -1, -1
+                        )
+                    if probe_raw.ndim == 3:
+                        return probe_raw.unsqueeze(0).expand(
+                            channels, -1, -1, -1
+                        )
+                    if probe_raw.ndim == 4 and probe_raw.shape[0] == channels:
+                        return probe_raw
+                    raise ValueError(
+                        "CI probe must have shape (H,W), (P,H,W), or (C,P,H,W)."
+                    )
+
+                probe = _expand_ci_probe(probe_training_raw)
+                probe_physical = _expand_ci_probe(probe_physical_raw)
+                probe_normalization = _select_scale(
+                    self.probe_normalization
+                ).view(1, 1, 1, 1)
+                tensor_dict['probe_training'] = probe
+                tensor_dict['probe_physical'] = probe_physical
+                tensor_dict['probe_normalization'] = probe_normalization
+            elif rectangular_mode:
                 channels = images_indexed.shape[0]
                 if probe_raw.ndim == 2:
                     # Shared single-mode probe (H, W) -> (C, 1, H, W)
@@ -678,7 +859,9 @@ def _build_lightning_dataloaders(
             # never reads batch[2] (compute_loss only consumes `scale` inside its
             # rectangular_mode branch), so it keeps the pre-82da7796 raw,
             # un-indexed passthrough.
-            if rectangular_mode:
+            if self.ci_active:
+                scaling = probe_normalization.view(1, 1, 1)
+            elif rectangular_mode:
                 scaling = _select_scale(self.scaling_constant)
                 scaling = scaling.view(1, 1, 1) if scaling.numel() == 1 else scaling.view(-1, 1, 1)[:1]
             else:
@@ -703,7 +886,11 @@ def _build_lightning_dataloaders(
         return memory_mapped_data_product
 
     # Build training dataset if train_container is PtychoDataContainerTorch
-    train_dataset = PtychoLightningDataset(train_container, model_config=model_config)
+    train_dataset = PtychoLightningDataset(
+        train_container,
+        model_config=model_config,
+        ci_active=ci_dict_active,
+    )
 
     # Configure shuffle based on sequential_sampling flag
     shuffle = not getattr(config, 'sequential_sampling', False)
@@ -720,7 +907,11 @@ def _build_lightning_dataloaders(
     # Build validation loader if test container provided
     val_loader = None
     if test_container is not None:
-        test_dataset = PtychoLightningDataset(test_container, model_config=model_config)
+        test_dataset = PtychoLightningDataset(
+            test_container,
+            model_config=model_config,
+            ci_active=ci_dict_active,
+        )
         val_loader = DataLoader(
             test_dataset,
             batch_size=getattr(config, 'batch_size', 16),

@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Any, Optional
 
+import torch
+
 
 CI_SCALE_CONTRACT = "ci_intensity_v2"
 LEGACY_SCALE_CONTRACT = "legacy_v1"
@@ -14,6 +16,181 @@ NORMALIZED_AMPLITUDE = "normalized_amplitude"
 class ResolvedScaleContract:
     version: str
     measurement_domain: str
+
+
+@dataclass(frozen=True)
+class CIExperimentStatistics:
+    rms_input_scale: torch.Tensor
+    mean_measured_intensity: torch.Tensor
+
+
+def _require_real_floating_tensor(value: Any, name: str) -> torch.Tensor:
+    if not isinstance(value, torch.Tensor):
+        raise TypeError(f"{name} must be a torch.Tensor.")
+    if not torch.is_floating_point(value) or torch.is_complex(value):
+        raise TypeError(f"{name} must be a real floating-point tensor.")
+    return value
+
+
+def _coerce_positive_scalar(
+    value: Any,
+    name: str,
+    reference: torch.Tensor,
+) -> torch.Tensor:
+    if isinstance(value, torch.Tensor):
+        if value.ndim != 0:
+            raise ValueError(f"{name} must be a scalar tensor.")
+        if torch.is_complex(value) or value.dtype == torch.bool:
+            raise TypeError(f"{name} must be a real scalar.")
+        if value.device != reference.device:
+            raise ValueError(
+                f"{name} must be on device {reference.device}; got {value.device}."
+            )
+        scalar = value.to(dtype=reference.dtype)
+    else:
+        try:
+            scalar = reference.new_tensor(value)
+        except (TypeError, ValueError, RuntimeError) as exc:
+            raise TypeError(f"{name} must be a real scalar.") from exc
+        if scalar.ndim != 0 or torch.is_complex(scalar):
+            raise TypeError(f"{name} must be a real scalar.")
+
+    if not bool(torch.isfinite(scalar)) or not bool(scalar > 0):
+        raise ValueError(f"{name} must be positive and finite.")
+    return scalar
+
+
+def derive_ci_experiment_statistics(
+    measured_intensity: torch.Tensor,
+    N: Any,
+) -> CIExperimentStatistics:
+    """Derive experiment-level CI input and loss normalization statistics."""
+    measured_intensity = _require_real_floating_tensor(
+        measured_intensity,
+        "measured_intensity",
+    )
+    if measured_intensity.ndim != 4:
+        raise ValueError("measured_intensity must have shape (B, C, H, W).")
+    if not bool(torch.isfinite(measured_intensity).all()):
+        raise ValueError("measured_intensity must contain only finite values.")
+    if bool((measured_intensity < 0).any()):
+        raise ValueError("measured_intensity must contain nonnegative counts.")
+
+    n_scalar = _coerce_positive_scalar(N, "N", measured_intensity)
+    mean_squared_energy = measured_intensity.square().sum(dim=(-2, -1)).mean()
+    mean_measured_intensity = measured_intensity.mean()
+    if not bool(torch.isfinite(mean_squared_energy)) or not bool(
+        mean_squared_energy > 0
+    ):
+        raise ValueError("measured_intensity has zero or degenerate energy.")
+    if not bool(torch.isfinite(mean_measured_intensity)) or not bool(
+        mean_measured_intensity > 0
+    ):
+        raise ValueError("measured_intensity must have a positive finite mean.")
+
+    target_energy = (n_scalar / 2).square()
+    if not bool(torch.isfinite(target_energy)):
+        raise ValueError("CI target energy must be finite.")
+    rms_input_scale = torch.sqrt(target_energy / mean_squared_energy)
+    if not bool(torch.isfinite(rms_input_scale)):
+        raise ValueError("rms_input_scale must be finite.")
+    return CIExperimentStatistics(
+        rms_input_scale=rms_input_scale,
+        mean_measured_intensity=mean_measured_intensity,
+    )
+
+
+def normalize_ci_poisson_per_sample(
+    raw_nll: torch.Tensor,
+    mean_measured_intensity: torch.Tensor,
+) -> torch.Tensor:
+    """Normalize per-sample count NLL by detached physical mean intensity."""
+    raw_nll = _require_real_floating_tensor(raw_nll, "raw_nll")
+    mean_measured_intensity = _require_real_floating_tensor(
+        mean_measured_intensity,
+        "mean_measured_intensity",
+    )
+    if raw_nll.ndim != 1:
+        raise ValueError("raw_nll must have shape (B,).")
+    if mean_measured_intensity.device != raw_nll.device:
+        raise ValueError("mean_measured_intensity must be on the raw_nll device.")
+    if mean_measured_intensity.dtype != raw_nll.dtype:
+        raise ValueError("mean_measured_intensity must match raw_nll dtype.")
+
+    batch_size = raw_nll.shape[0]
+    if mean_measured_intensity.numel() == 1:
+        denominator = mean_measured_intensity.reshape(())
+    elif (
+        mean_measured_intensity.shape[0] == batch_size
+        and all(size == 1 for size in mean_measured_intensity.shape[1:])
+    ):
+        denominator = mean_measured_intensity.reshape(batch_size)
+    else:
+        raise ValueError(
+            "mean_measured_intensity must be scalar or have shape "
+            "(B, 1, ...) matching raw_nll."
+        )
+    denominator = denominator.detach()
+    torch._assert_async(
+        torch.isfinite(denominator).all(),
+        "mean_measured_intensity must be finite.",
+    )
+    torch._assert_async(
+        (denominator > 0).all(),
+        "mean_measured_intensity must be positive.",
+    )
+    return raw_nll / denominator
+
+
+def adapt_normalized_amplitude_to_ci(
+    amplitude: torch.Tensor,
+    probe: torch.Tensor,
+    count_amplitude_scale: Any,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Convert normalized-amplitude data and probe to physical CI units."""
+    amplitude = _require_real_floating_tensor(amplitude, "amplitude")
+    if not isinstance(probe, torch.Tensor):
+        raise TypeError("probe must be a torch.Tensor.")
+    if not (torch.is_floating_point(probe) or torch.is_complex(probe)):
+        raise TypeError("probe must be a floating-point or complex tensor.")
+    if probe.device != amplitude.device:
+        raise ValueError("amplitude and probe must be on the same device.")
+
+    scale = _coerce_positive_scalar(
+        count_amplitude_scale,
+        "count_amplitude_scale",
+        amplitude,
+    )
+    if not bool(torch.isfinite(amplitude).all()):
+        raise ValueError("amplitude must contain only finite values.")
+    if bool((amplitude < 0).any()):
+        raise ValueError("amplitude must contain nonnegative values.")
+    if not bool((amplitude != 0).any()):
+        raise ValueError("amplitude must have nonzero energy.")
+
+    probe_is_finite = torch.isfinite(probe.real).all()
+    if torch.is_complex(probe):
+        probe_is_finite = probe_is_finite & torch.isfinite(probe.imag).all()
+    if not bool(probe_is_finite):
+        raise ValueError("probe real and imaginary components must be finite.")
+    if not bool((probe != 0).any()):
+        raise ValueError("probe must have nonzero energy.")
+
+    intensity = (scale * amplitude).square()
+    probe_physical = scale * probe
+    if not bool(torch.isfinite(intensity).all()):
+        raise ValueError("converted intensity must contain only finite values.")
+
+    converted_probe_is_finite = torch.isfinite(probe_physical.real).all()
+    if torch.is_complex(probe_physical):
+        converted_probe_is_finite = (
+            converted_probe_is_finite & torch.isfinite(probe_physical.imag).all()
+        )
+    if not bool(converted_probe_is_finite):
+        raise ValueError(
+            "converted probe real and imaginary components must be finite."
+        )
+    return intensity, probe_physical
 
 
 def resolve_scale_contract(

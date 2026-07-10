@@ -14,7 +14,11 @@ from typing import Any, Dict, Optional
 
 #Helper
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
-from ptycho_torch.scaling_contract import validate_scale_contract
+from ptycho_torch.scaling_contract import (
+    CI_SCALE_CONTRACT,
+    resolve_scale_contract,
+    validate_scale_contract,
+)
 import ptycho_torch.helper as hh
 from ptycho_torch.model_attention import CBAM, ECALayer, BasicSpatialAttention
 import copy
@@ -1794,6 +1798,16 @@ class PtychoPINN_Lightning(L.LightningModule):
         self.data_config = data_config
         self.training_config = training_config
         self.inference_config = inference_config
+        self.register_buffer(
+            "_ci_rms_input_scale",
+            torch.empty(0, dtype=torch.float32),
+            persistent=False,
+        )
+        self.register_buffer(
+            "_ci_mean_measured_intensity",
+            torch.empty(0, dtype=torch.float32),
+            persistent=False,
+        )
 
         self.torch_loss_mode = getattr(self.training_config, 'torch_loss_mode', 'poisson')
         if isinstance(self.torch_loss_mode, str):
@@ -1988,17 +2002,93 @@ class PtychoPINN_Lightning(L.LightningModule):
         pred_matched = pred_amp * alpha
         return pred_matched, alpha
 
+    def register_ci_statistics(self, statistics):
+        required = {"rms_input_scale", "mean_measured_intensity"}
+        if set(statistics) != required:
+            raise ValueError(
+                "CI statistics must contain exactly rms_input_scale and "
+                "mean_measured_intensity."
+            )
+        rms_input_scale = torch.as_tensor(
+            statistics["rms_input_scale"],
+            dtype=torch.float32,
+            device=self.device,
+        ).detach().reshape(-1).clone()
+        mean_measured_intensity = torch.as_tensor(
+            statistics["mean_measured_intensity"],
+            dtype=torch.float32,
+            device=self.device,
+        ).detach().reshape(-1).clone()
+        if rms_input_scale.numel() == 0 or (
+            rms_input_scale.shape != mean_measured_intensity.shape
+        ):
+            raise ValueError(
+                "CI statistic arrays must be nonempty and have matching shapes."
+            )
+        for name, value in (
+            ("rms_input_scale", rms_input_scale),
+            ("mean_measured_intensity", mean_measured_intensity),
+        ):
+            if not bool(torch.isfinite(value).all()) or not bool((value > 0).all()):
+                raise ValueError(f"{name} must be positive and finite.")
+        self._ci_rms_input_scale = rms_input_scale
+        self._ci_mean_measured_intensity = mean_measured_intensity
+
+    def get_ci_statistics(self):
+        if self._ci_rms_input_scale.numel() == 0:
+            return None
+        return {
+            "rms_input_scale": self._ci_rms_input_scale.detach().clone(),
+            "mean_measured_intensity": (
+                self._ci_mean_measured_intensity.detach().clone()
+            ),
+        }
+
+    def on_save_checkpoint(self, checkpoint):
+        statistics = self.get_ci_statistics()
+        if statistics is not None:
+            checkpoint["ci_statistics"] = statistics
+
+    def on_load_checkpoint(self, checkpoint):
+        statistics = checkpoint.get("ci_statistics")
+        if statistics is not None:
+            self.register_ci_statistics(statistics)
+
     def compute_loss(self, batch):
         """
         Enhanced loss computation supporting multi-stage training
         """
+        rectangular_mode = getattr(
+            self.model_config,
+            'physics_forward_mode',
+            'amplitude',
+        ) == 'rectangular_scaled'
+        ci_mode = False
+        if rectangular_mode:
+            ci_mode = resolve_scale_contract(
+                getattr(self.data_config, "scale_contract_version", None),
+                getattr(self.data_config, "measurement_domain", None),
+            ).version == CI_SCALE_CONTRACT
+
         # Grab required data fields from TensorDict
         x = batch[0]['images']
-        observed_images = batch[0].get('observed_images', x)
+        observed_images = (
+            batch[0]['measured_intensity']
+            if ci_mode
+            else batch[0].get('observed_images', x)
+        )
         positions = batch[0]['coords_relative']
         probe = batch[1]
-        rms_scale = batch[0]['rms_scaling_constant']  # RMS scaling
-        physics_scale = batch[0]['physics_scaling_constant']
+        rms_scale = (
+            batch[0]['rms_input_scale']
+            if ci_mode
+            else batch[0]['rms_scaling_constant']
+        )
+        physics_scale = (
+            None
+            if ci_mode
+            else batch[0]['physics_scaling_constant']
+        )
         experiment_ids = batch[0]['experiment_id']
         scale = batch[2]
         # old_scaling = batch[2]
@@ -2019,10 +2109,13 @@ class PtychoPINN_Lightning(L.LightningModule):
         # output_scale_factor as modified_output_scale = sqrt(1/(scale^2 *
         # physics_scale + 1e-9)), instead of the amplitude path's loss-time
         # pred*physics_scale multiply. The default 'amplitude' path is unchanged.
-        rectangular_mode = getattr(self.model_config, 'physics_forward_mode', 'amplitude') \
-            == 'rectangular_scaled'
         if rectangular_mode:
-            output_scale = torch.sqrt(1.0 / (scale ** 2 * physics_scale + 1e-9))
+            if ci_mode:
+                output_scale = scale.reciprocal()
+            else:
+                output_scale = torch.sqrt(
+                    1.0 / (scale ** 2 * physics_scale + 1e-9)
+                )
         else:
             output_scale = rms_scale
 
