@@ -1,4 +1,3 @@
-import inspect
 import json
 from dataclasses import replace
 from types import SimpleNamespace
@@ -141,6 +140,9 @@ def test_ci_mmap_and_from_np_emit_identical_physical_multimode_batches(tmp_path)
     assert CI_FIELDS <= set(memory_td.keys())
     assert "physics_scaling_constant" not in file_td.keys()
     assert "physics_scaling_constant" not in memory_td.keys()
+    for dataset in (file_dataset, memory_dataset):
+        assert "rms_input_scale" not in dataset.mmap_ptycho.keys()
+        assert "mean_measured_intensity" not in dataset.mmap_ptycho.keys()
     for field in CI_FIELDS | {"images", "experiment_id", "nn_indices"}:
         torch.testing.assert_close(file_td[field], memory_td[field])
 
@@ -302,24 +304,8 @@ def test_explicit_legacy_loader_fields_and_tuple_aliases_are_byte_identical(
     assert torch.equal(baseline_q, explicit_q)
 
 
-def test_data_module_freezes_ci_statistics_from_final_training_subset(
-    tmp_path,
-    monkeypatch,
-):
-    import ptycho_torch.dataloader as dataloader_module
+def test_data_module_freezes_ci_statistics_from_final_training_subset(tmp_path):
     from ptycho_torch.train_utils import PtychoDataModule
-
-    statistic_inputs = []
-
-    def recording_derivation(measured_intensity, N):
-        statistic_inputs.append(measured_intensity.detach().clone())
-        return derive_ci_experiment_statistics(measured_intensity, N)
-
-    monkeypatch.setattr(
-        dataloader_module,
-        "derive_ci_experiment_statistics",
-        recording_derivation,
-    )
 
     payload = list(_count_intensity_arrays(n_images=10))
     split_generator = torch.Generator().manual_seed(19)
@@ -351,8 +337,6 @@ def test_data_module_freezes_ci_statistics_from_final_training_subset(
     full_dataset = module.train_dataset.dataset
     train_indices = torch.as_tensor(module.train_dataset.indices)
     train_images = torch.as_tensor(full_dataset.mmap_ptycho["images"])[train_indices]
-    assert len(statistic_inputs) == 1
-    torch.testing.assert_close(statistic_inputs[0], train_images)
     expected = derive_ci_experiment_statistics(train_images, N_PIX)
     full = derive_ci_experiment_statistics(
         torch.as_tensor(full_dataset.mmap_ptycho["images"]),
@@ -378,6 +362,249 @@ def test_data_module_freezes_ci_statistics_from_final_training_subset(
         assert torch.all(
             td["mean_measured_intensity"] == expected.mean_measured_intensity
         )
+
+
+def test_ci_statistics_read_finalized_indices_in_bounded_chunks(tmp_path, monkeypatch):
+    import ptycho_torch.dataloader as dataloader_module
+
+    payload = _count_intensity_arrays(n_images=10)
+    data_config, model_config, training_config = _ci_configs()
+    dataset = _build_file_dataset(
+        tmp_path,
+        payload,
+        data_config,
+        model_config,
+        training_config,
+    )
+    measured_storage = dataset.mmap_ptycho["measured_intensity"]
+    experiment_storage = dataset.mmap_ptycho["experiment_id"]
+    requests = []
+    chunk_bound = 3
+
+    class IndexedStorageSpy:
+        def __init__(self, storage):
+            self.storage = storage
+
+        def __getitem__(self, index):
+            if isinstance(index, torch.Tensor):
+                request_size = index.numel()
+            elif isinstance(index, (list, tuple)):
+                request_size = len(index)
+            else:
+                raise AssertionError(f"unbounded indexing request: {index!r}")
+            requests.append(request_size)
+            assert request_size <= chunk_bound
+            return self.storage[index]
+
+    dataset.mmap_ptycho = {
+        "measured_intensity": IndexedStorageSpy(measured_storage),
+        "experiment_id": IndexedStorageSpy(experiment_storage),
+    }
+    monkeypatch.setattr(
+        dataloader_module,
+        "_CI_STATISTICS_CHUNK_SIZE",
+        chunk_bound,
+        raising=False,
+    )
+    finalized_indices = [9, 1, 7, 3, 5, 0, 8]
+    expected = derive_ci_experiment_statistics(
+        torch.as_tensor(measured_storage)[torch.tensor(finalized_indices)],
+        N_PIX,
+    )
+
+    statistics = dataset.set_ci_statistics_from_indices(finalized_indices)
+
+    assert requests
+    assert max(requests) <= chunk_bound
+    torch.testing.assert_close(
+        statistics["rms_input_scale"],
+        expected.rms_input_scale.reshape(1),
+    )
+    torch.testing.assert_close(
+        statistics["mean_measured_intensity"],
+        expected.mean_measured_intensity.reshape(1),
+    )
+
+
+def test_ci_mmap_manifest_allows_compatible_reuse(tmp_path):
+    payload = _count_intensity_arrays()
+    data_config, model_config, training_config = _ci_configs()
+    dataset = _build_file_dataset(
+        tmp_path,
+        payload,
+        data_config,
+        model_config,
+        training_config,
+    )
+
+    manifest = json.loads(dataset.manifest_path.read_text())
+    assert manifest["schema_version"] >= 1
+    assert manifest["scale_contract_version"] == "ci_intensity_v2"
+    assert manifest["measurement_domain"] == "count_intensity"
+    assert "measured_intensity" in manifest["required_fields"]
+    assert "rms_input_scale" not in manifest["required_fields"]
+
+    reused = PtychoDataset(
+        ptycho_dir=str(tmp_path / "npz"),
+        model_config=model_config,
+        data_config=data_config,
+        training_config=training_config,
+        data_dir=str(tmp_path / "memmap"),
+        remake_map=False,
+    )
+
+    assert len(reused) == len(dataset)
+    for name, expected in dataset.get_ci_statistics().items():
+        torch.testing.assert_close(reused.get_ci_statistics()[name], expected)
+
+
+@pytest.mark.parametrize("incompatibility", ["missing", "pre_task3", "opposite"])
+def test_ci_mmap_reuse_rejects_incompatible_manifest(tmp_path, incompatibility):
+    payload = _count_intensity_arrays()
+    data_config, model_config, training_config = _ci_configs()
+    dataset = _build_file_dataset(
+        tmp_path,
+        payload,
+        data_config,
+        model_config,
+        training_config,
+    )
+
+    reuse_data_config = data_config
+    reuse_model_config = model_config
+    if incompatibility == "missing":
+        dataset.manifest_path.unlink()
+    elif incompatibility == "pre_task3":
+        manifest = json.loads(dataset.manifest_path.read_text())
+        manifest["schema_version"] = 0
+        dataset.manifest_path.write_text(json.dumps(manifest))
+    else:
+        reuse_data_config = replace(
+            data_config,
+            scale_contract_version="legacy_v1",
+            measurement_domain="normalized_amplitude",
+        )
+
+    with pytest.raises(ValueError, match=r"[Rr]ebuild.*remake_map=True"):
+        PtychoDataset(
+            ptycho_dir=str(tmp_path / "npz"),
+            model_config=reuse_model_config,
+            data_config=reuse_data_config,
+            training_config=training_config,
+            data_dir=str(tmp_path / "memmap"),
+            remake_map=False,
+        )
+
+
+def _assert_finalized_module_statistics(module, provisional_statistics):
+    from ptycho_torch.lightning_utils import CIStatisticsCallback
+
+    module.setup("fit")
+    dataset = module.train_dataset.dataset
+    train_indices = torch.as_tensor(module.train_dataset.indices)
+    validation_indices = torch.as_tensor(module.val_dataset.indices)
+    train_images = torch.as_tensor(dataset.mmap_ptycho["images"])[train_indices]
+    expected = derive_ci_experiment_statistics(train_images, N_PIX)
+
+    assert not torch.equal(
+        provisional_statistics["mean_measured_intensity"],
+        expected.mean_measured_intensity.reshape(1),
+    )
+    torch.testing.assert_close(
+        module.ci_statistics["rms_input_scale"],
+        expected.rms_input_scale.reshape(1),
+    )
+    torch.testing.assert_close(
+        module.ci_statistics["mean_measured_intensity"],
+        expected.mean_measured_intensity.reshape(1),
+    )
+
+    for indices in (train_indices, validation_indices):
+        tensor_dict, _, _ = dataset[indices]
+        assert torch.all(
+            tensor_dict["rms_input_scale"] == expected.rms_input_scale
+        )
+        assert torch.all(
+            tensor_dict["mean_measured_intensity"]
+            == expected.mean_measured_intensity
+        )
+
+    registered = {}
+
+    class Model:
+        model_config = dataset.model_config
+        data_config = dataset.data_config
+
+        def register_ci_statistics(self, statistics):
+            registered.update(statistics)
+
+    trainer = SimpleNamespace(
+        datamodule=module,
+        logger=None,
+        is_global_zero=True,
+    )
+    CIStatisticsCallback().on_fit_start(trainer, Model())
+    for name, expected_value in module.ci_statistics.items():
+        torch.testing.assert_close(registered[name], expected_value)
+
+
+def _skew_validation_payload(val_split, val_seed):
+    payload = list(_count_intensity_arrays(n_images=10))
+    train_size = 10 - int(val_split * 10)
+    train_subset, validation_subset = torch.utils.data.random_split(
+        range(10),
+        [train_size, 10 - train_size],
+        generator=torch.Generator().manual_seed(val_seed),
+    )
+    payload[0][:] = 2.0
+    payload[0][validation_subset.indices] = 2000.0
+    return tuple(payload), train_subset.indices, validation_subset.indices
+
+
+def test_in_memory_data_module_replaces_provisional_ci_statistics_from_train_split():
+    from ptycho_torch.train_utils import InMemoryPtychoDataModule
+
+    val_split = 0.2
+    val_seed = 17
+    payload, _, _ = _skew_validation_payload(val_split, val_seed)
+    data_config, model_config, training_config = _ci_configs()
+    dataset = _build_memory_dataset(payload, data_config, model_config)
+    provisional_statistics = dataset.get_ci_statistics()
+    module = InMemoryPtychoDataModule(
+        dataset,
+        training_config,
+        val_split=val_split,
+        val_seed=val_seed,
+    )
+
+    _assert_finalized_module_statistics(module, provisional_statistics)
+
+
+def test_prebuilt_data_module_replaces_provisional_ci_statistics_from_train_split(
+    tmp_path,
+):
+    from ptycho_torch.train_utils import PrebuiltPtychoDataModule
+
+    val_split = 0.1
+    val_seed = 42
+    payload, _, _ = _skew_validation_payload(val_split, val_seed)
+    data_config, model_config, training_config = _ci_configs()
+    source_dataset = _build_file_dataset(
+        tmp_path,
+        payload,
+        data_config,
+        model_config,
+        training_config,
+    )
+    provisional_statistics = source_dataset.get_ci_statistics()
+    module = PrebuiltPtychoDataModule(
+        str(tmp_path / "memmap"),
+        model_config,
+        data_config,
+        training_config,
+    )
+
+    _assert_finalized_module_statistics(module, provisional_statistics)
 
 
 def test_ci_statistics_callback_registers_before_batches_and_logs_metadata(tmp_path):
@@ -409,6 +636,7 @@ def test_ci_statistics_callback_registers_before_batches_and_logs_metadata(tmp_p
         logger=logger,
         callbacks=[],
         current_epoch=0,
+        is_global_zero=True,
     )
     model = Model()
 
@@ -457,12 +685,147 @@ def test_ci_statistics_checkpoint_round_trip():
         torch.testing.assert_close(restored_statistics[name], expected)
 
 
-def test_both_training_entry_points_install_ci_statistics_callback():
+def test_ci_statistics_actual_lightning_checkpoint_round_trip(tmp_path):
+    import lightning as L
+    from ptycho_torch.model import PtychoPINN_Lightning
+
+    data_config, model_config, training_config = _ci_lightning_configs()
+    statistics = {
+        "rms_input_scale": torch.tensor([0.25, 0.5]),
+        "mean_measured_intensity": torch.tensor([10.0, 20.0]),
+    }
+    source = PtychoPINN_Lightning(
+        model_config,
+        data_config,
+        training_config,
+        InferenceConfig(),
+    )
+    source.register_ci_statistics(statistics)
+    checkpoint_path = tmp_path / "ci-statistics.ckpt"
+    trainer = L.Trainer(
+        max_epochs=0,
+        accelerator="cpu",
+        logger=False,
+        enable_checkpointing=True,
+        enable_progress_bar=False,
+        default_root_dir=tmp_path,
+    )
+    trainer.strategy._lightning_module = source
+
+    trainer.save_checkpoint(checkpoint_path)
+    restored = PtychoPINN_Lightning.load_from_checkpoint(checkpoint_path)
+
+    for name, expected in statistics.items():
+        torch.testing.assert_close(restored.get_ci_statistics()[name], expected)
+
+
+def test_training_entry_points_construct_rank_safe_ci_statistics_callbacks():
     import ptycho_torch.train as train
     import ptycho_torch.train_lightning_only as train_lightning_only
+    from ptycho_torch.lightning_utils import CIStatisticsCallback
 
-    assert "CIStatisticsCallback()" in inspect.getsource(train.main)
-    assert "CIStatisticsCallback()" in inspect.getsource(train_lightning_only.main)
+    tracked = train._build_ci_statistics_callback(disable_mlflow=False)
+    untracked = train._build_ci_statistics_callback(disable_mlflow=True)
+    lightning_only = train_lightning_only._build_ci_statistics_callback()
+
+    assert isinstance(tracked, CIStatisticsCallback)
+    assert tracked.metadata_sink is train._persist_finalized_ci_statistics_to_mlflow
+    assert isinstance(untracked, CIStatisticsCallback)
+    assert untracked.metadata_sink is None
+    assert isinstance(lightning_only, CIStatisticsCallback)
+    assert lightning_only.metadata_sink is None
+
+
+@pytest.mark.parametrize("is_global_zero", [True, False])
+def test_ci_statistics_callback_registers_every_rank_and_gates_side_effects(
+    is_global_zero,
+):
+    from ptycho_torch.lightning_utils import CIStatisticsCallback
+
+    statistics = {
+        "rms_input_scale": torch.tensor([0.25]),
+        "mean_measured_intensity": torch.tensor([2.0]),
+    }
+    registered = []
+    logger_payloads = []
+    metadata_payloads = []
+
+    model = SimpleNamespace(
+        register_ci_statistics=lambda value: registered.append(value)
+    )
+    logger = SimpleNamespace(
+        log_hyperparams=lambda value: logger_payloads.append(value)
+    )
+    trainer = SimpleNamespace(
+        datamodule=SimpleNamespace(ci_statistics=statistics),
+        logger=logger,
+        is_global_zero=is_global_zero,
+    )
+    callback = CIStatisticsCallback(metadata_sink=metadata_payloads.append)
+
+    callback.on_fit_start(trainer, model)
+
+    assert registered == [statistics]
+    if is_global_zero:
+        assert len(logger_payloads) == 1
+        assert len(metadata_payloads) == 1
+    else:
+        assert logger_payloads == []
+        assert metadata_payloads == []
+
+
+def test_mlflow_callback_persists_finalized_statistics_after_data_setup(monkeypatch):
+    import ptycho_torch.train as train
+    from ptycho_torch.lightning_utils import CIStatisticsCallback
+
+    provisional = {
+        "rms_input_scale": torch.tensor([9.0]),
+        "mean_measured_intensity": torch.tensor([9000.0]),
+    }
+    finalized = {
+        "rms_input_scale": torch.tensor([0.25]),
+        "mean_measured_intensity": torch.tensor([2.0]),
+    }
+    persisted = []
+    logger_payloads = []
+
+    monkeypatch.setattr(train.mlflow, "active_run", lambda: object())
+    monkeypatch.setattr(
+        train.mlflow,
+        "log_dict",
+        lambda payload, path: persisted.append((payload, path)),
+    )
+
+    class Model:
+        def __init__(self):
+            self.statistics = provisional
+
+        def register_ci_statistics(self, statistics):
+            self.statistics = statistics
+
+    class Logger:
+        def log_hyperparams(self, payload):
+            logger_payloads.append(payload)
+
+    trainer = SimpleNamespace(
+        datamodule=SimpleNamespace(ci_statistics=finalized),
+        logger=Logger(),
+        is_global_zero=True,
+    )
+    model = Model()
+    callback = CIStatisticsCallback(
+        metadata_sink=train._persist_finalized_ci_statistics_to_mlflow
+    )
+
+    callback.on_fit_start(trainer, model)
+
+    expected = {
+        "rms_input_scale": [0.25],
+        "mean_measured_intensity": [2.0],
+    }
+    assert model.statistics is finalized
+    assert logger_payloads == [{"ci_statistics": expected}]
+    assert persisted == [(expected, "ci_statistics.json")]
 
 
 def test_ci_compute_loss_does_not_require_physics_scaling_constant():

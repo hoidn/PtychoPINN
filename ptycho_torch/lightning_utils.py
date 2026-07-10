@@ -45,6 +45,10 @@ def _serialize_ci_statistics(statistics):
 class CIStatisticsCallback(Callback):
     """Register finalized training-split CI statistics before training starts."""
 
+    def __init__(self, metadata_sink=None):
+        super().__init__()
+        self.metadata_sink = metadata_sink
+
     def on_fit_start(self, trainer, pl_module):
         statistics = getattr(trainer.datamodule, "ci_statistics", None)
         if statistics is None:
@@ -63,14 +67,19 @@ class CIStatisticsCallback(Callback):
             )
 
         pl_module.register_ci_statistics(statistics)
+        if not trainer.is_global_zero:
+            return
+        serialized_statistics = _serialize_ci_statistics(statistics)
         logger_instance = getattr(trainer, "logger", None)
         if logger_instance is not None and hasattr(
             logger_instance,
             "log_hyperparams",
         ):
             logger_instance.log_hyperparams({
-                "ci_statistics": _serialize_ci_statistics(statistics),
+                "ci_statistics": serialized_statistics,
             })
+        if self.metadata_sink is not None:
+            self.metadata_sink(serialized_statistics)
 
 
 class ConfigLogger(Callback):

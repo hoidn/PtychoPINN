@@ -63,6 +63,10 @@ os.environ["TORCH_DISTRIBUTED_DEBUG"] = "INFO" # Optional: gives more info on ha
 
 #----- Helper Functions -------
 
+def _build_ci_statistics_callback():
+    return CIStatisticsCallback()
+
+
 def _resolve_seed() -> int:
     """
     Resolve the training seed from the PTYCHO_TORCH_SEED environment variable.
@@ -338,7 +342,7 @@ def main(ptycho_dir,
         progress_bar = TQDMProgressBar(refresh_rate=10)
         
         callbacks = [
-            CIStatisticsCallback(),
+            _build_ci_statistics_callback(),
             checkpoint_callback,
             early_stop_callback,
             config_logger,

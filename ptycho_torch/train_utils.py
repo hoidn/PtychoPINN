@@ -578,6 +578,10 @@ class PrebuiltPtychoDataModule(L.LightningDataModule):
                 self.train_dataset, self.val_dataset = torch.utils.data.random_split(
                     self.dataset, [train_size, val_size], generator=generator
                 )
+                if self.dataset.ci_contract_active:
+                    self.ci_statistics = self.dataset.set_ci_statistics_from_indices(
+                        self.train_dataset.indices
+                    )
                 
                 print(f"[DataModule setup] Rank {current_rank}: Dataset ready, "
                       f"train={train_size}, val={val_size}")
@@ -639,6 +643,10 @@ class InMemoryPtychoDataModule(L.LightningDataModule):
             self.train_dataset, self.val_dataset = torch.utils.data.random_split(
                 self.dataset, [train_size, val_size], generator=generator
             )
+            if self.dataset.ci_contract_active:
+                self.ci_statistics = self.dataset.set_ci_statistics_from_indices(
+                    self.train_dataset.indices
+                )
             print(f"[InMemoryPtychoDataModule] Split: train={train_size}, val={val_size}")
 
     def train_dataloader(self):

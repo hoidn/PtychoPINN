@@ -1,11 +1,13 @@
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 import torch
 
 from ptycho import params
 from ptycho.config.config import (
     ModelConfig as TFModelConfig,
+    PyTorchExecutionConfig,
     TrainingConfig as TFTrainingConfig,
     update_legacy_dict,
 )
@@ -134,6 +136,103 @@ def test_normalized_amplitude_dict_adapter_emits_physical_ci_fields():
         container["probe_normalization"] * container["probe_physical"],
     )
     assert "physics_scaling_constant" not in container
+
+
+@pytest.mark.torch
+def test_ci_trailing_singleton_probe_is_canonical_before_normalization_and_collation(
+    tmp_path,
+    params_cfg_snapshot,
+):
+    N = 8
+    batch_size = 2
+    count_amplitude_scale = 3.0
+    probe_scale = 2.0
+    container, _, original_probe_2d = _amplitude_fixture(
+        n_samples=4,
+        channels=1,
+        modes=1,
+        N=N,
+    )
+    container["probe"] = original_probe_2d.unsqueeze(-1)
+
+    torch_components.NormalizedAmplitudeCIDictAdapter(
+        count_amplitude_scale=count_amplitude_scale,
+        N=N,
+        probe_scale=probe_scale,
+        probe_mask=False,
+    ).adapt(container)
+
+    expected_probe_physical = (
+        count_amplitude_scale * original_probe_2d
+    ).unsqueeze(0)
+    expected_normalization = 1.0 / (
+        probe_scale * expected_probe_physical.abs().mean()
+    )
+    assert container["probe_physical"].shape == (1, N, N)
+    assert torch.equal(container["probe_physical"], expected_probe_physical)
+    assert container["probe_training"].shape == (1, N, N)
+    assert torch.allclose(
+        container["probe_training"],
+        expected_normalization * expected_probe_physical,
+    )
+    assert torch.allclose(
+        container["probe_normalization"],
+        expected_normalization,
+    )
+
+    container["X"] = container["measured_intensity"]
+    loader, _ = torch_components._build_lightning_dataloaders(
+        container,
+        None,
+        _tf_training_config(tmp_path, N, batch_size),
+        payload=_ci_payload(N),
+    )
+    tensor_dict, probe_training, probe_normalization = next(iter(loader))
+    assert probe_training.shape == (batch_size, 1, 1, N, N)
+    assert tensor_dict["probe_physical"].shape == (batch_size, 1, 1, N, N)
+
+    object_field = torch.complex(
+        torch.full((batch_size, 1, N, N), 0.7),
+        torch.full((batch_size, 1, N, N), -0.3),
+    )
+    prediction = RectangularScaledDiffraction(ModelConfig(num_datasets=1))(
+        object_field,
+        tensor_dict["measured_intensity"],
+        probe_training,
+        probe_normalization.reciprocal(),
+        tensor_dict["experiment_id"],
+    )
+    original_physical_exit_wave = (
+        count_amplitude_scale
+        * original_probe_2d.view(1, 1, 1, N, N)
+        * object_field.unsqueeze(2)
+    )
+    detector_field = torch.fft.fftshift(
+        torch.fft.fft2(original_physical_exit_wave, norm="ortho"),
+        dim=(-2, -1),
+    )
+    expected_intensity = detector_field.abs().square().sum(dim=2)
+    assert torch.allclose(prediction, expected_intensity, rtol=1e-5, atol=1e-6)
+
+
+@pytest.mark.torch
+@pytest.mark.parametrize(
+    "invalid_shape",
+    [
+        (8, 7),
+        (8, 8, 2),
+        (2, 8, 8, 1),
+    ],
+)
+def test_ci_dict_adapter_rejects_ambiguous_or_invalid_probe_layouts(invalid_shape):
+    container, _, _ = _amplitude_fixture(n_samples=2, N=8)
+    container["probe"] = torch.ones(invalid_shape, dtype=torch.complex64)
+
+    with pytest.raises(ValueError, match="probe.*shape"):
+        torch_components.NormalizedAmplitudeCIDictAdapter(
+            count_amplitude_scale=2.0,
+            N=8,
+        ).adapt(container)
 
 
 @pytest.mark.torch
@@ -271,6 +370,203 @@ def test_grid_lines_ci_runner_freezes_training_statistics_for_validation(
 
 
 @pytest.mark.torch
+def test_train_with_lightning_registers_dict_training_statistics_before_fit(
+    tmp_path,
+    monkeypatch,
+    params_cfg_snapshot,
+):
+    import lightning.pytorch as L
+
+    N = 64
+    batch_size = 2
+    train_path = tmp_path / "train.npz"
+    np.savez(train_path, probeGuess=np.ones((N, N), dtype=np.complex64))
+    tf_training_config = TFTrainingConfig(
+        model=TFModelConfig(
+            N=N,
+            gridsize=1,
+            object_big=False,
+            probe_big=False,
+        ),
+        train_data_file=train_path,
+        output_dir=tmp_path / "output",
+        batch_size=batch_size,
+        n_groups=batch_size,
+        nepochs=0,
+        torch_loss_mode="poisson",
+    )
+    update_legacy_dict(params.cfg, tf_training_config)
+
+    container, _, _ = _amplitude_fixture(
+        n_samples=batch_size,
+        channels=1,
+        modes=1,
+        N=N,
+    )
+    training_statistics = torch_components.NormalizedAmplitudeCIDictAdapter(
+        count_amplitude_scale=4.0,
+        N=N,
+        probe_mask=False,
+    ).adapt(container)
+    container["X"] = container["measured_intensity"]
+    captured = {}
+
+    def capture_checkpoint_at_fit(
+        self,
+        model,
+        train_dataloaders=None,
+        val_dataloaders=None,
+        datamodule=None,
+        **kwargs,
+    ):
+        checkpoint = {}
+        model.on_save_checkpoint(checkpoint)
+        captured["checkpoint"] = checkpoint
+        captured["model"] = model
+
+    monkeypatch.setattr(L.Trainer, "fit", capture_checkpoint_at_fit)
+    results = torch_components._train_with_lightning(
+        train_container=container,
+        test_container=None,
+        config=tf_training_config,
+        execution_config=PyTorchExecutionConfig(
+            accelerator="cpu",
+            strategy="auto",
+            enable_checkpointing=False,
+            logger_backend=None,
+        ),
+        overrides={
+            "physics_forward_mode": "rectangular_scaled",
+            "cnn_output_mode": "real_imag",
+            "scale_contract_version": "ci_intensity_v2",
+            "measurement_domain": "count_intensity",
+        },
+    )
+
+    assert captured["model"] is results["models"]["diffraction_to_obj"]
+    checkpoint_statistics = captured["checkpoint"]["ci_statistics"]
+    assert torch.equal(
+        checkpoint_statistics["rms_input_scale"],
+        training_statistics.rms_input_scale.reshape(1),
+    )
+    assert torch.equal(
+        checkpoint_statistics["mean_measured_intensity"],
+        training_statistics.mean_measured_intensity.reshape(1),
+    )
+
+
+@pytest.mark.torch
+def test_train_with_lightning_registers_native_dataset_statistics_before_fit(
+    tmp_path,
+    monkeypatch,
+    params_cfg_snapshot,
+):
+    import lightning.pytorch as L
+
+    from ptycho_torch.dataloader import PtychoDataset
+
+    N = 64
+    batch_size = 2
+    train_path = tmp_path / "train.npz"
+    physical_probe = np.ones((N, N), dtype=np.complex64)
+    np.savez(train_path, probeGuess=physical_probe)
+    tf_training_config = TFTrainingConfig(
+        model=TFModelConfig(
+            N=N,
+            gridsize=1,
+            object_big=False,
+            probe_big=False,
+        ),
+        train_data_file=train_path,
+        output_dir=tmp_path / "output",
+        batch_size=batch_size,
+        n_groups=batch_size,
+        nepochs=0,
+        torch_loss_mode="poisson",
+    )
+    update_legacy_dict(params.cfg, tf_training_config)
+
+    native_dataset = PtychoDataset.from_np(
+        np.linspace(
+            1.0,
+            10.0,
+            batch_size * N * N,
+            dtype=np.float32,
+        ).reshape(batch_size, N, N),
+        physical_probe,
+        np.asarray([[0.0, 0.0], [1.0, 1.0]], dtype=np.float32),
+        ModelConfig(
+            mode="Unsupervised",
+            C_model=1,
+            C_forward=1,
+            object_big=False,
+            physics_forward_mode="rectangular_scaled",
+            cnn_output_mode="real_imag",
+        ),
+        DataConfig(
+            N=N,
+            C=1,
+            grid_size=(1, 1),
+            x_bounds=(0.0, 1.0),
+            y_bounds=(0.0, 1.0),
+            normalize="Batch",
+            probe_normalize=True,
+        ),
+    )
+    training_statistics = native_dataset.get_ci_statistics()
+
+    def fail_rederivation(*args, **kwargs):
+        raise AssertionError("standalone training must reuse finalized CI statistics")
+
+    monkeypatch.setattr(
+        native_dataset,
+        "set_ci_statistics_from_indices",
+        fail_rederivation,
+    )
+    captured = {}
+
+    def capture_checkpoint_at_fit(
+        self,
+        model,
+        train_dataloaders=None,
+        val_dataloaders=None,
+        datamodule=None,
+        **kwargs,
+    ):
+        checkpoint = {}
+        model.on_save_checkpoint(checkpoint)
+        captured["checkpoint"] = checkpoint
+        captured["model"] = model
+
+    monkeypatch.setattr(L.Trainer, "fit", capture_checkpoint_at_fit)
+    results = torch_components._train_with_lightning(
+        train_container=native_dataset,
+        test_container=native_dataset,
+        config=tf_training_config,
+        execution_config=PyTorchExecutionConfig(
+            accelerator="cpu",
+            strategy="auto",
+            enable_checkpointing=False,
+            logger_backend=None,
+        ),
+        overrides={
+            "physics_forward_mode": "rectangular_scaled",
+            "cnn_output_mode": "real_imag",
+            "scale_contract_version": "ci_intensity_v2",
+            "measurement_domain": "count_intensity",
+            "strategy": None,
+            "device": "cpu",
+            "num_workers": 1,
+        },
+    )
+
+    assert captured["model"] is results["models"]["diffraction_to_obj"]
+    checkpoint_statistics = captured["checkpoint"]["ci_statistics"]
+    for name, expected in training_statistics.items():
+        torch.testing.assert_close(checkpoint_statistics[name], expected)
+
+
+@pytest.mark.torch
 @pytest.mark.parametrize("batch_size", [1, 2, 8])
 def test_ci_shared_probe_is_batch_invariant(
     batch_size,
@@ -278,13 +574,15 @@ def test_ci_shared_probe_is_batch_invariant(
     params_cfg_snapshot,
 ):
     N = 8
-    container, _, _ = _amplitude_fixture(n_samples=8, N=N)
+    count_amplitude_scale = 3.0
+    container, _, original_probe_2d = _amplitude_fixture(n_samples=8, N=N)
     torch_components.NormalizedAmplitudeCIDictAdapter(
-        count_amplitude_scale=3.0,
+        count_amplitude_scale=count_amplitude_scale,
         N=N,
         probe_scale=1.0,
         probe_mask=False,
     ).adapt(container)
+    assert container["probe_physical"].shape == (N, N)
     container["X"] = container["measured_intensity"]
 
     loader, _ = torch_components._build_lightning_dataloaders(
@@ -311,7 +609,11 @@ def test_ci_shared_probe_is_batch_invariant(
         probe_normalization.reciprocal(),
         tensor_dict["experiment_id"],
     )
-    physical_exit_wave = tensor_dict["probe_physical"] * object_field.unsqueeze(2)
+    physical_exit_wave = (
+        count_amplitude_scale
+        * original_probe_2d.view(1, 1, 1, N, N)
+        * object_field.unsqueeze(2)
+    )
     physical_detector_field = torch.fft.fftshift(
         torch.fft.fft2(physical_exit_wave, norm="ortho"),
         dim=(-2, -1),

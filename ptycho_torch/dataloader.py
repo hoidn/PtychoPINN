@@ -1,6 +1,7 @@
 #Utility
 import numpy as np
 from pathlib import Path
+import json
 import zipfile
 from collections import defaultdict
 import time
@@ -29,13 +30,35 @@ from ptycho_torch.npz_utils import read_npy_shape
 import ptycho_torch.helper as hh
 from ptycho_torch.scaling_contract import (
     CI_SCALE_CONTRACT,
+    COUNT_INTENSITY,
+    LEGACY_SCALE_CONTRACT,
+    NORMALIZED_AMPLITUDE,
     ci_scaling_active,
-    derive_ci_experiment_statistics,
     resolve_scale_contract,
 )
 
 # --- Helper functions for the dataloader ---
 _DIFFRACTION_KEYS = ('diffraction', 'diff3d')
+_MMAP_SCHEMA_NAME = "ptycho_torch_mmap"
+_MMAP_SCHEMA_VERSION = 1
+_CI_STATISTICS_CHUNK_SIZE = 256
+_COMMON_MMAP_FIELDS = {
+    "images",
+    "coords_global",
+    "coords_center",
+    "coords_relative",
+    "coords_start_center",
+    "coords_start_relative",
+    "nn_indices",
+    "experiment_id",
+    "label_amp",
+    "label_phase",
+}
+_CI_MMAP_FIELDS = _COMMON_MMAP_FIELDS | {"measured_intensity"}
+_LEGACY_MMAP_FIELDS = _COMMON_MMAP_FIELDS | {
+    "rms_scaling_constant",
+    "physics_scaling_constant",
+}
 
 
 def _ci_profile_active(model_config, data_config):
@@ -369,6 +392,7 @@ class PtychoDataset(Dataset):
         self.data_dir_path = Path(data_dir)
         data_prefix_path = self.data_dir_path.parent
         self.state_path = data_prefix_path / 'state_files.npz' # State files contain data_dict from Rank 0 (see below)
+        self.manifest_path = data_prefix_path / "mmap_manifest.json"
         
         # Find npz files, try except because of distributed data parallel hang-up
         try:
@@ -425,6 +449,7 @@ class PtychoDataset(Dataset):
                         data_prefix_path.mkdir(parents=True, exist_ok=True)
                         self.data_dir_path.mkdir(parents=True, exist_ok=True)
                         self.memory_map_data(self.file_list)
+                        self._write_mmap_manifest()
                         np.savez(self.state_path, data_dict=self.data_dict)
                     except Exception as e:
                         print(f"[Rank 0] FATAL ERROR during map creation/saving: {e}")
@@ -442,7 +467,9 @@ class PtychoDataset(Dataset):
                     raise FileNotFoundError(f"[Rank {self.current_rank}] Critical map/state files missing after barrier. "
                                             f"Map dir: {self.data_dir_path} (exists: {self.data_dir_path.exists()}), "
                                             f"State file: {self.state_path} (exists: {self.state_path.exists()})")
+                self._validate_mmap_manifest()
                 self.mmap_ptycho = TensorDict.load_memmap(str(self.data_dir_path)) # Load memory map that was initialized by Rank 0
+                self._validate_loaded_mmap_fields()
                 loaded_state = np.load(self.state_path, allow_pickle=True)
                 self.data_dict = loaded_state['data_dict'].item()
 
@@ -457,13 +484,16 @@ class PtychoDataset(Dataset):
                 # Rank 0 will enter here via prepare_data
                 print(f"Creating memory mapped tensor dictionary...")
                 self.memory_map_data(self.file_list)
+                self._write_mmap_manifest()
                 np.savez(self.state_path, data_dict=self.data_dict)
             else:
                 # All ranks will enter here via setup
                 print(f"Loading existing dataset on rank {self.current_rank}")
                 if not self.state_path.exists():
                     raise FileNotFoundError(f"Map files missing. prepare_data should have created them.")
+                self._validate_mmap_manifest()
                 self.mmap_ptycho = TensorDict.load_memmap(str(self.data_dir_path))
+                self._validate_loaded_mmap_fields()
                 sample_sum = self.mmap_ptycho["images"][:10].sum()
                 if sample_sum == 0:
                     print(f"[Rank {self.current_rank}] WARNING: Loaded memory map contains only zeros!")
@@ -616,6 +646,66 @@ class PtychoDataset(Dataset):
         must size the memory map for the same branch that writes it.
         """
         return self.model_config.mode == 'Unsupervised' and self.model_config.object_big
+
+    def _expected_mmap_manifest(self):
+        if self.ci_contract_active:
+            contract_version = CI_SCALE_CONTRACT
+            measurement_domain = COUNT_INTENSITY
+            required_fields = _CI_MMAP_FIELDS
+        else:
+            contract_version = LEGACY_SCALE_CONTRACT
+            measurement_domain = NORMALIZED_AMPLITUDE
+            required_fields = _LEGACY_MMAP_FIELDS
+        return {
+            "schema_name": _MMAP_SCHEMA_NAME,
+            "schema_version": _MMAP_SCHEMA_VERSION,
+            "scale_contract_version": contract_version,
+            "measurement_domain": measurement_domain,
+            "required_fields": sorted(required_fields),
+        }
+
+    def _mmap_rebuild_error(self, reason):
+        return ValueError(
+            f"Incompatible memory map: {reason}. Rebuild it with remake_map=True."
+        )
+
+    def _write_mmap_manifest(self):
+        self.manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        self.manifest_path.write_text(
+            json.dumps(self._expected_mmap_manifest(), indent=2, sort_keys=True)
+        )
+
+    def _validate_mmap_manifest(self):
+        if not self.manifest_path.exists():
+            raise self._mmap_rebuild_error(
+                f"missing schema manifest at {self.manifest_path}"
+            )
+        try:
+            manifest = json.loads(self.manifest_path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise self._mmap_rebuild_error("unreadable schema manifest") from exc
+
+        expected = self._expected_mmap_manifest()
+        for field in (
+            "schema_name",
+            "schema_version",
+            "scale_contract_version",
+            "measurement_domain",
+            "required_fields",
+        ):
+            if manifest.get(field) != expected[field]:
+                raise self._mmap_rebuild_error(
+                    f"manifest {field}={manifest.get(field)!r}, "
+                    f"expected {expected[field]!r}"
+                )
+
+    def _validate_loaded_mmap_fields(self):
+        required = set(self._expected_mmap_manifest()["required_fields"])
+        missing = sorted(required - set(self.mmap_ptycho.keys()))
+        if missing:
+            raise self._mmap_rebuild_error(
+                f"stored TensorDict is missing required fields {missing}"
+            )
     
     @classmethod
     def from_existing_map(cls, map_path, model_config, data_config, current_rank = 0, is_ddp_active = False):
@@ -647,15 +737,19 @@ class PtychoDataset(Dataset):
         instance.data_dir_path = Path(map_path)
         data_prefix_path = instance.data_dir_path.parent
         instance.state_path = data_prefix_path / 'state_files.npz'
+        instance.manifest_path = data_prefix_path / "mmap_manifest.json"
 
         #Load existing map
         try:
+            instance._validate_mmap_manifest()
             instance.mmap_ptycho = TensorDict.load_memmap(str(instance.data_dir_path))
+            instance._validate_loaded_mmap_fields()
             instance.length = len(instance.mmap_ptycho)
 
             #Load state data
             loaded_state = np.load(instance.state_path, allow_pickle = True)
             instance.data_dict = loaded_state['data_dict'].item()
+            instance.n_files = int(instance.data_dict["probes"].shape[0])
             
             print(f"[PtychoDataset Rank {current_rank}] Loaded existing memory map: {instance.length} samples")
 
@@ -757,14 +851,6 @@ class PtychoDataset(Dataset):
             mmap_fields.update({
                 "measured_intensity": MemoryMappedTensor.empty(
                     (mmap_length, n_channels, *self.im_shape),
-                    dtype=torch.float32,
-                ),
-                "rms_input_scale": MemoryMappedTensor.empty(
-                    (mmap_length, 1, 1, 1),
-                    dtype=torch.float32,
-                ),
-                "mean_measured_intensity": MemoryMappedTensor.empty(
-                    (mmap_length, 1, 1, 1),
                     dtype=torch.float32,
                 ),
             })
@@ -1037,48 +1123,99 @@ class PtychoDataset(Dataset):
         if not self.ci_contract_active:
             return None
 
-        indices = torch.as_tensor(indices, dtype=torch.long).reshape(-1)
-        if indices.numel() == 0:
+        if isinstance(indices, torch.Tensor):
+            flattened_indices = indices.reshape(-1)
+            index_count = flattened_indices.numel()
+
+            def get_index_chunk(start, stop):
+                return flattened_indices[start:stop].to(dtype=torch.long)
+        else:
+            index_count = len(indices)
+
+            def get_index_chunk(start, stop):
+                return torch.as_tensor(
+                    indices[start:stop],
+                    dtype=torch.long,
+                ).reshape(-1)
+
+        if index_count == 0:
             raise ValueError("CI training indices must not be empty.")
-        experiment_ids = torch.as_tensor(
-            self.mmap_ptycho["experiment_id"][indices],
-            dtype=torch.long,
-        )
-        measured = torch.as_tensor(
-            self.mmap_ptycho["measured_intensity"][indices]
-        )
-        rms_values = torch.empty(self.n_files, dtype=measured.dtype)
-        mean_values = torch.empty(self.n_files, dtype=measured.dtype)
-        for experiment_id in range(self.n_files):
-            selected = experiment_ids == experiment_id
-            if not bool(selected.any()):
+        sum_squares = torch.zeros(self.n_files, dtype=torch.float64)
+        intensity_sums = torch.zeros(self.n_files, dtype=torch.float64)
+        sample_channel_counts = torch.zeros(self.n_files, dtype=torch.int64)
+        element_counts = torch.zeros(self.n_files, dtype=torch.int64)
+        measured_dtype = None
+
+        for start in range(0, index_count, _CI_STATISTICS_CHUNK_SIZE):
+            chunk_indices = get_index_chunk(
+                start,
+                min(start + _CI_STATISTICS_CHUNK_SIZE, index_count),
+            )
+            experiment_ids = torch.as_tensor(
+                self.mmap_ptycho["experiment_id"][chunk_indices],
+                dtype=torch.long,
+            )
+            measured = torch.as_tensor(
+                self.mmap_ptycho["measured_intensity"][chunk_indices]
+            )
+            if measured.ndim != 4:
                 raise ValueError(
-                    "The finalized CI training split contains no samples for "
-                    f"experiment {experiment_id}."
+                    "measured_intensity must have shape (B, C, H, W)."
                 )
-            statistics = derive_ci_experiment_statistics(
-                measured[selected],
-                self.data_config.N,
+            if not torch.is_floating_point(measured) or torch.is_complex(measured):
+                raise TypeError(
+                    "measured_intensity must be a real floating-point tensor."
+                )
+            if not bool(torch.isfinite(measured).all()):
+                raise ValueError(
+                    "measured_intensity must contain only finite values."
+                )
+            if bool((measured < 0).any()):
+                raise ValueError(
+                    "measured_intensity must contain nonnegative counts."
+                )
+            measured_dtype = measured.dtype
+
+            for experiment_id in experiment_ids.unique().tolist():
+                selected = measured[experiment_ids == experiment_id]
+                selected_float64 = selected.to(torch.float64)
+                sum_squares[experiment_id] += selected_float64.square().sum()
+                intensity_sums[experiment_id] += selected_float64.sum()
+                sample_channel_counts[experiment_id] += (
+                    selected.shape[0] * selected.shape[1]
+                )
+                element_counts[experiment_id] += selected.numel()
+
+        missing_experiments = torch.where(sample_channel_counts == 0)[0]
+        if missing_experiments.numel():
+            missing = ", ".join(str(int(value)) for value in missing_experiments)
+            raise ValueError(
+                "The finalized CI training split contains no samples for "
+                f"experiment(s) {missing}."
             )
-            rms_values[experiment_id] = statistics.rms_input_scale.detach()
-            mean_values[experiment_id] = (
-                statistics.mean_measured_intensity.detach()
+
+        mean_squared_energy = sum_squares / sample_channel_counts.to(torch.float64)
+        mean_measured_intensity = intensity_sums / element_counts.to(torch.float64)
+        target_energy = (float(self.data_config.N) / 2.0) ** 2
+        rms_input_scale = torch.sqrt(target_energy / mean_squared_energy)
+        if not bool(torch.isfinite(rms_input_scale).all()) or not bool(
+            (rms_input_scale > 0).all()
+        ):
+            raise ValueError("rms_input_scale must be positive and finite.")
+        if not bool(torch.isfinite(mean_measured_intensity).all()) or not bool(
+            (mean_measured_intensity > 0).all()
+        ):
+            raise ValueError(
+                "mean_measured_intensity must be positive and finite."
             )
+
+        rms_values = rms_input_scale.to(dtype=measured_dtype)
+        mean_values = mean_measured_intensity.to(dtype=measured_dtype)
 
         self.data_dict["ci_statistics"] = {
             "rms_input_scale": rms_values,
             "mean_measured_intensity": mean_values,
         }
-        all_experiment_ids = torch.as_tensor(
-            self.mmap_ptycho["experiment_id"][:],
-            dtype=torch.long,
-        )
-        self.mmap_ptycho["rms_input_scale"][:] = rms_values[
-            all_experiment_ids
-        ].view(-1, 1, 1, 1)
-        self.mmap_ptycho["mean_measured_intensity"][:] = mean_values[
-            all_experiment_ids
-        ].view(-1, 1, 1, 1)
         return self.get_ci_statistics()
 
     def get_ci_statistics(self):
@@ -1318,12 +1455,6 @@ class PtychoDataset(Dataset):
         if dataset.ci_contract_active:
             td_fields.update({
                 "measured_intensity": images.clone(),
-                "rms_input_scale": torch.empty(
-                    N_groups, 1, 1, 1, dtype=torch.float32
-                ),
-                "mean_measured_intensity": torch.empty(
-                    N_groups, 1, 1, 1, dtype=torch.float32
-                ),
             })
         else:
             td_fields.update({

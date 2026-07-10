@@ -95,6 +95,21 @@ from ptycho_torch.lightning_utils import CIStatisticsCallback
 
 #----- Helper Functions -------
 
+def _persist_finalized_ci_statistics_to_mlflow(statistics):
+    """Persist finalized training-split CI statistics to the active MLflow run."""
+    if mlflow.active_run() is not None:
+        mlflow.log_dict(statistics, "ci_statistics.json")
+
+
+def _build_ci_statistics_callback(disable_mlflow):
+    metadata_sink = (
+        None
+        if disable_mlflow
+        else _persist_finalized_ci_statistics_to_mlflow
+    )
+    return CIStatisticsCallback(metadata_sink=metadata_sink)
+
+
 def _infer_probe_size(npz_file):
     """
     Infer probe size (N) from NPZ metadata without loading full arrays.
@@ -257,7 +272,7 @@ def main(ptycho_dir,
         strict=True
     )
     callbacks = [
-        CIStatisticsCallback(),
+        _build_ci_statistics_callback(disable_mlflow),
         checkpoint_callback,
         early_stop_callback
     ]
