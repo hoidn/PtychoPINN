@@ -170,6 +170,8 @@ class TorchRunnerConfig:
     probe_source: Optional[str] = None
     input_conditioning_mode: str = "diffraction_only"
     torch_loss_mode: str = "mae"
+    scale_contract_version: str = "ci_intensity_v2"
+    measurement_domain: str = "count_intensity"
     torch_mae_pred_l2_match_target: bool = False
     count_scale_mode: str = "off"  # 'auto' attaches physics_scaling_constant=S; 'off' leaves it absent (1.0)
     probe_mask: bool = False
@@ -366,6 +368,8 @@ def _build_runner_cli_argv(cfg: TorchRunnerConfig) -> List[str]:
         "--gradient-clip-algorithm", str(cfg.gradient_clip_algorithm),
         "--output-mode", str(cfg.generator_output_mode),
         "--torch-loss-mode", str(cfg.torch_loss_mode),
+        "--scale-contract-version", str(cfg.scale_contract_version),
+        "--measurement-domain", str(cfg.measurement_domain),
         "--count-scale-mode", str(cfg.count_scale_mode),
         "--fno-modes", str(cfg.fno_modes),
         "--fno-width", str(cfg.fno_width),
@@ -1169,6 +1173,27 @@ def run_torch_training(
     # Set up configs
     training_config, execution_config = setup_torch_configs(cfg)
 
+    from ptycho_torch.config_params import (
+        DataConfig as PTDataConfig,
+        ModelConfig as PTModelConfig,
+        TrainingConfig as PTTrainingConfig,
+    )
+    from ptycho_torch.scaling_contract import validate_scale_contract
+
+    validate_scale_contract(
+        PTDataConfig(
+            N=cfg.N,
+            grid_size=(cfg.gridsize, cfg.gridsize),
+            scale_contract_version=cfg.scale_contract_version,
+            measurement_domain=cfg.measurement_domain,
+        ),
+        PTModelConfig(
+            mode="Supervised" if cfg.training_procedure == "supervised" else "Unsupervised",
+            physics_forward_mode=cfg.physics_forward_mode,
+        ),
+        PTTrainingConfig(torch_loss_mode=cfg.torch_loss_mode),
+    )
+
     probe = train_data.get("probeGuess")
     if probe is None and cfg.input_conditioning_mode == "diffraction_only":
         probe = np.ones((cfg.N, cfg.N), dtype=np.complex64)
@@ -1258,6 +1283,8 @@ def run_torch_training(
             "physics_forward_mode": cfg.physics_forward_mode,
             "cnn_output_mode": cfg.cnn_output_mode,
             "rect_s1s2_trainable": cfg.rect_s1s2_trainable,
+            "scale_contract_version": cfg.scale_contract_version,
+            "measurement_domain": cfg.measurement_domain,
         },
     )
     results["generator"] = cfg.architecture
@@ -1493,6 +1520,8 @@ def save_run_artifacts(
             if effective_reassembly_mode is not None
             else cfg.reassembly_mode
         ),
+        "scale_contract_version": cfg.scale_contract_version,
+        "measurement_domain": cfg.measurement_domain,
     }
     count_scale_provenance = results.get("count_scale_provenance", {})
     config_payload["count_scale_mode"] = count_scale_provenance.get(
@@ -2001,6 +2030,20 @@ def main(argv=None) -> None:
                         choices=["poisson", "mae"],
                         help="Training loss mode ('poisson' or 'mae')")
     parser.add_argument(
+        "--scale-contract-version",
+        type=str,
+        default="ci_intensity_v2",
+        choices=["ci_intensity_v2", "legacy_v1"],
+        help="Diffraction scaling contract version.",
+    )
+    parser.add_argument(
+        "--measurement-domain",
+        type=str,
+        default="count_intensity",
+        choices=["count_intensity", "normalized_amplitude"],
+        help="Measurement domain paired with the scaling contract version.",
+    )
+    parser.add_argument(
         "--count-scale-mode",
         type=str,
         default="off",
@@ -2320,6 +2363,8 @@ def main(argv=None) -> None:
         probe_source=args.probe_source,
         input_conditioning_mode=args.input_conditioning_mode,
         torch_loss_mode=args.torch_loss_mode,
+        scale_contract_version=args.scale_contract_version,
+        measurement_domain=args.measurement_domain,
         torch_mae_pred_l2_match_target=args.torch_mae_pred_l2_match_target,
         count_scale_mode=args.count_scale_mode,
         probe_mask=args.probe_mask,

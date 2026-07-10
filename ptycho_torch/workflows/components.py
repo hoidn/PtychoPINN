@@ -63,6 +63,7 @@ from ptycho.config.config import TrainingConfig, InferenceConfig, PyTorchExecuti
 from ptycho.config import config as ptycho_config  # For update_legacy_dict
 from ptycho.metadata import MetadataManager
 from ptycho.raw_data import RawData
+from ptycho_torch.scaling_contract import validate_scale_contract
 
 # PyTorch imports (now mandatory per Phase F3.1/F3.2)
 try:
@@ -415,7 +416,49 @@ def _build_lightning_dataloaders(
         ) from e
     
     if payload and not config:
-        config = payload.tf_training_config
+        config = getattr(payload, "tf_training_config", None)
+
+    from ptycho_torch.config_params import (
+        DataConfig as PTDataConfig,
+        ModelConfig as PTModelConfig,
+        TrainingConfig as PTTrainingConfig,
+    )
+
+    data_config = getattr(payload, "pt_data_config", None) if payload else None
+    if data_config is None:
+        data_source = getattr(config, "data_config", config)
+        data_overrides = {
+            field_name: getattr(data_source, field_name)
+            for field_name in ("scale_contract_version", "measurement_domain")
+            if data_source is not None and hasattr(data_source, field_name)
+        }
+        data_config = PTDataConfig(**data_overrides)
+
+    validation_model_config = getattr(payload, "pt_model_config", None) if payload else None
+    if validation_model_config is None:
+        model_source = getattr(config, "model", None)
+        mode = getattr(model_source, "mode", None)
+        if mode is None:
+            mode = {
+                "pinn": "Unsupervised",
+                "supervised": "Supervised",
+            }.get(getattr(model_source, "model_type", None), "Unsupervised")
+        validation_model_config = PTModelConfig(
+            mode=mode,
+            physics_forward_mode=getattr(
+                model_source,
+                "physics_forward_mode",
+                "amplitude",
+            ),
+        )
+
+    training_config = getattr(payload, "pt_training_config", None) if payload else None
+    if training_config is None:
+        training_config = PTTrainingConfig(
+            torch_loss_mode=getattr(config, "torch_loss_mode", "poisson"),
+        )
+
+    validate_scale_contract(data_config, validation_model_config, training_config)
 
     model_config = None
     if payload and hasattr(payload, "pt_model_config"):
@@ -1008,6 +1051,12 @@ def _train_with_lightning(
     pt_data_config = payload.pt_data_config
     pt_model_config = payload.pt_model_config
     pt_training_config = payload.pt_training_config
+
+    validate_scale_contract(
+        pt_data_config,
+        pt_model_config,
+        pt_training_config,
+    )
 
     # CRITICAL: Supervised mode REQUIRES a compatible loss function (MAE)
     # The Lightning module expects loss_name to be defined, which only happens when:
