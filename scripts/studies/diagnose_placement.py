@@ -25,7 +25,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-REPO = Path("/home/ollie/Documents/PtychoPINN")
+REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO)); sys.path.insert(0, str(REPO / "scripts/studies"))
 from varpro_probe_ablation_runner import build_configs, build_test_dataset, ARM_TABLE
 from ptycho_torch.dataloader import Collate_Lightning

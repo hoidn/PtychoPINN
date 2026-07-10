@@ -29,6 +29,11 @@ BUILDER_PATHS = (
     STUDIES_DIR / "make_weakphase_test.py",
 )
 
+PORTABLE_STUDY_PATHS = BUILDER_PATHS + (
+    STUDIES_DIR / "flux_sweep_eval.py",
+    STUDIES_DIR / "diagnose_placement.py",
+)
+
 
 def _known_inputs(n_patterns: int = 128, n: int = 8):
     yy, xx = np.mgrid[:n, :n]
@@ -353,7 +358,11 @@ def test_all_count_builders_use_fresh_ci_poisson_generation(builder_path: Path):
     assert "simulate" not in called
 
 
-@pytest.mark.parametrize("builder_path", BUILDER_PATHS, ids=lambda path: path.stem)
+@pytest.mark.parametrize(
+    "builder_path",
+    PORTABLE_STUDY_PATHS,
+    ids=lambda path: path.stem,
+)
 def test_count_builders_derive_repo_root_from_their_own_location(
     builder_path: Path,
 ):
