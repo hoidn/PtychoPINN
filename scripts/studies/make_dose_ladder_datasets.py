@@ -7,9 +7,9 @@ re-deriving the physics: the frozen lines object (L.frozen_lines_object,
 cached to disk) and probe (M.load_probe(M.SPECS[128]["probe_src"])) are
 identical to the ones used to build lines_N128_{train,test}.npz. Scan
 coordinates are extracted read-only from the frozen source npz (already
-stored flat, no grouping to invert). Only the count scale (target_mean_count,
-via M.to_counts) varies between rungs -- geometry, object, and probe are held
-fixed, isolating dose as the sole differential from the collapsing baseline.
+stored flat, no grouping to invert). Each rung independently evaluates the
+same raw object/probe forward, calibrates the stored physical probe amplitude
+to target_mean_count, and draws fresh Poisson counts.
 
 Output: flat RawData-format npz mirroring lines_N128_{train,test}.npz's
 key/dtype/shape contract, at .artifacts/varpro_ablation/datasets/
@@ -37,6 +37,7 @@ import make_synthetic_truth_datasets as M
 N = 128
 SOURCE_TRAIN_NPZ = M.DS_DIR / "lines_N128_train.npz"
 SOURCE_TEST_NPZ = M.DS_DIR / "lines_N128_test.npz"
+POISSON_SEEDS = {"train": 40_017, "test": 40_018}
 
 
 def extract_coords(npz_path: Path) -> tuple:
@@ -49,8 +50,16 @@ def extract_coords(npz_path: Path) -> tuple:
 def build_split(split: str, source_npz: Path, target_mean_count: float,
                  obj: np.ndarray, probe: np.ndarray) -> dict:
     xc, yc = extract_coords(source_npz)
-    rd = M.simulate(obj, probe, xc, yc, N)
-    counts = M.to_counts(np.asarray(rd.diff3d), target_mean_count=target_mean_count)
+    generated = M.generate_ci_count_dataset(
+        obj,
+        probe,
+        xc,
+        yc,
+        N=N,
+        target_mean_count=target_mean_count,
+        poisson_seed=POISSON_SEEDS[split] + int(round(target_mean_count * 10)),
+    )
+    counts = generated.payload["diff3d"]
     dev = M.cross_pattern_deviation(counts)
     assert dev > 0.2, (
         f"degenerate diffraction (dev={dev:.4f}) for dose ladder {split} "
@@ -58,22 +67,15 @@ def build_split(split: str, source_npz: Path, target_mean_count: float,
     )
     dose = G.measure_photons_per_image(counts)
 
-    out = {
-        "xcoords": rd.xcoords, "ycoords": rd.ycoords,
-        "xcoords_start": rd.xcoords_start, "ycoords_start": rd.ycoords_start,
-        "diff3d": counts, "probeGuess": probe, "objectGuess": obj,
-        "scan_index": np.asarray(rd.scan_index),
-    }
-    if getattr(rd, "Y", None) is not None:
-        out["ground_truth_patches"] = np.asarray(rd.Y)
-
     T = int(round(target_mean_count))
     path = M.DS_DIR / f"lines_N{N}_tmc{T}_{split}.npz"
-    np.savez(path, **out)
+    np.savez(path, **generated.payload)
 
     return {
         "path": str(path), "n": int(len(xc)), "N": N,
         "target_mean_count": target_mean_count,
+        "probe_gauge": generated.metadata["probe_gauge"],
+        "dose_amplitude_scale": generated.dose_amplitude_scale,
         "cross_pattern_deviation": round(dev, 4),
         "counts_mean": round(float(counts.mean()), 2), "counts_max": int(counts.max()),
         "photons_per_image": {
@@ -91,8 +93,7 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     target_mean_count = args.target_mean_count
 
-    probe = M.load_probe(M.SPECS[N]["probe_src"])
-    assert probe.shape[0] == N, f"probe {probe.shape} != N={N}"
+    probe = M.load_probe(M.SPECS[N]["probe_src"], N=N)
     obj = L.frozen_lines_object(N, M.SPECS[N]["obj_res"])
 
     prov_path = M.DS_DIR / "provenance_dose_ladder.json"
@@ -101,13 +102,14 @@ def main(argv=None) -> int:
             provenance = json.load(fh)
     else:
         provenance = {
-            "task": "Task 3 (E1) dose ladder: dose-only twins of lines_N128, geometry/object/probe held fixed",
+            "task": "Task 3 (E1) calibrated dose ladder for lines_N128",
             "source": {"train": str(SOURCE_TRAIN_NPZ), "test": str(SOURCE_TEST_NPZ)},
             "object": "make_lines_datasets.frozen_lines_object (identical cached object to lines_N128)",
-            "probe": "make_synthetic_truth_datasets.load_probe(SPECS[128].probe_src) (identical to lines_N128)",
-            "nphotons_legacy_inert": M.NPHOTONS,
-            "nphotons_note": "M.NPHOTONS is inert legacy metadata, not the binding dose parameter; target_mean_count (per rung, below) sets the counts scale via to_counts(), and photons/image is MEASURED per split, not assumed.",
-            "convention": "diff3d = round(amp^2 * S) uint16 counts, S set per rung by target_mean_count",
+            "probe": "raw source probe calibrated to count dose independently per rung/split",
+            "scale_contract_version": M.CI_SCALE_CONTRACT,
+            "measurement_domain": M.COUNT_INTENSITY,
+            "probe_gauge": M.PHYSICAL_CALIBRATED_PROBE_GAUGE,
+            "convention": "fresh Poisson count intensity from the calibrated physical probe",
             "rungs": {},
         }
 

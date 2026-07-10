@@ -66,6 +66,35 @@ from ptycho_torch.config_params import (
 from ptycho.config.config import PyTorchExecutionConfig
 
 from ptycho import params
+from ptycho_torch.scaling_contract import (
+    CI_SCALE_CONTRACT,
+    COUNT_INTENSITY,
+    resolve_scale_contract,
+)
+
+
+def resolve_profile_overrides(overrides: Optional[Dict[str, Any]]) -> Optional[tuple[str, str]]:
+    """Validate an explicit scale-contract override as an inseparable pair."""
+    overrides = overrides or {}
+    version = overrides.get("scale_contract_version")
+    measurement_domain = overrides.get("measurement_domain")
+    supplied = (version is not None, measurement_domain is not None)
+    if supplied == (False, False):
+        return None
+    if supplied[0] != supplied[1]:
+        raise ValueError(
+            "scale_contract_version and measurement_domain must be supplied together. "
+            "Explicit legacy compatibility requires scale_contract_version='legacy_v1' "
+            "and measurement_domain='normalized_amplitude'."
+        )
+    try:
+        resolved = resolve_scale_contract(version, measurement_domain)
+    except ValueError as exc:
+        raise ValueError(
+            "scale_contract_version and measurement_domain must select a supported "
+            f"profile together: {exc}"
+        ) from exc
+    return resolved.version, resolved.measurement_domain
 
 
 @dataclass
@@ -204,7 +233,10 @@ def create_training_payload(
     from ptycho_torch.config_params import update_existing_config
 
     # Defensive copy of overrides
-    overrides = overrides or {}
+    overrides = dict(overrides or {})
+    resolved_profile = resolve_profile_overrides(overrides)
+    if resolved_profile is not None:
+        overrides["scale_contract_version"], overrides["measurement_domain"] = resolved_profile
     overrides_applied = dict(overrides)  # Audit trail
 
     # Bridge naming compatibility: accept legacy/CLI-friendly keys
@@ -428,7 +460,8 @@ def create_inference_payload(
     from ptycho_torch.config_bridge import to_model_config, to_inference_config
 
     # Defensive copy of overrides
-    overrides = overrides or {}
+    overrides = dict(overrides or {})
+    resolved_profile = resolve_profile_overrides(overrides)
     overrides_applied = dict(overrides)  # Audit trail
 
     # Step 1: Validate required arguments
@@ -472,6 +505,12 @@ def create_inference_payload(
         K=overrides.get('neighbor_count', 4),  # Canonical default=4 per specs/ptychodus_api_spec.md §4.6
         probe_scale=overrides.get('probe_scale', 4.0),  # Align with TF defaults
         subsample_seed=overrides.get('subsample_seed'),  # Optional field
+        scale_contract_version=(
+            resolved_profile[0] if resolved_profile is not None else CI_SCALE_CONTRACT
+        ),
+        measurement_domain=(
+            resolved_profile[1] if resolved_profile is not None else COUNT_INTENSITY
+        ),
     )
 
     # ModelConfig: Extract model architecture fields from overrides (for config_bridge)

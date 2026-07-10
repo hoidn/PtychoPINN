@@ -149,7 +149,9 @@ def main(ptycho_dir,
          run_name = None,
          parity_scale_mode = "off",
          parity_fixed_delta = 0.0,
-         parity_init_scheme = "default"):
+         parity_init_scheme = "default",
+         scale_contract_version = None,
+         measurement_domain = None):
     '''
     Main training script. Uses PyTorch Lightning loggers instead of MLflow.
 
@@ -206,6 +208,15 @@ def main(ptycho_dir,
         #If train is called via train_full, these settings will already have been loaded
         else:
             data_config, model_config, training_config, inference_config, datagen_config = existing_config
+
+        from ptycho_torch.config_factory import resolve_profile_overrides
+        explicit_profile = resolve_profile_overrides({
+            "scale_contract_version": scale_contract_version,
+            "measurement_domain": measurement_domain,
+        })
+        if explicit_profile is not None:
+            data_config.scale_contract_version = explicit_profile[0]
+            data_config.measurement_domain = explicit_profile[1]
 
         validate_scale_contract(data_config, model_config, training_config)
 
@@ -440,6 +451,16 @@ if __name__ == '__main__':
     parser.add_argument('--ptycho_dir', type = str, help = 'Path to ptycho directory')
     parser.add_argument('--config', type = str, default=None, help = 'Path to JSON configuration file (mandatory)')
     parser.add_argument('--output_dir', type = str, default=None, help = 'Path to output directory')
+    parser.add_argument(
+        '--scale-contract-version',
+        choices=['ci_intensity_v2', 'legacy_v1'],
+        default=None,
+    )
+    parser.add_argument(
+        '--measurement-domain',
+        choices=['count_intensity', 'normalized_amplitude'],
+        default=None,
+    )
     
     #Parse
     args = parser.parse_args()
@@ -454,7 +475,14 @@ if __name__ == '__main__':
     print(f"Current working directory: {os.getcwd()}")
 
     try:
-        main(ptycho_dir, config_path, False, output_dir)
+        main(
+            ptycho_dir,
+            config_path,
+            False,
+            output_dir,
+            scale_contract_version=args.scale_contract_version,
+            measurement_domain=args.measurement_domain,
+        )
 
     except Exception as e:
         print(f"Training failed: {str(e)}")

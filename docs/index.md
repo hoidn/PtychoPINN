@@ -2,6 +2,16 @@
 
 This index provides a comprehensive overview of all available documentation with detailed descriptions to help you quickly find relevant information.
 
+## Critical Scaling Contract
+
+New rectangular workflows default to `ci_intensity_v2` with
+`measurement_domain=count_intensity`. This profile requires Poisson NLL,
+frozen training statistics, and the physical probe for VarPro. Historical
+normalized-amplitude behavior must select both legacy contract fields
+explicitly. See the [Data Normalization Guide](DATA_NORMALIZATION_GUIDE.md),
+the [Core Contract](specs/spec-ptycho-core.md), and the
+[regression finding](findings.md).
+
 ## Quick Start
 
 ### [README](../README.md) - Project Overview
@@ -66,6 +76,21 @@ This index provides a comprehensive overview of all available documentation with
 **Description:** Official format specifications for NPZ datasets including required keys, data types, shapes, and normalization requirements.  
 **Keywords:** NPZ-format, data-contracts, normalization, diffraction, amplitude  
 **Use this when:** Creating or validating datasets, troubleshooting data format errors, or understanding amplitude vs intensity requirements.
+
+#### [Data Normalization Guide](DATA_NORMALIZATION_GUIDE.md) CRITICAL
+**Description:** Separates the CI count-intensity and physical-probe contract from legacy diffraction-amplitude and display normalization, including NLL-only activation and raw-probe VarPro.  
+**Keywords:** normalization, intensity-scale, count-intensity, physical-probe, varpro, legacy  
+**Use this when:** Debugging absolute-scale behavior or selecting CI versus explicit legacy behavior.
+
+#### [PtychoPINN Core Contract](specs/spec-ptycho-core.md)
+**Description:** Normative forward-model and data contract for legacy amplitude and CI count-intensity scaling profiles.  
+**Keywords:** physics, poisson, scaling, physical-probe, count-intensity  
+**Use this when:** Implementing or auditing physical units, losses, masks, and outputs.
+
+#### [Torch Loader and Batch Contract](specs/spec-ptycho-interfaces.md)
+**Description:** Normative Torch loader contract for mmap and dict-container paths, including named CI fields, frozen statistics, multimode probes, and explicit legacy compatibility.  
+**Keywords:** torch-dataloader, mmap, batch-contract, probe-scaling, ci-intensity  
+**Use this when:** Auditing loader batches, wiring `compute_loss`, or loading versioned artifacts.
 
 ## Workflows & Scripts
 

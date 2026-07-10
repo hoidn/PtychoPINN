@@ -18,10 +18,20 @@ import warnings
 
 #Configurations
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig
+from ptycho_torch.probe_mask import resolve_probe_mask_torch
+from ptycho_torch.scaling_contract import CI_SCALE_CONTRACT, resolve_scale_contract
 
 #Default casting
 torch.set_default_dtype(torch.float32)
- 
+
+
+def _synchronize_cuda_for_timing(device: Union[str, torch.device]) -> None:
+    """Drain queued CUDA work on ``device`` before sampling wall time."""
+    device = torch.device(device)
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+
+
 #Currently adapted for multi-channel, but finding some problems in terms of reassembly
 #Adapted from Oliver's tf_helper/shift_and_Sum
 def reassemble_single_channel(im_tensor: torch.Tensor,
@@ -1054,6 +1064,25 @@ def compute_varpro_basis(probe: torch.Tensor,
     return Psi_a, Psi_b, X1, X2, X3
 
 
+def _apply_configured_probe_mask(
+    probe: torch.Tensor,
+    reference: torch.Tensor,
+    data_config: DataConfig,
+    model_config: ModelConfig,
+) -> torch.Tensor:
+    """Apply the same effective probe-mask resolver used by training."""
+    mask = resolve_probe_mask_torch(
+        data_config.N,
+        probe_mask=getattr(model_config, "probe_mask", False),
+        probe_mask_tensor=getattr(model_config, "probe_mask_tensor", None),
+        probe_mask_sigma=float(getattr(model_config, "probe_mask_sigma", 1.0)),
+        probe_mask_diameter=getattr(model_config, "probe_mask_diameter", None),
+        dtype=reference.real.dtype if reference.is_complex() else reference.dtype,
+        device=reference.device,
+    )
+    return probe * mask.view(1, 1, 1, data_config.N, data_config.N)
+
+
 def apply_varpro_canvas_scaling(
     texture_canvas: torch.Tensor,
     scaler: VarProScaler,
@@ -1191,6 +1220,9 @@ def reconstruct_image_barycentric(model: nn.Module,
         model, gpu_ids, primary_device = setup_multi_gpu_model(model, gpu_ids)
         if verbose:
             print(f"Using {len(gpu_ids)} GPUs: {gpu_ids}")
+    uses_cuda = (
+        torch.device(primary_device).type == "cuda" and torch.cuda.is_available()
+    )
 
     # Get dataset subset
     n_files = ptycho_dset.n_files
@@ -1239,7 +1271,7 @@ def reconstruct_image_barycentric(model: nn.Module,
         num_workers=training_config.num_workers,
         collate_fn=Collate(device=primary_device),
         pin_memory = True,
-        persistent_workers=True
+        persistent_workers=training_config.num_workers > 0
     )
 
     #Other setup
@@ -1258,14 +1290,17 @@ def reconstruct_image_barycentric(model: nn.Module,
     uniform_weighting = (patch_weighting == 'uniform')
     varpro_scaling = getattr(inference_config, 'varpro_scaling', True)
 
-    # VARPRO-SOLVE-UNITS-001 amplitude-mode guard: the output_scale fold below
-    # is the rectangular_scaled training convention only (model.py:2282-2283).
-    # amplitude-mode models (physics_forward_mode default 'amplitude',
-    # config_params.py:158) trained against the historical unscaled basis, so
-    # only fold output_scale when the model was actually trained rectangular_scaled.
+    # Profiles only govern rectangular_scaled. Amplitude mode retains its
+    # historical unscaled-probe behavior even though DataConfig defaults to CI.
     physics_forward_mode = getattr(model_config, 'physics_forward_mode', 'amplitude') \
         if model_config is not None else 'amplitude'
     rectangular_scaled_mode = (physics_forward_mode == 'rectangular_scaled')
+    ci_varpro_mode = False
+    if rectangular_scaled_mode:
+        ci_varpro_mode = resolve_scale_contract(
+            getattr(data_config, "scale_contract_version", None),
+            getattr(data_config, "measurement_domain", None),
+        ).version == CI_SCALE_CONTRACT
 
     # Save a reference probe for probe-based swap detection
     saved_probe_single = None
@@ -1282,17 +1317,37 @@ def reconstruct_image_barycentric(model: nn.Module,
 
             # Prepare data
             batch_data = batch[0]
-            I_raw = batch_data['images'].to(primary_device, non_blocking=True)
             positions = batch_data['coords_relative'].to(primary_device, non_blocking=True)
-            probe = batch[1].to(primary_device, non_blocking=True)  # (B, C, P, H, W)
-            in_scale = batch_data['rms_scaling_constant'].to(primary_device, non_blocking=True)
             batch_global_coords = batch_data['coords_global'].to(primary_device, non_blocking=True)
+            if ci_varpro_mode:
+                I_raw = batch_data['measured_intensity'].to(
+                    primary_device, non_blocking=True
+                )
+                probe = batch_data['probe_physical'].to(
+                    primary_device, non_blocking=True
+                )
+                in_scale = batch_data['rms_input_scale'].to(
+                    primary_device, non_blocking=True
+                )
+                effective_probe = _apply_configured_probe_mask(
+                    probe, I_raw, data_config, model_config
+                )
+            else:
+                I_raw = batch_data['images'].to(primary_device, non_blocking=True)
+                probe = batch[1].to(
+                    primary_device, non_blocking=True
+                )  # (B, C, P, H, W)
+                in_scale = batch_data['rms_scaling_constant'].to(
+                    primary_device, non_blocking=True
+                )
+                effective_probe = probe
 
             # Save uncropped probe from first batch for probe-based swap detection
             if saved_probe_single is None:
-                saved_probe_single = probe[0, 0, 0].clone()  # (N, N) complex, first mode
+                saved_probe_single = effective_probe[0, 0, 0].clone()
 
             # Model inference
+            _synchronize_cuda_for_timing(primary_device)
             inference_start = time.time()
 
             if isinstance(model, nn.DataParallel):
@@ -1301,7 +1356,7 @@ def reconstruct_image_barycentric(model: nn.Module,
             else:
                 texture_raw = model.forward_predict(I_raw, positions, probe, in_scale)
 
-            torch.cuda.synchronize()
+            _synchronize_cuda_for_timing(primary_device)
             inference_time = time.time() - inference_start
             total_inference_time += inference_time
 
@@ -1309,26 +1364,27 @@ def reconstruct_image_barycentric(model: nn.Module,
             a_tilde = texture_raw.real
             b_tilde = texture_raw.imag
 
-            # --- VarPro Accumulation (incoherent multi-mode) ---
-            # VARPRO-SOLVE-UNITS-001: accumulate in the training count-unit
-            # convention, on the FULL detector frame BEFORE any center-crop:
-            # I_raw vs sum_p |F{output_scale * probe * texture}|^2, where
-            # output_scale = sqrt(1/(probe_scaling^2 * physics_scale + 1e-9))
-            # is exactly compute_loss's rectangular_scaled folding
-            # (model.py:2283 -> model.py:1395). Pre-fix the solve compared
-            # cropped raw counts against an UNSCALED, crop-band-mismatched
-            # basis, absorbing output_scale x crop distortion into s1/s2
-            # (5.49/22.49 measured on an already-correct reconstruction).
+            # VarPro always accumulates on the full detector frame. CI uses the
+            # calibrated, masked physical probe directly; explicit legacy
+            # rectangular mode retains its historical output-scale fold.
+            _synchronize_cuda_for_timing(primary_device)
             assembly_start = time.time()
-            if rectangular_scaled_mode:
+            if ci_varpro_mode:
+                output_scale = None
+                Psi_a, Psi_b, X1, X2, X3 = compute_varpro_basis(
+                    effective_probe, a_tilde, b_tilde, scale=None
+                )
+            elif rectangular_scaled_mode:
                 physics_scale = batch_data['physics_scaling_constant'].to(primary_device, non_blocking=True)
                 probe_scaling = batch[2].to(primary_device, non_blocking=True)
                 output_scale = torch.sqrt(1.0 / (probe_scaling ** 2 * physics_scale + 1e-9))
-                Psi_a, Psi_b, X1, X2, X3 = compute_varpro_basis(probe, a_tilde, b_tilde,
+                Psi_a, Psi_b, X1, X2, X3 = compute_varpro_basis(effective_probe, a_tilde, b_tilde,
                                                                 scale=output_scale)
             else:  # amplitude: preserve the historical unscaled basis (self-consistent)
                 output_scale = None
-                Psi_a, Psi_b, X1, X2, X3 = compute_varpro_basis(probe, a_tilde, b_tilde)
+                Psi_a, Psi_b, X1, X2, X3 = compute_varpro_basis(
+                    effective_probe, a_tilde, b_tilde
+                )
 
             scaler.accumulate_batch_from_basis(I_raw, X1, X2, X3)
 
@@ -1343,7 +1399,9 @@ def reconstruct_image_barycentric(model: nn.Module,
             b_tilde = b_tilde[:, :, center_start:center_end, center_start:center_end]
 
             # Also crop the probe to match (B, C, P, H, W)
-            probe = probe[:, :, :, center_start:center_end, center_start:center_end]
+            effective_probe = effective_probe[
+                :, :, :, center_start:center_end, center_start:center_end
+            ]
 
             # --- Weighted Stitching ---
             B,C,H,W= a_tilde.shape
@@ -1354,7 +1412,9 @@ def reconstruct_image_barycentric(model: nn.Module,
             canvas_positions = relative_positions + canvas_center.unsqueeze(0)
 
             # Total probe intensity: sum |P_p|^2 over all incoherent modes
-            probe_mag_sq = torch.sum(torch.abs(probe[0, 0, :, :, :]) ** 2, dim=0)  # (P,H,W) -> (H,W)
+            probe_mag_sq = torch.sum(
+                torch.abs(effective_probe[0, 0, :, :, :]) ** 2, dim=0
+            )  # (P,H,W) -> (H,W)
 
             # Change texture_raw to complex
             O_tilde = torch.complex(a_tilde, b_tilde)
@@ -1366,15 +1426,17 @@ def reconstruct_image_barycentric(model: nn.Module,
                                         patch_size = inference_config.middle_trim,
                                         uniform_weighting = uniform_weighting)
 
+            _synchronize_cuda_for_timing(primary_device)
             assembly_time = time.time() - assembly_start
             total_assembly_time += assembly_time
 
             # Memory cleanup
-            del I_raw, positions, probe, in_scale, batch_global_coords
+            del I_raw, positions, probe, effective_probe, in_scale, batch_global_coords
             del texture_raw, canvas_positions
 
             if i % 5 == 0:
-                torch.cuda.empty_cache()
+                if uses_cuda:
+                    torch.cuda.empty_cache()
                 gc.collect()
             # Logging
             if verbose:
@@ -1437,7 +1499,8 @@ def reconstruct_image_barycentric(model: nn.Module,
         print(f"  Total constant solve time: {scaler_solve_time_end:.2f}s")
 
     # Final cleanup
-    torch.cuda.empty_cache()
+    if uses_cuda:
+        torch.cuda.empty_cache()
     gc.collect()
 
     # Anchor disclosure (Task B4a, build_canvas_anchor's docstring). Recorded
@@ -1448,8 +1511,9 @@ def reconstruct_image_barycentric(model: nn.Module,
 
     if return_diagnostics:
         modified_scaled_canvas = texture_canvas.real + 1j * texture_canvas.imag
-        # Psi_a/Psi_b are full-frame, output_scale-folded post VARPRO-SOLVE-UNITS-001
-        # (were cropped/unscaled); only s1/s2 (indices 4/5) are contract-stable.
+        # Psi_a/Psi_b are full-frame. They are physical-probe/unscaled for CI
+        # and output-scale-folded for explicit legacy rectangular mode; only
+        # s1/s2 (indices 4/5) are contract-stable.
         return (
             scaled_canvas, ptycho_subset,
             [total_inference_time, total_assembly_time, Psi_a, Psi_b, s1, s2, canvas_anchor],

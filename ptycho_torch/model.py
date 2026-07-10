@@ -16,7 +16,7 @@ from typing import Any, Dict, Optional
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
 from ptycho_torch.scaling_contract import (
     CI_SCALE_CONTRACT,
-    resolve_scale_contract,
+    normalize_ci_poisson_per_sample,
     validate_scale_contract,
 )
 import ptycho_torch.helper as hh
@@ -1392,6 +1392,38 @@ class RectangularPoissonLoss(nn.Module):
         return -poisson_dist.log_prob(raw)
 
 
+class CIIntensityPoissonLoss(nn.Module):
+    """Count-domain Poisson NLL for the absolute-scaling CI profile.
+
+    The NLL is accumulated in float64 to avoid cancellation for high float32
+    counts, then cast back to the prediction dtype after detector reduction so
+    the training loss and its gradients retain the model's floating dtype.
+    """
+
+    def forward(self, pred, raw):
+        torch._assert_async(
+            torch.isfinite(raw).all(),
+            "CI Poisson observations must be finite.",
+        )
+        torch._assert_async(
+            (raw >= 0).all(),
+            "CI Poisson observations must be non-negative.",
+        )
+        rate = torch.clamp(pred, min=1e-8)
+        torch._assert_async(
+            torch.isfinite(rate).all(),
+            "CI Poisson rate must be finite.",
+        )
+        rate64 = rate.to(torch.float64)
+        raw64 = raw.to(torch.float64)
+        per_pixel_nll = (
+            rate64
+            - raw64 * torch.log(rate64)
+            + torch.lgamma(raw64 + 1.0)
+        )
+        return per_pixel_nll.sum(dim=(-3, -2, -1)).to(pred.dtype)
+
+
 class RectangularMAELoss(nn.Module):
     """MAE for the rectangular_scaled forward, replicating main's re-square quirk.
 
@@ -1747,7 +1779,11 @@ class PtychoPINN_Lightning(L.LightningModule):
         if isinstance(inference_config, dict):
             inference_config = InferenceConfig(**inference_config)
 
-        validate_scale_contract(data_config, model_config, training_config)
+        resolved_scale_contract = validate_scale_contract(
+            data_config,
+            model_config,
+            training_config,
+        )
 
         generator_module, generator_output = _resolve_generator_from_config(
             model_config,
@@ -1798,6 +1834,10 @@ class PtychoPINN_Lightning(L.LightningModule):
         self.data_config = data_config
         self.training_config = training_config
         self.inference_config = inference_config
+        self._ci_mode = (
+            resolved_scale_contract is not None
+            and resolved_scale_contract.version == CI_SCALE_CONTRACT
+        )
         self.register_buffer(
             "_ci_rms_input_scale",
             torch.empty(0, dtype=torch.float32),
@@ -1820,6 +1860,7 @@ class PtychoPINN_Lightning(L.LightningModule):
             getattr(self.training_config, "torch_mae_pred_l2_match_target", False)
         )
         self._last_mae_alpha_stats = None
+        self._last_ci_raw_count_nll = None
 
         #Scaling module specifically for multi-scaling
         self.scaler = IntensityScalerModule(model_config)
@@ -1905,7 +1946,10 @@ class PtychoPINN_Lightning(L.LightningModule):
         _rect_mode = getattr(model_config, 'physics_forward_mode', 'amplitude') == 'rectangular_scaled'
         #Poisson Loss only works with Unsupervised
         if model_config.mode == 'Unsupervised' and model_config.loss_function == 'Poisson':
-            self.Loss = RectangularPoissonLoss() if _rect_mode else PoissonLoss()
+            if self._ci_mode:
+                self.Loss = CIIntensityPoissonLoss()
+            else:
+                self.Loss = RectangularPoissonLoss() if _rect_mode else PoissonLoss()
             self.loss_name = 'poisson_train'
             self.val_loss_name = 'poisson_val'
         #MAE works with both
@@ -2063,34 +2107,57 @@ class PtychoPINN_Lightning(L.LightningModule):
             'physics_forward_mode',
             'amplitude',
         ) == 'rectangular_scaled'
-        ci_mode = False
-        if rectangular_mode:
-            ci_mode = resolve_scale_contract(
-                getattr(self.data_config, "scale_contract_version", None),
-                getattr(self.data_config, "measurement_domain", None),
-            ).version == CI_SCALE_CONTRACT
+        ci_mode = rectangular_mode and self._ci_mode
 
         # Grab required data fields from TensorDict
-        x = batch[0]['images']
-        observed_images = (
-            batch[0]['measured_intensity']
-            if ci_mode
-            else batch[0].get('observed_images', x)
-        )
-        positions = batch[0]['coords_relative']
-        probe = batch[1]
-        rms_scale = (
-            batch[0]['rms_input_scale']
-            if ci_mode
-            else batch[0]['rms_scaling_constant']
-        )
-        physics_scale = (
-            None
-            if ci_mode
-            else batch[0]['physics_scaling_constant']
-        )
-        experiment_ids = batch[0]['experiment_id']
-        scale = batch[2]
+        fields = batch[0]
+        x = fields['images']
+        positions = fields['coords_relative']
+        experiment_ids = fields['experiment_id']
+        if ci_mode:
+            observed_images = fields['measured_intensity']
+            rms_scale = fields['rms_input_scale']
+            mean_measured_intensity = fields['mean_measured_intensity']
+            named_probe_fields = (
+                'probe_training',
+                'probe_physical',
+                'probe_normalization',
+            )
+            named_probe_presence = [name in fields for name in named_probe_fields]
+            if any(named_probe_presence):
+                # Partial named payloads are invalid; direct indexing identifies
+                # the missing field. Complete CI loaders always take this path.
+                probe = fields['probe_training']
+                probe_physical = fields['probe_physical']
+                probe_normalization = fields['probe_normalization']
+            else:
+                # Deprecated outer tuple aliases remain accepted only as an
+                # all-or-nothing compatibility payload for pre-contract callers.
+                probe = batch[1]
+                probe_physical = probe
+                probe_normalization = batch[2].unsqueeze(-1)
+            if probe.shape != probe_physical.shape:
+                raise ValueError(
+                    "probe_training and probe_physical must have matching shapes."
+                )
+            if probe.device != probe_physical.device or probe.dtype != probe_physical.dtype:
+                raise ValueError(
+                    "probe_training and probe_physical must have matching dtype/device."
+                )
+            expected_normalization_shape = (probe.shape[0], 1, 1, 1, 1)
+            if probe_normalization.shape != expected_normalization_shape:
+                raise ValueError(
+                    "probe_normalization must have shape "
+                    f"{expected_normalization_shape}; got {tuple(probe_normalization.shape)}."
+                )
+            scale = probe_normalization.reshape(probe.shape[0], 1, 1, 1)
+            physics_scale = None
+        else:
+            observed_images = fields.get('observed_images', x)
+            probe = batch[1]
+            rms_scale = fields['rms_scaling_constant']
+            physics_scale = fields['physics_scaling_constant']
+            scale = batch[2]
         # old_scaling = batch[2]
         physics_weight = 0
     
@@ -2103,6 +2170,7 @@ class PtychoPINN_Lightning(L.LightningModule):
         #Calc loss
         total_loss = 0.0
         self._last_mae_alpha_stats = None
+        self._last_ci_raw_count_nll = None
 
         # B5 (Task 2.6): rectangular_scaled reproduces main's scale routing --
         # fold probe_scaling (batch[2]=scale) and physics_scale into the forward's
@@ -2126,18 +2194,23 @@ class PtychoPINN_Lightning(L.LightningModule):
                                             experiment_ids = experiment_ids
                                             )
 
-        #Normalization factor for loss output (just to keep it scaled down)
-        intensity_norm_factor = torch.mean(observed_images).detach() + 1e-8
-
         if self.model_config.mode == 'Unsupervised' and rectangular_mode:
-            # main semantics: physics already folded into the forward, so no
-            # post-hoc pred*physics_scale multiply. The loss (Rectangular*Loss)
-            # consumes the predicted/observed intensities directly. The MAE
-            # L2-match knob is an amplitude-path feature and is not applied here.
-            total_loss += self.Loss(pred, observed_images).mean()
-            total_loss /= intensity_norm_factor
+            if ci_mode:
+                raw_count_nll = self.Loss(pred, observed_images)
+                self._last_ci_raw_count_nll = raw_count_nll.mean().detach()
+                total_loss += normalize_ci_poisson_per_sample(
+                    raw_count_nll,
+                    mean_measured_intensity,
+                ).mean()
+            else:
+                # Explicit legacy retains the historical normalized-amplitude
+                # Poisson and double-square MAE reductions.
+                intensity_norm_factor = torch.mean(observed_images).detach() + 1e-8
+                total_loss += self.Loss(pred, observed_images).mean()
+                total_loss /= intensity_norm_factor
 
         elif self.model_config.mode == 'Unsupervised':
+            intensity_norm_factor = torch.mean(observed_images).detach() + 1e-8
             pred_physics = pred * physics_scale
             obs_physics = observed_images * physics_scale
             if self.torch_loss_mode == 'mae' and self.torch_mae_pred_l2_match_target:
@@ -2218,6 +2291,15 @@ class PtychoPINN_Lightning(L.LightningModule):
 
         #Logging
         self.log(self.loss_name, loss, on_epoch = True, prog_bar=True, logger=True, sync_dist=True)
+        if self._last_ci_raw_count_nll is not None:
+            self.log(
+                "raw_count_nll_train",
+                self._last_ci_raw_count_nll,
+                on_epoch=True,
+                prog_bar=False,
+                logger=True,
+                sync_dist=True,
+            )
         if self._last_mae_alpha_stats is not None:
             self.log("mae_pred_l2_alpha_mean_train", self._last_mae_alpha_stats["mean"], on_epoch=True, logger=True, sync_dist=True)
             self.log("mae_pred_l2_alpha_std_train", self._last_mae_alpha_stats["std"], on_epoch=True, logger=True, sync_dist=True)
@@ -2235,6 +2317,15 @@ class PtychoPINN_Lightning(L.LightningModule):
         
         # Log validation loss
         self.log(self.val_loss_name, val_loss, on_epoch=True, prog_bar=True, logger=True, sync_dist=True)
+        if self._last_ci_raw_count_nll is not None:
+            self.log(
+                "raw_count_nll_val",
+                self._last_ci_raw_count_nll,
+                on_epoch=True,
+                prog_bar=False,
+                logger=True,
+                sync_dist=True,
+            )
         if self._last_mae_alpha_stats is not None:
             self.log("mae_pred_l2_alpha_mean_val", self._last_mae_alpha_stats["mean"], on_epoch=True, logger=True, sync_dist=True)
             self.log("mae_pred_l2_alpha_std_val", self._last_mae_alpha_stats["std"], on_epoch=True, logger=True, sync_dist=True)

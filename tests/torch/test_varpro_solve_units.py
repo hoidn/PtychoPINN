@@ -1,4 +1,4 @@
-"""VARPRO-SOLVE-UNITS-001: the inference-time VarPro scalar solve must compare
+"""VARPRO-SOLVE-UNITS-001: explicit legacy VarPro must compare
 observed diffraction and basis images in the SAME units the training loss used.
 
 Training (physics_forward_mode='rectangular_scaled') converges the object so
@@ -21,19 +21,6 @@ from tensordict import TensorDict
 
 from ptycho_torch import reassembly
 from ptycho_torch.config_params import DataConfig, InferenceConfig, ModelConfig, TrainingConfig
-
-# reconstruct_image_barycentric (ptycho_torch/reassembly.py) calls
-# torch.cuda.synchronize() unconditionally for inference-timing measurement,
-# regardless of the configured device -- unavailable under CI's
-# CUDA_VISIBLE_DEVICES="" (CPU-only gate). Only the tests that route through
-# it need this guard; the two compute_varpro_basis unit tests below call that
-# function directly and are CUDA-independent.
-_requires_cuda = pytest.mark.skipif(
-    not torch.cuda.is_available(),
-    reason="reconstruct_image_barycentric calls torch.cuda.synchronize() "
-           "unconditionally; unavailable when CUDA_VISIBLE_DEVICES='' (CI CPU-only gate)",
-)
-
 
 # ---------------------------------------------------------------------------
 # compute_varpro_basis: optional training-unit scale folding
@@ -186,7 +173,12 @@ def _build_synthetic_case(s1_true: float, s2_true: float, *, com: "torch.Tensor 
 def _run_reconstruction(model, dataset, *, varpro_scaling: bool,
                          physics_forward_mode: str = "rectangular_scaled",
                          verbose: bool = False):
-    data_config = DataConfig(N=_N, C=1)
+    data_config = DataConfig(
+        N=_N,
+        C=1,
+        scale_contract_version="legacy_v1",
+        measurement_domain="normalized_amplitude",
+    )
     model_config = ModelConfig(physics_forward_mode=physics_forward_mode)
     training_config = dataclasses.replace(TrainingConfig(), device="cpu", num_workers=1)
     inference_config = InferenceConfig(
@@ -198,7 +190,6 @@ def _run_reconstruction(model, dataset, *, varpro_scaling: bool,
     )
 
 
-@_requires_cuda
 def test_varpro_solve_recovers_known_scalars_from_training_unit_observations():
     """Observations generated at KNOWN (s1, s2) = (1.3, 0.7) in the training
     count-unit convention: the solve must recover them. Pre-fix (units
@@ -217,7 +208,6 @@ def test_varpro_solve_recovers_known_scalars_from_training_unit_observations():
     assert s2 == pytest.approx(s2_true, rel=5e-2), f"s2={s2} (true {s2_true})"
 
 
-@_requires_cuda
 def test_varpro_solve_is_unit_for_converged_model_at_unit_scalars():
     """The Task VP acceptance shape: a model whose textures already explain the
     observations at s1=s2=1 must solve to ~1/~1 -- VarPro must not rescale an
@@ -233,7 +223,6 @@ def test_varpro_solve_is_unit_for_converged_model_at_unit_scalars():
     assert s2 == pytest.approx(1.0, rel=5e-2), f"s2={s2}"
 
 
-@_requires_cuda
 def test_amplitude_mode_takes_scale_none_branch_matching_pre_fix_basis():
     """Amplitude-mode models (physics_forward_mode default 'amplitude') must
     NOT get the rectangular_scaled output_scale fold: the reviewer-required
@@ -265,7 +254,6 @@ def test_amplitude_mode_takes_scale_none_branch_matching_pre_fix_basis():
     torch.testing.assert_close(Psi_b, Psi_b_ref)
 
 
-@_requires_cuda
 def test_novarpro_canvas_untouched_by_the_units_fix_path():
     """Byte-identity guard for the recorded-evidence basis: the
     varpro_scaling=False canvas must equal the varpro run's pre-rescale canvas
@@ -293,7 +281,6 @@ def test_novarpro_canvas_untouched_by_the_units_fix_path():
 # own coords_global is the only value that is always correct).
 # ---------------------------------------------------------------------------
 
-@_requires_cuda
 def test_comless_dataset_does_not_raise():
     """A dataset with no 'com' key in data_dict must reconstruct successfully
     (center_of_mass is always derived from coords_global)."""
@@ -306,7 +293,6 @@ def test_comless_dataset_does_not_raise():
     assert stats[6]["scan_com"] is not None
 
 
-@_requires_cuda
 def test_stored_com_is_ignored_in_favor_of_derived_coords():
     """Inertness pin (contract, not a bugfix regression): a dataset carrying a
     deliberately WRONG stored 'com' (true centroid + 50) must produce the
@@ -339,7 +325,6 @@ def test_stored_com_is_ignored_in_favor_of_derived_coords():
 # None (amplitude mode) and must not reference an unbound local.
 # ---------------------------------------------------------------------------
 
-@_requires_cuda
 def test_verbose_scalars_solved_print_is_safe_when_output_scale_is_none(capsys):
     """Amplitude-mode models take the ``output_scale=None`` branch (no
     rectangular_scaled fold). The verbose 'Scalars solved' print must render

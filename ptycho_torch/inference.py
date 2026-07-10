@@ -341,6 +341,25 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     """
     import torch
     import numpy as np
+    from ptycho_torch.scaling_contract import (
+        CI_SCALE_CONTRACT,
+        ci_scaling_active,
+        resolve_scale_contract,
+    )
+
+    model_config = getattr(model, "model_config", None)
+    data_config = getattr(model, "data_config", None)
+    if model_config is not None and ci_scaling_active(model_config):
+        profile = resolve_scale_contract(
+            getattr(data_config, "scale_contract_version", None),
+            getattr(data_config, "measurement_domain", None),
+        )
+        if profile.version == CI_SCALE_CONTRACT:
+            raise RuntimeError(
+                "ci_intensity_v2 inference requires the canonical "
+                "reconstruct_image_barycentric physical-probe VarPro path. The "
+                "simplified uniform-stitching path cannot produce CI-scaled output."
+            )
 
     # DEVICE-MISMATCH-001 fix: Ensure model is on the requested device and in eval mode
     model.to(device)
@@ -599,6 +618,18 @@ Examples:
         dest='probe_mask_diameter',
         help='Probe-mask disk diameter in pixels (default: N/2).'
     )
+    parser.add_argument(
+        '--scale-contract-version',
+        choices=['ci_intensity_v2', 'legacy_v1'],
+        default=None,
+        help='Scaling profile override; must be paired with --measurement-domain.',
+    )
+    parser.add_argument(
+        '--measurement-domain',
+        choices=['count_intensity', 'normalized_amplitude'],
+        default=None,
+        help='Measurement-domain override; must be paired with --scale-contract-version.',
+    )
 
     # Execution config flags (Phase C4.C5 - ADR-003)
     parser.add_argument(
@@ -690,6 +721,10 @@ Examples:
         'log_patch_stats': args.log_patch_stats,
         'patch_stats_limit': args.patch_stats_limit,
     }
+    if args.scale_contract_version is not None:
+        overrides['scale_contract_version'] = args.scale_contract_version
+    if args.measurement_domain is not None:
+        overrides['measurement_domain'] = args.measurement_domain
 
     # Call factory to construct all configs and populate params.cfg
     try:
@@ -732,7 +767,9 @@ Examples:
         # (models_dict, params_dict) matching TensorFlow baseline API
         models_dict, params_dict = load_inference_bundle_torch(
             bundle_dir=model_path,
-            model_name='diffraction_to_obj'
+            model_name='diffraction_to_obj',
+            scale_contract_version=args.scale_contract_version,
+            measurement_domain=args.measurement_domain,
         )
 
         # Extract Lightning module from models dict
