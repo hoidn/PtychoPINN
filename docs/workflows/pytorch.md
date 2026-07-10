@@ -2,8 +2,7 @@
 
 This guide is the authority for configuring and running the PyTorch backend of
 PtychoPINN: the Lightning-based training stack under `ptycho_torch/` with a generator
-registry for architecture selection. PyTorch (torch ≥ 2.2) is a mandatory dependency
-(POLICY-001).
+registry for architecture selection. PyTorch (torch ≥ 2.2) is a mandatory dependency.
 
 ## 1. Overview
 
@@ -42,16 +41,16 @@ Key properties:
 
 ## 3. Configuration
 
-### 3.1. The Two Config Layers (CONFIG-001 / CONFIG-002)
+### 3.1. The Two Config Layers
 
 1. **Canonical configs** (`TrainingConfig`, `InferenceConfig`, `ModelConfig`) describe
    the model and data. They bridge to `params.cfg` and to the torch singletons.
-   **CONFIG-001:** `update_legacy_dict(params.cfg, config)` MUST run before any data
+   `update_legacy_dict(params.cfg, config)` MUST run before any data
    loading or legacy-module import. The CLIs do this automatically via
    `ptycho_torch/config_factory.py`; programmatic callers must do it themselves.
 2. **`PyTorchExecutionConfig`** (`ptycho.config.config`) holds runtime-only knobs
    (accelerator, workers, learning rate, scheduler, checkpointing, logger, structural
-   search fields). **CONFIG-002:** execution config must NEVER populate `params.cfg`.
+   search fields). Execution config must NEVER populate `params.cfg`.
    Full field catalog and validation rules: `specs/ptychodus_api_spec.md` §4.9.
 
 ```python
@@ -98,7 +97,7 @@ search knobs for the hybrid/ResNet family (`hybrid_downsample_steps`,
 `ModelConfig` / `PyTorchExecutionConfig` and are intentionally NOT bridged to the
 canonical dataclasses.
 
-**Reliability caveat (TORCH-N128-FLAT-AMP-001):** the stock `cnn` under the
+**Reliability caveat:** the stock `cnn` under the
 count-Poisson recipe at `N=128` collapses to a flat-amplitude output with
 near-certainty unless the TF-parity preset below is applied; `hybrid_resnet` is
 unaffected.
@@ -141,8 +140,8 @@ unchanged:
 | `training_patch_weighting` | `'central_mask'` | `'probe'` (or `'uniform'`) | Training-forward reassembly weighting: binary center mask vs `Σ|probe|²`-weighted (`'uniform'` isolates the code-path change without probe weighting). Distinct from the inference-only `InferenceConfig.patch_weighting`. |
 | `physics_forward_mode` | `'amplitude'` | `'rectangular_scaled'` | Routes patches through `RectangularScaledDiffraction` (analytic real/imag intensity model with per-dataset trainable `s1`/`s2` unless `rect_s1s2_trainable=False`). Requires `cnn_output_mode='real_imag'`; the matching intensity-domain losses (`RectangularPoissonLoss` / `RectangularMAELoss`) are selected automatically. |
 
-Physical semantics of `s1`/`s2` and known residual differences:
-`docs/findings.md#RECTANGULAR-SCALED-001`.
+Physical semantics of `s1`/`s2` and known residual differences: see the
+rectangular-scaled diffraction entry in `docs/findings.md`.
 
 Two further knobs are **inference-only** (`InferenceConfig.patch_weighting`,
 `InferenceConfig.varpro_scaling`): they affect only
@@ -173,9 +172,9 @@ An additional default-off mechanism, `parity_scale_mode`
 Cautions:
 - Do NOT set `intensity_scale_trainable=True` alongside the parity kwargs — the dead
   `IntensityScalerModule` machinery silently overwrites the input-side parity scale
-  (`docs/findings.md` TORCH-INTENSITY-SCALE-DEAD-001).
-- Root-cause record and evidence: `docs/findings.md` TORCH-N128-FLAT-AMP-001;
-  `docs/plans/2026-07-08-cnn-n128-tf-parity.md`.
+  (see the dead intensity-scaler entry in `docs/findings.md`).
+- Root-cause record: the N=128 flat-amplitude collapse entry in `docs/findings.md`;
+  evidence: `docs/plans/2026-07-08-cnn-n128-tf-parity.md`.
 
 ## 4. Training
 
@@ -218,7 +217,7 @@ Flags (`python -m ptycho_torch.train --help` is authoritative):
 
 The CLI builds `PyTorchExecutionConfig` through `ptycho_torch/cli/shared.py`
 (`resolve_accelerator`, `build_execution_config_from_args`, `validate_paths`), which
-also enforces CONFIG-001 via the config factory.
+also performs the mandatory `params.cfg` bridging via the config factory.
 
 ### 4.3. Programmatic
 
@@ -281,7 +280,7 @@ Reminder: this CLI stitches with uniform weighting only — use
 `ptycho_torch.reassembly.reconstruct_image_barycentric` in-process for
 `patch_weighting`/`varpro_scaling` (§3.5).
 
-**Device handoff (DEVICE-HANDOFF-001):** when chaining training and custom inference
+**Device handoff:** when chaining training and custom inference
 in one process, do not assume the post-`fit()` module is still on the training
 accelerator — resolve the target device explicitly and call `model.to(device)` before
 the forward loop (see `docs/DEVELOPER_GUIDE.md` §2.6).
@@ -296,9 +295,10 @@ the forward loop (see `docs/DEVELOPER_GUIDE.md` §2.6).
 - `'tensorflow'` routes to `ptycho.workflows.components` without importing torch;
   `'pytorch'` routes to `ptycho_torch.workflows.components` with the same
   `(amplitude, phase, results)` return shape (plus `results['backend']`).
-- CONFIG-001 bridging runs before backend inspection.
+- The legacy `params.cfg` bridge (`update_legacy_dict`) runs before backend
+  inspection.
 - Fail-fast: missing torch raises an actionable `RuntimeError` (no silent TensorFlow
-  fallback, per POLICY-001); invalid backend values raise `ValueError`; loading a
+  fallback — PyTorch is a hard dependency); invalid backend values raise `ValueError`; loading a
   checkpoint with the wrong backend raises a descriptive error (TF bundles are Keras
   `.h5.zip`; torch bundles are Lightning `.ckpt` + `.h5.zip`).
 
@@ -338,17 +338,18 @@ Consult each runner's `--help` and `scripts/studies/README.md`.
 
 ## 10. Constraints and Known Pitfalls
 
-- **EXEC-ACCUM-001:** `PtychoPINN_Lightning` uses manual optimization, which is
+- **Gradient accumulation:** `PtychoPINN_Lightning` uses manual optimization, which is
   incompatible with gradient accumulation — `--accumulate-grad-batches > 1` raises a
   `RuntimeError` before training. Keep the default (`1`).
-- **DATA-SUP-001:** supervised mode (`model_type='supervised'`) requires `label_amp` /
+- **Supervised mode** (`model_type='supervised'`) requires `label_amp` /
   `label_phase` keys in the NPZ; experimental datasets lack them and fail dataloader
   validation. Use PINN mode or generate labeled synthetic data.
 - **Gridsize > 1 support** is architecture-gated in the study runners (`cnn`,
   `hybrid_resnet`); other architectures currently reject `gridsize > 1` there.
 - **N=128 CNN collapse** without the parity preset (§3.6).
 - **`intensity_scale_trainable=True`** conflicts with the parity scale path (§3.6).
-- Shape mismatches at load time usually mean CONFIG-001 was skipped — see
+- Shape mismatches at load time usually mean the `update_legacy_dict(params.cfg,
+  config)` bridge was skipped — see
   `docs/debugging/TROUBLESHOOTING.md`.
 
 ## 11. Testing
@@ -375,4 +376,4 @@ Commands, selectors, and evidence requirements: `docs/TESTING_GUIDE.md`.
 - <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref> — TF ↔ torch config mapping
 - <doc-ref type="spec">specs/ptychodus_api_spec.md</doc-ref> — backend dispatch and execution-config contracts (§4.8–4.9)
 - <doc-ref type="contract">docs/specs/spec-ptycho-core.md</doc-ref> — NPZ data contract
-- <doc-ref type="guide">docs/findings.md</doc-ref> — finding IDs cited above
+- <doc-ref type="guide">docs/findings.md</doc-ref> — known-issue registry for the entries cited above

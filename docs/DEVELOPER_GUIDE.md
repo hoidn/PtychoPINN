@@ -30,7 +30,7 @@ It intentionally does **not** duplicate content owned by other documents:
 
 **The Lesson:** The repository contains two distinct, semi-independent systems: a
 legacy, grid-based system and a modern, coordinate-based system. Many bugs arise from
-the friction between them. (Finding: CONVENTION-001.)
+the friction between them.
 
 | Feature | Legacy "Grid-Based" System | Modern "Coordinate-Based" System |
 | --- | --- | --- |
@@ -49,7 +49,7 @@ The modern system has a second implementation: the PyTorch backend under
 `ptycho_torch/` (Lightning-based model, memory-mapped dataloader, and a generator
 registry — `ptycho_torch.generators.registry.resolve_generator` — that selects among
 CNN, FNO, FFNO, and hybrid architectures). PyTorch (torch ≥ 2.2) is a mandatory
-dependency (POLICY-001).
+dependency.
 
 Rules specific to this backend:
 
@@ -58,8 +58,8 @@ Rules specific to this backend:
 - **Config bridging:** torch-side configs (`ptycho_torch/config_params.py`) are bridged
   from the canonical dataclasses via `ptycho_torch/config_bridge.py`. Torch workflows
   must still run `update_legacy_dict(params.cfg, config)` before touching legacy
-  modules (CONFIG-001). `PyTorchExecutionConfig` controls runtime behavior only and
-  must **never** populate `params.cfg` (CONFIG-002).
+  modules. `PyTorchExecutionConfig` controls runtime behavior only and must **never**
+  populate `params.cfg`.
 - **Component contracts:** IDL-style contracts for the core data and workflow APIs
   (`RawData`, `PtychoDataContainer`, `run_grid_lines_torch`, `run_cdi_example_torch`,
   `resolve_generator`) live in <doc-ref type="guide">docs/architecture_torch.md</doc-ref>
@@ -75,7 +75,7 @@ Fundamental rules to avoid introducing fragile, difficult-to-debug code.
 
 A module must **never** perform complex, state-dependent operations (loading or
 generating data, building models) at the top level. Design functions to receive all
-data they need as explicit arguments. (Finding: ANTIPATTERN-001.)
+data they need as explicit arguments.
 
 ```python
 # Incorrect: importing this module re-runs a data pipeline
@@ -94,7 +94,7 @@ makes the codebase fragile and introduces unsafe initialization-order dependenci
 #### Configuration Migration
 
 Until the codebase is fully refactored, all modern scripts must follow this order
-(the "safe initialization pattern"; see CONFIG-001 and
+(the "safe initialization pattern"; see
 `docs/debugging/QUICK_REFERENCE_PARAMS.md`):
 
 1. Set up configuration using the modern `TrainingConfig`/`InferenceConfig` dataclasses.
@@ -110,9 +110,8 @@ Until the codebase is fully refactored, all modern scripts must follow this orde
 
 **The Lesson:** `ptycho.model` historically built a module-level model at import time
 using the then-current `params.cfg['gridsize']`, freezing the architecture with
-whatever gridsize happened to be set. CONFIG-001 alone cannot fix this — updating
-`params.cfg` after import does not rebuild an already-constructed model.
-(Finding: MODULE-SINGLETON-001, resolved.)
+whatever gridsize happened to be set. Updating `params.cfg` after import cannot fix
+this — an already-constructed model is never rebuilt.
 
 **The Rule:** Never construct models at module scope. `ptycho/model.py` now defers
 singleton creation via lazy `__getattr__`; custom workflows must use the factory
@@ -164,7 +163,7 @@ child study commands against a dedicated run/session checkout, it must keep plai
 `python` while explicitly setting `PYTHONPATH` to that session repo root. Do not
 inherit ambient launcher `PYTHONPATH`: cross-checkout module resolution can silently
 score the wrong source tree even when the child command string and Git `HEAD` look
-correct. (Finding: LINES256-IMPORT-PROVENANCE-001.)
+correct.
 
 ### 2.5. Invocation Provenance for Scripts and Orchestrators
 
@@ -250,9 +249,8 @@ to Flat Format before calling the core physics simulation engine.
 ### 3.5. Normalization Architecture: Three Distinct Systems
 
 **The Critical Lesson:** PtychoPINN uses three separate normalization systems that
-must never be confused. Mixing them is a recurring source of subtle bugs.
-(Finding: NORMALIZATION-001. Full treatment:
-<doc-ref type="guide">docs/DATA_NORMALIZATION_GUIDE.md</doc-ref>.)
+must never be confused. Mixing them is a recurring source of subtle bugs. (Full
+treatment: <doc-ref type="guide">docs/DATA_NORMALIZATION_GUIDE.md</doc-ref>.)
 
 1. **Physics normalization (`intensity_scale`)** — scales simulated data to realistic
    photon counts. `ptycho/diffsim.py` *calculates* the scale but does **not** apply
