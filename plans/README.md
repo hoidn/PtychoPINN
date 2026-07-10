@@ -4,6 +4,20 @@ This directory contains both active implementation plans and meta-level process 
 
 ---
 
+## Refactoring / debt-paydown initiative (2026-07)
+
+Codebase-wide debt paydown, framed by a 6-analysis audit. Execute top-down; Phases 0–1
+are the low-risk, high-leverage near-term work.
+
+- `2026-07-07-refactoring-roadmap.md` — **the frame**: 5 root generators, 4 phases, recommendation. *Revised 2026-07-10 (post-rebase status + drift).*
+- `2026-07-07-refactor-phase-0-cleanup.md` — delete zero-importer dead code (RG3). **DONE 2026-07-10** (residual sweep optional).
+- `2026-07-07-refactor-phase-1-safety-net.md` — seal `params.cfg` + fail-fast + provenance (RG2/RG4). **Highest leverage. Wave A DONE; Wave B open** (gate restated 2026-07-10).
+- `2026-07-07-refactor-phase-2-consolidate.md` — config guard, delete `api/`, unify geometry/metrics (RG3/RG5). Unblocked (P0 done); gs2 READ-ONLY coordination required.
+- `2026-07-07-refactor-phase-3-core-extraction.md` — backend-neutral core + typed seams (RG1). Staged, design-gated. Not started.
+- `2026-07-06-pipeline-consolidation.md` (+ `-tiers-0-2.md`) — a vertical slice (reassembly/inference/solver). Not executed; anchors (`a1d52011`) archive-only post-rebase.
+
+---
+
 ## Directory Structure
 
 ```

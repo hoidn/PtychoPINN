@@ -16,6 +16,27 @@ is the torch test suite staying green (a hidden import surfaces there).
 
 ---
 
+> **EXECUTION STATUS (2026-07-10): effectively COMPLETE — close after the residual
+> sweep below.** Tasks 1, 2.1, 2.2, 3.2, 3.3 executed pre-rebase (`c3ac2415` et al.,
+> now on `fno-stable-archive-20260707`; content carried into the rebuilt branch at
+> `f66e8d43`). Verified at HEAD `74524eeb`: all 10 Task-1 modules + the `misc.py`
+> dead copy GONE; `train.py`/`train_supervised.py` + `setup.py` scripts entry GONE
+> (pyproject `ptycho_train`/`ptycho_inference` intact); `train_full.py` GONE;
+> `old_test_tf_helper.py` GONE; `tests/test_misc.py` deleted entirely (3.3 moot).
+> **Task 3.1 is OBSOLETE as written:** the dose-overlap collection errors were fixed
+> by module-level skips ("branch-local studies/ package not present — gitignored");
+> `pytest --collect-only tests/study` = 53 collected, 0 errors. The 7 test files
+> remain but no longer break anything.
+>
+> **Residual sweep (optional, S):**
+> - Drop the `config_params.py` fields flagged "only used in train_full" (`:181`
+>   comment survives its deleted consumer) — Task 2.2's second half.
+> - Decide keep-vs-delete for the 7 permanently-skipped `test_dose_overlap_*.py`
+>   files (cosmetic; collection is clean either way).
+> - Task 2.3 (`api/`) stays deferred to Phase 2; Task 2.4 (`single_image_frc.py`,
+>   still untracked at HEAD) stays with its own plan; Task 4 already resolved
+>   DEFERRED below.
+
 ## Task 1 — Delete certain-dead modules
 
 **Files (delete):**
