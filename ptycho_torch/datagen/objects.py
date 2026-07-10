@@ -5,7 +5,6 @@ import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
-import noise
 import time
 
 #Other functions
@@ -15,10 +14,8 @@ from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
 from skimage.draw import line_aa, disk, rectangle, ellipse, circle_perimeter_aa
 import scipy.ndimage as ndi
 from scipy.ndimage import gaussian_filter # For blurring the 2D noise
-from perlin_noise import PerlinNoise
 from scipy.spatial.transform import Rotation # For 3D rotations
 import random
-import cv2
 
 
 # Function to handle safe normalization per image in a batch
@@ -133,6 +130,8 @@ def create_simplex_noise_object(img_shape):
     Returns:
         np.ndarray: Complex-valued simplex noise object
     """
+    from perlin_noise import PerlinNoise
+
     # Generate simplex noise parameters
     octaves = np.random.randint(3, 8)
     noise_gen = PerlinNoise(octaves=octaves, seed=np.random.randint(10000))
@@ -194,6 +193,8 @@ def generate_perlin_object(
     Returns:
         torch.Tensor: Complex object tensor of shape (B, N, M) on the specified device.
     """
+    import noise
+
     # --- Input Validation ---
     if not (scale_batch.shape == (batch_size,) and
             octaves_batch.shape == (batch_size,) and
@@ -419,6 +420,8 @@ def generate_base_map_shapes_perlin_layers(
         gauss_blob_blur_sigma_range=(6.0, 12.0) # High blur sigma
     )
     """
+    from perlin_noise import PerlinNoise
+
     base = np.random.uniform(background_level_range[0], background_level_range[1], size=shape).astype(float)
     max_dim = max(shape)
     scaling_factor = shape[0]/256 #Initial number of objects scaled to 256 pixels
@@ -1073,6 +1076,8 @@ def dead_leaves_ptycho(res, r_sigma_param, max_iters,
                        min_phase, max_phase,
                        min_amp, max_amp,
                        rng=None):
+    import cv2
+
     if rng is not None and not isinstance(rng, np.random.Generator):
         raise TypeError("rng must be a numpy.random.Generator")
     random_source = np.random if rng is None else rng
