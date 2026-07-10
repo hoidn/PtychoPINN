@@ -597,6 +597,18 @@ Examples:
         )
     )
     parser.add_argument(
+        '--scale-contract-version',
+        choices=['ci_intensity_v2', 'legacy_v1'],
+        default=None,
+        help='Scaling profile override; must be paired with --measurement-domain.',
+    )
+    parser.add_argument(
+        '--measurement-domain',
+        choices=['count_intensity', 'normalized_amplitude'],
+        default=None,
+        help='Measurement-domain override; must be paired with --scale-contract-version.',
+    )
+    parser.add_argument(
         '--probe-mask',
         dest='probe_mask',
         action='store_true',
@@ -874,6 +886,10 @@ Examples:
             'patch_stats_limit': args.patch_stats_limit,
             'object_big': args.gridsize > 1,
         }
+        if args.scale_contract_version is not None:
+            overrides['scale_contract_version'] = args.scale_contract_version
+        if args.measurement_domain is not None:
+            overrides['measurement_domain'] = args.measurement_domain
         if test_data_file:
             overrides['test_data_file'] = test_data_file
 

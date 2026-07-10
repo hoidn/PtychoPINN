@@ -15,6 +15,7 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 | **CONFIG-001 Exception** | CONFIG-001 doesn't fix model architecture | Module-level singletons are created at import time; use factory functions | [Quick Reference](debugging/QUICK_REFERENCE_PARAMS.md#️-critical-exception-module-level-singletons-module-singleton-001) |
 | **ANTIPATTERN-001** | Hidden crashes from import-time side effects | Push work into functions with explicit arguments | [Developer Guide](DEVELOPER_GUIDE.md#21-anti-pattern-side-effects-on-import) |
 | **TORCH-N128-FLAT-AMP-001** | Torch `cnn` at N=128 under the count-Poisson recipe trains to a CONVERGED flat-amplitude output — raw `amp_mae` looks normal (~0.46), only pearson-based metrics expose it | Root cause is the port's default-on CBAM encoder attention: run the cnn with the TF-parity preset (`--cbam-encoder off --parity-init-scheme tf_glorot --scheduler ReduceLROnPlateau`) or use `hybrid_resnet` | [Finding: TORCH-N128-FLAT-AMP-001](findings.md) |
+| **CI-ABSOLUTE-SCALE-CONTRACT-001** | Rectangular data or checkpoints have ambiguous amplitude/count units, wrong probe gauge, or MAE is selected with CI | New rectangular workflows default to `ci_intensity_v2`/`count_intensity`; use both explicit legacy fields only for historical reproduction. CI requires Poisson NLL, frozen training statistics, and the physical probe for VarPro. | [Normalization Guide](DATA_NORMALIZATION_GUIDE.md), [Core Contract](specs/spec-ptycho-core.md), [Finding](findings.md) |
 
 ---
 
@@ -711,14 +712,14 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Setting up training or inference runs, understanding parameter precedence, or creating reproducible experiment configurations.
 
 #### [Standalone NPZ and Grouped Data Contract](specs/spec-ptycho-core.md) CRITICAL
-**Description:** Official standalone-NPZ and grouped-dict contract, including required keys, shapes, and amplitude-domain diffraction semantics.
-**Keywords:** NPZ-format, grouped-data, data-contracts, diffraction, amplitude
-**Use this when:** Creating or validating datasets, troubleshooting data format errors, or understanding amplitude vs intensity requirements.
+**Description:** Official standalone-NPZ and grouped-dict contract, including required keys, shapes, legacy normalized-amplitude semantics, and the versioned CI count-intensity/physical-probe contract.
+**Keywords:** NPZ-format, grouped-data, data-contracts, diffraction, amplitude, count-intensity, physical-probe
+**Use this when:** Creating or validating datasets, troubleshooting data format errors, or deciding which amplitude/count and probe-gauge contract applies.
 
 #### [Torch Loader and Batch Contract](specs/spec-ptycho-interfaces.md)
-**Description:** Normative Torch dataloader batch contract for native mmap and grid-lines dict-container paths.
-**Keywords:** torch-dataloader, batch-contract, tensor-dict, probe-scaling
-**Use this when:** Auditing `PtychoDataset`/`PtychoLightningDataset` batches or wiring data into `compute_loss`.
+**Description:** Normative Torch dataloader batch contract for native mmap and grid-lines dict-container paths, including CI named fields, frozen training statistics, multimode probe shapes, profile defaults, and explicit legacy compatibility.
+**Keywords:** torch-dataloader, batch-contract, tensor-dict, probe-scaling, ci_intensity_v2, measurement_domain
+**Use this when:** Auditing `PtychoDataset`/`PtychoLightningDataset` batches, wiring data into `compute_loss`, or loading versioned checkpoints/bundles.
 
 #### [Data Management Guide](DATA_MANAGEMENT_GUIDE.md)
 **Description:** Best practices for managing NPZ and HDF5 data files, including the distinction between durable dataset/checkpoint storage under `datasets/` and cleanup-prone run artifacts under `outputs/`, plus git hygiene rules and Ptychodus export workflow guidance.
@@ -726,9 +727,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Understanding data file organization, deciding where long-lived study inputs should live, exporting reconstructions to Ptychodus format, or ensuring data files are not committed to git.
 
 #### [Data Normalization Guide](DATA_NORMALIZATION_GUIDE.md)
-**Description:** Explains the three distinct types of normalization (physics, statistical, display) and their proper application throughout the data pipeline to avoid common scaling errors.
-**Keywords:** normalization, intensity_scale, physics, statistical, pipeline
-**Use this when:** Debugging normalization issues, implementing new data loading features, or resolving scaling-related bugs.
+**Description:** Separates the CI count-intensity/physical-probe contract from legacy physics, diffraction-amplitude, and display normalization, including NLL-only activation and raw-probe VarPro.
+**Keywords:** normalization, intensity_scale, physics, count-intensity, physical-probe, varpro, legacy
+**Use this when:** Debugging normalization or absolute-scale issues, implementing data loading, or selecting CI versus legacy behavior.
 
 #### [Data Generation Guide](DATA_GENERATION_GUIDE.md) CRITICAL
 **Description:** Comprehensive guide to the two data generation pipelines: grid-based (`mk_simdata`) for notebook-compatible workflows and nongrid (`generate_simulated_data`) for production scripts. Covers parameter mappings, entry points, and container construction.
@@ -863,8 +864,8 @@ Two spec trees are both live with disjoint scopes: `specs/` owns external intero
 **Use this when:** You need the top‑level map of all PtychoPINN specifications.
 
 #### [PtychoPINN Core Physics & Data Contracts](specs/spec-ptycho-core.md)
-**Description:** Normative definition of the forward model (object·probe→FFT→|F|²/N²→sqrt), Poisson observation, intensity scaling symmetry, coordinates/patch extraction, probe/masking/smoothing, valid inputs, losses, and outputs.  
-**Keywords:** physics, FFT, Poisson, scaling, offsets, probe, contracts  
+**Description:** Normative definition of the forward model, legacy amplitude and CI count-intensity scaling profiles, calibrated physical-probe gauge, Poisson observation, coordinates, masks, losses, and outputs.
+**Keywords:** physics, FFT, Poisson, scaling, offsets, physical-probe, count-intensity, contracts
 **Use this when:** Implementing or auditing the physical/mathematical operations and strict data shapes.
 
 #### [PtychoPINN Runtime & Execution](specs/spec-ptycho-runtime.md)

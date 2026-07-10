@@ -4,6 +4,26 @@
 
 This guide clarifies the three distinct types of normalization used in PtychoPINN and explains when and where each is applied. Understanding these conventions is critical for correctly implementing new features or modifying the data pipeline.
 
+PyTorch rectangular workflows have two versioned contracts. New inputs default to `ci_intensity_v2`/`count_intensity`; historical reproduction uses the explicit pair `legacy_v1`/`normalized_amplitude`. The legacy sections below describe TensorFlow, amplitude-forward, and explicit legacy behavior. They are not the CI absolute-scaling recipe.
+
+## CI Count-Intensity Contract
+
+CI data stores measured detector count intensity and a calibrated physical probe. The probe fixes the object/probe gauge, so inference must use `probe_physical` directly. A normalized training probe may improve conditioning, but its normalization is canceled exactly in the field:
+
+```python
+probe_training = q * probe_physical
+exit_wave = (1 / q) * probe_training * object_prediction
+```
+
+Training statistics are derived once from the finalized training split:
+
+```python
+rms_input_scale = sqrt((N / 2) ** 2 / mean_BC(sum_HW(measured_intensity ** 2)))
+mean_measured_intensity = mean_BCHW(measured_intensity)
+```
+
+CI is enabled only for unsupervised `rectangular_scaled` training with Poisson NLL. MAE is rejected before loading. The Poisson data term is divided by `mean_measured_intensity`; auxiliary object/overlap regularizers are added afterward. Inference uses physical-probe VarPro with the training mask and no `physics_scaling_constant` or training output scale.
+
 ## The Three Types of Normalization
 
 ### 1. Physics Normalization (`intensity_scale`)
@@ -156,10 +176,12 @@ return RawData(..., X, ...)  # Return normalized data
 - Keeps reconstruction in normalized space
 
 ### PyTorch backend
-- Derives a dataset-level `intensity_scale` from normalized training amplitudes and resolved `nphotons` — true for the container path (`ptycho_torch.workflows.components._attach_physics_scale`)
-- Persists the derived scale in the model bundle (and hparams) and reuses it for inference
-- Does not write derived scale back into dataset metadata
-- **Grid-lines dict-container path is scoped differently:** by default it attaches NO physics scale (`physics_scaling_constant` absent; `--count-scale-mode` default `off` in `TorchRunnerConfig`); `auto` is an opt-in fix (`ptycho_torch.workflows.components.derive_dict_physics_scale`) and is NOT outcome-preserving. See `docs/findings.md` POISSON-NORM-001, POISSON-SCALE-001.
+- New rectangular workflows default to CI count intensity and persist `rms_input_scale`, `mean_measured_intensity`, the profile pair, and physical-probe gauge metadata.
+- Mmap and in-memory loaders preserve both `probe_physical` and `probe_training`; their named tensors use `(B,C,P,H,W)` and support finite incoherent mode sums.
+- CI statistics come only from finalized training indices, are accumulated in bounded chunks, and are reused unchanged for validation, checkpoints, bundles, and inference.
+- CI training is Poisson-only. Raw count NLL is logged; the optimized data term uses physical-mean normalization.
+- CI VarPro uses `probe_physical`, the training detector mask, and `scale=None`. Dose-consistent probe/count changes leave recovered object scale invariant.
+- `physics_scaling_constant`, `count_scale_mode=auto`, and `derive_dict_physics_scale` remain explicit legacy/amplitude compatibility behavior. They do not establish CI absolute units.
 
 ### loader.py
 - Handles diffraction amplitude normalization for legacy data loading
@@ -202,7 +224,12 @@ return RawData(..., X, ...)  # Return normalized data
 When implementing or modifying normalization:
 
 - [ ] Is the normalization type clearly documented?
-- [ ] Is intensity_scale calculated but not applied to internal data?
+- [ ] Is the profile pair explicit, or intentionally defaulted to CI for a new rectangular workflow?
+- [ ] For legacy/amplitude data, is intensity_scale calculated but not applied to internal data?
+- [ ] For CI, are measured values count intensity and is the stored physical probe calibrated in the same gauge?
+- [ ] Are CI statistics derived only from finalized training indices and persisted for inference?
+- [ ] Is CI used only with Poisson NLL, never MAE?
+- [ ] Does CI inference use the raw physical probe without `physics_scaling_constant` or an output scale?
 - [ ] Is nphotons parameter passed correctly through the pipeline?
 - [ ] Does prepare.sh workflow still function correctly?
 - [ ] Are visualization scalings separate from training data?

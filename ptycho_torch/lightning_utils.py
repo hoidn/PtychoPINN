@@ -9,7 +9,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
-from dataclasses import asdict
+from dataclasses import asdict, fields as dataclass_fields
 
 import torch
 from lightning.pytorch.callbacks import Callback
@@ -23,6 +23,8 @@ from ptycho_torch.config_params import (
 from ptycho_torch.utils import config_to_json_serializable_dict
 from ptycho_torch.scaling_contract import (
     CI_SCALE_CONTRACT,
+    LEGACY_SCALE_CONTRACT,
+    NORMALIZED_AMPLITUDE,
     ci_scaling_active,
     resolve_scale_contract,
 )
@@ -267,7 +269,60 @@ def create_experiment_loggers(experiment_name: str,
     return tb_logger, csv_logger
 
 
-def load_configs_from_checkpoint(checkpoint_path: str) -> Tuple[DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig]:
+_OBSOLETE_CONFIG_FIELDS = {
+    "data_config": {"probe_ramp_removal"},
+    "model_config": {
+        "amplitude_variance_coeff",
+        "amplitude_variance_loss",
+        "probe_reference_coeff",
+    },
+    "training_config": {
+        "enable_staged_finetuning",
+        "finetune_early_stop_patience",
+        "finetune_skip_stage3",
+        "finetune_stage1_epochs",
+        "finetune_stage1_lr_decoder",
+        "finetune_stage2_epochs",
+        "finetune_stage2_lr_decoder",
+        "finetune_stage2_lr_encoder_top",
+        "finetune_stage2_lr_phase_head",
+        "finetune_stage3_epochs",
+        "finetune_stage3_lr_decoder",
+        "finetune_stage3_lr_encoder_bottom",
+        "finetune_stage3_lr_encoder_top",
+        "finetune_stage3_lr_phase_head",
+        "finetune_val_split",
+        "min_lr_ratio",
+        "warmup_epochs",
+    },
+    "inference_config": set(),
+    "datagen_config": {"histogram_threshold", "reim_mode"},
+}
+
+
+def _load_versioned_config(config_path: Path, config_name: str, config_class):
+    with config_path.open("r") as stream:
+        payload = json.load(stream)
+    valid_fields = {field.name for field in dataclass_fields(config_class)}
+    extra_fields = set(payload) - valid_fields
+    unsupported = extra_fields - _OBSOLETE_CONFIG_FIELDS[config_name]
+    if unsupported:
+        raise ValueError(
+            f"Checkpoint {config_name} contains unsupported architecture-era "
+            f"field(s) {sorted(unsupported)}. Regenerate the checkpoint with the "
+            "current configuration schema."
+        )
+    for field_name in extra_fields:
+        payload.pop(field_name)
+    return payload, extra_fields
+
+
+def load_configs_from_checkpoint(
+    checkpoint_path: str,
+    *,
+    scale_contract_version: Optional[str] = None,
+    measurement_domain: Optional[str] = None,
+) -> Tuple[DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig]:
     """
     Load configuration dataclasses from a checkpoint directory.
     
@@ -294,23 +349,78 @@ def load_configs_from_checkpoint(checkpoint_path: str) -> Tuple[DataConfig, Mode
     if not config_dir.exists():
         raise FileNotFoundError(f"Config directory not found: {config_dir}")
     
-    # Load individual configs
-    def load_config(config_name: str, config_class):
+    from ptycho_torch.config_factory import resolve_profile_overrides
+
+    explicit_profile = resolve_profile_overrides(
+        {
+            "scale_contract_version": scale_contract_version,
+            "measurement_domain": measurement_domain,
+        }
+    )
+
+    raw_configs = {}
+    obsolete_fields = {}
+    config_classes = {
+        "data_config": DataConfig,
+        "model_config": ModelConfig,
+        "training_config": TrainingConfig,
+        "inference_config": InferenceConfig,
+        "datagen_config": DatagenConfig,
+    }
+    for config_name, config_class in config_classes.items():
         config_path = config_dir / f"{config_name}.json"
         if not config_path.exists():
             raise FileNotFoundError(f"Config file not found: {config_path}")
-        
-        with open(config_path, 'r') as f:
-            config_dict = json.load(f)
-        
-        # Create instance with loaded values
-        return config_class(**config_dict)
-    
-    data_config = load_config("data_config", DataConfig)
-    model_config = load_config("model_config", ModelConfig)
-    training_config = load_config("training_config", TrainingConfig)
-    inference_config = load_config("inference_config", InferenceConfig)
-    datagen_config = load_config("datagen_config", DatagenConfig)
+        raw_configs[config_name], obsolete_fields[config_name] = _load_versioned_config(
+            config_path,
+            config_name,
+            config_class,
+        )
+
+    data_payload = raw_configs["data_config"]
+    profile_fields_present = (
+        "scale_contract_version" in data_payload,
+        "measurement_domain" in data_payload,
+    )
+    known_legacy_provenance = (
+        profile_fields_present == (False, False)
+        and any(obsolete_fields.values())
+    )
+    if known_legacy_provenance:
+        if explicit_profile != (LEGACY_SCALE_CONTRACT, NORMALIZED_AMPLITUDE):
+            raise ValueError(
+                "This metadata-free checkpoint is provenance-known legacy. Load it "
+                "with both --scale-contract-version legacy_v1 and "
+                "--measurement-domain normalized_amplitude; default CI semantics "
+                "must not be applied to legacy weights."
+            )
+    elif explicit_profile is not None and any(profile_fields_present):
+        persisted = resolve_scale_contract(
+            data_payload.get("scale_contract_version"),
+            data_payload.get("measurement_domain"),
+        )
+        if explicit_profile != (persisted.version, persisted.measurement_domain):
+            raise ValueError(
+                "Explicit scale_contract_version and measurement_domain contradict "
+                "the checkpoint's persisted profile metadata."
+            )
+
+    if explicit_profile is not None:
+        data_payload["scale_contract_version"] = explicit_profile[0]
+        data_payload["measurement_domain"] = explicit_profile[1]
+    else:
+        resolved = resolve_scale_contract(
+            data_payload.get("scale_contract_version"),
+            data_payload.get("measurement_domain"),
+        )
+        data_payload["scale_contract_version"] = resolved.version
+        data_payload["measurement_domain"] = resolved.measurement_domain
+
+    data_config = DataConfig(**data_payload)
+    model_config = ModelConfig(**raw_configs["model_config"])
+    training_config = TrainingConfig(**raw_configs["training_config"])
+    inference_config = InferenceConfig(**raw_configs["inference_config"])
+    datagen_config = DatagenConfig(**raw_configs["datagen_config"])
     
     print(f"Loaded configs from {config_dir}")
     
@@ -319,7 +429,10 @@ def load_configs_from_checkpoint(checkpoint_path: str) -> Tuple[DataConfig, Mode
 
 def load_checkpoint_with_configs(checkpoint_path: str, 
                                   model_class,
-                                  device: str = 'cuda') -> Tuple[Any, Tuple]:
+                                  device: str = 'cuda',
+                                  *,
+                                  scale_contract_version: Optional[str] = None,
+                                  measurement_domain: Optional[str] = None) -> Tuple[Any, Tuple]:
     """
     Load a trained model and its configs from checkpoint.
     
@@ -339,18 +452,50 @@ def load_checkpoint_with_configs(checkpoint_path: str,
         ... )
     """
     # Load configs
-    configs = load_configs_from_checkpoint(checkpoint_path)
+    configs = load_configs_from_checkpoint(
+        checkpoint_path,
+        scale_contract_version=scale_contract_version,
+        measurement_domain=measurement_domain,
+    )
     data_config, model_config, training_config, inference_config, datagen_config = configs
+
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    profile = resolve_scale_contract(
+        data_config.scale_contract_version,
+        data_config.measurement_domain,
+    )
+    ci_checkpoint = ci_scaling_active(model_config) and profile.version == CI_SCALE_CONTRACT
+    if ci_checkpoint and checkpoint.get("ci_statistics") is None:
+        raise ValueError(
+            "CI checkpoint is missing persisted ci_statistics from the frozen "
+            "training split; regenerate the checkpoint before CI inference."
+        )
     
     # Load model from checkpoint
-    model = model_class.load_from_checkpoint(
-        checkpoint_path,
-        model_config=model_config,
-        data_config=data_config,
-        training_config=training_config,
-        inference_config=inference_config,
-        map_location=device,
-    )
+    try:
+        model = model_class.load_from_checkpoint(
+            checkpoint_path,
+            model_config=model_config,
+            data_config=data_config,
+            training_config=training_config,
+            inference_config=inference_config,
+            map_location=device,
+            strict=True,
+        )
+    except RuntimeError as exc:
+        checkpoint_version = checkpoint.get("pytorch-lightning_version", "unknown")
+        raise RuntimeError(
+            "Checkpoint architecture-era incompatibility: strict physics/model "
+            f"weight loading failed for Lightning {checkpoint_version}. Do not use "
+            "strict=False; regenerate this checkpoint with the current architecture. "
+            f"Original error: {exc}"
+        ) from exc
+
+    if ci_checkpoint and model.get_ci_statistics() is None:
+        raise ValueError(
+            "CI checkpoint did not restore valid ci_statistics from the frozen "
+            "training split."
+        )
     
     print(f"Loaded model from {checkpoint_path}")
     

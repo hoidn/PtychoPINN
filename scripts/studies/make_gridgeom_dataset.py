@@ -19,9 +19,10 @@ in absolute frame. Absolute position recovers as
 (inverting coords_relative = -(coords_nn - coords_offsets)). Flattening every
 group's 4 members and taking the unique set recovers the underlying scan grid.
 
-Output: flat RawData-format npz mirroring lines_N128_{train,test}.npz's exact
+Output: flat RawData-format npz mirroring lines_N128_{train,test}.npz's
 key/dtype/shape contract (xcoords/ycoords/xcoords_start/ycoords_start/
-diff3d(uint16)/probeGuess/objectGuess/scan_index/ground_truth_patches), plus
+diff3d(uint16)/calibrated probeGuess/objectGuess/scan_index/
+ground_truth_patches/_metadata), plus
 provenance_gridgeom.json recording the measured photons/image dose (must be
 >=1e6 per user mandate) and the coords source citation.
 """
@@ -41,6 +42,7 @@ N = 128
 GATE_TRAIN_NPZ = REPO / ".artifacts/integration/grid_lines_gs2/datasets/N128/gs2/train.npz"
 GATE_TEST_NPZ = REPO / ".artifacts/integration/grid_lines_gs2/datasets/N128/gs2/test.npz"
 EXPECTED_PITCH = 4.0
+POISSON_SEEDS = {"train": 50_017, "test": 50_018}
 
 
 def extract_unique_scan_positions(npz_path: Path) -> tuple:
@@ -86,27 +88,28 @@ def build_split(split: str, gate_npz: Path, obj: np.ndarray, probe: np.ndarray) 
     xc, yc = extract_unique_scan_positions(gate_npz)
     measured_pitch = verify_grid_pitch(xc, EXPECTED_PITCH)
 
-    rd = M.simulate(obj, probe, xc, yc, N)
-    counts = M.to_counts(np.asarray(rd.diff3d))
+    generated = M.generate_ci_count_dataset(
+        obj,
+        probe,
+        xc,
+        yc,
+        N=N,
+        target_mean_count=M.TARGET_MEAN_COUNT,
+        poisson_seed=POISSON_SEEDS[split],
+    )
+    counts = generated.payload["diff3d"]
     dev = M.cross_pattern_deviation(counts)
     assert dev > 0.2, f"degenerate diffraction (dev={dev:.4f}) for gridgeom {split}"
 
     dose = measure_photons_per_image(counts)
 
-    out = {
-        "xcoords": rd.xcoords, "ycoords": rd.ycoords,
-        "xcoords_start": rd.xcoords_start, "ycoords_start": rd.ycoords_start,
-        "diff3d": counts, "probeGuess": probe, "objectGuess": obj,
-        "scan_index": np.asarray(rd.scan_index),
-    }
-    if getattr(rd, "Y", None) is not None:
-        out["ground_truth_patches"] = np.asarray(rd.Y)
-
     path = M.DS_DIR / f"gridgeom_N{N}_{split}.npz"
-    np.savez(path, **out)
+    np.savez(path, **generated.payload)
 
     return {
         "path": str(path), "n": int(len(xc)), "N": N,
+        "probe_gauge": generated.metadata["probe_gauge"],
+        "dose_amplitude_scale": generated.dose_amplitude_scale,
         "grid_pitch_px": measured_pitch,
         "cross_pattern_deviation": round(dev, 4),
         "counts_mean": round(float(counts.mean()), 2), "counts_max": int(counts.max()),
@@ -118,18 +121,18 @@ def build_split(split: str, gate_npz: Path, obj: np.ndarray, probe: np.ndarray) 
 
 
 def main() -> int:
-    probe = M.load_probe(M.SPECS[N]["probe_src"])
-    assert probe.shape[0] == N, f"probe {probe.shape} != N={N}"
+    probe = M.load_probe(M.SPECS[N]["probe_src"], N=N)
     obj = L.frozen_lines_object(N, M.SPECS[N]["obj_res"])
 
     provenance = {
         "task": "Task 3 Step 1 RESURRECTED: gridgeom flat dataset, gate's dense-4px-grid geometry",
         "object": "ptycho.diffsim.sim_object_image(data_source='lines') -> amp-norm + phase (reused from make_lines_datasets.frozen_lines_object)",
         "amp_range": [L.AMP_LO, 1.0], "phase_max_rad": L.PHASE_MAX,
-        "nphotons_legacy_inert": M.NPHOTONS,
-        "nphotons_note": "M.NPHOTONS is inert legacy metadata, not the binding dose parameter; target_mean_count (below) sets the counts scale S via to_counts(), and photons/image is MEASURED per split, not assumed.",
         "target_mean_count": M.TARGET_MEAN_COUNT,
-        "convention": "diff3d = round(amp^2 * S) uint16 counts (matches real fly001)",
+        "scale_contract_version": M.CI_SCALE_CONTRACT,
+        "measurement_domain": M.COUNT_INTENSITY,
+        "probe_gauge": M.PHYSICAL_CALIBRATED_PROBE_GAUGE,
+        "convention": "fresh Poisson count intensity from the calibrated physical probe",
         "coords_source": {
             "train": str(GATE_TRAIN_NPZ), "test": str(GATE_TEST_NPZ),
             "extraction": "abs = coords_offsets - coords_nominal (grouped gs2 gate npz, read-only), unique() over flattened group members",

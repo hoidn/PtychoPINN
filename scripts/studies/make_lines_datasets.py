@@ -20,9 +20,10 @@ codebase ships and the user confirmed reconstructs. Raw lines are pure-amplitude
 The object is FROZEN to disk on first generation (mk_lines_img ignores
 np.random.seed) so the whole demo is reproducible.
 
-Reuses count-convention / scan / non-degeneracy helpers from
+Reuses count-calibrated CI / scan / non-degeneracy helpers from
 make_synthetic_truth_datasets. Outputs lines_N{64,128}_{train,test}.npz in the
-same schema (diff3d uint16 counts, objectGuess = complex truth,
+same schema (diff3d fresh uint16 counts, calibrated probeGuess,
+objectGuess = complex truth,
 ground_truth_patches).
 """
 import json
@@ -73,23 +74,25 @@ def frozen_lines_object(N: int, obj_res: int) -> np.ndarray:
 def build_one(N: int, split: str, spec: dict, obj: np.ndarray, probe: np.ndarray) -> dict:
     cfg = spec[split]
     xc, yc = M.scan_positions(spec["obj_res"], N, cfg["n"], cfg["seed"], cfg["jitter"])
-    rd = M.simulate(obj, probe, xc, yc, N)
-    counts = M.to_counts(np.asarray(rd.diff3d))
+    generated = M.generate_ci_count_dataset(
+        obj,
+        probe,
+        xc,
+        yc,
+        N=N,
+        target_mean_count=M.TARGET_MEAN_COUNT,
+        poisson_seed=20_000 + cfg["seed"],
+    )
+    counts = generated.payload["diff3d"]
     dev = M.cross_pattern_deviation(counts)
     assert dev > 0.2, f"degenerate diffraction (dev={dev:.4f}) for N={N} {split}"
-    out = {
-        "xcoords": rd.xcoords, "ycoords": rd.ycoords,
-        "xcoords_start": rd.xcoords_start, "ycoords_start": rd.ycoords_start,
-        "diff3d": counts, "probeGuess": probe, "objectGuess": obj,
-        "scan_index": np.asarray(rd.scan_index),
-    }
-    if getattr(rd, "Y", None) is not None:
-        out["ground_truth_patches"] = np.asarray(rd.Y)
     path = M.DS_DIR / f"lines_N{N}_{split}.npz"
-    np.savez(path, **out)
+    np.savez(path, **generated.payload)
     re, im = obj.real, obj.imag
     return {
         "path": str(path), "n": int(cfg["n"]), "N": N,
+        "probe_gauge": generated.metadata["probe_gauge"],
+        "dose_amplitude_scale": generated.dose_amplitude_scale,
         "cross_pattern_deviation": round(dev, 4),
         "counts_mean": round(float(counts.mean()), 2), "counts_max": int(counts.max()),
         "obj_amp_std": round(float(np.abs(obj).std()), 4),
@@ -103,13 +106,15 @@ def main() -> int:
         "task": "Task 1.6 pivot to synthetic lines (amendment #13b)",
         "object": "ptycho.diffsim.sim_object_image(data_source='lines') -> amp-norm + phase",
         "amp_range": [AMP_LO, 1.0], "phase_max_rad": PHASE_MAX,
-        "nphotons": M.NPHOTONS, "target_mean_count": M.TARGET_MEAN_COUNT,
-        "convention": "diff3d = round(amp^2 * S) uint16 counts (matches real fly001)",
+        "target_mean_count": M.TARGET_MEAN_COUNT,
+        "scale_contract_version": M.CI_SCALE_CONTRACT,
+        "measurement_domain": M.COUNT_INTENSITY,
+        "probe_gauge": M.PHYSICAL_CALIBRATED_PROBE_GAUGE,
+        "convention": "fresh Poisson count intensity from the calibrated physical probe",
         "outputs": {},
     }
     for N, spec in M.SPECS.items():
-        probe = M.load_probe(spec["probe_src"])
-        assert probe.shape[0] == N, f"probe {probe.shape} != N={N}"
+        probe = M.load_probe(spec["probe_src"], N=N)
         obj = frozen_lines_object(N, spec["obj_res"])
         for split in ("train", "test"):
             info = build_one(N, split, spec, obj, probe)
