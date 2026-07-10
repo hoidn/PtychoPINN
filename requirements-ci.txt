@@ -12,6 +12,7 @@ numpy
 scipy
 scikit-image
 scikit-learn
+opencv-python-headless
 matplotlib
 pandas
 Pillow

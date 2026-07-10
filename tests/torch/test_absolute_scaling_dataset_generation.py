@@ -350,6 +350,31 @@ def _called_function_names(path: Path) -> set[str]:
     return names
 
 
+def _top_level_import_names(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text())
+    names = set()
+    for node in tree.body:
+        if isinstance(node, ast.Import):
+            names.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module is not None:
+            names.add(node.module)
+    return names
+
+
+def test_object_module_keeps_generator_dependencies_out_of_module_scope():
+    objects_path = REPO_ROOT / "ptycho_torch" / "datagen" / "objects.py"
+
+    assert _top_level_import_names(objects_path).isdisjoint(
+        {"noise", "perlin_noise", "cv2"}
+    )
+
+
+def test_cpu_ci_declares_dead_leaves_rasterization_dependency():
+    requirements = (REPO_ROOT / "requirements-ci.txt").read_text().splitlines()
+
+    assert "opencv-python-headless" in requirements
+
+
 @pytest.mark.parametrize("builder_path", BUILDER_PATHS, ids=lambda path: path.stem)
 def test_all_count_builders_use_fresh_ci_poisson_generation(builder_path: Path):
     called = _called_function_names(builder_path)
