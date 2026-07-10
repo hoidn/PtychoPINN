@@ -603,15 +603,19 @@ factorization above — see Retraction.
 ### C=1-vs-Main Residual Differences (object_big Padding)
 Cross-branch parity verification (Task 2.8, `test_cross_branch_rectangular_parity.py`,
 commit `95bcde03` + fix `82da7796`) established:
-- `C=1, object_big=False`: bit-exact forward and loss values against frozen `main`-parent
-  fixtures under fno-stable's **real, current** padding (`rtol=0, atol=0`).
-- `C=1, object_big=True`: bit-exact only under a `get_padded_size` monkeypatch that forces
-  `main`'s padding buffer; under fno-stable's actual `buffer=0` (`helper.py:445-449`,
-  commit `ba3f705d`, shared by both the amplitude and rectangular forward paths, predates
-  this reconciliation), a residual remains. Reverting that buffer would break the Task 2.1
-  regression pin, so it is not reverted here. The `object_big=True` (bigT) rectangular
-  path is therefore verified against `main` only under matched padding, not fno-stable's
-  real regime — tracked as an open backlog item ("bigT REAL-padding parity") in
+- `C=1, object_big=False`: forward and loss values match the frozen `main`-parent
+  fixtures within the registered cross-build contract (`rtol=1e-5, atol=1e-6`)
+  under fno-stable's **real, current** padding. The object-big=False path does not
+  touch the reassembly canvas, so this is the rectangular forward parity gate.
+- `C=1, object_big=True`: under fno-stable's actual `buffer=0`
+  (`ptycho_torch/helper.py::get_padded_size`,
+  commit `ba3f705d`, shared by both the amplitude and rectangular forward paths,
+  predates this reconciliation), the frozen fixture has a finite padding residual.
+  A `get_padded_size` monkeypatch that restores `main`'s padding buffer brings the
+  forward and loss results within the same cross-build tolerance. Reverting that
+  buffer would break the Task 2.1 regression pin, so it is not reverted here. The
+  `object_big=True` (bigT) rectangular path remains tracked as an open backlog item
+  ("bigT REAL-padding parity") in
   `docs/plans/2026-06-29-main-fno-stable-physics-reconciliation-backlog.md`.
 
 ### Status
@@ -624,7 +628,7 @@ blockers on the mode's correctness.
 ### Evidence
 - `ptycho_torch/model.py:1356-1435,1462-1515,1698-1731,2156-2270`
 - `ptycho_torch/config_params.py:96-161`
-- `ptycho_torch/helper.py:445-449`
+- `ptycho_torch/helper.py::get_padded_size`
 - Commits: `92ae03a8` (Task 2.6, `RectangularScaledDiffraction` port), `95bcde03` +
   `82da7796` (Task 2.8, cross-branch parity test + end-to-end training fix), `b33c7975`
   (Task 2.3, `cnn_output_mode`), `ba3f705d` (pre-existing `get_padded_size` buffer=0)

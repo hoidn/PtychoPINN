@@ -352,14 +352,16 @@ items surfaced during B5/B6/B8 execution remain open, and one earlier-suspected 
 is resolved and closed out here for the record.
 
 **OPEN — bigT REAL-padding parity (deep):** The rectangular `object_big=True` fixture
-parity test (Task 2.8) matches `main`-parent forward+loss output bit-exactly only under a
-`get_padded_size` monkeypatch that forces `main`'s padding buffer. fno-stable's real,
-currently-shipping `get_padded_size` returns `buffer=0` (`helper.py:445-449`, commit
-`ba3f705d`), and that buffer is shared by both the amplitude and rectangular forward
-paths — it predates this reconciliation effort and reverting it breaks the Task 2.1
-regression pin. Consequently the `object_big=True` rectangular path is verified against
-`main` only under matched (non-default) padding, not fno-stable's real regime; only
-`object_big=False` (`c1_bigF`) is verified bit-exact end-to-end there. **Action:**
+parity test (Task 2.8) matches `main`-parent forward+loss output within the registered
+cross-build contract (`rtol=1e-5, atol=1e-6`) only under a `get_padded_size` monkeypatch
+that forces `main`'s padding buffer. fno-stable's real, currently-shipping
+`ptycho_torch/helper.py::get_padded_size` returns `buffer=0` (commit `ba3f705d`), and that
+buffer is shared by both the amplitude and rectangular forward paths — it predates this
+reconciliation effort and reverting it breaks the Task 2.1 regression pin. Consequently
+the `object_big=True` rectangular path is verified against `main` only under matched
+(non-default) padding, not fno-stable's real regime; only `object_big=False` (`c1_bigF`)
+is verified against its frozen fixture under real padding within the same cross-build
+contract. **Action:**
 reconcile `get_padded_size`'s buffer semantics with `main`'s (without breaking the Task
 2.1 pin) and re-freeze/re-verify the bigT rectangular fixtures un-monkeypatched. See
 `docs/findings.md#RECTANGULAR-SCALED-001`.
