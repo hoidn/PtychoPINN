@@ -91,6 +91,55 @@ except ImportError as e:
 logger = logging.getLogger(__name__)
 
 
+def _canonicalize_ci_probe_modes(probe, N: int):
+    """Validate CI probe layouts and move a trailing singleton to mode-first."""
+    expected_spatial_shape = (N, N)
+    if probe.ndim == 2:
+        if tuple(probe.shape) != expected_spatial_shape:
+            raise ValueError(
+                "CI probe must have shape (N,N), (N,N,1), or (P,N,N); "
+                f"got {tuple(probe.shape)} for N={N}."
+            )
+        return probe
+
+    if probe.ndim == 3:
+        if tuple(probe.shape) == (N, N, 1):
+            return probe.permute(2, 0, 1).contiguous()
+        if probe.shape[0] > 0 and tuple(probe.shape[-2:]) == expected_spatial_shape:
+            return probe
+
+    raise ValueError(
+        "CI probe must have shape (N,N), (N,N,1), or (P,N,N); "
+        f"got {tuple(probe.shape)} for N={N}."
+    )
+
+
+def _get_finalized_ci_statistics(container):
+    """Read finalized CI statistics from native datasets or dict containers."""
+    statistics_getter = getattr(container, "get_ci_statistics", None)
+    if callable(statistics_getter):
+        statistics = statistics_getter()
+        if statistics is None:
+            raise RuntimeError(
+                "Native CI training dataset has no finalized training statistics."
+            )
+    elif isinstance(container, dict):
+        statistics = {
+            field_name: container.get(field_name)
+            for field_name in ("rms_input_scale", "mean_measured_intensity")
+        }
+    else:
+        statistics = {}
+
+    for field_name in ("rms_input_scale", "mean_measured_intensity"):
+        if statistics.get(field_name) is None:
+            raise RuntimeError(
+                "Standalone CI training requires finalized training statistics; "
+                f"missing {field_name!r} on the training container."
+            )
+    return statistics
+
+
 def _resolve_nphotons(data, config):
     metadata = getattr(data, "metadata", None)
     if metadata is not None:
@@ -179,7 +228,11 @@ class NormalizedAmplitudeCIDictAdapter:
         amplitude = torch.as_tensor(container["observed_images"])
         if not torch.is_floating_point(amplitude):
             amplitude = amplitude.to(torch.float32)
-        probe = torch.as_tensor(container["probe"], device=amplitude.device)
+        probe = _canonicalize_ci_probe_modes(
+            torch.as_tensor(container["probe"], device=amplitude.device),
+            self.N,
+        )
+        container["probe"] = probe
 
         measured_intensity, probe_physical = adapt_normalized_amplitude_to_ci(
             amplitude,
@@ -1243,7 +1296,7 @@ def _train_with_lightning(
     pt_model_config = payload.pt_model_config
     pt_training_config = payload.pt_training_config
 
-    validate_scale_contract(
+    resolved_scale_contract = validate_scale_contract(
         pt_data_config,
         pt_model_config,
         pt_training_config,
@@ -1301,6 +1354,15 @@ def _train_with_lightning(
         train_loader, val_loader = data_product
     else:
         train_loader, val_loader = None, None  # Set to None when using datamodule
+
+    if (
+        resolved_scale_contract is not None
+        and resolved_scale_contract.version == CI_SCALE_CONTRACT
+        and not isinstance(data_product, PrebuiltPtychoDataModule)
+    ):
+        model.register_ci_statistics(
+            _get_finalized_ci_statistics(train_container)
+        )
 
     # DATA-SUP-001: Supervised mode requires labeled data
     # Check if supervised mode is requested but training data lacks required labels
