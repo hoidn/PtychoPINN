@@ -838,8 +838,26 @@ def normalize_probe_like_tf(
         probe_2d = probe_np[..., 0]
         probe_for_norm = probe_np
         expand_back = True
+    elif probe_np.ndim == 3 and probe_np.shape[-2] == probe_np.shape[-1]:
+        # Incoherent multi-mode stack (P, N, N): one joint norm computed from
+        # the mask-tamped stack; every mode is divided by the same scalar so
+        # relative mode powers are preserved. Reduces to the 2D result at P=1.
+        mask = resolve_probe_mask_np(
+            probe_np.shape[-1],
+            probe_mask=probe_mask,
+            probe_mask_tensor=probe_mask_tensor,
+            probe_mask_sigma=probe_mask_sigma,
+            probe_mask_diameter=probe_mask_diameter,
+        )
+        tamped = mask[None, ...] * probe_np
+        norm = float(probe_scale * np.mean(np.abs(tamped)))
+        if norm <= 0:
+            raise ValueError("probe normalization norm must be positive")
+        return (probe_np / norm).astype(np.complex64), 1.0 / norm
     else:
-        raise ValueError("probe_guess must have shape (N, N) or (N, N, 1)")
+        raise ValueError(
+            "probe_guess must have shape (N, N), (N, N, 1), or multi-mode (P, N, N)"
+        )
 
     mask = resolve_probe_mask_np(
         probe_2d.shape[0],
@@ -859,6 +877,21 @@ def normalize_probe_like_tf(
 
     return normalized, 1.0 / norm
 
+
+
+def _get_max_scaling_factor(X: torch.Tensor, normalize: str) -> torch.Tensor:
+    """Scale by the largest spatial sum in a batch or independently per group."""
+    per_image_sums = X.sum(dim=(-2, -1))
+    if normalize == 'Group' and X.ndim == 4:
+        max_sums = per_image_sums.max(dim=1).values
+    else:
+        max_sums = per_image_sums.max()
+    if torch.any(~torch.isfinite(max_sums) | (max_sums <= 0)):
+        raise ValueError(
+            "Max scaling requires selected maximum spatial sums to be "
+            "finite and strictly positive."
+        )
+    return max_sums.reciprocal().view(-1, 1, 1, 1)
 
 
 def get_rms_scaling_factor(X: torch.Tensor,
@@ -905,8 +938,7 @@ def get_rms_scaling_factor(X: torch.Tensor,
             
     elif data_config.data_scaling == 'Max':
         #Alternative max scaling
-        scaling_factor = 1 / torch.max(X.sum(dim=(1,2)))   
-        scaling_factor = scaling_factor.view(-1,1,1,1)
+        scaling_factor = _get_max_scaling_factor(X, data_config.normalize)
 
     return scaling_factor
 
@@ -946,8 +978,7 @@ def get_physics_scaling_factor(X: torch.Tensor,
             
     elif data_config.data_scaling == 'Max':
         #Alternative max scaling
-        scaling_factor = 1 / torch.max(X.sum(dim=(1,2)))   
-        scaling_factor = scaling_factor.view(-1,1,1,1)
+        scaling_factor = _get_max_scaling_factor(X, data_config.normalize)
 
     return scaling_factor
 
