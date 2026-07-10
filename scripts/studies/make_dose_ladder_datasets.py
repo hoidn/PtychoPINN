@@ -27,7 +27,7 @@ from pathlib import Path
 
 import numpy as np
 
-REPO = Path("/home/ollie/Documents/PtychoPINN")
+REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO)); sys.path.insert(0, str(REPO / "scripts/studies"))
 
 import make_gridgeom_dataset as G
