@@ -88,6 +88,7 @@ from ptycho_torch.scaling_contract import validate_scale_contract
 from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config
 from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, log_parameters_mlflow, is_effectively_global_rank_zero, print_auto_logged_info
 from ptycho_torch.train_utils import ModelFineTuner, PtychoDataModule, LightningConfigSaveCallback, ModelFineTuner_Lightning
+from ptycho_torch.lightning_utils import CIStatisticsCallback
 
 # mlflow.set_tracking_uri("http://127.0.0.1:5000")
 # mlflow.set_experiment("PtychoPINN")
@@ -256,6 +257,7 @@ def main(ptycho_dir,
         strict=True
     )
     callbacks = [
+        CIStatisticsCallback(),
         checkpoint_callback,
         early_stop_callback
     ]

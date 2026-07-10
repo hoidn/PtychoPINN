@@ -27,9 +27,25 @@ from ptycho_torch.npz_utils import read_npy_shape
 
 #Helper methods
 import ptycho_torch.helper as hh
+from ptycho_torch.scaling_contract import (
+    CI_SCALE_CONTRACT,
+    ci_scaling_active,
+    derive_ci_experiment_statistics,
+    resolve_scale_contract,
+)
 
 # --- Helper functions for the dataloader ---
 _DIFFRACTION_KEYS = ('diffraction', 'diff3d')
+
+
+def _ci_profile_active(model_config, data_config):
+    if not ci_scaling_active(model_config):
+        return False
+    profile = resolve_scale_contract(
+        getattr(data_config, "scale_contract_version", None),
+        getattr(data_config, "measurement_domain", None),
+    )
+    return profile.version == CI_SCALE_CONTRACT
 
 
 def _select_diffraction_key(available_keys):
@@ -333,11 +349,14 @@ class PtychoDataset(Dataset):
     """
     def __init__(self, ptycho_dir: str, model_config: 'ModelConfig', data_config: 'DataConfig',
                  training_config: 'TrainingConfig' = None,
-                 data_dir: str = 'data/memmap', remake_map: bool = False):
+                 data_dir: str = 'data/memmap', remake_map: bool = False,
+                 defer_ci_statistics: bool = False):
         
         # --- Initial loading ---
         self.model_config = model_config
         self.data_config = data_config
+        self.ci_contract_active = _ci_profile_active(model_config, data_config)
+        self.defer_ci_statistics = defer_ci_statistics
         self.is_ddp_active = is_ddp_initialized_and_active()
         self.current_rank = get_current_rank()
         self.data_dict = {} #Includes important tensors that don't need to be memory mapped
@@ -459,12 +478,19 @@ class PtychoDataset(Dataset):
                 end_sample = self.mmap_ptycho["images"][-10:].sum()
                 
                 # 2. Check the scaling constants (If these are 0, loss collapses)
-                rms_sample = self.mmap_ptycho["rms_scaling_constant"][:10].sum()
+                rms_sample = None
+                if not self.ci_contract_active:
+                    rms_sample = self.mmap_ptycho[
+                        "rms_scaling_constant"
+                    ][:10].sum()
                 
-                if end_sample == 0 or rms_sample == 0:
+                if end_sample == 0 or (
+                    rms_sample is not None and rms_sample == 0
+                ):
                     print(f"[Rank {self.current_rank}] CRITICAL: Metadata or End-of-file data is ZERO.")
                     print(f"  End images sum: {end_sample}")
-                    print(f"  RMS constant sum: {rms_sample}")
+                    if rms_sample is not None:
+                        print(f"  RMS constant sum: {rms_sample}")
                     raise RuntimeError(f"Rank {self.current_rank} loaded corrupted data.")
         
         
@@ -608,6 +634,11 @@ class PtychoDataset(Dataset):
         #Set basic attributes
         instance.model_config = model_config
         instance.data_config = data_config
+        instance.ci_contract_active = _ci_profile_active(
+            model_config,
+            data_config,
+        )
+        instance.defer_ci_statistics = False
         instance.current_rank = current_rank
         instance.is_ddp_active = is_ddp_active
 
@@ -679,8 +710,8 @@ class PtychoDataset(Dataset):
         #Start timer
         start = time.time()
 
-        mmap_ptycho = TensorDict(
-            {   "images": MemoryMappedTensor.empty(
+        mmap_fields = {
+                "images": MemoryMappedTensor.empty(
                     (mmap_length, n_channels, *self.im_shape),
                     dtype=torch.float32,
                 ),
@@ -720,7 +751,25 @@ class PtychoDataset(Dataset):
                 "label_phase": MemoryMappedTensor.empty(
                     (mmap_length, n_channels, *self.im_shape),
                     dtype=torch.float32
-                ), #Scaling constant on a per patch basis
+                ),
+        }
+        if self.ci_contract_active:
+            mmap_fields.update({
+                "measured_intensity": MemoryMappedTensor.empty(
+                    (mmap_length, n_channels, *self.im_shape),
+                    dtype=torch.float32,
+                ),
+                "rms_input_scale": MemoryMappedTensor.empty(
+                    (mmap_length, 1, 1, 1),
+                    dtype=torch.float32,
+                ),
+                "mean_measured_intensity": MemoryMappedTensor.empty(
+                    (mmap_length, 1, 1, 1),
+                    dtype=torch.float32,
+                ),
+            })
+        else:
+            mmap_fields.update({
                 "rms_scaling_constant": MemoryMappedTensor.empty(
                     (mmap_length,1,1,1),
                     dtype=torch.float32
@@ -728,11 +777,9 @@ class PtychoDataset(Dataset):
                 "physics_scaling_constant": MemoryMappedTensor.empty(
                     (mmap_length,1,1,1),
                     dtype=torch.float32
-                )
-                },
-                
-            batch_size = mmap_length,
-        )
+                ),
+            })
+        mmap_ptycho = TensorDict(mmap_fields, batch_size=mmap_length)
         #End timer
         end = time.time()
         print("Memory map creation time: {}".format(end - start))
@@ -756,6 +803,11 @@ class PtychoDataset(Dataset):
         if max_modes > 1:
             print(f"Detected multi-mode probes: max {max_modes} modes")
         self.data_dict['probes'] = torch.zeros(size=(self.n_files, max_modes, N, N), dtype=torch.complex64)
+        if self.ci_contract_active:
+            self.data_dict['probes_physical'] = torch.zeros(
+                size=(self.n_files, max_modes, N, N),
+                dtype=torch.complex64,
+            )
         self.data_dict['probe_scaling'] = torch.zeros(size=(self.n_files,), dtype = torch.float32)
         self.data_dict['objectGuess'] = []
         effective_batch_normalization = (
@@ -863,6 +915,9 @@ class PtychoDataset(Dataset):
             probe_data = np.load(npz_file)['probeGuess']
             if probe_data.ndim == 3 and probe_data.shape[-1] == 1:
                 probe_data = probe_data[..., 0]  # Canonicalize (N, N, 1) -> (N, N)
+            probe_physical = np.ascontiguousarray(
+                probe_data[None] if probe_data.ndim == 2 else probe_data
+            )
             #Optional: normalize probe for forward model to be photon agnostic. We almost always normalize.
             #Handles single-mode (N, N) and incoherent multi-mode (P, N, N) probes.
             if self.data_config.probe_normalize:
@@ -879,10 +934,13 @@ class PtychoDataset(Dataset):
                 #Save a scaling constant, it's just 1 though
                 self.data_dict['probe_scaling'][i] = float(1)
             if probe_data.ndim == 2:
-                probe_data = np.expand_dims(probe_data, axis = 0) # Add number of modes dimension
-
+                probe_data = np.expand_dims(probe_data, axis=0)
             n_modes = probe_data.shape[0]
             self.data_dict['probes'][i,:n_modes] = torch.from_numpy(probe_data).to(torch.complex64)
+            if self.ci_contract_active:
+                self.data_dict['probes_physical'][i, :n_modes] = torch.from_numpy(
+                    probe_physical
+                ).to(torch.complex64)
 
             #Object
             objectGuess = np.load(npz_file)['objectGuess']
@@ -910,12 +968,15 @@ class PtychoDataset(Dataset):
             if not self.group_coords_enabled():
                 diff_stack = diff_stack[:,None]
 
-            #Normalizing diffraction images
-            print("Getting normalization coefficients...")
+            # Normalizing diffraction images for explicit legacy/amplitude paths.
+            if not self.ci_contract_active:
+                print("Getting normalization coefficients...")
             # A configured C=1 Group is effectively Batch normalization, but
             # the helper must see the Batch config because diff_stack is 3D.
             B = end - start #Batch size
-            if self.data_config.normalize == 'None':
+            if self.ci_contract_active:
+                pass
+            elif self.data_config.normalize == 'None':
                 norm_factor = torch.ones(size=(B,1,1,1))
                 mmap_ptycho["rms_scaling_constant"][start:end] = norm_factor
                 mmap_ptycho["physics_scaling_constant"][start:end] = norm_factor
@@ -943,9 +1004,14 @@ class PtychoDataset(Dataset):
                 
                 #NN_indices gives us our coordinate groups of diffraction patterns
                 mmap_ptycho["images"][global_from:global_to] = diff_stack[nn_indices[j:local_to]]
+                if self.ci_contract_active:
+                    mmap_ptycho["measured_intensity"][global_from:global_to] = (
+                        diff_stack[nn_indices[j:local_to]]
+                    )
 
                 #Calculate group normalization if specified
-                if self.data_config.normalize == 'Group' and self.data_config.C > 1:
+                if (not self.ci_contract_active and
+                        self.data_config.normalize == 'Group' and self.data_config.C > 1):
                     # RMS normalization
                     norm_rms_factor = hh.get_rms_scaling_factor(diff_stack[nn_indices[j:local_to]], self.data_config)
                     mmap_ptycho["rms_scaling_constant"][global_from:global_to] = norm_rms_factor
@@ -961,8 +1027,67 @@ class PtychoDataset(Dataset):
         
         #Assign memory map to class attribute
         self.mmap_ptycho = mmap_ptycho
+        if self.ci_contract_active and not self.defer_ci_statistics:
+            self.set_ci_statistics_from_indices(torch.arange(self.length))
 
         return
+
+    def set_ci_statistics_from_indices(self, indices):
+        """Freeze per-experiment CI statistics from the selected samples."""
+        if not self.ci_contract_active:
+            return None
+
+        indices = torch.as_tensor(indices, dtype=torch.long).reshape(-1)
+        if indices.numel() == 0:
+            raise ValueError("CI training indices must not be empty.")
+        experiment_ids = torch.as_tensor(
+            self.mmap_ptycho["experiment_id"][indices],
+            dtype=torch.long,
+        )
+        measured = torch.as_tensor(
+            self.mmap_ptycho["measured_intensity"][indices]
+        )
+        rms_values = torch.empty(self.n_files, dtype=measured.dtype)
+        mean_values = torch.empty(self.n_files, dtype=measured.dtype)
+        for experiment_id in range(self.n_files):
+            selected = experiment_ids == experiment_id
+            if not bool(selected.any()):
+                raise ValueError(
+                    "The finalized CI training split contains no samples for "
+                    f"experiment {experiment_id}."
+                )
+            statistics = derive_ci_experiment_statistics(
+                measured[selected],
+                self.data_config.N,
+            )
+            rms_values[experiment_id] = statistics.rms_input_scale.detach()
+            mean_values[experiment_id] = (
+                statistics.mean_measured_intensity.detach()
+            )
+
+        self.data_dict["ci_statistics"] = {
+            "rms_input_scale": rms_values,
+            "mean_measured_intensity": mean_values,
+        }
+        all_experiment_ids = torch.as_tensor(
+            self.mmap_ptycho["experiment_id"][:],
+            dtype=torch.long,
+        )
+        self.mmap_ptycho["rms_input_scale"][:] = rms_values[
+            all_experiment_ids
+        ].view(-1, 1, 1, 1)
+        self.mmap_ptycho["mean_measured_intensity"][:] = mean_values[
+            all_experiment_ids
+        ].view(-1, 1, 1, 1)
+        return self.get_ci_statistics()
+
+    def get_ci_statistics(self):
+        if not self.ci_contract_active:
+            return None
+        return {
+            name: value.detach().clone()
+            for name, value in self.data_dict["ci_statistics"].items()
+        }
 
     @classmethod
     def from_np(cls,
@@ -1017,6 +1142,7 @@ class PtychoDataset(Dataset):
         dataset = cls.__new__(cls)
         dataset.model_config = model_config
         dataset.data_config = data_config
+        dataset.ci_contract_active = _ci_profile_active(model_config, data_config)
         dataset.is_ddp_active = False
         dataset.current_rank = 0
         dataset.ptycho_dir = None
@@ -1095,6 +1221,9 @@ class PtychoDataset(Dataset):
         probe_data = probe.copy()
         if probe_data.ndim == 3 and probe_data.shape[-1] == 1:
             probe_data = probe_data[..., 0]
+        probe_physical = np.ascontiguousarray(
+            probe_data[None] if probe_data.ndim == 2 else probe_data
+        )
 
         if data_config.probe_normalize:
             probe_data, probe_sf = hh.normalize_probe_like_tf(
@@ -1113,6 +1242,10 @@ class PtychoDataset(Dataset):
             probe_data = np.expand_dims(probe_data, axis=0)
 
         dataset.data_dict['probes'] = torch.from_numpy(np.ascontiguousarray(probe_data)).to(torch.complex64).unsqueeze(0)
+        if dataset.ci_contract_active:
+            dataset.data_dict['probes_physical'] = torch.from_numpy(
+                probe_physical
+            ).to(torch.complex64).unsqueeze(0)
         dataset.data_dict['probe_scaling'] = torch.tensor([probe_sf], dtype=torch.float32)
         dataset.data_dict['objectGuess'] = []
 
@@ -1130,7 +1263,10 @@ class PtychoDataset(Dataset):
             (data_config.normalize == 'Group' and data_config.C == 1 and
              model_config.mode != 'Supervised')
         )
-        if data_config.normalize == 'None':
+        if dataset.ci_contract_active:
+            rms_factors = None
+            physics_factors = None
+        elif data_config.normalize == 'None':
             rms_factors = torch.ones(N_groups, 1, 1, 1, dtype=torch.float32)
             physics_factors = torch.ones(N_groups, 1, 1, 1, dtype=torch.float32)
         elif effective_batch_normalization:
@@ -1148,16 +1284,28 @@ class PtychoDataset(Dataset):
         else:
             raise ValueError(f"Unsupported normalization mode: {data_config.normalize}")
 
-        if scaling_constant is not None:
-            rms_factors = torch.full_like(rms_factors, float(scaling_constant))
-            dataset.data_dict['scaling_constant'] = torch.tensor(
-                [scaling_constant], dtype=torch.float32)
-        elif data_config.normalize == 'None':
-            dataset.data_dict['scaling_constant'] = torch.tensor([1.0], dtype=torch.float32)
-        elif effective_batch_normalization:
-            dataset.data_dict['scaling_constant'] = rms_factors[0].reshape(1).clone()
+        if dataset.ci_contract_active and scaling_constant is not None:
+            raise ValueError(
+                "CI batches use rms_input_scale and do not accept the legacy "
+                "scaling_constant override."
+            )
+        if not dataset.ci_contract_active:
+            if scaling_constant is not None:
+                rms_factors = torch.full_like(
+                    rms_factors,
+                    float(scaling_constant),
+                )
+                dataset.data_dict['scaling_constant'] = torch.tensor(
+                    [scaling_constant], dtype=torch.float32)
+            elif data_config.normalize == 'None':
+                dataset.data_dict['scaling_constant'] = torch.tensor(
+                    [1.0], dtype=torch.float32)
+            elif effective_batch_normalization:
+                dataset.data_dict['scaling_constant'] = (
+                    rms_factors[0].reshape(1).clone()
+                )
 
-        td = TensorDict({
+        td_fields = {
             "images": images,
             "coords_global": coords_global,
             "coords_center": torch.from_numpy(coords_com).to(torch.float32),
@@ -1166,11 +1314,27 @@ class PtychoDataset(Dataset):
             "coords_start_relative": torch.zeros(N_groups, n_channels, 1, 2, dtype=torch.float32),
             "nn_indices": nn_indices_tensor,
             "experiment_id": torch.zeros(N_groups, dtype=torch.int32),
-            "rms_scaling_constant": rms_factors,
-            "physics_scaling_constant": physics_factors,
-        }, batch_size=N_groups)
+        }
+        if dataset.ci_contract_active:
+            td_fields.update({
+                "measured_intensity": images.clone(),
+                "rms_input_scale": torch.empty(
+                    N_groups, 1, 1, 1, dtype=torch.float32
+                ),
+                "mean_measured_intensity": torch.empty(
+                    N_groups, 1, 1, 1, dtype=torch.float32
+                ),
+            })
+        else:
+            td_fields.update({
+                "rms_scaling_constant": rms_factors,
+                "physics_scaling_constant": physics_factors,
+            })
+        td = TensorDict(td_fields, batch_size=N_groups)
 
         dataset.mmap_ptycho = td
+        if dataset.ci_contract_active:
+            dataset.set_ci_statistics_from_indices(torch.arange(dataset.length))
 
         print(f"[PtychoDataset.from_np] Created in-memory dataset with {N_groups} groups, "
               f"{n_channels} channels, image shape {(H, W)}")
@@ -1217,11 +1381,42 @@ class PtychoDataset(Dataset):
             -1, channels, -1, -1, -1)
         probe_scaling = self.data_dict['probe_scaling'][get_idx].view(-1, 1, 1, 1)
 
+        tensor_dict = self.mmap_ptycho[idx]
+        if self.ci_contract_active:
+            probes_physical = self.data_dict['probes_physical'][get_idx].unsqueeze(
+                1
+            ).expand(-1, channels, -1, -1, -1)
+            probe_normalization = probe_scaling.unsqueeze(-1)
+            statistics = self.data_dict["ci_statistics"]
+            rms_input_scale = statistics["rms_input_scale"][get_idx].view(
+                -1, 1, 1, 1
+            )
+            mean_measured_intensity = statistics[
+                "mean_measured_intensity"
+            ][get_idx].view(-1, 1, 1, 1)
+            tensor_dict = TensorDict(
+                {key: value for key, value in tensor_dict.items()},
+                batch_size=tensor_dict.batch_size,
+            )
+            tensor_dict["probe_training"] = probes_indexed
+            tensor_dict["probe_physical"] = probes_physical
+            tensor_dict["probe_normalization"] = probe_normalization
+            if is_scalar:
+                tensor_dict["rms_input_scale"] = rms_input_scale[0]
+                tensor_dict["mean_measured_intensity"] = (
+                    mean_measured_intensity[0]
+                )
+            else:
+                tensor_dict["rms_input_scale"] = rms_input_scale
+                tensor_dict["mean_measured_intensity"] = (
+                    mean_measured_intensity
+                )
+
         if is_scalar:
             probes_indexed = probes_indexed[0]
             probe_scaling = probe_scaling[0]
 
-        return self.mmap_ptycho[idx], probes_indexed, probe_scaling
+        return tensor_dict, probes_indexed, probe_scaling
 
     
     def get_experiment_dataset(self, experiment_idx):
@@ -1270,6 +1465,14 @@ class PtychoDataset(Dataset):
             "probes": self.data_dict["probes"][experiment_idx:experiment_idx+1],
             "probe_scaling": self.data_dict["probe_scaling"][experiment_idx:experiment_idx+1],
         }
+        if self.ci_contract_active:
+            subset_dataset.data_dict["probes_physical"] = self.data_dict[
+                "probes_physical"
+            ][experiment_idx:experiment_idx+1]
+            subset_dataset.data_dict["ci_statistics"] = {
+                name: value[experiment_idx:experiment_idx+1]
+                for name, value in self.data_dict["ci_statistics"].items()
+            }
         if "scaling_constant" in self.data_dict:
             subset_dataset.data_dict["scaling_constant"] = (
                 self.data_dict["scaling_constant"][experiment_idx:experiment_idx+1])

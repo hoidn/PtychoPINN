@@ -32,6 +32,7 @@ from ptycho.config.config import (
 )
 from ptycho import params
 from ptycho_torch.workflows import components as torch_components
+from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig, run_torch_training
 
 
 @pytest.fixture
@@ -110,3 +111,61 @@ def test_inline_dataset_amplitude_mode_restores_precommit_probe_and_scaling(
             "scaling was per-sample-selected/collapsed instead of the raw "
             "pre-82da7796 full-array passthrough"
         )
+
+
+@pytest.mark.torch
+def test_amplitude_runner_does_not_invoke_ci_conversion(tmp_path, monkeypatch):
+    N = 32
+    n_samples = 4
+    amplitude = torch.linspace(
+        0.1,
+        1.0,
+        n_samples * N * N,
+        dtype=torch.float32,
+    ).reshape(n_samples, N, N, 1).numpy()
+    probe = torch.ones(N, N, dtype=torch.complex64).numpy()
+    data = {
+        "diffraction": amplitude,
+        "probeGuess": probe,
+        "coords_nominal": torch.zeros(n_samples, 2).numpy(),
+    }
+    captured = {}
+
+    def fail_ci_conversion(*args, **kwargs):
+        raise AssertionError("amplitude mode must not invoke CI conversion")
+
+    def fake_train(
+        train_container,
+        test_container,
+        config,
+        execution_config=None,
+        overrides=None,
+    ):
+        captured["train_container"] = train_container
+        captured["test_container"] = test_container
+        return {"history": {}, "models": {}}
+
+    monkeypatch.setattr(
+        torch_components.NormalizedAmplitudeCIDictAdapter,
+        "adapt",
+        fail_ci_conversion,
+    )
+    monkeypatch.setattr(torch_components, "_train_with_lightning", fake_train)
+
+    cfg = TorchRunnerConfig(
+        train_npz=tmp_path / "train.npz",
+        test_npz=tmp_path / "test.npz",
+        output_dir=tmp_path / "output",
+        architecture="cnn",
+        physics_forward_mode="amplitude",
+        torch_loss_mode="mae",
+        N=N,
+    )
+    run_torch_training(cfg, data, data)
+
+    assert "measured_intensity" not in captured["train_container"]
+    assert "probe_physical" not in captured["train_container"]
+    assert torch.equal(
+        torch.from_numpy(captured["train_container"]["observed_images"]),
+        torch.from_numpy(amplitude),
+    )

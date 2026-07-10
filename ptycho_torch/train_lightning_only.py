@@ -41,6 +41,7 @@ from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learn
 
 # NEW: Import our custom Lightning utilities
 from ptycho_torch.lightning_utils import (
+    CIStatisticsCallback,
     ConfigLogger,
     MetadataLogger,
     create_experiment_loggers,
@@ -337,6 +338,7 @@ def main(ptycho_dir,
         progress_bar = TQDMProgressBar(refresh_rate=10)
         
         callbacks = [
+            CIStatisticsCallback(),
             checkpoint_callback,
             early_stop_callback,
             config_logger,

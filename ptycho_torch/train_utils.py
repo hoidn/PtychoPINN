@@ -451,7 +451,9 @@ class PtychoDataModule(L.LightningDataModule):
                     model_config=self.model_config,
                     data_config=self.data_config,
                     training_config=self.training_config,
-                    remake_map=True
+                    remake_map=True,
+                    data_dir=self.memory_map_dir,
+                    defer_ci_statistics=True,
                 )
                 print("[Rank 0] Memory map created.")
     
@@ -481,7 +483,8 @@ class PtychoDataModule(L.LightningDataModule):
                     data_config=self.data_config,
                     training_config=self.training_config,
                     remake_map=remake_flag_for_this_setup, # Always False here, map should exist
-                    data_dir = self.memory_map_dir
+                    data_dir = self.memory_map_dir,
+                    defer_ci_statistics=True,
                 )
 
                 # Create train/validation split
@@ -496,6 +499,10 @@ class PtychoDataModule(L.LightningDataModule):
                 self.train_dataset, self.val_dataset = torch.utils.data.random_split(
                     full_dataset, [train_size, val_size], generator=generator
                 )
+                if full_dataset.ci_contract_active:
+                    self.ci_statistics = full_dataset.set_ci_statistics_from_indices(
+                        self.train_dataset.indices
+                    )
 
         self._is_setup_done = True
 
@@ -830,7 +837,8 @@ class PtychoDataModuleLightning(L.LightningDataModule):
                 model_config=self.model_config,
                 data_config=self.data_config,
                 training_config=self.training_config,
-                remake_map=True
+                remake_map=True,
+                defer_ci_statistics=True,
             )
             print("[Rank 0] Memory map created.")
 
@@ -848,7 +856,8 @@ class PtychoDataModuleLightning(L.LightningDataModule):
                     model_config=self.model_config,
                     data_config=self.data_config,
                     training_config=self.training_config,
-                    remake_map=False
+                    remake_map=False,
+                    defer_ci_statistics=True,
                 )
                 dataset_size = len(full_dataset)
                 val_size = int(self.val_split * dataset_size)
@@ -857,6 +866,10 @@ class PtychoDataModuleLightning(L.LightningDataModule):
                 self.train_dataset, self.val_dataset = torch.utils.data.random_split(
                     full_dataset, [train_size, val_size], generator=generator
                 )
+                if full_dataset.ci_contract_active:
+                    self.ci_statistics = full_dataset.set_ci_statistics_from_indices(
+                        self.train_dataset.indices
+                    )
         self._is_setup_done = True
 
     def _resolve_worker_kwargs(self):
