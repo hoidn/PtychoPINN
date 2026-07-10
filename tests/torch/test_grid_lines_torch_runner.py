@@ -11,6 +11,12 @@ from unittest.mock import patch
 
 from ptycho.config.config import TrainingConfig, ModelConfig
 from ptycho.metadata import MetadataManager
+from ptycho_torch.scaling_contract import (
+    CI_SCALE_CONTRACT,
+    COUNT_INTENSITY,
+    LEGACY_SCALE_CONTRACT,
+    NORMALIZED_AMPLITUDE,
+)
 
 from scripts.studies.grid_lines_torch_runner import (
     TorchRunnerConfig,
@@ -98,6 +104,24 @@ class TestTorchRunnerConfig:
             architecture="fno",
         )
         assert cfg.torch_loss_mode == "mae"
+        assert cfg.scale_contract_version == CI_SCALE_CONTRACT
+        assert cfg.measurement_domain == COUNT_INTENSITY
+
+    def test_explicit_scale_contract_profile_appears_in_runner_argv(self, tmp_path):
+        from scripts.studies.grid_lines_torch_runner import _build_runner_cli_argv
+
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture="fno",
+            scale_contract_version=LEGACY_SCALE_CONTRACT,
+            measurement_domain=NORMALIZED_AMPLITUDE,
+        )
+
+        argv = _build_runner_cli_argv(cfg)
+        assert argv[argv.index("--scale-contract-version") + 1] == LEGACY_SCALE_CONTRACT
+        assert argv[argv.index("--measurement-domain") + 1] == NORMALIZED_AMPLITUDE
 
     def test_generator_output_mode_override(self, tmp_path):
         """Generator output mode should be configurable."""
@@ -787,6 +811,11 @@ class TestRunGridLinesTorchScaffold:
         config_path = run_dir / "config.json"
         metrics_path = run_dir / "metrics.json"
         assert config_path.exists()
+        config_payload = json.loads(config_path.read_text(encoding="utf-8"))
+        assert config_payload["scale_contract_version"] == CI_SCALE_CONTRACT
+        assert config_payload["measurement_domain"] == COUNT_INTENSITY
+        assert config_payload["torch_runner_config"]["scale_contract_version"] == CI_SCALE_CONTRACT
+        assert config_payload["torch_runner_config"]["measurement_domain"] == COUNT_INTENSITY
         metrics_payload = json.loads(metrics_path.read_text(encoding="utf-8"))
         assert metrics_payload["mae"] == [0.10000000149011612, 0.20000000298023224]
         assert isinstance(metrics_payload["frc50"], list)
@@ -2918,6 +2947,8 @@ class TestTorchTrainingPath:
             physics_forward_mode="rectangular_scaled",
             cnn_output_mode="real_imag",
             rect_s1s2_trainable=False,  # --freeze-s1s2
+            scale_contract_version=LEGACY_SCALE_CONTRACT,
+            measurement_domain=NORMALIZED_AMPLITUDE,
         )
 
         train_data = load_cached_dataset(train_path)
@@ -2940,6 +2971,8 @@ class TestTorchTrainingPath:
             "physics_forward_mode": "rectangular_scaled",
             "cnn_output_mode": "real_imag",
             "rect_s1s2_trainable": False,
+            "scale_contract_version": LEGACY_SCALE_CONTRACT,
+            "measurement_domain": NORMALIZED_AMPLITUDE,
         }
 
     def test_runner_default_varpro_probe_weighting_flags_forward_modelconfig_defaults(
@@ -2982,7 +3015,143 @@ class TestTorchTrainingPath:
             "physics_forward_mode": defaults.physics_forward_mode,
             "cnn_output_mode": defaults.cnn_output_mode,
             "rect_s1s2_trainable": defaults.rect_s1s2_trainable,
+            "scale_contract_version": CI_SCALE_CONTRACT,
+            "measurement_domain": COUNT_INTENSITY,
         }
+
+    def test_explicit_legacy_profile_reaches_training_payload(
+        self,
+        synthetic_npz,
+        tmp_path,
+        monkeypatch,
+    ):
+        from ptycho_torch.config_factory import create_training_payload
+
+        train_path, test_path = synthetic_npz
+        cfg = TorchRunnerConfig(
+            train_npz=train_path,
+            test_npz=test_path,
+            output_dir=tmp_path,
+            architecture="fno",
+            physics_forward_mode="rectangular_scaled",
+            torch_loss_mode="mae",
+            scale_contract_version=LEGACY_SCALE_CONTRACT,
+            measurement_domain=NORMALIZED_AMPLITUDE,
+        )
+        train_data = load_cached_dataset(train_path)
+        captured = {}
+
+        def capture_training_payload(
+            train_container,
+            test_container,
+            training_config,
+            execution_config=None,
+            overrides=None,
+        ):
+            factory_overrides = {
+                "n_groups": training_config.n_groups,
+                "gridsize": training_config.model.gridsize,
+                "N": cfg.N,
+                "nphotons": training_config.nphotons,
+                "test_data_file": test_path,
+                "model_type": "Unsupervised",
+                "torch_loss_mode": training_config.torch_loss_mode,
+                **(overrides or {}),
+            }
+            captured["payload"] = create_training_payload(
+                train_data_file=train_path,
+                output_dir=tmp_path,
+                execution_config=execution_config,
+                overrides=factory_overrides,
+            )
+            return {"history": {}, "models": {}}
+
+        monkeypatch.setattr(
+            "ptycho_torch.workflows.components._train_with_lightning",
+            capture_training_payload,
+        )
+
+        run_torch_training(cfg, train_data, {})
+
+        payload = captured["payload"]
+        assert payload.pt_data_config.scale_contract_version == LEGACY_SCALE_CONTRACT
+        assert payload.pt_data_config.measurement_domain == NORMALIZED_AMPLITUDE
+        assert payload.pt_model_config.physics_forward_mode == "rectangular_scaled"
+        assert payload.pt_training_config.torch_loss_mode == "mae"
+
+
+def test_public_api_rejects_invalid_ci_before_data_module_construction(monkeypatch):
+    import ptycho_torch.api.base_api as api_module
+    from ptycho_torch.config_params import (
+        DataConfig as PTDataConfig,
+        ModelConfig as PTModelConfig,
+        TrainingConfig as PTTrainingConfig,
+    )
+
+    data_module_constructed = False
+
+    def fail_if_data_module_is_constructed(*args, **kwargs):
+        nonlocal data_module_constructed
+        data_module_constructed = True
+        raise AssertionError("data module construction must not run")
+
+    monkeypatch.setattr(
+        api_module,
+        "PtychoDataModule",
+        fail_if_data_module_is_constructed,
+    )
+
+    with pytest.raises(ValueError, match="ci_intensity_v2"):
+        api_module.PtychoDataLoader(
+            data_dir="unreadable",
+            data_config=PTDataConfig(),
+            model_config=PTModelConfig(
+                mode="Unsupervised",
+                physics_forward_mode="rectangular_scaled",
+            ),
+            training_config=PTTrainingConfig(torch_loss_mode="mae"),
+        )
+
+    assert data_module_constructed is False
+
+
+def test_public_api_tensordict_rejects_invalid_ci_before_dataset_construction(
+    monkeypatch,
+):
+    import ptycho_torch.api.base_api as api_module
+    import ptycho_torch.dataloader as dataloader_module
+    from ptycho_torch.config_params import (
+        DataConfig as PTDataConfig,
+        ModelConfig as PTModelConfig,
+        TrainingConfig as PTTrainingConfig,
+    )
+
+    dataset_constructed = False
+
+    def fail_if_dataset_is_constructed(*args, **kwargs):
+        nonlocal dataset_constructed
+        dataset_constructed = True
+        raise AssertionError("dataset construction must not run")
+
+    monkeypatch.setattr(
+        dataloader_module,
+        "PtychoDataset",
+        fail_if_dataset_is_constructed,
+    )
+
+    with pytest.raises(ValueError, match="ci_intensity_v2"):
+        api_module.PtychoDataLoader(
+            data_dir="unreadable",
+            data_config=PTDataConfig(),
+            model_config=PTModelConfig(
+                mode="Unsupervised",
+                physics_forward_mode="rectangular_scaled",
+            ),
+            training_config=PTTrainingConfig(torch_loss_mode="mae"),
+            data_format=api_module.DataloaderFormats.TENSORDICT,
+        )
+
+    assert dataset_constructed is False
 
 
 def test_main_writes_cli_invocation_artifacts(tmp_path, monkeypatch):
@@ -3259,6 +3428,40 @@ def test_main_defaults_count_scale_mode_to_off(tmp_path, monkeypatch):
 
     assert captured["cfg"] is not None
     assert captured["cfg"].count_scale_mode == "off"
+
+
+def test_main_parses_explicit_scale_contract_profile(tmp_path, monkeypatch):
+    from scripts.studies import grid_lines_torch_runner as runner
+
+    captured = {}
+
+    def fake_run_grid_lines_torch(cfg, **kwargs):
+        captured["cfg"] = cfg
+        run_dir = cfg.output_dir / "runs" / f"pinn_{cfg.architecture}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        return {"run_dir": str(run_dir), "metrics": {}}
+
+    monkeypatch.setattr(runner, "run_grid_lines_torch", fake_run_grid_lines_torch)
+
+    runner.main(
+        [
+            "--train-npz",
+            str(tmp_path / "train.npz"),
+            "--test-npz",
+            str(tmp_path / "test.npz"),
+            "--output-dir",
+            str(tmp_path / "output"),
+            "--architecture",
+            "fno",
+            "--scale-contract-version",
+            LEGACY_SCALE_CONTRACT,
+            "--measurement-domain",
+            NORMALIZED_AMPLITUDE,
+        ]
+    )
+
+    assert captured["cfg"].scale_contract_version == LEGACY_SCALE_CONTRACT
+    assert captured["cfg"].measurement_domain == NORMALIZED_AMPLITUDE
 
 
 def test_main_hybrid_resnet_defaults_bias_local_branch(tmp_path, monkeypatch):
