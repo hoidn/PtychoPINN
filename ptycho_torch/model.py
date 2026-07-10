@@ -14,6 +14,7 @@ from typing import Any, Dict, Optional
 
 #Helper
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
+from ptycho_torch.scaling_contract import validate_scale_contract
 import ptycho_torch.helper as hh
 from ptycho_torch.model_attention import CBAM, ECALayer, BasicSpatialAttention
 import copy
@@ -1741,6 +1742,8 @@ class PtychoPINN_Lightning(L.LightningModule):
             training_config = TrainingConfig(**training_config)
         if isinstance(inference_config, dict):
             inference_config = InferenceConfig(**inference_config)
+
+        validate_scale_contract(data_config, model_config, training_config)
 
         generator_module, generator_output = _resolve_generator_from_config(
             model_config,

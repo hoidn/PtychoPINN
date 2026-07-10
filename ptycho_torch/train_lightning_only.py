@@ -35,6 +35,7 @@ from ptycho_torch.config_params import update_existing_config
 
 #Custom modules
 from ptycho_torch.model import PtychoPINN_Lightning
+from ptycho_torch.scaling_contract import validate_scale_contract
 from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config
 from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, is_effectively_global_rank_zero, PtychoDataModule, PtychoDataModuleLightning, resolve_n_devices
 
@@ -205,6 +206,8 @@ def main(ptycho_dir,
         #If train is called via train_full, these settings will already have been loaded
         else:
             data_config, model_config, training_config, inference_config, datagen_config = existing_config
+
+        validate_scale_contract(data_config, model_config, training_config)
 
         # Force Lightning orchestrator — this script uses PtychoDataModuleLightning,
         # which relies on Lightning's prepare_data/setup lifecycle instead of

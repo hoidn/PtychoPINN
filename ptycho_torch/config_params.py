@@ -18,6 +18,8 @@ except ImportError as e:
 class DataConfig:
     """Configuration parameters related to data loading and generation."""
     nphotons: float = 1e5
+    scale_contract_version: Literal['ci_intensity_v2', 'legacy_v1'] = 'ci_intensity_v2'
+    measurement_domain: Literal['count_intensity', 'normalized_amplitude'] = 'count_intensity'
 
     #General sizing parameters
     N: int = 64  # Size of the diffraction patterns/object patch

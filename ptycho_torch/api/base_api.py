@@ -3,6 +3,7 @@ from enum import Enum
 from dataclasses import dataclass, replace
 import json
 from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig, update_existing_config
+from ptycho_torch.scaling_contract import validate_scale_contract
 from ptycho_torch.utils import load_all_configs_from_mlflow, load_config_from_json, validate_and_process_config
 import os
 
@@ -260,6 +261,12 @@ class PtychoDataLoader:
 
         if isinstance(data_format, str):
             data_format = DataloaderFormats(data_format)
+
+        validate_scale_contract(
+            self.data_config,
+            self.model_config,
+            self.training_config,
+        )
 
         if data_format == DataloaderFormats.LIGHTNING_MODULE:
             self._setup_lightning_datamodule()
@@ -1277,9 +1284,6 @@ class InferenceEngine:
     
     
         
-
-
-
 
 
 
