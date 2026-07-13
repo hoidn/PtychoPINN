@@ -1,268 +1,312 @@
 # Design Template
 
 > Copy this file to the design location for the initiative and customize it.
-> Use this before writing an implementation plan when the work needs design,
-> scientific/provenance decisions, architecture choices, or ADR-style rationale.
+> Use a separate design when behavior, architecture, a public or scientific
+> contract, migration policy, or material alternatives need a durable decision
+> before implementation planning.
 >
-> Keep the design as small as the decision requires. For narrow changes, write
-> concise answers and mark optional subsections `N/A`; do not pad the document to
-> satisfy headings that are irrelevant. For workflow-driven design-plan-implement
-> stacks, use this document as the design source of truth before planning.
+> Keep the document proportional to the decision. **Omit headings and prompts
+> that are irrelevant** instead of filling them with `N/A` or boilerplate. This
+> template does not require a separate ADR, dependency search, workflow contract,
+> or asset inventory. Add one of those only when the design actually depends on
+> it or a governing repository contract requires it.
 
-## Design Metadata
+## Metadata And Status
 
 - ID: `<initiative-or-study-id>`
 - Title: `<short title>`
-- Status: draft | candidate | approved | superseded | abandoned
-- Owner: `<name>` (optional)
+- Status: `draft | candidate | approved | superseded | abandoned`
+- Owner: `<name or role>`
 - Date: `<YYYY-MM-DD>`
-- Source brief / issue: `<path or tracker id>`
-- Related plan: `<path>` (leave blank until planning starts)
-- Related checklist / backlog item: `<path>` (optional)
+- Approval source: `<reviewer, decision record, or link; required when approved>`
+- Supersedes / superseded by: `<repository-relative path, if applicable>`
+- Related brief, issue, or plan: `<repository-relative path or tracker ID>`
 
-Use `approved` only after the review loop or human owner accepts the design.
-Drafting prompts should create a `draft` or `candidate` design, not an
-"approved" design.
+Use `approved` only when the named authority has accepted the design. Keep live
+progress, blockers, task ownership, and scheduling in the implementation plan or
+tracker rather than updating this durable decision record with execution state.
 
-## Consumed Inputs and Authority
+## Context And Authority
 
-List the documents and artifacts that constrain this design. Prefer specific
-paths and sections over broad references.
+Describe the context needed to understand the decision and identify the sources
+that constrain it. Read `docs/index.md` first when present and list only sources
+that materially govern this design.
 
-- Primary source: `<path>`
-- Docs index: `docs/index.md` read first? `<yes | no | absent>`
-- Normative specs: `<path> §section>`
-- Architecture docs: `<path> §section>`
-- Workflow guides / runbooks: `<path> §section>`
-- Project docs: `<path> §section>`
-- Prior artifacts or reports: `<path>`
-- Known findings / policies: `<Finding ID or policy>`
-
-When `docs/index.md` exists, read it first and use it to select the relevant
-specs, architecture docs, workflow guides, runbooks, and `docs/findings.md`.
-List only the documents that actually constrain the design; do not turn broad
-doc globs into a required reading list.
-
-Authority order for this design:
-
-1. `<highest-priority source>`
-2. `<next source>`
-3. `<lower-priority context>`
-
-## Problem and Scope
-
-State the problem this design solves and the claim or behavior surface it is
-allowed to change.
-
-- Problem:
-- User / reviewer / system need:
-- In scope:
-- Out of scope:
-- Non-goals:
-
-## Decision Summary
-
-Summarize the intended direction in a few bullets. This section should let a
-reviewer understand the design without reading the whole document.
-
-- Decision:
-- Rationale:
-- Expected implementation shape:
-- Claim or behavior limits:
-- Pivot or abandonment condition:
-
-## Decision Records
-
-Use ADR entries for consequential choices. Include them when a choice affects
-architecture, dependencies, scientific claims, reproducibility, external APIs,
-data contracts, baseline policy, or future maintenance.
-
-### ADR-001: `<decision name>`
-
-- Status: proposed | accepted | superseded | rejected
-- Decision:
 - Context:
+- Primary authority: `<repository-relative path and section>`
+- Other governing specs, designs, policies, or findings:
+- Existing behavior or implementation being changed:
+- Authority or ownership boundary: `<which source owns each overlapping contract>`
+- Assumptions that still need proof:
+
+If sources disagree, resolve or explicitly escalate the conflict instead of
+silently choosing one.
+
+## Problem
+
+- Problem to solve:
+- Who or what is affected:
+- Why the current behavior or structure is insufficient:
+- Consequence of leaving it unchanged:
+
+## Goals And Non-Goals
+
+### Goals
+
+- `<observable outcome this design should enable>`
+
+### Non-Goals
+
+- `<nearby outcome intentionally excluded>`
+
+State the decision boundary precisely enough that later planning cannot expand
+the initiative by implication.
+
+## Decision And Alternatives
+
+### Decision
+
+Summarize the selected direction, why it fits the governing constraints, and
+the most important consequence or trade-off.
+
+- Selected direction:
 - Rationale:
-- Alternatives considered:
-  - `<alternative>` - `<reason accepted/rejected>`
-- Consequences:
-- Evidence required before implementation:
-- Follow-up required if this decision changes:
+- Trade-offs accepted:
 
-### ADR-002: `<decision name>` (optional)
+### Alternatives Considered
 
-- Status:
-- Decision:
-- Context:
-- Rationale:
-- Alternatives considered:
-- Consequences:
-- Evidence required before implementation:
-- Follow-up required if this decision changes:
+Record only credible alternatives that affected the choice.
 
-## Proposed Design
+| Alternative | Advantages | Disadvantages | Why not selected |
+|---|---|---|---|
+| `<option>` | `<benefit>` | `<cost or risk>` | `<reason>` |
 
-Describe the system, study, process, or workflow at the level needed for a
-planner to produce concrete tasks.
+Use a separate ADR only when repository convention or the scope of the decision
+warrants one; this section is sufficient for an ordinary design.
 
-### Implementation Shape
+## Design Details
 
-- Existing code or workflow to reuse:
-- New files or artifacts likely needed:
-- Files or APIs likely touched:
-- Files or APIs that must not be touched:
-- One-off versus reusable boundary:
-- Design-plan-implement boundary:
-  - Decisions this design must make:
-  - Details intentionally deferred to the implementation plan:
+Describe the system, study, process, or behavior at the level needed for an
+implementation plan to name concrete work without inventing architecture.
 
-### Core Contracts and Invariants
+### Components And Ownership
 
-List the properties that must hold even if implementation details change.
+| Component or surface | Responsibility | Owner / source of truth | Depends on |
+|---|---|---|---|
+| `<component>` | `<single responsibility>` | `<module, document, or team>` | `<dependency>` |
 
-- Contract:
-- Invariant:
-- Failure mode if violated:
-- How the implementation should prove it:
+Clarify maintained versus generated state and one-off versus reusable behavior
+when either distinction matters.
 
-### Data Flow / Control Flow
+### Data Or Control Flow
 
 ```text
-<input/source>
-  -> <step/component>
-  -> <artifact/output>
-  -> <consumer/verification>
+<producer/input>
+  -> <component or transformation>
+  -> <output/state transition>
+  -> <consumer>
 ```
 
-### Workflow / Artifact Contract (if workflow-affecting)
+Explain ordering, state transitions, and ownership changes that are not obvious
+from the flow.
 
-Use this subsection when the design may author, modify, or be executed by an
-orchestration workflow. Keep the workflow-level contract surface small; local
-implementation files belong in the implementation plan.
+## Contracts And Interfaces
 
-- Workflow or stack affected:
-- Workflow-level artifacts:
+Document only interfaces affected or introduced by this design.
 
-| Artifact | Producer | Consumer | Type | Validation / gate rule |
-|---|---|---|---|---|
-| `<artifact>` | `<step>` | `<step>` | `<file/json/report/etc>` | `<rule>` |
+- Inputs and producers:
+- Outputs and consumers:
+- API, CLI, schema, path, type, or artifact contract:
+- Validation and error contract:
+- Ownership and source-of-truth rules:
+- External or user-visible behavior:
 
-- Runtime-only or local artifacts not promoted to workflow contract:
-- Prompt-owned judgment standard:
-- Workflow-owned deterministic control:
-- Resume / re-run implications:
-- Non-contract details deferred to implementation plan:
+For workflow-affecting work, define promoted workflow contracts only when a
+producer and consumer need a stable boundary. Do not inventory local or runtime
+artifacts merely because they may exist during implementation.
 
-## Data, Dependency, and Provenance Decisions
+## Dependencies And Sequencing
 
-Use this section even for non-study work if the design depends on external
-state, installed packages, generated artifacts, model checkpoints, datasets, or
-environment-specific behavior.
+- Existing dependencies or capabilities reused:
+- New dependency or capability required:
+- Preconditions:
+- Ordering constraints and why they exist:
+- Work that may proceed independently:
 
-### Data and Artifact Identity
+When a new external dependency is material, record its selection criteria,
+version/source, license or operational constraints, and fallback. An exhaustive
+dependency search is not required when the design does not introduce or select
+one.
 
-- Required inputs:
-- Required outputs:
-- Checksum / manifest fields:
-- Freshness or cache policy:
-- Reuse policy for historical artifacts:
+## Invariants, Failure, And Recovery
 
-### Dependency Discovery (optional)
+| Invariant | Credible failure mode | Detection | Required behavior / recovery |
+|---|---|---|---|
+| `<property that must remain true>` | `<how it can fail>` | `<signal or check>` | `<fail-closed, retry, rollback, repair, or escalation>` |
 
-Use when the implementation might need a new package, solver, tool, service, or
-system dependency.
+Also state, where relevant:
 
-- Discovery scope:
-  - Search current repo and environment:
-  - Search external package sources:
-  - Candidate acceptance criteria:
-  - Candidate rejection criteria:
-- Required candidate manifest fields:
-  - name:
-  - URL or source:
-  - version / commit:
-  - license:
-  - install command:
-  - import or API entry point:
-  - supported algorithm / feature:
-  - fit for this design:
-  - rejection reason, if rejected:
-- Installation policy:
-- Fallback if no acceptable dependency is found:
+- Partial-write or interrupted-operation behavior:
+- Idempotency, retry, and resume semantics:
+- Rollback or safe-disable path:
+- Behavior when required evidence or inputs are missing:
 
-### Provenance and Reproducibility
+## Security, Operations, And Performance
 
-- Required command capture:
-- Required environment capture:
-- Required random seeds or determinism policy:
-- Required artifact manifest fields:
-- Required evidence logs:
+Include only the applicable concerns and the constraints the implementation must
+preserve.
 
-## Claim, Behavior, or API Boundaries
+- Security, privacy, trust-boundary, or secrets implications:
+- Deployment, observability, support, or runbook implications:
+- Capacity, latency, memory, compute, or cost constraints:
+- Performance budget and how regressions will be detected:
 
-State what the design may claim after implementation and what it must not imply.
-For non-paper work, interpret "claim" as user-visible behavior or API contract.
+## Evidence And Implementation Boundaries
 
-- Allowed claim / behavior:
-- Disallowed claim / behavior:
-- Required caveat or limitation:
-- Conditions that narrow the claim:
+Separate what must be proven before this design is accepted from details the
+implementation plan may decide.
 
-## Pivot Criteria and Stop Conditions
+### Evidence Required For The Decision
 
-Define fail-closed behavior before implementation starts.
+- Existing authority or test that supports the design:
+- Feasibility proof needed for an unproven capability:
+- Evidence gap that remains an open prerequisite:
 
-- Pivot to smaller scope if:
-- Stop before user-facing / reviewer-facing claims if:
-- Treat as exploratory only if:
-- Escalate for human decision if:
+Require a small feasibility proof when the decision relies on an untested
+generic mechanism, subsystem combination, API-preserving substrate change, or
+negative architecture claim. Do not present an unproven capability as accepted.
 
-## Required Final Assets
+### Fixed By This Design
 
-List final outputs if the design succeeds.
+- `<architecture, behavior, contract, policy, or evidence gate the plan must preserve>`
 
-- Code or scripts:
-- Tests:
-- Machine-readable outputs:
-- Figures / tables / docs:
-- Manifests / logs:
-- Checklist, backlog, or changelog updates:
+### Deferred To Implementation Planning
 
-If the design is abandoned or pivots:
+- `<file-level mechanics, task decomposition, command sequence, or reversible detail>`
 
-- Required artifact note:
-- Required rejected-candidate or failed-attempt summary:
-- Required docs / checklist updates:
+## Compatibility And Migration
 
-## Verification Plan
+- Existing users, callers, data, or artifacts affected:
+- Backward/forward compatibility contract:
+- Migration or rollout path:
+- Mixed-version or mixed-state behavior:
+- Deprecation and removal conditions:
+- Rollback implications:
 
-List checks that prove the design was implemented correctly. Keep this at the
-design level; exact command sequencing belongs in the implementation plan.
+## Verification Strategy
 
-- Unit or integration tests:
-- Artifact inspections:
-- Manifest/schema checks:
-- Reproducibility checks:
-- Manual inspection:
-- Paper or docs build checks, if relevant:
+Name the kinds of evidence that can falsify the design-level claims. Exact
+commands and task-by-task RED/GREEN sequencing belong in the implementation
+plan.
+
+- Contract and behavioral checks:
+- Unit, integration, end-to-end, or workflow checks:
+- Schema, artifact, or provenance checks:
+- Performance or operational checks:
+- Manual or reviewer inspection:
+- Why this evidence is sufficient for the stated scope:
+
+## Declarative Acceptance Scenarios
+
+Express important externally observable outcomes without prescribing internal
+implementation steps.
+
+### Scenario: `<accepted behavior>`
+
+- **Given** `<initial state and governing preconditions>`
+- **When** `<actor or system action>`
+- **Then** `<observable result or contract>`
+- **And** `<additional invariant or evidence, if needed>`
+
+### Scenario: `<failure or recovery behavior>`
+
+- **Given** `<failure precondition>`
+- **When** `<operation encounters it>`
+- **Then** `<fail-closed, recovery, or diagnostic behavior>`
+
+## Success Criteria
+
+- `<measurable outcome that establishes the design solved its problem>`
+- `<required contract or quality threshold>`
+- `<evidence that must exist before implementation can be called complete>`
+
+## Stop, Revise, Or Pivot Criteria
+
+- Stop before implementation if:
+- Revise this design if:
+- Narrow or pivot the scope if:
+- Escalate for a new decision if:
+
+Keep these criteria tied to evidence, violated assumptions, safety, feasibility,
+or claim limits—not dates or routine task status.
+
+## Optional Scientific And Evidence Contract
+
+Omit this entire section for work without scientific data, experiment artifacts,
+reproducibility obligations, or reviewer-facing claims.
+
+### Data And Artifact Identity
+
+- Dataset/cohort/sample identity and split policy:
+- Input and output artifact identities:
+- Manifest, checksum, schema, or freshness requirements:
+- Historical artifact reuse policy:
+
+### Provenance And Reproducibility
+
+- Code revision and configuration capture:
+- Environment, hardware, and dependency capture:
+- Randomness and determinism policy:
+- Command, log, and lineage capture:
+- Independent reproduction or rerun expectation:
+
+### Claim Boundaries
+
+- Claim the evidence may support:
+- Claim the evidence must not imply:
+- Required caveats, comparators, uncertainty, or generalization limits:
+- Conditions that narrow or invalidate the claim:
+
+### Scientific Pivot Criteria
+
+- Continue the selected study direction if:
+- Pivot to a smaller, exploratory, or alternate study if:
+- Stop before paper- or reviewer-facing use if:
+
+## Documentation Impact
+
+- Normative specs or API docs to update:
+- Architecture or developer docs to update:
+- User, workflow, operations, or scientific docs to update:
+- Index/discoverability updates:
+- No durable documentation change is needed because: `<state why, if applicable>`
+
+## Implementation Handoff
+
+The implementation plan should preserve the accepted decisions above while
+turning them into exact files, tasks, verification commands, and checkpoints.
+
+- Design decisions the plan must not reopen:
+- Required implementation sequence or gates:
+- Required compatibility or migration work:
+- Required verification and acceptance evidence:
+- Deliberately deferred choices the implementer may make:
+- Handoff owner or next decision authority:
+
+Handoff readiness:
+
+- [ ] The status and approval source are accurate.
+- [ ] Governing authority and ownership are unambiguous.
+- [ ] Material decisions, alternatives, contracts, and invariants are explicit.
+- [ ] Acceptance, success, and stop/revise criteria are observable.
+- [ ] Unproven capability claims are proven or recorded as prerequisites.
+- [ ] Open questions that would materially change the design are resolved.
 
 ## Open Questions
 
-Track unknowns that must be resolved before implementation planning.
+List only unresolved questions that could materially change the decision,
+contract, feasibility, or claim boundary.
 
-| ID | Question | Owner | Resolution needed by | Status |
+| ID | Question | Decision owner | Resolution needed before | Resolution / status |
 |---|---|---|---|---|
-| Q1 | `<question>` | `<owner>` | before plan | open |
-
-## Planning Handoff Checklist
-
-- [ ] Design status is `draft`, `candidate`, or post-review `approved` with approval source recorded.
-- [ ] `docs/index.md` was used when present, and selected specs/docs/findings are listed.
-- [ ] Optional sections are concise, omitted, or marked `N/A`; the design is not padded for small changes.
-- [ ] ADR entries record consequential choices and rejected alternatives.
-- [ ] Workflow/artifact contract is filled in or marked `N/A`; workflow-level artifacts have producer, consumer, and gate rule.
-- [ ] Dependency discovery is specified if new packages/tools might be needed.
-- [ ] Data/provenance contracts include enough fields to audit outputs.
-- [ ] Pivot and stop conditions are concrete enough for an implementation review.
-- [ ] Required final assets include docs/checklist/changelog updates where relevant.
-- [ ] Open questions are either resolved or carried into the plan as blocking tasks.
+| Q1 | `<question>` | `<owner>` | `<approval or implementation>` | `<open or durable resolution>` |

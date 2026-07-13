@@ -16,7 +16,9 @@ Scope:
 1. This file (`docs/workflows/orchestration_start_here.md`)
 2. Runtime runbook: `docs/workflows/agent_orchestration_backlog_loop.md`
 3. Provider prompt sources: `prompts/workflows/backlog_plan_loop/`
-4. Plan contract template: `docs/plans/templates/workflow_contract_plan.md`
+4. General implementation plan template: `plans/templates/implementation_plan.md`
+5. Workflow-contract supplement, when cross-step data changes:
+   `plans/templates/workflow_contract_plan.md`
 
 ## One-Screen Mental Model
 
@@ -133,14 +135,24 @@ Change backlog item docs when you need to change:
 ## Plan-to-Workflow Contract Rule
 
 For plans executed by this orchestration flow:
-- expose at most 2 workflow-level artifacts (`< 3`)
-- name producer and consumer for each artifact
+- use the general implementation plan for tasks, exact files, verification,
+  completion criteria, and stop conditions
+- promote the minimal-sufficient set of workflow-level artifacts needed for a
+  downstream stage to execute, validate, resume, or audit an acceptance claim;
+  there is no numeric ceiling
+- for every promoted artifact, name its producer, consumer(s), type/schema,
+  authority, validation, freshness rule, and failure behavior
 - resolve inter-stage artifacts from current producer outputs only
 - do not hardcode timestamped historical roots
 - fail closed when required producer artifacts are missing/stale
 
-Template:
-- `docs/plans/templates/workflow_contract_plan.md`
+The workflow-contract template supplements rather than replaces the general
+implementation plan. Keep step-local diagnostics and intermediates local unless
+a cross-stage consumer actually needs them.
+
+Templates:
+- `plans/templates/implementation_plan.md`
+- `plans/templates/workflow_contract_plan.md`
 
 ## Common Confusions (and Correct Placement)
 

@@ -1,6 +1,8 @@
 # Plans Directory Organization
 
-This directory contains both active implementation plans and meta-level process documentation.
+`plans/templates/` is the canonical template catalog. New active plans live in
+`docs/plans/`; `plans/meta/` and older plan trees preserve historical process
+and initiative material and do not define current prerequisites.
 
 ---
 
@@ -18,151 +20,64 @@ are the low-risk, high-leverage near-term work.
 
 ---
 
-## Directory Structure
+## Current planning locations
 
-```
-plans/
-├── meta/                           # Process improvements & meta-templates
-│   ├── README.md                   # Guide to meta-level documents
-│   ├── PROCESS_OPTIMIZATIONS.md    # Efficiency analysis & proposals
-│   ├── CLAUDE_MD_UPDATES.md        # Directive update proposals
-│   └── templates/                  # Reusable initiative templates
-│       ├── test_strategy_template.md
-│       └── constraint_analysis_template.md
-│
-├── active/                         # Active feature/bug implementation plans
-│   ├── INTEGRATE-PYTORCH-000/      # Planning refresh initiative
-│   ├── INTEGRATE-PYTORCH-001/      # PyTorch backend integration
-│   ├── TEST-SUITE-TRIAGE/          # Test organization
-│   └── [other active initiatives]
-│
-└── [legacy plans]                  # One-off or archived plans
-    ├── pytorch_integration_test_plan.md
-    ├── ptychodus_pytorch_integration_plan.md
-    └── vectorization.md
-```
+| Location | Current role |
+| --- | --- |
+| `plans/templates/` | Canonical design, implementation, debug, workflow-contract, and test-strategy templates |
+| `docs/plans/` | Active plans and durable initiative-specific planning records |
+| `plans/meta/` | Historical process proposals, analyses, and worksheets; informative lineage only |
+| `plans/active/` and `plans/*.md` | Older initiative plans retained for reference; not the default destination for new work |
 
----
+## Choosing a planning path
 
-## Quick Reference
+Bounded work with clear requirements and no unresolved durable decision may
+start directly. When an execution plan is useful, copy
+[`templates/implementation_plan.md`](templates/implementation_plan.md) to the
+single-file default `docs/plans/YYYY-MM-DD-<initiative>.md` and keep only the
+sections proportional to the work.
 
-### I want to...
+Use [`templates/design_template.md`](templates/design_template.md) first only
+when the work still needs a durable decision about behavior, architecture, a
+public or scientific contract, migration policy, or material alternatives.
+Once accepted, link that design from the implementation plan rather than
+reopening its decisions there.
 
-**Start a new feature/bug fix:**
-→ Go to `active/` and create `<INITIATIVE-NAME>/implementation.md`
-→ Use templates from `meta/templates/` for test strategy and constraints
+Specialized templates are optional and apply only to their named concern:
 
-**Improve the development process:**
-→ Go to `meta/` and create a proposal document
-→ Reference existing analyses in `logs/feature-torchapi/galph-summaries/`
+- [`templates/debug_task_plan.md`](templates/debug_task_plan.md) for a bounded,
+  hypothesis-driven investigation; use the implementation template for a fix.
+- [`templates/workflow_contract_plan.md`](templates/workflow_contract_plan.md)
+  as a supplement when data crosses orchestrated step or stage boundaries.
+- [`templates/test_strategy_template.md`](templates/test_strategy_template.md)
+  as a supplement when test architecture, CI tiers, expensive scientific
+  validation, or an environment/dependency capability contract changes.
+- `templates/implementation_plan_simple.md` is a compatibility pointer to the
+  canonical implementation template, not a second planning process.
 
-**Find a template for planning:**
-→ Go to `meta/templates/`
-→ Copy template to `active/<initiative>/` and fill in
+Use an initiative folder under `docs/plans/` only when genuinely
+multi-document work needs a shared durable home. Historical worksheets in
+`plans/meta/templates/` are not required starting points, gates, or
+prerequisites.
 
-**Review process improvement proposals:**
-→ Go to `meta/` and check `PROCESS_OPTIMIZATIONS.md` or `CLAUDE_MD_UPDATES.md`
+## Completing work
 
----
-
-## Key Distinctions
-
-### Meta (Process & Methodology)
-**Location:** `plans/meta/`
-
-**Purpose:** How we plan, develop, and test in general
-- Process improvements
-- Workflow optimizations
-- Quality gate definitions
-- Reusable templates
-- Agent coordination improvements
-- Retrospectives and lessons learned
-
-**Examples:**
-- "We should design test infrastructure before implementation"
-- "Add constraint analysis to Phase 0 of all initiatives"
-- "Template for test strategy documents"
-
-### Active (Feature Implementation)
-**Location:** `docs/plans/`
-
-**Purpose:** What we're building right now
-- Feature implementations
-- Bug fixes
-- Refactorings
-- Specific optimizations
-- Active development work
-
-**Examples:**
-- "Build PyTorch backend integration"
-- "Fix config bridge field translation"
-- "Optimize tricubic interpolation"
-
-### Legacy (Historical/Archived)
-**Location:** `plans/` (root)
-
-**Purpose:** Completed or superseded plans
-- One-off plans that don't fit elsewhere
-- Historical planning documents
-- Superseded by newer initiatives
-- Reference material
-
----
-
-## Workflow
-
-### Starting New Work
-
-1. **Check if process improvement or feature:**
-   - Process improvement? → `meta/`
-   - Feature/bug? → `active/`
-
-2. **For new features:**
-   ```bash
-   # Create initiative directory
-   mkdir -p docs/plans/<INITIATIVE-NAME>
-
-   # Copy templates
-   cp plans/meta/templates/test_strategy_template.md \
-      docs/plans/<INITIATIVE-NAME>/test_strategy.md
-   cp plans/meta/templates/constraint_analysis_template.md \
-      docs/plans/<INITIATIVE-NAME>/constraint_analysis.md
-
-   # Create implementation plan
-   # (use examples in active/ as reference)
-   ```
-
-3. **For process improvements:**
-   ```bash
-   # Create analysis document
-   vim plans/meta/<PROPOSAL_NAME>.md
-
-   # Reference meta-analysis if available
-   # logs/feature-torchapi/galph-summaries/META_ANALYSIS.md
-   ```
-
-### Completing Work
-
-**For active initiatives:**
-- Move `active/<INITIATIVE>/` to `completed/<INITIATIVE>/` (or archive)
-- Update `docs/fix_plan.md` with final status
-- Extract lessons learned to `meta/` if applicable
-
-**For meta improvements:**
-- Implement changes (update CLAUDE.md, prompts/, docs/)
-- Archive proposal in `meta/archive/` or delete if implemented
-- Update templates based on learnings
+Keep the plan's status and verification evidence accurate within the plan's
+declared scope. Add or update the relevant `docs/index.md` entry when the plan
+or its durable outcome needs discoverability. There is no general requirement
+to create archived log trees, move plans between lifecycle folders, or extract
+new process documents after ordinary completion.
 
 ---
 
 ## See Also
 
-- `meta/README.md` - Detailed guide to process documents
+- `meta/README.md` - Historical process-document guide and current authority boundary
 - `docs/workflows/agent_orchestration_backlog_loop.md` - How to run initiatives
 - `docs/DEVELOPER_GUIDE.md` - Development best practices
 - `CLAUDE.md` - Core project directives
 
 ---
 
-**Last Updated:** 2025-10-16
+**Last Updated:** 2026-07-13
 **Maintainer:** Project leads

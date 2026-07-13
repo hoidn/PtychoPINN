@@ -1,3 +1,17 @@
+> [!WARNING]
+> **Historical and superseded**
+>
+> This document is retained only for provenance and is not current policy.
+> Phase -1 analysis is not required for new work. Select relevant concerns
+> proportionately through the current
+> [`plans/templates/design_template.md`](../templates/design_template.md),
+> [`plans/templates/implementation_plan.md`](../templates/implementation_plan.md),
+> and optional
+> [`plans/templates/test_strategy_template.md`](../templates/test_strategy_template.md).
+> The historical body below is intentionally unchanged and must not be read as
+> a current requirement.
+>
+
 # The Universal Pattern: Phase -1 Cross-Cutting Concerns
 
 **Status:** PROPOSED - Transferable to ANY project

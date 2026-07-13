@@ -611,25 +611,30 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** orchestration, workflow, step, prompt, plan, ownership-boundaries, producer-consumer, git
 **Use this when:** Authoring DSL workflows, editing backlog-loop prompts/plans, or deciding whether a workflow such as `lines_256` needs a dedicated run checkout.
 
-### [Implementation Plan Template](plans/templates/implementation_plan.md)
-**Description:** Repo-specific phased plan template with initiative header, exit criteria, per‑phase checklists, Do Now block, artifacts index, and plan‑update protocol reminder.  
-**Keywords:** template, plan, phased, checklist, exit-criteria  
-**Use this when:** Creating or reshaping an initiative plan to match project conventions.
+### [Implementation Plan Template](../plans/templates/implementation_plan.md)
+**Description:** Canonical proportional implementation-plan template with authority, scope, invariants, exact execution tasks, claim-matched evidence, review checkpoints, a verification ladder, completion criteria, and stop conditions. Ordinary bounded work may start here when its requirements and approach are already settled; create plans as a single `docs/plans/YYYY-MM-DD-<initiative>.md` file by default.
+**Keywords:** template, implementation-plan, proportional, tasks, verification, stop-conditions
+**Use this when:** Planning ordinary feature, bug-fix, refactor, documentation, or data work that does not need a prior durable design decision.
 
-### [Design Template](plans/templates/design_template.md)
-**Description:** General design/ADR template for initiatives that need scope, rationale, contracts, dependency discovery, provenance, pivot criteria, and planning handoff before implementation.
-**Keywords:** template, design, adr, dependency-discovery, provenance, pivot-criteria
-**Use this when:** Drafting a design source of truth before an implementation plan, especially when choices affect architecture, scientific claims, external dependencies, data contracts, or reviewer-facing evidence.
+### [Design Template](../plans/templates/design_template.md)
+**Description:** Canonical durable design/ADR template for authority, goals, selected direction and alternatives, contracts, invariants, compatibility or migration, evidence, acceptance scenarios, and implementation handoff.
+**Keywords:** template, design, adr, alternatives, contracts, migration, scientific-claims
+**Use this when:** Behavior, architecture, a public or scientific contract, migration policy, or material alternatives must be decided durably before implementation planning; it is not a prerequisite for settled, bounded ordinary work.
 
-### [Workflow Contract Plan Template](plans/templates/workflow_contract_plan.md)
-**Description:** Minimal template for plans intended for workflow execution, with a strict workflow-level contract surface (`< 3` artifacts), producer/consumer mapping, and required plan-author/workflow-author coordination checklist.  
-**Keywords:** template, workflow-contract, producer-consumer, artifact-lineage, orchestration  
-**Use this when:** Writing plans that must expose only a small, explicit set of workflow-level inputs/outputs.
+### [Workflow Contract Plan Supplement](../plans/templates/workflow_contract_plan.md)
+**Description:** Optional supplement to the canonical implementation plan for data crossing orchestrated step or stage boundaries. It defines a minimal-sufficient promoted artifact set and records producer, consumer, type/schema, authority, resolution, validation, freshness, and failure behavior for each artifact.
+**Keywords:** template, workflow-contract, supplement, producer-consumer, artifact-lineage, orchestration
+**Use this when:** An implementation plan adds or changes cross-step workflow data; keep local intermediates out of the workflow contract and do not use this supplement in place of the general plan.
 
-### [Debug Task Plan Template (Optional)](plans/templates/debug_task_plan.md)
-**Description:** Optional task-first template for debugging/evidence initiatives with hypothesis ledger, deterministic diagnostics, and decision-gate sections.  
-**Keywords:** template, debug, hypothesis, investigation, decision-gate  
-**Use this when:** Running scoped debugging investigations that should not replace the canonical implementation-plan schema.
+### [Debug Task Plan Template (Optional)](../plans/templates/debug_task_plan.md)
+**Description:** Optional hypothesis-driven investigation template with a reproduction contract, controlled variables, hypothesis ledger, discriminating probes, evidence limits, and implementation handoff.
+**Keywords:** template, debug, hypothesis, investigation, root-cause
+**Use this when:** Planning a bounded investigation whose outcome is a root cause or decision; use the implementation template separately for an authorized fix.
+
+### [Test Strategy Supplement (Optional)](../plans/templates/test_strategy_template.md)
+**Description:** Optional supplement for changes to test architecture, CI tiers, expensive scientific validation, or environment/dependency capability contracts, including real-versus-mock boundaries and failure/skip policy.
+**Keywords:** template, test-strategy, supplement, ci, scientific-validation, environment
+**Use this when:** Those specialized test-contract concerns cannot be expressed adequately in the implementation plan's ordinary RED/GREEN tasks and verification ladder.
 
 ### [Workflow Backlog Item Template](backlog/templates/backlog_item_workflow.md)
 **Description:** Template for backlog queue items consumed by the agent-orchestration backlog loop, including required frontmatter (`priority`, `plan_path`, `check_commands`) and directory-placement queue rules (`active/paused/done`).  
@@ -986,8 +991,8 @@ Two spec trees are both live with disjoint scopes: `specs/` owns external intero
 ## Finding Information
 
 ### By Task
-- **Authoring or executing backlog-loop DSL workflows**: [Orchestration Start Here](workflows/orchestration_start_here.md) → [Agent-Orchestration Backlog Loop Runbook](workflows/agent_orchestration_backlog_loop.md) → [Workflow Contract Plan Template](plans/templates/workflow_contract_plan.md)
-- **Starting a new feature**: [Developer Guide](DEVELOPER_GUIDE.md) → [Workflow Contract Plan Template](plans/templates/workflow_contract_plan.md)
+- **Authoring or executing backlog-loop DSL workflows**: [Orchestration Start Here](workflows/orchestration_start_here.md) → [Agent-Orchestration Backlog Loop Runbook](workflows/agent_orchestration_backlog_loop.md) → [Implementation Plan Template](../plans/templates/implementation_plan.md), plus the [Workflow Contract Plan Supplement](../plans/templates/workflow_contract_plan.md) when cross-step data changes
+- **Starting a new feature**: [Developer Guide](DEVELOPER_GUIDE.md) → [Implementation Plan Template](../plans/templates/implementation_plan.md); use the [Design Template](../plans/templates/design_template.md) first only when durable behavior, architecture, public/scientific contract, migration, or material-alternative decisions remain open
 - **Running experiments**: [CLI Workflow Guide](WORKFLOW_GUIDE.md) → [Commands Reference](COMMANDS_REFERENCE.md)
 - **Debugging issues**: [Troubleshooting](debugging/TROUBLESHOOTING.md) → [Quick Reference Params](debugging/QUICK_REFERENCE_PARAMS.md)
 - **Understanding data**: [Standalone NPZ and Grouped Data Contract](specs/spec-ptycho-core.md) → [Data Normalization](DATA_NORMALIZATION_GUIDE.md)

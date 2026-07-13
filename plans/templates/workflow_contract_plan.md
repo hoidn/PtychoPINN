@@ -1,68 +1,78 @@
-# Workflow-Contract Plan Template
+# Workflow-Contract Plan Supplement (Optional)
 
-Use this template when a plan is intended to run inside an orchestrated workflow.
+Use this only when an implementation plan adds or changes data that crosses
+orchestrated workflow step or stage boundaries. It supplements—not replaces—the
+canonical [implementation plan template](implementation_plan.md), whose tasks,
+files, verification, completion criteria, and stop conditions still govern.
 
-## 1) Plan Metadata
+Prefer adding the sections below to the single plan at
+`docs/plans/YYYY-MM-DD-<initiative>.md`. Create a companion document in an
+initiative folder only when a genuinely multi-document contract needs its own
+durable review surface.
 
-- Plan title:
-- Plan owner:
-- Date:
-- Linked backlog item:
-- Linked workflow file:
+## Coordination
 
-## 2) Workflow Contract Surface (Required, Strictly `< 3`)
+- **Implementation plan:** <repository-relative path>
+- **Workflow definition:** <exact path>
+- **Backlog/runtime item, if applicable:** <identifier or path>
+- **Owning contract / authority:** <spec, accepted design, or schema>
+- **Change summary:** <cross-stage behavior being added or changed>
 
-List only the key plan-level artifacts that must cross step/stage boundaries at workflow level.
+## Minimal-sufficient artifact set
 
-Hard limit:
-- Total contract artifacts must be 1 or 2.
-- If more are needed, split the plan or explicitly pause and redesign with workflow author.
+Promote only artifacts needed for a downstream stage to execute, validate,
+resume, or audit an acceptance claim. Keep step-local diagnostics and
+intermediates implementation-local. There is no numeric ceiling, but every
+promoted artifact must justify why existing artifacts cannot carry its contract;
+if the set is difficult to reason about, simplify the boundary or split the
+workflow deliberately.
 
-### Contract Artifact 1
+### Artifact: <canonical artifact name>
 
-- Artifact name:
-- Direction: input | output
-- Producer (workflow step/stage):
-- Consumer (workflow step/stage):
-- Artifact type: `relpath` | scalar (`enum`/`integer`/`string`) | JSON bundle field
-- Canonical resolution rule:
-  - Must resolve from the current producer artifact.
-  - Must not use timestamp-pinned or hardcoded historical output paths.
-- Validation/gate rule:
+- **Purpose / why workflow-level:** <downstream need this artifact satisfies>
+- **Direction:** input | output | published state
+- **Producer:** <exact step/stage and production condition>
+- **Consumer(s):** <exact step/stage and how each uses it>
+- **Type / schema:** <relpath, enum, integer, string, or schema + version>
+- **Authority:** <source that defines meaning, required fields, and precedence>
+- **Resolution:** <how the current producer output is located; no implicit
+  timestamp-pinned historical fallback>
+- **Validation:** <syntax, schema, path containment, completeness, or semantic
+  checks performed before consumption>
+- **Freshness:** <run/attempt identity, content hash, timestamp relationship, or
+  producer-state rule proving it belongs to the current execution>
+- **Failure behavior:** <fail-closed, retry, recover, or explicit optional path;
+  name the surfaced error/status and forbid silent stale fallback>
 
-### Contract Artifact 2 (Optional)
+Repeat this block for each minimal-sufficient workflow-level artifact.
 
-- Artifact name:
-- Direction: input | output
-- Producer (workflow step/stage):
-- Consumer (workflow step/stage):
-- Artifact type: `relpath` | scalar (`enum`/`integer`/`string`) | JSON bundle field
-- Canonical resolution rule:
-  - Must resolve from the current producer artifact.
-  - Must not use timestamp-pinned or hardcoded historical output paths.
-- Validation/gate rule:
+## Implementation-local I/O
 
-## 3) Non-Contract I/O (Implementation-Local)
+- `<name/path>` — <why it remains local and is not part of cross-stage
+  producer/consumer semantics>
 
-- List any additional inputs/outputs used by scripts or prompts.
-- These are local details and must not be wired as workflow-level producer/consumer artifacts.
+## Workflow wiring and evidence
 
-## 4) Plan <-> Workflow Coordination (Required)
+For each workflow-level artifact, the implementation plan must name exact files
+and commands that prove:
 
-Plan author + workflow author must both confirm:
+- the producer publishes the declared type/schema;
+- the consumer resolves the current producer output and validates it before use;
+- missing, invalid, unauthorized, or stale data follows the declared failure
+  behavior;
+- resume/retry behavior preserves authority and freshness; and
+- workflow DSL declarations match runtime producer/consumer behavior.
 
-- [ ] Contract artifact count is `< 3` (max two artifacts).
-- [ ] Each contract artifact has a named producer and consumer.
-- [ ] Workflow DSL `artifacts`/`publishes`/`consumes` matches this plan exactly.
-- [ ] No hardcoded stale run-root paths are used for inter-stage artifact resolution.
-- [ ] Consumer steps fail closed when required producer artifact is missing or stale.
+Use RED/GREEN evidence for changed behavior, including at least one negative
+case for missing or stale required data. State exact commands and expected
+results in the implementation plan rather than duplicating its execution
+checklist here.
 
-- Workflow author sign-off (name/date):
-- Plan author sign-off (name/date):
+## Contract acceptance
 
-## 5) Acceptance Criteria (Contract-Level)
-
-- [ ] All contract artifacts are produced and consumed through workflow semantics.
-- [ ] Evidence shows producer->consumer lineage for each contract artifact.
-- [ ] No fallback to historical timestamped paths for contract artifacts.
-
+- [ ] The promoted set is minimal but sufficient for every cross-stage need.
+- [ ] Every artifact names producer, consumer, type, validation, authority,
+  freshness, resolution, and failure behavior.
+- [ ] Workflow definition, runtime behavior, and owning contract agree.
+- [ ] Current-run lineage is demonstrated without silent historical fallback.
+- [ ] Implementation-local I/O has not been unnecessarily promoted.
