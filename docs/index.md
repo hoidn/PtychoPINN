@@ -57,6 +57,12 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** sru-net, hybrid_resnet, model-usage, cdi, pdebench, brdt, row-id, architecture-id
 **Use this when:** You need to run SRU-Net, map manuscript labels to implementation ids, or check which SRU-Net variants are paper-facing versus decision-support.
 
+
+### [Procedural Anti-Ratchet Rule Backlog](plans/2026-07-13-procedural-anti-ratchet-rule-backlog.md)
+**Description:** Staged follow-up to the Stage 1 authority-and-verification correction, covering deterministic skill selection and expiry, risk-based review admission, non-authoritative durable recovery state, causal todo/cleanup admission, procedural-ratchet detection, rejected over-corrections, and behavioral simulation scenarios.
+**Keywords:** governance, authority, evidence, procedural-ratchet, skills, review, recovery-state, todo, cleanup, simulation
+**Use this when:** Revising reusable agent rules after Stage 1, checking whether a controller-created procedure has acquired false authority, or evaluating anti-process wording that could suppress real defects or necessary emergent work.
+
 ### [NeurIPS Hybrid ResNet Submission Design](plans/2026-04-20-neurips-hybrid-resnet-submission-design.md)
 **Description:** Approved design brief for a NeurIPS 2026 Hybrid ResNet submission campaign, defining the CDI pillar, the amended native `128x128` PDEBench image-suite pillar, fresh `128x128` CDI anchor regeneration strategy, `256x256` higher-mode scaling hypothesis, and the planned `/home/ollie/Documents/neurips/index.md` evidence-map policy. That local manuscript index is intentionally not required to exist until the roadmap evidence-bundle phase creates it.
 **Keywords:** neurips, hybrid_resnet, roadmap, submission, cdi, pde, evidence
