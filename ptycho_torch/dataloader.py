@@ -40,7 +40,7 @@ from ptycho_torch.scaling_contract import (
 # --- Helper functions for the dataloader ---
 _DIFFRACTION_KEYS = ('diffraction', 'diff3d')
 _MMAP_SCHEMA_NAME = "ptycho_torch_mmap"
-_MMAP_SCHEMA_VERSION = 1
+_MMAP_SCHEMA_VERSION = 3
 _CI_STATISTICS_CHUNK_SIZE = 256
 _COMMON_MMAP_FIELDS = {
     "images",
@@ -50,6 +50,8 @@ _COMMON_MMAP_FIELDS = {
     "coords_start_center",
     "coords_start_relative",
     "nn_indices",
+    "center_scan_id",
+    "center_scan_id_available",
     "experiment_id",
     "label_amp",
     "label_phase",
@@ -88,6 +90,28 @@ def _resolve_neighbor_function(data_config):
     if data_config.neighbor_function == 'Min_dist':
         return get_neighbors_indices_within_bounds
     return '4_quadrant' #This is the one used in PtychoPINNv2
+
+
+def _normalize_legacy_grouping_records(file_list, valid_per_file, grouping_per_file):
+    """Upgrade grouping records without inventing unavailable legacy centers."""
+    if len(grouping_per_file) != len(valid_per_file):
+        raise ValueError("legacy grouping records must align with valid-index files")
+    normalized = []
+    for index, record in enumerate(grouping_per_file):
+        if record is None or len(record) == 4:
+            normalized.append(record)
+            continue
+        if len(record) == 3:
+            nn_indices, coords_nn, centers = record
+            available = np.ones(len(nn_indices), dtype=np.bool_)
+        elif len(record) == 2 and index < len(file_list):
+            nn_indices, coords_nn = record
+            centers = np.full(len(nn_indices), -1, dtype=np.int64)
+            available = np.zeros(len(nn_indices), dtype=np.bool_)
+        else:
+            raise ValueError("legacy grouping record must contain two or three elements")
+        normalized.append((nn_indices, coords_nn, centers, available))
+    return normalized
 
 
 def _align_coords_to_diffraction(xcoords, ycoords, n_diff, source):
@@ -407,8 +431,24 @@ class PtychoDataset(Dataset):
 
         # Calculate length of total memory map, with try/except for ddp
         try:
-            (self.length, self.im_shape, self.cum_length,
-             self.valid_indices_per_file, self.grouping_per_file) = self.calculate_length()
+            length_result = self.calculate_length()
+            if len(length_result) == 5:
+                (self.length, self.im_shape, self.cum_length,
+                 self.valid_indices_per_file,
+                 self.grouping_per_file) = length_result
+                self.source_indices_per_file = [
+                    np.arange(npz_headers(path)[0][0], dtype=np.int64)
+                    for path in self.file_list
+                ]
+                self.grouping_per_file = _normalize_legacy_grouping_records(
+                    self.file_list,
+                    self.valid_indices_per_file,
+                    self.grouping_per_file,
+                )
+            else:
+                (self.length, self.im_shape, self.cum_length,
+                 self.valid_indices_per_file, self.source_indices_per_file,
+                 self.grouping_per_file) = length_result
             if self.length == 0:
                  raise ValueError(
                      f"[Rank {self.current_rank}] calculate_length() resulted in 0 items. "
@@ -550,6 +590,7 @@ class PtychoDataset(Dataset):
         cumulative_length = [0]
         first_im_shape = None
         valid_indices_per_file = [] # Store valid indices for each file
+        source_indices_per_file = [] # Every source diffraction index before bounds
         grouping_per_file = [] # (nn_indices, coords_nn) per file when grouping applies, else None
 
         group_coordinates = self.group_coords_enabled()
@@ -606,6 +647,7 @@ class PtychoDataset(Dataset):
             # Stores indices of points whose coordinates lie within specified bounds
             # We want to skip image edges because predictions may be unstable there
             valid_indices_per_file.append(valid_indices)
+            source_indices_per_file.append(np.arange(tensor_shape[0], dtype=np.int64))
 
             if n_valid_points == 0:
                 print(f"Warning: No points found within bounds for file {npz_file}")
@@ -614,14 +656,22 @@ class PtychoDataset(Dataset):
             # Build the coordinate groups now so the length is the true group count.
             # n_subsample is applied inside group_coords, so it is not multiplied in here.
             if group_coordinates and n_valid_points > 0:
-                nn_indices, coords_nn = group_coords(
+                nn_indices, coords_nn, center_indices = group_coords(
                     xcoords, ycoords,
                     xcoords[valid_indices], ycoords[valid_indices],
                     neighbor_function,
                     valid_indices,
-                    self.data_config, C=self.data_config.C)
+                    self.data_config, C=self.data_config.C,
+                    return_center_indices=True)
                 nn_indices = nn_indices.astype(np.int64)
-                grouping_per_file.append((nn_indices, coords_nn))
+                grouping_per_file.append(
+                    (
+                        nn_indices,
+                        coords_nn,
+                        center_indices,
+                        np.ones(len(nn_indices), dtype=np.bool_),
+                    )
+                )
                 length_contribution = len(nn_indices)
                 if length_contribution != n_valid_points * self.data_config.n_subsample:
                     print(f"  {npz_file}: grouping kept {length_contribution} of "
@@ -637,7 +687,8 @@ class PtychoDataset(Dataset):
         if first_im_shape is None:
              raise ValueError("Could not determine image shape from any NPZ file.")
 
-        return total_length, first_im_shape, cumulative_length, valid_indices_per_file, grouping_per_file
+        return (total_length, first_im_shape, cumulative_length,
+                valid_indices_per_file, source_indices_per_file, grouping_per_file)
 
     def group_coords_enabled(self):
         """Whether memory_map_data groups coordinates into solution regions.
@@ -833,6 +884,12 @@ class PtychoDataset(Dataset):
                     (mmap_length, n_channels),
                     dtype=torch.int64
                 ),
+                "center_scan_id": MemoryMappedTensor.empty(
+                    (mmap_length), dtype=torch.int64
+                ),
+                "center_scan_id_available": MemoryMappedTensor.empty(
+                    (mmap_length), dtype=torch.bool
+                ),
                 "experiment_id": MemoryMappedTensor.empty(
                     (mmap_length),
                     dtype=torch.int32
@@ -945,13 +1002,20 @@ class PtychoDataset(Dataset):
             if self.group_coords_enabled(): # PtychoPINN/Ptychography Constraint
                 #Reuse the grouping built in calculate_length: regrouping here would
                 #redraw the random candidate/subsample picks and desync from cum_length
-                nn_indices, coords_nn = self.grouping_per_file[i]
+                (nn_indices, coords_nn, center_indices,
+                 center_indices_available) = self.grouping_per_file[i]
 
                 #Get relative and center of mass coordinates for each coordinate group
                 coords_com, coords_relative = get_relative_coords(coords_nn)
                 mmap_ptycho["coords_center"][start:end] = torch.from_numpy(coords_com)
                 mmap_ptycho["coords_relative"][start:end] = torch.from_numpy(coords_relative)
                 mmap_ptycho["nn_indices"][start:end] = torch.from_numpy(nn_indices)
+                mmap_ptycho["center_scan_id"][start:end] = torch.from_numpy(
+                    center_indices
+                )
+                mmap_ptycho["center_scan_id_available"][start:end] = torch.from_numpy(
+                    center_indices_available
+                )
 
                 #Coordinates just outside the "valid range" are still allowed to be used to create coordinate
                 #groupings. These will be used for solution region translation
@@ -969,6 +1033,8 @@ class PtychoDataset(Dataset):
                 nn_indices = self.valid_indices_per_file[i]
                 index_range = np.arange(end-start, dtype=np.int64)
                 mmap_ptycho["nn_indices"][start:end] = torch.from_numpy(index_range)[:,None]
+                mmap_ptycho["center_scan_id"][start:end] = torch.from_numpy(nn_indices)
+                mmap_ptycho["center_scan_id_available"][start:end] = True
                 mmap_ptycho["coords_global"][start:end] = torch.from_numpy(
                                                             np.stack([xcoords,
                                                             ycoords],axis=1)[:, None, None, :]).to(torch.float32)
@@ -1325,12 +1391,12 @@ class PtychoDataset(Dataset):
         if model_config.object_big:
             n_channels = data_config.C
 
-            nn_indices, coords_nn = group_coords(
+            nn_indices, coords_nn, center_indices = group_coords(
                 xcoords_full, ycoords_full,
                 xcoords, ycoords,
                 _resolve_neighbor_function(data_config),
                 valid_indices,
-                data_config, C=data_config.C)
+                data_config, C=data_config.C, return_center_indices=True)
             nn_indices = nn_indices.astype(np.int64)
 
             coords_com, coords_relative = get_relative_coords(coords_nn)
@@ -1343,6 +1409,7 @@ class PtychoDataset(Dataset):
         else:
             n_channels = 1
             nn_indices = valid_indices
+            center_indices = valid_indices
             N_groups = len(valid_indices)
 
             coords_global = torch.from_numpy(
@@ -1353,6 +1420,9 @@ class PtychoDataset(Dataset):
         dataset.length = N_groups
         dataset.cum_length = [0, N_groups]
         dataset.valid_indices_per_file = [valid_indices]
+        dataset.source_indices_per_file = [
+            np.arange(len(diff_patterns), dtype=np.int64)
+        ]
 
         # Process probe: single-mode (H, W) or incoherent multi-mode (P, H, W)
         probe_data = probe.copy()
@@ -1450,6 +1520,12 @@ class PtychoDataset(Dataset):
             "coords_start_center": torch.zeros(N_groups, 1, 1, 2, dtype=torch.float32),
             "coords_start_relative": torch.zeros(N_groups, n_channels, 1, 2, dtype=torch.float32),
             "nn_indices": nn_indices_tensor,
+            "center_scan_id": torch.from_numpy(
+                np.asarray(center_indices, dtype=np.int64)
+            ),
+            "center_scan_id_available": torch.ones(
+                N_groups, dtype=torch.bool
+            ),
             "experiment_id": torch.zeros(N_groups, dtype=torch.int32),
         }
         if dataset.ci_contract_active:
@@ -1622,6 +1698,18 @@ class PtychoDataset(Dataset):
         
 #Collation
 
+def _materialize_expanded_tensor(value):
+    if any(
+        size > 1 and stride == 0
+        for size, stride in zip(value.shape, value.stride())
+    ):
+        return value.clone()
+    return value
+
+
+def _materialize_expanded_tensordict(tensor_dict):
+    return tensor_dict.apply(_materialize_expanded_tensor)
+
 class TensorDictDataLoader(DataLoader):
     '''
     Modifiers dataloader class that allows for batch sampling exploiting the structure of TensorDicts
@@ -1662,7 +1750,11 @@ class Collate(nn.Module):
         x: TensorDict
         '''
         tensor_dict, probe, scaling = x
-        outputs = [tensor_dict, probe.clone(), scaling]  # Clone probe to avoid memory sharing issues
+        outputs = [
+            _materialize_expanded_tensordict(tensor_dict),
+            _materialize_expanded_tensor(probe),
+            _materialize_expanded_tensor(scaling),
+        ]
         
         # Pin memory if using CUDA
         if self.device and self.device.type == 'cuda':

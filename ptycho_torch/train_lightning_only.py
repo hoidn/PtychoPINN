@@ -8,7 +8,9 @@ import math
 from pathlib import Path
 
 #Typing
-from dataclasses import asdict
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
+from ptycho.config.config import PyTorchExecutionConfig
 from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig
 
 #ML libraries
@@ -37,7 +39,7 @@ from ptycho_torch.config_params import update_existing_config
 from ptycho_torch.model import PtychoPINN_Lightning
 from ptycho_torch.scaling_contract import validate_scale_contract
 from ptycho_torch.utils import config_to_json_serializable_dict, load_config_from_json, validate_and_process_config
-from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, is_effectively_global_rank_zero, PtychoDataModule, PtychoDataModuleLightning, resolve_n_devices
+from ptycho_torch.train_utils import set_seed, get_training_strategy, find_learning_rate, is_effectively_global_rank_zero, PtychoDataModule, PtychoDataModuleLightning
 
 # NEW: Import our custom Lightning utilities
 from ptycho_torch.lightning_utils import (
@@ -51,10 +53,11 @@ from ptycho_torch.lightning_utils import (
 )
 
 from ptycho_torch.model_finetuner_modified import ModelFineTuner
+from ptycho_torch.training_history import build_training_history
 
 from lightning.pytorch.callbacks import RichProgressBar
 from lightning.pytorch.callbacks.progress.rich_progress import RichProgressBarTheme
-from lightning.pytorch.callbacks import Callback
+from lightning.pytorch.callbacks import Callback, LearningRateMonitor
 from lightning.pytorch.callbacks import TQDMProgressBar
 
 
@@ -62,6 +65,266 @@ from lightning.pytorch.callbacks import TQDMProgressBar
 os.environ["TORCH_DISTRIBUTED_DEBUG"] = "INFO" # Optional: gives more info on hangs
 
 #----- Helper Functions -------
+
+
+@dataclass(frozen=True)
+class TrainingRunResult:
+    run_dir: Path
+    model: PtychoPINN_Lightning
+    data_config: DataConfig
+    model_config: ModelConfig
+    training_config: TrainingConfig
+    inference_config: InferenceConfig
+    datagen_config: DatagenConfig
+    effective_runtime: Dict[str, Any]
+    #: Per-logged-step/epoch losses, gradient norms, and output statistics
+    #: parsed from the CSV logger; None when no metrics.csv was produced.
+    training_history: Optional[Dict[str, Any]] = None
+    milestone_checkpoints: Optional[Dict[int, Path]] = None
+
+
+class _MilestoneCheckpointCallback(Callback):
+    """Save exact one-based post-epoch checkpoints without affecting selection."""
+
+    def __init__(self, dirpath: Path, epochs: tuple[int, ...]) -> None:
+        super().__init__()
+        if any(type(epoch) is not int or epoch <= 0 for epoch in epochs):
+            raise ValueError("milestone epochs must be positive integers")
+        if tuple(sorted(set(epochs))) != epochs:
+            raise ValueError("milestone epochs must be strictly increasing")
+        self.dirpath = Path(dirpath)
+        self.epochs = epochs
+        self.saved_checkpoints: Dict[int, Path] = {}
+
+    def on_validation_end(self, trainer, pl_module) -> None:
+        del pl_module
+        if trainer.sanity_checking:
+            return
+        external_epoch = int(trainer.current_epoch) + 1
+        if external_epoch not in self.epochs or external_epoch in self.saved_checkpoints:
+            return
+        self.dirpath.mkdir(parents=True, exist_ok=True)
+        checkpoint = self.dirpath / f"epoch-{external_epoch:04d}.ckpt"
+        trainer.save_checkpoint(str(checkpoint))
+        self.saved_checkpoints[external_epoch] = checkpoint
+
+
+def _trainer_accelerator(accelerator: str) -> str:
+    return "gpu" if accelerator == "cuda" else accelerator
+
+
+def _torch_device_accelerator(accelerator: str) -> str:
+    return "cuda" if accelerator == "gpu" else accelerator
+
+
+def _effective_device_count(devices, accelerator) -> int:
+    if isinstance(devices, int):
+        return devices
+    if accelerator in {"cuda", "gpu"}:
+        count = torch.cuda.device_count() if torch.cuda.is_available() else 0
+        return max(count, 1)
+    return 1
+
+
+def _trainer_strategy(strategy, devices, accelerator):
+    if strategy == "auto":
+        return "auto"
+    if accelerator in {"cuda", "gpu"}:
+        return get_training_strategy(strategy, devices)
+    return strategy
+
+
+def _resolve_checkpoint_monitor(execution_config, model) -> str:
+    configured = execution_config.checkpoint_monitor_metric
+    return model.val_loss_name if configured == "val_loss" else configured
+
+
+def _runtime_json_value(value):
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, torch.device):
+        return str(value)
+    if isinstance(value, (list, tuple)):
+        return [_runtime_json_value(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _runtime_json_value(item) for key, item in value.items()}
+    value_type = type(value)
+    return {"class": f"{value_type.__module__}.{value_type.__qualname__}"}
+
+
+def _runtime_class(value) -> str:
+    value_type = type(value)
+    return f"{value_type.__module__}.{value_type.__qualname__}"
+
+
+def _runtime_attributes(value, names):
+    settings = {"class": _runtime_class(value)}
+    for name in names:
+        try:
+            attribute = getattr(value, name)
+        except (AttributeError, RuntimeError):
+            continue
+        if attribute is not None:
+            settings[name] = _runtime_json_value(attribute)
+    return settings
+
+
+def _callback_runtime(callback):
+    return _runtime_attributes(
+        callback,
+        (
+            "monitor",
+            "mode",
+            "save_top_k",
+            "save_last",
+            "patience",
+            "dirpath",
+        ),
+    )
+
+
+def _logger_runtime(logger):
+    return _runtime_attributes(
+        logger,
+        ("name", "version", "save_dir", "log_dir", "root_dir", "experiment_name"),
+    )
+
+
+def _logger_list(value):
+    if value in (None, False):
+        return []
+    if isinstance(value, (list, tuple)):
+        return list(value)
+    return [value]
+
+
+def _trainer_kwargs_runtime(trainer_kwargs):
+    serialized = {}
+    for key, value in trainer_kwargs.items():
+        if key == "callbacks":
+            serialized[key] = [_callback_runtime(callback) for callback in value]
+        elif key == "logger":
+            serialized[key] = [_logger_runtime(logger) for logger in _logger_list(value)]
+        else:
+            serialized[key] = _runtime_json_value(value)
+    return serialized
+
+
+def _strategy_runtime(strategy):
+    backend = getattr(strategy, "process_group_backend", None)
+    if backend is None:
+        backend = getattr(strategy, "_process_group_backend", None)
+    if backend is None:
+        resolve_backend = getattr(strategy, "_get_process_group_backend", None)
+        if callable(resolve_backend):
+            backend = resolve_backend()
+    if backend is None and dist.is_available() and dist.is_initialized():
+        backend = dist.get_backend()
+    settings = _runtime_attributes(strategy, ("root_device", "parallel_devices"))
+    settings["process_group_backend"] = backend
+    start_method = getattr(strategy, "_start_method", None)
+    try:
+        launcher = getattr(strategy, "launcher", None)
+    except (AttributeError, RuntimeError):
+        launcher = None
+    if start_method is None and launcher is not None:
+        start_method = getattr(launcher, "_start_method", None)
+    if start_method is not None:
+        settings["start_method"] = start_method
+    if launcher is not None:
+        settings["launcher"] = {"class": _runtime_class(launcher)}
+    return settings
+
+
+def _build_effective_runtime(
+    resolved_seed,
+    trainer_kwargs,
+    execution_config,
+    dataloader_settings=None,
+    trainer=None,
+):
+    if trainer is None:
+        raise ValueError("trainer is required to record effective runtime")
+    if dataloader_settings is None:
+        num_workers = execution_config.num_workers
+        dataloader_settings = {
+            "num_workers": num_workers,
+            "pin_memory": execution_config.pin_memory,
+            "persistent_workers": (
+                execution_config.persistent_workers if num_workers > 0 else False
+            ),
+            "prefetch_factor": (
+                (execution_config.prefetch_factor or 2)
+                if num_workers > 0
+                else None
+            ),
+        }
+    precision_value = getattr(trainer.precision_plugin, "precision", None)
+    root_device = trainer.strategy.root_device
+    mps_backend = getattr(torch.backends, "mps", None)
+    effective = {
+        "precision": {
+            "value": precision_value,
+            "plugin": _runtime_class(trainer.precision_plugin),
+        },
+        "deterministic": {
+            "algorithms_enabled": torch.are_deterministic_algorithms_enabled(),
+            "warn_only": torch.is_deterministic_algorithms_warn_only_enabled(),
+        },
+        "environment": {
+            "cuda_available": torch.cuda.is_available(),
+            "cuda_device_count": torch.cuda.device_count(),
+            "mps_available": bool(
+                mps_backend is not None and mps_backend.is_available()
+            ),
+        },
+        "accelerator": {
+            "class": _runtime_class(trainer.accelerator),
+            "device_type": root_device.type,
+            "trainer_value": _runtime_json_value(trainer_kwargs.get("accelerator")),
+        },
+        "devices": {
+            "count": trainer.num_devices,
+            "ids": _runtime_json_value(trainer.device_ids),
+            "trainer_value": _runtime_json_value(trainer_kwargs.get("devices")),
+        },
+        "strategy": {
+            **_strategy_runtime(trainer.strategy),
+            "trainer_value": _runtime_json_value(trainer_kwargs.get("strategy")),
+        },
+        "callbacks": [_callback_runtime(callback) for callback in trainer.callbacks],
+        "loggers": [_logger_runtime(logger) for logger in trainer.loggers],
+        "dataloader": _runtime_json_value(dataloader_settings),
+    }
+    requested = {
+        "accelerator": execution_config.accelerator,
+        "devices": execution_config.devices,
+        "strategy": execution_config.strategy,
+        "deterministic": execution_config.deterministic,
+        "precision": execution_config.precision,
+        "enable_progress_bar": execution_config.enable_progress_bar,
+        "enable_checkpointing": execution_config.enable_checkpointing,
+        "checkpoint_save_top_k": execution_config.checkpoint_save_top_k,
+        "checkpoint_monitor_metric": execution_config.checkpoint_monitor_metric,
+        "checkpoint_mode": execution_config.checkpoint_mode,
+        "early_stop_patience": execution_config.early_stop_patience,
+        "dataloader": {
+            "num_workers": execution_config.num_workers,
+            "pin_memory": execution_config.pin_memory,
+            "persistent_workers": execution_config.persistent_workers,
+            "prefetch_factor": execution_config.prefetch_factor,
+        },
+    }
+    return {
+        "seed": resolved_seed,
+        "requested": requested,
+        "effective": effective,
+        "trainer_kwargs": _trainer_kwargs_runtime(trainer_kwargs),
+        "dataloader": _runtime_json_value(dataloader_settings),
+        "precision": precision_value,
+    }
 
 def _build_ci_statistics_callback():
     return CIStatisticsCallback()
@@ -151,7 +414,11 @@ def main(ptycho_dir,
          parity_fixed_delta = 0.0,
          parity_init_scheme = "default",
          scale_contract_version = None,
-         measurement_domain = None):
+         measurement_domain = None,
+         *,
+         seed: Optional[int] = None,
+         return_training_result: bool = False,
+         milestone_epochs: tuple[int, ...] = ()):
     '''
     Main training script. Uses PyTorch Lightning loggers instead of MLflow.
 
@@ -163,8 +430,10 @@ def main(ptycho_dir,
     existing_config: Tuple of (DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig) if configs already instantiated
     output_dir: Optional override for output directory. If provided, configures trainer's default_root_dir.
     execution_config: Optional PyTorchExecutionConfig for runtime knobs (Phase C4.C3 - ADR-003).
-                     If None, uses default execution config with CPU accelerator.
+                     If None, uses the default execution config.
     run_name: Optional custom name for this run. If None, uses timestamp.
+    seed: Explicit training seed. If omitted, PTYCHO_TORCH_SEED (or 42) is used.
+    return_training_result: Return TrainingRunResult instead of only the run directory.
     parity_scale_mode: TF-parity global intensity-scale mode passed through to
                      PtychoPINN_Lightning (see docs/plans/2026-07-08-cnn-n128-tf-parity.md
                      Task 1). Default "off" preserves current behavior exactly.
@@ -220,6 +489,21 @@ def main(ptycho_dir,
 
         validate_scale_contract(data_config, model_config, training_config)
 
+        if execution_config is None:
+            execution_config = PyTorchExecutionConfig()
+
+        # Execution config is authoritative; these mutable fields are compatibility
+        # aliases consumed by the model and data module.
+        training_config.n_devices = execution_config.devices
+        training_config.strategy = execution_config.strategy
+        training_config.device = _torch_device_accelerator(execution_config.accelerator)
+        training_config.num_workers = execution_config.num_workers
+        assert training_config.n_devices == execution_config.devices
+        assert training_config.strategy == execution_config.strategy
+        assert training_config.device == _torch_device_accelerator(
+            execution_config.accelerator
+        )
+
         # Force Lightning orchestrator — this script uses PtychoDataModuleLightning,
         # which relies on Lightning's prepare_data/setup lifecycle instead of
         # manual dist.barrier() synchronization used by the Mlflow path.
@@ -251,10 +535,13 @@ def main(ptycho_dir,
                     run_name = f"run_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
                 print(f"[Rank {os.environ.get('RANK', '?')}] Using run name: {run_name}")
 
-        resolve_n_devices(training_config)
-
         #Setting seed
-        set_seed(_resolve_seed(), n_devices = training_config.n_devices)
+        resolved_seed = _resolve_seed() if seed is None else seed
+        runtime_device_count = _effective_device_count(
+            execution_config.devices,
+            execution_config.accelerator,
+        )
+        set_seed(resolved_seed, n_devices=runtime_device_count)
 
         # Data module in place of pytorch native dataloaders. Data module is a lightning class
         # Create DataModule
@@ -266,7 +553,8 @@ def main(ptycho_dir,
             training_config,
             initial_remake_map=True, # Set to True to force recreation on this run
             val_split=0.05,  # Use 5% for validation (should be fine, need more training data)
-            val_seed=42     # Reproducible split
+            val_seed=42,     # Reproducible split
+            execution_config=execution_config,
         )
 
         #Create model
@@ -282,11 +570,8 @@ def main(ptycho_dir,
         #Update LR (Phase C4.C3: Use execution_config if available, else training_config)
         base_lr = execution_config.learning_rate if execution_config else training_config.learning_rate
         updated_lr = find_learning_rate(base_lr,
-                                        training_config.n_devices, training_config.batch_size)
+                                        runtime_device_count, training_config.batch_size)
         model.lr = updated_lr
-
-        #Loss
-        val_loss_label = model.val_loss_name
 
         # NEW: Create experiment loggers (replaces MLflow)
         tb_logger, csv_logger = create_experiment_loggers(
@@ -294,10 +579,6 @@ def main(ptycho_dir,
             run_name=run_name,
             output_dir=output_dir,
         )
-
-        # Configure checkpoint directory (under run directory)
-        checkpoint_dir = Path(tb_logger.log_dir) / "checkpoints"
-        checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
         # NEW: Create custom callbacks for config and metadata logging
         config_logger = ConfigLogger(
@@ -316,85 +597,92 @@ def main(ptycho_dir,
             encoder_frozen=False,
         )
 
-        #Callbacks
-        checkpoint_callback = ModelCheckpoint(
-            dirpath=str(checkpoint_dir),
-            monitor=val_loss_label,
-            mode='min',
-            save_top_k=1,
-            filename='best-checkpoint',
-            save_last=True,
-            verbose=True,  # Add verbose to see what's happening
-            save_on_train_epoch_end=False,  # CRITICAL: Save on validation end, not train end
-        )
-
-        # Stop early when validation loss stops improving
-        early_stop_callback = EarlyStopping(
-            monitor=val_loss_label,
-            mode='min',
-            patience=100,
-            verbose=True,
-            strict=True
-        )
-
-        # Define a theme (optional)
-        # progress_bar = RichProgressBar(
-        #     theme=RichProgressBarTheme(
-        #         description="green_yellow",
-        #         progress_bar="green1",
-        #         progress_bar_finished="green1",
-        #         batch_progress="green_yellow",
-        #         time="grey82",
-        #         processing_speed="grey82",
-        #         metrics="white"
-        #         )
-        # )
-
-        progress_bar = TQDMProgressBar(refresh_rate=10)
-        
         callbacks = [
             _build_ci_statistics_callback(),
-            checkpoint_callback,
-            early_stop_callback,
             config_logger,
             metadata_logger,
-            progress_bar,
+            LearningRateMonitor(logging_interval="epoch"),
         ]
+        checkpoint_dir = None
+        milestone_callback = None
+        checkpoint_monitor = _resolve_checkpoint_monitor(execution_config, model)
+        if execution_config.enable_checkpointing:
+            checkpoint_dir = Path(tb_logger.log_dir) / "checkpoints"
+            checkpoint_dir.mkdir(parents=True, exist_ok=True)
+            callbacks.extend([
+                ModelCheckpoint(
+                    dirpath=str(checkpoint_dir),
+                    monitor=checkpoint_monitor,
+                    mode=execution_config.checkpoint_mode,
+                    save_top_k=execution_config.checkpoint_save_top_k,
+                    filename='best-checkpoint',
+                    save_last=True,
+                    verbose=True,
+                    save_on_train_epoch_end=False,
+                ),
+                EarlyStopping(
+                    monitor=checkpoint_monitor,
+                    mode=execution_config.checkpoint_mode,
+                    patience=execution_config.early_stop_patience,
+                    verbose=True,
+                    strict=True,
+                ),
+            ])
+
+        total_training_epochs = (
+            training_config.epochs + training_config.epochs_fine_tune
+        )
+        if milestone_epochs:
+            if not execution_config.enable_checkpointing:
+                raise ValueError("milestone checkpoints require checkpointing to be enabled")
+            if max(milestone_epochs) > total_training_epochs:
+                raise ValueError(
+                    "milestone epochs cannot exceed the configured training epochs"
+                )
+            milestone_callback = _MilestoneCheckpointCallback(
+                checkpoint_dir / "milestones", milestone_epochs
+            )
+            callbacks.append(milestone_callback)
+
+        if execution_config.enable_progress_bar:
+            callbacks.append(TQDMProgressBar(refresh_rate=10))
 
         # Single-pass fine-tuning: if epochs_fine_tune > 0, add EncoderFreezeCallback
         # and extend total epochs. The callback freezes the encoder and scales LR
         # at the transition epoch, avoiding a second Trainer (spawn-compatible).
-        total_training_epochs = training_config.epochs
         if training_config.epochs_fine_tune > 0:
             from ptycho_torch.train_utils import EncoderFreezeCallback
-            total_training_epochs += training_config.epochs_fine_tune
             callbacks.append(EncoderFreezeCallback(
                 freeze_at_epoch=training_config.epochs,
                 lr_gamma=training_config.fine_tune_gamma,
             ))
 
-        # # Resolve accelerator (prefer execution_config, fallback to training_config logic)
-        # if execution_config.accelerator == 'auto':
-        #     resolved_accelerator = 'gpu' if training_config.n_devices > 0 and torch.cuda.is_available() else 'cpu'
-        # else:
-        #     resolved_accelerator = execution_config.accelerator
-        #     # Map 'cuda' alias to 'gpu' for Lightning compatibility
-        #     if resolved_accelerator == 'cuda':
-        #         resolved_accelerator = 'gpu'
-
         # Create trainer with execution config knobs and NEW loggers
-        trainer = L.Trainer(
+        trainer_kwargs = dict(
             max_epochs = total_training_epochs,
             default_root_dir = str(Path(output_dir)),
-            devices = training_config.n_devices,
-            accelerator = 'gpu',
+            devices = execution_config.devices,
+            accelerator = _trainer_accelerator(execution_config.accelerator),
             callbacks = callbacks,
-            strategy=get_training_strategy(training_config.strategy, training_config.n_devices),
+            strategy=_trainer_strategy(
+                execution_config.strategy,
+                execution_config.devices,
+                execution_config.accelerator,
+            ),
             check_val_every_n_epoch=1,  # Validate every epoch
-            enable_checkpointing=True,  # Enable checkpointing for early stopping
-            enable_progress_bar=True,  # Controlled by execution config
-            deterministic=False,  # Reproducibility control
+            enable_checkpointing=execution_config.enable_checkpointing,
+            enable_progress_bar=execution_config.enable_progress_bar,
+            deterministic=execution_config.deterministic,
+            precision=execution_config.precision,
             logger=[tb_logger, csv_logger],  # NEW: Use Lightning loggers
+        )
+        trainer = L.Trainer(**trainer_kwargs)
+        effective_runtime = _build_effective_runtime(
+            resolved_seed,
+            trainer_kwargs,
+            execution_config,
+            data_module.effective_dataloader_settings(),
+            trainer=trainer,
         )
 
         #Train the model
@@ -403,19 +691,30 @@ def main(ptycho_dir,
         
         trainer.fit(model, datamodule = data_module)
 
-        # Initialize before rank-gated block so it's always defined
-        # (prevents NameError on non-rank-0 processes under torchrun DDP)
-        training_run_dir = None
+        if milestone_callback is not None:
+            missing = [
+                epoch
+                for epoch in milestone_epochs
+                if milestone_callback.saved_checkpoints.get(epoch) is None
+                or not milestone_callback.saved_checkpoints[epoch].is_file()
+            ]
+            if missing:
+                raise RuntimeError(
+                    "requested milestone checkpoints were not captured: "
+                    + ", ".join(str(epoch) for epoch in missing)
+                )
+
+        # Every rank returns the same typed path; filesystem side effects remain
+        # rank-zero-only below.
+        training_run_dir = Path(trainer.log_dir)
 
         if is_effectively_global_rank_zero():
             print(f'[Rank {trainer.global_rank}] Done training.')
 
             # NEW: Print run summary (replaces print_auto_logged_info)
-            run_dir = Path(trainer.log_dir)
-            print_run_summary(run_dir)
-
-            # Store run directory for return
-            training_run_dir = run_dir
+            print_run_summary(training_run_dir)
+            with (training_run_dir / "effective_runtime.json").open("w") as stream:
+                json.dump(effective_runtime, stream, indent=2, sort_keys=True)
 
         # Fine-tuning is handled by EncoderFreezeCallback when epochs_fine_tune > 0.
         # The callback was added to the trainer's callback list above (if applicable),
@@ -427,10 +726,42 @@ def main(ptycho_dir,
             print(f"\n{'='*60}")
             print(f"Training Complete!")
             print(f"Run directory: {training_run_dir}")
-            print(f"Checkpoints: {checkpoint_dir}")
-            print(f"Best checkpoint: {find_best_checkpoint(training_run_dir)}")
+            if execution_config.enable_checkpointing:
+                print(f"Checkpoints: {checkpoint_dir}")
+                print(f"Best checkpoint: {find_best_checkpoint(training_run_dir)}")
             print(f"TensorBoard: tensorboard --logdir {training_run_dir / 'logs'}")
             print(f"{'='*60}\n")
+
+        # Lightning attaches the Trainer to the module during fit. The structured
+        # handoff intentionally returns only the trained model and finalized values.
+        if hasattr(model, "_trainer"):
+            model._trainer = None
+
+        if return_training_result:
+            result = TrainingRunResult(
+                run_dir=training_run_dir,
+                model=model,
+                data_config=data_config,
+                model_config=model_config,
+                training_config=training_config,
+                inference_config=inference_config,
+                datagen_config=datagen_config,
+                effective_runtime=effective_runtime,
+                training_history=build_training_history(
+                    training_run_dir,
+                    csv_logger=csv_logger,
+                    model=model,
+                    training_config=training_config,
+                ),
+                milestone_checkpoints=(
+                    dict(milestone_callback.saved_checkpoints)
+                    if milestone_callback is not None
+                    else None
+                ),
+            )
+            del data_module
+            del trainer
+            return result
 
         return training_run_dir
 

@@ -70,6 +70,7 @@ from ptycho_torch.scaling_contract import (
     CI_SCALE_CONTRACT,
     COUNT_INTENSITY,
     resolve_scale_contract,
+    validate_amplitude_physics_gain,
 )
 
 
@@ -308,6 +309,13 @@ def create_training_payload(
     pt_model_config = PTModelConfig()
     update_existing_config(pt_model_config, overrides)
 
+    # PROBE-RANK-001 §3.3: the explicit amplitude physics gain is a
+    # provenance-carrying training constant — validate fail-fast at payload
+    # creation and always record the effective value in the audit trail
+    # (it also reaches Lightning hparams via ModelConfig serialization).
+    validate_amplitude_physics_gain(pt_model_config)
+    overrides_applied['amplitude_physics_gain'] = pt_model_config.amplitude_physics_gain
+
     # TrainingConfig: Extract training-specific fields from overrides
     overrides['nll'] = overrides.get('nll_weight', 1.0) > 0
     overrides['train_data_file'] = str(train_data_file)
@@ -517,12 +525,15 @@ def create_inference_payload(
     # Note: In inference, model config typically loaded from checkpoint, but we need
     # a ModelConfig instance for config_bridge translation
     # CRITICAL: Synchronize C_forward and C_model with pt_data_config.C (ADR-003 C4.D3)
+    object_big = overrides.get('object_big', True)
     pt_model_config = PTModelConfig(
         mode=overrides.get('model_type', 'Unsupervised'),  # Map TF → PT naming
         amp_activation=overrides.get('amp_activation', 'silu'),
         n_filters_scale=overrides.get('n_filters_scale', 2),  # PyTorch default
-        object_big=overrides.get('object_big', True),
-        probe_big=overrides.get('probe_big', False),
+        object_big=object_big,
+        # Full decoder support is the normal object-big contract. Callers may
+        # still request False explicitly for historical zero-border artifacts.
+        probe_big=overrides.get('probe_big', object_big),
         probe_mask=overrides.get('probe_mask', False),
         probe_mask_tensor=overrides.get('probe_mask_tensor'),
         probe_mask_sigma=overrides.get('probe_mask_sigma', 1.0),

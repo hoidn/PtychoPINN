@@ -83,10 +83,8 @@ def _rebuild_configs(metadata: dict):
 
 def _rebuild_probe(npz, model_cfg: ModelConfig, B: int, C: int) -> torch.Tensor:
     probe_2d = torch.from_numpy(npz["probe_real"] + 1j * npz["probe_imag"]).to(torch.complex64)
-    if model_cfg.object_big:
-        N = probe_2d.shape[-1]
-        return probe_2d.view(1, 1, 1, N, N).expand(B, C, 1, N, N)
-    return probe_2d
+    N = probe_2d.shape[-1]
+    return probe_2d.view(1, 1, 1, N, N).expand(B, C, 1, N, N)
 
 
 def _load_fixture(fixture_path):
@@ -241,7 +239,8 @@ def test_probe_mask_resolved_like_amplitude_path():
     data_cfg = DataConfig(N=N, C=1, grid_size=(1, 1))
     B = 2
     x = (torch.randn(B, 1, N, N) + 1j * torch.randn(B, 1, N, N)).to(torch.complex64)
-    probe = (torch.randn(N, N) + 1j * torch.randn(N, N)).to(torch.complex64)
+    probe_2d = (torch.randn(N, N) + 1j * torch.randn(N, N)).to(torch.complex64)
+    probe = probe_2d.view(1, 1, 1, N, N).expand(B, 1, 1, N, N)
     scale = torch.ones(B, 1, 1, 1)
     eids = torch.zeros(B, dtype=torch.long)
 

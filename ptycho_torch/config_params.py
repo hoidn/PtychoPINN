@@ -36,7 +36,7 @@ class DataConfig:
     scan_pattern: Literal['Isotropic', 'Rectangular'] = 'Isotropic' # Scan pattern, used for 4_quadrant neighbor function
 
     #Miscellaneous
-    normalize: Literal['Group', 'Batch'] = 'Batch' # Whether to normalize the data
+    normalize: Literal['Group', 'Batch', 'None'] = 'Batch' # Whether to normalize the data
     probe_scale: float = 4.0
     probe_normalize: bool = True
     data_scaling: Literal['Parseval','Max'] = 'Parseval'
@@ -119,7 +119,10 @@ class ModelConfig:
     #Module-specific
     edge_pad: int = 10 #For padding the decoder_last reconstruction
     decoder_last_c_outer_fraction: float = 0.125 #Amount of channels going to higher frequency components in decoder_last
+    # Historical checkpoint-shape compatibility only. Normal CNN heads use the
+    # semantic component count derived from object_big and C_model.
     decoder_last_amp_channels: int = 1
+    use_legacy_decoder_channel_override: bool = False
 
     #Attention
     eca_encoder: bool = False
@@ -132,7 +135,9 @@ class ModelConfig:
 
     #Forward model parameters
     object_big: bool = True # True if object requires patch reassembly
-    probe_big: bool = True # True if probe requires patch reassembly
+    # Normal object-big CNNs require learned full-patch support. False is an
+    # explicit historical/diagnostic zero-border opt-out.
+    probe_big: bool = True
     offset: int = 6 # Offset parameter (for nearest neighbor patches)
     C_forward: int = DataConfig.C # Number of channels
     # B3 (Task 2.5): reassembly weighting for the object_big forward path.
@@ -151,6 +156,22 @@ class ModelConfig:
     # Whether RectangularScaledDiffraction's s1/s2 scale parameters are trainable
     # (only consulted when physics_forward_mode='rectangular_scaled').
     rect_s1s2_trainable: bool = True
+    # PROBE-RANK-001 (design 2026-07-12 §3.3): explicit amplitude physics
+    # gain. The banned flat (B, H, W) probe layout used to multiply the
+    # predicted amplitude by the BATCH SIZE (an accidental, batch-size-
+    # dependent gain that demonstrably conditioned amplitude-mode training).
+    # The gain survives as this explicit, batch-size-independent constant:
+    # applied ONCE, multiplicatively, to the predicted amplitude in the
+    # amplitude-mode training forward (ForwardModel.forward); a training-
+    # objective device only — inference/forward_predict never applies it.
+    # rectangular_scaled/CI paths ignore it and their scaling contract
+    # rejects non-1.0 values fail-closed
+    # (ptycho_torch.scaling_contract.validate_amplitude_physics_gain).
+    # Must be finite and > 0. Task 26 calibrated 16 only for the locked
+    # legacy-amplitude N128/Run1084 dictionary reference regime; set it
+    # explicitly there. The general default and rectangular/CI value stay 1.0.
+    # Contract: docs/specs/spec-ptycho-torch-probe-layout.md.
+    amplitude_physics_gain: float = 1.0
 
     # Spec-mandated defaults (align with TensorFlow backend)
     pad_object: bool = True # Pad object during forward model

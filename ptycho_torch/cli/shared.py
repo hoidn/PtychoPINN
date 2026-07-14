@@ -32,7 +32,10 @@ def resolve_accelerator(accelerator: str = 'auto', device: Optional[str] = None)
         device: Value from --device flag (deprecated, optional)
 
     Returns:
-        Resolved accelerator string ('cpu', 'gpu', 'cuda', 'tpu', 'mps')
+        Resolved accelerator string ('cpu', 'gpu', 'cuda', 'mps')
+
+    Raises:
+        ValueError: If TPU is requested. This runtime has no Torch-XLA contract.
 
     Emits:
         DeprecationWarning if device is specified
@@ -54,6 +57,7 @@ def resolve_accelerator(accelerator: str = 'auto', device: Optional[str] = None)
         - If both flags specified, --accelerator takes precedence
         - Emits DeprecationWarning for --device usage
         - POLICY-001 enforcement: GPU baseline is required; CPU fallback emits actionable warning
+        - TPU execution is rejected because this runtime does not support Torch-XLA
     """
     resolved = accelerator
 
@@ -74,6 +78,12 @@ def resolve_accelerator(accelerator: str = 'auto', device: Optional[str] = None)
             stacklevel=2
         )
         # resolved = accelerator (no change)
+
+    if resolved == 'tpu':
+        raise ValueError(
+            "Torch-XLA TPU execution is unsupported by this PyTorch runtime. "
+            "Use --accelerator cpu, gpu/cuda, or mps."
+        )
 
     # Auto-detection: prefer CUDA, fallback to CPU with POLICY-001 warning
     if resolved == 'auto':

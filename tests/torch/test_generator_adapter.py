@@ -160,7 +160,8 @@ def test_ptychopinn_predict_complex_real_imag():
 # --- Task 2.3 (B1): tuple vs tensor real_imag contract ----------------------
 
 
-def test_predict_complex_patches_accepts_cnn_tuple():
+@pytest.mark.parametrize("channels", [1, 2, 4])
+def test_predict_complex_patches_accepts_cnn_tuple(channels):
     """_predict_complex_patches must combine a CNN (real, imag) tuple of channel-first
     tensors via torch.complex, alongside the FNO/Hybrid (B,H,W,C,2) tensor path."""
     from ptycho_torch.model import _predict_complex_patches, CombineComplex
@@ -172,15 +173,35 @@ def test_predict_complex_patches_accepts_cnn_tuple():
             imag = torch.full((b, c, h, w), 3.0, dtype=x.dtype)
             return real, imag
 
-    x = torch.randn(2, 1, 8, 8)
+    x = torch.randn(2, channels, 8, 8)
     x_complex, amp, phase = _predict_complex_patches(
         TupleHead(), CombineComplex(), "real_imag", x
     )
 
     assert x_complex.is_complex()
-    assert x_complex.shape == (2, 1, 8, 8)
+    assert x_complex.shape == (2, channels, 8, 8)
     assert torch.allclose(x_complex.real, torch.full_like(x_complex.real, 2.0))
     assert torch.allclose(x_complex.imag, torch.full_like(x_complex.imag, 3.0))
+
+
+@pytest.mark.parametrize("generator_output", ["amp_phase", "real_imag"])
+def test_predict_complex_patches_rejects_unequal_tuple_branch_shapes(generator_output):
+    from ptycho_torch.model import _predict_complex_patches, CombineComplex
+
+    class UnequalTupleHead(nn.Module):
+        def forward(self, x):
+            b, _, h, w = x.shape
+            branch1 = torch.ones((b, 1, h, w), dtype=x.dtype)
+            branch2 = torch.ones((b, 4, h, w), dtype=x.dtype)
+            return branch1, branch2
+
+    with pytest.raises(ValueError, match="matching shapes"):
+        _predict_complex_patches(
+            UnequalTupleHead(),
+            CombineComplex(),
+            generator_output,
+            torch.randn(2, 4, 8, 8),
+        )
 
 
 class _DeterministicTensorGenerator(nn.Module):

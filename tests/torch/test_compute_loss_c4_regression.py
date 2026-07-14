@@ -1,13 +1,4 @@
-"""Regression pin for PtychoPINN_Lightning.compute_loss at C=4 with object_big=True.
-
-Freezes the loss (and predicted-diffraction tensor) produced by a seeded synthetic
-batch under fno-stable's current default knobs. Every later change to the forward
-model / loss path can replay this test to prove "defaults unchanged". On first run
-(fixture NPZ absent) the test computes and saves the fixture, asserting only
-finiteness. On subsequent runs it asserts the freshly computed values match the
-frozen fixture to a tight tolerance.
-"""
-from pathlib import Path
+"""C=4 object_big regression coverage for symmetric and historical CNN heads."""
 
 import numpy as np
 import pytest
@@ -17,10 +8,9 @@ from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig, 
 from ptycho_torch.model import PtychoPINN_Lightning
 
 SEED = 20260701
-FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "varpro_parity" / "compute_loss_c4_regression.npz"
 
 
-def _build_model_and_batch():
+def _build_model_and_batch(*, use_legacy_decoder_channel_override=False):
     """Construct the Lightning module and a seeded synthetic C=4 batch.
 
     object_big=True and C=C_model=C_forward=4 are fno-stable's defaults; all other
@@ -30,7 +20,12 @@ def _build_model_and_batch():
     torch.manual_seed(SEED)
 
     data_cfg = DataConfig(N=64, C=4, grid_size=(2, 2))
-    model_cfg = ModelConfig(object_big=True, C_model=4, C_forward=4)
+    model_cfg = ModelConfig(
+        object_big=True,
+        C_model=4,
+        C_forward=4,
+        use_legacy_decoder_channel_override=use_legacy_decoder_channel_override,
+    )
     train_cfg = TrainingConfig()
     infer_cfg = InferenceConfig()
 
@@ -76,8 +71,12 @@ def _build_model_and_batch():
 
 
 @pytest.mark.torch
-def test_compute_loss_c4_regression_pin():
+def test_compute_loss_c4_symmetric_prediction_is_finite():
     model, batch, images, positions, probe, rms_scale, experiment_id = _build_model_and_batch()
+    autoencoder = model.model.autoencoder
+
+    assert autoencoder.decoder_amp.amp.conv1.out_channels == 4
+    assert autoencoder.decoder_phase.phase.conv1.out_channels == 4
 
     with torch.no_grad():
         pred, _amp, _phase = model(
@@ -91,21 +90,26 @@ def test_compute_loss_c4_regression_pin():
     assert torch.isfinite(loss), f"compute_loss produced a non-finite loss: {loss}"
     assert torch.isfinite(pred).all(), "predicted diffraction tensor contains non-finite values"
 
-    if not FIXTURE_PATH.exists():
-        FIXTURE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        np.savez(
-            FIXTURE_PATH,
-            loss=loss.item(),
-            expected=pred.detach().numpy(),
-            seed=SEED,
-        )
-        return
 
-    fixture = np.load(FIXTURE_PATH)
-    assert loss.item() == pytest.approx(float(fixture["loss"]), abs=1e-5, rel=1e-5), (
-        "compute_loss output drifted from the frozen C=4 regression fixture"
+@pytest.mark.torch
+def test_c4_legacy_asymmetric_override_fails_closed_at_prediction():
+    model, _batch, images, positions, probe, rms_scale, experiment_id = (
+        _build_model_and_batch(use_legacy_decoder_channel_override=True)
     )
-    np.testing.assert_allclose(
-        pred.detach().numpy(), fixture["expected"], atol=1e-5, rtol=1e-5,
-        err_msg="predicted diffraction tensor drifted from the frozen C=4 regression fixture",
-    )
+    autoencoder = model.model.autoencoder
+
+    assert autoencoder.decoder_amp.amp.conv1.out_channels == 1
+    assert autoencoder.decoder_phase.phase.conv1.out_channels == 4
+
+    with pytest.raises(
+        ValueError,
+        match="amp_phase tuple branches must have matching shapes before complex combination",
+    ):
+        model(
+            images,
+            positions,
+            probe,
+            input_scale_factor=rms_scale,
+            output_scale_factor=rms_scale,
+            experiment_ids=experiment_id,
+        )

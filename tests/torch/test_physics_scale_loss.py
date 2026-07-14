@@ -26,7 +26,9 @@ def test_poisson_loss_uses_physics_scale(torch_mae_pred_l2_match_target):
 
     x = torch.ones(1, 1, 64, 64)
     positions = torch.zeros(1, 1, 1, 2)
-    probe = torch.ones(64, 64, dtype=torch.complex64)
+    # Documented (B, C, P, H, W) probe batch layout (PROBE-RANK-001); the
+    # former rank-2 (H, W) probe now fails fast in ProbeIllumination.
+    probe = torch.ones(1, 1, 1, 64, 64, dtype=torch.complex64)
 
     batch_scale_1 = (
         {

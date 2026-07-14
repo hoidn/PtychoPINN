@@ -1,4 +1,6 @@
 import math
+from dataclasses import replace
+
 import pytest
 import torch
 
@@ -171,23 +173,27 @@ def test_cnn_real_imag_supervised_output_unaffected():
 # --- Task 2.4 (B2): shared decoder (opt-in) ----------------------------------
 
 
-def _shared_decoder_configs(cnn_output_mode, C, mode='Unsupervised'):
-    """Shared-decoder CNN configs at C=1 (CDI, object_big=False) or C=4
-    (ptychography, object_big=True). ``decoder_last_amp_channels=C`` keeps the
-    shared head's 2*C split symmetric so both output tensors are (B, C, N, N)."""
-    object_big = C > 1
+def _decoder_configs(cnn_output_mode, C, *, use_shared_decoder, object_big=True):
+    """Build a CNN whose semantic branch width is independent of legacy fields."""
     model_config = ModelConfig(
         architecture='cnn',
-        use_shared_decoder=True,
+        use_shared_decoder=use_shared_decoder,
         cnn_output_mode=cnn_output_mode,
-        mode=mode,
+        mode='Unsupervised',
         C_model=C,
         object_big=object_big,
-        decoder_last_amp_channels=C,
         probe_big=False,
     )
-    data_config = DataConfig(N=64, C=C, grid_size=(2, 2) if C > 1 else (1, 1))
+    data_config = DataConfig(N=64, C=C, grid_size=(1, C))
     return model_config, data_config
+
+
+def _shared_decoder_configs(cnn_output_mode, C):
+    return _decoder_configs(
+        cnn_output_mode,
+        C,
+        use_shared_decoder=True,
+    )
 
 
 def test_use_shared_decoder_defaults_to_false():
@@ -217,11 +223,11 @@ def test_autoencoder_shared_decoder_opt_in_builds_shared_decoder():
     assert not hasattr(autoencoder, 'decoder_phase')
 
 
-@pytest.mark.parametrize("C", [1, 4])
+@pytest.mark.parametrize("C", [1, 2, 4])
 @pytest.mark.parametrize("cnn_output_mode", ["amp_phase", "real_imag"])
 def test_shared_decoder_shape_contract(C, cnn_output_mode):
     """Shared decoder emits 2*C_out raw channels split into two (B, C_out, N, N)
-    tensors, for both cnn_output_mode settings at C=1 (CDI) and C=4 (ptychography)."""
+    tensors for both CNN output parameterizations and generic semantic C."""
     model_config, data_config = _shared_decoder_configs(cnn_output_mode, C)
     autoencoder = Autoencoder(model_config, data_config)
 
@@ -232,6 +238,67 @@ def test_shared_decoder_shape_contract(C, cnn_output_mode):
     assert branch2.shape == (2, C, data_config.N, data_config.N)
     assert torch.isfinite(branch1).all()
     assert torch.isfinite(branch2).all()
+
+
+@pytest.mark.parametrize("C", [1, 2, 4])
+@pytest.mark.parametrize("cnn_output_mode", ["amp_phase", "real_imag"])
+def test_separate_decoder_shape_contract(C, cnn_output_mode):
+    model_config, data_config = _decoder_configs(
+        cnn_output_mode,
+        C,
+        use_shared_decoder=False,
+    )
+    autoencoder = Autoencoder(model_config, data_config)
+
+    x = torch.randn(2, data_config.C, data_config.N, data_config.N)
+    branch1, branch2 = autoencoder(x)
+
+    assert branch1.shape == (2, C, data_config.N, data_config.N)
+    assert branch2.shape == (2, C, data_config.N, data_config.N)
+
+
+@pytest.mark.parametrize("use_shared_decoder", [False, True])
+def test_object_big_false_keeps_one_output_channel(use_shared_decoder):
+    model_config, data_config = _decoder_configs(
+        "amp_phase",
+        4,
+        use_shared_decoder=use_shared_decoder,
+        object_big=False,
+    )
+    autoencoder = Autoencoder(model_config, data_config)
+
+    branch1, branch2 = autoencoder(
+        torch.randn(1, 1, data_config.N, data_config.N)
+    )
+
+    assert branch1.shape[1] == 1
+    assert branch2.shape[1] == 1
+
+
+def test_legacy_decoder_channel_override_requires_explicit_opt_in():
+    normal_config, data_config = _decoder_configs(
+        "amp_phase",
+        4,
+        use_shared_decoder=False,
+    )
+    normal_config.decoder_last_amp_channels = 1
+    normal = Autoencoder(normal_config, data_config)
+    assert normal.decoder_amp.amp.conv1.out_channels == 4
+    assert normal.decoder_phase.phase.conv1.out_channels == 4
+
+    legacy_config, _ = _decoder_configs(
+        "amp_phase",
+        4,
+        use_shared_decoder=False,
+    )
+    legacy_config.decoder_last_amp_channels = 1
+    legacy_config = replace(
+        legacy_config,
+        use_legacy_decoder_channel_override=True,
+    )
+    legacy = Autoencoder(legacy_config, data_config)
+    assert legacy.decoder_amp.amp.conv1.out_channels == 1
+    assert legacy.decoder_phase.phase.conv1.out_channels == 4
 
 
 @pytest.mark.parametrize("C", [1, 4])

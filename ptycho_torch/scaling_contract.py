@@ -1,5 +1,6 @@
 """Configuration contract for PyTorch absolute-intensity scaling profiles."""
 
+import math
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -224,12 +225,49 @@ def ci_scaling_active(model_config: Any) -> bool:
     return getattr(model_config, "physics_forward_mode", "amplitude") == "rectangular_scaled"
 
 
+def validate_amplitude_physics_gain(model_config: Any) -> float:
+    """Validate ``ModelConfig.amplitude_physics_gain`` (PROBE-RANK-001 §3.3).
+
+    The explicit gain replaces the accidental flat-probe xB amplitude gain
+    (docs/specs/spec-ptycho-torch-probe-layout.md). It must be finite and
+    > 0 in every mode; whenever the rectangular/CI scaling path is active it
+    must be exactly 1.0 (fail-closed — the gain is an amplitude-forward-only
+    training-objective device and those modes must remain untouched by it).
+    Configs without the attribute (pre-fix checkpoints, duck-typed test
+    stand-ins) resolve to the 1.0 default.
+    """
+    gain = getattr(model_config, "amplitude_physics_gain", 1.0)
+    if isinstance(gain, bool) or not isinstance(gain, (int, float)):
+        raise TypeError(
+            f"amplitude_physics_gain must be a real number; got {gain!r}."
+        )
+    gain = float(gain)
+    if not math.isfinite(gain) or gain <= 0:
+        raise ValueError(
+            f"amplitude_physics_gain must be positive and finite; got {gain!r}."
+        )
+    if ci_scaling_active(model_config) and gain != 1.0:
+        raise ValueError(
+            "amplitude_physics_gain must be 1.0 when "
+            "physics_forward_mode='rectangular_scaled' (rectangular/CI "
+            f"scaling contract, fail-closed); got {gain!r}. The explicit "
+            "gain applies only to the amplitude-mode training forward "
+            "(PROBE-RANK-001)."
+        )
+    return gain
+
+
 def validate_scale_contract(
     data_config: Any,
     model_config: Any,
     training_config: Any,
 ) -> Optional[ResolvedScaleContract]:
-    """Validate the active rectangular profile and its CI training constraints."""
+    """Validate the active rectangular profile and its CI training constraints.
+
+    Also validates ``amplitude_physics_gain`` in EVERY mode (PROBE-RANK-001
+    §3.3): finite and > 0, and exactly 1.0 for rectangular_scaled/CI modes.
+    """
+    validate_amplitude_physics_gain(model_config)
     if not ci_scaling_active(model_config):
         return None
 

@@ -249,9 +249,11 @@ class PyTorchExecutionConfig:
         5. Inference knobs: inference_batch_size, middle_trim, pad_eval
     """
     # Lightning Trainer knobs
-    accelerator: str = 'auto'  # Options: 'cpu', 'gpu', 'tpu', 'mps', 'auto' (default 'auto' → 'cuda' if available, else 'cpu')
+    accelerator: str = 'auto'  # Options: 'cpu', 'gpu', 'cuda', 'mps', 'auto' (TPU/Torch-XLA unsupported)
+    devices: Union[int, Literal["auto"]] = 1
     strategy: str = 'auto'  # Options: 'auto', 'ddp', 'fsdp', 'deepspeed'
     deterministic: Union[bool, Literal["warn"]] = True  # Enforce reproducibility (seed_everything + deterministic mode); "warn" allows non-deterministic ops with a warning
+    precision: Literal["32-true", "16-mixed", "bf16-mixed"] = "32-true"
     gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
     gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm
     accum_steps: int = 1  # Gradient accumulation steps (simulate larger batch size)
@@ -316,7 +318,7 @@ class PyTorchExecutionConfig:
             ValueError: If validation fails with descriptive message
 
         Validation Rules (from training_refactor.md §Component 2 + EB1.A):
-            1. accelerator must be in whitelist {'auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'}
+            1. accelerator must be in whitelist {'auto', 'cpu', 'gpu', 'cuda', 'mps'}
             2. num_workers must be non-negative
             3. learning_rate must be positive
             4. inference_batch_size (if provided) must be positive
@@ -330,8 +332,32 @@ class PyTorchExecutionConfig:
             - Field defaults are safe; validation catches programmatic misuse
             - Auto-resolution modifies the accelerator field in-place via object.__setattr__
         """
-        # Accelerator whitelist (Lightning supported values)
-        valid_accelerators = {'auto', 'cpu', 'gpu', 'cuda', 'tpu', 'mps'}
+        if (
+            isinstance(self.devices, bool)
+            or not (
+                (isinstance(self.devices, int) and self.devices > 0)
+                or self.devices == "auto"
+            )
+        ):
+            raise ValueError(
+                f"devices must be a positive integer or 'auto', got {self.devices!r}"
+            )
+
+        valid_precisions = {"32-true", "16-mixed", "bf16-mixed"}
+        if not isinstance(self.precision, str) or self.precision not in valid_precisions:
+            raise ValueError(
+                f"Invalid precision: {self.precision!r}. "
+                f"Expected one of {sorted(valid_precisions)}."
+            )
+
+        if self.accelerator == 'tpu':
+            raise ValueError(
+                "Torch-XLA TPU execution is unsupported by this PyTorch runtime. "
+                "Use accelerator='cpu', 'gpu'/'cuda', or 'mps'."
+            )
+
+        # Accelerator whitelist supported by this runtime.
+        valid_accelerators = {'auto', 'cpu', 'gpu', 'cuda', 'mps'}
         if self.accelerator not in valid_accelerators:
             raise ValueError(
                 f"Invalid accelerator: '{self.accelerator}'. "

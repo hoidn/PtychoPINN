@@ -16,10 +16,13 @@ The current loader computes the grouping once in ``calculate_length`` and
 reuses it, so the allocation, ``cum_length``, and the written tensors agree by
 construction. These tests pin that, plus the coordinate-alignment contract.
 """
+import json
+
 import numpy as np
 import pytest
 import torch
 
+from ptycho_torch import reassembly
 from ptycho_torch.config_params import DataConfig, ModelConfig, TrainingConfig
 from ptycho_torch.dataloader import (
     PtychoDataset,
@@ -373,6 +376,146 @@ def test_nonzero_rank_rejects_zero_length_before_barrier(tmp_path, monkeypatch):
 
     with pytest.raises(ValueError, match=r"calculate_length\(\) resulted in 0 items"):
         _build(tmp_path, data_config, model_config)
+
+
+def test_legacy_five_value_length_result_recovers_all_source_scan_ids(
+    tmp_path, monkeypatch
+):
+    (tmp_path / "npz").mkdir()
+    x, y = _line_scan(20)
+    _write_npz(tmp_path / "npz" / "legacy_length_result.npz", 20, x, y)
+    calculate_length = PtychoDataset.calculate_length
+
+    def legacy_calculate_length(self):
+        length, shape, cumulative, valid, _source, grouping = calculate_length(self)
+        return length, shape, cumulative, valid, grouping
+
+    monkeypatch.setattr(PtychoDataset, "calculate_length", legacy_calculate_length)
+    data_config = DataConfig(
+        N=N_PIX,
+        grid_size=(1, 1),
+        C=1,
+        K=4,
+        n_subsample=1,
+        x_bounds=(0.25, 0.75),
+        y_bounds=(0.0, 1.0),
+    )
+    model_config = ModelConfig(C_model=1, C_forward=1, object_big=False)
+
+    dataset = _build(tmp_path, data_config, model_config)
+
+    assert len(dataset.valid_indices_per_file[0]) < 20
+    assert dataset.source_indices_per_file[0].tolist() == list(range(20))
+
+
+def test_legacy_grouped_five_value_result_marks_center_ids_unavailable(
+    tmp_path, monkeypatch
+):
+    (tmp_path / "npz").mkdir()
+    x, y = _raster(7)
+    _write_npz(tmp_path / "npz" / "legacy_grouped.npz", len(x), x, y)
+    calculate_length = PtychoDataset.calculate_length
+
+    def legacy_calculate_length(self):
+        length, shape, cumulative, valid, _source, grouping = calculate_length(self)
+        legacy_grouping = [
+            None if record is None else (record[0], record[1])
+            for record in grouping
+        ]
+        return length, shape, cumulative, valid, legacy_grouping
+
+    monkeypatch.setattr(PtychoDataset, "calculate_length", legacy_calculate_length)
+    data_config = DataConfig(
+        N=N_PIX,
+        C=4,
+        grid_size=(2, 2),
+        neighbor_function="4_quadrant",
+        K_quadrant=30,
+        min_neighbor_distance=0.0,
+        max_neighbor_distance=4.0,
+        x_bounds=(0.15, 0.85),
+        y_bounds=(0.15, 0.85),
+    )
+    model_config = ModelConfig(
+        C_model=4, C_forward=4, object_big=True, probe_big=False
+    )
+
+    dataset = _build(tmp_path, data_config, model_config)
+
+    centers = dataset.mmap_ptycho["center_scan_id"].cpu().numpy()
+    available = dataset.mmap_ptycho["center_scan_id_available"].cpu().numpy()
+    assert centers.shape == (len(dataset),)
+    assert np.all(centers == -1)
+    assert not available.any()
+    assert all(
+        record is None or len(record) == 4
+        for record in dataset.grouping_per_file
+    )
+
+
+def test_asymmetric_legacy_group_does_not_fabricate_centroid_center(
+    tmp_path, monkeypatch
+):
+    (tmp_path / "npz").mkdir()
+    x = np.asarray([0.0, 10.0, 20.0])
+    y = np.zeros(3)
+    _write_npz(tmp_path / "npz" / "asymmetric.npz", 3, x, y)
+    nn_indices = np.asarray([[0, 2]], dtype=np.int64)
+    coords_nn = np.asarray([[[[0.0, 0.0]], [[20.0, 0.0]]]])
+
+    monkeypatch.setattr(
+        PtychoDataset,
+        "calculate_length",
+        lambda self: (
+            1,
+            (N_PIX, N_PIX),
+            [0, 1],
+            [np.asarray([0, 1, 2])],
+            [(nn_indices, coords_nn)],
+        ),
+    )
+    data_config = DataConfig(N=N_PIX, C=2, grid_size=(1, 2))
+    model_config = ModelConfig(
+        C_model=2, C_forward=2, object_big=True, probe_big=False
+    )
+
+    dataset = _build(tmp_path, data_config, model_config)
+
+    assert dataset.mmap_ptycho["center_scan_id"].tolist() == [-1]
+    assert dataset.mmap_ptycho["center_scan_id_available"].tolist() == [False]
+    participating, centers, available, filtered, source = (
+        reassembly._scan_identity_evidence(dataset, dataset, 0)
+    )
+    assert participating == (0, 2)
+    assert centers == ()
+    assert available is False
+    assert filtered == (0, 1, 2)
+    assert source == (0, 1, 2)
+
+
+def test_stale_v1_mmap_without_center_scan_id_requires_rebuild(tmp_path):
+    (tmp_path / "npz").mkdir()
+    x, y = _line_scan(20)
+    _write_npz(tmp_path / "npz" / "stale.npz", 20, x, y)
+    data_config = DataConfig(
+        N=N_PIX, C=1, grid_size=(1, 1), x_bounds=(0.0, 1.0), y_bounds=(0.0, 1.0)
+    )
+    model_config = ModelConfig(C_model=1, C_forward=1, object_big=False)
+    _build(tmp_path, data_config, model_config)
+    manifest_path = tmp_path / "mmap_manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["schema_version"] = 1
+    manifest["required_fields"].remove("center_scan_id")
+    manifest["required_fields"].remove("center_scan_id_available")
+    manifest_path.write_text(json.dumps(manifest))
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"schema_version=1.*expected 3.*Rebuild it with remake_map=True",
+    ):
+        PtychoDataset.from_existing_map(
+            tmp_path / "mm", model_config, data_config
+        )
 
 
 def test_memory_map_loads_legacy_hwn_layout(tmp_path):

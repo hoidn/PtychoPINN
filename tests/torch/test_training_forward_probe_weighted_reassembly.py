@@ -416,6 +416,54 @@ def test_probe_helper_bare_hw_layout_weights_equal_probe_intensity():
     torch.testing.assert_close(merged_plain, merged_modes, rtol=1e-6, atol=1e-6)
 
 
+def test_object_big_shared_multimode_probe_expands_across_batch_and_channels():
+    """A documented shared ``(1,1,P,H,W)`` probe must weight every object_big
+    patch identically to explicit ``(B,C,P,H,W)`` expansion."""
+    N, B, C, P = 8, 2, 2, 2
+    data_cfg = DataConfig(N=N, C=1, grid_size=(1, 1), max_neighbor_distance=0.0)
+    model_cfg = ModelConfig(
+        object_big=True,
+        C_forward=C,
+        training_patch_weighting="probe",
+        max_position_jitter=0,
+    )
+    inputs = torch.arange(1, B * C + 1, dtype=torch.float32).reshape(B, C, 1, 1)
+    inputs = inputs.expand(B, C, N, N).to(torch.complex64).contiguous()
+    offsets = torch.zeros((B, C, 1, 2), dtype=torch.float32)
+
+    shared_probe = torch.ones((1, 1, P, N, N), dtype=torch.complex64)
+    shared_probe[:, :, 0, :, N // 2 :] = 0.5
+    shared_probe[:, :, 1, N // 2 :, :] = 2.0
+    expanded_probe = shared_probe.expand(B, C, P, N, N)
+
+    merged_shared, mask_shared, size_shared = (
+        hh.reassemble_patches_position_real_probe(
+            inputs,
+            offsets,
+            data_cfg,
+            model_cfg,
+            probe=shared_probe,
+            use_probe_weights=True,
+            padded_size=N,
+        )
+    )
+    merged_expanded, mask_expanded, size_expanded = (
+        hh.reassemble_patches_position_real_probe(
+            inputs,
+            offsets,
+            data_cfg,
+            model_cfg,
+            probe=expanded_probe,
+            use_probe_weights=True,
+            padded_size=N,
+        )
+    )
+
+    assert size_shared == size_expanded == N
+    torch.testing.assert_close(merged_shared, merged_expanded, rtol=0, atol=0)
+    torch.testing.assert_close(mask_shared, mask_expanded, rtol=0, atol=0)
+
+
 def test_probe_helper_batch_broadcast_hand_built_weighted_average():
     """(a'') Independent hand-built oracle: two fully-overlapping patches per
     batch, probe intensities w0 and w1, merged center == (v0*w0 + v1*w1)/(w0+w1)."""

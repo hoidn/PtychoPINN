@@ -823,7 +823,8 @@ class PtychoDataModuleLightning(L.LightningDataModule):
     """
     def __init__(self, ptycho_dir: str, model_config: ModelConfig, data_config: DataConfig,
                  training_config: TrainingConfig, initial_remake_map: bool = True,
-                 val_split: float = 0.1, val_seed: int = 42):
+                 val_split: float = 0.1, val_seed: int = 42,
+                 execution_config=None):
         super().__init__()
         self.ptycho_dir = ptycho_dir
         self.model_config = model_config
@@ -832,6 +833,17 @@ class PtychoDataModuleLightning(L.LightningDataModule):
         self.initial_remake_map = initial_remake_map
         self.val_split = val_split
         self.val_seed = val_seed
+        self.execution_config = execution_config
+        if execution_config is None:
+            self.num_workers = training_config.num_workers
+            self.pin_memory = True
+            self.persistent_workers = training_config.num_workers > 0
+            self.prefetch_factor = 4
+        else:
+            self.num_workers = execution_config.num_workers
+            self.pin_memory = execution_config.pin_memory
+            self.persistent_workers = execution_config.persistent_workers
+            self.prefetch_factor = execution_config.prefetch_factor
         self._is_setup_done = False
 
     def prepare_data(self):
@@ -881,11 +893,29 @@ class PtychoDataModuleLightning(L.LightningDataModule):
         self._is_setup_done = True
 
     def _resolve_worker_kwargs(self):
-        """Returns num_workers and persistent_workers, guarded for ddp_spawn."""
-        nw = self.training_config.num_workers
+        """Return normalized worker kwargs, guarded for zero workers and spawn."""
+        nw = self.num_workers
         if is_spawn_strategy(self.training_config.strategy):
-            return dict(num_workers=0, persistent_workers=False)
-        return dict(num_workers=nw, persistent_workers=nw > 0, prefetch_factor=4)
+            nw = 0
+
+        worker_kwargs = {
+            "num_workers": nw,
+            "persistent_workers": self.persistent_workers if nw > 0 else False,
+        }
+        if nw > 0:
+            worker_kwargs["prefetch_factor"] = (
+                self.prefetch_factor if self.prefetch_factor is not None else 2
+            )
+        return worker_kwargs
+
+    def effective_dataloader_settings(self):
+        worker_kwargs = self._resolve_worker_kwargs()
+        return {
+            "num_workers": worker_kwargs["num_workers"],
+            "pin_memory": self.pin_memory,
+            "persistent_workers": worker_kwargs["persistent_workers"],
+            "prefetch_factor": worker_kwargs.get("prefetch_factor"),
+        }
 
     def train_dataloader(self):
         return TensorDictDataLoader(
@@ -893,8 +923,8 @@ class PtychoDataModuleLightning(L.LightningDataModule):
             batch_size=self.training_config.batch_size,
             shuffle=True,
             drop_last=True,
-            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
-            pin_memory=True,
+            collate_fn=Collate_Lightning(pin_memory_if_cuda=self.pin_memory),
+            pin_memory=self.pin_memory,
             **self._resolve_worker_kwargs(),
         )
 
@@ -911,8 +941,8 @@ class PtychoDataModuleLightning(L.LightningDataModule):
             self.val_dataset,
             batch_size=self.training_config.batch_size,
             shuffle=False,
-            collate_fn=Collate_Lightning(pin_memory_if_cuda=True),
-            pin_memory=True,
+            collate_fn=Collate_Lightning(pin_memory_if_cuda=self.pin_memory),
+            pin_memory=self.pin_memory,
             drop_last=False,
             **self._resolve_worker_kwargs(),
         )
