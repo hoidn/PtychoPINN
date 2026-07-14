@@ -1,0 +1,103 @@
+{
+  "baseline": {
+    "amp_ssim": 0.8858652644013688,
+    "evidence_sha256": "155ee5961e31f9cf82c012d6bb61591bd776551f728d66bb19e0f3abee6ad298",
+    "id": "rung0_reference",
+    "phase_ssim": 0.9618665959387648
+  },
+  "first_material_degradation": "rung1a_mmap_full_scanset",
+  "gate": {
+    "max_abs_amp_ssim_delta": 0.02,
+    "max_abs_phase_ssim_delta": 0.01,
+    "policy": "absolute_ssim_delta_v1",
+    "threshold_provenance": "locked"
+  },
+  "rungs": [
+    {
+      "amp_ssim": 0.856505683935826,
+      "control_rung_id": "rung0_reference",
+      "dataset": "n128_run1084_generic",
+      "diagnostic": false,
+      "evidence_path": "rung1a_mmap_full_scanset/rung_evidence.json",
+      "evidence_sha256": "f7c3eba38f0a93529cc37315d1d3e42f43f1dd5b1e5b239300d68cdd71f9c132",
+      "gate": {
+        "abs_amp_delta": 0.0293595804655428,
+        "abs_phase_delta": 0.01203725425813,
+        "control": {
+          "amp_ssim": 0.8858652644013688,
+          "phase_ssim": 0.9618665959387648
+        },
+        "current": {
+          "amp_ssim": 0.856505683935826,
+          "phase_ssim": 0.9498293416806348
+        },
+        "max_abs_amp_ssim_delta": 0.02,
+        "max_abs_phase_ssim_delta": 0.01,
+        "policy": "absolute_ssim_delta_v1",
+        "protocol_failure_reason": null,
+        "reason": "ladder_absolute_amp_ssim_delta_exceeded",
+        "threshold_provenance": "locked",
+        "verdict": "fail"
+      },
+      "group": "loader_schema",
+      "id": "rung1a_mmap_full_scanset",
+      "phase_ssim": 0.9498293416806348,
+      "reason": "ladder_absolute_amp_ssim_delta_exceeded",
+      "retained_amp_ssim": 0.9668577359951203,
+      "retained_phase_ssim": 0.9874855262580547,
+      "status": "adjudicated",
+      "verdict": "fail"
+    },
+    {
+      "diagnostic": false,
+      "group": "ingestion_bounds",
+      "id": "rung1b_bounds_filter",
+      "status": "pending"
+    },
+    {
+      "diagnostic": false,
+      "group": "reassembly_alignment",
+      "id": "rung2_generic_evaluator",
+      "status": "pending"
+    },
+    {
+      "diagnostic": false,
+      "group": "probe_source_transform",
+      "id": "rung3_fly001_probe",
+      "status": "pending"
+    },
+    {
+      "diagnostic": false,
+      "group": "detector_size",
+      "id": "rung4_n64",
+      "status": "pending"
+    },
+    {
+      "diagnostic": false,
+      "group": "grouping_weighting",
+      "id": "rung5_c4_probe_weighting",
+      "status": "pending"
+    },
+    {
+      "diagnostic": false,
+      "group": "measurement_domain_loss",
+      "id": "rung6_count_poisson",
+      "status": "pending"
+    },
+    {
+      "diagnostic": false,
+      "group": "rectangular_scaling",
+      "id": "rung7_rectangular",
+      "status": "pending"
+    },
+    {
+      "diagnostic": false,
+      "group": "inference_varpro",
+      "id": "rung8_varpro",
+      "status": "pending"
+    }
+  ],
+  "schema_version": "grid_lines_bridge_ladder_report_v2",
+  "spec": "scripts/studies/specs/grid_lines_bridge_ladder.toml",
+  "study_id": "grid_lines_bridge_ladder"
+}

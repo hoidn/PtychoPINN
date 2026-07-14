@@ -1,0 +1,29 @@
+{
+  "amp_mae_max": 0.09612537115812302,
+  "amp_ssim_min": 0.8496891595066123,
+  "phase_mae_max": 0.21309200960630928,
+  "phase_ssim_min": 0.9000671199457723,
+  "provenance": {
+    "amplitude_physics_gain": 16.0,
+    "checkpoint_sha256": "215621bd039fc3cf993da01e9a86c5c26ab9451c198703d86b308181f085be6e",
+    "evaluator": "eval_reconstruction_mean_amplitude_plane_phase_v1",
+    "integration_bridge_requirement_schema": "hybrid_resnet_integration_bridge_v4",
+    "integration_bridge_requirement_sha256": "9211cadbff2de702d22e41f336bf86f622a338a2af5052da58f7049df574bcbb",
+    "method": "task27_reference_tolerance_policy_v1",
+    "reference_id": "grid_lines_cnn_reference",
+    "selected_checkpoint": "/home/ollie/Documents/PtychoPINN/.worktrees/ci-compatibility-ablation/.artifacts/reference_qualification/task27_gain16_cnn_prequalification_run2/grid_lines_cnn_reference/work/checkpoints/last.ckpt",
+    "source_evidence": ".artifacts/reference_qualification/task27_gain16_cnn_prequalification_run2/grid_lines_cnn_reference/reference_evidence.json",
+    "source_evidence_sha256": "bb069ce3ba1288e2ce34e2dc1ec8c9abccc16ae7c7723faca37c596eb189b251",
+    "source_spec": "/home/ollie/Documents/PtychoPINN/.worktrees/ci-compatibility-ablation/scripts/studies/specs/grid_lines_reference_performance.toml",
+    "source_spec_sha256": "c5f6d613db899c347a71a5d81bed495dd24de2168ed506ebe2131aa8723fc0d7",
+    "test_npz_sha256": "02038640c9e96196960af36fdf48e6d095801009c9bb92a9b4d2900e5abab5c9",
+    "tolerances": {
+      "amp_mae_add": 0.015,
+      "amp_ssim_subtract": 0.035,
+      "phase_mae_add": 0.025,
+      "phase_ssim_subtract": 0.015
+    },
+    "train_npz_sha256": "2a1b7d467841131fe6fbeadeb84c866cd0aeed5d71e712550fcd809bfa92a853"
+  },
+  "schema": "grid_lines_reference_floor_candidate_v1"
+}

@@ -1,0 +1,274 @@
+# Grid-lines reference-performance qualification (plan Task 20).
+#
+# Executable definition of the reference condition:
+#   tests/torch/test_grid_lines_hybrid_resnet_integration.py
+# Contract:
+#   docs/superpowers/specs/2026-07-09-ci-model-compatibility-ablation-design.md
+#   ("Performance-reference clarification 2026-07-11" and the corrected gate
+#   text). SSIM floors are the primary gate; fixture MAE tolerances remain a
+#   supporting guard; internal historical/generic equality is diagnostic and
+#   must be classified when it differs.
+#
+# The reference dataset is generated procedurally, so its immutable identity
+# is this recipe (pinned Run1084 probe archive/array hashes, deterministic
+# pad-then-smooth transform hash, and the closed simulation geometry).
+# Materialized train/test NPZs are content-fingerprinted at execution time
+# and recorded in the sealed evidence.
+
+[schema]
+kind = "grid_lines_reference_performance_v1"
+version = 1
+
+[study]
+id = "grid_lines_reference_performance"
+
+[dataset]
+id = "grid_lines_run1084_n128_gs1"
+generator = "grid_lines_workflow_v1"
+probe_archive = "datasets/Run1084_recon3_postPC_shrunk_3.npz"
+probe_archive_sha256 = "9f82cb9eb2c5a853764b98c1657b778600c0e90425296a7d1fdc6e8fdb53c906"
+raw_probe_array_sha256 = "de564a3ed5e70118fde70d8b65214ddfb3f00364228ef8b7c61a3f31a56c309a"
+transformed_probe_sha256 = "eeccb1c92eae6dce36f4102bccda3f814b3eaa16e03e5c805f786edc628d4cd2"
+probe_scale_mode = "pad_extrapolate"
+probe_smoothing_sigma = 0.5
+set_phi = true
+N = 128
+gridsize = 1
+size = 392
+offset = 4
+outer_offset_train = 8
+outer_offset_test = 20
+nimgs_train = 2
+nimgs_test = 1
+nphotons = 1e9
+
+# ---------------------------------------------------------------------------
+# Hybrid ResNet reference: fixture-sourced Task 27 qualification floors.
+# Source evidence (visual review approved):
+# .artifacts/reference_qualification/task27_gain16_hybrid_prequalification_run2/grid_lines_hybrid_resnet_reference/reference_evidence.json
+# SHA-256: 17a323102950d64ad4a3712486f155205a7806b15c6c1e782c69ce84b3b21962
+# Floors use the unchanged fixture tolerance policy around measured MAE
+# 0.08168590068817139/0.12818376669684495 and SSIM
+# 0.8858652644013688/0.9618665959387648.
+# Operands are the verbatim integration-test command; unlisted runner fields
+# keep the TorchRunnerConfig defaults the integration command relies on.
+# (--torch-logger mlflow in the test is a logging backend, not a declared
+# experimental condition; the driver records with csv.)
+# ---------------------------------------------------------------------------
+
+[[references]]
+id = "grid_lines_hybrid_resnet_reference"
+
+[references.runner]
+architecture = "hybrid_resnet"
+N = 128
+gridsize = 1
+epochs = 5
+batch_size = 16
+infer_batch_size = 16
+learning_rate = 2e-4
+scheduler = "ReduceLROnPlateau"
+plateau_factor = 0.5
+plateau_patience = 2
+plateau_min_lr = 1e-4
+plateau_threshold = 0.0
+seed = 3
+optimizer = "adam"
+weight_decay = 0.0
+adam_beta1 = 0.9
+adam_beta2 = 0.999
+torch_loss_mode = "mae"
+generator_output_mode = "real_imag"
+probe_source = "custom"
+fno_modes = 12
+fno_width = 32
+fno_blocks = 4
+fno_cnn_blocks = 2
+training_patch_weighting = "central_mask"
+physics_forward_mode = "amplitude"
+amplitude_physics_gain = 16.0
+hybrid_encoder_conv_hidden_scale = 2.0
+position_crop_border = 59
+enable_checkpointing = true
+logger_backend = "csv"
+
+[references.bridge]
+schema_version = "hybrid_resnet_integration_bridge_v4"
+bridge_id = "grid_lines_hybrid_resnet_reference"
+ssim_floor_source = "fixture"
+probe_source_kind = "run1084"
+loader_kind = "dictionary"
+raw_probe_archive_sha256 = "9f82cb9eb2c5a853764b98c1657b778600c0e90425296a7d1fdc6e8fdb53c906"
+raw_probe_array_sha256 = "de564a3ed5e70118fde70d8b65214ddfb3f00364228ef8b7c61a3f31a56c309a"
+transform_order = ["pad_extrapolate_complex", "smooth_complex"]
+probe_smoothing_sigma = 0.5
+probe_target_n = 128
+transformed_probe_sha256 = "eeccb1c92eae6dce36f4102bccda3f814b3eaa16e03e5c805f786edc628d4cd2"
+probe_normalize = true
+probe_scale = 4.0
+dictionary_probe_normalization_policy = "legacy_passthrough_config_inactive"
+dictionary_effective_probe_sha256 = "eeccb1c92eae6dce36f4102bccda3f814b3eaa16e03e5c805f786edc628d4cd2"
+mmap_probe_normalization_policy = "normalize_probe_like_tf_when_enabled"
+mmap_same_config_equivalent = false
+probe_mask = false
+probe_mask_tensor_is_none = true
+resolved_probe_mask_kind = "identity"
+resolved_probe_mask_sha256 = "3513f7981d1ead42bde088485afbba413d675b83c061c6362634bcb044bf8613"
+probe_mask_sigma = 1.0
+model_edge_pad = 10
+grid_lines_size = 392
+grid_lines_n = 128
+grid_lines_gridsize = 1
+grid_lines_offset = 4
+outer_offset_train = 8
+outer_offset_test = 20
+nimgs_train = 2
+nimgs_test = 1
+historical_crop_border = 59
+historical_effective_patch_n = 10
+generic_position_crop_border = 59
+generic_effective_patch_n = 10
+crop_boundaries_equivalent = true
+architecture = "hybrid_resnet"
+generator_output_mode = "real_imag"
+hybrid_encoder_conv_hidden_scale = 2.0
+training_patch_weighting = "central_mask"
+physics_forward_mode = "amplitude"
+amplitude_physics_gain = 16.0
+torch_loss_mode = "mae"
+seed = 3
+epochs = 5
+# Fixture floors: exact integration-fixture values (metrics minus tolerances);
+# SSIM floors are primary, MAE maxima are the supporting guard.
+fixture_amp_mae_max = 0.09668590068817139
+fixture_phase_mae_max = 0.15318376669684494
+fixture_amp_ssim_min = 0.8508652644013688
+fixture_phase_ssim_min = 0.9468665959387648
+
+# The historical grid-tiling stitch and the generic position stitch share the
+# declared crop boundary (border 59, effective patch 10) but are not
+# bit-identical evaluators. The gated metrics are computed on the historical
+# canvas, so this internal difference cannot inflate the SSIM gate.
+[references.expected_differences.canvas_equivalence]
+classification = "harmless"
+justification = "Historical grid-tiling and generic position stitches share the declared crop boundary; hash equality between the two evaluators is diagnostic provenance, and the gated SSIM/MAE are computed on the historical canvas only."
+
+[references.expected_differences.mask_equivalence]
+classification = "harmless"
+justification = "The valid-coverage masks of the two stitching evaluators may differ at seam boundaries; the fixture metric method scores the historical canvas at the full ground-truth frame."
+
+# ---------------------------------------------------------------------------
+# CNN reference: Task 27 frozen-artifact-sourced qualification floors.
+#
+# Floors are locked from the frozen artifact at the declared path below,
+# pinned by ssim_floor_reference_artifact_sha256. Task 27 provenance: seed-3,
+# gain-16, 20-epoch run2 evidence (visual review approved) measured SSIM
+# [0.8846891595066123, 0.9150671199457723] and MAE
+# [0.08112537115812302, 0.18809200960630929] under
+# eval_reconstruction_mean_amplitude_plane_phase_v1. The Task 20 recreation
+# and older aligned CNN arm remain read-only historical lineage.
+# ---------------------------------------------------------------------------
+
+[[references]]
+id = "grid_lines_cnn_reference"
+frozen_reference_artifact = ".artifacts/reference_qualification/task27_gain16_cnn_prequalification_run2/grid_lines_cnn_reference_floors.json"
+
+[references.runner]
+architecture = "cnn"
+N = 128
+gridsize = 1
+epochs = 20
+batch_size = 16
+infer_batch_size = 16
+learning_rate = 2e-4
+scheduler = "ReduceLROnPlateau"
+plateau_factor = 0.5
+plateau_patience = 2
+plateau_min_lr = 1e-4
+plateau_threshold = 0.0
+seed = 3
+optimizer = "adam"
+weight_decay = 0.0
+adam_beta1 = 0.9
+adam_beta2 = 0.999
+torch_loss_mode = "mae"
+generator_output_mode = "real_imag"
+cnn_output_mode = "real_imag"
+probe_source = "custom"
+training_patch_weighting = "central_mask"
+physics_forward_mode = "amplitude"
+amplitude_physics_gain = 16.0
+# Inactive for the cnn architecture; recorded as the effective config value.
+hybrid_encoder_conv_hidden_scale = 2.0
+position_crop_border = 59
+enable_checkpointing = true
+logger_backend = "csv"
+
+[references.bridge]
+schema_version = "hybrid_resnet_integration_bridge_v4"
+bridge_id = "grid_lines_cnn_reference"
+ssim_floor_source = "frozen_reference_artifact"
+# SHA-256 of the exact Task 27 candidate bytes promoted without clobber.
+# Source evidence: .artifacts/reference_qualification/task27_gain16_cnn_prequalification_run2/grid_lines_cnn_reference/reference_evidence.json
+# Source evidence SHA-256: bb069ce3ba1288e2ce34e2dc1ec8c9abccc16ae7c7723faca37c596eb189b251
+ssim_floor_reference_artifact_sha256 = "7b4b1d5b319031094979faa4aeb0c8ef884b23e8b2d21302235795b25caa7346"
+probe_source_kind = "run1084"
+loader_kind = "dictionary"
+raw_probe_archive_sha256 = "9f82cb9eb2c5a853764b98c1657b778600c0e90425296a7d1fdc6e8fdb53c906"
+raw_probe_array_sha256 = "de564a3ed5e70118fde70d8b65214ddfb3f00364228ef8b7c61a3f31a56c309a"
+transform_order = ["pad_extrapolate_complex", "smooth_complex"]
+probe_smoothing_sigma = 0.5
+probe_target_n = 128
+transformed_probe_sha256 = "eeccb1c92eae6dce36f4102bccda3f814b3eaa16e03e5c805f786edc628d4cd2"
+probe_normalize = true
+probe_scale = 4.0
+dictionary_probe_normalization_policy = "legacy_passthrough_config_inactive"
+dictionary_effective_probe_sha256 = "eeccb1c92eae6dce36f4102bccda3f814b3eaa16e03e5c805f786edc628d4cd2"
+mmap_probe_normalization_policy = "normalize_probe_like_tf_when_enabled"
+mmap_same_config_equivalent = false
+probe_mask = false
+probe_mask_tensor_is_none = true
+resolved_probe_mask_kind = "identity"
+resolved_probe_mask_sha256 = "3513f7981d1ead42bde088485afbba413d675b83c061c6362634bcb044bf8613"
+probe_mask_sigma = 1.0
+model_edge_pad = 10
+grid_lines_size = 392
+grid_lines_n = 128
+grid_lines_gridsize = 1
+grid_lines_offset = 4
+outer_offset_train = 8
+outer_offset_test = 20
+nimgs_train = 2
+nimgs_test = 1
+historical_crop_border = 59
+historical_effective_patch_n = 10
+generic_position_crop_border = 59
+generic_effective_patch_n = 10
+crop_boundaries_equivalent = true
+architecture = "cnn"
+generator_output_mode = "real_imag"
+hybrid_encoder_conv_hidden_scale = 2.0
+training_patch_weighting = "central_mask"
+physics_forward_mode = "amplitude"
+amplitude_physics_gain = 16.0
+torch_loss_mode = "mae"
+seed = 3
+epochs = 20
+# Frozen guards (Task 27), derived from the gain-16 qualification run's
+# measured metrics with the hybrid fixture tolerances: SSIM minima equal the
+# frozen artifact's floors (measured ssim - [0.035, 0.015]); the harness gates
+# on the frozen artifact regardless, so this equality is for TOML
+# self-consistency. MAE maxima are the supporting guard
+# (measured mae + [0.015, 0.025]).
+fixture_amp_mae_max = 0.09612537115812302
+fixture_phase_mae_max = 0.21309200960630928
+fixture_amp_ssim_min = 0.8496891595066123
+fixture_phase_ssim_min = 0.9000671199457723
+
+[references.expected_differences.canvas_equivalence]
+classification = "harmless"
+justification = "Historical grid-tiling and generic position stitches share the declared crop boundary; hash equality between the two evaluators is diagnostic provenance, and the gated SSIM/MAE are computed on the historical canvas only."
+
+[references.expected_differences.mask_equivalence]
+classification = "harmless"
+justification = "The valid-coverage masks of the two stitching evaluators may differ at seam boundaries; the fixture metric method scores the historical canvas at the full ground-truth frame."

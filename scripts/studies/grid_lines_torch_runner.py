@@ -192,6 +192,13 @@ class TorchRunnerConfig:
     training_patch_weighting: str = "central_mask"
     physics_forward_mode: str = "amplitude"
     rect_s1s2_trainable: bool = True
+    # PROBE-RANK-001 §3.3 / design §4 (Task 26): explicit amplitude physics
+    # gain applied to the predicted amplitude in the amplitude-mode training
+    # forward. Mirrors ptycho_torch.config_params.ModelConfig.amplitude_physics_gain
+    # (default 1.0 = bit-identical no-op); threaded through run_torch_training's
+    # torch-only overrides like the other ModelConfig knobs above.
+    # Contract: docs/specs/spec-ptycho-torch-probe-layout.md.
+    amplitude_physics_gain: float = 1.0
     N: int = 64
     gridsize: int = 1
     probe_source: Optional[str] = None
@@ -1257,7 +1264,9 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
             resnet_width=cfg.resnet_width,
             generator_output_mode=cfg.generator_output_mode,
             object_big=cfg.gridsize > 1,
-            probe_big=False,
+            # Grouped Torch runs keep the canonical full-support policy even
+            # when a non-CNN generator does not consume this decoder branch.
+            probe_big=cfg.gridsize > 1,
             probe_mask=cfg.probe_mask,
             probe_mask_sigma=cfg.probe_mask_sigma,
             probe_mask_diameter=cfg.probe_mask_diameter,
@@ -1584,6 +1593,9 @@ def run_torch_training(
             "rect_s1s2_trainable": cfg.rect_s1s2_trainable,
             "scale_contract_version": cfg.scale_contract_version,
             "measurement_domain": cfg.measurement_domain,
+            # PROBE-RANK-001 §3.3: explicit amplitude physics gain (validated
+            # fail-fast by create_training_payload; recorded in hparams).
+            "amplitude_physics_gain": cfg.amplitude_physics_gain,
         },
     )
     results["generator"] = cfg.architecture
@@ -2332,6 +2344,12 @@ def main(argv=None) -> None:
                         choices=["amplitude", "rectangular_scaled"],
                         help="Forward-model physics mode (amplitude or rectangular_scaled).")
     parser.add_argument(
+        "--amplitude-physics-gain",
+        type=float,
+        default=1.0,
+        help="Explicit predicted-amplitude gain for amplitude-mode training.",
+    )
+    parser.add_argument(
         "--freeze-s1s2",
         dest="freeze_s1s2",
         action="store_true",
@@ -2693,6 +2711,7 @@ def main(argv=None) -> None:
         cnn_output_mode=cnn_output_mode,
         training_patch_weighting=args.training_patch_weighting,
         physics_forward_mode=args.physics_forward_mode,
+        amplitude_physics_gain=args.amplitude_physics_gain,
         rect_s1s2_trainable=not args.freeze_s1s2,
         N=args.N,
         gridsize=args.gridsize,

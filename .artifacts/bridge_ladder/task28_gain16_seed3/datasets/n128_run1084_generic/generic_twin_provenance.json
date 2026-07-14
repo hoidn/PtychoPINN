@@ -1,0 +1,74 @@
+{
+  "probe_lineage": {
+    "dictionary_source_stored_transformed": {
+      "probe_key": "probeGuess",
+      "splits_equal": true,
+      "test": {
+        "canonical_sha256": "eeccb1c92eae6dce36f4102bccda3f814b3eaa16e03e5c805f786edc628d4cd2",
+        "dtype": "complex64",
+        "shape": [
+          128,
+          128
+        ]
+      },
+      "train": {
+        "canonical_sha256": "eeccb1c92eae6dce36f4102bccda3f814b3eaa16e03e5c805f786edc628d4cd2",
+        "dtype": "complex64",
+        "shape": [
+          128,
+          128
+        ]
+      }
+    },
+    "generic_output": {
+      "output_equal": true,
+      "probe_key": "probeGuess",
+      "splits_equal": true,
+      "test": {
+        "canonical_sha256": "eeccb1c92eae6dce36f4102bccda3f814b3eaa16e03e5c805f786edc628d4cd2",
+        "dtype": "complex64",
+        "shape": [
+          128,
+          128
+        ]
+      },
+      "train": {
+        "canonical_sha256": "eeccb1c92eae6dce36f4102bccda3f814b3eaa16e03e5c805f786edc628d4cd2",
+        "dtype": "complex64",
+        "shape": [
+          128,
+          128
+        ]
+      }
+    },
+    "input_probe_archive": {
+      "file_sha256": "9f82cb9eb2c5a853764b98c1657b778600c0e90425296a7d1fdc6e8fdb53c906",
+      "path": ".artifacts/bridge_ladder/task28_gain16_seed3/datasets/Run1084_recon3_postPC_shrunk_3.npz",
+      "probe_key": "probeGuess",
+      "raw_probe_array_canonical_sha256": "de564a3ed5e70118fde70d8b65214ddfb3f00364228ef8b7c61a3f31a56c309a"
+    }
+  },
+  "test": {
+    "detector_shape": [
+      128,
+      128
+    ],
+    "n_positions": 729,
+    "output": ".artifacts/bridge_ladder/task28_gain16_seed3/datasets/n128_run1084_generic/test.npz",
+    "output_sha256": "17b2aea9a9deeb3ead2ab78771f19b33a2612b2666196e20dd45fa1a51f2275b",
+    "source": ".artifacts/integration/grid_lines_hybrid_resnet/datasets/N128/gs1/test.npz",
+    "source_sha256": "01dd9ff64d84e56b5950865640e79895d82813c0caa451f9552338c07a700699"
+  },
+  "tool": "grid_lines_generic_schema_twin_v1",
+  "train": {
+    "detector_shape": [
+      128,
+      128
+    ],
+    "n_positions": 8978,
+    "output": ".artifacts/bridge_ladder/task28_gain16_seed3/datasets/n128_run1084_generic/train.npz",
+    "output_sha256": "628cac77ef85c3927e3d5407f509556f054267e71e567aed67500b8de5f6ae4e",
+    "source": ".artifacts/integration/grid_lines_hybrid_resnet/datasets/N128/gs1/train.npz",
+    "source_sha256": "c7615e11b2a500c891ed13be0747adba467b451a12e5a31dd18b7f338e89c916"
+  }
+}

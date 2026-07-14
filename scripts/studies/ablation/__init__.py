@@ -1,0 +1,41 @@
+"""Reusable infrastructure for manifest-driven Torch ablation studies."""
+
+from .manifest import (
+    Comparison,
+    DatasetDeclaration,
+    Gate,
+    LogicalArm,
+    Manifest,
+    ManifestError,
+    ResolvedComparison,
+    ResolvedGate,
+    ResolvedRun,
+    ResolvedStudy,
+    RuleApplicability,
+    expand_arms,
+    expand_runs,
+    load_manifest,
+    loads_manifest,
+    resolve_manifest,
+    select_runs,
+)
+
+__all__ = [
+    "Comparison",
+    "DatasetDeclaration",
+    "Gate",
+    "LogicalArm",
+    "Manifest",
+    "ManifestError",
+    "ResolvedComparison",
+    "ResolvedGate",
+    "ResolvedRun",
+    "ResolvedStudy",
+    "RuleApplicability",
+    "expand_arms",
+    "expand_runs",
+    "load_manifest",
+    "loads_manifest",
+    "resolve_manifest",
+    "select_runs",
+]

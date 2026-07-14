@@ -1,0 +1,1273 @@
+[schema]
+version = 1
+
+[study]
+id = "hybrid-resnet-ci-compatibility"
+seeds = [3, 17, 29]
+output_root = ".artifacts/ci_compatibility/full_v3"
+require_all_explicit = true
+
+[base.overrides]
+"dataset.id" = "deadleaves_ci_3p5m"
+"data.N" = 64
+"data.C" = 4
+"data.n_subsample" = 1
+"data.grid_size" = [2, 2]
+"data.probe_scale" = 4.0
+"data.probe_normalize" = true
+"data.x_bounds" = [0.1, 0.9]
+"data.y_bounds" = [0.1, 0.9]
+"model.mode" = "Unsupervised"
+"model.C_model" = 4
+"model.C_forward" = 4
+"model.object_big" = true
+"model.probe_big" = true
+"model.offset" = 6
+"model.training_patch_weighting" = "probe"
+"model.probe_mask" = false
+"model.amp_loss" = "disabled"
+"model.phase_loss" = "disabled"
+"training.learning_rate" = 0.0002
+"training.epochs" = 80
+"training.batch_size" = 16
+"training.scheduler" = "ReduceLROnPlateau"
+"training.plateau_factor" = 0.5
+"training.plateau_patience" = 2
+"training.plateau_min_lr" = 0.0001
+"training.plateau_threshold" = 0.0
+"training.accum_steps" = 1
+"training.gradient_clip_val" = 1.0
+"training.gradient_clip_algorithm" = "norm"
+"training.optimizer" = "adam"
+"training.weight_decay" = 0.0
+"training.adam_beta1" = 0.9
+"training.adam_beta2" = 0.999
+"training.log_grad_norm" = true
+"training.grad_norm_log_freq" = 1
+"training.experiment_name" = "hybrid_resnet_ci_compatibility"
+"training.notes" = "N64 CI compatibility matrix"
+"training.model_name" = "PtychoPINNv2"
+"inference.middle_trim" = 32
+"inference.batch_size" = 16
+"inference.patch_weighting" = "probe"
+"execution.accelerator" = "cuda"
+"execution.devices" = 1
+"execution.strategy" = "auto"
+"execution.deterministic" = true
+"execution.precision" = "32-true"
+"execution.num_workers" = 0
+"execution.pin_memory" = false
+"execution.enable_progress_bar" = false
+"execution.enable_checkpointing" = true
+"execution.checkpoint_save_top_k" = 1
+"execution.checkpoint_monitor_metric" = "val_loss"
+"execution.checkpoint_mode" = "min"
+"execution.early_stop_patience" = 100
+
+[datasets.deadleaves_ci_3p5m]
+coords_convention = "xy_pixels"
+detector_shape = [64, 64]
+format = "npz_mmap"
+grouping_max_C = 4
+kind = "synthetic"
+measurement_domain = "count_intensity"
+measurement_key = "diff3d"
+probe_key = "probeGuess"
+probe_modes = 1
+provenance = ".artifacts/ci_compatibility/datasets_v3/ci_compatibility_provenance.json"
+provenance_sha256 = "dd88d0b5892537d79317772124115d10dc34635ea65848826a6f06eaf0711742"
+scale_contract_version = "ci_intensity_v2"
+test = ".artifacts/ci_compatibility/datasets_v3/deadleaves_ci_3p5m_test.npz"
+test_sha256 = "ea41285534c3d1c92d2e3d60505d880628080330e99bd5456f79ddd130056604"
+train = ".artifacts/ci_compatibility/datasets_v3/deadleaves_ci_3p5m_train.npz"
+train_sha256 = "bfd63fee5dbb60afaeff8f90b18aa8f712388cc4aae623a011edc25975e5fc67"
+truth = "object_truth"
+truth_key = "objectGuess"
+truth_location = "embedded_test"
+x_key = "xcoords"
+y_key = "ycoords"
+
+[datasets.deadleaves_ci_3p5m.probe]
+calibration = "count_amplitude"
+gauge = "physical_count_amplitude"
+mask_policy = "model_config"
+source = "/home/ollie/Documents/PtychoPINN/datasets/fly/fly001.npz"
+test_sha256 = "583ebb73293dd5fc77836d10d2c70e5b06fc9edbd97ca8920b815731c59af1e6"
+train_sha256 = "8ce80eb1a01ee9c7164e97eb7c2402c361d6dde24992d1b06ac2217374e6a2ed"
+
+[datasets.deadleaves_ci_3p5m.dose.test]
+counts_mean = 863.998231640625
+dtype_max = 65535
+max_observed_count = 6601
+photons_per_image_mean = 3538936.7568
+photons_per_image_min = 1833491.0
+saturation_fraction = 0.0
+
+[datasets.deadleaves_ci_3p5m.dose.train]
+counts_mean = 864.0099698242187
+dtype_max = 65535
+max_observed_count = 7240
+photons_per_image_mean = 3538984.8364
+photons_per_image_min = 1834735.0
+saturation_fraction = 0.0
+
+[datasets.deadleaves_legacy_amp]
+coords_convention = "xy_pixels"
+detector_shape = [64, 64]
+format = "npz_mmap"
+grouping_max_C = 4
+kind = "synthetic"
+measurement_domain = "normalized_amplitude"
+measurement_key = "diff3d"
+probe_key = "probeGuess"
+probe_modes = 1
+provenance = ".artifacts/ci_compatibility/datasets_v3/ci_compatibility_provenance.json"
+provenance_sha256 = "dd88d0b5892537d79317772124115d10dc34635ea65848826a6f06eaf0711742"
+scale_contract_version = "legacy_v1"
+test = ".artifacts/ci_compatibility/datasets_v3/deadleaves_legacy_amp_test.npz"
+test_sha256 = "469f79f852a994ee5ef06e762e38967886eb800c4d441a4a96f23ca25c02c41e"
+train = ".artifacts/ci_compatibility/datasets_v3/deadleaves_legacy_amp_train.npz"
+train_sha256 = "4096944c8f6d3a8e324df874a7eed884e9926d5c1bdba2bacffab8e5037a22c3"
+truth = "object_truth"
+truth_key = "objectGuess"
+truth_location = "embedded_test"
+x_key = "xcoords"
+y_key = "ycoords"
+
+[datasets.deadleaves_legacy_amp.probe]
+calibration = "legacy_normalized"
+gauge = "legacy_normalized"
+mask_policy = "model_config"
+sha256 = "fbdf985d265544cd0c20fe75c19a0299e3f13c601bbd599218b2bd3c9ec4dd73"
+source = "/home/ollie/Documents/PtychoPINN/datasets/fly/fly001.npz"
+
+[datasets.lines_ci_3p5m]
+coords_convention = "xy_pixels"
+detector_shape = [64, 64]
+format = "npz_mmap"
+grouping_max_C = 4
+kind = "synthetic"
+measurement_domain = "count_intensity"
+measurement_key = "diff3d"
+probe_key = "probeGuess"
+probe_modes = 1
+provenance = ".artifacts/ci_compatibility/datasets_v3/ci_compatibility_provenance.json"
+provenance_sha256 = "dd88d0b5892537d79317772124115d10dc34635ea65848826a6f06eaf0711742"
+scale_contract_version = "ci_intensity_v2"
+test = ".artifacts/ci_compatibility/datasets_v3/lines_ci_3p5m_test.npz"
+test_sha256 = "b120bd1364053969fdaf8b1dc7d6651a54c097f52116e1704579c81909b6c747"
+train = ".artifacts/ci_compatibility/datasets_v3/lines_ci_3p5m_train.npz"
+train_sha256 = "316c4ac841eb45184fd84f5430a08be6f80ef919963d9aeaa2406d5d1a0e239b"
+truth = "object_truth"
+truth_key = "objectGuess"
+truth_location = "embedded_test"
+x_key = "xcoords"
+y_key = "ycoords"
+
+[datasets.lines_ci_3p5m.probe]
+calibration = "count_amplitude"
+gauge = "physical_count_amplitude"
+mask_policy = "model_config"
+source = "/home/ollie/Documents/PtychoPINN/datasets/fly/fly001.npz"
+test_sha256 = "09280f5a9543ba44ec07ad5d6fb181674bde94513fecf89146b6f6ac587e4535"
+train_sha256 = "f26e41a4d6be8ff99cf82906e608b39974f422ced361ad54aacc7e2e318d0e15"
+
+[datasets.lines_ci_3p5m.dose.test]
+counts_mean = 863.987602734375
+dtype_max = 65535
+max_observed_count = 3975
+photons_per_image_mean = 3538893.2208
+photons_per_image_min = 1758704.0
+saturation_fraction = 0.0
+
+[datasets.lines_ci_3p5m.dose.train]
+counts_mean = 863.99861640625
+dtype_max = 65535
+max_observed_count = 4019
+photons_per_image_mean = 3538938.3328
+photons_per_image_min = 1738342.0
+saturation_fraction = 0.0
+
+[datasets.lines_legacy_amp]
+coords_convention = "xy_pixels"
+detector_shape = [64, 64]
+format = "npz_mmap"
+grouping_max_C = 4
+kind = "synthetic"
+measurement_domain = "normalized_amplitude"
+measurement_key = "diff3d"
+probe_key = "probeGuess"
+probe_modes = 1
+provenance = ".artifacts/ci_compatibility/datasets_v3/ci_compatibility_provenance.json"
+provenance_sha256 = "dd88d0b5892537d79317772124115d10dc34635ea65848826a6f06eaf0711742"
+scale_contract_version = "legacy_v1"
+test = ".artifacts/ci_compatibility/datasets_v3/lines_legacy_amp_test.npz"
+test_sha256 = "19f9c98e2c40f8136957ba30aca28cf97c05cdacbcb96380aaec7599759ea6cc"
+train = ".artifacts/ci_compatibility/datasets_v3/lines_legacy_amp_train.npz"
+train_sha256 = "97e3933abf1ff27e443d1d0541e776ebb5e52c0d6edb2f2e3f2e3a744bdbf38f"
+truth = "object_truth"
+truth_key = "objectGuess"
+truth_location = "embedded_test"
+x_key = "xcoords"
+y_key = "ycoords"
+
+[datasets.lines_legacy_amp.probe]
+calibration = "legacy_normalized"
+gauge = "legacy_normalized"
+mask_policy = "model_config"
+sha256 = "fbdf985d265544cd0c20fe75c19a0299e3f13c601bbd599218b2bd3c9ec4dd73"
+source = "/home/ollie/Documents/PtychoPINN/datasets/fly/fly001.npz"
+
+[[matrix.dimensions]]
+name = "object_family"
+
+[[matrix.dimensions.values]]
+id = "deadleaves"
+
+[[matrix.dimensions.values]]
+id = "lines"
+
+[[matrix.dimensions]]
+name = "architecture"
+
+[[matrix.dimensions.values]]
+id = "hybrid_resnet"
+[matrix.dimensions.values.overrides]
+"model.architecture" = "hybrid_resnet"
+"model.generator_output_mode" = "real_imag"
+"model.fno_modes" = 12
+"model.fno_width" = 32
+"model.fno_blocks" = 4
+"model.fno_input_transform" = "none"
+"model.learned_input_channels" = 1
+"model.max_hidden_channels" = "auto"
+"model.resnet_width" = "auto"
+"model.hybrid_skip_connections" = false
+"model.hybrid_downsample_steps" = 2
+"model.hybrid_downsample_op" = "stride_conv"
+"model.hybrid_encoder_conv_hidden_scale" = 1.0
+"model.hybrid_encoder_spectral_hidden_scale" = 1.0
+"model.hybrid_resnet_blocks" = 6
+
+[[matrix.dimensions.values]]
+id = "cnn"
+[matrix.dimensions.values.overrides]
+"model.architecture" = "cnn"
+"model.cnn_output_mode" = "real_imag"
+"model.use_shared_decoder" = false
+"model.n_filters_scale" = 2
+"model.batch_norm" = false
+"model.cbam_encoder" = true
+"model.cbam_bottleneck" = false
+"model.decoder_last_c_outer_fraction" = 0.125
+"model.decoder_last_amp_channels" = 4
+"training.epochs_fine_tune" = 0
+
+[[matrix.dimensions]]
+name = "physics_profile"
+
+[[matrix.dimensions.values]]
+id = "ci_nll"
+[matrix.dimensions.values.overrides]
+"data.scale_contract_version" = "ci_intensity_v2"
+"data.measurement_domain" = "count_intensity"
+"model.physics_forward_mode" = "rectangular_scaled"
+"model.amplitude_physics_gain" = 1.0
+"model.rect_s1s2_trainable" = true
+"model.loss_function" = "Poisson"
+"training.torch_loss_mode" = "poisson"
+"inference.varpro_scaling" = true
+
+[[matrix.dimensions.values]]
+id = "legacy_nll"
+[matrix.dimensions.values.overrides]
+"data.scale_contract_version" = "legacy_v1"
+"data.measurement_domain" = "normalized_amplitude"
+"data.normalize" = "Batch"
+"data.data_scaling" = "Parseval"
+"model.physics_forward_mode" = "amplitude"
+"model.amplitude_physics_gain" = 12.452229360013307
+"model.rect_s1s2_trainable" = false
+"model.loss_function" = "Poisson"
+"training.torch_loss_mode" = "poisson"
+"inference.varpro_scaling" = false
+
+[[matrix.dimensions.values]]
+id = "legacy_mae"
+[matrix.dimensions.values.overrides]
+"data.scale_contract_version" = "legacy_v1"
+"data.measurement_domain" = "normalized_amplitude"
+"data.normalize" = "Batch"
+"data.data_scaling" = "Parseval"
+"model.physics_forward_mode" = "amplitude"
+"model.amplitude_physics_gain" = 12.452229360013307
+"model.rect_s1s2_trainable" = false
+"model.loss_function" = "MAE"
+"training.torch_loss_mode" = "mae"
+"training.torch_mae_pred_l2_match_target" = false
+"inference.varpro_scaling" = false
+
+[[matrix.exclude]]
+physics_profile = "ci_nll"
+
+[[matrix.exclude]]
+physics_profile = "legacy_mae"
+
+[[matrix.exclude]]
+physics_profile = "legacy_nll"
+
+[[matrix.include]]
+object_family = "deadleaves"
+architecture = "hybrid_resnet"
+physics_profile = "ci_nll"
+[matrix.include.overrides]
+"dataset.id" = "deadleaves_ci_3p5m"
+
+[[matrix.include]]
+object_family = "deadleaves"
+architecture = "cnn"
+physics_profile = "ci_nll"
+[matrix.include.overrides]
+"dataset.id" = "deadleaves_ci_3p5m"
+
+[[matrix.include]]
+object_family = "deadleaves"
+architecture = "hybrid_resnet"
+physics_profile = "legacy_nll"
+[matrix.include.overrides]
+"dataset.id" = "deadleaves_legacy_amp"
+
+[[matrix.include]]
+object_family = "deadleaves"
+architecture = "hybrid_resnet"
+physics_profile = "legacy_mae"
+[matrix.include.overrides]
+"dataset.id" = "deadleaves_legacy_amp"
+
+[[matrix.include]]
+object_family = "deadleaves"
+architecture = "cnn"
+physics_profile = "legacy_nll"
+[matrix.include.overrides]
+"dataset.id" = "deadleaves_legacy_amp"
+
+[[matrix.include]]
+object_family = "deadleaves"
+architecture = "cnn"
+physics_profile = "legacy_mae"
+[matrix.include.overrides]
+"dataset.id" = "deadleaves_legacy_amp"
+
+[[matrix.include]]
+object_family = "lines"
+architecture = "hybrid_resnet"
+physics_profile = "ci_nll"
+[matrix.include.overrides]
+"dataset.id" = "lines_ci_3p5m"
+
+[[matrix.include]]
+object_family = "lines"
+architecture = "cnn"
+physics_profile = "ci_nll"
+[matrix.include.overrides]
+"dataset.id" = "lines_ci_3p5m"
+
+[[matrix.include]]
+object_family = "lines"
+architecture = "hybrid_resnet"
+physics_profile = "legacy_nll"
+[matrix.include.overrides]
+"dataset.id" = "lines_legacy_amp"
+
+[[matrix.include]]
+object_family = "lines"
+architecture = "hybrid_resnet"
+physics_profile = "legacy_mae"
+[matrix.include.overrides]
+"dataset.id" = "lines_legacy_amp"
+
+[[matrix.include]]
+object_family = "lines"
+architecture = "cnn"
+physics_profile = "legacy_nll"
+[matrix.include.overrides]
+"dataset.id" = "lines_legacy_amp"
+
+[[matrix.include]]
+object_family = "lines"
+architecture = "cnn"
+physics_profile = "legacy_mae"
+[matrix.include.overrides]
+"dataset.id" = "lines_legacy_amp"
+
+[[gates]]
+id = "deadleaves_ci_seed_success"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "status_count_ge"
+status = "success"
+threshold = 3
+requested = 3
+
+[[gates]]
+id = "deadleaves_ci_truth_amp_pearson"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.amp_pearson"
+aggregation = "median"
+threshold = 0.5
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+
+[[gates]]
+id = "deadleaves_ci_truth_amp_ssim"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.post_varpro.amp_ssim"
+aggregation = "median"
+threshold = 0.70
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+
+[[gates]]
+id = "deadleaves_ci_post_varpro_phase_ssim"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.post_varpro.phase_ssim"
+aggregation = "all_successful"
+threshold = 0.90
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+
+[[gates]]
+id = "deadleaves_ci_validation_tail_normalized_slope"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "stability.validation_loss_tail_normalized_slope"
+aggregation = "all_successful"
+threshold = 0.001
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_ci_absolute_amp_nrmse"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "truth_quality.absolute_amp_nrmse"
+aggregation = "all_successful"
+threshold = 0.5
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+
+[[gates]]
+id = "deadleaves_ci_physical_count_error"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "measurement_consistency.relative_l2_intensity_error"
+aggregation = "all_successful"
+threshold = 0.25
+min_successful = 2
+requires = ["has_physical_probe", "supports_count_metrics"]
+
+[[gates]]
+id = "deadleaves_ci_model_to_poisson_oracle"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "measurement_consistency.model_to_poisson_oracle_error_ratio"
+aggregation = "all_successful"
+threshold = 8.0
+min_successful = 2
+requires = ["has_object_truth", "has_physical_probe", "supports_count_metrics"]
+when_dataset_kind = "synthetic"
+
+[[gates]]
+id = "deadleaves_ci_pre_varpro_amp_ssim"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.pre_varpro.amp_ssim"
+aggregation = "all_successful"
+threshold = 0.70
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "deadleaves_ci_amp_variance"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.amp_variance"
+aggregation = "all_successful"
+threshold = 0.0001
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_ci_phase_variance"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.phase_variance"
+aggregation = "all_successful"
+threshold = 0.0001
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_ci_amp_dynamic_range"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.amp_dynamic_range"
+aggregation = "all_successful"
+threshold = 0.01
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_ci_phase_dynamic_range"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.phase_dynamic_range"
+aggregation = "all_successful"
+threshold = 0.01
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_ci_scan_utilization"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.scan_utilization_fraction"
+aggregation = "all_successful"
+threshold = 0.99
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_ci_canvas_coverage"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.coverage_fraction"
+aggregation = "all_successful"
+threshold = 0.95
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_ci_amp_mean_ratio_min"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.amp_mean_ratio"
+aggregation = "all_successful"
+threshold = 0.75
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "deadleaves_ci_amp_mean_ratio_max"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "truth_quality.amp_mean_ratio"
+aggregation = "all_successful"
+threshold = 1.25
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "deadleaves_ci_amp_quantile_ratio_p05_min"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.amp_quantile_ratio_p05"
+aggregation = "all_successful"
+threshold = 0.5
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "deadleaves_ci_amp_quantile_ratio_p05_max"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "truth_quality.amp_quantile_ratio_p05"
+aggregation = "all_successful"
+threshold = 1.5
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "deadleaves_ci_amp_quantile_ratio_p50_min"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.amp_quantile_ratio_p50"
+aggregation = "all_successful"
+threshold = 0.75
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "deadleaves_ci_amp_quantile_ratio_p50_max"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "truth_quality.amp_quantile_ratio_p50"
+aggregation = "all_successful"
+threshold = 1.25
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "deadleaves_ci_amp_quantile_ratio_p95_min"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.amp_quantile_ratio_p95"
+aggregation = "all_successful"
+threshold = 0.75
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "deadleaves_ci_amp_quantile_ratio_p95_max"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "truth_quality.amp_quantile_ratio_p95"
+aggregation = "all_successful"
+threshold = 1.25
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "deadleaves_ci_reload_allclose"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.reload_allclose"
+aggregation = "all_successful"
+threshold = 1.0
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_ci_manual_visual_review"
+target = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "manual_review"
+
+[[gates]]
+id = "lines_ci_seed_success"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "status_count_ge"
+status = "success"
+threshold = 3
+requested = 3
+
+[[gates]]
+id = "lines_ci_truth_amp_pearson"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.amp_pearson"
+aggregation = "median"
+threshold = 0.90
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+
+[[gates]]
+id = "lines_ci_truth_amp_ssim"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.post_varpro.amp_ssim"
+aggregation = "median"
+threshold = 0.75
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+
+[[gates]]
+id = "lines_ci_post_varpro_phase_ssim"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.post_varpro.phase_ssim"
+aggregation = "all_successful"
+threshold = 0.90
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+
+[[gates]]
+id = "lines_ci_validation_tail_normalized_slope"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "stability.validation_loss_tail_normalized_slope"
+aggregation = "all_successful"
+threshold = 0.001
+min_successful = 2
+
+[[gates]]
+id = "lines_ci_absolute_amp_nrmse"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "truth_quality.absolute_amp_nrmse"
+aggregation = "all_successful"
+threshold = 0.5
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+
+[[gates]]
+id = "lines_ci_physical_count_error"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "measurement_consistency.relative_l2_intensity_error"
+aggregation = "all_successful"
+threshold = 0.25
+min_successful = 2
+requires = ["has_physical_probe", "supports_count_metrics"]
+
+[[gates]]
+id = "lines_ci_model_to_poisson_oracle"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "measurement_consistency.model_to_poisson_oracle_error_ratio"
+aggregation = "all_successful"
+threshold = 8.0
+min_successful = 2
+requires = ["has_object_truth", "has_physical_probe", "supports_count_metrics"]
+when_dataset_kind = "synthetic"
+
+[[gates]]
+id = "lines_ci_pre_varpro_amp_ssim"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.pre_varpro.amp_ssim"
+aggregation = "all_successful"
+threshold = 0.70
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "lines_ci_amp_variance"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.amp_variance"
+aggregation = "all_successful"
+threshold = 0.0001
+min_successful = 2
+
+[[gates]]
+id = "lines_ci_phase_variance"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.phase_variance"
+aggregation = "all_successful"
+threshold = 0.0001
+min_successful = 2
+
+[[gates]]
+id = "lines_ci_amp_dynamic_range"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.amp_dynamic_range"
+aggregation = "all_successful"
+threshold = 0.01
+min_successful = 2
+
+[[gates]]
+id = "lines_ci_phase_dynamic_range"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.phase_dynamic_range"
+aggregation = "all_successful"
+threshold = 0.01
+min_successful = 2
+
+[[gates]]
+id = "lines_ci_scan_utilization"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.scan_utilization_fraction"
+aggregation = "all_successful"
+threshold = 0.99
+min_successful = 2
+
+[[gates]]
+id = "lines_ci_canvas_coverage"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.coverage_fraction"
+aggregation = "all_successful"
+threshold = 0.95
+min_successful = 2
+
+[[gates]]
+id = "lines_ci_amp_mean_ratio_min"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.amp_mean_ratio"
+aggregation = "all_successful"
+threshold = 0.75
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "lines_ci_amp_mean_ratio_max"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "truth_quality.amp_mean_ratio"
+aggregation = "all_successful"
+threshold = 1.25
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "lines_ci_amp_quantile_ratio_p05_min"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.amp_quantile_ratio_p05"
+aggregation = "all_successful"
+threshold = 0.5
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "lines_ci_amp_quantile_ratio_p05_max"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "truth_quality.amp_quantile_ratio_p05"
+aggregation = "all_successful"
+threshold = 1.5
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "lines_ci_amp_quantile_ratio_p50_min"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.amp_quantile_ratio_p50"
+aggregation = "all_successful"
+threshold = 0.75
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "lines_ci_amp_quantile_ratio_p50_max"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "truth_quality.amp_quantile_ratio_p50"
+aggregation = "all_successful"
+threshold = 1.25
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "lines_ci_amp_quantile_ratio_p95_min"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.amp_quantile_ratio_p95"
+aggregation = "all_successful"
+threshold = 0.75
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "lines_ci_amp_quantile_ratio_p95_max"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "le"
+metric = "truth_quality.amp_quantile_ratio_p95"
+aggregation = "all_successful"
+threshold = 1.25
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+[[gates]]
+id = "lines_ci_reload_allclose"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.reload_allclose"
+aggregation = "all_successful"
+threshold = 1.0
+min_successful = 2
+
+[[gates]]
+id = "lines_ci_manual_visual_review"
+target = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+operator = "manual_review"
+
+[[gates]]
+id = "deadleaves_cnn_ci_seed_success"
+target = { object_family = "deadleaves", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "status_count_ge"
+status = "success"
+threshold = 3
+requested = 3
+
+[[gates]]
+id = "deadleaves_cnn_ci_post_varpro_amp_ssim"
+target = { object_family = "deadleaves", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.post_varpro.amp_ssim"
+aggregation = "all_successful"
+threshold = 0.50
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+
+[[gates]]
+id = "deadleaves_cnn_ci_amp_variance"
+target = { object_family = "deadleaves", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.amp_variance"
+aggregation = "all_successful"
+threshold = 0.0001
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_cnn_ci_phase_variance"
+target = { object_family = "deadleaves", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.phase_variance"
+aggregation = "all_successful"
+threshold = 0.0001
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_cnn_ci_amp_dynamic_range"
+target = { object_family = "deadleaves", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.amp_dynamic_range"
+aggregation = "all_successful"
+threshold = 0.01
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_cnn_ci_phase_dynamic_range"
+target = { object_family = "deadleaves", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.phase_dynamic_range"
+aggregation = "all_successful"
+threshold = 0.01
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_cnn_ci_real_head_lower_saturation"
+target = { object_family = "deadleaves", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "le"
+metric = "stability.real_head_lower_saturation_fraction"
+aggregation = "all_successful"
+threshold = 0.05
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_cnn_ci_real_head_upper_saturation"
+target = { object_family = "deadleaves", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "le"
+metric = "stability.real_head_upper_saturation_fraction"
+aggregation = "all_successful"
+threshold = 0.05
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_cnn_ci_imag_head_lower_saturation"
+target = { object_family = "deadleaves", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "le"
+metric = "stability.imag_head_lower_saturation_fraction"
+aggregation = "all_successful"
+threshold = 0.05
+min_successful = 2
+
+[[gates]]
+id = "deadleaves_cnn_ci_imag_head_upper_saturation"
+target = { object_family = "deadleaves", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "le"
+metric = "stability.imag_head_upper_saturation_fraction"
+aggregation = "all_successful"
+threshold = 0.05
+min_successful = 2
+
+[[gates]]
+id = "lines_cnn_ci_seed_success"
+target = { object_family = "lines", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "status_count_ge"
+status = "success"
+threshold = 3
+requested = 3
+
+[[gates]]
+id = "lines_cnn_ci_post_varpro_amp_ssim"
+target = { object_family = "lines", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "truth_quality.post_varpro.amp_ssim"
+aggregation = "all_successful"
+threshold = 0.50
+min_successful = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+
+[[gates]]
+id = "lines_cnn_ci_amp_variance"
+target = { object_family = "lines", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.amp_variance"
+aggregation = "all_successful"
+threshold = 0.0001
+min_successful = 2
+
+[[gates]]
+id = "lines_cnn_ci_phase_variance"
+target = { object_family = "lines", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.phase_variance"
+aggregation = "all_successful"
+threshold = 0.0001
+min_successful = 2
+
+[[gates]]
+id = "lines_cnn_ci_amp_dynamic_range"
+target = { object_family = "lines", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.amp_dynamic_range"
+aggregation = "all_successful"
+threshold = 0.01
+min_successful = 2
+
+[[gates]]
+id = "lines_cnn_ci_phase_dynamic_range"
+target = { object_family = "lines", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "ge"
+metric = "stability.phase_dynamic_range"
+aggregation = "all_successful"
+threshold = 0.01
+min_successful = 2
+
+[[gates]]
+id = "lines_cnn_ci_real_head_lower_saturation"
+target = { object_family = "lines", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "le"
+metric = "stability.real_head_lower_saturation_fraction"
+aggregation = "all_successful"
+threshold = 0.05
+min_successful = 2
+
+[[gates]]
+id = "lines_cnn_ci_real_head_upper_saturation"
+target = { object_family = "lines", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "le"
+metric = "stability.real_head_upper_saturation_fraction"
+aggregation = "all_successful"
+threshold = 0.05
+min_successful = 2
+
+[[gates]]
+id = "lines_cnn_ci_imag_head_lower_saturation"
+target = { object_family = "lines", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "le"
+metric = "stability.imag_head_lower_saturation_fraction"
+aggregation = "all_successful"
+threshold = 0.05
+min_successful = 2
+
+[[gates]]
+id = "lines_cnn_ci_imag_head_upper_saturation"
+target = { object_family = "lines", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "le"
+metric = "stability.imag_head_upper_saturation_fraction"
+aggregation = "all_successful"
+threshold = 0.05
+min_successful = 2
+
+[[comparisons]]
+id = "deadleaves_hybrid_ci_legacy_mae_amp_ssim_ratio"
+left = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+right = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "legacy_mae" }
+operator = "paired_ratio_ge"
+metric = "truth_quality.amp_ssim"
+aggregation = "median"
+threshold = 0.85
+min_pairs = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+
+[[comparisons]]
+id = "lines_hybrid_ci_legacy_mae_amp_ssim_ratio"
+left = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+right = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "legacy_mae" }
+operator = "paired_ratio_ge"
+metric = "truth_quality.amp_ssim"
+aggregation = "median"
+threshold = 0.85
+min_pairs = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+
+[[comparisons]]
+id = "deadleaves_cnn_ci_legacy_mae_amp_ssim_ratio"
+left = { object_family = "deadleaves", architecture = "cnn", physics_profile = "ci_nll" }
+right = { object_family = "deadleaves", architecture = "cnn", physics_profile = "legacy_mae" }
+operator = "paired_ratio_ge"
+metric = "truth_quality.amp_ssim"
+aggregation = "median"
+threshold = 0.85
+min_pairs = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+
+[[comparisons]]
+id = "lines_cnn_ci_legacy_mae_amp_ssim_ratio"
+left = { object_family = "lines", architecture = "cnn", physics_profile = "ci_nll" }
+right = { object_family = "lines", architecture = "cnn", physics_profile = "legacy_mae" }
+operator = "paired_ratio_ge"
+metric = "truth_quality.amp_ssim"
+aggregation = "median"
+threshold = 0.85
+min_pairs = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+
+[[comparisons]]
+id = "deadleaves_hybrid_ci_vs_legacy_nll"
+left = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+right = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "legacy_nll" }
+operator = "paired_ratio_ge"
+metric = "truth_quality.amp_pearson"
+aggregation = "median"
+threshold = 0.0
+min_pairs = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+diagnostic = true
+
+[[comparisons]]
+id = "deadleaves_cnn_ci_vs_legacy_nll"
+left = { object_family = "deadleaves", architecture = "cnn", physics_profile = "ci_nll" }
+right = { object_family = "deadleaves", architecture = "cnn", physics_profile = "legacy_nll" }
+operator = "paired_ratio_ge"
+metric = "truth_quality.amp_pearson"
+aggregation = "median"
+threshold = 0.0
+min_pairs = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+diagnostic = true
+
+[[comparisons]]
+id = "deadleaves_hybrid_ci_vs_legacy_mae"
+left = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+right = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "legacy_mae" }
+operator = "paired_ratio_ge"
+metric = "truth_quality.amp_pearson"
+aggregation = "median"
+threshold = 0.0
+min_pairs = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+diagnostic = true
+
+[[comparisons]]
+id = "deadleaves_hybrid_vs_cnn_ci"
+left = { object_family = "deadleaves", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+right = { object_family = "deadleaves", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "paired_ratio_ge"
+metric = "truth_quality.amp_pearson"
+aggregation = "median"
+threshold = 0.0
+min_pairs = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+diagnostic = true
+
+[[comparisons]]
+id = "lines_hybrid_ci_vs_legacy_nll"
+left = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+right = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "legacy_nll" }
+operator = "paired_ratio_ge"
+metric = "truth_quality.amp_pearson"
+aggregation = "median"
+threshold = 0.0
+min_pairs = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+diagnostic = true
+
+[[comparisons]]
+id = "lines_cnn_ci_vs_legacy_nll"
+left = { object_family = "lines", architecture = "cnn", physics_profile = "ci_nll" }
+right = { object_family = "lines", architecture = "cnn", physics_profile = "legacy_nll" }
+operator = "paired_ratio_ge"
+metric = "truth_quality.amp_pearson"
+aggregation = "median"
+threshold = 0.0
+min_pairs = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+diagnostic = true
+
+[[comparisons]]
+id = "lines_hybrid_ci_vs_legacy_mae"
+left = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+right = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "legacy_mae" }
+operator = "paired_ratio_ge"
+metric = "truth_quality.amp_pearson"
+aggregation = "median"
+threshold = 0.0
+min_pairs = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+diagnostic = true
+
+[[comparisons]]
+id = "lines_hybrid_vs_cnn_ci"
+left = { object_family = "lines", architecture = "hybrid_resnet", physics_profile = "ci_nll" }
+right = { object_family = "lines", architecture = "cnn", physics_profile = "ci_nll" }
+operator = "paired_ratio_ge"
+metric = "truth_quality.amp_pearson"
+aggregation = "median"
+threshold = 0.0
+min_pairs = 2
+requires = ["has_object_truth"]
+when_dataset_kind = "synthetic"
+diagnostic = true
+
+[claim_grade]
+# Full resolved contract includes corrected support and physical gain.
+expected_protocol_sha256 = "dfd8720a8fcf2e432cff5fd917521ba90edd5092d80953c9c8343bb7ae95506b"
+budget_threshold_contract_locked = true
+
+[claim_grade.integration_bridge]
+schema_version = "hybrid_resnet_integration_bridge_v4"
+bridge_id = "grid_lines_hybrid_resnet_reference"
+ssim_floor_source = "fixture"
+probe_source_kind = "run1084"
+loader_kind = "dictionary"
+raw_probe_archive_sha256 = "9f82cb9eb2c5a853764b98c1657b778600c0e90425296a7d1fdc6e8fdb53c906"
+raw_probe_array_sha256 = "de564a3ed5e70118fde70d8b65214ddfb3f00364228ef8b7c61a3f31a56c309a"
+transform_order = ["pad_extrapolate_complex", "smooth_complex"]
+probe_smoothing_sigma = 0.5
+probe_target_n = 128
+transformed_probe_sha256 = "eeccb1c92eae6dce36f4102bccda3f814b3eaa16e03e5c805f786edc628d4cd2"
+probe_normalize = true
+probe_scale = 4.0
+dictionary_probe_normalization_policy = "legacy_passthrough_config_inactive"
+dictionary_effective_probe_sha256 = "eeccb1c92eae6dce36f4102bccda3f814b3eaa16e03e5c805f786edc628d4cd2"
+mmap_probe_normalization_policy = "normalize_probe_like_tf_when_enabled"
+mmap_same_config_equivalent = false
+probe_mask = false
+probe_mask_tensor_is_none = true
+resolved_probe_mask_kind = "identity"
+resolved_probe_mask_sha256 = "3513f7981d1ead42bde088485afbba413d675b83c061c6362634bcb044bf8613"
+probe_mask_sigma = 1.0
+model_edge_pad = 10
+grid_lines_size = 392
+grid_lines_n = 128
+grid_lines_gridsize = 1
+grid_lines_offset = 4
+outer_offset_train = 8
+outer_offset_test = 20
+nimgs_train = 2
+nimgs_test = 1
+historical_crop_border = 59
+historical_effective_patch_n = 10
+generic_position_crop_border = 59
+generic_effective_patch_n = 10
+crop_boundaries_equivalent = true
+architecture = "hybrid_resnet"
+generator_output_mode = "real_imag"
+hybrid_encoder_conv_hidden_scale = 2.0
+training_patch_weighting = "central_mask"
+physics_forward_mode = "amplitude"
+amplitude_physics_gain = 16.0
+torch_loss_mode = "mae"
+seed = 3
+epochs = 5
+# Task 27 gain-16 qualification run2; visual review approved. Evidence SHA-256:
+# 17a323102950d64ad4a3712486f155205a7806b15c6c1e782c69ce84b3b21962
+fixture_amp_mae_max = 0.09668590068817139
+fixture_phase_mae_max = 0.15318376669684494
+fixture_amp_ssim_min = 0.8508652644013688
+fixture_phase_ssim_min = 0.9468665959387648

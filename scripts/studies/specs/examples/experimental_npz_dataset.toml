@@ -1,0 +1,54 @@
+# This placeholder descriptor is schema-only: --dry-run validates routing and
+# capabilities without reading NPZ files. Real execution still verifies paths,
+# hashes, content seals, provenance, and physical count metadata.
+[schema]
+version = 1
+
+[dataset]
+id = "experimental_fixture"
+kind = "experimental"
+format = "npz_mmap"
+scale_contract_version = "ci_intensity_v2"
+measurement_domain = "count_intensity"
+truth = "reference_reconstruction"
+truth_location = "external_npz"
+truth_key = "object"
+measurement_key = "diff3d"
+probe_key = "probeGuess"
+x_key = "xcoords"
+y_key = "ycoords"
+coords_convention = "xy_pixels"
+detector_shape = [64, 64]
+grouping_max_C = 4
+probe_modes = 1
+train = "/data/ptychopinn/experimental_fixture_train.npz"
+test = "/data/ptychopinn/experimental_fixture_test.npz"
+reference = "/data/ptychopinn/experimental_fixture_reference.npz"
+provenance = "/data/ptychopinn/experimental_fixture_provenance.json"
+train_sha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+test_sha256 = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+reference_sha256 = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+provenance_sha256 = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+
+[dataset.probe]
+source = "iterative_reconstruction"
+calibration = "count_amplitude"
+gauge = "physical_count_amplitude"
+mask_policy = "model_config"
+sha256 = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+
+[dataset.dose.train]
+counts_mean = 864.0
+photons_per_image_min = 1000000.0
+photons_per_image_mean = 3538944.0
+max_observed_count = 7600
+dtype_max = 65535
+saturation_fraction = 0.0
+
+[dataset.dose.test]
+counts_mean = 864.0
+photons_per_image_min = 1000000.0
+photons_per_image_mean = 3538944.0
+max_observed_count = 7600
+dtype_max = 65535
+saturation_fraction = 0.0

@@ -1,0 +1,560 @@
+# One-variable configuration bridge ladder (plan Task 21).
+#
+# Rung 0 is the fresh Task 28 gain-16 qualified grid-lines Hybrid ResNet
+# reference. Task 20 run1 evidence is retained below only as superseded
+# historical provenance and cannot adjudicate under bridge v4/evidence v3.
+# Each rung
+# changes exactly ONE configuration group on the path toward the withdrawn
+# study endpoint (N=64/C=4/mmap/count/Poisson/rectangular/VarPro); the first
+# rung that materially loses retained SSIM identifies the regression source.
+# Contract: docs/superpowers/specs/2026-07-09-ci-model-compatibility-ablation-design.md
+# gate 3 ("One-variable ladder") and plan Task 21.
+#
+# Ladder invariants (never changed by any rung; deliberately NOT walked):
+#   architecture=hybrid_resnet, seed=3 (CLI --seed adds more seeds without
+#   spec changes), epochs=5, batch sizes, learning rate/scheduler/optimizer,
+#   hybrid conv hidden scale 2.0. Epoch budget and width parity are gate-4 /
+#   Task 22 subjects; the remaining reference-to-endpoint differences are
+#   declared under [[residuals]].
+#
+# Pre-split notes (single-group hygiene):
+# - The reference bridge records that the mmap loader normalizes the probe
+#   while the dictionary loader passes it through (mmap_same_config_equivalent
+#   = false). To keep rung 1 a pure loader/schema step, the ladder declares
+#   probe_normalize=false (the dictionary path's EFFECTIVE behavior) from the
+#   baseline on, and turns normalization on only in the probe rung (rung 3).
+#   The per-rung effective-probe hash is sealed evidence; an unexpected
+#   difference fails closed as an unclassified difference.
+# - The domain rung (rung 6) carries the count re-expression of the SAME data
+#   (aligned count twin: scripts/studies/make_aligned_count_twin.py inverts
+#   the recorded normalization at the recipe's nphotons) plus the Poisson
+#   loss and the amplitude-physics count bridge (count_scale_mode=auto). The
+#   (version, domain) scale-contract PAIR is declared at rung 6 because the
+#   runtime (scaling_contract.resolve_scale_contract) validates it as an
+#   inseparable pair — only legacy_v1+normalized_amplitude and
+#   ci_intensity_v2+count_intensity exist. CI ACTIVATION still happens at
+#   rung 7 through the physics switch (ci_scaling_active gates on
+#   rectangular_scaled), preserving the design rule that CI scaling is
+#   active only for rectangular Poisson NLL.
+# - position_crop_border tracks the scan-pitch-derived effective patch
+#   (N - 2*border = 10 at offset 4), so the N rung moves it 59 -> 27; it is a
+#   derived quantity of the detector_size group, not an independent variable.
+
+[schema]
+kind = "grid_lines_bridge_ladder_v1"
+version = 1
+
+[study]
+id = "grid_lines_bridge_ladder"
+
+# ---------------------------------------------------------------------------
+# Task 28 convergence gate: every mmap rung is compared with the dictionary
+# baseline. PASS requires baseline-relative absolute amplitude SSIM delta <=
+# 0.02 and absolute phase SSIM delta <= 0.01, with locked provenance and no
+# protocol failure. Historical retained-SSIM evidence remains schema-readable.
+# ---------------------------------------------------------------------------
+[gate]
+policy = "absolute_ssim_delta_v1"
+threshold_provenance = "locked"
+max_abs_amp_ssim_delta = 0.02
+max_abs_phase_ssim_delta = 0.01
+
+# ---------------------------------------------------------------------------
+# Rung 0: current Task 28 gain-16 dictionary reference. The fresh evidence
+# passed mandatory visual review and is pinned by exact SHA.
+# ---------------------------------------------------------------------------
+[baseline]
+id = "rung0_reference"
+status = "current"
+reference_spec = "scripts/studies/specs/grid_lines_reference_performance.toml"
+reference_id = "grid_lines_hybrid_resnet_reference"
+evidence = ".artifacts/bridge_ladder/task28_gain16_seed3/rung0_dictionary/grid_lines_hybrid_resnet_reference/reference_evidence.json"
+evidence_sha256 = "155ee5961e31f9cf82c012d6bb61591bd776551f728d66bb19e0f3abee6ad298"
+historical_evidence = ".artifacts/reference_qualification/run1/grid_lines_hybrid_resnet_reference/reference_evidence.json"
+historical_evidence_sha256 = "1c317b3188b4bdf6bfcf1b1b2317e28e9e9bcff4bd1197a2bd6249894aa4eaf3"
+dataset = "n128_run1084_dictionary"
+
+[baseline.config]
+dataset = "n128_run1084_dictionary"
+loader = "dictionary"
+gated_evaluator = "historical"
+probe_normalize = false
+# Generic-loader scan bounds filter: "off" is the dictionary path's effective
+# behavior (no position filtering). The endpoint's (0.1, 0.9) filter enters
+# at rung 1b (rung-1 split adopted 2026-07-11).
+mmap_bounds_filter = "off"
+# Which scale convention a generic loader resolves: simulator-owned normalized
+# amplitudes use "dictionary_parity" (DataConfig normalize='None', unit legacy
+# scalars). This field is inert under the dictionary loader, so rung0 behavior
+# remains unchanged while canonical rung1a inherits the parity convention.
+mmap_scale_convention = "dictionary_parity"
+# Train-sampler regime of the generic loader. "sequential" names CURRENT
+# mmap behavior (V3b: TensorDictDataLoader's default SequentialSampler —
+# fixed raster order, every batch 16 spatially adjacent positions).
+# Inert under the dictionary loader (its train loader shuffles natively);
+# the historical 1d/1e diagnostics stepped it, while the canonical chain keeps
+# sequential after those controls exonerated sampler policy.
+mmap_train_sampler = "sequential"
+# Probe batch layout of both current loaders. Task 25 migrated dictionary
+# emission to the documented (B, C, P, H, W) contract. The old flat-rank
+# mechanism belongs only to sealed historical rung1f evidence and is not a
+# runnable rung in this spec.
+mmap_probe_batch_shape = "modes"
+N = 128
+gridsize = 1
+position_crop_border = 59
+training_patch_weighting = "central_mask"
+measurement_domain = "normalized_amplitude"
+torch_loss_mode = "mae"
+count_scale_mode = "off"
+scale_contract_version = "legacy_v1"
+physics_forward_mode = "amplitude"
+amplitude_physics_gain = 16.0
+rect_s1s2_trainable = false
+varpro_scaling = false
+architecture = "hybrid_resnet"
+seed = 3
+epochs = 5
+batch_size = 16
+infer_batch_size = 16
+learning_rate = 2e-4
+hybrid_encoder_conv_hidden_scale = 2.0
+scheduler = "ReduceLROnPlateau"
+plateau_factor = 0.5
+plateau_patience = 2
+plateau_min_lr = 1e-4
+plateau_threshold = 0.0
+optimizer = "adam"
+weight_decay = 0.0
+adam_beta1 = 0.9
+adam_beta2 = 0.999
+generator_output_mode = "real_imag"
+probe_source = "custom"
+fno_modes = 12
+fno_width = 32
+fno_blocks = 4
+fno_cnn_blocks = 2
+enable_checkpointing = true
+logger_backend = "csv"
+
+# ---------------------------------------------------------------------------
+# Closed group registry: the exact config fields each design group may step.
+# ---------------------------------------------------------------------------
+[groups]
+loader_schema = ["loader", "dataset"]
+ingestion_bounds = ["mmap_bounds_filter"]
+reassembly_alignment = ["gated_evaluator"]
+probe_source_transform = ["dataset", "probe_normalize"]
+detector_size = ["dataset", "N", "position_crop_border"]
+grouping_weighting = ["gridsize", "training_patch_weighting"]
+measurement_domain_loss = ["dataset", "measurement_domain", "scale_contract_version", "torch_loss_mode", "count_scale_mode", "mmap_scale_convention"]
+rectangular_scaling = ["physics_forward_mode", "amplitude_physics_gain", "rect_s1s2_trainable", "count_scale_mode"]
+inference_varpro = ["varpro_scaling"]
+
+# ---------------------------------------------------------------------------
+# Rung datasets. All recipes share the grid_lines_workflow_v1 generator; the
+# expression names the measurement schema/domain the rung consumes. Probe
+# identities are pinned (raw archive/array hashes and the deterministic
+# pad_extrapolate+smooth transform hash, validated bit-exact against the
+# workflow transform); materialized NPZ content is fingerprinted at
+# execution and sealed into the rung evidence, exactly like Task 20a.
+# fly001 lives at datasets/fly/fly001.npz (copy from the main checkout if the
+# worktree lacks it; the archive hash pin protects identity).
+# ---------------------------------------------------------------------------
+
+[datasets.n128_run1084_dictionary]
+expression = "dictionary"
+[datasets.n128_run1084_dictionary.recipe]
+id = "n128_run1084_dictionary"
+generator = "grid_lines_workflow_v1"
+probe_archive = "datasets/Run1084_recon3_postPC_shrunk_3.npz"
+probe_archive_sha256 = "9f82cb9eb2c5a853764b98c1657b778600c0e90425296a7d1fdc6e8fdb53c906"
+raw_probe_array_sha256 = "de564a3ed5e70118fde70d8b65214ddfb3f00364228ef8b7c61a3f31a56c309a"
+transformed_probe_sha256 = "eeccb1c92eae6dce36f4102bccda3f814b3eaa16e03e5c805f786edc628d4cd2"
+probe_scale_mode = "pad_extrapolate"
+probe_smoothing_sigma = 0.5
+set_phi = true
+N = 128
+gridsize = 1
+size = 392
+offset = 4
+outer_offset_train = 8
+outer_offset_test = 20
+nimgs_train = 2
+nimgs_test = 1
+nphotons = 1e9
+
+# Deterministic generic-schema twin of the rung-0 pair: diff3d/xcoords/
+# ycoords/objectGuess re-expression, measurement values bit-unchanged.
+[datasets.n128_run1084_generic]
+expression = "generic_amplitude"
+[datasets.n128_run1084_generic.recipe]
+id = "n128_run1084_generic"
+generator = "grid_lines_workflow_v1"
+probe_archive = "datasets/Run1084_recon3_postPC_shrunk_3.npz"
+probe_archive_sha256 = "9f82cb9eb2c5a853764b98c1657b778600c0e90425296a7d1fdc6e8fdb53c906"
+raw_probe_array_sha256 = "de564a3ed5e70118fde70d8b65214ddfb3f00364228ef8b7c61a3f31a56c309a"
+transformed_probe_sha256 = "eeccb1c92eae6dce36f4102bccda3f814b3eaa16e03e5c805f786edc628d4cd2"
+probe_scale_mode = "pad_extrapolate"
+probe_smoothing_sigma = 0.5
+set_phi = true
+N = 128
+gridsize = 1
+size = 392
+offset = 4
+outer_offset_train = 8
+outer_offset_test = 20
+nimgs_train = 2
+nimgs_test = 1
+nphotons = 1e9
+
+# fly001 probe (endpoint source) at N=128: pad_extrapolate 64->128, no
+# smoothing (the endpoint applies none). Hashes computed with the workflow's
+# own transform (validated bit-exact against the Run1084 reference pin).
+[datasets.n128_fly001_generic]
+expression = "generic_amplitude"
+[datasets.n128_fly001_generic.recipe]
+id = "n128_fly001_generic"
+generator = "grid_lines_workflow_v1"
+probe_archive = "datasets/fly/fly001.npz"
+probe_archive_sha256 = "5fec984d7300a8ed523d6744bce30c19fdebe8a63e91dfb813de24920a5ebe80"
+raw_probe_array_sha256 = "1d0a47db5a8efcc920748f89d7cbf6186ac9b5bf6af134e134ecd0158343b2f6"
+transformed_probe_sha256 = "f23cf1507882fffe8b2d3a7707c1f9879ae197f090fe7860564bf3aaa519716a"
+probe_scale_mode = "pad_extrapolate"
+probe_smoothing_sigma = 0.0
+set_phi = true
+N = 128
+gridsize = 1
+size = 392
+offset = 4
+outer_offset_train = 8
+outer_offset_test = 20
+nimgs_train = 2
+nimgs_test = 1
+nphotons = 1e9
+
+# N=64 (the historical lines_N64 recipe: same generator/geometry at N=64;
+# fly001's 64x64 probe passes through the pad transform unchanged).
+[datasets.n64_fly001_generic]
+expression = "generic_amplitude"
+[datasets.n64_fly001_generic.recipe]
+id = "n64_fly001_generic"
+generator = "grid_lines_workflow_v1"
+probe_archive = "datasets/fly/fly001.npz"
+probe_archive_sha256 = "5fec984d7300a8ed523d6744bce30c19fdebe8a63e91dfb813de24920a5ebe80"
+raw_probe_array_sha256 = "1d0a47db5a8efcc920748f89d7cbf6186ac9b5bf6af134e134ecd0158343b2f6"
+transformed_probe_sha256 = "aa7608cf09c342f7428abe0d41a844373f1f5d8b4c96e45133ae3a8918b04853"
+probe_scale_mode = "pad_extrapolate"
+probe_smoothing_sigma = 0.0
+set_phi = true
+N = 64
+gridsize = 1
+size = 392
+offset = 4
+outer_offset_train = 8
+outer_offset_test = 20
+nimgs_train = 2
+nimgs_test = 1
+nphotons = 1e9
+
+# Aligned count twin of n64_fly001_generic (same objects/positions/probe;
+# diffraction re-expressed as physical counts at the recipe's nphotons via
+# scripts/studies/make_aligned_count_twin.py — the Task 15 twin-parity
+# principle applied to the ladder's own data).
+[datasets.n64_fly001_generic_counts]
+expression = "generic_count_intensity"
+[datasets.n64_fly001_generic_counts.recipe]
+id = "n64_fly001_generic_counts"
+generator = "grid_lines_workflow_v1"
+probe_archive = "datasets/fly/fly001.npz"
+probe_archive_sha256 = "5fec984d7300a8ed523d6744bce30c19fdebe8a63e91dfb813de24920a5ebe80"
+raw_probe_array_sha256 = "1d0a47db5a8efcc920748f89d7cbf6186ac9b5bf6af134e134ecd0158343b2f6"
+transformed_probe_sha256 = "aa7608cf09c342f7428abe0d41a844373f1f5d8b4c96e45133ae3a8918b04853"
+probe_scale_mode = "pad_extrapolate"
+probe_smoothing_sigma = 0.0
+set_phi = true
+N = 64
+gridsize = 1
+size = 392
+offset = 4
+outer_offset_train = 8
+outer_offset_test = 20
+nimgs_train = 2
+nimgs_test = 1
+nphotons = 1e9
+
+# ---------------------------------------------------------------------------
+# THE RUNG TABLE. Each rung keeps everything from its predecessor verbatim
+# except its group's fields (machine-checked at load time).
+# ---------------------------------------------------------------------------
+
+# Rung 1a/1b — the ORIGINAL rung 1 (generic loader/schema) bundled three
+# effective variables and FAILED its gate; the controller adopted the
+# reviewer's pre-split (2026-07-11). Parent lineage: the executed parent
+# measurement remains valid evidence at
+# .artifacts/bridge_ladder/seed3/rung1_generic_loader/rung_evidence.json
+# (sha256 de2f13e796891a6123ab68535fcbf732748534ff131146af7e2c2f82dbfa7fa6,
+# amp SSIM 0.4247 / retained 0.4727 vs rung 0). The split chain runs in a
+# fresh output root (.artifacts/bridge_ladder/seed3_split/).
+#
+# Rung 1a — generic loader/schema at FULL scan-set parity: dictionary
+# cached-NPZ ingestion -> the generic mmap loader over the schema twin, with
+# the bounds filter off and unit legacy scaling inherited from the baseline.
+# This is the canonical dictionary-parity bridge for simulator-owned normalized
+# amplitudes. Probe stays pass-through (probe_normalize=false); the sealed
+# effective-probe hash proves it.
+[[rungs]]
+id = "rung1a_mmap_full_scanset"
+group = "loader_schema"
+dataset = "n128_run1084_generic"
+requires_normalization_evidence = true
+[rungs.changes]
+loader = "mmap"
+dataset = "n128_run1084_generic"
+[rungs.expected_differences.canvas_equivalence]
+classification = "harmless"
+justification = "Historical grid-tiling and generic position stitches share the declared crop boundary; hash equality between the two evaluators is diagnostic provenance, and the gated SSIM is computed on the declared evaluator's canvas only."
+[rungs.expected_differences.mask_equivalence]
+classification = "harmless"
+justification = "The valid-coverage masks of the two stitching evaluators may differ at seam boundaries; the fixture metric method scores the gated canvas at the full ground-truth frame."
+
+# Rung 1b — ingestion bounds filter alone: the endpoint's (0.1, 0.9) scan
+# range filter (8978 -> 5618 training positions on this twin). Same NPZ pair
+# as rung 1a (cross-rung byte binding enforces it).
+[[rungs]]
+id = "rung1b_bounds_filter"
+group = "ingestion_bounds"
+dataset = "n128_run1084_generic"
+[rungs.changes]
+mmap_bounds_filter = "endpoint"
+[rungs.expected_differences.canvas_equivalence]
+classification = "harmless"
+justification = "Historical grid-tiling and generic position stitches share the declared crop boundary; hash equality between the two evaluators is diagnostic provenance, and the gated SSIM is computed on the declared evaluator's canvas only."
+[rungs.expected_differences.mask_equivalence]
+classification = "harmless"
+justification = "The valid-coverage masks of the two stitching evaluators may differ at seam boundaries; the fixture metric method scores the gated canvas at the full ground-truth frame."
+
+# Rung 2 — generic evaluator/reassembly: the retained-SSIM gate moves from
+# the historical grid-lines stitch to the generic position stitch. Both
+# canvases remain sealed diagnostics on every rung.
+[[rungs]]
+id = "rung2_generic_evaluator"
+group = "reassembly_alignment"
+dataset = "n128_run1084_generic"
+[rungs.changes]
+gated_evaluator = "generic"
+[rungs.expected_differences.canvas_equivalence]
+classification = "harmless"
+justification = "Historical grid-tiling and generic position stitches share the declared crop boundary; hash equality between the two evaluators is diagnostic provenance, and the gated SSIM is computed on the declared evaluator's canvas only."
+[rungs.expected_differences.mask_equivalence]
+classification = "harmless"
+justification = "The valid-coverage masks of the two stitching evaluators may differ at seam boundaries; the fixture metric method scores the gated canvas at the full ground-truth frame."
+
+# Rung 3 — probe source and border transform: Run1084 (pad+smooth 0.5) ->
+# fly001 (pad, no smoothing), plus the endpoint's loader probe normalization.
+[[rungs]]
+id = "rung3_fly001_probe"
+group = "probe_source_transform"
+dataset = "n128_fly001_generic"
+[rungs.changes]
+dataset = "n128_fly001_generic"
+probe_normalize = true
+[rungs.expected_differences.canvas_equivalence]
+classification = "harmless"
+justification = "Historical grid-tiling and generic position stitches share the declared crop boundary; hash equality between the two evaluators is diagnostic provenance, and the gated SSIM is computed on the declared evaluator's canvas only."
+[rungs.expected_differences.mask_equivalence]
+classification = "harmless"
+justification = "The valid-coverage masks of the two stitching evaluators may differ at seam boundaries; the fixture metric method scores the gated canvas at the full ground-truth frame."
+[rungs.expected_differences.effective_probe_identity]
+classification = "performance_relevant"
+justification = "probe_normalize=true means the effective probe entering the model is the normalized fly001 probe, not the recipe's stored transform; the deviation is this rung's declared variable and its hash is sealed evidence."
+
+# Rung 4 — N=128 -> N=64 (historical lines_N64 geometry; crop border tracks
+# the pitch-derived effective patch: 64 - 2*27 = 10).
+[[rungs]]
+id = "rung4_n64"
+group = "detector_size"
+dataset = "n64_fly001_generic"
+[rungs.changes]
+dataset = "n64_fly001_generic"
+N = 64
+position_crop_border = 27
+[rungs.expected_differences.canvas_equivalence]
+classification = "harmless"
+justification = "Historical grid-tiling and generic position stitches share the declared crop boundary; hash equality between the two evaluators is diagnostic provenance, and the gated SSIM is computed on the declared evaluator's canvas only."
+[rungs.expected_differences.mask_equivalence]
+classification = "harmless"
+justification = "The valid-coverage masks of the two stitching evaluators may differ at seam boundaries; the fixture metric method scores the gated canvas at the full ground-truth frame."
+[rungs.expected_differences.effective_probe_identity]
+classification = "performance_relevant"
+justification = "probe_normalize remains active from rung 3; the effective probe is the normalized fly001 probe rather than the recipe's stored transform, sealed by hash."
+
+# Rung 5 — C=1 -> C=4 plus training weighting. Same NPZ pair as rung 4:
+# grouping happens at load time. Full scan accounting is mandatory: every
+# source scan, duplicate use, group count, accepted patch, and reconstructed
+# pixel; silent omissions FAIL the rung (fix grouping before judging quality).
+[[rungs]]
+id = "rung5_c4_probe_weighting"
+group = "grouping_weighting"
+dataset = "n64_fly001_generic"
+requires_scan_accounting = true
+[rungs.changes]
+gridsize = 2
+training_patch_weighting = "probe"
+[rungs.expected_differences.canvas_equivalence]
+classification = "harmless"
+justification = "Historical grid-tiling and generic position stitches share the declared crop boundary; hash equality between the two evaluators is diagnostic provenance, and the gated SSIM is computed on the declared evaluator's canvas only."
+[rungs.expected_differences.mask_equivalence]
+classification = "harmless"
+justification = "The valid-coverage masks of the two stitching evaluators may differ at seam boundaries; the fixture metric method scores the gated canvas at the full ground-truth frame."
+[rungs.expected_differences.effective_probe_identity]
+classification = "performance_relevant"
+justification = "probe_normalize remains active from rung 3; the effective probe is the normalized fly001 probe rather than the recipe's stored transform, sealed by hash."
+
+# Rung 6 — normalized-amplitude/MAE -> count-intensity/Poisson on the aligned
+# count twin. count_scale_mode=auto is the amplitude-physics count bridge
+# (physics_scaling_constant=S). The scale-contract pair steps here (it is
+# runtime-validated as inseparable from the domain) but stays INACTIVE
+# until rung 7 activates it via rectangular_scaled.
+# Inference MUST reuse training normalization statistics (plan checkbox 6);
+# a recomputed-held-out run is preserved only as a non-gating diagnostic.
+# CI/count behavior remains on the explicitly selected loader convention,
+# which resolves to DataConfig normalize='Batch'.
+[[rungs]]
+id = "rung6_count_poisson"
+group = "measurement_domain_loss"
+dataset = "n64_fly001_generic_counts"
+requires_normalization_evidence = true
+requires_count_error_evidence = true
+[rungs.changes]
+dataset = "n64_fly001_generic_counts"
+measurement_domain = "count_intensity"
+scale_contract_version = "ci_intensity_v2"
+torch_loss_mode = "poisson"
+count_scale_mode = "auto"
+mmap_scale_convention = "loader"
+[rungs.expected_differences.canvas_equivalence]
+classification = "harmless"
+justification = "Historical grid-tiling and generic position stitches share the declared crop boundary; hash equality between the two evaluators is diagnostic provenance, and the gated SSIM is computed on the declared evaluator's canvas only."
+[rungs.expected_differences.mask_equivalence]
+classification = "harmless"
+justification = "The valid-coverage masks of the two stitching evaluators may differ at seam boundaries; the fixture metric method scores the gated canvas at the full ground-truth frame."
+[rungs.expected_differences.effective_probe_identity]
+classification = "performance_relevant"
+justification = "probe_normalize remains active from rung 3; the effective probe is the normalized fly001 probe rather than the recipe's stored transform, sealed by hash."
+
+# Rung 7 — rectangular scaling: the manuscript CI factorization replaces the
+# amplitude-physics count bridge (auto constant off, trainable s1/s2) and
+# ACTIVATES the CI contract declared at rung 6.
+[[rungs]]
+id = "rung7_rectangular"
+group = "rectangular_scaling"
+dataset = "n64_fly001_generic_counts"
+requires_normalization_evidence = true
+requires_count_error_evidence = true
+[rungs.changes]
+physics_forward_mode = "rectangular_scaled"
+amplitude_physics_gain = 1.0
+rect_s1s2_trainable = true
+count_scale_mode = "off"
+[rungs.expected_differences.canvas_equivalence]
+classification = "harmless"
+justification = "Historical grid-tiling and generic position stitches share the declared crop boundary; hash equality between the two evaluators is diagnostic provenance, and the gated SSIM is computed on the declared evaluator's canvas only."
+[rungs.expected_differences.mask_equivalence]
+classification = "harmless"
+justification = "The valid-coverage masks of the two stitching evaluators may differ at seam boundaries; the fixture metric method scores the gated canvas at the full ground-truth frame."
+[rungs.expected_differences.effective_probe_identity]
+classification = "performance_relevant"
+justification = "probe_normalize remains active from rung 3; the effective probe is the normalized fly001 probe rather than the recipe's stored transform, sealed by hash."
+
+# Rung 8 — inference VarPro scaling of the gated canvas.
+[[rungs]]
+id = "rung8_varpro"
+group = "inference_varpro"
+dataset = "n64_fly001_generic_counts"
+requires_normalization_evidence = true
+requires_count_error_evidence = true
+[rungs.changes]
+varpro_scaling = true
+[rungs.expected_differences.canvas_equivalence]
+classification = "harmless"
+justification = "Historical grid-tiling and generic position stitches share the declared crop boundary; hash equality between the two evaluators is diagnostic provenance, and the gated SSIM is computed on the declared evaluator's canvas only."
+[rungs.expected_differences.mask_equivalence]
+classification = "harmless"
+justification = "The valid-coverage masks of the two stitching evaluators may differ at seam boundaries; the fixture metric method scores the gated canvas at the full ground-truth frame."
+[rungs.expected_differences.effective_probe_identity]
+classification = "performance_relevant"
+justification = "probe_normalize remains active from rung 3; the effective probe is the normalized fly001 probe rather than the recipe's stored transform, sealed by hash."
+
+# ---------------------------------------------------------------------------
+# The final rung's resolved configuration (machine-checked equality).
+# ---------------------------------------------------------------------------
+[endpoint.config]
+dataset = "n64_fly001_generic_counts"
+loader = "mmap"
+gated_evaluator = "generic"
+probe_normalize = true
+mmap_bounds_filter = "endpoint"
+mmap_scale_convention = "loader"
+mmap_train_sampler = "sequential"
+mmap_probe_batch_shape = "modes"
+N = 64
+gridsize = 2
+position_crop_border = 27
+training_patch_weighting = "probe"
+measurement_domain = "count_intensity"
+torch_loss_mode = "poisson"
+count_scale_mode = "off"
+scale_contract_version = "ci_intensity_v2"
+physics_forward_mode = "rectangular_scaled"
+amplitude_physics_gain = 1.0
+rect_s1s2_trainable = true
+varpro_scaling = true
+architecture = "hybrid_resnet"
+seed = 3
+epochs = 5
+batch_size = 16
+infer_batch_size = 16
+learning_rate = 2e-4
+hybrid_encoder_conv_hidden_scale = 2.0
+scheduler = "ReduceLROnPlateau"
+plateau_factor = 0.5
+plateau_patience = 2
+plateau_min_lr = 1e-4
+plateau_threshold = 0.0
+optimizer = "adam"
+weight_decay = 0.0
+adam_beta1 = 0.9
+adam_beta2 = 0.999
+generator_output_mode = "real_imag"
+probe_source = "custom"
+fno_modes = 12
+fno_width = 32
+fno_blocks = 4
+fno_cnn_blocks = 2
+enable_checkpointing = true
+logger_backend = "csv"
+
+# ---------------------------------------------------------------------------
+# Documented reference-to-endpoint differences the ladder deliberately does
+# NOT walk (owned by later gates/tasks, never silently mixed into a rung).
+# ---------------------------------------------------------------------------
+[[residuals]]
+id = "object_family_scan_pattern"
+description = "The endpoint's lines arms use the Task 15 canonical-lines materialization (5000 nongrid positions, N=640 objects); the ladder stays on the grid-scan grid_lines_workflow data whose object generator Task 15 proved morphology-equivalent. Scan-pattern/geometry effects are Task 23 corrected-matrix bridge-continuity subjects."
+
+[[residuals]]
+id = "dose"
+description = "Ladder count twins realize the recipe's nphotons=1e9 budget; the endpoint datasets are calibrated to ~3.5e6 photons/image. Dose is not a study parameter (design revision 2026-07-10)."
+
+[[residuals]]
+id = "epoch_budget"
+description = "The ladder holds the reference 5-epoch budget; the endpoint trained 20 epochs. Convergence/budget selection is design gate 4 (Task 22)."
+
+[[residuals]]
+id = "architecture_width"
+description = "The ladder holds hybrid_encoder_conv_hidden_scale=2.0 (reference); the endpoint declared 1.0 plus gradient clipping 1.0. Width/config parity is a Task 22 hypothesis."
+
+[[residuals]]
+id = "driver_inference_reassembly"
+description = "The endpoint driver reconstructs via reassembly.reconstruct_image_barycentric with probe patch weighting and middle_trim=32; the ladder's generic evaluator is the runner position stitch. Driver-evaluator continuity is re-established in Task 23 via the reference bridge."

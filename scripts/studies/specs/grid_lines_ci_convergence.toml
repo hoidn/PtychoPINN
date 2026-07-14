@@ -1,0 +1,305 @@
+[schema]
+version = 1
+
+[study]
+id = "grid-lines-ci-convergence"
+seeds = [3]
+output_root = ".artifacts/ci_compatibility/task30/corrected_lines_seed3"
+require_all_explicit = true
+
+[diagnostics]
+milestones = [5, 20, 40, 80]
+
+[base.overrides]
+"data.N" = 64
+"data.C" = 4
+"data.n_subsample" = 1
+"data.grid_size" = [2, 2]
+"data.probe_scale" = 4.0
+"data.probe_normalize" = true
+"data.x_bounds" = [0.1, 0.9]
+"data.y_bounds" = [0.1, 0.9]
+"model.mode" = "Unsupervised"
+"model.C_model" = 4
+"model.C_forward" = 4
+"model.object_big" = true
+"model.probe_big" = true
+"model.offset" = 6
+"model.training_patch_weighting" = "probe"
+"model.probe_mask" = false
+"model.amp_loss" = "disabled"
+"model.phase_loss" = "disabled"
+"training.learning_rate" = 0.0002
+"training.epochs" = 80
+"training.batch_size" = 16
+"training.scheduler" = "ReduceLROnPlateau"
+"training.plateau_factor" = 0.5
+"training.plateau_patience" = 2
+"training.plateau_min_lr" = 0.0001
+"training.plateau_threshold" = 0.0
+"training.accum_steps" = 1
+"training.gradient_clip_val" = 1.0
+"training.gradient_clip_algorithm" = "norm"
+"training.optimizer" = "adam"
+"training.weight_decay" = 0.0
+"training.adam_beta1" = 0.9
+"training.adam_beta2" = 0.999
+"training.log_grad_norm" = true
+"training.grad_norm_log_freq" = 1
+"training.experiment_name" = "grid_lines_ci_convergence"
+"training.notes" = "Task 30 corrected N64 C4 lines qualification"
+"training.model_name" = "PtychoPINNv2"
+"inference.middle_trim" = 32
+"inference.batch_size" = 16
+"inference.patch_weighting" = "probe"
+"execution.accelerator" = "cuda"
+"execution.devices" = 1
+"execution.strategy" = "auto"
+"execution.deterministic" = true
+"execution.precision" = "32-true"
+"execution.num_workers" = 0
+"execution.pin_memory" = false
+"execution.enable_progress_bar" = false
+"execution.enable_checkpointing" = true
+"execution.checkpoint_save_top_k" = 1
+"execution.checkpoint_monitor_metric" = "val_loss"
+"execution.checkpoint_mode" = "min"
+"execution.early_stop_patience" = 100
+
+[datasets.deadleaves_ci_3p5m]
+coords_convention = "xy_pixels"
+detector_shape = [64, 64]
+format = "npz_mmap"
+grouping_max_C = 4
+kind = "synthetic"
+measurement_domain = "count_intensity"
+measurement_key = "diff3d"
+probe_key = "probeGuess"
+probe_modes = 1
+provenance = ".artifacts/ci_compatibility/datasets_v3/ci_compatibility_provenance.json"
+provenance_sha256 = "dd88d0b5892537d79317772124115d10dc34635ea65848826a6f06eaf0711742"
+scale_contract_version = "ci_intensity_v2"
+test = ".artifacts/ci_compatibility/datasets_v3/deadleaves_ci_3p5m_test.npz"
+test_sha256 = "ea41285534c3d1c92d2e3d60505d880628080330e99bd5456f79ddd130056604"
+train = ".artifacts/ci_compatibility/datasets_v3/deadleaves_ci_3p5m_train.npz"
+train_sha256 = "bfd63fee5dbb60afaeff8f90b18aa8f712388cc4aae623a011edc25975e5fc67"
+truth = "object_truth"
+truth_key = "objectGuess"
+truth_location = "embedded_test"
+x_key = "xcoords"
+y_key = "ycoords"
+
+[datasets.deadleaves_ci_3p5m.probe]
+calibration = "count_amplitude"
+gauge = "physical_count_amplitude"
+mask_policy = "model_config"
+source = "/home/ollie/Documents/PtychoPINN/datasets/fly/fly001.npz"
+test_sha256 = "583ebb73293dd5fc77836d10d2c70e5b06fc9edbd97ca8920b815731c59af1e6"
+train_sha256 = "8ce80eb1a01ee9c7164e97eb7c2402c361d6dde24992d1b06ac2217374e6a2ed"
+
+[datasets.deadleaves_ci_3p5m.dose.test]
+counts_mean = 863.998231640625
+dtype_max = 65535
+max_observed_count = 6601
+photons_per_image_mean = 3538936.7568
+photons_per_image_min = 1833491.0
+saturation_fraction = 0.0
+
+[datasets.deadleaves_ci_3p5m.dose.train]
+counts_mean = 864.0099698242187
+dtype_max = 65535
+max_observed_count = 7240
+photons_per_image_mean = 3538984.8364
+photons_per_image_min = 1834735.0
+saturation_fraction = 0.0
+
+[datasets.deadleaves_legacy_amp]
+coords_convention = "xy_pixels"
+detector_shape = [64, 64]
+format = "npz_mmap"
+grouping_max_C = 4
+kind = "synthetic"
+measurement_domain = "normalized_amplitude"
+measurement_key = "diff3d"
+probe_key = "probeGuess"
+probe_modes = 1
+provenance = ".artifacts/ci_compatibility/datasets_v3/ci_compatibility_provenance.json"
+provenance_sha256 = "dd88d0b5892537d79317772124115d10dc34635ea65848826a6f06eaf0711742"
+scale_contract_version = "legacy_v1"
+test = ".artifacts/ci_compatibility/datasets_v3/deadleaves_legacy_amp_test.npz"
+test_sha256 = "469f79f852a994ee5ef06e762e38967886eb800c4d441a4a96f23ca25c02c41e"
+train = ".artifacts/ci_compatibility/datasets_v3/deadleaves_legacy_amp_train.npz"
+train_sha256 = "4096944c8f6d3a8e324df874a7eed884e9926d5c1bdba2bacffab8e5037a22c3"
+truth = "object_truth"
+truth_key = "objectGuess"
+truth_location = "embedded_test"
+x_key = "xcoords"
+y_key = "ycoords"
+
+[datasets.deadleaves_legacy_amp.probe]
+calibration = "legacy_normalized"
+gauge = "legacy_normalized"
+mask_policy = "model_config"
+sha256 = "fbdf985d265544cd0c20fe75c19a0299e3f13c601bbd599218b2bd3c9ec4dd73"
+source = "/home/ollie/Documents/PtychoPINN/datasets/fly/fly001.npz"
+
+[datasets.lines_ci_3p5m]
+coords_convention = "xy_pixels"
+detector_shape = [64, 64]
+format = "npz_mmap"
+grouping_max_C = 4
+kind = "synthetic"
+measurement_domain = "count_intensity"
+measurement_key = "diff3d"
+probe_key = "probeGuess"
+probe_modes = 1
+provenance = ".artifacts/ci_compatibility/datasets_v3/ci_compatibility_provenance.json"
+provenance_sha256 = "dd88d0b5892537d79317772124115d10dc34635ea65848826a6f06eaf0711742"
+scale_contract_version = "ci_intensity_v2"
+test = ".artifacts/ci_compatibility/datasets_v3/lines_ci_3p5m_test.npz"
+test_sha256 = "b120bd1364053969fdaf8b1dc7d6651a54c097f52116e1704579c81909b6c747"
+train = ".artifacts/ci_compatibility/datasets_v3/lines_ci_3p5m_train.npz"
+train_sha256 = "316c4ac841eb45184fd84f5430a08be6f80ef919963d9aeaa2406d5d1a0e239b"
+truth = "object_truth"
+truth_key = "objectGuess"
+truth_location = "embedded_test"
+x_key = "xcoords"
+y_key = "ycoords"
+
+[datasets.lines_ci_3p5m.probe]
+calibration = "count_amplitude"
+gauge = "physical_count_amplitude"
+mask_policy = "model_config"
+source = "/home/ollie/Documents/PtychoPINN/datasets/fly/fly001.npz"
+test_sha256 = "09280f5a9543ba44ec07ad5d6fb181674bde94513fecf89146b6f6ac587e4535"
+train_sha256 = "f26e41a4d6be8ff99cf82906e608b39974f422ced361ad54aacc7e2e318d0e15"
+
+[datasets.lines_ci_3p5m.dose.test]
+counts_mean = 863.987602734375
+dtype_max = 65535
+max_observed_count = 3975
+photons_per_image_mean = 3538893.2208
+photons_per_image_min = 1758704.0
+saturation_fraction = 0.0
+
+[datasets.lines_ci_3p5m.dose.train]
+counts_mean = 863.99861640625
+dtype_max = 65535
+max_observed_count = 4019
+photons_per_image_mean = 3538938.3328
+photons_per_image_min = 1738342.0
+saturation_fraction = 0.0
+
+[datasets.lines_legacy_amp]
+coords_convention = "xy_pixels"
+detector_shape = [64, 64]
+format = "npz_mmap"
+grouping_max_C = 4
+kind = "synthetic"
+measurement_domain = "normalized_amplitude"
+measurement_key = "diff3d"
+probe_key = "probeGuess"
+probe_modes = 1
+provenance = ".artifacts/ci_compatibility/datasets_v3/ci_compatibility_provenance.json"
+provenance_sha256 = "dd88d0b5892537d79317772124115d10dc34635ea65848826a6f06eaf0711742"
+scale_contract_version = "legacy_v1"
+test = ".artifacts/ci_compatibility/datasets_v3/lines_legacy_amp_test.npz"
+test_sha256 = "19f9c98e2c40f8136957ba30aca28cf97c05cdacbcb96380aaec7599759ea6cc"
+train = ".artifacts/ci_compatibility/datasets_v3/lines_legacy_amp_train.npz"
+train_sha256 = "97e3933abf1ff27e443d1d0541e776ebb5e52c0d6edb2f2e3f2e3a744bdbf38f"
+truth = "object_truth"
+truth_key = "objectGuess"
+truth_location = "embedded_test"
+x_key = "xcoords"
+y_key = "ycoords"
+
+[datasets.lines_legacy_amp.probe]
+calibration = "legacy_normalized"
+gauge = "legacy_normalized"
+mask_policy = "model_config"
+sha256 = "fbdf985d265544cd0c20fe75c19a0299e3f13c601bbd599218b2bd3c9ec4dd73"
+source = "/home/ollie/Documents/PtychoPINN/datasets/fly/fly001.npz"
+
+[[matrix.dimensions]]
+name = "architecture"
+
+[[matrix.dimensions.values]]
+id = "hybrid_resnet"
+[matrix.dimensions.values.overrides]
+"model.architecture" = "hybrid_resnet"
+"model.generator_output_mode" = "real_imag"
+"model.fno_modes" = 12
+"model.fno_width" = 32
+"model.fno_blocks" = 4
+"model.fno_input_transform" = "none"
+"model.learned_input_channels" = 1
+"model.max_hidden_channels" = "auto"
+"model.resnet_width" = "auto"
+"model.hybrid_skip_connections" = false
+"model.hybrid_downsample_steps" = 2
+"model.hybrid_downsample_op" = "stride_conv"
+"model.hybrid_encoder_conv_hidden_scale" = 1.0
+"model.hybrid_encoder_spectral_hidden_scale" = 1.0
+"model.hybrid_resnet_blocks" = 6
+
+[[matrix.dimensions.values]]
+id = "cnn"
+[matrix.dimensions.values.overrides]
+"model.architecture" = "cnn"
+"model.cnn_output_mode" = "real_imag"
+"model.use_shared_decoder" = false
+"model.n_filters_scale" = 2
+"model.batch_norm" = false
+"model.cbam_encoder" = true
+"model.cbam_bottleneck" = false
+"model.probe_big" = true
+"model.decoder_last_c_outer_fraction" = 0.125
+"model.decoder_last_amp_channels" = 4
+"training.epochs_fine_tune" = 0
+
+[[matrix.dimensions]]
+name = "physics_profile"
+
+[[matrix.dimensions.values]]
+id = "legacy_mae"
+[matrix.dimensions.values.overrides]
+"dataset.id" = "lines_legacy_amp"
+"data.scale_contract_version" = "legacy_v1"
+"data.measurement_domain" = "normalized_amplitude"
+"data.normalize" = "Batch"
+"data.data_scaling" = "Parseval"
+"model.physics_forward_mode" = "amplitude"
+"model.amplitude_physics_gain" = 12.452229360013307
+"model.rect_s1s2_trainable" = false
+"model.loss_function" = "MAE"
+"training.torch_loss_mode" = "mae"
+"training.torch_mae_pred_l2_match_target" = false
+"inference.varpro_scaling" = false
+
+[[matrix.dimensions.values]]
+id = "legacy_nll"
+[matrix.dimensions.values.overrides]
+"dataset.id" = "lines_legacy_amp"
+"data.scale_contract_version" = "legacy_v1"
+"data.measurement_domain" = "normalized_amplitude"
+"data.normalize" = "Batch"
+"data.data_scaling" = "Parseval"
+"model.physics_forward_mode" = "amplitude"
+"model.amplitude_physics_gain" = 12.452229360013307
+"model.rect_s1s2_trainable" = false
+"model.loss_function" = "Poisson"
+"training.torch_loss_mode" = "poisson"
+"inference.varpro_scaling" = false
+
+[[matrix.dimensions.values]]
+id = "ci_nll"
+[matrix.dimensions.values.overrides]
+"dataset.id" = "lines_ci_3p5m"
+"data.scale_contract_version" = "ci_intensity_v2"
+"data.measurement_domain" = "count_intensity"
+"model.physics_forward_mode" = "rectangular_scaled"
+"model.amplitude_physics_gain" = 1.0
+"model.rect_s1s2_trainable" = true
+"model.loss_function" = "Poisson"
+"training.torch_loss_mode" = "poisson"
+"inference.varpro_scaling" = true
