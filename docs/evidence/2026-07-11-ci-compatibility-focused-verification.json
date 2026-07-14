@@ -1,0 +1,48 @@
+{
+  "schema_version": "focused_verification_receipt_v1",
+  "study_id": "CI-HYBRID-RESNET-COMPAT-001",
+  "reviewed_implementation_commit": "35fdae9295475c148eaaf8283fbafe13b5b6f2ef",
+  "checkout_mode": "detached_clean_worktree",
+  "submodules": {
+    "ptycho/FRC": "56626c85aabf39b5ed8a94430077b4f57e418d33"
+  },
+  "command": [
+    "pytest",
+    "-q",
+    "tests/studies/test_torch_ablation_manifest.py",
+    "tests/studies/test_torch_ablation_datasets.py",
+    "tests/studies/test_torch_ablation_configuration.py",
+    "tests/studies/test_torch_ablation_artifacts.py",
+    "tests/studies/test_torch_ablation_dataset_provenance.py",
+    "tests/studies/test_torch_ablation_metrics.py",
+    "tests/studies/test_torch_ablation_verdicts.py",
+    "tests/studies/test_torch_ablation_reporting.py",
+    "tests/studies/test_torch_ablation_runtime.py",
+    "tests/studies/test_torch_ablation_runtime_records.py",
+    "tests/studies/test_torch_ablation_driver_integration.py",
+    "tests/studies/test_ci_compatibility_materializer.py",
+    "tests/torch/test_absolute_scaling_dataset_generation.py",
+    "tests/torch/test_train_lightning_execution_contract.py",
+    "tests/torch/test_structured_reassembly_diagnostics.py",
+    "tests/test_grid_lines_workflow.py"
+  ],
+  "started_utc": "2026-07-11T18:26:02Z",
+  "completed_utc": "2026-07-11T18:28:20Z",
+  "duration_ms": 138070,
+  "exit_code": 0,
+  "summary": {
+    "passed": 1191,
+    "failed": 0,
+    "warnings": 27,
+    "pytest_reported_duration_seconds": 133.80
+  },
+  "complete_log": {
+    "location_kind": "workspace_local_ignored_artifact",
+    "path": ".artifacts/ci_compatibility/verification/final-focused-35fdae92.log",
+    "sha256": "4d8ed222df2124339d9f617f7746a6b0b1cbcf156747df243d75896e3cecd070"
+  },
+  "scope_limitations": [
+    "Repository-wide pytest was not run.",
+    "ci/run_ci_tests.sh was not run."
+  ]
+}

@@ -12,8 +12,7 @@ The table groups rows by benchmark and reports inference throughput when explici
 ## Row Counts
 
 - CDI: 8 rows
-- PDEBench CNS: 4 rows
-- BRDT: 2 rows
+- PDEBench CNS: 5 rows
 
 ## Runtime And Throughput Policy
 

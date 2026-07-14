@@ -21,6 +21,21 @@ Legacy unittest modules
 Notes
 - Always run from the repo root so imports and relative paths resolve correctly.
 
+### Active-contract versus superseded-lineage checks
+
+- The selectors named by the active plan are the blocking verification surface.
+  Current manifests, current protocol pins, and tests covering changed behavior
+  remain strict.
+- A failure that binds an explicitly superseded historical artifact, manifest,
+  or protocol pin must stay visible and be reported, but it does not block an
+  unrelated corrective study. Do not repin, suppress, or rewrite that
+  historical surface merely to make the unrelated task green.
+- The historical check becomes blocking when the active task modifies or
+  re-adjudicates that surface, or when investigation shows that the failure is
+  a shared-runtime regression affecting the active contract. Publication and
+  historical re-adjudication tasks own any required repair.
+
+
 ### Global Integration Marker
 
 - Use the `integration` marker to run project‑level end‑to‑end integration smoke tests without hardcoding paths:

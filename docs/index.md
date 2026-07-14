@@ -42,15 +42,20 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** pytorch, lightning, mlflow, configuration, training  
 **Use this when:** Working on the `ptycho_torch/` stack or porting TensorFlow workflows to PyTorch.
 
+### [Hybrid ResNet CI Compatibility Study](superpowers/specs/2026-07-09-ci-model-compatibility-ablation-design.md)
+**Description:** Active corrective study following withdrawal of the original compatibility PASS; the checked-in [CI-HYBRID-RESNET-COMPAT-001 finding](findings.md#ci-hybrid-resnet-compat-001) retains that result as superseded diagnostic evidence. The [implementation plan](superpowers/plans/2026-07-09-ci-model-compatibility-ablation.md) is the status authority: Tasks 19--23, 25--28, and 30 are `complete_final`. Task 23's coherent 36-arm, three-seed claim-grade matrix completed without execution failures but returned a sealed numeric `FAIL` on the locked DeadLeaves quality and physics gates. Task 24 is therefore not eligible under its existing all-gates-pass publication condition, and Task 29 remains ordered after Task 24. The dependency order is 21 → 25 → 26 → 27 → 28 → 22 → 30 → 23 → 24 → 29.
+**Keywords:** hybrid-resnet, cnn, ci, poisson, varpro, ablation, dead-leaves, lines, experimental-npz
+**Use this when:** Executing or reviewing the corrective CI compatibility roadmap, auditing why the historical PASS was withdrawn, or preparing a parameterized follow-on study.
+
 ### [Main/fno-stable Physics Reconciliation Backlog](plans/2026-06-29-main-fno-stable-physics-reconciliation-backlog.md)
 **Description:** Inventory and backlog for reconciling numerical behavior differences between `main` and `fno-stable` PyTorch physics paths, including CNN real/imag output, shared decoder support, C-channel probe-weighted training reassembly, denominator semantics, rectangular scaling, and inference-only VarPro/probe stitching boundaries.
 **Keywords:** pytorch, fno-stable, main, reconciliation, cnn, real-imag, probe-weighting, varpro, reassembly, physics-forward
 **Use this when:** Planning work to restore main-compatible CNN physics behavior or auditing why C=1/C>1 Torch numerics differ between `main` and `fno-stable`.
 
 ### [Model Baselines](model_baselines.md)
-**Description:** Canonical recommended training baselines for model families such as `hybrid_resnet`, including the distinction between project-recommended baselines, raw configuration defaults, and study-specific overrides.
-**Keywords:** baselines, hybrid_resnet, recommended-params, scheduler, learning-rate, studies
-**Use this when:** You need the current recommended starting parameters for a real study or wrapper and do not want to infer "best practice" from defaults, prompts, or tests.
+**Description:** Canonical recommended training baselines, including Torch CDI object/support geometry, physical gain selection, semantic CNN channel counts, and model-family schedules such as `hybrid_resnet`; distinguishes project recommendations from raw defaults and study-specific overrides.
+**Keywords:** baselines, cnn, hybrid_resnet, object-big, probe-big, support, amplitude-physics-gain, recommended-params, studies
+**Use this when:** You need the current canonical starting parameters for a real study, wrapper, or checkpoint and do not want to infer best practice from defaults, prompts, tests, or historical runs.
 
 ### [SRU-Net Model Usage](models/srunet.md)
 **Description:** Stable model-facing guide for resolving the paper label `SRU-Net` to the repo's internal `hybrid_resnet`, CDI row ids, PDEBench CNS profiles, and BRDT `sru_net` row labels, including launch examples and variant-row caveats.
@@ -893,6 +898,11 @@ Two spec trees are both live with disjoint scopes: `specs/` owns external intero
 **Description:** Public API surface and data/file interfaces (RawData, loaders, Torch batch contract, models, training/eval), model I/O contracts, precedence rules for params/env, and error conditions.
 **Keywords:** API, data‑contracts, shapes, dataloader, params, precedence
 **Use this when:** Integrating modules, writing loaders, auditing Torch batches, or consuming model interfaces.
+
+#### [Torch Probe Batch Layout & Amplitude Physics Gain](specs/spec-ptycho-torch-probe-layout.md)
+**Description:** Documented probe tensor layout per pipeline stage ((B, C, P, H, W) collated batches), the ProbeLayoutError fail-fast precondition in ProbeIllumination, and the explicit `amplitude_physics_gain` contract that replaces the accidental flat-probe batch-size gain (PROBE-RANK-001).
+**Keywords:** pytorch, probe, tensor-rank, broadcast, mode-axis, physics-gain, ProbeLayoutError
+**Use this when:** Producing probe batches for the torch model, debugging ProbeLayoutError, or configuring/calibrating `amplitude_physics_gain`.
 
 #### [PtychoPINN Conformance Tests](specs/spec-ptycho-conformance.md)
 **Description:** Acceptance tests PTY‑AT‑XXX: forward amplitude equivalence, Poisson semantics, grouping/coords shapes, translation round‑trip, intensity scaling symmetry, positive intensity for NLL, loader contracts, inference determinism, stitch border math.  
