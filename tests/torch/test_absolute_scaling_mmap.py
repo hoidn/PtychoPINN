@@ -426,7 +426,7 @@ def test_ci_statistics_read_finalized_indices_in_bounded_chunks(tmp_path, monkey
     )
 
 
-def test_ci_mmap_manifest_allows_compatible_reuse(tmp_path):
+def test_ci_heldout_mmap_creation_then_repeated_load_is_stable(tmp_path):
     payload = _count_intensity_arrays()
     data_config, model_config, training_config = _ci_configs()
     dataset = _build_file_dataset(
@@ -444,18 +444,26 @@ def test_ci_mmap_manifest_allows_compatible_reuse(tmp_path):
     assert "measured_intensity" in manifest["required_fields"]
     assert "rms_input_scale" not in manifest["required_fields"]
 
-    reused = PtychoDataset(
-        ptycho_dir=str(tmp_path / "npz"),
-        model_config=model_config,
-        data_config=data_config,
-        training_config=training_config,
-        data_dir=str(tmp_path / "memmap"),
-        remake_map=False,
-    )
+    assert dataset.state_path.exists()
+    assert dataset.manifest_path.exists()
+    expected_batch = dataset[torch.arange(len(dataset))]
 
-    assert len(reused) == len(dataset)
-    for name, expected in dataset.get_ci_statistics().items():
-        torch.testing.assert_close(reused.get_ci_statistics()[name], expected)
+    for _attempt in range(2):
+        reused = PtychoDataset(
+            ptycho_dir=str(tmp_path / "npz"),
+            model_config=model_config,
+            data_config=data_config,
+            training_config=training_config,
+            data_dir=str(tmp_path / "memmap"),
+            remake_map=False,
+        )
+
+        assert len(reused) == len(dataset)
+        reused_batch = reused[torch.arange(len(reused))]
+        for actual, expected in zip(reused_batch, expected_batch):
+            torch.testing.assert_close(actual, expected)
+        for name, expected in dataset.get_ci_statistics().items():
+            torch.testing.assert_close(reused.get_ci_statistics()[name], expected)
 
 
 @pytest.mark.parametrize("incompatibility", ["missing", "pre_task3", "opposite"])

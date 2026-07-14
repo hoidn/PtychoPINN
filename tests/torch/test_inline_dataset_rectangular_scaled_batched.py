@@ -142,6 +142,51 @@ def test_inline_dataset_collate_shapes_match_native_contract(
 
 @pytest.mark.torch
 @pytest.mark.parametrize("batch_size", [2, 4])
+def test_inline_dataset_amplitude_mode_emits_documented_probe_layout(
+    batch_size, tmp_path, params_cfg_snapshot
+):
+    """PROBE-RANK-001 / design 2026-07-12 §3.4: the amplitude default must
+    emit the SAME documented per-sample (C, P, H, W) probe layout the
+    rectangular branch emits (the 82da77960 reshape, now unconditional), so
+    the collated batch is (B, C, P, N, N) — NOT the legacy flat (B, N, N)
+    "pre-82da7796 raw convention" whose ProbeIllumination broadcast silently
+    multiplied the predicted field by the batch size."""
+    N, C = 64, 1
+    n_samples = batch_size * 2
+
+    tf_model_cfg = TFModelConfig(N=N, gridsize=1, object_big=False)
+    tf_training_cfg = TFTrainingConfig(
+        model=tf_model_cfg,
+        train_data_file=None,
+        output_dir=tmp_path,
+        batch_size=batch_size,
+        n_groups=n_samples,
+    )
+    update_legacy_dict(params.cfg, tf_training_cfg)
+
+    train_container = _build_container(n_samples, C, N)
+    train_loader, _ = torch_components._build_lightning_dataloaders(
+        train_container=train_container,
+        test_container=None,
+        config=tf_training_cfg,
+        payload=None,  # amplitude default: no physics_forward_mode override
+    )
+
+    _tensor_dict, probe, _scaling = next(iter(train_loader))
+
+    assert probe.shape == (batch_size, C, 1, N, N), (
+        f"amplitude-mode probe shape {tuple(probe.shape)} != documented "
+        f"per-sample layout {(batch_size, C, 1, N, N)} "
+        "(docs/specs/spec-ptycho-torch-probe-layout.md; PROBE-RANK-001)"
+    )
+    # Value-preserving: every sample carries the shared container probe.
+    shared = train_container["probe"]
+    for row in probe:
+        assert torch.equal(row, shared.unsqueeze(0).unsqueeze(0).expand(C, 1, N, N))
+
+
+@pytest.mark.torch
+@pytest.mark.parametrize("batch_size", [2, 4])
 def test_inline_dataset_collate_rectangular_scaled_forward_no_crash(
     batch_size, tmp_path, params_cfg_snapshot
 ):

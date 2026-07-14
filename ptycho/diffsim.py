@@ -154,13 +154,16 @@ def illuminate_and_diffract(Y_I, Y_phi, probe, intensity_scale = None):
 
     return X, Y_I, Y_phi, intensity_scale
 
-def mk_rand(N):
-    return int(N * np.random.uniform())
+def mk_rand(N, rng=None):
+    random_source = np.random if rng is None else rng
+    return int(N * random_source.uniform())
 
-def mk_lines_img(N = 64, nlines = 10):
+def mk_lines_img(N = 64, nlines = 10, *, rng=None):
     image = np.zeros((N, N))
     for _ in range(nlines):
-        rr, cc = draw.line(mk_rand(N), mk_rand(N), mk_rand(N), mk_rand(N))
+        rr, cc = draw.line(
+            mk_rand(N, rng), mk_rand(N, rng), mk_rand(N, rng), mk_rand(N, rng)
+        )
         image[rr, cc] = 1
     res = np.zeros((N, N, 3))
     res[:, :, :] = image[..., None]

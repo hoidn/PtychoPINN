@@ -132,12 +132,18 @@ class TestResolveAccelerator:
         from ptycho_torch.cli.shared import resolve_accelerator
 
         # 'auto' is now special-cased for CUDA detection, so exclude it here
-        explicit_accelerators = ['cpu', 'gpu', 'cuda', 'tpu', 'mps']
+        explicit_accelerators = ['cpu', 'gpu', 'cuda', 'mps']
 
         for accel in explicit_accelerators:
             result = resolve_accelerator(accel, None)
             assert result == accel, \
                 f"Expected accelerator='{accel}' to pass through unchanged, got '{result}'"
+
+    def test_tpu_accelerator_is_rejected(self):
+        from ptycho_torch.cli.shared import resolve_accelerator
+
+        with pytest.raises(ValueError, match="Torch-XLA.*TPU.*unsupported"):
+            resolve_accelerator('tpu', None)
 
     def test_resolve_accelerator_auto_defaults(self):
         """

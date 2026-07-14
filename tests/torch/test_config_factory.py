@@ -635,6 +635,20 @@ class TestExecutionConfigOverrides:
         assert payload.execution_config is not None
         assert isinstance(payload.execution_config, PyTorchExecutionConfig)
 
+    def test_inference_payload_keeps_object_big_decoder_support_on_by_default(
+        self, mock_checkpoint_dir, mock_test_npz, temp_output_dir
+    ):
+        """Normal object-big inference must not silently disable outer support."""
+        payload = create_inference_payload(
+            model_path=mock_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 128, "object_big": True},
+        )
+
+        assert payload.tf_inference_config.model.object_big is True
+        assert payload.tf_inference_config.model.probe_big is True
+
     def test_execution_config_defaults_applied(self, mock_train_npz, temp_output_dir):
         """Execution config uses dataclass defaults when not overridden."""
         import torch

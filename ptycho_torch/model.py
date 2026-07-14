@@ -21,10 +21,21 @@ from ptycho_torch.scaling_contract import (
 )
 import ptycho_torch.helper as hh
 from ptycho_torch.model_attention import CBAM, ECALayer, BasicSpatialAttention
-import copy
 from ptycho_torch.train_utils import compute_grad_norm
 
 logger = logging.getLogger(__name__)
+
+
+def _require_matching_component_shapes(
+    branch1: torch.Tensor,
+    branch2: torch.Tensor,
+    generator_output: str,
+) -> None:
+    if branch1.shape != branch2.shape:
+        raise ValueError(
+            f"{generator_output} tuple branches must have matching shapes before "
+            f"complex combination, got {tuple(branch1.shape)} and {tuple(branch2.shape)}"
+        )
 
 
 def _build_optimizer(parameters, *, lr, optimizer='adam', momentum=0.9,
@@ -95,6 +106,7 @@ def _predict_complex_patches(
     """Normalize generator outputs onto the shared complex/amp/phase contract."""
     if generator_output == "amp_phase":
         amp, phase = autoencoder(x)
+        _require_matching_component_shapes(amp, phase, generator_output)
         x_complex = combine_complex(amp, phase)
     elif generator_output == "amp_phase_logits":
         patches = autoencoder(x)
@@ -111,9 +123,9 @@ def _predict_complex_patches(
         patches = autoencoder(x)
         if isinstance(patches, (tuple, list)):
             # CNN real_imag head (Task 2.3 / B1): channel-first (real, imag) tensors
-            # each (B, C, H, W). Combine via torch.complex (broadcasts a 1-channel
-            # real head across imag channels, matching amp_phase's amp broadcast).
+            # each (B, C, H, W). Component broadcasting is forbidden.
             real, imag = patches
+            _require_matching_component_shapes(real, imag, generator_output)
             x_complex = torch.complex(real, imag)
         else:
             # FNO/Hybrid tensor path (B, H, W, C, 2) -- byte-identical, untouched.
@@ -151,6 +163,28 @@ def _effective_cnn_output_mode(model_config: ModelConfig) -> str:
     if getattr(model_config, "mode", "Unsupervised") != "Unsupervised":
         return "amp_phase"
     return "real_imag"
+
+
+def _semantic_component_channels(model_config: ModelConfig) -> int:
+    return int(model_config.C_model) if model_config.object_big else 1
+
+
+def _decoder_component_channels(model_config: ModelConfig) -> int:
+    semantic_channels = _semantic_component_channels(model_config)
+    if not model_config.object_big or not getattr(
+        model_config,
+        "use_legacy_decoder_channel_override",
+        False,
+    ):
+        return semantic_channels
+
+    legacy_channels = int(model_config.decoder_last_amp_channels)
+    if legacy_channels not in {1, semantic_channels}:
+        raise ValueError(
+            "decoder_last_amp_channels must be 1 or C_model when "
+            "use_legacy_decoder_channel_override is enabled"
+        )
+    return legacy_channels
 
 
 def _build_generator_module_from_config(
@@ -560,10 +594,18 @@ class Decoder_last(nn.Module):
         self.N = self.data_config.N
         self.gridsize = self.data_config.grid_size
         
-        #Dynamically calculate number of outer channels
-        c_outer_fraction = getattr(model_config,'decoder_last_c_outer_fraction', 0.25)
-        c_outer_fraction = max(0.0, min(0.5, c_outer_fraction))
-        self.c_outer = max(1, int(in_channels * c_outer_fraction))
+        # Normal heads reserve one latent feature per semantic output component,
+        # matching the reference decoder's component-wise outer-support path.
+        # The historical fractional split remains only for explicitly requested
+        # checkpoint-shape compatibility.
+        if getattr(model_config, "use_legacy_decoder_channel_override", False):
+            c_outer_fraction = getattr(
+                model_config, "decoder_last_c_outer_fraction", 0.25
+            )
+            c_outer_fraction = max(0.0, min(0.5, c_outer_fraction))
+            self.c_outer = max(1, int(in_channels * c_outer_fraction))
+        else:
+            self.c_outer = int(out_channels)
 
         #Layers
         self.conv1 =  nn.Conv2d(in_channels = in_channels - self.c_outer,
@@ -616,6 +658,16 @@ class Decoder_last(nn.Module):
         if x2.shape[-2:] != x1.shape[-2:]:
             x2 = x2[..., :x1.shape[-2], :x1.shape[-1]]
 
+        border_width = self.N // 4
+        border_mask = torch.ones(
+            x2.shape[-2:], dtype=x2.dtype, device=x2.device
+        )
+        border_mask[
+            border_width:-border_width,
+            border_width:-border_width,
+        ] = 0
+        x2 = x2 * border_mask
+
         outputs = x1 + x2
 
 
@@ -649,10 +701,7 @@ class Decoder_phase(Decoder_base):
         self.model_config = model_config # Store configs if needed directly
         self.data_config = data_config
 
-        if self.model_config.object_big:
-            num_channels = model_config.C_model
-        else:
-            num_channels = 1
+        num_channels = _semantic_component_channels(model_config)
         #Nn layers
 
         #Custom nn layers with specific identifiable names
@@ -687,15 +736,7 @@ class Decoder_amp(Decoder_base):
         self.model_config = model_config # Store configs if needed directly
         self.data_config = data_config
 
-        #Set number of decoder last channels
-        if model_config.mode == 'Unsupervised':
-            # num_channels = int(model_config.decoder_last_amp_channels) #Need for unsupervised
-            num_channels = copy.deepcopy(model_config.decoder_last_amp_channels)
-        elif model_config.mode == 'Supervised':
-            num_channels = copy.deepcopy(model_config.decoder_last_amp_channels) #Need this for supervised learning
-        #Assert sizing (can either match channels or is 1)
-
-        assert num_channels in [1, model_config.C_model]
+        num_channels = _decoder_component_channels(model_config)
 
         #Custom nn layers with specific identifiable names
         # Task 2.3 / B1 (Amendment #11): the amplitude head becomes the REAL head in
@@ -776,8 +817,7 @@ class Decoder_shared(Decoder_base):
         self.model_config = model_config
         self.data_config = data_config
 
-        # Matches Decoder_amp's num_channels formula (ported verbatim from main).
-        C_out = model_config.decoder_last_amp_channels if model_config.object_big else 1
+        C_out = _decoder_component_channels(model_config)
         n_levels = len(self.blocks)
 
         self.refinement_blocks = nn.ModuleList()
@@ -876,6 +916,21 @@ class Autoencoder(nn.Module):
         return x_amp, x_phase
 
 #Probe modules
+class ProbeLayoutError(ValueError):
+    """A probe tensor violates the documented (B, C, P, H, W) batch layout.
+
+    Raised by ``ProbeIllumination.forward``'s precondition. Sub-rank-5 probes
+    (in particular the legacy flat ``(B, H, W)`` dictionary-flow emission)
+    right-align-broadcast into the mode axis, turning ``pad_and_diffract``'s
+    coherent mode sum into a silent batch-size-dependent amplitude gain and,
+    for per-sample-distinct probes, cross-sample field mixing.
+
+    Contract: docs/specs/spec-ptycho-torch-probe-layout.md; mechanism and
+    history (82da77960 / 8b3d7a011): docs/findings.md PROBE-RANK-001; design:
+    docs/superpowers/specs/2026-07-12-probe-rank-physics-contract-fix-design.md.
+    """
+
+
 class ProbeIllumination(nn.Module):
     '''
     Probe illumination done using hadamard product of object tensor and 2D probe function.
@@ -890,6 +945,12 @@ class ProbeIllumination(nn.Module):
     Inputs:
         x - torch.Tensor (B,C,H,W)
         p - torch.Tensor (B,C,P,H,W), P dimension > 1 if multi-modal
+
+    Precondition (PROBE-RANK-001, enforced in forward): the probe batch MUST
+    follow the documented layout ``(B|1, C|1, P, N, N)``. Any lower-rank
+    tensor raises :class:`ProbeLayoutError` — no implicit right-align
+    broadcast into the mode slot is reachable. See
+    docs/specs/spec-ptycho-torch-probe-layout.md.
     '''
     def __init__(self, model_config: ModelConfig, data_config: DataConfig):
         super(ProbeIllumination, self).__init__()
@@ -929,7 +990,48 @@ class ProbeIllumination(nn.Module):
             self._cached_mask_key = cache_key
         return mask
 
+    def _require_documented_probe_layout(self, x, probe):
+        """Fail fast on any probe violating the (B|1, C|1, P, N, N) contract.
+
+        docs/specs/spec-ptycho-torch-probe-layout.md; docs/findings.md
+        PROBE-RANK-001.
+        """
+        batch, channels = x.shape[0], x.shape[1]
+        contract = (
+            "documented probe batch layout is (B, C, P, H, W) with "
+            f"B in (1, {batch}), C in (1, {channels}), H=W={self.N} "
+            "(docs/specs/spec-ptycho-torch-probe-layout.md; "
+            "docs/findings.md PROBE-RANK-001; design "
+            "docs/superpowers/specs/"
+            "2026-07-12-probe-rank-physics-contract-fix-design.md)"
+        )
+        if probe.ndim != 5:
+            raise ProbeLayoutError(
+                f"probe has rank {probe.ndim} shape {tuple(probe.shape)}; "
+                "sub-rank-5 probes (e.g. the legacy flat (B, H, W) layout) "
+                "broadcast into the mode axis and coherently sum across it "
+                f"— a silent batch-size physics gain. {contract}"
+            )
+        if probe.shape[-2:] != (self.N, self.N):
+            raise ProbeLayoutError(
+                f"probe spatial dims {tuple(probe.shape[-2:])} != "
+                f"({self.N}, {self.N}) for shape {tuple(probe.shape)}. {contract}"
+            )
+        if probe.shape[0] not in (1, batch):
+            raise ProbeLayoutError(
+                f"probe batch axis {probe.shape[0]} not in (1, {batch}) for "
+                f"shape {tuple(probe.shape)}. {contract}"
+            )
+        if probe.shape[1] not in (1, channels):
+            raise ProbeLayoutError(
+                f"probe channel axis {probe.shape[1]} not in (1, {channels}) "
+                f"for shape {tuple(probe.shape)}. {contract}"
+            )
+
     def forward(self, x, probe):
+        # PROBE-RANK-001 precondition: kill the silent batch-into-modes
+        # broadcast before any arithmetic.
+        self._require_documented_probe_layout(x, probe)
 
         #Add extra dimension to x
         x_reshaped = x.unsqueeze(dim=2) # (B,C,H,W) -> (B,C,1,H,W)
@@ -1258,6 +1360,11 @@ class ForwardModel(nn.Module):
         # never takes; it is a dead argument here for both amplitude and the
         # autograd=True rectangular_scaled path, kept for signature parity with
         # main so callers/tests can thread the observed images through.
+        # PROBE-RANK-001 is enforced at this shared boundary because the
+        # rectangular path returns before ProbeIllumination.forward. Keep the
+        # validator in ProbeIllumination.forward as protection for direct use.
+        self.probe_illumination._require_documented_probe_layout(x, probe)
+
         #Reassemble patches
 
         if self.object_big:
@@ -1317,6 +1424,21 @@ class ForwardModel(nn.Module):
         
         #Inverse scaling
         pred_scaled_diffraction = self.scaler.inv_scale(pred_unscaled_diffraction, output_scale_factor)
+
+        # PROBE-RANK-001 §3.3: explicit amplitude physics gain, applied ONCE,
+        # multiplicatively, to the predicted amplitude — amplitude mode only
+        # (the rectangular_scaled branch returned above; inference uses
+        # forward_predict and never reaches this site). Replaces the banned
+        # flat-probe layout's accidental xB gain with a batch-size-
+        # independent, hparams-recorded constant (read live from the shared
+        # ModelConfig so checkpoint-loaded modules honor it). Validated by
+        # scaling_contract.validate_amplitude_physics_gain; contract in
+        # docs/specs/spec-ptycho-torch-probe-layout.md.
+        amplitude_physics_gain = float(
+            getattr(self.model_config, 'amplitude_physics_gain', 1.0)
+        )
+        if amplitude_physics_gain != 1.0:
+            pred_scaled_diffraction = pred_scaled_diffraction * amplitude_physics_gain
 
         #Learnable scaling parameter test (different per dataset)
 

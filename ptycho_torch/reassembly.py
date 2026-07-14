@@ -1,13 +1,13 @@
 #Type helpers
-from typing import Tuple, Optional, Union, Callable, Any, List, Dict
+from contextlib import nullcontext
+from dataclasses import dataclass
+from typing import Tuple, Optional, Union, Any, List, Dict, Literal
 from ptycho_torch.dataloader import PtychoDataset, TensorDictDataLoader
-import torch.nn as nn
 
 #Pytorch-related
 import torch
 from torch import nn
 import torch.nn.functional as F
-import numpy as np
 import ptycho_torch.helper as hh
 from ptycho_torch.dataloader import Collate
 
@@ -19,10 +19,97 @@ import warnings
 #Configurations
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig
 from ptycho_torch.probe_mask import resolve_probe_mask_torch
-from ptycho_torch.scaling_contract import CI_SCALE_CONTRACT, resolve_scale_contract
+from ptycho_torch.reassembly_diagnostics import (
+    FittedCountMetrics,
+    NotApplicable,
+    ReassemblyDiagnostics,
+    VarProSufficientStatistics,
+    array_digest,
+    not_applicable,
+    not_evaluated,
+)
+from ptycho_torch.scaling_contract import (
+    CI_SCALE_CONTRACT,
+    LEGACY_SCALE_CONTRACT,
+    resolve_scale_contract,
+)
 
 #Default casting
 torch.set_default_dtype(torch.float32)
+
+
+InferencePrecision = Literal["32-true", "16-mixed", "bf16-mixed"]
+_INFERENCE_PRECISIONS = {"32-true", "16-mixed", "bf16-mixed"}
+ReassemblyReturn = Union[
+    Tuple[torch.Tensor, Any, List[Any]],
+    Tuple[torch.Tensor, Any, List[Any], torch.Tensor],
+    Tuple[torch.Tensor, Any, ReassemblyDiagnostics, torch.Tensor],
+]
+
+
+def resolve_inference_precision(
+    use_mixed_precision: Optional[bool] = None,
+    precision: Optional[InferencePrecision] = None,
+) -> InferencePrecision:
+    """Resolve the legacy boolean alias and explicit inference precision."""
+    if precision is not None and precision not in _INFERENCE_PRECISIONS:
+        raise ValueError(
+            "precision must be one of '32-true', '16-mixed', or 'bf16-mixed'"
+        )
+    legacy_precision: Optional[InferencePrecision] = None
+    if use_mixed_precision is not None:
+        if not isinstance(use_mixed_precision, bool):
+            raise TypeError("use_mixed_precision must be bool or None")
+        legacy_precision = "16-mixed" if use_mixed_precision else "32-true"
+    if precision is not None and legacy_precision is not None:
+        if precision != legacy_precision:
+            raise ValueError(
+                "Conflicting inference precision: "
+                f"use_mixed_precision={use_mixed_precision!r} resolves to "
+                f"{legacy_precision!r}, but precision={precision!r}"
+            )
+        return precision
+    if precision is not None:
+        return precision
+    if legacy_precision is not None:
+        return legacy_precision
+    return "32-true"
+
+
+def resolve_inference_precision_for_device(
+    precision: InferencePrecision,
+    device: Union[str, torch.device],
+) -> InferencePrecision:
+    """Apply the precision semantics used by Lightning for a device type."""
+    resolved = resolve_inference_precision(None, precision)
+    if torch.device(device).type == "cpu" and resolved == "16-mixed":
+        return "bf16-mixed"
+    return resolved
+
+
+def _inference_autocast(
+    device: Union[str, torch.device], precision: InferencePrecision
+):
+    if precision == "32-true":
+        return nullcontext()
+    dtype = torch.float16 if precision == "16-mixed" else torch.bfloat16
+    return torch.autocast(device_type=torch.device(device).type, dtype=dtype)
+
+
+def _forward_predict(
+    model: nn.Module,
+    intensity: torch.Tensor,
+    positions: torch.Tensor,
+    probe: torch.Tensor,
+    input_scale: torch.Tensor,
+    *,
+    device: Union[str, torch.device],
+    precision: InferencePrecision,
+) -> torch.Tensor:
+    with _inference_autocast(device, precision):
+        if isinstance(model, nn.DataParallel):
+            return model((intensity, positions, probe, input_scale))
+        return model.forward_predict(intensity, positions, probe, input_scale)
 
 
 def _synchronize_cuda_for_timing(device: Union[str, torch.device]) -> None:
@@ -35,7 +122,7 @@ def _synchronize_cuda_for_timing(device: Union[str, torch.device]) -> None:
 #Currently adapted for multi-channel, but finding some problems in terms of reassembly
 #Adapted from Oliver's tf_helper/shift_and_Sum
 def reassemble_single_channel(im_tensor: torch.Tensor,
-                              com: float,
+                              com: torch.Tensor,
                               max_offset: float,
                               global_coords: torch.Tensor,
                               data_config: DataConfig,
@@ -120,7 +207,7 @@ def reassemble_single_channel(im_tensor: torch.Tensor,
     return reassembled_image, reassembled_ones
 
 def reassemble_multi_channel(im_tensor: torch.Tensor,
-                              com: float,
+                              com: torch.Tensor,
                               max_offset: float,
                               relative_coords: torch.Tensor,
                               coord_centers: torch.Tensor,
@@ -239,14 +326,9 @@ def reconstruct_image(model: nn.Module,
     center_of_mass = center_of_mass.to(device)
     max_abs_offset = max_abs_offset.to(device)
 
-    #Reassembly function
-    if data_config.C == 1:
-        reassemble_fn = reassemble_single_channel  # Your original function
-    else:
-        reassemble_fn = reassemble_multi_channel   # Your original function
-    
     #Initialize accumulation tensors
     reassembled_image = None
+    reassembled_ones = None
 
     with torch.no_grad():
         for i, batch in enumerate(infer_loader):
@@ -265,7 +347,7 @@ def reconstruct_image(model: nn.Module,
             
             # Reassembly
             if data_config.C == 1:
-                reassembled_batch_image, reassembled_batch_ones = reassemble_fn(
+                reassembled_batch_image, reassembled_batch_ones = reassemble_single_channel(
                     batch_output,           # im_tensor
                     center_of_mass,         # com
                     max_abs_offset,         # max_offset
@@ -275,7 +357,7 @@ def reconstruct_image(model: nn.Module,
                 )
             else:
                 batch_relative_center = batch_data['coords_center'].to(device, non_blocking=True)
-                reassembled_batch_image, reassembled_batch_ones = reassemble_fn(
+                reassembled_batch_image, reassembled_batch_ones = reassemble_multi_channel(
                     batch_output,           # im_tensor
                     center_of_mass,         # com
                     max_abs_offset,         # max_offset
@@ -288,7 +370,7 @@ def reconstruct_image(model: nn.Module,
                 # Clean up multi-channel specific tensor
                 del batch_relative_center
 
-            if reassembled_image is not None:
+            if reassembled_image is not None and reassembled_ones is not None:
                 reassembled_image += reassembled_batch_image
                 reassembled_ones += reassembled_batch_ones
             else:
@@ -303,7 +385,8 @@ def reconstruct_image(model: nn.Module,
     torch.cuda.empty_cache()
     gc.collect()
 
-
+    if reassembled_image is None or reassembled_ones is None:
+        raise ValueError("Inference loader yielded no reconstruction batches")
     return reassembled_image/(reassembled_ones), ptycho_subset
 
 def profile_memory():
@@ -340,42 +423,22 @@ class VarProScaler:
     def accumulate_batch(self, I_raw, Psi_a, Psi_b,
     terms = 3):
         """
-        I_raw: [B, H, W]
-        Psi_a: [B, H, W] Complex Basis (F[p * a_tilde])
-        Psi_b: [B, H, W] Complex Basis (F[j * p * b_tilde])
+        I_raw: [B, H, W] or [B, C, H, W]
+        Psi_a/Psi_b: detector waves matching I_raw, optionally with an
+            additional incoherent-mode axis immediately before H, W.
         """
-        # 1. Compute basis images
         X1 = torch.abs(Psi_a)**2
         X2 = torch.abs(Psi_b)**2
         X3 = 2 * torch.real(Psi_a * torch.conj(Psi_b))
-
-        bases = [X1, X2, X3]
-
-        # 2. Update ATA (4x4) and ATb (4x1)
-        # We flatten pixels to treat them as observations
-        for i in range(terms):
-            # Fill ATb
-            self.ATb[i] += torch.sum(bases[i] * I_raw).item()
-            for j in range(i, terms):
-                # Fill ATA (Symmetric)
-                val = torch.sum(bases[i] * bases[j]).item()
-                self.ATA[i, j] += val
-                if i != j:
-                    self.ATA[j, i] += val
-
-        # For autograd
-
-        self.X1X1 += torch.sum(X1 * X1).item()
-        self.X2X2 += torch.sum(X2 * X2).item()
-        self.X3X3 += torch.sum(X3 * X3).item()
-        self.X1X2 += torch.sum(X1 * X2).item()
-        self.X1X3 += torch.sum(X1 * X3).item()
-        self.X2X3 += torch.sum(X2 * X3).item()
-        self.X1I += torch.sum(X1 * I_raw).item()
-        self.X2I += torch.sum(X2 * I_raw).item()
-        self.X3I += torch.sum(X3 * I_raw).item()
-        self.II += torch.sum(I_raw * I_raw).item()
-        self.n_pixels += I_raw.numel()
+        if X1.ndim == I_raw.ndim + 1:
+            X1 = X1.sum(dim=-3)
+            X2 = X2.sum(dim=-3)
+            X3 = X3.sum(dim=-3)
+        elif X1.ndim != I_raw.ndim:
+            raise ValueError(
+                "Psi_a/Psi_b must match I_raw dimensions or add one mode axis"
+            )
+        self.accumulate_batch_from_basis(I_raw, X1, X2, X3, terms=terms)
 
     @torch.no_grad()
     def accumulate_batch_from_basis(self, I_raw, X1, X2, X3, terms=3):
@@ -389,26 +452,28 @@ class VarProScaler:
         I_raw: [B, H, W] or [B, C, H, W]
         X1, X2, X3: same shape as I_raw
         """
-        bases = [X1, X2, X3]
+        intensity64 = I_raw.to(torch.float64)
+        bases = [basis.to(torch.float64) for basis in (X1, X2, X3)]
 
         for i in range(terms):
-            self.ATb[i] += torch.sum(bases[i] * I_raw).item()
+            self.ATb[i] += torch.sum(bases[i] * intensity64).item()
             for j in range(i, terms):
                 val = torch.sum(bases[i] * bases[j]).item()
                 self.ATA[i, j] += val
                 if i != j:
                     self.ATA[j, i] += val
 
-        self.X1X1 += torch.sum(X1 * X1).item()
-        self.X2X2 += torch.sum(X2 * X2).item()
-        self.X3X3 += torch.sum(X3 * X3).item()
-        self.X1X2 += torch.sum(X1 * X2).item()
-        self.X1X3 += torch.sum(X1 * X3).item()
-        self.X2X3 += torch.sum(X2 * X3).item()
-        self.X1I += torch.sum(X1 * I_raw).item()
-        self.X2I += torch.sum(X2 * I_raw).item()
-        self.X3I += torch.sum(X3 * I_raw).item()
-        self.II += torch.sum(I_raw * I_raw).item()
+        X1_64, X2_64, X3_64 = bases
+        self.X1X1 += torch.sum(X1_64 * X1_64).item()
+        self.X2X2 += torch.sum(X2_64 * X2_64).item()
+        self.X3X3 += torch.sum(X3_64 * X3_64).item()
+        self.X1X2 += torch.sum(X1_64 * X2_64).item()
+        self.X1X3 += torch.sum(X1_64 * X3_64).item()
+        self.X2X3 += torch.sum(X2_64 * X3_64).item()
+        self.X1I += torch.sum(X1_64 * intensity64).item()
+        self.X2I += torch.sum(X2_64 * intensity64).item()
+        self.X3I += torch.sum(X3_64 * intensity64).item()
+        self.II += torch.sum(intensity64 * intensity64).item()
         self.n_pixels += I_raw.numel()
 
     def swap_channels(self):
@@ -459,6 +524,15 @@ class VarProScaler:
         diag = torch.sqrt(torch.diag(self.ATA))
         corr = self.ATA / (diag.unsqueeze(1) * diag.unsqueeze(0) + 1e-15)
         return corr
+
+    def sufficient_statistics(self) -> VarProSufficientStatistics:
+        """Return a detached snapshot of all dataset-level fit evidence."""
+        return VarProSufficientStatistics(
+            ATA=self.ATA,
+            ATb=self.ATb,
+            sum_i2=self.II,
+            n_pixels=self.n_pixels,
+        )
 
     def solve(self, verbose = True):
         """Solves the system and returns (s1, s2, background)"""
@@ -854,6 +928,16 @@ class VectorizedWeightedAccumulator:
     def __init__(self, canvas_shape: Tuple[int, int], device: torch.device):
         self.canvas_shape = canvas_shape
         self.device = device
+        self.accepted_patches = 0
+        self.total_patches = 0
+
+    @property
+    def patches_accepted(self) -> int:
+        return self.accepted_patches
+
+    @property
+    def patches_total(self) -> int:
+        return self.total_patches
 
     def accumulate_batch(self,
                         canvas: torch.Tensor,
@@ -873,6 +957,7 @@ class VectorizedWeightedAccumulator:
             patch_size: Size of each patch
         """
         N, H, W = patches.shape
+        self.total_patches += int(N)
         half_size = patch_size / 2
 
         # 1. Coordinate and Bounds Logic (Identical to original)
@@ -904,11 +989,15 @@ class VectorizedWeightedAccumulator:
                 stacklevel=2,
             )
             valid_idx = torch.where(valid_mask)[0]
-            if len(valid_idx) == 0: return
+            self.accepted_patches += int(len(valid_idx))
+            if len(valid_idx) == 0:
+                return
             patches = patches[valid_idx]
             xmin_wh, ymin_wh = xmin_wh[valid_idx], ymin_wh[valid_idx]
             xmin_fr, ymin_fr = xmin_fr[valid_idx], ymin_fr[valid_idx]
             N = len(valid_idx)
+        else:
+            self.accepted_patches += int(N)
 
         # 2. Bilinear Weights (Identical to original)
         xmin_fr_c, ymin_fr_c = 1.0 - xmin_fr, 1.0 - ymin_fr
@@ -1064,14 +1153,13 @@ def compute_varpro_basis(probe: torch.Tensor,
     return Psi_a, Psi_b, X1, X2, X3
 
 
-def _apply_configured_probe_mask(
-    probe: torch.Tensor,
+def _configured_probe_mask(
     reference: torch.Tensor,
     data_config: DataConfig,
     model_config: ModelConfig,
 ) -> torch.Tensor:
-    """Apply the same effective probe-mask resolver used by training."""
-    mask = resolve_probe_mask_torch(
+    """Resolve the same effective probe mask used by training."""
+    return resolve_probe_mask_torch(
         data_config.N,
         probe_mask=getattr(model_config, "probe_mask", False),
         probe_mask_tensor=getattr(model_config, "probe_mask_tensor", None),
@@ -1080,7 +1168,114 @@ def _apply_configured_probe_mask(
         dtype=reference.real.dtype if reference.is_complex() else reference.dtype,
         device=reference.device,
     )
+
+
+def _apply_configured_probe_mask(
+    probe: torch.Tensor,
+    reference: torch.Tensor,
+    data_config: DataConfig,
+    model_config: ModelConfig,
+) -> torch.Tensor:
+    """Apply the same effective probe-mask resolver used by training."""
+    mask = _configured_probe_mask(reference, data_config, model_config)
     return probe * mask.view(1, 1, 1, data_config.N, data_config.N)
+
+
+@dataclass(frozen=True)
+class _PreparedCIVarProBatch:
+    measured_intensity: torch.Tensor
+    positions: torch.Tensor
+    probe_physical: torch.Tensor
+    input_scale: torch.Tensor
+    texture_raw: torch.Tensor
+    effective_mask: torch.Tensor
+    effective_probe: torch.Tensor
+    psi_a: torch.Tensor
+    psi_b: torch.Tensor
+    x1: torch.Tensor
+    x2: torch.Tensor
+    x3: torch.Tensor
+    inference_time: float
+    assembly_start: float
+
+
+def _prepare_ci_varpro_batch(
+    model: nn.Module,
+    batch_data: Any,
+    data_config: DataConfig,
+    model_config: ModelConfig,
+    *,
+    device: torch.device,
+    precision: InferencePrecision,
+    channels_swapped: bool,
+    collect_timing: bool = False,
+) -> _PreparedCIVarProBatch:
+    """Prepare one CI batch identically for fitting and count evaluation."""
+    measured_intensity = batch_data["measured_intensity"].to(
+        device, non_blocking=True
+    )
+    positions = batch_data["coords_relative"].to(device, non_blocking=True)
+    probe_physical = batch_data["probe_physical"].to(device, non_blocking=True)
+    input_scale = batch_data["rms_input_scale"].to(device, non_blocking=True)
+
+    if collect_timing:
+        _synchronize_cuda_for_timing(device)
+        inference_start = time.time()
+    else:
+        inference_start = 0.0
+    texture_raw = _forward_predict(
+        model,
+        measured_intensity,
+        positions,
+        probe_physical,
+        input_scale,
+        device=device,
+        precision=precision,
+    ).to(torch.complex64)
+    if collect_timing:
+        _synchronize_cuda_for_timing(device)
+        inference_time = time.time() - inference_start
+    else:
+        inference_time = 0.0
+
+    if channels_swapped:
+        texture_raw = torch.complex(texture_raw.imag, texture_raw.real)
+    effective_mask = _configured_probe_mask(
+        measured_intensity,
+        data_config,
+        model_config,
+    )
+    effective_probe = (
+        probe_physical
+        * effective_mask.view(1, 1, 1, data_config.N, data_config.N)
+    ).to(torch.complex64)
+
+    if collect_timing:
+        _synchronize_cuda_for_timing(device)
+        assembly_start = time.time()
+    else:
+        assembly_start = 0.0
+    psi_a, psi_b, x1, x2, x3 = compute_varpro_basis(
+        effective_probe,
+        texture_raw.real.float(),
+        texture_raw.imag.float(),
+    )
+    return _PreparedCIVarProBatch(
+        measured_intensity=measured_intensity,
+        positions=positions,
+        probe_physical=probe_physical,
+        input_scale=input_scale,
+        texture_raw=texture_raw,
+        effective_mask=effective_mask,
+        effective_probe=effective_probe,
+        psi_a=psi_a,
+        psi_b=psi_b,
+        x1=x1,
+        x2=x2,
+        x3=x3,
+        inference_time=inference_time,
+        assembly_start=assembly_start,
+    )
 
 
 def apply_varpro_canvas_scaling(
@@ -1098,6 +1293,198 @@ def apply_varpro_canvas_scaling(
     s1, s2 = scaler.solve_lbfgs(verbose=verbose)
     scaled_canvas = torch.complex(s1 * texture_canvas.real, s2 * texture_canvas.imag)
     return scaled_canvas, s1, s2
+
+
+def evaluate_fitted_count_metrics(
+    model: nn.Module,
+    infer_loader: Any,
+    data_config: DataConfig,
+    model_config: ModelConfig,
+    *,
+    s1: Any,
+    s2: Any,
+    device: Union[str, torch.device],
+    scale_profile: str,
+    precision: Optional[InferencePrecision] = None,
+    channels_swapped: bool = False,
+    local_to_source_ids: Any = None,
+) -> Union[FittedCountMetrics, NotApplicable]:
+    """Stream a deterministic fitted count-space pass over every batch."""
+    if scale_profile == LEGACY_SCALE_CONTRACT:
+        return not_applicable()
+    if scale_profile != CI_SCALE_CONTRACT:
+        raise ValueError(f"Unsupported count-metric scale profile: {scale_profile!r}")
+
+    device = torch.device(device)
+    effective_precision = resolve_inference_precision_for_device(precision, device)
+    s1_value = torch.as_tensor(s1, dtype=torch.float32, device=device).reshape(())
+    s2_value = torch.as_tensor(s2, dtype=torch.float32, device=device).reshape(())
+    squared_error_sum = torch.zeros((), dtype=torch.float64, device=device)
+    measured_square_sum = torch.zeros((), dtype=torch.float64, device=device)
+    poisson_nll_sum = torch.zeros((), dtype=torch.float64, device=device)
+    n_samples = 0
+    n_pixels = 0
+    effective_mask_digest = None
+    sample_id_batches: list[torch.Tensor] = []
+    source_id_map = None
+    if local_to_source_ids is not None:
+        source_id_map = torch.as_tensor(
+            local_to_source_ids, dtype=torch.int64, device=device
+        ).reshape(-1)
+
+    with torch.no_grad():
+        for batch in infer_loader:
+            batch_data = batch[0]
+            raw_sample_ids = batch_data.get("nn_indices")
+            if raw_sample_ids is None:
+                batch_size = int(batch_data["measured_intensity"].shape[0])
+                channels = int(batch_data["measured_intensity"].shape[1])
+                start = sum(item.numel() for item in sample_id_batches)
+                batch_sample_ids = torch.arange(
+                    start, start + batch_size * channels,
+                    dtype=torch.int64, device=device,
+                )
+            else:
+                batch_sample_ids = raw_sample_ids.to(
+                    device=device, dtype=torch.int64
+                ).reshape(-1)
+            if source_id_map is not None:
+                if batch_sample_ids.numel() and (
+                    bool(torch.any(batch_sample_ids < 0))
+                    or bool(torch.any(batch_sample_ids >= source_id_map.numel()))
+                ):
+                    raise ValueError("Count-metric local sample id is out of range")
+                batch_sample_ids = source_id_map[batch_sample_ids]
+            sample_id_batches.append(batch_sample_ids)
+            prepared = _prepare_ci_varpro_batch(
+                model,
+                batch_data,
+                data_config,
+                model_config,
+                device=device,
+                precision=effective_precision,
+                channels_swapped=channels_swapped,
+            )
+            measured_intensity = prepared.measured_intensity
+            batch_mask_digest = array_digest(prepared.effective_mask)
+            if effective_mask_digest is None:
+                effective_mask_digest = batch_mask_digest
+            elif effective_mask_digest != batch_mask_digest:
+                raise ValueError("Effective probe mask changed across count batches")
+            prediction = (
+                s1_value.square() * prepared.x1.float()
+                + s2_value.square() * prepared.x2.float()
+                + (s1_value * s2_value) * prepared.x3.float()
+            )
+            measured64 = measured_intensity.to(torch.float64)
+            prediction64 = prediction.to(torch.float64)
+            residual = prediction64 - measured64
+            squared_error_sum += residual.square().sum()
+            measured_square_sum += measured64.square().sum()
+            poisson_nll_sum += (
+                prediction64
+                - measured64 * torch.log(torch.clamp(prediction64, min=1e-8))
+            ).sum()
+            n_samples += int(measured_intensity.shape[0] * measured_intensity.shape[1])
+            n_pixels += int(measured_intensity.numel())
+
+    if n_pixels == 0:
+        raise ValueError("Count-metric loader yielded no detector pixels")
+    if float(measured_square_sum.item()) <= 0.0:
+        raise ValueError("Measured intensity has zero count-space energy")
+    assert effective_mask_digest is not None
+    sample_ids = tuple(
+        int(item)
+        for item in torch.cat(sample_id_batches).detach().cpu().tolist()
+    )
+    if len(sample_ids) != n_samples:
+        raise ValueError("Count-metric sample identity does not match loader samples")
+    relative_l2 = torch.sqrt(squared_error_sum / measured_square_sum)
+    return FittedCountMetrics(
+        relative_l2_intensity_error=float(relative_l2.item()),
+        mean_raw_poisson_nll=float((poisson_nll_sum / n_pixels).item()),
+        n_samples=n_samples,
+        n_pixels=n_pixels,
+        effective_mask_digest=effective_mask_digest,
+        sample_ids=sample_ids,
+    )
+
+
+def _scan_identity_evidence(
+    source_dataset: Any,
+    subset_dataset: Any,
+    experiment_number: int,
+) -> tuple[
+    tuple[int, ...], tuple[int, ...], bool, tuple[int, ...], tuple[int, ...]
+]:
+    """Return participants, centers, center availability, eligible, and source IDs."""
+    mmap = getattr(subset_dataset, "mmap_ptycho", None)
+    valid_per_file = getattr(source_dataset, "valid_indices_per_file", None)
+    source_per_file = getattr(source_dataset, "source_indices_per_file", None)
+    if (
+        mmap is None
+        or "nn_indices" not in mmap.keys()
+        or valid_per_file is None
+        or source_per_file is None
+    ):
+        return (), (), False, (), ()
+    if not 0 <= experiment_number < len(valid_per_file) or not 0 <= experiment_number < len(source_per_file):
+        return (), (), False, (), ()
+    used = torch.as_tensor(mmap["nn_indices"]).detach().cpu().reshape(-1)
+    filtered = torch.as_tensor(valid_per_file[experiment_number]).detach().cpu().reshape(-1)
+    source = torch.as_tensor(source_per_file[experiment_number]).detach().cpu().reshape(-1)
+    grouping_enabled = getattr(source_dataset, "group_coords_enabled", None)
+    if callable(grouping_enabled):
+        grouped = bool(grouping_enabled())
+    else:
+        grouped = bool(
+            getattr(getattr(source_dataset, "model_config", None), "object_big", False)
+        )
+    if not grouped:
+        if used.numel() and (
+            bool(torch.any(used < 0)) or bool(torch.any(used >= filtered.numel()))
+        ):
+            raise ValueError("Ungrouped scan ids are outside the filtered split")
+        used = filtered[used.to(torch.int64)]
+        centers = used
+        center_identity_available = True
+    else:
+        required = {"center_scan_id", "center_scan_id_available"}
+        if not required <= set(mmap.keys()):
+            raise ValueError("Grouped scan identity requires persisted center fields")
+        raw_centers = torch.as_tensor(mmap["center_scan_id"]).detach().cpu().reshape(-1)
+        availability = torch.as_tensor(
+            mmap["center_scan_id_available"]
+        ).detach().cpu().to(torch.bool).reshape(-1)
+        if raw_centers.shape != availability.shape:
+            raise ValueError("Grouped center identity fields have incompatible shapes")
+        if bool(torch.any((~availability) & (raw_centers != -1))):
+            raise ValueError("Unavailable grouped center ids must use sentinel -1")
+        if bool(torch.any(availability & (raw_centers < 0))):
+            raise ValueError("Available grouped center ids must be nonnegative")
+        center_identity_available = bool(torch.all(availability))
+        centers = raw_centers if center_identity_available else raw_centers[:0]
+    used_ids = tuple(int(item) for item in torch.unique(used, sorted=True).tolist())
+    center_ids = tuple(
+        int(item) for item in torch.unique(centers, sorted=True).tolist()
+    )
+    filtered_ids = tuple(
+        int(item) for item in torch.unique(filtered, sorted=True).tolist()
+    )
+    source_ids = tuple(int(item) for item in torch.unique(source, sorted=True).tolist())
+    if not set(filtered_ids).issubset(source_ids):
+        raise ValueError("Filtered scan ids are outside the source split")
+    if not set(center_ids).issubset(filtered_ids):
+        raise ValueError("Used center scan ids are outside the eligible center split")
+    if not set(used_ids).issubset(source_ids):
+        raise ValueError("Participating scan ids are outside the source split")
+    return (
+        used_ids,
+        center_ids,
+        center_identity_available,
+        filtered_ids,
+        source_ids,
+    )
 
 
 def padded_canvas_size(middle_trim: int, max_offset_y: int, max_offset_x: int) -> Tuple[int, int]:
@@ -1157,10 +1544,14 @@ def reconstruct_image_barycentric(model: nn.Module,
                      model_config: ModelConfig,
                      inference_config: InferenceConfig,
                      gpu_ids: Optional[List[int]] = None,
-                     use_mixed_precision: bool = True,
+                     use_mixed_precision: Optional[bool] = None,
                      verbose: bool = True,
                      swap_detection: str = 'None',
-                     return_diagnostics: bool = False) -> Tuple[torch.Tensor, Any]:
+                     return_diagnostics: bool = False,
+                     structured_diagnostics: bool = False,
+                     precision: Optional[InferencePrecision] = None,
+                     compute_count_metrics: bool = True,
+                     ) -> ReassemblyReturn:
     """
     Multi-GPU ptychography reconstruction using probe-weighted barycentric
     coordinate assembly with VarPro scaling.
@@ -1173,7 +1564,8 @@ def reconstruct_image_barycentric(model: nn.Module,
         model_config: Model configuration
         inference_config: Inference configuration
         gpu_ids: List of GPU IDs to use (None for single GPU on training_config.device)
-        use_mixed_precision: Whether to use FP16 mixed precision
+        use_mixed_precision: Legacy precision alias. True selects FP16 mixed,
+            False selects FP32, and None defers to ``precision``.
         verbose: Whether to print progress
         swap_detection: Method for detecting real/imag channel swap.
             'None' - no swap detection
@@ -1182,6 +1574,14 @@ def reconstruct_image_barycentric(model: nn.Module,
                       which channel dominates (transparent object should be real-dominated)
         return_diagnostics: If True, return 4-tuple with VarPro diagnostics;
             if False (default), return backward-compatible 3-tuple.
+        structured_diagnostics: Return schema-v1 dataset-level diagnostics
+            instead of the positional legacy diagnostics list.
+        precision: Explicit inference precision. Supported values are
+            ``32-true``, ``16-mixed``, and ``bf16-mixed``.
+        compute_count_metrics: When structured CI diagnostics are requested,
+            run the fitted count-space evaluation. Defaults to True for
+            backwards compatibility. Canonical runtimes may defer this pass
+            until after production checkpoint reload.
 
     Returns:
         If return_diagnostics is False:
@@ -1191,6 +1591,10 @@ def reconstruct_image_barycentric(model: nn.Module,
             (scaled_canvas, dataset_subset,
              [inference_time, assembly_time, Psi_a, Psi_b, s1, s2, canvas_anchor],
              modified_scaled_canvas)
+
+        If structured_diagnostics is True:
+            (scaled_canvas, dataset_subset, ReassemblyDiagnostics,
+             prescale_canvas)
 
         ``canvas_anchor`` (Task B4a, always the LAST stats-list element --
         index into it positionally from the front, not via negative
@@ -1203,6 +1607,10 @@ def reconstruct_image_barycentric(model: nn.Module,
         the object's own center, to avoid the frame-offset error documented
         in the B4 report (Sec 1c/4).
     """
+
+    requested_precision = resolve_inference_precision(
+        use_mixed_precision, precision
+    )
 
     # Setup model (single or multi-GPU)
     if gpu_ids is None or len(gpu_ids) <= 1:
@@ -1223,6 +1631,10 @@ def reconstruct_image_barycentric(model: nn.Module,
     uses_cuda = (
         torch.device(primary_device).type == "cuda" and torch.cuda.is_available()
     )
+    effective_precision = resolve_inference_precision_for_device(
+        requested_precision,
+        primary_device,
+    )
 
     # Get dataset subset
     n_files = ptycho_dset.n_files
@@ -1232,6 +1644,10 @@ def reconstruct_image_barycentric(model: nn.Module,
         ptycho_subset = ptycho_dset.get_experiment_dataset(experiment_number)
     else:
         ptycho_subset = ptycho_dset
+    (used_scan_ids, used_center_scan_ids, center_identity_available,
+     filtered_eligible_scan_ids, expected_scan_ids) = _scan_identity_evidence(
+         ptycho_dset, ptycho_subset, experiment_number
+     )
 
     # Pre-compute constants
     global_coords = ptycho_subset.mmap_ptycho['coords_global'].squeeze()
@@ -1276,8 +1692,8 @@ def reconstruct_image_barycentric(model: nn.Module,
 
     #Other setup
     model.eval()
-    total_inference_time = 0
-    total_assembly_time = 0
+    total_inference_time = 0.0
+    total_assembly_time = 0.0
 
     #Setting up scaler/accumulators
     scaler = VarProScaler(primary_device)
@@ -1296,11 +1712,20 @@ def reconstruct_image_barycentric(model: nn.Module,
         if model_config is not None else 'amplitude'
     rectangular_scaled_mode = (physics_forward_mode == 'rectangular_scaled')
     ci_varpro_mode = False
+    scale_profile = LEGACY_SCALE_CONTRACT
     if rectangular_scaled_mode:
-        ci_varpro_mode = resolve_scale_contract(
+        scale_contract = resolve_scale_contract(
             getattr(data_config, "scale_contract_version", None),
             getattr(data_config, "measurement_domain", None),
-        ).version == CI_SCALE_CONTRACT
+        )
+        scale_profile = scale_contract.version
+        ci_varpro_mode = scale_profile == CI_SCALE_CONTRACT
+
+    effective_probe_mask = torch.ones(
+        (data_config.N, data_config.N),
+        dtype=torch.float32,
+        device=primary_device,
+    )
 
     # Save a reference probe for probe-based swap detection
     saved_probe_single = None
@@ -1309,6 +1734,14 @@ def reconstruct_image_barycentric(model: nn.Module,
     # if infer_loader ever yields zero batches (output_scale is otherwise only
     # assigned inside the loop body).
     output_scale = None
+    track_decoder_saturation = (
+        getattr(model_config, "architecture", "cnn") == "cnn"
+        and physics_forward_mode == "rectangular_scaled"
+    )
+    decoder_saturation_counts = torch.zeros(
+        4, dtype=torch.int64, device=primary_device
+    )
+    decoder_value_count = 0
 
     #Actual loop
     with torch.no_grad():
@@ -1317,22 +1750,34 @@ def reconstruct_image_barycentric(model: nn.Module,
 
             # Prepare data
             batch_data = batch[0]
-            positions = batch_data['coords_relative'].to(primary_device, non_blocking=True)
             batch_global_coords = batch_data['coords_global'].to(primary_device, non_blocking=True)
             if ci_varpro_mode:
-                I_raw = batch_data['measured_intensity'].to(
-                    primary_device, non_blocking=True
+                prepared = _prepare_ci_varpro_batch(
+                    model,
+                    batch_data,
+                    data_config,
+                    model_config,
+                    device=torch.device(primary_device),
+                    precision=effective_precision,
+                    channels_swapped=False,
+                    collect_timing=True,
                 )
-                probe = batch_data['probe_physical'].to(
-                    primary_device, non_blocking=True
-                )
-                in_scale = batch_data['rms_input_scale'].to(
-                    primary_device, non_blocking=True
-                )
-                effective_probe = _apply_configured_probe_mask(
-                    probe, I_raw, data_config, model_config
-                )
+                I_raw = prepared.measured_intensity
+                positions = prepared.positions
+                probe = prepared.probe_physical
+                in_scale = prepared.input_scale
+                texture_raw = prepared.texture_raw
+                effective_probe_mask = prepared.effective_mask
+                effective_probe = prepared.effective_probe
+                Psi_a, Psi_b = prepared.psi_a, prepared.psi_b
+                X1, X2, X3 = prepared.x1, prepared.x2, prepared.x3
+                inference_time = prepared.inference_time
+                assembly_start = prepared.assembly_start
+                output_scale = None
             else:
+                positions = batch_data['coords_relative'].to(
+                    primary_device, non_blocking=True
+                )
                 I_raw = batch_data['images'].to(primary_device, non_blocking=True)
                 probe = batch[1].to(
                     primary_device, non_blocking=True
@@ -1341,51 +1786,50 @@ def reconstruct_image_barycentric(model: nn.Module,
                     primary_device, non_blocking=True
                 )
                 effective_probe = probe
+                _synchronize_cuda_for_timing(primary_device)
+                inference_start = time.time()
+                texture_raw = _forward_predict(
+                    model,
+                    I_raw,
+                    positions,
+                    probe,
+                    in_scale,
+                    device=primary_device,
+                    precision=effective_precision,
+                ).to(torch.complex64)
+                _synchronize_cuda_for_timing(primary_device)
+                inference_time = time.time() - inference_start
+                _synchronize_cuda_for_timing(primary_device)
+                assembly_start = time.time()
+                if rectangular_scaled_mode:
+                    physics_scale = batch_data['physics_scaling_constant'].to(primary_device, non_blocking=True)
+                    probe_scaling = batch[2].to(primary_device, non_blocking=True)
+                    output_scale = torch.sqrt(1.0 / (probe_scaling ** 2 * physics_scale + 1e-9))
+                    Psi_a, Psi_b, X1, X2, X3 = compute_varpro_basis(
+                        effective_probe,
+                        texture_raw.real,
+                        texture_raw.imag,
+                        scale=output_scale,
+                    )
+                else:  # amplitude: preserve the historical unscaled basis
+                    output_scale = None
+                    Psi_a, Psi_b, X1, X2, X3 = compute_varpro_basis(
+                        effective_probe,
+                        texture_raw.real,
+                        texture_raw.imag,
+                    )
 
             # Save uncropped probe from first batch for probe-based swap detection
             if saved_probe_single is None:
                 saved_probe_single = effective_probe[0, 0, 0].clone()
 
-            # Model inference
-            _synchronize_cuda_for_timing(primary_device)
-            inference_start = time.time()
-
-            if isinstance(model, nn.DataParallel):
-                inputs = (I_raw, positions, probe, in_scale)
-                texture_raw = model(inputs)
-            else:
-                texture_raw = model.forward_predict(I_raw, positions, probe, in_scale)
-
-            _synchronize_cuda_for_timing(primary_device)
-            inference_time = time.time() - inference_start
             total_inference_time += inference_time
-
-            # Getting the real and imaginary parts
             a_tilde = texture_raw.real
             b_tilde = texture_raw.imag
 
             # VarPro always accumulates on the full detector frame. CI uses the
             # calibrated, masked physical probe directly; explicit legacy
             # rectangular mode retains its historical output-scale fold.
-            _synchronize_cuda_for_timing(primary_device)
-            assembly_start = time.time()
-            if ci_varpro_mode:
-                output_scale = None
-                Psi_a, Psi_b, X1, X2, X3 = compute_varpro_basis(
-                    effective_probe, a_tilde, b_tilde, scale=None
-                )
-            elif rectangular_scaled_mode:
-                physics_scale = batch_data['physics_scaling_constant'].to(primary_device, non_blocking=True)
-                probe_scaling = batch[2].to(primary_device, non_blocking=True)
-                output_scale = torch.sqrt(1.0 / (probe_scaling ** 2 * physics_scale + 1e-9))
-                Psi_a, Psi_b, X1, X2, X3 = compute_varpro_basis(effective_probe, a_tilde, b_tilde,
-                                                                scale=output_scale)
-            else:  # amplitude: preserve the historical unscaled basis (self-consistent)
-                output_scale = None
-                Psi_a, Psi_b, X1, X2, X3 = compute_varpro_basis(
-                    effective_probe, a_tilde, b_tilde
-                )
-
             scaler.accumulate_batch_from_basis(I_raw, X1, X2, X3)
 
             # Center crop (stitching only -- VarPro above uses the full frame)
@@ -1397,6 +1841,18 @@ def reconstruct_image_barycentric(model: nn.Module,
             I_raw = I_raw[:,:,center_start:center_end, center_start:center_end]
             a_tilde = a_tilde[:, :, center_start:center_end, center_start:center_end]
             b_tilde = b_tilde[:, :, center_start:center_end, center_start:center_end]
+            if track_decoder_saturation:
+                real_tolerance = (1.2 - (-0.8)) * 1e-3
+                imag_tolerance = (1.2 - (-1.2)) * 1e-3
+                decoder_saturation_counts += torch.stack(
+                    (
+                        torch.count_nonzero(a_tilde <= -0.8 + real_tolerance),
+                        torch.count_nonzero(a_tilde >= 1.2 - real_tolerance),
+                        torch.count_nonzero(b_tilde <= -1.2 + imag_tolerance),
+                        torch.count_nonzero(b_tilde >= 1.2 - imag_tolerance),
+                    )
+                )
+                decoder_value_count += int(a_tilde.numel())
 
             # Also crop the probe to match (B, C, P, H, W)
             effective_probe = effective_probe[
@@ -1453,7 +1909,7 @@ def reconstruct_image_barycentric(model: nn.Module,
     if swap_detection == 'probe':
         channels_swapped = detect_swap_probe_reference(
             model, saved_probe_single, data_config, model_config,
-            primary_device, verbose=verbose)
+            primary_device, verbose=verbose, precision=effective_precision)
     elif swap_detection == 'mean':
         real_mean = texture_canvas.real.mean().item()
         imag_mean = texture_canvas.imag.mean().item()
@@ -1491,7 +1947,7 @@ def reconstruct_image_barycentric(model: nn.Module,
         avg_assembly_time = total_assembly_time / len(infer_loader)
         efficiency = avg_inference_time / avg_assembly_time if avg_assembly_time > 0 else float('inf')
 
-        print(f"\nPerformance Summary:")
+        print("\nPerformance Summary:")
         print(f"  Average inference time per batch: {avg_inference_time:.3f}s")
         print(f"  Average assembly time per batch: {avg_assembly_time:.3f}s")
         print(f"  Parallel efficiency ratio: {efficiency:.1f}x")
@@ -1508,6 +1964,108 @@ def reconstruct_image_barycentric(model: nn.Module,
     # positional/front-indexed consumers of the stats list are unaffected;
     # do not read via negative indices).
     canvas_anchor = build_canvas_anchor(center_of_mass, canvas_size)
+    (decoder_real_lower_saturated, decoder_real_upper_saturated,
+     decoder_imag_lower_saturated, decoder_imag_upper_saturated) = (
+        decoder_saturation_counts.detach().cpu().tolist()
+    )
+    decoder_real_saturated = (
+        decoder_real_lower_saturated + decoder_real_upper_saturated
+    )
+    decoder_imag_saturated = (
+        decoder_imag_lower_saturated + decoder_imag_upper_saturated
+    )
+    decoder_real_saturation_fraction = (
+        decoder_real_saturated / decoder_value_count
+        if track_decoder_saturation and decoder_value_count
+        else None
+    )
+    decoder_imag_saturation_fraction = (
+        decoder_imag_saturated / decoder_value_count
+        if track_decoder_saturation and decoder_value_count
+        else None
+    )
+    def saturation_fraction(count: int) -> Optional[float]:
+        return count / decoder_value_count if track_decoder_saturation and decoder_value_count else None
+
+    decoder_real_lower_saturation_fraction = saturation_fraction(decoder_real_lower_saturated)
+    decoder_real_upper_saturation_fraction = saturation_fraction(decoder_real_upper_saturated)
+    decoder_imag_lower_saturation_fraction = saturation_fraction(decoder_imag_lower_saturated)
+    decoder_imag_upper_saturation_fraction = saturation_fraction(decoder_imag_upper_saturated)
+
+    if structured_diagnostics:
+        prescale_canvas = torch.complex(texture_canvas.real, texture_canvas.imag)
+        if ci_varpro_mode:
+            if compute_count_metrics:
+                count_metrics = evaluate_fitted_count_metrics(
+                    model,
+                    infer_loader,
+                    data_config,
+                    model_config,
+                    s1=s1,
+                    s2=s2,
+                    device=primary_device,
+                    scale_profile=scale_profile,
+                    precision=effective_precision,
+                    channels_swapped=channels_swapped,
+                )
+            else:
+                count_metrics = not_evaluated()
+            diagnostics = ReassemblyDiagnostics.from_statistics(
+                scaler.sufficient_statistics(),
+                inference_time=total_inference_time,
+                assembly_time=total_assembly_time,
+                solve_time=scaler_solve_time_end,
+                s1=s1,
+                s2=s2,
+                scale_profile=scale_profile,
+                effective_probe_mask=effective_probe_mask,
+                canvas_anchor=canvas_anchor,
+                canvas_weights=canvas_weights,
+                accepted_patches=accumulator.accepted_patches,
+                total_patches=accumulator.total_patches,
+                count_metrics=count_metrics,
+                effective_precision=effective_precision,
+                used_scan_ids=used_scan_ids,
+                used_center_scan_ids=used_center_scan_ids,
+                center_identity_available=center_identity_available,
+                expected_scan_ids=expected_scan_ids,
+                filtered_eligible_scan_ids=filtered_eligible_scan_ids,
+                decoder_real_saturation_fraction=decoder_real_saturation_fraction,
+                decoder_imag_saturation_fraction=decoder_imag_saturation_fraction,
+                decoder_real_lower_saturation_fraction=decoder_real_lower_saturation_fraction,
+                decoder_real_upper_saturation_fraction=decoder_real_upper_saturation_fraction,
+                decoder_imag_lower_saturation_fraction=decoder_imag_lower_saturation_fraction,
+                decoder_imag_upper_saturation_fraction=decoder_imag_upper_saturation_fraction,
+            )
+        else:
+            count_metrics = not_applicable()
+            diagnostics = ReassemblyDiagnostics.legacy_not_applicable(
+                inference_time=total_inference_time,
+                assembly_time=total_assembly_time,
+                solve_time=scaler_solve_time_end,
+                s1=s1,
+                s2=s2,
+                scale_profile=scale_profile,
+                effective_probe_mask=effective_probe_mask,
+                canvas_anchor=canvas_anchor,
+                canvas_weights=canvas_weights,
+                accepted_patches=accumulator.accepted_patches,
+                total_patches=accumulator.total_patches,
+                count_metrics=count_metrics,
+                effective_precision=effective_precision,
+                used_scan_ids=used_scan_ids,
+                used_center_scan_ids=used_center_scan_ids,
+                center_identity_available=center_identity_available,
+                expected_scan_ids=expected_scan_ids,
+                filtered_eligible_scan_ids=filtered_eligible_scan_ids,
+                decoder_real_saturation_fraction=decoder_real_saturation_fraction,
+                decoder_imag_saturation_fraction=decoder_imag_saturation_fraction,
+                decoder_real_lower_saturation_fraction=decoder_real_lower_saturation_fraction,
+                decoder_real_upper_saturation_fraction=decoder_real_upper_saturation_fraction,
+                decoder_imag_lower_saturation_fraction=decoder_imag_lower_saturation_fraction,
+                decoder_imag_upper_saturation_fraction=decoder_imag_upper_saturation_fraction,
+            )
+        return scaled_canvas, ptycho_subset, diagnostics, prescale_canvas
 
     if return_diagnostics:
         modified_scaled_canvas = texture_canvas.real + 1j * texture_canvas.imag
@@ -1531,7 +2089,9 @@ def detect_swap_probe_reference(model: nn.Module,
                                 data_config: DataConfig,
                                 model_config: ModelConfig,
                                 device: torch.device,
-                                verbose: bool = True) -> bool:
+                                verbose: bool = True,
+                                precision: Optional[InferencePrecision] = None,
+                                ) -> bool:
     """Detect channel swap by passing probe-only diffraction through the model.
 
     For a transparent object (O=1+0j), the detector intensity is |FFT(P)|^2.
@@ -1550,7 +2110,6 @@ def detect_swap_probe_reference(model: nn.Module,
         bool: True if channels are swapped
     """
     C_in = model_config.C_model if model_config.object_big else 1
-    N = data_config.N
 
     with torch.no_grad():
         # |FFT(probe)|^2 — diffraction pattern of a transparent object
@@ -1571,12 +2130,16 @@ def detect_swap_probe_reference(model: nn.Module,
         dummy_probe = probe_single.unsqueeze(0).unsqueeze(0).expand(1, C_in, -1, -1)
         in_scale = torch.ones(1, device=device)
 
-        # Call model the same way as the inference loop
-        if isinstance(model, nn.DataParallel):
-            texture_raw = model((I_ref_normed, dummy_positions, dummy_probe, in_scale))
-        else:
-            texture_raw = model.forward_predict(I_ref_normed, dummy_positions,
-                                                dummy_probe, in_scale)
+        # Call model with the same precision contract as the inference loop.
+        texture_raw = _forward_predict(
+            model,
+            I_ref_normed,
+            dummy_positions,
+            dummy_probe,
+            in_scale,
+            device=device,
+            precision=resolve_inference_precision(None, precision),
+        ).to(torch.complex64)
 
         # texture_raw is a complex tensor (B, C, H, W)
         ref_real = texture_raw.real

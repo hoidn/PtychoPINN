@@ -99,13 +99,13 @@ def test_rectangular_scaled_intensity_matches_count_reference():
     )
     model.eval()
 
-    probe = _normalized_probe(N, data_cfg.probe_scale)
+    probe = _normalized_probe(N, data_cfg.probe_scale).view(1, 1, 1, N, N)
     obj = torch.complex(real, imag)
 
     # Count-unit reference: the inference-side VarPro convention
     # (reassembly.compute_varpro_basis with s1=s2=1) and the intended physics
     # of the rect forward at output_scale=1: sum_p |F_ortho{P_norm * O}|^2.
-    exit_wave = probe.view(1, 1, 1, N, N) * obj.unsqueeze(2)
+    exit_wave = probe * obj.unsqueeze(2)
     psi = torch.fft.fftshift(torch.fft.fft2(exit_wave, norm="ortho"), dim=(-2, -1))
     intensity_ref = torch.sum(torch.abs(psi) ** 2, dim=2)
 
@@ -193,7 +193,9 @@ def test_amplitude_forward_probe_division_byte_identical():
     )
     model.eval()
 
-    probe = _normalized_probe(N, data_cfg.probe_scale)
+    # Documented (B, C, P, H, W) probe batch layout (PROBE-RANK-001): the
+    # amplitude chain's ProbeIllumination now rejects the former rank-2 probe.
+    probe = _normalized_probe(N, data_cfg.probe_scale).view(1, 1, 1, N, N)
     ones = torch.ones(1, 1, 1, 1)
     x = torch.rand(1, 1, N, N)
     eids = torch.zeros(1, dtype=torch.long)
