@@ -42,7 +42,7 @@ from ptycho_torch.helper import (
     extract_channels_from_region,
     get_padded_size,
 )
-from ptycho_torch.model import PtychoPINN_Lightning
+from ptycho_torch.model import Decoder_last, PtychoPINN_Lightning
 
 # Small synthetic geometry: gridsize 2 (C = gridsize^2 = 4), N=32 patches.
 # max_neighbor_distance=6.0 -> bigN = N + 6 = 38, so the padded canvas leaves a
@@ -58,6 +58,73 @@ S = 2  # per-axis magnitude of the (centered) group offsets, in pixels
 # window is eroded by the shift magnitude S on each side, giving the deep interior
 # [N//4 + 2S : 3N//4 - 2S]. Assertions are restricted to that window.
 BORDER = N // 4 + 2 * S
+
+
+@pytest.mark.parametrize(
+    ("channels", "object_big"),
+    [(1, False), (2, True), (4, True)],
+)
+def test_decoder_outer_latent_channels_follow_semantic_components(
+    channels: int,
+    object_big: bool,
+) -> None:
+    """Normal CNN heads reserve one outer latent per emitted component."""
+    model_cfg = ModelConfig(
+        C_model=channels,
+        C_forward=channels,
+        object_big=object_big,
+        probe_big=True,
+        decoder_last_c_outer_fraction=0.125,
+        use_legacy_decoder_channel_override=False,
+    )
+    decoder = Decoder_last(
+        model_cfg,
+        DataConfig(N=64, C=channels, grid_size=(1, channels)),
+        in_channels=64,
+        out_channels=channels,
+        activation=lambda value: value,
+    )
+
+    assert decoder.c_outer == channels
+    assert decoder.conv1.in_channels == 64 - channels
+    assert decoder.conv_up_block.conv1.in_channels == channels
+
+
+def test_decoder_outer_path_fills_only_complementary_border() -> None:
+    """The learned outer path must not overwrite the central head support."""
+    channels = 4
+    decoder = Decoder_last(
+        ModelConfig(
+            C_model=channels,
+            C_forward=channels,
+            object_big=True,
+            probe_big=True,
+            decoder_last_c_outer_fraction=0.125,
+            use_legacy_decoder_channel_override=False,
+        ),
+        DataConfig(N=64, C=channels, grid_size=(2, 2)),
+        in_channels=64,
+        out_channels=channels,
+        activation=lambda value: value,
+    )
+    with torch.no_grad():
+        decoder.conv1.weight.zero_()
+        decoder.conv1.bias.fill_(2.0)
+        decoder.conv_up_block.conv1.weight.zero_()
+        decoder.conv_up_block.conv1.bias.zero_()
+        decoder.conv_up_block.conv2.weight.zero_()
+        decoder.conv_up_block.conv2.bias.zero_()
+        decoder.conv2.weight.zero_()
+        decoder.conv2.bias.fill_(3.0)
+
+    output = decoder(torch.zeros(1, 64, 32, 32))
+    outer_value = torch.nn.functional.silu(torch.tensor(3.0))
+
+    assert torch.allclose(output[..., 16:48, 16:48], torch.full((1, 4, 32, 32), 2.0))
+    assert torch.allclose(output[..., :16, :], torch.full((1, 4, 16, 64), outer_value))
+    assert torch.allclose(output[..., 48:, :], torch.full((1, 4, 16, 64), outer_value))
+    assert torch.allclose(output[..., 16:48, :16], torch.full((1, 4, 32, 16), outer_value))
+    assert torch.allclose(output[..., 16:48, 48:], torch.full((1, 4, 32, 16), outer_value))
 
 
 def _group_offsets():

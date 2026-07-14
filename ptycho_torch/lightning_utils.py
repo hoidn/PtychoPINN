@@ -219,8 +219,10 @@ class MetadataLogger(Callback):
         # Try to get best validation loss from checkpoint callback
         for callback in trainer.callbacks:
             if hasattr(callback, 'best_model_score'):
-                metadata['best_val_loss'] = float(callback.best_model_score)
-                break
+                best_model_score = callback.best_model_score
+                if best_model_score is not None:
+                    metadata['best_val_loss'] = float(best_model_score)
+                    break
         
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f, indent=2)
@@ -338,9 +340,23 @@ def load_configs_from_checkpoint(
     """
     checkpoint_path = Path(checkpoint_path)
     
-    # If given a checkpoint file, navigate to its parent's parent (run directory)
+    # Checkpoint files are emitted in one of two explicit layouts beneath a run.
     if checkpoint_path.is_file():
-        run_dir = checkpoint_path.parent.parent
+        checkpoint_dir = checkpoint_path.parent
+        if checkpoint_dir.name == "checkpoints":
+            run_dir = checkpoint_dir.parent
+        elif (
+            checkpoint_dir.name == "milestones"
+            and checkpoint_dir.parent.name == "checkpoints"
+        ):
+            run_dir = checkpoint_dir.parent.parent
+        else:
+            raise FileNotFoundError(
+                "Unsupported checkpoint layout. Expected a checkpoint at "
+                "<run>/checkpoints/<file>.ckpt or "
+                "<run>/checkpoints/milestones/<file>.ckpt; got "
+                f"{checkpoint_path}"
+            )
     else:
         run_dir = checkpoint_path
     

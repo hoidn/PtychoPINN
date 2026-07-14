@@ -1,6 +1,7 @@
 import json
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import numpy as np
@@ -17,11 +18,58 @@ from ptycho.workflows.grid_lines_workflow import (
 )
 
 
-SCRATCH_ROOT = Path(".artifacts/integration/grid_lines_hybrid_resnet")
-DATASET_STATS_PATH = Path("tests/fixtures/grid_lines_hybrid_resnet_dataset_stats.json")
-METRICS_BASELINE_PATH = Path("tests/fixtures/grid_lines_hybrid_resnet_metrics.json")
+REPO_ROOT = Path(__file__).resolve().parents[2]
+SCRATCH_ROOT = REPO_ROOT / ".artifacts/integration/grid_lines_hybrid_resnet"
+DATASET_STATS_PATH = (
+    REPO_ROOT / "tests/fixtures/grid_lines_hybrid_resnet_dataset_stats.json"
+)
+METRICS_BASELINE_PATH = (
+    REPO_ROOT / "tests/fixtures/grid_lines_hybrid_resnet_metrics.json"
+)
+TORCH_RUNNER_PATH = REPO_ROOT / "scripts/studies/grid_lines_torch_runner.py"
+VARPRO_DEMO_PATH = (
+    REPO_ROOT / "scripts/studies/demo_varpro_probe_weighted_reassembly.py"
+)
 
 pytestmark = [pytest.mark.grid_lines_hybrid_resnet_integration, pytest.mark.slow]
+
+
+def _run_repo_python(script: Path, *args: object) -> None:
+    subprocess.run(
+        [sys.executable, str(script), *(str(arg) for arg in args)],
+        check=True,
+        cwd=REPO_ROOT,
+    )
+
+
+def test_repo_python_subprocess_uses_repo_root_and_current_interpreter(
+    monkeypatch, tmp_path
+):
+    captured = {}
+
+    def fake_run(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["kwargs"] = kwargs
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    script = REPO_ROOT / "scripts/studies/example.py"
+
+    _run_repo_python(script, "--output-root", tmp_path)
+
+    assert captured["cmd"] == [
+        sys.executable,
+        str(script),
+        "--output-root",
+        str(tmp_path),
+    ]
+    assert captured["kwargs"] == {"check": True, "cwd": REPO_ROOT}
+    assert SCRATCH_ROOT == REPO_ROOT / ".artifacts/integration/grid_lines_hybrid_resnet"
+    assert DATASET_STATS_PATH == (
+        REPO_ROOT / "tests/fixtures/grid_lines_hybrid_resnet_dataset_stats.json"
+    )
+    assert METRICS_BASELINE_PATH == (
+        REPO_ROOT / "tests/fixtures/grid_lines_hybrid_resnet_metrics.json"
+    )
 
 
 @pytest.fixture(scope="session")
@@ -34,9 +82,10 @@ def grid_lines_scratch_root():
 
 def _resolve_probe_npz() -> Path:
     candidates = [
-        Path("datasets/Run1084_recon3_postPC_shrunk_3.npz"),
-        Path("tmp/Run1084_recon3_postPC_shrunk_3_torch.npz"),
-        Path(".artifacts/pytorch_integration_workflow/canonical/Run1084_recon3_postPC_shrunk_3_canonical.npz"),
+        REPO_ROOT / "datasets/Run1084_recon3_postPC_shrunk_3.npz",
+        REPO_ROOT / "tmp/Run1084_recon3_postPC_shrunk_3_torch.npz",
+        REPO_ROOT
+        / ".artifacts/pytorch_integration_workflow/canonical/Run1084_recon3_postPC_shrunk_3_canonical.npz",
     ]
     for candidate in candidates:
         if candidate.exists():
@@ -112,8 +161,6 @@ def test_grid_lines_hybrid_resnet_metrics(grid_lines_scratch_root):
     train_npz, test_npz = _ensure_dataset(grid_lines_scratch_root)
 
     cmd = [
-        "python",
-        "scripts/studies/grid_lines_torch_runner.py",
         "--output-dir", str(grid_lines_scratch_root),
         "--architecture", "hybrid_resnet",
         "--train-npz", str(train_npz),
@@ -135,6 +182,7 @@ def test_grid_lines_hybrid_resnet_metrics(grid_lines_scratch_root):
         "--beta1", "0.9",
         "--beta2", "0.999",
         "--torch-loss-mode", "mae",
+        "--amplitude-physics-gain", "16",
         "--output-mode", "real_imag",
         "--probe-source", "custom",
         "--fno-modes", "12",
@@ -144,7 +192,7 @@ def test_grid_lines_hybrid_resnet_metrics(grid_lines_scratch_root):
         "--torch-logger", "mlflow",
     ]
 
-    subprocess.run(cmd, check=True)
+    _run_repo_python(TORCH_RUNNER_PATH, *cmd)
 
     metrics_path = grid_lines_scratch_root / "runs/pinn_hybrid_resnet/metrics.json"
     visuals_dir = grid_lines_scratch_root / "visuals"
@@ -175,8 +223,6 @@ def test_grid_lines_varpro_probe_weighting_demo(grid_lines_scratch_root):
     output_root = grid_lines_scratch_root / "varpro_probe_weighting_demo"
 
     cmd = [
-        "python",
-        "scripts/studies/demo_varpro_probe_weighted_reassembly.py",
         "--input-npz", str(test_npz),
         "--output-root", str(output_root),
         "--seed", "0",
@@ -184,7 +230,7 @@ def test_grid_lines_varpro_probe_weighting_demo(grid_lines_scratch_root):
         "--patch-size", "32",
     ]
 
-    subprocess.run(cmd, check=True)
+    _run_repo_python(VARPRO_DEMO_PATH, *cmd)
 
     metrics_path = output_root / "metrics.json"
     assert metrics_path.exists()
@@ -204,8 +250,6 @@ def test_grid_lines_spectral_resnet_bottleneck_smoke(grid_lines_scratch_root):
     train_npz, test_npz = _ensure_dataset(grid_lines_scratch_root)
 
     cmd = [
-        "python",
-        "scripts/studies/grid_lines_torch_runner.py",
         "--output-dir", str(grid_lines_scratch_root),
         "--architecture", "spectral_resnet_bottleneck_net",
         "--train-npz", str(train_npz),
@@ -236,7 +280,7 @@ def test_grid_lines_spectral_resnet_bottleneck_smoke(grid_lines_scratch_root):
         "--torch-logger", "csv",
     ]
 
-    subprocess.run(cmd, check=True)
+    _run_repo_python(TORCH_RUNNER_PATH, *cmd)
 
     metrics_path = grid_lines_scratch_root / "runs/pinn_spectral_resnet_bottleneck_net/metrics.json"
     visuals_dir = grid_lines_scratch_root / "visuals"

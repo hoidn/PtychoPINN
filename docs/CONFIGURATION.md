@@ -58,8 +58,8 @@ These parameters define the structure and physics of the neural network.
 | `fno_input_transform` | `Literal['none','sqrt','log1p','instancenorm']` | `'none'` | Optional input dynamic-range transform for FNO/Hybrid lifter (PyTorch only). |
 | `resnet_width` | `Optional[int]` | `None` | Fixed bottleneck width for `hybrid_resnet`. Must be divisible by 4 when set (PyTorch only). |
 | `amp_activation` | `str` | `'sigmoid'` | The activation function for the amplitude output layer. Choices: 'sigmoid', 'swish', 'softplus', 'relu'. |
-| `object_big` | `bool` | `True` | If True, the model reconstructs a large area by stitching patches. If False, it reconstructs a single N×N patch. Some workflows (e.g., grid-lines Torch runner) set `object_big = cfg.gridsize > 1` (`False` at gridsize=1 for TF parity, `True` at gridsize>1 to enable object-big reassembly); treat this as a workflow-level config decision, not an implicit default. |
-| `probe_big` | `bool` | `True` | If True, the probe representation can vary across the solution region. Some workflows (e.g., grid-lines Torch runner) explicitly set `probe_big=False` for TF parity; treat this as a workflow-level config decision. |
+| `object_big` | `bool` | `True` | If True, the model reconstructs a large area by stitching patches. The grid-lines Torch runner resolves this to `gridsize > 1`; see the canonical geometry matrix in `docs/model_baselines.md`. |
+| `probe_big` | `bool` | `True` | Enables the CNN decoder's learned complementary outer support. It must be `True` whenever the normal CNN path has `object_big=True`; `False` is an explicit historical-checkpoint/zero-border diagnostic only. See `docs/model_baselines.md`. |
 | `probe_mask` | `bool` | `False` | If True, applies a circular mask to the probe to enforce a finite support. |
 | `pad_object` | `bool` | `True` | Controls padding behavior in the model. |
 | `probe_scale` | `float` | `4.0` | A normalization factor for the probe's amplitude. |
@@ -216,8 +216,11 @@ ptycho_train --config configs/my_experiment_config.yaml --nepochs 10
 
 ## Configuration Best Practices
 
-1. **Use YAML files** for reproducible experiments and parameter sets you want to reuse.
-2. **Use `n_groups` instead of deprecated `n_images`** in new configurations.
+1. Start from the project-recommended values in
+   [docs/model_baselines.md](model_baselines.md); this catalog defines fields and
+   raw defaults, not the best combination for a run.
+2. **Use YAML files** for reproducible experiments and parameter sets you want to reuse.
+3. **Use `n_groups` instead of deprecated `n_images`** in new configurations.
 3. **Override sparingly** from the command line - use it mainly for quick parameter tweaks.
 4. **Document your configs** with comments explaining the experimental purpose.
 5. **Version control** your configuration files alongside your code.

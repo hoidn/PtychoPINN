@@ -100,10 +100,8 @@ def _rebuild_configs(metadata):
 
 def _rebuild_probe(npz, model_cfg, B, C):
     probe_2d = torch.from_numpy(npz["probe_real"] + 1j * npz["probe_imag"]).to(torch.complex64)
-    if model_cfg.object_big:
-        N = probe_2d.shape[-1]
-        return probe_2d.view(1, 1, 1, N, N).expand(B, C, 1, N, N)
-    return probe_2d
+    N = probe_2d.shape[-1]
+    return probe_2d.view(1, 1, 1, N, N).expand(B, C, 1, N, N)
 
 
 def _load_fixture(fixture_path):

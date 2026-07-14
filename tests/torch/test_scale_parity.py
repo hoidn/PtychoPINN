@@ -26,7 +26,10 @@ from ptycho_torch.config_params import (
     DataConfig, ModelConfig, TrainingConfig, InferenceConfig, DatagenConfig,
 )
 from ptycho_torch.model import PtychoPINN_Lightning
-from ptycho_torch.lightning_utils import load_checkpoint_with_configs
+from ptycho_torch.lightning_utils import (
+    load_checkpoint_with_configs,
+    load_configs_from_checkpoint,
+)
 from ptycho_torch.utils import config_to_json_serializable_dict
 
 
@@ -109,6 +112,52 @@ def test_old_style_checkpoint_loads_via_load_checkpoint_with_configs(tmp_path):
 
     assert loaded_model.parity_scale_mode == "off"
     assert "log_scale_delta" not in dict(loaded_model.named_parameters())
+
+
+def test_milestone_checkpoint_loads_configs_from_run_directory(tmp_path):
+    model_cfg, data_cfg, train_cfg, infer_cfg = _tiny_configs()
+    model = PtychoPINN_Lightning(model_cfg, data_cfg, train_cfg, infer_cfg)
+    checkpoint_path = _save_checkpoint_with_configs(
+        model,
+        model_cfg,
+        data_cfg,
+        train_cfg,
+        infer_cfg,
+        tmp_path,
+    )
+    milestone_path = checkpoint_path.parent / "milestones" / "epoch-0005.ckpt"
+    milestone_path.parent.mkdir()
+    checkpoint_path.replace(milestone_path)
+
+    loaded = load_configs_from_checkpoint(str(milestone_path))
+
+    expected = (data_cfg, model_cfg, train_cfg, infer_cfg, DatagenConfig())
+    expected_payloads = tuple(
+        json.loads(json.dumps(config_to_json_serializable_dict(config)))
+        for config in expected
+    )
+    assert tuple(map(config_to_json_serializable_dict, loaded)) == expected_payloads
+
+
+def test_checkpoint_in_unsupported_nested_layout_is_rejected(tmp_path):
+    model_cfg, data_cfg, train_cfg, infer_cfg = _tiny_configs()
+    model = PtychoPINN_Lightning(model_cfg, data_cfg, train_cfg, infer_cfg)
+    checkpoint_path = _save_checkpoint_with_configs(
+        model,
+        model_cfg,
+        data_cfg,
+        train_cfg,
+        infer_cfg,
+        tmp_path,
+    )
+    unsupported_path = (
+        checkpoint_path.parent.parent / "other" / "nested" / "epoch-0005.ckpt"
+    )
+    unsupported_path.parent.mkdir(parents=True)
+    checkpoint_path.replace(unsupported_path)
+
+    with pytest.raises(FileNotFoundError, match="Unsupported checkpoint layout"):
+        load_configs_from_checkpoint(str(unsupported_path))
 
 
 # ---------------------------------------------------------------------------

@@ -33,6 +33,65 @@ from ptycho.config.config import ModelConfig, TrainingConfig
 from ptycho import params as p
 
 
+def _numpy_rng_state_equal(left, right):
+    return (
+        left[0] == right[0]
+        and np.array_equal(left[1], right[1])
+        and left[2:] == right[2:]
+    )
+
+
+def test_canonical_lines_local_rng_matches_legacy_set_phi_oracle():
+    from ptycho import diffsim
+
+    seed = 1064
+    ambient_before = np.random.get_state()
+    production_amplitude = diffsim.mk_lines_img(
+        N=640,
+        nlines=400,
+        rng=np.random.RandomState(seed),
+    )[160:-160, 160:-160, 0]
+    production_phase = np.asarray(diffsim.dummy_phi(production_amplitude)).astype(
+        np.float32
+    )
+    production = np.asarray(
+        production_amplitude * np.exp(1j * production_phase), dtype=np.complex64
+    )
+    ambient_after = np.random.get_state()
+
+    saved = np.random.get_state()
+    try:
+        np.random.seed(seed)
+        reference_amplitude = diffsim.mk_lines_img(N=640, nlines=400)[
+            160:-160, 160:-160, 0
+        ]
+        reference_phase = np.asarray(diffsim.dummy_phi(reference_amplitude)).astype(
+            np.float32
+        )
+        reference = np.asarray(
+            reference_amplitude * np.exp(1j * reference_phase),
+            dtype=np.complex64,
+        )
+    finally:
+        np.random.set_state(saved)
+
+    assert production.shape == (320, 320)
+    assert production.dtype == np.complex64
+    assert _numpy_rng_state_equal(ambient_before, ambient_after)
+    np.testing.assert_allclose(production, reference, rtol=1e-6, atol=1e-7)
+
+
+def test_mk_lines_img_omitted_rng_preserves_legacy_global_rng_behavior():
+    from ptycho import diffsim
+
+    np.random.seed(19)
+    first = diffsim.mk_lines_img(N=32, nlines=10)
+    np.random.seed(19)
+    second = diffsim.mk_lines_img(N=32, nlines=10)
+
+    np.testing.assert_array_equal(first, second)
+
+
 def test_run_pinn_inference_uses_first_prediction_output(monkeypatch):
     monkeypatch.setattr(grid_lines_workflow_module.p, "get", lambda key: 1.0 if key == "intensity_scale" else None)
 

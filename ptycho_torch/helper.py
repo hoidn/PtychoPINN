@@ -231,9 +231,9 @@ def reassemble_patches_position_real_probe(inputs: torch.Tensor,
     ------
     inputs: [B, C, N, N] (Complex object patches)
     offsets_xy: [B, C, 1, 2]
-    probe: modes layout [B, C, P, N, N], or plain [N, N] / batch-broadcast
-        [B, N, N] (the grid_lines dict-container layout). Only consumed when
-        use_probe_weights is True.
+    probe: modes layout [B|1, C|1, P, N, N], or plain [N, N] /
+        batch-broadcast [B, N, N] (the grid_lines dict-container layout).
+        Only consumed when use_probe_weights is True.
     use_probe_weights: If True, weights by |Probe|^2. If False, uses binary central mask.
     '''
 
@@ -260,14 +260,25 @@ def reassemble_patches_position_real_probe(inputs: torch.Tensor,
         # Weight = |P|^2 flattened to the (B*C, N, N) patch batch that imgs_flat
         # uses (B-major, C-minor). Two probe layouts are accepted, dispatched by
         # rank with no silent fallback:
-        #   * modes layout (B, C, P, N, N) -- the native mmap dataloader path:
-        #     incoherent mode sum sum_p |P_p|^2 then flatten B*C (byte-identical
-        #     to the historical derivation);
+        #   * modes layout (B|1, C|1, P, N, N) -- the native mmap dataloader
+        #     path: broadcast shared B/C axes, incoherent mode sum sum_p |P_p|^2,
+        #     then flatten B*C;
         #   * plain (N, N) or batch-broadcast (B, N, N) -- the grid_lines
         #     dict-container path: |P|^2 broadcast to every (b, c) patch (the
         #     probe is shared across the C channels of a batch element).
         if probe.ndim == 5:
-            weights_flat = torch.sum(torch.abs(probe)**2, dim=2).flatten(0, 1)
+            if probe.shape[0] not in (1, B) or probe.shape[1] not in (1, C_in):
+                raise ValueError(
+                    f"Probe batch/channel axes {tuple(probe.shape[:2])} cannot "
+                    f"broadcast to object axes ({B}, {C_in})"
+                )
+            if probe.shape[-2:] != (N, N):
+                raise ValueError(
+                    f"Probe spatial axes {tuple(probe.shape[-2:])} do not match "
+                    f"object patch axes ({N}, {N})"
+                )
+            probe_bc = probe.expand(B, C_in, -1, N, N)
+            weights_flat = torch.sum(torch.abs(probe_bc)**2, dim=2).flatten(0, 1)
         elif probe.ndim == 2:
             probe_intensity = torch.abs(probe)**2
             weights_flat = probe_intensity.expand(B * C_in, N, N)

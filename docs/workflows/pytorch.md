@@ -97,10 +97,9 @@ search knobs for the hybrid/ResNet family (`hybrid_downsample_steps`,
 `ModelConfig` / `PyTorchExecutionConfig` and are intentionally NOT bridged to the
 canonical dataclasses.
 
-**Reliability caveat:** the stock `cnn` under the
-count-Poisson recipe at `N=128` collapses to a flat-amplitude output with
-near-certainty unless the TF-parity preset below is applied; `hybrid_resnet` is
-unaffected.
+**CNN geometry requirement:** use the canonical geometry/scaling matrix in
+`docs/model_baselines.md`. In particular, a grouped `object_big=True` CNN must
+keep `probe_big=True` so the decoder learns the full patch support.
 
 ### 3.3. Loss, Scheduler, and Sampling
 
@@ -143,6 +142,23 @@ unchanged:
 Physical semantics of `s1`/`s2` and known residual differences: see the
 rectangular-scaled diffraction entry in `docs/findings.md`.
 
+One further amplitude-mode training knob (PROBE-RANK-001, 2026-07-12):
+`ModelConfig.amplitude_physics_gain` (default `1.0`) multiplies the predicted
+amplitude ONCE inside the amplitude-mode training forward. It is the explicit,
+batch-size-independent replacement for the banned flat-probe layout's
+accidental ×B gain (probe batches must follow the documented `(B, C, P, H, W)`
+layout; sub-rank-5 probes raise `ProbeLayoutError`). The effective value is
+recorded in the training-payload audit trail and Lightning hparams; it must be
+finite and > 0, must be exactly `1.0` for `rectangular_scaled`/CI modes
+(fail-closed), and is never applied at inference. Contract:
+`docs/specs/spec-ptycho-torch-probe-layout.md`. Derive the legacy value once
+from the exact sealed training input and forward normalization, using the
+expression in `docs/model_baselines.md`, and share it across architectures and
+legacy loss profiles. The historical value `16` is only the batch-16
+broadcast-equivalent conditioner, not a physical normalization. This does not
+change the `1.0` default or relax the required `1.0` value for rectangular/CI
+scaling.
+
 Two further knobs are **inference-only** (`InferenceConfig.patch_weighting`,
 `InferenceConfig.varpro_scaling`): they affect only
 `ptycho_torch.reassembly.reconstruct_image_barycentric` (the in-process reconstruction
@@ -151,14 +167,14 @@ does not consume them — it always uses uniform
 `helper.reassemble_patches_position_real`. Call `reconstruct_image_barycentric`
 directly when these knobs must take effect.
 
-### 3.6. TF-Parity Preset for the Torch CNN (N=128 reliability)
+### 3.6. CNN Parity Diagnostic Knobs (Not A Baseline)
 
-Three knobs on the standard `cnn` close the collapse gap against the TensorFlow
-reference (no separate registry entry):
+These knobs remain available for controlled parity diagnostics, but they do not
+replace the canonical baseline in `docs/model_baselines.md`:
 
-| Knob | Where | Parity value | Default |
+| Knob | Where | Diagnostic value | Default |
 |---|---|---|---|
-| `cbam_encoder` | torch `ModelConfig` | `False` | `True` (stock `cnn` remains collapse-prone) |
+| `cbam_encoder` | torch `ModelConfig` | `False` | `True` |
 | `parity_init_scheme` | `PtychoPINN_Lightning` kwarg (`"default"` \| `"tf_glorot"`) | `"tf_glorot"` | `"default"` (kaiming) |
 | `scheduler` | `TrainingConfig` | `"ReduceLROnPlateau"` | `"Default"` |
 
@@ -170,6 +186,9 @@ An additional default-off mechanism, `parity_scale_mode`
 (`--cbam-encoder on|off`, `--parity-init-scheme`, `--scheduler`).
 
 Cautions:
+- CBAM-off is not a recommended fix: the support-on Task 30 comparison left
+  post-VarPro amplitude and phase quality essentially unchanged, so CBAM was
+  closed as the cause of the support failure.
 - Do NOT set `intensity_scale_trainable=True` alongside the parity kwargs — the dead
   `IntensityScalerModule` machinery silently overwrites the input-side parity scale
   (see the dead intensity-scaler entry in `docs/findings.md`).

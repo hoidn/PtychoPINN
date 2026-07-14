@@ -11,7 +11,8 @@ def group_coords(xcoords_full, ycoords_full,
                  xcoords_bounded, ycoords_bounded,
                  neighbor_function,
                  valid_mask,
-                 data_config: DataConfig, C: int = None): # Added data_config
+                 data_config: DataConfig, C: int = None,
+                 return_center_indices: bool = False): # Added data_config
     """
     Assemble a flat dataset into solution regions using nearest-neighbor grouping.
     ---
@@ -48,14 +49,17 @@ def group_coords(xcoords_full, ycoords_full,
         coords_nn = np.stack([xcoords_full[nn_indices_global],
                             ycoords_full[nn_indices_global]], axis=2)[:, :, None, :]
         nn_indices = nn_indices_global
+        center_indices_global = nn_indices_global.reshape(-1)
     #Yes overlaps enforced
     else:
         #Various neighbor sampling procedures
         if data_config.neighbor_function == '4_quadrant':
-            _, nn_indices, coords_nn = get_fixed_quadrant_neighbors_c4(xcoords_full, ycoords_full,
-                                                                       xcoords_bounded, ycoords_bounded,
-                                                                       valid_mask,
-                                                                       data_config)
+            center_indices_global, nn_indices, coords_nn = get_fixed_quadrant_neighbors_c4(
+                xcoords_full, ycoords_full,
+                xcoords_bounded, ycoords_bounded,
+                valid_mask,
+                data_config)
+            center_indices_global = np.asarray(valid_mask)[center_indices_global]
 
         else:
             print('begin nn_indices')
@@ -73,8 +77,13 @@ def group_coords(xcoords_full, ycoords_full,
             # Get final array of coordinates using GLOBAL indices
             coords_nn = np.stack([xcoords_full[nn_indices],
                                 ycoords_full[nn_indices]], axis=2)[:, :, None, :]
+            center_indices_global = np.repeat(
+                np.asarray(valid_mask), data_config.n_subsample
+            )
 
     
+    if return_center_indices:
+        return nn_indices, coords_nn, np.asarray(center_indices_global, dtype=np.int64)
     return nn_indices, coords_nn
 
 def get_neighbor_self_indices(xcoords, ycoords):

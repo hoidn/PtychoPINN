@@ -985,16 +985,19 @@ def _build_lightning_dataloaders(
 
             # Broadcast probe for batch (single probe applies to all samples).
             #
-            # Task R1-fix (bisect-report.md #4): the (C, P, H, W) reshape below is
-            # required ONLY for physics_forward_mode='rectangular_scaled' --
-            # RectangularScaledDiffraction.forward's scale.unsqueeze(2) collides
-            # the raw shared probe's collated batch axis with H when batch_size > 1
-            # (Task 2.8 crash). Applying it unconditionally also to the amplitude
-            # default silently changed ProbeIllumination's broadcast during
-            # training and degraded trained-model amp MAE 0.0846 -> 0.233
-            # (82da7796). The amplitude default must keep the pre-82da7796 raw
-            # convention: probe = self.probe, collated by DataLoader to
-            # (B, H, W)/(B, P, H, W).
+            # PROBE-RANK-001 (design 2026-07-12 §3.4): EVERY physics mode
+            # emits the documented per-sample (C, P, H, W) layout, collated by
+            # the DataLoader to (B, C, P, H, W) — the same layout the mmap
+            # PtychoDataset path emits (docs/specs/
+            # spec-ptycho-torch-probe-layout.md). The former amplitude-mode
+            # exception ("pre-82da7796 raw convention", restored by 8b3d7a011
+            # after 82da77960's unconditional reshape degraded amp MAE
+            # 0.0846 -> 0.233) emitted a flat (B, H, W) probe whose
+            # ProbeIllumination broadcast silently multiplied the predicted
+            # field by the batch size; that layout is now banned fail-fast at
+            # the model boundary (ProbeLayoutError) and the conditioning
+            # benefit of the accidental gain is carried by the explicit
+            # ModelConfig.amplitude_physics_gain field instead.
             rectangular_mode = getattr(
                 self.model_config, 'physics_forward_mode', 'amplitude'
             ) == 'rectangular_scaled'
@@ -1035,7 +1038,7 @@ def _build_lightning_dataloaders(
                 tensor_dict['probe_training'] = probe
                 tensor_dict['probe_physical'] = probe_physical
                 tensor_dict['probe_normalization'] = probe_normalization
-            elif rectangular_mode:
+            else:
                 channels = images_indexed.shape[0]
                 if probe_raw.ndim == 2:
                     # Shared single-mode probe (H, W) -> (C, 1, H, W)
@@ -1046,14 +1049,13 @@ def _build_lightning_dataloaders(
                 else:
                     # Already sample-shaped (e.g. pre-batched (C, P, H, W)); leave as-is.
                     probe = probe_raw
-            else:
-                probe = probe_raw
 
-            # Broadcast scaling constant. Same conditioning as probe above: the
-            # per-sample select + reshape to (1, 1, 1) is required only for
-            # rectangular_scaled (compute_loss's ``scale ** 2 * physics_scale``
-            # needs a (B, 1, 1, 1)-broadcastable scale). The amplitude default
-            # never reads batch[2] (compute_loss only consumes `scale` inside its
+            # Broadcast scaling constant. Unlike the probe (documented layout
+            # in every mode, PROBE-RANK-001), the per-sample select + reshape
+            # to (1, 1, 1) is required only for rectangular_scaled
+            # (compute_loss's ``scale ** 2 * physics_scale`` needs a
+            # (B, 1, 1, 1)-broadcastable scale). The amplitude default never
+            # reads batch[2] (compute_loss only consumes `scale` inside its
             # rectangular_mode branch), so it keeps the pre-82da7796 raw,
             # un-indexed passthrough.
             if self.ci_active:

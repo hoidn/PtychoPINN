@@ -1,61 +1,76 @@
-"""
-PyTorch backend for PtychoPINN.
+"""PyTorch backend for PtychoPINN with lazy public compatibility exports."""
 
-This package provides PyTorch-compatible implementations and adapters for the
-PtychoPINN ptychography reconstruction framework, maintaining parity with the
-TensorFlow backend while enabling PyTorch-specific optimizations.
+from __future__ import annotations
 
-Public Exports:
----------------
-- config_bridge: Configuration translation utilities (PyTorch to TensorFlow dataclasses)
-- raw_data_bridge: Torch-optional RawDataTorch adapter
-- data_container_bridge: Torch-optional PtychoDataContainerTorch for model-ready tensors
-- workflows: Orchestration layer (run_cdi_example_torch, train_cdi_model_torch, etc.)
-"""
+from importlib import import_module
+from importlib.util import find_spec
+from typing import Any
 
-# PyTorch is now a mandatory dependency (Phase F3.1/F3.2)
-# Removed TORCH_AVAILABLE guard per phase_f_torch_mandatory.md F3.2
+
 try:
-    import torch
-    TORCH_AVAILABLE = True  # Preserved for backward compatibility
-except ImportError as e:
+    import torch as _torch
+except ImportError as exc:
     raise RuntimeError(
         "PyTorch is required for ptycho_torch package. "
         "Install PyTorch >= 2.2 with: pip install torch>=2.2"
-    ) from e
+    ) from exc
 
-# Export config bridge (PyTorch is now mandatory)
-from ptycho_torch.config_bridge import (
-    to_model_config,
-    to_training_config,
-    to_inference_config
-)
+TORCH_AVAILABLE = True
+del _torch
 
-# Always export raw_data_bridge (torch-optional per Phase C.C1)
-from ptycho_torch.raw_data_bridge import RawDataTorch
-
-# Always export data_container_bridge (torch-optional per Phase C.C2)
-from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
-
-# Always export memmap_bridge (torch-optional per Phase C.C3)
-from ptycho_torch.memmap_bridge import MemmapDatasetBridge
-
-# Always export workflows module (torch-optional per Phase D2.A)
-from ptycho_torch.workflows.components import (
-    run_cdi_example_torch,
-    train_cdi_model_torch,
-    load_inference_bundle_torch,
-)
+_LAZY_EXPORTS = {
+    "to_model_config": ("ptycho_torch.config_bridge", "to_model_config"),
+    "to_training_config": ("ptycho_torch.config_bridge", "to_training_config"),
+    "to_inference_config": ("ptycho_torch.config_bridge", "to_inference_config"),
+    "RawDataTorch": ("ptycho_torch.raw_data_bridge", "RawDataTorch"),
+    "PtychoDataContainerTorch": (
+        "ptycho_torch.data_container_bridge",
+        "PtychoDataContainerTorch",
+    ),
+    "MemmapDatasetBridge": ("ptycho_torch.memmap_bridge", "MemmapDatasetBridge"),
+    "run_cdi_example_torch": (
+        "ptycho_torch.workflows.components",
+        "run_cdi_example_torch",
+    ),
+    "train_cdi_model_torch": (
+        "ptycho_torch.workflows.components",
+        "train_cdi_model_torch",
+    ),
+    "load_inference_bundle_torch": (
+        "ptycho_torch.workflows.components",
+        "load_inference_bundle_torch",
+    ),
+}
 
 __all__ = [
-    'to_model_config',
-    'to_training_config',
-    'to_inference_config',
-    'RawDataTorch',
-    'PtychoDataContainerTorch',
-    'MemmapDatasetBridge',
-    'run_cdi_example_torch',
-    'train_cdi_model_torch',
-    'load_inference_bundle_torch',
-    'TORCH_AVAILABLE',
+    "to_model_config",
+    "to_training_config",
+    "to_inference_config",
+    "RawDataTorch",
+    "PtychoDataContainerTorch",
+    "MemmapDatasetBridge",
+    "run_cdi_example_torch",
+    "train_cdi_model_torch",
+    "load_inference_bundle_torch",
+    "TORCH_AVAILABLE",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    target = _LAZY_EXPORTS.get(name)
+    if target is not None:
+        module_name, attribute_name = target
+        value = getattr(import_module(module_name), attribute_name)
+        globals()[name] = value
+        return value
+
+    qualified_name = f"{__name__}.{name}"
+    if find_spec(qualified_name) is not None:
+        module = import_module(qualified_name)
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))

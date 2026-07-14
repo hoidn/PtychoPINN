@@ -370,6 +370,24 @@ class TestSetupTorchConfigs:
         assert training_config.batch_size == 32
         assert training_config.backend == "pytorch"
 
+    @pytest.mark.parametrize("architecture", ["cnn", "hybrid_resnet"])
+    def test_object_big_enables_canonical_full_decoder_support(
+        self, tmp_path, architecture
+    ):
+        """Every grouped Torch run preserves the canonical support policy."""
+        cfg = TorchRunnerConfig(
+            train_npz=tmp_path / "train.npz",
+            test_npz=tmp_path / "test.npz",
+            output_dir=tmp_path / "output",
+            architecture=architecture,
+            gridsize=2,
+        )
+
+        training_config, _ = setup_torch_configs(cfg)
+
+        assert training_config.model.object_big is True
+        assert training_config.model.probe_big is True
+
     def test_creates_execution_config(self, tmp_path):
         """Test config setup creates valid PyTorchExecutionConfig."""
         cfg = TorchRunnerConfig(
@@ -2973,6 +2991,7 @@ class TestTorchTrainingPath:
             "rect_s1s2_trainable": False,
             "scale_contract_version": LEGACY_SCALE_CONTRACT,
             "measurement_domain": NORMALIZED_AMPLITUDE,
+            "amplitude_physics_gain": 1.0,
         }
 
     def test_runner_default_varpro_probe_weighting_flags_forward_modelconfig_defaults(
@@ -3017,6 +3036,7 @@ class TestTorchTrainingPath:
             "rect_s1s2_trainable": defaults.rect_s1s2_trainable,
             "scale_contract_version": CI_SCALE_CONTRACT,
             "measurement_domain": COUNT_INTENSITY,
+            "amplitude_physics_gain": defaults.amplitude_physics_gain,
         }
 
     def test_explicit_legacy_profile_reaches_training_payload(
@@ -3593,6 +3613,8 @@ def test_main_accepts_varpro_probe_weighting_flags(tmp_path, monkeypatch):
             "probe",
             "--physics-forward-mode",
             "rectangular_scaled",
+            "--amplitude-physics-gain",
+            "16",
             "--cnn-output-mode",
             "real_imag",
             "--freeze-s1s2",
@@ -3602,6 +3624,7 @@ def test_main_accepts_varpro_probe_weighting_flags(tmp_path, monkeypatch):
     assert captured["cfg"] is not None
     assert captured["cfg"].training_patch_weighting == "probe"
     assert captured["cfg"].physics_forward_mode == "rectangular_scaled"
+    assert captured["cfg"].amplitude_physics_gain == 16.0
     assert captured["cfg"].cnn_output_mode == "real_imag"
     assert captured["cfg"].rect_s1s2_trainable is False  # freeze = not trainable
 
@@ -3644,6 +3667,7 @@ def test_main_varpro_probe_weighting_flags_default_unchanged(tmp_path, monkeypat
     assert captured["cfg"] is not None
     assert captured["cfg"].training_patch_weighting == "central_mask"
     assert captured["cfg"].physics_forward_mode == "amplitude"
+    assert captured["cfg"].amplitude_physics_gain == 1.0
     assert captured["cfg"].cnn_output_mode == "amp_phase"
     assert captured["cfg"].rect_s1s2_trainable is True
 
