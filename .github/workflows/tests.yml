@@ -14,6 +14,11 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Initialize required FRC submodule
+        run: |
+          git -c submodule.ptycho/FRC.url=https://github.com/hoidn/FRC.git \
+            submodule update --init --recursive --depth 1 ptycho/FRC
+          test -f ptycho/FRC/fourier_ring_corr.py
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
