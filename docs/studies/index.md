@@ -2,6 +2,45 @@
 
 ## CDI Datasets / Resources
 
+### `grid-lines-hybrid-resnet-integration-calibration` (5 epochs; half training population)
+
+- Purpose: reproduce the N=128, grid-size-1, seed-3 Hybrid ResNet integration
+  calibration after reducing the synthetic training population from two object
+  groups (8,978 diffraction patterns) to one group (4,489 patterns). The test
+  population remains one object group (729 patterns); all model, probe, loss,
+  optimizer, and scheduler settings remain unchanged.
+- Prerequisites: a CUDA device, the `ptycho311` environment, and the Run1084
+  probe fixture at `datasets/Run1084_recon3_postPC_shrunk_3.npz` (or one of the
+  fallback paths resolved by the test).
+- Reproduce the dataset calibration plus both affected five-epoch learned
+  quality gates from the repository root:
+
+  ```bash
+  source /home/ollie/miniconda3/etc/profile.d/conda.sh
+  conda activate ptycho311
+  python -m pytest -q \
+    tests/torch/test_grid_lines_hybrid_resnet_integration.py::test_grid_lines_dataset_stats \
+    tests/torch/test_grid_lines_hybrid_resnet_integration.py::test_grid_lines_hybrid_resnet_metrics \
+    tests/torch/test_grid_lines_hybrid_resnet_integration.py::test_grid_lines_hybrid_resnet_ci_nll_five_epoch_quality_and_visual
+  ```
+
+- The session-scoped fixture recreates
+  `.artifacts/integration/grid_lines_hybrid_resnet/`; do not run another writer
+  against that root concurrently.
+- Calibration fixtures:
+  `tests/fixtures/grid_lines_hybrid_resnet_dataset_stats.json`,
+  `tests/fixtures/grid_lines_hybrid_resnet_metrics.json`, and
+  `tests/fixtures/grid_lines_hybrid_ci_nll_5ep_metrics.json`.
+- Result payloads:
+  `.artifacts/integration/grid_lines_hybrid_resnet/runs/pinn_hybrid_resnet/metrics.json`
+  for the legacy-MAE condition and
+  `.artifacts/integration/grid_lines_hybrid_resnet/ci_nll_5ep/runs/pinn_hybrid_resnet/metrics.json`
+  plus `visuals/ci_nll_full_comparison.png` for the corrected CI/Poisson
+  condition.
+- Boundary: this is deterministic integration-test calibration and regression
+  evidence, not a manuscript benchmark or a replacement for the governed
+  `lines128` paper table.
+
 ### `natural_patches128_fixedprobe_v1` (dataset prerequisite; locked)
 
 - Purpose: provide a frozen expanded-object CDI dataset (natural-image-derived
