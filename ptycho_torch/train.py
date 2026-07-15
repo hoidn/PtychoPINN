@@ -597,6 +597,18 @@ Examples:
         )
     )
     parser.add_argument(
+        '--profile',
+        choices=['ci'],
+        default=None,
+        help=(
+            "Named configuration profile. 'ci' selects the coherent "
+            "PtychoPINN-CI bundle (ci_intensity_v2/count_intensity contract, "
+            "rectangular_scaled forward, Poisson loss, data-calibrated "
+            "trainable s1/s2, real/imag CNN heads). Explicit flags that "
+            "contradict the profile's contract fields fail closed."
+        ),
+    )
+    parser.add_argument(
         '--scale-contract-version',
         choices=['ci_intensity_v2', 'legacy_v1'],
         default=None,
@@ -900,6 +912,7 @@ Examples:
                 output_dir=output_dir,
                 overrides=overrides,
                 execution_config=execution_config,
+                profile=args.profile,
             )
 
             print(f"✓ Factory created configs: N={payload.pt_data_config.N}, "
@@ -938,11 +951,34 @@ Examples:
 
             # Route through run_cdi_example_torch for bundle persistence
             from ptycho_torch.workflows.components import run_cdi_example_torch
+            profile_overrides = None
+            if args.profile == "ci":
+                profile_overrides = {
+                    "scale_contract_version": (
+                        payload.pt_data_config.scale_contract_version
+                    ),
+                    "measurement_domain": payload.pt_data_config.measurement_domain,
+                    "physics_forward_mode": (
+                        payload.pt_model_config.physics_forward_mode
+                    ),
+                    "torch_loss_mode": payload.pt_training_config.torch_loss_mode,
+                    "loss_function": payload.pt_model_config.loss_function,
+                    "amplitude_physics_gain": (
+                        payload.pt_model_config.amplitude_physics_gain
+                    ),
+                    "rect_s1s2_trainable": (
+                        payload.pt_model_config.rect_s1s2_trainable
+                    ),
+                    "rect_s1s2_init": payload.pt_model_config.rect_s1s2_init,
+                    "cnn_output_mode": payload.pt_model_config.cnn_output_mode,
+                }
             amplitude, phase, results = run_cdi_example_torch(
                 train_data=train_data,
                 test_data=test_data,
                 config=payload.tf_training_config,
-                do_stitching=False  # CLI only needs training, not reconstruction
+                do_stitching=False,  # CLI only needs training, not reconstruction
+                execution_config=payload.execution_config,
+                overrides=profile_overrides,
             )
 
             if payload.pt_inference_config.log_patch_stats:

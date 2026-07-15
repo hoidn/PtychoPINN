@@ -290,9 +290,20 @@ class TestExecutionConfigCLI:
         # Mock RawData.from_file to avoid file I/O
         mock_raw_data = MagicMock()
 
+        # Import the workflow before patching the provider so its module-level
+        # save_torch_bundle binding cannot retain this test's mock afterward.
+        import ptycho_torch.workflows.components
+
         # Mock run_cdi_example_torch at the level where train.py imports it
         # This allows mocking without actually running the training
-        def mock_run_cdi_example_torch(train_data, test_data, config, do_stitching=False):
+        def mock_run_cdi_example_torch(
+            train_data,
+            test_data,
+            config,
+            do_stitching=False,
+            execution_config=None,
+            overrides=None,
+        ):
             """Mock workflow that still calls save_torch_bundle with correct structure."""
             from ptycho_torch.model_manager import save_torch_bundle
 

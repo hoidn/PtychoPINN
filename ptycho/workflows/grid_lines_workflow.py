@@ -524,6 +524,23 @@ def configure_legacy_params(cfg: GridLinesConfig, probe_np: np.ndarray) -> Train
     return config
 
 
+def _capture_simulation_probe() -> np.ndarray | None:
+    """Capture the set_probe-normalized simulation probe from legacy params.
+
+    Returns params['probe'] (the post-set_probe illumination actually used by the
+    simulator) as a complex64 array with the trailing singleton channel squeezed
+    to match the probeGuess convention ((N, N, 1) -> (N, N)). Returns None when no
+    probe is registered, keeping the key optional.
+    """
+    probe = p.get("probe", None)
+    if probe is None:
+        return None
+    probe = np.asarray(probe)
+    if probe.ndim == 3 and probe.shape[-1] == 1:
+        probe = probe[:, :, 0]
+    return probe.astype(np.complex64)
+
+
 def simulate_grid_data(cfg: GridLinesConfig, probe_np: np.ndarray) -> Dict[str, Any]:
     """Run simulation via data_preprocessing.generate_data and return split data."""
     from ptycho import data_preprocessing
@@ -534,6 +551,9 @@ def simulate_grid_data(cfg: GridLinesConfig, probe_np: np.ndarray) -> Dict[str, 
         X_te, YI_te, Yphi_te,
         YY_gt, dataset, YY_full, norm_Y_I
     ) = data_preprocessing.generate_data()
+
+    # Capture the set_probe-normalized illumination before any backend/param reset.
+    probe_simulated = _capture_simulation_probe()
 
     def _build_scan_positions(
         container: Any,
@@ -602,6 +622,7 @@ def simulate_grid_data(cfg: GridLinesConfig, probe_np: np.ndarray) -> Dict[str, 
             "coords_true": dataset.train_data.coords_true,
             "coords_offsets": train_offsets,
             "YY_full": dataset.train_data.YY_full,
+            "probe_simulated": probe_simulated,
             "container": dataset.train_data,
         },
         "test": {
@@ -614,6 +635,7 @@ def simulate_grid_data(cfg: GridLinesConfig, probe_np: np.ndarray) -> Dict[str, 
             "YY_full": dataset.test_data.YY_full,
             "YY_ground_truth": YY_gt,
             "norm_Y_I": norm_Y_I,
+            "probe_simulated": probe_simulated,
             "container": dataset.test_data,
         },
         "intensity_scale": p.get("intensity_scale"),
@@ -653,6 +675,8 @@ def save_split_npz(
         payload["coords_offsets"] = data["coords_offsets"]
     if data.get("probeGuess") is not None:
         payload["probeGuess"] = data["probeGuess"]
+    if data.get("probe_simulated") is not None:
+        payload["probe_simulated"] = np.asarray(data["probe_simulated"], dtype=np.complex64)
     if split == "test":
         if data.get("YY_ground_truth") is not None:
             payload["YY_ground_truth"] = data["YY_ground_truth"]

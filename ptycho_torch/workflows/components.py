@@ -430,7 +430,8 @@ def run_cdi_example_torch(
     transpose: bool = False,
     M: int = 20,
     do_stitching: bool = False,
-    execution_config: Optional[Any] = None
+    execution_config: Optional[Any] = None,
+    overrides: Optional[dict] = None,
 ) -> Tuple[Optional[Any], Optional[Any], Dict[str, Any]]:
     """
     Run the main CDI example execution flow using PyTorch backend.
@@ -454,6 +455,8 @@ def run_cdi_example_torch(
         execution_config: Optional PyTorchExecutionConfig for runtime control (accelerator,
                          num_workers, learning_rate, scheduler, logger, checkpointing).
                          See CONFIG-002, CONFIG-LOGGER-001.
+        overrides: Optional torch-only factory overrides forwarded unchanged to
+            the Lightning training boundary.
 
     Returns:
         Tuple containing:
@@ -497,10 +500,17 @@ def run_cdi_example_torch(
     logger.info("Invoking PyTorch training orchestration via train_cdi_model_torch")
     # Note: train_cdi_model_torch will need to be updated to accept execution_config
     # For now, we pass it as a keyword argument for forward compatibility
-    if execution_config is None:
-        train_results = train_cdi_model_torch(train_data, test_data, config)
-    else:
-        train_results = train_cdi_model_torch(train_data, test_data, config, execution_config=execution_config)
+    training_kwargs = {}
+    if execution_config is not None:
+        training_kwargs["execution_config"] = execution_config
+    if overrides is not None:
+        training_kwargs["overrides"] = overrides
+    train_results = train_cdi_model_torch(
+        train_data,
+        test_data,
+        config,
+        **training_kwargs,
+    )
 
     # Step 2: Initialize return values for reconstruction outputs
     recon_amp, recon_phase = None, None
@@ -1280,6 +1290,20 @@ def _build_inference_dataloader(
     )
 
 
+def _move_batch_to_device(batch, device):
+    """Move tensors in a nested Lightning batch structure to ``device``."""
+    if hasattr(batch, "to"):
+        return batch.to(device)
+    if isinstance(batch, dict):
+        return {
+            key: _move_batch_to_device(value, device)
+            for key, value in batch.items()
+        }
+    if isinstance(batch, (list, tuple)):
+        return type(batch)(_move_batch_to_device(value, device) for value in batch)
+    return batch
+
+
 def _train_with_lightning(
     train_container: Union['PtychoDataContainerTorch','PtychoDataset'],
     test_container: Optional['PtychoDataContainerTorch'],
@@ -1726,6 +1750,22 @@ def _train_with_lightning(
         logger=lightning_logger,  # Phase EB3.B: Use configured logger (False if disabled)
     )
 
+    rect_s1s2_calibration = None
+    if getattr(pt_model_config, "rect_s1s2_init", "ones") == "data":
+        if isinstance(data_product, PrebuiltPtychoDataModule):
+            data_product.setup("fit")
+            calibration_loader = data_product.train_dataloader()
+        else:
+            calibration_loader = train_loader
+        calibration_batch = _move_batch_to_device(
+            next(iter(calibration_loader)), model.device
+        )
+        rect_s1s2_calibration = model.calibrate_rect_s1s2(calibration_batch)
+        logger.info(
+            "rect_s1s2 data calibration: s1=s2=%s",
+            rect_s1s2_calibration,
+        )
+
     # B2.6: Execute training cycle
     logger.info(f"Starting Lightning training: {config.nepochs} epochs")
     if isinstance(data_product, PrebuiltPtychoDataModule):
@@ -1758,6 +1798,7 @@ def _train_with_lightning(
         "history": history,
         "train_container": train_container,
         "test_container": test_container,
+        "rect_s1s2_calibration": rect_s1s2_calibration,
         "models": {
             "diffraction_to_obj": model,  # Main Lightning module
             "autoencoder": {'_sentinel': 'autoencoder'}  # Sentinel for dual-model requirement
@@ -2006,7 +2047,8 @@ def train_cdi_model_torch(
     train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch', 'PtychoDataset'],
     test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
     config: TrainingConfig,
-    execution_config: Optional[Any] = None
+    execution_config: Optional[Any] = None,
+    overrides: Optional[dict] = None,
 ) -> Dict[str, Any]:
     """
     Train the CDI model using PyTorch Lightning backend.
@@ -2019,6 +2061,7 @@ def train_cdi_model_torch(
         test_data: Optional test data for validation
         config: TrainingConfig instance (TensorFlow dataclass)
         execution_config: Optional PyTorchExecutionConfig for runtime control
+        overrides: Optional torch-only factory overrides.
 
     Returns:
         Dict[str, Any]: Results dictionary containing:
@@ -2059,10 +2102,17 @@ def train_cdi_model_torch(
 
     # Step 4: Delegate to Lightning trainer
     logger.info("Delegating to Lightning trainer via _train_with_lightning")
-    if execution_config is None:
-        results = _train_with_lightning(train_container, test_container, config)
-    else:
-        results = _train_with_lightning(train_container, test_container, config, execution_config=execution_config)
+    lightning_kwargs = {}
+    if execution_config is not None:
+        lightning_kwargs["execution_config"] = execution_config
+    if overrides is not None:
+        lightning_kwargs["overrides"] = overrides
+    results = _train_with_lightning(
+        train_container,
+        test_container,
+        config,
+        **lightning_kwargs,
+    )
     if hasattr(train_container, 'physics_scaling_constant'):
         import torch
         scale_tensor = torch.as_tensor(train_container.physics_scaling_constant)

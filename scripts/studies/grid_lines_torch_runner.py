@@ -36,6 +36,7 @@ import argparse
 import json
 import logging
 import math
+import os
 import random
 import sys
 import time
@@ -165,6 +166,8 @@ class TorchRunnerConfig:
     training_patch_weighting: str = "central_mask"
     physics_forward_mode: str = "amplitude"
     rect_s1s2_trainable: bool = True
+    rect_s1s2_init: str = "ones"
+    rect_s1s2_refit: str = "off"
     N: int = 64
     gridsize: int = 1
     probe_source: Optional[str] = None
@@ -1056,7 +1059,7 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
             resnet_width=cfg.resnet_width,
             generator_output_mode=cfg.generator_output_mode,
             object_big=cfg.gridsize > 1,
-            probe_big=False,
+            probe_big=cfg.gridsize > 1,
             probe_mask=cfg.probe_mask,
             probe_mask_sigma=cfg.probe_mask_sigma,
             probe_mask_diameter=cfg.probe_mask_diameter,
@@ -1143,6 +1146,65 @@ def _resolve_split_nphotons(
     return float(default), "default"
 
 
+def _select_ci_probe(
+    train_data: Dict[str, Any],
+    test_data: Optional[Dict[str, Any]],
+    ci_dict_active: bool,
+) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], str]:
+    """Select the physics container probe for the train/test splits.
+
+    When the CI (count-intensity) dict contract is active and the grid-lines
+    bundle carries ``probe_simulated`` (the ``set_probe``-normalized simulation
+    probe stored by the dataset writer, proportional to ``probeGuess``), prefer
+    it: it is the illumination that actually produced the recorded counts, so a
+    measurement-consistent reconstruction matches ground-truth brightness.
+    Otherwise, and for every non-CI arm, fall back to the stored ``probeGuess``.
+
+    Args:
+        train_data: Loaded train split dict (numpy arrays).
+        test_data: Loaded test split dict, or ``None``/empty when there is none.
+        ci_dict_active: Whether the CI dict contract governs this arm.
+
+    Returns:
+        ``(train_probe, test_probe, provenance)`` where ``provenance`` is
+        ``"simulated"`` or ``"stored_guess"``. Either probe may be ``None`` when
+        the split lacks a stored probe; the caller keeps applying its existing
+        ``probeGuess``-absent fallbacks (``np.ones`` for diffraction-only input
+        conditioning; ``test_probe = probe`` when the test split has no probe).
+
+    Raises:
+        ValueError: CI is active, the test split is a real split carrying a
+            probe, and exactly one of the two splits carries ``probe_simulated``
+            (a lines bundle writes it for both splits or neither, so a one-sided
+            bundle is corrupted or mixed).
+    """
+    train_guess = train_data.get("probeGuess")
+    test_present = bool(test_data)
+    test_guess = test_data.get("probeGuess") if test_present else None
+
+    if not ci_dict_active:
+        return train_guess, test_guess, "stored_guess"
+
+    train_sim = train_data.get("probe_simulated")
+    test_sim = test_data.get("probe_simulated") if test_present else None
+    train_has_sim = train_sim is not None
+    test_has_sim = test_sim is not None
+
+    test_is_real = test_present and (test_guess is not None or test_has_sim)
+    if test_is_real and train_has_sim != test_has_sim:
+        raise ValueError(
+            "CI probe provenance mismatch: exactly one split carries "
+            f"'probe_simulated' (train={train_has_sim}, test={test_has_sim}). "
+            "A grid-lines bundle must write 'probe_simulated' for both splits or "
+            "neither; a one-sided bundle is corrupted or mixed."
+        )
+
+    if train_has_sim:
+        return train_sim, test_sim, "simulated"
+    return train_guess, test_guess, "stored_guess"
+
+
+
 def run_torch_training(
     cfg: TorchRunnerConfig,
     train_data: Dict[str, np.ndarray],
@@ -1202,7 +1264,9 @@ def run_torch_training(
         and resolved_scale_contract.version == CI_SCALE_CONTRACT
     )
 
-    probe = train_data.get("probeGuess")
+    probe, test_probe, ci_probe_provenance = _select_ci_probe(
+        train_data, test_data, ci_dict_active
+    )
     if probe is None and cfg.input_conditioning_mode == "diffraction_only":
         probe = np.ones((cfg.N, cfg.N), dtype=np.complex64)
 
@@ -1282,7 +1346,6 @@ def run_torch_training(
     test_nphotons = None
     test_nphotons_source = None
     if test_data:
-        test_probe = test_data.get("probeGuess")
         if test_probe is None:
             test_probe = probe
         test_nphotons, test_nphotons_source = _resolve_split_nphotons(
@@ -1351,27 +1414,28 @@ def run_torch_training(
                 cfg.count_scale_mode,
             )
 
+    lightning_overrides = {
+        "training_patch_weighting": cfg.training_patch_weighting,
+        "physics_forward_mode": cfg.physics_forward_mode,
+        "cnn_output_mode": cfg.cnn_output_mode,
+        "rect_s1s2_trainable": cfg.rect_s1s2_trainable,
+        "scale_contract_version": cfg.scale_contract_version,
+        "measurement_domain": cfg.measurement_domain,
+    }
+    if cfg.rect_s1s2_init != "ones":
+        lightning_overrides["rect_s1s2_init"] = cfg.rect_s1s2_init
+
     results = _train_with_lightning(
         train_container,
         test_container,
         training_config,
         execution_config=execution_config,
-        # Forward the torch-only VarPro/probe-weighting ModelConfig knobs (Task 2.7 / B7
-        # follow-up). These fields exist only on ptycho_torch.config_params.ModelConfig,
-        # so they cannot be threaded through the read-only TF-side TrainingConfig used
-        # above; _train_with_lightning merges this dict into create_training_payload's
-        # overrides at highest precedence.
-        overrides={
-            "training_patch_weighting": cfg.training_patch_weighting,
-            "physics_forward_mode": cfg.physics_forward_mode,
-            "cnn_output_mode": cfg.cnn_output_mode,
-            "rect_s1s2_trainable": cfg.rect_s1s2_trainable,
-            "scale_contract_version": cfg.scale_contract_version,
-            "measurement_domain": cfg.measurement_domain,
-        },
+        overrides=lightning_overrides,
     )
     results["generator"] = cfg.architecture
     results["input_conditioning_contract"] = input_conditioning_contract
+    if ci_dict_active:
+        results["ci_probe_provenance"] = ci_probe_provenance
     results["count_scale_provenance"] = {
         "count_scale_mode": cfg.count_scale_mode,
         "ci_dict_adapter_active": ci_dict_active,
@@ -1396,12 +1460,81 @@ def run_torch_training(
             "test": {"value": test_nphotons, "source": test_nphotons_source},
         },
     }
+    if ci_dict_active and test_container is not None:
+        # Final reconstruction must consume the same prepared count-intensity
+        # representation and frozen training statistics used by validation.
+        # Keep this process-local payload private; artifact serialization uses
+        # only the explicit provenance fields above.
+        results["_ci_inference_container"] = test_container
     return results
+
+
+def _finalize_rect_s1s2_refit(
+    state: Optional[Dict[str, Any]],
+    error: Optional[str],
+    n_patterns: int,
+) -> Dict[str, Any]:
+    """Solve the accumulated per-dataset (s1, s2) moments and build the block.
+
+    On success returns ``{"mode": "dataset", "s1", "s2", "c_A", "c_phi",
+    "n_patterns"}`` (Eq. 6 contrast coordinates ``c_A = sqrt(s1^2+s2^2)``,
+    ``c_phi = arctan(s2/s1)``). This block is the SOLE hand-off to Task B4's
+    scaled-recon emission -- the model's rect scaler is deliberately left
+    untouched, so the refit can never leak into checkpoints on any eval path.
+    On a degenerate/singular basis (e.g. a collapsed checkpoint) it records
+    ``{"mode": "dataset", "error", "n_patterns"}`` instead -- itself a
+    diagnostic signal -- so the run continues; in the error block
+    ``n_patterns`` counts the patterns accumulated before the failure.
+    """
+    import math
+    from ptycho_torch.rect_scaling import solve_from_state
+
+    if error is not None:
+        return {"mode": "dataset", "error": error, "n_patterns": int(n_patterns)}
+    try:
+        s1, s2 = solve_from_state(state)
+    except ValueError as exc:
+        return {"mode": "dataset", "error": str(exc), "n_patterns": int(n_patterns)}
+
+    return {
+        "mode": "dataset",
+        "s1": float(s1),
+        "s2": float(s2),
+        "c_A": float(math.hypot(s1, s2)),
+        "c_phi": float(math.atan2(s2, s1)),
+        "n_patterns": int(n_patterns),
+    }
+
+
+def _find_rect_scaler(model: Any) -> Optional[Any]:
+    """Locate the RectangularScaledDiffraction submodule regardless of nesting.
+
+    Structural (isinstance) resolution over the module tree rather than a
+    hard-coded attribute path. The real ``PtychoPINN_Lightning`` nests the
+    scaler at ``model.model.forward_model.rect_scaler`` (Lightning wraps the
+    network under ``.model``); a DataParallel-wrapped model exposes the network
+    under ``.module``; test doubles may register it more shallowly. Returns the
+    scaler in every case, or None when there is no rect scaler (e.g. amplitude
+    mode) or the object is not an ``nn.Module`` (e.g. a bare SimpleNamespace
+    stand-in). A prior attribute-path lookup assumed a top-level
+    ``.forward_model`` and silently failed on real checkpoints (Phase C escape).
+    """
+    from ptycho_torch.model import RectangularScaledDiffraction
+
+    target = model.module if hasattr(model, "module") else model
+    modules = getattr(target, "modules", None)
+    if not callable(modules):
+        return None
+    return next(
+        (m for m in target.modules() if isinstance(m, RectangularScaledDiffraction)),
+        None,
+    )
+
 
 
 def run_torch_inference(
     model: Any,
-    test_data: Dict[str, np.ndarray],
+    test_data: Dict[str, Any],
     cfg: TorchRunnerConfig,
     metadata: Optional[Dict[str, Any]] = None,
 ) -> np.ndarray:
@@ -1409,7 +1542,10 @@ def run_torch_inference(
 
     Args:
         model: Trained PyTorch model
-        test_data: Test dataset
+        test_data: Raw test dataset, or the CI-prepared test container returned
+            by ``run_torch_training``. Prepared containers provide ``X``,
+            ``probe_training``, and ``rms_input_scale`` so inference sees the
+            same representation and frozen normalization used for validation.
         cfg: Runner configuration
 
     Returns:
@@ -1420,6 +1556,7 @@ def run_torch_inference(
         Inference is batched to avoid GPU OOM on dense datasets.
     """
     import torch
+    from ptycho_torch.scaling_contract import CI_SCALE_CONTRACT, COUNT_INTENSITY
 
     if model is None:
         raise ValueError("Model is required for inference")
@@ -1445,15 +1582,77 @@ def run_torch_inference(
 
         return torch.device("cpu")
 
-    probe_np = test_data.get('probeGuess')
+    def _as_numpy(value: Any) -> np.ndarray:
+        if isinstance(value, np.ndarray):
+            return value
+        if isinstance(value, torch.Tensor):
+            return value.detach().cpu().numpy()
+        return np.asarray(value)
+
+    prepared_input = test_data.get("X")
+    ci_profile = (
+        getattr(cfg, "physics_forward_mode", "amplitude") == "rectangular_scaled"
+        and cfg.scale_contract_version == CI_SCALE_CONTRACT
+        and cfg.measurement_domain == COUNT_INTENSITY
+    )
+
+    # Task B3: opt-in per-dataset (s1, s2) least-squares refit (Eq. 8). Validate
+    # the flag and its applicability BEFORE any inference work so a misconfigured
+    # request fails fast rather than after a full forward pass.
+    refit_mode = getattr(cfg, "rect_s1s2_refit", "off")
+    if refit_mode not in ("off", "dataset"):
+        raise ValueError(
+            f"rect_s1s2_refit must be 'off' or 'dataset'; got {refit_mode!r}."
+        )
+    refit_active = refit_mode == "dataset"
+    if refit_active and not (
+        ci_profile
+        and getattr(cfg, "physics_forward_mode", "amplitude") == "rectangular_scaled"
+    ):
+        raise ValueError(
+            "rect_s1s2_refit='dataset' requires the CI count-intensity "
+            "rectangular_scaled profile (scale_contract_version="
+            f"{CI_SCALE_CONTRACT}, measurement_domain={COUNT_INTENSITY}, "
+            "physics_forward_mode='rectangular_scaled'); got contract="
+            f"{cfg.scale_contract_version!r}, domain={cfg.measurement_domain!r}, "
+            f"forward_mode={getattr(cfg, 'physics_forward_mode', 'amplitude')!r}."
+        )
+
+    if ci_profile:
+        missing = [
+            name
+            for name in ("X", "rms_input_scale", "probe_training")
+            if test_data.get(name) is None
+        ]
+        if missing:
+            raise ValueError(
+                "CI inference requires the prepared validation container with "
+                "X, rms_input_scale, and probe_training; missing "
+                + ", ".join(missing)
+                + ". Raw diffraction amplitudes are not valid CI network input."
+            )
+    if prepared_input is None:
+        probe_np = test_data.get('probeGuess')
+    else:
+        probe_np = test_data.get("probe_training")
+        if probe_np is None:
+            probe_np = test_data.get("probe")
+        if probe_np is None:
+            probe_np = test_data.get("probeGuess")
     if probe_np is None and cfg.input_conditioning_mode == "diffraction_only":
         probe_np = np.ones((cfg.N, cfg.N), dtype=np.complex64)
-    X_np, _ = _apply_input_conditioning(
-        test_data['diffraction'],
-        probe_np,
-        cfg,
-        metadata=metadata,
-    )
+    if prepared_input is None:
+        X_np, _ = _apply_input_conditioning(
+            test_data['diffraction'],
+            probe_np,
+            cfg,
+            metadata=metadata,
+        )
+        input_scale = None
+    else:
+        X_np = _as_numpy(prepared_input)
+        input_scale = test_data.get("rms_input_scale")
+    probe_np = _as_numpy(probe_np)
     if X_np.ndim == 4 and X_np.shape[1] <= 8 and X_np.shape[-1] > 8:
         X_np = np.transpose(X_np, (0, 2, 3, 1))
 
@@ -1473,16 +1672,119 @@ def run_torch_inference(
     preds = []
     batch_size = max(1, cfg.infer_batch_size)
     probe_test = probe_test.to(device)
+    input_scale_test = (
+        None
+        if input_scale is None
+        else torch.as_tensor(_as_numpy(input_scale), dtype=torch.float32, device=device)
+    )
+
+    # Task B3: per-dataset (s1, s2) refit accumulation state. probe_eff is the
+    # effective probe P_eff = output_scale * probe_training == probe_physical
+    # (audit CI-SCALE-001); passing it with scale=1.0 to basis_images reproduces
+    # the training exit-wave physics. measured_refit is the count-domain fit
+    # target, channel-first (B, C, H, W) to align with the (B, C, P, H, W) basis.
+    refit_state = None
+    refit_error: Optional[str] = None
+    refit_n_patterns = 0
+    probe_eff = None
+    measured_refit = None
+    rect_scaler = None
+    if refit_active:
+        from ptycho_torch.rect_scaling import accumulate_rect_basis
+
+        rect_scaler = _find_rect_scaler(target_model)
+        if rect_scaler is None:
+            raise ValueError(
+                "rect_s1s2_refit='dataset' requires a "
+                "RectangularScaledDiffraction submodule on the model, but none "
+                "was found (structural search over model.modules())."
+            )
+        probe_physical_np = test_data.get("probe_physical")
+        measured_np = test_data.get("measured_intensity")
+        if probe_physical_np is None or measured_np is None:
+            raise ValueError(
+                "rect_s1s2_refit='dataset' requires the prepared container to "
+                "carry 'probe_physical' and 'measured_intensity'."
+            )
+        probe_eff = torch.as_tensor(_as_numpy(probe_physical_np)).to(
+            torch.complex64
+        ).to(device)
+        if probe_eff.ndim >= 3 and probe_eff.shape[0] > 1:
+            # Canonical CI probe layouts are (N, N) or mode-first (P, N, N)
+            # (_canonicalize_ci_probe_modes). Streaming per-mode fields through
+            # accumulate_rect_basis flattens modes as independent samples,
+            # which is NOT the Eq. (5) mode-summed estimator for P > 1 -- so
+            # fail fast into the diagnostic error block rather than silently
+            # fitting per-mode-broadcast garbage. Inference continues.
+            refit_error = "multi-mode probe unsupported by rect refit"
+        else:
+            measured_refit = torch.as_tensor(
+                _as_numpy(measured_np), dtype=torch.float32
+            )
+            if measured_refit.ndim == 4:
+                # Prepared measured intensity is channel-last (B, H, W, C).
+                measured_refit = measured_refit.permute(0, 3, 1, 2)
+            measured_refit = measured_refit.to(device)
 
     with torch.no_grad():
         for start in range(0, n_samples, batch_size):
             end = min(start + batch_size, n_samples)
             x_batch = X_test[start:end].to(device)
             coords_batch = coords_test[start:end].to(device)
-            scale_batch = torch.ones((end - start, 1, 1, 1), device=device, dtype=torch.float32)
+            if input_scale_test is None:
+                scale_batch = torch.ones(
+                    (end - start, 1, 1, 1),
+                    device=device,
+                    dtype=torch.float32,
+                )
+            elif input_scale_test.numel() == 1:
+                scale_batch = input_scale_test.reshape(1, 1, 1, 1).expand(
+                    end - start, 1, 1, 1
+                )
+            elif input_scale_test.shape[0] == n_samples:
+                scale_batch = input_scale_test[start:end]
+                while scale_batch.ndim < 4:
+                    scale_batch = scale_batch.unsqueeze(-1)
+            else:
+                raise ValueError(
+                    "Prepared inference rms_input_scale must be scalar or have "
+                    f"leading dimension {n_samples}; got {tuple(input_scale_test.shape)}."
+                )
             probe_batch = probe_test
             batch_pred = target_model.forward_predict(x_batch, coords_batch, probe_batch, scale_batch)
             preds.append(batch_pred.detach().cpu())
+
+            # Task B3: accumulate the VarPro basis for this batch against the
+            # frozen measured intensities. Capture Psi_a/Psi_b BEFORE mode
+            # summation so accumulate_rect_basis forms the Eq. (5) cross-term
+            # (single-mode P == 1 only; P > 1 was rejected at refit prep).
+            # A basis/accumulation failure (e.g. non-finite textures) disables
+            # the refit and is reported, but must not kill inference.
+            if refit_active and refit_error is None:
+                try:
+                    if not torch.is_complex(batch_pred):
+                        raise ValueError(
+                            "rect_s1s2_refit='dataset' expects complex textures "
+                            f"from forward_predict; got dtype {batch_pred.dtype}."
+                        )
+                    psi_a, psi_b = rect_scaler.basis_images(
+                        batch_pred.to(device), probe_eff, 1.0
+                    )
+                    meas_batch = measured_refit[start:end].unsqueeze(2)
+                    refit_state = accumulate_rect_basis(
+                        psi_a, psi_b, meas_batch, refit_state
+                    )
+                    refit_n_patterns += end - start
+                except ValueError as exc:
+                    refit_error = str(exc)
+                    refit_state = None
+
+    if refit_active:
+        setattr(
+            target_model,
+            "_rect_s1s2_refit",
+            _finalize_rect_s1s2_refit(refit_state, refit_error, refit_n_patterns),
+        )
 
     predictions = torch.cat(preds, dim=0)
     return predictions.numpy()
@@ -1522,6 +1824,150 @@ def compute_metrics(
         gt,
         label=label,
     )
+
+
+def _read_trained_rect_s1s2(model: Any) -> Optional[Tuple[float, float]]:
+    """Read the trained (s1, s2) read-only from a model's rect scaler.
+
+    Returns the per-dataset[0] trained scales from the model's
+    RectangularScaledDiffraction submodule (resolved structurally via
+    ``_find_rect_scaler``, so it is found regardless of Lightning/DataParallel
+    nesting; present only in the rectangular_scaled CI profile), or None when
+    there is no rect scaler (e.g. amplitude mode) so the caller skips scaled
+    emission. Never mutates the scaler -- the refit hand-off is the results
+    block alone, and reading the trained pair must not leak into checkpoints on
+    any eval path.
+    """
+    rect_scaler = _find_rect_scaler(model)
+    if rect_scaler is None or not (
+        hasattr(rect_scaler, "s1") and hasattr(rect_scaler, "s2")
+    ):
+        return None
+    try:
+        import torch
+
+        with torch.no_grad():
+            s1 = float(rect_scaler.s1.detach().reshape(-1)[0])
+            s2 = float(rect_scaler.s2.detach().reshape(-1)[0])
+        return (s1, s2)
+    except Exception as exc:
+        logger.warning(
+            "Failed to read trained rect (s1, s2) from the model's rect "
+            "scaler; treating as no trained source for scaled-recon "
+            "emission: %s",
+            exc,
+        )
+        return None
+
+
+def _resolve_scaled_recon_source(
+    refit_block: Optional[Dict[str, Any]],
+    trained_rect_s1s2: Optional[Tuple[float, float]],
+) -> Optional[Dict[str, Any]]:
+    """Pick the (s1, s2) pair + provenance for the scaled reconstruction.
+
+    Precedence (post-B3-review amendment): a present, error-free refit block
+    wins (source 'refit'); otherwise the model's TRAINED scaler pair is used
+    (source 'trained'). A refit block carrying an ``error`` key falls back to
+    the trained pair. Returns ``{"s1", "s2", "source"}`` or None when neither a
+    valid refit pair nor a trained pair exists -> caller emits nothing.
+    """
+    if (
+        isinstance(refit_block, dict)
+        and "error" not in refit_block
+        and "s1" in refit_block
+        and "s2" in refit_block
+    ):
+        return {
+            "s1": float(refit_block["s1"]),
+            "s2": float(refit_block["s2"]),
+            "source": "refit",
+        }
+    if trained_rect_s1s2 is not None:
+        return {
+            "s1": float(trained_rect_s1s2[0]),
+            "s2": float(trained_rect_s1s2[1]),
+            "source": "trained",
+        }
+    return None
+
+
+def _apply_rect_scaling(field: np.ndarray, s1: float, s2: float) -> np.ndarray:
+    """Measurement-consistent rect scaling of a complex field (paper Eq. 1).
+
+    ``Z_scaled = s1*Re(Z) + i*s2*Im(Z)``. This is applied to the STITCHED
+    complex reconstruction: real/imag-channel scaling is real-linear and
+    reassembly (weighted sums/averages of complex patches) is real-linear too,
+    so scaling the stitched field equals per-patch scaling -- the two commute --
+    which makes scaling here exact and far simpler than scaling every patch.
+    (Raw real/imag-STACKED arrays must not be scaled directly, since s1/s2 map
+    to channels, not to a complex value; by this point predictions are complex.)
+    """
+    z = np.asarray(field)
+    if not np.iscomplexobj(z):
+        z = z.astype(np.complex64)
+    return (s1 * z.real + 1j * (s2 * z.imag)).astype(z.dtype)
+
+
+def _augment_recon_npz_with_scaled(recon_path: Path, s1: float, s2: float) -> None:
+    """Additively re-save recon.npz with a complex ``YY_pred_scaled`` key.
+
+    Reloads the existing arrays and rewrites them unchanged plus
+    ``YY_pred_scaled = _apply_rect_scaling(YY_pred, s1, s2)``, so the scaled
+    field has the exact shape/dtype of the saved ``YY_pred``.
+
+    Crash-atomic: recon.npz is the arm's PRIMARY reconstruction artifact and
+    this augment is best-effort reporting, so a mid-write failure (disk full /
+    IO error) must never corrupt it. The arrays are written to a sibling temp
+    file first and only a complete write is promoted via ``os.replace``
+    (atomic on POSIX within one directory); on failure the temp file is
+    removed and the original stays untouched.
+    """
+    with np.load(recon_path) as data:
+        arrays = {key: data[key] for key in data.files}
+    arrays["YY_pred_scaled"] = _apply_rect_scaling(arrays["YY_pred"], s1, s2)
+    tmp_path = recon_path.with_suffix(".tmp.npz")
+    try:
+        np.savez(tmp_path, **arrays)
+        os.replace(tmp_path, recon_path)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
+def _emit_scaled_recon(
+    *,
+    refit_block: Optional[Dict[str, Any]],
+    trained_rect_s1s2: Optional[Tuple[float, float]],
+    pred_for_metrics: np.ndarray,
+    ground_truth: np.ndarray,
+    label: str,
+    recon_path: Path,
+    metrics: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Emit the measurement-consistent scaled reconstruction (all additive).
+
+    Resolves the (s1, s2) source, scales the stitched complex reconstruction,
+    augments ``recon.npz`` with ``YY_pred_scaled``, and inserts
+    ``metrics["metrics_scaled"] = compute_metrics(scaled, ground_truth)`` (the
+    full metric set). Returns the ``{"s1","s2","source"}``
+    provenance for the arm JSON, or None when no rect (s1, s2) source exists so
+    nothing is emitted anywhere.
+
+    The passed-in ``metrics`` dict is mutated LAST so a mid-emission failure
+    (e.g. the NPZ re-save raising) leaves the existing metrics untouched and the
+    scaled artifacts absent -- a clean skip rather than a half-written state.
+    """
+    source = _resolve_scaled_recon_source(refit_block, trained_rect_s1s2)
+    if source is None:
+        return None
+    s1, s2 = source["s1"], source["s2"]
+    pred_scaled = _apply_rect_scaling(pred_for_metrics, s1, s2)
+    metrics_scaled = compute_metrics(pred_scaled, ground_truth, label)
+    _augment_recon_npz_with_scaled(Path(recon_path), s1, s2)
+    metrics["metrics_scaled"] = metrics_scaled
+    return source
+
 
 
 def _collect_visual_order(output_dir: Path, architecture: str) -> Tuple[str, ...]:
@@ -1630,6 +2076,18 @@ def save_run_artifacts(
         "ci_count_amplitude_scale_test"
     )
     config_payload["nphotons"] = count_scale_provenance.get("nphotons")
+    config_payload["rect_s1s2_calibration"] = results.get(
+        "rect_s1s2_calibration"
+    )
+    ci_probe_provenance = results.get("ci_probe_provenance")
+    if ci_probe_provenance is not None:
+        config_payload["ci_probe_provenance"] = ci_probe_provenance
+    rect_s1s2_refit = results.get("rect_s1s2_refit")
+    if rect_s1s2_refit is not None:
+        config_payload["rect_s1s2_refit"] = rect_s1s2_refit
+    scaled_recon = results.get("scaled_recon")
+    if scaled_recon is not None:
+        config_payload["scaled_recon"] = scaled_recon
     encoder_recipe = _fixed_hybrid_encoder_recipe(cfg)
     if encoder_recipe is not None:
         config_payload["encoder_recipe"] = dict(encoder_recipe)
@@ -1922,10 +2380,26 @@ def run_grid_lines_torch(
         if cuda_available:
             torch.cuda.synchronize()
         start = time.perf_counter()
-        predictions = run_torch_inference(model, test_data, cfg, metadata=test_metadata)
+        inference_data = results.pop("_ci_inference_container", None)
+        if inference_data is None:
+            inference_data = test_data
+        predictions = run_torch_inference(
+            model,
+            inference_data,
+            cfg,
+            metadata=test_metadata,
+        )
         if cuda_available:
             torch.cuda.synchronize()
         inference_time_s = time.perf_counter() - start
+
+        refit_target = model.module if hasattr(model, "module") else model
+        rect_s1s2_refit_block = getattr(
+            refit_target, "_rect_s1s2_refit", None
+        )
+        if rect_s1s2_refit_block is not None:
+            results["rect_s1s2_refit"] = rect_s1s2_refit_block
+        trained_rect_s1s2 = _read_trained_rect_s1s2(refit_target)
 
         # Step 3b: Convert real/imag predictions to complex if needed
         # FNO/Hybrid models output (B, H, W, C, 2) format; convert to complex
@@ -1967,6 +2441,21 @@ def run_grid_lines_torch(
             model_id,
         )
 
+        try:
+            scaled_recon = _emit_scaled_recon(
+                refit_block=results.get("rect_s1s2_refit"),
+                trained_rect_s1s2=trained_rect_s1s2,
+                pred_for_metrics=pred_for_metrics,
+                ground_truth=ground_truth,
+                label=model_id,
+                recon_path=Path(recon_path),
+                metrics=metrics,
+            )
+            if scaled_recon is not None:
+                results["scaled_recon"] = scaled_recon
+        except Exception as exc:
+            logger.warning("Scaled-recon emission failed; skipping: %s", exc)
+
         # Step 5: Save artifacts
         randomness_contract = _build_randomness_contract(cfg)
         run_dir = save_run_artifacts(
@@ -1994,6 +2483,8 @@ def run_grid_lines_torch(
             'position_reassembly_runtime_contract': position_reassembly_runtime_contract,
             'randomness_contract': randomness_contract,
         }
+        if rect_s1s2_refit_block is not None:
+            result_dict['rect_s1s2_refit'] = rect_s1s2_refit_block
         result_dict['paper_row_payload'] = _build_paper_row_payload(
             cfg,
             metrics=metrics,
@@ -2121,6 +2612,18 @@ def main(argv=None) -> None:
         default=False,
         help="Freeze the rectangular-scaled forward's s1/s2 scale parameters "
              "(maps to rect_s1s2_trainable=False; default is trainable).",
+    )
+    parser.add_argument(
+        "--rect-s1s2-init",
+        choices=["ones", "data"],
+        default="ones",
+        help="Initialize rectangular scales at one or from one training batch.",
+    )
+    parser.add_argument(
+        "--rect-s1s2-refit",
+        choices=["off", "dataset"],
+        default="off",
+        help="Optionally refit rectangular scales over the inference dataset.",
     )
     parser.add_argument("--log-grad-norm", action="store_true",
                         help="Log gradient norms during training")
@@ -2458,6 +2961,8 @@ def main(argv=None) -> None:
         training_patch_weighting=args.training_patch_weighting,
         physics_forward_mode=args.physics_forward_mode,
         rect_s1s2_trainable=not args.freeze_s1s2,
+        rect_s1s2_init=args.rect_s1s2_init,
+        rect_s1s2_refit=args.rect_s1s2_refit,
         N=args.N,
         gridsize=args.gridsize,
         probe_source=args.probe_source,
