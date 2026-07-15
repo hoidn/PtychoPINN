@@ -1204,6 +1204,46 @@ class RectangularScaledDiffraction(nn.Module):
         I_pred = torch.clamp(I_pred, min=0.0)
         return I_pred
 
+    @torch.no_grad()
+    def basis_images(self, x, probe, scale=1.0):
+        """Per-mode VarPro basis fields (Psi_a, Psi_b) for the (s1, s2) refit (B3).
+
+        Bit-identical to the ``autograd=False`` branch's field computation
+        (``exit_wave_a = probe * Re(x) * scale``,
+        ``exit_wave_b = 1j * probe * Im(x) * scale``, ``fft2(norm='ortho')``,
+        ``fftshift``), stopped BEFORE incoherent mode summation so the Eq. (5)
+        cross-term ``Re(conj(Psi_a) * Psi_b)`` is recoverable downstream.
+        Dropping that cross-term is a diagonal-only estimator that does NOT
+        satisfy Eq. (8), so callers must accumulate the returned complex fields
+        (e.g. via ``ptycho_torch.rect_scaling.accumulate_rect_basis``) rather
+        than pre-summed intensities.
+
+        ``probe`` and ``scale`` are the same tensors ``compute_loss`` feeds the
+        training forward; their product is the effective probe ``P_eff``. Per
+        audit CI-SCALE-001 ``output_scale * probe_training == probe_physical``,
+        so passing ``probe = probe_physical`` with ``scale = 1.0`` reproduces
+        the training exit-wave physics.
+
+        Args:
+            x: complex textures ``(B, C, H, W)`` (``forward_predict`` output).
+            probe: effective probe, broadcastable to ``(B, C, P, H, W)``.
+            scale: output-scale factor folded into the exit wave.
+
+        Returns:
+            ``(Psi_a, Psi_b)``, each complex of shape ``(B, C, P, H, W)``. For a
+            single probe mode (``P == 1``, the CI canonical layout) the per-mode
+            fields equal the Eq. (5) mode-summed basis, so accumulating them
+            directly is exact.
+        """
+        x = x.unsqueeze(dim=2)
+        x_a, x_b = x.real, x.imag
+        exit_wave_a = probe * x_a * scale
+        exit_wave_b = 1j * probe * x_b * scale
+        Psi_a = torch.fft.fftshift(torch.fft.fft2(exit_wave_a, norm='ortho'), dim=(-2, -1))
+        Psi_b = torch.fft.fftshift(torch.fft.fft2(exit_wave_b, norm='ortho'), dim=(-2, -1))
+        return Psi_a, Psi_b
+
+
     def solve_scaling_factors(self, I_measured, Psi_a, Psi_b):
         """
         Solves normal equation for scaling factors via eigendecomposition.
@@ -1983,6 +2023,7 @@ class PtychoPINN_Lightning(L.LightningModule):
         )
         self._last_mae_alpha_stats = None
         self._last_ci_raw_count_nll = None
+        self._last_calibration_means = None
 
         #Scaling module specifically for multi-scaling
         self.scaler = IntensityScalerModule(model_config)
@@ -2373,7 +2414,79 @@ class PtychoPINN_Lightning(L.LightningModule):
             total_loss += phase_reg_loss * self.model_config.phase_loss_coeff
 
         return total_loss
-    
+
+    def _loss_target_intensity(self, batch, pred):
+        """Return the intensity tensor compute_loss compares ``pred`` against.
+
+        Mirrors the target expression of the active rectangular_scaled loss
+        branch (compute_loss above): the CI branch feeds
+        ``fields['measured_intensity']`` (raw counts) straight into
+        CIIntensityPoissonLoss(pred, observed_images); the explicit-legacy
+        branch feeds ``fields.get('observed_images', fields['images'])`` into
+        RectangularPoissonLoss(pred, observed_images). In both branches the
+        comparison happens in the intensity domain with no further rescaling
+        of either side, so the target is exactly these batch fields.
+        """
+        fields = batch[0]
+        rectangular_mode = getattr(
+            self.model_config,
+            'physics_forward_mode',
+            'amplitude',
+        ) == 'rectangular_scaled'
+        if rectangular_mode and self._ci_mode:
+            target = fields['measured_intensity']
+        else:
+            target = fields.get('observed_images', fields['images'])
+        return target.detach().to(device=pred.device, dtype=pred.dtype)
+
+    @torch.no_grad()
+    def calibrate_rect_s1s2(self, batch):
+        """Initialize rectangular-forward s1/s2 so predicted intensity matches
+        the measured intensity scale on one batch, avoiding a large initial
+        mismatch between predicted and measured count intensities.
+
+        With s1 = s2 = s the exit wave is linear in s, so the predicted
+        intensity scales as s**2; s = sqrt(mean(target)/mean(pred @ s=1))
+        equalizes the means the Poisson NLL actually compares. Runs no-grad,
+        touches only s1/s2 data (plus the diagnostic _last_calibration_means);
+        module training state is left untouched.
+
+        Returns the calibrated scalar, or None when not applicable.
+        """
+        if getattr(self.model_config, "physics_forward_mode", None) != "rectangular_scaled":
+            return None
+        scaler = next((m for m in self.modules()
+                       if isinstance(m, RectangularScaledDiffraction)), None)
+        if scaler is None:
+            return None
+        captured = {}
+
+        def _cap(_mod, _inp, out):
+            captured["pred"] = out.detach()
+
+        handle = scaler.register_forward_hook(_cap)
+        try:
+            self.compute_loss(batch)
+        finally:
+            handle.remove()
+        pred = captured.get("pred")
+        if pred is None:
+            return None
+        target = self._loss_target_intensity(batch, pred)  # same tensor domain
+        s = torch.sqrt(target.mean() / pred.mean().clamp_min(1e-30)).item()
+        scaler.s1.data.fill_(s)
+        scaler.s2.data.fill_(s)
+        # re-run to record post-calibration means for verification/logging
+        handle = scaler.register_forward_hook(_cap)
+        try:
+            self.compute_loss(batch)
+        finally:
+            handle.remove()
+        self._last_calibration_means = (
+            captured["pred"].mean(), target.mean())
+        return s
+
+
     def training_step(self, batch, batch_idx):
         #Manual opt
         opt = self.optimizers()

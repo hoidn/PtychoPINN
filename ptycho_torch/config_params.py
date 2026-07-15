@@ -156,6 +156,10 @@ class ModelConfig:
     # Whether RectangularScaledDiffraction's s1/s2 scale parameters are trainable
     # (only consulted when physics_forward_mode='rectangular_scaled').
     rect_s1s2_trainable: bool = True
+    # Initialization of s1/s2. 'ones' preserves the historical unit
+    # initialization; 'data' calibrates a shared initial scale from one
+    # training batch before fitting.
+    rect_s1s2_init: Literal['ones', 'data'] = 'ones'
     # PROBE-RANK-001 (design 2026-07-12 §3.3): explicit amplitude physics
     # gain. The banned flat (B, H, W) probe layout used to multiply the
     # predicted amplitude by the BATCH SIZE (an accidental, batch-size-
