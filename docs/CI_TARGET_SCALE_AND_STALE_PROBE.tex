@@ -1,0 +1,261 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{siunitx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,urlcolor=blue}
+
+\newcommand{\Astored}{A_{\mathrm{stored}}}
+\newcommand{\Imeas}{I_{\mathrm{measured}}}
+\newcommand{\Pphys}{P_{\mathrm{physical}}}
+\newcommand{\Ptrain}{P_{\mathrm{training}}}
+\newcommand{\Psim}{P_{\mathrm{sim}}}
+\newcommand{\code}[1]{\texttt{#1}}
+
+\title{How PtychoPINN--CI Defines Its Diffraction Target,\\
+and Why the Stale--Probe Bug Was Invisible to It}
+\author{CI compatibility ablation --- session note}
+\date{2026-07-15}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+The count--intensity (CI) contract never imports or measures a physically
+calibrated diffraction target. It \emph{constructs} the target from the stored
+normalized amplitudes together with a single scalar it derives from those same
+amplitudes. This makes CI's notion of ``physical scale'' entirely
+self--referential. We show that the derived scalar cancels out of the
+object--recovery problem, so the only quantity in the entire chain that
+carries the identity of the physical illumination is the stored probe. This is
+the structural reason the stale--probe bug --- serializing the pre-normalization
+probe $Q$ while the simulator generated data with $kQ$ --- was undetectable
+from the target alone, and why it had to be fixed at the probe.
+All claims are grounded in the code on branch
+\code{feature/ci-compatibility-ablation}.
+\end{abstract}
+
+\section{Setup and question}
+
+Let $\Astored$ denote the stored, normalized--amplitude diffraction written to
+the dataset NPZ, and let $R$ denote the stored probe (either the legacy
+\code{probeGuess} or the simulation probe \code{probe\_simulated}). The question
+this note answers:
+
+\begin{quote}
+\emph{How does CI know what the ``target'' (physically scaled) diffraction
+values are?}
+\end{quote}
+
+The short answer: it does not know them independently. It builds them.
+
+\section{CI constructs the target from stored data}
+
+The CI adapter converts normalized amplitudes to count--domain intensities in
+\code{ptycho\_torch/scaling\_contract.py}. The operative lines are
+\begin{verbatim}
+scale          = count_amplitude_scale         # = S
+intensity      = (scale * amplitude).square()  # I_measured = (S * A_stored)^2
+probe_physical = scale * probe                 # P_physical  = S * R
+\end{verbatim}
+so that, with $S \equiv \code{count\_amplitude\_scale}$,
+\begin{align}
+\Imeas &= \bigl(S\,\Astored\bigr)^2, \label{eq:target}\\
+\Pphys &= S\,R. \label{eq:pphys}
+\end{align}
+
+The scalar $S$ is itself \emph{derived from the stored amplitudes}, via
+\code{derive\_intensity\_scale\_from\_amplitudes} (called at
+\code{scripts/studies/grid\_lines\_torch\_runner.py:1524}). It is chosen to map
+the diffraction energy onto a fixed geometric target. The native dataloader
+performs the equivalent normalization directly
+(\code{ptycho\_torch/dataloader.py:1264--1266}):
+\begin{equation}
+\code{target\_energy} = \Bigl(\tfrac{N}{2}\Bigr)^2,
+\qquad
+\code{rms\_input\_scale} = \sqrt{\frac{\code{target\_energy}}{\langle
+\text{measured}^2\rangle}} ,
+\label{eq:rms}
+\end{equation}
+with, for $N=128$, $\code{target\_energy} = 64^2 = 4096$. The CI Poisson target
+tensor \code{measured\_intensity} is a verbatim copy of the stored diffraction
+stack (\code{dataloader.py:1160--1162}); no external photon budget is consulted.
+
+Empirically, for the lines/$N128$ bundle used throughout the ablation,
+$S = \code{count\_amplitude\_scale\_test} \approx 329.2$
+(recorded in the postfix re-evaluation metrics).
+
+\paragraph{Consequence.} $S$ is a pure numerical--conditioning gauge computed
+from the data to hit a canonical RMS. It carries no physical calibration of its
+own; the absolute scale of $\Imeas$ is inherited entirely from $\Astored$,
+i.e.\ from whatever was written to the NPZ at simulation time.
+
+\section{The derived scale $S$ cancels}
+
+The physics forward model predicts intensity by propagating the network texture
+$z$ through the physical probe:
+\begin{equation}
+\lambda(z) \;=\; \bigl|\mathcal{F}\{\Pphys\, z\}\bigr|^2
+\;=\; \bigl|\mathcal{F}\{S R z\}\bigr|^2
+\;=\; S^2\,\bigl|\mathcal{F}\{R z\}\bigr|^2 .
+\end{equation}
+Matching the prediction to the target~\eqref{eq:target},
+\begin{equation}
+S^2\,\bigl|\mathcal{F}\{R z\}\bigr|^2
+\;=\; \bigl(S\,\Astored\bigr)^2
+\;=\; S^2\,\Astored^2
+\quad\Longrightarrow\quad
+\boxed{\;\bigl|\mathcal{F}\{R z\}\bigr|^2 = \Astored^2\;}.
+\label{eq:cancel}
+\end{equation}
+$S$ vanishes identically. The object $z$ that satisfies the fit depends only on
+$R$ (the probe) and $\Astored$ (the data), never on $S$.
+
+This is why inspecting the network--facing probe was misleading. The loader
+supplies a normalized $\Ptrain = \Pphys / n$ and an \code{output\_scale} factor
+with $\code{output\_scale}\cdot\Ptrain = \Pphys$
+(audit identity CI--SCALE--001, \code{ptycho\_torch/model.py:1591}). The
+normalized $\Ptrain$ is scale--invariant --- identical for $Q$ and $kQ$ --- but
+the reconstituted effective probe $\Pphys = S R$ is not, because
+\code{output\_scale} restores the $R$--dependent magnitude.
+
+\section{$R$ is the sole carrier of physical identity}
+
+Equation~\eqref{eq:cancel} is internally self--consistent for \emph{any} probe
+$R$: the network is always free to move $z$ so that
+$|\mathcal{F}\{R z\}|^2 = \Astored^2$. Nothing in the target constrains $R$,
+because the target was built from $\Astored$ and a self--derived $S$ that
+cancels. Therefore the identity of the physical illumination --- the probe that
+actually formed the recorded counts --- enters the problem \emph{only} through
+$R$, the array the dataset writer chose to serialize.
+
+\section{The stale--probe bug}
+
+\subsection{Simulation silently rescaled the probe}
+
+Let $Q$ be the extrapolated complex \code{probeGuess} ($128\times128$).
+\code{set\_probe\_guess}$(Q)$ forwards to \code{set\_probe}
+(\code{ptycho/probe.py:52--66}), which computes a mask--weighted mean amplitude
+with the radius--$N/4$ mask $M$,
+\begin{equation}
+d = \code{probe\_scale}\cdot\operatorname{mean}\bigl|M\odot Q\bigr|
+  = 0.3156714,
+\end{equation}
+and installs the \emph{divided} probe in global simulation state:
+\begin{equation}
+\Psim = \frac{Q}{d} = k\,Q, \qquad k = 3.167851 .
+\end{equation}
+The mask only sets the scalar $d$; the full complex field is divided by it.
+Hence $Q$ and $\Psim$ share spatial structure and phase and differ only in
+amplitude.
+
+\subsection{Simulator and writer used different variables}
+
+\code{generate\_data()} read the global \code{params["probe"]}, so the
+measurements were formed with $\Psim = 3.167851\,Q$. The old writer then
+serialized its \emph{unchanged local} $Q$ as \code{probeGuess}. The NPZ
+therefore implicitly claimed the counts were made with $Q$, when they were made
+with $kQ$ --- an amplitude error of $k$ and an intensity error of
+\begin{equation}
+k^2 = 10.0353 .
+\end{equation}
+
+\subsection{CI faithfully propagated the mistake}
+
+Substituting the two probes into~\eqref{eq:cancel} with the data
+$\Astored^2 = |\mathcal{F}\{kQ\,z_{\mathrm{true}}\}|^2$ fixed:
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+& \textbf{Stale } $R=Q$ & \textbf{Correct } $R=kQ$ \\
+\midrule
+Normalized $\Ptrain$ mean & $0.25$ & $0.25$ \\
+\code{output\_scale}      & $132.24$ & $418.90$ \\
+Effective--probe mean     & $33.06$  & $104.73$ \\
+Recovered texture         & $z = k\,z_{\mathrm{true}}$ & $z = z_{\mathrm{true}}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+With the stale probe the fit still closes --- but only by inflating the object
+by $k$. This is why the failure first looked like a benign object--probe gauge
+ambiguity. Empirically the stale H1 texture amplitude was $9.328$ versus
+corrected $2.979$ (ground truth $\approx 2.97$); the ratio $3.13 \approx k$.
+
+\section{Why it was invisible, and why it still hurt}
+
+\paragraph{Invisible.} Every check that inspects the \emph{target} or the
+\emph{normalized} probe is blind to the bug: the target~\eqref{eq:target} is
+self--consistent for any $R$, and $\Ptrain$ is $R$--scale--invariant. The
+discriminating quantity is $\Pphys = SR$, whose value is fixed solely by which
+probe was serialized. In \code{compute\_loss} the un--normalized
+\code{probe\_physical} is merely shape/dtype--audited
+(\code{model.py:2676--2682}); the effective probe enters as the product
+$\code{output\_scale}\cdot\Ptrain$, and \code{output\_scale} is derived from the
+stored probe's magnitude.
+
+\paragraph{Not a harmless gauge shift.} A global object rescale $z \mapsto kz$
+would be invisible only if training were gauge--invariant. It is not. Starting
+from identical weights and $s_1,s_2\approx 1$, the Poisson gradient
+\begin{equation}
+\frac{\partial \ell}{\partial \lambda}
+= \frac{1 - y/\lambda}{\bar y}
+\end{equation}
+changes both $\lambda$ and its Jacobian under $R\mapsto kR$; this is not a
+common multiplier that Adam's normalization would absorb. Adam moments,
+gradient clipping, normalization layers, and the fixed 20--epoch schedule are
+\emph{not} transformed into the equivalent gauge. The stale run entered the
+high--amplitude decoder basin and strongly excited the periodic (lattice) mode:
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+& amplitude SSIM & lattice fraction \\
+\midrule
+Stale H1        & $0.6267$ & $37.0\%$ \\
+Corrected Phase E & $0.9335$ & $3.54\%$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{The Phase E correction and current-state warning}
+
+Phase E preserves both meanings explicitly:
+\begin{itemize}
+\item \code{probeGuess} $= Q$: the pre--\code{set\_probe} probe, retained for
+legacy compatibility;
+\item \code{probe\_simulated} $= kQ$: the actual illumination that generated the
+synthetic counts.
+\end{itemize}
+CI selects \code{probe\_simulated}; legacy paths retain \code{probeGuess}
+(producer: E1, \code{9053e9f1f}; consumer/selector: E2, \code{114d797ae}).
+
+\paragraph{Warning.} The shared checkout is currently on \code{df997f3ea}
+(branch \code{integration/main-ci-session-port-20260715}, rooted at
+\code{main}). That HEAD contains no \code{probe\_simulated} producer, consumer,
+or provenance selection. The Phase E correction is therefore \emph{absent} from
+the checked--out integration branch, and the stale--probe behavior can recur
+there until E1/E2 are ported.
+
+\appendix
+\section{Code map}
+\begin{center}
+\begin{tabular}{ll}
+\toprule
+Quantity & Location (branch \code{feature/ci-compatibility-ablation}) \\
+\midrule
+$\Imeas = (S\Astored)^2$, $\Pphys = SR$ & \code{ptycho\_torch/scaling\_contract.py} (conversion) \\
+$S$ derivation & \code{grid\_lines\_torch\_runner.py:1524} (\code{derive\_intensity\_scale\_from\_amplitudes}) \\
+$(N/2)^2$ energy target, \code{rms\_input\_scale} & \code{ptycho\_torch/dataloader.py:1264--1266} \\
+\code{measured\_intensity} $=$ stored diffraction & \code{ptycho\_torch/dataloader.py:1160--1162} \\
+$\Ptrain,\ \Pphys,\ \code{probe\_normalization}$ split & \code{ptycho\_torch/dataloader.py:1596--1610} \\
+CI branch of \code{compute\_loss} & \code{ptycho\_torch/model.py:2638--2730} \\
+\code{output\_scale}$\cdot\Ptrain = \Pphys$ audit & \code{ptycho\_torch/model.py:1591} \\
+\code{set\_probe} amplitude normalization $d$ & \code{ptycho/probe.py:52--66} \\
+\code{probe\_simulated} producer / consumer & \code{9053e9f1f} (E1) / \code{114d797ae} (E2) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}
