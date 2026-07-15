@@ -1,0 +1,43 @@
+{
+  "contract": {
+    "N": 128,
+    "gridsize": 1,
+    "epochs": 5,
+    "seed": 3,
+    "architecture": "hybrid_resnet",
+    "scale_contract_version": "ci_intensity_v2",
+    "measurement_domain": "count_intensity",
+    "physics_forward_mode": "rectangular_scaled",
+    "torch_loss_mode": "poisson",
+    "ci_probe_provenance": "simulated"
+  },
+  "reference": {
+    "source_commit": "114d797ae411dcf886a6288ef1fa72efa41187ef",
+    "source_role": "clean Phase-E feature-worktree implementation",
+    "checkpoint_sha256": "08050e407bf0b8d59c98be8de5d162d59611c3738677484cd6c6c39ccd82e88d"
+  },
+  "metrics": {
+    "mae": [
+      0.09820421040058136,
+      0.13937780032642424
+    ],
+    "ssim": [
+      0.8448636360281317,
+      0.9576650790705805
+    ]
+  },
+  "loss": {
+    "train": 52.65309143066406,
+    "validation": 49.21868133544922
+  },
+  "raw_amplitude_mean_ratio": 1.0053633451461792,
+  "tolerances": {
+    "mae_amp": 0.015,
+    "mae_phase": 0.025,
+    "ssim_amp": 0.035,
+    "ssim_phase": 0.015,
+    "train_loss": 5.0,
+    "validation_loss": 10.0,
+    "raw_amplitude_mean_ratio": 0.05
+  }
+}
