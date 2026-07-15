@@ -26,6 +26,7 @@ from typing import Any
 from .dataset_reference import (
     GridLinesReferenceRecipe,
     parse_grid_lines_reference_recipe,
+    parse_grid_lines_reference_simulation,
 )
 from .datasets import DatasetError
 from .runtime_errors import StudyRequestError
@@ -38,6 +39,7 @@ from .verdicts import (
 )
 
 REFERENCE_SPEC_KIND = "grid_lines_reference_performance_v1"
+REFERENCE_SPEC_KIND_V2 = "grid_lines_reference_performance_v2"
 
 #: Bridge command-operand fields that must equal the runner operands verbatim.
 BRIDGE_COMMAND_FIELDS = (
@@ -390,36 +392,51 @@ def load_reference_spec(
         raise StudyRequestError(
             f"cannot load reference spec {spec_path}: {exc}"
         ) from exc
-    _closed_table(
-        raw,
-        path="spec",
-        allowed={"schema", "study", "dataset", "references"},
-        required={"schema", "study", "dataset", "references"},
-    )
+    if not isinstance(raw, Mapping) or "schema" not in raw:
+        raise StudyRequestError("spec must contain a schema table")
     schema = _closed_table(
         raw["schema"],
         path="schema",
         allowed={"kind", "version"},
         required={"kind", "version"},
     )
-    if schema["kind"] != REFERENCE_SPEC_KIND or schema["version"] != 1:
+    schema_pair = (schema["kind"], schema["version"])
+    if schema_pair not in {
+        (REFERENCE_SPEC_KIND, 1),
+        (REFERENCE_SPEC_KIND_V2, 2),
+    }:
         raise StudyRequestError(
-            f"reference spec schema kind/version must be "
-            f"{REFERENCE_SPEC_KIND!r}/1, got {schema['kind']!r}/{schema['version']!r}"
+            "reference spec schema kind/version must be "
+            f"{REFERENCE_SPEC_KIND!r}/1 or {REFERENCE_SPEC_KIND_V2!r}/2, "
+            f"got {schema['kind']!r}/{schema['version']!r}"
         )
+    required_recipe_keys = (
+        {"dataset"} if schema["version"] == 1 else {"dataset", "simulation"}
+    )
+    _closed_table(
+        raw,
+        path="spec",
+        allowed={"schema", "study", "references", *required_recipe_keys},
+        required={"schema", "study", "references", *required_recipe_keys},
+    )
     study = _closed_table(raw["study"], path="study", allowed={"id"}, required={"id"})
     study_id = study["id"]
     if not isinstance(study_id, str) or not study_id:
         raise StudyRequestError("study.id must be nonempty text")
-    dataset = raw["dataset"]
-    if not isinstance(dataset, Mapping) or "id" not in dataset:
-        raise StudyRequestError("dataset must be a recipe table with an id")
     try:
-        recipe = parse_grid_lines_reference_recipe(
-            str(dataset["id"]), dataset, base_dir=resolved_base
-        )
+        if schema["version"] == 1:
+            dataset = raw["dataset"]
+            if not isinstance(dataset, Mapping) or "id" not in dataset:
+                raise StudyRequestError("dataset must be a recipe table with an id")
+            recipe = parse_grid_lines_reference_recipe(
+                str(dataset["id"]), dataset, base_dir=resolved_base
+            )
+        else:
+            recipe = parse_grid_lines_reference_simulation(
+                raw["dataset"], raw["simulation"], base_dir=resolved_base
+            )
     except DatasetError as error:
-        raise StudyRequestError(f"dataset recipe is invalid: {error}") from error
+        raise StudyRequestError(f"simulation recipe is invalid: {error}") from error
     references = raw["references"]
     if not isinstance(references, list) or not references:
         raise StudyRequestError("references must be a nonempty array of tables")

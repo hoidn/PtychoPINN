@@ -28,6 +28,16 @@ from typing import Any
 
 import numpy as np
 
+from ptycho.config import (
+    DetectorSimulationConfig,
+    ProbeSimulationConfig,
+    ScanSimulationConfig,
+    SimulationConfig,
+    SyntheticObjectConfig,
+    simulation_config_from_mapping,
+    simulation_config_to_dict,
+)
+
 from .dataset_content import file_sha256
 from .dataset_provenance import canonical_array_sha256
 from .dataset_schema import DatasetError
@@ -39,6 +49,7 @@ __all__ = [
     "LadderDatasetRecipe",
     "MaterializedReferenceDataset",
     "parse_grid_lines_reference_recipe",
+    "parse_grid_lines_reference_simulation",
     "parse_ladder_dataset",
     "validate_ladder_npz_pair",
     "validate_reference_npz_pair",
@@ -96,10 +107,27 @@ class GridLinesReferenceRecipe:
     nimgs_train: int
     nimgs_test: int
     nphotons: float
+    schema_version: int = 1
+    simulation: SimulationConfig | None = None
 
     @property
     def fingerprint_sha256(self) -> str:
         """Hash the declared recipe identity (path as declared, not resolved)."""
+        if self.schema_version == 2:
+            if self.simulation is None:
+                raise RuntimeError("schema-v2 recipe is missing SimulationConfig")
+            payload = {
+                "id": self.id,
+                "generator": self.generator,
+                "probe_archive_sha256": self.probe_archive_sha256,
+                "raw_probe_array_sha256": self.raw_probe_array_sha256,
+                "transformed_probe_sha256": self.transformed_probe_sha256,
+                "simulation": simulation_config_to_dict(self.simulation),
+            }
+            encoded = json.dumps(
+                payload, sort_keys=True, separators=(",", ":"), allow_nan=False
+            )
+            return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
         payload = {
             name: getattr(self, name)
             for name in _RECIPE_FIELDS
@@ -199,10 +227,53 @@ def parse_grid_lines_reference_recipe(
     sigma = _finite_float(value["probe_smoothing_sigma"], "probe_smoothing_sigma")
     if sigma < 0:
         raise DatasetError("reference recipe probe_smoothing_sigma must be >= 0")
+    N = _positive_int(value["N"], "N")
+    gridsize = _positive_int(value["gridsize"], "gridsize")
+    size = _positive_int(value["size"], "size")
+    offset = _positive_int(value["offset"], "offset")
+    outer_offset_train = _nonnegative_int(
+        value["outer_offset_train"], "outer_offset_train"
+    )
+    outer_offset_test = _nonnegative_int(
+        value["outer_offset_test"], "outer_offset_test"
+    )
+    nimgs_train = _positive_int(value["nimgs_train"], "nimgs_train")
+    nimgs_test = _positive_int(value["nimgs_test"], "nimgs_test")
+    declared_probe = (Path(base_dir) / declared_archive).resolve()
+    scale_mode = _text(value["probe_scale_mode"], "probe_scale_mode")
+    transform = f"{scale_mode}:{N}"
+    if sigma > 0:
+        if scale_mode == "pad_preserve":
+            transform = f"smooth:{sigma:g}|{transform}"
+        else:
+            transform = f"{transform}|smooth:{sigma:g}"
+    simulation = SimulationConfig(
+        N=N,
+        probe=ProbeSimulationConfig(
+            source="custom",
+            source_path=declared_probe,
+            transform_pipeline=transform,
+        ),
+        object=SyntheticObjectConfig(
+            kind="lines",
+            image_size=(size, size),
+            set_phi=set_phi,
+        ),
+        scan=ScanSimulationConfig(
+            kind="grid",
+            grid_size=(gridsize, gridsize),
+            offset=offset,
+            outer_offset_train=outer_offset_train,
+            outer_offset_test=outer_offset_test,
+            train_groups=nimgs_train,
+            test_groups=nimgs_test,
+        ),
+        detector=DetectorSimulationConfig(photons_per_pattern=nphotons),
+    )
     return GridLinesReferenceRecipe(
         id=declared_id,
         generator=generator,
-        probe_archive=(Path(base_dir) / declared_archive).resolve(),
+        probe_archive=declared_probe,
         probe_archive_declared=declared_archive,
         probe_archive_sha256=_sha(
             value["probe_archive_sha256"], "probe_archive_sha256"
@@ -213,22 +284,116 @@ def parse_grid_lines_reference_recipe(
         transformed_probe_sha256=_sha(
             value["transformed_probe_sha256"], "transformed_probe_sha256"
         ),
-        probe_scale_mode=_text(value["probe_scale_mode"], "probe_scale_mode"),
+        probe_scale_mode=scale_mode,
         probe_smoothing_sigma=sigma,
         set_phi=set_phi,
-        N=_positive_int(value["N"], "N"),
-        gridsize=_positive_int(value["gridsize"], "gridsize"),
-        size=_positive_int(value["size"], "size"),
-        offset=_positive_int(value["offset"], "offset"),
-        outer_offset_train=_nonnegative_int(
-            value["outer_offset_train"], "outer_offset_train"
-        ),
-        outer_offset_test=_nonnegative_int(
-            value["outer_offset_test"], "outer_offset_test"
-        ),
-        nimgs_train=_positive_int(value["nimgs_train"], "nimgs_train"),
-        nimgs_test=_positive_int(value["nimgs_test"], "nimgs_test"),
+        N=N,
+        gridsize=gridsize,
+        size=size,
+        offset=offset,
+        outer_offset_train=outer_offset_train,
+        outer_offset_test=outer_offset_test,
+        nimgs_train=nimgs_train,
+        nimgs_test=nimgs_test,
         nphotons=nphotons,
+        schema_version=1,
+        simulation=simulation,
+    )
+
+
+_V2_IDENTITY_FIELDS = {
+    "id",
+    "generator",
+    "probe_archive_sha256",
+    "raw_probe_array_sha256",
+    "transformed_probe_sha256",
+}
+
+
+def parse_grid_lines_reference_simulation(
+    identity: Mapping[str, Any],
+    simulation_values: Mapping[str, Any],
+    *,
+    base_dir: Path,
+) -> GridLinesReferenceRecipe:
+    """Parse a schema-v2 reference recipe with canonical nested ownership."""
+    if not isinstance(identity, Mapping):
+        raise DatasetError("dataset identity must be a table")
+    unknown = set(identity) - _V2_IDENTITY_FIELDS
+    missing = _V2_IDENTITY_FIELDS - set(identity)
+    if unknown or missing:
+        raise DatasetError(
+            "dataset identity fields do not match schema v2 "
+            f"(missing={sorted(missing)}, unexpected={sorted(unknown)})"
+        )
+    identifier = _text(identity["id"], "id")
+    if not _ID_RE.fullmatch(identifier):
+        raise DatasetError(f"simulation recipe id {identifier!r} is invalid")
+    generator = _text(identity["generator"], "generator")
+    if generator != GRID_LINES_REFERENCE_GENERATOR:
+        raise DatasetError(
+            f"simulation recipe generator must be {GRID_LINES_REFERENCE_GENERATOR!r}"
+        )
+    if not isinstance(simulation_values, Mapping):
+        raise DatasetError("simulation recipe must be a table")
+    try:
+        simulation = simulation_config_from_mapping(simulation_values)
+    except (TypeError, ValueError) as exc:
+        raise DatasetError(f"simulation recipe config is invalid: {exc}") from exc
+    if simulation.object.kind != "lines" or simulation.scan.kind != "grid":
+        raise DatasetError(
+            "grid-lines reference requires simulation.object.kind='lines' and "
+            "simulation.scan.kind='grid'"
+        )
+    if simulation.probe.source != "custom" or simulation.probe.source_path is None:
+        raise DatasetError(
+            "grid-lines reference requires a custom simulation.probe.source_path"
+        )
+    declared_archive = str(simulation.probe.source_path)
+    resolved_archive = (Path(base_dir) / simulation.probe.source_path).resolve()
+    steps = simulation.probe.transform_pipeline.split("|")
+    smoothing = 0.0
+    for step in steps:
+        if step.startswith("smooth:"):
+            try:
+                smoothing = float(step.split(":", 1)[1])
+            except ValueError as exc:
+                raise DatasetError(
+                    "simulation probe smoothing must be numeric"
+                ) from exc
+            if not math.isfinite(smoothing) or smoothing < 0:
+                raise DatasetError(
+                    "simulation probe smoothing must be finite and nonnegative"
+                )
+    grid_size = simulation.scan.grid_size[0]
+    return GridLinesReferenceRecipe(
+        id=identifier,
+        generator=generator,
+        probe_archive=resolved_archive,
+        probe_archive_declared=declared_archive,
+        probe_archive_sha256=_sha(
+            identity["probe_archive_sha256"], "probe_archive_sha256"
+        ),
+        raw_probe_array_sha256=_sha(
+            identity["raw_probe_array_sha256"], "raw_probe_array_sha256"
+        ),
+        transformed_probe_sha256=_sha(
+            identity["transformed_probe_sha256"], "transformed_probe_sha256"
+        ),
+        probe_scale_mode="pipeline",
+        probe_smoothing_sigma=smoothing,
+        set_phi=simulation.object.set_phi,
+        N=simulation.N,
+        gridsize=grid_size,
+        size=simulation.object.image_size[0],
+        offset=simulation.scan.offset,
+        outer_offset_train=simulation.scan.outer_offset_train,
+        outer_offset_test=simulation.scan.outer_offset_test,
+        nimgs_train=simulation.scan.train_groups,
+        nimgs_test=simulation.scan.test_groups,
+        nphotons=simulation.detector.photons_per_pattern,
+        schema_version=2,
+        simulation=simulation,
     )
 
 

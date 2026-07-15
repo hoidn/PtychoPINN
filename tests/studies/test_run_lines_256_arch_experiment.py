@@ -44,6 +44,83 @@ def test_build_runner_cmd_pins_lines_256_invariants(tmp_path):
     assert "--no-torch-mae-pred-l2-match-target" not in cmd
 
 
+def test_build_runner_cmd_default_is_independent_of_local_dataset_pointer(
+    monkeypatch,
+    tmp_path,
+):
+    from scripts.studies import run_lines_256_arch_experiment as wrapper
+
+    monkeypatch.setattr(
+        wrapper,
+        "resolve_lines_256_dataset_paths",
+        lambda: pytest.fail("build_runner_cmd must not read local dataset state"),
+    )
+    args = wrapper.parse_args(["--output-dir", str(tmp_path / "run")])
+
+    cmd = wrapper.build_runner_cmd(args)
+
+    assert cmd[cmd.index("--train-npz") + 1] == str(wrapper.LINES_256_TRAIN_NPZ)
+    assert cmd[cmd.index("--test-npz") + 1] == str(wrapper.LINES_256_TEST_NPZ)
+
+
+def test_resolve_lines_256_dataset_paths_reads_rebuild_manifest(tmp_path):
+    from scripts.studies import run_lines_256_arch_experiment as wrapper
+
+    digest = "a" * 64
+    dataset_root = tmp_path / f"datasets/N256/gs1/simulation-{digest}"
+    manifest_path = tmp_path / "dataset_paths.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "train_npz": str((dataset_root / "train.npz").relative_to(tmp_path)),
+                "test_npz": str((dataset_root / "test.npz").relative_to(tmp_path)),
+                "simulation_config_sha256": digest,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    assert wrapper.resolve_lines_256_dataset_paths(manifest_path) == (
+        dataset_root / "train.npz",
+        dataset_root / "test.npz",
+    )
+
+
+def test_resolve_lines_256_dataset_paths_rejects_digest_mismatch(tmp_path):
+    from scripts.studies import run_lines_256_arch_experiment as wrapper
+
+    manifest_path = tmp_path / "dataset_paths.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "train_npz": "datasets/N256/gs1/simulation-wrong/train.npz",
+                "test_npz": "datasets/N256/gs1/simulation-wrong/test.npz",
+                "simulation_config_sha256": "a" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="simulation_config_sha256"):
+        wrapper.resolve_lines_256_dataset_paths(manifest_path)
+
+
+def test_build_runner_cmd_uses_resolved_dataset_identity(tmp_path):
+    from scripts.studies import run_lines_256_arch_experiment as wrapper
+
+    args = wrapper.parse_args(["--output-dir", str(tmp_path / "run")])
+    train_npz = tmp_path / "simulation-abc/train.npz"
+    test_npz = tmp_path / "simulation-abc/test.npz"
+
+    cmd = wrapper.build_runner_cmd(
+        args,
+        dataset_paths=(train_npz, test_npz),
+    )
+
+    assert cmd[cmd.index("--train-npz") + 1] == str(train_npz)
+    assert cmd[cmd.index("--test-npz") + 1] == str(test_npz)
+
+
 def test_build_runner_cmd_applies_stagea_best_n256_preset(tmp_path):
     from scripts.studies import run_lines_256_arch_experiment as wrapper
 

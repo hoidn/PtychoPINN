@@ -12,7 +12,11 @@ from typing import Dict, Any, Iterable, Tuple, List
 
 import numpy as np
 
-from ptycho.workflows.grid_lines_workflow import GridLinesConfig, run_grid_lines_workflow
+from ptycho.workflows.grid_lines_workflow import (
+    GridLinesConfig,
+    dataset_out_dir,
+    run_grid_lines_workflow,
+)
 from scripts.studies.grid_lines_torch_runner import TorchRunnerConfig, run_grid_lines_torch
 
 
@@ -34,13 +38,6 @@ def _phase_metric(metrics: Dict[str, Any], key: str) -> float | None:
 
 
 def _ensure_dataset(output_dir: Path, epochs: int, nimgs_train: int, nimgs_test: int) -> Tuple[Path, Path]:
-    dataset_dir = output_dir / "datasets" / f"N{DEFAULT_N}" / f"gs{DEFAULT_GRIDSIZE}"
-    train_npz = dataset_dir / "train.npz"
-    test_npz = dataset_dir / "test.npz"
-
-    if train_npz.exists() and test_npz.exists():
-        return train_npz, test_npz
-
     cfg = GridLinesConfig(
         N=DEFAULT_N,
         gridsize=DEFAULT_GRIDSIZE,
@@ -50,8 +47,15 @@ def _ensure_dataset(output_dir: Path, epochs: int, nimgs_train: int, nimgs_test:
         nimgs_test=nimgs_test,
         nepochs=epochs,
     )
-    run_grid_lines_workflow(cfg)
-    return train_npz, test_npz
+    legacy_dir = output_dir / "datasets" / f"N{DEFAULT_N}" / f"gs{DEFAULT_GRIDSIZE}"
+    for dataset_dir in (legacy_dir, dataset_out_dir(cfg)):
+        train_npz = dataset_dir / "train.npz"
+        test_npz = dataset_dir / "test.npz"
+        if train_npz.exists() and test_npz.exists():
+            return train_npz, test_npz
+
+    result = run_grid_lines_workflow(cfg)
+    return Path(result["train_npz"]), Path(result["test_npz"])
 
 
 def _grid(light: bool, architectures: Iterable[str] | None = None) -> Iterable[Tuple[str, str, int, int]]:

@@ -1,4 +1,7 @@
+import json
 from pathlib import Path
+
+from ptycho.config import simulation_config_sha256
 
 
 def test_build_lines_256_dataset_uses_canonical_set_phi_config(monkeypatch, tmp_path):
@@ -49,6 +52,11 @@ def test_build_lines_256_dataset_uses_canonical_set_phi_config(monkeypatch, tmp_
     assert summary["train_npz"] == tmp_path / "datasets" / "N256" / "gs1" / "train.npz"
     assert summary["test_npz"] == tmp_path / "datasets" / "N256" / "gs1" / "test.npz"
     assert summary["set_phi"] is True
+    assert json.loads((tmp_path / "dataset_paths.json").read_text()) == {
+        "train_npz": "datasets/N256/gs1/train.npz",
+        "test_npz": "datasets/N256/gs1/test.npz",
+        "simulation_config_sha256": simulation_config_sha256(cfg.simulation),
+    }
 
 
 def test_build_lines_256_dataset_accepts_explicit_probe_transform_pipeline(monkeypatch, tmp_path):
@@ -84,3 +92,4 @@ def test_build_lines_256_dataset_accepts_explicit_probe_transform_pipeline(monke
     assert cfg.probe_scale_mode == "pipeline"
     assert cfg.probe_smoothing_sigma == 0.0
     assert summary["config"]["probe_transform_pipeline"] == "smooth:0.5|pad:128|interp:256"
+    assert not (tmp_path / "dataset_paths.json").exists()

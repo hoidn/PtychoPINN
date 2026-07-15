@@ -17,7 +17,11 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal, Union, cast, get_args, get_origin, get_type_hints
 
-from ptycho.config.config import PyTorchExecutionConfig
+from ptycho.config.config import (
+    PyTorchExecutionConfig,
+    SimulationConfig,
+    simulation_config_from_mapping,
+)
 from ptycho_torch.config_params import (
     DataConfig,
     DatagenConfig,
@@ -43,6 +47,55 @@ from .datasets import (
 
 class ConfigResolutionError(ValueError):
     """Raised when an expanded study override cannot be resolved safely."""
+
+
+SIMULATION_PATHS = frozenset(
+    {
+        "simulation.N",
+        "simulation.seed",
+        "simulation.probe.source",
+        "simulation.probe.source_path",
+        "simulation.probe.transform_pipeline",
+        "simulation.probe.mask_diameter",
+        "simulation.object.kind",
+        "simulation.object.image_size",
+        "simulation.object.objects_per_probe",
+        "simulation.object.diffractions_per_object",
+        "simulation.object.set_phi",
+        "simulation.scan.kind",
+        "simulation.scan.grid_size",
+        "simulation.scan.offset",
+        "simulation.scan.outer_offset_train",
+        "simulation.scan.outer_offset_test",
+        "simulation.scan.train_groups",
+        "simulation.scan.test_groups",
+        "simulation.scan.buffer",
+        "simulation.detector.photons_per_pattern",
+        "simulation.detector.beamstop_diameter",
+    }
+)
+
+
+def resolve_simulation_namespace(values: Mapping[str, Any]) -> SimulationConfig:
+    """Resolve immutable recursive ``simulation.*`` paths outside arm config."""
+    if not isinstance(values, Mapping):
+        raise ConfigResolutionError("simulation values must be a mapping")
+    unknown = sorted(set(values) - SIMULATION_PATHS)
+    if unknown:
+        raise ConfigResolutionError(
+            f"simulation path {unknown[0]!r} is not allowlisted"
+        )
+    nested: dict[str, Any] = {}
+    for path, value in values.items():
+        cursor = nested
+        parts = path.split(".")[1:]
+        for part in parts[:-1]:
+            cursor = cursor.setdefault(part, {})
+        cursor[parts[-1]] = value
+    try:
+        return simulation_config_from_mapping(nested)
+    except (TypeError, ValueError) as exc:
+        raise ConfigResolutionError(f"simulation config is invalid: {exc}") from exc
 
 
 NAMESPACE_OWNERS: dict[str, str | type[Any]] = {

@@ -28,6 +28,9 @@ LINES_256_TEST_NPZ = Path(
     "outputs/lines_256_arch_improvement/"
     "datasets/N256/gs1/test.npz"
 )
+LINES_256_DATASET_PATHS = Path(
+    "outputs/lines_256_arch_improvement/dataset_paths.json"
+)
 
 FIXED_SEED = 3
 FIXED_EPOCHS = 20
@@ -169,14 +172,53 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def build_runner_cmd(args: argparse.Namespace) -> list[str]:
+def resolve_lines_256_dataset_paths(
+    manifest_path: Path = LINES_256_DATASET_PATHS,
+) -> tuple[Path, Path]:
+    """Resolve the exact rebuilt dataset identity, with a legacy-path fallback."""
+    manifest_path = Path(manifest_path)
+    if not manifest_path.is_file():
+        return LINES_256_TRAIN_NPZ, LINES_256_TEST_NPZ
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    digest = payload.get("simulation_config_sha256")
+    if (
+        not isinstance(digest, str)
+        or len(digest) != 64
+        or any(character not in "0123456789abcdef" for character in digest)
+    ):
+        raise ValueError(
+            "lines_256 dataset_paths.json simulation_config_sha256 is invalid"
+        )
+    paths = tuple(Path(payload[name]) for name in ("train_npz", "test_npz"))
+    if any(path.is_absolute() or ".." in path.parts for path in paths):
+        raise ValueError(
+            "lines_256 dataset_paths.json paths must be relative to its output root"
+        )
+    expected_parent = f"simulation-{digest}"
+    if any(path.parent.name != expected_parent for path in paths):
+        raise ValueError(
+            "lines_256 dataset_paths.json paths do not match "
+            "simulation_config_sha256"
+        )
+    return tuple(manifest_path.parent / path for path in paths)
+
+
+def build_runner_cmd(
+    args: argparse.Namespace,
+    *,
+    dataset_paths: tuple[Path, Path] | None = None,
+) -> list[str]:
+    train_npz, test_npz = dataset_paths or (
+        LINES_256_TRAIN_NPZ,
+        LINES_256_TEST_NPZ,
+    )
     cmd = [
         "python",
         "scripts/studies/grid_lines_torch_runner.py",
         "--train-npz",
-        str(LINES_256_TRAIN_NPZ),
+        str(train_npz),
         "--test-npz",
-        str(LINES_256_TEST_NPZ),
+        str(test_npz),
         "--output-dir",
         str(args.output_dir),
         "--architecture",
@@ -231,6 +273,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     raw_argv = list(argv) if argv is not None else sys.argv[1:]
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    dataset_paths = resolve_lines_256_dataset_paths()
 
     write_invocation_artifacts(
         output_dir=args.output_dir,
@@ -238,8 +281,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         argv=raw_argv,
         parsed_args=vars(args),
         extra={
-            "fixed_train_npz": str(LINES_256_TRAIN_NPZ),
-            "fixed_test_npz": str(LINES_256_TEST_NPZ),
+            "fixed_train_npz": str(dataset_paths[0]),
+            "fixed_test_npz": str(dataset_paths[1]),
             "fixed_seed": FIXED_SEED,
             "fixed_epochs": FIXED_EPOCHS,
             "fixed_N": FIXED_N,
@@ -252,7 +295,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         },
     )
 
-    cmd = build_runner_cmd(args)
+    cmd = build_runner_cmd(args, dataset_paths=dataset_paths)
     completed = subprocess.run(cmd, check=False, capture_output=True, text=True)
 
     (args.output_dir / "driver_stdout.log").write_text(completed.stdout)

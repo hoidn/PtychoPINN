@@ -131,8 +131,9 @@ def test_lines_256_workflow_preflights_dataset_metadata_and_probe_gallery_contra
 
     validate_inputs = next(step for step in workflow["steps"] if step["name"] == "ValidateStudyInputs")
     validate_script = validate_inputs["command"][-1]
-    assert "outputs/lines_256_arch_improvement/datasets/N256/gs1/train.npz" in validate_script
-    assert "outputs/lines_256_arch_improvement/datasets/N256/gs1/test.npz" in validate_script
+    assert "resolve_lines_256_dataset_paths" in validate_script
+    assert "dataset_paths.json" in validate_script
+    assert "datasets/N256/gs1/train.npz" not in validate_script
     assert "allow_pickle=True" in validate_script
     assert "probe_scale_mode" in validate_script
     assert "pad_preserve" in validate_script

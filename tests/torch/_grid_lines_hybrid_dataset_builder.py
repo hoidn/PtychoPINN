@@ -8,6 +8,7 @@ GPU memory while the parent pytest process launches PyTorch training.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 from pathlib import Path
@@ -61,8 +62,21 @@ def main() -> None:
         if simulation[split].get("probe_simulated") is None:
             raise RuntimeError(f"{split} split lacks probe_simulated")
 
-    save_split_npz(cfg, "train", simulation["train"], config)
-    save_split_npz(cfg, "test", simulation["test"], config)
+    train_npz = save_split_npz(cfg, "train", simulation["train"], config)
+    test_npz = save_split_npz(cfg, "test", simulation["test"], config)
+    output_root = args.output_dir.resolve()
+    (output_root / "dataset_paths.json").write_text(
+        json.dumps(
+            {
+                "train_npz": str(train_npz.resolve().relative_to(output_root)),
+                "test_npz": str(test_npz.resolve().relative_to(output_root)),
+            },
+            sort_keys=True,
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
 
 
 if __name__ == "__main__":

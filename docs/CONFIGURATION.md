@@ -6,14 +6,15 @@ This document is the canonical reference for all configuration parameters used i
 
 The project uses a modern, robust configuration system based on Python dataclasses, defined in `ptycho/config/config.py`. This provides type safety, default values, and clear structure.
 
-There are three main configuration classes:
+There are four main configuration classes:
+- **SimulationConfig**: Defines properties baked into generated data.
 - **ModelConfig**: Defines the core model architecture.
 - **TrainingConfig**: Defines parameters for the training process.
 - **InferenceConfig**: Defines parameters for running inference.
 
 ### Legacy Compatibility
 
-For backward compatibility, a legacy global dictionary `ptycho.params.cfg` still exists. The modern dataclass configuration is the single source of truth. At the start of any workflow, the `TrainingConfig` or `InferenceConfig` object is used to populate the legacy `params.cfg` dictionary.
+For backward compatibility, a legacy global dictionary `ptycho.params.cfg` still exists. The modern dataclass configuration is the single source of truth. A generation entry point first bridges its `SimulationConfig`; training and inference entry points separately bridge their runtime config before importing a legacy consumer.
 
 This is a one-way data flow: **dataclass → legacy dict**. New code should always accept a configuration dataclass as an argument and should not rely on the global `params` object.
 
@@ -28,15 +29,80 @@ PyTorch config_params → ptycho_torch/config_bridge.py → TF dataclasses → u
 - See the normative mapping: <doc-ref type="spec">docs/specs/spec-ptycho-config-bridge.md</doc-ref>
 - Critical rule (CONFIG‑001): always call `update_legacy_dict(params.cfg, config)` before data loading or legacy module usage.
 
+### Configuration ownership
+
+| Property | Canonical owner |
+|---|---|
+| Generated detector size `N` | `SimulationConfig.N` (must agree with `ModelConfig.N`) |
+| Probe source, transform pipeline, simulation-time mask | `SimulationConfig.probe` |
+| Synthetic object family and dimensions | `SimulationConfig.object` |
+| Generated scan geometry and train/test counts | `SimulationConfig.scan` |
+| Photon count and simulated beamstop | `SimulationConfig.detector` |
+| Generation seed | `SimulationConfig.seed` |
+| Architecture and model-time probe mask | `ModelConfig` |
+| Epochs, optimizer, learning rate, batch size, losses | `TrainingConfig` |
+| Checkpoint selection and reconstruction behavior | `InferenceConfig` |
+
+Repeated runtime shape fields are compatibility views, not independent sources of truth. Composition rejects disagreement. In particular, `simulation.probe.mask_diameter` changes generated data; a model probe mask changes the forward model and does not retroactively change a dataset.
+
 ## Usage
 
-You can configure a run in two ways, with the following order of precedence:
+Configuration precedence is entry-point specific:
 
-1. **Command-Line Arguments** (Highest Priority): Any parameter can be overridden from the command line (e.g., `--nepochs 100`).
-2. **YAML Configuration File**: A base configuration can be provided using the `--config` argument (e.g., `--config configs/my_config.yaml`).
-3. **Default Values** (Lowest Priority): If a parameter is not specified, its default value from the dataclass definition is used.
+- Generation CLIs apply retained explicit CLI overrides over `--simulation-config` values. Simulation files may be TOML, YAML, or JSON; omitted file fields use dataclass defaults, while omitting the file invokes the entry point's historical compatibility defaults.
+- Training and inference CLIs retain their documented `--config`/CLI precedence.
+- Unknown simulation keys and conflicting legacy aliases are errors; not every dataclass field has a CLI flag.
 
 ## Parameter Reference
+
+### Generated data (SimulationConfig)
+
+`SimulationConfig` is a frozen nested recipe with `probe`, `object`, `scan`, and `detector` sections. Load TOML, YAML, or JSON with `load_simulation_config()`; unknown keys are errors. Generation CLIs use explicit CLI value over config-file value over the historical no-file default.
+
+Supported probe pipeline operations are ordered and composable:
+
+| Operation | Meaning |
+|---|---|
+| `smooth:0.5` | Smooth complex amplitude and unwrapped phase at the current resolution. |
+| `pad_preserve:128` | Center-pad the prepared complex probe without changing its values. |
+| `interp:128` | Cubic real/imaginary interpolation. |
+| `pad_extrapolate:128` | Legacy behavior: fit and evaluate one quadratic phase over the entire target probe, including the center. |
+| `pad_extrapolate_boundary_matched:128` | Center-copy the prepared source exactly and solve a C0 harmonic Dirichlet correction only outside it, relaxing to the fitted quadratic at the target perimeter. This operation must be last. |
+
+The canonical new outer-only form is `smooth:0.5|pad_extrapolate_boundary_matched:128`: smoothing happens before extension, and no post-extension operation may alter the copied center. Changing a pipeline changes the simulation and dataset recipe digests; it cannot reuse a dataset generated by another pipeline.
+
+Grid-lines generation writes beneath `<output_dir>/datasets/N<N>/gs<gridsize>/simulation-<simulation_config_sha256>/`. Explicit-output simulation records both `simulation_config_sha256` and `dataset_recipe_sha256` and rejects mismatched reuse; see the [Data Generation Guide](DATA_GENERATION_GUIDE.md).
+
+```toml
+[simulation]
+N = 128
+seed = 3
+
+[simulation.probe]
+source = "custom"
+source_path = "datasets/Run1084_recon3_postPC_shrunk_3.npz"
+transform_pipeline = "smooth:0.5|pad_extrapolate_boundary_matched:128"
+
+[simulation.object]
+kind = "lines"
+image_size = [392, 392]
+objects_per_probe = 4
+diffractions_per_object = 7000
+set_phi = true
+
+[simulation.scan]
+kind = "grid"
+grid_size = [1, 1]
+offset = 4
+outer_offset_train = 8
+outer_offset_test = 20
+train_groups = 2
+test_groups = 1
+buffer = 0
+
+[simulation.detector]
+photons_per_pattern = 1e9
+```
 
 ### Model Architecture (ModelConfig)
 
@@ -97,7 +163,7 @@ These parameters control the training loop, data handling, and loss functions.
 | `nll_weight` | `float` | `1.0` | Weight for the Negative Log-Likelihood (Poisson) loss. Recommended: 1.0. Range: [0, 1]. |
 | `realspace_mae_weight` | `float` | `0.0` | Weight for the MAE loss in the object domain. |
 | `realspace_weight` | `float` | `0.0` | General weight for all real-space losses. |
-| `nphotons` | `float` | `1e9` | The target average number of photons per diffraction pattern, used for the Poisson noise model. |
+| `nphotons` | `float` | `1e9` | Legacy/runtime compatibility value used by existing training physics. It does not define generated dose; new datasets take photon count from `SimulationConfig.detector.photons_per_pattern`. |
 | `n_groups` | `Optional[int]` | `None` (`512` after `TrainingConfig.__post_init__` when unset) | Number of groups to use from the dataset. Each group contains 1 image for gridsize=1, or gridsize² images for gridsize>1. **Replaces deprecated `n_images` parameter.** |
 | `n_images` | `Optional[int]` | `None` | **[DEPRECATED]** Legacy parameter name for `n_groups`. Still supported for backward compatibility but will show deprecation warnings. New code should use `n_groups`. |
 | `n_subsample` | `Optional[int]` | `None` | Number of images to subsample from the dataset before grouping (independent control). When provided, controls data selection separately from grouping. |
@@ -195,7 +261,7 @@ n_groups: 4096  # Use 4096 groups for this training run
 nll_weight: 1.0
 mae_weight: 0.0
 
-# Physics Parameters
+# Runtime/model compatibility parameters for already-materialized data
 nphotons: 1e9
 probe_scale: 4.0
 gaussian_smoothing_sigma: 0.0

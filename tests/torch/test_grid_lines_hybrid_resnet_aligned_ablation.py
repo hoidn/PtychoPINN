@@ -43,6 +43,7 @@ except ImportError:
         GridLinesConfig,
         apply_probe_mask,
         configure_legacy_params,
+        dataset_out_dir,
         load_probe_guess,
         save_split_npz,
         scale_probe,
@@ -63,11 +64,6 @@ except ImportError:
         return candidates[0]
 
     def _ensure_dataset(grid_lines_scratch_root: Path) -> tuple[Path, Path]:
-        train_npz = grid_lines_scratch_root / "datasets/N128/gs1/train.npz"
-        test_npz = grid_lines_scratch_root / "datasets/N128/gs1/test.npz"
-        if train_npz.exists() and test_npz.exists():
-            return train_npz, test_npz
-
         cfg = GridLinesConfig(
             N=128,
             gridsize=1,
@@ -81,6 +77,11 @@ except ImportError:
             probe_scale_mode="pad_extrapolate",
             set_phi=True,
         )
+        dataset_dir = dataset_out_dir(cfg)
+        train_npz = dataset_dir / "train.npz"
+        test_npz = dataset_dir / "test.npz"
+        if train_npz.exists() and test_npz.exists():
+            return train_npz, test_npz
 
         probe = load_probe_guess(cfg.probe_npz)
         probe = scale_probe(probe, cfg.N, cfg.probe_smoothing_sigma, cfg.probe_scale_mode)

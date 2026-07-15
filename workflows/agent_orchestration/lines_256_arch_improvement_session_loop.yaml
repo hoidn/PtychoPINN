@@ -58,11 +58,14 @@ steps:
         from pathlib import Path
 
         import numpy as np
+        from scripts.studies.run_lines_256_arch_experiment import (
+            resolve_lines_256_dataset_paths,
+        )
 
-        dataset_paths = [
-            Path("outputs/lines_256_arch_improvement/datasets/N256/gs1/train.npz"),
-            Path("outputs/lines_256_arch_improvement/datasets/N256/gs1/test.npz"),
-        ]
+        dataset_manifest = Path(
+            "outputs/lines_256_arch_improvement/dataset_paths.json"
+        )
+        dataset_paths = list(resolve_lines_256_dataset_paths(dataset_manifest))
         expected_probe_npz = "datasets/Run1084_recon3_postPC_shrunk_3.npz"
 
         for dataset_path in dataset_paths:

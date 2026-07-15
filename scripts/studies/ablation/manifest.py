@@ -19,6 +19,13 @@ from pathlib import Path
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
+from ptycho.config import (
+    SimulationConfig,
+    simulation_config_from_mapping,
+    simulation_config_sha256,
+    simulation_config_to_dict,
+)
+
 from .dataset_schema import (
     DatasetDescriptor,
     DatasetError,
@@ -188,6 +195,7 @@ class Manifest:
     expected_protocol_sha256: str | None
     budget_threshold_contract_locked: bool
     integration_bridge_requirement: IntegrationBridgeRequirement | None
+    simulation_config: SimulationConfig | None
     source_bytes: bytes | None
     source_sha256: str | None
     source_stat: tuple[int, int, int, int, int] | None
@@ -612,6 +620,12 @@ def protocol_fingerprint(
             for run in runs
         ],
     }
+    if manifest.schema_version == 2:
+        if manifest.simulation_config is None:
+            raise ManifestError("schema-v2 manifest is missing simulation_config")
+        payload["simulation"] = simulation_config_to_dict(
+            manifest.simulation_config
+        )
     if dataset_profiles is not None:
         payload["dataset_materialization_profiles"] = profiles
     encoded = json.dumps(
@@ -799,7 +813,7 @@ def _stat_identity(value: Any) -> tuple[int, int, int, int, int]:
 
 
 def load_manifest(path: str | Path) -> Manifest:
-    """Load a schema-v1 study manifest as data using Python 3.11 ``tomllib``."""
+    """Load a schema-v1/v2 study manifest using Python 3.11 ``tomllib``."""
     source = Path(path)
     try:
         before = source.stat()
@@ -814,7 +828,7 @@ def load_manifest(path: str | Path) -> Manifest:
 
 
 def loads_manifest(text: str) -> Manifest:
-    """Parse a schema-v1 manifest from TOML text."""
+    """Parse a schema-v1/v2 manifest from TOML text."""
     if not isinstance(text, str):
         raise TypeError("manifest text must be str")
     try:
@@ -836,28 +850,41 @@ def _parse_manifest(
         source_bytes = raw.source_bytes
         source_stat = raw.source_stat
     _validate_json_native(raw)
-    _closed_table(
-        raw,
-        path="manifest",
-        allowed={
-            "schema",
-            "study",
-            "base",
-            "datasets",
-            "matrix",
-            "gates",
-            "comparisons",
-            "diagnostics",
-            "claim_grade",
-        },
-        required={"schema", "study", "datasets", "matrix"},
-    )
+    if not isinstance(raw, dict) or "schema" not in raw:
+        raise ManifestError("manifest must contain a schema table")
     schema = _closed_table(
         raw["schema"], path="schema", allowed={"version"}, required={"version"}
     )
     version = schema["version"]
-    if type(version) is not int or version != 1:
-        raise ManifestError("schema.version must be the integer 1")
+    if type(version) is not int or version not in {1, 2}:
+        raise ManifestError("schema.version must be the integer 1 or 2")
+    allowed_top_level = {
+        "schema",
+        "study",
+        "base",
+        "datasets",
+        "matrix",
+        "gates",
+        "comparisons",
+        "diagnostics",
+        "claim_grade",
+    }
+    required_top_level = {"schema", "study", "datasets", "matrix"}
+    if version == 2:
+        allowed_top_level.add("simulation")
+        required_top_level.add("simulation")
+    _closed_table(
+        raw,
+        path="manifest",
+        allowed=allowed_top_level,
+        required=required_top_level,
+    )
+    simulation_config = None
+    if version == 2:
+        try:
+            simulation_config = simulation_config_from_mapping(raw["simulation"])
+        except (TypeError, ValueError) as exc:
+            raise ManifestError(f"simulation is invalid: {exc}") from exc
 
     claim_grade = _closed_table(
         raw.get("claim_grade", {}),
@@ -962,6 +989,11 @@ def _parse_manifest(
     datasets = _parse_datasets(
         raw["datasets"],
         parsed_descriptors=dataset_descriptors,
+        simulation_digest=(
+            None
+            if simulation_config is None
+            else simulation_config_sha256(simulation_config)
+        ),
     )
     dataset_ids = {dataset.id for dataset in datasets}
 
@@ -1024,7 +1056,7 @@ def _parse_manifest(
         raw, sort_keys=True, ensure_ascii=False, separators=(",", ":"), allow_nan=False
     )
     return Manifest(
-        schema_version=1,
+        schema_version=version,
         study_id=study_id,
         seeds=seeds,
         output_root=output_root,
@@ -1040,6 +1072,7 @@ def _parse_manifest(
         expected_protocol_sha256=expected_protocol_sha256,
         budget_threshold_contract_locked=budget_threshold_contract_locked,
         integration_bridge_requirement=integration_bridge_requirement,
+        simulation_config=simulation_config,
         source_bytes=source_bytes,
         source_sha256=(
             None if source_bytes is None else hashlib.sha256(source_bytes).hexdigest()
@@ -1054,6 +1087,7 @@ def _parse_datasets(
     value: Any,
     *,
     parsed_descriptors: Mapping[str, DatasetDescriptor] | None = None,
+    simulation_digest: str | None = None,
 ) -> tuple[DatasetDeclaration, ...]:
     if not isinstance(value, dict) or not value:
         raise ManifestError("datasets must be a nonempty table")
@@ -1064,6 +1098,7 @@ def _parse_datasets(
             f"parsed dataset descriptors are not declared: {sorted(unknown_supplied)}"
         )
     datasets: list[DatasetDeclaration] = []
+    synthetic_count = 0
     for dataset_id, metadata in value.items():
         identifier = _id_component(dataset_id, path="datasets id")
         if not isinstance(metadata, dict):
@@ -1084,6 +1119,17 @@ def _parse_datasets(
             )
         kind = descriptor.kind
         truth = descriptor.truth
+        if kind == "synthetic":
+            synthetic_count += 1
+            if simulation_digest is not None:
+                expected_parent = f"simulation-{simulation_digest}"
+                for field in ("train", "test"):
+                    declaration = getattr(descriptor.path_declarations, field)
+                    if Path(declaration).parent.name != expected_parent:
+                        raise ManifestError(
+                            f"datasets.{identifier}.{field} must be directly under "
+                            f"{expected_parent!r}, derived from simulation_config_sha256"
+                        )
         capabilities: set[str] = set()
         if truth == "object_truth":
             capabilities.add("has_object_truth")
@@ -1105,6 +1151,11 @@ def _parse_datasets(
                 capabilities=frozenset(capabilities),
                 metadata=FrozenDict(metadata),
             )
+        )
+    if simulation_digest is not None and synthetic_count == 0:
+        raise ManifestError(
+            "schema-v2 manifest requires at least one synthetic dataset to bind "
+            "to simulation_config_sha256"
         )
     return tuple(datasets)
 

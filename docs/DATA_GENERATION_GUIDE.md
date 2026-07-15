@@ -2,6 +2,20 @@
 
 This guide covers the two distinct data generation pipelines in PtychoPINN and when to use each.
 
+## Canonical generated-data recipe
+
+New generation code uses `SimulationConfig` for every property baked into a dataset: detector size, probe construction and simulation mask, object family, scan geometry, photon/beamstop settings, and seed. Training values do not belong in this recipe. A legacy simulator must receive `update_legacy_dict(params.cfg, simulation_config)` before its module is imported or called; the later training bridge is separate.
+
+Probe pipelines are ordered. `pad_extrapolate` is the historical global quadratic phase replacement, including the source footprint. `smooth:0.5|pad_extrapolate_boundary_matched:128` first prepares the source, then copies that complex center exactly and constructs only the outer phase with the C0 harmonic boundary-conditioned solver. The boundary-matched operation is terminal. `pad_preserve` and `interp` retain their established padding/interpolation meanings. Any pipeline change creates a different dataset identity.
+
+Generation metadata records the canonical `SimulationConfig`, its `simulation_config_sha256`, source and probe content hashes, normalized pipeline, transformed-probe hash, `dataset_recipe_sha256`, and boundary solver evidence when applicable. Grid-lines generation writes beneath `<output_dir>/datasets/N<N>/gs<gridsize>/simulation-<simulation_config_sha256>/`. `simulate_and_save.py` preserves the exact `--output-file` and requires a distinct explicit path when either digest changes.
+
+```python
+from ptycho.config import load_simulation_config
+
+simulation = load_simulation_config("configs/lines128.toml")
+```
+
 ## Overview
 
 PtychoPINN has two data generation systems reflecting the broader "two-system" architecture (see `DEVELOPER_GUIDE.md` §1):
@@ -21,7 +35,7 @@ PtychoPINN has two data generation systems reflecting the broader "two-system" a
 **Use Nongrid mode when:**
 - Random/irregular scan positions needed
 - Working with real experimental coordinates
-- Using modern `TrainingConfig` dataclass workflow
+- Using the `SimulationConfig`-driven generation workflow with a derived legacy runtime adapter
 
 ---
 
@@ -39,7 +53,10 @@ X, Y_I, Y_phi, intensity_scale, YY_full, norm_Y_I, coords = mk_simdata(
 )
 ```
 
-### Required params.cfg Setup
+### Legacy low-level `params.cfg` view
+
+New generation entry points resolve and bridge `SimulationConfig`. The direct `p.set()` calls below document only the state read by historical `mk_simdata()` and notebook callers; they are not a second ownership surface.
+
 ```python
 from ptycho.params import params as p
 
@@ -91,10 +108,12 @@ Important storage rule:
 - Treat `outputs/` as a cleanup-prone compatibility location, not the desired long-term home for pinned datasets.
 - If an `N=256` grid-lines pair needs to persist as a durable study input, move or rebuild it under a durable git-ignored dataset location (for example under `datasets/`) and update consumers explicitly.
 
-Current compatibility location for the `lines_256` pair used by the architecture loop today:
+New `GridLinesConfig` builds write:
 
-- `outputs/lines_256_arch_improvement/datasets/N256/gs1/train.npz`
-- `outputs/lines_256_arch_improvement/datasets/N256/gs1/test.npz`
+- `<output_dir>/datasets/N256/gs1/simulation-<simulation_config_sha256>/train.npz`
+- `<output_dir>/datasets/N256/gs1/simulation-<simulation_config_sha256>/test.npz`
+
+The old undigested `outputs/lines_256_arch_improvement/datasets/N256/gs1/{train,test}.npz` pair and its flat metadata describe historical pre-`SimulationConfig` artifacts only.
 
 Older archived `custom_npz_pair_n256` pair:
 
@@ -114,7 +133,7 @@ Its embedded metadata records the synthetic recipe:
 - `nimgs_train=2`, `nimgs_test=1`, `nphotons=1e9`
 - `probe_source=custom`, `probe_scale_mode=pad_preserve`, `probe_smoothing_sigma=0.5`, `coords_type=relative`
 
-The older archived pair above remains historical provenance only; use the current `lines_256` metadata fields as the authoritative working reproduction recipe.
+The listed flat metadata fields remain compatibility provenance for those historical artifacts. New reproduction is owned by the resolved `SimulationConfig`, its `simulation_config_sha256`, and its `dataset_recipe_sha256`.
 Do not read this section as approval to store persistent datasets under `outputs/` indefinitely.
 
 ### Direct Container Construction
@@ -144,20 +163,42 @@ container = PtychoDataContainer(
 
 ### Entry Point
 ```python
-from ptycho.nongrid_simulation import generate_simulated_data
-from ptycho.config import TrainingConfig, ModelConfig
-
-config = TrainingConfig(
-    model=ModelConfig(N=64, gridsize=2),
-    n_groups=2000,
-    nphotons=1e9,
+from ptycho import params as p
+from ptycho.config import (
+    DetectorSimulationConfig,
+    ModelConfig,
+    ScanSimulationConfig,
+    SimulationConfig,
+    SyntheticObjectConfig,
+    TrainingConfig,
+    update_legacy_dict,
 )
 
+simulation = SimulationConfig(
+    N=64,
+    object=SyntheticObjectConfig(diffractions_per_object=2000),
+    scan=ScanSimulationConfig(kind="nongrid", grid_size=(2, 2), buffer=15),
+    detector=DetectorSimulationConfig(photons_per_pattern=1e9),
+)
+update_legacy_dict(p.cfg, simulation)
+
+# TrainingConfig remains the compatibility envelope expected by the legacy API.
+runtime = TrainingConfig(
+    model=ModelConfig(
+        N=simulation.N,
+        gridsize=simulation.scan.grid_size[0],
+    ),
+    n_groups=simulation.object.diffractions_per_object,
+    nphotons=simulation.detector.photons_per_pattern,
+)
+
+from ptycho.nongrid_simulation import generate_simulated_data
+
 raw_data = generate_simulated_data(
-    config=config,
+    config=runtime,
     objectGuess=objectGuess,
     probeGuess=probeGuess,
-    buffer=15.0  # Edge buffer for random positions
+    buffer=simulation.scan.buffer,
 )
 ```
 
@@ -176,10 +217,10 @@ raw_data = generate_simulated_data(
 ```python
 # Nongrid output needs grouping before training
 grouped_data = raw_data.generate_grouped_data(
-    N=config.model.N,
-    K=config.neighbor_count,        # Neighbors to consider
-    nsamples=config.n_groups,       # Groups to generate
-    gridsize=config.model.gridsize  # Patterns per group
+    N=runtime.model.N,
+    K=runtime.neighbor_count,        # Neighbors to consider
+    nsamples=runtime.n_groups,       # Groups to generate
+    gridsize=runtime.model.gridsize  # Patterns per group
 )
 
 # Then convert to container via loader
@@ -191,32 +232,29 @@ container = load(lambda: grouped_data, probeGuess, which=None, create_split=Fals
 
 ## Parameter Mapping
 
-| Concept | Grid (`params.cfg`) | Nongrid (`TrainingConfig`) |
-|---------|---------------------|---------------------------|
-| Patch size | `cfg['N']` | `config.model.N` |
-| Group size | `cfg['gridsize']` | `config.model.gridsize` |
-| Sample count | `cfg['nimgs_train']` | `config.n_groups` |
-| Photon count | `cfg['nphotons']` | `config.nphotons` |
-| Intra-group spacing | `cfg['offset']` | N/A (KDTree determines) |
-| Inter-group spacing | `cfg['outer_offset_train']` | N/A (random positions) |
-| Object size | `cfg['size']` | Determined by `objectGuess.shape` |
+| Concept | Canonical owner | Grid legacy view | Nongrid compatibility view |
+|---|---|---|---|
+| Detector/probe size | `simulation.N` | `cfg['N']` | `runtime.model.N`, derived |
+| Scan grouping | `simulation.scan.grid_size` | `cfg['gridsize']` | `runtime.model.gridsize`, derived |
+| Grid split counts | `simulation.scan.train_groups/test_groups` | `cfg['nimgs_train/test']` | N/A |
+| Nongrid pattern count | `simulation.object.diffractions_per_object` | N/A | `runtime.n_groups`, derived |
+| Photon count | `simulation.detector.photons_per_pattern` | `cfg['nphotons']` | `runtime.nphotons`, derived |
+| Scan offsets/buffer | `simulation.scan.*` | Corresponding legacy fields | `buffer`, derived |
+| Object size | `simulation.object.image_size` | `cfg['size']` | `objectGuess.shape`, which must agree |
 
 ---
 
 ## Object Generation
 
-Both systems can use the same object generators:
+Canonical `SimulationConfig` entry points support `lines`, `dead_leaves`, and `natural_patch`. Legacy helpers may create other arrays, but unsupported kinds such as `grf` must not be mislabeled or materialized as a canonical simulation recipe.
 
 ```python
-from ptycho.diffsim import mk_lines_img, sim_object_image
+from ptycho.diffsim import mk_lines_img
 
 # Lines pattern
 obj = mk_lines_img(size=392, nlines=400)
 
-# GRF (Gaussian Random Field)
-from ptycho.params import params as p
-p.set('data_source', 'grf')
-obj = sim_object_image(size=256, which='train')
+# Other supported families are prepared by their dedicated Stage-1 generators.
 ```
 
 ---
@@ -228,7 +266,7 @@ obj = sim_object_image(size=256, which='train')
 - **Import-time side effects** — some legacy modules trigger data generation on import (see ANTIPATTERN-001)
 
 ### Nongrid Mode
-- **Must call `update_legacy_dict(params.cfg, config)` before legacy module usage** (CONFIG-001)
+- **Must bridge `SimulationConfig` before legacy generation**; bridge the derived runtime config separately before training (CONFIG-001)
 - **Grouping is required** — `RawData` output is ungrouped; training needs grouped data
 
 ### Both

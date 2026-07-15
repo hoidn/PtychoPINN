@@ -9,6 +9,10 @@ from types import MappingProxyType
 
 import pytest
 
+from ptycho.config import (
+    simulation_config_from_mapping,
+    simulation_config_sha256,
+)
 from scripts.studies.ablation import manifest
 from scripts.studies.ablation.configuration import (
     ConfigResolutionError,
@@ -1040,6 +1044,83 @@ def _api():
     return manifest
 
 
+def _schema_v2_manifest(*, seed: int = 3) -> str:
+    simulation_mapping = {
+        "N": 64,
+        "seed": seed,
+        "probe": {
+            "source": "custom",
+            "source_path": "probe.npz",
+            "transform_pipeline": "pad_preserve:64",
+        },
+        "object": {
+            "kind": "lines",
+            "image_size": [392, 392],
+            "objects_per_probe": 4,
+            "diffractions_per_object": 7000,
+            "set_phi": False,
+        },
+        "scan": {
+            "kind": "grid",
+            "grid_size": [1, 1],
+            "offset": 4,
+            "outer_offset_train": 8,
+            "outer_offset_test": 20,
+            "train_groups": 2,
+            "test_groups": 2,
+            "buffer": 0,
+        },
+        "detector": {"photons_per_pattern": 1e9},
+    }
+    digest = simulation_config_sha256(
+        simulation_config_from_mapping(simulation_mapping)
+    )
+    simulation = f"""
+[simulation]
+N = 64
+seed = {seed}
+
+[simulation.probe]
+source = "custom"
+source_path = "probe.npz"
+transform_pipeline = "pad_preserve:64"
+
+[simulation.object]
+kind = "lines"
+image_size = [392, 392]
+objects_per_probe = 4
+diffractions_per_object = 7000
+set_phi = false
+
+[simulation.scan]
+kind = "grid"
+grid_size = [1, 1]
+offset = 4
+outer_offset_train = 8
+outer_offset_test = 20
+train_groups = 2
+test_groups = 2
+buffer = 0
+
+[simulation.detector]
+photons_per_pattern = 1e9
+"""
+    return (
+        BASE_MANIFEST.replace("version = 1", "version = 2", 1)
+        .replace("\n[study]", simulation + "\n[study]", 1)
+        .replace(
+            'train = "fixtures/synthetic_train.npz"',
+            f'train = "fixtures/simulation-{digest}/train.npz"',
+            1,
+        )
+        .replace(
+            'test = "fixtures/synthetic_test.npz"',
+            f'test = "fixtures/simulation-{digest}/test.npz"',
+            1,
+        )
+    )
+
+
 def _with_dataset_dimension(text: str) -> str:
     return text.replace('"dataset.id" = "synthetic"\n', "").replace(
         '[[matrix.dimensions]]\nname = "architecture"',
@@ -1081,6 +1162,62 @@ def test_loads_v1_with_compact_canonical_json_and_frozen_values(tmp_path):
         manifest.base_overrides["model.width"] = 64
 
 
+def test_schema_v2_owns_one_immutable_top_level_simulation_recipe(tmp_path):
+    text = _schema_v2_manifest()
+
+    parsed = _api().load_manifest(_write(tmp_path, text))
+
+    assert parsed.schema_version == 2
+    assert parsed.simulation_config is not None
+    assert parsed.simulation_config.N == 64
+    assert parsed.simulation_config.seed == 3
+
+    varied = text.replace(
+        '"model.architecture" = "cnn"',
+        '"model.architecture" = "cnn"\n"simulation.N" = 128',
+        1,
+    )
+    with pytest.raises(_api().ManifestError, match="simulation.N"):
+        _api().load_manifest(_write(tmp_path, varied))
+
+
+@pytest.mark.parametrize("split", ("train", "test"))
+def test_schema_v2_binds_synthetic_paths_to_simulation_digest(tmp_path, split):
+    text = _schema_v2_manifest()
+    mismatched = text.replace(f"/{split}.npz\"", f"/wrong/{split}.npz\"", 1)
+
+    with pytest.raises(_api().ManifestError, match="simulation_config_sha256"):
+        _api().load_manifest(_write(tmp_path, mismatched))
+
+
+def test_schema_v2_requires_a_synthetic_dataset_to_bind(tmp_path):
+    text = _replace_manifest_dataset(
+        _schema_v2_manifest(),
+        "synthetic",
+        kind="experimental",
+        truth="none",
+    )
+
+    with pytest.raises(_api().ManifestError, match="synthetic dataset"):
+        _api().load_manifest(_write(tmp_path, text))
+
+
+def test_schema_v2_protocol_fingerprint_includes_simulation_recipe(tmp_path):
+    api = _api()
+    parsed = api.load_manifest(_write(tmp_path, _schema_v2_manifest()))
+    runs = api.expand_runs(parsed)
+    configs = {run.id: {} for run in runs}
+    assert parsed.simulation_config is not None
+    changed = replace(
+        parsed,
+        simulation_config=replace(parsed.simulation_config, seed=4),
+    )
+
+    assert api.protocol_fingerprint(parsed, runs, configs) != api.protocol_fingerprint(
+        changed, runs, configs
+    )
+
+
 def test_frozen_dict_rejects_non_string_keys():
     api = _api()
 
@@ -1120,7 +1257,8 @@ def test_manifest_and_resolved_backing_state_is_assignment_proof(tmp_path):
 @pytest.mark.parametrize(
     "text, match",
     [
-        (BASE_MANIFEST.replace("version = 1", "version = 2"), "schema.version"),
+        (BASE_MANIFEST.replace("version = 1", "version = 2"), "simulation"),
+        (BASE_MANIFEST.replace("version = 1", "version = 3"), "schema.version"),
         (BASE_MANIFEST.replace("version = 1", "version = 1.0"), "schema.version"),
         (BASE_MANIFEST.replace("version = 1", "version = true"), "schema.version"),
         ("unknown = 1\n" + BASE_MANIFEST, "unknown"),

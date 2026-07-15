@@ -723,9 +723,9 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 ### Configuration & Data
 
 #### [Configuration Guide](CONFIGURATION.md)
-**Description:** Canonical reference for the modern dataclass-based configuration system with comprehensive parameter documentation for ModelConfig, TrainingConfig, and InferenceConfig classes.  
-**Keywords:** configuration, parameters, dataclass, YAML, command-line  
-**Use this when:** Setting up training or inference runs, understanding parameter precedence, or creating reproducible experiment configurations.
+**Description:** Canonical reference for the four public configuration families, including `SimulationConfig` ownership, parsing and precedence, probe pipelines, and generated-dataset identity alongside model, training, and inference configuration.
+**Keywords:** configuration, simulation, probe-pipeline, parameters, dataclass, YAML, TOML, command-line
+**Use this when:** Generating data, setting up training or inference, understanding parameter precedence, or creating reproducible configurations.
 
 #### [Standalone NPZ and Grouped Data Contract](specs/spec-ptycho-core.md) CRITICAL
 **Description:** Official standalone-NPZ and grouped-dict contract, including required keys, shapes, legacy normalized-amplitude semantics, and the versioned CI count-intensity/physical-probe contract.
@@ -748,8 +748,8 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Use this when:** Debugging normalization or absolute-scale issues, implementing data loading, or selecting CI versus legacy behavior.
 
 #### [Data Generation Guide](DATA_GENERATION_GUIDE.md) CRITICAL
-**Description:** Comprehensive guide to the two data generation pipelines: grid-based (`mk_simdata`) for notebook-compatible workflows and nongrid (`generate_simulated_data`) for production scripts. Covers parameter mappings, entry points, and container construction.
-**Keywords:** simulation, synthetic-data, grid, nongrid, mk_simdata, generate_simulated_data, params.cfg
+**Description:** Canonical guide to `SimulationConfig`-owned grid and nongrid generation, legacy compatibility views, probe lineage, metadata digests, and digest-bearing output/reuse behavior.
+**Keywords:** simulation, SimulationConfig, synthetic-data, grid, nongrid, probe-lineage, dataset-identity, params.cfg
 **Use this when:** Implementing dose studies, generating synthetic datasets, choosing between grid and nongrid simulation, or debugging data generation issues.
 
 #### [GridSize & n_groups Guide](GRIDSIZE_N_GROUPS_GUIDE.md) CRITICAL
@@ -787,8 +787,8 @@ See also: Specifications (normative contracts: `docs/specs/spec-ptycho-*`).
 **Use this when:** Running evaluations across datasets, comparing models, or training FNO/hybrid architectures via the Torch runner.
 
 #### [Simulation](../scripts/simulation/README.md)
-**Description:** Two-stage modular simulation architecture for generating ptychographic datasets: Stage 1 creates object/probe inputs, Stage 2 simulates diffraction patterns.  
-**Keywords:** simulation, diffraction, modular, synthetic-data, workflow  
+**Description:** CLI guide for two-stage `SimulationConfig`-driven generation, supported prepared-object workflows, probe pipelines, metadata identity, and safe explicit-output reuse.
+**Keywords:** simulation, SimulationConfig, diffraction, modular, synthetic-data, probe-pipeline, dataset-identity
 **Use this when:** Need to generate synthetic ptychographic datasets from custom objects or existing reconstructions.
 
 ### Advanced Workflows

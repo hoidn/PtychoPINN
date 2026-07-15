@@ -272,6 +272,66 @@ def _spec_text(
     return "\n".join(parts)
 
 
+def _spec_text_v2(identity: dict[str, Any], reference: dict[str, Any]) -> str:
+    parts = [
+        _toml_table(
+            "schema",
+            {"kind": "grid_lines_reference_performance_v2", "version": 2},
+        ),
+        _toml_table("study", {"id": "grid_lines_reference_miniature_study"}),
+        _toml_table(
+            "dataset",
+            {
+                "id": "grid_lines_reference_miniature",
+                "generator": "grid_lines_workflow_v1",
+                "probe_archive_sha256": identity["archive_sha256"],
+                "raw_probe_array_sha256": identity["raw_probe_array_sha256"],
+                "transformed_probe_sha256": identity["transformed_probe_sha256"],
+            },
+        ),
+        _toml_table("simulation", {"N": N_SMALL, "seed": 3}),
+        _toml_table(
+            "simulation.probe",
+            {
+                "source": "custom",
+                "source_path": identity["archive"].name,
+                "transform_pipeline": f"pad_extrapolate:{N_SMALL}|smooth:0.5",
+            },
+        ),
+        _toml_table(
+            "simulation.object",
+            {
+                "kind": "lines",
+                "image_size": [392, 392],
+                "objects_per_probe": 4,
+                "diffractions_per_object": 7000,
+                "set_phi": True,
+            },
+        ),
+        _toml_table(
+            "simulation.scan",
+            {
+                "kind": "grid",
+                "grid_size": [1, 1],
+                "offset": 4,
+                "outer_offset_train": 8,
+                "outer_offset_test": 20,
+                "train_groups": 2,
+                "test_groups": 1,
+                "buffer": 0,
+            },
+        ),
+        _toml_table(
+            "simulation.detector",
+            {"photons_per_pattern": 1e9},
+        ),
+        _toml_table("references", {"id": reference["id"]}, array_of_tables=True),
+        _toml_table("references.runner", reference["runner"]),
+        _toml_table("references.bridge", reference["bridge"]),
+    ]
+    return "\n".join(parts)
+
+
 def _write_spec(tmp_path: Path, identity: dict[str, Any], **kwargs: Any) -> Path:
     spec = tmp_path / "reference_spec.toml"
     spec.write_text(_spec_text(identity, **kwargs), encoding="utf-8")
@@ -494,6 +554,27 @@ def test_checked_spec_parses_with_both_reference_arms() -> None:
     fingerprint = spec.recipe.fingerprint_sha256
     assert len(fingerprint) == 64
     assert fingerprint == spec.recipe.fingerprint_sha256
+    assert fingerprint == "6d5274b5375c77b6f3038928c6584215f5b81e64b0c4c817d67d656a0150cb7e"
+    assert spec.recipe.schema_version == 1
+    assert spec.recipe.simulation is not None
+
+
+def test_schema_v2_reference_reads_top_level_simulation_recipe(tmp_path: Path) -> None:
+    identity = _write_dataset_files(tmp_path)
+    reference = _hybrid_reference(identity)
+    path = tmp_path / "reference_v2.toml"
+    path.write_text(_spec_text_v2(identity, reference), encoding="utf-8")
+
+    spec = runtime_reference.load_reference_spec(path, base_dir=tmp_path)
+
+    assert spec.recipe.schema_version == 2
+    assert spec.recipe.simulation is not None
+    assert spec.recipe.simulation.N == N_SMALL
+    assert spec.recipe.simulation.probe.transform_pipeline == (
+        f"pad_extrapolate:{N_SMALL}|smooth:0.5"
+    )
+    assert spec.recipe.simulation.seed == 3
+    assert spec.recipe.fingerprint_sha256 != "6d5274b5375c77b6f3038928c6584215f5b81e64b0c4c817d67d656a0150cb7e"
 
 
 def test_checked_hybrid_arm_locks_exact_fixture_floors() -> None:

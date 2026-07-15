@@ -563,8 +563,23 @@ def execution_config_from_args(args: argparse.Namespace):
         metadata["effective_config"] = _config_payload(approved_cfg)
         return approved_cfg, metadata
 
+    smoke_simulation = replace(
+        approved_cfg.simulation,
+        object=replace(
+            approved_cfg.simulation.object,
+            image_size=(int(args.smoke_size), int(args.smoke_size)),
+        ),
+        scan=replace(
+            approved_cfg.simulation.scan,
+            outer_offset_train=int(args.smoke_outer_offset),
+            outer_offset_test=int(args.smoke_outer_offset),
+            train_groups=int(args.smoke_nimgs_train),
+            test_groups=int(args.smoke_nimgs_test),
+        ),
+    )
     smoke_cfg = replace(
         approved_cfg,
+        simulation=smoke_simulation,
         size=int(args.smoke_size),
         outer_offset_train=int(args.smoke_outer_offset),
         outer_offset_test=int(args.smoke_outer_offset),

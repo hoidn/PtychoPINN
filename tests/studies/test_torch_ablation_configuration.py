@@ -43,10 +43,12 @@ from scripts.studies.ablation.configuration import (
     EXECUTION_MODEL_ALIASES,
     EXECUTION_TO_TRAINING_ALIASES,
     NAMESPACE_OWNERS,
+    SIMULATION_PATHS,
     TRAINING_TO_EXECUTION_ALIASES,
     ConfigResolutionError,
     ResolvedTorchConfigs,
     resolve_torch_configs,
+    resolve_simulation_namespace,
 )
 from scripts.studies.ablation.datasets import (
     load_checked_dataset,
@@ -127,6 +129,30 @@ def test_namespace_registry_has_one_explicit_owner_per_accepted_path() -> None:
     assert "model.fno_blocks" in ARCHITECTURE_POLICIES["hybrid_resnet"].applicable_paths
     with pytest.raises(TypeError):
         ARCHITECTURE_POLICIES["cnn"] = ARCHITECTURE_POLICIES["fno"]  # type: ignore[index]
+
+
+def test_immutable_simulation_namespace_resolves_recursive_paths_separately() -> None:
+    assert "simulation.probe.transform_pipeline" in SIMULATION_PATHS
+    assert "simulation.object.kind" in SIMULATION_PATHS
+    simulation = resolve_simulation_namespace(
+        {
+            "simulation.N": 128,
+            "simulation.seed": 3,
+            "simulation.probe.source": "custom",
+            "simulation.probe.source_path": "probe.npz",
+            "simulation.probe.transform_pipeline": (
+                "smooth:0.5|pad_extrapolate_boundary_matched:128"
+            ),
+            "simulation.object.kind": "lines",
+            "simulation.scan.grid_size": [2, 2],
+            "simulation.detector.photons_per_pattern": 1e8,
+        }
+    )
+    assert simulation.N == 128
+    assert simulation.scan.grid_size == (2, 2)
+    assert simulation.probe.source_path == Path("probe.npz")
+    with pytest.raises(ConfigResolutionError, match="simulation.training.epochs"):
+        resolve_simulation_namespace({"simulation.training.epochs": 10})
 
 
 def test_every_allowlisted_config_field_has_a_canonical_consumer_read_site() -> None:

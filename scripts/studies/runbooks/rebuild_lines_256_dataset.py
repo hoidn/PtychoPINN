@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from ptycho.workflows.grid_lines_workflow import GridLinesConfig
+from ptycho.config import simulation_config_sha256
 from scripts.studies.grid_study_dataset_builder import build_datasets
 
 
@@ -65,6 +66,19 @@ def build_lines_256_dataset(
         required_ns=[256],
     )
     bundle = bundles[256]
+    output_root = Path(output_root).resolve()
+    if probe_transform_pipeline is None:
+        dataset_paths = {
+            name: str(Path(bundle[name]).resolve().relative_to(output_root))
+            for name in ("train_npz", "test_npz")
+        }
+        dataset_paths["simulation_config_sha256"] = simulation_config_sha256(
+            cfg.simulation
+        )
+        (output_root / "dataset_paths.json").write_text(
+            json.dumps(dataset_paths, sort_keys=True, indent=2) + "\n",
+            encoding="utf-8",
+        )
     return {
         "train_npz": Path(bundle["train_npz"]),
         "test_npz": Path(bundle["test_npz"]),

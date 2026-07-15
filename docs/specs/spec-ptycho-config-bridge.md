@@ -4,12 +4,18 @@ This specification defines the normative mapping between TensorFlow configuratio
 
 ## 1. Scope and Goals
 
-- Canonical source: TensorFlow dataclasses under `ptycho/config/config.py` (`ModelConfig`, `TrainingConfig`, `InferenceConfig`).
+- Canonical source: dataclasses under `ptycho/config/config.py` (`SimulationConfig`, `ModelConfig`, `TrainingConfig`, `InferenceConfig`).
 - PyTorch inputs: Config singletons under `ptycho_torch/config_params.py` (e.g., `DataConfig`, `ModelConfig`, `TrainingConfig`, `InferenceConfig`).
 - Bridge adapter: `ptycho_torch/config_bridge.py` functions translate PyTorch config objects into TensorFlow dataclasses.
 - Legacy state: `update_legacy_dict(params.cfg, config)` must be called before any legacy module usage.
 
 Non‑goals: Define training semantics, runtime constraints, or data contracts (see other specs).
+
+`SimulationConfig` exclusively owns properties baked into generated data:
+probe source/transforms, synthetic-object recipe, scan geometry, detector/noise
+settings, and generation seed. Model and training configuration do not acquire
+ownership of these fields merely because a runtime compatibility structure
+repeats `N` or grid size.
 
 ## 2. Canonical Flow (CONFIG‑001)
 
@@ -17,9 +23,23 @@ Non‑goals: Define training semantics, runtime constraints, or data contracts (
 PyTorch config_params → config_bridge.py → TensorFlow dataclasses → update_legacy_dict() → params.cfg
 ```
 
+Generated-data entry points use a separate one-way flow before simulation:
+
+```text
+SimulationConfig → update_legacy_dict(params.cfg, simulation_config) → legacy simulation
+```
+
 Rules:
 - One‑way flow only. Do not mutate PyTorch configs during translation.
 - Call `update_legacy_dict(params.cfg, config)` before: data loading, model construction, and any legacy module imports that read `params.cfg`.
+- A simulation entry point must bridge its resolved `SimulationConfig` before
+  invoking legacy generation, independently of any later model/training bridge.
+- If repeated shape fields disagree (`simulation.N` versus `model.N`, or
+  `simulation.scan.grid_size` versus `model.gridsize`), composition fails with
+  a field-specific error. Implementations must not choose one silently.
+- Training-only values such as epochs, optimizer, learning rate, batch size,
+  loss weights, architecture, and output directory are invalid under the
+  `simulation` namespace.
 
 References:
 - TensorFlow configs and bridge: `ptycho/config/config.py`
@@ -94,6 +114,26 @@ Defaults & Precedence:
 - After translation, call `update_legacy_dict(params.cfg, config)` with the resulting TF dataclass.
 - This applies to both backends to keep legacy modules in sync (e.g., physics routines, helpers).
 - `update_legacy_dict` performs KEY_MAPPINGS translation to legacy names and value serialization.
+
+### 5.1 Simulation-owned legacy keys
+
+The `SimulationConfig` bridge is deliberately narrower than the training and
+inference bridges. It flattens only generated-data properties:
+
+- `N` → `N`
+- `scan.grid_size` (square) → `gridsize`
+- `object.image_size` (square) → `size`
+- `scan.offset`, outer offsets, train/test group counts, and buffer → the
+  corresponding legacy scan fields
+- `detector.photons_per_pattern` → `nphotons`
+- `object.kind` and `object.set_phi` → legacy object-source fields
+- `seed` → `npseed`
+- probe source path, normalized transform pipeline, and simulation-time mask →
+  probe-construction lineage fields
+
+This bridge does not transfer model-time probe masks, architecture, optimizer,
+epochs, or other training/runtime ownership. Optional `None` values remain
+absent rather than clearing unrelated legacy state.
 
 ## 6. Conformance (Testing Requirements)
 

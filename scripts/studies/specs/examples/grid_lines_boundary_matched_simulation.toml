@@ -1,0 +1,32 @@
+# Prepared generation recipe only; it does not select or rewrite an existing dataset.
+# Suggested fresh output identity:
+# .artifacts/simulation/grid_lines_run1084_boundary_matched_n128_seed3
+
+[simulation]
+N = 128
+seed = 3
+
+[simulation.probe]
+source = "custom"
+source_path = "datasets/Run1084_recon3_postPC_shrunk_3.npz"
+transform_pipeline = "smooth:0.5|pad_extrapolate_boundary_matched:128"
+
+[simulation.object]
+kind = "lines"
+image_size = [392, 392]
+objects_per_probe = 4
+diffractions_per_object = 7000
+set_phi = true
+
+[simulation.scan]
+kind = "grid"
+grid_size = [1, 1]
+offset = 4
+outer_offset_train = 8
+outer_offset_test = 20
+train_groups = 2
+test_groups = 1
+buffer = 0
+
+[simulation.detector]
+photons_per_pattern = 1e9

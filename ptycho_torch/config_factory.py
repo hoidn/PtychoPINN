@@ -56,6 +56,7 @@ from ptycho.config.config import (
 # Import PyTorch singleton configs
 from ptycho_torch.config_params import (
     DataConfig as PTDataConfig,
+    DatagenConfig as PTDatagenConfig,
     ModelConfig as PTModelConfig,
     TrainingConfig as PTTrainingConfig,
     InferenceConfig as PTInferenceConfig,
@@ -73,7 +74,6 @@ from ptycho_torch.scaling_contract import (
     validate_amplitude_physics_gain,
     validate_contract_coherence,
 )
-
 
 # Conformance D3 (Theme 3, docs/superpowers/plans/
 # 2026-07-14-ci-paper-conformance-audit.md): the paper's "PtychoPINN-CI" as a
@@ -158,6 +158,22 @@ def _reject_half_configured_ci(
             "on the training CLI) for the coherent PtychoPINN-CI bundle, or "
             "drop rect_s1s2_init."
         )
+
+
+def simulation_from_datagen_config(
+    datagen_config: PTDatagenConfig,
+    *,
+    base=None,
+):
+    """Convert the legacy Torch generation payload at the factory boundary."""
+    if not isinstance(datagen_config, PTDatagenConfig):
+        raise TypeError("datagen_config must be a DatagenConfig")
+    return datagen_config.to_simulation_config(base=base)
+
+
+def datagen_config_from_simulation(simulation) -> PTDatagenConfig:
+    """Project a canonical recipe into the unchanged Torch checkpoint payload."""
+    return PTDatagenConfig.from_simulation_config(simulation)
 
 
 def resolve_profile_overrides(overrides: Optional[Dict[str, Any]]) -> Optional[tuple[str, str]]:
