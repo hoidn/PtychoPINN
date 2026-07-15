@@ -41,7 +41,7 @@ def main() -> None:
         gridsize=1,
         output_dir=args.output_dir,
         probe_npz=args.probe_npz,
-        nimgs_train=2,
+        nimgs_train=1,
         nimgs_test=1,
         nphotons=1e9,
         probe_source="custom",

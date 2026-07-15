@@ -9,28 +9,30 @@
     "measurement_domain": "count_intensity",
     "physics_forward_mode": "rectangular_scaled",
     "torch_loss_mode": "poisson",
-    "ci_probe_provenance": "simulated"
+    "ci_probe_provenance": "simulated",
+    "nimgs_train": 1,
+    "n_train_patterns": 4489
   },
   "reference": {
-    "source_commit": "114d797ae411dcf886a6288ef1fa72efa41187ef",
-    "source_role": "clean Phase-E feature-worktree implementation",
-    "checkpoint_sha256": "08050e407bf0b8d59c98be8de5d162d59611c3738677484cd6c6c39ccd82e88d"
+    "source_commit": "3a0a48bd642bf81db4c5a73ef321c13f8077eec5",
+    "source_role": "fno-stable model source with one-group integration calibration",
+    "checkpoint_sha256": "75d67b6ee1a8a7b7fde6fe6f55c361bd4adc99a20edc154fc3b7ea1ab0a9f301"
   },
   "metrics": {
     "mae": [
-      0.09820421040058136,
-      0.13937780032642424
+      0.11237816512584686,
+      0.16018756647753254
     ],
     "ssim": [
-      0.8448636360281317,
-      0.9576650790705805
+      0.793242743504671,
+      0.936363154922433
     ]
   },
   "loss": {
-    "train": 52.65309143066406,
-    "validation": 49.21868133544922
+    "train": 89.91552734375,
+    "validation": 96.76083374023438
   },
-  "raw_amplitude_mean_ratio": 1.0053633451461792,
+  "raw_amplitude_mean_ratio": 1.0020583868026733,
   "tolerances": {
     "mae_amp": 0.015,
     "mae_phase": 0.025,

@@ -18,6 +18,8 @@ METRICS_BASELINE_PATH = (
 CI_METRICS_BASELINE_PATH = (
     REPO_ROOT / "tests/fixtures/grid_lines_hybrid_ci_nll_5ep_metrics.json"
 )
+INTEGRATION_TRAIN_GROUPS = 1
+INTEGRATION_TRAIN_PATTERNS = 4_489
 TORCH_RUNNER_PATH = REPO_ROOT / "scripts/studies/grid_lines_torch_runner.py"
 DATASET_BUILDER_PATH = (
     REPO_ROOT / "tests/torch/_grid_lines_hybrid_dataset_builder.py"
@@ -91,18 +93,24 @@ def _resolve_probe_npz() -> Path:
 def _ensure_dataset(grid_lines_scratch_root: Path) -> tuple[Path, Path]:
     train_npz = grid_lines_scratch_root / "datasets/N128/gs1/train.npz"
     test_npz = grid_lines_scratch_root / "datasets/N128/gs1/test.npz"
-    if train_npz.exists() and test_npz.exists():
-        return train_npz, test_npz
-
-    _run_repo_python(
-        DATASET_BUILDER_PATH,
-        "--output-dir",
-        grid_lines_scratch_root,
-        "--probe-npz",
-        _resolve_probe_npz(),
-    )
+    if not (train_npz.exists() and test_npz.exists()):
+        _run_repo_python(
+            DATASET_BUILDER_PATH,
+            "--output-dir",
+            grid_lines_scratch_root,
+            "--probe-npz",
+            _resolve_probe_npz(),
+        )
     assert train_npz.is_file()
     assert test_npz.is_file()
+    with np.load(train_npz, allow_pickle=True) as train_data:
+        metadata = json.loads(train_data["_metadata"].item())
+        assert (
+            metadata["additional_parameters"]["nimgs_train"]
+            == INTEGRATION_TRAIN_GROUPS
+        )
+        assert train_data["coords_nominal"].shape[0] == INTEGRATION_TRAIN_PATTERNS
+        assert train_data["YY_full"].shape[0] == INTEGRATION_TRAIN_GROUPS
     return train_npz, test_npz
 
 
@@ -131,6 +139,8 @@ def _load_ci_five_epoch_baseline() -> dict:
         "physics_forward_mode": "rectangular_scaled",
         "torch_loss_mode": "poisson",
         "ci_probe_provenance": "simulated",
+        "nimgs_train": INTEGRATION_TRAIN_GROUPS,
+        "n_train_patterns": INTEGRATION_TRAIN_PATTERNS,
     }
     return baseline
 
@@ -225,6 +235,13 @@ def test_grid_lines_dataset_stats(grid_lines_scratch_root):
         y_i = data["Y_I"].astype(np.float32)
         y_phi = data["Y_phi"].astype(np.float32)
 
+    assert (
+        diff.shape[0]
+        == y_i.shape[0]
+        == y_phi.shape[0]
+        == INTEGRATION_TRAIN_PATTERNS
+    )
+
     stats = {
         "diff_mean": float(diff.mean()),
         "diff_std": float(diff.std()),
@@ -235,6 +252,10 @@ def test_grid_lines_dataset_stats(grid_lines_scratch_root):
     }
 
     baseline = json.loads(DATASET_STATS_PATH.read_text())
+    assert baseline["contract"] == {
+        "nimgs_train": INTEGRATION_TRAIN_GROUPS,
+        "n_train_patterns": INTEGRATION_TRAIN_PATTERNS,
+    }
     tol = baseline["tolerances"]
     for key, value in stats.items():
         assert abs(value - baseline["stats"][key]) <= tol[key]
@@ -284,6 +305,10 @@ def test_grid_lines_hybrid_resnet_metrics(grid_lines_scratch_root):
     assert (visuals_dir / "amp_phase_pinn_hybrid_resnet.png").exists()
 
     baseline = json.loads(METRICS_BASELINE_PATH.read_text())
+    assert baseline["contract"] == {
+        "nimgs_train": INTEGRATION_TRAIN_GROUPS,
+        "n_train_patterns": INTEGRATION_TRAIN_PATTERNS,
+    }
     current = json.loads(metrics_path.read_text())
 
     for key in ("mae", "ssim"):

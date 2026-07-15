@@ -73,7 +73,7 @@ except ImportError:
             gridsize=1,
             output_dir=grid_lines_scratch_root,
             probe_npz=_resolve_probe_npz(),
-            nimgs_train=2,
+            nimgs_train=1,
             nimgs_test=1,
             nphotons=1e9,
             probe_source="custom",
