@@ -1540,3 +1540,141 @@ def test_simulate_grid_data_derives_global_scan_positions_when_container_offsets
     assert test_offsets.shape == (2, 1, 2, 1)
     assert np.unique(train_offsets).size > 1
     assert np.unique(test_offsets).size > 1
+
+
+class TestProbeSimulatedCapture:
+    """Tests for the optional ``probe_simulated`` NPZ key (CI-SCALE-001 E1)."""
+
+    def test_set_probe_stores_scalar_normalized_illumination(self):
+        """set_probe stores probe / (probe_scale * mean(|mask * probe|)), unmasked."""
+        from ptycho import probe as probe_mod
+        from ptycho.config.config import update_legacy_dict
+
+        N = 64
+        update_legacy_dict(p.cfg, TrainingConfig(model=ModelConfig(N=N, gridsize=1)))
+        probe_scale = p.get("probe_scale")
+
+        rng = np.random.RandomState(0)
+        probe_np = (rng.randn(N, N) + 1j * rng.randn(N, N)).astype(np.complex64)
+
+        probe_mod.set_probe_guess(probe_guess=probe_np)
+        stored = np.asarray(p.get("probe"))
+        assert stored.shape == (N, N, 1)
+
+        # Expected normalization mirrors ptycho.probe.set_probe using the
+        # module's own mask function (no reimplementation of the mask).
+        mask = np.asarray(probe_mod.get_probe_mask(N)).astype(np.complex64)
+        probe_3d = probe_np[..., None]
+        norm = probe_scale * np.mean(np.abs(mask * probe_3d))
+        expected = probe_3d / norm
+
+        np.testing.assert_allclose(stored, expected, rtol=1e-5, atol=1e-5)
+
+        # Exact proportionality: constant elementwise ratio to the input probe.
+        ratio = (stored[..., 0] / probe_np).ravel()
+        np.testing.assert_allclose(ratio, ratio[0], rtol=1e-5, atol=1e-5)
+
+    def test_save_split_npz_round_trips_probe_simulated(self, tmp_path: Path):
+        cfg = GridLinesConfig(
+            N=8, gridsize=1, output_dir=tmp_path, probe_npz=tmp_path / "probe.npz"
+        )
+        config = TrainingConfig(
+            model=ModelConfig(N=8, gridsize=1, object_big=False),
+            nphotons=1e9,
+            nepochs=1,
+            batch_size=1,
+            nll_weight=0.0,
+            mae_weight=1.0,
+            realspace_weight=0.0,
+        )
+        probe_sim = (np.arange(64).reshape(8, 8) + 1j).astype(np.complex64)
+        base = {
+            "X": np.zeros((1, 8, 8, 1), dtype=np.float32),
+            "Y_I": np.zeros((1, 8, 8, 1), dtype=np.float32),
+            "Y_phi": np.zeros((1, 8, 8, 1), dtype=np.float32),
+            "coords_nominal": np.zeros((1, 2), dtype=np.float32),
+            "coords_true": np.zeros((1, 2), dtype=np.float32),
+            "YY_full": np.zeros((8, 8), dtype=np.complex64),
+            "probeGuess": (np.ones((8, 8)) + 0j).astype(np.complex64),
+        }
+
+        path_with = save_split_npz(cfg, "train", dict(base, probe_simulated=probe_sim), config)
+        with np.load(path_with) as data:
+            assert "probe_simulated" in data.files
+            assert data["probe_simulated"].dtype == np.complex64
+            assert data["probe_simulated"].shape == (8, 8)
+            np.testing.assert_allclose(data["probe_simulated"], probe_sim)
+
+        path_without = save_split_npz(cfg, "test", dict(base), config)
+        with np.load(path_without) as data:
+            assert "probe_simulated" not in data.files
+
+    def test_simulate_grid_data_captures_set_probe_illumination(self, monkeypatch, tmp_path: Path):
+        """simulate_grid_data captures params['probe'] into both split dicts.
+
+        Route taken: monkeypatch stub (configure_legacy_params + generate_data),
+        with params['probe'] preset to a known (N, N, 1) array.
+        """
+        from ptycho.workflows.grid_lines_workflow import simulate_grid_data
+
+        N = 8
+        train_x = np.ones((3, N, N, 1), dtype=np.float32)
+        test_x = np.ones((2, N, N, 1), dtype=np.float32)
+        train_off = np.arange(3 * 2).reshape(3, 1, 2, 1).astype(np.float32)
+        test_off = np.arange(2 * 2).reshape(2, 1, 2, 1).astype(np.float32)
+        gt = (np.ones((16, 16)) + 1j * np.ones((16, 16))).astype(np.complex64)
+
+        dataset = SimpleNamespace(
+            train_data=SimpleNamespace(
+                coords_nominal=np.zeros((3, 1, 2, 1), dtype=np.float32),
+                coords_true=np.zeros((3, 1, 2, 1), dtype=np.float32),
+                global_offsets=train_off,
+                YY_full=np.ones((16, 16), dtype=np.complex64),
+            ),
+            test_data=SimpleNamespace(
+                coords_nominal=np.zeros((2, 1, 2, 1), dtype=np.float32),
+                coords_true=np.zeros((2, 1, 2, 1), dtype=np.float32),
+                global_offsets=test_off,
+                YY_full=np.ones((16, 16), dtype=np.complex64),
+            ),
+        )
+
+        def fake_generate_data():
+            return (
+                train_x,
+                np.ones_like(train_x),
+                np.zeros_like(train_x),
+                test_x,
+                np.ones_like(test_x),
+                np.zeros_like(test_x),
+                gt,
+                dataset,
+                np.ones((16, 16), dtype=np.complex64),
+                np.array([1.0], dtype=np.float32),
+            )
+
+        known_probe = (np.arange(N * N).reshape(N, N) + 1j).astype(np.complex64)[..., None]
+
+        monkeypatch.setattr(
+            "ptycho.workflows.grid_lines_workflow.configure_legacy_params",
+            lambda *args, **kwargs: None,
+        )
+        monkeypatch.setattr("ptycho.data_preprocessing.generate_data", fake_generate_data)
+        p.set("probe", known_probe)
+        p.set("intensity_scale", 1.0)
+
+        cfg = GridLinesConfig(
+            N=N,
+            gridsize=1,
+            output_dir=tmp_path,
+            probe_npz=tmp_path / "probe.npz",
+            nimgs_train=3,
+            nimgs_test=2,
+        )
+        out = simulate_grid_data(cfg, probe_np=np.ones((N, N), dtype=np.complex64))
+
+        for split in ("train", "test"):
+            captured = out[split]["probe_simulated"]
+            assert captured.dtype == np.complex64
+            assert captured.shape == (N, N)
+            np.testing.assert_allclose(captured, known_probe[..., 0])

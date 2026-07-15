@@ -257,6 +257,44 @@ def validate_amplitude_physics_gain(model_config: Any) -> float:
     return gain
 
 
+def validate_contract_coherence(
+    data_config: Any,
+    model_config: Any,
+    training_config: Any,
+) -> None:
+    """Fail-closed coherence validation across the three config objects.
+
+    Conformance D3 (Theme 3, docs/superpowers/plans/
+    2026-07-14-ci-paper-conformance-audit.md): a single unconditional entry
+    point that raises ``ValueError`` on ACTIVE contradictions:
+
+    - ``physics_forward_mode='rectangular_scaled'`` with an unsupported
+      (``scale_contract_version``, ``measurement_domain``) pair;
+    - active ``ci_intensity_v2`` with supervised mode or a non-poisson primary
+      loss — this covers ``measurement_domain='count_intensity'`` combined
+      with ``torch_loss_mode='mae'`` under the rectangular forward, because
+      ``count_intensity`` only resolves inside the CI profile;
+    - a non-1.0 ``amplitude_physics_gain`` wherever the contract forbids it
+      (every rectangular/CI mode; validated in every mode for finiteness).
+
+    Deliberately a no-op pass for BOTH coherent bundles:
+
+    - coherent legacy: the amplitude forward ignores the CI-flavored
+      ``DataConfig`` defaults by design (2026-07-09 CI ablation design,
+      "Amplitude mode does not activate CI even when absent profile fields
+      receive CI defaults"), so bare-default construction stays valid;
+    - coherent CI: rectangular + ``ci_intensity_v2``/``count_intensity`` +
+      ``torch_loss_mode='poisson'``.
+
+    Explicit-intent detection for half-configured CI (CI-only knobs passed
+    without the rectangular forward) lives at the factory layer
+    (``ptycho_torch.config_factory``), where override explicitness is
+    knowable; bare dataclasses cannot distinguish defaults from intent.
+    """
+    validate_scale_contract(data_config, model_config, training_config)
+    return None
+
+
 def validate_scale_contract(
     data_config: Any,
     model_config: Any,

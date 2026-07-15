@@ -317,6 +317,187 @@ def save_individual_reconstructions(obj_amp, obj_phase, output_dir):
     print(f"Saved phase reconstruction to: {phase_path}")
 
 
+def _resolve_reassembly_route(patch_weighting, varpro_scaling):
+    """
+    Decide which stitching path honors the requested inference knobs
+    (Conformance D4, 2026-07-14 CI paper-conformance audit Theme 2.1).
+
+    Args:
+        patch_weighting: 'uniform' (legacy binary/uniform stitching) or 'probe'
+            (|P|^2-weighted barycentric assembly).
+        varpro_scaling: Whether the VarPro (s1, s2) least-squares intensity
+            refit is requested.
+
+    Returns:
+        'uniform' when neither knob deviates from the legacy CLI behavior
+        (keeps that path bit-identical), else 'barycentric'.
+
+    Raises:
+        ValueError: patch_weighting is not one of 'uniform' / 'probe'.
+    """
+    if patch_weighting not in ('uniform', 'probe'):
+        raise ValueError(
+            "patch_weighting must be 'uniform' or 'probe', got "
+            f"{patch_weighting!r}"
+        )
+    if patch_weighting == 'uniform' and not varpro_scaling:
+        return 'uniform'
+    return 'barycentric'
+
+
+def _describe_requested_knobs(patch_weighting, varpro_scaling):
+    """Human-readable list of the non-default stitching/scaling knobs."""
+    requested = []
+    if patch_weighting != 'uniform':
+        requested.append(f"patch_weighting={patch_weighting!r}")
+    if varpro_scaling:
+        requested.append("varpro_scaling=True")
+    return ", ".join(requested)
+
+
+def _require_ci_varpro_scaling(model, inference_config):
+    """Fail closed when active CI inference would omit physical scaling."""
+    from ptycho_torch.scaling_contract import CI_SCALE_CONTRACT, COUNT_INTENSITY
+
+    model_config = getattr(model, "model_config", None)
+    data_config = getattr(model, "data_config", None)
+    active_ci = (
+        getattr(model_config, "physics_forward_mode", "amplitude")
+        == "rectangular_scaled"
+        and getattr(data_config, "scale_contract_version", None)
+        == CI_SCALE_CONTRACT
+        and getattr(data_config, "measurement_domain", None) == COUNT_INTENSITY
+    )
+    if active_ci and not bool(getattr(inference_config, "varpro_scaling", False)):
+        raise ValueError(
+            "Active CI inference requires --varpro-scaling so the reported "
+            "reconstruction is in the physical count-consistent scale."
+        )
+
+
+def _run_barycentric_inference_and_reconstruct(
+    model,
+    test_data_path,
+    pt_inference_config,
+    execution_config,
+    device,
+    output_dir,
+    quiet=False,
+):
+    """
+    Honor `patch_weighting='probe'` / `varpro_scaling=True` on the CLI path by
+    routing reconstruction through
+    `ptycho_torch.reassembly.reconstruct_image_barycentric` (Conformance D4).
+
+    The barycentric path consumes a grouped, memory-mapped `PtychoDataset`
+    built with the checkpoint's own torch configs, so the single test NPZ is
+    staged into an isolated directory (precedent:
+    `scripts/studies/ablation/runtime_execution.py::_stage_single_npz` and
+    `ptycho_torch.workflows.components._reassemble_cdi_image_torch_mmap`).
+    Workspace: `<output_dir>/barycentric_workspace/` (recreated per run).
+
+    Args:
+        model: Loaded Lightning module; must expose `model_config` and
+            `data_config` (bundle checkpoints do).
+        test_data_path: Path to the test NPZ (specs/data_contracts.md).
+        pt_inference_config: `ptycho_torch.config_params.InferenceConfig`
+            carrying the resolved patch_weighting / varpro_scaling knobs.
+        execution_config: Optional PyTorchExecutionConfig; `num_workers` and
+            `inference_batch_size` are honored when set.
+        device: Torch device string.
+        output_dir: CLI output directory (hosts the staging workspace).
+        quiet: Suppress progress output.
+
+    Returns:
+        Tuple of (amplitude, phase) numpy arrays for the stitched canvas.
+
+    Raises:
+        ValueError: The loaded checkpoint does not carry the torch configs
+            needed to rebuild the training-faithful grouped dataset — the
+            requested knobs cannot be honored, so fail fast instead of
+            silently discarding them.
+    """
+    import dataclasses
+    import shutil
+    import torch
+    from ptycho_torch.config_params import TrainingConfig as PTTrainingConfig
+    from ptycho_torch.dataloader import PtychoDataset
+    from ptycho_torch.reassembly import reconstruct_image_barycentric
+
+    requested = _describe_requested_knobs(
+        pt_inference_config.patch_weighting, pt_inference_config.varpro_scaling
+    )
+
+    model_config = getattr(model, 'model_config', None)
+    data_config = getattr(model, 'data_config', None)
+    if model_config is None or data_config is None:
+        raise ValueError(
+            f"Cannot honor {requested}: reconstruct_image_barycentric requires "
+            "the checkpoint's torch model_config/data_config to rebuild the "
+            "training-faithful grouped dataset, but the loaded bundle does not "
+            "expose them. Re-export the checkpoint as a Lightning bundle or "
+            "drop the stitching/scaling flag(s) to use the uniform path."
+        )
+
+    # Honor --inference-batch-size on the barycentric dataloader.
+    inference_batch_size = getattr(execution_config, 'inference_batch_size', None)
+    if inference_batch_size:
+        pt_inference_config = dataclasses.replace(
+            pt_inference_config, batch_size=int(inference_batch_size)
+        )
+    num_workers = int(getattr(execution_config, 'num_workers', 0) or 0)
+    pt_training_config = PTTrainingConfig(device=device, num_workers=num_workers)
+
+    # Stage the single test NPZ into an isolated directory: PtychoDataset
+    # consumes a directory of NPZ files, and the memmap must not land in the
+    # repo-relative default location.
+    test_data_path = Path(test_data_path)
+    workspace = Path(output_dir) / 'barycentric_workspace'
+    if workspace.exists():
+        shutil.rmtree(workspace)
+    staged_dir = workspace / 'staged'
+    staged_dir.mkdir(parents=True)
+    shutil.copy2(test_data_path, staged_dir / test_data_path.name)
+
+    if not quiet:
+        print(f"Reassembly route: barycentric ({requested})")
+
+    dataset = PtychoDataset(
+        str(staged_dir),
+        model_config,
+        data_config,
+        training_config=pt_training_config,
+        data_dir=str(workspace / 'mmap' / 'memmap'),
+        remake_map=True,
+    )
+
+    # Deterministic fp32 (use_mixed_precision/precision defaults resolve to
+    # '32-true'); reconstruct_image_barycentric moves the model itself.
+    result, _, _ = reconstruct_image_barycentric(
+        model,
+        dataset,
+        pt_training_config,
+        data_config,
+        model_config,
+        pt_inference_config,
+        gpu_ids=None,
+        verbose=not quiet,
+    )
+
+    canvas = result.detach().to('cpu')
+    if canvas.ndim == 3:
+        canvas = canvas[0]
+    amplitude = torch.abs(canvas).numpy()
+    phase = torch.angle(canvas).numpy()
+
+    if not quiet:
+        print(f"Reconstruction shape: {amplitude.shape}")
+        print(f"Amplitude range: [{amplitude.min():.4f}, {amplitude.max():.4f}]")
+        print(f"Phase range: [{phase.min():.4f}, {phase.max():.4f}]")
+
+    return amplitude, phase
+
+
 def _run_inference_and_reconstruct(model, raw_data, config, execution_config, device, quiet=False, intensity_scale=None):
     """
     Extract inference logic into testable helper function (Phase D.C C3).
@@ -358,7 +539,9 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
             raise RuntimeError(
                 "ci_intensity_v2 inference requires the canonical "
                 "reconstruct_image_barycentric physical-probe VarPro path. The "
-                "simplified uniform-stitching path cannot produce CI-scaled output."
+                "simplified uniform-stitching path cannot produce CI-scaled output. "
+                "Re-run with --patch-weighting probe --varpro-scaling to route "
+                "through it."
             )
 
     # DEVICE-MISMATCH-001 fix: Ensure model is on the requested device and in eval mode
@@ -565,8 +748,33 @@ Examples:
     parser.add_argument(
         '--n_images',
         type=int,
-        default=32,
-        help='Number of images to use for reconstruction (default: 32)'
+        default=None,
+        help=(
+            'Number of images to use for reconstruction on the uniform stitching '
+            'path (default: 32). Incompatible with --patch-weighting probe / '
+            '--varpro-scaling, which always reconstruct from the full scan.'
+        )
+    )
+    parser.add_argument(
+        '--patch-weighting',
+        choices=['uniform', 'probe'],
+        default='uniform',
+        dest='patch_weighting',
+        help=(
+            "Stitching weight for patch reassembly: 'uniform' keeps the legacy "
+            "CLI path unchanged (default); 'probe' applies |P|^2-weighted "
+            "barycentric assembly via reconstruct_image_barycentric."
+        )
+    )
+    parser.add_argument(
+        '--varpro-scaling',
+        action='store_true',
+        dest='varpro_scaling',
+        help=(
+            'Apply the VarPro (s1, s2) least-squares intensity refit during '
+            'reconstruction (routes stitching through '
+            'reconstruct_image_barycentric).'
+        )
     )
     parser.add_argument(
         '--device',
@@ -665,6 +873,32 @@ Examples:
 
     args = parser.parse_args()
 
+    # --- Conformance D4: resolve the stitching/scaling route up front ---
+    # 'uniform' keeps the legacy reassemble_patches_position_real path
+    # bit-identical; any non-default knob routes through
+    # reconstruct_image_barycentric. Requested-but-unsatisfiable combinations
+    # fail fast here instead of being silently discarded.
+    reassembly_route = _resolve_reassembly_route(
+        args.patch_weighting, args.varpro_scaling
+    )
+    if reassembly_route == 'barycentric':
+        requested_knobs = _describe_requested_knobs(
+            args.patch_weighting, args.varpro_scaling
+        )
+        if args.n_images is not None:
+            raise ValueError(
+                f"--n_images cannot be honored together with {requested_knobs}: "
+                "the barycentric reconstruction path always uses the full scan. "
+                "Drop --n_images or the stitching/scaling flag(s)."
+            )
+        if args.probe_mask:
+            raise ValueError(
+                f"--probe-mask cannot be honored together with {requested_knobs}: "
+                "the barycentric path uses the checkpoint's own probe "
+                "configuration. Drop one of the flags."
+            )
+    n_images = args.n_images if args.n_images is not None else 32
+
     # --- Phase D.C C3: Validate paths using shared helper ---
     from ptycho_torch.cli.shared import validate_paths
     try:
@@ -714,12 +948,16 @@ Examples:
 
     # Build overrides dict for factory
     overrides = {
-        'n_groups': args.n_images,  # Map CLI arg to config field
+        'n_groups': n_images,  # Map CLI arg to config field
         'probe_mask': args.probe_mask,
         'probe_mask_sigma': args.probe_mask_sigma,
         'probe_mask_diameter': args.probe_mask_diameter,
         'log_patch_stats': args.log_patch_stats,
         'patch_stats_limit': args.patch_stats_limit,
+        # Conformance D4: thread the stitching/scaling knobs so the resolved
+        # pt_inference_config matches the routing decision above.
+        'patch_weighting': args.patch_weighting,
+        'varpro_scaling': args.varpro_scaling,
     }
     if args.scale_contract_version is not None:
         overrides['scale_contract_version'] = args.scale_contract_version
@@ -800,6 +1038,8 @@ Examples:
             "Ensure model_path contains wts.h5.zip archive (spec-compliant format)."
         )
 
+    _require_ci_varpro_scaling(model, payload.pt_inference_config)
+
     # Load test data via RawData (factory already validated path)
     # NOTE: params.cfg already populated by factory, so RawData.from_file is safe to call
     try:
@@ -815,17 +1055,28 @@ Examples:
             "Ensure NPZ conforms to specs/data_contracts.md"
         )
 
-    # --- Phase D.C C3: Delegate to inference helper ---
+    # --- Phase D.C C3: Delegate to inference helper (Conformance D4 routing) ---
     try:
-        amplitude, phase = _run_inference_and_reconstruct(
-            model=model,
-            raw_data=raw_data,
-            config=tf_inference_config,
-            execution_config=execution_config,
-            device=device,
-            quiet=args.quiet,
-            intensity_scale=params_dict.get('intensity_scale'),
-        )
+        if reassembly_route == 'barycentric':
+            amplitude, phase = _run_barycentric_inference_and_reconstruct(
+                model=model,
+                test_data_path=test_data_path,
+                pt_inference_config=payload.pt_inference_config,
+                execution_config=execution_config,
+                device=device,
+                output_dir=output_dir,
+                quiet=args.quiet,
+            )
+        else:
+            amplitude, phase = _run_inference_and_reconstruct(
+                model=model,
+                raw_data=raw_data,
+                config=tf_inference_config,
+                execution_config=execution_config,
+                device=device,
+                quiet=args.quiet,
+                intensity_scale=params_dict.get('intensity_scale'),
+            )
 
         # Save individual reconstructions (required by test contract)
         save_individual_reconstructions(amplitude, phase, output_dir)

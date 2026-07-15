@@ -71,7 +71,93 @@ from ptycho_torch.scaling_contract import (
     COUNT_INTENSITY,
     resolve_scale_contract,
     validate_amplitude_physics_gain,
+    validate_contract_coherence,
 )
+
+
+# Conformance D3 (Theme 3, docs/superpowers/plans/
+# 2026-07-14-ci-paper-conformance-audit.md): the paper's "PtychoPINN-CI" as a
+# single named preset. The five CONTRACT fields are fail-closed — an explicit
+# user override contradicting them raises instead of silently mixing profiles.
+CI_PROFILE_CONTRACT_FIELDS: Dict[str, Any] = {
+    "scale_contract_version": CI_SCALE_CONTRACT,
+    "measurement_domain": COUNT_INTENSITY,
+    "physics_forward_mode": "rectangular_scaled",
+    "torch_loss_mode": "poisson",
+    "loss_function": "Poisson",
+}
+
+# Full coherent bundle. Non-contract entries are profile defaults a user may
+# override: rect_s1s2_init='data' per docs/model_baselines.md (one-batch s1/s2
+# calibration; required for bounded-head CNN CI arms), rect_s1s2_trainable=True
+# (trainable s1/s2 own the training scale), amplitude_physics_gain=1.0 (the
+# rectangular contract rejects anything else fail-closed), and
+# cnn_output_mode='real_imag' (cnn architecture only; other generators already
+# default generator_output_mode='real_imag').
+CI_PROFILE_BUNDLE: Dict[str, Any] = {
+    **CI_PROFILE_CONTRACT_FIELDS,
+    "amplitude_physics_gain": 1.0,
+    "rect_s1s2_trainable": True,
+    "rect_s1s2_init": "data",
+    "cnn_output_mode": "real_imag",
+}
+
+
+def resolve_ci_profile(overrides: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Return the canonical coherent CI override bundle merged with ``overrides``.
+
+    Pure function. Precedence: user overrides win for NON-CONTRACT fields; an
+    explicit override contradicting one of the five contract fields
+    (``CI_PROFILE_CONTRACT_FIELDS``) raises ``ValueError`` naming both values.
+
+    Raises:
+        ValueError: an override contradicts a CI contract field (fail-closed).
+    """
+    overrides = dict(overrides or {})
+    for field_name, required in CI_PROFILE_CONTRACT_FIELDS.items():
+        if field_name in overrides and overrides[field_name] != required:
+            raise ValueError(
+                f"the CI profile requires {field_name}={required!r}; you "
+                f"passed {overrides[field_name]!r}. The named CI profile is "
+                "fail-closed: remove the contradicting override, or drop "
+                "profile='ci' to assemble a custom configuration explicitly."
+            )
+    resolved = dict(CI_PROFILE_BUNDLE)
+    resolved.update(overrides)
+    return resolved
+
+
+def _reject_half_configured_ci(
+    overrides: Dict[str, Any],
+    physics_forward_mode: str,
+) -> None:
+    """Fail-closed guard against half-configured CI intent (Theme 3.3/3.4).
+
+    Fires only on explicit, CI-flavored, NON-DEFAULT evidence of intent in the
+    overrides dict: ``rect_s1s2_init='data'`` (a CI-only calibration knob,
+    silently ignored by the amplitude forward) without
+    ``physics_forward_mode='rectangular_scaled'``.
+
+    The contract pair (``scale_contract_version``/``measurement_domain``) and
+    ``rect_s1s2_trainable`` deliberately do NOT trigger this guard: their
+    CI-flavored values equal the dataclass defaults and workflow glue (e.g.
+    the grid-lines runner's ``lightning_overrides``) forwards them
+    unconditionally for legacy amplitude arms, so their presence in overrides
+    proves nothing about user intent. Bare-default construction remains valid
+    legacy behavior per the 2026-07-09 CI ablation design.
+    """
+    if physics_forward_mode == "rectangular_scaled":
+        return
+    if overrides.get("rect_s1s2_init") == "data":
+        raise ValueError(
+            "rect_s1s2_init='data' is a CI-contract knob (one-batch s1/s2 "
+            "calibration for the rectangular_scaled forward) but "
+            f"physics_forward_mode resolved to {physics_forward_mode!r}, "
+            "where it is silently ignored. Half-configured CI is fail-closed: "
+            "use create_training_payload(..., profile='ci') (or --profile ci "
+            "on the training CLI) for the coherent PtychoPINN-CI bundle, or "
+            "drop rect_s1s2_init."
+        )
 
 
 def resolve_profile_overrides(overrides: Optional[Dict[str, Any]]) -> Optional[tuple[str, str]]:
@@ -164,6 +250,7 @@ def create_training_payload(
     output_dir: Path,
     overrides: Optional[Dict[str, Any]] = None,
     execution_config: Optional[PyTorchExecutionConfig] = None,
+    profile: Optional[str] = None,
 ) -> TrainingPayload:
     """
     Create complete training configuration payload.
@@ -188,6 +275,10 @@ def create_training_payload(
             Optional keys: batch_size, gridsize, max_epochs, nphotons, etc.
         execution_config: PyTorchExecutionConfig instance for runtime knobs (accelerator,
             deterministic, num_workers, etc.). If None, uses defaults.
+        profile: Optional named configuration profile. ``None`` (default)
+            preserves prior behavior bit-for-bit. ``'ci'`` resolves the
+            canonical PtychoPINN-CI bundle via resolve_ci_profile() and merges
+            it under the user overrides (contract-field contradictions raise).
 
     Returns:
         TrainingPayload containing:
@@ -229,6 +320,16 @@ def create_training_payload(
         - Override precedence: .../override_matrix.md §6
         - Integration: .../factory_design.md §3 (CLI/workflow call sites)
     """
+    # Step 0: Resolve named profile (Conformance D3). Must precede everything
+    # else so profile contradictions fail before any state is touched.
+    if profile is not None:
+        if profile != "ci":
+            raise ValueError(
+                f"Unknown configuration profile {profile!r}; supported "
+                "profiles: 'ci'."
+            )
+        overrides = resolve_ci_profile(overrides)
+
     params.unseal()
     from ptycho_torch.config_bridge import to_model_config, to_training_config
     from ptycho_torch.config_params import update_existing_config
@@ -239,6 +340,8 @@ def create_training_payload(
     if resolved_profile is not None:
         overrides["scale_contract_version"], overrides["measurement_domain"] = resolved_profile
     overrides_applied = dict(overrides)  # Audit trail
+    if profile is not None:
+        overrides_applied['profile'] = profile
 
     # Bridge naming compatibility: accept legacy/CLI-friendly keys
     if 'max_epochs' in overrides and 'epochs' not in overrides:
@@ -324,6 +427,13 @@ def create_training_payload(
 
     pt_training_config = PTTrainingConfig()
     update_existing_config(pt_training_config, overrides)
+
+    # Conformance D3: fail-closed contract coherence (Theme 3, 2026-07-14).
+    # The half-configured-CI guard runs here (not on bare dataclasses) because
+    # only the factory sees the explicit overrides dict; the unconditional
+    # coherence validation is a no-op pass for coherent legacy AND coherent CI.
+    _reject_half_configured_ci(overrides, pt_model_config.physics_forward_mode)
+    validate_contract_coherence(pt_data_config, pt_model_config, pt_training_config)
 
     # InferenceConfig: track patch-stats flags for instrumentation
     pt_inference_config = PTInferenceConfig(
