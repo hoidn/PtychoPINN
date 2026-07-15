@@ -137,6 +137,11 @@ the [Core Contract](specs/spec-ptycho-core.md), and the
 
 ## Datasets & Experiments
 
+#### [Studies Index](studies/index.md)
+**Description:** Main-native reproducible study examples and regression calibration commands.
+**Keywords:** studies, integration, calibration, reproducibility
+**Use this when:** Finding an executable main-branch study example and its calibrated test artifacts.
+
 #### [FLY64 Dataset Guide](FLY64_DATASET_GUIDE.md)
 **Description:** Comprehensive guide for working with the FLY64 experimental ptychography dataset, including preprocessing requirements and specialized subset datasets.  
 **Keywords:** fly64, experimental-data, preprocessing, dataset-variants  
