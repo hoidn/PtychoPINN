@@ -4,7 +4,7 @@
     "gridsize": 1,
     "epochs": 5,
     "seed": 3,
-    "architecture": "fno",
+    "architecture": "ffno",
     "scale_contract_version": "ci_intensity_v2",
     "measurement_domain": "count_intensity",
     "physics_forward_mode": "rectangular_scaled",
@@ -15,24 +15,24 @@
   },
   "reference": {
     "source_commit": "a455b49faf307c25ef333002c478cee868f9bd12",
-    "source_role": "main FNO model source with one-group integration calibration",
-    "checkpoint_sha256": "9627fc8a183080a03b6d1a14ad75a91062206eb9dfb854c5e6e0b03c84e49d44"
+    "source_role": "main FFNO model source with one-group integration calibration",
+    "checkpoint_sha256": "656ca7a728d8dc4a356a9fac361c8013dfea6c2c2aa491d1561dde37d64affcd"
   },
   "metrics": {
     "mae": [
-      0.17911934852600098,
-      0.1270428074405859
+      0.17984698712825775,
+      0.14671303373350614
     ],
     "ssim": [
-      0.5102695906783896,
-      0.8631440597861177
+      0.520342697588406,
+      0.8854946851947426
     ]
   },
   "loss": {
-    "train": 151.0099334716797,
-    "validation": 145.2845458984375
+    "train": 199.52207946777344,
+    "validation": 165.8410186767578
   },
-  "raw_amplitude_mean_ratio": 1.002909541130066,
+  "raw_amplitude_mean_ratio": 1.0351791381835938,
   "tolerances": {
     "mae_amp": 0.015,
     "mae_phase": 0.025,

@@ -13,8 +13,8 @@ import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SCRATCH_ROOT = REPO_ROOT / ".artifacts/integration/grid_lines_fno_ci_nll"
-BASELINE_PATH = REPO_ROOT / "tests/fixtures/grid_lines_fno_ci_nll_5ep_metrics.json"
+SCRATCH_ROOT = REPO_ROOT / ".artifacts/integration/grid_lines_ffno_ci_nll"
+BASELINE_PATH = REPO_ROOT / "tests/fixtures/grid_lines_ffno_ci_nll_5ep_metrics.json"
 DATASET_BUILDER_PATH = REPO_ROOT / "tests/torch/_grid_lines_ci_dataset_builder.py"
 TORCH_RUNNER_PATH = REPO_ROOT / "scripts/studies/grid_lines_torch_runner.py"
 TRAIN_GROUPS = 1
@@ -45,7 +45,7 @@ def _resolve_probe_npz() -> Path:
 
 
 @pytest.fixture(scope="session")
-def grid_lines_fno_ci_scratch_root() -> Path:
+def grid_lines_ffno_ci_scratch_root() -> Path:
     if SCRATCH_ROOT.exists():
         shutil.rmtree(SCRATCH_ROOT)
     SCRATCH_ROOT.mkdir(parents=True, exist_ok=True)
@@ -76,7 +76,7 @@ def _ensure_dataset(scratch_root: Path) -> tuple[Path, Path]:
 
 def _load_baseline() -> dict:
     assert BASELINE_PATH.is_file(), (
-        "A fresh five-epoch main/FNO CI run must establish "
+        "A fresh five-epoch main/FFNO CI run must establish "
         f"{BASELINE_PATH}; do not reuse the Hybrid ResNet calibration."
     )
     baseline = json.loads(BASELINE_PATH.read_text(encoding="utf-8"))
@@ -85,7 +85,7 @@ def _load_baseline() -> dict:
         "gridsize": 1,
         "epochs": 5,
         "seed": 3,
-        "architecture": "fno",
+        "architecture": "ffno",
         "scale_contract_version": "ci_intensity_v2",
         "measurement_domain": "count_intensity",
         "physics_forward_mode": "rectangular_scaled",
@@ -178,7 +178,7 @@ def _render_truth_recon_error_grid(
         fig.colorbar(mappable, ax=axis, shrink=0.78)
 
     fig.suptitle(
-        "Main FNO CI/NLL, N=128, grid=1, seed=3, epochs=5\n"
+        "Main FFNO CI/NLL, N=128, grid=1, seed=3, epochs=5\n"
         "registered evaluation metrics: "
         f"SSIM amp/phase={metrics['ssim'][0]:.4f}/{metrics['ssim'][1]:.4f} | "
         f"MAE amp/phase={metrics['mae'][0]:.4f}/{metrics['mae'][1]:.4f}\n"
@@ -200,17 +200,17 @@ def _render_truth_recon_error_grid(
 @pytest.mark.integration
 @pytest.mark.torch
 @pytest.mark.deterministic
-def test_grid_lines_fno_ci_nll_five_epoch_quality_and_visual(
-    grid_lines_fno_ci_scratch_root: Path,
+def test_grid_lines_ffno_ci_nll_five_epoch_quality_and_visual(
+    grid_lines_ffno_ci_scratch_root: Path,
 ) -> None:
-    """Protect the corrected CI probe gauge with a learned main-native FNO run."""
+    """Protect the corrected CI probe gauge with a learned main-native FFNO run."""
     torch = pytest.importorskip("torch")
     if not torch.cuda.is_available():
-        pytest.skip("the N=128 five-epoch FNO CI integration gate requires CUDA")
+        pytest.skip("the N=128 five-epoch FFNO CI integration gate requires CUDA")
     if not _resolve_probe_npz().is_file():
         pytest.skip("Run1084 probe fixture is unavailable")
 
-    train_npz, test_npz = _ensure_dataset(grid_lines_fno_ci_scratch_root)
+    train_npz, test_npz = _ensure_dataset(grid_lines_ffno_ci_scratch_root)
     for split_path in (train_npz, test_npz):
         with np.load(split_path, allow_pickle=True) as split:
             assert "probe_simulated" in split.files
@@ -218,10 +218,10 @@ def test_grid_lines_fno_ci_nll_five_epoch_quality_and_visual(
             assert split["probe_simulated"].dtype == np.complex64
 
     baseline = _load_baseline()
-    output_root = grid_lines_fno_ci_scratch_root / "ci_nll_5ep"
+    output_root = grid_lines_ffno_ci_scratch_root / "ci_nll_5ep"
     cmd = [
         "--output-dir", str(output_root),
-        "--architecture", "fno",
+        "--architecture", "ffno",
         "--train-npz", str(train_npz),
         "--test-npz", str(test_npz),
         "--N", "128",
@@ -261,14 +261,14 @@ def test_grid_lines_fno_ci_nll_five_epoch_quality_and_visual(
     ]
     _run_repo_python(TORCH_RUNNER_PATH, *cmd)
 
-    run_dir = output_root / "runs/pinn_fno"
+    run_dir = output_root / "runs/pinn_ffno"
     config = json.loads((run_dir / "config.json").read_text(encoding="utf-8"))
     resolved = config["torch_runner_config"]
     assert resolved["N"] == 128
     assert resolved["gridsize"] == 1
     assert resolved["epochs"] == 5
     assert resolved["seed"] == 3
-    assert resolved["architecture"] == "fno"
+    assert resolved["architecture"] == "ffno"
     assert resolved["scale_contract_version"] == "ci_intensity_v2"
     assert resolved["measurement_domain"] == "count_intensity"
     assert resolved["physics_forward_mode"] == "rectangular_scaled"
@@ -307,7 +307,7 @@ def test_grid_lines_fno_ci_nll_five_epoch_quality_and_visual(
             assert current_amp >= baseline_amp - baseline["tolerances"]["ssim_amp"]
             assert current_phase >= baseline_phase - baseline["tolerances"]["ssim_phase"]
 
-    recon_path = output_root / "recons/pinn_fno/recon.npz"
+    recon_path = output_root / "recons/pinn_ffno/recon.npz"
     gt_path = output_root / "recons/gt/recon.npz"
     with np.load(recon_path) as reconstruction_payload:
         assert "YY_pred_scaled" in reconstruction_payload.files
