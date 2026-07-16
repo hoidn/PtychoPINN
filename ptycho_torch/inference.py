@@ -43,6 +43,7 @@ import argparse
 import sys
 from pathlib import Path
 from ptycho.config.legacy_state import scoped_legacy_params
+from ptycho.reconstruction_policy import resolve_cli_reconstruction_policy
 
 #ML libraries
 import matplotlib.pyplot as plt
@@ -337,14 +338,10 @@ def _resolve_reassembly_route(patch_weighting, varpro_scaling):
     Raises:
         ValueError: patch_weighting is not one of 'uniform' / 'probe'.
     """
-    if patch_weighting not in ('uniform', 'probe'):
-        raise ValueError(
-            "patch_weighting must be 'uniform' or 'probe', got "
-            f"{patch_weighting!r}"
-        )
-    if patch_weighting == 'uniform' and not varpro_scaling:
-        return 'uniform'
-    return 'barycentric'
+    return resolve_cli_reconstruction_policy(
+        patch_weighting,
+        varpro_scaling,
+    ).compatibility_route
 
 
 def _describe_requested_knobs(patch_weighting, varpro_scaling):

@@ -101,6 +101,23 @@ class _BareModelStub:
 # ---------------------------------------------------------------------------
 
 class TestResolveReassemblyRoute:
+    def test_compatibility_wrapper_delegates_to_policy_resolver(self, monkeypatch):
+        from ptycho_torch import inference
+
+        calls = []
+
+        class Policy:
+            compatibility_route = "barycentric"
+
+        def resolve(patch_weighting, varpro_scaling):
+            calls.append((patch_weighting, varpro_scaling))
+            return Policy()
+
+        monkeypatch.setattr(inference, "resolve_cli_reconstruction_policy", resolve)
+
+        assert inference._resolve_reassembly_route("uniform", True) == "barycentric"
+        assert calls == [("uniform", True)]
+
     def test_knobs_unset_resolves_uniform(self):
         from ptycho_torch.inference import _resolve_reassembly_route
 

@@ -465,12 +465,32 @@ geometry abstraction is a gate for that migration.
 
 ### Slice 5 — Assembly and reconstruction policies
 
-**Status:** Pending architecturally; substantial focused coverage and an explicit
-inference route resolver already exist and must be reused.
+**Status:** In progress. Substantial focused coverage and an explicit inference
+route resolver already exist and are being reused; 5A is complete without
+changing a numerical kernel or public route alias.
 
 **Outcome:** Training assembly, spatial stitching, calibration, and output
 handling are separate, composable operations with no physics-changing fallback
 or ambiguity between reconstruction-policy and scaling-profile identity.
+
+**5A — Reconstruction composition identity**
+
+**Status:** Complete (2026-07-15). The production inventory distinguishes the
+differentiable training merge, the external TensorFlow `reassemble_position`
+reference, the legacy Torch position/uniform CLI route, barycentric uniform and
+probe-weighted inference, VarPro calibration, and grid/position study tiling.
+The new framework-neutral `reconstruction_policy_v1` records assembly
+algorithm, weighting, window contract, calibration, and output presentation as
+separate frozen specifications. The native CLI resolver now derives that
+composition and retains its exact historical `"uniform"`/`"barycentric"`
+compatibility aliases. In particular, uniform weighting plus VarPro is recorded
+as barycentric assembly with uniform weights and separate VarPro calibration;
+it is no longer semantically described as a different weighting algorithm.
+Policy identity contains no scale-profile axis. Existing numerical assembly,
+VarPro, output, public configuration, and TensorFlow routes are unchanged. The
+framework-free import, four-route mapping, invalid-composition, frozen-record,
+scale-identity independence, wrapper delegation, and existing route falsifiers
+passed (18 tests).
 
 **Work:**
 
