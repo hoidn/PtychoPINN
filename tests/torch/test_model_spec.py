@@ -45,6 +45,49 @@ def test_model_spec_is_versioned_and_materializes_fresh_model_configs():
     assert first is not second
 
 
+@pytest.mark.parametrize(
+    ("object_big", "layout", "training_canvas", "assembly_mode"),
+    [
+        (
+            False,
+            "single_patch_components_v1",
+            "independent_patch_v1",
+            "pass_through_v1",
+        ),
+        (
+            True,
+            "grouped_patch_components_v1",
+            "relative_overlap_canvas_v1",
+            "weighted_overlap_v1",
+        ),
+    ],
+)
+def test_model_spec_exposes_versioned_object_compatibility_without_schema_change(
+    object_big,
+    layout,
+    training_canvas,
+    assembly_mode,
+):
+    from ptycho_torch.model_spec import derive_model_spec
+
+    canonical, data, model = _coherent_configs(
+        object_big=object_big,
+        training_patch_weighting="probe",
+        pad_object=False,
+        probe_big=True,
+    )
+    spec = derive_model_spec(canonical, model, data)
+
+    compatibility = spec.object_compatibility
+    assert compatibility.layout == layout
+    assert compatibility.training_canvas == training_canvas
+    assert compatibility.training_assembly.mode == assembly_mode
+    assert compatibility.to_legacy_fields().object_big is object_big
+    assert compatibility.pad_object is False
+    assert compatibility.probe_big is True
+    assert "object_compatibility" not in spec.to_payload()
+
+
 def test_model_spec_rejects_shared_and_data_join_mismatches():
     from ptycho_torch.model_spec import derive_model_spec
 

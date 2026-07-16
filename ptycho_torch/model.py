@@ -13,7 +13,10 @@ import math
 from typing import Any, Dict, Optional
 
 #Helper
-from ptycho.reconstruction_policy import resolve_training_assembly_spec
+from ptycho.object_compatibility import (
+    LegacyObjectFields,
+    resolve_object_compatibility_spec,
+)
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
 from ptycho_torch.scaling_contract import (
     CI_SCALE_CONTRACT,
@@ -167,12 +170,27 @@ def _effective_cnn_output_mode(model_config: ModelConfig) -> str:
 
 
 def _semantic_component_channels(model_config: ModelConfig) -> int:
-    return int(model_config.C_model) if model_config.object_big else 1
+    compatibility = _resolve_object_compatibility(model_config)
+    if compatibility.layout == "grouped_patch_components_v1":
+        return int(model_config.C_model)
+    return 1
+
+
+def _resolve_object_compatibility(model_config: ModelConfig):
+    return resolve_object_compatibility_spec(
+        LegacyObjectFields(
+            object_big=model_config.object_big,
+            training_patch_weighting=model_config.training_patch_weighting,
+            pad_object=model_config.pad_object,
+            probe_big=model_config.probe_big,
+        )
+    )
 
 
 def _decoder_component_channels(model_config: ModelConfig) -> int:
+    compatibility = _resolve_object_compatibility(model_config)
     semantic_channels = _semantic_component_channels(model_config)
-    if not model_config.object_big or not getattr(
+    if compatibility.layout == "single_patch_components_v1" or not getattr(
         model_config,
         "use_legacy_decoder_channel_override",
         False,
@@ -841,7 +859,8 @@ class Encoder(nn.Module):
 
         self.N = self.data_config.N
         starting_coeff = 64 / (self.N / 32)
-        self.filters = [model_config.C_model if model_config.object_big else 1]
+        self.object_compatibility = _resolve_object_compatibility(model_config)
+        self.filters = [_semantic_component_channels(model_config)]
 
         #Starting output channels is 64. Last output size will always be n_filters_scale * 128.
         if self.N == 64:
@@ -1738,11 +1757,11 @@ class ForwardModel(nn.Module):
         self.N = self.data_config.N
         self.gridsize = self.data_config.grid_size
         self.offset = self.model_config.offset
-        self.object_big = self.model_config.object_big
-        self.training_assembly_spec = resolve_training_assembly_spec(
-            self.object_big,
-            self.model_config.training_patch_weighting,
+        self.object_compatibility = _resolve_object_compatibility(self.model_config)
+        self.object_big = (
+            self.object_compatibility.layout == "grouped_patch_components_v1"
         )
+        self.training_assembly_spec = self.object_compatibility.training_assembly
 
         #Patch operations
         #Lambdalayer here doesn't work for lightning module

@@ -15,6 +15,11 @@ from typing import Any, Mapping
 import torch
 
 from ptycho.config.config import ModelConfig as CanonicalModelConfig
+from ptycho.object_compatibility import (
+    LegacyObjectFields,
+    ObjectCompatibilitySpec,
+    resolve_object_compatibility_spec,
+)
 from ptycho_torch.config_params import DataConfig, ModelConfig
 
 
@@ -128,6 +133,20 @@ class ModelSpec:
     @property
     def architecture(self) -> str:
         return str(self._model_fields["architecture"])
+
+    @property
+    def object_compatibility(self) -> ObjectCompatibilitySpec:
+        """Derive separated object semantics from the persisted v1 fields."""
+        return resolve_object_compatibility_spec(
+            LegacyObjectFields(
+                object_big=self._model_fields["object_big"],
+                training_patch_weighting=self._model_fields[
+                    "training_patch_weighting"
+                ],
+                pad_object=self._model_fields["pad_object"],
+                probe_big=self._model_fields["probe_big"],
+            )
+        )
 
     def to_model_config(self) -> ModelConfig:
         return ModelConfig(
