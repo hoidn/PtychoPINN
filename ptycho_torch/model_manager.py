@@ -143,7 +143,8 @@ def save_torch_bundle(
         # Save manifest
         manifest = {
             'models': list(models_dict.keys()),
-            'version': '2.0-pytorch'
+            'version': '2.0-pytorch',
+            'backend': 'pytorch',
         }
         manifest_path = os.path.join(temp_dir, 'manifest.dill')
         with open(manifest_path, 'wb') as f:
@@ -210,23 +211,48 @@ def create_torch_model_with_gridsize(
 
     channels = int(params_dict.get('C', gridsize * gridsize))
     # Build DataConfig from params
+    if params_dict.get('model_type', 'pinn') != 'pinn':
+        raise ValueError(
+            "metadata-free legacy_v1 wts.h5.zip supports only the declared "
+            "unsupervised CNN model_type='pinn' era"
+        )
+
     data_config = DataConfig(
         N=N,
         C=channels,
         grid_size=(gridsize, gridsize),
         K=params_dict.get('neighbor_count', 6),
         nphotons=params_dict.get('nphotons', 1e5),
+        scale_contract_version='legacy_v1',
+        measurement_domain='normalized_amplitude',
     )
 
     # Build ModelConfig from params
     model_config = ModelConfig(
+        architecture='cnn',
         C_model=channels,
         C_forward=channels,
         n_filters_scale=int(params_dict.get('n_filters_scale', 2)),
         amp_activation=params_dict.get('amp_activation', 'silu'),
-        mode='Unsupervised' if params_dict.get('model_type') == 'pinn' else 'Supervised',
+        mode='Unsupervised',
+        cnn_output_mode='amp_phase',
+        use_shared_decoder=False,
+        batch_norm=False,
+        edge_pad=10,
+        decoder_last_c_outer_fraction=0.125,
+        decoder_last_amp_channels=1,
+        use_legacy_decoder_channel_override=False,
+        eca_encoder=False,
+        cbam_encoder=True,
+        cbam_bottleneck=False,
+        cbam_decoder=False,
+        eca_decoder=False,
+        spatial_decoder=False,
+        decoder_spatial_kernel=7,
         object_big=params_dict.get('object.big', False),
         probe_big=params_dict.get('probe.big', True),
+        physics_forward_mode='amplitude',
+        training_patch_weighting='central_mask',
         loss_function=params_dict.get('loss_function', 'Poisson'),
         intensity_scale=params_dict.get('intensity_scale', 1.0),
         intensity_scale_trainable=params_dict.get('intensity_scale.trainable', False),
@@ -237,6 +263,7 @@ def create_torch_model_with_gridsize(
         epochs=params_dict.get('nepochs', 50),
         batch_size=params_dict.get('batch_size', 16),
         learning_rate=params_dict.get('learning_rate', 1e-3),
+        torch_loss_mode='poisson',
     )
 
     # Build InferenceConfig (minimal)
@@ -286,6 +313,14 @@ def _read_torch_bundle_manifest_and_params(base_path: str) -> Tuple[dict, dict]:
             raise ValueError(
                 f"Malformed Torch bundle: missing required archive member {exc}."
             ) from exc
+    from ptycho_torch.artifact_schema import validate_torch_bundle_manifest
+
+    validate_torch_bundle_manifest(manifest)
+    if params_dict.get("_version") != "2.0-pytorch":
+        raise ValueError(
+            "unsupported wts.h5.zip params version "
+            f"{params_dict.get('_version')!r}; expected '2.0-pytorch'"
+        )
     return manifest, params_dict
 
 

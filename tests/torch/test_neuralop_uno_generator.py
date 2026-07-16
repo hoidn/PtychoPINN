@@ -17,6 +17,8 @@ def _pt_configs(*, mode: str = "Unsupervised"):
         "model_config": PTModelConfig(
             mode=mode,
             architecture="neuralop_uno",
+            C_model=1,
+            C_forward=1,
             generator_output_mode="real_imag",
             loss_function="MAE" if mode == "Supervised" else "Poisson",
             probe_mask=False,

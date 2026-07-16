@@ -75,6 +75,7 @@ from ptycho_torch.scaling_contract import (
     validate_amplitude_physics_gain,
     validate_contract_coherence,
 )
+from ptycho_torch.model_spec import ModelSpec, derive_model_spec
 
 # Conformance D3 (Theme 3, docs/superpowers/plans/
 # 2026-07-14-ci-paper-conformance-audit.md): the paper's "PtychoPINN-CI" as a
@@ -109,12 +110,6 @@ CI_PROFILE_BUNDLE: Dict[str, Any] = {
 # deprecated input aliases at this factory boundary. All downstream model
 # construction reads the resolved PTModelConfig.
 DEPRECATED_EXECUTION_MODEL_ALIASES = (
-    "ffno_encoder_blocks",
-    "ffno_encoder_modes",
-    "ffno_encoder_share_weights",
-    "ffno_encoder_gate_init",
-    "ffno_encoder_norm",
-    "ffno_encoder_mlp_ratio",
     "spectral_bottleneck_blocks",
     "spectral_bottleneck_modes",
     "spectral_bottleneck_share_weights",
@@ -302,6 +297,7 @@ class TrainingPayload:
     pt_model_config: PTModelConfig  # PyTorch singleton
     pt_training_config: PTTrainingConfig  # PyTorch singleton
     pt_inference_config: PTInferenceConfig  # PyTorch singleton (patch-stats, inference defaults)
+    model_spec: ModelSpec  # Versioned internal Torch structural identity
     execution_config: PyTorchExecutionConfig  # Execution knobs (Phase C2)
     overrides_applied: Dict[str, Any] = field(default_factory=dict)  # Audit trail
 
@@ -532,6 +528,17 @@ def create_training_payload(
         **_config_kwargs(PTTrainingConfig, overrides)
     )
 
+    # Resolve the selected objective into structural loss identity before the
+    # ModelSpec is sealed. Lightning must not silently mutate this field after
+    # construction has begun.
+    from dataclasses import replace
+
+    resolved_loss = (
+        "Poisson" if pt_training_config.torch_loss_mode == "poisson" else "MAE"
+    )
+    if pt_model_config.loss_function != resolved_loss:
+        pt_model_config = replace(pt_model_config, loss_function=resolved_loss)
+
     # Conformance D3: fail-closed contract coherence (Theme 3, 2026-07-14).
     # The half-configured-CI guard runs here (not on bare dataclasses) because
     # only the factory sees the explicit overrides dict; the unconditional
@@ -604,12 +611,19 @@ def create_training_payload(
     overrides_applied['logger_backend'] = execution_config.logger_backend
 
     # Step 7: Return TrainingPayload with all config objects + audit trail
+    model_spec = derive_model_spec(
+        tf_model_config,
+        pt_model_config,
+        pt_data_config,
+    )
+
     return TrainingPayload(
         tf_training_config=tf_training_config,
         pt_data_config=pt_data_config,
         pt_model_config=pt_model_config,
         pt_training_config=pt_training_config,
         pt_inference_config=pt_inference_config,
+        model_spec=model_spec,
         execution_config=execution_config,  # Now always PyTorchExecutionConfig instance
         overrides_applied=overrides_applied,
     )

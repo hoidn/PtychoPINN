@@ -179,12 +179,15 @@ def to_model_config(
         'max_hidden_channels': getattr(model, 'max_hidden_channels', None),
         'resnet_width': getattr(model, 'resnet_width', None),
         'fno_input_transform': model.fno_input_transform,
+        'generator_output_mode': model.generator_output_mode,
         'amp_activation': amp_activation,  # Normalized activation
         'object_big': model.object_big,
         'probe_big': model.probe_big,
 
         # Translated values
         'probe_mask': probe_mask_value,  # PyTorch bool/tensor union → TensorFlow bool
+        'probe_mask_sigma': model.probe_mask_sigma,
+        'probe_mask_diameter': model.probe_mask_diameter,
 
         # Spec-mandated fields (now available from PyTorch dataclass defaults)
         'pad_object': model.pad_object,  # From PyTorch ModelConfig (default=True)

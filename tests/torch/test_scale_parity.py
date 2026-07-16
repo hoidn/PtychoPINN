@@ -136,7 +136,11 @@ def test_milestone_checkpoint_loads_configs_from_run_directory(tmp_path):
         json.loads(json.dumps(config_to_json_serializable_dict(config)))
         for config in expected
     )
-    assert tuple(map(config_to_json_serializable_dict, loaded)) == expected_payloads
+    actual_payloads = tuple(
+        json.loads(json.dumps(config_to_json_serializable_dict(config)))
+        for config in loaded
+    )
+    assert actual_payloads == expected_payloads
 
 
 def test_checkpoint_in_unsupported_nested_layout_is_rejected(tmp_path):

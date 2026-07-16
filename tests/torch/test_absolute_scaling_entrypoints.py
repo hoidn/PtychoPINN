@@ -1,6 +1,9 @@
 import json
+import dill
+import io
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 import numpy as np
@@ -322,6 +325,20 @@ def test_ci_bundle_recovers_profile_configs_and_frozen_statistics(tmp_path):
     components._persist_bundle_scaling_metadata(
         base_path.with_suffix(".h5.zip"),
         model,
+    )
+
+    with zipfile.ZipFile(base_path.with_suffix(".h5.zip"), "r") as archive:
+        manifest = dill.loads(archive.read("manifest.dill"))
+        persisted_identity = torch.load(
+            io.BytesIO(archive.read("torch_scaling_metadata.pt")),
+            map_location="cpu",
+            weights_only=False,
+        )
+    assert manifest["backend"] == "pytorch"
+    assert manifest["artifact_schema_version"] == "torch-artifact-portable-v1"
+    assert persisted_identity["schema_version"] == "torch-artifact-portable-v1"
+    assert persisted_identity["model_spec"]["schema_version"] == (
+        "torch-model-spec-portable-v1"
     )
 
     models, params = components.load_inference_bundle_torch(tmp_path / "bundle")

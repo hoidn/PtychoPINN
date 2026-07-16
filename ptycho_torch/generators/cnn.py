@@ -28,23 +28,6 @@ class CnnGenerator:
         self.config = config
 
     def build_model(self, pt_configs):
-        """
-        Build the CNN Lightning module for training.
+        from ptycho_torch.application_factory import build_ptychopinn_from_configs
 
-        Args:
-            pt_configs: Dict containing PyTorch config objects:
-                - model_config: PTModelConfig
-                - data_config: PTDataConfig
-                - training_config: PTTrainingConfig
-                - inference_config: PTInferenceConfig
-
-        Returns:
-            PtychoPINN_Lightning model instance
-        """
-        from ptycho_torch.model import PtychoPINN_Lightning
-        return PtychoPINN_Lightning(
-            model_config=pt_configs["model_config"],
-            data_config=pt_configs["data_config"],
-            training_config=pt_configs["training_config"],
-            inference_config=pt_configs["inference_config"],
-        )
+        return build_ptychopinn_from_configs(pt_configs)

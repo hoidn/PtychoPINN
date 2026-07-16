@@ -364,17 +364,17 @@ class TestWorkflowsComponentsTraining:
 
         captured = {}
 
-        class FakeGenerator:
-            def build_model(self, pt_configs):
-                captured["model_config"] = pt_configs["model_config"]
-                raise RuntimeError("stop after build_model")
+        def fake_application_factory(model_spec, data_config, training_config, inference_config):
+            del data_config, training_config, inference_config
+            captured["model_config"] = model_spec.to_model_config()
+            raise RuntimeError("stop after application build")
 
         monkeypatch.setattr(
-            "ptycho_torch.generators.registry.resolve_generator",
-            lambda config: FakeGenerator(),
+            "ptycho_torch.application_factory.build_ptychopinn_application",
+            fake_application_factory,
         )
 
-        with pytest.raises(RuntimeError, match="stop after build_model"):
+        with pytest.raises(RuntimeError, match="stop after application build"):
             torch_components._train_with_lightning(
                 train_container=train_container,
                 test_container=None,
@@ -834,7 +834,14 @@ class TestWorkflowsComponentsTraining:
         # Store original PtychoPINN_Lightning before patching
         from ptycho_torch.model import PtychoPINN_Lightning as OriginalLightningModule
 
-        def mock_lightning_init(model_config, data_config, training_config, inference_config):
+        def mock_lightning_init(
+            model_config,
+            data_config,
+            training_config,
+            inference_config,
+            model_spec=None,
+            **kwargs,
+        ):
             """Spy that captures PtychoPINN_Lightning model structure."""
             import torch
             import lightning.pytorch as L
@@ -847,7 +854,8 @@ class TestWorkflowsComponentsTraining:
                 model_config=model_config,
                 data_config=data_config,
                 training_config=training_config,
-                inference_config=inference_config
+                inference_config=inference_config,
+                model_spec=model_spec,
             )
 
             # Extract first conv layer input channels from the model
@@ -1351,8 +1359,16 @@ class TestWorkflowsComponentsRun:
             params.cfg.update(restored_params)
 
             # Return sentinel model + params
+            from types import SimpleNamespace
+
+            loaded_model = SimpleNamespace(
+                data_config=SimpleNamespace(
+                    scale_contract_version=None,
+                    measurement_domain=None,
+                )
+            )
             return (
-                {'_sentinel': 'loaded_model'},
+                {'diffraction_to_obj': loaded_model},
                 restored_params
             )
 
@@ -1360,6 +1376,24 @@ class TestWorkflowsComponentsRun:
         monkeypatch.setattr(
             "ptycho_torch.workflows.components.load_torch_bundle",
             mock_load_torch_bundle
+        )
+        monkeypatch.setattr(
+            "ptycho_torch.workflows.components._read_torch_bundle_manifest_and_params",
+            lambda _base_path: (
+                {
+                    "models": ["autoencoder", "diffraction_to_obj"],
+                    "version": "2.0-pytorch",
+                },
+                {
+                    "_version": "2.0-pytorch",
+                    "N": 64,
+                    "gridsize": 2,
+                },
+            ),
+        )
+        monkeypatch.setattr(
+            "ptycho_torch.workflows.components._read_bundle_scaling_metadata",
+            lambda _zip_path: None,
         )
 
         # Clear params.cfg to simulate fresh process
@@ -1371,7 +1405,9 @@ class TestWorkflowsComponentsRun:
         # Green phase: expect successful return
         try:
             models_dict, params_dict = torch_components.load_inference_bundle_torch(
-                bundle_dir=str(tmp_path / "test_bundle")
+                bundle_dir=str(tmp_path / "test_bundle"),
+                scale_contract_version="legacy_v1",
+                measurement_domain="normalized_amplitude",
             )
 
             # Green phase assertions (once Phase D4.C2 complete)
@@ -1489,7 +1525,7 @@ class TestTrainWithLightningRed:
         dummy_raw_data
     ):
         """
-        RED TEST 1: _train_with_lightning MUST instantiate PtychoPINN_Lightning with four configs.
+        RED TEST 1: _train_with_lightning MUST instantiate PtychoPINN_Lightning with sealed identity.
 
         Requirement: specs/ptychodus_api_spec.md:187 reconstructor lifecycle requires
         trained module handles with serialized config for checkpoint reload.
@@ -1497,14 +1533,14 @@ class TestTrainWithLightningRed:
         Design contract (phase_b_test_design.md §1):
         - _train_with_lightning receives (train_container, test_container, config)
         - MUST construct ptycho_torch.model.PtychoPINN_Lightning(__init__)
-        - Constructor MUST receive exactly (model_config, data_config, training_config, inference_config)
+        - Constructor receives model, data, training, inference, and sealed ModelSpec identity
         - This ensures checkpoint.load can reconstruct module without external state
 
         Test mechanism:
         - Monkeypatch PtychoPINN_Lightning to spy on __init__ args
         - Create minimal containers (dicts acceptable for red phase)
         - Invoke _train_with_lightning
-        - Assert spy recorded all four config objects
+        - Assert spy recorded all four config objects and ModelSpec
 
         Expected red-phase failure:
         - Stub never instantiates Lightning module
@@ -1513,15 +1549,23 @@ class TestTrainWithLightningRed:
         from ptycho_torch.workflows import components as torch_components
 
         # Spy to track Lightning module instantiation
-        lightning_init_called = {"called": False, "args": None}
+        lightning_init_called = {"called": False, "args": None, "model_spec": None}
 
-        def mock_lightning_init(model_config, data_config, training_config, inference_config):
+        def mock_lightning_init(
+            model_config,
+            data_config,
+            training_config,
+            inference_config,
+            model_spec=None,
+            **kwargs,
+        ):
             """Spy that records PtychoPINN_Lightning.__init__ args."""
             import torch
             import lightning.pytorch as L
 
             lightning_init_called["called"] = True
             lightning_init_called["args"] = (model_config, data_config, training_config, inference_config)
+            lightning_init_called["model_spec"] = model_spec
 
             # Return minimal stub module inheriting from LightningModule
             # to satisfy Lightning's isinstance check during trainer.fit
@@ -1584,6 +1628,9 @@ class TestTrainWithLightningRed:
             assert data_cfg is not None, "data_config must be provided to Lightning module"
             assert train_cfg is not None, "training_config must be provided to Lightning module"
             assert infer_cfg is not None, "inference_config must be provided to Lightning module"
+            assert lightning_init_called["model_spec"] is not None, (
+                "sealed model_spec must be provided to Lightning module"
+            )
 
     def test_train_with_lightning_runs_trainer_fit(
         self,

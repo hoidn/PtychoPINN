@@ -64,12 +64,6 @@ class ModelConfig:
     fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
     max_hidden_channels: Optional[int] = None
     resnet_width: Optional[int] = None
-    ffno_encoder_blocks: int = 24
-    ffno_encoder_modes: Optional[int] = None
-    ffno_encoder_share_weights: bool = True
-    ffno_encoder_gate_init: float = 0.1
-    ffno_encoder_norm: str = 'instance'
-    ffno_encoder_mlp_ratio: float = 2.0
     spectral_bottleneck_blocks: int = 6
     spectral_bottleneck_modes: int = 12
     spectral_bottleneck_share_weights: bool = True
@@ -198,26 +192,16 @@ class ModelConfig:
 
     def __post_init__(self):
         """Validate fields that determine the retained Torch generators."""
-        for name in ('ffno_encoder_gate_init', 'ffno_encoder_mlp_ratio'):
-            value = float(getattr(self, name))
-            if not math.isfinite(value) or value <= 0.0:
-                raise ValueError(f"{name} must be finite and > 0")
-
         for name in (
-            'ffno_encoder_blocks',
             'spectral_bottleneck_blocks',
             'spectral_bottleneck_modes',
         ):
             if getattr(self, name) <= 0:
                 raise ValueError(f"{name} must be positive")
-        if self.ffno_encoder_modes is not None and self.ffno_encoder_modes <= 0:
-            raise ValueError("ffno_encoder_modes must be positive when set")
         if self.spectral_bottleneck_gate_mode not in {'shared', 'per_block'}:
             raise ValueError("invalid spectral_bottleneck_gate_mode")
         if not math.isfinite(float(self.spectral_bottleneck_gate_init)):
             raise ValueError("spectral_bottleneck_gate_init must be finite")
-        if not isinstance(self.ffno_encoder_norm, str) or not self.ffno_encoder_norm:
-            raise ValueError("ffno_encoder_norm must be a non-empty string")
 
 
 @dataclass

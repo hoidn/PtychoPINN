@@ -128,18 +128,67 @@ def _persist_bundle_scaling_metadata(archive_path: Path, model) -> None:
         }
     import torch
 
-    payload = {
-        "schema_version": "ci-entrypoints-v1",
-        "data_config": asdict(model.data_config),
-        "model_config": asdict(model.model_config),
-        "training_config": asdict(model.training_config),
-        "inference_config": asdict(model.inference_config),
-        "ci_statistics": serialized_statistics,
-    }
+    from ptycho_torch.artifact_schema import (
+        CURRENT_ARTIFACT_SCHEMA_VERSION,
+        TORCH_ARTIFACT_BACKEND,
+        encode_artifact_identity,
+        validate_torch_bundle_manifest,
+    )
+    from ptycho_torch.config_bridge import to_model_config
+    from ptycho_torch.model_spec import derive_model_spec
+
+    model_spec = getattr(model, "_model_spec", None)
+    if model_spec is None:
+        model_spec = derive_model_spec(
+            to_model_config(model.data_config, model.model_config),
+            model.model_config,
+            model.data_config,
+            parity_scale_mode=getattr(model, "parity_scale_mode", "off"),
+            parity_fixed_delta=float(model.hparams.get("parity_fixed_delta", 0.0)),
+            parity_init_scheme=model.hparams.get("parity_init_scheme", "default"),
+        )
+    payload = encode_artifact_identity(
+        model_spec,
+        model.data_config,
+        model.training_config,
+        model.inference_config,
+        ci_statistics=serialized_statistics,
+    )
     buffer = io.BytesIO()
     torch.save(payload, buffer)
-    with zipfile.ZipFile(archive_path, "a", zipfile.ZIP_DEFLATED) as archive:
-        archive.writestr(_BUNDLE_SCALING_METADATA, buffer.getvalue())
+
+    import dill
+    import os
+    import tempfile
+
+    with zipfile.ZipFile(archive_path, "r") as archive:
+        members = {
+            info.filename: archive.read(info.filename)
+            for info in archive.infolist()
+            if info.filename not in {"manifest.dill", _BUNDLE_SCALING_METADATA}
+        }
+        manifest = dill.loads(archive.read("manifest.dill"))
+    validate_torch_bundle_manifest(manifest)
+    manifest.update(
+        backend=TORCH_ARTIFACT_BACKEND,
+        artifact_schema_version=CURRENT_ARTIFACT_SCHEMA_VERSION,
+    )
+    handle, temporary_name = tempfile.mkstemp(
+        prefix=archive_path.name,
+        suffix=".tmp",
+        dir=archive_path.parent,
+    )
+    os.close(handle)
+    try:
+        with zipfile.ZipFile(temporary_name, "w", zipfile.ZIP_DEFLATED) as archive:
+            archive.writestr("manifest.dill", dill.dumps(manifest))
+            for name, content in members.items():
+                archive.writestr(name, content)
+            archive.writestr(_BUNDLE_SCALING_METADATA, buffer.getvalue())
+        os.replace(temporary_name, archive_path)
+    finally:
+        if os.path.exists(temporary_name):
+            os.unlink(temporary_name)
 
 
 def _read_bundle_scaling_metadata(archive_path: Path):
@@ -157,25 +206,38 @@ def _read_bundle_scaling_metadata(archive_path: Path):
         )
 
 
-def _strictly_reconstruct_bundle_model(archive_path: Path, metadata, model_name: str):
-    import torch
-    from ptycho_torch.config_params import (
-        DataConfig,
-        InferenceConfig as TorchInferenceConfig,
-        ModelConfig,
-        TrainingConfig as TorchTrainingConfig,
+def _decode_bundle_metadata(metadata):
+    from ptycho_torch.artifact_schema import (
+        CURRENT_ARTIFACT_SCHEMA_VERSION,
+        decode_artifact_identity,
+        upgrade_unversioned_sections,
     )
-    from ptycho_torch.model import PtychoPINN_Lightning
 
-    data_config = DataConfig(**metadata["data_config"])
-    model_config = ModelConfig(**metadata["model_config"])
-    training_config = TorchTrainingConfig(**metadata["training_config"])
-    inference_config = TorchInferenceConfig(**metadata["inference_config"])
-    model = PtychoPINN_Lightning(
-        model_config,
-        data_config,
-        training_config,
-        inference_config,
+    schema = metadata.get("schema_version") if isinstance(metadata, dict) else None
+    if schema == CURRENT_ARTIFACT_SCHEMA_VERSION:
+        return decode_artifact_identity(metadata)
+    if schema == "ci-entrypoints-v1":
+        return upgrade_unversioned_sections(
+            data_config=metadata["data_config"],
+            model_config=metadata["model_config"],
+            training_config=metadata["training_config"],
+            inference_config=metadata["inference_config"],
+            ci_statistics=metadata.get("ci_statistics"),
+        )
+    raise ValueError(
+        f"unsupported wts.h5.zip Torch metadata schema {schema!r}"
+    )
+
+
+def _strictly_reconstruct_bundle_model(archive_path: Path, identity, model_name: str):
+    import torch
+    from ptycho_torch.application_factory import build_ptychopinn_application
+
+    model = build_ptychopinn_application(
+        identity.model_spec,
+        identity.data_config,
+        identity.training_config,
+        identity.inference_config,
     )
     with zipfile.ZipFile(archive_path, "r") as archive:
         try:
@@ -205,11 +267,14 @@ def _strictly_reconstruct_bundle_model(archive_path: Path, metadata, model_name:
         ) from exc
 
     profile = resolve_scale_contract(
-        data_config.scale_contract_version,
-        data_config.measurement_domain,
+        identity.data_config.scale_contract_version,
+        identity.data_config.measurement_domain,
     )
-    ci_bundle = ci_scaling_active(model_config) and profile.version == CI_SCALE_CONTRACT
-    statistics = metadata.get("ci_statistics")
+    ci_bundle = (
+        ci_scaling_active(model.model_config)
+        and profile.version == CI_SCALE_CONTRACT
+    )
+    statistics = identity.ci_statistics
     if ci_bundle and statistics is None:
         raise ValueError(
             "CI bundle is missing frozen training ci_statistics; regenerate the bundle."
@@ -1350,12 +1415,6 @@ def _train_with_lightning(
         import torch
         import lightning.pytorch as L
         from ptycho_torch.model import PtychoPINN_Lightning
-        from ptycho_torch.config_params import (
-            DataConfig as PTDataConfig,
-            ModelConfig as PTModelConfig,
-            TrainingConfig as PTTrainingConfig,
-            InferenceConfig as PTInferenceConfig
-        )
         from ptycho_torch.train_utils import PrebuiltPtychoDataModule
     except ImportError as e:
         raise RuntimeError(
@@ -1401,6 +1460,10 @@ def _train_with_lightning(
         'log_grad_norm': getattr(config, 'log_grad_norm', False),
         'grad_norm_log_freq': getattr(config, 'grad_norm_log_freq', 1),
     }
+    if config.model.model_type == 'supervised':
+        # Preserve the supported supervised contract, but resolve it before the
+        # structural ModelSpec is sealed instead of mutating the model later.
+        factory_overrides['torch_loss_mode'] = 'mae'
     if execution_config is not None and execution_config.learning_rate is not None:
         factory_overrides['learning_rate'] = execution_config.learning_rate
     if execution_config is not None and execution_config.gradient_clip_val is not None:
@@ -1453,41 +1516,17 @@ def _train_with_lightning(
         pt_training_config,
     )
 
-    # CRITICAL: Supervised mode REQUIRES a compatible loss function (MAE)
-    # The Lightning module expects loss_name to be defined, which only happens when:
-    #   1. mode='Unsupervised' AND loss_function='Poisson' → sets loss_name='poisson_train'
-    #   2. mode='Unsupervised' AND loss_function='MAE' → sets loss_name='mae_train'
-    #   3. mode='Supervised' AND loss_function='MAE' → sets loss_name='mae_train'
-    # Without this override, supervised mode with default loss_function='Poisson' causes
-    # AttributeError: 'PtychoPINN_Lightning' object has no attribute 'loss_name'
-    # See: ptycho_torch/model.py:1052-1066
-    if pt_model_config.mode == 'Supervised' and pt_model_config.loss_function != 'MAE':
-        logger.info(
-            f"Backend override: supervised mode requires MAE loss "
-            f"(was {pt_model_config.loss_function}), forcing loss_function='MAE'"
-        )
-        # Create new ModelConfig with corrected loss_function
-        from dataclasses import replace
-        pt_model_config = replace(pt_model_config, loss_function='MAE')
+    # Build the module from the sealed structural identity plus the separately
+    # owned scientific/data, training, and inference sections. Runtime execution
+    # remains below at the Trainer boundary and cannot alter graph topology.
+    from ptycho_torch.application_factory import build_ptychopinn_application
 
-    # Create minimal InferenceConfig for Lightning module (training payload doesn't include it)
-    pt_inference_config = PTInferenceConfig()
-
-    # B2.4: Build model via generator registry (supports CNN, FNO, Hybrid architectures)
-    # The registry resolves the architecture from config.model.architecture and returns
-    # the appropriate generator class, which builds the Lightning module with physics pipeline.
-    from ptycho_torch.generators.registry import resolve_generator
-
-    pt_configs = {
-        "model_config": pt_model_config,
-        "data_config": pt_data_config,
-        "training_config": pt_training_config,
-        "inference_config": pt_inference_config,
-        "execution_config": execution_config,
-    }
-
-    generator = resolve_generator(config)
-    model = generator.build_model(pt_configs)
+    model = build_ptychopinn_application(
+        payload.model_spec,
+        pt_data_config,
+        pt_training_config,
+        payload.pt_inference_config,
+    )
 
     # Save hyperparameters so checkpoint can reconstruct module without external state
     model.save_hyperparameters()
@@ -2151,11 +2190,17 @@ def load_inference_bundle_torch(
         "scale_contract_version": scale_contract_version,
         "measurement_domain": measurement_domain,
     })
+    from ptycho_torch.artifact_schema import (
+        CURRENT_ARTIFACT_SCHEMA_VERSION,
+        validate_torch_bundle_manifest,
+    )
+
+    manifest, params_dict = _read_torch_bundle_manifest_and_params(
+        str(archive_path)
+    )
+    manifest_era = validate_torch_bundle_manifest(manifest)
     metadata = _read_bundle_scaling_metadata(zip_path)
     if metadata is None:
-        models_dict, params_dict = load_torch_bundle(
-            str(archive_path), model_name=model_name
-        )
         known_legacy = (
             params_dict.get("_version") == "2.0-pytorch"
             and "scale_contract_version" not in params_dict
@@ -2171,28 +2216,44 @@ def load_inference_bundle_torch(
                 "measurement_domain='normalized_amplitude'."
             )
         if known_legacy:
+            models_dict, params_dict = load_torch_bundle(
+                str(archive_path), model_name=model_name
+            )
             for loaded_model in models_dict.values():
                 loaded_model.data_config.scale_contract_version = LEGACY_SCALE_CONTRACT
                 loaded_model.data_config.measurement_domain = NORMALIZED_AMPLITUDE
             params_dict["scale_contract_version"] = LEGACY_SCALE_CONTRACT
             params_dict["measurement_domain"] = NORMALIZED_AMPLITUDE
             params.cfg.update(params_dict)
-    else:
-        manifest, params_dict = _read_torch_bundle_manifest_and_params(
-            str(archive_path)
-        )
-        available_models = manifest["models"]
-        expected_models = {"autoencoder", "diffraction_to_obj"}
-        if set(available_models) != expected_models:
-            raise RuntimeError(
-                "Torch bundle does not contain the required dual-model weights "
-                f"{sorted(expected_models)}; found {sorted(available_models)}. "
-                "Regenerate the bundle from a successful training result."
+        else:
+            raise ValueError(
+                "wts.h5.zip has no versioned Torch metadata and is not the "
+                "declared metadata-free legacy_v1 era"
             )
+    else:
+        metadata_schema = metadata.get("schema_version")
+        if (
+            manifest_era == CURRENT_ARTIFACT_SCHEMA_VERSION
+            and metadata_schema != CURRENT_ARTIFACT_SCHEMA_VERSION
+        ):
+            raise ValueError(
+                "wts.h5.zip root manifest declares current schema but metadata "
+                f"declares {metadata_schema!r}"
+            )
+        if (
+            manifest_era == "metadata-free-legacy"
+            and metadata_schema != "ci-entrypoints-v1"
+        ):
+            raise ValueError(
+                "wts.h5.zip legacy root supports only transitional "
+                f"ci-entrypoints-v1 metadata, found {metadata_schema!r}"
+            )
+        identity = _decode_bundle_metadata(metadata)
+        available_models = manifest["models"]
         params.cfg.update(params_dict)
         persisted_profile = resolve_scale_contract(
-            metadata["data_config"].get("scale_contract_version"),
-            metadata["data_config"].get("measurement_domain"),
+            identity.data_config.scale_contract_version,
+            identity.data_config.measurement_domain,
         )
         if explicit_profile is not None and explicit_profile != (
             persisted_profile.version,
@@ -2204,14 +2265,14 @@ def load_inference_bundle_torch(
         models_dict = {
             archived_model_name: _strictly_reconstruct_bundle_model(
                 zip_path,
-                metadata,
+                identity,
                 archived_model_name,
             )
             for archived_model_name in available_models
         }
         params_dict["scale_contract_version"] = persisted_profile.version
         params_dict["measurement_domain"] = persisted_profile.measurement_domain
-        params_dict["ci_statistics"] = metadata.get("ci_statistics")
+        params_dict["ci_statistics"] = identity.ci_statistics
         params.cfg.update(params_dict)
 
     logger.info(f"Inference bundle loaded successfully. Models: {list(models_dict.keys())}, Params keys: {list(params_dict.keys())[:5]}...")
