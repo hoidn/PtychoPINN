@@ -65,6 +65,7 @@ from ptycho_torch.config_params import (
 # Import PyTorchExecutionConfig (Option A canonical location per ADR-003 Phase C1)
 # Per supervisor decision at 2025-10-19T234458Z (factory_design.md §2.2)
 from ptycho.config.config import PyTorchExecutionConfig
+from ptycho.config.legacy_state import configured_legacy_params
 
 from ptycho import params
 from ptycho_torch.scaling_contract import (
@@ -261,6 +262,7 @@ def _load_nphotons_from_metadata(data_file: Path) -> Optional[float]:
     return MetadataManager.get_nphotons(metadata, default=None)
 
 
+@configured_legacy_params
 def create_training_payload(
     train_data_file: Path,
     output_dir: Path,
@@ -527,6 +529,7 @@ def create_training_payload(
     )
 
 
+@configured_legacy_params
 def create_inference_payload(
     model_path: Path,
     test_data_file: Path,
@@ -812,6 +815,7 @@ def infer_probe_size(data_file: Path) -> int:
         return fallback_N
 
 
+@configured_legacy_params
 def populate_legacy_params(
     tf_config: Union[TFTrainingConfig, TFInferenceConfig],
     force: bool = False,

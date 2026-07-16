@@ -175,11 +175,12 @@ status authority; no machine-readable refactor state exists that needs updating.
 
 ### Slice 2 — Legacy-state and fail-loud migrations
 
-**Status:** Partial. 2A completed on 2026-07-15: `ptycho.params` imports
-without TensorFlow while preserving its dictionary identity/API, NumPy and
-TensorFlow-tensor diagnostics, canonical bridge updates, and bundle-load
-`.update()` behavior. 2B containment and the named 2C failure paths remain
-pending.
+**Status:** Partial. 2A and 2B completed on 2026-07-15: `ptycho.params`
+imports without TensorFlow; the supported entrypoints now contain temporary
+legacy state without rebinding `params.cfg`; overlapping threads/tasks fail
+fast; forked workers configure independently; and successful TF/Torch bundle
+loads commit archived flat state only after the complete load route succeeds.
+The named 2C failure paths remain pending.
 
 **Outcome:** The legacy parameter module is framework-neutral, supported
 entrypoints bound its state lifecycle explicitly, and named failures cannot
@@ -211,6 +212,13 @@ therefore part of 2B. The inventory fixes the named migration set for 2B and
 does not turn repository search results or future callers into retroactive gates.
 
 **2B — Lifecycle containment**
+
+**Status:** Complete (2026-07-15). The process-local adapter provides explicit
+nested, exception, seal, execution-owner, fork, configuration-update, and
+archive-transaction semantics. Focused lifecycle/entrypoint/load/simulation
+falsifiers pass. The Section 8 suite had no new failure or error selector
+against the `514237b8a` base evidence; one prior CI probe-roundtrip failure was
+removed by simulation-state isolation.
 
 3. Choose a containment mechanism only after the inventory. Its contract must
    state nested-context behavior, exception restoration, dictionary object
@@ -479,8 +487,9 @@ Slice 7 hygiene may run independently except:
 
 The bounded simulation flat/nested correction is implemented, but its post-fix
 repository-wide gate remains pending and blocks the same grid-lines/config path.
-Slice 2A is complete; Slice 2B, non-overlapping Slice 3A ownership
-analysis/migration, and Slice 4A are dependency-eligible. Do not start 3B
+Slices 2A and 2B are complete; independent Slice 2C corrections,
+non-overlapping Slice 3A ownership analysis/migration, and Slice 4A are
+dependency-eligible. Do not start 3B
 model-schema construction before 3A has removed the structural runtime side
 channel, and do not consolidate dispatch before the 3C artifact support matrix
 is operational.

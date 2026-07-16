@@ -45,6 +45,7 @@ import zipfile
 import shutil
 from typing import Dict, Any, Tuple, Optional
 from pathlib import Path
+from ptycho.config.legacy_state import archived_params_scope
 
 # PyTorch is now a mandatory dependency (Phase F3.1/F3.2)
 try:
@@ -263,6 +264,26 @@ def create_torch_model_with_gridsize(
 
 
 def load_torch_bundle(
+    base_path: str,
+    model_name: str = None
+) -> Tuple[Dict[str, Any], dict]:
+    """Load a Torch bundle and commit archived flat state only on success."""
+    zip_path = f"{base_path}.zip"
+    if not os.path.exists(zip_path):
+        raise FileNotFoundError(f"Model archive not found: {zip_path}")
+
+    with zipfile.ZipFile(zip_path, "r") as archive:
+        manifest = dill.loads(archive.read("manifest.dill"))
+        first_model = manifest["models"][0]
+        params_dict = dill.loads(
+            archive.read(f"{first_model}/params.dill")
+        )
+
+    with archived_params_scope(params_dict):
+        return _load_torch_bundle_uncontained(base_path, model_name=model_name)
+
+
+def _load_torch_bundle_uncontained(
     base_path: str,
     model_name: str = None
 ) -> Tuple[Dict[str, Any], dict]:

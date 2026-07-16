@@ -48,6 +48,7 @@ from ptycho.raw_data import RawData
 from ptycho.workflows.components import load_data, setup_configuration, parse_arguments
 from ptycho.workflows.backend_selector import load_inference_bundle_with_backend
 from ptycho.config.config import InferenceConfig, ModelConfig, validate_inference_config, update_legacy_dict
+from ptycho.config.legacy_state import scoped_legacy_params
 
 # Set up logging
 logging.basicConfig(level=logging.INFO,
@@ -649,6 +650,7 @@ def save_probe_visualization(test_data: RawData, output_path: str):
         raise OSError(f"Error saving probe visualization: {str(e)}")
 
 
+@scoped_legacy_params
 def main():
     """Main entry point for the ptychography inference script."""
     config = None

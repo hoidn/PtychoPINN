@@ -37,6 +37,7 @@ from ptycho.config.config import (
     validate_simulation_config,
 )
 from ptycho import params as p
+from ptycho.config.legacy_state import scoped_legacy_params
 from ptycho.simulation import probe_transform as _probe_transform
 from ptycho.simulation.identity import (
     array_sha256 as _identity_array_sha256,
@@ -558,6 +559,7 @@ def _capture_simulation_probe() -> np.ndarray | None:
     return probe.astype(np.complex64)
 
 
+@scoped_legacy_params
 def simulate_grid_data(cfg: GridLinesConfig, probe_np: np.ndarray) -> Dict[str, Any]:
     """Run simulation via data_preprocessing.generate_data and return split data."""
     configure_legacy_params(cfg, probe_np)
@@ -2154,6 +2156,7 @@ def render_grid_lines_visuals(output_dir: Path, order: Tuple[str, ...]) -> Dict[
     return outputs
 
 
+@scoped_legacy_params
 def run_grid_lines_workflow(
     cfg: GridLinesConfig,
     tf_models: Tuple[str, ...] = ("pinn", "baseline"),

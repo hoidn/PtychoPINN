@@ -42,6 +42,7 @@ from datetime import datetime
 import argparse
 import sys
 from pathlib import Path
+from ptycho.config.legacy_state import scoped_legacy_params
 
 #ML libraries
 import matplotlib.pyplot as plt
@@ -119,6 +120,7 @@ def load_all_configs(config_path, file_index):
 
 
 #Loads model, training settings
+@scoped_legacy_params
 def load_and_predict(run_id,
                      ptycho_files_dir,
                      relative_mlflow_path = 'mlruns',
@@ -677,6 +679,7 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     return result_amp, result_phase
 
 
+@scoped_legacy_params
 def cli_main():
     """
     CLI entrypoint for PyTorch Lightning checkpoint inference (ADR-003 Phase D.C thin wrapper).

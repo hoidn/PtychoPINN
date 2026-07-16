@@ -103,8 +103,14 @@ class TestWorkflowsComponentsScaffold:
         from ptycho.config.config import update_legacy_dict
         from ptycho.raw_data import RawData
 
+        parent_gridsize = params_cfg_snapshot["gridsize"]
+
         # Spy flag to track update_legacy_dict invocation
-        update_legacy_dict_called = {"called": False, "args": None}
+        update_legacy_dict_called = {
+            "called": False,
+            "args": None,
+            "projected": None,
+        }
 
         def mock_update_legacy_dict(cfg_dict, config_obj):
             """Spy that records invocation and delegates to real function."""
@@ -112,6 +118,10 @@ class TestWorkflowsComponentsScaffold:
             update_legacy_dict_called["args"] = (cfg_dict, config_obj)
             # Call the real function to populate params.cfg for validation
             update_legacy_dict(cfg_dict, config_obj)
+            update_legacy_dict_called["projected"] = {
+                "N": cfg_dict["N"],
+                "gridsize": cfg_dict["gridsize"],
+            }
 
         # Patch update_legacy_dict with spy
         monkeypatch.setattr(
@@ -179,9 +189,12 @@ class TestWorkflowsComponentsScaffold:
             "Second argument to update_legacy_dict must be the TrainingConfig instance"
         )
 
-        # Validate params.cfg was actually populated (side effect check)
-        assert params_cfg_snapshot['N'] == 64, "params.cfg should be populated with N=64"
-        assert params_cfg_snapshot['gridsize'] == 2, "params.cfg should be populated with gridsize=2"
+        # Validate the projection was visible before dispatch, then contained.
+        assert update_legacy_dict_called["projected"] == {
+            "N": 64,
+            "gridsize": 2,
+        }
+        assert params_cfg_snapshot["gridsize"] == parent_gridsize
         assert params_cfg_snapshot['model_type'] == 'pinn', "params.cfg should be populated with model_type='pinn'"
 
 

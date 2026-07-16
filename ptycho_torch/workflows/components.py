@@ -64,6 +64,10 @@ from typing import Union, Optional, Tuple, Dict, Any
 from ptycho import params
 from ptycho.config.config import TrainingConfig, InferenceConfig, PyTorchExecutionConfig
 from ptycho.config import config as ptycho_config  # For update_legacy_dict
+from ptycho.config.legacy_state import (
+    scoped_legacy_params,
+    transactional_legacy_params,
+)
 from ptycho.metadata import MetadataManager
 from ptycho.raw_data import RawData
 from ptycho_torch.scaling_contract import (
@@ -421,6 +425,7 @@ class NormalizedAmplitudeCIDictAdapter:
         return statistics
 
 
+@scoped_legacy_params
 def run_cdi_example_torch(
     train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
     test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
@@ -2058,6 +2063,7 @@ def _reassemble_cdi_image_torch(
     return recon_amp, recon_phase, results
 
 
+@scoped_legacy_params
 def train_cdi_model_torch(
     train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch', 'PtychoDataset'],
     test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
@@ -2136,6 +2142,7 @@ def train_cdi_model_torch(
     return results
 
 
+@transactional_legacy_params
 def load_inference_bundle_torch(
     bundle_dir: Union[str, Path],
     model_name: str = 'diffraction_to_obj',

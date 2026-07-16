@@ -89,6 +89,12 @@ from typing import Union, Optional, Tuple, Dict, Any
 from ptycho.raw_data import RawData
 from ptycho.loader import PtychoDataContainer
 from ptycho.config.config import TrainingConfig, update_legacy_dict
+from ptycho.config.legacy_state import (
+    configured_legacy_params,
+    legacy_params_scope,
+    scoped_legacy_params,
+    transactional_legacy_params,
+)
 from ptycho import params
 from ptycho.image import reassemble_patches
 from ptycho.model_manager import ModelManager
@@ -155,19 +161,22 @@ class DiffractionToObjectAdapter(tf.keras.Model):
             p.cfg['gridsize'] = gridsize
 
     def call(self, inputs, training=False, **kwargs):
-        self._sync_gridsize(inputs)
-        return self._model(inputs, training=training, **kwargs)
+        with legacy_params_scope():
+            self._sync_gridsize(inputs)
+            return self._model(inputs, training=training, **kwargs)
 
     def predict(self, *args, **kwargs):
-        input_arg = args[0] if args else kwargs.get('x')
-        self._sync_gridsize(input_arg)
-        return self._model.predict(*args, **kwargs)
+        with legacy_params_scope():
+            input_arg = args[0] if args else kwargs.get('x')
+            self._sync_gridsize(input_arg)
+            return self._model.predict(*args, **kwargs)
 
     def __getattr__(self, item):
         underlying = super().__getattribute__("_model")
         return getattr(underlying, item)
 
 
+@transactional_legacy_params
 def load_inference_bundle(model_dir: Path) -> Tuple[tf.keras.Model, dict]:
     """Load a trained model bundle for inference from a directory.
     
@@ -252,6 +261,7 @@ def load_inference_bundle(model_dir: Path) -> Tuple[tf.keras.Model, dict]:
         logger.error(f"Failed to load model from {model_dir}: {str(e)}")
         raise
 
+@configured_legacy_params
 def update_config_from_dict(config_updates: dict):
     """
     Updates the application's configuration from a dictionary, ideal for notebook workflows.
@@ -604,6 +614,7 @@ def load_yaml_config(file_path: str) -> Dict[str, Any]:
 #    if 'train_data_file_path' not in config or config['train_data_file_path'] is None:
 #        raise ValueError("train_data_file_path is a required parameter and must be provided")
 
+@configured_legacy_params
 def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> TrainingConfig:
     """Set up the configuration by merging defaults, YAML file, and command-line arguments."""
     try:
@@ -716,6 +727,7 @@ def create_ptycho_data_container(data: Union[RawData, PtychoDataContainer], conf
     else:
         raise TypeError("data must be either RawData or PtychoDataContainer")
 
+@scoped_legacy_params
 def train_cdi_model(
     train_data: Union[RawData, PtychoDataContainer],
     test_data: Optional[Union[RawData, PtychoDataContainer]],
@@ -848,6 +860,7 @@ def reassemble_cdi_image(
     
     return recon_amp, recon_phase, results
 
+@scoped_legacy_params
 def run_cdi_example(
     train_data: Union[RawData, PtychoDataContainer],
     test_data: Optional[Union[RawData, PtychoDataContainer]],

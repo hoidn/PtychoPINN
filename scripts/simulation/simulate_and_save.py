@@ -40,6 +40,7 @@ from ptycho.config.config import (
     validate_simulation_config,
 )
 from ptycho import params as p
+from ptycho.config.legacy_state import scoped_legacy_params
 from ptycho.image.cropping import center_crop_spatial
 from ptycho.metadata import MetadataManager
 from ptycho.simulation.probe_transform import (
@@ -93,6 +94,7 @@ def load_data_for_sim(file_path: str, load_all: bool = False) -> tuple:
     else:
         return objectGuess, probeGuess, None
 
+@scoped_legacy_params
 def simulate_and_save(
     config: TrainingConfig,
     simulation: SimulationConfig,
