@@ -32,6 +32,7 @@ from ptycho_torch.model_manager import save_torch_bundle
 from ptycho_torch.workflows import components
 from ptycho.config.config import ModelConfig as CanonicalModelConfig
 from ptycho.config.config import TrainingConfig as CanonicalTrainingConfig
+from ptycho import params as legacy_params
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -312,7 +313,7 @@ def test_ci_bundle_recovers_profile_configs_and_frozen_statistics(tmp_path):
     )
     save_torch_bundle(
         {
-            "autoencoder": {"_sentinel": True},
+            "autoencoder": model,
             "diffraction_to_obj": model,
         },
         str(base_path),
@@ -326,11 +327,17 @@ def test_ci_bundle_recovers_profile_configs_and_frozen_statistics(tmp_path):
     models, params = components.load_inference_bundle_torch(tmp_path / "bundle")
 
     restored = models["diffraction_to_obj"]
+    restored_autoencoder = models["autoencoder"]
     assert restored.model_config.physics_forward_mode == "rectangular_scaled"
+    assert restored_autoencoder.model_config.physics_forward_mode == "rectangular_scaled"
     assert restored.data_config.scale_contract_version == CI_SCALE_CONTRACT
     assert params["scale_contract_version"] == CI_SCALE_CONTRACT
+    assert legacy_params.cfg["scale_contract_version"] == CI_SCALE_CONTRACT
     for name, value in expected.items():
         torch.testing.assert_close(restored.get_ci_statistics()[name], value)
+        torch.testing.assert_close(restored_autoencoder.get_ci_statistics()[name], value)
+    for name, value in model.state_dict().items():
+        torch.testing.assert_close(restored_autoencoder.state_dict()[name], value)
 
 
 def test_checkpoint_loader_rejects_architecture_era_state_mismatch(tmp_path):

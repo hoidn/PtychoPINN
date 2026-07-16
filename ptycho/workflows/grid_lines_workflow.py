@@ -1440,32 +1440,18 @@ def _write_tf_row_provenance(
 def run_pinn_inference(model, X_test, coords_nominal):
     """Run PINN inference on test data.
 
-    Returns the reconstructed complex object (first output of model.predict),
-    or None if inference fails due to XLA/dynamic shape issues.
-
-    Known issue: PINN models compiled with XLA may fail during inference with
-    dynamic batch sizes. See docs/bugs/XLA_INFERENCE_BUG.md for details.
+    Returns the reconstructed complex object (first output of model.predict).
+    Native inference failures propagate to the caller.
     """
-    import logging
-    logger = logging.getLogger(__name__)
-
     intensity_scale = p.get("intensity_scale")
-    try:
-        prediction = model.predict([X_test * intensity_scale, coords_nominal])
-        if isinstance(prediction, (list, tuple)):
-            if not prediction:
-                raise ValueError("PINN inference returned no outputs")
-            reconstructed_obj = prediction[0]
-        else:
-            reconstructed_obj = prediction
-        return reconstructed_obj
-    except Exception as e:
-        error_msg = str(e)
-        if "xla" in error_msg.lower() or "fft" in error_msg.lower() or "dynamic" in error_msg.lower():
-            logger.error(f"PINN inference failed with XLA/dynamic shape error: {e}")
-            logger.warning("See docs/bugs/XLA_INFERENCE_BUG.md for details. Returning None.")
-            return None
-        raise  # Re-raise if not an XLA-related error
+    prediction = model.predict([X_test * intensity_scale, coords_nominal])
+    if prediction is None:
+        raise ValueError("PINN inference returned no outputs")
+    if isinstance(prediction, (list, tuple)):
+        if not prediction:
+            raise ValueError("PINN inference returned no outputs")
+        return prediction[0]
+    return prediction
 
 
 def run_baseline_inference(model, X_test):
@@ -2269,46 +2255,42 @@ def run_grid_lines_workflow(
                 pinn_model, sim["test"]["X"], sim["test"]["coords_nominal"]
             )
             pinn_inference_time_s = time.perf_counter() - pinn_infer_start
-            if pinn_pred is None:
-                print("[5/7][row:pinn] WARNING: PINN inference failed (XLA issue). Skipping PINN evaluation.")
-                metrics_payload["pinn"] = {"error": "PINN inference failed (XLA issue)"}
-            else:
-                print("[6/7][row:pinn] Stitching and computing metrics...")
-                pinn_amp = stitch_predictions(pinn_pred, norm_Y_I, part="amp")
-                pinn_phase = stitch_predictions(pinn_pred, norm_Y_I, part="phase")
-                pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
-                metrics_payload["pinn"] = eval_reconstruction(
-                    pinn_stitched,
-                    YY_gt,
-                    label="pinn",
-                )
-                row_payloads["pinn"] = _build_tf_row_payload(
+            print("[6/7][row:pinn] Stitching and computing metrics...")
+            pinn_amp = stitch_predictions(pinn_pred, norm_Y_I, part="amp")
+            pinn_phase = stitch_predictions(pinn_pred, norm_Y_I, part="phase")
+            pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
+            metrics_payload["pinn"] = eval_reconstruction(
+                pinn_stitched,
+                YY_gt,
+                label="pinn",
+            )
+            row_payloads["pinn"] = _build_tf_row_payload(
+                model_id="pinn",
+                model_label="CDI CNN + PINN",
+                model=pinn_model,
+                history=pinn_history,
+                metrics=metrics_payload["pinn"],
+                N=cfg.N,
+                epoch_budget=int(cfg.nepochs),
+                train_wall_time_sec=float(pinn_train_time_s),
+                inference_time_sec=float(pinn_inference_time_s),
+            )
+            recons["pinn"] = {
+                "amp": pinn_amp[0, :, :, 0],
+                "phase": pinn_phase[0, :, :, 0],
+            }
+            pinn_recon_path = save_recon_artifact(cfg.output_dir, "pinn", pinn_stitched)
+            if train_npz is not None and test_npz is not None:
+                _write_tf_row_provenance(
+                    cfg=cfg,
                     model_id="pinn",
-                    model_label="CDI CNN + PINN",
-                    model=pinn_model,
+                    row_payload=row_payloads["pinn"],
                     history=pinn_history,
-                    metrics=metrics_payload["pinn"],
-                    N=cfg.N,
-                    epoch_budget=int(cfg.nepochs),
-                    train_wall_time_sec=float(pinn_train_time_s),
-                    inference_time_sec=float(pinn_inference_time_s),
+                    train_npz=Path(train_npz),
+                    test_npz=Path(test_npz),
+                    model_artifact=cfg.output_dir / "pinn" / "wts.h5.zip",
+                    recon_path=pinn_recon_path,
                 )
-                recons["pinn"] = {
-                    "amp": pinn_amp[0, :, :, 0],
-                    "phase": pinn_phase[0, :, :, 0],
-                }
-                pinn_recon_path = save_recon_artifact(cfg.output_dir, "pinn", pinn_stitched)
-                if train_npz is not None and test_npz is not None:
-                    _write_tf_row_provenance(
-                        cfg=cfg,
-                        model_id="pinn",
-                        row_payload=row_payloads["pinn"],
-                        history=pinn_history,
-                        train_npz=Path(train_npz),
-                        test_npz=Path(test_npz),
-                        model_artifact=cfg.output_dir / "pinn" / "wts.h5.zip",
-                        recon_path=pinn_recon_path,
-                    )
 
     if "baseline" in selected_models:
         with _capture_tf_row_logs(cfg.output_dir, "baseline"):

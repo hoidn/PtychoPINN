@@ -297,15 +297,22 @@ def test_torch_bundle_failure_rolls_back_archived_state(tmp_path, monkeypatch):
     base_path = tmp_path / "wts.h5"
     archive = Path(f"{base_path}.zip")
     source = tmp_path / "archive"
-    model_dir = source / "diffraction_to_obj"
-    model_dir.mkdir(parents=True)
+    source.mkdir()
+    model_names = ["autoencoder", "diffraction_to_obj"]
     with (source / "manifest.dill").open("wb") as handle:
-        dill.dump({"models": ["diffraction_to_obj"]}, handle)
-    with (model_dir / "params.dill").open("wb") as handle:
-        dill.dump({"N": 64, "gridsize": 1, "loaded_only": True}, handle)
+        dill.dump({"models": model_names}, handle)
+    for model_name in model_names:
+        model_dir = source / model_name
+        model_dir.mkdir(parents=True)
+        with (model_dir / "params.dill").open("wb") as handle:
+            dill.dump({"N": 64, "gridsize": 1, "loaded_only": True}, handle)
     with zipfile.ZipFile(archive, "w") as bundle:
         bundle.write(source / "manifest.dill", "manifest.dill")
-        bundle.write(model_dir / "params.dill", "diffraction_to_obj/params.dill")
+        for model_name in model_names:
+            bundle.write(
+                source / model_name / "params.dill",
+                f"{model_name}/params.dill",
+            )
 
     monkeypatch.setattr(
         model_manager,

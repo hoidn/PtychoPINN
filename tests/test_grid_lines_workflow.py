@@ -309,6 +309,44 @@ def test_run_pinn_inference_uses_first_prediction_output(monkeypatch):
     assert output is expected
 
 
+def test_run_pinn_inference_propagates_xla_failure(monkeypatch):
+    monkeypatch.setattr(
+        grid_lines_workflow_module.p,
+        "get",
+        lambda key: 1.0 if key == "intensity_scale" else None,
+    )
+
+    class FailingModel:
+        def predict(self, inputs):
+            raise RuntimeError("XLA dynamic FFT execution failed")
+
+    with pytest.raises(RuntimeError, match="XLA dynamic FFT execution failed"):
+        run_pinn_inference(
+            FailingModel(),
+            np.ones((2, 4, 4, 1), dtype=np.float32),
+            np.zeros((2, 2), dtype=np.float32),
+        )
+
+
+def test_run_pinn_inference_rejects_missing_prediction(monkeypatch):
+    monkeypatch.setattr(
+        grid_lines_workflow_module.p,
+        "get",
+        lambda key: 1.0 if key == "intensity_scale" else None,
+    )
+
+    class EmptyModel:
+        def predict(self, inputs):
+            return None
+
+    with pytest.raises(ValueError, match="returned no outputs"):
+        run_pinn_inference(
+            EmptyModel(),
+            np.ones((2, 4, 4, 1), dtype=np.float32),
+            np.zeros((2, 2), dtype=np.float32),
+        )
+
+
 class TestProbeHelpers:
     """Tests for probe extraction and scaling helpers (Task 2)."""
 

@@ -1779,6 +1779,7 @@ class TestTrainWithLightningRed:
             # Validate module handle is not None
             module_handle = models_dict.get('lightning_module') or models_dict.get('diffraction_to_obj')
             assert module_handle is not None, "Module handle must not be None"
+            assert models_dict["autoencoder"] is module_handle
 
 
 class TestReassembleCdiImageTorchGreen:
@@ -1940,7 +1941,7 @@ class TestReassembleCdiImageTorchGreen:
 
         Provides minimal structure required by _reassemble_cdi_image_torch:
         - models['diffraction_to_obj']: Trained (mocked) Lightning module (Phase C4.D3 update)
-        - models['autoencoder']: Sentinel for dual-model bundle compliance
+        - models['autoencoder']: Same trained unified module under the second logical role
         - history: Training loss (placeholder)
 
         Note: trainer key omitted from models dict to avoid model_manager validation errors
@@ -1949,7 +1950,7 @@ class TestReassembleCdiImageTorchGreen:
         return {
             "models": {
                 "diffraction_to_obj": mock_lightning_module,  # Phase C4.D3: new key structure
-                "autoencoder": {'_sentinel': 'autoencoder'},  # Dual-model bundle requirement
+                "autoencoder": mock_lightning_module,
             },
             "history": {"train_loss": [0.1, 0.05]},
         }
@@ -1998,6 +1999,39 @@ class TestReassembleCdiImageTorchGreen:
                 train_results=None  # CRITICAL: explicit None to trigger guard
             )
 
+    def test_reassemble_cdi_image_torch_propagates_reassembly_failure(
+        self,
+        params_cfg_snapshot,
+        minimal_training_config,
+        dummy_raw_data,
+        stitch_train_results,
+        monkeypatch,
+    ):
+        from ptycho import params, tf_helper
+        from ptycho.config.config import update_legacy_dict
+        from ptycho_torch.workflows import components as torch_components
+
+        update_legacy_dict(params.cfg, minimal_training_config)
+        sentinel = RuntimeError("native reassembly failed")
+
+        def fail_reassembly(*_args, **_kwargs):
+            raise sentinel
+
+        monkeypatch.setattr(tf_helper, "reassemble_position", fail_reassembly)
+
+        with pytest.raises(RuntimeError) as exc_info:
+            torch_components._reassemble_cdi_image_torch(
+                test_data=dummy_raw_data,
+                config=minimal_training_config,
+                flip_x=False,
+                flip_y=False,
+                transpose=False,
+                M=128,
+                train_results=stitch_train_results,
+            )
+
+        assert exc_info.value is sentinel
+
     @pytest.mark.parametrize("flip_x,flip_y,transpose", [
         (False, False, False),  # No transforms
         (True, False, False),   # Flip X only
@@ -2007,6 +2041,7 @@ class TestReassembleCdiImageTorchGreen:
     ])
     def test_reassemble_cdi_image_torch_flip_transpose_contract(
         self,
+        monkeypatch,
         params_cfg_snapshot,
         minimal_training_config,
         dummy_raw_data,
@@ -2042,10 +2077,17 @@ class TestReassembleCdiImageTorchGreen:
         """
         from ptycho_torch.workflows import components as torch_components
         from ptycho.config.config import update_legacy_dict
-        from ptycho import params
+        from ptycho import params, tf_helper
 
         # Bridge config (CONFIG-001)
         update_legacy_dict(params.cfg, minimal_training_config)
+        monkeypatch.setattr(
+            tf_helper,
+            "reassemble_position",
+            lambda obj_tensor, global_offsets, M: np.ones(
+                (M, M, 1), dtype=np.complex64
+            ),
+        )
 
         # GREEN PHASE VALIDATION: expect successful stitching with all transform combos
         recon_amp, recon_phase, results = torch_components._reassemble_cdi_image_torch(
@@ -2117,10 +2159,17 @@ class TestReassembleCdiImageTorchGreen:
         """
         from ptycho_torch.workflows import components as torch_components
         from ptycho.config.config import update_legacy_dict
-        from ptycho import params
+        from ptycho import params, tf_helper
 
         # Bridge config (CONFIG-001)
         update_legacy_dict(params.cfg, minimal_training_config)
+        monkeypatch.setattr(
+            tf_helper,
+            "reassemble_position",
+            lambda obj_tensor, global_offsets, M: np.ones(
+                (M, M, 1), dtype=np.complex64
+            ),
+        )
 
         # Monkeypatch _train_with_lightning to return mock results with Lightning module
         def mock_train_with_lightning(train_container, test_container, config):
@@ -2158,6 +2207,7 @@ class TestReassembleCdiImageTorchGreen:
 
     def test_reassemble_cdi_image_torch_return_contract(
         self,
+        monkeypatch,
         params_cfg_snapshot,
         minimal_training_config,
         dummy_raw_data,
@@ -2201,10 +2251,17 @@ class TestReassembleCdiImageTorchGreen:
         """
         from ptycho_torch.workflows import components as torch_components
         from ptycho.config.config import update_legacy_dict
-        from ptycho import params
+        from ptycho import params, tf_helper
 
         # Bridge config (CONFIG-001)
         update_legacy_dict(params.cfg, minimal_training_config)
+        monkeypatch.setattr(
+            tf_helper,
+            "reassemble_position",
+            lambda obj_tensor, global_offsets, M: np.ones(
+                (M, M, 1), dtype=np.complex64
+            ),
+        )
 
         # GREEN PHASE VALIDATION: validate return contract
         recon_amp, recon_phase, results = torch_components._reassemble_cdi_image_torch(

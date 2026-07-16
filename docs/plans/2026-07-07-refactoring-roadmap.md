@@ -90,7 +90,7 @@ this file but do not duplicate its status.
 | Original Phase 2 | Reassembly coverage and inference routing advanced through later compatibility work; named config, geometry, metrics, API, and runner moves remain pending or invalidated | Superseded by Slices 3–7 |
 | Original Phase 3 | No neutral-core, reassembler, or backend interface extraction landed; grid-lines and central Torch modules grew | Superseded by Slices 3–6 |
 | 2026-07-06 pipeline plans | Dead forks remain; CLI routing partly changed; old global scaling diagnosis is legacy-profile-only | Historical input to Slices 5 and 7 |
-| Simulation configuration | The [simulation-config implementation plan](2026-07-14-simulation-config-boundary-matched-probe.md) was implemented and committed as `8d2a2c11d`. The repository-wide suite exposed one attributable compatibility defect—the probe-stress smoke changed flat geometry while retaining the prior nested `SimulationConfig`—and that caller now updates both views in lockstep; its exact falsifier passes. | The post-fix repository-wide rerun required by Section 8 remains pending before this major chunk is closed. This blocks further work on the same grid-lines/config path, not non-overlapping model-ownership work in Slice 3. |
+| Simulation configuration | The [simulation-config implementation plan](2026-07-14-simulation-config-boundary-matched-probe.md) was implemented and committed as `8d2a2c11d`. The repository-wide suite exposed one attributable compatibility defect—the probe-stress smoke changed flat geometry while retaining the prior nested `SimulationConfig`—and that caller now updates both views in lockstep; its exact falsifier passes. | The 2026-07-15 Slice 2 integration suite included the corrected caller and introduced no new failure/error selector against its base, so the post-fix gate is closed without a separate duplicate suite. |
 
 The audit also found that `ptycho_torch` itself imports without TensorFlow. The
 important framework-crossing edges are narrower: legacy `ptycho.params`, the
@@ -175,12 +175,13 @@ status authority; no machine-readable refactor state exists that needs updating.
 
 ### Slice 2 — Legacy-state and fail-loud migrations
 
-**Status:** Partial. 2A and 2B completed on 2026-07-15: `ptycho.params`
+**Status:** Complete (2026-07-15). `ptycho.params`
 imports without TensorFlow; the supported entrypoints now contain temporary
 legacy state without rebinding `params.cfg`; overlapping threads/tasks fail
 fast; forked workers configure independently; and successful TF/Torch bundle
 loads commit archived flat state only after the complete load route succeeds.
-The named 2C failure paths remain pending.
+The named 2C inference, bundle-load, and reassembly failures now propagate
+without returning partial/fresh/default scientific results.
 
 **Outcome:** The legacy parameter module is framework-neutral, supported
 entrypoints bound its state lifecycle explicitly, and named failures cannot
@@ -236,6 +237,14 @@ removed by simulation-state isolation.
    post-load state requirement above.
 
 **2C — Independent fail-loud corrections**
+
+**Status:** Complete (2026-07-15). PINN inference rejects missing output and
+propagates native prediction failures; Torch bundle loading requires both model
+roles and strict complete state loading while preserving valid current and
+declared metadata-free legacy reloads; Torch reassembly propagates the native
+offset-aware stitching failure instead of substituting an in-place mean. The
+focused falsifiers passed, and the final Slice 2 integration suite had the same
+26 failed and 2 error selectors as the `1eab9d78a` base evidence (4950 passed).
 
 6. Migrate each specifically identified broad handler independently: handlers
    that return `None`, retain fresh weights after a failed load, or substitute
@@ -485,10 +494,9 @@ Slice 7 hygiene may run independently except:
   deletion waits only on the exact consumers/contracts it affects.
 ```
 
-The bounded simulation flat/nested correction is implemented, but its post-fix
-repository-wide gate remains pending and blocks the same grid-lines/config path.
-Slices 2A and 2B are complete; independent Slice 2C corrections,
-non-overlapping Slice 3A ownership analysis/migration, and Slice 4A are
+The bounded simulation flat/nested correction is implemented, and the
+2026-07-15 Slice 2 integration suite closed its post-fix repository-wide gate.
+Slice 2 is complete. Slice 3A ownership analysis/migration and Slice 4A are
 dependency-eligible. Do not start 3B
 model-schema construction before 3A has removed the structural runtime side
 channel, and do not consolidate dispatch before the 3C artifact support matrix
@@ -534,28 +542,39 @@ For each slice or bounded task:
 6. Run the checked-in CI harness only when a bounded slice's acceptance claim
    spans that harness, and name the exact command in that slice's implementation
    plan. There is no standing "appropriate boundary" CI gate.
-7. A **major chunk** is a lettered sub-slice, or a separately gated production
-   migration within a slice. After its focused gates pass and before it is marked
-   complete or receives its final commit, run the comprehensive repository suite
-   on the exact candidate tree:
+7. The comprehensive repository suite is a **numbered-slice integration gate**,
+   not a lettered-sub-slice gate. Each lettered sub-slice or independently
+   bounded correction runs its claim-matched focused gates while it is being
+   developed. After the planned work for a numbered slice has been integrated
+   and its focused gates pass, run the comprehensive repository suite once on
+   the final production/test candidate before closing that numbered slice:
 
    ```bash
    python -m pytest tests/ -q
    ```
 
    This includes every unit and integration test collectable in the current
-   environment; declared environment-dependent skips remain skips. The full
-   suite is not required after every small subtask, documentation-only edit, or
-   intermediate commit.
-8. Classify every full-suite failure against the chunk's base tree and affected
-   contracts. A failure reproduced on the base is reported but does not create
-   unrelated repair work. A failure introduced by or causally attributable to
-   the chunk is a regression: fix it before completion, rerun its focused
-   falsifier, then rerun the comprehensive suite until no attributable regression
-   remains.
-9. Classify other supplemental failures against current requirements. A
+   environment; declared environment-dependent skips remain skips. Do not run
+   it separately after each lettered sub-slice, bounded correction, intermediate
+   commit, documentation/status-only change, or review suggestion. An earlier
+   integration gate is required only when a numbered slice is deliberately
+   handed off or merged before its remaining sub-slices, in which case that
+   handoff candidate is itself the explicit integration boundary.
+8. One repository-suite result may close multiple bounded tasks already present
+   in that exact integrated production/test candidate; task labels do not require
+   duplicate runs. A subsequent documentation/status-only update does not
+   invalidate the production/test result. Any later production or test change
+   must pass its focused falsifier and be included in the next required
+   integration-boundary suite.
+9. Classify every full-suite failure against the numbered slice's base tree and
+   affected contracts. A failure reproduced on the base is reported but does not
+   create unrelated repair work. A failure introduced by or causally
+   attributable to the slice is a regression: fix it before completion, rerun
+   its focused falsifier, then rerun the comprehensive suite once on the repaired
+   final candidate until no attributable regression remains.
+10. Classify other supplemental failures against current requirements. A
    supplemental check does not become a new gate merely because it was run.
-10. Retain durable logs only when the active plan or testing contract requires
+11. Retain durable logs only when the active plan or testing contract requires
     them.
 
 CI exclusions in `ci/known_failures.txt` and `ci/collect_ignores.txt` are not
@@ -589,9 +608,11 @@ initiative is complete when:
   silently fall back after a native-route failure;
 - the named package-to-`scripts` import edge is removed and each application
   split explicitly selected under Slice 6 preserves its contract;
-- every completed major chunk has a fresh `python -m pytest tests/ -q` result on
-  its final candidate tree and no unresolved regression attributable to that
-  chunk.
+- every completed numbered slice, plus any explicit mid-slice merge or handoff
+  boundary, has one fresh `python -m pytest tests/ -q` result on its integrated
+  final production/test candidate and no unresolved regression attributable to
+  that slice; lettered sub-slices and bounded corrections are not independently
+  full-suite gated.
 
 Slice 7's unrelated compatibility flags and hygiene items remain opportunistic
 unless one is explicitly required by a named migration above. No requirement
