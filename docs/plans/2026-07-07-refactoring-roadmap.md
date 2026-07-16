@@ -266,9 +266,9 @@ do not become a repository-wide completion sweep.
 
 ### Slice 3 — Configuration and model identity
 
-**Status:** Partial. `SimulationConfig` ownership and its bounded flat/nested
-caller correction are implemented. Structural field ownership, model schema,
-and artifact migration remain pending.
+**Status:** Partial. `SimulationConfig` ownership, structural field ownership,
+the versioned Torch model schema, and explicit artifact-era upgrades are
+implemented. Construction dispatch consolidation (3D) remains pending.
 
 **Outcome:** Every field has one semantic owner, model bundles carry enough
 versioned structure to rebuild themselves, and legacy translation is explicit.
@@ -336,24 +336,48 @@ owned by 3C.
 
 **3C — Explicit artifact upgrade path**
 
-6. Declare the supported artifact formats and schema eras for Lightning `.ckpt`
+**Status:** Complete (2026-07-15). The pure artifact classifier/decoder now
+normalizes each declared Torch era into `torch-model-spec-v1` plus exact data,
+training, inference, parity, and CI-statistics identity before construction.
+Current checkpoints and JSON sidecars dual-write `torch-artifact-v1`; current
+bundles add the required `backend='pytorch'` root tag and carry the same identity
+inside the unchanged `wts.h5.zip`/dual-role layout. Loaders inspect root
+backend/version/schema before construction, validate current sidecar/checkpoint
+identity together, strict-load every state, update `params.cfg` transactionally,
+and reject unknown backend, schema, field set, role set, profile, or state shape.
+The metadata-free legacy bundle route is pinned to its unsupervised CNN/profile
+semantics instead of inheriting later topology defaults. Focused artifact,
+checkpoint, sidecar, bundle, legacy-profile, CONFIG-001, and training-entrypoint
+falsifiers passed (122 tests); the numbered Slice 3 integration suite remains
+deferred until 3D as required by Section 8.
+
+| Format / era | Accepted identity | Upgrade / failure behavior |
+|---|---|---|
+| Lightning `.ckpt`, current | root `backend=pytorch`, `torch-artifact-v1`, hparams `torch-model-spec-v1` | Rebuild from the sealed spec and strict-load; unknown or conflicting dual-write fails before state load. |
+| Lightning `.ckpt` + JSON, pre-3C current | exact complete unversioned config field sets with persisted scale pair | Pure exact-field upgrade; missing/unknown fields do not receive current defaults. |
+| Lightning `.ckpt` + JSON, known metadata-free legacy | both scale fields absent plus a recognized obsolete-field signature | Requires explicit `legacy_v1` + `normalized_amplitude`, removes only declared obsolete fields, then strict-loads. |
+| `wts.h5.zip`, current | root `2.0-pytorch`, `backend=pytorch`, `torch-artifact-v1`, exact dual roles | Decode shared identity, build both roles, strict-load both, and commit legacy state only after full success. |
+| `wts.h5.zip`, transitional CI | root `2.0-pytorch`, legacy root schema, `ci-entrypoints-v1` metadata | Exact-field upgrade to current spec; CI statistics remain required when CI physics is active. |
+| `wts.h5.zip`, metadata-free legacy | root/params `2.0-pytorch`, no metadata/profile | Requires explicit legacy profile and uses the frozen unsupervised CNN construction; ambiguous or other backends fail. |
+
+6. **Complete (2026-07-15):** Declare the supported artifact formats and schema eras for Lightning `.ckpt`
    hyperparameters, sidecar config JSON, and `wts.h5.zip` bundles. Inspect the
    root manifest's backend/version before model construction; unsupported
    cross-backend loads fail descriptively.
-7. Implement a pure decode-old/upgrade-to-current path that normalizes each
+7. **Complete (2026-07-15):** Implement a pure decode-old/upgrade-to-current path that normalizes each
    declared era into one current Torch model specification plus its required data
    contract snapshot. Never infer unknown structure from today's defaults.
    Construct the exact module, apply only versioned deterministic key migrations,
    strict-load state, restore required CI statistics and `params.cfg`, and fail
    before returning when any step is unsupported.
-8. Dual-write the new versioned identity while required old readers remain
+8. **Complete (2026-07-15):** Dual-write the new versioned identity while required old readers remain
    supported, then fold existing sidecar identity into that schema rather than
    retaining competing sources of truth. New PyTorch bundles preserve the
    external `wts.h5.zip` contract: root manifest backend/version, logical
    `autoencoder` and `diffraction_to_obj` roles, Lightning checkpoint payloads,
    and serializable hyperparameters sufficient for state-free reload. Preserve
    the CONFIG-001 load-time legacy update required by the external API.
-9. Fail closed with the exact unsupported schema/version and artifact format when
+9. **Complete (2026-07-15):** Fail closed with the exact unsupported schema/version and artifact format when
    no declared migration exists; do not infer compatibility from current
    dataclass fields, use `strict=False`, return fresh weights, or ask for
    regeneration when a supported deterministic upgrade is defined.
@@ -525,10 +549,11 @@ Slice 7 hygiene may run independently except:
 
 The bounded simulation flat/nested correction is implemented, and the
 2026-07-15 Slice 2 integration suite closed its post-fix repository-wide gate.
-Slice 2 is complete. Slice 3A field ownership and Slice 3B structural identity
-are complete; Slice 3C artifact upgrades and Slice 4A are dependency-eligible.
-Do not consolidate dispatch before the 3C artifact support matrix is
-operational.
+Slice 2 is complete. Slice 3A field ownership, Slice 3B structural identity,
+and Slice 3C artifact upgrades are complete; Slice 3D construction
+consolidation and Slice 4A are dependency-eligible. The 3C artifact support
+matrix is operational, so 3D may now consolidate dispatch without changing
+artifact-era policy.
 
 Before editing shared hot files, check current working-tree ownership and active
 executors. This is a task-local collision preflight, not a standing hold tied to

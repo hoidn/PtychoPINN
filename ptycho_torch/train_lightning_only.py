@@ -559,11 +559,26 @@ def main(ptycho_dir,
 
         #Create model
         print('Creating model...')
-        model = PtychoPINN_Lightning(
-            model_config, data_config, training_config, inference_config,
+        from ptycho_torch.config_bridge import to_model_config
+        from ptycho_torch.model_spec import derive_model_spec
+
+        model_spec = derive_model_spec(
+            to_model_config(data_config, model_config),
+            model_config,
+            data_config,
             parity_scale_mode=parity_scale_mode,
             parity_fixed_delta=parity_fixed_delta,
             parity_init_scheme=parity_init_scheme,
+        )
+        model = PtychoPINN_Lightning(
+            model_config,
+            data_config,
+            training_config,
+            inference_config,
+            parity_scale_mode=parity_scale_mode,
+            parity_fixed_delta=parity_fixed_delta,
+            parity_init_scheme=parity_init_scheme,
+            model_spec=model_spec.to_payload(),
         )
         model.training = True
 

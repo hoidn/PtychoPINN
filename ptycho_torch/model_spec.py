@@ -147,6 +147,31 @@ class ModelSpec:
             "parity_init_scheme": self.parity_init_scheme,
         }
 
+    @classmethod
+    def from_payload(cls, payload: Mapping[str, Any]) -> "ModelSpec":
+        if not isinstance(payload, Mapping):
+            raise TypeError("ModelSpec payload must be a mapping")
+        expected = {
+            "schema_version",
+            "model_config",
+            "parity_scale_mode",
+            "parity_fixed_delta",
+            "parity_init_scheme",
+        }
+        received = set(payload)
+        if received != expected:
+            raise ValueError(
+                "ModelSpec payload keys are not current-schema exact; "
+                f"missing={sorted(expected - received)}, unknown={sorted(received - expected)}"
+            )
+        return cls(
+            schema_version=payload["schema_version"],
+            _model_fields=payload["model_config"],
+            parity_scale_mode=payload["parity_scale_mode"],
+            parity_fixed_delta=float(payload["parity_fixed_delta"]),
+            parity_init_scheme=payload["parity_init_scheme"],
+        )
+
 
 def derive_model_spec(
     canonical_model: CanonicalModelConfig,

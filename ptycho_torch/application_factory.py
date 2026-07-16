@@ -63,4 +63,9 @@ def build_ptychopinn_application(
             parity_fixed_delta=model_spec.parity_fixed_delta,
             parity_init_scheme=model_spec.parity_init_scheme,
         )
-    return PtychoPINN_Lightning(**constructor_kwargs)
+    module = PtychoPINN_Lightning(**constructor_kwargs)
+    # Dual-write the internal identity for new checkpoints while retaining the
+    # established config hparams for pre-3C readers.
+    module._model_spec = model_spec
+    module.hparams["model_spec"] = model_spec.to_payload()
+    return module

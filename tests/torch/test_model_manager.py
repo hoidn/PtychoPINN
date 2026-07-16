@@ -10,7 +10,7 @@ Critical Behavioral Requirements (from spec §4.6 + Phase D3 callchain):
 1. save_torch_bundle MUST produce wts.h5.zip-compatible archives with dual-model structure
 2. Archive MUST contain manifest.dill, per-model subdirectories with params.dill snapshots
 3. params.dill MUST capture full params.cfg state via dataclass_to_legacy_dict (CONFIG-001)
-4. Archive format MUST enable cross-backend loading (PyTorch archives loadable by TF loaders)
+4. Archives identify their backend; unsupported cross-backend loads fail descriptively
 5. All persistence functions must be torch-optional (importable when PyTorch unavailable)
 
 Test Strategy:
@@ -238,6 +238,7 @@ class TestSaveTorchBundle:
                 "manifest['version'] MUST be '2.0-pytorch' for format detection "
                 "(enables cross-backend compatibility checks)"
             )
+            assert manifest['backend'] == 'pytorch'
 
     def test_params_snapshot(
         self,
@@ -656,23 +657,26 @@ class TestLoadTorchBundle:
 
         with tempfile.TemporaryDirectory() as temp_dir:
             # Create manifest
-            manifest = {'models': ['diffraction_to_obj'], 'version': '2.0-pytorch'}
+            manifest = {
+                'models': ['autoencoder', 'diffraction_to_obj'],
+                'version': '2.0-pytorch',
+                'backend': 'pytorch',
+            }
             manifest_path = Path(temp_dir) / 'manifest.dill'
             with open(manifest_path, 'wb') as f:
                 dill.dump(manifest, f)
 
-            # Create model directory with INCOMPLETE params.dill (missing 'N')
-            model_dir = Path(temp_dir) / 'diffraction_to_obj'
-            model_dir.mkdir()
-
-            incomplete_params = {'gridsize': 2, 'model_type': 'pinn'}  # Missing 'N'
-            params_path = model_dir / 'params.dill'
-            with open(params_path, 'wb') as f:
-                dill.dump(incomplete_params, f)
-
-            # Create dummy model.pth
-            model_path = model_dir / 'model.pth'
-            dill.dump({'_sentinel': 'dummy'}, open(model_path, 'wb'))
+            incomplete_params = {
+                '_version': '2.0-pytorch',
+                'gridsize': 2,
+                'model_type': 'pinn',
+            }  # Missing 'N'
+            for model_name in manifest['models']:
+                model_dir = Path(temp_dir) / model_name
+                model_dir.mkdir()
+                with open(model_dir / 'params.dill', 'wb') as f:
+                    dill.dump(incomplete_params, f)
+                dill.dump({'_sentinel': 'dummy'}, open(model_dir / 'model.pth', 'wb'))
 
             # Zip archive
             with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zf:
