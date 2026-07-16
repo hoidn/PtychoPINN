@@ -1784,7 +1784,11 @@ def run_torch_inference(
         Inference is batched to avoid GPU OOM on dense datasets.
     """
     import torch
-    from ptycho_torch.scaling_contract import CI_SCALE_CONTRACT, COUNT_INTENSITY
+    from ptycho_torch.scaling_contract import (
+        CI_SCALE_CONTRACT,
+        COUNT_INTENSITY,
+        ci_scaling_active,
+    )
 
     if model is None:
         raise ValueError("Model is required for inference")
@@ -1819,7 +1823,7 @@ def run_torch_inference(
 
     prepared_input = test_data.get("X")
     ci_profile = (
-        getattr(cfg, "physics_forward_mode", "amplitude") == "rectangular_scaled"
+        ci_scaling_active(cfg)
         and cfg.scale_contract_version == CI_SCALE_CONTRACT
         and cfg.measurement_domain == COUNT_INTENSITY
     )
@@ -1833,10 +1837,7 @@ def run_torch_inference(
             f"rect_s1s2_refit must be 'off' or 'dataset'; got {refit_mode!r}."
         )
     refit_active = refit_mode == "dataset"
-    if refit_active and not (
-        ci_profile
-        and getattr(cfg, "physics_forward_mode", "amplitude") == "rectangular_scaled"
-    ):
+    if refit_active and not ci_profile:
         raise ValueError(
             "rect_s1s2_refit='dataset' requires the CI count-intensity "
             "rectangular_scaled profile (scale_contract_version="
@@ -1845,7 +1846,6 @@ def run_torch_inference(
             f"{cfg.scale_contract_version!r}, domain={cfg.measurement_domain!r}, "
             f"forward_mode={getattr(cfg, 'physics_forward_mode', 'amplitude')!r}."
         )
-
     if ci_profile:
         missing = [
             name
