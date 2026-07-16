@@ -69,6 +69,7 @@ from pathlib import Path
 from typing import Dict, Any, List, Optional, Literal, Union
 import json
 import hashlib
+import inspect
 import math
 import tomllib
 import yaml
@@ -623,6 +624,36 @@ class InferenceConfig:
             # Use object.__setattr__ to modify dataclass
             object.__setattr__(self, 'n_groups', self.n_images)
 
+_STRUCTURAL_EXECUTION_ALIAS_NAMES = frozenset({
+    'hybrid_skip_connections',
+    'hybrid_downsample_steps',
+    'hybrid_downsample_op',
+    'hybrid_encoder_conv_hidden_scale',
+    'hybrid_encoder_spectral_hidden_scale',
+    'hybrid_encoder_conv_hidden_channels',
+    'hybrid_encoder_spectral_hidden_channels',
+    'hybrid_resnet_blocks',
+    'hybrid_skip_style',
+    'hybrid_resnet_bottleneck_layerscale_mode',
+    'hybrid_resnet_bottleneck_layerscale_value',
+    'hybrid_encoder_fusion_mode',
+    'hybrid_encoder_layerscale_init',
+    'hybrid_encoder_branch_gate_init',
+    'hybrid_encoder_branch_select',
+    'ffno_encoder_blocks',
+    'ffno_encoder_modes',
+    'ffno_encoder_share_weights',
+    'ffno_encoder_gate_init',
+    'ffno_encoder_norm',
+    'ffno_encoder_mlp_ratio',
+    'spectral_bottleneck_blocks',
+    'spectral_bottleneck_modes',
+    'spectral_bottleneck_share_weights',
+    'spectral_bottleneck_gate_init',
+    'spectral_bottleneck_gate_mode',
+})
+
+
 @dataclass
 class PyTorchExecutionConfig:
     """
@@ -700,7 +731,8 @@ class PyTorchExecutionConfig:
     recon_log_stitch: bool = False  # Log stitched full-resolution reconstructions (opt-in)
     recon_log_max_stitch_samples: Optional[int] = None  # Cap stitched samples (None = no limit)
 
-    # Torch-only hybrid_resnet structural-search knobs (not bridged to canonical ModelConfig)
+    # Deprecated Torch topology input aliases. The training factory records
+    # explicit use, maps it one-way into Torch ModelConfig, and rejects conflicts.
     hybrid_skip_connections: bool = False
     hybrid_downsample_steps: int = 2
     hybrid_downsample_op: Literal['stride_conv', 'avgpool_conv', 'blurpool_conv'] = 'stride_conv'
@@ -745,6 +777,16 @@ class PyTorchExecutionConfig:
     inference_batch_size: Optional[int] = None  # Override batch_size for inference (None = use training batch_size)
     middle_trim: int = 0  # Inference trimming parameter (not yet implemented)
     pad_eval: bool = False  # Padding for evaluation (not yet implemented)
+
+    def __new__(cls, *args, **kwargs):
+        instance = super().__new__(cls)
+        positional_names = {
+            field_info.name for field_info in fields(cls)[:len(args)]
+        }
+        instance._explicit_structural_aliases = frozenset(
+            (positional_names | set(kwargs)) & _STRUCTURAL_EXECUTION_ALIAS_NAMES
+        )
+        return instance
 
     def __post_init__(self):
         """
@@ -1034,6 +1076,12 @@ class PyTorchExecutionConfig:
                 "ffno_encoder_mlp_ratio must be finite and > 0, "
                 f"got {self.ffno_encoder_mlp_ratio}."
             )
+
+
+_execution_init_signature = inspect.signature(PyTorchExecutionConfig.__init__)
+PyTorchExecutionConfig.__signature__ = _execution_init_signature.replace(
+    parameters=tuple(_execution_init_signature.parameters.values())[1:]
+)
 
 
 def validate_model_config(config: ModelConfig) -> None:

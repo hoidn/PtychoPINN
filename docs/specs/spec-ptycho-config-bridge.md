@@ -112,6 +112,29 @@ Defaults & Precedence:
 ## 5. Bridging to Legacy (params.cfg)
 
 - After translation, call `update_legacy_dict(params.cfg, config)` with the resulting TF dataclass.
+
+### 5.1 Field ownership
+
+Configuration ownership is semantic, not based on matching field names across
+dataclasses:
+
+| Concern | Owner | Mapping boundary |
+|---|---|---|
+| Synthetic object, scan, detector, and probe construction | `ptycho.config.config.SimulationConfig` and its nested records | Explicit simulation adapters only; these fields do not enter model or execution config |
+| Acquired data shape, channels, photon/count profile, and grouping | Canonical workflow/data contract; current Torch carrier `ptycho_torch.config_params.DataConfig` | Declared `config_bridge` mappings plus factory data constructor |
+| Shared model identity | `ptycho.config.config.ModelConfig` | `config_bridge.to_model_config` maps declared shared fields |
+| Torch-only generator topology and structural physics/output choices | `ptycho_torch.config_params.ModelConfig` | The training factory's closed structural constructor; these fields determine graph/state-dict identity |
+| Optimization and training schedule | Canonical `TrainingConfig`; current Torch carrier `ptycho_torch.config_params.TrainingConfig` | Declared training bridge and factory constructor |
+| Devices, distributed strategy, loaders, logging, and trainer mechanics | `PyTorchExecutionConfig` | Passed to runtime orchestration only; it cannot be read by graph constructors |
+| Deprecated flat compatibility state | `ptycho.params.cfg` | One-way `update_legacy_dict`; never a source for new structured configuration |
+
+The Hybrid, FFNO-encoder, and spectral topology names historically exposed on
+`PyTorchExecutionConfig` are deprecated input aliases. The training factory maps
+an explicitly supplied alias one-way into Torch `ModelConfig`, warns, accepts an
+equal structural value, and rejects a conflicting structural value. Omitted
+execution aliases do not overwrite model defaults or explicit model input.
+Downstream generator construction reads only Torch `ModelConfig`. Unknown flat
+factory override names are rejected rather than silently dropped.
 - This applies to both backends to keep legacy modules in sync (e.g., physics routines, helpers).
 - `update_legacy_dict` performs KEY_MAPPINGS translation to legacy names and value serialization.
 

@@ -682,7 +682,6 @@ class HybridResnetGenerator:
         model_config = pt_configs["model_config"]
         training_config = pt_configs["training_config"]
         inference_config = pt_configs["inference_config"]
-        execution_config = pt_configs.get("execution_config")
 
         C = getattr(data_config, "C", 4)
         fno_width = getattr(model_config, "fno_width", 32)
@@ -731,36 +730,12 @@ class HybridResnetGenerator:
                 None,
             ),
             hybrid_skip_style=getattr(model_config, "hybrid_skip_style", "add"),
-            bottleneck_layerscale_mode=getattr(
-                execution_config,
-                "hybrid_resnet_bottleneck_layerscale_mode",
-                getattr(model_config, "hybrid_resnet_bottleneck_layerscale_mode", "learned"),
-            ),
-            bottleneck_layerscale_value=getattr(
-                execution_config,
-                "hybrid_resnet_bottleneck_layerscale_value",
-                getattr(model_config, "hybrid_resnet_bottleneck_layerscale_value", None),
-            ),
-            encoder_fusion_mode=getattr(
-                execution_config,
-                "hybrid_encoder_fusion_mode",
-                getattr(model_config, "hybrid_encoder_fusion_mode", "baseline"),
-            ),
-            encoder_layerscale_init=getattr(
-                execution_config,
-                "hybrid_encoder_layerscale_init",
-                getattr(model_config, "hybrid_encoder_layerscale_init", 0.1),
-            ),
-            encoder_branch_gate_init=getattr(
-                execution_config,
-                "hybrid_encoder_branch_gate_init",
-                getattr(model_config, "hybrid_encoder_branch_gate_init", 0.1),
-            ),
-            encoder_branch_select=getattr(
-                execution_config,
-                "hybrid_encoder_branch_select",
-                getattr(model_config, "hybrid_encoder_branch_select", "both"),
-            ),
+            bottleneck_layerscale_mode=model_config.hybrid_resnet_bottleneck_layerscale_mode,
+            bottleneck_layerscale_value=model_config.hybrid_resnet_bottleneck_layerscale_value,
+            encoder_fusion_mode=model_config.hybrid_encoder_fusion_mode,
+            encoder_layerscale_init=model_config.hybrid_encoder_layerscale_init,
+            encoder_branch_gate_init=model_config.hybrid_encoder_branch_gate_init,
+            encoder_branch_select=model_config.hybrid_encoder_branch_select,
         )
 
         return PtychoPINN_Lightning(
@@ -771,36 +746,12 @@ class HybridResnetGenerator:
             generator_module=core,
             generator_output=output_mode,
             generator_overrides={
-                "hybrid_resnet_bottleneck_layerscale_mode": getattr(
-                    execution_config,
-                    "hybrid_resnet_bottleneck_layerscale_mode",
-                    "learned",
-                ),
-                "hybrid_resnet_bottleneck_layerscale_value": getattr(
-                    execution_config,
-                    "hybrid_resnet_bottleneck_layerscale_value",
-                    None,
-                ),
-                "hybrid_encoder_fusion_mode": getattr(
-                    execution_config,
-                    "hybrid_encoder_fusion_mode",
-                    "baseline",
-                ),
-                "hybrid_encoder_layerscale_init": getattr(
-                    execution_config,
-                    "hybrid_encoder_layerscale_init",
-                    0.1,
-                ),
-                "hybrid_encoder_branch_gate_init": getattr(
-                    execution_config,
-                    "hybrid_encoder_branch_gate_init",
-                    0.1,
-                ),
-                "hybrid_encoder_branch_select": getattr(
-                    execution_config,
-                    "hybrid_encoder_branch_select",
-                    "both",
-                ),
+                "hybrid_resnet_bottleneck_layerscale_mode": model_config.hybrid_resnet_bottleneck_layerscale_mode,
+                "hybrid_resnet_bottleneck_layerscale_value": model_config.hybrid_resnet_bottleneck_layerscale_value,
+                "hybrid_encoder_fusion_mode": model_config.hybrid_encoder_fusion_mode,
+                "hybrid_encoder_layerscale_init": model_config.hybrid_encoder_layerscale_init,
+                "hybrid_encoder_branch_gate_init": model_config.hybrid_encoder_branch_gate_init,
+                "hybrid_encoder_branch_select": model_config.hybrid_encoder_branch_select,
             },
         )
 
@@ -810,15 +761,21 @@ class HybridResnetFfnoPtychoBlockEncoderGeneratorModule(HybridResnetGeneratorMod
 
     def __init__(self, **kwargs):
         modes = int(kwargs.get("modes", 12))
+        ffno_modes = kwargs.pop("ffno_encoder_modes", None)
+        ffno_blocks = kwargs.pop("ffno_encoder_blocks", 24)
+        ffno_share_weights = kwargs.pop("ffno_encoder_share_weights", True)
+        ffno_gate_init = kwargs.pop("ffno_encoder_gate_init", 0.1)
+        ffno_norm = kwargs.pop("ffno_encoder_norm", "instance")
+        ffno_mlp_ratio = kwargs.pop("ffno_encoder_mlp_ratio", 2.0)
         super().__init__(
             **kwargs,
             encoder_variant="ffno_ptychoblock_encoder",
-            ffno_encoder_blocks=24,
-            ffno_encoder_modes=modes,
-            ffno_encoder_share_weights=True,
-            ffno_encoder_gate_init=0.1,
-            ffno_encoder_norm="instance",
-            ffno_encoder_mlp_ratio=2.0,
+            ffno_encoder_blocks=ffno_blocks,
+            ffno_encoder_modes=modes if ffno_modes is None else ffno_modes,
+            ffno_encoder_share_weights=ffno_share_weights,
+            ffno_encoder_gate_init=ffno_gate_init,
+            ffno_encoder_norm=ffno_norm,
+            ffno_encoder_mlp_ratio=ffno_mlp_ratio,
             encoder_order="ffno_then_ptychoblock",
             ptychoblock_stage_count=2,
         )
@@ -839,7 +796,6 @@ class HybridResnetFfnoPtychoBlockEncoderGenerator:
         model_config = pt_configs["model_config"]
         training_config = pt_configs["training_config"]
         inference_config = pt_configs["inference_config"]
-        execution_config = pt_configs.get("execution_config")
 
         C = getattr(data_config, "C", 4)
         fno_width = getattr(model_config, "fno_width", 32)
@@ -886,36 +842,18 @@ class HybridResnetFfnoPtychoBlockEncoderGenerator:
                 None,
             ),
             hybrid_skip_style=getattr(model_config, "hybrid_skip_style", "add"),
-            bottleneck_layerscale_mode=getattr(
-                execution_config,
-                "hybrid_resnet_bottleneck_layerscale_mode",
-                getattr(model_config, "hybrid_resnet_bottleneck_layerscale_mode", "learned"),
-            ),
-            bottleneck_layerscale_value=getattr(
-                execution_config,
-                "hybrid_resnet_bottleneck_layerscale_value",
-                getattr(model_config, "hybrid_resnet_bottleneck_layerscale_value", None),
-            ),
-            encoder_fusion_mode=getattr(
-                execution_config,
-                "hybrid_encoder_fusion_mode",
-                getattr(model_config, "hybrid_encoder_fusion_mode", "baseline"),
-            ),
-            encoder_layerscale_init=getattr(
-                execution_config,
-                "hybrid_encoder_layerscale_init",
-                getattr(model_config, "hybrid_encoder_layerscale_init", 0.1),
-            ),
-            encoder_branch_gate_init=getattr(
-                execution_config,
-                "hybrid_encoder_branch_gate_init",
-                getattr(model_config, "hybrid_encoder_branch_gate_init", 0.1),
-            ),
-            encoder_branch_select=getattr(
-                execution_config,
-                "hybrid_encoder_branch_select",
-                getattr(model_config, "hybrid_encoder_branch_select", "both"),
-            ),
+            bottleneck_layerscale_mode=model_config.hybrid_resnet_bottleneck_layerscale_mode,
+            bottleneck_layerscale_value=model_config.hybrid_resnet_bottleneck_layerscale_value,
+            encoder_fusion_mode=model_config.hybrid_encoder_fusion_mode,
+            encoder_layerscale_init=model_config.hybrid_encoder_layerscale_init,
+            encoder_branch_gate_init=model_config.hybrid_encoder_branch_gate_init,
+            encoder_branch_select=model_config.hybrid_encoder_branch_select,
+            ffno_encoder_blocks=model_config.ffno_encoder_blocks,
+            ffno_encoder_modes=model_config.ffno_encoder_modes,
+            ffno_encoder_share_weights=model_config.ffno_encoder_share_weights,
+            ffno_encoder_gate_init=model_config.ffno_encoder_gate_init,
+            ffno_encoder_norm=model_config.ffno_encoder_norm,
+            ffno_encoder_mlp_ratio=model_config.ffno_encoder_mlp_ratio,
         )
 
         return PtychoPINN_Lightning(
@@ -931,42 +869,22 @@ class HybridResnetFfnoPtychoBlockEncoderGenerator:
                 "ptychoblock_stage_count": 2,
                 "downsample_steps": getattr(model_config, "hybrid_downsample_steps", 2),
                 "downsample_op": getattr(model_config, "hybrid_downsample_op", "stride_conv"),
-                "ffno_encoder_blocks": 24,
-                "ffno_encoder_modes": fno_modes,
-                "ffno_encoder_share_weights": True,
-                "ffno_encoder_gate_init": 0.1,
-                "ffno_encoder_norm": "instance",
-                "ffno_encoder_mlp_ratio": 2.0,
-                "hybrid_resnet_bottleneck_layerscale_mode": getattr(
-                    execution_config,
-                    "hybrid_resnet_bottleneck_layerscale_mode",
-                    "learned",
+                "ffno_encoder_blocks": model_config.ffno_encoder_blocks,
+                "ffno_encoder_modes": (
+                    fno_modes
+                    if model_config.ffno_encoder_modes is None
+                    else model_config.ffno_encoder_modes
                 ),
-                "hybrid_resnet_bottleneck_layerscale_value": getattr(
-                    execution_config,
-                    "hybrid_resnet_bottleneck_layerscale_value",
-                    None,
-                ),
-                "hybrid_encoder_fusion_mode": getattr(
-                    execution_config,
-                    "hybrid_encoder_fusion_mode",
-                    "baseline",
-                ),
-                "hybrid_encoder_layerscale_init": getattr(
-                    execution_config,
-                    "hybrid_encoder_layerscale_init",
-                    0.1,
-                ),
-                "hybrid_encoder_branch_gate_init": getattr(
-                    execution_config,
-                    "hybrid_encoder_branch_gate_init",
-                    0.1,
-                ),
-                "hybrid_encoder_branch_select": getattr(
-                    execution_config,
-                    "hybrid_encoder_branch_select",
-                    "both",
-                ),
+                "ffno_encoder_share_weights": model_config.ffno_encoder_share_weights,
+                "ffno_encoder_gate_init": model_config.ffno_encoder_gate_init,
+                "ffno_encoder_norm": model_config.ffno_encoder_norm,
+                "ffno_encoder_mlp_ratio": model_config.ffno_encoder_mlp_ratio,
+                "hybrid_resnet_bottleneck_layerscale_mode": model_config.hybrid_resnet_bottleneck_layerscale_mode,
+                "hybrid_resnet_bottleneck_layerscale_value": model_config.hybrid_resnet_bottleneck_layerscale_value,
+                "hybrid_encoder_fusion_mode": model_config.hybrid_encoder_fusion_mode,
+                "hybrid_encoder_layerscale_init": model_config.hybrid_encoder_layerscale_init,
+                "hybrid_encoder_branch_gate_init": model_config.hybrid_encoder_branch_gate_init,
+                "hybrid_encoder_branch_select": model_config.hybrid_encoder_branch_select,
             },
         )
 
@@ -976,15 +894,21 @@ class HybridResnetPtychoBlockFfnoEncoderGeneratorModule(HybridResnetGeneratorMod
 
     def __init__(self, **kwargs):
         modes = int(kwargs.get("modes", 12))
+        ffno_modes = kwargs.pop("ffno_encoder_modes", None)
+        ffno_blocks = kwargs.pop("ffno_encoder_blocks", 24)
+        ffno_share_weights = kwargs.pop("ffno_encoder_share_weights", True)
+        ffno_gate_init = kwargs.pop("ffno_encoder_gate_init", 0.1)
+        ffno_norm = kwargs.pop("ffno_encoder_norm", "instance")
+        ffno_mlp_ratio = kwargs.pop("ffno_encoder_mlp_ratio", 2.0)
         super().__init__(
             **kwargs,
             encoder_variant="ptychoblock_ffno_encoder",
-            ffno_encoder_blocks=24,
-            ffno_encoder_modes=modes,
-            ffno_encoder_share_weights=True,
-            ffno_encoder_gate_init=0.1,
-            ffno_encoder_norm="instance",
-            ffno_encoder_mlp_ratio=2.0,
+            ffno_encoder_blocks=ffno_blocks,
+            ffno_encoder_modes=modes if ffno_modes is None else ffno_modes,
+            ffno_encoder_share_weights=ffno_share_weights,
+            ffno_encoder_gate_init=ffno_gate_init,
+            ffno_encoder_norm=ffno_norm,
+            ffno_encoder_mlp_ratio=ffno_mlp_ratio,
             encoder_order="ptychoblock_then_ffno",
             ptychoblock_stage_count=2,
         )
@@ -1005,7 +929,6 @@ class HybridResnetPtychoBlockFfnoEncoderGenerator:
         model_config = pt_configs["model_config"]
         training_config = pt_configs["training_config"]
         inference_config = pt_configs["inference_config"]
-        execution_config = pt_configs.get("execution_config")
 
         C = getattr(data_config, "C", 4)
         fno_width = getattr(model_config, "fno_width", 32)
@@ -1052,36 +975,18 @@ class HybridResnetPtychoBlockFfnoEncoderGenerator:
                 None,
             ),
             hybrid_skip_style=getattr(model_config, "hybrid_skip_style", "add"),
-            bottleneck_layerscale_mode=getattr(
-                execution_config,
-                "hybrid_resnet_bottleneck_layerscale_mode",
-                getattr(model_config, "hybrid_resnet_bottleneck_layerscale_mode", "learned"),
-            ),
-            bottleneck_layerscale_value=getattr(
-                execution_config,
-                "hybrid_resnet_bottleneck_layerscale_value",
-                getattr(model_config, "hybrid_resnet_bottleneck_layerscale_value", None),
-            ),
-            encoder_fusion_mode=getattr(
-                execution_config,
-                "hybrid_encoder_fusion_mode",
-                getattr(model_config, "hybrid_encoder_fusion_mode", "baseline"),
-            ),
-            encoder_layerscale_init=getattr(
-                execution_config,
-                "hybrid_encoder_layerscale_init",
-                getattr(model_config, "hybrid_encoder_layerscale_init", 0.1),
-            ),
-            encoder_branch_gate_init=getattr(
-                execution_config,
-                "hybrid_encoder_branch_gate_init",
-                getattr(model_config, "hybrid_encoder_branch_gate_init", 0.1),
-            ),
-            encoder_branch_select=getattr(
-                execution_config,
-                "hybrid_encoder_branch_select",
-                getattr(model_config, "hybrid_encoder_branch_select", "both"),
-            ),
+            bottleneck_layerscale_mode=model_config.hybrid_resnet_bottleneck_layerscale_mode,
+            bottleneck_layerscale_value=model_config.hybrid_resnet_bottleneck_layerscale_value,
+            encoder_fusion_mode=model_config.hybrid_encoder_fusion_mode,
+            encoder_layerscale_init=model_config.hybrid_encoder_layerscale_init,
+            encoder_branch_gate_init=model_config.hybrid_encoder_branch_gate_init,
+            encoder_branch_select=model_config.hybrid_encoder_branch_select,
+            ffno_encoder_blocks=model_config.ffno_encoder_blocks,
+            ffno_encoder_modes=model_config.ffno_encoder_modes,
+            ffno_encoder_share_weights=model_config.ffno_encoder_share_weights,
+            ffno_encoder_gate_init=model_config.ffno_encoder_gate_init,
+            ffno_encoder_norm=model_config.ffno_encoder_norm,
+            ffno_encoder_mlp_ratio=model_config.ffno_encoder_mlp_ratio,
         )
 
         return PtychoPINN_Lightning(
@@ -1097,42 +1002,22 @@ class HybridResnetPtychoBlockFfnoEncoderGenerator:
                 "ptychoblock_stage_count": 2,
                 "downsample_steps": getattr(model_config, "hybrid_downsample_steps", 2),
                 "downsample_op": getattr(model_config, "hybrid_downsample_op", "stride_conv"),
-                "ffno_encoder_blocks": 24,
-                "ffno_encoder_modes": fno_modes,
-                "ffno_encoder_share_weights": True,
-                "ffno_encoder_gate_init": 0.1,
-                "ffno_encoder_norm": "instance",
-                "ffno_encoder_mlp_ratio": 2.0,
-                "hybrid_resnet_bottleneck_layerscale_mode": getattr(
-                    execution_config,
-                    "hybrid_resnet_bottleneck_layerscale_mode",
-                    "learned",
+                "ffno_encoder_blocks": model_config.ffno_encoder_blocks,
+                "ffno_encoder_modes": (
+                    fno_modes
+                    if model_config.ffno_encoder_modes is None
+                    else model_config.ffno_encoder_modes
                 ),
-                "hybrid_resnet_bottleneck_layerscale_value": getattr(
-                    execution_config,
-                    "hybrid_resnet_bottleneck_layerscale_value",
-                    None,
-                ),
-                "hybrid_encoder_fusion_mode": getattr(
-                    execution_config,
-                    "hybrid_encoder_fusion_mode",
-                    "baseline",
-                ),
-                "hybrid_encoder_layerscale_init": getattr(
-                    execution_config,
-                    "hybrid_encoder_layerscale_init",
-                    0.1,
-                ),
-                "hybrid_encoder_branch_gate_init": getattr(
-                    execution_config,
-                    "hybrid_encoder_branch_gate_init",
-                    0.1,
-                ),
-                "hybrid_encoder_branch_select": getattr(
-                    execution_config,
-                    "hybrid_encoder_branch_select",
-                    "both",
-                ),
+                "ffno_encoder_share_weights": model_config.ffno_encoder_share_weights,
+                "ffno_encoder_gate_init": model_config.ffno_encoder_gate_init,
+                "ffno_encoder_norm": model_config.ffno_encoder_norm,
+                "ffno_encoder_mlp_ratio": model_config.ffno_encoder_mlp_ratio,
+                "hybrid_resnet_bottleneck_layerscale_mode": model_config.hybrid_resnet_bottleneck_layerscale_mode,
+                "hybrid_resnet_bottleneck_layerscale_value": model_config.hybrid_resnet_bottleneck_layerscale_value,
+                "hybrid_encoder_fusion_mode": model_config.hybrid_encoder_fusion_mode,
+                "hybrid_encoder_layerscale_init": model_config.hybrid_encoder_layerscale_init,
+                "hybrid_encoder_branch_gate_init": model_config.hybrid_encoder_branch_gate_init,
+                "hybrid_encoder_branch_select": model_config.hybrid_encoder_branch_select,
             },
         )
 
@@ -1186,56 +1071,19 @@ class HybridResnetConvNextBottleneckGenerator:
         model_config = pt_configs["model_config"]
         training_config = pt_configs["training_config"]
         inference_config = pt_configs["inference_config"]
-        execution_config = pt_configs.get("execution_config")
 
         output_mode = getattr(model_config, "generator_output_mode", "real_imag")
         generator_mode = "amp_phase" if output_mode == "amp_phase" else "real_imag"
 
-        bottleneck_layerscale_mode = getattr(
-            execution_config,
-            "hybrid_resnet_bottleneck_layerscale_mode",
-            getattr(model_config, "hybrid_resnet_bottleneck_layerscale_mode", "learned"),
-        )
-        bottleneck_layerscale_value = getattr(
-            execution_config,
-            "hybrid_resnet_bottleneck_layerscale_value",
-            getattr(model_config, "hybrid_resnet_bottleneck_layerscale_value", None),
-        )
-        encoder_fusion_mode = getattr(
-            execution_config,
-            "hybrid_encoder_fusion_mode",
-            getattr(model_config, "hybrid_encoder_fusion_mode", "baseline"),
-        )
-        encoder_layerscale_init = getattr(
-            execution_config,
-            "hybrid_encoder_layerscale_init",
-            getattr(model_config, "hybrid_encoder_layerscale_init", 0.1),
-        )
-        encoder_branch_gate_init = getattr(
-            execution_config,
-            "hybrid_encoder_branch_gate_init",
-            getattr(model_config, "hybrid_encoder_branch_gate_init", 0.1),
-        )
-        encoder_branch_select = getattr(
-            execution_config,
-            "hybrid_encoder_branch_select",
-            getattr(model_config, "hybrid_encoder_branch_select", "both"),
-        )
-        convnext_bottleneck_layerscale_init = getattr(
-            execution_config,
-            "convnext_bottleneck_layerscale_init",
-            getattr(model_config, "convnext_bottleneck_layerscale_init", 0.1),
-        )
-        convnext_bottleneck_mlp_ratio = getattr(
-            execution_config,
-            "convnext_bottleneck_mlp_ratio",
-            getattr(model_config, "convnext_bottleneck_mlp_ratio", 4.0),
-        )
-        convnext_bottleneck_kernel_size = getattr(
-            execution_config,
-            "convnext_bottleneck_kernel_size",
-            getattr(model_config, "convnext_bottleneck_kernel_size", 7),
-        )
+        bottleneck_layerscale_mode = model_config.hybrid_resnet_bottleneck_layerscale_mode
+        bottleneck_layerscale_value = model_config.hybrid_resnet_bottleneck_layerscale_value
+        encoder_fusion_mode = model_config.hybrid_encoder_fusion_mode
+        encoder_layerscale_init = model_config.hybrid_encoder_layerscale_init
+        encoder_branch_gate_init = model_config.hybrid_encoder_branch_gate_init
+        encoder_branch_select = model_config.hybrid_encoder_branch_select
+        convnext_bottleneck_layerscale_init = model_config.convnext_bottleneck_layerscale_init
+        convnext_bottleneck_mlp_ratio = model_config.convnext_bottleneck_mlp_ratio
+        convnext_bottleneck_kernel_size = model_config.convnext_bottleneck_kernel_size
         learned_input_channels = getattr(model_config, "learned_input_channels", 1)
 
         core = HybridResnetConvNextBottleneckGeneratorModule(

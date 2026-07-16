@@ -31,6 +31,7 @@ from scripts.studies.grid_lines_torch_runner import (
     _reassemble_position_batched,
     _reassemble_position_shift_sum,
     _reassemble_with_coords_offsets,
+    _torch_structural_model_overrides,
     setup_torch_configs,
     run_grid_lines_torch,
     run_torch_training,
@@ -1655,8 +1656,8 @@ class TestChannelGridsizeAlignment:
         )
         training_config, execution_config = setup_torch_configs(cfg)
         assert training_config.model.architecture == "spectral_resnet_bottleneck_net"
-        assert execution_config.spectral_bottleneck_blocks == 6
-        assert execution_config.spectral_bottleneck_modes == 12
+        assert _torch_structural_model_overrides(cfg)["spectral_bottleneck_blocks"] == 6
+        assert _torch_structural_model_overrides(cfg)["spectral_bottleneck_modes"] == 12
 
     def test_runner_accepts_fno_vanilla(self, tmp_path):
         """Test that setup_torch_configs accepts 'fno_vanilla' architecture."""
@@ -1836,7 +1837,7 @@ class TestChannelGridsizeAlignment:
             hybrid_downsample_steps=1,
         )
         training_config, execution_config = setup_torch_configs(cfg)
-        assert execution_config.hybrid_downsample_steps == 1
+        assert _torch_structural_model_overrides(cfg)["hybrid_downsample_steps"] == 1
         assert not hasattr(training_config.model, "hybrid_downsample_steps")
 
     def test_runner_torch_only_downsample_op_stays_out_of_model_config(self, tmp_path):
@@ -1848,7 +1849,7 @@ class TestChannelGridsizeAlignment:
             hybrid_downsample_op="avgpool_conv",
         )
         training_config, execution_config = setup_torch_configs(cfg)
-        assert execution_config.hybrid_downsample_op == "avgpool_conv"
+        assert _torch_structural_model_overrides(cfg)["hybrid_downsample_op"] == "avgpool_conv"
         assert not hasattr(training_config.model, "hybrid_downsample_op")
 
     def test_runner_rejects_invalid_hybrid_downsample_steps(self, tmp_path):
@@ -1882,7 +1883,7 @@ class TestChannelGridsizeAlignment:
             hybrid_encoder_conv_hidden_scale=0.5,
         )
         training_config, execution_config = setup_torch_configs(cfg)
-        assert execution_config.hybrid_encoder_conv_hidden_scale == 0.5
+        assert _torch_structural_model_overrides(cfg)["hybrid_encoder_conv_hidden_scale"] == 0.5
         assert not hasattr(training_config.model, "hybrid_encoder_conv_hidden_scale")
 
     def test_runner_torch_only_hybrid_encoder_spectral_hidden_scale(self, tmp_path):
@@ -1894,7 +1895,7 @@ class TestChannelGridsizeAlignment:
             hybrid_encoder_spectral_hidden_scale=2.0,
         )
         training_config, execution_config = setup_torch_configs(cfg)
-        assert execution_config.hybrid_encoder_spectral_hidden_scale == 2.0
+        assert _torch_structural_model_overrides(cfg)["hybrid_encoder_spectral_hidden_scale"] == 2.0
         assert not hasattr(training_config.model, "hybrid_encoder_spectral_hidden_scale")
 
     def test_runner_torch_only_hybrid_resnet_blocks(self, tmp_path):
@@ -1906,7 +1907,7 @@ class TestChannelGridsizeAlignment:
             hybrid_resnet_blocks=8,
         )
         training_config, execution_config = setup_torch_configs(cfg)
-        assert execution_config.hybrid_resnet_blocks == 8
+        assert _torch_structural_model_overrides(cfg)["hybrid_resnet_blocks"] == 8
         assert not hasattr(training_config.model, "hybrid_resnet_blocks")
 
     @pytest.mark.parametrize("bad_scale", [0.0, -1.0, math.inf, math.nan])
@@ -1957,9 +1958,9 @@ class TestChannelGridsizeAlignment:
             hybrid_encoder_branch_gate_init=0.2,
         )
         training_config, execution_config = setup_torch_configs(cfg)
-        assert execution_config.hybrid_encoder_fusion_mode == "branch_gated_layerscale"
-        assert execution_config.hybrid_encoder_layerscale_init == 0.05
-        assert execution_config.hybrid_encoder_branch_gate_init == 0.2
+        assert _torch_structural_model_overrides(cfg)["hybrid_encoder_fusion_mode"] == "branch_gated_layerscale"
+        assert _torch_structural_model_overrides(cfg)["hybrid_encoder_layerscale_init"] == 0.05
+        assert _torch_structural_model_overrides(cfg)["hybrid_encoder_branch_gate_init"] == 0.2
         assert not hasattr(training_config.model, "hybrid_encoder_fusion_mode")
         assert not hasattr(training_config.model, "hybrid_encoder_layerscale_init")
         assert not hasattr(training_config.model, "hybrid_encoder_branch_gate_init")
@@ -1972,9 +1973,9 @@ class TestChannelGridsizeAlignment:
             architecture="hybrid_resnet",
         )
         training_config, execution_config = setup_torch_configs(cfg)
-        assert execution_config.hybrid_encoder_fusion_mode == "baseline"
-        assert execution_config.hybrid_encoder_layerscale_init == 0.1
-        assert execution_config.hybrid_encoder_branch_gate_init == 0.1
+        assert _torch_structural_model_overrides(cfg)["hybrid_encoder_fusion_mode"] == "baseline"
+        assert _torch_structural_model_overrides(cfg)["hybrid_encoder_layerscale_init"] == 0.1
+        assert _torch_structural_model_overrides(cfg)["hybrid_encoder_branch_gate_init"] == 0.1
 
     def test_runner_rejects_invalid_hybrid_encoder_fusion_mode(self, tmp_path):
         cfg = TorchRunnerConfig(
@@ -2021,7 +2022,7 @@ class TestChannelGridsizeAlignment:
             hybrid_encoder_branch_select=select,
         )
         _, execution_config = setup_torch_configs(cfg)
-        assert execution_config.hybrid_encoder_branch_select == select
+        assert _torch_structural_model_overrides(cfg)["hybrid_encoder_branch_select"] == select
 
     def test_runner_default_hybrid_encoder_branch_select_is_both(self, tmp_path):
         cfg = TorchRunnerConfig(
@@ -2031,7 +2032,7 @@ class TestChannelGridsizeAlignment:
             architecture="hybrid_resnet",
         )
         _, execution_config = setup_torch_configs(cfg)
-        assert execution_config.hybrid_encoder_branch_select == "both"
+        assert _torch_structural_model_overrides(cfg)["hybrid_encoder_branch_select"] == "both"
 
     def test_runner_rejects_invalid_hybrid_encoder_branch_select(self, tmp_path):
         cfg = TorchRunnerConfig(
@@ -2053,7 +2054,7 @@ class TestChannelGridsizeAlignment:
             hybrid_encoder_branch_select="conv_only",
         )
         training_config, execution_config = setup_torch_configs(cfg)
-        assert execution_config.hybrid_encoder_branch_select == "conv_only"
+        assert _torch_structural_model_overrides(cfg)["hybrid_encoder_branch_select"] == "conv_only"
         assert not hasattr(training_config.model, "hybrid_encoder_branch_select")
 
     def test_runner_branch_select_appears_in_argv(self, tmp_path):
@@ -2087,10 +2088,10 @@ class TestChannelGridsizeAlignment:
             inference_time_s=0.5,
         )
         assert training_config.model.architecture == "hybrid_resnet_ffno_ptychoblock_encoder"
-        assert execution_config.hybrid_downsample_steps == 2
-        assert execution_config.ffno_encoder_blocks == 24
-        assert execution_config.ffno_encoder_modes == 12
-        assert execution_config.ffno_encoder_share_weights is True
+        assert _torch_structural_model_overrides(cfg)["hybrid_downsample_steps"] == 2
+        assert _torch_structural_model_overrides(cfg)["ffno_encoder_blocks"] == 24
+        assert _torch_structural_model_overrides(cfg)["ffno_encoder_modes"] == 12
+        assert _torch_structural_model_overrides(cfg)["ffno_encoder_share_weights"] is True
         assert payload["ffno_encoder_blocks"] == 24
 
     def test_runner_accepts_hybrid_resnet_ptychoblock_ffno_encoder_architecture(self, tmp_path):
@@ -2110,10 +2111,10 @@ class TestChannelGridsizeAlignment:
             inference_time_s=0.5,
         )
         assert training_config.model.architecture == "hybrid_resnet_ptychoblock_ffno_encoder"
-        assert execution_config.hybrid_downsample_steps == 2
-        assert execution_config.ffno_encoder_blocks == 24
-        assert execution_config.ffno_encoder_modes == 12
-        assert execution_config.ffno_encoder_share_weights is True
+        assert _torch_structural_model_overrides(cfg)["hybrid_downsample_steps"] == 2
+        assert _torch_structural_model_overrides(cfg)["ffno_encoder_blocks"] == 24
+        assert _torch_structural_model_overrides(cfg)["ffno_encoder_modes"] == 12
+        assert _torch_structural_model_overrides(cfg)["ffno_encoder_share_weights"] is True
         assert payload["encoder_variant"] == "ptychoblock_ffno_encoder"
         assert payload["encoder_order"] == "ptychoblock_then_ffno"
         assert payload["ffno_encoder_blocks"] == 24
@@ -2131,11 +2132,11 @@ class TestChannelGridsizeAlignment:
             spectral_bottleneck_gate_mode="per_block",
         )
         training_config, execution_config = setup_torch_configs(cfg)
-        assert execution_config.spectral_bottleneck_blocks == 8
-        assert execution_config.spectral_bottleneck_modes == 10
-        assert execution_config.spectral_bottleneck_share_weights is False
-        assert execution_config.spectral_bottleneck_gate_init == 0.2
-        assert execution_config.spectral_bottleneck_gate_mode == "per_block"
+        assert _torch_structural_model_overrides(cfg)["spectral_bottleneck_blocks"] == 8
+        assert _torch_structural_model_overrides(cfg)["spectral_bottleneck_modes"] == 10
+        assert _torch_structural_model_overrides(cfg)["spectral_bottleneck_share_weights"] is False
+        assert _torch_structural_model_overrides(cfg)["spectral_bottleneck_gate_init"] == 0.2
+        assert _torch_structural_model_overrides(cfg)["spectral_bottleneck_gate_mode"] == "per_block"
         assert not hasattr(training_config.model, "spectral_bottleneck_blocks")
 
     def test_runner_rejects_invalid_spectral_bottleneck_blocks(self, tmp_path):
@@ -2180,7 +2181,7 @@ class TestChannelGridsizeAlignment:
             hybrid_skip_style="concat",
         )
         training_config, execution_config = setup_torch_configs(cfg)
-        assert execution_config.hybrid_skip_style == "concat"
+        assert _torch_structural_model_overrides(cfg)["hybrid_skip_style"] == "concat"
         assert not hasattr(training_config.model, "hybrid_skip_style")
 
     def test_runner_rejects_invalid_skip_style(self, tmp_path):
@@ -2204,8 +2205,8 @@ class TestChannelGridsizeAlignment:
             hybrid_resnet_bottleneck_layerscale_value=1.0,
         )
         training_config, execution_config = setup_torch_configs(cfg)
-        assert execution_config.hybrid_resnet_bottleneck_layerscale_mode == "fixed"
-        assert execution_config.hybrid_resnet_bottleneck_layerscale_value == 1.0
+        assert _torch_structural_model_overrides(cfg)["hybrid_resnet_bottleneck_layerscale_mode"] == "fixed"
+        assert _torch_structural_model_overrides(cfg)["hybrid_resnet_bottleneck_layerscale_value"] == 1.0
         assert not hasattr(training_config.model, "hybrid_resnet_bottleneck_layerscale_mode")
         assert not hasattr(training_config.model, "hybrid_resnet_bottleneck_layerscale_value")
 
@@ -2277,7 +2278,7 @@ class TestChannelGridsizeAlignment:
         assert payload.pt_model_config.learned_input_channels == 3
         assert payload.tf_training_config.model.learned_input_channels == 3
 
-    def test_create_training_payload_keeps_hybrid_residual_fixed_knobs_out_of_pt_model_config(
+    def test_create_training_payload_moves_hybrid_residual_fixed_knobs_into_pt_model_config(
         self, synthetic_ptycho_npz, tmp_path
     ):
         from ptycho.config.config import PyTorchExecutionConfig
@@ -2298,8 +2299,8 @@ class TestChannelGridsizeAlignment:
 
         assert payload.execution_config.hybrid_resnet_bottleneck_layerscale_mode == "fixed"
         assert payload.execution_config.hybrid_resnet_bottleneck_layerscale_value == 1.0
-        assert not hasattr(payload.pt_model_config, "hybrid_resnet_bottleneck_layerscale_mode")
-        assert not hasattr(payload.pt_model_config, "hybrid_resnet_bottleneck_layerscale_value")
+        assert payload.pt_model_config.hybrid_resnet_bottleneck_layerscale_mode == "fixed"
+        assert payload.pt_model_config.hybrid_resnet_bottleneck_layerscale_value == 1.0
 
     def test_gridsize2_cnn_sets_object_big_true(self, synthetic_ptycho_npz, tmp_path, monkeypatch):
         """--gridsize 2 --architecture cnn should set object_big True and derive C=4."""
@@ -2438,6 +2439,7 @@ class TestArchitecturePropagation:
 
         def spy_create_payload(*args, **kwargs):
             captured["overrides"] = kwargs["overrides"]
+            captured["execution_config"] = kwargs["execution_config"]
             raise RuntimeError("stop")
 
         monkeypatch.setattr("ptycho_torch.config_factory.create_training_payload", spy_create_payload)
@@ -2448,8 +2450,9 @@ class TestArchitecturePropagation:
                 config=cfg,
                 execution_config=exec_cfg,
             )
-        assert captured["overrides"]["hybrid_downsample_steps"] == 1
-        assert captured["overrides"]["hybrid_downsample_op"] == "avgpool_conv"
+        assert "hybrid_downsample_steps" not in captured["overrides"]
+        assert captured["execution_config"].hybrid_downsample_steps == 1
+        assert captured["execution_config"].hybrid_downsample_op == "avgpool_conv"
 
     def test_workflow_forwards_learned_input_channels_to_factory(self, monkeypatch, tmp_path):
         from pathlib import Path
@@ -2472,6 +2475,7 @@ class TestArchitecturePropagation:
 
         def spy_create_payload(*args, **kwargs):
             captured["overrides"] = kwargs["overrides"]
+            captured["execution_config"] = kwargs["execution_config"]
             raise RuntimeError("stop")
 
         monkeypatch.setattr("ptycho_torch.config_factory.create_training_payload", spy_create_payload)
@@ -2506,6 +2510,7 @@ class TestArchitecturePropagation:
 
         def spy_create_payload(*args, **kwargs):
             captured["overrides"] = kwargs["overrides"]
+            captured["execution_config"] = kwargs["execution_config"]
             raise RuntimeError("stop")
 
         monkeypatch.setattr("ptycho_torch.config_factory.create_training_payload", spy_create_payload)
@@ -2516,9 +2521,10 @@ class TestArchitecturePropagation:
                 config=cfg,
                 execution_config=exec_cfg,
             )
-        assert captured["overrides"]["hybrid_encoder_conv_hidden_scale"] == 0.5
-        assert captured["overrides"]["hybrid_encoder_spectral_hidden_scale"] == 2.0
-        assert captured["overrides"]["hybrid_resnet_blocks"] == 8
+        assert "hybrid_encoder_conv_hidden_scale" not in captured["overrides"]
+        assert captured["execution_config"].hybrid_encoder_conv_hidden_scale == 0.5
+        assert captured["execution_config"].hybrid_encoder_spectral_hidden_scale == 2.0
+        assert captured["execution_config"].hybrid_resnet_blocks == 8
 
     def test_workflow_forwards_hybrid_encoder_fusion_mode_to_factory(self, monkeypatch, tmp_path):
         from pathlib import Path
@@ -2541,6 +2547,7 @@ class TestArchitecturePropagation:
 
         def spy_create_payload(*args, **kwargs):
             captured["overrides"] = kwargs["overrides"]
+            captured["execution_config"] = kwargs["execution_config"]
             raise RuntimeError("stop")
 
         monkeypatch.setattr("ptycho_torch.config_factory.create_training_payload", spy_create_payload)
@@ -2551,9 +2558,10 @@ class TestArchitecturePropagation:
                 config=cfg,
                 execution_config=exec_cfg,
             )
-        assert captured["overrides"]["hybrid_encoder_fusion_mode"] == "branch_gated_layerscale"
-        assert captured["overrides"]["hybrid_encoder_layerscale_init"] == 0.05
-        assert captured["overrides"]["hybrid_encoder_branch_gate_init"] == 0.2
+        assert "hybrid_encoder_fusion_mode" not in captured["overrides"]
+        assert captured["execution_config"].hybrid_encoder_fusion_mode == "branch_gated_layerscale"
+        assert captured["execution_config"].hybrid_encoder_layerscale_init == 0.05
+        assert captured["execution_config"].hybrid_encoder_branch_gate_init == 0.2
 
     def test_workflow_forwards_skip_style_to_factory(self, monkeypatch, tmp_path):
         from pathlib import Path
@@ -2572,6 +2580,7 @@ class TestArchitecturePropagation:
 
         def spy_create_payload(*args, **kwargs):
             captured["overrides"] = kwargs["overrides"]
+            captured["execution_config"] = kwargs["execution_config"]
             raise RuntimeError("stop")
 
         monkeypatch.setattr("ptycho_torch.config_factory.create_training_payload", spy_create_payload)
@@ -2582,7 +2591,8 @@ class TestArchitecturePropagation:
                 config=cfg,
                 execution_config=exec_cfg,
             )
-        assert captured["overrides"]["hybrid_skip_style"] == "gated_add"
+        assert "hybrid_skip_style" not in captured["overrides"]
+        assert captured["execution_config"].hybrid_skip_style == "gated_add"
 
     def test_workflow_forwards_hybrid_skip_residual_fixed_knobs_to_factory(self, monkeypatch, tmp_path):
         from pathlib import Path
@@ -2604,6 +2614,7 @@ class TestArchitecturePropagation:
 
         def spy_create_payload(*args, **kwargs):
             captured["overrides"] = kwargs["overrides"]
+            captured["execution_config"] = kwargs["execution_config"]
             raise RuntimeError("stop")
 
         monkeypatch.setattr("ptycho_torch.config_factory.create_training_payload", spy_create_payload)
@@ -2614,8 +2625,9 @@ class TestArchitecturePropagation:
                 config=cfg,
                 execution_config=exec_cfg,
             )
-        assert captured["overrides"]["hybrid_resnet_bottleneck_layerscale_mode"] == "fixed"
-        assert captured["overrides"]["hybrid_resnet_bottleneck_layerscale_value"] == 1.0
+        assert "hybrid_resnet_bottleneck_layerscale_mode" not in captured["overrides"]
+        assert captured["execution_config"].hybrid_resnet_bottleneck_layerscale_mode == "fixed"
+        assert captured["execution_config"].hybrid_resnet_bottleneck_layerscale_value == 1.0
 
 
 class TestForwardSignatureEnforcement:
@@ -3178,7 +3190,8 @@ class TestTorchTrainingPath:
         monkeypatch.setattr("ptycho_torch.workflows.components._train_with_lightning", fake_train)
         run_torch_training(cfg, train_data, test_data)
 
-        assert captured["overrides"] == {
+        expected = _torch_structural_model_overrides(cfg)
+        expected.update({
             "training_patch_weighting": "probe",
             "physics_forward_mode": "rectangular_scaled",
             "cnn_output_mode": "real_imag",
@@ -3186,7 +3199,8 @@ class TestTorchTrainingPath:
             "scale_contract_version": LEGACY_SCALE_CONTRACT,
             "measurement_domain": NORMALIZED_AMPLITUDE,
             "amplitude_physics_gain": 1.0,
-        }
+        })
+        assert captured["overrides"] == expected
 
     def test_runner_default_varpro_probe_weighting_flags_forward_modelconfig_defaults(
         self, synthetic_npz, tmp_path, monkeypatch
@@ -3223,7 +3237,8 @@ class TestTorchTrainingPath:
         run_torch_training(cfg, train_data, test_data)
 
         defaults = PTModelConfig()
-        assert captured["overrides"] == {
+        expected = _torch_structural_model_overrides(cfg)
+        expected.update({
             "training_patch_weighting": defaults.training_patch_weighting,
             "physics_forward_mode": defaults.physics_forward_mode,
             "cnn_output_mode": defaults.cnn_output_mode,
@@ -3231,7 +3246,8 @@ class TestTorchTrainingPath:
             "scale_contract_version": CI_SCALE_CONTRACT,
             "measurement_domain": COUNT_INTENSITY,
             "amplitude_physics_gain": defaults.amplitude_physics_gain,
-        }
+        })
+        assert captured["overrides"] == expected
 
     def test_explicit_legacy_profile_reaches_training_payload(
         self,

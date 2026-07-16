@@ -277,20 +277,33 @@ versioned structure to rebuild themselves, and legacy translation is explicit.
 
 **3A — Field ownership and structural-side-channel removal**
 
+**Status:** Complete (2026-07-15). The bridge specification now declares one
+owner for simulation, data/scientific, shared model, Torch structural model,
+training, runtime execution, and legacy state. The 26 historical
+Hybrid/FFNO/Spectral execution fields remain provenance-aware deprecated input
+aliases only: the closed training factory maps explicit aliases one-way into
+Torch `ModelConfig`, warns, accepts equal dual input, rejects conflicts and
+unknown override names, and does not let omitted/default execution aliases
+overwrite structural input. Hybrid graph constructors no longer read execution
+config; the grid-lines and ablation study paths now originate topology in their
+model namespaces. Focused ownership, factory, generator, runner, execution, and
+study falsifiers passed; the broader study selector retained its one known base
+CNN decoder-fraction failure.
+
 1. **Complete (2026-07-15):** Correct the recorded flat/nested simulation caller
    through the established compatibility boundary before further changes to that
    same path.
-2. Publish an explicit field-ownership and mapping table covering
+2. **Complete (2026-07-15):** Publish an explicit field-ownership and mapping table covering
    `SimulationConfig`, scientific/data contracts, the structural model owner,
    training configuration, runtime execution configuration, and the legacy
    bridge.
-3. Move Hybrid/FFNO/Spectral topology fields out of the normatively runtime-only
+3. **Complete (2026-07-15):** Move Hybrid/FFNO/Spectral topology fields out of the normatively runtime-only
    `PyTorchExecutionConfig` into the structural model owner. Treat the existing
    public fields as deprecated one-way input aliases during the migration: map
    them explicitly, reject conflicting old/new values, and stop accepting the
    old location only after supported callers, artifacts, and the governing
    execution-config contract have moved.
-4. Replace permissive or name-reflective semantic guessing with closed
+4. **Complete (2026-07-15):** Replace permissive or name-reflective semantic guessing with closed
    constructors, declared mappings, unknown-field rejection, and intentional
    compatibility aliases.
 

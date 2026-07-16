@@ -320,6 +320,13 @@ The PyTorch backend exposes a dedicated execution configuration dataclass (`ptyc
 - **SHALL** be validated on instantiation via `__post_init__` raising `ValueError` for invalid fields.
 - **IS** applied at priority level 2 in the factory override precedence (between explicit overrides and dataclass defaults).
 
+Legacy Hybrid/FFNO/Spectral topology fields still accepted by this dataclass are
+deprecated input aliases, not runtime owners. The training factory maps an
+explicit alias one-way into the Torch structural `ModelConfig`, warns, accepts
+an equal new-location value, and rejects a conflicting value. Graph constructors
+MUST NOT read topology from `PyTorchExecutionConfig`; a default execution object
+MUST NOT change model topology.
+
 **Field Categories and Validation Rules:**
 
 1. **Lightning Trainer Knobs:**

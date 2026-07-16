@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field, replace
+import math
 from pathlib import Path
 from typing import Tuple, Optional, Literal, Union, List
 
@@ -73,11 +74,35 @@ class ModelConfig:
     hybrid_encoder_spectral_hidden_channels: Optional[int] = None
     hybrid_resnet_blocks: int = 6
     hybrid_skip_style: Literal['add', 'concat', 'gated_add'] = 'add'
+    hybrid_resnet_bottleneck_layerscale_mode: Literal['learned', 'fixed'] = 'learned'
+    hybrid_resnet_bottleneck_layerscale_value: Optional[float] = None
+    hybrid_encoder_fusion_mode: Literal[
+        'baseline',
+        'layerscale',
+        'branch_gated',
+        'branch_gated_layerscale',
+    ] = 'baseline'
+    hybrid_encoder_layerscale_init: float = 0.1
+    hybrid_encoder_branch_gate_init: float = 0.1
+    hybrid_encoder_branch_select: Literal[
+        'both',
+        'conv_only',
+        'spectral_only',
+    ] = 'both'
+    ffno_encoder_blocks: int = 24
+    ffno_encoder_modes: Optional[int] = None
+    ffno_encoder_share_weights: bool = True
+    ffno_encoder_gate_init: float = 0.1
+    ffno_encoder_norm: str = 'instance'
+    ffno_encoder_mlp_ratio: float = 2.0
     spectral_bottleneck_blocks: int = 6
     spectral_bottleneck_modes: int = 12
     spectral_bottleneck_share_weights: bool = True
     spectral_bottleneck_gate_init: float = 0.1
     spectral_bottleneck_gate_mode: Literal['shared', 'per_block'] = 'shared'
+    convnext_bottleneck_layerscale_init: float = 0.1
+    convnext_bottleneck_mlp_ratio: float = 4.0
+    convnext_bottleneck_kernel_size: int = 7
     generator_output_mode: Literal['real_imag', 'amp_phase_logits', 'amp_phase'] = 'real_imag'
     # CNN decoder output parameterization (Task 2.3 / backlog B1). Distinct from
     # ``generator_output_mode`` (that knob targets FNO/Hybrid cores and defaults to
@@ -198,8 +223,109 @@ class ModelConfig:
     phase_loss: Literal['Total_Variation', "Mean_Deviation", None] = None
     amp_loss_coeff: float = 1.0
     phase_loss_coeff: float = 1.0
-    
-    
+
+    def __post_init__(self):
+        """Validate fields that determine the Torch generator structure."""
+        if self.hybrid_downsample_steps not in {1, 2}:
+            raise ValueError("hybrid_downsample_steps must be 1 or 2")
+        if self.hybrid_downsample_op not in {
+            'stride_conv',
+            'avgpool_conv',
+            'blurpool_conv',
+        }:
+            raise ValueError("invalid hybrid_downsample_op")
+        if self.hybrid_skip_style not in {'add', 'concat', 'gated_add'}:
+            raise ValueError("invalid hybrid_skip_style")
+
+        for name in (
+            'hybrid_encoder_conv_hidden_scale',
+            'hybrid_encoder_spectral_hidden_scale',
+            'hybrid_encoder_layerscale_init',
+            'hybrid_encoder_branch_gate_init',
+            'ffno_encoder_gate_init',
+            'ffno_encoder_mlp_ratio',
+            'convnext_bottleneck_layerscale_init',
+            'convnext_bottleneck_mlp_ratio',
+        ):
+            value = float(getattr(self, name))
+            if not math.isfinite(value) or value <= 0.0:
+                raise ValueError(f"{name} must be finite and > 0")
+
+        width_pairs = (
+            (
+                'hybrid_encoder_conv_hidden_scale',
+                'hybrid_encoder_conv_hidden_channels',
+            ),
+            (
+                'hybrid_encoder_spectral_hidden_scale',
+                'hybrid_encoder_spectral_hidden_channels',
+            ),
+        )
+        for scale_name, width_name in width_pairs:
+            width = getattr(self, width_name)
+            if width is not None and width <= 0:
+                raise ValueError(f"{width_name} must be positive when set")
+            if width is not None and getattr(self, scale_name) != 1.0:
+                raise ValueError(
+                    f"{scale_name} and legacy alias {width_name} cannot both "
+                    "be set"
+                )
+
+        for name in (
+            'hybrid_resnet_blocks',
+            'ffno_encoder_blocks',
+            'spectral_bottleneck_blocks',
+            'spectral_bottleneck_modes',
+            'convnext_bottleneck_kernel_size',
+        ):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive")
+        if self.ffno_encoder_modes is not None and self.ffno_encoder_modes <= 0:
+            raise ValueError("ffno_encoder_modes must be positive when set")
+        if self.convnext_bottleneck_kernel_size % 2 == 0:
+            raise ValueError("convnext_bottleneck_kernel_size must be odd")
+
+        if self.hybrid_resnet_bottleneck_layerscale_mode not in {
+            'learned',
+            'fixed',
+        }:
+            raise ValueError("invalid hybrid_resnet_bottleneck_layerscale_mode")
+        layerscale_value = self.hybrid_resnet_bottleneck_layerscale_value
+        if self.hybrid_resnet_bottleneck_layerscale_mode == 'learned':
+            if layerscale_value is not None:
+                raise ValueError(
+                    "hybrid_resnet_bottleneck_layerscale_value must be omitted "
+                    "when mode is learned"
+                )
+        elif (
+            layerscale_value is None
+            or not math.isfinite(float(layerscale_value))
+            or float(layerscale_value) <= 0.0
+        ):
+            raise ValueError(
+                "hybrid_resnet_bottleneck_layerscale_value must be finite and "
+                "> 0 when mode is fixed"
+            )
+
+        if self.hybrid_encoder_fusion_mode not in {
+            'baseline',
+            'layerscale',
+            'branch_gated',
+            'branch_gated_layerscale',
+        }:
+            raise ValueError("invalid hybrid_encoder_fusion_mode")
+        if self.hybrid_encoder_branch_select not in {
+            'both',
+            'conv_only',
+            'spectral_only',
+        }:
+            raise ValueError("invalid hybrid_encoder_branch_select")
+        if self.spectral_bottleneck_gate_mode not in {'shared', 'per_block'}:
+            raise ValueError("invalid spectral_bottleneck_gate_mode")
+        if not math.isfinite(float(self.spectral_bottleneck_gate_init)):
+            raise ValueError("spectral_bottleneck_gate_init must be finite")
+        if not isinstance(self.ffno_encoder_norm, str) or not self.ffno_encoder_norm:
+            raise ValueError("ffno_encoder_norm must be a non-empty string")
 
 @dataclass
 class TrainingConfig:

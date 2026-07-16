@@ -42,7 +42,7 @@ Override Precedence (highest to lowest):
     5. TensorFlow config defaults (TrainingConfig, ModelConfig, InferenceConfig)
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Dict, Any, Optional, Union
 
@@ -102,6 +102,107 @@ CI_PROFILE_BUNDLE: Dict[str, Any] = {
     "rect_s1s2_init": "data",
     "cnn_output_mode": "real_imag",
 }
+
+
+# These graph-topology fields historically leaked into the normatively
+# runtime-only PyTorchExecutionConfig.  They remain accepted there only as
+# deprecated input aliases at this factory boundary.  All downstream model
+# construction reads the resolved PTModelConfig.
+DEPRECATED_EXECUTION_MODEL_ALIASES = (
+    "hybrid_skip_connections",
+    "hybrid_downsample_steps",
+    "hybrid_downsample_op",
+    "hybrid_encoder_conv_hidden_scale",
+    "hybrid_encoder_spectral_hidden_scale",
+    "hybrid_encoder_conv_hidden_channels",
+    "hybrid_encoder_spectral_hidden_channels",
+    "hybrid_resnet_blocks",
+    "hybrid_skip_style",
+    "hybrid_resnet_bottleneck_layerscale_mode",
+    "hybrid_resnet_bottleneck_layerscale_value",
+    "hybrid_encoder_fusion_mode",
+    "hybrid_encoder_layerscale_init",
+    "hybrid_encoder_branch_gate_init",
+    "hybrid_encoder_branch_select",
+    "ffno_encoder_blocks",
+    "ffno_encoder_modes",
+    "ffno_encoder_share_weights",
+    "ffno_encoder_gate_init",
+    "ffno_encoder_norm",
+    "ffno_encoder_mlp_ratio",
+    "spectral_bottleneck_blocks",
+    "spectral_bottleneck_modes",
+    "spectral_bottleneck_share_weights",
+    "spectral_bottleneck_gate_init",
+    "spectral_bottleneck_gate_mode",
+)
+
+_TRAINING_OVERRIDE_ALIASES = frozenset(
+    {"gridsize", "max_epochs", "neighbor_count", "model_type"}
+)
+_TRAINING_CONFIG_TYPES = (
+    PTDataConfig,
+    PTModelConfig,
+    PTTrainingConfig,
+    PTInferenceConfig,
+)
+_TRAINING_OVERRIDE_FIELDS = frozenset(
+    field_info.name
+    for config_type in _TRAINING_CONFIG_TYPES
+    for field_info in fields(config_type)
+) | _TRAINING_OVERRIDE_ALIASES
+
+
+def _config_kwargs(config_type, values: Dict[str, Any]) -> Dict[str, Any]:
+    """Select the declared constructor fields for one configuration owner."""
+    owned = {field_info.name for field_info in fields(config_type)}
+    return {name: value for name, value in values.items() if name in owned}
+
+
+def _reject_unknown_training_overrides(overrides: Dict[str, Any]) -> None:
+    unknown = sorted(set(overrides) - _TRAINING_OVERRIDE_FIELDS)
+    if unknown:
+        raise ValueError(
+            "unknown training override field(s): " + ", ".join(unknown)
+        )
+
+
+def _merge_deprecated_execution_model_aliases(
+    overrides: Dict[str, Any],
+    execution_config: Optional[PyTorchExecutionConfig],
+) -> tuple[str, ...]:
+    """Resolve non-default legacy execution aliases into structural inputs."""
+    if execution_config is None:
+        return ()
+
+    explicit_aliases = getattr(
+        execution_config, "_explicit_structural_aliases", frozenset()
+    )
+    used = []
+    for name in DEPRECATED_EXECUTION_MODEL_ALIASES:
+        if name not in explicit_aliases:
+            continue
+        alias_value = getattr(execution_config, name)
+        if name in overrides and overrides[name] != alias_value:
+            raise ValueError(
+                f"structural field {name!r} conflicts between ModelConfig input "
+                f"({overrides[name]!r}) and deprecated PyTorchExecutionConfig "
+                f"alias ({alias_value!r})"
+            )
+        overrides[name] = alias_value
+        used.append(name)
+
+    if used:
+        import warnings
+
+        warnings.warn(
+            "PyTorchExecutionConfig topology fields are deprecated aliases; "
+            "pass them through the structural ModelConfig input instead: "
+            + ", ".join(used),
+            DeprecationWarning,
+            stacklevel=3,
+        )
+    return tuple(used)
 
 
 def resolve_ci_profile(overrides: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -350,7 +451,6 @@ def create_training_payload(
 
     params.unseal()
     from ptycho_torch.config_bridge import to_model_config, to_training_config
-    from ptycho_torch.config_params import update_existing_config
 
     # Defensive copy of overrides
     overrides = dict(overrides or {})
@@ -371,6 +471,13 @@ def create_training_payload(
     if 'model_type' in overrides and 'mode' not in overrides:
         overrides['mode'] = overrides['model_type']
         overrides_applied['mode'] = overrides['model_type']
+
+    alias_fields = _merge_deprecated_execution_model_aliases(
+        overrides, execution_config
+    )
+    for name in alias_fields:
+        overrides_applied[name] = overrides[name]
+    _reject_unknown_training_overrides(overrides)
 
     # Step 1: Validate required arguments
     if not train_data_file.exists():
@@ -412,13 +519,7 @@ def create_training_payload(
     overrides['grid_size'] = grid_size
     overrides['C'] = C
 
-    #Going to use update_existing_config from ptycho_torch.config_params
-    #The default settings are already set up to work in most use cases, so there's no point in instantiating 
-    #versions of the classes with some pre-defined set of "default" settings in this function. We can just default
-    #to whatever the original attribute values are, and overwrite them based on overrides.
-    
-    pt_data_config = PTDataConfig()
-    update_existing_config(pt_data_config, overrides)
+    pt_data_config = PTDataConfig(**_config_kwargs(PTDataConfig, overrides))
 
     # ModelConfig: Extract model architecture fields from overrides
     # CRITICAL: Synchronize C_forward and C_model with pt_data_config.C to ensure
@@ -427,8 +528,7 @@ def create_training_payload(
     overrides['C_forward'] = C
     overrides['C_model'] = C
 
-    pt_model_config = PTModelConfig()
-    update_existing_config(pt_model_config, overrides)
+    pt_model_config = PTModelConfig(**_config_kwargs(PTModelConfig, overrides))
 
     # PROBE-RANK-001 §3.3: the explicit amplitude physics gain is a
     # provenance-carrying training constant — validate fail-fast at payload
@@ -443,8 +543,9 @@ def create_training_payload(
     overrides['test_data_file'] = str(overrides['test_data_file']) if 'test_data_file' in overrides else None
     overrides['output_dir'] = str(output_dir)
 
-    pt_training_config = PTTrainingConfig()
-    update_existing_config(pt_training_config, overrides)
+    pt_training_config = PTTrainingConfig(
+        **_config_kwargs(PTTrainingConfig, overrides)
+    )
 
     # Conformance D3: fail-closed contract coherence (Theme 3, 2026-07-14).
     # The half-configured-CI guard runs here (not on bare dataclasses) because

@@ -1050,6 +1050,49 @@ def _normalize_eval_image_array(arr: np.ndarray) -> np.ndarray:
     return image
 
 
+def _torch_structural_model_overrides(cfg: TorchRunnerConfig) -> Dict[str, Any]:
+    """Return the declared Torch model topology for one runner configuration."""
+    encoder_recipe = _fixed_hybrid_encoder_recipe(cfg) or {}
+    return {
+        "hybrid_skip_connections": cfg.hybrid_skip_connections,
+        "hybrid_downsample_steps": cfg.hybrid_downsample_steps,
+        "hybrid_downsample_op": cfg.hybrid_downsample_op,
+        "hybrid_encoder_conv_hidden_scale": cfg.hybrid_encoder_conv_hidden_scale,
+        "hybrid_encoder_spectral_hidden_scale": cfg.hybrid_encoder_spectral_hidden_scale,
+        "hybrid_encoder_conv_hidden_channels": cfg.hybrid_encoder_conv_hidden_channels,
+        "hybrid_encoder_spectral_hidden_channels": cfg.hybrid_encoder_spectral_hidden_channels,
+        "hybrid_resnet_blocks": cfg.hybrid_resnet_blocks,
+        "hybrid_skip_style": cfg.hybrid_skip_style,
+        "hybrid_resnet_bottleneck_layerscale_mode": cfg.hybrid_resnet_bottleneck_layerscale_mode,
+        "hybrid_resnet_bottleneck_layerscale_value": cfg.hybrid_resnet_bottleneck_layerscale_value,
+        "hybrid_encoder_fusion_mode": cfg.hybrid_encoder_fusion_mode,
+        "hybrid_encoder_layerscale_init": cfg.hybrid_encoder_layerscale_init,
+        "hybrid_encoder_branch_gate_init": cfg.hybrid_encoder_branch_gate_init,
+        "hybrid_encoder_branch_select": cfg.hybrid_encoder_branch_select,
+        "ffno_encoder_blocks": int(encoder_recipe.get("ffno_encoder_blocks", 24)),
+        "ffno_encoder_modes": int(
+            encoder_recipe.get("ffno_encoder_modes", cfg.fno_modes)
+        ),
+        "ffno_encoder_share_weights": bool(
+            encoder_recipe.get("ffno_encoder_share_weights", True)
+        ),
+        "ffno_encoder_gate_init": float(
+            encoder_recipe.get("ffno_encoder_gate_init", 0.1)
+        ),
+        "ffno_encoder_norm": str(
+            encoder_recipe.get("ffno_encoder_norm", "instance")
+        ),
+        "ffno_encoder_mlp_ratio": float(
+            encoder_recipe.get("ffno_encoder_mlp_ratio", 2.0)
+        ),
+        "spectral_bottleneck_blocks": cfg.spectral_bottleneck_blocks,
+        "spectral_bottleneck_modes": cfg.spectral_bottleneck_modes,
+        "spectral_bottleneck_share_weights": cfg.spectral_bottleneck_share_weights,
+        "spectral_bottleneck_gate_init": cfg.spectral_bottleneck_gate_init,
+        "spectral_bottleneck_gate_mode": cfg.spectral_bottleneck_gate_mode,
+    }
+
+
 def setup_torch_configs(cfg: TorchRunnerConfig):
     """Set up PyTorch configuration objects from runner config.
 
@@ -1306,7 +1349,6 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
     # backward implementation. Use Lightning's "warn" mode for that architecture so
     # the locked U-NO contract trains on GPU; record the caveat in row provenance.
     deterministic_mode: Union[bool, Literal["warn"]] = _deterministic_mode_for(cfg.architecture)
-    encoder_recipe = _fixed_hybrid_encoder_recipe(cfg) or {}
     execution_config = PyTorchExecutionConfig(
         learning_rate=cfg.learning_rate,
         deterministic=deterministic_mode,
@@ -1314,32 +1356,6 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         enable_progress_bar=True,
         enable_checkpointing=cfg.enable_checkpointing,
         logger_backend=cfg.logger_backend,
-        hybrid_skip_connections=cfg.hybrid_skip_connections,
-        hybrid_downsample_steps=cfg.hybrid_downsample_steps,
-        hybrid_downsample_op=cfg.hybrid_downsample_op,
-        hybrid_encoder_conv_hidden_scale=cfg.hybrid_encoder_conv_hidden_scale,
-        hybrid_encoder_spectral_hidden_scale=cfg.hybrid_encoder_spectral_hidden_scale,
-        hybrid_encoder_conv_hidden_channels=cfg.hybrid_encoder_conv_hidden_channels,
-        hybrid_encoder_spectral_hidden_channels=cfg.hybrid_encoder_spectral_hidden_channels,
-        hybrid_resnet_blocks=cfg.hybrid_resnet_blocks,
-        hybrid_skip_style=cfg.hybrid_skip_style,
-        hybrid_resnet_bottleneck_layerscale_mode=cfg.hybrid_resnet_bottleneck_layerscale_mode,
-        hybrid_resnet_bottleneck_layerscale_value=cfg.hybrid_resnet_bottleneck_layerscale_value,
-        hybrid_encoder_fusion_mode=cfg.hybrid_encoder_fusion_mode,
-        hybrid_encoder_layerscale_init=cfg.hybrid_encoder_layerscale_init,
-        hybrid_encoder_branch_gate_init=cfg.hybrid_encoder_branch_gate_init,
-        hybrid_encoder_branch_select=cfg.hybrid_encoder_branch_select,
-        ffno_encoder_blocks=int(encoder_recipe.get("ffno_encoder_blocks", 24)),
-        ffno_encoder_modes=int(encoder_recipe.get("ffno_encoder_modes", cfg.fno_modes)),
-        ffno_encoder_share_weights=bool(encoder_recipe.get("ffno_encoder_share_weights", True)),
-        ffno_encoder_gate_init=float(encoder_recipe.get("ffno_encoder_gate_init", 0.1)),
-        ffno_encoder_norm=str(encoder_recipe.get("ffno_encoder_norm", "instance")),
-        ffno_encoder_mlp_ratio=float(encoder_recipe.get("ffno_encoder_mlp_ratio", 2.0)),
-        spectral_bottleneck_blocks=cfg.spectral_bottleneck_blocks,
-        spectral_bottleneck_modes=cfg.spectral_bottleneck_modes,
-        spectral_bottleneck_share_weights=cfg.spectral_bottleneck_share_weights,
-        spectral_bottleneck_gate_init=cfg.spectral_bottleneck_gate_init,
-        spectral_bottleneck_gate_mode=cfg.spectral_bottleneck_gate_mode,
         recon_log_every_n_epochs=cfg.recon_log_every_n_epochs,
         recon_log_num_patches=cfg.recon_log_num_patches,
         recon_log_fixed_indices=cfg.recon_log_fixed_indices,
@@ -1640,6 +1656,7 @@ def run_torch_training(
             )
 
     lightning_overrides = {
+        **_torch_structural_model_overrides(cfg),
         "training_patch_weighting": cfg.training_patch_weighting,
         "physics_forward_mode": cfg.physics_forward_mode,
         "cnn_output_mode": cfg.cnn_output_mode,

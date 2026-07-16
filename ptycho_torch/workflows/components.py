@@ -1430,33 +1430,6 @@ def _train_with_lightning(
     generator_output_mode = getattr(config.model, 'generator_output_mode', None)
     if generator_output_mode is not None:
         factory_overrides['generator_output_mode'] = generator_output_mode
-    if execution_config is not None:
-        for field_name in (
-            'hybrid_skip_connections',
-            'hybrid_downsample_steps',
-            'hybrid_downsample_op',
-            'hybrid_encoder_conv_hidden_scale',
-            'hybrid_encoder_spectral_hidden_scale',
-            'hybrid_encoder_conv_hidden_channels',
-            'hybrid_encoder_spectral_hidden_channels',
-            'hybrid_resnet_blocks',
-            'hybrid_skip_style',
-            'hybrid_resnet_bottleneck_layerscale_mode',
-            'hybrid_resnet_bottleneck_layerscale_value',
-            'hybrid_encoder_fusion_mode',
-            'hybrid_encoder_layerscale_init',
-            'hybrid_encoder_branch_gate_init',
-            'hybrid_encoder_branch_select',
-            'spectral_bottleneck_blocks',
-            'spectral_bottleneck_modes',
-            'spectral_bottleneck_share_weights',
-            'spectral_bottleneck_gate_init',
-            'spectral_bottleneck_gate_mode',
-        ):
-            field_val = getattr(execution_config, field_name, None)
-            if field_val is not None:
-                factory_overrides[field_name] = field_val
-
     # Caller-supplied torch-only overrides take highest precedence. This is how
     # ModelConfig knobs that live exclusively on the torch-side config_params.ModelConfig
     # (training_patch_weighting, physics_forward_mode, cnn_output_mode,

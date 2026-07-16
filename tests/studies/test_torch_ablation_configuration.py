@@ -40,7 +40,6 @@ from scripts.studies.ablation.configuration import (
     ALLOWLISTS,
     ARCHITECTURE_POLICIES,
     EXECUTION_PLATFORM_POLICIES,
-    EXECUTION_MODEL_ALIASES,
     EXECUTION_TO_TRAINING_ALIASES,
     NAMESPACE_OWNERS,
     SIMULATION_PATHS,
@@ -299,8 +298,16 @@ def test_representative_overrides_construct_configs_and_derive_aliases() -> None
         assert (
             snapshot["execution"][execution_name] == snapshot["training"][training_name]
         )
-    for name in EXECUTION_MODEL_ALIASES:
-        assert snapshot["model"][name] == snapshot["execution"][name]
+    assert not (
+        set(snapshot["model"])
+        & {
+            "accelerator",
+            "devices",
+            "strategy",
+            "precision",
+            "num_workers",
+        }
+    )
 
 
 @pytest.mark.parametrize(
@@ -2029,6 +2036,27 @@ def test_disabled_hybrid_skips_reject_inert_style() -> None:
         ConfigResolutionError, match=r"hybrid_skip_style.*non-applicable"
     ):
         resolve_torch_configs(overrides)
+
+
+def test_hybrid_structural_fields_have_model_owner_not_execution_owner() -> None:
+    overrides = _ci_overrides(architecture="hybrid_resnet")
+    overrides.update(
+        {
+            "model.hybrid_encoder_fusion_mode": "branch_gated_layerscale",
+            "model.hybrid_encoder_layerscale_init": 0.05,
+            "model.hybrid_encoder_branch_gate_init": 0.2,
+            "model.hybrid_encoder_branch_select": "conv_only",
+        }
+    )
+
+    resolved = resolve_torch_configs(overrides)
+
+    assert resolved.model_config.hybrid_encoder_fusion_mode == "branch_gated_layerscale"
+    assert resolved.model_config.hybrid_encoder_layerscale_init == 0.05
+    assert resolved.model_config.hybrid_encoder_branch_gate_init == 0.2
+    assert resolved.model_config.hybrid_encoder_branch_select == "conv_only"
+    assert resolved.execution_config.hybrid_encoder_fusion_mode == "baseline"
+    assert resolved.execution_config.hybrid_encoder_branch_select == "both"
 
 
 @pytest.mark.parametrize("style", ["add", "concat", "gated_add"])

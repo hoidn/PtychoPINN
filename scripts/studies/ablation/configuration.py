@@ -144,8 +144,16 @@ ALLOWLISTS: dict[str, frozenset[str]] = {
             "hybrid_downsample_op",
             "hybrid_encoder_conv_hidden_scale",
             "hybrid_encoder_spectral_hidden_scale",
+            "hybrid_encoder_conv_hidden_channels",
+            "hybrid_encoder_spectral_hidden_channels",
             "hybrid_resnet_blocks",
             "hybrid_skip_style",
+            "hybrid_resnet_bottleneck_layerscale_mode",
+            "hybrid_resnet_bottleneck_layerscale_value",
+            "hybrid_encoder_fusion_mode",
+            "hybrid_encoder_layerscale_init",
+            "hybrid_encoder_branch_gate_init",
+            "hybrid_encoder_branch_select",
             "generator_output_mode",
             "cnn_output_mode",
             "use_shared_decoder",
@@ -301,7 +309,15 @@ ARCHITECTURE_POLICIES: Mapping[str, ArchitecturePolicy] = MappingProxyType(
                     "model.hybrid_downsample_op",
                     "model.hybrid_encoder_conv_hidden_scale",
                     "model.hybrid_encoder_spectral_hidden_scale",
+                    "model.hybrid_encoder_conv_hidden_channels",
+                    "model.hybrid_encoder_spectral_hidden_channels",
                     "model.hybrid_resnet_blocks",
+                    "model.hybrid_resnet_bottleneck_layerscale_mode",
+                    "model.hybrid_resnet_bottleneck_layerscale_value",
+                    "model.hybrid_encoder_fusion_mode",
+                    "model.hybrid_encoder_layerscale_init",
+                    "model.hybrid_encoder_branch_gate_init",
+                    "model.hybrid_encoder_branch_select",
                 }
             ),
             output_path="model.generator_output_mode",
@@ -386,23 +402,6 @@ EXECUTION_TO_TRAINING_ALIASES: dict[str, str] = {
     "num_workers": "num_workers",
 }
 
-EXECUTION_MODEL_ALIASES: tuple[str, ...] = (
-    "hybrid_skip_connections",
-    "hybrid_downsample_steps",
-    "hybrid_downsample_op",
-    "hybrid_encoder_conv_hidden_scale",
-    "hybrid_encoder_spectral_hidden_scale",
-    "hybrid_encoder_conv_hidden_channels",
-    "hybrid_encoder_spectral_hidden_channels",
-    "hybrid_resnet_blocks",
-    "hybrid_skip_style",
-    "spectral_bottleneck_blocks",
-    "spectral_bottleneck_modes",
-    "spectral_bottleneck_share_weights",
-    "spectral_bottleneck_gate_init",
-    "spectral_bottleneck_gate_mode",
-)
-
 OPTIONAL_TOML_SENTINELS: dict[str, tuple[str, Any]] = {
     "model.max_hidden_channels": ("auto", None),
     "model.resnet_width": ("auto", None),
@@ -437,7 +436,17 @@ _CLAIM_GRADE_DISCRIMINATORS = frozenset(
 # and provenance-bearing when supplied, but old strict manifests retain the
 # validated ModelConfig default.
 _BACKWARD_COMPATIBLE_OPTIONAL_EXPLICIT_PATHS = frozenset(
-    {"model.amplitude_physics_gain"}
+    {
+        "model.amplitude_physics_gain",
+        "model.hybrid_encoder_conv_hidden_channels",
+        "model.hybrid_encoder_spectral_hidden_channels",
+        "model.hybrid_resnet_bottleneck_layerscale_mode",
+        "model.hybrid_resnet_bottleneck_layerscale_value",
+        "model.hybrid_encoder_fusion_mode",
+        "model.hybrid_encoder_layerscale_init",
+        "model.hybrid_encoder_branch_gate_init",
+        "model.hybrid_encoder_branch_select",
+    }
 )
 
 
@@ -1533,8 +1542,6 @@ def _derive_execution_values(
     result = dict(execution_values)
     for training_name, execution_name in TRAINING_TO_EXECUTION_ALIASES.items():
         result[execution_name] = getattr(training_config, training_name)
-    for name in EXECUTION_MODEL_ALIASES:
-        result[name] = getattr(model_config, name)
     return result
 
 
@@ -1561,13 +1568,6 @@ def _assert_aliases(
             raise ConfigResolutionError(
                 f"training.{training_name} alias does not match execution"
             )
-    for name in EXECUTION_MODEL_ALIASES:
-        if getattr(execution_config, name) != getattr(model_config, name):
-            raise ConfigResolutionError(
-                f"execution.{name} alias does not match model.{name}"
-            )
-
-
 def _select_validated_dataset(
     dataset: ValidatedDataset | ValidatedDatasetBundle,
     dataset_id: str | None,
