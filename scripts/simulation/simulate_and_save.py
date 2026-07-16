@@ -14,6 +14,7 @@ Example:
 """
 
 import argparse
+from dataclasses import replace
 import os
 import sys
 from pathlib import Path
@@ -25,11 +26,34 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Import ptycho components
-from ptycho.nongrid_simulation import generate_simulated_data
-from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
+from ptycho.config.config import (
+    DetectorSimulationConfig,
+    ModelConfig,
+    ProbeSimulationConfig,
+    ScanSimulationConfig,
+    SimulationConfig,
+    SyntheticObjectConfig,
+    TrainingConfig,
+    load_simulation_config,
+    simulation_config_to_dict,
+    update_legacy_dict,
+    validate_simulation_config,
+)
 from ptycho import params as p
+from ptycho.config.legacy_state import scoped_legacy_params
 from ptycho.image.cropping import center_crop_spatial
 from ptycho.metadata import MetadataManager
+from ptycho.simulation.probe_transform import (
+    apply_probe_mask,
+    apply_probe_transform_pipeline,
+    apply_probe_transform_pipeline_with_metadata,
+    normalize_probe_transform_pipeline,
+    parse_probe_transform_pipeline,
+)
+from ptycho.simulation.identity import (
+    build_simulation_probe_lineage,
+    reject_mismatched_output_identity,
+)
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.spatial import cKDTree
@@ -70,37 +94,49 @@ def load_data_for_sim(file_path: str, load_all: bool = False) -> tuple:
     else:
         return objectGuess, probeGuess, None
 
+@scoped_legacy_params
 def simulate_and_save(
     config: TrainingConfig,
+    simulation: SimulationConfig,
     input_file_path: str | Path,
     output_file_path: str | Path,
     original_data_for_vis: Optional[Dict[str, Any]],
-    buffer: Optional[float] = None,
-    seed: Optional[int] = None,
     visualize: bool = False,
 ) -> None:
     """
     Loads an object/probe, runs a ptychography simulation, saves the result,
     and optionally generates a visualization.
     """
+    update_legacy_dict(p.cfg, simulation)
     update_legacy_dict(p.cfg, config)
     print("--- Configuration Updated for Simulation ---")
     p.print_params()
     print("------------------------------------------\n")
     
     object_guess, probe_guess, _ = load_data_for_sim(str(input_file_path), load_all=False)
+    probe_guess, probe_lineage = prepare_probe_for_simulation_with_lineage(
+        probe_guess, simulation
+    )
     print(f"Loading object and probe from: {input_file_path}")
     print(f"  - Object shape: {object_guess.shape}")
     print(f"  - Probe shape: {probe_guess.shape}")
 
-    if buffer is None:
-        buffer = max(probe_guess.shape) // 2
+    buffer = simulation.scan.buffer
+    if simulation.seed is not None:
+        print(f"Setting random seed to: {simulation.seed}")
+        np.random.seed(simulation.seed)
 
-    if seed is not None:
-        print(f"Setting random seed to: {seed}")
-        np.random.seed(seed)
-
+    reject_mismatched_output_identity(
+        output_file_path,
+        expected_simulation_digest=str(
+            probe_lineage["simulation_config_sha256"]
+        ),
+        expected_recipe_digest=str(probe_lineage["dataset_recipe_sha256"]),
+    )
     print(f"Simulating {config.n_images} diffraction patterns...")
+    # The simulation bridge must be populated before importing legacy simulation.
+    from ptycho.nongrid_simulation import generate_simulated_data
+
     raw_data_instance, ground_truth_patches = generate_simulated_data(
         config=config,
         objectGuess=object_guess,
@@ -141,7 +177,9 @@ def simulate_and_save(
         script_name="simulate_and_save.py",
         input_file=str(input_file_path),
         buffer=buffer,
-        seed=seed,
+        seed=simulation.seed,
+        simulation=simulation_config_to_dict(simulation),
+        **probe_lineage,
         simulation_type="coordinate_based"
     )
     
@@ -261,11 +299,12 @@ def visualize_simulation_results(
     plt.close(fig)
     print(f"✓ Saved visualization to {viz_path}")
 
-def parse_arguments() -> argparse.Namespace:
+def parse_arguments(argv=None) -> argparse.Namespace:
     """Parse command-line arguments for the simulation script."""
     parser = argparse.ArgumentParser(
         description="Generate and save a simulated ptychography dataset."
     )
+    parser.add_argument("--simulation-config", type=Path)
     parser.add_argument(
         "--input-file", type=str, required=True,
         help="Path to the input .npz file containing 'objectGuess' and 'probeGuess'."
@@ -274,16 +313,173 @@ def parse_arguments() -> argparse.Namespace:
         "--output-file", type=str, required=True,
         help="Path to save the output simulated data as an .npz file."
     )
-    parser.add_argument("--n-images", type=int, default=500, help="Number of scan positions to simulate.")
-    parser.add_argument("--n-photons", type=float, default=1e9, help="Total photon count for normalization.")
-    parser.add_argument("--gridsize", type=int, default=1, help="Grid size for simulation (usually 1 for PINN-style).")
-    parser.add_argument("--buffer", type=float, default=None, help="Border size for random coordinates.")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility.")
+    parser.add_argument("--n-images", type=int, help="Number of scan positions to simulate.")
+    parser.add_argument("--n-photons", type=float, help="Total photon count for normalization.")
+    parser.add_argument("--gridsize", type=int, help="Grid size for simulation (usually 1 for PINN-style).")
+    parser.add_argument("--buffer", type=int, help="Border size for random coordinates.")
+    parser.add_argument("--seed", type=int, help="Random seed for reproducibility.")
     parser.add_argument(
         "--visualize", action="store_true",
         help="If set, generate a PNG visualization of the simulation inputs and outputs."
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def resolve_simulation_config(
+    args: argparse.Namespace,
+    *,
+    object_shape: tuple[int, ...],
+    probe_shape: tuple[int, ...],
+) -> SimulationConfig:
+    """Apply CLI > file > historical-no-file defaults deterministically."""
+    if len(object_shape) < 2 or len(probe_shape) < 2:
+        raise ValueError("object and probe inputs must have two spatial dimensions")
+    object_size = (int(object_shape[0]), int(object_shape[1]))
+    probe_size = (int(probe_shape[0]), int(probe_shape[1]))
+    if probe_size[0] != probe_size[1]:
+        raise ValueError(f"input probe must be square, got {probe_size}")
+
+    if args.simulation_config is None:
+        N = probe_size[0]
+        simulation = SimulationConfig(
+            N=N,
+            probe=ProbeSimulationConfig(
+                source="custom",
+                source_path=Path(args.input_file),
+                transform_pipeline=f"pad_preserve:{N}",
+            ),
+            object=SyntheticObjectConfig(
+                kind="lines",
+                image_size=object_size,
+                diffractions_per_object=(
+                    args.n_images if args.n_images is not None else 500
+                ),
+            ),
+            scan=ScanSimulationConfig(
+                kind="nongrid",
+                grid_size=(
+                    args.gridsize if args.gridsize is not None else 1,
+                )
+                * 2,
+                buffer=(
+                    args.buffer if args.buffer is not None else max(probe_size) // 2
+                ),
+            ),
+            detector=DetectorSimulationConfig(
+                photons_per_pattern=(
+                    args.n_photons if args.n_photons is not None else 1e9
+                )
+            ),
+            seed=args.seed if args.seed is not None else 42,
+        )
+    else:
+        simulation = load_simulation_config(args.simulation_config)
+        if simulation.object.image_size != object_size:
+            raise ValueError(
+                "simulation.object.image_size="
+                f"{simulation.object.image_size} conflicts with input object shape {object_size}"
+            )
+        if args.n_images is not None:
+            simulation = replace(
+                simulation,
+                object=replace(
+                    simulation.object,
+                    diffractions_per_object=args.n_images,
+                ),
+            )
+        if args.n_photons is not None:
+            simulation = replace(
+                simulation,
+                detector=replace(
+                    simulation.detector,
+                    photons_per_pattern=args.n_photons,
+                ),
+            )
+        if args.gridsize is not None or args.buffer is not None:
+            grid = args.gridsize if args.gridsize is not None else simulation.scan.grid_size[0]
+            simulation = replace(
+                simulation,
+                scan=replace(
+                    simulation.scan,
+                    grid_size=(grid, grid),
+                    buffer=(
+                        args.buffer
+                        if args.buffer is not None
+                        else simulation.scan.buffer
+                    ),
+                ),
+            )
+        if args.seed is not None:
+            simulation = replace(simulation, seed=args.seed)
+    validate_simulation_config(simulation)
+    if simulation.scan.kind != "nongrid":
+        raise ValueError(
+            "simulation.scan.kind must be 'nongrid' for simulate_and_save; "
+            "use the grid-lines entrypoint for grid recipes"
+        )
+    if simulation.probe.source == "custom" and simulation.probe.source_path is None:
+        raise ValueError(
+            "simulation.probe.source_path is required for a file-backed custom probe"
+        )
+    return simulation
+
+
+def prepare_probe_for_simulation(
+    probe: np.ndarray,
+    simulation: SimulationConfig,
+) -> np.ndarray:
+    """Apply the resolved generated-data probe recipe exactly once."""
+
+    prepared, _ = prepare_probe_for_simulation_with_lineage(probe, simulation)
+    return prepared
+
+
+def prepare_probe_for_simulation_with_lineage(
+    probe: np.ndarray,
+    simulation: SimulationConfig,
+) -> tuple[np.ndarray, dict[str, object]]:
+    """Prepare one probe and return its complete generated-data identity."""
+
+    if simulation.probe.source == "custom":
+        if simulation.probe.source_path is None:
+            source = np.asarray(probe, dtype=np.complex64).squeeze()
+        else:
+            source_data, _ = MetadataManager.load_with_metadata(
+                str(simulation.probe.source_path)
+            )
+            if "probeGuess" not in source_data:
+                raise KeyError(
+                    f"probeGuess missing from {simulation.probe.source_path}"
+                )
+            source = np.asarray(
+                source_data["probeGuess"], dtype=np.complex64
+            ).squeeze()
+    else:
+        from ptycho.probe import get_default_probe
+
+        source = np.asarray(
+            get_default_probe(N=simulation.N, fmt="np"),
+            dtype=np.complex64,
+        ).squeeze()
+    normalized, steps = normalize_probe_transform_pipeline(
+        target_N=simulation.N,
+        probe_shape=source.shape,
+        probe_scale_mode="pipeline",
+        probe_smoothing_sigma=0.0,
+        probe_transform_pipeline=simulation.probe.transform_pipeline,
+    )
+    transform_result = apply_probe_transform_pipeline_with_metadata(source, steps)
+    prepared = apply_probe_mask(
+        transform_result.probe, simulation.probe.mask_diameter
+    )
+    lineage = build_simulation_probe_lineage(
+        simulation,
+        raw_probe=source,
+        normalized_pipeline=normalized,
+        transformed_probe=prepared,
+        transform_metadata=transform_result.metadata,
+    )
+    return prepared, lineage
 
 def main():
     """Main function to handle command-line execution."""
@@ -291,16 +487,21 @@ def main():
     
     # Load data once at the beginning
     object_guess, probe_guess, original_data_dict = load_data_for_sim(args.input_file, load_all=True)
+    simulation = resolve_simulation_config(
+        args,
+        object_shape=object_guess.shape,
+        probe_shape=probe_guess.shape,
+    )
     
     model_config = ModelConfig(
-        N=probe_guess.shape[0],
-        gridsize=args.gridsize
+        N=simulation.N,
+        gridsize=simulation.scan.grid_size[0]
     )
     
     training_config = TrainingConfig(
         model=model_config,
-        n_images=args.n_images,
-        nphotons=args.n_photons,
+        n_images=simulation.object.diffractions_per_object,
+        nphotons=simulation.detector.photons_per_pattern,
         train_data_file=Path("dummy.npz"), 
         test_data_file=Path("dummy.npz")
     )
@@ -308,11 +509,10 @@ def main():
     try:
         simulate_and_save(
             config=training_config,
+            simulation=simulation,
             input_file_path=args.input_file,
             output_file_path=args.output_file,
             original_data_for_vis=original_data_dict,
-            buffer=args.buffer,
-            seed=args.seed,
             visualize=args.visualize
         )
     except FileNotFoundError:

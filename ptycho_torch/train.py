@@ -58,6 +58,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.data import Subset
 import torch.distributed as dist
+from ptycho.config.legacy_state import scoped_legacy_params
 
 #Automation modules
 #Lightning
@@ -158,6 +159,7 @@ def _infer_probe_size(npz_file):
 
 #----- Main -------
 
+@scoped_legacy_params
 def main(ptycho_dir,
          config_path = None,
          existing_config = None,
@@ -389,6 +391,7 @@ def main(ptycho_dir,
         print(f'[Rank {trainer.global_rank}] Non-zero rank returning None')
         return None
     
+@scoped_legacy_params
 def main_lightning(
     ptycho_dir,
     config_path = None,
@@ -534,6 +537,7 @@ def main_lightning(
     return model, trainer, run_dir
 
 
+@scoped_legacy_params
 def cli_main():
     """
     CLI entrypoint for PyTorch training workflow (Phase E2.C1).

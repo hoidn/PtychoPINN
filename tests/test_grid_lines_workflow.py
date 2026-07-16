@@ -29,7 +29,15 @@ from ptycho.workflows.grid_lines_workflow import (
     normalize_probe_transform_pipeline,
 )
 from ptycho.workflows import grid_lines_workflow as grid_lines_workflow_module
-from ptycho.config.config import ModelConfig, TrainingConfig
+from ptycho.config.config import (
+    DetectorSimulationConfig,
+    ModelConfig,
+    ProbeSimulationConfig,
+    ScanSimulationConfig,
+    SimulationConfig,
+    SyntheticObjectConfig,
+    TrainingConfig,
+)
 from ptycho import params as p
 
 
@@ -39,6 +47,192 @@ def _numpy_rng_state_equal(left, right):
         and np.array_equal(left[1], right[1])
         and left[2:] == right[2:]
     )
+
+
+def _nested_grid_lines_simulation(probe_path: Path) -> SimulationConfig:
+    return SimulationConfig(
+        N=8,
+        probe=ProbeSimulationConfig(
+            source="custom",
+            source_path=probe_path,
+            transform_pipeline="pad_preserve:8",
+            mask_diameter=6,
+        ),
+        object=SyntheticObjectConfig(
+            kind="lines",
+            image_size=(320, 320),
+            objects_per_probe=4,
+            diffractions_per_object=7000,
+            set_phi=True,
+        ),
+        scan=ScanSimulationConfig(
+            kind="grid",
+            grid_size=(2, 2),
+            offset=5,
+            outer_offset_train=9,
+            outer_offset_test=21,
+            train_groups=3,
+            test_groups=4,
+            buffer=0,
+        ),
+        detector=DetectorSimulationConfig(photons_per_pattern=1e8),
+        seed=7,
+    )
+
+
+def test_grid_lines_nested_simulation_populates_established_flat_view(tmp_path: Path):
+    probe_path = tmp_path / "probe.npz"
+    simulation = _nested_grid_lines_simulation(probe_path)
+
+    cfg = GridLinesConfig(output_dir=tmp_path, simulation=simulation)
+
+    assert cfg.simulation == simulation
+    assert cfg.N == 8
+    assert cfg.gridsize == 2
+    assert cfg.probe_npz == probe_path
+    assert cfg.probe_source == "custom"
+    assert cfg.probe_transform_pipeline == "pad_preserve:8"
+    assert cfg.probe_mask_diameter == 6
+    assert cfg.size == 320
+    assert cfg.offset == 5
+    assert cfg.outer_offset_train == 9
+    assert cfg.outer_offset_test == 21
+    assert cfg.nimgs_train == 3
+    assert cfg.nimgs_test == 4
+    assert cfg.nphotons == 1e8
+    assert cfg.set_phi is True
+    assert cfg.seed == 7
+
+
+def test_grid_lines_flat_adapter_resolves_same_simulation_recipe(tmp_path: Path):
+    probe_path = tmp_path / "probe.npz"
+    expected = _nested_grid_lines_simulation(probe_path)
+
+    cfg = GridLinesConfig(
+        N=8,
+        gridsize=2,
+        output_dir=tmp_path,
+        probe_npz=probe_path,
+        size=320,
+        offset=5,
+        outer_offset_train=9,
+        outer_offset_test=21,
+        nimgs_train=3,
+        nimgs_test=4,
+        nphotons=1e8,
+        probe_mask_diameter=6,
+        probe_source="custom",
+        probe_transform_pipeline="pad_preserve:8",
+        set_phi=True,
+        seed=7,
+    )
+
+    assert cfg.simulation == expected
+
+
+def test_grid_lines_flat_explicit_pipeline_resolves_pipeline_legacy_view(
+    tmp_path: Path,
+):
+    pipeline = "smooth:0.5|pad_extrapolate_boundary_matched:16"
+
+    cfg = GridLinesConfig(
+        N=16,
+        gridsize=1,
+        output_dir=tmp_path,
+        probe_npz=tmp_path / "probe.npz",
+        probe_transform_pipeline=pipeline,
+    )
+
+    assert cfg.simulation.probe.transform_pipeline == pipeline
+    assert cfg.probe_transform_pipeline == pipeline
+    assert cfg.probe_scale_mode == "pipeline"
+    assert cfg.probe_smoothing_sigma == 0.5
+
+
+@pytest.mark.parametrize(
+    "entrypoint",
+    (
+        grid_lines_workflow_module.build_grid_lines_datasets,
+        run_grid_lines_workflow,
+    ),
+)
+def test_grid_lines_file_entrypoints_require_custom_probe_source_path(
+    tmp_path: Path,
+    entrypoint,
+):
+    cfg = GridLinesConfig(
+        output_dir=tmp_path,
+        simulation=SimulationConfig(
+            N=8,
+            probe=ProbeSimulationConfig(
+                source="custom",
+                source_path=None,
+                transform_pipeline="pad_preserve:8",
+            ),
+        ),
+    )
+
+    with pytest.raises(ValueError, match=r"simulation\.probe\.source_path"):
+        entrypoint(cfg)
+
+
+@pytest.mark.parametrize(
+    ("flat_override", "message"),
+    [
+        ({"N": 64}, r"N.*simulation\.N"),
+        ({"gridsize": 1}, r"gridsize.*simulation\.scan\.grid_size"),
+        ({"nphotons": 1e9}, r"nphotons.*simulation\.detector\.photons_per_pattern"),
+        (
+            {"probe_transform_pipeline": "pad:8"},
+            r"probe_transform_pipeline.*simulation\.probe\.transform_pipeline",
+        ),
+    ],
+)
+def test_grid_lines_rejects_nested_flat_conflicts(
+    tmp_path: Path,
+    flat_override: dict[str, object],
+    message: str,
+):
+    with pytest.raises(ValueError, match=message):
+        GridLinesConfig(
+            output_dir=tmp_path,
+            simulation=_nested_grid_lines_simulation(tmp_path / "probe.npz"),
+            **flat_override,
+        )
+
+
+@pytest.mark.parametrize(
+    ("flat_overrides", "message"),
+    [
+        (
+            {
+                "probe_transform_pipeline": "pad_preserve:8",
+                "probe_scale_mode": "interpolate",
+            },
+            r"probe_transform_pipeline.*probe_scale_mode",
+        ),
+        (
+            {
+                "probe_transform_pipeline": "pad_preserve:8",
+                "probe_smoothing_sigma": 9.0,
+            },
+            r"probe_transform_pipeline.*probe_smoothing_sigma",
+        ),
+    ],
+)
+def test_grid_lines_flat_adapter_rejects_duplicate_probe_recipe_aliases(
+    tmp_path: Path,
+    flat_overrides: dict[str, object],
+    message: str,
+):
+    with pytest.raises(ValueError, match=message):
+        GridLinesConfig(
+            N=8,
+            gridsize=1,
+            output_dir=tmp_path,
+            probe_npz=tmp_path / "probe.npz",
+            **flat_overrides,
+        )
 
 
 def test_canonical_lines_local_rng_matches_legacy_set_phi_oracle():
@@ -115,8 +309,95 @@ def test_run_pinn_inference_uses_first_prediction_output(monkeypatch):
     assert output is expected
 
 
+def test_run_pinn_inference_propagates_xla_failure(monkeypatch):
+    monkeypatch.setattr(
+        grid_lines_workflow_module.p,
+        "get",
+        lambda key: 1.0 if key == "intensity_scale" else None,
+    )
+
+    class FailingModel:
+        def predict(self, inputs):
+            raise RuntimeError("XLA dynamic FFT execution failed")
+
+    with pytest.raises(RuntimeError, match="XLA dynamic FFT execution failed"):
+        run_pinn_inference(
+            FailingModel(),
+            np.ones((2, 4, 4, 1), dtype=np.float32),
+            np.zeros((2, 2), dtype=np.float32),
+        )
+
+
+def test_run_pinn_inference_rejects_missing_prediction(monkeypatch):
+    monkeypatch.setattr(
+        grid_lines_workflow_module.p,
+        "get",
+        lambda key: 1.0 if key == "intensity_scale" else None,
+    )
+
+    class EmptyModel:
+        def predict(self, inputs):
+            return None
+
+    with pytest.raises(ValueError, match="returned no outputs"):
+        run_pinn_inference(
+            EmptyModel(),
+            np.ones((2, 4, 4, 1), dtype=np.float32),
+            np.zeros((2, 2), dtype=np.float32),
+        )
+
+
 class TestProbeHelpers:
     """Tests for probe extraction and scaling helpers (Task 2)."""
+
+    def test_workflow_reexports_canonical_probe_transform_helpers(self):
+        from ptycho.simulation import probe_transform
+
+        assert (
+            grid_lines_workflow_module.parse_probe_transform_pipeline
+            is probe_transform.parse_probe_transform_pipeline
+        )
+        assert (
+            grid_lines_workflow_module.normalize_probe_transform_pipeline
+            is probe_transform.normalize_probe_transform_pipeline
+        )
+        assert (
+            grid_lines_workflow_module.apply_probe_transform_pipeline
+            is probe_transform.apply_probe_transform_pipeline
+        )
+        assert (
+            grid_lines_workflow_module.smooth_complex_array
+            is probe_transform.smooth_complex_array
+        )
+        assert (
+            grid_lines_workflow_module.interpolate_array
+            is probe_transform.interpolate_array
+        )
+
+    def test_scale_probe_boundary_matched_pipeline_preserves_prepared_center(self):
+        from ptycho.simulation import probe_transform
+
+        yy, xx = np.indices((8, 8))
+        source = (
+            (1.0 + 0.05 * yy)
+            * np.exp(1j * (0.02 * (yy**2 + xx**2) + 0.1 * np.sin(xx)))
+        ).astype(np.complex64)
+        prepared = probe_transform.apply_probe_transform_pipeline(
+            source,
+            [{"op": "smooth_complex", "sigma": 0.5}],
+        )
+
+        transformed = scale_probe(
+            source,
+            target_N=16,
+            smoothing_sigma=0.0,
+            scale_mode="pipeline",
+            probe_transform_pipeline=(
+                "smooth:0.5|pad_extrapolate_boundary_matched:16"
+            ),
+        )
+
+        assert np.array_equal(transformed[4:12, 4:12], prepared)
 
     def test_parse_probe_transform_pipeline_supports_shorthand_sequence(self):
         steps = parse_probe_transform_pipeline("smooth:0.5|pad:128|interp:256")
@@ -723,18 +1004,233 @@ class TestDatasetPersistence:
     """Tests for simulation and dataset persistence helpers (Task 3)."""
 
     def test_dataset_out_dir_layout(self, tmp_path: Path):
-        """dataset_out_dir should produce correct path hierarchy."""
+        """dataset_out_dir should include the full simulation identity."""
         cfg = GridLinesConfig(
             N=64, gridsize=2, output_dir=tmp_path, probe_npz=Path("probe.npz")
         )
-        assert dataset_out_dir(cfg) == tmp_path / "datasets" / "N64" / "gs2"
+        result = dataset_out_dir(cfg)
+        assert result.parent == tmp_path / "datasets" / "N64" / "gs2"
+        assert result.name.startswith("simulation-")
+        assert len(result.name.removeprefix("simulation-")) == 64
 
     def test_dataset_out_dir_gridsize1(self, tmp_path: Path):
-        """dataset_out_dir should handle gridsize=1."""
-        cfg = GridLinesConfig(
-            N=128, gridsize=1, output_dir=tmp_path, probe_npz=Path("probe.npz")
+        """Different transform recipes must never resolve to one output path."""
+        common = dict(
+            N=128,
+            gridsize=1,
+            output_dir=tmp_path,
+            probe_npz=Path("probe.npz"),
         )
-        assert dataset_out_dir(cfg) == tmp_path / "datasets" / "N128" / "gs1"
+        legacy = GridLinesConfig(
+            **common,
+            probe_transform_pipeline="pad_extrapolate:128",
+        )
+        boundary = GridLinesConfig(
+            **common,
+            probe_transform_pipeline="pad_extrapolate_boundary_matched:128",
+        )
+
+        assert dataset_out_dir(legacy) != dataset_out_dir(boundary)
+        assert dataset_out_dir(legacy).parent == tmp_path / "datasets" / "N128" / "gs1"
+        assert dataset_out_dir(boundary).parent == tmp_path / "datasets" / "N128" / "gs1"
+
+    def test_metadata_binds_canonical_simulation_and_complete_probe_lineage(
+        self, monkeypatch, tmp_path: Path
+    ):
+        captured = {}
+        monkeypatch.setattr(
+            "ptycho.metadata.MetadataManager.save_with_metadata",
+            lambda path, payload, metadata: captured.update(metadata=metadata),
+        )
+        probe_path = tmp_path / "probe.npz"
+        yy, xx = np.indices((8, 8))
+        raw_probe = (
+            (1.0 + 0.1 * yy) * np.exp(1j * (0.01 * (xx**2 + yy**2) + 0.1 * xx))
+        ).astype(np.complex64)
+        np.savez(probe_path, probeGuess=raw_probe)
+        simulation = SimulationConfig(
+            N=16,
+            probe=ProbeSimulationConfig(
+                source="custom",
+                source_path=probe_path,
+                transform_pipeline=(
+                    "smooth:0.5|pad_extrapolate_boundary_matched:16"
+                ),
+            ),
+            object=SyntheticObjectConfig(kind="lines", image_size=(64, 64)),
+            scan=ScanSimulationConfig(grid_size=(1, 1)),
+            detector=DetectorSimulationConfig(photons_per_pattern=1e8),
+            seed=3,
+        )
+        cfg = GridLinesConfig(output_dir=tmp_path, simulation=simulation)
+        normalized, steps = normalize_probe_transform_pipeline(
+            target_N=16,
+            probe_shape=raw_probe.shape,
+            probe_scale_mode="pipeline",
+            probe_smoothing_sigma=0.0,
+            probe_transform_pipeline=simulation.probe.transform_pipeline,
+        )
+        result = grid_lines_workflow_module.apply_probe_transform_pipeline_with_metadata(
+            raw_probe, steps
+        )
+        lineage = grid_lines_workflow_module._build_probe_lineage(
+            cfg,
+            raw_probe=raw_probe,
+            normalized_pipeline=normalized,
+            transformed_probe=result.probe,
+            transform_metadata=result.metadata,
+        )
+        config = TrainingConfig(
+            model=ModelConfig(N=16, gridsize=1, object_big=False),
+            nphotons=1e8,
+        )
+        data = {
+            "X": np.zeros((1, 16, 16, 1), dtype=np.float32),
+            "Y_I": np.zeros((1, 16, 16, 1), dtype=np.float32),
+            "Y_phi": np.zeros((1, 16, 16, 1), dtype=np.float32),
+            "coords_nominal": np.zeros((1, 2), dtype=np.float32),
+            "coords_true": np.zeros((1, 2), dtype=np.float32),
+            "YY_full": np.zeros((64, 64), dtype=np.complex64),
+            "probeGuess": result.probe,
+        }
+
+        save_split_npz(
+            cfg,
+            "train",
+            data,
+            config,
+            probe_transform_pipeline=normalized,
+            probe_transform_steps=steps,
+            probe_lineage=lineage,
+        )
+
+        additional = captured["metadata"]["additional_parameters"]
+        assert additional["simulation_config"]["seed"] == 3
+        assert len(additional["simulation_config_sha256"]) == 64
+        assert len(additional["dataset_recipe_sha256"]) == 64
+        probe_lineage = additional["probe_lineage"]
+        assert probe_lineage["source_path"] == str(probe_path)
+        assert len(probe_lineage["source_file_sha256"]) == 64
+        assert len(probe_lineage["raw_probe_sha256"]) == 64
+        assert len(probe_lineage["transformed_probe_sha256"]) == 64
+        assert probe_lineage["boundary_method"] == "harmonic_dirichlet_c0"
+        assert probe_lineage["solver"] == "scipy.sparse.linalg.spsolve"
+        assert probe_lineage["solver_tolerance"] == 1e-10
+        assert probe_lineage["laplacian_residual"] <= 1e-10
+
+    def test_probe_pipeline_changes_simulation_and_dataset_identity(self, tmp_path: Path):
+        raw = np.ones((8, 8), dtype=np.complex64)
+        probe_path = tmp_path / "probe.npz"
+        np.savez(probe_path, probeGuess=raw)
+
+        def lineage(pipeline: str):
+            simulation = SimulationConfig(
+                N=16,
+                probe=ProbeSimulationConfig(
+                    source="custom",
+                    source_path=probe_path,
+                    transform_pipeline=pipeline,
+                ),
+                object=SyntheticObjectConfig(image_size=(64, 64)),
+            )
+            cfg = GridLinesConfig(output_dir=tmp_path, simulation=simulation)
+            normalized, steps = normalize_probe_transform_pipeline(
+                target_N=16,
+                probe_shape=raw.shape,
+                probe_scale_mode="pipeline",
+                probe_smoothing_sigma=0.0,
+                probe_transform_pipeline=pipeline,
+            )
+            result = grid_lines_workflow_module.apply_probe_transform_pipeline_with_metadata(
+                raw, steps
+            )
+            return grid_lines_workflow_module._build_probe_lineage(
+                cfg,
+                raw_probe=raw,
+                normalized_pipeline=normalized,
+                transformed_probe=result.probe,
+                transform_metadata=result.metadata,
+            )
+
+        legacy = lineage("pad_extrapolate:16")
+        boundary = lineage("pad_extrapolate_boundary_matched:16")
+        assert legacy["simulation_config_sha256"] != boundary["simulation_config_sha256"]
+        assert legacy["dataset_recipe_sha256"] != boundary["dataset_recipe_sha256"]
+
+    def test_existing_dataset_with_mismatched_identity_is_rejected_before_save(
+        self, monkeypatch, tmp_path: Path
+    ):
+        cfg = GridLinesConfig(
+            N=8,
+            gridsize=1,
+            output_dir=tmp_path,
+            probe_npz=tmp_path / "probe.npz",
+        )
+        path = dataset_out_dir(cfg) / "test.npz"
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"existing")
+        monkeypatch.setattr(
+            "ptycho.metadata.MetadataManager.load_with_metadata",
+            lambda path: ({}, {"additional_parameters": {
+                "simulation_config_sha256": "0" * 64,
+                "dataset_recipe_sha256": "1" * 64,
+            }}),
+        )
+        monkeypatch.setattr(
+            "ptycho.metadata.MetadataManager.save_with_metadata",
+            lambda *args, **kwargs: pytest.fail("must reject before saving"),
+        )
+        config = TrainingConfig(model=ModelConfig(N=8, gridsize=1, object_big=False))
+        data = {
+            "X": np.zeros((1, 8, 8, 1)),
+            "Y_I": np.zeros((1, 8, 8, 1)),
+            "Y_phi": np.zeros((1, 8, 8, 1)),
+            "coords_nominal": np.zeros((1, 2)),
+            "coords_true": np.zeros((1, 2)),
+            "YY_full": np.zeros((8, 8), dtype=np.complex64),
+        }
+        with pytest.raises(ValueError, match="Use a distinct output identity"):
+            save_split_npz(cfg, "train", data, config)
+
+    def test_dataset_pair_identity_is_preflighted_before_simulation_or_write(
+        self, monkeypatch, tmp_path: Path
+    ):
+        raw_probe = np.ones((8, 8), dtype=np.complex64)
+        probe_path = tmp_path / "probe.npz"
+        np.savez(probe_path, probeGuess=raw_probe)
+        cfg = GridLinesConfig(
+            N=16,
+            gridsize=1,
+            output_dir=tmp_path,
+            probe_npz=probe_path,
+            probe_transform_pipeline="pad_extrapolate_boundary_matched:16",
+        )
+        existing_test = dataset_out_dir(cfg) / "test.npz"
+        existing_test.parent.mkdir(parents=True)
+        existing_test.write_bytes(b"existing")
+        monkeypatch.setattr(
+            "ptycho.metadata.MetadataManager.load_with_metadata",
+            lambda path: (
+                {},
+                {
+                    "additional_parameters": {
+                        "simulation_config_sha256": "0" * 64,
+                        "dataset_recipe_sha256": "1" * 64,
+                    }
+                },
+            ),
+        )
+        monkeypatch.setattr(
+            grid_lines_workflow_module,
+            "simulate_grid_data",
+            lambda *args, **kwargs: pytest.fail(
+                "identity mismatch must fail before simulation"
+            ),
+        )
+
+        with pytest.raises(ValueError, match="Use a distinct output identity"):
+            grid_lines_workflow_module.build_grid_lines_datasets(cfg)
+        assert not (dataset_out_dir(cfg) / "train.npz").exists()
 
     def test_metadata_includes_probe_source(self, monkeypatch, tmp_path: Path):
         captured = {}
@@ -785,6 +1281,11 @@ class TestDatasetPersistence:
             {"op": "pad_complex", "target_N": 8},
         ]
         assert captured["metadata"]["additional_parameters"]["probe_npz"] == str(tmp_path / "probe.npz")
+        additional = captured["metadata"]["additional_parameters"]
+        assert len(additional["simulation_config_sha256"]) == 64
+        assert len(additional["dataset_recipe_sha256"]) == 64
+        assert len(additional["probe_lineage"]["raw_probe_sha256"]) == 64
+        assert len(additional["probe_lineage"]["transformed_probe_sha256"]) == 64
 
     def test_metadata_includes_explicit_probe_transform_pipeline(self, monkeypatch, tmp_path: Path):
         captured = {}
@@ -1220,6 +1721,23 @@ class TestColorbarSharing:
         assert resolved is not None
         assert resolved["amp"].shape == (8, 8)
         assert resolved["phase"].shape == (8, 8)
+
+    def test_resolve_probe_for_visuals_reads_digest_identity_layout(self, tmp_path: Path):
+        dataset_dir = (
+            tmp_path
+            / "datasets"
+            / "N128"
+            / "gs1"
+            / f"simulation-{'a' * 64}"
+        )
+        dataset_dir.mkdir(parents=True)
+        probe = np.ones((8, 8), dtype=np.complex64)
+        np.savez(dataset_dir / "train.npz", probeGuess=probe)
+
+        resolved = _resolve_probe_for_visuals(tmp_path)
+
+        assert resolved is not None
+        assert resolved["amp"].shape == (8, 8)
 
     def test_resolve_probe_for_visuals_uses_run_params_dataset_paths(self, tmp_path: Path):
         source_dataset_dir = tmp_path / "source" / "datasets" / "N128" / "gs1"

@@ -64,6 +64,10 @@ from typing import Union, Optional, Tuple, Dict, Any
 from ptycho import params
 from ptycho.config.config import TrainingConfig, InferenceConfig, PyTorchExecutionConfig
 from ptycho.config import config as ptycho_config  # For update_legacy_dict
+from ptycho.config.legacy_state import (
+    scoped_legacy_params,
+    transactional_legacy_params,
+)
 from ptycho.metadata import MetadataManager
 from ptycho.raw_data import RawData
 from ptycho_torch.scaling_contract import (
@@ -83,7 +87,11 @@ try:
     from ptycho_torch.raw_data_bridge import RawDataTorch
     from ptycho_torch.config_factory import TrainingPayload, InferencePayload
     from ptycho_torch.data_container_bridge import PtychoDataContainerTorch
-    from ptycho_torch.model_manager import save_torch_bundle, load_torch_bundle
+    from ptycho_torch.model_manager import (
+        _read_torch_bundle_manifest_and_params,
+        load_torch_bundle,
+        save_torch_bundle,
+    )
     from ptycho_torch.dataloader import PtychoDataset, TensorDictDataLoader
 except ImportError as e:
     # If Phase C/D3 modules not available, raise actionable error
@@ -148,7 +156,7 @@ def _read_bundle_scaling_metadata(archive_path: Path):
         )
 
 
-def _strictly_reconstruct_bundle_model(archive_path: Path, metadata):
+def _strictly_reconstruct_bundle_model(archive_path: Path, metadata, model_name: str):
     import torch
     from ptycho_torch.config_params import (
         DataConfig,
@@ -169,16 +177,28 @@ def _strictly_reconstruct_bundle_model(archive_path: Path, metadata):
         inference_config,
     )
     with zipfile.ZipFile(archive_path, "r") as archive:
-        state_dict = torch.load(
-            io.BytesIO(archive.read("diffraction_to_obj/model.pth")),
-            map_location="cpu",
-            weights_only=False,
+        try:
+            state_dict = torch.load(
+                io.BytesIO(archive.read(f"{model_name}/model.pth")),
+                map_location="cpu",
+                weights_only=False,
+            )
+        except KeyError as exc:
+            raise RuntimeError(
+                f"Bundle weights are missing for model '{model_name}'. Regenerate "
+                "the bundle from a successful training result."
+            ) from exc
+    if not isinstance(state_dict, dict) or "_sentinel" in state_dict:
+        raise RuntimeError(
+            f"Bundle weights for model '{model_name}' are not a trained state_dict. "
+            "Regenerate the bundle from a successful training result."
         )
     try:
         model.load_state_dict(state_dict, strict=True)
     except RuntimeError as exc:
         raise RuntimeError(
-            "Bundle architecture-era incompatibility: strict physics/model weight "
+            f"Bundle architecture-era incompatibility for model '{model_name}': "
+            "strict physics/model weight "
             "loading failed. Do not use strict=False; regenerate this bundle with "
             f"the current architecture. Original error: {exc}"
         ) from exc
@@ -196,30 +216,6 @@ def _strictly_reconstruct_bundle_model(archive_path: Path, metadata):
     if statistics is not None:
         model.register_ci_statistics(statistics)
     return model
-
-
-def _strictly_verify_metadata_free_bundle(archive_path: Path, models_dict) -> None:
-    """Ensure the legacy loader did not discard incompatible model weights."""
-    import torch
-
-    with zipfile.ZipFile(archive_path, "r") as archive:
-        for model_name, model in models_dict.items():
-            state_path = f"{model_name}/model.pth"
-            state_dict = torch.load(
-                io.BytesIO(archive.read(state_path)),
-                map_location="cpu",
-                weights_only=False,
-            )
-            if not isinstance(state_dict, dict) or "_sentinel" in state_dict:
-                continue
-            try:
-                model.load_state_dict(state_dict, strict=True)
-            except RuntimeError as exc:
-                raise RuntimeError(
-                    "Metadata-free bundle architecture-era incompatibility: strict "
-                    "physics/model weight verification failed. Regenerate this bundle "
-                    f"with the current architecture. Original error: {exc}"
-                ) from exc
 
 
 def _canonicalize_ci_probe_modes(probe, N: int):
@@ -421,6 +417,7 @@ class NormalizedAmplitudeCIDictAdapter:
         return statistics
 
 
+@scoped_legacy_params
 def run_cdi_example_torch(
     train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch'],
     test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
@@ -1433,18 +1430,6 @@ def _train_with_lightning(
     generator_output_mode = getattr(config.model, 'generator_output_mode', None)
     if generator_output_mode is not None:
         factory_overrides['generator_output_mode'] = generator_output_mode
-    if execution_config is not None:
-        for field_name in (
-            'spectral_bottleneck_blocks',
-            'spectral_bottleneck_modes',
-            'spectral_bottleneck_share_weights',
-            'spectral_bottleneck_gate_init',
-            'spectral_bottleneck_gate_mode',
-        ):
-            field_val = getattr(execution_config, field_name, None)
-            if field_val is not None:
-                factory_overrides[field_name] = field_val
-
     # Caller-supplied torch-only overrides take highest precedence. This is how
     # ModelConfig knobs that live exclusively on the torch-side config_params.ModelConfig
     # (training_patch_weighting, physics_forward_mode, cnn_output_mode,
@@ -1792,16 +1777,15 @@ def _train_with_lightning(
 
     # B2.7: Build results payload with dual-model dict for bundle persistence (Phase C4.D3)
     # save_torch_bundle requires 'autoencoder' and 'diffraction_to_obj' keys per spec §4.6
-    # Since PyTorch uses a unified PtychoPINN_Lightning module, map diffraction_to_obj to the module
-    # and provide an autoencoder sentinel for spec compliance
+    # PyTorch uses one trained unified module for both logical bundle roles.
     return {
         "history": history,
         "train_container": train_container,
         "test_container": test_container,
         "rect_s1s2_calibration": rect_s1s2_calibration,
         "models": {
-            "diffraction_to_obj": model,  # Main Lightning module
-            "autoencoder": {'_sentinel': 'autoencoder'}  # Sentinel for dual-model requirement
+            "diffraction_to_obj": model,
+            "autoencoder": model,
         }
     }
 
@@ -2012,14 +1996,7 @@ def _reassemble_cdi_image_torch(
             and global_offsets_np.shape[3] == 1):
         global_offsets_np = np.swapaxes(global_offsets_np, 2, 3)
 
-    try:
-        obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
-    except Exception as e:
-        logger.warning(
-            "TF reassemble_position failed; falling back to mean reassembly: %s",
-            e
-        )
-        obj_image = np.mean(obj_tensor_np, axis=0)
+    obj_image = hh.reassemble_position(obj_tensor_np, global_offsets_np, M=M)
 
     # Squeeze trailing channel dimension if present (reassembly may return (H, W, 1))
     if obj_image.ndim == 3 and obj_image.shape[-1] == 1:
@@ -2043,6 +2020,7 @@ def _reassemble_cdi_image_torch(
     return recon_amp, recon_phase, results
 
 
+@scoped_legacy_params
 def train_cdi_model_torch(
     train_data: Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch', 'PtychoDataset'],
     test_data: Optional[Union[RawData, 'RawDataTorch', 'PtychoDataContainerTorch']],
@@ -2121,6 +2099,7 @@ def train_cdi_model_torch(
     return results
 
 
+@transactional_legacy_params
 def load_inference_bundle_torch(
     bundle_dir: Union[str, Path],
     model_name: str = 'diffraction_to_obj',
@@ -2134,9 +2113,8 @@ def load_inference_bundle_torch(
     This function provides API parity with ptycho.workflows.components.load_inference_bundle,
     enabling transparent backend selection for model loading.
 
-    CRITICAL: This function delegates to load_torch_bundle, which MUST restore params.cfg
-    before model reconstruction (CONFIG-001 requirement). The params.cfg restoration ensures
-    downstream modules observe correct training-time configuration.
+    Bundles restore params.cfg before model reconstruction and commit it only
+    after every declared model role has loaded successfully.
 
     Args:
         bundle_dir: Path to the directory containing the wts.h5.zip archive.
@@ -2149,37 +2127,28 @@ def load_inference_bundle_torch(
         - params_dict: Configuration dictionary restored from saved bundle
 
     Raises:
-        ImportError: If load_torch_bundle not available (torch unavailable)
         ValueError: If bundle archive not found or params.dill incomplete
         FileNotFoundError: If bundle_dir does not contain wts.h5.zip
 
     Phase D4.C2 Implementation:
-        - Delegates to load_torch_bundle (Phase D3.C persistence shim)
         - Returns (models_dict, params_dict) matching TensorFlow signature
-        - CONFIG-001 gate executed inside load_torch_bundle (params.cfg.update)
+        - Commits archived params.cfg only after strict model/weight validation
 
     Example:
         >>> models_dict, params_dict = load_inference_bundle_torch("outputs/run_001")
         >>> # params.cfg now restored with training-time N, gridsize, nphotons
         >>> # Use models_dict['diffraction_to_obj'] for inference
     """
-    # load_torch_bundle is now mandatory (imported at module level)
-
     # Normalize bundle_dir to string for Path compatibility
     bundle_dir_str = str(bundle_dir)
 
     # Build archive path following TensorFlow convention (wts.h5.zip in bundle_dir)
     # TensorFlow baseline: load_inference_bundle expects model_dir containing wts.h5.zip
-    # PyTorch mirrors this: bundle_dir/wts.h5.zip → pass bundle_dir/wts.h5 to load_torch_bundle
+    # PyTorch mirrors this: bundle_dir/wts.h5.zip.
     archive_path = Path(bundle_dir_str) / "wts.h5"
     zip_path = archive_path.with_suffix(".h5.zip")
 
-    logger.info(f"Loading PyTorch inference bundle from {archive_path}.zip via load_torch_bundle")
-
-    # Delegate to load_torch_bundle (CONFIG-001 params restoration happens inside)
-    # Phase C4.D signature change: load_torch_bundle now returns (models_dict, params_dict)
-    # instead of (single_model, params_dict) to satisfy spec §4.6 dual-model requirement
-    models_dict, params_dict = load_torch_bundle(str(archive_path), model_name=model_name)
+    logger.info(f"Loading PyTorch inference bundle from {archive_path}.zip")
 
     from ptycho_torch.config_factory import resolve_profile_overrides
     explicit_profile = resolve_profile_overrides({
@@ -2188,6 +2157,9 @@ def load_inference_bundle_torch(
     })
     metadata = _read_bundle_scaling_metadata(zip_path)
     if metadata is None:
+        models_dict, params_dict = load_torch_bundle(
+            str(archive_path), model_name=model_name
+        )
         known_legacy = (
             params_dict.get("_version") == "2.0-pytorch"
             and "scale_contract_version" not in params_dict
@@ -2202,9 +2174,26 @@ def load_inference_bundle_torch(
                 "scale_contract_version='legacy_v1' and "
                 "measurement_domain='normalized_amplitude'."
             )
-        if zip_path.is_file():
-            _strictly_verify_metadata_free_bundle(zip_path, models_dict)
+        if known_legacy:
+            for loaded_model in models_dict.values():
+                loaded_model.data_config.scale_contract_version = LEGACY_SCALE_CONTRACT
+                loaded_model.data_config.measurement_domain = NORMALIZED_AMPLITUDE
+            params_dict["scale_contract_version"] = LEGACY_SCALE_CONTRACT
+            params_dict["measurement_domain"] = NORMALIZED_AMPLITUDE
+            params.cfg.update(params_dict)
     else:
+        manifest, params_dict = _read_torch_bundle_manifest_and_params(
+            str(archive_path)
+        )
+        available_models = manifest["models"]
+        expected_models = {"autoencoder", "diffraction_to_obj"}
+        if set(available_models) != expected_models:
+            raise RuntimeError(
+                "Torch bundle does not contain the required dual-model weights "
+                f"{sorted(expected_models)}; found {sorted(available_models)}. "
+                "Regenerate the bundle from a successful training result."
+            )
+        params.cfg.update(params_dict)
         persisted_profile = resolve_scale_contract(
             metadata["data_config"].get("scale_contract_version"),
             metadata["data_config"].get("measurement_domain"),
@@ -2216,10 +2205,14 @@ def load_inference_bundle_torch(
             raise ValueError(
                 "Explicit bundle profile overrides contradict persisted metadata."
             )
-        models_dict["diffraction_to_obj"] = _strictly_reconstruct_bundle_model(
-            zip_path,
-            metadata,
-        )
+        models_dict = {
+            archived_model_name: _strictly_reconstruct_bundle_model(
+                zip_path,
+                metadata,
+                archived_model_name,
+            )
+            for archived_model_name in available_models
+        }
         params_dict["scale_contract_version"] = persisted_profile.version
         params_dict["measurement_domain"] = persisted_profile.measurement_domain
         params_dict["ci_statistics"] = metadata.get("ci_statistics")

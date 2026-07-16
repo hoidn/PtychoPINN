@@ -68,6 +68,10 @@ from typing import Union, Optional, Tuple, Dict, Any
 # Core imports (always available)
 from ptycho import params
 from ptycho.config.config import TrainingConfig, InferenceConfig, update_legacy_dict
+from ptycho.config.legacy_state import (
+    scoped_legacy_params,
+    transactional_legacy_params,
+)
 from ptycho.raw_data import RawData
 from ptycho.loader import PtychoDataContainer
 
@@ -75,6 +79,7 @@ from ptycho.loader import PtychoDataContainer
 logger = logging.getLogger(__name__)
 
 
+@scoped_legacy_params
 def run_cdi_example_with_backend(
     train_data: Union[RawData, PtychoDataContainer],
     test_data: Optional[Union[RawData, PtychoDataContainer]],
@@ -180,6 +185,7 @@ def run_cdi_example_with_backend(
     return recon_amp, recon_phase, results
 
 
+@scoped_legacy_params
 def train_cdi_model_with_backend(
     train_data: Union[RawData, PtychoDataContainer],
     test_data: Optional[Union[RawData, PtychoDataContainer]],
@@ -251,6 +257,7 @@ def train_cdi_model_with_backend(
     return results
 
 
+@transactional_legacy_params
 def load_inference_bundle_with_backend(
     bundle_dir: Union[str, Path],
     config: InferenceConfig,

@@ -53,7 +53,6 @@ Warnings:
     - Type safety is not enforced on parameter values
 """
 import numpy as np
-import tensorflow as tf
 import logging
 import inspect
 logger = logging.getLogger(__name__)
@@ -167,12 +166,18 @@ def print_params():
     print("Current Parameters:")
     print("-" * 20)
     for key, value in sorted(all_params.items()):
-        if isinstance(value, (np.ndarray, tf.Tensor)):
+        is_tensorflow_tensor = any(
+            base.__name__ == 'Tensor'
+            and base.__module__.startswith('tensorflow')
+            for base in type(value).__mro__
+        )
+        if isinstance(value, np.ndarray) or is_tensorflow_tensor:
+            array = np.asarray(value)
             print(f"{key}:")
-            print(f"  shape: {value.shape}")
-            print(f"  mean: {np.mean(value):.3f}")
-            print(f"  std: {np.std(value):.3f}")
-            print(f"  min: {np.min(value):.3f}")
-            print(f"  max: {np.max(value):.3f}")
+            print(f"  shape: {array.shape}")
+            print(f"  mean: {np.mean(array):.3f}")
+            print(f"  std: {np.std(array):.3f}")
+            print(f"  min: {np.min(array):.3f}")
+            print(f"  max: {np.max(array):.3f}")
         else:
             print(f"{key}: {value}")

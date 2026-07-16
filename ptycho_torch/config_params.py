@@ -1,4 +1,6 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+import math
+from pathlib import Path
 from typing import Tuple, Optional, Literal, Union, List
 
 # PyTorch is now a mandatory dependency (Phase F3.1 gate)
@@ -62,6 +64,12 @@ class ModelConfig:
     fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
     max_hidden_channels: Optional[int] = None
     resnet_width: Optional[int] = None
+    ffno_encoder_blocks: int = 24
+    ffno_encoder_modes: Optional[int] = None
+    ffno_encoder_share_weights: bool = True
+    ffno_encoder_gate_init: float = 0.1
+    ffno_encoder_norm: str = 'instance'
+    ffno_encoder_mlp_ratio: float = 2.0
     spectral_bottleneck_blocks: int = 6
     spectral_bottleneck_modes: int = 12
     spectral_bottleneck_share_weights: bool = True
@@ -187,8 +195,30 @@ class ModelConfig:
     phase_loss: Literal['Total_Variation', "Mean_Deviation", None] = None
     amp_loss_coeff: float = 1.0
     phase_loss_coeff: float = 1.0
-    
-    
+
+    def __post_init__(self):
+        """Validate fields that determine the retained Torch generators."""
+        for name in ('ffno_encoder_gate_init', 'ffno_encoder_mlp_ratio'):
+            value = float(getattr(self, name))
+            if not math.isfinite(value) or value <= 0.0:
+                raise ValueError(f"{name} must be finite and > 0")
+
+        for name in (
+            'ffno_encoder_blocks',
+            'spectral_bottleneck_blocks',
+            'spectral_bottleneck_modes',
+        ):
+            if getattr(self, name) <= 0:
+                raise ValueError(f"{name} must be positive")
+        if self.ffno_encoder_modes is not None and self.ffno_encoder_modes <= 0:
+            raise ValueError("ffno_encoder_modes must be positive when set")
+        if self.spectral_bottleneck_gate_mode not in {'shared', 'per_block'}:
+            raise ValueError("invalid spectral_bottleneck_gate_mode")
+        if not math.isfinite(float(self.spectral_bottleneck_gate_init)):
+            raise ValueError("spectral_bottleneck_gate_init must be finite")
+        if not isinstance(self.ffno_encoder_norm, str) or not self.ffno_encoder_norm:
+            raise ValueError("ffno_encoder_norm must be a non-empty string")
+
 
 @dataclass
 class TrainingConfig:
@@ -282,6 +312,79 @@ class DatagenConfig:
     image_size: Tuple[int, int] = (250,250)
     probe_paths: List[str] = field(default_factory=list) # List of all probe files used
     beamstop_diameter: int = 4 # For simulating beamstop in forward model
+
+    def to_simulation_config(self, *, base=None):
+        """Project the generation fields this legacy payload owns.
+
+        ``base`` supplies canonical fields that ``DatagenConfig`` has never
+        represented (N, scan geometry, photon level, seed, and probe transform).
+        The six serialized dataclass fields remain unchanged.
+        """
+        from ptycho.config.config import (
+            SimulationConfig,
+            validate_simulation_config,
+        )
+
+        if not isinstance(self.object_class, str):
+            raise ValueError("DatagenConfig requires a single object_class")
+        if len(self.probe_paths) > 1:
+            raise ValueError(
+                "DatagenConfig can convert exactly one probe path (or none) to SimulationConfig"
+            )
+        simulation = base if base is not None else SimulationConfig()
+        if not isinstance(simulation, SimulationConfig):
+            raise TypeError("base must be a SimulationConfig")
+
+        probe = simulation.probe
+        if self.probe_paths:
+            probe = replace(
+                probe,
+                source="custom",
+                source_path=Path(self.probe_paths[0]),
+            )
+        resolved = replace(
+            simulation,
+            probe=probe,
+            object=replace(
+                simulation.object,
+                kind=self.object_class,
+                image_size=tuple(self.image_size),
+                objects_per_probe=self.objects_per_probe,
+                diffractions_per_object=self.diff_per_object,
+            ),
+            detector=replace(
+                simulation.detector,
+                beamstop_diameter=self.beamstop_diameter,
+            ),
+        )
+        validate_simulation_config(resolved)
+        return resolved
+
+    @classmethod
+    def from_simulation_config(cls, simulation):
+        """Create the exact legacy six-field payload when representation is lossless."""
+        from ptycho.config.config import SimulationConfig, validate_simulation_config
+
+        if not isinstance(simulation, SimulationConfig):
+            raise TypeError("simulation must be a SimulationConfig")
+        validate_simulation_config(simulation)
+        if simulation.probe.source == "ideal":
+            raise ValueError(
+                "DatagenConfig cannot represent an ideal probe without losing source semantics"
+            )
+        probe_paths = (
+            [str(simulation.probe.source_path)]
+            if simulation.probe.source_path is not None
+            else []
+        )
+        return cls(
+            objects_per_probe=simulation.object.objects_per_probe,
+            diff_per_object=simulation.object.diffractions_per_object,
+            object_class=simulation.object.kind,
+            image_size=simulation.object.image_size,
+            probe_paths=probe_paths,
+            beamstop_diameter=simulation.detector.beamstop_diameter,
+        )
 
 
 

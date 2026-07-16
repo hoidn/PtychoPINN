@@ -35,13 +35,19 @@ from ptycho_torch.config_factory import (
     create_inference_payload,
     infer_probe_size,
     populate_legacy_params,
+    simulation_from_datagen_config,
+    datagen_config_from_simulation,
     TrainingPayload,
     InferencePayload,
 )
 
 # Config dataclasses for assertions
 from ptycho.config.config import (
+    DetectorSimulationConfig,
     ModelConfig as TFModelConfig,
+    ProbeSimulationConfig,
+    SimulationConfig,
+    SyntheticObjectConfig,
     TrainingConfig as TFTrainingConfig,
     InferenceConfig as TFInferenceConfig,
 )
@@ -50,7 +56,78 @@ from ptycho_torch.config_params import (
     ModelConfig as PTModelConfig,
     TrainingConfig as PTTrainingConfig,
     InferenceConfig as PTInferenceConfig,
+    DatagenConfig,
 )
+
+
+def test_datagen_config_converts_owned_fields_to_simulation_without_changing_payload_shape():
+    datagen = DatagenConfig(
+        objects_per_probe=6,
+        diff_per_object=128,
+        object_class="dead_leaves",
+        image_size=(256, 256),
+        probe_paths=["probe.npz"],
+        beamstop_diameter=8,
+    )
+
+    simulation = datagen.to_simulation_config()
+
+    assert simulation.object == SyntheticObjectConfig(
+        kind="dead_leaves",
+        image_size=(256, 256),
+        objects_per_probe=6,
+        diffractions_per_object=128,
+    )
+    assert simulation.probe.source == "custom"
+    assert simulation.probe.source_path == Path("probe.npz")
+    assert simulation.detector.beamstop_diameter == 8
+    assert tuple(datagen.__dataclass_fields__) == (
+        "objects_per_probe",
+        "diff_per_object",
+        "object_class",
+        "image_size",
+        "probe_paths",
+        "beamstop_diameter",
+    )
+
+
+def test_datagen_config_round_trip_preserves_only_representable_owned_fields():
+    simulation = SimulationConfig(
+        probe=ProbeSimulationConfig(source="custom", source_path=Path("probe.npz")),
+        object=SyntheticObjectConfig(
+            kind="natural_patch",
+            image_size=(320, 320),
+            objects_per_probe=5,
+            diffractions_per_object=64,
+        ),
+        detector=DetectorSimulationConfig(
+            photons_per_pattern=1e7,
+            beamstop_diameter=4,
+        ),
+    )
+
+    restored = datagen_config_from_simulation(simulation)
+
+    assert restored == DatagenConfig(
+        objects_per_probe=5,
+        diff_per_object=64,
+        object_class="natural_patch",
+        image_size=(320, 320),
+        probe_paths=["probe.npz"],
+        beamstop_diameter=4,
+    )
+    assert simulation_from_datagen_config(restored, base=simulation) == simulation
+
+
+def test_datagen_config_rejects_lossy_probe_or_object_conversion():
+    with pytest.raises(ValueError, match="exactly one probe path"):
+        DatagenConfig(probe_paths=["a.npz", "b.npz"]).to_simulation_config()
+    with pytest.raises(ValueError, match="single object_class"):
+        DatagenConfig(object_class=["lines", "dead_leaves"]).to_simulation_config()
+    with pytest.raises(ValueError, match="ideal probe"):
+        DatagenConfig.from_simulation_config(
+            SimulationConfig(probe=ProbeSimulationConfig(source="ideal"))
+        )
 
 # For params.cfg validation
 import ptycho.params
