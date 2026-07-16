@@ -554,36 +554,3 @@ ptycho_train --config configs/my_experiment_config.yaml
 # Explicit CLI values override the file for entry points that expose the flag.
 ptycho_train --config configs/my_experiment_config.yaml --nepochs 10
 ```
-
-## Configuration Best Practices
-
-1. Treat a governing study/config contract as the authority for recommended
-   scientific settings; raw dataclass defaults are not a quality claim.
-2. Use configuration files for reproducible experiments.
-3. Use `n_groups` instead of deprecated `n_images`.
-4. Use `object_layout`, `training_canvas`, and `training_patch_weighting`
-   instead of deprecated `object_big`.
-5. Keep simulation-time probe construction separate from model-time masking.
-6. Override sparingly from the command line.
-7. Version-control reusable configurations and document intentional deviations.
-8. Test new configurations on a small dataset before launching a long run.
-
-## Parameter Migration
-
-```yaml
-# Old
-n_images: 1000
-
-# New
-n_groups: 1000
-```
-
-```yaml
-# Old
-object_big: true
-
-# New
-object_layout: grouped_patches
-training_canvas: relative_overlap
-training_patch_weighting: central_mask
-```
