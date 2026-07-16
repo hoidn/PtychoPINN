@@ -62,6 +62,7 @@ from typing import Union, Optional, Tuple, Dict, Any
 
 # Core imports (always available)
 from ptycho import params
+from ptycho.acquisition import AcquisitionRecord
 from ptycho.config.config import TrainingConfig, InferenceConfig, PyTorchExecutionConfig
 from ptycho.config import config as ptycho_config  # For update_legacy_dict
 from ptycho.config.legacy_state import (
@@ -604,14 +605,9 @@ def _ensure_container(
         # Note: Y patches are embedded in TF RawData and will be extracted during grouping
         sample_indices = getattr(data, 'sample_indices', None)
         metadata = getattr(data, 'metadata', None)
-        torch_raw_data = RawDataTorch(
-            xcoords=data.xcoords,
-            ycoords=data.ycoords,
-            diff3d=data.diff3d,
-            probeGuess=data.probeGuess,
-            scan_index=data.scan_index,
-            objectGuess=data.objectGuess,
-            config=config  # Pass config for update_legacy_dict call
+        torch_raw_data = RawDataTorch.from_acquisition(
+            AcquisitionRecord.from_raw_data(data),
+            config=config,  # Pass config for update_legacy_dict call
         )
         if sample_indices is not None:
             setattr(torch_raw_data, 'sample_indices', sample_indices)

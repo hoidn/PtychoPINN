@@ -38,6 +38,12 @@ from ptycho.config.config import (
 )
 from ptycho import params as p
 from ptycho.config.legacy_state import scoped_legacy_params
+from ptycho.invocation_logging import (
+    capture_runtime_provenance,
+    get_git_commit,
+    update_invocation_artifacts,
+    write_invocation_artifacts,
+)
 from ptycho.simulation import probe_transform as _probe_transform
 from ptycho.simulation.identity import (
     array_sha256 as _identity_array_sha256,
@@ -1330,13 +1336,6 @@ def _write_tf_row_provenance(
     model_artifact: Path,
     recon_path: Path,
 ) -> None:
-    from scripts.studies.invocation_logging import (
-        capture_runtime_provenance,
-        get_git_commit,
-        update_invocation_artifacts,
-        write_invocation_artifacts,
-    )
-
     run_dir = cfg.output_dir / "runs" / model_id
     run_dir.mkdir(parents=True, exist_ok=True)
     invocation_extra = {

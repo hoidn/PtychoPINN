@@ -96,6 +96,8 @@ import numpy as np
 from typing import Optional, Dict, Any
 from pathlib import Path
 
+from ptycho.acquisition import AcquisitionRecord
+
 # Torch-optional import guard (per test_blueprint.md §1.C and CLAUDE.md:57-59)
 try:
     import torch
@@ -153,7 +155,36 @@ class RawDataTorch:
             automatically, preventing CONFIG-001 shape mismatch bugs. If config is None,
             assumes params.cfg is already initialized (e.g., from loaded model).
         """
-        # Import TensorFlow dependencies
+        record = AcquisitionRecord(
+            xcoords=xcoords,
+            ycoords=ycoords,
+            xcoords_start=xcoords,
+            ycoords_start=ycoords,
+            diff3d=diff3d,
+            probeGuess=probeGuess,
+            scan_index=scan_index,
+            objectGuess=objectGuess,
+        )
+        self._initialize_from_acquisition(record, config)
+
+    @classmethod
+    def from_acquisition(
+        cls,
+        record: AcquisitionRecord,
+        config: Optional[Any] = None,
+    ) -> "RawDataTorch":
+        """Build the backend adapter from a framework-neutral acquisition record."""
+
+        instance = cls.__new__(cls)
+        instance._initialize_from_acquisition(record, config)
+        return instance
+
+    def _initialize_from_acquisition(
+        self,
+        record: AcquisitionRecord,
+        config: Optional[Any],
+    ) -> None:
+        # Import TensorFlow dependencies only at the operational adapter boundary.
         from ptycho.raw_data import RawData
         from ptycho.config.config import update_legacy_dict
         from ptycho import params as p
@@ -162,19 +193,29 @@ class RawDataTorch:
         if config is not None:
             update_legacy_dict(p.cfg, config)
 
-        # Delegate to TensorFlow RawData via factory method
-        # (avoids need for separate start coordinates)
-        self._tf_raw_data = RawData.from_coords_without_pc(
-            xcoords=xcoords,
-            ycoords=ycoords,
-            diff3d=diff3d,
-            probeGuess=probeGuess,
-            scan_index=scan_index,
-            objectGuess=objectGuess
+        self._tf_raw_data = RawData(
+            xcoords=record.xcoords,
+            ycoords=record.ycoords,
+            xcoords_start=record.xcoords_start,
+            ycoords_start=record.ycoords_start,
+            diff3d=record.diff3d,
+            probeGuess=record.probeGuess,
+            scan_index=record.scan_index,
+            objectGuess=record.objectGuess,
+            Y=record.Y,
+            norm_Y_I=record.norm_Y_I,
+            metadata=record.metadata,
         )
+        self._tf_raw_data.sample_indices = record.sample_indices
+        self._tf_raw_data.subsample_seed = record.subsample_seed
 
         # Store config reference for potential future use
         self._config = config
+
+    def to_acquisition(self) -> AcquisitionRecord:
+        """Return the neutral acquisition state represented by this adapter."""
+
+        return AcquisitionRecord.from_raw_data(self._tf_raw_data)
 
     def generate_grouped_data(
         self,
