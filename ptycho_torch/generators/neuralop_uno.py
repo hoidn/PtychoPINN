@@ -100,35 +100,6 @@ class NeuralopUnoGenerator:
         self.config = config
 
     def build_model(self, pt_configs: Dict[str, Any]) -> nn.Module:
-        from ptycho_torch.model import PtychoPINN_Lightning
+        from ptycho_torch.application_factory import build_ptychopinn_from_configs
 
-        data_config = pt_configs["data_config"]
-        model_config = pt_configs["model_config"]
-        training_config = pt_configs["training_config"]
-        inference_config = pt_configs["inference_config"]
-
-        if int(getattr(data_config, "N", _LOCKED_IMAGE_SIZE)) != _LOCKED_IMAGE_SIZE:
-            raise ValueError(
-                "neuralop_uno only supports the locked Lines128 CDI contract "
-                f"(N=128); got N={getattr(data_config, 'N', None)}."
-            )
-        if tuple(getattr(data_config, "grid_size", (1, 1))) != (1, 1):
-            raise ValueError(
-                "neuralop_uno only supports the locked gridsize=1 CDI contract; "
-                f"got grid_size={getattr(data_config, 'grid_size', None)}."
-            )
-
-        output_mode = getattr(model_config, "generator_output_mode", "real_imag")
-        core = NeuralopUnoGeneratorModule(
-            C=getattr(data_config, "C", 1),
-            output_mode=output_mode,
-        )
-
-        return PtychoPINN_Lightning(
-            model_config=model_config,
-            data_config=data_config,
-            training_config=training_config,
-            inference_config=inference_config,
-            generator_module=core,
-            generator_output=output_mode,
-        )
+        return build_ptychopinn_from_configs(pt_configs)

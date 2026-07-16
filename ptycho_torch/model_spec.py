@@ -69,8 +69,6 @@ def _canonical_expected_value(
     value = getattr(canonical, _CANONICAL_TO_TORCH[torch_name])
     if torch_name == "mode":
         return {"pinn": "Unsupervised", "supervised": "Supervised"}[value]
-    if torch_name == "amp_activation":
-        return "silu" if value == "swish" else value
     if torch_name == "probe_mask":
         # The canonical handshake owns boolean enablement. Torch may carry the
         # enabled mask as either a bool or an explicit tensor.
@@ -199,6 +197,10 @@ def derive_model_spec(
                 or isinstance(actual, torch.Tensor)
                 or bool(actual)
             )
+        elif torch_name == "amp_activation" and actual in {"silu", "SiLU"}:
+            # Canonical TensorFlow spelling is ``swish``; the Torch structural
+            # owner accepts both native SiLU spellings and the canonical alias.
+            actual = "swish"
         if not _values_match(actual, expected):
             raise ValueError(
                 f"structural field {torch_name}={actual!r} conflicts with canonical "

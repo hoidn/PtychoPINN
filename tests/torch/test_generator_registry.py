@@ -80,6 +80,8 @@ def test_ffno_generator_builds_lightning_model():
         "data_config": DataConfig(N=64, C=1),
         "model_config": PTModelConfig(
             architecture='ffno',
+            C_model=1,
+            C_forward=1,
             fno_width=32,
             fno_blocks=4,
             fno_cnn_blocks=2,
@@ -110,6 +112,8 @@ def test_ffno_generator_builds_supervised_lightning_model():
         "model_config": PTModelConfig(
             mode='Supervised',
             architecture='ffno',
+            C_model=1,
+            C_forward=1,
             fno_width=32,
             fno_blocks=4,
             fno_cnn_blocks=2,

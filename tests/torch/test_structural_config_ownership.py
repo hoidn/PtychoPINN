@@ -190,6 +190,8 @@ def test_generator_topology_reads_model_config_not_execution_side_channel() -> N
     )
     structural = TorchModelConfig(
         architecture="hybrid_resnet",
+        C_model=1,
+        C_forward=1,
         hybrid_resnet_bottleneck_layerscale_mode="fixed",
         hybrid_resnet_bottleneck_layerscale_value=1.0,
     )
@@ -207,9 +209,9 @@ def test_generator_topology_reads_model_config_not_execution_side_channel() -> N
     model = generator.build_model(configs)
 
     assert model.model.generator.resnet.layerscale.requires_grad is False
-    assert (
-        model.hparams["generator_overrides"][
-            "hybrid_resnet_bottleneck_layerscale_mode"
-        ]
-        == "fixed"
-    )
+    assert model.hparams["model_config"][
+        "hybrid_resnet_bottleneck_layerscale_mode"
+    ] == "fixed"
+    assert model.hparams["model_spec"]["model_config"][
+        "hybrid_resnet_bottleneck_layerscale_mode"
+    ] == "fixed"

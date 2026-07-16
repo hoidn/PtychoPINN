@@ -59,6 +59,19 @@ def test_model_spec_rejects_shared_and_data_join_mismatches():
         derive_model_spec(replace(canonical, gridsize=1), model, data)
 
 
+@pytest.mark.parametrize("torch_spelling", ["silu", "SiLU", "swish"])
+def test_model_spec_accepts_declared_torch_spellings_for_canonical_swish(
+    torch_spelling,
+):
+    from ptycho_torch.model_spec import derive_model_spec
+
+    canonical, data, model = _coherent_configs(amp_activation=torch_spelling)
+
+    spec = derive_model_spec(canonical, model, data)
+
+    assert spec.to_model_config().amp_activation == torch_spelling
+
+
 def test_model_spec_preserves_tensor_mask_without_aliasing():
     from ptycho_torch.model_spec import derive_model_spec
 

@@ -300,12 +300,20 @@ def test_torch_bundle_failure_rolls_back_archived_state(tmp_path, monkeypatch):
     source.mkdir()
     model_names = ["autoencoder", "diffraction_to_obj"]
     with (source / "manifest.dill").open("wb") as handle:
-        dill.dump({"models": model_names}, handle)
+        dill.dump({"models": model_names, "version": "2.0-pytorch"}, handle)
     for model_name in model_names:
         model_dir = source / model_name
         model_dir.mkdir(parents=True)
         with (model_dir / "params.dill").open("wb") as handle:
-            dill.dump({"N": 64, "gridsize": 1, "loaded_only": True}, handle)
+            dill.dump(
+                {
+                    "_version": "2.0-pytorch",
+                    "N": 64,
+                    "gridsize": 1,
+                    "loaded_only": True,
+                },
+                handle,
+            )
     with zipfile.ZipFile(archive, "w") as bundle:
         bundle.write(source / "manifest.dill", "manifest.dill")
         for model_name in model_names:

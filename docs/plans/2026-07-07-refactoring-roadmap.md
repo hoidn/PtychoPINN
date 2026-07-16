@@ -266,9 +266,12 @@ do not become a repository-wide completion sweep.
 
 ### Slice 3 — Configuration and model identity
 
-**Status:** Partial. `SimulationConfig` ownership, structural field ownership,
-the versioned Torch model schema, and explicit artifact-era upgrades are
-implemented. Construction dispatch consolidation (3D) remains pending.
+**Status:** Complete (2026-07-15). `SimulationConfig` ownership, structural field
+ownership, the versioned Torch model schema, explicit artifact-era upgrades,
+and construction dispatch consolidation are implemented. The final Slice 3
+integration suite passed causally against the Slice 2/base evidence: 5,047 tests
+passed, and all 22 failures plus 2 collection errors were members of the prior
+26-failure/2-error set; no attributable regression remains.
 
 **Outcome:** Every field has one semantic owner, model bundles carry enough
 versioned structure to rebuild themselves, and legacy translation is explicit.
@@ -384,7 +387,22 @@ deferred until 3D as required by Section 8.
 
 **3D — Construction consolidation**
 
-10. Consolidate duplicate Torch architecture dispatch only after 3A–3C establish
+**Status:** Complete (2026-07-15). All 14 registered compatibility wrappers retain their public class and
+architecture names but now delegate to the single application factory. That
+factory closes canonical and Torch configuration into `torch-model-spec-v1`
+before constructing the Lightning application; the known runtime-only
+`execution_config` compatibility key is ignored for structural identity and
+unknown keys fail closed. Registry-versus-spec state signatures match across all
+registered architectures, and the final focused registry, generator, ModelSpec,
+checkpoint, ownership, and workflow selectors pass (243 tests). The factory
+passes sealed identity through the Lightning constructor, canonical `swish` and
+Torch `silu` spellings compare semantically while preserving the structural
+spelling, and current/legacy load fixtures exercise their declared schema era.
+Artifact-era policy remains unchanged. The final repository suite recorded
+5,047 passed, 22 pre-existing failures, and 2 pre-existing collection errors;
+the remaining selector set is a strict subset of the Slice 2/base set.
+
+10. **Complete (2026-07-15):** Consolidate duplicate Torch architecture dispatch only after 3A–3C establish
    one structural owner and the declared artifact support matrix passes.
 
 **Gate:** Field mappings cover the declared ownership table; runtime config no
@@ -550,10 +568,10 @@ Slice 7 hygiene may run independently except:
 The bounded simulation flat/nested correction is implemented, and the
 2026-07-15 Slice 2 integration suite closed its post-fix repository-wide gate.
 Slice 2 is complete. Slice 3A field ownership, Slice 3B structural identity,
-and Slice 3C artifact upgrades are complete; Slice 3D construction
-consolidation and Slice 4A are dependency-eligible. The 3C artifact support
-matrix is operational, so 3D may now consolidate dispatch without changing
-artifact-era policy.
+Slice 3C artifact upgrades, and Slice 3D construction consolidation are
+complete, including the final Slice 3 integration gate. Slice 4A is
+dependency-eligible. The 3C artifact support matrix remains authoritative; 3D
+did not change artifact-era policy.
 
 Before editing shared hot files, check current working-tree ownership and active
 executors. This is a task-local collision preflight, not a standing hold tied to
