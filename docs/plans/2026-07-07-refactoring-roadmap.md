@@ -600,7 +600,8 @@ acceptance claim; unselected modules are not part of the gate.
 
 ### Slice 7 — Compatibility migrations and independent hygiene
 
-**Status:** Opportunistic; 7A-7C complete (2026-07-15). A framework-neutral
+**Status:** Opportunistic; 7A-7C complete (2026-07-15), and the 7D public
+migration contract is approved and implementation-ready (2026-07-16). A framework-neutral
 `object-compatibility-v1` record now proves the exact legacy mapping from
 `object_big`, `training_patch_weighting`, `pad_object`, and `probe_big` into
 separate patch/object layout, training-canvas, and training-assembly identities.
@@ -615,21 +616,114 @@ requirements, scan identity, and diagnostic input-channel selection now consume
 the same record; their focused gate passed (71 tests). The canonical public
 model adapter retains the established Torch-only `central_mask` default when no
 Torch structural payload is available. Public dataclasses/defaults, artifact
-schema/legacy decoding, and protected cross-backend code remain pending later
-bounded migrations. A complete 7D retirement cannot start by inference: the
-current external Ptychodus contract still requires `object_big` and its
-`object.big` projection, while the roadmap does not name the replacement public
-fields or their alias/deprecation rules. That atomic contract decision must
-precede any protected TensorFlow-model or public-artifact migration.
+schema/legacy decoding, and protected cross-backend code remain the bounded 7D
+migration. The public replacement fields, compatibility behavior, artifact
+rules, and protected-file scope are fixed below; implementation no longer needs
+to infer or invent those semantics.
 
 **Outcome:** Compatibility switches and obsolete forks are retired through
 evidence-based migrations rather than repository-search assumptions.
 
 **Work:**
 
-- **7A-7C mapping plus active Torch model/forward/loader adoption complete; artifact/public migration pending:** Replace `object_big` with separate versioned axes for output/object layout,
-  merge strategy, and support/canvas geometry. This depends on Slices 3 and 5 and
-  must preserve checkpoint interpretation explicitly.
+- **7A-7C complete:** The versioned internal mapping and active Torch
+  model/forward/loader adoption separate output layout, training canvas, and
+  training assembly while preserving the legacy public and artifact surface.
+- **7D — public object-policy migration (authorized, pending implementation):**
+  expose these canonical `ModelConfig` fields:
+  - `object_layout: Literal["single_patch", "grouped_patches"]`;
+  - `training_canvas: Literal["independent", "relative_overlap"]`;
+  - `training_patch_weighting: Literal["central_mask", "uniform", "probe"]`.
+
+  Public enum values are intentionally unversioned. The closed adapter
+  normalizes them into the already versioned internal
+  `object-compatibility-v1` identity:
+
+  | Public object policy | Internal v1 interpretation |
+  |---|---|
+  | `object_layout="single_patch"`, `training_canvas="independent"` | `single_patch_components_v1`, `independent_patch_v1`, pass-through training assembly; the configured weighting round-trips but is inactive |
+  | `object_layout="grouped_patches"`, `training_canvas="relative_overlap"` | `grouped_patch_components_v1`, `relative_overlap_canvas_v1`, with `central_mask`, `uniform`, or `probe` selecting the existing overlap assembly |
+
+  Other layout/canvas pairs are unsupported in v1 and fail before model
+  construction. `pad_object` and `probe_big` remain independent public fields;
+  7D does not rename or reinterpret them.
+
+  Backend capability is explicit. Torch supports all three
+  `training_patch_weighting` values. TensorFlow accepts `central_mask` as the
+  public compatibility spelling for its established fixed training assembly;
+  `uniform` and `probe` fail during backend/config validation before TensorFlow
+  model construction. 7D does not authorize implementing new TensorFlow
+  weighting kernels in `ptycho/tf_helper.py`.
+
+  `object_big` and its legacy `object.big` projection become deprecated
+  compatibility aliases, not semantic owners:
+
+  1. Legacy-only input maps exactly through the established compatibility table.
+     The existing default behavior remains grouped patches, relative-overlap
+     canvas, and central-mask training assembly.
+  2. New-only input derives the legacy boolean projection required by declared
+     legacy consumers.
+  3. Dual old/new input is accepted only when the resolved identities agree;
+     contradictions fail before bridge mutation, model construction, or state
+     loading.
+  4. Input parsing and direct construction must preserve an unset state for
+     `object_big`, `object_layout`, `training_canvas`, and
+     `training_patch_weighting` until one resolver runs. If layout and canvas are
+     both unset, derive them from an explicit legacy alias or the established
+     grouped-patch default. Supplying exactly one of layout/canvas is an error.
+     An omitted weighting resolves to `central_mask`. After resolution, public
+     readback is fully materialized and `object_big` returns the derived Boolean
+     projection of `object_layout`; a dataclass default must not hide a
+     contradictory explicit old/new pair.
+  5. New code and documentation use the three public fields. The deprecated
+     alias may be physically removed only in a later declared major public/config
+     schema after Ptychodus consumers have migrated.
+
+  Torch artifact handling is equally fail-closed:
+
+  - every existing checkpoint, sidecar, and bundle era continues to decode its
+    persisted legacy fields through the exact v1 compatibility mapping;
+  - new Torch artifacts use `torch-model-spec-v2` inside
+    `torch-artifact-v2`. The v2 model payload removes `object_big` from its
+    authoritative structural field set and stores `object_layout`,
+    `training_canvas`, and `training_patch_weighting`; `pad_object` and
+    `probe_big` remain unchanged;
+  - the `wts.h5.zip` container version remains `2.0-pytorch` and retains the
+    existing two logical roles. Its `artifact_schema_version` selects
+    `torch-artifact-v2`;
+  - v2 checkpoints/bundles may retain a derived `object_big`/`object.big` only in
+    explicitly labeled compatibility config or flat-params sections. It is not a
+    second structural owner, and loaders validate it against the v2 model
+    identity when both are present;
+  - `torch-model-spec-v1` and `torch-artifact-v1` remain immutable. Their
+    decoders use frozen v1 field lists rather than the current dataclass field
+    set and deterministically upgrade legacy `object_big` plus the existing
+    weighting/padding/probe fields into the v2 in-memory identity;
+  - unsupported schemas or contradictory dual representations fail before
+    returning a model.
+
+  This artifact migration is Torch-only. TensorFlow bundle version `1.0` and its
+  flat parameter format remain unchanged and continue to persist the derived
+  `object.big` compatibility projection. TensorFlow configuration is resolved
+  through the new public fields before that projection is written or consumed.
+
+  The supported compatibility directions are:
+
+  - existing Ptychodus caller source that supplies `object_big` continues to
+    work against the new library, with deprecation signaling;
+  - new loaders continue to read every declared old TensorFlow and Torch
+    artifact era;
+  - legacy modules running inside the new library continue to receive the
+    derived flat `object.big` value;
+  - old installed PtychoPINN binaries are not promised forward compatibility
+    with new `torch-artifact-v2` files.
+
+  The migration must update `specs/ptychodus_api_spec.md`, canonical and Torch
+  configuration/bridge surfaces, artifact decoding, and affected consumers
+  atomically. This item explicitly authorizes the minimum changes in the
+  otherwise protected `ptycho/model.py` required to consume the resolved object
+  policy. It does not authorize unrelated TensorFlow physics changes or changes
+  to `ptycho/diffsim.py` or `ptycho/tf_helper.py`.
 - Retire `ptycho_torch.api` only after the external Ptychodus API contract,
   supported replacement surface, consumers, tests, and migration guidance change
   atomically.
@@ -641,7 +735,18 @@ evidence-based migrations rather than repository-search assumptions.
   generic scientific study framework in the Torch model package.
 
 **Gate:** Each cleanup or compatibility migration has its own affected-contract
-evidence. No global cleanup quota or residual sweep is a roadmap completion gate.
+evidence. For 7D, focused falsifiers must cover legacy-only, new-only, coherent
+dual, conflicting dual, partial layout/canvas, and defaulted public inputs;
+derived `object_big` readback and exact `object.big` bridge projection; both
+supported layout/canvas pairs in TensorFlow and Torch construction; TensorFlow
+acceptance of `central_mask` and rejection of `uniform`/`probe`; frozen v1
+Torch decoding into v2, v2 checkpoint and bundle round trips, unchanged
+`2.0-pytorch` bundle roles, existing TensorFlow artifact reload, and
+fail-before-construction behavior for unsupported or contradictory identity.
+The external Ptychodus specification and public migration guidance change in
+the same commit cluster as the public dataclass behavior. This bounded 7D
+migration does not independently require another repository-wide suite. No
+global cleanup quota or residual sweep is a roadmap completion gate.
 
 ## 6. Dependency and concurrency model
 
