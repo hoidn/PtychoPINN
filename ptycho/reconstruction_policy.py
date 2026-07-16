@@ -19,6 +19,12 @@ FinalCrop: TypeAlias = Literal["none"]
 GaugePresentation: TypeAlias = Literal["preserve_calibrated_canvas"]
 DiagnosticsMode: TypeAlias = Literal["none"]
 CompatibilityRoute: TypeAlias = Literal["uniform", "barycentric"]
+TrainingAssemblyMode: TypeAlias = Literal[
+    "pass_through_v1",
+    "central_mask_overlap_v1",
+    "weighted_overlap_v1",
+]
+TrainingPatchWeighting: TypeAlias = Literal["central_mask", "uniform", "probe"]
 
 RECONSTRUCTION_POLICY_VERSION = "reconstruction_policy_v1"
 
@@ -26,6 +32,67 @@ _ASSEMBLY_ALGORITHMS = {"legacy_position_v1", "barycentric_v1"}
 _PATCH_WEIGHTINGS = {"uniform", "probe"}
 _ASSEMBLY_WINDOWS = {"legacy_stitch_crop", "middle_trim"}
 _CALIBRATION_METHODS = {"identity_v1", "varpro_s1s2_v1"}
+_TRAINING_ASSEMBLY_MODES = {
+    "pass_through_v1",
+    "central_mask_overlap_v1",
+    "weighted_overlap_v1",
+}
+_TRAINING_PATCH_WEIGHTINGS = {"central_mask", "uniform", "probe"}
+
+
+@dataclass(frozen=True)
+class TrainingAssemblySpec:
+    """Differentiable training-forward merge, separate from inference policy."""
+
+    mode: TrainingAssemblyMode
+    configured_weighting: TrainingPatchWeighting
+
+    def __post_init__(self) -> None:
+        if self.mode not in _TRAINING_ASSEMBLY_MODES:
+            raise ValueError(f"Unsupported training assembly mode: {self.mode!r}")
+        if self.configured_weighting not in _TRAINING_PATCH_WEIGHTINGS:
+            raise ValueError(
+                "Unsupported training_patch_weighting: "
+                f"{self.configured_weighting!r}"
+            )
+        if (
+            self.mode == "central_mask_overlap_v1"
+            and self.configured_weighting != "central_mask"
+        ):
+            raise ValueError(
+                "central_mask_overlap_v1 requires "
+                "configured_weighting='central_mask'"
+            )
+        if (
+            self.mode == "weighted_overlap_v1"
+            and self.configured_weighting == "central_mask"
+        ):
+            raise ValueError(
+                "weighted_overlap_v1 requires uniform or probe weighting"
+            )
+
+
+def resolve_training_assembly_spec(
+    object_big: bool,
+    training_patch_weighting: str,
+) -> TrainingAssemblySpec:
+    """Seal the existing structural training merge choices once at construction."""
+
+    if training_patch_weighting not in _TRAINING_PATCH_WEIGHTINGS:
+        raise ValueError(
+            "training_patch_weighting must be 'central_mask', 'uniform', or "
+            f"'probe', got {training_patch_weighting!r}"
+        )
+    if not bool(object_big):
+        mode: TrainingAssemblyMode = "pass_through_v1"
+    elif training_patch_weighting == "central_mask":
+        mode = "central_mask_overlap_v1"
+    else:
+        mode = "weighted_overlap_v1"
+    return TrainingAssemblySpec(
+        mode=mode,
+        configured_weighting=training_patch_weighting,
+    )
 
 
 @dataclass(frozen=True)

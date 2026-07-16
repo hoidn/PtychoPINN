@@ -492,6 +492,21 @@ framework-free import, four-route mapping, invalid-composition, frozen-record,
 scale-identity independence, wrapper delegation, and existing route falsifiers
 passed (18 tests).
 
+**5B — Differentiable training assembly port**
+
+**Status:** Complete (2026-07-15). `ForwardModel` now resolves a frozen
+`TrainingAssemblySpec` once from the structural `object_big` and
+`training_patch_weighting` fields, then delegates its overlap merge through one
+internal differentiable assembly method. Pass-through, central-mask overlap,
+uniform overlap, and probe-weighted overlap retain their existing helpers and
+numerics. The training specification contains no inference window, VarPro,
+final-crop, scale-profile, or output-presentation axis, so inference policy
+cannot alter the gradient path implicitly; later mutation of the source config
+also cannot change the sealed merge selection. Focused training-weighting,
+object-big geometry, rectangular-forward, policy mapping, and mutation
+falsifiers passed (57 tests, with the pre-existing parity xfail/xpass set
+unchanged).
+
 **Work:**
 
 1. Inventory current training-forward, TF reference, uniform inference,

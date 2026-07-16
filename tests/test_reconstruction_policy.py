@@ -196,3 +196,39 @@ def test_policy_records_are_frozen():
         policy.calibration.method = "identity_v1"
     with pytest.raises(FrozenInstanceError):
         policy.output.final_crop = "none"
+
+
+@pytest.mark.parametrize(
+    ("object_big", "weighting", "mode"),
+    [
+        (False, "central_mask", "pass_through_v1"),
+        (False, "probe", "pass_through_v1"),
+        (True, "central_mask", "central_mask_overlap_v1"),
+        (True, "uniform", "weighted_overlap_v1"),
+        (True, "probe", "weighted_overlap_v1"),
+    ],
+)
+def test_training_assembly_mapping(object_big, weighting, mode):
+    from ptycho.reconstruction_policy import resolve_training_assembly_spec
+
+    spec = resolve_training_assembly_spec(object_big, weighting)
+
+    assert spec.mode == mode
+    assert spec.configured_weighting == weighting
+
+
+def test_training_assembly_rejects_unknown_weighting():
+    from ptycho.reconstruction_policy import resolve_training_assembly_spec
+
+    with pytest.raises(ValueError, match="training_patch_weighting"):
+        resolve_training_assembly_spec(True, "barycentric")
+
+
+def test_training_assembly_identity_has_no_inference_axes():
+    from ptycho.reconstruction_policy import TrainingAssemblySpec
+
+    field_names = {field.name for field in fields(TrainingAssemblySpec)}
+    assert field_names == {"mode", "configured_weighting"}
+    assert "varpro_scaling" not in field_names
+    assert "middle_trim" not in field_names
+    assert "final_crop" not in field_names
