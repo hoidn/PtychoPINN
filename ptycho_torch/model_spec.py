@@ -14,11 +14,19 @@ from typing import Any, Mapping
 
 import torch
 
-from ptycho.config.config import ModelConfig as CanonicalModelConfig
+from ptycho.config.config import (
+    ModelConfig as CanonicalModelConfig,
+    resolve_model_object_policy,
+)
 from ptycho_torch.config_params import DataConfig, ModelConfig
+from ptycho_torch.object_compatibility import (
+    resolve_model_object_compatibility,
+    resolve_torch_model_object_policy,
+)
 
 
-CURRENT_MODEL_SPEC_VERSION = "torch-model-spec-portable-v1"
+MODEL_SPEC_V1_VERSION = "torch-model-spec-portable-v1"
+CURRENT_MODEL_SPEC_VERSION = "torch-model-spec-portable-v2"
 
 # Frozen field order for the family-free Torch model schema carried by main.
 # This is deliberately not derived from ``fields(ModelConfig)``: adding or
@@ -84,10 +92,75 @@ PORTABLE_V1_MODEL_FIELDS = (
     "phase_loss_coeff",
 )
 
+PORTABLE_V2_MODEL_FIELDS = (
+    "mode",
+    "architecture",
+    "fno_modes",
+    "fno_width",
+    "fno_blocks",
+    "fno_cnn_blocks",
+    "learned_input_channels",
+    "fno_input_transform",
+    "max_hidden_channels",
+    "resnet_width",
+    "spectral_bottleneck_blocks",
+    "spectral_bottleneck_modes",
+    "spectral_bottleneck_share_weights",
+    "spectral_bottleneck_gate_init",
+    "spectral_bottleneck_gate_mode",
+    "generator_output_mode",
+    "cnn_output_mode",
+    "use_shared_decoder",
+    "intensity_scale_trainable",
+    "intensity_scale",
+    "max_position_jitter",
+    "num_datasets",
+    "C_model",
+    "n_filters_scale",
+    "amp_activation",
+    "batch_norm",
+    "probe_mask",
+    "probe_mask_tensor",
+    "probe_mask_sigma",
+    "probe_mask_diameter",
+    "edge_pad",
+    "decoder_last_c_outer_fraction",
+    "decoder_last_amp_channels",
+    "use_legacy_decoder_channel_override",
+    "eca_encoder",
+    "cbam_encoder",
+    "cbam_bottleneck",
+    "cbam_decoder",
+    "eca_decoder",
+    "spatial_decoder",
+    "decoder_spatial_kernel",
+    "object_layout",
+    "training_canvas",
+    "probe_big",
+    "offset",
+    "C_forward",
+    "training_patch_weighting",
+    "physics_forward_mode",
+    "rect_s1s2_trainable",
+    "rect_s1s2_init",
+    "amplitude_physics_gain",
+    "pad_object",
+    "gaussian_smoothing_sigma",
+    "loss_function",
+    "amp_loss",
+    "phase_loss",
+    "amp_loss_coeff",
+    "phase_loss_coeff",
+)
+
+MODEL_SPEC_V1_MODEL_FIELDS = PORTABLE_V1_MODEL_FIELDS
+MODEL_SPEC_V2_MODEL_FIELDS = PORTABLE_V2_MODEL_FIELDS
+
 _RUNTIME_MODEL_FIELDS = tuple(item.name for item in fields(ModelConfig))
-if len(PORTABLE_V1_MODEL_FIELDS) != len(set(PORTABLE_V1_MODEL_FIELDS)):
-    raise RuntimeError("portable ModelSpec field declaration contains duplicates")
-if set(_RUNTIME_MODEL_FIELDS) != set(PORTABLE_V1_MODEL_FIELDS):
+for _schema_fields in (PORTABLE_V1_MODEL_FIELDS, PORTABLE_V2_MODEL_FIELDS):
+    if len(_schema_fields) != len(set(_schema_fields)):
+        raise RuntimeError("portable ModelSpec field declaration contains duplicates")
+if set(_RUNTIME_MODEL_FIELDS) != set(PORTABLE_V2_MODEL_FIELDS) | {"object_big"}:
     raise RuntimeError(
         "Torch ModelConfig fields changed without a ModelSpec schema revision: "
         f"runtime={_RUNTIME_MODEL_FIELDS!r}"
@@ -113,15 +186,18 @@ _CANONICAL_TO_TORCH = {
     "probe_mask": "probe_mask",
     "probe_mask_sigma": "probe_mask_sigma",
     "probe_mask_diameter": "probe_mask_diameter",
-    "object_big": "object_big",
+    "object_layout": "object_layout",
+    "training_canvas": "training_canvas",
+    "training_patch_weighting": "training_patch_weighting",
     "probe_big": "probe_big",
     "pad_object": "pad_object",
     "gaussian_smoothing_sigma": "gaussian_smoothing_sigma",
 }
 
 CANONICAL_MODEL_FIELDS = frozenset(_CANONICAL_TO_TORCH)
+TORCH_COMPATIBILITY_ALIAS_FIELDS = frozenset({"object_big"})
 TORCH_EXTENSION_FIELDS = frozenset(
-    PORTABLE_V1_MODEL_FIELDS
+    PORTABLE_V2_MODEL_FIELDS
 ) - CANONICAL_MODEL_FIELDS
 
 _PARITY_SCALE_MODES = frozenset({"off", "tied", "input", "output", "fixed"})
@@ -177,7 +253,7 @@ class ModelSpec:
                 f"unsupported current ModelSpec schema {self.schema_version!r}; "
                 f"expected {CURRENT_MODEL_SPEC_VERSION!r}"
             )
-        expected = set(PORTABLE_V1_MODEL_FIELDS)
+        expected = set(PORTABLE_V2_MODEL_FIELDS)
         received = set(self._model_fields)
         if received != expected:
             missing = sorted(expected - received)
@@ -186,6 +262,15 @@ class ModelSpec:
                 f"ModelSpec fields must exactly match ModelConfig; missing={missing}, "
                 f"unknown={extra}"
             )
+        resolve_torch_model_object_policy(
+            ModelConfig(
+                object_big=None,
+                **{
+                    name: _copy_value(value)
+                    for name, value in self._model_fields.items()
+                },
+            )
+        )
         if self.parity_scale_mode not in _PARITY_SCALE_MODES:
             raise ValueError(f"invalid parity_scale_mode={self.parity_scale_mode!r}")
         if self.parity_init_scheme not in _PARITY_INIT_SCHEMES:
@@ -202,10 +287,20 @@ class ModelSpec:
     def architecture(self) -> str:
         return str(self._model_fields["architecture"])
 
+    @property
+    def object_compatibility(self):
+        """Return the versioned interpretation of the authoritative object axes."""
+        return resolve_model_object_compatibility(self.to_model_config())
+
     def to_model_config(self) -> ModelConfig:
-        return ModelConfig(
-            **{name: _copy_value(value) for name, value in self._model_fields.items()}
+        raw = ModelConfig(
+            object_big=None,
+            **{
+                name: _copy_value(value)
+                for name, value in self._model_fields.items()
+            },
         )
+        return resolve_torch_model_object_policy(raw)
 
     def to_payload(self) -> dict[str, Any]:
         return {
@@ -235,9 +330,45 @@ class ModelSpec:
                 "ModelSpec payload keys are not current-schema exact; "
                 f"missing={sorted(expected - received)}, unknown={sorted(received - expected)}"
             )
+        schema_version = payload["schema_version"]
+        model_fields = payload["model_config"]
+        if not isinstance(model_fields, Mapping):
+            raise ValueError("ModelSpec model_config must be a mapping")
+        if schema_version == MODEL_SPEC_V1_VERSION:
+            expected_v1 = set(PORTABLE_V1_MODEL_FIELDS)
+            received_v1 = set(model_fields)
+            if received_v1 != expected_v1:
+                raise ValueError(
+                    "torch-model-spec-portable-v1 model fields are not exact; "
+                    f"missing={sorted(expected_v1 - received_v1)}, "
+                    f"unknown={sorted(received_v1 - expected_v1)}"
+                )
+            legacy_big = model_fields["object_big"]
+            if type(legacy_big) is not bool:
+                raise ValueError(
+                    "torch-model-spec-portable-v1 object_big must be bool"
+                )
+            values = {
+                name: _copy_value(value)
+                for name, value in model_fields.items()
+                if name != "object_big"
+            }
+            if legacy_big:
+                values["object_layout"] = "grouped_patches"
+                values["training_canvas"] = "relative_overlap"
+            else:
+                values["object_layout"] = "single_patch"
+                values["training_canvas"] = "independent"
+        elif schema_version == CURRENT_MODEL_SPEC_VERSION:
+            values = dict(model_fields)
+        else:
+            raise ValueError(
+                f"unsupported ModelSpec schema {schema_version!r}; expected "
+                f"{MODEL_SPEC_V1_VERSION!r} or {CURRENT_MODEL_SPEC_VERSION!r}"
+            )
         return cls(
-            schema_version=payload["schema_version"],
-            _model_fields=payload["model_config"],
+            schema_version=CURRENT_MODEL_SPEC_VERSION,
+            _model_fields=values,
             parity_scale_mode=payload["parity_scale_mode"],
             parity_fixed_delta=float(payload["parity_fixed_delta"]),
             parity_init_scheme=payload["parity_init_scheme"],
@@ -260,6 +391,13 @@ def derive_model_spec(
         raise TypeError("torch_model must be ptycho_torch.config_params.ModelConfig")
     if not isinstance(data_config, DataConfig):
         raise TypeError("data_config must be ptycho_torch.config_params.DataConfig")
+
+    canonical_model = resolve_model_object_policy(
+        canonical_model,
+        backend="torch",
+        warn_deprecated=False,
+    )
+    torch_model = resolve_torch_model_object_policy(torch_model)
 
     for torch_name, canonical_name in _CANONICAL_TO_TORCH.items():
         expected = _canonical_expected_value(torch_name, canonical_model, torch_model)
@@ -304,7 +442,7 @@ def derive_model_spec(
 
     values = {
         name: _copy_value(getattr(torch_model, name))
-        for name in PORTABLE_V1_MODEL_FIELDS
+        for name in PORTABLE_V2_MODEL_FIELDS
     }
     return ModelSpec(
         schema_version=CURRENT_MODEL_SPEC_VERSION,

@@ -82,6 +82,7 @@ from ptycho_torch.scaling_contract import (
     resolve_scale_contract,
     validate_scale_contract,
 )
+from ptycho_torch.object_compatibility import resolve_model_object_compatibility
 
 # PyTorch imports (now mandatory per Phase F3.1/F3.2)
 try:
@@ -208,13 +209,17 @@ def _read_bundle_scaling_metadata(archive_path: Path):
 
 def _decode_bundle_metadata(metadata):
     from ptycho_torch.artifact_schema import (
+        ARTIFACT_SCHEMA_V1_VERSION,
         CURRENT_ARTIFACT_SCHEMA_VERSION,
         decode_artifact_identity,
         upgrade_unversioned_sections,
     )
 
     schema = metadata.get("schema_version") if isinstance(metadata, dict) else None
-    if schema == CURRENT_ARTIFACT_SCHEMA_VERSION:
+    if schema in {
+        ARTIFACT_SCHEMA_V1_VERSION,
+        CURRENT_ARTIFACT_SCHEMA_VERSION,
+    }:
         return decode_artifact_identity(metadata)
     if schema == "ci-entrypoints-v1":
         return upgrade_unversioned_sections(
@@ -861,6 +866,11 @@ def _build_lightning_dataloaders(
         def __init__(self, container, model_config=None, ci_active=False):
             self.container = container
             self.model_config = model_config
+            self.object_compatibility = (
+                resolve_model_object_compatibility(model_config)
+                if model_config is not None
+                else None
+            )
             self.ci_active = ci_active
             # Extract all tensors at init
             self.images = _get_tensor(container, 'X')
@@ -869,10 +879,15 @@ def _build_lightning_dataloaders(
             # Try 'coords_relative' first, fallback to 'coords_nominal' for container compatibility
             self.coords_relative = _get_tensor(container, 'coords_relative')
             if self.coords_relative is None:
-                if self.model_config is not None and getattr(self.model_config, "object_big", False):
+                if (
+                    self.object_compatibility is not None
+                    and self.object_compatibility.layout
+                    == "grouped_patch_components_v1"
+                ):
                     raise ValueError(
-                        "coords_relative is required when object_big=True. "
-                        "Provide TF-style relative offsets or set object_big=False."
+                        "coords_relative is required for grouped patch components "
+                        "(legacy object_big=True). Provide TF-style relative "
+                        "offsets or select single patch components."
                     )
                 if isinstance(container, dict) and self.images is not None:
                     self.coords_relative = torch.zeros(
@@ -1437,6 +1452,12 @@ def _train_with_lightning(
     # Note: Factory expects model_type in PyTorch naming ('Unsupervised'/'Supervised')
     #       but TrainingConfig uses TensorFlow naming ('pinn'/'supervised')
     mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
+    from ptycho.config.config import resolve_model_object_policy
+    resolved_public_model = resolve_model_object_policy(
+        config.model,
+        backend="torch",
+        warn_deprecated=False,
+    )
     factory_overrides = {
         'n_groups': config.n_groups,  # Required by factory validation
         'gridsize': config.model.gridsize,
@@ -1444,12 +1465,16 @@ def _train_with_lightning(
         'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
         'amp_activation': config.model.amp_activation,
         'n_filters_scale': config.model.n_filters_scale,
-        'object_big': config.model.object_big,
-        'probe_big': config.model.probe_big,
+        'object_layout': resolved_public_model.object_layout,
+        'training_canvas': resolved_public_model.training_canvas,
+        'training_patch_weighting': (
+            resolved_public_model.training_patch_weighting
+        ),
+        'probe_big': resolved_public_model.probe_big,
         'probe_mask': config.model.probe_mask,
         'probe_mask_sigma': getattr(config.model, 'probe_mask_sigma', 1.0),
         'probe_mask_diameter': getattr(config.model, 'probe_mask_diameter', None),
-        'pad_object': config.model.pad_object,
+        'pad_object': resolved_public_model.pad_object,
         'nphotons': config.nphotons,
         'neighbor_count': config.neighbor_count,
         'max_epochs': config.nepochs,
@@ -2191,6 +2216,7 @@ def load_inference_bundle_torch(
         "measurement_domain": measurement_domain,
     })
     from ptycho_torch.artifact_schema import (
+        ARTIFACT_SCHEMA_V1_VERSION,
         CURRENT_ARTIFACT_SCHEMA_VERSION,
         validate_torch_bundle_manifest,
     )
@@ -2233,11 +2259,15 @@ def load_inference_bundle_torch(
     else:
         metadata_schema = metadata.get("schema_version")
         if (
-            manifest_era == CURRENT_ARTIFACT_SCHEMA_VERSION
-            and metadata_schema != CURRENT_ARTIFACT_SCHEMA_VERSION
+            manifest_era in {
+                ARTIFACT_SCHEMA_V1_VERSION,
+                CURRENT_ARTIFACT_SCHEMA_VERSION,
+            }
+            and metadata_schema != manifest_era
         ):
             raise ValueError(
-                "wts.h5.zip root manifest declares current schema but metadata "
+                "wts.h5.zip root manifest and metadata schemas disagree: "
+                f"manifest={manifest_era!r}, "
                 f"declares {metadata_schema!r}"
             )
         if (

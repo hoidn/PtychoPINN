@@ -1065,7 +1065,13 @@ class TestVarProProbeWeightingKnobOverrides:
         assert payload.pt_model_config.use_shared_decoder is True
 
     def test_training_patch_weighting_override_survives_training_payload(self, mock_train_npz, temp_output_dir):
-        assert PTModelConfig().training_patch_weighting == 'central_mask'  # documents the default
+        from ptycho_torch.object_compatibility import resolve_torch_model_object_policy
+
+        assert PTModelConfig().training_patch_weighting is None
+        assert (
+            resolve_torch_model_object_policy(PTModelConfig()).training_patch_weighting
+            == 'central_mask'
+        )
         payload = create_training_payload(
             train_data_file=mock_train_npz,
             output_dir=temp_output_dir,
@@ -1191,7 +1197,9 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
             )
 
         pt_model_config = captured["pt_model_config"]
-        defaults = PTModelConfig()
+        from ptycho_torch.object_compatibility import resolve_torch_model_object_policy
+
+        defaults = resolve_torch_model_object_policy(PTModelConfig())
         assert pt_model_config.training_patch_weighting == defaults.training_patch_weighting
         assert pt_model_config.physics_forward_mode == defaults.physics_forward_mode
         assert pt_model_config.cnn_output_mode == defaults.cnn_output_mode

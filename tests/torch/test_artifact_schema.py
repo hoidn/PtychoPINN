@@ -135,9 +135,9 @@ def test_bundle_manifest_is_checked_before_construction():
     current = {
         **valid,
         "backend": "pytorch",
-        "artifact_schema_version": "torch-artifact-portable-v1",
+        "artifact_schema_version": "torch-artifact-portable-v2",
     }
-    assert validate_torch_bundle_manifest(current) == "torch-artifact-portable-v1"
+    assert validate_torch_bundle_manifest(current) == "torch-artifact-portable-v2"
 
     with pytest.raises(ValueError, match=r"backend.*tensorflow"):
         validate_torch_bundle_manifest({**current, "backend": "tensorflow"})
@@ -174,7 +174,7 @@ def test_current_application_checkpoint_dual_writes_identity_and_reloads(tmp_pat
         "schema_version": CURRENT_ARTIFACT_SCHEMA_VERSION,
     }
     assert checkpoint["hyper_parameters"]["model_spec"]["schema_version"] == (
-        "torch-model-spec-portable-v1"
+        "torch-model-spec-portable-v2"
     )
 
     loaded = PtychoPINN_Lightning.load_from_checkpoint(

@@ -82,8 +82,13 @@ import logging
 import matplotlib.pyplot as plt
 from typing import Union, Optional, Dict, Any, Tuple, Literal, get_origin, get_args
 from pathlib import Path
-from ptycho.config.config import TrainingConfig, ModelConfig, dataclass_to_legacy_dict
-from dataclasses import fields
+from ptycho.config.config import (
+    TrainingConfig,
+    ModelConfig,
+    dataclass_to_legacy_dict,
+    resolve_model_object_policy,
+)
+from dataclasses import fields, replace
 from ptycho import loader, probe
 from typing import Union, Optional, Tuple, Dict, Any
 from ptycho.raw_data import RawData
@@ -106,6 +111,18 @@ logger = logging.getLogger(__name__)
 
 from dataclasses import fields
 from ptycho.config.config import ModelConfig, TrainingConfig
+
+
+def _resolve_tensorflow_training_config(config: TrainingConfig) -> TrainingConfig:
+    """Validate and materialize the public policy for TensorFlow entrypoints."""
+    return replace(
+        config,
+        model=resolve_model_object_policy(
+            config.model,
+            backend="tensorflow",
+            warn_deprecated=False,
+        ),
+    )
 
 
 class DiffractionToObjectAdapter(tf.keras.Model):
@@ -657,7 +674,9 @@ def setup_configuration(args: argparse.Namespace, yaml_path: Optional[str]) -> T
         logger.debug(f"CLI arguments: {args_config}")
         logger.debug(f"Merged config: {merged_config}")
         
-        config = TrainingConfig(model=model_config, **training_args)
+        config = _resolve_tensorflow_training_config(
+            TrainingConfig(model=model_config, **training_args)
+        )
         
         # Update the global configuration
         update_legacy_dict(params.cfg, config)
@@ -743,6 +762,8 @@ def train_cdi_model(
     Returns:
         Dict[str, Any]: Results dictionary containing training history.
     """
+    config = _resolve_tensorflow_training_config(config)
+
     from ptycho.loader import PtychoDataset
     from ptycho import train_pinn
     # Convert input data to PtychoDataContainer
@@ -890,6 +911,8 @@ def run_cdi_example(
         - reconstructed phase (or None)
         - results dictionary
     """
+    config = _resolve_tensorflow_training_config(config)
+
     # Update global params with new-style config at entry point
     update_legacy_dict(params.cfg, config)
     

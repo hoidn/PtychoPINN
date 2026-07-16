@@ -13,8 +13,8 @@ import math
 from typing import Any, Dict, Optional
 
 #Helper
-from ptycho.reconstruction_policy import resolve_training_assembly_spec
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
+from ptycho_torch.object_compatibility import resolve_model_object_compatibility
 from ptycho_torch.scaling_contract import (
     CI_SCALE_CONTRACT,
     normalize_ci_poisson_per_sample,
@@ -167,12 +167,15 @@ def _effective_cnn_output_mode(model_config: ModelConfig) -> str:
 
 
 def _semantic_component_channels(model_config: ModelConfig) -> int:
-    return int(model_config.C_model) if model_config.object_big else 1
-
+    compatibility = resolve_model_object_compatibility(model_config)
+    if compatibility.layout == "grouped_patch_components_v1":
+        return int(model_config.C_model)
+    return 1
 
 def _decoder_component_channels(model_config: ModelConfig) -> int:
+    compatibility = resolve_model_object_compatibility(model_config)
     semantic_channels = _semantic_component_channels(model_config)
-    if not model_config.object_big or not getattr(
+    if compatibility.layout == "single_patch_components_v1" or not getattr(
         model_config,
         "use_legacy_decoder_channel_override",
         False,
@@ -467,7 +470,8 @@ class Encoder(nn.Module):
 
         self.N = self.data_config.N
         starting_coeff = 64 / (self.N / 32)
-        self.filters = [model_config.C_model if model_config.object_big else 1]
+        self.object_compatibility = resolve_model_object_compatibility(model_config)
+        self.filters = [_semantic_component_channels(model_config)]
 
         #Starting output channels is 64. Last output size will always be n_filters_scale * 128.
         if self.N == 64:
@@ -1364,11 +1368,13 @@ class ForwardModel(nn.Module):
         self.N = self.data_config.N
         self.gridsize = self.data_config.grid_size
         self.offset = self.model_config.offset
-        self.object_big = self.model_config.object_big
-        self.training_assembly_spec = resolve_training_assembly_spec(
-            self.object_big,
-            self.model_config.training_patch_weighting,
+        self.object_compatibility = resolve_model_object_compatibility(
+            self.model_config
         )
+        self.object_big = (
+            self.object_compatibility.layout == "grouped_patch_components_v1"
+        )
+        self.training_assembly_spec = self.object_compatibility.training_assembly
 
         #Patch operations
         #Lambdalayer here doesn't work for lightning module
@@ -1944,6 +1950,10 @@ class PtychoPINN_Lightning(L.LightningModule):
         # (Lightning passes saved hyperparameters as dicts during load_from_checkpoint)
         if model_spec is not None:
             from dataclasses import fields
+            from ptycho_torch.model_spec import (
+                MODEL_SPEC_V1_MODEL_FIELDS,
+                MODEL_SPEC_V1_VERSION,
+            )
 
             for section_name, value, config_type in (
                 ("model_config", model_config, ModelConfig),
@@ -1953,7 +1963,14 @@ class PtychoPINN_Lightning(L.LightningModule):
             ):
                 if not isinstance(value, dict):
                     continue
-                expected = {item.name for item in fields(config_type)}
+                if (
+                    section_name == "model_config"
+                    and isinstance(model_spec, dict)
+                    and model_spec.get("schema_version") == MODEL_SPEC_V1_VERSION
+                ):
+                    expected = set(MODEL_SPEC_V1_MODEL_FIELDS)
+                else:
+                    expected = {item.name for item in fields(config_type)}
                 received = set(value)
                 if received != expected:
                     raise ValueError(
@@ -1969,6 +1986,10 @@ class PtychoPINN_Lightning(L.LightningModule):
             training_config = TrainingConfig(**training_config)
         if isinstance(inference_config, dict):
             inference_config = InferenceConfig(**inference_config)
+        from ptycho_torch.object_compatibility import (
+            resolve_torch_model_object_policy,
+        )
+        model_config = resolve_torch_model_object_policy(model_config)
 
         decoded_model_spec = None
         if model_spec is not None:
@@ -1981,6 +2002,7 @@ class PtychoPINN_Lightning(L.LightningModule):
                 else ModelSpec.from_payload(model_spec)
             )
             sealed_model_config = decoded_model_spec.to_model_config()
+            model_config = resolve_torch_model_object_policy(model_config)
             mismatches = []
             for item in fields(ModelConfig):
                 supplied = getattr(model_config, item.name)

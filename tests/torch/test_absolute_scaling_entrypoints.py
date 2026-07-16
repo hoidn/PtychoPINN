@@ -335,10 +335,10 @@ def test_ci_bundle_recovers_profile_configs_and_frozen_statistics(tmp_path):
             weights_only=False,
         )
     assert manifest["backend"] == "pytorch"
-    assert manifest["artifact_schema_version"] == "torch-artifact-portable-v1"
-    assert persisted_identity["schema_version"] == "torch-artifact-portable-v1"
+    assert manifest["artifact_schema_version"] == "torch-artifact-portable-v2"
+    assert persisted_identity["schema_version"] == "torch-artifact-portable-v2"
     assert persisted_identity["model_spec"]["schema_version"] == (
-        "torch-model-spec-portable-v1"
+        "torch-model-spec-portable-v2"
     )
 
     models, params = components.load_inference_bundle_torch(tmp_path / "bundle")

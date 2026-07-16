@@ -64,7 +64,7 @@ State Dependencies:
 """
 
 from collections.abc import Mapping
-from dataclasses import dataclass, asdict, field, fields
+from dataclasses import dataclass, asdict, field, fields, replace
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Literal, Union
 import json
@@ -88,6 +88,7 @@ __all__ = [
     'ScanSimulationConfig',
     'DetectorSimulationConfig',
     'SimulationConfig',
+    'resolve_model_object_policy',
     # Core compatibility bridge
     'update_legacy_dict',
     # Validation functions
@@ -525,7 +526,12 @@ class ModelConfig:
     fno_input_transform: Literal['none', 'sqrt', 'log1p', 'instancenorm'] = 'none'
     generator_output_mode: Literal['real_imag', 'amp_phase_logits', 'amp_phase'] = 'real_imag'
     amp_activation: Literal['sigmoid', 'swish', 'softplus', 'relu'] = 'sigmoid'
-    object_big: bool = True
+    object_big: Optional[bool] = None
+    object_layout: Optional[Literal['single_patch', 'grouped_patches']] = None
+    training_canvas: Optional[Literal['independent', 'relative_overlap']] = None
+    training_patch_weighting: Optional[
+        Literal['central_mask', 'uniform', 'probe']
+    ] = None
     probe_big: bool = True  # Changed default
     probe_mask: bool = False  # Changed default
     probe_mask_sigma: float = 1.0
@@ -533,6 +539,36 @@ class ModelConfig:
     pad_object: bool = True
     probe_scale: float = 4.
     gaussian_smoothing_sigma: float = 0.0
+
+
+def resolve_model_object_policy(
+    config: ModelConfig,
+    *,
+    backend: Optional[Literal['tensorflow', 'torch']] = None,
+    warn_deprecated: bool = True,
+) -> ModelConfig:
+    """Return a fully materialized immutable public object policy."""
+    if not isinstance(config, ModelConfig):
+        raise TypeError("config must be ModelConfig")
+    from ptycho.object_compatibility import resolve_public_object_policy
+
+    policy = resolve_public_object_policy(
+        object_big=config.object_big,
+        object_layout=config.object_layout,
+        training_canvas=config.training_canvas,
+        training_patch_weighting=config.training_patch_weighting,
+        pad_object=config.pad_object,
+        probe_big=config.probe_big,
+        backend=backend,
+        warn_deprecated=warn_deprecated,
+    )
+    return replace(
+        config,
+        object_big=policy.object_big,
+        object_layout=policy.object_layout,
+        training_canvas=policy.training_canvas,
+        training_patch_weighting=policy.training_patch_weighting,
+    )
 
 @dataclass
 class TrainingConfig:
@@ -922,6 +958,7 @@ PyTorchExecutionConfig.__signature__ = _execution_init_signature.replace(
 
 def validate_model_config(config: ModelConfig) -> None:
     """Validate model configuration."""
+    resolve_model_object_policy(config)
     valid_arches = {
         'cnn',
         'ffno',
@@ -1039,6 +1076,11 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
             "beamstop_diameter": obj.detector.beamstop_diameter,
             "npseed": obj.seed,
         }
+
+    if isinstance(obj, ModelConfig):
+        obj = resolve_model_object_policy(obj)
+    elif hasattr(obj, "model") and isinstance(obj.model, ModelConfig):
+        obj = replace(obj, model=resolve_model_object_policy(obj.model))
 
     # Key mappings from dataclass field names to legacy param names
     KEY_MAPPINGS = {

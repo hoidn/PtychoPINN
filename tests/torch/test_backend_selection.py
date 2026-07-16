@@ -238,11 +238,13 @@ class TestBackendSelection:
         )
 
         # Mock torch unavailability by making the import fail in backend_selector
+        real_import = __import__
+
         def mock_import_failure(name, *args, **kwargs):
             if 'ptycho_torch.workflows' in name:
                 raise ImportError(f"No module named '{name}'")
             # Use the real import for everything else
-            return __import__(name, *args, **kwargs)
+            return real_import(name, *args, **kwargs)
 
         with patch('builtins.__import__', side_effect=mock_import_failure):
             try:

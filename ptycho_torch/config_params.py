@@ -136,7 +136,13 @@ class ModelConfig:
     decoder_spatial_kernel: int = 7 #Spatial attention kernel for decoder
 
     #Forward model parameters
-    object_big: bool = True # True if object requires patch reassembly
+    object_big: Optional[bool] = None
+    object_layout: Optional[
+        Literal['single_patch', 'grouped_patches']
+    ] = None
+    training_canvas: Optional[
+        Literal['independent', 'relative_overlap']
+    ] = None
     # Normal object-big CNNs require learned full-patch support. False is an
     # explicit historical/diagnostic zero-border opt-out.
     probe_big: bool = True
@@ -147,7 +153,9 @@ class ModelConfig:
     # reassemble_patches_position_real); 'probe' = |Probe|^2-weighted assembly;
     # 'uniform' = binary center mask via the merged probe helper
     # (reassemble_patches_position_real_probe, use_probe_weights=False).
-    training_patch_weighting: Literal['central_mask', 'probe', 'uniform'] = 'central_mask'
+    training_patch_weighting: Optional[
+        Literal['central_mask', 'probe', 'uniform']
+    ] = None
     # B5 (Task 2.6): forward-model physics parameterization. 'amplitude' = the
     # unchanged fno-stable ProbeIllumination -> pad_and_diffract -> inv_scale
     # amplitude chain (default, byte-stable). 'rectangular_scaled' routes the

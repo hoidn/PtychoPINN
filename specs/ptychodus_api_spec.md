@@ -33,7 +33,21 @@ These dataclasses, defined in `config/config.py`, are the primary way to specify
     Dependent fields (`fno_modes`, `fno_width`, `fno_blocks`, `resnet_width`, `generator_output_mode`, …)
     are conditionally enforced by `validate_model_config` for non-`'cnn'` architectures.
   - `amp_activation`: The activation function for the amplitude decoder.
-  - `object_big`, `probe_big`, `pad_object`: Booleans controlling the reconstruction geometry and padding strategy.
+  - `object_layout`: `'single_patch'` or `'grouped_patches'`; owns the
+    reconstructed component layout.
+  - `training_canvas`: `'independent'` or `'relative_overlap'`; must be supplied
+    with `object_layout`. The supported pairs are
+    `single_patch`/`independent` and
+    `grouped_patches`/`relative_overlap`.
+  - `training_patch_weighting`: `'central_mask'`, `'uniform'`, or `'probe'`;
+    selects grouped-patch training assembly. TensorFlow supports
+    `'central_mask'` only, while PyTorch supports all three values.
+  - `object_big`: Deprecated optional compatibility alias. When supplied alone,
+    `False` maps to `single_patch`/`independent` and `True` maps to
+    `grouped_patches`/`relative_overlap`. New callers should use the three
+    canonical fields.
+  - `probe_big`, `pad_object`: Independent booleans controlling probe support
+    and object padding; neither is implied by the object layout.
   - Additional fields consumed by `ptychodus`, including `n_filters_scale`, `probe_mask`, `probe_scale`, and `gaussian_smoothing_sigma` 
     (`ptycho.config.config.ModelConfig`, `ptychodus.model.ptychopinn.reconstructor`). These must be honoured by any
     alternative backend because they drive grouping geometry, probe handling, and image smoothing downstream.
@@ -78,8 +92,14 @@ This is the most critical part of the configuration API. It translates modern da
   - **Mechanism**:
     1.  Converts the dataclass to a standard dictionary.
     2.  If the dataclass contains a nested `model` field, it flattens the structure by merging the `ModelConfig` parameters into the main dictionary.
-    3.  It applies the `KEY_MAPPINGS` dictionary to translate modern, snake_case field names to legacy dot.separated names (e.g., `object_big` -> `object.big`).
-    4.  It automatically converts `pathlib.Path` objects to strings, as the legacy system expects string paths.
+    3.  It resolves the public object policy, rejecting partial, unsupported,
+        or contradictory old/new representations before mutating the legacy
+        dictionary.
+    4.  It applies the `KEY_MAPPINGS` dictionary to translate modern,
+        snake_case field names to legacy dot-separated names. The deprecated
+        `object_big` alias is materialized from `object_layout` and projected as
+        the exact legacy `object.big` Boolean.
+    5.  It automatically converts `pathlib.Path` objects to strings, as the legacy system expects string paths.
 
 - **PyTorch Configuration Adapters (`ptycho_torch.config_bridge`):**
   - **Purpose**: Translate PyTorch singleton configuration objects to TensorFlow dataclass instances, enabling PyTorch workflows to populate `params.cfg` via the standard `update_legacy_dict` function.
@@ -103,10 +123,11 @@ graph TD
     A[External Caller, e.g., ptychodus] --> B{1. Instantiate<br/>TrainingConfig};
     B --> C{2. update_legacy_dict(params.cfg, config)};
     C --> D{3. dataclass_to_legacy_dict(config)};
-    D --> E{4. Apply KEY_MAPPINGS<br/>(e.g., object_big -> object.big)};
-    E --> F{5. Update ptycho.params.cfg};
-    F --> G[Legacy Modules<br/>(e.g., model.py, diffsim.py)];
-    G --> H{6. Access config via<br/>params.get('key')};
+    D --> E{4. Resolve object policy};
+    E --> F{5. Apply KEY_MAPPINGS<br/>(derived object_big -> object.big)};
+    F --> G{6. Update ptycho.params.cfg};
+    G --> H[Legacy Modules<br/>(e.g., model.py, diffsim.py)];
+    H --> I{7. Access config via<br/>params.get('key')};
 
     style C fill:#f9f,stroke:#333,stroke-width:2px
     style F fill:#ccf,stroke:#333,stroke-width:2px
@@ -270,6 +291,21 @@ Archive identification and backend tagging
   PyTorch archives MUST additionally include `backend: 'pytorch'`; TensorFlow MAY omit this field and defaults to `'tensorflow'`.
 - Contents: TensorFlow archives contain Keras/SavedModel payloads and serialized custom objects; PyTorch archives contain Lightning
   `.ckpt` payload(s) and serialized hyperparameters required for state-free reload. The outer archive structure remains identical.
+- PyTorch object-policy identity: newly written PyTorch archives use
+  `artifact_schema_version='torch-artifact-portable-v2'` and a nested
+  `torch-model-spec-portable-v2`. The v2 structural model payload stores
+  `object_layout`, `training_canvas`, and `training_patch_weighting`; it does
+  not treat `object_big` as a second structural owner. The outer archive
+  version remains `2.0-pytorch` and the exact model roles remain
+  `autoencoder` and `diffraction_to_obj`.
+- Compatibility decoding: `torch-artifact-portable-v1` and
+  `torch-model-spec-portable-v1` are
+  immutable historical schemas. New loaders require their frozen exact field
+  sets and deterministically upgrade the persisted `object_big` representation
+  to the v2 in-memory identity before model construction or state loading.
+  TensorFlow archive version `1.0` and its flat derived `object.big` value are
+  unchanged. Old installed binaries are not required to read new v2 PyTorch
+  artifacts.
 - Cross-backend loading: Not required. When unsupported, loaders MUST raise a descriptive error stating the archived backend and
   the active loader backend.
 
@@ -388,10 +424,13 @@ updated in lockstep.
 | `model_type` | `model_type` | training/export workflows | Selects physics-informed vs supervised workflows and annotates saved artifacts. |
 | `architecture` | `architecture` | `resolve_generator`, `to_model_config` | Selects the generator/model architecture (14-value `Literal`, default `'cnn'`); PyTorch-only routing field consumed by `resolve_generator` — TensorFlow backend ignores it. `validate_model_config` conditionally enforces dependent fields (`fno_blocks`, `resnet_width`, …) for non-`'cnn'` architectures. |
 | `amp_activation` | `amp_activation` | model amplitude head | Chooses activation function for the reconstructed amplitude head. |
-| `object_big` | `object.big` | model reconstruction geometry | Toggles whole-object stitching vs centered crop in reconstruction. |
+| `object_layout` | `object_layout` | model construction and Torch structural identity | Canonical component layout: `'single_patch'` or `'grouped_patches'`. |
+| `training_canvas` | `training_canvas` | model construction and Torch structural identity | Canonical canvas policy paired with `object_layout`: `'independent'` or `'relative_overlap'`. |
+| `training_patch_weighting` | `training_patch_weighting` | training-forward assembly | Canonical assembly policy. PyTorch accepts `central_mask`, `uniform`, and `probe`; TensorFlow accepts `central_mask` only. |
+| `object_big` *(deprecated)* | `object.big` | declared legacy consumers | Derived compatibility projection of `object_layout`; contradictory dual input is rejected. |
 | `probe_big` | `probe.big` | model probe branch | Enables large-probe decoding branches for extended field-of-view. |
 | `probe_mask` | `probe.mask` | probe illumination module | Applies optional circular masking inside the learned probe module. |
-| `pad_object` | `pad_object` | model reconstruction geometry | Chooses between padded output and stitch recomposition when `object_big` is false. |
+| `pad_object` | `pad_object` | model reconstruction geometry | Independent padding policy retained across both object layouts. |
 | `probe_scale` | `probe_scale` | `ptycho.probe` | Sets normalization applied to the complex probe guess. |
 | `gaussian_smoothing_sigma` | `gaussian_smoothing_sigma` | `ProbeIllumination` | Controls Gaussian smoothing performed by `ProbeIllumination`. |
 
@@ -439,7 +478,7 @@ The `KEY_MAPPINGS` dictionary in `config/config.py` defines the translation rule
 
 | Modern Dataclass Field        | Legacy `params.cfg` Key     | Description                                                                                              |
 | :---------------------------- | :-------------------------- | :------------------------------------------------------------------------------------------------------- |
-| `object_big`                  | `object.big`                | If `True`, enables a separate real-space reconstruction for each input diffraction image.                |
+| `object_big` *(deprecated)*   | `object.big`                | Derived Boolean compatibility projection: `grouped_patches` → `True`, `single_patch` → `False`.          |
 | `probe_big`                   | `probe.big`                 | If `True`, enables a low-resolution reconstruction of the outer region of the real-space grid.           |
 | `probe_mask`                  | `probe.mask`                | If `True`, applies a circular mask to the probe function.                                                |
 | `probe_trainable`             | `probe.trainable`           | If `True`, optimizes the probe function during training. (Experimental)                                  |
