@@ -82,6 +82,7 @@ from ptycho_torch.scaling_contract import (
     resolve_scale_contract,
     validate_scale_contract,
 )
+from ptycho_torch.object_compatibility import resolve_model_object_compatibility
 
 # PyTorch imports (now mandatory per Phase F3.1/F3.2)
 try:
@@ -861,6 +862,11 @@ def _build_lightning_dataloaders(
         def __init__(self, container, model_config=None, ci_active=False):
             self.container = container
             self.model_config = model_config
+            self.object_compatibility = (
+                resolve_model_object_compatibility(model_config)
+                if model_config is not None
+                else None
+            )
             self.ci_active = ci_active
             # Extract all tensors at init
             self.images = _get_tensor(container, 'X')
@@ -869,10 +875,15 @@ def _build_lightning_dataloaders(
             # Try 'coords_relative' first, fallback to 'coords_nominal' for container compatibility
             self.coords_relative = _get_tensor(container, 'coords_relative')
             if self.coords_relative is None:
-                if self.model_config is not None and getattr(self.model_config, "object_big", False):
+                if (
+                    self.object_compatibility is not None
+                    and self.object_compatibility.layout
+                    == "grouped_patch_components_v1"
+                ):
                     raise ValueError(
-                        "coords_relative is required when object_big=True. "
-                        "Provide TF-style relative offsets or set object_big=False."
+                        "coords_relative is required for grouped patch components "
+                        "(legacy object_big=True). Provide TF-style relative "
+                        "offsets or select single patch components."
                     )
                 if isinstance(container, dict) and self.images is not None:
                     self.coords_relative = torch.zeros(

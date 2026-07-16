@@ -12,6 +12,7 @@ import ptycho_torch.helper as hh
 from ptycho_torch.dataloader import Collate
 from ptycho.reconstruction_policy import CalibrationSpec
 from ptycho_torch.reconstruction_ports import calibrate_reconstruction_canvas
+from ptycho_torch.object_compatibility import resolve_model_object_compatibility
 
 #Other useful libraries
 import time
@@ -1439,8 +1440,17 @@ def _scan_identity_evidence(
     if callable(grouping_enabled):
         grouped = bool(grouping_enabled())
     else:
+        compatibility = getattr(source_dataset, "object_compatibility", None)
+        if compatibility is None:
+            source_model_config = getattr(source_dataset, "model_config", None)
+            compatibility = (
+                resolve_model_object_compatibility(source_model_config)
+                if source_model_config is not None
+                else None
+            )
         grouped = bool(
-            getattr(getattr(source_dataset, "model_config", None), "object_big", False)
+            compatibility is not None
+            and compatibility.layout == "grouped_patch_components_v1"
         )
     if not grouped:
         if used.numel() and (
@@ -2118,7 +2128,12 @@ def detect_swap_probe_reference(model: nn.Module,
     Returns:
         bool: True if channels are swapped
     """
-    C_in = model_config.C_model if model_config.object_big else 1
+    compatibility = resolve_model_object_compatibility(model_config)
+    C_in = (
+        model_config.C_model
+        if compatibility.layout == "grouped_patch_components_v1"
+        else 1
+    )
 
     with torch.no_grad():
         # |FFT(probe)|^2 — diffraction pattern of a transparent object

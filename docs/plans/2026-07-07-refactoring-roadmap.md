@@ -600,7 +600,7 @@ acceptance claim; unselected modules are not part of the gate.
 
 ### Slice 7 — Compatibility migrations and independent hygiene
 
-**Status:** Opportunistic; 7A-7B complete (2026-07-15). A framework-neutral
+**Status:** Opportunistic; 7A-7C complete (2026-07-15). A framework-neutral
 `object-compatibility-v1` record now proves the exact legacy mapping from
 `object_big`, `training_patch_weighting`, `pad_object`, and `probe_big` into
 separate patch/object layout, training-canvas, and training-assembly identities.
@@ -610,15 +610,20 @@ now exposes that identity deterministically from its persisted v1 fields, and
 Torch CNN topology plus differentiable forward assembly consume the shared
 mapping instead of branching independently. Current and legacy artifact payloads
 remain unchanged and their focused round-trip/strict-load gate passed (73 tests).
-Loader/grouping routes, public dataclasses, defaults, artifact schema, and
-protected cross-backend code remain pending later bounded migrations.
+Active file-backed and in-memory loaders, probe expansion, container coordinate
+requirements, scan identity, and diagnostic input-channel selection now consume
+the same record; their focused gate passed (71 tests). The canonical public
+model adapter retains the established Torch-only `central_mask` default when no
+Torch structural payload is available. Public dataclasses/defaults, artifact
+schema/legacy decoding, and protected cross-backend code remain pending later
+bounded migrations.
 
 **Outcome:** Compatibility switches and obsolete forks are retired through
 evidence-based migrations rather than repository-search assumptions.
 
 **Work:**
 
-- **7A-7B mapping and model/forward adoption complete; loader/artifact/public migration pending:** Replace `object_big` with separate versioned axes for output/object layout,
+- **7A-7C mapping plus active Torch model/forward/loader adoption complete; artifact/public migration pending:** Replace `object_big` with separate versioned axes for output/object layout,
   merge strategy, and support/canvas geometry. This depends on Slices 3 and 5 and
   must preserve checkpoint interpretation explicitly.
 - Retire `ptycho_torch.api` only after the external Ptychodus API contract,
