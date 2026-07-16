@@ -417,8 +417,22 @@ not a support matrix.
 
 ### Slice 4 — Geometry and neutral data records
 
-**Status:** Pending. Later work aligned both main local-offset paths to the same
-semantic sign, invalidating the original sign-divergence premise.
+**Status:** Complete (2026-07-15). The selected production boundary is
+`RawData` → `ptycho_torch.workflows.components._ensure_container` →
+`RawDataTorch`. It now crosses the internal, frozen `AcquisitionRecord` instead
+of a partial manual field copy. The record imports without TensorFlow or Torch,
+preserves the existing NumPy arrays and metadata without coercion or copying,
+and carries distinct start coordinates, precomputed targets, normalization,
+metadata, and subsample provenance that the prior bridge discarded. Grouping,
+normalization, tensor conversion, and configuration lifecycle remain behind the
+existing adapters; the positional `RawDataTorch` constructor remains a
+compatibility surface. No new geometry type proved independently useful, so no
+coordinate hierarchy or sign knob was introduced. The focused neutral-import,
+full-field round-trip, production-wiring, grouped-output, coordinate-layout, and
+fixed-sign falsifiers passed (21 tests). The final repository suite recorded
+5,049 passed, 22 failures, and 2 collection errors; its failure/error selector
+set is identical to the completed Slice 3 baseline, so Slice 4 introduced no
+attributable regression.
 
 **Outcome:** One minimal framework-neutral acquisition record crosses a real
 producer/consumer boundary, and geometry types are introduced only where that
@@ -426,18 +440,18 @@ migration proves they are independently useful.
 
 **Work:**
 
-1. Extract the smallest framework-neutral acquisition/data record needed by one
+1. **Complete (2026-07-15):** Extract the smallest framework-neutral acquisition/data record needed by one
    named producer/consumer pair currently coupled through `RawData`. Keep
    TensorFlow loading and transformation operations behind an adapter. This is
    an internal record, not a replacement public Ptychodus data surface.
-2. Prove the record's destination imports without TensorFlow or Torch and round
+2. **Complete (2026-07-15):** Prove the record's destination imports without TensorFlow or Torch and round
    trip the selected pair before moving another consumer.
-3. Introduce immutable geometry values incrementally as that migration needs
+3. **Complete (2026-07-15):** Introduce immutable geometry values incrementally as that migration needs
    independently reusable concepts; do not predeclare a comprehensive coordinate,
    origin, units, canvas, support, crop, and patch-layout type system.
-4. Preserve the normative `(x, y)` and `local_offset_sign = -1` semantics; do not
+4. **Complete (2026-07-15):** Preserve the normative `(x, y)` and `local_offset_sign = -1` semantics; do not
    expose an unrestricted sign knob that permits invalid conventions.
-5. Treat transpose/order differences as explicit layout adapters, not competing
+5. **Complete (2026-07-15):** Treat transpose/order differences as explicit layout adapters, not competing
    scientific conventions, and keep compatibility adapters at package boundaries.
    Until external specs change atomically, those adapters preserve
    `RawData.generate_grouped_data`, `PtychoDataContainer`, the public grouped
