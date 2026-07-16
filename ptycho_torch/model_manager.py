@@ -30,7 +30,7 @@ Usage Example:
     save_torch_bundle(models, 'output/wts.h5', config)
 
     # Inference - load with params restoration
-    model, params_dict = load_torch_bundle('output/wts.h5')
+    models, params_dict = load_torch_bundle('output/wts.h5')
 
 References:
 - TensorFlow baseline: ptycho/model_manager.py:346-378 (save_multiple_models)
@@ -45,6 +45,7 @@ import zipfile
 import shutil
 from typing import Dict, Any, Tuple, Optional
 from pathlib import Path
+from ptycho.config.legacy_state import archived_params_scope
 
 # PyTorch is now a mandatory dependency (Phase F3.1/F3.2)
 try:
@@ -108,14 +109,12 @@ def save_torch_bundle(
     if not models_dict:
         raise ValueError("models_dict must contain at least one model")
 
-    # Warn if dual-model structure is incomplete (spec §4.6 preference)
+    # The public bundle contract requires both logical roles.
     expected_keys = {'autoencoder', 'diffraction_to_obj'}
     if set(models_dict.keys()) != expected_keys:
-        import warnings
-        warnings.warn(
+        raise ValueError(
             f"Incomplete dual-model bundle: found {set(models_dict.keys())}, "
-            f"expected {expected_keys}. Reconstructor may fail to load archive.",
-            UserWarning
+            f"expected {expected_keys}."
         )
 
     # Generate params.cfg snapshot via config bridge (CONFIG-001)
@@ -157,18 +156,13 @@ def save_torch_bundle(
 
             # Save model weights (PyTorch is mandatory, no fallback)
             model_path = os.path.join(model_dir, 'model.pth')
-            if isinstance(model, nn.Module):
-                # Real PyTorch model — save state_dict
-                torch.save(model.state_dict(), model_path)
-            elif isinstance(model, dict) and '_sentinel' in model:
-                # Sentinel dict for testing (retained for test compatibility)
-                torch.save(model, model_path)
-            else:
-                # Unknown model type
+            if not isinstance(model, nn.Module):
                 raise RuntimeError(
-                    f"Cannot save model '{model_name}': expected nn.Module or sentinel dict, "
-                    f"got {type(model)}."
+                    f"Cannot save model '{model_name}': expected a trained nn.Module, "
+                    f"got {type(model)}. Sentinel/fresh model placeholders are not "
+                    "valid persistence inputs."
                 )
+            torch.save(model.state_dict(), model_path)
 
             # Save params snapshot (CONFIG-001 critical)
             params_path = os.path.join(model_dir, 'params.dill')
@@ -266,6 +260,39 @@ def load_torch_bundle(
     base_path: str,
     model_name: str = None
 ) -> Tuple[Dict[str, Any], dict]:
+    """Load a Torch bundle and commit archived flat state only on success."""
+    _, params_dict = _read_torch_bundle_manifest_and_params(base_path)
+
+    with archived_params_scope(params_dict):
+        return _load_torch_bundle_uncontained(base_path, model_name=model_name)
+
+
+def _read_torch_bundle_manifest_and_params(base_path: str) -> Tuple[dict, dict]:
+    """Read bundle identity and archived flat state without constructing a model."""
+    zip_path = f"{base_path}.zip"
+    if not os.path.exists(zip_path):
+        raise FileNotFoundError(f"Model archive not found: {zip_path}")
+
+    with zipfile.ZipFile(zip_path, "r") as archive:
+        try:
+            manifest = dill.loads(archive.read("manifest.dill"))
+            available_models = manifest["models"]
+            if not available_models:
+                raise ValueError("Bundle manifest contains no models.")
+            params_dict = dill.loads(
+                archive.read(f"{available_models[0]}/params.dill")
+            )
+        except KeyError as exc:
+            raise ValueError(
+                f"Malformed Torch bundle: missing required archive member {exc}."
+            ) from exc
+    return manifest, params_dict
+
+
+def _load_torch_bundle_uncontained(
+    base_path: str,
+    model_name: str = None
+) -> Tuple[Dict[str, Any], dict]:
     """
     Load PyTorch model bundle with CONFIG-001-compliant params restoration (Phase C4.D).
 
@@ -298,7 +325,6 @@ def load_torch_bundle(
         >>> recon_model = models['diffraction_to_obj']
         >>> # params.cfg automatically updated via CONFIG-001 gate
     """
-    from ptycho.config.config import update_legacy_dict
     from ptycho import params
 
     # PyTorch is now mandatory (no availability check needed)
@@ -338,6 +364,14 @@ def load_torch_bundle(
                 "Cannot reconstruct model architecture."
             )
 
+        expected_models = {'autoencoder', 'diffraction_to_obj'}
+        if set(available_models) != expected_models:
+            raise RuntimeError(
+                "Torch bundle does not contain the required dual-model weights "
+                f"{sorted(expected_models)}; found {sorted(available_models)}. "
+                "Regenerate the bundle from a successful training result."
+            )
+
         # Restore params.cfg (CONFIG-001 critical side effect)
         params.cfg.update(params_dict)
 
@@ -352,18 +386,26 @@ def load_torch_bundle(
 
             # Load weights from archive
             model_path = os.path.join(temp_dir, model_name_iter, 'model.pth')
-            if os.path.exists(model_path):
-                state_dict = torch.load(model_path, map_location='cpu')
-                # Handle both sentinel dicts (test stubs) and real state_dicts
-                if isinstance(state_dict, dict) and '_sentinel' not in state_dict:
-                    # Only load state_dict if keys match (real model, not test dummy)
-                    try:
-                        model.load_state_dict(state_dict, strict=False)
-                    except RuntimeError:
-                        # State dict mismatch — likely test dummy model
-                        # Keep model with fresh weights for testing purposes
-                        pass
-                # else: sentinel dict from tests, keep model with random weights
+            if not os.path.isfile(model_path):
+                raise RuntimeError(
+                    f"Bundle weights are missing for model '{model_name_iter}'. "
+                    "Regenerate the bundle from a successful training result."
+                )
+            state_dict = torch.load(model_path, map_location='cpu', weights_only=False)
+            if not isinstance(state_dict, dict) or '_sentinel' in state_dict:
+                raise RuntimeError(
+                    f"Bundle weights for model '{model_name_iter}' are not a trained "
+                    "state_dict. Regenerate the bundle from a successful training result."
+                )
+            try:
+                model.load_state_dict(state_dict, strict=True)
+            except RuntimeError as exc:
+                raise RuntimeError(
+                    f"Bundle architecture-era incompatibility for model "
+                    f"'{model_name_iter}': strict weight loading failed. Do not use "
+                    "strict=False; regenerate this bundle with the current architecture. "
+                    f"Original error: {exc}"
+                ) from exc
 
             models_dict[model_name_iter] = model
 

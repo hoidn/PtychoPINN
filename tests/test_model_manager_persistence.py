@@ -36,7 +36,8 @@ class TestModelManagerPersistence(unittest.TestCase):
     def tearDown(self):
         """Clean up the temporary directory and restore original params."""
         self.test_dir.cleanup()
-        p.cfg = self.original_params
+        p.cfg.clear()
+        p.cfg.update(self.original_params)
         print(f"Cleaned up temp dir and restored params.")
 
     def test_parameter_restoration_on_load(self):

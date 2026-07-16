@@ -25,6 +25,7 @@ Artifacts (Phase D3.B):
 """
 
 import pytest
+import io
 from pathlib import Path
 import tempfile
 import zipfile
@@ -425,35 +426,18 @@ class TestLoadTorchBundle:
         return training_config
 
     @pytest.fixture
-    def dummy_torch_models(self):
-        """Create minimal PyTorch model stubs for persistence testing."""
-        try:
-            import torch
-            import torch.nn as nn
+    def dummy_torch_models(self, minimal_training_config):
+        """Create models whose archived weights match the loader architecture."""
+        from ptycho.config.config import dataclass_to_legacy_dict
+        from ptycho_torch.model_manager import create_torch_model_with_gridsize
 
-            class DummyModel(nn.Module):
-                """Minimal PyTorch model for testing persistence."""
-                def __init__(self, name):
-                    super().__init__()
-                    self.name = name
-                    self.conv = nn.Conv2d(1, 16, kernel_size=3, padding=1)
-                    self.fc = nn.Linear(16 * 64 * 64, 128)
-
-                def forward(self, x):
-                    x = self.conv(x)
-                    x = x.view(x.size(0), -1)
-                    return self.fc(x)
-
-            return {
-                'autoencoder': DummyModel('autoencoder'),
-                'diffraction_to_obj': DummyModel('diffraction_to_obj'),
-            }
-        except ImportError:
-            # Torch unavailable — return sentinel dicts for structure testing
-            return {
-                'autoencoder': {'_sentinel': 'torch_unavailable', 'name': 'autoencoder'},
-                'diffraction_to_obj': {'_sentinel': 'torch_unavailable', 'name': 'diffraction_to_obj'},
-            }
+        archived = dataclass_to_legacy_dict(minimal_training_config)
+        archived["intensity_scale"] = 1.0
+        model = create_torch_model_with_gridsize(2, 64, archived)
+        return {
+            'autoencoder': model,
+            'diffraction_to_obj': model,
+        }
 
     def test_create_torch_model_with_gridsize_sets_channel_count(self):
         """create_torch_model_with_gridsize must align channels to gridsize**2."""
@@ -476,6 +460,76 @@ class TestLoadTorchBundle:
         assert conv_weight.shape[1] == 1, (
             f"Expected conv1 input channels=1, got {conv_weight.shape[1]}"
         )
+
+    @pytest.mark.parametrize("weight_payload", ["missing", "sentinel", "mismatch"])
+    def test_load_rejects_unverified_weights_and_restores_params(
+        self,
+        tmp_path,
+        monkeypatch,
+        params_cfg_snapshot,
+        minimal_training_config,
+        weight_payload,
+    ):
+        import torch
+        from ptycho import params
+        from ptycho.config.config import dataclass_to_legacy_dict
+        from ptycho_torch import model_manager
+
+        archived = dataclass_to_legacy_dict(minimal_training_config)
+        archived.update({"_version": "2.0-pytorch", "intensity_scale": 1.0})
+        base_path = tmp_path / weight_payload
+        with zipfile.ZipFile(f"{base_path}.zip", "w") as archive:
+            archive.writestr(
+                "manifest.dill",
+                dill.dumps(
+                    {
+                        "models": ["autoencoder", "diffraction_to_obj"],
+                        "version": "2.0-pytorch",
+                    }
+                ),
+            )
+            archive.writestr(
+                "autoencoder/params.dill",
+                dill.dumps(archived),
+            )
+            valid_buffer = io.BytesIO()
+            torch.save(torch.nn.Linear(2, 2).state_dict(), valid_buffer)
+            archive.writestr("autoencoder/model.pth", valid_buffer.getvalue())
+            if weight_payload != "missing":
+                buffer = io.BytesIO()
+                payload = (
+                    {"_sentinel": True}
+                    if weight_payload == "sentinel"
+                    else {"unexpected": torch.ones(1)}
+                )
+                torch.save(payload, buffer)
+                archive.writestr("diffraction_to_obj/model.pth", buffer.getvalue())
+
+        monkeypatch.setattr(
+            model_manager,
+            "create_torch_model_with_gridsize",
+            lambda *args, **kwargs: torch.nn.Linear(2, 2),
+        )
+        params.cfg.clear()
+        params.cfg["ambient"] = "preserved"
+
+        with pytest.raises(RuntimeError, match="(?i)weights|strict|regenerate"):
+            model_manager.load_torch_bundle(str(base_path))
+
+        assert params.cfg == {"ambient": "preserved"}
+
+    def test_save_rejects_sentinel_models(self, tmp_path, minimal_training_config):
+        from ptycho_torch.model_manager import save_torch_bundle
+
+        with pytest.raises(RuntimeError, match="trained nn.Module"):
+            save_torch_bundle(
+                {
+                    "autoencoder": {"_sentinel": True},
+                    "diffraction_to_obj": {"_sentinel": True},
+                },
+                str(tmp_path / "sentinel"),
+                minimal_training_config,
+            )
 
     def test_load_round_trip_updates_params_cfg(
         self,
@@ -510,7 +564,7 @@ class TestLoadTorchBundle:
         """
         pytest.importorskip("ptycho_torch.model_manager", reason="model_manager module not yet implemented")
 
-        from ptycho_torch.model_manager import save_torch_bundle, load_torch_bundle
+        from ptycho_torch.model_manager import load_torch_bundle, save_torch_bundle
         from ptycho.config.config import update_legacy_dict
         from ptycho import params
 
@@ -531,7 +585,9 @@ class TestLoadTorchBundle:
 
         # Attempt to load bundle (may raise NotImplementedError if model reconstruction not yet done)
         try:
-            model, loaded_params = load_torch_bundle(str(base_path), model_name='diffraction_to_obj')
+            model, loaded_params = load_torch_bundle(
+                str(base_path), model_name='diffraction_to_obj'
+            )
         except NotImplementedError as e:
             # Model reconstruction not yet implemented — validate params restoration happened
             # by checking params.cfg was updated (side effect occurs before NotImplementedError)
@@ -672,7 +728,7 @@ class TestLoadTorchBundle:
         """
         pytest.importorskip("ptycho_torch.model_manager", reason="model_manager module not yet implemented")
 
-        from ptycho_torch.model_manager import save_torch_bundle, load_torch_bundle
+        from ptycho_torch.model_manager import load_torch_bundle, save_torch_bundle
         from ptycho.config.config import update_legacy_dict
         from ptycho import params
 
@@ -693,7 +749,9 @@ class TestLoadTorchBundle:
         # Red phase: expect NotImplementedError
         # Green phase: expect successful return
         try:
-            model, loaded_params = load_torch_bundle(str(base_path), model_name='autoencoder')
+            model, loaded_params = load_torch_bundle(
+                str(base_path), model_name='autoencoder'
+            )
 
             # Green phase assertions (once Phase D3.C complete)
             assert model is not None, (
@@ -762,7 +820,7 @@ class TestLoadTorchBundle:
         """
         pytest.importorskip("ptycho_torch.model_manager", reason="model_manager module not yet implemented")
 
-        from ptycho_torch.model_manager import save_torch_bundle, load_torch_bundle
+        from ptycho_torch.model_manager import load_torch_bundle, save_torch_bundle
         from ptycho.config.config import update_legacy_dict
         from ptycho import params
 

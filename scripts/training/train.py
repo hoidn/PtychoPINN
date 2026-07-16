@@ -32,6 +32,7 @@ from ptycho.workflows.components import (
 )
 from ptycho.workflows.backend_selector import run_cdi_example_with_backend
 from ptycho.config.config import TrainingConfig, update_legacy_dict
+from ptycho.config.legacy_state import scoped_legacy_params
 from ptycho import model_manager, params
 import argparse
 
@@ -335,6 +336,7 @@ def apply_torch_plateau_overrides(args, argv=None) -> None:
         args.plateau_threshold = args.torch_plateau_threshold
 
 
+@scoped_legacy_params
 def main() -> None:
     """Main function to orchestrate the CDI example script execution."""
     args = parse_arguments()

@@ -17,15 +17,34 @@ import random
 import sys
 from typing import Any, Dict, Iterable, Optional, Tuple
 import gc
+import hashlib
 import json
 import re
 import time
 import numpy as np
-from skimage.restoration import unwrap_phase
 
-from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
+from ptycho.config.config import (
+    DetectorSimulationConfig,
+    ModelConfig,
+    ProbeSimulationConfig,
+    ScanSimulationConfig,
+    SimulationConfig,
+    SyntheticObjectConfig,
+    TrainingConfig,
+    simulation_config_to_dict,
+    simulation_config_sha256,
+    update_legacy_dict,
+    validate_simulation_config,
+)
 from ptycho import params as p
-from scripts.tools.prepare_data_tool import interpolate_array, smooth_complex_array
+from ptycho.config.legacy_state import scoped_legacy_params
+from ptycho.simulation import probe_transform as _probe_transform
+from ptycho.simulation.identity import (
+    array_sha256 as _identity_array_sha256,
+    build_simulation_probe_lineage,
+    canonical_sha256 as _identity_canonical_sha256,
+    file_sha256 as _identity_file_sha256,
+)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -98,29 +117,299 @@ class GridLinesConfig:
     See docs/plans/2026-01-27-grid-lines-workflow.md for parameter details.
     """
 
-    N: int
-    gridsize: int
-    output_dir: Path
-    probe_npz: Path
-    size: int = 392
-    offset: int = 4
-    outer_offset_train: int = 8
-    outer_offset_test: int = 20
-    nimgs_train: int = 2
-    nimgs_test: int = 2
-    nphotons: float = 1e9
+    N: int | None = None
+    gridsize: int | None = None
+    output_dir: Path = Path(".")
+    probe_npz: Path | None = None
+    size: int | None = None
+    offset: int | None = None
+    outer_offset_train: int | None = None
+    outer_offset_test: int | None = None
+    nimgs_train: int | None = None
+    nimgs_test: int | None = None
+    nphotons: float | None = None
     nepochs: int = 60
     batch_size: int = 16
     nll_weight: float = 0.0
     mae_weight: float = 1.0
     realspace_weight: float = 0.0
-    probe_smoothing_sigma: float = 0.5
+    probe_smoothing_sigma: float | None = None
     probe_mask_diameter: Optional[int] = None
-    probe_source: str = "custom"
-    probe_scale_mode: str = "pad_preserve"
+    probe_source: str | None = None
+    probe_scale_mode: str | None = None
     probe_transform_pipeline: Optional[str] = None
-    set_phi: bool = False
+    set_phi: bool | None = None
     seed: Optional[int] = None
+    simulation: SimulationConfig | None = None
+
+    def __post_init__(self) -> None:
+        self.output_dir = Path(self.output_dir)
+        nested_simulation_supplied = self.simulation is not None
+        explicit = {
+            "N": self.N,
+            "gridsize": self.gridsize,
+            "probe_npz": self.probe_npz,
+            "size": self.size,
+            "offset": self.offset,
+            "outer_offset_train": self.outer_offset_train,
+            "outer_offset_test": self.outer_offset_test,
+            "nimgs_train": self.nimgs_train,
+            "nimgs_test": self.nimgs_test,
+            "nphotons": self.nphotons,
+            "probe_smoothing_sigma": self.probe_smoothing_sigma,
+            "probe_mask_diameter": self.probe_mask_diameter,
+            "probe_source": self.probe_source,
+            "probe_scale_mode": self.probe_scale_mode,
+            "probe_transform_pipeline": self.probe_transform_pipeline,
+            "set_phi": self.set_phi,
+            "seed": self.seed,
+        }
+        if self.simulation is None:
+            simulation = _simulation_from_flat_grid_lines(explicit)
+        else:
+            validate_simulation_config(self.simulation)
+            _reject_grid_lines_simulation_conflicts(self.simulation, explicit)
+            simulation = self.simulation
+
+        self.simulation = simulation
+        self.N = simulation.N
+        self.gridsize = simulation.scan.grid_size[0]
+        self.probe_npz = (
+            Path(explicit["probe_npz"])
+            if explicit["probe_npz"] is not None
+            else simulation.probe.source_path
+        )
+        self.size = simulation.object.image_size[0]
+        self.offset = simulation.scan.offset
+        self.outer_offset_train = simulation.scan.outer_offset_train
+        self.outer_offset_test = simulation.scan.outer_offset_test
+        self.nimgs_train = simulation.scan.train_groups
+        self.nimgs_test = simulation.scan.test_groups
+        self.nphotons = simulation.detector.photons_per_pattern
+        self.probe_mask_diameter = simulation.probe.mask_diameter
+        self.probe_source = (
+            "ideal_disk" if simulation.probe.source == "ideal" else "custom"
+        )
+        self.probe_transform_pipeline = simulation.probe.transform_pipeline
+        self.probe_scale_mode = explicit["probe_scale_mode"] or (
+            "pipeline"
+            if nested_simulation_supplied
+            or explicit["probe_transform_pipeline"] is not None
+            else "pad_preserve"
+        )
+        self.probe_smoothing_sigma = (
+            explicit["probe_smoothing_sigma"]
+            if explicit["probe_smoothing_sigma"] is not None
+            else _pipeline_smoothing_sigma(simulation.probe.transform_pipeline)
+        )
+        self.set_phi = simulation.object.set_phi
+        self.seed = simulation.seed
+
+
+def _pipeline_smoothing_sigma(pipeline: str) -> float:
+    for segment in pipeline.split("|"):
+        op, separator, value = segment.partition(":")
+        if op.strip() == "smooth" and separator:
+            return float(value)
+    return 0.0
+
+
+def _legacy_grid_lines_pipeline(
+    *,
+    N: int,
+    scale_mode: str,
+    smoothing_sigma: float,
+) -> str:
+    smooth = f"smooth:{smoothing_sigma:g}"
+    if scale_mode == "interpolate":
+        steps = [f"interp:{N}"]
+        if smoothing_sigma > 0:
+            steps.append(smooth)
+    elif scale_mode == "pad_preserve":
+        steps = []
+        if smoothing_sigma > 0:
+            steps.append(smooth)
+        steps.append(f"pad_preserve:{N}")
+    elif scale_mode == "pad_extrapolate":
+        steps = [f"pad_extrapolate:{N}"]
+        if smoothing_sigma > 0:
+            steps.append(smooth)
+    elif scale_mode == "pipeline":
+        raise ValueError(
+            "probe_transform_pipeline must be provided when probe_scale_mode='pipeline'"
+        )
+    else:
+        raise ValueError(f"Unknown probe_scale_mode {scale_mode!r}")
+    return "|".join(steps)
+
+
+def _simulation_from_flat_grid_lines(explicit: dict[str, object]) -> SimulationConfig:
+    if explicit["probe_transform_pipeline"] is not None:
+        if explicit["probe_scale_mode"] not in {None, "pipeline"}:
+            raise ValueError(
+                "probe_transform_pipeline conflicts with probe_scale_mode"
+            )
+        if explicit["probe_smoothing_sigma"] not in {None, 0.0}:
+            raise ValueError(
+                "probe_transform_pipeline conflicts with probe_smoothing_sigma"
+            )
+    N = int(explicit["N"] if explicit["N"] is not None else 64)
+    gridsize = int(
+        explicit["gridsize"] if explicit["gridsize"] is not None else 1
+    )
+    smoothing_sigma = float(
+        explicit["probe_smoothing_sigma"]
+        if explicit["probe_smoothing_sigma"] is not None
+        else 0.5
+    )
+    scale_mode = str(explicit["probe_scale_mode"] or "pad_preserve")
+    pipeline = explicit["probe_transform_pipeline"] or _legacy_grid_lines_pipeline(
+        N=N,
+        scale_mode=scale_mode,
+        smoothing_sigma=smoothing_sigma,
+    )
+    source_name = str(explicit["probe_source"] or "custom")
+    if source_name not in {"custom", "ideal", "ideal_disk"}:
+        raise ValueError(f"Unsupported probe_source {source_name!r}")
+    source = "ideal" if source_name in {"ideal", "ideal_disk"} else "custom"
+    source_path = (
+        None
+        if source == "ideal"
+        else Path(explicit["probe_npz"])
+        if explicit["probe_npz"] is not None
+        else None
+    )
+    simulation = SimulationConfig(
+        N=N,
+        probe=ProbeSimulationConfig(
+            source=source,
+            source_path=source_path,
+            transform_pipeline=str(pipeline),
+            mask_diameter=explicit["probe_mask_diameter"],
+        ),
+        object=SyntheticObjectConfig(
+            kind="lines",
+            image_size=(
+                int(explicit["size"] if explicit["size"] is not None else 392),
+            )
+            * 2,
+            set_phi=bool(explicit["set_phi"] or False),
+        ),
+        scan=ScanSimulationConfig(
+            kind="grid",
+            grid_size=(gridsize, gridsize),
+            offset=int(explicit["offset"] if explicit["offset"] is not None else 4),
+            outer_offset_train=int(
+                explicit["outer_offset_train"]
+                if explicit["outer_offset_train"] is not None
+                else 8
+            ),
+            outer_offset_test=int(
+                explicit["outer_offset_test"]
+                if explicit["outer_offset_test"] is not None
+                else 20
+            ),
+            train_groups=int(
+                explicit["nimgs_train"]
+                if explicit["nimgs_train"] is not None
+                else 2
+            ),
+            test_groups=int(
+                explicit["nimgs_test"]
+                if explicit["nimgs_test"] is not None
+                else 2
+            ),
+        ),
+        detector=DetectorSimulationConfig(
+            photons_per_pattern=float(
+                explicit["nphotons"]
+                if explicit["nphotons"] is not None
+                else 1e9
+            )
+        ),
+        seed=explicit["seed"],
+    )
+    validate_simulation_config(simulation)
+    return simulation
+
+
+def _reject_grid_lines_simulation_conflicts(
+    simulation: SimulationConfig,
+    explicit: dict[str, object],
+) -> None:
+    comparisons = {
+        "N": (simulation.N, "simulation.N"),
+        "gridsize": (simulation.scan.grid_size[0], "simulation.scan.grid_size"),
+        "probe_npz": (simulation.probe.source_path, "simulation.probe.source_path"),
+        "size": (simulation.object.image_size[0], "simulation.object.image_size"),
+        "offset": (simulation.scan.offset, "simulation.scan.offset"),
+        "outer_offset_train": (
+            simulation.scan.outer_offset_train,
+            "simulation.scan.outer_offset_train",
+        ),
+        "outer_offset_test": (
+            simulation.scan.outer_offset_test,
+            "simulation.scan.outer_offset_test",
+        ),
+        "nimgs_train": (simulation.scan.train_groups, "simulation.scan.train_groups"),
+        "nimgs_test": (simulation.scan.test_groups, "simulation.scan.test_groups"),
+        "nphotons": (
+            simulation.detector.photons_per_pattern,
+            "simulation.detector.photons_per_pattern",
+        ),
+        "probe_mask_diameter": (
+            simulation.probe.mask_diameter,
+            "simulation.probe.mask_diameter",
+        ),
+        "probe_transform_pipeline": (
+            simulation.probe.transform_pipeline,
+            "simulation.probe.transform_pipeline",
+        ),
+        "set_phi": (simulation.object.set_phi, "simulation.object.set_phi"),
+        "seed": (simulation.seed, "simulation.seed"),
+    }
+    for flat_path, (nested_value, nested_path) in comparisons.items():
+        flat_value = explicit[flat_path]
+        if flat_value is None:
+            continue
+        if flat_path == "probe_npz":
+            flat_value = Path(flat_value)
+        if flat_value != nested_value:
+            raise ValueError(
+                f"{flat_path}={flat_value!r} conflicts with {nested_path}={nested_value!r}"
+            )
+
+    if explicit["probe_source"] is not None:
+        flat_source = str(explicit["probe_source"])
+        flat_source = "ideal" if flat_source in {"ideal", "ideal_disk"} else flat_source
+        if flat_source != simulation.probe.source:
+            raise ValueError(
+                f"probe_source={explicit['probe_source']!r} conflicts with "
+                f"simulation.probe.source={simulation.probe.source!r}"
+            )
+
+    if (
+        explicit["probe_transform_pipeline"] is None
+        and (
+            explicit["probe_scale_mode"] is not None
+            or explicit["probe_smoothing_sigma"] is not None
+        )
+    ):
+        candidate = _legacy_grid_lines_pipeline(
+            N=simulation.N,
+            scale_mode=str(explicit["probe_scale_mode"] or "pad_preserve"),
+            smoothing_sigma=float(
+                explicit["probe_smoothing_sigma"]
+                if explicit["probe_smoothing_sigma"] is not None
+                else 0.5
+            ),
+        )
+        if candidate != simulation.probe.transform_pipeline:
+            raise ValueError(
+                "probe_scale_mode/probe_smoothing_sigma resolves to "
+                f"{candidate!r}, conflicting with simulation.probe.transform_pipeline="
+                f"{simulation.probe.transform_pipeline!r}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -142,6 +431,17 @@ def load_ideal_disk_probe(N: int) -> np.ndarray:
 
     probe_np = probe_mod.get_default_probe(N, fmt="np")
     return np.asarray(probe_np, dtype=np.complex64)
+
+
+def _load_configured_probe(cfg: GridLinesConfig) -> np.ndarray:
+    if cfg.simulation.probe.source == "ideal":
+        return load_ideal_disk_probe(cfg.N)
+    if cfg.simulation.probe.source_path is None:
+        raise ValueError(
+            "simulation.probe.source_path is required when "
+            "simulation.probe.source='custom'"
+        )
+    return load_probe_guess(cfg.simulation.probe.source_path)
 
 
 def scale_probe(
@@ -169,283 +469,6 @@ def scale_probe(
     return apply_probe_transform_pipeline(probe, steps)
 
 
-def _pad_complex_probe(probe: np.ndarray, target_N: int) -> np.ndarray:
-    """Center-pad a complex probe to target_N with zeros."""
-    h, w = probe.shape
-    if h != w:
-        raise ValueError("probe must be square")
-    if target_N < h:
-        raise ValueError("pad_extrapolate requires target_N >= probe size")
-    pad_total = target_N - h
-    pad_before = pad_total // 2
-    pad_after = pad_total - pad_before
-    pad_width = ((pad_before, pad_after), (pad_before, pad_after))
-    return np.pad(probe, pad_width=pad_width, mode="constant")
-
-
-def _pad_amplitude(amplitude: np.ndarray, target_N: int) -> np.ndarray:
-    """Pad amplitude to target_N using edge padding."""
-    h, w = amplitude.shape
-    if h != w:
-        raise ValueError("probe must be square")
-    if target_N < h:
-        raise ValueError("pad_extrapolate requires target_N >= probe size")
-    pad_total = target_N - h
-    pad_before = pad_total // 2
-    pad_after = pad_total - pad_before
-    pad_width = ((pad_before, pad_after), (pad_before, pad_after))
-    return np.pad(amplitude, pad_width=pad_width, mode="edge")
-
-
-def _fit_quadratic_phase(phase: np.ndarray) -> tuple[float, float]:
-    """Fit phase ~= a * r^2 + b to an unwrapped phase map."""
-    h, w = phase.shape
-    cy = (h - 1) / 2.0
-    cx = (w - 1) / 2.0
-    yy, xx = np.indices((h, w))
-    r2 = (yy - cy) ** 2 + (xx - cx) ** 2
-    design = np.stack([r2.ravel(), np.ones(r2.size)], axis=1)
-    coeffs, _, _, _ = np.linalg.lstsq(design, phase.ravel(), rcond=None)
-    return float(coeffs[0]), float(coeffs[1])
-
-
-def _coerce_pipeline_value(raw_value: str) -> object:
-    raw_value = raw_value.strip()
-    if not raw_value:
-        return raw_value
-    try:
-        integer = int(raw_value)
-    except ValueError:
-        integer = None
-    if integer is not None and str(integer) == raw_value:
-        return integer
-    try:
-        return float(raw_value)
-    except ValueError:
-        return raw_value
-
-
-def _serialize_numeric(value: object) -> str:
-    if isinstance(value, float) and value.is_integer():
-        return str(int(value))
-    return str(value)
-
-
-def parse_probe_transform_pipeline(spec: str) -> list[dict[str, object]]:
-    """Parse a shorthand or explicit probe transform pipeline string."""
-    if not spec or not spec.strip():
-        raise ValueError("probe transform pipeline must be non-empty")
-
-    steps: list[dict[str, object]] = []
-    for raw_segment in spec.split("|"):
-        segment = raw_segment.strip()
-        if not segment:
-            raise ValueError("probe transform pipeline contains an empty step")
-        if ":" in segment:
-            raw_op, raw_params = segment.split(":", 1)
-        else:
-            raw_op, raw_params = segment, ""
-        op_name = raw_op.strip()
-        params = raw_params.strip()
-
-        if op_name == "smooth":
-            if not params:
-                raise ValueError("smooth requires a sigma value")
-            steps.append({"op": "smooth_complex", "sigma": float(params)})
-            continue
-
-        if op_name == "pad":
-            if not params:
-                raise ValueError("pad requires a target_N value")
-            steps.append({"op": "pad_complex", "target_N": int(params)})
-            continue
-
-        if op_name == "interp":
-            if not params:
-                raise ValueError("interp requires a target_N value")
-            parts = [part.strip() for part in params.split(",") if part.strip()]
-            step: dict[str, object] = {
-                "op": "interpolate_complex",
-                "order": 3,
-                "representation": "real_imag",
-            }
-            first = parts.pop(0)
-            if "=" in first:
-                key, value = first.split("=", 1)
-                step[key.strip()] = _coerce_pipeline_value(value)
-            else:
-                step["target_N"] = int(first)
-            for part in parts:
-                key, value = part.split("=", 1)
-                step[key.strip()] = _coerce_pipeline_value(value)
-            if "target_N" not in step:
-                raise ValueError("interp requires target_N")
-            steps.append(step)
-            continue
-
-        if op_name == "pad_extrapolate":
-            if not params:
-                raise ValueError("pad_extrapolate requires a target_N value")
-            steps.append({"op": "pad_extrapolate_complex", "target_N": int(params)})
-            continue
-
-        step: dict[str, object] = {"op": op_name}
-        if params:
-            for part in [item.strip() for item in params.split(",") if item.strip()]:
-                if "=" not in part:
-                    raise ValueError(f"Unsupported parameter syntax '{part}' in probe transform pipeline")
-                key, value = part.split("=", 1)
-                step[key.strip()] = _coerce_pipeline_value(value)
-
-        if step["op"] not in {
-            "smooth_complex",
-            "pad_complex",
-            "interpolate_complex",
-            "pad_extrapolate_complex",
-        }:
-            raise ValueError(f"Unknown probe transform op '{step['op']}'")
-        steps.append(step)
-    return steps
-
-
-def _serialize_probe_transform_pipeline(steps: list[dict[str, object]]) -> str:
-    serialized_steps: list[str] = []
-    for step in steps:
-        op = step["op"]
-        if op == "smooth_complex":
-            serialized_steps.append(f"smooth:{_serialize_numeric(step['sigma'])}")
-            continue
-        if op == "pad_complex":
-            serialized_steps.append(f"pad:{int(step['target_N'])}")
-            continue
-        if op == "pad_extrapolate_complex":
-            serialized_steps.append(f"pad_extrapolate:{int(step['target_N'])}")
-            continue
-        if op == "interpolate_complex":
-            fragment = f"interp:{int(step['target_N'])}"
-            extras: list[str] = []
-            if step.get("order", 3) != 3:
-                extras.append(f"order={_serialize_numeric(step['order'])}")
-            if step.get("representation", "real_imag") != "real_imag":
-                extras.append(f"representation={step['representation']}")
-            if extras:
-                fragment = f"{fragment},{','.join(extras)}"
-            serialized_steps.append(fragment)
-            continue
-        raise ValueError(f"Unsupported probe transform op '{op}'")
-    return "|".join(serialized_steps)
-
-
-def _resolve_probe_size_after_step(current_size: int, step: dict[str, object]) -> int:
-    op = step["op"]
-    if op == "smooth_complex":
-        return current_size
-    if op in {"pad_complex", "interpolate_complex", "pad_extrapolate_complex"}:
-        target_N = int(step["target_N"])
-        if op == "pad_extrapolate_complex" and target_N < current_size:
-            raise ValueError("pad_extrapolate requires target_N >= probe size")
-        if op == "pad_complex" and target_N < current_size:
-            raise ValueError("pad_complex requires target_N >= current probe size")
-        return target_N
-    raise ValueError(f"Unsupported probe transform op '{op}'")
-
-
-def normalize_probe_transform_pipeline(
-    *,
-    target_N: int,
-    probe_shape: tuple[int, int],
-    probe_scale_mode: str | None,
-    probe_smoothing_sigma: float | None,
-    probe_transform_pipeline: str | None,
-) -> tuple[str, list[dict[str, object]]]:
-    """Resolve probe preprocessing into a canonical pipeline string + steps."""
-    if len(probe_shape) != 2 or probe_shape[0] != probe_shape[1]:
-        raise ValueError("probe must be square")
-
-    if probe_transform_pipeline:
-        steps = parse_probe_transform_pipeline(probe_transform_pipeline)
-    else:
-        sigma = float(probe_smoothing_sigma or 0.0)
-        mode = probe_scale_mode or "pad_extrapolate"
-        steps = []
-        if mode == "interpolate":
-            steps.append(
-                {
-                    "op": "interpolate_complex",
-                    "target_N": target_N,
-                    "order": 3,
-                    "representation": "real_imag",
-                }
-            )
-            if sigma > 0:
-                steps.append({"op": "smooth_complex", "sigma": sigma})
-        elif mode == "pad_preserve":
-            if sigma > 0:
-                steps.append({"op": "smooth_complex", "sigma": sigma})
-            steps.append({"op": "pad_complex", "target_N": target_N})
-        elif mode == "pad_extrapolate":
-            steps.append({"op": "pad_extrapolate_complex", "target_N": target_N})
-            if sigma > 0:
-                steps.append({"op": "smooth_complex", "sigma": sigma})
-        elif mode == "pipeline":
-            raise ValueError("probe_transform_pipeline must be provided when probe_scale_mode='pipeline'")
-        else:
-            raise ValueError(f"Unknown scale_mode '{mode}'")
-
-    current_size = probe_shape[0]
-    for step in steps:
-        current_size = _resolve_probe_size_after_step(current_size, step)
-    if current_size != target_N:
-        raise ValueError(
-            f"probe transform pipeline final probe size {current_size} does not match target_N {target_N}"
-        )
-    return _serialize_probe_transform_pipeline(steps), steps
-
-
-def _pad_extrapolate_complex_probe(probe: np.ndarray, target_N: int) -> np.ndarray:
-    amplitude = np.abs(probe)
-    phase = unwrap_phase(np.angle(probe))
-    amplitude_padded = _pad_amplitude(amplitude, target_N)
-
-    a, b = _fit_quadratic_phase(phase)
-    yy, xx = np.indices((target_N, target_N))
-    cy = (target_N - 1) / 2.0
-    cx = (target_N - 1) / 2.0
-    r2 = (yy - cy) ** 2 + (xx - cx) ** 2
-    phase_extrap = a * r2 + b
-    phase_wrapped = (phase_extrap + np.pi) % (2 * np.pi) - np.pi
-    return (amplitude_padded * np.exp(1j * phase_wrapped)).astype(np.complex64)
-
-
-def apply_probe_transform_pipeline(
-    probe: np.ndarray,
-    steps: list[dict[str, object]],
-) -> np.ndarray:
-    """Apply a normalized probe transform pipeline."""
-    transformed = np.asarray(probe, dtype=np.complex64)
-    if transformed.ndim != 2 or transformed.shape[0] != transformed.shape[1]:
-        raise ValueError("probe must be square")
-
-    for step in steps:
-        op = step["op"]
-        if op == "smooth_complex":
-            transformed = smooth_complex_array(transformed, float(step["sigma"]))
-            continue
-        if op == "pad_complex":
-            transformed = _pad_complex_probe(transformed, int(step["target_N"])).astype(np.complex64)
-            continue
-        if op == "interpolate_complex":
-            if transformed.shape[0] != int(step["target_N"]):
-                zoom_factor = int(step["target_N"]) / transformed.shape[0]
-                transformed = interpolate_array(transformed, zoom_factor).astype(np.complex64)
-            continue
-        if op == "pad_extrapolate_complex":
-            transformed = _pad_extrapolate_complex_probe(transformed, int(step["target_N"]))
-            continue
-        raise ValueError(f"Unsupported probe transform op '{op}'")
-    return transformed.astype(np.complex64)
-
-
 def scale_probe_with_mode(
     probe: np.ndarray,
     target_N: int,
@@ -469,23 +492,19 @@ def scale_probe_with_mode(
     )
 
 
-def make_disk_mask(N: int, diameter: int) -> np.ndarray:
-    """Create a centered binary disk mask."""
-    radius = diameter / 2.0
-    yy, xx = np.ogrid[:N, :N]
-    center = (N - 1) / 2.0
-    dist_sq = (yy - center) ** 2 + (xx - center) ** 2
-    return (dist_sq <= radius ** 2).astype(np.float32)
-
-
-def apply_probe_mask(probe: np.ndarray, diameter: Optional[int]) -> np.ndarray:
-    """Apply a centered disk mask to the probe if diameter is provided."""
-    if diameter is None:
-        return probe
-    if probe.shape[0] != probe.shape[1]:
-        raise ValueError("probe must be square")
-    mask = make_disk_mask(probe.shape[0], diameter)
-    return (probe * mask).astype(probe.dtype)
+# The reusable implementation lives under ptycho.simulation. Keep these names
+# as workflow-level re-exports for historical callers and cached study code.
+parse_probe_transform_pipeline = _probe_transform.parse_probe_transform_pipeline
+_serialize_probe_transform_pipeline = _probe_transform.serialize_probe_transform_pipeline
+normalize_probe_transform_pipeline = _probe_transform.normalize_probe_transform_pipeline
+apply_probe_transform_pipeline = _probe_transform.apply_probe_transform_pipeline
+apply_probe_transform_pipeline_with_metadata = (
+    _probe_transform.apply_probe_transform_pipeline_with_metadata
+)
+smooth_complex_array = _probe_transform.smooth_complex_array
+interpolate_array = _probe_transform.interpolate_array
+make_disk_mask = _probe_transform.make_disk_mask
+apply_probe_mask = _probe_transform.apply_probe_mask
 
 
 # ---------------------------------------------------------------------------
@@ -498,7 +517,13 @@ def configure_legacy_params(cfg: GridLinesConfig, probe_np: np.ndarray) -> Train
 
     Must be called before generate_data() to set up legacy global state.
     """
-    from ptycho import probe as probe_mod
+    simulation = cfg.simulation
+    if simulation.object.kind != "lines" or simulation.scan.kind != "grid":
+        raise ValueError(
+            "GridLinesConfig generation requires simulation.object.kind='lines' "
+            "and simulation.scan.kind='grid'"
+        )
+    update_legacy_dict(p.cfg, simulation)
 
     config = TrainingConfig(
         model=ModelConfig(N=cfg.N, gridsize=cfg.gridsize, object_big=False),
@@ -510,16 +535,9 @@ def configure_legacy_params(cfg: GridLinesConfig, probe_np: np.ndarray) -> Train
         realspace_weight=cfg.realspace_weight,
     )
     update_legacy_dict(p.cfg, config)
-    p.set("set_phi", cfg.set_phi)
-    p.set("data_source", "lines")
-    p.set("size", cfg.size)
-    p.set("offset", cfg.offset)
-    p.set("outer_offset_train", cfg.outer_offset_train)
-    p.set("outer_offset_test", cfg.outer_offset_test)
-    p.set("nimgs_train", cfg.nimgs_train)
-    p.set("nimgs_test", cfg.nimgs_test)
-    p.set("nphotons", cfg.nphotons)
     p.set("sim_jitter_scale", 0.0)
+    from ptycho import probe as probe_mod
+
     probe_mod.set_probe_guess(probe_guess=probe_np)
     return config
 
@@ -541,11 +559,12 @@ def _capture_simulation_probe() -> np.ndarray | None:
     return probe.astype(np.complex64)
 
 
+@scoped_legacy_params
 def simulate_grid_data(cfg: GridLinesConfig, probe_np: np.ndarray) -> Dict[str, Any]:
     """Run simulation via data_preprocessing.generate_data and return split data."""
+    configure_legacy_params(cfg, probe_np)
     from ptycho import data_preprocessing
 
-    configure_legacy_params(cfg, probe_np)
     (
         X_tr, YI_tr, Yphi_tr,
         X_te, YI_te, Yphi_te,
@@ -643,8 +662,125 @@ def simulate_grid_data(cfg: GridLinesConfig, probe_np: np.ndarray) -> Dict[str, 
 
 
 def dataset_out_dir(cfg: GridLinesConfig) -> Path:
-    """Return output directory for dataset NPZ files."""
-    return cfg.output_dir / "datasets" / f"N{cfg.N}" / f"gs{cfg.gridsize}"
+    """Return the simulation-identity-bearing dataset output directory."""
+    simulation_digest = simulation_config_sha256(cfg.simulation)
+    return (
+        cfg.output_dir
+        / "datasets"
+        / f"N{cfg.N}"
+        / f"gs{cfg.gridsize}"
+        / f"simulation-{simulation_digest}"
+    )
+
+
+def _sha256_file(path: Path) -> str:
+    return _identity_file_sha256(path)
+
+
+def _sha256_array(value: np.ndarray) -> str:
+    return _identity_array_sha256(value)
+
+
+def _canonical_sha256(value: object) -> str:
+    return _identity_canonical_sha256(value)
+
+
+def _build_probe_lineage(
+    cfg: GridLinesConfig,
+    *,
+    raw_probe: np.ndarray,
+    normalized_pipeline: str,
+    transformed_probe: np.ndarray,
+    transform_metadata: dict[str, object],
+) -> dict[str, object]:
+    """Build stable recipe identity plus measured transform evidence."""
+    return build_simulation_probe_lineage(
+        cfg.simulation,
+        raw_probe=raw_probe,
+        normalized_pipeline=normalized_pipeline,
+        transformed_probe=transformed_probe,
+        transform_metadata=transform_metadata,
+    )
+
+
+def _reject_mismatched_dataset_reuse(
+    path: Path,
+    expected_simulation_digest: str,
+    expected_recipe_digest: str | None,
+) -> None:
+    if not path.exists():
+        return
+    from ptycho.metadata import MetadataManager
+
+    _, metadata = MetadataManager.load_with_metadata(str(path))
+    additional = {} if metadata is None else metadata.get("additional_parameters", {})
+    existing_simulation = additional.get("simulation_config_sha256")
+    existing_recipe = additional.get("dataset_recipe_sha256")
+    if existing_simulation != expected_simulation_digest or (
+        expected_recipe_digest is not None
+        and existing_recipe != expected_recipe_digest
+    ):
+        raise ValueError(
+            f"existing dataset {path} has simulation_config_sha256="
+            f"{existing_simulation!r}, dataset_recipe_sha256={existing_recipe!r}; "
+            f"requested {expected_simulation_digest!r}/{expected_recipe_digest!r}. "
+            "Use a distinct output identity."
+        )
+
+
+def _preflight_dataset_pair_reuse(
+    cfg: GridLinesConfig,
+    probe_lineage: dict[str, object],
+) -> None:
+    """Validate both split destinations before simulation or either write."""
+
+    output_dir = dataset_out_dir(cfg)
+    simulation_digest = str(probe_lineage["simulation_config_sha256"])
+    recipe_value = probe_lineage.get("dataset_recipe_sha256")
+    recipe_digest = None if recipe_value is None else str(recipe_value)
+    for split in ("train", "test"):
+        _reject_mismatched_dataset_reuse(
+            output_dir / f"{split}.npz",
+            simulation_digest,
+            recipe_digest,
+        )
+
+
+def _derive_complete_probe_lineage(
+    cfg: GridLinesConfig,
+    *,
+    normalized_pipeline: str,
+    normalized_steps: list[dict[str, object]],
+    stored_probe: np.ndarray | None,
+) -> dict[str, object] | None:
+    """Reconstruct complete lineage for established direct-save callers."""
+
+    if cfg.simulation.probe.source == "ideal":
+        raw_probe = load_ideal_disk_probe(cfg.N)
+    else:
+        source_path = cfg.simulation.probe.source_path
+        if source_path is None or not source_path.is_file():
+            return None
+        raw_probe = load_probe_guess(source_path)
+    transform_result = apply_probe_transform_pipeline_with_metadata(
+        raw_probe, normalized_steps
+    )
+    transformed_probe = apply_probe_mask(
+        transform_result.probe, cfg.simulation.probe.mask_diameter
+    )
+    if stored_probe is not None and not np.array_equal(
+        np.asarray(stored_probe), transformed_probe
+    ):
+        raise ValueError(
+            "stored probeGuess conflicts with the resolved simulation probe recipe"
+        )
+    return _build_probe_lineage(
+        cfg,
+        raw_probe=raw_probe,
+        normalized_pipeline=normalized_pipeline,
+        transformed_probe=transformed_probe,
+        transform_metadata=transform_result.metadata,
+    )
 
 
 def save_split_npz(
@@ -655,6 +791,7 @@ def save_split_npz(
     *,
     probe_transform_pipeline: str | None = None,
     probe_transform_steps: list[dict[str, object]] | None = None,
+    probe_lineage: dict[str, object] | None = None,
 ) -> Path:
     """Save train or test split as NPZ with metadata."""
     from ptycho.metadata import MetadataManager
@@ -700,6 +837,38 @@ def save_split_npz(
         normalized_pipeline = probe_transform_pipeline
         normalized_steps = probe_transform_steps
 
+    if probe_lineage is None:
+        transformed = data.get("probeGuess")
+        probe_lineage = _derive_complete_probe_lineage(
+            cfg,
+            normalized_pipeline=normalized_pipeline,
+            normalized_steps=normalized_steps,
+            stored_probe=(None if transformed is None else np.asarray(transformed)),
+        )
+        if probe_lineage is None:
+            simulation_payload = simulation_config_to_dict(cfg.simulation)
+            simulation_digest = _canonical_sha256(simulation_payload)
+            probe_lineage = {
+                "simulation_config": simulation_payload,
+                "simulation_config_sha256": simulation_digest,
+                "dataset_recipe_sha256": None,
+                "probe_lineage": {
+                    "source_kind": cfg.simulation.probe.source,
+                    "source_path": (
+                        str(cfg.simulation.probe.source_path)
+                        if cfg.simulation.probe.source_path is not None
+                        else None
+                    ),
+                    "source_file_sha256": None,
+                    "raw_probe_sha256": None,
+                    "normalized_transform_pipeline": normalized_pipeline,
+                    "transformed_probe_sha256": (
+                        _sha256_array(transformed) if transformed is not None else None
+                    ),
+                },
+            }
+    _preflight_dataset_pair_reuse(cfg, probe_lineage)
+
     metadata = MetadataManager.create_metadata(
         config,
         script_name="grid_lines_workflow",
@@ -718,6 +887,7 @@ def save_split_npz(
         probe_npz=str(cfg.probe_npz),
         set_phi=cfg.set_phi,
         coords_type="relative",
+        **probe_lineage,
     )
     MetadataManager.save_with_metadata(str(path), payload, metadata)
     return path
@@ -729,10 +899,7 @@ def build_grid_lines_datasets(
     canonical_gt_label: str = "gt",
 ) -> Dict[str, str]:
     """Build train/test NPZ datasets and persist a canonical GT recon artifact."""
-    if cfg.probe_source == "ideal_disk":
-        probe_guess = load_ideal_disk_probe(cfg.N)
-    else:
-        probe_guess = load_probe_guess(cfg.probe_npz)
+    probe_guess = _load_configured_probe(cfg)
     normalized_pipeline, normalized_steps = normalize_probe_transform_pipeline(
         target_N=cfg.N,
         probe_shape=probe_guess.shape,
@@ -740,8 +907,19 @@ def build_grid_lines_datasets(
         probe_smoothing_sigma=cfg.probe_smoothing_sigma,
         probe_transform_pipeline=cfg.probe_transform_pipeline,
     )
-    probe_scaled = apply_probe_transform_pipeline(probe_guess, normalized_steps)
+    transform_result = apply_probe_transform_pipeline_with_metadata(
+        probe_guess, normalized_steps
+    )
+    probe_scaled = transform_result.probe
     probe_scaled = apply_probe_mask(probe_scaled, cfg.probe_mask_diameter)
+    probe_lineage = _build_probe_lineage(
+        cfg,
+        raw_probe=probe_guess,
+        normalized_pipeline=normalized_pipeline,
+        transformed_probe=probe_scaled,
+        transform_metadata=transform_result.metadata,
+    )
+    _preflight_dataset_pair_reuse(cfg, probe_lineage)
 
     sim = simulate_grid_data(cfg, probe_scaled)
     config = configure_legacy_params(cfg, probe_scaled)
@@ -755,6 +933,7 @@ def build_grid_lines_datasets(
         config,
         probe_transform_pipeline=normalized_pipeline,
         probe_transform_steps=normalized_steps,
+        probe_lineage=probe_lineage,
     )
     test_npz = save_split_npz(
         cfg,
@@ -763,6 +942,7 @@ def build_grid_lines_datasets(
         config,
         probe_transform_pipeline=normalized_pipeline,
         probe_transform_steps=normalized_steps,
+        probe_lineage=probe_lineage,
     )
 
     tag = dataset_tag or f"N{cfg.N}"
@@ -799,7 +979,41 @@ def build_grid_lines_datasets_by_n(
     bundles: Dict[int, Dict[str, str]] = {}
     for n_value in sorted(set(required_ns)):
         _reset_backend_state()
-        cfg_n = replace(base_cfg, N=n_value)
+        resized_steps = [
+            ({**step, "target_N": n_value} if "target_N" in step else dict(step))
+            for step in parse_probe_transform_pipeline(
+                base_cfg.simulation.probe.transform_pipeline
+            )
+        ]
+        simulation_n = replace(
+            base_cfg.simulation,
+            N=n_value,
+            probe=replace(
+                base_cfg.simulation.probe,
+                transform_pipeline=_serialize_probe_transform_pipeline(resized_steps),
+            ),
+        )
+        cfg_n = replace(
+            base_cfg,
+            N=None,
+            gridsize=None,
+            probe_npz=None,
+            size=None,
+            offset=None,
+            outer_offset_train=None,
+            outer_offset_test=None,
+            nimgs_train=None,
+            nimgs_test=None,
+            nphotons=None,
+            probe_smoothing_sigma=None,
+            probe_mask_diameter=None,
+            probe_source=None,
+            probe_scale_mode=None,
+            probe_transform_pipeline=None,
+            set_phi=None,
+            seed=None,
+            simulation=simulation_n,
+        )
         bundles[n_value] = build_grid_lines_datasets(
             cfg_n,
             dataset_tag=f"N{n_value}",
@@ -1226,32 +1440,18 @@ def _write_tf_row_provenance(
 def run_pinn_inference(model, X_test, coords_nominal):
     """Run PINN inference on test data.
 
-    Returns the reconstructed complex object (first output of model.predict),
-    or None if inference fails due to XLA/dynamic shape issues.
-
-    Known issue: PINN models compiled with XLA may fail during inference with
-    dynamic batch sizes. See docs/bugs/XLA_INFERENCE_BUG.md for details.
+    Returns the reconstructed complex object (first output of model.predict).
+    Native inference failures propagate to the caller.
     """
-    import logging
-    logger = logging.getLogger(__name__)
-
     intensity_scale = p.get("intensity_scale")
-    try:
-        prediction = model.predict([X_test * intensity_scale, coords_nominal])
-        if isinstance(prediction, (list, tuple)):
-            if not prediction:
-                raise ValueError("PINN inference returned no outputs")
-            reconstructed_obj = prediction[0]
-        else:
-            reconstructed_obj = prediction
-        return reconstructed_obj
-    except Exception as e:
-        error_msg = str(e)
-        if "xla" in error_msg.lower() or "fft" in error_msg.lower() or "dynamic" in error_msg.lower():
-            logger.error(f"PINN inference failed with XLA/dynamic shape error: {e}")
-            logger.warning("See docs/bugs/XLA_INFERENCE_BUG.md for details. Returning None.")
-            return None
-        raise  # Re-raise if not an XLA-related error
+    prediction = model.predict([X_test * intensity_scale, coords_nominal])
+    if prediction is None:
+        raise ValueError("PINN inference returned no outputs")
+    if isinstance(prediction, (list, tuple)):
+        if not prediction:
+            raise ValueError("PINN inference returned no outputs")
+        return prediction[0]
+    return prediction
 
 
 def run_baseline_inference(model, X_test):
@@ -1411,6 +1611,12 @@ def _resolve_probe_for_visuals(output_dir: Path) -> Optional[Dict[str, np.ndarra
     candidates: list[Path] = []
     dataset_root = output_dir / "datasets"
     if dataset_root.exists():
+        candidates.extend(
+            sorted(dataset_root.glob("N*/gs*/simulation-*/train.npz"))
+        )
+        candidates.extend(
+            sorted(dataset_root.glob("N*/gs*/simulation-*/test.npz"))
+        )
         candidates.extend(sorted(dataset_root.glob("N*/gs*/train.npz")))
         candidates.extend(sorted(dataset_root.glob("N*/gs*/test.npz")))
 
@@ -1935,6 +2141,7 @@ def render_grid_lines_visuals(output_dir: Path, order: Tuple[str, ...]) -> Dict[
     return outputs
 
 
+@scoped_legacy_params
 def run_grid_lines_workflow(
     cfg: GridLinesConfig,
     tf_models: Tuple[str, ...] = ("pinn", "baseline"),
@@ -1975,10 +2182,7 @@ def run_grid_lines_workflow(
 
     # Step 1: Probe preparation
     print("[1/7] Loading and scaling probe...")
-    if cfg.probe_source == "ideal_disk":
-        probe_guess = load_ideal_disk_probe(cfg.N)
-    else:
-        probe_guess = load_probe_guess(cfg.probe_npz)
+    probe_guess = _load_configured_probe(cfg)
     normalized_pipeline, normalized_steps = normalize_probe_transform_pipeline(
         target_N=cfg.N,
         probe_shape=probe_guess.shape,
@@ -1986,8 +2190,19 @@ def run_grid_lines_workflow(
         probe_smoothing_sigma=cfg.probe_smoothing_sigma,
         probe_transform_pipeline=cfg.probe_transform_pipeline,
     )
-    probe_scaled = apply_probe_transform_pipeline(probe_guess, normalized_steps)
+    transform_result = apply_probe_transform_pipeline_with_metadata(
+        probe_guess, normalized_steps
+    )
+    probe_scaled = transform_result.probe
     probe_scaled = apply_probe_mask(probe_scaled, cfg.probe_mask_diameter)
+    probe_lineage = _build_probe_lineage(
+        cfg,
+        raw_probe=probe_guess,
+        normalized_pipeline=normalized_pipeline,
+        transformed_probe=probe_scaled,
+        transform_metadata=transform_result.metadata,
+    )
+    _preflight_dataset_pair_reuse(cfg, probe_lineage)
 
     # Step 2: Simulation
     print("[2/7] Running grid simulation...")
@@ -2005,6 +2220,7 @@ def run_grid_lines_workflow(
         config,
         probe_transform_pipeline=normalized_pipeline,
         probe_transform_steps=normalized_steps,
+        probe_lineage=probe_lineage,
     )
     test_npz = save_split_npz(
         cfg,
@@ -2013,6 +2229,7 @@ def run_grid_lines_workflow(
         config,
         probe_transform_pipeline=normalized_pipeline,
         probe_transform_steps=normalized_steps,
+        probe_lineage=probe_lineage,
     )
 
     # Step 4-6: Execute row-local train -> infer -> evaluate segments.
@@ -2037,46 +2254,42 @@ def run_grid_lines_workflow(
                 pinn_model, sim["test"]["X"], sim["test"]["coords_nominal"]
             )
             pinn_inference_time_s = time.perf_counter() - pinn_infer_start
-            if pinn_pred is None:
-                print("[5/7][row:pinn] WARNING: PINN inference failed (XLA issue). Skipping PINN evaluation.")
-                metrics_payload["pinn"] = {"error": "PINN inference failed (XLA issue)"}
-            else:
-                print("[6/7][row:pinn] Stitching and computing metrics...")
-                pinn_amp = stitch_predictions(pinn_pred, norm_Y_I, part="amp")
-                pinn_phase = stitch_predictions(pinn_pred, norm_Y_I, part="phase")
-                pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
-                metrics_payload["pinn"] = eval_reconstruction(
-                    pinn_stitched,
-                    YY_gt,
-                    label="pinn",
-                )
-                row_payloads["pinn"] = _build_tf_row_payload(
+            print("[6/7][row:pinn] Stitching and computing metrics...")
+            pinn_amp = stitch_predictions(pinn_pred, norm_Y_I, part="amp")
+            pinn_phase = stitch_predictions(pinn_pred, norm_Y_I, part="phase")
+            pinn_stitched = pinn_amp * np.exp(1j * pinn_phase)
+            metrics_payload["pinn"] = eval_reconstruction(
+                pinn_stitched,
+                YY_gt,
+                label="pinn",
+            )
+            row_payloads["pinn"] = _build_tf_row_payload(
+                model_id="pinn",
+                model_label="CDI CNN + PINN",
+                model=pinn_model,
+                history=pinn_history,
+                metrics=metrics_payload["pinn"],
+                N=cfg.N,
+                epoch_budget=int(cfg.nepochs),
+                train_wall_time_sec=float(pinn_train_time_s),
+                inference_time_sec=float(pinn_inference_time_s),
+            )
+            recons["pinn"] = {
+                "amp": pinn_amp[0, :, :, 0],
+                "phase": pinn_phase[0, :, :, 0],
+            }
+            pinn_recon_path = save_recon_artifact(cfg.output_dir, "pinn", pinn_stitched)
+            if train_npz is not None and test_npz is not None:
+                _write_tf_row_provenance(
+                    cfg=cfg,
                     model_id="pinn",
-                    model_label="CDI CNN + PINN",
-                    model=pinn_model,
+                    row_payload=row_payloads["pinn"],
                     history=pinn_history,
-                    metrics=metrics_payload["pinn"],
-                    N=cfg.N,
-                    epoch_budget=int(cfg.nepochs),
-                    train_wall_time_sec=float(pinn_train_time_s),
-                    inference_time_sec=float(pinn_inference_time_s),
+                    train_npz=Path(train_npz),
+                    test_npz=Path(test_npz),
+                    model_artifact=cfg.output_dir / "pinn" / "wts.h5.zip",
+                    recon_path=pinn_recon_path,
                 )
-                recons["pinn"] = {
-                    "amp": pinn_amp[0, :, :, 0],
-                    "phase": pinn_phase[0, :, :, 0],
-                }
-                pinn_recon_path = save_recon_artifact(cfg.output_dir, "pinn", pinn_stitched)
-                if train_npz is not None and test_npz is not None:
-                    _write_tf_row_provenance(
-                        cfg=cfg,
-                        model_id="pinn",
-                        row_payload=row_payloads["pinn"],
-                        history=pinn_history,
-                        train_npz=Path(train_npz),
-                        test_npz=Path(test_npz),
-                        model_artifact=cfg.output_dir / "pinn" / "wts.h5.zip",
-                        recon_path=pinn_recon_path,
-                    )
 
     if "baseline" in selected_models:
         with _capture_tf_row_logs(cfg.output_dir, "baseline"):

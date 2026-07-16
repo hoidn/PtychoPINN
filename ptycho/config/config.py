@@ -63,10 +63,15 @@ State Dependencies:
     legacy module initialization. Over 23 modules depend on this translation.
 """
 
-from dataclasses import dataclass, asdict
+from collections.abc import Mapping
+from dataclasses import dataclass, asdict, field, fields
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Literal, Union
+import json
+import hashlib
+import inspect
 import math
+import tomllib
 import yaml
 import warnings
 
@@ -78,17 +83,427 @@ __all__ = [
     'TrainingConfig',
     'InferenceConfig',
     'PyTorchExecutionConfig',
+    'ProbeSimulationConfig',
+    'SyntheticObjectConfig',
+    'ScanSimulationConfig',
+    'DetectorSimulationConfig',
+    'SimulationConfig',
     # Core compatibility bridge
     'update_legacy_dict',
     # Validation functions
     'validate_model_config',
     'validate_training_config',
     'validate_inference_config',
+    'validate_simulation_config',
+    'validate_simulation_compatibility',
+    'simulation_config_from_mapping',
+    'simulation_config_to_dict',
+    'simulation_config_sha256',
+    'load_simulation_config',
     # YAML loading
     'load_yaml_config',
     # Internal translation (exposed for advanced use)
     'dataclass_to_legacy_dict',
 ]
+
+
+@dataclass(frozen=True)
+class ProbeSimulationConfig:
+    """Probe source and transforms that are baked into generated data.
+
+    ``source_path=None`` is retained for direct APIs that supply an in-memory
+    custom probe. File-based generation entry points require a path before
+    invoking the simulator.
+    """
+
+    source: Literal["custom", "ideal"] = "custom"
+    source_path: Path | None = None
+    transform_pipeline: str = "pad_preserve:64"
+    mask_diameter: float | None = None
+
+
+@dataclass(frozen=True)
+class SyntheticObjectConfig:
+    """Synthetic object family and generation counts."""
+
+    kind: Literal["lines", "dead_leaves", "natural_patch"] = "lines"
+    image_size: tuple[int, int] = (392, 392)
+    objects_per_probe: int = 4
+    diffractions_per_object: int = 7000
+    set_phi: bool = False
+
+
+@dataclass(frozen=True)
+class ScanSimulationConfig:
+    """Scan layout and train/test geometry for generated data."""
+
+    kind: Literal["grid", "nongrid"] = "grid"
+    grid_size: tuple[int, int] = (1, 1)
+    offset: int = 4
+    outer_offset_train: int = 8
+    outer_offset_test: int = 20
+    train_groups: int = 2
+    test_groups: int = 2
+    buffer: int = 0
+
+
+@dataclass(frozen=True)
+class DetectorSimulationConfig:
+    """Detector/noise properties baked into generated diffraction data."""
+
+    photons_per_pattern: float = 1e9
+    beamstop_diameter: float | None = None
+
+
+@dataclass(frozen=True)
+class SimulationConfig:
+    """Canonical top-level recipe for generated ptychography data."""
+
+    N: int = 64
+    probe: ProbeSimulationConfig = field(default_factory=ProbeSimulationConfig)
+    object: SyntheticObjectConfig = field(default_factory=SyntheticObjectConfig)
+    scan: ScanSimulationConfig = field(default_factory=ScanSimulationConfig)
+    detector: DetectorSimulationConfig = field(default_factory=DetectorSimulationConfig)
+    seed: int | None = None
+
+
+def _reject_unknown_mapping_keys(
+    values: Mapping[str, Any],
+    config_type: type,
+    path: str,
+) -> None:
+    allowed = {item.name for item in fields(config_type)}
+    unknown = sorted(set(values) - allowed)
+    if unknown:
+        raise ValueError(
+            ", ".join(f"{path}.{name}" for name in unknown)
+            + " is not a recognized simulation configuration field"
+        )
+
+
+def _pair_from_mapping(value: Any, path: str) -> tuple[int, int]:
+    if not isinstance(value, (list, tuple)) or len(value) != 2:
+        raise ValueError(f"{path} must be a two-element dimension pair")
+    if any(isinstance(item, bool) or not isinstance(item, int) for item in value):
+        raise ValueError(f"{path} dimensions must be integers")
+    return (value[0], value[1])
+
+
+def _section_from_mapping(values: Any, config_type: type, path: str):
+    if isinstance(values, config_type):
+        return values
+    if not isinstance(values, Mapping):
+        raise ValueError(f"{path} must be a mapping")
+    _reject_unknown_mapping_keys(values, config_type, path)
+    kwargs = dict(values)
+    if config_type is ProbeSimulationConfig and kwargs.get("source_path") is not None:
+        try:
+            kwargs["source_path"] = Path(kwargs["source_path"])
+        except TypeError as exc:
+            raise ValueError(f"{path}.source_path must be a filesystem path") from exc
+    if config_type is SyntheticObjectConfig and "image_size" in kwargs:
+        kwargs["image_size"] = _pair_from_mapping(
+            kwargs["image_size"], f"{path}.image_size"
+        )
+    if config_type is ScanSimulationConfig and "grid_size" in kwargs:
+        kwargs["grid_size"] = _pair_from_mapping(
+            kwargs["grid_size"], f"{path}.grid_size"
+        )
+    return config_type(**kwargs)
+
+
+def simulation_config_from_mapping(values: Mapping[str, Any]) -> SimulationConfig:
+    """Build and validate ``SimulationConfig`` from YAML/TOML-shaped values.
+
+    Unknown keys are errors at every level. This prevents training fields from
+    being silently accepted under the simulation namespace.
+    """
+
+    if not isinstance(values, Mapping):
+        raise ValueError("simulation must be a mapping")
+    _reject_unknown_mapping_keys(values, SimulationConfig, "simulation")
+    kwargs = dict(values)
+    for name, config_type in (
+        ("probe", ProbeSimulationConfig),
+        ("object", SyntheticObjectConfig),
+        ("scan", ScanSimulationConfig),
+        ("detector", DetectorSimulationConfig),
+    ):
+        if name in kwargs:
+            kwargs[name] = _section_from_mapping(
+                kwargs[name], config_type, f"simulation.{name}"
+            )
+    config = SimulationConfig(**kwargs)
+    validate_simulation_config(config)
+    return config
+
+
+def simulation_config_to_dict(config: SimulationConfig) -> Dict[str, Any]:
+    """Return the stable JSON-compatible canonical simulation recipe."""
+
+    validate_simulation_config(config)
+    return {
+        "N": int(config.N),
+        "seed": int(config.seed) if config.seed is not None else None,
+        "probe": {
+            "source": config.probe.source,
+            "source_path": (
+                str(config.probe.source_path)
+                if config.probe.source_path is not None
+                else None
+            ),
+            "transform_pipeline": config.probe.transform_pipeline,
+            "mask_diameter": config.probe.mask_diameter,
+        },
+        "object": {
+            "kind": config.object.kind,
+            "image_size": list(config.object.image_size),
+            "objects_per_probe": int(config.object.objects_per_probe),
+            "diffractions_per_object": int(config.object.diffractions_per_object),
+            "set_phi": bool(config.object.set_phi),
+        },
+        "scan": {
+            "kind": config.scan.kind,
+            "grid_size": list(config.scan.grid_size),
+            "offset": int(config.scan.offset),
+            "outer_offset_train": int(config.scan.outer_offset_train),
+            "outer_offset_test": int(config.scan.outer_offset_test),
+            "train_groups": int(config.scan.train_groups),
+            "test_groups": int(config.scan.test_groups),
+            "buffer": int(config.scan.buffer),
+        },
+        "detector": {
+            "photons_per_pattern": float(config.detector.photons_per_pattern),
+            "beamstop_diameter": config.detector.beamstop_diameter,
+        },
+    }
+
+
+def simulation_config_sha256(config: SimulationConfig) -> str:
+    """Return the canonical SHA-256 identity of one resolved simulation recipe."""
+
+    encoded = json.dumps(
+        simulation_config_to_dict(config),
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def load_simulation_config(path: str | Path) -> SimulationConfig:
+    """Load a closed nested simulation recipe from TOML, YAML, or JSON."""
+    source = Path(path)
+    suffix = source.suffix.lower()
+    try:
+        if suffix == ".toml":
+            raw = tomllib.loads(source.read_text(encoding="utf-8"))
+        elif suffix in {".yaml", ".yml"}:
+            raw = yaml.safe_load(source.read_text(encoding="utf-8"))
+        elif suffix == ".json":
+            raw = json.loads(source.read_text(encoding="utf-8"))
+        else:
+            raise ValueError(
+                "simulation config path must end in .toml, .yaml, .yml, or .json"
+            )
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError, yaml.YAMLError, json.JSONDecodeError) as exc:
+        raise ValueError(f"could not load simulation config {source}: {exc}") from exc
+    if not isinstance(raw, Mapping):
+        raise ValueError("simulation config document must contain a mapping")
+    values = raw.get("simulation", raw)
+    if not isinstance(values, Mapping):
+        raise ValueError("simulation config document's simulation value must be a mapping")
+    unexpected_top_level = set(raw) - {"simulation"} if "simulation" in raw else set()
+    if unexpected_top_level:
+        raise ValueError(
+            "simulation config document has unexpected top-level keys "
+            f"{sorted(unexpected_top_level)}"
+        )
+    return simulation_config_from_mapping(values)
+
+
+def _pipeline_final_size(pipeline: str) -> int:
+    if not isinstance(pipeline, str) or not pipeline.strip():
+        raise ValueError("simulation.probe.transform_pipeline must be non-empty")
+    current_size: int | None = None
+    boundary_index: int | None = None
+    segments = pipeline.split("|")
+    for index, raw_segment in enumerate(segments):
+        if boundary_index is not None:
+            raise ValueError(
+                "pad_extrapolate_boundary_matched must be the final operation in "
+                "simulation.probe.transform_pipeline"
+            )
+        segment = raw_segment.strip()
+        if not segment:
+            raise ValueError(
+                "simulation.probe.transform_pipeline contains an empty operation"
+            )
+        op, separator, raw_parameters = segment.partition(":")
+        op = op.strip()
+        if op == "smooth":
+            if boundary_index is not None:
+                raise ValueError(
+                    "simulation.probe.transform_pipeline cannot smooth after "
+                    "pad_extrapolate_boundary_matched"
+                )
+            if not separator:
+                raise ValueError("smooth requires a sigma")
+            sigma = float(raw_parameters)
+            if not math.isfinite(sigma) or sigma < 0:
+                raise ValueError("smooth sigma must be finite and non-negative")
+            continue
+        if op not in {
+            "pad",
+            "pad_preserve",
+            "interp",
+            "pad_extrapolate",
+            "pad_extrapolate_boundary_matched",
+        }:
+            raise ValueError(
+                f"Unknown simulation.probe.transform_pipeline operation {op!r}"
+            )
+        if not separator or not raw_parameters.strip():
+            raise ValueError(f"{op} requires a target size")
+        target_text = raw_parameters.split(",", 1)[0].strip()
+        current_size = int(target_text)
+        if current_size <= 0:
+            raise ValueError(f"{op} target size must be positive")
+        if op == "pad_extrapolate_boundary_matched":
+            boundary_index = index
+    if current_size is None:
+        raise ValueError(
+            "simulation.probe.transform_pipeline must resolve an explicit final size"
+        )
+    return current_size
+
+
+def _validate_square_positive_pair(value: Any, path: str) -> None:
+    if not isinstance(value, tuple) or len(value) != 2:
+        raise ValueError(f"{path} must be a two-element tuple")
+    if any(not isinstance(item, int) or item <= 0 for item in value):
+        raise ValueError(f"{path} dimensions must be positive integers")
+    if value[0] != value[1]:
+        raise ValueError(f"{path} must be square, got {value}")
+
+
+def validate_simulation_config(config: SimulationConfig) -> None:
+    """Validate one complete generated-data recipe."""
+
+    if not isinstance(config, SimulationConfig):
+        raise TypeError("config must be a SimulationConfig")
+    if isinstance(config.N, bool) or not isinstance(config.N, int) or config.N <= 0:
+        raise ValueError(f"simulation.N must be a positive integer, got {config.N}")
+    if config.probe.source not in {"custom", "ideal"}:
+        raise ValueError(
+            f"simulation.probe.source must be 'custom' or 'ideal', got {config.probe.source!r}"
+        )
+    if config.probe.source == "ideal" and config.probe.source_path is not None:
+        raise ValueError(
+            "simulation.probe.source_path must be omitted when "
+            "simulation.probe.source='ideal'"
+        )
+    if config.probe.source_path is not None and not isinstance(
+        config.probe.source_path, Path
+    ):
+        raise ValueError("simulation.probe.source_path must be a Path when set")
+    if config.probe.mask_diameter is not None:
+        if isinstance(config.probe.mask_diameter, bool) or not isinstance(
+            config.probe.mask_diameter, (int, float)
+        ):
+            raise ValueError(
+                "simulation.probe.mask_diameter must be a finite positive number"
+            )
+        if (
+            not math.isfinite(config.probe.mask_diameter)
+            or config.probe.mask_diameter <= 0
+        ):
+            raise ValueError("simulation.probe.mask_diameter must be finite and positive")
+    final_size = _pipeline_final_size(config.probe.transform_pipeline)
+    if final_size != config.N:
+        raise ValueError(
+            "simulation.probe.transform_pipeline final size "
+            f"{final_size} does not match simulation.N {config.N}"
+        )
+
+    if config.object.kind not in {"lines", "dead_leaves", "natural_patch"}:
+        raise ValueError(f"Unsupported simulation.object.kind {config.object.kind!r}")
+    _validate_square_positive_pair(
+        config.object.image_size, "simulation.object.image_size"
+    )
+    if (
+        isinstance(config.object.objects_per_probe, bool)
+        or not isinstance(config.object.objects_per_probe, int)
+        or config.object.objects_per_probe <= 0
+    ):
+        raise ValueError("simulation.object.objects_per_probe must be positive")
+    if (
+        isinstance(config.object.diffractions_per_object, bool)
+        or not isinstance(config.object.diffractions_per_object, int)
+        or config.object.diffractions_per_object <= 0
+    ):
+        raise ValueError("simulation.object.diffractions_per_object must be positive")
+
+    if config.scan.kind not in {"grid", "nongrid"}:
+        raise ValueError(f"Unsupported simulation.scan.kind {config.scan.kind!r}")
+    _validate_square_positive_pair(config.scan.grid_size, "simulation.scan.grid_size")
+    for name in ("offset", "outer_offset_train", "outer_offset_test", "buffer"):
+        value = getattr(config.scan, name)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"simulation.scan.{name} must be a non-negative integer")
+    for name in ("train_groups", "test_groups"):
+        value = getattr(config.scan, name)
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            raise ValueError(f"simulation.scan.{name} must be a positive integer")
+
+    if isinstance(config.detector.photons_per_pattern, bool) or not isinstance(
+        config.detector.photons_per_pattern, (int, float)
+    ):
+        raise ValueError(
+            "simulation.detector.photons_per_pattern must be a finite positive number"
+        )
+    photons = float(config.detector.photons_per_pattern)
+    if not math.isfinite(photons) or photons <= 0:
+        raise ValueError(
+            "simulation.detector.photons_per_pattern must be finite and positive"
+        )
+    if config.detector.beamstop_diameter is not None:
+        if isinstance(config.detector.beamstop_diameter, bool) or not isinstance(
+            config.detector.beamstop_diameter, (int, float)
+        ):
+            raise ValueError(
+                "simulation.detector.beamstop_diameter must be a finite positive number"
+            )
+        if (
+            not math.isfinite(config.detector.beamstop_diameter)
+            or config.detector.beamstop_diameter <= 0
+        ):
+            raise ValueError(
+                "simulation.detector.beamstop_diameter must be finite and positive"
+            )
+    if config.seed is not None and (
+        isinstance(config.seed, bool) or not isinstance(config.seed, int)
+    ):
+        raise ValueError("simulation.seed must be an integer or None")
+
+
+def validate_simulation_compatibility(
+    simulation: SimulationConfig,
+    model: "ModelConfig",
+) -> None:
+    """Reject duplicated model/simulation shape fields that disagree."""
+
+    validate_simulation_config(simulation)
+    if simulation.N != model.N:
+        raise ValueError(
+            f"simulation.N={simulation.N} conflicts with model.N={model.N}"
+        )
+    expected_grid = (model.gridsize, model.gridsize)
+    if simulation.scan.grid_size != expected_grid:
+        raise ValueError(
+            "simulation.scan.grid_size="
+            f"{simulation.scan.grid_size} conflicts with model.gridsize={model.gridsize}"
+        )
 
 @dataclass(frozen=True)
 class ModelConfig:
@@ -209,6 +624,21 @@ class InferenceConfig:
             # Use object.__setattr__ to modify dataclass
             object.__setattr__(self, 'n_groups', self.n_images)
 
+_STRUCTURAL_EXECUTION_ALIAS_NAMES = frozenset({
+    'ffno_encoder_blocks',
+    'ffno_encoder_modes',
+    'ffno_encoder_share_weights',
+    'ffno_encoder_gate_init',
+    'ffno_encoder_norm',
+    'ffno_encoder_mlp_ratio',
+    'spectral_bottleneck_blocks',
+    'spectral_bottleneck_modes',
+    'spectral_bottleneck_share_weights',
+    'spectral_bottleneck_gate_init',
+    'spectral_bottleneck_gate_mode',
+})
+
+
 @dataclass
 class PyTorchExecutionConfig:
     """
@@ -286,7 +716,8 @@ class PyTorchExecutionConfig:
     recon_log_stitch: bool = False  # Log stitched full-resolution reconstructions (opt-in)
     recon_log_max_stitch_samples: Optional[int] = None  # Cap stitched samples (None = no limit)
 
-    # Torch-only encoder/bottleneck structural-search knobs (not bridged to canonical ModelConfig)
+    # Deprecated Torch topology input aliases. The training factory records
+    # explicit use, maps it one-way into Torch ModelConfig, and rejects conflicts.
     ffno_encoder_blocks: int = 24
     ffno_encoder_modes: int = 12
     ffno_encoder_share_weights: bool = True
@@ -303,6 +734,16 @@ class PyTorchExecutionConfig:
     inference_batch_size: Optional[int] = None  # Override batch_size for inference (None = use training batch_size)
     middle_trim: int = 0  # Inference trimming parameter (not yet implemented)
     pad_eval: bool = False  # Padding for evaluation (not yet implemented)
+
+    def __new__(cls, *args, **kwargs):
+        instance = super().__new__(cls)
+        positional_names = {
+            field_info.name for field_info in fields(cls)[:len(args)]
+        }
+        instance._explicit_structural_aliases = frozenset(
+            (positional_names | set(kwargs)) & _STRUCTURAL_EXECUTION_ALIAS_NAMES
+        )
+        return instance
 
     def __post_init__(self):
         """
@@ -479,6 +920,12 @@ class PyTorchExecutionConfig:
             )
 
 
+_execution_init_signature = inspect.signature(PyTorchExecutionConfig.__init__)
+PyTorchExecutionConfig.__signature__ = _execution_init_signature.replace(
+    parameters=tuple(_execution_init_signature.parameters.values())[1:]
+)
+
+
 def validate_model_config(config: ModelConfig) -> None:
     """Validate model configuration."""
     valid_arches = {
@@ -566,6 +1013,39 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
     Returns:
         Dictionary with legacy parameter names and values
     """
+    if isinstance(obj, SimulationConfig):
+        validate_simulation_config(obj)
+        return {
+            "N": obj.N,
+            "probe_source": (
+                "ideal_disk" if obj.probe.source == "ideal" else obj.probe.source
+            ),
+            "probe_npz": (
+                str(obj.probe.source_path)
+                if obj.probe.source_path is not None
+                else None
+            ),
+            "probe_transform_pipeline": obj.probe.transform_pipeline,
+            "probe_mask_diameter": obj.probe.mask_diameter,
+            "data_source": obj.object.kind,
+            "object_class": obj.object.kind,
+            "size": obj.object.image_size[0],
+            "objects_per_probe": obj.object.objects_per_probe,
+            "diff_per_object": obj.object.diffractions_per_object,
+            "set_phi": obj.object.set_phi,
+            "scan_kind": obj.scan.kind,
+            "gridsize": obj.scan.grid_size[0],
+            "offset": obj.scan.offset,
+            "outer_offset_train": obj.scan.outer_offset_train,
+            "outer_offset_test": obj.scan.outer_offset_test,
+            "nimgs_train": obj.scan.train_groups,
+            "nimgs_test": obj.scan.test_groups,
+            "max_position_jitter": obj.scan.buffer,
+            "nphotons": obj.detector.photons_per_pattern,
+            "beamstop_diameter": obj.detector.beamstop_diameter,
+            "npseed": obj.seed,
+        }
+
     # Key mappings from dataclass field names to legacy param names
     KEY_MAPPINGS = {
         'object_big': 'object.big',
