@@ -54,6 +54,86 @@ coordinates, diffraction, probe/object guesses, scan indices, metadata, and
 sampling identity. It deliberately does not own loading, grouping, tensor
 conversion, or backend behavior.
 
+## Data Transport and Entry-Point Routing
+
+The entry point and the type of input supplied by its caller select the data
+route. Dataset size, DDP settings, and NPZ key inspection do not automatically
+choose between in-memory, NPZ, and memory-mapped processing.
+
+```text
+caller supplies arrays or a data object
+  └─ in-memory adapter ──► model-ready container / DataLoader
+
+caller supplies one NPZ file
+  └─ RawData loader ──► grouping in memory ──► model-ready container / DataLoader
+
+caller supplies an NPZ directory to train_lightning_only
+  └─ PtychoDataset ──► TensorDict memory map ──► PtychoDataModuleLightning
+
+caller invokes the grid-lines study runner
+  └─ grid-lines cached-NPZ adapter ──► dict container ──► ordinary DataLoader
+
+caller supplies an existing memory map
+  └─ PrebuiltPtychoDataModule ──► ordinary Lightning training lifecycle
+```
+
+There are therefore three different persistence/residency modes:
+
+| Mode | Persistence boundary | Runtime behavior |
+|---|---|---|
+| End-to-end in memory | None | Simulation or caller-owned NumPy arrays become `RawData`, `PtychoDataset.from_np()`, or an existing container without an intermediate save/reload. |
+| NPZ-backed, RAM-resident | An NPZ is written or supplied | The selected loader reads the file, after which grouping, adaptation, and training use in-memory arrays and ordinary DataLoaders. Grid-lines cached NPZs use this mode. |
+| Disk-backed memory map | Standalone NPZs are supplied through the mmap entry point | `PtychoDataset` reads the NPZs to build a TensorDict memory map; later epochs and ranks open that map and fetch batches from it. The NPZ archive itself is not directly memory-mapped. |
+
+### Current Routing by Entry Point
+
+| Caller or entry point | Input boundary | Selected route |
+|---|---|---|
+| `RawData.from_simulation()` or `generate_simulated_data()` followed directly by a workflow call | In-memory object | Remains in memory unless the caller explicitly saves it. |
+| `PtychoDataset.from_np()` and the in-memory API loaders | NumPy arrays | Bypass NPZ I/O and the on-disk memory map. |
+| Unified/file-oriented training CLIs and `python -m ptycho_torch.train` | One standalone NPZ path | Load through `RawData`, group in memory, adapt to `PtychoDataContainerTorch`, then use ordinary DataLoaders. |
+| `ptycho_torch.train_lightning_only.main(ptycho_dir=...)` | Directory containing standalone NPZ scans | Build or open the TensorDict mmap through `PtychoDataModuleLightning`. This is the established Lightning multi-device/DDP data rail. |
+| `scripts/studies/grid_lines_torch_runner.py` | Grid-lines train/test cached NPZ paths | Load the specialized cache into dictionaries, select grid-lines probe/coordinate semantics, adapt to the dict-container batch contract, and call `_train_with_lightning`. This path currently constructs a single-device Trainer. |
+| `PrebuiltPtychoDataModule` | Existing TensorDict mmap | Reopen the already-built map without reparsing source NPZs. |
+| Default Torch inference CLI | One standalone NPZ path | Load through `RawData` and run inference in memory. |
+| Barycentric or probe-weighted Torch inference | One standalone NPZ path | Stage the NPZ in an isolated directory and build a temporary `PtychoDataset` mmap because that reconstruction implementation consumes the grouped dataset representation. |
+
+`PyTorchExecutionConfig` controls devices, DDP strategy, workers, and Lightning
+runtime mechanics after this routing decision. It does not select a dataset
+schema or convert a grid-lines cache into the mmap schema. In particular,
+requesting DDP does not cause a file-based or grid-lines entry point to switch
+automatically to `PtychoDataModuleLightning`.
+
+### Standalone NPZ Versus Grid-Lines Cached NPZ
+
+These formats may both contain a field named `diffraction`, but they represent
+different pipeline stages:
+
+| Format | Typical contents | Consumer |
+|---|---|---|
+| Standalone scan NPZ | One ungrouped 3-D diffraction stack, `xcoords`, `ycoords`, `probeGuess`, and the other acquisition fields required by the selected loader | `RawData` or the native Torch mmap writer |
+| Grid-lines cached NPZ | Pre-grouped/channelized `diffraction`, `Y_I`, `Y_phi`, `coords_nominal`, `coords_true`, `YY_full`, and optional `probe_simulated` | Grid-lines cached-dataset adapter |
+
+The presence of the same field name does not make the formats interchangeable.
+The mmap writer expects ungrouped diffraction plus scan coordinates and its
+writer-required acquisition fields; a grid-lines cache is already grouped and
+uses separate amplitude/phase labels. The grid-lines CI adapter also has
+probe-provenance behavior that the generic standalone loader does not infer:
+when both splits carry `probe_simulated`, it selects that realized simulation
+probe instead of blindly using `probeGuess`.
+
+There is currently no canonical `data_transport = memory | npz | mmap` setting
+and no global schema dispatcher. To determine the route for a run, start from
+the invoked CLI/function and follow the input type it accepts. Schema
+validation occurs inside the already-selected loader.
+
+The normative standalone and batch shapes remain owned by
+[PtychoPINN Core Contract](specs/spec-ptycho-core.md) and
+[Torch Loader and Batch Contract](specs/spec-ptycho-interfaces.md). The routing
+description above is an implementation guide: it explains which current
+entry-point consumes each contract without turning historical runner choices
+into new format requirements.
+
 ## The Probe Lifecycle
 
 Several fields contain the word “probe,” but they act at different stages:
