@@ -561,31 +561,35 @@ behavior; unselected routes do not create a repository-wide migration gate.
 
 ### Slice 6 — Workflow layering and backend adapters
 
-**Status:** In progress. Slice 6A removes the sole package-to-`scripts` runtime
+**Status:** Complete (2026-07-15). Slice 6A removes the sole package-to-`scripts` runtime
 edge without widening the workflow split: generic invocation/provenance helpers
 now live in `ptycho.invocation_logging`, the package grid-lines workflow imports
 them directly, and the study module remains a compatibility facade while
 retaining only its NeuralOp-specific provenance helper. The focused package
 schema, facade identity, boundary, paper-row, and CLI handoff gates passed (13
-tests).
+tests). The exact numbered-slice suite completed with 22 failures, 2 errors,
+5,078 passes, 35 skips, 11 xfails, and 1 xpass; its failure/error selector set
+is identical to the Slice 4 baseline, with no attributable Slice 6 regression.
+No broader use-case split, backend protocol, metric extraction, or plugin
+framework was selected for this bounded slice.
 
 **Outcome:** Scripts orchestrate; package modules expose cohesive application
 services; backend differences are explicit without a plugin framework.
 
 **Work:**
 
-1. Decompose grid-lines behavior by cohesion—simulation/data preparation,
+1. **No additional split selected:** Decompose grid-lines behavior by cohesion—simulation/data preparation,
    reconstruction/evaluation, artifact rendering, and orchestration—while
    retaining compatibility exports during migration.
 2. **Complete (2026-07-15):** Move invocation/provenance utilities below the package boundary or inject
    them from scripts; eliminate package imports from `scripts/`.
-3. Split a Torch workflow use case only when a selected migration establishes a
+3. **No additional split selected:** Split a Torch workflow use case only when a selected migration establishes a
    stable DTO/port boundary; do not make subjective whole-module cohesion a
    repository-wide task or mechanically expose every internal step.
-4. Prefer explicit two-backend construction/dispatch. Introduce narrow trainer
+4. **No protocol selected:** Prefer explicit two-backend construction/dispatch. Introduce narrow trainer
    and inference-session protocols only where they reduce an observed coupling;
    do not add global registration machinery.
-5. Extract only small framework-neutral metric primitives and artifact helpers.
+5. **No additional extraction selected:** Extract only small framework-neutral metric primitives and artifact helpers.
    Dataset/study-specific alignment, masks, aggregation, and control flow remain
    with their studies.
 
