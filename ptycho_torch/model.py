@@ -2324,6 +2324,10 @@ class PtychoPINN_Lightning(L.LightningModule):
         # (Lightning passes saved hyperparameters as dicts during load_from_checkpoint)
         if model_spec is not None:
             from dataclasses import fields
+            from ptycho_torch.model_spec import (
+                MODEL_SPEC_V1_MODEL_FIELDS,
+                MODEL_SPEC_V1_VERSION,
+            )
 
             for section_name, value, config_type in (
                 ("model_config", model_config, ModelConfig),
@@ -2333,7 +2337,14 @@ class PtychoPINN_Lightning(L.LightningModule):
             ):
                 if not isinstance(value, dict):
                     continue
-                expected = {item.name for item in fields(config_type)}
+                if (
+                    section_name == "model_config"
+                    and isinstance(model_spec, dict)
+                    and model_spec.get("schema_version") == MODEL_SPEC_V1_VERSION
+                ):
+                    expected = set(MODEL_SPEC_V1_MODEL_FIELDS)
+                else:
+                    expected = {item.name for item in fields(config_type)}
                 received = set(value)
                 if received != expected:
                     raise ValueError(
@@ -2349,6 +2360,10 @@ class PtychoPINN_Lightning(L.LightningModule):
             training_config = TrainingConfig(**training_config)
         if isinstance(inference_config, dict):
             inference_config = InferenceConfig(**inference_config)
+        from ptycho_torch.object_compatibility import (
+            resolve_torch_model_object_policy,
+        )
+        model_config = resolve_torch_model_object_policy(model_config)
 
         decoded_model_spec = None
         if model_spec is not None:
@@ -2361,6 +2376,7 @@ class PtychoPINN_Lightning(L.LightningModule):
                 else ModelSpec.from_payload(model_spec)
             )
             sealed_model_config = decoded_model_spec.to_model_config()
+            model_config = resolve_torch_model_object_policy(model_config)
             mismatches = []
             for item in fields(ModelConfig):
                 supplied = getattr(model_config, item.name)

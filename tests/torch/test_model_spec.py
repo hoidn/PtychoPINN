@@ -23,10 +23,15 @@ def _coherent_configs(**model_overrides):
 def test_model_spec_declares_every_torch_model_field_exactly_once():
     from ptycho_torch.model_spec import (
         CANONICAL_MODEL_FIELDS,
+        TORCH_COMPATIBILITY_ALIAS_FIELDS,
         TORCH_EXTENSION_FIELDS,
     )
 
-    owned = set(CANONICAL_MODEL_FIELDS) | set(TORCH_EXTENSION_FIELDS)
+    owned = (
+        set(CANONICAL_MODEL_FIELDS)
+        | set(TORCH_EXTENSION_FIELDS)
+        | set(TORCH_COMPATIBILITY_ALIAS_FIELDS)
+    )
     assert owned == {item.name for item in fields(ModelConfig)}
     assert set(CANONICAL_MODEL_FIELDS).isdisjoint(TORCH_EXTENSION_FIELDS)
 
@@ -36,12 +41,16 @@ def test_model_spec_is_versioned_and_materializes_fresh_model_configs():
 
     canonical, data, model = _coherent_configs(fno_width=48)
     spec = derive_model_spec(canonical, model, data)
+    from ptycho_torch.object_compatibility import (
+        resolve_torch_model_object_policy,
+    )
+    resolved_model = resolve_torch_model_object_policy(model)
 
     assert spec.schema_version == CURRENT_MODEL_SPEC_VERSION
     first = spec.to_model_config()
     second = spec.to_model_config()
-    assert first == model
-    assert second == model
+    assert first == resolved_model
+    assert second == resolved_model
     assert first is not second
 
 
@@ -178,7 +187,10 @@ def test_application_factory_composes_sections_without_runtime_config():
     module = build_ptychopinn_application(spec, data, training, inference)
 
     assert isinstance(module, PtychoPINN_Lightning)
-    assert module.model_config == model
+    from ptycho_torch.object_compatibility import (
+        resolve_torch_model_object_policy,
+    )
+    assert module.model_config == resolve_torch_model_object_policy(model)
     assert "execution_config" not in signature(build_ptychopinn_application).parameters
 
 
@@ -215,8 +227,13 @@ def test_training_payload_carries_current_model_spec(tmp_path):
         overrides={"n_groups": 1, "gridsize": 1},
     )
 
-    assert payload.model_spec.to_model_config() == payload.pt_model_config
-    assert payload.model_spec.schema_version == "torch-model-spec-v1"
+    from ptycho_torch.object_compatibility import (
+        resolve_torch_model_object_policy,
+    )
+    assert payload.model_spec.to_model_config() == (
+        resolve_torch_model_object_policy(payload.pt_model_config)
+    )
+    assert payload.model_spec.schema_version == "torch-model-spec-v2"
 
 
 @pytest.mark.parametrize(

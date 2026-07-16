@@ -600,8 +600,7 @@ acceptance claim; unselected modules are not part of the gate.
 
 ### Slice 7 — Compatibility migrations and independent hygiene
 
-**Status:** Opportunistic; 7A-7C complete (2026-07-15), and the 7D public
-migration contract is approved and implementation-ready (2026-07-16). A framework-neutral
+**Status:** Opportunistic; 7A-7D complete (2026-07-16). A framework-neutral
 `object-compatibility-v1` record now proves the exact legacy mapping from
 `object_big`, `training_patch_weighting`, `pad_object`, and `probe_big` into
 separate patch/object layout, training-canvas, and training-assembly identities.
@@ -614,12 +613,14 @@ remain unchanged and their focused round-trip/strict-load gate passed (73 tests)
 Active file-backed and in-memory loaders, probe expansion, container coordinate
 requirements, scan identity, and diagnostic input-channel selection now consume
 the same record; their focused gate passed (71 tests). The canonical public
-model adapter retains the established Torch-only `central_mask` default when no
-Torch structural payload is available. Public dataclasses/defaults, artifact
-schema/legacy decoding, and protected cross-backend code remain the bounded 7D
-migration. The public replacement fields, compatibility behavior, artifact
-rules, and protected-file scope are fixed below; implementation no longer needs
-to infer or invent those semantics.
+surface now owns `object_layout`, `training_canvas`, and
+`training_patch_weighting`; `object_big` is a deprecated derived compatibility
+projection. TensorFlow consumes both supported layout/canvas pairs and rejects
+unsupported weighting before construction. New Torch persistence emits
+`torch-model-spec-v2` inside `torch-artifact-v2`, while frozen v1 identities,
+the `2.0-pytorch` bundle roles, and TensorFlow `1.0` reload remain supported.
+The focused public/bridge/construction/artifact/reload gate passed (144 tests);
+no repository-wide suite was added.
 
 **Outcome:** Compatibility switches and obsolete forks are retired through
 evidence-based migrations rather than repository-search assumptions.
@@ -629,7 +630,7 @@ evidence-based migrations rather than repository-search assumptions.
 - **7A-7C complete:** The versioned internal mapping and active Torch
   model/forward/loader adoption separate output layout, training canvas, and
   training assembly while preserving the legacy public and artifact surface.
-- **7D — public object-policy migration (authorized, pending implementation):**
+- **7D complete — public object-policy migration (2026-07-16):**
   expose these canonical `ModelConfig` fields:
   - `object_layout: Literal["single_patch", "grouped_patches"]`;
   - `training_canvas: Literal["independent", "relative_overlap"]`;

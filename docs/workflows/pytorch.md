@@ -126,6 +126,38 @@ keep `probe_big=True` so the decoder learns the full patch support.
 `--probe-mask/--no-probe-mask`, `--probe-mask-sigma`, `--probe-mask-diameter` on both
 native CLIs.
 
+### 3.4.1. Public object policy and legacy migration
+
+New configuration uses three independent public fields:
+
+```python
+ModelConfig(
+    object_layout="grouped_patches",
+    training_canvas="relative_overlap",
+    training_patch_weighting="central_mask",
+)
+```
+
+The only supported layout/canvas pairs are
+`single_patch`/`independent` and
+`grouped_patches`/`relative_overlap`. PyTorch supports `central_mask`,
+`uniform`, and `probe` weighting. TensorFlow supports `central_mask` only.
+Unsupported pairs, partial pairs, contradictory dual old/new input, and
+unsupported TensorFlow weighting fail before model construction.
+
+`object_big` remains an optional deprecated input alias for external callers
+and old configuration files. `False` maps to
+`single_patch`/`independent`; `True` maps to
+`grouped_patches`/`relative_overlap`. After resolution, the compatibility
+Boolean is derived from `object_layout` and is written to legacy
+`params.cfg['object.big']`. New code should not set `object_big`.
+
+New Torch checkpoints and bundles use `torch-model-spec-v2` inside
+`torch-artifact-v2`. Existing v1 artifacts remain readable through frozen
+v1 field inventories and deterministic upgrade. The bundle version remains
+`2.0-pytorch` with exactly `autoencoder` and `diffraction_to_obj`; TensorFlow
+bundle version `1.0` is unchanged.
+
 ### 3.5. CNN Output / Physics-Forward Knobs (Main-Parity Stack)
 
 Four torch-`ModelConfig` knobs port the legacy-main CNN representation and physics as
@@ -136,7 +168,7 @@ unchanged:
 |---|---|---|---|
 | `cnn_output_mode` | `'amp_phase'` | `'real_imag'` (Unsupervised-only) | CNN emits `(real, imag)` via `ScaledTanh` boxes (real ∈ (−0.8, 1.2), imag ∈ (−1.2, 1.2)); prerequisite for `rectangular_scaled`. Representability limit: unit-amplitude objects near `|phase| → π` are unreconstructable in this mode. |
 | `use_shared_decoder` | `False` | `True` | Single shared decoder emitting `2*C_out` channels, split per branch; architecture-only knob. |
-| `training_patch_weighting` | `'central_mask'` | `'probe'` (or `'uniform'`) | Training-forward reassembly weighting: binary center mask vs `Σ|probe|²`-weighted (`'uniform'` isolates the code-path change without probe weighting). Distinct from the inference-only `InferenceConfig.patch_weighting`. |
+| `training_patch_weighting` | `'central_mask'` | `'probe'` (or `'uniform'`) | Public training-forward assembly policy for grouped patches: binary center mask vs `Σ|probe|²`-weighted (`'uniform'` isolates the code-path change without probe weighting). Distinct from the inference-only `InferenceConfig.patch_weighting`. |
 | `physics_forward_mode` | `'amplitude'` | `'rectangular_scaled'` | Routes patches through `RectangularScaledDiffraction` (analytic real/imag intensity model with per-dataset trainable `s1`/`s2` unless `rect_s1s2_trainable=False`). Requires `cnn_output_mode='real_imag'`; the matching intensity-domain losses (`RectangularPoissonLoss` / `RectangularMAELoss`) are selected automatically. |
 
 Physical semantics of `s1`/`s2` and known residual differences: see the

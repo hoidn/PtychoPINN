@@ -63,6 +63,22 @@ The following mappings are normative. Where not listed, identical field names/ty
     - Direct pass-through. Used by the hybrid_resnet generator to fix bottleneck width.
   - `ModelConfig.amp_activation: str = 'silu'` (PyTorch field is an unvalidated `str`) → `ModelConfig.amp_activation: Literal['sigmoid','swish','softplus','relu'] = 'sigmoid'`
     - Map: silu/SiLU→swish; sigmoid/swish/softplus/relu pass through unchanged. Any other string is accepted by the unvalidated PyTorch field but rejected by `to_model_config`'s `activation_mapping` lookup, which raises `ValueError` for values outside `{silu, SiLU, sigmoid, swish, softplus, relu}`.
+  - Public object policy:
+    - `object_layout: Literal['single_patch','grouped_patches']`
+    - `training_canvas: Literal['independent','relative_overlap']`
+    - `training_patch_weighting: Literal['central_mask','uniform','probe']`
+    - The supported layout/canvas pairs are
+      `single_patch`/`independent` and
+      `grouped_patches`/`relative_overlap`. The bridge resolves these fields
+      before legacy mutation and derives the deprecated `object_big` /
+      `object.big` Boolean projection. Partial pairs and contradictory dual
+      old/new input fail closed.
+    - PyTorch supports all three weighting values. TensorFlow supports
+      `central_mask` only and rejects `uniform` or `probe` before model
+      construction.
+    - Unset public fields resolve to grouped patches, relative-overlap canvas,
+      and central-mask weighting. Legacy-only `object_big` input remains
+      accepted with deprecation signaling.
 
 - Training lifecycle
   - `TrainingConfig.epochs: int` → `TrainingConfig.nepochs: int` (rename)
@@ -94,7 +110,6 @@ The following mappings are normative. Where not listed, identical field names/ty
   - `ModelConfig.generator_output_mode: Literal['real_imag','amp_phase_logits','amp_phase']` exists identically on both sides, both default `'real_imag'`, but `to_model_config` does not include it in the `kwargs` it forwards — the bridged TF config takes the TF default unless supplied via `overrides`.
   - `ModelConfig.cnn_output_mode: Literal['amp_phase','real_imag']` — Torch-only CNN decoder output selector; no TF field.
   - `ModelConfig.physics_forward_mode: Literal['amplitude','rectangular_scaled']` — Torch-only forward-model physics selector; no TF field.
-  - `ModelConfig.training_patch_weighting: Literal['central_mask','probe','uniform']` — Torch-only object_big reassembly weighting; no TF field.
   - `ModelConfig.rect_s1s2_trainable: bool` — Torch-only; only consulted when `physics_forward_mode='rectangular_scaled'`; no TF field.
   - Loss-weight mapping asymmetry: TensorFlow expresses loss balance as continuous weights (`TrainingConfig.mae_weight`, `nll_weight`, `realspace_mae_weight`, `realspace_weight`); PyTorch instead selects a loss family via `ModelConfig.loss_function: Literal['MAE','Poisson']` plus independent regularization terms `amp_loss`/`phase_loss`/`amp_loss_coeff`/`phase_loss_coeff` and `TrainingConfig.nll: bool`. These are not equivalent parameterizations; only the single `nll`→`nll_weight` cast is field-mapped.
 
@@ -108,6 +123,10 @@ Defaults & Precedence:
 - Unsupported activations (not in TF enum) → error.
 - `N` outside allowed set → error.
 - Type normalization failures (e.g., invalid `PathLike`) → error.
+- Partial or unsupported object layout/canvas pairs → error.
+- Contradictory `object_big` and canonical object policy → error before bridge mutation.
+- TensorFlow with `training_patch_weighting='uniform'` or `'probe'` → error
+  before model construction.
 
 ## 5. Bridging to Legacy (params.cfg)
 

@@ -62,7 +62,10 @@ Torch Data Loader and Batch Contract (Normative)
   - Producer: `scripts.studies.grid_lines_torch_runner.run_torch_training`.
   - Consumer: `ptycho_torch.workflows.components.PtychoLightningDataset`.
   - Input containers are channel-last `(B,N,N,C)` and are permuted to channel-first `(B,C,N,N)` for `tensor_dict['images']` and `tensor_dict['observed_images']`.
-  - `coords_relative` is preferred; `coords_nominal` is accepted as fallback when `object_big=False`. Coordinates are permuted from `(B,1,2,C)` to `(B,C,1,2)` for Torch translation helpers.
+  - `coords_relative` is preferred; `coords_nominal` is accepted as fallback
+    for the `single_patch`/`independent` policy (the deprecated compatibility
+    projection is `object_big=False`). Coordinates are permuted from
+    `(B,1,2,C)` to `(B,C,1,2)` for Torch translation helpers.
   - CI containers use the same named CI fields as the mmap path and always collate physical/training probes to `(B,C,P,H,W)`. Training-derived statistics are attached unchanged to validation/test containers.
   - Amplitude and explicit legacy modes preserve `observed_images`, `rms_scaling_constant`, `physics_scaling_constant`, and their existing absent-default behavior.
   - `(N,N)`, `(P,N,N)`, and legacy `(N,N,1)` probes SHALL canonicalize to an explicit mode-first layout before collation. CI diffraction sums per-mode intensities incoherently and SHALL be invariant to batch size.
@@ -72,7 +75,13 @@ Reassembly Contract (Normative)
 - Inference pipelines MUST stitch predicted patches with global offsets (pixel units). Offsets MUST be zero‑centered (e.g., relative to center‑of‑mass) prior to placement on the canvas.
 - The stitched canvas MUST be large enough to accommodate all translated patches without clipping: `M ≥ N + 2·max(|dx|, |dy|)` for the used subset. Odd total padding MUST be distributed across borders without shifting the reconstruction’s center.
 - Averaging patches in place without offset‑aware translation is prohibited.
-- Forward‑path reassembly semantics MUST match across backends when `gridsize > 1`. The default is `object.big=True` (reassemble before diffraction), and the configuration bridge MUST carry this behavior between TensorFlow and PyTorch.
+- Forward-path reassembly semantics MUST match across backends when
+  `gridsize > 1`. The default public policy is
+  `object_layout='grouped_patches'`,
+  `training_canvas='relative_overlap'`, and
+  `training_patch_weighting='central_mask'`; its deprecated legacy projection
+  is `object.big=True`. The configuration bridge MUST carry this behavior
+  between TensorFlow and PyTorch.
 
 Loader Behavior (Normative)
 - When ground truth `Y` is absent, loaders MAY emit a shape‑compatible placeholder `Y (complex64)`; training integrations MUST disable any MAE terms that require real ground truth. NLL and real‑space terms remain valid without `Y`.

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Literal, Mapping, TypeAlias
+import warnings
 
 from ptycho.reconstruction_policy import (
     TrainingAssemblySpec,
@@ -24,6 +25,13 @@ TrainingCanvas: TypeAlias = Literal[
     "independent_patch_v1",
     "relative_overlap_canvas_v1",
 ]
+PublicObjectLayout: TypeAlias = Literal["single_patch", "grouped_patches"]
+PublicTrainingCanvas: TypeAlias = Literal["independent", "relative_overlap"]
+PublicTrainingPatchWeighting: TypeAlias = Literal[
+    "central_mask",
+    "uniform",
+    "probe",
+]
 
 CURRENT_OBJECT_COMPATIBILITY_VERSION = "object-compatibility-v1"
 
@@ -36,6 +44,9 @@ _TRAINING_CANVASES = {
     "relative_overlap_canvas_v1",
 }
 _TRAINING_PATCH_WEIGHTINGS = {"central_mask", "uniform", "probe"}
+_PUBLIC_LAYOUTS = {"single_patch", "grouped_patches"}
+_PUBLIC_CANVASES = {"independent", "relative_overlap"}
+_PUBLIC_BACKENDS = {None, "tensorflow", "torch"}
 
 
 @dataclass(frozen=True)
@@ -56,6 +67,17 @@ class LegacyObjectFields:
                 "training_patch_weighting must be 'central_mask', 'uniform', or "
                 f"'probe', got {self.training_patch_weighting!r}"
             )
+
+
+@dataclass(frozen=True)
+class ResolvedPublicObjectPolicy:
+    """Fully materialized public policy plus its versioned interpretation."""
+
+    object_big: bool
+    object_layout: PublicObjectLayout
+    training_canvas: PublicTrainingCanvas
+    training_patch_weighting: PublicTrainingPatchWeighting
+    compatibility: "ObjectCompatibilitySpec"
 
 
 @dataclass(frozen=True)
@@ -196,6 +218,108 @@ def resolve_object_compatibility_spec(
         ),
         pad_object=legacy.pad_object,
         probe_big=legacy.probe_big,
+    )
+
+
+def resolve_public_object_policy(
+    *,
+    object_big: bool | None,
+    object_layout: PublicObjectLayout | None,
+    training_canvas: PublicTrainingCanvas | None,
+    training_patch_weighting: PublicTrainingPatchWeighting | None,
+    pad_object: bool,
+    probe_big: bool,
+    backend: Literal["tensorflow", "torch"] | None = None,
+    warn_deprecated: bool = True,
+) -> ResolvedPublicObjectPolicy:
+    """Resolve unset-aware public fields into the closed v1 identity."""
+    if backend not in _PUBLIC_BACKENDS:
+        raise ValueError(f"unsupported object-policy backend {backend!r}")
+    if object_big is not None and type(object_big) is not bool:
+        raise TypeError("object_big must be bool or None")
+    if object_layout is not None and object_layout not in _PUBLIC_LAYOUTS:
+        raise ValueError(f"unsupported object_layout {object_layout!r}")
+    if training_canvas is not None and training_canvas not in _PUBLIC_CANVASES:
+        raise ValueError(f"unsupported training_canvas {training_canvas!r}")
+    if (
+        training_patch_weighting is not None
+        and training_patch_weighting not in _TRAINING_PATCH_WEIGHTINGS
+    ):
+        raise ValueError(
+            "training_patch_weighting must be 'central_mask', 'uniform', or "
+            f"'probe', got {training_patch_weighting!r}"
+        )
+    for name, value in (("pad_object", pad_object), ("probe_big", probe_big)):
+        if type(value) is not bool:
+            raise TypeError(f"{name} must be bool")
+
+    if object_big is not None and warn_deprecated:
+        warnings.warn(
+            "ModelConfig.object_big is deprecated; use object_layout and "
+            "training_canvas",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
+    layout_is_set = object_layout is not None
+    canvas_is_set = training_canvas is not None
+    if layout_is_set != canvas_is_set:
+        raise ValueError(
+            "object_layout and training_canvas must be supplied together"
+        )
+
+    if not layout_is_set:
+        resolved_big = True if object_big is None else object_big
+        resolved_layout: PublicObjectLayout = (
+            "grouped_patches" if resolved_big else "single_patch"
+        )
+        resolved_canvas: PublicTrainingCanvas = (
+            "relative_overlap" if resolved_big else "independent"
+        )
+    else:
+        pair = (object_layout, training_canvas)
+        if pair == ("single_patch", "independent"):
+            resolved_big = False
+        elif pair == ("grouped_patches", "relative_overlap"):
+            resolved_big = True
+        else:
+            raise ValueError(
+                "unsupported object_layout/training_canvas pair "
+                f"{pair!r}"
+            )
+        resolved_layout = object_layout
+        resolved_canvas = training_canvas
+        if object_big is not None and object_big is not resolved_big:
+            raise ValueError(
+                f"object_big={object_big!r} conflicts with "
+                f"object_layout={object_layout!r}"
+            )
+
+    resolved_weighting: PublicTrainingPatchWeighting = (
+        "central_mask"
+        if training_patch_weighting is None
+        else training_patch_weighting
+    )
+    if backend == "tensorflow" and resolved_weighting != "central_mask":
+        raise ValueError(
+            "TensorFlow supports training_patch_weighting='central_mask' only; "
+            f"got {resolved_weighting!r}"
+        )
+
+    compatibility = resolve_object_compatibility_spec(
+        LegacyObjectFields(
+            object_big=resolved_big,
+            training_patch_weighting=resolved_weighting,
+            pad_object=pad_object,
+            probe_big=probe_big,
+        )
+    )
+    return ResolvedPublicObjectPolicy(
+        object_big=resolved_big,
+        object_layout=resolved_layout,
+        training_canvas=resolved_canvas,
+        training_patch_weighting=resolved_weighting,
+        compatibility=compatibility,
     )
 
 
