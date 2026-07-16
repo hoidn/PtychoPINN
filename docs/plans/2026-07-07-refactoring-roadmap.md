@@ -175,8 +175,11 @@ status authority; no machine-readable refactor state exists that needs updating.
 
 ### Slice 2 — Legacy-state and fail-loud migrations
 
-**Status:** Pending. The warn-mode seal exists; 2A is the first bounded
-candidate. Lifecycle containment and the named failure paths remain pending.
+**Status:** Partial. 2A completed on 2026-07-15: `ptycho.params` imports
+without TensorFlow while preserving its dictionary identity/API, NumPy and
+TensorFlow-tensor diagnostics, canonical bridge updates, and bundle-load
+`.update()` behavior. 2B containment and the named 2C failure paths remain
+pending.
 
 **Outcome:** The legacy parameter module is framework-neutral, supported
 entrypoints bound its state lifecycle explicitly, and named failures cannot
@@ -192,6 +195,20 @@ silently change the scientific algorithm or pretend a model loaded successfully.
    use, including `set()`, direct item assignment, `.update()`,
    `update_legacy_dict`, and bundle restoration. Preserve the externally required
    dictionary object/API and load-time overwrite side effect.
+
+**2A production mutation inventory (fixed 2026-07-15):**
+
+| Supported entrypoint family | Configuration/lifecycle writes | Computed or compatibility writes | Archive-load writes |
+|---|---|---|---|
+| Unified `ptycho_train` / `ptycho_inference` and `ptycho.workflows.backend_selector` | `setup_configuration` uses `unseal()` → `update_legacy_dict(params.cfg, config)` → `seal()`; dispatch repeats the bridge before backend import/use | training metadata directly assigns `params.cfg['nphotons']`; TF training/probe setup uses `set()` for `intensity_scale` and `probe`; the TF compatibility wrapper directly assigns inferred `gridsize` | backend inference loaders must leave the selected TF or Torch bundle's archived flat state observable |
+| Native `python -m ptycho_torch.train` / `python -m ptycho_torch.inference` and config factories | factories use `unseal()` → canonical bridge population → `seal()` | downstream Torch paths consume the bridged dictionary and computed probe/intensity state; execution-only configuration does not populate it | `load_inference_bundle_torch` / `load_torch_bundle` restore with `params.cfg.update(params_dict)` |
+| Programmatic TF/Torch workflow APIs (`run_cdi_example*`, training-only dispatch, configuration setup) | call `update_legacy_dict` before legacy consumers; interactive TF configuration uses the same bridge | TF training uses `set()` for computed intensity scale/probe state | `load_inference_bundle` and its backend-selected counterparts preserve the post-load overwrite contract |
+| Grid-lines and nongrid simulation entrypoints | grid-lines bridges `SimulationConfig` and then `TrainingConfig`; nongrid receives an already-bridged canonical config | grid-lines uses `set()` for simulation jitter and normalized probe; nongrid temporarily uses `set()` for `N`, `gridsize`, and `nphotons`, then restores them | none |
+| Model managers and legacy internals reached by those entrypoints | no independent canonical ownership | preprocessing directly assigns computed `intensity_scale`; TF model construction temporarily mutates/restores construction keys with `.update()`; timestamp uses `set()` | TF and Torch model managers restore archived dictionaries with `.update()` before constructing/returning the model |
+
+No supported route rebinds `params.cfg`; preserving its object identity is
+therefore part of 2B. The inventory fixes the named migration set for 2B and
+does not turn repository search results or future callers into retroactive gates.
 
 **2B — Lifecycle containment**
 
@@ -462,7 +479,7 @@ Slice 7 hygiene may run independently except:
 
 The bounded simulation flat/nested correction is implemented, but its post-fix
 repository-wide gate remains pending and blocks the same grid-lines/config path.
-With Slice 1 complete, Slice 2A, non-overlapping Slice 3A ownership
+Slice 2A is complete; Slice 2B, non-overlapping Slice 3A ownership
 analysis/migration, and Slice 4A are dependency-eligible. Do not start 3B
 model-schema construction before 3A has removed the structural runtime side
 channel, and do not consolidate dispatch before the 3C artifact support matrix
