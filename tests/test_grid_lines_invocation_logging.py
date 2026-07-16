@@ -1,4 +1,6 @@
+import ast
 import json
+from pathlib import Path
 
 
 def test_capture_runtime_provenance_includes_python_version_and_torch_block():
@@ -114,3 +116,73 @@ def test_write_invocation_artifacts_captures_tmux_launcher_env(tmp_path, monkeyp
     assert tmux_payload["session_name"] == "lines128-minimum-subset"
     assert tmux_payload["socket_path"] == "/tmp/codex-lines128.sock"
     assert "attach -t lines128-minimum-subset" in tmux_payload["attach_command"]
+
+
+def test_package_invocation_writer_preserves_schema_and_path_serialization(tmp_path):
+    from ptycho.invocation_logging import write_invocation_artifacts
+
+    json_path, shell_path = write_invocation_artifacts(
+        output_dir=tmp_path / "run",
+        script_path="ptycho/workflows/grid_lines_workflow.py",
+        argv=["--output-dir", str(tmp_path / "output")],
+        parsed_args={"output_dir": Path("output/demo")},
+        extra={"nested": {"path": Path("artifacts/model")}},
+    )
+
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    assert set(payload) >= {
+        "script",
+        "argv",
+        "command",
+        "parsed_args",
+        "cwd",
+        "timestamp_utc",
+        "pid",
+        "extra",
+    }
+    assert payload["parsed_args"]["output_dir"] == "output/demo"
+    assert payload["extra"]["nested"]["path"] == "artifacts/model"
+    assert shell_path.read_text(encoding="utf-8") == payload["command"] + "\n"
+
+
+def test_study_facade_reexports_package_invocation_functions_by_identity():
+    from ptycho import invocation_logging as package_logging
+    from scripts.studies import invocation_logging as study_logging
+
+    for name in (
+        "build_command_line",
+        "capture_runtime_provenance",
+        "get_git_commit",
+        "get_git_dirty",
+        "write_invocation_artifacts",
+        "update_invocation_artifacts",
+    ):
+        assert getattr(study_logging, name) is getattr(package_logging, name)
+
+
+def test_study_facade_retains_neuralop_specific_provenance():
+    from scripts.studies import invocation_logging as study_logging
+
+    assert callable(study_logging.capture_neuralop_provenance)
+    assert not hasattr(__import__("ptycho.invocation_logging", fromlist=["*"]), "capture_neuralop_provenance")
+
+
+def test_package_grid_lines_workflow_has_no_scripts_import_edge():
+    workflow_path = (
+        Path(__file__).resolve().parents[1]
+        / "ptycho"
+        / "workflows"
+        / "grid_lines_workflow.py"
+    )
+    tree = ast.parse(workflow_path.read_text(encoding="utf-8"))
+    imported_modules = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imported_modules.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imported_modules.append(node.module)
+
+    assert not any(
+        module == "scripts" or module.startswith("scripts.")
+        for module in imported_modules
+    )

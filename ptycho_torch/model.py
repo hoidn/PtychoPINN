@@ -13,6 +13,7 @@ import math
 from typing import Any, Dict, Optional
 
 #Helper
+from ptycho.reconstruction_policy import resolve_training_assembly_spec
 from ptycho_torch.config_params import ModelConfig, TrainingConfig, DataConfig, InferenceConfig, update_existing_config
 from ptycho_torch.scaling_contract import (
     CI_SCALE_CONTRACT,
@@ -1364,6 +1365,10 @@ class ForwardModel(nn.Module):
         self.gridsize = self.data_config.grid_size
         self.offset = self.model_config.offset
         self.object_big = self.model_config.object_big
+        self.training_assembly_spec = resolve_training_assembly_spec(
+            self.object_big,
+            self.model_config.training_patch_weighting,
+        )
 
         #Patch operations
         #Lambdalayer here doesn't work for lightning module
@@ -1394,6 +1399,35 @@ class ForwardModel(nn.Module):
         # physics_forward_mode == 'rectangular_scaled'.
         self.rect_scaler = RectangularScaledDiffraction(model_config)
 
+    def _assemble_training_patches(self, x, positions, probe):
+        """Apply the sealed differentiable training assembly specification."""
+
+        spec = self.training_assembly_spec
+        if spec.mode == "pass_through_v1":
+            return x
+        if spec.mode == "central_mask_overlap_v1":
+            reassembled_obj, _, _ = hh.reassemble_patches_position_real(
+                x,
+                positions,
+                data_config=self.data_config,
+                model_config=self.model_config,
+            )
+        else:
+            reassembled_obj, _, _ = hh.reassemble_patches_position_real_probe(
+                x,
+                positions,
+                data_config=self.data_config,
+                model_config=self.model_config,
+                probe=probe,
+                use_probe_weights=(spec.configured_weighting == "probe"),
+            )
+        return hh.extract_channels_from_region(
+            reassembled_obj[:, None, :, :],
+            positions,
+            data_config=self.data_config,
+            model_config=self.model_config,
+        )
+
     def forward(self, x, I_measured, positions, probe, output_scale_factor, experiment_ids = None):
         # ``I_measured`` is only consumed by RectangularScaledDiffraction's
         # variable-projection (autograd=False) branch, which the training path
@@ -1405,32 +1439,7 @@ class ForwardModel(nn.Module):
         # validator in ProbeIllumination.forward as protection for direct use.
         self.probe_illumination._require_documented_probe_layout(x, probe)
 
-        #Reassemble patches
-
-        if self.object_big:
-            # B3 (Task 2.5): dispatch reassembly weighting on training_patch_weighting.
-            # 'central_mask' preserves the original binary-center-mask helper
-            # (default, bit-stable); 'probe'/'uniform' route through the merged
-            # probe helper, using |Probe|^2 weights only for 'probe'.
-            mode = self.model_config.training_patch_weighting
-            if mode == 'central_mask':
-                reassembled_obj, _, _ = hh.reassemble_patches_position_real(x, positions,
-                                                                      data_config=self.data_config,
-                                                                      model_config=self.model_config)
-            else:  # 'probe' or 'uniform'
-                reassembled_obj, _, _ = hh.reassemble_patches_position_real_probe(x, positions,
-                                                                      data_config=self.data_config,
-                                                                      model_config=self.model_config,
-                                                                      probe=probe,
-                                                                      use_probe_weights=(mode == 'probe'))
-
-            #Extract patches - Pass config objects to helper function
-            extracted_patch_objs = hh.extract_channels_from_region(reassembled_obj[:,None,:,:], positions,
-                                                                   data_config=self.data_config,
-                                                                   model_config=self.model_config)
-
-        else:
-            extracted_patch_objs = x
+        extracted_patch_objs = self._assemble_training_patches(x, positions, probe)
 
         # B5 (Task 2.6): rectangular_scaled REPLACES the amplitude chain
         # (ProbeIllumination -> pad_and_diffract -> inv_scale -> alpha/beta) with

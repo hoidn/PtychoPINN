@@ -101,6 +101,23 @@ class _BareModelStub:
 # ---------------------------------------------------------------------------
 
 class TestResolveReassemblyRoute:
+    def test_compatibility_wrapper_delegates_to_policy_resolver(self, monkeypatch):
+        from ptycho_torch import inference
+
+        calls = []
+
+        class Policy:
+            compatibility_route = "barycentric"
+
+        def resolve(patch_weighting, varpro_scaling):
+            calls.append((patch_weighting, varpro_scaling))
+            return Policy()
+
+        monkeypatch.setattr(inference, "resolve_cli_reconstruction_policy", resolve)
+
+        assert inference._resolve_reassembly_route("uniform", True) == "barycentric"
+        assert calls == [("uniform", True)]
+
     def test_knobs_unset_resolves_uniform(self):
         from ptycho_torch.inference import _resolve_reassembly_route
 
@@ -283,10 +300,16 @@ class TestUniformPathUnchanged:
             imgs = torch.zeros((1, 64, 64), dtype=patches.dtype)
             return imgs, None, None
 
+        presenter = MagicMock(
+            return_value=(np.zeros((64, 64)), np.zeros((64, 64)))
+        )
         with patch(
             "ptycho_torch.helper.reassemble_patches_position_real",
             side_effect=fake_reassemble,
-        ) as mock_reassemble:
+        ) as mock_reassemble, patch(
+            "ptycho_torch.inference.present_reconstruction_canvas",
+            presenter,
+        ):
             _run_inference_and_reconstruct(
                 model, raw_data, config, execution_config, "cpu", quiet=True
             )
@@ -294,6 +317,7 @@ class TestUniformPathUnchanged:
         assert mock_reassemble.called, (
             "knobs-unset path must stitch via hh.reassemble_patches_position_real"
         )
+        assert presenter.call_count == 1
 
 
 # ---------------------------------------------------------------------------
@@ -310,9 +334,14 @@ class TestBarycentricHelper:
         mock_recon = MagicMock(return_value=(canvas, MagicMock(), [0.0, 0.0, {}]))
         mock_dataset_cls = MagicMock(return_value=MagicMock())
 
+        presenter = MagicMock(
+            return_value=(np.zeros((32, 32)), np.zeros((32, 32)))
+        )
         with patch(
             "ptycho_torch.reassembly.reconstruct_image_barycentric", mock_recon
-        ), patch("ptycho_torch.dataloader.PtychoDataset", mock_dataset_cls):
+        ), patch("ptycho_torch.dataloader.PtychoDataset", mock_dataset_cls), patch(
+            "ptycho_torch.inference.present_reconstruction_canvas", presenter
+        ):
             amplitude, phase = _run_barycentric_inference_and_reconstruct(
                 model=model,
                 test_data_path=cli_paths["test_file"],
@@ -322,7 +351,7 @@ class TestBarycentricHelper:
                 output_dir=cli_paths["output_dir"],
                 quiet=True,
             )
-        return amplitude, phase, mock_recon, mock_dataset_cls
+        return amplitude, phase, mock_recon, mock_dataset_cls, presenter
 
     def test_forwards_probe_patch_weighting(self, cli_paths):
         from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
@@ -330,7 +359,7 @@ class TestBarycentricHelper:
         pt_inference_config = PTInferenceConfig(
             patch_weighting="probe", varpro_scaling=False
         )
-        amplitude, phase, mock_recon, _ = self._run_helper(
+        amplitude, phase, mock_recon, _, presenter = self._run_helper(
             _ModelStub(), pt_inference_config, cli_paths
         )
 
@@ -340,6 +369,7 @@ class TestBarycentricHelper:
         assert forwarded.varpro_scaling is False
         assert amplitude.shape == (32, 32)
         assert phase.shape == (32, 32)
+        assert presenter.call_count == 1
 
     def test_forwards_varpro_scaling(self, cli_paths):
         from ptycho_torch.config_params import InferenceConfig as PTInferenceConfig
@@ -347,7 +377,7 @@ class TestBarycentricHelper:
         pt_inference_config = PTInferenceConfig(
             patch_weighting="uniform", varpro_scaling=True
         )
-        _, _, mock_recon, _ = self._run_helper(
+        _, _, mock_recon, _, _ = self._run_helper(
             _ModelStub(), pt_inference_config, cli_paths
         )
 
@@ -363,7 +393,7 @@ class TestBarycentricHelper:
         pt_inference_config = PTInferenceConfig(
             patch_weighting="probe", varpro_scaling=True
         )
-        _, _, mock_recon, mock_dataset_cls = self._run_helper(
+        _, _, mock_recon, mock_dataset_cls, _ = self._run_helper(
             model, pt_inference_config, cli_paths
         )
 

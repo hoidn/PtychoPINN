@@ -220,6 +220,41 @@ def test_forward_default_matches_explicit_central_mask():
     torch.testing.assert_close(out_default, out_explicit, rtol=0, atol=0)
 
 
+def test_forward_model_seals_training_assembly_before_runtime_mutation(monkeypatch):
+    """Training assembly is resolved once from structural model fields and does
+    not consult inference policy or later mutable config state."""
+    data_cfg, model_cfg = _forward_case_configs("probe")
+    model = ForwardModel(model_cfg, data_cfg).eval()
+    model_cfg.training_patch_weighting = "central_mask"
+
+    calls = []
+
+    def central(*_args, **_kwargs):
+        calls.append("central_mask")
+        return torch.ones((1, 8, 8), dtype=torch.complex64), None, 8
+
+    def weighted(*_args, **kwargs):
+        calls.append(("weighted", kwargs["use_probe_weights"]))
+        return torch.ones((1, 8, 8), dtype=torch.complex64), None, 8
+
+    def extract(canvas, *_args, **_kwargs):
+        return canvas
+
+    monkeypatch.setattr(hh, "reassemble_patches_position_real", central)
+    monkeypatch.setattr(hh, "reassemble_patches_position_real_probe", weighted)
+    monkeypatch.setattr(hh, "extract_channels_from_region", extract)
+
+    x = torch.ones((1, 2, 8, 8), dtype=torch.complex64)
+    positions = torch.zeros((1, 2, 1, 2), dtype=torch.float32)
+    probe = torch.ones((1, 2, 1, 8, 8), dtype=torch.complex64)
+
+    assembled = model._assemble_training_patches(x, positions, probe)
+
+    assert model.training_assembly_spec.configured_weighting == "probe"
+    assert calls == [("weighted", True)]
+    assert assembled.shape == (1, 1, 8, 8)
+
+
 # ---------------------------------------------------------------------------
 # Deferred Task 2.2 coverage for the probe helper (offset/seam, padded_size=None,
 # P>1 multi-mode)

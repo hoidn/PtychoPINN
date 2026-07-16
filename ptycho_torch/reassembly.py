@@ -10,6 +10,8 @@ from torch import nn
 import torch.nn.functional as F
 import ptycho_torch.helper as hh
 from ptycho_torch.dataloader import Collate
+from ptycho.reconstruction_policy import CalibrationSpec
+from ptycho_torch.reconstruction_ports import calibrate_reconstruction_canvas
 
 #Other useful libraries
 import time
@@ -1929,11 +1931,18 @@ def reconstruct_image_barycentric(model: nn.Module,
 
     # 4. Solve for constants (using corrected statistics if swapped)
     scaler_solve_time_start = time.time()
-    scaled_canvas, s1, s2 = apply_varpro_canvas_scaling(
+    calibration_spec = CalibrationSpec(
+        method="varpro_s1s2_v1" if varpro_scaling else "identity_v1"
+    )
+    scaled_canvas, s1, s2 = calibrate_reconstruction_canvas(
         texture_canvas,
-        scaler,
-        enabled=varpro_scaling,
-        verbose=verbose,
+        calibration_spec,
+        varpro_calibrator=lambda canvas: apply_varpro_canvas_scaling(
+            canvas,
+            scaler,
+            enabled=True,
+            verbose=verbose,
+        ),
     )
     scaler_solve_time_end = time.time() - scaler_solve_time_start
 
