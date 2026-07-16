@@ -15,7 +15,13 @@ from ptycho_torch.config_params import (
     ModelConfig,
     TrainingConfig,
 )
-from ptycho_torch.model_spec import ModelSpec, derive_model_spec
+from ptycho_torch.model_spec import (
+    PORTABLE_V1_MODEL_FIELDS,
+    PORTABLE_V2_MODEL_FIELDS,
+    ModelSpec,
+    derive_model_spec,
+)
+from ptycho_torch.object_compatibility import resolve_torch_model_object_policy
 from ptycho_torch.scaling_contract import (
     LEGACY_SCALE_CONTRACT,
     NORMALIZED_AMPLITUDE,
@@ -24,7 +30,8 @@ from ptycho_torch.scaling_contract import (
 
 
 TORCH_ARTIFACT_BACKEND = "pytorch"
-CURRENT_ARTIFACT_SCHEMA_VERSION = "torch-artifact-portable-v1"
+ARTIFACT_SCHEMA_V1_VERSION = "torch-artifact-portable-v1"
+CURRENT_ARTIFACT_SCHEMA_VERSION = "torch-artifact-portable-v2"
 TORCH_BUNDLE_VERSION = "2.0-pytorch"
 REQUIRED_BUNDLE_ROLES = frozenset({"autoencoder", "diffraction_to_obj"})
 
@@ -138,9 +145,7 @@ class DecodedArtifactIdentity:
 
 def _config_field_names(config_type) -> set[str]:
     if config_type is ModelConfig:
-        from ptycho_torch.model_spec import PORTABLE_V1_MODEL_FIELDS
-
-        return set(PORTABLE_V1_MODEL_FIELDS)
+        return set(PORTABLE_V2_MODEL_FIELDS) | {"object_big"}
     return set(_CONFIG_SCHEMA_FIELDS[config_type])
 
 
@@ -150,10 +155,15 @@ def _require_exact_config_payload(
     *,
     era: str,
     section: str,
+    expected_fields=None,
 ) -> dict[str, Any]:
     if not isinstance(payload, Mapping):
         raise ValueError(f"{era} {section} must be a mapping")
-    expected = _config_field_names(config_type)
+    expected = (
+        _config_field_names(config_type)
+        if expected_fields is None
+        else set(expected_fields)
+    )
     received = set(payload)
     if received != expected:
         raise ValueError(
@@ -206,10 +216,14 @@ def decode_artifact_identity(payload: Mapping[str, Any]) -> DecodedArtifactIdent
             f"unsupported artifact backend {backend!r}; expected 'pytorch'"
         )
     schema = payload.get("schema_version")
-    if schema != CURRENT_ARTIFACT_SCHEMA_VERSION:
+    if schema not in {
+        ARTIFACT_SCHEMA_V1_VERSION,
+        CURRENT_ARTIFACT_SCHEMA_VERSION,
+    }:
         raise ValueError(
             f"unsupported Torch artifact schema {schema!r}; "
-            f"expected {CURRENT_ARTIFACT_SCHEMA_VERSION!r}"
+            f"expected {ARTIFACT_SCHEMA_V1_VERSION!r} or "
+            f"{CURRENT_ARTIFACT_SCHEMA_VERSION!r}"
         )
     expected_keys = {
         "backend",
@@ -229,12 +243,14 @@ def decode_artifact_identity(payload: Mapping[str, Any]) -> DecodedArtifactIdent
         )
 
     spec = ModelSpec.from_payload(payload["model_spec"])
+    is_v1 = schema == ARTIFACT_SCHEMA_V1_VERSION
     data = DataConfig(
         **_require_exact_config_payload(
             payload["data_config"],
             DataConfig,
             era=CURRENT_ARTIFACT_SCHEMA_VERSION,
             section="data_config",
+            expected_fields=PORTABLE_V1_DATA_FIELDS if is_v1 else None,
         )
     )
     training = TrainingConfig(
@@ -243,6 +259,7 @@ def decode_artifact_identity(payload: Mapping[str, Any]) -> DecodedArtifactIdent
             TrainingConfig,
             era=CURRENT_ARTIFACT_SCHEMA_VERSION,
             section="training_config",
+            expected_fields=PORTABLE_V1_TRAINING_FIELDS if is_v1 else None,
         )
     )
     inference = InferenceConfig(
@@ -251,6 +268,7 @@ def decode_artifact_identity(payload: Mapping[str, Any]) -> DecodedArtifactIdent
             InferenceConfig,
             era=CURRENT_ARTIFACT_SCHEMA_VERSION,
             section="inference_config",
+            expected_fields=PORTABLE_V1_INFERENCE_FIELDS if is_v1 else None,
         )
     )
     model = spec.to_model_config()
@@ -304,28 +322,49 @@ def upgrade_unversioned_sections(
         DataConfig,
         era="unversioned",
         section="data_config",
+        expected_fields=PORTABLE_V1_DATA_FIELDS,
     )
-    model_values = _require_exact_config_payload(
-        model_config,
-        ModelConfig,
-        era="unversioned",
-        section="model_config",
-    )
+    raw_model = copy.deepcopy(dict(model_config))
+    received_model_fields = set(raw_model)
+    v1_model_fields = set(PORTABLE_V1_MODEL_FIELDS)
+    v2_model_fields = set(PORTABLE_V2_MODEL_FIELDS)
+    current_model_fields = _config_field_names(ModelConfig)
+    if received_model_fields == v1_model_fields:
+        model = resolve_torch_model_object_policy(ModelConfig(**raw_model))
+    elif received_model_fields == v2_model_fields:
+        model = resolve_torch_model_object_policy(
+            ModelConfig(object_big=None, **raw_model)
+        )
+    elif received_model_fields == current_model_fields:
+        model = resolve_torch_model_object_policy(ModelConfig(**raw_model))
+    else:
+        variants = (v1_model_fields, v2_model_fields, current_model_fields)
+        closest = min(
+            variants,
+            key=lambda expected: len(expected ^ received_model_fields),
+        )
+        raise ValueError(
+            "unversioned model_config field set is not a declared portable-v1, "
+            "portable-v2, or dual-written current shape; "
+            f"missing={sorted(closest - received_model_fields)}, "
+            f"unknown={sorted(received_model_fields - closest)}"
+        )
     training_values = _require_exact_config_payload(
         training_config,
         TrainingConfig,
         era="unversioned",
         section="training_config",
+        expected_fields=PORTABLE_V1_TRAINING_FIELDS,
     )
     inference_values = _require_exact_config_payload(
         inference_config,
         InferenceConfig,
         era="unversioned",
         section="inference_config",
+        expected_fields=PORTABLE_V1_INFERENCE_FIELDS,
     )
 
     data = DataConfig(**data_values)
-    model = ModelConfig(**model_values)
     training = TrainingConfig(**training_values)
     inference = InferenceConfig(**inference_values)
     resolve_scale_contract(data.scale_contract_version, data.measurement_domain)
@@ -374,7 +413,10 @@ def validate_torch_bundle_manifest(manifest: Mapping[str, Any]) -> str:
     schema = manifest.get("artifact_schema_version")
     if schema is None:
         return "metadata-free-legacy"
-    if schema != CURRENT_ARTIFACT_SCHEMA_VERSION:
+    if schema not in {
+        ARTIFACT_SCHEMA_V1_VERSION,
+        CURRENT_ARTIFACT_SCHEMA_VERSION,
+    }:
         raise ValueError(f"unsupported wts.h5.zip artifact schema {schema!r}")
     return schema
 

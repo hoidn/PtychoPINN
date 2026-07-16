@@ -538,6 +538,10 @@ def create_training_payload(
     )
     if pt_model_config.loss_function != resolved_loss:
         pt_model_config = replace(pt_model_config, loss_function=resolved_loss)
+    from ptycho_torch.object_compatibility import (
+        resolve_torch_model_object_policy,
+    )
+    pt_model_config = resolve_torch_model_object_policy(pt_model_config)
 
     # Conformance D3: fail-closed contract coherence (Theme 3, 2026-07-14).
     # The half-configured-CI guard runs here (not on bare dataclasses) because
@@ -754,15 +758,17 @@ def create_inference_payload(
     # Note: In inference, model config typically loaded from checkpoint, but we need
     # a ModelConfig instance for config_bridge translation
     # CRITICAL: Synchronize C_forward and C_model with pt_data_config.C (ADR-003 C4.D3)
-    object_big = overrides.get('object_big', True)
     pt_model_config = PTModelConfig(
         mode=overrides.get('model_type', 'Unsupervised'),  # Map TF → PT naming
         amp_activation=overrides.get('amp_activation', 'silu'),
         n_filters_scale=overrides.get('n_filters_scale', 2),  # PyTorch default
-        object_big=object_big,
+        object_big=overrides.get('object_big'),
+        object_layout=overrides.get('object_layout'),
+        training_canvas=overrides.get('training_canvas'),
+        training_patch_weighting=overrides.get('training_patch_weighting'),
         # Full decoder support is the normal object-big contract. Callers may
         # still request False explicitly for historical zero-border artifacts.
-        probe_big=overrides.get('probe_big', object_big),
+        probe_big=overrides.get('probe_big', True),
         probe_mask=overrides.get('probe_mask', False),
         probe_mask_tensor=overrides.get('probe_mask_tensor'),
         probe_mask_sigma=overrides.get('probe_mask_sigma', 1.0),
@@ -772,6 +778,10 @@ def create_inference_payload(
         pad_object=overrides.get('pad_object', True),  # Spec default
         gaussian_smoothing_sigma=overrides.get('gaussian_smoothing_sigma', 0.0),  # Spec default
     )
+    from ptycho_torch.object_compatibility import (
+        resolve_torch_model_object_policy,
+    )
+    pt_model_config = resolve_torch_model_object_policy(pt_model_config)
 
     # InferenceConfig: Extract inference-specific fields from overrides
     pt_inference_config = PTInferenceConfig(

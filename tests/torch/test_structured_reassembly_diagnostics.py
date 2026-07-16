@@ -29,7 +29,7 @@ from ptycho_torch.reassembly_diagnostics import (
 
 def test_scan_identity_evidence_preserves_grouped_source_ids():
     source = SimpleNamespace(
-        model_config=SimpleNamespace(object_big=True),
+        model_config=ModelConfig(object_big=True),
         valid_indices_per_file=(np.asarray([4, 7, 9]),),
         source_indices_per_file=(np.arange(12),),
     )
@@ -52,7 +52,7 @@ def test_scan_identity_evidence_preserves_grouped_source_ids():
 
 def test_scan_identity_allows_group_neighbor_outside_bounds_eligible_centers():
     source = SimpleNamespace(
-        model_config=SimpleNamespace(object_big=True),
+        model_config=ModelConfig(object_big=True),
         valid_indices_per_file=(np.asarray([4, 7, 9]),),
         source_indices_per_file=(np.arange(12),),
     )
@@ -75,7 +75,7 @@ def test_scan_identity_allows_group_neighbor_outside_bounds_eligible_centers():
 
 def test_scan_identity_evidence_maps_ungrouped_local_ids_to_source_ids():
     source = SimpleNamespace(
-        model_config=SimpleNamespace(object_big=False),
+        model_config=ModelConfig(object_big=False),
         valid_indices_per_file=(np.asarray([4, 7, 9]),),
         source_indices_per_file=(np.arange(12),),
     )

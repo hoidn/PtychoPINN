@@ -1472,9 +1472,13 @@ class TestTrainWithLightningRed:
         params.cfg.update(original)
 
     @pytest.fixture
-    def minimal_training_config(self):
+    def minimal_training_config(self, tmp_path):
         """Create minimal TrainingConfig fixture for Lightning tests."""
         from ptycho.config.config import TrainingConfig, ModelConfig
+        train_data_file = tmp_path / "dummy_train.npz"
+        test_data_file = tmp_path / "dummy_test.npz"
+        np.savez(train_data_file, probeGuess=np.ones((64, 64), dtype=np.complex64))
+        np.savez(test_data_file, probeGuess=np.ones((64, 64), dtype=np.complex64))
 
         model_config = ModelConfig(
             N=64,
@@ -1484,8 +1488,8 @@ class TestTrainWithLightningRed:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            test_data_file=Path("/tmp/dummy_test.npz"),
+            train_data_file=train_data_file,
+            test_data_file=test_data_file,
             n_groups=10,
             neighbor_count=4,
             nphotons=1e9,
@@ -2768,9 +2772,13 @@ class TestTrainWithLightningGreen:
         params.cfg.update(original)
 
     @pytest.fixture
-    def minimal_training_config(self):
+    def minimal_training_config(self, tmp_path):
         """Create minimal TrainingConfig fixture for execution config tests."""
         from ptycho.config.config import TrainingConfig, ModelConfig
+        train_data_file = tmp_path / "dummy_train.npz"
+        test_data_file = tmp_path / "dummy_test.npz"
+        np.savez(train_data_file, probeGuess=np.ones((64, 64), dtype=np.complex64))
+        np.savez(test_data_file, probeGuess=np.ones((64, 64), dtype=np.complex64))
 
         model_config = ModelConfig(
             N=64,
@@ -2780,8 +2788,8 @@ class TestTrainWithLightningGreen:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            test_data_file=Path("/tmp/dummy_test.npz"),
+            train_data_file=train_data_file,
+            test_data_file=test_data_file,
             n_groups=10,
             neighbor_count=4,
             nphotons=1e9,

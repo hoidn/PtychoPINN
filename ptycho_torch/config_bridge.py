@@ -64,7 +64,8 @@ from typing import Optional, Dict, Any
 from ptycho.config.config import (
     ModelConfig as TFModelConfig,
     TrainingConfig as TFTrainingConfig,
-    InferenceConfig as TFInferenceConfig
+    InferenceConfig as TFInferenceConfig,
+    resolve_model_object_policy,
 )
 
 # Import PyTorch configs - torch is now mandatory (Phase F3.1/F3.2)
@@ -102,6 +103,10 @@ def to_model_config(
         ValueError: If grid_size is non-square, mode has invalid value, or activation unknown
     """
     overrides = overrides or {}
+    from ptycho_torch.object_compatibility import (
+        resolve_torch_model_object_policy,
+    )
+    model = resolve_torch_model_object_policy(model)
 
     # Extract gridsize from grid_size tuple (assumes square grids)
     grid_h, grid_w = data.grid_size
@@ -181,7 +186,9 @@ def to_model_config(
         'fno_input_transform': model.fno_input_transform,
         'generator_output_mode': model.generator_output_mode,
         'amp_activation': amp_activation,  # Normalized activation
-        'object_big': model.object_big,
+        'object_layout': model.object_layout,
+        'training_canvas': model.training_canvas,
+        'training_patch_weighting': model.training_patch_weighting,
         'probe_big': model.probe_big,
 
         # Translated values
@@ -198,7 +205,11 @@ def to_model_config(
     # Apply overrides (allows explicit probe_mask override)
     kwargs.update(overrides)
 
-    return TFModelConfig(**kwargs)
+    return resolve_model_object_policy(
+        TFModelConfig(**kwargs),
+        backend="torch",
+        warn_deprecated=False,
+    )
 
 
 def to_training_config(

@@ -25,6 +25,7 @@ from ptycho_torch.patch_generator import group_coords, get_relative_coords, get_
 #Parameters
 from ptycho_torch.config_params import TrainingConfig, DataConfig, ModelConfig
 from ptycho_torch.npz_utils import read_npy_shape
+from ptycho_torch.object_compatibility import resolve_model_object_compatibility
 
 #Helper methods
 import ptycho_torch.helper as hh
@@ -402,6 +403,7 @@ class PtychoDataset(Dataset):
         # --- Initial loading ---
         self.model_config = model_config
         self.data_config = data_config
+        self.object_compatibility = resolve_model_object_compatibility(model_config)
         self.ci_contract_active = _ci_profile_active(model_config, data_config)
         self.defer_ci_statistics = defer_ci_statistics
         self.is_ddp_active = is_ddp_initialized_and_active()
@@ -696,7 +698,11 @@ class PtychoDataset(Dataset):
         Mirrors the branch condition in memory_map_data exactly: calculate_length
         must size the memory map for the same branch that writes it.
         """
-        return self.model_config.mode == 'Unsupervised' and self.model_config.object_big
+        return (
+            self.model_config.mode == 'Unsupervised'
+            and self.object_compatibility.layout
+            == 'grouped_patch_components_v1'
+        )
 
     def _expected_mmap_manifest(self):
         if self.ci_contract_active:
@@ -775,6 +781,9 @@ class PtychoDataset(Dataset):
         #Set basic attributes
         instance.model_config = model_config
         instance.data_config = data_config
+        instance.object_compatibility = resolve_model_object_compatibility(
+            model_config
+        )
         instance.ci_contract_active = _ci_profile_active(
             model_config,
             data_config,
@@ -837,7 +846,7 @@ class PtychoDataset(Dataset):
 
         """
         #Config grabbing/setting using stored configs
-        if self.model_config.object_big:
+        if self.object_compatibility.layout == 'grouped_patch_components_v1':
             n_channels = self.data_config.grid_size[0] * self.data_config.grid_size[1]
         else:
             n_channels = 1
@@ -1345,6 +1354,9 @@ class PtychoDataset(Dataset):
         dataset = cls.__new__(cls)
         dataset.model_config = model_config
         dataset.data_config = data_config
+        dataset.object_compatibility = resolve_model_object_compatibility(
+            model_config
+        )
         dataset.ci_contract_active = _ci_profile_active(model_config, data_config)
         dataset.is_ddp_active = False
         dataset.current_rank = 0
@@ -1388,7 +1400,7 @@ class PtychoDataset(Dataset):
 
         # Coordinate grouping (get_relative_coords carries the TF-parity
         # local_offset_sign=-1 convention at the source)
-        if model_config.object_big:
+        if dataset.object_compatibility.layout == 'grouped_patch_components_v1':
             n_channels = data_config.C
 
             nn_indices, coords_nn, center_indices = group_coords(
@@ -1458,7 +1470,7 @@ class PtychoDataset(Dataset):
 
         # Construct the grouped images before deriving Group factors.
         diff_tensor = torch.from_numpy(diff_patterns).to(torch.float32)
-        if model_config.object_big:
+        if dataset.object_compatibility.layout == 'grouped_patch_components_v1':
             images = diff_tensor[nn_indices]
             nn_indices_tensor = torch.from_numpy(nn_indices)
         else:
@@ -1574,7 +1586,7 @@ class PtychoDataset(Dataset):
         is_scalar = exp_idx.ndim == 0
         exp_idx_batch = exp_idx.reshape(-1).to(dtype=torch.long)
 
-        if self.model_config.object_big: # Use stored config
+        if self.object_compatibility.layout == 'grouped_patch_components_v1':
             channels = self.data_config.C # Use stored config
         else:
             channels = 1

@@ -142,9 +142,14 @@ def test_reassemble_patches_position_real_probe_return_contract_shapes():
 
 
 def test_training_patch_weighting_defaults_to_central_mask():
-    """DEFAULTS NEVER CHANGE: the new knob must default to 'central_mask', i.e.
-    the pre-existing binary-center-mask reassembly (``reassemble_patches_position_real``)."""
-    assert ModelConfig().training_patch_weighting == 'central_mask'
+    """Unset raw input resolves to the historical central-mask behavior."""
+    from ptycho_torch.object_compatibility import resolve_torch_model_object_policy
+
+    assert ModelConfig().training_patch_weighting is None
+    assert (
+        resolve_torch_model_object_policy(ModelConfig()).training_patch_weighting
+        == 'central_mask'
+    )
 
 
 def _forward_case_configs(mode: str):

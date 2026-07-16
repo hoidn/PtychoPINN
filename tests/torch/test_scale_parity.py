@@ -55,10 +55,8 @@ def _build_model(parity_scale_mode="off", parity_fixed_delta=0.0, parity_init_sc
 
 
 def _save_checkpoint_with_configs(model, model_cfg, data_cfg, train_cfg, infer_cfg, tmp_path, name="run"):
-    """Mimic ptycho_torch.lightning_utils.ConfigLogger's on-disk layout
-    (``run_dir/configs/*.json`` + ``run_dir/checkpoints/*.ckpt``) so
-    ``load_checkpoint_with_configs`` -- which reads that layout -- can be
-    exercised without a full train_lightning_only training loop.
+    """Create the declared unversioned config/checkpoint layout so the
+    compatibility loader can be exercised without a full training loop.
     """
     run_dir = tmp_path / name
     config_dir = run_dir / "configs"
@@ -131,7 +129,13 @@ def test_milestone_checkpoint_loads_configs_from_run_directory(tmp_path):
 
     loaded = load_configs_from_checkpoint(str(milestone_path))
 
-    expected = (data_cfg, model_cfg, train_cfg, infer_cfg, DatagenConfig())
+    expected = (
+        data_cfg,
+        model.model_config,
+        train_cfg,
+        infer_cfg,
+        DatagenConfig(),
+    )
     expected_payloads = tuple(
         json.loads(json.dumps(config_to_json_serializable_dict(config)))
         for config in expected
