@@ -1936,11 +1936,31 @@ class PtychoPINN_Lightning(L.LightningModule):
         parity_scale_mode: str = "off",
         parity_fixed_delta: float = 0.0,
         parity_init_scheme: str = "default",
+        model_spec: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
 
         # Handle checkpoint loading: convert dict kwargs back to dataclass instances
         # (Lightning passes saved hyperparameters as dicts during load_from_checkpoint)
+        if model_spec is not None:
+            from dataclasses import fields
+
+            for section_name, value, config_type in (
+                ("model_config", model_config, ModelConfig),
+                ("data_config", data_config, DataConfig),
+                ("training_config", training_config, TrainingConfig),
+                ("inference_config", inference_config, InferenceConfig),
+            ):
+                if not isinstance(value, dict):
+                    continue
+                expected = {item.name for item in fields(config_type)}
+                received = set(value)
+                if received != expected:
+                    raise ValueError(
+                        f"current checkpoint {section_name} field set is not exact; "
+                        f"missing={sorted(expected - received)}, "
+                        f"unknown={sorted(received - expected)}"
+                    )
         if isinstance(model_config, dict):
             model_config = ModelConfig(**model_config)
         if isinstance(data_config, dict):
@@ -1949,6 +1969,47 @@ class PtychoPINN_Lightning(L.LightningModule):
             training_config = TrainingConfig(**training_config)
         if isinstance(inference_config, dict):
             inference_config = InferenceConfig(**inference_config)
+
+        decoded_model_spec = None
+        if model_spec is not None:
+            from dataclasses import fields
+            from ptycho_torch.model_spec import ModelSpec
+
+            decoded_model_spec = (
+                model_spec
+                if isinstance(model_spec, ModelSpec)
+                else ModelSpec.from_payload(model_spec)
+            )
+            sealed_model_config = decoded_model_spec.to_model_config()
+            mismatches = []
+            for item in fields(ModelConfig):
+                supplied = getattr(model_config, item.name)
+                sealed = getattr(sealed_model_config, item.name)
+                if isinstance(supplied, torch.Tensor) or isinstance(sealed, torch.Tensor):
+                    equal = (
+                        isinstance(supplied, torch.Tensor)
+                        and isinstance(sealed, torch.Tensor)
+                        and torch.equal(supplied, sealed)
+                    )
+                else:
+                    equal = supplied == sealed
+                if not equal:
+                    mismatches.append(item.name)
+            if mismatches:
+                raise ValueError(
+                    "checkpoint ModelSpec conflicts with dual-written model_config "
+                    f"field(s): {sorted(mismatches)}"
+                )
+            if (
+                parity_scale_mode != decoded_model_spec.parity_scale_mode
+                or float(parity_fixed_delta) != decoded_model_spec.parity_fixed_delta
+                or parity_init_scheme != decoded_model_spec.parity_init_scheme
+            ):
+                raise ValueError(
+                    "checkpoint ModelSpec parity identity conflicts with dual-written "
+                    "Lightning parity hyperparameters"
+                )
+            model_config = sealed_model_config
 
         resolved_scale_contract = validate_scale_contract(
             data_config,
@@ -1968,7 +2029,7 @@ class PtychoPINN_Lightning(L.LightningModule):
         # Convert dataclass instances to dicts to ensure serializability
         # Note: generator_module is not saved (reconstructed at load time)
         from dataclasses import asdict
-        self.save_hyperparameters({
+        serialized_hparams = {
             'model_config': asdict(model_config),
             'data_config': asdict(data_config),
             'training_config': asdict(training_config),
@@ -1978,7 +2039,11 @@ class PtychoPINN_Lightning(L.LightningModule):
             'parity_scale_mode': parity_scale_mode,
             'parity_fixed_delta': float(parity_fixed_delta),
             'parity_init_scheme': parity_init_scheme,
-        })
+        }
+        if decoded_model_spec is not None:
+            serialized_hparams["model_spec"] = decoded_model_spec.to_payload()
+        self.save_hyperparameters(serialized_hparams)
+        self._model_spec = decoded_model_spec
 
         # TF-parity global intensity-scale offset (default "off"; see
         # docs/plans/2026-07-08-cnn-n128-tf-parity.md Task 1 and
@@ -2261,6 +2326,16 @@ class PtychoPINN_Lightning(L.LightningModule):
         }
 
     def on_save_checkpoint(self, checkpoint):
+        if self._model_spec is not None:
+            from ptycho_torch.artifact_schema import (
+                CURRENT_ARTIFACT_SCHEMA_VERSION,
+                TORCH_ARTIFACT_BACKEND,
+            )
+
+            checkpoint["ptychopinn_artifact"] = {
+                "backend": TORCH_ARTIFACT_BACKEND,
+                "schema_version": CURRENT_ARTIFACT_SCHEMA_VERSION,
+            }
         statistics = self.get_ci_statistics()
         if statistics is not None:
             checkpoint["ci_statistics"] = statistics

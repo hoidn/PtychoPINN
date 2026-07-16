@@ -362,19 +362,42 @@ class TestTrainingCliBackendDispatch:
             'max_epochs': config.nepochs,
         }
 
-        # Mock the factory to return a payload with default loss_function='Poisson'
-        mock_payload = MagicMock()
+        # The factory now resolves the objective before sealing ModelSpec.
+        from types import SimpleNamespace
+        from ptycho_torch.config_bridge import to_model_config
+        from ptycho_torch.config_params import (
+            DataConfig as PTDataConfig,
+            InferenceConfig as PTInferenceConfig,
+            TrainingConfig as PTTrainingConfig,
+        )
+        from ptycho_torch.model_spec import derive_model_spec
+
         mock_pt_model_config = PTModelConfig(
-            mode='Supervised',  # PyTorch naming
-            loss_function='Poisson',  # Default value (incompatible with Supervised)
+            mode='Supervised',
+            loss_function='MAE',
             C_forward=4,
             C_model=4,
         )
-        mock_payload.pt_model_config = mock_pt_model_config
-        mock_payload.pt_data_config = MagicMock()
-        mock_payload.pt_training_config = MagicMock()
+        mock_pt_data_config = PTDataConfig(C=4)
+        mock_pt_training_config = PTTrainingConfig(torch_loss_mode='mae')
+        mock_payload = SimpleNamespace(
+            pt_model_config=mock_pt_model_config,
+            pt_data_config=mock_pt_data_config,
+            pt_training_config=mock_pt_training_config,
+            pt_inference_config=PTInferenceConfig(),
+            model_spec=derive_model_spec(
+                to_model_config(mock_pt_data_config, mock_pt_model_config),
+                mock_pt_model_config,
+                mock_pt_data_config,
+            ),
+        )
+        captured_factory_overrides = {}
 
-        with patch('ptycho_torch.config_factory.create_training_payload', return_value=mock_payload):
+        def fake_create_training_payload(*args, **kwargs):
+            captured_factory_overrides.update(kwargs["overrides"])
+            return mock_payload
+
+        with patch('ptycho_torch.config_factory.create_training_payload', side_effect=fake_create_training_payload):
             # Import the helper that applies the supervised→MAE override
             from ptycho_torch.workflows.components import _train_with_lightning
 
@@ -383,7 +406,7 @@ class TestTrainingCliBackendDispatch:
             mock_lightning_module.val_loss_name = 'mae_val_loss'  # Expected for MAE
             captured_model_config = None
 
-            def capture_model_config(model_config, data_config, training_config, inference_config):
+            def capture_model_config(model_config, data_config, training_config, inference_config, **kwargs):
                 nonlocal captured_model_config
                 captured_model_config = model_config
                 return mock_lightning_module
@@ -420,6 +443,7 @@ class TestTrainingCliBackendDispatch:
                 "Model should be in Supervised mode"
             assert captured_model_config.loss_function == 'MAE', \
                 "Supervised mode should enforce loss_function='MAE' (prevents missing loss_name AttributeError)"
+            assert captured_factory_overrides["torch_loss_mode"] == "mae"
 
     def test_manual_accumulation_guard(self):
         """
@@ -484,6 +508,13 @@ class TestTrainingCliBackendDispatch:
         mock_payload.pt_model_config = PTModelConfig(mode='Unsupervised', C_forward=4, C_model=4)
         mock_payload.pt_data_config = PTDataConfig()
         mock_payload.pt_training_config = PTTrainingConfig()
+        from ptycho_torch.config_bridge import to_model_config
+        from ptycho_torch.model_spec import derive_model_spec
+        mock_payload.model_spec = derive_model_spec(
+            to_model_config(mock_payload.pt_data_config, mock_payload.pt_model_config),
+            mock_payload.pt_model_config,
+            mock_payload.pt_data_config,
+        )
 
         # Mock dataloader builder to return first batch with diffraction
         mock_train_loader = MagicMock()

@@ -129,6 +129,38 @@ class ConfigLogger(Callback):
         )
         if ci_statistics is not None:
             configs["ci_statistics"] = ci_statistics
+
+        from ptycho_torch.artifact_schema import (
+            encode_artifact_identity,
+            to_json_payload,
+        )
+        from ptycho_torch.config_bridge import to_model_config
+        from ptycho_torch.model_spec import derive_model_spec
+
+        model_spec = getattr(pl_module, "_model_spec", None)
+        if model_spec is None:
+            canonical_model = to_model_config(self.data_config, self.model_config)
+            model_spec = derive_model_spec(
+                canonical_model,
+                self.model_config,
+                self.data_config,
+                parity_scale_mode=getattr(pl_module, "parity_scale_mode", "off"),
+                parity_fixed_delta=float(
+                    pl_module.hparams.get("parity_fixed_delta", 0.0)
+                ),
+                parity_init_scheme=pl_module.hparams.get(
+                    "parity_init_scheme", "default"
+                ),
+            )
+        configs["artifact_identity"] = to_json_payload(
+            encode_artifact_identity(
+                model_spec,
+                self.data_config,
+                self.training_config,
+                self.inference_config,
+                ci_statistics=ci_statistics,
+            )
+        )
         
         # Save individual config files
         for config_name, config_dict in configs.items():
@@ -374,6 +406,94 @@ def load_configs_from_checkpoint(
         }
     )
 
+    artifact_identity_path = config_dir / "artifact_identity.json"
+    if artifact_identity_path.exists():
+        from ptycho_torch.artifact_schema import (
+            CURRENT_ARTIFACT_SCHEMA_VERSION,
+            TORCH_ARTIFACT_BACKEND,
+            decode_artifact_identity,
+            encode_artifact_identity,
+            from_json_payload,
+            to_json_payload,
+        )
+
+        with artifact_identity_path.open("r") as stream:
+            decoded = decode_artifact_identity(
+                from_json_payload(json.load(stream))
+            )
+        persisted_profile = resolve_scale_contract(
+            decoded.data_config.scale_contract_version,
+            decoded.data_config.measurement_domain,
+        )
+        if explicit_profile is not None and explicit_profile != (
+            persisted_profile.version,
+            persisted_profile.measurement_domain,
+        ):
+            raise ValueError(
+                "Explicit scale profile contradicts the versioned sidecar identity."
+            )
+        if checkpoint_path.is_file():
+            checkpoint = torch.load(
+                checkpoint_path,
+                map_location="cpu",
+                weights_only=False,
+            )
+            marker = checkpoint.get("ptychopinn_artifact")
+            expected_marker = {
+                "backend": TORCH_ARTIFACT_BACKEND,
+                "schema_version": CURRENT_ARTIFACT_SCHEMA_VERSION,
+            }
+            if marker != expected_marker:
+                raise ValueError(
+                    "Checkpoint/sidecar artifact identity mismatch: expected root "
+                    f"marker {expected_marker!r}, found {marker!r}."
+                )
+            hparams = checkpoint.get("hyper_parameters", {})
+            checkpoint_identity = decode_artifact_identity(
+                {
+                    **marker,
+                    "model_spec": hparams.get("model_spec"),
+                    "data_config": hparams.get("data_config"),
+                    "training_config": hparams.get("training_config"),
+                    "inference_config": hparams.get("inference_config"),
+                    "ci_statistics": checkpoint.get("ci_statistics"),
+                }
+            )
+            sidecar_identity = encode_artifact_identity(
+                decoded.model_spec,
+                decoded.data_config,
+                decoded.training_config,
+                decoded.inference_config,
+                ci_statistics=decoded.ci_statistics,
+            )
+            checkpoint_payload = encode_artifact_identity(
+                checkpoint_identity.model_spec,
+                checkpoint_identity.data_config,
+                checkpoint_identity.training_config,
+                checkpoint_identity.inference_config,
+                ci_statistics=checkpoint_identity.ci_statistics,
+            )
+            if to_json_payload(sidecar_identity) != to_json_payload(checkpoint_payload):
+                raise ValueError(
+                    "Checkpoint and sidecar contain conflicting artifact identity."
+                )
+
+        datagen_path = config_dir / "datagen_config.json"
+        if not datagen_path.exists():
+            raise FileNotFoundError(f"Config file not found: {datagen_path}")
+        datagen_payload, _ = _load_versioned_config(
+            datagen_path,
+            "datagen_config",
+            DatagenConfig,
+        )
+        return (
+            decoded.data_config,
+            decoded.model_spec.to_model_config(),
+            decoded.training_config,
+            decoded.inference_config,
+            DatagenConfig(**datagen_payload),
+        )
+
     raw_configs = {}
     obsolete_fields = {}
     config_classes = {
@@ -421,21 +541,31 @@ def load_configs_from_checkpoint(
                 "the checkpoint's persisted profile metadata."
             )
 
-    if explicit_profile is not None:
-        data_payload["scale_contract_version"] = explicit_profile[0]
-        data_payload["measurement_domain"] = explicit_profile[1]
-    else:
-        resolved = resolve_scale_contract(
-            data_payload.get("scale_contract_version"),
-            data_payload.get("measurement_domain"),
-        )
-        data_payload["scale_contract_version"] = resolved.version
-        data_payload["measurement_domain"] = resolved.measurement_domain
+    checkpoint_hparams = {}
+    if checkpoint_path.is_file():
+        checkpoint_hparams = torch.load(
+            checkpoint_path,
+            map_location="cpu",
+            weights_only=False,
+        ).get("hyper_parameters", {})
+    from ptycho_torch.artifact_schema import upgrade_unversioned_sections
 
-    data_config = DataConfig(**data_payload)
-    model_config = ModelConfig(**raw_configs["model_config"])
-    training_config = TrainingConfig(**raw_configs["training_config"])
-    inference_config = InferenceConfig(**raw_configs["inference_config"])
+    decoded = upgrade_unversioned_sections(
+        data_config=data_payload,
+        model_config=raw_configs["model_config"],
+        training_config=raw_configs["training_config"],
+        inference_config=raw_configs["inference_config"],
+        explicit_profile=explicit_profile,
+        metadata_free_legacy=known_legacy_provenance,
+        parity_scale_mode=checkpoint_hparams.get("parity_scale_mode", "off"),
+        parity_fixed_delta=checkpoint_hparams.get("parity_fixed_delta", 0.0),
+        parity_init_scheme=checkpoint_hparams.get("parity_init_scheme", "default"),
+    )
+
+    data_config = decoded.data_config
+    model_config = decoded.model_spec.to_model_config()
+    training_config = decoded.training_config
+    inference_config = decoded.inference_config
     datagen_config = DatagenConfig(**raw_configs["datagen_config"])
     
     print(f"Loaded configs from {config_dir}")

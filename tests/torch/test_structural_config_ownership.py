@@ -16,27 +16,6 @@ def training_npz(tmp_path: Path) -> Path:
     return path
 
 
-def test_deprecated_execution_topology_alias_populates_structural_model(
-    training_npz: Path,
-    tmp_path: Path,
-) -> None:
-    execution = PyTorchExecutionConfig(ffno_encoder_blocks=12)
-
-    with pytest.warns(DeprecationWarning, match="structural ModelConfig"):
-        payload = create_training_payload(
-            train_data_file=training_npz,
-            output_dir=tmp_path,
-            overrides={
-                "n_groups": 4,
-                "gridsize": 1,
-                "architecture": "ffno",
-            },
-            execution_config=execution,
-        )
-
-    assert payload.pt_model_config.ffno_encoder_blocks == 12
-
-
 def test_equal_old_and_new_structural_inputs_are_accepted(
     training_npz: Path,
     tmp_path: Path,

@@ -625,12 +625,6 @@ class InferenceConfig:
             object.__setattr__(self, 'n_groups', self.n_images)
 
 _STRUCTURAL_EXECUTION_ALIAS_NAMES = frozenset({
-    'ffno_encoder_blocks',
-    'ffno_encoder_modes',
-    'ffno_encoder_share_weights',
-    'ffno_encoder_gate_init',
-    'ffno_encoder_norm',
-    'ffno_encoder_mlp_ratio',
     'spectral_bottleneck_blocks',
     'spectral_bottleneck_modes',
     'spectral_bottleneck_share_weights',
