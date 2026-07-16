@@ -616,7 +616,11 @@ the same record; their focused gate passed (71 tests). The canonical public
 model adapter retains the established Torch-only `central_mask` default when no
 Torch structural payload is available. Public dataclasses/defaults, artifact
 schema/legacy decoding, and protected cross-backend code remain pending later
-bounded migrations.
+bounded migrations. A complete 7D retirement cannot start by inference: the
+current external Ptychodus contract still requires `object_big` and its
+`object.big` projection, while the roadmap does not name the replacement public
+fields or their alias/deprecation rules. That atomic contract decision must
+precede any protected TensorFlow-model or public-artifact migration.
 
 **Outcome:** Compatibility switches and obsolete forks are retired through
 evidence-based migrations rather than repository-search assumptions.
@@ -661,13 +665,12 @@ Slice 7 hygiene may run independently except:
   deletion waits only on the exact consumers/contracts it affects.
 ```
 
-The bounded simulation flat/nested correction is implemented, and the
-2026-07-15 Slice 2 integration suite closed its post-fix repository-wide gate.
-Slice 2 is complete. Slice 3A field ownership, Slice 3B structural identity,
-Slice 3C artifact upgrades, and Slice 3D construction consolidation are
-complete, including the final Slice 3 integration gate. Slice 4A is
-dependency-eligible. The 3C artifact support matrix remains authoritative; 3D
-did not change artifact-era policy.
+The bounded simulation flat/nested correction is implemented. Slices 2-6 are
+complete with their numbered-slice integration gates and no attributable
+regression. Slice 7A-7C establish and adopt the internal object-compatibility
+mapping across active Torch model, forward, loader, grouping, and reconstruction
+support paths. The 3C artifact support matrix remains authoritative; neither 3D
+nor the internal Slice 7 mapping changes artifact-era policy.
 
 Before editing shared hot files, check current working-tree ownership and active
 executors. This is a task-local collision preflight, not a standing hold tied to
