@@ -561,8 +561,13 @@ behavior; unselected routes do not create a repository-wide migration gate.
 
 ### Slice 6 — Workflow layering and backend adapters
 
-**Status:** Pending. The package grid-lines workflow remains large and has one
-runtime import from `scripts.studies.invocation_logging`.
+**Status:** In progress. Slice 6A removes the sole package-to-`scripts` runtime
+edge without widening the workflow split: generic invocation/provenance helpers
+now live in `ptycho.invocation_logging`, the package grid-lines workflow imports
+them directly, and the study module remains a compatibility facade while
+retaining only its NeuralOp-specific provenance helper. The focused package
+schema, facade identity, boundary, paper-row, and CLI handoff gates passed (13
+tests).
 
 **Outcome:** Scripts orchestrate; package modules expose cohesive application
 services; backend differences are explicit without a plugin framework.
@@ -572,7 +577,7 @@ services; backend differences are explicit without a plugin framework.
 1. Decompose grid-lines behavior by cohesion—simulation/data preparation,
    reconstruction/evaluation, artifact rendering, and orchestration—while
    retaining compatibility exports during migration.
-2. Move invocation/provenance utilities below the package boundary or inject
+2. **Complete (2026-07-15):** Move invocation/provenance utilities below the package boundary or inject
    them from scripts; eliminate package imports from `scripts/`.
 3. Split a Torch workflow use case only when a selected migration establishes a
    stable DTO/port boundary; do not make subjective whole-module cohesion a
