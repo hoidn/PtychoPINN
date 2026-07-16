@@ -328,8 +328,8 @@ def load_data(file_path, n_images=None, n_subsample=None, flip_x=False, flip_y=F
     # Extract required arrays from loaded data
     xcoords = data['xcoords']
     ycoords = data['ycoords']
-    xcoords_start = data['xcoords_start']
-    ycoords_start = data['ycoords_start']
+    xcoords_start = data['xcoords_start'] if 'xcoords_start' in data else xcoords.copy()
+    ycoords_start = data['ycoords_start'] if 'ycoords_start' in data else ycoords.copy()
     
     # Handle flexible diffraction key and shape
     diff_key = 'diff3d' if 'diff3d' in data else 'diffraction'

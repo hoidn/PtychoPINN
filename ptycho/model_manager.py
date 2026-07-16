@@ -91,6 +91,42 @@ class ModelManager:
             raise
 
     @staticmethod
+    def _select_keras3_candidate_by_output_signature(
+        loaded_model: tf.keras.Model,
+        candidates: Dict[str, tf.keras.Model],
+        *,
+        artifact_name: str,
+    ) -> tf.keras.Model:
+        """Select the unique reconstructed model matching a Keras 3 graph."""
+        loaded_signature = tuple(loaded_model.output_names)
+        matching_candidates = [
+            (role, candidate)
+            for role, candidate in candidates.items()
+            if tuple(candidate.output_names) == loaded_signature
+        ]
+
+        if len(matching_candidates) == 1:
+            return matching_candidates[0][1]
+
+        candidate_signatures = {
+            role: tuple(candidate.output_names)
+            for role, candidate in candidates.items()
+        }
+        if not matching_candidates:
+            raise ValueError(
+                "No reconstructed model matches Keras 3 output signature "
+                f"{loaded_signature!r} for artifact {artifact_name!r}; "
+                f"candidate signatures: {candidate_signatures!r}"
+            )
+
+        matching_roles = tuple(role for role, _ in matching_candidates)
+        raise ValueError(
+            "Multiple reconstructed models match Keras 3 output signature "
+            f"{loaded_signature!r} for artifact {artifact_name!r}: "
+            f"{matching_roles!r}"
+        )
+
+    @staticmethod
     def load_model(model_dir: str) -> tf.keras.Model:
         """Load a model and commit its archived flat state only on success."""
         params_path = os.path.join(model_dir, "params.dill")
@@ -214,6 +250,12 @@ class ModelManager:
             if os.path.exists(keras_model_path):
                 # Load from Keras 3 format (compile=False to avoid loss function serialization issues)
                 loaded_model = tf.keras.models.load_model(keras_model_path, custom_objects=custom_objects, compile=False)
+                if model_name not in models_dict:
+                    model = ModelManager._select_keras3_candidate_by_output_signature(
+                        loaded_model,
+                        models_dict,
+                        artifact_name=model_name,
+                    )
                 # Copy weights to the blank model
                 model.set_weights(loaded_model.get_weights())
             elif os.path.exists(os.path.join(model_dir, "saved_model.pb")):

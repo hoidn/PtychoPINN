@@ -3,6 +3,7 @@
 import unittest
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 import numpy as np
 import tensorflow as tf
 import sys
@@ -20,7 +21,7 @@ p.set('N', 64)
 p.set('probe.type', 'gaussian')
 p.set('probe.photons', 1e10)
 probe = get_default_probe(64)
-p.params()['probe'] = probe
+p.set('probe', probe)
 
 from ptycho.model_manager import ModelManager
 from ptycho.model import create_model_with_gridsize
@@ -101,6 +102,7 @@ class TestModelManagerPersistence(unittest.TestCase):
         print("--- Running Test: Inference Consistency ---")
         p.set('N', 64)
         p.set('gridsize', 1)
+        p.set('intensity_scale', 1.0)
         
         # 1. Create and save a model
         _, original_inference_model = create_model_with_gridsize(gridsize=1, N=64)
@@ -117,6 +119,11 @@ class TestModelManagerPersistence(unittest.TestCase):
         
         # 4. Load the model
         loaded_model = ModelManager.load_model(str(model_path))
+
+        # The directory name is arbitrary; loading must preserve the saved
+        # inference-model role rather than silently selecting the autoencoder.
+        self.assertEqual(tuple(loaded_model.output_names), ('trimmed_obj',))
+        self.assertEqual(len(loaded_model.outputs), 1)
         
         # 5. Get output from the loaded model
         loaded_output = loaded_model.predict([dummy_diffraction, dummy_positions])
@@ -125,6 +132,40 @@ class TestModelManagerPersistence(unittest.TestCase):
         np.testing.assert_allclose(original_output, loaded_output, rtol=1e-6,
                                    err_msg="Model output changed after save/load cycle.")
         print("✅ Inference consistency test passed.")
+
+    def test_unknown_keras3_role_rejects_missing_output_signature(self):
+        loaded_model = SimpleNamespace(output_names=['unknown_output'])
+        candidates = {
+            'autoencoder': SimpleNamespace(output_names=['reconstruction', 'scale']),
+            'diffraction_to_obj': SimpleNamespace(output_names=['trimmed_obj']),
+        }
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "No reconstructed model matches Keras 3 output signature",
+        ):
+            ModelManager._select_keras3_candidate_by_output_signature(
+                loaded_model,
+                candidates,
+                artifact_name='unknown-artifact',
+            )
+
+    def test_unknown_keras3_role_rejects_ambiguous_output_signature(self):
+        loaded_model = SimpleNamespace(output_names=['trimmed_obj'])
+        candidates = {
+            'candidate_a': SimpleNamespace(output_names=['trimmed_obj']),
+            'candidate_b': SimpleNamespace(output_names=['trimmed_obj']),
+        }
+
+        with self.assertRaisesRegex(
+            ValueError,
+            "Multiple reconstructed models match Keras 3 output signature",
+        ):
+            ModelManager._select_keras3_candidate_by_output_signature(
+                loaded_model,
+                candidates,
+                artifact_name='unknown-artifact',
+            )
 
 if __name__ == '__main__':
     unittest.main()

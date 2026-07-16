@@ -1762,7 +1762,7 @@ class Collate(nn.Module):
             
         # Move to device if specified
         if self.device:
-            outputs = [item.to(self.device) for item in outputs]
+            outputs = [item.to(self.device, non_blocking=False) for item in outputs]
             
         return tuple(outputs)
 

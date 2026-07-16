@@ -255,6 +255,30 @@ class TestSubsampling(unittest.TestCase):
             import os
             os.unlink(tmp.name)
 
+    def test_load_data_defaults_missing_start_coordinates_to_primary_coordinates(self):
+        """Optional start coordinates default to the primary coordinates."""
+        n_scans = 3
+        n = 8
+        tmp = tempfile.NamedTemporaryFile(suffix=".npz", delete=False)
+        try:
+            xcoords = np.array([1.0, 2.0, 4.0], dtype=np.float64)
+            ycoords = np.array([3.0, 5.0, 8.0], dtype=np.float64)
+            np.savez(
+                tmp.name,
+                xcoords=xcoords,
+                ycoords=ycoords,
+                diffraction=np.ones((n_scans, n, n), dtype=np.float32),
+                probeGuess=np.ones((n, n), dtype=np.complex64),
+            )
+
+            loaded = load_data(tmp.name)
+
+            np.testing.assert_array_equal(loaded.xcoords_start, loaded.xcoords)
+            np.testing.assert_array_equal(loaded.ycoords_start, loaded.ycoords)
+        finally:
+            import os
+            os.unlink(tmp.name)
+
     def test_load_data_transposes_legacy_hwn_diffraction_when_last_axis_matches_coords(self):
         """Legacy (H,W,N) diffraction should transpose to (N,H,W)."""
         n_scans = 4
