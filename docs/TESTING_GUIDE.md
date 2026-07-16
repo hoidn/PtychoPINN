@@ -26,6 +26,11 @@ Notes
 - The selectors named by the active plan are the blocking verification surface.
   Current manifests, current protocol pins, and tests covering changed behavior
   remain strict.
+- Within each task, prefer the smallest fresh selector set capable of falsifying
+  the affected acceptance claim and its governing invariants. When a roadmap
+  names the repository CI boundary, run the exact `bash ci/run_ci_tests.sh`
+  command at the boundary named by that roadmap or plan rather than turning it
+  into an automatic per-task requirement.
 - A failure that binds an explicitly superseded historical artifact, manifest,
   or protocol pin must stay visible and be reported, but it does not block an
   unrelated corrective study. Do not repin, suppress, or rewrite that
@@ -34,6 +39,9 @@ Notes
   re-adjudicates that surface, or when investigation shows that the failure is
   a shared-runtime regression affecting the active contract. Publication and
   historical re-adjudication tasks own any required repair.
+- Supplemental checks provide evidence but do not create new completion gates.
+  Classify any supplemental failure against the current request, governing
+  contracts, and approved acceptance criteria before treating it as blocking.
 
 
 ### Global Integration Marker
@@ -42,8 +50,15 @@ Notes
   - Run marker: `pytest -v -m integration`
   - Repository‑specific aliases may exist (e.g., `tf_integration` in this repo). The canonical NodeID for the TensorFlow workflow is: `tests/test_integration_workflow.py::TestFullWorkflow::test_train_save_load_infer_cycle`.
 - The integration test also runs during the comprehensive full‑suite gate; the marker is useful for a fast, early signal after implementation changes to production code.
-- **Policy:** Every code change that touches production workflows (training, inference, stitching, config plumbing, etc.) must rerun `pytest -m integration` (or the repo alias such as `-m tf_integration`) before landing. Capture the resulting log under the active plan hub per TEST-CLI-001.
-- **Evidence addendum:** Backend-parity changes should additionally capture a patch-grid using `scripts/tools/patch_parity_helper.py` (see `docs/workflows/pytorch.md`). Store the generated `tmp/patch_parity/*.png` artifacts or link them from the plan hub so reviewers can visually confirm amplitude/phase consistency.
+- Run `pytest -m integration` (or the relevant repository alias) when the current
+  request, governing contract, or approved plan acceptance criteria require an
+  end-to-end workflow claim. Workflow-adjacent edits alone do not make this an
+  automatic completion gate.
+- Retain integration logs or other durable evidence only when the current
+  acceptance scope requires it. For backend-parity claims, a patch-grid from
+  `scripts/tools/patch_parity_helper.py` (see `docs/workflows/pytorch.md`) may
+  supplement the applicable parity selectors; the visual artifact is not an
+  independent gate unless the active acceptance criteria say otherwise.
 
 ## Test Types
 
@@ -749,14 +764,12 @@ class TestSubsamplingParameter(unittest.TestCase):
 
 ## Continuous Integration
 
-On `main`, the `pytest-cpu` job (`.github/workflows/tests.yml`) gates pull requests by running `bash ci/run_ci_tests.sh`, which executes `pytest tests/torch -m "not slow"` CPU-only, deselecting known failures listed in `ci/known_failures.txt` and ignoring paths listed in `ci/collect_ignores.txt` (policy documented in `docs/ci.md` on `main`).
+On public `main`, the `pytest-cpu` job (`.github/workflows/tests.yml`) gates pull requests by running `bash ci/run_ci_tests.sh`, which executes `pytest tests/torch -m "not slow"` CPU-only, deselecting known failures listed in `ci/known_failures.txt` and ignoring paths listed in `ci/collect_ignores.txt` (policy documented in `docs/ci.md`). The harness is checked into this branch as well, so roadmap work can invoke the same boundary locally when its active acceptance scope requires it.
 
 Local reproduction of the gate:
 ```bash
-CUDA_VISIBLE_DEVICES="" bash ci/run_ci_tests.sh
+bash ci/run_ci_tests.sh
 ```
-
-Note: `ci/`, `.github/workflows/tests.yml`, and `docs/ci.md` exist on `main` but are absent on this branch (`fno-stable`).
 
 ## Troubleshooting
 

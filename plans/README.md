@@ -8,15 +8,19 @@ and initiative material and do not define current prerequisites.
 
 ## Refactoring / debt-paydown initiative (2026-07)
 
-Codebase-wide debt paydown, framed by a 6-analysis audit. Execute top-down; Phases 0–1
-are the low-risk, high-leverage near-term work.
+Codebase-wide debt paydown, framed by a 6-analysis audit. The
+[`2026-07-07-refactoring-roadmap.md`](../docs/plans/2026-07-07-refactoring-roadmap.md) roadmap
+is the initiative's sole live status and sequencing authority. The phase plans
+below preserve historical execution detail and design context; their embedded
+status notes and task-local coordination procedures do not independently govern
+current eligibility.
 
-- `2026-07-07-refactoring-roadmap.md` — **the frame**: 5 root generators, 4 phases, recommendation. *Revised 2026-07-10 (post-rebase status + drift).*
-- `2026-07-07-refactor-phase-0-cleanup.md` — delete zero-importer dead code (RG3). **DONE 2026-07-10** (residual sweep optional).
-- `2026-07-07-refactor-phase-1-safety-net.md` — seal `params.cfg` + fail-fast + provenance (RG2/RG4). **Highest leverage. Wave A DONE; Wave B open** (gate restated 2026-07-10).
-- `2026-07-07-refactor-phase-2-consolidate.md` — config guard, delete `api/`, unify geometry/metrics (RG3/RG5). Unblocked (P0 done); gs2 READ-ONLY coordination required.
-- `2026-07-07-refactor-phase-3-core-extraction.md` — backend-neutral core + typed seams (RG1). Staged, design-gated. Not started.
-- `2026-07-06-pipeline-consolidation.md` (+ `-tiers-0-2.md`) — a vertical slice (reassembly/inference/solver). Not executed; anchors (`a1d52011`) archive-only post-rebase.
+- [`2026-07-07-refactoring-roadmap.md`](../docs/plans/2026-07-07-refactoring-roadmap.md) — live strategic frame and status authority for the audited root risks and seven vertical boundary slices.
+- [`2026-07-07-refactor-phase-0-cleanup.md`](../docs/plans/2026-07-07-refactor-phase-0-cleanup.md) — historical Phase 0 subtractive-cleanup execution record (RG3).
+- [`2026-07-07-refactor-phase-1-safety-net.md`](../docs/plans/2026-07-07-refactor-phase-1-safety-net.md) — historical Phase 1 safety-net execution plan (RG2/RG4).
+- [`2026-07-07-refactor-phase-2-consolidate.md`](../docs/plans/2026-07-07-refactor-phase-2-consolidate.md) — historical Phase 2 consolidation plan (RG3/RG5).
+- [`2026-07-07-refactor-phase-3-core-extraction.md`](../docs/plans/2026-07-07-refactor-phase-3-core-extraction.md) — historical Phase 3 backend-neutral-core planning record (RG1/RG5).
+- [`2026-07-06-pipeline-consolidation.md`](../docs/plans/2026-07-06-pipeline-consolidation.md) and [`2026-07-06-pipeline-consolidation-tiers-0-2.md`](../docs/plans/2026-07-06-pipeline-consolidation-tiers-0-2.md) — historical vertical-slice context for reassembly, inference, and solver work.
 
 ---
 
@@ -79,5 +83,5 @@ new process documents after ordinary completion.
 
 ---
 
-**Last Updated:** 2026-07-13
+**Last Updated:** 2026-07-15
 **Maintainer:** Project leads

@@ -1,5 +1,17 @@
 # Refactor Phase 1 — Safety Net (execution plan)
 
+> **Current disposition (2026-07-15) — historical execution record.**
+> [`2026-07-07-refactoring-roadmap.md`](2026-07-07-refactoring-roadmap.md) is the
+> sole live status, dependency, and work-selection authority for this initiative.
+> The warn-mode `params.cfg` seal and the dead model-loading branch landed; test
+> isolation, explicit array threading, fail-fast handlers, metadata conventions,
+> and seam assertions remain candidate work requiring a fresh plan against current
+> code. Post-roadmap CI/probe/scaling work superseded the line anchors and the old
+> global units interpretation; current CI behavior is governed by
+> [`spec-ptycho-core.md`](../specs/spec-ptycho-core.md). The task bodies below are
+> retained for hazards and provenance only: they are not independently executable
+> and do not create completion gates.
+
 > **Frame:** `docs/plans/2026-07-07-refactoring-roadmap.md` (Phase 1). Targets root
 > generators **RG2** (global-state seal) and **RG4** (implicit conventions) + the
 > error-handling anti-patterns. **Highest-leverage phase** and the precondition that
@@ -26,8 +38,12 @@ bare `except: Y_patches=None`; `model_manager.py:205` dead `and False` branch.
 
 ## Global constraints
 
-- Real data must keep loading — **assert on structure at seams, never on values in loaders.**
-- Parity fixtures stay byte-identical (`tests/fixtures/varpro_parity/*`, forward-parity).
+- Real data must keep loading. Structural seam checks remain important, while
+  value checks explicitly required by the normative data contract (for example,
+  finite nonnegative count intensity) still apply.
+- Historical parity intent was to preserve fixture inputs and numerical behavior.
+  Current work uses registered tolerances plus exact shape/index requirements;
+  floating output is not presumed byte-identical.
 - Frozen-core files unmodified. The model-singleton reset is done by *external*
   manipulation in conftest (tests already do this), NOT by editing `model.py`.
 
@@ -43,8 +59,10 @@ bare `except: Y_patches=None`; `model_manager.py:205` dead `and False` branch.
 > HEAD `74524eeb`** (seal at `params.py:81-94,143`; entrypoint `seal()` calls at
 > `config_factory.py:332,531`, `components.py:653`; `and False` branch gone — sibling dead guard
 > `if False and` remains at `model_manager.py:278` for 3c-part-b).
-> **WAVE B = still DEFERRED, gate RESTATED (2026-07-10):** the original "gs2 #34/#42/#43/#44"
-> markers are unverifiable post-rebase. Current hot-file contention: `components.py` last touched
+> **WAVE B = still DEFERRED, gate RESTATED (2026-07-10; historical snapshot):** the original
+> "gs2 #34/#42/#43/#44" markers are unverifiable post-rebase. They do not impose a
+> standing READ-ONLY hold: coordinate only with an actually active concurrent executor under
+> the current repository authority rules. At that snapshot, `components.py` was last touched
 > Jul 9 by the **absolute-scaling migration** (`ffda33a7`→`73cb928b`);
 > `grid_lines_workflow.py`/`model_manager.py` quiet since the overlay. Before starting Wave B,
 > re-check in-flight initiatives on those three files (shared-tree rule), then proceed.
@@ -105,8 +123,9 @@ hand-roll (A6), now centralized. No `model.py` edit.
       `params.cfg`; on teardown replace contents; reset the two `model` module
       globals). Also add `params.unseal()` in setup so sealing from one test doesn't
       leak.
-- [ ] **2.4** Run → PASS. Full torch gate green (this fixture now runs for every
-      test — watch for tests that *relied* on leaked state; fix those, don't disable).
+- [ ] **2.4 Historical gate (superseded):** run the isolation selector and the
+      affected contract selectors. A full torch gate is not automatically
+      required here under the central roadmap's evidence policy.
 - [ ] **2.5** Commit: `test: autouse params.cfg + model-singleton isolation fixture`
 
 ---
@@ -151,6 +170,12 @@ side artifact — it may NOT change what data/model the pipeline computes with.
 
 ### 4a — Declared provenance in metadata (`ptycho/metadata.py`)
 
+> **Superseded design:** do not introduce generic `units` plus heuristic
+> inference as a parallel contract. Current work must implement the inseparable
+> `scale_contract_version` / `measurement_domain` pair and field-specific layout,
+> frame, and probe-gauge semantics from `docs/specs/spec-ptycho-core.md`.
+> Compatibility heuristics, if retained, must be explicit and non-claim-bearing.
+
 - [ ] **4a.1** Test: writing a dataset stamps `units {amplitude|intensity}`,
       `axis_order {NHW|HWN}`, `coords_convention {xy|rowcol}`, `offset_sign {-1|+1}`
       into `_metadata`; reading a dataset **without** those keys falls back to today's
@@ -187,10 +212,13 @@ side artifact — it may NOT change what data/model the pipeline computes with.
 
 ## Verification & Exit
 
-1. Full torch gate green after every task; parity fixtures byte-identical.
+1. **Historical gate (superseded):** current work uses claim-matched selectors,
+   registered numerical tolerances, exact shape/index checks, and the checked-in
+   CI harness only at the boundary named by the central roadmap.
 2. The seal warn-log is empty on a clean CLI run (or every entry is triaged).
-3. Test suite is order-independent (shuffle a subset with `pytest -p no:randomly`
-   off / `--randomly-seed` if available, or reorder manually) — no leaked-state fails.
+3. Test isolation is checked with a deterministic two-order focused selector.
+   The historical `pytest-randomly` command is not available in the current
+   environment and is not an exit gate.
 4. **Exit:** out-of-order `cfg` writes logged; tests isolated; three silent-degrade
    handlers fail loud; conventions tagged + asserted at seams; 2–3 findings Resolved;
    zero frozen-core edits.

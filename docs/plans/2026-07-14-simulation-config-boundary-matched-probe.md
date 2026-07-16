@@ -20,6 +20,10 @@ flat smoke geometry; the caller now replaces the nested `SimulationConfig` in
 lockstep, and its exact falsifier passes. The Run1084 inspection PNG and JSON are
 available under `tmp/` as specified below.
 
+The refactoring roadmap subsequently made a post-fix comprehensive repository
+rerun a major-chunk completion gate. That rerun is pending, so implementation is
+landed but roadmap closure is not yet claimed.
+
 ---
 
 ## Governing decisions

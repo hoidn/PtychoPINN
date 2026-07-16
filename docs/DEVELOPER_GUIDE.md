@@ -389,7 +389,8 @@ setup_logging(output_dir, **get_logging_config(args))
 
 ## 7. Testing Conventions
 
-**Authority:** `docs/TESTING_GUIDE.md` owns test commands and evidence requirements;
+**Authority:** Repository scope-and-evidence policy determines what is a completion
+gate. `docs/TESTING_GUIDE.md` owns test command mechanics and evidence guidance;
 `docs/development/TEST_SUITE_INDEX.md` catalogs selectors. This section covers only
 the structural conventions. The project encourages test-driven development: write the
 failing test that reproduces the bug or specifies the feature before the
@@ -422,16 +423,19 @@ convention (`tests/scripts/`, `tests/studies/`) — do not co-locate test files 
 ### 7.2. Running Tests
 
 The project standard is **pytest** (see `docs/TESTING_GUIDE.md` for the full command
-library and log-archiving requirements):
+library and evidence guidance):
 
 ```bash
 pytest tests/ -q                  # full suite
 pytest tests/torch -m "not slow"  # the fast torch suite
 ```
 
-The public `main` branch's `pytest-cpu` CI gate runs exactly the fast torch suite via
-`ci/run_ci_tests.sh` (that harness lives on `main` only), with a deselect/ignore list
-maintained alongside it.
+For each task, run fresh selectors capable of falsifying the affected acceptance
+claim and governing invariants. When the active roadmap or plan names the repository
+CI boundary, run the checked-in harness exactly as `bash ci/run_ci_tests.sh` at that
+boundary; the public `main` branch's `pytest-cpu` job invokes the same script with the
+deselect/ignore lists maintained alongside it. Supplemental checks do not become
+completion gates unless the current acceptance scope makes them relevant.
 
 A few legacy suites still use `unittest`; run those modules explicitly per the
 Testing Guide. Do not add new `unittest`-style discovery flows.
@@ -500,4 +504,3 @@ Before merging any PR that touches data loading or configuration:
 - [ ] Are all `params.cfg` dependencies documented in docstrings?
 - [ ] Do docstrings cross-reference the component contracts
       (`docs/architecture_torch.md` §6) where one exists?
-

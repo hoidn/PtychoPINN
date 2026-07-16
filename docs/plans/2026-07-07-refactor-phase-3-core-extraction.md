@@ -1,12 +1,24 @@
 # Refactor Phase 3 — Backend-Neutral Core Extraction (staged plan)
 
+> **Current disposition (2026-07-15) — historical staged design.**
+> [`2026-07-07-refactoring-roadmap.md`](2026-07-07-refactoring-roadmap.md) is the
+> sole live status, dependency, and work-selection authority for this initiative.
+> No move below is complete. Later CI/probe/scaling changes grew the target modules,
+> moved call sites, and invalidated the recorded importer/LOC baselines; Move 1 also
+> overlaps current uncommitted grid-workflow changes. The interface sketches and
+> hazards remain useful provenance, but every move still requires the fresh design
+> spike/sub-plan already required by this document. The historical bodies below do
+> not create completion gates. They are not independently executable.
+
 > **Frame:** `docs/plans/2026-07-07-refactoring-roadmap.md` (Phase 3). Targets root
 > generators **RG1** (no shared core) and the deep half of **RG5** (layering).
 > **Depends on Phase 1** (silent→loud net) and **Phase 2** (config guard + central-
 > module coverage). Highest payoff, highest risk, done last.
 
-**Goal:** Give the two backends a shared neutral core so a physics/convention fix
-lands once instead of 2–3×, replacing hand-maintained parity with typed seams.
+**Historical goal (superseded):** give the two backends a shared neutral core so
+a physics/convention fix lands once. The live roadmap instead defines scientific
+semantics and independent oracles once while retaining backend-native numerical
+kernels where autograd, tracing, or runtime behavior requires them.
 
 > **DRIFT NOTE (2026-07-10, re-verified at HEAD `74524eeb`):** Move 2 got cheaper —
 > torch modules importing `ptycho.*` are now **5** (`config_bridge`, `config_factory`,
@@ -32,17 +44,23 @@ would be placeholder debt.
 - **Frozen core** (`ptycho/model.py`, `diffsim.py`, `tf_helper.py`) unmodified — the
   core-extraction produces a NEW neutral layer that both backends import; it does not
   move code out of the frozen TF files.
-- **Parity fixtures are the merge gate** for anything touching coords/reassembly/
-  physics. Nothing merges that changes a frozen fixture.
-- **Coord sign flip / axis transpose are per-pipeline invariants** — the neutral core
-  carries them as explicit typed parameters (Phase 2's `geometry.py` is the seed), it
-  does not unify them into one value.
+- **Current evidence rule:** fixture identity is preserved, exact shape/index
+  mappings remain exact, and numerical results use registered tolerances. The
+  affected governing contract determines the gate.
+- **Current coordinate rule:** preserve the canonical semantic `(x, y)` and
+  `local_offset_sign = -1`; represent storage transposes/order differences with
+  typed layout adapters, not a free-form sign parameter.
 - **Never let a compensating error survive a fix** — every move certifies correctness
   end-to-end per path with an independent oracle, not by comparing a path against itself.
 
 ---
 
 ## Move 1 — Evict `grid_lines_workflow.py` from the package (mechanical; do first)
+
+> **Superseded architecture:** do not move this widely consumed workflow
+> wholesale into `scripts/`. Decompose reusable application behavior by cohesion,
+> keep compatibility exports during migration, and remove the remaining upward
+> `scripts.studies.invocation_logging` dependency explicitly.
 
 **Problem:** a 2,143-line study runner lives in `ptycho/workflows/` and imports
 `scripts.*` (`grid_lines_workflow.py:28,1095`), creating a scripts↔package cycle
@@ -62,6 +80,11 @@ would be placeholder debt.
 ---
 
 ## Move 2 — Backend-neutral core + TF-free `params` (DESIGN SPIKE required)
+
+> **Superseded architecture:** do not move `RawData` or `params.cfg` wholesale
+> into a neutral core. The live roadmap limits this direction to framework-free
+> value objects/data records, makes `params.py` TF-free as a separate lifecycle
+> slice, and requires an import-smoke feasibility proof before extraction.
 
 **Problem (RG1):** `ptycho_torch` hard-imports `ptycho.*` (14 modules) and
 `params.py:56 import tensorflow` drags TF into every torch import. There is no neutral
@@ -86,6 +109,11 @@ reviewable codemod commit, not piecemeal.
 ---
 
 ## Move 3 — `Reassembler` protocol (design spike; torch half already scoped)
+
+> **Superseded architecture:** the simple protocol below conflates
+> training-forward assembly, patch placement, and VarPro scale calibration. The
+> live roadmap requires separate assembly, calibration, and reconstruction-policy
+> contracts.
 
 **Problem (RG1):** torch calls TF at runtime for reassembly
 (`ptycho_torch/workflows/components.py:1535 → tf_helper.reassemble_position`), and
@@ -115,6 +143,11 @@ highest physics-parity payoff per line changed.
 
 ## Move 4 — `TrainingBackend` interface + composable workflow steps (design spike)
 
+> **Superseded architecture:** do not introduce the broad ABC/registration design
+> below. The live roadmap prefers explicit two-backend dispatch and only narrow
+> trainer or inference-session protocols where an observed coupling justifies
+> them.
+
 **Problem (RG5):** `backend_selector.py` dispatches on a string to name-mangled twins
 (`run_cdi_example` vs `run_cdi_example_torch`); studies reach into
 `_train_with_lightning` and hand-roll 5 copies of "load→predict→stitch→evaluate"
@@ -137,6 +170,12 @@ with its own unit test before a study is repointed at it.
 ---
 
 ## Move 5 — Explicit reassembly strategy replacing `object_big` gating (design spike)
+
+> **Superseded architecture:** `object_big` also controls output channels/layout,
+> grouping, merge behavior, and checkpoint interpretation. Its replacement is a
+> versioned compatibility migration with separate output-layout, merge-policy,
+> and support/canvas-geometry axes after the config/model and reconstruction
+> slices; the single Boolean-like strategy below is insufficient.
 
 **Problem (RG4/RG5):** `object_big` is derived from gridsize on some paths, free on
 others, hardcoded on a third; it silently gates whole code paths and makes knobs
@@ -169,14 +208,16 @@ Move 1 (evict, mechanical) ──► Move 2 (core + TF-free params, SPIKE, preco
 Move 5 (strategy) ── independent, benefits from Move 2 ───────────┘
 ```
 
-Do Move 1 now (one-day mechanical win). Author the Move-2 design spike next; Moves 3–5
-follow as their spikes complete, each as its own execution-ready sub-plan.
+**Historical sequencing (superseded):** the instruction to execute Move 1
+directly no longer applies. Select work from the live roadmap's dependency model.
 
 ## Verification & Exit (per move)
 
-1. Full gate green; parity fixtures byte-identical (mandatory for coords/reassembly/physics).
+1. **Historical gate (superseded):** current work uses claim-matched selectors,
+   exact shape/index checks, registered numerical tolerances, and the checked-in
+   CI harness at the boundary named by the live roadmap.
 2. Each move ships with an independent-oracle test (not path-vs-itself).
 3. Behavior-changing moves record NCC/MAE deltas before merge.
-4. **Exit (phase):** both backends import a neutral core; reassembly and training go
-   through typed seams; a physics/convention fix lands once; `object_big` gating is an
-   explicit validated strategy.
+4. **Historical exit (superseded):** current completion outcomes are owned by the
+   live roadmap; this document's neutral-core, universal-reassembler, broad
+   backend-interface, and single-strategy targets are not current gates.

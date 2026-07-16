@@ -1,5 +1,17 @@
 # Refactor Phase 0 — Subtractive Cleanup (execution plan)
 
+> **Current disposition (2026-07-15) — historical execution record.**
+> [`2026-07-07-refactoring-roadmap.md`](2026-07-07-refactoring-roadmap.md) is the
+> sole live status, dependency, and work-selection authority for this initiative.
+> The certain-dead removals, legacy train-entrypoint removals, and obsolete test
+> removals below landed; the orphaned `train_full` config field remains optional
+> cleanup. The dose-overlap deletion premise and Task 4 archive list were
+> invalidated by later verification, and deleting `ptycho_torch/api/` as a simple
+> deprecated island is no longer admissible without migrating its current contract
+> tests and consumers. The unchecked task bodies below preserve the original
+> decomposition and provenance only. They are not independently executable.
+> They do not create completion gates.
+
 > **Frame:** `docs/plans/2026-07-07-refactoring-roadmap.md` (Phase 0). Targets root
 > generator **RG3** (fork accumulation). Pure removal — no behavior change.
 > Execute top-down; commit in logical groups. **No AI/Claude attribution** in commit
@@ -33,9 +45,11 @@ is the torch test suite staying green (a hidden import surfaces there).
 >   comment survives its deleted consumer) — Task 2.2's second half.
 > - Decide keep-vs-delete for the 7 permanently-skipped `test_dose_overlap_*.py`
 >   files (cosmetic; collection is clean either way).
-> - Task 2.3 (`api/`) stays deferred to Phase 2; Task 2.4 (`single_image_frc.py`,
->   still untracked at HEAD) stays with its own plan; Task 4 already resolved
->   DEFERRED below.
+> - Task 2.3's original `api/` deletion is invalidated as written: the package has
+>   current contract tests outside `test_api_deprecation.py`, so any retirement
+>   requires a fresh migration plan. Task 2.4 (`single_image_frc.py`, still
+>   untracked at HEAD) stays with its own plan; Task 4 already resolved DEFERRED
+>   below.
 
 ## Task 1 — Delete certain-dead modules
 
@@ -84,9 +98,10 @@ Each has a caveat; do NOT bulk-delete.
       reference). Grep runbooks/docs for `train_full` invocation; if none, delete and
       drop the now-orphaned `config_params` fields flagged "only used in train_full";
       else move to `_archive/`.
-- [ ] **2.3 `ptycho_torch/api/`** (~3,100 LOC, deprecated ADR-003). **Defer to
-      Phase 2** (it's built on the `config_params` family being collapsed there).
-      Do not delete here.
+- [ ] **2.3 `ptycho_torch/api/`** (~3,100 LOC, deprecated ADR-003). **Historical
+      target; do not execute as a direct deletion.** Current contract tests outside
+      `test_api_deprecation.py` consume the public API. A future retirement must
+      explicitly migrate those consumers and re-establish the public contract.
 - [ ] **2.4 `ptycho/single_image_frc.py`** (510 LOC, untracked). **Defer** to
       `docs/plans/2026-04-13-single-image-frc-removal.md` (already targets it).
 - [ ] **2.5** Gate + commit per resolved item.

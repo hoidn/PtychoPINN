@@ -1,5 +1,17 @@
 # Pipeline Consolidation — Tiers 0–2 (execution-ready design)
 
+> **Current disposition (2026-07-15) — historical execution design.**
+> [`2026-07-07-refactoring-roadmap.md`](2026-07-07-refactoring-roadmap.md) is the
+> sole live status, dependency, and work-selection authority for this initiative.
+> Phase 0 and Phase 2a remain unexecuted; Phase 1 has only isolated
+> landed/obsolete items and still contains live defects. Commit `60d2c7c7b` landed
+> an alternate dataset-backed barycentric CLI route, superseding the Phase 2b
+> stitch-core recipe below. Current CI absolute scaling is governed by
+> [`spec-ptycho-core.md`](../specs/spec-ptycho-core.md); the historical ~53× gap
+> applies only to legacy-amplitude evidence. The task bodies are preserved for
+> provenance and hazards only: they are not independently executable and do not
+> create completion gates.
+
 > **For agentic workers:** Execute phase-by-phase. Phases 0, 1, 2a are mechanical
 > (deletion + local fixes) and safe to run subagent-driven. Phase 2b is
 > behavior-changing and gated on a frozen-fixture baseline + a metric re-baseline
@@ -32,9 +44,12 @@ against `a1d52011`.
   `ptycho/tf_helper.py` must NOT be modified. Everything here is torch-side
   (`ptycho_torch/…`, `scripts/…`, top-level `torch/`) — none of it is stable-core.
   Note: `ptycho_torch/model.py` is **not** stable-core and is editable.
-- **Do NOT paper over the ~53× s1 gap** (REASSEMBLY-BRIDGE-001). Tiers 0–2
+- **Historical legacy-amplitude scope:** do NOT paper over the ~53× s1 gap
+  (REASSEMBLY-BRIDGE-001). Tiers 0–2
   *stabilize and unify* the stitch surface; they do not touch VarPro numerics.
   `solve_lbfgs` output must be byte-frozen before any solver deletion.
+  This does not govern current CI count-intensity behavior, whose physical-probe
+  and VarPro scale contract lives in `spec-ptycho-core.md`.
 - **Window unification shifts metrics.** CLI uses `stitch_crop_size=20`; the
   barycentric core uses `middle_trim=32`. Unifying onto the barycentric core
   changes every CLI NCC/MAE score — this is expected and must be re-baselined
@@ -81,9 +96,9 @@ substring). Re-run the grep at execution time before deleting.
 - [ ] **0.2** Delete the six file targets (whole `torch/` dir included).
 - [ ] **0.3** Delete `beta_modules/reassembly.py`, then remove the two symbols from
       `reassembly.py`. Grep both symbol names repo-wide → 0 remaining references.
-- [ ] **0.4** Run the torch gate: `pytest tests/torch -m "not slow"` with the
-      project deselect/ignore lists. Expected: matches the recorded green baseline,
-      0 new failures (a hidden import surfaces here).
+- [ ] **0.4 Historical gate (superseded):** current work runs claim-matched
+      selectors per task and `bash ci/run_ci_tests.sh` only at the boundary named
+      by the live roadmap.
 - [ ] **0.5** Commit: `refactor: delete zero-importer dead reassembly/loader modules`
 
 **Exit:** ~3000 lines gone; gate green; no import errors.
@@ -124,8 +139,11 @@ Each is a self-contained commit. Verified lines below.
 - [ ] **1.7** `ptycho_torch/api/api_helper.py:510 predict_only` — calls
       `forward_predict(batch)` with 1 arg vs the 4-arg contract
       `(x, positions, probe, input_scale_factor)`. Broken/dead: grep callers; delete
-      or repair to the real contract.
-- [ ] Run the torch gate after each; commit individually.
+      or repair to the real contract. **Current override:** the API package has
+      current public-contract tests, so deletion requires an explicit migration
+      decision; this historical item does not authorize it.
+- [ ] **Historical gate (superseded):** run claim-matched selectors per task and
+      the checked-in CI harness only at the boundary named by the live roadmap.
 
 **Exit:** CLI torch inference branch runs without `TypeError`; gate green.
 
@@ -184,6 +202,14 @@ remaining eigen-projection copies (beta, inline) gone via Phase 0 + this deletio
 ---
 
 ## Phase 2b — Unify CLI ↔ in-process inference (effort L, risk HIGH — Gate A)
+
+> **Superseded implementation recipe (2026-07-15):** `60d2c7c7b` landed
+> `_resolve_reassembly_route` plus a dataset-backed
+> `_run_barycentric_inference_and_reconstruct` path instead of the pure stitch-core
+> extraction specified below. The steps in this section are historical. Any
+> continuation must first audit the landed route, the still-separate uniform path,
+> remaining direct call sites, and the CLI `debug_dump_dir` mismatch, then issue a
+> fresh plan.
 
 ### The divergence (why this is the top-value item)
 Same checkpoint, two amplitudes: the CLI (`_run_inference_and_reconstruct`,

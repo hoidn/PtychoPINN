@@ -1,5 +1,18 @@
 # Pipeline Consolidation Refactor Plan
 
+> **Current disposition (2026-07-15) — historical vertical-slice plan.**
+> [`2026-07-07-refactoring-roadmap.md`](2026-07-07-refactoring-roadmap.md) is the
+> sole live status, dependency, and work-selection authority for this initiative.
+> Phase 0 remains unexecuted; Phase 1 contains a few landed/obsolete hygiene items
+> but still includes live defects; Phase 2a and Phases 3–5 remain candidate work.
+> Commit `60d2c7c7b` landed an alternate dataset-backed barycentric CLI route, so
+> the Phase 2b core-extraction recipe is superseded and must be re-planned around
+> that implementation. Current CI absolute scaling is governed by
+> [`spec-ptycho-core.md`](../specs/spec-ptycho-core.md); the historical ~53× gap
+> below applies only to legacy-amplitude evidence. The task bodies are retained for
+> provenance and hazards only: they are not independently executable and do not
+> create completion gates.
+
 > **For agentic workers:** Execute phase-by-phase. Phases 0–1 are mechanical and
 > safe to run subagent-driven. Phases 2–6 are behavior-changing and **gated** —
 > each requires a frozen-fixture parity baseline *before* any deletion/rewrite,
@@ -66,10 +79,12 @@ parity oracle.
   (GRIDLINES-OBJECT-BIG-001). Consolidating the two torch training reassemblers
   must NOT accidentally activate probe/uniform weighting. Do NOT delete
   `reassemble_patches_position_real_probe`.
-- **The ~53× s1 units gap (REASSEMBLY-BRIDGE-001) must NOT be papered over by
-  rescaling s1.** It needs a real nphotons anchor
+- **Historical legacy-amplitude scope:** the ~53× s1 units gap
+  (REASSEMBLY-BRIDGE-001) must NOT be papered over by rescaling s1. It needs a real nphotons anchor
   (`derive_intensity_scale_from_amplitudes`, `helper.py:723`) wired into
   `apply_varpro_canvas_scaling`. Blind rescale breaks the parity oracle.
+  This is not the current CI contract: CI count-intensity scaling and the physical
+  probe/VarPro gauge are governed by `spec-ptycho-core.md`.
 - **update_legacy_dict None-skip** (`config.py:778`) is relied on across ~24
   call sites (stale-reset behavior). Audit all callers before touching.
 - **Frozen-fixture parity tests pin intentional quirks:** e.g. `RectangularMAELoss`
@@ -106,12 +121,15 @@ parity oracle.
   middle_trim(32). These must be reconciled and the NCC/MAE metrics re-baselined
   *before* swapping the stitch, or scores shift silently. Needs a short design
   note + baseline run.
-- **Gate B — absolute-amplitude anchor (blocks closing REASSEMBLY-BRIDGE-001).**
+- **Gate B — historical legacy-amplitude anchor (blocks closing the legacy scope
+  of REASSEMBLY-BRIDGE-001).**
   The barycentric path has no absolute anchor (s1~0.0886 vs sensible ~4.7). Wiring
   `derive_intensity_scale_from_amplitudes` into `apply_varpro_canvas_scaling` is a
   **separate design task**, not part of the mechanical consolidation. This plan
   *stabilizes and unifies* the solve surface so the anchor has one place to land;
-  it does not itself close the gap.
+  it does not itself close the legacy gap. This gate does not block the current CI
+  path, whose absolute-scale contract is already normative in
+  `docs/specs/spec-ptycho-core.md`.
 - **Gate C — training-driver convergence parity (blocks Phase 3).** patience
   (10/100/config) and find_learning_rate-applied-or-not change convergence.
   Freeze loss-curve fixtures on the current `_train_with_lightning` before
@@ -142,9 +160,9 @@ trust the audit's snapshot).
 - [ ] **Step 0.2:** Delete the six modules + the paired dead test.
 - [ ] **Step 0.3:** Remove the two symbols from `reassembly.py`; grep for their
       names repo-wide to confirm no caller.
-- [ ] **Step 0.4:** Run the full torch gate: `pytest tests/torch -m "not slow"`
-      with the project's deselect/ignore lists. Expected: same pass count as the
-      current green baseline, 0 new failures (a hidden import surfaces here).
+- [ ] **Step 0.4 historical gate (superseded):** current work runs claim-matched
+      selectors per task and `bash ci/run_ci_tests.sh` only at the boundary named
+      by the live roadmap.
 - [ ] **Step 0.5:** Commit. `refactor: delete zero-importer dead reassembly/loader modules`
 
 **Exit criteria:** ~3000 lines gone, gate green, no import errors.
@@ -176,8 +194,11 @@ Independent single-point fixes. Each is a self-contained commit.
 - [ ] **1.7** `ptycho_torch/api/api_helper.py:510 predict_only` — calls
       `forward_predict(batch)` with 1 arg vs the 4-arg contract
       `(x, positions, probe, input_scale_factor)`. Broken/dead: delete or repair
-      to the real contract; grep for callers first.
-- [ ] Run the torch gate after each; commit individually.
+      to the real contract; grep for callers first. **Current override:** because
+      the API package has current public-contract tests, deletion requires an
+      explicit migration decision; this historical item does not authorize it.
+- [ ] **Historical gate (superseded):** run claim-matched selectors per task and
+      the checked-in CI harness only at the boundary named by the live roadmap.
 
 **Exit criteria:** CLI torch inference branch runs without TypeError; gate green.
 
@@ -198,13 +219,22 @@ solvers are NOT interchangeable; `solve` eigen-projects onto a rank-1 cone,
 - [ ] **2a.2** Extract the eigen-projection `enforce_physics_constraint` into one
       shared helper; import it in `reassembly.py` and `model.py`. **Do NOT** touch
       the `beta_modules/model.py` copy (stays forked pending multi-mode parity —
-      Hazard 10). Confirm byte-identical behavior via the model.py loss fixtures.
+      Hazard 10). Preserve fixture identity and confirm the governed numerical
+      behavior at the registered tolerance via the model.py loss fixtures.
 - [ ] **2a.3** Delete `VarProScaler.solve`, `solve_quadratic_direct`,
       `solve_autograd`, and single-mode `accumulate_batch:328` (keep
       `accumulate_batch_from_basis:370`). Grep for callers first.
 - [ ] **2a.4** Run torch gate + the new frozen fixture. Commit.
 
 ### Phase 2b — Collapse barycentric call sites + unify CLI stitch (effort L, risk HIGH — Gate A)
+
+> **Superseded implementation recipe (2026-07-15):** `60d2c7c7b` landed
+> `_resolve_reassembly_route` plus a dataset-backed
+> `_run_barycentric_inference_and_reconstruct` path instead of the pure stitch-core
+> extraction specified below. The steps in this subsection are historical. Any
+> continuation must first audit the landed route, the still-separate uniform path,
+> remaining direct call sites, and the CLI `debug_dump_dir` mismatch, then issue a
+> fresh plan.
 
 **Precondition: Gate A resolved** (frame+window reconciled, metrics re-baselined).
 
@@ -316,7 +346,8 @@ gated on a frozen-fixture baseline + (2b/3) a design gate.
 
 ## Out of Scope (explicit)
 
-- Closing the ~53× amplitude gap (Gate B / REASSEMBLY-BRIDGE-001) — separate
+- Closing the historical legacy-amplitude ~53× gap (Gate B /
+  REASSEMBLY-BRIDGE-001) — separate
   design task; this plan only makes one landing site for the anchor.
 - Unifying TF↔torch coords/axis/sign conventions — load-bearing invariants
   (Global Constraints); would need atomic fixture migration.

@@ -52,6 +52,11 @@ These are the most common pitfalls that cause subtle, hard-to-debug failures. **
 **Keywords:** pytorch, fno-stable, main, reconciliation, cnn, real-imag, probe-weighting, varpro, reassembly, physics-forward
 **Use this when:** Planning work to restore main-compatible CNN physics behavior or auditing why C=1/C>1 Torch numerics differ between `main` and `fno-stable`.
 
+### [PtychoPINN Refactoring Roadmap](plans/2026-07-07-refactoring-roadmap.md)
+**Description:** Sole live status and sequencing authority for the July 2026 codebase-wide debt-paydown initiative. Historical phase detail remains available in [Phase 0 cleanup](plans/2026-07-07-refactor-phase-0-cleanup.md), [Phase 1 safety net](plans/2026-07-07-refactor-phase-1-safety-net.md), [Phase 2 consolidation](plans/2026-07-07-refactor-phase-2-consolidate.md), and [Phase 3 core extraction](plans/2026-07-07-refactor-phase-3-core-extraction.md); those phase documents do not independently define current initiative status.
+**Keywords:** refactoring, debt-paydown, roadmap, status, sequencing, vertical-boundaries, configuration, reassembly
+**Use this when:** Checking current refactoring status or sequencing, selecting the next authorized slice scope, or locating the historical phase plans.
+
 ### [Model Baselines](model_baselines.md)
 **Description:** Canonical recommended training baselines, including Torch CDI object/support geometry, physical gain selection, semantic CNN channel counts, and model-family schedules such as `hybrid_resnet`; distinguishes project recommendations from raw defaults and study-specific overrides.
 **Keywords:** baselines, cnn, hybrid_resnet, object-big, probe-big, support, amplitude-physics-gain, recommended-params, studies

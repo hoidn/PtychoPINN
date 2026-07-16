@@ -1,5 +1,17 @@
 # Refactor Phase 2 — Consolidate Shell + Backfill Coverage (execution plan)
 
+> **Current disposition (2026-07-15) — historical execution record.**
+> [`2026-07-07-refactoring-roadmap.md`](2026-07-07-refactoring-roadmap.md) is the
+> sole live status, dependency, and work-selection authority for this initiative.
+> Phase 0's dependency is satisfied and later CI work added useful characterization
+> coverage, but none of this phase's named consolidation moves is complete. The
+> direct `ptycho_torch/api/` deletion is invalidated by current public-API contract
+> tests; the old sign-fork premise is superseded by the single `-1` convention even
+> though geometry remains duplicated; and the former gs2 READ-ONLY list is not a
+> standing cross-initiative hold. The task bodies below preserve candidate moves
+> and provenance only: they require fresh planning, are not independently
+> executable, and do not create completion gates.
+
 > **Frame:** `docs/plans/2026-07-07-refactoring-roadmap.md` (Phase 2). Targets root
 > generators **RG3** (script duplication), **RG5** (scripts-as-library), and the
 > config fork. **Depends on Phase 0** (dead code gone). TDD. Commit per task.
@@ -21,10 +33,10 @@ refactoring it.* `reassembly.py` (1410 LOC) has **0 direct unit tests**; `model.
 
 > **DRIFT NOTE (2026-07-10, re-verified at HEAD `74524eeb`):**
 > - **P0 dependency SATISFIED** (P0 effectively done — see its status block).
-> - **Coordination gate:** the active gs2 plan declares `ptycho/config/config.py`,
->   `ptycho_torch/config_params.py`, `ptycho_torch/model.py` READ-ONLY for its
->   scope — Tasks 2/3 (and Task 1's model tests if they need fixture changes)
->   edit exactly those files. Confirm gs2 is closed or scoped around before Task 3.
+> - **Coordination note (supersedes the former standing gate):** the gs2 plan's
+>   READ-ONLY list was initiative-scoped and does not persist as policy. Coordinate
+>   on overlapping files only when a gs2 executor is actually active; otherwise
+>   current repository policy, specs, and the central roadmap govern.
 > - **Target modules GREW via the absolute-scaling migration** (`ffda33a7`→`73cb928b`,
 >   Jul 8–9): `dataloader.py` 961→**1710**, `reassembly.py` 1410→**1613**, torch
 >   `model.py` **2759**. Task-1 characterization tests must pin **post-migration**
@@ -38,6 +50,15 @@ refactoring it.* `reassembly.py` (1410 LOC) has **0 direct unit tests**; `model.
 >   (`reassembly_alpha/beta`, `beta_modules`, top-level `torch/`,
 >   `dset_loader_pt_mmap.py`, `datagen.py`) still present — that plan has NOT
 >   executed; its anchors (`a1d52011`) are also archive-only now.
+
+> **Current architecture overrides for the historical body:** use the existing
+> reassembly-test inventory and independent contract oracles rather than creating
+> a prescribed filename or pinning a potentially buggy current output; validate
+> config ownership against the declared bridge mapping rather than reflective
+> name similarity; model one canonical coordinate meaning with typed layout
+> adapters rather than a free-form sign option; consolidate only genuinely shared
+> metric primitives; and extract small runner/provenance utilities rather than a
+> generic scientific study framework in the Torch package.
 
 ## Global constraints
 
@@ -62,9 +83,15 @@ refactoring it.* `reassembly.py` (1410 LOC) has **0 direct unit tests**; `model.
 
 ## Task 2 — Delete the deprecated `api/` stack
 
-`ptycho_torch/api/` (~3,100 LOC) is deprecated (ADR-003), built on the
-`config_params` family, with zero production consumers (only
-`tests/torch/test_api_deprecation.py`).
+> **Current safety override:** do not execute this deletion as written.
+> `ptycho_torch/api/` has current public-API contract tests outside
+> `tests/torch/test_api_deprecation.py`. A future retirement must identify and
+> migrate those consumers, preserve or deliberately revise the public contract,
+> and provide claim-matched evidence.
+
+Historically, `ptycho_torch/api/` (~3,100 LOC) was classified as deprecated
+(ADR-003), built on the `config_params` family, with only the deprecation test
+treated as a consumer. That consumer inventory is now superseded.
 
 - [ ] **2.1** Grep-confirm no non-test importer of `ptycho_torch.api.*`.
 - [ ] **2.2** Delete the `api/` package AND `test_api_deprecation.py` together.
@@ -107,7 +134,9 @@ legacy dict) and future drift is a red test, not a silent dropped field.
       torch caller (`patch_generator.py`) to import it; keep `raw_data.py` calling the
       identical logic (it's not frozen, but preserve its `-1` sign + `(M,1,2,C)` axis
       exactly).
-- [ ] **4.3** Run the sign/axis parity fixtures — MUST be byte-identical. Commit.
+- [ ] **4.3 Historical gate (superseded):** run the sign/axis contract selectors.
+      Preserve fixture identity and exact shape/index mappings and use each
+      selector's registered numerical tolerance.
 
 **Note:** this move is atomic — do not partially migrate (partial reversals are the
 documented failure mode). Both backends flip to `geometry.py` in one commit, gated by
@@ -150,7 +179,8 @@ Biggest LOC win (A5 clusters A/C/D/E). Do LAST in this phase (highest churn).
 ## Verification & Exit
 
 - Task-1 characterization tests + all study smokes green after each task.
-- Parity/sign fixtures byte-identical (Tasks 4).
+- Historical parity/sign intent is preserved through unchanged fixture identity,
+  exact shape/index mappings, and registered numerical tolerances (Task 4).
 - Config drift test green; `api/` gone; geometry unified; ~10k LOC of duplication
   removed/relocated; central modules now have isolating tests.
 - **Exit:** the shell is de-duplicated and the config fork is guarded — Phase 3 can
