@@ -507,6 +507,21 @@ object-big geometry, rectangular-forward, policy mapping, and mutation
 falsifiers passed (57 tests, with the pre-existing parity xfail/xpass set
 unchanged).
 
+**5C — Calibration and output ports**
+
+**Status:** Complete (2026-07-15). The selected native inference routes now
+present assembled complex canvases through an `OutputSpec`-owned port, and the
+barycentric route applies identity or VarPro calibration through a separate
+`CalibrationSpec`-owned port. Identity calibration preserves the exact canvas
+and bypasses the solver; VarPro delegates to the existing sufficient-statistic
+solver unchanged. Both native CLI assembly engines keep their existing
+placement, window, denominator, and physical-probe behavior, while returning
+the same amplitude/phase arrays through one output operation. Existing legacy
+and CI scale-recovery oracles, native route tests, and port falsifiers passed
+(26 tests). The externally specified TensorFlow `reassemble_position` route,
+grid-study tiling, `middle_trim`/`pad_eval` compatibility fields, numerical
+kernels, public defaults, and scale-contract identity remain unchanged.
+
 **Work:**
 
 1. Inventory current training-forward, TF reference, uniform inference,

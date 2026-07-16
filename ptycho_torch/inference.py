@@ -43,7 +43,8 @@ import argparse
 import sys
 from pathlib import Path
 from ptycho.config.legacy_state import scoped_legacy_params
-from ptycho.reconstruction_policy import resolve_cli_reconstruction_policy
+from ptycho.reconstruction_policy import OutputSpec, resolve_cli_reconstruction_policy
+from ptycho_torch.reconstruction_ports import present_reconstruction_canvas
 
 #ML libraries
 import matplotlib.pyplot as plt
@@ -483,11 +484,11 @@ def _run_barycentric_inference_and_reconstruct(
         verbose=not quiet,
     )
 
-    canvas = result.detach().to('cpu')
-    if canvas.ndim == 3:
-        canvas = canvas[0]
-    amplitude = torch.abs(canvas).numpy()
-    phase = torch.angle(canvas).numpy()
+    policy = resolve_cli_reconstruction_policy(
+        pt_inference_config.patch_weighting,
+        pt_inference_config.varpro_scaling,
+    )
+    amplitude, phase = present_reconstruction_canvas(result, policy.output)
 
     if not quiet:
         print(f"Reconstruction shape: {amplitude.shape}")
@@ -663,10 +664,8 @@ def _run_inference_and_reconstruct(model, raw_data, config, execution_config, de
     )
     debug_parity.log_array_stats("torch.reassembly_output", imgs_merged)
 
-    # Convert to numpy amplitude/phase
     canvas = imgs_merged[0]  # (M, M)
-    result_amp = torch.abs(canvas).cpu().numpy()
-    result_phase = torch.angle(canvas).cpu().numpy()
+    result_amp, result_phase = present_reconstruction_canvas(canvas, OutputSpec())
 
     if not quiet:
         print(f"Reconstruction shape: {result_amp.shape}")
