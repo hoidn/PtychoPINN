@@ -68,9 +68,9 @@ the [Core Contract](specs/spec-ptycho-core.md), and the
 ### Configuration & Data
 
 #### [Configuration Guide](CONFIGURATION.md)
-**Description:** Canonical reference for the modern dataclass-based configuration system with comprehensive parameter documentation for ModelConfig, TrainingConfig, and InferenceConfig classes.  
-**Keywords:** configuration, parameters, dataclass, YAML, command-line  
-**Use this when:** Setting up training or inference runs, understanding parameter precedence, or creating reproducible experiment configurations.
+**Description:** Layered user and developer guide to configuration ownership, acquisition data, simulation and model probe behavior, training-versus-inference assembly policy, Torch payloads, portable ModelSpec/artifact identity, runtime isolation, and the one-way legacy bridge.
+**Keywords:** configuration, acquisition-record, simulation, probe-lifecycle, reconstruction-policy, object-layout, modelspec, runtime, legacy-bridge, parameters, dataclass, YAML, TOML, command-line
+**Use this when:** Choosing where a value belongs, tracing probe provenance, generating data, configuring training or inference, or maintaining the configuration factory and artifact contracts.
 
 #### [Data Contracts](data_contracts.md) CRITICAL
 **Description:** Official format specifications for NPZ datasets including required keys, data types, shapes, and normalization requirements.  
