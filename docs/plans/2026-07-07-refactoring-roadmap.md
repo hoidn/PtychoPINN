@@ -465,9 +465,17 @@ geometry abstraction is a gate for that migration.
 
 ### Slice 5 — Assembly and reconstruction policies
 
-**Status:** In progress. Substantial focused coverage and an explicit inference
-route resolver already exist and are being reused; 5A is complete without
-changing a numerical kernel or public route alias.
+**Status:** Complete (2026-07-15). Slices 5A-5C separate reconstruction
+composition identity, differentiable training assembly, calibration, and output
+presentation without changing a numerical kernel or public route alias. The
+final focused gate passed (84 tests). The exact numbered-slice suite completed
+with 23 failures, 2 errors, 5,073 passes, 35 skips, 11 xfails, and 1 xpass. Its
+only selector beyond the Slice 4 baseline was the legacy Hybrid integration
+amplitude-SSIM floor (0.7181 versus the 0.7338 floor); the exact selector passed
+alone on the unchanged candidate, and the Slice 5 diff does not touch its
+runner, scaling contract, dataset builder, or integration test. It remains
+visible as a non-reproducing integration-state/numerical failure rather than an
+attributable Slice 5 regression.
 
 **Outcome:** Training assembly, spatial stitching, calibration, and output
 handling are separate, composable operations with no physics-changing fallback
@@ -524,22 +532,22 @@ kernels, public defaults, and scale-contract identity remain unchanged.
 
 **Work:**
 
-1. Inventory current training-forward, TF reference, uniform inference,
+1. **Complete (2026-07-15):** Inventory current training-forward, TF reference, uniform inference,
    probe-weighted inference, VarPro, and grid-tiling paths by scientific contract.
-2. Establish independent oracles for placement/denominator math and for scale
+2. **Complete (2026-07-15):** Establish independent oracles for placement/denominator math and for scale
    estimation before changing production routing. Do not freeze a current output
    merely because it exists.
-3. Introduce separate internal ports and immutable specifications for patch
+3. **Complete (2026-07-15):** Introduce separate internal ports and immutable specifications for patch
    assembly, calibration/scale estimation, and output crop/gauge/diagnostics.
    Keep training-forward assembly a distinct differentiable model-spec port;
    inference reconstruction policy must not alter its gradients implicitly.
-4. If named reconstruction policies are useful, make them versioned composition
+4. **Complete (2026-07-15):** Named reconstruction policies are versioned composition
    records that reference those specifications. A reconstruction-policy identity
    is not `scale_contract_version`, and no scaling profile implicitly selects
    assembly or output behavior.
-5. Preserve the landed uniform-versus-barycentric route decision unless a
+5. **Complete (2026-07-15):** Preserve the landed uniform-versus-barycentric route decision unless a
    governed behavior migration explicitly changes it.
-6. Replace Torch runtime calls into TF reconstruction only when the native path
+6. **Complete for the selected native routes (2026-07-15):** Replace Torch runtime calls into TF reconstruction only when the native path
    satisfies the same contract and missing physical probes fail closed where the
    profile requires them. Preserve the externally specified TF
    `reassemble_position` route until native Torch parity is established, and keep
