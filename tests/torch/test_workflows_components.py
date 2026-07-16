@@ -364,17 +364,17 @@ class TestWorkflowsComponentsTraining:
 
         captured = {}
 
-        class FakeGenerator:
-            def build_model(self, pt_configs):
-                captured["model_config"] = pt_configs["model_config"]
-                raise RuntimeError("stop after build_model")
+        def fake_application_factory(model_spec, data_config, training_config, inference_config):
+            del data_config, training_config, inference_config
+            captured["model_config"] = model_spec.to_model_config()
+            raise RuntimeError("stop after application build")
 
         monkeypatch.setattr(
-            "ptycho_torch.generators.registry.resolve_generator",
-            lambda config: FakeGenerator(),
+            "ptycho_torch.application_factory.build_ptychopinn_application",
+            fake_application_factory,
         )
 
-        with pytest.raises(RuntimeError, match="stop after build_model"):
+        with pytest.raises(RuntimeError, match="stop after application build"):
             torch_components._train_with_lightning(
                 train_container=train_container,
                 test_container=None,

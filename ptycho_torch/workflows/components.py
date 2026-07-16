@@ -1405,6 +1405,10 @@ def _train_with_lightning(
         'log_grad_norm': getattr(config, 'log_grad_norm', False),
         'grad_norm_log_freq': getattr(config, 'grad_norm_log_freq', 1),
     }
+    if config.model.model_type == 'supervised':
+        # Preserve the supported supervised contract, but resolve it before the
+        # structural ModelSpec is sealed instead of mutating the model later.
+        factory_overrides['torch_loss_mode'] = 'mae'
     if execution_config is not None and execution_config.learning_rate is not None:
         factory_overrides['learning_rate'] = execution_config.learning_rate
     if execution_config is not None and execution_config.gradient_clip_val is not None:
@@ -1457,41 +1461,20 @@ def _train_with_lightning(
         pt_training_config,
     )
 
-    # CRITICAL: Supervised mode REQUIRES a compatible loss function (MAE)
-    # The Lightning module expects loss_name to be defined, which only happens when:
-    #   1. mode='Unsupervised' AND loss_function='Poisson' → sets loss_name='poisson_train'
-    #   2. mode='Unsupervised' AND loss_function='MAE' → sets loss_name='mae_train'
-    #   3. mode='Supervised' AND loss_function='MAE' → sets loss_name='mae_train'
-    # Without this override, supervised mode with default loss_function='Poisson' causes
-    # AttributeError: 'PtychoPINN_Lightning' object has no attribute 'loss_name'
-    # See: ptycho_torch/model.py:1052-1066
-    if pt_model_config.mode == 'Supervised' and pt_model_config.loss_function != 'MAE':
-        logger.info(
-            f"Backend override: supervised mode requires MAE loss "
-            f"(was {pt_model_config.loss_function}), forcing loss_function='MAE'"
-        )
-        # Create new ModelConfig with corrected loss_function
-        from dataclasses import replace
-        pt_model_config = replace(pt_model_config, loss_function='MAE')
-
     # Create minimal InferenceConfig for Lightning module (training payload doesn't include it)
     pt_inference_config = PTInferenceConfig()
 
-    # B2.4: Build model via generator registry (supports CNN, FNO, Hybrid architectures)
-    # The registry resolves the architecture from config.model.architecture and returns
-    # the appropriate generator class, which builds the Lightning module with physics pipeline.
-    from ptycho_torch.generators.registry import resolve_generator
+    # Build the module from the sealed structural identity plus the separately
+    # owned scientific/data, training, and inference sections. Runtime execution
+    # remains below at the Trainer boundary and cannot alter graph topology.
+    from ptycho_torch.application_factory import build_ptychopinn_application
 
-    pt_configs = {
-        "model_config": pt_model_config,
-        "data_config": pt_data_config,
-        "training_config": pt_training_config,
-        "inference_config": pt_inference_config,
-        "execution_config": execution_config,
-    }
-
-    generator = resolve_generator(config)
-    model = generator.build_model(pt_configs)
+    model = build_ptychopinn_application(
+        payload.model_spec,
+        pt_data_config,
+        pt_training_config,
+        pt_inference_config,
+    )
 
     # Save hyperparameters so checkpoint can reconstruct module without external state
     model.save_hyperparameters()

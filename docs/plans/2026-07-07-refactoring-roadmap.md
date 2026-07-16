@@ -309,7 +309,23 @@ CNN decoder-fraction failure.
 
 **3B — Versioned structural model schema**
 
-5. Introduce a versioned structural model specification (name illustrative) that
+**Status:** Complete (2026-07-15). `torch-model-spec-v1` is an internal,
+closed structural identity derived from the canonical model handshake, all
+declared Torch extensions, and validated data/model join keys. Its field-set
+guard covers every current Torch `ModelConfig` field exactly once, preserves
+tensor-valued mask identity without aliasing, and carries parity settings that
+change initialization or state shape. The application factory composes that
+sealed identity with separate data/scientific, training, and inference sections;
+runtime execution remains at the Trainer boundary. The current construction
+path resolves the training objective before sealing instead of mutating model
+identity inside Lightning, and all registered non-CNN architectures now rebuild
+from current checkpoint configuration, including the previously missing linear
+decoder and FFNO-bottleneck variants. Focused schema, bridge, factory, ownership,
+workflow, and 13-architecture checkpoint falsifiers passed. Artifact formats,
+schema-era decoding, sidecar/bundle identity, and legacy upgrade policy remain
+owned by 3C.
+
+5. **Complete (2026-07-15):** Introduce a versioned structural model specification that
    owns generator topology, structural physics/output choices, construction, and
    rebuild identity for Torch. Derive it through a closed adapter from canonical
    `ModelConfig` plus declared Torch extensions; do not promote it into a second
@@ -509,11 +525,10 @@ Slice 7 hygiene may run independently except:
 
 The bounded simulation flat/nested correction is implemented, and the
 2026-07-15 Slice 2 integration suite closed its post-fix repository-wide gate.
-Slice 2 is complete. Slice 3A ownership analysis/migration and Slice 4A are
-dependency-eligible. Do not start 3B
-model-schema construction before 3A has removed the structural runtime side
-channel, and do not consolidate dispatch before the 3C artifact support matrix
-is operational.
+Slice 2 is complete. Slice 3A field ownership and Slice 3B structural identity
+are complete; Slice 3C artifact upgrades and Slice 4A are dependency-eligible.
+Do not consolidate dispatch before the 3C artifact support matrix is
+operational.
 
 Before editing shared hot files, check current working-tree ownership and active
 executors. This is a task-local collision preflight, not a standing hold tied to

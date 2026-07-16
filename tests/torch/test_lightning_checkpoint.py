@@ -46,6 +46,9 @@ GENERATOR_CLASS_BY_ARCHITECTURE = {
     "hybrid_resnet_ffno_ptychoblock_encoder": "HybridResnetFfnoPtychoBlockEncoderGeneratorModule",
     "hybrid_resnet_ptychoblock_ffno_encoder": "HybridResnetPtychoBlockFfnoEncoderGeneratorModule",
     "spectral_resnet_bottleneck_net": "SpectralResnetBottleneckGeneratorModule",
+    "spectral_resnet_bottleneck_linear_decoder": "SpectralResnetBottleneckLinearDecoderGeneratorModule",
+    "hybrid_resnet_ffno_bottleneck": "HybridResnetFfnoBottleneckGeneratorModule",
+    "hybrid_resnet_convnext_bottleneck": "HybridResnetConvNextBottleneckGeneratorModule",
 }
 
 
@@ -297,6 +300,9 @@ class TestLightningCheckpointSerialization:
             "hybrid_resnet_ffno_ptychoblock_encoder",
             "hybrid_resnet_ptychoblock_ffno_encoder",
             "spectral_resnet_bottleneck_net",
+            "spectral_resnet_bottleneck_linear_decoder",
+            "hybrid_resnet_ffno_bottleneck",
+            "hybrid_resnet_convnext_bottleneck",
         ],
     )
     def test_generator_architecture_checkpoint_rebuilds_without_manual_injection(

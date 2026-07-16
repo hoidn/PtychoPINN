@@ -530,12 +530,20 @@ def _build_generator_module_from_config(
             ),
         )
 
-    if architecture == "spectral_resnet_bottleneck_net":
-        from ptycho_torch.generators.spectral_resnet_bottleneck import (
-            SpectralResnetBottleneckGeneratorModule,
-        )
+    if architecture in {
+        "spectral_resnet_bottleneck_net",
+        "spectral_resnet_bottleneck_linear_decoder",
+    }:
+        if architecture == "spectral_resnet_bottleneck_linear_decoder":
+            from ptycho_torch.generators.spectral_resnet_bottleneck_linear_decoder import (
+                SpectralResnetBottleneckLinearDecoderGeneratorModule as generator_class,
+            )
+        else:
+            from ptycho_torch.generators.spectral_resnet_bottleneck import (
+                SpectralResnetBottleneckGeneratorModule as generator_class,
+            )
 
-        return SpectralResnetBottleneckGeneratorModule(
+        return generator_class(
             **common_kwargs,
             n_blocks=getattr(model_config, "fno_blocks", 4),
             max_hidden_channels=getattr(model_config, "max_hidden_channels", None),
@@ -580,6 +588,46 @@ def _build_generator_module_from_config(
                 "spectral_bottleneck_gate_mode",
                 "shared",
             ),
+        )
+
+    if architecture == "hybrid_resnet_ffno_bottleneck":
+        from ptycho_torch.generators.hybrid_resnet_ffno_bottleneck import (
+            HybridResnetFfnoBottleneckGeneratorModule,
+        )
+
+        return HybridResnetFfnoBottleneckGeneratorModule(
+            **common_kwargs,
+            n_blocks=getattr(model_config, "fno_blocks", 4),
+            max_hidden_channels=getattr(model_config, "max_hidden_channels", None),
+            resnet_width=getattr(model_config, "resnet_width", None),
+            resnet_blocks=getattr(model_config, "hybrid_resnet_blocks", 6),
+            skip_connections=getattr(model_config, "hybrid_skip_connections", False),
+            hybrid_downsample_steps=getattr(model_config, "hybrid_downsample_steps", 2),
+            hybrid_downsample_op=getattr(model_config, "hybrid_downsample_op", "stride_conv"),
+            hybrid_encoder_conv_hidden_scale=getattr(
+                model_config, "hybrid_encoder_conv_hidden_scale", 1.0
+            ),
+            hybrid_encoder_spectral_hidden_scale=getattr(
+                model_config, "hybrid_encoder_spectral_hidden_scale", 1.0
+            ),
+            hybrid_encoder_conv_hidden_channels=getattr(
+                model_config, "hybrid_encoder_conv_hidden_channels", None
+            ),
+            hybrid_encoder_spectral_hidden_channels=getattr(
+                model_config, "hybrid_encoder_spectral_hidden_channels", None
+            ),
+            hybrid_skip_style=getattr(model_config, "hybrid_skip_style", "add"),
+            ffno_bottleneck_blocks=getattr(model_config, "spectral_bottleneck_blocks", 6),
+            ffno_bottleneck_modes=getattr(model_config, "spectral_bottleneck_modes", 12),
+            ffno_bottleneck_share_spectral_weights=getattr(
+                model_config, "spectral_bottleneck_share_weights", True
+            ),
+            ffno_bottleneck_mlp_ratio=2.0,
+            ffno_bottleneck_gate_init=getattr(
+                model_config, "spectral_bottleneck_gate_init", 0.1
+            ),
+            ffno_bottleneck_norm="instance",
+            ffno_bottleneck_local_conv_kernel_size=None,
         )
 
     raise ValueError(
