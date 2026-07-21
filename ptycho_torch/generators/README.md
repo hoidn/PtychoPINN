@@ -134,88 +134,15 @@ only the adapter's tuple-vs-tensor dispatch differs (`ptycho_torch.model._predic
 
 ## Adding a New Generator
 
-1. **Create the generator module** in `ptycho_torch/generators/`:
+Adding a registry key is not sufficient for a reproducible architecture. The
+public config, resolved Torch config, core-module builder, sealed `ModelSpec`,
+checkpoint reload, training, and inference paths must all agree.
 
-```python
-# ptycho_torch/generators/my_arch.py
-class MyArchGenerator:
-    """My new architecture generator."""
-    name = 'my_arch'
-
-    def __init__(self, config):
-        """
-        Initialize the generator.
-
-        Args:
-            config: TrainingConfig or InferenceConfig with model settings
-        """
-        self.config = config
-
-    def build_model(self, pt_configs):
-        """
-        Build the Lightning module for training.
-
-        Args:
-            pt_configs: Dict containing PyTorch config objects:
-                - model_config: PTModelConfig
-                - data_config: PTDataConfig
-                - training_config: PTTrainingConfig
-                - inference_config: PTInferenceConfig
-
-        Returns:
-            PtychoPINN_Lightning or compatible Lightning module
-        """
-        from ptycho_torch.model import PtychoPINN_Lightning
-
-        # Build your core generator module
-        core = MyArchModule(...)
-
-        # Wrap in Lightning with physics pipeline
-        return PtychoPINN_Lightning(
-            model_config=pt_configs['model_config'],
-            data_config=pt_configs['data_config'],
-            training_config=pt_configs['training_config'],
-            inference_config=pt_configs['inference_config'],
-            generator_module=core,
-            generator_output="real_imag",  # or "amp_phase"
-        )
-```
-
-2. **Register the generator** in `ptycho_torch/generators/registry.py`:
-
-```python
-from ptycho_torch.generators.my_arch import MyArchGenerator
-
-_REGISTRY = {
-    'cnn': CnnGenerator,
-    'fno': FnoGenerator,
-    'hybrid': HybridGenerator,
-    'my_arch': MyArchGenerator,  # Add your generator
-}
-```
-
-3. **Add validation** in `ptycho/config/config.py`:
-
-Update the `ModelConfig.architecture` type hint and `validate_model_config()`:
-
-```python
-architecture: Literal['cnn', 'fno', 'hybrid', 'my_arch'] = 'cnn'
-```
-
-4. **Add tests** in `tests/torch/test_generator_registry.py`:
-
-```python
-def test_resolve_generator_my_arch():
-    cfg = TrainingConfig(model=ModelConfig(architecture='my_arch'))
-    gen = resolve_generator(cfg)
-    assert gen.name == 'my_arch'
-```
-
-5. **Update documentation**:
-
-- Add entry to this README
-- Document architecture-specific parameters in `docs/CONFIGURATION.md`
-- Update `docs/workflows/pytorch.md`
+Follow the end-to-end [Custom PyTorch CDI Architecture
+Guide](../../docs/workflows/custom_torch_architecture.md). It includes a minimal
+module, the exact output layouts, configuration and schema-version wiring,
+training and inference examples, and the focused reload tests that prevent a
+fresh-run-only integration.
 
 ## API Contract
 
@@ -250,8 +177,10 @@ based on the generator's actual return type (`isinstance(patches, (tuple, list))
 ## See Also
 
 - `ptycho/config/config.py`: ModelConfig with architecture field
-- `ptycho_torch/workflows/components.py`: Workflow integration via `resolve_generator`
+- `ptycho_torch/application_factory.py`: single application-construction boundary
+- `ptycho_torch/workflows/components.py`: training, persistence, and reconstruction workflow
 - `ptycho_torch/model.py`: PtychoPINN_Lightning implementation
 - `ptycho_torch/generators/fno.py`: FNO and Hybrid implementations
+- `docs/workflows/custom_torch_architecture.md`: end-to-end custom architecture guide
 - `docs/workflows/pytorch.md`: PyTorch workflow documentation
 - `docs/backlog/FNO_HYBRID_FULL_INTEGRATION.md`: Integration plan and status

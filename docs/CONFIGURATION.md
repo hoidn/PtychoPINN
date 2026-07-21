@@ -108,6 +108,11 @@ photons_per_pattern = 1e9
 
 These parameters define the structure and physics of the neural network.
 
+To add a new selectable architecture—not merely tune one of the registered
+values—follow the [Custom PyTorch CDI Architecture
+Guide](workflows/custom_torch_architecture.md). It covers the additional Torch
+config, construction, `ModelSpec`, training, and inference boundaries.
+
 **Illustrative subset — full field list: `ModelConfig` in `ptycho/config/config.py`.** The `architecture` field's full 14-value `Literal` is enumerated authoritatively in `docs/specs/spec-ptycho-config-bridge.md` §3.
 
 | Parameter | Type | Default | Description |

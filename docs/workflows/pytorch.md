@@ -90,8 +90,10 @@ architectures:
 - `spectral_resnet_bottleneck_net`, `spectral_resnet_bottleneck_linear_decoder` —
   Hybrid-ResNet shell with spectral ResNet bottleneck
 
-See `ptycho_torch/generators/README.md` for adding a new architecture. Structural
-search knobs for the hybrid/ResNet family (`hybrid_downsample_steps`,
+To implement, configure, train, save, and reload a new architecture, follow the
+[Custom PyTorch CDI Architecture Guide](custom_torch_architecture.md). The
+generator-package README is a lower-level reference for existing modules.
+Structural search knobs for the hybrid/ResNet family (`hybrid_downsample_steps`,
 `hybrid_downsample_op`, `hybrid_resnet_blocks`, `hybrid_skip_style`,
 `hybrid_encoder_*`, `spectral_bottleneck_*`, `ffno_encoder_blocks`) live on the torch
 `ModelConfig` / `PyTorchExecutionConfig` and are intentionally NOT bridged to the
