@@ -78,7 +78,9 @@ architectures:
 - `neuralop_uno` — wraps external `neuraloperator==2.0.0` U-NO (locked to the
   Lines128 CDI path: `N=128`, `gridsize=1`, `C=1`, `real_imag`)
 
-See `ptycho_torch/generators/README.md` for adding a new architecture.
+To implement, configure, train, save, and reload a new architecture, follow the
+[Custom PyTorch CDI Architecture Guide](custom_torch_architecture.md). The
+generator-package README is a lower-level reference for the existing modules.
 
 **Reliability caveat:** the stock `cnn` under the
 count-Poisson recipe at `N=128` collapses to a flat-amplitude output with
