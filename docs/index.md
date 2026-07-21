@@ -113,6 +113,12 @@ the [Core Contract](specs/spec-ptycho-core.md), and the
 
 ### Advanced Workflows
 
+#### [Custom PyTorch CDI Architecture](workflows/custom_torch_architecture.md)
+
+**Description:** End-to-end developer and experimenter guide for replacing the learned inverse network while retaining PtychoPINN data, physics, loss, persistence, and reassembly. Covers input/output contracts, public and Torch config wiring, versioned `ModelSpec` identity, registry and core construction, training, strict reload, inference, and lifecycle tests.
+**Keywords:** pytorch, custom-architecture, generator, model-development, configuration, modelspec, checkpoint, training, inference, reconstruction
+**Use this when:** Prototyping a new CDI network and needing it to remain configurable and reloadable through the standard training and inference workflows.
+
 #### [Model Comparison](../scripts/studies/README.md)
 **Description:** Systematic generalization study framework for training models across dataset sizes, supporting synthetic/experimental data with statistical robustness.  
 **Keywords:** generalization, multi-trial, statistical-analysis, comparison  

@@ -491,6 +491,11 @@ photons_per_pattern = 1e9
 
 ### Model Architecture (`ModelConfig`)
 
+To add a new selectable architecture—not merely tune one of the registered
+values—follow the [Custom PyTorch CDI Architecture
+Guide](workflows/custom_torch_architecture.md). It covers the additional Torch
+config, construction, `ModelSpec`, training, and inference boundaries.
+
 | Parameter | Type | Default | Description |
 |---|---|---|---|
 | `N` | `Literal[64, 128, 256]` | `64` | Diffraction-pattern side length. This must agree with the data and simulation recipe. |
