@@ -15,6 +15,8 @@ import torch.distributions as dist
 
 from ptycho import params
 from ptycho.config.config import (
+    DataConfig as TFDataConfig,
+    SamplingConfig as TFSamplingConfig,
     ModelConfig as TFModelConfig,
     TrainingConfig as TFTrainingConfig,
     update_legacy_dict,
@@ -61,10 +63,9 @@ def _training_config(tmp_path, N: int, batch_size: int, n_samples: int) -> TFTra
     tf_model_cfg = TFModelConfig(N=N, gridsize=1, object_big=False)
     return TFTrainingConfig(
         model=tf_model_cfg,
-        train_data_file=None,
         output_dir=tmp_path,
         batch_size=batch_size,
-        n_groups=n_samples,
+        sampling=TFSamplingConfig(n_groups=n_samples),
     )
 
 

@@ -1010,7 +1010,10 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
         Tuple of (TrainingConfig, PyTorchExecutionConfig)
     """
     from typing import cast, Literal
-    from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+    from ptycho.config.config import (
+        TrainingConfig, ModelConfig, PyTorchExecutionConfig,
+        DataConfig, LossConfig,
+    )
 
     # Cast N and architecture to their Literal types
     N_literal = cast(Literal[64, 128, 256], cfg.N)
@@ -1064,33 +1067,37 @@ def setup_torch_configs(cfg: TorchRunnerConfig):
             probe_mask_sigma=cfg.probe_mask_sigma,
             probe_mask_diameter=cfg.probe_mask_diameter,
         ),
-        train_data_file=cfg.train_npz,
-        test_data_file=cfg.test_npz,
         output_dir=cfg.output_dir,
         nepochs=cfg.epochs,
         batch_size=cfg.batch_size,
         backend='pytorch',
-        torch_loss_mode=cfg.torch_loss_mode,
-        torch_mae_pred_l2_match_target=cfg.torch_mae_pred_l2_match_target,
+        data=DataConfig(
+            train_data_file=cfg.train_npz,
+            test_data_file=cfg.test_npz,
+        ),
+        loss=LossConfig(
+            torch_loss_mode=cfg.torch_loss_mode,
+            torch_mae_pred_l2_match_target=cfg.torch_mae_pred_l2_match_target,
+        ),
     )
     training_config.log_grad_norm = cfg.log_grad_norm
     training_config.grad_norm_log_freq = cfg.grad_norm_log_freq
-    training_config.subsample_seed = cfg.seed
-    training_config.gradient_clip_val = cfg.gradient_clip_val
-    training_config.gradient_clip_algorithm = cfg.gradient_clip_algorithm
-    training_config.optimizer = cfg.optimizer
-    training_config.weight_decay = cfg.weight_decay
-    training_config.momentum = cfg.momentum
-    training_config.adam_beta1 = cfg.adam_beta1
-    training_config.adam_beta2 = cfg.adam_beta2
+    training_config.sampling.subsample_seed = cfg.seed
+    training_config.gradient_clip.val = cfg.gradient_clip_val
+    training_config.gradient_clip.algorithm = cfg.gradient_clip_algorithm
+    training_config.optimizer.algorithm = cfg.optimizer
+    training_config.optimizer.weight_decay = cfg.weight_decay
+    training_config.optimizer.sgd.momentum = cfg.momentum
+    training_config.optimizer.adam.beta1 = cfg.adam_beta1
+    training_config.optimizer.adam.beta2 = cfg.adam_beta2
     training_config.learning_rate = cfg.learning_rate
-    training_config.scheduler = cfg.scheduler
-    training_config.lr_warmup_epochs = cfg.lr_warmup_epochs
-    training_config.lr_min_ratio = cfg.lr_min_ratio
-    training_config.plateau_factor = cfg.plateau_factor
-    training_config.plateau_patience = cfg.plateau_patience
-    training_config.plateau_min_lr = cfg.plateau_min_lr
-    training_config.plateau_threshold = cfg.plateau_threshold
+    training_config.scheduler.kind = cfg.scheduler
+    training_config.scheduler.lr_warmup_epochs = cfg.lr_warmup_epochs
+    training_config.scheduler.lr_min_ratio = cfg.lr_min_ratio
+    training_config.scheduler.plateau_factor = cfg.plateau_factor
+    training_config.scheduler.plateau_patience = cfg.plateau_patience
+    training_config.scheduler.plateau_min_lr = cfg.plateau_min_lr
+    training_config.scheduler.plateau_threshold = cfg.plateau_threshold
 
     # neuralop_uno relies on upsample_bicubic2d, which lacks a deterministic CUDA
     # backward implementation. Use Lightning's "warn" mode for that architecture so

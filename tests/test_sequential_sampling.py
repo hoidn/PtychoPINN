@@ -289,21 +289,21 @@ class TestIntegrationWithWorkflow(unittest.TestCase):
     
     def test_config_flag_exists(self):
         """Test that TrainingConfig has sequential_sampling field."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
-        
+        from ptycho.config.config import ModelConfig, SamplingConfig, TrainingConfig
+
         # Create a config with sequential_sampling
         model_config = ModelConfig()
         config = TrainingConfig(
             model=model_config,
-            sequential_sampling=True  # Should not raise an error
+            sampling=SamplingConfig(sequential_sampling=True)  # Should not raise an error
         )
-        
-        self.assertTrue(hasattr(config, 'sequential_sampling'))
-        self.assertTrue(config.sequential_sampling)
-        
+
+        self.assertTrue(hasattr(config.sampling, 'sequential_sampling'))
+        self.assertTrue(config.sampling.sequential_sampling)
+
         # Test default value
         config_default = TrainingConfig(model=model_config)
-        self.assertFalse(config_default.sequential_sampling)
+        self.assertFalse(config_default.sampling.sequential_sampling)
     
     def test_cli_argument_parsing(self):
         """Test that CLI argument for sequential sampling works."""
@@ -318,17 +318,16 @@ class TestIntegrationWithWorkflow(unittest.TestCase):
         # The parse_arguments function should add this flag
         # We can't easily test the full parse_arguments here,
         # but we can verify the config accepts it
-        from ptycho.config.config import TrainingConfig, ModelConfig
-        
+        from ptycho.config.config import ModelConfig, SamplingConfig, TrainingConfig
+
         # This should work without error
         config = TrainingConfig(
             model=ModelConfig(),
-            sequential_sampling=True,
-            n_images=100
+            sampling=SamplingConfig(sequential_sampling=True, n_images=100)
         )
-        
-        self.assertTrue(config.sequential_sampling)
-        self.assertEqual(config.n_images, 100)
+
+        self.assertTrue(config.sampling.sequential_sampling)
+        self.assertEqual(config.sampling.n_images, 100)
 
 
 if __name__ == '__main__':

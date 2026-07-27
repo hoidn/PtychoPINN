@@ -16,7 +16,7 @@ from typing import Dict, Iterable, Optional
 import numpy as np
 
 from ptycho import params
-from ptycho.config.config import ModelConfig, TrainingConfig, update_legacy_dict
+from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig, update_legacy_dict
 from ptycho.metadata import MetadataManager
 from ptycho.workflows import components as wf_components
 from ptycho.workflows import grid_lines_workflow
@@ -42,13 +42,15 @@ def _build_metadata_config(
 ) -> TrainingConfig:
     return TrainingConfig(
         model=ModelConfig(N=n_value, gridsize=cfg.gridsize),
-        nphotons=cfg.nphotons,
+        data=DataConfig(nphotons=cfg.nphotons),
+        sampling=SamplingConfig(
+            n_groups=n_groups,
+            n_subsample=n_subsample,
+            neighbor_count=neighbor_count,
+            subsample_seed=subsample_seed,
+        ),
         batch_size=cfg.batch_size,
         nepochs=cfg.nepochs,
-        n_groups=n_groups,
-        n_subsample=n_subsample,
-        neighbor_count=neighbor_count,
-        subsample_seed=subsample_seed,
         output_dir=cfg.output_dir,
         backend="pytorch",
     )

@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 
-from ptycho.config.config import TrainingConfig, ModelConfig
+from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
 
 class TestTFWorkflowGeneratorIntegration:
@@ -16,8 +16,8 @@ class TestTFWorkflowGeneratorIntegration:
         model_config = ModelConfig(N=64, gridsize=1, architecture='cnn')
         return TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy.npz"),
-            n_groups=10,
+            data=DataConfig(train_data_file=Path("/tmp/dummy.npz")),
+            sampling=SamplingConfig(n_groups=10),
             nepochs=1,
         )
 
@@ -63,8 +63,8 @@ class TestTorchWorkflowGeneratorIntegration:
         model_config = ModelConfig(N=64, gridsize=1, architecture='cnn')
         return TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy.npz"),
-            n_groups=10,
+            data=DataConfig(train_data_file=Path("/tmp/dummy.npz")),
+            sampling=SamplingConfig(n_groups=10),
             nepochs=1,
         )
 

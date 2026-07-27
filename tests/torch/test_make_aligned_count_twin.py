@@ -13,7 +13,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from ptycho.config.config import ModelConfig, TrainingConfig
+from ptycho.config.config import DataConfig, ModelConfig, TrainingConfig
 from ptycho.metadata import MetadataManager
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -140,7 +140,7 @@ def test_recovered_s_matches_s_true_with_canonical_metadata_schema(tmp_path):
         "coords_nominal": rng.random((n, 2)).astype(np.float32),
         "probeGuess": (rng.random((h, w)) + 1j * rng.random((h, w))).astype(np.complex64),
     }
-    config = TrainingConfig(model=ModelConfig(), nphotons=nphotons_true)
+    config = TrainingConfig(model=ModelConfig(), data=DataConfig(nphotons=nphotons_true))
     metadata = MetadataManager.create_metadata(config, script_name="test_make_aligned_count_twin")
     MetadataManager.save_with_metadata(str(src_dir / "train.npz"), data_dict, metadata)
     _make_split_npz(src_dir / "test.npz", SEEDS["test"], S_TRUE["test"])

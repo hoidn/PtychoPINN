@@ -73,13 +73,13 @@ def interpret_sampling_parameters(config: TrainingConfig):
         tuple: (n_subsample, n_groups, enable_oversampling, neighbor_pool_size, interpretation_message)
     """
     gridsize = config.model.gridsize
-    enable_oversampling = config.enable_oversampling
-    neighbor_pool_size = config.neighbor_pool_size
+    enable_oversampling = config.sampling.enable_oversampling
+    neighbor_pool_size = config.sampling.neighbor_pool_size
 
     # Case 1: Independent control with n_subsample
-    if config.n_subsample is not None:
-        n_subsample = config.n_subsample
-        n_groups = config.n_groups
+    if config.sampling.n_subsample is not None:
+        n_subsample = config.sampling.n_subsample
+        n_groups = config.sampling.n_groups
 
         if gridsize == 1:
             message = (f"Independent sampling control: subsampling {n_subsample} images, "
@@ -89,7 +89,7 @@ def interpret_sampling_parameters(config: TrainingConfig):
             message = (f"Independent sampling control: subsampling {n_subsample} images, "
                       f"creating {n_groups} groups (approx {total_from_groups} patterns from groups)")
             if enable_oversampling:
-                K = neighbor_pool_size if neighbor_pool_size is not None else config.neighbor_count
+                K = neighbor_pool_size if neighbor_pool_size is not None else config.sampling.neighbor_count
                 message += f" [Oversampling enabled: K={K}]"
 
         return n_subsample, n_groups, enable_oversampling, neighbor_pool_size, message
@@ -98,18 +98,18 @@ def interpret_sampling_parameters(config: TrainingConfig):
     else:
         # For backward compatibility, n_groups controls subsampling
         if gridsize == 1:
-            n_subsample = config.n_groups
-            n_groups = config.n_groups
+            n_subsample = config.sampling.n_groups
+            n_groups = config.sampling.n_groups
             message = f"Legacy mode: using {n_groups} groups (gridsize=1)"
         else:
             # For gridsize > 1, we need to subsample enough to create the groups
-            n_subsample = config.n_groups  # This will be interpreted as groups by generate_grouped_data
-            n_groups = config.n_groups
+            n_subsample = config.sampling.n_groups  # This will be interpreted as groups by generate_grouped_data
+            n_groups = config.sampling.n_groups
             total_patterns = n_groups * gridsize * gridsize
             message = (f"Legacy mode: --n-groups={n_groups} refers to neighbor groups "
                       f"(gridsize={gridsize}, approx {total_patterns} patterns)")
             if enable_oversampling:
-                K = neighbor_pool_size if neighbor_pool_size is not None else config.neighbor_count
+                K = neighbor_pool_size if neighbor_pool_size is not None else config.sampling.neighbor_count
                 message += f" [Oversampling enabled: K={K}]"
 
         return n_subsample, n_groups, enable_oversampling, neighbor_pool_size, message
@@ -371,16 +371,16 @@ def main() -> None:
         # Load data with new independent sampling parameters
         # Note: load_data still uses n_images parameter name internally
         ptycho_data = load_data(
-            str(config.train_data_file), 
+            str(config.data.train_data_file),
             n_images=n_groups,  # Pass n_groups as n_images to maintain API compatibility
             n_subsample=n_subsample,
-            subsample_seed=config.subsample_seed
+            subsample_seed=config.sampling.subsample_seed
         )
-        
+
         # Check for metadata and override nphotons if present
         from ptycho.metadata import MetadataManager
         try:
-            _, metadata = MetadataManager.load_with_metadata(str(config.train_data_file))
+            _, metadata = MetadataManager.load_with_metadata(str(config.data.train_data_file))
             # Check both top-level and physics_parameters for nphotons
             metadata_nphotons = None
             if metadata:
@@ -388,23 +388,21 @@ def main() -> None:
                     metadata_nphotons = float(metadata['nphotons'])
                 elif 'physics_parameters' in metadata and 'nphotons' in metadata['physics_parameters']:
                     metadata_nphotons = float(metadata['physics_parameters']['nphotons'])
-                
+
                 if metadata_nphotons is not None:
-                    original_nphotons = config.nphotons
-                    # Update config with metadata nphotons value (create new instance for dataclass)
-                    config = config.__class__(
-                        **{**config.__dict__, 'nphotons': metadata_nphotons}
-                    )
+                    original_nphotons = config.data.nphotons
+                    # Update the nested DataConfig with metadata nphotons value
+                    config.data.nphotons = metadata_nphotons
                     logger.info(f"Overriding nphotons from config ({original_nphotons:.1e}) with value from dataset metadata: {metadata_nphotons:.1e}")
                     # Update the legacy params dict as well
                     params.cfg['nphotons'] = metadata_nphotons
         except Exception as e:
             logger.debug(f"No metadata found or error reading metadata: {e}")
-        
+
         test_data = None
-        if config.test_data_file:
-            test_data = load_data(str(config.test_data_file))
-            logger.info(f"Loaded test data from {config.test_data_file}")
+        if config.data.test_data_file:
+            test_data = load_data(str(config.data.test_data_file))
+            logger.info(f"Loaded test data from {config.data.test_data_file}")
 
         # Build PyTorch execution config if backend is pytorch
         torch_execution_config = None

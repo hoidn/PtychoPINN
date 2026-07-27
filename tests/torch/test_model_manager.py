@@ -57,7 +57,7 @@ class TestSaveTorchBundle:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture with canonical params."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
         model_config = ModelConfig(
             N=64,
@@ -72,11 +72,11 @@ class TestSaveTorchBundle:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            test_data_file=Path("/tmp/dummy_test.npz"),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            data=DataConfig(
+                train_data_file=Path("/tmp/dummy_train.npz"),
+                test_data_file=Path("/tmp/dummy_test.npz"),
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
             nepochs=5,
             batch_size=16,
         )
@@ -400,7 +400,7 @@ class TestLoadTorchBundle:
     @pytest.fixture
     def minimal_training_config(self):
         """Create minimal TrainingConfig fixture with canonical params."""
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
         model_config = ModelConfig(
             N=64,
@@ -415,11 +415,11 @@ class TestLoadTorchBundle:
 
         training_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path("/tmp/dummy_train.npz"),
-            test_data_file=Path("/tmp/dummy_test.npz"),
-            n_groups=10,
-            neighbor_count=4,
-            nphotons=1e9,
+            data=DataConfig(
+                train_data_file=Path("/tmp/dummy_train.npz"),
+                test_data_file=Path("/tmp/dummy_test.npz"),
+            ),
+            sampling=SamplingConfig(n_groups=10, neighbor_count=4),
             nepochs=5,
             batch_size=16,
         )

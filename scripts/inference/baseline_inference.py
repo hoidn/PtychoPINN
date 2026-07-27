@@ -22,7 +22,7 @@ from ptycho.workflows.components import (
     create_ptycho_data_container,
     logger
 )
-from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
+from ptycho.config.config import DataConfig, ModelConfig, TrainingConfig, update_legacy_dict
 
 def parse_baseline_inference_args():
     """Parse command-line arguments for baseline model inference."""
@@ -60,9 +60,13 @@ def main():
     
     # --- Configuration ---
     model_config = ModelConfig(N=args.N, gridsize=args.gridsize)
-    training_config = TrainingConfig(model=model_config,
-                                     train_data_file=Path("dummy_train.npz"),
-                                     test_data_file=Path("dummy_test.npz"))
+    training_config = TrainingConfig(
+        model=model_config,
+        data=DataConfig(
+            train_data_file=Path("dummy_train.npz"),
+            test_data_file=Path("dummy_test.npz"),
+        ),
+    )
     update_legacy_dict(p.cfg, training_config)
     
     logger.info("--- Starting Baseline Inference with Unified Reassembly---")

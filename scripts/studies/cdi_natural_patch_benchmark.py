@@ -565,21 +565,31 @@ def _build_torch_model_from_saved_config(cfg: Any, *, n_groups: int = 1):
         factory_overrides["learning_rate"] = execution_config.learning_rate
     if execution_config.gradient_clip_val is not None:
         factory_overrides["gradient_clip_val"] = execution_config.gradient_clip_val
-    for opt_field in (
-        "scheduler",
-        "optimizer",
-        "weight_decay",
-        "momentum",
-        "adam_beta1",
-        "adam_beta2",
-        "plateau_factor",
-        "plateau_patience",
-        "plateau_min_lr",
-        "plateau_threshold",
-    ):
-        value = getattr(config, opt_field, None)
-        if value is not None:
-            factory_overrides[opt_field] = value
+    opt_cfg = getattr(config, "optimizer", None)
+    if opt_cfg is not None:
+        factory_overrides["optimizer"] = opt_cfg.algorithm
+        factory_overrides["weight_decay"] = opt_cfg.weight_decay
+        factory_overrides["adam_beta1"] = opt_cfg.adam.beta1
+        factory_overrides["adam_beta2"] = opt_cfg.adam.beta2
+        factory_overrides["momentum"] = opt_cfg.sgd.momentum
+    sched_cfg = getattr(config, "scheduler", None)
+    if sched_cfg is not None:
+        factory_overrides["scheduler"] = sched_cfg.kind
+        factory_overrides["lr_warmup_epochs"] = sched_cfg.lr_warmup_epochs
+        factory_overrides["lr_min_ratio"] = sched_cfg.lr_min_ratio
+        factory_overrides["plateau_factor"] = sched_cfg.plateau_factor
+        factory_overrides["plateau_patience"] = sched_cfg.plateau_patience
+        factory_overrides["plateau_min_lr"] = sched_cfg.plateau_min_lr
+        factory_overrides["plateau_threshold"] = sched_cfg.plateau_threshold
+    gc_cfg = getattr(config, "gradient_clip", None)
+    if gc_cfg is not None:
+        if gc_cfg.val is not None:
+            factory_overrides["gradient_clip_val"] = gc_cfg.val
+        factory_overrides["gradient_clip_algorithm"] = gc_cfg.algorithm
+    loss_cfg = getattr(config, "loss", None)
+    if loss_cfg is not None:
+        factory_overrides["torch_loss_mode"] = loss_cfg.torch_loss_mode
+        factory_overrides["torch_mae_pred_l2_match_target"] = loss_cfg.torch_mae_pred_l2_match_target
     for field_name in ("fno_modes", "fno_width", "fno_blocks", "fno_cnn_blocks", "fno_input_transform"):
         field_value = getattr(config.model, field_name, None)
         if field_value is not None:

@@ -628,7 +628,7 @@ def test_study_local_seeded_same_split_metric_run_is_blocked(tmp_path):
 
 
 def test_same_split_bundle_persistence_records_npzs_and_key_checksums(monkeypatch, tmp_path):
-    from ptycho.config.config import ModelConfig, TrainingConfig
+    from ptycho.config.config import ModelConfig, TFLossConfig, TrainingConfig
     from ptycho.workflows.grid_lines_workflow import GridLinesConfig
     from scripts.reconstruction.hio_cdi_benchmark import (
         persist_same_split_data_bundle,
@@ -646,12 +646,9 @@ def test_same_split_bundle_persistence_records_npzs_and_key_checksums(monkeypatc
     )
     config = TrainingConfig(
         model=ModelConfig(N=8, gridsize=1, object_big=False),
-        nphotons=1e9,
         nepochs=1,
         batch_size=1,
-        nll_weight=0.0,
-        mae_weight=1.0,
-        realspace_weight=0.0,
+        tf_loss=TFLossConfig(nll_weight=0.0, mae_weight=1.0, realspace_weight=0.0),
     )
     data_identity = write_data_identity_manifest(
         tmp_path,
@@ -698,7 +695,7 @@ def test_same_split_bundle_persistence_records_npzs_and_key_checksums(monkeypatc
 
 
 def test_reused_same_split_bundle_loads_data_and_updates_identity_manifest(monkeypatch, tmp_path):
-    from ptycho.config.config import ModelConfig, TrainingConfig
+    from ptycho.config.config import ModelConfig, TFLossConfig, TrainingConfig
     from ptycho.workflows.grid_lines_workflow import GridLinesConfig
     from scripts.reconstruction.hio_cdi_benchmark import (
         load_same_split_data_bundle,
@@ -717,12 +714,9 @@ def test_reused_same_split_bundle_loads_data_and_updates_identity_manifest(monke
     )
     config = TrainingConfig(
         model=ModelConfig(N=8, gridsize=1, object_big=False),
-        nphotons=1e9,
         nepochs=1,
         batch_size=1,
-        nll_weight=0.0,
-        mae_weight=1.0,
-        realspace_weight=0.0,
+        tf_loss=TFLossConfig(nll_weight=0.0, mae_weight=1.0, realspace_weight=0.0),
     )
     bundle = persist_same_split_data_bundle(
         output_root=tmp_path / "source",
@@ -762,7 +756,7 @@ def test_reused_same_split_bundle_loads_data_and_updates_identity_manifest(monke
 
 
 def test_reused_same_split_bundle_checksum_mismatch_is_rejected(monkeypatch, tmp_path):
-    from ptycho.config.config import ModelConfig, TrainingConfig
+    from ptycho.config.config import ModelConfig, TFLossConfig, TrainingConfig
     from ptycho.workflows.grid_lines_workflow import GridLinesConfig
     from scripts.reconstruction.hio_cdi_benchmark import (
         _read_manifest,
@@ -781,12 +775,9 @@ def test_reused_same_split_bundle_checksum_mismatch_is_rejected(monkeypatch, tmp
     )
     config = TrainingConfig(
         model=ModelConfig(N=8, gridsize=1, object_big=False),
-        nphotons=1e9,
         nepochs=1,
         batch_size=1,
-        nll_weight=0.0,
-        mae_weight=1.0,
-        realspace_weight=0.0,
+        tf_loss=TFLossConfig(nll_weight=0.0, mae_weight=1.0, realspace_weight=0.0),
     )
     bundle = persist_same_split_data_bundle(
         output_root=tmp_path / "source",

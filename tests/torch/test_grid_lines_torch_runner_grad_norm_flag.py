@@ -21,5 +21,5 @@ def test_runner_config_propagates_grad_clip_to_training_config():
         gradient_clip_val=50.0,
     )
     training_config, execution_config = setup_torch_configs(cfg)
-    assert training_config.gradient_clip_val == 50.0
+    assert training_config.gradient_clip.val == 50.0
     assert execution_config.gradient_clip_val == 50.0

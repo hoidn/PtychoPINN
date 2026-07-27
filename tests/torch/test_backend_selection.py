@@ -71,13 +71,13 @@ class TestBackendSelection:
         Phase: E1.B baseline test
         Reference: phase_e_callchain/summary.md §Default behavior
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, TrainingConfig
 
         # Create config without backend parameter (should default to 'tensorflow')
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             batch_size=16,
             nepochs=1
         )
@@ -106,13 +106,13 @@ class TestBackendSelection:
         Phase: E1.B PyTorch selection test
         Reference: phase_e_callchain/summary.md §PyTorch selection
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, TrainingConfig
 
         # Create config with explicit PyTorch backend
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             batch_size=16,
             nepochs=1,
             backend='pytorch'  # Explicit backend selection
@@ -139,7 +139,7 @@ class TestBackendSelection:
         Phase: E1.C CONFIG-001 compliance test
         Reference: docs/findings.md ID CONFIG-001
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, TrainingConfig
         from ptycho.workflows.backend_selector import run_cdi_example_with_backend
         from ptycho.raw_data import RawData
         import ptycho.params as params
@@ -149,7 +149,7 @@ class TestBackendSelection:
         model_config = ModelConfig(N=128, gridsize=2)
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             batch_size=16,
             nepochs=1,
             backend='pytorch'
@@ -207,7 +207,7 @@ class TestBackendSelection:
         Phase: E1.C error handling test
         Reference: phase_e_callchain/summary.md §Fallback behavior
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, TrainingConfig
         from ptycho.workflows.backend_selector import run_cdi_example_with_backend
         from ptycho.raw_data import RawData
         import numpy as np
@@ -215,7 +215,7 @@ class TestBackendSelection:
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             batch_size=16,
             nepochs=1,
             backend='pytorch'
@@ -314,7 +314,7 @@ class TestBackendSelection:
         Phase: E1.B API parity test
         Reference: pytorch_workflow_comparison.md §Summary Table
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, TrainingConfig
 
         # Create identical config for both backends
         model_config = ModelConfig(N=64, gridsize=1)
@@ -322,7 +322,7 @@ class TestBackendSelection:
         # TensorFlow config
         tf_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             batch_size=16,
             nepochs=1,
             backend='tensorflow'
@@ -331,7 +331,7 @@ class TestBackendSelection:
         # PyTorch config (identical except backend field)
         pt_config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             batch_size=16,
             nepochs=1,
             backend='pytorch'
@@ -339,7 +339,7 @@ class TestBackendSelection:
 
         # Assert both configs are valid and only differ in backend field
         assert tf_config.model.N == pt_config.model.N
-        assert tf_config.train_data_file == pt_config.train_data_file
+        assert tf_config.data.train_data_file == pt_config.data.train_data_file
         assert tf_config.batch_size == pt_config.batch_size
         assert tf_config.nepochs == pt_config.nepochs
         assert tf_config.backend != pt_config.backend

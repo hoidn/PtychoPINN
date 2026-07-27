@@ -29,7 +29,7 @@ except ImportError:
     TORCH_AVAILABLE = False
 
 if TORCH_AVAILABLE:
-    from ptycho.config.config import ModelConfig as TFModelConfig, TrainingConfig as TFTrainingConfig, update_legacy_dict
+    from ptycho.config.config import DataConfig as TFDataConfig, LossConfig as TFLossConfig, ModelConfig as TFModelConfig, SamplingConfig as TFSamplingConfig, TrainingConfig as TFTrainingConfig, update_legacy_dict
     from ptycho import params as p
     from ptycho_torch.config_params import ModelConfig, DataConfig, TrainingConfig, InferenceConfig
     from ptycho_torch.model import PtychoPINN_Lightning
@@ -89,13 +89,10 @@ class TestLightningCheckpointSerialization:
         )
         tf_train_cfg = TFTrainingConfig(
             model=tf_model_cfg,
-            train_data_file=Path('dummy_train.npz'),
-            test_data_file=None,
-            n_groups=16,
+            data=TFDataConfig(train_data_file=Path('dummy_train.npz'), nphotons=1e6),
+            sampling=TFSamplingConfig(n_groups=16, neighbor_count=4),
             batch_size=16,
             nepochs=0,
-            nphotons=1e6,
-            neighbor_count=4,
             output_dir=tmp_path,
         )
         update_legacy_dict(p.cfg, tf_train_cfg)
@@ -390,15 +387,12 @@ class TestLightningCheckpointSerialization:
         )
         tf_train_cfg = TFTrainingConfig(
             model=tf_model_cfg,
-            train_data_file=Path('dummy_train.npz'),
-            test_data_file=None,
-            n_groups=2,
+            data=TFDataConfig(train_data_file=Path('dummy_train.npz'), nphotons=1e6),
+            sampling=TFSamplingConfig(n_groups=2, neighbor_count=4),
+            loss=TFLossConfig(torch_loss_mode="mae" if mode == "Supervised" else "poisson"),
             batch_size=2,
             nepochs=0,
-            nphotons=1e6,
-            neighbor_count=4,
             output_dir=tmp_path,
-            torch_loss_mode="mae" if mode == "Supervised" else "poisson",
         )
         update_legacy_dict(p.cfg, tf_train_cfg)
 

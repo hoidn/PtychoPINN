@@ -486,7 +486,7 @@ def create_training_payload(
             overrides_applied['nphotons'] = nphotons_from_metadata
             overrides_applied['nphotons_source'] = 'metadata'
         else:
-            tf_default_nphotons = TFTrainingConfig(model=TFModelConfig()).nphotons
+            tf_default_nphotons = TFTrainingConfig(model=TFModelConfig()).data.nphotons
             overrides['nphotons'] = tf_default_nphotons
             overrides_applied['nphotons'] = tf_default_nphotons
             overrides_applied['nphotons_source'] = 'tf_default'

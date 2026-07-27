@@ -52,7 +52,7 @@ project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 # PtychoPINN imports - modern config system
-from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
+from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TFLossConfig, TrainingConfig, update_legacy_dict
 from ptycho import params as p
 
 # PtychoPINN imports - simulation and training
@@ -80,12 +80,12 @@ def verify_params_setup(config: TrainingConfig) -> None:
     logger.info("=== Verifying params.cfg population ===")
     logger.info(f"params.cfg['N'] = {p.cfg.get('N')} (expected: {config.model.N})")
     logger.info(f"params.cfg['gridsize'] = {p.cfg.get('gridsize')} (expected: {config.model.gridsize})")
-    logger.info(f"params.cfg['nphotons'] = {p.cfg.get('nphotons')} (expected: {config.nphotons})")
+    logger.info(f"params.cfg['nphotons'] = {p.cfg.get('nphotons')} (expected: {config.data.nphotons})")
 
     # Verify critical params are set correctly
     assert p.cfg.get('N') == config.model.N, f"N mismatch: {p.cfg.get('N')} != {config.model.N}"
     assert p.cfg.get('gridsize') == config.model.gridsize, f"gridsize mismatch"
-    assert p.cfg.get('nphotons') == config.nphotons, f"nphotons mismatch"
+    assert p.cfg.get('nphotons') == config.data.nphotons, f"nphotons mismatch"
 
     logger.info("=== params.cfg verification PASSED ===")
 
@@ -188,15 +188,16 @@ def make_config(
 
     config = TrainingConfig(
         model=model_config,
-        n_groups=n_images,  # n_groups controls raw positions generated
-        nphotons=nphotons,
-        nll_weight=nll_weight,
-        mae_weight=mae_weight,
+        data=DataConfig(nphotons=nphotons),
+        sampling=SamplingConfig(
+            n_groups=n_images,  # n_groups controls raw positions generated
+            neighbor_count=7,  # Higher K for oversampling
+            enable_oversampling=enable_oversampling,  # Allow oversampling when needed
+        ),
+        tf_loss=TFLossConfig(nll_weight=nll_weight, mae_weight=mae_weight),
         nepochs=nepochs,
         batch_size=16,
         output_dir=base_output_dir / output_subdir,
-        neighbor_count=7,  # Higher K for oversampling
-        enable_oversampling=enable_oversampling,  # Allow oversampling when needed
         probe_trainable=False,
         intensity_scale_trainable=True
     )
@@ -262,10 +263,12 @@ def simulate_datasets(
         sim_model_config = ModelConfig(N=N, gridsize=1, model_type='pinn')
         sim_config_train = TrainingConfig(
             model=sim_model_config,
-            n_groups=n_train,
-            nphotons=arm_params['nphotons'],
-            nll_weight=config.nll_weight,
-            mae_weight=config.mae_weight,
+            data=DataConfig(nphotons=arm_params['nphotons']),
+            sampling=SamplingConfig(n_groups=n_train),
+            tf_loss=TFLossConfig(
+                nll_weight=config.tf_loss.nll_weight,
+                mae_weight=config.tf_loss.mae_weight,
+            ),
             nepochs=1,  # Not used for simulation
             output_dir=config.output_dir
         )
@@ -467,10 +470,9 @@ def simulate_datasets_grid_mode(
 
         config = TrainingConfig(
             model=model_config,
-            n_groups=nimgs_train * (GRID_SIZE ** 2),  # Total groups after gridding
-            nphotons=nphotons,
-            nll_weight=nll_weight,
-            mae_weight=mae_weight,
+            data=DataConfig(nphotons=nphotons),
+            sampling=SamplingConfig(n_groups=nimgs_train * (GRID_SIZE ** 2)),  # Total groups after gridding
+            tf_loss=TFLossConfig(nll_weight=nll_weight, mae_weight=mae_weight),
             nepochs=nepochs,
             batch_size=16,
             output_dir=base_output_dir / arm_name,

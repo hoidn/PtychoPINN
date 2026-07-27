@@ -2690,20 +2690,22 @@ class PtychoPINN_Lightning(L.LightningModule):
                          on_epoch=True, prog_bar=False, logger=True)
 
     def configure_optimizers(self):
+        _opt = getattr(self.training_config, 'optimizer', None)
         optimizer = _build_optimizer(
             self.parameters(),
             lr=self.lr,
-            optimizer=getattr(self.training_config, 'optimizer', 'adam'),
-            momentum=getattr(self.training_config, 'momentum', 0.9),
-            weight_decay=getattr(self.training_config, 'weight_decay', 0.0),
-            adam_beta1=getattr(self.training_config, 'adam_beta1', 0.9),
-            adam_beta2=getattr(self.training_config, 'adam_beta2', 0.999),
+            optimizer=getattr(_opt, 'algorithm', 'adam'),
+            momentum=getattr(getattr(_opt, 'sgd', None), 'momentum', 0.9),
+            weight_decay=getattr(_opt, 'weight_decay', 0.0),
+            adam_beta1=getattr(getattr(_opt, 'adam', None), 'beta1', 0.9),
+            adam_beta2=getattr(getattr(_opt, 'adam', None), 'beta2', 0.999),
         )
 
         result = {"optimizer": optimizer}
-        
+
         # Configure scheduler based on training type
-        scheduler_choice = getattr(self.training_config, 'scheduler', 'Default')
+        _sched = getattr(self.training_config, 'scheduler', None)
+        scheduler_choice = getattr(_sched, 'kind', 'Default')
         if scheduler_choice == 'Exponential':
             result['lr_scheduler'] = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
         elif scheduler_choice == 'WarmupCosine':
@@ -2711,8 +2713,8 @@ class PtychoPINN_Lightning(L.LightningModule):
             scheduler = build_warmup_cosine_scheduler(
                 optimizer,
                 total_epochs=self.training_config.epochs,
-                warmup_epochs=getattr(self.training_config, 'lr_warmup_epochs', 0),
-                min_lr_ratio=getattr(self.training_config, 'lr_min_ratio', 0.1),
+                warmup_epochs=getattr(_sched, 'lr_warmup_epochs', 0),
+                min_lr_ratio=getattr(_sched, 'lr_min_ratio', 0.1),
             )
             result['lr_scheduler'] = {
                 'scheduler': scheduler,
@@ -2724,10 +2726,10 @@ class PtychoPINN_Lightning(L.LightningModule):
                 'scheduler': torch.optim.lr_scheduler.ReduceLROnPlateau(
                     optimizer,
                     mode='min',
-                    factor=getattr(self.training_config, 'plateau_factor', 0.5),
-                    patience=getattr(self.training_config, 'plateau_patience', 2),
-                    min_lr=getattr(self.training_config, 'plateau_min_lr', 5e-5),
-                    threshold=getattr(self.training_config, 'plateau_threshold', 0.0),
+                    factor=getattr(_sched, 'plateau_factor', 0.5),
+                    patience=getattr(_sched, 'plateau_patience', 2),
+                    min_lr=getattr(_sched, 'plateau_min_lr', 5e-5),
+                    threshold=getattr(_sched, 'plateau_threshold', 0.0),
                 ),
                 'monitor': self.val_loss_name,
                 'reduce_on_plateau': True,

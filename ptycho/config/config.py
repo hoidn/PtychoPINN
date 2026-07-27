@@ -79,6 +79,15 @@ import warnings
 # Restores exports removed during Phase C2; ensures PyTorchExecutionConfig is discoverable
 __all__ = [
     # Dataclass configurations
+    'AdamConfig',
+    'SgdConfig',
+    'OptimizerConfig',
+    'LossConfig',
+    'TFLossConfig',
+    'GradientClipConfig',
+    'SchedulerConfig',
+    'DataConfig',
+    'SamplingConfig',
     'ModelConfig',
     'TrainingConfig',
     'InferenceConfig',
@@ -571,64 +580,103 @@ def resolve_model_object_policy(
     )
 
 @dataclass
-class TrainingConfig:
-    """Training specific configuration."""
-    model: ModelConfig
-    train_data_file: Optional[Path] = None  # Made optional for simulation scripts
-    test_data_file: Optional[Path] = None  # Added
-    batch_size: int = 16
-    nepochs: int = 50
+class AdamConfig:
+    beta1: float = 0.9
+    beta2: float = 0.999
+
+@dataclass
+class SgdConfig:
+    momentum: float = 0.9
+
+@dataclass
+class OptimizerConfig:
+    algorithm: Literal['adam', 'adamw', 'sgd'] = 'adam'
+    weight_decay: float = 0.0
+    sgd: SgdConfig = field(default_factory=SgdConfig)
+    adam: AdamConfig = field(default_factory=AdamConfig)
+
+
+@dataclass
+class LossConfig:
+    """PyTorch-specific loss settings."""
+    torch_loss_mode: Literal['poisson', 'mae'] = 'poisson'
+    torch_mae_pred_l2_match_target: bool = False
+
+
+@dataclass
+class TFLossConfig:
+    """TensorFlow-only loss weights. Will be removed when TF is phased out."""
     mae_weight: float = 0.0
     nll_weight: float = 1.0
     realspace_mae_weight: float = 0.0
     realspace_weight: float = 0.0
-    nphotons: float = 1e9
-    n_groups: Optional[int] = None  # Number of groups to generate (always means groups, regardless of gridsize)
-    n_images: Optional[int] = None  # DEPRECATED: Use n_groups instead (kept for backward compatibility)
-    n_subsample: Optional[int] = None  # Number of images to subsample before grouping (independent control)
-    subsample_seed: Optional[int] = None  # Random seed for reproducible subsampling
-    neighbor_count: int = 4  # K value: number of nearest neighbors for grouping (use higher values like 7 for K choose C oversampling)
-    enable_oversampling: bool = False  # Explicit opt-in for K choose C oversampling (requires gridsize>1 and neighbor_pool_size>=C)
-    neighbor_pool_size: Optional[int] = None  # Pool size for K choose C oversampling (if None, defaults to neighbor_count)
-    positions_provided: bool = True
-    probe_trainable: bool = False
-    intensity_scale_trainable: bool = True  # Changed default
-    output_dir: Path = Path("training_outputs")
-    sequential_sampling: bool = False  # Use sequential sampling instead of random
-    backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'  # Backend selection: defaults to TensorFlow for backward compatibility
-    torch_loss_mode: Literal['poisson', 'mae'] = 'poisson'  # Backend-specific loss mode selector
-    torch_mae_pred_l2_match_target: bool = False  # Optional Torch MAE prediction scaling mode
-    gradient_clip_val: Optional[float] = None  # Gradient clipping threshold (None = disabled)
-    gradient_clip_algorithm: Literal['norm', 'value', 'agc'] = 'norm'  # Gradient clipping algorithm: norm, value, or agc
-    optimizer: Literal['adam', 'adamw', 'sgd'] = 'adam'  # Optimizer algorithm
-    momentum: float = 0.9  # SGD momentum (ignored for Adam/AdamW)
-    weight_decay: float = 0.0  # Weight decay (L2 penalty)
-    adam_beta1: float = 0.9  # Adam/AdamW beta1
-    adam_beta2: float = 0.999  # Adam/AdamW beta2
-    scheduler: Literal['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'] = 'Default'  # LR scheduler type
-    lr_warmup_epochs: int = 0  # Number of warmup epochs for WarmupCosine scheduler
-    lr_min_ratio: float = 0.1  # Minimum LR ratio for WarmupCosine scheduler (eta_min = base_lr * ratio)
+
+
+@dataclass
+class GradientClipConfig:
+    val: Optional[float] = None
+    algorithm: Literal['norm', 'value', 'agc'] = 'norm'
+
+
+@dataclass
+class SchedulerConfig:
+    kind: Literal['Default', 'Exponential', 'WarmupCosine', 'ReduceLROnPlateau'] = 'Default'
+    lr_warmup_epochs: int = 0
+    lr_min_ratio: float = 0.1
     plateau_factor: float = 0.5
     plateau_patience: int = 2
     plateau_min_lr: float = 5e-5
     plateau_threshold: float = 0.0
 
+
+@dataclass
+class DataConfig:
+    train_data_file: Optional[Path] = None
+    test_data_file: Optional[Path] = None
+    nphotons: float = 1e9
+
+
+@dataclass
+class SamplingConfig:
+    n_groups: Optional[int] = None
+    n_images: Optional[int] = None  # DEPRECATED: use n_groups
+    n_subsample: Optional[int] = None
+    subsample_seed: Optional[int] = None
+    neighbor_count: int = 4
+    enable_oversampling: bool = False
+    neighbor_pool_size: Optional[int] = None
+    sequential_sampling: bool = False
+
     def __post_init__(self):
-        """Handle backward compatibility for n_images → n_groups migration."""
-        # Handle the deprecated n_images parameter
         if self.n_images is not None and self.n_groups is None:
             warnings.warn(
-                "Parameter 'n_images' is deprecated and will be removed in a future version. "
-                "Use 'n_groups' instead, which always means the number of groups regardless of gridsize.",
+                "Parameter 'n_images' is deprecated. Use 'n_groups' instead.",
                 DeprecationWarning,
-                stacklevel=2
+                stacklevel=2,
             )
-            # Use object.__setattr__ to modify dataclass (not frozen anymore)
-            object.__setattr__(self, 'n_groups', self.n_images)
-        
-        # Set default if neither was provided
+            self.n_groups = self.n_images
         if self.n_groups is None:
-            object.__setattr__(self, 'n_groups', 512)
+            self.n_groups = 512
+
+
+@dataclass
+class TrainingConfig:
+    """Training specific configuration."""
+    model: ModelConfig
+    batch_size: int = 16
+    nepochs: int = 50
+    positions_provided: bool = True
+    probe_trainable: bool = False
+    intensity_scale_trainable: bool = True
+    output_dir: Path = Path("training_outputs")
+    backend: Literal['tensorflow', 'pytorch'] = 'tensorflow'
+    data: DataConfig = field(default_factory=DataConfig)
+    sampling: SamplingConfig = field(default_factory=SamplingConfig)
+    loss: LossConfig = field(default_factory=LossConfig)
+    tf_loss: TFLossConfig = field(default_factory=TFLossConfig)
+    gradient_clip: GradientClipConfig = field(default_factory=GradientClipConfig)
+    optimizer: OptimizerConfig = field(default_factory=OptimizerConfig)
+    scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
 
 @dataclass
 class InferenceConfig:
@@ -987,12 +1035,12 @@ def validate_training_config(config: TrainingConfig) -> None:
         raise ValueError(f"batch_size must be positive power of 2, got {config.batch_size}")
     if config.nepochs <= 0:
         raise ValueError(f"nepochs must be positive, got {config.nepochs}")
-    if not (0 <= config.mae_weight <= 1):
-        raise ValueError(f"mae_weight must be in [0,1], got {config.mae_weight}")
-    if not (0 <= config.nll_weight <= 1):
-        raise ValueError(f"nll_weight must be in [0,1], got {config.nll_weight}")
-    if config.nphotons <= 0:
-        raise ValueError(f"nphotons must be positive, got {config.nphotons}")
+    if not (0 <= config.tf_loss.mae_weight <= 1):
+        raise ValueError(f"mae_weight must be in [0,1], got {config.tf_loss.mae_weight}")
+    if not (0 <= config.tf_loss.nll_weight <= 1):
+        raise ValueError(f"nll_weight must be in [0,1], got {config.tf_loss.nll_weight}")
+    if config.data.nphotons <= 0:
+        raise ValueError(f"nphotons must be positive, got {config.data.nphotons}")
 
 def validate_inference_config(config: InferenceConfig) -> None:
     """Validate inference configuration."""
@@ -1102,6 +1150,57 @@ def dataclass_to_legacy_dict(obj: Any) -> Dict[str, Any]:
     if 'model' in d:
         model_dict = d.pop('model')
         d.update(model_dict)
+
+    # Flatten all nested configs back to legacy flat keys
+    if 'data' in d and isinstance(d['data'], dict):
+        data = d.pop('data')
+        d['train_data_file'] = data.get('train_data_file')   # KEY_MAPPINGS → train_data_file_path
+        d['test_data_file'] = data.get('test_data_file')     # KEY_MAPPINGS → test_data_file_path
+        d['nphotons'] = data.get('nphotons', 1e9)
+
+    if 'sampling' in d and isinstance(d['sampling'], dict):
+        samp = d.pop('sampling')
+        for k in ('n_groups', 'n_images', 'n_subsample', 'subsample_seed',
+                  'neighbor_count', 'enable_oversampling', 'neighbor_pool_size',
+                  'sequential_sampling'):
+            d[k] = samp.get(k)
+
+    if 'tf_loss' in d and isinstance(d['tf_loss'], dict):
+        tfl = d.pop('tf_loss')
+        d['mae_weight'] = tfl.get('mae_weight', 0.0)
+        d['nll_weight'] = tfl.get('nll_weight', 1.0)
+        d['realspace_mae_weight'] = tfl.get('realspace_mae_weight', 0.0)
+        d['realspace_weight'] = tfl.get('realspace_weight', 0.0)
+
+    if 'loss' in d and isinstance(d['loss'], dict):
+        loss = d.pop('loss')
+        d['torch_loss_mode'] = loss.get('torch_loss_mode', 'poisson')
+        d['torch_mae_pred_l2_match_target'] = loss.get('torch_mae_pred_l2_match_target', False)
+
+    if 'gradient_clip' in d and isinstance(d['gradient_clip'], dict):
+        gc = d.pop('gradient_clip')
+        d['gradient_clip_val'] = gc.get('val')
+        d['gradient_clip_algorithm'] = gc.get('algorithm', 'norm')
+
+    if 'scheduler' in d and isinstance(d['scheduler'], dict):
+        sched = d.pop('scheduler')
+        d['scheduler'] = sched.get('kind', 'Default')
+        d['lr_warmup_epochs'] = sched.get('lr_warmup_epochs', 0)
+        d['lr_min_ratio'] = sched.get('lr_min_ratio', 0.1)
+        d['plateau_factor'] = sched.get('plateau_factor', 0.5)
+        d['plateau_patience'] = sched.get('plateau_patience', 2)
+        d['plateau_min_lr'] = sched.get('plateau_min_lr', 5e-5)
+        d['plateau_threshold'] = sched.get('plateau_threshold', 0.0)
+
+    if 'optimizer' in d and isinstance(d['optimizer'], dict):
+        opt = d.pop('optimizer')
+        d['optimizer'] = opt.get('algorithm', 'adam')
+        d['weight_decay'] = opt.get('weight_decay', 0.0)
+        adam = opt.get('adam', {})
+        d['adam_beta1'] = adam.get('beta1', 0.9)
+        d['adam_beta2'] = adam.get('beta2', 0.999)
+        sgd = opt.get('sgd', {})
+        d['momentum'] = sgd.get('momentum', 0.9)
 
     # Apply key mappings and convert Path objects to strings
     for old_key, new_key in KEY_MAPPINGS.items():

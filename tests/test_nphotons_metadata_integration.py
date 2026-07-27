@@ -30,7 +30,7 @@ sys.path.insert(0, str(project_root))
 
 # Import metadata utilities for verification
 from ptycho.metadata import MetadataManager
-from ptycho.config.config import TrainingConfig, ModelConfig
+from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
 
 
 class TestNphotonsMetadataIntegration(unittest.TestCase):
@@ -274,8 +274,8 @@ class TestNphotonsMetadataIntegration(unittest.TestCase):
         mismatched_nphotons = 1e8
         mismatched_config = TrainingConfig(
             model=ModelConfig(N=64, gridsize=1),
-            nphotons=mismatched_nphotons,
-            n_images=100,
+            data=DataConfig(nphotons=mismatched_nphotons),
+            sampling=SamplingConfig(n_images=100),
             nepochs=2
         )
         

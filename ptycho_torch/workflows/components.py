@@ -342,7 +342,8 @@ def _resolve_nphotons(data, config):
     metadata = getattr(data, "metadata", None)
     if metadata is not None:
         return MetadataManager.get_nphotons(metadata), "metadata"
-    return getattr(config, "nphotons", 1e9), "config"
+    data_cfg = getattr(config, "data", None)
+    return getattr(data_cfg, "nphotons", 1e9), "config"
 
 
 def _attach_physics_scale(container, config, nphotons_source: Optional[str] = None):
@@ -694,12 +695,12 @@ def _ensure_container(
             metadata = getattr(data._tf_raw_data, 'metadata', None)
         grouped_data = data.generate_grouped_data(
             N=config.model.N,
-            K=config.neighbor_count,
-            nsamples=config.n_groups,
-            dataset_path=str(config.train_data_file) if config.train_data_file else None,
-            sequential_sampling=config.sequential_sampling,
+            K=config.sampling.neighbor_count,
+            nsamples=config.sampling.n_groups,
+            dataset_path=str(config.data.train_data_file) if config.data.train_data_file else None,
+            sequential_sampling=config.sampling.sequential_sampling,
             gridsize=config.model.gridsize,
-            seed=getattr(config, 'subsample_seed', None),
+            seed=config.sampling.subsample_seed,
         )
         actual_sample_indices = grouped_data.get('sample_indices')
         if sample_indices is not None and actual_sample_indices is not None:
@@ -1439,7 +1440,7 @@ def _train_with_lightning(
         ) from e
 
     logger.info("_train_with_lightning orchestrating Lightning training")
-    logger.info(f"Training config: nepochs={config.nepochs}, n_groups={config.n_groups}")
+    logger.info(f"Training config: nepochs={config.nepochs}, n_groups={config.sampling.n_groups}")
 
     # B2.1: Use config_factory to derive PyTorch configs with correct channel propagation
     # CRITICAL (Phase C4.D B2): Factory ensures C = gridsize**2 is propagated to
@@ -1459,7 +1460,7 @@ def _train_with_lightning(
         warn_deprecated=False,
     )
     factory_overrides = {
-        'n_groups': config.n_groups,  # Required by factory validation
+        'n_groups': config.sampling.n_groups,  # Required by factory validation
         'gridsize': config.model.gridsize,
         'architecture': config.model.architecture,
         'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
@@ -1475,13 +1476,13 @@ def _train_with_lightning(
         'probe_mask_sigma': getattr(config.model, 'probe_mask_sigma', 1.0),
         'probe_mask_diameter': getattr(config.model, 'probe_mask_diameter', None),
         'pad_object': resolved_public_model.pad_object,
-        'nphotons': config.nphotons,
-        'neighbor_count': config.neighbor_count,
+        'nphotons': config.data.nphotons,
+        'neighbor_count': config.sampling.neighbor_count,
         'max_epochs': config.nepochs,
         'batch_size': getattr(config, 'batch_size', 16),
-        'subsample_seed': getattr(config, 'subsample_seed', None),
-        'torch_loss_mode': getattr(config, 'torch_loss_mode', 'poisson'),
-        'torch_mae_pred_l2_match_target': getattr(config, 'torch_mae_pred_l2_match_target', False),
+        'subsample_seed': config.sampling.subsample_seed,
+        'torch_loss_mode': config.loss.torch_loss_mode,
+        'torch_mae_pred_l2_match_target': config.loss.torch_mae_pred_l2_match_target,
         'log_grad_norm': getattr(config, 'log_grad_norm', False),
         'grad_norm_log_freq': getattr(config, 'grad_norm_log_freq', 1),
     }
@@ -1494,12 +1495,27 @@ def _train_with_lightning(
     if execution_config is not None and execution_config.gradient_clip_val is not None:
         factory_overrides['gradient_clip_val'] = execution_config.gradient_clip_val
     # Thread optimizer/scheduler config from TF TrainingConfig into factory overrides
-    for opt_field in ('scheduler', 'optimizer', 'weight_decay', 'momentum',
-                      'adam_beta1', 'adam_beta2', 'plateau_factor', 'plateau_patience',
-                      'plateau_min_lr', 'plateau_threshold'):
-        val = getattr(config, opt_field, None)
-        if val is not None:
-            factory_overrides[opt_field] = val
+    opt_cfg = getattr(config, 'optimizer', None)
+    if opt_cfg is not None:
+        factory_overrides['optimizer'] = opt_cfg.algorithm
+        factory_overrides['weight_decay'] = opt_cfg.weight_decay
+        factory_overrides['adam_beta1'] = opt_cfg.adam.beta1
+        factory_overrides['adam_beta2'] = opt_cfg.adam.beta2
+        factory_overrides['momentum'] = opt_cfg.sgd.momentum
+    sched_cfg = getattr(config, 'scheduler', None)
+    if sched_cfg is not None:
+        factory_overrides['scheduler'] = sched_cfg.kind
+        factory_overrides['lr_warmup_epochs'] = sched_cfg.lr_warmup_epochs
+        factory_overrides['lr_min_ratio'] = sched_cfg.lr_min_ratio
+        factory_overrides['plateau_factor'] = sched_cfg.plateau_factor
+        factory_overrides['plateau_patience'] = sched_cfg.plateau_patience
+        factory_overrides['plateau_min_lr'] = sched_cfg.plateau_min_lr
+        factory_overrides['plateau_threshold'] = sched_cfg.plateau_threshold
+    gc_cfg = getattr(config, 'gradient_clip', None)
+    if gc_cfg is not None:
+        if gc_cfg.val is not None:
+            factory_overrides['gradient_clip_val'] = gc_cfg.val
+        factory_overrides['gradient_clip_algorithm'] = gc_cfg.algorithm
     for field_name in (
         'fno_modes',
         'fno_width',
@@ -1524,7 +1540,7 @@ def _train_with_lightning(
 
     # Create payload with factory-derived PyTorch configs
     payload = create_training_payload(
-        train_data_file=Path(config.train_data_file),
+        train_data_file=Path(config.data.train_data_file),
         output_dir=Path(getattr(config, 'output_dir', './outputs')),
         execution_config=execution_config,  # Pass through from caller
         overrides=factory_overrides

@@ -43,9 +43,11 @@ from ptycho_torch.config_factory import (
 
 # Config dataclasses for assertions
 from ptycho.config.config import (
+    DataConfig as TFDataConfig,
     DetectorSimulationConfig,
     ModelConfig as TFModelConfig,
     ProbeSimulationConfig,
+    SamplingConfig as TFSamplingConfig,
     SimulationConfig,
     SyntheticObjectConfig,
     TrainingConfig as TFTrainingConfig,
@@ -199,7 +201,7 @@ def mock_train_npz_with_metadata(tmp_path):
     """Mock training NPZ with embedded metadata including nphotons."""
     import numpy as np
     from ptycho.metadata import MetadataManager
-    from ptycho.config.config import TrainingConfig as TFTrainingConfig, ModelConfig as TFModelConfig
+    from ptycho.config.config import DataConfig as TFDataConfig, TrainingConfig as TFTrainingConfig, ModelConfig as TFModelConfig
 
     N = 64
     n_images = 100
@@ -215,7 +217,7 @@ def mock_train_npz_with_metadata(tmp_path):
         "ycoords": np.linspace(0, 1, n_images).astype(np.float64),
         "scan_index": np.arange(n_images).astype(np.int32),
     }
-    tf_config = TFTrainingConfig(model=TFModelConfig(N=N, gridsize=1), nphotons=nphotons)
+    tf_config = TFTrainingConfig(model=TFModelConfig(N=N, gridsize=1), data=TFDataConfig(nphotons=nphotons))
     metadata = MetadataManager.create_metadata(
         tf_config,
         script_name="unit-test",
@@ -507,7 +509,7 @@ class TestConfigBridgeTranslation:
         )
         # GREEN phase assertions:
         assert payload.pt_data_config.K == 7  # PyTorch K
-        assert payload.tf_training_config.neighbor_count == 7  # TensorFlow naming
+        assert payload.tf_training_config.sampling.neighbor_count == 7  # TensorFlow naming
 
 
 # ============================================================================
@@ -546,8 +548,8 @@ class TestLegacyParamsPopulation:
         # Construct minimal TF config
         tf_config = TrainingConfig(
             model=ModelConfig(N=64, gridsize=2),
-            train_data_file=mock_train_npz,
-            n_groups=512,
+            data=TFDataConfig(train_data_file=mock_train_npz),
+            sampling=TFSamplingConfig(n_groups=512),
         )
 
         # Clear params.cfg
@@ -584,7 +586,7 @@ class TestOverridePrecedence:
             overrides={'n_groups': 1024, 'batch_size': 16},
         )
         # GREEN phase assertions:
-        assert payload.tf_training_config.n_groups == 1024  # Override wins
+        assert payload.tf_training_config.sampling.n_groups == 1024  # Override wins
         assert payload.tf_training_config.batch_size == 16
 
     def test_probe_size_override_wins_over_inference(self, mock_train_npz, temp_output_dir):
@@ -605,7 +607,7 @@ class TestOverridePrecedence:
             output_dir=temp_output_dir,
             overrides={'n_groups': 128},
         )
-        assert payload.tf_training_config.nphotons == TFTrainingConfig(model=TFModelConfig()).nphotons
+        assert payload.tf_training_config.data.nphotons == TFTrainingConfig(model=TFModelConfig()).data.nphotons
 
     def test_nphotons_uses_metadata_when_present(self, mock_train_npz_with_metadata, temp_output_dir):
         """Metadata nphotons should override defaults when present."""
@@ -614,7 +616,7 @@ class TestOverridePrecedence:
             output_dir=temp_output_dir,
             overrides={'n_groups': 128},
         )
-        assert payload.tf_training_config.nphotons == 5e8
+        assert payload.tf_training_config.data.nphotons == 5e8
 
 
 # ============================================================================
@@ -1123,10 +1125,10 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
 
         cfg = TFTrainingConfig(
             model=TFModelConfig(N=64, gridsize=1, architecture="fno"),
-            train_data_file=mock_train_npz,
+            data=TFDataConfig(train_data_file=mock_train_npz),
+            sampling=TFSamplingConfig(n_groups=4),
             output_dir=temp_output_dir,
             backend="pytorch",
-            n_groups=4,
         )
 
         real_create_training_payload = config_factory_module.create_training_payload
@@ -1171,10 +1173,10 @@ class TestTrainWithLightningVarProProbeWeightingForwarding:
 
         cfg = TFTrainingConfig(
             model=TFModelConfig(N=64, gridsize=1, architecture="fno"),
-            train_data_file=mock_train_npz,
+            data=TFDataConfig(train_data_file=mock_train_npz),
+            sampling=TFSamplingConfig(n_groups=4),
             output_dir=temp_output_dir,
             backend="pytorch",
-            n_groups=4,
         )
 
         real_create_training_payload = config_factory_module.create_training_payload

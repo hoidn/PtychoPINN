@@ -18,7 +18,7 @@ from typing import Dict, Any, Optional, List, Tuple
 import socket
 import warnings
 
-from ptycho.config.config import TrainingConfig, ModelConfig
+from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TFLossConfig, TrainingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -59,16 +59,16 @@ class MetadataManager:
                 "ptychopinn_version": "2.0.0"  # TODO: Get from package version
             },
             "physics_parameters": {
-                "nphotons": config.nphotons,
+                "nphotons": config.data.nphotons,
                 "gridsize": config.model.gridsize,
                 "N": config.model.N,
                 "probe_trainable": config.probe_trainable,
                 "intensity_scale_trainable": config.intensity_scale_trainable,
-                "nll_weight": config.nll_weight,
+                "nll_weight": config.tf_loss.nll_weight,
                 "model_type": config.model.model_type
             },
             "training_parameters": {
-                "n_images": config.n_images,
+                "n_images": config.sampling.n_groups,
                 "batch_size": config.batch_size,
                 "nepochs": config.nepochs
             },
@@ -173,10 +173,10 @@ class MetadataManager:
         # Check critical parameters
         if "nphotons" in physics_params:
             stored_nphotons = physics_params["nphotons"]
-            if abs(stored_nphotons - current_config.nphotons) > 1e-9:
+            if abs(stored_nphotons - current_config.data.nphotons) > 1e-9:
                 warnings_list.append(
                     f"nphotons mismatch: dataset={stored_nphotons}, "
-                    f"config={current_config.nphotons}"
+                    f"config={current_config.data.nphotons}"
                 )
         
         if "N" in physics_params:
@@ -326,11 +326,11 @@ def load_config_from_metadata(metadata: Dict[str, Any]) -> TrainingConfig:
     
     return TrainingConfig(
         model=model_config,
-        nphotons=physics_params.get("nphotons", 1e9),
+        data=DataConfig(nphotons=physics_params.get("nphotons", 1e9)),
+        sampling=SamplingConfig(n_images=training_params.get("n_images", 1000)),
+        tf_loss=TFLossConfig(nll_weight=physics_params.get("nll_weight", 1.0)),
         probe_trainable=physics_params.get("probe_trainable", False),
         intensity_scale_trainable=physics_params.get("intensity_scale_trainable", True),
-        nll_weight=physics_params.get("nll_weight", 1.0),
-        n_images=training_params.get("n_images", 1000),
         batch_size=training_params.get("batch_size", 32),
         nepochs=training_params.get("nepochs", 50)
     )

@@ -1079,7 +1079,7 @@ def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch
     from studies.fly64_dose_overlap import training
     from studies.fly64_dose_overlap import training
     from studies.fly64_dose_overlap.training import TrainingJob
-    from ptycho.config.config import TrainingConfig, ModelConfig
+    from ptycho.config.config import DataConfig, ModelConfig, TrainingConfig
 
     # Setup: Create minimal Phase C fixture NPZ (DATA-001 compliant)
     train_npz = tmp_path / "phase_c_train.npz"
@@ -1118,11 +1118,13 @@ def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch
     # Setup: Create TrainingConfig (CONFIG-001 bridge assumed done by caller: run_training_job)
     model_config = ModelConfig(gridsize=1)
     config = TrainingConfig(
-        train_data_file=str(train_npz),
-        test_data_file=str(test_npz),
-        output_dir=str(artifact_dir),
         model=model_config,
-        nphotons=1e3,
+        data=DataConfig(
+            train_data_file=str(train_npz),
+            test_data_file=str(test_npz),
+            nphotons=1e3,
+        ),
+        output_dir=str(artifact_dir),
     )
 
     # Spy: record calls to train_cdi_model_torch
@@ -1203,10 +1205,10 @@ def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch
         "train_cdi_model_torch must receive the same TrainingConfig instance"
 
     # Assertions: config has correct fields
-    assert call['config'].train_data_file == str(train_npz), \
-        f"config.train_data_file mismatch: expected {train_npz}, got {call['config'].train_data_file}"
-    assert call['config'].test_data_file == str(test_npz), \
-        f"config.test_data_file mismatch: expected {test_npz}, got {call['config'].test_data_file}"
+    assert call['config'].data.train_data_file == str(train_npz), \
+        f"config.data.train_data_file mismatch: expected {train_npz}, got {call['config'].data.train_data_file}"
+    assert call['config'].data.test_data_file == str(test_npz), \
+        f"config.data.test_data_file mismatch: expected {test_npz}, got {call['config'].data.test_data_file}"
     assert call['config'].model.gridsize == 1, \
         f"config.model.gridsize must be 1, got {call['config'].model.gridsize}"
 
@@ -1254,7 +1256,7 @@ def test_execute_training_job_delegates_to_pytorch_trainer(tmp_path, monkeypatch
     print(f"  - train_cdi_model_torch called: {len(trainer_calls)} time(s)")
     print(f"  - Received train_data: {type(call['train_data'])}")
     print(f"  - Received test_data: {type(call['test_data'])}")
-    print(f"  - Received config with gridsize={call['config'].model.gridsize}, nphotons={call['config'].nphotons}")
+    print(f"  - Received config with gridsize={call['config'].model.gridsize}, nphotons={call['config'].data.nphotons}")
     print(f"  - Result: {result}")
     print(f"  - Log written: {log_path}")
 
@@ -1286,7 +1288,7 @@ def test_execute_training_job_persists_bundle(tmp_path, monkeypatch):
         - plans/active/STUDY-SYNTH-FLY64-DOSE-OVERLAP-001/test_strategy.md:163
     """
     from studies.fly64_dose_overlap.training import TrainingJob
-    from ptycho.config.config import TrainingConfig, ModelConfig
+    from ptycho.config.config import DataConfig, ModelConfig, TrainingConfig
 
     # Setup: Create minimal Phase C fixture NPZ (DATA-001 compliant)
     train_npz = tmp_path / "phase_c_train.npz"
@@ -1324,11 +1326,13 @@ def test_execute_training_job_persists_bundle(tmp_path, monkeypatch):
     # Setup: Create TrainingConfig
     model_config = ModelConfig(gridsize=1)
     config = TrainingConfig(
-        train_data_file=str(train_npz),
-        test_data_file=str(test_npz),
-        output_dir=str(artifact_dir),
         model=model_config,
-        nphotons=1e3,
+        data=DataConfig(
+            train_data_file=str(train_npz),
+            test_data_file=str(test_npz),
+            nphotons=1e3,
+        ),
+        output_dir=str(artifact_dir),
     )
 
     # Spy: record calls to save_torch_bundle
@@ -1561,12 +1565,12 @@ def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
         f"Runner must receive TrainingConfig instance, got {type(call['config'])}"
 
     # Assertions: config has correct fields
-    assert call['config'].train_data_file.endswith('patched_train.npz'), \
-        f"config.train_data_file must point to patched_train.npz, got {call['config'].train_data_file}"
-    assert call['config'].test_data_file.endswith('patched_test.npz'), \
-        f"config.test_data_file must point to patched_test.npz, got {call['config'].test_data_file}"
-    assert call['config'].nphotons == 1000.0, \
-        f"config.nphotons must match dose=1000, got {call['config'].nphotons}"
+    assert str(call['config'].data.train_data_file).endswith('patched_train.npz'), \
+        f"config.data.train_data_file must point to patched_train.npz, got {call['config'].data.train_data_file}"
+    assert str(call['config'].data.test_data_file).endswith('patched_test.npz'), \
+        f"config.data.test_data_file must point to patched_test.npz, got {call['config'].data.test_data_file}"
+    assert call['config'].data.nphotons == 1000.0, \
+        f"config.data.nphotons must match dose=1000, got {call['config'].data.nphotons}"
     assert call['config'].model.gridsize == 1, \
         f"config.model.gridsize must be 1 for baseline, got {call['config'].model.gridsize}"
 
@@ -1588,7 +1592,7 @@ def test_training_cli_invokes_real_runner(tmp_path, monkeypatch):
 
     print(f"\n✓ CLI real runner integration validated:")
     print(f"  - execute_training_job called: {len(runner_calls)} time(s)")
-    print(f"  - Received TrainingConfig with nphotons={call['config'].nphotons}, gridsize={call['config'].model.gridsize}")
+    print(f"  - Received TrainingConfig with nphotons={call['config'].data.nphotons}, gridsize={call['config'].model.gridsize}")
     print(f"  - Job metadata: dose={call['job'].dose}, view={call['job'].view}")
     print(f"  - Log path: {call['log_path']}")
 

@@ -26,7 +26,7 @@ if project_root not in sys.path:
 
 # Import ptycho components
 from ptycho.workflows.components import load_data, create_ptycho_data_container, logger, load_inference_bundle
-from ptycho.config.config import TrainingConfig, ModelConfig, update_legacy_dict
+from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig, update_legacy_dict
 from ptycho import params as p
 from ptycho.tf_helper import reassemble_position, _channel_to_flat
 from ptycho.evaluation import eval_reconstruction
@@ -1039,9 +1039,8 @@ def main():
     n_groups_to_use = args.n_test_groups if args.n_test_groups else test_data_raw.diff3d.shape[0]
     final_config = TrainingConfig(
         model=ModelConfig(N=test_data_raw.probeGuess.shape[0], gridsize=restored_gridsize),  # Use restored gridsize!
-        train_data_file=Path("dummy.npz"),
-        n_groups=n_groups_to_use,  # Use requested test groups for oversampling
-        neighbor_count=7  # Enable K-choose-C oversampling
+        data=DataConfig(train_data_file=Path("dummy.npz")),
+        sampling=SamplingConfig(n_groups=n_groups_to_use, neighbor_count=7),  # Enable K-choose-C oversampling
     )
     # CRITICAL FIX: Update legacy params BEFORE creating data container
     # This ensures generate_grouped_data() sees the correct gridsize in params.cfg

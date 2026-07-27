@@ -48,14 +48,14 @@ class TestTrainingCliBackendDispatch:
         Phase: R (backend selector integration)
         Reference: input.md Do Now step 2
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, TrainingConfig
         from ptycho.raw_data import RawData
 
         # Create config with PyTorch backend
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             backend='pytorch',  # Explicitly select PyTorch
             batch_size=16,
             nepochs=1,
@@ -129,14 +129,14 @@ class TestTrainingCliBackendDispatch:
         Phase: R (backend selector integration)
         Reference: input.md Do Now step 2 (guard TensorFlow-only helpers)
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, TrainingConfig
         from ptycho.raw_data import RawData
 
         # Create config with TensorFlow backend (default)
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             backend='tensorflow',  # Explicitly select TensorFlow
             batch_size=16,
             nepochs=1,
@@ -198,14 +198,14 @@ class TestTrainingCliBackendDispatch:
         Reference: input.md Do Now (training CLI execution-config surface)
         """
         import argparse
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, TrainingConfig
         from ptycho.raw_data import RawData
 
         # Create config with PyTorch backend
         model_config = ModelConfig(N=64, gridsize=1)
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('train.npz'),
+            data=DataConfig(train_data_file=Path('train.npz')),
             backend='pytorch',
             batch_size=16,
             nepochs=1,
@@ -331,7 +331,7 @@ class TestTrainingCliBackendDispatch:
         Phase: R (supervised loss mapping)
         Reference: plans/active/INTEGRATE-PYTORCH-001/reports/.../red/blocked_20251113T183500Z_loss_name.md
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig
+        from ptycho.config.config import DataConfig, ModelConfig, SamplingConfig, TrainingConfig
         from ptycho_torch.config_params import ModelConfig as PTModelConfig
         from ptycho_torch.config_factory import create_training_payload
         from pathlib import Path
@@ -344,9 +344,9 @@ class TestTrainingCliBackendDispatch:
         )
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('datasets/train.npz'),
+            data=DataConfig(train_data_file=Path('datasets/train.npz')),
+            sampling=SamplingConfig(n_groups=128),
             output_dir=Path('outputs/test_supervised'),
-            n_groups=128,
             nepochs=1,
             backend='pytorch',
         )
@@ -354,7 +354,7 @@ class TestTrainingCliBackendDispatch:
         # Simulate factory payload creation (as _train_with_lightning does)
         mode_map = {'pinn': 'Unsupervised', 'supervised': 'Supervised'}
         factory_overrides = {
-            'n_groups': config.n_groups,
+            'n_groups': config.sampling.n_groups,
             'gridsize': config.model.gridsize,
             'model_type': mode_map.get(config.model.model_type, 'Unsupervised'),
             'amp_activation': config.model.amp_activation,
@@ -463,7 +463,7 @@ class TestTrainingCliBackendDispatch:
         Phase: Execution config guardrails
         Reference: docs/findings.md#EXEC-ACCUM-001
         """
-        from ptycho.config.config import TrainingConfig, ModelConfig, PyTorchExecutionConfig
+        from ptycho.config.config import DataConfig, ModelConfig, PyTorchExecutionConfig, SamplingConfig, TrainingConfig
         from pathlib import Path
 
         # Create training config with PINN mode
@@ -474,9 +474,9 @@ class TestTrainingCliBackendDispatch:
         )
         config = TrainingConfig(
             model=model_config,
-            train_data_file=Path('datasets/train.npz'),
+            data=DataConfig(train_data_file=Path('datasets/train.npz')),
+            sampling=SamplingConfig(n_groups=128),
             output_dir=Path('outputs/test_accum'),
-            n_groups=128,
             nepochs=1,
             backend='pytorch',
         )
@@ -706,8 +706,8 @@ def test_torch_scheduler_plateau_params_roundtrip(monkeypatch, tmp_path):
     from ptycho.workflows.components import setup_configuration
     config = setup_configuration(args, None)
 
-    assert config.scheduler == 'ReduceLROnPlateau'
-    assert config.plateau_factor == 0.25
-    assert config.plateau_patience == 5
-    assert config.plateau_min_lr == 1e-5
-    assert config.plateau_threshold == 1e-3
+    assert config.scheduler.kind == 'ReduceLROnPlateau'
+    assert config.scheduler.plateau_factor == 0.25
+    assert config.scheduler.plateau_patience == 5
+    assert config.scheduler.plateau_min_lr == 1e-5
+    assert config.scheduler.plateau_threshold == 1e-3

@@ -6,6 +6,9 @@ import torch
 
 from ptycho import params
 from ptycho.config.config import (
+    DataConfig as TFDataConfig,
+    SamplingConfig as TFSamplingConfig,
+    LossConfig as TFLossConfig,
     ModelConfig as TFModelConfig,
     PyTorchExecutionConfig,
     TrainingConfig as TFTrainingConfig,
@@ -82,11 +85,10 @@ def _ci_payload(N: int) -> SimpleNamespace:
 def _tf_training_config(tmp_path, N: int, batch_size: int) -> TFTrainingConfig:
     config = TFTrainingConfig(
         model=TFModelConfig(N=N, gridsize=1, object_big=False),
-        train_data_file=None,
         output_dir=tmp_path,
         batch_size=batch_size,
-        n_groups=8,
-        torch_loss_mode="poisson",
+        sampling=TFSamplingConfig(n_groups=8),
+        loss=TFLossConfig(torch_loss_mode="poisson"),
     )
     update_legacy_dict(params.cfg, config)
     return config
@@ -388,12 +390,12 @@ def test_train_with_lightning_registers_dict_training_statistics_before_fit(
             object_big=False,
             probe_big=False,
         ),
-        train_data_file=train_path,
         output_dir=tmp_path / "output",
         batch_size=batch_size,
-        n_groups=batch_size,
         nepochs=0,
-        torch_loss_mode="poisson",
+        data=TFDataConfig(train_data_file=train_path),
+        sampling=TFSamplingConfig(n_groups=batch_size),
+        loss=TFLossConfig(torch_loss_mode="poisson"),
     )
     update_legacy_dict(params.cfg, tf_training_config)
 
@@ -477,12 +479,12 @@ def test_train_with_lightning_registers_native_dataset_statistics_before_fit(
             object_big=False,
             probe_big=False,
         ),
-        train_data_file=train_path,
         output_dir=tmp_path / "output",
         batch_size=batch_size,
-        n_groups=batch_size,
         nepochs=0,
-        torch_loss_mode="poisson",
+        data=TFDataConfig(train_data_file=train_path),
+        sampling=TFSamplingConfig(n_groups=batch_size),
+        loss=TFLossConfig(torch_loss_mode="poisson"),
     )
     update_legacy_dict(params.cfg, tf_training_config)
 
