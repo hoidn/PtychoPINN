@@ -21,7 +21,7 @@ Configure the stage where a choice first changes behavior:
 | The model or differentiable physics | `ModelConfig` | Architecture, output representation, object grouping/assembly, and model-time probe behavior |
 | Optimization | `TrainingConfig` | Loss, optimizer family, schedule, epochs, batch size, sampling, and training paths |
 | Reconstruction/evaluation | `InferenceConfig` | Checkpoint, test data, grouping, and inference-only reconstruction behavior |
-| Torch execution mechanics | `PyTorchExecutionConfig` | Device, DDP strategy, workers, precision, logging, Lightning `Trainer` controls, and the current Torch learning-rate/clipping/accumulation controls |
+| Torch execution mechanics | `PyTorchExecutionConfig` | Device, DDP strategy, workers, precision, logging, and Lightning `Trainer` mechanics; optimizer-adjacent fields are deprecated inputs resolved into TrainingConfig |
 | Measured diffraction, positions, or the actual probe | Dataset/acquisition data | Physical inputs such as `diff3d`, coordinates, `probeGuess`, and optional realized-probe fields; these are data, not model settings |
 
 In normal CLI and study workflows, supply config-file values and explicit
@@ -263,7 +263,7 @@ representations are not co-equal sources of truth:
 | Factory-resolved `ptycho_torch.config_params` dataclasses | Torch data, topology, physics, training, and inference carriers after defaults, aliases, and object policy are materialized | Usually no; use the closed factory or a study wrapper |
 | `TrainingPayload` / `InferencePayload` | Phase-local bundles returned by the factory | No; consume them |
 | `ModelSpec("torch-model-spec-portable-v2")` | Derived, sealed Torch graph/state identity used for construction and reload | No |
-| `PyTorchExecutionConfig` | Torch runtime/Trainer mechanics and current backend-specific optimizer controls; never a model-topology owner | Yes |
+| `PyTorchExecutionConfig` | Torch runtime/Trainer mechanics plus deprecated optimizer-adjacent compatibility inputs resolved one-way into Torch TrainingConfig; never an optimization or model-topology owner | Yes |
 | `ptycho.params.cfg` | Flat compatibility projection for legacy consumers | Never as a new configuration source |
 
 The public and Torch training records overlap where backend entry points still
@@ -551,10 +551,13 @@ config, construction, `ModelSpec`, training, and inference boundaries.
 
 ### PyTorch Execution (`PyTorchExecutionConfig`)
 
-`PyTorchExecutionConfig` owns Torch runtime behavior. It also currently carries
-the learning-rate, scheduler, clipping, and accumulation inputs consumed by
-Torch entry points. Those optimizer-adjacent fields do not make it a
-model-topology owner.
+`PyTorchExecutionConfig` owns Torch runtime behavior. Its learning-rate,
+scheduler, clipping, and accumulation fields are deprecated priority-level-2
+compatibility inputs: the factory resolves them one-way into the effective
+Torch `TrainingConfig`, which is the sole downstream optimization owner.
+Resolved Lightning clipping and accumulation arguments are derived from those
+same training values. These compatibility inputs do not make execution config
+an optimization or model-topology owner.
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
@@ -563,17 +566,22 @@ model-topology owner.
 | `strategy` | `str` | `'auto'` | Lightning strategy, including `ddp` for multi-device execution. |
 | `precision` | `Literal['32-true','16-mixed','bf16-mixed']` | `'32-true'` | Torch numerical precision policy. |
 | `num_workers` | `int` | `0` | DataLoader worker-process count. |
-| `learning_rate` | `float` | `1e-3` | Base learning rate used by current Torch training entry points. |
-| `scheduler` | `str` | `'Default'` | Torch scheduler selection at the execution boundary. |
-| `gradient_clip_val` | `Optional[float]` | `None` | Optional gradient-clipping threshold. |
-| `gradient_clip_algorithm` | `Literal['norm','value','agc']` | `'norm'` | Gradient-clipping algorithm. |
-| `accum_steps` | `int` | `1` | Gradient-accumulation steps. |
+| `learning_rate` | `float` | `1e-3` | Deprecated compatibility input resolved into Torch `TrainingConfig.learning_rate`. |
+| `scheduler` | `str` | `'Default'` | Deprecated compatibility input resolved and validated through Torch `TrainingConfig.scheduler`. |
+| `gradient_clip_val` | `Optional[float]` | `None` | Deprecated compatibility input resolved into the effective training clipping policy. |
+| `gradient_clip_algorithm` | `Literal['norm','value','agc']` | `'norm'` | Deprecated compatibility input resolved into the effective training clipping policy. |
+| `accum_steps` | `int` | `1` | Deprecated compatibility input resolved into `TrainingConfig.accum_steps`; Trainer arguments mirror that effective value. |
 | `logger_backend` | `Optional[str]` | `'csv'` | CSV, TensorBoard, MLflow, or disabled logging. |
 
 Historical structural fields may still be accepted as deprecated factory
 inputs. New code must configure topology through Torch `ModelConfig`; equal
 dual input is accepted, conflicting dual input fails, and generators never
 read execution config for topology.
+
+For optimizer-adjacent values, explicitly supplied canonical/factory training
+overrides take precedence over explicitly supplied execution compatibility
+inputs, followed by an already resolved TrainingConfig value and then its
+default. Downstream optimization code reads only the resolved TrainingConfig.
 
 ### Training (`TrainingConfig`)
 
