@@ -383,6 +383,11 @@ class DatagenConfig:
 
 # Update the existing instance
 def update_existing_config(config_instance, updates_dict, verbose = False):
+    """Mutate a config for legacy compatibility only.
+
+    New code must use the return-new resolver. Tolerant unknown-key behavior is
+    intentionally not a supported resolver contract.
+    """
     for key, value in updates_dict.items():
         if hasattr(config_instance, key):
             setattr(config_instance, key, value)

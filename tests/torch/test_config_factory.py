@@ -136,6 +136,14 @@ def test_datagen_config_rejects_lossy_probe_or_object_conversion():
             SimulationConfig(probe=ProbeSimulationConfig(source="ideal"))
         )
 
+
+def test_datagen_config_surfaces_canonical_simulation_validation_errors():
+    with pytest.raises(
+        ValueError,
+        match=r"simulation\.object\.image_size must be square",
+    ):
+        DatagenConfig(image_size=(250, 251)).to_simulation_config()
+
 # For params.cfg validation
 import ptycho.params
 
@@ -565,6 +573,67 @@ class TestLegacyParamsPopulation:
 
         # GREEN phase:
         assert ptycho.params.cfg['gridsize'] == 2
+
+
+def test_training_model_spec_failure_precedes_legacy_commit(
+    mock_train_npz,
+    temp_output_dir,
+    monkeypatch,
+):
+    import ptycho_torch.config_factory as factory
+
+    commits = []
+
+    def commit_spy(config):
+        commits.append(config)
+
+    def fail_model_spec(*_args, **_kwargs):
+        raise RuntimeError("model spec construction failed")
+
+    monkeypatch.setattr(factory, "populate_legacy_params", commit_spy)
+    monkeypatch.setattr(factory, "derive_model_spec", fail_model_spec)
+
+    with pytest.raises(RuntimeError, match="model spec construction failed"):
+        factory.create_training_payload(
+            train_data_file=mock_train_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 1},
+        )
+
+    assert commits == []
+
+
+def test_inference_payload_failure_precedes_legacy_commit(
+    mock_checkpoint_dir,
+    mock_test_npz,
+    temp_output_dir,
+    monkeypatch,
+):
+    import ptycho_torch.config_factory as factory
+
+    commits = []
+
+    def commit_spy(config):
+        commits.append(config)
+
+    def fail_payload(*_args, **_kwargs):
+        raise RuntimeError("inference payload construction failed")
+
+    monkeypatch.setattr(factory, "populate_legacy_params", commit_spy)
+    monkeypatch.setattr(factory, "InferencePayload", fail_payload)
+
+    with pytest.raises(
+        RuntimeError,
+        match="inference payload construction failed",
+    ):
+        factory.create_inference_payload(
+            model_path=mock_checkpoint_dir,
+            test_data_file=mock_test_npz,
+            output_dir=temp_output_dir,
+            overrides={"n_groups": 1},
+        )
+
+    assert commits == []
 
 
 # ============================================================================
